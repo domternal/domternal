@@ -162,20 +162,16 @@ export class ExtensionManager {
    * Cached after first call
    */
   get plugins(): Plugin[] {
-    if (this._plugins === null) {
-      this._plugins = this.buildPlugins();
-    }
-    return this._plugins!;
+    this._plugins ??= this.buildPlugins();
+    return this._plugins;
   }
 
   /**
    * Gets commands from all extensions
    */
   get commands(): RawCommands {
-    if (this._commands === null) {
-      this._commands = this.collectCommands();
-    }
-    return this._commands!;
+    this._commands ??= this.collectCommands();
+    return this._commands;
   }
 
   // === Extension Processing ===
@@ -192,7 +188,7 @@ export class ExtensionManager {
 
       // Check for nested extensions (bundles like StarterKit)
       const nested = callOrReturn(
-        (ext as Extension).config?.addExtensions,
+        (ext as Extension).config.addExtensions,
         ext
       ) as AnyExtension[] | undefined;
 
@@ -210,8 +206,8 @@ export class ExtensionManager {
    */
   private resolveExtensions(extensions: AnyExtension[]): AnyExtension[] {
     return [...extensions].sort((a, b) => {
-      const priorityA = (a as Extension).config?.priority ?? 100;
-      const priorityB = (b as Extension).config?.priority ?? 100;
+      const priorityA = (a as Extension).config.priority ?? 100;
+      const priorityB = (b as Extension).config.priority ?? 100;
       return priorityB - priorityA;
     });
   }
@@ -243,7 +239,7 @@ export class ExtensionManager {
     const extensionNames = new Set(this._extensions.map((e) => e.name));
 
     for (const ext of this._extensions) {
-      const deps = (ext as Extension).config?.dependencies;
+      const deps = (ext as Extension).config.dependencies;
       if (!deps) continue;
 
       for (const dep of deps) {
@@ -302,7 +298,7 @@ export class ExtensionManager {
    */
   private initializeStorage(): void {
     for (const ext of this._extensions) {
-      const storageFactory = (ext as Extension).config?.addStorage;
+      const storageFactory = (ext as Extension).config.addStorage;
       if (storageFactory) {
         const storage = callOrReturn(storageFactory, ext);
         this._storage[ext.name] = storage;
@@ -333,7 +329,7 @@ export class ExtensionManager {
 
     // Collect custom plugins from extensions
     for (const ext of this._extensions) {
-      const addPlugins = (ext as Extension).config?.addProseMirrorPlugins;
+      const addPlugins = (ext as Extension).config.addProseMirrorPlugins;
       if (addPlugins) {
         const extPlugins = callOrReturn(addPlugins, ext) as Plugin[] | undefined;
         if (extPlugins && extPlugins.length > 0) {
@@ -355,13 +351,11 @@ export class ExtensionManager {
     const shortcuts: Record<string, PMCommand> = {};
 
     for (const ext of this._extensions) {
-      const addShortcuts = (ext as Extension).config?.addKeyboardShortcuts;
+      const addShortcuts = (ext as Extension).config.addKeyboardShortcuts;
       if (addShortcuts) {
         const extShortcuts = callOrReturn(addShortcuts, ext);
-        if (extShortcuts) {
-          // Cast needed: KeyboardShortcutCommand should be PM-compatible in practice
-          Object.assign(shortcuts, extShortcuts as unknown as Record<string, PMCommand>);
-        }
+        // Cast needed: KeyboardShortcutCommand should be PM-compatible in practice
+        Object.assign(shortcuts, extShortcuts as unknown as Record<string, PMCommand>);
       }
     }
 
@@ -375,7 +369,7 @@ export class ExtensionManager {
     const rules: InputRule[] = [];
 
     for (const ext of this._extensions) {
-      const addRules = (ext as Extension).config?.addInputRules;
+      const addRules = (ext as Extension).config.addInputRules;
       if (addRules) {
         const extRules = callOrReturn(addRules, ext) as InputRule[] | undefined;
         if (extRules && extRules.length > 0) {
@@ -394,7 +388,7 @@ export class ExtensionManager {
     const commands: RawCommands = {};
 
     for (const ext of this._extensions) {
-      const addCommands = (ext as Extension).config?.addCommands;
+      const addCommands = (ext as Extension).config.addCommands;
       if (addCommands) {
         const extCommands = callOrReturn(addCommands, ext) as RawCommands | undefined;
         if (extCommands) {
@@ -447,7 +441,7 @@ export class ExtensionManager {
 
     // Call onDestroy on all extensions
     for (const ext of this._extensions) {
-      const onDestroy = (ext as Extension).config?.onDestroy;
+      const onDestroy = (ext as Extension).config.onDestroy;
       if (onDestroy) {
         callOrReturn(onDestroy, ext);
       }

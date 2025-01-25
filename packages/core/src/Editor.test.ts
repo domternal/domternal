@@ -35,10 +35,10 @@ describe('Editor', () => {
       expect(editor.schema).toBe(testSchema);
     });
 
-    it('throws error without schema', () => {
+    it('throws error without schema or extensions', () => {
       const invalidOptions = {} as Omit<EditorOptions, 'schema'>;
       expect(() => new Editor(invalidOptions)).toThrow(
-        'Editor requires a schema'
+        'Editor requires either schema or extensions'
       );
     });
 
