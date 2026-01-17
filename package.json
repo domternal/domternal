@@ -3,6 +3,10 @@
   "version": "0.0.0",
   "license": "MIT",
   "packageManager": "pnpm@10.17.0",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=10"
+  },
   "scripts": {
     "build": "nx run-many --target=build --all",
     "dev": "nx run-many --target=dev --all",
