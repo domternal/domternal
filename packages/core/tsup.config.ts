@@ -20,5 +20,6 @@ export default defineConfig({
     'prosemirror-schema-list',
     'prosemirror-dropcursor',
     'prosemirror-gapcursor',
+    'prosemirror-tables',
   ],
 });
