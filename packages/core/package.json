@@ -28,7 +28,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup --clean",
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
