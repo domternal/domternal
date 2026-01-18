@@ -24,6 +24,17 @@ export default tseslint.config(
       ],
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-import-type-side-effects': 'error',
+      '@typescript-eslint/explicit-function-return-type': [
+        'error',
+        { allowExpressions: true, allowTypedFunctionExpressions: true },
+      ],
+      '@typescript-eslint/explicit-module-boundary-types': 'error',
+      '@typescript-eslint/no-non-null-assertion': 'warn',
+      '@typescript-eslint/prefer-nullish-coalescing': 'error',
+      '@typescript-eslint/prefer-optional-chain': 'error',
+      '@typescript-eslint/switch-exhaustiveness-check': 'error',
+      'no-console': 'warn',
+      eqeqeq: ['error', 'always'],
     },
   },
   {

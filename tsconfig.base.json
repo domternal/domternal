@@ -1,5 +1,7 @@
 {
   "compilerOptions": {
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
     "composite": true,
     "declarationMap": true,
     "emitDeclarationOnly": true,
@@ -13,6 +15,12 @@
     "noImplicitOverride": true,
     "noImplicitReturns": true,
     "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noUncheckedIndexedAccess": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "exactOptionalPropertyTypes": true,
+    "verbatimModuleSyntax": true,
+    "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "strict": true,
     "target": "es2022",
