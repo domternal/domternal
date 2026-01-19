@@ -4,6 +4,10 @@ import type {
   TransactionEventProps,
   FocusEventProps,
   ContentErrorProps,
+  PasteEventProps,
+  DropEventProps,
+  MountEventProps,
+  DeleteEventProps,
 } from './EditorEvents.js';
 
 /**
@@ -16,15 +20,21 @@ export interface AnyExtension {
 }
 
 /**
+ * Text direction for the editor
+ */
+export type TextDirection = 'ltr' | 'rtl';
+
+/**
  * Autofocus options for the editor
  * - true: Focus at the end
  * - false: Don't autofocus
+ * - null: Explicitly no autofocus
  * - 'start': Focus at the beginning
  * - 'end': Focus at the end
  * - 'all': Select all content
  * - number: Focus at specific position
  */
-export type FocusPosition = boolean | 'start' | 'end' | 'all' | number;
+export type FocusPosition = boolean | 'start' | 'end' | 'all' | number | null;
 
 /**
  * Configuration options for creating an Editor instance
@@ -85,6 +95,12 @@ export interface EditorOptions {
   injectCSS?: boolean;
 
   /**
+   * Nonce for CSP (Content Security Policy) compliance
+   * Added to injected style tags
+   */
+  injectNonce?: string;
+
+  /**
    * HTML attributes to add to the editor element
    */
   editorProps?: Record<string, unknown>;
@@ -93,6 +109,12 @@ export interface EditorOptions {
    * Parse options for HTML content
    */
   parseOptions?: Record<string, unknown>;
+
+  /**
+   * Text direction for RTL language support
+   * @default 'ltr'
+   */
+  textDirection?: TextDirection;
 
   // === Event Callbacks ===
 
@@ -106,6 +128,16 @@ export interface EditorOptions {
    * Called when the editor is created and ready
    */
   onCreate?: (props: CreateEventProps) => void;
+
+  /**
+   * Called when editor view is mounted to DOM
+   */
+  onMount?: (props: MountEventProps) => void;
+
+  /**
+   * Called when editor view is unmounted from DOM
+   */
+  onUnmount?: (props: MountEventProps) => void;
 
   /**
    * Called when the document content changes
@@ -142,6 +174,23 @@ export interface EditorOptions {
    * Use this to handle content validation errors gracefully
    */
   onContentError?: (props: ContentErrorProps) => void;
+
+  /**
+   * Called when content is pasted
+   * Return true to prevent default paste handling
+   */
+  onPaste?: (props: PasteEventProps) => boolean | undefined;
+
+  /**
+   * Called when content is dropped
+   * Return true to prevent default drop handling
+   */
+  onDrop?: (props: DropEventProps) => boolean | undefined;
+
+  /**
+   * Called when content is deleted
+   */
+  onDelete?: (props: DeleteEventProps) => void;
 }
 
 /**

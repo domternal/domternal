@@ -33,9 +33,10 @@ export interface JSONContent {
  * Content that can be passed to the editor
  * - string: HTML string to be parsed
  * - JSONContent: JSON representation of the document
+ * - JSONContent[]: Array of nodes to insert
  * - null: Empty document
  */
-export type Content = string | JSONContent | null;
+export type Content = string | JSONContent | JSONContent[] | null;
 
 /**
  * Represents a range in the document

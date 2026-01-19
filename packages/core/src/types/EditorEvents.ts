@@ -43,6 +43,46 @@ export interface ContentErrorProps {
 }
 
 /**
+ * Props passed to paste event handler
+ */
+export interface PasteEventProps {
+  editor: EditorInstance;
+  event: ClipboardEvent;
+  /** ProseMirror Slice of pasted content */
+  slice: unknown;
+}
+
+/**
+ * Props passed to drop event handler
+ */
+export interface DropEventProps {
+  editor: EditorInstance;
+  event: DragEvent;
+  /** ProseMirror Slice of dropped content */
+  slice: unknown;
+  /** Whether the content was moved (true) or copied (false) */
+  moved: boolean;
+}
+
+/**
+ * Props passed to mount event handler
+ */
+export interface MountEventProps {
+  editor: EditorInstance;
+}
+
+/**
+ * Props passed to delete event handler
+ */
+export interface DeleteEventProps {
+  editor: EditorInstance;
+  /** Start position of deleted content */
+  from: number;
+  /** End position of deleted content */
+  to: number;
+}
+
+/**
  * All editor events with their payload types
  * Used by EventEmitter for type-safe event handling
  */
@@ -73,6 +113,21 @@ export interface EditorEvents {
 
   /** Fired when content doesn't match schema (AD-8) */
   contentError: ContentErrorProps;
+
+  /** Fired when content is pasted */
+  paste: PasteEventProps;
+
+  /** Fired when content is dropped */
+  drop: DropEventProps;
+
+  /** Fired when editor view is mounted to DOM */
+  mount: MountEventProps;
+
+  /** Fired when editor view is unmounted from DOM */
+  unmount: MountEventProps;
+
+  /** Fired when content is deleted */
+  delete: DeleteEventProps;
 }
 
 /**
