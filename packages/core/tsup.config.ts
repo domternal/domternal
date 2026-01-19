@@ -4,7 +4,12 @@ export default defineConfig({
   entry: ['src/index.ts'],
   format: ['esm', 'cjs'],
   target: 'es2022',
-  dts: true,
+  dts: {
+    resolve: true,
+    compilerOptions: {
+      composite: false,
+    },
+  },
   sourcemap: true,
   splitting: false,
   treeshake: true,
