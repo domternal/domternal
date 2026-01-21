@@ -44,6 +44,9 @@ export type {
   KeyboardShortcutCommand,
 } from './types/index.js';
 
+// === Core classes ===
+export { EventEmitter } from './EventEmitter.js';
+
 // Editor class will be implemented here
 // export { Editor } from './Editor';
 
