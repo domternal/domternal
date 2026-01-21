@@ -1,7 +1,7 @@
 /**
  * Callback type for event handlers
  * - Events with payload: (data: T) => void
- * - Events without payload (void/undefined): () => void
+ * - Events without payload (undefined): () => void
  */
 type EventCallback<T> = T extends undefined ? () => void : (data: T) => void;
 
@@ -21,7 +21,8 @@ type EventCallback<T> = T extends undefined ? () => void : (data: T) => void;
  * ```
  */
 export class EventEmitter<Events extends { [K in keyof Events]: unknown } = Record<string, never>> {
-  private callbacks = new Map<keyof Events, Set<EventCallback<unknown>>>();
+  // Protected so Editor subclass can access if needed
+  protected callbacks = new Map<keyof Events, Set<EventCallback<unknown>>>();
 
   /**
    * Register an event listener
@@ -39,16 +40,22 @@ export class EventEmitter<Events extends { [K in keyof Events]: unknown } = Reco
   }
 
   /**
-   * Remove an event listener
+   * Remove an event listener, or all listeners for an event if no callback specified
    */
-  off<E extends keyof Events>(event: E, callback: EventCallback<Events[E]>): this {
+  off<E extends keyof Events>(event: E, callback?: EventCallback<Events[E]>): this {
     const listeners = this.callbacks.get(event);
 
     if (listeners) {
-      listeners.delete(callback as EventCallback<unknown>);
+      if (callback) {
+        // Remove specific callback
+        listeners.delete(callback as EventCallback<unknown>);
 
-      // Clean up empty sets
-      if (listeners.size === 0) {
+        // Clean up empty sets
+        if (listeners.size === 0) {
+          this.callbacks.delete(event);
+        }
+      } else {
+        // Remove all listeners for this event (Tiptap compatibility)
         this.callbacks.delete(event);
       }
     }
@@ -58,6 +65,7 @@ export class EventEmitter<Events extends { [K in keyof Events]: unknown } = Reco
 
   /**
    * Emit an event to all registered listeners
+   * Uses .call(this) to preserve context for callbacks
    */
   emit<E extends keyof Events>(
     event: E,
@@ -68,9 +76,9 @@ export class EventEmitter<Events extends { [K in keyof Events]: unknown } = Reco
     if (listeners) {
       listeners.forEach((callback) => {
         if (args.length > 0) {
-          (callback as (data: unknown) => void)(args[0]);
+          (callback as (data: unknown) => void).call(this, args[0]);
         } else {
-          (callback as () => void)();
+          (callback as () => void).call(this);
         }
       });
     }
@@ -86,9 +94,9 @@ export class EventEmitter<Events extends { [K in keyof Events]: unknown } = Reco
       this.off(event, onceWrapper);
 
       if (args.length > 0) {
-        (callback as (data: unknown) => void)(args[0]);
+        (callback as (data: unknown) => void).call(this, args[0]);
       } else {
-        (callback as () => void)();
+        (callback as () => void).call(this);
       }
     }) as EventCallback<Events[E]>;
 
@@ -106,5 +114,19 @@ export class EventEmitter<Events extends { [K in keyof Events]: unknown } = Reco
     }
 
     return this;
+  }
+
+  /**
+   * Get the number of listeners for a specific event
+   */
+  listenerCount(event: keyof Events): number {
+    return this.callbacks.get(event)?.size ?? 0;
+  }
+
+  /**
+   * Get all event names that have listeners
+   */
+  eventNames(): (keyof Events)[] {
+    return Array.from(this.callbacks.keys());
   }
 }

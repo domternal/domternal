@@ -74,6 +74,26 @@ describe('EventEmitter', () => {
 
       expect(result).toBe(emitter);
     });
+
+    it('removes all listeners for event when no callback specified', () => {
+      const emitter = new EventEmitter<TestEvents>();
+      const callback1 = vi.fn();
+      const callback2 = vi.fn();
+      const changeCallback = vi.fn();
+
+      emitter.on('update', callback1);
+      emitter.on('update', callback2);
+      emitter.on('change', changeCallback);
+
+      // Remove ALL update listeners without specifying callback
+      emitter.off('update');
+      emitter.emit('update', { value: 42 });
+      emitter.emit('change', { oldValue: 'a', newValue: 'b' });
+
+      expect(callback1).not.toHaveBeenCalled();
+      expect(callback2).not.toHaveBeenCalled();
+      expect(changeCallback).toHaveBeenCalled();
+    });
   });
 
   describe('emit()', () => {
@@ -200,6 +220,68 @@ describe('EventEmitter', () => {
         .removeAllListeners('change');
 
       expect(callback).toHaveBeenCalledWith({ value: 100 });
+    });
+  });
+
+  describe('listenerCount()', () => {
+    it('returns 0 when no listeners registered', () => {
+      const emitter = new EventEmitter<TestEvents>();
+
+      expect(emitter.listenerCount('update')).toBe(0);
+    });
+
+    it('returns correct count of listeners', () => {
+      const emitter = new EventEmitter<TestEvents>();
+
+      emitter.on('update', vi.fn());
+      emitter.on('update', vi.fn());
+      emitter.on('change', vi.fn());
+
+      expect(emitter.listenerCount('update')).toBe(2);
+      expect(emitter.listenerCount('change')).toBe(1);
+      expect(emitter.listenerCount('destroy')).toBe(0);
+    });
+
+    it('updates count when listeners are removed', () => {
+      const emitter = new EventEmitter<TestEvents>();
+      const callback = vi.fn();
+
+      emitter.on('update', callback);
+      expect(emitter.listenerCount('update')).toBe(1);
+
+      emitter.off('update', callback);
+      expect(emitter.listenerCount('update')).toBe(0);
+    });
+  });
+
+  describe('eventNames()', () => {
+    it('returns empty array when no listeners', () => {
+      const emitter = new EventEmitter<TestEvents>();
+
+      expect(emitter.eventNames()).toEqual([]);
+    });
+
+    it('returns array of event names with listeners', () => {
+      const emitter = new EventEmitter<TestEvents>();
+
+      emitter.on('update', vi.fn());
+      emitter.on('change', vi.fn());
+
+      const names = emitter.eventNames();
+      expect(names).toHaveLength(2);
+      expect(names).toContain('update');
+      expect(names).toContain('change');
+    });
+
+    it('removes event name when all listeners removed', () => {
+      const emitter = new EventEmitter<TestEvents>();
+      const callback = vi.fn();
+
+      emitter.on('update', callback);
+      expect(emitter.eventNames()).toContain('update');
+
+      emitter.off('update', callback);
+      expect(emitter.eventNames()).not.toContain('update');
     });
   });
 });
