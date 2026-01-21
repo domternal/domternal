@@ -48,14 +48,17 @@ PR title follows the same format as commit messages:
 feat(core): add toolbar plugin
 ```
 
-When squash merging, the PR title becomes the final commit message.
+### Merge Strategy
+
+We use **Squash and Merge**. The PR title becomes the final commit message.
 
 ### PR Description
 
 Include:
-- **What** - Brief summary of changes
-- **Why** - Motivation or issue being solved
-- **How to test** - Steps to verify the changes
+- **Summary** - Brief summary of changes (required)
+- **Changes** - List of what was added/modified (required)
+- **Why** - Issue being solved (optional)
+- **Test plan** - Steps to verify the changes (optional)
 
 ## Development
 

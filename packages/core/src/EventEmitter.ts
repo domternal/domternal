@@ -20,7 +20,7 @@ type EventCallback<T> = T extends void | undefined ? () => void : (data: T) => v
  * emitter.on('destroy', () => console.log('destroyed'));
  * ```
  */
-export class EventEmitter<Events extends Record<string, unknown>> {
+export class EventEmitter<Events extends { [K in keyof Events]: unknown } = Record<string, never>> {
   private callbacks: Map<keyof Events, Set<EventCallback<unknown>>> = new Map();
 
   /**
