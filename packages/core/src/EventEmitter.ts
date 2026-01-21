@@ -63,7 +63,18 @@ export class EventEmitter<Events extends Record<string, unknown>> {
     event: E,
     ...args: Events[E] extends void | undefined ? [] : [Events[E]]
   ): this {
-    // TODO: Implement in step 1.2.3
+    const listeners = this.callbacks.get(event);
+
+    if (listeners) {
+      listeners.forEach((callback) => {
+        if (args.length > 0) {
+          (callback as (data: unknown) => void)(args[0]);
+        } else {
+          (callback as () => void)();
+        }
+      });
+    }
+
     return this;
   }
 
@@ -71,15 +82,29 @@ export class EventEmitter<Events extends Record<string, unknown>> {
    * Register an event listener that fires only once
    */
   once<E extends keyof Events>(event: E, callback: EventCallback<Events[E]>): this {
-    // TODO: Implement in step 1.2.4
-    return this;
+    const onceWrapper = ((...args: unknown[]) => {
+      this.off(event, onceWrapper as EventCallback<Events[E]>);
+
+      if (args.length > 0) {
+        (callback as (data: unknown) => void)(args[0]);
+      } else {
+        (callback as () => void)();
+      }
+    }) as EventCallback<Events[E]>;
+
+    return this.on(event, onceWrapper);
   }
 
   /**
    * Remove all listeners for a specific event, or all events if no event specified
    */
   removeAllListeners(event?: keyof Events): this {
-    // TODO: Implement in step 1.2.4
+    if (event !== undefined) {
+      this.callbacks.delete(event);
+    } else {
+      this.callbacks.clear();
+    }
+
     return this;
   }
 }
