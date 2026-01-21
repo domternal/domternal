@@ -3,7 +3,7 @@
  * - Events with payload: (data: T) => void
  * - Events without payload (void/undefined): () => void
  */
-type EventCallback<T> = T extends void | undefined ? () => void : (data: T) => void;
+type EventCallback<T> = T extends undefined ? () => void : (data: T) => void;
 
 /**
  * Generic, type-safe event emitter
@@ -21,7 +21,7 @@ type EventCallback<T> = T extends void | undefined ? () => void : (data: T) => v
  * ```
  */
 export class EventEmitter<Events extends { [K in keyof Events]: unknown } = Record<string, never>> {
-  private callbacks: Map<keyof Events, Set<EventCallback<unknown>>> = new Map();
+  private callbacks = new Map<keyof Events, Set<EventCallback<unknown>>>();
 
   /**
    * Register an event listener
@@ -61,7 +61,7 @@ export class EventEmitter<Events extends { [K in keyof Events]: unknown } = Reco
    */
   emit<E extends keyof Events>(
     event: E,
-    ...args: Events[E] extends void | undefined ? [] : [Events[E]]
+    ...args: Events[E] extends undefined ? [] : [Events[E]]
   ): this {
     const listeners = this.callbacks.get(event);
 
@@ -83,7 +83,7 @@ export class EventEmitter<Events extends { [K in keyof Events]: unknown } = Reco
    */
   once<E extends keyof Events>(event: E, callback: EventCallback<Events[E]>): this {
     const onceWrapper = ((...args: unknown[]) => {
-      this.off(event, onceWrapper as EventCallback<Events[E]>);
+      this.off(event, onceWrapper);
 
       if (args.length > 0) {
         (callback as (data: unknown) => void)(args[0]);
