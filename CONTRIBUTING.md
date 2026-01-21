@@ -56,9 +56,10 @@ We use **Squash and Merge**. The PR title becomes the final commit message.
 
 Include:
 - **Summary** - Brief summary of changes (required)
-- **Changes** - List of what was added/modified (required)
-- **Why** - Issue being solved (optional)
-- **Test plan** - Steps to verify the changes (optional)
+- **Features** - Key capabilities added (for `feat` PRs)
+- **Changes** - What was modified (for `fix`/`refactor` PRs)
+- **What** - Problem/issue being solved (optional)
+- **Test plan** - Steps to verify (optional)
 
 ## Development
 
