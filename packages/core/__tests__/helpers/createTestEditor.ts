@@ -8,10 +8,8 @@
  */
 import type { Schema } from 'prosemirror-model';
 import type { EditorOptions } from '../../src/types/index.js';
+import { Editor } from '../../src/Editor.js';
 import { testSchema, emptyDoc, simpleDoc, boldDoc } from './testSchema.js';
-
-// Editor import will be added when Editor class is implemented
-// import { Editor } from '../../src/Editor.js';
 
 /**
  * Options for createTestEditor factory
@@ -44,21 +42,13 @@ export interface CreateTestEditorOptions
  * });
  * ```
  */
-export function createTestEditor(
-  options: CreateTestEditorOptions = {}
-): unknown {
-  // TODO: Implement when Editor class is available
-  // const { schema = testSchema, ...editorOptions } = options;
-  //
-  // return new Editor({
-  //   schema,
-  //   ...editorOptions,
-  // });
+export function createTestEditor(options: CreateTestEditorOptions = {}): Editor {
+  const { schema = testSchema, ...editorOptions } = options;
 
-  throw new Error(
-    'createTestEditor: Editor class not yet implemented. ' +
-      'This helper will be functional after Phase E.'
-  );
+  return new Editor({
+    schema,
+    ...editorOptions,
+  });
 }
 
 /**
@@ -66,7 +56,7 @@ export function createTestEditor(
  */
 export function createEmptyEditor(
   options: Omit<CreateTestEditorOptions, 'content'> = {}
-): unknown {
+): Editor {
   return createTestEditor({
     ...options,
     content: emptyDoc,
@@ -78,7 +68,7 @@ export function createEmptyEditor(
  */
 export function createEditorWithContent(
   options: Omit<CreateTestEditorOptions, 'content'> = {}
-): unknown {
+): Editor {
   return createTestEditor({
     ...options,
     content: simpleDoc,
@@ -87,3 +77,6 @@ export function createEditorWithContent(
 
 // Re-export test data for convenience
 export { testSchema, emptyDoc, simpleDoc, boldDoc } from './testSchema.js';
+
+// Re-export Editor for convenience
+export { Editor } from '../../src/Editor.js';

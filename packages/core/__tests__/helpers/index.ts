@@ -16,5 +16,6 @@ export {
   createTestEditor,
   createEmptyEditor,
   createEditorWithContent,
+  Editor,
   type CreateTestEditorOptions,
 } from './createTestEditor.js';
