@@ -4,7 +4,8 @@
  * Supports JSON and HTML content formats (AD-11).
  * Plain text is NOT supported - use HTML or JSON explicitly.
  */
-import { Node as PMNode, Schema, DOMParser } from 'prosemirror-model';
+import type { Schema} from 'prosemirror-model';
+import { Node as PMNode, DOMParser } from 'prosemirror-model';
 import type { Content, JSONContent } from '../types/index.js';
 
 /**

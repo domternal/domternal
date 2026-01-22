@@ -159,7 +159,7 @@ export class CommandManager {
     }
 
     const { view } = this.editor;
-    const element = view.dom as HTMLElement;
+    const element = view.dom;
 
     element.blur();
 

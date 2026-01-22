@@ -19,8 +19,16 @@ const testSchema = new Schema({
   },
 });
 
+// Mock editor interface for testing
+interface MockEditor {
+  view: EditorView;
+  isDestroyed: boolean;
+  emit: () => void;
+  cleanup: () => void;
+}
+
 // Create mock editor with real ProseMirror view
-function createMockEditor(content?: string) {
+function createMockEditor(content?: string): MockEditor {
   const element = document.createElement('div');
   document.body.appendChild(element);
 
@@ -36,7 +44,9 @@ function createMockEditor(content?: string) {
   return {
     view,
     isDestroyed: false,
-    emit: () => {},
+    emit: (): void => {
+      // No-op for tests
+    },
     cleanup: () => {
       view.destroy();
       element.remove();

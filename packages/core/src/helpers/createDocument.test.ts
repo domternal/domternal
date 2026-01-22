@@ -84,7 +84,8 @@ describe('createDocument', () => {
 
       expect(doc.textContent).toBe('Hello bold');
       // Check that the second text node has bold mark
-      const paragraph = doc.firstChild!;
+      const paragraph = doc.firstChild;
+      if (!paragraph) throw new Error('Expected paragraph');
       const boldText = paragraph.child(1);
       expect(boldText.marks.length).toBe(1);
       expect(boldText.marks[0].type.name).toBe('bold');

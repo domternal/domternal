@@ -71,7 +71,7 @@ describe('ExtensionManager', () => {
     it('does not throw for valid schema', () => {
       const manager = new ExtensionManager(validSchema, mockEditor);
 
-      expect(() => manager.validateSchema()).not.toThrow();
+      expect(() => { manager.validateSchema(); }).not.toThrow();
     });
 
     it('throws error for schema without doc node', () => {
@@ -79,7 +79,7 @@ describe('ExtensionManager', () => {
         schema: schemaWithoutDoc,
       });
 
-      expect(() => manager.validateSchema()).toThrow(
+      expect(() => { manager.validateSchema(); }).toThrow(
         'Invalid schema: missing required "doc" node'
       );
     });
@@ -91,7 +91,7 @@ describe('ExtensionManager', () => {
       const manager = new ExtensionManager(validSchema, mockEditor);
       manager.destroy();
 
-      expect(() => manager.validateSchema()).toThrow(
+      expect(() => { manager.validateSchema(); }).toThrow(
         'ExtensionManager has been destroyed'
       );
     });
@@ -101,14 +101,14 @@ describe('ExtensionManager', () => {
     it('can be called without error', () => {
       const manager = new ExtensionManager(validSchema, mockEditor);
 
-      expect(() => manager.destroy()).not.toThrow();
+      expect(() => { manager.destroy(); }).not.toThrow();
     });
 
     it('can be called multiple times safely', () => {
       const manager = new ExtensionManager(validSchema, mockEditor);
 
       manager.destroy();
-      expect(() => manager.destroy()).not.toThrow();
+      expect(() => { manager.destroy(); }).not.toThrow();
     });
   });
 });

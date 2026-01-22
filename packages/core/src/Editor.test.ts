@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Schema } from 'prosemirror-model';
 import { Editor } from './Editor.js';
+import type { EditorOptions } from './types/index.js';
 
 // Test schema
 const testSchema = new Schema({
@@ -21,7 +22,7 @@ describe('Editor', () => {
   let editor: Editor;
 
   afterEach(() => {
-    if (editor && !editor.isDestroyed) {
+    if (!editor.isDestroyed) {
       editor.destroy();
     }
   });
@@ -35,7 +36,10 @@ describe('Editor', () => {
     });
 
     it('throws error without schema', () => {
-      expect(() => new Editor({} as any)).toThrow('Editor requires a schema');
+      const invalidOptions = {} as Omit<EditorOptions, 'schema'>;
+      expect(() => new Editor(invalidOptions)).toThrow(
+        'Editor requires a schema'
+      );
     });
 
     it('creates editor with content', () => {
@@ -156,8 +160,8 @@ describe('Editor', () => {
       it('returns document as JSON', () => {
         const json = editor.getJSON();
 
-        expect(json.type).toBe('doc');
-        expect(json.content).toBeDefined();
+        expect(json['type']).toBe('doc');
+        expect(json['content']).toBeDefined();
       });
     });
 
@@ -257,7 +261,7 @@ describe('Editor', () => {
 
       it('can be called multiple times safely', () => {
         editor.destroy();
-        expect(() => editor.destroy()).not.toThrow();
+        expect(() => { editor.destroy(); }).not.toThrow();
       });
     });
   });

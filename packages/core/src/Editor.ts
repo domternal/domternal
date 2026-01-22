@@ -4,7 +4,8 @@
  * Step 1.3: Basic editor with schema-based initialization
  * Step 2: Will support extensions for schema building
  */
-import { EditorState, Transaction } from 'prosemirror-state';
+import type { Transaction } from 'prosemirror-state';
+import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { DOMSerializer } from 'prosemirror-model';
 import type { Schema } from 'prosemirror-model';
@@ -291,7 +292,7 @@ export class Editor extends EventEmitter<EditorEvents> {
     this.emit('beforeCreate', { editor: this });
     this.options.onBeforeCreate?.({ editor: this });
 
-    // 2. Initialize ExtensionManager with schema
+    // 2. Initialize ExtensionManager with schema (validated in constructor)
     this.extensionManager = new ExtensionManager(this.options.schema!, this);
     this.extensionManager.validateSchema();
 
@@ -322,13 +323,13 @@ export class Editor extends EventEmitter<EditorEvents> {
       // Handle focus/blur events
       handleDOMEvents: {
         focus: (_view, event) => {
-          this.emit('focus', { editor: this, event: event as FocusEvent });
-          this.options.onFocus?.({ editor: this, event: event as FocusEvent });
+          this.emit('focus', { editor: this, event: event });
+          this.options.onFocus?.({ editor: this, event: event });
           return false;
         },
         blur: (_view, event) => {
-          this.emit('blur', { editor: this, event: event as FocusEvent });
-          this.options.onBlur?.({ editor: this, event: event as FocusEvent });
+          this.emit('blur', { editor: this, event: event });
+          this.options.onBlur?.({ editor: this, event: event });
           return false;
         },
       },
@@ -345,7 +346,7 @@ export class Editor extends EventEmitter<EditorEvents> {
     if (this.options.autofocus) {
       // Use setTimeout to ensure DOM is ready
       setTimeout(() => {
-        this.commandManager.focus(this.options.autofocus!);
+        this.commandManager.focus(this.options.autofocus);
       }, 0);
     }
 
@@ -373,7 +374,7 @@ export class Editor extends EventEmitter<EditorEvents> {
     this.options.onTransaction?.({ editor: this, transaction });
 
     // 4. Check if we should skip update event
-    const skipUpdate = transaction.getMeta('skipUpdate');
+    const skipUpdate = transaction.getMeta('skipUpdate') as boolean | undefined;
 
     // 5. Emit selectionUpdate if selection changed (without doc change)
     if (!transaction.docChanged && transaction.selectionSet) {
