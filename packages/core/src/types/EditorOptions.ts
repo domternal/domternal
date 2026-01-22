@@ -1,3 +1,4 @@
+import type { Schema } from 'prosemirror-model';
 import type { Content } from './Content.js';
 import type {
   CreateEventProps,
@@ -41,8 +42,18 @@ export type FocusPosition = boolean | 'start' | 'end' | 'all' | number | null;
  */
 export interface EditorOptions {
   /**
+   * ProseMirror Schema for the editor
+   *
+   * Step 1.3: Required (no extensions system yet)
+   * Step 2+: Optional if extensions are provided (schema built from extensions)
+   *
+   * The schema must contain at least 'doc' and 'text' nodes.
+   */
+  schema?: Schema;
+
+  /**
    * HTML element to mount the editor
-   * If not provided, editor runs in "headless" mode
+   * If not provided, creates a detached div (useful for testing/headless mode)
    */
   element?: HTMLElement | null;
 
@@ -195,8 +206,12 @@ export interface EditorOptions {
 
 /**
  * Required options that must be resolved before creating the editor
+ *
+ * Step 1.3: schema is required
+ * Step 2+: schema OR extensions must be provided
  */
 export interface ResolvedEditorOptions extends EditorOptions {
+  schema: Schema;
   extensions: AnyExtension[];
   editable: boolean;
   enableInputRules: boolean;
