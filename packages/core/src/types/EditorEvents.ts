@@ -69,6 +69,7 @@ export interface DropEventProps {
  */
 export interface MountEventProps {
   editor: EditorInstance;
+  view: unknown;
 }
 
 /**

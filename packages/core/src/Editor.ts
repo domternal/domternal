@@ -7,11 +7,11 @@
 import { EditorState, Transaction } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { DOMSerializer } from 'prosemirror-model';
-import type { Schema, Node as PMNode } from 'prosemirror-model';
+import type { Schema } from 'prosemirror-model';
 
 import { EventEmitter } from './EventEmitter.js';
 import { ExtensionManager } from './ExtensionManager.js';
-import { CommandManager, type SetContentOptions } from './CommandManager.js';
+import { CommandManager } from './CommandManager.js';
 import { createDocument, isDocumentEmpty } from './helpers/index.js';
 import type {
   EditorOptions,
@@ -321,12 +321,12 @@ export class Editor extends EventEmitter<EditorEvents> {
       editable: () => this.options.editable ?? true,
       // Handle focus/blur events
       handleDOMEvents: {
-        focus: (view, event) => {
+        focus: (_view, event) => {
           this.emit('focus', { editor: this, event: event as FocusEvent });
           this.options.onFocus?.({ editor: this, event: event as FocusEvent });
           return false;
         },
-        blur: (view, event) => {
+        blur: (_view, event) => {
           this.emit('blur', { editor: this, event: event as FocusEvent });
           this.options.onBlur?.({ editor: this, event: event as FocusEvent });
           return false;
@@ -391,7 +391,7 @@ export class Editor extends EventEmitter<EditorEvents> {
   /**
    * Emit method - needed for CommandManager interface
    */
-  emit<E extends keyof EditorEvents>(
+  override emit<E extends keyof EditorEvents>(
     event: E,
     ...args: EditorEvents[E] extends undefined ? [] : [EditorEvents[E]]
   ): this {

@@ -46,11 +46,25 @@ export type {
 
 // === Core classes ===
 export { EventEmitter } from './EventEmitter.js';
+export { Editor } from './Editor.js';
+export { ExtensionManager } from './ExtensionManager.js';
+export {
+  CommandManager,
+  type SetContentOptions,
+  type ClearContentOptions,
+  type CommandManagerEditor,
+} from './CommandManager.js';
 
-// Editor class will be implemented here
-// export { Editor } from './Editor';
+// === Helpers ===
+export {
+  createDocument,
+  isNodeEmpty,
+  isDocumentEmpty,
+  type CreateDocumentOptions,
+  type IsNodeEmptyOptions,
+} from './helpers/index.js';
 
-// Extension system will be implemented here
+// Extension system will be implemented in Step 2
 // export { Extension } from './Extension';
 // export { Node } from './Node';
 // export { Mark } from './Mark';

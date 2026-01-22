@@ -40,16 +40,13 @@ function isHTMLContent(content: unknown): content is string {
  * Creates an empty document with a single empty paragraph
  */
 function createEmptyDocument(schema: Schema): PMNode {
-  const paragraphType = schema.nodes.paragraph;
+  const paragraphType = schema.nodes['paragraph'];
 
   if (paragraphType) {
     return schema.node('doc', null, [paragraphType.create()]);
   }
 
   // Fallback: create doc with whatever the first block type is
-  const docSpec = schema.nodes.doc.spec;
-  const content = docSpec.content || '';
-
   // Try to find the first allowed node type
   for (const [name, nodeType] of Object.entries(schema.nodes)) {
     if (name !== 'doc' && name !== 'text' && nodeType.isBlock) {

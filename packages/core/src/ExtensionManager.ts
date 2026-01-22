@@ -4,7 +4,7 @@
  * Step 1.3: Minimal version that holds schema
  * Step 2: Will be expanded with full extension lifecycle
  */
-import type { Schema, Node as PMNode } from 'prosemirror-model';
+import type { Schema } from 'prosemirror-model';
 import type { Plugin } from 'prosemirror-state';
 
 /**
@@ -37,7 +37,7 @@ export class ExtensionManager {
   /**
    * Reference to the editor instance
    */
-  private readonly editor: ExtensionManagerEditor;
+  readonly editor: ExtensionManagerEditor;
 
   /**
    * Whether the manager has been destroyed
