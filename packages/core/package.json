@@ -50,6 +50,7 @@
     "prosemirror-view": "^1.41.5"
   },
   "devDependencies": {
+    "jsdom": "^27.4.0",
     "tsup": "^8.5.1",
     "typescript": "~5.9.3"
   },
