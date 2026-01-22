@@ -88,7 +88,7 @@ describe('createDocument', () => {
       if (!paragraph) throw new Error('Expected paragraph');
       const boldText = paragraph.child(1);
       expect(boldText.marks.length).toBe(1);
-      expect(boldText.marks[0].type.name).toBe('bold');
+      expect(boldText.marks[0]?.type.name).toBe('bold');
     });
 
     it('parses empty doc JSON', () => {
