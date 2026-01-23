@@ -8,3 +8,4 @@ export {
   isDocumentEmpty,
   type IsNodeEmptyOptions,
 } from './isNodeEmpty.js';
+export { callOrReturn } from './callOrReturn.js';
