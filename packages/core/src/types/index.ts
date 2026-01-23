@@ -48,3 +48,10 @@ export type {
   CanChainedCommands,
   KeyboardShortcutCommand,
 } from './Commands.js';
+
+// Extension config types
+export type {
+  ExtensionEditor,
+  AnyExtensionConfig,
+  ExtensionConfig,
+} from './ExtensionConfig.js';
