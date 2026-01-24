@@ -57,10 +57,7 @@ export interface NodeParseRule {
    * Get content from the matched element
    * Return false to use default content parsing
    */
-  getContent?: (
-    node: HTMLElement,
-    schema: unknown
-  ) => unknown | null | undefined;
+  getContent?: (node: HTMLElement, schema: unknown) => unknown;
 
   /**
    * How to preserve whitespace

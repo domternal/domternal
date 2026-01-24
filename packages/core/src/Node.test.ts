@@ -364,7 +364,7 @@ describe('Node', () => {
     });
 
     it('includes leafText function directly in spec', () => {
-      const leafTextFn = () => '---';
+      const leafTextFn = (): string => '---';
       const node = Node.create({
         name: 'horizontalRule',
         leafText: leafTextFn,
@@ -392,7 +392,7 @@ describe('Node', () => {
       });
 
       it('includes validate function in attrs', () => {
-        const validateFn = (value: unknown) =>
+        const validateFn = (value: unknown): boolean =>
           typeof value === 'number' && value >= 1 && value <= 6;
         const node = Node.create({
           name: 'heading',
@@ -572,7 +572,7 @@ describe('Node', () => {
             };
           },
           renderHTML({ node: pmNode, HTMLAttributes }) {
-            return [`h${pmNode.attrs['level']}`, HTMLAttributes, 0];
+            return [`h${String(pmNode.attrs['level'])}`, HTMLAttributes, 0];
           },
         });
         const spec = node.createNodeSpec();

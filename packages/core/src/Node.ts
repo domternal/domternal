@@ -62,8 +62,9 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
 
   /**
    * Editor instance with schema access
+   * null until set by ExtensionManager
    */
-  declare editor: NodeEditorInterface;
+  override editor: NodeEditorInterface | null = null;
 
   /**
    * Protected constructor - use Node.create() instead

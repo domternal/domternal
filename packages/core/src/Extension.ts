@@ -74,9 +74,9 @@ export class Extension<Options = unknown, Storage = unknown> {
 
   /**
    * Editor instance (set by ExtensionManager after creation)
-   * null! indicates it will be set before use
+   * null until ExtensionManager binds it
    */
-  editor: ExtensionEditorInterface = null!;
+  editor: ExtensionEditorInterface | null = null;
 
   /**
    * Protected constructor - use Extension.create() instead
