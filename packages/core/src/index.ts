@@ -46,6 +46,13 @@ export type {
   ExtensionEditor,
   AnyExtensionConfig,
   ExtensionConfig,
+  // Attribute types
+  AttributeSpec,
+  AttributeSpecs,
+  // Node config types
+  NodeParseRule,
+  NodeRenderHTMLProps,
+  NodeConfig,
 } from './types/index.js';
 
 // === Core classes ===
@@ -71,6 +78,6 @@ export {
 
 // === Extension System ===
 export { Extension } from './Extension.js';
-// Node and Mark classes will be added in Step 2.1b and 2.1c
-// export { Node } from './Node.js';
+export { Node } from './Node.js';
+// Mark class will be added in Step 2.1c
 // export { Mark } from './Mark.js';

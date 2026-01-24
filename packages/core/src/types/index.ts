@@ -55,3 +55,13 @@ export type {
   AnyExtensionConfig,
   ExtensionConfig,
 } from './ExtensionConfig.js';
+
+// Attribute types
+export type { AttributeSpec, AttributeSpecs } from './AttributeSpec.js';
+
+// Node config types
+export type {
+  NodeParseRule,
+  NodeRenderHTMLProps,
+  NodeConfig,
+} from './NodeConfig.js';
