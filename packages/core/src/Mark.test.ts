@@ -499,7 +499,7 @@ describe('Mark', () => {
         const spec = mark.createMarkSpec();
 
         const mockMark = { attrs: {} };
-        const result = spec.toDOM!(mockMark as never);
+        const result = spec.toDOM!(mockMark as never, true);
 
         expect(result).toEqual(['strong', {}, 0]);
       });
@@ -519,7 +519,7 @@ describe('Mark', () => {
         const spec = mark.createMarkSpec();
 
         const mockMark = { attrs: { href: 'https://example.com' } };
-        const result = spec.toDOM!(mockMark as never);
+        const result = spec.toDOM!(mockMark as never, true);
 
         expect(result).toEqual(['a', { href: 'https://example.com' }, 0]);
       });
@@ -545,7 +545,7 @@ describe('Mark', () => {
         const spec = mark.createMarkSpec();
 
         const mockMark = { attrs: { href: 'https://example.com' } };
-        const result = spec.toDOM!(mockMark as never);
+        const result = spec.toDOM!(mockMark as never, true);
 
         expect(result).toEqual([
           'a',
@@ -570,7 +570,7 @@ describe('Mark', () => {
         const spec = mark.createMarkSpec();
 
         const mockMark = { attrs: { href: 'https://example.com', internal: true } };
-        const result = spec.toDOM!(mockMark as never);
+        const result = spec.toDOM!(mockMark as never, true);
 
         expect(result).toEqual(['a', { href: 'https://example.com' }, 0]);
       });
@@ -591,7 +591,7 @@ describe('Mark', () => {
         const spec = mark.createMarkSpec();
 
         const mockMark = { attrs: { href: 'https://example.com', title: null } };
-        const result = spec.toDOM!(mockMark as never);
+        const result = spec.toDOM!(mockMark as never, true);
 
         expect(result).toEqual(['a', { href: 'https://example.com' }, 0]);
       });

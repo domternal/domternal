@@ -53,6 +53,10 @@ export type {
   NodeParseRule,
   NodeRenderHTMLProps,
   NodeConfig,
+  // Mark config types
+  MarkParseRule,
+  MarkRenderHTMLProps,
+  MarkConfig,
 } from './types/index.js';
 
 // === Core classes ===
@@ -79,5 +83,4 @@ export {
 // === Extension System ===
 export { Extension } from './Extension.js';
 export { Node } from './Node.js';
-// Mark class will be added in Step 2.1c
-// export { Mark } from './Mark.js';
+export { Mark } from './Mark.js';

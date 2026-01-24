@@ -65,3 +65,10 @@ export type {
   NodeRenderHTMLProps,
   NodeConfig,
 } from './NodeConfig.js';
+
+// Mark config types
+export type {
+  MarkParseRule,
+  MarkRenderHTMLProps,
+  MarkConfig,
+} from './MarkConfig.js';

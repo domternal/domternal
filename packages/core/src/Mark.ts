@@ -259,7 +259,7 @@ export class Mark<Options = unknown, Storage = unknown> extends Extension<
       const renderFn = this.config.renderHTML;
       const attrSpecs = attributeSpecs;
 
-      spec.toDOM = (mark) => {
+      spec.toDOM = (mark, _inline) => {
         // Build HTML attributes from mark attrs and renderHTML functions
         let htmlAttrs: Record<string, unknown> = {};
 
