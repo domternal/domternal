@@ -42,6 +42,21 @@ export type {
   CanCommands,
   CanChainedCommands,
   KeyboardShortcutCommand,
+  // Extension config types
+  ExtensionEditor,
+  AnyExtensionConfig,
+  ExtensionConfig,
+  // Attribute types
+  AttributeSpec,
+  AttributeSpecs,
+  // Node config types
+  NodeParseRule,
+  NodeRenderHTMLProps,
+  NodeConfig,
+  // Mark config types
+  MarkParseRule,
+  MarkRenderHTMLProps,
+  MarkConfig,
 } from './types/index.js';
 
 // === Core classes ===
@@ -60,11 +75,12 @@ export {
   createDocument,
   isNodeEmpty,
   isDocumentEmpty,
+  callOrReturn,
   type CreateDocumentOptions,
   type IsNodeEmptyOptions,
 } from './helpers/index.js';
 
-// Extension system will be implemented in Step 2
-// export { Extension } from './Extension';
-// export { Node } from './Node';
-// export { Mark } from './Mark';
+// === Extension System ===
+export { Extension } from './Extension.js';
+export { Node } from './Node.js';
+export { Mark } from './Mark.js';

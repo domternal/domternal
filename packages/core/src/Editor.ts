@@ -69,6 +69,11 @@ export class Editor extends EventEmitter<EditorEvents> {
   private commandManager!: CommandManager;
 
   /**
+   * Validated schema (guaranteed non-null after constructor)
+   */
+  private validatedSchema!: Schema;
+
+  /**
    * ProseMirror EditorView instance
    */
   public view!: EditorView;
@@ -108,6 +113,9 @@ export class Editor extends EventEmitter<EditorEvents> {
       editable: true,
       ...options,
     };
+
+    // Store validated schema (guaranteed non-null after check above)
+    this.validatedSchema = options.schema;
 
     this.createEditor();
   }
@@ -293,7 +301,7 @@ export class Editor extends EventEmitter<EditorEvents> {
     this.options.onBeforeCreate?.({ editor: this });
 
     // 2. Initialize ExtensionManager with schema (validated in constructor)
-    this.extensionManager = new ExtensionManager(this.options.schema!, this);
+    this.extensionManager = new ExtensionManager(this.validatedSchema, this);
     this.extensionManager.validateSchema();
 
     // 3. Create initial document from content

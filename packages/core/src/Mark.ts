@@ -1,0 +1,293 @@
+/**
+ * Mark - Base class for mark extensions
+ *
+ * Marks define inline formatting that can be applied to text.
+ * Examples: Bold, Italic, Link, Code, etc.
+ *
+ * Three-tier model:
+ * - Extension (type: 'extension') → Pure functionality (History, Placeholder, etc.)
+ * - Node (type: 'node') → Schema nodes (Paragraph, Heading, etc.)
+ * - Mark (type: 'mark') → Schema marks (Bold, Italic, etc.)
+ *
+ * @example
+ * const Bold = Mark.create({
+ *   name: 'bold',
+ *   parseHTML() {
+ *     return [
+ *       { tag: 'strong' },
+ *       { tag: 'b' },
+ *       { style: 'font-weight=bold' },
+ *     ];
+ *   },
+ *   renderHTML({ HTMLAttributes }) {
+ *     return ['strong', HTMLAttributes, 0];
+ *   },
+ * });
+ */
+
+import type { MarkSpec, MarkType, ParseRule } from 'prosemirror-model';
+import { Extension, type ExtensionEditorInterface } from './Extension.js';
+import type { MarkConfig } from './types/MarkConfig.js';
+import { callOrReturn } from './helpers/callOrReturn.js';
+
+/**
+ * Extended editor interface for Mark
+ * Includes schema access for MarkType getter
+ */
+export interface MarkEditorInterface extends ExtensionEditorInterface {
+  readonly schema: {
+    marks: Record<string, MarkType>;
+  };
+}
+
+/**
+ * Base class for mark extensions
+ *
+ * @typeParam Options - Mark options type
+ * @typeParam Storage - Mark storage type
+ */
+export class Mark<Options = unknown, Storage = unknown> extends Extension<
+  Options,
+  Storage
+> {
+  /**
+   * Mark type identifier
+   * Distinguishes marks from extensions and nodes
+   */
+  override readonly type = 'mark' as const;
+
+  /**
+   * The original configuration object
+   * Typed as MarkConfig for mark-specific properties
+   */
+  declare readonly config: MarkConfig<Options, Storage>;
+
+  /**
+   * Editor instance with schema access
+   * null until set by ExtensionManager
+   */
+  override editor: MarkEditorInterface | null = null;
+
+  /**
+   * Protected constructor - use Mark.create() instead
+   */
+  protected constructor(config: MarkConfig<Options, Storage>) {
+    super(config);
+  }
+
+  /**
+   * Get the ProseMirror MarkType from schema
+   *
+   * This is a lazy getter because schema doesn't exist at mark creation time.
+   * Schema is built FROM marks by ExtensionManager.
+   *
+   * Returns null if editor is not yet initialized.
+   * Always check editor is set before using markType.
+   */
+  get markType(): MarkType | null {
+    if (!this.editor) {
+      return null;
+    }
+    return this.editor.schema.marks[this.name] ?? null;
+  }
+
+  /**
+   * Creates a new mark instance
+   *
+   * @param config - Mark configuration
+   * @returns New mark instance
+   *
+   * @example
+   * const Bold = Mark.create({
+   *   name: 'bold',
+   *   parseHTML() {
+   *     return [{ tag: 'strong' }, { tag: 'b' }];
+   *   },
+   * });
+   */
+  static override create<O = unknown, S = unknown>(
+    config: MarkConfig<O, S>
+  ): Mark<O, S> {
+    return new Mark(config);
+  }
+
+  /**
+   * Creates a new mark with merged options
+   * Original mark is not modified
+   *
+   * @param options - Options to merge with existing options
+   * @returns New mark instance with merged options
+   *
+   * @example
+   * const CustomBold = Bold.configure({ HTMLAttributes: { class: 'custom-bold' } });
+   */
+  override configure(options: Partial<Options>): Mark<Options, Storage> {
+    const newConfig: MarkConfig<Options, Storage> = {
+      ...this.config,
+      addOptions: () => ({
+        ...this.options,
+        ...options,
+      }),
+    };
+
+    return new Mark(newConfig);
+  }
+
+  /**
+   * Creates a new mark with extended configuration
+   * Original mark is not modified
+   *
+   * @param extendedConfig - Configuration to extend/override
+   * @returns New mark instance with extended config
+   *
+   * @example
+   * const CustomBold = Bold.extend({
+   *   name: 'customBold',
+   *   addAttributes() {
+   *     return { ...this.parent?.(), weight: { default: 'bold' } };
+   *   },
+   * });
+   */
+  override extend<ExtendedOptions = Options, ExtendedStorage = Storage>(
+    extendedConfig: Partial<MarkConfig<ExtendedOptions, ExtendedStorage>>
+  ): Mark<ExtendedOptions, ExtendedStorage> {
+    const newConfig = {
+      ...this.config,
+      ...extendedConfig,
+    } as MarkConfig<ExtendedOptions, ExtendedStorage>;
+
+    return new Mark(newConfig);
+  }
+
+  /**
+   * Creates a ProseMirror MarkSpec from this mark's configuration
+   *
+   * Called by ExtensionManager when building the schema.
+   * Converts our config format to ProseMirror's MarkSpec format.
+   *
+   * @returns ProseMirror MarkSpec
+   */
+  createMarkSpec(): MarkSpec {
+    const spec: MarkSpec = {};
+
+    // Schema properties - copy directly if defined
+    if (this.config.inclusive !== undefined)
+      spec.inclusive = this.config.inclusive;
+    if (this.config.excludes !== undefined)
+      spec.excludes = this.config.excludes;
+    if (this.config.group !== undefined) spec.group = this.config.group;
+    if (this.config.spanning !== undefined)
+      spec.spanning = this.config.spanning;
+
+    // Attributes - convert AttributeSpecs to ProseMirror attrs
+    const attributeSpecs = callOrReturn(this.config.addAttributes, this);
+    if (attributeSpecs) {
+      spec.attrs = {};
+      for (const [name, attrSpec] of Object.entries(attributeSpecs)) {
+        spec.attrs[name] = {
+          default: attrSpec.default,
+        };
+        // Add validate if defined (ProseMirror 1.22.0+)
+        if (attrSpec.validate) {
+          (spec.attrs[name] as { validate?: unknown }).validate =
+            attrSpec.validate;
+        }
+      }
+    }
+
+    // Parse rules - convert to parseDOM
+    const parseRules = callOrReturn(this.config.parseHTML, this);
+    if (parseRules && parseRules.length > 0) {
+      // Build parseDOM array with proper typing
+      const parseDOMRules = parseRules.map((rule) => {
+        // Build parse rule object
+        const parseRule: {
+          tag?: string;
+          style?: string;
+          priority?: number;
+          consuming?: boolean;
+          getAttrs?: (
+            node: HTMLElement | string
+          ) => Record<string, unknown> | false | null;
+        } = {};
+
+        if (rule.tag) parseRule.tag = rule.tag;
+        if (rule.style) parseRule.style = rule.style;
+        if (rule.priority !== undefined) parseRule.priority = rule.priority;
+        if (rule.consuming !== undefined) parseRule.consuming = rule.consuming;
+
+        // Handle getAttrs - need to merge with attribute parseHTML
+        if (rule.getAttrs || attributeSpecs) {
+          parseRule.getAttrs = (node: HTMLElement | string) => {
+            // Get attrs from rule
+            const ruleAttrs = rule.getAttrs ? rule.getAttrs(node) : {};
+
+            // If rule returned null or false, skip this rule
+            if (ruleAttrs === null || ruleAttrs === false) {
+              return ruleAttrs;
+            }
+
+            // Get attrs from attribute parseHTML functions
+            const parsedAttrs: Record<string, unknown> = { ...ruleAttrs };
+            if (attributeSpecs) {
+              for (const [name, attrSpec] of Object.entries(attributeSpecs)) {
+                if (attrSpec.parseHTML) {
+                  // For marks, parseHTML might receive string (style value) or HTMLElement
+                  parsedAttrs[name] =
+                    typeof node === 'string'
+                      ? attrSpec.parseHTML(
+                          document.createElement('span') // fallback element for style parsing
+                        )
+                      : attrSpec.parseHTML(node);
+                }
+              }
+            }
+
+            return parsedAttrs;
+          };
+        }
+
+        return parseRule;
+      });
+
+      // Cast to satisfy strict MarkSpec.parseDOM type
+      spec.parseDOM = parseDOMRules as unknown as readonly ParseRule[];
+    }
+
+    // Render - convert renderHTML to toDOM
+    if (this.config.renderHTML) {
+      const renderFn = this.config.renderHTML;
+      const attrSpecs = attributeSpecs;
+
+      spec.toDOM = (mark, _inline) => {
+        // Build HTML attributes from mark attrs and renderHTML functions
+        let htmlAttrs: Record<string, unknown> = {};
+
+        if (attrSpecs) {
+          for (const [name, attrSpec] of Object.entries(attrSpecs)) {
+            // Skip if not rendered
+            if (attrSpec.rendered === false) continue;
+
+            // Use renderHTML if defined, otherwise add directly
+            if (attrSpec.renderHTML) {
+              const rendered = attrSpec.renderHTML(mark.attrs);
+              if (rendered) {
+                htmlAttrs = { ...htmlAttrs, ...rendered };
+              }
+            } else if (
+              mark.attrs[name] !== undefined &&
+              mark.attrs[name] !== null
+            ) {
+              // Default: use attribute value directly
+              htmlAttrs[name] = mark.attrs[name];
+            }
+          }
+        }
+
+        return renderFn({ mark, HTMLAttributes: htmlAttrs });
+      };
+    }
+
+    return spec;
+  }
+}

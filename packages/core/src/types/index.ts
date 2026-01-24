@@ -48,3 +48,27 @@ export type {
   CanChainedCommands,
   KeyboardShortcutCommand,
 } from './Commands.js';
+
+// Extension config types
+export type {
+  ExtensionEditor,
+  AnyExtensionConfig,
+  ExtensionConfig,
+} from './ExtensionConfig.js';
+
+// Attribute types
+export type { AttributeSpec, AttributeSpecs } from './AttributeSpec.js';
+
+// Node config types
+export type {
+  NodeParseRule,
+  NodeRenderHTMLProps,
+  NodeConfig,
+} from './NodeConfig.js';
+
+// Mark config types
+export type {
+  MarkParseRule,
+  MarkRenderHTMLProps,
+  MarkConfig,
+} from './MarkConfig.js';
