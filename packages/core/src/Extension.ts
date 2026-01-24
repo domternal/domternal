@@ -47,8 +47,9 @@ export class Extension<Options = unknown, Storage = unknown> {
   /**
    * Extension type identifier
    * Used to distinguish between Extension, Node, and Mark
+   * Subclasses override this to 'node' or 'mark'
    */
-  readonly type = 'extension' as const;
+  readonly type: 'extension' | 'node' | 'mark' = 'extension';
 
   /**
    * Unique extension name

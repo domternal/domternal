@@ -23,7 +23,7 @@
  * });
  */
 
-import type { NodeSpec, NodeType } from 'prosemirror-model';
+import type { NodeSpec, NodeType, TagParseRule } from 'prosemirror-model';
 import { Extension, type ExtensionEditorInterface } from './Extension.js';
 import type { NodeConfig } from './types/NodeConfig.js';
 import { callOrReturn } from './helpers/callOrReturn.js';
@@ -52,7 +52,7 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
    * Node type identifier
    * Distinguishes nodes from extensions and marks
    */
-  declare readonly type: 'node';
+  override readonly type = 'node' as const;
 
   /**
    * The original configuration object
@@ -70,8 +70,6 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
    */
   protected constructor(config: NodeConfig<Options, Storage>) {
     super(config);
-    // Override type after super() call
-    (this as { type: 'node' }).type = 'node';
   }
 
   /**
@@ -80,16 +78,14 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
    * This is a lazy getter because schema doesn't exist at node creation time.
    * Schema is built FROM nodes by ExtensionManager.
    *
-   * @throws Error if accessed before editor is set
+   * Returns null if editor is not yet initialized.
+   * Always check editor is set before using nodeType.
    */
-  get nodeType(): NodeType {
+  get nodeType(): NodeType | null {
     if (!this.editor) {
-      throw new Error(
-        `Cannot access nodeType for "${this.name}" - editor not initialized. ` +
-          `nodeType is available after ExtensionManager binds the editor.`
-      );
+      return null;
     }
-    return this.editor.schema.nodes[this.name];
+    return this.editor.schema.nodes[this.name] ?? null;
   }
 
   /**
@@ -105,7 +101,7 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
    *   content: 'inline*',
    * });
    */
-  static create<O = unknown, S = unknown>(
+  static override create<O = unknown, S = unknown>(
     config: NodeConfig<O, S>
   ): Node<O, S> {
     return new Node(config);
@@ -121,7 +117,7 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
    * @example
    * const CustomParagraph = Paragraph.configure({ HTMLAttributes: { class: 'custom' } });
    */
-  configure(options: Partial<Options>): Node<Options, Storage> {
+  override configure(options: Partial<Options>): Node<Options, Storage> {
     const newConfig: NodeConfig<Options, Storage> = {
       ...this.config,
       addOptions: () => ({
@@ -148,7 +144,7 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
    *   },
    * });
    */
-  extend<ExtendedOptions = Options, ExtendedStorage = Storage>(
+  override extend<ExtendedOptions = Options, ExtendedStorage = Storage>(
     extendedConfig: Partial<NodeConfig<ExtendedOptions, ExtendedStorage>>
   ): Node<ExtendedOptions, ExtendedStorage> {
     const newConfig = {
@@ -222,7 +218,10 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
     // Parse rules - convert to parseDOM
     const parseRules = callOrReturn(this.config.parseHTML, this);
     if (parseRules && parseRules.length > 0) {
-      spec.parseDOM = parseRules.map((rule) => {
+      // Build parseDOM array with proper typing
+      // ProseMirror's TagParseRule type is strict, so we cast through unknown
+      const parseDOMRules = parseRules.map((rule) => {
+        // Build parse rule object using object literal to avoid index signature issues
         const parseRule: {
           tag?: string;
           style?: string;
@@ -230,7 +229,9 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
           consuming?: boolean;
           context?: string;
           preserveWhitespace?: boolean | 'full';
-          getAttrs?: (node: HTMLElement | string) => Record<string, unknown> | false | null;
+          getAttrs?: (
+            node: HTMLElement | string
+          ) => Record<string, unknown> | false | null;
         } = {};
 
         if (rule.tag) parseRule.tag = rule.tag;
@@ -246,7 +247,9 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
           parseRule.getAttrs = (node: HTMLElement | string) => {
             // If node is string (for style rules), skip attribute parsing
             if (typeof node === 'string') {
-              return rule.getAttrs ? rule.getAttrs(node as unknown as HTMLElement) ?? {} : {};
+              return rule.getAttrs
+                ? rule.getAttrs(node as unknown as HTMLElement) ?? {}
+                : {};
             }
 
             // Get attrs from rule
@@ -273,6 +276,9 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
 
         return parseRule;
       });
+
+      // Cast through unknown to satisfy strict NodeSpec.parseDOM type
+      spec.parseDOM = parseDOMRules as unknown as readonly TagParseRule[];
     }
 
     // Render - convert renderHTML to toDOM

@@ -209,10 +209,10 @@ describe('Node', () => {
   });
 
   describe('nodeType getter', () => {
-    it('throws error when editor is not set', () => {
+    it('returns null when editor is not set', () => {
       const node = Node.create({ name: 'paragraph' });
 
-      expect(() => node.nodeType).toThrow(/editor not initialized/);
+      expect(node.nodeType).toBeNull();
     });
 
     it('returns NodeType from schema when editor is set', () => {
@@ -404,7 +404,7 @@ describe('Node', () => {
         });
         const spec = node.createNodeSpec();
 
-        expect((spec.attrs!.level as { validate?: unknown }).validate).toBe(
+        expect((spec.attrs!['level'] as { validate?: unknown }).validate).toBe(
           validateFn
         );
       });
@@ -441,7 +441,7 @@ describe('Node', () => {
         const spec = node.createNodeSpec();
 
         expect(spec.parseDOM).toHaveLength(1);
-        expect(spec.parseDOM![0].tag).toBe('p');
+        expect((spec.parseDOM![0] as { tag: string }).tag).toBe('p');
       });
 
       it('handles multiple parse rules', () => {
@@ -458,9 +458,9 @@ describe('Node', () => {
         const spec = node.createNodeSpec();
 
         expect(spec.parseDOM).toHaveLength(3);
-        expect(spec.parseDOM![0].tag).toBe('h1');
-        expect(spec.parseDOM![1].tag).toBe('h2');
-        expect(spec.parseDOM![2].tag).toBe('h3');
+        expect((spec.parseDOM![0] as { tag: string }).tag).toBe('h1');
+        expect((spec.parseDOM![1] as { tag: string }).tag).toBe('h2');
+        expect((spec.parseDOM![2] as { tag: string }).tag).toBe('h3');
       });
 
       it('includes priority in parse rule', () => {
@@ -472,7 +472,7 @@ describe('Node', () => {
         });
         const spec = node.createNodeSpec();
 
-        expect(spec.parseDOM![0].priority).toBe(100);
+        expect((spec.parseDOM![0] as { priority: number }).priority).toBe(100);
       });
 
       it('includes getAttrs from rule', () => {
@@ -490,7 +490,8 @@ describe('Node', () => {
         const spec = node.createNodeSpec();
 
         const mockElement = document.createElement('h1');
-        const attrs = spec.parseDOM![0].getAttrs!(mockElement);
+        const parseRule = spec.parseDOM![0] as { getAttrs: (el: HTMLElement) => unknown };
+        const attrs = parseRule.getAttrs(mockElement);
 
         expect(attrs).toEqual({ level: 1 });
       });
@@ -510,7 +511,8 @@ describe('Node', () => {
         const spec = node.createNodeSpec();
 
         const mockElement = document.createElement('p');
-        const attrs = spec.parseDOM![0].getAttrs!(mockElement);
+        const parseRule = spec.parseDOM![0] as { getAttrs: (el: HTMLElement) => unknown };
+        const attrs = parseRule.getAttrs(mockElement);
 
         expect(attrs).toBe(false);
       });
@@ -536,8 +538,10 @@ describe('Node', () => {
         const h1 = document.createElement('h1');
         const h2 = document.createElement('h2');
 
-        expect(spec.parseDOM![0].getAttrs!(h1)).toEqual({ level: 1 });
-        expect(spec.parseDOM![1].getAttrs!(h2)).toEqual({ level: 2 });
+        const rule0 = spec.parseDOM![0] as { getAttrs: (el: HTMLElement) => unknown };
+        const rule1 = spec.parseDOM![1] as { getAttrs: (el: HTMLElement) => unknown };
+        expect(rule0.getAttrs(h1)).toEqual({ level: 1 });
+        expect(rule1.getAttrs(h2)).toEqual({ level: 2 });
       });
     });
 
@@ -568,7 +572,7 @@ describe('Node', () => {
             };
           },
           renderHTML({ node: pmNode, HTMLAttributes }) {
-            return [`h${pmNode.attrs.level}`, HTMLAttributes, 0];
+            return [`h${pmNode.attrs['level']}`, HTMLAttributes, 0];
           },
         });
         const spec = node.createNodeSpec();
@@ -587,7 +591,7 @@ describe('Node', () => {
               level: {
                 default: 1,
                 renderHTML: (attributes) => ({
-                  'data-level': attributes.level,
+                  'data-level': attributes['level'] as number,
                 }),
               },
             };
