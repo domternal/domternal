@@ -11,8 +11,14 @@
 import { Schema } from 'prosemirror-model';
 import type { NodeSpec, MarkSpec } from 'prosemirror-model';
 import type { Plugin } from 'prosemirror-state';
+import { keymap } from 'prosemirror-keymap';
+import { inputRules as createInputRulesPlugin } from 'prosemirror-inputrules';
+import type { InputRule } from 'prosemirror-inputrules';
+
+import type { Command as PMCommand } from 'prosemirror-state';
 
 import type { AnyExtension } from './types/EditorOptions.js';
+import type { RawCommands } from './types/Commands.js';
 import type { Extension } from './Extension.js';
 import type { Node } from './Node.js';
 import type { Mark } from './Mark.js';
@@ -75,6 +81,16 @@ export class ExtensionManager {
    * Whether the manager has been destroyed
    */
   private isDestroyed = false;
+
+  /**
+   * Cached plugins (built lazily)
+   */
+  private _plugins: Plugin[] | null = null;
+
+  /**
+   * Cached commands (collected lazily)
+   */
+  private _commands: RawCommands | null = null;
 
   /**
    * Creates a new ExtensionManager
@@ -143,10 +159,23 @@ export class ExtensionManager {
 
   /**
    * Gets plugins from all extensions
+   * Cached after first call
    */
   get plugins(): Plugin[] {
-    // TODO: Step 2.4.5 - Implement buildPlugins()
-    return [];
+    if (this._plugins === null) {
+      this._plugins = this.buildPlugins();
+    }
+    return this._plugins!;
+  }
+
+  /**
+   * Gets commands from all extensions
+   */
+  get commands(): RawCommands {
+    if (this._commands === null) {
+      this._commands = this.collectCommands();
+    }
+    return this._commands!;
   }
 
   // === Extension Processing ===
@@ -280,6 +309,101 @@ export class ExtensionManager {
         (ext as Extension).storage = storage;
       }
     }
+  }
+
+  // === Plugin Collection ===
+
+  /**
+   * Builds all ProseMirror plugins from extensions
+   */
+  private buildPlugins(): Plugin[] {
+    const plugins: Plugin[] = [];
+
+    // Collect keyboard shortcuts and create keymap plugin
+    const shortcuts = this.collectKeyboardShortcuts();
+    if (Object.keys(shortcuts).length > 0) {
+      plugins.push(keymap(shortcuts));
+    }
+
+    // Collect input rules and create inputRules plugin
+    const rules = this.collectInputRules();
+    if (rules.length > 0) {
+      plugins.push(createInputRulesPlugin({ rules }));
+    }
+
+    // Collect custom plugins from extensions
+    for (const ext of this._extensions) {
+      const addPlugins = (ext as Extension).config?.addProseMirrorPlugins;
+      if (addPlugins) {
+        const extPlugins = callOrReturn(addPlugins, ext) as Plugin[] | undefined;
+        if (extPlugins && extPlugins.length > 0) {
+          plugins.push(...extPlugins);
+        }
+      }
+    }
+
+    return plugins;
+  }
+
+  /**
+   * Collects keyboard shortcuts from all extensions
+   * Returns ProseMirror-compatible commands for keymap plugin
+   *
+   * Note: Extensions should return PM-compatible commands from addKeyboardShortcuts()
+   */
+  private collectKeyboardShortcuts(): Record<string, PMCommand> {
+    const shortcuts: Record<string, PMCommand> = {};
+
+    for (const ext of this._extensions) {
+      const addShortcuts = (ext as Extension).config?.addKeyboardShortcuts;
+      if (addShortcuts) {
+        const extShortcuts = callOrReturn(addShortcuts, ext);
+        if (extShortcuts) {
+          // Cast needed: KeyboardShortcutCommand should be PM-compatible in practice
+          Object.assign(shortcuts, extShortcuts as unknown as Record<string, PMCommand>);
+        }
+      }
+    }
+
+    return shortcuts;
+  }
+
+  /**
+   * Collects input rules from all extensions
+   */
+  private collectInputRules(): InputRule[] {
+    const rules: InputRule[] = [];
+
+    for (const ext of this._extensions) {
+      const addRules = (ext as Extension).config?.addInputRules;
+      if (addRules) {
+        const extRules = callOrReturn(addRules, ext) as InputRule[] | undefined;
+        if (extRules && extRules.length > 0) {
+          rules.push(...extRules);
+        }
+      }
+    }
+
+    return rules;
+  }
+
+  /**
+   * Collects commands from all extensions
+   */
+  private collectCommands(): RawCommands {
+    const commands: RawCommands = {};
+
+    for (const ext of this._extensions) {
+      const addCommands = (ext as Extension).config?.addCommands;
+      if (addCommands) {
+        const extCommands = callOrReturn(addCommands, ext) as RawCommands | undefined;
+        if (extCommands) {
+          Object.assign(commands, extCommands);
+        }
+      }
+    }
+
+    return commands;
   }
 
   // === Validation ===
