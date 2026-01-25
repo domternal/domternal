@@ -68,10 +68,6 @@ export class Editor extends EventEmitter<EditorEvents> {
    */
   private commandManager!: CommandManager;
 
-  /**
-   * Validated schema (guaranteed non-null after constructor)
-   */
-  private validatedSchema!: Schema;
 
   /**
    * ProseMirror EditorView instance
@@ -101,11 +97,11 @@ export class Editor extends EventEmitter<EditorEvents> {
       );
     }
 
-    // Validate required options for Step 1.3
-    if (!options.schema) {
+    // Validate: need either schema or extensions
+    if (!options.schema && (!options.extensions || options.extensions.length === 0)) {
       throw new Error(
-        'Editor requires a schema in Step 1.3. ' +
-          'In Step 2, you can provide extensions instead and the schema will be built automatically.'
+        'Editor requires either schema or extensions. ' +
+          'Provide a ProseMirror schema directly, or use extensions like [Document, Paragraph, Text].'
       );
     }
 
@@ -113,9 +109,6 @@ export class Editor extends EventEmitter<EditorEvents> {
       editable: true,
       ...options,
     };
-
-    // Store validated schema (guaranteed non-null after check above)
-    this.validatedSchema = options.schema;
 
     this.createEditor();
   }
@@ -169,6 +162,14 @@ export class Editor extends EventEmitter<EditorEvents> {
    */
   get commands(): CommandManager {
     return this.commandManager;
+  }
+
+  /**
+   * Gets extension storage
+   * Access via: editor.storage.extensionName.propertyName
+   */
+  get storage(): Record<string, unknown> {
+    return this.extensionManager.storage;
   }
 
   // === Content Methods ===
@@ -300,8 +301,14 @@ export class Editor extends EventEmitter<EditorEvents> {
     this.emit('beforeCreate', { editor: this });
     this.options.onBeforeCreate?.({ editor: this });
 
-    // 2. Initialize ExtensionManager with schema (validated in constructor)
-    this.extensionManager = new ExtensionManager(this.validatedSchema, this);
+    // 2. Initialize ExtensionManager with extensions or schema
+    this.extensionManager = new ExtensionManager(
+      {
+        extensions: this.options.extensions,
+        schema: this.options.schema,
+      },
+      this
+    );
     this.extensionManager.validateSchema();
 
     // 3. Create initial document from content

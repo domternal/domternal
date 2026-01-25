@@ -62,7 +62,11 @@ export type {
 // === Core classes ===
 export { EventEmitter } from './EventEmitter.js';
 export { Editor } from './Editor.js';
-export { ExtensionManager } from './ExtensionManager.js';
+export {
+  ExtensionManager,
+  type ExtensionManagerOptions,
+  type ExtensionManagerEditor,
+} from './ExtensionManager.js';
 export {
   CommandManager,
   type SetContentOptions,
