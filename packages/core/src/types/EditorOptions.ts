@@ -10,15 +10,17 @@ import type {
   MountEventProps,
   DeleteEventProps,
 } from './EditorEvents.js';
+import type { Extension } from '../Extension.js';
+import type { Node } from '../Node.js';
+import type { Mark } from '../Mark.js';
 
 /**
- * Extension type (forward declaration to avoid circular dependency)
- * Will be properly typed when Extension class is implemented
+ * Union type for all extension types
+ * - Extension: Pure functionality (History, Placeholder)
+ * - Node: Schema nodes (Paragraph, Heading)
+ * - Mark: Schema marks (Bold, Italic)
  */
-export interface AnyExtension {
-  name: string;
-  type: 'extension' | 'node' | 'mark';
-}
+export type AnyExtension = Extension | Node | Mark;
 
 /**
  * Text direction for the editor
