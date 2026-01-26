@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { Schema } from 'prosemirror-model';
+import type { Node as PMNode } from 'prosemirror-model';
 import { Paragraph } from './Paragraph.js';
 import { Document } from './Document.js';
 import { Text } from './Text.js';
@@ -43,7 +43,7 @@ describe('Paragraph', () => {
   describe('renderHTML', () => {
     it('returns correct DOMOutputSpec', () => {
       const spec = Paragraph.createNodeSpec();
-      const mockNode = { attrs: {} } as any;
+      const mockNode = { attrs: {} } as PMNode;
 
       const result = spec.toDOM?.(mockNode);
 
@@ -56,7 +56,7 @@ describe('Paragraph', () => {
       });
 
       const spec = CustomParagraph.createNodeSpec();
-      const mockNode = { attrs: {} } as any;
+      const mockNode = { attrs: {} } as PMNode;
 
       const result = spec.toDOM?.(mockNode);
 
@@ -69,7 +69,7 @@ describe('Paragraph', () => {
       const commands = Paragraph.config.addCommands?.call(Paragraph);
 
       expect(commands).toHaveProperty('setParagraph');
-      expect(typeof commands?.setParagraph).toBe('function');
+      expect(typeof commands?.['setParagraph']).toBe('function');
     });
   });
 
@@ -82,7 +82,7 @@ describe('Paragraph', () => {
   });
 
   describe('integration', () => {
-    let editor: Editor;
+    let editor: Editor | undefined;
 
     afterEach(() => {
       if (editor && !editor.isDestroyed) {

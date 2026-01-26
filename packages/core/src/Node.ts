@@ -286,6 +286,9 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
     if (this.config.renderHTML) {
       const renderFn = this.config.renderHTML;
       const attrSpecs = attributeSpecs;
+      // Capture 'this' (the Node instance) for use in toDOM
+      // eslint-disable-next-line @typescript-eslint/no-this-alias
+      const nodeInstance = this;
 
       spec.toDOM = (node) => {
         // Build HTML attributes from node attrs and renderHTML functions
@@ -309,7 +312,8 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
           }
         }
 
-        return renderFn({ node, HTMLAttributes: htmlAttrs });
+        // Call renderFn with Node instance as 'this' context
+        return renderFn.call(nodeInstance, { node, HTMLAttributes: htmlAttrs });
       };
     }
 
