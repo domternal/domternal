@@ -10,6 +10,10 @@ export {
   insertText,
   deleteSelection,
   selectAll,
+  // Mark commands
+  toggleMark,
+  setMark,
+  unsetMark,
   type SetContentOptions,
   type ClearContentOptions,
 } from './builtIn.js';

@@ -1,11 +1,13 @@
 /**
  * Built-in commands converted to CommandSpec format
  *
- * These 7 essential commands are merged with extension commands
+ * These commands are merged with extension commands
  * to provide a unified command API.
  */
 import { TextSelection, AllSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import { toggleMark as pmToggleMark } from 'prosemirror-commands';
+import type { Attrs } from 'prosemirror-model';
 import type { CommandSpec, RawCommands } from '../types/Commands.js';
 import type { FocusPosition, Content } from '../types/index.js';
 import { createDocument } from '../helpers/index.js';
@@ -259,6 +261,104 @@ export const selectAll: CommandSpec =
     return true;
   };
 
+// ============================================================================
+// Mark Commands
+// ============================================================================
+
+/**
+ * ToggleMark command - toggles a mark on the current selection
+ *
+ * @param markName - The name of the mark to toggle
+ * @param attributes - Optional attributes for the mark
+ */
+export const toggleMark: CommandSpec<[markName: string, attributes?: Attrs]> =
+  (markName: string, attributes?: Attrs) =>
+  ({ state, tr, dispatch }) => {
+    const markType = state.schema.marks[markName];
+
+    if (!markType) {
+      return false;
+    }
+
+    // Use ProseMirror's toggleMark command
+    return pmToggleMark(markType, attributes)(state, dispatch ? () => dispatch(tr) : undefined);
+  };
+
+/**
+ * SetMark command - adds a mark to the current selection
+ *
+ * @param markName - The name of the mark to set
+ * @param attributes - Optional attributes for the mark
+ */
+export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
+  (markName: string, attributes?: Attrs) =>
+  ({ state, tr, dispatch }) => {
+    const markType = state.schema.marks[markName];
+
+    if (!markType) {
+      return false;
+    }
+
+    const { from, to, empty } = tr.selection;
+
+    // Can't add mark to empty selection (unless storedMarks)
+    if (empty) {
+      // For empty selection, add to stored marks
+      if (!dispatch) {
+        return true;
+      }
+
+      const mark = markType.create(attributes);
+      tr.addStoredMark(mark);
+      dispatch(tr);
+      return true;
+    }
+
+    if (!dispatch) {
+      return true;
+    }
+
+    tr.addMark(from, to, markType.create(attributes));
+    dispatch(tr);
+    return true;
+  };
+
+/**
+ * UnsetMark command - removes a mark from the current selection
+ *
+ * @param markName - The name of the mark to remove
+ */
+export const unsetMark: CommandSpec<[markName: string]> =
+  (markName: string) =>
+  ({ state, tr, dispatch }) => {
+    const markType = state.schema.marks[markName];
+
+    if (!markType) {
+      return false;
+    }
+
+    const { from, to, empty } = tr.selection;
+
+    // For empty selection, remove from stored marks
+    if (empty) {
+      if (!dispatch) {
+        return true;
+      }
+
+      tr.removeStoredMark(markType);
+      dispatch(tr);
+      return true;
+    }
+
+    if (!dispatch) {
+      return true;
+    }
+
+    tr.removeMark(from, to, markType);
+    dispatch(tr);
+    return true;
+  };
+
 /**
  * All built-in commands as RawCommands
  * These are merged with extension commands in CommandManager
@@ -271,4 +371,8 @@ export const builtInCommands: RawCommands = {
   insertText,
   deleteSelection,
   selectAll,
+  // Mark commands
+  toggleMark,
+  setMark,
+  unsetMark,
 } as RawCommands;
