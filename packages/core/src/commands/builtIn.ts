@@ -275,15 +275,16 @@ export const selectAll: CommandSpec =
  */
 export const toggleMark: CommandSpec<[markName: string, attributes?: Attrs]> =
   (markName: string, attributes?: Attrs) =>
-  ({ state, tr, dispatch }) => {
+  ({ state, dispatch }) => {
     const markType = state.schema.marks[markName];
 
     if (!markType) {
       return false;
     }
 
-    // Use ProseMirror's toggleMark command
-    return pmToggleMark(markType, attributes)(state, dispatch ? () => dispatch(tr) : undefined);
+    // Use ProseMirror's toggleMark command directly
+    // Note: pmToggleMark manages its own transaction, so we pass dispatch directly
+    return pmToggleMark(markType, attributes)(state, dispatch);
   };
 
 /**
