@@ -10,7 +10,7 @@
  */
 import { Schema } from 'prosemirror-model';
 import type { NodeSpec, MarkSpec } from 'prosemirror-model';
-import type { Plugin } from 'prosemirror-state';
+import type { Plugin, Transaction } from 'prosemirror-state';
 import { keymap } from 'prosemirror-keymap';
 import { inputRules as createInputRulesPlugin } from 'prosemirror-inputrules';
 import type { InputRule } from 'prosemirror-inputrules';
@@ -500,6 +500,109 @@ export class ExtensionManager {
       this.editor.emit?.('error', { error: errorObj, context });
 
       return undefined;
+    }
+  }
+
+  // === Extension Lifecycle Hook Calls ===
+
+  /**
+   * Calls onBeforeCreate on all extensions
+   */
+  callOnBeforeCreate(): void {
+    for (const ext of this._extensions) {
+      const hook = (ext as Extension).config.onBeforeCreate;
+      if (hook) {
+        this.safeCall(() => {
+          callOrReturn(hook, ext);
+        }, `${ext.name}.onBeforeCreate`);
+      }
+    }
+  }
+
+  /**
+   * Calls onCreate on all extensions
+   */
+  callOnCreate(): void {
+    for (const ext of this._extensions) {
+      const hook = (ext as Extension).config.onCreate;
+      if (hook) {
+        this.safeCall(() => {
+          callOrReturn(hook, ext);
+        }, `${ext.name}.onCreate`);
+      }
+    }
+  }
+
+  /**
+   * Calls onUpdate on all extensions
+   */
+  callOnUpdate(): void {
+    for (const ext of this._extensions) {
+      const hook = (ext as Extension).config.onUpdate;
+      if (hook) {
+        this.safeCall(() => {
+          callOrReturn(hook, ext);
+        }, `${ext.name}.onUpdate`);
+      }
+    }
+  }
+
+  /**
+   * Calls onSelectionUpdate on all extensions
+   */
+  callOnSelectionUpdate(): void {
+    for (const ext of this._extensions) {
+      const hook = (ext as Extension).config.onSelectionUpdate;
+      if (hook) {
+        this.safeCall(() => {
+          callOrReturn(hook, ext);
+        }, `${ext.name}.onSelectionUpdate`);
+      }
+    }
+  }
+
+  /**
+   * Calls onTransaction on all extensions
+   * @param props - Transaction props
+   */
+  callOnTransaction(props: { transaction: Transaction }): void {
+    for (const ext of this._extensions) {
+      const hook = (ext as Extension).config.onTransaction;
+      if (hook) {
+        this.safeCall(() => {
+          hook.call(ext, props);
+        }, `${ext.name}.onTransaction`);
+      }
+    }
+  }
+
+  /**
+   * Calls onFocus on all extensions
+   * @param props - Focus event props
+   */
+  callOnFocus(props: { event: FocusEvent }): void {
+    for (const ext of this._extensions) {
+      const hook = (ext as Extension).config.onFocus;
+      if (hook) {
+        this.safeCall(() => {
+          hook.call(ext, props);
+        }, `${ext.name}.onFocus`);
+      }
+    }
+  }
+
+  /**
+   * Calls onBlur on all extensions
+   * @param props - Blur event props
+   */
+  callOnBlur(props: { event: FocusEvent }): void {
+    for (const ext of this._extensions) {
+      const hook = (ext as Extension).config.onBlur;
+      if (hook) {
+        this.safeCall(() => {
+          hook.call(ext, props);
+        }, `${ext.name}.onBlur`);
+      }
     }
   }
 }
