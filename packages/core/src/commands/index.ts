@@ -14,6 +14,8 @@ export {
   toggleMark,
   setMark,
   unsetMark,
+  // Block commands
+  setBlockType,
   type SetContentOptions,
   type ClearContentOptions,
 } from './builtIn.js';

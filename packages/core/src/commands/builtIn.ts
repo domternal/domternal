@@ -6,7 +6,7 @@
  */
 import { TextSelection, AllSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { toggleMark as pmToggleMark } from 'prosemirror-commands';
+import { toggleMark as pmToggleMark, setBlockType as pmSetBlockType } from 'prosemirror-commands';
 import type { Attrs } from 'prosemirror-model';
 import type { CommandSpec, RawCommands } from '../types/Commands.js';
 import type { FocusPosition, Content } from '../types/index.js';
@@ -359,6 +359,28 @@ export const unsetMark: CommandSpec<[markName: string]> =
     return true;
   };
 
+// ============================================================================
+// Block Commands
+// ============================================================================
+
+/**
+ * SetBlockType command - changes the block type of the selection
+ *
+ * @param nodeName - The name of the node type to set
+ * @param attributes - Optional attributes for the node
+ */
+export const setBlockType: CommandSpec<[nodeName: string, attributes?: Attrs]> =
+  (nodeName: string, attributes?: Attrs) =>
+  ({ state, dispatch }) => {
+    const nodeType = state.schema.nodes[nodeName];
+
+    if (!nodeType) {
+      return false;
+    }
+
+    return pmSetBlockType(nodeType, attributes)(state, dispatch);
+  };
+
 /**
  * All built-in commands as RawCommands
  * These are merged with extension commands in CommandManager
@@ -375,4 +397,6 @@ export const builtInCommands: RawCommands = {
   toggleMark,
   setMark,
   unsetMark,
+  // Block commands
+  setBlockType,
 } as RawCommands;
