@@ -20,6 +20,14 @@ export {
   // Wrap commands
   wrapIn,
   toggleWrap,
+  // Lift command
+  lift,
+  // List commands
+  toggleList,
+  // Insert commands
+  insertContent,
+  // Selection commands
+  selectNodeBackward,
   type SetContentOptions,
   type ClearContentOptions,
 } from './builtIn.js';
