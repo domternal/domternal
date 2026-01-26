@@ -436,7 +436,12 @@ export class Editor extends EventEmitter<EditorEvents> {
       }, 0);
     }
 
-    // 11. Emit create event
+    // 11. Set up error event handler for onError callback
+    this.on('error', (props) => {
+      this.options.onError?.(props);
+    });
+
+    // 12. Emit create event
     this.emit('create', { editor: this });
     this.options.onCreate?.({ editor: this });
   }

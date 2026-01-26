@@ -31,6 +31,7 @@ export type {
   DropEventProps,
   MountEventProps,
   DeleteEventProps,
+  ErrorEventProps,
   EditorEvents,
   EditorEventName,
 } from './EditorEvents.js';

@@ -537,7 +537,7 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
     }
 
     // If we're in the same list type, lift the items out
-    if (parentList && parentList.type === listType) {
+    if (parentList?.type === listType) {
       return liftListItem(listItemType)(state, dispatch);
     }
 

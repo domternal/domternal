@@ -1,3 +1,9 @@
+/**
+ * ExtensionManager tests
+ *
+ * ESLint rules disabled for testing patterns that require flexible typing.
+ */
+/* eslint-disable @typescript-eslint/no-confusing-void-expression, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/only-throw-error */
 import { describe, it, expect, vi } from 'vitest';
 import { Schema } from 'prosemirror-model';
 import { ExtensionManager } from './ExtensionManager.js';
@@ -334,6 +340,120 @@ describe('ExtensionManager', () => {
       );
 
       manager.destroy();
+      expect(onDestroySpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('safeCall (2.7: Extension Error Isolation)', () => {
+    it('returns result on successful execution', () => {
+      const manager = new ExtensionManager({ schema: validSchema }, mockEditor);
+
+      const result = manager.safeCall(() => 42, 'test.context');
+      expect(result).toBe(42);
+    });
+
+    it('returns undefined on error', () => {
+      const manager = new ExtensionManager({ schema: validSchema }, mockEditor);
+
+      const result = manager.safeCall(() => {
+        throw new Error('Test error');
+      }, 'test.context');
+
+      expect(result).toBeUndefined();
+    });
+
+    it('emits error event when error occurs', () => {
+      const emit = vi.fn();
+      const editorWithEmit = {
+        schema: validSchema,
+        emit,
+      };
+
+      const manager = new ExtensionManager({ schema: validSchema }, editorWithEmit);
+
+      manager.safeCall(() => {
+        throw new Error('Test error');
+      }, 'TestExt.addCommands');
+
+      expect(emit).toHaveBeenCalledTimes(1);
+      expect(emit).toHaveBeenCalledWith('error', {
+        error: expect.any(Error),
+        context: 'TestExt.addCommands',
+      });
+    });
+
+    it('converts non-Error throws to Error', () => {
+      const emit = vi.fn();
+      const editorWithEmit = {
+        schema: validSchema,
+        emit,
+      };
+
+      const manager = new ExtensionManager({ schema: validSchema }, editorWithEmit);
+
+      manager.safeCall(() => {
+        throw 'string error';
+      }, 'test.context');
+
+      expect(emit).toHaveBeenCalledWith('error', {
+        error: expect.objectContaining({ message: 'string error' }),
+        context: 'test.context',
+      });
+    });
+  });
+
+  describe('error isolation in extension lifecycle', () => {
+    it('continues processing other extensions after one throws in addCommands', () => {
+      const ExtThatThrows = Extension.create({
+        name: 'throws',
+        addCommands() {
+          throw new Error('Commands error');
+        },
+      });
+
+      const ExtWithCommands = Extension.create({
+        name: 'works',
+        addCommands() {
+          return {
+            testCommand:
+              () =>
+              (): boolean =>
+                true,
+          };
+        },
+      });
+
+      const manager = new ExtensionManager(
+        { extensions: [DocumentNode, ParagraphNode, TextNode, ExtThatThrows, ExtWithCommands] },
+        mockEditor
+      );
+
+      // ExtThatThrows should not crash, and ExtWithCommands should work
+      expect(manager.commands['testCommand']).toBeDefined();
+    });
+
+    it('continues processing other extensions after one throws in onDestroy', () => {
+      const onDestroySpy = vi.fn();
+
+      const ExtThatThrows = Extension.create({
+        name: 'throws',
+        onDestroy() {
+          throw new Error('Destroy error');
+        },
+      });
+
+      const ExtWithDestroy = Extension.create({
+        name: 'works',
+        onDestroy: onDestroySpy,
+      });
+
+      const manager = new ExtensionManager(
+        { extensions: [DocumentNode, ParagraphNode, TextNode, ExtThatThrows, ExtWithDestroy] },
+        mockEditor
+      );
+
+      // Should not throw, and should call both onDestroy handlers
+      expect(() => { manager.destroy(); }).not.toThrow();
       expect(onDestroySpy).toHaveBeenCalledTimes(1);
     });
   });

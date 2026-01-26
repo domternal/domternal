@@ -25,11 +25,20 @@ import type { Mark } from './Mark.js';
 import { callOrReturn } from './helpers/callOrReturn.js';
 
 /**
+ * Error event props for safeCall
+ */
+interface ErrorEventProps {
+  error: Error;
+  context: string;
+}
+
+/**
  * Editor interface for ExtensionManager
  * Forward declaration to avoid circular dependency
  */
 export interface ExtensionManagerEditor {
   readonly schema: Schema;
+  emit?(event: 'error', props: ErrorEventProps): void;
 }
 
 /**
@@ -300,9 +309,14 @@ export class ExtensionManager {
     for (const ext of this._extensions) {
       const storageFactory = (ext as Extension).config.addStorage;
       if (storageFactory) {
-        const storage = callOrReturn(storageFactory, ext);
-        this._storage[ext.name] = storage;
-        (ext as Extension).storage = storage;
+        const storage = this.safeCall(
+          () => callOrReturn(storageFactory, ext),
+          `${ext.name}.addStorage`
+        );
+        if (storage !== undefined) {
+          this._storage[ext.name] = storage;
+          (ext as Extension).storage = storage;
+        }
       }
     }
   }
@@ -331,7 +345,10 @@ export class ExtensionManager {
     for (const ext of this._extensions) {
       const addPlugins = (ext as Extension).config.addProseMirrorPlugins;
       if (addPlugins) {
-        const extPlugins = callOrReturn(addPlugins, ext) as Plugin[] | undefined;
+        const extPlugins = this.safeCall(
+          () => callOrReturn(addPlugins, ext) as Plugin[] | undefined,
+          `${ext.name}.addProseMirrorPlugins`
+        );
         if (extPlugins && extPlugins.length > 0) {
           plugins.push(...extPlugins);
         }
@@ -353,9 +370,14 @@ export class ExtensionManager {
     for (const ext of this._extensions) {
       const addShortcuts = (ext as Extension).config.addKeyboardShortcuts;
       if (addShortcuts) {
-        const extShortcuts = callOrReturn(addShortcuts, ext);
-        // Cast needed: KeyboardShortcutCommand should be PM-compatible in practice
-        Object.assign(shortcuts, extShortcuts as unknown as Record<string, PMCommand>);
+        const extShortcuts = this.safeCall(
+          () => callOrReturn(addShortcuts, ext),
+          `${ext.name}.addKeyboardShortcuts`
+        );
+        if (extShortcuts) {
+          // Cast needed: KeyboardShortcutCommand should be PM-compatible in practice
+          Object.assign(shortcuts, extShortcuts as unknown as Record<string, PMCommand>);
+        }
       }
     }
 
@@ -371,7 +393,10 @@ export class ExtensionManager {
     for (const ext of this._extensions) {
       const addRules = (ext as Extension).config.addInputRules;
       if (addRules) {
-        const extRules = callOrReturn(addRules, ext) as InputRule[] | undefined;
+        const extRules = this.safeCall(
+          () => callOrReturn(addRules, ext) as InputRule[] | undefined,
+          `${ext.name}.addInputRules`
+        );
         if (extRules && extRules.length > 0) {
           rules.push(...extRules);
         }
@@ -390,7 +415,10 @@ export class ExtensionManager {
     for (const ext of this._extensions) {
       const addCommands = (ext as Extension).config.addCommands;
       if (addCommands) {
-        const extCommands = callOrReturn(addCommands, ext) as RawCommands | undefined;
+        const extCommands = this.safeCall(
+          () => callOrReturn(addCommands, ext) as RawCommands | undefined,
+          `${ext.name}.addCommands`
+        );
         if (extCommands) {
           Object.assign(commands, extCommands);
         }
@@ -439,14 +467,39 @@ export class ExtensionManager {
       return;
     }
 
-    // Call onDestroy on all extensions
+    // Call onDestroy on all extensions (wrapped in safeCall)
     for (const ext of this._extensions) {
       const onDestroy = (ext as Extension).config.onDestroy;
       if (onDestroy) {
-        callOrReturn(onDestroy, ext);
+        this.safeCall(() => {
+          callOrReturn(onDestroy, ext);
+        }, `${ext.name}.onDestroy`);
       }
     }
 
     this.isDestroyed = true;
+  }
+
+  // === Error Handling (2.7: Extension Error Isolation) ===
+
+  /**
+   * Safely executes a function, catching and reporting errors
+   * Prevents a single extension error from crashing the entire editor
+   *
+   * @param fn - Function to execute
+   * @param context - Context for error reporting (e.g., 'Bold.onUpdate')
+   * @returns The function result, or undefined if an error occurred
+   */
+  safeCall<T>(fn: () => T, context: string): T | undefined {
+    try {
+      return fn();
+    } catch (error) {
+      const errorObj = error instanceof Error ? error : new Error(String(error));
+
+      // Emit error event (Editor will call onError callback via event listener)
+      this.editor.emit?.('error', { error: errorObj, context });
+
+      return undefined;
+    }
   }
 }
