@@ -1,325 +1,181 @@
 /**
  * CommandManager - Manages editor commands
  *
- * Step 1.3: Minimal version with 7 essential commands
- * Step 2: Will be expanded with chain(), can(), and dynamic commands from extensions
+ * Provides unified command API with:
+ * - Dynamic commands from extensions
+ * - Built-in commands (focus, blur, setContent, etc.)
+ * - chain() for chainable commands
+ * - can() for checking command availability
  */
-import { TextSelection, AllSelection } from 'prosemirror-state';
+import type { Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import type { FocusPosition, Content } from './types/index.js';
-import { createDocument } from './helpers/index.js';
+import type {
+  CommandProps,
+  Command,
+  RawCommands,
+  SingleCommands,
+  ChainedCommands,
+  CanCommands,
+} from './types/Commands.js';
+import { builtInCommands } from './commands/builtIn.js';
+import { createChainBuilder } from './ChainBuilder.js';
+import { createCanChecker } from './CanChecker.js';
 
-/**
- * Options for setContent command
- */
-export interface SetContentOptions {
-  /**
-   * Emit update event after setting content
-   * @default true
-   */
-  emitUpdate?: boolean;
-
-  /**
-   * Parse options for HTML content
-   */
-  parseOptions?: Record<string, unknown>;
-}
-
-/**
- * Options for clearContent command
- */
-export interface ClearContentOptions {
-  /**
-   * Emit update event after clearing content
-   * @default true
-   */
-  emitUpdate?: boolean;
-}
+// Re-export option types for backward compatibility
+export type { SetContentOptions, ClearContentOptions } from './commands/builtIn.js';
 
 /**
  * Editor interface for CommandManager
  * Forward declaration to avoid circular dependency
  */
 export interface CommandManagerEditor {
-  view: EditorView;
+  readonly view: EditorView;
+  readonly state: CommandManagerEditor['view']['state'];
   readonly isDestroyed: boolean;
   emit(event: string, props?: unknown): void;
-}
-
-/**
- * Resolves focus position to a numeric position in the document
- */
-function resolveFocusPosition(
-  view: EditorView,
-  position: FocusPosition
-): number | null {
-  const { doc } = view.state;
-
-  if (position === null || position === false) {
-    return null;
-  }
-
-  if (position === true || position === 'end') {
-    // End of document
-    return doc.content.size - 1;
-  }
-
-  if (position === 'start') {
-    // Start of document (after opening tag of first node)
-    return 1;
-  }
-
-  if (position === 'all') {
-    // Select all - handled separately
-    return null;
-  }
-
-  if (typeof position === 'number') {
-    // Clamp to valid range
-    return Math.max(0, Math.min(position, doc.content.size));
-  }
-
-  return null;
+  /** Extension manager for collecting extension commands */
+  readonly extensionManager: {
+    readonly commands: RawCommands;
+  };
 }
 
 /**
  * Manages editor commands
  *
- * In Step 1.3, provides 7 essential commands:
- * - focus, blur, setContent, clearContent, insertText, deleteSelection, selectAll
- *
- * In Step 2, will be expanded with:
- * - chain() for chainable commands
- * - can() for checking command availability
- * - Dynamic commands from extensions
+ * Provides:
+ * - editor.commands.* - Single commands that execute immediately
+ * - editor.chain().*.run() - Chainable commands with shared transaction
+ * - editor.can().* - Dry-run checks if commands can execute
  */
 export class CommandManager {
-  private editor: CommandManagerEditor;
+  private readonly editor: CommandManagerEditor;
+
+  /** Cached raw commands (built-in + extension) */
+  private _rawCommands: RawCommands | null = null;
 
   constructor(editor: CommandManagerEditor) {
     this.editor = editor;
   }
 
   /**
-   * Focuses the editor at the specified position
-   *
-   * @param position - Where to place the cursor
-   *   - true/'end': End of document
-   *   - 'start': Start of document
-   *   - 'all': Select all content
-   *   - number: Specific position
-   *   - null/false: Just focus without changing selection
-   * @returns true if focus was successful
+   * Gets all raw commands (built-in + extension commands)
+   * Cached after first access
    */
-  focus(position: FocusPosition = null): boolean {
-    if (this.editor.isDestroyed) {
-      return false;
+  get rawCommands(): RawCommands {
+    if (!this._rawCommands) {
+      this._rawCommands = {
+        ...builtInCommands,
+        ...this.editor.extensionManager.commands,
+      };
     }
-
-    const { view } = this.editor;
-
-    // Check if view is attached to DOM
-    if (!view.dom.isConnected) {
-      // Detached view - can't focus
-      return false;
-    }
-
-    // Focus the editor
-    view.focus();
-
-    // Handle 'all' position - select all content
-    if (position === 'all') {
-      const { tr } = view.state;
-      const selection = new AllSelection(view.state.doc);
-      view.dispatch(tr.setSelection(selection));
-      return true;
-    }
-
-    // Resolve position to cursor location
-    const resolvedPos = resolveFocusPosition(view, position);
-
-    if (resolvedPos !== null) {
-      const { tr, doc } = view.state;
-      const $pos = doc.resolve(resolvedPos);
-      const selection = TextSelection.near($pos);
-      view.dispatch(tr.setSelection(selection));
-    }
-
-    return true;
+    return this._rawCommands;
   }
 
   /**
-   * Removes focus from the editor
-   *
-   * @returns true if blur was successful
+   * Builds CommandProps for executing a command
    */
-  blur(): boolean {
-    if (this.editor.isDestroyed) {
-      return false;
-    }
+  private buildCommandProps(tr: Transaction, dispatch?: (tr: Transaction) => void): CommandProps {
+    const { editor } = this;
 
-    const { view } = this.editor;
-    const element = view.dom;
-
-    element.blur();
-
-    return true;
+    return {
+      editor: editor as unknown as CommandProps['editor'],
+      state: editor.state,
+      tr,
+      dispatch,
+      chain: () => this.chain(),
+      can: () => this.can(),
+      commands: this.commands,
+    };
   }
 
   /**
-   * Sets the editor content
+   * Single commands that execute immediately
+   * Uses Proxy to dynamically generate command methods (ID-1)
    *
-   * @param content - JSON or HTML content
-   * @param options - Options for setting content
-   * @returns true if content was set successfully
+   * @example
+   * editor.commands.focus('end');
+   * editor.commands.insertText('Hello');
    */
-  setContent(content: Content, options: SetContentOptions = {}): boolean {
-    if (this.editor.isDestroyed) {
-      return false;
-    }
+  get commands(): SingleCommands {
+    const { editor, rawCommands } = this;
 
-    const { emitUpdate = true, parseOptions } = options;
-    const { view } = this.editor;
-    const { schema } = view.state;
+    return new Proxy({} as SingleCommands, {
+      get: (_, name: string) => {
+        const rawCommand = rawCommands[name];
+        if (!rawCommand) {
+          console.warn(`Command "${name}" not found`);
+          return () => false;
+        }
 
-    // Parse content into document
-    const doc = createDocument(content, schema, { parseOptions });
+        return (...args: unknown[]) => {
+          if (editor.isDestroyed) {
+            return false;
+          }
 
-    // Create transaction that replaces entire document
-    const { tr } = view.state;
-    tr.replaceWith(0, view.state.doc.content.size, doc.content);
+          // Create fresh transaction for each command
+          const tr = editor.state.tr;
 
-    // Mark transaction to potentially skip update event
-    if (!emitUpdate) {
-      tr.setMeta('addToHistory', false);
-      tr.setMeta('skipUpdate', true);
-    }
+          // Dispatch function that actually dispatches to view
+          const dispatch = (transaction: Transaction) => {
+            editor.view.dispatch(transaction);
+          };
 
-    view.dispatch(tr);
-
-    return true;
-  }
-
-  /**
-   * Clears the editor content to empty state
-   *
-   * @param options - Options for clearing content
-   * @returns true if content was cleared successfully
-   */
-  clearContent(options: ClearContentOptions = {}): boolean {
-    if (this.editor.isDestroyed) {
-      return false;
-    }
-
-    const { emitUpdate = true } = options;
-    const { view } = this.editor;
-    const { schema } = view.state;
-
-    // Create empty document
-    const doc = createDocument(null, schema);
-
-    // Create transaction that replaces entire document
-    const { tr } = view.state;
-    tr.replaceWith(0, view.state.doc.content.size, doc.content);
-
-    if (!emitUpdate) {
-      tr.setMeta('addToHistory', false);
-      tr.setMeta('skipUpdate', true);
-    }
-
-    view.dispatch(tr);
-
-    return true;
-  }
-
-  /**
-   * Inserts text at the current selection
-   *
-   * @param text - Text to insert
-   * @returns true if text was inserted successfully
-   */
-  insertText(text: string): boolean {
-    if (this.editor.isDestroyed) {
-      return false;
-    }
-
-    const { view } = this.editor;
-    const { tr, selection } = view.state;
-
-    // Insert text at current selection
-    tr.insertText(text, selection.from, selection.to);
-    view.dispatch(tr);
-
-    return true;
-  }
-
-  /**
-   * Deletes the current selection
-   *
-   * @returns true if selection was deleted
-   */
-  deleteSelection(): boolean {
-    if (this.editor.isDestroyed) {
-      return false;
-    }
-
-    const { view } = this.editor;
-    const { tr, selection } = view.state;
-
-    // Only delete if there's a selection range
-    if (selection.empty) {
-      return false;
-    }
-
-    tr.deleteSelection();
-    view.dispatch(tr);
-
-    return true;
-  }
-
-  /**
-   * Selects all content in the editor
-   *
-   * @returns true if selection was successful
-   */
-  selectAll(): boolean {
-    if (this.editor.isDestroyed) {
-      return false;
-    }
-
-    const { view } = this.editor;
-    const { tr } = view.state;
-
-    const selection = new AllSelection(view.state.doc);
-    tr.setSelection(selection);
-    view.dispatch(tr);
-
-    return true;
+          const props = this.buildCommandProps(tr, dispatch);
+          return (rawCommand as (...a: unknown[]) => Command)(...args)(props);
+        };
+      },
+    });
   }
 
   /**
    * Creates a chainable command builder
    *
-   * Step 1.3: Throws error - not yet implemented
-   * Step 2: Will return ChainBuilder for chainable commands
+   * Commands accumulate on a shared transaction, dispatched on run()
+   *
+   * @example
+   * editor.chain()
+   *   .focus()
+   *   .insertText('Hello')
+   *   .run();
    */
-  chain(): never {
-    throw new Error(
-      'chain() is not available in Step 1.3. ' +
-        'Chainable commands will be implemented in Step 2 with the extension system.'
-    );
+  chain(): ChainedCommands {
+    const { editor, rawCommands } = this;
+
+    return createChainBuilder({
+      editor,
+      rawCommands,
+    });
   }
 
   /**
-   * Creates a command availability checker
+   * Creates a command availability checker (dry-run mode)
    *
-   * Step 1.3: Throws error - not yet implemented
-   * Step 2: Will return CanChecker for dry-run command checks
+   * Commands are executed with dispatch=undefined to check if they can run
+   *
+   * @example
+   * if (editor.can().toggleBold()) {
+   *   // Bold can be applied
+   * }
+   *
+   * if (editor.can().chain().toggleBold().toggleItalic().run()) {
+   *   // Both can be applied
+   * }
    */
-  can(): never {
-    throw new Error(
-      'can() is not available in Step 1.3. ' +
-        'Command availability checks will be implemented in Step 2 with the extension system.'
-    );
+  can(): CanCommands {
+    const { editor, rawCommands } = this;
+
+    return createCanChecker({
+      editor,
+      rawCommands,
+      createChainBuilder: () => this.chain(),
+    });
+  }
+
+  /**
+   * Clears cached commands
+   * Call this if extensions change dynamically
+   */
+  clearCache(): void {
+    this._rawCommands = null;
   }
 }
