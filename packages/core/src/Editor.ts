@@ -371,6 +371,7 @@ export class Editor extends EventEmitter<EditorEvents> {
     // 1. Emit beforeCreate - extensions can modify options in Step 2
     this.emit('beforeCreate', { editor: this });
     this.options.onBeforeCreate?.({ editor: this });
+    // Note: Extension onBeforeCreate is called after ExtensionManager is created (step 2)
 
     // 2. Initialize ExtensionManager with extensions or schema
     this._extensionManager = new ExtensionManager(
@@ -380,6 +381,10 @@ export class Editor extends EventEmitter<EditorEvents> {
       },
       this
     );
+
+    // 2.1 Call onBeforeCreate on all extensions (now that they have editor reference)
+    this._extensionManager.callOnBeforeCreate();
+
     this._extensionManager.validateSchema();
 
     // 3. Create initial document from content
@@ -411,11 +416,13 @@ export class Editor extends EventEmitter<EditorEvents> {
         focus: (_view, event) => {
           this.emit('focus', { editor: this, event: event });
           this.options.onFocus?.({ editor: this, event: event });
+          this._extensionManager.callOnFocus({ event });
           return false;
         },
         blur: (_view, event) => {
           this.emit('blur', { editor: this, event: event });
           this.options.onBlur?.({ editor: this, event: event });
+          this._extensionManager.callOnBlur({ event });
           return false;
         },
       },
@@ -436,9 +443,15 @@ export class Editor extends EventEmitter<EditorEvents> {
       }, 0);
     }
 
-    // 11. Emit create event
+    // 11. Set up error event handler for onError callback
+    this.on('error', (props) => {
+      this.options.onError?.(props);
+    });
+
+    // 12. Emit create event and call extension onCreate hooks
     this.emit('create', { editor: this });
     this.options.onCreate?.({ editor: this });
+    this._extensionManager.callOnCreate();
   }
 
   /**
@@ -458,6 +471,7 @@ export class Editor extends EventEmitter<EditorEvents> {
     // 3. Emit transaction event (fires for EVERY transaction)
     this.emit('transaction', { editor: this, transaction });
     this.options.onTransaction?.({ editor: this, transaction });
+    this._extensionManager.callOnTransaction({ transaction });
 
     // 4. Check if we should skip update event
     const skipUpdate = transaction.getMeta('skipUpdate') as boolean | undefined;
@@ -466,12 +480,14 @@ export class Editor extends EventEmitter<EditorEvents> {
     if (!transaction.docChanged && transaction.selectionSet) {
       this.emit('selectionUpdate', { editor: this, transaction });
       this.options.onSelectionUpdate?.({ editor: this, transaction });
+      this._extensionManager.callOnSelectionUpdate();
     }
 
     // 6. Emit update if document changed
     if (transaction.docChanged && !skipUpdate) {
       this.emit('update', { editor: this, transaction });
       this.options.onUpdate?.({ editor: this, transaction });
+      this._extensionManager.callOnUpdate();
     }
   }
 

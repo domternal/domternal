@@ -9,6 +9,7 @@ import type {
   DropEventProps,
   MountEventProps,
   DeleteEventProps,
+  ErrorEventProps,
 } from './EditorEvents.js';
 import type { Extension } from '../Extension.js';
 import type { Node } from '../Node.js';
@@ -204,6 +205,12 @@ export interface EditorOptions {
    * Called when content is deleted
    */
   onDelete?: (props: DeleteEventProps) => void;
+
+  /**
+   * Called when an extension throws an error (2.7: Extension Error Isolation)
+   * Allows graceful error handling without crashing the editor
+   */
+  onError?: (props: ErrorEventProps) => void;
 }
 
 /**

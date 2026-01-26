@@ -1,11 +1,15 @@
 /**
  * Built-in commands converted to CommandSpec format
  *
- * These 7 essential commands are merged with extension commands
+ * These commands are merged with extension commands
  * to provide a unified command API.
  */
 import { TextSelection, AllSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import { toggleMark as pmToggleMark, setBlockType as pmSetBlockType, wrapIn as pmWrapIn, lift as pmLift, selectNodeBackward as pmSelectNodeBackward } from 'prosemirror-commands';
+import { wrapInList, liftListItem } from 'prosemirror-schema-list';
+import { Fragment, Slice, DOMParser as ProseMirrorDOMParser } from 'prosemirror-model';
+import type { Attrs } from 'prosemirror-model';
 import type { CommandSpec, RawCommands } from '../types/Commands.js';
 import type { FocusPosition, Content } from '../types/index.js';
 import { createDocument } from '../helpers/index.js';
@@ -259,6 +263,375 @@ export const selectAll: CommandSpec =
     return true;
   };
 
+// ============================================================================
+// Mark Commands
+// ============================================================================
+
+/**
+ * ToggleMark command - toggles a mark on the current selection
+ *
+ * @param markName - The name of the mark to toggle
+ * @param attributes - Optional attributes for the mark
+ */
+export const toggleMark: CommandSpec<[markName: string, attributes?: Attrs]> =
+  (markName: string, attributes?: Attrs) =>
+  ({ state, dispatch }) => {
+    const markType = state.schema.marks[markName];
+
+    if (!markType) {
+      return false;
+    }
+
+    // Use ProseMirror's toggleMark command directly
+    // Note: pmToggleMark manages its own transaction, so we pass dispatch directly
+    return pmToggleMark(markType, attributes)(state, dispatch);
+  };
+
+/**
+ * SetMark command - adds a mark to the current selection
+ *
+ * @param markName - The name of the mark to set
+ * @param attributes - Optional attributes for the mark
+ */
+export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
+  (markName: string, attributes?: Attrs) =>
+  ({ state, tr, dispatch }) => {
+    const markType = state.schema.marks[markName];
+
+    if (!markType) {
+      return false;
+    }
+
+    const { from, to, empty } = tr.selection;
+
+    // Can't add mark to empty selection (unless storedMarks)
+    if (empty) {
+      // For empty selection, add to stored marks
+      if (!dispatch) {
+        return true;
+      }
+
+      const mark = markType.create(attributes);
+      tr.addStoredMark(mark);
+      dispatch(tr);
+      return true;
+    }
+
+    if (!dispatch) {
+      return true;
+    }
+
+    tr.addMark(from, to, markType.create(attributes));
+    dispatch(tr);
+    return true;
+  };
+
+/**
+ * UnsetMark command - removes a mark from the current selection
+ *
+ * @param markName - The name of the mark to remove
+ */
+export const unsetMark: CommandSpec<[markName: string]> =
+  (markName: string) =>
+  ({ state, tr, dispatch }) => {
+    const markType = state.schema.marks[markName];
+
+    if (!markType) {
+      return false;
+    }
+
+    const { from, to, empty } = tr.selection;
+
+    // For empty selection, remove from stored marks
+    if (empty) {
+      if (!dispatch) {
+        return true;
+      }
+
+      tr.removeStoredMark(markType);
+      dispatch(tr);
+      return true;
+    }
+
+    if (!dispatch) {
+      return true;
+    }
+
+    tr.removeMark(from, to, markType);
+    dispatch(tr);
+    return true;
+  };
+
+// ============================================================================
+// Block Commands
+// ============================================================================
+
+/**
+ * SetBlockType command - changes the block type of the selection
+ *
+ * @param nodeName - The name of the node type to set
+ * @param attributes - Optional attributes for the node
+ */
+export const setBlockType: CommandSpec<[nodeName: string, attributes?: Attrs]> =
+  (nodeName: string, attributes?: Attrs) =>
+  ({ state, dispatch }) => {
+    const nodeType = state.schema.nodes[nodeName];
+
+    if (!nodeType) {
+      return false;
+    }
+
+    return pmSetBlockType(nodeType, attributes)(state, dispatch);
+  };
+
+/**
+ * ToggleBlockType command - toggles between a block type and a default type
+ *
+ * If the current block is of the target type, changes it to the default type.
+ * If the current block is not of the target type, changes it to the target type.
+ *
+ * @param nodeName - The name of the node type to toggle to
+ * @param defaultNodeName - The name of the default node type (usually 'paragraph')
+ * @param attributes - Optional attributes for the node
+ */
+export const toggleBlockType: CommandSpec<[nodeName: string, defaultNodeName: string, attributes?: Attrs]> =
+  (nodeName: string, defaultNodeName: string, attributes?: Attrs) =>
+  ({ state, dispatch }) => {
+    const nodeType = state.schema.nodes[nodeName];
+    const defaultNodeType = state.schema.nodes[defaultNodeName];
+
+    if (!nodeType || !defaultNodeType) {
+      return false;
+    }
+
+    // Check if the current block is of the target type
+    const { $from } = state.selection;
+    const currentNode = $from.parent;
+
+    // If current block matches target type, toggle to default
+    if (currentNode.type === nodeType) {
+      return pmSetBlockType(defaultNodeType)(state, dispatch);
+    }
+
+    // Otherwise, set to target type
+    return pmSetBlockType(nodeType, attributes)(state, dispatch);
+  };
+
+/**
+ * WrapIn command - wraps the selection in a node type
+ *
+ * @param nodeName - The name of the wrapping node type
+ * @param attributes - Optional attributes for the node
+ */
+export const wrapIn: CommandSpec<[nodeName: string, attributes?: Attrs]> =
+  (nodeName: string, attributes?: Attrs) =>
+  ({ state, dispatch }) => {
+    const nodeType = state.schema.nodes[nodeName];
+
+    if (!nodeType) {
+      return false;
+    }
+
+    return pmWrapIn(nodeType, attributes)(state, dispatch);
+  };
+
+/**
+ * ToggleWrap command - toggles wrapping of the selection in a node type
+ *
+ * If the selection is already wrapped in the node type, lifts it out.
+ * Otherwise, wraps the selection in the node type.
+ *
+ * @param nodeName - The name of the wrapping node type
+ * @param attributes - Optional attributes for the node
+ */
+export const toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]> =
+  (nodeName: string, attributes?: Attrs) =>
+  ({ state, dispatch }) => {
+    const nodeType = state.schema.nodes[nodeName];
+
+    if (!nodeType) {
+      return false;
+    }
+
+    // Check if we're already inside a node of this type
+    const { $from } = state.selection;
+    let isWrapped = false;
+
+    for (let depth = $from.depth; depth > 0; depth--) {
+      if ($from.node(depth).type === nodeType) {
+        isWrapped = true;
+        break;
+      }
+    }
+
+    // If wrapped, lift out; otherwise wrap
+    if (isWrapped) {
+      return pmLift(state, dispatch);
+    }
+
+    return pmWrapIn(nodeType, attributes)(state, dispatch);
+  };
+
+// ============================================================================
+// Lift Command
+// ============================================================================
+
+/**
+ * Lift command - lifts the current block out of its parent wrapper
+ *
+ * For example, lifts a paragraph out of a blockquote.
+ */
+export const lift: CommandSpec =
+  () =>
+  ({ state, dispatch }) => {
+    return pmLift(state, dispatch);
+  };
+
+// ============================================================================
+// List Commands
+// ============================================================================
+
+/**
+ * ToggleList command - toggles a list type on the current selection
+ *
+ * If the selection is not in a list, wraps it in the specified list type.
+ * If it's in the same list type, lifts the list items out.
+ * If it's in a different list type, converts to the new list type.
+ *
+ * @param listNodeName - The name of the list node type (e.g., 'bulletList', 'orderedList')
+ * @param listItemNodeName - The name of the list item node type (usually 'listItem')
+ * @param attributes - Optional attributes for the list node
+ */
+export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: string, attributes?: Attrs]> =
+  (listNodeName: string, listItemNodeName: string, attributes?: Attrs) =>
+  ({ state, dispatch }) => {
+    const listType = state.schema.nodes[listNodeName];
+    const listItemType = state.schema.nodes[listItemNodeName];
+
+    if (!listType || !listItemType) {
+      return false;
+    }
+
+    // Check if we're inside a list of the target type
+    const { $from, $to } = state.selection;
+    const range = $from.blockRange($to);
+
+    if (!range) {
+      return false;
+    }
+
+    // Find if we're already in a list
+    let parentList: { type: typeof listType; pos: number } | null = null;
+
+    for (let depth = range.depth; depth >= 0; depth--) {
+      const node = $from.node(depth);
+      if (node.type === listType) {
+        parentList = { type: node.type, pos: $from.before(depth) };
+        break;
+      }
+      // Check if we're in any list type
+      if (node.type.spec.group?.includes('list')) {
+        parentList = { type: node.type, pos: $from.before(depth) };
+        break;
+      }
+    }
+
+    // If we're in the same list type, lift the items out
+    if (parentList?.type === listType) {
+      return liftListItem(listItemType)(state, dispatch);
+    }
+
+    // If we're in a different list type, we need to convert
+    // For now, just wrap - converting between list types is complex
+    // and will be handled by lifting then wrapping
+    if (parentList && parentList.type !== listType) {
+      // First lift out of current list, then wrap in new list
+      // This is a simplified approach - a full implementation would
+      // preserve the list structure better
+      const lifted = liftListItem(listItemType)(state, dispatch ? undefined : dispatch);
+      if (lifted && dispatch) {
+        // After lifting, wrap in new list type
+        return wrapInList(listType, attributes)(state, dispatch);
+      }
+      return lifted;
+    }
+
+    // Not in a list, wrap in the target list type
+    return wrapInList(listType, attributes)(state, dispatch);
+  };
+
+// ============================================================================
+// Insert Content Command
+// ============================================================================
+
+/**
+ * InsertContent command - inserts content at the current selection
+ *
+ * @param content - The content to insert (JSON object, array, or HTML string)
+ */
+export const insertContent: CommandSpec<[content: Content]> =
+  (content: Content) =>
+  ({ state, tr, dispatch }) => {
+    const { schema } = state;
+    const { from, to } = tr.selection;
+
+    // Parse content based on type
+    let fragment: Fragment;
+
+    if (typeof content === 'string') {
+      // HTML string - parse using DOMParser
+      if (typeof window === 'undefined') {
+        return false; // Can't parse HTML in SSR without DOM
+      }
+
+      const parser = ProseMirrorDOMParser.fromSchema(schema);
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = content;
+      const parsed = parser.parse(wrapper);
+      fragment = parsed.content;
+    } else if (content && typeof content === 'object') {
+      // JSON content
+      if (Array.isArray(content)) {
+        // Array of nodes
+        const nodes = content.map(item => schema.nodeFromJSON(item));
+        fragment = Fragment.from(nodes);
+      } else if ('type' in content) {
+        // Single node or document
+        const node = schema.nodeFromJSON(content);
+        // If it's a doc, use its content; otherwise wrap in fragment
+        fragment = node.type.name === 'doc' ? node.content : Fragment.from(node);
+      } else {
+        return false;
+      }
+    } else {
+      return false;
+    }
+
+    if (!dispatch) {
+      return true;
+    }
+
+    // Insert the content
+    tr.replaceRange(from, to, new Slice(fragment, 0, 0));
+    dispatch(tr);
+    return true;
+  };
+
+// ============================================================================
+// Selection Commands
+// ============================================================================
+
+/**
+ * SelectNodeBackward command - selects the node before the cursor
+ *
+ * When the cursor is at the start of a textblock, this selects the node before it.
+ */
+export const selectNodeBackward: CommandSpec =
+  () =>
+  ({ state, dispatch }) => {
+    return pmSelectNodeBackward(state, dispatch);
+  };
+
 /**
  * All built-in commands as RawCommands
  * These are merged with extension commands in CommandManager
@@ -271,4 +644,22 @@ export const builtInCommands: RawCommands = {
   insertText,
   deleteSelection,
   selectAll,
+  // Mark commands
+  toggleMark,
+  setMark,
+  unsetMark,
+  // Block commands
+  setBlockType,
+  toggleBlockType,
+  // Wrap commands
+  wrapIn,
+  toggleWrap,
+  // Lift command
+  lift,
+  // List commands
+  toggleList,
+  // Insert commands
+  insertContent,
+  // Selection commands
+  selectNodeBackward,
 } as RawCommands;

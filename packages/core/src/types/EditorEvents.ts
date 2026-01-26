@@ -86,6 +86,17 @@ export interface DeleteEventProps {
 }
 
 /**
+ * Props passed to error event handler (2.7: Extension Error Isolation)
+ */
+export interface ErrorEventProps {
+  editor: EditorInstance;
+  /** The error that was thrown */
+  error: Error;
+  /** Context describing where the error occurred (e.g., 'Bold.onUpdate', 'History.addProseMirrorPlugins') */
+  context: string;
+}
+
+/**
  * All editor events with their payload types
  * Used by EventEmitter for type-safe event handling
  */
@@ -131,6 +142,9 @@ export interface EditorEvents {
 
   /** Fired when content is deleted */
   delete: DeleteEventProps;
+
+  /** Fired when an extension throws an error (2.7: Extension Error Isolation) */
+  error: ErrorEventProps;
 }
 
 /**

@@ -10,6 +10,24 @@ export {
   insertText,
   deleteSelection,
   selectAll,
+  // Mark commands
+  toggleMark,
+  setMark,
+  unsetMark,
+  // Block commands
+  setBlockType,
+  toggleBlockType,
+  // Wrap commands
+  wrapIn,
+  toggleWrap,
+  // Lift command
+  lift,
+  // List commands
+  toggleList,
+  // Insert commands
+  insertContent,
+  // Selection commands
+  selectNodeBackward,
   type SetContentOptions,
   type ClearContentOptions,
 } from './builtIn.js';

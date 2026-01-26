@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Schema } from 'prosemirror-model';
+import { TextSelection } from 'prosemirror-state';
 import { Editor } from './Editor.js';
 import type { EditorOptions } from './types/index.js';
 
@@ -350,6 +351,83 @@ describe('Editor', () => {
       editor.setContent('<p>New content</p>');
 
       expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('emits mount event after view is attached', () => {
+      const onMount = vi.fn();
+      const element = document.createElement('div');
+      document.body.appendChild(element);
+
+      editor = new Editor({
+        schema: testSchema,
+        element,
+        onMount,
+      });
+
+      expect(onMount).toHaveBeenCalledTimes(1);
+      expect(onMount).toHaveBeenCalledWith({ editor, view: editor.view });
+      element.remove();
+    });
+
+    it('emits selectionUpdate event when selection changes', () => {
+      const onSelectionUpdate = vi.fn();
+      const element = document.createElement('div');
+      document.body.appendChild(element);
+
+      editor = new Editor({
+        schema: testSchema,
+        element,
+        content: '<p>Hello world</p>',
+        onSelectionUpdate,
+      });
+
+      // Change selection without changing content
+      const { state, view } = editor;
+      const tr = state.tr.setSelection(
+        TextSelection.create(state.doc, 3)
+      );
+      view.dispatch(tr);
+
+      expect(onSelectionUpdate).toHaveBeenCalled();
+      element.remove();
+    });
+
+    it('emits focus event when editor receives focus', () => {
+      const onFocus = vi.fn();
+      const element = document.createElement('div');
+      document.body.appendChild(element);
+
+      editor = new Editor({
+        schema: testSchema,
+        element,
+        onFocus,
+      });
+
+      // Simulate focus event
+      const focusEvent = new FocusEvent('focus');
+      editor.view.dom.dispatchEvent(focusEvent);
+
+      expect(onFocus).toHaveBeenCalled();
+      element.remove();
+    });
+
+    it('emits blur event when editor loses focus', () => {
+      const onBlur = vi.fn();
+      const element = document.createElement('div');
+      document.body.appendChild(element);
+
+      editor = new Editor({
+        schema: testSchema,
+        element,
+        onBlur,
+      });
+
+      // Simulate blur event
+      const blurEvent = new FocusEvent('blur');
+      editor.view.dom.dispatchEvent(blurEvent);
+
+      expect(onBlur).toHaveBeenCalled();
+      element.remove();
     });
   });
 
