@@ -62,12 +62,10 @@ export class CommandManager {
    * Cached after first access
    */
   get rawCommands(): RawCommands {
-    if (!this._rawCommands) {
-      this._rawCommands = {
-        ...builtInCommands,
-        ...this.editor.extensionManager.commands,
-      };
-    }
+    this._rawCommands ??= {
+      ...builtInCommands,
+      ...this.editor.extensionManager.commands,
+    };
     return this._rawCommands;
   }
 
@@ -103,7 +101,6 @@ export class CommandManager {
       get: (_, name: string) => {
         const rawCommand = rawCommands[name];
         if (!rawCommand) {
-          console.warn(`Command "${name}" not found`);
           return () => false;
         }
 
@@ -116,7 +113,7 @@ export class CommandManager {
           const tr = editor.state.tr;
 
           // Dispatch function that actually dispatches to view
-          const dispatch = (transaction: Transaction) => {
+          const dispatch = (transaction: Transaction): void => {
             editor.view.dispatch(transaction);
           };
 

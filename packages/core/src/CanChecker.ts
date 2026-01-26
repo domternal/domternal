@@ -15,7 +15,7 @@
  *   // Both commands can be executed
  * }
  */
-import type { Transaction } from 'prosemirror-state';
+import type { EditorState, Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import type {
   CommandProps,
@@ -32,6 +32,7 @@ import type {
  */
 export interface CanCheckerEditor {
   readonly view: EditorView;
+  readonly state: EditorState;
   readonly isDestroyed: boolean;
 }
 
@@ -67,7 +68,7 @@ export class CanChecker {
    * dispatch is undefined to indicate dry-run mode
    */
   private buildCommandProps(tr: Transaction): CommandProps {
-    const { editor, rawCommands } = this;
+    const { editor } = this;
     const state = editor.view.state;
 
     return {
@@ -106,14 +107,13 @@ export class CanChecker {
    * Each method returns boolean indicating if command can execute
    */
   proxy(): CanCommands {
-    const self = this;
     const { editor, rawCommands } = this;
 
     return new Proxy({} as CanCommands, {
-      get(_, name: string) {
+      get: (_, name: string) => {
         // Handle chain() method
         if (name === 'chain') {
-          return () => self.chainProxy();
+          return () => this.chainProxy();
         }
 
         // Handle dynamic commands
@@ -128,7 +128,7 @@ export class CanChecker {
           }
 
           const tr = editor.view.state.tr;
-          const props = self.buildCommandProps(tr);
+          const props = this.buildCommandProps(tr);
           return (rawCommand as (...a: unknown[]) => Command)(...args)(props);
         };
       },
@@ -140,13 +140,12 @@ export class CanChecker {
    * Tracks if all commands in chain can execute
    */
   chainProxy(): CanChainedCommands {
-    const self = this;
     const { editor, rawCommands } = this;
     let allSucceeded = true;
     const tr = editor.view.state.tr;
 
     const chainProxy: CanChainedCommands = new Proxy({} as CanChainedCommands, {
-      get(_, name: string) {
+      get: (_, name: string) => {
         // Handle run() - returns accumulated result
         if (name === 'run') {
           return () => allSucceeded;
@@ -167,7 +166,7 @@ export class CanChecker {
             return chainProxy;
           }
 
-          const props = self.buildCommandProps(tr);
+          const props = this.buildCommandProps(tr);
           const result = (rawCommand as (...a: unknown[]) => Command)(...args)(props);
           if (!result) {
             allSucceeded = false;

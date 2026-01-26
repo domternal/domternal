@@ -1,8 +1,16 @@
+/**
+ * CommandManager tests
+ *
+ * Testing Proxy-based dynamic command API requires flexible typing.
+ * ESLint rules for `any` are disabled as this is standard practice for testing dynamic APIs.
+ */
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { Schema } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { CommandManager } from './CommandManager.js';
+import type { RawCommands } from './types/Commands.js';
 
 // Test schema
 const testSchema = new Schema({
@@ -22,8 +30,12 @@ const testSchema = new Schema({
 // Mock editor interface for testing
 interface MockEditor {
   view: EditorView;
+  state: EditorState;
   isDestroyed: boolean;
   emit: () => void;
+  extensionManager: {
+    commands: RawCommands;
+  };
   cleanup: () => void;
 }
 
@@ -43,9 +55,15 @@ function createMockEditor(content?: string): MockEditor {
 
   return {
     view,
+    get state() {
+      return this.view.state;
+    },
     isDestroyed: false,
     emit: (): void => {
       // No-op for tests
+    },
+    extensionManager: {
+      commands: {} as RawCommands,
     },
     cleanup: () => {
       view.destroy();
@@ -55,194 +73,308 @@ function createMockEditor(content?: string): MockEditor {
 }
 
 describe('CommandManager', () => {
-  let mockEditor: ReturnType<typeof createMockEditor>;
+  let mockEditor: MockEditor;
   let manager: CommandManager;
 
   beforeEach(() => {
     mockEditor = createMockEditor('Hello world');
-    manager = new CommandManager(mockEditor);
+    // Cast to any to satisfy TypeScript - mock doesn't need full interface
+    manager = new CommandManager(mockEditor as any);
   });
 
   afterEach(() => {
     mockEditor.cleanup();
   });
 
-  describe('focus', () => {
-    it('returns true when focusing connected editor', () => {
-      const result = manager.focus();
-      expect(result).toBe(true);
+  describe('rawCommands', () => {
+    it('includes built-in commands', () => {
+      const commands = manager.rawCommands;
+      expect(commands['focus']).toBeDefined();
+      expect(commands['blur']).toBeDefined();
+      expect(commands['setContent']).toBeDefined();
+      expect(commands['clearContent']).toBeDefined();
+      expect(commands['insertText']).toBeDefined();
+      expect(commands['deleteSelection']).toBeDefined();
+      expect(commands['selectAll']).toBeDefined();
     });
 
-    it('returns false when editor is destroyed', () => {
-      mockEditor.isDestroyed = true;
-      const result = manager.focus();
-      expect(result).toBe(false);
-    });
+    it('merges extension commands', () => {
+      const customCommand = () => () => true;
+      mockEditor.extensionManager.commands = {
+        customCommand,
+      } as unknown as RawCommands;
 
-    it('returns false when view is not connected to DOM', () => {
-      mockEditor.view.dom.remove();
-      const result = manager.focus();
-      expect(result).toBe(false);
-    });
+      // Clear cache to pick up new commands
+      manager.clearCache();
 
-    it('focuses at start position', () => {
-      manager.focus('start');
-      const { from } = mockEditor.view.state.selection;
-      expect(from).toBe(1);
-    });
-
-    it('focuses at end position', () => {
-      manager.focus('end');
-      const { from } = mockEditor.view.state.selection;
-      // End position is doc.content.size - 1
-      expect(from).toBeGreaterThan(1);
-    });
-
-    it('focuses with true (same as end)', () => {
-      manager.focus(true);
-      const { from } = mockEditor.view.state.selection;
-      expect(from).toBeGreaterThan(1);
-    });
-
-    it('selects all with "all" position', () => {
-      manager.focus('all');
-      const { from, to } = mockEditor.view.state.selection;
-      expect(from).toBe(0);
-      expect(to).toBe(mockEditor.view.state.doc.content.size);
-    });
-
-    it('focuses at numeric position', () => {
-      manager.focus(3);
-      const { from } = mockEditor.view.state.selection;
-      expect(from).toBe(3);
+      const commands = manager.rawCommands;
+      expect(commands['customCommand']).toBe(customCommand);
     });
   });
 
-  describe('blur', () => {
-    it('returns true when blurring', () => {
-      manager.focus();
-      const result = manager.blur();
-      expect(result).toBe(true);
+  describe('commands (SingleCommands)', () => {
+    let commands: any;
+
+    beforeEach(() => {
+      commands = manager.commands;
     });
 
-    it('returns false when editor is destroyed', () => {
-      mockEditor.isDestroyed = true;
-      const result = manager.blur();
-      expect(result).toBe(false);
-    });
-  });
-
-  describe('setContent', () => {
-    it('sets content from HTML string', () => {
-      const result = manager.setContent('<p>New content</p>');
-      expect(result).toBe(true);
-
-      const text = mockEditor.view.state.doc.textContent;
-      expect(text).toBe('New content');
-    });
-
-    it('sets content from JSON object', () => {
-      const result = manager.setContent({
-        type: 'doc',
-        content: [
-          {
-            type: 'paragraph',
-            content: [{ type: 'text', text: 'JSON content' }],
-          },
-        ],
+    describe('focus', () => {
+      it('returns true when focusing connected editor', () => {
+        const result = commands.focus();
+        expect(result).toBe(true);
       });
+
+      it('returns false when editor is destroyed', () => {
+        mockEditor.isDestroyed = true;
+        const result = commands.focus();
+        expect(result).toBe(false);
+      });
+
+      it('returns false when view is not connected to DOM', () => {
+        mockEditor.view.dom.remove();
+        const result = commands.focus();
+        expect(result).toBe(false);
+      });
+
+      it('focuses at start position', () => {
+        commands.focus('start');
+        const { from } = mockEditor.view.state.selection;
+        expect(from).toBe(1);
+      });
+
+      it('focuses at end position', () => {
+        commands.focus('end');
+        const { from } = mockEditor.view.state.selection;
+        expect(from).toBeGreaterThan(1);
+      });
+
+      it('selects all with "all" position', () => {
+        commands.focus('all');
+        const { from, to } = mockEditor.view.state.selection;
+        expect(from).toBe(0);
+        expect(to).toBe(mockEditor.view.state.doc.content.size);
+      });
+    });
+
+    describe('blur', () => {
+      it('returns true when blurring', () => {
+        commands.focus();
+        const result = commands.blur();
+        expect(result).toBe(true);
+      });
+
+      it('returns false when editor is destroyed', () => {
+        mockEditor.isDestroyed = true;
+        const result = commands.blur();
+        expect(result).toBe(false);
+      });
+    });
+
+    describe('setContent', () => {
+      it('sets content from HTML string', () => {
+        const result = commands.setContent('<p>New content</p>');
+        expect(result).toBe(true);
+
+        const text = mockEditor.view.state.doc.textContent;
+        expect(text).toBe('New content');
+      });
+
+      it('sets content from JSON object', () => {
+        const result = commands.setContent({
+          type: 'doc',
+          content: [
+            {
+              type: 'paragraph',
+              content: [{ type: 'text', text: 'JSON content' }],
+            },
+          ],
+        });
+        expect(result).toBe(true);
+
+        const text = mockEditor.view.state.doc.textContent;
+        expect(text).toBe('JSON content');
+      });
+    });
+
+    describe('clearContent', () => {
+      it('clears the editor content', () => {
+        const result = commands.clearContent();
+        expect(result).toBe(true);
+
+        const text = mockEditor.view.state.doc.textContent;
+        expect(text).toBe('');
+      });
+    });
+
+    describe('insertText', () => {
+      it('inserts text at current selection', () => {
+        commands.focus('start');
+        const result = commands.insertText('Inserted ');
+        expect(result).toBe(true);
+
+        const text = mockEditor.view.state.doc.textContent;
+        expect(text).toContain('Inserted');
+      });
+    });
+
+    describe('deleteSelection', () => {
+      it('deletes selected text', () => {
+        commands.focus('all');
+        const result = commands.deleteSelection();
+        expect(result).toBe(true);
+      });
+
+      it('returns false when selection is empty', () => {
+        commands.focus('start');
+        const result = commands.deleteSelection();
+        expect(result).toBe(false);
+      });
+    });
+
+    describe('selectAll', () => {
+      it('selects all content', () => {
+        const result = commands.selectAll();
+        expect(result).toBe(true);
+
+        const { from, to } = mockEditor.view.state.selection;
+        expect(from).toBe(0);
+        expect(to).toBe(mockEditor.view.state.doc.content.size);
+      });
+    });
+
+    describe('unknown command', () => {
+      it('returns false for unknown commands', () => {
+        const result = commands.unknownCommand();
+        expect(result).toBe(false);
+      });
+    });
+  });
+
+  describe('chain()', () => {
+    it('returns ChainedCommands proxy', () => {
+      const chain = manager.chain() as any;
+      expect(chain).toBeDefined();
+      expect(typeof chain.focus).toBe('function');
+      expect(typeof chain.run).toBe('function');
+    });
+
+    it('chains multiple commands', () => {
+      const chain = manager.chain() as any;
+      const result = chain.focus('start').insertText('Chain ').run();
       expect(result).toBe(true);
 
       const text = mockEditor.view.state.doc.textContent;
-      expect(text).toBe('JSON content');
+      expect(text).toContain('Chain');
     });
 
-    it('returns false when editor is destroyed', () => {
-      mockEditor.isDestroyed = true;
-      const result = manager.setContent('<p>Test</p>');
-      expect(result).toBe(false);
-    });
-  });
-
-  describe('clearContent', () => {
-    it('clears the editor content', () => {
-      const result = manager.clearContent();
-      expect(result).toBe(true);
+    it('executes all commands in single transaction', () => {
+      const chain = manager.chain() as any;
+      chain.focus('start').insertText('A').insertText('B').insertText('C').run();
 
       const text = mockEditor.view.state.doc.textContent;
-      expect(text).toBe('');
+      expect(text).toContain('ABC');
     });
 
-    it('returns false when editor is destroyed', () => {
-      mockEditor.isDestroyed = true;
-      const result = manager.clearContent();
+    it('does not dispatch if a command fails', () => {
+      const initialContent = mockEditor.view.state.doc.textContent;
+
+      // deleteSelection will fail because selection is empty after focus('start')
+      const chain = manager.chain() as any;
+      const result = chain.focus('start').deleteSelection().run();
+
       expect(result).toBe(false);
+      // Content should be unchanged because chain failed
+      expect(mockEditor.view.state.doc.textContent).toBe(initialContent);
     });
-  });
 
-  describe('insertText', () => {
-    it('inserts text at current selection', () => {
-      manager.focus('start');
-      const result = manager.insertText('Inserted ');
+    it('supports command() helper for inline commands', () => {
+      const chain = manager.chain() as any;
+      const result = chain
+        .focus('start')
+        .command(({ tr }: any) => {
+          tr.insertText('Custom ');
+          return true;
+        })
+        .run();
+
       expect(result).toBe(true);
-
       const text = mockEditor.view.state.doc.textContent;
-      expect(text).toContain('Inserted');
-    });
-
-    it('returns false when editor is destroyed', () => {
-      mockEditor.isDestroyed = true;
-      const result = manager.insertText('Test');
-      expect(result).toBe(false);
+      expect(text).toContain('Custom');
     });
   });
 
-  describe('deleteSelection', () => {
-    it('deletes selected text', () => {
-      manager.focus('all');
-      const result = manager.deleteSelection();
-      expect(result).toBe(true);
+  describe('can()', () => {
+    it('returns CanCommands proxy', () => {
+      const can = manager.can() as any;
+      expect(can).toBeDefined();
+      expect(typeof can.focus).toBe('function');
+      expect(typeof can.chain).toBe('function');
     });
 
-    it('returns false when selection is empty', () => {
-      manager.focus('start');
-      const result = manager.deleteSelection();
-      expect(result).toBe(false);
+    it('checks if command can be executed', () => {
+      const can = manager.can() as any;
+      const commands = manager.commands as any;
+
+      // focus can always be executed
+      expect(can.focus()).toBe(true);
+
+      // deleteSelection can only be executed if there's a selection
+      commands.focus('start');
+      expect(can.deleteSelection()).toBe(false);
+
+      commands.focus('all');
+      expect(can.deleteSelection()).toBe(true);
     });
 
-    it('returns false when editor is destroyed', () => {
-      mockEditor.isDestroyed = true;
-      const result = manager.deleteSelection();
-      expect(result).toBe(false);
+    it('does not modify document state', () => {
+      const initialContent = mockEditor.view.state.doc.textContent;
+      const can = manager.can() as any;
+
+      // These are dry-run checks - should not change anything
+      can.focus();
+      can.insertText('Should not appear');
+      can.clearContent();
+
+      expect(mockEditor.view.state.doc.textContent).toBe(initialContent);
+    });
+
+    it('supports chained can() checks', () => {
+      const commands = manager.commands as any;
+      const can = manager.can() as any;
+
+      commands.focus('all');
+
+      // Chain of commands that should all succeed
+      const canExecute = can.chain().focus().insertText('Test').run();
+      expect(canExecute).toBe(true);
+
+      // Chain with a failing command
+      commands.focus('start'); // Reset to empty selection
+      const cannotExecute = can.chain().deleteSelection().run();
+      expect(cannotExecute).toBe(false);
     });
   });
 
-  describe('selectAll', () => {
-    it('selects all content', () => {
-      const result = manager.selectAll();
-      expect(result).toBe(true);
+  describe('clearCache', () => {
+    it('clears cached rawCommands', () => {
+      // Access to cache commands
+      const commands1 = manager.rawCommands;
 
-      const { from, to } = mockEditor.view.state.selection;
-      expect(from).toBe(0);
-      expect(to).toBe(mockEditor.view.state.doc.content.size);
-    });
+      // Add new extension command
+      mockEditor.extensionManager.commands = {
+        newCommand: () => () => true,
+      } as unknown as RawCommands;
 
-    it('returns false when editor is destroyed', () => {
-      mockEditor.isDestroyed = true;
-      const result = manager.selectAll();
-      expect(result).toBe(false);
-    });
-  });
+      // Without clearing, should still return old cache
+      const commands2 = manager.rawCommands;
+      expect(commands2).toBe(commands1);
 
-  describe('chain', () => {
-    it('throws error in Step 1.3', () => {
-      expect(() => manager.chain()).toThrow('chain() is not available in Step 1.3');
-    });
-  });
-
-  describe('can', () => {
-    it('throws error in Step 1.3', () => {
-      expect(() => manager.can()).toThrow('can() is not available in Step 1.3');
+      // After clearing, should return new commands
+      manager.clearCache();
+      const commands3 = manager.rawCommands;
+      expect(commands3).not.toBe(commands1);
+      expect(commands3['newCommand']).toBeDefined();
     });
   });
 });

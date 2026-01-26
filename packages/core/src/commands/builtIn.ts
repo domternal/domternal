@@ -118,7 +118,7 @@ export const focus: CommandSpec<[position?: FocusPosition]> =
 /**
  * Blur command - removes focus from the editor
  */
-export const blur: CommandSpec<[]> =
+export const blur: CommandSpec =
   () =>
   ({ editor, dispatch }) => {
     const view = editor.view as EditorView;
@@ -203,8 +203,9 @@ export const clearContent: CommandSpec<[options?: ClearContentOptions]> =
  */
 export const insertText: CommandSpec<[text: string]> =
   (text: string) =>
-  ({ state, tr, dispatch }) => {
-    const { selection } = state;
+  ({ tr, dispatch }) => {
+    // Use tr.selection for chain compatibility - reflects current position
+    const { from, to } = tr.selection;
 
     // In dry-run mode, check if text can be inserted
     if (!dispatch) {
@@ -212,7 +213,7 @@ export const insertText: CommandSpec<[text: string]> =
       return true;
     }
 
-    tr.insertText(text, selection.from, selection.to);
+    tr.insertText(text, from, to);
     dispatch(tr);
     return true;
   };
@@ -220,10 +221,11 @@ export const insertText: CommandSpec<[text: string]> =
 /**
  * DeleteSelection command - deletes the current selection
  */
-export const deleteSelection: CommandSpec<[]> =
+export const deleteSelection: CommandSpec =
   () =>
-  ({ state, tr, dispatch }) => {
-    const { selection } = state;
+  ({ tr, dispatch }) => {
+    // Use tr.selection for chain compatibility
+    const { selection } = tr;
 
     // Can only delete if there's a selection range
     if (selection.empty) {
@@ -243,7 +245,7 @@ export const deleteSelection: CommandSpec<[]> =
 /**
  * SelectAll command - selects all content in the editor
  */
-export const selectAll: CommandSpec<[]> =
+export const selectAll: CommandSpec =
   () =>
   ({ state, tr, dispatch }) => {
     // In dry-run mode, always possible

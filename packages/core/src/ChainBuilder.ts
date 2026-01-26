@@ -11,7 +11,7 @@
  *   .toggleBold()
  *   .run();
  */
-import type { Transaction } from 'prosemirror-state';
+import type { EditorState, Transaction } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import type {
   CommandProps,
@@ -27,6 +27,7 @@ import type {
  */
 export interface ChainBuilderEditor {
   readonly view: EditorView;
+  readonly state: EditorState;
   readonly isDestroyed: boolean;
 }
 
@@ -63,18 +64,18 @@ export class ChainBuilder {
    * In chain mode, dispatch adds to shared transaction
    */
   private buildCommandProps(): CommandProps {
-    const { editor, tr, rawCommands } = this;
+    const { editor, tr } = this;
     const state = editor.view.state;
 
     // Create dispatch that accumulates on shared transaction
-    const dispatch = (transaction: Transaction) => {
+    const dispatch = (transaction: Transaction): void => {
       // In chain mode, we don't dispatch immediately
       // The transaction accumulates steps
       // We only care that the command modified the transaction
       if (transaction !== tr) {
         // If command created a new transaction, copy its steps
-        for (let i = 0; i < transaction.steps.length; i++) {
-          tr.step(transaction.steps[i]);
+        for (const step of transaction.steps) {
+          tr.step(step);
         }
       }
     };
@@ -100,7 +101,6 @@ export class ChainBuilder {
       get: (_, name: string) => {
         const rawCommand = rawCommands[name];
         if (!rawCommand) {
-          console.warn(`Command "${name}" not found`);
           return () => false;
         }
         return (...args: unknown[]) => {
@@ -155,7 +155,7 @@ export class ChainBuilder {
     let allSucceeded = true;
 
     const canChainProxy = new Proxy({} as ChainedCommands, {
-      get: (target, name: string) => {
+      get: (_, name: string) => {
         if (name === 'run') {
           return () => allSucceeded;
         }
@@ -243,37 +243,35 @@ export class ChainBuilder {
    * Each method returns `this` for chaining
    */
   proxy(): ChainedCommands {
-    const self = this;
     const { rawCommands } = this;
 
     return new Proxy({} as ChainedCommands, {
-      get(_, name: string) {
+      get: (_, name: string) => {
         // Handle special methods
         if (name === 'run') {
-          return () => self.run();
+          return () => this.run();
         }
 
         if (name === 'command') {
           return (fn: (props: CommandProps) => boolean) => {
-            self.command(fn);
-            return self.proxy();
+            this.command(fn);
+            return this.proxy();
           };
         }
 
         // Handle dynamic commands
         const rawCommand = rawCommands[name];
         if (!rawCommand) {
-          console.warn(`Command "${name}" not found`);
-          return () => self.proxy();
+          return () => this.proxy();
         }
 
         return (...args: unknown[]) => {
-          const props = self.buildCommandProps();
+          const props = this.buildCommandProps();
           const result = (rawCommand as (...a: unknown[]) => Command)(...args)(props);
           if (!result) {
-            self.shouldDispatch = false;
+            this.shouldDispatch = false;
           }
-          return self.proxy();
+          return this.proxy();
         };
       },
     });
