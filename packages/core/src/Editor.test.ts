@@ -142,9 +142,9 @@ describe('Editor', () => {
       expect(editor.isDestroyed).toBe(true);
     });
 
-    it('commands returns CommandManager', () => {
+    it('commands returns SingleCommands', () => {
       expect(editor.commands).toBeDefined();
-      expect(typeof editor.commands.focus).toBe('function');
+      expect(typeof editor.commands['focus']).toBe('function');
     });
   });
 
