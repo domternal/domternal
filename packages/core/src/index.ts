@@ -112,3 +112,11 @@ export {
   deleteSelection,
   selectAll,
 } from './commands/index.js';
+
+// === Nodes ===
+export {
+  Document,
+  Text,
+  Paragraph,
+  type ParagraphOptions,
+} from './nodes/index.js';
