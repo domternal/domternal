@@ -6,7 +6,7 @@
  */
 import { TextSelection, AllSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { toggleMark as pmToggleMark, setBlockType as pmSetBlockType } from 'prosemirror-commands';
+import { toggleMark as pmToggleMark, setBlockType as pmSetBlockType, wrapIn as pmWrapIn, lift as pmLift } from 'prosemirror-commands';
 import type { Attrs } from 'prosemirror-model';
 import type { CommandSpec, RawCommands } from '../types/Commands.js';
 import type { FocusPosition, Content } from '../types/index.js';
@@ -382,6 +382,94 @@ export const setBlockType: CommandSpec<[nodeName: string, attributes?: Attrs]> =
   };
 
 /**
+ * ToggleBlockType command - toggles between a block type and a default type
+ *
+ * If the current block is of the target type, changes it to the default type.
+ * If the current block is not of the target type, changes it to the target type.
+ *
+ * @param nodeName - The name of the node type to toggle to
+ * @param defaultNodeName - The name of the default node type (usually 'paragraph')
+ * @param attributes - Optional attributes for the node
+ */
+export const toggleBlockType: CommandSpec<[nodeName: string, defaultNodeName: string, attributes?: Attrs]> =
+  (nodeName: string, defaultNodeName: string, attributes?: Attrs) =>
+  ({ state, dispatch }) => {
+    const nodeType = state.schema.nodes[nodeName];
+    const defaultNodeType = state.schema.nodes[defaultNodeName];
+
+    if (!nodeType || !defaultNodeType) {
+      return false;
+    }
+
+    // Check if the current block is of the target type
+    const { $from } = state.selection;
+    const currentNode = $from.parent;
+
+    // If current block matches target type, toggle to default
+    if (currentNode.type === nodeType) {
+      return pmSetBlockType(defaultNodeType)(state, dispatch);
+    }
+
+    // Otherwise, set to target type
+    return pmSetBlockType(nodeType, attributes)(state, dispatch);
+  };
+
+/**
+ * WrapIn command - wraps the selection in a node type
+ *
+ * @param nodeName - The name of the wrapping node type
+ * @param attributes - Optional attributes for the node
+ */
+export const wrapIn: CommandSpec<[nodeName: string, attributes?: Attrs]> =
+  (nodeName: string, attributes?: Attrs) =>
+  ({ state, dispatch }) => {
+    const nodeType = state.schema.nodes[nodeName];
+
+    if (!nodeType) {
+      return false;
+    }
+
+    return pmWrapIn(nodeType, attributes)(state, dispatch);
+  };
+
+/**
+ * ToggleWrap command - toggles wrapping of the selection in a node type
+ *
+ * If the selection is already wrapped in the node type, lifts it out.
+ * Otherwise, wraps the selection in the node type.
+ *
+ * @param nodeName - The name of the wrapping node type
+ * @param attributes - Optional attributes for the node
+ */
+export const toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]> =
+  (nodeName: string, attributes?: Attrs) =>
+  ({ state, dispatch }) => {
+    const nodeType = state.schema.nodes[nodeName];
+
+    if (!nodeType) {
+      return false;
+    }
+
+    // Check if we're already inside a node of this type
+    const { $from } = state.selection;
+    let isWrapped = false;
+
+    for (let depth = $from.depth; depth > 0; depth--) {
+      if ($from.node(depth).type === nodeType) {
+        isWrapped = true;
+        break;
+      }
+    }
+
+    // If wrapped, lift out; otherwise wrap
+    if (isWrapped) {
+      return pmLift(state, dispatch);
+    }
+
+    return pmWrapIn(nodeType, attributes)(state, dispatch);
+  };
+
+/**
  * All built-in commands as RawCommands
  * These are merged with extension commands in CommandManager
  */
@@ -399,4 +487,8 @@ export const builtInCommands: RawCommands = {
   unsetMark,
   // Block commands
   setBlockType,
+  toggleBlockType,
+  // Wrap commands
+  wrapIn,
+  toggleWrap,
 } as RawCommands;

@@ -16,6 +16,10 @@ export {
   unsetMark,
   // Block commands
   setBlockType,
+  toggleBlockType,
+  // Wrap commands
+  wrapIn,
+  toggleWrap,
   type SetContentOptions,
   type ClearContentOptions,
 } from './builtIn.js';
