@@ -207,6 +207,150 @@ export class Editor extends EventEmitter<EditorEvents> {
     return this._extensionManager.storage;
   }
 
+  // === Active State Methods ===
+
+  /**
+   * Checks if a node or mark is currently active
+   *
+   * For toolbar button states - returns true if:
+   * - For marks: the current selection has the mark applied
+   * - For nodes: the cursor is inside that node type
+   *
+   * @param nameOrAttributes - Extension name, or object with name and attributes
+   * @param attributes - Optional attributes to match (for node/mark specific states)
+   *
+   * @example
+   * editor.isActive('bold') // → true if bold mark is active
+   * editor.isActive('heading', { level: 2 }) // → true if in h2
+   * editor.isActive({ name: 'textAlign', attributes: { align: 'center' } })
+   */
+  isActive(
+    nameOrAttributes: string | { name: string; attributes?: Record<string, unknown> },
+    attributes?: Record<string, unknown>
+  ): boolean {
+    // Normalize arguments
+    const name = typeof nameOrAttributes === 'string' ? nameOrAttributes : nameOrAttributes.name;
+    const attrs = typeof nameOrAttributes === 'string' ? attributes : nameOrAttributes.attributes;
+
+    const { state } = this;
+    const { selection, schema } = state;
+    const { from, to, $from } = selection;
+
+    // Check if it's a mark
+    const markType = schema.marks[name];
+    if (markType) {
+      // For empty selection, check marks at cursor or stored marks
+      if (selection.empty) {
+        const storedMarks = state.storedMarks || $from.marks();
+        const hasMark = storedMarks.some(mark => mark.type === markType);
+        if (!hasMark) return false;
+
+        // Check attributes if specified
+        if (attrs) {
+          const mark = storedMarks.find(m => m.type === markType);
+          return mark ? this.matchAttributes(mark.attrs, attrs) : false;
+        }
+        return true;
+      }
+
+      // For range selection, check if entire range has the mark
+      let hasMark = true;
+      state.doc.nodesBetween(from, to, (node) => {
+        if (node.isText) {
+          const nodeMark = node.marks.find(m => m.type === markType);
+          if (!nodeMark) {
+            hasMark = false;
+            return false; // Stop iteration
+          }
+          // Check attributes if specified
+          if (attrs && !this.matchAttributes(nodeMark.attrs, attrs)) {
+            hasMark = false;
+            return false;
+          }
+        }
+        return true;
+      });
+      return hasMark;
+    }
+
+    // Check if it's a node
+    const nodeType = schema.nodes[name];
+    if (nodeType) {
+      // Check if any node in selection path matches
+      // For block nodes, check parents of selection
+      for (let depth = $from.depth; depth >= 0; depth--) {
+        const node = $from.node(depth);
+        if (node.type === nodeType) {
+          // Check attributes if specified
+          if (attrs) {
+            return this.matchAttributes(node.attrs, attrs);
+          }
+          return true;
+        }
+      }
+      return false;
+    }
+
+    return false;
+  }
+
+  /**
+   * Gets attributes of the currently active node or mark
+   *
+   * Returns empty object if the node/mark is not found or not active.
+   *
+   * @param name - Extension name (node or mark)
+   *
+   * @example
+   * editor.getAttributes('heading') // → { level: 2 }
+   * editor.getAttributes('link') // → { href: 'https://...', target: '_blank' }
+   */
+  getAttributes(name: string): Record<string, unknown> {
+    const { state } = this;
+    const { selection, schema } = state;
+    const { $from } = selection;
+
+    // Check if it's a mark
+    const markType = schema.marks[name];
+    if (markType) {
+      // Get marks at cursor position or stored marks
+      const marks = state.storedMarks || $from.marks();
+      const mark = marks.find(m => m.type === markType);
+      return mark ? { ...mark.attrs } : {};
+    }
+
+    // Check if it's a node
+    const nodeType = schema.nodes[name];
+    if (nodeType) {
+      // Find node in selection path
+      for (let depth = $from.depth; depth >= 0; depth--) {
+        const node = $from.node(depth);
+        if (node.type === nodeType) {
+          return { ...node.attrs };
+        }
+      }
+      return {};
+    }
+
+    return {};
+  }
+
+  /**
+   * Helper to match attributes
+   * Returns true if target contains all key/value pairs from source
+   */
+  private matchAttributes(
+    target: Record<string, unknown>,
+    source: Record<string, unknown>
+  ): boolean {
+    for (const [key, value] of Object.entries(source)) {
+      if (target[key] !== value) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   // === Content Methods ===
 
   /**

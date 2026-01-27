@@ -496,7 +496,7 @@ export const lift: CommandSpec =
  *
  * If the selection is not in a list, wraps it in the specified list type.
  * If it's in the same list type, lifts the list items out.
- * If it's in a different list type, converts to the new list type.
+ * If it's in a different list type, converts to the new list type in-place.
  *
  * @param listNodeName - The name of the list node type (e.g., 'bulletList', 'orderedList')
  * @param listItemNodeName - The name of the list item node type (usually 'listItem')
@@ -504,7 +504,7 @@ export const lift: CommandSpec =
  */
 export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: string, attributes?: Attrs]> =
   (listNodeName: string, listItemNodeName: string, attributes?: Attrs) =>
-  ({ state, dispatch }) => {
+  ({ state, tr, dispatch }) => {
     const listType = state.schema.nodes[listNodeName];
     const listItemType = state.schema.nodes[listItemNodeName];
 
@@ -512,51 +512,42 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
       return false;
     }
 
-    // Check if we're inside a list of the target type
-    const { $from, $to } = state.selection;
-    const range = $from.blockRange($to);
+    const { $from } = state.selection;
 
-    if (!range) {
-      return false;
-    }
+    // Find if we're already in a list and get details
+    let listDepth: number | null = null;
+    let currentListType: typeof listType | null = null;
 
-    // Find if we're already in a list
-    let parentList: { type: typeof listType; pos: number } | null = null;
-
-    for (let depth = range.depth; depth >= 0; depth--) {
+    for (let depth = $from.depth; depth >= 0; depth--) {
       const node = $from.node(depth);
-      if (node.type === listType) {
-        parentList = { type: node.type, pos: $from.before(depth) };
-        break;
-      }
-      // Check if we're in any list type
-      if (node.type.spec.group?.includes('list')) {
-        parentList = { type: node.type, pos: $from.before(depth) };
+      // Check if this node is the target list type or any kind of list
+      if (node.type === listType || node.type.spec.group?.includes('list')) {
+        listDepth = depth;
+        currentListType = node.type;
         break;
       }
     }
 
-    // If we're in the same list type, lift the items out
-    if (parentList?.type === listType) {
+    // Case 1: We're in the same list type → lift items out
+    if (currentListType === listType) {
       return liftListItem(listItemType)(state, dispatch);
     }
 
-    // If we're in a different list type, we need to convert
-    // For now, just wrap - converting between list types is complex
-    // and will be handled by lifting then wrapping
-    if (parentList && parentList.type !== listType) {
-      // First lift out of current list, then wrap in new list
-      // This is a simplified approach - a full implementation would
-      // preserve the list structure better
-      const lifted = liftListItem(listItemType)(state, dispatch ? undefined : dispatch);
-      if (lifted && dispatch) {
-        // After lifting, wrap in new list type
-        return wrapInList(listType, attributes)(state, dispatch);
+    // Case 2: We're in a different list type → convert by changing node type in-place
+    if (listDepth !== null && currentListType !== null && currentListType !== listType) {
+      const pos = $from.before(listDepth);
+
+      if (!dispatch) {
+        return true; // Can convert
       }
-      return lifted;
+
+      // Change the list node type in place, preserving content and structure
+      tr.setNodeMarkup(pos, listType, attributes);
+      dispatch(tr);
+      return true;
     }
 
-    // Not in a list, wrap in the target list type
+    // Case 3: Not in a list → wrap in the target list type
     return wrapInList(listType, attributes)(state, dispatch);
   };
 

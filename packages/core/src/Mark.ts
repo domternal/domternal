@@ -229,16 +229,14 @@ export class Mark<Options = unknown, Storage = unknown> extends Extension<
 
             // Get attrs from attribute parseHTML functions
             const parsedAttrs: Record<string, unknown> = { ...ruleAttrs };
-            if (attributeSpecs) {
+
+            // Only run attribute parseHTML for element-based rules
+            // For style-based rules (where node is a string), the rule.getAttrs
+            // already handles extracting values from the style string
+            if (attributeSpecs && typeof node !== 'string') {
               for (const [name, attrSpec] of Object.entries(attributeSpecs)) {
                 if (attrSpec.parseHTML) {
-                  // For marks, parseHTML might receive string (style value) or HTMLElement
-                  parsedAttrs[name] =
-                    typeof node === 'string'
-                      ? attrSpec.parseHTML(
-                          document.createElement('span') // fallback element for style parsing
-                        )
-                      : attrSpec.parseHTML(node);
+                  parsedAttrs[name] = attrSpec.parseHTML(node);
                 }
               }
             }
