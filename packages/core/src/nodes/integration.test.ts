@@ -390,4 +390,207 @@ describe('Node Integration', () => {
       expect(text).toContain('List item');
     });
   });
+
+  describe('Edge Cases', () => {
+    it('handles empty string content', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '',
+      });
+
+      const doc = editor.state.doc;
+      expect(doc.childCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it('handles null content', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: null,
+      });
+
+      const doc = editor.state.doc;
+      expect(doc.childCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it('handles undefined content', () => {
+      editor = new Editor({
+        extensions: allNodes,
+      });
+
+      const doc = editor.state.doc;
+      expect(doc.childCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it('handles whitespace-only content', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '   \n\t  ',
+      });
+
+      const doc = editor.state.doc;
+      expect(doc.childCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it('handles multiple consecutive horizontal rules', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<hr><hr><hr>',
+      });
+
+      const doc = editor.state.doc;
+      let hrCount = 0;
+      doc.forEach((node) => {
+        if (node.type.name === 'horizontalRule') {
+          hrCount++;
+        }
+      });
+
+      expect(hrCount).toBe(3);
+    });
+
+    it('handles deeply nested blockquotes', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: `
+          <blockquote>
+            <blockquote>
+              <blockquote>
+                <p>Deep quote</p>
+              </blockquote>
+            </blockquote>
+          </blockquote>
+        `,
+      });
+
+      let depth = 0;
+      let node = editor.state.doc.child(0);
+      while (node.type.name === 'blockquote') {
+        depth++;
+        node = node.child(0);
+      }
+
+      expect(depth).toBe(3);
+    });
+
+    it('handles mixed list types as siblings', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: `
+          <ul><li><p>Bullet 1</p></li></ul>
+          <ol><li><p>Number 1</p></li></ol>
+          <ul><li><p>Bullet 2</p></li></ul>
+        `,
+      });
+
+      const doc = editor.state.doc;
+      expect(doc.child(0).type.name).toBe('bulletList');
+      expect(doc.child(1).type.name).toBe('orderedList');
+      expect(doc.child(2).type.name).toBe('bulletList');
+    });
+
+    it('handles empty list items', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<ul><li><p></p></li></ul>',
+      });
+
+      const list = editor.state.doc.child(0);
+      const listItem = list.child(0);
+      const paragraph = listItem.child(0);
+
+      expect(paragraph.type.name).toBe('paragraph');
+      expect(paragraph.textContent).toBe('');
+    });
+
+    it('handles code block without language', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<pre><code>plain code</code></pre>',
+      });
+
+      const codeBlock = editor.state.doc.child(0);
+      expect(codeBlock.attrs['language']).toBeNull();
+      expect(codeBlock.textContent).toBe('plain code');
+    });
+
+    it('handles heading without content', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<h1></h1>',
+      });
+
+      const heading = editor.state.doc.child(0);
+      expect(heading.type.name).toBe('heading');
+      expect(heading.textContent).toBe('');
+    });
+  });
+
+  describe('XSS Protection', () => {
+    it('rejects javascript: URLs in images', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<img src="javascript:alert(1)" alt="XSS">',
+      });
+
+      const image = editor.state.doc.child(0);
+      // Image node should have null src due to XSS protection
+      expect(image.attrs['src']).toBeNull();
+    });
+
+    it('rejects data: URLs in images by default', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<img src="data:text/html,<script>alert(1)</script>" alt="XSS">',
+      });
+
+      const image = editor.state.doc.child(0);
+      expect(image.attrs['src']).toBeNull();
+    });
+
+    it('accepts valid https URLs in images', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<img src="https://example.com/valid.png" alt="Valid">',
+      });
+
+      const image = editor.state.doc.child(0);
+      expect(image.attrs['src']).toBe('https://example.com/valid.png');
+    });
+
+    it('accepts valid http URLs in images', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<img src="http://example.com/valid.png" alt="Valid">',
+      });
+
+      const image = editor.state.doc.child(0);
+      expect(image.attrs['src']).toBe('http://example.com/valid.png');
+    });
+  });
+
+  describe('Large Document', () => {
+    it('handles document with many paragraphs', () => {
+      const paragraphs = Array.from({ length: 100 }, (_, i) => `<p>Paragraph ${i + 1}</p>`).join('');
+
+      editor = new Editor({
+        extensions: allNodes,
+        content: paragraphs,
+      });
+
+      const doc = editor.state.doc;
+      expect(doc.childCount).toBe(100);
+    });
+
+    it('handles document with many list items', () => {
+      const items = Array.from({ length: 50 }, (_, i) => `<li><p>Item ${i + 1}</p></li>`).join('');
+
+      editor = new Editor({
+        extensions: allNodes,
+        content: `<ul>${items}</ul>`,
+      });
+
+      const list = editor.state.doc.child(0);
+      expect(list.childCount).toBe(50);
+    });
+  });
 });
