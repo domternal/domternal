@@ -121,4 +121,6 @@ export {
   type ParagraphOptions,
   Heading,
   type HeadingOptions,
+  Blockquote,
+  type BlockquoteOptions,
 } from './nodes/index.js';
