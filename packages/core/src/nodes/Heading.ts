@@ -32,7 +32,7 @@ export const Heading = Node.create<HeadingOptions>({
       level: {
         default: 1,
         parseHTML: (element: HTMLElement) => {
-          const match = element.tagName.match(/^H(\d)$/i);
+          const match = /^H(\d)$/i.exec(element.tagName);
           return match?.[1] ? parseInt(match[1], 10) : 1;
         },
         renderHTML: () => {
@@ -46,7 +46,7 @@ export const Heading = Node.create<HeadingOptions>({
   parseHTML() {
     const self = this as unknown as NodeClass<HeadingOptions>;
     return self.options.levels.map((level) => ({
-      tag: `h${level}`,
+      tag: `h${String(level)}`,
       attrs: { level },
     }));
   },
@@ -56,7 +56,7 @@ export const Heading = Node.create<HeadingOptions>({
     const level = node.attrs['level'] as number;
     // Ensure level is within allowed range
     const validLevel = self.options.levels.includes(level) ? level : self.options.levels[0];
-    return [`h${validLevel}`, { ...self.options.HTMLAttributes, ...HTMLAttributes }, 0];
+    return [`h${String(validLevel)}`, { ...self.options.HTMLAttributes, ...HTMLAttributes }, 0];
   },
 
   addCommands() {
@@ -90,7 +90,7 @@ export const Heading = Node.create<HeadingOptions>({
     const shortcuts: Record<string, () => boolean> = {};
 
     self.options.levels.forEach((level) => {
-      shortcuts[`Mod-Alt-${level}`] = () => {
+      shortcuts[`Mod-Alt-${String(level)}`] = () => {
         const editor = self.editor as { commands: Record<string, (attrs?: Record<string, unknown>) => boolean> } | null;
         return editor?.commands['toggleHeading']?.({ level }) ?? false;
       };
@@ -110,7 +110,7 @@ export const Heading = Node.create<HeadingOptions>({
     const maxLevel = Math.max(...self.options.levels);
     return [
       textblockTypeInputRule(
-        new RegExp(`^(#{1,${maxLevel}})\\s$`),
+        new RegExp(`^(#{1,${String(maxLevel)}})\\s$`),
         nodeType,
         (match) => {
           const hashes = match[1];

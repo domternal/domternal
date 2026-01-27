@@ -11,4 +11,5 @@ export { Heading, type HeadingOptions } from './Heading.js';
 export { Blockquote, type BlockquoteOptions } from './Blockquote.js';
 export { CodeBlock, type CodeBlockOptions } from './CodeBlock.js';
 export { BulletList, type BulletListOptions } from './BulletList.js';
+export { OrderedList, type OrderedListOptions } from './OrderedList.js';
 export { ListItem, type ListItemOptions } from './ListItem.js';

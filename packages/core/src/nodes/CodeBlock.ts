@@ -125,7 +125,7 @@ export const CodeBlock = Node.create<CodeBlockOptions>({
         /^```([a-z]*)?[\s\n]$/,
         nodeType,
         (match) => {
-          const language = match[1] || null;
+          const language = match[1] ?? null;
           return { language };
         }
       ),
