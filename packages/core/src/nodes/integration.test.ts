@@ -570,7 +570,7 @@ describe('Node Integration', () => {
 
   describe('Large Document', () => {
     it('handles document with many paragraphs', () => {
-      const paragraphs = Array.from({ length: 100 }, (_, i) => `<p>Paragraph ${i + 1}</p>`).join('');
+      const paragraphs = Array.from({ length: 100 }, (_, i) => `<p>Paragraph ${String(i + 1)}</p>`).join('');
 
       editor = new Editor({
         extensions: allNodes,
@@ -582,7 +582,7 @@ describe('Node Integration', () => {
     });
 
     it('handles document with many list items', () => {
-      const items = Array.from({ length: 50 }, (_, i) => `<li><p>Item ${i + 1}</p></li>`).join('');
+      const items = Array.from({ length: 50 }, (_, i) => `<li><p>Item ${String(i + 1)}</p></li>`).join('');
 
       editor = new Editor({
         extensions: allNodes,

@@ -5,7 +5,6 @@
  * Supports markdown-style input rules and keyboard shortcuts.
  */
 
-import type { Node as NodeClass } from '../Node.js';
 import { Node } from '../Node.js';
 import { wrappingInputRule } from 'prosemirror-inputrules';
 
@@ -31,35 +30,32 @@ export const BulletList = Node.create<BulletListOptions>({
   },
 
   renderHTML({ HTMLAttributes }) {
-    const self = this as unknown as NodeClass<BulletListOptions>;
-    return ['ul', { ...self.options.HTMLAttributes, ...HTMLAttributes }, 0];
+    return ['ul', { ...this.options.HTMLAttributes, ...HTMLAttributes }, 0];
   },
 
   addCommands() {
-    const self = this as unknown as NodeClass<BulletListOptions>;
+    const { name, options } = this;
     return {
       toggleBulletList:
         () =>
         ({ commands }) => {
           const cmds = commands as Record<string, (listName: string, itemName: string) => boolean>;
-          return cmds['toggleList']?.(self.name, self.options.itemTypeName) ?? false;
+          return cmds['toggleList']?.(name, options.itemTypeName) ?? false;
         },
     };
   },
 
   addKeyboardShortcuts() {
-    const self = this as unknown as NodeClass<BulletListOptions>;
+    const { editor } = this;
     return {
       'Mod-Shift-8': () => {
-        const editor = self.editor as { commands: Record<string, () => boolean> } | null;
         return editor?.commands['toggleBulletList']?.() ?? false;
       },
     };
   },
 
   addInputRules() {
-    const self = this as unknown as NodeClass<BulletListOptions>;
-    const nodeType = self.nodeType;
+    const { nodeType } = this;
 
     if (!nodeType) {
       return [];

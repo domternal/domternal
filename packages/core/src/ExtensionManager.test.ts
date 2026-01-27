@@ -6,6 +6,7 @@
 /* eslint-disable @typescript-eslint/no-confusing-void-expression, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/only-throw-error */
 import { describe, it, expect, vi } from 'vitest';
 import { Schema } from 'prosemirror-model';
+import type { Plugin } from 'prosemirror-state';
 import { ExtensionManager } from './ExtensionManager.js';
 import { Extension } from './Extension.js';
 import { Node } from './Node.js';
@@ -297,7 +298,7 @@ describe('ExtensionManager', () => {
     });
 
     it('collects custom plugins from extensions', () => {
-      const mockPlugin = { key: { key: 'test' } } as unknown as import('prosemirror-state').Plugin;
+      const mockPlugin = { key: { key: 'test' } } as unknown as Plugin;
       const ExtWithPlugin = Extension.create({
         name: 'withPlugin',
         addProseMirrorPlugins() {

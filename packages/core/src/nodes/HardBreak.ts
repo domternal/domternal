@@ -5,7 +5,6 @@
  * Keyboard shortcuts: Mod-Enter, Shift-Enter
  */
 
-import type { Node as NodeClass } from '../Node.js';
 import { Node } from '../Node.js';
 
 export interface HardBreakOptions {
@@ -29,12 +28,11 @@ export const HardBreak = Node.create<HardBreakOptions>({
   },
 
   renderHTML({ HTMLAttributes }) {
-    const self = this as unknown as NodeClass<HardBreakOptions>;
-    return ['br', { ...self.options.HTMLAttributes, ...HTMLAttributes }];
+    return ['br', { ...this.options.HTMLAttributes, ...HTMLAttributes }];
   },
 
   addCommands() {
-    const self = this as unknown as NodeClass<HardBreakOptions>;
+    const { name } = this;
     return {
       setHardBreak:
         () =>
@@ -43,24 +41,18 @@ export const HardBreak = Node.create<HardBreakOptions>({
             string,
             (content: { type: string }) => boolean
           >;
-          return cmds['insertContent']?.({ type: self.name }) ?? false;
+          return cmds['insertContent']?.({ type: name }) ?? false;
         },
     };
   },
 
   addKeyboardShortcuts() {
-    const self = this as unknown as NodeClass<HardBreakOptions>;
+    const { editor } = this;
     return {
       'Mod-Enter': () => {
-        const editor = self.editor as {
-          commands: Record<string, () => boolean>;
-        } | null;
         return editor?.commands['setHardBreak']?.() ?? false;
       },
       'Shift-Enter': () => {
-        const editor = self.editor as {
-          commands: Record<string, () => boolean>;
-        } | null;
         return editor?.commands['setHardBreak']?.() ?? false;
       },
     };

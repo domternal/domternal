@@ -1,10 +1,10 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-return, @typescript-eslint/explicit-function-return-type */
 import { describe, it, expect } from 'vitest';
 import { Schema } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { CanChecker, createCanChecker } from './CanChecker.js';
-import type { RawCommands, CommandProps } from './types/Commands.js';
+import type { RawCommands } from './types/Commands.js';
 
 // Test schema with toDOM functions
 const schema = new Schema({
@@ -38,13 +38,13 @@ function createMockEditor(options: { isDestroyed?: boolean } = {}) {
 const testCommands: RawCommands = {
   canExecute:
     () =>
-    ({ dispatch }) => {
+    () => {
       // This command can always execute (regardless of dispatch)
       return true;
     },
   cannotExecute:
     () =>
-    ({ dispatch }) => {
+    () => {
       // This command can never execute
       return false;
     },

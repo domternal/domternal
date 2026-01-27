@@ -5,7 +5,6 @@
  * Supports start attribute and markdown-style input rules.
  */
 
-import type { Node as NodeClass } from '../Node.js';
 import { Node } from '../Node.js';
 import { wrappingInputRule } from 'prosemirror-inputrules';
 
@@ -50,9 +49,8 @@ export const OrderedList = Node.create<OrderedListOptions>({
   },
 
   renderHTML({ node, HTMLAttributes }) {
-    const self = this as unknown as NodeClass<OrderedListOptions>;
     const start = node.attrs['start'] as number;
-    const attrs: Record<string, unknown> = { ...self.options.HTMLAttributes, ...HTMLAttributes };
+    const attrs: Record<string, unknown> = { ...this.options.HTMLAttributes, ...HTMLAttributes };
 
     if (start !== 1) {
       attrs['start'] = String(start);
@@ -62,30 +60,28 @@ export const OrderedList = Node.create<OrderedListOptions>({
   },
 
   addCommands() {
-    const self = this as unknown as NodeClass<OrderedListOptions>;
+    const { name, options } = this;
     return {
       toggleOrderedList:
         () =>
         ({ commands }) => {
           const cmds = commands as Record<string, (listName: string, itemName: string) => boolean>;
-          return cmds['toggleList']?.(self.name, self.options.itemTypeName) ?? false;
+          return cmds['toggleList']?.(name, options.itemTypeName) ?? false;
         },
     };
   },
 
   addKeyboardShortcuts() {
-    const self = this as unknown as NodeClass<OrderedListOptions>;
+    const { editor } = this;
     return {
       'Mod-Shift-7': () => {
-        const editor = self.editor as { commands: Record<string, () => boolean> } | null;
         return editor?.commands['toggleOrderedList']?.() ?? false;
       },
     };
   },
 
   addInputRules() {
-    const self = this as unknown as NodeClass<OrderedListOptions>;
-    const nodeType = self.nodeType;
+    const { nodeType } = this;
 
     if (!nodeType) {
       return [];

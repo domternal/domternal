@@ -5,7 +5,6 @@
  * Supports nested blockquotes and markdown-style input rule.
  */
 
-import type { Node as NodeClass } from '../Node.js';
 import { Node } from '../Node.js';
 import { wrappingInputRule } from 'prosemirror-inputrules';
 
@@ -30,24 +29,23 @@ export const Blockquote = Node.create<BlockquoteOptions>({
   },
 
   renderHTML({ HTMLAttributes }) {
-    const self = this as unknown as NodeClass<BlockquoteOptions>;
-    return ['blockquote', { ...self.options.HTMLAttributes, ...HTMLAttributes }, 0];
+    return ['blockquote', { ...this.options.HTMLAttributes, ...HTMLAttributes }, 0];
   },
 
   addCommands() {
-    const self = this as unknown as NodeClass<BlockquoteOptions>;
+    const { name } = this;
     return {
       setBlockquote:
         () =>
         ({ commands }) => {
           const cmds = commands as Record<string, (name: string) => boolean>;
-          return cmds['wrapIn']?.(self.name) ?? false;
+          return cmds['wrapIn']?.(name) ?? false;
         },
       toggleBlockquote:
         () =>
         ({ commands }) => {
           const cmds = commands as Record<string, (name: string) => boolean>;
-          return cmds['toggleWrap']?.(self.name) ?? false;
+          return cmds['toggleWrap']?.(name) ?? false;
         },
       unsetBlockquote:
         () =>
@@ -59,18 +57,16 @@ export const Blockquote = Node.create<BlockquoteOptions>({
   },
 
   addKeyboardShortcuts() {
-    const self = this as unknown as NodeClass<BlockquoteOptions>;
+    const { editor } = this;
     return {
       'Mod-Shift-b': () => {
-        const editor = self.editor as { commands: Record<string, () => boolean> } | null;
         return editor?.commands['toggleBlockquote']?.() ?? false;
       },
     };
   },
 
   addInputRules() {
-    const self = this as unknown as NodeClass<BlockquoteOptions>;
-    const nodeType = self.nodeType;
+    const { nodeType } = this;
 
     if (!nodeType) {
       return [];

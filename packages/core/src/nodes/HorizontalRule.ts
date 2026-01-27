@@ -5,7 +5,6 @@
  * Supports markdown-style input rules: ---, ***, ___
  */
 
-import type { Node as NodeClass } from '../Node.js';
 import { Node } from '../Node.js';
 import { InputRule } from 'prosemirror-inputrules';
 import type { EditorState } from 'prosemirror-state';
@@ -30,12 +29,11 @@ export const HorizontalRule = Node.create<HorizontalRuleOptions>({
   },
 
   renderHTML({ HTMLAttributes }) {
-    const self = this as unknown as NodeClass<HorizontalRuleOptions>;
-    return ['hr', { ...self.options.HTMLAttributes, ...HTMLAttributes }];
+    return ['hr', { ...this.options.HTMLAttributes, ...HTMLAttributes }];
   },
 
   addCommands() {
-    const self = this as unknown as NodeClass<HorizontalRuleOptions>;
+    const { name } = this;
     return {
       setHorizontalRule:
         () =>
@@ -46,7 +44,7 @@ export const HorizontalRule = Node.create<HorizontalRuleOptions>({
           >;
 
           // Insert horizontal rule
-          const result = cmds['insertContent']?.({ type: self.name });
+          const result = cmds['insertContent']?.({ type: name });
           if (!result) return false;
 
           // Try to move selection after the HR
@@ -64,8 +62,7 @@ export const HorizontalRule = Node.create<HorizontalRuleOptions>({
   },
 
   addInputRules() {
-    const self = this as unknown as NodeClass<HorizontalRuleOptions>;
-    const nodeType = self.nodeType;
+    const { nodeType } = this;
 
     if (!nodeType) {
       return [];
