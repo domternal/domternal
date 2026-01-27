@@ -119,4 +119,10 @@ export {
   Text,
   Paragraph,
   type ParagraphOptions,
+  Heading,
+  type HeadingOptions,
+  Blockquote,
+  type BlockquoteOptions,
+  CodeBlock,
+  type CodeBlockOptions,
 } from './nodes/index.js';
