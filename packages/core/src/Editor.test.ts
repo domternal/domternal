@@ -439,4 +439,271 @@ describe('Editor', () => {
       expect(editor.view.dom).toBeDefined();
     });
   });
+
+  describe('isActive', () => {
+    // Schema with heading (has level attribute) for testing
+    const schemaWithHeading = new Schema({
+      nodes: {
+        doc: { content: 'block+' },
+        paragraph: {
+          group: 'block',
+          content: 'inline*',
+          toDOM() { return ['p', 0]; },
+          parseDOM: [{ tag: 'p' }],
+        },
+        heading: {
+          group: 'block',
+          content: 'inline*',
+          attrs: { level: { default: 1 } },
+          toDOM(node) { return [`h${String(node.attrs['level'])}`, 0]; },
+          parseDOM: [
+            { tag: 'h1', attrs: { level: 1 } },
+            { tag: 'h2', attrs: { level: 2 } },
+            { tag: 'h3', attrs: { level: 3 } },
+          ],
+        },
+        text: { group: 'inline' },
+      },
+      marks: {
+        bold: {
+          toDOM() { return ['strong', 0]; },
+          parseDOM: [{ tag: 'strong' }],
+        },
+      },
+    });
+
+    describe('for nodes', () => {
+      beforeEach(() => {
+        // Reset editor before each test
+      });
+
+      afterEach(() => {
+        editor.destroy();
+      });
+
+      it('returns true when cursor is inside the node type', () => {
+        editor = new Editor({
+          schema: schemaWithHeading,
+          content: '<h2>Heading</h2>',
+        });
+
+        expect(editor.isActive('heading')).toBe(true);
+      });
+
+      it('returns false when cursor is not inside the node type', () => {
+        editor = new Editor({
+          schema: schemaWithHeading,
+          content: '<p>Paragraph</p>',
+        });
+
+        expect(editor.isActive('heading')).toBe(false);
+      });
+
+      it('returns true when node attributes match', () => {
+        editor = new Editor({
+          schema: schemaWithHeading,
+          content: '<h2>Heading</h2>',
+        });
+
+        expect(editor.isActive('heading', { level: 2 })).toBe(true);
+      });
+
+      it('returns false when node attributes do not match', () => {
+        editor = new Editor({
+          schema: schemaWithHeading,
+          content: '<h2>Heading</h2>',
+        });
+
+        expect(editor.isActive('heading', { level: 1 })).toBe(false);
+      });
+
+      it('returns false for unknown node type', () => {
+        editor = new Editor({
+          schema: schemaWithHeading,
+          content: '<p>Text</p>',
+        });
+
+        expect(editor.isActive('unknownNode')).toBe(false);
+      });
+
+      it('supports object syntax { name, attributes }', () => {
+        editor = new Editor({
+          schema: schemaWithHeading,
+          content: '<h2>Heading</h2>',
+        });
+
+        expect(editor.isActive({ name: 'heading', attributes: { level: 2 } })).toBe(true);
+        expect(editor.isActive({ name: 'heading', attributes: { level: 3 } })).toBe(false);
+      });
+    });
+
+    describe('for marks', () => {
+      afterEach(() => {
+        editor.destroy();
+      });
+
+      it('returns true when mark is active at cursor (empty selection)', () => {
+        editor = new Editor({
+          schema: schemaWithHeading,
+          content: '<p><strong>Bold text</strong></p>',
+        });
+
+        // Move cursor inside bold text
+        const { state, view } = editor;
+        const tr = state.tr.setSelection(TextSelection.create(state.doc, 3));
+        view.dispatch(tr);
+
+        expect(editor.isActive('bold')).toBe(true);
+      });
+
+      it('returns false when mark is not active at cursor', () => {
+        editor = new Editor({
+          schema: schemaWithHeading,
+          content: '<p>Normal text</p>',
+        });
+
+        expect(editor.isActive('bold')).toBe(false);
+      });
+
+      it('returns true when entire range selection has the mark', () => {
+        editor = new Editor({
+          schema: schemaWithHeading,
+          content: '<p><strong>Bold text</strong></p>',
+        });
+
+        // Select "Bold" (positions 1-5)
+        const { state, view } = editor;
+        const tr = state.tr.setSelection(TextSelection.create(state.doc, 1, 5));
+        view.dispatch(tr);
+
+        expect(editor.isActive('bold')).toBe(true);
+      });
+
+      it('returns false when only part of range has the mark', () => {
+        editor = new Editor({
+          schema: schemaWithHeading,
+          content: '<p><strong>Bold</strong> normal</p>',
+        });
+
+        // Select across bold and normal text (positions 1-12)
+        const { state, view } = editor;
+        const tr = state.tr.setSelection(TextSelection.create(state.doc, 1, 12));
+        view.dispatch(tr);
+
+        expect(editor.isActive('bold')).toBe(false);
+      });
+    });
+  });
+
+  describe('getAttributes', () => {
+    const schemaWithLink = new Schema({
+      nodes: {
+        doc: { content: 'block+' },
+        paragraph: {
+          group: 'block',
+          content: 'inline*',
+          toDOM() { return ['p', 0]; },
+          parseDOM: [{ tag: 'p' }],
+        },
+        heading: {
+          group: 'block',
+          content: 'inline*',
+          attrs: { level: { default: 1 } },
+          toDOM(node) { return [`h${String(node.attrs['level'])}`, 0]; },
+          parseDOM: [
+            { tag: 'h1', attrs: { level: 1 } },
+            { tag: 'h2', attrs: { level: 2 } },
+          ],
+        },
+        text: { group: 'inline' },
+      },
+      marks: {
+        link: {
+          attrs: { href: { default: '' }, target: { default: null } },
+          toDOM(mark) {
+            return ['a', {
+              href: String(mark.attrs['href'] ?? ''),
+              target: mark.attrs['target'] ? String(mark.attrs['target']) : null,
+            }, 0];
+          },
+          parseDOM: [{
+            tag: 'a',
+            getAttrs(dom: HTMLElement) {
+              return {
+                href: dom.getAttribute('href'),
+                target: dom.getAttribute('target'),
+              };
+            },
+          }],
+        },
+      },
+    });
+
+    describe('for nodes', () => {
+      afterEach(() => {
+        editor.destroy();
+      });
+
+      it('returns node attributes when inside the node', () => {
+        editor = new Editor({
+          schema: schemaWithLink,
+          content: '<h2>Heading</h2>',
+        });
+
+        const attrs = editor.getAttributes('heading');
+        expect(attrs).toEqual({ level: 2 });
+      });
+
+      it('returns empty object when not inside the node', () => {
+        editor = new Editor({
+          schema: schemaWithLink,
+          content: '<p>Paragraph</p>',
+        });
+
+        const attrs = editor.getAttributes('heading');
+        expect(attrs).toEqual({});
+      });
+
+      it('returns empty object for unknown node type', () => {
+        editor = new Editor({
+          schema: schemaWithLink,
+          content: '<p>Text</p>',
+        });
+
+        const attrs = editor.getAttributes('unknownNode');
+        expect(attrs).toEqual({});
+      });
+    });
+
+    describe('for marks', () => {
+      afterEach(() => {
+        editor.destroy();
+      });
+
+      it('returns mark attributes when mark is active', () => {
+        editor = new Editor({
+          schema: schemaWithLink,
+          content: '<p><a href="https://example.com" target="_blank">Link</a></p>',
+        });
+
+        // Move cursor inside the link
+        const { state, view } = editor;
+        const tr = state.tr.setSelection(TextSelection.create(state.doc, 2));
+        view.dispatch(tr);
+
+        const attrs = editor.getAttributes('link');
+        expect(attrs).toEqual({ href: 'https://example.com', target: '_blank' });
+      });
+
+      it('returns empty object when mark is not active', () => {
+        editor = new Editor({
+          schema: schemaWithLink,
+          content: '<p>Normal text</p>',
+        });
+
+        const attrs = editor.getAttributes('link');
+        expect(attrs).toEqual({});
+      });
+    });
+  });
 });

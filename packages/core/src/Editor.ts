@@ -241,7 +241,7 @@ export class Editor extends EventEmitter<EditorEvents> {
     if (markType) {
       // For empty selection, check marks at cursor or stored marks
       if (selection.empty) {
-        const storedMarks = state.storedMarks || $from.marks();
+        const storedMarks = state.storedMarks ?? $from.marks();
         const hasMark = storedMarks.some(mark => mark.type === markType);
         if (!hasMark) return false;
 
@@ -314,7 +314,7 @@ export class Editor extends EventEmitter<EditorEvents> {
     const markType = schema.marks[name];
     if (markType) {
       // Get marks at cursor position or stored marks
-      const marks = state.storedMarks || $from.marks();
+      const marks = state.storedMarks ?? $from.marks();
       const mark = marks.find(m => m.type === markType);
       return mark ? { ...mark.attrs } : {};
     }
