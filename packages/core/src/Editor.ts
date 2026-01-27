@@ -531,11 +531,30 @@ export class Editor extends EventEmitter<EditorEvents> {
 
     this._extensionManager.validateSchema();
 
-    // 3. Create initial document from content
-    const doc = createDocument(
-      this.options.content ?? null,
-      this._extensionManager.schema
-    );
+    // 3. Create initial document from content (with graceful error handling)
+    let doc;
+    try {
+      doc = createDocument(
+        this.options.content ?? null,
+        this._extensionManager.schema
+      );
+    } catch (error) {
+      // Emit content error event for invalid content
+      const contentError = error instanceof Error ? error : new Error(String(error));
+      this.emit('contentError', {
+        editor: this,
+        error: contentError,
+        content: this.options.content,
+      });
+      this.options.onContentError?.({
+        editor: this,
+        error: contentError,
+        content: this.options.content,
+      });
+
+      // Fall back to empty document
+      doc = createDocument(null, this._extensionManager.schema);
+    }
 
     // 4. Get plugins from extensions (empty in Step 1.3)
     const plugins = this._extensionManager.plugins;

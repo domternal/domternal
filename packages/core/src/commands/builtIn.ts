@@ -148,8 +148,14 @@ export const setContent: CommandSpec<[content: Content, options?: SetContentOpti
     const { emitUpdate = true, parseOptions } = options;
     const { schema } = state;
 
-    // Parse content into document
-    const doc = createDocument(content, schema, { parseOptions });
+    // Parse content into document (with graceful error handling)
+    let doc;
+    try {
+      doc = createDocument(content, schema, { parseOptions });
+    } catch {
+      // Invalid content - return false to indicate command failed
+      return false;
+    }
 
     // In dry-run mode, just check if content can be created
     if (!dispatch) {
