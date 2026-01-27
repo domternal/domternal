@@ -28,6 +28,7 @@ import type {
   SingleCommands,
   ChainedCommands,
   CanCommands,
+  Command,
 } from './types/index.js';
 
 /**
@@ -390,14 +391,12 @@ export class Editor extends EventEmitter<EditorEvents> {
   }
 
   /**
-   * Sets the editor content
-   *
-   * @param content - JSON or HTML content
-   * @param emitUpdate - Whether to emit update event (default: true)
+   * Executes a command with proper CommandProps
+   * @internal
    */
-  setContent(content: Content, emitUpdate = true): this {
+  private runCommand(command: Command): boolean {
     const tr = this.state.tr;
-    setContentCommand(content, { emitUpdate })({
+    return command({
       editor: this,
       state: this.state,
       tr,
@@ -406,6 +405,16 @@ export class Editor extends EventEmitter<EditorEvents> {
       can: () => this.can(),
       commands: this.commands,
     });
+  }
+
+  /**
+   * Sets the editor content
+   *
+   * @param content - JSON or HTML content
+   * @param emitUpdate - Whether to emit update event (default: true)
+   */
+  setContent(content: Content, emitUpdate = true): this {
+    this.runCommand(setContentCommand(content, { emitUpdate }));
     return this;
   }
 
@@ -415,16 +424,7 @@ export class Editor extends EventEmitter<EditorEvents> {
    * @param emitUpdate - Whether to emit update event (default: true)
    */
   clearContent(emitUpdate = true): this {
-    const tr = this.state.tr;
-    clearContentCommand({ emitUpdate })({
-      editor: this,
-      state: this.state,
-      tr,
-      dispatch: (t) => { this.view.dispatch(t); },
-      chain: () => this.chain(),
-      can: () => this.can(),
-      commands: this.commands,
-    });
+    this.runCommand(clearContentCommand({ emitUpdate }));
     return this;
   }
 
@@ -451,16 +451,7 @@ export class Editor extends EventEmitter<EditorEvents> {
    * @param position - Where to place cursor (default: null = just focus)
    */
   focus(position: FocusPosition = null): this {
-    const tr = this.state.tr;
-    focusCommand(position)({
-      editor: this,
-      state: this.state,
-      tr,
-      dispatch: (t) => { this.view.dispatch(t); },
-      chain: () => this.chain(),
-      can: () => this.can(),
-      commands: this.commands,
-    });
+    this.runCommand(focusCommand(position));
     return this;
   }
 
@@ -468,16 +459,7 @@ export class Editor extends EventEmitter<EditorEvents> {
    * Removes focus from the editor
    */
   blur(): this {
-    const tr = this.state.tr;
-    blurCommand()({
-      editor: this,
-      state: this.state,
-      tr,
-      dispatch: (t) => { this.view.dispatch(t); },
-      chain: () => this.chain(),
-      can: () => this.can(),
-      commands: this.commands,
-    });
+    this.runCommand(blurCommand());
     return this;
   }
 

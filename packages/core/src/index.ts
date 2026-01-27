@@ -111,6 +111,7 @@ export {
 } from './commandPropsBuilder.js';
 export {
   builtInCommands,
+  // Basic commands
   focus,
   blur,
   setContent,
@@ -118,6 +119,23 @@ export {
   insertText,
   deleteSelection,
   selectAll,
+  // Mark commands
+  toggleMark,
+  setMark,
+  unsetMark,
+  // Block commands
+  setBlockType,
+  toggleBlockType,
+  // Wrap commands
+  wrapIn,
+  toggleWrap,
+  lift,
+  // List commands
+  toggleList,
+  // Insert commands
+  insertContent,
+  // Selection commands
+  selectNodeBackward,
 } from './commands/index.js';
 
 // === Nodes ===

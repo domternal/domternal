@@ -90,6 +90,21 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
   }
 
   /**
+   * Get NodeType or throw if not initialized.
+   * Use in contexts where editor is guaranteed to be set (like addCommands).
+   */
+  get nodeTypeOrThrow(): NodeType {
+    const type = this.nodeType;
+    if (!type) {
+      throw new Error(
+        `Node "${this.name}" is not initialized. ` +
+        `Make sure the editor is created before accessing nodeType.`
+      );
+    }
+    return type;
+  }
+
+  /**
    * Creates a new node instance
    *
    * @param config - Node configuration
@@ -302,7 +317,9 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
         return parseRule;
       });
 
-      // Cast through unknown to satisfy strict NodeSpec.parseDOM type
+      // Cast required: Our NodeParseRule type is structurally compatible with
+      // ProseMirror's TagParseRule but TypeScript can't infer this due to
+      // our custom getAttrs return type. The cast is safe.
       spec.parseDOM = parseDOMRules as unknown as readonly TagParseRule[];
     }
 

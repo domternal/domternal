@@ -288,8 +288,9 @@ export const toggleMark: CommandSpec<[markName: string, attributes?: Attrs]> =
       return false;
     }
 
-    // Use ProseMirror's toggleMark command directly
-    // Note: pmToggleMark manages its own transaction, so we pass dispatch directly
+    // Note: pmToggleMark internally handles dispatch=undefined for dry-run mode.
+    // This is different from other commands that explicitly check !dispatch,
+    // but the behavior is identical - it returns true/false without side effects.
     return pmToggleMark(markType, attributes)(state, dispatch);
   };
 
