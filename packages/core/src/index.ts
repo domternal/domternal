@@ -123,4 +123,6 @@ export {
   type HeadingOptions,
   Blockquote,
   type BlockquoteOptions,
+  CodeBlock,
+  type CodeBlockOptions,
 } from './nodes/index.js';
