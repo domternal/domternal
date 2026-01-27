@@ -119,4 +119,6 @@ export {
   Text,
   Paragraph,
   type ParagraphOptions,
+  Heading,
+  type HeadingOptions,
 } from './nodes/index.js';
