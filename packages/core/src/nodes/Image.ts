@@ -31,18 +31,43 @@ export const Image = Node.create<ImageOptions>({
     return {
       src: {
         default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('src'),
+        renderHTML: (attributes: Record<string, unknown>) => {
+          if (!attributes['src']) return {};
+          return { src: attributes['src'] as string };
+        },
       },
       alt: {
         default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('alt'),
+        renderHTML: (attributes: Record<string, unknown>) => {
+          if (!attributes['alt']) return {};
+          return { alt: attributes['alt'] as string };
+        },
       },
       title: {
         default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('title'),
+        renderHTML: (attributes: Record<string, unknown>) => {
+          if (!attributes['title']) return {};
+          return { title: attributes['title'] as string };
+        },
       },
       width: {
         default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('width'),
+        renderHTML: (attributes: Record<string, unknown>) => {
+          if (!attributes['width']) return {};
+          return { width: attributes['width'] as string };
+        },
       },
       height: {
         default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('height'),
+        renderHTML: (attributes: Record<string, unknown>) => {
+          if (!attributes['height']) return {};
+          return { height: attributes['height'] as string };
+        },
       },
     };
   },
