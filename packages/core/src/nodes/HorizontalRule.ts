@@ -39,7 +39,7 @@ export const HorizontalRule = Node.create<HorizontalRuleOptions>({
     return {
       setHorizontalRule:
         () =>
-        ({ commands, state, tr }) => {
+        ({ commands, tr }) => {
           const cmds = commands as Record<
             string,
             (content: { type: string }) => boolean

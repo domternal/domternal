@@ -1,7 +1,7 @@
 /**
  * Image Node
  *
- * Block or inline image element.
+ * Block-level image element.
  * Supports src, alt, title, width, height attributes.
  * Includes XSS protection for URL validation.
  */
@@ -10,76 +10,39 @@ import type { Node as NodeClass } from '../Node.js';
 import { Node } from '../Node.js';
 
 export interface ImageOptions {
-  inline: boolean;
   allowBase64: boolean;
   HTMLAttributes: Record<string, unknown>;
 }
 
 export const Image = Node.create<ImageOptions>({
   name: 'image',
+  group: 'block',
   draggable: true,
   atom: true,
 
   addOptions() {
     return {
-      inline: false,
       allowBase64: false,
       HTMLAttributes: {},
     };
   },
 
-  inline() {
-    const self = this as unknown as NodeClass<ImageOptions>;
-    return self.options.inline;
-  },
-
-  group() {
-    const self = this as unknown as NodeClass<ImageOptions>;
-    return self.options.inline ? 'inline' : 'block';
-  },
-
   addAttributes() {
-    const self = this as unknown as NodeClass<ImageOptions>;
     return {
       src: {
         default: null,
-        parseHTML: (element: HTMLElement) => element.getAttribute('src'),
-        renderHTML: (attributes: Record<string, unknown>) => {
-          if (!attributes['src']) return {};
-          return { src: attributes['src'] };
-        },
       },
       alt: {
         default: null,
-        parseHTML: (element: HTMLElement) => element.getAttribute('alt'),
-        renderHTML: (attributes: Record<string, unknown>) => {
-          if (!attributes['alt']) return {};
-          return { alt: attributes['alt'] };
-        },
       },
       title: {
         default: null,
-        parseHTML: (element: HTMLElement) => element.getAttribute('title'),
-        renderHTML: (attributes: Record<string, unknown>) => {
-          if (!attributes['title']) return {};
-          return { title: attributes['title'] };
-        },
       },
       width: {
         default: null,
-        parseHTML: (element: HTMLElement) => element.getAttribute('width'),
-        renderHTML: (attributes: Record<string, unknown>) => {
-          if (!attributes['width']) return {};
-          return { width: attributes['width'] };
-        },
       },
       height: {
         default: null,
-        parseHTML: (element: HTMLElement) => element.getAttribute('height'),
-        renderHTML: (attributes: Record<string, unknown>) => {
-          if (!attributes['height']) return {};
-          return { height: attributes['height'] };
-        },
       },
     };
   },
@@ -111,13 +74,16 @@ export const Image = Node.create<ImageOptions>({
     const self = this as unknown as NodeClass<ImageOptions>;
     return {
       setImage:
-        (attributes?: { src?: string; alt?: string; title?: string; width?: string; height?: string }) =>
+        (attributes?: Record<string, unknown>) =>
         ({ commands }) => {
           const cmds = commands as Record<
             string,
             (content: { type: string; attrs?: Record<string, unknown> }) => boolean
           >;
-          return cmds['insertContent']?.({ type: self.name, attrs: attributes }) ?? false;
+          const content = attributes
+            ? { type: self.name, attrs: attributes }
+            : { type: self.name };
+          return cmds['insertContent']?.(content) ?? false;
         },
     };
   },

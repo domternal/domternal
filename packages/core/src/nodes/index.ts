@@ -13,3 +13,6 @@ export { CodeBlock, type CodeBlockOptions } from './CodeBlock.js';
 export { BulletList, type BulletListOptions } from './BulletList.js';
 export { OrderedList, type OrderedListOptions } from './OrderedList.js';
 export { ListItem, type ListItemOptions } from './ListItem.js';
+export { HorizontalRule, type HorizontalRuleOptions } from './HorizontalRule.js';
+export { HardBreak, type HardBreakOptions } from './HardBreak.js';
+export { Image, type ImageOptions } from './Image.js';
