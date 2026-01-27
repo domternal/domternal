@@ -227,8 +227,9 @@ describe('Image', () => {
         });
 
         const html = editor.getHTML();
-        expect(html).toContain('src=""');
+        // Invalid src is rejected - img renders without src attribute
         expect(html).not.toContain('javascript:');
+        expect(html).not.toContain('src="javascript');
       });
 
       it('rejects data: URLs by default', () => {
@@ -238,7 +239,9 @@ describe('Image', () => {
         });
 
         const html = editor.getHTML();
-        expect(html).toContain('src=""');
+        // Invalid src is rejected - img renders without src attribute
+        expect(html).not.toContain('data:image');
+        expect(html).not.toContain('src="data:');
       });
 
       it('allows data:image URLs when allowBase64 is true', () => {
@@ -251,6 +254,58 @@ describe('Image', () => {
 
         const html = editor.getHTML();
         expect(html).toContain('src="data:image/png;base64,abc123"');
+      });
+
+      it('rejects data:text URLs even when allowBase64 is true', () => {
+        const Base64Image = Image.configure({ allowBase64: true });
+
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, Base64Image],
+          content: '<img src="data:text/html,<script>alert(1)</script>">',
+        });
+
+        const html = editor.getHTML();
+        expect(html).not.toContain('data:text/html');
+      });
+
+      it('rejects vbscript: URLs', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, Image],
+          content: '<img src="vbscript:msgbox(1)">',
+        });
+
+        const html = editor.getHTML();
+        expect(html).not.toContain('vbscript:');
+      });
+
+      it('rejects file:// URLs', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, Image],
+          content: '<img src="file:///etc/passwd">',
+        });
+
+        const html = editor.getHTML();
+        expect(html).not.toContain('file://');
+      });
+
+      it('handles case-insensitive URL schemes', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, Image],
+          content: '<img src="HTTPS://example.com/img.png">',
+        });
+
+        const html = editor.getHTML();
+        expect(html).toContain('src="HTTPS://example.com/img.png"');
+      });
+
+      it('rejects case-insensitive javascript URLs', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, Image],
+          content: '<img src="JaVaScRiPt:alert(1)">',
+        });
+
+        const html = editor.getHTML();
+        expect(html).not.toContain('JaVaScRiPt');
       });
     });
   });
