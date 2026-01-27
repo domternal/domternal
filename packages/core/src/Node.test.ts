@@ -54,7 +54,7 @@ describe('Node', () => {
     });
 
     it('allows access to this.name in addOptions', () => {
-      const node = Node.create({
+      const node = Node.create<{ nodeName: string }>({
         name: 'myNode',
         addOptions() {
           return { nodeName: this.name };

@@ -5,7 +5,6 @@
  * Supports configurable levels and markdown-style input rules.
  */
 
-import type { Node as NodeClass } from '../Node.js';
 import { Node } from '../Node.js';
 import { textblockTypeInputRule } from 'prosemirror-inputrules';
 
@@ -44,54 +43,53 @@ export const Heading = Node.create<HeadingOptions>({
   },
 
   parseHTML() {
-    const self = this as unknown as NodeClass<HeadingOptions>;
-    return self.options.levels.map((level) => ({
+    // `this` is properly typed via ThisType<NodeContext<HeadingOptions>>
+    return this.options.levels.map((level) => ({
       tag: `h${String(level)}`,
       attrs: { level },
     }));
   },
 
   renderHTML({ node, HTMLAttributes }) {
-    const self = this as unknown as NodeClass<HeadingOptions>;
     const level = node.attrs['level'] as number;
     // Ensure level is within allowed range
-    const validLevel = self.options.levels.includes(level) ? level : self.options.levels[0];
-    return [`h${String(validLevel)}`, { ...self.options.HTMLAttributes, ...HTMLAttributes }, 0];
+    const validLevel = this.options.levels.includes(level) ? level : this.options.levels[0];
+    return [`h${String(validLevel)}`, { ...this.options.HTMLAttributes, ...HTMLAttributes }, 0];
   },
 
   addCommands() {
-    const self = this as unknown as NodeClass<HeadingOptions>;
+    // Capture `this` in closure since command functions have their own `this`
+    const { name, options } = this;
     return {
       setHeading:
         (attributes?: { level?: number }) =>
         ({ commands }) => {
           const cmds = commands as Record<string, (name: string, attrs?: Record<string, unknown>) => boolean>;
-          const level = attributes?.level ?? self.options.levels[0] ?? 1;
-          if (!self.options.levels.includes(level)) {
+          const level = attributes?.level ?? options.levels[0] ?? 1;
+          if (!options.levels.includes(level)) {
             return false;
           }
-          return cmds['setBlockType']?.(self.name, { level }) ?? false;
+          return cmds['setBlockType']?.(name, { level }) ?? false;
         },
       toggleHeading:
         (attributes?: { level?: number }) =>
         ({ commands }) => {
           const cmds = commands as Record<string, (name: string, defaultName: string, attrs?: Record<string, unknown>) => boolean>;
-          const level = attributes?.level ?? self.options.levels[0] ?? 1;
-          if (!self.options.levels.includes(level)) {
+          const level = attributes?.level ?? options.levels[0] ?? 1;
+          if (!options.levels.includes(level)) {
             return false;
           }
-          return cmds['toggleBlockType']?.(self.name, 'paragraph', { level }) ?? false;
+          return cmds['toggleBlockType']?.(name, 'paragraph', { level }) ?? false;
         },
     };
   },
 
   addKeyboardShortcuts() {
-    const self = this as unknown as NodeClass<HeadingOptions>;
     const shortcuts: Record<string, () => boolean> = {};
+    const { options, editor } = this;
 
-    self.options.levels.forEach((level) => {
+    options.levels.forEach((level) => {
       shortcuts[`Mod-Alt-${String(level)}`] = () => {
-        const editor = self.editor as { commands: Record<string, (attrs?: Record<string, unknown>) => boolean> } | null;
         return editor?.commands['toggleHeading']?.({ level }) ?? false;
       };
     });
@@ -100,14 +98,13 @@ export const Heading = Node.create<HeadingOptions>({
   },
 
   addInputRules() {
-    const self = this as unknown as NodeClass<HeadingOptions>;
-    const nodeType = self.nodeType;
+    const { nodeType, options } = this;
 
     if (!nodeType) {
       return [];
     }
 
-    const maxLevel = Math.max(...self.options.levels);
+    const maxLevel = Math.max(...options.levels);
     return [
       textblockTypeInputRule(
         new RegExp(`^(#{1,${String(maxLevel)}})\\s$`),
@@ -119,7 +116,7 @@ export const Heading = Node.create<HeadingOptions>({
           }
           const level = hashes.length;
           // Only convert if this level is enabled
-          if (!self.options.levels.includes(level)) {
+          if (!options.levels.includes(level)) {
             return null;
           }
           return { level };

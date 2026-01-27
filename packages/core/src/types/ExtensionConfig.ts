@@ -28,12 +28,35 @@ export interface AnyExtensionConfig {
 }
 
 /**
- * Base configuration for all extension types
+ * Context interface that describes what `this` will be in config methods.
+ * This enables proper typing of `this.options`, `this.editor`, etc.
+ * without creating circular dependencies.
  *
  * @typeParam Options - Extension options type
  * @typeParam Storage - Extension storage type
  */
-export interface ExtensionConfig<Options = unknown, Storage = unknown> {
+export interface ExtensionContext<Options = unknown, Storage = unknown> {
+  /** Extension type identifier */
+  readonly type: 'extension' | 'node' | 'mark';
+  /** Unique extension name */
+  readonly name: string;
+  /** Extension options (immutable after creation) */
+  readonly options: Options;
+  /** Extension storage (mutable state) */
+  storage: Storage;
+  /** Editor instance (null until bound by ExtensionManager) */
+  editor: ExtensionEditor | null;
+}
+
+/**
+ * Base configuration properties for all extension types.
+ * This interface contains just the properties without ThisType,
+ * allowing Node and Mark configs to use their own context types.
+ *
+ * @typeParam Options - Extension options type
+ * @typeParam Storage - Extension storage type
+ */
+export interface ExtensionConfigBase<Options = unknown, Storage = unknown> {
   /**
    * Unique extension name
    * Used for identification, storage access, and error messages
@@ -169,3 +192,14 @@ export interface ExtensionConfig<Options = unknown, Storage = unknown> {
    */
   onDestroy?: () => void;
 }
+
+/**
+ * Full configuration type for Extension.create()
+ * Combines base properties with ThisType for proper `this` typing.
+ *
+ * @typeParam Options - Extension options type
+ * @typeParam Storage - Extension storage type
+ */
+export type ExtensionConfig<Options = unknown, Storage = unknown> =
+  ExtensionConfigBase<Options, Storage> &
+  ThisType<ExtensionContext<Options, Storage>>;

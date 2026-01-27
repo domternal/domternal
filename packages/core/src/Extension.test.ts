@@ -2,6 +2,35 @@ import { describe, it, expect } from 'vitest';
 import { Extension } from './Extension.js';
 
 describe('Extension', () => {
+  describe('name validation', () => {
+    it('accepts valid camelCase names', () => {
+      expect(() => Extension.create({ name: 'test' })).not.toThrow();
+      expect(() => Extension.create({ name: 'myExtension' })).not.toThrow();
+      expect(() => Extension.create({ name: 'bold' })).not.toThrow();
+      expect(() => Extension.create({ name: 'heading2' })).not.toThrow();
+    });
+
+    it('rejects names starting with uppercase', () => {
+      expect(() => Extension.create({ name: 'Test' })).toThrow(/invalid/i);
+      expect(() => Extension.create({ name: 'MyExtension' })).toThrow(/invalid/i);
+    });
+
+    it('rejects names with special characters', () => {
+      expect(() => Extension.create({ name: 'my-extension' })).toThrow(/invalid/i);
+      expect(() => Extension.create({ name: 'my_extension' })).toThrow(/invalid/i);
+      expect(() => Extension.create({ name: 'my.extension' })).toThrow(/invalid/i);
+    });
+
+    it('rejects names starting with numbers', () => {
+      expect(() => Extension.create({ name: '123test' })).toThrow(/invalid/i);
+      expect(() => Extension.create({ name: '1extension' })).toThrow(/invalid/i);
+    });
+
+    it('rejects empty names', () => {
+      expect(() => Extension.create({ name: '' })).toThrow(/invalid/i);
+    });
+  });
+
   describe('create()', () => {
     it('creates extension with name', () => {
       const ext = Extension.create({ name: 'test' });
@@ -57,7 +86,7 @@ describe('Extension', () => {
     });
 
     it('allows access to this.name in addOptions', () => {
-      const ext = Extension.create({
+      const ext = Extension.create<{ extensionName: string }>({
         name: 'myExtension',
         addOptions() {
           return { extensionName: this.name };
@@ -68,7 +97,7 @@ describe('Extension', () => {
     });
 
     it('allows access to this.name in addStorage', () => {
-      const ext = Extension.create({
+      const ext = Extension.create<unknown, { name: string; count: number }>({
         name: 'counter',
         addStorage() {
           return { name: this.name, count: 0 };

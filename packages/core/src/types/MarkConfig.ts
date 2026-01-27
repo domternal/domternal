@@ -5,9 +5,40 @@
  * for creating ProseMirror mark extensions.
  */
 
-import type { Mark as PMMark, DOMOutputSpec } from 'prosemirror-model';
-import type { ExtensionConfig } from './ExtensionConfig.js';
+import type { Mark as PMMark, DOMOutputSpec, MarkType } from 'prosemirror-model';
+import type { ExtensionConfigBase, ExtensionContext } from './ExtensionConfig.js';
 import type { AttributeSpecs } from './AttributeSpec.js';
+
+/**
+ * Editor interface for Mark context
+ * Includes schema with marks for MarkType getter
+ */
+export interface MarkEditorContext {
+  readonly state: unknown;
+  readonly view: unknown;
+  readonly schema: {
+    marks: Record<string, MarkType>;
+  };
+  readonly commands: Record<string, (...args: unknown[]) => boolean>;
+}
+
+/**
+ * Context interface for Mark config methods.
+ * Extends ExtensionContext with mark-specific properties.
+ * This enables proper typing of `this.options`, `this.markType`, etc.
+ *
+ * @typeParam Options - Mark options type
+ * @typeParam Storage - Mark storage type
+ */
+export interface MarkContext<Options = unknown, Storage = unknown>
+  extends Omit<ExtensionContext<Options, Storage>, 'editor' | 'type'> {
+  /** Mark type identifier */
+  readonly type: 'mark';
+  /** Editor instance with schema access */
+  editor: MarkEditorContext | null;
+  /** ProseMirror MarkType (null until editor is initialized) */
+  readonly markType: MarkType | null;
+}
 
 /**
  * Parse rule for converting HTML to ProseMirror mark
@@ -67,29 +98,9 @@ export interface MarkRenderHTMLProps {
 }
 
 /**
- * Configuration for Mark extensions
- * Extends ExtensionConfig with mark-specific schema properties
- *
- * @typeParam Options - Mark options type
- * @typeParam Storage - Mark storage type
- *
- * @example
- * const Bold = Mark.create({
- *   name: 'bold',
- *   parseHTML() {
- *     return [
- *       { tag: 'strong' },
- *       { tag: 'b' },
- *       { style: 'font-weight=bold' },
- *     ];
- *   },
- *   renderHTML({ HTMLAttributes }) {
- *     return ['strong', HTMLAttributes, 0];
- *   },
- * });
+ * Mark-specific configuration properties (schema-related)
  */
-export interface MarkConfig<Options = unknown, Storage = unknown>
-  extends ExtensionConfig<Options, Storage> {
+interface MarkSchemaProperties {
   // === Schema Properties ===
 
   /**
@@ -177,3 +188,28 @@ export interface MarkConfig<Options = unknown, Storage = unknown>
    */
   renderHTML?: (props: MarkRenderHTMLProps) => DOMOutputSpec;
 }
+
+/**
+ * Configuration for Mark extensions
+ * Combines ExtensionConfigBase with mark-specific schema properties.
+ * Uses ThisType<MarkContext> to provide proper typing for `this` in config methods.
+ *
+ * @typeParam Options - Mark options type
+ * @typeParam Storage - Mark storage type
+ *
+ * @example
+ * const Bold = Mark.create({
+ *   name: 'bold',
+ *   parseHTML() {
+ *     // `this` is properly typed here!
+ *     return [{ tag: 'strong' }, { tag: 'b' }];
+ *   },
+ *   renderHTML({ HTMLAttributes }) {
+ *     return ['strong', HTMLAttributes, 0];
+ *   },
+ * });
+ */
+export type MarkConfig<Options = unknown, Storage = unknown> =
+  ExtensionConfigBase<Options, Storage> &
+  MarkSchemaProperties &
+  ThisType<MarkContext<Options, Storage>>;

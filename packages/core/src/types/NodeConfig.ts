@@ -5,10 +5,41 @@
  * for creating ProseMirror node extensions.
  */
 
-import type { Node as PMNode, DOMOutputSpec } from 'prosemirror-model';
+import type { Node as PMNode, DOMOutputSpec, NodeType } from 'prosemirror-model';
 import type { NodeViewConstructor } from 'prosemirror-view';
-import type { ExtensionConfig } from './ExtensionConfig.js';
+import type { ExtensionConfigBase, ExtensionContext } from './ExtensionConfig.js';
 import type { AttributeSpecs } from './AttributeSpec.js';
+
+/**
+ * Editor interface for Node context
+ * Includes schema with nodes for NodeType getter
+ */
+export interface NodeEditorContext {
+  readonly state: unknown;
+  readonly view: unknown;
+  readonly schema: {
+    nodes: Record<string, NodeType>;
+  };
+  readonly commands: Record<string, (...args: unknown[]) => boolean>;
+}
+
+/**
+ * Context interface for Node config methods.
+ * Extends ExtensionContext with node-specific properties.
+ * This enables proper typing of `this.options`, `this.nodeType`, etc.
+ *
+ * @typeParam Options - Node options type
+ * @typeParam Storage - Node storage type
+ */
+export interface NodeContext<Options = unknown, Storage = unknown>
+  extends Omit<ExtensionContext<Options, Storage>, 'editor' | 'type'> {
+  /** Node type identifier */
+  readonly type: 'node';
+  /** Editor instance with schema access */
+  editor: NodeEditorContext | null;
+  /** ProseMirror NodeType (null until editor is initialized) */
+  readonly nodeType: NodeType | null;
+}
 
 /**
  * Parse rule for converting HTML to ProseMirror node
@@ -81,27 +112,9 @@ export interface NodeRenderHTMLProps {
 }
 
 /**
- * Configuration for Node extensions
- * Extends ExtensionConfig with node-specific schema properties
- *
- * @typeParam Options - Node options type
- * @typeParam Storage - Node storage type
- *
- * @example
- * const Paragraph = Node.create({
- *   name: 'paragraph',
- *   group: 'block',
- *   content: 'inline*',
- *   parseHTML() {
- *     return [{ tag: 'p' }];
- *   },
- *   renderHTML({ HTMLAttributes }) {
- *     return ['p', HTMLAttributes, 0];
- *   },
- * });
+ * Node-specific configuration properties (schema-related)
  */
-export interface NodeConfig<Options = unknown, Storage = unknown>
-  extends ExtensionConfig<Options, Storage> {
+interface NodeSchemaProperties {
   // === Schema Properties ===
 
   /**
@@ -239,3 +252,30 @@ export interface NodeConfig<Options = unknown, Storage = unknown>
    */
   addNodeView?: () => NodeViewConstructor;
 }
+
+/**
+ * Configuration for Node extensions
+ * Combines ExtensionConfig base with node-specific schema properties.
+ * Uses ThisType<NodeContext> to provide proper typing for `this` in config methods.
+ *
+ * @typeParam Options - Node options type
+ * @typeParam Storage - Node storage type
+ *
+ * @example
+ * const Paragraph = Node.create({
+ *   name: 'paragraph',
+ *   group: 'block',
+ *   content: 'inline*',
+ *   parseHTML() {
+ *     // `this` is properly typed here!
+ *     return [{ tag: 'p' }];
+ *   },
+ *   renderHTML({ HTMLAttributes }) {
+ *     return ['p', HTMLAttributes, 0];
+ *   },
+ * });
+ */
+export type NodeConfig<Options = unknown, Storage = unknown> =
+  ExtensionConfigBase<Options, Storage> &
+  NodeSchemaProperties &
+  ThisType<NodeContext<Options, Storage>>;

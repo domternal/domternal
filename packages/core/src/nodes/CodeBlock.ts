@@ -5,7 +5,6 @@
  * Preserves whitespace and disallows marks.
  */
 
-import type { Node as NodeClass } from '../Node.js';
 import { Node } from '../Node.js';
 import { textblockTypeInputRule } from 'prosemirror-inputrules';
 
@@ -32,6 +31,7 @@ export const CodeBlock = Node.create<CodeBlockOptions>({
   },
 
   addAttributes() {
+    const { options } = this;
     return {
       language: {
         default: null,
@@ -39,8 +39,7 @@ export const CodeBlock = Node.create<CodeBlockOptions>({
           const codeEl = element.querySelector('code');
           if (!codeEl) return null;
 
-          const self = this as unknown as NodeClass<CodeBlockOptions>;
-          const prefix = self.options.languageClassPrefix;
+          const prefix = options.languageClassPrefix;
 
           // Find class starting with language prefix
           const classes = codeEl.className.split(/\s+/);
@@ -69,52 +68,49 @@ export const CodeBlock = Node.create<CodeBlockOptions>({
   },
 
   renderHTML({ node, HTMLAttributes }) {
-    const self = this as unknown as NodeClass<CodeBlockOptions>;
     const language = node.attrs['language'] as string | null;
 
     const codeAttrs: Record<string, unknown> = {};
     if (language) {
-      codeAttrs['class'] = `${self.options.languageClassPrefix}${language}`;
+      codeAttrs['class'] = `${this.options.languageClassPrefix}${language}`;
     }
 
     return [
       'pre',
-      { ...self.options.HTMLAttributes, ...HTMLAttributes },
+      { ...this.options.HTMLAttributes, ...HTMLAttributes },
       ['code', codeAttrs, 0],
     ];
   },
 
   addCommands() {
-    const self = this as unknown as NodeClass<CodeBlockOptions>;
+    const { name } = this;
     return {
       setCodeBlock:
         (attributes?: { language?: string }) =>
         ({ commands }) => {
           const cmds = commands as Record<string, (name: string, attrs?: Record<string, unknown>) => boolean>;
-          return cmds['setBlockType']?.(self.name, attributes) ?? false;
+          return cmds['setBlockType']?.(name, attributes) ?? false;
         },
       toggleCodeBlock:
         (attributes?: { language?: string }) =>
         ({ commands }) => {
           const cmds = commands as Record<string, (name: string, defaultName: string, attrs?: Record<string, unknown>) => boolean>;
-          return cmds['toggleBlockType']?.(self.name, 'paragraph', attributes) ?? false;
+          return cmds['toggleBlockType']?.(name, 'paragraph', attributes) ?? false;
         },
     };
   },
 
   addKeyboardShortcuts() {
-    const self = this as unknown as NodeClass<CodeBlockOptions>;
+    const { editor } = this;
     return {
       'Mod-Alt-c': () => {
-        const editor = self.editor as { commands: Record<string, () => boolean> } | null;
         return editor?.commands['toggleCodeBlock']?.() ?? false;
       },
     };
   },
 
   addInputRules() {
-    const self = this as unknown as NodeClass<CodeBlockOptions>;
-    const nodeType = self.nodeType;
+    const { nodeType } = this;
 
     if (!nodeType) {
       return [];

@@ -527,7 +527,9 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
     for (let depth = $from.depth; depth >= 0; depth--) {
       const node = $from.node(depth);
       // Check if this node is the target list type or any kind of list
-      if (node.type === listType || node.type.spec.group?.includes('list')) {
+      // Split by whitespace for exact group match (avoids 'playlist' matching 'list')
+      const groups = (node.type.spec.group ?? '').split(/\s+/);
+      if (node.type === listType || groups.includes('list')) {
         listDepth = depth;
         currentListType = node.type;
         break;

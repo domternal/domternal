@@ -5,7 +5,6 @@
  * Contains inline content (text and inline nodes).
  */
 
-import type { Node as NodeClass } from '../Node.js';
 import { Node } from '../Node.js';
 
 export interface ParagraphOptions {
@@ -29,27 +28,25 @@ export const Paragraph = Node.create<ParagraphOptions>({
   },
 
   renderHTML({ HTMLAttributes }) {
-    const self = this as unknown as NodeClass<ParagraphOptions>;
-    return ['p', { ...self.options.HTMLAttributes, ...HTMLAttributes }, 0];
+    return ['p', { ...this.options.HTMLAttributes, ...HTMLAttributes }, 0];
   },
 
   addCommands() {
-    const self = this as unknown as NodeClass<ParagraphOptions>;
+    const { name } = this;
     return {
       setParagraph:
         () =>
         ({ commands }) => {
           const cmds = commands as Record<string, (name: string) => boolean>;
-          return cmds['setBlockType']?.(self.name) ?? false;
+          return cmds['setBlockType']?.(name) ?? false;
         },
     };
   },
 
   addKeyboardShortcuts() {
-    const self = this as unknown as NodeClass<ParagraphOptions>;
+    const { editor } = this;
     return {
       'Mod-Alt-0': () => {
-        const editor = self.editor as { commands: Record<string, () => boolean> } | null;
         return editor?.commands['setParagraph']?.() ?? false;
       },
     };

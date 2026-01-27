@@ -51,6 +51,8 @@ export class ChainBuilder {
   private readonly rawCommands: RawCommands;
   private readonly tr: Transaction;
   private shouldDispatch = true;
+  /** Cached proxy instance for performance (avoids creating new Proxy per command) */
+  private _cachedProxy: ChainedCommands | null = null;
 
   constructor(options: ChainBuilderOptions) {
     this.editor = options.editor;
@@ -241,11 +243,18 @@ export class ChainBuilder {
   /**
    * Creates a Proxy that provides dynamic command methods
    * Each method returns `this` for chaining
+   *
+   * Caches the proxy instance for performance - avoids creating
+   * new Proxy objects for each command in the chain.
    */
   proxy(): ChainedCommands {
+    if (this._cachedProxy) {
+      return this._cachedProxy;
+    }
+
     const { rawCommands } = this;
 
-    return new Proxy({} as ChainedCommands, {
+    this._cachedProxy = new Proxy({} as ChainedCommands, {
       get: (_, name: string) => {
         // Handle special methods
         if (name === 'run') {
@@ -255,14 +264,14 @@ export class ChainBuilder {
         if (name === 'command') {
           return (fn: (props: CommandProps) => boolean) => {
             this.command(fn);
-            return this.proxy();
+            return this._cachedProxy!;
           };
         }
 
         // Handle dynamic commands
         const rawCommand = rawCommands[name];
         if (!rawCommand) {
-          return () => this.proxy();
+          return () => this._cachedProxy!;
         }
 
         return (...args: unknown[]) => {
@@ -271,10 +280,12 @@ export class ChainBuilder {
           if (!result) {
             this.shouldDispatch = false;
           }
-          return this.proxy();
+          return this._cachedProxy!;
         };
       },
     });
+
+    return this._cachedProxy;
   }
 }
 

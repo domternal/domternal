@@ -82,6 +82,14 @@ export class Extension<Options = unknown, Storage = unknown> {
    * Protected constructor - use Extension.create() instead
    */
   protected constructor(config: ExtensionConfig<Options, Storage>) {
+    // Validate extension name (must be camelCase starting with lowercase letter)
+    if (!/^[a-z][a-zA-Z0-9]*$/.test(config.name)) {
+      throw new Error(
+        `Extension name '${config.name}' is invalid. ` +
+          `Names must be camelCase starting with a lowercase letter (e.g., 'myExtension').`
+      );
+    }
+
     this.config = config;
     this.name = config.name;
 

@@ -10,7 +10,6 @@
  * - Double-checked in renderHTML as defense in depth
  */
 
-import type { Node as NodeClass } from '../Node.js';
 import { Node } from '../Node.js';
 
 /**
@@ -53,14 +52,14 @@ export const Image = Node.create<ImageOptions>({
   },
 
   addAttributes() {
-    const self = this as unknown as NodeClass<ImageOptions>;
+    const { options } = this;
     return {
       src: {
         default: null,
         parseHTML: (element: HTMLElement) => {
           const src = element.getAttribute('src');
           // Validate on parse - reject invalid URLs
-          if (src && !isValidImageSrc(src, self.options.allowBase64)) {
+          if (src && !isValidImageSrc(src, options.allowBase64)) {
             return null;
           }
           return src;
@@ -110,26 +109,25 @@ export const Image = Node.create<ImageOptions>({
   },
 
   renderHTML({ node, HTMLAttributes }) {
-    const self = this as unknown as NodeClass<ImageOptions>;
     const src = node.attrs['src'] as string | null;
 
     // XSS protection: defense in depth - validate again on render
-    if (src && !isValidImageSrc(src, self.options.allowBase64)) {
+    if (src && !isValidImageSrc(src, this.options.allowBase64)) {
       // Return image with empty src if URL is invalid (should not happen due to parse validation)
-      return ['img', { ...self.options.HTMLAttributes, ...HTMLAttributes, src: '' }];
+      return ['img', { ...this.options.HTMLAttributes, ...HTMLAttributes, src: '' }];
     }
 
-    return ['img', { ...self.options.HTMLAttributes, ...HTMLAttributes }];
+    return ['img', { ...this.options.HTMLAttributes, ...HTMLAttributes }];
   },
 
   addCommands() {
-    const self = this as unknown as NodeClass<ImageOptions>;
+    const { name, options } = this;
     return {
       setImage:
         (attributes?: Record<string, unknown>) =>
         ({ commands }) => {
           // XSS protection: validate src URL before inserting
-          if (attributes?.['src'] && !isValidImageSrc(attributes['src'], self.options.allowBase64)) {
+          if (attributes?.['src'] && !isValidImageSrc(attributes['src'], options.allowBase64)) {
             return false;
           }
 
@@ -138,8 +136,8 @@ export const Image = Node.create<ImageOptions>({
             (content: { type: string; attrs?: Record<string, unknown> }) => boolean
           >;
           const content = attributes
-            ? { type: self.name, attrs: attributes }
-            : { type: self.name };
+            ? { type: name, attrs: attributes }
+            : { type: name };
           return cmds['insertContent']?.(content) ?? false;
         },
     };
