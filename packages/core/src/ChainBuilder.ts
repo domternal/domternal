@@ -58,6 +58,12 @@ export class ChainBuilder {
   private _failure: ChainFailure | null = null;
   /** Current command index in the chain */
   private _commandIndex = 0;
+  /** Cached CommandProps for performance */
+  private _cachedProps: CommandProps | null = null;
+  /** Cached SingleCommands proxy for performance */
+  private _cachedSingleCommands: SingleCommands | null = null;
+  /** Cached CanCommands proxy for performance */
+  private _cachedCanCommands: CanCommands | null = null;
 
   constructor(options: ChainBuilderOptions) {
     this.editor = options.editor;
@@ -67,10 +73,14 @@ export class ChainBuilder {
   }
 
   /**
-   * Builds CommandProps for executing commands
+   * Gets cached CommandProps or builds new one
    * In chain mode, dispatch adds to shared transaction
    */
   private buildCommandProps(): CommandProps {
+    if (this._cachedProps) {
+      return this._cachedProps;
+    }
+
     const { editor, tr } = this;
     const state = editor.view.state;
 
@@ -87,7 +97,7 @@ export class ChainBuilder {
       }
     };
 
-    return {
+    this._cachedProps = {
       editor: editor as CommandProps['editor'],
       state,
       tr,
@@ -96,15 +106,21 @@ export class ChainBuilder {
       can: () => this.buildCanCommands(),
       commands: this.buildSingleCommands(),
     };
+
+    return this._cachedProps;
   }
 
   /**
-   * Builds SingleCommands for immediate execution within chain
+   * Gets cached SingleCommands proxy or builds new one
    */
   private buildSingleCommands(): SingleCommands {
+    if (this._cachedSingleCommands) {
+      return this._cachedSingleCommands;
+    }
+
     const { rawCommands } = this;
 
-    return new Proxy({} as SingleCommands, {
+    this._cachedSingleCommands = new Proxy({} as SingleCommands, {
       get: (_, name: string) => {
         const rawCommand = rawCommands[name];
         if (!rawCommand) {
@@ -116,15 +132,21 @@ export class ChainBuilder {
         };
       },
     });
+
+    return this._cachedSingleCommands;
   }
 
   /**
-   * Builds CanCommands for dry-run checks within chain
+   * Gets cached CanCommands proxy or builds new one
    */
   private buildCanCommands(): CanCommands {
+    if (this._cachedCanCommands) {
+      return this._cachedCanCommands;
+    }
+
     const { editor, rawCommands, tr } = this;
 
-    const canProxy = new Proxy({} as CanCommands, {
+    this._cachedCanCommands = new Proxy({} as CanCommands, {
       get: (_, name: string) => {
         if (name === 'chain') {
           // Return a function that creates a CanChainBuilder
@@ -143,7 +165,7 @@ export class ChainBuilder {
             tr,
             dispatch: undefined,
             chain: () => this.proxy(),
-            can: () => canProxy,
+            can: () => this._cachedCanCommands!,
             commands: this.buildSingleCommands(),
           };
           return (rawCommand as (...a: unknown[]) => Command)(...args)(props);
@@ -151,7 +173,7 @@ export class ChainBuilder {
       },
     });
 
-    return canProxy;
+    return this._cachedCanCommands;
   }
 
   /**

@@ -183,6 +183,33 @@ export class ExtensionManager {
     return this._commands;
   }
 
+  // === Cache Invalidation ===
+
+  /**
+   * Clears the plugins cache
+   * Call when plugins need to be rebuilt
+   */
+  clearPluginCache(): void {
+    this._plugins = null;
+  }
+
+  /**
+   * Clears the commands cache
+   * Call when commands need to be recollected
+   */
+  clearCommandCache(): void {
+    this._commands = null;
+  }
+
+  /**
+   * Clears all caches (plugins, commands)
+   * Call when extensions change dynamically
+   */
+  clearAllCaches(): void {
+    this._plugins = null;
+    this._commands = null;
+  }
+
   // === Extension Processing ===
 
   /**
