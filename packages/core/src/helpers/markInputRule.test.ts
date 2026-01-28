@@ -9,6 +9,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { Schema } from 'prosemirror-model';
+import type { Transaction } from 'prosemirror-state';
 import { EditorState } from 'prosemirror-state';
 import { markInputRule, markInputRulePatterns } from './markInputRule.js';
 
@@ -50,6 +51,19 @@ describe('markInputRule', () => {
     },
   });
 
+  // Helper to get handler from rule (internal API)
+  type InputRuleHandler = (
+    state: EditorState,
+    match: RegExpMatchArray,
+    start: number,
+    end: number
+  ) => Transaction | null;
+
+  function getHandler(rule: ReturnType<typeof markInputRule>): InputRuleHandler {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+    return (rule as any).handler as InputRuleHandler;
+  }
+
   describe('markInputRule function', () => {
     it('creates a valid InputRule', () => {
       const rule = markInputRule({
@@ -67,13 +81,12 @@ describe('markInputRule', () => {
         type: schema.marks.bold,
       });
 
-      // InputRule has a handler property (internal)
-      // @ts-expect-error - accessing internal property for testing
-      expect(typeof rule.handler).toBe('function');
+      const handler = getHandler(rule);
+      expect(typeof handler).toBe('function');
     });
 
     it('accepts getAttributes option', () => {
-      const getAttributes = () => ({ color: 'yellow' });
+      const getAttributes = (): Record<string, unknown> => ({ color: 'yellow' });
       const rule = markInputRule({
         find: markInputRulePatterns.highlight,
         type: schema.marks.highlight,
@@ -98,12 +111,10 @@ describe('markInputRule', () => {
       const state = EditorState.create({ schema, doc });
 
       // Simulate what the input rule handler receives
-      const match = '**test**'.match(markInputRulePatterns.bold);
+      const match = markInputRulePatterns.bold.exec('**test**');
       if (!match) throw new Error('Pattern should match');
 
-      // Call the handler (second element of the InputRule)
-      // @ts-expect-error - accessing internal handler
-      const handler = rule.handler;
+      const handler = getHandler(rule);
       const result = handler(state, match, 1, 9);
 
       expect(result).not.toBeNull();
@@ -124,11 +135,11 @@ describe('markInputRule', () => {
       ]);
       const state = EditorState.create({ schema, doc });
 
-      const match = '****'.match(/(?:\*\*)()(?:\*\*)$/);
+      const pattern = /(?:\*\*)()(?:\*\*)$/;
+      const match = pattern.exec('****');
       if (!match) throw new Error('Pattern should match');
 
-      // @ts-expect-error - accessing internal handler
-      const handler = rule.handler;
+      const handler = getHandler(rule);
       const result = handler(state, match, 1, 5);
 
       expect(result).toBeNull();
@@ -146,11 +157,10 @@ describe('markInputRule', () => {
       ]);
       const state = EditorState.create({ schema, doc });
 
-      const match = '**test**'.match(markInputRulePatterns.bold);
+      const match = markInputRulePatterns.bold.exec('**test**');
       if (!match) throw new Error('Pattern should match');
 
-      // @ts-expect-error - accessing internal handler
-      const handler = rule.handler;
+      const handler = getHandler(rule);
       const result = handler(state, match, 1, 9);
 
       expect(result).toBeNull();
@@ -173,11 +183,10 @@ describe('markInputRule', () => {
       ]);
       const state = EditorState.create({ schema, doc });
 
-      const match = '**hello**'.match(markInputRulePatterns.bold);
+      const match = markInputRulePatterns.bold.exec('**hello**');
       if (!match) throw new Error('Pattern should match');
 
-      // @ts-expect-error - accessing internal handler
-      const handler = rule.handler;
+      const handler = getHandler(rule);
       handler(state, match, 1, 10);
 
       expect(receivedMatch).not.toBeNull();
@@ -197,11 +206,10 @@ describe('markInputRule', () => {
       ]);
       const state = EditorState.create({ schema, doc });
 
-      const match = '==text=='.match(markInputRulePatterns.highlight);
+      const match = markInputRulePatterns.highlight.exec('==text==');
       if (!match) throw new Error('Pattern should match');
 
-      // @ts-expect-error - accessing internal handler
-      const handler = rule.handler;
+      const handler = getHandler(rule);
       const result = handler(state, match, 1, 9);
 
       expect(result).not.toBeNull();
@@ -210,9 +218,12 @@ describe('markInputRule', () => {
         const newDoc = result.doc;
         const textNode = newDoc.firstChild?.firstChild;
         const marks = textNode?.marks ?? [];
-        const highlightMark = marks.find((m: { type: { name: string } }) => m.type.name === 'highlight');
+        const highlightMark = marks.find(
+          (m: { type: { name: string } }) => m.type.name === 'highlight'
+        );
         expect(highlightMark).toBeDefined();
-        expect(highlightMark?.attrs['color']).toBe('yellow');
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
+        expect((highlightMark as any)?.attrs?.color).toBe('yellow');
       }
     });
   });
@@ -228,38 +239,38 @@ describe('markInputRule', () => {
 
     describe('bold pattern', () => {
       it('matches **text**', () => {
-        const match = '**hello**'.match(markInputRulePatterns.bold);
+        const match = markInputRulePatterns.bold.exec('**hello**');
         expect(match?.[0]).toBe('**hello**');
         expect(match?.[1]).toBe('hello');
       });
 
       it('matches __text__', () => {
-        const match = '__world__'.match(markInputRulePatterns.bold);
+        const match = markInputRulePatterns.bold.exec('__world__');
         expect(match?.[0]).toBe('__world__');
         expect(match?.[1]).toBe('world');
       });
 
       it('matches text with spaces', () => {
-        const match = '**hello world**'.match(markInputRulePatterns.bold);
+        const match = markInputRulePatterns.bold.exec('**hello world**');
         expect(match?.[1]).toBe('hello world');
       });
 
       it('does not match *text*', () => {
-        const match = '*hello*'.match(markInputRulePatterns.bold);
+        const match = markInputRulePatterns.bold.exec('*hello*');
         expect(match).toBeNull();
       });
     });
 
     describe('italic pattern', () => {
       it('matches *text*', () => {
-        const match = '*hello*'.match(markInputRulePatterns.italic);
+        const match = markInputRulePatterns.italic.exec('*hello*');
         expect(match).not.toBeNull();
         // The capture groups are different for italic pattern
         expect(match?.[2]).toBe('hello');
       });
 
       it('matches _text_', () => {
-        const match = '_world_'.match(markInputRulePatterns.italic);
+        const match = markInputRulePatterns.italic.exec('_world_');
         expect(match).not.toBeNull();
         expect(match?.[2]).toBe('world');
       });
@@ -267,32 +278,32 @@ describe('markInputRule', () => {
 
     describe('strike pattern', () => {
       it('matches ~~text~~', () => {
-        const match = '~~deleted~~'.match(markInputRulePatterns.strike);
+        const match = markInputRulePatterns.strike.exec('~~deleted~~');
         expect(match?.[0]).toBe('~~deleted~~');
         expect(match?.[1]).toBe('deleted');
       });
 
       it('does not match ~text~', () => {
-        const match = '~deleted~'.match(markInputRulePatterns.strike);
+        const match = markInputRulePatterns.strike.exec('~deleted~');
         expect(match).toBeNull();
       });
     });
 
     describe('code pattern', () => {
       it('matches `text`', () => {
-        const match = '`code`'.match(markInputRulePatterns.code);
+        const match = markInputRulePatterns.code.exec('`code`');
         expect(match?.[0]).toBe('`code`');
         expect(match?.[1]).toBe('code');
       });
 
       it('matches code with spaces', () => {
-        const match = '`some code`'.match(markInputRulePatterns.code);
+        const match = markInputRulePatterns.code.exec('`some code`');
         expect(match?.[1]).toBe('some code');
       });
 
       it('does not match ``text``', () => {
         // Double backticks shouldn't match single backtick pattern
-        const match = '``code``'.match(markInputRulePatterns.code);
+        const match = markInputRulePatterns.code.exec('``code``');
         // This will partially match, but that's expected behavior
         expect(match).toBeDefined();
       });
@@ -300,13 +311,13 @@ describe('markInputRule', () => {
 
     describe('highlight pattern', () => {
       it('matches ==text==', () => {
-        const match = '==important=='.match(markInputRulePatterns.highlight);
+        const match = markInputRulePatterns.highlight.exec('==important==');
         expect(match?.[0]).toBe('==important==');
         expect(match?.[1]).toBe('important');
       });
 
       it('does not match =text=', () => {
-        const match = '=important='.match(markInputRulePatterns.highlight);
+        const match = markInputRulePatterns.highlight.exec('=important=');
         expect(match).toBeNull();
       });
     });

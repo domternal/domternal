@@ -96,8 +96,7 @@ export const Link = Mark.create<LinkOptions>({
         tag: 'a[href]',
         getAttrs: (node) => {
           if (typeof node === 'string') return false;
-          const element = node as HTMLElement;
-          const href = element.getAttribute('href');
+          const href = node.getAttribute('href');
 
           // Validate URL
           if (!href || !isValidUrl(href, { protocols: this.options.protocols })) {
@@ -106,8 +105,8 @@ export const Link = Mark.create<LinkOptions>({
 
           return {
             href,
-            target: element.getAttribute('target'),
-            rel: element.getAttribute('rel'),
+            target: node.getAttribute('target'),
+            rel: node.getAttribute('rel'),
           };
         },
       },

@@ -55,8 +55,8 @@ export const Highlight = Mark.create<HighlightOptions>({
       color: {
         default: null,
         parseHTML: (element) =>
-          element.getAttribute('data-color') ||
-          element.style.backgroundColor?.replace(/['"]/g, ''),
+          element.getAttribute('data-color') ??
+          element.style.backgroundColor.replace(/['"]/g, ''),
         renderHTML: (attributes) => {
           const color = attributes['color'];
           if (!color || typeof color !== 'string') {
