@@ -45,8 +45,11 @@ export interface CanCheckerOptions {
   rawCommands: RawCommands;
   /** Function to create a ChainBuilder for chain() within commands */
   createChainBuilder: () => ChainedCommands;
-  /** Enable debug mode to log warnings for unknown commands */
-  debug?: boolean;
+  /**
+   * Optional callback when an unknown command is accessed
+   * Useful for debugging - called with command name and context
+   */
+  onUnknownCommand?: (name: string, context: 'single' | 'chain') => void;
 }
 
 /**
@@ -59,13 +62,13 @@ export class CanChecker {
   private readonly editor: CanCheckerEditor;
   private readonly rawCommands: RawCommands;
   private readonly createChainBuilder: () => ChainedCommands;
-  private readonly debug: boolean;
+  private readonly onUnknownCommand: ((name: string, context: 'single' | 'chain') => void) | undefined;
 
   constructor(options: CanCheckerOptions) {
     this.editor = options.editor;
     this.rawCommands = options.rawCommands;
     this.createChainBuilder = options.createChainBuilder;
-    this.debug = options.debug ?? false;
+    this.onUnknownCommand = options.onUnknownCommand;
   }
 
   /**
@@ -122,9 +125,7 @@ export class CanChecker {
         // Handle dynamic commands
         const rawCommand = rawCommands[name];
         if (!rawCommand) {
-          if (this.debug) {
-            console.warn(`[CanChecker] Command '${name}' not found`);
-          }
+          this.onUnknownCommand?.(name, 'single');
           return () => false;
         }
 
@@ -160,9 +161,7 @@ export class CanChecker {
         // Handle dynamic commands
         const rawCommand = rawCommands[name];
         if (!rawCommand) {
-          if (this.debug) {
-            console.warn(`[CanChecker] Command '${name}' not found in chain`);
-          }
+          this.onUnknownCommand?.(name, 'chain');
           return () => {
             allSucceeded = false;
             return chainProxy;

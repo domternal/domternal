@@ -506,12 +506,9 @@ export class ExtensionManager {
 
     // Clear all caches to prevent memory leaks
     // Note: ProseMirror's EditorView.destroy() handles plugin view cleanup
+    // Storage is not cleared explicitly - it will be garbage collected
+    // when the ExtensionManager instance is no longer referenced
     this.clearAllCaches();
-
-    // Clear storage
-    for (const key of Object.keys(this._storage)) {
-      delete this._storage[key];
-    }
 
     this.isDestroyed = true;
   }

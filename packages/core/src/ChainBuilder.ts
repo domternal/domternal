@@ -154,7 +154,7 @@ export class ChainBuilder {
             tr,
             dispatch: undefined,
             chain: () => this.proxy(),
-            can: () => this._cachedCanCommands!,
+            can: () => this.buildCanCommands(),
             commands: this.buildSingleCommands(),
           };
           return (rawCommand as (...a: unknown[]) => Command)(...args)(props);
@@ -287,7 +287,8 @@ export class ChainBuilder {
 
     const { rawCommands } = this;
 
-    this._cachedProxy = new Proxy({} as ChainedCommands, {
+    // Create proxy with local const - handlers reference this directly (no assertion needed)
+    const proxy: ChainedCommands = new Proxy({} as ChainedCommands, {
       get: (_, name: string) => {
         // Handle special methods
         if (name === 'run') {
@@ -301,7 +302,7 @@ export class ChainBuilder {
         if (name === 'command') {
           return (fn: (props: CommandProps) => boolean) => {
             this.command(fn);
-            return this._cachedProxy!;
+            return proxy;
           };
         }
 
@@ -314,7 +315,7 @@ export class ChainBuilder {
               this.shouldDispatch = false;
               this._failure = { command: name, args, index: commandIndex };
             }
-            return this._cachedProxy!;
+            return proxy;
           };
         }
 
@@ -326,12 +327,14 @@ export class ChainBuilder {
             this.shouldDispatch = false;
             this._failure = { command: name, args, index: commandIndex };
           }
-          return this._cachedProxy!;
+          return proxy;
         };
       },
     });
 
-    return this._cachedProxy;
+    // Cache for subsequent calls
+    this._cachedProxy = proxy;
+    return proxy;
   }
 }
 
