@@ -217,9 +217,16 @@ export const insertText: CommandSpec<[text: string]> =
     // Use tr.selection for chain compatibility - reflects current position
     const { from, to } = tr.selection;
 
-    // In dry-run mode, check if text can be inserted
+    // For TextSelection, check if parent allows inline content
+    // For other selections (AllSelection, NodeSelection), let ProseMirror handle validation
+    if (tr.selection instanceof TextSelection) {
+      const { $from } = tr.selection;
+      if (!$from.parent.inlineContent) {
+        return false;
+      }
+    }
+
     if (!dispatch) {
-      // Text can always be inserted where selection is
       return true;
     }
 

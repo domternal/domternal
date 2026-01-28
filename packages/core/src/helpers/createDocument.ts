@@ -32,6 +32,10 @@ function isJSONContent(content: unknown): content is JSONContent {
 
 /**
  * Checks if content is an HTML string (starts with '<')
+ *
+ * SECURITY NOTE: This function only checks if the string looks like HTML.
+ * It does NOT sanitize content. If you're accepting user-provided content,
+ * sanitize it before passing to the editor (e.g., using DOMPurify).
  */
 function isHTMLContent(content: unknown): content is string {
   return typeof content === 'string' && content.trim().startsWith('<');
@@ -77,6 +81,9 @@ function parseHTMLContent(
 
 /**
  * Creates a ProseMirror document from content
+ *
+ * **Security:** Content is NOT sanitized. If accepting user-provided HTML,
+ * sanitize it first (e.g., using DOMPurify) to prevent XSS attacks.
  *
  * @param content - JSON content object, HTML string, or null/undefined
  * @param schema - ProseMirror schema to use

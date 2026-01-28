@@ -53,8 +53,14 @@ export class CommandManager {
   /** Cached raw commands (built-in + extension) */
   private _rawCommands: RawCommands | null = null;
 
+  /** Cached dispatch function to avoid allocation on every command */
+  private readonly _dispatch: (tr: Transaction) => void;
+
   constructor(editor: CommandManagerEditor) {
     this.editor = editor;
+    this._dispatch = (tr: Transaction): void => {
+      editor.view.dispatch(tr);
+    };
   }
 
   /**
@@ -76,6 +82,8 @@ export class CommandManager {
     const { editor } = this;
 
     return {
+      // Cast needed: CommandManagerEditor is a minimal interface for dependency injection,
+      // but CommandProps expects the full Editor type. Callers pass the actual Editor instance.
       editor: editor as unknown as CommandProps['editor'],
       state: editor.state,
       tr,
@@ -112,12 +120,7 @@ export class CommandManager {
           // Create fresh transaction for each command
           const tr = editor.state.tr;
 
-          // Dispatch function that actually dispatches to view
-          const dispatch = (transaction: Transaction): void => {
-            editor.view.dispatch(transaction);
-          };
-
-          const props = this.buildCommandProps(tr, dispatch);
+          const props = this.buildCommandProps(tr, this._dispatch);
           return (rawCommand as (...a: unknown[]) => Command)(...args)(props);
         };
       },

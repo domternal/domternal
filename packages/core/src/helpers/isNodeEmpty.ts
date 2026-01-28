@@ -73,15 +73,14 @@ export function isNodeEmpty(
     return false;
   }
 
-  // Check all children recursively
-  let isEmpty = true;
-  node.forEach((child) => {
-    if (!isNodeEmpty(child, options)) {
-      isEmpty = false;
+  // Check all children recursively (with early exit for performance)
+  for (let i = 0; i < node.childCount; i++) {
+    if (!isNodeEmpty(node.child(i), options)) {
+      return false;
     }
-  });
+  }
 
-  return isEmpty;
+  return true;
 }
 
 /**

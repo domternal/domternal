@@ -253,17 +253,16 @@ export class ExtensionManager {
    * @throws Error if duplicate names found
    */
   private detectConflicts(): void {
-    const names = new Map<string, string>();
+    const names = new Set<string>();
 
     for (const ext of this._extensions) {
-      const existing = names.get(ext.name);
-      if (existing) {
+      if (names.has(ext.name)) {
         throw new Error(
           `Extension name conflict: "${ext.name}" is defined multiple times. ` +
             `Each extension must have a unique name.`
         );
       }
-      names.set(ext.name, ext.name);
+      names.add(ext.name);
     }
   }
 
@@ -435,6 +434,10 @@ export class ExtensionManager {
 
   /**
    * Collects commands from all extensions
+   *
+   * Note: Commands with the same name will be overwritten by later extensions
+   * (lower priority extensions override higher priority). This is intentional
+   * to allow customization of built-in commands.
    */
   private collectCommands(): RawCommands {
     const commands: RawCommands = {};
@@ -447,6 +450,7 @@ export class ExtensionManager {
           `${ext.name}.addCommands`
         );
         if (extCommands) {
+          // Later extensions override earlier ones (intentional for customization)
           Object.assign(commands, extCommands);
         }
       }
@@ -519,13 +523,25 @@ export class ExtensionManager {
    * Safely executes a function, catching and reporting errors
    * Prevents a single extension error from crashing the entire editor
    *
+   * Handles both synchronous errors and async promise rejections.
+   *
    * @param fn - Function to execute
    * @param context - Context for error reporting (e.g., 'Bold.onUpdate')
    * @returns The function result, or undefined if an error occurred
    */
   safeCall<T>(fn: () => T, context: string): T | undefined {
     try {
-      return fn();
+      const result = fn();
+
+      // Handle async functions - catch promise rejections
+      if (result instanceof Promise) {
+        result.catch((error: unknown) => {
+          const errorObj = error instanceof Error ? error : new Error(String(error));
+          this.editor.emit?.('error', { error: errorObj, context });
+        });
+      }
+
+      return result;
     } catch (error) {
       const errorObj = error instanceof Error ? error : new Error(String(error));
 

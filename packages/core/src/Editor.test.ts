@@ -191,19 +191,19 @@ describe('Editor', () => {
     });
 
     describe('setContent', () => {
-      it('sets content and returns this', () => {
+      it('sets content and returns true on success', () => {
         const result = editor.setContent('<p>New content</p>');
 
-        expect(result).toBe(editor);
+        expect(result).toBe(true);
         expect(editor.getText()).toBe('New content');
       });
     });
 
     describe('clearContent', () => {
-      it('clears content and returns this', () => {
+      it('clears content and returns true on success', () => {
         const result = editor.clearContent();
 
-        expect(result).toBe(editor);
+        expect(result).toBe(true);
         expect(editor.isEmpty).toBe(true);
       });
     });

@@ -99,6 +99,11 @@ export class Editor extends EventEmitter<EditorEvents> {
   private _isDestroyed = false;
 
   /**
+   * Timer for autofocus (cleared on destroy to prevent memory leaks)
+   */
+  private _autofocusTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
    * Creates a new Editor instance
    *
    * @param options - Editor configuration
@@ -412,20 +417,20 @@ export class Editor extends EventEmitter<EditorEvents> {
    *
    * @param content - JSON or HTML content
    * @param emitUpdate - Whether to emit update event (default: true)
+   * @returns true if content was set successfully, false if content was invalid
    */
-  setContent(content: Content, emitUpdate = true): this {
-    this.runCommand(setContentCommand(content, { emitUpdate }));
-    return this;
+  setContent(content: Content, emitUpdate = true): boolean {
+    return this.runCommand(setContentCommand(content, { emitUpdate }));
   }
 
   /**
    * Clears the editor content
    *
    * @param emitUpdate - Whether to emit update event (default: true)
+   * @returns true if content was cleared successfully
    */
-  clearContent(emitUpdate = true): this {
-    this.runCommand(clearContentCommand({ emitUpdate }));
-    return this;
+  clearContent(emitUpdate = true): boolean {
+    return this.runCommand(clearContentCommand({ emitUpdate }));
   }
 
   // === Lifecycle Methods ===
@@ -471,6 +476,12 @@ export class Editor extends EventEmitter<EditorEvents> {
   destroy(): void {
     if (this._isDestroyed) {
       return;
+    }
+
+    // Clear autofocus timer if pending
+    if (this._autofocusTimer) {
+      clearTimeout(this._autofocusTimer);
+      this._autofocusTimer = null;
     }
 
     this.emit('destroy');
@@ -583,8 +594,12 @@ export class Editor extends EventEmitter<EditorEvents> {
     // 10. Handle autofocus
     if (this.options.autofocus) {
       // Use setTimeout to ensure DOM is ready
-      setTimeout(() => {
-        this.focus(this.options.autofocus);
+      // Store reference for cleanup on destroy
+      this._autofocusTimer = setTimeout(() => {
+        this._autofocusTimer = null;
+        if (!this._isDestroyed) {
+          this.focus(this.options.autofocus);
+        }
       }, 0);
     }
 
