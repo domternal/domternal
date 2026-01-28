@@ -10,3 +10,6 @@ export { Underline, type UnderlineOptions } from './Underline.js';
 export { Strike, type StrikeOptions } from './Strike.js';
 export { Code, type CodeOptions } from './Code.js';
 export { Link, type LinkOptions, type LinkAttributes } from './Link.js';
+export { Subscript, type SubscriptOptions } from './Subscript.js';
+export { Superscript, type SuperscriptOptions } from './Superscript.js';
+export { Highlight, type HighlightOptions } from './Highlight.js';

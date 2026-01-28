@@ -185,4 +185,10 @@ export {
   Link,
   type LinkOptions,
   type LinkAttributes,
+  Subscript,
+  type SubscriptOptions,
+  Superscript,
+  type SuperscriptOptions,
+  Highlight,
+  type HighlightOptions,
 } from './marks/index.js';
