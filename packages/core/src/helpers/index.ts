@@ -14,3 +14,8 @@ export {
   markInputRulePatterns,
   type MarkInputRuleOptions,
 } from './markInputRule.js';
+export {
+  isValidUrl,
+  extractUrls,
+  type IsValidUrlOptions,
+} from './isValidUrl.js';

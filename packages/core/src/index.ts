@@ -83,9 +83,12 @@ export {
   callOrReturn,
   markInputRule,
   markInputRulePatterns,
+  isValidUrl,
+  extractUrls,
   type CreateDocumentOptions,
   type IsNodeEmptyOptions,
   type MarkInputRuleOptions,
+  type IsValidUrlOptions,
 } from './helpers/index.js';
 
 // === Extension System ===
@@ -177,4 +180,9 @@ export {
   type UnderlineOptions,
   Strike,
   type StrikeOptions,
+  Code,
+  type CodeOptions,
+  Link,
+  type LinkOptions,
+  type LinkAttributes,
 } from './marks/index.js';
