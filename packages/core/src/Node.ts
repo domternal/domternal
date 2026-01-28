@@ -112,11 +112,22 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
    * Creates a new node with merged options
    * Original node is not modified
    *
+   * **Note:** Options are merged shallowly using object spread (`...`).
+   * Nested objects are replaced entirely, not deeply merged.
+   *
    * @param options - Options to merge with existing options
    * @returns New node instance with merged options
    *
    * @example
    * const CustomParagraph = Paragraph.configure({ HTMLAttributes: { class: 'custom' } });
+   *
+   * @example
+   * // Shallow merge behavior with nested objects:
+   * // Given: options = { HTMLAttributes: { class: 'a', id: 'b' } }
+   * // configure({ HTMLAttributes: { class: 'c' } })
+   * // Result: { HTMLAttributes: { class: 'c' } } — 'id' is lost!
+   * // To preserve nested values, spread manually:
+   * // configure({ HTMLAttributes: { ...original.options.HTMLAttributes, class: 'c' } })
    */
   override configure(options: Partial<Options>): Node<Options, Storage> {
     const newConfig: NodeConfig<Options, Storage> = {
@@ -134,6 +145,10 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
    * Creates a new node with extended configuration
    * Original node is not modified
    *
+   * **Note:** Config is merged shallowly using object spread (`...`).
+   * Config properties (like `addAttributes`, `parseHTML`) are
+   * replaced entirely, not combined with the base node's config.
+   *
    * @param extendedConfig - Configuration to extend/override
    * @returns New node instance with extended config
    *
@@ -142,6 +157,15 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
    *   name: 'customParagraph',
    *   addAttributes() {
    *     return { ...this.parent?.(), align: { default: 'left' } };
+   *   },
+   * });
+   *
+   * @example
+   * // To preserve base node's parse rules while adding new ones:
+   * const Extended = BaseNode.extend({
+   *   parseHTML() {
+   *     const baseRules = BaseNode.config.parseHTML?.call(this) ?? [];
+   *     return [...baseRules, { tag: 'custom-tag' }];
    *   },
    * });
    */

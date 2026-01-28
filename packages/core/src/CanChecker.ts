@@ -26,6 +26,7 @@ import type {
   SingleCommands,
   ChainedCommands,
 } from './types/Commands.js';
+import { buildCommandProps } from './commandPropsBuilder.js';
 
 /**
  * Editor interface for CanChecker
@@ -71,19 +72,17 @@ export class CanChecker {
    * Builds CommandProps for dry-run checks
    * dispatch is undefined to indicate dry-run mode
    */
-  private buildCommandProps(tr: Transaction): CommandProps {
+  private buildDryRunProps(tr: Transaction): CommandProps {
     const { editor } = this;
-    const state = editor.view.state;
 
-    return {
-      editor: editor as CommandProps['editor'],
-      state,
+    return buildCommandProps({
+      editor,
       tr,
       dispatch: undefined, // Key difference: undefined for dry-run
       chain: this.createChainBuilder,
       can: () => this.proxy(),
-      commands: this.buildSingleCommands(tr),
-    };
+      commands: () => this.buildSingleCommands(tr),
+    });
   }
 
   /**
@@ -99,7 +98,7 @@ export class CanChecker {
           return () => false;
         }
         return (...args: unknown[]) => {
-          const props = this.buildCommandProps(tr);
+          const props = this.buildDryRunProps(tr);
           return (rawCommand as (...a: unknown[]) => Command)(...args)(props);
         };
       },
@@ -135,7 +134,7 @@ export class CanChecker {
           }
 
           const tr = editor.view.state.tr;
-          const props = this.buildCommandProps(tr);
+          const props = this.buildDryRunProps(tr);
           return (rawCommand as (...a: unknown[]) => Command)(...args)(props);
         };
       },
@@ -176,7 +175,7 @@ export class CanChecker {
             return chainProxy;
           }
 
-          const props = this.buildCommandProps(tr);
+          const props = this.buildDryRunProps(tr);
           const result = (rawCommand as (...a: unknown[]) => Command)(...args)(props);
           if (!result) {
             allSucceeded = false;

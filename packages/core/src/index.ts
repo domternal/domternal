@@ -39,6 +39,7 @@ export type {
   RawCommands,
   SingleCommands,
   ChainedCommands,
+  ChainFailure,
   CanCommands,
   CanChainedCommands,
   KeyboardShortcutCommand,
@@ -102,6 +103,12 @@ export {
   type CanCheckerEditor,
   type CanCheckerOptions,
 } from './CanChecker.js';
+export {
+  buildCommandProps,
+  createAccumulatingDispatch,
+  type CommandPropsEditor,
+  type BuildCommandPropsOptions,
+} from './commandPropsBuilder.js';
 export {
   builtInCommands,
   focus,

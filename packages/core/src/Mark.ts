@@ -115,11 +115,22 @@ export class Mark<Options = unknown, Storage = unknown> extends Extension<
    * Creates a new mark with merged options
    * Original mark is not modified
    *
+   * **Note:** Options are merged shallowly using object spread (`...`).
+   * Nested objects are replaced entirely, not deeply merged.
+   *
    * @param options - Options to merge with existing options
    * @returns New mark instance with merged options
    *
    * @example
    * const CustomBold = Bold.configure({ HTMLAttributes: { class: 'custom-bold' } });
+   *
+   * @example
+   * // Shallow merge behavior with nested objects:
+   * // Given: options = { HTMLAttributes: { class: 'a', id: 'b' } }
+   * // configure({ HTMLAttributes: { class: 'c' } })
+   * // Result: { HTMLAttributes: { class: 'c' } } — 'id' is lost!
+   * // To preserve nested values, spread manually:
+   * // configure({ HTMLAttributes: { ...original.options.HTMLAttributes, class: 'c' } })
    */
   override configure(options: Partial<Options>): Mark<Options, Storage> {
     const newConfig: MarkConfig<Options, Storage> = {
@@ -137,6 +148,10 @@ export class Mark<Options = unknown, Storage = unknown> extends Extension<
    * Creates a new mark with extended configuration
    * Original mark is not modified
    *
+   * **Note:** Config is merged shallowly using object spread (`...`).
+   * Config properties (like `addAttributes`, `parseHTML`) are
+   * replaced entirely, not combined with the base mark's config.
+   *
    * @param extendedConfig - Configuration to extend/override
    * @returns New mark instance with extended config
    *
@@ -145,6 +160,15 @@ export class Mark<Options = unknown, Storage = unknown> extends Extension<
    *   name: 'customBold',
    *   addAttributes() {
    *     return { ...this.parent?.(), weight: { default: 'bold' } };
+   *   },
+   * });
+   *
+   * @example
+   * // To preserve base mark's parse rules while adding new ones:
+   * const Extended = BaseMark.extend({
+   *   parseHTML() {
+   *     const baseRules = BaseMark.config.parseHTML?.call(this) ?? [];
+   *     return [...baseRules, { tag: 'custom-tag' }];
    *   },
    * });
    */

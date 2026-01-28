@@ -487,7 +487,7 @@ export class ExtensionManager {
 
   /**
    * Cleans up the extension manager
-   * Calls onDestroy on all extensions
+   * Calls onDestroy on all extensions and clears all caches
    */
   destroy(): void {
     if (this.isDestroyed) {
@@ -502,6 +502,15 @@ export class ExtensionManager {
           callOrReturn(onDestroy, ext);
         }, `${ext.name}.onDestroy`);
       }
+    }
+
+    // Clear all caches to prevent memory leaks
+    // Note: ProseMirror's EditorView.destroy() handles plugin view cleanup
+    this.clearAllCaches();
+
+    // Clear storage
+    for (const key of Object.keys(this._storage)) {
+      delete this._storage[key];
     }
 
     this.isDestroyed = true;

@@ -22,6 +22,10 @@ import type {
   CanCommands,
   ChainFailure,
 } from './types/Commands.js';
+import {
+  buildCommandProps,
+  createAccumulatingDispatch,
+} from './commandPropsBuilder.js';
 
 /**
  * Editor interface for ChainBuilder
@@ -82,30 +86,15 @@ export class ChainBuilder {
     }
 
     const { editor, tr } = this;
-    const state = editor.view.state;
 
-    // Create dispatch that accumulates on shared transaction
-    const dispatch = (transaction: Transaction): void => {
-      // In chain mode, we don't dispatch immediately
-      // The transaction accumulates steps
-      // We only care that the command modified the transaction
-      if (transaction !== tr) {
-        // If command created a new transaction, copy its steps
-        for (const step of transaction.steps) {
-          tr.step(step);
-        }
-      }
-    };
-
-    this._cachedProps = {
-      editor: editor as CommandProps['editor'],
-      state,
+    this._cachedProps = buildCommandProps({
+      editor,
       tr,
-      dispatch,
+      dispatch: createAccumulatingDispatch(tr),
       chain: () => this.proxy(),
       can: () => this.buildCanCommands(),
-      commands: this.buildSingleCommands(),
-    };
+      commands: () => this.buildSingleCommands(),
+    });
 
     return this._cachedProps;
   }
