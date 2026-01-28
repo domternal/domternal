@@ -44,7 +44,20 @@ export const Italic = Mark.create<ItalicOptions>({
   parseHTML() {
     return [
       { tag: 'em' },
-      { tag: 'i' },
+      {
+        tag: 'i',
+        getAttrs: (node) => {
+          if (typeof node === 'string') return {};
+          const fontStyle = node.style.fontStyle;
+
+          // Google Docs uses <i style="font-style:normal"> for non-italic text
+          if (fontStyle === 'normal') {
+            return false;
+          }
+
+          return {};
+        },
+      },
       {
         style: 'font-style',
         getAttrs: (value) => {

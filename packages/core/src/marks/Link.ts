@@ -20,6 +20,9 @@
  */
 import { Mark } from '../Mark.js';
 import { isValidUrl } from '../helpers/isValidUrl.js';
+import { linkClickPlugin } from './helpers/linkClickPlugin.js';
+import { linkPastePlugin } from './helpers/linkPastePlugin.js';
+import { autolinkPlugin } from './helpers/autolinkPlugin.js';
 
 /**
  * Options for the Link mark
@@ -35,15 +38,38 @@ export interface LinkOptions {
    */
   protocols: string[];
   /**
-   * Whether to open links in a new tab by default
+   * When to open links on click
+   * - true: Open on Mod+click (when editable) or click (when not editable)
+   * - false: Never open
+   * - 'whenNotEditable': Only open when editor is read-only
    * @default true
    */
-  openOnClick: boolean;
+  openOnClick: boolean | 'whenNotEditable';
   /**
    * Whether to add rel="noopener noreferrer" to links
    * @default true
    */
   addRelNoopener: boolean;
+  /**
+   * Auto-convert typed URLs to links
+   * @default true
+   */
+  autolink: boolean;
+  /**
+   * Convert pasted URLs to links (wraps selection or inserts as link)
+   * @default true
+   */
+  linkOnPaste: boolean;
+  /**
+   * Default protocol for bare URLs (e.g., 'example.com' → 'https://example.com')
+   * @default 'https'
+   */
+  defaultProtocol: string;
+  /**
+   * Custom validation for autolink
+   * Return false to prevent auto-linking specific URLs
+   */
+  shouldAutoLink?: (url: string) => boolean;
 }
 
 /**
@@ -67,12 +93,15 @@ export const Link = Mark.create<LinkOptions>({
   // Links can contain other marks
   inclusive: false,
 
-  addOptions() {
+  addOptions(): LinkOptions {
     return {
       HTMLAttributes: {},
       protocols: ['http:', 'https:', 'mailto:', 'tel:'],
       openOnClick: true,
       addRelNoopener: true,
+      autolink: true,
+      linkOnPaste: true,
+      defaultProtocol: 'https',
     };
   },
 
@@ -173,4 +202,47 @@ export const Link = Mark.create<LinkOptions>({
 
   // No keyboard shortcuts for links (requires dialog for URL input)
   // No input rules for links (too complex, requires URL validation)
+
+  addProseMirrorPlugins() {
+    const markType = this.markType;
+    if (!markType) return [];
+
+    const plugins = [];
+
+    // Click plugin - always enabled unless openOnClick is false
+    if (this.options.openOnClick !== false) {
+      plugins.push(
+        linkClickPlugin({
+          type: markType,
+          openOnClick: this.options.openOnClick,
+        })
+      );
+    }
+
+    // Paste plugin - wraps selection or inserts URL as link
+    if (this.options.linkOnPaste) {
+      plugins.push(
+        linkPastePlugin({
+          type: markType,
+          protocols: this.options.protocols,
+        })
+      );
+    }
+
+    // Autolink plugin - converts typed URLs to links
+    if (this.options.autolink) {
+      plugins.push(
+        autolinkPlugin({
+          type: markType,
+          protocols: this.options.protocols,
+          defaultProtocol: this.options.defaultProtocol,
+          ...(this.options.shouldAutoLink && {
+            shouldAutoLink: this.options.shouldAutoLink,
+          }),
+        })
+      );
+    }
+
+    return plugins;
+  },
 });

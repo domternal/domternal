@@ -44,7 +44,20 @@ export const Bold = Mark.create<BoldOptions>({
   parseHTML() {
     return [
       { tag: 'strong' },
-      { tag: 'b' },
+      {
+        tag: 'b',
+        getAttrs: (node) => {
+          if (typeof node === 'string') return {};
+          const fontWeight = node.style.fontWeight;
+
+          // Google Docs uses <b style="font-weight:normal"> for non-bold text
+          if (fontWeight === 'normal' || fontWeight === '400') {
+            return false;
+          }
+
+          return {};
+        },
+      },
       {
         style: 'font-weight',
         getAttrs: (value) => {
