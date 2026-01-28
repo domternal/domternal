@@ -71,6 +71,18 @@ export type SingleCommands = {
 };
 
 /**
+ * Information about a command chain failure
+ */
+export interface ChainFailure {
+  /** Name of the command that failed */
+  command: string;
+  /** Arguments passed to the command */
+  args: unknown[];
+  /** Index of the command in the chain (0-based) */
+  index: number;
+}
+
+/**
  * Chained commands that return `this` for fluent API
  * These are accessed via editor.chain().commandName().run()
  */
@@ -81,6 +93,8 @@ export type ChainedCommands = {
 } & {
   /** Execute the command chain */
   run: () => boolean;
+  /** Get information about the first command failure (if any) */
+  getFailure: () => ChainFailure | null;
 };
 
 /**

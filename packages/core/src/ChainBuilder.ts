@@ -20,6 +20,7 @@ import type {
   ChainedCommands,
   SingleCommands,
   CanCommands,
+  ChainFailure,
 } from './types/Commands.js';
 
 /**
@@ -53,6 +54,10 @@ export class ChainBuilder {
   private shouldDispatch = true;
   /** Cached proxy instance for performance (avoids creating new Proxy per command) */
   private _cachedProxy: ChainedCommands | null = null;
+  /** Tracks the first command failure in the chain */
+  private _failure: ChainFailure | null = null;
+  /** Current command index in the chain */
+  private _commandIndex = 0;
 
   constructor(options: ChainBuilderOptions) {
     this.editor = options.editor;
@@ -206,12 +211,29 @@ export class ChainBuilder {
    *   .run();
    */
   command(fn: (props: CommandProps) => boolean): this {
+    const commandIndex = this._commandIndex++;
     const props = this.buildCommandProps();
     const result = fn(props);
-    if (!result) {
+    if (!result && !this._failure) {
       this.shouldDispatch = false;
+      this._failure = { command: 'command', args: [fn], index: commandIndex };
     }
     return this;
+  }
+
+  /**
+   * Get information about the first command that failed in the chain
+   *
+   * @returns ChainFailure object or null if no failure occurred
+   *
+   * @example
+   * const chain = editor.chain().toggleBold().setHeading(1);
+   * if (!chain.run()) {
+   *   console.log('Failed:', chain.getFailure());
+   * }
+   */
+  getFailure(): ChainFailure | null {
+    return this._failure;
   }
 
   /**
@@ -261,6 +283,10 @@ export class ChainBuilder {
           return () => this.run();
         }
 
+        if (name === 'getFailure') {
+          return () => this.getFailure();
+        }
+
         if (name === 'command') {
           return (fn: (props: CommandProps) => boolean) => {
             this.command(fn);
@@ -271,14 +297,23 @@ export class ChainBuilder {
         // Handle dynamic commands
         const rawCommand = rawCommands[name];
         if (!rawCommand) {
-          return () => this._cachedProxy!;
+          return (...args: unknown[]) => {
+            const commandIndex = this._commandIndex++;
+            if (!this._failure) {
+              this.shouldDispatch = false;
+              this._failure = { command: name, args, index: commandIndex };
+            }
+            return this._cachedProxy!;
+          };
         }
 
         return (...args: unknown[]) => {
+          const commandIndex = this._commandIndex++;
           const props = this.buildCommandProps();
           const result = (rawCommand as (...a: unknown[]) => Command)(...args)(props);
-          if (!result) {
+          if (!result && !this._failure) {
             this.shouldDispatch = false;
+            this._failure = { command: name, args, index: commandIndex };
           }
           return this._cachedProxy!;
         };

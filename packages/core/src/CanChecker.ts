@@ -44,6 +44,8 @@ export interface CanCheckerOptions {
   rawCommands: RawCommands;
   /** Function to create a ChainBuilder for chain() within commands */
   createChainBuilder: () => ChainedCommands;
+  /** Enable debug mode to log warnings for unknown commands */
+  debug?: boolean;
 }
 
 /**
@@ -56,11 +58,13 @@ export class CanChecker {
   private readonly editor: CanCheckerEditor;
   private readonly rawCommands: RawCommands;
   private readonly createChainBuilder: () => ChainedCommands;
+  private readonly debug: boolean;
 
   constructor(options: CanCheckerOptions) {
     this.editor = options.editor;
     this.rawCommands = options.rawCommands;
     this.createChainBuilder = options.createChainBuilder;
+    this.debug = options.debug ?? false;
   }
 
   /**
@@ -119,6 +123,9 @@ export class CanChecker {
         // Handle dynamic commands
         const rawCommand = rawCommands[name];
         if (!rawCommand) {
+          if (this.debug) {
+            console.warn(`[CanChecker] Command '${name}' not found`);
+          }
           return () => false;
         }
 
@@ -154,6 +161,9 @@ export class CanChecker {
         // Handle dynamic commands
         const rawCommand = rawCommands[name];
         if (!rawCommand) {
+          if (this.debug) {
+            console.warn(`[CanChecker] Command '${name}' not found in chain`);
+          }
           return () => {
             allSucceeded = false;
             return chainProxy;

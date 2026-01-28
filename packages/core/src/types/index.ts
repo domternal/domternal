@@ -45,6 +45,7 @@ export type {
   RawCommands,
   SingleCommands,
   ChainedCommands,
+  ChainFailure,
   CanCommands,
   CanChainedCommands,
   KeyboardShortcutCommand,
