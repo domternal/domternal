@@ -26,3 +26,6 @@ export {
 export { Typography, type TypographyOptions } from './Typography.js';
 export { TextAlign, type TextAlignOptions } from './TextAlign.js';
 export { Focus, focusPluginKey, type FocusOptions } from './Focus.js';
+
+// Bundle
+export { StarterKit, type StarterKitOptions } from './StarterKit.js';

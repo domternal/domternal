@@ -19,3 +19,11 @@ export {
   extractUrls,
   type IsValidUrlOptions,
 } from './isValidUrl.js';
+export {
+  generateHTML,
+  generateJSON,
+  generateText,
+  type GenerateHTMLOptions,
+  type GenerateJSONOptions,
+  type GenerateTextOptions,
+} from './ssr.js';

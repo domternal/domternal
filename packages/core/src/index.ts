@@ -87,10 +87,16 @@ export {
   markInputRulePatterns,
   isValidUrl,
   extractUrls,
+  generateHTML,
+  generateJSON,
+  generateText,
   type CreateDocumentOptions,
   type IsNodeEmptyOptions,
   type MarkInputRuleOptions,
   type IsValidUrlOptions,
+  type GenerateHTMLOptions,
+  type GenerateJSONOptions,
+  type GenerateTextOptions,
 } from './helpers/index.js';
 
 // === Extension System ===
@@ -223,4 +229,6 @@ export {
   Focus,
   focusPluginKey,
   type FocusOptions,
+  StarterKit,
+  type StarterKitOptions,
 } from './extensions/index.js';
