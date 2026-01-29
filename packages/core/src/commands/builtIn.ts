@@ -639,6 +639,130 @@ export const selectNodeBackward: CommandSpec =
     return pmSelectNodeBackward(state, dispatch);
   };
 
+// ============================================================================
+// Attribute Commands
+// ============================================================================
+
+/**
+ * UpdateAttributes command - updates attributes on nodes matching a type
+ *
+ * Updates attributes on all nodes of the specified type within the selection.
+ *
+ * @param typeOrName - The node type name or NodeType to update
+ * @param attributes - The attributes to merge into existing attributes
+ */
+export const updateAttributes: CommandSpec<[typeOrName: string, attributes: Record<string, unknown>]> =
+  (typeOrName: string, attributes: Record<string, unknown>) =>
+  ({ state, tr, dispatch }) => {
+    const type = state.schema.nodes[typeOrName] || state.schema.marks[typeOrName];
+
+    if (!type) {
+      return false;
+    }
+
+    const { from, to } = tr.selection;
+    let updated = false;
+
+    // For nodes
+    if (state.schema.nodes[typeOrName]) {
+      state.doc.nodesBetween(from, to, (node, pos) => {
+        if (node.type.name === typeOrName) {
+          if (dispatch) {
+            tr.setNodeMarkup(pos, undefined, { ...node.attrs, ...attributes });
+          }
+          updated = true;
+        }
+      });
+    }
+
+    // For marks - update marks in the selection
+    if (state.schema.marks[typeOrName]) {
+      const markType = state.schema.marks[typeOrName];
+      state.doc.nodesBetween(from, to, (node, pos) => {
+        if (!node.isInline) return;
+
+        const mark = markType.isInSet(node.marks);
+        if (mark) {
+          if (dispatch) {
+            const newMark = markType.create({ ...mark.attrs, ...attributes });
+            tr.removeMark(pos, pos + node.nodeSize, markType);
+            tr.addMark(pos, pos + node.nodeSize, newMark);
+          }
+          updated = true;
+        }
+      });
+    }
+
+    if (updated && dispatch) {
+      dispatch(tr);
+    }
+
+    return updated;
+  };
+
+/**
+ * ResetAttributes command - resets an attribute to its default value
+ *
+ * Resets the specified attribute on all nodes of the given type within the selection
+ * to the default value defined in the schema.
+ *
+ * @param typeOrName - The node type name to update
+ * @param attributeName - The name of the attribute to reset
+ */
+export const resetAttributes: CommandSpec<[typeOrName: string, attributeName: string]> =
+  (typeOrName: string, attributeName: string) =>
+  ({ state, tr, dispatch }) => {
+    const nodeType = state.schema.nodes[typeOrName];
+    const markType = state.schema.marks[typeOrName];
+
+    if (!nodeType && !markType) {
+      return false;
+    }
+
+    const { from, to } = tr.selection;
+    let updated = false;
+
+    // For nodes
+    if (nodeType) {
+      const defaultValue = nodeType.spec.attrs?.[attributeName]?.default;
+
+      state.doc.nodesBetween(from, to, (node, pos) => {
+        if (node.type === nodeType) {
+          if (dispatch) {
+            const newAttrs = { ...node.attrs, [attributeName]: defaultValue };
+            tr.setNodeMarkup(pos, undefined, newAttrs);
+          }
+          updated = true;
+        }
+      });
+    }
+
+    // For marks
+    if (markType) {
+      const defaultValue = markType.spec.attrs?.[attributeName]?.default;
+
+      state.doc.nodesBetween(from, to, (node, pos) => {
+        if (!node.isInline) return;
+
+        const mark = markType.isInSet(node.marks);
+        if (mark) {
+          if (dispatch) {
+            const newMark = markType.create({ ...mark.attrs, [attributeName]: defaultValue });
+            tr.removeMark(pos, pos + node.nodeSize, markType);
+            tr.addMark(pos, pos + node.nodeSize, newMark);
+          }
+          updated = true;
+        }
+      });
+    }
+
+    if (updated && dispatch) {
+      dispatch(tr);
+    }
+
+    return updated;
+  };
+
 /**
  * All built-in commands as RawCommands
  * These are merged with extension commands in CommandManager
@@ -669,4 +793,7 @@ export const builtInCommands: RawCommands = {
   insertContent,
   // Selection commands
   selectNodeBackward,
+  // Attribute commands
+  updateAttributes,
+  resetAttributes,
 } as RawCommands;

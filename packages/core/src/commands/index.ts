@@ -28,6 +28,9 @@ export {
   insertContent,
   // Selection commands
   selectNodeBackward,
+  // Attribute commands
+  updateAttributes,
+  resetAttributes,
   type SetContentOptions,
   type ClearContentOptions,
 } from './builtIn.js';

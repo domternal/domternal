@@ -46,6 +46,7 @@
     "prosemirror-schema-list": "^1.5.1",
     "prosemirror-state": "^1.4.4",
     "prosemirror-tables": "^1.8.5",
+    "prosemirror-trailing-node": "^3.0.0",
     "prosemirror-transform": "^1.10.5",
     "prosemirror-view": "^1.41.5"
   },

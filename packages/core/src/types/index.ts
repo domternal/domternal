@@ -55,6 +55,8 @@ export type {
 export type {
   ExtensionEditor,
   AnyExtensionConfig,
+  GlobalAttributeSpec,
+  GlobalAttributes,
   ExtensionConfig,
 } from './ExtensionConfig.js';
 

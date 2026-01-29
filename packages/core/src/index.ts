@@ -46,6 +46,8 @@ export type {
   // Extension config types
   ExtensionEditor,
   AnyExtensionConfig,
+  GlobalAttributeSpec,
+  GlobalAttributes,
   ExtensionConfig,
   // Attribute types
   AttributeSpec,
@@ -142,6 +144,9 @@ export {
   insertContent,
   // Selection commands
   selectNodeBackward,
+  // Attribute commands
+  updateAttributes,
+  resetAttributes,
 } from './commands/index.js';
 
 // === Nodes ===

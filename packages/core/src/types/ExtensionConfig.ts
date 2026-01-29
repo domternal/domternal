@@ -28,6 +28,50 @@ export interface AnyExtensionConfig {
 }
 
 /**
+ * Global attribute specification for injecting attributes into multiple node/mark types.
+ * Used by extensions like TextAlign to add alignment to heading, paragraph, etc.
+ */
+export interface GlobalAttributeSpec {
+  /**
+   * Default value for the attribute.
+   */
+  default?: unknown;
+
+  /**
+   * Parse attribute value from HTML element.
+   * @param element - The DOM element to parse from
+   * @returns The parsed attribute value
+   */
+  parseHTML?: (element: HTMLElement) => unknown;
+
+  /**
+   * Render attribute value to HTML attributes.
+   * @param attributes - The node/mark attributes
+   * @returns Object of HTML attributes to set, or null/empty to skip
+   */
+  renderHTML?: (
+    attributes: Record<string, unknown>
+  ) => Record<string, string> | null;
+}
+
+/**
+ * Global attributes definition for injecting into node/mark types.
+ */
+export interface GlobalAttributes {
+  /**
+   * Node or mark type names to add these attributes to.
+   * @example ['heading', 'paragraph']
+   */
+  types: string[];
+
+  /**
+   * Attribute specifications to add.
+   * @example { textAlign: { default: 'left', parseHTML: (el) => el.style.textAlign } }
+   */
+  attributes: Record<string, GlobalAttributeSpec>;
+}
+
+/**
  * Context interface that describes what `this` will be in config methods.
  * This enables proper typing of `this.options`, `this.editor`, etc.
  * without creating circular dependencies.
@@ -146,6 +190,29 @@ export interface ExtensionConfigBase<Options = unknown, Storage = unknown> {
    * These extensions are flattened and processed like top-level extensions
    */
   addExtensions?: () => AnyExtensionConfig[];
+
+  /**
+   * Global attributes to add to multiple node/mark types.
+   * Useful for extensions like TextAlign that need to add attributes
+   * to several nodes (heading, paragraph, etc.) without modifying each.
+   *
+   * @example
+   * addGlobalAttributes() {
+   *   return [{
+   *     types: ['heading', 'paragraph'],
+   *     attributes: {
+   *       textAlign: {
+   *         default: 'left',
+   *         parseHTML: (element) => element.style.textAlign || 'left',
+   *         renderHTML: (attrs) => attrs.textAlign !== 'left'
+   *           ? { style: `text-align: ${attrs.textAlign}` }
+   *           : null,
+   *       },
+   *     },
+   *   }];
+   * }
+   */
+  addGlobalAttributes?: () => GlobalAttributes[];
 
   // === Lifecycle Hooks ===
 
