@@ -12,3 +12,17 @@ export {
   placeholderPluginKey,
   type PlaceholderOptions,
 } from './Placeholder.js';
+
+// List & Count
+export { ListKeymap, type ListKeymapOptions } from './ListKeymap.js';
+export {
+  CharacterCount,
+  characterCountPluginKey,
+  type CharacterCountOptions,
+  type CharacterCountStorage,
+} from './CharacterCount.js';
+
+// Styling
+export { Typography, type TypographyOptions } from './Typography.js';
+export { TextAlign, type TextAlignOptions } from './TextAlign.js';
+export { Focus, focusPluginKey, type FocusOptions } from './Focus.js';
