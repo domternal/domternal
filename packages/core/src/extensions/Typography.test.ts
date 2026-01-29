@@ -33,6 +33,7 @@ describe('Typography', () => {
       expect(options?.symbols).toBe(true);
       expect(options?.math).toBe(true);
       expect(options?.guillemets).toBe(true);
+      expect(options?.smartQuotes).toBe(true);
     });
 
     it('has smart quote defaults', () => {
@@ -76,6 +77,7 @@ describe('Typography', () => {
           symbols: true,
           math: true,
           guillemets: true,
+          smartQuotes: true,
           openDoubleQuote: '\u201C',
           closeDoubleQuote: '\u201D',
           openSingleQuote: '\u2018',
@@ -97,6 +99,7 @@ describe('Typography', () => {
           symbols: true,
           math: true,
           guillemets: true,
+          smartQuotes: true,
           openDoubleQuote: '\u201C',
           closeDoubleQuote: '\u201D',
           openSingleQuote: '\u2018',
@@ -113,6 +116,7 @@ describe('Typography', () => {
           symbols: false,
           math: false,
           guillemets: false,
+          smartQuotes: false,
           openDoubleQuote: '\u201C',
           closeDoubleQuote: '\u201D',
           openSingleQuote: '\u2018',
@@ -133,6 +137,7 @@ describe('Typography', () => {
           symbols: false,
           math: false,
           guillemets: false,
+          smartQuotes: false,
           openDoubleQuote: '\u201C',
           closeDoubleQuote: '\u201D',
           openSingleQuote: '\u2018',
@@ -153,6 +158,7 @@ describe('Typography', () => {
           symbols: false,
           math: false,
           guillemets: false,
+          smartQuotes: false,
           openDoubleQuote: '\u201C',
           closeDoubleQuote: '\u201D',
           openSingleQuote: '\u2018',
@@ -173,6 +179,7 @@ describe('Typography', () => {
           symbols: false,
           math: false,
           guillemets: false,
+          smartQuotes: false,
           openDoubleQuote: '\u201C',
           closeDoubleQuote: '\u201D',
           openSingleQuote: '\u2018',
@@ -194,6 +201,7 @@ describe('Typography', () => {
           symbols: false,
           math: false,
           guillemets: false,
+          smartQuotes: false,
           openDoubleQuote: '\u201C',
           closeDoubleQuote: '\u201D',
           openSingleQuote: '\u2018',
@@ -215,6 +223,7 @@ describe('Typography', () => {
           symbols: true,
           math: false,
           guillemets: false,
+          smartQuotes: false,
           openDoubleQuote: '\u201C',
           closeDoubleQuote: '\u201D',
           openSingleQuote: '\u2018',
@@ -236,6 +245,7 @@ describe('Typography', () => {
           symbols: false,
           math: true,
           guillemets: false,
+          smartQuotes: false,
           openDoubleQuote: '\u201C',
           closeDoubleQuote: '\u201D',
           openSingleQuote: '\u2018',
@@ -257,6 +267,7 @@ describe('Typography', () => {
           symbols: false,
           math: false,
           guillemets: true,
+          smartQuotes: false,
           openDoubleQuote: '\u201C',
           closeDoubleQuote: '\u201D',
           openSingleQuote: '\u2018',
@@ -266,6 +277,28 @@ describe('Typography', () => {
 
       // << and >> (2 guillemets)
       expect(withGuillemets?.length).toBe(2);
+    });
+
+    it('creates 2 smart quote rules when smartQuotes enabled', () => {
+      const withSmartQuotes = Typography.config.addInputRules?.call({
+        options: {
+          emDash: false,
+          ellipsis: false,
+          arrows: false,
+          fractions: false,
+          symbols: false,
+          math: false,
+          guillemets: false,
+          smartQuotes: true,
+          openDoubleQuote: '\u201C',
+          closeDoubleQuote: '\u201D',
+          openSingleQuote: '\u2018',
+          closeSingleQuote: '\u2019',
+        },
+      } as never);
+
+      // "text" and 'text' (2 smart quote rules)
+      expect(withSmartQuotes?.length).toBe(2);
     });
   });
 });

@@ -54,6 +54,12 @@ export interface TypographyOptions {
   guillemets: boolean;
 
   /**
+   * Enable smart quote replacements ("text" → "text", 'text' → 'text')
+   * @default true
+   */
+  smartQuotes: boolean;
+
+  /**
    * Opening double quote character.
    * @default '"'
    */
@@ -90,6 +96,7 @@ export const Typography = Extension.create<TypographyOptions>({
       symbols: true,
       math: true,
       guillemets: true,
+      smartQuotes: true,
       openDoubleQuote: '\u201C', // "
       closeDoubleQuote: '\u201D', // "
       openSingleQuote: '\u2018', // '
@@ -237,6 +244,43 @@ export const Typography = Extension.create<TypographyOptions>({
       rules.push(
         new InputRule(/>>$/, (state, _match, start, end) => {
           return state.tr.replaceWith(start, end, state.schema.text('»'));
+        })
+      );
+    }
+
+    // Smart quotes
+    if (this.options.smartQuotes) {
+      const { openDoubleQuote, closeDoubleQuote, openSingleQuote, closeSingleQuote } = this.options;
+
+      // "text" → "text" (double quotes)
+      rules.push(
+        new InputRule(/"([^"]+)"$/, (state, match, start, end) => {
+          const text = match[1];
+          return state.tr.replaceWith(
+            start,
+            end,
+            state.schema.text(`${openDoubleQuote}${text}${closeDoubleQuote}`)
+          );
+        })
+      );
+
+      // 'text' → 'text' (single quotes - only when clearly a quote pair)
+      // Use lookbehind to avoid matching apostrophes in contractions
+      rules.push(
+        new InputRule(/(?:^|[\s\(\[{])'([^']+)'$/, (state, match, start, end) => {
+          const text = match[1];
+          const prefix = match[0].charAt(0);
+          // If there's a prefix character (space, bracket, etc.), keep it
+          const hasPrefix = prefix !== "'";
+          return state.tr.replaceWith(
+            start,
+            end,
+            state.schema.text(
+              hasPrefix
+                ? `${prefix}${openSingleQuote}${text}${closeSingleQuote}`
+                : `${openSingleQuote}${text}${closeSingleQuote}`
+            )
+          );
         })
       );
     }
