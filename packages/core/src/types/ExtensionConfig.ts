@@ -7,6 +7,7 @@
 
 import type { Plugin, Transaction } from 'prosemirror-state';
 import type { InputRule } from 'prosemirror-inputrules';
+import type { EditorView } from 'prosemirror-view';
 import type { Command, KeyboardShortcutCommand } from './Commands.js';
 
 /**
@@ -15,8 +16,9 @@ import type { Command, KeyboardShortcutCommand } from './Commands.js';
  */
 export interface ExtensionEditor {
   readonly state: unknown;
-  readonly view: unknown;
+  readonly view: EditorView;
   readonly schema: unknown;
+  readonly commands: Record<string, (...args: unknown[]) => boolean>;
 }
 
 /**

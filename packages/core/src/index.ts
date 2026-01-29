@@ -197,3 +197,17 @@ export {
   Highlight,
   type HighlightOptions,
 } from './marks/index.js';
+
+// === Extensions ===
+export {
+  History,
+  type HistoryOptions,
+  Dropcursor,
+  type DropcursorOptions,
+  Gapcursor,
+  TrailingNode,
+  type TrailingNodeOptions,
+  Placeholder,
+  placeholderPluginKey,
+  type PlaceholderOptions,
+} from './extensions/index.js';
