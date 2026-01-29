@@ -50,8 +50,17 @@
     "prosemirror-transform": "^1.10.5",
     "prosemirror-view": "^1.41.5"
   },
+  "peerDependencies": {
+    "linkedom": "^0.18.0"
+  },
+  "peerDependenciesMeta": {
+    "linkedom": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "jsdom": "^27.4.0",
+    "linkedom": "^0.18.0",
     "tsup": "^8.5.1",
     "typescript": "~5.9.3"
   },
