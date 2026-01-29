@@ -319,7 +319,7 @@ export class ExtensionManager {
 
       for (const { types, attributes } of attrs) {
         for (const typeName of types) {
-          const existing = globalAttrs.get(typeName) || {};
+          const existing = globalAttrs.get(typeName) ?? {};
           globalAttrs.set(typeName, { ...existing, ...attributes });
         }
       }
@@ -414,10 +414,12 @@ export class ExtensionManager {
                 result[1] !== null &&
                 !Array.isArray(result[1])
               ) {
-                result[1] = { ...result[1], ...extraHtmlAttrs };
+                const existingAttrs = result[1] as Record<string, unknown>;
+                result[1] = { ...existingAttrs, ...extraHtmlAttrs };
               } else if (Object.keys(extraHtmlAttrs).length > 0) {
                 // Insert attributes object at position 1
-                return [result[0], extraHtmlAttrs, ...result.slice(1)];
+                const rest = result.slice(1) as unknown[];
+                return [result[0], extraHtmlAttrs, ...rest];
               }
 
               return result;
@@ -498,9 +500,11 @@ export class ExtensionManager {
                 result[1] !== null &&
                 !Array.isArray(result[1])
               ) {
-                result[1] = { ...result[1], ...extraHtmlAttrs };
+                const existingAttrs = result[1] as Record<string, unknown>;
+                result[1] = { ...existingAttrs, ...extraHtmlAttrs };
               } else if (Object.keys(extraHtmlAttrs).length > 0) {
-                return [result[0], extraHtmlAttrs, ...result.slice(1)];
+                const rest = result.slice(1) as unknown[];
+                return [result[0], extraHtmlAttrs, ...rest];
               }
 
               return result;

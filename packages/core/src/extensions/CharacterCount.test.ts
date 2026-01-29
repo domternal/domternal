@@ -117,7 +117,9 @@ describe('CharacterCount', () => {
 
       // Get filterTransaction from plugin spec
       // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-      const filterFn = (plugin as any).spec?.filterTransaction;
+      const filterFn = (plugin as any).spec?.filterTransaction as
+        | ((tr: unknown) => boolean)
+        | undefined;
       if (filterFn) {
         const result = filterFn(tr);
         expect(result).toBe(true);
@@ -138,7 +140,9 @@ describe('CharacterCount', () => {
       const tr = state.tr.insertText(' world!!!!', 6); // Would exceed 10 chars
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-      const filterFn = (plugin as any).spec?.filterTransaction;
+      const filterFn = (plugin as any).spec?.filterTransaction as
+        | ((tr: unknown) => boolean)
+        | undefined;
       if (filterFn) {
         const result = filterFn(tr);
         expect(result).toBe(false);
@@ -161,7 +165,9 @@ describe('CharacterCount', () => {
       const tr = state.tr.setSelection(state.selection);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-      const filterFn = (plugin as any).spec?.filterTransaction;
+      const filterFn = (plugin as any).spec?.filterTransaction as
+        | ((tr: unknown) => boolean)
+        | undefined;
       if (filterFn) {
         const result = filterFn(tr);
         expect(result).toBe(true);
@@ -182,7 +188,9 @@ describe('CharacterCount', () => {
       const tr = state.tr.insertText(' three four', 7); // Would have 4 words
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
-      const filterFn = (plugin as any).spec?.filterTransaction;
+      const filterFn = (plugin as any).spec?.filterTransaction as
+        | ((tr: unknown) => boolean)
+        | undefined;
       if (filterFn) {
         const result = filterFn(tr);
         expect(result).toBe(false);

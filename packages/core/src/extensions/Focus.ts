@@ -45,7 +45,7 @@ export const Focus = Extension.create<FocusOptions>({
           decorations: ({ doc, selection }) => {
             const { from, to } = selection;
             const decorations: Decoration[] = [];
-            const focusedNodes: Array<{ pos: number; nodeSize: number }> = [];
+            const focusedNodes: { pos: number; nodeSize: number }[] = [];
 
             // Collect all nodes containing the selection
             doc.nodesBetween(from, to, (node, pos) => {

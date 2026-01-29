@@ -7,7 +7,6 @@
  * - Backspace: Lift list item when at start of empty item
  */
 import { liftListItem, sinkListItem } from 'prosemirror-schema-list';
-import type { NodeType } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { Extension } from '../Extension.js';
@@ -37,7 +36,7 @@ export const ListKeymap = Extension.create<ListKeymapOptions>({
         if (!editor) return false;
 
         const { state, view } = editor as { state: EditorState; view: EditorView };
-        const listItemType = state.schema.nodes[this.options.listItem] as NodeType | undefined;
+        const listItemType = state.schema.nodes[this.options.listItem] ;
 
         if (!listItemType) return false;
 
@@ -63,7 +62,7 @@ export const ListKeymap = Extension.create<ListKeymapOptions>({
         if (!editor) return false;
 
         const { state, view } = editor as { state: EditorState; view: EditorView };
-        const listItemType = state.schema.nodes[this.options.listItem] as NodeType | undefined;
+        const listItemType = state.schema.nodes[this.options.listItem] ;
 
         if (!listItemType) return false;
 
@@ -94,7 +93,7 @@ export const ListKeymap = Extension.create<ListKeymapOptions>({
         // Only at start of textblock with empty selection
         if (!empty || $from.parentOffset !== 0) return false;
 
-        const listItemType = state.schema.nodes[this.options.listItem] as NodeType | undefined;
+        const listItemType = state.schema.nodes[this.options.listItem] ;
         if (!listItemType) return false;
 
         // Check if we're at the start of a list item
@@ -113,7 +112,7 @@ export const ListKeymap = Extension.create<ListKeymapOptions>({
         const listItemNode = $from.node(listItemDepth);
         const firstChild = listItemNode.firstChild;
 
-        if (firstChild && firstChild.isTextblock) {
+        if (firstChild?.isTextblock) {
           // Check if the textblock is empty or cursor is at its start
           const posInListItem = $from.pos - $from.start(listItemDepth);
           if (posInListItem <= 1) {

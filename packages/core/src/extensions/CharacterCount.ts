@@ -84,7 +84,7 @@ export const CharacterCount = Extension.create<
 
   onCreate() {
     const getCharacters = (): number => {
-      const doc = this.editor?.view?.state?.doc;
+      const doc = this.editor?.view.state.doc;
       if (!doc) return 0;
 
       if (this.options.mode === 'nodeSize') {
@@ -95,7 +95,7 @@ export const CharacterCount = Extension.create<
     };
 
     const getWords = (): number => {
-      const doc = this.editor?.view?.state?.doc;
+      const doc = this.editor?.view.state.doc;
       if (!doc) return 0;
 
       const text = doc.textContent;

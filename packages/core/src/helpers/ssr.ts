@@ -12,8 +12,8 @@ import {
   Node as PMNode,
   DOMSerializer,
   DOMParser as PMDOMParser,
-  Schema,
 } from 'prosemirror-model';
+import type { Schema } from 'prosemirror-model';
 import type { AnyExtension, JSONContent } from '../types/index.js';
 import { ExtensionManager } from '../ExtensionManager.js';
 
@@ -46,7 +46,7 @@ function buildSchemaFromExtensions(extensions: AnyExtension[]): Schema {
  */
 function getDocument(): Document {
   // Browser environment
-  if (typeof window !== 'undefined' && window.document) {
+  if (typeof window !== 'undefined') {
     return window.document;
   }
 

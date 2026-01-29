@@ -148,7 +148,7 @@ export const StarterKit = Extension.create<StarterKitOptions>({
     const maybeAdd = <T extends object>(
       ext: { configure: (opts: Partial<T>) => AnyExtensionConfig } & AnyExtensionConfig,
       opts: false | Partial<T> | undefined
-    ) => {
+    ): void => {
       if (opts === false) return;
       if (opts && Object.keys(opts).length > 0) {
         extensions.push(ext.configure(opts));

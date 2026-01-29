@@ -255,20 +255,20 @@ export const Typography = Extension.create<TypographyOptions>({
       // "text" → "text" (double quotes)
       rules.push(
         new InputRule(/"([^"]+)"$/, (state, match, start, end) => {
-          const text = match[1];
+          const text = match[1] ?? '';
           return state.tr.replaceWith(
             start,
             end,
-            state.schema.text(`${openDoubleQuote}${text}${closeDoubleQuote}`)
+            state.schema.text(openDoubleQuote + text + closeDoubleQuote)
           );
         })
       );
 
       // 'text' → 'text' (single quotes - only when clearly a quote pair)
-      // Use lookbehind to avoid matching apostrophes in contractions
+      // Use pattern to avoid matching apostrophes in contractions
       rules.push(
-        new InputRule(/(?:^|[\s\(\[{])'([^']+)'$/, (state, match, start, end) => {
-          const text = match[1];
+        new InputRule(/(?:^|[\s([{])'([^']+)'$/, (state, match, start, end) => {
+          const text = match[1] ?? '';
           const prefix = match[0].charAt(0);
           // If there's a prefix character (space, bracket, etc.), keep it
           const hasPrefix = prefix !== "'";
@@ -277,8 +277,8 @@ export const Typography = Extension.create<TypographyOptions>({
             end,
             state.schema.text(
               hasPrefix
-                ? `${prefix}${openSingleQuote}${text}${closeSingleQuote}`
-                : `${openSingleQuote}${text}${closeSingleQuote}`
+                ? prefix + openSingleQuote + text + closeSingleQuote
+                : openSingleQuote + text + closeSingleQuote
             )
           );
         })

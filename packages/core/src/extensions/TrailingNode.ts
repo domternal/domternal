@@ -6,6 +6,7 @@
  * code blocks, images, or tables.
  */
 import { trailingNode } from 'prosemirror-trailing-node';
+import type { Plugin } from 'prosemirror-state';
 import { Extension } from '../Extension.js';
 
 export interface TrailingNodeOptions {
@@ -33,7 +34,7 @@ export const TrailingNode = Extension.create<TrailingNodeOptions>({
     };
   },
 
-  addProseMirrorPlugins() {
+  addProseMirrorPlugins(): Plugin[] {
     return [
       trailingNode({
         nodeName: this.options.node,

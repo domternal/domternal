@@ -654,28 +654,26 @@ export const selectNodeBackward: CommandSpec =
 export const updateAttributes: CommandSpec<[typeOrName: string, attributes: Record<string, unknown>]> =
   (typeOrName: string, attributes: Record<string, unknown>) =>
   ({ state, tr, dispatch }) => {
-    const type = state.schema.nodes[typeOrName] || state.schema.marks[typeOrName];
+    const type = state.schema.nodes[typeOrName] ?? state.schema.marks[typeOrName];
 
     if (!type) {
       return false;
     }
 
     const { from, to } = tr.selection;
-    let updated = false;
+    const nodeChanges: { pos: number; attrs: Record<string, unknown> }[] = [];
+    const markChanges: { pos: number; nodeSize: number; attrs: Record<string, unknown> }[] = [];
 
-    // For nodes
+    // For nodes - collect changes
     if (state.schema.nodes[typeOrName]) {
       state.doc.nodesBetween(from, to, (node, pos) => {
         if (node.type.name === typeOrName) {
-          if (dispatch) {
-            tr.setNodeMarkup(pos, undefined, { ...node.attrs, ...attributes });
-          }
-          updated = true;
+          nodeChanges.push({ pos, attrs: { ...node.attrs, ...attributes } });
         }
       });
     }
 
-    // For marks - update marks in the selection
+    // For marks - collect changes
     if (state.schema.marks[typeOrName]) {
       const markType = state.schema.marks[typeOrName];
       state.doc.nodesBetween(from, to, (node, pos) => {
@@ -683,21 +681,37 @@ export const updateAttributes: CommandSpec<[typeOrName: string, attributes: Reco
 
         const mark = markType.isInSet(node.marks);
         if (mark) {
-          if (dispatch) {
-            const newMark = markType.create({ ...mark.attrs, ...attributes });
-            tr.removeMark(pos, pos + node.nodeSize, markType);
-            tr.addMark(pos, pos + node.nodeSize, newMark);
-          }
-          updated = true;
+          markChanges.push({
+            pos,
+            nodeSize: node.nodeSize,
+            attrs: { ...mark.attrs, ...attributes },
+          });
         }
       });
     }
 
-    if (updated && dispatch) {
+    const hasChanges = nodeChanges.length > 0 || markChanges.length > 0;
+
+    if (hasChanges && dispatch) {
+      // Apply node changes
+      for (const change of nodeChanges) {
+        tr.setNodeMarkup(change.pos, undefined, change.attrs);
+      }
+
+      // Apply mark changes
+      if (state.schema.marks[typeOrName]) {
+        const markType = state.schema.marks[typeOrName];
+        for (const change of markChanges) {
+          const newMark = markType.create(change.attrs);
+          tr.removeMark(change.pos, change.pos + change.nodeSize, markType);
+          tr.addMark(change.pos, change.pos + change.nodeSize, newMark);
+        }
+      }
+
       dispatch(tr);
     }
 
-    return updated;
+    return hasChanges;
   };
 
 /**
@@ -720,47 +734,62 @@ export const resetAttributes: CommandSpec<[typeOrName: string, attributeName: st
     }
 
     const { from, to } = tr.selection;
-    let updated = false;
+    const nodeChanges: { pos: number; attrs: Record<string, unknown> }[] = [];
+    const markChanges: { pos: number; nodeSize: number; attrs: Record<string, unknown> }[] = [];
 
-    // For nodes
+    // For nodes - collect changes
     if (nodeType) {
-      const defaultValue = nodeType.spec.attrs?.[attributeName]?.default;
+      const defaultValue: unknown = nodeType.spec.attrs?.[attributeName]?.default;
 
       state.doc.nodesBetween(from, to, (node, pos) => {
         if (node.type === nodeType) {
-          if (dispatch) {
-            const newAttrs = { ...node.attrs, [attributeName]: defaultValue };
-            tr.setNodeMarkup(pos, undefined, newAttrs);
-          }
-          updated = true;
+          nodeChanges.push({
+            pos,
+            attrs: { ...node.attrs, [attributeName]: defaultValue },
+          });
         }
       });
     }
 
-    // For marks
+    // For marks - collect changes
     if (markType) {
-      const defaultValue = markType.spec.attrs?.[attributeName]?.default;
+      const defaultValue: unknown = markType.spec.attrs?.[attributeName]?.default;
 
       state.doc.nodesBetween(from, to, (node, pos) => {
         if (!node.isInline) return;
 
         const mark = markType.isInSet(node.marks);
         if (mark) {
-          if (dispatch) {
-            const newMark = markType.create({ ...mark.attrs, [attributeName]: defaultValue });
-            tr.removeMark(pos, pos + node.nodeSize, markType);
-            tr.addMark(pos, pos + node.nodeSize, newMark);
-          }
-          updated = true;
+          markChanges.push({
+            pos,
+            nodeSize: node.nodeSize,
+            attrs: { ...mark.attrs, [attributeName]: defaultValue },
+          });
         }
       });
     }
 
-    if (updated && dispatch) {
+    const hasChanges = nodeChanges.length > 0 || markChanges.length > 0;
+
+    if (hasChanges && dispatch) {
+      // Apply node changes
+      for (const change of nodeChanges) {
+        tr.setNodeMarkup(change.pos, undefined, change.attrs);
+      }
+
+      // Apply mark changes
+      if (markType) {
+        for (const change of markChanges) {
+          const newMark = markType.create(change.attrs);
+          tr.removeMark(change.pos, change.pos + change.nodeSize, markType);
+          tr.addMark(change.pos, change.pos + change.nodeSize, newMark);
+        }
+      }
+
       dispatch(tr);
     }
 
-    return updated;
+    return hasChanges;
   };
 
 /**
