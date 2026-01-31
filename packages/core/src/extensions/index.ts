@@ -26,6 +26,14 @@ export {
 export { Typography, type TypographyOptions } from './Typography.js';
 export { TextAlign, type TextAlignOptions } from './TextAlign.js';
 export { Focus, focusPluginKey, type FocusOptions } from './Focus.js';
+export { LineHeight, type LineHeightOptions } from './LineHeight.js';
+
+// Block Attributes
+export {
+  UniqueID,
+  uniqueIDPluginKey,
+  type UniqueIDOptions,
+} from './UniqueID.js';
 
 // Text Style Extensions (require TextStyle mark)
 export { TextColor, type TextColorOptions } from './TextColor.js';
