@@ -42,7 +42,8 @@ export const Code = Mark.create<CodeOptions>({
   },
 
   // Code mark is exclusive - it cannot be combined with other marks
-  excludes: '_all',
+  // ProseMirror uses '_' to mean "exclude all marks"
+  excludes: '_',
 
   // Code should not span across multiple nodes
   spanning: false,
