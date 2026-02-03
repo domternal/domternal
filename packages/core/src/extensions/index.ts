@@ -35,6 +35,19 @@ export {
   type UniqueIDOptions,
 } from './UniqueID.js';
 
+// Selection & Editor Utilities
+export {
+  Selection,
+  type SelectionOptions,
+  type SelectionStorage,
+} from './Selection.js';
+export {
+  InvisibleChars,
+  invisibleCharsPluginKey,
+  type InvisibleCharsOptions,
+  type InvisibleCharsStorage,
+} from './InvisibleChars.js';
+
 // Text Style Extensions (require TextStyle mark)
 export { TextColor, type TextColorOptions } from './TextColor.js';
 export { FontFamily, type FontFamilyOptions } from './FontFamily.js';
