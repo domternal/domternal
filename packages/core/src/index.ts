@@ -213,6 +213,8 @@ export {
 // === Extensions ===
 export {
   // Core functionality
+  BaseKeymap,
+  type BaseKeymapOptions,
   History,
   type HistoryOptions,
   Dropcursor,

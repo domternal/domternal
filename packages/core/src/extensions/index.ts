@@ -3,6 +3,7 @@
  */
 
 // Core functionality
+export { BaseKeymap, type BaseKeymapOptions } from './BaseKeymap.js';
 export { History, type HistoryOptions } from './History.js';
 export { Dropcursor, type DropcursorOptions } from './Dropcursor.js';
 export { Gapcursor } from './Gapcursor.js';

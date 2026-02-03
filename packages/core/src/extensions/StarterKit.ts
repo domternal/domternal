@@ -34,6 +34,7 @@ import { Code, type CodeOptions } from '../marks/Code.js';
 import { Link, type LinkOptions } from '../marks/Link.js';
 
 // Functionality
+import { BaseKeymap, type BaseKeymapOptions } from './BaseKeymap.js';
 import { History, type HistoryOptions } from './History.js';
 import { Dropcursor, type DropcursorOptions } from './Dropcursor.js';
 import { Gapcursor } from './Gapcursor.js';
@@ -123,6 +124,10 @@ export interface StarterKitOptions {
 
   // Functionality
   /**
+   * Set to false to disable the BaseKeymap extension, or pass options to configure it.
+   */
+  baseKeymap?: false | Partial<BaseKeymapOptions>;
+  /**
    * Set to false to disable the History extension, or pass options to configure it.
    */
   history?: false | Partial<HistoryOptions>;
@@ -191,6 +196,7 @@ export const StarterKit = Extension.create<StarterKitOptions>({
     maybeAdd(Link, this.options.link);
 
     // Functionality
+    maybeAdd(BaseKeymap, this.options.baseKeymap);
     maybeAdd(History, this.options.history);
     maybeAdd(Dropcursor, this.options.dropcursor);
     maybeAdd(Gapcursor as never, this.options.gapcursor as never);
