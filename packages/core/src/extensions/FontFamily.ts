@@ -49,7 +49,7 @@ export const FontFamily = Extension.create<FontFamilyOptions>({
           fontFamily: {
             default: null,
             parseHTML: (element: HTMLElement) => {
-              return element.style.fontFamily?.replace(/['"]+/g, '') || null;
+              return element.style.fontFamily.replace(/['"]+/g, '') || null;
             },
             renderHTML: (attributes: Record<string, unknown>) => {
               const fontFamily = attributes['fontFamily'] as string | null;

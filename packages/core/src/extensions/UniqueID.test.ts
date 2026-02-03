@@ -38,7 +38,7 @@ describe('UniqueID', () => {
     });
 
     it('can configure with custom ID generator', () => {
-      const customGenerator = () => 'custom-id';
+      const customGenerator = (): string => 'custom-id';
       const CustomUniqueID = UniqueID.configure({
         generateID: customGenerator,
       });
@@ -64,7 +64,7 @@ describe('UniqueID', () => {
 
     it('id attribute has correct defaults', () => {
       const globalAttrs = UniqueID.config.addGlobalAttributes?.call(UniqueID);
-      const idAttr = globalAttrs?.[0]?.attributes?.['id'];
+      const idAttr = globalAttrs?.[0]?.attributes['id'];
 
       expect(idAttr?.default).toBe(null);
       expect(idAttr?.parseHTML).toBeDefined();
@@ -73,7 +73,7 @@ describe('UniqueID', () => {
 
     it('parseHTML extracts id from element', () => {
       const globalAttrs = UniqueID.config.addGlobalAttributes?.call(UniqueID);
-      const parseHTML = globalAttrs?.[0]?.attributes?.['id']?.parseHTML;
+      const parseHTML = globalAttrs?.[0]?.attributes['id']?.parseHTML;
 
       const element = document.createElement('p');
       element.setAttribute('id', 'test-id');
@@ -83,7 +83,7 @@ describe('UniqueID', () => {
 
     it('renderHTML outputs id attribute', () => {
       const globalAttrs = UniqueID.config.addGlobalAttributes?.call(UniqueID);
-      const renderHTML = globalAttrs?.[0]?.attributes?.['id']?.renderHTML;
+      const renderHTML = globalAttrs?.[0]?.attributes['id']?.renderHTML;
 
       const result = renderHTML?.({ id: 'unique-123' });
       expect(result).toEqual({ id: 'unique-123' });
@@ -91,7 +91,7 @@ describe('UniqueID', () => {
 
     it('renderHTML returns null for null id', () => {
       const globalAttrs = UniqueID.config.addGlobalAttributes?.call(UniqueID);
-      const renderHTML = globalAttrs?.[0]?.attributes?.['id']?.renderHTML;
+      const renderHTML = globalAttrs?.[0]?.attributes['id']?.renderHTML;
 
       const result = renderHTML?.({ id: null });
       expect(result).toBe(null);
@@ -174,7 +174,7 @@ describe('UniqueID', () => {
     it.skip('uses custom ID generator', () => {
       let counter = 0;
       const CustomUniqueID = UniqueID.configure({
-        generateID: () => `custom-${++counter}`,
+        generateID: (): string => `custom-${String(++counter)}`,
       });
 
       editor = new Editor({

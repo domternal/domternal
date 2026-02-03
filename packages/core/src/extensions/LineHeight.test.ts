@@ -57,7 +57,7 @@ describe('LineHeight', () => {
 
     it('lineHeight attribute has correct defaults', () => {
       const globalAttrs = LineHeight.config.addGlobalAttributes?.call(LineHeight);
-      const lineHeightAttr = globalAttrs?.[0]?.attributes?.['lineHeight'];
+      const lineHeightAttr = globalAttrs?.[0]?.attributes['lineHeight'];
 
       expect(lineHeightAttr?.default).toBe(null);
       expect(lineHeightAttr?.parseHTML).toBeDefined();
@@ -66,7 +66,7 @@ describe('LineHeight', () => {
 
     it('parseHTML extracts line-height from style', () => {
       const globalAttrs = LineHeight.config.addGlobalAttributes?.call(LineHeight);
-      const parseHTML = globalAttrs?.[0]?.attributes?.['lineHeight']?.parseHTML;
+      const parseHTML = globalAttrs?.[0]?.attributes['lineHeight']?.parseHTML;
 
       const element = document.createElement('p');
       element.style.lineHeight = '1.5';
@@ -76,7 +76,7 @@ describe('LineHeight', () => {
 
     it('renderHTML outputs line-height style', () => {
       const globalAttrs = LineHeight.config.addGlobalAttributes?.call(LineHeight);
-      const renderHTML = globalAttrs?.[0]?.attributes?.['lineHeight']?.renderHTML;
+      const renderHTML = globalAttrs?.[0]?.attributes['lineHeight']?.renderHTML;
 
       const result = renderHTML?.({ lineHeight: '2' });
       expect(result).toEqual({ style: 'line-height: 2' });
@@ -84,7 +84,7 @@ describe('LineHeight', () => {
 
     it('renderHTML returns null for null lineHeight', () => {
       const globalAttrs = LineHeight.config.addGlobalAttributes?.call(LineHeight);
-      const renderHTML = globalAttrs?.[0]?.attributes?.['lineHeight']?.renderHTML;
+      const renderHTML = globalAttrs?.[0]?.attributes['lineHeight']?.renderHTML;
 
       const result = renderHTML?.({ lineHeight: null });
       expect(result).toBe(null);
@@ -96,7 +96,7 @@ describe('LineHeight', () => {
       });
 
       const globalAttrs = CustomLineHeight.config.addGlobalAttributes?.call(CustomLineHeight);
-      const renderHTML = globalAttrs?.[0]?.attributes?.['lineHeight']?.renderHTML;
+      const renderHTML = globalAttrs?.[0]?.attributes['lineHeight']?.renderHTML;
 
       const result = renderHTML?.({ lineHeight: '1.5' });
       expect(result).toBe(null);

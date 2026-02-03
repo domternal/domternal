@@ -44,7 +44,7 @@ describe('FontFamily', () => {
 
     it('fontFamily attribute has correct defaults', () => {
       const globalAttrs = FontFamily.config.addGlobalAttributes?.call(FontFamily);
-      const fontFamilyAttr = globalAttrs?.[0]?.attributes?.['fontFamily'];
+      const fontFamilyAttr = globalAttrs?.[0]?.attributes['fontFamily'];
 
       expect(fontFamilyAttr?.default).toBe(null);
       expect(fontFamilyAttr?.parseHTML).toBeDefined();
@@ -53,7 +53,7 @@ describe('FontFamily', () => {
 
     it('parseHTML extracts font-family from style', () => {
       const globalAttrs = FontFamily.config.addGlobalAttributes?.call(FontFamily);
-      const parseHTML = globalAttrs?.[0]?.attributes?.['fontFamily']?.parseHTML;
+      const parseHTML = globalAttrs?.[0]?.attributes['fontFamily']?.parseHTML;
 
       const element = document.createElement('span');
       element.style.fontFamily = 'Arial';
@@ -63,7 +63,7 @@ describe('FontFamily', () => {
 
     it('renderHTML outputs font-family style', () => {
       const globalAttrs = FontFamily.config.addGlobalAttributes?.call(FontFamily);
-      const renderHTML = globalAttrs?.[0]?.attributes?.['fontFamily']?.renderHTML;
+      const renderHTML = globalAttrs?.[0]?.attributes['fontFamily']?.renderHTML;
 
       const result = renderHTML?.({ fontFamily: 'Arial' });
       expect(result).toEqual({ style: 'font-family: Arial' });
@@ -71,7 +71,7 @@ describe('FontFamily', () => {
 
     it('renderHTML returns null for null fontFamily', () => {
       const globalAttrs = FontFamily.config.addGlobalAttributes?.call(FontFamily);
-      const renderHTML = globalAttrs?.[0]?.attributes?.['fontFamily']?.renderHTML;
+      const renderHTML = globalAttrs?.[0]?.attributes['fontFamily']?.renderHTML;
 
       const result = renderHTML?.({ fontFamily: null });
       expect(result).toBe(null);

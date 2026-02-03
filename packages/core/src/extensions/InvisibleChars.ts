@@ -123,7 +123,9 @@ export const InvisibleChars = Extension.create<
 
   addStorage() {
     return {
-      toggle: () => {},
+      toggle: (): void => {
+        // Initialized in onCreate
+      },
       isVisible: () => false,
     };
   },
@@ -133,24 +135,29 @@ export const InvisibleChars = Extension.create<
     const options = this.options;
 
     // Initialize toggle function
-    this.storage.toggle = () => {
+    this.storage.toggle = (): void => {
       const state = editor?.state;
       if (!state) return;
 
-      const currentVisible =
-        invisibleCharsPluginKey.getState(state)?.visible ?? options.visible;
+      const pluginState = invisibleCharsPluginKey.getState(state) as
+        | { visible: boolean }
+        | undefined;
+      const currentVisible = pluginState?.visible ?? options.visible;
 
       // Trigger a view update by dispatching transaction with meta
       const tr = state.tr.setMeta(invisibleCharsPluginKey, {
         visible: !currentVisible,
       });
-      editor?.view.dispatch(tr);
+      editor.view.dispatch(tr);
     };
 
-    this.storage.isVisible = () => {
+    this.storage.isVisible = (): boolean => {
       const state = editor?.state;
       if (!state) return options.visible;
-      return invisibleCharsPluginKey.getState(state)?.visible ?? options.visible;
+      const pluginState = invisibleCharsPluginKey.getState(state) as
+        | { visible: boolean }
+        | undefined;
+      return pluginState?.visible ?? options.visible;
     };
   },
 

@@ -1,7 +1,7 @@
 /**
  * Tests for FloatingMenu extension
  */
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { FloatingMenu, floatingMenuPluginKey } from './FloatingMenu.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
@@ -30,7 +30,7 @@ describe('FloatingMenu', () => {
     });
 
     it('can configure shouldShow', () => {
-      const customShouldShow = () => false;
+      const customShouldShow = (): boolean => false;
       const CustomFloatingMenu = FloatingMenu.configure({
         shouldShow: customShouldShow,
       });
@@ -54,17 +54,10 @@ describe('FloatingMenu', () => {
 
   describe('addProseMirrorPlugins', () => {
     it('returns empty array when no element provided', () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
       const plugins =
         FloatingMenu.config.addProseMirrorPlugins?.call(FloatingMenu);
 
       expect(plugins).toEqual([]);
-      expect(warnSpy).toHaveBeenCalledWith(
-        '[FloatingMenu] No element provided. Menu will not be rendered.'
-      );
-
-      warnSpy.mockRestore();
     });
 
     it('returns plugins array when element is provided', () => {
@@ -197,7 +190,7 @@ describe('FloatingMenu', () => {
 
   describe('integration', () => {
     let editor: Editor | undefined;
-    let menuElement: HTMLElement;
+    let menuElement: HTMLElement | undefined;
 
     afterEach(() => {
       if (editor && !editor.isDestroyed) {

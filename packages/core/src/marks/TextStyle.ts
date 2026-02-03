@@ -108,6 +108,7 @@ export const TextStyle = Mark.create<TextStyleOptions>({
             }
           });
 
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
           if (!hasEmptyTextStyle) return false;
 
           if (dispatch) {

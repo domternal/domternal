@@ -40,7 +40,7 @@ describe('TextColor', () => {
 
     it('color attribute has correct defaults', () => {
       const globalAttrs = TextColor.config.addGlobalAttributes?.call(TextColor);
-      const colorAttr = globalAttrs?.[0]?.attributes?.['color'];
+      const colorAttr = globalAttrs?.[0]?.attributes['color'];
 
       expect(colorAttr?.default).toBe(null);
       expect(colorAttr?.parseHTML).toBeDefined();
@@ -49,7 +49,7 @@ describe('TextColor', () => {
 
     it('parseHTML extracts color from style', () => {
       const globalAttrs = TextColor.config.addGlobalAttributes?.call(TextColor);
-      const parseHTML = globalAttrs?.[0]?.attributes?.['color']?.parseHTML;
+      const parseHTML = globalAttrs?.[0]?.attributes['color']?.parseHTML;
 
       const element = document.createElement('span');
       element.style.color = 'red';
@@ -59,7 +59,7 @@ describe('TextColor', () => {
 
     it('renderHTML outputs color style', () => {
       const globalAttrs = TextColor.config.addGlobalAttributes?.call(TextColor);
-      const renderHTML = globalAttrs?.[0]?.attributes?.['color']?.renderHTML;
+      const renderHTML = globalAttrs?.[0]?.attributes['color']?.renderHTML;
 
       const result = renderHTML?.({ color: '#ff0000' });
       expect(result).toEqual({ style: 'color: #ff0000' });
@@ -67,7 +67,7 @@ describe('TextColor', () => {
 
     it('renderHTML returns null for null color', () => {
       const globalAttrs = TextColor.config.addGlobalAttributes?.call(TextColor);
-      const renderHTML = globalAttrs?.[0]?.attributes?.['color']?.renderHTML;
+      const renderHTML = globalAttrs?.[0]?.attributes['color']?.renderHTML;
 
       const result = renderHTML?.({ color: null });
       expect(result).toBe(null);

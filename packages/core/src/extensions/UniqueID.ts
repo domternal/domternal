@@ -21,7 +21,8 @@
  */
 import { Extension } from '../Extension.js';
 import { Plugin, PluginKey } from 'prosemirror-state';
-import { Fragment, Slice, Node as PMNode } from 'prosemirror-model';
+import { Fragment, Slice } from 'prosemirror-model';
+import type { Node as PMNode } from 'prosemirror-model';
 import type { Editor } from '../Editor.js';
 
 /**
@@ -166,22 +167,20 @@ export const UniqueID = Extension.create<UniqueIDOptions>({
           if (!docChanged) return null;
 
           const tr = newState.tr;
-          let modified = false;
 
           newState.doc.descendants((node, pos) => {
             if (!types.includes(node.type.name)) return;
 
-            const existingID = node.attrs[attributeName];
+            const existingID = node.attrs[attributeName] as string | undefined;
             if (!existingID) {
               tr.setNodeMarkup(pos, undefined, {
                 ...node.attrs,
                 [attributeName]: generateID(),
               });
-              modified = true;
             }
           });
 
-          return modified ? tr : null;
+          return tr.docChanged ? tr : null;
         },
 
         // Handle paste - filter duplicates

@@ -49,7 +49,7 @@ export const TextColor = Extension.create<TextColorOptions>({
           color: {
             default: null,
             parseHTML: (element: HTMLElement) => {
-              return element.style.color?.replace(/['"]+/g, '') || null;
+              return element.style.color.replace(/['"]+/g, '') || null;
             },
             renderHTML: (attributes: Record<string, unknown>) => {
               const color = attributes['color'] as string | null;

@@ -118,16 +118,13 @@ export const BubbleMenu = Extension.create<BubbleMenuOptions>({
       this.options;
 
     if (!element) {
-      console.warn(
-        '[BubbleMenu] No element provided. Menu will not be rendered.'
-      );
       return [];
     }
 
-    const editor = this.editor as Editor;
+    const editor = this.editor as Editor | null;
     let updateTimeout: ReturnType<typeof setTimeout> | null = null;
 
-    const updatePosition = (view: EditorView, from: number, to: number) => {
+    const updatePosition = (view: EditorView, from: number, to: number): void => {
       // Get selection coordinates
       const start = view.coordsAtPos(from);
       const end = view.coordsAtPos(to);
@@ -172,14 +169,14 @@ export const BubbleMenu = Extension.create<BubbleMenuOptions>({
 
       // Apply position
       element.style.position = 'fixed';
-      element.style.top = `${top}px`;
-      element.style.left = `${left}px`;
-      element.style.zIndex = String(tippyOptions?.zIndex ?? 9999);
+      element.style.top = `${String(top)}px`;
+      element.style.left = `${String(left)}px`;
+      element.style.zIndex = String(tippyOptions.zIndex ?? 9999);
       element.style.visibility = 'visible';
       element.style.opacity = '1';
     };
 
-    const hideMenu = () => {
+    const hideMenu = (): void => {
       element.style.visibility = 'hidden';
       element.style.opacity = '0';
     };
@@ -197,7 +194,11 @@ export const BubbleMenu = Extension.create<BubbleMenuOptions>({
             from: 0,
             to: 0,
           }),
-          apply: (tr, value, _oldState, newState): BubbleMenuPluginState => {
+          apply: (_tr, _value, _oldState, newState): BubbleMenuPluginState => {
+            if (!editor) {
+              return { visible: false, from: 0, to: 0 };
+            }
+
             const { selection } = newState;
             const { from, to } = selection;
 

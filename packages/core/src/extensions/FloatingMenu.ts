@@ -123,27 +123,24 @@ export const FloatingMenu = Extension.create<FloatingMenuOptions>({
     const { element, shouldShow, offset, tippyOptions } = this.options;
 
     if (!element) {
-      console.warn(
-        '[FloatingMenu] No element provided. Menu will not be rendered.'
-      );
       return [];
     }
 
-    const editor = this.editor as Editor;
+    const editor = this.editor as Editor | null;
 
-    const updatePosition = (view: EditorView) => {
+    const updatePosition = (view: EditorView): void => {
       const { from } = view.state.selection;
       const coords = view.coordsAtPos(from);
 
       element.style.position = 'fixed';
-      element.style.top = `${coords.top + offset[1]}px`;
-      element.style.left = `${coords.left + offset[0]}px`;
-      element.style.zIndex = String(tippyOptions?.zIndex ?? 9999);
+      element.style.top = `${String(coords.top + offset[1])}px`;
+      element.style.left = `${String(coords.left + offset[0])}px`;
+      element.style.zIndex = String(tippyOptions.zIndex ?? 9999);
       element.style.visibility = 'visible';
       element.style.opacity = '1';
     };
 
-    const hideMenu = () => {
+    const hideMenu = (): void => {
       element.style.visibility = 'hidden';
       element.style.opacity = '0';
     };
@@ -157,6 +154,8 @@ export const FloatingMenu = Extension.create<FloatingMenuOptions>({
 
         view: () => ({
           update: (view) => {
+            if (!editor) return;
+
             const visible = shouldShow({
               editor,
               view,

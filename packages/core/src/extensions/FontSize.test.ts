@@ -40,7 +40,7 @@ describe('FontSize', () => {
 
     it('fontSize attribute has correct defaults', () => {
       const globalAttrs = FontSize.config.addGlobalAttributes?.call(FontSize);
-      const fontSizeAttr = globalAttrs?.[0]?.attributes?.['fontSize'];
+      const fontSizeAttr = globalAttrs?.[0]?.attributes['fontSize'];
 
       expect(fontSizeAttr?.default).toBe(null);
       expect(fontSizeAttr?.parseHTML).toBeDefined();
@@ -49,7 +49,7 @@ describe('FontSize', () => {
 
     it('parseHTML extracts font-size from style', () => {
       const globalAttrs = FontSize.config.addGlobalAttributes?.call(FontSize);
-      const parseHTML = globalAttrs?.[0]?.attributes?.['fontSize']?.parseHTML;
+      const parseHTML = globalAttrs?.[0]?.attributes['fontSize']?.parseHTML;
 
       const element = document.createElement('span');
       element.style.fontSize = '16px';
@@ -59,7 +59,7 @@ describe('FontSize', () => {
 
     it('renderHTML outputs font-size style', () => {
       const globalAttrs = FontSize.config.addGlobalAttributes?.call(FontSize);
-      const renderHTML = globalAttrs?.[0]?.attributes?.['fontSize']?.renderHTML;
+      const renderHTML = globalAttrs?.[0]?.attributes['fontSize']?.renderHTML;
 
       const result = renderHTML?.({ fontSize: '18px' });
       expect(result).toEqual({ style: 'font-size: 18px' });
@@ -67,7 +67,7 @@ describe('FontSize', () => {
 
     it('renderHTML returns null for null fontSize', () => {
       const globalAttrs = FontSize.config.addGlobalAttributes?.call(FontSize);
-      const renderHTML = globalAttrs?.[0]?.attributes?.['fontSize']?.renderHTML;
+      const renderHTML = globalAttrs?.[0]?.attributes['fontSize']?.renderHTML;
 
       const result = renderHTML?.({ fontSize: null });
       expect(result).toBe(null);

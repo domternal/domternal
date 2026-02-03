@@ -103,9 +103,10 @@ export const Selection = Extension.create<SelectionOptions, SelectionStorage>({
     };
 
     this.storage.getNode = () => {
-      const selection = editor?.state?.selection;
-      if (!selection) return null;
+      const state = editor?.state;
+      if (!state) return null;
 
+      const { selection } = state;
       if (selection instanceof NodeSelection) {
         return selection.node;
       }
@@ -114,20 +115,22 @@ export const Selection = Extension.create<SelectionOptions, SelectionStorage>({
     };
 
     this.storage.isEmpty = () => {
-      const selection = editor?.state?.selection;
-      if (!selection) return true;
-      return selection.empty;
+      const state = editor?.state;
+      if (!state) return true;
+      return state.selection.empty;
     };
 
     this.storage.getRange = () => {
-      const selection = editor?.state?.selection;
-      if (!selection) return { from: 0, to: 0 };
-      return { from: selection.from, to: selection.to };
+      const state = editor?.state;
+      if (!state) return { from: 0, to: 0 };
+      return { from: state.selection.from, to: state.selection.to };
     };
 
     this.storage.getCursor = () => {
-      const selection = editor?.state?.selection;
-      if (!selection || !selection.empty) return null;
+      const state = editor?.state;
+      if (!state) return null;
+      const { selection } = state;
+      if (!selection.empty) return null;
       return selection.from;
     };
   },
