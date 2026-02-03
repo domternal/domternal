@@ -53,5 +53,17 @@ export { TextColor, type TextColorOptions } from './TextColor.js';
 export { FontFamily, type FontFamilyOptions } from './FontFamily.js';
 export { FontSize, type FontSizeOptions } from './FontSize.js';
 
+// Menu Extensions
+export {
+  BubbleMenu,
+  bubbleMenuPluginKey,
+  type BubbleMenuOptions,
+} from './BubbleMenu.js';
+export {
+  FloatingMenu,
+  floatingMenuPluginKey,
+  type FloatingMenuOptions,
+} from './FloatingMenu.js';
+
 // Bundle
 export { StarterKit, type StarterKitOptions } from './StarterKit.js';
