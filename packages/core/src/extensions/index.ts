@@ -26,6 +26,44 @@ export {
 export { Typography, type TypographyOptions } from './Typography.js';
 export { TextAlign, type TextAlignOptions } from './TextAlign.js';
 export { Focus, focusPluginKey, type FocusOptions } from './Focus.js';
+export { LineHeight, type LineHeightOptions } from './LineHeight.js';
+
+// Block Attributes
+export {
+  UniqueID,
+  uniqueIDPluginKey,
+  type UniqueIDOptions,
+} from './UniqueID.js';
+
+// Selection & Editor Utilities
+export {
+  Selection,
+  type SelectionOptions,
+  type SelectionStorage,
+} from './Selection.js';
+export {
+  InvisibleChars,
+  invisibleCharsPluginKey,
+  type InvisibleCharsOptions,
+  type InvisibleCharsStorage,
+} from './InvisibleChars.js';
+
+// Text Style Extensions (require TextStyle mark)
+export { TextColor, type TextColorOptions } from './TextColor.js';
+export { FontFamily, type FontFamilyOptions } from './FontFamily.js';
+export { FontSize, type FontSizeOptions } from './FontSize.js';
+
+// Menu Extensions
+export {
+  BubbleMenu,
+  bubbleMenuPluginKey,
+  type BubbleMenuOptions,
+} from './BubbleMenu.js';
+export {
+  FloatingMenu,
+  floatingMenuPluginKey,
+  type FloatingMenuOptions,
+} from './FloatingMenu.js';
 
 // Bundle
 export { StarterKit, type StarterKitOptions } from './StarterKit.js';

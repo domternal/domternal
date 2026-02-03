@@ -323,7 +323,7 @@ export class Mark<Options = unknown, Storage = unknown> extends Extension<
           }
         }
 
-        return renderFn({ mark, HTMLAttributes: htmlAttrs });
+        return renderFn.call(this, { mark, HTMLAttributes: htmlAttrs });
       };
     }
 
