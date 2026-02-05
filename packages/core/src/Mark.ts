@@ -26,8 +26,8 @@
  */
 
 import type { MarkSpec, MarkType, ParseRule } from 'prosemirror-model';
-import { Extension, type ExtensionEditorInterface } from './Extension.js';
-import type { MarkConfig } from './types/MarkConfig.js';
+import { Extension, type ExtensionEditorInterface, mergeConfigWithParentBinding } from './Extension.js';
+import type { MarkConfig, MarkContext } from './types/MarkConfig.js';
 import { callOrReturn } from './helpers/callOrReturn.js';
 
 /**
@@ -188,14 +188,12 @@ export class Mark<Options = unknown, Storage = unknown> extends Extension<
    * });
    */
   override extend<ExtendedOptions = Options, ExtendedStorage = Storage>(
-    extendedConfig: Partial<MarkConfig<ExtendedOptions, ExtendedStorage>>
+    extendedConfig: Partial<MarkConfig<ExtendedOptions, ExtendedStorage>> &
+      ThisType<MarkContext<ExtendedOptions, ExtendedStorage>>
   ): Mark<ExtendedOptions, ExtendedStorage> {
-    const newConfig = {
-      ...this.config,
-      ...extendedConfig,
-    } as MarkConfig<ExtendedOptions, ExtendedStorage>;
+    const newConfig = mergeConfigWithParentBinding(this.config, extendedConfig);
 
-    return new Mark(newConfig);
+    return new Mark(newConfig as MarkConfig<ExtendedOptions, ExtendedStorage>);
   }
 
   /**

@@ -251,6 +251,65 @@ describe('Extension', () => {
 
       expect(extended.type).toBe('extension');
     });
+
+    it('provides this.parent to call parent config method', () => {
+      const base = Extension.create({
+        name: 'base',
+        addOptions() {
+          return { a: 1 };
+        },
+      });
+
+      const extended = base.extend<Record<string, unknown>>({
+        name: 'extended',
+        addOptions() {
+          return { ...(this.parent?.() as Record<string, unknown>), b: 2 };
+        },
+      });
+
+      expect(extended.options).toEqual({ a: 1, b: 2 });
+    });
+
+    it('this.parent is undefined when no parent method exists', () => {
+      const base = Extension.create({
+        name: 'base',
+      });
+
+      const extended = base.extend<{ fromParent: unknown; own: boolean }>({
+        name: 'extended',
+        addOptions() {
+          const parentResult = this.parent?.();
+          return { fromParent: parentResult, own: true };
+        },
+      });
+
+      expect(extended.options).toEqual({ fromParent: undefined, own: true });
+    });
+
+    it('supports chained extends with nested this.parent', () => {
+      const base = Extension.create({
+        name: 'base',
+        addOptions() {
+          return { a: 1 };
+        },
+      });
+
+      const mid = base.extend<Record<string, unknown>>({
+        name: 'mid',
+        addOptions() {
+          return { ...(this.parent?.() as Record<string, unknown>), b: 2 };
+        },
+      });
+
+      const top = mid.extend<Record<string, unknown>>({
+        name: 'top',
+        addOptions() {
+          return { ...(this.parent?.() as Record<string, unknown>), c: 3 };
+        },
+      });
+
+      expect(top.options).toEqual({ a: 1, b: 2, c: 3 });
+    });
   });
 
   describe('storage mutation', () => {

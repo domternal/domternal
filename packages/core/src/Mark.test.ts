@@ -186,6 +186,67 @@ describe('Mark', () => {
 
       expect(extended.type).toBe('mark');
     });
+
+    it('provides this.parent to call parent addAttributes', () => {
+      const base = Mark.create({
+        name: 'bold',
+        addAttributes() {
+          return { weight: { default: 'bold' } };
+        },
+      });
+
+      const extended = base.extend({
+        name: 'customBold',
+        addAttributes() {
+          return {
+            ...(this.parent?.() as Record<string, unknown>),
+            color: { default: 'red' },
+          };
+        },
+      });
+
+      const spec = extended.createMarkSpec();
+      expect(spec.attrs).toEqual({
+        weight: { default: 'bold' },
+        color: { default: 'red' },
+      });
+    });
+
+    it('supports chained extends with this.parent', () => {
+      const base = Mark.create({
+        name: 'bold',
+        addAttributes() {
+          return { a: { default: 1 } };
+        },
+      });
+
+      const mid = base.extend({
+        name: 'mid',
+        addAttributes() {
+          return {
+            ...(this.parent?.() as Record<string, unknown>),
+            b: { default: 2 },
+          };
+        },
+      });
+
+      const top = mid.extend({
+        name: 'top',
+        addAttributes() {
+          return {
+            ...(this.parent?.() as Record<string, unknown>),
+            c: { default: 3 },
+          };
+        },
+      });
+
+      const spec = top.createMarkSpec();
+      expect(spec.attrs).toEqual({
+        a: { default: 1 },
+        b: { default: 2 },
+        c: { default: 3 },
+      });
+    });
   });
 
   describe('markType getter', () => {

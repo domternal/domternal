@@ -206,6 +206,69 @@ describe('Node', () => {
 
       expect(extended.type).toBe('node');
     });
+
+    it('provides this.parent to call parent addAttributes', () => {
+      const base = Node.create({
+        name: 'paragraph',
+        group: 'block',
+        addAttributes() {
+          return { level: { default: 1 } };
+        },
+      });
+
+      const extended = base.extend({
+        name: 'customParagraph',
+        addAttributes() {
+          return {
+            ...(this.parent?.() as Record<string, unknown>),
+            align: { default: 'left' },
+          };
+        },
+      });
+
+      const spec = extended.createNodeSpec();
+      expect(spec.attrs).toEqual({
+        level: { default: 1 },
+        align: { default: 'left' },
+      });
+    });
+
+    it('supports chained extends with this.parent', () => {
+      const base = Node.create({
+        name: 'paragraph',
+        group: 'block',
+        addAttributes() {
+          return { a: { default: 1 } };
+        },
+      });
+
+      const mid = base.extend({
+        name: 'mid',
+        addAttributes() {
+          return {
+            ...(this.parent?.() as Record<string, unknown>),
+            b: { default: 2 },
+          };
+        },
+      });
+
+      const top = mid.extend({
+        name: 'top',
+        addAttributes() {
+          return {
+            ...(this.parent?.() as Record<string, unknown>),
+            c: { default: 3 },
+          };
+        },
+      });
+
+      const spec = top.createNodeSpec();
+      expect(spec.attrs).toEqual({
+        a: { default: 1 },
+        b: { default: 2 },
+        c: { default: 3 },
+      });
+    });
   });
 
   describe('nodeType getter', () => {

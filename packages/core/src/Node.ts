@@ -24,8 +24,8 @@
  */
 
 import type { NodeSpec, NodeType, TagParseRule } from 'prosemirror-model';
-import { Extension, type ExtensionEditorInterface } from './Extension.js';
-import type { NodeConfig } from './types/NodeConfig.js';
+import { Extension, type ExtensionEditorInterface, mergeConfigWithParentBinding } from './Extension.js';
+import type { NodeConfig, NodeContext } from './types/NodeConfig.js';
 import { callOrReturn } from './helpers/callOrReturn.js';
 
 /**
@@ -185,14 +185,12 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
    * });
    */
   override extend<ExtendedOptions = Options, ExtendedStorage = Storage>(
-    extendedConfig: Partial<NodeConfig<ExtendedOptions, ExtendedStorage>>
+    extendedConfig: Partial<NodeConfig<ExtendedOptions, ExtendedStorage>> &
+      ThisType<NodeContext<ExtendedOptions, ExtendedStorage>>
   ): Node<ExtendedOptions, ExtendedStorage> {
-    const newConfig = {
-      ...this.config,
-      ...extendedConfig,
-    } as NodeConfig<ExtendedOptions, ExtendedStorage>;
+    const newConfig = mergeConfigWithParentBinding(this.config, extendedConfig);
 
-    return new Node(newConfig);
+    return new Node(newConfig as NodeConfig<ExtendedOptions, ExtendedStorage>);
   }
 
   /**

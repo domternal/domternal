@@ -24,8 +24,50 @@
  * });
  */
 
-import type { ExtensionConfig } from './types/ExtensionConfig.js';
+import type { ExtensionConfig, ExtensionConfigBase, ExtensionContext } from './types/ExtensionConfig.js';
 import { callOrReturn } from './helpers/callOrReturn.js';
+
+/**
+ * Merges extension config with parent binding support.
+ *
+ * For each function in `extendedConfig` that overrides a function in `parentConfig`,
+ * wraps the override so that `this.parent` temporarily points to the parent's version.
+ * This enables the `this.parent?.()` pattern in extend():
+ *
+ * ```typescript
+ * Paragraph.extend({
+ *   addAttributes() {
+ *     return { ...this.parent?.(), align: { default: 'left' } };
+ *   },
+ * });
+ * ```
+ */
+export function mergeConfigWithParentBinding(
+  parentConfig: object,
+  extendedConfig: object,
+): object {
+  const parent = parentConfig as Record<string, unknown>;
+  const merged: Record<string, unknown> = { ...parent };
+
+  for (const [key, value] of Object.entries(extendedConfig)) {
+    if (typeof value === 'function' && typeof parent[key] === 'function') {
+      const parentFn = parent[key] as (...args: unknown[]) => unknown;
+      const childFn = value as (...args: unknown[]) => unknown;
+
+      merged[key] = function (this: Extension, ...args: unknown[]) {
+        const previousParent = this.parent;
+        this.parent = (...pArgs: unknown[]) => parentFn.call(this, ...pArgs);
+        const result = childFn.call(this, ...args);
+        this.parent = previousParent;
+        return result;
+      };
+    } else {
+      merged[key] = value;
+    }
+  }
+
+  return merged;
+}
 
 /**
  * Editor interface for Extension
@@ -77,6 +119,13 @@ export class Extension<Options = unknown, Storage = unknown> {
    * null until ExtensionManager binds it
    */
   editor: ExtensionEditorInterface | null = null;
+
+  /**
+   * Reference to the parent config method when using extend().
+   * Set temporarily during config method execution so overridden
+   * methods can call `this.parent?.()` to invoke the original.
+   */
+  parent?: ((...args: unknown[]) => unknown) | undefined;
 
   /**
    * Protected constructor - use Extension.create() instead
@@ -191,14 +240,11 @@ export class Extension<Options = unknown, Storage = unknown> {
    * });
    */
   extend<ExtendedOptions = Options, ExtendedStorage = Storage>(
-    extendedConfig: Partial<ExtensionConfig<ExtendedOptions, ExtendedStorage>>
+    extendedConfig: Partial<ExtensionConfigBase<ExtendedOptions, ExtendedStorage>> &
+      ThisType<ExtensionContext<ExtendedOptions, ExtendedStorage>>
   ): Extension<ExtendedOptions, ExtendedStorage> {
-    // Merge base config with extended config
-    const newConfig = {
-      ...this.config,
-      ...extendedConfig,
-    } as ExtensionConfig<ExtendedOptions, ExtendedStorage>;
+    const newConfig = mergeConfigWithParentBinding(this.config, extendedConfig);
 
-    return new Extension(newConfig);
+    return new Extension(newConfig as ExtensionConfig<ExtendedOptions, ExtendedStorage>);
   }
 }

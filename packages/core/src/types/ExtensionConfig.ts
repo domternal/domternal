@@ -92,6 +92,12 @@ export interface ExtensionContext<Options = unknown, Storage = unknown> {
   storage: Storage;
   /** Editor instance (null until bound by ExtensionManager) */
   editor: ExtensionEditor | null;
+  /**
+   * Reference to the parent config method when using extend().
+   * Available only inside overridden config methods.
+   * Use `this.parent?.()` to call the parent's version of the current method.
+   */
+  parent?: ((...args: unknown[]) => unknown) | undefined;
 }
 
 /**
