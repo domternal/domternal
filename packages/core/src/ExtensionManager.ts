@@ -66,6 +66,29 @@ export interface ExtensionManagerOptions {
  * 1. Extensions mode: Schema built from Node/Mark extensions
  * 2. Schema mode: Direct schema passed (backward compatible)
  */
+/**
+ * Merge HTML attribute objects, concatenating 'style' and 'class' values
+ * instead of overwriting them.
+ */
+function mergeHTMLAttrs(
+  target: Record<string, unknown>,
+  source: Record<string, unknown>
+): Record<string, unknown> {
+  const result = { ...target };
+
+  for (const [key, value] of Object.entries(source)) {
+    if (key === 'style' && typeof result[key] === 'string' && typeof value === 'string') {
+      result[key] = `${result[key]}; ${value}`;
+    } else if (key === 'class' && typeof result[key] === 'string' && typeof value === 'string') {
+      result[key] = `${result[key]} ${value}`;
+    } else {
+      result[key] = value;
+    }
+  }
+
+  return result;
+}
+
 export class ExtensionManager {
   /**
    * Processed extensions (flattened, sorted by priority)
@@ -402,7 +425,7 @@ export class ExtensionManager {
                 if (attrSpec.renderHTML) {
                   const rendered = attrSpec.renderHTML(node.attrs);
                   if (rendered) {
-                    extraHtmlAttrs = { ...extraHtmlAttrs, ...rendered };
+                    extraHtmlAttrs = mergeHTMLAttrs(extraHtmlAttrs, rendered) as Record<string, string>;
                   }
                 }
               }
@@ -489,7 +512,7 @@ export class ExtensionManager {
                 if (attrSpec.renderHTML) {
                   const rendered = attrSpec.renderHTML(mark.attrs);
                   if (rendered) {
-                    extraHtmlAttrs = { ...extraHtmlAttrs, ...rendered };
+                    extraHtmlAttrs = mergeHTMLAttrs(extraHtmlAttrs, rendered) as Record<string, string>;
                   }
                 }
               }
@@ -596,8 +619,18 @@ export class ExtensionManager {
           `${ext.name}.addKeyboardShortcuts`
         );
         if (extShortcuts) {
-          // Cast needed: KeyboardShortcutCommand should be PM-compatible in practice
-          Object.assign(shortcuts, extShortcuts as unknown as Record<string, PMCommand>);
+          const cast = extShortcuts as unknown as Record<string, PMCommand>;
+          for (const [key, handler] of Object.entries(cast)) {
+            if (shortcuts[key]) {
+              // Chain: try new handler first, fall back to previous
+              const prev = shortcuts[key];
+              shortcuts[key] = (state, dispatch, view) => {
+                return handler(state, dispatch, view) || prev(state, dispatch, view);
+              };
+            } else {
+              shortcuts[key] = handler;
+            }
+          }
         }
       }
     }

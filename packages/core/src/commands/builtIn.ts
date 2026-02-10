@@ -325,7 +325,14 @@ export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
         return true;
       }
 
-      const mark = markType.create(attributes);
+      // Merge with existing stored mark attributes
+      const existingStoredMark = tr.storedMarks?.find(m => m.type === markType)
+        ?? state.storedMarks?.find(m => m.type === markType);
+      const mergedAttrs = existingStoredMark
+        ? { ...existingStoredMark.attrs, ...attributes }
+        : attributes;
+
+      const mark = markType.create(mergedAttrs);
       tr.addStoredMark(mark);
       dispatch(tr);
       return true;
@@ -335,7 +342,20 @@ export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
       return true;
     }
 
-    tr.addMark(from, to, markType.create(attributes));
+    // Merge with existing mark attributes in the selection
+    let existingAttrs: Attrs = {};
+    state.doc.nodesBetween(from, to, (node) => {
+      const existing = markType.isInSet(node.marks);
+      if (existing) {
+        existingAttrs = { ...existingAttrs, ...existing.attrs };
+      }
+    });
+
+    const mergedAttrs = Object.keys(existingAttrs).length > 0
+      ? { ...existingAttrs, ...attributes }
+      : attributes;
+
+    tr.addMark(from, to, markType.create(mergedAttrs));
     dispatch(tr);
     return true;
   };

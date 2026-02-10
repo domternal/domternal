@@ -40,22 +40,44 @@ export const HorizontalRule = Node.create<HorizontalRuleOptions>({
   },
 
   addCommands() {
-    const { name } = this;
     return {
       setHorizontalRule:
         () =>
-        ({ commands, tr }) => {
-          // Insert horizontal rule
-          const result = commands.insertContent({ type: name });
-          if (!result) return false;
+        ({ state, tr, dispatch }) => {
+          if (!this.nodeType) return false;
 
-          // Try to move selection after the HR
-          const { $to } = tr.selection;
-          const posAfter = $to.end();
+          const { $from } = state.selection;
+          const parent = $from.parent;
 
-          if (posAfter < tr.doc.content.size) {
-            const newSelection = TextSelection.create(tr.doc, posAfter + 1);
-            tr.setSelection(newSelection);
+          if (dispatch) {
+            // If cursor is in an empty block, replace it with HR + new paragraph
+            if (parent.content.size === 0 && parent.type.name === 'paragraph') {
+              const from = $from.before();
+              const to = $from.after();
+              const paragraph = state.schema.nodes['paragraph']?.create();
+              const nodes = paragraph
+                ? [this.nodeType.create(), paragraph]
+                : [this.nodeType.create()];
+              tr.replaceWith(from, to, nodes);
+
+              // Move cursor into the new paragraph
+              const sel = TextSelection.findFrom(tr.doc.resolve(from + 1), 1);
+              if (sel) tr.setSelection(sel);
+            } else {
+              // Insert HR after current position
+              const end = $from.after();
+              const paragraph = state.schema.nodes['paragraph']?.create();
+              const nodes = paragraph
+                ? [this.nodeType.create(), paragraph]
+                : [this.nodeType.create()];
+              tr.insert(end, nodes);
+
+              // Move cursor into the new paragraph
+              const sel = TextSelection.findFrom(tr.doc.resolve(end + 1), 1);
+              if (sel) tr.setSelection(sel);
+            }
+
+            dispatch(tr);
           }
 
           return true;
@@ -73,18 +95,23 @@ export const HorizontalRule = Node.create<HorizontalRuleOptions>({
     return [
       new InputRule(
         /^(?:---|—-|___|\*\*\*)\s$/,
-        (state: EditorState, match: RegExpMatchArray, start: number, end: number) => {
+        (state: EditorState, match: RegExpMatchArray, start: number) => {
           const { tr } = state;
 
           if (match[0]) {
-            tr.replaceWith(start - 1, end, nodeType.create());
+            const $start = state.doc.resolve(start);
+            // Replace the entire parent block (paragraph) with HR
+            const from = $start.before();
+            const to = $start.after();
+            tr.replaceWith(from, to, nodeType.create());
 
             // Move selection after the HR if possible
-            const resolvedPos = tr.doc.resolve(start);
-            const posAfter = resolvedPos.after();
-
-            if (posAfter < tr.doc.content.size) {
-              tr.setSelection(TextSelection.create(tr.doc, posAfter));
+            if (from + 1 < tr.doc.content.size) {
+              const $after = tr.doc.resolve(from + 1);
+              const sel = TextSelection.findFrom($after, 1);
+              if (sel) {
+                tr.setSelection(sel);
+              }
             }
           }
 
