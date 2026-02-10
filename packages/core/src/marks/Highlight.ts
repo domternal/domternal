@@ -100,22 +100,13 @@ export const Highlight = Mark.create<HighlightOptions>({
     return {
       setHighlight:
         (attributes?: { color?: string }) =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string, attrs?: unknown) => boolean>;
-          return cmd['setMark']?.('highlight', attributes) ?? false;
-        },
+        ({ commands }) => commands.setMark('highlight', attributes),
       unsetHighlight:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['unsetMark']?.('highlight') ?? false;
-        },
+        ({ commands }) => commands.unsetMark('highlight'),
       toggleHighlight:
         (attributes?: { color?: string }) =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string, attrs?: unknown) => boolean>;
-          return cmd['toggleMark']?.('highlight', attributes) ?? false;
-        },
+        ({ commands }) => commands.toggleMark('highlight', attributes),
     };
   },
 
@@ -132,3 +123,11 @@ export const Highlight = Mark.create<HighlightOptions>({
     ];
   },
 });
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setHighlight: CommandSpec<[attributes?: { color?: string }]>;
+    unsetHighlight: CommandSpec;
+    toggleHighlight: CommandSpec<[attributes?: { color?: string }]>;
+  }
+}

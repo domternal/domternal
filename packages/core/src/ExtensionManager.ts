@@ -18,7 +18,7 @@ import type { InputRule } from 'prosemirror-inputrules';
 import type { Command as PMCommand } from 'prosemirror-state';
 
 import type { AnyExtension } from './types/EditorOptions.js';
-import type { RawCommands } from './types/Commands.js';
+import type { CommandMap } from './types/Commands.js';
 import type { GlobalAttributes, GlobalAttributeSpec } from './types/ExtensionConfig.js';
 import type { Extension } from './Extension.js';
 import type { Node } from './Node.js';
@@ -100,7 +100,7 @@ export class ExtensionManager {
   /**
    * Cached commands (collected lazily)
    */
-  private _commands: RawCommands | null = null;
+  private _commands: CommandMap | null = null;
 
   /**
    * Creates a new ExtensionManager
@@ -179,7 +179,7 @@ export class ExtensionManager {
   /**
    * Gets commands from all extensions
    */
-  get commands(): RawCommands {
+  get commands(): CommandMap {
     this._commands ??= this.collectCommands();
     return this._commands;
   }
@@ -634,14 +634,14 @@ export class ExtensionManager {
    * (lower priority extensions override higher priority). This is intentional
    * to allow customization of built-in commands.
    */
-  private collectCommands(): RawCommands {
-    const commands: RawCommands = {};
+  private collectCommands(): CommandMap {
+    const commands: CommandMap = {};
 
     for (const ext of this._extensions) {
       const addCommands = (ext as Extension).config.addCommands;
       if (addCommands) {
         const extCommands = this.safeCall(
-          () => callOrReturn(addCommands, ext) as RawCommands | undefined,
+          () => callOrReturn(addCommands, ext) as CommandMap | undefined,
           `${ext.name}.addCommands`
         );
         if (extCommands) {

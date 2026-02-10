@@ -15,6 +15,13 @@ import { Node } from '../Node.js';
 import { splitListItem, liftListItem, sinkListItem } from 'prosemirror-schema-list';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
+import type { CommandSpec } from '../types/Commands.js';
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    toggleTask: CommandSpec;
+  }
+}
 
 export interface TaskItemOptions {
   HTMLAttributes: Record<string, unknown>;

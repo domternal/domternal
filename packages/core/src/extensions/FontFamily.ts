@@ -23,6 +23,14 @@
  * ```
  */
 import { Extension } from '../Extension.js';
+import type { CommandSpec } from '../types/Commands.js';
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setFontFamily: CommandSpec<[fontFamily: string]>;
+    unsetFontFamily: CommandSpec;
+  }
+}
 
 export interface FontFamilyOptions {
   /**
@@ -84,19 +92,14 @@ export const FontFamily = Extension.create<FontFamilyOptions>({
             return false;
           }
 
-          const cmd = commands as Record<
-            string,
-            (name: string, attrs?: Record<string, unknown>) => boolean
-          >;
-          return cmd['setMark']?.('textStyle', { fontFamily }) ?? false;
+          return commands.setMark('textStyle', { fontFamily });
         },
 
       unsetFontFamily:
         () =>
         ({ commands }) => {
-          const cmd = commands as Record<string, (...args: unknown[]) => boolean>;
-          cmd['setMark']?.('textStyle', { fontFamily: null });
-          cmd['removeEmptyTextStyle']?.();
+          commands.setMark('textStyle', { fontFamily: null });
+          commands.removeEmptyTextStyle();
           return true;
         },
     };

@@ -55,10 +55,29 @@ export type Command = (props: CommandProps) => boolean;
 export type CommandSpec<Args extends unknown[] = []> = (...args: Args) => Command;
 
 /**
- * Raw commands as returned by extensions
- * Keys are command names, values are command specs
+ * Internal command storage used by CommandManager and ExtensionManager.
+ * Holds commands as a generic record for dynamic runtime collection.
  */
-export type RawCommands = Record<string, CommandSpec<never[]>>;
+export type CommandMap = Record<string, CommandSpec<unknown[]>>;
+
+/**
+ * Typed command interface for the public API.
+ *
+ * Each extension augments this interface via `declare module` to register
+ * its commands with proper argument types. This gives full type safety
+ * on `editor.commands.*`, `editor.chain().*`, and `editor.can().*`.
+ *
+ * @example
+ * ```ts
+ * declare module '../types/Commands.js' {
+ *   interface RawCommands {
+ *     toggleBold: CommandSpec;
+ *     setHeading: CommandSpec<[attributes?: { level?: number }]>;
+ *   }
+ * }
+ * ```
+ */
+export interface RawCommands {}
 
 /**
  * Single commands that execute immediately

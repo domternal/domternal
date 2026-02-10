@@ -10,7 +10,7 @@ import { Schema } from 'prosemirror-model';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { CommandManager } from './CommandManager.js';
-import type { RawCommands } from './types/Commands.js';
+import type { CommandMap } from './types/Commands.js';
 
 // Mock getClientRects for JSDOM (ProseMirror uses it for scrolling)
 Range.prototype.getClientRects = vi.fn(() => ({
@@ -135,7 +135,7 @@ interface MockEditor {
   isDestroyed: boolean;
   emit: () => void;
   extensionManager: {
-    commands: RawCommands;
+    commands: CommandMap;
   };
   cleanup: () => void;
 }
@@ -165,7 +165,7 @@ function createMockEditor(content?: string): MockEditor {
       // No-op for tests
     },
     extensionManager: {
-      commands: {} as RawCommands,
+      commands: {} as CommandMap,
     },
     cleanup: () => {
       view.destroy();
@@ -199,7 +199,7 @@ function createExtendedMockEditor(content?: string): MockEditor {
       // No-op for tests
     },
     extensionManager: {
-      commands: {} as RawCommands,
+      commands: {} as CommandMap,
     },
     cleanup: () => {
       view.destroy();
@@ -238,7 +238,7 @@ describe('CommandManager', () => {
       const customCommand = () => () => true;
       mockEditor.extensionManager.commands = {
         customCommand,
-      } as unknown as RawCommands;
+      } as unknown as CommandMap;
 
       // Clear cache to pick up new commands
       manager.clearCache();
@@ -500,7 +500,7 @@ describe('CommandManager', () => {
       // Add new extension command
       mockEditor.extensionManager.commands = {
         newCommand: () => () => true,
-      } as unknown as RawCommands;
+      } as unknown as CommandMap;
 
       // Without clearing, should still return old cache
       const commands2 = manager.rawCommands;

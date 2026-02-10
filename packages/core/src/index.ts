@@ -36,6 +36,7 @@ export type {
   CommandProps,
   Command,
   CommandSpec,
+  CommandMap,
   RawCommands,
   SingleCommands,
   ChainedCommands,

@@ -69,21 +69,24 @@ export const Superscript = Mark.create<SuperscriptOptions>({
       setSuperscript:
         () =>
         ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['setMark']?.('superscript') ?? false;
+          return commands.setMark('superscript');
         },
       unsetSuperscript:
         () =>
         ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['unsetMark']?.('superscript') ?? false;
+          return commands.unsetMark('superscript');
         },
       toggleSuperscript:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['toggleMark']?.('superscript') ?? false;
-        },
+        ({ commands }) => commands.toggleMark('superscript'),
     };
   },
 });
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setSuperscript: CommandSpec;
+    unsetSuperscript: CommandSpec;
+    toggleSuperscript: CommandSpec;
+  }
+}

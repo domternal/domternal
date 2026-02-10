@@ -10,7 +10,7 @@ import { toggleMark as pmToggleMark, setBlockType as pmSetBlockType, wrapIn as p
 import { wrapInList, liftListItem } from 'prosemirror-schema-list';
 import { Fragment, Slice, DOMParser as ProseMirrorDOMParser } from 'prosemirror-model';
 import type { Attrs } from 'prosemirror-model';
-import type { CommandSpec, RawCommands } from '../types/Commands.js';
+import type { CommandSpec, CommandMap } from '../types/Commands.js';
 import type { FocusPosition, Content } from '../types/index.js';
 import { createDocument } from '../helpers/index.js';
 
@@ -796,7 +796,7 @@ export const resetAttributes: CommandSpec<[typeOrName: string, attributeName: st
  * All built-in commands as RawCommands
  * These are merged with extension commands in CommandManager
  */
-export const builtInCommands: RawCommands = {
+export const builtInCommands: CommandMap = {
   focus,
   blur,
   setContent,
@@ -825,4 +825,30 @@ export const builtInCommands: RawCommands = {
   // Attribute commands
   updateAttributes,
   resetAttributes,
-} as RawCommands;
+} as CommandMap;
+
+// Module augmentation: register built-in commands with typed signatures
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    focus: CommandSpec<[position?: FocusPosition]>;
+    blur: CommandSpec;
+    setContent: CommandSpec<[content: Content, options?: SetContentOptions]>;
+    clearContent: CommandSpec<[options?: ClearContentOptions]>;
+    insertText: CommandSpec<[text: string]>;
+    deleteSelection: CommandSpec;
+    selectAll: CommandSpec;
+    toggleMark: CommandSpec<[markName: string, attributes?: Attrs]>;
+    setMark: CommandSpec<[markName: string, attributes?: Attrs]>;
+    unsetMark: CommandSpec<[markName: string]>;
+    setBlockType: CommandSpec<[nodeName: string, attributes?: Attrs]>;
+    toggleBlockType: CommandSpec<[nodeName: string, defaultNodeName: string, attributes?: Attrs]>;
+    wrapIn: CommandSpec<[nodeName: string, attributes?: Attrs]>;
+    toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]>;
+    lift: CommandSpec;
+    toggleList: CommandSpec<[listNodeName: string, listItemNodeName: string, attributes?: Attrs]>;
+    insertContent: CommandSpec<[content: Content]>;
+    selectNodeBackward: CommandSpec;
+    updateAttributes: CommandSpec<[typeOrName: string, attributes: Record<string, unknown>]>;
+    resetAttributes: CommandSpec<[typeOrName: string, attributeName: string]>;
+  }
+}

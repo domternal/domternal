@@ -7,6 +7,13 @@
 
 import { Node } from '../Node.js';
 import { wrappingInputRule } from 'prosemirror-inputrules';
+import type { CommandSpec } from '../types/Commands.js';
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    toggleBulletList: CommandSpec;
+  }
+}
 
 export interface BulletListOptions {
   HTMLAttributes: Record<string, unknown>;
@@ -39,8 +46,7 @@ export const BulletList = Node.create<BulletListOptions>({
       toggleBulletList:
         () =>
         ({ commands }) => {
-          const cmds = commands as Record<string, (listName: string, itemName: string) => boolean>;
-          return cmds['toggleList']?.(name, options.itemTypeName) ?? false;
+          return commands.toggleList(name, options.itemTypeName);
         },
     };
   },

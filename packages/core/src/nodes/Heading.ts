@@ -7,6 +7,14 @@
 
 import { Node } from '../Node.js';
 import { textblockTypeInputRule } from 'prosemirror-inputrules';
+import type { CommandSpec } from '../types/Commands.js';
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setHeading: CommandSpec<[attributes?: { level?: number }]>;
+    toggleHeading: CommandSpec<[attributes?: { level?: number }]>;
+  }
+}
 
 export interface HeadingOptions {
   levels: number[];
@@ -58,28 +66,25 @@ export const Heading = Node.create<HeadingOptions>({
   },
 
   addCommands() {
-    // Capture `this` in closure since command functions have their own `this`
     const { name, options } = this;
     return {
       setHeading:
         (attributes?: { level?: number }) =>
         ({ commands }) => {
-          const cmds = commands as Record<string, (name: string, attrs?: Record<string, unknown>) => boolean>;
           const level = attributes?.level ?? options.levels[0] ?? 1;
           if (!options.levels.includes(level)) {
             return false;
           }
-          return cmds['setBlockType']?.(name, { level }) ?? false;
+          return commands.setBlockType(name, { level });
         },
       toggleHeading:
         (attributes?: { level?: number }) =>
         ({ commands }) => {
-          const cmds = commands as Record<string, (name: string, defaultName: string, attrs?: Record<string, unknown>) => boolean>;
           const level = attributes?.level ?? options.levels[0] ?? 1;
           if (!options.levels.includes(level)) {
             return false;
           }
-          return cmds['toggleBlockType']?.(name, 'paragraph', { level }) ?? false;
+          return commands.toggleBlockType(name, 'paragraph', { level });
         },
     };
   },

@@ -67,20 +67,11 @@ export const TextStyle = Mark.create<TextStyleOptions>({
     return {
       setTextStyle:
         (attributes: Record<string, unknown>) =>
-        ({ commands }) => {
-          const cmd = commands as Record<
-            string,
-            (name: string, attrs?: Record<string, unknown>) => boolean
-          >;
-          return cmd['setMark']?.('textStyle', attributes) ?? false;
-        },
+        ({ commands }) => commands.setMark('textStyle', attributes),
 
       removeTextStyle:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['unsetMark']?.('textStyle') ?? false;
-        },
+        ({ commands }) => commands.unsetMark('textStyle'),
 
       removeEmptyTextStyle:
         () =>
@@ -121,3 +112,11 @@ export const TextStyle = Mark.create<TextStyleOptions>({
     };
   },
 });
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setTextStyle: CommandSpec<[attributes: Record<string, unknown>]>;
+    removeTextStyle: CommandSpec;
+    removeEmptyTextStyle: CommandSpec;
+  }
+}

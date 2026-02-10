@@ -138,8 +138,7 @@ describe('FontSize', () => {
 
       editor.focus('all');
 
-      const setFontSize = editor.commands['setFontSize'] as ((size: string) => boolean) | undefined;
-      const result = setFontSize?.('20px');
+      const result = editor.commands.setFontSize('20px');
 
       expect(result).toBe(true);
     });

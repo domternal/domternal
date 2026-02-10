@@ -23,6 +23,14 @@
  * ```
  */
 import { Extension } from '../Extension.js';
+import type { CommandSpec } from '../types/Commands.js';
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setTextColor: CommandSpec<[color: string]>;
+    unsetTextColor: CommandSpec;
+  }
+}
 
 export interface TextColorOptions {
   /**
@@ -84,19 +92,14 @@ export const TextColor = Extension.create<TextColorOptions>({
             return false;
           }
 
-          const cmd = commands as Record<
-            string,
-            (name: string, attrs?: Record<string, unknown>) => boolean
-          >;
-          return cmd['setMark']?.('textStyle', { color }) ?? false;
+          return commands.setMark('textStyle', { color });
         },
 
       unsetTextColor:
         () =>
         ({ commands }) => {
-          const cmd = commands as Record<string, (...args: unknown[]) => boolean>;
-          cmd['setMark']?.('textStyle', { color: null });
-          cmd['removeEmptyTextStyle']?.();
+          commands.setMark('textStyle', { color: null });
+          commands.removeEmptyTextStyle();
           return true;
         },
     };

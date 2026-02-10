@@ -23,6 +23,14 @@
  * ```
  */
 import { Extension } from '../Extension.js';
+import type { CommandSpec } from '../types/Commands.js';
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setFontSize: CommandSpec<[fontSize: string]>;
+    unsetFontSize: CommandSpec;
+  }
+}
 
 export interface FontSizeOptions {
   /**
@@ -85,19 +93,14 @@ export const FontSize = Extension.create<FontSizeOptions>({
             return false;
           }
 
-          const cmd = commands as Record<
-            string,
-            (name: string, attrs?: Record<string, unknown>) => boolean
-          >;
-          return cmd['setMark']?.('textStyle', { fontSize }) ?? false;
+          return commands.setMark('textStyle', { fontSize });
         },
 
       unsetFontSize:
         () =>
         ({ commands }) => {
-          const cmd = commands as Record<string, (...args: unknown[]) => boolean>;
-          cmd['setMark']?.('textStyle', { fontSize: null });
-          cmd['removeEmptyTextStyle']?.();
+          commands.setMark('textStyle', { fontSize: null });
+          commands.removeEmptyTextStyle();
           return true;
         },
     };

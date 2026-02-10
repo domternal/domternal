@@ -9,6 +9,13 @@ import { Node } from '../Node.js';
 import { InputRule } from 'prosemirror-inputrules';
 import type { EditorState } from 'prosemirror-state';
 import { TextSelection } from 'prosemirror-state';
+import type { CommandSpec } from '../types/Commands.js';
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setHorizontalRule: CommandSpec;
+  }
+}
 
 export interface HorizontalRuleOptions {
   HTMLAttributes: Record<string, unknown>;
@@ -38,13 +45,8 @@ export const HorizontalRule = Node.create<HorizontalRuleOptions>({
       setHorizontalRule:
         () =>
         ({ commands, tr }) => {
-          const cmds = commands as Record<
-            string,
-            (content: { type: string }) => boolean
-          >;
-
           // Insert horizontal rule
-          const result = cmds['insertContent']?.({ type: name });
+          const result = commands.insertContent({ type: name });
           if (!result) return false;
 
           // Try to move selection after the HR

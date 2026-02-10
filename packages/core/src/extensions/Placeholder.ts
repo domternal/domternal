@@ -70,7 +70,7 @@ export const Placeholder = Extension.create<PlaceholderOptions>({
         props: {
           decorations: ({ doc, selection }) => {
             const editor = this.editor;
-            const isEditable = editor?.view?.editable ?? true;
+            const isEditable = editor?.view.editable ?? true;
 
             if (!isEditable && this.options.showOnlyWhenEditable) {
               return DecorationSet.empty;

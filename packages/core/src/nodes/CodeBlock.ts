@@ -7,6 +7,14 @@
 
 import { Node } from '../Node.js';
 import { textblockTypeInputRule } from 'prosemirror-inputrules';
+import type { CommandSpec } from '../types/Commands.js';
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setCodeBlock: CommandSpec<[attributes?: { language?: string }]>;
+    toggleCodeBlock: CommandSpec<[attributes?: { language?: string }]>;
+  }
+}
 
 export interface CodeBlockOptions {
   languageClassPrefix: string;
@@ -88,14 +96,12 @@ export const CodeBlock = Node.create<CodeBlockOptions>({
       setCodeBlock:
         (attributes?: { language?: string }) =>
         ({ commands }) => {
-          const cmds = commands as Record<string, (name: string, attrs?: Record<string, unknown>) => boolean>;
-          return cmds['setBlockType']?.(name, attributes) ?? false;
+          return commands.setBlockType(name, attributes);
         },
       toggleCodeBlock:
         (attributes?: { language?: string }) =>
         ({ commands }) => {
-          const cmds = commands as Record<string, (name: string, defaultName: string, attrs?: Record<string, unknown>) => boolean>;
-          return cmds['toggleBlockType']?.(name, 'paragraph', attributes) ?? false;
+          return commands.toggleBlockType(name, 'paragraph', attributes);
         },
     };
   },

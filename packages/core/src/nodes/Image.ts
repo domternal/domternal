@@ -11,6 +11,13 @@
  */
 
 import { Node } from '../Node.js';
+import type { CommandSpec } from '../types/Commands.js';
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setImage: CommandSpec<[attributes?: Record<string, unknown>]>;
+  }
+}
 
 /**
  * Validates image src URL for XSS protection.
@@ -131,14 +138,7 @@ export const Image = Node.create<ImageOptions>({
             return false;
           }
 
-          const cmds = commands as Record<
-            string,
-            (content: { type: string; attrs?: Record<string, unknown> }) => boolean
-          >;
-          const content = attributes
-            ? { type: name, attrs: attributes }
-            : { type: name };
-          return cmds['insertContent']?.(content) ?? false;
+          return commands.insertContent({ type: name, ...attributes && { attrs: attributes } } as Parameters<typeof commands.insertContent>[0]);
         },
     };
   },

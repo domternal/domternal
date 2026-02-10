@@ -12,7 +12,7 @@ import type { EditorView } from 'prosemirror-view';
 import type {
   CommandProps,
   Command,
-  RawCommands,
+  CommandMap,
   SingleCommands,
   ChainedCommands,
   CanCommands,
@@ -35,7 +35,7 @@ export interface CommandManagerEditor {
   emit(event: string, props?: unknown): void;
   /** Extension manager for collecting extension commands */
   readonly extensionManager: {
-    readonly commands: RawCommands;
+    readonly commands: CommandMap;
   };
 }
 
@@ -51,7 +51,7 @@ export class CommandManager {
   private readonly editor: CommandManagerEditor;
 
   /** Cached raw commands (built-in + extension) */
-  private _rawCommands: RawCommands | null = null;
+  private _rawCommands: CommandMap | null = null;
 
   /** Cached dispatch function to avoid allocation on every command */
   private readonly _dispatch: (tr: Transaction) => void;
@@ -67,7 +67,7 @@ export class CommandManager {
    * Gets all raw commands (built-in + extension commands)
    * Cached after first access
    */
-  get rawCommands(): RawCommands {
+  get rawCommands(): CommandMap {
     this._rawCommands ??= {
       ...builtInCommands,
       ...this.editor.extensionManager.commands,

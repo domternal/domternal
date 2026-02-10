@@ -91,22 +91,13 @@ export const Bold = Mark.create<BoldOptions>({
     return {
       setBold:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['setMark']?.('bold') ?? false;
-        },
+        ({ commands }) => commands.setMark('bold'),
       unsetBold:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['unsetMark']?.('bold') ?? false;
-        },
+        ({ commands }) => commands.unsetMark('bold'),
       toggleBold:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['toggleMark']?.('bold') ?? false;
-        },
+        ({ commands }) => commands.toggleMark('bold'),
     };
   },
 
@@ -123,3 +114,11 @@ export const Bold = Mark.create<BoldOptions>({
     ];
   },
 });
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setBold: CommandSpec;
+    unsetBold: CommandSpec;
+    toggleBold: CommandSpec;
+  }
+}

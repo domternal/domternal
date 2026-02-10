@@ -83,22 +83,13 @@ export const Italic = Mark.create<ItalicOptions>({
     return {
       setItalic:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['setMark']?.('italic') ?? false;
-        },
+        ({ commands }) => commands.setMark('italic'),
       unsetItalic:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['unsetMark']?.('italic') ?? false;
-        },
+        ({ commands }) => commands.unsetMark('italic'),
       toggleItalic:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['toggleMark']?.('italic') ?? false;
-        },
+        ({ commands }) => commands.toggleMark('italic'),
     };
   },
 
@@ -120,3 +111,11 @@ export const Italic = Mark.create<ItalicOptions>({
     ];
   },
 });
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setItalic: CommandSpec;
+    unsetItalic: CommandSpec;
+    toggleItalic: CommandSpec;
+  }
+}

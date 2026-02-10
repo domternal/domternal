@@ -67,22 +67,13 @@ export const Code = Mark.create<CodeOptions>({
     return {
       setCode:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['setMark']?.('code') ?? false;
-        },
+        ({ commands }) => commands.setMark('code'),
       unsetCode:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['unsetMark']?.('code') ?? false;
-        },
+        ({ commands }) => commands.unsetMark('code'),
       toggleCode:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['toggleMark']?.('code') ?? false;
-        },
+        ({ commands }) => commands.toggleMark('code'),
     };
   },
 
@@ -99,3 +90,11 @@ export const Code = Mark.create<CodeOptions>({
     ];
   },
 });
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setCode: CommandSpec;
+    unsetCode: CommandSpec;
+    toggleCode: CommandSpec;
+  }
+}

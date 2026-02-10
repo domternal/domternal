@@ -142,8 +142,7 @@ describe('FontFamily', () => {
 
       editor.focus('all');
 
-      const setFontFamily = editor.commands['setFontFamily'] as ((font: string) => boolean) | undefined;
-      const result = setFontFamily?.('Arial');
+      const result = editor.commands.setFontFamily('Arial');
 
       expect(result).toBe(true);
     });

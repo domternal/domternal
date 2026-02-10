@@ -34,6 +34,16 @@ import { Extension } from '../Extension.js';
 import { NodeSelection, TextSelection } from 'prosemirror-state';
 import type { Node as PMNode } from 'prosemirror-model';
 import type { Editor } from '../Editor.js';
+import type { CommandSpec } from '../types/Commands.js';
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setSelection: CommandSpec<[from: number, to?: number]>;
+    selectNode: CommandSpec<[pos: number]>;
+    selectParentNode: CommandSpec;
+    extendSelection: CommandSpec<[direction: 'left' | 'right' | 'start' | 'end']>;
+  }
+}
 
 export interface SelectionOptions {
   /**
