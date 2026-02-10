@@ -52,6 +52,24 @@ describe('Highlight', () => {
       });
     });
 
+    it('multicolor parseHTML reads data-color attribute', () => {
+      const custom = Highlight.configure({ multicolor: true });
+      const attrs = custom.config.addAttributes?.call(custom);
+      const el = document.createElement('mark');
+      el.setAttribute('data-color', 'red');
+      const parsed = attrs?.['color']?.parseHTML?.(el);
+      expect(parsed).toBe('red');
+    });
+
+    it('multicolor parseHTML falls back to backgroundColor', () => {
+      const custom = Highlight.configure({ multicolor: true });
+      const attrs = custom.config.addAttributes?.call(custom);
+      const el = document.createElement('mark');
+      el.style.backgroundColor = 'yellow';
+      const parsed = attrs?.['color']?.parseHTML?.(el);
+      expect(parsed).toBe('yellow');
+    });
+
     it('multicolor renderHTML returns empty for no color', () => {
       const custom = Highlight.configure({ multicolor: true });
       const attrs = custom.config.addAttributes?.call(custom);
@@ -113,6 +131,8 @@ describe('Highlight', () => {
       } as any);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((shortcuts?.['Mod-Shift-h'] as any)?.()).toBe(false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-Shift-H'] as any)?.()).toBe(false);
     });
   });
 
@@ -145,6 +165,28 @@ describe('Highlight', () => {
         content: '<p><mark>highlighted</mark></p>',
       });
       expect(editor.getHTML()).toContain('<mark>highlighted</mark>');
+    });
+
+    it('setHighlight applies highlight to selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Highlight],
+        content: '<p>Hello world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['setHighlight']?.();
+      expect(editor.getHTML()).toContain('<mark>Hello</mark>');
+    });
+
+    it('unsetHighlight removes highlight from selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Highlight],
+        content: '<p><mark>Hello</mark> world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['unsetHighlight']?.();
+      expect(editor.getHTML()).not.toContain('<mark>');
     });
 
     it('toggleHighlight toggles on selected text', () => {

@@ -76,6 +76,8 @@ describe('Strike', () => {
       } as any);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((shortcuts?.['Mod-Shift-s'] as any)?.()).toBe(false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-Shift-S'] as any)?.()).toBe(false);
     });
   });
 
@@ -117,6 +119,28 @@ describe('Strike', () => {
         content: '<p><s>struck</s></p>',
       });
       expect(editor.getHTML()).toContain('<s>struck</s>');
+    });
+
+    it('setStrike applies strike to selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Strike],
+        content: '<p>Hello world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['setStrike']?.();
+      expect(editor.getHTML()).toContain('<s>Hello</s>');
+    });
+
+    it('unsetStrike removes strike from selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Strike],
+        content: '<p><s>Hello</s> world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['unsetStrike']?.();
+      expect(editor.getHTML()).not.toContain('<s>');
     });
 
     it('toggleStrike toggles on selected text', () => {

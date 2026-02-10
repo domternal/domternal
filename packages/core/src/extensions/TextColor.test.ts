@@ -72,6 +72,17 @@ describe('TextColor', () => {
       const result = renderHTML?.({ color: null });
       expect(result).toBe(null);
     });
+
+    it('renderHTML returns null for disallowed color', () => {
+      const CustomTextColor = TextColor.configure({
+        colors: ['#ff0000', '#00ff00'],
+      });
+      const globalAttrs = CustomTextColor.config.addGlobalAttributes?.call(CustomTextColor);
+      const renderHTML = globalAttrs?.[0]?.attributes['color']?.renderHTML;
+
+      const result = renderHTML?.({ color: '#0000ff' });
+      expect(result).toBe(null);
+    });
   });
 
   describe('addCommands', () => {
@@ -155,6 +166,18 @@ describe('TextColor', () => {
       // Apply color
       const result = editor.commands.setTextColor('#ff0000');
 
+      expect(result).toBe(true);
+    });
+
+    it('unsetTextColor removes text color', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, TextColor],
+        content: '<p><span style="color: red">Colored</span></p>',
+      });
+
+      editor.focus('all');
+
+      const result = editor.commands.unsetTextColor();
       expect(result).toBe(true);
     });
   });

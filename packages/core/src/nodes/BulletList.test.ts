@@ -89,6 +89,15 @@ describe('BulletList', () => {
 
       expect(shortcuts).toHaveProperty('Mod-Shift-8');
     });
+
+    it('shortcut returns false when no editor', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const shortcuts = BulletList.config.addKeyboardShortcuts?.call({
+        ...BulletList, editor: undefined, options: BulletList.options,
+      } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-Shift-8'] as any)?.()).toBe(false);
+    });
   });
 
   describe('addInputRules', () => {
@@ -148,6 +157,15 @@ describe('BulletList', () => {
       const list = doc.child(0);
       expect(list.type.name).toBe('bulletList');
       expect(list.childCount).toBe(3);
+    });
+
+    it('toggleBulletList wraps paragraph in bullet list', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, ListItem],
+        content: '<p>List me</p>',
+      });
+      editor.commands['toggleBulletList']?.();
+      expect(editor.state.doc.child(0).type.name).toBe('bulletList');
     });
 
     it('supports nested lists', () => {

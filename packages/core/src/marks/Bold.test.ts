@@ -121,6 +121,8 @@ describe('Bold', () => {
       } as any);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((shortcuts?.['Mod-b'] as any)?.()).toBe(false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-B'] as any)?.()).toBe(false);
     });
   });
 
@@ -185,6 +187,28 @@ describe('Bold', () => {
       const s2 = editor.state;
       editor.view.dispatch(s2.tr.setSelection(TextSelection.create(s2.doc, 1, 6)));
       editor.commands['toggleBold']?.();
+      expect(editor.getHTML()).not.toContain('<strong>');
+    });
+
+    it('setBold applies bold to selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Bold],
+        content: '<p>Hello world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['setBold']?.();
+      expect(editor.getHTML()).toContain('<strong>Hello</strong>');
+    });
+
+    it('unsetBold removes bold from selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Bold],
+        content: '<p><strong>Hello</strong> world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['unsetBold']?.();
       expect(editor.getHTML()).not.toContain('<strong>');
     });
 

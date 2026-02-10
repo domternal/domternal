@@ -107,6 +107,15 @@ describe('OrderedList', () => {
 
       expect(shortcuts).toHaveProperty('Mod-Shift-7');
     });
+
+    it('shortcut returns false when no editor', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const shortcuts = OrderedList.config.addKeyboardShortcuts?.call({
+        ...OrderedList, editor: undefined, options: OrderedList.options,
+      } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-Shift-7'] as any)?.()).toBe(false);
+    });
   });
 
   describe('addInputRules', () => {
@@ -196,6 +205,15 @@ describe('OrderedList', () => {
       const list = doc.child(0);
       expect(list.type.name).toBe('orderedList');
       expect(list.childCount).toBe(3);
+    });
+
+    it('toggleOrderedList wraps paragraph in ordered list', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, OrderedList, ListItem],
+        content: '<p>List me</p>',
+      });
+      editor.commands['toggleOrderedList']?.();
+      expect(editor.state.doc.child(0).type.name).toBe('orderedList');
     });
 
     it('supports nested lists', () => {

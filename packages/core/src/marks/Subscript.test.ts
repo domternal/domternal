@@ -116,6 +116,28 @@ describe('Subscript', () => {
       expect(markNames.length).toBeLessThanOrEqual(1);
     });
 
+    it('setSubscript applies subscript to selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Subscript, Superscript],
+        content: '<p>H2O</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 2, 3)));
+      editor.commands['setSubscript']?.();
+      expect(editor.getHTML()).toContain('<sub>2</sub>');
+    });
+
+    it('unsetSubscript removes subscript from selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Subscript, Superscript],
+        content: '<p>H<sub>2</sub>O</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 2, 3)));
+      editor.commands['unsetSubscript']?.();
+      expect(editor.getHTML()).not.toContain('<sub>');
+    });
+
     it('toggleSubscript toggles on selected text', () => {
       editor = new Editor({
         extensions: [Document, Text, Paragraph, Subscript, Superscript],

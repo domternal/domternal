@@ -289,6 +289,27 @@ describe('InvisibleChars', () => {
           | undefined;
         expect(newPluginState?.visible).toBe(true);
       });
+
+      it('preserves state on unrelated transaction', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, InvisibleChars],
+          content: '<p>Test</p>',
+        });
+
+        // Toggle to true
+        editor.commands.toggleInvisibleChars();
+        expect(
+          (invisibleCharsPluginKey.getState(editor.state) as { visible: boolean })?.visible
+        ).toBe(true);
+
+        // Dispatch an unrelated transaction (e.g., inserting text)
+        editor.view.dispatch(editor.state.tr.insertText('x', 1));
+
+        // State should remain true (apply returns value unchanged)
+        expect(
+          (invisibleCharsPluginKey.getState(editor.state) as { visible: boolean })?.visible
+        ).toBe(true);
+      });
     });
 
     describe('with hardBreak', () => {
@@ -300,6 +321,41 @@ describe('InvisibleChars', () => {
 
         expect(editor.getText()).toContain('Line 1');
         expect(editor.getText()).toContain('Line 2');
+      });
+
+      it('creates decorations for hardBreak when visible', () => {
+        const VisibleInvisibleChars = InvisibleChars.configure({
+          visible: true,
+        });
+
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, HardBreak, VisibleInvisibleChars],
+          content: '<p>Line 1<br>Line 2</p>',
+        });
+
+        // Plugin should create decorations (hardBreak + paragraph + spaces)
+        const pluginState = invisibleCharsPluginKey.getState(editor.state) as { visible: boolean };
+        expect(pluginState.visible).toBe(true);
+
+        // Check that the view has the invisible char decorations rendered
+        const html = editor.view.dom.innerHTML;
+        expect(html).toContain('invisible-char');
+      });
+    });
+
+    describe('with nbsp content', () => {
+      it('creates decorations for non-breaking spaces when visible', () => {
+        const VisibleInvisibleChars = InvisibleChars.configure({
+          visible: true,
+        });
+
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, VisibleInvisibleChars],
+          content: '<p>Hello\u00A0world</p>',
+        });
+
+        const html = editor.view.dom.innerHTML;
+        expect(html).toContain('invisible-char');
       });
     });
   });

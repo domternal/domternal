@@ -3,6 +3,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { Paragraph } from './Paragraph.js';
 import { Document } from './Document.js';
 import { Text } from './Text.js';
+import { Heading } from './Heading.js';
 import { Editor } from '../Editor.js';
 
 describe('Paragraph', () => {
@@ -79,6 +80,15 @@ describe('Paragraph', () => {
 
       expect(shortcuts).toHaveProperty('Mod-Alt-0');
     });
+
+    it('shortcut returns false when no editor', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const shortcuts = Paragraph.config.addKeyboardShortcuts?.call({
+        ...Paragraph, editor: undefined, options: Paragraph.options,
+      } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-Alt-0'] as any)?.()).toBe(false);
+    });
   });
 
   describe('integration', () => {
@@ -119,6 +129,16 @@ describe('Paragraph', () => {
       expect(doc.childCount).toBe(2);
       expect(doc.child(0).type.name).toBe('paragraph');
       expect(doc.child(1).type.name).toBe('paragraph');
+    });
+
+    it('setParagraph converts heading to paragraph', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Heading],
+        content: '<h1>Title</h1>',
+      });
+      expect(editor.state.doc.child(0).type.name).toBe('heading');
+      editor.commands['setParagraph']?.();
+      expect(editor.state.doc.child(0).type.name).toBe('paragraph');
     });
 
     it('renders to HTML correctly', () => {

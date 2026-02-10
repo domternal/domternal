@@ -75,6 +75,8 @@ describe('Underline', () => {
       } as any);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((shortcuts?.['Mod-u'] as any)?.()).toBe(false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-U'] as any)?.()).toBe(false);
     });
   });
 
@@ -100,6 +102,28 @@ describe('Underline', () => {
         content: '<p><u>underlined</u></p>',
       });
       expect(editor.getHTML()).toContain('<u>underlined</u>');
+    });
+
+    it('setUnderline applies underline to selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Underline],
+        content: '<p>Hello world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['setUnderline']?.();
+      expect(editor.getHTML()).toContain('<u>Hello</u>');
+    });
+
+    it('unsetUnderline removes underline from selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Underline],
+        content: '<p><u>Hello</u> world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['unsetUnderline']?.();
+      expect(editor.getHTML()).not.toContain('<u>');
     });
 
     it('toggleUnderline toggles on selected text', () => {

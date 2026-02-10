@@ -70,6 +70,8 @@ describe('Code', () => {
       } as any);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((shortcuts?.['Mod-e'] as any)?.()).toBe(false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-E'] as any)?.()).toBe(false);
     });
   });
 
@@ -114,6 +116,28 @@ describe('Code', () => {
       const markNames = textNode.marks.map((m) => m.type.name);
       expect(markNames).toContain('code');
       expect(markNames).not.toContain('bold');
+    });
+
+    it('setCode applies code to selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Code],
+        content: '<p>Hello world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['setCode']?.();
+      expect(editor.getHTML()).toContain('<code>Hello</code>');
+    });
+
+    it('unsetCode removes code from selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Code],
+        content: '<p><code>Hello</code> world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['unsetCode']?.();
+      expect(editor.getHTML()).not.toContain('<code>');
     });
 
     it('toggleCode toggles on selected text', () => {

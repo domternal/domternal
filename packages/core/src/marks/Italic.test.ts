@@ -90,6 +90,8 @@ describe('Italic', () => {
       } as any);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect((shortcuts?.['Mod-i'] as any)?.()).toBe(false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-I'] as any)?.()).toBe(false);
     });
   });
 
@@ -142,6 +144,28 @@ describe('Italic', () => {
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
       editor.commands['toggleItalic']?.();
       expect(editor.getHTML()).toContain('<em>Hello</em>');
+    });
+
+    it('setItalic applies italic to selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Italic],
+        content: '<p>Hello world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['setItalic']?.();
+      expect(editor.getHTML()).toContain('<em>Hello</em>');
+    });
+
+    it('unsetItalic removes italic from selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Italic],
+        content: '<p><em>Hello</em> world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['unsetItalic']?.();
+      expect(editor.getHTML()).not.toContain('<em>');
     });
 
     it('parseHTML getAttrs handles string argument for <i>', () => {

@@ -8,6 +8,7 @@ import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { Editor } from '../Editor.js';
 import { TextSelection } from 'prosemirror-state';
+import { TextColor } from '../extensions/TextColor.js';
 
 const extensions = [Document, Text, Paragraph, TextStyle];
 
@@ -174,6 +175,23 @@ describe('TextStyle', () => {
       // so removeEmptyTextStyle should remove it
       const result = editor.commands['removeEmptyTextStyle']?.();
       expect(result).toBe(true);
+    });
+
+    it('removeEmptyTextStyle keeps marks with non-null attributes', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, TextColor],
+        content: '<p><span style="color: red">Colored</span></p>',
+      });
+
+      editor.view.dispatch(
+        editor.state.tr.setSelection(
+          TextSelection.create(editor.state.doc, 1, 8)
+        )
+      );
+
+      const result = editor.commands['removeEmptyTextStyle']?.();
+      // The mark has a non-null color attr, so it should NOT be considered empty
+      expect(result).toBe(false);
     });
 
     it('removeEmptyTextStyle returns false when no empty text styles exist', () => {

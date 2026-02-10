@@ -105,6 +105,28 @@ describe('Superscript', () => {
       expect(editor.getHTML()).toContain('<sup>2</sup>');
     });
 
+    it('setSuperscript applies superscript to selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Superscript, Subscript],
+        content: '<p>x2</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 2, 3)));
+      editor.commands['setSuperscript']?.();
+      expect(editor.getHTML()).toContain('<sup>2</sup>');
+    });
+
+    it('unsetSuperscript removes superscript from selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Superscript, Subscript],
+        content: '<p>x<sup>2</sup></p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 2, 3)));
+      editor.commands['unsetSuperscript']?.();
+      expect(editor.getHTML()).not.toContain('<sup>');
+    });
+
     it('toggleSuperscript toggles on selected text', () => {
       editor = new Editor({
         extensions: [Document, Text, Paragraph, Superscript, Subscript],

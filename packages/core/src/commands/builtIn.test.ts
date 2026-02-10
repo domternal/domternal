@@ -13,6 +13,7 @@ import { OrderedList } from '../nodes/OrderedList.js';
 import { ListItem } from '../nodes/ListItem.js';
 import { Bold } from '../marks/Bold.js';
 import { Italic } from '../marks/Italic.js';
+import { Link } from '../marks/Link.js';
 import { Selection } from '../extensions/Selection.js';
 import { Editor } from '../Editor.js';
 
@@ -604,6 +605,22 @@ describe('builtIn commands', () => {
 
       const result = editor.commands.resetAttributes('nonexistent', 'level');
       expect(result).toBe(false);
+    });
+
+    it('resets mark attribute to default', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Link],
+        content: '<p><a href="https://example.com" target="_blank">Link</a></p>',
+      });
+
+      setSelection(editor, 1, 5);
+      const result = editor.commands.resetAttributes('link', 'target');
+      expect(result).toBe(true);
+
+      // Verify the target attribute was reset to default (null)
+      const textNode = editor.state.doc.child(0).child(0);
+      const linkMark = textNode.marks.find((m) => m.type.name === 'link');
+      expect(linkMark?.attrs['target']).toBe(null);
     });
   });
 });

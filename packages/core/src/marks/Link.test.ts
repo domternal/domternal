@@ -254,6 +254,38 @@ describe('Link', () => {
       expect(textNode.marks).toHaveLength(0);
     });
 
+    it('toggleLink applies link to selection with valid URL', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Link],
+        content: '<p>click here</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['toggleLink']?.({ href: 'https://example.com' });
+      const textNode = editor.state.doc.child(0).child(0);
+      expect(textNode.marks[0]?.type.name).toBe('link');
+    });
+
+    it('toggleLink rejects invalid URL', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Link],
+        content: '<p>click here</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      const result = editor.commands['toggleLink']?.({ href: 'javascript:alert(1)' });
+      expect(result).toBe(false);
+    });
+
+    it('renderHTML strips invalid href but keeps other attributes', () => {
+      const spec = Link.createMarkSpec();
+      const mockMark = { attrs: { href: 'javascript:alert(1)', target: '_blank', rel: null } };
+      const result = spec.toDOM?.(mockMark as never, true) as [string, Record<string, unknown>, number];
+      expect(result[0]).toBe('a');
+      expect(result[1]).not.toHaveProperty('href');
+      expect(result[1]).toHaveProperty('target', '_blank');
+    });
+
     it('parseHTML getAttrs handles string argument', () => {
       const rules = Link.config.parseHTML?.call(Link);
       const getAttrs = rules?.[0]?.getAttrs;

@@ -124,6 +124,15 @@ describe('CodeBlock', () => {
 
       expect(shortcuts).toHaveProperty('Mod-Alt-c');
     });
+
+    it('shortcut returns false when no editor', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const shortcuts = CodeBlock.config.addKeyboardShortcuts?.call({
+        ...CodeBlock, editor: undefined, options: CodeBlock.options,
+      } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-Alt-c'] as any)?.()).toBe(false);
+    });
   });
 
   describe('addInputRules', () => {
@@ -192,6 +201,17 @@ describe('CodeBlock', () => {
       expect(text).toContain('line1');
       expect(text).toContain('line2');
       expect(text).toContain('line3');
+    });
+
+    it('toggleCodeBlock toggles between paragraph and code block', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CodeBlock],
+        content: '<p>some code</p>',
+      });
+      editor.commands['toggleCodeBlock']?.();
+      expect(editor.state.doc.child(0).type.name).toBe('codeBlock');
+      editor.commands['toggleCodeBlock']?.();
+      expect(editor.state.doc.child(0).type.name).toBe('paragraph');
     });
 
     it('renders without language when not set', () => {

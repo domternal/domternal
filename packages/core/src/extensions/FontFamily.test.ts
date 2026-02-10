@@ -76,6 +76,17 @@ describe('FontFamily', () => {
       const result = renderHTML?.({ fontFamily: null });
       expect(result).toBe(null);
     });
+
+    it('renderHTML returns null for disallowed fontFamily', () => {
+      const CustomFontFamily = FontFamily.configure({
+        fontFamilies: ['Arial', 'Times New Roman'],
+      });
+      const globalAttrs = CustomFontFamily.config.addGlobalAttributes?.call(CustomFontFamily);
+      const renderHTML = globalAttrs?.[0]?.attributes['fontFamily']?.renderHTML;
+
+      const result = renderHTML?.({ fontFamily: 'Comic Sans MS' });
+      expect(result).toBe(null);
+    });
   });
 
   describe('addCommands', () => {
@@ -144,6 +155,18 @@ describe('FontFamily', () => {
 
       const result = editor.commands.setFontFamily('Arial');
 
+      expect(result).toBe(true);
+    });
+
+    it('unsetFontFamily removes font family', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, FontFamily],
+        content: '<p><span style="font-family: Arial">Styled</span></p>',
+      });
+
+      editor.focus('all');
+
+      const result = editor.commands.unsetFontFamily();
       expect(result).toBe(true);
     });
   });
