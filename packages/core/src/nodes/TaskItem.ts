@@ -13,8 +13,6 @@
 
 import { Node } from '../Node.js';
 import { splitListItem, liftListItem, sinkListItem } from 'prosemirror-schema-list';
-import type { EditorState } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
 import type { CommandSpec } from '../types/Commands.js';
 
 declare module '../types/Commands.js' {
@@ -128,25 +126,21 @@ export const TaskItem = Node.create<TaskItemOptions>({
   },
 
   addKeyboardShortcuts() {
-    const { editor, nodeType } = this;
     return {
       Enter: () => {
-        if (!editor || !nodeType) return false;
-        const { state, view } = editor as { state: EditorState; view: EditorView };
-        return splitListItem(nodeType)(state, view.dispatch);
+        if (!this.editor || !this.nodeType) return false;
+        return splitListItem(this.nodeType)(this.editor.state, this.editor.view.dispatch);
       },
       Tab: () => {
-        if (!editor || !nodeType) return false;
-        const { state, view } = editor as { state: EditorState; view: EditorView };
-        return sinkListItem(nodeType)(state, view.dispatch);
+        if (!this.editor || !this.nodeType) return false;
+        return sinkListItem(this.nodeType)(this.editor.state, this.editor.view.dispatch);
       },
       'Shift-Tab': () => {
-        if (!editor || !nodeType) return false;
-        const { state, view } = editor as { state: EditorState; view: EditorView };
-        return liftListItem(nodeType)(state, view.dispatch);
+        if (!this.editor || !this.nodeType) return false;
+        return liftListItem(this.nodeType)(this.editor.state, this.editor.view.dispatch);
       },
       'Mod-Enter': () => {
-        return editor?.commands['toggleTask']?.() ?? false;
+        return this.editor?.commands['toggleTask']?.() ?? false;
       },
     };
   },

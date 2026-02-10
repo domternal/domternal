@@ -5,7 +5,7 @@
  * Node.create(), and Mark.create() factory methods.
  */
 
-import type { Plugin, Transaction } from 'prosemirror-state';
+import type { Plugin, Transaction, EditorState } from 'prosemirror-state';
 import type { InputRule } from 'prosemirror-inputrules';
 import type { EditorView } from 'prosemirror-view';
 import type { Command, KeyboardShortcutCommand } from './Commands.js';
@@ -15,7 +15,7 @@ import type { Command, KeyboardShortcutCommand } from './Commands.js';
  * Will be properly typed when Extension class is implemented
  */
 export interface ExtensionEditor {
-  readonly state: unknown;
+  readonly state: EditorState;
   readonly view: EditorView;
   readonly schema: unknown;
   readonly commands: Record<string, (...args: unknown[]) => boolean>;

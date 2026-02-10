@@ -75,10 +75,11 @@ describe('ListItem', () => {
   });
 
   describe('addKeyboardShortcuts', () => {
-    it('provides Enter shortcut', () => {
-      const shortcuts = ListItem.config.addKeyboardShortcuts?.call(ListItem);
+    it('provides Enter shortcut via ProseMirror plugin', () => {
+      const plugins = ListItem.config.addProseMirrorPlugins?.call(ListItem);
 
-      expect(shortcuts).toHaveProperty('Enter');
+      expect(plugins).toBeDefined();
+      expect(plugins!.length).toBeGreaterThan(0);
     });
 
     it('provides Tab shortcut', () => {

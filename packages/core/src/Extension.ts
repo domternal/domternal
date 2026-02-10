@@ -25,6 +25,8 @@
  */
 
 import type { ExtensionConfig, ExtensionConfigBase, ExtensionContext } from './types/ExtensionConfig.js';
+import type { EditorState } from 'prosemirror-state';
+import type { EditorView } from 'prosemirror-view';
 import { callOrReturn } from './helpers/callOrReturn.js';
 
 /**
@@ -74,8 +76,8 @@ export function mergeConfigWithParentBinding(
  * Forward declaration to avoid circular dependency
  */
 export interface ExtensionEditorInterface {
-  readonly state: unknown;
-  readonly view: unknown;
+  readonly state: EditorState;
+  readonly view: EditorView;
   readonly schema: unknown;
 }
 
