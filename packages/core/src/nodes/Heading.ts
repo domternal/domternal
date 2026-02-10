@@ -7,6 +7,8 @@
 
 import { Node } from '../Node.js';
 import { textblockTypeInputRule } from 'prosemirror-inputrules';
+import { keymap } from 'prosemirror-keymap';
+import type { Command as PMCommand } from 'prosemirror-state';
 import type { CommandSpec } from '../types/Commands.js';
 
 declare module '../types/Commands.js' {
@@ -100,6 +102,31 @@ export const Heading = Node.create<HeadingOptions>({
     });
 
     return shortcuts;
+  },
+
+  addProseMirrorPlugins() {
+    return [
+      keymap({
+        Backspace: ((state, dispatch) => {
+          const { selection } = state;
+          if (!selection.empty) return false;
+
+          const { $from } = selection;
+          if ($from.parentOffset !== 0) return false;
+          if ($from.parent.type.name !== 'heading') return false;
+
+          const paragraphType = state.schema.nodes['paragraph'];
+          if (!paragraphType) return false;
+
+          if (dispatch) {
+            dispatch(
+              state.tr.setNodeMarkup($from.before($from.depth), paragraphType).scrollIntoView()
+            );
+          }
+          return true;
+        }) as PMCommand,
+      }),
+    ];
   },
 
   addInputRules() {
