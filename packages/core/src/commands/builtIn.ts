@@ -418,12 +418,17 @@ export const toggleBlockType: CommandSpec<[nodeName: string, defaultNodeName: st
       return false;
     }
 
-    // Check if the current block is of the target type
+    // Check if the current block is of the target type with matching attributes
     const { $from } = state.selection;
     const currentNode = $from.parent;
 
-    // If current block matches target type, toggle to default
-    if (currentNode.type === nodeType) {
+    // If current block matches target type AND attributes, toggle to default
+    const typeMatches = currentNode.type === nodeType;
+    const attrsMatch = !attributes || Object.keys(attributes).every(
+      (key) => currentNode.attrs[key] === attributes[key]
+    );
+
+    if (typeMatches && attrsMatch) {
       return pmSetBlockType(defaultNodeType)(state, dispatch);
     }
 
