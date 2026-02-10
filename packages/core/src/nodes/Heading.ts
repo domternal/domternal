@@ -7,6 +7,16 @@
 
 import { Node } from '../Node.js';
 import { textblockTypeInputRule } from 'prosemirror-inputrules';
+import { keymap } from 'prosemirror-keymap';
+import type { Command as PMCommand } from 'prosemirror-state';
+import type { CommandSpec } from '../types/Commands.js';
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setHeading: CommandSpec<[attributes?: { level?: number }]>;
+    toggleHeading: CommandSpec<[attributes?: { level?: number }]>;
+  }
+}
 
 export interface HeadingOptions {
   levels: number[];
@@ -58,28 +68,25 @@ export const Heading = Node.create<HeadingOptions>({
   },
 
   addCommands() {
-    // Capture `this` in closure since command functions have their own `this`
     const { name, options } = this;
     return {
       setHeading:
         (attributes?: { level?: number }) =>
         ({ commands }) => {
-          const cmds = commands as Record<string, (name: string, attrs?: Record<string, unknown>) => boolean>;
           const level = attributes?.level ?? options.levels[0] ?? 1;
           if (!options.levels.includes(level)) {
             return false;
           }
-          return cmds['setBlockType']?.(name, { level }) ?? false;
+          return commands.setBlockType(name, { level });
         },
       toggleHeading:
         (attributes?: { level?: number }) =>
         ({ commands }) => {
-          const cmds = commands as Record<string, (name: string, defaultName: string, attrs?: Record<string, unknown>) => boolean>;
           const level = attributes?.level ?? options.levels[0] ?? 1;
           if (!options.levels.includes(level)) {
             return false;
           }
-          return cmds['toggleBlockType']?.(name, 'paragraph', { level }) ?? false;
+          return commands.toggleBlockType(name, 'paragraph', { level });
         },
     };
   },
@@ -95,6 +102,31 @@ export const Heading = Node.create<HeadingOptions>({
     });
 
     return shortcuts;
+  },
+
+  addProseMirrorPlugins() {
+    return [
+      keymap({
+        Backspace: ((state, dispatch) => {
+          const { selection } = state;
+          if (!selection.empty) return false;
+
+          const { $from } = selection;
+          if ($from.parentOffset !== 0) return false;
+          if ($from.parent.type.name !== 'heading') return false;
+
+          const paragraphType = state.schema.nodes['paragraph'];
+          if (!paragraphType) return false;
+
+          if (dispatch) {
+            dispatch(
+              state.tr.setNodeMarkup($from.before($from.depth), paragraphType).scrollIntoView()
+            );
+          }
+          return true;
+        }) as PMCommand,
+      }),
+    ];
   },
 
   addInputRules() {

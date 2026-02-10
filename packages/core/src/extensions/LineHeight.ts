@@ -22,6 +22,14 @@
  * ```
  */
 import { Extension } from '../Extension.js';
+import type { CommandSpec } from '../types/Commands.js';
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setLineHeight: CommandSpec<[lineHeight: string]>;
+    unsetLineHeight: CommandSpec;
+  }
+}
 
 export interface LineHeightOptions {
   /**
@@ -102,27 +110,17 @@ export const LineHeight = Extension.create<LineHeightOptions>({
             return false;
           }
 
-          const cmds = commands as Record<
-            string,
-            (type: string, attrs: unknown) => boolean
-          >;
-
-          return this.options.types.every((type) =>
-            cmds['updateAttributes']?.(type, { lineHeight })
-          );
+          return this.options.types
+            .map((type) => commands.updateAttributes(type, { lineHeight }))
+            .some(Boolean);
         },
 
       unsetLineHeight:
         () =>
         ({ commands }) => {
-          const cmds = commands as Record<
-            string,
-            (type: string, attr: string) => boolean
-          >;
-
-          return this.options.types.every((type) =>
-            cmds['resetAttributes']?.(type, 'lineHeight')
-          );
+          return this.options.types
+            .map((type) => commands.resetAttributes(type, 'lineHeight'))
+            .some(Boolean);
         },
     };
   },

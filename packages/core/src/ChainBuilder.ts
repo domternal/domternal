@@ -16,7 +16,7 @@ import type { EditorView } from 'prosemirror-view';
 import type {
   CommandProps,
   Command,
-  RawCommands,
+  CommandMap,
   ChainedCommands,
   SingleCommands,
   CanCommands,
@@ -41,7 +41,7 @@ export interface ChainBuilderEditor {
  */
 export interface ChainBuilderOptions {
   editor: ChainBuilderEditor;
-  rawCommands: RawCommands;
+  rawCommands: CommandMap;
   tr?: Transaction;
 }
 
@@ -53,7 +53,7 @@ export interface ChainBuilderOptions {
  */
 export class ChainBuilder {
   private readonly editor: ChainBuilderEditor;
-  private readonly rawCommands: RawCommands;
+  private readonly rawCommands: CommandMap;
   private readonly tr: Transaction;
   private shouldDispatch = true;
   /** Cached proxy instance for performance (avoids creating new Proxy per command) */

@@ -5,6 +5,14 @@
  * Uses addGlobalAttributes to inject textAlign attribute into nodes.
  */
 import { Extension } from '../Extension.js';
+import type { CommandSpec } from '../types/Commands.js';
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setTextAlign: CommandSpec<[alignment: string]>;
+    unsetTextAlign: CommandSpec;
+  }
+}
 
 export interface TextAlignOptions {
   /**
@@ -68,27 +76,17 @@ export const TextAlign = Extension.create<TextAlignOptions>({
             return false;
           }
 
-          const cmds = commands as Record<
-            string,
-            (type: string, attrs: Record<string, unknown>) => boolean
-          >;
-
-          return this.options.types.every((type) =>
-            cmds['updateAttributes']?.(type, { textAlign: alignment })
-          );
+          return this.options.types
+            .map((type) => commands.updateAttributes(type, { textAlign: alignment }))
+            .some(Boolean);
         },
 
       unsetTextAlign:
         () =>
         ({ commands }) => {
-          const cmds = commands as Record<
-            string,
-            (type: string, attr: string) => boolean
-          >;
-
-          return this.options.types.every((type) =>
-            cmds['resetAttributes']?.(type, 'textAlign')
-          );
+          return this.options.types
+            .map((type) => commands.resetAttributes(type, 'textAlign'))
+            .some(Boolean);
         },
     };
   },

@@ -18,7 +18,7 @@ import type { InputRule } from 'prosemirror-inputrules';
 import type { Command as PMCommand } from 'prosemirror-state';
 
 import type { AnyExtension } from './types/EditorOptions.js';
-import type { RawCommands } from './types/Commands.js';
+import type { CommandMap } from './types/Commands.js';
 import type { GlobalAttributes, GlobalAttributeSpec } from './types/ExtensionConfig.js';
 import type { Extension } from './Extension.js';
 import type { Node } from './Node.js';
@@ -66,6 +66,29 @@ export interface ExtensionManagerOptions {
  * 1. Extensions mode: Schema built from Node/Mark extensions
  * 2. Schema mode: Direct schema passed (backward compatible)
  */
+/**
+ * Merge HTML attribute objects, concatenating 'style' and 'class' values
+ * instead of overwriting them.
+ */
+function mergeHTMLAttrs(
+  target: Record<string, unknown>,
+  source: Record<string, unknown>
+): Record<string, unknown> {
+  const result = { ...target };
+
+  for (const [key, value] of Object.entries(source)) {
+    if (key === 'style' && typeof result[key] === 'string' && typeof value === 'string') {
+      result[key] = `${result[key]}; ${value}`;
+    } else if (key === 'class' && typeof result[key] === 'string' && typeof value === 'string') {
+      result[key] = `${result[key]} ${value}`;
+    } else {
+      result[key] = value;
+    }
+  }
+
+  return result;
+}
+
 export class ExtensionManager {
   /**
    * Processed extensions (flattened, sorted by priority)
@@ -100,7 +123,7 @@ export class ExtensionManager {
   /**
    * Cached commands (collected lazily)
    */
-  private _commands: RawCommands | null = null;
+  private _commands: CommandMap | null = null;
 
   /**
    * Creates a new ExtensionManager
@@ -179,7 +202,7 @@ export class ExtensionManager {
   /**
    * Gets commands from all extensions
    */
-  get commands(): RawCommands {
+  get commands(): CommandMap {
     this._commands ??= this.collectCommands();
     return this._commands;
   }
@@ -402,7 +425,7 @@ export class ExtensionManager {
                 if (attrSpec.renderHTML) {
                   const rendered = attrSpec.renderHTML(node.attrs);
                   if (rendered) {
-                    extraHtmlAttrs = { ...extraHtmlAttrs, ...rendered };
+                    extraHtmlAttrs = mergeHTMLAttrs(extraHtmlAttrs, rendered) as Record<string, string>;
                   }
                 }
               }
@@ -489,7 +512,7 @@ export class ExtensionManager {
                 if (attrSpec.renderHTML) {
                   const rendered = attrSpec.renderHTML(mark.attrs);
                   if (rendered) {
-                    extraHtmlAttrs = { ...extraHtmlAttrs, ...rendered };
+                    extraHtmlAttrs = mergeHTMLAttrs(extraHtmlAttrs, rendered) as Record<string, string>;
                   }
                 }
               }
@@ -596,8 +619,18 @@ export class ExtensionManager {
           `${ext.name}.addKeyboardShortcuts`
         );
         if (extShortcuts) {
-          // Cast needed: KeyboardShortcutCommand should be PM-compatible in practice
-          Object.assign(shortcuts, extShortcuts as unknown as Record<string, PMCommand>);
+          const cast = extShortcuts as unknown as Record<string, PMCommand>;
+          for (const [key, handler] of Object.entries(cast)) {
+            if (shortcuts[key]) {
+              // Chain: try new handler first, fall back to previous
+              const prev = shortcuts[key];
+              shortcuts[key] = (state, dispatch, view) => {
+                return handler(state, dispatch, view) || prev(state, dispatch, view);
+              };
+            } else {
+              shortcuts[key] = handler;
+            }
+          }
         }
       }
     }
@@ -634,14 +667,14 @@ export class ExtensionManager {
    * (lower priority extensions override higher priority). This is intentional
    * to allow customization of built-in commands.
    */
-  private collectCommands(): RawCommands {
-    const commands: RawCommands = {};
+  private collectCommands(): CommandMap {
+    const commands: CommandMap = {};
 
     for (const ext of this._extensions) {
       const addCommands = (ext as Extension).config.addCommands;
       if (addCommands) {
         const extCommands = this.safeCall(
-          () => callOrReturn(addCommands, ext) as RawCommands | undefined,
+          () => callOrReturn(addCommands, ext) as CommandMap | undefined,
           `${ext.name}.addCommands`
         );
         if (extCommands) {

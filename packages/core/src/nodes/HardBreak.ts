@@ -6,6 +6,13 @@
  */
 
 import { Node } from '../Node.js';
+import type { CommandSpec } from '../types/Commands.js';
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setHardBreak: CommandSpec;
+  }
+}
 
 export interface HardBreakOptions {
   HTMLAttributes: Record<string, unknown>;
@@ -37,11 +44,7 @@ export const HardBreak = Node.create<HardBreakOptions>({
       setHardBreak:
         () =>
         ({ commands }) => {
-          const cmds = commands as Record<
-            string,
-            (content: { type: string }) => boolean
-          >;
-          return cmds['insertContent']?.({ type: name }) ?? false;
+          return commands.insertContent({ type: name });
         },
     };
   },

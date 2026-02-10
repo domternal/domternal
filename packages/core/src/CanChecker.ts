@@ -20,7 +20,7 @@ import type { EditorView } from 'prosemirror-view';
 import type {
   CommandProps,
   Command,
-  RawCommands,
+  CommandMap,
   CanCommands,
   CanChainedCommands,
   SingleCommands,
@@ -42,7 +42,7 @@ export interface CanCheckerEditor {
  */
 export interface CanCheckerOptions {
   editor: CanCheckerEditor;
-  rawCommands: RawCommands;
+  rawCommands: CommandMap;
   /** Function to create a ChainBuilder for chain() within commands */
   createChainBuilder: () => ChainedCommands;
   /**
@@ -60,7 +60,7 @@ export interface CanCheckerOptions {
  */
 export class CanChecker {
   private readonly editor: CanCheckerEditor;
-  private readonly rawCommands: RawCommands;
+  private readonly rawCommands: CommandMap;
   private readonly createChainBuilder: () => ChainedCommands;
   private readonly onUnknownCommand: ((name: string, context: 'single' | 'chain') => void) | undefined;
 

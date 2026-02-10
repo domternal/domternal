@@ -12,8 +12,8 @@
 
 import { Node } from '../Node.js';
 import { splitListItem, liftListItem, sinkListItem } from 'prosemirror-schema-list';
-import type { EditorState } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
+import { keymap } from 'prosemirror-keymap';
+import type { Command as PMCommand } from 'prosemirror-state';
 
 export interface ListItemOptions {
   HTMLAttributes: Record<string, unknown>;
@@ -39,23 +39,28 @@ export const ListItem = Node.create<ListItemOptions>({
   },
 
   addKeyboardShortcuts() {
-    const { editor, nodeType } = this;
     return {
-      Enter: () => {
-        if (!editor || !nodeType) return false;
-        const { state, view } = editor as { state: EditorState; view: EditorView };
-        return splitListItem(nodeType)(state, view.dispatch);
-      },
+      // Enter is handled in addProseMirrorPlugins to avoid TaskItem override via Object.assign
       Tab: () => {
-        if (!editor || !nodeType) return false;
-        const { state, view } = editor as { state: EditorState; view: EditorView };
-        return sinkListItem(nodeType)(state, view.dispatch);
+        if (!this.editor || !this.nodeType) return false;
+        return sinkListItem(this.nodeType)(this.editor.state, this.editor.view.dispatch);
       },
       'Shift-Tab': () => {
-        if (!editor || !nodeType) return false;
-        const { state, view } = editor as { state: EditorState; view: EditorView };
-        return liftListItem(nodeType)(state, view.dispatch);
+        if (!this.editor || !this.nodeType) return false;
+        return liftListItem(this.nodeType)(this.editor.state, this.editor.view.dispatch);
       },
     };
+  },
+
+  addProseMirrorPlugins() {
+    return [
+      keymap({
+        Enter: ((state, dispatch) => {
+          const nodeType = state.schema.nodes['listItem'];
+          if (!nodeType) return false;
+          return splitListItem(nodeType)(state, dispatch);
+        }) as PMCommand,
+      }),
+    ];
   },
 });

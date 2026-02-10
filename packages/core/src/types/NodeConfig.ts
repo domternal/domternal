@@ -6,7 +6,8 @@
  */
 
 import type { Node as PMNode, DOMOutputSpec, NodeType } from 'prosemirror-model';
-import type { NodeViewConstructor } from 'prosemirror-view';
+import type { EditorState } from 'prosemirror-state';
+import type { EditorView, NodeViewConstructor } from 'prosemirror-view';
 import type { ExtensionConfigBase, ExtensionContext } from './ExtensionConfig.js';
 import type { AttributeSpecs } from './AttributeSpec.js';
 
@@ -15,8 +16,8 @@ import type { AttributeSpecs } from './AttributeSpec.js';
  * Includes schema with nodes for NodeType getter
  */
 export interface NodeEditorContext {
-  readonly state: unknown;
-  readonly view: unknown;
+  readonly state: EditorState;
+  readonly view: EditorView;
   readonly schema: {
     nodes: Record<string, NodeType>;
   };

@@ -6,6 +6,8 @@
  */
 
 import type { Mark as PMMark, DOMOutputSpec, MarkType } from 'prosemirror-model';
+import type { EditorState } from 'prosemirror-state';
+import type { EditorView } from 'prosemirror-view';
 import type { ExtensionConfigBase, ExtensionContext } from './ExtensionConfig.js';
 import type { AttributeSpecs } from './AttributeSpec.js';
 
@@ -14,8 +16,8 @@ import type { AttributeSpecs } from './AttributeSpec.js';
  * Includes schema with marks for MarkType getter
  */
 export interface MarkEditorContext {
-  readonly state: unknown;
-  readonly view: unknown;
+  readonly state: EditorState;
+  readonly view: EditorView;
   readonly schema: {
     marks: Record<string, MarkType>;
   };

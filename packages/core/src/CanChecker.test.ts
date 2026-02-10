@@ -4,7 +4,7 @@ import { Schema } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { CanChecker, createCanChecker } from './CanChecker.js';
-import type { RawCommands } from './types/Commands.js';
+import type { CommandMap } from './types/Commands.js';
 
 // Test schema with toDOM functions
 const schema = new Schema({
@@ -35,7 +35,7 @@ function createMockEditor(options: { isDestroyed?: boolean } = {}) {
 }
 
 // Test commands
-const testCommands: RawCommands = {
+const testCommands: CommandMap = {
   canExecute:
     () =>
     () => {
@@ -55,8 +55,9 @@ const testCommands: RawCommands = {
       return dispatch === undefined;
     },
   withArgs:
-    (a: number, b: string) =>
+    (...args: unknown[]) =>
     () => {
+      const [a, b] = args as [number, string];
       return a > 0 && b.length > 0;
     },
 };

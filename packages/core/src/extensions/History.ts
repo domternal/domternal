@@ -5,6 +5,14 @@
  */
 import { history, undo, redo } from 'prosemirror-history';
 import { Extension } from '../Extension.js';
+import type { CommandSpec } from '../types/Commands.js';
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    undo: CommandSpec;
+    redo: CommandSpec;
+  }
+}
 
 export interface HistoryOptions {
   /**

@@ -70,16 +70,17 @@ export const Placeholder = Extension.create<PlaceholderOptions>({
         props: {
           decorations: ({ doc, selection }) => {
             const editor = this.editor;
-            const isEditable = editor?.view.editable ?? true;
+            if (!editor?.view) return DecorationSet.empty;
+            const isEditable = editor.view.editable;
 
             if (!isEditable && this.options.showOnlyWhenEditable) {
               return DecorationSet.empty;
             }
 
             const decorations: Decoration[] = [];
-            const currentNodePos = selection.$anchor.before(
-              selection.$anchor.depth
-            );
+            const currentNodePos = selection.$anchor.depth > 0
+              ? selection.$anchor.before(selection.$anchor.depth)
+              : -1;
 
             // Check if document is empty (for editor-level class)
             const isDocEmpty =

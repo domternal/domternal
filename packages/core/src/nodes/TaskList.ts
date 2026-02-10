@@ -7,6 +7,13 @@
 
 import { Node } from '../Node.js';
 import { wrappingInputRule } from 'prosemirror-inputrules';
+import type { CommandSpec } from '../types/Commands.js';
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    toggleTaskList: CommandSpec;
+  }
+}
 
 export interface TaskListOptions {
   HTMLAttributes: Record<string, unknown>;
@@ -52,8 +59,7 @@ export const TaskList = Node.create<TaskListOptions>({
       toggleTaskList:
         () =>
         ({ commands }) => {
-          const cmds = commands as Record<string, (listName: string, itemName: string) => boolean>;
-          return cmds['toggleList']?.(name, options.itemTypeName) ?? false;
+          return commands.toggleList(name, options.itemTypeName);
         },
     };
   },

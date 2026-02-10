@@ -68,22 +68,21 @@ export const Subscript = Mark.create<SubscriptOptions>({
     return {
       setSubscript:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['setMark']?.('subscript') ?? false;
-        },
+        ({ commands }) => commands.setMark('subscript'),
       unsetSubscript:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['unsetMark']?.('subscript') ?? false;
-        },
+        ({ commands }) => commands.unsetMark('subscript'),
       toggleSubscript:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['toggleMark']?.('subscript') ?? false;
-        },
+        ({ commands }) => commands.toggleMark('subscript'),
     };
   },
 });
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setSubscript: CommandSpec;
+    unsetSubscript: CommandSpec;
+    toggleSubscript: CommandSpec;
+  }
+}

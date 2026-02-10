@@ -196,10 +196,7 @@ describe('InvisibleChars', () => {
         const storage = editor.storage['invisibleChars'] as typeof InvisibleChars.storage;
         expect(storage.isVisible()).toBe(false);
 
-        const toggleInvisibleChars = editor.commands[
-          'toggleInvisibleChars'
-        ] as () => boolean;
-        toggleInvisibleChars();
+        editor.commands.toggleInvisibleChars();
 
         expect(storage.isVisible()).toBe(true);
       });
@@ -215,10 +212,7 @@ describe('InvisibleChars', () => {
         const storage = editor.storage['invisibleChars'] as typeof InvisibleChars.storage;
         expect(storage.isVisible()).toBe(false);
 
-        const showInvisibleChars = editor.commands[
-          'showInvisibleChars'
-        ] as () => boolean;
-        showInvisibleChars();
+        editor.commands.showInvisibleChars();
 
         expect(storage.isVisible()).toBe(true);
       });
@@ -236,10 +230,7 @@ describe('InvisibleChars', () => {
         const storage = editor.storage['invisibleChars'] as typeof InvisibleChars.storage;
         expect(storage.isVisible()).toBe(true);
 
-        const showInvisibleChars = editor.commands[
-          'showInvisibleChars'
-        ] as () => boolean;
-        showInvisibleChars();
+        editor.commands.showInvisibleChars();
 
         expect(storage.isVisible()).toBe(true);
       });
@@ -259,10 +250,7 @@ describe('InvisibleChars', () => {
         const storage = editor.storage['invisibleChars'] as typeof InvisibleChars.storage;
         expect(storage.isVisible()).toBe(true);
 
-        const hideInvisibleChars = editor.commands[
-          'hideInvisibleChars'
-        ] as () => boolean;
-        hideInvisibleChars();
+        editor.commands.hideInvisibleChars();
 
         expect(storage.isVisible()).toBe(false);
       });
@@ -276,10 +264,7 @@ describe('InvisibleChars', () => {
         const storage = editor.storage['invisibleChars'] as typeof InvisibleChars.storage;
         expect(storage.isVisible()).toBe(false);
 
-        const hideInvisibleChars = editor.commands[
-          'hideInvisibleChars'
-        ] as () => boolean;
-        hideInvisibleChars();
+        editor.commands.hideInvisibleChars();
 
         expect(storage.isVisible()).toBe(false);
       });
@@ -297,10 +282,7 @@ describe('InvisibleChars', () => {
           | undefined;
         expect(pluginState?.visible).toBe(false);
 
-        const toggleInvisibleChars = editor.commands[
-          'toggleInvisibleChars'
-        ] as () => boolean;
-        toggleInvisibleChars();
+        editor.commands.toggleInvisibleChars();
 
         const newPluginState = invisibleCharsPluginKey.getState(editor.state) as
           | { visible: boolean }

@@ -172,30 +172,21 @@ export const Link = Mark.create<LinkOptions>({
       setLink:
         (attributes: LinkAttributes) =>
         ({ commands }) => {
-          // Validate URL before setting
           if (!isValidUrl(attributes.href, { protocols: this.options.protocols })) {
             return false;
           }
-
-          const cmd = commands as Record<string, (name: string, attrs?: unknown) => boolean>;
-          return cmd['setMark']?.('link', attributes) ?? false;
+          return commands.setMark('link', attributes);
         },
       unsetLink:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['unsetMark']?.('link') ?? false;
-        },
+        ({ commands }) => commands.unsetMark('link'),
       toggleLink:
         (attributes: LinkAttributes) =>
         ({ commands }) => {
-          // Validate URL before toggling
           if (!isValidUrl(attributes.href, { protocols: this.options.protocols })) {
             return false;
           }
-
-          const cmd = commands as Record<string, (name: string, attrs?: unknown) => boolean>;
-          return cmd['toggleMark']?.('link', attributes) ?? false;
+          return commands.toggleMark('link', attributes);
         },
     };
   },
@@ -246,3 +237,11 @@ export const Link = Mark.create<LinkOptions>({
     return plugins;
   },
 });
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setLink: CommandSpec<[attributes: LinkAttributes]>;
+    unsetLink: CommandSpec;
+    toggleLink: CommandSpec<[attributes: LinkAttributes]>;
+  }
+}

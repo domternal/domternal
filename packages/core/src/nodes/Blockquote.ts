@@ -7,6 +7,15 @@
 
 import { Node } from '../Node.js';
 import { wrappingInputRule } from 'prosemirror-inputrules';
+import type { CommandSpec } from '../types/Commands.js';
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setBlockquote: CommandSpec;
+    toggleBlockquote: CommandSpec;
+    unsetBlockquote: CommandSpec;
+  }
+}
 
 export interface BlockquoteOptions {
   HTMLAttributes: Record<string, unknown>;
@@ -38,20 +47,17 @@ export const Blockquote = Node.create<BlockquoteOptions>({
       setBlockquote:
         () =>
         ({ commands }) => {
-          const cmds = commands as Record<string, (name: string) => boolean>;
-          return cmds['wrapIn']?.(name) ?? false;
+          return commands.wrapIn(name);
         },
       toggleBlockquote:
         () =>
         ({ commands }) => {
-          const cmds = commands as Record<string, (name: string) => boolean>;
-          return cmds['toggleWrap']?.(name) ?? false;
+          return commands.toggleWrap(name);
         },
       unsetBlockquote:
         () =>
         ({ commands }) => {
-          const cmds = commands as Record<string, () => boolean>;
-          return cmds['lift']?.() ?? false;
+          return commands.lift();
         },
     };
   },

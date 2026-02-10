@@ -43,6 +43,15 @@ import { Extension } from '../Extension.js';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import type { Editor } from '../Editor.js';
+import type { CommandSpec } from '../types/Commands.js';
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    toggleInvisibleChars: CommandSpec;
+    showInvisibleChars: CommandSpec;
+    hideInvisibleChars: CommandSpec;
+  }
+}
 
 export const invisibleCharsPluginKey = new PluginKey('invisibleChars');
 

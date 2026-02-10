@@ -70,22 +70,13 @@ export const Strike = Mark.create<StrikeOptions>({
     return {
       setStrike:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['setMark']?.('strike') ?? false;
-        },
+        ({ commands }) => commands.setMark('strike'),
       unsetStrike:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['unsetMark']?.('strike') ?? false;
-        },
+        ({ commands }) => commands.unsetMark('strike'),
       toggleStrike:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['toggleMark']?.('strike') ?? false;
-        },
+        ({ commands }) => commands.toggleMark('strike'),
     };
   },
 
@@ -102,3 +93,11 @@ export const Strike = Mark.create<StrikeOptions>({
     ];
   },
 });
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setStrike: CommandSpec;
+    unsetStrike: CommandSpec;
+    toggleStrike: CommandSpec;
+  }
+}

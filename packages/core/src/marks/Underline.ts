@@ -67,24 +67,23 @@ export const Underline = Mark.create<UnderlineOptions>({
     return {
       setUnderline:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['setMark']?.('underline') ?? false;
-        },
+        ({ commands }) => commands.setMark('underline'),
       unsetUnderline:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['unsetMark']?.('underline') ?? false;
-        },
+        ({ commands }) => commands.unsetMark('underline'),
       toggleUnderline:
         () =>
-        ({ commands }) => {
-          const cmd = commands as Record<string, (name: string) => boolean>;
-          return cmd['toggleMark']?.('underline') ?? false;
-        },
+        ({ commands }) => commands.toggleMark('underline'),
     };
   },
 
   // No input rules for underline (no common markdown syntax)
 });
+
+declare module '../types/Commands.js' {
+  interface RawCommands {
+    setUnderline: CommandSpec;
+    unsetUnderline: CommandSpec;
+    toggleUnderline: CommandSpec;
+  }
+}

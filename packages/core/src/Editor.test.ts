@@ -145,7 +145,7 @@ describe('Editor', () => {
 
     it('commands returns SingleCommands', () => {
       expect(editor.commands).toBeDefined();
-      expect(typeof editor.commands['focus']).toBe('function');
+      expect(typeof editor.commands.focus).toBe('function');
     });
   });
 

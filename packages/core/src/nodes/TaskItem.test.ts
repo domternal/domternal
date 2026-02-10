@@ -281,8 +281,7 @@ describe('TaskItem', () => {
       editor.focus('start');
 
       // Toggle task
-      const toggleTask = editor.commands['toggleTask'] as (() => boolean) | undefined;
-      const result = toggleTask?.();
+      const result = editor.commands.toggleTask();
       expect(result).toBe(true);
 
       // Check that checked state changed

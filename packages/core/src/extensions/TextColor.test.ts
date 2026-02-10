@@ -153,8 +153,7 @@ describe('TextColor', () => {
       editor.focus('all');
 
       // Apply color
-      const setTextColor = editor.commands['setTextColor'] as ((color: string) => boolean) | undefined;
-      const result = setTextColor?.('#ff0000');
+      const result = editor.commands.setTextColor('#ff0000');
 
       expect(result).toBe(true);
     });

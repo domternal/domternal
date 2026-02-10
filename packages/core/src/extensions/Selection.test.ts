@@ -119,11 +119,7 @@ describe('Selection', () => {
         });
 
         // Select "Hello"
-        const setSelection = editor.commands['setSelection'] as (
-          from: number,
-          to: number
-        ) => boolean;
-        setSelection(1, 6);
+        editor.commands.setSelection(1, 6);
 
         const storage = editor.storage['selection'] as typeof Selection.storage;
         expect(storage.getText()).toBe('Hello');
@@ -148,11 +144,7 @@ describe('Selection', () => {
           content: '<p>Hello world</p>',
         });
 
-        const setSelection = editor.commands['setSelection'] as (
-          from: number,
-          to: number
-        ) => boolean;
-        setSelection(1, 6);
+        editor.commands.setSelection(1, 6);
 
         const storage = editor.storage['selection'] as typeof Selection.storage;
         expect(storage.isEmpty()).toBe(false);
@@ -166,11 +158,7 @@ describe('Selection', () => {
           content: '<p>Hello world</p>',
         });
 
-        const setSelection = editor.commands['setSelection'] as (
-          from: number,
-          to: number
-        ) => boolean;
-        setSelection(1, 6);
+        editor.commands.setSelection(1, 6);
 
         const storage = editor.storage['selection'] as typeof Selection.storage;
         const range = storage.getRange();
@@ -186,11 +174,7 @@ describe('Selection', () => {
           content: '<p>Hello world</p>',
         });
 
-        const setSelection = editor.commands['setSelection'] as (
-          from: number,
-          to?: number
-        ) => boolean;
-        setSelection(5);
+        editor.commands.setSelection(5);
 
         const storage = editor.storage['selection'] as typeof Selection.storage;
         expect(storage.getCursor()).toBe(5);
@@ -202,11 +186,7 @@ describe('Selection', () => {
           content: '<p>Hello world</p>',
         });
 
-        const setSelection = editor.commands['setSelection'] as (
-          from: number,
-          to: number
-        ) => boolean;
-        setSelection(1, 6);
+        editor.commands.setSelection(1, 6);
 
         const storage = editor.storage['selection'] as typeof Selection.storage;
         expect(storage.getCursor()).toBe(null);
@@ -220,11 +200,7 @@ describe('Selection', () => {
           content: '<p>Hello world</p>',
         });
 
-        const setSelection = editor.commands['setSelection'] as (
-          from: number,
-          to: number
-        ) => boolean;
-        const result = setSelection(1, 6);
+        const result = editor.commands.setSelection(1, 6);
 
         expect(result).toBe(true);
         expect(editor.state.selection.from).toBe(1);
@@ -237,10 +213,7 @@ describe('Selection', () => {
           content: '<p>Hello world</p>',
         });
 
-        const setSelection = editor.commands['setSelection'] as (
-          from: number
-        ) => boolean;
-        const result = setSelection(5);
+        const result = editor.commands.setSelection(5);
 
         expect(result).toBe(true);
         expect(editor.state.selection.from).toBe(5);
@@ -253,11 +226,7 @@ describe('Selection', () => {
           content: '<p>Hello</p>',
         });
 
-        const setSelection = editor.commands['setSelection'] as (
-          from: number,
-          to: number
-        ) => boolean;
-        const result = setSelection(-1, 100);
+        const result = editor.commands.setSelection(-1, 100);
 
         expect(result).toBe(false);
       });
@@ -273,10 +242,7 @@ describe('Selection', () => {
         // Get position of image node
         const imagePos = editor.state.doc.child(0).nodeSize;
 
-        const selectNode = editor.commands['selectNode'] as (
-          pos: number
-        ) => boolean;
-        const result = selectNode(imagePos);
+        const result = editor.commands.selectNode(imagePos);
 
         expect(result).toBe(true);
       });
@@ -287,10 +253,7 @@ describe('Selection', () => {
           content: '<p>Hello</p>',
         });
 
-        const selectNode = editor.commands['selectNode'] as (
-          pos: number
-        ) => boolean;
-        const result = selectNode(1000);
+        const result = editor.commands.selectNode(1000);
 
         expect(result).toBe(false);
       });
@@ -303,16 +266,8 @@ describe('Selection', () => {
           content: '<p>Hello world</p>',
         });
 
-        const setSelection = editor.commands['setSelection'] as (
-          from: number,
-          to: number
-        ) => boolean;
-        setSelection(3, 6);
-
-        const extendSelection = editor.commands['extendSelection'] as (
-          direction: 'left' | 'right' | 'start' | 'end'
-        ) => boolean;
-        extendSelection('left');
+        editor.commands.setSelection(3, 6);
+        editor.commands.extendSelection('left');
 
         expect(editor.state.selection.from).toBe(2);
         expect(editor.state.selection.to).toBe(6);
@@ -324,16 +279,8 @@ describe('Selection', () => {
           content: '<p>Hello world</p>',
         });
 
-        const setSelection = editor.commands['setSelection'] as (
-          from: number,
-          to: number
-        ) => boolean;
-        setSelection(1, 6);
-
-        const extendSelection = editor.commands['extendSelection'] as (
-          direction: 'left' | 'right' | 'start' | 'end'
-        ) => boolean;
-        extendSelection('right');
+        editor.commands.setSelection(1, 6);
+        editor.commands.extendSelection('right');
 
         expect(editor.state.selection.from).toBe(1);
         expect(editor.state.selection.to).toBe(7);
@@ -345,16 +292,8 @@ describe('Selection', () => {
           content: '<p>Hello world</p>',
         });
 
-        const setSelection = editor.commands['setSelection'] as (
-          from: number,
-          to: number
-        ) => boolean;
-        setSelection(6, 11);
-
-        const extendSelection = editor.commands['extendSelection'] as (
-          direction: 'left' | 'right' | 'start' | 'end'
-        ) => boolean;
-        extendSelection('start');
+        editor.commands.setSelection(6, 11);
+        editor.commands.extendSelection('start');
 
         expect(editor.state.selection.from).toBe(0);
         expect(editor.state.selection.to).toBe(11);
@@ -366,16 +305,8 @@ describe('Selection', () => {
           content: '<p>Hello world</p>',
         });
 
-        const setSelection = editor.commands['setSelection'] as (
-          from: number,
-          to: number
-        ) => boolean;
-        setSelection(1, 6);
-
-        const extendSelection = editor.commands['extendSelection'] as (
-          direction: 'left' | 'right' | 'start' | 'end'
-        ) => boolean;
-        extendSelection('end');
+        editor.commands.setSelection(1, 6);
+        editor.commands.extendSelection('end');
 
         expect(editor.state.selection.from).toBe(1);
         expect(editor.state.selection.to).toBe(editor.state.doc.content.size);

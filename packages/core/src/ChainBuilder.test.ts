@@ -4,7 +4,7 @@ import { Schema } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { ChainBuilder, createChainBuilder } from './ChainBuilder.js';
-import type { RawCommands, CommandProps } from './types/Commands.js';
+import type { CommandMap, CommandProps } from './types/Commands.js';
 
 // Test schema with toDOM functions
 const schema = new Schema({
@@ -35,7 +35,7 @@ function createMockEditor(options: { isDestroyed?: boolean } = {}) {
 }
 
 // Test commands
-const testCommands: RawCommands = {
+const testCommands: CommandMap = {
   succeed:
     () =>
     ({ dispatch }) => {
@@ -53,16 +53,18 @@ const testCommands: RawCommands = {
       return false;
     },
   insertText:
-    (text: string) =>
-    ({ tr, dispatch }) => {
+    (...args: unknown[]) =>
+    ({ tr, dispatch }: CommandProps) => {
+      const text = args[0] as string;
       if (dispatch) {
         tr.insertText(text);
       }
       return true;
     },
   withArgs:
-    (a: number, b: string) =>
-    ({ dispatch }) => {
+    (...args: unknown[]) =>
+    ({ dispatch }: CommandProps) => {
+      const [a, b] = args as [number, string];
       if (dispatch) {
         // Use args
       }
