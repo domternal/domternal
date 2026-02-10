@@ -265,5 +265,98 @@ describe('BubbleMenu', () => {
       };
       expect(pluginState.visible).toBe(false);
     });
+
+    it('plugin state init returns correct defaults', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      const CustomBubbleMenu = BubbleMenu.configure({
+        element: menuElement,
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomBubbleMenu],
+        content: '<p>Hello world</p>',
+      });
+
+      const pluginState = bubbleMenuPluginKey.getState(editor.state) as {
+        visible: boolean;
+        from: number;
+        to: number;
+      };
+      expect(pluginState.visible).toBe(false);
+      expect(pluginState.from).toBeDefined();
+      expect(pluginState.to).toBeDefined();
+    });
+
+    it('hides menu on destroy', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      const CustomBubbleMenu = BubbleMenu.configure({
+        element: menuElement,
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomBubbleMenu],
+        content: '<p>Hello world</p>',
+      });
+
+      editor.destroy();
+
+      expect(menuElement.style.visibility).toBe('hidden');
+      expect(menuElement.style.opacity).toBe('0');
+    });
+
+    it('configures bottom placement', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      const CustomBubbleMenu = BubbleMenu.configure({
+        element: menuElement,
+        placement: 'bottom',
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomBubbleMenu],
+        content: '<p>Hello world</p>',
+      });
+
+      expect(editor.getText()).toContain('Hello world');
+    });
+
+    it('configures custom zIndex via tippyOptions', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      const CustomBubbleMenu = BubbleMenu.configure({
+        element: menuElement,
+        tippyOptions: { zIndex: 5000 },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomBubbleMenu],
+        content: '<p>Hello world</p>',
+      });
+
+      expect(editor.getText()).toContain('Hello world');
+    });
+
+    it('configures updateDelay', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      const CustomBubbleMenu = BubbleMenu.configure({
+        element: menuElement,
+        updateDelay: 200,
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomBubbleMenu],
+        content: '<p>Hello world</p>',
+      });
+
+      expect(editor.getText()).toContain('Hello world');
+    });
   });
 });

@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
+import { TextSelection } from 'prosemirror-state';
 import { Link } from './Link.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
@@ -52,9 +53,9 @@ describe('Link', () => {
       expect(attrs).toHaveProperty('href');
       expect(attrs).toHaveProperty('target');
       expect(attrs).toHaveProperty('rel');
-      expect(attrs?.href?.default).toBeNull();
-      expect(attrs?.target?.default).toBeNull();
-      expect(attrs?.rel?.default).toBeNull();
+      expect(attrs?.['href']?.default).toBeNull();
+      expect(attrs?.['target']?.default).toBeNull();
+      expect(attrs?.['rel']?.default).toBeNull();
     });
   });
 
@@ -100,7 +101,7 @@ describe('Link', () => {
       el.setAttribute('href', 'https://example.com');
       el.setAttribute('target', '_blank');
       const attrs = getAttrs?.(el) as Record<string, unknown>;
-      expect(attrs?.target).toBe('_blank');
+      expect(attrs?.['target']).toBe('_blank');
     });
   });
 
@@ -181,7 +182,7 @@ describe('Link', () => {
         content: '<p>test</p>',
       });
       // Should have linkClick, linkPaste, and autolink plugins
-      const pluginKeys = editor.state.plugins.map((p) => p.spec.key?.key ?? '');
+      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string })?.key ?? '');
       expect(pluginKeys.some((k) => k.includes('linkClick'))).toBe(true);
       expect(pluginKeys.some((k) => k.includes('linkPaste'))).toBe(true);
       expect(pluginKeys.some((k) => k.includes('autolink'))).toBe(true);
@@ -193,7 +194,7 @@ describe('Link', () => {
         extensions: [Document, Text, Paragraph, NoAutoLink],
         content: '<p>test</p>',
       });
-      const pluginKeys = editor.state.plugins.map((p) => p.spec.key?.key ?? '');
+      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string })?.key ?? '');
       expect(pluginKeys.some((k) => k.includes('autolink'))).toBe(false);
     });
 
@@ -203,8 +204,60 @@ describe('Link', () => {
         extensions: [Document, Text, Paragraph, NoClick],
         content: '<p>test</p>',
       });
-      const pluginKeys = editor.state.plugins.map((p) => p.spec.key?.key ?? '');
+      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string })?.key ?? '');
       expect(pluginKeys.some((k) => k.includes('linkClick'))).toBe(false);
+    });
+
+    it('disables paste handler when configured', () => {
+      const NoPaste = Link.configure({ linkOnPaste: false });
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, NoPaste],
+        content: '<p>test</p>',
+      });
+      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string })?.key ?? '');
+      expect(pluginKeys.some((k) => k.includes('linkPaste'))).toBe(false);
+    });
+
+    it('setLink applies link to selection', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Link],
+        content: '<p>click here</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['setLink']?.({ href: 'https://example.com' });
+      const textNode = editor.state.doc.child(0).child(0);
+      expect(textNode.marks[0]?.type.name).toBe('link');
+      expect(textNode.marks[0]?.attrs['href']).toBe('https://example.com');
+    });
+
+    it('setLink rejects invalid URL', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Link],
+        content: '<p>click here</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      const result = editor.commands['setLink']?.({ href: 'javascript:alert(1)' });
+      expect(result).toBe(false);
+    });
+
+    it('unsetLink removes link mark', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Link],
+        content: '<p><a href="https://example.com">link</a></p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 5)));
+      editor.commands['unsetLink']?.();
+      const textNode = editor.state.doc.child(0).child(0);
+      expect(textNode.marks).toHaveLength(0);
+    });
+
+    it('parseHTML getAttrs handles string argument', () => {
+      const rules = Link.config.parseHTML?.call(Link);
+      const getAttrs = rules?.[0]?.getAttrs;
+      expect(getAttrs?.('test')).toBe(false);
     });
   });
 });

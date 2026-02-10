@@ -96,6 +96,24 @@ describe('HardBreak', () => {
 
       expect(shortcuts).toHaveProperty('Shift-Enter');
     });
+
+    it('Mod-Enter returns false when no editor', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const shortcuts = HardBreak.config.addKeyboardShortcuts?.call({
+        ...HardBreak, editor: undefined, options: HardBreak.options,
+      } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-Enter'] as any)?.()).toBe(false);
+    });
+
+    it('Shift-Enter returns false when no editor', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const shortcuts = HardBreak.config.addKeyboardShortcuts?.call({
+        ...HardBreak, editor: undefined, options: HardBreak.options,
+      } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Shift-Enter'] as any)?.()).toBe(false);
+    });
   });
 
   describe('integration', () => {
@@ -156,6 +174,19 @@ describe('HardBreak', () => {
       const doc = editor.state.doc;
       expect(doc.childCount).toBe(1);
       expect(doc.child(0).type.name).toBe('paragraph');
+    });
+
+    it('setHardBreak inserts a break', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, HardBreak],
+        content: '<p>Hello world</p>',
+      });
+
+      editor.commands.setSelection(6);
+      editor.commands['setHardBreak']?.();
+
+      const html = editor.getHTML();
+      expect(html).toContain('<br>');
     });
   });
 });

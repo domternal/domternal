@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
+import { TextSelection } from 'prosemirror-state';
 import { Subscript } from './Subscript.js';
 import { Superscript } from './Superscript.js';
 import { Document } from '../nodes/Document.js';
@@ -69,6 +70,15 @@ describe('Subscript', () => {
       const shortcuts = Subscript.config.addKeyboardShortcuts?.call(Subscript);
       expect(shortcuts).toHaveProperty('Mod-,');
     });
+
+    it('shortcut returns false when no editor', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const shortcuts = Subscript.config.addKeyboardShortcuts?.call({
+        ...Subscript, editor: undefined, options: Subscript.options,
+      } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-,'] as any)?.()).toBe(false);
+    });
   });
 
   describe('integration', () => {
@@ -104,6 +114,17 @@ describe('Subscript', () => {
       const markNames = textNode.marks.map((m) => m.type.name);
       // Should only have one of the two (they exclude each other)
       expect(markNames.length).toBeLessThanOrEqual(1);
+    });
+
+    it('toggleSubscript toggles on selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Subscript, Superscript],
+        content: '<p>H2O</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 2, 3)));
+      editor.commands['toggleSubscript']?.();
+      expect(editor.getHTML()).toContain('<sub>2</sub>');
     });
   });
 });

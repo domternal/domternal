@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
+import { TextSelection } from 'prosemirror-state';
 import { Italic } from './Italic.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
@@ -81,6 +82,15 @@ describe('Italic', () => {
       expect(shortcuts).toHaveProperty('Mod-i');
       expect(shortcuts).toHaveProperty('Mod-I');
     });
+
+    it('shortcuts return false when no editor', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const shortcuts = Italic.config.addKeyboardShortcuts?.call({
+        ...Italic, editor: undefined, options: Italic.options,
+      } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-i'] as any)?.()).toBe(false);
+    });
   });
 
   describe('addInputRules', () => {
@@ -121,6 +131,30 @@ describe('Italic', () => {
         content: '<p><em>italic</em></p>',
       });
       expect(editor.getHTML()).toContain('<em>italic</em>');
+    });
+
+    it('toggleItalic toggles italic on selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Italic],
+        content: '<p>Hello world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['toggleItalic']?.();
+      expect(editor.getHTML()).toContain('<em>Hello</em>');
+    });
+
+    it('parseHTML getAttrs handles string argument for <i>', () => {
+      const rules = Italic.config.parseHTML?.call(Italic);
+      const getAttrs = rules?.[1]?.getAttrs;
+      expect(getAttrs?.('test')).toEqual({});
+    });
+
+    it('parseHTML font-style rejects non-string', () => {
+      const rules = Italic.config.parseHTML?.call(Italic);
+      const getAttrs = rules?.[2]?.getAttrs;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(getAttrs?.(42 as any)).toBe(false);
     });
   });
 });

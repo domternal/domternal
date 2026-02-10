@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
+import { TextSelection } from 'prosemirror-state';
 import { Highlight } from './Highlight.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
@@ -38,13 +39,13 @@ describe('Highlight', () => {
       const custom = Highlight.configure({ multicolor: true });
       const attrs = custom.config.addAttributes?.call(custom);
       expect(attrs).toHaveProperty('color');
-      expect(attrs?.color).toHaveProperty('default', null);
+      expect(attrs?.['color']).toHaveProperty('default', null);
     });
 
     it('multicolor renderHTML returns data-color and style', () => {
       const custom = Highlight.configure({ multicolor: true });
       const attrs = custom.config.addAttributes?.call(custom);
-      const rendered = attrs?.color?.renderHTML?.({ color: 'yellow' });
+      const rendered = attrs?.['color']?.renderHTML?.({ color: 'yellow' });
       expect(rendered).toEqual({
         'data-color': 'yellow',
         style: 'background-color: yellow',
@@ -54,7 +55,7 @@ describe('Highlight', () => {
     it('multicolor renderHTML returns empty for no color', () => {
       const custom = Highlight.configure({ multicolor: true });
       const attrs = custom.config.addAttributes?.call(custom);
-      const rendered = attrs?.color?.renderHTML?.({ color: null });
+      const rendered = attrs?.['color']?.renderHTML?.({ color: null });
       expect(rendered).toEqual({});
     });
   });
@@ -104,6 +105,15 @@ describe('Highlight', () => {
       expect(shortcuts).toHaveProperty('Mod-Shift-h');
       expect(shortcuts).toHaveProperty('Mod-Shift-H');
     });
+
+    it('shortcuts return false when no editor', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const shortcuts = Highlight.config.addKeyboardShortcuts?.call({
+        ...Highlight, editor: undefined, options: Highlight.options,
+      } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-Shift-h'] as any)?.()).toBe(false);
+    });
   });
 
   describe('addInputRules', () => {
@@ -135,6 +145,17 @@ describe('Highlight', () => {
         content: '<p><mark>highlighted</mark></p>',
       });
       expect(editor.getHTML()).toContain('<mark>highlighted</mark>');
+    });
+
+    it('toggleHighlight toggles on selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Highlight],
+        content: '<p>Hello world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['toggleHighlight']?.();
+      expect(editor.getHTML()).toContain('<mark>Hello</mark>');
     });
   });
 });

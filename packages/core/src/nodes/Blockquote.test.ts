@@ -98,6 +98,15 @@ describe('Blockquote', () => {
 
       expect(shortcuts).toHaveProperty('Mod-Shift-b');
     });
+
+    it('shortcut returns false when no editor', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const shortcuts = Blockquote.config.addKeyboardShortcuts?.call({
+        ...Blockquote, editor: undefined, options: Blockquote.options,
+      } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-Shift-b'] as any)?.()).toBe(false);
+    });
   });
 
   describe('addInputRules', () => {

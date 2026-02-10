@@ -222,5 +222,77 @@ describe('UniqueID', () => {
       // Heading should have ID
       expect(heading.attrs['id']).toBeDefined();
     });
+
+    it('renderHTML returns null for empty string id', () => {
+      const globalAttrs = UniqueID.config.addGlobalAttributes?.call(UniqueID);
+      const renderHTML = globalAttrs?.[0]?.attributes['id']?.renderHTML;
+
+      const result = renderHTML?.({ id: '' });
+      expect(result).toBe(null);
+    });
+
+    it('renderHTML returns null for undefined id', () => {
+      const globalAttrs = UniqueID.config.addGlobalAttributes?.call(UniqueID);
+      const renderHTML = globalAttrs?.[0]?.attributes['id']?.renderHTML;
+
+      const result = renderHTML?.({ id: undefined });
+      expect(result).toBe(null);
+    });
+
+    it('parseHTML returns null when no attribute', () => {
+      const globalAttrs = UniqueID.config.addGlobalAttributes?.call(UniqueID);
+      const parseHTML = globalAttrs?.[0]?.attributes['id']?.parseHTML;
+
+      const element = document.createElement('p');
+      expect(parseHTML?.(element)).toBe(null);
+    });
+
+    it('custom attributeName reflects in globalAttributes', () => {
+      const CustomUniqueID = UniqueID.configure({
+        attributeName: 'data-block-id',
+      });
+
+      const globalAttrs = CustomUniqueID.config.addGlobalAttributes?.call(CustomUniqueID);
+      expect(globalAttrs?.[0]?.attributes).toHaveProperty('data-block-id');
+    });
+
+    it('custom types reflects in globalAttributes', () => {
+      const CustomUniqueID = UniqueID.configure({
+        types: ['paragraph'],
+      });
+
+      const globalAttrs = CustomUniqueID.config.addGlobalAttributes?.call(CustomUniqueID);
+      expect(globalAttrs?.[0]?.types).toEqual(['paragraph']);
+    });
+
+    it('filterDuplicates false disables transformPasted', () => {
+      const CustomUniqueID = UniqueID.configure({
+        filterDuplicates: false,
+      });
+
+      const plugins = CustomUniqueID.config.addProseMirrorPlugins?.call(CustomUniqueID);
+      expect(Array.isArray(plugins)).toBe(true);
+      expect(plugins?.length).toBeGreaterThan(0);
+      // Plugin should not have transformPasted in props
+      const plugin = plugins?.[0];
+      expect(plugin?.props.transformPasted).toBeUndefined();
+    });
+
+    it('filterDuplicates true enables transformPasted', () => {
+      const plugins = UniqueID.config.addProseMirrorPlugins?.call(UniqueID);
+      const plugin = plugins?.[0];
+      expect(plugin?.props.transformPasted).toBeDefined();
+    });
+
+    it('multiple paragraphs get unique existing IDs preserved', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, UniqueID],
+        content: '<p id="a">First</p><p id="b">Second</p>',
+      });
+
+      const doc = editor.state.doc;
+      expect(doc.child(0).attrs['id']).toBe('a');
+      expect(doc.child(1).attrs['id']).toBe('b');
+    });
   });
 });

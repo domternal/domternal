@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
+import { TextSelection } from 'prosemirror-state';
 import { Superscript } from './Superscript.js';
 import { Subscript } from './Subscript.js';
 import { Document } from '../nodes/Document.js';
@@ -69,6 +70,15 @@ describe('Superscript', () => {
       const shortcuts = Superscript.config.addKeyboardShortcuts?.call(Superscript);
       expect(shortcuts).toHaveProperty('Mod-.');
     });
+
+    it('shortcut returns false when no editor', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const shortcuts = Superscript.config.addKeyboardShortcuts?.call({
+        ...Superscript, editor: undefined, options: Superscript.options,
+      } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-.'] as any)?.()).toBe(false);
+    });
   });
 
   describe('integration', () => {
@@ -92,6 +102,17 @@ describe('Superscript', () => {
         extensions: [Document, Text, Paragraph, Superscript, Subscript],
         content: '<p>x<sup>2</sup></p>',
       });
+      expect(editor.getHTML()).toContain('<sup>2</sup>');
+    });
+
+    it('toggleSuperscript toggles on selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Superscript, Subscript],
+        content: '<p>x2</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 2, 3)));
+      editor.commands['toggleSuperscript']?.();
       expect(editor.getHTML()).toContain('<sup>2</sup>');
     });
   });

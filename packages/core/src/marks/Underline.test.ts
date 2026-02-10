@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
+import { TextSelection } from 'prosemirror-state';
 import { Underline } from './Underline.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
@@ -66,6 +67,15 @@ describe('Underline', () => {
       expect(shortcuts).toHaveProperty('Mod-u');
       expect(shortcuts).toHaveProperty('Mod-U');
     });
+
+    it('shortcuts return false when no editor', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const shortcuts = Underline.config.addKeyboardShortcuts?.call({
+        ...Underline, editor: undefined, options: Underline.options,
+      } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-u'] as any)?.()).toBe(false);
+    });
   });
 
   describe('integration', () => {
@@ -90,6 +100,24 @@ describe('Underline', () => {
         content: '<p><u>underlined</u></p>',
       });
       expect(editor.getHTML()).toContain('<u>underlined</u>');
+    });
+
+    it('toggleUnderline toggles on selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Underline],
+        content: '<p>Hello world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['toggleUnderline']?.();
+      expect(editor.getHTML()).toContain('<u>Hello</u>');
+    });
+
+    it('parseHTML text-decoration rejects non-string', () => {
+      const rules = Underline.config.parseHTML?.call(Underline);
+      const getAttrs = rules?.[1]?.getAttrs;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(getAttrs?.(42 as any)).toBe(false);
     });
   });
 });

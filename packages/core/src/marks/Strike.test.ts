@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
+import { TextSelection } from 'prosemirror-state';
 import { Strike } from './Strike.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
@@ -67,6 +68,15 @@ describe('Strike', () => {
       expect(shortcuts).toHaveProperty('Mod-Shift-s');
       expect(shortcuts).toHaveProperty('Mod-Shift-S');
     });
+
+    it('shortcuts return false when no editor', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const shortcuts = Strike.config.addKeyboardShortcuts?.call({
+        ...Strike, editor: undefined, options: Strike.options,
+      } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-Shift-s'] as any)?.()).toBe(false);
+    });
   });
 
   describe('addInputRules', () => {
@@ -107,6 +117,24 @@ describe('Strike', () => {
         content: '<p><s>struck</s></p>',
       });
       expect(editor.getHTML()).toContain('<s>struck</s>');
+    });
+
+    it('toggleStrike toggles on selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Strike],
+        content: '<p>Hello world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['toggleStrike']?.();
+      expect(editor.getHTML()).toContain('<s>Hello</s>');
+    });
+
+    it('parseHTML text-decoration rejects non-string', () => {
+      const rules = Strike.config.parseHTML?.call(Strike);
+      const getAttrs = rules?.[3]?.getAttrs;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(getAttrs?.(42 as any)).toBe(false);
     });
   });
 });

@@ -4,8 +4,12 @@
  * Tests extension creation and configuration.
  * Note: Full input rule testing requires browser/DOM simulation.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { Typography } from './Typography.js';
+import { Document } from '../nodes/Document.js';
+import { Text } from '../nodes/Text.js';
+import { Paragraph } from '../nodes/Paragraph.js';
+import { Editor } from '../Editor.js';
 
 describe('Typography', () => {
   describe('extension creation', () => {
@@ -299,6 +303,94 @@ describe('Typography', () => {
 
       // "text" and 'text' (2 smart quote rules)
       expect(withSmartQuotes?.length).toBe(2);
+    });
+  });
+
+  describe('integration', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    it('works with Editor', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Typography],
+        content: '<p>Hello</p>',
+      });
+
+      expect(editor.getText()).toContain('Hello');
+    });
+
+    it('registers input rules in editor', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Typography],
+        content: '<p></p>',
+      });
+
+      // Editor should have plugins from Typography input rules
+      expect(editor.state.plugins.length).toBeGreaterThan(0);
+    });
+
+    it('works with all options disabled', () => {
+      const CustomTypography = Typography.configure({
+        emDash: false,
+        ellipsis: false,
+        arrows: false,
+        fractions: false,
+        symbols: false,
+        math: false,
+        guillemets: false,
+        smartQuotes: false,
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomTypography],
+        content: '<p>Hello</p>',
+      });
+
+      expect(editor.getText()).toContain('Hello');
+    });
+
+    it('works with only emDash enabled', () => {
+      const CustomTypography = Typography.configure({
+        emDash: true,
+        ellipsis: false,
+        arrows: false,
+        fractions: false,
+        symbols: false,
+        math: false,
+        guillemets: false,
+        smartQuotes: false,
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomTypography],
+        content: '<p>Hello</p>',
+      });
+
+      expect(editor.getText()).toContain('Hello');
+    });
+
+    it('configured options are preserved', () => {
+      const CustomTypography = Typography.configure({
+        emDash: false,
+        ellipsis: false,
+      });
+
+      expect(CustomTypography.options.emDash).toBe(false);
+      expect(CustomTypography.options.ellipsis).toBe(false);
+      expect(CustomTypography.options.arrows).toBe(true);
+    });
+
+    it('configured custom quote characters are preserved', () => {
+      const CustomTypography = Typography.configure({
+        openDoubleQuote: '«',
+        closeDoubleQuote: '»',
+      });
+
+      expect(CustomTypography.options.openDoubleQuote).toBe('«');
+      expect(CustomTypography.options.closeDoubleQuote).toBe('»');
     });
   });
 });

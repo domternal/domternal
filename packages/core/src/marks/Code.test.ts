@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
+import { TextSelection } from 'prosemirror-state';
 import { Code } from './Code.js';
 import { Bold } from './Bold.js';
 import { Document } from '../nodes/Document.js';
@@ -61,6 +62,15 @@ describe('Code', () => {
       expect(shortcuts).toHaveProperty('Mod-e');
       expect(shortcuts).toHaveProperty('Mod-E');
     });
+
+    it('shortcuts return false when no editor', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const shortcuts = Code.config.addKeyboardShortcuts?.call({
+        ...Code, editor: undefined, options: Code.options,
+      } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-e'] as any)?.()).toBe(false);
+    });
   });
 
   describe('addInputRules', () => {
@@ -104,6 +114,17 @@ describe('Code', () => {
       const markNames = textNode.marks.map((m) => m.type.name);
       expect(markNames).toContain('code');
       expect(markNames).not.toContain('bold');
+    });
+
+    it('toggleCode toggles on selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Code],
+        content: '<p>Hello world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['toggleCode']?.();
+      expect(editor.getHTML()).toContain('<code>Hello</code>');
     });
   });
 });

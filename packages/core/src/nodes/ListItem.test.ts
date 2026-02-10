@@ -93,6 +93,24 @@ describe('ListItem', () => {
 
       expect(shortcuts).toHaveProperty('Shift-Tab');
     });
+
+    it('Tab returns false when no editor/nodeType', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
+        ...ListItem, editor: undefined, nodeType: undefined, options: ListItem.options,
+      } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Tab'] as any)?.()).toBe(false);
+    });
+
+    it('Shift-Tab returns false when no editor/nodeType', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
+        ...ListItem, editor: undefined, nodeType: undefined, options: ListItem.options,
+      } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Shift-Tab'] as any)?.()).toBe(false);
+    });
   });
 
   describe('integration', () => {

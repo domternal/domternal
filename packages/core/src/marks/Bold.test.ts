@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
+import { TextSelection } from 'prosemirror-state';
 import { Bold } from './Bold.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
@@ -112,6 +113,15 @@ describe('Bold', () => {
       expect(shortcuts).toHaveProperty('Mod-b');
       expect(shortcuts).toHaveProperty('Mod-B');
     });
+
+    it('shortcuts return false when no editor', () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const shortcuts = Bold.config.addKeyboardShortcuts?.call({
+        ...Bold, editor: undefined, options: Bold.options,
+      } as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect((shortcuts?.['Mod-b'] as any)?.()).toBe(false);
+    });
   });
 
   describe('addInputRules', () => {
@@ -161,6 +171,34 @@ describe('Bold', () => {
       });
       const textNode = editor.state.doc.child(0).child(0);
       expect(textNode.marks).toHaveLength(2);
+    });
+
+    it('toggleBold toggles bold on selected text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Bold],
+        content: '<p>Hello world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands['toggleBold']?.();
+      expect(editor.getHTML()).toContain('<strong>Hello</strong>');
+      const s2 = editor.state;
+      editor.view.dispatch(s2.tr.setSelection(TextSelection.create(s2.doc, 1, 6)));
+      editor.commands['toggleBold']?.();
+      expect(editor.getHTML()).not.toContain('<strong>');
+    });
+
+    it('parseHTML getAttrs handles string argument for <b>', () => {
+      const rules = Bold.config.parseHTML?.call(Bold);
+      const getAttrs = rules?.[1]?.getAttrs;
+      expect(getAttrs?.('test')).toEqual({});
+    });
+
+    it('parseHTML font-weight rejects non-string', () => {
+      const rules = Bold.config.parseHTML?.call(Bold);
+      const getAttrs = rules?.[2]?.getAttrs;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(getAttrs?.(42 as any)).toBe(false);
     });
   });
 });

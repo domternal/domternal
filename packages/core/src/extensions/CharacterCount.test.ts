@@ -3,10 +3,15 @@
  *
  * Tests the storage functions and limit enforcement.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { Schema } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { CharacterCount, characterCountPluginKey } from './CharacterCount.js';
+import type { CharacterCountStorage } from './CharacterCount.js';
+import { Document } from '../nodes/Document.js';
+import { Text } from '../nodes/Text.js';
+import { Paragraph } from '../nodes/Paragraph.js';
+import { Editor } from '../Editor.js';
 
 // Create a simple schema for testing
 const schema = new Schema({
@@ -229,5 +234,128 @@ describe('CharacterCount', () => {
 describe('characterCountPluginKey', () => {
   it('is defined', () => {
     expect(characterCountPluginKey).toBeDefined();
+  });
+});
+
+describe('CharacterCount integration', () => {
+  let editor: Editor | undefined;
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) editor.destroy();
+  });
+
+  it('characters() returns text character count', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CharacterCount],
+      content: '<p>Hello world</p>',
+    });
+    const storage = editor.storage['characterCount'] as CharacterCountStorage;
+    expect(storage.characters()).toBe(11);
+  });
+
+  it('words() returns word count', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CharacterCount],
+      content: '<p>Hello world foo</p>',
+    });
+    const storage = editor.storage['characterCount'] as CharacterCountStorage;
+    expect(storage.words()).toBe(3);
+  });
+
+  it('words() returns 0 for empty doc', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CharacterCount],
+      content: '<p></p>',
+    });
+    const storage = editor.storage['characterCount'] as CharacterCountStorage;
+    expect(storage.words()).toBe(0);
+  });
+
+  it('percentage() returns 0 when no limit', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CharacterCount],
+      content: '<p>Hello</p>',
+    });
+    const storage = editor.storage['characterCount'] as CharacterCountStorage;
+    expect(storage.percentage()).toBe(0);
+  });
+
+  it('percentage() returns percentage when limit set', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CharacterCount.configure({ limit: 20 })],
+      content: '<p>Hello</p>',
+    });
+    const storage = editor.storage['characterCount'] as CharacterCountStorage;
+    expect(storage.percentage()).toBe(25);
+  });
+
+  it('remaining() returns Infinity when no limit', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CharacterCount],
+      content: '<p>Hello</p>',
+    });
+    const storage = editor.storage['characterCount'] as CharacterCountStorage;
+    expect(storage.remaining()).toBe(Infinity);
+  });
+
+  it('remaining() returns remaining chars when limit set', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CharacterCount.configure({ limit: 10 })],
+      content: '<p>Hello</p>',
+    });
+    const storage = editor.storage['characterCount'] as CharacterCountStorage;
+    expect(storage.remaining()).toBe(5);
+  });
+
+  it('isLimitExceeded() returns false when under limit', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CharacterCount.configure({ limit: 100 })],
+      content: '<p>Hello</p>',
+    });
+    const storage = editor.storage['characterCount'] as CharacterCountStorage;
+    expect(storage.isLimitExceeded()).toBe(false);
+  });
+
+  it('isLimitExceeded() returns false when no limit', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CharacterCount],
+      content: '<p>Hello</p>',
+    });
+    const storage = editor.storage['characterCount'] as CharacterCountStorage;
+    expect(storage.isLimitExceeded()).toBe(false);
+  });
+
+  it('nodeSize mode returns doc.nodeSize', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CharacterCount.configure({ mode: 'nodeSize' })],
+      content: '<p>Hi</p>',
+    });
+    const storage = editor.storage['characterCount'] as CharacterCountStorage;
+    // nodeSize includes structural characters
+    expect(storage.characters()).toBe(editor.state.doc.nodeSize);
+  });
+
+  it('character limit blocks insertion', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CharacterCount.configure({ limit: 5 })],
+      content: '<p>Hello</p>',
+    });
+    // Try to insert beyond limit - the filterTransaction should block it
+    const tr = editor.state.tr.insertText(' world', 6);
+    editor.view.dispatch(tr);
+    // Content should remain unchanged (blocked by filterTransaction)
+    expect(editor.getText()).toBe('Hello');
+  });
+
+  it('word limit blocks insertion', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CharacterCount.configure({ wordLimit: 2 })],
+      content: '<p>hello world</p>',
+    });
+    // Try to add a third word
+    const tr = editor.state.tr.insertText(' extra', 12);
+    editor.view.dispatch(tr);
+    // Should be blocked
+    expect(editor.getText()).toBe('hello world');
   });
 });
