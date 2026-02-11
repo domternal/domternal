@@ -183,7 +183,7 @@ describe('Link', () => {
         content: '<p>test</p>',
       });
       // Should have linkClick, linkPaste, and autolink plugins
-      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string }).key ?? '');
+      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string } | undefined)?.key ?? '');
       expect(pluginKeys.some((k) => k.includes('linkClick'))).toBe(true);
       expect(pluginKeys.some((k) => k.includes('linkPaste'))).toBe(true);
       expect(pluginKeys.some((k) => k.includes('autolink'))).toBe(true);
@@ -195,7 +195,7 @@ describe('Link', () => {
         extensions: [Document, Text, Paragraph, NoAutoLink],
         content: '<p>test</p>',
       });
-      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string }).key ?? '');
+      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string } | undefined)?.key ?? '');
       expect(pluginKeys.some((k) => k.includes('autolink'))).toBe(false);
     });
 
@@ -205,7 +205,7 @@ describe('Link', () => {
         extensions: [Document, Text, Paragraph, NoClick],
         content: '<p>test</p>',
       });
-      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string }).key ?? '');
+      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string } | undefined)?.key ?? '');
       expect(pluginKeys.some((k) => k.includes('linkClick'))).toBe(false);
     });
 
@@ -215,7 +215,7 @@ describe('Link', () => {
         extensions: [Document, Text, Paragraph, NoPaste],
         content: '<p>test</p>',
       });
-      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string }).key ?? '');
+      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string } | undefined)?.key ?? '');
       expect(pluginKeys.some((k) => k.includes('linkPaste'))).toBe(false);
     });
 
