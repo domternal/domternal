@@ -360,7 +360,7 @@ describe('Selection', () => {
         });
 
         editor.commands.setSelection(1);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const result = (editor.commands as any).selectParentNode?.();
         // May succeed or fail depending on what's selectable
         expect(typeof result).toBe('boolean');

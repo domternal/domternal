@@ -25,31 +25,33 @@ describe('callOrReturn', () => {
   });
 
   it('returns undefined directly', () => {
-    expect(callOrReturn(undefined, null)).toBeUndefined();
+    // eslint-disable-next-line @typescript-eslint/no-confusing-void-expression
+    const result = callOrReturn(undefined, null);
+    expect(result).toBeUndefined();
   });
 
   it('calls function and returns result', () => {
-    const fn = () => 'result';
+    const fn = (): string => 'result';
     expect(callOrReturn(fn, null)).toBe('result');
   });
 
   it('calls function with correct this context', () => {
     const context = { name: 'test' };
-    const fn = function (this: { name: string }) {
+    const fn = function (this: { name: string }): string {
       return this.name;
     };
     expect(callOrReturn(fn, context)).toBe('test');
   });
 
   it('passes additional arguments to function', () => {
-    const fn = (_a: unknown, _b: unknown) => `${_a}-${_b}`;
+    const fn = (_a: unknown, _b: unknown): string => `${String(_a)}-${String(_b)}`;
     expect(callOrReturn(fn, null, 'x', 'y')).toBe('x-y');
   });
 
   it('works with this context and arguments together', () => {
     const context = { prefix: 'Hello' };
-    const fn = function (this: { prefix: string }, name: unknown) {
-      return `${this.prefix} ${name}`;
+    const fn = function (this: { prefix: string }, name: unknown): string {
+      return `${this.prefix} ${String(name)}`;
     };
     expect(callOrReturn(fn, context, 'World')).toBe('Hello World');
   });

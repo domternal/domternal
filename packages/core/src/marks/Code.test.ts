@@ -64,13 +64,12 @@ describe('Code', () => {
     });
 
     it('shortcuts return false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const shortcuts = Code.config.addKeyboardShortcuts?.call({
         ...Code, editor: undefined, options: Code.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-e'] as any)?.()).toBe(false);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-E'] as any)?.()).toBe(false);
     });
   });
@@ -125,7 +124,7 @@ describe('Code', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands['setCode']?.();
+      editor.commands.setCode();
       expect(editor.getHTML()).toContain('<code>Hello</code>');
     });
 
@@ -136,7 +135,7 @@ describe('Code', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands['unsetCode']?.();
+      editor.commands.unsetCode();
       expect(editor.getHTML()).not.toContain('<code>');
     });
 
@@ -147,7 +146,7 @@ describe('Code', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands['toggleCode']?.();
+      editor.commands.toggleCode();
       expect(editor.getHTML()).toContain('<code>Hello</code>');
     });
   });

@@ -126,11 +126,11 @@ describe('CodeBlock', () => {
     });
 
     it('shortcut returns false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const shortcuts = CodeBlock.config.addKeyboardShortcuts?.call({
         ...CodeBlock, editor: undefined, options: CodeBlock.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-Alt-c'] as any)?.()).toBe(false);
     });
   });
@@ -208,9 +208,9 @@ describe('CodeBlock', () => {
         extensions: [Document, Text, Paragraph, CodeBlock],
         content: '<p>some code</p>',
       });
-      editor.commands['toggleCodeBlock']?.();
+      editor.commands.toggleCodeBlock();
       expect(editor.state.doc.child(0).type.name).toBe('codeBlock');
-      editor.commands['toggleCodeBlock']?.();
+      editor.commands.toggleCodeBlock();
       expect(editor.state.doc.child(0).type.name).toBe('paragraph');
     });
 
@@ -230,7 +230,7 @@ describe('CodeBlock', () => {
         content: '<p>some code</p>',
       });
 
-      const result = editor.commands['setCodeBlock']?.();
+      const result = editor.commands.setCodeBlock();
       expect(result).toBe(true);
       expect(editor.state.doc.child(0).type.name).toBe('codeBlock');
     });
@@ -241,7 +241,7 @@ describe('CodeBlock', () => {
         content: '<p>const x = 1;</p>',
       });
 
-      editor.commands['setCodeBlock']?.({ language: 'javascript' });
+      editor.commands.setCodeBlock({ language: 'javascript' });
       expect(editor.state.doc.child(0).attrs['language']).toBe('javascript');
     });
 
@@ -255,7 +255,7 @@ describe('CodeBlock', () => {
       const nodeType = editor.state.schema.nodes['codeBlock'];
       const rules = CodeBlock.config.addInputRules?.call({
         ...CodeBlock, nodeType, options: CodeBlock.options,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
       } as any);
 
       expect(rules).toBeDefined();

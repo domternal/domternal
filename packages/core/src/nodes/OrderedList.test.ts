@@ -109,11 +109,11 @@ describe('OrderedList', () => {
     });
 
     it('shortcut returns false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const shortcuts = OrderedList.config.addKeyboardShortcuts?.call({
         ...OrderedList, editor: undefined, options: OrderedList.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-Shift-7'] as any)?.()).toBe(false);
     });
   });
@@ -212,7 +212,7 @@ describe('OrderedList', () => {
         extensions: [Document, Text, Paragraph, OrderedList, ListItem],
         content: '<p>List me</p>',
       });
-      editor.commands['toggleOrderedList']?.();
+      editor.commands.toggleOrderedList();
       expect(editor.state.doc.child(0).type.name).toBe('orderedList');
     });
 
@@ -237,20 +237,20 @@ describe('OrderedList', () => {
       });
 
       const nodeType = editor.state.schema.nodes['orderedList'];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const rules = OrderedList.config.addInputRules?.call({
         ...OrderedList, nodeType, options: OrderedList.options,
       } as any);
 
       const rule = rules![0]!;
       const match = ['5. ', '5'] as unknown as RegExpMatchArray;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const result = (rule as any).handler(editor.state, match, 1, 4);
       expect(result).toBeTruthy();
       if (result) {
         const list = result.doc.child(0);
         expect(list.type.name).toBe('orderedList');
-        expect(list.attrs['start']).toBe(5);
+        expect(list.attrs.start).toBe(5);
       }
     });
   });

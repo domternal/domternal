@@ -84,13 +84,12 @@ describe('Italic', () => {
     });
 
     it('shortcuts return false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const shortcuts = Italic.config.addKeyboardShortcuts?.call({
         ...Italic, editor: undefined, options: Italic.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-i'] as any)?.()).toBe(false);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-I'] as any)?.()).toBe(false);
     });
   });
@@ -142,7 +141,7 @@ describe('Italic', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands['toggleItalic']?.();
+      editor.commands.toggleItalic();
       expect(editor.getHTML()).toContain('<em>Hello</em>');
     });
 
@@ -153,7 +152,7 @@ describe('Italic', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands['setItalic']?.();
+      editor.commands.setItalic();
       expect(editor.getHTML()).toContain('<em>Hello</em>');
     });
 
@@ -164,7 +163,7 @@ describe('Italic', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands['unsetItalic']?.();
+      editor.commands.unsetItalic();
       expect(editor.getHTML()).not.toContain('<em>');
     });
 
@@ -177,7 +176,7 @@ describe('Italic', () => {
     it('parseHTML font-style rejects non-string', () => {
       const rules = Italic.config.parseHTML?.call(Italic);
       const getAttrs = rules?.[2]?.getAttrs;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect(getAttrs?.(42 as any)).toBe(false);
     });
   });

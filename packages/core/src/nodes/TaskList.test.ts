@@ -100,11 +100,11 @@ describe('TaskList', () => {
     });
 
     it('shortcut returns false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const shortcuts = TaskList.config.addKeyboardShortcuts?.call({
         ...TaskList, editor: undefined, options: TaskList.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-Shift-9'] as any)?.()).toBe(false);
     });
   });
@@ -177,7 +177,7 @@ describe('TaskList', () => {
         extensions: [Document, Text, Paragraph, TaskList, TaskItem],
         content: '<p>Make this a task</p>',
       });
-      editor.commands['toggleTaskList']?.();
+      editor.commands.toggleTaskList();
       expect(editor.state.doc.child(0).type.name).toBe('taskList');
     });
 

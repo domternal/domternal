@@ -69,13 +69,12 @@ describe('Underline', () => {
     });
 
     it('shortcuts return false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const shortcuts = Underline.config.addKeyboardShortcuts?.call({
         ...Underline, editor: undefined, options: Underline.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-u'] as any)?.()).toBe(false);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-U'] as any)?.()).toBe(false);
     });
   });
@@ -111,7 +110,7 @@ describe('Underline', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands['setUnderline']?.();
+      editor.commands.setUnderline();
       expect(editor.getHTML()).toContain('<u>Hello</u>');
     });
 
@@ -122,7 +121,7 @@ describe('Underline', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands['unsetUnderline']?.();
+      editor.commands.unsetUnderline();
       expect(editor.getHTML()).not.toContain('<u>');
     });
 
@@ -133,14 +132,14 @@ describe('Underline', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands['toggleUnderline']?.();
+      editor.commands.toggleUnderline();
       expect(editor.getHTML()).toContain('<u>Hello</u>');
     });
 
     it('parseHTML text-decoration rejects non-string', () => {
       const rules = Underline.config.parseHTML?.call(Underline);
       const getAttrs = rules?.[1]?.getAttrs;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect(getAttrs?.(42 as any)).toBe(false);
     });
   });

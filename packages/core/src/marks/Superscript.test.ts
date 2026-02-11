@@ -72,11 +72,10 @@ describe('Superscript', () => {
     });
 
     it('shortcut returns false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const shortcuts = Superscript.config.addKeyboardShortcuts?.call({
         ...Superscript, editor: undefined, options: Superscript.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-.'] as any)?.()).toBe(false);
     });
   });
@@ -112,7 +111,7 @@ describe('Superscript', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 2, 3)));
-      editor.commands['setSuperscript']?.();
+      editor.commands.setSuperscript();
       expect(editor.getHTML()).toContain('<sup>2</sup>');
     });
 
@@ -123,7 +122,7 @@ describe('Superscript', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 2, 3)));
-      editor.commands['unsetSuperscript']?.();
+      editor.commands.unsetSuperscript();
       expect(editor.getHTML()).not.toContain('<sup>');
     });
 
@@ -134,7 +133,7 @@ describe('Superscript', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 2, 3)));
-      editor.commands['toggleSuperscript']?.();
+      editor.commands.toggleSuperscript();
       expect(editor.getHTML()).toContain('<sup>2</sup>');
     });
   });

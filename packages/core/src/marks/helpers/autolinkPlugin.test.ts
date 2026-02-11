@@ -26,9 +26,9 @@ const schema = new Schema({
 
 function createView(
   text: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   pluginOptions?: any
-) {
+): EditorView {
   const plugin = autolinkPlugin({
     type: schema.marks.link,
     ...pluginOptions,
@@ -81,7 +81,7 @@ describe('autolinkPlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === autolinkPluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handleTextInput as any;
       const result = handler(view, endPos, endPos, ' ');
 
@@ -106,7 +106,7 @@ describe('autolinkPlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === autolinkPluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handleTextInput as any;
       const result = handler(view, endPos, endPos, ' ');
 
@@ -129,7 +129,7 @@ describe('autolinkPlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === autolinkPluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handleTextInput as any;
       const result = handler(view, endPos, endPos, ' ');
 
@@ -149,7 +149,7 @@ describe('autolinkPlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === autolinkPluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handleTextInput as any;
       const result = handler(view, endPos, endPos, 'a');
 
@@ -169,7 +169,7 @@ describe('autolinkPlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === autolinkPluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handleTextInput as any;
       const result = handler(view, endPos, endPos, ' ');
 
@@ -189,7 +189,7 @@ describe('autolinkPlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === autolinkPluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handleTextInput as any;
       const result = handler(view, endPos, endPos, ' ');
 
@@ -213,7 +213,7 @@ describe('autolinkPlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === autolinkPluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handleTextInput as any;
       const result = handler(view, endPos, endPos, ' ');
 
@@ -238,7 +238,7 @@ describe('autolinkPlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === autolinkPluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handleTextInput as any;
       const result = handler(view, endPos, endPos, ' ');
 
@@ -271,7 +271,7 @@ describe('autolinkPlugin', () => {
       const foundPlugin = view.state.plugins.find(
         (p) => p.spec.key === autolinkPluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = foundPlugin!.props.handleTextInput as any;
       const result = handler(view, endPos, endPos, ' ');
 
@@ -291,7 +291,7 @@ describe('autolinkPlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === autolinkPluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handleTextInput as any;
       const result = handler(view, endPos, endPos, '.');
 
@@ -313,7 +313,7 @@ describe('autolinkPlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === autolinkPluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handleTextInput as any;
       const result = handler(view, endPos, endPos, ' ');
 

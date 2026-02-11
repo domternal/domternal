@@ -82,11 +82,11 @@ describe('Paragraph', () => {
     });
 
     it('shortcut returns false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const shortcuts = Paragraph.config.addKeyboardShortcuts?.call({
         ...Paragraph, editor: undefined, options: Paragraph.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-Alt-0'] as any)?.()).toBe(false);
     });
   });
@@ -137,7 +137,7 @@ describe('Paragraph', () => {
         content: '<h1>Title</h1>',
       });
       expect(editor.state.doc.child(0).type.name).toBe('heading');
-      editor.commands['setParagraph']?.();
+      editor.commands.setParagraph();
       expect(editor.state.doc.child(0).type.name).toBe('paragraph');
     });
 

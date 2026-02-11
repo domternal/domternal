@@ -61,18 +61,18 @@ describe('TextAlign', () => {
 
     it('textAlign attribute has correct default', () => {
       const attrs = TextAlign.config.addGlobalAttributes?.call(TextAlign);
-      expect(attrs?.[0]?.attributes?.['textAlign']?.default).toBe('left');
+      expect(attrs?.[0]?.attributes['textAlign']?.default).toBe('left');
     });
 
     it('renderHTML returns null for default alignment', () => {
       const attrs = TextAlign.config.addGlobalAttributes?.call(TextAlign);
-      const renderHTML = attrs?.[0]?.attributes?.['textAlign']?.renderHTML;
+      const renderHTML = attrs?.[0]?.attributes['textAlign']?.renderHTML;
       expect(renderHTML?.({ textAlign: 'left' })).toBeNull();
     });
 
     it('renderHTML returns style for non-default alignment', () => {
       const attrs = TextAlign.config.addGlobalAttributes?.call(TextAlign);
-      const renderHTML = attrs?.[0]?.attributes?.['textAlign']?.renderHTML;
+      const renderHTML = attrs?.[0]?.attributes['textAlign']?.renderHTML;
       expect(renderHTML?.({ textAlign: 'center' })).toEqual({
         style: 'text-align: center',
       });
@@ -80,7 +80,7 @@ describe('TextAlign', () => {
 
     it('renderHTML returns style for right alignment', () => {
       const attrs = TextAlign.config.addGlobalAttributes?.call(TextAlign);
-      const renderHTML = attrs?.[0]?.attributes?.['textAlign']?.renderHTML;
+      const renderHTML = attrs?.[0]?.attributes['textAlign']?.renderHTML;
       expect(renderHTML?.({ textAlign: 'right' })).toEqual({
         style: 'text-align: right',
       });
@@ -88,7 +88,7 @@ describe('TextAlign', () => {
 
     it('renderHTML returns style for justify alignment', () => {
       const attrs = TextAlign.config.addGlobalAttributes?.call(TextAlign);
-      const renderHTML = attrs?.[0]?.attributes?.['textAlign']?.renderHTML;
+      const renderHTML = attrs?.[0]?.attributes['textAlign']?.renderHTML;
       expect(renderHTML?.({ textAlign: 'justify' })).toEqual({
         style: 'text-align: justify',
       });
@@ -96,7 +96,7 @@ describe('TextAlign', () => {
 
     it('parseHTML extracts textAlign from element style', () => {
       const attrs = TextAlign.config.addGlobalAttributes?.call(TextAlign);
-      const parseHTML = attrs?.[0]?.attributes?.['textAlign']?.parseHTML;
+      const parseHTML = attrs?.[0]?.attributes['textAlign']?.parseHTML;
 
       const element = document.createElement('p');
       element.style.textAlign = 'center';
@@ -105,7 +105,7 @@ describe('TextAlign', () => {
 
     it('parseHTML returns default alignment when no style', () => {
       const attrs = TextAlign.config.addGlobalAttributes?.call(TextAlign);
-      const parseHTML = attrs?.[0]?.attributes?.['textAlign']?.parseHTML;
+      const parseHTML = attrs?.[0]?.attributes['textAlign']?.parseHTML;
 
       const element = document.createElement('p');
       expect(parseHTML?.(element)).toBe('left');
@@ -130,12 +130,12 @@ describe('TextAlign', () => {
     });
 
     it('shortcuts return false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const shortcuts = TextAlign.config.addKeyboardShortcuts!.call({
         ...TextAlign,
         editor: null,
         options: TextAlign.config.addOptions!.call(TextAlign),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       } as never) as Record<string, any>;
 
       expect(shortcuts['Mod-Shift-l']({ editor: null })).toBe(false);
@@ -152,7 +152,7 @@ describe('TextAlign', () => {
         content: '<p>Hello world</p>',
       });
 
-      editor.commands['setTextAlign']?.('center');
+      editor.commands.setTextAlign('center');
 
       const html = editor.getHTML();
       expect(html).toContain('text-align: center');
@@ -164,7 +164,7 @@ describe('TextAlign', () => {
         content: '<h1>Title</h1>',
       });
 
-      editor.commands['setTextAlign']?.('right');
+      editor.commands.setTextAlign('right');
 
       const html = editor.getHTML();
       expect(html).toContain('text-align: right');
@@ -176,7 +176,7 @@ describe('TextAlign', () => {
         content: '<p>Hello</p>',
       });
 
-      const result = editor.commands['setTextAlign']?.('invalid');
+      const result = editor.commands.setTextAlign('invalid');
       expect(result).toBe(false);
     });
 
@@ -186,7 +186,7 @@ describe('TextAlign', () => {
         content: '<p style="text-align: center">Centered</p>',
       });
 
-      editor.commands['unsetTextAlign']?.();
+      editor.commands.unsetTextAlign();
 
       const html = editor.getHTML();
       expect(html).not.toContain('text-align');
@@ -206,7 +206,7 @@ describe('TextAlign', () => {
         )
       );
 
-      editor.commands['setTextAlign']?.('justify');
+      editor.commands.setTextAlign('justify');
 
       const html = editor.getHTML();
       const matches = html.match(/text-align: justify/g);

@@ -22,13 +22,13 @@ const baseExtensions = [
 ];
 
 // Helper to get shortcut handlers with proper this context
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 function getShortcuts(editor: Editor, listItem = 'listItem'): Record<string, any> {
   return ListKeymap.config.addKeyboardShortcuts!.call({
     ...ListKeymap,
     editor,
     options: { listItem },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   } as never) as Record<string, any>;
 }
 
@@ -68,12 +68,12 @@ describe('ListKeymap', () => {
     });
 
     it('shortcut handlers return false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const shortcuts = ListKeymap.config.addKeyboardShortcuts!.call({
         ...ListKeymap,
         editor: null,
         options: { listItem: 'listItem' },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       } as never) as Record<string, any>;
 
       expect(shortcuts['Tab']({ editor: null })).toBe(false);

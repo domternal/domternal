@@ -125,13 +125,12 @@ describe('Highlight', () => {
     });
 
     it('shortcuts return false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const shortcuts = Highlight.config.addKeyboardShortcuts?.call({
         ...Highlight, editor: undefined, options: Highlight.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-Shift-h'] as any)?.()).toBe(false);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-Shift-H'] as any)?.()).toBe(false);
     });
   });
@@ -174,7 +173,7 @@ describe('Highlight', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands['setHighlight']?.();
+      editor.commands.setHighlight();
       expect(editor.getHTML()).toContain('<mark>Hello</mark>');
     });
 
@@ -185,7 +184,7 @@ describe('Highlight', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands['unsetHighlight']?.();
+      editor.commands.unsetHighlight();
       expect(editor.getHTML()).not.toContain('<mark>');
     });
 
@@ -196,7 +195,7 @@ describe('Highlight', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands['toggleHighlight']?.();
+      editor.commands.toggleHighlight();
       expect(editor.getHTML()).toContain('<mark>Hello</mark>');
     });
   });

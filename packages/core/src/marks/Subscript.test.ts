@@ -72,11 +72,10 @@ describe('Subscript', () => {
     });
 
     it('shortcut returns false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const shortcuts = Subscript.config.addKeyboardShortcuts?.call({
         ...Subscript, editor: undefined, options: Subscript.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-,'] as any)?.()).toBe(false);
     });
   });
@@ -123,7 +122,7 @@ describe('Subscript', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 2, 3)));
-      editor.commands['setSubscript']?.();
+      editor.commands.setSubscript();
       expect(editor.getHTML()).toContain('<sub>2</sub>');
     });
 
@@ -134,7 +133,7 @@ describe('Subscript', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 2, 3)));
-      editor.commands['unsetSubscript']?.();
+      editor.commands.unsetSubscript();
       expect(editor.getHTML()).not.toContain('<sub>');
     });
 
@@ -145,7 +144,7 @@ describe('Subscript', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 2, 3)));
-      editor.commands['toggleSubscript']?.();
+      editor.commands.toggleSubscript();
       expect(editor.getHTML()).toContain('<sub>2</sub>');
     });
   });

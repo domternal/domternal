@@ -121,7 +121,7 @@ describe('CharacterCount', () => {
       const tr = state.tr.insertText(' world', 6);
 
       // Get filterTransaction from plugin spec
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+       
       const filterFn = (plugin as any).spec?.filterTransaction as
         | ((tr: unknown) => boolean)
         | undefined;
@@ -144,7 +144,7 @@ describe('CharacterCount', () => {
       const state = createState('Hello');
       const tr = state.tr.insertText(' world!!!!', 6); // Would exceed 10 chars
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+       
       const filterFn = (plugin as any).spec?.filterTransaction as
         | ((tr: unknown) => boolean)
         | undefined;
@@ -169,7 +169,7 @@ describe('CharacterCount', () => {
       // Selection-only transaction
       const tr = state.tr.setSelection(state.selection);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+       
       const filterFn = (plugin as any).spec?.filterTransaction as
         | ((tr: unknown) => boolean)
         | undefined;
@@ -192,7 +192,7 @@ describe('CharacterCount', () => {
       const state = createState('one two');
       const tr = state.tr.insertText(' three four', 7); // Would have 4 words
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+       
       const filterFn = (plugin as any).spec?.filterTransaction as
         | ((tr: unknown) => boolean)
         | undefined;

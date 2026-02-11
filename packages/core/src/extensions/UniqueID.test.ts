@@ -336,7 +336,7 @@ describe('UniqueID', () => {
       });
 
       // Find the plugin with transformPasted
-      const plugin = editor.state.plugins.find(p => p.props.transformPasted != null);
+      const plugin = editor.state.plugins.find(p => p.props.transformPasted !== undefined);
       expect(plugin).toBeDefined();
 
       const transformPasted = plugin!.props.transformPasted!;
@@ -370,7 +370,7 @@ describe('UniqueID', () => {
         content: '<p id="existing-id">Existing</p>',
       });
 
-      const plugin = editor.state.plugins.find(p => p.props.transformPasted != null);
+      const plugin = editor.state.plugins.find(p => p.props.transformPasted !== undefined);
       const transformPasted = plugin!.props.transformPasted!;
 
       // Create a paste slice with a unique (non-duplicate) ID

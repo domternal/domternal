@@ -75,7 +75,8 @@ describe('buildCommandProps', () => {
 
   it('passes dispatch function when provided', () => {
     const state = EditorState.create({ schema });
-    const dispatchFn = () => {};
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    const dispatchFn = (): void => {};
     const mockEditor = { view: { state } } as never;
 
     const props = buildCommandProps({

@@ -201,38 +201,38 @@ describe('TaskItem', () => {
     });
 
     it('Enter returns false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
         ...TaskItem, editor: undefined, nodeType: undefined, options: TaskItem.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Enter'] as any)?.()).toBe(false);
     });
 
     it('Tab returns false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
         ...TaskItem, editor: undefined, nodeType: undefined, options: TaskItem.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Tab'] as any)?.()).toBe(false);
     });
 
     it('Shift-Tab returns false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
         ...TaskItem, editor: undefined, nodeType: undefined, options: TaskItem.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Shift-Tab'] as any)?.()).toBe(false);
     });
 
     it('Mod-Enter returns false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
         ...TaskItem, editor: undefined, nodeType: undefined, options: TaskItem.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-Enter'] as any)?.()).toBe(false);
     });
   });

@@ -26,9 +26,9 @@ const schema = new Schema({
 
 function createView(
   text: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   pluginOptions?: any
-) {
+): EditorView {
   const plugin = linkPastePlugin({
     type: schema.marks.link,
     ...pluginOptions,
@@ -89,7 +89,7 @@ describe('linkPastePlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === linkPastePluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handlePaste as any;
       const event = mockPasteEvent('https://example.com');
 
@@ -126,7 +126,7 @@ describe('linkPastePlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === linkPastePluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handlePaste as any;
       const event = mockPasteEvent('https://example.com');
 
@@ -156,7 +156,7 @@ describe('linkPastePlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === linkPastePluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handlePaste as any;
       const event = mockPasteEvent('just plain text');
 
@@ -170,7 +170,7 @@ describe('linkPastePlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === linkPastePluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handlePaste as any;
       const event = mockPasteEvent('');
 
@@ -184,7 +184,7 @@ describe('linkPastePlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === linkPastePluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handlePaste as any;
       const event = mockPasteEvent('ftp://files.example.com');
 
@@ -208,7 +208,7 @@ describe('linkPastePlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === linkPastePluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handlePaste as any;
       const event = mockPasteEvent('https://blocked.com');
 
@@ -230,7 +230,7 @@ describe('linkPastePlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === linkPastePluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handlePaste as any;
       const event = mockPasteEvent('ftp://files.example.com');
 
@@ -244,7 +244,7 @@ describe('linkPastePlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === linkPastePluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handlePaste as any;
       const event = { clipboardData: null } as ClipboardEvent;
 

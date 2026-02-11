@@ -533,7 +533,7 @@ describe('builtIn commands', () => {
         content: '<p>Hello</p>',
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const result = editor.commands.insertContent(42 as any);
       expect(result).toBe(false);
     });
@@ -544,7 +544,7 @@ describe('builtIn commands', () => {
         content: '<p>Hello</p>',
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const result = editor.commands.insertContent({ foo: 'bar' } as any);
       expect(result).toBe(false);
     });

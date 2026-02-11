@@ -313,7 +313,7 @@ describe('Typography', () => {
       if (editor && !editor.isDestroyed) editor.destroy();
     });
 
-    function getRules() {
+    function getRules(): unknown[] {
       return Typography.config.addInputRules?.call({
         options: Typography.options,
       } as never) ?? [];
@@ -323,7 +323,7 @@ describe('Typography', () => {
     // 5=1/2, 6=1/4, 7=3/4, 8=1/3, 9=2/3, 10=(c), 11=(r), 12=(tm), 13=(sm),
     // 14=+/-, 15=!=, 16=<=, 17=>=, 18=<<, 19=>>, 20="text", 21='text'
 
-    function createEditor() {
+    function createEditor(): Editor {
       editor = new Editor({
         extensions: [Document, Text, Paragraph, Typography],
         content: '<p>placeholder text here</p>',
@@ -355,7 +355,8 @@ describe('Typography', () => {
     ];
 
     // InputRule.handler exists at runtime but is not in the TypeScript types
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
     function callHandler(rule: any, state: any, match: unknown[], start: number, end: number) {
       return rule.handler(state, match, start, end);
     }

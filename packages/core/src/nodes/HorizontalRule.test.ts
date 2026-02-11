@@ -104,7 +104,7 @@ describe('HorizontalRule', () => {
         content: '<p></p>',
       });
 
-      editor.commands['setHorizontalRule']?.();
+      editor.commands.setHorizontalRule();
 
       const doc = editor.state.doc;
       let hasHR = false;
@@ -127,7 +127,7 @@ describe('HorizontalRule', () => {
         )
       );
 
-      editor.commands['setHorizontalRule']?.();
+      editor.commands.setHorizontalRule();
 
       const doc = editor.state.doc;
       let hasHR = false;
@@ -143,7 +143,7 @@ describe('HorizontalRule', () => {
         content: '<p></p>',
       });
 
-      editor.commands['setHorizontalRule']?.();
+      editor.commands.setHorizontalRule();
 
       const doc = editor.state.doc;
       const lastChild = doc.child(doc.childCount - 1);
@@ -156,7 +156,7 @@ describe('HorizontalRule', () => {
         content: '<p></p>',
       });
 
-      editor.commands['setHorizontalRule']?.();
+      editor.commands.setHorizontalRule();
 
       // Cursor should be in the new paragraph after HR
       const { $from } = editor.state.selection;

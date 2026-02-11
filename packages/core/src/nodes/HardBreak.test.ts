@@ -98,20 +98,20 @@ describe('HardBreak', () => {
     });
 
     it('Mod-Enter returns false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const shortcuts = HardBreak.config.addKeyboardShortcuts?.call({
         ...HardBreak, editor: undefined, options: HardBreak.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-Enter'] as any)?.()).toBe(false);
     });
 
     it('Shift-Enter returns false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const shortcuts = HardBreak.config.addKeyboardShortcuts?.call({
         ...HardBreak, editor: undefined, options: HardBreak.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Shift-Enter'] as any)?.()).toBe(false);
     });
   });
@@ -183,7 +183,7 @@ describe('HardBreak', () => {
       });
 
       editor.commands.setSelection(6);
-      editor.commands['setHardBreak']?.();
+      editor.commands.setHardBreak();
 
       const html = editor.getHTML();
       expect(html).toContain('<br>');

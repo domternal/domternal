@@ -26,9 +26,9 @@ const schema = new Schema({
 
 function createView(
   content: { text: string; linked?: boolean; href?: string },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   pluginOptions?: any
-) {
+): EditorView {
   const plugin = linkClickPlugin({
     type: schema.marks.link,
     ...pluginOptions,
@@ -97,7 +97,7 @@ describe('linkClickPlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === linkClickPluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handleClick as any;
       const event = mockClickEvent({ metaKey: true });
 
@@ -108,6 +108,7 @@ describe('linkClickPlugin', () => {
         '_blank',
         'noopener,noreferrer'
       );
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(event.preventDefault).toHaveBeenCalled();
     });
 
@@ -118,7 +119,7 @@ describe('linkClickPlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === linkClickPluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handleClick as any;
       const event = mockClickEvent();
 
@@ -137,7 +138,7 @@ describe('linkClickPlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === linkClickPluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handleClick as any;
       const event = mockClickEvent({ metaKey: true });
 
@@ -156,7 +157,7 @@ describe('linkClickPlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === linkClickPluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handleClick as any;
       const event = mockClickEvent({ metaKey: true });
 
@@ -172,7 +173,7 @@ describe('linkClickPlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === linkClickPluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handleClick as any;
       const event = mockClickEvent({ metaKey: true });
 
@@ -200,7 +201,7 @@ describe('linkClickPlugin', () => {
       const foundPlugin = view.state.plugins.find(
         (p) => p.spec.key === linkClickPluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = foundPlugin!.props.handleClick as any;
       const event = mockClickEvent({ metaKey: true });
 
@@ -216,7 +217,7 @@ describe('linkClickPlugin', () => {
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === linkClickPluginKey
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const handler = plugin!.props.handleClick as any;
       const event = mockClickEvent({ ctrlKey: true });
 

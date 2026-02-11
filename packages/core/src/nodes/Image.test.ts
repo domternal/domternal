@@ -204,7 +204,7 @@ describe('Image', () => {
         extensions: [Document, Text, Paragraph, Image],
         content: '<p>Text</p>',
       });
-      editor.commands['setImage']?.({ src: 'https://example.com/img.png' });
+      editor.commands.setImage({ src: 'https://example.com/img.png' });
       let hasImage = false;
       editor.state.doc.forEach((node) => {
         if (node.type.name === 'image') hasImage = true;
@@ -217,7 +217,7 @@ describe('Image', () => {
         extensions: [Document, Text, Paragraph, Image],
         content: '<p>Text</p>',
       });
-      const result = editor.commands['setImage']?.({ src: 'javascript:alert(1)' });
+      const result = editor.commands.setImage({ src: 'javascript:alert(1)' });
       expect(result).toBe(false);
     });
 

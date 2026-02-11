@@ -91,11 +91,11 @@ describe('BulletList', () => {
     });
 
     it('shortcut returns false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const shortcuts = BulletList.config.addKeyboardShortcuts?.call({
         ...BulletList, editor: undefined, options: BulletList.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-Shift-8'] as any)?.()).toBe(false);
     });
   });
@@ -164,7 +164,7 @@ describe('BulletList', () => {
         extensions: [Document, Text, Paragraph, BulletList, ListItem],
         content: '<p>List me</p>',
       });
-      editor.commands['toggleBulletList']?.();
+      editor.commands.toggleBulletList();
       expect(editor.state.doc.child(0).type.name).toBe('bulletList');
     });
 

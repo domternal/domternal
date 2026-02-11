@@ -97,20 +97,20 @@ describe('ListItem', () => {
     });
 
     it('Tab returns false when no editor/nodeType', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
         ...ListItem, editor: undefined, nodeType: undefined, options: ListItem.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Tab'] as any)?.()).toBe(false);
     });
 
     it('Shift-Tab returns false when no editor/nodeType', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
         ...ListItem, editor: undefined, nodeType: undefined, options: ListItem.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Shift-Tab'] as any)?.()).toBe(false);
     });
   });
@@ -203,12 +203,12 @@ describe('ListItem', () => {
       );
 
       const nodeType = editor.state.schema.nodes['listItem'];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
         ...ListItem, editor, nodeType, options: ListItem.options,
       } as any);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const result = (shortcuts?.['Tab'] as any)?.();
       expect(result).toBe(true);
     });
@@ -236,12 +236,12 @@ describe('ListItem', () => {
       );
 
       const nodeType = editor.state.schema.nodes['listItem'];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
         ...ListItem, editor, nodeType, options: ListItem.options,
       } as any);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const result = (shortcuts?.['Shift-Tab'] as any)?.();
       expect(result).toBe(true);
     });

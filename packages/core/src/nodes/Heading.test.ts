@@ -68,7 +68,7 @@ describe('Heading', () => {
     it('renderHTML returns empty object', () => {
       const attrs = Heading.config.addAttributes?.call(Heading);
       const renderHTML = attrs?.['level']?.renderHTML;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((renderHTML as any)?.()).toEqual({});
     });
   });
@@ -144,10 +144,10 @@ describe('Heading', () => {
     });
 
     it('shortcuts return false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const shortcuts = Heading.config.addKeyboardShortcuts?.call({
         ...Heading, editor: undefined, options: Heading.options,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       }) as Record<string, any> | undefined;
       expect(shortcuts?.['Mod-Alt-1']({ editor: null })).toBe(false);
     });
@@ -163,7 +163,7 @@ describe('Heading', () => {
   describe('command integration', () => {
     it('setHeading sets paragraph to heading', () => {
       editor = new Editor({ extensions, content: '<p>Hello</p>' });
-      editor.commands['setHeading']?.({ level: 2 });
+      editor.commands.setHeading({ level: 2 });
       expect(editor.state.doc.child(0).type.name).toBe('heading');
       expect(editor.state.doc.child(0).attrs['level']).toBe(2);
     });
@@ -171,22 +171,22 @@ describe('Heading', () => {
     it('setHeading rejects invalid level', () => {
       const CustomHeading = Heading.configure({ levels: [1, 2] });
       editor = new Editor({ extensions: [Document, Text, Paragraph, CustomHeading], content: '<p>Hello</p>' });
-      const result = editor.commands['setHeading']?.({ level: 5 });
+      const result = editor.commands.setHeading({ level: 5 });
       expect(result).toBe(false);
     });
 
     it('toggleHeading toggles between heading and paragraph', () => {
       editor = new Editor({ extensions, content: '<p>Hello</p>' });
-      editor.commands['toggleHeading']?.({ level: 1 });
+      editor.commands.toggleHeading({ level: 1 });
       expect(editor.state.doc.child(0).type.name).toBe('heading');
-      editor.commands['toggleHeading']?.({ level: 1 });
+      editor.commands.toggleHeading({ level: 1 });
       expect(editor.state.doc.child(0).type.name).toBe('paragraph');
     });
 
     it('toggleHeading rejects invalid level', () => {
       const CustomHeading = Heading.configure({ levels: [1, 2] });
       editor = new Editor({ extensions: [Document, Text, Paragraph, CustomHeading], content: '<p>Hello</p>' });
-      const result = editor.commands['toggleHeading']?.({ level: 5 });
+      const result = editor.commands.toggleHeading({ level: 5 });
       expect(result).toBe(false);
     });
   });
@@ -200,7 +200,7 @@ describe('Heading', () => {
       );
       // The keymap plugin handles Backspace - test via the plugin directly
       const keymapPlugin = editor.state.plugins.find(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         (p) => (p as any).spec?.key?.key === 'heading$'  // prosemirror-keymap key
       );
       // Even without finding the exact plugin, test the behavior:

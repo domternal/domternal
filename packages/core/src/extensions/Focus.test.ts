@@ -14,7 +14,7 @@ function getFocusDecorations(editor: Editor): DecorationSet {
   const plugin = editor.state.plugins.find(
     (p) => p.spec.key === focusPluginKey
   );
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const decosFn = plugin?.props.decorations as any;
   return decosFn?.call(plugin, editor.state) ?? DecorationSet.empty;
 }

@@ -101,6 +101,7 @@ describe('Link', () => {
       el.setAttribute('href', 'https://example.com');
       el.setAttribute('target', '_blank');
       const attrs = getAttrs?.(el) as Record<string, unknown>;
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       expect(attrs?.['target']).toBe('_blank');
     });
   });
@@ -182,7 +183,7 @@ describe('Link', () => {
         content: '<p>test</p>',
       });
       // Should have linkClick, linkPaste, and autolink plugins
-      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string })?.key ?? '');
+      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string }).key ?? '');
       expect(pluginKeys.some((k) => k.includes('linkClick'))).toBe(true);
       expect(pluginKeys.some((k) => k.includes('linkPaste'))).toBe(true);
       expect(pluginKeys.some((k) => k.includes('autolink'))).toBe(true);
@@ -194,7 +195,7 @@ describe('Link', () => {
         extensions: [Document, Text, Paragraph, NoAutoLink],
         content: '<p>test</p>',
       });
-      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string })?.key ?? '');
+      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string }).key ?? '');
       expect(pluginKeys.some((k) => k.includes('autolink'))).toBe(false);
     });
 
@@ -204,7 +205,7 @@ describe('Link', () => {
         extensions: [Document, Text, Paragraph, NoClick],
         content: '<p>test</p>',
       });
-      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string })?.key ?? '');
+      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string }).key ?? '');
       expect(pluginKeys.some((k) => k.includes('linkClick'))).toBe(false);
     });
 
@@ -214,7 +215,7 @@ describe('Link', () => {
         extensions: [Document, Text, Paragraph, NoPaste],
         content: '<p>test</p>',
       });
-      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string })?.key ?? '');
+      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string }).key ?? '');
       expect(pluginKeys.some((k) => k.includes('linkPaste'))).toBe(false);
     });
 
@@ -225,7 +226,7 @@ describe('Link', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands['setLink']?.({ href: 'https://example.com' });
+      editor.commands.setLink({ href: 'https://example.com' });
       const textNode = editor.state.doc.child(0).child(0);
       expect(textNode.marks[0]?.type.name).toBe('link');
       expect(textNode.marks[0]?.attrs['href']).toBe('https://example.com');
@@ -238,7 +239,7 @@ describe('Link', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      const result = editor.commands['setLink']?.({ href: 'javascript:alert(1)' });
+      const result = editor.commands.setLink({ href: 'javascript:alert(1)' });
       expect(result).toBe(false);
     });
 
@@ -249,7 +250,7 @@ describe('Link', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 5)));
-      editor.commands['unsetLink']?.();
+      editor.commands.unsetLink();
       const textNode = editor.state.doc.child(0).child(0);
       expect(textNode.marks).toHaveLength(0);
     });
@@ -261,7 +262,7 @@ describe('Link', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands['toggleLink']?.({ href: 'https://example.com' });
+      editor.commands.toggleLink({ href: 'https://example.com' });
       const textNode = editor.state.doc.child(0).child(0);
       expect(textNode.marks[0]?.type.name).toBe('link');
     });
@@ -273,7 +274,7 @@ describe('Link', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      const result = editor.commands['toggleLink']?.({ href: 'javascript:alert(1)' });
+      const result = editor.commands.toggleLink({ href: 'javascript:alert(1)' });
       expect(result).toBe(false);
     });
 

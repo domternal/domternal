@@ -299,7 +299,7 @@ describe('InvisibleChars', () => {
         // Toggle to true
         editor.commands.toggleInvisibleChars();
         expect(
-          (invisibleCharsPluginKey.getState(editor.state) as { visible: boolean })?.visible
+          (invisibleCharsPluginKey.getState(editor.state) as { visible: boolean }).visible
         ).toBe(true);
 
         // Dispatch an unrelated transaction (e.g., inserting text)
@@ -307,7 +307,7 @@ describe('InvisibleChars', () => {
 
         // State should remain true (apply returns value unchanged)
         expect(
-          (invisibleCharsPluginKey.getState(editor.state) as { visible: boolean })?.visible
+          (invisibleCharsPluginKey.getState(editor.state) as { visible: boolean }).visible
         ).toBe(true);
       });
     });

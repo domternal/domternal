@@ -14,7 +14,7 @@ function getPlaceholderDecorations(editor: Editor): DecorationSet {
   const plugin = editor.state.plugins.find(
     (p) => p.spec.key === placeholderPluginKey
   );
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const decosFn = plugin?.props.decorations as any;
   return decosFn?.call(plugin, editor.state) ?? DecorationSet.empty;
 }
@@ -53,7 +53,7 @@ describe('Placeholder', () => {
     });
 
     it('can configure placeholder function', () => {
-      const fn = () => 'dynamic';
+      const fn = (): string => 'dynamic';
       const custom = Placeholder.configure({ placeholder: fn });
       expect(custom.options.placeholder).toBe(fn);
     });
@@ -104,7 +104,7 @@ describe('Placeholder', () => {
       const decos = getPlaceholderDecorations(editor);
       const found = decos.find();
       expect(found.length).toBe(1);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const spec = (found[0] as any).type?.attrs;
       expect(spec?.['data-placeholder']).toBe('Type here...');
     });
@@ -117,7 +117,7 @@ describe('Placeholder', () => {
 
       const decos = getPlaceholderDecorations(editor);
       const found = decos.find();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const spec = (found[0] as any).type?.attrs;
       expect(spec?.class).toContain('is-empty');
       expect(spec?.class).toContain('is-editor-empty');
@@ -145,7 +145,7 @@ describe('Placeholder', () => {
 
       const decos = getPlaceholderDecorations(editor);
       const found = decos.find();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const spec = (found[0] as any).type?.attrs;
       expect(spec?.class).toContain('custom-empty');
     });
@@ -164,7 +164,7 @@ describe('Placeholder', () => {
       const decos = getPlaceholderDecorations(editor);
       const found = decos.find();
       expect(found.length).toBe(1);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const spec = (found[0] as any).type?.attrs;
       expect(spec?.['data-placeholder']).toBe('Enter paragraph...');
     });
@@ -239,7 +239,7 @@ describe('Placeholder', () => {
       const decos = getPlaceholderDecorations(editor);
       const found = decos.find();
       if (found.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const spec = (found[0] as any).type?.attrs;
         expect(spec?.class).not.toContain('is-editor-empty');
       }

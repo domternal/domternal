@@ -115,13 +115,12 @@ describe('Bold', () => {
     });
 
     it('shortcuts return false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const shortcuts = Bold.config.addKeyboardShortcuts?.call({
         ...Bold, editor: undefined, options: Bold.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-b'] as any)?.()).toBe(false);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-B'] as any)?.()).toBe(false);
     });
   });
@@ -182,11 +181,11 @@ describe('Bold', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands['toggleBold']?.();
+      editor.commands.toggleBold();
       expect(editor.getHTML()).toContain('<strong>Hello</strong>');
       const s2 = editor.state;
       editor.view.dispatch(s2.tr.setSelection(TextSelection.create(s2.doc, 1, 6)));
-      editor.commands['toggleBold']?.();
+      editor.commands.toggleBold();
       expect(editor.getHTML()).not.toContain('<strong>');
     });
 
@@ -197,7 +196,7 @@ describe('Bold', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands['setBold']?.();
+      editor.commands.setBold();
       expect(editor.getHTML()).toContain('<strong>Hello</strong>');
     });
 
@@ -208,7 +207,7 @@ describe('Bold', () => {
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands['unsetBold']?.();
+      editor.commands.unsetBold();
       expect(editor.getHTML()).not.toContain('<strong>');
     });
 
@@ -221,7 +220,7 @@ describe('Bold', () => {
     it('parseHTML font-weight rejects non-string', () => {
       const rules = Bold.config.parseHTML?.call(Bold);
       const getAttrs = rules?.[2]?.getAttrs;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect(getAttrs?.(42 as any)).toBe(false);
     });
   });

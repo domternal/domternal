@@ -100,11 +100,11 @@ describe('Blockquote', () => {
     });
 
     it('shortcut returns false when no editor', () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const shortcuts = Blockquote.config.addKeyboardShortcuts?.call({
         ...Blockquote, editor: undefined, options: Blockquote.options,
       } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect((shortcuts?.['Mod-Shift-b'] as any)?.()).toBe(false);
     });
   });
@@ -172,7 +172,7 @@ describe('Blockquote', () => {
         extensions: [Document, Text, Paragraph, Blockquote],
         content: '<p>Quote me</p>',
       });
-      editor.commands['setBlockquote']?.();
+      editor.commands.setBlockquote();
       expect(editor.state.doc.child(0).type.name).toBe('blockquote');
     });
 
@@ -181,9 +181,9 @@ describe('Blockquote', () => {
         extensions: [Document, Text, Paragraph, Blockquote],
         content: '<p>Toggle me</p>',
       });
-      editor.commands['toggleBlockquote']?.();
+      editor.commands.toggleBlockquote();
       expect(editor.state.doc.child(0).type.name).toBe('blockquote');
-      editor.commands['toggleBlockquote']?.();
+      editor.commands.toggleBlockquote();
       expect(editor.state.doc.child(0).type.name).toBe('paragraph');
     });
 
@@ -192,7 +192,7 @@ describe('Blockquote', () => {
         extensions: [Document, Text, Paragraph, Blockquote],
         content: '<blockquote><p>Lift me</p></blockquote>',
       });
-      editor.commands['unsetBlockquote']?.();
+      editor.commands.unsetBlockquote();
       expect(editor.state.doc.child(0).type.name).toBe('paragraph');
     });
 

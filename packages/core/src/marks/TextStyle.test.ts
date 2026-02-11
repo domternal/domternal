@@ -72,7 +72,7 @@ describe('TextStyle', () => {
     it('returns false for string argument', () => {
       const rules = TextStyle.config.parseHTML?.call(TextStyle);
       const getAttrs = rules?.[0]?.getAttrs;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       expect(getAttrs?.('span' as any)).toBe(false);
     });
   });
@@ -129,7 +129,7 @@ describe('TextStyle', () => {
         )
       );
 
-      editor.commands['setTextStyle']?.({});
+      editor.commands.setTextStyle({});
 
       const p = editor.state.doc.child(0);
       const firstChild = p.child(0);
@@ -150,7 +150,7 @@ describe('TextStyle', () => {
         )
       );
 
-      editor.commands['removeTextStyle']?.();
+      editor.commands.removeTextStyle();
 
       const p = editor.state.doc.child(0);
       const firstChild = p.child(0);
@@ -173,7 +173,7 @@ describe('TextStyle', () => {
 
       // The mark parsed from span[style] has empty attrs ({}),
       // so removeEmptyTextStyle should remove it
-      const result = editor.commands['removeEmptyTextStyle']?.();
+      const result = editor.commands.removeEmptyTextStyle();
       expect(result).toBe(true);
     });
 
@@ -189,7 +189,7 @@ describe('TextStyle', () => {
         )
       );
 
-      const result = editor.commands['removeEmptyTextStyle']?.();
+      const result = editor.commands.removeEmptyTextStyle();
       // The mark has a non-null color attr, so it should NOT be considered empty
       expect(result).toBe(false);
     });
@@ -207,7 +207,7 @@ describe('TextStyle', () => {
         )
       );
 
-      const result = editor.commands['removeEmptyTextStyle']?.();
+      const result = editor.commands.removeEmptyTextStyle();
       expect(result).toBe(false);
     });
   });
