@@ -306,6 +306,97 @@ describe('Typography', () => {
     });
   });
 
+  describe('input rule handler execution', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    function getRules() {
+      return Typography.config.addInputRules?.call({
+        options: Typography.options,
+      } as never) ?? [];
+    }
+
+    // Rules indices when all enabled: 0=emDash, 1=ellipsis, 2=<-, 3=->, 4=>=>,
+    // 5=1/2, 6=1/4, 7=3/4, 8=1/3, 9=2/3, 10=(c), 11=(r), 12=(tm), 13=(sm),
+    // 14=+/-, 15=!=, 16=<=, 17=>=, 18=<<, 19=>>, 20="text", 21='text'
+
+    function createEditor() {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Typography],
+        content: '<p>placeholder text here</p>',
+      });
+      return editor;
+    }
+
+    const simpleReplacements: [number, string, string][] = [
+      [0, 'emDash', '—'],
+      [1, 'ellipsis', '…'],
+      [2, 'left arrow', '←'],
+      [3, 'right arrow', '→'],
+      [4, 'double arrow', '⇒'],
+      [5, '1/2', '½'],
+      [6, '1/4', '¼'],
+      [7, '3/4', '¾'],
+      [8, '1/3', '⅓'],
+      [9, '2/3', '⅔'],
+      [10, 'copyright', '©'],
+      [11, 'registered', '®'],
+      [12, 'trademark', '™'],
+      [13, 'service mark', '℠'],
+      [14, 'plus-minus', '±'],
+      [15, 'not equal', '≠'],
+      [16, 'less or equal', '≤'],
+      [17, 'greater or equal', '≥'],
+      [18, 'left guillemet', '«'],
+      [19, 'right guillemet', '»'],
+    ];
+
+    // InputRule.handler exists at runtime but is not in the TypeScript types
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    function callHandler(rule: any, state: any, match: unknown[], start: number, end: number) {
+      return rule.handler(state, match, start, end);
+    }
+
+    simpleReplacements.forEach(([index, name, expected]) => {
+      it(`${name} handler produces ${expected}`, () => {
+        const ed = createEditor();
+        const rules = getRules();
+        const tr = callHandler(rules[index], ed.state, ['xx'], 1, 3);
+        expect(tr).toBeTruthy();
+        expect(tr.doc.textContent).toContain(expected);
+      });
+    });
+
+    it('smart double quotes handler produces curly quotes', () => {
+      const ed = createEditor();
+      const rules = getRules();
+      const tr = callHandler(rules[20], ed.state, ['"hello"', 'hello'], 1, 8);
+      expect(tr).toBeTruthy();
+      expect(tr.doc.textContent).toContain('\u201C');
+      expect(tr.doc.textContent).toContain('\u201D');
+    });
+
+    it('smart single quotes handler produces curly quotes with prefix', () => {
+      const ed = createEditor();
+      const rules = getRules();
+      const tr = callHandler(rules[21], ed.state, [" 'hello'", 'hello'], 1, 10);
+      expect(tr).toBeTruthy();
+      expect(tr.doc.textContent).toContain('\u2018');
+      expect(tr.doc.textContent).toContain('\u2019');
+    });
+
+    it('smart single quotes handler without prefix', () => {
+      const ed = createEditor();
+      const rules = getRules();
+      const tr = callHandler(rules[21], ed.state, ["'hello'", 'hello'], 1, 8);
+      expect(tr).toBeTruthy();
+      expect(tr.doc.textContent).toContain('\u2018');
+    });
+  });
+
   describe('integration', () => {
     let editor: Editor | undefined;
 

@@ -60,6 +60,21 @@ const testCommands: CommandMap = {
       const [a, b] = args as [number, string];
       return a > 0 && b.length > 0;
     },
+  usesCommands:
+    () =>
+    (props: any) => {
+      return props.commands.canExecute();
+    },
+  usesCan:
+    () =>
+    (props: any) => {
+      return props.can().canExecute();
+    },
+  usesUnknownCommand:
+    () =>
+    (props: any) => {
+      return props.commands.nonExistent();
+    },
 };
 
 // Mock chain builder
@@ -163,6 +178,39 @@ describe('CanChecker', () => {
       expect(can.withArgs(1, 'test')).toBe(true);
       expect(can.withArgs(0, 'test')).toBe(false);
       expect(can.withArgs(1, '')).toBe(false);
+    });
+
+    it('provides commands access within can() check', () => {
+      const editor = createMockEditor();
+      const can = createCanChecker({
+        editor,
+        rawCommands: testCommands,
+        createChainBuilder: createMockChainBuilder,
+      }) as any;
+
+      expect(can.usesCommands()).toBe(true);
+    });
+
+    it('provides recursive can() access within can() check', () => {
+      const editor = createMockEditor();
+      const can = createCanChecker({
+        editor,
+        rawCommands: testCommands,
+        createChainBuilder: createMockChainBuilder,
+      }) as any;
+
+      expect(can.usesCan()).toBe(true);
+    });
+
+    it('commands returns false for unknown command within can()', () => {
+      const editor = createMockEditor();
+      const can = createCanChecker({
+        editor,
+        rawCommands: testCommands,
+        createChainBuilder: createMockChainBuilder,
+      }) as any;
+
+      expect(can.usesUnknownCommand()).toBe(false);
     });
   });
 

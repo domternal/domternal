@@ -86,7 +86,7 @@ describe('StarterKit', () => {
       const extensions = custom.config.addExtensions?.call(custom);
       const heading = extensions!.find((e) => e.name === 'heading');
       expect(heading).toBeDefined();
-      expect(heading?.options?.levels).toEqual([1, 2, 3]);
+      expect((heading as any)?.options?.levels).toEqual([1, 2, 3]);
     });
   });
 

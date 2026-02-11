@@ -229,5 +229,29 @@ describe('OrderedList', () => {
       expect(listItem.childCount).toBe(2);
       expect(listItem.child(1).type.name).toBe('orderedList');
     });
+
+    it('inputRule handler applies start number from match', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, OrderedList, ListItem],
+        content: '<p>5. </p>',
+      });
+
+      const nodeType = editor.state.schema.nodes['orderedList'];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rules = OrderedList.config.addInputRules?.call({
+        ...OrderedList, nodeType, options: OrderedList.options,
+      } as any);
+
+      const rule = rules![0]!;
+      const match = ['5. ', '5'] as unknown as RegExpMatchArray;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = (rule as any).handler(editor.state, match, 1, 4);
+      expect(result).toBeTruthy();
+      if (result) {
+        const list = result.doc.child(0);
+        expect(list.type.name).toBe('orderedList');
+        expect(list.attrs['start']).toBe(5);
+      }
+    });
   });
 });

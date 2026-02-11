@@ -306,6 +306,265 @@ describe('ChainBuilder', () => {
       expect(result2).toBe(false);
     });
   });
+
+  describe('getFailure()', () => {
+    it('returns null when no failure', () => {
+      const editor = createMockEditor();
+
+      const chain = createChainBuilder({
+        editor,
+        rawCommands: testCommands,
+      }) as any;
+
+      chain.succeed();
+      expect(chain.getFailure()).toBeNull();
+    });
+
+    it('returns failure info for failed command', () => {
+      const editor = createMockEditor();
+
+      const chain = createChainBuilder({
+        editor,
+        rawCommands: testCommands,
+      }) as any;
+
+      chain.fail();
+      const failure = chain.getFailure();
+
+      expect(failure).not.toBeNull();
+      expect(failure.command).toBe('fail');
+      expect(failure.index).toBe(0);
+    });
+
+    it('returns failure info for unknown command', () => {
+      const editor = createMockEditor();
+
+      const chain = createChainBuilder({
+        editor,
+        rawCommands: testCommands,
+      }) as any;
+
+      chain.succeed().nonExistentCommand('arg1', 'arg2');
+      const failure = chain.getFailure();
+
+      expect(failure).not.toBeNull();
+      expect(failure.command).toBe('nonExistentCommand');
+      expect(failure.args).toEqual(['arg1', 'arg2']);
+      expect(failure.index).toBe(1);
+    });
+
+    it('only records first failure', () => {
+      const editor = createMockEditor();
+
+      const chain = createChainBuilder({
+        editor,
+        rawCommands: testCommands,
+      }) as any;
+
+      chain.fail().nonExistentCommand();
+      const failure = chain.getFailure();
+
+      expect(failure.command).toBe('fail');
+      expect(failure.index).toBe(0);
+    });
+  });
+
+  describe('can()', () => {
+    it('can() is accessible from CommandProps', () => {
+      const editor = createMockEditor();
+      let canResult: boolean | undefined;
+
+      const chain = createChainBuilder({
+        editor,
+        rawCommands: testCommands,
+      }) as any;
+
+      chain.command((props: CommandProps) => {
+        canResult = (props.can() as any).succeed();
+        return true;
+      }).run();
+
+      expect(canResult).toBe(true);
+    });
+
+    it('can() returns false for failing command', () => {
+      const editor = createMockEditor();
+      let canResult: boolean | undefined;
+
+      const chain = createChainBuilder({
+        editor,
+        rawCommands: testCommands,
+      }) as any;
+
+      chain.command((props: CommandProps) => {
+        canResult = (props.can() as any).fail();
+        return true;
+      }).run();
+
+      expect(canResult).toBe(false);
+    });
+
+    it('can() returns false for unknown command', () => {
+      const editor = createMockEditor();
+      let canResult: boolean | undefined;
+
+      const chain = createChainBuilder({
+        editor,
+        rawCommands: testCommands,
+      }) as any;
+
+      chain.command((props: CommandProps) => {
+        canResult = (props.can() as any).nonExistent();
+        return true;
+      }).run();
+
+      expect(canResult).toBe(false);
+    });
+
+    it('can().chain() checks chained commands dry-run', () => {
+      const editor = createMockEditor();
+      let canChainResult: boolean | undefined;
+
+      const chain = createChainBuilder({
+        editor,
+        rawCommands: testCommands,
+      }) as any;
+
+      chain.command((props: CommandProps) => {
+        canChainResult = (props.can().chain() as any).succeed().succeed().run();
+        return true;
+      }).run();
+
+      expect(canChainResult).toBe(true);
+    });
+
+    it('can().chain() returns false when a command fails', () => {
+      const editor = createMockEditor();
+      let canChainResult: boolean | undefined;
+
+      const chain = createChainBuilder({
+        editor,
+        rawCommands: testCommands,
+      }) as any;
+
+      chain.command((props: CommandProps) => {
+        canChainResult = (props.can().chain() as any).succeed().fail().run();
+        return true;
+      }).run();
+
+      expect(canChainResult).toBe(false);
+    });
+
+    it('can().chain() returns false for unknown command', () => {
+      const editor = createMockEditor();
+      let canChainResult: boolean | undefined;
+
+      const chain = createChainBuilder({
+        editor,
+        rawCommands: testCommands,
+      }) as any;
+
+      chain.command((props: CommandProps) => {
+        canChainResult = (props.can().chain() as any).nonExistent().run();
+        return true;
+      }).run();
+
+      expect(canChainResult).toBe(false);
+    });
+  });
+
+  describe('commands()', () => {
+    it('commands() is accessible from CommandProps', () => {
+      const editor = createMockEditor();
+      let cmdResult: boolean | undefined;
+
+      const chain = createChainBuilder({
+        editor,
+        rawCommands: testCommands,
+      }) as any;
+
+      chain.command((props: CommandProps) => {
+        cmdResult = (props.commands as any).succeed();
+        return true;
+      }).run();
+
+      expect(cmdResult).toBe(true);
+    });
+
+    it('commands() returns false for failing command', () => {
+      const editor = createMockEditor();
+      let cmdResult: boolean | undefined;
+
+      const chain = createChainBuilder({
+        editor,
+        rawCommands: testCommands,
+      }) as any;
+
+      chain.command((props: CommandProps) => {
+        cmdResult = (props.commands as any).fail();
+        return true;
+      }).run();
+
+      expect(cmdResult).toBe(false);
+    });
+
+    it('commands() returns false for unknown command', () => {
+      const editor = createMockEditor();
+      let cmdResult: boolean | undefined;
+
+      const chain = createChainBuilder({
+        editor,
+        rawCommands: testCommands,
+      }) as any;
+
+      chain.command((props: CommandProps) => {
+        cmdResult = (props.commands as any).nonExistent();
+        return true;
+      }).run();
+
+      expect(cmdResult).toBe(false);
+    });
+
+    it('commands() caches SingleCommands proxy', () => {
+      const editor = createMockEditor();
+      let cmds1: any;
+      let cmds2: any;
+
+      const chain = createChainBuilder({
+        editor,
+        rawCommands: testCommands,
+      }) as any;
+
+      chain.command((props: CommandProps) => {
+        cmds1 = props.commands;
+        return true;
+      }).command((props: CommandProps) => {
+        cmds2 = props.commands;
+        return true;
+      }).run();
+
+      expect(cmds1).toBe(cmds2);
+    });
+  });
+
+  describe('chain() from CommandProps', () => {
+    it('chain() is accessible from CommandProps', () => {
+      const editor = createMockEditor();
+      let chainResult: boolean | undefined;
+
+      const chain = createChainBuilder({
+        editor,
+        rawCommands: testCommands,
+      }) as any;
+
+      chain.command((props: CommandProps) => {
+        chainResult = typeof props.chain === 'function';
+        return true;
+      }).run();
+
+      expect(chainResult).toBe(true);
+    });
+  });
 });
 
 describe('createChainBuilder', () => {

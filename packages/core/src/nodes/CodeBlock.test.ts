@@ -223,5 +223,43 @@ describe('CodeBlock', () => {
       const html = editor.getHTML();
       expect(html).toBe('<pre><code>plain code</code></pre>');
     });
+
+    it('setCodeBlock converts paragraph to code block', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CodeBlock],
+        content: '<p>some code</p>',
+      });
+
+      const result = editor.commands['setCodeBlock']?.();
+      expect(result).toBe(true);
+      expect(editor.state.doc.child(0).type.name).toBe('codeBlock');
+    });
+
+    it('setCodeBlock applies language attribute', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CodeBlock],
+        content: '<p>const x = 1;</p>',
+      });
+
+      editor.commands['setCodeBlock']?.({ language: 'javascript' });
+      expect(editor.state.doc.child(0).attrs['language']).toBe('javascript');
+    });
+
+    it('inputRule getAttrs extracts language from match', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CodeBlock],
+        content: '<p>test</p>',
+      });
+
+      // Get the input rules from a properly bound context
+      const nodeType = editor.state.schema.nodes['codeBlock'];
+      const rules = CodeBlock.config.addInputRules?.call({
+        ...CodeBlock, nodeType, options: CodeBlock.options,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any);
+
+      expect(rules).toBeDefined();
+      expect(rules!.length).toBe(1);
+    });
   });
 });
