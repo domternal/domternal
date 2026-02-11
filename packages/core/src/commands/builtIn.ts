@@ -9,7 +9,7 @@ import type { EditorView } from 'prosemirror-view';
 import { toggleMark as pmToggleMark, setBlockType as pmSetBlockType, wrapIn as pmWrapIn, lift as pmLift, selectNodeBackward as pmSelectNodeBackward } from 'prosemirror-commands';
 import { wrapInList, liftListItem } from 'prosemirror-schema-list';
 import { Fragment, Slice, DOMParser as ProseMirrorDOMParser } from 'prosemirror-model';
-import type { Attrs } from 'prosemirror-model';
+import type { Attrs, Node as PMNode } from 'prosemirror-model';
 import type { CommandSpec, CommandMap } from '../types/Commands.js';
 import type { FocusPosition, Content } from '../types/index.js';
 import { createDocument } from '../helpers/index.js';
@@ -43,13 +43,14 @@ export interface ClearContentOptions {
 
 /**
  * Resolves focus position to a numeric position in the document
+ *
+ * Uses the provided doc (tr.doc) rather than view.state.doc to support
+ * chain context where prior commands may have modified the document.
  */
 function resolveFocusPosition(
-  view: EditorView,
+  doc: { content: { size: number } },
   position: FocusPosition
 ): number | null {
-  const { doc } = view.state;
-
   if (position === null || position === false) {
     return null;
   }
@@ -109,7 +110,8 @@ export const focus: CommandSpec<[position?: FocusPosition]> =
     }
 
     // Resolve position to cursor location
-    const resolvedPos = resolveFocusPosition(view, position);
+    // Use tr.doc to support chain context where prior commands may have modified the document
+    const resolvedPos = resolveFocusPosition(tr.doc, position);
 
     if (resolvedPos !== null) {
       const $pos = tr.doc.resolve(resolvedPos);
@@ -588,8 +590,24 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
         return true; // Can convert
       }
 
-      // Change the list node type in place, preserving content and structure
-      tr.setNodeMarkup(pos, listType, attributes);
+      const listNode = tr.doc.nodeAt(pos);
+      if (!listNode) return false;
+
+      // If item types differ (e.g., taskItem ↔ listItem), replace entire list
+      // to avoid invalid intermediate state (parent content spec violation)
+      const firstChild = listNode.firstChild;
+      if (firstChild && firstChild.type !== listItemType) {
+        const newItems: PMNode[] = [];
+        listNode.forEach((child) => {
+          newItems.push(listItemType.create(child.attrs, child.content, child.marks));
+        });
+        const newList = listType.create(attributes, newItems);
+        tr.replaceWith(pos, pos + listNode.nodeSize, newList);
+      } else {
+        // Same item type, just change the wrapper
+        tr.setNodeMarkup(pos, listType, attributes);
+      }
+
       dispatch(tr);
       return true;
     }

@@ -46,7 +46,8 @@ export const HorizontalRule = Node.create<HorizontalRuleOptions>({
         ({ state, tr, dispatch }) => {
           if (!this.nodeType) return false;
 
-          const { $from } = state.selection;
+          // Use tr.selection for chain compatibility - prior commands may have changed selection
+          const { $from } = tr.selection;
           const parent = $from.parent;
 
           if (dispatch) {

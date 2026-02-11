@@ -113,6 +113,32 @@ describe('builtIn commands', () => {
       const result = editor.commands.focus('start');
       expect(result).toBe(false);
     });
+
+    it('focus("end") in chain after setContent uses tr.doc size', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph],
+        content: '<p>This is a long initial content that should be replaced</p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      // setContent replaces with shorter content, then focus('end') should use new doc size
+      const result = editor.chain().setContent('<p>short</p>').focus('end').run();
+      expect(result).toBe(true);
+      // Should not crash - position should be valid for the new short doc
+    });
+
+    it('focus(position) in chain after setContent clamps to tr.doc size', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph],
+        content: '<p>Hello world with lots of content here</p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      // setContent with shorter content, then focus at large position
+      const result = editor.chain().setContent('<p>hi</p>').focus(100).run();
+      expect(result).toBe(true);
+      // Position should be clamped to new doc size
+    });
   });
 
   describe('blur', () => {
