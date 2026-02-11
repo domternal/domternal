@@ -8,6 +8,7 @@ import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { Editor } from '../Editor.js';
+import { TextSelection } from 'prosemirror-state';
 
 describe('FontFamily', () => {
   describe('configuration', () => {
@@ -168,6 +169,47 @@ describe('FontFamily', () => {
 
       const result = editor.commands.unsetFontFamily();
       expect(result).toBe(true);
+    });
+
+    it('setFontFamily actually applies the mark', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, FontFamily],
+        content: '<p>Hello</p>',
+      });
+
+      // Use TextSelection for more reliable selection
+      const tr = editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6));
+      editor.view.dispatch(tr);
+
+      const setResult = editor.commands.setFontFamily('monospace');
+      expect(setResult).toBe(true);
+
+      // Check if font-family is in the HTML
+      const html = editor.getHTML();
+      expect(html).toContain('font-family');
+    });
+
+    it('unsetFontFamily via chain removes font family', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, FontFamily],
+        content: '<p>Hello</p>',
+      });
+
+      // Set font family with explicit selection
+      const tr = editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6));
+      editor.view.dispatch(tr);
+      editor.commands.setFontFamily('monospace');
+      expect(editor.getHTML()).toContain('font-family');
+
+      // Re-select all text, then unset via chain (without focus - not needed in unit test)
+      const tr2 = editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6));
+      editor.view.dispatch(tr2);
+      const result = editor.chain().unsetFontFamily().run();
+      expect(result).toBe(true);
+
+      // Verify font-family is removed from HTML
+      const html = editor.getHTML();
+      expect(html).not.toContain('font-family');
     });
   });
 });

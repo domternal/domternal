@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildCommandProps, createAccumulatingDispatch } from './commandPropsBuilder.js';
 import { Schema } from 'prosemirror-model';
-import { EditorState } from 'prosemirror-state';
+import { EditorState, TextSelection } from 'prosemirror-state';
 
 const schema = new Schema({
   nodes: {
@@ -123,5 +123,106 @@ describe('createAccumulatingDispatch', () => {
     dispatch(otherTr);
 
     expect(sharedTr.steps.length).toBeGreaterThan(0);
+  });
+
+  it('copies metadata from accumulated transaction to shared transaction', () => {
+    const state = EditorState.create({
+      schema,
+      doc: schema.node('doc', null, [
+        schema.node('paragraph', null, [schema.text('Hello')]),
+      ]),
+    });
+    const sharedTr = state.tr;
+    const otherTr = state.tr;
+    otherTr.setMeta('addToHistory', false);
+    otherTr.setMeta('testKey', 'testValue');
+
+    const dispatch = createAccumulatingDispatch(sharedTr);
+    dispatch(otherTr);
+
+    expect(sharedTr.getMeta('addToHistory')).toBe(false);
+    expect(sharedTr.getMeta('testKey')).toBe('testValue');
+  });
+
+  it('copies selection when selectionSet is true', () => {
+    const state = EditorState.create({
+      schema,
+      doc: schema.node('doc', null, [
+        schema.node('paragraph', null, [schema.text('Hello World')]),
+      ]),
+    });
+    const sharedTr = state.tr;
+    const otherTr = state.tr;
+
+    otherTr.setSelection(TextSelection.create(otherTr.doc, 3, 8));
+
+    const dispatch = createAccumulatingDispatch(sharedTr);
+    dispatch(otherTr);
+
+    expect(sharedTr.selectionSet).toBe(true);
+    expect(sharedTr.selection.from).toBe(3);
+    expect(sharedTr.selection.to).toBe(8);
+  });
+
+  it('does not copy selection when selectionSet is false', () => {
+    const state = EditorState.create({
+      schema,
+      doc: schema.node('doc', null, [
+        schema.node('paragraph', null, [schema.text('Hello')]),
+      ]),
+    });
+    const sharedTr = state.tr;
+    const otherTr = state.tr;
+
+    const dispatch = createAccumulatingDispatch(sharedTr);
+    dispatch(otherTr);
+
+    expect(sharedTr.selectionSet).toBe(false);
+  });
+
+  it('handles invalid selection positions gracefully', () => {
+    const state = EditorState.create({
+      schema,
+      doc: schema.node('doc', null, [
+        schema.node('paragraph', null, [schema.text('Hello')]),
+      ]),
+    });
+    const sharedTr = state.tr;
+
+    // Create a different state with a longer doc
+    const state2 = EditorState.create({
+      schema,
+      doc: schema.node('doc', null, [
+        schema.node('paragraph', null, [schema.text('Hello World extended text')]),
+      ]),
+    });
+    const otherTr = state2.tr;
+    // Set selection at position valid for state2 but invalid for sharedTr
+    otherTr.setSelection(TextSelection.create(otherTr.doc, 1, 20));
+
+    const dispatch = createAccumulatingDispatch(sharedTr);
+
+    // Should not throw - invalid positions are caught
+    expect(() => { dispatch(otherTr); }).not.toThrow();
+  });
+
+  it('copies steps and metadata together', () => {
+    const state = EditorState.create({
+      schema,
+      doc: schema.node('doc', null, [
+        schema.node('paragraph', null, [schema.text('Hello')]),
+      ]),
+    });
+    const sharedTr = state.tr;
+    const otherTr = state.tr;
+    otherTr.insertText(' World', 6);
+    otherTr.setMeta('addToHistory', false);
+
+    const dispatch = createAccumulatingDispatch(sharedTr);
+    dispatch(otherTr);
+
+    expect(sharedTr.steps.length).toBeGreaterThan(0);
+    expect(sharedTr.getMeta('addToHistory')).toBe(false);
+    expect(sharedTr.doc.textContent).toBe('Hello World');
   });
 });

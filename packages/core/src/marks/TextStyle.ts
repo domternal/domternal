@@ -75,16 +75,17 @@ export const TextStyle = Mark.create<TextStyleOptions>({
 
       removeEmptyTextStyle:
         () =>
-        ({ state, dispatch }) => {
-          // Check if textStyle mark exists with no meaningful attributes
-          const { from, to } = state.selection;
+        ({ tr, dispatch }) => {
+          // Use tr.doc/tr.selection instead of state to support chain context
+          // where prior commands may have modified marks on the shared transaction
+          const { from, to } = tr.selection;
           const markType = this.markType;
 
           if (!markType) return false;
 
           let hasEmptyTextStyle = false;
 
-          state.doc.nodesBetween(from, to, (node) => {
+          tr.doc.nodesBetween(from, to, (node) => {
             const textStyleMark = node.marks.find(
               (mark) => mark.type.name === this.name
             );
@@ -103,7 +104,7 @@ export const TextStyle = Mark.create<TextStyleOptions>({
           if (!hasEmptyTextStyle) return false;
 
           if (dispatch) {
-            const tr = state.tr.removeMark(from, to, markType);
+            tr.removeMark(from, to, markType);
             dispatch(tr);
           }
 

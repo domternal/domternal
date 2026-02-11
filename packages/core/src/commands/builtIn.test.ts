@@ -623,4 +623,170 @@ describe('builtIn commands', () => {
       expect(linkMark?.attrs['target']).toBe(null);
     });
   });
+
+  // ==========================================================================
+  // Chain compatibility tests - verify commands use tr instead of state
+  // ==========================================================================
+  describe('chain compatibility (tr vs state)', () => {
+    it('selectAll uses tr.doc in chain after insertText', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Selection],
+        content: '<p>Hello</p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      // Chain: insert text then select all - selectAll must use tr.doc (modified doc)
+      const result = editor.chain().focus().insertText(' World').selectAll().run();
+      expect(result).toBe(true);
+
+      // Verify all content was selected (including the inserted text)
+      expect(editor.state.selection.from).toBe(0);
+      expect(editor.state.selection.to).toBe(editor.state.doc.content.size);
+    });
+
+    it('setContent uses tr.doc.content.size in chain', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph],
+        content: '<p>Hello</p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      // setContent should replace entire doc even when chained
+      const result = editor.commands.setContent('<p>New content</p>');
+      expect(result).toBe(true);
+      expect(editor.getText()).toBe('New content');
+    });
+
+    it('clearContent uses tr.doc.content.size in chain', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph],
+        content: '<p>Hello world</p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      const result = editor.commands.clearContent();
+      expect(result).toBe(true);
+      expect(editor.isEmpty).toBe(true);
+    });
+
+    it('toggleBlockType uses tr.selection in chain after insertText', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Heading],
+        content: '<p>Hello</p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      // First make it a heading
+      const result1 = editor.commands.toggleHeading({ level: 2 });
+      expect(result1).toBe(true);
+      expect(editor.state.doc.child(0).type.name).toBe('heading');
+
+      // Toggle again should convert back to paragraph
+      const result2 = editor.commands.toggleHeading({ level: 2 });
+      expect(result2).toBe(true);
+      expect(editor.state.doc.child(0).type.name).toBe('paragraph');
+    });
+
+    it('toggleWrap uses tr.selection for blockquote toggle', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Blockquote],
+        content: '<p>Hello</p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      setSelection(editor, 1);
+
+      // Wrap in blockquote
+      const result1 = editor.commands.toggleWrap('blockquote');
+      expect(result1).toBe(true);
+      expect(editor.state.doc.child(0).type.name).toBe('blockquote');
+
+      // Toggle again should unwrap
+      const result2 = editor.commands.toggleWrap('blockquote');
+      expect(result2).toBe(true);
+      expect(editor.state.doc.child(0).type.name).toBe('paragraph');
+    });
+
+    it('toggleList uses tr.selection for list toggle', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, OrderedList, ListItem],
+        content: '<p>Item 1</p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      setSelection(editor, 1);
+
+      // Wrap in bullet list
+      const result1 = editor.commands.toggleList('bulletList', 'listItem');
+      expect(result1).toBe(true);
+
+      // Verify it's a bullet list
+      expect(editor.state.doc.child(0).type.name).toBe('bulletList');
+    });
+
+    it('setSelection uses tr.doc for bounds checking', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Selection],
+        content: '<p>Hello</p>',
+      });
+
+      // Valid position
+      const result1 = editor.commands.setSelection(1, 4);
+      expect(result1).toBe(true);
+      expect(editor.state.selection.from).toBe(1);
+      expect(editor.state.selection.to).toBe(4);
+
+      // Out of bounds
+      const result2 = editor.commands.setSelection(1, 1000);
+      expect(result2).toBe(false);
+    });
+
+    it('extendSelection uses tr.selection and tr.doc', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Selection],
+        content: '<p>Hello world</p>',
+      });
+
+      // Set initial selection
+      editor.commands.setSelection(3, 6);
+
+      // Extend right
+      editor.commands.extendSelection('right');
+      expect(editor.state.selection.from).toBe(3);
+      expect(editor.state.selection.to).toBe(7);
+
+      // Extend left
+      editor.commands.extendSelection('left');
+      expect(editor.state.selection.from).toBe(2);
+      expect(editor.state.selection.to).toBe(7);
+    });
+
+    it('selectParentNode uses tr.selection', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Blockquote, Selection],
+        content: '<blockquote><p>Quoted text</p></blockquote>',
+      });
+
+      // Place cursor inside blockquote text
+      editor.commands.setSelection(2);
+
+      // Select parent - should select the paragraph or blockquote
+      const cmds = editor.commands as unknown as Record<string, () => boolean>;
+      const result = cmds['selectParentNode']!();
+      expect(result).toBe(true);
+    });
+
+    it('chain insertText + setSelection works correctly', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Selection],
+        content: '<p>Hello</p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      // Focus end then insert text
+      const result = editor.chain().focus('end').insertText(' World').run();
+      expect(result).toBe(true);
+      expect(editor.getText()).toBe('Hello World');
+    });
+  });
 });

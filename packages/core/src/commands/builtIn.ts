@@ -85,7 +85,7 @@ function resolveFocusPosition(
  */
 export const focus: CommandSpec<[position?: FocusPosition]> =
   (position: FocusPosition = null) =>
-  ({ editor, state, tr, dispatch }) => {
+  ({ editor, tr, dispatch }) => {
     const view = editor.view as EditorView;
 
     // Check if view is attached to DOM (dry-run always returns true)
@@ -101,8 +101,9 @@ export const focus: CommandSpec<[position?: FocusPosition]> =
     view.focus();
 
     // Handle 'all' position - select all content
+    // Use tr.doc to support chain context where prior commands may have modified the document
     if (position === 'all') {
-      const selection = new AllSelection(state.doc);
+      const selection = new AllSelection(tr.doc);
       dispatch(tr.setSelection(selection));
       return true;
     }
@@ -111,7 +112,7 @@ export const focus: CommandSpec<[position?: FocusPosition]> =
     const resolvedPos = resolveFocusPosition(view, position);
 
     if (resolvedPos !== null) {
-      const $pos = state.doc.resolve(resolvedPos);
+      const $pos = tr.doc.resolve(resolvedPos);
       const selection = TextSelection.near($pos);
       dispatch(tr.setSelection(selection));
     }
@@ -163,7 +164,8 @@ export const setContent: CommandSpec<[content: Content, options?: SetContentOpti
     }
 
     // Replace entire document
-    tr.replaceWith(0, state.doc.content.size, doc.content);
+    // Use tr.doc for chain compatibility - prior commands may have modified the document
+    tr.replaceWith(0, tr.doc.content.size, doc.content);
 
     // Mark transaction to potentially skip update event
     if (!emitUpdate) {
@@ -195,7 +197,8 @@ export const clearContent: CommandSpec<[options?: ClearContentOptions]> =
     }
 
     // Replace entire document
-    tr.replaceWith(0, state.doc.content.size, doc.content);
+    // Use tr.doc for chain compatibility - prior commands may have modified the document
+    tr.replaceWith(0, tr.doc.content.size, doc.content);
 
     if (!emitUpdate) {
       tr.setMeta('addToHistory', false);
@@ -264,13 +267,14 @@ export const deleteSelection: CommandSpec =
  */
 export const selectAll: CommandSpec =
   () =>
-  ({ state, tr, dispatch }) => {
+  ({ tr, dispatch }) => {
     // In dry-run mode, always possible
     if (!dispatch) {
       return true;
     }
 
-    const selection = new AllSelection(state.doc);
+    // Use tr.doc for chain compatibility - prior commands may have modified the document
+    const selection = new AllSelection(tr.doc);
     tr.setSelection(selection);
     dispatch(tr);
     return true;
@@ -343,8 +347,9 @@ export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
     }
 
     // Merge with existing mark attributes in the selection
+    // Use tr.doc to support chain context where prior commands may have modified marks
     let existingAttrs: Attrs = {};
-    state.doc.nodesBetween(from, to, (node) => {
+    tr.doc.nodesBetween(from, to, (node) => {
       const existing = markType.isInSet(node.marks);
       if (existing) {
         existingAttrs = { ...existingAttrs, ...existing.attrs };
@@ -430,7 +435,7 @@ export const setBlockType: CommandSpec<[nodeName: string, attributes?: Attrs]> =
  */
 export const toggleBlockType: CommandSpec<[nodeName: string, defaultNodeName: string, attributes?: Attrs]> =
   (nodeName: string, defaultNodeName: string, attributes?: Attrs) =>
-  ({ state, dispatch }) => {
+  ({ state, tr, dispatch }) => {
     const nodeType = state.schema.nodes[nodeName];
     const defaultNodeType = state.schema.nodes[defaultNodeName];
 
@@ -438,8 +443,8 @@ export const toggleBlockType: CommandSpec<[nodeName: string, defaultNodeName: st
       return false;
     }
 
-    // Check if the current block is of the target type with matching attributes
-    const { $from } = state.selection;
+    // Use tr.selection for chain compatibility - prior commands may have changed selection
+    const { $from } = tr.selection;
     const currentNode = $from.parent;
 
     // If current block matches target type AND attributes, toggle to default
@@ -485,15 +490,15 @@ export const wrapIn: CommandSpec<[nodeName: string, attributes?: Attrs]> =
  */
 export const toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]> =
   (nodeName: string, attributes?: Attrs) =>
-  ({ state, dispatch }) => {
+  ({ state, tr, dispatch }) => {
     const nodeType = state.schema.nodes[nodeName];
 
     if (!nodeType) {
       return false;
     }
 
-    // Check if we're already inside a node of this type
-    const { $from } = state.selection;
+    // Use tr.selection for chain compatibility - prior commands may have changed selection
+    const { $from } = tr.selection;
     let isWrapped = false;
 
     for (let depth = $from.depth; depth > 0; depth--) {
@@ -551,7 +556,8 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
       return false;
     }
 
-    const { $from } = state.selection;
+    // Use tr.selection for chain compatibility - prior commands may have changed selection
+    const { $from } = tr.selection;
 
     // Find if we're already in a list and get details
     let listDepth: number | null = null;
@@ -689,9 +695,10 @@ export const updateAttributes: CommandSpec<[typeOrName: string, attributes: Reco
     const nodeChanges: { pos: number; attrs: Record<string, unknown> }[] = [];
     const markChanges: { pos: number; nodeSize: number; attrs: Record<string, unknown> }[] = [];
 
+    // Use tr.doc to support chain context where prior commands may have modified the document
     // For nodes - collect changes
     if (state.schema.nodes[typeOrName]) {
-      state.doc.nodesBetween(from, to, (node, pos) => {
+      tr.doc.nodesBetween(from, to, (node, pos) => {
         if (node.type.name === typeOrName) {
           nodeChanges.push({ pos, attrs: { ...node.attrs, ...attributes } });
         }
@@ -701,7 +708,7 @@ export const updateAttributes: CommandSpec<[typeOrName: string, attributes: Reco
     // For marks - collect changes
     if (state.schema.marks[typeOrName]) {
       const markType = state.schema.marks[typeOrName];
-      state.doc.nodesBetween(from, to, (node, pos) => {
+      tr.doc.nodesBetween(from, to, (node, pos) => {
         if (!node.isInline) return;
 
         const mark = markType.isInSet(node.marks);
@@ -762,11 +769,12 @@ export const resetAttributes: CommandSpec<[typeOrName: string, attributeName: st
     const nodeChanges: { pos: number; attrs: Record<string, unknown> }[] = [];
     const markChanges: { pos: number; nodeSize: number; attrs: Record<string, unknown> }[] = [];
 
+    // Use tr.doc to support chain context where prior commands may have modified the document
     // For nodes - collect changes
     if (nodeType) {
       const defaultValue: unknown = nodeType.spec.attrs?.[attributeName]?.default;
 
-      state.doc.nodesBetween(from, to, (node, pos) => {
+      tr.doc.nodesBetween(from, to, (node, pos) => {
         if (node.type === nodeType) {
           nodeChanges.push({
             pos,
@@ -780,7 +788,7 @@ export const resetAttributes: CommandSpec<[typeOrName: string, attributeName: st
     if (markType) {
       const defaultValue: unknown = markType.spec.attrs?.[attributeName]?.default;
 
-      state.doc.nodesBetween(from, to, (node, pos) => {
+      tr.doc.nodesBetween(from, to, (node, pos) => {
         if (!node.isInline) return;
 
         const mark = markType.isInSet(node.marks);
