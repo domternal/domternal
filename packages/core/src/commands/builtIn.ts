@@ -6,7 +6,7 @@
  */
 import { TextSelection, AllSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { toggleMark as pmToggleMark, setBlockType as pmSetBlockType, wrapIn as pmWrapIn, lift as pmLift, selectNodeBackward as pmSelectNodeBackward } from 'prosemirror-commands';
+import { setBlockType as pmSetBlockType, wrapIn as pmWrapIn, lift as pmLift, selectNodeBackward as pmSelectNodeBackward } from 'prosemirror-commands';
 import { wrapInList, liftListItem } from 'prosemirror-schema-list';
 import { Fragment, Slice, DOMParser as ProseMirrorDOMParser } from 'prosemirror-model';
 import type { Attrs, Node as PMNode } from 'prosemirror-model';
@@ -289,22 +289,64 @@ export const selectAll: CommandSpec =
 /**
  * ToggleMark command - toggles a mark on the current selection
  *
+ * Uses tr.doc/tr.selection for chain compatibility instead of delegating
+ * to ProseMirror's toggleMark which reads from stale state.
+ *
  * @param markName - The name of the mark to toggle
  * @param attributes - Optional attributes for the mark
  */
 export const toggleMark: CommandSpec<[markName: string, attributes?: Attrs]> =
   (markName: string, attributes?: Attrs) =>
-  ({ state, dispatch }) => {
+  ({ state, tr, dispatch }) => {
     const markType = state.schema.marks[markName];
 
     if (!markType) {
       return false;
     }
 
-    // Note: pmToggleMark internally handles dispatch=undefined for dry-run mode.
-    // This is different from other commands that explicitly check !dispatch,
-    // but the behavior is identical - it returns true/false without side effects.
-    return pmToggleMark(markType, attributes)(state, dispatch);
+    const { from, to, empty } = tr.selection;
+
+    // Check if mark can be applied in this context
+    let canApply = false;
+    if (empty) {
+      const $pos = tr.doc.resolve(from);
+      canApply = $pos.parent.inlineContent && $pos.parent.type.allowsMarkType(markType);
+    } else {
+      tr.doc.nodesBetween(from, to, (node) => {
+        if (canApply) return false;
+        if (node.inlineContent && node.type.allowsMarkType(markType)) {
+          canApply = true;
+          return false;
+        }
+        return;
+      });
+    }
+
+    if (!canApply) return false;
+    if (!dispatch) return true;
+
+    if (empty) {
+      // Cursor mode — toggle stored mark
+      const cursorMarks = tr.storedMarks
+        ?? state.storedMarks
+        ?? tr.doc.resolve(from).marks();
+
+      if (markType.isInSet(cursorMarks)) {
+        tr.removeStoredMark(markType);
+      } else {
+        tr.addStoredMark(markType.create(attributes ?? null));
+      }
+    } else {
+      // Range mode — check if mark is present, then toggle
+      if (tr.doc.rangeHasMark(from, to, markType)) {
+        tr.removeMark(from, to, markType);
+      } else {
+        tr.addMark(from, to, markType.create(attributes ?? null));
+      }
+    }
+
+    dispatch(tr);
+    return true;
   };
 
 /**
@@ -352,21 +394,32 @@ export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
       return true;
     }
 
-    // Merge with existing mark attributes in the selection
-    // Use tr.doc to support chain context where prior commands may have modified marks
-    let existingAttrs: Attrs = {};
-    tr.doc.nodesBetween(from, to, (node) => {
+    // Merge per-node to preserve each node's own attributes
+    // (e.g., one word has fontFamily: 'Arial', another has 'Georgia' —
+    //  setting fontSize should preserve each node's fontFamily independently)
+    const nodeMarks: { from: number; to: number; attrs: Attrs }[] = [];
+    tr.doc.nodesBetween(from, to, (node, pos) => {
+      if (!node.isText) return;
       const existing = markType.isInSet(node.marks);
-      if (existing) {
-        existingAttrs = { ...existingAttrs, ...existing.attrs };
-      }
+      const nodeAttrs = existing
+        ? { ...existing.attrs, ...attributes }
+        : (attributes ?? {});
+      nodeMarks.push({
+        from: Math.max(pos, from),
+        to: Math.min(pos + node.nodeSize, to),
+        attrs: nodeAttrs,
+      });
     });
 
-    const mergedAttrs = Object.keys(existingAttrs).length > 0
-      ? { ...existingAttrs, ...attributes }
-      : attributes;
+    if (nodeMarks.length > 0) {
+      for (const nm of nodeMarks) {
+        tr.addMark(nm.from, nm.to, markType.create(nm.attrs));
+      }
+    } else {
+      // No text nodes found (e.g., selection across empty blocks) — apply globally
+      tr.addMark(from, to, markType.create(attributes));
+    }
 
-    tr.addMark(from, to, markType.create(mergedAttrs));
     dispatch(tr);
     return true;
   };
