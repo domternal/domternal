@@ -14,7 +14,10 @@ import { ListItem } from '../nodes/ListItem.js';
 import { Bold } from '../marks/Bold.js';
 import { Italic } from '../marks/Italic.js';
 import { Link } from '../marks/Link.js';
+import { TextStyle } from '../marks/TextStyle.js';
 import { Selection } from '../extensions/Selection.js';
+import { FontFamily } from '../extensions/FontFamily.js';
+import { FontSize } from '../extensions/FontSize.js';
 import { Editor } from '../Editor.js';
 
 /** Helper: set text selection via ProseMirror API */
@@ -307,6 +310,27 @@ describe('builtIn commands', () => {
       setSelection(editor, 3);
       const result = editor.commands.setMark('bold');
       expect(result).toBe(true);
+    });
+
+    it('preserves sibling mark attributes on empty selection (cursor inside styled text)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, FontFamily, FontSize],
+        content: '<p><span style="font-family: Georgia">Hello</span></p>',
+      });
+
+      // Place cursor inside the styled text (empty selection)
+      setSelection(editor, 3);
+
+      // Set fontSize — should NOT lose fontFamily
+      editor.commands.setMark('textStyle', { fontSize: '20px' });
+
+      // Check stored marks — they should have BOTH fontFamily and fontSize
+      const stored = editor.state.storedMarks;
+      expect(stored).not.toBeNull();
+      const textStyleMark = stored?.find(m => m.type.name === 'textStyle');
+      expect(textStyleMark).toBeDefined();
+      expect(textStyleMark!.attrs['fontFamily']).toBe('Georgia');
+      expect(textStyleMark!.attrs['fontSize']).toBe('20px');
     });
   });
 

@@ -331,11 +331,15 @@ export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
         return true;
       }
 
-      // Merge with existing stored mark attributes
-      const existingStoredMark = tr.storedMarks?.find(m => m.type === markType)
-        ?? state.storedMarks?.find(m => m.type === markType);
-      const mergedAttrs = existingStoredMark
-        ? { ...existingStoredMark.attrs, ...attributes }
+      // Merge with existing mark attributes to preserve sibling attributes
+      // (e.g., fontFamily should not be lost when setting fontSize on textStyle)
+      // Priority: stored marks on tr > stored marks on state > marks at cursor position
+      const existingMark = tr.storedMarks?.find(m => m.type === markType)
+        ?? state.storedMarks?.find(m => m.type === markType)
+        ?? tr.doc.resolve(from).marks().find(m => m.type === markType)
+        ?? null;
+      const mergedAttrs = existingMark
+        ? { ...existingMark.attrs, ...attributes }
         : attributes;
 
       const mark = markType.create(mergedAttrs);
