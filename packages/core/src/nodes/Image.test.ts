@@ -199,6 +199,38 @@ describe('Image', () => {
       expect(doc.child(2).type.name).toBe('paragraph');
     });
 
+    it('setImage inserts image with valid URL', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>Text</p>',
+      });
+      editor.commands.setImage({ src: 'https://example.com/img.png' });
+      let hasImage = false;
+      editor.state.doc.forEach((node) => {
+        if (node.type.name === 'image') hasImage = true;
+      });
+      expect(hasImage).toBe(true);
+    });
+
+    it('setImage rejects javascript: URL', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>Text</p>',
+      });
+      const result = editor.commands.setImage({ src: 'javascript:alert(1)' });
+      expect(result).toBe(false);
+    });
+
+    it('renderHTML returns empty src for invalid URL (defense in depth)', () => {
+      const spec = Image.createNodeSpec();
+      const mockNode = {
+        attrs: { src: 'javascript:alert(1)', alt: null, title: null, width: null, height: null },
+      } as unknown as PMNode;
+      const result = spec.toDOM?.(mockNode) as [string, Record<string, unknown>];
+      expect(result[0]).toBe('img');
+      expect(result[1]['src']).toBe('');
+    });
+
     describe('XSS protection', () => {
       it('accepts valid https URLs', () => {
         editor = new Editor({

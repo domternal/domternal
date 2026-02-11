@@ -101,6 +101,18 @@ describe('LineHeight', () => {
       const result = renderHTML?.({ lineHeight: '1.5' });
       expect(result).toBe(null);
     });
+
+    it('renderHTML returns null for disallowed lineHeight', () => {
+      const CustomLineHeight = LineHeight.configure({
+        lineHeights: ['1', '1.5', '2'],
+      });
+
+      const globalAttrs = CustomLineHeight.config.addGlobalAttributes?.call(CustomLineHeight);
+      const renderHTML = globalAttrs?.[0]?.attributes['lineHeight']?.renderHTML;
+
+      const result = renderHTML?.({ lineHeight: '3' });
+      expect(result).toBe(null);
+    });
   });
 
   describe('addCommands', () => {
@@ -188,6 +200,32 @@ describe('LineHeight', () => {
       const doc = editor.state.doc;
       const paragraph = doc.child(0);
       expect(paragraph.attrs['lineHeight']).toBe('2');
+    });
+
+    it('setLineHeight applies line height', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Heading, LineHeight],
+        content: '<p>Hello world</p>',
+      });
+
+      const result = editor.commands.setLineHeight('1.5');
+      expect(result).toBe(true);
+
+      const paragraph = editor.state.doc.child(0);
+      expect(paragraph.attrs['lineHeight']).toBe('1.5');
+    });
+
+    it('unsetLineHeight removes line height', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Heading, LineHeight],
+        content: '<p style="line-height: 2">Text</p>',
+      });
+
+      const result = editor.commands.unsetLineHeight();
+      expect(result).toBe(true);
+
+      const paragraph = editor.state.doc.child(0);
+      expect(paragraph.attrs['lineHeight']).toBe(null);
     });
   });
 });

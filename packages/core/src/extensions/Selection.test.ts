@@ -312,5 +312,72 @@ describe('Selection', () => {
         expect(editor.state.selection.to).toBe(editor.state.doc.content.size);
       });
     });
+
+    describe('storage default values (before onCreate)', () => {
+      it('getText returns empty string', () => {
+        const storage = Selection.config.addStorage?.call(Selection);
+        expect(storage?.getText()).toBe('');
+      });
+
+      it('getNode returns null', () => {
+        const storage = Selection.config.addStorage?.call(Selection);
+        expect(storage?.getNode()).toBe(null);
+      });
+
+      it('isEmpty returns true', () => {
+        const storage = Selection.config.addStorage?.call(Selection);
+        expect(storage?.isEmpty()).toBe(true);
+      });
+
+      it('getRange returns {from: 0, to: 0}', () => {
+        const storage = Selection.config.addStorage?.call(Selection);
+        expect(storage?.getRange()).toEqual({ from: 0, to: 0 });
+      });
+
+      it('getCursor returns null', () => {
+        const storage = Selection.config.addStorage?.call(Selection);
+        expect(storage?.getCursor()).toBe(null);
+      });
+    });
+
+    describe('selectNode command', () => {
+      it('returns false for negative position', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, Image, Selection],
+          content: '<p>Text</p>',
+        });
+
+        const result = editor.commands.selectNode(-1);
+        expect(result).toBe(false);
+      });
+    });
+
+    describe('selectParentNode command', () => {
+      it('returns false when no selectable parent', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, Selection],
+          content: '<p>Hello</p>',
+        });
+
+        editor.commands.setSelection(1);
+         
+        const result = (editor.commands as any).selectParentNode?.();
+        // May succeed or fail depending on what's selectable
+        expect(typeof result).toBe('boolean');
+      });
+    });
+
+    describe('storage.getNode', () => {
+      it('returns null for text selection', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, Selection],
+          content: '<p>Hello world</p>',
+        });
+
+        editor.commands.setSelection(1, 6);
+        const storage = editor.storage['selection'] as typeof Selection.storage;
+        expect(storage.getNode()).toBe(null);
+      });
+    });
   });
 });

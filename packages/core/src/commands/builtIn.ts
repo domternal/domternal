@@ -6,10 +6,10 @@
  */
 import { TextSelection, AllSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { toggleMark as pmToggleMark, setBlockType as pmSetBlockType, wrapIn as pmWrapIn, lift as pmLift, selectNodeBackward as pmSelectNodeBackward } from 'prosemirror-commands';
+import { setBlockType as pmSetBlockType, wrapIn as pmWrapIn, lift as pmLift, selectNodeBackward as pmSelectNodeBackward } from 'prosemirror-commands';
 import { wrapInList, liftListItem } from 'prosemirror-schema-list';
 import { Fragment, Slice, DOMParser as ProseMirrorDOMParser } from 'prosemirror-model';
-import type { Attrs } from 'prosemirror-model';
+import type { Attrs, Node as PMNode } from 'prosemirror-model';
 import type { CommandSpec, CommandMap } from '../types/Commands.js';
 import type { FocusPosition, Content } from '../types/index.js';
 import { createDocument } from '../helpers/index.js';
@@ -43,13 +43,14 @@ export interface ClearContentOptions {
 
 /**
  * Resolves focus position to a numeric position in the document
+ *
+ * Uses the provided doc (tr.doc) rather than view.state.doc to support
+ * chain context where prior commands may have modified the document.
  */
 function resolveFocusPosition(
-  view: EditorView,
+  doc: { content: { size: number } },
   position: FocusPosition
 ): number | null {
-  const { doc } = view.state;
-
   if (position === null || position === false) {
     return null;
   }
@@ -85,7 +86,7 @@ function resolveFocusPosition(
  */
 export const focus: CommandSpec<[position?: FocusPosition]> =
   (position: FocusPosition = null) =>
-  ({ editor, state, tr, dispatch }) => {
+  ({ editor, tr, dispatch }) => {
     const view = editor.view as EditorView;
 
     // Check if view is attached to DOM (dry-run always returns true)
@@ -101,17 +102,19 @@ export const focus: CommandSpec<[position?: FocusPosition]> =
     view.focus();
 
     // Handle 'all' position - select all content
+    // Use tr.doc to support chain context where prior commands may have modified the document
     if (position === 'all') {
-      const selection = new AllSelection(state.doc);
+      const selection = new AllSelection(tr.doc);
       dispatch(tr.setSelection(selection));
       return true;
     }
 
     // Resolve position to cursor location
-    const resolvedPos = resolveFocusPosition(view, position);
+    // Use tr.doc to support chain context where prior commands may have modified the document
+    const resolvedPos = resolveFocusPosition(tr.doc, position);
 
     if (resolvedPos !== null) {
-      const $pos = state.doc.resolve(resolvedPos);
+      const $pos = tr.doc.resolve(resolvedPos);
       const selection = TextSelection.near($pos);
       dispatch(tr.setSelection(selection));
     }
@@ -163,7 +166,8 @@ export const setContent: CommandSpec<[content: Content, options?: SetContentOpti
     }
 
     // Replace entire document
-    tr.replaceWith(0, state.doc.content.size, doc.content);
+    // Use tr.doc for chain compatibility - prior commands may have modified the document
+    tr.replaceWith(0, tr.doc.content.size, doc.content);
 
     // Mark transaction to potentially skip update event
     if (!emitUpdate) {
@@ -195,7 +199,8 @@ export const clearContent: CommandSpec<[options?: ClearContentOptions]> =
     }
 
     // Replace entire document
-    tr.replaceWith(0, state.doc.content.size, doc.content);
+    // Use tr.doc for chain compatibility - prior commands may have modified the document
+    tr.replaceWith(0, tr.doc.content.size, doc.content);
 
     if (!emitUpdate) {
       tr.setMeta('addToHistory', false);
@@ -264,13 +269,14 @@ export const deleteSelection: CommandSpec =
  */
 export const selectAll: CommandSpec =
   () =>
-  ({ state, tr, dispatch }) => {
+  ({ tr, dispatch }) => {
     // In dry-run mode, always possible
     if (!dispatch) {
       return true;
     }
 
-    const selection = new AllSelection(state.doc);
+    // Use tr.doc for chain compatibility - prior commands may have modified the document
+    const selection = new AllSelection(tr.doc);
     tr.setSelection(selection);
     dispatch(tr);
     return true;
@@ -283,22 +289,64 @@ export const selectAll: CommandSpec =
 /**
  * ToggleMark command - toggles a mark on the current selection
  *
+ * Uses tr.doc/tr.selection for chain compatibility instead of delegating
+ * to ProseMirror's toggleMark which reads from stale state.
+ *
  * @param markName - The name of the mark to toggle
  * @param attributes - Optional attributes for the mark
  */
 export const toggleMark: CommandSpec<[markName: string, attributes?: Attrs]> =
   (markName: string, attributes?: Attrs) =>
-  ({ state, dispatch }) => {
+  ({ state, tr, dispatch }) => {
     const markType = state.schema.marks[markName];
 
     if (!markType) {
       return false;
     }
 
-    // Note: pmToggleMark internally handles dispatch=undefined for dry-run mode.
-    // This is different from other commands that explicitly check !dispatch,
-    // but the behavior is identical - it returns true/false without side effects.
-    return pmToggleMark(markType, attributes)(state, dispatch);
+    const { from, to, empty } = tr.selection;
+
+    // Check if mark can be applied in this context
+    let canApply = false;
+    if (empty) {
+      const $pos = tr.doc.resolve(from);
+      canApply = $pos.parent.inlineContent && $pos.parent.type.allowsMarkType(markType);
+    } else {
+      tr.doc.nodesBetween(from, to, (node) => {
+        if (canApply) return false;
+        if (node.inlineContent && node.type.allowsMarkType(markType)) {
+          canApply = true;
+          return false;
+        }
+        return;
+      });
+    }
+
+    if (!canApply) return false;
+    if (!dispatch) return true;
+
+    if (empty) {
+      // Cursor mode — toggle stored mark
+      const cursorMarks = tr.storedMarks
+        ?? state.storedMarks
+        ?? tr.doc.resolve(from).marks();
+
+      if (markType.isInSet(cursorMarks)) {
+        tr.removeStoredMark(markType);
+      } else {
+        tr.addStoredMark(markType.create(attributes ?? null));
+      }
+    } else {
+      // Range mode — check if mark is present, then toggle
+      if (tr.doc.rangeHasMark(from, to, markType)) {
+        tr.removeMark(from, to, markType);
+      } else {
+        tr.addMark(from, to, markType.create(attributes ?? null));
+      }
+    }
+
+    dispatch(tr);
+    return true;
   };
 
 /**
@@ -325,11 +373,15 @@ export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
         return true;
       }
 
-      // Merge with existing stored mark attributes
-      const existingStoredMark = tr.storedMarks?.find(m => m.type === markType)
-        ?? state.storedMarks?.find(m => m.type === markType);
-      const mergedAttrs = existingStoredMark
-        ? { ...existingStoredMark.attrs, ...attributes }
+      // Merge with existing mark attributes to preserve sibling attributes
+      // (e.g., fontFamily should not be lost when setting fontSize on textStyle)
+      // Priority: stored marks on tr > stored marks on state > marks at cursor position
+      const existingMark = tr.storedMarks?.find(m => m.type === markType)
+        ?? state.storedMarks?.find(m => m.type === markType)
+        ?? tr.doc.resolve(from).marks().find(m => m.type === markType)
+        ?? null;
+      const mergedAttrs = existingMark
+        ? { ...existingMark.attrs, ...attributes }
         : attributes;
 
       const mark = markType.create(mergedAttrs);
@@ -342,20 +394,32 @@ export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
       return true;
     }
 
-    // Merge with existing mark attributes in the selection
-    let existingAttrs: Attrs = {};
-    state.doc.nodesBetween(from, to, (node) => {
+    // Merge per-node to preserve each node's own attributes
+    // (e.g., one word has fontFamily: 'Arial', another has 'Georgia' —
+    //  setting fontSize should preserve each node's fontFamily independently)
+    const nodeMarks: { from: number; to: number; attrs: Attrs }[] = [];
+    tr.doc.nodesBetween(from, to, (node, pos) => {
+      if (!node.isText) return;
       const existing = markType.isInSet(node.marks);
-      if (existing) {
-        existingAttrs = { ...existingAttrs, ...existing.attrs };
-      }
+      const nodeAttrs = existing
+        ? { ...existing.attrs, ...attributes }
+        : (attributes ?? {});
+      nodeMarks.push({
+        from: Math.max(pos, from),
+        to: Math.min(pos + node.nodeSize, to),
+        attrs: nodeAttrs,
+      });
     });
 
-    const mergedAttrs = Object.keys(existingAttrs).length > 0
-      ? { ...existingAttrs, ...attributes }
-      : attributes;
+    if (nodeMarks.length > 0) {
+      for (const nm of nodeMarks) {
+        tr.addMark(nm.from, nm.to, markType.create(nm.attrs));
+      }
+    } else {
+      // No text nodes found (e.g., selection across empty blocks) — apply globally
+      tr.addMark(from, to, markType.create(attributes));
+    }
 
-    tr.addMark(from, to, markType.create(mergedAttrs));
     dispatch(tr);
     return true;
   };
@@ -430,7 +494,7 @@ export const setBlockType: CommandSpec<[nodeName: string, attributes?: Attrs]> =
  */
 export const toggleBlockType: CommandSpec<[nodeName: string, defaultNodeName: string, attributes?: Attrs]> =
   (nodeName: string, defaultNodeName: string, attributes?: Attrs) =>
-  ({ state, dispatch }) => {
+  ({ state, tr, dispatch }) => {
     const nodeType = state.schema.nodes[nodeName];
     const defaultNodeType = state.schema.nodes[defaultNodeName];
 
@@ -438,8 +502,8 @@ export const toggleBlockType: CommandSpec<[nodeName: string, defaultNodeName: st
       return false;
     }
 
-    // Check if the current block is of the target type with matching attributes
-    const { $from } = state.selection;
+    // Use tr.selection for chain compatibility - prior commands may have changed selection
+    const { $from } = tr.selection;
     const currentNode = $from.parent;
 
     // If current block matches target type AND attributes, toggle to default
@@ -485,15 +549,15 @@ export const wrapIn: CommandSpec<[nodeName: string, attributes?: Attrs]> =
  */
 export const toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]> =
   (nodeName: string, attributes?: Attrs) =>
-  ({ state, dispatch }) => {
+  ({ state, tr, dispatch }) => {
     const nodeType = state.schema.nodes[nodeName];
 
     if (!nodeType) {
       return false;
     }
 
-    // Check if we're already inside a node of this type
-    const { $from } = state.selection;
+    // Use tr.selection for chain compatibility - prior commands may have changed selection
+    const { $from } = tr.selection;
     let isWrapped = false;
 
     for (let depth = $from.depth; depth > 0; depth--) {
@@ -551,7 +615,8 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
       return false;
     }
 
-    const { $from } = state.selection;
+    // Use tr.selection for chain compatibility - prior commands may have changed selection
+    const { $from } = tr.selection;
 
     // Find if we're already in a list and get details
     let listDepth: number | null = null;
@@ -582,8 +647,24 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
         return true; // Can convert
       }
 
-      // Change the list node type in place, preserving content and structure
-      tr.setNodeMarkup(pos, listType, attributes);
+      const listNode = tr.doc.nodeAt(pos);
+      if (!listNode) return false;
+
+      // If item types differ (e.g., taskItem ↔ listItem), replace entire list
+      // to avoid invalid intermediate state (parent content spec violation)
+      const firstChild = listNode.firstChild;
+      if (firstChild && firstChild.type !== listItemType) {
+        const newItems: PMNode[] = [];
+        listNode.forEach((child) => {
+          newItems.push(listItemType.create(child.attrs, child.content, child.marks));
+        });
+        const newList = listType.create(attributes, newItems);
+        tr.replaceWith(pos, pos + listNode.nodeSize, newList);
+      } else {
+        // Same item type, just change the wrapper
+        tr.setNodeMarkup(pos, listType, attributes);
+      }
+
       dispatch(tr);
       return true;
     }
@@ -689,9 +770,10 @@ export const updateAttributes: CommandSpec<[typeOrName: string, attributes: Reco
     const nodeChanges: { pos: number; attrs: Record<string, unknown> }[] = [];
     const markChanges: { pos: number; nodeSize: number; attrs: Record<string, unknown> }[] = [];
 
+    // Use tr.doc to support chain context where prior commands may have modified the document
     // For nodes - collect changes
     if (state.schema.nodes[typeOrName]) {
-      state.doc.nodesBetween(from, to, (node, pos) => {
+      tr.doc.nodesBetween(from, to, (node, pos) => {
         if (node.type.name === typeOrName) {
           nodeChanges.push({ pos, attrs: { ...node.attrs, ...attributes } });
         }
@@ -701,7 +783,7 @@ export const updateAttributes: CommandSpec<[typeOrName: string, attributes: Reco
     // For marks - collect changes
     if (state.schema.marks[typeOrName]) {
       const markType = state.schema.marks[typeOrName];
-      state.doc.nodesBetween(from, to, (node, pos) => {
+      tr.doc.nodesBetween(from, to, (node, pos) => {
         if (!node.isInline) return;
 
         const mark = markType.isInSet(node.marks);
@@ -762,11 +844,12 @@ export const resetAttributes: CommandSpec<[typeOrName: string, attributeName: st
     const nodeChanges: { pos: number; attrs: Record<string, unknown> }[] = [];
     const markChanges: { pos: number; nodeSize: number; attrs: Record<string, unknown> }[] = [];
 
+    // Use tr.doc to support chain context where prior commands may have modified the document
     // For nodes - collect changes
     if (nodeType) {
       const defaultValue: unknown = nodeType.spec.attrs?.[attributeName]?.default;
 
-      state.doc.nodesBetween(from, to, (node, pos) => {
+      tr.doc.nodesBetween(from, to, (node, pos) => {
         if (node.type === nodeType) {
           nodeChanges.push({
             pos,
@@ -780,7 +863,7 @@ export const resetAttributes: CommandSpec<[typeOrName: string, attributeName: st
     if (markType) {
       const defaultValue: unknown = markType.spec.attrs?.[attributeName]?.default;
 
-      state.doc.nodesBetween(from, to, (node, pos) => {
+      tr.doc.nodesBetween(from, to, (node, pos) => {
         if (!node.isInline) return;
 
         const mark = markType.isInSet(node.marks);

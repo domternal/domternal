@@ -1,5 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import type { Node as PMNode } from 'prosemirror-model';
+import { TextSelection } from 'prosemirror-state';
+import { splitListItem } from 'prosemirror-schema-list';
 import { ListItem } from './ListItem.js';
 import { BulletList } from './BulletList.js';
 import { OrderedList } from './OrderedList.js';
@@ -93,6 +95,24 @@ describe('ListItem', () => {
 
       expect(shortcuts).toHaveProperty('Shift-Tab');
     });
+
+    it('Tab returns false when no editor/nodeType', () => {
+       
+      const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
+        ...ListItem, editor: undefined, nodeType: undefined, options: ListItem.options,
+      } as any);
+       
+      expect((shortcuts?.['Tab'] as any)?.()).toBe(false);
+    });
+
+    it('Shift-Tab returns false when no editor/nodeType', () => {
+       
+      const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
+        ...ListItem, editor: undefined, nodeType: undefined, options: ListItem.options,
+      } as any);
+       
+      expect((shortcuts?.['Shift-Tab'] as any)?.()).toBe(false);
+    });
   });
 
   describe('integration', () => {
@@ -167,6 +187,84 @@ describe('ListItem', () => {
       expect(outerListItem.childCount).toBe(2);
       expect(outerListItem.child(0).type.name).toBe('paragraph');
       expect(outerListItem.child(1).type.name).toBe('bulletList');
+    });
+
+    it('Tab sinks list item when editor is available', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, ListItem],
+        content: '<ul><li><p>Item 1</p></li><li><p>Item 2</p></li></ul>',
+      });
+
+      // Position cursor in second list item
+      // Structure: ul > li > p > "Item 1" | li > p > "Item 2"
+      // doc(0) > bulletList(1) > listItem(2) > p(3) > "Item 1"(4-9) > /p(10) > /li(11) > li(12) > p(13) > "Item 2"(14-19)
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 14))
+      );
+
+      const nodeType = editor.state.schema.nodes['listItem'];
+       
+      const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
+        ...ListItem, editor, nodeType, options: ListItem.options,
+      } as any);
+
+       
+      const result = (shortcuts?.['Tab'] as any)?.();
+      expect(result).toBe(true);
+    });
+
+    it('Shift-Tab lifts nested list item', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, ListItem],
+        content: '<ul><li><p>Parent</p><ul><li><p>Child</p></li></ul></li></ul>',
+      });
+
+      // Position cursor in nested (child) list item
+      // doc > ul > li > p > "Parent" > /p > ul > li > p > "Child"
+      // Find position inside "Child"
+      const doc = editor.state.doc;
+      // Find a text position inside "Child"
+      let childPos = 0;
+      doc.descendants((node, pos) => {
+        if (node.isText && node.text === 'Child') {
+          childPos = pos;
+        }
+      });
+
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(doc, childPos))
+      );
+
+      const nodeType = editor.state.schema.nodes['listItem'];
+       
+      const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
+        ...ListItem, editor, nodeType, options: ListItem.options,
+      } as any);
+
+       
+      const result = (shortcuts?.['Shift-Tab'] as any)?.();
+      expect(result).toBe(true);
+    });
+
+    it('Enter splits list item via keymap plugin', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, ListItem],
+        content: '<ul><li><p>Hello world</p></li></ul>',
+      });
+
+      // Position cursor in the middle of the text
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 8))
+      );
+
+      // The Enter key is handled by the keymap plugin from addProseMirrorPlugins
+      // We can invoke the splitListItem command directly to test the same code path
+      const nodeType = editor.state.schema.nodes['listItem']!;
+      const result = splitListItem(nodeType)(editor.state, editor.view.dispatch);
+      expect(result).toBe(true);
+
+      // Should now have two list items
+      expect(editor.state.doc.child(0).childCount).toBe(2);
     });
   });
 });

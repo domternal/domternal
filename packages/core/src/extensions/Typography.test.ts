@@ -4,8 +4,12 @@
  * Tests extension creation and configuration.
  * Note: Full input rule testing requires browser/DOM simulation.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { Typography } from './Typography.js';
+import { Document } from '../nodes/Document.js';
+import { Text } from '../nodes/Text.js';
+import { Paragraph } from '../nodes/Paragraph.js';
+import { Editor } from '../Editor.js';
 
 describe('Typography', () => {
   describe('extension creation', () => {
@@ -299,6 +303,186 @@ describe('Typography', () => {
 
       // "text" and 'text' (2 smart quote rules)
       expect(withSmartQuotes?.length).toBe(2);
+    });
+  });
+
+  describe('input rule handler execution', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    function getRules(): unknown[] {
+      return Typography.config.addInputRules?.call({
+        options: Typography.options,
+      } as never) ?? [];
+    }
+
+    // Rules indices when all enabled: 0=emDash, 1=ellipsis, 2=<-, 3=->, 4=>=>,
+    // 5=1/2, 6=1/4, 7=3/4, 8=1/3, 9=2/3, 10=(c), 11=(r), 12=(tm), 13=(sm),
+    // 14=+/-, 15=!=, 16=<=, 17=>=, 18=<<, 19=>>, 20="text", 21='text'
+
+    function createEditor(): Editor {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Typography],
+        content: '<p>placeholder text here</p>',
+      });
+      return editor;
+    }
+
+    const simpleReplacements: [number, string, string][] = [
+      [0, 'emDash', '—'],
+      [1, 'ellipsis', '…'],
+      [2, 'left arrow', '←'],
+      [3, 'right arrow', '→'],
+      [4, 'double arrow', '⇒'],
+      [5, '1/2', '½'],
+      [6, '1/4', '¼'],
+      [7, '3/4', '¾'],
+      [8, '1/3', '⅓'],
+      [9, '2/3', '⅔'],
+      [10, 'copyright', '©'],
+      [11, 'registered', '®'],
+      [12, 'trademark', '™'],
+      [13, 'service mark', '℠'],
+      [14, 'plus-minus', '±'],
+      [15, 'not equal', '≠'],
+      [16, 'less or equal', '≤'],
+      [17, 'greater or equal', '≥'],
+      [18, 'left guillemet', '«'],
+      [19, 'right guillemet', '»'],
+    ];
+
+    // InputRule.handler exists at runtime but is not in the TypeScript types
+     
+    // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+    function callHandler(rule: any, state: any, match: unknown[], start: number, end: number) {
+      return rule.handler(state, match, start, end);
+    }
+
+    simpleReplacements.forEach(([index, name, expected]) => {
+      it(`${name} handler produces ${expected}`, () => {
+        const ed = createEditor();
+        const rules = getRules();
+        const tr = callHandler(rules[index], ed.state, ['xx'], 1, 3);
+        expect(tr).toBeTruthy();
+        expect(tr.doc.textContent).toContain(expected);
+      });
+    });
+
+    it('smart double quotes handler produces curly quotes', () => {
+      const ed = createEditor();
+      const rules = getRules();
+      const tr = callHandler(rules[20], ed.state, ['"hello"', 'hello'], 1, 8);
+      expect(tr).toBeTruthy();
+      expect(tr.doc.textContent).toContain('\u201C');
+      expect(tr.doc.textContent).toContain('\u201D');
+    });
+
+    it('smart single quotes handler produces curly quotes with prefix', () => {
+      const ed = createEditor();
+      const rules = getRules();
+      const tr = callHandler(rules[21], ed.state, [" 'hello'", 'hello'], 1, 10);
+      expect(tr).toBeTruthy();
+      expect(tr.doc.textContent).toContain('\u2018');
+      expect(tr.doc.textContent).toContain('\u2019');
+    });
+
+    it('smart single quotes handler without prefix', () => {
+      const ed = createEditor();
+      const rules = getRules();
+      const tr = callHandler(rules[21], ed.state, ["'hello'", 'hello'], 1, 8);
+      expect(tr).toBeTruthy();
+      expect(tr.doc.textContent).toContain('\u2018');
+    });
+  });
+
+  describe('integration', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    it('works with Editor', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Typography],
+        content: '<p>Hello</p>',
+      });
+
+      expect(editor.getText()).toContain('Hello');
+    });
+
+    it('registers input rules in editor', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Typography],
+        content: '<p></p>',
+      });
+
+      // Editor should have plugins from Typography input rules
+      expect(editor.state.plugins.length).toBeGreaterThan(0);
+    });
+
+    it('works with all options disabled', () => {
+      const CustomTypography = Typography.configure({
+        emDash: false,
+        ellipsis: false,
+        arrows: false,
+        fractions: false,
+        symbols: false,
+        math: false,
+        guillemets: false,
+        smartQuotes: false,
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomTypography],
+        content: '<p>Hello</p>',
+      });
+
+      expect(editor.getText()).toContain('Hello');
+    });
+
+    it('works with only emDash enabled', () => {
+      const CustomTypography = Typography.configure({
+        emDash: true,
+        ellipsis: false,
+        arrows: false,
+        fractions: false,
+        symbols: false,
+        math: false,
+        guillemets: false,
+        smartQuotes: false,
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomTypography],
+        content: '<p>Hello</p>',
+      });
+
+      expect(editor.getText()).toContain('Hello');
+    });
+
+    it('configured options are preserved', () => {
+      const CustomTypography = Typography.configure({
+        emDash: false,
+        ellipsis: false,
+      });
+
+      expect(CustomTypography.options.emDash).toBe(false);
+      expect(CustomTypography.options.ellipsis).toBe(false);
+      expect(CustomTypography.options.arrows).toBe(true);
+    });
+
+    it('configured custom quote characters are preserved', () => {
+      const CustomTypography = Typography.configure({
+        openDoubleQuote: '«',
+        closeDoubleQuote: '»',
+      });
+
+      expect(CustomTypography.options.openDoubleQuote).toBe('«');
+      expect(CustomTypography.options.closeDoubleQuote).toBe('»');
     });
   });
 });

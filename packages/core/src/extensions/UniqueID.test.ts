@@ -1,7 +1,8 @@
 /**
  * Tests for UniqueID extension
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { Fragment, Slice } from 'prosemirror-model';
 import { UniqueID } from './UniqueID.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
@@ -221,6 +222,171 @@ describe('UniqueID', () => {
       expect(paragraph.attrs['id']).toBeUndefined();
       // Heading should have ID
       expect(heading.attrs['id']).toBeDefined();
+    });
+
+    it('renderHTML returns null for empty string id', () => {
+      const globalAttrs = UniqueID.config.addGlobalAttributes?.call(UniqueID);
+      const renderHTML = globalAttrs?.[0]?.attributes['id']?.renderHTML;
+
+      const result = renderHTML?.({ id: '' });
+      expect(result).toBe(null);
+    });
+
+    it('renderHTML returns null for undefined id', () => {
+      const globalAttrs = UniqueID.config.addGlobalAttributes?.call(UniqueID);
+      const renderHTML = globalAttrs?.[0]?.attributes['id']?.renderHTML;
+
+      const result = renderHTML?.({ id: undefined });
+      expect(result).toBe(null);
+    });
+
+    it('parseHTML returns null when no attribute', () => {
+      const globalAttrs = UniqueID.config.addGlobalAttributes?.call(UniqueID);
+      const parseHTML = globalAttrs?.[0]?.attributes['id']?.parseHTML;
+
+      const element = document.createElement('p');
+      expect(parseHTML?.(element)).toBe(null);
+    });
+
+    it('custom attributeName reflects in globalAttributes', () => {
+      const CustomUniqueID = UniqueID.configure({
+        attributeName: 'data-block-id',
+      });
+
+      const globalAttrs = CustomUniqueID.config.addGlobalAttributes?.call(CustomUniqueID);
+      expect(globalAttrs?.[0]?.attributes).toHaveProperty('data-block-id');
+    });
+
+    it('custom types reflects in globalAttributes', () => {
+      const CustomUniqueID = UniqueID.configure({
+        types: ['paragraph'],
+      });
+
+      const globalAttrs = CustomUniqueID.config.addGlobalAttributes?.call(CustomUniqueID);
+      expect(globalAttrs?.[0]?.types).toEqual(['paragraph']);
+    });
+
+    it('filterDuplicates false disables transformPasted', () => {
+      const CustomUniqueID = UniqueID.configure({
+        filterDuplicates: false,
+      });
+
+      const plugins = CustomUniqueID.config.addProseMirrorPlugins?.call(CustomUniqueID);
+      expect(Array.isArray(plugins)).toBe(true);
+      expect(plugins?.length).toBeGreaterThan(0);
+      // Plugin should not have transformPasted in props
+      const plugin = plugins?.[0];
+      expect(plugin?.props.transformPasted).toBeUndefined();
+    });
+
+    it('filterDuplicates true enables transformPasted', () => {
+      const plugins = UniqueID.config.addProseMirrorPlugins?.call(UniqueID);
+      const plugin = plugins?.[0];
+      expect(plugin?.props.transformPasted).toBeDefined();
+    });
+
+    it('multiple paragraphs get unique existing IDs preserved', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, UniqueID],
+        content: '<p id="a">First</p><p id="b">Second</p>',
+      });
+
+      const doc = editor.state.doc;
+      expect(doc.child(0).attrs['id']).toBe('a');
+      expect(doc.child(1).attrs['id']).toBe('b');
+    });
+
+    it('appendTransaction assigns IDs to nodes after doc change', () => {
+      vi.useFakeTimers();
+
+      let counter = 0;
+      const CustomUniqueID = UniqueID.configure({
+        types: ['paragraph'],
+        generateID: () => `gen-${String(++counter)}`,
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomUniqueID],
+        content: '<p>Hello</p>',
+      });
+
+      // Paragraph has id: null (setTimeout from view callback hasn't fired)
+      // Insert text to trigger a doc-changing transaction -> appendTransaction fires
+      editor.view.dispatch(editor.state.tr.insertText('x', 1));
+
+      // appendTransaction should have assigned an ID
+      const paragraph = editor.state.doc.child(0);
+      expect(paragraph.attrs['id']).toMatch(/^gen-/);
+
+      vi.useRealTimers();
+    });
+
+    it('transformPasted regenerates duplicate IDs', () => {
+      vi.useFakeTimers();
+
+      let callCount = 0;
+      const CustomUniqueID = UniqueID.configure({
+        types: ['paragraph'],
+        generateID: () => `new-id-${String(++callCount)}`,
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomUniqueID],
+        content: '<p id="dup-id">Existing</p>',
+      });
+
+      // Find the plugin with transformPasted
+      const plugin = editor.state.plugins.find(p => p.props.transformPasted !== undefined);
+      expect(plugin).toBeDefined();
+
+      const transformPasted = plugin!.props.transformPasted!;
+
+      // Create a paste slice with a paragraph that has the same ID as existing content
+      const pasteNode = editor.state.schema.nodes['paragraph']!.create(
+        { id: 'dup-id' },
+        editor.state.schema.text('Pasted')
+      );
+      const slice = new Slice(Fragment.from(pasteNode), 0, 0);
+
+      const result = transformPasted.call(plugin!, slice, editor.view, false);
+      const pastedParagraph = result.content.firstChild;
+
+      // Duplicate ID should have been regenerated
+      expect(pastedParagraph?.attrs['id']).not.toBe('dup-id');
+      expect(pastedParagraph?.attrs['id']).toMatch(/^new-id-/);
+
+      vi.useRealTimers();
+    });
+
+    it('transformPasted preserves unique IDs', () => {
+      vi.useFakeTimers();
+
+      const CustomUniqueID = UniqueID.configure({
+        types: ['paragraph'],
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomUniqueID],
+        content: '<p id="existing-id">Existing</p>',
+      });
+
+      const plugin = editor.state.plugins.find(p => p.props.transformPasted !== undefined);
+      const transformPasted = plugin!.props.transformPasted!;
+
+      // Create a paste slice with a unique (non-duplicate) ID
+      const pasteNode = editor.state.schema.nodes['paragraph']!.create(
+        { id: 'unique-new-id' },
+        editor.state.schema.text('Pasted')
+      );
+      const slice = new Slice(Fragment.from(pasteNode), 0, 0);
+
+      const result = transformPasted.call(plugin!, slice, editor.view, false);
+      const pastedParagraph = result.content.firstChild;
+
+      // Unique ID should be preserved
+      expect(pastedParagraph?.attrs['id']).toBe('unique-new-id');
+
+      vi.useRealTimers();
     });
   });
 });

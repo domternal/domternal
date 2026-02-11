@@ -144,6 +144,46 @@ describe('createDocument', () => {
     });
   });
 
+  describe('empty document fallback (no paragraph type)', () => {
+    it('uses first block type when paragraph is not available', () => {
+      const noParagraphSchema = new Schema({
+        nodes: {
+          doc: { content: 'block+' },
+          heading: {
+            group: 'block',
+            content: 'inline*',
+            attrs: { level: { default: 1 } },
+            parseDOM: [{ tag: 'h1' }],
+            toDOM() {
+              return ['h1', 0];
+            },
+          },
+          text: { group: 'inline' },
+        },
+      });
+
+      const doc = createDocument(null, noParagraphSchema);
+
+      expect(doc.type.name).toBe('doc');
+      expect(doc.childCount).toBe(1);
+      expect(doc.firstChild?.type.name).toBe('heading');
+    });
+
+    it('creates empty doc when no block types exist', () => {
+      const minimalSchema = new Schema({
+        nodes: {
+          doc: { content: 'text*' },
+          text: {},
+        },
+      });
+
+      const doc = createDocument(null, minimalSchema);
+
+      expect(doc.type.name).toBe('doc');
+      expect(doc.childCount).toBe(0);
+    });
+  });
+
   describe('invalid content', () => {
     it('throws error for plain text (no HTML tags)', () => {
       expect(() => {

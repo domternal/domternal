@@ -98,6 +98,15 @@ describe('TaskList', () => {
 
       expect(shortcuts).toHaveProperty('Mod-Shift-9');
     });
+
+    it('shortcut returns false when no editor', () => {
+       
+      const shortcuts = TaskList.config.addKeyboardShortcuts?.call({
+        ...TaskList, editor: undefined, options: TaskList.options,
+      } as any);
+       
+      expect((shortcuts?.['Mod-Shift-9'] as any)?.()).toBe(false);
+    });
   });
 
   describe('addInputRules', () => {
@@ -161,6 +170,15 @@ describe('TaskList', () => {
       const doc = editor.state.doc;
       const taskItem = doc.child(0).child(0);
       expect(taskItem.attrs['checked']).toBe(true);
+    });
+
+    it('toggleTaskList wraps paragraph in task list', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<p>Make this a task</p>',
+      });
+      editor.commands.toggleTaskList();
+      expect(editor.state.doc.child(0).type.name).toBe('taskList');
     });
 
     it('supports multiple task items', () => {

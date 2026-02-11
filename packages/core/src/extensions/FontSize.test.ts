@@ -72,6 +72,17 @@ describe('FontSize', () => {
       const result = renderHTML?.({ fontSize: null });
       expect(result).toBe(null);
     });
+
+    it('renderHTML returns null for disallowed fontSize', () => {
+      const CustomFontSize = FontSize.configure({
+        fontSizes: ['12px', '14px', '16px'],
+      });
+      const globalAttrs = CustomFontSize.config.addGlobalAttributes?.call(CustomFontSize);
+      const renderHTML = globalAttrs?.[0]?.attributes['fontSize']?.renderHTML;
+
+      const result = renderHTML?.({ fontSize: '24px' });
+      expect(result).toBe(null);
+    });
   });
 
   describe('addCommands', () => {
@@ -140,6 +151,18 @@ describe('FontSize', () => {
 
       const result = editor.commands.setFontSize('20px');
 
+      expect(result).toBe(true);
+    });
+
+    it('unsetFontSize removes font size', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, FontSize],
+        content: '<p><span style="font-size: 20px">Sized</span></p>',
+      });
+
+      editor.focus('all');
+
+      const result = editor.commands.unsetFontSize();
       expect(result).toBe(true);
     });
   });

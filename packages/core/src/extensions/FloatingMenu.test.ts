@@ -313,5 +313,58 @@ describe('FloatingMenu', () => {
       // Should be hidden because shouldShow returns false
       expect(menuElement.style.visibility).toBe('hidden');
     });
+
+    it('hides menu on destroy', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      const CustomFloatingMenu = FloatingMenu.configure({
+        element: menuElement,
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomFloatingMenu],
+        content: '<p>Test</p>',
+      });
+
+      editor.destroy();
+
+      expect(menuElement.style.visibility).toBe('hidden');
+      expect(menuElement.style.opacity).toBe('0');
+    });
+
+    it('configures custom zIndex via tippyOptions', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      const CustomFloatingMenu = FloatingMenu.configure({
+        element: menuElement,
+        tippyOptions: { zIndex: 5000 },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomFloatingMenu],
+        content: '<p>Hello</p>',
+      });
+
+      expect(editor.getText()).toContain('Hello');
+    });
+
+    it('configures custom offset', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      const CustomFloatingMenu = FloatingMenu.configure({
+        element: menuElement,
+        offset: [15, 25],
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomFloatingMenu],
+        content: '<p>Hello</p>',
+      });
+
+      expect(editor.getText()).toContain('Hello');
+    });
   });
 });

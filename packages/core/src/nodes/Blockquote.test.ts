@@ -98,6 +98,15 @@ describe('Blockquote', () => {
 
       expect(shortcuts).toHaveProperty('Mod-Shift-b');
     });
+
+    it('shortcut returns false when no editor', () => {
+       
+      const shortcuts = Blockquote.config.addKeyboardShortcuts?.call({
+        ...Blockquote, editor: undefined, options: Blockquote.options,
+      } as any);
+       
+      expect((shortcuts?.['Mod-Shift-b'] as any)?.()).toBe(false);
+    });
   });
 
   describe('addInputRules', () => {
@@ -156,6 +165,35 @@ describe('Blockquote', () => {
       expect(doc.child(0).type.name).toBe('blockquote');
       expect(doc.child(0).child(0).type.name).toBe('blockquote');
       expect(doc.child(0).child(0).child(0).type.name).toBe('paragraph');
+    });
+
+    it('setBlockquote wraps paragraph in blockquote', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Blockquote],
+        content: '<p>Quote me</p>',
+      });
+      editor.commands.setBlockquote();
+      expect(editor.state.doc.child(0).type.name).toBe('blockquote');
+    });
+
+    it('toggleBlockquote wraps and unwraps', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Blockquote],
+        content: '<p>Toggle me</p>',
+      });
+      editor.commands.toggleBlockquote();
+      expect(editor.state.doc.child(0).type.name).toBe('blockquote');
+      editor.commands.toggleBlockquote();
+      expect(editor.state.doc.child(0).type.name).toBe('paragraph');
+    });
+
+    it('unsetBlockquote lifts out of blockquote', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Blockquote],
+        content: '<blockquote><p>Lift me</p></blockquote>',
+      });
+      editor.commands.unsetBlockquote();
+      expect(editor.state.doc.child(0).type.name).toBe('paragraph');
     });
 
     it('can contain multiple paragraphs', () => {

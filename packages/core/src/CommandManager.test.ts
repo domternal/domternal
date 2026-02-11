@@ -4,7 +4,7 @@
  * Testing Proxy-based dynamic command API requires flexible typing.
  * ESLint rules for `any` are disabled as this is standard practice for testing dynamic APIs.
  */
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-empty-function, @typescript-eslint/restrict-template-expressions */
+/* eslint-disable @typescript-eslint/no-empty-function, @typescript-eslint/restrict-template-expressions */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Schema } from 'prosemirror-model';
 import { EditorState, TextSelection } from 'prosemirror-state';

@@ -60,7 +60,7 @@ describe('markInputRule', () => {
   ) => Transaction | null;
 
   function getHandler(rule: ReturnType<typeof markInputRule>): InputRuleHandler {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-member-access
+     
     return (rule as any).handler as InputRuleHandler;
   }
 
@@ -222,7 +222,7 @@ describe('markInputRule', () => {
           (m: { type: { name: string } }) => m.type.name === 'highlight'
         );
         expect(highlightMark).toBeDefined();
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
+         
         expect((highlightMark as any)?.attrs?.color).toBe('yellow');
       }
     });

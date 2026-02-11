@@ -149,16 +149,17 @@ export const Selection = Extension.create<SelectionOptions, SelectionStorage>({
     return {
       setSelection:
         (from: number, to?: number) =>
-        ({ state, dispatch }) => {
+        ({ tr, dispatch }) => {
           const resolvedTo = to ?? from;
 
-          if (from < 0 || resolvedTo > state.doc.content.size) {
+          // Use tr.doc for chain compatibility - prior commands may have modified the document
+          if (from < 0 || resolvedTo > tr.doc.content.size) {
             return false;
           }
 
           if (dispatch) {
-            const selection = TextSelection.create(state.doc, from, resolvedTo);
-            const tr = state.tr.setSelection(selection);
+            const selection = TextSelection.create(tr.doc, from, resolvedTo);
+            tr.setSelection(selection);
             dispatch(tr);
           }
 
@@ -167,19 +168,19 @@ export const Selection = Extension.create<SelectionOptions, SelectionStorage>({
 
       selectNode:
         (pos: number) =>
-        ({ state, dispatch }) => {
-          // Validate position is within bounds
-          if (pos < 0 || pos >= state.doc.content.size) {
+        ({ tr, dispatch }) => {
+          // Use tr.doc for chain compatibility - prior commands may have modified the document
+          if (pos < 0 || pos >= tr.doc.content.size) {
             return false;
           }
 
-          const node = state.doc.nodeAt(pos);
+          const node = tr.doc.nodeAt(pos);
 
           if (!node) return false;
 
           if (dispatch) {
-            const selection = NodeSelection.create(state.doc, pos);
-            const tr = state.tr.setSelection(selection);
+            const selection = NodeSelection.create(tr.doc, pos);
+            tr.setSelection(selection);
             dispatch(tr);
           }
 
@@ -188,9 +189,9 @@ export const Selection = Extension.create<SelectionOptions, SelectionStorage>({
 
       selectParentNode:
         () =>
-        ({ state, dispatch }) => {
-          const { selection } = state;
-          const { $from } = selection;
+        ({ tr, dispatch }) => {
+          // Use tr.selection/tr.doc for chain compatibility
+          const { $from } = tr.selection;
 
           // Find the nearest parent node that can be selected
           for (let depth = $from.depth; depth > 0; depth--) {
@@ -199,8 +200,8 @@ export const Selection = Extension.create<SelectionOptions, SelectionStorage>({
 
             if (node.type.spec.selectable !== false) {
               if (dispatch) {
-                const sel = NodeSelection.create(state.doc, pos);
-                const tr = state.tr.setSelection(sel);
+                const sel = NodeSelection.create(tr.doc, pos);
+                tr.setSelection(sel);
                 dispatch(tr);
               }
               return true;
@@ -212,28 +213,28 @@ export const Selection = Extension.create<SelectionOptions, SelectionStorage>({
 
       extendSelection:
         (direction: 'left' | 'right' | 'start' | 'end') =>
-        ({ state, dispatch }) => {
-          const { selection } = state;
-          let { from, to } = selection;
+        ({ tr, dispatch }) => {
+          // Use tr.selection/tr.doc for chain compatibility
+          let { from, to } = tr.selection;
 
           switch (direction) {
             case 'left':
               from = Math.max(0, from - 1);
               break;
             case 'right':
-              to = Math.min(state.doc.content.size, to + 1);
+              to = Math.min(tr.doc.content.size, to + 1);
               break;
             case 'start':
               from = 0;
               break;
             case 'end':
-              to = state.doc.content.size;
+              to = tr.doc.content.size;
               break;
           }
 
           if (dispatch) {
-            const newSelection = TextSelection.create(state.doc, from, to);
-            const tr = state.tr.setSelection(newSelection);
+            const newSelection = TextSelection.create(tr.doc, from, to);
+            tr.setSelection(newSelection);
             dispatch(tr);
           }
 

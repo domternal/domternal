@@ -107,6 +107,15 @@ describe('OrderedList', () => {
 
       expect(shortcuts).toHaveProperty('Mod-Shift-7');
     });
+
+    it('shortcut returns false when no editor', () => {
+       
+      const shortcuts = OrderedList.config.addKeyboardShortcuts?.call({
+        ...OrderedList, editor: undefined, options: OrderedList.options,
+      } as any);
+       
+      expect((shortcuts?.['Mod-Shift-7'] as any)?.()).toBe(false);
+    });
   });
 
   describe('addInputRules', () => {
@@ -198,6 +207,15 @@ describe('OrderedList', () => {
       expect(list.childCount).toBe(3);
     });
 
+    it('toggleOrderedList wraps paragraph in ordered list', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, OrderedList, ListItem],
+        content: '<p>List me</p>',
+      });
+      editor.commands.toggleOrderedList();
+      expect(editor.state.doc.child(0).type.name).toBe('orderedList');
+    });
+
     it('supports nested lists', () => {
       editor = new Editor({
         extensions: [Document, Text, Paragraph, OrderedList, ListItem],
@@ -210,6 +228,30 @@ describe('OrderedList', () => {
       const listItem = outerList.child(0);
       expect(listItem.childCount).toBe(2);
       expect(listItem.child(1).type.name).toBe('orderedList');
+    });
+
+    it('inputRule handler applies start number from match', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, OrderedList, ListItem],
+        content: '<p>5. </p>',
+      });
+
+      const nodeType = editor.state.schema.nodes['orderedList'];
+       
+      const rules = OrderedList.config.addInputRules?.call({
+        ...OrderedList, nodeType, options: OrderedList.options,
+      } as any);
+
+      const rule = rules![0]!;
+      const match = ['5. ', '5'] as unknown as RegExpMatchArray;
+       
+      const result = (rule as any).handler(editor.state, match, 1, 4);
+      expect(result).toBeTruthy();
+      if (result) {
+        const list = result.doc.child(0);
+        expect(list.type.name).toBe('orderedList');
+        expect(list.attrs.start).toBe(5);
+      }
     });
   });
 });

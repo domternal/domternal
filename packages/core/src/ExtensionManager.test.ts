@@ -3,7 +3,7 @@
  *
  * ESLint rules disabled for testing patterns that require flexible typing.
  */
-/* eslint-disable @typescript-eslint/no-confusing-void-expression, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/only-throw-error */
+/* eslint-disable @typescript-eslint/no-confusing-void-expression, @typescript-eslint/only-throw-error */
 import { describe, it, expect, vi } from 'vitest';
 import { Schema } from 'prosemirror-model';
 import type { Plugin } from 'prosemirror-state';

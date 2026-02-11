@@ -199,6 +199,42 @@ describe('TaskItem', () => {
 
       expect(shortcuts).toHaveProperty('Mod-Enter');
     });
+
+    it('Enter returns false when no editor', () => {
+       
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem, editor: undefined, nodeType: undefined, options: TaskItem.options,
+      } as any);
+       
+      expect((shortcuts?.['Enter'] as any)?.()).toBe(false);
+    });
+
+    it('Tab returns false when no editor', () => {
+       
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem, editor: undefined, nodeType: undefined, options: TaskItem.options,
+      } as any);
+       
+      expect((shortcuts?.['Tab'] as any)?.()).toBe(false);
+    });
+
+    it('Shift-Tab returns false when no editor', () => {
+       
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem, editor: undefined, nodeType: undefined, options: TaskItem.options,
+      } as any);
+       
+      expect((shortcuts?.['Shift-Tab'] as any)?.()).toBe(false);
+    });
+
+    it('Mod-Enter returns false when no editor', () => {
+       
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem, editor: undefined, nodeType: undefined, options: TaskItem.options,
+      } as any);
+       
+      expect((shortcuts?.['Mod-Enter'] as any)?.()).toBe(false);
+    });
   });
 
   describe('integration', () => {

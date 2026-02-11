@@ -75,21 +75,44 @@ export const TextStyle = Mark.create<TextStyleOptions>({
 
       removeEmptyTextStyle:
         () =>
-        ({ state, dispatch }) => {
-          // Check if textStyle mark exists with no meaningful attributes
-          const { from, to } = state.selection;
+        ({ state, tr, dispatch }) => {
+          const { from, to, empty } = tr.selection;
           const markType = this.markType;
 
           if (!markType) return false;
 
+          // For empty selection, check stored marks — setMark on empty selection
+          // only modifies stored marks, so the document still has the old mark.
+          // An empty textStyle stored mark (all attrs null) would cause future
+          // typed text to get a meaningless <span> wrapper.
+          if (empty) {
+            const storedMarks = tr.storedMarks ?? state.storedMarks;
+            if (storedMarks) {
+              const storedTextStyle = storedMarks.find(m => m.type === markType);
+              if (storedTextStyle) {
+                const hasNonNullAttr = Object.values(storedTextStyle.attrs).some(
+                  (val) => val !== null && val !== undefined
+                );
+                if (!hasNonNullAttr) {
+                  if (dispatch) {
+                    tr.removeStoredMark(markType);
+                    dispatch(tr);
+                  }
+                  return true;
+                }
+              }
+            }
+            return false;
+          }
+
+          // Non-empty selection: check document marks
           let hasEmptyTextStyle = false;
 
-          state.doc.nodesBetween(from, to, (node) => {
+          tr.doc.nodesBetween(from, to, (node) => {
             const textStyleMark = node.marks.find(
               (mark) => mark.type.name === this.name
             );
             if (textStyleMark) {
-              // Check if all attribute values are null/undefined
               const hasNonNullAttr = Object.values(textStyleMark.attrs).some(
                 (val) => val !== null && val !== undefined
               );
@@ -103,7 +126,7 @@ export const TextStyle = Mark.create<TextStyleOptions>({
           if (!hasEmptyTextStyle) return false;
 
           if (dispatch) {
-            const tr = state.tr.removeMark(from, to, markType);
+            tr.removeMark(from, to, markType);
             dispatch(tr);
           }
 
