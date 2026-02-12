@@ -199,14 +199,23 @@ describe('Link', () => {
       expect(pluginKeys.some((k) => k.includes('autolink'))).toBe(false);
     });
 
-    it('disables click handler when configured', () => {
+    it('does not open link on click when openOnClick is false', () => {
       const NoClick = Link.configure({ openOnClick: false });
       editor = new Editor({
         extensions: [Document, Text, Paragraph, NoClick],
-        content: '<p>test</p>',
+        content: '<p><a href="https://example.com">link</a></p>',
       });
-      const pluginKeys = editor.state.plugins.map((p) => (p.spec.key as { key?: string } | undefined)?.key ?? '');
-      expect(pluginKeys.some((k) => k.includes('linkClick'))).toBe(false);
+
+      const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+      const plugin = editor.state.plugins.find(
+        (p) => (p.spec.key as { key?: string } | undefined)?.key?.includes('linkClick')
+      );
+      const handler = plugin!.props.handleClick as any;
+      handler(editor.view, 2, new MouseEvent('click', { button: 0 }));
+
+      expect(openSpy).not.toHaveBeenCalled();
+      openSpy.mockRestore();
     });
 
     it('disables paste handler when configured', () => {

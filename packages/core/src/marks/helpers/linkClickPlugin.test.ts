@@ -17,16 +17,15 @@ const schema = new Schema({
   },
   marks: {
     link: {
-      attrs: { href: { default: null } },
-      toDOM: (mark) => ['a', { href: mark.attrs['href'] }, 0],
+      attrs: { href: { default: null }, target: { default: null } },
+      toDOM: (mark) => ['a', { href: mark.attrs['href'], target: mark.attrs['target'] }, 0],
       parseDOM: [{ tag: 'a[href]' }],
     },
   },
 });
 
 function createView(
-  content: { text: string; linked?: boolean; href?: string },
-   
+  content: { text: string; linked?: boolean; href?: string; target?: string },
   pluginOptions?: any
 ): EditorView {
   const plugin = linkClickPlugin({
@@ -38,6 +37,7 @@ function createView(
   if (content.linked) {
     const linkMark = schema.marks.link.create({
       href: content.href ?? 'https://example.com',
+      target: content.target ?? null,
     });
     textNode = schema.text(content.text, [linkMark]);
   } else {
@@ -50,18 +50,25 @@ function createView(
 
   const state = EditorState.create({ schema, doc, plugins: [plugin] });
   const container = document.createElement('div');
+  document.body.appendChild(container);
   return new EditorView(container, { state });
 }
 
+function findLinkElement(view: EditorView): HTMLAnchorElement | null {
+  return view.dom.querySelector('a');
+}
+
 function mockClickEvent(opts: {
-  metaKey?: boolean;
-  ctrlKey?: boolean;
+  target?: EventTarget | null;
+  button?: number;
 } = {}): MouseEvent {
   const event = new MouseEvent('click', {
-    metaKey: opts.metaKey ?? false,
-    ctrlKey: opts.ctrlKey ?? false,
+    button: opts.button ?? 0,
+    bubbles: true,
   });
-  vi.spyOn(event, 'preventDefault');
+  if (opts.target) {
+    Object.defineProperty(event, 'target', { value: opts.target });
+  }
   return event;
 }
 
@@ -69,7 +76,11 @@ describe('linkClickPlugin', () => {
   let view: EditorView | undefined;
 
   afterEach(() => {
-    view?.destroy();
+    if (view) {
+      const container = view.dom.parentElement;
+      view.destroy();
+      container?.remove();
+    }
     vi.restoreAllMocks();
   });
 
@@ -90,42 +101,26 @@ describe('linkClickPlugin', () => {
   });
 
   describe('handleClick', () => {
-    it('opens link on Mod+click when editable', () => {
+    it('opens link on plain click when editable', () => {
       view = createView({ text: 'click me', linked: true });
       const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+      const link = findLinkElement(view)!;
+      expect(link).not.toBeNull();
 
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === linkClickPluginKey
       );
-       
+
       const handler = plugin!.props.handleClick as any;
-      const event = mockClickEvent({ metaKey: true });
+      const event = mockClickEvent({ target: link });
 
       const result = handler(view, 2, event);
       expect(result).toBe(true);
       expect(openSpy).toHaveBeenCalledWith(
         'https://example.com',
-        '_blank',
-        'noopener,noreferrer'
+        '_blank'
       );
-      // eslint-disable-next-line @typescript-eslint/unbound-method
-      expect(event.preventDefault).toHaveBeenCalled();
-    });
-
-    it('does not open link on plain click when editable', () => {
-      view = createView({ text: 'click me', linked: true });
-      const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
-
-      const plugin = view.state.plugins.find(
-        (p) => p.spec.key === linkClickPluginKey
-      );
-       
-      const handler = plugin!.props.handleClick as any;
-      const event = mockClickEvent();
-
-      const result = handler(view, 2, event);
-      expect(result).toBe(false);
-      expect(openSpy).not.toHaveBeenCalled();
     });
 
     it('returns false when openOnClick is false', () => {
@@ -135,31 +130,13 @@ describe('linkClickPlugin', () => {
       );
       const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
+      const link = findLinkElement(view)!;
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === linkClickPluginKey
       );
-       
+
       const handler = plugin!.props.handleClick as any;
-      const event = mockClickEvent({ metaKey: true });
-
-      const result = handler(view, 2, event);
-      expect(result).toBe(false);
-      expect(openSpy).not.toHaveBeenCalled();
-    });
-
-    it('returns false for whenNotEditable when editor is editable', () => {
-      view = createView(
-        { text: 'click me', linked: true },
-        { openOnClick: 'whenNotEditable' }
-      );
-      const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
-
-      const plugin = view.state.plugins.find(
-        (p) => p.spec.key === linkClickPluginKey
-      );
-       
-      const handler = plugin!.props.handleClick as any;
-      const event = mockClickEvent({ metaKey: true });
+      const event = mockClickEvent({ target: link });
 
       const result = handler(view, 2, event);
       expect(result).toBe(false);
@@ -170,12 +147,13 @@ describe('linkClickPlugin', () => {
       view = createView({ text: 'plain text', linked: false });
       const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
+      const textEl = view.dom.querySelector('p')!;
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === linkClickPluginKey
       );
-       
+
       const handler = plugin!.props.handleClick as any;
-      const event = mockClickEvent({ metaKey: true });
+      const event = mockClickEvent({ target: textEl });
 
       const result = handler(view, 2, event);
       expect(result).toBe(false);
@@ -183,7 +161,6 @@ describe('linkClickPlugin', () => {
     });
 
     it('returns false when link has no href', () => {
-      // Create link with no href
       const plugin = linkClickPlugin({ type: schema.marks.link });
       const linkMark = schema.marks.link.create({ href: null });
       const doc = schema.node('doc', null, [
@@ -194,36 +171,96 @@ describe('linkClickPlugin', () => {
 
       const state = EditorState.create({ schema, doc, plugins: [plugin] });
       const container = document.createElement('div');
+      document.body.appendChild(container);
       view = new EditorView(container, { state });
 
       const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
+      const link = findLinkElement(view);
+      const target = link ?? view.dom.querySelector('p')!;
+
       const foundPlugin = view.state.plugins.find(
         (p) => p.spec.key === linkClickPluginKey
       );
-       
+
       const handler = foundPlugin!.props.handleClick as any;
-      const event = mockClickEvent({ metaKey: true });
+      const event = mockClickEvent({ target });
 
       const result = handler(view, 2, event);
       expect(result).toBe(false);
       expect(openSpy).not.toHaveBeenCalled();
     });
 
-    it('opens link on Ctrl+click', () => {
+    it('returns false for right-click', () => {
+      view = createView({ text: 'click me', linked: true });
+      const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+      const link = findLinkElement(view)!;
+      const plugin = view.state.plugins.find(
+        (p) => p.spec.key === linkClickPluginKey
+      );
+
+      const handler = plugin!.props.handleClick as any;
+      const event = mockClickEvent({ target: link, button: 2 });
+
+      const result = handler(view, 2, event);
+      expect(result).toBe(false);
+      expect(openSpy).not.toHaveBeenCalled();
+    });
+
+    it('returns false when target is null', () => {
       view = createView({ text: 'click me', linked: true });
       const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
       const plugin = view.state.plugins.find(
         (p) => p.spec.key === linkClickPluginKey
       );
-       
+
       const handler = plugin!.props.handleClick as any;
-      const event = mockClickEvent({ ctrlKey: true });
+      const event = mockClickEvent({ target: null });
+
+      const result = handler(view, 2, event);
+      expect(result).toBe(false);
+      expect(openSpy).not.toHaveBeenCalled();
+    });
+
+    it('uses target attribute from link mark', () => {
+      view = createView({ text: 'click me', linked: true, target: '_self' });
+      const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+      const link = findLinkElement(view)!;
+      const plugin = view.state.plugins.find(
+        (p) => p.spec.key === linkClickPluginKey
+      );
+
+      const handler = plugin!.props.handleClick as any;
+      const event = mockClickEvent({ target: link });
 
       const result = handler(view, 2, event);
       expect(result).toBe(true);
-      expect(openSpy).toHaveBeenCalled();
+      expect(openSpy).toHaveBeenCalledWith(
+        'https://example.com',
+        '_self'
+      );
+    });
+
+    it('defaults to _blank when no target set', () => {
+      view = createView({ text: 'click me', linked: true });
+      const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+      const link = findLinkElement(view)!;
+      const plugin = view.state.plugins.find(
+        (p) => p.spec.key === linkClickPluginKey
+      );
+
+      const handler = plugin!.props.handleClick as any;
+      const event = mockClickEvent({ target: link });
+
+      handler(view, 2, event);
+      expect(openSpy).toHaveBeenCalledWith(
+        'https://example.com',
+        '_blank'
+      );
     });
   });
 });

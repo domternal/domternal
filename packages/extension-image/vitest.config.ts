@@ -1,6 +1,9 @@
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  resolve: {
+    conditions: ['@domternal/source'],
+  },
   test: {
     globals: true,
     environment: 'jsdom',

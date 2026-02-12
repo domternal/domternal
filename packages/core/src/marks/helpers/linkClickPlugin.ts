@@ -1,8 +1,9 @@
 /**
  * Link Click Plugin
  *
- * Handles Cmd/Ctrl+click on links to open them in a new tab.
- * Standard behavior expected by users in modern editors.
+ * Handles click on links to open them.
+ * When editable: opens on click.
+ * When read-only: browser handles link clicks natively.
  */
 import { Plugin, PluginKey } from 'prosemirror-state';
 import type { MarkType } from 'prosemirror-model';
@@ -18,9 +19,9 @@ export interface LinkClickPluginOptions {
 
   /**
    * When to open links on click
-   * - true: Open on Mod+click (when editable) or click (when not editable)
+   * - true: Open on click
    * - false: Never open
-   * - 'whenNotEditable': Only open when editor is read-only
+   * - 'whenNotEditable': Only open when editor is read-only (browser handles natively)
    * @default true
    */
   openOnClick?: boolean | 'whenNotEditable';
@@ -32,10 +33,7 @@ export interface LinkClickPluginOptions {
 export const linkClickPluginKey = new PluginKey('linkClick');
 
 /**
- * Creates a plugin that handles clicking on links.
- *
- * - When editor is editable: requires Cmd/Ctrl+click
- * - When editor is read-only: click opens link directly
+ * Creates a plugin that handles clicking on links to open them.
  *
  * @param options - Plugin options
  * @returns ProseMirror Plugin
@@ -47,41 +45,53 @@ export function linkClickPlugin(options: LinkClickPluginOptions): Plugin {
     key: linkClickPluginKey,
 
     props: {
-      handleClick(view, pos, event) {
-        // Check if we should handle clicks
-        if (openOnClick === false) {
+      handleClick(view, _pos, event) {
+        // Only left clicks
+        if (event.button !== 0) {
           return false;
         }
 
-        if (openOnClick === 'whenNotEditable' && view.editable) {
+        // When not editable, let browser handle natively (links navigate normally)
+        if (!view.editable) {
           return false;
         }
 
-        // Require Mod key when editable (Cmd on Mac, Ctrl on Windows/Linux)
-        if (view.editable && !event.metaKey && !event.ctrlKey) {
+        // Find the <a> element from the click target
+        let link: HTMLAnchorElement | null = null;
+
+        if (event.target instanceof HTMLAnchorElement) {
+          link = event.target;
+        } else {
+          const target = event.target as HTMLElement | null;
+          if (!target) {
+            return false;
+          }
+          link = target.closest<HTMLAnchorElement>('a');
+          if (link && !view.dom.contains(link)) {
+            link = null;
+          }
+        }
+
+        if (!link) {
           return false;
         }
 
-        // Find link mark at click position
-        const $pos = view.state.doc.resolve(pos);
-        const marks = $pos.marks();
-        const linkMark = marks.find((m) => m.type === type);
+        if (openOnClick) {
+          // Get href/target from ProseMirror mark (validated by renderHTML), fallback to DOM
+          const pos = view.posAtDOM(link, 0);
+          const $pos = view.state.doc.resolve(pos);
+          const linkMark = $pos.marks().find((m) => m.type === type);
 
-        if (!linkMark) {
-          return false;
+          const href = (linkMark?.attrs['href'] as string | undefined) ?? link.href;
+          const linkTarget = (linkMark?.attrs['target'] as string | undefined) ?? link.target;
+
+          if (href) {
+            window.open(href, linkTarget || '_blank');
+            return true;
+          }
         }
 
-        const href = linkMark.attrs['href'] as string | undefined;
-        if (!href) {
-          return false;
-        }
-
-        // Open link in new tab with security attributes
-        window.open(href, '_blank', 'noopener,noreferrer');
-
-        // Prevent default behavior and stop propagation
-        event.preventDefault();
-        return true;
+        return false;
       },
     },
   });

@@ -200,15 +200,16 @@ export const Link = Mark.create<LinkOptions>({
 
     const plugins = [];
 
-    // Click plugin - always enabled unless openOnClick is false
-    if (this.options.openOnClick !== false) {
-      plugins.push(
-        linkClickPlugin({
-          type: markType,
-          openOnClick: this.options.openOnClick,
-        })
-      );
-    }
+    // Click plugin - always added (handles link opening on click)
+    // 'whenNotEditable' → true: browser handles read-only links natively
+    plugins.push(
+      linkClickPlugin({
+        type: markType,
+        openOnClick: this.options.openOnClick === 'whenNotEditable'
+          ? true
+          : this.options.openOnClick,
+      })
+    );
 
     // Paste plugin - wraps selection or inserts URL as link
     if (this.options.linkOnPaste) {
