@@ -53,6 +53,9 @@ importers:
 
   packages/core:
     dependencies:
+      linkifyjs:
+        specifier: ^4.3.2
+        version: 4.3.2
       prosemirror-commands:
         specifier: ^1.7.1
         version: 1.7.1
@@ -2227,6 +2230,9 @@ packages:
     peerDependenciesMeta:
       canvas:
         optional: true
+
+  linkifyjs@4.3.2:
+    resolution: {integrity: sha512-NT1CJtq3hHIreOianA8aSXn6Cw0JzYOuDQbOrSPe7gqFnCpKP++MQe3ODgO3oh2GJFORkAAdqredOa60z63GbA==}
 
   load-tsconfig@0.2.5:
     resolution: {integrity: sha512-IXO6OCs9yg8tMKzfPZ1YmheJbZCiEsnBdcB03l0OcfK9prKnJb96siuHCr5Fl37/yo9DnKU+TLpxzTUspw9shg==}
@@ -5169,6 +5175,8 @@ snapshots:
       html-escaper: 3.0.3
       htmlparser2: 10.1.0
       uhyphen: 0.2.0
+
+  linkifyjs@4.3.2: {}
 
   load-tsconfig@0.2.5: {}
 

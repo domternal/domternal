@@ -3,9 +3,11 @@
  *
  * Automatically converts typed URLs into clickable links.
  * Triggers when user types a space, punctuation, or presses Enter after a URL.
+ * Uses linkifyjs for robust URL detection.
  */
 import { Plugin, PluginKey } from 'prosemirror-state';
 import type { MarkType } from 'prosemirror-model';
+import { find } from 'linkifyjs';
 
 /**
  * Options for the autolink plugin
@@ -39,17 +41,6 @@ export interface AutolinkPluginOptions {
  * Plugin key for autolink plugin
  */
 export const autolinkPluginKey = new PluginKey('autolink');
-
-/**
- * Regex to detect URLs in text.
- * Matches:
- * - http://example.com
- * - https://example.com
- * - www.example.com
- * - example.com (with common TLDs)
- */
-const URL_REGEX =
-  /(?:https?:\/\/|www\.)[^\s<>[\](){}'"]+|(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+(?:com|org|net|edu|gov|io|co|dev|app|me|info|biz|xyz)(?:\/[^\s<>[\](){}'"]*)?/gi;
 
 /**
  * Characters that trigger autolink detection
@@ -94,24 +85,19 @@ export function autolinkPlugin(options: AutolinkPluginOptions): Plugin {
           '\ufffc'
         );
 
-        // Find URLs in the text before cursor
-        const matches: { start: number; end: number; url: string }[] = [];
-        let match: RegExpExecArray | null;
-
-        // Reset regex
-        URL_REGEX.lastIndex = 0;
-
-        while ((match = URL_REGEX.exec(textBefore)) !== null) {
-          matches.push({
-            start: match.index,
-            end: match.index + match[0].length,
-            url: match[0],
-          });
-        }
+        // Use linkifyjs to find URLs in the text
+        const matches = find(textBefore, {
+          defaultProtocol: defaultProtocol as 'http' | 'https',
+        });
 
         // Get the last match (most recent URL)
         const lastMatch = matches[matches.length - 1];
         if (!lastMatch) {
+          return false;
+        }
+
+        // Only process URL types (not email, etc.)
+        if (lastMatch.type !== 'url') {
           return false;
         }
 
@@ -120,13 +106,7 @@ export function autolinkPlugin(options: AutolinkPluginOptions): Plugin {
           return false;
         }
 
-        // Build full URL with protocol if needed
-        let href = lastMatch.url;
-        if (href.startsWith('www.')) {
-          href = `${defaultProtocol}://${href}`;
-        } else if (!href.startsWith('http://') && !href.startsWith('https://')) {
-          href = `${defaultProtocol}://${href}`;
-        }
+        const href = lastMatch.href;
 
         // Validate protocol
         try {
