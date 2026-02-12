@@ -5,7 +5,6 @@ export default defineConfig({
   format: ['esm', 'cjs'],
   target: 'es2022',
   dts: {
-    resolve: true,
     compilerOptions: {
       composite: false,
     },
