@@ -191,10 +191,11 @@ describe('createDocument', () => {
       }).toThrow('Invalid content format: plain text is not supported');
     });
 
-    it('throws error for empty string', () => {
-      expect(() => {
-        createDocument('', testSchema);
-      }).toThrow('Invalid content format: plain text is not supported');
+    it('creates empty document for empty string', () => {
+      const doc = createDocument('', testSchema);
+      expect(doc.type.name).toBe('doc');
+      expect(doc.childCount).toBe(1);
+      expect(doc.firstChild?.type.name).toBe('paragraph');
     });
 
     it('throws error for whitespace-only string', () => {

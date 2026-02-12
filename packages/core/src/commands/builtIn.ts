@@ -6,8 +6,9 @@
  */
 import { TextSelection, AllSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
-import { setBlockType as pmSetBlockType, wrapIn as pmWrapIn, lift as pmLift, selectNodeBackward as pmSelectNodeBackward } from 'prosemirror-commands';
-import { wrapInList, liftListItem } from 'prosemirror-schema-list';
+import { selectNodeBackward as pmSelectNodeBackward } from 'prosemirror-commands';
+import { wrapRangeInList, liftListItem } from 'prosemirror-schema-list';
+import { findWrapping, liftTarget } from 'prosemirror-transform';
 import { Fragment, Slice, DOMParser as ProseMirrorDOMParser } from 'prosemirror-model';
 import type { Attrs, Node as PMNode } from 'prosemirror-model';
 import type { CommandSpec, CommandMap } from '../types/Commands.js';
@@ -467,19 +468,54 @@ export const unsetMark: CommandSpec<[markName: string]> =
 /**
  * SetBlockType command - changes the block type of the selection
  *
+ * Uses tr.doc/tr.selection for chain compatibility. Preserves global
+ * attributes (textAlign, lineHeight, etc.) by merging existing node
+ * attrs with the provided ones via tr.setBlockType's function form.
+ *
  * @param nodeName - The name of the node type to set
  * @param attributes - Optional attributes for the node
  */
 export const setBlockType: CommandSpec<[nodeName: string, attributes?: Attrs]> =
   (nodeName: string, attributes?: Attrs) =>
-  ({ state, dispatch }) => {
+  ({ state, tr, dispatch }) => {
     const nodeType = state.schema.nodes[nodeName];
 
     if (!nodeType) {
       return false;
     }
 
-    return pmSetBlockType(nodeType, attributes)(state, dispatch);
+    // Check if any textblock in the selection can be changed
+    const canApply = tr.selection.ranges.some((range) => {
+      let found = false;
+      tr.doc.nodesBetween(range.$from.pos, range.$to.pos, (node, pos) => {
+        if (found) return false;
+        if (!node.isTextblock) return;
+        const mergedAttrs = { ...node.attrs, ...(attributes ?? {}) };
+        if (node.hasMarkup(nodeType, mergedAttrs)) return;
+        if (node.type === nodeType) {
+          found = true;
+        } else {
+          const $pos = tr.doc.resolve(pos);
+          const index = $pos.index();
+          found = $pos.parent.canReplaceWith(index, index + 1, nodeType);
+        }
+        return;
+      });
+      return found;
+    });
+
+    if (!canApply) return false;
+    if (!dispatch) return true;
+
+    // Apply: use function attrs to preserve global attributes (textAlign, lineHeight, etc.)
+    for (const range of tr.selection.ranges) {
+      const from = range.$from.pos;
+      const to = range.$to.pos;
+      tr.setBlockType(from, to, nodeType, (node) => ({ ...node.attrs, ...(attributes ?? {}) }));
+    }
+
+    dispatch(tr.scrollIntoView());
+    return true;
   };
 
 /**
@@ -487,6 +523,7 @@ export const setBlockType: CommandSpec<[nodeName: string, attributes?: Attrs]> =
  *
  * If the current block is of the target type, changes it to the default type.
  * If the current block is not of the target type, changes it to the target type.
+ * Preserves global attributes (textAlign, lineHeight) on toggle.
  *
  * @param nodeName - The name of the node type to toggle to
  * @param defaultNodeName - The name of the default node type (usually 'paragraph')
@@ -494,7 +531,8 @@ export const setBlockType: CommandSpec<[nodeName: string, attributes?: Attrs]> =
  */
 export const toggleBlockType: CommandSpec<[nodeName: string, defaultNodeName: string, attributes?: Attrs]> =
   (nodeName: string, defaultNodeName: string, attributes?: Attrs) =>
-  ({ state, tr, dispatch }) => {
+  (props) => {
+    const { state, tr } = props;
     const nodeType = state.schema.nodes[nodeName];
     const defaultNodeType = state.schema.nodes[defaultNodeName];
 
@@ -513,29 +551,42 @@ export const toggleBlockType: CommandSpec<[nodeName: string, defaultNodeName: st
     );
 
     if (typeMatches && attrsMatch) {
-      return pmSetBlockType(defaultNodeType)(state, dispatch);
+      // Toggle OFF → switch to default type, preserving global attrs
+      return setBlockType(defaultNodeName)(props);
     }
 
-    // Otherwise, set to target type
-    return pmSetBlockType(nodeType, attributes)(state, dispatch);
+    // Toggle ON → switch to target type with attrs, preserving global attrs
+    return setBlockType(nodeName, attributes)(props);
   };
 
 /**
  * WrapIn command - wraps the selection in a node type
+ *
+ * Uses tr.doc/tr.selection for chain compatibility.
  *
  * @param nodeName - The name of the wrapping node type
  * @param attributes - Optional attributes for the node
  */
 export const wrapIn: CommandSpec<[nodeName: string, attributes?: Attrs]> =
   (nodeName: string, attributes?: Attrs) =>
-  ({ state, dispatch }) => {
+  ({ state, tr, dispatch }) => {
     const nodeType = state.schema.nodes[nodeName];
 
     if (!nodeType) {
       return false;
     }
 
-    return pmWrapIn(nodeType, attributes)(state, dispatch);
+    const { $from, $to } = tr.selection;
+    const range = $from.blockRange($to);
+    if (!range) return false;
+
+    const wrapping = findWrapping(range, nodeType, attributes);
+    if (!wrapping) return false;
+    if (!dispatch) return true;
+
+    tr.wrap(range, wrapping).scrollIntoView();
+    dispatch(tr);
+    return true;
   };
 
 /**
@@ -543,13 +594,15 @@ export const wrapIn: CommandSpec<[nodeName: string, attributes?: Attrs]> =
  *
  * If the selection is already wrapped in the node type, lifts it out.
  * Otherwise, wraps the selection in the node type.
+ * Uses tr.doc/tr.selection for chain compatibility.
  *
  * @param nodeName - The name of the wrapping node type
  * @param attributes - Optional attributes for the node
  */
 export const toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]> =
   (nodeName: string, attributes?: Attrs) =>
-  ({ state, tr, dispatch }) => {
+  (props) => {
+    const { state, tr } = props;
     const nodeType = state.schema.nodes[nodeName];
 
     if (!nodeType) {
@@ -569,10 +622,10 @@ export const toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]> =
 
     // If wrapped, lift out; otherwise wrap
     if (isWrapped) {
-      return pmLift(state, dispatch);
+      return lift()(props);
     }
 
-    return pmWrapIn(nodeType, attributes)(state, dispatch);
+    return wrapIn(nodeName, attributes)(props);
   };
 
 // ============================================================================
@@ -582,12 +635,23 @@ export const toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]> =
 /**
  * Lift command - lifts the current block out of its parent wrapper
  *
+ * Uses tr.doc/tr.selection for chain compatibility.
  * For example, lifts a paragraph out of a blockquote.
  */
 export const lift: CommandSpec =
   () =>
-  ({ state, dispatch }) => {
-    return pmLift(state, dispatch);
+  ({ tr, dispatch }) => {
+    const { $from, $to } = tr.selection;
+    const range = $from.blockRange($to);
+    if (!range) return false;
+
+    const target = liftTarget(range);
+    if (target === null) return false;
+    if (!dispatch) return true;
+
+    tr.lift(range, target).scrollIntoView();
+    dispatch(tr);
+    return true;
   };
 
 // ============================================================================
@@ -670,7 +734,13 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
     }
 
     // Case 3: Not in a list → wrap in the target list type
-    return wrapInList(listType, attributes)(state, dispatch);
+    // Use tr.selection and wrapRangeInList(tr, ...) for chain compatibility
+    const { $from: $wrapFrom, $to: $wrapTo } = tr.selection;
+    const wrapRange = $wrapFrom.blockRange($wrapTo);
+    if (!wrapRange) return false;
+    if (!wrapRangeInList(dispatch ? tr : null, wrapRange, listType, attributes)) return false;
+    if (dispatch) dispatch(tr.scrollIntoView());
+    return true;
   };
 
 // ============================================================================

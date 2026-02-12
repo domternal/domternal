@@ -112,8 +112,8 @@ export function createDocument(
   schema: Schema,
   options?: CreateDocumentOptions
 ): PMNode {
-  // Handle null/undefined - create empty document
-  if (content === null || content === undefined) {
+  // Handle null/undefined/empty string - create empty document
+  if (content === null || content === undefined || content === '') {
     return createEmptyDocument(schema);
   }
 

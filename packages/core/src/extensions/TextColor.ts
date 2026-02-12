@@ -25,6 +25,22 @@
 import { Extension } from '../Extension.js';
 import type { CommandSpec } from '../types/Commands.js';
 
+/**
+ * Normalizes browser-computed color values (rgb/rgba) to hex format.
+ * Browsers convert hex colors to rgb() in element.style, causing
+ * isActive mismatches when comparing stored values after HTML re-parsing.
+ */
+function normalizeColor(color: string): string {
+  const rgbMatch = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(color);
+  if (rgbMatch?.[1] && rgbMatch[2] && rgbMatch[3]) {
+    const r = parseInt(rgbMatch[1], 10);
+    const g = parseInt(rgbMatch[2], 10);
+    const b = parseInt(rgbMatch[3], 10);
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  }
+  return color;
+}
+
 declare module '../types/Commands.js' {
   interface RawCommands {
     setTextColor: CommandSpec<[color: string]>;
@@ -57,7 +73,8 @@ export const TextColor = Extension.create<TextColorOptions>({
           color: {
             default: null,
             parseHTML: (element: HTMLElement) => {
-              return element.style.color.replace(/['"]+/g, '') || null;
+              const raw = element.style.color.replace(/['"]+/g, '');
+              return raw ? normalizeColor(raw) : null;
             },
             renderHTML: (attributes: Record<string, unknown>) => {
               const color = attributes['color'] as string | null;
