@@ -6,7 +6,7 @@ import { Selection } from './Selection.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
-import { Image } from '../nodes/Image.js';
+import { HorizontalRule } from '../nodes/HorizontalRule.js';
 import { Editor } from '../Editor.js';
 
 describe('Selection', () => {
@@ -235,14 +235,14 @@ describe('Selection', () => {
     describe('selectNode command', () => {
       it('selects node at position', () => {
         editor = new Editor({
-          extensions: [Document, Text, Paragraph, Image, Selection],
-          content: '<p>Text</p><img src="test.jpg">',
+          extensions: [Document, Text, Paragraph, HorizontalRule, Selection],
+          content: '<p>Text</p><hr>',
         });
 
-        // Get position of image node
-        const imagePos = editor.state.doc.child(0).nodeSize;
+        // Get position of hr node (after paragraph)
+        const hrPos = editor.state.doc.child(0).nodeSize;
 
-        const result = editor.commands.selectNode(imagePos);
+        const result = editor.commands.selectNode(hrPos);
 
         expect(result).toBe(true);
       });
@@ -343,7 +343,7 @@ describe('Selection', () => {
     describe('selectNode command', () => {
       it('returns false for negative position', () => {
         editor = new Editor({
-          extensions: [Document, Text, Paragraph, Image, Selection],
+          extensions: [Document, Text, Paragraph, Selection],
           content: '<p>Text</p>',
         });
 

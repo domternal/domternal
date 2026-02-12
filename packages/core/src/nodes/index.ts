@@ -15,6 +15,5 @@ export { OrderedList, type OrderedListOptions } from './OrderedList.js';
 export { ListItem, type ListItemOptions } from './ListItem.js';
 export { HorizontalRule, type HorizontalRuleOptions } from './HorizontalRule.js';
 export { HardBreak, type HardBreakOptions } from './HardBreak.js';
-export { Image, type ImageOptions } from './Image.js';
 export { TaskList, type TaskListOptions } from './TaskList.js';
 export { TaskItem, type TaskItemOptions } from './TaskItem.js';

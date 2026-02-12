@@ -1,10 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import type { Node as PMNode } from 'prosemirror-model';
 import { Image } from './Image.js';
-import { Document } from './Document.js';
-import { Text } from './Text.js';
-import { Paragraph } from './Paragraph.js';
-import { Editor } from '../Editor.js';
+import { Document, Text, Paragraph, Editor } from '@domternal/core';
 
 describe('Image', () => {
   describe('configuration', () => {
@@ -259,7 +256,6 @@ describe('Image', () => {
         });
 
         const html = editor.getHTML();
-        // Invalid src is rejected - img renders without src attribute
         expect(html).not.toContain('javascript:');
         expect(html).not.toContain('src="javascript');
       });
@@ -271,7 +267,6 @@ describe('Image', () => {
         });
 
         const html = editor.getHTML();
-        // Invalid src is rejected - img renders without src attribute
         expect(html).not.toContain('data:image');
         expect(html).not.toContain('src="data:');
       });

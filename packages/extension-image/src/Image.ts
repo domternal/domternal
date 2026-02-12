@@ -10,10 +10,10 @@
  * - Double-checked in renderHTML as defense in depth
  */
 
-import { Node } from '../Node.js';
-import type { CommandSpec } from '../types/Commands.js';
+import { Node } from '@domternal/core';
+import type { CommandSpec } from '@domternal/core';
 
-declare module '../types/Commands.js' {
+declare module '@domternal/core' {
   interface RawCommands {
     setImage: CommandSpec<[attributes?: Record<string, unknown>]>;
   }

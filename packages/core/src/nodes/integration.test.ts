@@ -18,7 +18,6 @@ import { OrderedList } from './OrderedList.js';
 import { ListItem } from './ListItem.js';
 import { HorizontalRule } from './HorizontalRule.js';
 import { HardBreak } from './HardBreak.js';
-import { Image } from './Image.js';
 
 const allNodes = [
   Document,
@@ -32,7 +31,6 @@ const allNodes = [
   ListItem,
   HorizontalRule,
   HardBreak,
-  Image,
 ];
 
 describe('Node Integration', () => {
@@ -56,7 +54,6 @@ describe('Node Integration', () => {
           <ul><li><p>Bullet item</p></li></ul>
           <ol><li><p>Numbered item</p></li></ol>
           <hr>
-          <img src="https://example.com/img.png" alt="Image">
         `,
       });
 
@@ -78,7 +75,6 @@ describe('Node Integration', () => {
       expect(nodeTypes.has('listItem')).toBe(true);
       expect(nodeTypes.has('horizontalRule')).toBe(true);
       expect(nodeTypes.has('hardBreak')).toBe(true);
-      expect(nodeTypes.has('image')).toBe(true);
     });
 
     it('preserves content through JSON roundtrip', () => {
@@ -219,27 +215,6 @@ describe('Node Integration', () => {
       expect(doc.child(4).type.name).toBe('codeBlock');
       expect(doc.child(5).type.name).toBe('paragraph');
     });
-
-    it('handles images between paragraphs', () => {
-      editor = new Editor({
-        extensions: allNodes,
-        content: `
-          <p>Before</p>
-          <img src="https://example.com/1.png" alt="First">
-          <p>Between</p>
-          <img src="https://example.com/2.png" alt="Second">
-          <p>After</p>
-        `,
-      });
-
-      const doc = editor.state.doc;
-
-      expect(doc.child(0).type.name).toBe('paragraph');
-      expect(doc.child(1).type.name).toBe('image');
-      expect(doc.child(2).type.name).toBe('paragraph');
-      expect(doc.child(3).type.name).toBe('image');
-      expect(doc.child(4).type.name).toBe('paragraph');
-    });
   });
 
   describe('Inline Content', () => {
@@ -340,23 +315,6 @@ describe('Node Integration', () => {
       const list = editor.state.doc.child(0);
       expect(list.type.name).toBe('orderedList');
       expect(list.attrs['start']).toBe(5);
-    });
-  });
-
-  describe('Image Attributes', () => {
-    it('preserves all image attributes', () => {
-      editor = new Editor({
-        extensions: allNodes,
-        content: '<img src="https://example.com/img.png" alt="Alt text" title="Title" width="200" height="100">',
-      });
-
-      const image = editor.state.doc.child(0);
-      expect(image.type.name).toBe('image');
-      expect(image.attrs['src']).toBe('https://example.com/img.png');
-      expect(image.attrs['alt']).toBe('Alt text');
-      expect(image.attrs['title']).toBe('Title');
-      expect(image.attrs['width']).toBe('200');
-      expect(image.attrs['height']).toBe('100');
     });
   });
 
@@ -522,49 +480,6 @@ describe('Node Integration', () => {
       const heading = editor.state.doc.child(0);
       expect(heading.type.name).toBe('heading');
       expect(heading.textContent).toBe('');
-    });
-  });
-
-  describe('XSS Protection', () => {
-    it('rejects javascript: URLs in images', () => {
-      editor = new Editor({
-        extensions: allNodes,
-        content: '<img src="javascript:alert(1)" alt="XSS">',
-      });
-
-      const image = editor.state.doc.child(0);
-      // Image node should have null src due to XSS protection
-      expect(image.attrs['src']).toBeNull();
-    });
-
-    it('rejects data: URLs in images by default', () => {
-      editor = new Editor({
-        extensions: allNodes,
-        content: '<img src="data:text/html,<script>alert(1)</script>" alt="XSS">',
-      });
-
-      const image = editor.state.doc.child(0);
-      expect(image.attrs['src']).toBeNull();
-    });
-
-    it('accepts valid https URLs in images', () => {
-      editor = new Editor({
-        extensions: allNodes,
-        content: '<img src="https://example.com/valid.png" alt="Valid">',
-      });
-
-      const image = editor.state.doc.child(0);
-      expect(image.attrs['src']).toBe('https://example.com/valid.png');
-    });
-
-    it('accepts valid http URLs in images', () => {
-      editor = new Editor({
-        extensions: allNodes,
-        content: '<img src="http://example.com/valid.png" alt="Valid">',
-      });
-
-      const image = editor.state.doc.child(0);
-      expect(image.attrs['src']).toBe('http://example.com/valid.png');
     });
   });
 

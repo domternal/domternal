@@ -178,8 +178,6 @@ export {
   type HorizontalRuleOptions,
   HardBreak,
   type HardBreakOptions,
-  Image,
-  type ImageOptions,
   TaskList,
   type TaskListOptions,
   TaskItem,
