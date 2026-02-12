@@ -1,5 +1,4 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import type { Node as PMNode } from 'prosemirror-model';
 import { Image } from './Image.js';
 import { Document, Text, Paragraph, Editor } from '@domternal/core';
 
@@ -60,7 +59,7 @@ describe('Image', () => {
       const spec = Image.createNodeSpec();
       const mockNode = {
         attrs: { src: 'https://example.com/img.png', alt: null, title: null, width: null, height: null },
-      } as unknown as PMNode;
+      } as any;
 
       const result = spec.toDOM?.(mockNode) as [string, Record<string, unknown>];
 
@@ -75,7 +74,7 @@ describe('Image', () => {
       const spec = CustomImage.createNodeSpec();
       const mockNode = {
         attrs: { src: 'https://example.com/img.png', alt: null, title: null, width: null, height: null },
-      } as unknown as PMNode;
+      } as any;
 
       const result = spec.toDOM?.(mockNode) as [string, Record<string, unknown>];
 
@@ -222,7 +221,7 @@ describe('Image', () => {
       const spec = Image.createNodeSpec();
       const mockNode = {
         attrs: { src: 'javascript:alert(1)', alt: null, title: null, width: null, height: null },
-      } as unknown as PMNode;
+      } as any;
       const result = spec.toDOM?.(mockNode) as [string, Record<string, unknown>];
       expect(result[0]).toBe('img');
       expect(result[1]['src']).toBe('');
