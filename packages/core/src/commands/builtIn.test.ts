@@ -2,7 +2,7 @@
  * Tests for built-in commands
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { TextSelection } from 'prosemirror-state';
+import { TextSelection, AllSelection } from 'prosemirror-state';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
@@ -437,6 +437,59 @@ describe('builtIn commands', () => {
       const result = editor.commands.toggleBlockType('heading', 'nonexistent');
       expect(result).toBe(false);
     });
+
+    it('toggles heading OFF with AllSelection when empty trailing paragraph exists', () => {
+      // Simulates TrailingNode scenario: heading + empty trailing paragraph
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Heading],
+        content: '<h2>Hello</h2><p></p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      expect(editor.state.doc.childCount).toBe(2);
+
+      // AllSelection + toggleHeading should toggle OFF despite empty paragraph
+      const { state } = editor;
+      const tr = state.tr.setSelection(new AllSelection(state.doc));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.toggleBlockType('heading', 'paragraph', { level: 2 });
+      expect(result).toBe(true);
+      expect(editor.getHTML()).not.toContain('<h2>');
+      expect(editor.getHTML()).toContain('<p>');
+    });
+
+    it('toggles heading ON with AllSelection when content is paragraph + empty trailing', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Heading],
+        content: '<p>Hello</p><p></p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      const { state } = editor;
+      const tr = state.tr.setSelection(new AllSelection(state.doc));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.toggleBlockType('heading', 'paragraph', { level: 2 });
+      expect(result).toBe(true);
+      expect(editor.getHTML()).toContain('<h2>');
+    });
+
+    it('toggles OFF with AllSelection when all content blocks match', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Heading],
+        content: '<h1>Title</h1><h1>Subtitle</h1>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      const { state } = editor;
+      const tr = state.tr.setSelection(new AllSelection(state.doc));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.toggleBlockType('heading', 'paragraph', { level: 1 });
+      expect(result).toBe(true);
+      expect(editor.getHTML()).not.toContain('<h1>');
+    });
   });
 
   describe('wrapIn', () => {
@@ -497,6 +550,40 @@ describe('builtIn commands', () => {
       const result = editor.commands.toggleWrap('nonexistent');
       expect(result).toBe(false);
     });
+
+    it('unwraps blockquote with AllSelection when empty trailing paragraph exists', () => {
+      // Simulates TrailingNode scenario: blockquote + empty trailing paragraph
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Blockquote],
+        content: '<blockquote><p>Hello</p></blockquote><p></p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      const { state } = editor;
+      const tr = state.tr.setSelection(new AllSelection(state.doc));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.toggleWrap('blockquote');
+      expect(result).toBe(true);
+      expect(editor.getHTML()).not.toContain('<blockquote>');
+      expect(editor.getHTML()).toContain('Hello');
+    });
+
+    it('unwraps with AllSelection when all content blocks are wrapped', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Blockquote],
+        content: '<blockquote><p>Hello</p></blockquote>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      const { state } = editor;
+      const tr = state.tr.setSelection(new AllSelection(state.doc));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.toggleWrap('blockquote');
+      expect(result).toBe(true);
+      expect(editor.getHTML()).not.toContain('<blockquote>');
+    });
   });
 
   describe('lift', () => {
@@ -534,6 +621,58 @@ describe('builtIn commands', () => {
 
       const result = editor.commands.toggleList('nonexistent', 'listItem');
       expect(result).toBe(false);
+    });
+
+    it('lifts bullet list with AllSelection when empty trailing paragraph exists', () => {
+      // Simulates TrailingNode scenario: list + empty trailing paragraph
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, OrderedList, ListItem],
+        content: '<ul><li><p>Item</p></li></ul><p></p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      const { state } = editor;
+      const tr = state.tr.setSelection(new AllSelection(state.doc));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.toggleList('bulletList', 'listItem');
+      expect(result).toBe(true);
+      expect(editor.getHTML()).not.toContain('<ul>');
+      expect(editor.getHTML()).toContain('Item');
+    });
+
+    it('lifts list with AllSelection when all content is in target list', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, OrderedList, ListItem],
+        content: '<ul><li><p>Item</p></li></ul>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      const { state } = editor;
+      const tr = state.tr.setSelection(new AllSelection(state.doc));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.toggleList('bulletList', 'listItem');
+      expect(result).toBe(true);
+      expect(editor.getHTML()).not.toContain('<ul>');
+    });
+
+    it('converts list type with AllSelection when empty trailing paragraph exists', () => {
+      // Simulates TrailingNode scenario: bullet list + empty trailing paragraph → ordered list
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, OrderedList, ListItem],
+        content: '<ul><li><p>Item</p></li></ul><p></p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      const { state } = editor;
+      const tr = state.tr.setSelection(new AllSelection(state.doc));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.toggleList('orderedList', 'listItem');
+      expect(result).toBe(true);
+      expect(editor.getHTML()).toContain('<ol>');
+      expect(editor.getHTML()).not.toContain('<ul>');
     });
   });
 

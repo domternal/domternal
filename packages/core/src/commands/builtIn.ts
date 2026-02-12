@@ -540,17 +540,26 @@ export const toggleBlockType: CommandSpec<[nodeName: string, defaultNodeName: st
       return false;
     }
 
-    // Use tr.selection for chain compatibility - prior commands may have changed selection
-    const { $from } = tr.selection;
-    const currentNode = $from.parent;
+    // Collect non-empty textblocks in the selection. Empty textblocks
+    // (e.g., trailing node from TrailingNode extension) are excluded so they
+    // don't affect toggle direction. This handles AllSelection correctly.
+    const { from, to } = tr.selection;
+    const contentBlocks: { node: PMNode }[] = [];
+    tr.doc.nodesBetween(from, to, (node) => {
+      if (node.isTextblock && node.content.size > 0) {
+        contentBlocks.push({ node });
+      }
+    });
 
-    // If current block matches target type AND attributes, toggle to default
-    const typeMatches = currentNode.type === nodeType;
-    const attrsMatch = !attributes || Object.keys(attributes).every(
-      (key) => currentNode.attrs[key] === attributes[key]
-    );
+    const allMatch = contentBlocks.length > 0 && contentBlocks.every(({ node }) => {
+      const typeMatches = node.type === nodeType;
+      const attrsMatch = !attributes || Object.keys(attributes).every(
+        (key) => node.attrs[key] === attributes[key]
+      );
+      return typeMatches && attrsMatch;
+    });
 
-    if (typeMatches && attrsMatch) {
+    if (allMatch) {
       // Toggle OFF → switch to default type, preserving global attrs
       return setBlockType(defaultNodeName)(props);
     }
@@ -609,19 +618,31 @@ export const toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]> =
       return false;
     }
 
-    // Use tr.selection for chain compatibility - prior commands may have changed selection
-    const { $from } = tr.selection;
-    let isWrapped = false;
-
-    for (let depth = $from.depth; depth > 0; depth--) {
-      if ($from.node(depth).type === nodeType) {
-        isWrapped = true;
-        break;
+    // Collect non-empty textblocks in the selection with their positions.
+    // Empty textblocks (e.g., trailing node) are excluded so they don't
+    // affect toggle direction. This handles AllSelection correctly.
+    const { from, to } = tr.selection;
+    const contentBlocks: { pos: number }[] = [];
+    tr.doc.nodesBetween(from, to, (node, pos) => {
+      if (node.isTextblock && node.content.size > 0) {
+        contentBlocks.push({ pos });
       }
-    }
+    });
 
-    // If wrapped, lift out; otherwise wrap
-    if (isWrapped) {
+    const allWrapped = contentBlocks.length > 0 && contentBlocks.every(({ pos }) => {
+      const $pos = tr.doc.resolve(pos);
+      for (let d = $pos.depth; d > 0; d--) {
+        if ($pos.node(d).type === nodeType) return true;
+      }
+      return false;
+    });
+
+    if (allWrapped) {
+      // Narrow selection to the first non-empty textblock so lift() operates
+      // within the wrapper rather than at doc level.
+      const first = contentBlocks[0];
+      if (!first) return false;
+      tr.setSelection(TextSelection.create(tr.doc, first.pos + 1));
       return lift()(props);
     }
 
@@ -679,39 +700,66 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
       return false;
     }
 
-    // Use tr.selection for chain compatibility - prior commands may have changed selection
-    const { $from } = tr.selection;
+    // Collect non-empty textblocks with their list context.
+    // Empty textblocks (e.g., trailing node) are excluded so they don't
+    // affect toggle direction. This handles AllSelection correctly.
+    const { from, to } = tr.selection;
+    const contentBlocks: { pos: number; inTargetList: boolean; inSomeList: boolean; otherListPos: number | null }[] = [];
 
-    // Find if we're already in a list and get details
-    let listDepth: number | null = null;
-    let currentListType: typeof listType | null = null;
+    tr.doc.nodesBetween(from, to, (node, pos) => {
+      if (!node.isTextblock || node.content.size === 0) return;
 
-    for (let depth = $from.depth; depth >= 0; depth--) {
-      const node = $from.node(depth);
-      // Check if this node is the target list type or any kind of list
-      // Split by whitespace for exact group match (avoids 'playlist' matching 'list')
-      const groups = (node.type.spec.group ?? '').split(/\s+/);
-      if (node.type === listType || groups.includes('list')) {
-        listDepth = depth;
-        currentListType = node.type;
-        break;
+      const $pos = tr.doc.resolve(pos);
+      let inTargetList = false;
+      let inSomeList = false;
+      let otherListPos: number | null = null;
+
+      for (let d = $pos.depth; d >= 0; d--) {
+        const n = $pos.node(d);
+        if (n.type === listType) {
+          inTargetList = true;
+          inSomeList = true;
+          break;
+        }
+        const groups = (n.type.spec.group ?? '').split(/\s+/);
+        if (groups.includes('list')) {
+          inSomeList = true;
+          otherListPos = $pos.before(d);
+          break;
+        }
       }
+
+      contentBlocks.push({ pos, inTargetList, inSomeList, otherListPos });
+    });
+
+    const allInTargetList = contentBlocks.length > 0 && contentBlocks.every((b) => b.inTargetList);
+    const allInSomeList = contentBlocks.length > 0 && contentBlocks.every((b) => b.inSomeList);
+
+    // Case 1: All non-empty textblocks are in the target list type → lift items out
+    if (allInTargetList) {
+      // liftListItem reads state.selection directly. When that's AllSelection
+      // (doc level), it can't find list items. Create a state with narrowed
+      // selection inside the list so liftListItem works correctly.
+      const first = contentBlocks[0];
+      const last = contentBlocks[contentBlocks.length - 1];
+      if (!first || !last) return false;
+      const narrowTr = state.tr.setSelection(
+        TextSelection.create(state.doc, first.pos + 1, last.pos + 1)
+      );
+      const narrowState = state.apply(narrowTr);
+      return liftListItem(listItemType)(narrowState, dispatch);
     }
 
-    // Case 1: We're in the same list type → lift items out
-    if (currentListType === listType) {
-      return liftListItem(listItemType)(state, dispatch);
-    }
-
-    // Case 2: We're in a different list type → convert by changing node type in-place
-    if (listDepth !== null && currentListType !== null && currentListType !== listType) {
-      const pos = $from.before(listDepth);
+    // Case 2: All non-empty textblocks are in some list but not target → convert
+    if (allInSomeList) {
+      const otherPos = contentBlocks.find((b) => b.otherListPos !== null)?.otherListPos;
+      if (otherPos === undefined || otherPos === null) return false;
 
       if (!dispatch) {
         return true; // Can convert
       }
 
-      const listNode = tr.doc.nodeAt(pos);
+      const listNode = tr.doc.nodeAt(otherPos);
       if (!listNode) return false;
 
       // If item types differ (e.g., taskItem ↔ listItem), replace entire list
@@ -723,10 +771,10 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
           newItems.push(listItemType.create(child.attrs, child.content, child.marks));
         });
         const newList = listType.create(attributes, newItems);
-        tr.replaceWith(pos, pos + listNode.nodeSize, newList);
+        tr.replaceWith(otherPos, otherPos + listNode.nodeSize, newList);
       } else {
         // Same item type, just change the wrapper
-        tr.setNodeMarkup(pos, listType, attributes);
+        tr.setNodeMarkup(otherPos, listType, attributes);
       }
 
       dispatch(tr);
