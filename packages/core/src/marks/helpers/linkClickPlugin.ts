@@ -5,7 +5,7 @@
  * When editable: opens on click.
  * When read-only: browser handles link clicks natively.
  */
-import { Plugin, PluginKey } from 'prosemirror-state';
+import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import type { MarkType } from 'prosemirror-model';
 
 /**
@@ -25,6 +25,12 @@ export interface LinkClickPluginOptions {
    * @default true
    */
   openOnClick?: boolean | 'whenNotEditable';
+
+  /**
+   * Select the full link text range when clicking a link
+   * @default false
+   */
+  enableClickSelection?: boolean;
 }
 
 /**
@@ -39,7 +45,7 @@ export const linkClickPluginKey = new PluginKey('linkClick');
  * @returns ProseMirror Plugin
  */
 export function linkClickPlugin(options: LinkClickPluginOptions): Plugin {
-  const { type, openOnClick = true } = options;
+  const { type, openOnClick = true, enableClickSelection = false } = options;
 
   return new Plugin({
     key: linkClickPluginKey,
@@ -74,6 +80,35 @@ export function linkClickPlugin(options: LinkClickPluginOptions): Plugin {
 
         if (!link) {
           return false;
+        }
+
+        // Select full link range on click
+        if (enableClickSelection) {
+          const pos = view.posAtDOM(link, 0);
+          const $pos = view.state.doc.resolve(pos);
+
+          if ($pos.marks().some((m) => m.type === type)) {
+            // Find contiguous mark range within the parent text block
+            const parent = $pos.parent;
+            const blockStart = pos - $pos.parentOffset;
+            let rangeStart = pos;
+            let rangeEnd = pos;
+
+            parent.forEach((child, childOffset) => {
+              const childStart = blockStart + childOffset;
+              const childEnd = childStart + child.nodeSize;
+              if (type.isInSet(child.marks) && childStart <= rangeEnd && childEnd >= rangeStart) {
+                rangeStart = Math.min(rangeStart, childStart);
+                rangeEnd = Math.max(rangeEnd, childEnd);
+              }
+            });
+
+            const tr = view.state.tr.setSelection(
+              TextSelection.create(view.state.doc, rangeStart, rangeEnd)
+            );
+            view.dispatch(tr);
+            return true;
+          }
         }
 
         if (openOnClick) {

@@ -23,6 +23,7 @@ import { isValidUrl } from '../helpers/isValidUrl.js';
 import { linkClickPlugin } from './helpers/linkClickPlugin.js';
 import { linkPastePlugin } from './helpers/linkPastePlugin.js';
 import { autolinkPlugin } from './helpers/autolinkPlugin.js';
+import { linkExitPlugin } from './helpers/linkExitPlugin.js';
 
 /**
  * Options for the Link mark
@@ -70,6 +71,11 @@ export interface LinkOptions {
    * Return false to prevent auto-linking specific URLs
    */
   shouldAutoLink?: (url: string) => boolean;
+  /**
+   * Select the full link text range when clicking a link
+   * @default false
+   */
+  enableClickSelection: boolean;
 }
 
 /**
@@ -79,6 +85,8 @@ export interface LinkAttributes {
   href: string;
   target?: string | null;
   rel?: string | null;
+  title?: string | null;
+  class?: string | null;
 }
 
 /**
@@ -102,6 +110,7 @@ export const Link = Mark.create<LinkOptions>({
       autolink: true,
       linkOnPaste: true,
       defaultProtocol: 'https',
+      enableClickSelection: false,
     };
   },
 
@@ -114,6 +123,12 @@ export const Link = Mark.create<LinkOptions>({
         default: null,
       },
       rel: {
+        default: null,
+      },
+      title: {
+        default: null,
+      },
+      class: {
         default: null,
       },
     };
@@ -136,6 +151,8 @@ export const Link = Mark.create<LinkOptions>({
             href,
             target: node.getAttribute('target'),
             rel: node.getAttribute('rel'),
+            title: node.getAttribute('title'),
+            class: node.getAttribute('class'),
           };
         },
       },
@@ -208,6 +225,7 @@ export const Link = Mark.create<LinkOptions>({
         openOnClick: this.options.openOnClick === 'whenNotEditable'
           ? true
           : this.options.openOnClick,
+        enableClickSelection: this.options.enableClickSelection,
       })
     );
 
@@ -220,6 +238,9 @@ export const Link = Mark.create<LinkOptions>({
         })
       );
     }
+
+    // Exit plugin - ArrowRight at end of link exits the mark
+    plugins.push(linkExitPlugin({ type: markType }));
 
     // Autolink plugin - converts typed URLs to links
     if (this.options.autolink) {

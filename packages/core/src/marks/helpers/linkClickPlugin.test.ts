@@ -262,5 +262,47 @@ describe('linkClickPlugin', () => {
         '_blank'
       );
     });
+
+    it('selects full link range when enableClickSelection is true', () => {
+      view = createView(
+        { text: 'click me', linked: true },
+        { enableClickSelection: true, openOnClick: false }
+      );
+      const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+      const link = findLinkElement(view)!;
+      const plugin = view.state.plugins.find(
+        (p) => p.spec.key === linkClickPluginKey
+      );
+
+      const handler = plugin!.props.handleClick as any;
+      const event = mockClickEvent({ target: link });
+
+      const result = handler(view, 2, event);
+      expect(result).toBe(true);
+      expect(openSpy).not.toHaveBeenCalled();
+
+      // Selection should span the full link text "click me" (pos 1-9)
+      const { from, to } = view.state.selection;
+      expect(to - from).toBe('click me'.length);
+    });
+
+    it('does not select when enableClickSelection is false', () => {
+      view = createView(
+        { text: 'click me', linked: true },
+        { enableClickSelection: false, openOnClick: false }
+      );
+
+      const link = findLinkElement(view)!;
+      const plugin = view.state.plugins.find(
+        (p) => p.spec.key === linkClickPluginKey
+      );
+
+      const handler = plugin!.props.handleClick as any;
+      const event = mockClickEvent({ target: link });
+
+      const result = handler(view, 2, event);
+      expect(result).toBe(false);
+    });
   });
 });
