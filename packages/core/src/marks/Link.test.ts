@@ -21,8 +21,8 @@ describe('Link', () => {
       expect(Link.config.priority).toBe(1000);
     });
 
-    it('is not inclusive', () => {
-      expect(Link.config.inclusive).toBe(false);
+    it('inclusive is a function that returns autolink option', () => {
+      expect(typeof Link.config.inclusive).toBe('function');
     });
 
     it('has default options', () => {
@@ -305,7 +305,7 @@ describe('Link', () => {
       expect(result[1]).toHaveProperty('target', '_blank');
     });
 
-    it('does not inherit link mark on split (keepOnSplit: false via inclusive: false)', () => {
+    it('does not inherit link mark on split (keepOnSplit plugin)', () => {
       editor = new Editor({
         extensions: [Document, Text, Paragraph, Link],
         content: '<p><a href="https://example.com">hello world</a></p>',

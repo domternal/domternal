@@ -209,7 +209,7 @@ export class Mark<Options = unknown, Storage = unknown> extends Extension<
 
     // Schema properties - copy directly if defined
     if (this.config.inclusive !== undefined)
-      spec.inclusive = this.config.inclusive;
+      spec.inclusive = callOrReturn(this.config.inclusive, this);
     if (this.config.excludes !== undefined)
       spec.excludes = this.config.excludes;
     if (this.config.group !== undefined) spec.group = this.config.group;

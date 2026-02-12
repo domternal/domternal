@@ -58,9 +58,9 @@ export function linkExitPlugin(options: LinkExitPluginOptions): Plugin {
         if (!$cursor) return false;
 
         // Check the node before cursor for the link mark.
-        // We use nodeBefore instead of $cursor.marks() because marks()
-        // filters out non-inclusive marks at boundaries, and Link uses
-        // inclusive: false.
+        // We use nodeBefore.marks instead of $cursor.marks() because
+        // nodeBefore always reflects the actual marks on the text node,
+        // regardless of the mark's inclusive setting.
         const nodeBefore = $cursor.nodeBefore;
         if (!nodeBefore) return false;
 

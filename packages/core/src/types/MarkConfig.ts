@@ -114,7 +114,7 @@ interface MarkSchemaProperties {
    *
    * @default true
    */
-  inclusive?: boolean;
+  inclusive?: boolean | (() => boolean);
 
   /**
    * Marks that this mark excludes (cannot coexist with)

@@ -18,6 +18,7 @@
  * editor.commands.unsetLink();
  * ```
  */
+import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import { Mark } from '../Mark.js';
 import { isValidUrl } from '../helpers/isValidUrl.js';
 import { linkClickPlugin } from './helpers/linkClickPlugin.js';
@@ -98,8 +99,13 @@ export const Link = Mark.create<LinkOptions>({
   // Links have lower priority than other marks
   priority: 1000,
 
-  // Links can contain other marks
-  inclusive: false,
+  // When autolink is enabled, the mark is inclusive so that typing at
+  // the end of a link naturally extends it (e.g. adding path segments
+  // to an autolinked URL). When autolink is off, links are set manually
+  // and should not extend on typing.
+  inclusive() {
+    return this.options.autolink;
+  },
 
   addOptions(): LinkOptions {
     return {
@@ -241,6 +247,32 @@ export const Link = Mark.create<LinkOptions>({
 
     // Exit plugin - ArrowRight at end of link exits the mark
     plugins.push(linkExitPlugin({ type: markType }));
+
+    // keepOnSplit: strip link from storedMarks after a block split so that
+    // pressing Enter at the end of a link does not carry it to the new line.
+    plugins.push(
+      new Plugin({
+        key: new PluginKey('linkKeepOnSplit'),
+        appendTransaction(transactions, _oldState, newState) {
+          const docChanged = transactions.some((tr) => tr.docChanged);
+          if (!docChanged) return null;
+
+          const { selection } = newState;
+          if (!(selection instanceof TextSelection) || !selection.empty) return null;
+
+          const $cursor = selection.$cursor;
+          if ($cursor?.parentOffset !== 0) return null;
+
+          const stored = newState.storedMarks;
+          if (!stored) return null;
+
+          const hasLink = stored.some((m) => m.type === markType);
+          if (!hasLink) return null;
+
+          return newState.tr.setStoredMarks(stored.filter((m) => m.type !== markType));
+        },
+      })
+    );
 
     // Autolink plugin - converts typed URLs to links
     if (this.options.autolink) {
