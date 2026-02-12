@@ -27,3 +27,4 @@ export {
   type GenerateJSONOptions,
   type GenerateTextOptions,
 } from './ssr.js';
+export { getMarkRange, type MarkRange } from './getMarkRange.js';

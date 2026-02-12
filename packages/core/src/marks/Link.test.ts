@@ -335,5 +335,53 @@ describe('Link', () => {
       const getAttrs = rules?.[0]?.getAttrs;
       expect(getAttrs?.('test')).toBe(false);
     });
+
+    it('unsetLink removes link from full mark range when cursor is inside link (empty selection)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Link],
+        content: '<p><a href="https://example.com">hello world</a></p>',
+      });
+      // Place cursor in the middle of the link text (no selection)
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 6)));
+
+      editor.commands.unsetLink();
+
+      // Link should be removed from the entire text
+      const para = editor.state.doc.child(0);
+      para.forEach((child) => {
+        expect(child.marks.some((m) => m.type.name === 'link')).toBe(false);
+      });
+    });
+
+    it('toggleLink removes link from full mark range when cursor is inside link (empty selection)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Link],
+        content: '<p><a href="https://example.com">hello world</a></p>',
+      });
+      // Place cursor in the middle of the link text (no selection)
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 6)));
+
+      editor.commands.toggleLink({ href: 'https://example.com' });
+
+      // Link should be removed from the entire text
+      const para = editor.state.doc.child(0);
+      para.forEach((child) => {
+        expect(child.marks.some((m) => m.type.name === 'link')).toBe(false);
+      });
+    });
+
+    it('unsetLink returns false when cursor is not inside a link (empty selection)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Link],
+        content: '<p>plain text</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 3)));
+
+      const result = editor.commands.unsetLink();
+      expect(result).toBe(false);
+    });
   });
 });

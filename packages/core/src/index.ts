@@ -98,6 +98,8 @@ export {
   type GenerateHTMLOptions,
   type GenerateJSONOptions,
   type GenerateTextOptions,
+  getMarkRange,
+  type MarkRange,
 } from './helpers/index.js';
 
 // === Extension System ===

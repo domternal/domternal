@@ -21,6 +21,7 @@
 import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import { Mark } from '../Mark.js';
 import { isValidUrl } from '../helpers/isValidUrl.js';
+import { getMarkRange } from '../helpers/getMarkRange.js';
 import { linkClickPlugin } from './helpers/linkClickPlugin.js';
 import { linkPastePlugin } from './helpers/linkPastePlugin.js';
 import { autolinkPlugin } from './helpers/autolinkPlugin.js';
@@ -202,14 +203,69 @@ export const Link = Mark.create<LinkOptions>({
         },
       unsetLink:
         () =>
-        ({ commands }) => commands.unsetMark('link'),
+        ({ tr, state, dispatch }) => {
+          const markType = state.schema.marks['link'];
+          if (!markType) return false;
+
+          const { from, to, empty } = tr.selection;
+
+          if (empty) {
+            // Extend to full link range around cursor
+            const $pos = tr.doc.resolve(from);
+            const range = getMarkRange($pos, markType);
+            if (!range) return false;
+            if (!dispatch) return true;
+            tr.removeMark(range.from, range.to, markType);
+          } else {
+            if (!dispatch) return true;
+            tr.removeMark(from, to, markType);
+          }
+
+          dispatch(tr);
+          return true;
+        },
       toggleLink:
         (attributes: LinkAttributes) =>
-        ({ commands }) => {
+        ({ tr, state, dispatch }) => {
           if (!isValidUrl(attributes.href, { protocols: this.options.protocols })) {
             return false;
           }
-          return commands.toggleMark('link', attributes);
+
+          const markType = state.schema.marks['link'];
+          if (!markType) return false;
+
+          const { from, to, empty } = tr.selection;
+
+          if (empty) {
+            // Extend to full link range around cursor
+            const $pos = tr.doc.resolve(from);
+            const range = getMarkRange($pos, markType);
+
+            if (range && tr.doc.rangeHasMark(range.from, range.to, markType)) {
+              // Has link — remove it from the full range
+              if (!dispatch) return true;
+              tr.removeMark(range.from, range.to, markType);
+            } else {
+              // No link — toggle stored mark for cursor
+              if (!dispatch) return true;
+              const cursorMarks = tr.storedMarks ?? state.storedMarks ?? $pos.marks();
+              if (markType.isInSet(cursorMarks)) {
+                tr.removeStoredMark(markType);
+              } else {
+                tr.addStoredMark(markType.create(attributes));
+              }
+            }
+          } else {
+            if (!dispatch) return true;
+            if (tr.doc.rangeHasMark(from, to, markType)) {
+              tr.removeMark(from, to, markType);
+            } else {
+              tr.addMark(from, to, markType.create(attributes));
+            }
+          }
+
+          dispatch(tr);
+          return true;
         },
     };
   },
