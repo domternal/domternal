@@ -377,7 +377,16 @@ export class Editor extends EventEmitter<EditorEvents> {
     const div = document.createElement('div');
     div.appendChild(fragment);
 
-    return div.innerHTML;
+    // Browser DOM normalizes hex colors to rgb() — convert back to hex within style attrs
+    return div.innerHTML.replace(/style="([^"]*)"/g, (_match, style: string) =>
+      'style="' +
+        style.replace(
+          /rgb\((\d+),\s*(\d+),\s*(\d+)\)/g,
+          (_, r: string, g: string, b: string) =>
+            '#' + [r, g, b].map(c => Number(c).toString(16).padStart(2, '0')).join(''),
+        ) +
+        '"',
+    );
   }
 
   /**

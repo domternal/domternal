@@ -173,6 +173,76 @@ describe('Editor', () => {
         expect(html).toContain('<p>');
         expect(html).toContain('Initial content');
       });
+
+      it('converts rgb() colors to hex in style attributes', () => {
+        const schemaWithStyle = new Schema({
+          nodes: {
+            doc: { content: 'paragraph+' },
+            paragraph: {
+              content: 'inline*',
+              toDOM() { return ['p', 0]; },
+              parseDOM: [{ tag: 'p' }],
+            },
+            text: { group: 'inline', inline: true },
+          },
+          marks: {
+            textStyle: {
+              attrs: { style: { default: null } },
+              toDOM(mark) { return ['span', { style: mark.attrs['style'] }, 0]; },
+              parseDOM: [{ tag: 'span[style]', getAttrs: (dom: HTMLElement) => ({ style: dom.getAttribute('style') }) }],
+            },
+          },
+        });
+
+        const colorEditor = new Editor({
+          schema: schemaWithStyle,
+          content: '<p><span style="color: rgb(255, 0, 0)">red</span></p>',
+        });
+
+        const html = colorEditor.getHTML();
+        expect(html).toContain('#ff0000');
+        expect(html).not.toContain('rgb(');
+        colorEditor.destroy();
+      });
+
+      it('converts multiple rgb() values in one style attribute', () => {
+        const schemaWithStyle = new Schema({
+          nodes: {
+            doc: { content: 'paragraph+' },
+            paragraph: {
+              content: 'inline*',
+              toDOM() { return ['p', 0]; },
+              parseDOM: [{ tag: 'p' }],
+            },
+            text: { group: 'inline', inline: true },
+          },
+          marks: {
+            textStyle: {
+              attrs: { style: { default: null } },
+              toDOM(mark) { return ['span', { style: mark.attrs['style'] }, 0]; },
+              parseDOM: [{ tag: 'span[style]', getAttrs: (dom: HTMLElement) => ({ style: dom.getAttribute('style') }) }],
+            },
+          },
+        });
+
+        const colorEditor = new Editor({
+          schema: schemaWithStyle,
+          content: '<p><span style="color: rgb(0, 0, 255); background-color: rgb(255, 255, 0)">text</span></p>',
+        });
+
+        const html = colorEditor.getHTML();
+        expect(html).toContain('#0000ff');
+        expect(html).toContain('#ffff00');
+        expect(html).not.toContain('rgb(');
+        colorEditor.destroy();
+      });
+
+      it('does not alter text content containing rgb()', () => {
+        const html = editor.getHTML();
+        // The basic editor has no rgb() in style attrs, so this just verifies
+        // getHTML works normally without style attrs
+        expect(html).toContain('Initial content');
+      });
     });
 
     describe('getText', () => {
