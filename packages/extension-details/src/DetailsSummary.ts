@@ -15,6 +15,8 @@ export const DetailsSummary = Node.create<DetailsSummaryOptions>({
   name: 'detailsSummary',
   content: 'inline*',
   defining: true,
+  selectable: false,
+  isolating: true,
 
   addOptions() {
     return {

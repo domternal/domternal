@@ -28,3 +28,9 @@ export {
   type GenerateTextOptions,
 } from './ssr.js';
 export { getMarkRange, type MarkRange } from './getMarkRange.js';
+export {
+  findParentNode,
+  type FindParentNodeResult,
+} from './findParentNode.js';
+export { findChildren, type FindChildResult } from './findChildren.js';
+export { defaultBlockAt } from './defaultBlockAt.js';

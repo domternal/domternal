@@ -11,6 +11,7 @@
 import { Schema } from 'prosemirror-model';
 import type { NodeSpec, MarkSpec } from 'prosemirror-model';
 import type { Plugin, Transaction } from 'prosemirror-state';
+import type { NodeViewConstructor } from 'prosemirror-view';
 import { keymap } from 'prosemirror-keymap';
 import { inputRules as createInputRulesPlugin } from 'prosemirror-inputrules';
 import type { InputRule } from 'prosemirror-inputrules';
@@ -205,6 +206,13 @@ export class ExtensionManager {
   get commands(): CommandMap {
     this._commands ??= this.collectCommands();
     return this._commands;
+  }
+
+  /**
+   * Gets node views from all Node extensions that define addNodeView
+   */
+  get nodeViews(): Record<string, NodeViewConstructor> {
+    return this.collectNodeViews();
   }
 
   // === Cache Invalidation ===
@@ -685,6 +693,31 @@ export class ExtensionManager {
     }
 
     return commands;
+  }
+
+  /**
+   * Collects node views from all Node extensions
+   * Returns a map of node name → NodeViewConstructor for EditorView
+   */
+  private collectNodeViews(): Record<string, NodeViewConstructor> {
+    const nodeViews: Record<string, NodeViewConstructor> = {};
+
+    for (const ext of this._extensions) {
+      if (ext.type !== 'node') continue;
+      const nodeExt = ext as Node;
+      const addNodeView = nodeExt.config.addNodeView;
+      if (addNodeView) {
+        const nodeView = this.safeCall(
+          () => callOrReturn(addNodeView, nodeExt) as NodeViewConstructor | undefined,
+          `${ext.name}.addNodeView`
+        );
+        if (nodeView) {
+          nodeViews[ext.name] = nodeView;
+        }
+      }
+    }
+
+    return nodeViews;
   }
 
   // === Validation ===

@@ -6,7 +6,7 @@
  */
 
 import type { Node as PMNode, DOMOutputSpec, NodeType } from 'prosemirror-model';
-import type { EditorState } from 'prosemirror-state';
+import type { EditorState, Plugin } from 'prosemirror-state';
 import type { EditorView, NodeViewConstructor } from 'prosemirror-view';
 import type { ExtensionConfigBase, ExtensionContext } from './ExtensionConfig.js';
 import type { AttributeSpecs } from './AttributeSpec.js';
@@ -252,6 +252,12 @@ interface NodeSchemaProperties {
    * For complex interactive nodes
    */
   addNodeView?: () => NodeViewConstructor;
+
+  /**
+   * Additional ProseMirror plugins for this node
+   * Called during plugin collection
+   */
+  addProseMirrorPlugins?: () => Plugin[];
 }
 
 /**

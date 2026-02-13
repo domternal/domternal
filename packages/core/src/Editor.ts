@@ -572,10 +572,12 @@ export class Editor extends EventEmitter<EditorEvents> {
     const element = this.options.element ?? document.createElement('div');
 
     // 7. Create EditorView
+    const nodeViews = this._extensionManager.nodeViews;
     this.view = new EditorView(element, {
       state,
       dispatchTransaction: this.dispatchTransaction.bind(this),
       editable: () => this.options.editable ?? true,
+      ...(Object.keys(nodeViews).length > 0 ? { nodeViews } : {}),
       // Handle focus/blur events
       handleDOMEvents: {
         focus: (_view, event) => {

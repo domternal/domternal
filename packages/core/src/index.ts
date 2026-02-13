@@ -100,6 +100,11 @@ export {
   type GenerateTextOptions,
   getMarkRange,
   type MarkRange,
+  findParentNode,
+  type FindParentNodeResult,
+  findChildren,
+  type FindChildResult,
+  defaultBlockAt,
 } from './helpers/index.js';
 
 // === Extension System ===
