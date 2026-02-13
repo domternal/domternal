@@ -419,6 +419,20 @@ describe('schema flags', () => {
     expect(Details.config.isolating).toBe(true);
   });
 
+  it('Details has allowGapCursor: false', () => {
+    expect(Details.config.allowGapCursor).toBe(false);
+  });
+
+  it('Details schema node has allowGapCursor flag', () => {
+    const editor = new Editor({
+      extensions: allExtensions,
+      content: '<p>test</p>',
+    });
+
+    expect((editor.state.schema.nodes['details']!.spec as Record<string, unknown>)['allowGapCursor']).toBe(false);
+    editor.destroy();
+  });
+
   it('DetailsSummary has isolating: true', () => {
     expect(DetailsSummary.config.isolating).toBe(true);
   });

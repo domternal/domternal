@@ -180,6 +180,14 @@ interface NodeSchemaProperties {
   isolating?: boolean;
 
   /**
+   * Whether a gap cursor is allowed inside this node.
+   * Set to false to prevent gapcursor from appearing inside this node.
+   * Set to true to force gapcursor even if the default heuristic disallows it.
+   * When undefined, uses ProseMirror's default heuristic.
+   */
+  allowGapCursor?: boolean;
+
+  /**
    * Whether this is a top-level node (document root)
    * Only one node should have this set to true
    */

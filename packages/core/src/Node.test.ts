@@ -415,6 +415,35 @@ describe('Node', () => {
       expect(spec.marks).toBe('');
     });
 
+    it('includes allowGapCursor: false in spec', () => {
+      const node = Node.create({
+        name: 'details',
+        allowGapCursor: false,
+      });
+      const spec = node.createNodeSpec();
+
+      expect((spec as Record<string, unknown>)['allowGapCursor']).toBe(false);
+    });
+
+    it('includes allowGapCursor: true in spec', () => {
+      const node = Node.create({
+        name: 'customNode',
+        allowGapCursor: true,
+      });
+      const spec = node.createNodeSpec();
+
+      expect((spec as Record<string, unknown>)['allowGapCursor']).toBe(true);
+    });
+
+    it('omits allowGapCursor when not set', () => {
+      const node = Node.create({
+        name: 'paragraph',
+      });
+      const spec = node.createNodeSpec();
+
+      expect((spec as Record<string, unknown>)['allowGapCursor']).toBeUndefined();
+    });
+
     it('includes leafText as function in spec', () => {
       const node = Node.create({
         name: 'hardBreak',
