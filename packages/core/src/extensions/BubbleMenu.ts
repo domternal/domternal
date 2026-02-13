@@ -82,15 +82,6 @@ export interface BubbleMenuOptions {
    * @default [0, 8]
    */
   offset: [number, number];
-
-  /**
-   * Additional options for positioning.
-   */
-  tippyOptions: {
-    maxWidth?: number | string;
-    zIndex?: number;
-    appendTo?: Element | (() => Element);
-  };
 }
 
 interface BubbleMenuPluginState {
@@ -109,12 +100,11 @@ export const BubbleMenu = Extension.create<BubbleMenuOptions>({
       shouldShow: ({ state }) => !state.selection.empty,
       placement: 'top' as const,
       offset: [0, 8] as [number, number],
-      tippyOptions: {},
     };
   },
 
   addProseMirrorPlugins() {
-    const { element, updateDelay, shouldShow, placement, offset, tippyOptions } =
+    const { element, updateDelay, shouldShow, placement, offset } =
       this.options;
 
     if (!element) {
@@ -168,17 +158,13 @@ export const BubbleMenu = Extension.create<BubbleMenuOptions>({
       }
 
       // Apply position
-      element.style.position = 'fixed';
       element.style.top = `${String(top)}px`;
       element.style.left = `${String(left)}px`;
-      element.style.zIndex = String(tippyOptions.zIndex ?? 9999);
-      element.style.visibility = 'visible';
-      element.style.opacity = '1';
+      element.setAttribute('data-show', '');
     };
 
     const hideMenu = (): void => {
-      element.style.visibility = 'hidden';
-      element.style.opacity = '0';
+      element.removeAttribute('data-show');
     };
 
     // Initially hide

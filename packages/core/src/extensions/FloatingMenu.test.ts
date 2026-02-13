@@ -18,7 +18,6 @@ describe('FloatingMenu', () => {
       expect(FloatingMenu.options.element).toBe(null);
       expect(typeof FloatingMenu.options.shouldShow).toBe('function');
       expect(FloatingMenu.options.offset).toEqual([0, 0]);
-      expect(FloatingMenu.options.tippyOptions).toEqual({});
     });
 
     it('can configure element', () => {
@@ -44,12 +43,6 @@ describe('FloatingMenu', () => {
       expect(CustomFloatingMenu.options.offset).toEqual([10, 20]);
     });
 
-    it('can configure tippyOptions', () => {
-      const CustomFloatingMenu = FloatingMenu.configure({
-        tippyOptions: { zIndex: 1000 },
-      });
-      expect(CustomFloatingMenu.options.tippyOptions).toEqual({ zIndex: 1000 });
-    });
   });
 
   describe('addProseMirrorPlugins', () => {
@@ -228,8 +221,7 @@ describe('FloatingMenu', () => {
         content: '<p>Test content</p>',
       });
 
-      expect(menuElement.style.visibility).toBe('hidden');
-      expect(menuElement.style.opacity).toBe('0');
+      expect(menuElement.hasAttribute('data-show')).toBe(false);
     });
 
     it('registers plugin with correct key', () => {
@@ -291,7 +283,7 @@ describe('FloatingMenu', () => {
       // Focus at start - paragraph has content, so menu should be hidden
       editor.focus('start');
 
-      expect(menuElement.style.visibility).toBe('hidden');
+      expect(menuElement.hasAttribute('data-show')).toBe(false);
     });
 
     it('respects custom shouldShow function', () => {
@@ -311,7 +303,7 @@ describe('FloatingMenu', () => {
       editor.focus('start');
 
       // Should be hidden because shouldShow returns false
-      expect(menuElement.style.visibility).toBe('hidden');
+      expect(menuElement.hasAttribute('data-show')).toBe(false);
     });
 
     it('hides menu on destroy', () => {
@@ -329,25 +321,7 @@ describe('FloatingMenu', () => {
 
       editor.destroy();
 
-      expect(menuElement.style.visibility).toBe('hidden');
-      expect(menuElement.style.opacity).toBe('0');
-    });
-
-    it('configures custom zIndex via tippyOptions', () => {
-      menuElement = document.createElement('div');
-      document.body.appendChild(menuElement);
-
-      const CustomFloatingMenu = FloatingMenu.configure({
-        element: menuElement,
-        tippyOptions: { zIndex: 5000 },
-      });
-
-      editor = new Editor({
-        extensions: [Document, Text, Paragraph, CustomFloatingMenu],
-        content: '<p>Hello</p>',
-      });
-
-      expect(editor.getText()).toContain('Hello');
+      expect(menuElement.hasAttribute('data-show')).toBe(false);
     });
 
     it('configures custom offset', () => {

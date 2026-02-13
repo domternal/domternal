@@ -21,7 +21,6 @@ describe('BubbleMenu', () => {
       expect(typeof BubbleMenu.options.shouldShow).toBe('function');
       expect(BubbleMenu.options.placement).toBe('top');
       expect(BubbleMenu.options.offset).toEqual([0, 8]);
-      expect(BubbleMenu.options.tippyOptions).toEqual({});
     });
 
     it('can configure element', () => {
@@ -61,12 +60,6 @@ describe('BubbleMenu', () => {
       expect(CustomBubbleMenu.options.offset).toEqual([10, 20]);
     });
 
-    it('can configure tippyOptions', () => {
-      const CustomBubbleMenu = BubbleMenu.configure({
-        tippyOptions: { zIndex: 1000 },
-      });
-      expect(CustomBubbleMenu.options.tippyOptions).toEqual({ zIndex: 1000 });
-    });
   });
 
   describe('addProseMirrorPlugins', () => {
@@ -169,8 +162,7 @@ describe('BubbleMenu', () => {
         content: '<p>Test content</p>',
       });
 
-      expect(menuElement.style.visibility).toBe('hidden');
-      expect(menuElement.style.opacity).toBe('0');
+      expect(menuElement.hasAttribute('data-show')).toBe(false);
     });
 
     it('registers plugin with correct key', () => {
@@ -304,8 +296,7 @@ describe('BubbleMenu', () => {
 
       editor.destroy();
 
-      expect(menuElement.style.visibility).toBe('hidden');
-      expect(menuElement.style.opacity).toBe('0');
+      expect(menuElement.hasAttribute('data-show')).toBe(false);
     });
 
     it('configures bottom placement', () => {
@@ -315,23 +306,6 @@ describe('BubbleMenu', () => {
       const CustomBubbleMenu = BubbleMenu.configure({
         element: menuElement,
         placement: 'bottom',
-      });
-
-      editor = new Editor({
-        extensions: [Document, Text, Paragraph, CustomBubbleMenu],
-        content: '<p>Hello world</p>',
-      });
-
-      expect(editor.getText()).toContain('Hello world');
-    });
-
-    it('configures custom zIndex via tippyOptions', () => {
-      menuElement = document.createElement('div');
-      document.body.appendChild(menuElement);
-
-      const CustomBubbleMenu = BubbleMenu.configure({
-        element: menuElement,
-        tippyOptions: { zIndex: 5000 },
       });
 
       editor = new Editor({

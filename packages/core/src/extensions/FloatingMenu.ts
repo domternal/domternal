@@ -97,14 +97,6 @@ export interface FloatingMenuOptions {
    * @default [0, 0]
    */
   offset: [number, number];
-
-  /**
-   * Additional options for positioning.
-   */
-  tippyOptions: {
-    zIndex?: number;
-    appendTo?: Element | (() => Element);
-  };
 }
 
 export const FloatingMenu = Extension.create<FloatingMenuOptions>({
@@ -115,12 +107,11 @@ export const FloatingMenu = Extension.create<FloatingMenuOptions>({
       element: null,
       shouldShow: defaultShouldShow,
       offset: [0, 0] as [number, number],
-      tippyOptions: {},
     };
   },
 
   addProseMirrorPlugins() {
-    const { element, shouldShow, offset, tippyOptions } = this.options;
+    const { element, shouldShow, offset } = this.options;
 
     if (!element) {
       return [];
@@ -129,20 +120,37 @@ export const FloatingMenu = Extension.create<FloatingMenuOptions>({
     const editor = this.editor as Editor | null;
 
     const updatePosition = (view: EditorView): void => {
-      const { from } = view.state.selection;
-      const coords = view.coordsAtPos(from);
+      const { selection } = view.state;
+      const { $from } = selection;
 
-      element.style.position = 'fixed';
-      element.style.top = `${String(coords.top + offset[1])}px`;
-      element.style.left = `${String(coords.left + offset[0])}px`;
-      element.style.zIndex = String(tippyOptions.zIndex ?? 9999);
-      element.style.visibility = 'visible';
-      element.style.opacity = '1';
+      // Get the DOM node for the paragraph the cursor is in
+      const depth = $from.depth;
+      const startPos = $from.start(depth);
+      const domNode = view.nodeDOM(startPos - 1);
+
+      if (domNode instanceof HTMLElement) {
+        const rect = domNode.getBoundingClientRect();
+
+        let top = rect.bottom + offset[1];
+        const left = rect.left + offset[0];
+
+        // Viewport boundary: if menu would go below viewport, show above
+        const menuRect = element.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+
+        if (top + menuRect.height > viewportHeight - 10) {
+          top = rect.top - menuRect.height - offset[1];
+        }
+
+        element.style.top = `${String(top)}px`;
+        element.style.left = `${String(left)}px`;
+      }
+
+      element.setAttribute('data-show', '');
     };
 
     const hideMenu = (): void => {
-      element.style.visibility = 'hidden';
-      element.style.opacity = '0';
+      element.removeAttribute('data-show');
     };
 
     // Initially hide
