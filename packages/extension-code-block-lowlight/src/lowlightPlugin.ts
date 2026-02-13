@@ -23,9 +23,14 @@ type HastNode = HastText | HastElement;
 
 export interface LowlightPluginOptions {
   name: string;
-  lowlight: Lowlight;
+  lowlight: Lowlight | null;
   defaultLanguage: string | null;
   autoDetect: boolean;
+}
+
+/** Internal type after validation — lowlight guaranteed non-null */
+interface ValidatedOptions extends LowlightPluginOptions {
+  lowlight: Lowlight;
 }
 
 interface Token {
@@ -84,7 +89,7 @@ function decorateCodeBlock(
 }
 
 /** Build decorations for all code blocks in the document */
-function decorateAll(doc: PMNode, options: LowlightPluginOptions): DecorationSet {
+function decorateAll(doc: PMNode, options: ValidatedOptions): DecorationSet {
   const decorations: Decoration[] = [];
   doc.descendants((node, pos) => {
     if (node.type.name === options.name) {
@@ -99,19 +104,23 @@ function decorateAll(doc: PMNode, options: LowlightPluginOptions): DecorationSet
 export const lowlightPluginKey = new PluginKey('lowlight');
 
 export function lowlightPlugin(options: LowlightPluginOptions): Plugin {
-  if (!options.lowlight?.highlight || !options.lowlight?.registered) {
+  const { lowlight } = options;
+  if (!lowlight) {
     throw new Error(
       '[@domternal/extension-code-block-lowlight] The "lowlight" option is required. ' +
       'Provide a lowlight instance: CodeBlockLowlight.configure({ lowlight: createLowlight(common) })',
     );
   }
 
+  // After validation, lowlight is guaranteed non-null
+  const validated = { ...options, lowlight };
+
   return new Plugin({
     key: lowlightPluginKey,
 
     state: {
       init(_config: unknown, state: EditorState) {
-        return decorateAll(state.doc, options);
+        return decorateAll(state.doc, validated);
       },
 
       apply(tr: Transaction, decorationSet: DecorationSet, _oldState: EditorState, newState: EditorState) {
@@ -122,7 +131,8 @@ export function lowlightPlugin(options: LowlightPluginOptions): Plugin {
         // remaining mapping to get final positions.
         const changedRanges: { from: number; to: number }[] = [];
         for (let i = 0; i < tr.steps.length; i++) {
-          const map = tr.mapping.maps[i]!;
+          const map = tr.mapping.maps[i];
+          if (!map) continue;
           map.forEach((oldStart: number, oldEnd: number) => {
             const from = tr.mapping.slice(i).map(oldStart, -1);
             const to = tr.mapping.slice(i).map(oldEnd, 1);
@@ -136,7 +146,7 @@ export function lowlightPlugin(options: LowlightPluginOptions): Plugin {
         // Find code blocks that overlap with changed ranges
         const affected: { node: PMNode; pos: number }[] = [];
         newState.doc.descendants((node, pos) => {
-          if (node.type.name !== options.name) return;
+          if (node.type.name !== validated.name) return;
           const end = pos + node.nodeSize;
           if (changedRanges.some((r) => r.from <= end && r.to >= pos)) {
             affected.push({ node, pos });
@@ -153,7 +163,7 @@ export function lowlightPlugin(options: LowlightPluginOptions): Plugin {
 
           const fresh = decorateCodeBlock(
             block.node, block.pos,
-            options.lowlight, options.defaultLanguage, options.autoDetect,
+            validated.lowlight, validated.defaultLanguage, validated.autoDetect,
           );
           updated = updated.add(newState.doc, fresh);
         }

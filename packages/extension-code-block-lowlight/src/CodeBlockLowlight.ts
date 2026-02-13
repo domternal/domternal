@@ -4,11 +4,11 @@ import { lowlightPlugin } from './lowlightPlugin.js';
 import type { Lowlight } from './lowlightPlugin.js';
 
 export interface CodeBlockLowlightOptions extends CodeBlockOptions {
-  /** The lowlight instance (required). Create with createLowlight(). */
-  lowlight: Lowlight;
+  /** The lowlight instance (required). Create with createLowlight(). Null before configure(). */
+  lowlight: Lowlight | null;
   /** Default language when none is specified. @default null */
   defaultLanguage: string | null;
-  /** Auto-detect language when none specified. @default false */
+  /** Auto-detect language when none specified. @default true */
   autoDetect: boolean;
   /** Tab key inserts spaces in code blocks. @default true */
   tabIndentation: boolean;
@@ -27,7 +27,7 @@ export const CodeBlockLowlight = CodeBlock.extend<CodeBlockLowlightOptions, Code
       ...CodeBlock.options,
       lowlight: null as unknown as Lowlight,
       defaultLanguage: null,
-      autoDetect: false,
+      autoDetect: true,
       tabIndentation: true,
       tabSize: 2,
     };
@@ -36,7 +36,7 @@ export const CodeBlockLowlight = CodeBlock.extend<CodeBlockLowlightOptions, Code
   addStorage() {
     return {
       listLanguages: (): string[] => {
-        return this.options.lowlight?.listLanguages?.() ?? [];
+        return this.options.lowlight ? this.options.lowlight.listLanguages() : [];
       },
     };
   },
@@ -66,7 +66,7 @@ export const CodeBlockLowlight = CodeBlock.extend<CodeBlockLowlightOptions, Code
         const lastNewline = textBefore.lastIndexOf('\n');
         const lineStart = lastNewline + 1;
         const lineText = textBefore.slice(lineStart);
-        const leadingSpaces = lineText.match(/^ */)?.[0]?.length ?? 0;
+        const leadingSpaces = (/^ */).exec(lineText)?.[0]?.length ?? 0;
         const spacesToRemove = Math.min(leadingSpaces, this.options.tabSize);
 
         if (spacesToRemove === 0) return false;

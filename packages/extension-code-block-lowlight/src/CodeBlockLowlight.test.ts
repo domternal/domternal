@@ -26,7 +26,7 @@ describe('CodeBlockLowlight', () => {
 
     it('has lowlight-specific default options', () => {
       expect(CodeBlockLowlight.options.defaultLanguage).toBeNull();
-      expect(CodeBlockLowlight.options.autoDetect).toBe(false);
+      expect(CodeBlockLowlight.options.autoDetect).toBe(true);
       expect(CodeBlockLowlight.options.tabIndentation).toBe(true);
       expect(CodeBlockLowlight.options.tabSize).toBe(2);
     });
@@ -70,12 +70,12 @@ describe('CodeBlockLowlight', () => {
       }).toThrow('lowlight');
     });
 
-    it('throws when lowlight missing highlight method', async () => {
+    it('throws when lowlight is null', async () => {
       const { lowlightPlugin } = await import('./lowlightPlugin.js');
       expect(() => {
         lowlightPlugin({
           name: 'codeBlock',
-          lowlight: { registered: () => true } as any,
+          lowlight: null,
           defaultLanguage: null,
           autoDetect: false,
         });
@@ -186,9 +186,9 @@ describe('CodeBlockLowlight', () => {
       expect(classes.some((c) => c.includes('hljs-'))).toBe(true);
     });
 
-    it('no decorations when language not registered', () => {
+    it('no decorations when language not registered and autoDetect=false', () => {
       editor = new Editor({
-        extensions: [Document, Text, Paragraph, CodeBlockLowlight.configure({ lowlight })],
+        extensions: [Document, Text, Paragraph, CodeBlockLowlight.configure({ lowlight, autoDetect: false })],
         content: '<pre><code class="language-nonexistent">some code</code></pre>',
       });
 
