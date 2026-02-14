@@ -220,25 +220,22 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
           if (!item) return false;
 
           if (this.options.plainText) {
-            // In plain text mode, insert the native Unicode character
             if (dispatch) {
               tr.insertText(item.emoji);
               dispatch(tr);
+              this.storage.addFrequentlyUsed(name);
             }
             return true;
           }
 
-          // In node mode, insert an emoji atom node
           if (!this.nodeType) return false;
 
           if (dispatch) {
             const node = this.nodeType.create({ name });
             tr.replaceSelectionWith(node);
             dispatch(tr);
+            this.storage.addFrequentlyUsed(name);
           }
-
-          // Track usage
-          this.storage.addFrequentlyUsed(name);
 
           return true;
         },

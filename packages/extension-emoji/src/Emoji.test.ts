@@ -176,6 +176,36 @@ describe('emoji datasets', () => {
     const names = allEmojis.map((e) => e.name);
     expect(new Set(names).size).toBe(names.length);
   });
+
+  it('shortcodes are unique across emojis', () => {
+    const seen = new Set<string>();
+    for (const item of emojis) {
+      for (const sc of item.shortcodes) {
+        expect(seen.has(sc)).toBe(false);
+        seen.add(sc);
+      }
+    }
+  });
+
+  it('shortcodes are unique across allEmojis', () => {
+    const seen = new Set<string>();
+    for (const item of allEmojis) {
+      for (const sc of item.shortcodes) {
+        expect(seen.has(sc)).toBe(false);
+        seen.add(sc);
+      }
+    }
+  });
+
+  it('emoji characters are unique across emojis', () => {
+    const chars = emojis.map((e) => e.emoji);
+    expect(new Set(chars).size).toBe(chars.length);
+  });
+
+  it('emoji characters are unique across allEmojis', () => {
+    const chars = allEmojis.map((e) => e.emoji);
+    expect(new Set(chars).size).toBe(chars.length);
+  });
 });
 
 describe('emoticons', () => {
@@ -556,6 +586,36 @@ describe('commands', () => {
 
     const frequent = getStorage(editor).getFrequentlyUsed();
     expect(frequent).toContain('grinning_face');
+  });
+
+  it('insertEmoji tracks frequently used in plainText mode', () => {
+    const PlainEmoji = Emoji.configure({ plainText: true });
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, PlainEmoji],
+      content: '<p></p>',
+    });
+
+    editor.commands.insertEmoji('grinning_face');
+    editor.commands.insertEmoji('red_heart');
+    editor.commands.insertEmoji('grinning_face');
+
+    const frequent = getStorage(editor).getFrequentlyUsed();
+    expect(frequent[0]).toBe('grinning_face');
+    expect(frequent[1]).toBe('red_heart');
+  });
+
+  it('can() check does not track frequently used', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<p></p>',
+    });
+
+    // can() should not track usage (dispatch is not called)
+    editor.can().insertEmoji('grinning_face');
+    editor.can().insertEmoji('grinning_face');
+
+    const frequent = getStorage(editor).getFrequentlyUsed();
+    expect(frequent).toEqual([]);
   });
 });
 

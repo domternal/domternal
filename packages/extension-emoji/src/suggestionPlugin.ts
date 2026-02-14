@@ -142,6 +142,11 @@ export function createSuggestionPlugin(
       },
 
       apply(tr: Transaction, prev: SuggestionState, _oldState: EditorState, newState: EditorState): SuggestionState {
+        // Dismiss via Escape key (or programmatic dismiss)
+        if (tr.getMeta(emojiSuggestionPluginKey) === 'dismiss') {
+          return { ...INITIAL_STATE };
+        }
+
         // Check if this transaction is from user input
         const isUserInput = tr.docChanged || tr.selectionSet;
         if (!isUserInput) return prev;
@@ -245,10 +250,10 @@ export function createSuggestionPlugin(
 
         // Escape closes suggestion
         if (event.key === 'Escape') {
-          if (renderer) {
-            renderer.onExit();
-            renderer = null;
-          }
+          // Dispatch a dismiss transaction to reset plugin state
+          const { tr } = view.state;
+          tr.setMeta(emojiSuggestionPluginKey, 'dismiss');
+          view.dispatch(tr);
           return true;
         }
 
