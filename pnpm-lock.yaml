@@ -173,6 +173,9 @@ importers:
       '@domternal/core':
         specifier: workspace:*
         version: link:../core
+      prosemirror-inputrules:
+        specifier: ^1.5.1
+        version: 1.5.1
       prosemirror-model:
         specifier: ^1.25.4
         version: 1.25.4

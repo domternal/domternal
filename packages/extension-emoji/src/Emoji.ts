@@ -63,6 +63,10 @@ export interface EmojiStorage {
   findEmoji: (name: string) => EmojiItem | undefined;
   /** Search emoji by query (matches name, shortcodes, and tags). */
   searchEmoji: (query: string) => EmojiItem[];
+  /** @internal Name → EmojiItem lookup map (set in onCreate). */
+  _nameMap?: Map<string, EmojiItem>;
+  /** @internal Shortcode → EmojiItem lookup map (set in onCreate). */
+  _shortcodeMap?: Map<string, EmojiItem>;
 }
 
 /** Builds a shortcode → EmojiItem lookup map for fast resolution. */
@@ -144,10 +148,9 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
         .sort((a, b) => b[1] - a[1])
         .map(([name]) => name);
 
-    // Store shortcodeMap on storage for input rule access (via closure)
-    // This avoids rebuilding the map on every keystroke.
-    (this.storage as Record<string, unknown>)._shortcodeMap = shortcodeMap;
-    (this.storage as Record<string, unknown>)._nameMap = nameMap;
+    // Store maps on storage for input rule / renderHTML / leafText access
+    this.storage._shortcodeMap = shortcodeMap;
+    this.storage._nameMap = nameMap;
   },
 
   addAttributes() {
@@ -177,9 +180,7 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
 
   renderHTML({ node, HTMLAttributes }) {
     const name = node.attrs['name'] as string | null;
-    const nameMap = (this.storage as Record<string, unknown>)._nameMap as
-      | Map<string, EmojiItem>
-      | undefined;
+    const nameMap = this.storage._nameMap;
     const item = name ? nameMap?.get(name) : undefined;
     const emoji = item?.emoji ?? '';
 
@@ -191,8 +192,8 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
         'data-type': 'emoji',
         'data-name': name ?? '',
         class: [
-          (this.options.HTMLAttributes['class'] as string) ?? '',
-          (HTMLAttributes['class'] as string) ?? '',
+          this.options.HTMLAttributes['class'] as string | undefined,
+          HTMLAttributes['class'] as string | undefined,
           'emoji',
         ]
           .filter(Boolean)
@@ -205,9 +206,7 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
   // leafText: emoji char for getText() and clipboard
   leafText(node) {
     const name = node.attrs['name'] as string | null;
-    const nameMap = (this.storage as Record<string, unknown>)._nameMap as
-      | Map<string, EmojiItem>
-      | undefined;
+    const nameMap = this.storage._nameMap;
     const item = name ? nameMap?.get(name) : undefined;
     return item?.emoji ?? '';
   },
@@ -217,10 +216,7 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
       insertEmoji:
         (name: string) =>
         ({ tr, dispatch }) => {
-          const nameMap = (this.storage as Record<string, unknown>)._nameMap as
-            | Map<string, EmojiItem>
-            | undefined;
-          const item = nameMap?.get(name);
+          const item = this.storage._nameMap?.get(name);
           if (!item) return false;
 
           if (this.options.plainText) {
@@ -267,9 +263,7 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
 
   addInputRules() {
     const rules: InputRule[] = [];
-    const shortcodeMap = (this.storage as Record<string, unknown>)._shortcodeMap as
-      | Map<string, EmojiItem>
-      | undefined;
+    const shortcodeMap = this.storage._shortcodeMap;
 
     if (!shortcodeMap) return rules;
 
@@ -309,10 +303,7 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
     if (this.options.enableEmoticons) {
       // Build a single regex from all emoticons, sorted longest-first to avoid partial matches
       const emoticonEntries = Object.entries(emoticons);
-      const nameMap = (this.storage as Record<string, unknown>)._nameMap as
-        | Map<string, EmojiItem>
-        | undefined;
-
+      const nameMap = this.storage._nameMap;
       if (nameMap) {
         // Sort by length descending so longer emoticons match first
         emoticonEntries.sort((a, b) => b[0].length - a[0].length);
@@ -327,7 +318,7 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
           rules.push(
             new InputRule(
               pattern,
-              (state: EditorState, match: RegExpMatchArray, start: number, end: number) => {
+              (state: EditorState, match: RegExpMatchArray, start: number) => {
                 const { tr } = state;
 
                 // Calculate the actual emoticon position (after the optional leading space)
