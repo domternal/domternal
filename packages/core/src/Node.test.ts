@@ -455,7 +455,7 @@ describe('Node', () => {
       expect(spec.leafText!({} as never)).toBe('\n');
     });
 
-    it('includes leafText function directly in spec', () => {
+    it('includes leafText function in spec with correct behavior', () => {
       const leafTextFn = (): string => '---';
       const node = Node.create({
         name: 'horizontalRule',
@@ -463,7 +463,8 @@ describe('Node', () => {
       });
       const spec = node.createNodeSpec();
 
-      expect(spec.leafText).toBe(leafTextFn);
+      expect(typeof spec.leafText).toBe('function');
+      expect(spec.leafText!({} as never)).toBe('---');
     });
 
     describe('attributes', () => {

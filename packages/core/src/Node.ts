@@ -232,12 +232,16 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
       // We'll handle this in ExtensionManager
     }
 
-    // Leaf text
+    // Leaf text - bind to extension instance so this.storage etc. are available
     if (this.config.leafText !== undefined) {
-      spec.leafText =
-        typeof this.config.leafText === 'function'
-          ? this.config.leafText
-          : () => this.config.leafText as string;
+      if (typeof this.config.leafText === 'function') {
+        const leafTextFn = this.config.leafText;
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
+        const instance = this;
+        spec.leafText = (node) => leafTextFn.call(instance, node);
+      } else {
+        spec.leafText = () => this.config.leafText as string;
+      }
     }
 
     // Attributes - convert AttributeSpecs to ProseMirror attrs
