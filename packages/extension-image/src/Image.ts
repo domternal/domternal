@@ -1,60 +1,138 @@
 /**
  * Image Node
  *
- * Block-level image element.
- * Supports src, alt, title, width, height attributes.
+ * Block-level (default) or inline image element.
+ * Supports src, alt, title, width, height, loading, crossorigin, float attributes.
  *
- * XSS Protection:
- * - Schema-level validation rejects javascript:, data: (unless allowBase64), and other dangerous URLs
- * - Only allows http://, https://, and optionally data:image/ URLs
- * - Double-checked in renderHTML as defense in depth
+ * Options:
+ * - inline: false (default) — block-level image | true — inline image within paragraphs
+ * - allowBase64: false (default) — only http/https URLs | true — also allow data:image/ URLs
+ *
+ * XSS Protection (blocklist approach):
+ * - Blocks javascript:, vbscript:, file: protocols
+ * - Blocks data: URLs unless allowBase64 AND specifically data:image/
+ * - Allows http(s), relative paths, protocol-relative URLs
+ * - Defense in depth: validated in parseHTML, renderHTML, setImage command, and input rule
  */
 
 import { Node } from '@domternal/core';
 import type { CommandSpec } from '@domternal/core';
+import { InputRule } from 'prosemirror-inputrules';
+import { imageUploadPlugin } from './imageUploadPlugin.js';
+
+/** Float values for image text wrapping. */
+export type ImageFloat = 'none' | 'left' | 'right' | 'center';
+
+/**
+ * Typed options for the setImage command.
+ * src is required — it makes no sense to insert an image without a source URL.
+ */
+export interface SetImageOptions {
+  src: string;
+  alt?: string;
+  title?: string;
+  width?: string | number;
+  height?: string | number;
+  loading?: 'lazy' | 'eager';
+  crossorigin?: 'anonymous' | 'use-credentials';
+  float?: ImageFloat;
+}
 
 declare module '@domternal/core' {
   interface RawCommands {
-    setImage: CommandSpec<[attributes?: Record<string, unknown>]>;
+    setImage: CommandSpec<[attributes: SetImageOptions]>;
+    setImageFloat: CommandSpec<[float: ImageFloat]>;
   }
 }
 
 /**
  * Validates image src URL for XSS protection.
- * Allows: http://, https://, and optionally data:image/
- * Blocks: javascript:, data: (non-image), vbscript:, file://, etc.
+ * Blocks: javascript:, vbscript:, file:, and data: (unless allowBase64 AND data:image/).
+ * Allows everything else: http(s), relative paths, protocol-relative URLs, etc.
  */
 function isValidImageSrc(value: unknown, allowBase64: boolean): boolean {
   if (value === null || value === undefined) return true; // null is valid (no src)
   if (typeof value !== 'string') return false;
   if (value === '') return true; // empty string is valid
 
-  // Check for valid URL patterns
-  if (/^https?:\/\//i.test(value)) return true;
-  if (allowBase64 && /^data:image\//i.test(value)) return true;
+  // Block dangerous protocols
+  if (/^(javascript|vbscript|file):/i.test(value)) return false;
 
-  return false;
+  // Block data: URLs unless allowBase64 AND specifically data:image/
+  if (/^data:/i.test(value)) {
+    return allowBase64 && /^data:image\//i.test(value);
+  }
+
+  // Allow everything else: http(s), relative paths, protocol-relative, etc.
+  return true;
 }
 
 export interface ImageOptions {
+  /**
+   * Whether images are inline (within paragraphs) or block-level (default: false)
+   * When true, images can appear alongside text within a paragraph.
+   */
+  inline: boolean;
   /**
    * Allow base64 data:image/ URLs (default: false)
    * When false, only http:// and https:// URLs are allowed
    */
   allowBase64: boolean;
   HTMLAttributes: Record<string, unknown>;
+  /**
+   * Async function that uploads a file and returns the URL.
+   * When provided, enables paste/drop image upload.
+   * When null (default), paste/drop is not handled.
+   */
+  uploadHandler: ((file: File) => Promise<string>) | null;
+  /**
+   * Allowed MIME types for upload.
+   * @default ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/avif']
+   */
+  allowedMimeTypes: string[];
+  /**
+   * Maximum file size in bytes. 0 = unlimited.
+   * @default 0
+   */
+  maxFileSize: number;
+  /**
+   * Called when upload starts for a file.
+   */
+  onUploadStart: ((file: File) => void) | null;
+  /**
+   * Called when upload fails. Receives the error and the file.
+   */
+  onUploadError: ((error: Error, file: File) => void) | null;
 }
 
 export const Image = Node.create<ImageOptions>({
   name: 'image',
-  group: 'block',
+  group() {
+    return this.options.inline ? 'inline' : 'block';
+  },
+  inline() {
+    return this.options.inline;
+  },
   draggable: true,
   atom: true,
 
   addOptions() {
     return {
+      inline: false,
       allowBase64: false,
       HTMLAttributes: {},
+      uploadHandler: null,
+      allowedMimeTypes: [
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'image/svg+xml',
+        'image/avif',
+      ],
+      maxFileSize: 0,
+      onUploadStart: null,
+      onUploadError: null,
     };
   },
 
@@ -108,6 +186,44 @@ export const Image = Node.create<ImageOptions>({
           return { height: attributes['height'] as string };
         },
       },
+      loading: {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('loading'),
+        renderHTML: (attributes: Record<string, unknown>) => {
+          if (!attributes['loading']) return {};
+          return { loading: attributes['loading'] as string };
+        },
+      },
+      crossorigin: {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('crossorigin'),
+        renderHTML: (attributes: Record<string, unknown>) => {
+          if (!attributes['crossorigin']) return {};
+          return { crossorigin: attributes['crossorigin'] as string };
+        },
+      },
+      float: {
+        default: 'none',
+        parseHTML: (element: HTMLElement) => {
+          const style = element.style;
+          if (style.float === 'left') return 'left';
+          if (style.float === 'right') return 'right';
+          if (style.marginLeft === 'auto' && style.marginRight === 'auto') return 'center';
+          const align = element.getAttribute('align');
+          if (align === 'left') return 'left';
+          if (align === 'right') return 'right';
+          if (align === 'center' || align === 'middle') return 'center';
+          return 'none';
+        },
+        renderHTML: (attributes: Record<string, unknown>) => {
+          const float = attributes['float'] as string;
+          if (!float || float === 'none') return {};
+          if (float === 'left') return { style: 'float: left; margin: 0 1em 1em 0;' };
+          if (float === 'right') return { style: 'float: right; margin: 0 0 1em 1em;' };
+          if (float === 'center') return { style: 'display: block; margin-left: auto; margin-right: auto;' };
+          return {};
+        },
+      },
     };
   },
 
@@ -127,28 +243,96 @@ export const Image = Node.create<ImageOptions>({
     return ['img', { ...this.options.HTMLAttributes, ...HTMLAttributes }];
   },
 
+  leafText(node) {
+    return (node.attrs['alt'] as string | null) ?? '';
+  },
+
+  addInputRules() {
+    const { nodeType, options } = this;
+    if (!nodeType) return [];
+
+    return [
+      new InputRule(
+        /(?:^|\s)(!\[(.+|:?)]\((\S+)(?:(?:\s+)["'\u201C\u201D\u2018\u2019]([^"'\u201C\u201D\u2018\u2019]+)["'\u201C\u201D\u2018\u2019])?\))$/,
+        (state, match, start, end) => {
+          const [fullMatch, wrapper, alt, src, title] = match;
+          if (!src || !wrapper) return null;
+
+          // XSS validation: reject dangerous URLs in markdown syntax too
+          if (!isValidImageSrc(src, options.allowBase64)) return null;
+
+          const { tr } = state;
+          const attrs: Record<string, unknown> = {
+            src,
+            alt: alt ?? null,
+            title: title ?? null,
+          };
+
+          // Adjust start for leading whitespace before ![
+          const offset = fullMatch.length - wrapper.length;
+          const from = start + offset;
+
+          tr.replaceWith(from, end, nodeType.create(attrs));
+          return tr;
+        }
+      ),
+    ];
+  },
+
   addCommands() {
-    const { name, options } = this;
     return {
       setImage:
-        (attributes?: Record<string, unknown>) =>
+        (attributes: SetImageOptions) =>
         ({ tr, dispatch }) => {
           // XSS protection: validate src URL before inserting
-          if (attributes?.['src'] && !isValidImageSrc(attributes['src'], options.allowBase64)) {
+          if (!isValidImageSrc(attributes.src, this.options.allowBase64)) {
             return false;
           }
 
-          const nodeType = tr.doc.type.schema.nodes[name];
-          if (!nodeType) return false;
+          if (!this.nodeType) return false;
 
           if (dispatch) {
-            const node = nodeType.create(attributes ?? {});
+            const node = this.nodeType.create(attributes);
             tr.replaceSelectionWith(node);
             dispatch(tr);
           }
 
           return true;
         },
+
+      setImageFloat:
+        (float: ImageFloat) =>
+        ({ tr, state, dispatch }) => {
+          if (!['none', 'left', 'right', 'center'].includes(float)) return false;
+
+          const { selection } = state;
+          const node = state.doc.nodeAt(selection.from);
+          if (node?.type.name !== 'image') return false;
+
+          if (dispatch) {
+            tr.setNodeMarkup(selection.from, undefined, {
+              ...node.attrs,
+              float,
+            });
+            dispatch(tr);
+          }
+          return true;
+        },
     };
+  },
+
+  addProseMirrorPlugins() {
+    if (!this.options.uploadHandler || !this.nodeType) return [];
+
+    return [
+      imageUploadPlugin({
+        nodeType: this.nodeType,
+        uploadHandler: this.options.uploadHandler,
+        allowedMimeTypes: this.options.allowedMimeTypes,
+        maxFileSize: this.options.maxFileSize,
+        onUploadStart: this.options.onUploadStart,
+        onUploadError: this.options.onUploadError,
+      }),
+    ];
   },
 });
