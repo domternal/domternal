@@ -50,6 +50,16 @@ export interface MentionTrigger {
   invalidNodes?: string[];
   /** Debounce delay in ms for items() calls. Use >0 for async/API-backed items. Default: 0 (immediate) */
   debounce?: number;
+  /** CSS class for the inline decoration on the active trigger+query range. Default: 'mention-suggestion' */
+  decorationClass?: string;
+  /** HTML tag for the inline decoration element. Default: 'span' */
+  decorationTag?: string;
+  /**
+   * Controls whether the suggestion should be shown. Return `false` to suppress.
+   * Useful for collaboration (suppress suggestions triggered by remote cursors)
+   * or any custom logic based on editor state.
+   */
+  shouldShow?: (props: { state: EditorState; view: EditorView }) => boolean;
 }
 
 /** Props passed to suggestion renderer callbacks. */
@@ -187,6 +197,9 @@ export function createMentionSuggestionPlugin(
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   const debounceMs = trigger.debounce ?? 0;
+  const decorationClass = trigger.decorationClass ?? 'mention-suggestion';
+  const decorationTag = trigger.decorationTag ?? 'span';
+  const shouldShow = trigger.shouldShow;
 
   function cleanup(): void {
     if (debounceTimer !== null) {
@@ -253,6 +266,15 @@ export function createMentionSuggestionPlugin(
           if (!pluginState) return;
 
           if (pluginState.active && pluginState.range) {
+            // Check shouldShow — if it returns false, treat as inactive
+            if (shouldShow && !shouldShow({ state: view.state, view })) {
+              if (renderer) {
+                cleanup();
+                renderer.onExit();
+                renderer = null;
+              }
+              return;
+            }
             // Command reads current plugin state when invoked, not stale closure
             const command = (item: MentionItem): void => {
               const currentState = key.getState(view.state);
@@ -360,8 +382,8 @@ export function createMentionSuggestionPlugin(
 
         return DecorationSet.create(state.doc, [
           Decoration.inline(pluginState.range.from, pluginState.range.to, {
-            class: 'mention-suggestion',
-            nodeName: 'span',
+            class: decorationClass,
+            nodeName: decorationTag,
           }),
         ]);
       },

@@ -4,6 +4,7 @@ import type { MentionStorage } from './Mention.js';
 import type { MentionTrigger } from './mentionSuggestionPlugin.js';
 import { Document, Text, Paragraph, Editor } from '@domternal/core';
 import { TextSelection } from 'prosemirror-state';
+import type { DecorationSet } from 'prosemirror-view';
 
 const allExtensions = [Document, Text, Paragraph, Mention];
 
@@ -2034,6 +2035,267 @@ describe('Mention', () => {
       const text = editor.state.doc.textContent;
       expect(text).not.toContain('@alice');
       expect(text).toContain('@Alice'); // leafText of the mention node
+    });
+  });
+
+  // ─── decorationClass / decorationTag ────────────────────────────────────
+
+  describe('decorationClass and decorationTag options', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    it('uses default decoration class "mention-suggestion"', () => {
+      const Custom = Mention.configure({
+        suggestion: {
+          char: '@',
+          name: 'user',
+          items: () => [{ id: '1', label: 'Alice' }],
+          render: () => ({
+            onStart: () => undefined,
+            onUpdate: () => undefined,
+            onExit: () => undefined,
+            onKeyDown: () => false,
+          }),
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Custom],
+        content: '<p></p>',
+      });
+
+      editor.view.dispatch(editor.state.tr.insertText('@ali'));
+
+      const mentionPlugin = editor.state.plugins.find(
+        (p) => (p as any).key.includes('mentionSuggestion'),
+      );
+      expect(mentionPlugin).toBeDefined();
+      const decos = (mentionPlugin!.props.decorations as any).call(mentionPlugin, editor.state);
+      const found = (decos as DecorationSet).find();
+      expect(found).toHaveLength(1);
+      expect((found[0] as any).type.attrs.class).toBe('mention-suggestion');
+      expect((found[0] as any).type.attrs.nodeName).toBe('span');
+    });
+
+    it('uses custom decorationClass when specified', () => {
+      const Custom = Mention.configure({
+        suggestion: {
+          char: '@',
+          name: 'decoClass',
+          items: () => [{ id: '1', label: 'Alice' }],
+          decorationClass: 'my-autocomplete',
+          render: () => ({
+            onStart: () => undefined,
+            onUpdate: () => undefined,
+            onExit: () => undefined,
+            onKeyDown: () => false,
+          }),
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Custom],
+        content: '<p></p>',
+      });
+
+      editor.view.dispatch(editor.state.tr.insertText('@ali'));
+
+      const mentionPlugin = editor.state.plugins.find(
+        (p) => (p as any).key.includes('mentionSuggestion_decoClass'),
+      );
+      expect(mentionPlugin).toBeDefined();
+      const decos = (mentionPlugin!.props.decorations as any).call(mentionPlugin, editor.state);
+      const found = (decos as DecorationSet).find();
+      expect(found).toHaveLength(1);
+      expect((found[0] as any).type.attrs.class).toBe('my-autocomplete');
+    });
+
+    it('uses custom decorationTag when specified', () => {
+      const Custom = Mention.configure({
+        suggestion: {
+          char: '@',
+          name: 'decoTag',
+          items: () => [{ id: '1', label: 'Alice' }],
+          decorationTag: 'mark',
+          render: () => ({
+            onStart: () => undefined,
+            onUpdate: () => undefined,
+            onExit: () => undefined,
+            onKeyDown: () => false,
+          }),
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Custom],
+        content: '<p></p>',
+      });
+
+      editor.view.dispatch(editor.state.tr.insertText('@ali'));
+
+      const mentionPlugin = editor.state.plugins.find(
+        (p) => (p as any).key.includes('mentionSuggestion_decoTag'),
+      );
+      expect(mentionPlugin).toBeDefined();
+      const decos = (mentionPlugin!.props.decorations as any).call(mentionPlugin, editor.state);
+      const found = (decos as DecorationSet).find();
+      expect(found).toHaveLength(1);
+      expect((found[0] as any).type.attrs.nodeName).toBe('mark');
+    });
+  });
+
+  // ─── shouldShow ─────────────────────────────────────────────────────────
+
+  describe('shouldShow option', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    it('shows suggestion when shouldShow returns true', () => {
+      let rendererStarted = false;
+      const Custom = Mention.configure({
+        suggestion: {
+          char: '@',
+          name: 'showTrue',
+          items: () => [{ id: '1', label: 'Alice' }],
+          shouldShow: () => true,
+          render: () => ({
+            onStart: () => { rendererStarted = true; },
+            onUpdate: () => undefined,
+            onExit: () => undefined,
+            onKeyDown: () => false,
+          }),
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Custom],
+        content: '<p></p>',
+      });
+
+      editor.view.dispatch(editor.state.tr.insertText('@ali'));
+      expect(rendererStarted).toBe(true);
+    });
+
+    it('suppresses suggestion when shouldShow returns false', () => {
+      let rendererStarted = false;
+      const Custom = Mention.configure({
+        suggestion: {
+          char: '@',
+          name: 'showFalse',
+          items: () => [{ id: '1', label: 'Alice' }],
+          shouldShow: () => false,
+          render: () => ({
+            onStart: () => { rendererStarted = true; },
+            onUpdate: () => undefined,
+            onExit: () => undefined,
+            onKeyDown: () => false,
+          }),
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Custom],
+        content: '<p></p>',
+      });
+
+      editor.view.dispatch(editor.state.tr.insertText('@ali'));
+      expect(rendererStarted).toBe(false);
+    });
+
+    it('calls onExit when shouldShow transitions from true to false', () => {
+      let exitCalled = false;
+      let showSuggestion = true;
+      const Custom = Mention.configure({
+        suggestion: {
+          char: '@',
+          name: 'showTransition',
+          items: () => [{ id: '1', label: 'Alice' }],
+          shouldShow: () => showSuggestion,
+          render: () => ({
+            onStart: () => undefined,
+            onUpdate: () => undefined,
+            onExit: () => { exitCalled = true; },
+            onKeyDown: () => false,
+          }),
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Custom],
+        content: '<p></p>',
+      });
+
+      // Trigger suggestion — shouldShow returns true
+      editor.view.dispatch(editor.state.tr.insertText('@ali'));
+      expect(exitCalled).toBe(false);
+
+      // Now make shouldShow return false and trigger an update
+      showSuggestion = false;
+      editor.view.dispatch(editor.state.tr.insertText('c'));
+      expect(exitCalled).toBe(true);
+    });
+
+    it('receives editor state and view in shouldShow callback', () => {
+      let receivedState = false;
+      let receivedView = false;
+      const Custom = Mention.configure({
+        suggestion: {
+          char: '@',
+          name: 'showProps',
+          items: () => [{ id: '1', label: 'Alice' }],
+          shouldShow: ({ state, view }) => {
+            receivedState = !!state;
+            receivedView = !!view;
+            return true;
+          },
+          render: () => ({
+            onStart: () => undefined,
+            onUpdate: () => undefined,
+            onExit: () => undefined,
+            onKeyDown: () => false,
+          }),
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Custom],
+        content: '<p></p>',
+      });
+
+      editor.view.dispatch(editor.state.tr.insertText('@ali'));
+      expect(receivedState).toBe(true);
+      expect(receivedView).toBe(true);
+    });
+
+    it('without shouldShow, suggestion always shows (default behavior)', () => {
+      let rendererStarted = false;
+      const Custom = Mention.configure({
+        suggestion: {
+          char: '@',
+          name: 'noShow',
+          items: () => [{ id: '1', label: 'Alice' }],
+          render: () => ({
+            onStart: () => { rendererStarted = true; },
+            onUpdate: () => undefined,
+            onExit: () => undefined,
+            onKeyDown: () => false,
+          }),
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Custom],
+        content: '<p></p>',
+      });
+
+      editor.view.dispatch(editor.state.tr.insertText('@ali'));
+      expect(rendererStarted).toBe(true);
     });
   });
 });
