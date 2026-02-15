@@ -205,9 +205,9 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
     const spec: NodeSpec = {};
 
     // Schema properties - use callOrReturn for group/inline to support dynamic values
-    if (this.config.group !== undefined) spec.group = callOrReturn(this.config.group, this) as string;
+    if (this.config.group !== undefined) spec.group = callOrReturn(this.config.group, this);
     if (this.config.content !== undefined) spec.content = this.config.content;
-    if (this.config.inline !== undefined) spec.inline = callOrReturn(this.config.inline, this) as boolean;
+    if (this.config.inline !== undefined) spec.inline = callOrReturn(this.config.inline, this);
     if (this.config.atom !== undefined) spec.atom = this.config.atom;
     if (this.config.selectable !== undefined)
       spec.selectable = this.config.selectable;

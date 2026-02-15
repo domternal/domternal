@@ -49,6 +49,7 @@ describe('Image', () => {
           'image/avif',
         ],
         maxFileSize: 0,
+        onUploadStart: null,
         onUploadError: null,
       });
     });
@@ -670,6 +671,7 @@ describe('Image', () => {
         'image/avif',
       ]);
       expect(Image.options.maxFileSize).toBe(0);
+      expect(Image.options.onUploadStart).toBeNull();
       expect(Image.options.onUploadError).toBeNull();
     });
 
@@ -689,6 +691,13 @@ describe('Image', () => {
     it('can configure maxFileSize', () => {
       const CustomImage = Image.configure({ maxFileSize: 5_000_000 });
       expect(CustomImage.options.maxFileSize).toBe(5_000_000);
+    });
+
+    it('can configure onUploadStart', () => {
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      const startHandler = (): void => {};
+      const CustomImage = Image.configure({ onUploadStart: startHandler });
+      expect(CustomImage.options.onUploadStart).toBe(startHandler);
     });
 
     it('can configure onUploadError', () => {
@@ -778,6 +787,7 @@ describe('imageUploadPlugin', () => {
     opts?: {
       allowedMimeTypes?: string[];
       maxFileSize?: number;
+      onUploadStart?: ((file: File) => void) | null;
       onUploadError?: ((error: Error, file: File) => void) | null;
     },
   ): EditorView {
@@ -791,6 +801,7 @@ describe('imageUploadPlugin', () => {
         'image/webp',
       ],
       maxFileSize: opts?.maxFileSize ?? 0,
+      onUploadStart: opts?.onUploadStart ?? null,
       onUploadError: opts?.onUploadError ?? null,
     });
 
@@ -858,6 +869,7 @@ describe('imageUploadPlugin', () => {
         uploadHandler: handler,
         allowedMimeTypes: ['image/png'],
         maxFileSize: 0,
+        onUploadStart: null,
         onUploadError: null,
       });
       expect(plugin.props.handlePaste).toBeDefined();
@@ -947,6 +959,25 @@ describe('imageUploadPlugin', () => {
       // eslint-disable-next-line @typescript-eslint/unbound-method
       expect(event.preventDefault).toHaveBeenCalled();
       expect(handler).toHaveBeenCalledWith(file);
+    });
+
+    it('calls onUploadStart before upload', () => {
+      const handler = vi
+        .fn()
+        .mockResolvedValue('https://example.com/uploaded.png');
+      const onStart = vi.fn();
+      view = createUploadView(handler, { onUploadStart: onStart });
+
+      const plugin = view.state.plugins.find(
+        (p) => p.spec.key === imageUploadPluginKey,
+      );
+      const handlePaste = plugin!.props.handlePaste as any;
+
+      const file = mockFile('photo.png', 'image/png');
+      const event = mockPasteEvent([file]);
+
+      handlePaste(view, event);
+      expect(onStart).toHaveBeenCalledWith(file);
     });
 
     it('inserts image after successful upload', async () => {

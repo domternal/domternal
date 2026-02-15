@@ -91,6 +91,10 @@ export interface ImageOptions {
    */
   maxFileSize: number;
   /**
+   * Called when upload starts for a file.
+   */
+  onUploadStart: ((file: File) => void) | null;
+  /**
    * Called when upload fails. Receives the error and the file.
    */
   onUploadError: ((error: Error, file: File) => void) | null;
@@ -122,6 +126,7 @@ export const Image = Node.create<ImageOptions>({
         'image/avif',
       ],
       maxFileSize: 0,
+      onUploadStart: null,
       onUploadError: null,
     };
   },
@@ -279,6 +284,7 @@ export const Image = Node.create<ImageOptions>({
         uploadHandler: this.options.uploadHandler,
         allowedMimeTypes: this.options.allowedMimeTypes,
         maxFileSize: this.options.maxFileSize,
+        onUploadStart: this.options.onUploadStart,
         onUploadError: this.options.onUploadError,
       }),
     ];

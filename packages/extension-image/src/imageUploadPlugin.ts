@@ -24,6 +24,8 @@ export interface ImageUploadPluginOptions {
   allowedMimeTypes: string[];
   /** Max file size in bytes (0 = unlimited) */
   maxFileSize: number;
+  /** Called when upload starts for a file */
+  onUploadStart: ((file: File) => void) | null;
   /** Error callback */
   onUploadError: ((error: Error, file: File) => void) | null;
 }
@@ -63,6 +65,7 @@ export function imageUploadPlugin(options: ImageUploadPluginOptions): Plugin {
     uploadHandler,
     allowedMimeTypes,
     maxFileSize,
+    onUploadStart,
     onUploadError,
   } = options;
 
@@ -74,6 +77,8 @@ export function imageUploadPlugin(options: ImageUploadPluginOptions): Plugin {
       const tr = view.state.tr;
       tr.setMeta(imageUploadPluginKey, { type: 'add', id, pos });
       view.dispatch(tr);
+
+      if (onUploadStart) onUploadStart(file);
 
       // Start upload
       uploadHandler(file)
