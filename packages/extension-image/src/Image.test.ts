@@ -338,4 +338,175 @@ describe('Image', () => {
       });
     });
   });
+
+  describe('SetImageOptions typed interface', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) {
+        editor.destroy();
+      }
+    });
+
+    it('setImage accepts typed options with src, alt, title', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>Text</p>',
+      });
+      const result = editor.commands.setImage({
+        src: 'https://example.com/typed.png',
+        alt: 'Typed alt',
+        title: 'Typed title',
+      });
+      expect(result).toBe(true);
+
+      const html = editor.getHTML();
+      expect(html).toContain('src="https://example.com/typed.png"');
+      expect(html).toContain('alt="Typed alt"');
+      expect(html).toContain('title="Typed title"');
+    });
+
+    it('setImage accepts width and height options', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>Text</p>',
+      });
+      editor.commands.setImage({
+        src: 'https://example.com/sized.png',
+        width: '200',
+        height: '100',
+      });
+
+      const html = editor.getHTML();
+      expect(html).toContain('width="200"');
+      expect(html).toContain('height="100"');
+    });
+  });
+
+  describe('inline mode', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) {
+        editor.destroy();
+      }
+    });
+
+    it('inline: true changes group to inline', () => {
+      const InlineImage = Image.configure({ inline: true });
+      const group = (InlineImage.config.group as Function).call(InlineImage);
+      expect(group).toBe('inline');
+    });
+
+    it('inline: true sets inline to true', () => {
+      const InlineImage = Image.configure({ inline: true });
+      const inline = (InlineImage.config.inline as Function).call(InlineImage);
+      expect(inline).toBe(true);
+    });
+
+    it('inline: false (default) keeps block group', () => {
+      const group = (Image.config.group as Function).call(Image);
+      expect(group).toBe('block');
+    });
+
+    it('inline image can exist inside paragraph', () => {
+      const InlineImage = Image.configure({ inline: true });
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, InlineImage],
+        content: '<p>Before <img src="https://example.com/inline.png"> after</p>',
+      });
+
+      const doc = editor.state.doc;
+      // Should be a single paragraph containing text + inline image + text
+      expect(doc.childCount).toBe(1);
+      expect(doc.child(0).type.name).toBe('paragraph');
+
+      let hasImage = false;
+      doc.child(0).forEach((node) => {
+        if (node.type.name === 'image') hasImage = true;
+      });
+      expect(hasImage).toBe(true);
+    });
+
+    it('block image (default) is a separate block', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>Before</p><img src="https://example.com/block.png"><p>After</p>',
+      });
+
+      const doc = editor.state.doc;
+      expect(doc.childCount).toBe(3);
+      expect(doc.child(1).type.name).toBe('image');
+    });
+  });
+
+  describe('input rules', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) {
+        editor.destroy();
+      }
+    });
+
+    it('provides addInputRules', () => {
+      expect(typeof Image.config.addInputRules).toBe('function');
+    });
+
+    it('returns one input rule when editor is initialized', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p></p>',
+      });
+
+      const imageExt = editor.extensionManager.extensions.find(
+        (e) => e.name === 'image'
+      );
+      const rules = imageExt?.config.addInputRules?.call(imageExt);
+      expect(rules).toHaveLength(1);
+    });
+
+    // Regex pattern tests — verify the markdown image syntax pattern
+    const imageInputRegex = /(?:^|\s)(!\[(.+|:?)]\((\S+)(?:(?:\s+)["'](\S+)["'])?\))$/;
+
+    it('regex matches ![alt](src)', () => {
+      const match = '![My alt](https://example.com/input.png)'.match(imageInputRegex);
+      expect(match).not.toBeNull();
+      expect(match![2]).toBe('My alt');
+      expect(match![3]).toBe('https://example.com/input.png');
+      expect(match![4]).toBeUndefined();
+    });
+
+    it('regex matches ![alt](src "title")', () => {
+      const match = '![Photo](https://example.com/photo.jpg "My-title")'.match(imageInputRegex);
+      expect(match).not.toBeNull();
+      expect(match![2]).toBe('Photo');
+      expect(match![3]).toBe('https://example.com/photo.jpg');
+      expect(match![4]).toBe('My-title');
+    });
+
+    it('regex matches after whitespace', () => {
+      const match = 'some text ![img](https://example.com/a.png)'.match(imageInputRegex);
+      expect(match).not.toBeNull();
+      expect(match![3]).toBe('https://example.com/a.png');
+    });
+
+    it('regex does not match without !', () => {
+      const match = '[alt](https://example.com/a.png)'.match(imageInputRegex);
+      // Without !, this is a link syntax, not image
+      expect(match).toBeNull();
+    });
+
+    it('regex does not match without src', () => {
+      const match = '![alt]()'.match(imageInputRegex);
+      // \S+ requires at least one non-whitespace char in src
+      expect(match).toBeNull();
+    });
+
+    it('regex matches with single-quoted title', () => {
+      const match = "![alt](https://example.com/a.png 'title')".match(imageInputRegex);
+      expect(match).not.toBeNull();
+      expect(match![4]).toBe('title');
+    });
+  });
 });
