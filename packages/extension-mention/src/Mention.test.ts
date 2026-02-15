@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { Mention } from './Mention.js';
 import type { MentionStorage } from './Mention.js';
 import type { MentionTrigger } from './mentionSuggestionPlugin.js';
@@ -1811,6 +1811,229 @@ describe('Mention', () => {
         const pluginState = (mentionPlugin as any).getState(editor.state);
         expect(pluginState?.active).toBe(false);
       }
+    });
+  });
+
+  // ─── Debounce ──────────────────────────────────────────────────────────
+
+  describe('debounce option', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      vi.useRealTimers();
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    it('with debounce > 0, items() is not called immediately', () => {
+      vi.useFakeTimers();
+      let itemsCalled = false;
+
+      const Custom = Mention.configure({
+        suggestion: {
+          char: '@',
+          name: 'user',
+          debounce: 150,
+          items: () => {
+            itemsCalled = true;
+            return [{ id: '1', label: 'Alice' }];
+          },
+          render: () => ({
+            onStart: () => undefined,
+            onUpdate: () => undefined,
+            onExit: () => undefined,
+            onKeyDown: () => false,
+          }),
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Custom],
+        content: '<p></p>',
+      });
+
+      editor.view.dispatch(editor.state.tr.insertText('@ali'));
+
+      // items() should NOT have been called yet (debounce pending)
+      expect(itemsCalled).toBe(false);
+
+      // Advance timer past debounce
+      vi.advanceTimersByTime(150);
+
+      expect(itemsCalled).toBe(true);
+    });
+
+    it('with debounce: 0, items() is called immediately (default)', () => {
+      let itemsCalled = false;
+
+      const Custom = Mention.configure({
+        suggestion: {
+          char: '@',
+          name: 'user',
+          debounce: 0,
+          items: () => {
+            itemsCalled = true;
+            return [{ id: '1', label: 'Alice' }];
+          },
+          render: () => ({
+            onStart: () => undefined,
+            onUpdate: () => undefined,
+            onExit: () => undefined,
+            onKeyDown: () => false,
+          }),
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Custom],
+        content: '<p></p>',
+      });
+
+      editor.view.dispatch(editor.state.tr.insertText('@ali'));
+
+      expect(itemsCalled).toBe(true);
+    });
+
+    it('debounce coalesces rapid keystrokes into single items() call', () => {
+      vi.useFakeTimers();
+      let callCount = 0;
+
+      const Custom = Mention.configure({
+        suggestion: {
+          char: '@',
+          name: 'user',
+          debounce: 150,
+          items: () => {
+            callCount++;
+            return [{ id: '1', label: 'Alice' }];
+          },
+          render: () => ({
+            onStart: () => undefined,
+            onUpdate: () => undefined,
+            onExit: () => undefined,
+            onKeyDown: () => false,
+          }),
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Custom],
+        content: '<p></p>',
+      });
+
+      // Rapid keystrokes
+      editor.view.dispatch(editor.state.tr.insertText('@'));
+      vi.advanceTimersByTime(50);
+      editor.view.dispatch(editor.state.tr.insertText('a'));
+      vi.advanceTimersByTime(50);
+      editor.view.dispatch(editor.state.tr.insertText('l'));
+      vi.advanceTimersByTime(50);
+      editor.view.dispatch(editor.state.tr.insertText('i'));
+
+      // No items() calls yet (each keystroke resets the timer)
+      expect(callCount).toBe(0);
+
+      // Advance past debounce — only ONE call
+      vi.advanceTimersByTime(150);
+      expect(callCount).toBe(1);
+    });
+  });
+
+  // ─── Async Error Handling ──────────────────────────────────────────────
+
+  describe('async error handling', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    it('handles rejected async items without crashing', async () => {
+      const Custom = Mention.configure({
+        suggestion: {
+          char: '@',
+          name: 'user',
+          items: () => Promise.reject(new Error('API error')),
+          render: () => ({
+            onStart: () => undefined,
+            onUpdate: () => undefined,
+            onExit: () => undefined,
+            onKeyDown: () => false,
+          }),
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Custom],
+        content: '<p></p>',
+      });
+
+      // Should not throw
+      editor.view.dispatch(editor.state.tr.insertText('@ali'));
+
+      // Wait for microtask to process the rejection
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // Editor should still be functional
+      expect(editor.isDestroyed).toBe(false);
+      expect(editor.state.doc.textContent).toBe('@ali');
+    });
+  });
+
+  // ─── Command Uses Fresh State ──────────────────────────────────────────
+
+  describe('command uses fresh state', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    it('command uses current range, not stale closure', () => {
+      let commandFn: ((item: { id: string; label: string }) => void) | null = null;
+      const Custom = Mention.configure({
+        suggestion: {
+          char: '@',
+          name: 'user',
+          items: () => [{ id: '1', label: 'Alice' }],
+          render: () => ({
+            onStart: (props) => { commandFn = props.command; },
+            onUpdate: (props) => { commandFn = props.command; },
+            onExit: () => undefined,
+            onKeyDown: () => false,
+          }),
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Custom],
+        content: '<p></p>',
+      });
+
+      // Type '@a' — get initial command
+      editor.view.dispatch(editor.state.tr.insertText('@a'));
+      expect(commandFn).not.toBeNull();
+
+      // Type more text — range changes
+      editor.view.dispatch(editor.state.tr.insertText('lice'));
+
+      // Using command should still work correctly with the updated range
+      commandFn!({ id: '1', label: 'Alice' });
+
+      const para = editor.state.doc.child(0);
+      let hasMention = false;
+      para.forEach((node) => {
+        if (node.type.name === 'mention') {
+          hasMention = true;
+          expect(node.attrs['id']).toBe('1');
+          expect(node.attrs['label']).toBe('Alice');
+        }
+      });
+      expect(hasMention).toBe(true);
+
+      // No leftover trigger text — the full '@alice' range was replaced
+      const text = editor.state.doc.textContent;
+      expect(text).not.toContain('@alice');
+      expect(text).toContain('@Alice'); // leafText of the mention node
     });
   });
 });

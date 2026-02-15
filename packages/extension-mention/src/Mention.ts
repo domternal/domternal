@@ -73,6 +73,14 @@ export interface MentionStorage {
   _triggerCharMap: Map<string, string>;
 }
 
+/** Resolve trigger char + label into display text (e.g. "@Alice", "#feature"). */
+function getMentionText(node: PMNode, charMap: Map<string, string>): string {
+  const label = (node.attrs['label'] ?? '') as string;
+  const typeName = (node.attrs['type'] ?? 'mention') as string;
+  const triggerChar = charMap.get(typeName) ?? '@';
+  return `${triggerChar}${label}`;
+}
+
 /** Resolve the effective triggers array from options. */
 function resolveTriggers(options: MentionOptions): MentionTrigger[] {
   if (options.triggers.length > 0) return options.triggers;
@@ -192,10 +200,6 @@ export const Mention = Node.create<MentionOptions, MentionStorage>({
       });
     }
 
-    const label = (node.attrs['label'] ?? '') as string;
-    const typeName = (node.attrs['type'] ?? 'mention') as string;
-    const triggerChar = this.storage._triggerCharMap.get(typeName) ?? '@';
-
     return [
       'span',
       {
@@ -210,7 +214,7 @@ export const Mention = Node.create<MentionOptions, MentionStorage>({
           .filter(Boolean)
           .join(' '),
       },
-      `${triggerChar}${label}`,
+      getMentionText(node, this.storage._triggerCharMap),
     ];
   },
 
@@ -219,11 +223,7 @@ export const Mention = Node.create<MentionOptions, MentionStorage>({
       return this.options.renderText({ node, options: this.options });
     }
 
-    const label = (node.attrs['label'] ?? '') as string;
-    const typeName = (node.attrs['type'] ?? 'mention') as string;
-    const triggerChar = this.storage._triggerCharMap.get(typeName) ?? '@';
-
-    return `${triggerChar}${label}`;
+    return getMentionText(node, this.storage._triggerCharMap);
   },
 
   addCommands() {
@@ -255,21 +255,26 @@ export const Mention = Node.create<MentionOptions, MentionStorage>({
             const mentionType = this.nodeType;
             if (!mentionType) return false;
 
-            let found = false;
+            let foundPos = -1;
+            let foundSize = 0;
             state.doc.descendants((node, pos) => {
-              if (found) return false;
+              if (foundPos >= 0) return false;
               if (node.type === mentionType && node.attrs['id'] === id) {
-                if (dispatch) {
-                  tr.delete(pos, pos + node.nodeSize);
-                  dispatch(tr);
-                }
-                found = true;
+                foundPos = pos;
+                foundSize = node.nodeSize;
                 return false;
               }
               return undefined;
             });
 
-            return found;
+            if (foundPos < 0) return false;
+
+            if (dispatch) {
+              tr.delete(foundPos, foundPos + foundSize);
+              dispatch(tr);
+            }
+
+            return true;
           }
 
           // No id: delete mention at cursor (nodeBefore)

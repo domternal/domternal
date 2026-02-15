@@ -48,6 +48,8 @@ export interface MentionTrigger {
   appendText?: string;
   /** Node types where suggestion should NOT activate (e.g. ['codeBlock']). Default: [] */
   invalidNodes?: string[];
+  /** Debounce delay in ms for items() calls. Use >0 for async/API-backed items. Default: 0 (immediate) */
+  debounce?: number;
 }
 
 /** Props passed to suggestion renderer callbacks. */
@@ -150,11 +152,11 @@ function findMentionQuery(
 
   const queryText = textBefore.slice(triggerIndex + triggerChar.length);
 
-  // Validate query: no spaces (unless allowed)
-  if (!allowSpaces && queryText.includes(' ')) return null;
-
-  // Query must be alphanumeric/underscore/dash/dot or spaces if allowed
-  if (!/^[a-zA-Z0-9_.\-+ ]*$/.test(queryText)) return null;
+  // Query must contain only valid chars (alphanumeric, underscore, dash, dot, plus; spaces if allowed)
+  const validPattern = allowSpaces
+    ? /^[a-zA-Z0-9_.\-+ ]*$/
+    : /^[a-zA-Z0-9_.\-+]*$/;
+  if (!validPattern.test(queryText)) return null;
 
   const from = $from.start() + triggerIndex;
   const to = $from.pos;
@@ -184,10 +186,21 @@ export function createMentionSuggestionPlugin(
   let renderer: MentionSuggestionRenderer | null = null;
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
+  const debounceMs = trigger.debounce ?? 0;
+
   function cleanup(): void {
     if (debounceTimer !== null) {
       clearTimeout(debounceTimer);
       debounceTimer = null;
+    }
+  }
+
+  function notifyRenderer(props: MentionSuggestionProps): void {
+    if (!renderer && getRender) {
+      renderer = getRender();
+      renderer.onStart(props);
+    } else if (renderer) {
+      renderer.onUpdate(props);
     }
   }
 
@@ -236,14 +249,14 @@ export function createMentionSuggestionPlugin(
     view() {
       return {
         update(view: EditorView) {
-          const state = key.getState(view.state);
-          if (!state) return;
+          const pluginState = key.getState(view.state);
+          if (!pluginState) return;
 
-          if (state.active && state.range) {
-            // Build command function for inserting a mention
+          if (pluginState.active && pluginState.range) {
+            // Command reads current plugin state when invoked, not stale closure
             const command = (item: MentionItem): void => {
-              if (!state.range) return;
-              if (!nodeType) return;
+              const currentState = key.getState(view.state);
+              if (!currentState?.range || !nodeType) return;
 
               const { tr } = view.state;
               const node = nodeType.create({
@@ -252,9 +265,8 @@ export function createMentionSuggestionPlugin(
                 type: trigger.name,
               });
 
-              tr.replaceWith(state.range.from, state.range.to, node);
+              tr.replaceWith(currentState.range.from, currentState.range.to, node);
 
-              // Append text (default: space) after the mention
               if (appendText) {
                 tr.insertText(appendText);
               }
@@ -263,61 +275,44 @@ export function createMentionSuggestionPlugin(
             };
 
             const clientRect = (): DOMRect | null => {
-              if (!state.range) return null;
+              const currentState = key.getState(view.state);
+              if (!currentState?.range) return null;
               try {
-                const coords = view.coordsAtPos(state.range.from);
+                const coords = view.coordsAtPos(currentState.range.from);
                 return new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top);
               } catch {
                 return null;
               }
             };
 
-            // Resolve items (sync or async)
-            const itemsResult = getItems({ query: state.query, trigger });
+            // Fetch items and notify renderer
+            const fetchAndRender = (): void => {
+              const cur = key.getState(view.state);
+              if (!cur?.active || !cur.range) return;
 
-            if (itemsResult instanceof Promise) {
-              // Async: debounce at 150ms
-              cleanup();
-              debounceTimer = setTimeout(() => {
-                void itemsResult.then((items) => {
-                  // Re-check that suggestion is still active
-                  const currentState = key.getState(view.state);
-                  if (!currentState?.active || !currentState.range) return;
+              const result = getItems({ query: cur.query, trigger });
 
-                  const props: MentionSuggestionProps = {
-                    query: currentState.query,
-                    range: currentState.range,
-                    items,
-                    command,
-                    clientRect,
-                  };
-
-                  if (!renderer && getRender) {
-                    renderer = getRender();
-                    renderer.onStart(props);
-                  } else if (renderer) {
-                    renderer.onUpdate(props);
-                  }
+              if (result instanceof Promise) {
+                void result.then((items) => {
+                  const latest = key.getState(view.state);
+                  if (!latest?.active || !latest.range) return;
+                  notifyRenderer({ query: latest.query, range: latest.range, items, command, clientRect });
+                }).catch(() => {
+                  // Swallow — suggestion stays active with no items
                 });
-              }, 150);
-            } else {
-              // Sync: immediate update
-              cleanup();
-
-              const props: MentionSuggestionProps = {
-                query: state.query,
-                range: state.range,
-                items: itemsResult,
-                command,
-                clientRect,
-              };
-
-              if (!renderer && getRender) {
-                renderer = getRender();
-                renderer.onStart(props);
-              } else if (renderer) {
-                renderer.onUpdate(props);
+              } else {
+                notifyRenderer({ query: cur.query, range: cur.range, items: result, command, clientRect });
               }
+            };
+
+            cleanup();
+
+            if (debounceMs > 0) {
+              // Debounced: delay the entire items() call to avoid hammering APIs
+              debounceTimer = setTimeout(fetchAndRender, debounceMs);
+            } else {
+              // Immediate: call items() now
+              fetchAndRender();
             }
           } else if (renderer) {
             cleanup();
