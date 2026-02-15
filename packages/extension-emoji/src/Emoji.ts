@@ -278,6 +278,12 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
       new InputRule(
         /:([a-zA-Z0-9_+-]+):$/,
         (state: EditorState, match: RegExpMatchArray, start: number, end: number) => {
+          // Don't convert inside code contexts (codeBlock or inline code mark)
+          const { $from } = state.selection;
+          if ($from.parent.type.spec.code) return null;
+          const activeMarks = state.storedMarks ?? $from.marks();
+          if (activeMarks.some((m) => m.type.name === 'code')) return null;
+
           const shortcode = match[1];
           if (!shortcode) return null;
 
@@ -320,6 +326,12 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
           new InputRule(
             pattern,
             (state: EditorState, match: RegExpMatchArray, start: number) => {
+              // Don't convert inside code contexts (codeBlock or inline code mark)
+              const { $from } = state.selection;
+              if ($from.parent.type.spec.code) return null;
+              const activeMarks = state.storedMarks ?? $from.marks();
+              if (activeMarks.some((m) => m.type.name === 'code')) return null;
+
               const { tr } = state;
 
               // Calculate the actual emoticon position (after the optional leading space)

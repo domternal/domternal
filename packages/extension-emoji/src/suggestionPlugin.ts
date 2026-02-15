@@ -90,6 +90,12 @@ function findSuggestionQuery(
   if (!selection.empty) return null;
 
   const { $from } = selection;
+
+  // Don't activate inside code contexts (codeBlock node or inline code mark)
+  if ($from.parent.type.spec.code) return null;
+  const activeMarks = state.storedMarks ?? $from.marks();
+  if (activeMarks.some((m) => m.type.name === 'code')) return null;
+
   const textBefore = $from.parent.textBetween(
     0,
     $from.parentOffset,
