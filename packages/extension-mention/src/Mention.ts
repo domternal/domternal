@@ -63,12 +63,12 @@ export interface MentionOptions {
 
 export interface MentionStorage {
   /** Find all mention nodes in the document. */
-  findMentions: () => Array<{
+  findMentions: () => {
     id: string;
     label: string;
     type: string;
     pos: number;
-  }>;
+  }[];
   /** @internal Trigger name → char lookup map. */
   _triggerCharMap: Map<string, string>;
 }
@@ -119,12 +119,12 @@ export const Mention = Node.create<MentionOptions, MentionStorage>({
       const editor = this.editor;
       if (!editor) return [];
 
-      const mentions: Array<{
+      const mentions: {
         id: string;
         label: string;
         type: string;
         pos: number;
-      }> = [];
+      }[] = [];
       const { doc } = editor.state;
       const mentionType = this.nodeType;
       if (!mentionType) return [];
@@ -169,7 +169,7 @@ export const Mention = Node.create<MentionOptions, MentionStorage>({
         parseHTML: (element: HTMLElement) =>
           element.getAttribute('data-mention-type') ?? 'mention',
         renderHTML: (attributes: Record<string, unknown>) => {
-          return { 'data-mention-type': (attributes['type'] as string) ?? 'mention' };
+          return { 'data-mention-type': attributes['type'] as string };
         },
       },
     };
@@ -192,8 +192,8 @@ export const Mention = Node.create<MentionOptions, MentionStorage>({
       });
     }
 
-    const label = (node.attrs['label'] as string) ?? '';
-    const typeName = (node.attrs['type'] as string) ?? 'mention';
+    const label = (node.attrs['label'] ?? '') as string;
+    const typeName = (node.attrs['type'] ?? 'mention') as string;
     const triggerChar = this.storage._triggerCharMap.get(typeName) ?? '@';
 
     return [
@@ -219,8 +219,8 @@ export const Mention = Node.create<MentionOptions, MentionStorage>({
       return this.options.renderText({ node, options: this.options });
     }
 
-    const label = (node.attrs['label'] as string) ?? '';
-    const typeName = (node.attrs['type'] as string) ?? 'mention';
+    const label = (node.attrs['label'] ?? '') as string;
+    const typeName = (node.attrs['type'] ?? 'mention') as string;
     const triggerChar = this.storage._triggerCharMap.get(typeName) ?? '@';
 
     return `${triggerChar}${label}`;
@@ -277,7 +277,7 @@ export const Mention = Node.create<MentionOptions, MentionStorage>({
           if (!state.selection.empty) return false;
 
           const nodeBefore = $from.nodeBefore;
-          if (!nodeBefore || nodeBefore.type.name !== 'mention') return false;
+          if (nodeBefore?.type.name !== 'mention') return false;
 
           if (dispatch) {
             const from = $from.pos - nodeBefore.nodeSize;
@@ -303,7 +303,7 @@ export const Mention = Node.create<MentionOptions, MentionStorage>({
         if (!empty) return false;
 
         const nodeBefore = $from.nodeBefore;
-        if (!nodeBefore || nodeBefore.type.name !== 'mention') return false;
+        if (nodeBefore?.type.name !== 'mention') return false;
 
         // Delete the mention node
         const from = $from.pos - nodeBefore.nodeSize;
@@ -311,7 +311,7 @@ export const Mention = Node.create<MentionOptions, MentionStorage>({
 
         if (this.options.deleteTriggerWithBackspace) {
           // Also delete the trigger char if it precedes the mention
-          const triggerType = (nodeBefore.attrs['type'] as string) ?? 'mention';
+          const triggerType = (nodeBefore.attrs['type'] ?? 'mention') as string;
           const triggerChar = this.storage._triggerCharMap.get(triggerType);
 
           if (triggerChar && from > 0) {

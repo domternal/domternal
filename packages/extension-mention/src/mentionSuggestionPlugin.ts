@@ -279,14 +279,14 @@ export function createMentionSuggestionPlugin(
               // Async: debounce at 150ms
               cleanup();
               debounceTimer = setTimeout(() => {
-                itemsResult.then((items) => {
+                void itemsResult.then((items) => {
                   // Re-check that suggestion is still active
                   const currentState = key.getState(view.state);
-                  if (!currentState?.active) return;
+                  if (!currentState?.active || !currentState.range) return;
 
                   const props: MentionSuggestionProps = {
                     query: currentState.query,
-                    range: currentState.range!,
+                    range: currentState.range,
                     items,
                     command,
                     clientRect,

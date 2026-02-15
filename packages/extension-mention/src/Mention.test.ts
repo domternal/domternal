@@ -92,7 +92,7 @@ describe('Mention', () => {
     });
 
     it('can configure custom renderText', () => {
-      const fn = () => 'test';
+      const fn = (): string => 'test';
       const Custom = Mention.configure({ renderText: fn as any });
       expect(Custom.options.renderText).toBe(fn);
     });
@@ -601,8 +601,8 @@ describe('Mention', () => {
     it('creates separate plugins for each trigger', () => {
       const Custom = Mention.configure({
         triggers: [
-          { char: '@', name: 'user', items: () => [], render: () => ({ onStart: () => {}, onUpdate: () => {}, onExit: () => {}, onKeyDown: () => false }) },
-          { char: '#', name: 'tag', items: () => [], render: () => ({ onStart: () => {}, onUpdate: () => {}, onExit: () => {}, onKeyDown: () => false }) },
+          { char: '@', name: 'user', items: () => [], render: () => ({ onStart: () => undefined, onUpdate: () => undefined, onExit: () => undefined, onKeyDown: () => false }) },
+          { char: '#', name: 'tag', items: () => [], render: () => ({ onStart: () => undefined, onUpdate: () => undefined, onExit: () => undefined, onKeyDown: () => false }) },
         ],
       });
 
@@ -624,7 +624,7 @@ describe('Mention', () => {
           char: '@',
           name: 'user',
           items: () => [],
-          render: () => ({ onStart: () => {}, onUpdate: () => {}, onExit: () => {}, onKeyDown: () => false }),
+          render: () => ({ onStart: () => undefined, onUpdate: () => undefined, onExit: () => undefined, onKeyDown: () => false }),
         },
       });
 
@@ -642,7 +642,7 @@ describe('Mention', () => {
       const Custom = Mention.configure({
         suggestion: { char: '@', name: 'ignored', items: () => [] },
         triggers: [
-          { char: '#', name: 'tag', items: () => [], render: () => ({ onStart: () => {}, onUpdate: () => {}, onExit: () => {}, onKeyDown: () => false }) },
+          { char: '#', name: 'tag', items: () => [], render: () => ({ onStart: () => undefined, onUpdate: () => undefined, onExit: () => undefined, onKeyDown: () => false }) },
         ],
       });
 
@@ -683,8 +683,8 @@ describe('Mention', () => {
       const Custom = Mention.configure({
         renderHTML: ({ node, HTMLAttributes }) => [
           'a',
-          { ...HTMLAttributes, href: `/profile/${node.attrs['id']}`, class: 'mention-link' },
-          `@${node.attrs['label']}`,
+          { ...HTMLAttributes, href: `/profile/${String(node.attrs['id'])}`, class: 'mention-link' },
+          `@${String(node.attrs['label'])}`,
         ],
       });
 
@@ -699,7 +699,7 @@ describe('Mention', () => {
 
     it('custom renderText changes leafText', () => {
       const Custom = Mention.configure({
-        renderText: ({ node }) => `[${node.attrs['label']}]`,
+        renderText: ({ node }) => `[${String(node.attrs['label'])}]`,
       });
 
       editor = new Editor({
@@ -739,9 +739,9 @@ describe('Mention', () => {
           name: 'user',
           items: () => [],
           render: () => ({
-            onStart: () => {},
-            onUpdate: () => {},
-            onExit: () => {},
+            onStart: () => undefined,
+            onUpdate: () => undefined,
+            onExit: () => undefined,
             onKeyDown: () => false,
           }),
         },
@@ -885,8 +885,8 @@ describe('Mention', () => {
           items: () => [{ id: '1', label: 'Alice' }],
           render: () => ({
             onStart: () => { startCalled = true; },
-            onUpdate: () => {},
-            onExit: () => {},
+            onUpdate: () => undefined,
+            onExit: () => undefined,
             onKeyDown: () => false,
           }),
         },
@@ -916,9 +916,9 @@ describe('Mention', () => {
             return [{ id: '1', label: 'Alice' }];
           },
           render: () => ({
-            onStart: () => {},
-            onUpdate: () => {},
-            onExit: () => {},
+            onStart: () => undefined,
+            onUpdate: () => undefined,
+            onExit: () => undefined,
             onKeyDown: () => false,
           }),
         },
@@ -943,8 +943,8 @@ describe('Mention', () => {
           name: 'user',
           items: () => [{ id: '1', label: 'Alice' }],
           render: () => ({
-            onStart: () => {},
-            onUpdate: () => {},
+            onStart: () => undefined,
+            onUpdate: () => undefined,
             onExit: () => { exitCalled = true; },
             onKeyDown: () => false,
           }),
@@ -976,8 +976,8 @@ describe('Mention', () => {
           items: () => [{ id: '1', label: 'Alice' }],
           render: () => ({
             onStart: () => { startCalled = true; },
-            onUpdate: () => {},
-            onExit: () => {},
+            onUpdate: () => undefined,
+            onExit: () => undefined,
             onKeyDown: () => false,
           }),
         },
@@ -1003,8 +1003,8 @@ describe('Mention', () => {
           items: () => [{ id: '1', label: 'Alice' }],
           render: () => ({
             onStart: () => { startCalled = true; },
-            onUpdate: () => {},
-            onExit: () => {},
+            onUpdate: () => undefined,
+            onExit: () => undefined,
             onKeyDown: () => false,
           }),
         },
@@ -1030,8 +1030,8 @@ describe('Mention', () => {
           items: () => [{ id: '1', label: 'Alice' }],
           render: () => ({
             onStart: () => { startCalled = true; },
-            onUpdate: () => {},
-            onExit: () => {},
+            onUpdate: () => undefined,
+            onExit: () => undefined,
             onKeyDown: () => false,
           }),
         },
@@ -1057,8 +1057,8 @@ describe('Mention', () => {
           items: () => [{ id: '1', label: 'feature' }],
           render: () => ({
             onStart: () => { startCalled = true; },
-            onUpdate: () => {},
-            onExit: () => {},
+            onUpdate: () => undefined,
+            onExit: () => undefined,
             onKeyDown: () => false,
           }),
         },
@@ -1085,8 +1085,8 @@ describe('Mention', () => {
           items: () => [{ id: '1', label: 'Alice' }],
           render: () => ({
             onStart: () => { startCalled = true; },
-            onUpdate: () => {},
-            onExit: () => {},
+            onUpdate: () => undefined,
+            onExit: () => undefined,
             onKeyDown: () => false,
           }),
         },
@@ -1116,7 +1116,7 @@ describe('Mention', () => {
           render: () => ({
             onStart: (props) => { commandFn = props.command; },
             onUpdate: (props) => { commandFn = props.command; },
-            onExit: () => {},
+            onExit: () => undefined,
             onKeyDown: () => false,
           }),
         },
@@ -1157,7 +1157,7 @@ describe('Mention', () => {
           render: () => ({
             onStart: (props) => { commandFn = props.command; },
             onUpdate: (props) => { commandFn = props.command; },
-            onExit: () => {},
+            onExit: () => undefined,
             onKeyDown: () => false,
           }),
         },
@@ -1187,7 +1187,7 @@ describe('Mention', () => {
           render: () => ({
             onStart: (props) => { commandFn = props.command; },
             onUpdate: (props) => { commandFn = props.command; },
-            onExit: () => {},
+            onExit: () => undefined,
             onKeyDown: () => false,
           }),
         },
@@ -1215,8 +1215,8 @@ describe('Mention', () => {
           items: () => [{ id: '1', label: 'Alice' }],
           render: () => ({
             onStart: (props) => { clientRectFn = props.clientRect; },
-            onUpdate: () => {},
-            onExit: () => {},
+            onUpdate: () => undefined,
+            onExit: () => undefined,
             onKeyDown: () => false,
           }),
         },
@@ -1243,8 +1243,8 @@ describe('Mention', () => {
           name: 'user',
           items: () => [{ id: '1', label: 'Alice' }],
           render: () => ({
-            onStart: () => {},
-            onUpdate: () => {},
+            onStart: () => undefined,
+            onUpdate: () => undefined,
             onExit: () => { exitCalled = true; },
             onKeyDown: () => false,
           }),
@@ -1281,8 +1281,8 @@ describe('Mention', () => {
             items: () => [{ id: '1', label: 'Alice' }],
             render: () => ({
               onStart: () => { startCalls.push('user'); },
-              onUpdate: () => {},
-              onExit: () => {},
+              onUpdate: () => undefined,
+              onExit: () => undefined,
               onKeyDown: () => false,
             }),
           },
@@ -1292,8 +1292,8 @@ describe('Mention', () => {
             items: () => [{ id: '1', label: 'feature' }],
             render: () => ({
               onStart: () => { startCalls.push('tag'); },
-              onUpdate: () => {},
-              onExit: () => {},
+              onUpdate: () => undefined,
+              onExit: () => undefined,
               onKeyDown: () => false,
             }),
           },
@@ -1320,7 +1320,7 @@ describe('Mention', () => {
           render: () => ({
             onStart: (props) => { commandFn = props.command; },
             onUpdate: (props) => { commandFn = props.command; },
-            onExit: () => {},
+            onExit: () => undefined,
             onKeyDown: () => false,
           }),
         },
@@ -1596,10 +1596,10 @@ describe('Mention', () => {
           'a',
           {
             ...HTMLAttributes,
-            href: `/user/${node.attrs['id']}`,
+            href: `/user/${String(node.attrs['id'])}`,
             'data-type': 'mention',
           },
-          `@${node.attrs['label']}`,
+          `@${String(node.attrs['label'])}`,
         ],
       });
 
@@ -1708,7 +1708,7 @@ describe('Mention', () => {
       if (editor && !editor.isDestroyed) editor.destroy();
     });
 
-    it('handles async items function', async () => {
+    it('handles async items function', () => {
       let itemsFnCalled = false;
 
       const Custom = Mention.configure({
@@ -1720,9 +1720,9 @@ describe('Mention', () => {
             return Promise.resolve([{ id: '1', label: 'Alice' }]);
           },
           render: () => ({
-            onStart: () => {},
-            onUpdate: () => {},
-            onExit: () => {},
+            onStart: () => undefined,
+            onUpdate: () => undefined,
+            onExit: () => undefined,
             onKeyDown: () => false,
           }),
         },
@@ -1756,9 +1756,9 @@ describe('Mention', () => {
           name: 'user',
           items: () => [{ id: '1', label: 'Alice' }],
           render: () => ({
-            onStart: () => {},
-            onUpdate: () => {},
-            onExit: () => {},
+            onStart: () => undefined,
+            onUpdate: () => undefined,
+            onExit: () => undefined,
             onKeyDown: () => false,
           }),
         },
@@ -1790,9 +1790,9 @@ describe('Mention', () => {
           name: 'user',
           items: () => [{ id: '1', label: 'Alice' }],
           render: () => ({
-            onStart: () => {},
-            onUpdate: () => {},
-            onExit: () => {},
+            onStart: () => undefined,
+            onUpdate: () => undefined,
+            onExit: () => undefined,
             onKeyDown: () => false,
           }),
         },
