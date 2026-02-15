@@ -172,12 +172,12 @@ export const Image = Node.create<ImageOptions>({
           const { tr } = state;
           const attrs: Record<string, unknown> = {
             src,
-            alt: alt || null,
-            title: title || null,
+            alt: alt ?? null,
+            title: title ?? null,
           };
 
           // Adjust start for leading whitespace before ![
-          const offset = fullMatch!.length - wrapper.length;
+          const offset = fullMatch.length - wrapper.length;
           const from = start + offset;
 
           tr.replaceWith(from, end, nodeType.create(attrs));

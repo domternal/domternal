@@ -14,7 +14,7 @@ describe('Image', () => {
 
     it('belongs to block group by default', () => {
       expect(typeof Image.config.group).toBe('function');
-      const group = (Image.config.group as Function).call(Image);
+      const group = (Image.config.group as (...args: unknown[]) => unknown).call(Image);
       expect(group).toBe('block');
     });
 
@@ -394,18 +394,18 @@ describe('Image', () => {
 
     it('inline: true changes group to inline', () => {
       const InlineImage = Image.configure({ inline: true });
-      const group = (InlineImage.config.group as Function).call(InlineImage);
+      const group = (InlineImage.config.group as (...args: unknown[]) => unknown).call(InlineImage);
       expect(group).toBe('inline');
     });
 
     it('inline: true sets inline to true', () => {
       const InlineImage = Image.configure({ inline: true });
-      const inline = (InlineImage.config.inline as Function).call(InlineImage);
+      const inline = (InlineImage.config.inline as (...args: unknown[]) => unknown).call(InlineImage);
       expect(inline).toBe(true);
     });
 
     it('inline: false (default) keeps block group', () => {
-      const group = (Image.config.group as Function).call(Image);
+      const group = (Image.config.group as (...args: unknown[]) => unknown).call(Image);
       expect(group).toBe('block');
     });
 
@@ -470,7 +470,7 @@ describe('Image', () => {
     const imageInputRegex = /(?:^|\s)(!\[(.+|:?)]\((\S+)(?:(?:\s+)["'](\S+)["'])?\))$/;
 
     it('regex matches ![alt](src)', () => {
-      const match = '![My alt](https://example.com/input.png)'.match(imageInputRegex);
+      const match = imageInputRegex.exec('![My alt](https://example.com/input.png)');
       expect(match).not.toBeNull();
       expect(match![2]).toBe('My alt');
       expect(match![3]).toBe('https://example.com/input.png');
@@ -478,7 +478,7 @@ describe('Image', () => {
     });
 
     it('regex matches ![alt](src "title")', () => {
-      const match = '![Photo](https://example.com/photo.jpg "My-title")'.match(imageInputRegex);
+      const match = imageInputRegex.exec('![Photo](https://example.com/photo.jpg "My-title")');
       expect(match).not.toBeNull();
       expect(match![2]).toBe('Photo');
       expect(match![3]).toBe('https://example.com/photo.jpg');
@@ -486,25 +486,25 @@ describe('Image', () => {
     });
 
     it('regex matches after whitespace', () => {
-      const match = 'some text ![img](https://example.com/a.png)'.match(imageInputRegex);
+      const match = imageInputRegex.exec('some text ![img](https://example.com/a.png)');
       expect(match).not.toBeNull();
       expect(match![3]).toBe('https://example.com/a.png');
     });
 
     it('regex does not match without !', () => {
-      const match = '[alt](https://example.com/a.png)'.match(imageInputRegex);
+      const match = imageInputRegex.exec('[alt](https://example.com/a.png)');
       // Without !, this is a link syntax, not image
       expect(match).toBeNull();
     });
 
     it('regex does not match without src', () => {
-      const match = '![alt]()'.match(imageInputRegex);
+      const match = imageInputRegex.exec('![alt]()');
       // \S+ requires at least one non-whitespace char in src
       expect(match).toBeNull();
     });
 
     it('regex matches with single-quoted title', () => {
-      const match = "![alt](https://example.com/a.png 'title')".match(imageInputRegex);
+      const match = imageInputRegex.exec("![alt](https://example.com/a.png 'title')");
       expect(match).not.toBeNull();
       expect(match![4]).toBe('title');
     });
