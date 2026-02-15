@@ -123,8 +123,9 @@ interface NodeSchemaProperties {
    * Used in content expressions
    *
    * @example 'block', 'inline', 'block list'
+   * Can be a function that returns the group string (useful for dynamic group based on options)
    */
-  group?: string;
+  group?: string | (() => string);
 
   /**
    * Content expression defining allowed children
@@ -136,9 +137,10 @@ interface NodeSchemaProperties {
 
   /**
    * Whether this is an inline node
+   * Can be a function for dynamic inline based on options
    * @default false
    */
-  inline?: boolean;
+  inline?: boolean | (() => boolean);
 
   /**
    * Whether this node is an atom (no direct content editing)
