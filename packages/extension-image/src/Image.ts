@@ -2,16 +2,17 @@
  * Image Node
  *
  * Block-level (default) or inline image element.
- * Supports src, alt, title, width, height attributes.
+ * Supports src, alt, title, width, height, loading, crossorigin attributes.
  *
  * Options:
  * - inline: false (default) — block-level image | true — inline image within paragraphs
  * - allowBase64: false (default) — only http/https URLs | true — also allow data:image/ URLs
  *
- * XSS Protection:
- * - Schema-level validation rejects javascript:, data: (unless allowBase64), and other dangerous URLs
- * - Only allows http://, https://, and optionally data:image/ URLs
- * - Double-checked in renderHTML as defense in depth
+ * XSS Protection (blocklist approach):
+ * - Blocks javascript:, vbscript:, file: protocols
+ * - Blocks data: URLs unless allowBase64 AND specifically data:image/
+ * - Allows http(s), relative paths, protocol-relative URLs
+ * - Defense in depth: validated in parseHTML, renderHTML, setImage command, and input rule
  */
 
 import { Node } from '@domternal/core';
@@ -28,6 +29,8 @@ export interface SetImageOptions {
   title?: string;
   width?: string | number;
   height?: string | number;
+  loading?: 'lazy' | 'eager';
+  crossorigin?: 'anonymous' | 'use-credentials';
 }
 
 declare module '@domternal/core' {
@@ -46,11 +49,16 @@ function isValidImageSrc(value: unknown, allowBase64: boolean): boolean {
   if (typeof value !== 'string') return false;
   if (value === '') return true; // empty string is valid
 
-  // Check for valid URL patterns
-  if (/^https?:\/\//i.test(value)) return true;
-  if (allowBase64 && /^data:image\//i.test(value)) return true;
+  // Block dangerous protocols
+  if (/^(javascript|vbscript|file):/i.test(value)) return false;
 
-  return false;
+  // Block data: URLs unless allowBase64 AND specifically data:image/
+  if (/^data:/i.test(value)) {
+    return allowBase64 && /^data:image\//i.test(value);
+  }
+
+  // Allow everything else: http(s), relative paths, protocol-relative, etc.
+  return true;
 }
 
 export interface ImageOptions {
@@ -136,6 +144,22 @@ export const Image = Node.create<ImageOptions>({
           return { height: attributes['height'] as string };
         },
       },
+      loading: {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('loading'),
+        renderHTML: (attributes: Record<string, unknown>) => {
+          if (!attributes['loading']) return {};
+          return { loading: attributes['loading'] as string };
+        },
+      },
+      crossorigin: {
+        default: null,
+        parseHTML: (element: HTMLElement) => element.getAttribute('crossorigin'),
+        renderHTML: (attributes: Record<string, unknown>) => {
+          if (!attributes['crossorigin']) return {};
+          return { crossorigin: attributes['crossorigin'] as string };
+        },
+      },
     };
   },
 
@@ -161,7 +185,7 @@ export const Image = Node.create<ImageOptions>({
 
     return [
       new InputRule(
-        /(?:^|\s)(!\[(.+|:?)]\((\S+)(?:(?:\s+)["'](\S+)["'])?\))$/,
+        /(?:^|\s)(!\[(.+|:?)]\((\S+)(?:(?:\s+)["']([^"']+)["'])?\))$/,
         (state, match, start, end) => {
           const [fullMatch, wrapper, alt, src, title] = match;
           if (!src || !wrapper) return null;
@@ -188,21 +212,19 @@ export const Image = Node.create<ImageOptions>({
   },
 
   addCommands() {
-    const { name, options } = this;
     return {
       setImage:
         (attributes: SetImageOptions) =>
         ({ tr, dispatch }) => {
           // XSS protection: validate src URL before inserting
-          if (!isValidImageSrc(attributes.src, options.allowBase64)) {
+          if (!isValidImageSrc(attributes.src, this.options.allowBase64)) {
             return false;
           }
 
-          const nodeType = tr.doc.type.schema.nodes[name];
-          if (!nodeType) return false;
+          if (!this.nodeType) return false;
 
           if (dispatch) {
-            const node = nodeType.create(attributes);
+            const node = this.nodeType.create(attributes);
             tr.replaceSelectionWith(node);
             dispatch(tr);
           }

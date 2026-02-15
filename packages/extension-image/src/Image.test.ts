@@ -116,6 +116,18 @@ describe('Image', () => {
       expect(attributes).toHaveProperty('height');
       expect(attributes?.['height']?.default).toBeNull();
     });
+
+    it('defines loading attribute', () => {
+      const attributes = Image.config.addAttributes?.call(Image);
+      expect(attributes).toHaveProperty('loading');
+      expect(attributes?.['loading']?.default).toBeNull();
+    });
+
+    it('defines crossorigin attribute', () => {
+      const attributes = Image.config.addAttributes?.call(Image);
+      expect(attributes).toHaveProperty('crossorigin');
+      expect(attributes?.['crossorigin']?.default).toBeNull();
+    });
   });
 
   describe('addCommands', () => {
@@ -336,6 +348,36 @@ describe('Image', () => {
         const html = editor.getHTML();
         expect(html).not.toContain('JaVaScRiPt');
       });
+
+      it('accepts absolute path URLs', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, Image],
+          content: '<img src="/uploads/photo.jpg">',
+        });
+
+        const html = editor.getHTML();
+        expect(html).toContain('src="/uploads/photo.jpg"');
+      });
+
+      it('accepts relative path URLs', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, Image],
+          content: '<img src="./images/photo.jpg">',
+        });
+
+        const html = editor.getHTML();
+        expect(html).toContain('src="./images/photo.jpg"');
+      });
+
+      it('accepts protocol-relative URLs', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, Image],
+          content: '<img src="//cdn.example.com/img.png">',
+        });
+
+        const html = editor.getHTML();
+        expect(html).toContain('src="//cdn.example.com/img.png"');
+      });
     });
   });
 
@@ -380,6 +422,54 @@ describe('Image', () => {
       const html = editor.getHTML();
       expect(html).toContain('width="200"');
       expect(html).toContain('height="100"');
+    });
+
+    it('setImage accepts loading option', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>Text</p>',
+      });
+      editor.commands.setImage({
+        src: 'https://example.com/lazy.png',
+        loading: 'lazy',
+      });
+
+      const html = editor.getHTML();
+      expect(html).toContain('loading="lazy"');
+    });
+
+    it('setImage accepts crossorigin option', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>Text</p>',
+      });
+      editor.commands.setImage({
+        src: 'https://cdn.example.com/img.png',
+        crossorigin: 'anonymous',
+      });
+
+      const html = editor.getHTML();
+      expect(html).toContain('crossorigin="anonymous"');
+    });
+
+    it('parses loading attribute from HTML', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png" loading="lazy">',
+      });
+
+      const image = editor.state.doc.child(0);
+      expect(image.attrs['loading']).toBe('lazy');
+    });
+
+    it('parses crossorigin attribute from HTML', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png" crossorigin="anonymous">',
+      });
+
+      const image = editor.state.doc.child(0);
+      expect(image.attrs['crossorigin']).toBe('anonymous');
     });
   });
 
@@ -467,7 +557,7 @@ describe('Image', () => {
     });
 
     // Regex pattern tests — verify the markdown image syntax pattern
-    const imageInputRegex = /(?:^|\s)(!\[(.+|:?)]\((\S+)(?:(?:\s+)["'](\S+)["'])?\))$/;
+    const imageInputRegex = /(?:^|\s)(!\[(.+|:?)]\((\S+)(?:(?:\s+)["']([^"']+)["'])?\))$/;
 
     it('regex matches ![alt](src)', () => {
       const match = imageInputRegex.exec('![My alt](https://example.com/input.png)');
@@ -507,6 +597,14 @@ describe('Image', () => {
       const match = imageInputRegex.exec("![alt](https://example.com/a.png 'title')");
       expect(match).not.toBeNull();
       expect(match![4]).toBe('title');
+    });
+
+    it('regex matches title with spaces', () => {
+      const match = imageInputRegex.exec('![alt](https://example.com/a.png "Hello World")');
+      expect(match).not.toBeNull();
+      expect(match![2]).toBe('alt');
+      expect(match![3]).toBe('https://example.com/a.png');
+      expect(match![4]).toBe('Hello World');
     });
   });
 });
