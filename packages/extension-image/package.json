@@ -36,7 +36,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@domternal/core": "workspace:*"
+    "@domternal/core": "workspace:*",
+    "prosemirror-inputrules": "^1.5.1"
   },
   "devDependencies": {
     "jsdom": "^27.4.0",

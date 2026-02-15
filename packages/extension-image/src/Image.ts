@@ -16,6 +16,7 @@
 
 import { Node } from '@domternal/core';
 import type { CommandSpec } from '@domternal/core';
+import { InputRule } from 'prosemirror-inputrules';
 
 /**
  * Typed options for the setImage command.
@@ -152,6 +153,38 @@ export const Image = Node.create<ImageOptions>({
     }
 
     return ['img', { ...this.options.HTMLAttributes, ...HTMLAttributes }];
+  },
+
+  addInputRules() {
+    const { nodeType, options } = this;
+    if (!nodeType) return [];
+
+    return [
+      new InputRule(
+        /(?:^|\s)(!\[(.+|:?)]\((\S+)(?:(?:\s+)["'](\S+)["'])?\))$/,
+        (state, match, start, end) => {
+          const [fullMatch, wrapper, alt, src, title] = match;
+          if (!src || !wrapper) return null;
+
+          // XSS validation: reject dangerous URLs in markdown syntax too
+          if (!isValidImageSrc(src, options.allowBase64)) return null;
+
+          const { tr } = state;
+          const attrs: Record<string, unknown> = {
+            src,
+            alt: alt || null,
+            title: title || null,
+          };
+
+          // Adjust start for leading whitespace before ![
+          const offset = fullMatch!.length - wrapper.length;
+          const from = start + offset;
+
+          tr.replaceWith(from, end, nodeType.create(attrs));
+          return tr;
+        }
+      ),
+    ];
   },
 
   addCommands() {
