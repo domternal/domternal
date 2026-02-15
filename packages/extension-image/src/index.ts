@@ -4,3 +4,4 @@
  */
 
 export { Image, type ImageOptions, type SetImageOptions } from './Image.js';
+export { imageUploadPluginKey } from './imageUploadPlugin.js';

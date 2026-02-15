@@ -18,6 +18,7 @@
 import { Node } from '@domternal/core';
 import type { CommandSpec } from '@domternal/core';
 import { InputRule } from 'prosemirror-inputrules';
+import { imageUploadPlugin } from './imageUploadPlugin.js';
 
 /**
  * Typed options for the setImage command.
@@ -41,8 +42,8 @@ declare module '@domternal/core' {
 
 /**
  * Validates image src URL for XSS protection.
- * Allows: http://, https://, and optionally data:image/
- * Blocks: javascript:, data: (non-image), vbscript:, file://, etc.
+ * Blocks: javascript:, vbscript:, file:, and data: (unless allowBase64 AND data:image/).
+ * Allows everything else: http(s), relative paths, protocol-relative URLs, etc.
  */
 function isValidImageSrc(value: unknown, allowBase64: boolean): boolean {
   if (value === null || value === undefined) return true; // null is valid (no src)
@@ -73,6 +74,26 @@ export interface ImageOptions {
    */
   allowBase64: boolean;
   HTMLAttributes: Record<string, unknown>;
+  /**
+   * Async function that uploads a file and returns the URL.
+   * When provided, enables paste/drop image upload.
+   * When null (default), paste/drop is not handled.
+   */
+  uploadHandler: ((file: File) => Promise<string>) | null;
+  /**
+   * Allowed MIME types for upload.
+   * @default ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml', 'image/avif']
+   */
+  allowedMimeTypes: string[];
+  /**
+   * Maximum file size in bytes. 0 = unlimited.
+   * @default 0
+   */
+  maxFileSize: number;
+  /**
+   * Called when upload fails. Receives the error and the file.
+   */
+  onUploadError: ((error: Error, file: File) => void) | null;
 }
 
 export const Image = Node.create<ImageOptions>({
@@ -91,6 +112,17 @@ export const Image = Node.create<ImageOptions>({
       inline: false,
       allowBase64: false,
       HTMLAttributes: {},
+      uploadHandler: null,
+      allowedMimeTypes: [
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'image/svg+xml',
+        'image/avif',
+      ],
+      maxFileSize: 0,
+      onUploadError: null,
     };
   },
 
@@ -179,6 +211,10 @@ export const Image = Node.create<ImageOptions>({
     return ['img', { ...this.options.HTMLAttributes, ...HTMLAttributes }];
   },
 
+  leafText(node) {
+    return (node.attrs['alt'] as string | null) ?? '';
+  },
+
   addInputRules() {
     const { nodeType, options } = this;
     if (!nodeType) return [];
@@ -232,5 +268,19 @@ export const Image = Node.create<ImageOptions>({
           return true;
         },
     };
+  },
+
+  addProseMirrorPlugins() {
+    if (!this.options.uploadHandler || !this.nodeType) return [];
+
+    return [
+      imageUploadPlugin({
+        nodeType: this.nodeType,
+        uploadHandler: this.options.uploadHandler,
+        allowedMimeTypes: this.options.allowedMimeTypes,
+        maxFileSize: this.options.maxFileSize,
+        onUploadError: this.options.onUploadError,
+      }),
+    ];
   },
 });

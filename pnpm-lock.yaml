@@ -204,6 +204,15 @@ importers:
       prosemirror-inputrules:
         specifier: ^1.5.1
         version: 1.5.1
+      prosemirror-model:
+        specifier: ^1.25.4
+        version: 1.25.4
+      prosemirror-state:
+        specifier: ^1.4.4
+        version: 1.4.4
+      prosemirror-view:
+        specifier: ^1.41.5
+        version: 1.41.5
     devDependencies:
       jsdom:
         specifier: ^27.4.0

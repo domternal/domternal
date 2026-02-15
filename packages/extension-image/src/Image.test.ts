@@ -1,6 +1,14 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { Image } from './Image.js';
 import { Document, Text, Paragraph, Editor } from '@domternal/core';
+import {
+  imageUploadPlugin,
+  imageUploadPluginKey,
+  _resetPlaceholderCounter,
+} from './imageUploadPlugin.js';
+import { Schema } from 'prosemirror-model';
+import { EditorState } from 'prosemirror-state';
+import { EditorView } from 'prosemirror-view';
 
 describe('Image', () => {
   describe('configuration', () => {
@@ -31,6 +39,17 @@ describe('Image', () => {
         inline: false,
         allowBase64: false,
         HTMLAttributes: {},
+        uploadHandler: null,
+        allowedMimeTypes: [
+          'image/jpeg',
+          'image/png',
+          'image/gif',
+          'image/webp',
+          'image/svg+xml',
+          'image/avif',
+        ],
+        maxFileSize: 0,
+        onUploadError: null,
       });
     });
 
@@ -605,6 +624,500 @@ describe('Image', () => {
       expect(match![2]).toBe('alt');
       expect(match![3]).toBe('https://example.com/a.png');
       expect(match![4]).toBe('Hello World');
+    });
+  });
+
+  describe('leafText', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) {
+        editor.destroy();
+      }
+    });
+
+    it('returns alt text for getText()', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>Before</p><img src="https://example.com/img.png" alt="My photo"><p>After</p>',
+      });
+
+      const text = editor.getText();
+      expect(text).toContain('My photo');
+    });
+
+    it('returns empty string when no alt attribute', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>Before</p><img src="https://example.com/img.png"><p>After</p>',
+      });
+
+      const text = editor.getText();
+      expect(text).toContain('Before');
+      expect(text).toContain('After');
+    });
+  });
+
+  describe('upload options', () => {
+    it('has default upload options', () => {
+      expect(Image.options.uploadHandler).toBeNull();
+      expect(Image.options.allowedMimeTypes).toEqual([
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'image/svg+xml',
+        'image/avif',
+      ]);
+      expect(Image.options.maxFileSize).toBe(0);
+      expect(Image.options.onUploadError).toBeNull();
+    });
+
+    it('can configure uploadHandler', () => {
+      const handler = (): Promise<string> => Promise.resolve('https://example.com/uploaded.png');
+      const CustomImage = Image.configure({ uploadHandler: handler });
+      expect(CustomImage.options.uploadHandler).toBe(handler);
+    });
+
+    it('can configure allowedMimeTypes', () => {
+      const CustomImage = Image.configure({
+        allowedMimeTypes: ['image/png'],
+      });
+      expect(CustomImage.options.allowedMimeTypes).toEqual(['image/png']);
+    });
+
+    it('can configure maxFileSize', () => {
+      const CustomImage = Image.configure({ maxFileSize: 5_000_000 });
+      expect(CustomImage.options.maxFileSize).toBe(5_000_000);
+    });
+
+    it('can configure onUploadError', () => {
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      const errorHandler = (): void => {};
+      const CustomImage = Image.configure({ onUploadError: errorHandler });
+      expect(CustomImage.options.onUploadError).toBe(errorHandler);
+    });
+  });
+
+  describe('addProseMirrorPlugins', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) {
+        editor.destroy();
+      }
+    });
+
+    it('does not create upload plugin when uploadHandler is null', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p></p>',
+      });
+
+      const pluginState = imageUploadPluginKey.getState(editor.state);
+      expect(pluginState).toBeUndefined();
+    });
+
+    it('creates upload plugin when uploadHandler is provided', () => {
+      const UploadImage = Image.configure({
+        uploadHandler: (): Promise<string> => Promise.resolve('https://example.com/img.png'),
+      });
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, UploadImage],
+        content: '<p></p>',
+      });
+
+      const pluginState = imageUploadPluginKey.getState(editor.state);
+      expect(pluginState).toBeDefined();
+    });
+  });
+});
+
+describe('imageUploadPlugin', () => {
+  const schema = new Schema({
+    nodes: {
+      doc: { content: 'block+' },
+      paragraph: {
+        group: 'block',
+        content: 'inline*',
+        toDOM: () => ['p', 0] as const,
+        parseDOM: [{ tag: 'p' }],
+      },
+      image: {
+        group: 'block',
+        atom: true,
+        attrs: {
+          src: { default: null },
+          alt: { default: null },
+          title: { default: null },
+        },
+        toDOM: (node) =>
+          [
+            'img',
+            {
+              src: node.attrs['src'],
+              alt: node.attrs['alt'],
+              title: node.attrs['title'],
+            },
+          ] as const,
+        parseDOM: [{ tag: 'img[src]' }],
+      },
+      text: { group: 'inline' },
+    },
+  });
+
+  let view: EditorView | undefined;
+
+  afterEach(() => {
+    view?.destroy();
+    _resetPlaceholderCounter();
+  });
+
+  function createUploadView(
+    uploadHandler: (file: File) => Promise<string>,
+    opts?: {
+      allowedMimeTypes?: string[];
+      maxFileSize?: number;
+      onUploadError?: ((error: Error, file: File) => void) | null;
+    },
+  ): EditorView {
+    const plugin = imageUploadPlugin({
+      nodeType: schema.nodes.image,
+      uploadHandler,
+      allowedMimeTypes: opts?.allowedMimeTypes ?? [
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+      ],
+      maxFileSize: opts?.maxFileSize ?? 0,
+      onUploadError: opts?.onUploadError ?? null,
+    });
+
+    const doc = schema.node('doc', null, [
+      schema.node('paragraph', null, [schema.text('hello')]),
+    ]);
+    const state = EditorState.create({ schema, doc, plugins: [plugin] });
+    const container = document.createElement('div');
+    return new EditorView(container, { state });
+  }
+
+  function mockFile(name: string, type: string, size = 1000): File {
+    const content = new Uint8Array(size);
+    return new File([content], name, { type });
+  }
+
+  function mockPasteEvent(files: File[]): ClipboardEvent {
+    const items = files.map((file) => ({
+      kind: 'file' as const,
+      type: file.type,
+      getAsFile: () => file,
+    }));
+
+    return {
+      clipboardData: {
+        items,
+        getData: () => '',
+      },
+      preventDefault: vi.fn(),
+    } as unknown as ClipboardEvent;
+  }
+
+  function mockDropEvent(
+    files: File[],
+    clientX = 0,
+    clientY = 0,
+  ): DragEvent {
+    const fileList = Object.assign(files, {
+      item: (i: number) => files[i] ?? null,
+    }) as unknown as FileList;
+
+    return {
+      dataTransfer: { files: fileList },
+      clientX,
+      clientY,
+      preventDefault: vi.fn(),
+    } as unknown as DragEvent;
+  }
+
+  describe('plugin creation', () => {
+    it('creates a plugin with imageUploadPluginKey', () => {
+      const handler = vi.fn().mockResolvedValue('https://example.com/img.png');
+      view = createUploadView(handler);
+
+      const pluginState = imageUploadPluginKey.getState(view.state);
+      expect(pluginState).toBeDefined();
+    });
+
+    it('has handlePaste and handleDrop props', () => {
+      const handler = vi
+        .fn()
+        .mockResolvedValue('https://example.com/img.png');
+      const plugin = imageUploadPlugin({
+        nodeType: schema.nodes.image,
+        uploadHandler: handler,
+        allowedMimeTypes: ['image/png'],
+        maxFileSize: 0,
+        onUploadError: null,
+      });
+      expect(plugin.props.handlePaste).toBeDefined();
+      expect(plugin.props.handleDrop).toBeDefined();
+    });
+  });
+
+  describe('handlePaste', () => {
+    it('ignores paste without files', () => {
+      const handler = vi.fn().mockResolvedValue('url');
+      view = createUploadView(handler);
+
+      const plugin = view.state.plugins.find(
+        (p) => p.spec.key === imageUploadPluginKey,
+      );
+      const handlePaste = plugin!.props.handlePaste as any;
+
+      const event = {
+        clipboardData: {
+          items: [
+            {
+              kind: 'string',
+              type: 'text/plain',
+              getAsFile: () => null,
+            },
+          ],
+          getData: () => 'just text',
+        },
+        preventDefault: vi.fn(),
+      } as unknown as ClipboardEvent;
+
+      const result = handlePaste(view, event);
+      expect(result).toBe(false);
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('ignores non-image files', () => {
+      const handler = vi.fn().mockResolvedValue('url');
+      view = createUploadView(handler);
+
+      const plugin = view.state.plugins.find(
+        (p) => p.spec.key === imageUploadPluginKey,
+      );
+      const handlePaste = plugin!.props.handlePaste as any;
+
+      const txtFile = mockFile('doc.txt', 'text/plain');
+      const event = mockPasteEvent([txtFile]);
+
+      const result = handlePaste(view, event);
+      expect(result).toBe(false);
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('rejects files exceeding maxFileSize', () => {
+      const handler = vi.fn().mockResolvedValue('url');
+      view = createUploadView(handler, { maxFileSize: 500 });
+
+      const plugin = view.state.plugins.find(
+        (p) => p.spec.key === imageUploadPluginKey,
+      );
+      const handlePaste = plugin!.props.handlePaste as any;
+
+      const bigFile = mockFile('big.png', 'image/png', 1000);
+      const event = mockPasteEvent([bigFile]);
+
+      const result = handlePaste(view, event);
+      expect(result).toBe(false);
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('accepts valid image file and calls uploadHandler', () => {
+      const handler = vi
+        .fn()
+        .mockResolvedValue('https://example.com/uploaded.png');
+      view = createUploadView(handler);
+
+      const plugin = view.state.plugins.find(
+        (p) => p.spec.key === imageUploadPluginKey,
+      );
+      const handlePaste = plugin!.props.handlePaste as any;
+
+      const file = mockFile('photo.png', 'image/png');
+      const event = mockPasteEvent([file]);
+
+      const result = handlePaste(view, event);
+      expect(result).toBe(true);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(handler).toHaveBeenCalledWith(file);
+    });
+
+    it('inserts image after successful upload', async () => {
+      const handler = vi
+        .fn()
+        .mockResolvedValue('https://example.com/uploaded.png');
+      view = createUploadView(handler);
+
+      const plugin = view.state.plugins.find(
+        (p) => p.spec.key === imageUploadPluginKey,
+      );
+      const handlePaste = plugin!.props.handlePaste as any;
+
+      const file = mockFile('photo.png', 'image/png');
+      const event = mockPasteEvent([file]);
+
+      handlePaste(view, event);
+
+      // Wait for async upload to complete
+      await vi.waitFor(() => {
+        let hasImage = false;
+        view!.state.doc.descendants((node) => {
+          if (node.type.name === 'image') hasImage = true;
+        });
+        expect(hasImage).toBe(true);
+      });
+
+      // Verify inserted image has correct src
+      let imgSrc: string | null = null;
+      view.state.doc.descendants((node) => {
+        if (node.type.name === 'image') {
+          imgSrc = node.attrs['src'] as string;
+        }
+      });
+      expect(imgSrc).toBe('https://example.com/uploaded.png');
+    });
+
+    it('removes placeholder on upload error', async () => {
+      const handler = vi
+        .fn()
+        .mockRejectedValue(new Error('Upload failed'));
+      const onError = vi.fn();
+      view = createUploadView(handler, { onUploadError: onError });
+
+      const plugin = view.state.plugins.find(
+        (p) => p.spec.key === imageUploadPluginKey,
+      );
+      const handlePaste = plugin!.props.handlePaste as any;
+
+      const file = mockFile('photo.png', 'image/png');
+      const event = mockPasteEvent([file]);
+
+      handlePaste(view, event);
+
+      // Wait for error handling
+      await vi.waitFor(() => {
+        expect(onError).toHaveBeenCalled();
+      });
+
+      expect(onError).toHaveBeenCalledWith(expect.any(Error), file);
+      expect((onError.mock.calls[0] as [Error, File])[0].message).toBe('Upload failed');
+
+      // No image should be in the document
+      let hasImage = false;
+      view.state.doc.descendants((node) => {
+        if (node.type.name === 'image') hasImage = true;
+      });
+      expect(hasImage).toBe(false);
+    });
+
+    it('handles multiple files in single paste', () => {
+      const handler = vi
+        .fn()
+        .mockResolvedValue('https://example.com/img.png');
+      view = createUploadView(handler);
+
+      const plugin = view.state.plugins.find(
+        (p) => p.spec.key === imageUploadPluginKey,
+      );
+      const handlePaste = plugin!.props.handlePaste as any;
+
+      const file1 = mockFile('a.png', 'image/png');
+      const file2 = mockFile('b.jpg', 'image/jpeg');
+      const event = mockPasteEvent([file1, file2]);
+
+      const result = handlePaste(view, event);
+      expect(result).toBe(true);
+      expect(handler).toHaveBeenCalledTimes(2);
+      expect(handler).toHaveBeenCalledWith(file1);
+      expect(handler).toHaveBeenCalledWith(file2);
+    });
+
+    it('validates allowedMimeTypes correctly', () => {
+      const handler = vi.fn().mockResolvedValue('url');
+      view = createUploadView(handler, { allowedMimeTypes: ['image/png'] });
+
+      const plugin = view.state.plugins.find(
+        (p) => p.spec.key === imageUploadPluginKey,
+      );
+      const handlePaste = plugin!.props.handlePaste as any;
+
+      // JPEG should be rejected when only PNG is allowed
+      const jpegFile = mockFile('photo.jpg', 'image/jpeg');
+      const event1 = mockPasteEvent([jpegFile]);
+      expect(handlePaste(view, event1)).toBe(false);
+
+      // PNG should be accepted
+      const pngFile = mockFile('photo.png', 'image/png');
+      const event2 = mockPasteEvent([pngFile]);
+      expect(handlePaste(view, event2)).toBe(true);
+    });
+  });
+
+  describe('handleDrop', () => {
+    it('accepts valid image file on drop', () => {
+      const handler = vi
+        .fn()
+        .mockResolvedValue('https://example.com/dropped.png');
+      view = createUploadView(handler);
+
+      // Mock posAtCoords since jsdom doesn't support elementFromPoint
+      vi.spyOn(view, 'posAtCoords').mockReturnValue({ pos: 1, inside: -1 });
+
+      const plugin = view.state.plugins.find(
+        (p) => p.spec.key === imageUploadPluginKey,
+      );
+      const handleDrop = plugin!.props.handleDrop as any;
+
+      const file = mockFile('dropped.png', 'image/png');
+      const event = mockDropEvent([file], 10, 10);
+
+      const result = handleDrop(view, event);
+      expect(result).toBe(true);
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(handler).toHaveBeenCalledWith(file);
+    });
+
+    it('ignores drop without image files', () => {
+      const handler = vi.fn().mockResolvedValue('url');
+      view = createUploadView(handler);
+
+      const plugin = view.state.plugins.find(
+        (p) => p.spec.key === imageUploadPluginKey,
+      );
+      const handleDrop = plugin!.props.handleDrop as any;
+
+      const txtFile = mockFile('doc.txt', 'text/plain');
+      const event = mockDropEvent([txtFile]);
+
+      const result = handleDrop(view, event);
+      expect(result).toBe(false);
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('ignores drop with no dataTransfer', () => {
+      const handler = vi.fn().mockResolvedValue('url');
+      view = createUploadView(handler);
+
+      const plugin = view.state.plugins.find(
+        (p) => p.spec.key === imageUploadPluginKey,
+      );
+      const handleDrop = plugin!.props.handleDrop as any;
+
+      const event = {
+        dataTransfer: null,
+        preventDefault: vi.fn(),
+      } as unknown as DragEvent;
+
+      const result = handleDrop(view, event);
+      expect(result).toBe(false);
     });
   });
 });
