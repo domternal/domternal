@@ -12,8 +12,10 @@ describe('Image', () => {
       expect(Image.type).toBe('node');
     });
 
-    it('belongs to block group', () => {
-      expect(Image.config.group).toBe('block');
+    it('belongs to block group by default', () => {
+      expect(typeof Image.config.group).toBe('function');
+      const group = (Image.config.group as Function).call(Image);
+      expect(group).toBe('block');
     });
 
     it('is draggable', () => {
@@ -26,6 +28,7 @@ describe('Image', () => {
 
     it('has default options', () => {
       expect(Image.options).toEqual({
+        inline: false,
         allowBase64: false,
         HTMLAttributes: {},
       });

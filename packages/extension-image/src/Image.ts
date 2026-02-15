@@ -1,8 +1,12 @@
 /**
  * Image Node
  *
- * Block-level image element.
+ * Block-level (default) or inline image element.
  * Supports src, alt, title, width, height attributes.
+ *
+ * Options:
+ * - inline: false (default) — block-level image | true — inline image within paragraphs
+ * - allowBase64: false (default) — only http/https URLs | true — also allow data:image/ URLs
  *
  * XSS Protection:
  * - Schema-level validation rejects javascript:, data: (unless allowBase64), and other dangerous URLs
@@ -50,6 +54,11 @@ function isValidImageSrc(value: unknown, allowBase64: boolean): boolean {
 
 export interface ImageOptions {
   /**
+   * Whether images are inline (within paragraphs) or block-level (default: false)
+   * When true, images can appear alongside text within a paragraph.
+   */
+  inline: boolean;
+  /**
    * Allow base64 data:image/ URLs (default: false)
    * When false, only http:// and https:// URLs are allowed
    */
@@ -59,12 +68,18 @@ export interface ImageOptions {
 
 export const Image = Node.create<ImageOptions>({
   name: 'image',
-  group: 'block',
+  group() {
+    return this.options.inline ? 'inline' : 'block';
+  },
+  inline() {
+    return this.options.inline;
+  },
   draggable: true,
   atom: true,
 
   addOptions() {
     return {
+      inline: false,
       allowBase64: false,
       HTMLAttributes: {},
     };
