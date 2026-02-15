@@ -3,4 +3,4 @@
  * Image node extension for Domternal editor
  */
 
-export { Image, type ImageOptions } from './Image.js';
+export { Image, type ImageOptions, type SetImageOptions } from './Image.js';

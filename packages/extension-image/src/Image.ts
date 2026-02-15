@@ -13,9 +13,21 @@
 import { Node } from '@domternal/core';
 import type { CommandSpec } from '@domternal/core';
 
+/**
+ * Typed options for the setImage command.
+ * src is required — it makes no sense to insert an image without a source URL.
+ */
+export interface SetImageOptions {
+  src: string;
+  alt?: string;
+  title?: string;
+  width?: string | number;
+  height?: string | number;
+}
+
 declare module '@domternal/core' {
   interface RawCommands {
-    setImage: CommandSpec<[attributes?: Record<string, unknown>]>;
+    setImage: CommandSpec<[attributes: SetImageOptions]>;
   }
 }
 
@@ -131,10 +143,10 @@ export const Image = Node.create<ImageOptions>({
     const { name, options } = this;
     return {
       setImage:
-        (attributes?: Record<string, unknown>) =>
+        (attributes: SetImageOptions) =>
         ({ tr, dispatch }) => {
           // XSS protection: validate src URL before inserting
-          if (attributes?.['src'] && !isValidImageSrc(attributes['src'], options.allowBase64)) {
+          if (!isValidImageSrc(attributes.src, options.allowBase64)) {
             return false;
           }
 
@@ -142,7 +154,7 @@ export const Image = Node.create<ImageOptions>({
           if (!nodeType) return false;
 
           if (dispatch) {
-            const node = nodeType.create(attributes ?? {});
+            const node = nodeType.create(attributes);
             tr.replaceSelectionWith(node);
             dispatch(tr);
           }
