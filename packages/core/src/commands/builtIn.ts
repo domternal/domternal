@@ -4,7 +4,7 @@
  * These commands are merged with extension commands
  * to provide a unified command API.
  */
-import { TextSelection, AllSelection } from 'prosemirror-state';
+import { TextSelection, AllSelection, EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { selectNodeBackward as pmSelectNodeBackward } from 'prosemirror-commands';
 import { wrapRangeInList, liftListItem } from 'prosemirror-schema-list';
@@ -740,13 +740,16 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
       // liftListItem reads state.selection directly. When that's AllSelection
       // (doc level), it can't find list items. Create a state with narrowed
       // selection inside the list so liftListItem works correctly.
+      // Use tr.doc (not state.doc) for chain compatibility — prior commands
+      // in a chain may have modified the document.
       const first = contentBlocks[0];
       const last = contentBlocks[contentBlocks.length - 1];
       if (!first || !last) return false;
-      const narrowTr = state.tr.setSelection(
-        TextSelection.create(state.doc, first.pos + 1, last.pos + 1)
-      );
-      const narrowState = state.apply(narrowTr);
+      const narrowSel = TextSelection.create(tr.doc, first.pos + 1, last.pos + 1);
+      const narrowState = EditorState.create({
+        doc: tr.doc,
+        selection: narrowSel,
+      });
       return liftListItem(listItemType)(narrowState, dispatch);
     }
 

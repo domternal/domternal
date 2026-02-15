@@ -131,6 +131,13 @@ export const FloatingMenu = Extension.create<FloatingMenuOptions>({
       if (domNode instanceof HTMLElement) {
         const rect = domNode.getBoundingClientRect();
 
+        // Compute offset from the element's offsetParent so positioning
+        // works for both position:fixed and position:absolute elements.
+        const offsetParent = element.offsetParent;
+        const parentRect = offsetParent
+          ? offsetParent.getBoundingClientRect()
+          : { top: 0, left: 0 };
+
         let top = rect.bottom + offset[1];
         const left = rect.left + offset[0];
 
@@ -142,8 +149,9 @@ export const FloatingMenu = Extension.create<FloatingMenuOptions>({
           top = rect.top - menuRect.height - offset[1];
         }
 
-        element.style.top = `${String(top)}px`;
-        element.style.left = `${String(left)}px`;
+        // Convert viewport coordinates to offsetParent-relative coordinates
+        element.style.top = `${String(top - parentRect.top)}px`;
+        element.style.left = `${String(left - parentRect.left)}px`;
       }
 
       element.setAttribute('data-show', '');

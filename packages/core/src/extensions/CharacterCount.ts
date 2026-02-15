@@ -129,7 +129,7 @@ export const CharacterCount = Extension.create<
   },
 
   addProseMirrorPlugins() {
-    const { limit, wordLimit } = this.options;
+    const { limit, wordLimit, mode } = this.options;
 
     // If no limits, no need for filtering plugin
     if (limit === null && wordLimit === null) return [];
@@ -142,16 +142,18 @@ export const CharacterCount = Extension.create<
           if (!transaction.docChanged) return true;
 
           const newDoc = transaction.doc;
-          const text = newDoc.textContent;
 
-          // Character limit check
-          if (limit !== null && text.length > limit) {
-            return false;
+          // Character limit check — use same counting mode as characters()
+          if (limit !== null) {
+            const count = mode === 'nodeSize'
+              ? newDoc.nodeSize
+              : newDoc.textContent.length;
+            if (count > limit) return false;
           }
 
           // Word limit check
           if (wordLimit !== null) {
-            const words = text.split(/\s+/).filter((w) => w.length > 0);
+            const words = newDoc.textContent.split(/\s+/).filter((w) => w.length > 0);
             if (words.length > wordLimit) {
               return false;
             }

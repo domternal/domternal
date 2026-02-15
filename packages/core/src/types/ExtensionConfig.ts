@@ -8,17 +8,16 @@
 import type { Plugin, Transaction, EditorState } from 'prosemirror-state';
 import type { InputRule } from 'prosemirror-inputrules';
 import type { EditorView } from 'prosemirror-view';
-import type { Command, KeyboardShortcutCommand } from './Commands.js';
+import type { Command, KeyboardShortcutCommand, SingleCommands } from './Commands.js';
 
 /**
  * Editor instance type (forward declaration)
- * Will be properly typed when Extension class is implemented
  */
 export interface ExtensionEditor {
   readonly state: EditorState;
   readonly view: EditorView;
   readonly schema: unknown;
-  readonly commands: Record<string, (...args: unknown[]) => boolean>;
+  readonly commands: SingleCommands;
 }
 
 /**

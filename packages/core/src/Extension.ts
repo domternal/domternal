@@ -25,6 +25,7 @@
  */
 
 import type { ExtensionConfig, ExtensionConfigBase, ExtensionContext } from './types/ExtensionConfig.js';
+import type { SingleCommands } from './types/Commands.js';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { callOrReturn } from './helpers/callOrReturn.js';
@@ -79,6 +80,7 @@ export interface ExtensionEditorInterface {
   readonly state: EditorState;
   readonly view: EditorView;
   readonly schema: unknown;
+  readonly commands: SingleCommands;
 }
 
 /**

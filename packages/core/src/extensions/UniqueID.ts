@@ -178,11 +178,16 @@ export const UniqueID = Extension.create<UniqueIDOptions>({
 
         // Apply initial IDs after the view is ready
         view(editorView) {
-          const tr = editorView.state.tr;
-          assignMissingIDs(editorView.state.doc, tr);
-          if (tr.docChanged) {
-            setTimeout(() => { editorView.dispatch(tr); }, 0);
-          }
+          // Use setTimeout to avoid dispatching during plugin init, but
+          // re-create the transaction from the *current* state inside the
+          // callback to avoid stale-transaction bugs.
+          setTimeout(() => {
+            const tr = editorView.state.tr;
+            assignMissingIDs(editorView.state.doc, tr);
+            if (tr.docChanged) {
+              editorView.dispatch(tr);
+            }
+          }, 0);
           return {};
         },
 

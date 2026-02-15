@@ -115,17 +115,20 @@ export const BubbleMenu = Extension.create<BubbleMenuOptions>({
     let updateTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const updatePosition = (view: EditorView, from: number, to: number): void => {
-      // Get selection coordinates
+      // coordsAtPos returns viewport-relative (screen) coordinates
       const start = view.coordsAtPos(from);
       const end = view.coordsAtPos(to);
 
-      // Calculate center of selection
       const centerX = (start.left + end.left) / 2;
-
-      // Get menu dimensions
       const menuRect = element.getBoundingClientRect();
 
-      // Calculate position
+      // Compute offset from the element's offsetParent so positioning
+      // works for both position:fixed and position:absolute elements.
+      const offsetParent = element.offsetParent;
+      const parentRect = offsetParent
+        ? offsetParent.getBoundingClientRect()
+        : { top: 0, left: 0 };
+
       let top: number;
       let left: number;
 
@@ -137,11 +140,10 @@ export const BubbleMenu = Extension.create<BubbleMenuOptions>({
 
       left = centerX - menuRect.width / 2 + offset[0];
 
-      // Viewport boundary checks
+      // Viewport boundary checks (in screen coordinates)
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
 
-      // Keep menu within horizontal bounds
       if (left < 10) left = 10;
       if (left + menuRect.width > viewportWidth - 10) {
         left = viewportWidth - menuRect.width - 10;
@@ -157,9 +159,9 @@ export const BubbleMenu = Extension.create<BubbleMenuOptions>({
         top = start.top - menuRect.height - offset[1];
       }
 
-      // Apply position
-      element.style.top = `${String(top)}px`;
-      element.style.left = `${String(left)}px`;
+      // Convert viewport coordinates to offsetParent-relative coordinates
+      element.style.top = `${String(top - parentRect.top)}px`;
+      element.style.left = `${String(left - parentRect.left)}px`;
       element.setAttribute('data-show', '');
     };
 

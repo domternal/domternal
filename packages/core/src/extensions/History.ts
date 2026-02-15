@@ -55,9 +55,9 @@ export const History = Extension.create<HistoryOptions>({
 
   addKeyboardShortcuts() {
     return {
-      'Mod-z': () => this.editor?.commands['undo']?.() ?? false,
-      'Mod-Shift-z': () => this.editor?.commands['redo']?.() ?? false,
-      'Mod-y': () => this.editor?.commands['redo']?.() ?? false,
+      'Mod-z': () => this.editor?.commands.undo() ?? false,
+      'Mod-Shift-z': () => this.editor?.commands.redo() ?? false,
+      'Mod-y': () => this.editor?.commands.redo() ?? false,
     };
   },
 

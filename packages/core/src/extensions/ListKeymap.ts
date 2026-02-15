@@ -7,9 +7,11 @@
  * - Backspace: Lift list item when at start of empty item
  */
 import { liftListItem, sinkListItem } from 'prosemirror-schema-list';
+import type { NodeType } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { Extension } from '../Extension.js';
+import type { ExtensionEditorInterface } from '../Extension.js';
 
 export interface ListKeymapOptions {
   /**
@@ -17,6 +19,25 @@ export interface ListKeymapOptions {
    * @default 'listItem'
    */
   listItem: string;
+}
+
+/** Resolves the list item NodeType and checks if cursor is inside one. */
+function getListItemContext(
+  editor: ExtensionEditorInterface,
+  listItemName: string,
+): { state: EditorState; view: EditorView; listItemType: NodeType } | null {
+  const { state, view } = editor as { state: EditorState; view: EditorView };
+  const listItemType = state.schema.nodes[listItemName];
+  if (!listItemType) return null;
+
+  const { $from } = state.selection;
+  for (let d = $from.depth; d > 0; d--) {
+    if ($from.node(d).type === listItemType) {
+      return { state, view, listItemType };
+    }
+  }
+
+  return null;
 }
 
 export const ListKeymap = Extension.create<ListKeymapOptions>({
@@ -32,54 +53,18 @@ export const ListKeymap = Extension.create<ListKeymapOptions>({
     return {
       // Tab to sink (indent) list item
       Tab: () => {
-        const editor = this.editor;
-        if (!editor) return false;
-
-        const { state, view } = editor as { state: EditorState; view: EditorView };
-        const listItemType = state.schema.nodes[this.options.listItem] ;
-
-        if (!listItemType) return false;
-
-        // Check if we're actually inside a list item
-        const { $from } = state.selection;
-        let inListItem = false;
-
-        for (let d = $from.depth; d > 0; d--) {
-          if ($from.node(d).type === listItemType) {
-            inListItem = true;
-            break;
-          }
-        }
-
-        if (!inListItem) return false;
-
-        return sinkListItem(listItemType)(state, view.dispatch);
+        if (!this.editor) return false;
+        const ctx = getListItemContext(this.editor, this.options.listItem);
+        if (!ctx) return false;
+        return sinkListItem(ctx.listItemType)(ctx.state, ctx.view.dispatch);
       },
 
       // Shift-Tab to lift (outdent) list item
       'Shift-Tab': () => {
-        const editor = this.editor;
-        if (!editor) return false;
-
-        const { state, view } = editor as { state: EditorState; view: EditorView };
-        const listItemType = state.schema.nodes[this.options.listItem] ;
-
-        if (!listItemType) return false;
-
-        // Check if we're actually inside a list item
-        const { $from } = state.selection;
-        let inListItem = false;
-
-        for (let d = $from.depth; d > 0; d--) {
-          if ($from.node(d).type === listItemType) {
-            inListItem = true;
-            break;
-          }
-        }
-
-        if (!inListItem) return false;
-
-        return liftListItem(listItemType)(state, view.dispatch);
+        if (!this.editor) return false;
+        const ctx = getListItemContext(this.editor, this.options.listItem);
+        if (!ctx) return false;
+        return liftListItem(ctx.listItemType)(ctx.state, ctx.view.dispatch);
       },
 
       // Backspace at start of list item to lift
@@ -93,7 +78,7 @@ export const ListKeymap = Extension.create<ListKeymapOptions>({
         // Only at start of textblock with empty selection
         if (!empty || $from.parentOffset !== 0) return false;
 
-        const listItemType = state.schema.nodes[this.options.listItem] ;
+        const listItemType = state.schema.nodes[this.options.listItem];
         if (!listItemType) return false;
 
         // Check if we're at the start of a list item

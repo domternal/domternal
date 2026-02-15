@@ -1,8 +1,7 @@
 /**
  * Editor - Main editor class wrapping ProseMirror
  *
- * Step 1.3: Basic editor with schema-based initialization
- * Step 2: Will support extensions for schema building
+ * Manages extensions, schema, commands, and the ProseMirror EditorView/State.
  */
 import type { Transaction } from 'prosemirror-state';
 import { EditorState } from 'prosemirror-state';
@@ -282,19 +281,24 @@ export class Editor extends EventEmitter<EditorEvents> {
     // Check if it's a node
     const nodeType = schema.nodes[name];
     if (nodeType) {
-      // Check if any node in selection path matches
-      // For block nodes, check parents of selection
-      for (let depth = $from.depth; depth >= 0; depth--) {
-        const node = $from.node(depth);
-        if (node.type === nodeType) {
-          // Check attributes if specified
-          if (attrs) {
-            return this.matchAttributes(node.attrs, attrs);
+      // Check both $from and $to paths — the node must be an ancestor
+      // of both ends of the selection for it to be considered active.
+      const { $to } = selection;
+
+      const findInPath = ($pos: typeof $from): boolean => {
+        for (let depth = $pos.depth; depth >= 0; depth--) {
+          const node = $pos.node(depth);
+          if (node.type === nodeType) {
+            if (attrs) {
+              return this.matchAttributes(node.attrs, attrs);
+            }
+            return true;
           }
-          return true;
         }
-      }
-      return false;
+        return false;
+      };
+
+      return findInPath($from) && findInPath($to);
     }
 
     return false;

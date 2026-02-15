@@ -45,13 +45,7 @@ declare module '../types/Commands.js' {
   }
 }
 
-export interface SelectionOptions {
-  /**
-   * HTML attributes to apply.
-   * @default {}
-   */
-  HTMLAttributes: Record<string, unknown>;
-}
+export interface SelectionOptions {}
 
 export interface SelectionStorage {
   /**
@@ -82,12 +76,6 @@ export interface SelectionStorage {
 
 export const Selection = Extension.create<SelectionOptions, SelectionStorage>({
   name: 'selection',
-
-  addOptions() {
-    return {
-      HTMLAttributes: {},
-    };
-  },
 
   addStorage() {
     return {
@@ -225,7 +213,7 @@ export const Selection = Extension.create<SelectionOptions, SelectionStorage>({
               to = Math.min(tr.doc.content.size, to + 1);
               break;
             case 'start':
-              from = 0;
+              from = 1;
               break;
             case 'end':
               to = tr.doc.content.size;

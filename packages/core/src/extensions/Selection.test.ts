@@ -16,16 +16,7 @@ describe('Selection', () => {
     });
 
     it('has default options', () => {
-      expect(Selection.options).toEqual({
-        HTMLAttributes: {},
-      });
-    });
-
-    it('can configure HTMLAttributes', () => {
-      const CustomSelection = Selection.configure({
-        HTMLAttributes: { class: 'custom' },
-      });
-      expect(CustomSelection.options.HTMLAttributes).toEqual({ class: 'custom' });
+      expect(Selection.options).toEqual({});
     });
   });
 
@@ -295,7 +286,7 @@ describe('Selection', () => {
         editor.commands.setSelection(6, 11);
         editor.commands.extendSelection('start');
 
-        expect(editor.state.selection.from).toBe(0);
+        expect(editor.state.selection.from).toBe(1);
         expect(editor.state.selection.to).toBe(11);
       });
 
