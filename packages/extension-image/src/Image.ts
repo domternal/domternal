@@ -2,7 +2,7 @@
  * Image Node
  *
  * Block-level (default) or inline image element.
- * Supports src, alt, title, width, height, loading, crossorigin attributes.
+ * Supports src, alt, title, width, height, loading, crossorigin, float attributes.
  *
  * Options:
  * - inline: false (default) — block-level image | true — inline image within paragraphs
@@ -20,6 +20,9 @@ import type { CommandSpec } from '@domternal/core';
 import { InputRule } from 'prosemirror-inputrules';
 import { imageUploadPlugin } from './imageUploadPlugin.js';
 
+/** Float values for image text wrapping. */
+export type ImageFloat = 'none' | 'left' | 'right' | 'center';
+
 /**
  * Typed options for the setImage command.
  * src is required — it makes no sense to insert an image without a source URL.
@@ -32,11 +35,13 @@ export interface SetImageOptions {
   height?: string | number;
   loading?: 'lazy' | 'eager';
   crossorigin?: 'anonymous' | 'use-credentials';
+  float?: ImageFloat;
 }
 
 declare module '@domternal/core' {
   interface RawCommands {
     setImage: CommandSpec<[attributes: SetImageOptions]>;
+    setImageFloat: CommandSpec<[float: ImageFloat]>;
   }
 }
 
@@ -197,6 +202,28 @@ export const Image = Node.create<ImageOptions>({
           return { crossorigin: attributes['crossorigin'] as string };
         },
       },
+      float: {
+        default: 'none',
+        parseHTML: (element: HTMLElement) => {
+          const style = element.style;
+          if (style.float === 'left') return 'left';
+          if (style.float === 'right') return 'right';
+          if (style.marginLeft === 'auto' && style.marginRight === 'auto') return 'center';
+          const align = element.getAttribute('align');
+          if (align === 'left') return 'left';
+          if (align === 'right') return 'right';
+          if (align === 'center' || align === 'middle') return 'center';
+          return 'none';
+        },
+        renderHTML: (attributes: Record<string, unknown>) => {
+          const float = attributes['float'] as string;
+          if (!float || float === 'none') return {};
+          if (float === 'left') return { style: 'float: left; margin: 0 1em 1em 0;' };
+          if (float === 'right') return { style: 'float: right; margin: 0 0 1em 1em;' };
+          if (float === 'center') return { style: 'display: block; margin-left: auto; margin-right: auto;' };
+          return {};
+        },
+      },
     };
   },
 
@@ -226,7 +253,7 @@ export const Image = Node.create<ImageOptions>({
 
     return [
       new InputRule(
-        /(?:^|\s)(!\[(.+|:?)]\((\S+)(?:(?:\s+)["']([^"']+)["'])?\))$/,
+        /(?:^|\s)(!\[(.+|:?)]\((\S+)(?:(?:\s+)["'\u201C\u201D\u2018\u2019]([^"'\u201C\u201D\u2018\u2019]+)["'\u201C\u201D\u2018\u2019])?\))$/,
         (state, match, start, end) => {
           const [fullMatch, wrapper, alt, src, title] = match;
           if (!src || !wrapper) return null;
@@ -270,6 +297,25 @@ export const Image = Node.create<ImageOptions>({
             dispatch(tr);
           }
 
+          return true;
+        },
+
+      setImageFloat:
+        (float: ImageFloat) =>
+        ({ tr, state, dispatch }) => {
+          if (!['none', 'left', 'right', 'center'].includes(float)) return false;
+
+          const { selection } = state;
+          const node = state.doc.nodeAt(selection.from);
+          if (node?.type.name !== 'image') return false;
+
+          if (dispatch) {
+            tr.setNodeMarkup(selection.from, undefined, {
+              ...node.attrs,
+              float,
+            });
+            dispatch(tr);
+          }
           return true;
         },
     };

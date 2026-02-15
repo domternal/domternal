@@ -740,6 +740,175 @@ describe('Image', () => {
       expect(pluginState).toBeDefined();
     });
   });
+
+  describe('float attribute', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) {
+        editor.destroy();
+      }
+    });
+
+    it('has default value none', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png">',
+      });
+      const image = editor.state.doc.child(0);
+      expect(image.attrs['float']).toBe('none');
+    });
+
+    it('parseHTML detects float: left from style', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png" style="float: left;">',
+      });
+      const image = editor.state.doc.child(0);
+      expect(image.attrs['float']).toBe('left');
+    });
+
+    it('parseHTML detects float: right from style', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png" style="float: right;">',
+      });
+      const image = editor.state.doc.child(0);
+      expect(image.attrs['float']).toBe('right');
+    });
+
+    it('parseHTML detects center from auto margins', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png" style="margin-left: auto; margin-right: auto;">',
+      });
+      const image = editor.state.doc.child(0);
+      expect(image.attrs['float']).toBe('center');
+    });
+
+    it('parseHTML detects align="left" (legacy HTML)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png" align="left">',
+      });
+      const image = editor.state.doc.child(0);
+      expect(image.attrs['float']).toBe('left');
+    });
+
+    it('parseHTML detects align="center" (legacy HTML)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png" align="center">',
+      });
+      const image = editor.state.doc.child(0);
+      expect(image.attrs['float']).toBe('center');
+    });
+
+    it('parseHTML returns none when no float style', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png">',
+      });
+      const image = editor.state.doc.child(0);
+      expect(image.attrs['float']).toBe('none');
+    });
+
+    it('renderHTML outputs float: left style', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png" style="float: left;">',
+      });
+      const html = editor.getHTML();
+      expect(html).toContain('float: left');
+      // Browser normalizes `0` to `0px` in margin shorthand
+      expect(html).toMatch(/margin:.*1em.*1em/);
+    });
+
+    it('renderHTML outputs float: right style', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png" style="float: right;">',
+      });
+      const html = editor.getHTML();
+      expect(html).toContain('float: right');
+      expect(html).toMatch(/margin:.*1em.*1em/);
+    });
+
+    it('renderHTML outputs center styles', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png" style="margin-left: auto; margin-right: auto;">',
+      });
+      const html = editor.getHTML();
+      expect(html).toContain('margin-left: auto');
+      expect(html).toContain('margin-right: auto');
+    });
+
+    it('renderHTML outputs no style for float: none', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png">',
+      });
+      const html = editor.getHTML();
+      expect(html).not.toContain('float:');
+      expect(html).not.toContain('margin-left: auto');
+    });
+
+    it('setImage command accepts float option', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>test</p>',
+      });
+      editor.commands.setImage({ src: 'https://example.com/img.png', float: 'left' });
+      const image = editor.state.doc.child(0);
+      expect(image.type.name).toBe('image');
+      expect(image.attrs['float']).toBe('left');
+    });
+
+    it('setImageFloat command changes float attribute', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png">',
+      });
+      // Select the image node (position 0)
+      const { tr } = editor.state;
+      const nodeSelection = editor.state.selection.constructor;
+      tr.setSelection((nodeSelection as any).create(editor.state.doc, 0));
+      editor.view.dispatch(tr);
+
+      editor.commands.setImageFloat('right');
+      const image = editor.state.doc.child(0);
+      expect(image.attrs['float']).toBe('right');
+    });
+
+    it('setImageFloat returns false for invalid values', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png">',
+      });
+      const { tr } = editor.state;
+      const nodeSelection = editor.state.selection.constructor;
+      tr.setSelection((nodeSelection as any).create(editor.state.doc, 0));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.setImageFloat('invalid' as any);
+      expect(result).toBe(false);
+    });
+
+    it('float attribute round-trips through HTML', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png" style="float: left; margin: 0 1em 1em 0;">',
+      });
+      const html = editor.getHTML();
+      expect(html).toContain('float: left');
+
+      // Parse the output back
+      editor.commands.setContent(html);
+      const image = editor.state.doc.child(0);
+      expect(image.attrs['float']).toBe('left');
+    });
+  });
 });
 
 describe('imageUploadPlugin', () => {

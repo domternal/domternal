@@ -9,6 +9,11 @@ interface EditorLike {
 }
 
 export const isNodeVisible = (position: number, editor: EditorLike): boolean => {
-  const node = editor.view.domAtPos(position).node as HTMLElement;
+  let node: Node | null = editor.view.domAtPos(position).node;
+  // Walk up from text nodes to the nearest HTMLElement (text nodes lack offsetParent)
+  while (node && !(node instanceof HTMLElement)) {
+    node = node.parentNode;
+  }
+  if (!node) return false;
   return node.offsetParent !== null;
 };
