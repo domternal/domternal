@@ -404,26 +404,58 @@ export const Details = Node.create<DetailsOptions>({
         }
 
         const isVisible = isNodeVisible($head.after() + 1, editor);
-        const above = isVisible ? state.doc.nodeAt($head.after()) : $head.node(-2);
+
+        // If content is hidden, open it first, then fall through to visible logic
+        if (!isVisible) {
+          const detailsPos = $head.before(-1);
+          const detailsDom = view.nodeDOM(detailsPos);
+
+          if (detailsDom instanceof HTMLElement) {
+            detailsDom.classList.add(this.options.openClassName);
+            const contentEl = detailsDom.querySelector('[data-type="detailsContent"]');
+            if (contentEl) {
+              contentEl.dispatchEvent(new Event('toggleDetailsContent'));
+            }
+          }
+
+          if (this.options.persist) {
+            const detailsNode = state.doc.nodeAt(detailsPos);
+            if (detailsNode) {
+              const { tr } = state;
+              tr.setNodeMarkup(detailsPos, undefined, {
+                ...detailsNode.attrs,
+                open: true,
+              });
+              const contentStartPos = $head.after() + 1;
+              tr.setSelection(Selection.near(tr.doc.resolve(contentStartPos), 1));
+              tr.scrollIntoView();
+              view.dispatch(tr);
+              return true;
+            }
+          }
+        }
+
+        // Content is (now) visible — create new block at start of detailsContent
+        const above = state.doc.nodeAt($head.after());
 
         if (!above) return false;
 
-        const after = isVisible ? 0 : $head.indexAfter(-1);
-        const type = defaultBlockAt(above.contentMatchAt(after));
+        const type = defaultBlockAt(above.contentMatchAt(0));
 
-        if (!type || !above.canReplaceWith(after, after, type)) {
+        if (!type || !above.canReplaceWith(0, 0, type)) {
           return false;
         }
 
         const node = type.createAndFill();
         if (!node) return false;
 
-        const pos = isVisible ? $head.after() + 1 : $head.after(-1);
+        const pos = $head.after() + 1;
         const tr = state.tr.replaceWith(pos, pos, node);
         const $pos = tr.doc.resolve(pos);
         const newSelection = Selection.near($pos, 1);
 
         tr.setSelection(newSelection);
+        tr.setMeta('detailsEnterOpen', true);
         tr.scrollIntoView();
         view.dispatch(tr);
 
@@ -460,6 +492,11 @@ export const Details = Node.create<DetailsOptions>({
 
           const selectionSet = transactions.some((t) => t.selectionSet);
           if (!selectionSet || !oldState.selection.empty || !newState.selection.empty) {
+            return;
+          }
+
+          // Skip when Enter handler intentionally placed cursor into just-opened content
+          if (transactions.some((t) => t.getMeta('detailsEnterOpen'))) {
             return;
           }
 
