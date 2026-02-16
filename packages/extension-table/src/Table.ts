@@ -32,7 +32,6 @@ import type { Node as PMNode } from 'prosemirror-model';
 import type { EditorView, NodeView, NodeViewConstructor } from 'prosemirror-view';
 import {
   tableEditing,
-  columnResizing,
   addColumnBefore,
   addColumnAfter,
   deleteColumn,
@@ -80,29 +79,10 @@ export interface TableOptions {
   HTMLAttributes: Record<string, unknown>;
 
   /**
-   * Enable column resizing UI (wiring for columnResizing plugin).
-   * The actual resize drag handles are part of prosemirror-tables.
-   * @default false
-   */
-  resizable: boolean;
-
-  /**
-   * Width of column resize handles in pixels.
-   * @default 5
-   */
-  handleWidth: number;
-
-  /**
    * Minimum cell width in pixels.
    * @default 25
    */
   cellMinWidth: number;
-
-  /**
-   * Whether the last column can be resized.
-   * @default true
-   */
-  lastColumnResizable: boolean;
 
   /**
    * Allow selecting the entire table as a node selection.
@@ -127,10 +107,7 @@ export const Table = Node.create<TableOptions>({
   addOptions() {
     return {
       HTMLAttributes: {},
-      resizable: false,
-      handleWidth: 5,
       cellMinWidth: 25,
-      lastColumnResizable: true,
       allowTableNodeSelection: false,
       View: TableView,
     };
@@ -344,27 +321,10 @@ export const Table = Node.create<TableOptions>({
   },
 
   addProseMirrorPlugins() {
-    const isResizable = this.options.resizable && this.editor?.view.editable;
-
-    const plugins = [];
-
-    if (isResizable) {
-      plugins.push(
-        columnResizing({
-          handleWidth: this.options.handleWidth,
-          cellMinWidth: this.options.cellMinWidth,
-          View: this.options.View ?? null,
-          lastColumnResizable: this.options.lastColumnResizable,
-        }),
-      );
-    }
-
-    plugins.push(
+    return [
       tableEditing({
         allowTableNodeSelection: this.options.allowTableNodeSelection,
       }),
-    );
-
-    return plugins;
+    ];
   },
 });

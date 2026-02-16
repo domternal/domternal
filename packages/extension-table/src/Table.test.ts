@@ -44,10 +44,7 @@ describe('Table', () => {
     it('has default options', () => {
       expect(Table.options).toEqual({
         HTMLAttributes: {},
-        resizable: false,
-        handleWidth: 5,
         cellMinWidth: 25,
-        lastColumnResizable: true,
         allowTableNodeSelection: false,
         View: TableView,
       });
@@ -56,11 +53,6 @@ describe('Table', () => {
     it('can configure HTMLAttributes', () => {
       const Custom = Table.configure({ HTMLAttributes: { class: 'my-table' } });
       expect(Custom.options.HTMLAttributes).toEqual({ class: 'my-table' });
-    });
-
-    it('can configure resizable', () => {
-      const Custom = Table.configure({ resizable: true });
-      expect(Custom.options.resizable).toBe(true);
     });
 
     it('can configure allowTableNodeSelection', () => {
@@ -793,12 +785,10 @@ describe('Exports', () => {
 describe('configure / extend', () => {
   it('Table.configure merges options', () => {
     const Custom = Table.configure({
-      resizable: true,
       cellMinWidth: 50,
     });
-    expect(Custom.options.resizable).toBe(true);
     expect(Custom.options.cellMinWidth).toBe(50);
-    expect(Custom.options.handleWidth).toBe(5); // unchanged default
+    expect(Custom.options.allowTableNodeSelection).toBe(false); // unchanged default
   });
 
   it('TableCell.configure merges options', () => {
