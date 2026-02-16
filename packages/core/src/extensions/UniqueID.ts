@@ -181,14 +181,18 @@ export const UniqueID = Extension.create<UniqueIDOptions>({
           // Use setTimeout to avoid dispatching during plugin init, but
           // re-create the transaction from the *current* state inside the
           // callback to avoid stale-transaction bugs.
-          setTimeout(() => {
+          const timeoutId = setTimeout(() => {
             const tr = editorView.state.tr;
             assignMissingIDs(editorView.state.doc, tr);
             if (tr.docChanged) {
               editorView.dispatch(tr);
             }
           }, 0);
-          return {};
+          return {
+            destroy() {
+              clearTimeout(timeoutId);
+            },
+          };
         },
 
         // Ensure new nodes get IDs

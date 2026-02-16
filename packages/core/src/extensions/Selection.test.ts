@@ -300,7 +300,10 @@ describe('Selection', () => {
         editor.commands.extendSelection('end');
 
         expect(editor.state.selection.from).toBe(1);
-        expect(editor.state.selection.to).toBe(editor.state.doc.content.size);
+        // Selection.atEnd gives the last valid text position (inside the
+        // last textblock), not doc.content.size (which is after the block).
+        // For '<p>Hello world</p>': text ends at position 12.
+        expect(editor.state.selection.to).toBe(12);
       });
     });
 

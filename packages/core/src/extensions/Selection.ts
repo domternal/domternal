@@ -31,7 +31,7 @@
  * ```
  */
 import { Extension } from '../Extension.js';
-import { NodeSelection, TextSelection } from 'prosemirror-state';
+import { NodeSelection, TextSelection, Selection as PMSelection } from 'prosemirror-state';
 import type { Node as PMNode } from 'prosemirror-model';
 import type { Editor } from '../Editor.js';
 import type { CommandSpec } from '../types/Commands.js';
@@ -205,18 +205,22 @@ export const Selection = Extension.create<SelectionOptions, SelectionStorage>({
           // Use tr.selection/tr.doc for chain compatibility
           let { from, to } = tr.selection;
 
+          // Use Selection.atStart/atEnd to find the first/last valid
+          // text position, which handles nested structures correctly
+          // (e.g. doc > blockquote > paragraph where position 1 is not
+          // inside a textblock).
           switch (direction) {
             case 'left':
-              from = Math.max(0, from - 1);
+              from = Math.max(PMSelection.atStart(tr.doc).from, from - 1);
               break;
             case 'right':
-              to = Math.min(tr.doc.content.size, to + 1);
+              to = Math.min(PMSelection.atEnd(tr.doc).to, to + 1);
               break;
             case 'start':
-              from = 1;
+              from = PMSelection.atStart(tr.doc).from;
               break;
             case 'end':
-              to = tr.doc.content.size;
+              to = PMSelection.atEnd(tr.doc).to;
               break;
           }
 
