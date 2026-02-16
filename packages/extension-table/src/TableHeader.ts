@@ -61,6 +61,17 @@ export const TableHeader = Node.create<TableHeaderOptions>({
           return { 'data-colwidth': colwidth.join(',') };
         },
       },
+      background: {
+        default: null,
+        parseHTML: (element: HTMLElement) => {
+          return element.getAttribute('data-background') ?? (element.style.backgroundColor || null);
+        },
+        renderHTML: (attrs: Record<string, unknown>) => {
+          const bg = attrs['background'] as string | null;
+          if (!bg) return null;
+          return { 'data-background': bg, style: `background-color: ${bg}` };
+        },
+      },
     };
   },
 

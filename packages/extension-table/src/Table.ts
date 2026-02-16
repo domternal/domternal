@@ -4,7 +4,7 @@
  * Block-level table container using HTML <table>.
  * Built on prosemirror-tables for cell selection, keyboard nav, and table editing.
  *
- * FREE Commands (12):
+ * Commands (16):
  * - insertTable: Insert new table with configurable rows/cols/header
  * - deleteTable: Delete entire table
  * - addRowBefore / addRowAfter: Insert row
@@ -13,8 +13,6 @@
  * - deleteColumn: Delete current column
  * - toggleHeaderRow / toggleHeaderColumn / toggleHeaderCell: Toggle header
  * - setCellAttribute: Set cell attribute
- *
- * Additional Commands (4):
  * - goToNextCell / goToPreviousCell: Cell navigation
  * - fixTables: Repair malformed tables
  * - setCellSelection: Programmatic cell selection
