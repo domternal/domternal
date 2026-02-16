@@ -1,0 +1,47 @@
+{
+  "name": "@domternal/angular",
+  "version": "0.0.1",
+  "description": "Angular components for Domternal editor",
+  "author": "Domternal",
+  "license": "MIT",
+  "sideEffects": false,
+  "peerDependencies": {
+    "@angular/core": ">=17.0.0",
+    "@angular/forms": ">=17.0.0",
+    "@domternal/core": ">=0.0.1"
+  },
+  "dependencies": {
+    "@domternal/core": "workspace:*",
+    "tslib": "^2.8.0"
+  },
+  "devDependencies": {
+    "@angular/core": "^21.0.0",
+    "@angular/forms": "^21.0.0",
+    "@angular/common": "^21.0.0",
+    "@angular/compiler": "^21.0.0",
+    "@angular/compiler-cli": "^21.0.0",
+    "@angular/platform-browser": "^21.0.0",
+    "ng-packagr": "^21.0.0",
+    "typescript": "~5.9.3",
+    "zone.js": "~0.15.0"
+  },
+  "scripts": {
+    "build": "ng-packagr -p ng-package.json"
+  },
+  "keywords": [
+    "angular",
+    "prosemirror",
+    "editor",
+    "rich-text",
+    "domternal"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/domternal/domternal.git",
+    "directory": "packages/angular"
+  },
+  "bugs": {
+    "url": "https://github.com/domternal/domternal/issues"
+  },
+  "homepage": "https://domternal.com"
+}
