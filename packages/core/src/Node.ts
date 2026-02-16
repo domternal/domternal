@@ -224,6 +224,9 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
     if (this.config.allowGapCursor !== undefined)
       (spec as Record<string, unknown>)['allowGapCursor'] =
         this.config.allowGapCursor;
+    if (this.config.tableRole !== undefined)
+      (spec as Record<string, unknown>)['tableRole'] =
+        this.config.tableRole;
 
     // Top node (only for document)
     if (this.config.topNode) {

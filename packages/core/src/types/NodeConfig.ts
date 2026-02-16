@@ -190,6 +190,13 @@ interface NodeSchemaProperties {
   allowGapCursor?: boolean;
 
   /**
+   * Table role for prosemirror-tables integration.
+   * Nodes with a tableRole are discovered by prosemirror-tables via spec.tableRole.
+   * One of: 'table', 'row', 'cell', 'header_cell'
+   */
+  tableRole?: 'table' | 'row' | 'cell' | 'header_cell';
+
+  /**
    * Whether this is a top-level node (document root)
    * Only one node should have this set to true
    */
