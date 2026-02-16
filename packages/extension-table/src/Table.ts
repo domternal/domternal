@@ -23,7 +23,6 @@
  * - goToNextCell/goToPreviousCell exposed as standalone commands
  * - fixTables exposed as command
  * - setCellSelection for programmatic cell range selection
- * - cellContent option for configurable cell content expression
  * - Fully typed options and command params
  * - Angular-ready: TableView isolated for wrapper replacement
  */
@@ -264,7 +263,8 @@ export const Table = Node.create<TableOptions>({
         () =>
         ({ state, dispatch }) => {
           if (dispatch) {
-            fixTables(state);
+            const tr = fixTables(state);
+            if (tr) dispatch(tr);
           }
           return true;
         },

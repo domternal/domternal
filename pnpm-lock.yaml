@@ -249,6 +249,34 @@ importers:
         specifier: ~5.9.3
         version: 5.9.3
 
+  packages/extension-table:
+    dependencies:
+      '@domternal/core':
+        specifier: workspace:*
+        version: link:../core
+      prosemirror-model:
+        specifier: ^1.25.4
+        version: 1.25.4
+      prosemirror-state:
+        specifier: ^1.4.4
+        version: 1.4.4
+      prosemirror-tables:
+        specifier: ^1.8.0
+        version: 1.8.5
+      prosemirror-view:
+        specifier: ^1.41.5
+        version: 1.41.5
+    devDependencies:
+      jsdom:
+        specifier: ^27.4.0
+        version: 27.4.0
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(postcss@8.5.6)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
 packages:
 
   '@acemir/cssom@0.9.31':

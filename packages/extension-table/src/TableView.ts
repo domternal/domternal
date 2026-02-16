@@ -51,9 +51,14 @@ export class TableView implements NodeView {
   }
 
   ignoreMutation(mutation: MutationRecord | { type: 'selection' }): boolean {
-    // Allow selection mutations
+    // Allow selection mutations to propagate
     if (mutation.type === 'selection') {
       return false;
+    }
+
+    // Ignore attribute mutations (style changes from updateColumns)
+    if (mutation.type === 'attributes') {
+      return true;
     }
 
     // Ignore mutations in the colgroup (we manage it)
