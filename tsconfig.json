@@ -2,27 +2,5 @@
   "extends": "./tsconfig.base.json",
   "compileOnSave": false,
   "files": [],
-  "references": [
-    {
-      "path": "./packages/extension-code-block-lowlight"
-    },
-    {
-      "path": "./packages/extension-details"
-    },
-    {
-      "path": "./packages/extension-mention"
-    },
-    {
-      "path": "./packages/extension-emoji"
-    },
-    {
-      "path": "./packages/extension-image"
-    },
-    {
-      "path": "./packages/extension-table"
-    },
-    {
-      "path": "./packages/core"
-    }
-  ]
+  "references": []
 }

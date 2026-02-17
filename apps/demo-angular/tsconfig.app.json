@@ -7,13 +7,5 @@
     "types": []
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["src/**/*.spec.ts"],
-  "references": [
-    {
-      "path": "../../packages/core"
-    },
-    {
-      "path": "../../packages/angular/tsconfig.lib.json"
-    }
-  ]
+  "exclude": ["src/**/*.spec.ts"]
 }
