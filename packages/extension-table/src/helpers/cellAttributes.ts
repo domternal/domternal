@@ -2,8 +2,9 @@
  * Shared cell attributes for TableCell and TableHeader.
  * Both node types support the same colspan, rowspan, colwidth, and background attributes.
  */
+import type { AttributeSpecs } from '@domternal/core';
 
-export function cellAttributes() {
+export function cellAttributes(): AttributeSpecs {
   return {
     colspan: {
       default: 1,
