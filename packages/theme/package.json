@@ -1,0 +1,45 @@
+{
+  "name": "@domternal/theme",
+  "version": "0.0.1",
+  "description": "Default themes and styles for Domternal editor",
+  "author": "Domternal",
+  "license": "MIT",
+  "sideEffects": true,
+  "style": "dist/domternal-theme.css",
+  "sass": "src/index.scss",
+  "exports": {
+    ".": {
+      "sass": "./src/index.scss",
+      "style": "./dist/domternal-theme.css",
+      "default": "./dist/domternal-theme.css"
+    },
+    "./css": "./dist/domternal-theme.css",
+    "./scss": "./src/index.scss"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "sass src/index.scss dist/domternal-theme.css --style=compressed --no-source-map && sass src/index.scss dist/domternal-theme.expanded.css --style=expanded --no-source-map"
+  },
+  "devDependencies": {
+    "sass": "^1.89.0"
+  },
+  "keywords": [
+    "domternal",
+    "editor",
+    "theme",
+    "css",
+    "prosemirror"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/domternal/domternal.git",
+    "directory": "packages/theme"
+  },
+  "bugs": {
+    "url": "https://github.com/domternal/domternal/issues"
+  },
+  "homepage": "https://domternal.com"
+}

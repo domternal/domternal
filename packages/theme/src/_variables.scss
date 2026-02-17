@@ -1,0 +1,134 @@
+// =============================================================================
+// CSS Custom Properties (Design Tokens)
+// =============================================================================
+// All visual properties are CSS custom properties on .dm-editor.
+// Override any variable on a parent or the component itself to customize.
+//
+// Example:
+//   .my-editor {
+//     --dm-editor-bg: #fafafa;
+//     --dm-accent: hotpink;
+//   }
+// =============================================================================
+
+.dm-editor {
+  // ---------------------------------------------------------------------------
+  // Semantic base tokens (used by component tokens below)
+  // ---------------------------------------------------------------------------
+  --dm-bg: #ffffff;
+  --dm-text: #1a1a1a;
+  --dm-muted: #999999;
+  --dm-surface: #f8f9fa;
+  --dm-border-color: #e0e0e0;
+  --dm-hover: rgba(0, 0, 0, 0.06);
+  --dm-active: rgba(0, 0, 0, 0.12);
+  --dm-accent: #2563eb;
+  --dm-accent-hover: #1d4ed8;
+  --dm-accent-surface: rgba(37, 99, 235, 0.1);
+  --dm-focus-color: rgba(66, 133, 244, 0.3);
+  --dm-selection: rgba(66, 133, 244, 0.2);
+  --dm-selection-blur: rgba(0, 0, 0, 0.08);
+  --dm-code-surface: #f5f5f5;
+  --dm-code-color: #d63384;
+
+  // ---------------------------------------------------------------------------
+  // Editor
+  // ---------------------------------------------------------------------------
+  --dm-editor-bg: var(--dm-bg);
+  --dm-editor-text: var(--dm-text);
+  --dm-editor-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  --dm-editor-font-size: 1rem;
+  --dm-editor-line-height: 1.65;
+  --dm-editor-padding: 1rem;
+  --dm-editor-border: 1px solid var(--dm-border-color);
+  --dm-editor-border-radius: 0.5rem;
+  --dm-editor-focus-ring: 0 0 0 2px var(--dm-focus-color);
+
+  // ---------------------------------------------------------------------------
+  // Placeholder
+  // ---------------------------------------------------------------------------
+  --dm-placeholder-color: var(--dm-muted);
+
+  // ---------------------------------------------------------------------------
+  // Links
+  // ---------------------------------------------------------------------------
+  --dm-link-color: var(--dm-accent);
+  --dm-link-hover-color: var(--dm-accent-hover);
+
+  // ---------------------------------------------------------------------------
+  // Inline code
+  // ---------------------------------------------------------------------------
+  --dm-code-bg: var(--dm-code-surface);
+  --dm-code-text: var(--dm-code-color);
+  --dm-code-font: "SF Mono", "Fira Code", Consolas, "Liberation Mono", Menlo, monospace;
+  --dm-code-border-radius: 0.25rem;
+
+  // ---------------------------------------------------------------------------
+  // Code blocks
+  // ---------------------------------------------------------------------------
+  --dm-code-block-bg: var(--dm-code-surface);
+  --dm-code-block-text: var(--dm-text);
+
+  // ---------------------------------------------------------------------------
+  // Blockquote
+  // ---------------------------------------------------------------------------
+  --dm-blockquote-border: 3px solid var(--dm-border-color);
+  --dm-blockquote-color: var(--dm-muted);
+
+  // ---------------------------------------------------------------------------
+  // Horizontal rule
+  // ---------------------------------------------------------------------------
+  --dm-hr-color: var(--dm-border-color);
+
+  // ---------------------------------------------------------------------------
+  // Table
+  // ---------------------------------------------------------------------------
+  --dm-table-border: 1px solid var(--dm-border-color);
+  --dm-table-header-bg: var(--dm-surface);
+  --dm-table-selected-bg: rgba(66, 133, 244, 0.15);
+
+  // ---------------------------------------------------------------------------
+  // Mention
+  // ---------------------------------------------------------------------------
+  --dm-mention-bg: var(--dm-accent-surface);
+  --dm-mention-color: var(--dm-accent);
+  --dm-mention-border-radius: 0.25rem;
+
+  // ---------------------------------------------------------------------------
+  // Highlight / mark
+  // ---------------------------------------------------------------------------
+  --dm-highlight-bg: #fff3cd;
+
+  // ---------------------------------------------------------------------------
+  // Details / accordion
+  // ---------------------------------------------------------------------------
+  --dm-details-border: 1px solid var(--dm-border-color);
+  --dm-details-bg: var(--dm-surface);
+  --dm-details-summary-font-weight: 600;
+}
+
+// =============================================================================
+// Toolbar variables (on .dm-toolbar)
+// =============================================================================
+
+.dm-toolbar {
+  --dm-toolbar-bg: var(--dm-surface, #f8f9fa);
+  --dm-toolbar-border: 1px solid var(--dm-border-color, #e0e0e0);
+  --dm-toolbar-padding: 0.25rem;
+  --dm-toolbar-gap: 0.125rem;
+  --dm-toolbar-border-radius: 0.5rem 0.5rem 0 0;
+
+  // Buttons
+  --dm-button-size: 2rem;
+  --dm-button-border-radius: 0.25rem;
+  --dm-button-color: var(--dm-text, #1a1a1a);
+  --dm-button-hover-bg: var(--dm-hover, rgba(0, 0, 0, 0.06));
+  --dm-button-active-bg: var(--dm-active, rgba(0, 0, 0, 0.12));
+  --dm-button-active-color: var(--dm-accent, #2563eb);
+  --dm-button-disabled-opacity: 0.4;
+
+  // Separator
+  --dm-separator-color: var(--dm-border-color, #e0e0e0);
+  --dm-separator-margin: 0.25rem;
+}
