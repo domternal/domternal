@@ -34,6 +34,7 @@ export const DEFAULT_EXTENSIONS: AnyExtension[] = [Document, Paragraph, Text, Ba
   template: '<div #editorRef></div>',
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
+  host: { class: 'dm-editor' },
   styles: [`
     :host { display: block; }
     .ProseMirror { outline: none; }
