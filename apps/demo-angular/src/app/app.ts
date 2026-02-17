@@ -31,8 +31,6 @@ export class App {
   }
 
   toggleBold(): void {
-    // Commands are dynamically typed via module augmentation which doesn't
-    // survive DTS bundling — cast needed until core switches to package-level augmentation
-    (this.editor?.commands as any).toggleBold();
+    this.editor?.commands.toggleBold();
   }
 }
