@@ -138,7 +138,7 @@ export const Details = Node.create<DetailsOptions>({
 
         const event = new Event('toggleDetailsContent');
         const detailsContentEl = content.querySelector(
-          ':scope > div[data-type="detailsContent"]',
+          ':scope > div[data-details-content]',
         );
         detailsContentEl?.dispatchEvent(event);
       };
@@ -152,7 +152,7 @@ export const Details = Node.create<DetailsOptions>({
 
         if (!options.persist) {
           if (editor) {
-            editor.commands['focus']?.(undefined, { scrollIntoView: false });
+            editor.commands['focus']?.();
           }
           return;
         }
@@ -172,7 +172,7 @@ export const Details = Node.create<DetailsOptions>({
           });
           tr.setSelection(TextSelection.create(tr.doc, from, to));
           view.dispatch(tr);
-          editor.commands['focus']?.(undefined, { scrollIntoView: false });
+          editor.commands['focus']?.();
         }
       });
 
@@ -408,7 +408,7 @@ export const Details = Node.create<DetailsOptions>({
 
           if (detailsDom instanceof HTMLElement) {
             detailsDom.classList.add(this.options.openClassName);
-            const contentEl = detailsDom.querySelector('[data-type="detailsContent"]');
+            const contentEl = detailsDom.querySelector('[data-details-content]');
             if (contentEl) {
               contentEl.dispatchEvent(new Event('toggleDetailsContent'));
             }
