@@ -1,0 +1,16 @@
+// =============================================================================
+// Image Styles
+// =============================================================================
+// Image extension renders as <img> with optional float inline styles.
+// Base img styles are in _content.scss — this file adds float constraints.
+// =============================================================================
+
+.dm-editor .ProseMirror {
+  img {
+    // Floated images shouldn't exceed 50% width
+    &[style*="float: left"],
+    &[style*="float: right"] {
+      max-width: 50%;
+    }
+  }
+}

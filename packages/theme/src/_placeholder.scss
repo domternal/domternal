@@ -1,0 +1,16 @@
+// =============================================================================
+// Placeholder Extension Styles
+// =============================================================================
+// Works with the Placeholder extension which adds data-placeholder attribute
+// and .is-empty / .is-editor-empty classes via decorations.
+// =============================================================================
+
+.dm-editor .ProseMirror {
+  .is-empty::before {
+    content: attr(data-placeholder);
+    float: left;
+    color: var(--dm-placeholder-color);
+    pointer-events: none;
+    height: 0;
+  }
+}

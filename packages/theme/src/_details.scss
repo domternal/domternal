@@ -1,0 +1,27 @@
+// =============================================================================
+// Details / Accordion Styles
+// =============================================================================
+// Details renders as <details> with <summary> and div[data-type="detailsContent"]
+// =============================================================================
+
+.dm-editor .ProseMirror {
+  details {
+    border: var(--dm-details-border);
+    border-radius: 0.375rem;
+    margin: 0.75em 0;
+    overflow: hidden;
+
+    summary {
+      font-weight: var(--dm-details-summary-font-weight);
+      padding: 0.5em 0.75em;
+      background: var(--dm-details-bg);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    // DetailsContent renders as div[data-type="detailsContent"]
+    div[data-type="detailsContent"] {
+      padding: 0.5em 0.75em;
+    }
+  }
+}

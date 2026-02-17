@@ -1,0 +1,18 @@
+// =============================================================================
+// Mention Styles
+// =============================================================================
+// Mention renders as span.mention[data-type="mention"]
+// =============================================================================
+
+.dm-editor .ProseMirror {
+  .mention {
+    display: inline;
+    background: var(--dm-mention-bg);
+    color: var(--dm-mention-color);
+    border-radius: var(--dm-mention-border-radius);
+    padding: 0.1em 0.3em;
+    font-weight: 500;
+    font-size: 0.95em;
+    white-space: nowrap;
+  }
+}
