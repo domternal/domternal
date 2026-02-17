@@ -1,0 +1,71 @@
+// =============================================================================
+// Toolbar Styles
+// =============================================================================
+
+.dm-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--dm-toolbar-gap);
+  padding: var(--dm-toolbar-padding);
+  background: var(--dm-toolbar-bg);
+  border: var(--dm-toolbar-border);
+  border-bottom: none;
+  border-radius: var(--dm-toolbar-border-radius);
+}
+
+// Button group
+.dm-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--dm-toolbar-gap);
+}
+
+// Individual button
+.dm-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--dm-button-size);
+  height: var(--dm-button-size);
+  padding: 0;
+  border: none;
+  border-radius: var(--dm-button-border-radius);
+  background: transparent;
+  color: var(--dm-button-color);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+  font-size: 0.875rem;
+  line-height: 1;
+
+  &:hover {
+    background: var(--dm-button-hover-bg);
+  }
+
+  // Active state (e.g. bold is on)
+  &--active {
+    background: var(--dm-button-active-bg);
+    color: var(--dm-button-active-color);
+  }
+
+  // Disabled state
+  &--disabled {
+    opacity: var(--dm-button-disabled-opacity);
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  // Icon inside button
+  svg {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+}
+
+// Vertical separator between button groups
+.dm-toolbar-separator {
+  width: 1px;
+  height: 1.25rem;
+  background: var(--dm-separator-color);
+  margin: 0 var(--dm-separator-margin);
+}

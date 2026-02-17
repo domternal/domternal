@@ -1,0 +1,220 @@
+// =============================================================================
+// Content Typography
+// =============================================================================
+// Styles for rendered content inside the editor. Scoped to .dm-editor .ProseMirror
+// so styles don't leak outside.
+// =============================================================================
+
+.dm-editor .ProseMirror {
+  // ---------------------------------------------------------------------------
+  // Paragraphs
+  // ---------------------------------------------------------------------------
+
+  p {
+    margin: 0 0 0.75em;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Headings
+  // ---------------------------------------------------------------------------
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    margin: 1.5em 0 0.5em;
+    font-weight: 700;
+    line-height: 1.25;
+
+    &:first-child {
+      margin-top: 0;
+    }
+  }
+
+  h1 {
+    font-size: 2em;
+  }
+
+  h2 {
+    font-size: 1.5em;
+  }
+
+  h3 {
+    font-size: 1.25em;
+  }
+
+  h4 {
+    font-size: 1.1em;
+  }
+
+  h5 {
+    font-size: 1em;
+  }
+
+  h6 {
+    font-size: 0.9em;
+    color: var(--dm-muted, #666);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Inline code
+  // ---------------------------------------------------------------------------
+
+  code {
+    background: var(--dm-code-bg);
+    color: var(--dm-code-text);
+    font-family: var(--dm-code-font);
+    font-size: 0.875em;
+    padding: 0.15em 0.35em;
+    border-radius: var(--dm-code-border-radius);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Code blocks (pre > code)
+  // ---------------------------------------------------------------------------
+
+  pre {
+    background: var(--dm-code-block-bg);
+    color: var(--dm-code-block-text);
+    font-family: var(--dm-code-font);
+    font-size: 0.875em;
+    padding: 1em;
+    border-radius: 0.375rem;
+    overflow-x: auto;
+    margin: 0.75em 0;
+
+    code {
+      background: none;
+      color: inherit;
+      padding: 0;
+      border-radius: 0;
+      font-size: inherit;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Blockquote
+  // ---------------------------------------------------------------------------
+
+  blockquote {
+    border-left: var(--dm-blockquote-border);
+    color: var(--dm-blockquote-color);
+    margin: 0.75em 0;
+    padding: 0.25em 0 0.25em 1em;
+
+    p:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Lists
+  // ---------------------------------------------------------------------------
+
+  ul,
+  ol {
+    margin: 0.75em 0;
+    padding-left: 1.5em;
+
+    li {
+      margin: 0.25em 0;
+    }
+  }
+
+  ol {
+    list-style-type: decimal;
+  }
+
+  ul {
+    list-style-type: disc;
+  }
+
+  // Nested lists
+  ul ul,
+  ol ul {
+    list-style-type: circle;
+  }
+
+  ul ul ul,
+  ol ul ul,
+  ol ol ul {
+    list-style-type: square;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Horizontal rule
+  // ---------------------------------------------------------------------------
+
+  hr {
+    border: none;
+    border-top: 2px solid var(--dm-hr-color);
+    margin: 1.5em 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Links
+  // ---------------------------------------------------------------------------
+
+  a {
+    color: var(--dm-link-color);
+    text-decoration: underline;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--dm-link-hover-color);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Highlight / mark
+  // ---------------------------------------------------------------------------
+
+  mark {
+    background-color: var(--dm-highlight-bg);
+    border-radius: 0.15em;
+    padding: 0.05em 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Images
+  // ---------------------------------------------------------------------------
+
+  img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0.75em 0;
+
+    &.ProseMirror-selectednode {
+      outline: 2px solid var(--dm-accent, #2563eb);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tables
+  // ---------------------------------------------------------------------------
+
+  table {
+    border: var(--dm-table-border);
+    margin: 0.75em 0;
+
+    td,
+    th {
+      border: var(--dm-table-border);
+      padding: 0.5em 0.75em;
+      min-width: 100px;
+    }
+
+    th {
+      background: var(--dm-table-header-bg);
+      font-weight: 600;
+      text-align: left;
+    }
+  }
+}
