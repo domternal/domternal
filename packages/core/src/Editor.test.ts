@@ -161,8 +161,8 @@ describe('Editor', () => {
       it('returns document as JSON', () => {
         const json = editor.getJSON();
 
-        expect(json['type']).toBe('doc');
-        expect(json['content']).toBeDefined();
+        expect(json.type).toBe('doc');
+        expect(json.content).toBeDefined();
       });
     });
 

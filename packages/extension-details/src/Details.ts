@@ -8,15 +8,11 @@
  * - setDetails: Wraps selected content in a details structure
  * - unsetDetails: Lifts content out of details (preserves summary as paragraph)
  * - toggleDetails: Toggles between wrapped/unwrapped
- * - openDetails: Programmatically opens the details
- * - closeDetails: Programmatically closes the details
+ * - openDetails / closeDetails: Programmatic open/close control
  *
- * Improvements over Tiptap:
- * - toggleDetails command (Tiptap doesn't have this)
- * - openDetails / closeDetails commands (Tiptap doesn't have these)
- * - Semantic <details> in renderHTML (Tiptap uses <div data-type="details">)
- * - Parses both native <details> and <div data-type="details"> for compatibility
- * - Summary supports inline marks (bold, italic) via inline* content spec
+ * Renders semantic <details>/<summary> HTML.
+ * Parses both native <details> and <div data-type="details"> for compatibility.
+ * Summary supports inline marks (bold, italic) via inline* content spec.
  */
 
 import { Node, findParentNode, findChildren, defaultBlockAt } from '@domternal/core';
@@ -142,7 +138,7 @@ export const Details = Node.create<DetailsOptions>({
 
         const event = new Event('toggleDetailsContent');
         const detailsContentEl = content.querySelector(
-          ':scope > div[data-type="detailsContent"]',
+          ':scope > div[data-details-content]',
         );
         detailsContentEl?.dispatchEvent(event);
       };
@@ -156,7 +152,7 @@ export const Details = Node.create<DetailsOptions>({
 
         if (!options.persist) {
           if (editor) {
-            editor.commands['focus']?.(undefined, { scrollIntoView: false });
+            editor.commands['focus']?.();
           }
           return;
         }
@@ -176,7 +172,7 @@ export const Details = Node.create<DetailsOptions>({
           });
           tr.setSelection(TextSelection.create(tr.doc, from, to));
           view.dispatch(tr);
-          editor.commands['focus']?.(undefined, { scrollIntoView: false });
+          editor.commands['focus']?.();
         }
       });
 
@@ -412,7 +408,7 @@ export const Details = Node.create<DetailsOptions>({
 
           if (detailsDom instanceof HTMLElement) {
             detailsDom.classList.add(this.options.openClassName);
-            const contentEl = detailsDom.querySelector('[data-type="detailsContent"]');
+            const contentEl = detailsDom.querySelector('[data-details-content]');
             if (contentEl) {
               contentEl.dispatchEvent(new Event('toggleDetailsContent'));
             }

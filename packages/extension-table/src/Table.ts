@@ -17,12 +17,12 @@
  * - fixTables: Repair malformed tables
  * - setCellSelection: Programmatic cell selection
  *
- * Improvements over Tiptap:
+ * Features:
  * - goToNextCell/goToPreviousCell exposed as standalone commands
  * - fixTables exposed as command
  * - setCellSelection for programmatic cell range selection
  * - Fully typed options and command params
- * - Angular-ready: TableView isolated for wrapper replacement
+ * - Framework-agnostic: TableView isolated for wrapper replacement
  */
 
 import { Node } from '@domternal/core';

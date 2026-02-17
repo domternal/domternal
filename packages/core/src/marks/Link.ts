@@ -42,7 +42,7 @@ export interface LinkOptions {
   protocols: string[];
   /**
    * When to open links on click
-   * - true: Open on Mod+click (when editable) or click (when not editable)
+   * - true: Open on click (when editable)
    * - false: Never open
    * - 'whenNotEditable': Only open when editor is read-only
    * @default true
