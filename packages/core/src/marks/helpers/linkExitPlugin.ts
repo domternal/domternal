@@ -5,7 +5,7 @@
  * end of the link. After exiting, newly typed text will not have
  * the link mark applied.
  *
- * This matches Tiptap's `exitable: true` behavior on the Link mark.
+ * Enabled when the Link mark has `exitable: true` configured.
  */
 import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import type { MarkType } from 'prosemirror-model';

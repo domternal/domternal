@@ -50,7 +50,7 @@ export const DetailsContent = Node.create<DetailsContentOptions>({
     return () => {
       const dom = document.createElement('div');
 
-      dom.setAttribute('data-type', 'detailsContent');
+      dom.setAttribute('data-details-content', '');
       dom.setAttribute('hidden', 'hidden');
 
       for (const [key, value] of Object.entries(options.HTMLAttributes)) {

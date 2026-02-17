@@ -55,7 +55,7 @@ export class EventEmitter<Events extends { [K in keyof Events]: unknown } = Reco
           this.callbacks.delete(event);
         }
       } else {
-        // Remove all listeners for this event (Tiptap compatibility)
+        // Remove all listeners for this event
         this.callbacks.delete(event);
       }
     }

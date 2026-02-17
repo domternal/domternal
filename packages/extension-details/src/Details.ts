@@ -8,15 +8,11 @@
  * - setDetails: Wraps selected content in a details structure
  * - unsetDetails: Lifts content out of details (preserves summary as paragraph)
  * - toggleDetails: Toggles between wrapped/unwrapped
- * - openDetails: Programmatically opens the details
- * - closeDetails: Programmatically closes the details
+ * - openDetails / closeDetails: Programmatic open/close control
  *
- * Improvements over Tiptap:
- * - toggleDetails command (Tiptap doesn't have this)
- * - openDetails / closeDetails commands (Tiptap doesn't have these)
- * - Semantic <details> in renderHTML (Tiptap uses <div data-type="details">)
- * - Parses both native <details> and <div data-type="details"> for compatibility
- * - Summary supports inline marks (bold, italic) via inline* content spec
+ * Renders semantic <details>/<summary> HTML.
+ * Parses both native <details> and <div data-type="details"> for compatibility.
+ * Summary supports inline marks (bold, italic) via inline* content spec.
  */
 
 import { Node, findParentNode, findChildren, defaultBlockAt } from '@domternal/core';

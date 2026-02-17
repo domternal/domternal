@@ -618,7 +618,7 @@ describe('persist option', () => {
   });
 });
 
-describe('Tiptap compatibility parsing', () => {
+describe('data-type="details" compatibility parsing', () => {
   let editor: Editor | undefined;
 
   afterEach(() => {
