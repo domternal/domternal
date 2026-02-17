@@ -1,0 +1,54 @@
+// =============================================================================
+// Dark Theme
+// =============================================================================
+// Apply .dm-theme-dark on or above the editor to activate dark theme.
+// Apply .dm-theme-auto for automatic dark mode via prefers-color-scheme.
+//
+// Example:
+//   <div class="dm-theme-dark">
+//     <domternal-editor />
+//   </div>
+//
+//   <domternal-editor class="dm-theme-auto" />
+// =============================================================================
+
+.dm-theme-dark {
+  --dm-bg: #1e1e1e;
+  --dm-text: #e0e0e0;
+  --dm-muted: #777777;
+  --dm-surface: #2a2a2a;
+  --dm-border-color: #3a3a3a;
+  --dm-hover: rgba(255, 255, 255, 0.08);
+  --dm-active: rgba(255, 255, 255, 0.15);
+  --dm-accent: #60a5fa;
+  --dm-accent-hover: #93c5fd;
+  --dm-accent-surface: rgba(96, 165, 250, 0.15);
+  --dm-focus-color: rgba(96, 165, 250, 0.3);
+  --dm-selection: rgba(96, 165, 250, 0.25);
+  --dm-selection-blur: rgba(255, 255, 255, 0.08);
+  --dm-code-surface: #2d2d2d;
+  --dm-code-color: #f472b6;
+  --dm-highlight-bg: rgba(255, 243, 205, 0.2);
+}
+
+// Auto dark mode — follows system preference
+.dm-theme-auto {
+  @media (prefers-color-scheme: dark) {
+    --dm-bg: #1e1e1e;
+    --dm-text: #e0e0e0;
+    --dm-muted: #777777;
+    --dm-surface: #2a2a2a;
+    --dm-border-color: #3a3a3a;
+    --dm-hover: rgba(255, 255, 255, 0.08);
+    --dm-active: rgba(255, 255, 255, 0.15);
+    --dm-accent: #60a5fa;
+    --dm-accent-hover: #93c5fd;
+    --dm-accent-surface: rgba(96, 165, 250, 0.15);
+    --dm-focus-color: rgba(96, 165, 250, 0.3);
+    --dm-selection: rgba(96, 165, 250, 0.25);
+    --dm-selection-blur: rgba(255, 255, 255, 0.08);
+    --dm-code-surface: #2d2d2d;
+    --dm-code-color: #f472b6;
+    --dm-highlight-bg: rgba(255, 243, 205, 0.2);
+  }
+}

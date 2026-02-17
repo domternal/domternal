@@ -1,0 +1,41 @@
+// =============================================================================
+// @domternal/theme — Main Entry
+// =============================================================================
+// Import this file to get all Domternal editor styles:
+//
+//   @import '@domternal/theme';        (SCSS)
+//   @import '@domternal/theme/css';    (precompiled CSS)
+//
+// Customize by overriding CSS variables on .dm-editor or a parent:
+//
+//   .my-editor {
+//     --dm-accent: hotpink;
+//     --dm-editor-bg: #fafafa;
+//   }
+// =============================================================================
+
+// 1. Design tokens (CSS custom properties)
+@use 'variables';
+
+// 2. ProseMirror required styles (view, gapcursor, tables)
+@use 'prosemirror';
+
+// 3. Editor wrapper
+@use 'base';
+
+// 4. Content typography
+@use 'content';
+
+// 5. Toolbar
+@use 'toolbar';
+
+// 6. Extension-specific styles
+@use 'placeholder';
+@use 'task-list';
+@use 'mention';
+@use 'image';
+@use 'details';
+
+// 7. Themes
+@use 'themes/light';
+@use 'themes/dark';
