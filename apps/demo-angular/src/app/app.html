@@ -5,7 +5,7 @@
     <button
       (mousedown)="$event.preventDefault()"
       (click)="toggleBold()"
-      [class.active]="isBoldActive"
+      [class.active]="isBoldActive()"
       title="Toggle Bold (Cmd+B)"
     >
       <strong>B</strong>
@@ -14,11 +14,8 @@
 
   <domternal-editor
     [content]="'<p>Hello <strong>World</strong>! Try selecting text and clicking Bold.</p>'"
-    (editorCreated)="onEditorCreated($event)"
-    (contentUpdated)="onContentUpdated()"
-    (selectionChanged)="onSelectionChanged()"
   />
 
   <h3>HTML Output</h3>
-  <pre class="output">{{ currentHTML }}</pre>
+  <pre class="output">{{ ec.htmlContent() }}</pre>
 </div>

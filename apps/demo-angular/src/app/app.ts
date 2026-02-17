@@ -1,36 +1,19 @@
 import { Component, ViewChild } from '@angular/core';
-import { DomternalEditorComponent, Editor } from '@domternal/angular';
+import { DomternalEditorComponent } from '@domternal/angular';
 
 @Component({
   selector: 'app-root',
   imports: [DomternalEditorComponent],
   templateUrl: './app.html',
-  styleUrl: './app.scss',
 })
 export class App {
-  @ViewChild(DomternalEditorComponent) editorComponent!: DomternalEditorComponent;
-
-  editor: Editor | null = null;
-  isBoldActive = false;
-  currentHTML = '';
-
-  onEditorCreated(editor: Editor): void {
-    this.editor = editor;
-    this.currentHTML = editor.getHTML();
-  }
-
-  onContentUpdated(): void {
-    if (!this.editor) return;
-    this.currentHTML = this.editor.getHTML();
-    this.isBoldActive = this.editor.isActive('bold');
-  }
-
-  onSelectionChanged(): void {
-    if (!this.editor) return;
-    this.isBoldActive = this.editor.isActive('bold');
-  }
+  @ViewChild(DomternalEditorComponent) ec!: DomternalEditorComponent;
 
   toggleBold(): void {
-    this.editor?.commands.toggleBold();
+    this.ec.editor?.commands.toggleBold();
+  }
+
+  isBoldActive(): boolean {
+    return this.ec.editor?.isActive('bold') ?? false;
   }
 }
