@@ -87,7 +87,7 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnChanges
 
   // === Signals (read-only public state) ===
   private _htmlContent = signal('');
-  private _jsonContent = signal<Record<string, unknown>>({});
+  private _jsonContent = signal<JSONContent>({} as JSONContent);
   private _isEmpty = signal(true);
   private _isFocused = signal(false);
   private _isEditable = signal(true);
@@ -192,36 +192,38 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnChanges
     this._jsonContent.set(this._editor.getJSON());
     this._isEmpty.set(this._editor.isEmpty);
 
-    // Subscribe to editor events
-    this._editor.on('update', ({ editor }) => {
+    // Subscribe to editor events — use this._editor! (full Editor type)
+    // instead of callback's `editor` param (EditorInstance minimal type)
+    this._editor.on('update', () => {
       this.ngZone.run(() => {
-        this._htmlContent.set(editor.getHTML());
-        this._jsonContent.set(editor.getJSON());
-        this._isEmpty.set(editor.isEmpty);
-        this.contentUpdated.emit({ editor });
+        const ed = this._editor!;
+        this._htmlContent.set(ed.getHTML());
+        this._jsonContent.set(ed.getJSON());
+        this._isEmpty.set(ed.isEmpty);
+        this.contentUpdated.emit({ editor: ed });
 
-        const value = this.outputFormat === 'html' ? editor.getHTML() : editor.getJSON();
+        const value: Content = this.outputFormat === 'html' ? ed.getHTML() : ed.getJSON();
         this.onChange(value);
       });
     });
 
-    this._editor.on('selectionUpdate', ({ editor }) => {
+    this._editor.on('selectionUpdate', () => {
       this.ngZone.run(() => {
-        this.selectionChanged.emit({ editor });
+        this.selectionChanged.emit({ editor: this._editor! });
       });
     });
 
-    this._editor.on('focus', ({ editor, event }) => {
+    this._editor.on('focus', ({ event }) => {
       this.ngZone.run(() => {
         this._isFocused.set(true);
-        this.focusChanged.emit({ editor, event });
+        this.focusChanged.emit({ editor: this._editor!, event });
       });
     });
 
-    this._editor.on('blur', ({ editor, event }) => {
+    this._editor.on('blur', ({ event }) => {
       this.ngZone.run(() => {
         this._isFocused.set(false);
-        this.blurChanged.emit({ editor, event });
+        this.blurChanged.emit({ editor: this._editor!, event });
         this.onTouched();
       });
     });

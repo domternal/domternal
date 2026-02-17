@@ -23,6 +23,7 @@ import type {
   EditorOptions,
   EditorEvents,
   Content,
+  JSONContent,
   FocusPosition,
   SingleCommands,
   ChainedCommands,
@@ -366,8 +367,8 @@ export class Editor extends EventEmitter<EditorEvents> {
   /**
    * Gets the document content as JSON
    */
-  getJSON(): Record<string, unknown> {
-    return this.state.doc.toJSON() as Record<string, unknown>;
+  getJSON(): JSONContent {
+    return this.state.doc.toJSON() as JSONContent;
   }
 
   /**
