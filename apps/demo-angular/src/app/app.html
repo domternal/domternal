@@ -1,0 +1,22 @@
+<div class="demo">
+  <h1>Domternal Angular Demo</h1>
+
+  <div class="toolbar">
+    <button
+      (mousedown)="$event.preventDefault()"
+      (click)="toggleBold()"
+      [class.active]="isBoldActive()"
+      title="Toggle Bold (Cmd+B)"
+    >
+      <strong>B</strong>
+    </button>
+  </div>
+
+  <domternal-editor
+    [extensions]="extensions"
+    [content]="'<p>Hello <strong>World</strong>! Try selecting text and clicking Bold.</p>'"
+  />
+
+  <h3>HTML Output</h3>
+  <pre class="output">{{ ec.htmlContent() }}</pre>
+</div>
