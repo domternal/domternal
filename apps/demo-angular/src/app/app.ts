@@ -1,5 +1,6 @@
 import { Component, ViewChild } from '@angular/core';
 import { DomternalEditorComponent } from '@domternal/angular';
+import { Bold } from '@domternal/core';
 
 @Component({
   selector: 'app-root',
@@ -8,6 +9,8 @@ import { DomternalEditorComponent } from '@domternal/angular';
 })
 export class App {
   @ViewChild(DomternalEditorComponent) ec!: DomternalEditorComponent;
+
+  extensions = [Bold];
 
   toggleBold(): void {
     this.ec.editor?.commands.toggleBold();

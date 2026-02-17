@@ -12,7 +12,6 @@ import {
   ViewEncapsulation,
   afterNextRender,
   forwardRef,
-  Injector,
   signal,
   ChangeDetectionStrategy,
 } from '@angular/core';
@@ -23,40 +22,22 @@ import {
   Document,
   Paragraph,
   Text,
-  Bold,
   BaseKeymap,
   History,
 } from '@domternal/core';
 import type { Content, AnyExtension, FocusPosition, JSONContent } from '@domternal/core';
 
+export const DEFAULT_EXTENSIONS: AnyExtension[] = [Document, Paragraph, Text, BaseKeymap, History];
+
 @Component({
   selector: 'domternal-editor',
-  standalone: true,
   template: '<div #editorRef></div>',
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   styles: [`
-    :host {
-      display: block;
-    }
-
-    .ProseMirror {
-      outline: none;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-    }
-
-    .ProseMirror p {
-      margin: 0 0 0.5em;
-    }
-
-    .ProseMirror p:last-child {
-      margin-bottom: 0;
-    }
-
-    .ProseMirror:focus {
-      outline: none;
-    }
+    :host { display: block; }
+    .ProseMirror { outline: none; }
+    .ProseMirror:focus { outline: none; }
   `],
   providers: [
     {
@@ -71,7 +52,7 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnChanges
   @ViewChild('editorRef', { static: true }) editorRef!: ElementRef<HTMLDivElement>;
 
   // === Inputs ===
-  @Input() extensions: AnyExtension[] = [Document, Paragraph, Text, Bold, BaseKeymap, History];
+  @Input() extensions: AnyExtension[] = [];
   @Input() content: Content = '';
   @Input() editable = true;
   @Input() autofocus: FocusPosition = false;
@@ -87,7 +68,7 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnChanges
 
   // === Signals (read-only public state) ===
   private _htmlContent = signal('');
-  private _jsonContent = signal<JSONContent>({} as JSONContent);
+  private _jsonContent = signal<JSONContent | null>(null);
   private _isEmpty = signal(true);
   private _isFocused = signal(false);
   private _isEditable = signal(true);
@@ -110,13 +91,10 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnChanges
   private onTouched: () => void = () => {};
   private _pendingContent: Content | null = null;
 
-  constructor(
-    private ngZone: NgZone,
-    private injector: Injector,
-  ) {
+  constructor(private ngZone: NgZone) {
     afterNextRender(() => {
       this.createEditor();
-    }, { injector: this.injector });
+    });
   }
 
   // === Lifecycle ===
@@ -127,6 +105,22 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnChanges
     if (changes['editable'] && !changes['editable'].firstChange) {
       this._editor.setEditable(this.editable);
       this._isEditable.set(this.editable);
+    }
+
+    if (changes['content'] && !changes['content'].firstChange) {
+      const current = this.outputFormat === 'html'
+        ? this._editor.getHTML()
+        : JSON.stringify(this._editor.getJSON());
+      const incoming = this.outputFormat === 'html'
+        ? this.content
+        : JSON.stringify(this.content);
+      if (incoming !== current) {
+        this._editor.setContent(this.content, false);
+      }
+    }
+
+    if (changes['extensions'] && !changes['extensions'].firstChange) {
+      this.recreateEditor();
     }
   }
 
@@ -173,13 +167,21 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnChanges
 
   // === Private ===
 
+  private recreateEditor(): void {
+    if (!this._editor || this._editor.isDestroyed) return;
+    const currentContent = this._editor.getJSON();
+    this._editor.destroy();
+    this.content = currentContent;
+    this.createEditor();
+  }
+
   private createEditor(): void {
     const initialContent = this._pendingContent ?? this.content;
     this._pendingContent = null;
 
     this._editor = new Editor({
       element: this.editorRef.nativeElement,
-      extensions: this.extensions,
+      extensions: [...DEFAULT_EXTENSIONS, ...this.extensions],
       content: initialContent,
       editable: this.editable,
       autofocus: this.autofocus,

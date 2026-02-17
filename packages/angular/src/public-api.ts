@@ -1,4 +1,4 @@
-export { DomternalEditorComponent } from './lib/editor.component';
+export { DomternalEditorComponent, DEFAULT_EXTENSIONS } from './lib/editor.component';
 
 // Re-export commonly used types from core for convenience
 export { Editor } from '@domternal/core';
