@@ -6,7 +6,7 @@
     "declaration": true,
     "declarationMap": true,
     "lib": ["es2022", "dom"],
-    "types": ["vitest/globals"]
+    "types": ["vitest/globals", "node"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
