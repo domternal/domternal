@@ -1,0 +1,155 @@
+// =============================================================================
+// ProseMirror Required Styles
+// =============================================================================
+// Bundles essential CSS from prosemirror-view, prosemirror-gapcursor, and
+// prosemirror-tables. Scoped to .dm-editor with hardcoded colors replaced
+// by CSS variables.
+// =============================================================================
+
+// ---------------------------------------------------------------------------
+// prosemirror-view base
+// ---------------------------------------------------------------------------
+
+.dm-editor .ProseMirror {
+  position: relative;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  -webkit-font-variant-ligatures: none;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0;
+  outline: none;
+}
+
+.dm-editor .ProseMirror pre {
+  white-space: pre-wrap;
+}
+
+.dm-editor .ProseMirror li {
+  position: relative;
+}
+
+// Selection hiding (ProseMirror internal)
+.ProseMirror-hideselection *::selection {
+  background: transparent;
+}
+
+.ProseMirror-hideselection *::-moz-selection {
+  background: transparent;
+}
+
+.ProseMirror-hideselection {
+  caret-color: transparent;
+}
+
+// Draggable contenteditable false
+.ProseMirror [draggable][contenteditable="false"] {
+  user-select: text;
+}
+
+// Selected node
+.dm-editor .ProseMirror-selectednode {
+  outline: 2px solid var(--dm-accent, #2563eb);
+}
+
+.dm-editor li.ProseMirror-selectednode {
+  outline: none;
+}
+
+.dm-editor li.ProseMirror-selectednode::after {
+  content: "";
+  position: absolute;
+  left: -32px;
+  right: -2px;
+  top: -2px;
+  bottom: -2px;
+  border: 2px solid var(--dm-accent, #2563eb);
+  pointer-events: none;
+}
+
+// ProseMirror separator (internal)
+img.ProseMirror-separator {
+  display: inline !important;
+  border: none !important;
+  margin: 0 !important;
+}
+
+// ---------------------------------------------------------------------------
+// prosemirror-gapcursor
+// ---------------------------------------------------------------------------
+
+.dm-editor .ProseMirror-gapcursor {
+  display: none;
+  pointer-events: none;
+  position: absolute;
+}
+
+.dm-editor .ProseMirror-gapcursor::after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: -2px;
+  width: 20px;
+  border-top: 1px solid var(--dm-editor-text, #1a1a1a);
+  animation: ProseMirror-cursor-blink 1.1s steps(2, start) infinite;
+}
+
+@keyframes ProseMirror-cursor-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+.dm-editor .ProseMirror-focused .ProseMirror-gapcursor {
+  display: block;
+}
+
+// ---------------------------------------------------------------------------
+// prosemirror-tables
+// ---------------------------------------------------------------------------
+
+.dm-editor .tableWrapper {
+  overflow-x: auto;
+}
+
+.dm-editor table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  overflow: hidden;
+}
+
+.dm-editor td,
+.dm-editor th {
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.dm-editor .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  z-index: 20;
+  background-color: var(--dm-accent, #2563eb);
+  pointer-events: none;
+}
+
+.dm-editor .ProseMirror.resize-cursor {
+  cursor: ew-resize;
+  cursor: col-resize;
+}
+
+.dm-editor .selectedCell::after {
+  z-index: 2;
+  position: absolute;
+  content: "";
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--dm-table-selected-bg, rgba(66, 133, 244, 0.15));
+  pointer-events: none;
+}

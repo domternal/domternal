@@ -1,0 +1,35 @@
+// =============================================================================
+// Editor Wrapper Styles
+// =============================================================================
+
+.dm-editor {
+  background: var(--dm-editor-bg);
+  color: var(--dm-editor-text);
+  font-family: var(--dm-editor-font-family);
+  font-size: var(--dm-editor-font-size);
+  line-height: var(--dm-editor-line-height);
+  border: var(--dm-editor-border);
+  border-radius: var(--dm-editor-border-radius);
+  overflow: hidden;
+
+  .ProseMirror {
+    padding: var(--dm-editor-padding);
+    min-height: 6rem;
+
+    &:focus {
+      outline: none;
+    }
+  }
+
+  // Focus ring on wrapper when editor is focused
+  &:focus-within {
+    box-shadow: var(--dm-editor-focus-ring);
+  }
+}
+
+// When toolbar is present above editor, remove top border-radius from editor
+.dm-toolbar + .dm-editor {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-top: none;
+}
