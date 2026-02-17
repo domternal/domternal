@@ -3,6 +3,7 @@
 
   <div class="toolbar">
     <button
+      (mousedown)="$event.preventDefault()"
       (click)="toggleBold()"
       [class.active]="isBoldActive"
       title="Toggle Bold (Cmd+B)"

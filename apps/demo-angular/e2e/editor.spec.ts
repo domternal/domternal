@@ -49,16 +49,12 @@ test.describe('Domternal Angular Editor', () => {
     const editor = page.locator(editorSelector);
     await editor.click();
 
-    // Type new text
-    await page.keyboard.press('End');
-    await page.keyboard.type(' new text');
+    // Replace all content with plain text
+    await page.keyboard.press(`${modifier}+a`);
+    await page.keyboard.type('new text');
 
-    // Select "new text" (shift+home would select too much, use shift+left x8)
-    for (let i = 0; i < 8; i++) {
-      await page.keyboard.press('Shift+ArrowLeft');
-    }
-
-    // Click Bold button
+    // Select all and click Bold button
+    await page.keyboard.press(`${modifier}+a`);
     await page.locator(boldButton).click();
 
     // Verify bold was applied
