@@ -1,29 +1,40 @@
 import { Component, signal } from '@angular/core';
-import { DomternalEditorComponent } from '@domternal/angular';
-import { Bold, SelectionDecoration, Editor } from '@domternal/core';
+import { DomternalEditorComponent, DomternalToolbarComponent } from '@domternal/angular';
+import {
+  Bold,
+  Italic,
+  Underline,
+  Heading,
+  BulletList,
+  OrderedList,
+  ListItem,
+  History,
+  SelectionDecoration,
+  Editor,
+} from '@domternal/core';
 
 @Component({
   selector: 'app-root',
-  imports: [DomternalEditorComponent],
+  imports: [DomternalEditorComponent, DomternalToolbarComponent],
   templateUrl: './app.html',
 })
 export class App {
-  extensions = [Bold, SelectionDecoration];
+  extensions = [
+    Bold,
+    Italic,
+    Underline,
+    Heading,
+    BulletList,
+    OrderedList,
+    ListItem,
+    History,
+    SelectionDecoration,
+  ];
   editor: Editor | null = null;
   isDark = signal(false);
-  boldActive = signal(false);
 
   onEditorCreated(editor: Editor): void {
     this.editor = editor;
-  }
-
-  toggleBold(): void {
-    this.editor?.commands.toggleBold();
-    this.updateActiveStates();
-  }
-
-  updateActiveStates(): void {
-    this.boldActive.set(this.editor?.isActive('bold') ?? false);
   }
 
   toggleTheme(): void {
