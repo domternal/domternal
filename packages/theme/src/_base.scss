@@ -3,6 +3,8 @@
 // =============================================================================
 
 .dm-editor {
+  display: block;
+  box-sizing: border-box;
   background: var(--dm-editor-bg);
   color: var(--dm-editor-text);
   font-family: var(--dm-editor-font-family);

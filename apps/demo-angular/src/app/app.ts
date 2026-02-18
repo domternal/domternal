@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { DomternalEditorComponent } from '@domternal/angular';
 import { Bold, Editor } from '@domternal/core';
 
@@ -10,6 +10,7 @@ import { Bold, Editor } from '@domternal/core';
 export class App {
   extensions = [Bold];
   editor: Editor | null = null;
+  isDark = signal(false);
 
   onEditorCreated(editor: Editor): void {
     this.editor = editor;
@@ -21,5 +22,10 @@ export class App {
 
   isBoldActive(): boolean {
     return this.editor?.isActive('bold') ?? false;
+  }
+
+  toggleTheme(): void {
+    this.isDark.update(v => !v);
+    document.body.classList.toggle('dm-theme-dark');
   }
 }

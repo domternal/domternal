@@ -1,5 +1,10 @@
 <div class="demo">
-  <h1>Domternal Angular Demo</h1>
+  <h1>
+    Domternal Angular Demo
+    <button class="theme-toggle" (click)="toggleTheme()" [title]="isDark() ? 'Switch to light' : 'Switch to dark'">
+      {{ isDark() ? '\u2600\uFE0F' : '\uD83C\uDF19' }}
+    </button>
+  </h1>
 
   <div class="dm-toolbar">
     <div class="dm-toolbar-group">

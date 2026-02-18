@@ -43,7 +43,8 @@
   --dm-editor-padding: 1rem;
   --dm-editor-border: 1px solid var(--dm-border-color);
   --dm-editor-border-radius: 0.5rem;
-  --dm-editor-focus-ring: 0 0 0 2px var(--dm-focus-color);
+  // Override to add a focus ring, e.g. 0 0 0 1px var(--dm-focus-color)
+  --dm-editor-focus-ring: none;
 
   // ---------------------------------------------------------------------------
   // Placeholder

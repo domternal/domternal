@@ -31,13 +31,17 @@
   --dm-highlight-bg: rgba(255, 243, 205, 0.2);
 }
 
-.dm-theme-dark {
+.dm-theme-dark,
+.dm-theme-dark .dm-editor,
+.dm-theme-dark .dm-toolbar {
   @include dark-tokens;
 }
 
 // Auto dark mode — follows system preference
-.dm-theme-auto {
-  @media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: dark) {
+  .dm-theme-auto,
+  .dm-theme-auto .dm-editor,
+  .dm-theme-auto .dm-toolbar {
     @include dark-tokens;
   }
 }

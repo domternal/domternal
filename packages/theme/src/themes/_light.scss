@@ -5,7 +5,7 @@
 // values. This class exists for explicit light override in a dark context.
 // =============================================================================
 
-.dm-theme-light {
+@mixin light-tokens {
   --dm-bg: #ffffff;
   --dm-text: #1a1a1a;
   --dm-muted: #999999;
@@ -22,4 +22,10 @@
   --dm-code-surface: #f5f5f5;
   --dm-code-color: #d63384;
   --dm-highlight-bg: #fff3cd;
+}
+
+.dm-theme-light,
+.dm-theme-light .dm-editor,
+.dm-theme-light .dm-toolbar {
+  @include light-tokens;
 }
