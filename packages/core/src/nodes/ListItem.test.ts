@@ -20,8 +20,8 @@ describe('ListItem', () => {
       expect(ListItem.type).toBe('node');
     });
 
-    it('has paragraph block* content', () => {
-      expect(ListItem.config.content).toBe('paragraph block*');
+    it('has block+ content', () => {
+      expect(ListItem.config.content).toBe('block+');
     });
 
     it('is defining', () => {
@@ -77,11 +77,10 @@ describe('ListItem', () => {
   });
 
   describe('addKeyboardShortcuts', () => {
-    it('provides Enter shortcut via ProseMirror plugin', () => {
-      const plugins = ListItem.config.addProseMirrorPlugins?.call(ListItem);
+    it('provides Enter shortcut', () => {
+      const shortcuts = ListItem.config.addKeyboardShortcuts?.call(ListItem);
 
-      expect(plugins).toBeDefined();
-      expect(plugins!.length).toBeGreaterThan(0);
+      expect(shortcuts).toHaveProperty('Enter');
     });
 
     it('provides Tab shortcut', () => {
@@ -257,7 +256,7 @@ describe('ListItem', () => {
         editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 8))
       );
 
-      // The Enter key is handled by the keymap plugin from addProseMirrorPlugins
+      // The Enter key is handled by addKeyboardShortcuts
       // We can invoke the splitListItem command directly to test the same code path
       const nodeType = editor.state.schema.nodes['listItem']!;
       const result = splitListItem(nodeType)(editor.state, editor.view.dispatch);

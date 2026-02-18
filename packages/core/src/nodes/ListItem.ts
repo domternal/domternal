@@ -5,15 +5,13 @@
  * Used by BulletList and OrderedList.
  *
  * Keyboard shortcuts:
- * - Enter: Split list item at cursor
+ * - Enter: Split list item at cursor, or lift out of list if item is empty
  * - Tab: Sink (indent) list item
  * - Shift-Tab: Lift (outdent) list item
  */
 
 import { Node } from '../Node.js';
 import { splitListItem, liftListItem, sinkListItem } from 'prosemirror-schema-list';
-import { keymap } from 'prosemirror-keymap';
-import type { Command as PMCommand } from 'prosemirror-state';
 
 export interface ListItemOptions {
   HTMLAttributes: Record<string, unknown>;
@@ -21,7 +19,7 @@ export interface ListItemOptions {
 
 export const ListItem = Node.create<ListItemOptions>({
   name: 'listItem',
-  content: 'paragraph block*',
+  content: 'block+',
   defining: true,
 
   addOptions() {
@@ -40,7 +38,14 @@ export const ListItem = Node.create<ListItemOptions>({
 
   addKeyboardShortcuts() {
     return {
-      // Enter is handled in addProseMirrorPlugins to avoid TaskItem override via Object.assign
+      Enter: () => {
+        if (!this.editor || !this.nodeType) return false;
+        const { state, view } = this.editor;
+        // splitListItem returns false for empty top-level items,
+        // fall back to liftListItem to exit the list
+        return splitListItem(this.nodeType)(state, view.dispatch)
+          || liftListItem(this.nodeType)(state, view.dispatch);
+      },
       Tab: () => {
         if (!this.editor || !this.nodeType) return false;
         return sinkListItem(this.nodeType)(this.editor.state, this.editor.view.dispatch);
@@ -50,17 +55,5 @@ export const ListItem = Node.create<ListItemOptions>({
         return liftListItem(this.nodeType)(this.editor.state, this.editor.view.dispatch);
       },
     };
-  },
-
-  addProseMirrorPlugins() {
-    return [
-      keymap({
-        Enter: ((state, dispatch) => {
-          const nodeType = state.schema.nodes['listItem'];
-          if (!nodeType) return false;
-          return splitListItem(nodeType)(state, dispatch);
-        }) as PMCommand,
-      }),
-    ];
   },
 });
