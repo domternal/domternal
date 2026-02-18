@@ -1,6 +1,6 @@
 import { Component, signal } from '@angular/core';
 import { DomternalEditorComponent } from '@domternal/angular';
-import { Bold, Editor } from '@domternal/core';
+import { Bold, SelectionDecoration, Editor } from '@domternal/core';
 
 @Component({
   selector: 'app-root',
@@ -8,7 +8,7 @@ import { Bold, Editor } from '@domternal/core';
   templateUrl: './app.html',
 })
 export class App {
-  extensions = [Bold];
+  extensions = [Bold, SelectionDecoration];
   editor: Editor | null = null;
   isDark = signal(false);
   boldActive = signal(false);

@@ -43,6 +43,11 @@ export {
   type SelectionStorage,
 } from './Selection.js';
 export {
+  SelectionDecoration,
+  selectionDecorationPluginKey,
+  type SelectionDecorationOptions,
+} from './SelectionDecoration.js';
+export {
   InvisibleChars,
   invisibleCharsPluginKey,
   type InvisibleCharsOptions,

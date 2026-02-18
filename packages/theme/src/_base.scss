@@ -36,6 +36,11 @@
   .ProseMirror:not(:focus) ::selection {
     background: var(--dm-selection-blur);
   }
+
+  // SelectionDecoration extension: visible highlight when editor is blurred
+  .dm-blur-selection {
+    background: var(--dm-selection-blur);
+  }
 }
 
 // When toolbar is present above editor, remove top border-radius from editor
