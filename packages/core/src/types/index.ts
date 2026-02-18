@@ -77,3 +77,13 @@ export type {
   MarkRenderHTMLProps,
   MarkConfig,
 } from './MarkConfig.js';
+
+// Toolbar types
+export type {
+  IconSet,
+  DualIconSet,
+  ToolbarButton,
+  ToolbarDropdown,
+  ToolbarSeparator,
+  ToolbarItem,
+} from './Toolbar.js';

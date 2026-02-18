@@ -29,6 +29,7 @@ import type {
   ChainedCommands,
   CanCommands,
   Command,
+  ToolbarItem,
 } from './types/index.js';
 
 /**
@@ -211,6 +212,14 @@ export class Editor extends EventEmitter<EditorEvents> {
    */
   get storage(): Record<string, unknown> {
     return this._extensionManager.storage;
+  }
+
+  /**
+   * Gets toolbar items registered by all extensions.
+   * Used by framework toolbar components to auto-generate UI.
+   */
+  get toolbarItems(): ToolbarItem[] {
+    return this._extensionManager.toolbarItems;
   }
 
   // === Active State Methods ===

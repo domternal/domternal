@@ -21,6 +21,7 @@ import type { Command as PMCommand } from 'prosemirror-state';
 import type { AnyExtension } from './types/EditorOptions.js';
 import type { CommandMap } from './types/Commands.js';
 import type { GlobalAttributes, GlobalAttributeSpec } from './types/ExtensionConfig.js';
+import type { ToolbarItem } from './types/Toolbar.js';
 import type { Extension } from './Extension.js';
 import type { Node } from './Node.js';
 import type { Mark } from './Mark.js';
@@ -127,6 +128,11 @@ export class ExtensionManager {
   private _commands: CommandMap | null = null;
 
   /**
+   * Cached toolbar items (collected lazily)
+   */
+  private _toolbarItems: ToolbarItem[] | null = null;
+
+  /**
    * Creates a new ExtensionManager
    *
    * @param options - Extensions or direct schema
@@ -209,6 +215,15 @@ export class ExtensionManager {
   }
 
   /**
+   * Gets toolbar items from all extensions
+   * Cached after first call
+   */
+  get toolbarItems(): ToolbarItem[] {
+    this._toolbarItems ??= this.collectToolbarItems();
+    return this._toolbarItems;
+  }
+
+  /**
    * Gets node views from all Node extensions that define addNodeView
    */
   get nodeViews(): Record<string, NodeViewConstructor> {
@@ -240,6 +255,7 @@ export class ExtensionManager {
   clearAllCaches(): void {
     this._plugins = null;
     this._commands = null;
+    this._toolbarItems = null;
   }
 
   // === Extension Processing ===
@@ -693,6 +709,28 @@ export class ExtensionManager {
     }
 
     return commands;
+  }
+
+  /**
+   * Collects toolbar items from all extensions
+   */
+  private collectToolbarItems(): ToolbarItem[] {
+    const items: ToolbarItem[] = [];
+
+    for (const ext of this._extensions) {
+      const addItems = (ext as Extension).config.addToolbarItems;
+      if (addItems) {
+        const extItems = this.safeCall(
+          () => callOrReturn(addItems, ext) as ToolbarItem[] | undefined,
+          `${ext.name}.addToolbarItems`
+        );
+        if (extItems && extItems.length > 0) {
+          items.push(...extItems);
+        }
+      }
+    }
+
+    return items;
   }
 
   /**
