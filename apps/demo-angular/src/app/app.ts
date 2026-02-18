@@ -11,6 +11,7 @@ export class App {
   extensions = [Bold];
   editor: Editor | null = null;
   isDark = signal(false);
+  boldActive = signal(false);
 
   onEditorCreated(editor: Editor): void {
     this.editor = editor;
@@ -18,10 +19,11 @@ export class App {
 
   toggleBold(): void {
     this.editor?.commands.toggleBold();
+    this.updateActiveStates();
   }
 
-  isBoldActive(): boolean {
-    return this.editor?.isActive('bold') ?? false;
+  updateActiveStates(): void {
+    this.boldActive.set(this.editor?.isActive('bold') ?? false);
   }
 
   toggleTheme(): void {

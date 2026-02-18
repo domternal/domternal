@@ -207,22 +207,23 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
     this._jsonContent.set(this._editor.getJSON());
     this._isEmpty.set(this._editor.isEmpty);
 
-    this._editor.on('update', () => {
+    this._editor.on('transaction', ({ transaction }) => {
       this.ngZone.run(() => {
         const ed = this._editor!;
-        this._htmlContent.set(ed.getHTML());
-        this._jsonContent.set(ed.getJSON());
-        this._isEmpty.set(ed.isEmpty);
-        this.contentUpdated.emit({ editor: ed });
 
-        const value: Content = this.outputFormat() === 'html' ? ed.getHTML() : ed.getJSON();
-        this.onChange(value);
-      });
-    });
+        if (transaction.docChanged) {
+          this._htmlContent.set(ed.getHTML());
+          this._jsonContent.set(ed.getJSON());
+          this._isEmpty.set(ed.isEmpty);
+          this.contentUpdated.emit({ editor: ed });
 
-    this._editor.on('selectionUpdate', () => {
-      this.ngZone.run(() => {
-        this.selectionChanged.emit({ editor: this._editor! });
+          const value: Content = this.outputFormat() === 'html' ? ed.getHTML() : ed.getJSON();
+          this.onChange(value);
+        }
+
+        if (!transaction.docChanged && transaction.selectionSet) {
+          this.selectionChanged.emit({ editor: ed });
+        }
       });
     });
 
