@@ -18,6 +18,7 @@
  */
 import { Mark } from '../Mark.js';
 import { markInputRule, markInputRulePatterns } from '../helpers/markInputRule.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 /**
  * Options for the Bold mark
@@ -99,6 +100,22 @@ export const Bold = Mark.create<BoldOptions>({
         () =>
         ({ commands }) => commands.toggleMark('bold'),
     };
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'bold',
+        command: 'toggleBold',
+        isActive: 'bold',
+        icon: 'textB',
+        label: 'Bold',
+        shortcut: 'Mod-B',
+        group: 'format',
+        priority: 200,
+      },
+    ];
   },
 
   addInputRules() {

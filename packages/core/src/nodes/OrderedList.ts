@@ -8,6 +8,7 @@
 import { Node } from '../Node.js';
 import { wrappingInputRule } from 'prosemirror-inputrules';
 import type { CommandSpec } from '../types/Commands.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -75,6 +76,22 @@ export const OrderedList = Node.create<OrderedListOptions>({
           return commands.toggleList(name, options.itemTypeName);
         },
     };
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'orderedList',
+        command: 'toggleOrderedList',
+        isActive: 'orderedList',
+        icon: 'listNumbers',
+        label: 'Ordered List',
+        shortcut: 'Mod-Shift-7',
+        group: 'lists',
+        priority: 190,
+      },
+    ];
   },
 
   addKeyboardShortcuts() {

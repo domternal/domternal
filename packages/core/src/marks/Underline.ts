@@ -15,6 +15,7 @@
  * ```
  */
 import { Mark } from '../Mark.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 /**
  * Options for the Underline mark
@@ -77,7 +78,21 @@ export const Underline = Mark.create<UnderlineOptions>({
     };
   },
 
-  // No input rules for underline (no common markdown syntax)
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'underline',
+        command: 'toggleUnderline',
+        isActive: 'underline',
+        icon: 'textUnderline',
+        label: 'Underline',
+        shortcut: 'Mod-U',
+        group: 'format',
+        priority: 180,
+      },
+    ];
+  },
 });
 
 declare module '../types/Commands.js' {

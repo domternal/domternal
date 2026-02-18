@@ -10,6 +10,7 @@ import { textblockTypeInputRule } from 'prosemirror-inputrules';
 import { keymap } from 'prosemirror-keymap';
 import type { Command as PMCommand } from 'prosemirror-state';
 import type { CommandSpec } from '../types/Commands.js';
+import type { ToolbarItem, ToolbarButton } from '../types/Toolbar.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -102,6 +103,39 @@ export const Heading = Node.create<HeadingOptions>({
     });
 
     return shortcuts;
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    const iconMap: Record<number, string> = {
+      1: 'textHOne',
+      2: 'textHTwo',
+      3: 'textHThree',
+    };
+
+    const items: ToolbarButton[] = this.options.levels
+      .filter((level) => level <= 3)
+      .map((level) => ({
+        type: 'button' as const,
+        name: `heading${String(level)}`,
+        command: 'toggleHeading',
+        commandArgs: [{ level }],
+        isActive: { name: 'heading', attributes: { level } },
+        icon: iconMap[level] ?? 'textH',
+        label: `Heading ${String(level)}`,
+        shortcut: `Mod-Alt-${String(level)}`,
+      }));
+
+    return [
+      {
+        type: 'dropdown',
+        name: 'heading',
+        icon: 'textH',
+        label: 'Heading',
+        items,
+        group: 'blocks',
+        priority: 200,
+      },
+    ];
   },
 
   addProseMirrorPlugins() {
