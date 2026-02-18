@@ -19,9 +19,7 @@
  *   textItalic: '<svg>...</svg>',
  * };
  */
-export interface IconSet {
-  [key: string]: string;
-}
+export type IconSet = Record<string, string>;
 
 /**
  * Dual icon set with two weights (e.g. regular + fill for light/dark themes).

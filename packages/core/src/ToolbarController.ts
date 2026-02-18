@@ -244,17 +244,19 @@ export class ToolbarController {
 
     for (const item of items) {
       const groupName = ('group' in item && item.group) ? item.group : '';
-      if (!groupMap.has(groupName)) {
-        groupMap.set(groupName, []);
+      let list = groupMap.get(groupName);
+      if (!list) {
+        list = [];
+        groupMap.set(groupName, list);
         groupOrder.push(groupName);
       }
-      groupMap.get(groupName)!.push(item);
+      list.push(item);
     }
 
     // Sort items within each group by priority (higher first)
     const groups: ToolbarGroup[] = [];
     for (const name of groupOrder) {
-      const groupItems = groupMap.get(name)!;
+      const groupItems = groupMap.get(name) ?? [];
       groupItems.sort((a, b) => {
         const pa = ('priority' in a && a.priority) ? a.priority : 100;
         const pb = ('priority' in b && b.priority) ? b.priority : 100;
@@ -271,15 +273,13 @@ export class ToolbarController {
    */
   private buildFlatList(): FlatButton[] {
     const flat: FlatButton[] = [];
-    for (let gi = 0; gi < this._groups.length; gi++) {
-      const group = this._groups[gi]!;
-      for (let ii = 0; ii < group.items.length; ii++) {
-        const item = group.items[ii]!;
+    this._groups.forEach((group, gi) => {
+      group.items.forEach((item, ii) => {
         if (item.type === 'button' || item.type === 'dropdown') {
           flat.push({ item, groupIndex: gi, itemIndex: ii });
         }
-      }
-    }
+      });
+    });
     return flat;
   }
 
@@ -289,31 +289,13 @@ export class ToolbarController {
   private updateActiveStates(): void {
     let changed = false;
 
-    const checkButton = (item: ToolbarButton): void => {
-      if (!item.isActive) return;
-
-      const wasActive = this._activeMap.get(item.name) ?? false;
-      let nowActive: boolean;
-
-      if (typeof item.isActive === 'string') {
-        nowActive = this.editor.isActive(item.isActive);
-      } else {
-        nowActive = this.editor.isActive(item.isActive.name, item.isActive.attributes);
-      }
-
-      if (wasActive !== nowActive) {
-        this._activeMap.set(item.name, nowActive);
-        changed = true;
-      }
-    };
-
     for (const group of this._groups) {
       for (const item of group.items) {
         if (item.type === 'button') {
-          checkButton(item);
+          if (this.checkButtonActive(item)) changed = true;
         } else if (item.type === 'dropdown') {
           for (const sub of item.items) {
-            checkButton(sub);
+            if (this.checkButtonActive(sub)) changed = true;
           }
         }
       }
@@ -322,5 +304,25 @@ export class ToolbarController {
     if (changed) {
       this.onChange();
     }
+  }
+
+  private checkButtonActive(item: ToolbarButton): boolean {
+    if (!item.isActive) return false;
+
+    const wasActive = this._activeMap.get(item.name) ?? false;
+    let nowActive: boolean;
+
+    if (typeof item.isActive === 'string') {
+      nowActive = this.editor.isActive(item.isActive);
+    } else {
+      nowActive = this.editor.isActive(item.isActive.name, item.isActive.attributes);
+    }
+
+    if (wasActive !== nowActive) {
+      this._activeMap.set(item.name, nowActive);
+      return true;
+    }
+
+    return false;
   }
 }
