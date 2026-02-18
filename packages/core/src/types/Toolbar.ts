@@ -21,19 +21,6 @@
  */
 export type IconSet = Record<string, string>;
 
-/**
- * Dual icon set with two weights (e.g. regular + fill for light/dark themes).
- *
- * @example
- * import { defaultIcons } from '@domternal/core';
- * // defaultIcons.regular['textB'] → regular weight SVG
- * // defaultIcons.fill['textB']    → fill weight SVG
- */
-export interface DualIconSet {
-  regular: IconSet;
-  fill: IconSet;
-}
-
 // =============================================================================
 // Toolbar Items
 // =============================================================================

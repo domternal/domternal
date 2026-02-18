@@ -24,7 +24,6 @@ import type {
   ToolbarDropdown,
   ToolbarControllerEditor,
   IconSet,
-  DualIconSet,
   ToolbarGroup,
 } from '@domternal/core';
 
@@ -103,8 +102,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
 })
 export class DomternalToolbarComponent implements OnDestroy {
   readonly editor = input.required<Editor>();
-  readonly iconWeight = input<'regular' | 'fill'>('regular');
-  readonly icons = input<DualIconSet | IconSet | null>(null);
+  readonly icons = input<IconSet | null>(null);
 
   /** Exposed state signals for template */
   readonly groups = signal<ToolbarGroup[]>([]);
@@ -121,7 +119,6 @@ export class DomternalToolbarComponent implements OnDestroy {
 
   /** SafeHtml cache — same reference returned for same key, prevents DOM churn */
   private htmlCache = new Map<string, SafeHtml>();
-  private cacheWeight = '';
 
   private readonly dropdownCaret = '<svg class="dm-dropdown-caret" width="10" height="10" viewBox="0 0 10 10"><path d="M2 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
@@ -131,16 +128,6 @@ export class DomternalToolbarComponent implements OnDestroy {
       untracked(() => this.setupController(editor));
     });
 
-    // Invalidate cache when icon weight changes
-    effect(() => {
-      const weight = this.iconWeight();
-      untracked(() => {
-        if (weight !== this.cacheWeight) {
-          this.htmlCache.clear();
-          this.cacheWeight = weight;
-        }
-      });
-    });
   }
 
   ngOnDestroy(): void {
@@ -274,16 +261,10 @@ export class DomternalToolbarComponent implements OnDestroy {
 
   private resolveIconSvg(name: string): string {
     const customIcons = this.icons();
-    const weight = this.iconWeight();
-
     if (customIcons) {
-      if ('regular' in customIcons && 'fill' in customIcons) {
-        return (customIcons as DualIconSet)[weight]?.[name] ?? '';
-      }
-      return (customIcons as IconSet)[name] ?? '';
+      return customIcons[name] ?? '';
     }
-
-    return defaultIcons[weight]?.[name] ?? '';
+    return defaultIcons[name] ?? '';
   }
 
   private setupController(editor: Editor): void {

@@ -81,7 +81,6 @@ export type {
 // Toolbar types
 export type {
   IconSet,
-  DualIconSet,
   ToolbarButton,
   ToolbarDropdown,
   ToolbarSeparator,

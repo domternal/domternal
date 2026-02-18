@@ -63,7 +63,6 @@ export type {
   MarkConfig,
   // Toolbar types
   IconSet,
-  DualIconSet,
   ToolbarButton,
   ToolbarDropdown,
   ToolbarSeparator,
@@ -126,7 +125,7 @@ export {
 } from './ToolbarController.js';
 
 // === Icons ===
-export { phosphorRegular, phosphorFill, defaultIcons } from './icons/index.js';
+export { defaultIcons } from './icons/index.js';
 
 export { Mark } from './Mark.js';
 
