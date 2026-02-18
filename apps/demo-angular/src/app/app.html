@@ -1,15 +1,18 @@
 <div class="demo">
   <h1>Domternal Angular Demo</h1>
 
-  <div class="toolbar">
-    <button
-      (mousedown)="$event.preventDefault()"
-      (click)="toggleBold()"
-      [class.active]="isBoldActive()"
-      title="Toggle Bold (Cmd+B)"
-    >
-      <strong>B</strong>
-    </button>
+  <div class="dm-toolbar">
+    <div class="dm-toolbar-group">
+      <button
+        class="dm-toolbar-button"
+        [class.dm-toolbar-button--active]="isBoldActive()"
+        (mousedown)="$event.preventDefault()"
+        (click)="toggleBold()"
+        title="Toggle Bold (Cmd+B)"
+      >
+        <strong>B</strong>
+      </button>
+    </div>
   </div>
 
   <domternal-editor
