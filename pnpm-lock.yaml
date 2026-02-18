@@ -74,6 +74,9 @@ importers:
       '@domternal/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@domternal/theme':
+        specifier: workspace:*
+        version: link:../../packages/theme
       rxjs:
         specifier: ~7.8.0
         version: 7.8.2
@@ -365,6 +368,12 @@ importers:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
+
+  packages/theme:
+    devDependencies:
+      sass:
+        specifier: ^1.89.0
+        version: 1.97.3
 
 packages:
 
