@@ -124,6 +124,10 @@ export {
   type ToolbarControllerEditor,
   type ToolbarGroup,
 } from './ToolbarController.js';
+
+// === Icons ===
+export { phosphorRegular, phosphorFill, defaultIcons } from './icons/index.js';
+
 export { Mark } from './Mark.js';
 
 // === Command System ===
