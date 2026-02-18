@@ -8,7 +8,6 @@ import {
   BulletList,
   OrderedList,
   ListItem,
-  History,
   SelectionDecoration,
   Editor,
 } from '@domternal/core';
@@ -19,6 +18,7 @@ import {
   templateUrl: './app.html',
 })
 export class App {
+  // History is already in DEFAULT_EXTENSIONS (from DomternalEditorComponent)
   extensions = [
     Bold,
     Italic,
@@ -27,7 +27,6 @@ export class App {
     BulletList,
     OrderedList,
     ListItem,
-    History,
     SelectionDecoration,
   ];
   editor: Editor | null = null;

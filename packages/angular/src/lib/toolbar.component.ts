@@ -11,6 +11,7 @@ import {
   ElementRef,
   untracked,
 } from '@angular/core';
+import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 
 import {
   Editor,
@@ -72,7 +73,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                 [attr.aria-label]="asDropdown(item).label"
                 [title]="asDropdown(item).label"
                 [tabindex]="getFlatIndex(item.name) === focusedIndex() ? 0 : -1"
-                [innerHTML]="getIcon(asDropdown(item).icon) + dropdownCaret"
+                [innerHTML]="getDropdownTriggerHtml(asDropdown(item).icon)"
                 (mousedown)="$event.preventDefault()"
                 (click)="onDropdownToggle(asDropdown(item))"
                 (focus)="onButtonFocus(item.name)"
@@ -86,7 +87,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                       [class.dm-toolbar-dropdown-item--active]="isActive(sub.name)"
                       role="menuitem"
                       [attr.aria-label]="sub.label"
-                      [innerHTML]="getIcon(sub.icon) + ' ' + sub.label"
+                      [innerHTML]="getDropdownItemHtml(sub.icon, sub.label)"
                       (mousedown)="$event.preventDefault()"
                       (click)="onDropdownItemClick(asDropdown(item), sub)"
                     ></button>
@@ -115,6 +116,7 @@ export class DomternalToolbarComponent implements OnDestroy {
   private clickOutsideHandler: ((e: Event) => void) | null = null;
   private ngZone = inject(NgZone);
   private elRef = inject(ElementRef);
+  private sanitizer = inject(DomSanitizer);
 
   readonly dropdownCaret = '<svg class="dm-dropdown-caret" width="10" height="10" viewBox="0 0 10 10"><path d="M2 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
@@ -155,7 +157,19 @@ export class DomternalToolbarComponent implements OnDestroy {
     return item.label;
   }
 
-  getIcon(name: string): string {
+  getIcon(name: string): SafeHtml {
+    return this.sanitizer.bypassSecurityTrustHtml(this.resolveIconSvg(name));
+  }
+
+  getDropdownTriggerHtml(iconName: string): SafeHtml {
+    return this.sanitizer.bypassSecurityTrustHtml(this.resolveIconSvg(iconName) + this.dropdownCaret);
+  }
+
+  getDropdownItemHtml(iconName: string, label: string): SafeHtml {
+    return this.sanitizer.bypassSecurityTrustHtml(this.resolveIconSvg(iconName) + ' ' + label);
+  }
+
+  private resolveIconSvg(name: string): string {
     const customIcons = this.icons();
     const weight = this.iconWeight();
 
