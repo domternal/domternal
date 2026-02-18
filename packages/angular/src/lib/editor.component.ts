@@ -68,6 +68,7 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
   private _jsonContent = signal<JSONContent | null>(null);
   private _isEmpty = signal(true);
   private _isFocused = signal(false);
+  // Candidate for linkedSignal(editable) once min Angular version is >=19
   private _isEditable = signal(true);
 
   readonly htmlContent = this._htmlContent.asReadonly();
@@ -89,18 +90,16 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
   private _pendingContent: Content | null = null;
 
   private ngZone = inject(NgZone);
-  private _initialized = false;
 
   constructor() {
     afterNextRender(() => {
       this.createEditor();
-      this._initialized = true;
     });
 
     // React to editable input changes
     effect(() => {
       const editable = this.editable();
-      if (!this._initialized || !this._editor || this._editor.isDestroyed) return;
+      if (!this._editor || this._editor.isDestroyed) return;
       untracked(() => {
         this._editor!.setEditable(editable);
         this._isEditable.set(editable);
@@ -111,7 +110,7 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
     effect(() => {
       const content = this.content();
       const format = this.outputFormat();
-      if (!this._initialized || !this._editor || this._editor.isDestroyed) return;
+      if (!this._editor || this._editor.isDestroyed) return;
       untracked(() => {
         const current = format === 'html'
           ? this._editor!.getHTML()
@@ -128,7 +127,7 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
     // React to extensions input changes
     effect(() => {
       this.extensions(); // track the signal
-      if (!this._initialized || !this._editor || this._editor.isDestroyed) return;
+      if (!this._editor || this._editor.isDestroyed) return;
       untracked(() => {
         this.recreateEditor();
       });
@@ -172,10 +171,10 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
   }
 
   setDisabledState(isDisabled: boolean): void {
+    this._isEditable.set(!isDisabled);
     if (this._editor && !this._editor.isDestroyed) {
       this._editor.setEditable(!isDisabled);
     }
-    this._isEditable.set(!isDisabled);
   }
 
   // === Private ===
