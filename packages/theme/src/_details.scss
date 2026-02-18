@@ -19,6 +19,10 @@
       user-select: none;
     }
 
+    &[open] summary {
+      margin-bottom: 0.5em;
+    }
+
     // DetailsContent renders as div[data-type="detailsContent"]
     div[data-type="detailsContent"] {
       padding: 0.5em 0.75em;

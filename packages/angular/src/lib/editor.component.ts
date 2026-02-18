@@ -2,6 +2,7 @@ import {
   Component,
   ElementRef,
   EventEmitter,
+  inject,
   Input,
   NgZone,
   OnChanges,
@@ -35,11 +36,7 @@ export const DEFAULT_EXTENSIONS: AnyExtension[] = [Document, Paragraph, Text, Ba
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   host: { class: 'dm-editor' },
-  styles: [`
-    :host { display: block; }
-    .ProseMirror { outline: none; }
-    .ProseMirror:focus { outline: none; }
-  `],
+  styles: [`:host { display: block; }`],
   providers: [
     {
       provide: NG_VALUE_ACCESSOR,
@@ -92,7 +89,9 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnChanges
   private onTouched: () => void = () => {};
   private _pendingContent: Content | null = null;
 
-  constructor(private ngZone: NgZone) {
+  private ngZone = inject(NgZone);
+
+  constructor() {
     afterNextRender(() => {
       this.createEditor();
     });
@@ -172,6 +171,7 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnChanges
     if (!this._editor || this._editor.isDestroyed) return;
     const currentContent = this._editor.getJSON();
     this._editor.destroy();
+    this.editorDestroyed.emit();
     this.content = currentContent;
     this.createEditor();
   }

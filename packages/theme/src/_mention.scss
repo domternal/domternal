@@ -15,4 +15,11 @@
     font-size: 0.95em;
     white-space: nowrap;
   }
+
+  // In-progress mention suggestion (typing @name)
+  .mention-suggestion {
+    text-decoration: underline;
+    text-decoration-color: var(--dm-accent, #2563eb);
+    text-underline-offset: 2px;
+  }
 }

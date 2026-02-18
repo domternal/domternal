@@ -16,8 +16,10 @@
   </div>
 
   <domternal-editor
+    #ec
     [extensions]="extensions"
     [content]="'<p>Hello <strong>World</strong>! Try selecting text and clicking Bold.</p>'"
+    (editorCreated)="onEditorCreated($event)"
   />
 
   <h3>HTML Output</h3>

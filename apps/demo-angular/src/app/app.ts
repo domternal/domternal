@@ -1,6 +1,6 @@
-import { Component, ViewChild } from '@angular/core';
+import { Component } from '@angular/core';
 import { DomternalEditorComponent } from '@domternal/angular';
-import { Bold } from '@domternal/core';
+import { Bold, Editor } from '@domternal/core';
 
 @Component({
   selector: 'app-root',
@@ -8,15 +8,18 @@ import { Bold } from '@domternal/core';
   templateUrl: './app.html',
 })
 export class App {
-  @ViewChild(DomternalEditorComponent) ec!: DomternalEditorComponent;
-
   extensions = [Bold];
+  editor: Editor | null = null;
+
+  onEditorCreated(editor: Editor): void {
+    this.editor = editor;
+  }
 
   toggleBold(): void {
-    this.ec.editor?.commands.toggleBold();
+    this.editor?.commands.toggleBold();
   }
 
   isBoldActive(): boolean {
-    return this.ec.editor?.isActive('bold') ?? false;
+    return this.editor?.isActive('bold') ?? false;
   }
 }

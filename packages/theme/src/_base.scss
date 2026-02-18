@@ -25,6 +25,15 @@
   &:focus-within {
     box-shadow: var(--dm-editor-focus-ring);
   }
+
+  // Text selection colors
+  .ProseMirror ::selection {
+    background: var(--dm-selection);
+  }
+
+  .ProseMirror:not(:focus) ::selection {
+    background: var(--dm-selection-blur);
+  }
 }
 
 // When toolbar is present above editor, remove top border-radius from editor
