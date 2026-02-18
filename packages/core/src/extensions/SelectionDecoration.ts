@@ -42,7 +42,7 @@ export const SelectionDecoration = Extension.create<SelectionDecorationOptions>(
           state: {
             init: () => DecorationSet.empty,
             apply(tr, decorationSet, _oldState, newState) {
-              const meta = tr.getMeta(pluginKey);
+              const meta = tr.getMeta(pluginKey) as string | undefined;
 
               if (meta === 'focus') return DecorationSet.empty;
 
