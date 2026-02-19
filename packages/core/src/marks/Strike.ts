@@ -17,6 +17,7 @@
  */
 import { Mark } from '../Mark.js';
 import { markInputRule, markInputRulePatterns } from '../helpers/markInputRule.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 /**
  * Options for the Strike mark
@@ -78,6 +79,22 @@ export const Strike = Mark.create<StrikeOptions>({
         () =>
         ({ commands }) => commands.toggleMark('strike'),
     };
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'strike',
+        command: 'toggleStrike',
+        isActive: 'strike',
+        icon: 'textStrikethrough',
+        label: 'Strikethrough',
+        shortcut: 'Mod-Shift-S',
+        group: 'format',
+        priority: 170,
+      },
+    ];
   },
 
   addInputRules() {

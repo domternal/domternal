@@ -17,6 +17,7 @@
  */
 import { Mark } from '../Mark.js';
 import { markInputRule, markInputRulePatterns } from '../helpers/markInputRule.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 /**
  * Options for the Highlight mark
@@ -108,6 +109,22 @@ export const Highlight = Mark.create<HighlightOptions>({
         (attributes?: { color?: string }) =>
         ({ commands }) => commands.toggleMark('highlight', attributes),
     };
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'highlight',
+        command: 'toggleHighlight',
+        isActive: 'highlight',
+        icon: 'highlighterCircle',
+        label: 'Highlight',
+        shortcut: 'Mod-Shift-H',
+        group: 'format',
+        priority: 150,
+      },
+    ];
   },
 
   addInputRules() {

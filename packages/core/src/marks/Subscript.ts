@@ -15,6 +15,7 @@
  * ```
  */
 import { Mark } from '../Mark.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 /**
  * Options for the Subscript mark
@@ -76,6 +77,21 @@ export const Subscript = Mark.create<SubscriptOptions>({
         () =>
         ({ commands }) => commands.toggleMark('subscript'),
     };
+  },
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'subscript',
+        command: 'toggleSubscript',
+        isActive: 'subscript',
+        icon: 'textSubscript',
+        label: 'Subscript',
+        shortcut: 'Mod-,',
+        group: 'format',
+        priority: 140,
+      },
+    ];
   },
 });
 

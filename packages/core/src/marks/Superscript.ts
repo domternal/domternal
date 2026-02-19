@@ -15,6 +15,7 @@
  * ```
  */
 import { Mark } from '../Mark.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 /**
  * Options for the Superscript mark
@@ -80,6 +81,21 @@ export const Superscript = Mark.create<SuperscriptOptions>({
         () =>
         ({ commands }) => commands.toggleMark('superscript'),
     };
+  },
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'superscript',
+        command: 'toggleSuperscript',
+        isActive: 'superscript',
+        icon: 'textSuperscript',
+        label: 'Superscript',
+        shortcut: 'Mod-.',
+        group: 'format',
+        priority: 130,
+      },
+    ];
   },
 });
 

@@ -18,6 +18,7 @@
  */
 import { Mark } from '../Mark.js';
 import { markInputRule, markInputRulePatterns } from '../helpers/markInputRule.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 /**
  * Options for the Code mark
@@ -75,6 +76,22 @@ export const Code = Mark.create<CodeOptions>({
         () =>
         ({ commands }) => commands.toggleMark('code'),
     };
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'code',
+        command: 'toggleCode',
+        isActive: 'code',
+        icon: 'code',
+        label: 'Code',
+        shortcut: 'Mod-E',
+        group: 'format',
+        priority: 160,
+      },
+    ];
   },
 
   addInputRules() {
