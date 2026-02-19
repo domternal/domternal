@@ -10,6 +10,7 @@ import { InputRule } from 'prosemirror-inputrules';
 import type { EditorState } from 'prosemirror-state';
 import { TextSelection } from 'prosemirror-state';
 import type { CommandSpec } from '../types/Commands.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -84,6 +85,20 @@ export const HorizontalRule = Node.create<HorizontalRuleOptions>({
           return true;
         },
     };
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'horizontalRule',
+        command: 'setHorizontalRule',
+        icon: 'minus',
+        label: 'Horizontal Rule',
+        group: 'blocks',
+        priority: 130,
+      },
+    ];
   },
 
   addInputRules() {

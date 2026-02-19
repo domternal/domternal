@@ -8,6 +8,7 @@
 import { Node } from '../Node.js';
 import { wrappingInputRule } from 'prosemirror-inputrules';
 import type { CommandSpec } from '../types/Commands.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -71,6 +72,22 @@ export const TaskList = Node.create<TaskListOptions>({
         return editor?.commands['toggleTaskList']?.() ?? false;
       },
     };
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'taskList',
+        command: 'toggleTaskList',
+        isActive: 'taskList',
+        icon: 'listChecks',
+        label: 'Task List',
+        shortcut: 'Mod-Shift-9',
+        group: 'lists',
+        priority: 170,
+      },
+    ];
   },
 
   addInputRules() {

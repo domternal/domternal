@@ -8,6 +8,7 @@
 import { Node } from '../Node.js';
 import { textblockTypeInputRule } from 'prosemirror-inputrules';
 import type { CommandSpec } from '../types/Commands.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -113,6 +114,22 @@ export const CodeBlock = Node.create<CodeBlockOptions>({
         return editor?.commands['toggleCodeBlock']?.() ?? false;
       },
     };
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'codeBlock',
+        command: 'toggleCodeBlock',
+        isActive: 'codeBlock',
+        icon: 'codeBlock',
+        label: 'Code Block',
+        shortcut: 'Mod-Alt-C',
+        group: 'blocks',
+        priority: 140,
+      },
+    ];
   },
 
   addInputRules() {

@@ -112,7 +112,7 @@ export const Heading = Node.create<HeadingOptions>({
       3: 'textHThree',
     };
 
-    const items: ToolbarButton[] = this.options.levels
+    const headingItems: ToolbarButton[] = this.options.levels
       .filter((level) => level <= 3)
       .map((level) => ({
         type: 'button' as const,
@@ -125,13 +125,23 @@ export const Heading = Node.create<HeadingOptions>({
         shortcut: `Mod-Alt-${String(level)}`,
       }));
 
+    const paragraphItem: ToolbarButton = {
+      type: 'button',
+      name: 'paragraph',
+      command: 'setParagraph',
+      isActive: 'paragraph',
+      icon: 'paragraph',
+      label: 'Normal text',
+      shortcut: 'Mod-Alt-0',
+    };
+
     return [
       {
         type: 'dropdown',
         name: 'heading',
         icon: 'textH',
         label: 'Heading',
-        items,
+        items: [paragraphItem, ...headingItems],
         group: 'blocks',
         priority: 200,
       },
