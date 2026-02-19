@@ -23,6 +23,7 @@
  */
 import { Extension } from '../Extension.js';
 import type { CommandSpec } from '../types/Commands.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -123,5 +124,40 @@ export const LineHeight = Extension.create<LineHeightOptions>({
             .some(Boolean);
         },
     };
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    if (this.options.lineHeights.length === 0) return [];
+
+    const types = this.options.types;
+    return [
+      {
+        type: 'dropdown',
+        name: 'lineHeight',
+        icon: 'lineSegment',
+        label: 'Line Height',
+        group: 'textStyle',
+        priority: 50,
+        items: [
+          ...this.options.lineHeights.map((lh, i) => ({
+            type: 'button' as const,
+            name: `lineHeight-${lh}`,
+            command: 'setLineHeight',
+            commandArgs: [lh],
+            isActive: types.map((t) => ({ name: t, attributes: { lineHeight: lh } })),
+            icon: 'lineSegment',
+            label: lh,
+            priority: 200 - i,
+          })),
+          {
+            type: 'button' as const,
+            name: 'unsetLineHeight',
+            command: 'unsetLineHeight',
+            icon: 'lineSegment',
+            label: 'Default',
+          },
+        ],
+      },
+    ];
   },
 });

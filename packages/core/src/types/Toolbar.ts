@@ -57,9 +57,13 @@ export interface ToolbarButton {
    * How to check if this button is active.
    * - string: extension name passed to `editor.isActive(name)`
    * - object: `{ name, attributes }` passed to `editor.isActive(name, attributes)`
+   * - array: OR-check — active if ANY entry matches (useful for attributes on multiple node types)
    * - undefined: button has no active state (e.g. undo/redo)
    */
-  isActive?: string | { name: string; attributes?: Record<string, unknown> };
+  isActive?:
+    | string
+    | { name: string; attributes?: Record<string, unknown> }
+    | (string | { name: string; attributes?: Record<string, unknown> })[];
 
   /** Icon key (resolved against IconSet) */
   icon: string;

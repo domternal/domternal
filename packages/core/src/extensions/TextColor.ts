@@ -24,6 +24,7 @@
  */
 import { Extension } from '../Extension.js';
 import type { CommandSpec } from '../types/Commands.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 /**
  * Normalizes browser-computed color values (rgb/rgba) to hex format.
@@ -120,5 +121,39 @@ export const TextColor = Extension.create<TextColorOptions>({
           return true;
         },
     };
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    if (this.options.colors.length === 0) return [];
+
+    return [
+      {
+        type: 'dropdown',
+        name: 'textColor',
+        icon: 'palette',
+        label: 'Text Color',
+        group: 'textStyle',
+        priority: 200,
+        items: [
+          ...this.options.colors.map((color, i) => ({
+            type: 'button' as const,
+            name: `textColor-${color}`,
+            command: 'setTextColor',
+            commandArgs: [color],
+            isActive: { name: 'textStyle', attributes: { color } },
+            icon: 'palette',
+            label: color,
+            priority: 200 - i,
+          })),
+          {
+            type: 'button' as const,
+            name: 'unsetTextColor',
+            command: 'unsetTextColor',
+            icon: 'palette',
+            label: 'Default',
+          },
+        ],
+      },
+    ];
   },
 });

@@ -24,6 +24,7 @@
  */
 import { Extension } from '../Extension.js';
 import type { CommandSpec } from '../types/Commands.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -104,5 +105,39 @@ export const FontSize = Extension.create<FontSizeOptions>({
           return true;
         },
     };
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    if (this.options.fontSizes.length === 0) return [];
+
+    return [
+      {
+        type: 'dropdown',
+        name: 'fontSize',
+        icon: 'textIndent',
+        label: 'Font Size',
+        group: 'textStyle',
+        priority: 100,
+        items: [
+          ...this.options.fontSizes.map((size, i) => ({
+            type: 'button' as const,
+            name: `fontSize-${size}`,
+            command: 'setFontSize',
+            commandArgs: [size],
+            isActive: { name: 'textStyle', attributes: { fontSize: size } },
+            icon: 'textIndent',
+            label: size,
+            priority: 200 - i,
+          })),
+          {
+            type: 'button' as const,
+            name: 'unsetFontSize',
+            command: 'unsetFontSize',
+            icon: 'textIndent',
+            label: 'Default',
+          },
+        ],
+      },
+    ];
   },
 });

@@ -44,6 +44,7 @@ import { Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import type { Editor } from '../Editor.js';
 import type { CommandSpec } from '../types/Commands.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -197,6 +198,20 @@ export const InvisibleChars = Extension.create<
           return true;
         },
     };
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'invisibleChars',
+        command: 'toggleInvisibleChars',
+        icon: 'paragraph',
+        label: 'Invisible Characters',
+        group: 'utility',
+        priority: 100,
+      },
+    ];
   },
 
   addProseMirrorPlugins() {

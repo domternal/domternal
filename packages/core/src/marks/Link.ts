@@ -26,6 +26,7 @@ import { linkClickPlugin } from './helpers/linkClickPlugin.js';
 import { linkPastePlugin } from './helpers/linkPastePlugin.js';
 import { autolinkPlugin } from './helpers/autolinkPlugin.js';
 import { linkExitPlugin } from './helpers/linkExitPlugin.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 /**
  * Options for the Link mark
@@ -272,6 +273,21 @@ export const Link = Mark.create<LinkOptions>({
 
   // No keyboard shortcuts for links (requires dialog for URL input)
   // No input rules for links (too complex, requires URL validation)
+
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'link',
+        command: 'unsetLink',
+        isActive: 'link',
+        icon: 'link',
+        label: 'Link',
+        group: 'format',
+        priority: 120,
+      },
+    ];
+  },
 
   addProseMirrorPlugins() {
     const markType = this.markType;

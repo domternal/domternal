@@ -312,7 +312,12 @@ export class ToolbarController {
     const wasActive = this._activeMap.get(item.name) ?? false;
     let nowActive: boolean;
 
-    if (typeof item.isActive === 'string') {
+    if (Array.isArray(item.isActive)) {
+      nowActive = item.isActive.some((check) => {
+        if (typeof check === 'string') return this.editor.isActive(check);
+        return this.editor.isActive(check.name, check.attributes);
+      });
+    } else if (typeof item.isActive === 'string') {
       nowActive = this.editor.isActive(item.isActive);
     } else {
       nowActive = this.editor.isActive(item.isActive.name, item.isActive.attributes);

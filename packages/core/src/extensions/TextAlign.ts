@@ -6,6 +6,7 @@
  */
 import { Extension } from '../Extension.js';
 import type { CommandSpec } from '../types/Commands.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -102,5 +103,71 @@ export const TextAlign = Extension.create<TextAlignOptions>({
       'Mod-Shift-j': () =>
         this.editor?.commands.setTextAlign('justify') ?? false,
     };
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    const types = this.options.types;
+    const makeActive = (alignment: string): { name: string; attributes: Record<string, unknown> }[] =>
+      types.map((t) => ({ name: t, attributes: { textAlign: alignment } }));
+
+    return [
+      {
+        type: 'dropdown',
+        name: 'textAlign',
+        icon: 'textAlignLeft',
+        label: 'Text Alignment',
+        group: 'alignment',
+        priority: 200,
+        items: [
+          {
+            type: 'button',
+            name: 'alignLeft',
+            command: 'setTextAlign',
+            commandArgs: ['left'],
+            isActive: makeActive('left'),
+            icon: 'textAlignLeft',
+            label: 'Align Left',
+            shortcut: 'Mod-Shift-L',
+          },
+          {
+            type: 'button',
+            name: 'alignCenter',
+            command: 'setTextAlign',
+            commandArgs: ['center'],
+            isActive: makeActive('center'),
+            icon: 'textAlignCenter',
+            label: 'Align Center',
+            shortcut: 'Mod-Shift-E',
+          },
+          {
+            type: 'button',
+            name: 'alignRight',
+            command: 'setTextAlign',
+            commandArgs: ['right'],
+            isActive: makeActive('right'),
+            icon: 'textAlignRight',
+            label: 'Align Right',
+            shortcut: 'Mod-Shift-R',
+          },
+          {
+            type: 'button',
+            name: 'alignJustify',
+            command: 'setTextAlign',
+            commandArgs: ['justify'],
+            isActive: makeActive('justify'),
+            icon: 'textAlignJustify',
+            label: 'Justify',
+            shortcut: 'Mod-Shift-J',
+          },
+          {
+            type: 'button',
+            name: 'unsetAlign',
+            command: 'unsetTextAlign',
+            icon: 'textAlignLeft',
+            label: 'Default',
+          },
+        ],
+      },
+    ];
   },
 });
