@@ -69,6 +69,9 @@ export type {
   ToolbarItem,
 } from './types/index.js';
 
+// === ProseMirror re-exports (for framework wrappers) ===
+export { PluginKey } from 'prosemirror-state';
+
 // === Core classes ===
 export { EventEmitter } from './EventEmitter.js';
 export { Editor } from './Editor.js';

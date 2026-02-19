@@ -29,13 +29,16 @@
 // 5. Toolbar
 @use 'toolbar';
 
-// 6. Extension-specific styles
+// 6. Menus (bubble, floating)
+@use 'bubble-menu';
+
+// 7. Extension-specific styles
 @use 'placeholder';
 @use 'task-list';
 @use 'mention';
 @use 'image';
 @use 'details';
 
-// 7. Themes
+// 8. Themes
 @use 'themes/light';
 @use 'themes/dark';

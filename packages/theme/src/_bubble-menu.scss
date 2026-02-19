@@ -1,0 +1,24 @@
+// =============================================================================
+// Bubble Menu Styles
+// =============================================================================
+
+.dm-bubble-menu {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: var(--dm-toolbar-gap);
+  padding: var(--dm-toolbar-padding);
+  background: var(--dm-toolbar-bg);
+  border: var(--dm-toolbar-border);
+  border-radius: var(--dm-button-border-radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.15s, visibility 0.15s;
+  z-index: 50;
+
+  &[data-show] {
+    visibility: visible;
+    opacity: 1;
+  }
+}
