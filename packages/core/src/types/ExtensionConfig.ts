@@ -9,6 +9,7 @@ import type { Plugin, Transaction, EditorState } from 'prosemirror-state';
 import type { InputRule } from 'prosemirror-inputrules';
 import type { EditorView } from 'prosemirror-view';
 import type { Command, KeyboardShortcutCommand, SingleCommands } from './Commands.js';
+import type { ToolbarItem } from './Toolbar.js';
 
 /**
  * Editor instance type (forward declaration)
@@ -220,6 +221,26 @@ export interface ExtensionConfigBase<Options = unknown, Storage = unknown> {
    * }
    */
   addGlobalAttributes?: () => GlobalAttributes[];
+
+  /**
+   * Toolbar items this extension contributes.
+   * Framework toolbar components read these to auto-generate buttons.
+   *
+   * @example
+   * addToolbarItems() {
+   *   return [{
+   *     type: 'button',
+   *     name: 'bold',
+   *     command: 'toggleBold',
+   *     isActive: 'bold',
+   *     icon: 'textB',
+   *     label: 'Bold',
+   *     shortcut: 'Mod-b',
+   *     group: 'format',
+   *   }];
+   * }
+   */
+  addToolbarItems?: () => ToolbarItem[];
 
   // === Lifecycle Hooks ===
 

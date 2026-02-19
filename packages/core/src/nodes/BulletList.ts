@@ -8,6 +8,7 @@
 import { Node } from '../Node.js';
 import { wrappingInputRule } from 'prosemirror-inputrules';
 import type { CommandSpec } from '../types/Commands.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -49,6 +50,22 @@ export const BulletList = Node.create<BulletListOptions>({
           return commands.toggleList(name, options.itemTypeName);
         },
     };
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'bulletList',
+        command: 'toggleBulletList',
+        isActive: 'bulletList',
+        icon: 'listBullets',
+        label: 'Bullet List',
+        shortcut: 'Mod-Shift-8',
+        group: 'lists',
+        priority: 200,
+      },
+    ];
   },
 
   addKeyboardShortcuts() {

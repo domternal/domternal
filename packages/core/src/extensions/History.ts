@@ -6,6 +6,7 @@
 import { history, undo, redo } from 'prosemirror-history';
 import { Extension } from '../Extension.js';
 import type { CommandSpec } from '../types/Commands.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -51,6 +52,31 @@ export const History = Extension.create<HistoryOptions>({
         ({ state, dispatch }) =>
           redo(state, dispatch),
     };
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'undo',
+        command: 'undo',
+        icon: 'arrowCounterClockwise',
+        label: 'Undo',
+        shortcut: 'Mod-Z',
+        group: 'history',
+        priority: 200,
+      },
+      {
+        type: 'button',
+        name: 'redo',
+        command: 'redo',
+        icon: 'arrowClockwise',
+        label: 'Redo',
+        shortcut: 'Mod-Shift-Z',
+        group: 'history',
+        priority: 190,
+      },
+    ];
   },
 
   addKeyboardShortcuts() {

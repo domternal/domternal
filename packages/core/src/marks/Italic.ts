@@ -18,6 +18,7 @@
  */
 import { Mark } from '../Mark.js';
 import { markInputRule } from '../helpers/markInputRule.js';
+import type { ToolbarItem } from '../types/Toolbar.js';
 
 /**
  * Options for the Italic mark
@@ -91,6 +92,22 @@ export const Italic = Mark.create<ItalicOptions>({
         () =>
         ({ commands }) => commands.toggleMark('italic'),
     };
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'italic',
+        command: 'toggleItalic',
+        isActive: 'italic',
+        icon: 'textItalic',
+        label: 'Italic',
+        shortcut: 'Mod-I',
+        group: 'format',
+        priority: 190,
+      },
+    ];
   },
 
   addInputRules() {

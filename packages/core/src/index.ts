@@ -61,6 +61,12 @@ export type {
   MarkParseRule,
   MarkRenderHTMLProps,
   MarkConfig,
+  // Toolbar types
+  IconSet,
+  ToolbarButton,
+  ToolbarDropdown,
+  ToolbarSeparator,
+  ToolbarItem,
 } from './types/index.js';
 
 // === Core classes ===
@@ -110,6 +116,17 @@ export {
 // === Extension System ===
 export { Extension } from './Extension.js';
 export { Node } from './Node.js';
+
+// === Toolbar ===
+export {
+  ToolbarController,
+  type ToolbarControllerEditor,
+  type ToolbarGroup,
+} from './ToolbarController.js';
+
+// === Icons ===
+export { defaultIcons } from './icons/index.js';
+
 export { Mark } from './Mark.js';
 
 // === Command System ===
