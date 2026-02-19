@@ -10,12 +10,25 @@
     <domternal-toolbar [editor]="editor" />
   }
 
-  <domternal-editor
-    #ec
-    [extensions]="extensions"
-    [content]="'<p>Hello <strong>World</strong>! Try the toolbar buttons above.</p>'"
-    (editorCreated)="onEditorCreated($event)"
-  />
+  <div style="position: relative;">
+    <domternal-editor
+      #ec
+      [extensions]="extensions"
+      [content]="'<p>Hello <strong>World</strong>! Try the toolbar buttons above.</p>'"
+      (editorCreated)="onEditorCreated($event)"
+    />
+
+    @if (editor) {
+      <domternal-bubble-menu [editor]="editor">
+        <button class="dm-toolbar-button" (mousedown)="$event.preventDefault()"
+          (click)="editor!.commands['toggleBold']?.()">B</button>
+        <button class="dm-toolbar-button" (mousedown)="$event.preventDefault()"
+          (click)="editor!.commands['toggleItalic']?.()">I</button>
+        <button class="dm-toolbar-button" (mousedown)="$event.preventDefault()"
+          (click)="editor!.commands['toggleUnderline']?.()">U</button>
+      </domternal-bubble-menu>
+    }
+  </div>
 
   <h3>HTML Output</h3>
   <pre class="output">{{ ec.htmlContent() }}</pre>
