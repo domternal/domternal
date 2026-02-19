@@ -62,13 +62,17 @@ export { FontSize, type FontSizeOptions } from './FontSize.js';
 // Menu Extensions
 export {
   BubbleMenu,
+  createBubbleMenuPlugin,
   bubbleMenuPluginKey,
   type BubbleMenuOptions,
+  type CreateBubbleMenuPluginOptions,
 } from './BubbleMenu.js';
 export {
   FloatingMenu,
+  createFloatingMenuPlugin,
   floatingMenuPluginKey,
   type FloatingMenuOptions,
+  type CreateFloatingMenuPluginOptions,
 } from './FloatingMenu.js';
 
 // Bundle

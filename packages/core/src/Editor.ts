@@ -3,7 +3,7 @@
  *
  * Manages extensions, schema, commands, and the ProseMirror EditorView/State.
  */
-import type { Transaction } from 'prosemirror-state';
+import type { Transaction, Plugin, PluginKey } from 'prosemirror-state';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { DOMSerializer } from 'prosemirror-model';
@@ -489,6 +489,34 @@ export class Editor extends EventEmitter<EditorEvents> {
   blur(): this {
     this.runCommand(blurCommand());
     return this;
+  }
+
+  // === Dynamic Plugin Management ===
+
+  /**
+   * Registers a ProseMirror plugin dynamically at runtime.
+   * Used by framework wrappers (e.g. Angular BubbleMenu component) to add
+   * plugins after the editor is created.
+   */
+  registerPlugin(plugin: Plugin): void {
+    const newState = this.view.state.reconfigure({
+      plugins: [...this.view.state.plugins, plugin],
+    });
+    this.view.updateState(newState);
+  }
+
+  /**
+   * Unregisters a ProseMirror plugin by its PluginKey.
+   * Uses PluginKey.get() to identify the plugin to remove.
+   */
+  unregisterPlugin(key: PluginKey): void {
+    const pluginToRemove = key.get(this.view.state);
+    if (!pluginToRemove) return;
+
+    const newState = this.view.state.reconfigure({
+      plugins: this.view.state.plugins.filter((p) => p !== pluginToRemove),
+    });
+    this.view.updateState(newState);
   }
 
   /**

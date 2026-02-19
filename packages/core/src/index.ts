@@ -289,11 +289,15 @@ export {
   type FontSizeOptions,
   // Menu Extensions
   BubbleMenu,
+  createBubbleMenuPlugin,
   bubbleMenuPluginKey,
   type BubbleMenuOptions,
+  type CreateBubbleMenuPluginOptions,
   FloatingMenu,
+  createFloatingMenuPlugin,
   floatingMenuPluginKey,
   type FloatingMenuOptions,
+  type CreateFloatingMenuPluginOptions,
   // Bundle
   StarterKit,
   type StarterKitOptions,

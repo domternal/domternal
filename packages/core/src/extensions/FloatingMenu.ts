@@ -99,6 +99,98 @@ export interface FloatingMenuOptions {
   offset: [number, number];
 }
 
+export interface CreateFloatingMenuPluginOptions {
+  pluginKey: PluginKey;
+  editor: Editor;
+  element: HTMLElement;
+  shouldShow?: FloatingMenuOptions['shouldShow'];
+  offset?: [number, number];
+}
+
+/**
+ * Creates a standalone FloatingMenu ProseMirror plugin.
+ * Can be used by framework wrappers (Angular, React, Vue) to create the plugin
+ * independently of the extension system.
+ */
+export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOptions): Plugin {
+  const {
+    pluginKey,
+    editor,
+    element,
+    shouldShow = defaultShouldShow,
+    offset = [0, 0],
+  } = options;
+
+  const updatePosition = (view: EditorView): void => {
+    const { selection } = view.state;
+    const { $from } = selection;
+
+    // Get the DOM node for the paragraph the cursor is in
+    const depth = $from.depth;
+    const startPos = $from.start(depth);
+    const domNode = view.nodeDOM(startPos - 1);
+
+    if (domNode instanceof HTMLElement) {
+      const rect = domNode.getBoundingClientRect();
+
+      // Compute offset from the element's offsetParent so positioning
+      // works for both position:fixed and position:absolute elements.
+      const offsetParent = element.offsetParent;
+      const parentRect = offsetParent
+        ? offsetParent.getBoundingClientRect()
+        : { top: 0, left: 0 };
+
+      let top = rect.bottom + offset[1];
+      const left = rect.left + offset[0];
+
+      // Viewport boundary: if menu would go below viewport, show above
+      const menuRect = element.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+
+      if (top + menuRect.height > viewportHeight - 10) {
+        top = rect.top - menuRect.height - offset[1];
+      }
+
+      // Convert viewport coordinates to offsetParent-relative coordinates
+      element.style.top = `${String(top - parentRect.top)}px`;
+      element.style.left = `${String(left - parentRect.left)}px`;
+    }
+
+    element.setAttribute('data-show', '');
+  };
+
+  const hideMenu = (): void => {
+    element.removeAttribute('data-show');
+  };
+
+  // Initially hide
+  hideMenu();
+
+  return new Plugin({
+    key: pluginKey,
+
+    view: () => ({
+      update: (view) => {
+        const visible = shouldShow({
+          editor,
+          view,
+          state: view.state,
+        });
+
+        if (visible) {
+          updatePosition(view);
+        } else {
+          hideMenu();
+        }
+      },
+
+      destroy: () => {
+        hideMenu();
+      },
+    }),
+  });
+}
+
 export const FloatingMenu = Extension.create<FloatingMenuOptions>({
   name: 'floatingMenu',
 
@@ -118,77 +210,17 @@ export const FloatingMenu = Extension.create<FloatingMenuOptions>({
     }
 
     const editor = this.editor as Editor | null;
-
-    const updatePosition = (view: EditorView): void => {
-      const { selection } = view.state;
-      const { $from } = selection;
-
-      // Get the DOM node for the paragraph the cursor is in
-      const depth = $from.depth;
-      const startPos = $from.start(depth);
-      const domNode = view.nodeDOM(startPos - 1);
-
-      if (domNode instanceof HTMLElement) {
-        const rect = domNode.getBoundingClientRect();
-
-        // Compute offset from the element's offsetParent so positioning
-        // works for both position:fixed and position:absolute elements.
-        const offsetParent = element.offsetParent;
-        const parentRect = offsetParent
-          ? offsetParent.getBoundingClientRect()
-          : { top: 0, left: 0 };
-
-        let top = rect.bottom + offset[1];
-        const left = rect.left + offset[0];
-
-        // Viewport boundary: if menu would go below viewport, show above
-        const menuRect = element.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-
-        if (top + menuRect.height > viewportHeight - 10) {
-          top = rect.top - menuRect.height - offset[1];
-        }
-
-        // Convert viewport coordinates to offsetParent-relative coordinates
-        element.style.top = `${String(top - parentRect.top)}px`;
-        element.style.left = `${String(left - parentRect.left)}px`;
-      }
-
-      element.setAttribute('data-show', '');
-    };
-
-    const hideMenu = (): void => {
-      element.removeAttribute('data-show');
-    };
-
-    // Initially hide
-    hideMenu();
+    if (!editor) {
+      return [];
+    }
 
     return [
-      new Plugin({
-        key: floatingMenuPluginKey,
-
-        view: () => ({
-          update: (view) => {
-            if (!editor) return;
-
-            const visible = shouldShow({
-              editor,
-              view,
-              state: view.state,
-            });
-
-            if (visible) {
-              updatePosition(view);
-            } else {
-              hideMenu();
-            }
-          },
-
-          destroy: () => {
-            hideMenu();
-          },
-        }),
+      createFloatingMenuPlugin({
+        pluginKey: floatingMenuPluginKey,
+        editor,
+        element,
+        shouldShow,
+        offset,
       }),
     ];
   },

@@ -90,6 +90,168 @@ interface BubbleMenuPluginState {
   to: number;
 }
 
+export interface CreateBubbleMenuPluginOptions {
+  pluginKey: PluginKey;
+  editor: Editor;
+  element: HTMLElement;
+  shouldShow?: BubbleMenuOptions['shouldShow'];
+  placement?: 'top' | 'bottom';
+  offset?: [number, number];
+  updateDelay?: number;
+}
+
+/**
+ * Creates a standalone BubbleMenu ProseMirror plugin.
+ * Can be used by framework wrappers (Angular, React, Vue) to create the plugin
+ * independently of the extension system.
+ */
+export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): Plugin {
+  const {
+    pluginKey,
+    editor,
+    element,
+    shouldShow = ({ state }): boolean => !state.selection.empty,
+    placement = 'top',
+    offset = [0, 8],
+    updateDelay = 0,
+  } = options;
+
+  let updateTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  const updatePosition = (view: EditorView, from: number, to: number): void => {
+    // coordsAtPos returns viewport-relative (screen) coordinates
+    const start = view.coordsAtPos(from);
+    const end = view.coordsAtPos(to);
+
+    const centerX = (start.left + end.left) / 2;
+    const menuRect = element.getBoundingClientRect();
+
+    // Compute offset from the element's offsetParent so positioning
+    // works for both position:fixed and position:absolute elements.
+    const offsetParent = element.offsetParent;
+    const parentRect = offsetParent
+      ? offsetParent.getBoundingClientRect()
+      : { top: 0, left: 0 };
+
+    let top: number;
+    let left: number;
+
+    if (placement === 'top') {
+      top = start.top - menuRect.height - offset[1];
+    } else {
+      top = end.bottom + offset[1];
+    }
+
+    left = centerX - menuRect.width / 2 + offset[0];
+
+    // Viewport boundary checks (in screen coordinates)
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    if (left < 10) left = 10;
+    if (left + menuRect.width > viewportWidth - 10) {
+      left = viewportWidth - menuRect.width - 10;
+    }
+
+    // Flip placement if menu would go off-screen
+    if (placement === 'top' && top < 10) {
+      top = end.bottom + offset[1];
+    } else if (
+      placement === 'bottom' &&
+      top + menuRect.height > viewportHeight - 10
+    ) {
+      top = start.top - menuRect.height - offset[1];
+    }
+
+    // Convert viewport coordinates to offsetParent-relative coordinates
+    element.style.top = `${String(top - parentRect.top)}px`;
+    element.style.left = `${String(left - parentRect.left)}px`;
+    element.setAttribute('data-show', '');
+  };
+
+  const hideMenu = (): void => {
+    element.removeAttribute('data-show');
+  };
+
+  // Initially hide
+  hideMenu();
+
+  return new Plugin({
+    key: pluginKey,
+
+    state: {
+      init: (): BubbleMenuPluginState => ({
+        visible: false,
+        from: 0,
+        to: 0,
+      }),
+      apply: (_tr, _value, _oldState, newState): BubbleMenuPluginState => {
+        const { selection } = newState;
+        const { from, to } = selection;
+
+        // Determine visibility
+        const visible =
+          !selection.empty &&
+          shouldShow({
+            editor,
+            view: editor.view,
+            state: newState,
+            from,
+            to,
+          });
+
+        return { visible, from, to };
+      },
+    },
+
+    view: () => ({
+      update: (view, prevState) => {
+        const state = pluginKey.getState(view.state) as
+          | BubbleMenuPluginState
+          | undefined;
+        const prevPluginState = pluginKey.getState(prevState) as
+          | BubbleMenuPluginState
+          | undefined;
+
+        // Skip if nothing changed
+        if (
+          state?.visible === prevPluginState?.visible &&
+          state?.from === prevPluginState?.from &&
+          state?.to === prevPluginState?.to
+        ) {
+          return;
+        }
+
+        // Clear pending update
+        if (updateTimeout) {
+          clearTimeout(updateTimeout);
+          updateTimeout = null;
+        }
+
+        if (state?.visible) {
+          // Show menu with delay
+          if (updateDelay > 0) {
+            updateTimeout = setTimeout(() => {
+              updatePosition(view, state.from, state.to);
+            }, updateDelay);
+          } else {
+            updatePosition(view, state.from, state.to);
+          }
+        } else {
+          hideMenu();
+        }
+      },
+
+      destroy: () => {
+        if (updateTimeout) {
+          clearTimeout(updateTimeout);
+        }
+        hideMenu();
+      },
+    }),
+  });
+}
+
 export const BubbleMenu = Extension.create<BubbleMenuOptions>({
   name: 'bubbleMenu',
 
@@ -112,144 +274,19 @@ export const BubbleMenu = Extension.create<BubbleMenuOptions>({
     }
 
     const editor = this.editor as Editor | null;
-    let updateTimeout: ReturnType<typeof setTimeout> | null = null;
-
-    const updatePosition = (view: EditorView, from: number, to: number): void => {
-      // coordsAtPos returns viewport-relative (screen) coordinates
-      const start = view.coordsAtPos(from);
-      const end = view.coordsAtPos(to);
-
-      const centerX = (start.left + end.left) / 2;
-      const menuRect = element.getBoundingClientRect();
-
-      // Compute offset from the element's offsetParent so positioning
-      // works for both position:fixed and position:absolute elements.
-      const offsetParent = element.offsetParent;
-      const parentRect = offsetParent
-        ? offsetParent.getBoundingClientRect()
-        : { top: 0, left: 0 };
-
-      let top: number;
-      let left: number;
-
-      if (placement === 'top') {
-        top = start.top - menuRect.height - offset[1];
-      } else {
-        top = end.bottom + offset[1];
-      }
-
-      left = centerX - menuRect.width / 2 + offset[0];
-
-      // Viewport boundary checks (in screen coordinates)
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-
-      if (left < 10) left = 10;
-      if (left + menuRect.width > viewportWidth - 10) {
-        left = viewportWidth - menuRect.width - 10;
-      }
-
-      // Flip placement if menu would go off-screen
-      if (placement === 'top' && top < 10) {
-        top = end.bottom + offset[1];
-      } else if (
-        placement === 'bottom' &&
-        top + menuRect.height > viewportHeight - 10
-      ) {
-        top = start.top - menuRect.height - offset[1];
-      }
-
-      // Convert viewport coordinates to offsetParent-relative coordinates
-      element.style.top = `${String(top - parentRect.top)}px`;
-      element.style.left = `${String(left - parentRect.left)}px`;
-      element.setAttribute('data-show', '');
-    };
-
-    const hideMenu = (): void => {
-      element.removeAttribute('data-show');
-    };
-
-    // Initially hide
-    hideMenu();
+    if (!editor) {
+      return [];
+    }
 
     return [
-      new Plugin({
-        key: bubbleMenuPluginKey,
-
-        state: {
-          init: (): BubbleMenuPluginState => ({
-            visible: false,
-            from: 0,
-            to: 0,
-          }),
-          apply: (_tr, _value, _oldState, newState): BubbleMenuPluginState => {
-            if (!editor) {
-              return { visible: false, from: 0, to: 0 };
-            }
-
-            const { selection } = newState;
-            const { from, to } = selection;
-
-            // Determine visibility
-            const visible =
-              !selection.empty &&
-              shouldShow({
-                editor,
-                view: editor.view,
-                state: newState,
-                from,
-                to,
-              });
-
-            return { visible, from, to };
-          },
-        },
-
-        view: () => ({
-          update: (view, prevState) => {
-            const state = bubbleMenuPluginKey.getState(view.state) as
-              | BubbleMenuPluginState
-              | undefined;
-            const prevPluginState = bubbleMenuPluginKey.getState(prevState) as
-              | BubbleMenuPluginState
-              | undefined;
-
-            // Skip if nothing changed
-            if (
-              state?.visible === prevPluginState?.visible &&
-              state?.from === prevPluginState?.from &&
-              state?.to === prevPluginState?.to
-            ) {
-              return;
-            }
-
-            // Clear pending update
-            if (updateTimeout) {
-              clearTimeout(updateTimeout);
-              updateTimeout = null;
-            }
-
-            if (state?.visible) {
-              // Show menu with delay
-              if (updateDelay > 0) {
-                updateTimeout = setTimeout(() => {
-                  updatePosition(view, state.from, state.to);
-                }, updateDelay);
-              } else {
-                updatePosition(view, state.from, state.to);
-              }
-            } else {
-              hideMenu();
-            }
-          },
-
-          destroy: () => {
-            if (updateTimeout) {
-              clearTimeout(updateTimeout);
-            }
-            hideMenu();
-          },
-        }),
+      createBubbleMenuPlugin({
+        pluginKey: bubbleMenuPluginKey,
+        editor,
+        element,
+        shouldShow,
+        placement,
+        offset,
+        updateDelay,
       }),
     ];
   },
