@@ -33,6 +33,10 @@
       > div {
         flex: 1;
         min-width: 0;
+
+        > p {
+          margin: 0;
+        }
       }
 
       // Checked state — strikethrough and dimmed

@@ -42,8 +42,8 @@ const lowlight = createLowlight(common);
 export class App {
   // History is already in DEFAULT_EXTENSIONS (from DomternalEditorComponent)
   extensions = [
-    Bold,
     Italic,
+    Bold,
     Underline,
     Strike,
     Code,
@@ -71,7 +71,6 @@ export class App {
 
   onEditorCreated(editor: Editor): void {
     this.editor = editor;
-    (window as unknown as Record<string, unknown>)['__e2eEditor'] = editor;
   }
 
   toggleTheme(): void {

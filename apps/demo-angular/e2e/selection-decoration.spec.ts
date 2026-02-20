@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 const editorSelector = 'domternal-editor .ProseMirror';
-const boldButton = 'button:has(strong)';
+const boldButton = 'button[aria-label="Bold"]';
 const blurClass = 'dm-blur-selection';
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 

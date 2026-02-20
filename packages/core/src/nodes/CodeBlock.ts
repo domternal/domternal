@@ -3,10 +3,16 @@
  *
  * Block-level code container with syntax highlighting support.
  * Preserves whitespace and disallows marks.
+ *
+ * Keyboard shortcuts:
+ * - Mod-Alt-C: Toggle code block
+ * - Enter (triple): Exit code block when last 2 lines are empty
+ * - ArrowDown: Exit code block when cursor is at the end and it's the last block
  */
 
 import { Node } from '../Node.js';
 import { textblockTypeInputRule } from 'prosemirror-inputrules';
+import { TextSelection } from 'prosemirror-state';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 
@@ -109,9 +115,42 @@ export const CodeBlock = Node.create<CodeBlockOptions>({
 
   addKeyboardShortcuts() {
     const { editor } = this;
+
+    const exitCodeBlock = (): boolean => {
+      if (!editor) return false;
+      const { state, view } = editor;
+      const after = state.selection.$head.after();
+      const paragraph = state.schema.nodes['paragraph']?.createAndFill();
+      if (!paragraph) return false;
+      const tr = state.tr.insert(after, paragraph);
+      tr.setSelection(TextSelection.near(tr.doc.resolve(after + 1)));
+      view.dispatch(tr.scrollIntoView());
+      return true;
+    };
+
     return {
-      'Mod-Alt-c': () => {
-        return editor?.commands['toggleCodeBlock']?.() ?? false;
+      'Mod-Alt-c': () => editor?.commands['toggleCodeBlock']?.() ?? false,
+
+      Enter: () => {
+        if (!this.options.exitOnTripleEnter || !editor) return false;
+        const { $head } = editor.state.selection;
+        if ($head.parent.type !== this.nodeType) return false;
+        const pos = $head.parentOffset;
+        if (pos < 2 || pos !== $head.parent.content.size) return false;
+        const text = $head.parent.textContent;
+        if (text[pos - 1] !== '\n' || text[pos - 2] !== '\n') return false;
+        editor.view.dispatch(editor.state.tr.delete($head.pos - 2, $head.pos));
+        return exitCodeBlock();
+      },
+
+      ArrowDown: () => {
+        if (!editor) return false;
+        const { $head } = editor.state.selection;
+        if ($head.parent.type !== this.nodeType) return false;
+        if ($head.parentOffset !== $head.parent.content.size) return false;
+        const after = $head.after();
+        if (after < editor.state.doc.content.size && editor.state.doc.resolve(after).nodeAfter) return false;
+        return exitCodeBlock();
       },
     };
   },
