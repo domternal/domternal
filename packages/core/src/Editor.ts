@@ -499,6 +499,9 @@ export class Editor extends EventEmitter<EditorEvents> {
    * plugins after the editor is created.
    */
   registerPlugin(plugin: Plugin): void {
+    // Prevent duplicate registration (same plugin key)
+    if (plugin.spec.key?.get(this.view.state)) return;
+
     const newState = this.view.state.reconfigure({
       plugins: [...this.view.state.plugins, plugin],
     });

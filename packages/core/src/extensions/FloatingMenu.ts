@@ -154,9 +154,8 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
       // Convert viewport coordinates to offsetParent-relative coordinates
       element.style.top = `${String(top - parentRect.top)}px`;
       element.style.left = `${String(left - parentRect.left)}px`;
+      element.setAttribute('data-show', '');
     }
-
-    element.setAttribute('data-show', '');
   };
 
   const hideMenu = (): void => {

@@ -305,15 +305,23 @@ export class ToolbarController {
   private updateActiveStates(): void {
     let changed = false;
 
+    // Cache can() proxy once per cycle — avoids creating a new Proxy per button
+    let canProxy: Record<string, (...args: unknown[]) => boolean> | null = null;
+    try {
+      canProxy = this.editor.can();
+    } catch {
+      // can() may throw if editor is in an invalid state
+    }
+
     for (const group of this._groups) {
       for (const item of group.items) {
         if (item.type === 'button') {
           if (this.checkButtonActive(item)) changed = true;
-          if (this.checkButtonDisabled(item)) changed = true;
+          if (this.checkButtonDisabled(item, canProxy)) changed = true;
         } else if (item.type === 'dropdown') {
           for (const sub of item.items) {
             if (this.checkButtonActive(sub)) changed = true;
-            if (this.checkButtonDisabled(sub)) changed = true;
+            if (this.checkButtonDisabled(sub, canProxy)) changed = true;
           }
         }
       }
@@ -324,22 +332,24 @@ export class ToolbarController {
     }
   }
 
-  private checkButtonDisabled(item: ToolbarButton): boolean {
+  private checkButtonDisabled(
+    item: ToolbarButton,
+    canProxy: Record<string, (...args: unknown[]) => boolean> | null,
+  ): boolean {
     const wasDisabled = this._disabledMap.get(item.name) ?? false;
     let nowDisabled = false;
 
     try {
-      const can = this.editor.can();
-      const canCmd = can[item.command];
-      if (canCmd) {
-        if (item.commandArgs && item.commandArgs.length > 0) {
-          nowDisabled = !canCmd(...item.commandArgs);
-        } else {
-          nowDisabled = !canCmd();
+      if (canProxy) {
+        const canCmd = canProxy[item.command];
+        if (canCmd) {
+          nowDisabled = item.commandArgs?.length
+            ? !canCmd(...item.commandArgs)
+            : !canCmd();
         }
       }
     } catch {
-      nowDisabled = false;
+      // Command dry-run may throw (e.g. buggy extension) — treat as enabled
     }
 
     if (wasDisabled !== nowDisabled) {
