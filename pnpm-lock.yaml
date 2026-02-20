@@ -74,9 +74,15 @@ importers:
       '@domternal/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@domternal/extension-code-block-lowlight':
+        specifier: workspace:*
+        version: link:../../packages/extension-code-block-lowlight
       '@domternal/theme':
         specifier: workspace:*
         version: link:../../packages/theme
+      lowlight:
+        specifier: ^3.0.0
+        version: 3.3.0
       rxjs:
         specifier: ~7.8.0
         version: 7.8.2

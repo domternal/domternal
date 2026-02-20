@@ -14,7 +14,7 @@
     <domternal-editor
       #ec
       [extensions]="extensions"
-      [content]="'<p>Hello <strong>World</strong>! Try the toolbar buttons above.</p>'"
+      [content]="'<p>Hello <strong>World</strong>! Try the toolbar buttons above.</p><pre><code class=&quot;language-javascript&quot;>function greet(name) {\n  const message = `Hello, ${name}!`;\n  console.log(message); // prints greeting\n  return message;\n}</code></pre><p>Code blocks now have <em>syntax highlighting</em>.</p>'"
       (editorCreated)="onEditorCreated($event)"
     />
 

@@ -31,6 +31,8 @@
     "@angular/platform-browser": "^21.1.0",
     "@domternal/angular": "workspace:*",
     "@domternal/core": "workspace:*",
+    "@domternal/extension-code-block-lowlight": "workspace:*",
+    "lowlight": "^3.0.0",
     "@domternal/theme": "workspace:*",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"

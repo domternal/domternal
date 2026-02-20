@@ -16,7 +16,6 @@ import {
   Link,
   Heading,
   Blockquote,
-  CodeBlock,
   HorizontalRule,
   BulletList,
   OrderedList,
@@ -30,6 +29,10 @@ import {
   SelectionDecoration,
   Editor,
 } from '@domternal/core';
+import { CodeBlockLowlight } from '@domternal/extension-code-block-lowlight';
+import { createLowlight, common } from 'lowlight';
+
+const lowlight = createLowlight(common);
 
 @Component({
   selector: 'app-root',
@@ -50,7 +53,7 @@ export class App {
     Link,
     Heading,
     Blockquote,
-    CodeBlock,
+    CodeBlockLowlight.configure({ lowlight }),
     HorizontalRule,
     BulletList,
     OrderedList,

@@ -28,6 +28,19 @@
   --dm-code-surface: #2d2d2d;
   --dm-code-color: inherit;
   --dm-highlight-bg: rgba(255, 243, 205, 0.2);
+
+  // Syntax highlighting
+  --dm-syntax-keyword: #ff7b72;
+  --dm-syntax-entity: #d2a8ff;
+  --dm-syntax-constant: #79c0ff;
+  --dm-syntax-string: #a5d6ff;
+  --dm-syntax-variable: #ffa657;
+  --dm-syntax-comment: #8b949e;
+  --dm-syntax-tag: #7ee787;
+  --dm-syntax-addition: #aff5b4;
+  --dm-syntax-addition-bg: #033a16;
+  --dm-syntax-deletion: #ffdcd7;
+  --dm-syntax-deletion-bg: #67060c;
 }
 
 .dm-theme-dark,

@@ -71,6 +71,21 @@
   --dm-code-block-text: var(--dm-text);
 
   // ---------------------------------------------------------------------------
+  // Syntax highlighting (CodeBlockLowlight)
+  // ---------------------------------------------------------------------------
+  --dm-syntax-keyword: #d73a49;
+  --dm-syntax-entity: #6f42c1;
+  --dm-syntax-constant: #005cc5;
+  --dm-syntax-string: #032f62;
+  --dm-syntax-variable: #e36209;
+  --dm-syntax-comment: #6a737d;
+  --dm-syntax-tag: #22863a;
+  --dm-syntax-addition: #22863a;
+  --dm-syntax-addition-bg: #f0fff4;
+  --dm-syntax-deletion: #b31d28;
+  --dm-syntax-deletion-bg: #ffeef0;
+
+  // ---------------------------------------------------------------------------
   // Blockquote
   // ---------------------------------------------------------------------------
   --dm-blockquote-border: 3px solid #6a6a6a;
