@@ -307,23 +307,36 @@ export const toggleMark: CommandSpec<[markName: string, attributes?: Attrs]> =
 
     const { from, to, empty } = tr.selection;
 
-    // Check if mark can be applied in this context
-    let canApply = false;
+    // Check if mark can be applied — respects both schema (allowsMarkType)
+    // and mark exclusions (e.g. code mark excludes bold/italic/etc.)
     if (empty) {
       const $pos = tr.doc.resolve(from);
-      canApply = $pos.parent.inlineContent && $pos.parent.type.allowsMarkType(markType);
+      if (!$pos.parent.inlineContent || !$pos.parent.type.allowsMarkType(markType)) {
+        return false;
+      }
+      const cursorMarks = tr.storedMarks ?? state.storedMarks ?? $pos.marks();
+      if (cursorMarks.some((m) => m.type.excludes(markType) && m.type !== markType)) {
+        return false;
+      }
     } else {
-      tr.doc.nodesBetween(from, to, (node) => {
-        if (canApply) return false;
-        if (node.inlineContent && node.type.allowsMarkType(markType)) {
-          canApply = true;
-          return false;
-        }
-        return;
-      });
-    }
+      const ctx = { parentAllows: false, hasText: false, hasApplicableText: false };
 
-    if (!canApply) return false;
+      tr.doc.nodesBetween(from, to, (node) => {
+        if (node.inlineContent && node.type.allowsMarkType(markType)) {
+          ctx.parentAllows = true;
+        }
+        if (node.isText) {
+          ctx.hasText = true;
+          if (!node.marks.some((m) => m.type.excludes(markType) && m.type !== markType)) {
+            ctx.hasApplicableText = true;
+          }
+        }
+      });
+
+      if (!ctx.parentAllows || (ctx.hasText && !ctx.hasApplicableText)) {
+        return false;
+      }
+    }
     if (!dispatch) return true;
 
     if (empty) {

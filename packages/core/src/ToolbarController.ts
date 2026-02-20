@@ -27,6 +27,7 @@ export interface ToolbarControllerEditor {
     attributes?: Record<string, unknown>
   ): boolean;
   readonly commands: Record<string, (...args: unknown[]) => boolean>;
+  can(): Record<string, (...args: unknown[]) => boolean>;
   on(event: string, handler: (...args: unknown[]) => void): void;
   off(event: string, handler: (...args: unknown[]) => void): void;
 }
@@ -59,6 +60,9 @@ export class ToolbarController {
   /** Active state for each button (keyed by item.name) */
   private _activeMap = new Map<string, boolean>();
 
+  /** Disabled state for each button (keyed by item.name) */
+  private _disabledMap = new Map<string, boolean>();
+
   /** Currently open dropdown name (null = none) */
   private _openDropdown: string | null = null;
 
@@ -84,6 +88,10 @@ export class ToolbarController {
     return this._activeMap;
   }
 
+  get disabledMap(): ReadonlyMap<string, boolean> {
+    return this._disabledMap;
+  }
+
   get openDropdown(): string | null {
     return this._openDropdown;
   }
@@ -103,6 +111,13 @@ export class ToolbarController {
    */
   isActive(item: ToolbarButton): boolean {
     return this._activeMap.get(item.name) ?? false;
+  }
+
+  /**
+   * Checks if a toolbar button is currently disabled (command cannot execute).
+   */
+  isDisabled(item: ToolbarButton): boolean {
+    return this._disabledMap.get(item.name) ?? false;
   }
 
   /**
@@ -218,6 +233,7 @@ export class ToolbarController {
     }
     this._groups = [];
     this._activeMap.clear();
+    this._disabledMap.clear();
     this._flatButtons = [];
   }
 
@@ -293,9 +309,11 @@ export class ToolbarController {
       for (const item of group.items) {
         if (item.type === 'button') {
           if (this.checkButtonActive(item)) changed = true;
+          if (this.checkButtonDisabled(item)) changed = true;
         } else if (item.type === 'dropdown') {
           for (const sub of item.items) {
             if (this.checkButtonActive(sub)) changed = true;
+            if (this.checkButtonDisabled(sub)) changed = true;
           }
         }
       }
@@ -304,6 +322,32 @@ export class ToolbarController {
     if (changed) {
       this.onChange();
     }
+  }
+
+  private checkButtonDisabled(item: ToolbarButton): boolean {
+    const wasDisabled = this._disabledMap.get(item.name) ?? false;
+    let nowDisabled = false;
+
+    try {
+      const can = this.editor.can();
+      const canCmd = can[item.command];
+      if (canCmd) {
+        if (item.commandArgs && item.commandArgs.length > 0) {
+          nowDisabled = !canCmd(...item.commandArgs);
+        } else {
+          nowDisabled = !canCmd();
+        }
+      }
+    } catch {
+      nowDisabled = false;
+    }
+
+    if (wasDisabled !== nowDisabled) {
+      this._disabledMap.set(item.name, nowDisabled);
+      return true;
+    }
+
+    return false;
   }
 
   private checkButtonActive(item: ToolbarButton): boolean {

@@ -11,7 +11,7 @@
   // ---------------------------------------------------------------------------
 
   p {
-    margin: 0 0 0.75em;
+    margin: 0.4em 0;
 
     &:last-child {
       margin-bottom: 0;
@@ -72,6 +72,7 @@
     font-family: var(--dm-code-font);
     font-size: 0.875em;
     padding: 0.15em 0.35em;
+    border: 1px solid var(--dm-border-color);
     border-radius: var(--dm-code-border-radius);
   }
 
@@ -182,7 +183,7 @@
   mark {
     background-color: var(--dm-highlight-bg);
     border-radius: 0.15em;
-    padding: 0.05em 0;
+    padding: 0.25em 0.15em;
   }
 
   // ---------------------------------------------------------------------------

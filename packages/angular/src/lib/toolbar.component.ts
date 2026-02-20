@@ -55,6 +55,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
               [attr.aria-label]="asButton(item).label"
               [title]="getTooltip(asButton(item))"
               [tabindex]="getFlatIndex(item.name) === focusedIndex() ? 0 : -1"
+              [disabled]="isDisabled(item.name)"
               [innerHTML]="getCachedIcon(asButton(item).icon)"
               (mousedown)="$event.preventDefault()"
               (click)="onButtonClick(asButton(item))"
@@ -139,6 +140,11 @@ export class DomternalToolbarComponent implements OnDestroy {
   isActive(name: string): boolean {
     this.activeVersion(); // subscribe to changes
     return this.controller?.activeMap.get(name) ?? false;
+  }
+
+  isDisabled(name: string): boolean {
+    this.activeVersion(); // subscribe to changes
+    return this.controller?.disabledMap.get(name) ?? false;
   }
 
   isDropdownActive(dropdown: ToolbarDropdown): boolean {

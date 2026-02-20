@@ -49,7 +49,8 @@
   }
 
   // Disabled state
-  &--disabled {
+  &--disabled,
+  &:disabled {
     opacity: var(--dm-button-disabled-opacity);
     cursor: not-allowed;
     pointer-events: none;
