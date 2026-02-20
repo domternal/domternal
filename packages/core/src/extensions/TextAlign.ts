@@ -159,13 +159,6 @@ export const TextAlign = Extension.create<TextAlignOptions>({
             label: 'Justify',
             shortcut: 'Mod-Shift-J',
           },
-          {
-            type: 'button',
-            name: 'unsetAlign',
-            command: 'unsetTextAlign',
-            icon: 'textAlignLeft',
-            label: 'Default',
-          },
         ],
       },
     ];
