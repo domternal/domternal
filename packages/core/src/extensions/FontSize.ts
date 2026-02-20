@@ -36,8 +36,7 @@ declare module '../types/Commands.js' {
 export interface FontSizeOptions {
   /**
    * List of allowed font sizes (e.g., ['12px', '14px', '16px']).
-   * If empty, all sizes are allowed.
-   * @default []
+   * @default ['12px', '14px', '16px', '18px', '24px', '32px']
    */
   fontSizes: string[];
 }
@@ -47,7 +46,7 @@ export const FontSize = Extension.create<FontSizeOptions>({
 
   addOptions() {
     return {
-      fontSizes: [],
+      fontSizes: ['12px', '14px', '16px', '18px', '24px', '32px'],
     };
   },
 

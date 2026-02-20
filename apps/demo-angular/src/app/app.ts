@@ -25,6 +25,8 @@ import {
   TextAlign,
   TextStyle,
   TextColor,
+  FontSize,
+  FontFamily,
   LineHeight,
   SelectionDecoration,
   Editor,
@@ -63,6 +65,8 @@ export class App {
     TextAlign,
     TextStyle,
     TextColor.configure({ colors: ['#ff0000', '#00ff00', '#0000ff', '#ff9900'] }),
+    FontSize,
+    FontFamily,
     LineHeight.configure({ lineHeights: ['1', '1.15', '1.5', '2'] }),
     SelectionDecoration,
   ];

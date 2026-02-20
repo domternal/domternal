@@ -35,8 +35,8 @@ declare module '../types/Commands.js' {
 
 export interface FontFamilyOptions {
   /**
-   * List of allowed font families. If empty, all fonts are allowed.
-   * @default []
+   * List of allowed font families.
+   * @default ['Arial', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Times New Roman', 'Georgia', 'Palatino Linotype', 'Courier New']
    */
   fontFamilies: string[];
 }
@@ -46,7 +46,7 @@ export const FontFamily = Extension.create<FontFamilyOptions>({
 
   addOptions() {
     return {
-      fontFamilies: [],
+      fontFamilies: ['Arial', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Times New Roman', 'Georgia', 'Palatino Linotype', 'Courier New'],
     };
   },
 
@@ -126,6 +126,7 @@ export const FontFamily = Extension.create<FontFamilyOptions>({
             isActive: { name: 'textStyle', attributes: { fontFamily: font } },
             icon: 'textAa',
             label: font,
+            style: `font-family: ${font}`,
             priority: 200 - i,
           })),
           {

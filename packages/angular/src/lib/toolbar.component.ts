@@ -87,6 +87,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                       [class.dm-toolbar-dropdown-item--active]="isActive(sub.name)"
                       role="menuitem"
                       [attr.aria-label]="sub.label"
+                      [attr.style]="sub.style || null"
                       [innerHTML]="getCachedItemIcon(sub.icon, sub.label)"
                       (mousedown)="$event.preventDefault()"
                       (click)="onDropdownItemClick(sub)"

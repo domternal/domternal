@@ -79,6 +79,9 @@ export interface ToolbarButton {
 
   /** Sort order within group (higher = first). @default 100 */
   priority?: number;
+
+  /** Inline CSS style string applied to the button element (e.g. for font preview) */
+  style?: string;
 }
 
 /**
