@@ -642,20 +642,26 @@ export const toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]> =
       }
     });
 
-    const allWrapped = contentBlocks.length > 0 && contentBlocks.every(({ pos }) => {
+    const isInsideWrap = (pos: number) => {
       const $pos = tr.doc.resolve(pos);
       for (let d = $pos.depth; d > 0; d--) {
         if ($pos.node(d).type === nodeType) return true;
       }
       return false;
-    });
+    };
+
+    const allWrapped = contentBlocks.length > 0
+      ? contentBlocks.every(({ pos }) => isInsideWrap(pos))
+      : isInsideWrap(from);
 
     if (allWrapped) {
       // Narrow selection to the first non-empty textblock so lift() operates
-      // within the wrapper rather than at doc level.
+      // within the wrapper rather than at doc level. When all textblocks are
+      // empty, use the current selection position instead.
       const first = contentBlocks[0];
-      if (!first) return false;
-      tr.setSelection(TextSelection.create(tr.doc, first.pos + 1));
+      if (first) {
+        tr.setSelection(TextSelection.create(tr.doc, first.pos + 1));
+      }
       return lift()(props);
     }
 
