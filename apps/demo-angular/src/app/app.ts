@@ -71,6 +71,7 @@ export class App {
 
   onEditorCreated(editor: Editor): void {
     this.editor = editor;
+    (window as unknown as Record<string, unknown>)['__e2eEditor'] = editor;
   }
 
   toggleTheme(): void {

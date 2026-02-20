@@ -13,6 +13,7 @@
 
 import { Node } from '../Node.js';
 import { splitListItem, liftListItem, sinkListItem } from 'prosemirror-schema-list';
+import { Selection } from 'prosemirror-state';
 import type { CommandSpec } from '../types/Commands.js';
 
 declare module '../types/Commands.js' {
@@ -129,7 +130,59 @@ export const TaskItem = Node.create<TaskItemOptions>({
     return {
       Enter: () => {
         if (!this.editor || !this.nodeType) return false;
-        return splitListItem(this.nodeType)(this.editor.state, this.editor.view.dispatch);
+        const { state, view } = this.editor;
+        const { $from } = state.selection;
+        // Only handle Enter when cursor's immediate item ancestor is a taskItem
+        if ($from.node(-1).type !== this.nodeType) return false;
+
+        // Standard split for non-empty items
+        if (splitListItem(this.nodeType)(state, view.dispatch)) return true;
+
+        // For empty taskItem nested inside a parent list item (e.g. orderedList > listItem > taskList > taskItem),
+        // delete the taskItem, clean up the taskList if empty, and create a new parent listItem.
+        // Without this, liftListItem alone leaves a bare empty paragraph inside the listItem.
+        if ($from.parent.content.size === 0) {
+          const listItemType = state.schema.nodes['listItem'];
+          if (listItemType) {
+            let parentListItemDepth = -1;
+            for (let d = $from.depth - 2; d > 0; d--) {
+              if ($from.node(d).type === listItemType) {
+                parentListItemDepth = d;
+                break;
+              }
+            }
+
+            if (parentListItemDepth > 0) {
+              const tr = state.tr;
+              const taskItemDepth = $from.depth - 1;
+              const taskListDepth = taskItemDepth - 1;
+              const taskListNode = $from.node(taskListDepth);
+
+              if (taskListNode.childCount <= 1) {
+                // Only child — delete the entire taskList. Deleting just the taskItem
+                // would leave an empty taskList, violating its content spec and causing
+                // ProseMirror's replaceStep to silently skip the deletion.
+                tr.delete($from.before(taskListDepth), $from.after(taskListDepth));
+              } else {
+                // Multiple children — delete just the empty taskItem
+                tr.delete($from.before(taskItemDepth), $from.after(taskItemDepth));
+              }
+
+              // 3. Insert a new listItem after the parent listItem
+              const listItemEnd = tr.mapping.map($from.after(parentListItemDepth));
+              const newItem = listItemType.createAndFill();
+              if (newItem) {
+                tr.insert(listItemEnd, newItem);
+                tr.setSelection(Selection.near(tr.doc.resolve(listItemEnd + 2)));
+                view.dispatch(tr.scrollIntoView());
+                return true;
+              }
+            }
+          }
+        }
+
+        // Standard lift for non-nested empty items
+        return liftListItem(this.nodeType)(state, view.dispatch);
       },
       Tab: () => {
         if (!this.editor || !this.nodeType) return false;

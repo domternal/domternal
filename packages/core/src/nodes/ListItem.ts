@@ -41,8 +41,12 @@ export const ListItem = Node.create<ListItemOptions>({
       Enter: () => {
         if (!this.editor || !this.nodeType) return false;
         const { state, view } = this.editor;
-        // splitListItem returns false for empty top-level items,
-        // fall back to liftListItem to exit the list
+        const { $from } = state.selection;
+        // Only handle Enter when the cursor's immediate item ancestor is a listItem.
+        // Without this guard, a nested taskItem inside a listItem would be
+        // incorrectly lifted by liftListItem when extensions are registered in
+        // arbitrary order (TaskItem before ListItem).
+        if ($from.node(-1).type !== this.nodeType) return false;
         return splitListItem(this.nodeType)(state, view.dispatch)
           || liftListItem(this.nodeType)(state, view.dispatch);
       },

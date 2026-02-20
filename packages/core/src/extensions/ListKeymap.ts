@@ -21,7 +21,9 @@ export interface ListKeymapOptions {
   listItem: string;
 }
 
-/** Resolves the list item NodeType and checks if cursor is inside one. */
+/** Resolves the list item NodeType and checks if cursor is inside one.
+ *  Returns null when a different item type (e.g. taskItem) sits closer
+ *  to the cursor than the target listItem, preventing cross-type interference. */
 function getListItemContext(
   editor: ExtensionEditorInterface,
   listItemName: string,
@@ -32,7 +34,15 @@ function getListItemContext(
 
   const { $from } = state.selection;
   for (let d = $from.depth; d > 0; d--) {
-    if ($from.node(d).type === listItemType) {
+    const node = $from.node(d);
+    // If we hit a different item type first (e.g. taskItem), bail out
+    if (node.type.spec.defining && node.type !== listItemType && node.type.isBlock) {
+      const parent = d > 0 ? $from.node(d - 1) : null;
+      if (parent && parent.type.spec.group?.includes('list')) {
+        return null;
+      }
+    }
+    if (node.type === listItemType) {
       return { state, view, listItemType };
     }
   }
