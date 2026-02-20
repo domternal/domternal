@@ -295,14 +295,26 @@ export class Editor extends EventEmitter<EditorEvents> {
       // of both ends of the selection for it to be considered active.
       const { $to } = selection;
 
+      // For list-group nodes, only the innermost list ancestor should be
+      // considered active. This prevents e.g. both bulletList and orderedList
+      // showing as active when a bullet list is nested inside an ordered list.
+      const isListNode = nodeType.spec.group?.split(' ').includes('list') ?? false;
+
       const findInPath = ($pos: typeof $from): boolean => {
         for (let depth = $pos.depth; depth >= 0; depth--) {
           const node = $pos.node(depth);
-          if (node.type === nodeType) {
-            if (attrs) {
-              return this.matchAttributes(node.attrs, attrs);
+
+          if (isListNode) {
+            const inListGroup = node.type.spec.group?.split(' ').includes('list') ?? false;
+            if (inListGroup) {
+              // First (innermost) list ancestor — only match if it's the target type
+              if (node.type !== nodeType) return false;
+              return attrs ? this.matchAttributes(node.attrs, attrs) : true;
             }
-            return true;
+          } else {
+            if (node.type === nodeType) {
+              return attrs ? this.matchAttributes(node.attrs, attrs) : true;
+            }
           }
         }
         return false;

@@ -725,10 +725,7 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
     const { from, to } = tr.selection;
     const contentBlocks: { pos: number; inTargetList: boolean; inSomeList: boolean; otherListPos: number | null }[] = [];
 
-    tr.doc.nodesBetween(from, to, (node, pos) => {
-      if (!node.isTextblock || node.content.size === 0) return;
-
-      const $pos = tr.doc.resolve(pos);
+    const collectListContext = ($pos: ReturnType<typeof tr.doc.resolve>, pos: number) => {
       let inTargetList = false;
       let inSomeList = false;
       let otherListPos: number | null = null;
@@ -749,7 +746,19 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
       }
 
       contentBlocks.push({ pos, inTargetList, inSomeList, otherListPos });
+    };
+
+    tr.doc.nodesBetween(from, to, (node, pos) => {
+      if (!node.isTextblock || node.content.size === 0) return;
+      collectListContext(tr.doc.resolve(pos), pos);
     });
+
+    // Cursor in empty textblock (e.g. new list item): nodesBetween skipped it,
+    // but we still need its list context so toggle/convert/lift work correctly.
+    if (contentBlocks.length === 0) {
+      const $cur = tr.doc.resolve(from);
+      collectListContext($cur, from);
+    }
 
     const allInTargetList = contentBlocks.length > 0 && contentBlocks.every((b) => b.inTargetList);
     const allInSomeList = contentBlocks.length > 0 && contentBlocks.every((b) => b.inSomeList);
