@@ -4,6 +4,8 @@
  * Shows invisible characters like spaces, paragraph marks, and hard breaks.
  * Useful for document editing where whitespace matters.
  *
+ * Styles are included automatically via `@domternal/theme` (`_invisible-chars.scss`).
+ *
  * @example
  * ```ts
  * import { InvisibleChars } from '@domternal/core';
@@ -16,6 +18,7 @@
  *       paragraph: true,
  *       hardBreak: true,
  *       space: true,
+ *       nbsp: true,
  *     }),
  *   ],
  * });
@@ -25,18 +28,6 @@
  *
  * // Check current state
  * const isVisible = editor.storage.invisibleChars.isVisible();
- * ```
- *
- * ## CSS Required
- *
- * Add styles to your application:
- * ```css
- * .invisible-char {
- *   color: #999;
- *   font-size: 0.8em;
- *   pointer-events: none;
- *   user-select: none;
- * }
  * ```
  */
 import { Extension } from '../Extension.js';
@@ -51,6 +42,7 @@ declare module '../types/Commands.js' {
     toggleInvisibleChars: CommandSpec;
     showInvisibleChars: CommandSpec;
     hideInvisibleChars: CommandSpec;
+    insertNbsp: CommandSpec;
   }
 }
 
@@ -199,6 +191,27 @@ export const InvisibleChars = Extension.create<
           }
           return true;
         },
+
+      insertNbsp:
+        () =>
+        ({ tr, dispatch }) => {
+          if (dispatch) {
+            tr.insertText('\u00A0');
+            dispatch(tr);
+          }
+          return true;
+        },
+    };
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      'Mod-Shift-8': () => {
+        return this.editor?.commands['toggleInvisibleChars']?.() ?? false;
+      },
+      'Mod-Shift-Space': () => {
+        return this.editor?.commands['insertNbsp']?.() ?? false;
+      },
     };
   },
 
@@ -210,6 +223,7 @@ export const InvisibleChars = Extension.create<
         command: 'toggleInvisibleChars',
         icon: 'paragraph',
         label: 'Invisible Characters',
+        shortcut: 'Mod-Shift-8',
         group: 'utility',
         priority: 100,
         isActiveFn: (editor) => {
@@ -299,7 +313,7 @@ export const InvisibleChars = Extension.create<
                   if (options.space && char === ' ') {
                     decorations.push(
                       Decoration.inline(charPos, charPos + 1, {
-                        class: options.className,
+                        class: `${options.className} ${options.className}--space`,
                         'data-char': 'space',
                       })
                     );

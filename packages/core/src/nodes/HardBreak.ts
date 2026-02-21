@@ -11,7 +11,6 @@ import type { CommandSpec } from '../types/Commands.js';
 declare module '../types/Commands.js' {
   interface RawCommands {
     setHardBreak: CommandSpec;
-    insertNbsp: CommandSpec;
   }
 }
 
@@ -47,16 +46,6 @@ export const HardBreak = Node.create<HardBreakOptions>({
         ({ commands }) => {
           return commands.insertContent({ type: name });
         },
-
-      insertNbsp:
-        () =>
-        ({ tr, dispatch }) => {
-          if (dispatch) {
-            tr.insertText('\u00A0');
-            dispatch(tr);
-          }
-          return true;
-        },
     };
   },
 
@@ -68,9 +57,6 @@ export const HardBreak = Node.create<HardBreakOptions>({
       },
       'Shift-Enter': () => {
         return editor?.commands['setHardBreak']?.() ?? false;
-      },
-      'Mod-Shift-Space': () => {
-        return editor?.commands['insertNbsp']?.() ?? false;
       },
     };
   },
