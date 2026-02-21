@@ -1,0 +1,44 @@
+// =============================================================================
+// Invisible Characters
+// =============================================================================
+// Styles for the InvisibleChars extension decorations.
+// Widget decorations (¶, ↵) use .invisible-char with type modifiers.
+// Inline decorations (spaces, nbsp) use [data-char] attributes.
+// =============================================================================
+
+.dm-editor .ProseMirror {
+  // Widget decorations (paragraph marks, hard breaks)
+  .invisible-char {
+    color: var(--dm-invisible-char-color, var(--dm-muted, #999));
+    pointer-events: none;
+    user-select: none;
+  }
+
+  // Inline space decorations — overlay · on the invisible space character
+  [data-char="space"] {
+    position: relative;
+
+    &::after {
+      content: '·';
+      position: absolute;
+      inset: 0;
+      text-align: center;
+      color: var(--dm-invisible-char-color, var(--dm-muted, #999));
+      pointer-events: none;
+    }
+  }
+
+  // Inline non-breaking space decorations — overlay ° on the nbsp character
+  [data-char="nbsp"] {
+    position: relative;
+
+    &::after {
+      content: '°';
+      position: absolute;
+      inset: 0;
+      text-align: center;
+      color: var(--dm-invisible-char-color, var(--dm-muted, #999));
+      pointer-events: none;
+    }
+  }
+}

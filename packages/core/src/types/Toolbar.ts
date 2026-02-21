@@ -82,6 +82,13 @@ export interface ToolbarButton {
 
   /** Inline CSS style string applied to the button element (e.g. for font preview) */
   style?: string;
+
+  /**
+   * Custom function to check active state.
+   * Use for extensions that track state in plugin storage rather than node/mark state.
+   * Takes precedence over `isActive` when defined.
+   */
+  isActiveFn?: (editor: { readonly storage: Record<string, unknown> }) => boolean;
 }
 
 /**

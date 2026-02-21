@@ -22,6 +22,7 @@ import type { ToolbarItem, ToolbarButton, ToolbarDropdown } from './types/Toolba
  */
 export interface ToolbarControllerEditor {
   readonly toolbarItems: ToolbarItem[];
+  readonly storage: Record<string, unknown>;
   isActive(
     nameOrAttributes: string | { name: string; attributes?: Record<string, unknown> },
     attributes?: Record<string, unknown>
@@ -361,12 +362,14 @@ export class ToolbarController {
   }
 
   private checkButtonActive(item: ToolbarButton): boolean {
-    if (!item.isActive) return false;
+    if (!item.isActive && !item.isActiveFn) return false;
 
     const wasActive = this._activeMap.get(item.name) ?? false;
     let nowActive: boolean;
 
-    if (Array.isArray(item.isActive)) {
+    if (item.isActiveFn) {
+      nowActive = item.isActiveFn(this.editor);
+    } else if (Array.isArray(item.isActive)) {
       nowActive = item.isActive.some((check) => {
         if (typeof check === 'string') return this.editor.isActive(check);
         return this.editor.isActive(check.name, check.attributes);
@@ -374,7 +377,7 @@ export class ToolbarController {
     } else if (typeof item.isActive === 'string') {
       nowActive = this.editor.isActive(item.isActive);
     } else {
-      nowActive = this.editor.isActive(item.isActive.name, item.isActive.attributes);
+      nowActive = this.editor.isActive(item.isActive!.name, item.isActive!.attributes);
     }
 
     if (wasActive !== nowActive) {

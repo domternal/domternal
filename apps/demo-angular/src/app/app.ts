@@ -16,6 +16,7 @@ import {
   Link,
   Heading,
   Blockquote,
+  HardBreak,
   HorizontalRule,
   BulletList,
   OrderedList,
@@ -28,6 +29,7 @@ import {
   FontSize,
   FontFamily,
   LineHeight,
+  InvisibleChars,
   SelectionDecoration,
   Editor,
 } from '@domternal/core';
@@ -56,6 +58,7 @@ export class App {
     Heading,
     Blockquote,
     CodeBlockLowlight.configure({ lowlight }),
+    HardBreak,
     HorizontalRule,
     BulletList,
     OrderedList,
@@ -68,6 +71,7 @@ export class App {
     FontSize,
     FontFamily,
     LineHeight.configure({ lineHeights: ['1', '1.15', '1.5', '2'] }),
+    InvisibleChars,
     SelectionDecoration,
   ];
   editor: Editor | null = null;

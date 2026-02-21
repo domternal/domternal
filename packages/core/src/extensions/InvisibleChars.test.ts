@@ -8,6 +8,7 @@ import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { HardBreak } from '../nodes/HardBreak.js';
 import { Editor } from '../Editor.js';
+import type { ToolbarButton } from '../types/Toolbar.js';
 
 describe('InvisibleChars', () => {
   describe('configuration', () => {
@@ -98,6 +99,76 @@ describe('InvisibleChars', () => {
       const commands = InvisibleChars.config.addCommands?.call(InvisibleChars);
       expect(commands).toHaveProperty('hideInvisibleChars');
       expect(typeof commands?.['hideInvisibleChars']).toBe('function');
+    });
+  });
+
+  describe('addToolbarItems', () => {
+    it('provides toolbar button with isActiveFn', () => {
+      const items = InvisibleChars.config.addToolbarItems?.call(InvisibleChars);
+      expect(items).toHaveLength(1);
+      const btn = items![0] as ToolbarButton;
+      expect(btn.type).toBe('button');
+      expect(btn.name).toBe('invisibleChars');
+      expect(typeof btn.isActiveFn).toBe('function');
+    });
+
+    it('isActiveFn returns false when hidden', () => {
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, InvisibleChars],
+        content: '<p>Test</p>',
+      });
+      const items = InvisibleChars.config.addToolbarItems?.call(InvisibleChars);
+      const btn = items![0] as ToolbarButton;
+      expect(btn.isActiveFn!(editor)).toBe(false);
+      editor.destroy();
+    });
+
+    it('isActiveFn returns true when visible', () => {
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, InvisibleChars],
+        content: '<p>Test</p>',
+      });
+      editor.commands.toggleInvisibleChars();
+      const items = InvisibleChars.config.addToolbarItems?.call(InvisibleChars);
+      const btn = items![0] as ToolbarButton;
+      expect(btn.isActiveFn!(editor)).toBe(true);
+      editor.destroy();
+    });
+  });
+
+  describe('commands dispatch guard', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    it('toggleInvisibleChars does not toggle on can() dry-run', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, InvisibleChars],
+        content: '<p>Test</p>',
+      });
+      const storage = editor.storage['invisibleChars'] as typeof InvisibleChars.storage;
+      expect(storage.isVisible()).toBe(false);
+
+      // can() should not trigger side effects
+      const canProxy = editor.can();
+      canProxy['toggleInvisibleChars']?.();
+
+      expect(storage.isVisible()).toBe(false);
+    });
+
+    it('showInvisibleChars does not toggle on can() dry-run', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, InvisibleChars],
+        content: '<p>Test</p>',
+      });
+      const storage = editor.storage['invisibleChars'] as typeof InvisibleChars.storage;
+
+      const canProxy = editor.can();
+      canProxy['showInvisibleChars']?.();
+
+      expect(storage.isVisible()).toBe(false);
     });
   });
 

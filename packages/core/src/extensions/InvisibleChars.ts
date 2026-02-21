@@ -175,15 +175,17 @@ export const InvisibleChars = Extension.create<
     return {
       toggleInvisibleChars:
         () =>
-        () => {
-          this.storage.toggle();
+        ({ dispatch }) => {
+          if (dispatch) {
+            this.storage.toggle();
+          }
           return true;
         },
 
       showInvisibleChars:
         () =>
-        () => {
-          if (!this.storage.isVisible()) {
+        ({ dispatch }) => {
+          if (dispatch && !this.storage.isVisible()) {
             this.storage.toggle();
           }
           return true;
@@ -191,8 +193,8 @@ export const InvisibleChars = Extension.create<
 
       hideInvisibleChars:
         () =>
-        () => {
-          if (this.storage.isVisible()) {
+        ({ dispatch }) => {
+          if (dispatch && this.storage.isVisible()) {
             this.storage.toggle();
           }
           return true;
@@ -210,6 +212,12 @@ export const InvisibleChars = Extension.create<
         label: 'Invisible Characters',
         group: 'utility',
         priority: 100,
+        isActiveFn: (editor) => {
+          const storage = editor.storage['invisibleChars'] as
+            | { isVisible?: () => boolean }
+            | undefined;
+          return storage?.isVisible?.() ?? false;
+        },
       },
     ];
   },
@@ -255,7 +263,7 @@ export const InvisibleChars = Extension.create<
                     endPos,
                     () => {
                       const span = document.createElement('span');
-                      span.className = options.className;
+                      span.className = `${options.className} ${options.className}--paragraph`;
                       span.textContent = CHARS.paragraph;
                       return span;
                     },
@@ -271,7 +279,7 @@ export const InvisibleChars = Extension.create<
                     pos,
                     () => {
                       const span = document.createElement('span');
-                      span.className = options.className;
+                      span.className = `${options.className} ${options.className}--hardBreak`;
                       span.textContent = CHARS.hardBreak;
                       return span;
                     },
