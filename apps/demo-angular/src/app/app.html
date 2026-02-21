@@ -19,8 +19,7 @@
     />
 
     @if (editor) {
-      <domternal-bubble-menu [editor]="editor"
-        [contexts]="{ text: ['bold', 'italic', 'underline', 'strike', 'code'], codeBlock: ['bold'] }" />
+      <domternal-bubble-menu [editor]="editor" [items]="['bold', 'italic', '|', 'code', 'highlight']" />
     }
   </div>
 

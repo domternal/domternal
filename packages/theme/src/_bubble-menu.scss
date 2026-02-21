@@ -22,6 +22,14 @@
     height: 0.875rem;
   }
 
+  .dm-toolbar-separator {
+    width: 1px;
+    height: 1rem;
+    background: var(--dm-separator-color, var(--dm-border-color, #e0e0e0));
+    margin: 0 0.125rem;
+    flex-shrink: 0;
+  }
+
 
 
   position: absolute;

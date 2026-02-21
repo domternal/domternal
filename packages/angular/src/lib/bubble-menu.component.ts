@@ -21,11 +21,25 @@ import {
 } from '@domternal/core';
 import type { BubbleMenuOptions, ToolbarButton } from '@domternal/core';
 
+interface BubbleMenuSeparator { type: 'separator'; name: string }
+type BubbleMenuItem = ToolbarButton | BubbleMenuSeparator;
+
 /** Minimal ProseMirror Selection shape for duck-typing (avoids instanceof issues across bundles) */
+interface ResolvedPosShape {
+  parent: { type: { name: string; spec: { marks?: string } } };
+}
+
 interface SelectionShape {
   empty: boolean;
-  $from: { parent: { type: { name: string; spec: { marks?: string } } } };
+  $from: ResolvedPosShape;
+  $to: ResolvedPosShape;
   node?: { type: { name: string } };
+}
+
+/** ProseMirror schema shape for mark filtering */
+interface SchemaShape {
+  nodes: Record<string, { allowsMarkType: (mt: unknown) => boolean }>;
+  marks: Record<string, unknown>;
 }
 
 @Component({
@@ -34,8 +48,10 @@ interface SelectionShape {
   encapsulation: ViewEncapsulation.None,
   template: `
     <div #menuEl class="dm-bubble-menu">
-      @if (items() || contexts()) {
-        @for (item of resolvedItems(); track item.name) {
+      @for (item of resolvedItems(); track item.name) {
+        @if (item.type === 'separator') {
+          <span class="dm-toolbar-separator"></span>
+        } @else {
           <button type="button" class="dm-toolbar-button"
             [class.dm-toolbar-button--active]="isItemActive(item)"
             [disabled]="isItemDisabled(item)"
@@ -44,8 +60,6 @@ interface SelectionShape {
             (mousedown)="$event.preventDefault()"
             (click)="executeCommand(item)"></button>
         }
-      } @else {
-        <ng-content />
       }
     </div>
   `,
@@ -58,14 +72,13 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   readonly offset = input<[number, number]>([0, 8]);
   readonly updateDelay = input(0);
 
-  /** Pass item names to render buttons internally (e.g. ['bold', 'italic', 'code']) */
+  /** Fixed item names (e.g. ['bold', 'italic', 'code']). Omit for auto mode (all format items). */
   readonly items = input<string[]>();
 
-  /** Context-aware items: map context names to item arrays (e.g. { text: ['bold'], codeBlock: ['copyCode'] }) */
-  readonly contexts = input<Record<string, string[]>>();
+  /** Context-aware: map context names to item arrays or `true` for all valid items */
+  readonly contexts = input<Record<string, string[] | true>>();
 
-  /** Currently visible buttons */
-  readonly resolvedItems = signal<ToolbarButton[]>([]);
+  readonly resolvedItems = signal<BubbleMenuItem[]>([]);
 
   private menuEl = viewChild.required<ElementRef<HTMLElement>>('menuEl');
   private pluginKey: PluginKey;
@@ -73,20 +86,11 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   private sanitizer = inject(DomSanitizer);
   private ngZone = inject(NgZone);
 
-  /** Bumped on every transaction to trigger isItemActive/isItemDisabled re-eval */
   private activeVersion = signal(0);
-
-  /** Name → ToolbarButton map (built from editor.toolbarItems, includes dropdown sub-items) */
   private itemMap = new Map<string, ToolbarButton>();
-
-  /** Active/disabled state maps */
   private activeMap = new Map<string, boolean>();
   private disabledMap = new Map<string, boolean>();
-
-  /** SafeHtml icon cache */
   private htmlCache = new Map<string, SafeHtml>();
-
-  /** Transaction listener ref for cleanup */
   private transactionHandler: (() => void) | null = null;
 
   constructor() {
@@ -96,15 +100,25 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
     afterNextRender(() => {
       const editor = this.editor();
-
       const ctxs = this.contexts();
       let shouldShowFn = this.shouldShow();
 
-      if (ctxs && !shouldShowFn) {
-        shouldShowFn = ({ state }: { state: { selection: SelectionShape } }) => {
-          const context = this.detectContext(state.selection, ctxs);
-          return context != null && ctxs[context].length > 0;
-        };
+      if (!shouldShowFn) {
+        if (ctxs) {
+          shouldShowFn = ({ state }: { state: { selection: SelectionShape } }) => {
+            const context = this.detectContext(state.selection, ctxs);
+            if (!context || !(context in ctxs)) return false;
+            const val = ctxs[context];
+            return val === true || (Array.isArray(val) && val.length > 0);
+          };
+        } else {
+          // Auto/items mode: show when any endpoint's parent allows marks
+          shouldShowFn = ({ state }: { state: { selection: SelectionShape } }) => {
+            if (state.selection.empty || state.selection.node) return false;
+            return state.selection.$from.parent.type.spec.marks !== ''
+                || state.selection.$to.parent.type.spec.marks !== '';
+          };
+        }
       }
 
       const plugin = createBubbleMenuPlugin({
@@ -117,10 +131,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
         updateDelay: this.updateDelay(),
       });
       editor.registerPlugin(plugin);
-
-      if (this.items() || this.contexts()) {
-        this.setupItemTracking(editor);
-      }
+      this.setupItemTracking(editor);
     });
   }
 
@@ -137,12 +148,12 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   // === Template helpers ===
 
   isItemActive(item: ToolbarButton): boolean {
-    this.activeVersion(); // subscribe to signal changes
+    this.activeVersion();
     return this.activeMap.get(item.name) ?? false;
   }
 
   isItemDisabled(item: ToolbarButton): boolean {
-    this.activeVersion(); // subscribe to signal changes
+    this.activeVersion();
     return this.disabledMap.get(item.name) ?? false;
   }
 
@@ -175,20 +186,49 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     }
   }
 
-  private resolveNames(names: string[]): ToolbarButton[] {
-    return names
-      .map(name => this.itemMap.get(name))
-      .filter((item): item is ToolbarButton => item != null);
+  private resolveNames(names: string[]): BubbleMenuItem[] {
+    const result: BubbleMenuItem[] = [];
+    let sepIdx = 0;
+    for (const name of names) {
+      if (name === '|') {
+        result.push({ type: 'separator', name: `sep-${sepIdx++}` });
+      } else {
+        const item = this.itemMap.get(name);
+        if (item) result.push(item);
+      }
+    }
+    return result;
   }
 
-  private detectContext(selection: SelectionShape, ctxs: Record<string, string[]>): string | null {
+  private getFormatItems(): ToolbarButton[] {
+    return Array.from(this.itemMap.values())
+      .filter(item => item.group === 'format')
+      .sort((a, b) => (b.priority ?? 100) - (a.priority ?? 100));
+  }
+
+  private detectContext(selection: SelectionShape, ctxs: Record<string, string[] | true>): string | null {
     if (selection.node) return selection.node.type.name;
     if (selection.empty) return null;
     const parentName = selection.$from.parent.type.name;
     if (parentName in ctxs) return parentName;
-    // 'text' fallback only for nodes that allow marks (marks='' means no marks, e.g. codeBlock)
     if ('text' in ctxs && selection.$from.parent.type.spec.marks !== '') return 'text';
     return null;
+  }
+
+  /** Filters out mark items that the context node type doesn't allow (e.g. bold on codeBlock) */
+  private filterBySchema(editor: Editor, contextName: string, items: ToolbarButton[]): ToolbarButton[] {
+    if (contextName === 'text') return items;
+    const schema = (editor.state as unknown as { schema?: SchemaShape }).schema;
+    if (!schema) return items;
+    const nodeType = schema.nodes[contextName];
+    if (!nodeType) return items;
+    return items.filter(item => {
+      const markName = typeof item.isActive === 'string' ? item.isActive : null;
+      if (!markName) return true;
+      const markType = schema.marks?.[markName];
+      if (!markType) return true;
+      return nodeType.allowsMarkType(markType);
+    });
   }
 
   private setupItemTracking(editor: Editor): void {
@@ -198,6 +238,8 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
       this.updateContextItems(editor);
     } else if (this.items()) {
       this.resolvedItems.set(this.resolveNames(this.items()!));
+    } else {
+      this.resolvedItems.set(this.resolveNames(['bold', 'italic', 'underline']));
     }
 
     this.transactionHandler = () => {
@@ -216,7 +258,19 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   private updateContextItems(editor: Editor): void {
     const ctxs = this.contexts()!;
     const ctx = this.detectContext(editor.state.selection as unknown as SelectionShape, ctxs);
-    this.resolvedItems.set(this.resolveNames(ctx ? ctxs[ctx] ?? [] : []));
+    if (!ctx || !(ctx in ctxs)) {
+      this.resolvedItems.set([]);
+      return;
+    }
+    const val = ctxs[ctx];
+    if (val === true) {
+      this.resolvedItems.set(this.filterBySchema(editor, ctx, this.getFormatItems()));
+    } else {
+      const resolved = this.resolveNames(val);
+      const buttons = resolved.filter((i): i is ToolbarButton => i.type !== 'separator');
+      const filtered = new Set(this.filterBySchema(editor, ctx, buttons).map(b => b.name));
+      this.resolvedItems.set(resolved.filter(i => i.type === 'separator' || filtered.has(i.name)));
+    }
   }
 
   private updateStates(editor: Editor): void {
@@ -224,6 +278,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     try { canProxy = editor.can() as unknown as Record<string, (...args: unknown[]) => boolean>; } catch {}
 
     for (const item of this.resolvedItems()) {
+      if (item.type === 'separator') continue;
       this.activeMap.set(item.name, this.checkActive(editor, item));
       try {
         const canCmd = canProxy?.[item.command];
