@@ -2,11 +2,12 @@
  * Tests for BubbleMenu extension
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { TextSelection } from 'prosemirror-state';
+import { TextSelection, NodeSelection } from 'prosemirror-state';
 import { BubbleMenu, bubbleMenuPluginKey } from './BubbleMenu.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
+import { HorizontalRule } from '../nodes/HorizontalRule.js';
 import { Editor } from '../Editor.js';
 
 describe('BubbleMenu', () => {
@@ -76,6 +77,9 @@ describe('BubbleMenu', () => {
       // Mock the editor
       const mockEditor = {
         view: { coordsAtPos: () => ({ left: 0, top: 0, bottom: 0 }) },
+        on: () => {},
+        off: () => {},
+        isEditable: true,
       };
       (CustomBubbleMenu as unknown as { editor: unknown }).editor = mockEditor;
 
@@ -89,35 +93,115 @@ describe('BubbleMenu', () => {
   });
 
   describe('default shouldShow', () => {
-    it('returns true for non-empty selection', () => {
-      const mockState = {
-        selection: { empty: false },
-      };
+    let editor: Editor | undefined;
 
-      const result = BubbleMenu.options.shouldShow({
-        editor: {} as Editor,
-        view: {} as never,
-        state: mockState as never,
-        from: 1,
-        to: 5,
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) {
+        editor.destroy();
+      }
+    });
+
+    it('returns true for text selection with content', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph],
+        content: '<p>Hello world</p>',
       });
 
+      // Create a text selection over "Hello"
+      const { state } = editor;
+      const tr = state.tr.setSelection(
+        TextSelection.create(state.doc, 1, 6)
+      );
+      editor.view.dispatch(tr);
+
+      const result = BubbleMenu.options.shouldShow({
+        editor,
+        view: editor.view,
+        state: editor.state,
+        from: editor.state.selection.from,
+        to: editor.state.selection.to,
+      });
       expect(result).toBe(true);
     });
 
     it('returns false for empty selection', () => {
-      const mockState = {
-        selection: { empty: true },
-      };
-
-      const result = BubbleMenu.options.shouldShow({
-        editor: {} as Editor,
-        view: {} as never,
-        state: mockState as never,
-        from: 1,
-        to: 1,
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph],
+        content: '<p>Hello world</p>',
       });
 
+      // Cursor at position 1 (no selection range)
+      const { state } = editor;
+      const tr = state.tr.setSelection(
+        TextSelection.create(state.doc, 1)
+      );
+      editor.view.dispatch(tr);
+
+      const result = BubbleMenu.options.shouldShow({
+        editor,
+        view: editor.view,
+        state: editor.state,
+        from: editor.state.selection.from,
+        to: editor.state.selection.to,
+      });
+      expect(result).toBe(false);
+    });
+
+    it('returns false for node selection (e.g. horizontal rule)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, HorizontalRule],
+        content: '<p>Hello</p><hr><p>World</p>',
+      });
+
+      // Find the HR node position and create a NodeSelection on it
+      const { state } = editor;
+      let hrPos = -1;
+      state.doc.descendants((node, pos) => {
+        if (node.type.name === 'horizontalRule') {
+          hrPos = pos;
+          return false;
+        }
+        return true;
+      });
+
+      expect(hrPos).toBeGreaterThan(-1);
+
+      const tr = state.tr.setSelection(
+        NodeSelection.create(state.doc, hrPos)
+      );
+      editor.view.dispatch(tr);
+
+      const result = BubbleMenu.options.shouldShow({
+        editor,
+        view: editor.view,
+        state: editor.state,
+        from: editor.state.selection.from,
+        to: editor.state.selection.to,
+      });
+      expect(result).toBe(false);
+    });
+
+    it('returns false when editor is not editable', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph],
+        content: '<p>Hello world</p>',
+        editable: false,
+      });
+
+      // Create a text selection
+      const { state } = editor;
+      const tr = state.tr.setSelection(
+        TextSelection.create(state.doc, 1, 6)
+      );
+      editor.view.dispatch(tr);
+
+      const result = BubbleMenu.options.shouldShow({
+        editor,
+        view: editor.view,
+        state: editor.state,
+        from: editor.state.selection.from,
+        to: editor.state.selection.to,
+      });
       expect(result).toBe(false);
     });
   });
@@ -187,47 +271,6 @@ describe('BubbleMenu', () => {
       expect(pluginState).toHaveProperty('visible');
       expect(pluginState).toHaveProperty('from');
       expect(pluginState).toHaveProperty('to');
-    });
-
-    // Note: This test requires real browser layout (coordsAtPos uses getClientRects)
-    // Skipped in jsdom environment
-    it.skip('plugin state tracks selection', () => {
-      menuElement = document.createElement('div');
-      document.body.appendChild(menuElement);
-
-      const CustomBubbleMenu = BubbleMenu.configure({
-        element: menuElement,
-      });
-
-      editor = new Editor({
-        extensions: [Document, Text, Paragraph, CustomBubbleMenu],
-        content: '<p>Hello world</p>',
-      });
-
-      // Initial state - no selection
-      let pluginState = bubbleMenuPluginKey.getState(editor.state) as {
-        visible: boolean;
-        from: number;
-        to: number;
-      };
-      expect(pluginState.visible).toBe(false);
-
-      // Create a selection
-      const { state } = editor;
-      const tr = state.tr.setSelection(
-        TextSelection.create(state.doc, 1, 6)
-      );
-      editor.view.dispatch(tr);
-
-      // Check plugin state updated
-      pluginState = bubbleMenuPluginKey.getState(editor.state) as {
-        visible: boolean;
-        from: number;
-        to: number;
-      };
-      expect(pluginState.visible).toBe(true);
-      expect(pluginState.from).toBe(1);
-      expect(pluginState.to).toBe(6);
     });
 
     it('respects custom shouldShow function', () => {

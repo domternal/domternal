@@ -4,6 +4,8 @@
  * Shows a floating menu when text is selected in the editor.
  * Useful for formatting toolbars that appear contextually.
  *
+ * Styles are included automatically via `@domternal/theme` (`_bubble-menu.scss`).
+ *
  * @example
  * ```ts
  * import { BubbleMenu } from '@domternal/core';
@@ -24,27 +26,44 @@
  *   ],
  * });
  * ```
- *
- * ## CSS Required
- *
- * Style your menu element:
- * ```css
- * .bubble-menu {
- *   background: white;
- *   border: 1px solid #ccc;
- *   border-radius: 4px;
- *   padding: 4px;
- *   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
- * }
- * ```
  */
 import { Extension } from '../Extension.js';
-import { Plugin, PluginKey } from 'prosemirror-state';
+import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import type { EditorState } from 'prosemirror-state';
 import type { Editor } from '../Editor.js';
 
 export const bubbleMenuPluginKey = new PluginKey('bubbleMenu');
+
+// Default shouldShow: text selection with actual content in an editable editor
+function defaultShouldShow({
+  editor,
+  state,
+  from,
+  to,
+}: {
+  editor: Editor;
+  view: EditorView;
+  state: EditorState;
+  from: number;
+  to: number;
+}): boolean {
+  const { selection } = state;
+
+  // Must have a non-empty selection
+  if (selection.empty) return false;
+
+  // Must be a text selection (not NodeSelection for images/HR)
+  if (!(selection instanceof TextSelection)) return false;
+
+  // Must have actual text content (double-click empty paragraph produces from!=to but no text)
+  if (!state.doc.textBetween(from, to).length) return false;
+
+  // Don't show if editor is not editable
+  if (!editor.isEditable) return false;
+
+  return true;
+}
 
 export interface BubbleMenuOptions {
   /**
@@ -61,7 +80,7 @@ export interface BubbleMenuOptions {
 
   /**
    * Function to determine if the menu should be shown.
-   * @default () => true (shows when selection is not empty)
+   * By default, shows for text selections with actual content in an editable editor.
    */
   shouldShow: (props: {
     editor: Editor;
@@ -110,7 +129,7 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
     pluginKey,
     editor,
     element,
-    shouldShow = ({ state }): boolean => !state.selection.empty,
+    shouldShow = defaultShouldShow,
     placement = 'top',
     offset = [0, 8],
     updateDelay = 0,
@@ -173,8 +192,14 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
     element.removeAttribute('data-show');
   };
 
+  // Prevent blur when clicking inside the bubble menu
+  const onMenuMousedown = (e: Event): void => {
+    e.preventDefault();
+  };
+
   // Initially hide
   hideMenu();
+  element.addEventListener('mousedown', onMenuMousedown, { capture: true });
 
   return new Plugin({
     key: pluginKey,
@@ -204,51 +229,87 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
       },
     },
 
-    view: () => ({
-      update: (view, prevState) => {
-        const state = pluginKey.getState(view.state) as
-          | BubbleMenuPluginState
-          | undefined;
-        const prevPluginState = pluginKey.getState(prevState) as
-          | BubbleMenuPluginState
-          | undefined;
+    view: () => {
+      const onFocus = (): void => {
+        // Re-evaluate after focus (selection may have settled)
+        setTimeout(() => {
+          const pluginState = pluginKey.getState(editor.view.state) as
+            | BubbleMenuPluginState
+            | undefined;
+          if (pluginState?.visible) {
+            updatePosition(editor.view, pluginState.from, pluginState.to);
+          }
+        });
+      };
 
-        // Skip if nothing changed
+      const onBlur = ({ event }: { event: FocusEvent }): void => {
+        // Don't hide if focus moved to the bubble menu itself
         if (
-          state?.visible === prevPluginState?.visible &&
-          state?.from === prevPluginState?.from &&
-          state?.to === prevPluginState?.to
+          event?.relatedTarget &&
+          element.contains(event.relatedTarget as Node)
         ) {
           return;
         }
-
-        // Clear pending update
-        if (updateTimeout) {
-          clearTimeout(updateTimeout);
-          updateTimeout = null;
-        }
-
-        if (state?.visible) {
-          // Show menu with delay
-          if (updateDelay > 0) {
-            updateTimeout = setTimeout(() => {
-              updatePosition(view, state.from, state.to);
-            }, updateDelay);
-          } else {
-            updatePosition(view, state.from, state.to);
-          }
-        } else {
-          hideMenu();
-        }
-      },
-
-      destroy: () => {
-        if (updateTimeout) {
-          clearTimeout(updateTimeout);
-        }
         hideMenu();
-      },
-    }),
+      };
+
+      editor.on('focus', onFocus);
+      editor.on('blur', onBlur);
+
+      return {
+        update: (view, prevState) => {
+          // Skip during IME composition
+          if (view.composing) return;
+
+          const state = pluginKey.getState(view.state) as
+            | BubbleMenuPluginState
+            | undefined;
+          const prevPluginState = pluginKey.getState(prevState) as
+            | BubbleMenuPluginState
+            | undefined;
+
+          // Skip if nothing changed
+          if (
+            state?.visible === prevPluginState?.visible &&
+            state?.from === prevPluginState?.from &&
+            state?.to === prevPluginState?.to
+          ) {
+            return;
+          }
+
+          // Clear pending update
+          if (updateTimeout) {
+            clearTimeout(updateTimeout);
+            updateTimeout = null;
+          }
+
+          if (state?.visible) {
+            // Show menu with delay
+            if (updateDelay > 0) {
+              updateTimeout = setTimeout(() => {
+                updatePosition(view, state.from, state.to);
+              }, updateDelay);
+            } else {
+              updatePosition(view, state.from, state.to);
+            }
+          } else {
+            hideMenu();
+          }
+        },
+
+        destroy: () => {
+          editor.off('focus', onFocus);
+          editor.off('blur', onBlur);
+          element.removeEventListener('mousedown', onMenuMousedown, {
+            capture: true,
+          });
+          if (updateTimeout) {
+            clearTimeout(updateTimeout);
+          }
+          hideMenu();
+        },
+      };
+    },
   });
 }
 
@@ -259,7 +320,7 @@ export const BubbleMenu = Extension.create<BubbleMenuOptions>({
     return {
       element: null,
       updateDelay: 0,
-      shouldShow: ({ state }) => !state.selection.empty,
+      shouldShow: defaultShouldShow,
       placement: 'top' as const,
       offset: [0, 8] as [number, number],
     };
