@@ -61,6 +61,7 @@ interface SchemaShape {
             (click)="executeCommand(item)"></button>
         }
       }
+      <ng-content />
     </div>
   `,
   styles: [`:host { display: contents; }`],
