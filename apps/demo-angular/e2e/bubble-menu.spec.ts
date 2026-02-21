@@ -2,7 +2,6 @@ import { test, expect, type Page } from '@playwright/test';
 
 const editorSelector = 'domternal-editor .ProseMirror';
 const bubbleMenu = '.dm-bubble-menu';
-const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
 // Bubble menu button selectors (by title attribute)
 const btn = {
@@ -19,6 +18,7 @@ async function setContentAndFocus(page: Page, html: string) {
     el.innerHTML = h;
     el.dispatchEvent(new Event('input', { bubbles: true }));
   }, html);
+  await editor.focus();
   await page.waitForTimeout(100);
 }
 
@@ -29,7 +29,7 @@ async function getEditorHTML(page: Page): Promise<string> {
 /** Select a range of text inside the editor using JS selection API. */
 async function selectText(page: Page, startOffset: number, endOffset: number, selector = `${editorSelector} p`) {
   await page.evaluate(
-    ({ sel, startOffset, endOffset }) => {
+    ({ sel, edSel, startOffset, endOffset }) => {
       const el = document.querySelector(sel);
       if (!el || !el.firstChild) return;
       const range = document.createRange();
@@ -38,8 +38,10 @@ async function selectText(page: Page, startOffset: number, endOffset: number, se
       const s = window.getSelection();
       s?.removeAllRanges();
       s?.addRange(range);
+      const editor = document.querySelector(edSel);
+      if (editor instanceof HTMLElement) editor.focus();
     },
-    { sel: selector, startOffset, endOffset },
+    { sel: selector, edSel: editorSelector, startOffset, endOffset },
   );
   await page.waitForTimeout(150);
 }
@@ -56,8 +58,30 @@ async function selectInsideTag(page: Page, tag: string, index = 0) {
       const s = window.getSelection();
       s?.removeAllRanges();
       s?.addRange(range);
+      const editor = document.querySelector(sel);
+      if (editor instanceof HTMLElement) editor.focus();
     },
     { sel: editorSelector, tag, index },
+  );
+  await page.waitForTimeout(150);
+}
+
+/** Select text inside a code block element. */
+async function selectInCodeBlock(page: Page, startOffset: number, endOffset: number) {
+  await page.evaluate(
+    ({ edSel, startOffset, endOffset }) => {
+      const code = document.querySelector(edSel + ' pre code');
+      if (!code || !code.firstChild) return;
+      const range = document.createRange();
+      range.setStart(code.firstChild, startOffset);
+      range.setEnd(code.firstChild, endOffset);
+      const s = window.getSelection();
+      s?.removeAllRanges();
+      s?.addRange(range);
+      const editor = document.querySelector(edSel);
+      if (editor instanceof HTMLElement) editor.focus();
+    },
+    { edSel: editorSelector, startOffset, endOffset },
   );
   await page.waitForTimeout(150);
 }
@@ -274,6 +298,94 @@ test.describe('Bubble menu — Selection preservation', () => {
     const html = await getEditorHTML(page);
     expect(html).toContain('<strong>');
     expect(html).toContain('<em>');
+  });
+});
+
+// ─── Context-aware rendering ─────────────────────────────────────────
+
+test.describe('Bubble menu — Context-aware [contexts]', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('shows text context buttons when selecting paragraph text', async ({ page }) => {
+    await setContentAndFocus(page, '<p>Hello World</p>');
+    await selectText(page, 0, 5);
+
+    await expect(page.locator(bubbleMenu)).toHaveAttribute('data-show', '');
+    const buttons = page.locator(`${bubbleMenu} button`);
+    await expect(buttons).toHaveCount(5);
+    await expect(page.locator(btn.bold)).toBeVisible();
+    await expect(page.locator(btn.italic)).toBeVisible();
+  });
+
+  test('shows codeBlock context buttons when selecting inside code block', async ({ page }) => {
+    await setContentAndFocus(page, '<pre><code>const x = 1;</code></pre>');
+    await selectInCodeBlock(page, 0, 5);
+
+    // Demo has codeBlock: ['paragraph'] — menu should show
+    await expect(page.locator(bubbleMenu)).toHaveAttribute('data-show', '');
+  });
+
+  test('shows different buttons for code block context', async ({ page }) => {
+    await setContentAndFocus(page, '<p>Hello</p><pre><code>const x = 1;</code></pre>');
+    await selectInCodeBlock(page, 0, 5);
+
+    // Should show codeBlock context buttons (paragraph = "Normal text")
+    await expect(page.locator(bubbleMenu)).toHaveAttribute('data-show', '');
+    const buttons = page.locator(`${bubbleMenu} button`);
+    await expect(buttons).toHaveCount(1);
+    await expect(page.locator(`${bubbleMenu} button[title="Normal text"]`)).toBeVisible();
+  });
+
+  test('text format buttons NOT shown inside code block', async ({ page }) => {
+    await setContentAndFocus(page, '<p>Hello</p><pre><code>const x = 1;</code></pre>');
+    await selectInCodeBlock(page, 0, 5);
+
+    // Bold/Italic/etc should NOT be visible
+    await expect(page.locator(btn.bold)).not.toBeVisible();
+    await expect(page.locator(btn.italic)).not.toBeVisible();
+  });
+
+  test('switches from text buttons to code block buttons on context change', async ({ page }) => {
+    await setContentAndFocus(page, '<p>Hello World</p><pre><code>const x = 1;</code></pre>');
+
+    // First select paragraph text
+    await selectText(page, 0, 5);
+    await expect(page.locator(bubbleMenu)).toHaveAttribute('data-show', '');
+    await expect(page.locator(`${bubbleMenu} button`)).toHaveCount(5);
+
+    // Then select inside code block
+    await selectInCodeBlock(page, 0, 5);
+
+    // Should now show codeBlock context (1 button)
+    await expect(page.locator(`${bubbleMenu} button`)).toHaveCount(1);
+    await expect(page.locator(`${bubbleMenu} button[title="Normal text"]`)).toBeVisible();
+  });
+
+  test('code block paragraph button converts to paragraph', async ({ page }) => {
+    await setContentAndFocus(page, '<pre><code>const x = 1;</code></pre>');
+    await selectInCodeBlock(page, 0, 5);
+
+    // Click the "Normal text" button
+    await page.locator(`${bubbleMenu} button[title="Normal text"]`).click();
+    await page.waitForTimeout(100);
+
+    // Code block should be converted to paragraph
+    const html = await getEditorHTML(page);
+    expect(html).not.toContain('<pre>');
+    expect(html).toContain('<p>');
+  });
+
+  test('codeBlock context does not fall back to text context', async ({ page }) => {
+    await setContentAndFocus(page, '<pre><code>only code here</code></pre>');
+    await selectInCodeBlock(page, 0, 4);
+
+    // Menu should show with codeBlock context (since demo has codeBlock: ['paragraph'])
+    await expect(page.locator(bubbleMenu)).toHaveAttribute('data-show', '');
+    // But it should NOT show text context buttons
+    await expect(page.locator(btn.bold)).not.toBeVisible();
   });
 });
 

@@ -1,5 +1,4 @@
-import { Component, inject, NgZone, signal } from '@angular/core';
-import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
+import { Component, signal } from '@angular/core';
 import {
   DomternalEditorComponent,
   DomternalToolbarComponent,
@@ -33,7 +32,6 @@ import {
   InvisibleChars,
   SelectionDecoration,
   Editor,
-  defaultIcons,
 } from '@domternal/core';
 import { CodeBlockLowlight } from '@domternal/extension-code-block-lowlight';
 import { createLowlight, common } from 'lowlight';
@@ -46,9 +44,6 @@ const lowlight = createLowlight(common);
   templateUrl: './app.html',
 })
 export class App {
-  private sanitizer = inject(DomSanitizer);
-  private ngZone = inject(NgZone);
-
   // History is already in DEFAULT_EXTENSIONS (from DomternalEditorComponent)
   extensions = [
     Italic,
@@ -82,18 +77,8 @@ export class App {
   editor: Editor | null = null;
   isDark = signal(false);
 
-  // Bumped on every editor transaction so bubble menu active state stays in sync with CD
-  private stateVersion = signal(0);
-  private transactionHandler = (): void => {
-    this.ngZone.run(() => this.stateVersion.update(v => v + 1));
-  };
-
-  // Bubble menu icon cache
-  private iconCache = new Map<string, SafeHtml>();
-
   onEditorCreated(editor: Editor): void {
     this.editor = editor;
-    editor.on('transaction', this.transactionHandler);
   }
 
   toggleTheme(): void {
@@ -101,27 +86,4 @@ export class App {
     document.body.classList.toggle('dm-theme-dark');
   }
 
-  icon(name: string): SafeHtml {
-    let cached = this.iconCache.get(name);
-    if (!cached) {
-      cached = this.sanitizer.bypassSecurityTrustHtml(defaultIcons[name] ?? '');
-      this.iconCache.set(name, cached);
-    }
-    return cached;
-  }
-
-  isMarkActive(mark: string): boolean {
-    this.stateVersion(); // subscribe to transaction changes
-    return this.editor?.isActive(mark) ?? false;
-  }
-
-  canCommand(command: string): boolean {
-    this.stateVersion(); // subscribe to transaction changes
-    try {
-      const can = this.editor?.can() as Record<string, (...args: unknown[]) => boolean> | undefined;
-      return can?.[command]?.() ?? true;
-    } catch {
-      return true;
-    }
-  }
 }

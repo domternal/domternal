@@ -19,43 +19,8 @@
     />
 
     @if (editor) {
-      <domternal-bubble-menu [editor]="editor">
-        <button class="dm-toolbar-button"
-          [class.dm-toolbar-button--active]="isMarkActive('bold')"
-          [disabled]="!canCommand('toggleBold')"
-          title="Bold"
-          (mousedown)="$event.preventDefault()"
-          (click)="editor!.commands['toggleBold']?.()"
-          [innerHTML]="icon('textB')"></button>
-        <button class="dm-toolbar-button"
-          [class.dm-toolbar-button--active]="isMarkActive('italic')"
-          [disabled]="!canCommand('toggleItalic')"
-          title="Italic"
-          (mousedown)="$event.preventDefault()"
-          (click)="editor!.commands['toggleItalic']?.()"
-          [innerHTML]="icon('textItalic')"></button>
-        <button class="dm-toolbar-button"
-          [class.dm-toolbar-button--active]="isMarkActive('underline')"
-          [disabled]="!canCommand('toggleUnderline')"
-          title="Underline"
-          (mousedown)="$event.preventDefault()"
-          (click)="editor!.commands['toggleUnderline']?.()"
-          [innerHTML]="icon('textUnderline')"></button>
-        <button class="dm-toolbar-button"
-          [class.dm-toolbar-button--active]="isMarkActive('strike')"
-          [disabled]="!canCommand('toggleStrike')"
-          title="Strikethrough"
-          (mousedown)="$event.preventDefault()"
-          (click)="editor!.commands['toggleStrike']?.()"
-          [innerHTML]="icon('textStrikethrough')"></button>
-        <button class="dm-toolbar-button"
-          [class.dm-toolbar-button--active]="isMarkActive('code')"
-          [disabled]="!canCommand('toggleCode')"
-          title="Code"
-          (mousedown)="$event.preventDefault()"
-          (click)="editor!.commands['toggleCode']?.()"
-          [innerHTML]="icon('code')"></button>
-      </domternal-bubble-menu>
+      <domternal-bubble-menu [editor]="editor"
+        [contexts]="{ text: ['bold', 'italic', 'underline', 'strike', 'code'], codeBlock: ['bold'] }" />
     }
   </div>
 
