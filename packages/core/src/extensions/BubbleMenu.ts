@@ -192,6 +192,22 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
     element.removeAttribute('data-show');
   };
 
+  // When the user clicks outside the bubble menu and outside the editor
+  // (e.g. on the toolbar), suppress the menu until the selection changes.
+  let suppressed = false;
+
+  const onDocumentMousedown = (e: MouseEvent): void => {
+    const target = e.target as Node | null;
+    if (!target) return;
+    // Click inside bubble menu — ignore (handled by onMenuMousedown)
+    if (element.contains(target)) return;
+    // Click inside editor — let ProseMirror handle selection change
+    if (editor.view.dom.contains(target)) return;
+    // Outside both — hide and suppress until selection changes
+    hideMenu();
+    suppressed = true;
+  };
+
   // Prevent blur when clicking inside the bubble menu
   const onMenuMousedown = (e: Event): void => {
     e.preventDefault();
@@ -200,6 +216,7 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
   // Initially hide
   hideMenu();
   element.addEventListener('mousedown', onMenuMousedown, { capture: true });
+  document.addEventListener('mousedown', onDocumentMousedown);
 
   return new Plugin({
     key: pluginKey,
@@ -210,12 +227,18 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
         from: 0,
         to: 0,
       }),
-      apply: (_tr, _value, _oldState, newState): BubbleMenuPluginState => {
+      apply: (_tr, prevValue, _oldState, newState): BubbleMenuPluginState => {
         const { selection } = newState;
         const { from, to } = selection;
 
+        // Reset suppression when the selection range changes
+        if (from !== prevValue.from || to !== prevValue.to) {
+          suppressed = false;
+        }
+
         // Determine visibility
         const visible =
+          !suppressed &&
           !selection.empty &&
           shouldShow({
             editor,
@@ -303,6 +326,7 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
           element.removeEventListener('mousedown', onMenuMousedown, {
             capture: true,
           });
+          document.removeEventListener('mousedown', onDocumentMousedown);
           if (updateTimeout) {
             clearTimeout(updateTimeout);
           }

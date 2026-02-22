@@ -1,0 +1,88 @@
+// =============================================================================
+// Color Palette (grid-layout dropdown for TextColor / HighlightColor)
+// =============================================================================
+
+.dm-color-palette {
+  display: grid;
+  grid-template-columns: repeat(var(--dm-palette-columns, 10), 1fr);
+  gap: 0.125rem;
+  padding: 0.375rem;
+  min-width: auto;
+  width: max-content;
+}
+
+// "Default" reset button — spans the full width of the grid
+.dm-color-palette-reset {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  width: 100%;
+  padding: 0.25rem 0.375rem;
+  margin-bottom: 0.25rem;
+  border: none;
+  border-radius: var(--dm-button-border-radius, 0.25rem);
+  background: transparent;
+  color: var(--dm-button-color, #1a1a1a);
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  text-align: left;
+  white-space: nowrap;
+  transition: background-color 0.15s;
+
+  &:hover {
+    background: var(--dm-button-hover-bg, rgba(0, 0, 0, 0.06));
+  }
+
+  svg {
+    width: 0.875rem;
+    height: 0.875rem;
+    flex-shrink: 0;
+  }
+}
+
+// Individual color swatch
+.dm-color-swatch {
+  position: relative;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 0.125rem;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.1s;
+
+  &:hover {
+    transform: scale(1.2);
+    z-index: 1;
+    box-shadow: 0 0 0 2px var(--dm-toolbar-bg, #f8f9fa),
+                0 0 0 3px var(--dm-accent, #2563eb);
+  }
+
+  // Active state — checkmark indicator
+  &--active {
+    box-shadow: 0 0 0 2px var(--dm-toolbar-bg, #f8f9fa),
+                0 0 0 3px var(--dm-accent, #2563eb);
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      // White checkmark with dark shadow for universal contrast
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M12 5L6.5 11 4 8.5' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round' opacity='0.3'/%3E%3Cpath d='M12 5L6.5 11 4 8.5' fill='none' stroke='%23fff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 80% no-repeat;
+    }
+  }
+}
+
+// Dark theme — adjust swatch border for dark backgrounds
+.dm-theme-dark .dm-color-swatch,
+.dm-theme-auto .dm-color-swatch {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+@media (prefers-color-scheme: dark) {
+  .dm-theme-auto .dm-color-swatch {
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+}

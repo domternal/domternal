@@ -12,9 +12,7 @@
  *   extensions: [
  *     // ... other extensions
  *     TextStyle,
- *     TextColor.configure({
- *       colors: ['#ff0000', '#00ff00', '#0000ff'], // Optional: restrict to these colors
- *     }),
+ *     TextColor, // uses the default 80-color palette
  *   ],
  * });
  *
@@ -49,12 +47,42 @@ declare module '../types/Commands.js' {
   }
 }
 
+/**
+ * Default 25-color palette (5 columns x 5 rows).
+ * Row 1: neutrals (black → white)
+ * Row 2: pastel tints
+ * Row 3: vivid / saturated
+ * Row 4: medium shades
+ * Row 5: dark shades
+ *
+ * Columns: Red, Orange/Yellow, Green, Blue, Purple
+ */
+export const DEFAULT_TEXT_COLORS: string[] = [
+  // Row 1 — Neutrals
+  '#000000', '#595959', '#a6a6a6', '#d9d9d9', '#ffffff',
+  // Row 2 — Pastel
+  '#ffc9c9', '#fff3bf', '#b2f2bb', '#a5d8ff', '#d0bfff',
+  // Row 3 — Vivid
+  '#e03131', '#f08c00', '#2f9e44', '#1971c2', '#7048e8',
+  // Row 4 — Medium
+  '#ff6b6b', '#ffd43b', '#69db7c', '#4dabf7', '#9775fa',
+  // Row 5 — Dark
+  '#c92a2a', '#e67700', '#2b8a3e', '#1864ab', '#6741d9',
+];
+
 export interface TextColorOptions {
   /**
-   * List of allowed color values. If empty, all colors are allowed.
-   * @default []
+   * List of color values for the palette.
+   * Defaults to a 25-color grid (5 cols x 5 rows).
+   * Pass a custom array to restrict to specific colors.
    */
   colors: string[];
+
+  /**
+   * Number of columns in the palette grid.
+   * @default 5
+   */
+  columns: number;
 }
 
 export const TextColor = Extension.create<TextColorOptions>({
@@ -62,7 +90,8 @@ export const TextColor = Extension.create<TextColorOptions>({
 
   addOptions() {
     return {
-      colors: [],
+      colors: DEFAULT_TEXT_COLORS,
+      columns: 5,
     };
   },
 
@@ -81,14 +110,6 @@ export const TextColor = Extension.create<TextColorOptions>({
               const color = attributes['color'] as string | null;
               if (!color) return null;
 
-              // Validate color if colors list is provided
-              if (
-                this.options.colors.length > 0 &&
-                !this.options.colors.includes(color)
-              ) {
-                return null;
-              }
-
               return { style: `color: ${color}` };
             },
           },
@@ -102,14 +123,6 @@ export const TextColor = Extension.create<TextColorOptions>({
       setTextColor:
         (color: string) =>
         ({ commands }) => {
-          // Validate color if colors list is provided
-          if (
-            this.options.colors.length > 0 &&
-            !this.options.colors.includes(color)
-          ) {
-            return false;
-          }
-
           return commands.setMark('textStyle', { color });
         },
 
@@ -134,24 +147,27 @@ export const TextColor = Extension.create<TextColorOptions>({
         label: 'Text Color',
         group: 'textStyle',
         priority: 200,
+        layout: 'grid',
+        gridColumns: this.options.columns,
         items: [
+          {
+            type: 'button' as const,
+            name: 'unsetTextColor',
+            command: 'unsetTextColor',
+            icon: 'prohibit',
+            label: 'Default',
+          },
           ...this.options.colors.map((color, i) => ({
             type: 'button' as const,
             name: `textColor-${color}`,
             command: 'setTextColor',
             commandArgs: [color],
             isActive: { name: 'textStyle', attributes: { color } },
-            icon: 'palette',
+            icon: '',
             label: color,
+            color,
             priority: 200 - i,
           })),
-          {
-            type: 'button' as const,
-            name: 'unsetTextColor',
-            command: 'unsetTextColor',
-            icon: 'palette',
-            label: 'Default',
-          },
         ],
       },
     ];

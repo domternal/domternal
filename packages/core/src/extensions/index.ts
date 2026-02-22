@@ -55,7 +55,7 @@ export {
 } from './InvisibleChars.js';
 
 // Text Style Extensions (require TextStyle mark)
-export { TextColor, type TextColorOptions } from './TextColor.js';
+export { TextColor, DEFAULT_TEXT_COLORS, type TextColorOptions } from './TextColor.js';
 export { FontFamily, type FontFamilyOptions } from './FontFamily.js';
 export { FontSize, type FontSizeOptions } from './FontSize.js';
 

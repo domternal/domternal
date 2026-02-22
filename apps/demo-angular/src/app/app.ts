@@ -67,7 +67,7 @@ export class App {
     ListItem,
     TextAlign,
     TextStyle,
-    TextColor.configure({ colors: ['#ff0000', '#00ff00', '#0000ff', '#ff9900'] }),
+    TextColor,
     FontSize,
     FontFamily,
     LineHeight.configure({ lineHeights: ['1', '1.15', '1.5', '2'] }),

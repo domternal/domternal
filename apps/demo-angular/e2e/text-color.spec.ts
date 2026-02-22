@@ -5,15 +5,21 @@ const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
 const dropdownTrigger = 'button[aria-label="Text Color"]';
 
-// Demo app configures these 4 colors
-const COLORS = ['#ff0000', '#00ff00', '#0000ff', '#ff9900'] as const;
+// Default palette: 5x5 = 25 color swatches
+const SWATCH_COUNT = 25;
+
+// Palette colors used in tests (vivid row)
+const RED    = '#e03131';
+const ORANGE = '#f08c00';
+const GREEN  = '#2f9e44';
+const BLUE   = '#1971c2';
 
 // Map hex to rgb for browser-normalized checks
 const HEX_TO_RGB: Record<string, string> = {
-  '#ff0000': 'rgb(255, 0, 0)',
-  '#00ff00': 'rgb(0, 255, 0)',
-  '#0000ff': 'rgb(0, 0, 255)',
-  '#ff9900': 'rgb(255, 153, 0)',
+  [RED]:    'rgb(224, 49, 49)',
+  [ORANGE]: 'rgb(240, 140, 0)',
+  [GREEN]:  'rgb(47, 158, 68)',
+  [BLUE]:   'rgb(25, 113, 194)',
 };
 
 async function setContentAndFocus(page: Page, html: string) {
@@ -54,16 +60,14 @@ function expectColor(html: string, hexColor: string) {
 
 /** Check that the HTML has no color style */
 function expectNoColor(html: string) {
-  // Neither hex nor rgb color should appear in a style
   expect(html).not.toMatch(/style="[^"]*color:/);
 }
 
 // ─── Fixtures ──────────────────────────────────────────────────────────
 
 const PARAGRAPH = '<p>hello world</p>';
-const PARAGRAPH_RED = '<p><span style="color: #ff0000">red text</span></p>';
-const PARAGRAPH_BLUE = '<p><span style="color: #0000ff">blue text</span></p>';
-const PARAGRAPH_GREEN = '<p><span style="color: #00ff00">green text</span></p>';
+const PARAGRAPH_RED = `<p><span style="color: ${RED}">red text</span></p>`;
+const PARAGRAPH_BLUE = `<p><span style="color: ${BLUE}">blue text</span></p>`;
 const TWO_PARAGRAPHS = '<p>first paragraph</p><p>second paragraph</p>';
 
 // ─── Toolbar dropdown ─────────────────────────────────────────────────
@@ -84,11 +88,13 @@ test.describe('TextColor — toolbar dropdown', () => {
     await expect(panel).toBeVisible();
   });
 
-  test('dropdown contains 4 colors + Default = 5 items', async ({ page }) => {
+  test(`dropdown contains ${SWATCH_COUNT} color swatches + reset button`, async ({ page }) => {
     await page.locator(dropdownTrigger).click();
     const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Text Color"]) .dm-toolbar-dropdown-panel');
-    const items = panel.locator('.dm-toolbar-dropdown-item');
-    await expect(items).toHaveCount(5);
+    const swatches = panel.locator('.dm-color-swatch');
+    await expect(swatches).toHaveCount(SWATCH_COUNT);
+    const reset = panel.locator('.dm-color-palette-reset');
+    await expect(reset).toHaveCount(1);
   });
 
   test('clicking trigger again closes dropdown', async ({ page }) => {
@@ -99,13 +105,25 @@ test.describe('TextColor — toolbar dropdown', () => {
     await expect(panel).not.toBeVisible();
   });
 
-  test('all configured color labels appear in dropdown', async ({ page }) => {
+  test('palette panel has grid layout class', async ({ page }) => {
+    await page.locator(dropdownTrigger).click();
+    const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Text Color"]) .dm-color-palette');
+    await expect(panel).toBeVisible();
+  });
+
+  test('palette contains default/reset button', async ({ page }) => {
     await page.locator(dropdownTrigger).click();
     const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Text Color"]) .dm-toolbar-dropdown-panel');
-    for (const color of COLORS) {
-      await expect(panel.locator(`button[aria-label="${color}"]`)).toBeVisible();
-    }
     await expect(panel.locator('button[aria-label="Default"]')).toBeVisible();
+  });
+
+  test('palette colors have background-color style', async ({ page }) => {
+    await page.locator(dropdownTrigger).click();
+    const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Text Color"]) .dm-toolbar-dropdown-panel');
+    const firstSwatch = panel.locator('.dm-color-swatch').first();
+    const bgColor = await firstSwatch.evaluate(el => getComputedStyle(el).backgroundColor);
+    expect(bgColor).not.toBe('');
+    expect(bgColor).not.toBe('rgba(0, 0, 0, 0)');
   });
 });
 
@@ -117,47 +135,47 @@ test.describe('TextColor — set via toolbar', () => {
     await page.waitForSelector(editorSelector);
   });
 
-  test('set red (#ff0000) on selected text', async ({ page }) => {
+  test('set red on selected text', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH);
     await selectAll(page);
-    await setColorViaToolbar(page, '#ff0000');
+    await setColorViaToolbar(page, RED);
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#ff0000');
+    expectColor(html, RED);
     expect(html).toContain('hello world');
   });
 
-  test('set green (#00ff00) on selected text', async ({ page }) => {
+  test('set green on selected text', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH);
     await selectAll(page);
-    await setColorViaToolbar(page, '#00ff00');
+    await setColorViaToolbar(page, GREEN);
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#00ff00');
+    expectColor(html, GREEN);
   });
 
-  test('set blue (#0000ff) on selected text', async ({ page }) => {
+  test('set blue on selected text', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH);
     await selectAll(page);
-    await setColorViaToolbar(page, '#0000ff');
+    await setColorViaToolbar(page, BLUE);
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#0000ff');
+    expectColor(html, BLUE);
   });
 
-  test('set orange (#ff9900) on selected text', async ({ page }) => {
+  test('set orange on selected text', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH);
     await selectAll(page);
-    await setColorViaToolbar(page, '#ff9900');
+    await setColorViaToolbar(page, ORANGE);
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#ff9900');
+    expectColor(html, ORANGE);
   });
 
   test('color renders as span with color style', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH);
     await selectAll(page);
-    await setColorViaToolbar(page, '#ff0000');
+    await setColorViaToolbar(page, RED);
 
     const html = await getEditorHTML(page);
     expect(html).toMatch(/<span[^>]*style="color:/);
@@ -194,10 +212,10 @@ test.describe('TextColor — unset (Default)', () => {
   test('unset after setting via toolbar removes color', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH);
     await selectAll(page);
-    await setColorViaToolbar(page, '#0000ff');
+    await setColorViaToolbar(page, BLUE);
 
     let html = await getEditorHTML(page);
-    expectColor(html, '#0000ff');
+    expectColor(html, BLUE);
 
     // Re-focus editor and select all via evaluate (toolbar interaction loses editor focus)
     await page.evaluate((sel) => {
@@ -229,43 +247,43 @@ test.describe('TextColor — change between colors', () => {
   test('change from red to blue', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH_RED);
     await selectAll(page);
-    await setColorViaToolbar(page, '#0000ff');
+    await setColorViaToolbar(page, BLUE);
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#0000ff');
+    expectColor(html, BLUE);
     // Red should be gone
-    expect(html).not.toContain('#ff0000');
-    expect(html).not.toContain('rgb(255, 0, 0)');
+    expect(html).not.toContain(RED);
+    expect(html).not.toContain(HEX_TO_RGB[RED]);
   });
 
   test('change from blue to green', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH_BLUE);
     await selectAll(page);
-    await setColorViaToolbar(page, '#00ff00');
+    await setColorViaToolbar(page, GREEN);
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#00ff00');
-    expect(html).not.toContain('#0000ff');
-    expect(html).not.toContain('rgb(0, 0, 255)');
+    expectColor(html, GREEN);
+    expect(html).not.toContain(BLUE);
+    expect(html).not.toContain(HEX_TO_RGB[BLUE]);
   });
 
   test('rapid color changes keep only the last', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH);
     await selectAll(page);
-    await setColorViaToolbar(page, '#ff0000');
+    await setColorViaToolbar(page, RED);
     await page.locator(editorSelector).focus();
     await page.keyboard.press(`${modifier}+A`);
     await page.waitForTimeout(100);
-    await setColorViaToolbar(page, '#00ff00');
+    await setColorViaToolbar(page, GREEN);
     await page.locator(editorSelector).focus();
     await page.keyboard.press(`${modifier}+A`);
     await page.waitForTimeout(100);
-    await setColorViaToolbar(page, '#ff9900');
+    await setColorViaToolbar(page, ORANGE);
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#ff9900');
-    expect(html).not.toContain('#ff0000');
-    expect(html).not.toContain('rgb(255, 0, 0)');
+    expectColor(html, ORANGE);
+    expect(html).not.toContain(RED);
+    expect(html).not.toContain(HEX_TO_RGB[RED]);
   });
 });
 
@@ -291,36 +309,36 @@ test.describe('TextColor — active state', () => {
     await expect(page.locator(dropdownTrigger)).not.toHaveClass(/active/);
   });
 
-  test('correct color item shows active in dropdown', async ({ page }) => {
+  test('correct color swatch shows active in palette', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH_RED);
     await page.locator(`${editorSelector} span`).click();
     await page.locator(dropdownTrigger).click();
 
     const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Text Color"]) .dm-toolbar-dropdown-panel');
-    await expect(panel.locator('button[aria-label="#ff0000"]')).toHaveClass(/active/);
-    await expect(panel.locator('button[aria-label="#0000ff"]')).not.toHaveClass(/active/);
+    await expect(panel.locator(`button[aria-label="${RED}"]`)).toHaveClass(/active/);
+    await expect(panel.locator(`button[aria-label="${BLUE}"]`)).not.toHaveClass(/active/);
   });
 
-  test('blue item shows active for blue text', async ({ page }) => {
+  test('blue swatch shows active for blue text', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH_BLUE);
     await page.locator(`${editorSelector} span`).click();
     await page.locator(dropdownTrigger).click();
 
     const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Text Color"]) .dm-toolbar-dropdown-panel');
-    await expect(panel.locator('button[aria-label="#0000ff"]')).toHaveClass(/active/);
-    await expect(panel.locator('button[aria-label="#ff0000"]')).not.toHaveClass(/active/);
+    await expect(panel.locator(`button[aria-label="${BLUE}"]`)).toHaveClass(/active/);
+    await expect(panel.locator(`button[aria-label="${RED}"]`)).not.toHaveClass(/active/);
   });
 
   test('active state updates after changing color', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH_RED);
     await selectAll(page);
-    await setColorViaToolbar(page, '#00ff00');
+    await setColorViaToolbar(page, GREEN);
     await page.waitForTimeout(50);
     await page.locator(dropdownTrigger).click();
 
     const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Text Color"]) .dm-toolbar-dropdown-panel');
-    await expect(panel.locator('button[aria-label="#00ff00"]')).toHaveClass(/active/);
-    await expect(panel.locator('button[aria-label="#ff0000"]')).not.toHaveClass(/active/);
+    await expect(panel.locator(`button[aria-label="${GREEN}"]`)).toHaveClass(/active/);
+    await expect(panel.locator(`button[aria-label="${RED}"]`)).not.toHaveClass(/active/);
   });
 });
 
@@ -336,7 +354,7 @@ test.describe('TextColor — parseHTML', () => {
     await setContentAndFocus(page, PARAGRAPH_RED);
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#ff0000');
+    expectColor(html, RED);
     expect(html).toContain('red text');
   });
 
@@ -344,17 +362,15 @@ test.describe('TextColor — parseHTML', () => {
     await setContentAndFocus(page, PARAGRAPH_BLUE);
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#0000ff');
+    expectColor(html, BLUE);
     expect(html).toContain('blue text');
   });
 
   test('normalizes rgb() to hex on parse', async ({ page }) => {
-    // Browser style uses rgb(), extension normalizes to hex on parse
-    await setContentAndFocus(page, '<p><span style="color: rgb(255, 0, 0)">rgb text</span></p>');
+    await setContentAndFocus(page, `<p><span style="color: ${HEX_TO_RGB[RED]}">rgb text</span></p>`);
 
     const html = await getEditorHTML(page);
-    // After parse → normalize → render, should still have the color
-    expectColor(html, '#ff0000');
+    expectColor(html, RED);
     expect(html).toContain('rgb text');
   });
 
@@ -366,22 +382,20 @@ test.describe('TextColor — parseHTML', () => {
     expectNoColor(html);
   });
 
-  test('rejects color not in allowed list', async ({ page }) => {
+  test('rejects invalid CSS color', async ({ page }) => {
     await setContentAndFocus(page, '<p><span style="color: #purple">not allowed</span></p>');
 
     const html = await getEditorHTML(page);
     expect(html).toContain('not allowed');
-    // Invalid color should be stripped
     expect(html).not.toContain('#purple');
   });
 
-  test('rejects hex color not in configured list', async ({ page }) => {
-    // #123456 is not in the configured colors list
-    await setContentAndFocus(page, '<p><span style="color: #123456">unlisted color</span></p>');
+  test('preserves any valid hex color from HTML', async ({ page }) => {
+    await setContentAndFocus(page, '<p><span style="color: #123456">custom color</span></p>');
 
     const html = await getEditorHTML(page);
-    expect(html).toContain('unlisted color');
-    expect(html).not.toContain('#123456');
+    expect(html).toContain('custom color');
+    expect(html).toContain('#123456');
   });
 });
 
@@ -395,7 +409,6 @@ test.describe('TextColor — partial selection', () => {
 
   test('apply color to partial text creates styled span', async ({ page }) => {
     await setContentAndFocus(page, '<p>hello world</p>');
-    // Select "hello" using evaluate for precision
     await page.evaluate((sel) => {
       const editor = document.querySelector(sel);
       const textNode = editor?.querySelector('p')?.firstChild;
@@ -407,12 +420,11 @@ test.describe('TextColor — partial selection', () => {
       s?.removeAllRanges();
       s?.addRange(range);
     }, editorSelector);
-    await setColorViaToolbar(page, '#ff0000');
+    await setColorViaToolbar(page, RED);
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#ff0000');
+    expectColor(html, RED);
     expect(html).toContain('world');
-    // Only one colored span
     const spans = html.match(/<span[^>]*color[^>]*>/g);
     expect(spans).toHaveLength(1);
   });
@@ -420,7 +432,6 @@ test.describe('TextColor — partial selection', () => {
   test('apply different colors to different paragraphs', async ({ page }) => {
     await setContentAndFocus(page, '<p>first line</p><p>second line</p>');
 
-    // Select first paragraph text
     await page.evaluate((sel) => {
       const editor = document.querySelector(sel);
       const textNode = editor?.querySelector('p:first-child')?.firstChild;
@@ -431,11 +442,10 @@ test.describe('TextColor — partial selection', () => {
       s?.removeAllRanges();
       s?.addRange(range);
     }, editorSelector);
-    await setColorViaToolbar(page, '#ff0000');
+    await setColorViaToolbar(page, RED);
 
     await page.waitForTimeout(50);
 
-    // Select second paragraph text
     await page.evaluate((sel) => {
       const editor = document.querySelector(sel);
       const p2 = editor?.querySelectorAll('p')[1];
@@ -447,11 +457,11 @@ test.describe('TextColor — partial selection', () => {
       s?.removeAllRanges();
       s?.addRange(range);
     }, editorSelector);
-    await setColorViaToolbar(page, '#0000ff');
+    await setColorViaToolbar(page, BLUE);
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#ff0000');
-    expectColor(html, '#0000ff');
+    expectColor(html, RED);
+    expectColor(html, BLUE);
   });
 });
 
@@ -475,20 +485,20 @@ test.describe('TextColor — multiple paragraphs', () => {
       s?.removeAllRanges();
       s?.addRange(range);
     }, editorSelector);
-    await setColorViaToolbar(page, '#ff0000');
+    await setColorViaToolbar(page, RED);
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#ff0000');
+    expectColor(html, RED);
     expect(html).toContain('second paragraph</p>');
   });
 
   test('select all applies color to all text', async ({ page }) => {
     await setContentAndFocus(page, TWO_PARAGRAPHS);
     await selectAll(page);
-    await setColorViaToolbar(page, '#0000ff');
+    await setColorViaToolbar(page, BLUE);
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#0000ff');
+    expectColor(html, BLUE);
     expect(html).toContain('first paragraph');
     expect(html).toContain('second paragraph');
   });
@@ -505,10 +515,10 @@ test.describe('TextColor — combined with other marks', () => {
   test('color with bold text', async ({ page }) => {
     await setContentAndFocus(page, '<p><strong>bold text</strong></p>');
     await selectAll(page);
-    await setColorViaToolbar(page, '#ff0000');
+    await setColorViaToolbar(page, RED);
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#ff0000');
+    expectColor(html, RED);
     expect(html).toContain('bold text');
     expect(html).toMatch(/strong|font-weight/);
   });
@@ -516,10 +526,10 @@ test.describe('TextColor — combined with other marks', () => {
   test('color combined with font-family on same text', async ({ page }) => {
     await setContentAndFocus(page, '<p><span style="font-family: Georgia">styled text</span></p>');
     await selectAll(page);
-    await setColorViaToolbar(page, '#ff0000');
+    await setColorViaToolbar(page, RED);
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#ff0000');
+    expectColor(html, RED);
     expect(html).toContain('Georgia');
     expect(html).toContain('styled text');
   });
@@ -527,16 +537,16 @@ test.describe('TextColor — combined with other marks', () => {
   test('color combined with font-size on same text', async ({ page }) => {
     await setContentAndFocus(page, '<p><span style="font-size: 24px">sized text</span></p>');
     await selectAll(page);
-    await setColorViaToolbar(page, '#0000ff');
+    await setColorViaToolbar(page, BLUE);
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#0000ff');
+    expectColor(html, BLUE);
     expect(html).toContain('font-size');
     expect(html).toContain('24px');
   });
 
   test('unset color preserves font-family', async ({ page }) => {
-    await setContentAndFocus(page, '<p><span style="font-family: Georgia; color: #ff0000">styled text</span></p>');
+    await setContentAndFocus(page, `<p><span style="font-family: Georgia; color: ${RED}">styled text</span></p>`);
     await selectAll(page);
     await setColorViaToolbar(page, 'Default');
 
@@ -547,7 +557,7 @@ test.describe('TextColor — combined with other marks', () => {
   });
 
   test('unset color preserves font-size', async ({ page }) => {
-    await setContentAndFocus(page, '<p><span style="font-size: 24px; color: #ff0000">styled text</span></p>');
+    await setContentAndFocus(page, `<p><span style="font-size: 24px; color: ${RED}">styled text</span></p>`);
     await selectAll(page);
     await setColorViaToolbar(page, 'Default');
 
@@ -573,17 +583,17 @@ test.describe('TextColor — persistence', () => {
     await page.keyboard.type(' extra');
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#ff0000');
+    expectColor(html, RED);
     expect(html).toContain('extra');
   });
 
   test('undo restores original text without color', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH);
     await selectAll(page);
-    await setColorViaToolbar(page, '#ff0000');
+    await setColorViaToolbar(page, RED);
 
     let html = await getEditorHTML(page);
-    expectColor(html, '#ff0000');
+    expectColor(html, RED);
 
     await page.keyboard.press(`${modifier}+Z`);
     html = await getEditorHTML(page);
@@ -593,7 +603,7 @@ test.describe('TextColor — persistence', () => {
   test('redo re-applies color', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH);
     await selectAll(page);
-    await setColorViaToolbar(page, '#ff0000');
+    await setColorViaToolbar(page, RED);
 
     await page.keyboard.press(`${modifier}+Z`);
     let html = await getEditorHTML(page);
@@ -601,7 +611,7 @@ test.describe('TextColor — persistence', () => {
 
     await page.keyboard.press(`${modifier}+Shift+Z`);
     html = await getEditorHTML(page);
-    expectColor(html, '#ff0000');
+    expectColor(html, RED);
   });
 });
 
@@ -618,42 +628,42 @@ test.describe('TextColor — edge cases', () => {
     await page.locator(`${editorSelector} p`).click();
     await page.keyboard.press('End');
 
-    await setColorViaToolbar(page, '#ff0000');
+    await setColorViaToolbar(page, RED);
     await page.keyboard.type(' new');
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#ff0000');
+    expectColor(html, RED);
     expect(html).toContain('new');
   });
 
   test('color on heading text', async ({ page }) => {
     await setContentAndFocus(page, '<h2>heading text</h2>');
     await selectAll(page);
-    await setColorViaToolbar(page, '#0000ff');
+    await setColorViaToolbar(page, BLUE);
 
     const html = await getEditorHTML(page);
     expect(html).toContain('<h2');
-    expectColor(html, '#0000ff');
+    expectColor(html, BLUE);
     expect(html).toContain('heading text');
   });
 
   test('color inside blockquote', async ({ page }) => {
     await setContentAndFocus(page, '<blockquote><p>quoted text</p></blockquote>');
     await selectAll(page);
-    await setColorViaToolbar(page, '#ff9900');
+    await setColorViaToolbar(page, ORANGE);
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#ff9900');
+    expectColor(html, ORANGE);
     expect(html).toContain('quoted text');
   });
 
   test('color inside list item', async ({ page }) => {
     await setContentAndFocus(page, '<ul><li><p>list item</p></li></ul>');
     await selectAll(page);
-    await setColorViaToolbar(page, '#00ff00');
+    await setColorViaToolbar(page, GREEN);
 
     const html = await getEditorHTML(page);
-    expectColor(html, '#00ff00');
+    expectColor(html, GREEN);
     expect(html).toContain('list item');
   });
 
@@ -669,7 +679,7 @@ test.describe('TextColor — edge cases', () => {
       s?.removeAllRanges();
       s?.addRange(range);
     }, editorSelector);
-    await setColorViaToolbar(page, '#ff0000');
+    await setColorViaToolbar(page, RED);
 
     const html = await getEditorHTML(page);
     expect(html).toContain('second</p>');

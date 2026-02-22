@@ -92,6 +92,9 @@ export interface ToolbarButton {
 
   /** Event name to emit on the editor when clicked. If set, the UI emits this event instead of executing the command. */
   emitEvent?: string;
+
+  /** Color value (hex) for color-swatch rendering in grid-layout dropdowns. */
+  color?: string;
 }
 
 /**
@@ -130,6 +133,12 @@ export interface ToolbarDropdown {
 
   /** Sort order within group (higher = first). @default 100 */
   priority?: number;
+
+  /** Panel layout: 'list' (default vertical) or 'grid' (color-swatch grid). */
+  layout?: 'list' | 'grid';
+
+  /** Number of columns in grid layout. @default 10 */
+  gridColumns?: number;
 }
 
 /**

@@ -2,7 +2,7 @@
  * Tests for TextColor extension
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { TextColor } from './TextColor.js';
+import { TextColor, DEFAULT_TEXT_COLORS } from './TextColor.js';
 import { TextStyle } from '../marks/TextStyle.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
@@ -15,17 +15,24 @@ describe('TextColor', () => {
       expect(TextColor.name).toBe('textColor');
     });
 
-    it('has default options', () => {
-      expect(TextColor.options).toEqual({
-        colors: [],
-      });
+    it('has default options with 25-color palette', () => {
+      expect(TextColor.options.colors).toEqual(DEFAULT_TEXT_COLORS);
+      expect(TextColor.options.colors).toHaveLength(25);
+      expect(TextColor.options.columns).toBe(5);
     });
 
-    it('can configure with allowed colors', () => {
+    it('can configure with custom colors', () => {
       const CustomTextColor = TextColor.configure({
         colors: ['#ff0000', '#00ff00', '#0000ff'],
       });
       expect(CustomTextColor.options.colors).toEqual(['#ff0000', '#00ff00', '#0000ff']);
+    });
+
+    it('can configure with custom column count', () => {
+      const CustomTextColor = TextColor.configure({
+        columns: 5,
+      });
+      expect(CustomTextColor.options.columns).toBe(5);
     });
   });
 
@@ -73,15 +80,12 @@ describe('TextColor', () => {
       expect(result).toBe(null);
     });
 
-    it('renderHTML returns null for disallowed color', () => {
-      const CustomTextColor = TextColor.configure({
-        colors: ['#ff0000', '#00ff00'],
-      });
-      const globalAttrs = CustomTextColor.config.addGlobalAttributes?.call(CustomTextColor);
+    it('renderHTML accepts any valid color (no palette restriction)', () => {
+      const globalAttrs = TextColor.config.addGlobalAttributes?.call(TextColor);
       const renderHTML = globalAttrs?.[0]?.attributes['color']?.renderHTML;
 
-      const result = renderHTML?.({ color: '#0000ff' });
-      expect(result).toBe(null);
+      const result = renderHTML?.({ color: '#123456' });
+      expect(result).toEqual({ style: 'color: #123456' });
     });
   });
 
@@ -101,26 +105,72 @@ describe('TextColor', () => {
     });
   });
 
-  describe('color validation', () => {
-    it('rejects invalid color when colors list is provided', () => {
-      const CustomTextColor = TextColor.configure({
-        colors: ['#ff0000', '#00ff00'],
-      });
+  describe('addToolbarItems', () => {
+    it('returns grid-layout dropdown with default palette', () => {
+      const items = TextColor.config.addToolbarItems?.call(TextColor);
+      expect(items).toHaveLength(1);
+      const dropdown = items?.[0];
+      expect(dropdown?.type).toBe('dropdown');
+      expect(dropdown?.name).toBe('textColor');
+      if (dropdown?.type === 'dropdown') {
+        expect(dropdown.layout).toBe('grid');
+        expect(dropdown.gridColumns).toBe(5);
+        // 25 color swatches + 1 reset = 26 items
+        expect(dropdown.items).toHaveLength(26);
+      }
+    });
 
-      const commands = CustomTextColor.config.addCommands?.call(CustomTextColor);
-      const setTextColor = commands?.['setTextColor'] as (color: string) => unknown;
+    it('returns empty when colors is empty array', () => {
+      const Custom = TextColor.configure({ colors: [] });
+      const items = Custom.config.addToolbarItems?.call(Custom);
+      expect(items).toHaveLength(0);
+    });
 
-      // Create mock command context
-      const mockContext = {
-        commands: {
-          setMark: () => true,
-        },
-      };
+    it('color items have color property matching commandArgs', () => {
+      const items = TextColor.config.addToolbarItems?.call(TextColor);
+      const dropdown = items?.[0];
+      if (dropdown?.type === 'dropdown') {
+        const colorItems = dropdown.items.filter(i => i.color);
+        expect(colorItems).toHaveLength(25);
+        for (const item of colorItems) {
+          expect(item.color).toBe(item.commandArgs?.[0]);
+        }
+      }
+    });
 
-      const handler = setTextColor('#0000ff');
-      const result = (handler as (ctx: typeof mockContext) => boolean)(mockContext);
+    it('first item is the reset button without color', () => {
+      const items = TextColor.config.addToolbarItems?.call(TextColor);
+      const dropdown = items?.[0];
+      if (dropdown?.type === 'dropdown') {
+        const resetItem = dropdown.items[0];
+        expect(resetItem.name).toBe('unsetTextColor');
+        expect(resetItem.command).toBe('unsetTextColor');
+        expect(resetItem.color).toBeUndefined();
+      }
+    });
+  });
 
-      expect(result).toBe(false);
+  describe('DEFAULT_TEXT_COLORS', () => {
+    it('contains 25 colors', () => {
+      expect(DEFAULT_TEXT_COLORS).toHaveLength(25);
+    });
+
+    it('all colors are valid hex format', () => {
+      for (const color of DEFAULT_TEXT_COLORS) {
+        expect(color).toMatch(/^#[0-9a-f]{6}$/);
+      }
+    });
+
+    it('first row starts with black and ends with white', () => {
+      expect(DEFAULT_TEXT_COLORS[0]).toBe('#000000');
+      expect(DEFAULT_TEXT_COLORS[4]).toBe('#ffffff');
+    });
+
+    it('contains vivid red, green, blue, purple', () => {
+      expect(DEFAULT_TEXT_COLORS).toContain('#e03131');
+      expect(DEFAULT_TEXT_COLORS).toContain('#2f9e44');
+      expect(DEFAULT_TEXT_COLORS).toContain('#1971c2');
+      expect(DEFAULT_TEXT_COLORS).toContain('#7048e8');
     });
   });
 
