@@ -642,7 +642,7 @@ export const toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]> =
       }
     });
 
-    const isInsideWrap = (pos: number) => {
+    const isInsideWrap = (pos: number): boolean => {
       const $pos = tr.doc.resolve(pos);
       for (let d = $pos.depth; d > 0; d--) {
         if ($pos.node(d).type === nodeType) return true;
@@ -725,7 +725,7 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
     const { from, to } = tr.selection;
     const contentBlocks: { pos: number; inTargetList: boolean; inSomeList: boolean; otherListPos: number | null }[] = [];
 
-    const collectListContext = ($pos: ReturnType<typeof tr.doc.resolve>, pos: number) => {
+    const collectListContext = ($pos: ReturnType<typeof tr.doc.resolve>, pos: number): void => {
       let inTargetList = false;
       let inSomeList = false;
       let otherListPos: number | null = null;

@@ -19,6 +19,7 @@
  * ```
  */
 import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
+import type { MarkType } from 'prosemirror-model';
 import { Mark } from '../Mark.js';
 import { isValidUrl } from '../helpers/isValidUrl.js';
 import { getMarkRange } from '../helpers/getMarkRange.js';
@@ -100,7 +101,7 @@ export interface LinkAttributes {
 
 interface LinkPopoverOptions {
   editor: Editor;
-  markType: import('prosemirror-model').MarkType;
+  markType: MarkType;
   protocols: string[];
 }
 
@@ -142,31 +143,31 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
     if (empty) {
       const $pos = state.doc.resolve(from);
       const linkMark = $pos.marks().find((m: { type: { name: string } }) => m.type === markType);
-      existingHref = (linkMark?.attrs as Record<string, unknown>)?.['href'] as string ?? null;
+      existingHref = linkMark ? (linkMark.attrs as Record<string, unknown>)['href'] as string : null;
     } else {
       // Check marks in selection
       const { to } = state.selection;
       state.doc.nodesBetween(from, to, (node) => {
         if (existingHref) return false;
-        const linkMark = node.marks?.find((m: { type: { name: string } }) => m.type === markType);
+        const linkMark = node.marks.find((m: { type: { name: string } }) => m.type === markType);
         if (linkMark) existingHref = (linkMark.attrs as Record<string, unknown>)['href'] as string;
         return true;
       });
     }
 
-    hasExistingLink = existingHref != null;
+    hasExistingLink = existingHref !== null;
     input.value = existingHref ?? '';
     removeBtn.style.display = hasExistingLink ? '' : 'none';
 
     // Position below the anchor element (toolbar/bubble-menu button) or cursor
     if (anchorElement) {
       const anchorRect = anchorElement.getBoundingClientRect();
-      el.style.top = `${anchorRect.bottom + 4}px`;
-      el.style.left = `${anchorRect.left}px`;
+      el.style.top = `${String(anchorRect.bottom + 4)}px`;
+      el.style.left = `${String(anchorRect.left)}px`;
     } else {
       const coords = editor.view.coordsAtPos(from);
-      el.style.top = `${coords.bottom + 4}px`;
-      el.style.left = `${coords.left}px`;
+      el.style.top = `${String(coords.bottom + 4)}px`;
+      el.style.left = `${String(coords.left)}px`;
     }
 
     el.setAttribute('data-show', '');

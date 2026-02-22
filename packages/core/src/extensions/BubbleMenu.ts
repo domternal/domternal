@@ -245,7 +245,7 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
       const onBlur = ({ event }: { event: FocusEvent }): void => {
         // Don't hide if focus moved to the bubble menu itself
         if (
-          event?.relatedTarget &&
+          event.relatedTarget &&
           element.contains(event.relatedTarget as Node)
         ) {
           return;

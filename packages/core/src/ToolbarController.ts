@@ -379,8 +379,10 @@ export class ToolbarController {
       });
     } else if (typeof item.isActive === 'string') {
       nowActive = this.editor.isActive(item.isActive);
+    } else if (item.isActive) {
+      nowActive = this.editor.isActive(item.isActive.name, item.isActive.attributes);
     } else {
-      nowActive = this.editor.isActive(item.isActive!.name, item.isActive!.attributes);
+      return false;
     }
 
     if (wasActive !== nowActive) {

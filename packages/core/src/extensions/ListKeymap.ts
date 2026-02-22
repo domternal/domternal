@@ -38,7 +38,7 @@ function getListItemContext(
     // If we hit a different item type first (e.g. taskItem), bail out
     if (node.type.spec.defining && node.type !== listItemType && node.type.isBlock) {
       const parent = d > 0 ? $from.node(d - 1) : null;
-      if (parent && parent.type.spec.group?.includes('list')) {
+      if (parent?.type.spec.group?.includes('list')) {
         return null;
       }
     }

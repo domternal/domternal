@@ -153,7 +153,7 @@ describe('InvisibleChars', () => {
 
       // can() should not trigger side effects
       const canProxy = editor.can();
-      canProxy['toggleInvisibleChars']?.();
+      canProxy.toggleInvisibleChars();
 
       expect(storage.isVisible()).toBe(false);
     });
@@ -166,7 +166,7 @@ describe('InvisibleChars', () => {
       const storage = editor.storage['invisibleChars'] as typeof InvisibleChars.storage;
 
       const canProxy = editor.can();
-      canProxy['showInvisibleChars']?.();
+      canProxy.showInvisibleChars();
 
       expect(storage.isVisible()).toBe(false);
     });

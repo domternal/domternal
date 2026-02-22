@@ -77,8 +77,8 @@ describe('BubbleMenu', () => {
       // Mock the editor
       const mockEditor = {
         view: { coordsAtPos: () => ({ left: 0, top: 0, bottom: 0 }) },
-        on: () => {},
-        off: () => {},
+        on: () => { /* noop */ },
+        off: () => { /* noop */ },
         isEditable: true,
       };
       (CustomBubbleMenu as unknown as { editor: unknown }).editor = mockEditor;

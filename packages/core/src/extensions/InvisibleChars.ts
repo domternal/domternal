@@ -207,10 +207,10 @@ export const InvisibleChars = Extension.create<
   addKeyboardShortcuts() {
     return {
       'Mod-Shift-8': () => {
-        return this.editor?.commands['toggleInvisibleChars']?.() ?? false;
+        return this.editor?.commands.toggleInvisibleChars() ?? false;
       },
       'Mod-Shift-Space': () => {
-        return this.editor?.commands['insertNbsp']?.() ?? false;
+        return this.editor?.commands.insertNbsp() ?? false;
       },
     };
   },
