@@ -244,11 +244,13 @@ test.describe('FontSize — change between sizes', () => {
     await setContentAndFocus(page, PARAGRAPH);
     await selectAll(page);
     await setSizeViaToolbar(page, '12px');
-    await page.waitForTimeout(50);
-    await selectAll(page);
+    await page.locator(editorSelector).focus();
+    await page.keyboard.press(`${modifier}+A`);
+    await page.waitForTimeout(100);
     await setSizeViaToolbar(page, '18px');
-    await page.waitForTimeout(50);
-    await selectAll(page);
+    await page.locator(editorSelector).focus();
+    await page.keyboard.press(`${modifier}+A`);
+    await page.waitForTimeout(100);
     await setSizeViaToolbar(page, '32px');
 
     const html = await getEditorHTML(page);

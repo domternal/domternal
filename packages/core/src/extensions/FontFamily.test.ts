@@ -18,7 +18,7 @@ describe('FontFamily', () => {
 
     it('has default options', () => {
       expect(FontFamily.options).toEqual({
-        fontFamilies: [],
+        fontFamilies: ['Arial', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Times New Roman', 'Georgia', 'Palatino Linotype', 'Courier New'],
       });
     });
 
@@ -181,7 +181,7 @@ describe('FontFamily', () => {
       const tr = editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6));
       editor.view.dispatch(tr);
 
-      const setResult = editor.commands.setFontFamily('monospace');
+      const setResult = editor.commands.setFontFamily('Arial');
       expect(setResult).toBe(true);
 
       // Check if font-family is in the HTML
@@ -198,7 +198,7 @@ describe('FontFamily', () => {
       // Set font family with explicit selection
       const tr = editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6));
       editor.view.dispatch(tr);
-      editor.commands.setFontFamily('monospace');
+      editor.commands.setFontFamily('Arial');
       expect(editor.getHTML()).toContain('font-family');
 
       // Re-select all text, then unset via chain (without focus - not needed in unit test)

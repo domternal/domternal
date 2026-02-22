@@ -17,8 +17,8 @@ describe('Superscript', () => {
       expect(Superscript.type).toBe('mark');
     });
 
-    it('excludes subscript', () => {
-      expect(Superscript.config.excludes).toBe('subscript');
+    it('does not use schema-level excludes (handled in commands)', () => {
+      expect(Superscript.config.excludes).toBe('');
     });
 
     it('has default options', () => {

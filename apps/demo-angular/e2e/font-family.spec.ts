@@ -304,11 +304,13 @@ test.describe('FontFamily — change between fonts', () => {
     await setContentAndFocus(page, PARAGRAPH);
     await selectAll(page);
     await setFontViaToolbar(page, 'Arial');
-    await page.waitForTimeout(50);
-    await selectAll(page);
+    await page.locator(editorSelector).focus();
+    await page.keyboard.press(`${modifier}+A`);
+    await page.waitForTimeout(100);
     await setFontViaToolbar(page, 'Tahoma');
-    await page.waitForTimeout(50);
-    await selectAll(page);
+    await page.locator(editorSelector).focus();
+    await page.keyboard.press(`${modifier}+A`);
+    await page.waitForTimeout(100);
     await setFontViaToolbar(page, 'Verdana');
 
     const html = await getEditorHTML(page);

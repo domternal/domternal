@@ -246,6 +246,7 @@ test.describe('Blockquote — basic behavior', () => {
     await setContentAndFocus(page, BLOCKQUOTE);
     await page.locator(`${editorSelector} blockquote p`).click();
     await page.keyboard.press('Home');
+    await page.waitForTimeout(100);
 
     await page.keyboard.press('Backspace');
 

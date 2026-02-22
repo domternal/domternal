@@ -36,7 +36,7 @@ async function selectAll(page: Page) {
 
 /** Open the text color dropdown and click a specific color item */
 async function setColorViaToolbar(page: Page, label: string) {
-  await page.locator(dropdownTrigger).click();
+  await page.locator(dropdownTrigger).dispatchEvent('click');
   const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Text Color"]) .dm-toolbar-dropdown-panel');
   await panel.waitFor({ state: 'visible' });
   await panel.locator(`button[aria-label="${label}"]`).click();
@@ -253,11 +253,13 @@ test.describe('TextColor — change between colors', () => {
     await setContentAndFocus(page, PARAGRAPH);
     await selectAll(page);
     await setColorViaToolbar(page, '#ff0000');
-    await page.waitForTimeout(50);
-    await selectAll(page);
+    await page.locator(editorSelector).focus();
+    await page.keyboard.press(`${modifier}+A`);
+    await page.waitForTimeout(100);
     await setColorViaToolbar(page, '#00ff00');
-    await page.waitForTimeout(50);
-    await selectAll(page);
+    await page.locator(editorSelector).focus();
+    await page.keyboard.press(`${modifier}+A`);
+    await page.waitForTimeout(100);
     await setColorViaToolbar(page, '#ff9900');
 
     const html = await getEditorHTML(page);

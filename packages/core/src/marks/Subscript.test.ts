@@ -17,8 +17,8 @@ describe('Subscript', () => {
       expect(Subscript.type).toBe('mark');
     });
 
-    it('excludes superscript', () => {
-      expect(Subscript.config.excludes).toBe('superscript');
+    it('does not use schema-level excludes (handled in commands)', () => {
+      expect(Subscript.config.excludes).toBe('');
     });
 
     it('has default options', () => {
@@ -104,15 +104,18 @@ describe('Subscript', () => {
       expect(editor.getHTML()).toContain('<sub>2</sub>');
     });
 
-    it('is mutually exclusive with superscript', () => {
+    it('toggleSubscript removes superscript (mutual exclusion via commands)', () => {
       editor = new Editor({
         extensions: [Document, Text, Paragraph, Subscript, Superscript],
-        content: '<p><sub><sup>text</sup></sub></p>',
+        content: '<p>H2O</p>',
       });
-      const textNode = editor.state.doc.child(0).child(0);
-      const markNames = textNode.marks.map((m) => m.type.name);
-      // Should only have one of the two (they exclude each other)
-      expect(markNames.length).toBeLessThanOrEqual(1);
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 2, 3)));
+      editor.commands.setSuperscript();
+      expect(editor.getHTML()).toContain('<sup>');
+      editor.commands.toggleSubscript();
+      expect(editor.getHTML()).toContain('<sub>');
+      expect(editor.getHTML()).not.toContain('<sup>');
     });
 
     it('setSubscript applies subscript to selected text', () => {

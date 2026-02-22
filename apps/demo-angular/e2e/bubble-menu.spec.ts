@@ -3,16 +3,15 @@ import { test, expect, type Page } from '@playwright/test';
 const editorSelector = 'domternal-editor .ProseMirror';
 const bubbleMenu = '.dm-bubble-menu';
 
-// Bubble menu button selectors — demo uses [items]="['bold', 'italic', '|', 'code', 'highlight']"
+// Bubble menu default items: bold, italic, underline (no [items] input set)
 const btn = {
   bold: `${bubbleMenu} button[title="Bold"]`,
   italic: `${bubbleMenu} button[title="Italic"]`,
-  code: `${bubbleMenu} button[title="Code"]`,
-  highlight: `${bubbleMenu} button[title="Highlight"]`,
+  underline: `${bubbleMenu} button[title="Underline"]`,
 } as const;
 
-const BUTTON_COUNT = 4;
-const SEPARATOR_COUNT = 1;
+const BUTTON_COUNT = 3;
+const SEPARATOR_COUNT = 0;
 
 async function setContentAndFocus(page: Page, html: string) {
   const editor = page.locator(editorSelector);
@@ -156,7 +155,7 @@ test.describe('Bubble menu — Buttons', () => {
     await page.waitForSelector(editorSelector);
   });
 
-  test(`has ${BUTTON_COUNT} buttons and ${SEPARATOR_COUNT} separator from [items] config`, async ({ page }) => {
+  test(`has ${BUTTON_COUNT} buttons and ${SEPARATOR_COUNT} separators (default items)`, async ({ page }) => {
     await setContentAndFocus(page, '<p>Hello World</p>');
     await selectText(page, 0, 5);
 
@@ -184,14 +183,14 @@ test.describe('Bubble menu — Buttons', () => {
     expect(html).toContain('<em>Hello</em>');
   });
 
-  test('code button toggles code on selection', async ({ page }) => {
+  test('underline button toggles underline on selection', async ({ page }) => {
     await setContentAndFocus(page, '<p>Hello World</p>');
     await selectText(page, 0, 5);
 
-    await page.locator(btn.code).click();
+    await page.locator(btn.underline).click();
 
     const html = await getEditorHTML(page);
-    expect(html).toContain('<code>Hello</code>');
+    expect(html).toContain('<u>Hello</u>');
   });
 
   test('bold button removes bold (toggle off)', async ({ page }) => {
@@ -228,11 +227,11 @@ test.describe('Bubble menu — Active state', () => {
     await expect(page.locator(btn.italic)).toHaveClass(/active/);
   });
 
-  test('code button shows active when code text is selected', async ({ page }) => {
-    await setContentAndFocus(page, '<p><code>Code text</code></p>');
-    await selectInsideTag(page, 'code');
+  test('underline button shows active when underlined text is selected', async ({ page }) => {
+    await setContentAndFocus(page, '<p><u>Underlined text</u></p>');
+    await selectInsideTag(page, 'u');
 
-    await expect(page.locator(btn.code)).toHaveClass(/active/);
+    await expect(page.locator(btn.underline)).toHaveClass(/active/);
   });
 
   test('buttons not active on plain text selection', async ({ page }) => {
@@ -241,8 +240,7 @@ test.describe('Bubble menu — Active state', () => {
 
     await expect(page.locator(btn.bold)).not.toHaveClass(/active/);
     await expect(page.locator(btn.italic)).not.toHaveClass(/active/);
-    await expect(page.locator(btn.code)).not.toHaveClass(/active/);
-    await expect(page.locator(btn.highlight)).not.toHaveClass(/active/);
+    await expect(page.locator(btn.underline)).not.toHaveClass(/active/);
   });
 });
 

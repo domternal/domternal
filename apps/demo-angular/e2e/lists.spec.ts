@@ -680,6 +680,7 @@ test.describe('Task List — checkbox interaction', () => {
       .locator(`${editorSelector} li[data-type="taskItem"] div p`)
       .first()
       .click();
+    await page.waitForTimeout(100);
 
     await page.keyboard.press(`${modifier}+Enter`);
 

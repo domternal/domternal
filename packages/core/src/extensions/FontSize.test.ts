@@ -17,7 +17,7 @@ describe('FontSize', () => {
 
     it('has default options', () => {
       expect(FontSize.options).toEqual({
-        fontSizes: [],
+        fontSizes: ['12px', '14px', '16px', '18px', '24px', '32px'],
       });
     });
 
@@ -149,7 +149,7 @@ describe('FontSize', () => {
 
       editor.focus('all');
 
-      const result = editor.commands.setFontSize('20px');
+      const result = editor.commands.setFontSize('16px');
 
       expect(result).toBe(true);
     });
