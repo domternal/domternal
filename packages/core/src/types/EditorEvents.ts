@@ -145,6 +145,9 @@ export interface EditorEvents {
 
   /** Fired when an extension throws an error (2.7: Extension Error Isolation) */
   error: ErrorEventProps;
+
+  /** Fired when link editing UI should open (toolbar link button, Ctrl+K) */
+  linkEdit: { anchorElement?: HTMLElement };
 }
 
 /**

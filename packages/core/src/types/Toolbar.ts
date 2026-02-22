@@ -89,6 +89,9 @@ export interface ToolbarButton {
    * Takes precedence over `isActive` when defined.
    */
   isActiveFn?: (editor: { readonly storage: Record<string, unknown> }) => boolean;
+
+  /** Event name to emit on the editor when clicked. If set, the UI emits this event instead of executing the command. */
+  emitEvent?: string;
 }
 
 /**

@@ -26,6 +26,8 @@ import { linkClickPlugin } from './helpers/linkClickPlugin.js';
 import { linkPastePlugin } from './helpers/linkPastePlugin.js';
 import { autolinkPlugin } from './helpers/autolinkPlugin.js';
 import { linkExitPlugin } from './helpers/linkExitPlugin.js';
+import { defaultIcons } from '../icons/index.js';
+import type { Editor } from '../Editor.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 
 /**
@@ -90,6 +92,218 @@ export interface LinkAttributes {
   rel?: string | null;
   title?: string | null;
   class?: string | null;
+}
+
+// =============================================================================
+// Link Popover Plugin
+// =============================================================================
+
+interface LinkPopoverOptions {
+  editor: Editor;
+  markType: import('prosemirror-model').MarkType;
+  protocols: string[];
+}
+
+function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions): Plugin {
+  // Build DOM elements
+  const el = document.createElement('div');
+  el.className = 'dm-link-popover';
+
+  const input = document.createElement('input');
+  input.type = 'url';
+  input.placeholder = 'Enter URL...';
+  input.className = 'dm-link-popover-input';
+
+  const applyBtn = document.createElement('button');
+  applyBtn.type = 'button';
+  applyBtn.className = 'dm-link-popover-btn dm-link-popover-apply';
+  applyBtn.title = 'Apply link';
+  applyBtn.innerHTML = defaultIcons['check'] ?? '';
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'dm-link-popover-btn dm-link-popover-remove';
+  removeBtn.title = 'Remove link';
+  removeBtn.innerHTML = defaultIcons['linkBreak'] ?? '';
+
+  el.appendChild(input);
+  el.appendChild(applyBtn);
+  el.appendChild(removeBtn);
+
+  let isOpen = false;
+  let hasExistingLink = false;
+
+  const show = (anchorElement?: HTMLElement): void => {
+    // Detect existing link at cursor
+    const { state } = editor.view;
+    const { from, empty } = state.selection;
+    let existingHref: string | null = null;
+
+    if (empty) {
+      const $pos = state.doc.resolve(from);
+      const linkMark = $pos.marks().find((m: { type: { name: string } }) => m.type === markType);
+      existingHref = (linkMark?.attrs as Record<string, unknown>)?.['href'] as string ?? null;
+    } else {
+      // Check marks in selection
+      const { to } = state.selection;
+      state.doc.nodesBetween(from, to, (node) => {
+        if (existingHref) return false;
+        const linkMark = node.marks?.find((m: { type: { name: string } }) => m.type === markType);
+        if (linkMark) existingHref = (linkMark.attrs as Record<string, unknown>)['href'] as string;
+        return true;
+      });
+    }
+
+    hasExistingLink = existingHref != null;
+    input.value = existingHref ?? '';
+    removeBtn.style.display = hasExistingLink ? '' : 'none';
+
+    // Position below the anchor element (toolbar/bubble-menu button) or cursor
+    if (anchorElement) {
+      const anchorRect = anchorElement.getBoundingClientRect();
+      el.style.top = `${anchorRect.bottom + 4}px`;
+      el.style.left = `${anchorRect.left}px`;
+    } else {
+      const coords = editor.view.coordsAtPos(from);
+      el.style.top = `${coords.bottom + 4}px`;
+      el.style.left = `${coords.left}px`;
+    }
+
+    el.setAttribute('data-show', '');
+    isOpen = true;
+
+    // Focus input after a microtask so the attribute is applied
+    requestAnimationFrame(() => {
+      input.focus();
+      input.select();
+    });
+  };
+
+  const hide = (): void => {
+    if (!isOpen) return;
+    el.removeAttribute('data-show');
+    isOpen = false;
+    input.value = '';
+  };
+
+  const applyLink = (): void => {
+    let href = input.value.trim();
+    if (!href) {
+      hide();
+      editor.view.focus();
+      return;
+    }
+
+    // Auto-prepend https:// if no protocol
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(href)) {
+      href = 'https://' + href;
+    }
+
+    if (!isValidUrl(href, { protocols })) {
+      hide();
+      editor.view.focus();
+      return;
+    }
+
+    // If cursor is on existing link with no selection, select the full link range first
+    const { state } = editor.view;
+    const { from, empty } = state.selection;
+
+    if (empty && hasExistingLink) {
+      const $pos = state.doc.resolve(from);
+      const range = getMarkRange($pos, markType);
+      if (range) {
+        // Select the link range, then set the mark
+        const tr = state.tr.setSelection(
+          TextSelection.create(state.doc, range.from, range.to)
+        );
+        editor.view.dispatch(tr);
+      }
+    }
+
+    (editor.commands as Record<string, (...args: unknown[]) => boolean>)['setLink']?.({ href });
+    hide();
+    editor.view.focus();
+  };
+
+  const removeLink = (): void => {
+    (editor.commands as Record<string, (...args: unknown[]) => boolean>)['unsetLink']?.();
+    hide();
+    editor.view.focus();
+  };
+
+  // Event handlers
+  const onLinkEdit = (data: { anchorElement?: HTMLElement }): void => {
+    if (isOpen) {
+      hide();
+      editor.view.focus();
+    } else {
+      show(data.anchorElement);
+    }
+  };
+
+  const onInputKeydown = (e: KeyboardEvent): void => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      applyLink();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      hide();
+      editor.view.focus();
+    }
+  };
+
+  const onClickOutside = (e: MouseEvent): void => {
+    if (!isOpen || el.contains(e.target as Node)) return;
+    // Delay so toggle handlers (toolbar click → linkEdit) execute first.
+    // If the toggle closes the popover, isOpen will be false and we skip.
+    requestAnimationFrame(() => {
+      if (isOpen) hide();
+    });
+  };
+
+  const onPreventBlur = (e: MouseEvent): void => {
+    e.preventDefault();
+  };
+
+  const onScroll = (): void => {
+    if (isOpen) hide();
+  };
+
+  return new Plugin({
+    key: new PluginKey('linkPopover'),
+
+    view: () => {
+      // Append to document.body so it's not clipped by .dm-editor overflow:hidden
+      document.body.appendChild(el);
+
+      // Register all event listeners here — ProseMirror calls destroy()/view()
+      // on plugin view rebuilds, so listeners must be re-attached each time.
+      input.addEventListener('keydown', onInputKeydown);
+      applyBtn.addEventListener('mousedown', onPreventBlur);
+      applyBtn.addEventListener('click', applyLink);
+      removeBtn.addEventListener('mousedown', onPreventBlur);
+      removeBtn.addEventListener('click', removeLink);
+      document.addEventListener('mousedown', onClickOutside);
+      window.addEventListener('scroll', onScroll, true);
+      editor.on('linkEdit', onLinkEdit);
+
+      return {
+        destroy: () => {
+          hide();
+          input.removeEventListener('keydown', onInputKeydown);
+          applyBtn.removeEventListener('mousedown', onPreventBlur);
+          applyBtn.removeEventListener('click', applyLink);
+          removeBtn.removeEventListener('mousedown', onPreventBlur);
+          removeBtn.removeEventListener('click', removeLink);
+          document.removeEventListener('mousedown', onClickOutside);
+          window.removeEventListener('scroll', onScroll, true);
+          editor.off('linkEdit', onLinkEdit);
+          el.remove();
+        },
+      };
+    },
+  });
 }
 
 /**
@@ -271,8 +485,14 @@ export const Link = Mark.create<LinkOptions>({
     };
   },
 
-  // No keyboard shortcuts for links (requires dialog for URL input)
-  // No input rules for links (too complex, requires URL validation)
+  addKeyboardShortcuts() {
+    return {
+      'Mod-k': () => {
+        (this.editor as unknown as Editor).emit('linkEdit', {});
+        return true;
+      },
+    };
+  },
 
   addToolbarItems(): ToolbarItem[] {
     return [
@@ -280,9 +500,11 @@ export const Link = Mark.create<LinkOptions>({
         type: 'button',
         name: 'link',
         command: 'unsetLink',
+        emitEvent: 'linkEdit',
         isActive: 'link',
         icon: 'link',
         label: 'Link',
+        shortcut: 'Mod-K',
         group: 'format',
         priority: 120,
       },
@@ -359,6 +581,13 @@ export const Link = Mark.create<LinkOptions>({
         })
       );
     }
+
+    // Link popover plugin — creates and manages a floating URL input
+    const editor = this.editor as unknown as Editor;
+    const protocols = this.options.protocols;
+    plugins.push(
+      linkPopoverPlugin({ editor, markType, protocols })
+    );
 
     return plugins;
   },

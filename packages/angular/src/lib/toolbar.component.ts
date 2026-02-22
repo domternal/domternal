@@ -58,7 +58,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
               [disabled]="isDisabled(item.name)"
               [innerHTML]="getCachedIcon(asButton(item).icon)"
               (mousedown)="$event.preventDefault()"
-              (click)="onButtonClick(asButton(item))"
+              (click)="onButtonClick(asButton(item), $event)"
               (focus)="onButtonFocus(item.name)"
             ></button>
           }
@@ -209,7 +209,13 @@ export class DomternalToolbarComponent implements OnDestroy {
 
   // === Event handlers ===
 
-  onButtonClick(item: ToolbarButton): void {
+  onButtonClick(item: ToolbarButton, event?: MouseEvent): void {
+    if (item.emitEvent) {
+      const anchor = event?.currentTarget as HTMLElement | undefined;
+      (this.editor() as unknown as { emit: (event: string, data: unknown) => void })
+        .emit(item.emitEvent, { anchorElement: anchor });
+      return;
+    }
     this.controller?.executeCommand(item);
   }
 

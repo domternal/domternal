@@ -168,6 +168,11 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   }
 
   executeCommand(item: ToolbarButton): void {
+    if (item.emitEvent) {
+      (this.editor() as unknown as { emit: (event: string, data: unknown) => void })
+        .emit(item.emitEvent, {});
+      return;
+    }
     const cmd = (this.editor().commands as Record<string, (...args: unknown[]) => boolean>)[item.command];
     if (cmd) item.commandArgs?.length ? cmd(...item.commandArgs) : cmd();
   }

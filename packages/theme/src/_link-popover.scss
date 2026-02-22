@@ -1,0 +1,107 @@
+// =============================================================================
+// Link Popover Styles
+// =============================================================================
+// The popover is appended to document.body (to escape overflow:hidden on
+// .dm-editor), so it can't inherit CSS variables from .dm-editor / .dm-toolbar.
+// We hardcode fallback values that match the light theme defaults.
+// =============================================================================
+
+.dm-link-popover {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 0.25rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.15s, visibility 0.15s;
+  z-index: 60;
+
+  &[data-show] {
+    visibility: visible;
+    opacity: 1;
+  }
+}
+
+.dm-link-popover-input {
+  border: 1px solid #e0e0e0;
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  min-width: 14rem;
+  outline: none;
+  background: #fff;
+  color: #1a1a1a;
+
+  &:focus {
+    border-color: #2563eb;
+  }
+}
+
+.dm-link-popover-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: none;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: #1a1a1a;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.06);
+  }
+
+  svg {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+}
+
+.dm-link-popover-apply:hover {
+  color: #2563eb;
+}
+
+.dm-link-popover-remove:hover {
+  color: #dc2626;
+}
+
+// Dark theme override
+[data-theme="dark"] .dm-link-popover,
+.dm-theme-dark .dm-link-popover {
+  background: #2a2a2a;
+  border-color: #404040;
+
+  .dm-link-popover-input {
+    background: #1a1a1a;
+    border-color: #404040;
+    color: #e0e0e0;
+
+    &:focus {
+      border-color: #3b82f6;
+    }
+  }
+
+  .dm-link-popover-btn {
+    color: #e0e0e0;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+  }
+
+  .dm-link-popover-apply:hover {
+    color: #3b82f6;
+  }
+}
