@@ -285,6 +285,7 @@ export {
   type InvisibleCharsStorage,
   // Text Style Extensions
   TextColor,
+  DEFAULT_TEXT_COLORS,
   type TextColorOptions,
   FontFamily,
   type FontFamilyOptions,

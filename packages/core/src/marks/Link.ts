@@ -173,8 +173,16 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
     el.setAttribute('data-show', '');
     isOpen = true;
 
-    // Focus input after a microtask so the attribute is applied
+    // Focus input after a microtask so the element is laid out and we can clamp
     requestAnimationFrame(() => {
+      // Viewport boundary clamp (position: fixed uses viewport coords)
+      const rect = el.getBoundingClientRect();
+      if (rect.right > window.innerWidth - 10) {
+        el.style.left = `${String(window.innerWidth - rect.width - 10)}px`;
+      }
+      if (rect.left < 10) {
+        el.style.left = '10px';
+      }
       input.focus();
       input.select();
     });
@@ -222,13 +230,13 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
       }
     }
 
-    (editor.commands as Record<string, (...args: unknown[]) => boolean>)['setLink']?.({ href });
+    editor.commands.setLink({ href });
     hide();
     editor.view.focus();
   };
 
   const removeLink = (): void => {
-    (editor.commands as Record<string, (...args: unknown[]) => boolean>)['unsetLink']?.();
+    editor.commands.unsetLink();
     hide();
     editor.view.focus();
   };
@@ -251,6 +259,40 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
       e.preventDefault();
       hide();
       editor.view.focus();
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      if (e.shiftKey) {
+        (hasExistingLink ? removeBtn : applyBtn).focus();
+      } else {
+        applyBtn.focus();
+      }
+    }
+  };
+
+  const onButtonKeydown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      hide();
+      editor.view.focus();
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      const target = e.target as HTMLElement;
+      if (e.shiftKey) {
+        if (target === applyBtn) {
+          input.focus();
+        } else {
+          applyBtn.focus();
+        }
+      } else {
+        if (target === applyBtn && hasExistingLink) {
+          removeBtn.focus();
+        } else {
+          input.focus();
+        }
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      (e.target as HTMLElement).click();
     }
   };
 
@@ -283,8 +325,10 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
       input.addEventListener('keydown', onInputKeydown);
       applyBtn.addEventListener('mousedown', onPreventBlur);
       applyBtn.addEventListener('click', applyLink);
+      applyBtn.addEventListener('keydown', onButtonKeydown);
       removeBtn.addEventListener('mousedown', onPreventBlur);
       removeBtn.addEventListener('click', removeLink);
+      removeBtn.addEventListener('keydown', onButtonKeydown);
       document.addEventListener('mousedown', onClickOutside);
       window.addEventListener('scroll', onScroll, true);
       editor.on('linkEdit', onLinkEdit);
@@ -295,8 +339,10 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
           input.removeEventListener('keydown', onInputKeydown);
           applyBtn.removeEventListener('mousedown', onPreventBlur);
           applyBtn.removeEventListener('click', applyLink);
+          applyBtn.removeEventListener('keydown', onButtonKeydown);
           removeBtn.removeEventListener('mousedown', onPreventBlur);
           removeBtn.removeEventListener('click', removeLink);
+          removeBtn.removeEventListener('keydown', onButtonKeydown);
           document.removeEventListener('mousedown', onClickOutside);
           window.removeEventListener('scroll', onScroll, true);
           editor.off('linkEdit', onLinkEdit);

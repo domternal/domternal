@@ -70,7 +70,10 @@ export const Subscript = Mark.create<SubscriptOptions>({
     return {
       setSubscript:
         () =>
-        ({ commands }) => commands.setMark('subscript'),
+        ({ commands }) => {
+          commands.unsetMark('superscript');
+          return commands.setMark('subscript');
+        },
       unsetSubscript:
         () =>
         ({ commands }) => commands.unsetMark('subscript'),

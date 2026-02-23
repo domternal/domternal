@@ -340,7 +340,9 @@ export class ToolbarController {
     const wasDisabled = this._disabledMap.get(item.name) ?? false;
     let nowDisabled = false;
 
-    // Buttons with emitEvent are never disabled — they emit an event, not a command
+    // Buttons with emitEvent are never disabled — they emit an event, not a command.
+    // They still participate in active-state checks (checkButtonActive) because
+    // active state reflects document state (e.g. link button shows active on links).
     if (!item.emitEvent) {
       try {
         if (canProxy) {

@@ -28,18 +28,7 @@
  * });
  * ```
  *
- * ## CSS Required
- *
- * Style your menu element:
- * ```css
- * .floating-menu {
- *   background: white;
- *   border: 1px solid #ccc;
- *   border-radius: 4px;
- *   padding: 4px;
- *   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
- * }
- * ```
+ * Styles are included automatically via `@domternal/theme` (`_floating-menu.scss`).
  */
 import { Extension } from '../Extension.js';
 import { Plugin, PluginKey } from 'prosemirror-state';

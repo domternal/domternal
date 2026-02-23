@@ -42,7 +42,6 @@ declare module '../types/Commands.js' {
     toggleInvisibleChars: CommandSpec;
     showInvisibleChars: CommandSpec;
     hideInvisibleChars: CommandSpec;
-    insertNbsp: CommandSpec;
   }
 }
 
@@ -191,16 +190,6 @@ export const InvisibleChars = Extension.create<
           }
           return true;
         },
-
-      insertNbsp:
-        () =>
-        ({ tr, dispatch }) => {
-          if (dispatch) {
-            tr.insertText('\u00A0');
-            dispatch(tr);
-          }
-          return true;
-        },
     };
   },
 
@@ -208,9 +197,6 @@ export const InvisibleChars = Extension.create<
     return {
       'Mod-Shift-8': () => {
         return this.editor?.commands.toggleInvisibleChars() ?? false;
-      },
-      'Mod-Shift-Space': () => {
-        return this.editor?.commands.insertNbsp() ?? false;
       },
     };
   },

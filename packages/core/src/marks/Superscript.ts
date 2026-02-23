@@ -70,7 +70,10 @@ export const Superscript = Mark.create<SuperscriptOptions>({
     return {
       setSuperscript:
         () =>
-        ({ commands }) => commands.setMark('superscript'),
+        ({ commands }) => {
+          commands.unsetMark('subscript');
+          return commands.setMark('superscript');
+        },
       unsetSuperscript:
         () =>
         ({ commands }) => commands.unsetMark('superscript'),

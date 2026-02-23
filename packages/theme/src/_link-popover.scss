@@ -105,3 +105,33 @@
     color: #3b82f6;
   }
 }
+
+// Auto dark mode — follows system preference
+@media (prefers-color-scheme: dark) {
+  .dm-theme-auto .dm-link-popover {
+    background: #2a2a2a;
+    border-color: #404040;
+
+    .dm-link-popover-input {
+      background: #1a1a1a;
+      border-color: #404040;
+      color: #e0e0e0;
+
+      &:focus {
+        border-color: #3b82f6;
+      }
+    }
+
+    .dm-link-popover-btn {
+      color: #e0e0e0;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.1);
+      }
+    }
+
+    .dm-link-popover-apply:hover {
+      color: #3b82f6;
+    }
+  }
+}

@@ -79,6 +79,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   /** Context-aware: map context names to item arrays or `true` for all valid items */
   readonly contexts = input<Record<string, string[] | true>>();
 
+  /** Internal — updated on transactions. Not meant to be set from outside. */
   readonly resolvedItems = signal<BubbleMenuItem[]>([]);
 
   private menuEl = viewChild.required<ElementRef<HTMLElement>>('menuEl');
@@ -169,8 +170,8 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
   executeCommand(item: ToolbarButton): void {
     if (item.emitEvent) {
-      (this.editor() as unknown as { emit: (event: string, data: unknown) => void })
-        .emit(item.emitEvent, {});
+      // emitEvent is a dynamic string; cast needed to bypass strict EventEmitter<EditorEvents> typing
+      (this.editor().emit as (e: string, d: unknown) => void)(item.emitEvent, {});
       return;
     }
     const cmd = (this.editor().commands as Record<string, (...args: unknown[]) => boolean>)[item.command];

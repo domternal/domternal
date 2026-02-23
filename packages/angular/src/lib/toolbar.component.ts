@@ -45,7 +45,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
         <div class="dm-toolbar-separator" role="separator"></div>
       }
       <div class="dm-toolbar-group" role="group" [attr.aria-label]="group.name || 'Tools'">
-        @for (item of group.items; track $index) {
+        @for (item of group.items; track item.name) {
           @if (item.type === 'button') {
             <button
               type="button"
@@ -117,7 +117,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                         [class.dm-toolbar-dropdown-item--active]="isActive(sub.name)"
                         role="menuitem"
                         [attr.aria-label]="sub.label"
-                        [attr.style]="sub.style || null"
+                        [attr.style]="sub.style ?? null"
                         [innerHTML]="getCachedItemIcon(sub.icon, sub.label)"
                         (mousedown)="$event.preventDefault()"
                         (click)="onDropdownItemClick(sub)"
@@ -247,8 +247,8 @@ export class DomternalToolbarComponent implements OnDestroy {
   onButtonClick(item: ToolbarButton, event?: MouseEvent): void {
     if (item.emitEvent) {
       const anchor = event?.currentTarget as HTMLElement | undefined;
-      (this.editor() as unknown as { emit: (event: string, data: unknown) => void })
-        .emit(item.emitEvent, { anchorElement: anchor });
+      // emitEvent is a dynamic string; cast needed to bypass strict EventEmitter<EditorEvents> typing
+      (this.editor().emit as (e: string, d: unknown) => void)(item.emitEvent, { anchorElement: anchor });
       return;
     }
     this.controller?.executeCommand(item);

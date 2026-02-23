@@ -215,8 +215,6 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
 
   // Initially hide
   hideMenu();
-  element.addEventListener('mousedown', onMenuMousedown, { capture: true });
-  document.addEventListener('mousedown', onDocumentMousedown);
 
   return new Plugin({
     key: pluginKey,
@@ -276,6 +274,8 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
         hideMenu();
       };
 
+      element.addEventListener('mousedown', onMenuMousedown, { capture: true });
+      document.addEventListener('mousedown', onDocumentMousedown);
       editor.on('focus', onFocus);
       editor.on('blur', onBlur);
 
