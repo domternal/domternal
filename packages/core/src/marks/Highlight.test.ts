@@ -5,7 +5,7 @@ import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { Editor } from '../Editor.js';
-import type { ToolbarItem, ToolbarButton, ToolbarDropdown } from '../types/Toolbar.js';
+import type { ToolbarButton, ToolbarDropdown } from '../types/Toolbar.js';
 
 describe('Highlight', () => {
   describe('configuration', () => {
@@ -156,7 +156,7 @@ describe('Highlight', () => {
 
   describe('addToolbarItems', () => {
     it('returns dropdown with grid layout by default', () => {
-      const items = Highlight.config.addToolbarItems?.call(Highlight) as ToolbarItem[];
+      const items = Highlight.config.addToolbarItems!.call(Highlight);
       expect(items).toHaveLength(1);
       const dropdown = items[0] as ToolbarDropdown;
       expect(dropdown.type).toBe('dropdown');
@@ -166,7 +166,7 @@ describe('Highlight', () => {
     });
 
     it('dropdown has reset button + one swatch per color', () => {
-      const items = Highlight.config.addToolbarItems?.call(Highlight) as ToolbarItem[];
+      const items = Highlight.config.addToolbarItems!.call(Highlight);
       const dropdown = items[0] as ToolbarDropdown;
       // 1 reset + 25 colors
       expect(dropdown.items).toHaveLength(1 + DEFAULT_HIGHLIGHT_COLORS.length);
@@ -177,7 +177,7 @@ describe('Highlight', () => {
     });
 
     it('color swatches have correct command and isActive', () => {
-      const items = Highlight.config.addToolbarItems?.call(Highlight) as ToolbarItem[];
+      const items = Highlight.config.addToolbarItems!.call(Highlight);
       const dropdown = items[0] as ToolbarDropdown;
       const firstColor = DEFAULT_HIGHLIGHT_COLORS[0]!;
       const swatch = dropdown.items[1]!;
@@ -190,7 +190,7 @@ describe('Highlight', () => {
 
     it('returns single button when colors is empty', () => {
       const custom = Highlight.configure({ colors: [] });
-      const items = custom.config.addToolbarItems?.call(custom) as ToolbarItem[];
+      const items = custom.config.addToolbarItems!.call(custom);
       expect(items).toHaveLength(1);
       const button = items[0] as ToolbarButton;
       expect(button.type).toBe('button');
@@ -200,7 +200,7 @@ describe('Highlight', () => {
     it('respects custom colors and columns', () => {
       const colors = ['#ff0000', '#00ff00', '#0000ff'];
       const custom = Highlight.configure({ colors, columns: 3 });
-      const items = custom.config.addToolbarItems?.call(custom) as ToolbarItem[];
+      const items = custom.config.addToolbarItems!.call(custom);
       const dropdown = items[0] as ToolbarDropdown;
       expect(dropdown.gridColumns).toBe(3);
       expect(dropdown.items).toHaveLength(1 + 3);

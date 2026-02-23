@@ -11,7 +11,7 @@ import { HorizontalRule } from '../nodes/HorizontalRule.js';
 import { Editor } from '../Editor.js';
 import { PluginKey } from 'prosemirror-state';
 
-type BubbleMenuPluginState = { visible: boolean; from: number; to: number };
+interface BubbleMenuPluginState { visible: boolean; from: number; to: number }
 
 describe('BubbleMenu', () => {
   describe('configuration', () => {

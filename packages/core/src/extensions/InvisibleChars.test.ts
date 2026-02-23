@@ -12,7 +12,7 @@ import { DecorationSet } from 'prosemirror-view';
 import { TextSelection } from 'prosemirror-state';
 import type { ToolbarButton } from '../types/Toolbar.js';
 
-type InvisibleCharsPluginState = { visible: boolean; decorations: DecorationSet };
+interface InvisibleCharsPluginState { visible: boolean; decorations: DecorationSet }
 
 describe('InvisibleChars', () => {
   describe('configuration', () => {
@@ -675,7 +675,7 @@ describe('InvisibleChars', () => {
           ...InvisibleChars,
           editor: undefined,
         } as unknown as typeof InvisibleChars);
-        expect((shortcuts?.['Mod-Shift-8'] as () => boolean)?.()).toBe(false);
+        expect((shortcuts!['Mod-Shift-8'] as () => boolean)()).toBe(false);
       });
     });
 

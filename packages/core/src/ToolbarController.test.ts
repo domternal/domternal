@@ -20,8 +20,8 @@ function createMockEditor(
     isActive: () => false,
     commands: {},
     can: () => ({}),
-    on: () => {},
-    off: () => {},
+    on: () => { /* stub */ },
+    off: () => { /* stub */ },
     ...overrides,
   };
 }
@@ -74,7 +74,7 @@ describe('ToolbarController', () => {
     it('isActiveFn receives editor as argument', () => {
       const editor = createMockEditor([], { storage: { myExt: { flag: true } } });
       const item = btn('custom', {
-        isActiveFn: (ed) => (ed.storage['myExt'] as { flag: boolean })?.flag === true,
+        isActiveFn: (ed) => (ed.storage['myExt'] as { flag: boolean }).flag,
       });
       expect(ToolbarController.resolveActive(editor, item)).toBe(true);
     });
@@ -159,7 +159,7 @@ describe('ToolbarController', () => {
       const editor = createMockEditor([], { commands: {} });
       const item = btn('missing', { command: 'nonexistent' });
 
-      expect(() => ToolbarController.executeItem(editor, item)).not.toThrow();
+      expect(() => { ToolbarController.executeItem(editor, item); }).not.toThrow();
     });
 
     it('does not call command when commandArgs is empty array', () => {
@@ -294,7 +294,7 @@ describe('ToolbarController', () => {
   // =========================================================================
   describe('keyboard navigation', () => {
     function createNavController(count: number): ToolbarController {
-      const items = Array.from({ length: count }, (_, i) => btn(`btn${i}`));
+      const items = Array.from({ length: count }, (_, i) => btn(`btn${String(i)}`));
       const editor = createMockEditor(items);
       return new ToolbarController(editor, vi.fn());
     }
@@ -536,7 +536,7 @@ describe('ToolbarController', () => {
       const editor = createMockEditor(items, {
         isActive,
         on: vi.fn(),
-        off: () => {},
+        off: () => { /* stub */ },
       });
       const onChange = vi.fn();
 
@@ -561,7 +561,7 @@ describe('ToolbarController', () => {
         on: (_event: string, handler: (...args: unknown[]) => void) => {
           transactionHandler = handler as () => void;
         },
-        off: () => {},
+        off: () => { /* stub */ },
       });
       const onChange = vi.fn();
 
@@ -604,7 +604,7 @@ describe('ToolbarController', () => {
         on: (_event: string, handler: (...args: unknown[]) => void) => {
           transactionHandler = handler as () => void;
         },
-        off: () => {},
+        off: () => { /* stub */ },
       });
       const onChange = vi.fn();
 
@@ -691,7 +691,7 @@ describe('ToolbarController', () => {
       });
 
       controller = new ToolbarController(editor, vi.fn());
-      expect(() => controller!.subscribe()).not.toThrow();
+      expect(() => { controller!.subscribe(); }).not.toThrow();
     });
 
     it('handles buggy command dry-run throwing gracefully', () => {
@@ -701,7 +701,7 @@ describe('ToolbarController', () => {
       });
 
       controller = new ToolbarController(editor, vi.fn());
-      expect(() => controller!.subscribe()).not.toThrow();
+      expect(() => { controller!.subscribe(); }).not.toThrow();
       // Treated as enabled when can() throws
       expect(controller.isDisabled(items[0] as ToolbarButton)).toBe(false);
     });
