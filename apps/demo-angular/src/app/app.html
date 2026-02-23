@@ -6,8 +6,8 @@
     </button>
   </h1>
 
-  @if (editor) {
-    <domternal-toolbar [editor]="editor" />
+  @if (editor(); as ed) {
+    <domternal-toolbar [editor]="ed" />
   }
 
   <div style="position: relative;">
@@ -18,8 +18,8 @@
       (editorCreated)="onEditorCreated($event)"
     />
 
-    @if (editor) {
-      <domternal-bubble-menu [editor]="editor"></domternal-bubble-menu>
+    @if (editor(); as ed) {
+      <domternal-bubble-menu [editor]="ed"></domternal-bubble-menu>
     }
   </div>
 

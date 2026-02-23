@@ -68,7 +68,7 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
   private _jsonContent = signal<JSONContent | null>(null);
   private _isEmpty = signal(true);
   private _isFocused = signal(false);
-  // Candidate for linkedSignal(editable) once min Angular version is >=19
+  // Candidate for linkedSignal(editable) once min Angular version is >=20
   private _isEditable = signal(true);
 
   readonly htmlContent = this._htmlContent.asReadonly();

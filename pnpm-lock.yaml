@@ -145,9 +145,6 @@ importers:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
-      zone.js:
-        specifier: ~0.15.0
-        version: 0.15.1
 
   packages/core:
     dependencies:
@@ -10120,6 +10117,7 @@ snapshots:
 
   zod@4.3.5: {}
 
-  zone.js@0.15.1: {}
+  zone.js@0.15.1:
+    optional: true
 
   zwitch@2.0.4: {}
