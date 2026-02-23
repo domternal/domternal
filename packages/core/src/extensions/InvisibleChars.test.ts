@@ -8,7 +8,11 @@ import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { HardBreak } from '../nodes/HardBreak.js';
 import { Editor } from '../Editor.js';
+import { DecorationSet } from 'prosemirror-view';
+import { TextSelection } from 'prosemirror-state';
 import type { ToolbarButton } from '../types/Toolbar.js';
+
+type InvisibleCharsPluginState = { visible: boolean; decorations: DecorationSet };
 
 describe('InvisibleChars', () => {
   describe('configuration', () => {
@@ -427,6 +431,280 @@ describe('InvisibleChars', () => {
 
         const html = editor.view.dom.innerHTML;
         expect(html).toContain('invisible-char');
+      });
+    });
+
+    describe('plugin state caching', () => {
+      it('returns DecorationSet.empty when hidden', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, InvisibleChars],
+          content: '<p>Hello world</p>',
+        });
+
+        const ps = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
+        expect(ps.visible).toBe(false);
+        expect(ps.decorations).toBe(DecorationSet.empty);
+      });
+
+      it('returns non-empty DecorationSet when visible', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, InvisibleChars.configure({ visible: true })],
+          content: '<p>Hello world</p>',
+        });
+
+        const ps = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
+        expect(ps.visible).toBe(true);
+        expect(ps.decorations).not.toBe(DecorationSet.empty);
+        // "Hello world" has 1 space + 1 paragraph = at least 2 decorations
+        expect(ps.decorations.find().length).toBeGreaterThanOrEqual(2);
+      });
+
+      it('reuses cached state on selection-only transactions', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, InvisibleChars.configure({ visible: true })],
+          content: '<p>Hello world</p>',
+        });
+
+        const ps1 = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
+
+        // Move cursor — no doc change
+        editor.view.dispatch(
+          editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3)),
+        );
+
+        const ps2 = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
+        // Same object reference — cached, not rebuilt
+        expect(ps2).toBe(ps1);
+      });
+
+      it('rebuilds decorations on doc change when visible', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, InvisibleChars.configure({ visible: true })],
+          content: '<p>Hi</p>',
+        });
+
+        const ps1 = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
+        const count1 = ps1.decorations.find().length;
+
+        // Insert text — doc changes
+        editor.view.dispatch(editor.state.tr.insertText(' there', 3));
+
+        const ps2 = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
+        // More decorations now (added a space)
+        expect(ps2.decorations.find().length).toBeGreaterThan(count1);
+        expect(ps2).not.toBe(ps1);
+      });
+
+      it('transitions from hidden to empty on toggle off', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, InvisibleChars.configure({ visible: true })],
+          content: '<p>Hello world</p>',
+        });
+
+        const ps1 = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
+        expect(ps1.decorations.find().length).toBeGreaterThan(0);
+
+        editor.commands.toggleInvisibleChars();
+
+        const ps2 = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
+        expect(ps2.visible).toBe(false);
+        expect(ps2.decorations).toBe(DecorationSet.empty);
+      });
+
+      it('does not rebuild when already hidden and receiving unrelated transaction', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, InvisibleChars],
+          content: '<p>Hello</p>',
+        });
+
+        const ps1 = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
+        expect(ps1.visible).toBe(false);
+
+        // Non-doc transaction
+        editor.view.dispatch(editor.state.tr);
+
+        const ps2 = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
+        // Same reference — nothing rebuilt
+        expect(ps2).toBe(ps1);
+      });
+    });
+
+    describe('selective character types', () => {
+      it('only creates paragraph decorations when spaces disabled', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, InvisibleChars.configure({
+            visible: true,
+            space: false,
+            nbsp: false,
+            hardBreak: false,
+            paragraph: true,
+          })],
+          content: '<p>Hello world</p>',
+        });
+
+        const ps = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
+        // Only 1 paragraph widget, no space inline decorations
+        expect(ps.decorations.find().length).toBe(1);
+      });
+
+      it('only creates space decorations when paragraph disabled', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, InvisibleChars.configure({
+            visible: true,
+            space: true,
+            nbsp: false,
+            hardBreak: false,
+            paragraph: false,
+          })],
+          content: '<p>a b c</p>',
+        });
+
+        const ps = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
+        // "a b c" has 2 spaces
+        expect(ps.decorations.find().length).toBe(2);
+      });
+
+      it('creates no decorations when all types disabled', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, InvisibleChars.configure({
+            visible: true,
+            space: false,
+            nbsp: false,
+            hardBreak: false,
+            paragraph: false,
+          })],
+          content: '<p>Hello world</p>',
+        });
+
+        const ps = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
+        expect(ps.decorations.find().length).toBe(0);
+      });
+
+      it('creates hardBreak decorations separately', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, HardBreak, InvisibleChars.configure({
+            visible: true,
+            space: false,
+            nbsp: false,
+            hardBreak: true,
+            paragraph: false,
+          })],
+          content: '<p>A<br>B</p>',
+        });
+
+        const ps = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
+        // 1 hardBreak widget
+        expect(ps.decorations.find().length).toBe(1);
+      });
+
+      it('creates nbsp decorations separately', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, InvisibleChars.configure({
+            visible: true,
+            space: false,
+            nbsp: true,
+            hardBreak: false,
+            paragraph: false,
+          })],
+          content: '<p>A\u00A0B\u00A0C</p>',
+        });
+
+        const ps = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
+        // 2 non-breaking spaces
+        expect(ps.decorations.find().length).toBe(2);
+      });
+    });
+
+    describe('decoration class names', () => {
+      it('uses default className for space decorations', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, InvisibleChars.configure({ visible: true })],
+          content: '<p>A B</p>',
+        });
+
+        const html = editor.view.dom.innerHTML;
+        expect(html).toContain('invisible-char--space');
+      });
+
+      it('uses custom className for decorations', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, InvisibleChars.configure({
+            visible: true,
+            className: 'my-ic',
+          })],
+          content: '<p>A B</p>',
+        });
+
+        const html = editor.view.dom.innerHTML;
+        expect(html).toContain('my-ic--space');
+      });
+
+      it('renders paragraph marker widget', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, InvisibleChars.configure({ visible: true })],
+          content: '<p>Test</p>',
+        });
+
+        const html = editor.view.dom.innerHTML;
+        expect(html).toContain('invisible-char--paragraph');
+        // Paragraph marker is ¶
+        expect(html).toContain('¶');
+      });
+
+      it('renders hardBreak marker widget', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, HardBreak, InvisibleChars.configure({ visible: true })],
+          content: '<p>A<br>B</p>',
+        });
+
+        const html = editor.view.dom.innerHTML;
+        expect(html).toContain('invisible-char--hardBreak');
+        // HardBreak marker is ↵
+        expect(html).toContain('↵');
+      });
+    });
+
+    describe('keyboard shortcuts', () => {
+      it('registers Mod-Shift-8 shortcut', () => {
+        const shortcuts = InvisibleChars.config.addKeyboardShortcuts?.call(InvisibleChars);
+        expect(shortcuts).toHaveProperty('Mod-Shift-8');
+      });
+
+      it('shortcut returns false when no editor', () => {
+        const shortcuts = InvisibleChars.config.addKeyboardShortcuts?.call({
+          ...InvisibleChars,
+          editor: undefined,
+        } as unknown as typeof InvisibleChars);
+        expect((shortcuts?.['Mod-Shift-8'] as () => boolean)?.()).toBe(false);
+      });
+    });
+
+    describe('multiple toggle cycles', () => {
+      it('toggles on and off repeatedly with correct decoration state', () => {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, InvisibleChars],
+          content: '<p>A B</p>',
+        });
+
+        const storage = editor.storage['invisibleChars'] as typeof InvisibleChars.storage;
+
+        // Off → On
+        storage.toggle();
+        let ps = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
+        expect(ps.visible).toBe(true);
+        expect(ps.decorations.find().length).toBeGreaterThan(0);
+
+        // On → Off
+        storage.toggle();
+        ps = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
+        expect(ps.visible).toBe(false);
+        expect(ps.decorations).toBe(DecorationSet.empty);
+
+        // Off → On again
+        storage.toggle();
+        ps = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
+        expect(ps.visible).toBe(true);
+        expect(ps.decorations.find().length).toBeGreaterThan(0);
       });
     });
   });

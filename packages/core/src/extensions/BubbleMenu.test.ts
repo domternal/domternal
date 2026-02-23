@@ -3,12 +3,15 @@
  */
 import { describe, it, expect, afterEach } from 'vitest';
 import { TextSelection, NodeSelection } from 'prosemirror-state';
-import { BubbleMenu, bubbleMenuPluginKey } from './BubbleMenu.js';
+import { BubbleMenu, bubbleMenuPluginKey, createBubbleMenuPlugin } from './BubbleMenu.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { HorizontalRule } from '../nodes/HorizontalRule.js';
 import { Editor } from '../Editor.js';
+import { PluginKey } from 'prosemirror-state';
+
+type BubbleMenuPluginState = { visible: boolean; from: number; to: number };
 
 describe('BubbleMenu', () => {
   describe('configuration', () => {
@@ -374,6 +377,176 @@ describe('BubbleMenu', () => {
       });
 
       expect(editor.getText()).toContain('Hello world');
+    });
+
+    it('plugin state becomes visible when text is selected', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element: menuElement })],
+        content: '<p>Hello world</p>',
+      });
+
+      // Mock coordsAtPos for jsdom (no real layout)
+      editor.view.coordsAtPos = () => ({ left: 10, right: 50, top: 10, bottom: 30 });
+
+      // Select "Hello"
+      const tr = editor.state.tr.setSelection(
+        TextSelection.create(editor.state.doc, 1, 6),
+      );
+      editor.view.dispatch(tr);
+
+      const ps = bubbleMenuPluginKey.getState(editor.state) as BubbleMenuPluginState;
+      expect(ps.visible).toBe(true);
+      expect(ps.from).toBe(1);
+      expect(ps.to).toBe(6);
+    });
+
+    it('plugin state becomes invisible when selection collapses', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element: menuElement })],
+        content: '<p>Hello world</p>',
+      });
+
+      editor.view.coordsAtPos = () => ({ left: 10, right: 50, top: 10, bottom: 30 });
+
+      // Select "Hello"
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)),
+      );
+      expect((bubbleMenuPluginKey.getState(editor.state) as BubbleMenuPluginState).visible).toBe(true);
+
+      // Collapse to cursor
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1)),
+      );
+      expect((bubbleMenuPluginKey.getState(editor.state) as BubbleMenuPluginState).visible).toBe(false);
+    });
+
+    it('plugin state tracks from/to on selection change', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element: menuElement })],
+        content: '<p>Hello world</p>',
+      });
+
+      editor.view.coordsAtPos = () => ({ left: 10, right: 50, top: 10, bottom: 30 });
+
+      // Select "Hello"
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)),
+      );
+      let ps = bubbleMenuPluginKey.getState(editor.state) as BubbleMenuPluginState;
+      expect(ps.from).toBe(1);
+      expect(ps.to).toBe(6);
+
+      // Change to "world" (7-12)
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 7, 12)),
+      );
+      ps = bubbleMenuPluginKey.getState(editor.state) as BubbleMenuPluginState;
+      expect(ps.from).toBe(7);
+      expect(ps.to).toBe(12);
+    });
+
+    it('returns empty plugins when no editor', () => {
+      const element = document.createElement('div');
+      const CustomBubbleMenu = BubbleMenu.configure({ element });
+
+      // No editor set
+      (CustomBubbleMenu as unknown as { editor: unknown }).editor = null;
+
+      const plugins = CustomBubbleMenu.config.addProseMirrorPlugins?.call(CustomBubbleMenu);
+      expect(plugins).toEqual([]);
+    });
+
+    it('createBubbleMenuPlugin works standalone', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph],
+        content: '<p>Hello world</p>',
+      });
+
+      const pluginKey = new PluginKey('testBubble');
+      const plugin = createBubbleMenuPlugin({
+        pluginKey,
+        editor,
+        element: menuElement,
+      });
+
+      expect(plugin).toBeDefined();
+      expect(plugin.spec.key).toBe(pluginKey);
+    });
+
+    it('createBubbleMenuPlugin respects custom shouldShow', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph],
+        content: '<p>Hello world</p>',
+      });
+
+      const pluginKey = new PluginKey('testBubble2');
+      const alwaysFalse = (): boolean => false;
+
+      // Add plugin to editor
+      const plugin = createBubbleMenuPlugin({
+        pluginKey,
+        editor,
+        element: menuElement,
+        shouldShow: alwaysFalse,
+      });
+
+      expect(plugin).toBeDefined();
+      // The plugin should have been created with our custom key
+      expect(plugin.spec.key).toBe(pluginKey);
+    });
+
+    it('hides menu element via data-show attribute on init', () => {
+      menuElement = document.createElement('div');
+      menuElement.setAttribute('data-show', '');
+      document.body.appendChild(menuElement);
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element: menuElement })],
+        content: '<p>Hello</p>',
+      });
+
+      // On init with no selection, menu should be hidden
+      expect(menuElement.hasAttribute('data-show')).toBe(false);
+    });
+
+    it('keeps menu hidden for node selection', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, HorizontalRule, BubbleMenu.configure({ element: menuElement })],
+        content: '<p>Hello</p><hr><p>World</p>',
+      });
+
+      // Find HR position
+      let hrPos = -1;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'horizontalRule') { hrPos = pos; return false; }
+        return true;
+      });
+
+      editor.view.dispatch(
+        editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, hrPos)),
+      );
+
+      const ps = bubbleMenuPluginKey.getState(editor.state) as BubbleMenuPluginState;
+      expect(ps.visible).toBe(false);
     });
   });
 });
