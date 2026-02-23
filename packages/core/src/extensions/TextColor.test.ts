@@ -111,8 +111,8 @@ describe('TextColor', () => {
       expect(items).toHaveLength(1);
       const dropdown = items?.[0];
       expect(dropdown?.type).toBe('dropdown');
-      expect(dropdown?.name).toBe('textColor');
       if (dropdown?.type === 'dropdown') {
+        expect(dropdown.name).toBe('textColor');
         expect(dropdown.layout).toBe('grid');
         expect(dropdown.gridColumns).toBe(5);
         // 25 color swatches + 1 reset = 26 items
@@ -142,7 +142,7 @@ describe('TextColor', () => {
       const items = TextColor.config.addToolbarItems?.call(TextColor);
       const dropdown = items?.[0];
       if (dropdown?.type === 'dropdown') {
-        const resetItem = dropdown.items[0];
+        const resetItem = dropdown.items[0]!;
         expect(resetItem.name).toBe('unsetTextColor');
         expect(resetItem.command).toBe('unsetTextColor');
         expect(resetItem.color).toBeUndefined();

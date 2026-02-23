@@ -148,6 +148,9 @@ export interface ToolbarDropdown {
 export interface ToolbarSeparator {
   type: 'separator';
 
+  /** Unique identifier (needed so all ToolbarItem variants share a `name` field) */
+  name?: string;
+
   /** Group name (used for ordering) */
   group?: string;
 
