@@ -214,7 +214,8 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
       return;
     }
 
-    // If cursor is on existing link with no selection, select the full link range first
+    // If cursor is on existing link with no selection, select the full link range
+    // and apply the mark in a single transaction to avoid visual flash
     const { state } = editor.view;
     const { from, empty } = state.selection;
 
@@ -222,11 +223,13 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
       const $pos = state.doc.resolve(from);
       const range = getMarkRange($pos, markType);
       if (range) {
-        // Select the link range, then set the mark
-        const tr = state.tr.setSelection(
-          TextSelection.create(state.doc, range.from, range.to)
-        );
+        const tr = state.tr
+          .setSelection(TextSelection.create(state.doc, range.from, range.to))
+          .addMark(range.from, range.to, markType.create({ href }));
         editor.view.dispatch(tr);
+        hide();
+        editor.view.focus();
+        return;
       }
     }
 

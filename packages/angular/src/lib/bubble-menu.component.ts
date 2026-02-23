@@ -16,6 +16,7 @@ import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 import {
   Editor,
   PluginKey,
+  ToolbarController,
   createBubbleMenuPlugin,
   defaultIcons,
 } from '@domternal/core';
@@ -174,8 +175,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
       (this.editor().emit as (e: string, d: unknown) => void)(item.emitEvent, {});
       return;
     }
-    const cmd = (this.editor().commands as Record<string, (...args: unknown[]) => boolean>)[item.command];
-    if (cmd) item.commandArgs?.length ? cmd(...item.commandArgs) : cmd();
+    ToolbarController.executeItem(this.editor(), item);
   }
 
   // === Internal ===
@@ -286,7 +286,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
     for (const item of this.resolvedItems()) {
       if (item.type === 'separator') continue;
-      this.activeMap.set(item.name, this.checkActive(editor, item));
+      this.activeMap.set(item.name, ToolbarController.resolveActive(editor, item));
       try {
         const canCmd = canProxy?.[item.command];
         this.disabledMap.set(item.name, canCmd
@@ -296,14 +296,4 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     }
   }
 
-  private checkActive(editor: Editor, item: ToolbarButton): boolean {
-    if (item.isActiveFn) return item.isActiveFn(editor);
-    if (!item.isActive) return false;
-    if (typeof item.isActive === 'string') return editor.isActive(item.isActive);
-    if (Array.isArray(item.isActive)) {
-      return item.isActive.some(c =>
-        typeof c === 'string' ? editor.isActive(c) : editor.isActive(c.name, c.attributes));
-    }
-    return editor.isActive(item.isActive.name, item.isActive.attributes);
-  }
 }
