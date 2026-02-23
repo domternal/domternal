@@ -1,6 +1,11 @@
+/**
+ * Tests for Highlight extension
+ */
 import { describe, it, expect, afterEach } from 'vitest';
 import { TextSelection } from 'prosemirror-state';
 import { Highlight, DEFAULT_HIGHLIGHT_COLORS } from './Highlight.js';
+import { TextColor } from './TextColor.js';
+import { TextStyle } from '../marks/TextStyle.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
@@ -13,20 +18,14 @@ describe('Highlight', () => {
       expect(Highlight.name).toBe('highlight');
     });
 
-    it('is a mark type', () => {
-      expect(Highlight.type).toBe('mark');
+    it('is an extension type', () => {
+      expect(Highlight.type).toBe('extension');
     });
 
     it('has default options', () => {
-      expect(Highlight.options.HTMLAttributes).toEqual({});
-      expect(Highlight.options.multicolor).toBe(true);
       expect(Highlight.options.colors).toBe(DEFAULT_HIGHLIGHT_COLORS);
       expect(Highlight.options.columns).toBe(5);
-    });
-
-    it('can disable multicolor', () => {
-      const custom = Highlight.configure({ multicolor: false });
-      expect(custom.options.multicolor).toBe(false);
+      expect(Highlight.options.defaultColor).toBe('#fef08a');
     });
 
     it('can configure custom colors', () => {
@@ -40,83 +39,65 @@ describe('Highlight', () => {
       expect(custom.options.columns).toBe(8);
     });
 
+    it('can configure defaultColor', () => {
+      const custom = Highlight.configure({ defaultColor: '#ff0000' });
+      expect(custom.options.defaultColor).toBe('#ff0000');
+    });
+
     it('DEFAULT_HIGHLIGHT_COLORS has 25 entries', () => {
       expect(DEFAULT_HIGHLIGHT_COLORS).toHaveLength(25);
     });
+
+    it('all colors are valid hex format', () => {
+      for (const color of DEFAULT_HIGHLIGHT_COLORS) {
+        expect(color).toMatch(/^#[0-9a-f]{6}$/);
+      }
+    });
   });
 
-  describe('addAttributes', () => {
-    it('returns color attribute by default (multicolor is true)', () => {
-      const attrs = Highlight.config.addAttributes?.call(Highlight);
-      expect(attrs).toHaveProperty('color');
-      expect(attrs?.['color']).toHaveProperty('default', null);
+  describe('addGlobalAttributes', () => {
+    it('provides backgroundColor attribute for textStyle', () => {
+      const globalAttrs = Highlight.config.addGlobalAttributes?.call(Highlight);
+      expect(globalAttrs).toHaveLength(1);
+      expect(globalAttrs?.[0]?.types).toContain('textStyle');
+      expect(globalAttrs?.[0]?.attributes).toHaveProperty('backgroundColor');
     });
 
-    it('returns empty object when multicolor disabled', () => {
-      const custom = Highlight.configure({ multicolor: false });
-      const attrs = custom.config.addAttributes?.call(custom);
-      expect(attrs).toEqual({});
+    it('backgroundColor attribute has correct defaults', () => {
+      const globalAttrs = Highlight.config.addGlobalAttributes?.call(Highlight);
+      const bgAttr = globalAttrs?.[0]?.attributes['backgroundColor'];
+      expect(bgAttr?.default).toBe(null);
+      expect(bgAttr?.parseHTML).toBeDefined();
+      expect(bgAttr?.renderHTML).toBeDefined();
     });
 
-    it('renderHTML returns data-color and style', () => {
-      const attrs = Highlight.config.addAttributes?.call(Highlight);
-      const rendered = attrs?.['color']?.renderHTML?.({ color: 'yellow' });
-      expect(rendered).toEqual({
-        'data-color': 'yellow',
-        style: 'background-color: yellow',
-      });
+    it('renderHTML outputs background-color style', () => {
+      const globalAttrs = Highlight.config.addGlobalAttributes?.call(Highlight);
+      const renderHTML = globalAttrs?.[0]?.attributes['backgroundColor']?.renderHTML;
+      const result = renderHTML?.({ backgroundColor: '#fef08a' });
+      expect(result).toEqual({ style: 'background-color: #fef08a' });
     });
 
-    it('parseHTML reads data-color attribute', () => {
-      const attrs = Highlight.config.addAttributes?.call(Highlight);
-      const el = document.createElement('mark');
-      el.setAttribute('data-color', 'red');
-      const parsed = attrs?.['color']?.parseHTML?.(el);
-      expect(parsed).toBe('red');
+    it('renderHTML returns null for null backgroundColor', () => {
+      const globalAttrs = Highlight.config.addGlobalAttributes?.call(Highlight);
+      const renderHTML = globalAttrs?.[0]?.attributes['backgroundColor']?.renderHTML;
+      const result = renderHTML?.({ backgroundColor: null });
+      expect(result).toBe(null);
     });
 
-    it('parseHTML falls back to backgroundColor', () => {
-      const attrs = Highlight.config.addAttributes?.call(Highlight);
-      const el = document.createElement('mark');
+    it('parseHTML reads backgroundColor from element style', () => {
+      const globalAttrs = Highlight.config.addGlobalAttributes?.call(Highlight);
+      const parseHTML = globalAttrs?.[0]?.attributes['backgroundColor']?.parseHTML;
+      const el = document.createElement('span');
       el.style.backgroundColor = 'yellow';
-      const parsed = attrs?.['color']?.parseHTML?.(el);
-      expect(parsed).toBe('yellow');
+      expect(parseHTML?.(el)).toBe('yellow');
     });
 
-    it('renderHTML returns empty for no color', () => {
-      const attrs = Highlight.config.addAttributes?.call(Highlight);
-      const rendered = attrs?.['color']?.renderHTML?.({ color: null });
-      expect(rendered).toEqual({});
-    });
-  });
-
-  describe('parseHTML', () => {
-    it('returns rules for mark and background-color', () => {
-      const rules = Highlight.config.parseHTML?.call(Highlight);
-      expect(rules).toHaveLength(2);
-      expect(rules?.[0]).toEqual({ tag: 'mark' });
-      expect(rules?.[1]).toHaveProperty('style', 'background-color');
-    });
-
-    it('accepts non-empty background-color', () => {
-      const rules = Highlight.config.parseHTML?.call(Highlight);
-      const getAttrs = rules?.[1]?.getAttrs;
-      expect(getAttrs?.('yellow')).toEqual({});
-    });
-
-    it('rejects empty background-color', () => {
-      const rules = Highlight.config.parseHTML?.call(Highlight);
-      const getAttrs = rules?.[1]?.getAttrs;
-      expect(getAttrs?.('')).toBe(false);
-    });
-  });
-
-  describe('renderHTML', () => {
-    it('renders mark element', () => {
-      const spec = Highlight.createMarkSpec();
-      const result = spec.toDOM?.({ attrs: {} } as never, true) as [string, Record<string, unknown>, number];
-      expect(result[0]).toBe('mark');
-      expect(result[2]).toBe(0);
+    it('parseHTML returns defaultColor for plain <mark> element', () => {
+      const globalAttrs = Highlight.config.addGlobalAttributes?.call(Highlight);
+      const parseHTML = globalAttrs?.[0]?.attributes['backgroundColor']?.parseHTML;
+      const el = document.createElement('mark');
+      expect(parseHTML?.(el)).toBe('#fef08a');
     });
   });
 
@@ -140,17 +121,15 @@ describe('Highlight', () => {
       const shortcuts = Highlight.config.addKeyboardShortcuts?.call({
         ...Highlight, editor: undefined, options: Highlight.options,
       } as any);
-       
       expect((shortcuts?.['Mod-Shift-h'] as any)?.()).toBe(false);
-       
       expect((shortcuts?.['Mod-Shift-H'] as any)?.()).toBe(false);
     });
   });
 
   describe('addInputRules', () => {
-    it('returns empty array when no markType', () => {
+    it('returns array with one rule', () => {
       const rules = Highlight.config.addInputRules?.call(Highlight);
-      expect(rules).toEqual([]);
+      expect(rules).toHaveLength(1);
     });
   });
 
@@ -168,7 +147,6 @@ describe('Highlight', () => {
     it('dropdown has reset button + one swatch per color', () => {
       const items = Highlight.config.addToolbarItems!.call(Highlight);
       const dropdown = items[0] as ToolbarDropdown;
-      // 1 reset + 25 colors
       expect(dropdown.items).toHaveLength(1 + DEFAULT_HIGHLIGHT_COLORS.length);
       const reset = dropdown.items[0]!;
       expect(reset.name).toBe('unsetHighlight');
@@ -184,7 +162,7 @@ describe('Highlight', () => {
       expect(swatch.name).toBe(`highlight-${firstColor}`);
       expect(swatch.command).toBe('setHighlight');
       expect(swatch.commandArgs).toEqual([{ color: firstColor }]);
-      expect(swatch.isActive).toEqual({ name: 'highlight', attributes: { color: firstColor } });
+      expect(swatch.isActive).toEqual({ name: 'textStyle', attributes: { backgroundColor: firstColor } });
       expect(swatch.color).toBe(firstColor);
     });
 
@@ -195,6 +173,7 @@ describe('Highlight', () => {
       const button = items[0] as ToolbarButton;
       expect(button.type).toBe('button');
       expect(button.command).toBe('toggleHighlight');
+      expect(button.isActive).toEqual({ name: 'textStyle', attributes: { backgroundColor: '#fef08a' } });
     });
 
     it('respects custom colors and columns', () => {
@@ -214,90 +193,101 @@ describe('Highlight', () => {
       if (editor && !editor.isDestroyed) editor.destroy();
     });
 
-    it('parses <mark> tags', () => {
+    it('parses <mark> tags as textStyle with backgroundColor', () => {
       editor = new Editor({
-        extensions: [Document, Text, Paragraph, Highlight],
+        extensions: [Document, Text, Paragraph, TextStyle, Highlight],
         content: '<p><mark>highlighted</mark></p>',
       });
       const textNode = editor.state.doc.child(0).child(0);
-      expect(textNode.marks[0]?.type.name).toBe('highlight');
+      expect(textNode.marks[0]?.type.name).toBe('textStyle');
+      expect(textNode.marks[0]?.attrs['backgroundColor']).toBe('#fef08a');
     });
 
-    it('renders to <mark>', () => {
+    it('parses <span style="background-color"> as textStyle with backgroundColor', () => {
       editor = new Editor({
-        extensions: [Document, Text, Paragraph, Highlight],
+        extensions: [Document, Text, Paragraph, TextStyle, Highlight],
+        content: '<p><span style="background-color: rgb(254, 240, 138)">highlighted</span></p>',
+      });
+      const textNode = editor.state.doc.child(0).child(0);
+      expect(textNode.marks[0]?.type.name).toBe('textStyle');
+      expect(textNode.marks[0]?.attrs['backgroundColor']).toBe('#fef08a');
+    });
+
+    it('renders as <span> with background-color (not <mark>)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, Highlight],
         content: '<p><mark>highlighted</mark></p>',
       });
-      expect(editor.getHTML()).toContain('<mark>highlighted</mark>');
+      const html = editor.getHTML();
+      expect(html).not.toContain('<mark');
+      expect(html).toContain('<span');
+      expect(html).toContain('background-color');
+      expect(html).toContain('>highlighted</span>');
     });
 
-    it('setHighlight applies highlight to selected text', () => {
+    it('setHighlight applies background-color to selected text', () => {
       editor = new Editor({
-        extensions: [Document, Text, Paragraph, Highlight],
-        content: '<p>Hello world</p>',
-      });
-      const { state } = editor;
-      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands.setHighlight();
-      expect(editor.getHTML()).toContain('<mark>Hello</mark>');
-    });
-
-    it('unsetHighlight removes highlight from selected text', () => {
-      editor = new Editor({
-        extensions: [Document, Text, Paragraph, Highlight],
-        content: '<p><mark>Hello</mark> world</p>',
-      });
-      const { state } = editor;
-      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands.unsetHighlight();
-      expect(editor.getHTML()).not.toContain('<mark>');
-    });
-
-    it('toggleHighlight toggles on selected text', () => {
-      editor = new Editor({
-        extensions: [Document, Text, Paragraph, Highlight],
-        content: '<p>Hello world</p>',
-      });
-      const { state } = editor;
-      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands.toggleHighlight();
-      expect(editor.getHTML()).toContain('<mark>Hello</mark>');
-    });
-
-    it('setHighlight with color applies colored highlight', () => {
-      editor = new Editor({
-        extensions: [Document, Text, Paragraph, Highlight],
+        extensions: [Document, Text, Paragraph, TextStyle, Highlight],
         content: '<p>Hello world</p>',
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
       editor.commands.setHighlight({ color: '#fef08a' });
       const html = editor.getHTML();
-      expect(html).toContain('data-color="#fef08a"');
       expect(html).toContain('background-color: #fef08a');
+      expect(html).not.toContain('<mark');
     });
 
-    it('isActive detects specific highlight color', () => {
+    it('unsetHighlight removes background-color', () => {
       editor = new Editor({
-        extensions: [Document, Text, Paragraph, Highlight],
+        extensions: [Document, Text, Paragraph, TextStyle, Highlight],
+        content: '<p><span style="background-color: #fef08a">Hello</span> world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands.unsetHighlight();
+      expect(editor.getHTML()).not.toContain('background-color');
+    });
+
+    it('unsetHighlight preserves text color when both are set', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, TextColor, Highlight],
+        content: '<p><span style="color: #e03131; background-color: #fef08a">Hello</span> world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands.unsetHighlight();
+      const html = editor.getHTML();
+      expect(html).not.toContain('background-color');
+      expect(html).toContain('color: #e03131');
+    });
+
+    it('highlight + textColor renders on same <span>', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, TextColor, Highlight],
+        content: '<p>Hello world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 12)));
+      editor.commands.setTextColor('#e03131');
+      editor.commands.setHighlight({ color: '#fef08a' });
+      const html = editor.getHTML();
+      // Both styles on same span — no nesting
+      expect(html).toContain('color: #e03131');
+      expect(html).toContain('background-color: #fef08a');
+      expect(html).not.toContain('<mark');
+    });
+
+    it('isActive detects specific backgroundColor', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, Highlight],
         content: '<p>Hello world</p>',
       });
       const { state } = editor;
       editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
       editor.commands.setHighlight({ color: '#fef08a' });
-      expect(editor.isActive('highlight', { color: '#fef08a' })).toBe(true);
-      expect(editor.isActive('highlight', { color: '#ff0000' })).toBe(false);
-    });
-
-    it('unsetHighlight removes colored highlight', () => {
-      editor = new Editor({
-        extensions: [Document, Text, Paragraph, Highlight],
-        content: '<p><mark data-color="#fef08a" style="background-color: #fef08a">Hello</mark> world</p>',
-      });
-      const { state } = editor;
-      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
-      editor.commands.unsetHighlight();
-      expect(editor.getHTML()).not.toContain('<mark');
+      expect(editor.isActive('textStyle', { backgroundColor: '#fef08a' })).toBe(true);
+      expect(editor.isActive('textStyle', { backgroundColor: '#ff0000' })).toBe(false);
     });
   });
 });

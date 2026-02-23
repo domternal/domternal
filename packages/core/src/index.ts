@@ -230,8 +230,6 @@ export {
   type SubscriptOptions,
   Superscript,
   type SuperscriptOptions,
-  Highlight,
-  type HighlightOptions,
   TextStyle,
   type TextStyleOptions,
 } from './marks/index.js';
@@ -287,6 +285,9 @@ export {
   TextColor,
   DEFAULT_TEXT_COLORS,
   type TextColorOptions,
+  Highlight,
+  DEFAULT_HIGHLIGHT_COLORS,
+  type HighlightOptions,
   FontFamily,
   type FontFamilyOptions,
   FontSize,

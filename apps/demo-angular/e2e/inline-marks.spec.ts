@@ -344,16 +344,19 @@ test.describe('Inline marks — Highlight', () => {
     await page.locator(btn.highlight).click();
 
     const html = await getEditorHTML(page);
-    expect(html).toContain('<mark>highlight me</mark>');
+    expect(html).toContain('background-color');
+    expect(html).toContain('highlight me');
+    expect(html).not.toContain('<mark');
   });
 
   test('toolbar removes highlight (toggle off)', async ({ page }) => {
-    await setContentAndFocus(page, '<p><mark>highlighted</mark></p>');
-    await selectInsideTag(page, 'mark');
+    await setContentAndFocus(page, '<p><span style="background-color: #fef08a">highlighted</span></p>');
+    await page.locator(`${editorSelector} span`).click();
+    await page.keyboard.press(`${modifier}+a`);
     await page.locator(btn.highlight).click();
 
     const html = await getEditorHTML(page);
-    expect(html).not.toContain('<mark>');
+    expect(html).not.toContain('background-color');
     expect(html).toContain('highlighted');
   });
 
@@ -363,7 +366,9 @@ test.describe('Inline marks — Highlight', () => {
     await page.keyboard.type('==hello==');
 
     const html = await getEditorHTML(page);
-    expect(html).toContain('<mark>hello</mark>');
+    expect(html).toContain('background-color');
+    expect(html).toContain('hello');
+    expect(html).not.toContain('<mark');
   });
 });
 
@@ -487,7 +492,7 @@ test.describe('Inline marks — combining marks', () => {
     const html = await getEditorHTML(page);
     expect(html).toContain('<strong>');
     expect(html).toContain('<s>');
-    expect(html).toContain('<mark>');
+    expect(html).toContain('background-color');
     expect(html).toContain('combo');
   });
 

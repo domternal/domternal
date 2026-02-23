@@ -12,7 +12,6 @@ export { Code, type CodeOptions } from './Code.js';
 export { Link, type LinkOptions, type LinkAttributes } from './Link.js';
 export { Subscript, type SubscriptOptions } from './Subscript.js';
 export { Superscript, type SuperscriptOptions } from './Superscript.js';
-export { Highlight, DEFAULT_HIGHLIGHT_COLORS, type HighlightOptions } from './Highlight.js';
 export { TextStyle, type TextStyleOptions } from './TextStyle.js';
 
 // Link helpers - exported for advanced usage

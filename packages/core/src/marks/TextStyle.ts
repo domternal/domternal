@@ -56,6 +56,8 @@ export const TextStyle = Mark.create<TextStyleOptions>({
           return {};
         },
       },
+      // Parse <mark> elements as textStyle (Highlight extension adds backgroundColor attribute)
+      { tag: 'mark' },
     ];
   },
 
