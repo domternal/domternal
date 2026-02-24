@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
 import {
   DomternalEditorComponent,
   DomternalToolbarComponent,
@@ -40,6 +40,7 @@ const lowlight = createLowlight(common);
 
 @Component({
   selector: 'app-root',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DomternalEditorComponent, DomternalToolbarComponent, DomternalBubbleMenuComponent],
   templateUrl: './app.html',
 })
@@ -74,11 +75,11 @@ export class App {
     InvisibleChars,
     SelectionDecoration,
   ];
-  editor: Editor | null = null;
+  editor = signal<Editor | null>(null);
   isDark = signal(false);
 
   onEditorCreated(editor: Editor): void {
-    this.editor = editor;
+    this.editor.set(editor);
   }
 
   toggleTheme(): void {

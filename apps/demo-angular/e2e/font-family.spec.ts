@@ -114,7 +114,8 @@ test.describe('FontFamily — font preview', () => {
     for (const font of DEFAULT_FONTS) {
       const item = panel.locator(`button[aria-label="${font}"]`);
       const style = await item.getAttribute('style');
-      expect(style).toContain(`font-family: ${font}`);
+      const expected = font.includes(' ') ? `font-family: '${font}'` : `font-family: ${font}`;
+      expect(style).toContain(expected);
     }
   });
 

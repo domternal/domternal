@@ -50,7 +50,47 @@ interface FlatButton {
   itemIndex: number;
 }
 
+/** Minimal editor shape for static helpers (avoids strict ToolbarControllerEditor compatibility issues) */
+interface ToolbarItemEditor {
+  readonly storage: Record<string, unknown>;
+  readonly commands: Record<string, (...args: unknown[]) => boolean>;
+  isActive(
+    nameOrAttributes: string | { name: string; attributes?: Record<string, unknown> },
+    attributes?: Record<string, unknown>
+  ): boolean;
+}
+
 export class ToolbarController {
+  /**
+   * Resolves the active state of a toolbar button against the editor.
+   * Shared between ToolbarController and framework components (e.g. bubble-menu).
+   */
+  static resolveActive(editor: ToolbarItemEditor, item: ToolbarButton): boolean {
+    if (item.isActiveFn) return item.isActiveFn(editor);
+    if (!item.isActive) return false;
+    if (typeof item.isActive === 'string') return editor.isActive(item.isActive);
+    if (Array.isArray(item.isActive)) {
+      return item.isActive.some(c =>
+        typeof c === 'string' ? editor.isActive(c) : editor.isActive(c.name, c.attributes));
+    }
+    return editor.isActive(item.isActive.name, item.isActive.attributes);
+  }
+
+  /**
+   * Executes a toolbar button's command on the editor.
+   * Shared between ToolbarController and framework components (e.g. bubble-menu).
+   */
+  static executeItem(editor: ToolbarItemEditor, item: ToolbarButton): void {
+    const cmd = editor.commands[item.command];
+    if (cmd) {
+      if (item.commandArgs?.length) {
+        cmd(...item.commandArgs);
+      } else {
+        cmd();
+      }
+    }
+  }
+
   private editor: ToolbarControllerEditor;
   private onChange: () => void;
   private transactionHandler: (() => void) | null = null;
@@ -125,14 +165,7 @@ export class ToolbarController {
    * Executes a toolbar button's command.
    */
   executeCommand(item: ToolbarButton): void {
-    const cmd = this.editor.commands[item.command];
-    if (cmd) {
-      if (item.commandArgs && item.commandArgs.length > 0) {
-        cmd(...item.commandArgs);
-      } else {
-        cmd();
-      }
-    }
+    ToolbarController.executeItem(this.editor, item);
     this.updateActiveStates();
   }
 
@@ -275,8 +308,8 @@ export class ToolbarController {
     for (const name of groupOrder) {
       const groupItems = groupMap.get(name) ?? [];
       groupItems.sort((a, b) => {
-        const pa = ('priority' in a && a.priority) ? a.priority : 100;
-        const pb = ('priority' in b && b.priority) ? b.priority : 100;
+        const pa = a.priority ?? 100;
+        const pb = b.priority ?? 100;
         return pb - pa;
       });
       groups.push({ name, items: groupItems });
@@ -370,22 +403,7 @@ export class ToolbarController {
     if (!item.isActive && !item.isActiveFn) return false;
 
     const wasActive = this._activeMap.get(item.name) ?? false;
-    let nowActive: boolean;
-
-    if (item.isActiveFn) {
-      nowActive = item.isActiveFn(this.editor);
-    } else if (Array.isArray(item.isActive)) {
-      nowActive = item.isActive.some((check) => {
-        if (typeof check === 'string') return this.editor.isActive(check);
-        return this.editor.isActive(check.name, check.attributes);
-      });
-    } else if (typeof item.isActive === 'string') {
-      nowActive = this.editor.isActive(item.isActive);
-    } else if (item.isActive) {
-      nowActive = this.editor.isActive(item.isActive.name, item.isActive.attributes);
-    } else {
-      return false;
-    }
+    const nowActive = ToolbarController.resolveActive(this.editor, item);
 
     if (wasActive !== nowActive) {
       this._activeMap.set(item.name, nowActive);

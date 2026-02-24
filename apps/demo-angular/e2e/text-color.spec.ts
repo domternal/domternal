@@ -395,7 +395,8 @@ test.describe('TextColor — parseHTML', () => {
 
     const html = await getEditorHTML(page);
     expect(html).toContain('custom color');
-    expect(html).toContain('#123456');
+    // Browser innerHTML normalizes hex to rgb(), so check the equivalent rgb value
+    expect(html).toContain('rgb(18, 52, 86)');
   });
 });
 

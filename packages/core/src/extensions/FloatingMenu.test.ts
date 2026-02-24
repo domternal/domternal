@@ -2,11 +2,13 @@
  * Tests for FloatingMenu extension
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { FloatingMenu, floatingMenuPluginKey } from './FloatingMenu.js';
+import { FloatingMenu, floatingMenuPluginKey, createFloatingMenuPlugin } from './FloatingMenu.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
+import { Heading } from '../nodes/Heading.js';
 import { Editor } from '../Editor.js';
+import { PluginKey, TextSelection } from 'prosemirror-state';
 
 describe('FloatingMenu', () => {
   describe('configuration', () => {
@@ -339,6 +341,167 @@ describe('FloatingMenu', () => {
       });
 
       expect(editor.getText()).toContain('Hello');
+    });
+
+    it('returns empty plugins when no editor', () => {
+      const element = document.createElement('div');
+      const CustomFloatingMenu = FloatingMenu.configure({ element });
+
+      (CustomFloatingMenu as unknown as { editor: unknown }).editor = null;
+
+      const plugins = CustomFloatingMenu.config.addProseMirrorPlugins?.call(CustomFloatingMenu);
+      expect(plugins).toEqual([]);
+    });
+
+    it('createFloatingMenuPlugin works standalone', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph],
+        content: '<p>Hello</p>',
+      });
+
+      const pluginKey = new PluginKey('testFloating');
+      const plugin = createFloatingMenuPlugin({
+        pluginKey,
+        editor,
+        element: menuElement,
+      });
+
+      expect(plugin).toBeDefined();
+      expect(plugin.spec.key).toBe(pluginKey);
+    });
+
+    it('createFloatingMenuPlugin with custom shouldShow', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph],
+        content: '<p></p>',
+      });
+
+      const pluginKey = new PluginKey('testFloating2');
+      const plugin = createFloatingMenuPlugin({
+        pluginKey,
+        editor,
+        element: menuElement,
+        shouldShow: () => false,
+      });
+
+      expect(plugin).toBeDefined();
+    });
+
+    it('createFloatingMenuPlugin with custom offset', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph],
+        content: '<p>Hello</p>',
+      });
+
+      const plugin = createFloatingMenuPlugin({
+        pluginKey: new PluginKey('testFloating3'),
+        editor,
+        element: menuElement,
+        offset: [10, 20],
+      });
+
+      expect(plugin).toBeDefined();
+    });
+
+    it('hides menu when content is added to empty paragraph', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, FloatingMenu.configure({ element: menuElement })],
+        content: '<p>Hello world</p>',
+      });
+
+      // Paragraph has content — menu should be hidden
+      expect(menuElement.hasAttribute('data-show')).toBe(false);
+
+      // Insert text into position
+      editor.view.dispatch(editor.state.tr.insertText('x', 1));
+
+      // Still hidden
+      expect(menuElement.hasAttribute('data-show')).toBe(false);
+    });
+  });
+
+  describe('default shouldShow with real editor state', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    it('returns true when cursor is in empty paragraph (real doc)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph],
+        content: '<p></p>',
+      });
+
+      const result = FloatingMenu.options.shouldShow({
+        editor,
+        view: editor.view,
+        state: editor.state,
+      });
+
+      expect(result).toBe(true);
+    });
+
+    it('returns false when cursor is in paragraph with text (real doc)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph],
+        content: '<p>Hello</p>',
+      });
+
+      const result = FloatingMenu.options.shouldShow({
+        editor,
+        view: editor.view,
+        state: editor.state,
+      });
+
+      expect(result).toBe(false);
+    });
+
+    it('returns false when selection is not empty (real doc)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph],
+        content: '<p>Hello</p>',
+      });
+
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 4)),
+      );
+
+      const result = FloatingMenu.options.shouldShow({
+        editor,
+        view: editor.view,
+        state: editor.state,
+      });
+
+      expect(result).toBe(false);
+    });
+
+    it('returns false when cursor is in heading node', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Heading],
+        content: '<h1></h1>',
+      });
+
+      // Even though heading is empty, shouldShow requires paragraph
+      const result = FloatingMenu.options.shouldShow({
+        editor,
+        view: editor.view,
+        state: editor.state,
+      });
+
+      expect(result).toBe(false);
     });
   });
 });

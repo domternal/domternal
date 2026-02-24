@@ -56,6 +56,7 @@ export {
 
 // Text Style Extensions (require TextStyle mark)
 export { TextColor, DEFAULT_TEXT_COLORS, type TextColorOptions } from './TextColor.js';
+export { Highlight, DEFAULT_HIGHLIGHT_COLORS, type HighlightOptions } from './Highlight.js';
 export { FontFamily, type FontFamilyOptions } from './FontFamily.js';
 export { FontSize, type FontSizeOptions } from './FontSize.js';
 

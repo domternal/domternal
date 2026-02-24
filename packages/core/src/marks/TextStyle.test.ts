@@ -47,11 +47,12 @@ describe('TextStyle', () => {
   });
 
   describe('parseHTML', () => {
-    it('returns rule for span tag with style', () => {
+    it('returns rules for span and mark tags', () => {
       const rules = TextStyle.config.parseHTML?.call(TextStyle);
-      expect(rules).toHaveLength(1);
+      expect(rules).toHaveLength(2);
       expect(rules?.[0]).toHaveProperty('tag', 'span');
       expect(rules?.[0]).toHaveProperty('getAttrs');
+      expect(rules?.[1]).toHaveProperty('tag', 'mark');
     });
 
     it('parses span with style attribute', () => {

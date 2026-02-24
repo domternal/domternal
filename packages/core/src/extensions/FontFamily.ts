@@ -72,7 +72,8 @@ export const FontFamily = Extension.create<FontFamilyOptions>({
                 return null;
               }
 
-              return { style: `font-family: ${fontFamily}` };
+              const value = fontFamily.includes(' ') ? `'${fontFamily}'` : fontFamily;
+              return { style: `font-family: ${value}` };
             },
           },
         },
@@ -126,7 +127,7 @@ export const FontFamily = Extension.create<FontFamilyOptions>({
             isActive: { name: 'textStyle', attributes: { fontFamily: font } },
             icon: 'textAa',
             label: font,
-            style: `font-family: ${font}`,
+            style: `font-family: ${font.includes(' ') ? `'${font}'` : font}`,
             priority: 200 - i,
           })),
           {

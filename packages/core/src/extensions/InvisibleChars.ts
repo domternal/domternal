@@ -33,6 +33,7 @@
 import { Extension } from '../Extension.js';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import type { Editor } from '../Editor.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
@@ -54,6 +55,79 @@ const CHARS = {
   space: '·',
   nbsp: '°',
 };
+
+interface InvisibleCharsPluginState {
+  visible: boolean;
+  decorations: DecorationSet;
+}
+
+function buildDecorations(
+  doc: ProseMirrorNode,
+  options: InvisibleCharsOptions,
+): DecorationSet {
+  const decorations: Decoration[] = [];
+
+  doc.descendants((node, pos) => {
+    if (options.paragraph && node.type.name === 'paragraph') {
+      const endPos = pos + node.nodeSize - 1;
+      decorations.push(
+        Decoration.widget(
+          endPos,
+          () => {
+            const span = document.createElement('span');
+            span.className = `${options.className} ${options.className}--paragraph`;
+            span.textContent = CHARS.paragraph;
+            return span;
+          },
+          { side: -1 }
+        )
+      );
+    }
+
+    if (options.hardBreak && node.type.name === 'hardBreak') {
+      decorations.push(
+        Decoration.widget(
+          pos,
+          () => {
+            const span = document.createElement('span');
+            span.className = `${options.className} ${options.className}--hardBreak`;
+            span.textContent = CHARS.hardBreak;
+            return span;
+          },
+          { side: -1 }
+        )
+      );
+    }
+
+    if (node.isText && node.text) {
+      const text = node.text;
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        const charPos = pos + i;
+
+        if (options.space && char === ' ') {
+          decorations.push(
+            Decoration.inline(charPos, charPos + 1, {
+              class: `${options.className} ${options.className}--space`,
+              'data-char': 'space',
+            })
+          );
+        }
+
+        if (options.nbsp && char === '\u00A0') {
+          decorations.push(
+            Decoration.inline(charPos, charPos + 1, {
+              class: `${options.className} ${options.className}--nbsp`,
+              'data-char': 'nbsp',
+            })
+          );
+        }
+      }
+    }
+  });
+
+  return DecorationSet.create(doc, decorations);
+}
 
 export interface InvisibleCharsOptions {
   /**
@@ -135,17 +209,15 @@ export const InvisibleChars = Extension.create<
     const editor = this.editor as Editor | null;
     const options = this.options;
 
-    // Initialize toggle function
     this.storage.toggle = (): void => {
       const state = editor?.state;
       if (!state) return;
 
       const pluginState = invisibleCharsPluginKey.getState(state) as
-        | { visible: boolean }
+        | InvisibleCharsPluginState
         | undefined;
       const currentVisible = pluginState?.visible ?? options.visible;
 
-      // Trigger a view update by dispatching transaction with meta
       const tr = state.tr.setMeta(invisibleCharsPluginKey, {
         visible: !currentVisible,
       });
@@ -156,7 +228,7 @@ export const InvisibleChars = Extension.create<
       const state = editor?.state;
       if (!state) return options.visible;
       const pluginState = invisibleCharsPluginKey.getState(state) as
-        | { visible: boolean }
+        | InvisibleCharsPluginState
         | undefined;
       return pluginState?.visible ?? options.visible;
     };
@@ -230,95 +302,44 @@ export const InvisibleChars = Extension.create<
         key: invisibleCharsPluginKey,
 
         state: {
-          init: () => ({ visible: options.visible }),
-          apply: (tr, value) => {
+          init: (_, state): InvisibleCharsPluginState => ({
+            visible: options.visible,
+            decorations: options.visible
+              ? buildDecorations(state.doc, options)
+              : DecorationSet.empty,
+          }),
+          apply: (tr, prev: InvisibleCharsPluginState, _oldState, newState): InvisibleCharsPluginState => {
             const meta = tr.getMeta(invisibleCharsPluginKey) as
               | { visible: boolean }
               | undefined;
-            if (meta?.visible !== undefined) {
-              return { visible: meta.visible };
+            const visible = meta?.visible ?? prev.visible;
+
+            if (!visible) {
+              if (!prev.visible) return prev;
+              return { visible, decorations: DecorationSet.empty };
             }
-            return value;
+
+            // Visibility just toggled on — full rebuild
+            if (!prev.visible) {
+              return { visible, decorations: buildDecorations(newState.doc, options) };
+            }
+
+            // Doc changed — rebuild
+            if (tr.docChanged) {
+              return { visible, decorations: buildDecorations(newState.doc, options) };
+            }
+
+            // No change — reuse cached
+            return prev;
           },
         },
 
         props: {
           decorations: (state) => {
             const pluginState = invisibleCharsPluginKey.getState(state) as
-              | { visible: boolean }
+              | InvisibleCharsPluginState
               | undefined;
-            if (!pluginState?.visible) {
-              return DecorationSet.empty;
-            }
-
-            const decorations: Decoration[] = [];
-            const { doc } = state;
-
-            doc.descendants((node, pos) => {
-              // Paragraph end markers
-              if (options.paragraph && node.type.name === 'paragraph') {
-                const endPos = pos + node.nodeSize - 1;
-                decorations.push(
-                  Decoration.widget(
-                    endPos,
-                    () => {
-                      const span = document.createElement('span');
-                      span.className = `${options.className} ${options.className}--paragraph`;
-                      span.textContent = CHARS.paragraph;
-                      return span;
-                    },
-                    { side: -1 }
-                  )
-                );
-              }
-
-              // Hard break markers
-              if (options.hardBreak && node.type.name === 'hardBreak') {
-                decorations.push(
-                  Decoration.widget(
-                    pos,
-                    () => {
-                      const span = document.createElement('span');
-                      span.className = `${options.className} ${options.className}--hardBreak`;
-                      span.textContent = CHARS.hardBreak;
-                      return span;
-                    },
-                    { side: -1 }
-                  )
-                );
-              }
-
-              // Text content - spaces and nbsp
-              if (node.isText && node.text) {
-                const text = node.text;
-                for (let i = 0; i < text.length; i++) {
-                  const char = text[i];
-                  const charPos = pos + i;
-
-                  // Regular space
-                  if (options.space && char === ' ') {
-                    decorations.push(
-                      Decoration.inline(charPos, charPos + 1, {
-                        class: `${options.className} ${options.className}--space`,
-                        'data-char': 'space',
-                      })
-                    );
-                  }
-
-                  // Non-breaking space (U+00A0)
-                  if (options.nbsp && char === '\u00A0') {
-                    decorations.push(
-                      Decoration.inline(charPos, charPos + 1, {
-                        class: `${options.className} ${options.className}--nbsp`,
-                        'data-char': 'nbsp',
-                      })
-                    );
-                  }
-                }
-              }
-            });
-
-            return DecorationSet.create(doc, decorations);
+            return pluginState?.decorations ?? DecorationSet.empty;
           },
         },
       }),

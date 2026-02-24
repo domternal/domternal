@@ -20,6 +20,7 @@
  */
 import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import type { MarkType } from 'prosemirror-model';
+import { Decoration, DecorationSet } from 'prosemirror-view';
 import { Mark } from '../Mark.js';
 import { isValidUrl } from '../helpers/isValidUrl.js';
 import { getMarkRange } from '../helpers/getMarkRange.js';
@@ -106,9 +107,12 @@ interface LinkPopoverOptions {
 }
 
 function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions): Plugin {
+  const key = new PluginKey('linkPopover');
+
   // Build DOM elements
   const el = document.createElement('div');
   el.className = 'dm-link-popover';
+  el.setAttribute('data-dm-editor-ui', '');
 
   const input = document.createElement('input');
   input.type = 'url';
@@ -170,6 +174,14 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
       el.style.left = `${String(coords.left)}px`;
     }
 
+    // Show a visual decoration on the selected range while the popover is
+    // open. The browser removes native selection highlight when the input
+    // takes focus, so we render our own via ProseMirror DecorationSet.
+    if (!empty) {
+      const { to } = state.selection;
+      editor.view.dispatch(state.tr.setMeta(key, { from, to }));
+    }
+
     el.setAttribute('data-show', '');
     isOpen = true;
 
@@ -190,6 +202,8 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
 
   const hide = (): void => {
     if (!isOpen) return;
+    // Clear pending-link decoration
+    editor.view.dispatch(editor.view.state.tr.setMeta(key, null));
     el.removeAttribute('data-show');
     isOpen = false;
     input.value = '';
@@ -214,7 +228,8 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
       return;
     }
 
-    // If cursor is on existing link with no selection, select the full link range first
+    // If cursor is on existing link with no selection, select the full link range
+    // and apply the mark in a single transaction to avoid visual flash
     const { state } = editor.view;
     const { from, empty } = state.selection;
 
@@ -222,11 +237,13 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
       const $pos = state.doc.resolve(from);
       const range = getMarkRange($pos, markType);
       if (range) {
-        // Select the link range, then set the mark
-        const tr = state.tr.setSelection(
-          TextSelection.create(state.doc, range.from, range.to)
-        );
+        const tr = state.tr
+          .setSelection(TextSelection.create(state.doc, range.from, range.to))
+          .addMark(range.from, range.to, markType.create({ href }));
         editor.view.dispatch(tr);
+        hide();
+        editor.view.focus();
+        return;
       }
     }
 
@@ -314,7 +331,29 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
   };
 
   return new Plugin({
-    key: new PluginKey('linkPopover'),
+    key,
+
+    state: {
+      init() {
+        return DecorationSet.empty;
+      },
+      apply(tr, decorations) {
+        const meta = tr.getMeta(key) as { from: number; to: number } | null | undefined;
+        if (meta === null) return DecorationSet.empty;
+        if (meta) {
+          return DecorationSet.create(tr.doc, [
+            Decoration.inline(meta.from, meta.to, { class: 'dm-link-pending' }),
+          ]);
+        }
+        return decorations.map(tr.mapping, tr.doc);
+      },
+    },
+
+    props: {
+      decorations(state) {
+        return key.getState(state) as DecorationSet;
+      },
+    },
 
     view: () => {
       // Append to document.body so it's not clipped by .dm-editor overflow:hidden

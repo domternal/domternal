@@ -157,25 +157,52 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
   return new Plugin({
     key: pluginKey,
 
-    view: () => ({
-      update: (view) => {
+    view: () => {
+      const onFocus = (): void => {
         const visible = shouldShow({
           editor,
-          view,
-          state: view.state,
+          view: editor.view,
+          state: editor.view.state,
         });
-
         if (visible) {
-          updatePosition(view);
+          updatePosition(editor.view);
         } else {
           hideMenu();
         }
-      },
+      };
 
-      destroy: () => {
+      const onBlur = ({ event }: { event: FocusEvent }): void => {
+        if (event.relatedTarget && element.contains(event.relatedTarget as Node)) {
+          return;
+        }
         hideMenu();
-      },
-    }),
+      };
+
+      editor.on('focus', onFocus);
+      editor.on('blur', onBlur);
+
+      return {
+        update: (view) => {
+          const visible = shouldShow({
+            editor,
+            view,
+            state: view.state,
+          });
+
+          if (visible) {
+            updatePosition(view);
+          } else {
+            hideMenu();
+          }
+        },
+
+        destroy: () => {
+          hideMenu();
+          editor.off('focus', onFocus);
+          editor.off('blur', onBlur);
+        },
+      };
+    },
   });
 }
 
