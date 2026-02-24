@@ -44,7 +44,7 @@ export const SelectionDecoration = Extension.create<SelectionDecorationOptions>(
                 // Don't collapse selection when focus moves to editor-related
                 // UI (e.g. link popover input). Elements marked with
                 // [data-dm-editor-ui] are treated as part of the editor.
-                const related = (event as FocusEvent).relatedTarget;
+                const related = event.relatedTarget;
                 if (
                   related instanceof HTMLElement &&
                   related.closest('[data-dm-editor-ui]')

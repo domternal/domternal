@@ -136,10 +136,25 @@ export const Highlight = Extension.create<HighlightOptions>({
           const markType = state.schema.marks['textStyle'];
           if (!markType) return false;
 
-          const { $from } = state.selection;
-          const mark = markType.isInSet($from.marks());
+          const { from, to, empty } = state.selection;
+          let hasHighlight = false;
 
-          if (mark?.attrs['backgroundColor']) {
+          if (empty) {
+            const mark = markType.isInSet(state.doc.resolve(from).marks());
+            hasHighlight = !!mark?.attrs['backgroundColor'];
+          } else {
+            state.doc.nodesBetween(from, to, (node) => {
+              if (hasHighlight) return false;
+              const mark = markType.isInSet(node.marks);
+              if (mark?.attrs['backgroundColor']) {
+                hasHighlight = true;
+                return false;
+              }
+              return true;
+            });
+          }
+
+          if (hasHighlight) {
             commands.setMark('textStyle', { backgroundColor: null });
             commands.removeEmptyTextStyle();
             return true;

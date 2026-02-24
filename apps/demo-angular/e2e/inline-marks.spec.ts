@@ -334,14 +334,20 @@ test.describe('Inline marks — Code', () => {
 // ─── Highlight ────────────────────────────────────────────────────────
 
 test.describe('Inline marks — Highlight', () => {
+  // Highlight is a dropdown (color picker). Click trigger → click swatch.
+  const highlightTrigger = btn.highlight;
+  const firstSwatch = '.dm-toolbar-dropdown-wrapper:has(button[aria-label="Highlight"]) .dm-color-swatch';
+  const noHighlight = 'button[aria-label="No highlight"]';
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
   });
 
-  test('toolbar applies highlight', async ({ page }) => {
+  test('toolbar applies highlight via color swatch', async ({ page }) => {
     await replaceAndSelectAll(page, 'highlight me');
-    await page.locator(btn.highlight).click();
+    await page.locator(highlightTrigger).click();
+    await page.locator(firstSwatch).first().click();
 
     const html = await getEditorHTML(page);
     expect(html).toContain('background-color');
@@ -349,11 +355,12 @@ test.describe('Inline marks — Highlight', () => {
     expect(html).not.toContain('<mark');
   });
 
-  test('toolbar removes highlight (toggle off)', async ({ page }) => {
+  test('toolbar removes highlight via No highlight button', async ({ page }) => {
     await setContentAndFocus(page, '<p><span style="background-color: #fef08a">highlighted</span></p>');
     await page.locator(`${editorSelector} span`).click();
     await page.keyboard.press(`${modifier}+a`);
-    await page.locator(btn.highlight).click();
+    await page.locator(highlightTrigger).click();
+    await page.locator(noHighlight).click();
 
     const html = await getEditorHTML(page);
     expect(html).not.toContain('background-color');
@@ -487,7 +494,9 @@ test.describe('Inline marks — combining marks', () => {
     await page.keyboard.press(`${modifier}+a`);
     await page.locator(btn.strike).click();
     await page.keyboard.press(`${modifier}+a`);
+    // Highlight is a dropdown — open it and click a swatch
     await page.locator(btn.highlight).click();
+    await page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Highlight"]) .dm-color-swatch').first().click();
 
     const html = await getEditorHTML(page);
     expect(html).toContain('<strong>');
@@ -599,14 +608,16 @@ test.describe('Inline marks — in different contexts', () => {
     await expect(page.locator(btn.underline)).toBeDisabled();
   });
 
-  test('highlight button is disabled inside code block', async ({ page }) => {
+  test('highlight dropdown is not active inside code block', async ({ page }) => {
     await setContentAndFocus(
       page,
       '<pre><code>code block text</code></pre>',
     );
     await page.locator(`${editorSelector} pre code`).click();
 
-    await expect(page.locator(btn.highlight)).toBeDisabled();
+    // Highlight is a dropdown trigger — verify it's not showing as active
+    const trigger = page.locator(btn.highlight);
+    await expect(trigger).not.toHaveClass(/dm-toolbar-button--active/);
   });
 
   test('marks work inside ordered list item', async ({ page }) => {

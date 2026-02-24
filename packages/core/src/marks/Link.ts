@@ -338,7 +338,7 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
         return DecorationSet.empty;
       },
       apply(tr, decorations) {
-        const meta = tr.getMeta(key);
+        const meta = tr.getMeta(key) as { from: number; to: number } | null | undefined;
         if (meta === null) return DecorationSet.empty;
         if (meta) {
           return DecorationSet.create(tr.doc, [
