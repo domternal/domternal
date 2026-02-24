@@ -16,7 +16,7 @@
  */
 
 import { Node } from '@domternal/core';
-import type { CommandSpec } from '@domternal/core';
+import type { CommandSpec, ToolbarItem } from '@domternal/core';
 import { InputRule } from 'prosemirror-inputrules';
 import { imageUploadPlugin } from './imageUploadPlugin.js';
 

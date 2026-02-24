@@ -14,6 +14,7 @@ export {
   toggleMark,
   setMark,
   unsetMark,
+  unsetAllMarks,
   // Block commands
   setBlockType,
   toggleBlockType,

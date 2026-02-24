@@ -60,6 +60,9 @@ export { Highlight, DEFAULT_HIGHLIGHT_COLORS, type HighlightOptions } from './Hi
 export { FontFamily, type FontFamilyOptions } from './FontFamily.js';
 export { FontSize, type FontSizeOptions } from './FontSize.js';
 
+// Formatting Utilities
+export { ClearFormatting } from './ClearFormatting.js';
+
 // Menu Extensions
 export {
   BubbleMenu,

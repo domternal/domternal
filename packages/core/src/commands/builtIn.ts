@@ -474,6 +474,28 @@ export const unsetMark: CommandSpec<[markName: string]> =
     return true;
   };
 
+/**
+ * UnsetAllMarks command - removes all marks from the current selection
+ *
+ * Iterates over all mark types in the schema and removes them.
+ * Returns false for empty selections (no range to clear).
+ */
+export const unsetAllMarks: CommandSpec =
+  () =>
+  ({ state, tr, dispatch }) => {
+    const { from, to, empty } = tr.selection;
+
+    if (empty) return false;
+    if (!dispatch) return true;
+
+    for (const markName of Object.keys(state.schema.marks)) {
+      tr.removeMark(from, to, state.schema.marks[markName]);
+    }
+    tr.setStoredMarks([]);
+    dispatch(tr);
+    return true;
+  };
+
 // ============================================================================
 // Block Commands
 // ============================================================================
@@ -1065,6 +1087,7 @@ export const builtInCommands: CommandMap = {
   toggleMark,
   setMark,
   unsetMark,
+  unsetAllMarks,
   // Block commands
   setBlockType,
   toggleBlockType,
@@ -1097,6 +1120,7 @@ declare module '../types/Commands.js' {
     toggleMark: CommandSpec<[markName: string, attributes?: Attrs]>;
     setMark: CommandSpec<[markName: string, attributes?: Attrs]>;
     unsetMark: CommandSpec<[markName: string]>;
+    unsetAllMarks: CommandSpec;
     setBlockType: CommandSpec<[nodeName: string, attributes?: Attrs]>;
     toggleBlockType: CommandSpec<[nodeName: string, defaultNodeName: string, attributes?: Attrs]>;
     wrapIn: CommandSpec<[nodeName: string, attributes?: Attrs]>;

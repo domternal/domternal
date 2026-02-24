@@ -165,6 +165,7 @@ export {
   toggleMark,
   setMark,
   unsetMark,
+  unsetAllMarks,
   // Block commands
   setBlockType,
   toggleBlockType,
@@ -292,6 +293,8 @@ export {
   type FontFamilyOptions,
   FontSize,
   type FontSizeOptions,
+  // Formatting Utilities
+  ClearFormatting,
   // Menu Extensions
   BubbleMenu,
   createBubbleMenuPlugin,
