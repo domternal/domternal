@@ -978,4 +978,73 @@ describe('builtIn commands', () => {
       expect(editor.getText()).toBe('Hello World');
     });
   });
+
+  describe('unsetAllMarks', () => {
+    it('removes all marks from selection', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Bold, Italic],
+        content: '<p><strong><em>Hello</em></strong></p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      setSelection(editor, 1, 6);
+
+      const result = editor.commands.unsetAllMarks();
+      expect(result).toBe(true);
+
+      const textNode = editor.state.doc.firstChild!.firstChild!;
+      expect(textNode.marks).toHaveLength(0);
+    });
+
+    it('returns false for empty selection', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Bold],
+        content: '<p><strong>Hello</strong></p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      setSelection(editor, 3);
+
+      const result = editor.commands.unsetAllMarks();
+      expect(result).toBe(false);
+    });
+
+    it('removes multiple mark types at once', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Bold, Italic],
+        content: '<p><strong><em>Hello</em></strong></p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      setSelection(editor, 1, 6);
+      editor.commands.unsetAllMarks();
+
+      // Both bold and italic should be removed
+      const textNode = editor.state.doc.firstChild!.firstChild!;
+      expect(textNode.marks).toHaveLength(0);
+      expect(textNode.text).toBe('Hello');
+    });
+
+    it('can() returns true for non-empty selection', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Bold],
+        content: '<p><strong>Hello</strong></p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      setSelection(editor, 1, 6);
+      expect(editor.can().unsetAllMarks()).toBe(true);
+    });
+
+    it('can() returns false for empty selection', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Bold],
+        content: '<p><strong>Hello</strong></p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      setSelection(editor, 3);
+      expect(editor.can().unsetAllMarks()).toBe(false);
+    });
+  });
 });

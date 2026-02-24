@@ -16,7 +16,7 @@
  */
 
 import { Node, findParentNode, findChildren, defaultBlockAt } from '@domternal/core';
-import type { CommandSpec } from '@domternal/core';
+import type { CommandSpec, ToolbarItem } from '@domternal/core';
 import { Plugin, PluginKey, Selection, TextSelection } from 'prosemirror-state';
 import type { ViewMutationRecord } from 'prosemirror-view';
 import { isNodeVisible } from './helpers/isNodeVisible.js';
@@ -196,6 +196,21 @@ export const Details = Node.create<DetailsOptions>({
         },
       };
     };
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'details',
+        command: 'toggleDetails',
+        isActive: 'details',
+        icon: 'caretDown',
+        label: 'Toggle Details',
+        group: 'insert',
+        priority: 100,
+      },
+    ];
   },
 
   addCommands() {

@@ -799,3 +799,33 @@ describe('unsetDetails preserves summary', () => {
     expect(doc.child(0).textContent).toBe('Content only');
   });
 });
+
+describe('Details addToolbarItems', () => {
+  it('returns a single button item', () => {
+    const items = Details.config.addToolbarItems?.call(Details);
+    expect(items).toHaveLength(1);
+    expect(items?.[0]?.type).toBe('button');
+  });
+
+  it('button has correct metadata', () => {
+    const items = Details.config.addToolbarItems?.call(Details);
+    const button = items?.[0];
+    if (button?.type === 'button') {
+      expect(button.name).toBe('details');
+      expect(button.command).toBe('toggleDetails');
+      expect(button.isActive).toBe('details');
+      expect(button.icon).toBe('caretDown');
+      expect(button.label).toBe('Toggle Details');
+      expect(button.group).toBe('insert');
+      expect(button.priority).toBe(100);
+    }
+  });
+
+  it('does not emit event (direct command execution)', () => {
+    const items = Details.config.addToolbarItems?.call(Details);
+    const button = items?.[0];
+    if (button?.type === 'button') {
+      expect(button.emitEvent).toBeUndefined();
+    }
+  });
+});

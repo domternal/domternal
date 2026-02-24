@@ -279,6 +279,22 @@ export const Image = Node.create<ImageOptions>({
     ];
   },
 
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'image',
+        command: 'setImage',
+        commandArgs: [{ src: '' }],
+        icon: 'image',
+        label: 'Insert Image',
+        group: 'insert',
+        priority: 150,
+        emitEvent: 'insertImage',
+      },
+    ];
+  },
+
   addCommands() {
     return {
       setImage:

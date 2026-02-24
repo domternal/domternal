@@ -867,6 +867,36 @@ describe('suggestionPlugin exports', () => {
   });
 });
 
+describe('Emoji addToolbarItems', () => {
+  it('returns a single button item', () => {
+    const items = Emoji.config.addToolbarItems?.call(Emoji);
+    expect(items).toHaveLength(1);
+    expect(items?.[0]?.type).toBe('button');
+  });
+
+  it('button has correct metadata', () => {
+    const items = Emoji.config.addToolbarItems?.call(Emoji);
+    const button = items?.[0];
+    if (button?.type === 'button') {
+      expect(button.name).toBe('emoji');
+      expect(button.command).toBe('insertEmoji');
+      expect(button.commandArgs).toEqual(['smile']);
+      expect(button.icon).toBe('smiley');
+      expect(button.label).toBe('Insert Emoji');
+      expect(button.group).toBe('insert');
+      expect(button.priority).toBe(50);
+    }
+  });
+
+  it('emits insertEmoji event instead of executing command', () => {
+    const items = Emoji.config.addToolbarItems?.call(Emoji);
+    const button = items?.[0];
+    if (button?.type === 'button') {
+      expect(button.emitEvent).toBe('insertEmoji');
+    }
+  });
+});
+
 describe('index exports', () => {
   it('exports all public API', async () => {
     const mod = await import('./index.js');

@@ -25,7 +25,7 @@
  * ```
  */
 import { Node } from '@domternal/core';
-import type { CommandSpec } from '@domternal/core';
+import type { CommandSpec, ToolbarItem } from '@domternal/core';
 import { InputRule } from 'prosemirror-inputrules';
 import type { EditorState } from 'prosemirror-state';
 import { emojis as defaultEmojis } from './emojis.js';
@@ -212,6 +212,22 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
     const nameMap = this.storage._nameMap;
     const item = name ? nameMap?.get(name) : undefined;
     return item?.emoji ?? '';
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'emoji',
+        command: 'insertEmoji',
+        commandArgs: ['smile'],
+        icon: 'smiley',
+        label: 'Insert Emoji',
+        group: 'insert',
+        priority: 50,
+        emitEvent: 'insertEmoji',
+      },
+    ];
   },
 
   addCommands() {

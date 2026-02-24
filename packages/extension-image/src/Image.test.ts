@@ -1321,3 +1321,33 @@ describe('imageUploadPlugin', () => {
     });
   });
 });
+
+describe('Image addToolbarItems', () => {
+  it('returns a single button item', () => {
+    const items = Image.config.addToolbarItems?.call(Image);
+    expect(items).toHaveLength(1);
+    expect(items?.[0]?.type).toBe('button');
+  });
+
+  it('button has correct metadata', () => {
+    const items = Image.config.addToolbarItems?.call(Image);
+    const button = items?.[0];
+    if (button?.type === 'button') {
+      expect(button.name).toBe('image');
+      expect(button.command).toBe('setImage');
+      expect(button.commandArgs).toEqual([{ src: '' }]);
+      expect(button.icon).toBe('image');
+      expect(button.label).toBe('Insert Image');
+      expect(button.group).toBe('insert');
+      expect(button.priority).toBe(150);
+    }
+  });
+
+  it('emits insertImage event instead of executing command', () => {
+    const items = Image.config.addToolbarItems?.call(Image);
+    const button = items?.[0];
+    if (button?.type === 'button') {
+      expect(button.emitEvent).toBe('insertImage');
+    }
+  });
+});
