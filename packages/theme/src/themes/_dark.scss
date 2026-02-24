@@ -48,7 +48,9 @@
 .dm-theme-dark,
 .dm-theme-dark .dm-editor,
 .dm-theme-dark .dm-toolbar,
-.dm-theme-dark .dm-bubble-menu {
+.dm-theme-dark .dm-bubble-menu,
+.dm-theme-dark .dm-emoji-picker,
+.dm-theme-dark .dm-emoji-suggestion {
   @include dark-tokens;
 }
 
@@ -57,7 +59,9 @@
   .dm-theme-auto,
   .dm-theme-auto .dm-editor,
   .dm-theme-auto .dm-toolbar,
-  .dm-theme-auto .dm-bubble-menu {
+  .dm-theme-auto .dm-bubble-menu,
+  .dm-theme-auto .dm-emoji-picker,
+  .dm-theme-auto .dm-emoji-suggestion {
     @include dark-tokens;
   }
 }

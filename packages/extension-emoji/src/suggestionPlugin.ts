@@ -30,6 +30,8 @@ export interface SuggestionProps {
   command: (item: EmojiItem) => void;
   /** Returns the client rect of the cursor for positioning the popup. */
   clientRect: (() => DOMRect | null) | null;
+  /** The ProseMirror editor DOM element (for appending popups inside the editor tree). */
+  element: HTMLElement;
 }
 
 export interface SuggestionRenderer {
@@ -46,7 +48,7 @@ export interface SuggestionRenderer {
 export interface SuggestionOptions {
   /** Trigger character. Default: ':' */
   char?: string;
-  /** Minimum query length before showing suggestions. Default: 2 */
+  /** Minimum query length before showing suggestions. Default: 0 */
   minQueryLength?: number;
   /** Filter/sort items for a given query. */
   items?: (props: { query: string }) => EmojiItem[];
@@ -131,7 +133,7 @@ export function createSuggestionPlugin(
   options: SuggestionPluginOptions,
 ): Plugin {
   const triggerChar = options.char ?? ':';
-  const minQueryLength = options.minQueryLength ?? 2;
+  const minQueryLength = options.minQueryLength ?? 0;
   const allowSpaces = options.allowSpaces ?? false;
   const getItems = options.items;
   const getRender = options.render;
@@ -226,6 +228,7 @@ export function createSuggestionPlugin(
               items,
               command,
               clientRect,
+              element: view.dom,
             };
 
             if (!renderer && getRender) {
@@ -250,25 +253,34 @@ export function createSuggestionPlugin(
     },
 
     props: {
-      handleKeyDown(view: EditorView, event: KeyboardEvent): boolean {
-        const state = emojiSuggestionPluginKey.getState(view.state);
-        if (!state?.active) return false;
+      // Use handleDOMEvents.keydown instead of handleKeyDown so that
+      // suggestion key handling fires BEFORE keymap plugins (which use
+      // handleKeyDown and would otherwise intercept Enter/ArrowUp/ArrowDown).
+      handleDOMEvents: {
+        keydown(view: EditorView, event: KeyboardEvent): boolean {
+          const state = emojiSuggestionPluginKey.getState(view.state);
+          if (!state?.active) return false;
 
-        // Escape closes suggestion
-        if (event.key === 'Escape') {
-          // Dispatch a dismiss transaction to reset plugin state
-          const { tr } = view.state;
-          tr.setMeta(emojiSuggestionPluginKey, 'dismiss');
-          view.dispatch(tr);
-          return true;
-        }
+          // Escape closes suggestion
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            const { tr } = view.state;
+            tr.setMeta(emojiSuggestionPluginKey, 'dismiss');
+            view.dispatch(tr);
+            return true;
+          }
 
-        // Delegate to renderer for ArrowUp/Down/Enter
-        if (renderer) {
-          return renderer.onKeyDown(event);
-        }
+          // Delegate to renderer for ArrowUp/Down/Enter
+          if (renderer) {
+            const handled = renderer.onKeyDown(event);
+            if (handled) {
+              event.preventDefault();
+            }
+            return handled;
+          }
 
-        return false;
+          return false;
+        },
       },
     },
   });

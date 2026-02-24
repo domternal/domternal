@@ -20,6 +20,7 @@
 
     @if (editor(); as ed) {
       <domternal-bubble-menu [editor]="ed"></domternal-bubble-menu>
+      <domternal-emoji-picker [editor]="ed" [emojis]="emojiData" />
       <domternal-floating-menu [editor]="ed">
         <button (mousedown)="$event.preventDefault()" (click)="ed.commands.toggleHeading({level: 1})">H1</button>
         <button (mousedown)="$event.preventDefault()" (click)="ed.commands.toggleHeading({level: 2})">H2</button>

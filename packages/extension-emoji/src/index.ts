@@ -24,5 +24,8 @@ export type {
   SuggestionRenderer,
 } from './suggestionPlugin.js';
 
+// Default suggestion renderer (vanilla DOM)
+export { createEmojiSuggestionRenderer } from './suggestionRenderer.js';
+
 // Default export for convenience
 export { Emoji as default } from './Emoji.js';

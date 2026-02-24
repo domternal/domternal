@@ -4,6 +4,7 @@ import {
   DomternalToolbarComponent,
   DomternalBubbleMenuComponent,
   DomternalFloatingMenuComponent,
+  DomternalEmojiPickerComponent,
 } from '@domternal/angular';
 import {
   Bold,
@@ -39,7 +40,7 @@ import { CodeBlockLowlight } from '@domternal/extension-code-block-lowlight';
 import { Table, TableRow, TableCell, TableHeader } from '@domternal/extension-table';
 import { Image } from '@domternal/extension-image';
 import { Details, DetailsSummary, DetailsContent } from '@domternal/extension-details';
-import { Emoji, emojis } from '@domternal/extension-emoji';
+import { Emoji, emojis, createEmojiSuggestionRenderer } from '@domternal/extension-emoji';
 import { createLowlight, common } from 'lowlight';
 
 const lowlight = createLowlight(common);
@@ -47,7 +48,7 @@ const lowlight = createLowlight(common);
 @Component({
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DomternalEditorComponent, DomternalToolbarComponent, DomternalBubbleMenuComponent, DomternalFloatingMenuComponent],
+  imports: [DomternalEditorComponent, DomternalToolbarComponent, DomternalBubbleMenuComponent, DomternalFloatingMenuComponent, DomternalEmojiPickerComponent],
   templateUrl: './app.html',
 })
 export class App {
@@ -89,8 +90,9 @@ export class App {
     Details,
     DetailsSummary,
     DetailsContent,
-    Emoji.configure({ emojis }),
+    Emoji.configure({ emojis, suggestion: { render: createEmojiSuggestionRenderer() } }),
   ];
+  emojiData = emojis;
   editor = signal<Editor | null>(null);
   isDark = signal(false);
 
