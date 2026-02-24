@@ -147,6 +147,22 @@ interface MarkSchemaProperties {
    */
   spanning?: boolean;
 
+  /**
+   * Whether this mark represents visual formatting.
+   *
+   * Used by `unsetAllMarks` to decide which marks to remove.
+   * Marks with `isFormatting: false` survive clear formatting
+   * (e.g., links, comments, annotations).
+   *
+   * Can be overridden via `.configure()`:
+   * ```ts
+   * Link.configure({ isFormatting: true }) // make links clearable
+   * ```
+   *
+   * @default true
+   */
+  isFormatting?: boolean;
+
   // === Mark-specific Methods ===
 
   /**

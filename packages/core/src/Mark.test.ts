@@ -286,6 +286,35 @@ describe('Mark', () => {
     });
   });
 
+  describe('isFormatting getter', () => {
+    it('defaults to true when not specified', () => {
+      const mark = Mark.create({ name: 'bold' });
+      expect(mark.isFormatting).toBe(true);
+    });
+
+    it('returns true when explicitly set', () => {
+      const mark = Mark.create({ name: 'bold', isFormatting: true });
+      expect(mark.isFormatting).toBe(true);
+    });
+
+    it('returns false when set to false', () => {
+      const mark = Mark.create({ name: 'link', isFormatting: false });
+      expect(mark.isFormatting).toBe(false);
+    });
+
+    it('can be overridden via configure()', () => {
+      const link = Mark.create({ name: 'link', isFormatting: false });
+      const formattingLink = link.configure({ isFormatting: true });
+      expect(formattingLink.isFormatting).toBe(true);
+    });
+
+    it('preserves isFormatting through configure() when not overridden', () => {
+      const link = Mark.create({ name: 'link', isFormatting: false });
+      const configured = link.configure({});
+      expect(configured.isFormatting).toBe(false);
+    });
+  });
+
   describe('createMarkSpec()', () => {
     describe('schema properties', () => {
       it('includes inclusive in spec', () => {

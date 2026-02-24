@@ -14,6 +14,7 @@ import type { Attrs, Node as PMNode } from 'prosemirror-model';
 import type { CommandSpec, CommandMap } from '../types/Commands.js';
 import type { FocusPosition, Content } from '../types/index.js';
 import { createDocument } from '../helpers/index.js';
+import { Mark } from '../Mark.js';
 
 /**
  * Options for setContent command
@@ -475,21 +476,36 @@ export const unsetMark: CommandSpec<[markName: string]> =
   };
 
 /**
- * UnsetAllMarks command - removes all marks from the current selection
+ * UnsetAllMarks command - removes all formatting marks from the current selection
  *
- * Iterates over all mark types in the schema and removes them.
+ * Iterates over all mark types in the schema and removes those with
+ * `isFormatting !== false`. Marks like Link that set `isFormatting: false`
+ * are preserved.
+ *
  * Returns false for empty selections (no range to clear).
  */
 export const unsetAllMarks: CommandSpec =
   () =>
-  ({ state, tr, dispatch }) => {
+  ({ state, tr, dispatch, editor }) => {
     const { from, to, empty } = tr.selection;
 
     if (empty) return false;
     if (!dispatch) return true;
 
+    // Build set of non-formatting mark names to skip.
+    // Mark extensions with isFormatting: false (e.g. Link) survive clear formatting.
+    const skipMarks = new Set<string>();
+    const mgr = (editor as unknown as { extensionManager: { extensions: readonly unknown[] } }).extensionManager;
+    for (const ext of mgr.extensions) {
+      if (ext instanceof Mark && !ext.isFormatting) {
+        skipMarks.add(ext.name);
+      }
+    }
+
     for (const markName of Object.keys(state.schema.marks)) {
-      tr.removeMark(from, to, state.schema.marks[markName]);
+      if (!skipMarks.has(markName)) {
+        tr.removeMark(from, to, state.schema.marks[markName]);
+      }
     }
     tr.setStoredMarks([]);
     dispatch(tr);

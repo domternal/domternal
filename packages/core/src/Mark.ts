@@ -76,6 +76,15 @@ export class Mark<Options = unknown, Storage = unknown> extends Extension<
   }
 
   /**
+   * Whether this mark represents visual formatting.
+   * Returns false for semantic marks (links, comments) that should
+   * survive `unsetAllMarks`. Defaults to true.
+   */
+  get isFormatting(): boolean {
+    return this.config.isFormatting !== false;
+  }
+
+  /**
    * Get the ProseMirror MarkType from schema
    *
    * This is a lazy getter because schema doesn't exist at mark creation time.
@@ -147,12 +156,14 @@ export class Mark<Options = unknown, Storage = unknown> extends Extension<
    * // To preserve nested values, spread manually:
    * // configure({ HTMLAttributes: { ...original.options.HTMLAttributes, class: 'c' } })
    */
-  override configure(options: Partial<Options>): Mark<Options, Storage> {
+  override configure(options: Partial<Options> & { isFormatting?: boolean }): Mark<Options, Storage> {
+    const { isFormatting, ...restOptions } = options as Record<string, unknown> & { isFormatting?: boolean };
     const newConfig: MarkConfig<Options, Storage> = {
       ...this.config,
+      ...(isFormatting !== undefined ? { isFormatting } : {}),
       addOptions: () => ({
         ...this.options,
-        ...options,
+        ...restOptions as Partial<Options>,
       }),
     };
 

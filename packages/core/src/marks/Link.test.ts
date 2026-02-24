@@ -21,6 +21,10 @@ describe('Link', () => {
       expect(Link.config.priority).toBe(1000);
     });
 
+    it('has isFormatting: false (survives clear formatting)', () => {
+      expect(Link.isFormatting).toBe(false);
+    });
+
     it('inclusive is a function that returns autolink option', () => {
       expect(typeof Link.config.inclusive).toBe('function');
     });

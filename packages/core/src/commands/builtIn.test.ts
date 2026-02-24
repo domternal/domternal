@@ -1046,5 +1046,54 @@ describe('builtIn commands', () => {
       setSelection(editor, 3);
       expect(editor.can().unsetAllMarks()).toBe(false);
     });
+
+    it('preserves marks with isFormatting: false (Link)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Bold, Link],
+        content: '<p><strong><a href="https://example.com">Hello</a></strong></p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      setSelection(editor, 1, 6);
+      editor.commands.unsetAllMarks();
+
+      const textNode = editor.state.doc.firstChild!.firstChild!;
+      // Bold removed, Link preserved
+      const markNames = textNode.marks.map(m => m.type.name);
+      expect(markNames).not.toContain('bold');
+      expect(markNames).toContain('link');
+    });
+
+    it('removes marks with isFormatting: true (default)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Bold, Italic, Link],
+        content: '<p><em><strong><a href="https://example.com">Hello</a></strong></em></p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      setSelection(editor, 1, 6);
+      editor.commands.unsetAllMarks();
+
+      const textNode = editor.state.doc.firstChild!.firstChild!;
+      const markNames = textNode.marks.map(m => m.type.name);
+      expect(markNames).not.toContain('bold');
+      expect(markNames).not.toContain('italic');
+      expect(markNames).toContain('link');
+    });
+
+    it('removes Link when configured with isFormatting: true', () => {
+      const FormattingLink = Link.configure({ isFormatting: true });
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Bold, FormattingLink],
+        content: '<p><strong><a href="https://example.com">Hello</a></strong></p>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      setSelection(editor, 1, 6);
+      editor.commands.unsetAllMarks();
+
+      const textNode = editor.state.doc.firstChild!.firstChild!;
+      expect(textNode.marks).toHaveLength(0);
+    });
   });
 });

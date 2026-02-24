@@ -398,6 +398,11 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
 export const Link = Mark.create<LinkOptions>({
   name: 'link',
 
+  // Links are semantic data, not visual formatting.
+  // They survive `unsetAllMarks` (clear formatting).
+  // Override with: Link.configure({ isFormatting: true })
+  isFormatting: false,
+
   // Links have lower priority than other marks
   priority: 1000,
 
