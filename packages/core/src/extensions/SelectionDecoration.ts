@@ -40,7 +40,18 @@ export const SelectionDecoration = Extension.create<SelectionDecorationOptions>(
           key: selectionDecorationPluginKey,
           props: {
             handleDOMEvents: {
-              blur(view) {
+              blur(view, event) {
+                // Don't collapse selection when focus moves to editor-related
+                // UI (e.g. link popover input). Elements marked with
+                // [data-dm-editor-ui] are treated as part of the editor.
+                const related = (event as FocusEvent).relatedTarget;
+                if (
+                  related instanceof HTMLElement &&
+                  related.closest('[data-dm-editor-ui]')
+                ) {
+                  return false;
+                }
+
                 const { from, to } = view.state.selection;
                 if (from !== to) {
                   view.dispatch(

@@ -20,6 +20,7 @@
  */
 import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import type { MarkType } from 'prosemirror-model';
+import { Decoration, DecorationSet } from 'prosemirror-view';
 import { Mark } from '../Mark.js';
 import { isValidUrl } from '../helpers/isValidUrl.js';
 import { getMarkRange } from '../helpers/getMarkRange.js';
@@ -106,9 +107,12 @@ interface LinkPopoverOptions {
 }
 
 function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions): Plugin {
+  const key = new PluginKey('linkPopover');
+
   // Build DOM elements
   const el = document.createElement('div');
   el.className = 'dm-link-popover';
+  el.setAttribute('data-dm-editor-ui', '');
 
   const input = document.createElement('input');
   input.type = 'url';
@@ -170,6 +174,14 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
       el.style.left = `${String(coords.left)}px`;
     }
 
+    // Show a visual decoration on the selected range while the popover is
+    // open. The browser removes native selection highlight when the input
+    // takes focus, so we render our own via ProseMirror DecorationSet.
+    if (!empty) {
+      const { to } = state.selection;
+      editor.view.dispatch(state.tr.setMeta(key, { from, to }));
+    }
+
     el.setAttribute('data-show', '');
     isOpen = true;
 
@@ -190,6 +202,8 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
 
   const hide = (): void => {
     if (!isOpen) return;
+    // Clear pending-link decoration
+    editor.view.dispatch(editor.view.state.tr.setMeta(key, null));
     el.removeAttribute('data-show');
     isOpen = false;
     input.value = '';
@@ -317,7 +331,29 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
   };
 
   return new Plugin({
-    key: new PluginKey('linkPopover'),
+    key,
+
+    state: {
+      init() {
+        return DecorationSet.empty;
+      },
+      apply(tr, decorations) {
+        const meta = tr.getMeta(key);
+        if (meta === null) return DecorationSet.empty;
+        if (meta) {
+          return DecorationSet.create(tr.doc, [
+            Decoration.inline(meta.from, meta.to, { class: 'dm-link-pending' }),
+          ]);
+        }
+        return decorations.map(tr.mapping, tr.doc);
+      },
+    },
+
+    props: {
+      decorations(state) {
+        return key.getState(state) as DecorationSet;
+      },
+    },
 
     view: () => {
       // Append to document.body so it's not clipped by .dm-editor overflow:hidden

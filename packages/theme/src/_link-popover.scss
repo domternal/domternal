@@ -77,6 +77,13 @@
   color: #dc2626;
 }
 
+// Pending-link decoration — highlights the text range while the popover
+// input has focus (browser hides native selection on editor blur).
+.dm-link-pending {
+  background-color: rgba(37, 99, 235, 0.12);
+  border-radius: 1px;
+}
+
 // Dark theme override
 [data-theme="dark"] .dm-link-popover,
 .dm-theme-dark .dm-link-popover {
