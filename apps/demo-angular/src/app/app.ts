@@ -37,7 +37,6 @@ import {
   Editor,
 } from '@domternal/core';
 import { CodeBlockLowlight } from '@domternal/extension-code-block-lowlight';
-import { Table, TableRow, TableCell, TableHeader } from '@domternal/extension-table';
 import { Image } from '@domternal/extension-image';
 import { Details, DetailsSummary, DetailsContent } from '@domternal/extension-details';
 import { Emoji, emojis, createEmojiSuggestionRenderer } from '@domternal/extension-emoji';
@@ -82,10 +81,6 @@ export class App {
     InvisibleChars,
     SelectionDecoration,
     ClearFormatting,
-    Table,
-    TableRow,
-    TableCell,
-    TableHeader,
     Image,
     Details,
     DetailsSummary,

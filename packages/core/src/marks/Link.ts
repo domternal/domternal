@@ -591,6 +591,7 @@ export const Link = Mark.create<LinkOptions>({
         name: 'link',
         command: 'unsetLink',
         emitEvent: 'linkEdit',
+        isActive: 'link',
         icon: 'link',
         label: 'Link',
         shortcut: 'Mod-K',
