@@ -1,31 +1,122 @@
 // =============================================================================
 // Details / Accordion Styles
 // =============================================================================
-// Details renders as <details> with <summary> and div[data-type="detailsContent"]
+// The NodeView renders:
+//   div[data-type="details"]
+//     button[type="button"]          ← toggle (chevron)
+//     div                            ← contentDOM
+//       summary                      ← editable header (DetailsSummary)
+//       div[data-details-content]    ← collapsible body (DetailsContent)
+//
+// Open state: .is-open on the outer div, [hidden] removed from content.
+//
+// Layout: CSS grid places the summary and button side-by-side in row 1,
+// and the content spans full width in row 2. This lets the button
+// stretch to the full summary height for vertical centering.
 // =============================================================================
 
 .dm-editor .ProseMirror {
-  details {
+  div[data-type="details"] {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto 1fr;
     border: var(--dm-details-border);
     border-radius: 0.375rem;
     margin: 0.75em 0;
-    overflow: hidden;
 
-    summary {
-      font-weight: var(--dm-details-summary-font-weight);
-      padding: 0.5em 0.75em;
-      background: var(--dm-details-bg);
+    // contentDOM — contains summary (row 1) and content (row 2)
+    // Use display:contents so its children participate in the grid
+    > div {
+      display: contents;
+    }
+
+    // Toggle button — chevron on the right, round hover highlight
+    > button[type="button"] {
+      grid-column: 2;
+      grid-row: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.5rem;
+      height: 1.5rem;
+      align-self: center;
+      margin-right: 10px;
+      border: none;
+      background: transparent;
       cursor: pointer;
-      user-select: none;
+      color: var(--dm-muted);
+      border-radius: 50%;
+
+      // CSS chevron (pointing right ›)
+      &::before {
+        content: '';
+        display: block;
+        width: 0.4em;
+        height: 0.4em;
+        border-right: 2px solid currentColor;
+        border-bottom: 2px solid currentColor;
+        transform: rotate(-45deg);
+        transition: transform 0.15s ease;
+      }
+
+      &:hover {
+        color: var(--dm-text);
+        background: var(--dm-hover);
+      }
+
+      &:focus {
+        outline: none;
+      }
     }
 
-    &[open] summary {
-      margin-bottom: 0.5em;
+    // Summary row background — spans both columns so the button area
+    // also gets the surface colour behind the round toggle
+    &::before {
+      content: '';
+      grid-column: 1 / -1;
+      grid-row: 1;
+      background: var(--dm-details-bg);
+      border-radius: 0.375rem;
     }
 
-    // DetailsContent renders as div[data-type="detailsContent"]
-    div[data-type="detailsContent"] {
+    &.is-open::before {
+      border-radius: 0.375rem 0.375rem 0 0;
+    }
+
+    // Summary (editable header text)
+    summary {
+      grid-column: 1;
+      grid-row: 1;
+      display: block;
+      padding: 0.5em 0.5em 0.5em 0.75em;
+      font-weight: var(--dm-details-summary-font-weight);
+      min-height: 0;
+
+      // Remove native marker
+      &::-webkit-details-marker {
+        display: none;
+      }
+      list-style: none;
+    }
+
+    // Content area (hidden by default via [hidden] attribute from NodeView)
+    div[data-details-content] {
+      grid-column: 1 / -1;
+      grid-row: 2;
       padding: 0.5em 0.75em;
+      border-top: var(--dm-details-border);
+    }
+
+    // Disable ProseMirror selected-node outline — the border is enough
+    &.ProseMirror-selectednode {
+      outline: none;
+    }
+
+    // Open state — rotate chevron to point down
+    &.is-open {
+      > button[type="button"]::before {
+        transform: rotate(45deg);
+      }
     }
   }
 }
