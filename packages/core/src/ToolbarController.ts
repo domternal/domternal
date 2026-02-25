@@ -104,6 +104,9 @@ export class ToolbarController {
   /** Disabled state for each button (keyed by item.name) */
   private _disabledMap = new Map<string, boolean>();
 
+  /** Expanded state for emitEvent buttons — true when their panel is open */
+  private _expandedMap = new Map<string, boolean>();
+
   /** Currently open dropdown name (null = none) */
   private _openDropdown: string | null = null;
 
@@ -131,6 +134,10 @@ export class ToolbarController {
 
   get disabledMap(): ReadonlyMap<string, boolean> {
     return this._disabledMap;
+  }
+
+  get expandedMap(): ReadonlyMap<string, boolean> {
+    return this._expandedMap;
   }
 
   get openDropdown(): string | null {
@@ -268,6 +275,7 @@ export class ToolbarController {
     this._groups = [];
     this._activeMap.clear();
     this._disabledMap.clear();
+    this._expandedMap.clear();
     this._flatButtons = [];
   }
 
@@ -352,6 +360,7 @@ export class ToolbarController {
         if (item.type === 'button') {
           if (this.checkButtonActive(item)) changed = true;
           if (this.checkButtonDisabled(item, canProxy)) changed = true;
+          if (this.checkButtonExpanded(item)) changed = true;
         } else if (item.type === 'dropdown') {
           for (const sub of item.items) {
             if (this.checkButtonActive(sub)) changed = true;
@@ -407,6 +416,21 @@ export class ToolbarController {
 
     if (wasActive !== nowActive) {
       this._activeMap.set(item.name, nowActive);
+      return true;
+    }
+
+    return false;
+  }
+
+  private checkButtonExpanded(item: ToolbarButton): boolean {
+    if (!item.emitEvent) return false;
+
+    const wasExpanded = this._expandedMap.get(item.name) ?? false;
+    const ext = this.editor.storage[item.name] as Record<string, unknown> | undefined;
+    const nowExpanded = ext?.['isOpen'] === true;
+
+    if (wasExpanded !== nowExpanded) {
+      this._expandedMap.set(item.name, nowExpanded);
       return true;
     }
 

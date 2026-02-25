@@ -105,9 +105,10 @@ interface LinkPopoverOptions {
   editor: Editor;
   markType: MarkType;
   protocols: string[];
+  storage: Record<string, unknown>;
 }
 
-function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions): Plugin {
+function linkPopoverPlugin({ editor, markType, protocols, storage }: LinkPopoverOptions): Plugin {
   const key = new PluginKey('linkPopover');
 
   // Build DOM elements
@@ -165,16 +166,22 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
     input.value = existingHref ?? '';
     removeBtn.style.display = hasExistingLink ? '' : 'none';
 
+    el.setAttribute('data-show', '');
+    isOpen = true;
+    storage['isOpen'] = true;
+
     // Show a visual decoration on the selected range while the popover is
     // open. The browser removes native selection highlight when the input
     // takes focus, so we render our own via ProseMirror DecorationSet.
+    // Dispatch AFTER setting storage['isOpen'] so the toolbar transaction
+    // handler sees the updated value.
     if (!empty) {
       const { to } = state.selection;
       editor.view.dispatch(state.tr.setMeta(key, { from, to }));
+    } else {
+      // No decoration needed but still trigger toolbar active-state refresh
+      editor.view.dispatch(editor.view.state.tr);
     }
-
-    el.setAttribute('data-show', '');
-    isOpen = true;
 
     // Position below the anchor element (toolbar/bubble-menu button) or cursor
     const reference: Element | { getBoundingClientRect: () => DOMRect } = anchorElement ?? {
@@ -198,10 +205,12 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
     if (!isOpen) return;
     cleanupFloating?.();
     cleanupFloating = null;
-    // Clear pending-link decoration
-    editor.view.dispatch(editor.view.state.tr.setMeta(key, null));
     el.removeAttribute('data-show');
     isOpen = false;
+    storage['isOpen'] = false;
+    // Clear pending-link decoration — dispatch AFTER setting storage['isOpen']
+    // so the toolbar transaction handler sees the updated value.
+    editor.view.dispatch(editor.view.state.tr.setMeta(key, null));
     input.value = '';
   };
 
@@ -582,7 +591,6 @@ export const Link = Mark.create<LinkOptions>({
         name: 'link',
         command: 'unsetLink',
         emitEvent: 'linkEdit',
-        isActive: 'link',
         icon: 'link',
         label: 'Link',
         shortcut: 'Mod-K',
@@ -667,7 +675,7 @@ export const Link = Mark.create<LinkOptions>({
     const editor = this.editor as unknown as Editor;
     const protocols = this.options.protocols;
     plugins.push(
-      linkPopoverPlugin({ editor, markType, protocols })
+      linkPopoverPlugin({ editor, markType, protocols, storage: this.storage as Record<string, unknown> })
     );
 
     return plugins;

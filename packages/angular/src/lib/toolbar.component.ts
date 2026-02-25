@@ -53,6 +53,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
               class="dm-toolbar-button"
               [class.dm-toolbar-button--active]="isActive(item.name)"
               [attr.aria-pressed]="isActive(item.name)"
+              [attr.aria-expanded]="getAriaExpanded(asButton(item))"
               [attr.aria-label]="asButton(item).label"
               [title]="getTooltip(asButton(item))"
               [tabindex]="getFlatIndex(item.name) === focusedIndex() ? 0 : -1"
@@ -184,6 +185,16 @@ export class DomternalToolbarComponent implements OnDestroy {
   isDropdownActive(dropdown: ToolbarDropdown): boolean {
     this.activeVersion(); // subscribe to changes
     return dropdown.items.some((item) => this.controller?.activeMap.get(item.name) ?? false);
+  }
+
+  /**
+   * Returns 'true' when an emitEvent button's panel is open, null otherwise.
+   * Maps to [attr.aria-expanded] — null removes the attribute entirely.
+   */
+  getAriaExpanded(item: ToolbarButton): string | null {
+    if (!item.emitEvent) return null;
+    this.activeVersion(); // subscribe to changes
+    return this.controller?.expandedMap.get(item.name) ? 'true' : null;
   }
 
   getFlatIndex(name: string): number {

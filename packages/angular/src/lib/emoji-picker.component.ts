@@ -243,6 +243,7 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
     this.cleanupFloating?.();
     this.cleanupFloating = null;
     this.isOpen.set(false);
+    this.setStorageOpen(false);
     this.searchQuery.set('');
     this.anchorEl = null;
     this.removeGlobalListeners();
@@ -261,6 +262,7 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
 
         this.anchorEl = data?.anchorElement ?? null;
         this.isOpen.set(true);
+        this.setStorageOpen(true);
         this.searchQuery.set('');
 
         // Set initial active category
@@ -322,6 +324,15 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
       document.removeEventListener('keydown', this.keydownHandler);
       this.keydownHandler = null;
     }
+  }
+
+  private setStorageOpen(open: boolean): void {
+    const storage = this.getEmojiStorage();
+    if (storage) storage['isOpen'] = open;
+    // Dispatch a no-op transaction so the toolbar's transaction handler
+    // re-evaluates isActiveFn and shows the button as active/inactive.
+    const editor = this.editor();
+    editor.view.dispatch(editor.view.state.tr);
   }
 
   private getEmojiStorage(): Record<string, unknown> | null {

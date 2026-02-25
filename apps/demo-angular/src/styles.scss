@@ -15,9 +15,14 @@ body.dm-theme-dark {
 }
 
 .demo {
-  max-width: 720px;
+  width: 210mm; // A4 width
   margin: 2rem auto;
   padding: 0 1rem;
+
+  // Page-like editor padding (~640px text area with ~77px margins)
+  .dm-editor {
+    --dm-editor-padding: 1rem 4.8rem;
+  }
 }
 
 .demo > h1 {

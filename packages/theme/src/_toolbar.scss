@@ -48,6 +48,11 @@
     color: var(--dm-button-active-color);
   }
 
+  // Expanded state — panel/popover is open (same visual as dropdown triggers)
+  &[aria-expanded="true"] {
+    background: var(--dm-button-hover-bg);
+  }
+
   // Disabled state
   &--disabled,
   &:disabled {

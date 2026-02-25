@@ -370,6 +370,94 @@ test.describe('Emoji Suggestion — inline autocomplete', () => {
 });
 
 // =============================================================================
+// Category tab layout
+// =============================================================================
+
+test.describe('Emoji Picker — category tab layout', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+    await page.locator(emojiBtn).click();
+    await expect(page.locator(pickerSelector)).toBeVisible();
+  });
+
+  test('tabs have fixed square dimensions (2rem = 32px)', async ({ page }) => {
+    const tab = page.locator(tabSelector).first();
+    const box = await tab.boundingBox();
+    expect(box).toBeTruthy();
+    // 2rem = 32px at default font-size
+    expect(box!.width).toBeGreaterThanOrEqual(30);
+    expect(box!.width).toBeLessThanOrEqual(34);
+    expect(box!.height).toBeGreaterThanOrEqual(30);
+    expect(box!.height).toBeLessThanOrEqual(34);
+  });
+
+  test('tab content is centered vertically and horizontally', async ({ page }) => {
+    const tab = page.locator(tabSelector).first();
+    const styles = await tab.evaluate((el) => {
+      const cs = window.getComputedStyle(el);
+      return {
+        display: cs.display,
+        alignItems: cs.alignItems,
+        justifyContent: cs.justifyContent,
+      };
+    });
+    expect(styles.display).toBe('flex');
+    expect(styles.alignItems).toBe('center');
+    expect(styles.justifyContent).toBe('center');
+  });
+
+  test('tabs container aligns items vertically', async ({ page }) => {
+    const tabs = page.locator('.dm-emoji-picker-tabs');
+    const styles = await tabs.evaluate((el) => {
+      const cs = window.getComputedStyle(el);
+      return {
+        display: cs.display,
+        alignItems: cs.alignItems,
+      };
+    });
+    expect(styles.display).toBe('flex');
+    expect(styles.alignItems).toBe('center');
+  });
+
+  test('active tab has background color', async ({ page }) => {
+    const activeTab = page.locator(`${tabSelector}.dm-emoji-picker-tab--active`);
+    await expect(activeTab).toBeVisible();
+    const bg = await activeTab.evaluate((el) => window.getComputedStyle(el).backgroundColor);
+    // Should have non-transparent background
+    expect(bg).not.toBe('rgba(0, 0, 0, 0)');
+    expect(bg).not.toBe('transparent');
+  });
+
+  test('all tabs have equal dimensions', async ({ page }) => {
+    const tabs = page.locator(tabSelector);
+    const count = await tabs.count();
+    expect(count).toBeGreaterThanOrEqual(5);
+
+    const boxes = [];
+    for (let i = 0; i < count; i++) {
+      const box = await tabs.nth(i).boundingBox();
+      expect(box).toBeTruthy();
+      boxes.push(box!);
+    }
+
+    // All tabs should have the same width and height
+    for (const box of boxes) {
+      expect(Math.round(box.width)).toBe(Math.round(boxes[0].width));
+      expect(Math.round(box.height)).toBe(Math.round(boxes[0].height));
+    }
+  });
+
+  test('tab row has reasonable height (>= 36px)', async ({ page }) => {
+    const tabRow = page.locator('.dm-emoji-picker-tabs');
+    const box = await tabRow.boundingBox();
+    expect(box).toBeTruthy();
+    // 2rem tabs + padding = at least 36px
+    expect(box!.height).toBeGreaterThanOrEqual(36);
+  });
+});
+
+// =============================================================================
 // Edge cases
 // =============================================================================
 
@@ -387,8 +475,9 @@ test.describe('Emoji Picker — edge cases', () => {
     const pickerBox = await page.locator(pickerSelector).boundingBox();
     expect(pickerBox).toBeTruthy();
     expect(btnBox).toBeTruthy();
-    // Picker should be below the button (top > button bottom - some tolerance)
-    expect(pickerBox!.y).toBeGreaterThanOrEqual(btnBox!.y);
+    // Picker should be near the button vertically (may flip above or below)
+    const distance = Math.abs(pickerBox!.y - btnBox!.y);
+    expect(distance).toBeLessThan(500);
   });
 
   test('multiple open/close cycles work', async ({ page }) => {

@@ -586,6 +586,12 @@ export class ExtensionManager {
           (ext as Extension).storage = storage;
         }
       }
+      // Always expose ext.storage via editor.storage[name], even for
+      // extensions without addStorage(). The Extension constructor
+      // initialises storage to {} by default — make it accessible.
+      if (!(ext.name in this._storage)) {
+        this._storage[ext.name] = (ext as Extension).storage;
+      }
     }
   }
 
