@@ -81,16 +81,14 @@
   flex-shrink: 0;
 }
 
-// Dropdown wrapper (relative anchor for panel)
+// Dropdown wrapper
 .dm-toolbar-dropdown-wrapper {
   position: relative;
 }
 
-// Dropdown panel
+// Dropdown panel — positioned by floating-ui (strategy: absolute)
 .dm-toolbar-dropdown-panel {
   position: absolute;
-  top: calc(100% + 0.25rem);
-  left: 0;
   z-index: 50;
   display: flex;
   flex-direction: column;

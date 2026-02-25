@@ -13,7 +13,7 @@ import {
   untracked,
 } from '@angular/core';
 
-import { Editor } from '@domternal/core';
+import { Editor, positionFloating } from '@domternal/core';
 
 export interface EmojiPickerItem {
   emoji: string;
@@ -40,7 +40,7 @@ const CATEGORY_ICONS: Record<string, string> = {
   host: { 'class': 'dm-emoji-picker-host' },
   template: `
     @if (isOpen()) {
-      <div class="dm-emoji-picker" [style]="panelStyle()">
+      <div class="dm-emoji-picker">
         <div class="dm-emoji-picker-search">
           <input
             #searchInput
@@ -119,13 +119,12 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
   readonly activeCategory = signal('');
 
   private anchorEl: HTMLElement | null = null;
-  private anchorRect = signal<DOMRect | null>(null);
   private ngZone = inject(NgZone);
   private elRef = inject(ElementRef);
   private clickOutsideHandler: ((e: Event) => void) | null = null;
   private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
   private eventHandler: ((...args: unknown[]) => void) | null = null;
-  private gridEl: HTMLElement | null = null;
+  private cleanupFloating: (() => void) | null = null;
 
   readonly categories = computed(() => {
     const map = new Map<string, EmojiPickerItem[]>();
@@ -168,12 +167,6 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
     const nameMap = storage!['_nameMap'] as Map<string, EmojiPickerItem> | undefined;
     if (!nameMap) return [];
     return names.slice(0, 16).map((n) => nameMap.get(n)).filter(Boolean) as EmojiPickerItem[];
-  });
-
-  readonly panelStyle = computed(() => {
-    const rect = this.anchorRect();
-    if (!rect) return '';
-    return `top: ${String(rect.bottom + 4)}px; left: ${String(rect.left)}px;`;
   });
 
   constructor() {
@@ -247,10 +240,11 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
   }
 
   close(): void {
+    this.cleanupFloating?.();
+    this.cleanupFloating = null;
     this.isOpen.set(false);
     this.searchQuery.set('');
     this.anchorEl = null;
-    this.anchorRect.set(null);
     this.removeGlobalListeners();
   }
 
@@ -266,9 +260,6 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
         }
 
         this.anchorEl = data?.anchorElement ?? null;
-        if (this.anchorEl) {
-          this.anchorRect.set(this.anchorEl.getBoundingClientRect());
-        }
         this.isOpen.set(true);
         this.searchQuery.set('');
 
@@ -280,8 +271,16 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
 
         this.addGlobalListeners();
 
-        // Focus search input after panel renders
+        // Position panel and focus search input after render
         requestAnimationFrame(() => {
+          const panel = this.elRef.nativeElement.querySelector('.dm-emoji-picker') as HTMLElement | null;
+          if (panel && this.anchorEl) {
+            this.cleanupFloating?.();
+            this.cleanupFloating = positionFloating(this.anchorEl, panel, {
+              placement: 'bottom',
+              offsetValue: 4,
+            });
+          }
           const input = this.elRef.nativeElement.querySelector('.dm-emoji-picker-search input') as HTMLInputElement | null;
           input?.focus();
         });

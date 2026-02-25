@@ -35,6 +35,7 @@ import { Plugin, PluginKey } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import type { EditorState } from 'prosemirror-state';
 import type { Editor } from '../Editor.js';
+import { positionFloating } from '../utils/positionFloating.js';
 
 export const floatingMenuPluginKey = new PluginKey('floatingMenu');
 
@@ -110,6 +111,8 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
     offset = [0, 0],
   } = options;
 
+  let cleanupFloating: (() => void) | null = null;
+
   const updatePosition = (view: EditorView): void => {
     const { selection } = view.state;
     const { $from } = selection;
@@ -120,34 +123,18 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
     const domNode = view.nodeDOM(startPos - 1);
 
     if (domNode instanceof HTMLElement) {
-      const rect = domNode.getBoundingClientRect();
-
-      // Compute offset from the element's offsetParent so positioning
-      // works for both position:fixed and position:absolute elements.
-      const offsetParent = element.offsetParent;
-      const parentRect = offsetParent
-        ? offsetParent.getBoundingClientRect()
-        : { top: 0, left: 0 };
-
-      let top = rect.bottom + offset[1];
-      const left = rect.left + offset[0];
-
-      // Viewport boundary: if menu would go below viewport, show above
-      const menuRect = element.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-
-      if (top + menuRect.height > viewportHeight - 10) {
-        top = rect.top - menuRect.height - offset[1];
-      }
-
-      // Convert viewport coordinates to offsetParent-relative coordinates
-      element.style.top = `${String(top - parentRect.top)}px`;
-      element.style.left = `${String(left - parentRect.left)}px`;
+      cleanupFloating?.();
+      cleanupFloating = positionFloating(domNode, element, {
+        placement: 'bottom-start',
+        offsetValue: offset[1],
+      });
       element.setAttribute('data-show', '');
     }
   };
 
   const hideMenu = (): void => {
+    cleanupFloating?.();
+    cleanupFloating = null;
     element.removeAttribute('data-show');
   };
 

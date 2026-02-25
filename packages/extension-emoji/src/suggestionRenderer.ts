@@ -22,6 +22,7 @@
  */
 import type { SuggestionProps, SuggestionRenderer } from './suggestionPlugin.js';
 import type { EmojiItem } from './emojis.js';
+import { positionFloating } from '@domternal/core';
 
 const MAX_ITEMS = 10;
 
@@ -34,6 +35,7 @@ export function createEmojiSuggestionRenderer(): () => SuggestionRenderer {
     let container: HTMLDivElement | null = null;
     let currentProps: SuggestionProps | null = null;
     let selectedIndex = 0;
+    let cleanupFloating: (() => void) | null = null;
 
     function render(): void {
       if (!container || !currentProps) return;
@@ -88,20 +90,21 @@ export function createEmojiSuggestionRenderer(): () => SuggestionRenderer {
 
     function updatePosition(): void {
       if (!container || !currentProps?.clientRect) return;
-      const rect = currentProps.clientRect();
-      if (!rect) return;
 
-      const gap = 4;
-      let top = rect.bottom + gap;
+      cleanupFloating?.();
 
-      // Flip above cursor if dropdown overflows viewport bottom
-      const menuHeight = container.getBoundingClientRect().height;
-      if (top + menuHeight > window.innerHeight - 10) {
-        top = rect.top - menuHeight - gap;
-      }
+      // Lazy getBoundingClientRect so autoUpdate gets fresh coords on scroll/resize
+      const virtualEl = {
+        getBoundingClientRect: () => {
+          const rect = currentProps?.clientRect?.();
+          return rect ?? new DOMRect(0, 0, 0, 0);
+        },
+      };
 
-      container.style.top = `${String(top)}px`;
-      container.style.left = `${String(rect.left)}px`;
+      cleanupFloating = positionFloating(virtualEl, container, {
+        placement: 'bottom',
+        offsetValue: 4,
+      });
     }
 
     return {
@@ -130,6 +133,8 @@ export function createEmojiSuggestionRenderer(): () => SuggestionRenderer {
       },
 
       onExit(): void {
+        cleanupFloating?.();
+        cleanupFloating = null;
         container?.remove();
         container = null;
         currentProps = null;

@@ -29,6 +29,7 @@ import { linkPastePlugin } from './helpers/linkPastePlugin.js';
 import { autolinkPlugin } from './helpers/autolinkPlugin.js';
 import { linkExitPlugin } from './helpers/linkExitPlugin.js';
 import { defaultIcons } from '../icons/index.js';
+import { positionFloating } from '../utils/positionFloating.js';
 import type { Editor } from '../Editor.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 
@@ -137,6 +138,7 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
 
   let isOpen = false;
   let hasExistingLink = false;
+  let cleanupFloating: (() => void) | null = null;
 
   const show = (anchorElement?: HTMLElement): void => {
     // Detect existing link at cursor
@@ -163,17 +165,6 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
     input.value = existingHref ?? '';
     removeBtn.style.display = hasExistingLink ? '' : 'none';
 
-    // Position below the anchor element (toolbar/bubble-menu button) or cursor
-    if (anchorElement) {
-      const anchorRect = anchorElement.getBoundingClientRect();
-      el.style.top = `${String(anchorRect.bottom + 4)}px`;
-      el.style.left = `${String(anchorRect.left)}px`;
-    } else {
-      const coords = editor.view.coordsAtPos(from);
-      el.style.top = `${String(coords.bottom + 4)}px`;
-      el.style.left = `${String(coords.left)}px`;
-    }
-
     // Show a visual decoration on the selected range while the popover is
     // open. The browser removes native selection highlight when the input
     // takes focus, so we render our own via ProseMirror DecorationSet.
@@ -185,23 +176,28 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
     el.setAttribute('data-show', '');
     isOpen = true;
 
-    // Focus input after a microtask so the element is laid out and we can clamp
-    requestAnimationFrame(() => {
-      // Viewport boundary clamp (position: fixed uses viewport coords)
-      const rect = el.getBoundingClientRect();
-      if (rect.right > window.innerWidth - 10) {
-        el.style.left = `${String(window.innerWidth - rect.width - 10)}px`;
-      }
-      if (rect.left < 10) {
-        el.style.left = '10px';
-      }
-      input.focus();
-      input.select();
+    // Position below the anchor element (toolbar/bubble-menu button) or cursor
+    const reference: Element | { getBoundingClientRect: () => DOMRect } = anchorElement ?? {
+      getBoundingClientRect: () => {
+        const coords = editor.view.coordsAtPos(from);
+        return new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top);
+      },
+    };
+
+    cleanupFloating?.();
+    cleanupFloating = positionFloating(reference, el, {
+      placement: 'bottom',
+      offsetValue: 4,
     });
+
+    input.focus();
+    input.select();
   };
 
   const hide = (): void => {
     if (!isOpen) return;
+    cleanupFloating?.();
+    cleanupFloating = null;
     // Clear pending-link decoration
     editor.view.dispatch(editor.view.state.tr.setMeta(key, null));
     el.removeAttribute('data-show');
@@ -326,10 +322,6 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
     e.preventDefault();
   };
 
-  const onScroll = (): void => {
-    if (isOpen) hide();
-  };
-
   return new Plugin({
     key,
 
@@ -369,7 +361,6 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
       removeBtn.addEventListener('click', removeLink);
       removeBtn.addEventListener('keydown', onButtonKeydown);
       document.addEventListener('mousedown', onClickOutside);
-      window.addEventListener('scroll', onScroll, true);
       editor.on('linkEdit', onLinkEdit);
 
       return {
@@ -383,7 +374,6 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverOptions):
           removeBtn.removeEventListener('click', removeLink);
           removeBtn.removeEventListener('keydown', onButtonKeydown);
           document.removeEventListener('mousedown', onClickOutside);
-          window.removeEventListener('scroll', onScroll, true);
           editor.off('linkEdit', onLinkEdit);
           el.remove();
         },

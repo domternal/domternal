@@ -32,6 +32,7 @@ import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import type { EditorState } from 'prosemirror-state';
 import type { Editor } from '../Editor.js';
+import { positionFloating } from '../utils/positionFloating.js';
 
 export const bubbleMenuPluginKey = new PluginKey('bubbleMenu');
 
@@ -136,59 +137,38 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
   } = options;
 
   let updateTimeout: ReturnType<typeof setTimeout> | null = null;
+  let cleanupFloating: (() => void) | null = null;
 
   const updatePosition = (view: EditorView, from: number, to: number): void => {
-    // coordsAtPos returns viewport-relative (screen) coordinates
-    const start = view.coordsAtPos(from);
-    const end = view.coordsAtPos(to);
+    // Clean up previous auto-update listeners
+    cleanupFloating?.();
 
-    const centerX = (start.left + end.left) / 2;
-    const menuRect = element.getBoundingClientRect();
+    // Virtual element with lazy getBoundingClientRect — re-computes
+    // coordsAtPos on every call so autoUpdate tracks scroll correctly.
+    const virtualEl = {
+      getBoundingClientRect: () => {
+        const start = view.coordsAtPos(from);
+        const end = view.coordsAtPos(to);
+        return new DOMRect(
+          start.left,
+          start.top,
+          end.right - start.left,
+          end.bottom - start.top,
+        );
+      },
+    };
 
-    // Compute offset from the element's offsetParent so positioning
-    // works for both position:fixed and position:absolute elements.
-    const offsetParent = element.offsetParent;
-    const parentRect = offsetParent
-      ? offsetParent.getBoundingClientRect()
-      : { top: 0, left: 0 };
+    cleanupFloating = positionFloating(virtualEl, element, {
+      placement: placement === 'top' ? 'top' : 'bottom',
+      offsetValue: offset[1],
+    });
 
-    let top: number;
-    let left: number;
-
-    if (placement === 'top') {
-      top = start.top - menuRect.height - offset[1];
-    } else {
-      top = end.bottom + offset[1];
-    }
-
-    left = centerX - menuRect.width / 2 + offset[0];
-
-    // Viewport boundary checks (in screen coordinates)
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-
-    if (left < 10) left = 10;
-    if (left + menuRect.width > viewportWidth - 10) {
-      left = viewportWidth - menuRect.width - 10;
-    }
-
-    // Flip placement if menu would go off-screen
-    if (placement === 'top' && top < 10) {
-      top = end.bottom + offset[1];
-    } else if (
-      placement === 'bottom' &&
-      top + menuRect.height > viewportHeight - 10
-    ) {
-      top = start.top - menuRect.height - offset[1];
-    }
-
-    // Convert viewport coordinates to offsetParent-relative coordinates
-    element.style.top = `${String(top - parentRect.top)}px`;
-    element.style.left = `${String(left - parentRect.left)}px`;
     element.setAttribute('data-show', '');
   };
 
   const hideMenu = (): void => {
+    cleanupFloating?.();
+    cleanupFloating = null;
     element.removeAttribute('data-show');
   };
 

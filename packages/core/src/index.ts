@@ -87,6 +87,13 @@ export {
   type CommandManagerEditor,
 } from './CommandManager.js';
 
+// === Floating UI ===
+export {
+  positionFloating,
+  positionFloatingOnce,
+  type PositionFloatingOptions,
+} from './utils/positionFloating.js';
+
 // === Helpers ===
 export {
   createDocument,

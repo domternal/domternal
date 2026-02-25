@@ -17,6 +17,7 @@ import {
   Editor,
   ToolbarController,
   defaultIcons,
+  positionFloatingOnce,
 } from '@domternal/core';
 import type {
   ToolbarItem,
@@ -146,6 +147,7 @@ export class DomternalToolbarComponent implements OnDestroy {
 
   private controller: ToolbarController | null = null;
   private clickOutsideHandler: ((e: Event) => void) | null = null;
+  private cleanupFloating: (() => void) | null = null;
   private ngZone = inject(NgZone);
   private elRef = inject(ElementRef);
   private sanitizer = inject(DomSanitizer);
@@ -255,10 +257,33 @@ export class DomternalToolbarComponent implements OnDestroy {
   }
 
   onDropdownToggle(dropdown: ToolbarDropdown): void {
+    this.cleanupFloating?.();
+    this.cleanupFloating = null;
     this.controller?.toggleDropdown(dropdown.name);
+    this.syncState();
+
+    // Position the panel after Angular renders it (tracks resize, not scroll)
+    if (this.openDropdown()) {
+      requestAnimationFrame(() => {
+        const trigger = this.elRef.nativeElement.querySelector(
+          `[aria-expanded="true"]`,
+        ) as HTMLElement | null;
+        const panel = trigger?.parentElement?.querySelector(
+          '.dm-toolbar-dropdown-panel',
+        ) as HTMLElement | null;
+        if (trigger && panel) {
+          this.cleanupFloating = positionFloatingOnce(trigger, panel, {
+            placement: 'bottom',
+            offsetValue: 4,
+          });
+        }
+      });
+    }
   }
 
   onDropdownItemClick(item: ToolbarButton): void {
+    this.cleanupFloating?.();
+    this.cleanupFloating = null;
     this.controller?.executeCommand(item);
     this.controller?.closeDropdown();
   }
@@ -297,6 +322,8 @@ export class DomternalToolbarComponent implements OnDestroy {
       case 'Escape':
         if (this.openDropdown()) {
           event.preventDefault();
+          this.cleanupFloating?.();
+          this.cleanupFloating = null;
           this.controller.closeDropdown();
           this.syncState();
           this.focusCurrentButton();
@@ -327,6 +354,8 @@ export class DomternalToolbarComponent implements OnDestroy {
     // Click outside to close dropdown
     this.clickOutsideHandler = (e: Event) => {
       if (this.openDropdown() && !this.elRef.nativeElement.contains(e.target as Node)) {
+        this.cleanupFloating?.();
+        this.cleanupFloating = null;
         this.controller?.closeDropdown();
         this.ngZone.run(() => this.syncState());
       }
@@ -335,6 +364,8 @@ export class DomternalToolbarComponent implements OnDestroy {
   }
 
   private destroyController(): void {
+    this.cleanupFloating?.();
+    this.cleanupFloating = null;
     if (this.clickOutsideHandler) {
       document.removeEventListener('mousedown', this.clickOutsideHandler);
       this.clickOutsideHandler = null;
