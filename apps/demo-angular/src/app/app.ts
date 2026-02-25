@@ -34,6 +34,7 @@ import {
   InvisibleChars,
   SelectionDecoration,
   ClearFormatting,
+  Dropcursor,
   Editor,
 } from '@domternal/core';
 import { CodeBlockLowlight } from '@domternal/extension-code-block-lowlight';
@@ -81,6 +82,7 @@ export class App {
     InvisibleChars,
     SelectionDecoration,
     ClearFormatting,
+    Dropcursor,
     Image,
     Details,
     DetailsSummary,

@@ -149,20 +149,31 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
   const updatePosition = (view: EditorView, from: number, to: number): void => {
     cleanupFloating?.();
 
-    const virtualEl = {
-      getBoundingClientRect: () => {
-        const start = view.coordsAtPos(from);
-        const end = view.coordsAtPos(to);
-        return new DOMRect(
-          start.left,
-          start.top,
-          end.right - start.left,
-          end.bottom - start.top,
-        );
-      },
-    };
+    // For NodeSelection (images, HRs, etc.), use the actual DOM element
+    // for precise alignment. coordsAtPos gives paragraph-wide coords
+    // which misaligns the menu for small centered nodes.
+    const sel = view.state.selection;
+    let reference: Element | { getBoundingClientRect: () => DOMRect } | null = null;
+    if ('node' in sel) {
+      const dom = view.nodeDOM(from);
+      if (dom instanceof HTMLElement) reference = dom;
+    }
+    if (!reference) {
+      reference = {
+        getBoundingClientRect: () => {
+          const start = view.coordsAtPos(from);
+          const end = view.coordsAtPos(to);
+          return new DOMRect(
+            start.left,
+            start.top,
+            end.right - start.left,
+            end.bottom - start.top,
+          );
+        },
+      };
+    }
 
-    cleanupFloating = positionFloatingOnce(virtualEl, element, {
+    cleanupFloating = positionFloatingOnce(reference, element, {
       placement,
       offsetValue: offset[1],
     });

@@ -26,7 +26,10 @@
     />
 
     @if (editor(); as ed) {
-      <domternal-bubble-menu [editor]="ed"></domternal-bubble-menu>
+      <domternal-bubble-menu [editor]="ed" [contexts]="{
+        text: ['bold', 'italic', 'underline', 'strike', 'code', '|', 'link'],
+        image: ['imageFloatNone', 'imageFloatLeft', 'imageFloatCenter', 'imageFloatRight', '|', 'deleteImage']
+      }" />
       <domternal-emoji-picker [editor]="ed" [emojis]="emojiData" />
       <domternal-floating-menu [editor]="ed">
         <button (mousedown)="$event.preventDefault()" (click)="ed.commands.toggleHeading({level: 1})">H1</button>

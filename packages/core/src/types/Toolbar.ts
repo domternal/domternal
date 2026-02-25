@@ -95,6 +95,9 @@ export interface ToolbarButton {
 
   /** Color value (hex) for color-swatch rendering in grid-layout dropdowns. */
   color?: string;
+
+  /** Show in the main toolbar. @default true. Set false for bubble-menu-only items. */
+  toolbar?: boolean;
 }
 
 /**

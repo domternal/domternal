@@ -37,7 +37,7 @@ describe('Image', () => {
     it('has default options', () => {
       expect(Image.options).toEqual({
         inline: false,
-        allowBase64: false,
+        allowBase64: true,
         HTMLAttributes: {},
         uploadHandler: null,
         allowedMimeTypes: [
@@ -294,9 +294,10 @@ describe('Image', () => {
         expect(html).not.toContain('src="javascript');
       });
 
-      it('rejects data: URLs by default', () => {
+      it('rejects data: URLs when allowBase64 is false', () => {
+        const NoBase64Image = Image.configure({ allowBase64: false });
         editor = new Editor({
-          extensions: [Document, Text, Paragraph, Image],
+          extensions: [Document, Text, Paragraph, NoBase64Image],
           content: '<img src="data:image/png;base64,abc123">',
         });
 
@@ -1323,10 +1324,21 @@ describe('imageUploadPlugin', () => {
 });
 
 describe('Image addToolbarItems', () => {
-  it('returns a single button item', () => {
+  it('returns toolbar items (insert + float controls + delete)', () => {
     const items = Image.config.addToolbarItems?.call(Image);
-    expect(items).toHaveLength(1);
+    expect(items).toHaveLength(6);
     expect(items?.[0]?.type).toBe('button');
+    // First item is the insert button
+    if (items?.[0]?.type === 'button') {
+      expect(items[0].name).toBe('image');
+    }
+    // Float controls
+    const names = items?.map(i => i.type === 'button' ? i.name : '');
+    expect(names).toContain('imageFloatNone');
+    expect(names).toContain('imageFloatLeft');
+    expect(names).toContain('imageFloatCenter');
+    expect(names).toContain('imageFloatRight');
+    expect(names).toContain('deleteImage');
   });
 
   it('button has correct metadata', () => {

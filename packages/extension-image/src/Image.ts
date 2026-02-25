@@ -6,7 +6,7 @@
  *
  * Options:
  * - inline: false (default) — block-level image | true — inline image within paragraphs
- * - allowBase64: false (default) — only http/https URLs | true — also allow data:image/ URLs
+ * - allowBase64: true (default) — allow data:image/ URLs | false — only http/https URLs
  *
  * XSS Protection (blocklist approach):
  * - Blocks javascript:, vbscript:, file: protocols
@@ -15,8 +15,9 @@
  * - Defense in depth: validated in parseHTML, renderHTML, setImage command, and input rule
  */
 
-import { Node } from '@domternal/core';
+import { Node, Editor, PluginKey, positionFloating, defaultIcons } from '@domternal/core';
 import type { CommandSpec, ToolbarItem } from '@domternal/core';
+import { Plugin } from 'prosemirror-state';
 import { InputRule } from 'prosemirror-inputrules';
 import { imageUploadPlugin } from './imageUploadPlugin.js';
 
@@ -42,6 +43,7 @@ declare module '@domternal/core' {
   interface RawCommands {
     setImage: CommandSpec<[attributes: SetImageOptions]>;
     setImageFloat: CommandSpec<[float: ImageFloat]>;
+    deleteImage: CommandSpec;
   }
 }
 
@@ -67,6 +69,16 @@ function isValidImageSrc(value: unknown, allowBase64: boolean): boolean {
   return true;
 }
 
+/** Reads a File as a base64 data URL. */
+function readFileAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 export interface ImageOptions {
   /**
    * Whether images are inline (within paragraphs) or block-level (default: false)
@@ -74,7 +86,7 @@ export interface ImageOptions {
    */
   inline: boolean;
   /**
-   * Allow base64 data:image/ URLs (default: false)
+   * Allow base64 data:image/ URLs (default: true)
    * When false, only http:// and https:// URLs are allowed
    */
   allowBase64: boolean;
@@ -119,7 +131,7 @@ export const Image = Node.create<ImageOptions>({
   addOptions() {
     return {
       inline: false,
-      allowBase64: false,
+      allowBase64: true,
       HTMLAttributes: {},
       uploadHandler: null,
       allowedMimeTypes: [
@@ -281,6 +293,7 @@ export const Image = Node.create<ImageOptions>({
 
   addToolbarItems(): ToolbarItem[] {
     return [
+      // Main toolbar insert button
       {
         type: 'button',
         name: 'image',
@@ -292,7 +305,106 @@ export const Image = Node.create<ImageOptions>({
         priority: 150,
         emitEvent: 'insertImage',
       },
+      // Bubble menu only: float controls
+      { type: 'button', name: 'imageFloatNone', command: 'setImageFloat', commandArgs: ['none'], icon: 'imageInline', label: 'Inline', group: 'image-float', priority: 100, isActive: { name: 'image', attributes: { float: 'none' } }, toolbar: false },
+      { type: 'button', name: 'imageFloatLeft', command: 'setImageFloat', commandArgs: ['left'], icon: 'textAlignLeft', label: 'Float left', group: 'image-float', priority: 90, isActive: { name: 'image', attributes: { float: 'left' } }, toolbar: false },
+      { type: 'button', name: 'imageFloatCenter', command: 'setImageFloat', commandArgs: ['center'], icon: 'textAlignCenter', label: 'Center', group: 'image-float', priority: 80, isActive: { name: 'image', attributes: { float: 'center' } }, toolbar: false },
+      { type: 'button', name: 'imageFloatRight', command: 'setImageFloat', commandArgs: ['right'], icon: 'textAlignRight', label: 'Float right', group: 'image-float', priority: 70, isActive: { name: 'image', attributes: { float: 'right' } }, toolbar: false },
+      // Bubble menu only: delete
+      { type: 'button', name: 'deleteImage', command: 'deleteImage', icon: 'trash', label: 'Delete', group: 'image-actions', priority: 50, toolbar: false },
     ];
+  },
+
+  addNodeView() {
+    return (node: import('prosemirror-model').Node, view: import('prosemirror-view').EditorView, getPos: () => number | undefined) => {
+      const dom = document.createElement('div');
+      dom.className = 'dm-image-resizable';
+      dom.draggable = true;
+
+      const applyFloat = (float: string): void => {
+        if (float && float !== 'none') {
+          dom.setAttribute('data-float', float);
+        } else {
+          dom.removeAttribute('data-float');
+        }
+      };
+      applyFloat(node.attrs['float'] as string);
+
+      const img = document.createElement('img');
+      img.src = (node.attrs['src'] as string) ?? '';
+      if (node.attrs['alt']) img.alt = node.attrs['alt'] as string;
+      if (node.attrs['title']) img.title = node.attrs['title'] as string;
+      if (node.attrs['width']) {
+        img.style.width = `${node.attrs['width']}px`;
+      }
+      dom.appendChild(img);
+
+      // Resize handles (4 corners)
+      for (const corner of ['nw', 'ne', 'sw', 'se']) {
+        const handle = document.createElement('div');
+        handle.className = `dm-image-handle dm-image-handle-${corner}`;
+        handle.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const startX = e.clientX;
+          const startWidth = img.offsetWidth;
+          const isLeft = corner.includes('w');
+
+          const onMouseMove = (ev: MouseEvent): void => {
+            const dx = isLeft ? startX - ev.clientX : ev.clientX - startX;
+            const newWidth = Math.max(50, startWidth + dx);
+            img.style.width = `${newWidth}px`;
+          };
+
+          const onMouseUp = (): void => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+
+            const pos = getPos();
+            if (pos === undefined) return;
+            const tr = view.state.tr.setNodeMarkup(pos, undefined, {
+              ...node.attrs,
+              width: img.offsetWidth,
+            });
+            view.dispatch(tr);
+          };
+
+          document.addEventListener('mousemove', onMouseMove);
+          document.addEventListener('mouseup', onMouseUp);
+          document.body.style.cursor = isLeft ? 'nw-resize' : 'ne-resize';
+          document.body.style.userSelect = 'none';
+        });
+        dom.appendChild(handle);
+      }
+
+      return {
+        dom,
+        update(updatedNode: import('prosemirror-model').Node) {
+          if (updatedNode.type.name !== 'image') return false;
+          img.src = (updatedNode.attrs['src'] as string) ?? '';
+          img.alt = (updatedNode.attrs['alt'] as string) ?? '';
+          img.title = (updatedNode.attrs['title'] as string) ?? '';
+          if (updatedNode.attrs['width']) {
+            img.style.width = `${updatedNode.attrs['width']}px`;
+          } else {
+            img.style.width = '';
+          }
+          applyFloat(updatedNode.attrs['float'] as string);
+          node = updatedNode;
+          return true;
+        },
+        selectNode() {
+          dom.classList.add('ProseMirror-selectednode');
+        },
+        deselectNode() {
+          dom.classList.remove('ProseMirror-selectednode');
+        },
+        destroy() {},
+      };
+    };
   },
 
   addCommands() {
@@ -313,6 +425,16 @@ export const Image = Node.create<ImageOptions>({
             dispatch(tr);
           }
 
+          return true;
+        },
+
+      deleteImage:
+        () =>
+        ({ tr, dispatch }) => {
+          if (dispatch) {
+            tr.deleteSelection();
+            dispatch(tr);
+          }
           return true;
         },
 
@@ -338,17 +460,294 @@ export const Image = Node.create<ImageOptions>({
   },
 
   addProseMirrorPlugins() {
-    if (!this.options.uploadHandler || !this.nodeType) return [];
+    const plugins: Plugin[] = [];
+    const editor = this.editor as unknown as Editor;
+    const nodeType = this.nodeType;
+    const options = this.options;
 
-    return [
-      imageUploadPlugin({
-        nodeType: this.nodeType,
-        uploadHandler: this.options.uploadHandler,
-        allowedMimeTypes: this.options.allowedMimeTypes,
-        maxFileSize: this.options.maxFileSize,
-        onUploadStart: this.options.onUploadStart,
-        onUploadError: this.options.onUploadError,
-      }),
-    ];
+    // Image popover + drag overlay + paste/drop plugin
+    if (editor && nodeType) {
+      // --- Build popover DOM ---
+      const el = document.createElement('div');
+      el.className = 'dm-image-popover';
+      el.setAttribute('data-dm-editor-ui', '');
+
+      const urlInput = document.createElement('input');
+      urlInput.type = 'url';
+      urlInput.placeholder = 'Image URL...';
+      urlInput.className = 'dm-image-popover-input';
+
+      const applyBtn = document.createElement('button');
+      applyBtn.type = 'button';
+      applyBtn.className = 'dm-image-popover-btn dm-image-popover-apply';
+      applyBtn.title = 'Insert image';
+      applyBtn.innerHTML = defaultIcons['check'] ?? '';
+
+      const browseBtn = document.createElement('button');
+      browseBtn.type = 'button';
+      browseBtn.className = 'dm-image-popover-btn dm-image-popover-browse';
+      browseBtn.title = 'Browse files';
+      browseBtn.innerHTML = defaultIcons['image'] ?? '';
+
+      el.appendChild(urlInput);
+      el.appendChild(applyBtn);
+      el.appendChild(browseBtn);
+
+      let isOpen = false;
+      let cleanupFloating: (() => void) | null = null;
+
+      const showPopover = (anchorElement?: HTMLElement): void => {
+        urlInput.value = '';
+        el.setAttribute('data-show', '');
+        isOpen = true;
+
+        const reference: Element | { getBoundingClientRect: () => DOMRect } = anchorElement ?? {
+          getBoundingClientRect: () => {
+            const coords = editor.view.coordsAtPos(editor.view.state.selection.from);
+            return new DOMRect(coords.left, coords.top, 0, coords.bottom - coords.top);
+          },
+        };
+
+        cleanupFloating?.();
+        cleanupFloating = positionFloating(reference, el, {
+          placement: 'bottom',
+          offsetValue: 4,
+        });
+
+        urlInput.focus();
+      };
+
+      const hidePopover = (): void => {
+        if (!isOpen) return;
+        cleanupFloating?.();
+        cleanupFloating = null;
+        el.removeAttribute('data-show');
+        isOpen = false;
+      };
+
+      const closePopover = (): void => {
+        hidePopover();
+        editor.view.focus();
+      };
+
+      const insertFromFile = (file: File): void => {
+        if (options.uploadHandler) {
+          options.uploadHandler(file)
+            .then((url) => {
+              editor.commands['setImage']?.({ src: url });
+            })
+            .catch((error: unknown) => {
+              if (options.onUploadError) {
+                options.onUploadError(
+                  error instanceof Error ? error : new Error(String(error)),
+                  file,
+                );
+              }
+            });
+        } else {
+          readFileAsDataURL(file).then(src => {
+            const { tr } = editor.view.state;
+            tr.replaceSelectionWith(nodeType.create({ src }));
+            editor.view.dispatch(tr);
+          });
+        }
+      };
+
+      const applyUrl = (): void => {
+        const src = urlInput.value.trim();
+        if (src && isValidImageSrc(src, options.allowBase64)) {
+          editor.commands['setImage']?.({ src });
+        }
+        closePopover();
+      };
+
+      const openFileBrowser = (): void => {
+        hidePopover();
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = options.allowedMimeTypes.join(',');
+        input.addEventListener('change', () => {
+          const file = input.files?.[0];
+          if (file) insertFromFile(file);
+          editor.view.focus();
+        });
+        input.click();
+      };
+
+      // Event: toolbar button or Ctrl+Shift+I
+      const onInsertImage = (data: { anchorElement?: HTMLElement }): void => {
+        if (isOpen) {
+          closePopover();
+        } else {
+          showPopover(data.anchorElement);
+        }
+      };
+
+      // Popover event listeners
+      const onInputKeydown = (e: KeyboardEvent): void => {
+        if (e.key === 'Enter') { e.preventDefault(); applyUrl(); }
+        else if (e.key === 'Escape') { e.preventDefault(); closePopover(); }
+        else if (e.key === 'Tab') { e.preventDefault(); applyBtn.focus(); }
+      };
+
+      const onButtonKeydown = (e: KeyboardEvent): void => {
+        if (e.key === 'Escape') { e.preventDefault(); closePopover(); }
+        else if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLElement).click(); }
+        else if (e.key === 'Tab') {
+          e.preventDefault();
+          const target = e.target as HTMLElement;
+          if (e.shiftKey) {
+            if (target === applyBtn) urlInput.focus();
+            else applyBtn.focus();
+          } else {
+            if (target === applyBtn) browseBtn.focus();
+            else urlInput.focus();
+          }
+        }
+      };
+
+      const onClickOutside = (e: MouseEvent): void => {
+        if (!isOpen || el.contains(e.target as globalThis.Node)) return;
+        requestAnimationFrame(() => {
+          if (isOpen) hidePopover();
+        });
+      };
+
+      const onPreventBlur = (e: MouseEvent): void => { e.preventDefault(); };
+
+      // --- Drag overlay helpers ---
+      let dragCounter = 0;
+
+      const hasImageItems = (dt: DataTransfer | null): boolean => {
+        if (!dt?.items) return false;
+        for (const item of Array.from(dt.items)) {
+          if (item.kind === 'file' && item.type.startsWith('image/')) return true;
+        }
+        return false;
+      };
+
+      plugins.push(new Plugin({
+        key: new PluginKey('imageFileBrowser'),
+        props: {
+          handleDOMEvents: {
+            dragenter(view, event) {
+              if (!hasImageItems(event.dataTransfer)) return false;
+              dragCounter++;
+              view.dom.closest('.dm-editor')?.classList.add('dm-dragover');
+              return false;
+            },
+            dragleave(view) {
+              dragCounter--;
+              if (dragCounter <= 0) {
+                dragCounter = 0;
+                view.dom.closest('.dm-editor')?.classList.remove('dm-dragover');
+              }
+              return false;
+            },
+            drop(view) {
+              dragCounter = 0;
+              view.dom.closest('.dm-editor')?.classList.remove('dm-dragover');
+              return false;
+            },
+          },
+          handlePaste(view, event) {
+            // When uploadHandler is set, let imageUploadPlugin handle paste
+            if (options.uploadHandler) return false;
+            const items = event.clipboardData?.items;
+            if (!items) return false;
+
+            for (const item of Array.from(items)) {
+              if (item.kind === 'file' && item.type.startsWith('image/')) {
+                const file = item.getAsFile();
+                if (!file) continue;
+                if (!options.allowedMimeTypes.includes(file.type)) continue;
+                if (options.maxFileSize > 0 && file.size > options.maxFileSize) continue;
+
+                event.preventDefault();
+                readFileAsDataURL(file).then(src => {
+                  const { tr } = view.state;
+                  tr.replaceSelectionWith(nodeType.create({ src }));
+                  view.dispatch(tr);
+                });
+                return true;
+              }
+            }
+            return false;
+          },
+          handleDrop(view, event) {
+            // When uploadHandler is set, let imageUploadPlugin handle it
+            if (options.uploadHandler) return false;
+            const files = event.dataTransfer?.files;
+            if (!files?.length) return false;
+
+            const file = files[0];
+            if (!file || !options.allowedMimeTypes.includes(file.type)) return false;
+            if (options.maxFileSize > 0 && file.size > options.maxFileSize) return false;
+
+            event.preventDefault();
+            const pos = view.posAtCoords({ left: event.clientX, top: event.clientY });
+            if (!pos) return false;
+
+            readFileAsDataURL(file).then(src => {
+              const tr = view.state.tr;
+              tr.insert(pos.pos, nodeType.create({ src }));
+              view.dispatch(tr);
+            });
+            return true;
+          },
+        },
+        view() {
+          // Append popover to body (escape overflow:hidden on .dm-editor)
+          document.body.appendChild(el);
+
+          // Register popover event listeners
+          urlInput.addEventListener('keydown', onInputKeydown);
+          applyBtn.addEventListener('mousedown', onPreventBlur);
+          applyBtn.addEventListener('click', applyUrl);
+          applyBtn.addEventListener('keydown', onButtonKeydown);
+          browseBtn.addEventListener('mousedown', onPreventBlur);
+          browseBtn.addEventListener('click', openFileBrowser);
+          browseBtn.addEventListener('keydown', onButtonKeydown);
+          document.addEventListener('mousedown', onClickOutside);
+
+          // 'insertImage' is a dynamic event not in EditorEvents — cast once
+          type DynEvents = { on(e: string, fn: typeof onInsertImage): void; off(e: string, fn: typeof onInsertImage): void };
+          const dynEditor = editor as unknown as DynEvents;
+          dynEditor.on('insertImage', onInsertImage);
+
+          return {
+            destroy() {
+              hidePopover();
+              urlInput.removeEventListener('keydown', onInputKeydown);
+              applyBtn.removeEventListener('mousedown', onPreventBlur);
+              applyBtn.removeEventListener('click', applyUrl);
+              applyBtn.removeEventListener('keydown', onButtonKeydown);
+              browseBtn.removeEventListener('mousedown', onPreventBlur);
+              browseBtn.removeEventListener('click', openFileBrowser);
+              browseBtn.removeEventListener('keydown', onButtonKeydown);
+              document.removeEventListener('mousedown', onClickOutside);
+              dynEditor.off('insertImage', onInsertImage);
+              el.remove();
+            },
+          };
+        },
+      }));
+    }
+
+    // Paste/drop upload plugin
+    if (options.uploadHandler && nodeType) {
+      plugins.push(
+        imageUploadPlugin({
+          nodeType,
+          uploadHandler: options.uploadHandler,
+          allowedMimeTypes: options.allowedMimeTypes,
+          maxFileSize: options.maxFileSize,
+          onUploadStart: options.onUploadStart,
+          onUploadError: options.onUploadError,
+        }),
+      );
+    }
+
+    return plugins;
   },
 });

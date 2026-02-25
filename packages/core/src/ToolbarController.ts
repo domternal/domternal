@@ -301,6 +301,8 @@ export class ToolbarController {
     const groupOrder: string[] = [];
 
     for (const item of items) {
+      // Skip items marked as bubble-menu-only
+      if (item.type === 'button' && item.toolbar === false) continue;
       const groupName = ('group' in item && item.group) ? item.group : '';
       let list = groupMap.get(groupName);
       if (!list) {
