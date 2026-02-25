@@ -22,7 +22,7 @@
  */
 import type { SuggestionProps, SuggestionRenderer } from './suggestionPlugin.js';
 import type { EmojiItem } from './emojis.js';
-import { positionFloating } from '@domternal/core';
+import { positionFloatingOnce } from '@domternal/core';
 
 const MAX_ITEMS = 10;
 
@@ -93,7 +93,6 @@ export function createEmojiSuggestionRenderer(): () => SuggestionRenderer {
 
       cleanupFloating?.();
 
-      // Lazy getBoundingClientRect so autoUpdate gets fresh coords on scroll/resize
       const virtualEl = {
         getBoundingClientRect: () => {
           const rect = currentProps?.clientRect?.();
@@ -101,7 +100,7 @@ export function createEmojiSuggestionRenderer(): () => SuggestionRenderer {
         },
       };
 
-      cleanupFloating = positionFloating(virtualEl, container, {
+      cleanupFloating = positionFloatingOnce(virtualEl, container, {
         placement: 'bottom',
         offsetValue: 4,
       });
@@ -116,10 +115,12 @@ export function createEmojiSuggestionRenderer(): () => SuggestionRenderer {
         container.className = 'dm-emoji-suggestion';
         container.setAttribute('role', 'listbox');
 
-        // Append inside the editor DOM tree so CSS variables are inherited.
-        // Walk up from ProseMirror's editor element to find .dm-editor.
+        // Append inside .dm-editor (which has position:relative) so the
+        // dropdown scrolls with the editor content via CSS — zero jitter
+        // for both page scroll and internal editor scroll scenarios.
         const editorEl = props.element.closest('.dm-editor');
-        (editorEl ?? document.body).appendChild(container);
+        const appendTarget = editorEl ?? document.body;
+        appendTarget.appendChild(container);
 
         render();
         updatePosition();

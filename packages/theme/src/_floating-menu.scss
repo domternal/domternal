@@ -3,7 +3,7 @@
 // =============================================================================
 
 .dm-floating-menu {
-  position: fixed;
+  position: absolute;
   display: flex;
   flex-direction: column;
   gap: var(--dm-toolbar-gap);

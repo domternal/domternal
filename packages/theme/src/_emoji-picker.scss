@@ -9,7 +9,7 @@
 // ─── Toolbar Emoji Picker Panel ─────────────────────────────────────────────
 
 .dm-emoji-picker {
-  position: fixed;
+  position: absolute;
   z-index: 100;
   width: 20rem;
   max-height: 22rem;
@@ -141,7 +141,7 @@
 // ─── Inline Suggestion Dropdown ─────────────────────────────────────────────
 
 .dm-emoji-suggestion {
-  position: fixed;
+  position: absolute;
   z-index: 100;
   min-width: 12rem;
   max-width: 18rem;

@@ -65,3 +65,19 @@ body.dm-theme-dark {
   word-break: break-all;
   font-size: 0.875rem;
 }
+
+.filler-block {
+  padding: 1.5rem;
+  margin: 1rem 0;
+  background: #f0f4f8;
+  border: 1px dashed #b0c4de;
+  border-radius: 0.375rem;
+
+  h3 { margin-top: 0; }
+  p:last-child { margin-bottom: 0; }
+}
+
+body.dm-theme-dark .filler-block {
+  background: #2a2a2a;
+  border-color: #555;
+}

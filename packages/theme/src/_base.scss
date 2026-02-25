@@ -4,6 +4,7 @@
 
 .dm-editor {
   display: block;
+  position: relative;
   box-sizing: border-box;
   background: var(--dm-editor-bg);
   color: var(--dm-editor-text);

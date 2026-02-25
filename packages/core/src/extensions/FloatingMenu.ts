@@ -35,7 +35,7 @@ import { Plugin, PluginKey } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import type { EditorState } from 'prosemirror-state';
 import type { Editor } from '../Editor.js';
-import { positionFloating } from '../utils/positionFloating.js';
+import { positionFloatingOnce } from '../utils/positionFloating.js';
 
 export const floatingMenuPluginKey = new PluginKey('floatingMenu');
 
@@ -113,18 +113,24 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
 
   let cleanupFloating: (() => void) | null = null;
 
+  // Move element inside .dm-editor (position:relative) so it uses
+  // position:absolute — CSS compositor handles scroll, zero jitter.
+  const editorEl = editor.view.dom.closest('.dm-editor');
+  if (editorEl && element.parentElement !== editorEl) {
+    editorEl.appendChild(element);
+  }
+
   const updatePosition = (view: EditorView): void => {
     const { selection } = view.state;
     const { $from } = selection;
 
-    // Get the DOM node for the paragraph the cursor is in
     const depth = $from.depth;
     const startPos = $from.start(depth);
     const domNode = view.nodeDOM(startPos - 1);
 
     if (domNode instanceof HTMLElement) {
       cleanupFloating?.();
-      cleanupFloating = positionFloating(domNode, element, {
+      cleanupFloating = positionFloatingOnce(domNode, element, {
         placement: 'bottom-start',
         offsetValue: offset[1],
       });

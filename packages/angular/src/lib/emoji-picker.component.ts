@@ -13,7 +13,7 @@ import {
   untracked,
 } from '@angular/core';
 
-import { Editor, positionFloating } from '@domternal/core';
+import { Editor, positionFloatingOnce } from '@domternal/core';
 
 export interface EmojiPickerItem {
   emoji: string;
@@ -276,7 +276,7 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
           const panel = this.elRef.nativeElement.querySelector('.dm-emoji-picker') as HTMLElement | null;
           if (panel && this.anchorEl) {
             this.cleanupFloating?.();
-            this.cleanupFloating = positionFloating(this.anchorEl, panel, {
+            this.cleanupFloating = positionFloatingOnce(this.anchorEl, panel, {
               placement: 'bottom',
               offsetValue: 4,
             });

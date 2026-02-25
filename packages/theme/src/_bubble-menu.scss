@@ -30,9 +30,7 @@
     flex-shrink: 0;
   }
 
-
-
-  position: fixed;
+  position: absolute;
   display: flex;
   align-items: center;
   gap: var(--dm-toolbar-gap);

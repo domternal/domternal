@@ -247,6 +247,14 @@ export class DomternalToolbarComponent implements OnDestroy {
   // === Event handlers ===
 
   onButtonClick(item: ToolbarButton, event?: MouseEvent): void {
+    // Close any open dropdown when clicking a regular button
+    if (this.openDropdown()) {
+      this.cleanupFloating?.();
+      this.cleanupFloating = null;
+      this.controller?.closeDropdown();
+      this.syncState();
+    }
+
     if (item.emitEvent) {
       const anchor = event?.currentTarget as HTMLElement | undefined;
       // emitEvent is a dynamic string; cast needed to bypass strict EventEmitter<EditorEvents> typing
@@ -272,8 +280,10 @@ export class DomternalToolbarComponent implements OnDestroy {
           '.dm-toolbar-dropdown-panel',
         ) as HTMLElement | null;
         if (trigger && panel) {
+          // List dropdowns align to trigger's left edge; grid/picker dropdowns center
+          const placement = dropdown.layout === 'grid' ? 'bottom' : 'bottom-start';
           this.cleanupFloating = positionFloatingOnce(trigger, panel, {
-            placement: 'bottom',
+            placement,
             offsetValue: 4,
           });
         }

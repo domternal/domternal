@@ -32,7 +32,7 @@ import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import type { EditorState } from 'prosemirror-state';
 import type { Editor } from '../Editor.js';
-import { positionFloating } from '../utils/positionFloating.js';
+import { positionFloatingOnce } from '../utils/positionFloating.js';
 
 export const bubbleMenuPluginKey = new PluginKey('bubbleMenu');
 
@@ -139,12 +139,16 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
   let updateTimeout: ReturnType<typeof setTimeout> | null = null;
   let cleanupFloating: (() => void) | null = null;
 
+  // Move element inside .dm-editor (position:relative) so it uses
+  // position:absolute — CSS compositor handles scroll, zero jitter.
+  const editorEl = editor.view.dom.closest('.dm-editor');
+  if (editorEl && element.parentElement !== editorEl) {
+    editorEl.appendChild(element);
+  }
+
   const updatePosition = (view: EditorView, from: number, to: number): void => {
-    // Clean up previous auto-update listeners
     cleanupFloating?.();
 
-    // Virtual element with lazy getBoundingClientRect — re-computes
-    // coordsAtPos on every call so autoUpdate tracks scroll correctly.
     const virtualEl = {
       getBoundingClientRect: () => {
         const start = view.coordsAtPos(from);
@@ -158,7 +162,7 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
       },
     };
 
-    cleanupFloating = positionFloating(virtualEl, element, {
+    cleanupFloating = positionFloatingOnce(virtualEl, element, {
       placement,
       offsetValue: offset[1],
     });
