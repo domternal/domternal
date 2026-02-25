@@ -159,7 +159,7 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
     };
 
     cleanupFloating = positionFloating(virtualEl, element, {
-      placement: placement === 'top' ? 'top' : 'bottom',
+      placement,
       offsetValue: offset[1],
     });
 

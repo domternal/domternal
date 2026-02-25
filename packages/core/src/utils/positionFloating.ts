@@ -12,7 +12,6 @@ import {
   hide,
   autoUpdate,
   type Placement,
-  type MiddlewareData,
 } from '@floating-ui/dom';
 
 export interface PositionFloatingOptions {
@@ -22,14 +21,16 @@ export interface PositionFloatingOptions {
   offsetValue?: number;
   /** Viewport padding for flip/shift in px. @default 10 */
   padding?: number;
+  /** Track ancestor scroll events. Disable for static anchors (e.g. toolbar buttons). @default true */
+  trackScroll?: boolean;
 }
 
 /**
  * Positions a floating element relative to a reference element or virtual rect,
  * and keeps it positioned on scroll, resize, and layout shifts.
  *
- * Uses `autoUpdate` from floating-ui which listens for ancestor scroll,
- * ancestor resize, element resize, and layout shifts automatically.
+ * Uses `autoUpdate` from floating-ui with `animationFrame` polling for
+ * jitter-free scroll tracking (rAF syncs with browser paint).
  *
  * Includes `hide` middleware — when the reference element is scrolled out of
  * view, the floating element is hidden via `visibility: hidden`.
@@ -82,9 +83,14 @@ export function positionFloating(
         placement: placementOpt,
         middleware,
       },
-    ).then(({ x, y, middlewareData }: { x: number; y: number; middlewareData: MiddlewareData }) => {
-      floating.style.left = `${String(x)}px`;
-      floating.style.top = `${String(y)}px`;
+    ).then(({ x, y, middlewareData }) => {
+      // Use transform instead of left/top — GPU-accelerated, no layout reflow,
+      // eliminates visible jitter during scroll tracking.
+      Object.assign(floating.style, {
+        left: '0',
+        top: '0',
+        transform: `translate3d(${x}px,${y}px,0)`,
+      });
 
       // Hide floating element when reference is scrolled out of view
       const hidden = middlewareData.hide?.referenceHidden;
@@ -92,18 +98,29 @@ export function positionFloating(
     });
   };
 
-  // autoUpdate sets up scroll, resize, and layout-shift listeners
-  // and calls update() whenever repositioning is needed.
-  return autoUpdate(reference as Element, floating, update);
+  // When scroll tracking is enabled, use requestAnimationFrame polling
+  // instead of scroll event listeners. rAF runs in the same frame as the
+  // browser paint, so the position update is synchronous with the scroll —
+  // no 1-frame lag / jitter. Slightly more CPU than event-based, but
+  // imperceptible on modern devices and only active while the element is shown.
+  //
+  // ancestorScroll is always off: when rAF is enabled it's redundant,
+  // when rAF is disabled (trackScroll:false) no scroll tracking is wanted.
+  const trackScroll = options?.trackScroll ?? true;
+  return autoUpdate(reference as Element, floating, update, {
+    ancestorScroll: false,
+    animationFrame: trackScroll,
+  });
 }
 
 /**
  * Positions a floating element using `strategy: 'absolute'` so it scrolls
- * together with its offsetParent — ideal for toolbar dropdowns.
+ * together with its offsetParent — zero jitter by design.
  *
- * Tracks **resize and layout shifts** (via `autoUpdate`) but **not scroll**,
- * so the dropdown repositions when the window shrinks but doesn't jitter
- * on scroll.
+ * Ideal for dropdowns inside scroll containers (e.g. emoji suggestion inside
+ * `.dm-editor`) and toolbar dropdowns. The absolute coordinates are stable
+ * across scrolls — only `flip`/`shift` decisions change on scroll, producing
+ * a discrete jump rather than continuous jitter.
  *
  * The floating element must have `position: absolute` and its offsetParent
  * must have `position: relative`.
@@ -133,14 +150,21 @@ export function positionFloatingOnce(
         placement: placementOpt,
         middleware,
       },
-    ).then(({ x, y }: { x: number; y: number }) => {
-      floating.style.left = `${String(x)}px`;
-      floating.style.top = `${String(y)}px`;
+    ).then(({ x, y }) => {
+      Object.assign(floating.style, {
+        left: '0',
+        top: '0',
+        transform: `translate3d(${Math.round(x)}px,${Math.round(y)}px,0)`,
+      });
     });
   };
 
-  // Track resize and layout shifts but NOT scroll (prevents jitter)
+  // Track scroll + resize. With strategy:'absolute' the base coordinates
+  // are stable across scrolls — only flip/shift decisions change (discrete
+  // jump, not continuous jitter).
+  const trackScroll = options?.trackScroll ?? true;
   return autoUpdate(reference as Element, floating, update, {
-    ancestorScroll: false,
+    ancestorScroll: trackScroll,
+    layoutShift: false,
   });
 }
