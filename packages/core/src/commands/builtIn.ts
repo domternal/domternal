@@ -835,12 +835,18 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
       // to avoid invalid intermediate state (parent content spec violation)
       const firstChild = listNode.firstChild;
       if (firstChild && firstChild.type !== listItemType) {
+        const cursorOffset = tr.selection.from - otherPos;
         const newItems: PMNode[] = [];
         listNode.forEach((child) => {
           newItems.push(listItemType.create(child.attrs, child.content, child.marks));
         });
         const newList = listType.create(attributes, newItems);
         tr.replaceWith(otherPos, otherPos + listNode.nodeSize, newList);
+        // Restore cursor — replaceWith collapses positions inside the replaced
+        // range to the end, which lands after the list. Re-resolve the same
+        // relative offset inside the new (structurally identical) list.
+        const restored = otherPos + Math.min(cursorOffset, newList.nodeSize - 1);
+        tr.setSelection(TextSelection.near(tr.doc.resolve(restored)));
       } else {
         // Same item type, just change the wrapper
         tr.setNodeMarkup(otherPos, listType, attributes);

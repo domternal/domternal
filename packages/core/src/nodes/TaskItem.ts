@@ -155,17 +155,25 @@ export const TaskItem = Node.create<TaskItemOptions>({
             if (parentListItemDepth > 0) {
               const tr = state.tr;
               const taskItemDepth = $from.depth - 1;
-              const taskListDepth = taskItemDepth - 1;
-              const taskListNode = $from.node(taskListDepth);
+              const taskItemNode = $from.node(taskItemDepth);
 
-              if (taskListNode.childCount <= 1) {
-                // Only child — delete the entire taskList. Deleting just the taskItem
-                // would leave an empty taskList, violating its content spec and causing
-                // ProseMirror's replaceStep to silently skip the deletion.
-                tr.delete($from.before(taskListDepth), $from.after(taskListDepth));
+              if (taskItemNode.childCount > 1) {
+                // TaskItem has content beyond the empty paragraph (e.g. paragraph + nested list + empty paragraph).
+                // Only delete the trailing empty paragraph, not the whole taskItem.
+                tr.delete($from.before($from.depth), $from.after($from.depth));
               } else {
-                // Multiple children — delete just the empty taskItem
-                tr.delete($from.before(taskItemDepth), $from.after(taskItemDepth));
+                const taskListDepth = taskItemDepth - 1;
+                const taskListNode = $from.node(taskListDepth);
+
+                if (taskListNode.childCount <= 1) {
+                  // Only child — delete the entire taskList. Deleting just the taskItem
+                  // would leave an empty taskList, violating its content spec and causing
+                  // ProseMirror's replaceStep to silently skip the deletion.
+                  tr.delete($from.before(taskListDepth), $from.after(taskListDepth));
+                } else {
+                  // Multiple children — delete just the empty taskItem
+                  tr.delete($from.before(taskItemDepth), $from.after(taskItemDepth));
+                }
               }
 
               // 3. Insert a new listItem after the parent listItem
@@ -186,10 +194,14 @@ export const TaskItem = Node.create<TaskItemOptions>({
       },
       Tab: () => {
         if (!this.editor || !this.nodeType) return false;
+        const { $from } = this.editor.state.selection;
+        if ($from.node(-1).type !== this.nodeType) return false;
         return sinkListItem(this.nodeType)(this.editor.state, this.editor.view.dispatch);
       },
       'Shift-Tab': () => {
         if (!this.editor || !this.nodeType) return false;
+        const { $from } = this.editor.state.selection;
+        if ($from.node(-1).type !== this.nodeType) return false;
         return liftListItem(this.nodeType)(this.editor.state, this.editor.view.dispatch);
       },
       'Mod-Enter': () => {
