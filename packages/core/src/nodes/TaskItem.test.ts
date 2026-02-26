@@ -1,7 +1,11 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import type { Node as PMNode } from 'prosemirror-model';
+import { TextSelection } from 'prosemirror-state';
 import { TaskItem } from './TaskItem.js';
 import { TaskList } from './TaskList.js';
+import { BulletList } from './BulletList.js';
+import { OrderedList } from './OrderedList.js';
+import { ListItem } from './ListItem.js';
 import { Document } from './Document.js';
 import { Text } from './Text.js';
 import { Paragraph } from './Paragraph.js';
@@ -323,6 +327,164 @@ describe('TaskItem', () => {
       // Check that checked state changed
       const taskItem = editor.state.doc.child(0).child(0);
       expect(taskItem.attrs['checked']).toBe(true);
+    });
+
+    it('Enter guard: returns false when cursor parent is not taskItem', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<p>Not a task</p>',
+      });
+
+      editor.focus('start');
+
+      const nodeType = editor.state.schema.nodes['taskItem'];
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem, editor, nodeType, options: TaskItem.options,
+      } as any);
+
+      const result = (shortcuts?.['Enter'] as any)?.();
+      expect(result).toBe(false);
+    });
+
+    it('Tab guard: returns false when cursor parent is not taskItem', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<p>Not a task</p>',
+      });
+
+      editor.focus('start');
+
+      const nodeType = editor.state.schema.nodes['taskItem'];
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem, editor, nodeType, options: TaskItem.options,
+      } as any);
+
+      const result = (shortcuts?.['Tab'] as any)?.();
+      expect(result).toBe(false);
+    });
+
+    it('empty taskItem inside listItem: Enter creates new listItem', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, OrderedList, ListItem, TaskList, TaskItem],
+        content: `
+          <ol>
+            <li><p>Parent</p>
+              <ul data-type="taskList">
+                <li data-type="taskItem" data-checked="false">
+                  <label contenteditable="false"><input type="checkbox"></label>
+                  <div><p></p></div>
+                </li>
+              </ul>
+            </li>
+          </ol>
+        `,
+      });
+
+      // Find the empty paragraph inside the taskItem
+      let emptyPos = 0;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'paragraph' && node.content.size === 0) {
+          const $pos = editor!.state.doc.resolve(pos);
+          if ($pos.depth >= 4) {
+            emptyPos = pos + 1;
+          }
+        }
+      });
+
+      if (emptyPos > 0) {
+        editor.view.dispatch(
+          editor.state.tr.setSelection(TextSelection.create(editor.state.doc, emptyPos))
+        );
+
+        const nodeType = editor.state.schema.nodes['taskItem'];
+        const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+          ...TaskItem, editor, nodeType, options: TaskItem.options,
+        } as any);
+
+        const result = (shortcuts?.['Enter'] as any)?.();
+        expect(result).toBe(true);
+
+        // Should have created a new listItem in the orderedList
+        const html = editor.getHTML();
+        expect(html).toContain('Parent');
+        expect(html).toContain('<ol>');
+      }
+    });
+
+    it('multi-content taskItem with trailing empty paragraph: only deletes empty paragraph', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, OrderedList, ListItem, TaskList, TaskItem],
+        content: `
+          <ol>
+            <li><p>Above</p>
+              <ul data-type="taskList">
+                <li data-type="taskItem" data-checked="false">
+                  <label contenteditable="false"><input type="checkbox"></label>
+                  <div><p>Task content</p>
+                    <ul><li><p>Nested</p></li></ul>
+                    <p></p>
+                  </div>
+                </li>
+              </ul>
+            </li>
+          </ol>
+        `,
+      });
+
+      // Find the trailing empty paragraph inside the taskItem
+      let emptyPos = 0;
+      let foundNested = false;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.isText && node.text === 'Nested') foundNested = true;
+        if (foundNested && node.type.name === 'paragraph' && node.content.size === 0) {
+          emptyPos = pos + 1;
+          foundNested = false;
+        }
+      });
+
+      if (emptyPos > 0) {
+        editor.view.dispatch(
+          editor.state.tr.setSelection(TextSelection.create(editor.state.doc, emptyPos))
+        );
+
+        const nodeType = editor.state.schema.nodes['taskItem'];
+        const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+          ...TaskItem, editor, nodeType, options: TaskItem.options,
+        } as any);
+
+        const result = (shortcuts?.['Enter'] as any)?.();
+        expect(result).toBe(true);
+
+        // All content should be preserved
+        const html = editor.getHTML();
+        expect(html).toContain('Task content');
+        expect(html).toContain('Nested');
+        expect(html).toContain('Above');
+      }
+    });
+
+    it('toggleTask toggles back from true to false', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: `
+          <ul data-type="taskList">
+            <li data-type="taskItem" data-checked="true">
+              <label contenteditable="false"><input type="checkbox" checked></label>
+              <div><p>Done</p></div>
+            </li>
+          </ul>
+        `,
+      });
+
+      editor.focus('start');
+
+      // Toggle off
+      editor.commands.toggleTask();
+      expect(editor.state.doc.child(0).child(0).attrs['checked']).toBe(false);
+
+      // Toggle on again
+      editor.commands.toggleTask();
+      expect(editor.state.doc.child(0).child(0).attrs['checked']).toBe(true);
     });
   });
 });

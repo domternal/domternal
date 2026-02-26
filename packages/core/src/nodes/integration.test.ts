@@ -7,6 +7,8 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { Editor } from '../Editor.js';
 import type { JSONContent } from '../types/Content.js';
+import { TextSelection } from 'prosemirror-state';
+import { splitListItem, liftListItem, sinkListItem } from 'prosemirror-schema-list';
 import { Document } from './Document.js';
 import { Text } from './Text.js';
 import { Paragraph } from './Paragraph.js';
@@ -16,6 +18,8 @@ import { CodeBlock } from './CodeBlock.js';
 import { BulletList } from './BulletList.js';
 import { OrderedList } from './OrderedList.js';
 import { ListItem } from './ListItem.js';
+import { TaskList } from './TaskList.js';
+import { TaskItem } from './TaskItem.js';
 import { HorizontalRule } from './HorizontalRule.js';
 import { HardBreak } from './HardBreak.js';
 
@@ -29,6 +33,8 @@ const allNodes = [
   BulletList,
   OrderedList,
   ListItem,
+  TaskList,
+  TaskItem,
   HorizontalRule,
   HardBreak,
 ];
@@ -506,6 +512,400 @@ describe('Node Integration', () => {
 
       const list = editor.state.doc.child(0);
       expect(list.childCount).toBe(50);
+    });
+  });
+
+  describe('Mixed List Types', () => {
+    it('handles task list nested inside bullet list', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: `
+          <ul>
+            <li><p>Bullet</p>
+              <ul data-type="taskList">
+                <li data-type="taskItem" data-checked="false">
+                  <label contenteditable="false"><input type="checkbox"></label>
+                  <div><p>Task inside bullet</p></div>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        `,
+      });
+
+      const doc = editor.state.doc;
+      const bulletList = doc.child(0);
+      expect(bulletList.type.name).toBe('bulletList');
+      const listItem = bulletList.child(0);
+      expect(listItem.child(1).type.name).toBe('taskList');
+      expect(listItem.child(1).child(0).type.name).toBe('taskItem');
+    });
+
+    it('handles bullet list nested inside task item', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: `
+          <ul data-type="taskList">
+            <li data-type="taskItem" data-checked="false">
+              <label contenteditable="false"><input type="checkbox"></label>
+              <div><p>Task</p>
+                <ul><li><p>Bullet inside task</p></li></ul>
+              </div>
+            </li>
+          </ul>
+        `,
+      });
+
+      const doc = editor.state.doc;
+      const taskList = doc.child(0);
+      expect(taskList.type.name).toBe('taskList');
+      const taskItem = taskList.child(0);
+      expect(taskItem.textContent).toContain('Bullet inside task');
+    });
+
+    it('handles ordered list nested inside task item inside bullet list', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: `
+          <ul>
+            <li><p>Top</p>
+              <ul data-type="taskList">
+                <li data-type="taskItem" data-checked="false">
+                  <label contenteditable="false"><input type="checkbox"></label>
+                  <div><p>Task</p>
+                    <ol><li><p>Numbered</p></li></ol>
+                  </div>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        `,
+      });
+
+      const doc = editor.state.doc;
+      expect(doc.child(0).type.name).toBe('bulletList');
+      const listItem = doc.child(0).child(0);
+      const taskList = listItem.child(1);
+      expect(taskList.type.name).toBe('taskList');
+      const taskItem = taskList.child(0);
+      // taskItem contains paragraph + orderedList
+      let hasOrdered = false;
+      taskItem.forEach((node) => {
+        if (node.type.name === 'orderedList') hasOrdered = true;
+      });
+      expect(hasOrdered).toBe(true);
+    });
+
+    it('preserves mixed list types through JSON roundtrip', () => {
+      const html = `
+        <ul>
+          <li><p>Bullet</p>
+            <ul data-type="taskList">
+              <li data-type="taskItem" data-checked="true">
+                <label contenteditable="false"><input type="checkbox" checked></label>
+                <div><p>Checked task</p></div>
+              </li>
+              <li data-type="taskItem" data-checked="false">
+                <label contenteditable="false"><input type="checkbox"></label>
+                <div><p>Unchecked task</p></div>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      `;
+
+      editor = new Editor({ extensions: allNodes, content: html });
+      const json = editor.getJSON() as unknown as JSONContent;
+
+      const editor2 = new Editor({ extensions: allNodes, content: json });
+      expect(editor2.getJSON()).toEqual(json);
+      editor2.destroy();
+    });
+  });
+
+  describe('List Command Integration', () => {
+    it('toggleBulletList wraps and unwraps', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<p>Test</p>',
+      });
+
+      editor.commands.toggleBulletList();
+      expect(editor.state.doc.child(0).type.name).toBe('bulletList');
+
+      editor.commands.toggleBulletList();
+      expect(editor.state.doc.child(0).type.name).toBe('paragraph');
+    });
+
+    it('toggleOrderedList wraps and unwraps', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<p>Test</p>',
+      });
+
+      editor.commands.toggleOrderedList();
+      expect(editor.state.doc.child(0).type.name).toBe('orderedList');
+
+      editor.commands.toggleOrderedList();
+      expect(editor.state.doc.child(0).type.name).toBe('paragraph');
+    });
+
+    it('toggleTaskList wraps and unwraps', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<p>Test</p>',
+      });
+
+      editor.commands.toggleTaskList();
+      expect(editor.state.doc.child(0).type.name).toBe('taskList');
+
+      editor.commands.toggleTaskList();
+      expect(editor.state.doc.child(0).type.name).toBe('paragraph');
+    });
+
+    it('bullet → ordered conversion changes list type', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<ul><li><p>Item</p></li></ul>',
+      });
+
+      editor.commands.toggleOrderedList();
+      expect(editor.state.doc.child(0).type.name).toBe('orderedList');
+      expect(editor.getText()).toContain('Item');
+    });
+
+    it('bullet → task conversion changes list type and item type', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<ul><li><p>Item</p></li></ul>',
+      });
+
+      editor.commands.toggleTaskList();
+      expect(editor.state.doc.child(0).type.name).toBe('taskList');
+      expect(editor.state.doc.child(0).child(0).type.name).toBe('taskItem');
+      expect(editor.getText()).toContain('Item');
+    });
+
+    it('task → bullet conversion changes list type and item type', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: `
+          <ul data-type="taskList">
+            <li data-type="taskItem" data-checked="false">
+              <label contenteditable="false"><input type="checkbox"></label>
+              <div><p>Task</p></div>
+            </li>
+          </ul>
+        `,
+      });
+
+      editor.commands.toggleBulletList();
+      expect(editor.state.doc.child(0).type.name).toBe('bulletList');
+      expect(editor.state.doc.child(0).child(0).type.name).toBe('listItem');
+      expect(editor.getText()).toContain('Task');
+    });
+
+    it('bullet → ordered → task → bullet round-trip preserves content', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<ul><li><p>Alpha</p></li><li><p>Beta</p></li></ul>',
+      });
+
+      editor.commands.toggleOrderedList();
+      expect(editor.state.doc.child(0).type.name).toBe('orderedList');
+
+      editor.commands.toggleTaskList();
+      expect(editor.state.doc.child(0).type.name).toBe('taskList');
+
+      editor.commands.toggleBulletList();
+      expect(editor.state.doc.child(0).type.name).toBe('bulletList');
+
+      expect(editor.getText()).toContain('Alpha');
+      expect(editor.getText()).toContain('Beta');
+    });
+  });
+
+  describe('ProseMirror List Operations', () => {
+    it('splitListItem splits at cursor position', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<ul><li><p>Hello World</p></li></ul>',
+      });
+
+      // Position cursor after "Hello" (pos 7)
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 7))
+      );
+
+      const nodeType = editor.state.schema.nodes['listItem']!;
+      const result = splitListItem(nodeType)(editor.state, editor.view.dispatch);
+      expect(result).toBe(true);
+      expect(editor.state.doc.child(0).childCount).toBe(2);
+    });
+
+    it('sinkListItem nests second item under first', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<ul><li><p>First</p></li><li><p>Second</p></li></ul>',
+      });
+
+      // Position cursor in "Second"
+      let secondPos = 0;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.isText && node.text === 'Second') secondPos = pos;
+      });
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, secondPos))
+      );
+
+      const nodeType = editor.state.schema.nodes['listItem']!;
+      const result = sinkListItem(nodeType)(editor.state, editor.view.dispatch);
+      expect(result).toBe(true);
+
+      // First item should now have nested list
+      const firstItem = editor.state.doc.child(0).child(0);
+      expect(firstItem.childCount).toBe(2);
+      expect(firstItem.child(1).type.name).toBe('bulletList');
+    });
+
+    it('liftListItem lifts nested item to parent level', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<ul><li><p>Parent</p><ul><li><p>Child</p></li></ul></li></ul>',
+      });
+
+      // Position cursor in "Child"
+      let childPos = 0;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.isText && node.text === 'Child') childPos = pos;
+      });
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, childPos))
+      );
+
+      const nodeType = editor.state.schema.nodes['listItem']!;
+      const result = liftListItem(nodeType)(editor.state, editor.view.dispatch);
+      expect(result).toBe(true);
+
+      // Should now be flat list with two items
+      expect(editor.state.doc.child(0).childCount).toBe(2);
+    });
+
+    it('splitListItem on empty item returns false (cannot split empty)', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<ul><li><p></p></li></ul>',
+      });
+
+      editor.focus('start');
+
+      const nodeType = editor.state.schema.nodes['listItem']!;
+      const result = splitListItem(nodeType)(editor.state, editor.view.dispatch);
+      // splitListItem returns false for empty items (nothing to split)
+      expect(result).toBe(false);
+    });
+
+    it('sinkListItem on first item returns false (no previous sibling)', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<ul><li><p>Only</p></li></ul>',
+      });
+
+      editor.focus('start');
+
+      const nodeType = editor.state.schema.nodes['listItem']!;
+      const result = sinkListItem(nodeType)(editor.state, editor.view.dispatch);
+      expect(result).toBe(false);
+    });
+
+    it('liftListItem on top-level item lifts out of list', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<ul><li><p>Only</p></li></ul>',
+      });
+
+      editor.focus('start');
+
+      const nodeType = editor.state.schema.nodes['listItem']!;
+      const result = liftListItem(nodeType)(editor.state, editor.view.dispatch);
+      expect(result).toBe(true);
+
+      // Should be a paragraph, not a list
+      expect(editor.state.doc.child(0).type.name).toBe('paragraph');
+    });
+  });
+
+  describe('Task Item Toggle', () => {
+    it('toggleTask flips checked from false to true', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: `
+          <ul data-type="taskList">
+            <li data-type="taskItem" data-checked="false">
+              <label contenteditable="false"><input type="checkbox"></label>
+              <div><p>Task</p></div>
+            </li>
+          </ul>
+        `,
+      });
+
+      editor.focus('start');
+      const result = editor.commands.toggleTask();
+      expect(result).toBe(true);
+      expect(editor.state.doc.child(0).child(0).attrs['checked']).toBe(true);
+    });
+
+    it('toggleTask flips checked from true to false', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: `
+          <ul data-type="taskList">
+            <li data-type="taskItem" data-checked="true">
+              <label contenteditable="false"><input type="checkbox" checked></label>
+              <div><p>Done</p></div>
+            </li>
+          </ul>
+        `,
+      });
+
+      editor.focus('start');
+      editor.commands.toggleTask();
+      expect(editor.state.doc.child(0).child(0).attrs['checked']).toBe(false);
+    });
+
+    it('toggleTask returns false when cursor not in task item', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<p>Not a task</p>',
+      });
+
+      editor.focus('start');
+      const result = editor.commands.toggleTask();
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('Blockquote Inside List', () => {
+    it('handles blockquote inside list item', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<ul><li><p>Text</p><blockquote><p>Quote</p></blockquote></li></ul>',
+      });
+
+      const listItem = editor.state.doc.child(0).child(0);
+      expect(listItem.child(0).type.name).toBe('paragraph');
+      expect(listItem.child(1).type.name).toBe('blockquote');
+    });
+
+    it('handles code block inside list item', () => {
+      editor = new Editor({
+        extensions: allNodes,
+        content: '<ul><li><p>Text</p><pre><code>code</code></pre></li></ul>',
+      });
+
+      const listItem = editor.state.doc.child(0).child(0);
+      expect(listItem.child(0).type.name).toBe('paragraph');
+      expect(listItem.child(1).type.name).toBe('codeBlock');
     });
   });
 });

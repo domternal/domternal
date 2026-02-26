@@ -1,10 +1,12 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import type { Node as PMNode } from 'prosemirror-model';
 import { TextSelection } from 'prosemirror-state';
-import { splitListItem } from 'prosemirror-schema-list';
+import { splitListItem, liftListItem } from 'prosemirror-schema-list';
 import { ListItem } from './ListItem.js';
 import { BulletList } from './BulletList.js';
 import { OrderedList } from './OrderedList.js';
+import { TaskList } from './TaskList.js';
+import { TaskItem } from './TaskItem.js';
 import { Document } from './Document.js';
 import { Text } from './Text.js';
 import { Paragraph } from './Paragraph.js';
@@ -264,6 +266,137 @@ describe('ListItem', () => {
 
       // Should now have two list items
       expect(editor.state.doc.child(0).childCount).toBe(2);
+    });
+
+    it('Enter guard: returns false when cursor parent is not listItem', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, ListItem],
+        content: '<p>Not in a list</p>',
+      });
+
+      editor.focus('start');
+
+      const nodeType = editor.state.schema.nodes['listItem'];
+      const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
+        ...ListItem, editor, nodeType, options: ListItem.options,
+      } as any);
+
+      const result = (shortcuts?.['Enter'] as any)?.();
+      expect(result).toBe(false);
+    });
+
+    it('Tab guard: returns false when cursor parent is not listItem', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, ListItem],
+        content: '<p>Not in a list</p>',
+      });
+
+      editor.focus('start');
+
+      const nodeType = editor.state.schema.nodes['listItem'];
+      const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
+        ...ListItem, editor, nodeType, options: ListItem.options,
+      } as any);
+
+      const result = (shortcuts?.['Tab'] as any)?.();
+      expect(result).toBe(false);
+    });
+
+    it('liftListItem on empty item in bullet list inside taskItem', () => {
+      // This tests the scenario where liftListItem would place bare paragraph in taskItem
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, OrderedList, ListItem, TaskList, TaskItem],
+        content: `
+          <ul data-type="taskList">
+            <li data-type="taskItem" data-checked="false">
+              <label contenteditable="false"><input type="checkbox"></label>
+              <div><p>Task</p>
+                <ul><li><p></p></li></ul>
+              </div>
+            </li>
+          </ul>
+        `,
+      });
+
+      // Find the empty paragraph position inside the nested bullet
+      let emptyPos = 0;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'paragraph' && node.content.size === 0) {
+          // Find the empty paragraph that's inside the nested bulletList
+          const $pos = editor!.state.doc.resolve(pos);
+          if ($pos.depth >= 4) { // deep enough to be in nested list
+            emptyPos = pos + 1; // inside the paragraph
+          }
+        }
+      });
+
+      if (emptyPos > 0) {
+        editor.view.dispatch(
+          editor.state.tr.setSelection(TextSelection.create(editor.state.doc, emptyPos))
+        );
+
+        // Invoke Enter handler
+        const nodeType = editor.state.schema.nodes['listItem'];
+        const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
+          ...ListItem, editor, nodeType, options: ListItem.options,
+        } as any);
+
+        const result = (shortcuts?.['Enter'] as any)?.();
+        expect(result).toBe(true);
+
+        // Should have created a new taskItem, not a bare paragraph
+        const html = editor.getHTML();
+        expect(html).toContain('Task');
+        // The taskList should have 2 task items now
+        const taskList = editor.state.doc.child(0);
+        expect(taskList.type.name).toBe('taskList');
+        expect(taskList.childCount).toBe(2);
+      }
+    });
+
+    it('multiple items in nested list: only removes empty item', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, OrderedList, ListItem, TaskList, TaskItem],
+        content: `
+          <ul data-type="taskList">
+            <li data-type="taskItem" data-checked="false">
+              <label contenteditable="false"><input type="checkbox"></label>
+              <div><p>Task</p>
+                <ul><li><p>Keep me</p></li><li><p></p></li></ul>
+              </div>
+            </li>
+          </ul>
+        `,
+      });
+
+      // Find the second (empty) listItem paragraph
+      let emptyPos = 0;
+      let foundKeepMe = false;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.isText && node.text === 'Keep me') foundKeepMe = true;
+        if (foundKeepMe && node.type.name === 'paragraph' && node.content.size === 0) {
+          emptyPos = pos + 1;
+          foundKeepMe = false; // only find the first one after "Keep me"
+        }
+      });
+
+      if (emptyPos > 0) {
+        editor.view.dispatch(
+          editor.state.tr.setSelection(TextSelection.create(editor.state.doc, emptyPos))
+        );
+
+        const nodeType = editor.state.schema.nodes['listItem'];
+        const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
+          ...ListItem, editor, nodeType, options: ListItem.options,
+        } as any);
+
+        const result = (shortcuts?.['Enter'] as any)?.();
+        expect(result).toBe(true);
+
+        const html = editor.getHTML();
+        expect(html).toContain('Keep me');
+        expect(html).toContain('Task');
+      }
     });
   });
 });
