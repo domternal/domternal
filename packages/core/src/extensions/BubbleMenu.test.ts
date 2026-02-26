@@ -525,6 +525,97 @@ describe('BubbleMenu', () => {
       expect(menuElement.hasAttribute('data-show')).toBe(false);
     });
 
+    it('repositions when doc changes but selection stays at same pos (e.g. setNodeMarkup)', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      // alwaysShow: show for any non-empty selection (including NodeSelection)
+      const alwaysShow = ({ state }: { state: { selection: { empty: boolean } } }): boolean =>
+        !state.selection.empty;
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, HorizontalRule, BubbleMenu.configure({ element: menuElement, shouldShow: alwaysShow })],
+        content: '<p>Hello</p><hr><p>World</p>',
+      });
+
+      editor.view.coordsAtPos = () => ({ left: 10, right: 50, top: 10, bottom: 30 });
+
+      // Select the HR node
+      let hrPos = -1;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'horizontalRule') { hrPos = pos; return false; }
+        return true;
+      });
+
+      editor.view.dispatch(
+        editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, hrPos)),
+      );
+
+      const ps1 = bubbleMenuPluginKey.getState(editor.state) as BubbleMenuPluginState;
+      expect(ps1.visible).toBe(true);
+      expect(menuElement.hasAttribute('data-show')).toBe(true);
+
+      // Now change the doc WITHOUT changing selection position:
+      // insert text at beginning of first paragraph (shifts nothing for the HR selection pos)
+      // Simulate what setNodeMarkup does: doc changes, selection from/to stay the same
+      const { state } = editor;
+      const tr = state.tr.insertText('X', 1, 1);
+      // Keep the NodeSelection at the HR (now shifted by 1)
+      tr.setSelection(NodeSelection.create(tr.doc, hrPos + 1));
+      editor.view.dispatch(tr);
+
+      // Plugin state: from/to changed (shifted), so update fires anyway.
+      // But the key test: menu must still be shown and data-show present
+      const ps2 = bubbleMenuPluginKey.getState(editor.state) as BubbleMenuPluginState;
+      expect(ps2.visible).toBe(true);
+      expect(menuElement.hasAttribute('data-show')).toBe(true);
+    });
+
+    it('repositions when node attrs change via setNodeMarkup (same from/to)', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      // Use a custom shouldShow that allows NodeSelection
+      const alwaysShow = ({ state }: { state: { selection: { empty: boolean } } }): boolean =>
+        !state.selection.empty;
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, HorizontalRule, BubbleMenu.configure({ element: menuElement, shouldShow: alwaysShow })],
+        content: '<p>Hello</p><hr><p>World</p>',
+      });
+
+      editor.view.coordsAtPos = () => ({ left: 10, right: 50, top: 10, bottom: 30 });
+
+      // Select the HR node
+      let hrPos = -1;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'horizontalRule') { hrPos = pos; return false; }
+        return true;
+      });
+
+      editor.view.dispatch(
+        editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, hrPos)),
+      );
+      expect(menuElement.hasAttribute('data-show')).toBe(true);
+
+      // setNodeMarkup changes the doc but keeps selection at the same from/to
+      // This simulates what happens when changing image float attribute
+      const { state } = editor;
+      const prevDoc = state.doc;
+      const tr = state.tr.setNodeMarkup(hrPos, undefined, {});
+      tr.setSelection(NodeSelection.create(tr.doc, hrPos));
+      editor.view.dispatch(tr);
+
+      // Doc must have changed
+      expect(editor.state.doc).not.toBe(prevDoc);
+
+      // from/to are the same, but doc changed → menu must still be shown
+      const ps = bubbleMenuPluginKey.getState(editor.state) as BubbleMenuPluginState;
+      expect(ps.visible).toBe(true);
+      expect(ps.from).toBe(hrPos);
+      expect(menuElement.hasAttribute('data-show')).toBe(true);
+    });
+
     it('keeps menu hidden for node selection', () => {
       menuElement = document.createElement('div');
       document.body.appendChild(menuElement);

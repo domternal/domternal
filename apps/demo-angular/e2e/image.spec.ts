@@ -676,6 +676,116 @@ test.describe('Image — bubble menu', () => {
     await expect(wrapper).toHaveAttribute('data-float', 'right');
   });
 
+  test('bubble menu repositions when float changes from none to right', async ({ page }) => {
+    await setEditorContent(page, `<p>Some text before the image</p>${IMG_BASIC}<p>Some text after</p>`);
+
+    const wrapper = page.locator(`${editorSelector} .dm-image-resizable`).first();
+    await wrapper.click();
+    await page.waitForTimeout(300);
+
+    const bubbleMenu = page.locator('.dm-bubble-menu');
+    await expect(bubbleMenu).toHaveAttribute('data-show', '');
+
+    // Record initial bubble menu position
+    const initialBox = await bubbleMenu.boundingBox();
+    expect(initialBox).toBeTruthy();
+
+    // Click "Float right" — image moves to the right side
+    await bubbleMenu.locator('button[title="Float right"]').click();
+    await page.waitForTimeout(300);
+
+    // Bubble menu should still be visible and repositioned
+    await expect(bubbleMenu).toHaveAttribute('data-show', '');
+    const newBox = await bubbleMenu.boundingBox();
+    expect(newBox).toBeTruthy();
+
+    // Menu should have moved to the right (x increased) to follow the image
+    expect(newBox!.x).toBeGreaterThan(initialBox!.x);
+  });
+
+  test('bubble menu repositions when float changes from right to left', async ({ page }) => {
+    await setEditorContent(page, `<p>Some text</p>${IMG_FLOAT_RIGHT}<p>More text</p>`);
+
+    const wrapper = page.locator(`${editorSelector} .dm-image-resizable`).first();
+    await wrapper.click();
+    await page.waitForTimeout(300);
+
+    const bubbleMenu = page.locator('.dm-bubble-menu');
+    await expect(bubbleMenu).toHaveAttribute('data-show', '');
+
+    const initialBox = await bubbleMenu.boundingBox();
+    expect(initialBox).toBeTruthy();
+
+    // Click "Float left" — image moves to the left side
+    await bubbleMenu.locator('button[title="Float left"]').click();
+    await page.waitForTimeout(300);
+
+    await expect(bubbleMenu).toHaveAttribute('data-show', '');
+    const newBox = await bubbleMenu.boundingBox();
+    expect(newBox).toBeTruthy();
+
+    // Menu should have moved to the left (x decreased) to follow the image
+    expect(newBox!.x).toBeLessThan(initialBox!.x);
+  });
+
+  test('bubble menu repositions when float changes from left to center', async ({ page }) => {
+    await setEditorContent(page, `<p>Some text</p>${IMG_FLOAT_LEFT}<p>More text</p>`);
+
+    const wrapper = page.locator(`${editorSelector} .dm-image-resizable`).first();
+    await wrapper.click();
+    await page.waitForTimeout(300);
+
+    const bubbleMenu = page.locator('.dm-bubble-menu');
+    await expect(bubbleMenu).toHaveAttribute('data-show', '');
+
+    const initialBox = await bubbleMenu.boundingBox();
+    expect(initialBox).toBeTruthy();
+
+    // Click "Center" — image moves to center
+    await bubbleMenu.locator('button[title="Center"]').click();
+    await page.waitForTimeout(300);
+
+    await expect(bubbleMenu).toHaveAttribute('data-show', '');
+    const newBox = await bubbleMenu.boundingBox();
+    expect(newBox).toBeTruthy();
+
+    // Menu should have moved to follow centered image (x increased from left-floated position)
+    expect(newBox!.x).toBeGreaterThan(initialBox!.x);
+  });
+
+  test('bubble menu stays visible through multiple float changes', async ({ page }) => {
+    await setEditorContent(page, `<p>Text</p>${IMG_BASIC}<p>More</p>`);
+
+    const wrapper = page.locator(`${editorSelector} .dm-image-resizable`).first();
+    await wrapper.click();
+    await page.waitForTimeout(300);
+
+    const bubbleMenu = page.locator('.dm-bubble-menu');
+
+    // Float left
+    await bubbleMenu.locator('button[title="Float left"]').click();
+    await page.waitForTimeout(200);
+    await expect(bubbleMenu).toHaveAttribute('data-show', '');
+    await expect(wrapper).toHaveAttribute('data-float', 'left');
+
+    // Float right
+    await bubbleMenu.locator('button[title="Float right"]').click();
+    await page.waitForTimeout(200);
+    await expect(bubbleMenu).toHaveAttribute('data-show', '');
+    await expect(wrapper).toHaveAttribute('data-float', 'right');
+
+    // Center
+    await bubbleMenu.locator('button[title="Center"]').click();
+    await page.waitForTimeout(200);
+    await expect(bubbleMenu).toHaveAttribute('data-show', '');
+    await expect(wrapper).toHaveAttribute('data-float', 'center');
+
+    // Back to inline
+    await bubbleMenu.locator('button[title="Inline"]').click();
+    await page.waitForTimeout(200);
+    await expect(bubbleMenu).toHaveAttribute('data-show', '');
+  });
+
   test('bubble menu hides when clicking away from image', async ({ page }) => {
     await setEditorContent(page, IMG_BETWEEN_PARAS);
 

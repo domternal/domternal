@@ -284,11 +284,14 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
             | BubbleMenuPluginState
             | undefined;
 
-          // Skip if nothing changed
+          // Skip if nothing changed — but reposition when the doc changed
+          // while the menu is visible (e.g. image float attribute changed,
+          // the DOM element moved but the selection stayed at the same pos)
           if (
             state?.visible === prevPluginState?.visible &&
             state?.from === prevPluginState?.from &&
-            state?.to === prevPluginState?.to
+            state?.to === prevPluginState?.to &&
+            !(state?.visible && view.state.doc !== prevState.doc)
           ) {
             return;
           }
