@@ -90,7 +90,7 @@
     Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
   visibility: hidden;
   opacity: 0;
-  transition: opacity 0.15s, visibility 0.15s;
+  transition: opacity 0.2s ease, visibility 0.2s;
   z-index: 60;
 
   &[data-show] {

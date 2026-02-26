@@ -467,6 +467,7 @@ export const Image = Node.create<ImageOptions>({
     const editor = this.editor as unknown as Editor;
     const nodeType = this.nodeType;
     const options = this.options;
+    const storage = this.storage as Record<string, unknown>;
 
     // Image popover + drag overlay + paste/drop plugin
     if (nodeType) {
@@ -498,11 +499,16 @@ export const Image = Node.create<ImageOptions>({
 
       let isOpen = false;
       let cleanupFloating: (() => void) | null = null;
+      let toggleAnchor: HTMLElement | null = null;
 
       const showPopover = (anchorElement?: HTMLElement): void => {
+        toggleAnchor = anchorElement ?? null;
         urlInput.value = '';
         el.setAttribute('data-show', '');
         isOpen = true;
+        storage['isOpen'] = true;
+        // Dispatch to trigger toolbar expanded state refresh
+        editor.view.dispatch(editor.view.state.tr);
 
         const reference: Element | { getBoundingClientRect: () => DOMRect } = anchorElement ?? {
           getBoundingClientRect: () => {
@@ -522,10 +528,14 @@ export const Image = Node.create<ImageOptions>({
 
       const hidePopover = (): void => {
         if (!isOpen) return;
+        toggleAnchor = null;
         cleanupFloating?.();
         cleanupFloating = null;
         el.removeAttribute('data-show');
         isOpen = false;
+        storage['isOpen'] = false;
+        // Dispatch to trigger toolbar expanded state refresh
+        editor.view.dispatch(editor.view.state.tr);
       };
 
       const closePopover = (): void => {
@@ -611,9 +621,8 @@ export const Image = Node.create<ImageOptions>({
 
       const onClickOutside = (e: MouseEvent): void => {
         if (!isOpen || el.contains(e.target as globalThis.Node)) return;
-        requestAnimationFrame(() => {
-          if (isOpen) hidePopover();
-        });
+        if (toggleAnchor && (toggleAnchor === e.target || toggleAnchor.contains(e.target as globalThis.Node))) return;
+        hidePopover();
       };
 
       const onPreventBlur = (e: MouseEvent): void => { e.preventDefault(); };

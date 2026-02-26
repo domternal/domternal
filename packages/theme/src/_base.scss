@@ -41,3 +41,18 @@
   border-top-right-radius: 0;
   border-top: none;
 }
+
+// =============================================================================
+// Shared floating element fade-in animation
+// =============================================================================
+// Used by elements conditionally inserted into the DOM (emoji picker,
+// suggestion dropdown, toolbar dropdowns). Uses scale instead of translateY —
+// scale doesn't shift position so it won't conflict with floating-ui.
+// Elements using data-show (bubble menu, floating menu, popovers) use CSS
+// opacity transitions instead — see their respective stylesheets.
+// =============================================================================
+
+@keyframes dm-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

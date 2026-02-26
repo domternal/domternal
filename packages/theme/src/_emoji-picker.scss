@@ -20,6 +20,7 @@
   border-radius: 0.25rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   overflow: hidden;
+  animation: dm-fade-in 0.2s ease;
 }
 
 // Search input
@@ -159,6 +160,7 @@
   border: 1px solid var(--dm-border-color, #e0e0e0);
   border-radius: 0.25rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  animation: dm-fade-in 0.2s ease;
 }
 
 .dm-emoji-suggestion-item {

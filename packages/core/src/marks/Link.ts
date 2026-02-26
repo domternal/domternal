@@ -140,8 +140,10 @@ function linkPopoverPlugin({ editor, markType, protocols, storage }: LinkPopover
   let isOpen = false;
   let hasExistingLink = false;
   let cleanupFloating: (() => void) | null = null;
+  let toggleAnchor: HTMLElement | null = null;
 
   const show = (anchorElement?: HTMLElement): void => {
+    toggleAnchor = anchorElement ?? null;
     // Detect existing link at cursor
     const { state } = editor.view;
     const { from, empty } = state.selection;
@@ -203,6 +205,7 @@ function linkPopoverPlugin({ editor, markType, protocols, storage }: LinkPopover
 
   const hide = (): void => {
     if (!isOpen) return;
+    toggleAnchor = null;
     cleanupFloating?.();
     cleanupFloating = null;
     el.removeAttribute('data-show');
@@ -320,11 +323,10 @@ function linkPopoverPlugin({ editor, markType, protocols, storage }: LinkPopover
 
   const onClickOutside = (e: MouseEvent): void => {
     if (!isOpen || el.contains(e.target as Node)) return;
-    // Delay so toggle handlers (toolbar click → linkEdit) execute first.
-    // If the toggle closes the popover, isOpen will be false and we skip.
-    requestAnimationFrame(() => {
-      if (isOpen) hide();
-    });
+    // Skip if clicking the toolbar button that toggles this popover —
+    // the button's click handler will fire onLinkEdit to toggle.
+    if (toggleAnchor && (toggleAnchor === e.target || toggleAnchor.contains(e.target as Node))) return;
+    hide();
   };
 
   const onPreventBlur = (e: MouseEvent): void => {
