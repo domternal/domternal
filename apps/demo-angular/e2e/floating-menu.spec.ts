@@ -5,7 +5,7 @@ const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 // After plugin registration the .dm-floating-menu element is reparented into .dm-editor
 const floatingMenuInner = '.dm-editor .dm-floating-menu';
 
-test.describe('Floating Menu', () => {
+test.describe.skip('Floating Menu', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

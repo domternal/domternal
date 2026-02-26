@@ -463,6 +463,136 @@ describe('TaskItem', () => {
       }
     });
 
+    it('Enter on empty taskItem in multi-child taskList inside listItem: deletes only empty taskItem', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, OrderedList, ListItem, TaskList, TaskItem],
+        content: `
+          <ol>
+            <li><p>Parent</p>
+              <ul data-type="taskList">
+                <li data-type="taskItem" data-checked="true">
+                  <label contenteditable="false"><input type="checkbox" checked></label>
+                  <div><p>Done task</p></div>
+                </li>
+                <li data-type="taskItem" data-checked="false">
+                  <label contenteditable="false"><input type="checkbox"></label>
+                  <div><p></p></div>
+                </li>
+              </ul>
+            </li>
+          </ol>
+        `,
+      });
+
+      // Find the empty paragraph inside the second (empty) taskItem
+      let emptyPos = 0;
+      let foundDone = false;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.isText && node.text === 'Done task') foundDone = true;
+        if (foundDone && node.type.name === 'paragraph' && node.content.size === 0) {
+          emptyPos = pos + 1;
+          foundDone = false;
+        }
+      });
+
+      if (emptyPos > 0) {
+        editor.view.dispatch(
+          editor.state.tr.setSelection(TextSelection.create(editor.state.doc, emptyPos))
+        );
+
+        const nodeType = editor.state.schema.nodes['taskItem'];
+        const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+          ...TaskItem, editor, nodeType, options: TaskItem.options,
+        } as any);
+
+        const result = (shortcuts?.['Enter'] as any)?.();
+        expect(result).toBe(true);
+
+        // The "Done task" taskItem should be preserved
+        const html = editor.getHTML();
+        expect(html).toContain('Done task');
+        expect(html).toContain('Parent');
+        // taskList should now have only 1 taskItem (the empty one was deleted)
+        let taskListCount = 0;
+        editor.state.doc.descendants((node) => {
+          if (node.type.name === 'taskList') taskListCount++;
+        });
+        // The taskList should still exist with the remaining task
+        expect(taskListCount).toBe(1);
+        // A new listItem should have been created in the parent orderedList
+        expect(html).toContain('<ol>');
+      }
+    });
+
+    it('Enter on empty top-level taskItem: liftListItem exits task list', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: `
+          <ul data-type="taskList">
+            <li data-type="taskItem" data-checked="false">
+              <label contenteditable="false"><input type="checkbox"></label>
+              <div><p>Task above</p></div>
+            </li>
+            <li data-type="taskItem" data-checked="false">
+              <label contenteditable="false"><input type="checkbox"></label>
+              <div><p></p></div>
+            </li>
+          </ul>
+        `,
+      });
+
+      // Find the empty paragraph in the second taskItem
+      let emptyPos = 0;
+      let foundAbove = false;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.isText && node.text === 'Task above') foundAbove = true;
+        if (foundAbove && node.type.name === 'paragraph' && node.content.size === 0) {
+          emptyPos = pos + 1;
+          foundAbove = false;
+        }
+      });
+
+      if (emptyPos > 0) {
+        editor.view.dispatch(
+          editor.state.tr.setSelection(TextSelection.create(editor.state.doc, emptyPos))
+        );
+
+        const nodeType = editor.state.schema.nodes['taskItem'];
+        const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+          ...TaskItem, editor, nodeType, options: TaskItem.options,
+        } as any);
+
+        const result = (shortcuts?.['Enter'] as any)?.();
+        expect(result).toBe(true);
+
+        // "Task above" should be preserved in the taskList
+        expect(editor.getHTML()).toContain('Task above');
+        // The empty taskItem should have been lifted out of the list (now a paragraph)
+        const doc = editor.state.doc;
+        // First child should still be a taskList with the remaining task
+        expect(doc.child(0).type.name).toBe('taskList');
+        // Second child should be a paragraph (the lifted empty item)
+        expect(doc.child(1).type.name).toBe('paragraph');
+      }
+    });
+
+    it('Shift-Tab guard: returns false when cursor parent is not taskItem (with editor)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<p>Not a task</p>',
+      });
+
+      editor.focus('start');
+
+      const nodeType = editor.state.schema.nodes['taskItem'];
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem, editor, nodeType, options: TaskItem.options,
+      } as any);
+
+      const result = (shortcuts?.['Shift-Tab'] as any)?.();
+      expect(result).toBe(false);
+    });
+
     it('toggleTask toggles back from true to false', () => {
       editor = new Editor({
         extensions: [Document, Text, Paragraph, TaskList, TaskItem],

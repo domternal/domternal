@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import type { Node as PMNode } from 'prosemirror-model';
 import { TextSelection } from 'prosemirror-state';
-import { splitListItem, liftListItem } from 'prosemirror-schema-list';
+import { splitListItem } from 'prosemirror-schema-list';
 import { ListItem } from './ListItem.js';
 import { BulletList } from './BulletList.js';
 import { OrderedList } from './OrderedList.js';
@@ -299,6 +299,23 @@ describe('ListItem', () => {
       } as any);
 
       const result = (shortcuts?.['Tab'] as any)?.();
+      expect(result).toBe(false);
+    });
+
+    it('Shift-Tab guard: returns false when cursor parent is not listItem', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, ListItem],
+        content: '<p>Not in a list</p>',
+      });
+
+      editor.focus('start');
+
+      const nodeType = editor.state.schema.nodes['listItem'];
+      const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
+        ...ListItem, editor, nodeType, options: ListItem.options,
+      } as any);
+
+      const result = (shortcuts?.['Shift-Tab'] as any)?.();
       expect(result).toBe(false);
     });
 
