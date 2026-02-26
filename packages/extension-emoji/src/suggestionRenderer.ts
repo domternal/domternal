@@ -75,13 +75,21 @@ export function createEmojiSuggestionRenderer(): () => SuggestionRenderer {
 
         btn.addEventListener('mousedown', (e: Event) => {
           e.preventDefault();
+          e.stopPropagation();
         });
         btn.addEventListener('click', () => {
           command(item);
         });
         btn.addEventListener('mouseenter', () => {
+          if (selectedIndex === i) return;
+          const prev = container?.querySelector('.dm-emoji-suggestion-item--selected');
+          if (prev) {
+            prev.classList.remove('dm-emoji-suggestion-item--selected');
+            prev.setAttribute('aria-selected', 'false');
+          }
           selectedIndex = i;
-          render();
+          btn.classList.add('dm-emoji-suggestion-item--selected');
+          btn.setAttribute('aria-selected', 'true');
         });
 
         container!.appendChild(btn);
@@ -101,7 +109,7 @@ export function createEmojiSuggestionRenderer(): () => SuggestionRenderer {
       };
 
       cleanupFloating = positionFloatingOnce(virtualEl, container, {
-        placement: 'bottom',
+        placement: 'bottom-start',
         offsetValue: 4,
       });
     }

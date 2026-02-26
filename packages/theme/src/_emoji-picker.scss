@@ -202,3 +202,16 @@
   opacity: 0.5;
   font-size: 0.8125rem;
 }
+
+// ─── Inline Emoji Node ──────────────────────────────────────────────────────
+
+.dm-editor .ProseMirror span.emoji {
+  cursor: default;
+  font-style: normal;
+  padding: 0 0.05em;
+
+  &.ProseMirror-selectednode {
+    outline: 2px solid var(--dm-accent, #2563eb);
+    border-radius: 0.15em;
+  }
+}

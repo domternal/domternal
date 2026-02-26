@@ -317,9 +317,7 @@ test.describe('Emoji Suggestion — inline autocomplete', () => {
     await page.waitForTimeout(200);
     await expect(page.locator(suggestionSelector)).toBeVisible();
 
-    // Use dispatchEvent to avoid Playwright's click triggering focus changes
-    // that interfere with ProseMirror's suggestion state
-    await page.locator(suggestionItem).first().dispatchEvent('click');
+    await page.locator(suggestionItem).first().click();
     await page.waitForTimeout(200);
 
     await expect(page.locator(suggestionSelector)).not.toBeVisible();
