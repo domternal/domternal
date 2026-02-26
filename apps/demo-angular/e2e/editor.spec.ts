@@ -22,7 +22,7 @@ test.describe('Domternal Angular Editor', () => {
   });
 
   test('initial content has bold "World"', async ({ page }) => {
-    const strong = page.locator(`${editorSelector} strong`);
+    const strong = page.locator(`${editorSelector} strong`).first();
     await expect(strong).toHaveText('World');
   });
 

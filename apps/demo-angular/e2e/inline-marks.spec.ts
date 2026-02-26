@@ -16,12 +16,16 @@ const btn = {
 } as const;
 
 async function setContentAndFocus(page: Page, html: string) {
-  const editor = page.locator(editorSelector);
-  await editor.evaluate((el, h) => {
-    el.innerHTML = h;
-    el.dispatchEvent(new Event('input', { bubbles: true }));
+  await page.evaluate((h) => {
+    const el = document.querySelector('domternal-editor');
+    const ng = (window as any).ng;
+    const comp = ng?.getComponent?.(el);
+    if (comp?.editor) {
+      comp.editor.setContent(h, false);
+      comp.editor.commands.focus();
+    }
   }, html);
-  await page.waitForTimeout(100);
+  await page.waitForTimeout(150);
 }
 
 async function getEditorHTML(page: Page): Promise<string> {
@@ -672,7 +676,7 @@ test.describe('Inline marks — editing operations', () => {
   test('mark applies with cursor (no selection) then typing', async ({
     page,
   }) => {
-    await setContentAndFocus(page, '<p>hello </p>');
+    await setContentAndFocus(page, '<p>hello</p>');
     await page.locator(`${editorSelector} p`).click();
     await page.keyboard.press('End');
 
@@ -681,7 +685,7 @@ test.describe('Inline marks — editing operations', () => {
     await page.keyboard.type('bold');
 
     const html = await getEditorHTML(page);
-    expect(html).toContain('hello ');
+    expect(html).toContain('hello');
     expect(html).toContain('<strong>bold</strong>');
   });
 

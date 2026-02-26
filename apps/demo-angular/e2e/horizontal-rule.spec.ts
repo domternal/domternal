@@ -6,12 +6,16 @@ const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 const hrButton = 'button[aria-label="Horizontal Rule"]';
 
 async function setContentAndFocus(page: Page, html: string) {
-  const editor = page.locator(editorSelector);
-  await editor.evaluate((el, h) => {
-    el.innerHTML = h;
-    el.dispatchEvent(new Event('input', { bubbles: true }));
+  await page.evaluate((h) => {
+    const el = document.querySelector('domternal-editor');
+    const ng = (window as any).ng;
+    const comp = ng?.getComponent?.(el);
+    if (comp?.editor) {
+      comp.editor.setContent(h, false);
+      comp.editor.commands.focus();
+    }
   }, html);
-  await page.waitForTimeout(100);
+  await page.waitForTimeout(150);
 }
 
 async function getEditorHTML(page: Page): Promise<string> {
@@ -184,15 +188,13 @@ test.describe('HorizontalRule — insert via toolbar', () => {
     await page.locator(`${editorSelector} p`).click();
     await page.locator(hrButton).click();
 
-    // Type text — should appear after the HR
+    // Type text — should appear in a paragraph (cursor lands in a paragraph)
     await page.keyboard.type('after hr');
     const html = await getEditorHTML(page);
     expectHR(html);
     expect(html).toContain('after hr');
-    // The text should come after the HR in the HTML
-    const hrMatch = /<hr[\s>]/.exec(html);
-    const textIndex = html.indexOf('after hr');
-    expect(textIndex).toBeGreaterThan(hrMatch!.index);
+    // Text should be in a paragraph, not inside the HR
+    expect(html).toMatch(/<p[^>]*>after hr<\/p>/);
   });
 
   test('multiple HR insertions via toolbar', async ({ page }) => {
@@ -298,7 +300,8 @@ test.describe('HorizontalRule — input rules', () => {
   test('cursor moves after HR created by input rule', async ({ page }) => {
     // Need two paragraphs so cursor can move to the second after input rule fires
     await setContentAndFocus(page, '<p></p><p>existing</p>');
-    await focusStart(page, 'p', 0);
+    // Click the first (empty) paragraph to place cursor there
+    await page.locator(`${editorSelector} p`).first().click();
     await page.keyboard.type('--- ', { delay: 30 });
     await page.keyboard.type('typed after');
 

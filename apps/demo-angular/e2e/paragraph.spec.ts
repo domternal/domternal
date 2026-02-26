@@ -4,12 +4,16 @@ const editorSelector = 'domternal-editor .ProseMirror';
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
 async function setContentAndFocus(page: Page, html: string) {
-  const editor = page.locator(editorSelector);
-  await editor.evaluate((el, h) => {
-    el.innerHTML = h;
-    el.dispatchEvent(new Event('input', { bubbles: true }));
+  await page.evaluate((h) => {
+    const el = document.querySelector('domternal-editor');
+    const ng = (window as any).ng;
+    const comp = ng?.getComponent?.(el);
+    if (comp?.editor) {
+      comp.editor.setContent(h, false);
+      comp.editor.commands.focus();
+    }
   }, html);
-  await page.waitForTimeout(100);
+  await page.waitForTimeout(150);
 }
 
 async function getEditorHTML(page: Page): Promise<string> {
@@ -210,9 +214,22 @@ test.describe('Paragraph — Backspace and Delete', () => {
     page,
   }) => {
     await setContentAndFocus(page, TWO_PARAS);
-    const firstP = page.locator(`${editorSelector} p`).first();
-    await firstP.click();
-    await page.keyboard.press('End');
+    // Place cursor at end of first paragraph via DOM selection
+    await page.evaluate((sel) => {
+      const editor = document.querySelector(sel) as HTMLElement;
+      editor?.focus();
+      const p = editor?.querySelector('p');
+      if (!p) return;
+      let node: Node = p;
+      while (node.lastChild) node = node.lastChild;
+      const range = document.createRange();
+      range.setStart(node, node.nodeType === Node.TEXT_NODE ? (node.textContent?.length ?? 0) : 0);
+      range.collapse(true);
+      const s = window.getSelection();
+      s?.removeAllRanges();
+      s?.addRange(range);
+    }, editorSelector);
+    await page.waitForTimeout(50);
 
     await page.keyboard.press('Delete');
 

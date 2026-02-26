@@ -113,13 +113,6 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
 
   let cleanupFloating: (() => void) | null = null;
 
-  // Move element inside .dm-editor (position:relative) so it uses
-  // position:absolute — CSS compositor handles scroll, zero jitter.
-  const editorEl = editor.view.dom.closest('.dm-editor');
-  if (editorEl && element.parentElement !== editorEl) {
-    editorEl.appendChild(element);
-  }
-
   const updatePosition = (view: EditorView): void => {
     const { selection } = view.state;
     const { $from } = selection;
@@ -150,7 +143,14 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
   return new Plugin({
     key: pluginKey,
 
-    view: () => {
+    view: (editorView) => {
+      // Move element inside .dm-editor (position:relative) so it uses
+      // position:absolute — CSS compositor handles scroll, zero jitter.
+      const editorEl = editorView.dom.closest('.dm-editor');
+      if (editorEl && element.parentElement !== editorEl) {
+        editorEl.appendChild(element);
+      }
+
       const onFocus = (): void => {
         const visible = shouldShow({
           editor,

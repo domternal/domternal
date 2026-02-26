@@ -89,7 +89,7 @@ export function positionFloating(
       Object.assign(floating.style, {
         left: '0',
         top: '0',
-        transform: `translate3d(${x}px,${y}px,0)`,
+        transform: `translate3d(${String(x)}px,${String(y)}px,0)`,
       });
 
       // Hide floating element when reference is scrolled out of view
@@ -154,7 +154,7 @@ export function positionFloatingOnce(
       Object.assign(floating.style, {
         left: '0',
         top: '0',
-        transform: `translate3d(${Math.round(x)}px,${Math.round(y)}px,0)`,
+        transform: `translate3d(${String(Math.round(x))}px,${String(Math.round(y))}px,0)`,
       });
     });
   };

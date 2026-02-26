@@ -3,24 +3,30 @@ import { test, expect, type Page } from '@playwright/test';
 const editorSelector = 'domternal-editor .ProseMirror';
 const bubbleMenu = '.dm-bubble-menu';
 
-// Bubble menu default items: bold, italic, underline (no [items] input set)
+// Bubble menu text context: bold, italic, underline, strike, code, |, link
 const btn = {
   bold: `${bubbleMenu} button[title="Bold"]`,
   italic: `${bubbleMenu} button[title="Italic"]`,
   underline: `${bubbleMenu} button[title="Underline"]`,
+  strike: `${bubbleMenu} button[title="Strikethrough"]`,
+  code: `${bubbleMenu} button[title="Code"]`,
+  link: `${bubbleMenu} button[title="Link"]`,
 } as const;
 
-const BUTTON_COUNT = 3;
-const SEPARATOR_COUNT = 0;
+const BUTTON_COUNT = 6;
+const SEPARATOR_COUNT = 1;
 
 async function setContentAndFocus(page: Page, html: string) {
-  const editor = page.locator(editorSelector);
-  await editor.evaluate((el, h) => {
-    el.innerHTML = h;
-    el.dispatchEvent(new Event('input', { bubbles: true }));
+  await page.evaluate((h) => {
+    const el = document.querySelector('domternal-editor');
+    const ng = (window as any).ng;
+    const comp = ng?.getComponent?.(el);
+    if (comp?.editor) {
+      comp.editor.setContent(h, false);
+      comp.editor.commands.focus();
+    }
   }, html);
-  await editor.focus();
-  await page.waitForTimeout(100);
+  await page.waitForTimeout(150);
 }
 
 async function getEditorHTML(page: Page): Promise<string> {

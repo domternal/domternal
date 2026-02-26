@@ -23,12 +23,16 @@ const HEX_TO_RGB: Record<string, string> = {
 };
 
 async function setContentAndFocus(page: Page, html: string) {
-  const editor = page.locator(editorSelector);
-  await editor.evaluate((el, h) => {
-    el.innerHTML = h;
-    el.dispatchEvent(new Event('input', { bubbles: true }));
+  await page.evaluate((h) => {
+    const el = document.querySelector('domternal-editor');
+    const ng = (window as any).ng;
+    const comp = ng?.getComponent?.(el);
+    if (comp?.editor) {
+      comp.editor.setContent(h, false);
+      comp.editor.commands.focus();
+    }
   }, html);
-  await page.waitForTimeout(100);
+  await page.waitForTimeout(150);
 }
 
 async function getEditorHTML(page: Page): Promise<string> {
@@ -45,7 +49,7 @@ async function setColorViaToolbar(page: Page, label: string) {
   await page.locator(dropdownTrigger).dispatchEvent('click');
   const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Text Color"]) .dm-toolbar-dropdown-panel');
   await panel.waitFor({ state: 'visible' });
-  await panel.locator(`button[aria-label="${label}"]`).click();
+  await panel.locator(`button[aria-label="${label}"]`).dispatchEvent('click');
 }
 
 /**

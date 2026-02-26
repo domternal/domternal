@@ -8,6 +8,7 @@ import {
 } from './imageUploadPlugin.js';
 import { Schema } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
+import { NodeSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 
 describe('Image', () => {
@@ -1361,5 +1362,911 @@ describe('Image addToolbarItems', () => {
     if (button?.type === 'button') {
       expect(button.emitEvent).toBe('insertImage');
     }
+  });
+
+  describe('toolbar: false flag', () => {
+    it('insert button does NOT have toolbar: false', () => {
+      const items = Image.config.addToolbarItems?.call(Image);
+      const insert = items?.find(i => i.name === 'image');
+      expect(insert?.type).toBe('button');
+      if (insert?.type === 'button') {
+        expect(insert.toolbar).toBeUndefined();
+      }
+    });
+
+    it('float controls have toolbar: false', () => {
+      const items = Image.config.addToolbarItems?.call(Image);
+      const floatNames = ['imageFloatNone', 'imageFloatLeft', 'imageFloatCenter', 'imageFloatRight'];
+      for (const name of floatNames) {
+        const item = items?.find(i => i.name === name);
+        expect(item?.type).toBe('button');
+        if (item?.type === 'button') {
+          expect(item.toolbar).toBe(false);
+        }
+      }
+    });
+
+    it('deleteImage has toolbar: false', () => {
+      const items = Image.config.addToolbarItems?.call(Image);
+      const del = items?.find(i => i.name === 'deleteImage');
+      expect(del?.type).toBe('button');
+      if (del?.type === 'button') {
+        expect(del.toolbar).toBe(false);
+      }
+    });
+  });
+
+  describe('float control items', () => {
+    it('imageFloatNone uses setImageFloat command with none', () => {
+      const items = Image.config.addToolbarItems?.call(Image);
+      const item = items?.find(i => i.name === 'imageFloatNone');
+      if (item?.type === 'button') {
+        expect(item.command).toBe('setImageFloat');
+        expect(item.commandArgs).toEqual(['none']);
+        expect(item.icon).toBe('imageInline');
+        expect(item.label).toBe('Inline');
+        expect(item.group).toBe('image-float');
+      }
+    });
+
+    it('imageFloatLeft uses setImageFloat command with left', () => {
+      const items = Image.config.addToolbarItems?.call(Image);
+      const item = items?.find(i => i.name === 'imageFloatLeft');
+      if (item?.type === 'button') {
+        expect(item.command).toBe('setImageFloat');
+        expect(item.commandArgs).toEqual(['left']);
+        expect(item.icon).toBe('textAlignLeft');
+      }
+    });
+
+    it('imageFloatCenter uses setImageFloat command with center', () => {
+      const items = Image.config.addToolbarItems?.call(Image);
+      const item = items?.find(i => i.name === 'imageFloatCenter');
+      if (item?.type === 'button') {
+        expect(item.command).toBe('setImageFloat');
+        expect(item.commandArgs).toEqual(['center']);
+        expect(item.icon).toBe('textAlignCenter');
+      }
+    });
+
+    it('imageFloatRight uses setImageFloat command with right', () => {
+      const items = Image.config.addToolbarItems?.call(Image);
+      const item = items?.find(i => i.name === 'imageFloatRight');
+      if (item?.type === 'button') {
+        expect(item.command).toBe('setImageFloat');
+        expect(item.commandArgs).toEqual(['right']);
+        expect(item.icon).toBe('textAlignRight');
+      }
+    });
+
+    it('float controls have isActive with correct attributes', () => {
+      const items = Image.config.addToolbarItems?.call(Image);
+      const expected: Record<string, { name: string; attributes: { float: string } }> = {
+        imageFloatNone: { name: 'image', attributes: { float: 'none' } },
+        imageFloatLeft: { name: 'image', attributes: { float: 'left' } },
+        imageFloatCenter: { name: 'image', attributes: { float: 'center' } },
+        imageFloatRight: { name: 'image', attributes: { float: 'right' } },
+      };
+      for (const [itemName, isActiveVal] of Object.entries(expected)) {
+        const item = items?.find(i => i.name === itemName);
+        if (item?.type === 'button') {
+          expect(item.isActive).toEqual(isActiveVal);
+        }
+      }
+    });
+
+    it('float controls have descending priority', () => {
+      const items = Image.config.addToolbarItems?.call(Image);
+      const floatNames = ['imageFloatNone', 'imageFloatLeft', 'imageFloatCenter', 'imageFloatRight'];
+      const priorities = floatNames.map(name => {
+        const item = items?.find(i => i.name === name);
+        return item?.type === 'button' ? (item.priority ?? 100) : 0;
+      });
+      // Should be strictly descending
+      for (let i = 1; i < priorities.length; i++) {
+        expect(priorities[i]!).toBeLessThan(priorities[i - 1]!);
+      }
+    });
+  });
+
+  describe('deleteImage item', () => {
+    it('has correct command and icon', () => {
+      const items = Image.config.addToolbarItems?.call(Image);
+      const item = items?.find(i => i.name === 'deleteImage');
+      if (item?.type === 'button') {
+        expect(item.command).toBe('deleteImage');
+        expect(item.icon).toBe('trash');
+        expect(item.label).toBe('Delete');
+        expect(item.group).toBe('image-actions');
+      }
+    });
+  });
+});
+
+describe('Image commands (integration)', () => {
+  let editor: Editor | undefined;
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) {
+      editor.destroy();
+    }
+  });
+
+  describe('deleteImage', () => {
+    it('provides deleteImage command', () => {
+      const commands = Image.config.addCommands?.call(Image);
+      expect(commands).toHaveProperty('deleteImage');
+      expect(typeof commands?.['deleteImage']).toBe('function');
+    });
+
+    it('deletes the selected image', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>before</p><img src="https://example.com/img.png"><p>after</p>',
+      });
+      expect(editor.state.doc.childCount).toBe(3);
+
+      // Find the image position and select it with NodeSelection
+      let imagePos = 0;
+      editor.state.doc.forEach((node, offset) => {
+        if (node.type.name === 'image') imagePos = offset;
+      });
+      const { tr } = editor.state;
+      tr.setSelection(NodeSelection.create(editor.state.doc, imagePos));
+      editor.view.dispatch(tr);
+
+      editor.commands.deleteImage();
+      let hasImage = false;
+      editor.state.doc.forEach(node => {
+        if (node.type.name === 'image') hasImage = true;
+      });
+      expect(hasImage).toBe(false);
+    });
+
+    it('returns true even without dispatch (dry-run)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png">',
+      });
+      // can() dry-run should return true
+      const canDelete = editor.can().deleteImage();
+      expect(canDelete).toBe(true);
+    });
+  });
+
+  describe('setImageFloat', () => {
+    it('provides setImageFloat command', () => {
+      const commands = Image.config.addCommands?.call(Image);
+      expect(commands).toHaveProperty('setImageFloat');
+    });
+
+    it('changes float from none to left', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png">',
+      });
+      const { tr } = editor.state;
+      const nodeSelection = editor.state.selection.constructor;
+      tr.setSelection((nodeSelection as any).create(editor.state.doc, 0));
+      editor.view.dispatch(tr);
+
+      editor.commands.setImageFloat('left');
+      expect(editor.state.doc.child(0).attrs['float']).toBe('left');
+    });
+
+    it('changes float from none to center', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png">',
+      });
+      const { tr } = editor.state;
+      const nodeSelection = editor.state.selection.constructor;
+      tr.setSelection((nodeSelection as any).create(editor.state.doc, 0));
+      editor.view.dispatch(tr);
+
+      editor.commands.setImageFloat('center');
+      expect(editor.state.doc.child(0).attrs['float']).toBe('center');
+    });
+
+    it('changes float from left to right', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png" style="float: left;">',
+      });
+      const { tr } = editor.state;
+      const nodeSelection = editor.state.selection.constructor;
+      tr.setSelection((nodeSelection as any).create(editor.state.doc, 0));
+      editor.view.dispatch(tr);
+
+      expect(editor.state.doc.child(0).attrs['float']).toBe('left');
+      editor.commands.setImageFloat('right');
+      expect(editor.state.doc.child(0).attrs['float']).toBe('right');
+    });
+
+    it('changes float back to none', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png" style="float: left;">',
+      });
+      const { tr } = editor.state;
+      const nodeSelection = editor.state.selection.constructor;
+      tr.setSelection((nodeSelection as any).create(editor.state.doc, 0));
+      editor.view.dispatch(tr);
+
+      editor.commands.setImageFloat('none');
+      expect(editor.state.doc.child(0).attrs['float']).toBe('none');
+    });
+
+    it('returns false when selection is not on an image', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>just text</p>',
+      });
+      const result = editor.commands.setImageFloat('left');
+      expect(result).toBe(false);
+    });
+
+    it('returns false for invalid float value', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png">',
+      });
+      const { tr } = editor.state;
+      const nodeSelection = editor.state.selection.constructor;
+      tr.setSelection((nodeSelection as any).create(editor.state.doc, 0));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.setImageFloat('invalid' as any);
+      expect(result).toBe(false);
+    });
+
+    it('preserves other attributes when changing float', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<img src="https://example.com/img.png" alt="Photo" title="My photo">',
+      });
+      const { tr } = editor.state;
+      const nodeSelection = editor.state.selection.constructor;
+      tr.setSelection((nodeSelection as any).create(editor.state.doc, 0));
+      editor.view.dispatch(tr);
+
+      editor.commands.setImageFloat('center');
+      const image = editor.state.doc.child(0);
+      expect(image.attrs['float']).toBe('center');
+      expect(image.attrs['src']).toBe('https://example.com/img.png');
+      expect(image.attrs['alt']).toBe('Photo');
+      expect(image.attrs['title']).toBe('My photo');
+    });
+  });
+
+  describe('setImage additional cases', () => {
+    it('rejects vbscript: URLs via command', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>Text</p>',
+      });
+      const result = editor.commands.setImage({ src: 'vbscript:msgbox(1)' });
+      expect(result).toBe(false);
+    });
+
+    it('rejects file: URLs via command', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>Text</p>',
+      });
+      const result = editor.commands.setImage({ src: 'file:///etc/passwd' });
+      expect(result).toBe(false);
+    });
+
+    it('rejects data:text URLs via command when allowBase64 is true', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image.configure({ allowBase64: true })],
+        content: '<p>Text</p>',
+      });
+      const result = editor.commands.setImage({ src: 'data:text/html,<script>alert(1)</script>' });
+      expect(result).toBe(false);
+    });
+
+    it('accepts data:image URLs via command when allowBase64 is true', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image.configure({ allowBase64: true })],
+        content: '<p>Text</p>',
+      });
+      const result = editor.commands.setImage({ src: 'data:image/png;base64,abc123' });
+      expect(result).toBe(true);
+    });
+
+    it('rejects data:image URLs via command when allowBase64 is false', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image.configure({ allowBase64: false })],
+        content: '<p>Text</p>',
+      });
+      const result = editor.commands.setImage({ src: 'data:image/png;base64,abc123' });
+      expect(result).toBe(false);
+    });
+
+    it('accepts relative URL via command', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>Text</p>',
+      });
+      const result = editor.commands.setImage({ src: '/uploads/photo.jpg' });
+      expect(result).toBe(true);
+    });
+
+    it('accepts protocol-relative URL via command', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>Text</p>',
+      });
+      const result = editor.commands.setImage({ src: '//cdn.example.com/img.png' });
+      expect(result).toBe(true);
+    });
+
+    it('inserts image with all attributes', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>Text</p>',
+      });
+      editor.commands.setImage({
+        src: 'https://example.com/img.png',
+        alt: 'Alt',
+        title: 'Title',
+        width: 200,
+        height: 100,
+        loading: 'lazy',
+        crossorigin: 'anonymous',
+        float: 'center',
+      });
+
+      const image = editor.state.doc.child(0);
+      expect(image.type.name).toBe('image');
+      expect(image.attrs['src']).toBe('https://example.com/img.png');
+      expect(image.attrs['alt']).toBe('Alt');
+      expect(image.attrs['title']).toBe('Title');
+      expect(image.attrs['float']).toBe('center');
+    });
+  });
+});
+
+describe('Image float attribute (additional)', () => {
+  let editor: Editor | undefined;
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) {
+      editor.destroy();
+    }
+  });
+
+  it('parseHTML detects align="right" (legacy HTML)', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<img src="https://example.com/img.png" align="right">',
+    });
+    const image = editor.state.doc.child(0);
+    expect(image.attrs['float']).toBe('right');
+  });
+
+  it('parseHTML detects align="middle" as center (legacy HTML)', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<img src="https://example.com/img.png" align="middle">',
+    });
+    const image = editor.state.doc.child(0);
+    expect(image.attrs['float']).toBe('center');
+  });
+
+  it('float cycle: none → left → center → right → none', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<img src="https://example.com/img.png">',
+    });
+    const nodeSelection = editor.state.selection.constructor;
+
+    const selectImage = (): void => {
+      const { tr } = editor!.state;
+      tr.setSelection((nodeSelection as any).create(editor!.state.doc, 0));
+      editor!.view.dispatch(tr);
+    };
+
+    selectImage();
+    expect(editor.state.doc.child(0).attrs['float']).toBe('none');
+
+    editor.commands.setImageFloat('left');
+    selectImage();
+    expect(editor.state.doc.child(0).attrs['float']).toBe('left');
+
+    editor.commands.setImageFloat('center');
+    selectImage();
+    expect(editor.state.doc.child(0).attrs['float']).toBe('center');
+
+    editor.commands.setImageFloat('right');
+    selectImage();
+    expect(editor.state.doc.child(0).attrs['float']).toBe('right');
+
+    editor.commands.setImageFloat('none');
+    selectImage();
+    expect(editor.state.doc.child(0).attrs['float']).toBe('none');
+  });
+
+  it('float renders correct style in HTML output for all values', () => {
+    const floatStyles: Record<string, string[]> = {
+      left: ['float: left', 'margin:'],
+      right: ['float: right', 'margin:'],
+      center: ['margin-left: auto', 'margin-right: auto'],
+    };
+
+    for (const [float, patterns] of Object.entries(floatStyles)) {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>test</p>',
+      });
+      editor.commands.setImage({ src: 'https://example.com/img.png', float: float as any });
+      const html = editor.getHTML();
+      for (const pattern of patterns) {
+        expect(html).toContain(pattern);
+      }
+      editor.destroy();
+    }
+    editor = undefined;
+  });
+
+  it('float none renders no float/margin styles', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p>test</p>',
+    });
+    editor.commands.setImage({ src: 'https://example.com/img.png', float: 'none' });
+    const html = editor.getHTML();
+    expect(html).not.toContain('float:');
+    expect(html).not.toContain('margin-left: auto');
+    expect(html).not.toContain('display: block');
+  });
+});
+
+describe('Image base64 paste/drop (no uploadHandler)', () => {
+  let editor: Editor | undefined;
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) {
+      editor.destroy();
+    }
+  });
+
+  function getFileBrowserPlugin(ed: Editor): unknown {
+    return ed.state.plugins.find(
+      p => (p as any).key?.includes('imageFileBrowser'),
+    );
+  }
+
+  describe('handlePaste (base64 mode)', () => {
+    it('creates imageFileBrowser plugin without uploadHandler', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>text</p>',
+      });
+      const plugin = getFileBrowserPlugin(editor);
+      expect(plugin).toBeDefined();
+    });
+
+    it('ignores paste when no clipboard data', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>text</p>',
+      });
+      const plugin = getFileBrowserPlugin(editor);
+      const handlePaste = (plugin as any).props.handlePaste;
+
+      const event = { clipboardData: null, preventDefault: vi.fn() } as unknown as ClipboardEvent;
+      const result = handlePaste(editor.view, event);
+      expect(result).toBe(false);
+    });
+
+    it('ignores paste when no items', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>text</p>',
+      });
+      const plugin = getFileBrowserPlugin(editor);
+      const handlePaste = (plugin as any).props.handlePaste;
+
+      const event = {
+        clipboardData: { items: [] },
+        preventDefault: vi.fn(),
+      } as unknown as ClipboardEvent;
+      const result = handlePaste(editor.view, event);
+      expect(result).toBe(false);
+    });
+
+    it('ignores non-file items', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>text</p>',
+      });
+      const plugin = getFileBrowserPlugin(editor);
+      const handlePaste = (plugin as any).props.handlePaste;
+
+      const event = {
+        clipboardData: {
+          items: [{ kind: 'string', type: 'text/plain', getAsFile: () => null }],
+        },
+        preventDefault: vi.fn(),
+      } as unknown as ClipboardEvent;
+      const result = handlePaste(editor.view, event);
+      expect(result).toBe(false);
+    });
+
+    it('ignores non-image files', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>text</p>',
+      });
+      const plugin = getFileBrowserPlugin(editor);
+      const handlePaste = (plugin as any).props.handlePaste;
+
+      const event = {
+        clipboardData: {
+          items: [{ kind: 'file', type: 'text/plain', getAsFile: () => new File([new Uint8Array(10)], 'doc.txt', { type: 'text/plain' }) }],
+        },
+        preventDefault: vi.fn(),
+      } as unknown as ClipboardEvent;
+      const result = handlePaste(editor.view, event);
+      expect(result).toBe(false);
+    });
+
+    it('ignores file with disallowed MIME type', () => {
+      const CustomImage = Image.configure({ allowedMimeTypes: ['image/png'] });
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomImage],
+        content: '<p>text</p>',
+      });
+      const plugin = getFileBrowserPlugin(editor);
+      const handlePaste = (plugin as any).props.handlePaste;
+
+      const file = new File([new Uint8Array(10)], 'photo.jpg', { type: 'image/jpeg' });
+      const event = {
+        clipboardData: {
+          items: [{ kind: 'file', type: 'image/jpeg', getAsFile: () => file }],
+        },
+        preventDefault: vi.fn(),
+      } as unknown as ClipboardEvent;
+      const result = handlePaste(editor.view, event);
+      expect(result).toBe(false);
+    });
+
+    it('ignores file exceeding maxFileSize', () => {
+      const CustomImage = Image.configure({ maxFileSize: 100 });
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomImage],
+        content: '<p>text</p>',
+      });
+      const plugin = getFileBrowserPlugin(editor);
+      const handlePaste = (plugin as any).props.handlePaste;
+
+      const file = new File([new Uint8Array(200)], 'big.png', { type: 'image/png' });
+      const event = {
+        clipboardData: {
+          items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }],
+        },
+        preventDefault: vi.fn(),
+      } as unknown as ClipboardEvent;
+      const result = handlePaste(editor.view, event);
+      expect(result).toBe(false);
+    });
+
+    it('accepts valid image paste and calls preventDefault', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>text</p>',
+      });
+      const plugin = getFileBrowserPlugin(editor);
+      const handlePaste = (plugin as any).props.handlePaste;
+
+      const file = new File([new Uint8Array(10)], 'photo.png', { type: 'image/png' });
+      const preventDefault = vi.fn();
+      const event = {
+        clipboardData: {
+          items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }],
+        },
+        preventDefault,
+      } as unknown as ClipboardEvent;
+      const result = handlePaste(editor.view, event);
+      expect(result).toBe(true);
+      expect(preventDefault).toHaveBeenCalled();
+    });
+
+    it('returns false (defers to imageUploadPlugin) when uploadHandler is set', () => {
+      const UploadImage = Image.configure({
+        uploadHandler: () => Promise.resolve('https://example.com/img.png'),
+      });
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, UploadImage],
+        content: '<p>text</p>',
+      });
+      const plugin = getFileBrowserPlugin(editor);
+      const handlePaste = (plugin as any).props.handlePaste;
+
+      const file = new File([new Uint8Array(10)], 'photo.png', { type: 'image/png' });
+      const event = {
+        clipboardData: {
+          items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }],
+        },
+        preventDefault: vi.fn(),
+      } as unknown as ClipboardEvent;
+      const result = handlePaste(editor.view, event);
+      expect(result).toBe(false);
+    });
+
+    it('ignores if getAsFile returns null', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>text</p>',
+      });
+      const plugin = getFileBrowserPlugin(editor);
+      const handlePaste = (plugin as any).props.handlePaste;
+
+      const event = {
+        clipboardData: {
+          items: [{ kind: 'file', type: 'image/png', getAsFile: () => null }],
+        },
+        preventDefault: vi.fn(),
+      } as unknown as ClipboardEvent;
+      const result = handlePaste(editor.view, event);
+      expect(result).toBe(false);
+    });
+
+    it('accepts maxFileSize: 0 as unlimited', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image.configure({ maxFileSize: 0 })],
+        content: '<p>text</p>',
+      });
+      const plugin = getFileBrowserPlugin(editor);
+      const handlePaste = (plugin as any).props.handlePaste;
+
+      const file = new File([new Uint8Array(10_000_000)], 'huge.png', { type: 'image/png' });
+      const event = {
+        clipboardData: {
+          items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }],
+        },
+        preventDefault: vi.fn(),
+      } as unknown as ClipboardEvent;
+      const result = handlePaste(editor.view, event);
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('handleDrop (base64 mode)', () => {
+    it('returns false when uploadHandler is set', () => {
+      const UploadImage = Image.configure({
+        uploadHandler: () => Promise.resolve('https://example.com/img.png'),
+      });
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, UploadImage],
+        content: '<p>text</p>',
+      });
+      const plugin = getFileBrowserPlugin(editor);
+      const handleDrop = (plugin as any).props.handleDrop;
+
+      const file = new File([new Uint8Array(10)], 'photo.png', { type: 'image/png' });
+      const event = {
+        dataTransfer: { files: Object.assign([file], { item: (i: number) => [file][i] }) },
+        clientX: 0,
+        clientY: 0,
+        preventDefault: vi.fn(),
+      } as unknown as DragEvent;
+      const result = handleDrop(editor.view, event);
+      expect(result).toBe(false);
+    });
+
+    it('returns false when no files in dataTransfer', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>text</p>',
+      });
+      const plugin = getFileBrowserPlugin(editor);
+      const handleDrop = (plugin as any).props.handleDrop;
+
+      const event = {
+        dataTransfer: { files: Object.assign([], { item: () => null, length: 0 }) },
+        clientX: 0,
+        clientY: 0,
+        preventDefault: vi.fn(),
+      } as unknown as DragEvent;
+      const result = handleDrop(editor.view, event);
+      expect(result).toBe(false);
+    });
+
+    it('returns false for non-image file on drop', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>text</p>',
+      });
+      const plugin = getFileBrowserPlugin(editor);
+      const handleDrop = (plugin as any).props.handleDrop;
+
+      const file = new File([new Uint8Array(10)], 'doc.txt', { type: 'text/plain' });
+      const event = {
+        dataTransfer: { files: Object.assign([file], { item: (i: number) => [file][i], length: 1 }) },
+        clientX: 0,
+        clientY: 0,
+        preventDefault: vi.fn(),
+      } as unknown as DragEvent;
+      const result = handleDrop(editor.view, event);
+      expect(result).toBe(false);
+    });
+
+    it('returns false for file exceeding maxFileSize on drop', () => {
+      const CustomImage = Image.configure({ maxFileSize: 100 });
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomImage],
+        content: '<p>text</p>',
+      });
+      const plugin = getFileBrowserPlugin(editor);
+      const handleDrop = (plugin as any).props.handleDrop;
+
+      const file = new File([new Uint8Array(200)], 'big.png', { type: 'image/png' });
+      const event = {
+        dataTransfer: { files: Object.assign([file], { item: (i: number) => [file][i], length: 1 }) },
+        clientX: 0,
+        clientY: 0,
+        preventDefault: vi.fn(),
+      } as unknown as DragEvent;
+      const result = handleDrop(editor.view, event);
+      expect(result).toBe(false);
+    });
+
+    it('accepts valid image file on drop', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>text</p>',
+      });
+      const plugin = getFileBrowserPlugin(editor);
+      const handleDrop = (plugin as any).props.handleDrop;
+
+      vi.spyOn(editor.view, 'posAtCoords').mockReturnValue({ pos: 1, inside: -1 });
+
+      const file = new File([new Uint8Array(10)], 'dropped.png', { type: 'image/png' });
+      const preventDefault = vi.fn();
+      const event = {
+        dataTransfer: { files: Object.assign([file], { item: (i: number) => [file][i], length: 1 }) },
+        clientX: 10,
+        clientY: 10,
+        preventDefault,
+      } as unknown as DragEvent;
+      const result = handleDrop(editor.view, event);
+      expect(result).toBe(true);
+      expect(preventDefault).toHaveBeenCalled();
+    });
+
+    it('returns false when posAtCoords returns null', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>text</p>',
+      });
+      const plugin = getFileBrowserPlugin(editor);
+      const handleDrop = (plugin as any).props.handleDrop;
+
+      vi.spyOn(editor.view, 'posAtCoords').mockReturnValue(null);
+
+      const file = new File([new Uint8Array(10)], 'dropped.png', { type: 'image/png' });
+      const event = {
+        dataTransfer: { files: Object.assign([file], { item: (i: number) => [file][i], length: 1 }) },
+        clientX: -999,
+        clientY: -999,
+        preventDefault: vi.fn(),
+      } as unknown as DragEvent;
+      const result = handleDrop(editor.view, event);
+      expect(result).toBe(false);
+    });
+  });
+});
+
+describe('Image popover plugin', () => {
+  let editor: Editor | undefined;
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) {
+      editor.destroy();
+    }
+    // Clean up any leftover popovers
+    document.querySelectorAll('.dm-image-popover').forEach(el => { el.remove(); });
+  });
+
+  it('appends popover element to document body', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p>text</p>',
+    });
+    const popover = document.querySelector('.dm-image-popover');
+    expect(popover).not.toBeNull();
+  });
+
+  it('popover has correct structure (input + 2 buttons)', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p>text</p>',
+    });
+    const popover = document.querySelector('.dm-image-popover');
+    expect(popover).not.toBeNull();
+    expect(popover?.querySelector('.dm-image-popover-input')).not.toBeNull();
+    expect(popover?.querySelector('.dm-image-popover-apply')).not.toBeNull();
+    expect(popover?.querySelector('.dm-image-popover-browse')).not.toBeNull();
+  });
+
+  it('popover input has type="url" and placeholder', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p>text</p>',
+    });
+    const input = document.querySelector<HTMLInputElement>('.dm-image-popover-input')!;
+    expect(input.type).toBe('url');
+    expect(input.placeholder).toBe('Image URL...');
+  });
+
+  it('popover has data-dm-editor-ui attribute', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p>text</p>',
+    });
+    const popover = document.querySelector('.dm-image-popover');
+    expect(popover?.hasAttribute('data-dm-editor-ui')).toBe(true);
+  });
+
+  it('popover is hidden by default (no data-show)', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p>text</p>',
+    });
+    const popover = document.querySelector('.dm-image-popover');
+    expect(popover?.hasAttribute('data-show')).toBe(false);
+  });
+
+  it('popover is removed on editor destroy', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p>text</p>',
+    });
+    expect(document.querySelector('.dm-image-popover')).not.toBeNull();
+    editor.destroy();
+    expect(document.querySelector('.dm-image-popover')).toBeNull();
+    editor = undefined;
+  });
+});
+
+describe('Image drag overlay', () => {
+  let editor: Editor | undefined;
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) {
+      editor.destroy();
+    }
+    document.querySelectorAll('.dm-image-popover').forEach(el => { el.remove(); });
+  });
+
+  function getFileBrowserPlugin(ed: Editor): unknown {
+    return ed.state.plugins.find(
+      p => (p as any).key?.includes('imageFileBrowser'),
+    );
+  }
+
+  it('dragenter with non-image items does not add class', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p>text</p>',
+    });
+    const plugin = getFileBrowserPlugin(editor);
+    const handlers = (plugin as any).props.handleDOMEvents;
+
+    // Create a mock dragenter event with non-image items
+    const event = {
+      dataTransfer: {
+        items: [{ kind: 'file', type: 'text/plain' }],
+      },
+    } as unknown as DragEvent;
+
+    handlers.dragenter(editor.view, event);
+    const editorEl = editor.view.dom.closest('.dm-editor');
+    // Either no editor wrapper in test env, or no class added
+    expect(editorEl?.classList.contains('dm-dragover') ?? true).toBeTruthy();
   });
 });

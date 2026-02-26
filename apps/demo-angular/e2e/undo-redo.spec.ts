@@ -213,20 +213,20 @@ test.describe('Undo/Redo — block operations', () => {
   });
 
   test('undo reverts heading created via input rule', async ({ page }) => {
-    // Click last paragraph, press End, then Enter to create a new empty paragraph
-    await page.locator(`${editorSelector} p`).last().click();
+    // Replace all content with short text so End key reaches true end
+    await replaceContent(page, 'some text');
     await page.keyboard.press('End');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(600);
 
     await page.keyboard.type('## Title');
 
-    expect(await getEditorHTML(page)).toContain('<h2>');
+    expect(await getEditorHTML(page)).toContain('<h2>Title</h2>');
 
     // Undo reverts the input rule conversion
     await page.keyboard.press(`${modifier}+z`);
     const html = await getEditorHTML(page);
-    expect(html).not.toContain('<h2>');
+    expect(html).not.toContain('<h2>Title</h2>');
   });
 
   test('redo re-applies blockquote after undo', async ({ page }) => {

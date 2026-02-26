@@ -139,13 +139,6 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
   let updateTimeout: ReturnType<typeof setTimeout> | null = null;
   let cleanupFloating: (() => void) | null = null;
 
-  // Move element inside .dm-editor (position:relative) so it uses
-  // position:absolute — CSS compositor handles scroll, zero jitter.
-  const editorEl = editor.view.dom.closest('.dm-editor');
-  if (editorEl && element.parentElement !== editorEl) {
-    editorEl.appendChild(element);
-  }
-
   const updatePosition = (view: EditorView, from: number, to: number): void => {
     cleanupFloating?.();
 
@@ -158,20 +151,18 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
       const dom = view.nodeDOM(from);
       if (dom instanceof HTMLElement) reference = dom;
     }
-    if (!reference) {
-      reference = {
-        getBoundingClientRect: () => {
-          const start = view.coordsAtPos(from);
-          const end = view.coordsAtPos(to);
-          return new DOMRect(
-            start.left,
-            start.top,
-            end.right - start.left,
-            end.bottom - start.top,
-          );
-        },
-      };
-    }
+    reference ??= {
+      getBoundingClientRect: () => {
+        const start = view.coordsAtPos(from);
+        const end = view.coordsAtPos(to);
+        return new DOMRect(
+          start.left,
+          start.top,
+          end.right - start.left,
+          end.bottom - start.top,
+        );
+      },
+    };
 
     cleanupFloating = positionFloatingOnce(reference, element, {
       placement,
@@ -245,7 +236,14 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
       },
     },
 
-    view: () => {
+    view: (editorView) => {
+      // Move element inside .dm-editor (position:relative) so it uses
+      // position:absolute — CSS compositor handles scroll, zero jitter.
+      const editorEl = editorView.dom.closest('.dm-editor');
+      if (editorEl && element.parentElement !== editorEl) {
+        editorEl.appendChild(element);
+      }
+
       const onFocus = (): void => {
         // Re-evaluate after focus (selection may have settled)
         setTimeout(() => {

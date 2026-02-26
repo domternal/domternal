@@ -216,9 +216,13 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   private detectContext(selection: SelectionShape, ctxs: Record<string, string[] | true>): string | null {
     if (selection.node) return selection.node.type.name;
     if (selection.empty) return null;
-    const parentName = selection.$from.parent.type.name;
-    if (parentName in ctxs) return parentName;
+    const fromName = selection.$from.parent.type.name;
+    if (fromName in ctxs) return fromName;
     if ('text' in ctxs && selection.$from.parent.type.spec.marks !== '') return 'text';
+    // Cross-block: also check $to so bold/italic is offered when any endpoint allows marks
+    const toName = selection.$to.parent.type.name;
+    if (toName in ctxs) return toName;
+    if ('text' in ctxs && selection.$to.parent.type.spec.marks !== '') return 'text';
     return null;
   }
 

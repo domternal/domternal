@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test';
 
 const editorSelector = 'domternal-editor .ProseMirror';
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
-const floatingMenuInner = 'domternal-floating-menu .dm-floating-menu';
+// After plugin registration the .dm-floating-menu element is reparented into .dm-editor
+const floatingMenuInner = '.dm-editor .dm-floating-menu';
 
 test.describe('Floating Menu', () => {
   test.beforeEach(async ({ page }) => {

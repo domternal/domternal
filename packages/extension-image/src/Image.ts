@@ -15,10 +15,12 @@
  * - Defense in depth: validated in parseHTML, renderHTML, setImage command, and input rule
  */
 
-import { Node, Editor, PluginKey, positionFloating, defaultIcons } from '@domternal/core';
-import type { CommandSpec, ToolbarItem } from '@domternal/core';
+import { Node, PluginKey, positionFloating, defaultIcons } from '@domternal/core';
+import type { Editor, CommandSpec, ToolbarItem } from '@domternal/core';
 import { Plugin } from 'prosemirror-state';
 import { InputRule } from 'prosemirror-inputrules';
+import type { Node as PmNode } from 'prosemirror-model';
+import type { EditorView } from 'prosemirror-view';
 import { imageUploadPlugin } from './imageUploadPlugin.js';
 
 /** Float values for image text wrapping. */
@@ -73,8 +75,8 @@ function isValidImageSrc(value: unknown, allowBase64: boolean): boolean {
 function readFileAsDataURL(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
+    reader.onload = () => { resolve(reader.result as string); };
+    reader.onerror = () => { reject(reader.error ?? new Error('FileReader error')); };
     reader.readAsDataURL(file);
   });
 }
@@ -316,7 +318,7 @@ export const Image = Node.create<ImageOptions>({
   },
 
   addNodeView() {
-    return (node: import('prosemirror-model').Node, view: import('prosemirror-view').EditorView, getPos: () => number | undefined) => {
+    return (node: PmNode, view: EditorView, getPos: () => number | undefined) => {
       const dom = document.createElement('div');
       dom.className = 'dm-image-resizable';
       dom.draggable = true;
@@ -331,11 +333,11 @@ export const Image = Node.create<ImageOptions>({
       applyFloat(node.attrs['float'] as string);
 
       const img = document.createElement('img');
-      img.src = (node.attrs['src'] as string) ?? '';
+      img.src = node.attrs['src'] as string;
       if (node.attrs['alt']) img.alt = node.attrs['alt'] as string;
       if (node.attrs['title']) img.title = node.attrs['title'] as string;
       if (node.attrs['width']) {
-        img.style.width = `${node.attrs['width']}px`;
+        img.style.width = `${String(node.attrs['width'] as number)}px`;
       }
       dom.appendChild(img);
 
@@ -354,7 +356,7 @@ export const Image = Node.create<ImageOptions>({
           const onMouseMove = (ev: MouseEvent): void => {
             const dx = isLeft ? startX - ev.clientX : ev.clientX - startX;
             const newWidth = Math.max(50, startWidth + dx);
-            img.style.width = `${newWidth}px`;
+            img.style.width = `${String(newWidth)}px`;
           };
 
           const onMouseUp = (): void => {
@@ -382,13 +384,13 @@ export const Image = Node.create<ImageOptions>({
 
       return {
         dom,
-        update(updatedNode: import('prosemirror-model').Node) {
+        update(updatedNode: PmNode) {
           if (updatedNode.type.name !== 'image') return false;
-          img.src = (updatedNode.attrs['src'] as string) ?? '';
-          img.alt = (updatedNode.attrs['alt'] as string) ?? '';
-          img.title = (updatedNode.attrs['title'] as string) ?? '';
+          img.src = updatedNode.attrs['src'] as string;
+          img.alt = updatedNode.attrs['alt'] as string;
+          img.title = updatedNode.attrs['title'] as string;
           if (updatedNode.attrs['width']) {
-            img.style.width = `${updatedNode.attrs['width']}px`;
+            img.style.width = `${String(updatedNode.attrs['width'] as number)}px`;
           } else {
             img.style.width = '';
           }
@@ -402,6 +404,7 @@ export const Image = Node.create<ImageOptions>({
         deselectNode() {
           dom.classList.remove('ProseMirror-selectednode');
         },
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
         destroy() {},
       };
     };
@@ -466,7 +469,7 @@ export const Image = Node.create<ImageOptions>({
     const options = this.options;
 
     // Image popover + drag overlay + paste/drop plugin
-    if (editor && nodeType) {
+    if (nodeType) {
       // --- Build popover DOM ---
       const el = document.createElement('div');
       el.className = 'dm-image-popover';
@@ -534,7 +537,7 @@ export const Image = Node.create<ImageOptions>({
         if (options.uploadHandler) {
           options.uploadHandler(file)
             .then((url) => {
-              editor.commands['setImage']?.({ src: url });
+              editor.commands.setImage({ src: url });
             })
             .catch((error: unknown) => {
               if (options.onUploadError) {
@@ -545,7 +548,7 @@ export const Image = Node.create<ImageOptions>({
               }
             });
         } else {
-          readFileAsDataURL(file).then(src => {
+          void readFileAsDataURL(file).then(src => {
             const { tr } = editor.view.state;
             tr.replaceSelectionWith(nodeType.create({ src }));
             editor.view.dispatch(tr);
@@ -556,7 +559,7 @@ export const Image = Node.create<ImageOptions>({
       const applyUrl = (): void => {
         const src = urlInput.value.trim();
         if (src && isValidImageSrc(src, options.allowBase64)) {
-          editor.commands['setImage']?.({ src });
+          editor.commands.setImage({ src });
         }
         closePopover();
       };
@@ -664,7 +667,7 @@ export const Image = Node.create<ImageOptions>({
                 if (options.maxFileSize > 0 && file.size > options.maxFileSize) continue;
 
                 event.preventDefault();
-                readFileAsDataURL(file).then(src => {
+                void readFileAsDataURL(file).then(src => {
                   const { tr } = view.state;
                   tr.replaceSelectionWith(nodeType.create({ src }));
                   view.dispatch(tr);
@@ -688,7 +691,7 @@ export const Image = Node.create<ImageOptions>({
             const pos = view.posAtCoords({ left: event.clientX, top: event.clientY });
             if (!pos) return false;
 
-            readFileAsDataURL(file).then(src => {
+            void readFileAsDataURL(file).then(src => {
               const tr = view.state.tr;
               tr.insert(pos.pos, nodeType.create({ src }));
               view.dispatch(tr);
@@ -711,7 +714,7 @@ export const Image = Node.create<ImageOptions>({
           document.addEventListener('mousedown', onClickOutside);
 
           // 'insertImage' is a dynamic event not in EditorEvents — cast once
-          type DynEvents = { on(e: string, fn: typeof onInsertImage): void; off(e: string, fn: typeof onInsertImage): void };
+          interface DynEvents { on(e: string, fn: typeof onInsertImage): void; off(e: string, fn: typeof onInsertImage): void }
           const dynEditor = editor as unknown as DynEvents;
           dynEditor.on('insertImage', onInsertImage);
 

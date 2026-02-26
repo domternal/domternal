@@ -801,6 +801,246 @@ describe('ToolbarController', () => {
   });
 
   // =========================================================================
+  // toolbar: false filtering
+  // =========================================================================
+  describe('toolbar: false filtering', () => {
+    it('excludes buttons with toolbar: false from groups', () => {
+      const items: ToolbarItem[] = [
+        btn('bold', { group: 'format' }),
+        btn('floatLeft', { group: 'image-float', toolbar: false }),
+        btn('floatRight', { group: 'image-float', toolbar: false }),
+      ];
+      const editor = createMockEditor(items);
+
+      controller = new ToolbarController(editor, vi.fn());
+
+      expect(controller.groups).toHaveLength(1);
+      expect(controller.groups[0]!.name).toBe('format');
+      expect(controller.groups[0]!.items).toHaveLength(1);
+      expect(controller.groups[0]!.items[0]!.name).toBe('bold');
+    });
+
+    it('does not exclude buttons with toolbar: undefined (default)', () => {
+      const items: ToolbarItem[] = [
+        btn('bold', { group: 'format' }),
+        btn('italic', { group: 'format' }),
+      ];
+      const editor = createMockEditor(items);
+
+      controller = new ToolbarController(editor, vi.fn());
+
+      expect(controller.groups[0]!.items).toHaveLength(2);
+    });
+
+    it('toolbar: false items are not in flat button list', () => {
+      const items: ToolbarItem[] = [
+        btn('bold'),
+        btn('hidden', { toolbar: false }),
+        btn('italic'),
+      ];
+      const editor = createMockEditor(items);
+
+      controller = new ToolbarController(editor, vi.fn());
+
+      expect(controller.flatButtonCount).toBe(2);
+      expect(controller.getFlatIndex('bold')).toBe(0);
+      expect(controller.getFlatIndex('italic')).toBe(1);
+      expect(controller.getFlatIndex('hidden')).toBe(-1);
+    });
+
+    it('group is omitted entirely if all items have toolbar: false', () => {
+      const items: ToolbarItem[] = [
+        btn('bold', { group: 'format' }),
+        btn('floatNone', { group: 'image-float', toolbar: false }),
+        btn('floatLeft', { group: 'image-float', toolbar: false }),
+      ];
+      const editor = createMockEditor(items);
+
+      controller = new ToolbarController(editor, vi.fn());
+
+      expect(controller.groups).toHaveLength(1);
+      expect(controller.groups[0]!.name).toBe('format');
+    });
+
+    it('toolbar: false only affects type=button, not dropdowns', () => {
+      const items: ToolbarItem[] = [
+        dropdown('headings', [btn('h1'), btn('h2')], { group: 'blocks' }),
+        btn('hidden', { group: 'blocks', toolbar: false }),
+      ];
+      const editor = createMockEditor(items);
+
+      controller = new ToolbarController(editor, vi.fn());
+
+      // Dropdown is still there, hidden button is not
+      expect(controller.groups[0]!.items).toHaveLength(1);
+      expect(controller.groups[0]!.items[0]!.name).toBe('headings');
+    });
+
+    it('mixed toolbar true/false items within same group', () => {
+      const items: ToolbarItem[] = [
+        btn('image', { group: 'insert' }),
+        btn('floatNone', { group: 'insert', toolbar: false }),
+        btn('link', { group: 'insert' }),
+      ];
+      const editor = createMockEditor(items);
+
+      controller = new ToolbarController(editor, vi.fn());
+
+      expect(controller.groups[0]!.items).toHaveLength(2);
+      const names = controller.groups[0]!.items.map(i => i.name);
+      expect(names).toContain('image');
+      expect(names).toContain('link');
+      expect(names).not.toContain('floatNone');
+    });
+  });
+
+  // =========================================================================
+  // Expanded state tracking (emitEvent buttons)
+  // =========================================================================
+  describe('expanded state tracking', () => {
+    it('expandedMap starts empty', () => {
+      controller = new ToolbarController(createMockEditor([]), vi.fn());
+      expect(controller.expandedMap.size).toBe(0);
+    });
+
+    it('tracks expanded state for emitEvent buttons', () => {
+      const items: ToolbarItem[] = [
+        btn('link', { emitEvent: 'openLinkPopover', command: 'setLink' }),
+      ];
+      const editor = createMockEditor(items, {
+        storage: { link: { isOpen: true } },
+        on: vi.fn(),
+        off: vi.fn(),
+      });
+
+      controller = new ToolbarController(editor, vi.fn());
+      controller.subscribe();
+
+      expect(controller.expandedMap.get('link')).toBe(true);
+    });
+
+    it('expanded is false when storage.isOpen is false', () => {
+      const items: ToolbarItem[] = [
+        btn('link', { emitEvent: 'openLinkPopover', command: 'setLink' }),
+      ];
+      const editor = createMockEditor(items, {
+        storage: { link: { isOpen: false } },
+        on: vi.fn(),
+        off: vi.fn(),
+      });
+
+      controller = new ToolbarController(editor, vi.fn());
+      controller.subscribe();
+
+      expect(controller.expandedMap.get('link')).toBeUndefined();
+    });
+
+    it('expanded is false when storage entry does not exist', () => {
+      const items: ToolbarItem[] = [
+        btn('link', { emitEvent: 'openLinkPopover', command: 'setLink' }),
+      ];
+      const editor = createMockEditor(items, {
+        storage: {},
+        on: vi.fn(),
+        off: vi.fn(),
+      });
+
+      controller = new ToolbarController(editor, vi.fn());
+      controller.subscribe();
+
+      expect(controller.expandedMap.get('link')).toBeUndefined();
+    });
+
+    it('does not track expanded state for non-emitEvent buttons', () => {
+      const items: ToolbarItem[] = [
+        btn('bold', { isActive: 'bold', command: 'toggleBold' }),
+      ];
+      const editor = createMockEditor(items, {
+        storage: { bold: { isOpen: true } },
+        on: vi.fn(),
+        off: vi.fn(),
+      });
+
+      controller = new ToolbarController(editor, vi.fn());
+      controller.subscribe();
+
+      // Bold has no emitEvent — expanded should not be tracked
+      expect(controller.expandedMap.has('bold')).toBe(false);
+    });
+
+    it('calls onChange when expanded state changes', () => {
+      let transactionHandler: (() => void) | null = null;
+      const storage: Record<string, unknown> = { link: { isOpen: false } };
+      const items: ToolbarItem[] = [
+        btn('link', { emitEvent: 'openLinkPopover', command: 'setLink' }),
+      ];
+      const editor = createMockEditor(items, {
+        storage,
+        on: (_event: string, handler: (...args: unknown[]) => void) => {
+          transactionHandler = handler as () => void;
+        },
+        off: () => { /* stub */ },
+      });
+      const onChange = vi.fn();
+
+      controller = new ToolbarController(editor, onChange);
+      controller.subscribe();
+      onChange.mockClear();
+
+      // Simulate the popover opening
+      (storage['link'] as Record<string, unknown>)['isOpen'] = true;
+      transactionHandler!();
+
+      expect(controller.expandedMap.get('link')).toBe(true);
+      expect(onChange).toHaveBeenCalled();
+    });
+
+    it('does not call onChange when expanded state has not changed', () => {
+      let transactionHandler: (() => void) | null = null;
+      const storage: Record<string, unknown> = { link: { isOpen: true } };
+      const items: ToolbarItem[] = [
+        btn('link', { emitEvent: 'openLinkPopover', command: 'setLink' }),
+      ];
+      const editor = createMockEditor(items, {
+        storage,
+        on: (_event: string, handler: (...args: unknown[]) => void) => {
+          transactionHandler = handler as () => void;
+        },
+        off: () => { /* stub */ },
+      });
+      const onChange = vi.fn();
+
+      controller = new ToolbarController(editor, onChange);
+      controller.subscribe();
+      onChange.mockClear();
+
+      // Trigger transaction — isOpen is still true
+      transactionHandler!();
+
+      // No change → onChange should not be called
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('destroy clears expandedMap', () => {
+      const items: ToolbarItem[] = [
+        btn('link', { emitEvent: 'openLinkPopover', command: 'setLink' }),
+      ];
+      const editor = createMockEditor(items, {
+        storage: { link: { isOpen: true } },
+        on: vi.fn(),
+        off: vi.fn(),
+      });
+
+      controller = new ToolbarController(editor, vi.fn());
+      controller.subscribe();
+      expect(controller.expandedMap.size).toBeGreaterThan(0);
+
+      controller.destroy();
+      expect(controller.expandedMap.size).toBe(0);
+    });
+  });
+
+  // =========================================================================
   // Edge cases
   // =========================================================================
   describe('edge cases', () => {

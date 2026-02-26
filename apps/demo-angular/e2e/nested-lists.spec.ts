@@ -12,14 +12,16 @@ async function setContentAndFocus(
   html: string,
   focusSelector?: string,
 ) {
-  const editor = page.locator(editorSelector);
-  await editor.evaluate((el, h) => {
-    el.innerHTML = h;
-    el.dispatchEvent(new Event('input', { bubbles: true }));
+  await page.evaluate((h) => {
+    const el = document.querySelector('domternal-editor');
+    const ng = (window as any).ng;
+    const comp = ng?.getComponent?.(el);
+    if (comp?.editor) {
+      comp.editor.setContent(h, false);
+      comp.editor.commands.focus();
+    }
   }, html);
-
-  // Give ProseMirror a tick to parse the new DOM
-  await page.waitForTimeout(100);
+  await page.waitForTimeout(150);
 
   if (focusSelector) {
     const el = page.locator(`${editorSelector} ${focusSelector}`);
