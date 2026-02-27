@@ -26,7 +26,7 @@
  */
 
 import { Node } from '@domternal/core';
-import type { CommandSpec } from '@domternal/core';
+import type { CommandSpec, ToolbarItem } from '@domternal/core';
 import { TextSelection } from 'prosemirror-state';
 import type { Node as PMNode } from 'prosemirror-model';
 import type { EditorView, NodeView, NodeViewConstructor } from 'prosemirror-view';
@@ -318,6 +318,39 @@ export const Table = Node.create<TableOptions>({
         });
       },
     };
+  },
+
+  addToolbarItems(): ToolbarItem[] {
+    return [
+      {
+        type: 'button',
+        name: 'insertTable',
+        command: 'insertTable',
+        icon: 'table',
+        label: 'Insert Table',
+        group: 'insert',
+        priority: 140,
+      },
+      {
+        type: 'dropdown',
+        name: 'tableOperations',
+        icon: 'gridNine',
+        label: 'Table',
+        group: 'table-ops',
+        priority: 100,
+        items: [
+          { type: 'button', name: 'addRowBefore', command: 'addRowBefore', icon: 'rowsPlusTop', label: 'Add Row Before' },
+          { type: 'button', name: 'addRowAfter', command: 'addRowAfter', icon: 'rowsPlusBottom', label: 'Add Row After' },
+          { type: 'button', name: 'deleteRow', command: 'deleteRow', icon: 'rows', label: 'Delete Row' },
+          { type: 'button', name: 'addColumnBefore', command: 'addColumnBefore', icon: 'columnsPlusLeft', label: 'Add Column Before' },
+          { type: 'button', name: 'addColumnAfter', command: 'addColumnAfter', icon: 'columnsPlusRight', label: 'Add Column After' },
+          { type: 'button', name: 'deleteColumn', command: 'deleteColumn', icon: 'columns', label: 'Delete Column' },
+          { type: 'button', name: 'toggleHeaderRow', command: 'toggleHeaderRow', icon: 'squareHalf', label: 'Toggle Header Row' },
+          { type: 'button', name: 'toggleHeaderColumn', command: 'toggleHeaderColumn', icon: 'squareHalfBottom', label: 'Toggle Header Column' },
+          { type: 'button', name: 'deleteTable', command: 'deleteTable', icon: 'trash', label: 'Delete Table' },
+        ],
+      },
+    ];
   },
 
   addProseMirrorPlugins() {
