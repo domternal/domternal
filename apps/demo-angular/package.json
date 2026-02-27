@@ -35,6 +35,7 @@
     "@domternal/extension-details": "workspace:*",
     "@domternal/extension-emoji": "workspace:*",
     "@domternal/extension-image": "workspace:*",
+    "@domternal/extension-table": "workspace:*",
     "lowlight": "^3.0.0",
     "@domternal/theme": "workspace:*",
     "rxjs": "~7.8.0",

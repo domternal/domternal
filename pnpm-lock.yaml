@@ -86,6 +86,9 @@ importers:
       '@domternal/extension-image':
         specifier: workspace:*
         version: link:../../packages/extension-image
+      '@domternal/extension-table':
+        specifier: workspace:*
+        version: link:../../packages/extension-table
       '@domternal/theme':
         specifier: workspace:*
         version: link:../../packages/theme

@@ -16,7 +16,7 @@
     <domternal-toolbar [editor]="ed" />
   }
 
-  <div style="position: relative;">
+
     <domternal-editor
       #ec
       [extensions]="extensions"
@@ -39,7 +39,7 @@
         <button (mousedown)="$event.preventDefault()" (click)="ed.commands.setHorizontalRule()">—</button>
       </domternal-floating-menu>-->
     }
-  </div>
+
 
   <h3>HTML Output</h3>
   <pre class="output">{{ ec.htmlContent() }}</pre>
