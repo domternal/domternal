@@ -27,7 +27,7 @@
 
 import { Node } from '@domternal/core';
 import type { CommandSpec, ToolbarItem } from '@domternal/core';
-import { TextSelection } from 'prosemirror-state';
+import { Plugin, TextSelection } from 'prosemirror-state';
 import type { Node as PMNode } from 'prosemirror-model';
 import type { EditorView, NodeView, NodeViewConstructor } from 'prosemirror-view';
 import {
@@ -357,6 +357,33 @@ export const Table = Node.create<TableOptions>({
     return [
       tableEditing({
         allowTableNodeSelection: this.options.allowTableNodeSelection,
+      }),
+
+      // Show/hide cell handle when CellSelection changes
+      new Plugin({
+        view: () => {
+          let lastTableView: TableView | null = null;
+          return {
+            update: (view) => {
+              const sel = view.state.selection;
+              if (sel instanceof CellSelection) {
+                const domInfo = view.domAtPos((sel as any).$anchorCell.pos + 1);
+                const el = domInfo.node instanceof HTMLElement
+                  ? domInfo.node
+                  : domInfo.node.parentElement;
+                const container = el?.closest('.dm-table-container') as HTMLElement | null;
+                const tv = container && (container as any).__tableView as TableView | undefined;
+                if (tv) {
+                  tv.updateCellHandle(true);
+                  lastTableView = tv;
+                }
+              } else if (lastTableView) {
+                lastTableView.updateCellHandle(false);
+                lastTableView = null;
+              }
+            },
+          };
+        },
       }),
     ];
   },

@@ -20,6 +20,8 @@ import {
   addColumnBefore,
   addColumnAfter,
   deleteColumn,
+  setCellAttr,
+  toggleHeaderCell,
 } from 'prosemirror-tables';
 
 // Inline SVG icons for handle buttons (three dots)
@@ -27,6 +29,14 @@ const DOTS_H =
   '<svg width="10" height="4" viewBox="0 0 10 4"><circle cx="2" cy="2" r="1.2" fill="currentColor"/><circle cx="5" cy="2" r="1.2" fill="currentColor"/><circle cx="8" cy="2" r="1.2" fill="currentColor"/></svg>';
 const DOTS_V =
   '<svg width="4" height="10" viewBox="0 0 4 10"><circle cx="2" cy="2" r="1.2" fill="currentColor"/><circle cx="2" cy="5" r="1.2" fill="currentColor"/><circle cx="2" cy="8" r="1.2" fill="currentColor"/></svg>';
+const CELL_ICON =
+  '<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="2" cy="2" r="1.2" fill="currentColor"/><circle cx="6" cy="2" r="1.2" fill="currentColor"/><circle cx="2" cy="6" r="1.2" fill="currentColor"/><circle cx="6" cy="6" r="1.2" fill="currentColor"/></svg>';
+
+// Default cell background colors (2 rows × 5 columns)
+const CELL_COLORS = [
+  '#fef08a', '#fed7aa', '#fecaca', '#fbcfe8', '#d0bfff',
+  '#a7f3d0', '#a5f3fc', '#bfdbfe', '#e2e8f0', '#f5f5f5',
+];
 
 type PMCommand = (
   state: Parameters<typeof addRowBefore>[0],
@@ -46,6 +56,7 @@ export class TableView implements NodeView {
   private wrapper: HTMLElement;
   private colHandle: HTMLButtonElement;
   private rowHandle: HTMLButtonElement;
+  private cellHandle: HTMLButtonElement;
   private dropdown: HTMLElement | null = null;
 
   private hoveredCell: HTMLTableCellElement | null = null;
@@ -71,10 +82,10 @@ export class TableView implements NodeView {
     this.boundCancelHide = this.cancelHide.bind(this);
     this.boundDocMouseDown = this.onDocMouseDown.bind(this);
     this.boundDocKeyDown = this.onDocKeyDown.bind(this);
-
     // Create outer container (position: relative, overflow: visible)
     this.dom = document.createElement('div');
     this.dom.className = 'dm-table-container';
+    (this.dom as any).__tableView = this;
 
     // Create column handle
     this.colHandle = this.createHandle('dm-table-col-handle', 'Column options', DOTS_H);
@@ -91,6 +102,14 @@ export class TableView implements NodeView {
       this.onRowClick();
     });
     this.dom.appendChild(this.rowHandle);
+
+    // Create cell handle (circle, shown by plugin when CellSelection is active)
+    this.cellHandle = this.createHandle('dm-table-cell-handle', 'Cell options', CELL_ICON);
+    this.cellHandle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.showCellDropdown();
+    });
+    this.dom.appendChild(this.cellHandle);
 
     // Create wrapper div (overflow-x: auto for horizontal scrolling)
     this.wrapper = document.createElement('div');
@@ -237,6 +256,7 @@ export class TableView implements NodeView {
       this.rowHandle.style.left = `${tableRect.left - containerRect.left - 16}px`;
       this.rowHandle.style.top = `${trRect.top - containerRect.top + trRect.height / 2 - 12}px`;
     }
+
   }
 
   private getCellIndices(cell: HTMLTableCellElement): { row: number; col: number } {
@@ -257,6 +277,37 @@ export class TableView implements NodeView {
     }
 
     return { row, col };
+  }
+
+  // ─── Cell handle (driven by CellSelection plugin) ───────────────────
+
+  /** Called by the cellHandlePlugin when CellSelection changes. */
+  updateCellHandle(active: boolean): void {
+    if (!active) {
+      this.cellHandle.style.display = '';
+      this.closeDropdown();
+      return;
+    }
+
+    // Compute bounding box of ALL selected cells → position at top-right corner
+    const selectedCells = this.table.querySelectorAll('.selectedCell');
+    if (selectedCells.length === 0) {
+      this.cellHandle.style.display = '';
+      return;
+    }
+
+    let top = Infinity;
+    let right = -Infinity;
+    selectedCells.forEach((c) => {
+      const r = c.getBoundingClientRect();
+      if (r.top < top) top = r.top;
+      if (r.right > right) right = r.right;
+    });
+
+    const containerRect = this.dom.getBoundingClientRect();
+    this.cellHandle.style.left = `${right - containerRect.left - 9}px`;
+    this.cellHandle.style.top = `${top - containerRect.top - 9}px`;
+    this.cellHandle.style.display = 'flex';
   }
 
   // ─── Handle clicks ───────────────────────────────────────────────────
@@ -375,6 +426,84 @@ export class TableView implements NodeView {
     document.addEventListener('keydown', this.boundDocKeyDown);
   }
 
+  private showCellDropdown(): void {
+    this.closeDropdown();
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'dm-table-controls-dropdown dm-table-cell-dropdown';
+    dropdown.addEventListener('mouseenter', this.boundCancelHide);
+    dropdown.addEventListener('mousedown', (e) => e.preventDefault());
+
+    // Section label: Cell color
+    const label = document.createElement('div');
+    label.className = 'dm-table-cell-dropdown-label';
+    label.textContent = 'Cell color';
+    dropdown.appendChild(label);
+
+    // Color palette grid
+    const palette = document.createElement('div');
+    palette.className = 'dm-color-palette';
+    palette.style.setProperty('--dm-palette-columns', '5');
+
+    // Reset button
+    const resetBtn = document.createElement('button');
+    resetBtn.type = 'button';
+    resetBtn.className = 'dm-color-palette-reset';
+    resetBtn.innerHTML =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" width="14" height="14"><path d="M165.66,101.66,139.31,128l26.35,26.34a8,8,0,0,1-11.32,11.32L128,139.31l-26.34,26.35a8,8,0,0,1-11.32-11.32L116.69,128,90.34,101.66a8,8,0,0,1,11.32-11.32L128,116.69l26.34-26.35a8,8,0,0,1,11.32,11.32ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg>' +
+      ' Default';
+    resetBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setCellAttr('background', null)(this.view.state, this.view.dispatch);
+      this.closeDropdown();
+    });
+    palette.appendChild(resetBtn);
+
+    // Color swatches
+    for (const color of CELL_COLORS) {
+      const swatch = document.createElement('button');
+      swatch.type = 'button';
+      swatch.className = 'dm-color-swatch';
+      swatch.style.backgroundColor = color;
+      swatch.setAttribute('aria-label', color);
+      swatch.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setCellAttr('background', color)(this.view.state, this.view.dispatch);
+        this.closeDropdown();
+      });
+      palette.appendChild(swatch);
+    }
+    dropdown.appendChild(palette);
+
+    // Separator
+    const sep = document.createElement('div');
+    sep.className = 'dm-table-cell-dropdown-separator';
+    dropdown.appendChild(sep);
+
+    // Toggle header cell button
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.textContent = 'Toggle Header Cell';
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleHeaderCell(this.view.state, this.view.dispatch);
+      this.closeDropdown();
+    });
+    dropdown.appendChild(toggleBtn);
+
+    // Position below the cell handle
+    const handleRect = this.cellHandle.getBoundingClientRect();
+    const containerRect = this.dom.getBoundingClientRect();
+    dropdown.style.left = `${handleRect.left - containerRect.left}px`;
+    dropdown.style.top = `${handleRect.bottom - containerRect.top + 4}px`;
+
+    this.dom.appendChild(dropdown);
+    this.dropdown = dropdown;
+
+    document.addEventListener('mousedown', this.boundDocMouseDown, true);
+    document.addEventListener('keydown', this.boundDocKeyDown);
+  }
+
   private closeDropdown(): void {
     if (!this.dropdown) return;
     this.dropdown.remove();
@@ -388,7 +517,8 @@ export class TableView implements NodeView {
     if (
       this.dropdown?.contains(target) ||
       this.colHandle.contains(target) ||
-      this.rowHandle.contains(target)
+      this.rowHandle.contains(target) ||
+      this.cellHandle.contains(target)
     ) {
       return;
     }

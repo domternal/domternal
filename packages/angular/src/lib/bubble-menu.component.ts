@@ -28,6 +28,8 @@ type BubbleMenuItem = ToolbarButton | BubbleMenuSeparator;
 /** Minimal ProseMirror Selection shape for duck-typing (avoids instanceof issues across bundles) */
 interface ResolvedPosShape {
   parent: { type: { name: string; spec: { marks?: string } } };
+  depth: number;
+  node: (depth: number) => { type: { name: string } };
 }
 
 interface SelectionShape {
@@ -214,6 +216,8 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   }
 
   private detectContext(selection: SelectionShape, ctxs: Record<string, string[] | true>): string | null {
+    // CellSelection (duck-type: has $anchorCell from prosemirror-tables) — never show bubble menu
+    if ('$anchorCell' in selection) return 'table';
     if (selection.node) return selection.node.type.name;
     if (selection.empty) return null;
     const fromName = selection.$from.parent.type.name;
