@@ -4,13 +4,15 @@
  * Block-level table container using HTML <table>.
  * Built on prosemirror-tables for cell selection, keyboard nav, and table editing.
  *
- * Commands (16):
+ * Commands (18):
  * - insertTable: Insert new table with configurable rows/cols/header
  * - deleteTable: Delete entire table
  * - addRowBefore / addRowAfter: Insert row
  * - deleteRow: Delete current row
  * - addColumnBefore / addColumnAfter: Insert column
  * - deleteColumn: Delete current column
+ * - mergeCells: Merge selected cells into one
+ * - splitCell: Split a merged cell back to individual cells
  * - toggleHeaderRow / toggleHeaderColumn / toggleHeaderCell: Toggle header
  * - setCellAttribute: Set cell attribute
  * - goToNextCell / goToPreviousCell: Cell navigation
@@ -32,6 +34,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import type { EditorView, NodeView, NodeViewConstructor } from 'prosemirror-view';
 import {
   tableEditing,
+  columnResizing,
   addColumnBefore,
   addColumnAfter,
   deleteColumn,
@@ -39,6 +42,8 @@ import {
   addRowAfter,
   deleteRow,
   deleteTable,
+  mergeCells,
+  splitCell,
   toggleHeader,
   toggleHeaderCell,
   setCellAttr,
@@ -64,6 +69,8 @@ declare module '@domternal/core' {
     toggleHeaderRow: CommandSpec;
     toggleHeaderColumn: CommandSpec;
     toggleHeaderCell: CommandSpec;
+    mergeCells: CommandSpec;
+    splitCell: CommandSpec;
     setCellAttribute: CommandSpec<[name: string, value: unknown]>;
     goToNextCell: CommandSpec;
     goToPreviousCell: CommandSpec;
@@ -216,6 +223,18 @@ export const Table = Node.create<TableOptions>({
           return toggleHeaderCell(state, dispatch);
         },
 
+      mergeCells:
+        () =>
+        ({ state, dispatch }) => {
+          return mergeCells(state, dispatch);
+        },
+
+      splitCell:
+        () =>
+        ({ state, dispatch }) => {
+          return splitCell(state, dispatch);
+        },
+
       setCellAttribute:
         (name: string, value: unknown) =>
         ({ state, dispatch }) => {
@@ -355,6 +374,10 @@ export const Table = Node.create<TableOptions>({
 
   addProseMirrorPlugins() {
     return [
+      columnResizing({
+        cellMinWidth: this.options.cellMinWidth,
+      }),
+
       tableEditing({
         allowTableNodeSelection: this.options.allowTableNodeSelection,
       }),

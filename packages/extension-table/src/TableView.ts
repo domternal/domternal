@@ -20,6 +20,8 @@ import {
   addColumnBefore,
   addColumnAfter,
   deleteColumn,
+  mergeCells,
+  splitCell,
   setCellAttr,
   toggleHeaderCell,
 } from 'prosemirror-tables';
@@ -41,6 +43,11 @@ const ICON_ALIGNMENT =
   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M32,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H40A8,8,0,0,1,32,64Zm8,48H168a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm176,24H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm-48,40H40a8,8,0,0,0,0,16H168a8,8,0,0,0,0-16Z"/></svg>';
 const ICON_HEADER =
   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32Zm0,176H48V48H208V208ZM72,96V80a8,8,0,0,1,16,0V96a8,8,0,0,1-16,0Zm96,0V80a8,8,0,0,1,16,0V96a8,8,0,0,1-16,0Zm-48,0V80a8,8,0,0,1,16,0V96a8,8,0,0,1-16,0Z"/></svg>';
+// Merge/split icons (16×16)
+const ICON_MERGE =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M200,40H56A16,16,0,0,0,40,56V200a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,16V96H136V56ZM56,56h64V96H56ZM56,200V112H200v88Z"/></svg>';
+const ICON_SPLIT =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M200,40H56A16,16,0,0,0,40,56V200a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V56A16,16,0,0,0,200,40Zm0,16V96H136V56ZM56,56h64V96H56ZM56,136V112h64v24Zm0,64V152h64v48Zm144,0H136V152h64Zm0-48H136V112h64Z"/></svg>';
 
 // Horizontal alignment icons (Phosphor, 16×16)
 const ICON_ALIGN_LEFT =
@@ -244,9 +251,30 @@ export class TableView implements NodeView {
     toolbar.appendChild(alignBtn);
 
     // Separator
-    const sep = document.createElement('span');
-    sep.className = 'dm-table-cell-toolbar-sep';
-    toolbar.appendChild(sep);
+    const sep1 = document.createElement('span');
+    sep1.className = 'dm-table-cell-toolbar-sep';
+    toolbar.appendChild(sep1);
+
+    // Merge cells button
+    const mergeBtn = this.createToolbarButton(ICON_MERGE, 'Merge cells');
+    mergeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      mergeCells(this.view.state, this.view.dispatch);
+    });
+    toolbar.appendChild(mergeBtn);
+
+    // Split cell button
+    const splitBtn = this.createToolbarButton(ICON_SPLIT, 'Split cell');
+    splitBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      splitCell(this.view.state, this.view.dispatch);
+    });
+    toolbar.appendChild(splitBtn);
+
+    // Separator
+    const sep2 = document.createElement('span');
+    sep2.className = 'dm-table-cell-toolbar-sep';
+    toolbar.appendChild(sep2);
 
     // Toggle header button (direct action, no dropdown)
     const headerBtn = this.createToolbarButton(ICON_HEADER, 'Toggle header cell');
