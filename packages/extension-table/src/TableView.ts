@@ -29,8 +29,34 @@ const DOTS_H =
   '<svg width="10" height="4" viewBox="0 0 10 4"><circle cx="2" cy="2" r="1.2" fill="currentColor"/><circle cx="5" cy="2" r="1.2" fill="currentColor"/><circle cx="8" cy="2" r="1.2" fill="currentColor"/></svg>';
 const DOTS_V =
   '<svg width="4" height="10" viewBox="0 0 4 10"><circle cx="2" cy="2" r="1.2" fill="currentColor"/><circle cx="2" cy="5" r="1.2" fill="currentColor"/><circle cx="2" cy="8" r="1.2" fill="currentColor"/></svg>';
-const CELL_ICON =
-  '<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="2" cy="2" r="1.2" fill="currentColor"/><circle cx="6" cy="2" r="1.2" fill="currentColor"/><circle cx="2" cy="6" r="1.2" fill="currentColor"/><circle cx="6" cy="6" r="1.2" fill="currentColor"/></svg>';
+
+// Chevron-down for dropdown buttons
+const CHEVRON_DOWN =
+  '<svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 2.5l3 3 3-3"/></svg>';
+
+// Cell toolbar icons (16×16 Phosphor-style)
+const ICON_COLOR =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M200,36H56A20,20,0,0,0,36,56V200a20,20,0,0,0,20,20H200a20,20,0,0,0,20-20V56A20,20,0,0,0,200,36Zm-4,160H60V60H196Z"/></svg>';
+const ICON_ALIGNMENT =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M32,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H40A8,8,0,0,1,32,64Zm8,48H168a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm176,24H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm-48,40H40a8,8,0,0,0,0,16H168a8,8,0,0,0,0-16Z"/></svg>';
+const ICON_HEADER =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32Zm0,176H48V48H208V208ZM72,96V80a8,8,0,0,1,16,0V96a8,8,0,0,1-16,0Zm96,0V80a8,8,0,0,1,16,0V96a8,8,0,0,1-16,0Zm-48,0V80a8,8,0,0,1,16,0V96a8,8,0,0,1-16,0Z"/></svg>';
+
+// Horizontal alignment icons (Phosphor, 16×16)
+const ICON_ALIGN_LEFT =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M32,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H40A8,8,0,0,1,32,64Zm8,48H168a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm176,24H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm-48,40H40a8,8,0,0,0,0,16H168a8,8,0,0,0,0-16Z"/></svg>';
+const ICON_ALIGN_CENTER =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M32,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H40A8,8,0,0,1,32,64ZM64,96a8,8,0,0,0,0,16H192a8,8,0,0,0,0-16Zm152,40H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm-24,40H64a8,8,0,0,0,0,16H192a8,8,0,0,0,0-16Z"/></svg>';
+const ICON_ALIGN_RIGHT =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M32,64a8,8,0,0,1,8-8H216a8,8,0,0,1,0,16H40A8,8,0,0,1,32,64ZM216,96H88a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm0,40H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Zm0,40H88a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z"/></svg>';
+
+// Vertical alignment icons (16×16)
+const ICON_ALIGN_TOP =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M40,40H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm88,16a8,8,0,0,0-8,8v96a8,8,0,0,0,16,0V64A8,8,0,0,0,128,56Zm40,16a8,8,0,0,0-8,8v64a8,8,0,0,0,16,0V80A8,8,0,0,0,168,72ZM88,72a8,8,0,0,0-8,8v64a8,8,0,0,0,16,0V80A8,8,0,0,0,88,72Z"/></svg>';
+const ICON_ALIGN_MIDDLE =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M40,136H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm88-80a8,8,0,0,0-8,8v32a8,8,0,0,0,16,0V64A8,8,0,0,0,128,56Zm0,104a8,8,0,0,0-8,8v32a8,8,0,0,0,16,0V168A8,8,0,0,0,128,160Zm40-80a8,8,0,0,0-8,8v16a8,8,0,0,0,16,0V88A8,8,0,0,0,168,80Zm0,56a8,8,0,0,0-8,8v16a8,8,0,0,0,16,0V144A8,8,0,0,0,168,136ZM88,80a8,8,0,0,0-8,8v16a8,8,0,0,0,16,0V88A8,8,0,0,0,88,80Zm0,56a8,8,0,0,0-8,8v16a8,8,0,0,0,16,0V144A8,8,0,0,0,88,136Z"/></svg>';
+const ICON_ALIGN_BOTTOM =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M40,232H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm88-32a8,8,0,0,0,8-8V96a8,8,0,0,0-16,0v96A8,8,0,0,0,128,200Zm40-16a8,8,0,0,0,8-8V112a8,8,0,0,0-16,0v64A8,8,0,0,0,168,184ZM88,184a8,8,0,0,0,8-8V112a8,8,0,0,0-16,0v64A8,8,0,0,0,88,184Z"/></svg>';
 
 // Default cell background colors (2 rows × 5 columns)
 const CELL_COLORS = [
@@ -56,7 +82,7 @@ export class TableView implements NodeView {
   private wrapper: HTMLElement;
   private colHandle: HTMLButtonElement;
   private rowHandle: HTMLButtonElement;
-  private cellHandle: HTMLButtonElement;
+  private cellToolbar: HTMLElement;
   private dropdown: HTMLElement | null = null;
 
   private hoveredCell: HTMLTableCellElement | null = null;
@@ -103,13 +129,9 @@ export class TableView implements NodeView {
     });
     this.dom.appendChild(this.rowHandle);
 
-    // Create cell handle (circle, shown by plugin when CellSelection is active)
-    this.cellHandle = this.createHandle('dm-table-cell-handle', 'Cell options', CELL_ICON);
-    this.cellHandle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.showCellDropdown();
-    });
-    this.dom.appendChild(this.cellHandle);
+    // Create cell toolbar (floating strip, shown by plugin when CellSelection is active)
+    this.cellToolbar = this.buildCellToolbar();
+    this.dom.appendChild(this.cellToolbar);
 
     // Create wrapper div (overflow-x: auto for horizontal scrolling)
     this.wrapper = document.createElement('div');
@@ -192,6 +214,57 @@ export class TableView implements NodeView {
       e.preventDefault(); // prevent editor blur
       e.stopPropagation();
     });
+    return btn;
+  }
+
+  // ─── Cell toolbar (floating strip for CellSelection) ──────────────────
+
+  private buildCellToolbar(): HTMLElement {
+    const toolbar = document.createElement('div');
+    toolbar.className = 'dm-table-cell-toolbar';
+    toolbar.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    // Color button (with dropdown)
+    const colorBtn = this.createToolbarButton(ICON_COLOR, 'Cell color', CHEVRON_DOWN);
+    colorBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.showColorDropdown(colorBtn);
+    });
+    toolbar.appendChild(colorBtn);
+
+    // Alignment button (with dropdown)
+    const alignBtn = this.createToolbarButton(ICON_ALIGNMENT, 'Alignment', CHEVRON_DOWN);
+    alignBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.showAlignmentDropdown(alignBtn);
+    });
+    toolbar.appendChild(alignBtn);
+
+    // Separator
+    const sep = document.createElement('span');
+    sep.className = 'dm-table-cell-toolbar-sep';
+    toolbar.appendChild(sep);
+
+    // Toggle header button (direct action, no dropdown)
+    const headerBtn = this.createToolbarButton(ICON_HEADER, 'Toggle header cell');
+    headerBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleHeaderCell(this.view.state, this.view.dispatch);
+    });
+    toolbar.appendChild(headerBtn);
+
+    return toolbar;
+  }
+
+  private createToolbarButton(icon: string, label: string, chevron?: string): HTMLButtonElement {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'dm-table-cell-toolbar-btn';
+    btn.setAttribute('aria-label', label);
+    btn.innerHTML = icon + (chevron ? `<span class="dm-table-cell-toolbar-chevron">${chevron}</span>` : '');
     return btn;
   }
 
@@ -279,35 +352,44 @@ export class TableView implements NodeView {
     return { row, col };
   }
 
-  // ─── Cell handle (driven by CellSelection plugin) ───────────────────
+  // ─── Cell toolbar positioning (driven by CellSelection plugin) ────────
 
   /** Called by the cellHandlePlugin when CellSelection changes. */
   updateCellHandle(active: boolean): void {
     if (!active) {
-      this.cellHandle.style.display = '';
+      this.cellToolbar.style.display = '';
       this.closeDropdown();
       return;
     }
 
-    // Compute bounding box of ALL selected cells → position at top-right corner
+    // Compute bounding box of ALL selected cells → position toolbar centered above
     const selectedCells = this.table.querySelectorAll('.selectedCell');
     if (selectedCells.length === 0) {
-      this.cellHandle.style.display = '';
+      this.cellToolbar.style.display = '';
       return;
     }
 
     let top = Infinity;
+    let left = Infinity;
     let right = -Infinity;
     selectedCells.forEach((c) => {
       const r = c.getBoundingClientRect();
       if (r.top < top) top = r.top;
+      if (r.left < left) left = r.left;
       if (r.right > right) right = r.right;
     });
 
     const containerRect = this.dom.getBoundingClientRect();
-    this.cellHandle.style.left = `${right - containerRect.left - 9}px`;
-    this.cellHandle.style.top = `${top - containerRect.top - 9}px`;
-    this.cellHandle.style.display = 'flex';
+    const toolbarWidth = this.cellToolbar.offsetWidth || 120;
+    const selectionCenter = (left + right) / 2;
+    let toolbarLeft = selectionCenter - containerRect.left - toolbarWidth / 2;
+
+    // Clamp to container bounds
+    toolbarLeft = Math.max(0, Math.min(toolbarLeft, containerRect.width - toolbarWidth));
+
+    this.cellToolbar.style.left = `${toolbarLeft}px`;
+    this.cellToolbar.style.top = `${top - containerRect.top - 36}px`;
+    this.cellToolbar.style.display = 'flex';
   }
 
   // ─── Handle clicks ───────────────────────────────────────────────────
@@ -426,19 +508,20 @@ export class TableView implements NodeView {
     document.addEventListener('keydown', this.boundDocKeyDown);
   }
 
-  private showCellDropdown(): void {
+  // ─── Cell toolbar dropdowns ──────────────────────────────────────────
+
+  private showColorDropdown(triggerBtn: HTMLButtonElement): void {
+    // Toggle — if clicking same button, close
+    if (this.dropdown && triggerBtn.classList.contains('dm-table-cell-toolbar-btn--open')) {
+      this.closeDropdown();
+      return;
+    }
     this.closeDropdown();
+    triggerBtn.classList.add('dm-table-cell-toolbar-btn--open');
 
     const dropdown = document.createElement('div');
     dropdown.className = 'dm-table-controls-dropdown dm-table-cell-dropdown';
-    dropdown.addEventListener('mouseenter', this.boundCancelHide);
     dropdown.addEventListener('mousedown', (e) => e.preventDefault());
-
-    // Section label: Cell color
-    const label = document.createElement('div');
-    label.className = 'dm-table-cell-dropdown-label';
-    label.textContent = 'Cell color';
-    dropdown.appendChild(label);
 
     // Color palette grid
     const palette = document.createElement('div');
@@ -459,7 +542,6 @@ export class TableView implements NodeView {
     });
     palette.appendChild(resetBtn);
 
-    // Color swatches
     for (const color of CELL_COLORS) {
       const swatch = document.createElement('button');
       swatch.type = 'button';
@@ -475,30 +557,93 @@ export class TableView implements NodeView {
     }
     dropdown.appendChild(palette);
 
-    // Separator
+    this.positionToolbarDropdown(dropdown, triggerBtn);
+  }
+
+  private showAlignmentDropdown(triggerBtn: HTMLButtonElement): void {
+    if (this.dropdown && triggerBtn.classList.contains('dm-table-cell-toolbar-btn--open')) {
+      this.closeDropdown();
+      return;
+    }
+    this.closeDropdown();
+    triggerBtn.classList.add('dm-table-cell-toolbar-btn--open');
+
+    const dropdown = document.createElement('div');
+    dropdown.className = 'dm-table-controls-dropdown dm-table-cell-align-dropdown';
+    dropdown.addEventListener('mousedown', (e) => e.preventDefault());
+
+    // Read current cell attrs from the first selected cell
+    const firstSelected = this.table.querySelector('.selectedCell') as HTMLTableCellElement | null;
+    const curTextAlign = firstSelected?.getAttribute('data-text-align') || null;
+    const curVerticalAlign = firstSelected?.getAttribute('data-vertical-align') || null;
+
+    const hAligns: { value: string; label: string; icon: string }[] = [
+      { value: 'left', label: 'Align left', icon: ICON_ALIGN_LEFT },
+      { value: 'center', label: 'Align center', icon: ICON_ALIGN_CENTER },
+      { value: 'right', label: 'Align right', icon: ICON_ALIGN_RIGHT },
+    ];
+
+    const vAligns: { value: string; label: string; icon: string }[] = [
+      { value: 'top', label: 'Align top', icon: ICON_ALIGN_TOP },
+      { value: 'middle', label: 'Align middle', icon: ICON_ALIGN_MIDDLE },
+      { value: 'bottom', label: 'Align bottom', icon: ICON_ALIGN_BOTTOM },
+    ];
+
+    for (const a of hAligns) {
+      const isActive = curTextAlign === a.value || (!curTextAlign && a.value === 'left');
+      dropdown.appendChild(this.createAlignItem(a.icon, a.label, isActive, () => {
+        setCellAttr('textAlign', a.value === 'left' ? null : a.value)(this.view.state, this.view.dispatch);
+        this.closeDropdown();
+      }));
+    }
+
     const sep = document.createElement('div');
     sep.className = 'dm-table-cell-dropdown-separator';
     dropdown.appendChild(sep);
 
-    // Toggle header cell button
-    const toggleBtn = document.createElement('button');
-    toggleBtn.type = 'button';
-    toggleBtn.textContent = 'Toggle Header Cell';
-    toggleBtn.addEventListener('click', (e) => {
+    for (const a of vAligns) {
+      const isActive = curVerticalAlign === a.value || (!curVerticalAlign && a.value === 'top');
+      dropdown.appendChild(this.createAlignItem(a.icon, a.label, isActive, () => {
+        setCellAttr('verticalAlign', a.value === 'top' ? null : a.value)(this.view.state, this.view.dispatch);
+        this.closeDropdown();
+      }));
+    }
+
+    this.positionToolbarDropdown(dropdown, triggerBtn);
+  }
+
+  private createAlignItem(icon: string, label: string, active: boolean, onClick: () => void): HTMLButtonElement {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'dm-table-align-item' + (active ? ' dm-table-align-item--active' : '');
+    btn.innerHTML = `<span class="dm-table-align-item-icon">${icon}</span><span>${label}</span>`;
+    btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      toggleHeaderCell(this.view.state, this.view.dispatch);
-      this.closeDropdown();
+      onClick();
     });
-    dropdown.appendChild(toggleBtn);
+    return btn;
+  }
 
-    // Position below the cell handle
-    const handleRect = this.cellHandle.getBoundingClientRect();
+  private positionToolbarDropdown(dropdown: HTMLElement, triggerBtn: HTMLButtonElement): void {
     const containerRect = this.dom.getBoundingClientRect();
-    dropdown.style.left = `${handleRect.left - containerRect.left}px`;
-    dropdown.style.top = `${handleRect.bottom - containerRect.top + 4}px`;
+    const btnRect = triggerBtn.getBoundingClientRect();
+    const editorEl = this.dom.closest('.dm-editor');
+    const editorRight = editorEl ? editorEl.getBoundingClientRect().right : window.innerWidth;
 
+    // Position below the toolbar button
+    dropdown.style.top = `${btnRect.bottom - containerRect.top + 4}px`;
+
+    // Append first to measure
     this.dom.appendChild(dropdown);
     this.dropdown = dropdown;
+
+    // Try left-aligned to button; if overflows, shift left
+    const dropdownWidth = dropdown.offsetWidth;
+    let leftPos = btnRect.left - containerRect.left;
+    if (btnRect.left + dropdownWidth > editorRight) {
+      leftPos = editorRight - containerRect.left - dropdownWidth - 4;
+    }
+    dropdown.style.left = `${Math.max(0, leftPos)}px`;
 
     document.addEventListener('mousedown', this.boundDocMouseDown, true);
     document.addEventListener('keydown', this.boundDocKeyDown);
@@ -508,6 +653,10 @@ export class TableView implements NodeView {
     if (!this.dropdown) return;
     this.dropdown.remove();
     this.dropdown = null;
+    // Clear open state from toolbar buttons
+    this.cellToolbar.querySelectorAll('.dm-table-cell-toolbar-btn--open').forEach(
+      (el) => el.classList.remove('dm-table-cell-toolbar-btn--open'),
+    );
     document.removeEventListener('mousedown', this.boundDocMouseDown, true);
     document.removeEventListener('keydown', this.boundDocKeyDown);
   }
@@ -516,9 +665,9 @@ export class TableView implements NodeView {
     const target = e.target as Node;
     if (
       this.dropdown?.contains(target) ||
+      this.cellToolbar.contains(target) ||
       this.colHandle.contains(target) ||
-      this.rowHandle.contains(target) ||
-      this.cellHandle.contains(target)
+      this.rowHandle.contains(target)
     ) {
       return;
     }

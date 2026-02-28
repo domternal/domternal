@@ -10,10 +10,9 @@
   position: relative;
 }
 
-// Handle buttons (shared — col, row, cell)
+// Handle buttons (col, row)
 .dm-table-col-handle,
-.dm-table-row-handle,
-.dm-table-cell-handle {
+.dm-table-row-handle {
   position: absolute;
   z-index: 10;
   display: none;
@@ -50,16 +49,105 @@
   height: 24px;
 }
 
-// Cell handle (circle at top-right corner of hovered cell)
-.dm-table-cell-handle {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
+// ─── Cell toolbar (floating strip above selected cells) ─────────────────────
+.dm-table-cell-toolbar {
+  position: absolute;
+  z-index: 10;
+  display: none;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--dm-border-color, #e0e0e0);
+  border-radius: 6px;
+  background: var(--dm-bg, #ffffff);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  animation: dm-fade-in 0.12s ease;
+}
+
+.dm-table-cell-toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 5px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--dm-muted, #999);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+
+  &:hover,
+  &.dm-table-cell-toolbar-btn--open {
+    background: var(--dm-hover, rgba(0, 0, 0, 0.06));
+    color: var(--dm-text, #1a1a1a);
+  }
 
   svg {
-    width: 10px;
-    height: 10px;
+    display: block;
+    flex-shrink: 0;
   }
+}
+
+.dm-table-cell-toolbar-chevron {
+  display: flex;
+  align-items: center;
+  opacity: 0.6;
+}
+
+.dm-table-cell-toolbar-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 2px;
+  background: var(--dm-border-color, #e0e0e0);
+}
+
+// ─── Alignment dropdown ─────────────────────────────────────────────────────
+.dm-table-cell-align-dropdown {
+  min-width: auto;
+  width: max-content;
+  padding: 0.25rem;
+}
+
+.dm-table-align-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.3rem 0.5rem;
+  border: none;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--dm-text, #1a1a1a);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  transition: background-color 0.15s;
+
+  &:hover {
+    background: var(--dm-hover, rgba(0, 0, 0, 0.06));
+  }
+
+  &--active {
+    color: var(--dm-accent, #2563eb);
+  }
+}
+
+.dm-table-align-item-icon {
+  display: flex;
+  align-items: center;
+
+  svg {
+    display: block;
+  }
+}
+
+// ─── Cell alignment via data attributes ─────────────────────────────────────
+.dm-editor td,
+.dm-editor th {
+  &[data-text-align='center'] { text-align: center; }
+  &[data-text-align='right']  { text-align: right; }
+  &[data-vertical-align='middle'] { vertical-align: middle; }
+  &[data-vertical-align='bottom'] { vertical-align: bottom; }
 }
 
 // Dropdown panel
@@ -98,7 +186,7 @@
   }
 }
 
-// Cell dropdown — color palette + toggle header
+// Cell dropdown — color palette
 .dm-table-cell-dropdown {
   min-width: auto;
   width: max-content;
@@ -109,15 +197,6 @@
   button.dm-color-palette-reset {
     width: auto;
   }
-}
-
-.dm-table-cell-dropdown-label {
-  font-size: 0.6875rem;
-  font-weight: 600;
-  color: var(--dm-muted, #999);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 0.25rem 0.25rem 0.375rem;
 }
 
 .dm-table-cell-dropdown-separator {

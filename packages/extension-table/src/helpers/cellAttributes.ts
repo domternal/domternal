@@ -1,6 +1,11 @@
 /**
  * Shared cell attributes for TableCell and TableHeader.
- * Both node types support the same colspan, rowspan, colwidth, and background attributes.
+ * Both node types support the same colspan, rowspan, colwidth, background,
+ * textAlign and verticalAlign attributes.
+ *
+ * Note: textAlign and verticalAlign use data-* attributes (not inline style)
+ * to avoid overwriting the background inline style. CSS attribute selectors
+ * in _table-controls.scss apply the actual text-align / vertical-align.
  */
 import type { AttributeSpecs } from '@domternal/core';
 
@@ -51,6 +56,28 @@ export function cellAttributes(): AttributeSpecs {
         const bg = attrs['background'] as string | null;
         if (!bg) return null;
         return { 'data-background': bg, style: `background-color: ${bg}` };
+      },
+    },
+    textAlign: {
+      default: null,
+      parseHTML: (element: HTMLElement) => {
+        return element.getAttribute('data-text-align') || null;
+      },
+      renderHTML: (attrs: Record<string, unknown>) => {
+        const align = attrs['textAlign'] as string | null;
+        if (!align) return null;
+        return { 'data-text-align': align };
+      },
+    },
+    verticalAlign: {
+      default: null,
+      parseHTML: (element: HTMLElement) => {
+        return element.getAttribute('data-vertical-align') || null;
+      },
+      renderHTML: (attrs: Record<string, unknown>) => {
+        const align = attrs['verticalAlign'] as string | null;
+        if (!align) return null;
+        return { 'data-vertical-align': align };
       },
     },
   };
