@@ -6,8 +6,10 @@ import { TableCell } from './TableCell.js';
 import { TableHeader } from './TableHeader.js';
 import { TableView } from './TableView.js';
 import { createTable } from './helpers/createTable.js';
+import { cellAttributes } from './helpers/cellAttributes.js';
 import { Document, Text, Paragraph, Editor } from '@domternal/core';
 import { TextSelection } from 'prosemirror-state';
+import { CellSelection } from 'prosemirror-tables';
 
 type AnyJson = any;
 
@@ -45,6 +47,7 @@ describe('Table', () => {
       expect(Table.options).toEqual({
         HTMLAttributes: {},
         cellMinWidth: 25,
+        defaultCellMinWidth: 100,
         allowTableNodeSelection: false,
         View: TableView,
       });
@@ -685,6 +688,157 @@ describe('Commands', () => {
       });
       expect(editor.commands.setCellAttribute('background', '#ff0')).toBe(false);
     });
+
+    it('sets background on a cell', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>',
+      });
+      // Place cursor inside first cell
+      const { tr } = editor.state;
+      tr.setSelection(TextSelection.create(tr.doc, 4));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.setCellAttribute('background', '#fef08a');
+      expect(result).toBe(true);
+      const json = editor.getJSON() as AnyJson;
+      const cell = json.content?.[0]?.content?.[0]?.content?.[0];
+      expect(cell?.attrs?.background).toBe('#fef08a');
+    });
+
+    it('sets textAlign on a cell', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td></tr></table>',
+      });
+      const { tr } = editor.state;
+      tr.setSelection(TextSelection.create(tr.doc, 4));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.setCellAttribute('textAlign', 'center');
+      expect(result).toBe(true);
+      const json = editor.getJSON() as AnyJson;
+      const cell = json.content?.[0]?.content?.[0]?.content?.[0];
+      expect(cell?.attrs?.textAlign).toBe('center');
+    });
+
+    it('sets verticalAlign on a cell', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td></tr></table>',
+      });
+      const { tr } = editor.state;
+      tr.setSelection(TextSelection.create(tr.doc, 4));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.setCellAttribute('verticalAlign', 'middle');
+      expect(result).toBe(true);
+      const json = editor.getJSON() as AnyJson;
+      const cell = json.content?.[0]?.content?.[0]?.content?.[0];
+      expect(cell?.attrs?.verticalAlign).toBe('middle');
+    });
+
+    it('clears textAlign by setting null', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td data-text-align="center"><p>A</p></td></tr></table>',
+      });
+      const { tr } = editor.state;
+      tr.setSelection(TextSelection.create(tr.doc, 4));
+      editor.view.dispatch(tr);
+
+      editor.commands.setCellAttribute('textAlign', null);
+      const json = editor.getJSON() as AnyJson;
+      const cell = json.content?.[0]?.content?.[0]?.content?.[0];
+      expect(cell?.attrs?.textAlign).toBeNull();
+    });
+  });
+
+  describe('mergeCells', () => {
+    it('returns false when not in table', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      expect(editor.commands.mergeCells()).toBe(false);
+    });
+
+    it('is available as a command', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      expect(editor.commands.mergeCells).toBeDefined();
+    });
+
+    it('merges selected cells', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr><tr><td><p>C</p></td><td><p>D</p></td></tr></table>',
+      });
+      // Create CellSelection spanning first row (cells 0 and 1)
+      // table starts at pos 0, tableStart = 1
+      // first cell at offset 1, second cell at offset 6
+      const sel = CellSelection.create(editor.state.doc, 2, 7);
+      const { tr } = editor.state;
+      tr.setSelection(sel as unknown as typeof tr.selection);
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.mergeCells();
+      expect(result).toBe(true);
+      const json = editor.getJSON() as AnyJson;
+      const firstCell = json.content?.[0]?.content?.[0]?.content?.[0];
+      expect(firstCell?.attrs?.colspan).toBe(2);
+    });
+  });
+
+  describe('splitCell', () => {
+    it('returns false when not in table', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      expect(editor.commands.splitCell()).toBe(false);
+    });
+
+    it('is available as a command', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      expect(editor.commands.splitCell).toBeDefined();
+    });
+
+    it('splits a merged cell', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td colspan="2"><p>Merged</p></td></tr><tr><td><p>C</p></td><td><p>D</p></td></tr></table>',
+      });
+      // Place cursor inside the merged cell
+      const { tr } = editor.state;
+      tr.setSelection(TextSelection.create(tr.doc, 4));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.splitCell();
+      expect(result).toBe(true);
+      const json = editor.getJSON() as AnyJson;
+      const firstRow = json.content?.[0]?.content?.[0];
+      expect(firstRow?.content?.length).toBe(2);
+      expect(firstRow?.content?.[0]?.attrs?.colspan).toBe(1);
+    });
+
+    it('returns false on non-merged cell', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>',
+      });
+      const { tr } = editor.state;
+      tr.setSelection(TextSelection.create(tr.doc, 4));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.splitCell();
+      expect(result).toBe(false);
+    });
   });
 });
 
@@ -744,6 +898,249 @@ describe('createTable helper', () => {
     const table = createTable(editor.schema, 10, 5, true);
     expect(table.childCount).toBe(10);
     expect(table.firstChild?.childCount).toBe(5);
+  });
+});
+
+// === cellAttributes helper ===
+
+describe('cellAttributes helper', () => {
+  const attrs = cellAttributes();
+
+  describe('textAlign', () => {
+    it('has default null', () => {
+      expect(attrs['textAlign']?.default).toBeNull();
+    });
+
+    it('parses data-text-align from element', () => {
+      const el = document.createElement('td');
+      el.setAttribute('data-text-align', 'center');
+      expect(attrs['textAlign']?.parseHTML?.(el)).toBe('center');
+    });
+
+    it('returns null when data-text-align missing', () => {
+      const el = document.createElement('td');
+      expect(attrs['textAlign']?.parseHTML?.(el)).toBeNull();
+    });
+
+    it('renders data-text-align attribute', () => {
+      const result = attrs['textAlign']?.renderHTML?.({ textAlign: 'right' });
+      expect(result).toEqual({ 'data-text-align': 'right' });
+    });
+
+    it('renders null when textAlign is null', () => {
+      const result = attrs['textAlign']?.renderHTML?.({ textAlign: null });
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('verticalAlign', () => {
+    it('has default null', () => {
+      expect(attrs['verticalAlign']?.default).toBeNull();
+    });
+
+    it('parses data-vertical-align from element', () => {
+      const el = document.createElement('td');
+      el.setAttribute('data-vertical-align', 'middle');
+      expect(attrs['verticalAlign']?.parseHTML?.(el)).toBe('middle');
+    });
+
+    it('returns null when data-vertical-align missing', () => {
+      const el = document.createElement('td');
+      expect(attrs['verticalAlign']?.parseHTML?.(el)).toBeNull();
+    });
+
+    it('renders data-vertical-align attribute', () => {
+      const result = attrs['verticalAlign']?.renderHTML?.({ verticalAlign: 'bottom' });
+      expect(result).toEqual({ 'data-vertical-align': 'bottom' });
+    });
+
+    it('renders null when verticalAlign is null', () => {
+      const result = attrs['verticalAlign']?.renderHTML?.({ verticalAlign: null });
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('background', () => {
+    it('has default null', () => {
+      expect(attrs['background']?.default).toBeNull();
+    });
+
+    it('parses data-background from element', () => {
+      const el = document.createElement('td');
+      el.setAttribute('data-background', '#fef08a');
+      expect(attrs['background']?.parseHTML?.(el)).toBe('#fef08a');
+    });
+
+    it('parses inline background-color as fallback', () => {
+      const el = document.createElement('td');
+      el.style.backgroundColor = 'rgb(255, 0, 0)';
+      expect(attrs['background']?.parseHTML?.(el)).toBe('rgb(255, 0, 0)');
+    });
+
+    it('returns null when no background set', () => {
+      const el = document.createElement('td');
+      expect(attrs['background']?.parseHTML?.(el)).toBeNull();
+    });
+
+    it('renders both data-background and inline style', () => {
+      const result = attrs['background']?.renderHTML?.({ background: '#fef08a' });
+      expect(result).toEqual({ 'data-background': '#fef08a', style: 'background-color: #fef08a' });
+    });
+
+    it('renders null when background is null', () => {
+      const result = attrs['background']?.renderHTML?.({ background: null });
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('colspan', () => {
+    it('has default 1', () => {
+      expect(attrs['colspan']?.default).toBe(1);
+    });
+
+    it('parses colspan from element', () => {
+      const el = document.createElement('td');
+      el.setAttribute('colspan', '3');
+      expect(attrs['colspan']?.parseHTML?.(el)).toBe(3);
+    });
+
+    it('omits when 1', () => {
+      expect(attrs['colspan']?.renderHTML?.({ colspan: 1 })).toBeNull();
+    });
+
+    it('renders when > 1', () => {
+      expect(attrs['colspan']?.renderHTML?.({ colspan: 2 })).toEqual({ colspan: 2 });
+    });
+  });
+
+  describe('rowspan', () => {
+    it('has default 1', () => {
+      expect(attrs['rowspan']?.default).toBe(1);
+    });
+
+    it('parses rowspan from element', () => {
+      const el = document.createElement('td');
+      el.setAttribute('rowspan', '4');
+      expect(attrs['rowspan']?.parseHTML?.(el)).toBe(4);
+    });
+
+    it('omits when 1', () => {
+      expect(attrs['rowspan']?.renderHTML?.({ rowspan: 1 })).toBeNull();
+    });
+
+    it('renders when > 1', () => {
+      expect(attrs['rowspan']?.renderHTML?.({ rowspan: 3 })).toEqual({ rowspan: 3 });
+    });
+  });
+
+  describe('colwidth', () => {
+    it('has default null', () => {
+      expect(attrs['colwidth']?.default).toBeNull();
+    });
+
+    it('parses comma-separated data-colwidth', () => {
+      const el = document.createElement('td');
+      el.setAttribute('data-colwidth', '100,200,300');
+      expect(attrs['colwidth']?.parseHTML?.(el)).toEqual([100, 200, 300]);
+    });
+
+    it('returns null when data-colwidth missing', () => {
+      const el = document.createElement('td');
+      expect(attrs['colwidth']?.parseHTML?.(el)).toBeNull();
+    });
+
+    it('renders colwidth as data-colwidth', () => {
+      const result = attrs['colwidth']?.renderHTML?.({ colwidth: [150, 250] });
+      expect(result).toEqual({ 'data-colwidth': '150,250' });
+    });
+
+    it('renders null when colwidth is null', () => {
+      expect(attrs['colwidth']?.renderHTML?.({ colwidth: null })).toBeNull();
+    });
+  });
+});
+
+// === Cell attribute HTML round-trip ===
+
+describe('Cell attribute HTML round-trip', () => {
+  let editor: InstanceType<typeof Editor>;
+
+  afterEach(() => {
+    editor.destroy();
+  });
+
+  it('preserves background through parse → getJSON', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<table><tr><td data-background="#fef08a" style="background-color: #fef08a"><p>Colored</p></td></tr></table>',
+    });
+    const json = editor.getJSON() as AnyJson;
+    const cell = json.content?.[0]?.content?.[0]?.content?.[0];
+    expect(cell?.attrs?.background).toBe('#fef08a');
+  });
+
+  it('preserves textAlign through parse → getJSON', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<table><tr><td data-text-align="center"><p>Centered</p></td></tr></table>',
+    });
+    const json = editor.getJSON() as AnyJson;
+    const cell = json.content?.[0]?.content?.[0]?.content?.[0];
+    expect(cell?.attrs?.textAlign).toBe('center');
+  });
+
+  it('preserves verticalAlign through parse → getJSON', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<table><tr><td data-vertical-align="bottom"><p>Bottom</p></td></tr></table>',
+    });
+    const json = editor.getJSON() as AnyJson;
+    const cell = json.content?.[0]?.content?.[0]?.content?.[0];
+    expect(cell?.attrs?.verticalAlign).toBe('bottom');
+  });
+
+  it('preserves multiple cell attributes together', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<table><tr><td data-background="#a7f3d0" data-text-align="right" data-vertical-align="middle"><p>Multi</p></td></tr></table>',
+    });
+    const json = editor.getJSON() as AnyJson;
+    const cell = json.content?.[0]?.content?.[0]?.content?.[0];
+    expect(cell?.attrs?.background).toBe('#a7f3d0');
+    expect(cell?.attrs?.textAlign).toBe('right');
+    expect(cell?.attrs?.verticalAlign).toBe('middle');
+  });
+
+  it('header cells also support textAlign and verticalAlign', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<table><tr><th data-text-align="center" data-vertical-align="middle"><p>Header</p></th></tr></table>',
+    });
+    const json = editor.getJSON() as AnyJson;
+    const cell = json.content?.[0]?.content?.[0]?.content?.[0];
+    expect(cell?.type).toBe('tableHeader');
+    expect(cell?.attrs?.textAlign).toBe('center');
+    expect(cell?.attrs?.verticalAlign).toBe('middle');
+  });
+
+  it('preserves colspan on merged cell through round-trip', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<table><tr><td colspan="3"><p>Wide</p></td></tr><tr><td><p>A</p></td><td><p>B</p></td><td><p>C</p></td></tr></table>',
+    });
+    const json = editor.getJSON() as AnyJson;
+    const cell = json.content?.[0]?.content?.[0]?.content?.[0];
+    expect(cell?.attrs?.colspan).toBe(3);
+  });
+
+  it('preserves rowspan on merged cell through round-trip', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<table><tr><td rowspan="2"><p>Tall</p></td><td><p>B</p></td></tr><tr><td><p>D</p></td></tr></table>',
+    });
+    const json = editor.getJSON() as AnyJson;
+    const cell = json.content?.[0]?.content?.[0]?.content?.[0];
+    expect(cell?.attrs?.rowspan).toBe(2);
   });
 });
 

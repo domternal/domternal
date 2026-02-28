@@ -86,10 +86,17 @@ export interface TableOptions {
   HTMLAttributes: Record<string, unknown>;
 
   /**
-   * Minimum cell width in pixels.
+   * Minimum cell width in pixels (floor when dragging).
    * @default 25
    */
   cellMinWidth: number;
+
+  /**
+   * Default width for columns without an explicit colwidth attribute.
+   * Must match the columnResizing plugin default for consistent resize behavior.
+   * @default 100
+   */
+  defaultCellMinWidth: number;
 
   /**
    * Allow selecting the entire table as a node selection.
@@ -101,7 +108,7 @@ export interface TableOptions {
    * Custom NodeView constructor. Override to provide framework-specific rendering.
    * Set to null to disable custom NodeView.
    */
-  View: (new (node: PMNode, cellMinWidth: number, view: EditorView) => NodeView) | null;
+  View: (new (node: PMNode, cellMinWidth: number, view: EditorView, defaultCellMinWidth?: number) => NodeView) | null;
 }
 
 export const Table = Node.create<TableOptions>({
@@ -115,6 +122,7 @@ export const Table = Node.create<TableOptions>({
     return {
       HTMLAttributes: {},
       cellMinWidth: 25,
+      defaultCellMinWidth: 100,
       allowTableNodeSelection: false,
       View: TableView,
     };
@@ -131,13 +139,14 @@ export const Table = Node.create<TableOptions>({
   addNodeView() {
     const ViewClass = this.options.View;
     const cellMinWidth = this.options.cellMinWidth;
+    const defaultCellMinWidth = this.options.defaultCellMinWidth;
 
     if (!ViewClass) {
       return undefined as unknown as NodeViewConstructor;
     }
 
     return ((node: PMNode, view: EditorView) =>
-      new ViewClass(node, cellMinWidth, view)) as unknown as NodeViewConstructor;
+      new ViewClass(node, cellMinWidth, view, defaultCellMinWidth)) as unknown as NodeViewConstructor;
   },
 
   addCommands() {
@@ -266,13 +275,14 @@ export const Table = Node.create<TableOptions>({
       setCellSelection:
         (position: { anchorCell: number; headCell?: number }) =>
         ({ tr, dispatch }) => {
+          const selection = CellSelection.create(
+            tr.doc,
+            position.anchorCell,
+            position.headCell,
+          );
+          tr.setSelection(selection as unknown as typeof tr.selection);
           if (dispatch) {
-            const selection = CellSelection.create(
-              tr.doc,
-              position.anchorCell,
-              position.headCell,
-            );
-            tr.setSelection(selection as unknown as typeof tr.selection);
+            dispatch(tr);
           }
           return true;
         },
@@ -376,6 +386,7 @@ export const Table = Node.create<TableOptions>({
     return [
       columnResizing({
         cellMinWidth: this.options.cellMinWidth,
+        defaultCellMinWidth: this.options.defaultCellMinWidth,
       }),
 
       tableEditing({

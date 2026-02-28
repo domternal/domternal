@@ -79,6 +79,7 @@ type PMCommand = (
 export class TableView implements NodeView {
   node: PMNode;
   cellMinWidth: number;
+  defaultCellMinWidth: number;
   view: EditorView;
 
   dom: HTMLElement;
@@ -104,9 +105,10 @@ export class TableView implements NodeView {
   private boundDocMouseDown: (e: MouseEvent) => void;
   private boundDocKeyDown: (e: KeyboardEvent) => void;
 
-  constructor(node: PMNode, cellMinWidth: number, view: EditorView) {
+  constructor(node: PMNode, cellMinWidth: number, view: EditorView, defaultCellMinWidth = 100) {
     this.node = node;
     this.cellMinWidth = cellMinWidth;
+    this.defaultCellMinWidth = defaultCellMinWidth;
     this.view = view;
 
     // Bind handlers
@@ -721,61 +723,56 @@ export class TableView implements NodeView {
   // ─── Column management ───────────────────────────────────────────────
 
   /**
-   * Rebuild colgroup col elements based on cell widths.
-   * Scans first row to determine column count and widths.
+   * Update colgroup col elements based on cell widths.
+   * Matches prosemirror-tables' updateColumnsOnResize behavior:
+   * - Reuses existing col elements (avoids DOM churn during resize)
+   * - Uses defaultCellMinWidth for totalWidth calc (matches columnResizing plugin)
+   * - Columns without explicit widths get empty style.width (table-layout: fixed distributes)
    */
   private updateColumns(node: PMNode): void {
-    const cols: { width?: number }[] = [];
-
-    // Walk the first row to get column info
+    let totalWidth = 0;
+    let fixedWidth = true;
+    let nextDOM = this.colgroup.firstChild as HTMLElement | null;
     const firstRow = node.firstChild;
-    if (firstRow) {
-      for (let i = 0; i < firstRow.childCount; i++) {
-        const cell = firstRow.child(i);
-        const colspan = (cell.attrs['colspan'] as number) || 1;
-        const colwidth = cell.attrs['colwidth'] as number[] | null;
+    if (!firstRow) return;
 
-        for (let j = 0; j < colspan; j++) {
-          const w = colwidth?.[j];
-          if (w) {
-            cols.push({ width: w });
-          } else {
-            cols.push({});
+    for (let i = 0; i < firstRow.childCount; i++) {
+      const cell = firstRow.child(i);
+      const colspan = (cell.attrs['colspan'] as number) || 1;
+      const colwidth = cell.attrs['colwidth'] as number[] | null;
+
+      for (let j = 0; j < colspan; j++) {
+        const hasWidth = colwidth && colwidth[j];
+        const cssWidth = hasWidth ? `${hasWidth}px` : '';
+        totalWidth += hasWidth || this.defaultCellMinWidth;
+        if (!hasWidth) fixedWidth = false;
+
+        if (!nextDOM) {
+          const colEl = document.createElement('col');
+          colEl.style.width = cssWidth;
+          this.colgroup.appendChild(colEl);
+        } else {
+          if (nextDOM.style.width !== cssWidth) {
+            nextDOM.style.width = cssWidth;
           }
+          nextDOM = nextDOM.nextElementSibling as HTMLElement | null;
         }
       }
     }
 
-    // Clear existing cols
-    while (this.colgroup.firstChild) {
-      this.colgroup.removeChild(this.colgroup.firstChild);
+    // Remove excess col elements
+    while (nextDOM) {
+      const after = nextDOM.nextElementSibling as HTMLElement | null;
+      nextDOM.remove();
+      nextDOM = after;
     }
 
-    // Calculate if we have all widths defined
-    let totalWidth = 0;
-    let allWidthsDefined = true;
-
-    for (const col of cols) {
-      const colEl = document.createElement('col');
-
-      if (col.width) {
-        colEl.style.width = `${String(col.width)}px`;
-        totalWidth += col.width;
-      } else {
-        colEl.style.width = `${String(this.cellMinWidth)}px`;
-        allWidthsDefined = false;
-      }
-
-      this.colgroup.appendChild(colEl);
-    }
-
-    // Set table width
-    if (allWidthsDefined && totalWidth > 0) {
-      this.table.style.width = `${String(totalWidth)}px`;
+    if (fixedWidth && totalWidth > 0) {
+      this.table.style.width = `${totalWidth}px`;
       this.table.style.minWidth = '';
     } else {
       this.table.style.width = '';
-      this.table.style.minWidth = `${String(totalWidth || this.cellMinWidth * cols.length)}px`;
+      this.table.style.minWidth = `${totalWidth}px`;
     }
   }
 }
