@@ -2062,6 +2062,146 @@ test.describe('Table — Column resize: handle', () => {
   });
 });
 
+// ─── Handle hiding during column resize ─────────────────────────────────────
+
+test.describe('Table — Column resize: handle hiding', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('cell handle stays visible when merely hovering near column border', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+    await placeCursorInCell(page, 3); // body cell
+
+    const cellHandle = page.locator('.dm-table-cell-handle');
+    await expect(cellHandle).toBeVisible();
+
+    // Move mouse to the right edge of the first header cell (triggers resize-cursor but NOT drag)
+    const th = page.locator(`${editorSelector} th`).first();
+    const box = await th.boundingBox();
+    if (!box) return;
+    await page.mouse.move(box.x + box.width - 2, box.y + box.height / 2);
+    await page.waitForTimeout(200);
+
+    // Cell handle should still be visible — only actual drag hides it
+    await expect(cellHandle).toBeVisible();
+  });
+
+  test('cell handle hides during active column drag', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+    await placeCursorInCell(page, 3);
+
+    const cellHandle = page.locator('.dm-table-cell-handle');
+    await expect(cellHandle).toBeVisible();
+
+    // Start drag on first column border
+    const th = page.locator(`${editorSelector} th`).first();
+    const box = await th.boundingBox();
+    if (!box) return;
+    const startX = box.x + box.width - 2;
+    const startY = box.y + box.height / 2;
+
+    await page.mouse.move(startX, startY);
+    await page.waitForTimeout(100);
+    await page.mouse.down();
+    await page.mouse.move(startX + 30, startY);
+    await page.waitForTimeout(100);
+
+    // Cell handle should be hidden during drag
+    await expect(cellHandle).not.toBeVisible();
+
+    await page.mouse.up();
+  });
+
+  test('cell handle reappears after resize ends and mouse moves away', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+    await placeCursorInCell(page, 3);
+
+    const cellHandle = page.locator('.dm-table-cell-handle');
+    await expect(cellHandle).toBeVisible();
+
+    // Resize first column
+    await dragColumnBorder(page, 0, 40);
+
+    // Move mouse to center of a body cell (away from border)
+    const td = page.locator(`${editorSelector} td`).first();
+    const box = await td.boundingBox();
+    if (!box) return;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(200);
+
+    // Place cursor back in a cell (plugin triggers showCellHandle)
+    await placeCursorInCell(page, 3);
+    await page.waitForTimeout(200);
+
+    await expect(cellHandle).toBeVisible();
+  });
+
+  test('col/row hover handles do not appear during resize drag', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // First hover a cell to show col/row handles
+    const td = page.locator(`${editorSelector} td`).first();
+    const box = await td.boundingBox();
+    if (!box) return;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.waitForTimeout(200);
+
+    const colHandle = page.locator('.dm-table-col-handle');
+    const rowHandle = page.locator('.dm-table-row-handle');
+    await expect(colHandle).toBeVisible();
+    await expect(rowHandle).toBeVisible();
+
+    // Start drag on first column border
+    const th = page.locator(`${editorSelector} th`).first();
+    const thBox = await th.boundingBox();
+    if (!thBox) return;
+    const startX = thBox.x + thBox.width - 2;
+    const startY = thBox.y + thBox.height / 2;
+
+    await page.mouse.move(startX, startY);
+    await page.waitForTimeout(100);
+    await page.mouse.down();
+    await page.mouse.move(startX + 30, startY);
+    await page.waitForTimeout(150);
+
+    // Col/row handles should be hidden during resize
+    await expect(colHandle).not.toBeVisible();
+    await expect(rowHandle).not.toBeVisible();
+
+    await page.mouse.up();
+  });
+
+  test('cell handle stays hidden throughout entire drag gesture', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+    await placeCursorInCell(page, 3);
+
+    const cellHandle = page.locator('.dm-table-cell-handle');
+    await expect(cellHandle).toBeVisible();
+
+    // Start drag
+    const th = page.locator(`${editorSelector} th`).first();
+    const box = await th.boundingBox();
+    if (!box) return;
+    const startX = box.x + box.width - 2;
+    const startY = box.y + box.height / 2;
+
+    await page.mouse.move(startX, startY);
+    await page.waitForTimeout(100);
+    await page.mouse.down();
+
+    // Drag in multiple steps — check hidden at each step
+    for (let i = 1; i <= 4; i++) {
+      await page.mouse.move(startX + i * 15, startY);
+      await page.waitForTimeout(50);
+      await expect(cellHandle).not.toBeVisible();
+    }
+
+    await page.mouse.up();
+  });
+});
+
 // ─── Drag-to-resize behavior ────────────────────────────────────────────────
 
 test.describe('Table — Column resize: drag', () => {

@@ -102,6 +102,8 @@ export class TableView implements NodeView {
   private dropdown: HTMLElement | null = null;
   /** When true, the plugin skips showing the cell toolbar (row/col dropdown is open). */
   suppressCellToolbar = false;
+  /** When true, column resize drag is active — all handles/menus are hidden. */
+  private _resizeDragging = false;
 
   private hoveredCell: HTMLTableCellElement | null = null;
   private hoveredRow = -1;
@@ -203,11 +205,14 @@ export class TableView implements NodeView {
     this.node = node;
     this.updateColumns(node);
 
-    // Reset stale hover references
+    // Reset stale hover references (handles reposition on next mousemove)
     this.hoveredCell = null;
     this.hoveredRow = -1;
     this.hoveredCol = -1;
-    this.hideCellHandle();
+
+    if (this.cellHandleCell && !this.table.contains(this.cellHandleCell)) {
+      this.hideCellHandle();
+    }
 
     return true;
   }
@@ -330,6 +335,8 @@ export class TableView implements NodeView {
   // ─── Hover tracking ──────────────────────────────────────────────────
 
   private onMouseMove(e: MouseEvent): void {
+    if (this._resizeDragging) return;
+
     const target = e.target;
     if (!(target instanceof HTMLElement)) return;
 
@@ -415,7 +422,7 @@ export class TableView implements NodeView {
 
   /** Called by the cellHandlePlugin when CellSelection changes. */
   updateCellHandle(active: boolean): void {
-    if (!active) {
+    if (!active || this._resizeDragging) {
       this.cellToolbar.style.display = '';
       this.closeDropdown();
       return;
@@ -461,9 +468,24 @@ export class TableView implements NodeView {
 
   // ─── Cell handle (small circle for single-cell operations) ──────────
 
-  /** Show cell handle at the top-center of the given cell. */
+  /** Hide all controls during column resize drag. Called by the plugin. */
+  hideForResize(): void {
+    this._resizeDragging = true;
+    this.cellHandle.style.display = '';
+    this.colHandle.style.display = '';
+    this.rowHandle.style.display = '';
+    this.cellToolbar.style.display = '';
+    this.closeDropdown();
+  }
+
+  /** Re-enable controls after column resize drag ends. Called by the plugin. */
+  showAfterResize(): void {
+    this._resizeDragging = false;
+  }
+
+  /** Show cell handle at the top-center of the given cell. Always repositions (no early return). */
   showCellHandle(cell: HTMLTableCellElement): void {
-    if (this.cellHandleCell === cell && this.cellHandle.style.display === 'flex') return;
+    if (this._resizeDragging) return;
     this.cellHandleCell = cell;
     const containerRect = this.dom.getBoundingClientRect();
     const cellRect = cell.getBoundingClientRect();

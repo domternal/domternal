@@ -428,8 +428,25 @@ export const Table = Node.create<TableOptions>({
         view: () => {
           let lastToolbarView: TableView | null = null;
           let lastHandleView: TableView | null = null;
+          let resizingView: TableView | null = null;
           return {
             update: (view) => {
+              // Detect column resize drag (prosemirror-tables adds column-resize-dragging
+              // decoration only during active drag, not on mere hover near border)
+              const draggingCell = view.dom.querySelector('.column-resize-dragging');
+              if (draggingCell) {
+                const container = draggingCell.closest('.dm-table-container') as HTMLElement | null;
+                const tv = container && (container as any).__tableView as TableView | undefined;
+                if (tv && tv !== resizingView) {
+                  tv.hideForResize();
+                  resizingView = tv;
+                }
+                return; // skip all handle/toolbar logic during resize
+              } else if (resizingView) {
+                resizingView.showAfterResize();
+                resizingView = null;
+              }
+
               const sel = view.state.selection;
               if (sel instanceof CellSelection) {
                 // CellSelection → show toolbar (unless suppressed by row/col handle), hide cell handle
