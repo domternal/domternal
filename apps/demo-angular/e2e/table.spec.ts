@@ -1864,3 +1864,69 @@ test.describe('Table — Column resize: colspan', () => {
     expect(widths[2]).toBe('80px');
   });
 });
+
+// =============================================================================
+// Table — Nested Tables Blocked
+// =============================================================================
+
+test.describe('Table — Nested Tables Blocked', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('insertTable command is blocked when cursor is inside a table cell', async ({ page }) => {
+    await setContentAndFocus(page, '<table><tr><td>A</td><td>B</td></tr><tr><td>C</td><td>D</td></tr></table>');
+    await placeCursorInCell(page, 0);
+
+    const result = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      return comp?.editor?.commands?.insertTable?.() ?? null;
+    });
+
+    expect(result).toBe(false);
+
+    // Should still be only 1 table
+    const tableCount = await page.locator(`${editorSelector} table`).count();
+    expect(tableCount).toBe(1);
+  });
+
+  test('insertTable command is blocked when cursor is inside a header cell', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+    await placeCursorInCell(page, 0); // th cell
+
+    const result = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      return comp?.editor?.commands?.insertTable?.() ?? null;
+    });
+
+    expect(result).toBe(false);
+  });
+
+  test('insertTable toolbar button is disabled when cursor is inside a table', async ({ page }) => {
+    await setContentAndFocus(page, '<table><tr><td>A</td><td>B</td></tr><tr><td>C</td><td>D</td></tr></table>');
+    await placeCursorInCell(page, 0);
+
+    await expect(page.locator(insertTableBtn)).toBeDisabled();
+  });
+
+  test('insertTable works normally outside a table', async ({ page }) => {
+    await setContentAndFocus(page, '<p>Hello</p>');
+    await page.locator(`${editorSelector} p`).click();
+
+    const result = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      return comp?.editor?.commands?.insertTable?.() ?? null;
+    });
+
+    expect(result).toBe(true);
+    const tableCount = await page.locator(`${editorSelector} table`).count();
+    expect(tableCount).toBe(1);
+  });
+});

@@ -91,6 +91,8 @@ export class TableView implements NodeView {
   private colHandle: HTMLButtonElement;
   private rowHandle: HTMLButtonElement;
   private cellToolbar: HTMLElement;
+  private mergeBtn: HTMLButtonElement | null = null;
+  private splitBtn: HTMLButtonElement | null = null;
   private dropdown: HTMLElement | null = null;
 
   private hoveredCell: HTMLTableCellElement | null = null;
@@ -258,20 +260,20 @@ export class TableView implements NodeView {
     toolbar.appendChild(sep1);
 
     // Merge cells button
-    const mergeBtn = this.createToolbarButton(ICON_MERGE, 'Merge cells');
-    mergeBtn.addEventListener('click', (e) => {
+    this.mergeBtn = this.createToolbarButton(ICON_MERGE, 'Merge cells');
+    this.mergeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       mergeCells(this.view.state, this.view.dispatch);
     });
-    toolbar.appendChild(mergeBtn);
+    toolbar.appendChild(this.mergeBtn);
 
     // Split cell button
-    const splitBtn = this.createToolbarButton(ICON_SPLIT, 'Split cell');
-    splitBtn.addEventListener('click', (e) => {
+    this.splitBtn = this.createToolbarButton(ICON_SPLIT, 'Split cell');
+    this.splitBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       splitCell(this.view.state, this.view.dispatch);
     });
-    toolbar.appendChild(splitBtn);
+    toolbar.appendChild(this.splitBtn);
 
     // Separator
     const sep2 = document.createElement('span');
@@ -420,6 +422,12 @@ export class TableView implements NodeView {
     this.cellToolbar.style.left = `${toolbarLeft}px`;
     this.cellToolbar.style.top = `${top - containerRect.top - 36}px`;
     this.cellToolbar.style.display = 'flex';
+
+    // Disable merge/split based on whether command can execute (dry-run without dispatch)
+    const canMerge = mergeCells(this.view.state);
+    const canSplit = splitCell(this.view.state);
+    this.mergeBtn!.disabled = !canMerge;
+    this.splitBtn!.disabled = !canSplit;
   }
 
   // ─── Handle clicks ───────────────────────────────────────────────────
