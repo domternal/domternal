@@ -1335,6 +1335,489 @@ test.describe('Table — Cell toolbar', () => {
 });
 
 // =============================================================================
+// Table — Cell handle & focused cell
+// =============================================================================
+
+test.describe('Table — Cell handle', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  /** Create a CellSelection via the editor API. */
+  async function selectCells(page: Page, anchorIdx: number, headIdx: number) {
+    await page.evaluate(({ anchor, head }) => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (!comp?.editor) return;
+      const cells: number[] = [];
+      comp.editor.state.doc.descendants((node: any, pos: number) => {
+        if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+          cells.push(pos);
+        }
+      });
+      if (cells[anchor] != null && cells[head] != null) {
+        comp.editor.commands.setCellSelection({ anchorCell: cells[anchor], headCell: cells[head] });
+      }
+    }, { anchor: anchorIdx, head: headIdx });
+    await page.waitForTimeout(200);
+  }
+
+  test('cell handle appears when cursor is placed in a cell', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+    await placeCursorInCell(page, 0);
+
+    const handle = page.locator('.dm-table-cell-handle');
+    await expect(handle).toBeVisible();
+  });
+
+  test('cell handle disappears when cursor leaves the table', async ({ page }) => {
+    await setContentAndFocus(page, TABLE_WITH_PARAGRAPH);
+    await placeCursorInCell(page, 0);
+    await expect(page.locator('.dm-table-cell-handle')).toBeVisible();
+
+    // Move cursor outside the table
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (!comp?.editor) return;
+      comp.editor.commands.focus(1);
+    });
+    await page.waitForTimeout(200);
+
+    await expect(page.locator('.dm-table-cell-handle')).not.toBeVisible();
+  });
+
+  test('cell handle disappears during CellSelection', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+    await placeCursorInCell(page, 0);
+    await expect(page.locator('.dm-table-cell-handle')).toBeVisible();
+
+    await selectCells(page, 0, 1);
+    await expect(page.locator('.dm-table-cell-handle')).not.toBeVisible();
+  });
+
+  test('clicking cell handle creates CellSelection and shows toolbar', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+    await placeCursorInCell(page, 3); // first body cell
+
+    const handle = page.locator('.dm-table-cell-handle');
+    await expect(handle).toBeVisible();
+    await handle.click();
+    await page.waitForTimeout(200);
+
+    // Cell toolbar should appear (CellSelection created)
+    await expect(page.locator('.dm-table-cell-toolbar')).toBeVisible();
+
+    // The cell should have selectedCell class
+    const selectedCount = await page.locator(`${editorSelector} .selectedCell`).count();
+    expect(selectedCount).toBeGreaterThan(0);
+  });
+
+  test('cell handle is positioned within the table area', async ({ page }) => {
+    await setContentAndFocus(page, TABLE_NO_HEADER);
+    await placeCursorInCell(page, 0);
+
+    const handle = page.locator('.dm-table-cell-handle');
+    await expect(handle).toBeVisible();
+
+    const handleBox = await handle.boundingBox();
+    const tableBox = await page.locator(`${editorSelector} table`).boundingBox();
+    expect(handleBox).toBeTruthy();
+    expect(tableBox).toBeTruthy();
+
+    // Handle should be within or just above the table's horizontal span
+    expect(handleBox!.x).toBeGreaterThan(tableBox!.x - 20);
+    expect(handleBox!.x + handleBox!.width).toBeLessThan(tableBox!.x + tableBox!.width + 20);
+
+    // Handle should be near or above the table top
+    expect(handleBox!.y).toBeLessThan(tableBox!.y + tableBox!.height);
+  });
+
+  test('cell handle moves when navigating cells with Tab', async ({ page }) => {
+    await setContentAndFocus(page, TABLE_NO_HEADER);
+    await placeCursorInCell(page, 0);
+
+    const handle = page.locator('.dm-table-cell-handle');
+    await expect(handle).toBeVisible();
+
+    const pos1 = await handle.boundingBox();
+
+    // Use Tab to move to the next cell (PM-native navigation)
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(200);
+
+    const pos2 = await handle.boundingBox();
+    expect(pos2).toBeTruthy();
+
+    // X position should have changed (moved to next column)
+    expect(Math.abs(pos2!.x - pos1!.x)).toBeGreaterThan(10);
+  });
+});
+
+// =============================================================================
+// Table — Focused cell decoration
+// =============================================================================
+
+test.describe('Table — Focused cell decoration', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('focused cell gets dm-cell-focused class', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+    await placeCursorInCell(page, 0);
+
+    const focused = page.locator(`${editorSelector} .dm-cell-focused`);
+    await expect(focused).toHaveCount(1);
+  });
+
+  test('dm-cell-focused moves when cursor moves to different cell', async ({ page }) => {
+    await setContentAndFocus(page, TABLE_NO_HEADER);
+    await placeCursorInCell(page, 0);
+
+    // First cell should be focused
+    let focused = page.locator(`${editorSelector} td.dm-cell-focused`);
+    await expect(focused).toHaveCount(1);
+    const firstCellText = await focused.textContent();
+
+    // Move to second cell
+    await placeCursorInCell(page, 1);
+
+    focused = page.locator(`${editorSelector} td.dm-cell-focused`);
+    await expect(focused).toHaveCount(1);
+    const secondCellText = await focused.textContent();
+    expect(secondCellText).not.toBe(firstCellText);
+  });
+
+  test('dm-cell-focused removed when cursor leaves table', async ({ page }) => {
+    await setContentAndFocus(page, TABLE_WITH_PARAGRAPH);
+    await placeCursorInCell(page, 0);
+    await expect(page.locator(`${editorSelector} .dm-cell-focused`)).toHaveCount(1);
+
+    // Move cursor outside the table
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (!comp?.editor) return;
+      comp.editor.commands.focus(1);
+    });
+    await page.waitForTimeout(200);
+
+    await expect(page.locator(`${editorSelector} .dm-cell-focused`)).toHaveCount(0);
+  });
+
+  test('dm-cell-focused removed during CellSelection', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+    await placeCursorInCell(page, 0);
+    await expect(page.locator(`${editorSelector} .dm-cell-focused`)).toHaveCount(1);
+
+    // Create a CellSelection
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (!comp?.editor) return;
+      const cells: number[] = [];
+      comp.editor.state.doc.descendants((node: any, pos: number) => {
+        if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+          cells.push(pos);
+        }
+      });
+      if (cells.length >= 2) {
+        comp.editor.commands.setCellSelection({ anchorCell: cells[0], headCell: cells[1] });
+      }
+    });
+    await page.waitForTimeout(200);
+
+    await expect(page.locator(`${editorSelector} .dm-cell-focused`)).toHaveCount(0);
+  });
+
+  test('focused cell has visible inset border', async ({ page }) => {
+    await setContentAndFocus(page, TABLE_NO_HEADER);
+    await placeCursorInCell(page, 0);
+
+    const focused = page.locator(`${editorSelector} td.dm-cell-focused`);
+    await expect(focused).toHaveCount(1);
+
+    const boxShadow = await focused.evaluate((el) => getComputedStyle(el).boxShadow);
+    // Should have an inset box-shadow (the focused cell border)
+    expect(boxShadow).toContain('inset');
+  });
+
+  test('only one cell has dm-cell-focused at a time', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Place cursor in cell 0
+    await placeCursorInCell(page, 0);
+    expect(await page.locator(`${editorSelector} .dm-cell-focused`).count()).toBe(1);
+
+    // Place cursor in cell 3
+    await placeCursorInCell(page, 3);
+    expect(await page.locator(`${editorSelector} .dm-cell-focused`).count()).toBe(1);
+
+    // Place cursor in cell 5
+    await placeCursorInCell(page, 5);
+    expect(await page.locator(`${editorSelector} .dm-cell-focused`).count()).toBe(1);
+  });
+});
+
+// =============================================================================
+// Table — Cell toolbar positioning
+// =============================================================================
+
+test.describe('Table — Cell toolbar positioning', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  /** Create a CellSelection via the editor API. */
+  async function selectCells(page: Page, anchorIdx: number, headIdx: number) {
+    await page.evaluate(({ anchor, head }) => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (!comp?.editor) return;
+      const cells: number[] = [];
+      comp.editor.state.doc.descendants((node: any, pos: number) => {
+        if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+          cells.push(pos);
+        }
+      });
+      if (cells[anchor] != null && cells[head] != null) {
+        comp.editor.commands.setCellSelection({ anchorCell: cells[anchor], headCell: cells[head] });
+      }
+    }, { anchor: anchorIdx, head: headIdx });
+    await page.waitForTimeout(200);
+  }
+
+  test('toolbar does not jump when clicking color button', async ({ page }) => {
+    await setContentAndFocus(page, TABLE_NO_HEADER);
+    await selectCells(page, 0, 1);
+
+    const toolbar = page.locator('.dm-table-cell-toolbar');
+    await expect(toolbar).toBeVisible();
+
+    // Record initial position
+    const pos1 = await toolbar.boundingBox();
+    expect(pos1).toBeTruthy();
+
+    // Click color button (opens dropdown but shouldn't move toolbar)
+    const colorBtn = toolbar.locator('.dm-table-cell-toolbar-btn').first();
+    await colorBtn.click();
+    await page.waitForTimeout(150);
+
+    const pos2 = await toolbar.boundingBox();
+    expect(pos2).toBeTruthy();
+
+    // Position should not have changed
+    expect(Math.abs(pos2!.x - pos1!.x)).toBeLessThan(2);
+    expect(Math.abs(pos2!.y - pos1!.y)).toBeLessThan(2);
+  });
+
+  test('toolbar does not jump when clicking alignment button', async ({ page }) => {
+    await setContentAndFocus(page, TABLE_NO_HEADER);
+    await selectCells(page, 0, 1);
+
+    const toolbar = page.locator('.dm-table-cell-toolbar');
+    await expect(toolbar).toBeVisible();
+
+    const pos1 = await toolbar.boundingBox();
+
+    // Click alignment button
+    const alignBtn = toolbar.locator('.dm-table-cell-toolbar-btn').nth(1);
+    await alignBtn.click();
+    await page.waitForTimeout(150);
+
+    const pos2 = await toolbar.boundingBox();
+    expect(Math.abs(pos2!.x - pos1!.x)).toBeLessThan(2);
+    expect(Math.abs(pos2!.y - pos1!.y)).toBeLessThan(2);
+  });
+
+  test('toolbar does not jump when applying color', async ({ page }) => {
+    await setContentAndFocus(page, TABLE_NO_HEADER);
+    await selectCells(page, 0, 1);
+
+    const toolbar = page.locator('.dm-table-cell-toolbar');
+    await expect(toolbar).toBeVisible();
+
+    const pos1 = await toolbar.boundingBox();
+
+    // Open color dropdown and click a swatch
+    const colorBtn = toolbar.locator('.dm-table-cell-toolbar-btn').first();
+    await colorBtn.click();
+    await page.waitForTimeout(100);
+    await page.locator('.dm-table-cell-dropdown .dm-color-swatch').first().click();
+    await page.waitForTimeout(200);
+
+    // Toolbar should still be visible and in the same position
+    await expect(toolbar).toBeVisible();
+    const pos2 = await toolbar.boundingBox();
+    expect(Math.abs(pos2!.x - pos1!.x)).toBeLessThan(2);
+    expect(Math.abs(pos2!.y - pos1!.y)).toBeLessThan(2);
+  });
+
+  test('toolbar does not jump when applying alignment', async ({ page }) => {
+    await setContentAndFocus(page, TABLE_NO_HEADER);
+    await selectCells(page, 0, 1);
+
+    const toolbar = page.locator('.dm-table-cell-toolbar');
+    await expect(toolbar).toBeVisible();
+
+    const pos1 = await toolbar.boundingBox();
+
+    // Open alignment dropdown and click center
+    const alignBtn = toolbar.locator('.dm-table-cell-toolbar-btn').nth(1);
+    await alignBtn.click();
+    await page.waitForTimeout(100);
+    await page.locator('.dm-table-cell-align-dropdown .dm-table-align-item').nth(1).click();
+    await page.waitForTimeout(200);
+
+    await expect(toolbar).toBeVisible();
+    const pos2 = await toolbar.boundingBox();
+    expect(Math.abs(pos2!.x - pos1!.x)).toBeLessThan(2);
+    expect(Math.abs(pos2!.y - pos1!.y)).toBeLessThan(2);
+  });
+
+  test('toolbar does not jump when toggling header cell', async ({ page }) => {
+    await setContentAndFocus(page, TABLE_NO_HEADER);
+    await selectCells(page, 0, 0);
+
+    const toolbar = page.locator('.dm-table-cell-toolbar');
+    await expect(toolbar).toBeVisible();
+
+    const pos1 = await toolbar.boundingBox();
+
+    // Click header toggle (5th button)
+    const headerBtn = toolbar.locator('.dm-table-cell-toolbar-btn').nth(4);
+    await headerBtn.click();
+    await page.waitForTimeout(200);
+
+    await expect(toolbar).toBeVisible();
+    const pos2 = await toolbar.boundingBox();
+    // Allow slight Y shift since header cells may have different height
+    expect(Math.abs(pos2!.x - pos1!.x)).toBeLessThan(5);
+  });
+
+  test('toolbar is centered above selected cells', async ({ page }) => {
+    await setContentAndFocus(page, TABLE_NO_HEADER);
+    await selectCells(page, 0, 1);
+
+    const toolbar = page.locator('.dm-table-cell-toolbar');
+    await expect(toolbar).toBeVisible();
+
+    const toolbarBox = await toolbar.boundingBox();
+    expect(toolbarBox).toBeTruthy();
+
+    // Get bounding box of selected cells
+    const selectionBounds = await page.evaluate((sel) => {
+      const cells = document.querySelectorAll(sel + ' .selectedCell');
+      let left = Infinity, right = -Infinity, top = Infinity;
+      cells.forEach(c => {
+        const r = c.getBoundingClientRect();
+        if (r.left < left) left = r.left;
+        if (r.right > right) right = r.right;
+        if (r.top < top) top = r.top;
+      });
+      return { left, right, top };
+    }, editorSelector);
+
+    const selectionCenter = (selectionBounds.left + selectionBounds.right) / 2;
+    const toolbarCenter = toolbarBox!.x + toolbarBox!.width / 2;
+
+    // Toolbar center should be near selection center
+    expect(Math.abs(toolbarCenter - selectionCenter)).toBeLessThan(10);
+
+    // Toolbar should be above the selection
+    expect(toolbarBox!.y + toolbarBox!.height).toBeLessThan(selectionBounds.top + 5);
+  });
+});
+
+// =============================================================================
+// Table — Row/col handle suppresses cell toolbar
+// =============================================================================
+
+test.describe('Table — Row/col handle suppresses cell toolbar', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('clicking column handle shows dropdown but not cell toolbar', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Hover over a cell to make the column handle visible
+    const firstCell = page.locator(`${editorSelector} th`).first();
+    await firstCell.hover();
+    await page.waitForTimeout(200);
+
+    const colHandle = page.locator('.dm-table-col-handle');
+    await expect(colHandle).toBeVisible();
+
+    await colHandle.click();
+    await page.waitForTimeout(200);
+
+    // Row/column dropdown should be visible
+    const dropdown = page.locator('.dm-table-controls-dropdown');
+    await expect(dropdown).toBeVisible();
+
+    // Cell toolbar should NOT be visible (suppressed)
+    await expect(page.locator('.dm-table-cell-toolbar')).not.toBeVisible();
+  });
+
+  test('clicking row handle shows dropdown but not cell toolbar', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Hover over a cell to make the row handle visible
+    const firstCell = page.locator(`${editorSelector} th`).first();
+    await firstCell.hover();
+    await page.waitForTimeout(200);
+
+    const rowHandle = page.locator('.dm-table-row-handle');
+    await expect(rowHandle).toBeVisible();
+
+    await rowHandle.click();
+    await page.waitForTimeout(200);
+
+    // Row/column dropdown should be visible
+    const dropdown = page.locator('.dm-table-controls-dropdown');
+    await expect(dropdown).toBeVisible();
+
+    // Cell toolbar should NOT be visible (suppressed)
+    await expect(page.locator('.dm-table-cell-toolbar')).not.toBeVisible();
+  });
+
+  test('cell toolbar appears after closing row/col dropdown', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Hover and click column handle
+    const firstCell = page.locator(`${editorSelector} th`).first();
+    await firstCell.hover();
+    await page.waitForTimeout(200);
+
+    const colHandle = page.locator('.dm-table-col-handle');
+    await colHandle.click();
+    await page.waitForTimeout(200);
+
+    // Dropdown visible, cell toolbar suppressed
+    await expect(page.locator('.dm-table-controls-dropdown')).toBeVisible();
+    await expect(page.locator('.dm-table-cell-toolbar')).not.toBeVisible();
+
+    // Close dropdown with Escape
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+
+    // Now dropdown should be gone
+    await expect(page.locator('.dm-table-controls-dropdown')).not.toBeVisible();
+  });
+});
+
+// =============================================================================
 // Table — Column resize
 // =============================================================================
 

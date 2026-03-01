@@ -31,6 +31,7 @@ import { Node } from '@domternal/core';
 import type { CommandSpec, ToolbarItem } from '@domternal/core';
 import { Plugin, TextSelection } from 'prosemirror-state';
 import type { Node as PMNode } from 'prosemirror-model';
+import { Decoration, DecorationSet } from 'prosemirror-view';
 import type { EditorView, NodeView, NodeViewConstructor } from 'prosemirror-view';
 import {
   tableEditing,
@@ -401,14 +402,37 @@ export const Table = Node.create<TableOptions>({
         allowTableNodeSelection: this.options.allowTableNodeSelection,
       }),
 
-      // Show/hide cell handle when CellSelection changes
+      // Show/hide cell toolbar + cell handle based on selection;
+      // also add focused-cell decoration (via DecorationSet, not direct DOM)
       new Plugin({
+        state: {
+          init() { return DecorationSet.empty; },
+          apply(_tr, _set, _oldState, newState) {
+            const sel = newState.selection;
+            if (sel instanceof CellSelection) return DecorationSet.empty;
+            const $from = sel.$from;
+            for (let d = $from.depth; d > 0; d--) {
+              const name = $from.node(d).type.name;
+              if (name === 'tableCell' || name === 'tableHeader') {
+                const pos = $from.before(d);
+                const deco = Decoration.node(pos, pos + $from.node(d).nodeSize, { class: 'dm-cell-focused' });
+                return DecorationSet.create(newState.doc, [deco]);
+              }
+            }
+            return DecorationSet.empty;
+          },
+        },
+        props: {
+          decorations(state) { return (this as any as Plugin).getState(state); },
+        },
         view: () => {
-          let lastTableView: TableView | null = null;
+          let lastToolbarView: TableView | null = null;
+          let lastHandleView: TableView | null = null;
           return {
             update: (view) => {
               const sel = view.state.selection;
               if (sel instanceof CellSelection) {
+                // CellSelection → show toolbar (unless suppressed by row/col handle), hide cell handle
                 const domInfo = view.domAtPos((sel as any).$anchorCell.pos + 1);
                 const el = domInfo.node instanceof HTMLElement
                   ? domInfo.node
@@ -416,12 +440,55 @@ export const Table = Node.create<TableOptions>({
                 const container = el?.closest('.dm-table-container') as HTMLElement | null;
                 const tv = container && (container as any).__tableView as TableView | undefined;
                 if (tv) {
-                  tv.updateCellHandle(true);
-                  lastTableView = tv;
+                  if (!tv.suppressCellToolbar) {
+                    tv.updateCellHandle(true);
+                  }
+                  tv.hideCellHandle();
+                  lastToolbarView = tv;
                 }
-              } else if (lastTableView) {
-                lastTableView.updateCellHandle(false);
-                lastTableView = null;
+                if (lastHandleView && lastHandleView !== tv) {
+                  lastHandleView.hideCellHandle();
+                }
+                lastHandleView = null;
+              } else {
+                // Not CellSelection → hide toolbar
+                if (lastToolbarView) {
+                  lastToolbarView.updateCellHandle(false);
+                  lastToolbarView = null;
+                }
+
+                // Check if TextSelection is inside a table cell → show cell handle
+                const $from = sel.$from;
+                let inCell = false;
+                for (let d = $from.depth; d > 0; d--) {
+                  const name = $from.node(d).type.name;
+                  if (name === 'tableCell' || name === 'tableHeader') {
+                    inCell = true;
+                    break;
+                  }
+                }
+
+                if (inCell) {
+                  const domInfo = view.domAtPos($from.pos);
+                  const domEl = domInfo.node instanceof HTMLElement
+                    ? domInfo.node
+                    : domInfo.node.parentElement;
+                  const cellEl = domEl?.closest('td, th') as HTMLTableCellElement | null;
+                  const container = cellEl?.closest('.dm-table-container') as HTMLElement | null;
+                  const tv = container && (container as any).__tableView as TableView | undefined;
+                  if (tv && cellEl) {
+                    tv.showCellHandle(cellEl);
+                    if (lastHandleView && lastHandleView !== tv) {
+                      lastHandleView.hideCellHandle();
+                    }
+                    lastHandleView = tv;
+                  }
+                } else {
+                  if (lastHandleView) {
+                    lastHandleView.hideCellHandle();
+                    lastHandleView = null;
+                  }
+                }
               }
             },
           };

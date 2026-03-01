@@ -65,6 +65,10 @@ const ICON_ALIGN_MIDDLE =
 const ICON_ALIGN_BOTTOM =
   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><path d="M40,232H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16Zm88-32a8,8,0,0,0,8-8V96a8,8,0,0,0-16,0v96A8,8,0,0,0,128,200Zm40-16a8,8,0,0,0,8-8V112a8,8,0,0,0-16,0v64A8,8,0,0,0,168,184ZM88,184a8,8,0,0,0,8-8V112a8,8,0,0,0-16,0v64A8,8,0,0,0,88,184Z"/></svg>';
 
+// Cell handle icon (2×2 grid dots)
+const CELL_ICON =
+  '<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="2" cy="2" r="1.2" fill="currentColor"/><circle cx="6" cy="2" r="1.2" fill="currentColor"/><circle cx="2" cy="6" r="1.2" fill="currentColor"/><circle cx="6" cy="6" r="1.2" fill="currentColor"/></svg>';
+
 // Default cell background colors (2 rows × 5 columns)
 const CELL_COLORS = [
   '#fef08a', '#fed7aa', '#fecaca', '#fbcfe8', '#d0bfff',
@@ -93,7 +97,11 @@ export class TableView implements NodeView {
   private cellToolbar: HTMLElement;
   private mergeBtn: HTMLButtonElement | null = null;
   private splitBtn: HTMLButtonElement | null = null;
+  private cellHandle: HTMLButtonElement;
+  private cellHandleCell: HTMLTableCellElement | null = null;
   private dropdown: HTMLElement | null = null;
+  /** When true, the plugin skips showing the cell toolbar (row/col dropdown is open). */
+  suppressCellToolbar = false;
 
   private hoveredCell: HTMLTableCellElement | null = null;
   private hoveredRow = -1;
@@ -144,6 +152,22 @@ export class TableView implements NodeView {
     this.cellToolbar = this.buildCellToolbar();
     this.dom.appendChild(this.cellToolbar);
 
+    // Create cell handle (small circle — appears when cursor is in a cell)
+    this.cellHandle = document.createElement('button');
+    this.cellHandle.type = 'button';
+    this.cellHandle.className = 'dm-table-cell-handle';
+    this.cellHandle.setAttribute('aria-label', 'Cell options');
+    this.cellHandle.innerHTML = CELL_ICON;
+    this.cellHandle.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    this.cellHandle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.onCellHandleClick();
+    });
+    this.dom.appendChild(this.cellHandle);
+
     // Create wrapper div (overflow-x: auto for horizontal scrolling)
     this.wrapper = document.createElement('div');
     this.wrapper.className = 'tableWrapper';
@@ -167,6 +191,7 @@ export class TableView implements NodeView {
     this.dom.addEventListener('mouseleave', this.boundMouseLeave);
     this.colHandle.addEventListener('mouseenter', this.boundCancelHide);
     this.rowHandle.addEventListener('mouseenter', this.boundCancelHide);
+    this.cellHandle.addEventListener('mouseenter', this.boundCancelHide);
   }
 
   // ─── NodeView interface ───────────────────────────────────────────────
@@ -182,6 +207,7 @@ export class TableView implements NodeView {
     this.hoveredCell = null;
     this.hoveredRow = -1;
     this.hoveredCol = -1;
+    this.hideCellHandle();
 
     return true;
   }
@@ -191,6 +217,7 @@ export class TableView implements NodeView {
     this.dom.removeEventListener('mouseleave', this.boundMouseLeave);
     this.colHandle.removeEventListener('mouseenter', this.boundCancelHide);
     this.rowHandle.removeEventListener('mouseenter', this.boundCancelHide);
+    this.cellHandle.removeEventListener('mouseenter', this.boundCancelHide);
     this.closeDropdown();
     if (this.hideTimeout) clearTimeout(this.hideTimeout);
   }
@@ -412,7 +439,10 @@ export class TableView implements NodeView {
     });
 
     const containerRect = this.dom.getBoundingClientRect();
-    const toolbarWidth = this.cellToolbar.offsetWidth || 120;
+
+    // Show toolbar first so offsetWidth is accurate (avoids jump on subsequent updates)
+    this.cellToolbar.style.display = 'flex';
+    const toolbarWidth = this.cellToolbar.offsetWidth;
     const selectionCenter = (left + right) / 2;
     let toolbarLeft = selectionCenter - containerRect.left - toolbarWidth / 2;
 
@@ -421,7 +451,6 @@ export class TableView implements NodeView {
 
     this.cellToolbar.style.left = `${toolbarLeft}px`;
     this.cellToolbar.style.top = `${top - containerRect.top - 36}px`;
-    this.cellToolbar.style.display = 'flex';
 
     // Disable merge/split based on whether command can execute (dry-run without dispatch)
     const canMerge = mergeCells(this.view.state);
@@ -430,14 +459,55 @@ export class TableView implements NodeView {
     this.splitBtn!.disabled = !canSplit;
   }
 
+  // ─── Cell handle (small circle for single-cell operations) ──────────
+
+  /** Show cell handle at the top-center of the given cell. */
+  showCellHandle(cell: HTMLTableCellElement): void {
+    if (this.cellHandleCell === cell && this.cellHandle.style.display === 'flex') return;
+    this.cellHandleCell = cell;
+    const containerRect = this.dom.getBoundingClientRect();
+    const cellRect = cell.getBoundingClientRect();
+    const centerX = (cellRect.left + cellRect.right) / 2 - containerRect.left - 9;
+    this.cellHandle.style.left = `${centerX}px`;
+    this.cellHandle.style.top = `${cellRect.top - containerRect.top - 9}px`;
+    this.cellHandle.style.display = 'flex';
+  }
+
+  /** Hide cell handle. */
+  hideCellHandle(): void {
+    this.cellHandle.style.display = '';
+    this.cellHandleCell = null;
+  }
+
+  /** Click on cell handle → create CellSelection for that cell. */
+  private onCellHandleClick(): void {
+    if (!this.cellHandleCell) return;
+    const pos = this.view.posAtDOM(this.cellHandleCell, 0);
+    const $pos = this.view.state.doc.resolve(pos);
+    for (let d = $pos.depth; d > 0; d--) {
+      const node = $pos.node(d);
+      if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+        const cellPos = $pos.before(d);
+        const sel = CellSelection.create(this.view.state.doc, cellPos, cellPos);
+        this.view.dispatch(
+          this.view.state.tr.setSelection(sel as unknown as ReturnType<typeof TextSelection.create>),
+        );
+        this.view.focus();
+        break;
+      }
+    }
+  }
+
   // ─── Handle clicks ───────────────────────────────────────────────────
 
   private onColClick(): void {
+    this.suppressCellToolbar = true;
     this.selectColumn(this.hoveredCol);
     this.showDropdown('column');
   }
 
   private onRowClick(): void {
+    this.suppressCellToolbar = true;
     this.selectRow(this.hoveredRow);
     this.showDropdown('row');
   }
@@ -691,6 +761,7 @@ export class TableView implements NodeView {
     if (!this.dropdown) return;
     this.dropdown.remove();
     this.dropdown = null;
+    this.suppressCellToolbar = false;
     // Clear open state from toolbar buttons
     this.cellToolbar.querySelectorAll('.dm-table-cell-toolbar-btn--open').forEach(
       (el) => el.classList.remove('dm-table-cell-toolbar-btn--open'),
