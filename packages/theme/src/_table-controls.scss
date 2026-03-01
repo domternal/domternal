@@ -56,26 +56,28 @@
   display: none;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border: 1px solid var(--dm-border-color, #e0e0e0);
   border-radius: 50%;
   background: var(--dm-bg, #ffffff);
   color: var(--dm-muted, #999999);
   cursor: pointer;
   padding: 0;
-  transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
 
   &:hover {
-    background: var(--dm-hover, rgba(0, 0, 0, 0.06));
-    color: var(--dm-text, #1a1a1a);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    background: var(--dm-accent, #2563eb);
+    color: #fff;
+    border-color: var(--dm-accent, #2563eb);
+    box-shadow: 0 1px 4px rgba(37, 99, 235, 0.3);
   }
 
   svg {
     display: block;
-    width: 10px;
-    height: 10px;
+    width: 9px;
+    height: 9px;
   }
 }
 

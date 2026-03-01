@@ -267,8 +267,15 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
         hideMenu();
       };
 
+      // Dismiss when another overlay opens (e.g. table dropdown)
+      const onDismissOverlays = (): void => {
+        hideMenu();
+        suppressed = true;
+      };
+
       element.addEventListener('mousedown', onMenuMousedown, { capture: true });
       document.addEventListener('mousedown', onDocumentMousedown);
+      editorEl?.addEventListener('dm:dismiss-overlays', onDismissOverlays);
       editor.on('focus', onFocus);
       editor.on('blur', onBlur);
 
@@ -323,6 +330,7 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
             capture: true,
           });
           document.removeEventListener('mousedown', onDocumentMousedown);
+          editorEl?.removeEventListener('dm:dismiss-overlays', onDismissOverlays);
           if (updateTimeout) {
             clearTimeout(updateTimeout);
           }

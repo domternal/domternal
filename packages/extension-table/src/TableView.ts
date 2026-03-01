@@ -489,9 +489,9 @@ export class TableView implements NodeView {
     this.cellHandleCell = cell;
     const containerRect = this.dom.getBoundingClientRect();
     const cellRect = cell.getBoundingClientRect();
-    const centerX = (cellRect.left + cellRect.right) / 2 - containerRect.left - 9;
+    const centerX = (cellRect.left + cellRect.right) / 2 - containerRect.left - 8;
     this.cellHandle.style.left = `${centerX}px`;
-    this.cellHandle.style.top = `${cellRect.top - containerRect.top - 9}px`;
+    this.cellHandle.style.top = `${cellRect.top - containerRect.top - 8}px`;
     this.cellHandle.style.display = 'flex';
   }
 
@@ -504,6 +504,7 @@ export class TableView implements NodeView {
   /** Click on cell handle → create CellSelection for that cell. */
   private onCellHandleClick(): void {
     if (!this.cellHandleCell) return;
+    this.dismissOverlays();
     const pos = this.view.posAtDOM(this.cellHandleCell, 0);
     const $pos = this.view.state.doc.resolve(pos);
     for (let d = $pos.depth; d > 0; d--) {
@@ -522,14 +523,25 @@ export class TableView implements NodeView {
 
   // ─── Handle clicks ───────────────────────────────────────────────────
 
+  /** Dismiss other floating overlays (bubble menu, etc.) */
+  private dismissOverlays(): void {
+    this.dom.closest('.dm-editor')?.dispatchEvent(
+      new Event('dm:dismiss-overlays', { bubbles: false }),
+    );
+  }
+
   private onColClick(): void {
     this.suppressCellToolbar = true;
+    this.cellToolbar.style.display = '';
+    this.dismissOverlays();
     this.selectColumn(this.hoveredCol);
     this.showDropdown('column');
   }
 
   private onRowClick(): void {
     this.suppressCellToolbar = true;
+    this.cellToolbar.style.display = '';
+    this.dismissOverlays();
     this.selectRow(this.hoveredRow);
     this.showDropdown('row');
   }
