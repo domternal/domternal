@@ -63,6 +63,19 @@ function defaultShouldShow({
   // Don't show if editor is not editable
   if (!editor.isEditable) return false;
 
+  // Don't show if selection spans across different table cells.
+  // A cross-cell TextSelection happens during mouse drag across cells —
+  // the bubble menu would float over the table confusingly.
+  const $from = state.doc.resolve(from);
+  for (let d = $from.depth; d > 0; d--) {
+    const name = $from.node(d).type.name;
+    if (name === 'tableCell' || name === 'tableHeader') {
+      const cellEnd = $from.before(d) + $from.node(d).nodeSize;
+      if (to > cellEnd) return false;
+      break;
+    }
+  }
+
   return true;
 }
 
@@ -182,6 +195,12 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
   // (e.g. on the toolbar), suppress the menu until the selection changes.
   let suppressed = false;
 
+  // Suppress bubble menu during active mouse drag inside the editor.
+  // Without this, the bubble menu appears mid-drag, and its DOM element
+  // blocks prosemirror-tables' posAtCoords() from resolving the cell
+  // under the cursor — preventing TextSelection → CellSelection conversion.
+  let mouseDown = false;
+
   const onDocumentMousedown = (e: MouseEvent): void => {
     const target = e.target as Node | null;
     if (!target) return;
@@ -244,14 +263,53 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
         editorEl.appendChild(element);
       }
 
-      const onFocus = (): void => {
-        // Re-evaluate after focus (selection may have settled)
+      // Track mouse drag to suppress bubble menu during active drag.
+      const onEditorMousedown = (e: MouseEvent): void => {
+        if (e.button !== 0) return; // only primary button
+        mouseDown = true;
+        hideMenu();
+      };
+      const onDocumentMouseup = (): void => {
+        if (!mouseDown) return;
+        mouseDown = false;
+        // Defer to let ProseMirror finalize selection changes from the mouseup
         setTimeout(() => {
-          const pluginState = pluginKey.getState(editor.view.state) as
+          if (mouseDown) return; // new drag started
+          const currentState = pluginKey.getState(editor.view.state) as
             | BubbleMenuPluginState
             | undefined;
-          if (pluginState?.visible) {
-            updatePosition(editor.view, pluginState.from, pluginState.to);
+          if (currentState?.visible) {
+            updatePosition(editor.view, currentState.from, currentState.to);
+          }
+        });
+      };
+
+      const onFocus = (): void => {
+        // Re-evaluate after focus (selection may have settled).
+        // Must re-check shouldShow with current state — plugin state may be stale
+        // if blur/focus happened without a transaction (e.g. cell handle click,
+        // browser extension, or external focus change).
+        setTimeout(() => {
+          if (suppressed) {
+            hideMenu();
+            return;
+          }
+          if (mouseDown) return; // don't show during drag
+          const { selection } = editor.view.state;
+          const { from, to } = selection;
+          const show =
+            !selection.empty &&
+            shouldShow({
+              editor,
+              view: editor.view,
+              state: editor.view.state,
+              from,
+              to,
+            });
+          if (show) {
+            updatePosition(editor.view, from, to);
+          } else {
+            hideMenu();
           }
         });
       };
@@ -275,6 +333,8 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
 
       element.addEventListener('mousedown', onMenuMousedown, { capture: true });
       document.addEventListener('mousedown', onDocumentMousedown);
+      editorView.dom.addEventListener('mousedown', onEditorMousedown);
+      document.addEventListener('mouseup', onDocumentMouseup);
       editorEl?.addEventListener('dm:dismiss-overlays', onDismissOverlays);
       editor.on('focus', onFocus);
       editor.on('blur', onBlur);
@@ -300,6 +360,10 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
             state?.to === prevPluginState?.to &&
             !(state?.visible && view.state.doc !== prevState.doc)
           ) {
+            // Safety: ensure DOM matches state (onFocus setTimeout can race)
+            if (!state?.visible && element.hasAttribute('data-show')) {
+              hideMenu();
+            }
             return;
           }
 
@@ -309,7 +373,7 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
             updateTimeout = null;
           }
 
-          if (state?.visible) {
+          if (state?.visible && !mouseDown) {
             // Show menu with delay
             if (updateDelay > 0) {
               updateTimeout = setTimeout(() => {
@@ -330,6 +394,8 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
             capture: true,
           });
           document.removeEventListener('mousedown', onDocumentMousedown);
+          editorView.dom.removeEventListener('mousedown', onEditorMousedown);
+          document.removeEventListener('mouseup', onDocumentMouseup);
           editorEl?.removeEventListener('dm:dismiss-overlays', onDismissOverlays);
           if (updateTimeout) {
             clearTimeout(updateTimeout);

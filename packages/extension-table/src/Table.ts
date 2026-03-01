@@ -485,7 +485,10 @@ export const Table = Node.create<TableOptions>({
                   }
                 }
 
-                if (inCell) {
+                if (inCell && sel.empty) {
+                  // Only show cell handle for cursor (empty selection).
+                  // When text is selected the bubble menu is visible at the same spot
+                  // and would intercept clicks intended for the cell handle.
                   const domInfo = view.domAtPos($from.pos);
                   const domEl = domInfo.node instanceof HTMLElement
                     ? domInfo.node

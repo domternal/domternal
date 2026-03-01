@@ -220,6 +220,15 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     if ('$anchorCell' in selection) return 'table';
     if (selection.node) return selection.node.type.name;
     if (selection.empty) return null;
+
+    // Cross-cell TextSelection (drag across table cells) — hide bubble menu.
+    // Node identity comparison works because ProseMirror reuses node objects.
+    const fromCell = this.findCellNode(selection.$from);
+    if (fromCell) {
+      const toCell = this.findCellNode(selection.$to);
+      if (toCell && fromCell !== toCell) return 'table';
+    }
+
     const fromName = selection.$from.parent.type.name;
     if (fromName in ctxs) return fromName;
     if ('text' in ctxs && selection.$from.parent.type.spec.marks !== '') return 'text';
@@ -227,6 +236,16 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     const toName = selection.$to.parent.type.name;
     if (toName in ctxs) return toName;
     if ('text' in ctxs && selection.$to.parent.type.spec.marks !== '') return 'text';
+    return null;
+  }
+
+  private findCellNode(pos: ResolvedPosShape): { type: { name: string } } | null {
+    for (let d = pos.depth; d > 0; d--) {
+      const node = pos.node(d);
+      if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+        return node;
+      }
+    }
     return null;
   }
 
