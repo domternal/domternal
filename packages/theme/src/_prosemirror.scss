@@ -137,9 +137,19 @@ img.ProseMirror-separator {
   pointer-events: none;
 }
 
+// Hide resize handle + cursor during non-resize mouse drag (cell/text selection).
+// The dm-mouse-drag class is added by the Table extension's suppressor plugin.
+.dm-editor .dm-mouse-drag .column-resize-handle {
+  display: none;
+}
+
 .dm-editor .ProseMirror.resize-cursor {
   cursor: ew-resize;
   cursor: col-resize;
+}
+
+.dm-editor .ProseMirror.resize-cursor.dm-mouse-drag {
+  cursor: auto;
 }
 
 .dm-editor .selectedCell {
