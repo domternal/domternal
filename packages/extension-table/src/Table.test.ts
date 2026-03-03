@@ -1338,3 +1338,153 @@ describe('HTML round-trip', () => {
     expect(cell?.attrs?.rowspan).toBe(3);
   });
 });
+
+// === Tab / Shift-Tab defers to list extensions ===
+
+describe('Tab/Shift-Tab with lists in table cells', () => {
+  let editor: InstanceType<typeof Editor>;
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) editor.destroy();
+  });
+
+  // Need list extensions so the schema knows about listItem/taskItem
+  const { BulletList, ListItem, TaskList, TaskItem } = require('@domternal/core');
+  const listExtensions = [...allExtensions, BulletList, ListItem, TaskList, TaskItem];
+
+  function focusAt(pos: number) {
+    const sel = TextSelection.create(editor.state.doc, pos);
+    editor.view.dispatch(editor.state.tr.setSelection(sel));
+  }
+
+  /** Find the position of the first text node containing `text`. */
+  function findTextPos(text: string): number {
+    let found = -1;
+    editor.state.doc.descendants((node, pos) => {
+      if (found === -1 && node.isText && node.text?.includes(text)) {
+        found = pos;
+      }
+    });
+    return found;
+  }
+
+  // ─── Tab defers when in listItem ───────────────────────────────────
+
+  it('Tab returns false when cursor is inside a listItem in a table cell', () => {
+    editor = new Editor({
+      extensions: listExtensions,
+      content: '<table><tr><td><ul><li><p>A</p></li><li><p>B</p></li></ul></td><td><p>C</p></td></tr></table>',
+    });
+    const pos = findTextPos('B');
+    expect(pos).toBeGreaterThan(0);
+    focusAt(pos);
+
+    // Verify cursor is inside a listItem
+    const { $from } = editor.state.selection;
+    let inListItem = false;
+    for (let d = $from.depth; d >= 0; d--) {
+      if ($from.node(d).type.name === 'listItem') { inListItem = true; break; }
+    }
+    expect(inListItem).toBe(true);
+
+    // Tab should return false (defer to list handler)
+    const shortcuts = Table.config.addKeyboardShortcuts?.call({ ...Table, editor });
+    const result = (shortcuts?.['Tab'] as any)?.();
+    expect(result).toBe(false);
+  });
+
+  it('Shift-Tab returns false when cursor is inside a listItem in a table cell', () => {
+    editor = new Editor({
+      extensions: listExtensions,
+      content: '<table><tr><td><ul><li><p>A</p></li><li><p>B</p></li></ul></td><td><p>C</p></td></tr></table>',
+    });
+    const pos = findTextPos('B');
+    expect(pos).toBeGreaterThan(0);
+    focusAt(pos);
+
+    const shortcuts = Table.config.addKeyboardShortcuts?.call({ ...Table, editor });
+    const result = (shortcuts?.['Shift-Tab'] as any)?.();
+    expect(result).toBe(false);
+  });
+
+  // ─── Tab defers when in taskItem ───────────────────────────────────
+
+  it('Tab returns false when cursor is inside a taskItem in a table cell', () => {
+    editor = new Editor({
+      extensions: listExtensions,
+      content: '<table><tr><td><ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>T1</p></li><li data-type="taskItem" data-checked="false"><p>T2</p></li></ul></td><td><p>X</p></td></tr></table>',
+    });
+    const pos = findTextPos('T2');
+    expect(pos).toBeGreaterThan(0);
+    focusAt(pos);
+
+    // Verify cursor is inside a taskItem
+    const { $from } = editor.state.selection;
+    let inTaskItem = false;
+    for (let d = $from.depth; d >= 0; d--) {
+      if ($from.node(d).type.name === 'taskItem') { inTaskItem = true; break; }
+    }
+    expect(inTaskItem).toBe(true);
+
+    const shortcuts = Table.config.addKeyboardShortcuts?.call({ ...Table, editor });
+    const result = (shortcuts?.['Tab'] as any)?.();
+    expect(result).toBe(false);
+  });
+
+  it('Shift-Tab returns false when cursor is inside a taskItem in a table cell', () => {
+    editor = new Editor({
+      extensions: listExtensions,
+      content: '<table><tr><td><ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>T1</p></li><li data-type="taskItem" data-checked="false"><p>T2</p></li></ul></td><td><p>X</p></td></tr></table>',
+    });
+    const pos = findTextPos('T2');
+    expect(pos).toBeGreaterThan(0);
+    focusAt(pos);
+
+    const shortcuts = Table.config.addKeyboardShortcuts?.call({ ...Table, editor });
+    const result = (shortcuts?.['Shift-Tab'] as any)?.();
+    expect(result).toBe(false);
+  });
+
+  // ─── Tab still navigates when NOT in a list ────────────────────────
+
+  it('Tab does not return false when cursor is in a plain table cell', () => {
+    editor = new Editor({
+      extensions: listExtensions,
+      content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>',
+    });
+    const pos = findTextPos('A');
+    expect(pos).toBeGreaterThan(0);
+    focusAt(pos);
+
+    // Verify NOT in a list
+    const { $from } = editor.state.selection;
+    let inList = false;
+    for (let d = $from.depth; d >= 0; d--) {
+      const name = $from.node(d).type.name;
+      if (name === 'listItem' || name === 'taskItem') { inList = true; break; }
+    }
+    expect(inList).toBe(false);
+
+    // Tab should NOT return false — it should try goToNextCell
+    const shortcuts = Table.config.addKeyboardShortcuts?.call({ ...Table, editor });
+    const result = (shortcuts?.['Tab'] as any)?.();
+    // goToNextCell may or may not succeed depending on PM-tables internals,
+    // but it should NOT be false from the list-item check
+    expect(result).not.toBe(false);
+  });
+
+  it('Shift-Tab does not return false when cursor is in a plain table cell', () => {
+    editor = new Editor({
+      extensions: listExtensions,
+      content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>',
+    });
+    const pos = findTextPos('B');
+    expect(pos).toBeGreaterThan(0);
+    focusAt(pos);
+
+    const shortcuts = Table.config.addKeyboardShortcuts?.call({ ...Table, editor });
+    const result = (shortcuts?.['Shift-Tab'] as any)?.();
+    // Should try goToPreviousCell, not defer
+    expect(result).not.toBe(false);
+  });
+});
