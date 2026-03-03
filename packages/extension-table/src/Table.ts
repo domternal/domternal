@@ -306,6 +306,13 @@ export const Table = Node.create<TableOptions>({
       Tab: () => {
         if (!editor) return false;
 
+        // If cursor is inside a list item, defer to list extension for indentation
+        const { $from } = editor.state.selection;
+        for (let d = $from.depth; d >= 0; d--) {
+          const name = $from.node(d).type.name;
+          if (name === 'listItem' || name === 'taskItem') return false;
+        }
+
         // Try to move to next cell
         if (editor.commands['goToNextCell']?.()) {
           return true;
@@ -322,6 +329,14 @@ export const Table = Node.create<TableOptions>({
 
       'Shift-Tab': () => {
         if (!editor) return false;
+
+        // If cursor is inside a list item, defer to list extension for outdentation
+        const { $from } = editor.state.selection;
+        for (let d = $from.depth; d >= 0; d--) {
+          const name = $from.node(d).type.name;
+          if (name === 'listItem' || name === 'taskItem') return false;
+        }
+
         return editor.commands['goToPreviousCell']?.() ?? false;
       },
 

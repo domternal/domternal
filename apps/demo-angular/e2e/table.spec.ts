@@ -2817,3 +2817,666 @@ test.describe('Table — Block commands with CellSelection', () => {
     expect(await getEditorHTML(page)).not.toContain('<hr');
   });
 });
+
+// =============================================================================
+// Table — List toggle with CellSelection
+// =============================================================================
+
+test.describe('Table — List toggle with CellSelection', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  const LIST_TABLE = '<table><tr><td>alpha</td><td>beta</td></tr><tr><td>gamma</td><td>delta</td></tr></table>';
+
+  /** Create a CellSelection via the editor API. */
+  async function selectCells(page: Page, anchorIdx: number, headIdx: number) {
+    await page.evaluate(({ anchor, head }) => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (!comp?.editor) return;
+      const cells: number[] = [];
+      comp.editor.state.doc.descendants((node: any, pos: number) => {
+        if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+          cells.push(pos);
+        }
+      });
+      if (cells[anchor] != null && cells[head] != null) {
+        comp.editor.commands.setCellSelection({ anchorCell: cells[anchor], headCell: cells[head] });
+      }
+    }, { anchor: anchorIdx, head: headIdx });
+    await page.waitForTimeout(200);
+  }
+
+  /** Run a toggleList command via editor API and return result. */
+  async function toggleList(page: Page, listName: string, itemName: string): Promise<boolean> {
+    return page.evaluate(({ ln, itn }) => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      return comp?.editor?.commands?.toggleList?.(ln, itn) ?? false;
+    }, { ln: listName, itn: itemName });
+  }
+
+  /** Count how many of the given cells (td) contain a <ul> (not taskList). */
+  async function countCellsWithBullet(page: Page): Promise<number> {
+    return page.evaluate((sel) => {
+      const cells = document.querySelectorAll(sel + ' td');
+      let count = 0;
+      for (const cell of cells) {
+        const ul = cell.querySelector('ul:not([data-type])');
+        if (ul) count++;
+      }
+      return count;
+    }, editorSelector);
+  }
+
+  /** Count how many of the given cells (td) contain an <ol>. */
+  async function countCellsWithOrdered(page: Page): Promise<number> {
+    return page.evaluate((sel) => {
+      const cells = document.querySelectorAll(sel + ' td');
+      let count = 0;
+      for (const cell of cells) {
+        if (cell.querySelector('ol')) count++;
+      }
+      return count;
+    }, editorSelector);
+  }
+
+  /** Count how many of the given cells (td) contain a taskList. */
+  async function countCellsWithTask(page: Page): Promise<number> {
+    return page.evaluate((sel) => {
+      const cells = document.querySelectorAll(sel + ' td');
+      let count = 0;
+      for (const cell of cells) {
+        if (cell.querySelector('ul[data-type="taskList"]')) count++;
+      }
+      return count;
+    }, editorSelector);
+  }
+
+  // ─── Basic toggle: wrap & lift ──────────────────────────────────────
+
+  test('bullet list wraps all selected cells', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithBullet(page)).toBe(4);
+  });
+
+  test('bullet list toggles off (lift) when all cells already have bullet list', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+    // All 4 have bullet
+    expect(await countCellsWithBullet(page)).toBe(4);
+
+    // Select again and toggle off
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithBullet(page)).toBe(0);
+    // Table still intact
+    const tableCount = await page.locator(`${editorSelector} table`).count();
+    expect(tableCount).toBe(1);
+  });
+
+  test('repeated toggle cycles: wrap → lift → wrap', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+
+    // Cycle 1: wrap
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithBullet(page)).toBe(4);
+
+    // Cycle 2: lift
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithBullet(page)).toBe(0);
+
+    // Cycle 3: wrap again
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithBullet(page)).toBe(4);
+  });
+
+  test('ordered list wraps all selected cells', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'orderedList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithOrdered(page)).toBe(4);
+  });
+
+  test('ordered list toggle off when all cells have ordered list', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'orderedList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithOrdered(page)).toBe(4);
+
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'orderedList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithOrdered(page)).toBe(0);
+  });
+
+  test('task list wraps all selected cells', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'taskList', 'taskItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithTask(page)).toBe(4);
+  });
+
+  test('task list toggle off when all cells have task list', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'taskList', 'taskItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithTask(page)).toBe(4);
+
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'taskList', 'taskItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithTask(page)).toBe(0);
+  });
+
+  // ─── Convert: switch list type ──────────────────────────────────────
+
+  test('convert bullet → ordered in all cells', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithBullet(page)).toBe(4);
+
+    // Convert to ordered
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'orderedList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithOrdered(page)).toBe(4);
+    expect(await countCellsWithBullet(page)).toBe(0);
+  });
+
+  test('convert ordered → bullet in all cells', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'orderedList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithOrdered(page)).toBe(4);
+
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithBullet(page)).toBe(4);
+    expect(await countCellsWithOrdered(page)).toBe(0);
+  });
+
+  test('convert bullet → task in all cells', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'taskList', 'taskItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithTask(page)).toBe(4);
+    expect(await countCellsWithBullet(page)).toBe(0);
+  });
+
+  test('convert task → ordered in all cells', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'taskList', 'taskItem');
+    await page.waitForTimeout(100);
+
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'orderedList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithOrdered(page)).toBe(4);
+    expect(await countCellsWithTask(page)).toBe(0);
+  });
+
+  // ─── Mixed: some cells have list, some don't ───────────────────────
+
+  test('mixed cells: bullet wraps empty cells, skips cells already with bullet', async ({ page }) => {
+    // Pre-fill 2 cells with bullet lists
+    const mixedTable = '<table><tr><td><ul><li><p>A</p></li></ul></td><td>B</td></tr><tr><td>C</td><td>D</td></tr></table>';
+    await setContentAndFocus(page, mixedTable);
+    expect(await countCellsWithBullet(page)).toBe(1);
+
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+
+    // All 4 cells should have bullet list now
+    expect(await countCellsWithBullet(page)).toBe(4);
+    // No nesting: no cell should have a nested ul inside a ul > li
+    const nested = await page.evaluate((sel) => {
+      const cells = document.querySelectorAll(sel + ' td');
+      for (const cell of cells) {
+        if (cell.querySelector('ul li ul')) return true;
+      }
+      return false;
+    }, editorSelector);
+    expect(nested).toBe(false);
+  });
+
+  test('mixed cells: ordered converts bullet cells, wraps empty cells', async ({ page }) => {
+    // 2 cells with bullet, 2 without
+    const mixedTable = '<table><tr><td><ul><li><p>A</p></li></ul></td><td><ul><li><p>B</p></li></ul></td></tr><tr><td>C</td><td>D</td></tr></table>';
+    await setContentAndFocus(page, mixedTable);
+    expect(await countCellsWithBullet(page)).toBe(2);
+
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'orderedList', 'listItem');
+    await page.waitForTimeout(100);
+
+    expect(await countCellsWithOrdered(page)).toBe(4);
+    expect(await countCellsWithBullet(page)).toBe(0);
+  });
+
+  // ─── Subset selection (2 of 4 cells) ──────────────────────────────
+
+  test('selecting 2 cells only affects those cells', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+    await selectCells(page, 0, 1); // first row only
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+
+    // Only 2 cells should have bullet
+    expect(await countCellsWithBullet(page)).toBe(2);
+    // Text in non-selected cells should remain plain
+    const html = await getEditorHTML(page);
+    expect(html).toContain('gamma');
+    expect(html).toContain('delta');
+  });
+
+  test('subset toggle off only lifts selected cells', async ({ page }) => {
+    // First, wrap all 4 in bullet
+    await setContentAndFocus(page, LIST_TABLE);
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithBullet(page)).toBe(4);
+
+    // Now select only first 2 and toggle off
+    await selectCells(page, 0, 1);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+    // First 2 cells lost bullet, last 2 still have it
+    expect(await countCellsWithBullet(page)).toBe(2);
+  });
+
+  // ─── Full cycle: wrap → convert → lift ─────────────────────────────
+
+  test('full cycle: bullet → ordered → lift', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+
+    // Step 1: wrap in bullet
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithBullet(page)).toBe(4);
+
+    // Step 2: convert to ordered
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'orderedList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithOrdered(page)).toBe(4);
+    expect(await countCellsWithBullet(page)).toBe(0);
+
+    // Step 3: lift ordered
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'orderedList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithOrdered(page)).toBe(0);
+  });
+
+  test('full cycle: task → bullet → lift', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'taskList', 'taskItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithTask(page)).toBe(4);
+
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithBullet(page)).toBe(4);
+    expect(await countCellsWithTask(page)).toBe(0);
+
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithBullet(page)).toBe(0);
+  });
+
+  // ─── Content preservation ──────────────────────────────────────────
+
+  test('text content is preserved after wrap', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+
+    const html = await getEditorHTML(page);
+    expect(html).toContain('alpha');
+    expect(html).toContain('beta');
+    expect(html).toContain('gamma');
+    expect(html).toContain('delta');
+  });
+
+  test('text content is preserved after lift', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+
+    const html = await getEditorHTML(page);
+    expect(html).toContain('alpha');
+    expect(html).toContain('beta');
+    expect(html).toContain('gamma');
+    expect(html).toContain('delta');
+  });
+
+  test('text content is preserved after convert', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'orderedList', 'listItem');
+    await page.waitForTimeout(100);
+
+    const html = await getEditorHTML(page);
+    expect(html).toContain('alpha');
+    expect(html).toContain('beta');
+    expect(html).toContain('gamma');
+    expect(html).toContain('delta');
+  });
+
+  // ─── Table structure preserved ─────────────────────────────────────
+
+  test('table structure intact after multiple toggles', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+
+    // 5 toggles
+    for (let i = 0; i < 5; i++) {
+      await selectCells(page, 0, 3);
+      await toggleList(page, 'bulletList', 'listItem');
+      await page.waitForTimeout(100);
+    }
+
+    const tableCount = await page.locator(`${editorSelector} table`).count();
+    expect(tableCount).toBe(1);
+    const cellCount = await page.locator(`${editorSelector} td`).count();
+    expect(cellCount).toBe(4);
+  });
+
+  // ─── Reverse anchor: anchor cell after head in doc ─────────────────
+
+  test('reverse CellSelection (anchor after head) wraps correctly', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+    // Anchor = cell 3 (bottom-right), head = cell 0 (top-left) — reverse order
+    await selectCells(page, 3, 0);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithBullet(page)).toBe(4);
+  });
+
+  test('reverse CellSelection toggle off works', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+    // Wrap with normal order
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithBullet(page)).toBe(4);
+
+    // Lift with reverse order
+    await selectCells(page, 3, 0);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+    expect(await countCellsWithBullet(page)).toBe(0);
+  });
+
+  // ─── No nesting: repeated wrap doesn't nest lists ──────────────────
+
+  test('clicking bullet twice does not nest lists (wrap then lift)', async ({ page }) => {
+    await setContentAndFocus(page, LIST_TABLE);
+
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+
+    await selectCells(page, 0, 3);
+    await toggleList(page, 'bulletList', 'listItem');
+    await page.waitForTimeout(100);
+
+    // Should have no lists at all (toggled off), not nested lists
+    expect(await countCellsWithBullet(page)).toBe(0);
+    const html = await getEditorHTML(page);
+    // Verify no nested ul
+    const nestedUl = (html.match(/<ul>/g) || []).length;
+    expect(nestedUl).toBe(0);
+  });
+});
+
+// =============================================================================
+// Table — Tab/Shift-Tab with lists in cells
+// =============================================================================
+
+test.describe('Table — Tab/Shift-Tab with lists in cells', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  const BULLET_TABLE = '<table><tr><td><ul><li><p>A</p></li><li><p>B</p></li></ul></td><td><p>C</p></td></tr></table>';
+  const TASK_TABLE = '<table><tr><td><ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>T1</p></li><li data-type="taskItem" data-checked="false"><p>T2</p></li></ul></td><td><p>X</p></td></tr></table>';
+  const NESTED_BULLET_TABLE = '<table><tr><td><ul><li><p>A</p><ul><li><p>A1</p></li></ul></li><li><p>B</p></li></ul></td><td><p>C</p></td></tr></table>';
+
+  /** Place cursor at start of a text node matching the given text inside the editor table. */
+  async function placeCursorAtText(page: Page, text: string) {
+    await page.evaluate(
+      ({ sel, t }) => {
+        const editor = document.querySelector(sel);
+        if (!editor) return;
+        const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT);
+        while (walker.nextNode()) {
+          if (walker.currentNode.textContent?.trim() === t) {
+            const range = document.createRange();
+            range.setStart(walker.currentNode, 0);
+            range.collapse(true);
+            const s = window.getSelection();
+            s?.removeAllRanges();
+            s?.addRange(range);
+            if (editor instanceof HTMLElement) editor.focus();
+            return;
+          }
+        }
+      },
+      { sel: editorSelector, t: text },
+    );
+    await page.waitForTimeout(100);
+  }
+
+  /** Type a marker string and return which cell (td/th index) it ended up in. Returns -1 if not in any cell. */
+  async function typeThenFindCell(page: Page, marker: string): Promise<number> {
+    await page.keyboard.type(marker);
+    await page.waitForTimeout(50);
+    return page.evaluate(
+      ({ sel, m }) => {
+        const cells = document.querySelectorAll(sel + ' td, ' + sel + ' th');
+        for (let i = 0; i < cells.length; i++) {
+          if (cells[i].textContent?.includes(m)) return i;
+        }
+        return -1;
+      },
+      { sel: editorSelector, m: marker },
+    );
+  }
+
+  // ─── Tab indents list item instead of navigating cell ──────────────
+
+  test('Tab on second bullet list item indents it (sinkListItem)', async ({ page }) => {
+    await setContentAndFocus(page, BULLET_TABLE);
+    await placeCursorAtText(page, 'B');
+
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(100);
+
+    // B should now be nested inside a sub-list under A
+    const html = await getEditorHTML(page);
+    expect(html).toContain('<ul><li><p>A</p><ul><li><p>B</p>');
+    // Cursor should still be in first cell — type marker to verify
+    const cellIdx = await typeThenFindCell(page, '§');
+    expect(cellIdx).toBe(0);
+  });
+
+  test('Tab on second task item indents it (sinkListItem)', async ({ page }) => {
+    await setContentAndFocus(page, TASK_TABLE);
+    await placeCursorAtText(page, 'T2');
+
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(100);
+
+    // T2 should be nested under T1
+    const firstCell = page.locator(`${editorSelector} td`).nth(0);
+    const nestedList = firstCell.locator('ul ul, [data-type="taskList"] [data-type="taskList"]');
+    expect(await nestedList.count()).toBeGreaterThan(0);
+    // Cursor should still be in first cell
+    const cellIdx = await typeThenFindCell(page, '§');
+    expect(cellIdx).toBe(0);
+  });
+
+  // ─── Shift-Tab outdents nested list item ───────────────────────────
+
+  test('Shift-Tab on nested bullet item outdents it (liftListItem)', async ({ page }) => {
+    await setContentAndFocus(page, NESTED_BULLET_TABLE);
+    await placeCursorAtText(page, 'A1');
+
+    await page.keyboard.press('Shift+Tab');
+    await page.waitForTimeout(100);
+
+    // A1 should no longer be nested — should be a top-level list item
+    const firstCell = page.locator(`${editorSelector} td`).nth(0);
+    const nestedUl = firstCell.locator('ul ul');
+    expect(await nestedUl.count()).toBe(0);
+    // Cursor should still be in first cell
+    const cellIdx = await typeThenFindCell(page, '§');
+    expect(cellIdx).toBe(0);
+  });
+
+  // ─── Tab navigates cells when NOT in a list ────────────────────────
+  // (Basic Tab/Shift-Tab cell navigation is covered by "Table — Navigation" suite.
+  //  Here we test that plain cells next to list cells still navigate correctly.)
+
+  test('Tab in plain cell (next to list cell) navigates to next cell', async ({ page }) => {
+    // Cell 0 has a list, cell 1 is plain text — cursor in cell 1 should Tab-navigate
+    await setContentAndFocus(page, '<table><tr><td><ul><li><p>A</p></li></ul></td><td><p>M</p></td></tr><tr><td><p>N</p></td><td><p>O</p></td></tr></table>');
+    await placeCursorAtText(page, 'M');
+
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(100);
+
+    // Typing should end up in cell N (row 2, col 1)
+    const cellIdx = await typeThenFindCell(page, 'ZZ');
+    expect(cellIdx).toBe(2); // td[0]=list, td[1]=M, td[2]=N, td[3]=O
+  });
+
+  // ─── Tab on single/first list item (cannot indent) ─────────────────
+
+  test('Tab on first list item (cannot indent) does not navigate to next cell', async ({ page }) => {
+    await setContentAndFocus(page, '<table><tr><td><ul><li><p>Only</p></li></ul></td><td><p>Next</p></td></tr></table>');
+    await placeCursorAtText(page, 'Only');
+
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(100);
+
+    // sinkListItem fails (no preceding sibling), list stays unchanged
+    const firstCell = page.locator(`${editorSelector} td`).nth(0);
+    await expect(firstCell).toContainText('Only');
+    // Second cell should NOT have gained any typed content
+    const secondCell = page.locator(`${editorSelector} td`).nth(1);
+    await expect(secondCell).toHaveText('Next');
+  });
+
+  test('Shift-Tab on top-level list item lifts out of list (not cell navigation)', async ({ page }) => {
+    await setContentAndFocus(page, BULLET_TABLE);
+    await placeCursorAtText(page, 'A');
+
+    await page.keyboard.press('Shift+Tab');
+    await page.waitForTimeout(100);
+
+    // A should be lifted out of the list — first cell should contain <p>A</p> outside <ul>
+    const firstCell = page.locator(`${editorSelector} td`).nth(0);
+    const html = await firstCell.innerHTML();
+    expect(html).toContain('<p>A</p>');
+    // Cursor should still be in first cell
+    const cellIdx = await typeThenFindCell(page, '§');
+    expect(cellIdx).toBe(0);
+  });
+
+  // ─── Full cycle: indent then outdent ───────────────────────────────
+
+  test('Tab then Shift-Tab returns list item to original level', async ({ page }) => {
+    await setContentAndFocus(page, BULLET_TABLE);
+    await placeCursorAtText(page, 'B');
+
+    // Indent
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(100);
+    const firstCell = page.locator(`${editorSelector} td`).nth(0);
+    expect(await firstCell.locator('ul ul').count()).toBe(1);
+
+    // Outdent back
+    await page.keyboard.press('Shift+Tab');
+    await page.waitForTimeout(100);
+    expect(await firstCell.locator('ul ul').count()).toBe(0);
+
+    // Both items should be siblings again
+    const topItems = firstCell.locator(':scope > ul > li');
+    expect(await topItems.count()).toBe(2);
+  });
+
+  // ─── Multiple indents ──────────────────────────────────────────────
+
+  test('Tab twice creates double-nested list (not cell navigation)', async ({ page }) => {
+    // Need 3 items so second can indent, then third can indent
+    await setContentAndFocus(page, '<table><tr><td><ul><li><p>A</p></li><li><p>B</p></li><li><p>C</p></li></ul></td><td><p>Z</p></td></tr></table>');
+
+    // Indent B under A
+    await placeCursorAtText(page, 'B');
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(100);
+
+    // Indent C (now second top-level item, can indent under A's sub-list)
+    await placeCursorAtText(page, 'C');
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(100);
+
+    // Both B and C should be nested under A
+    const firstCell = page.locator(`${editorSelector} td`).nth(0);
+    const nestedItems = firstCell.locator('ul ul li');
+    expect(await nestedItems.count()).toBe(2);
+    // Cursor never left the cell
+    const cellIdx = await typeThenFindCell(page, '§');
+    expect(cellIdx).toBe(0);
+  });
+});

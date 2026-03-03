@@ -865,44 +865,92 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
 
     // Multi-range selection (CellSelection): handle each cell independently
     if (ranges.length > 1) {
-      // Collect across all ranges to determine global toggle direction
-      const allBlocks: { pos: number; inTargetList: boolean; inSomeList: boolean; otherListPos: number | null }[] = [];
-      for (const range of ranges) {
-        const blocks = collectListContext(tr.doc, range.$from.pos, range.$to.pos);
-        allBlocks.push(...blocks);
-      }
+      // Snapshot raw positions and sort descending (process bottom-of-doc first
+      // so modifications don't shift positions of cells still to be processed)
+      const cellPositions = ranges
+        .map((r) => ({ from: r.$from.pos, to: r.$to.pos }))
+        .sort((a, b) => b.from - a.from);
 
+      // Helper: collectListContext with empty-textblock fallback
+      const collectCellContext = (doc: PMNode, from: number, to: number) => {
+        const blocks = collectListContext(doc, from, to);
+        if (blocks.length === 0) {
+          const $cur = doc.resolve(from);
+          let inTargetList = false;
+          let inSomeList = false;
+          let otherListPos: number | null = null;
+          for (let d = $cur.depth; d >= 0; d--) {
+            const n = $cur.node(d);
+            if (n.type === listType) { inTargetList = true; inSomeList = true; break; }
+            const groups = (n.type.spec.group ?? '').split(/\s+/);
+            if (groups.includes('list')) { inSomeList = true; otherListPos = $cur.before(d); break; }
+          }
+          blocks.push({ pos: from, inTargetList, inSomeList, otherListPos });
+        }
+        return blocks;
+      };
+
+      // Determine global toggle direction on unmodified doc
+      const allBlocks: { pos: number; inTargetList: boolean; inSomeList: boolean; otherListPos: number | null }[] = [];
+      for (const cell of cellPositions) {
+        allBlocks.push(...collectCellContext(tr.doc, cell.from, cell.to));
+      }
       const allInTargetList = allBlocks.length > 0 && allBlocks.every((b) => b.inTargetList);
       if (!dispatch) return true;
 
       if (allInTargetList) {
-        // Lift: per-cell in reverse
-        for (let i = ranges.length - 1; i >= 0; i--) {
-          const range = ranges[i];
-          if (!range) continue;
-          const { $from, $to } = range;
-          const cellBlocks = collectListContext(tr.doc, $from.pos, $to.pos);
+        // Lift: remove target list from all cells
+        for (const cell of cellPositions) {
+          const from = tr.mapping.map(cell.from);
+          const to = tr.mapping.map(cell.to);
+          const cellBlocks = collectCellContext(tr.doc, from, to);
           const first = cellBlocks[0];
           const last = cellBlocks[cellBlocks.length - 1];
           if (!first || !last) continue;
           const narrowSel = TextSelection.create(tr.doc, first.pos + 1, last.pos + 1);
           const narrowState = EditorState.create({ doc: tr.doc, selection: narrowSel });
           liftListItem(listItemType)(narrowState, (liftTr) => {
-            // Apply lift steps to our transaction
             for (const step of liftTr.steps) {
               tr.step(step);
             }
           });
         }
       } else {
-        // Wrap: per-cell in reverse
-        for (let i = ranges.length - 1; i >= 0; i--) {
-          const range = ranges[i];
-          if (!range) continue;
-          const { $from, $to } = range;
-          const blockRange = $from.blockRange($to);
-          if (!blockRange) continue;
-          wrapRangeInList(tr, blockRange, listType, attributes);
+        // Per-cell: skip if already target, convert if in other list, wrap if no list
+        for (const cell of cellPositions) {
+          const from = tr.mapping.map(cell.from);
+          const to = tr.mapping.map(cell.to);
+          const cellBlocks = collectCellContext(tr.doc, from, to);
+          const cellInTarget = cellBlocks.length > 0 && cellBlocks.every((b) => b.inTargetList);
+          const cellInSomeList = cellBlocks.length > 0 && cellBlocks.every((b) => b.inSomeList);
+
+          if (cellInTarget) {
+            continue; // already has target list type
+          } else if (cellInSomeList) {
+            // Convert: change list type in-place
+            const otherPos = cellBlocks.find((b) => b.otherListPos !== null)?.otherListPos;
+            if (otherPos == null) continue;
+            const listNode = tr.doc.nodeAt(otherPos);
+            if (!listNode) continue;
+            const firstChild = listNode.firstChild;
+            if (firstChild && firstChild.type !== listItemType) {
+              // Cross-type (e.g. taskItem → listItem): rebuild items
+              const newItems: PMNode[] = [];
+              listNode.forEach((child) => {
+                newItems.push(listItemType.create(child.attrs, child.content, child.marks));
+              });
+              tr.replaceWith(otherPos, otherPos + listNode.nodeSize, listType.create(attributes, newItems));
+            } else {
+              tr.setNodeMarkup(otherPos, listType, attributes);
+            }
+          } else {
+            // Not in any list → wrap
+            const $from = tr.doc.resolve(from);
+            const $to = tr.doc.resolve(to);
+            const blockRange = $from.blockRange($to);
+            if (!blockRange) continue;
+            wrapRangeInList(tr, blockRange, listType, attributes);
+          }
         }
       }
 
