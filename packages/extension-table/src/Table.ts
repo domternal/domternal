@@ -29,9 +29,8 @@
 
 import { Node } from '@domternal/core';
 import type { CommandSpec, ToolbarItem } from '@domternal/core';
-import { Plugin, TextSelection } from 'prosemirror-state';
+import { TextSelection } from 'prosemirror-state';
 import type { Node as PMNode } from 'prosemirror-model';
-import { Decoration, DecorationSet } from 'prosemirror-view';
 import type { EditorView, NodeView, NodeViewConstructor } from 'prosemirror-view';
 import {
   tableEditing,
@@ -51,12 +50,13 @@ import {
   goToNextCell,
   fixTables,
   CellSelection,
-  columnResizingPluginKey,
 } from 'prosemirror-tables';
 
 import { TableView } from './TableView.js';
 import { createTable } from './helpers/createTable.js';
 import { deleteTableWhenAllCellsSelected } from './helpers/deleteTableWhenAllCellsSelected.js';
+import { createResizeSuppressionPlugin } from './plugins/resizeSuppressionPlugin.js';
+import { createCellSelectionPlugin } from './plugins/cellSelectionPlugin.js';
 
 declare module '@domternal/core' {
   interface RawCommands {
@@ -394,39 +394,7 @@ export const Table = Node.create<TableOptions>({
 
   addProseMirrorPlugins() {
     return [
-      // Suppress column-resize handle during non-resize mouse drags.
-      // The columnResizing plugin detects cell borders on every mousemove and
-      // shows a blue resize line — confusing when the user is dragging to
-      // select cells or text, not to resize a column.
-      new Plugin({
-        props: {
-          handleDOMEvents: {
-            mousedown: (view, event) => {
-              if ((event as MouseEvent).button !== 0) return false;
-              // Only suppress for non-resize drags (activeHandle === -1 means
-              // the cursor is NOT on a column border)
-              const resizeState = columnResizingPluginKey.getState(view.state) as
-                | { activeHandle: number; dragging: unknown } | undefined;
-              if (!resizeState || resizeState.activeHandle === -1) {
-                view.dom.classList.add('dm-mouse-drag');
-                document.addEventListener('mouseup', () => {
-                  view.dom.classList.remove('dm-mouse-drag');
-                }, { once: true });
-              }
-              return false;
-            },
-            mousemove: (view, event) => {
-              if ((event as MouseEvent).buttons !== 1) return false;
-              // Allow columnResizing to process during active column resize
-              const resizeState = columnResizingPluginKey.getState(view.state) as
-                | { activeHandle: number; dragging: unknown } | undefined;
-              if (resizeState?.dragging) return false;
-              // Block columnResizing from detecting borders during drag
-              return true;
-            },
-          },
-        },
-      }),
+      createResizeSuppressionPlugin(),
 
       columnResizing({
         cellMinWidth: this.options.cellMinWidth,
@@ -437,118 +405,7 @@ export const Table = Node.create<TableOptions>({
         allowTableNodeSelection: this.options.allowTableNodeSelection,
       }),
 
-      // Show/hide cell toolbar + cell handle based on selection;
-      // also add focused-cell decoration (via DecorationSet, not direct DOM)
-      new Plugin({
-        state: {
-          init() { return DecorationSet.empty; },
-          apply(_tr, _set, _oldState, newState) {
-            const sel = newState.selection;
-            if (sel instanceof CellSelection) return DecorationSet.empty;
-            const $from = sel.$from;
-            for (let d = $from.depth; d > 0; d--) {
-              const name = $from.node(d).type.name;
-              if (name === 'tableCell' || name === 'tableHeader') {
-                const pos = $from.before(d);
-                const deco = Decoration.node(pos, pos + $from.node(d).nodeSize, { class: 'dm-cell-focused' });
-                return DecorationSet.create(newState.doc, [deco]);
-              }
-            }
-            return DecorationSet.empty;
-          },
-        },
-        props: {
-          decorations(state) { return (this as any as Plugin).getState(state); },
-        },
-        view: () => {
-          let lastToolbarView: TableView | null = null;
-          let lastHandleView: TableView | null = null;
-          let resizingView: TableView | null = null;
-          return {
-            update: (view) => {
-              // Detect column resize drag (prosemirror-tables adds column-resize-dragging
-              // decoration only during active drag, not on mere hover near border)
-              const draggingCell = view.dom.querySelector('.column-resize-dragging');
-              if (draggingCell) {
-                const container = draggingCell.closest('.dm-table-container') as HTMLElement | null;
-                const tv = container && (container as any).__tableView as TableView | undefined;
-                if (tv && tv !== resizingView) {
-                  tv.hideForResize();
-                  resizingView = tv;
-                }
-                return; // skip all handle/toolbar logic during resize
-              } else if (resizingView) {
-                resizingView.showAfterResize();
-                resizingView = null;
-              }
-
-              const sel = view.state.selection;
-              if (sel instanceof CellSelection) {
-                // CellSelection → show toolbar (unless suppressed by row/col handle), hide cell handle
-                const domInfo = view.domAtPos((sel as any).$anchorCell.pos + 1);
-                const el = domInfo.node instanceof HTMLElement
-                  ? domInfo.node
-                  : domInfo.node.parentElement;
-                const container = el?.closest('.dm-table-container') as HTMLElement | null;
-                const tv = container && (container as any).__tableView as TableView | undefined;
-                if (tv) {
-                  if (!tv.suppressCellToolbar) {
-                    tv.updateCellHandle(true);
-                  }
-                  tv.hideCellHandle();
-                  lastToolbarView = tv;
-                }
-                if (lastHandleView && lastHandleView !== tv) {
-                  lastHandleView.hideCellHandle();
-                }
-                lastHandleView = null;
-              } else {
-                // Not CellSelection → hide toolbar
-                if (lastToolbarView) {
-                  lastToolbarView.updateCellHandle(false);
-                  lastToolbarView = null;
-                }
-
-                // Check if TextSelection is inside a table cell → show cell handle
-                const $from = sel.$from;
-                let inCell = false;
-                for (let d = $from.depth; d > 0; d--) {
-                  const name = $from.node(d).type.name;
-                  if (name === 'tableCell' || name === 'tableHeader') {
-                    inCell = true;
-                    break;
-                  }
-                }
-
-                if (inCell && sel.empty) {
-                  // Only show cell handle for cursor (empty selection).
-                  // When text is selected the bubble menu is visible at the same spot
-                  // and would intercept clicks intended for the cell handle.
-                  const domInfo = view.domAtPos($from.pos);
-                  const domEl = domInfo.node instanceof HTMLElement
-                    ? domInfo.node
-                    : domInfo.node.parentElement;
-                  const cellEl = domEl?.closest('td, th') as HTMLTableCellElement | null;
-                  const container = cellEl?.closest('.dm-table-container') as HTMLElement | null;
-                  const tv = container && (container as any).__tableView as TableView | undefined;
-                  if (tv && cellEl) {
-                    tv.showCellHandle(cellEl);
-                    if (lastHandleView && lastHandleView !== tv) {
-                      lastHandleView.hideCellHandle();
-                    }
-                    lastHandleView = tv;
-                  }
-                } else {
-                  if (lastHandleView) {
-                    lastHandleView.hideCellHandle();
-                    lastHandleView = null;
-                  }
-                }
-              }
-            },
-          };
-        },
-      }),
+      createCellSelectionPlugin(),
     ];
   },
 });

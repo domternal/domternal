@@ -1544,9 +1544,9 @@ test.describe('Table — Focused cell decoration', () => {
     const focused = page.locator(`${editorSelector} td.dm-cell-focused`);
     await expect(focused).toHaveCount(1);
 
-    const boxShadow = await focused.evaluate((el) => getComputedStyle(el).boxShadow);
-    // Should have an inset box-shadow (the focused cell border)
-    expect(boxShadow).toContain('inset');
+    const outline = await focused.evaluate((el) => getComputedStyle(el).outline);
+    // Should have a solid outline (the focused cell border)
+    expect(outline).toContain('solid');
   });
 
   test('only one cell has dm-cell-focused at a time', async ({ page }) => {

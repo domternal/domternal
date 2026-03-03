@@ -312,7 +312,9 @@ export const toggleMark: CommandSpec<[markName: string, attributes?: Attrs]> =
     // Check if mark can be applied — respects both schema (allowsMarkType)
     // and mark exclusions (e.g. code mark excludes bold/italic/etc.)
     if (empty) {
-      const from = ranges[0]!.$from.pos;
+      const firstRange = ranges[0];
+      if (!firstRange) return false;
+      const from = firstRange.$from.pos;
       const $pos = tr.doc.resolve(from);
       if (!$pos.parent.inlineContent || !$pos.parent.type.allowsMarkType(markType)) {
         return false;
@@ -346,7 +348,9 @@ export const toggleMark: CommandSpec<[markName: string, attributes?: Attrs]> =
 
     if (empty) {
       // Cursor mode — toggle stored mark
-      const from = ranges[0]!.$from.pos;
+      const firstRange = ranges[0];
+      if (!firstRange) return false;
+      const from = firstRange.$from.pos;
       const cursorMarks = tr.storedMarks
         ?? state.storedMarks
         ?? tr.doc.resolve(from).marks();
@@ -399,7 +403,9 @@ export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
         return true;
       }
 
-      const from = ranges[0]!.$from.pos;
+      const firstRange = ranges[0];
+      if (!firstRange) return false;
+      const from = firstRange.$from.pos;
       // Merge with existing mark attributes to preserve sibling attributes
       // (e.g., fontFamily should not be lost when setting fontSize on textStyle)
       // Priority: stored marks on tr > stored marks on state > marks at cursor position
@@ -709,13 +715,15 @@ export const toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]> =
 
       // Process in reverse to preserve positions
       for (let i = ranges.length - 1; i >= 0; i--) {
-        const { $from, $to } = ranges[i]!;
+        const range = ranges[i];
+        if (!range) continue;
+        const { $from, $to } = range;
         const blockRange = $from.blockRange($to);
         if (!blockRange) continue;
 
         if (allWrapped) {
           const target = liftTarget(blockRange);
-          if (target != null) tr.lift(blockRange, target);
+          if (target !== null) tr.lift(blockRange, target);
         } else {
           const wrapping = findWrapping(blockRange, nodeType, attributes);
           if (wrapping) tr.wrap(blockRange, wrapping);
@@ -772,11 +780,13 @@ export const lift: CommandSpec =
     if (ranges.length > 1) {
       if (!dispatch) return true;
       for (let i = ranges.length - 1; i >= 0; i--) {
-        const { $from, $to } = ranges[i]!;
+        const selRange = ranges[i];
+        if (!selRange) continue;
+        const { $from, $to } = selRange;
         const range = $from.blockRange($to);
         if (!range) continue;
         const target = liftTarget(range);
-        if (target != null) tr.lift(range, target);
+        if (target !== null) tr.lift(range, target);
       }
       dispatch(tr.scrollIntoView());
       return true;
@@ -868,7 +878,9 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
       if (allInTargetList) {
         // Lift: per-cell in reverse
         for (let i = ranges.length - 1; i >= 0; i--) {
-          const { $from, $to } = ranges[i]!;
+          const range = ranges[i];
+          if (!range) continue;
+          const { $from, $to } = range;
           const cellBlocks = collectListContext(tr.doc, $from.pos, $to.pos);
           const first = cellBlocks[0];
           const last = cellBlocks[cellBlocks.length - 1];
@@ -885,7 +897,9 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
       } else {
         // Wrap: per-cell in reverse
         for (let i = ranges.length - 1; i >= 0; i--) {
-          const { $from, $to } = ranges[i]!;
+          const range = ranges[i];
+          if (!range) continue;
+          const { $from, $to } = range;
           const blockRange = $from.blockRange($to);
           if (!blockRange) continue;
           wrapRangeInList(tr, blockRange, listType, attributes);

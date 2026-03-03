@@ -61,7 +61,7 @@ export function cellAttributes(): AttributeSpecs {
     textAlign: {
       default: null,
       parseHTML: (element: HTMLElement) => {
-        return element.getAttribute('data-text-align') || null;
+        return element.getAttribute('data-text-align') ?? null;
       },
       renderHTML: (attrs: Record<string, unknown>) => {
         const align = attrs['textAlign'] as string | null;
@@ -72,7 +72,7 @@ export function cellAttributes(): AttributeSpecs {
     verticalAlign: {
       default: null,
       parseHTML: (element: HTMLElement) => {
-        return element.getAttribute('data-vertical-align') || null;
+        return element.getAttribute('data-vertical-align') ?? null;
       },
       renderHTML: (attrs: Record<string, unknown>) => {
         const align = attrs['verticalAlign'] as string | null;

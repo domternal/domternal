@@ -369,7 +369,7 @@ test.describe('Bubble menu — Cross-block selection', () => {
     await expect(page.locator(bubbleMenu)).toHaveAttribute('data-show', '');
   });
 
-  test('stays visible during drag DOWN through codeBlock (p1 → code → p2)', async ({ page }) => {
+  test('appears after drag DOWN through codeBlock (p1 → code → p2)', async ({ page }) => {
     await setContentAndFocus(page, crossBlockContent);
 
     const p1 = page.locator(`${editorSelector} p:first-of-type`);
@@ -384,25 +384,21 @@ test.describe('Bubble menu — Cross-block selection', () => {
     await page.mouse.down();
     await page.waitForTimeout(50);
 
-    // Drag to end of p1
+    // Drag to end of p1 — menu hidden during drag
     await page.mouse.move(p1Box.x + p1Box.width - 10, p1Box.y + p1Box.height / 2, { steps: 5 });
     await page.waitForTimeout(150);
-    await expect(page.locator(bubbleMenu)).toHaveAttribute('data-show', '');
+    await expect(page.locator(bubbleMenu)).not.toHaveAttribute('data-show');
 
-    // Drag into middle of code block — should stay visible
+    // Drag through code block into p2
     await page.mouse.move(codeBox.x + codeBox.width / 2, codeBox.y + codeBox.height / 2, { steps: 5 });
-    await page.waitForTimeout(150);
-    await expect(page.locator(bubbleMenu)).toHaveAttribute('data-show', '');
-
-    // Drag into p2 — should stay visible
     await page.mouse.move(p2Box.x + p2Box.width / 3, p2Box.y + p2Box.height / 2, { steps: 5 });
-    await page.waitForTimeout(150);
-    await expect(page.locator(bubbleMenu)).toHaveAttribute('data-show', '');
 
+    // Release — menu should appear for the cross-block selection
     await page.mouse.up();
+    await expect(page.locator(bubbleMenu)).toHaveAttribute('data-show', '');
   });
 
-  test('stays visible during drag UP through codeBlock (p2 → code → p1)', async ({ page }) => {
+  test('appears after drag UP through codeBlock (p2 → code → p1)', async ({ page }) => {
     await setContentAndFocus(page, crossBlockContent);
 
     const p1 = page.locator(`${editorSelector} p:first-of-type`);
@@ -417,22 +413,18 @@ test.describe('Bubble menu — Cross-block selection', () => {
     await page.mouse.down();
     await page.waitForTimeout(50);
 
-    // Drag to beginning of p2
+    // Drag to beginning of p2 — menu hidden during drag
     await page.mouse.move(p2Box.x + 10, p2Box.y + p2Box.height / 2, { steps: 5 });
     await page.waitForTimeout(150);
-    await expect(page.locator(bubbleMenu)).toHaveAttribute('data-show', '');
+    await expect(page.locator(bubbleMenu)).not.toHaveAttribute('data-show');
 
-    // Drag into middle of code block — should stay visible
+    // Drag through code block into p1
     await page.mouse.move(codeBox.x + codeBox.width / 2, codeBox.y + codeBox.height / 2, { steps: 5 });
-    await page.waitForTimeout(150);
-    await expect(page.locator(bubbleMenu)).toHaveAttribute('data-show', '');
-
-    // Drag into p1 — should stay visible
     await page.mouse.move(p1Box.x + p1Box.width / 2, p1Box.y + p1Box.height / 2, { steps: 5 });
-    await page.waitForTimeout(150);
-    await expect(page.locator(bubbleMenu)).toHaveAttribute('data-show', '');
 
+    // Release — menu should appear for the cross-block selection
     await page.mouse.up();
+    await expect(page.locator(bubbleMenu)).toHaveAttribute('data-show', '');
   });
 
   test('bold applies to paragraphs only (not codeBlock) on cross-block selection', async ({ page }) => {
