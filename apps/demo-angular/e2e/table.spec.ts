@@ -3480,3 +3480,118 @@ test.describe('Table — Tab/Shift-Tab with lists in cells', () => {
     expect(cellIdx).toBe(0);
   });
 });
+
+// =============================================================================
+// Table — Row handle centering on merged cells (rowspan)
+// =============================================================================
+
+test.describe('Table — Row handle centering on merged cells', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector, { state: 'visible' });
+  });
+
+  /** Merge first-column cells across rows to create a rowspan cell. */
+  async function mergeFirstColumnCells(page: Page, html: string) {
+    await setContentAndFocus(page, html);
+    // Use editor API to select and merge cells
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (!comp?.editor) return;
+      const cells: number[] = [];
+      comp.editor.state.doc.descendants((node: any, pos: number) => {
+        if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') cells.push(pos);
+      });
+      // Select first cell in row 0 and first cell in row 1
+      if (cells.length < 3) return;
+      comp.editor.commands.setCellSelection({ anchorCell: cells[0], headCell: cells[2] });
+      comp.editor.commands.mergeCells();
+    });
+    await page.waitForTimeout(150);
+  }
+
+  /** Get the row handle's vertical center relative to the table container. */
+  async function getRowHandleCenter(page: Page): Promise<number> {
+    const handle = page.locator('.dm-table-row-handle');
+    const box = await handle.boundingBox();
+    return box ? box.y + box.height / 2 : -1;
+  }
+
+  /** Get a cell's vertical center. */
+  async function getCellCenter(page: Page, cellLocator: ReturnType<typeof page.locator>): Promise<number> {
+    const box = await cellLocator.boundingBox();
+    return box ? box.y + box.height / 2 : -1;
+  }
+
+  test('row handle is vertically centered on a rowspan=2 cell', async ({ page }) => {
+    const TABLE_3ROWS = '<table><tr><td>A</td><td>B</td></tr><tr><td>C</td><td>D</td></tr><tr><td>E</td><td>F</td></tr></table>';
+    await mergeFirstColumnCells(page, TABLE_3ROWS);
+
+    // Verify the merge created a rowspan
+    const mergedCell = page.locator(`${editorSelector} td[rowspan]`).first();
+    await expect(mergedCell).toBeVisible();
+    const rowspan = await mergedCell.getAttribute('rowspan');
+    expect(rowspan).toBe('2');
+
+    // Hover over the merged cell to show row handle
+    await mergedCell.hover();
+    await page.waitForTimeout(200);
+
+    const rowHandle = page.locator('.dm-table-row-handle');
+    await expect(rowHandle).toBeVisible();
+
+    // Row handle vertical center should be close to cell vertical center
+    const handleCenter = await getRowHandleCenter(page);
+    const cellCenter = await getCellCenter(page, mergedCell);
+    expect(Math.abs(handleCenter - cellCenter)).toBeLessThan(5);
+  });
+
+  test('row handle is vertically centered on a normal (rowspan=1) cell', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Hover over a normal cell (no rowspan)
+    const cell = page.locator(`${editorSelector} td`).first();
+    await cell.hover();
+    await page.waitForTimeout(200);
+
+    const rowHandle = page.locator('.dm-table-row-handle');
+    await expect(rowHandle).toBeVisible();
+
+    // The row handle should be vertically centered on the row (≈ cell center for single cells)
+    const handleCenter = await getRowHandleCenter(page);
+    const cellCenter = await getCellCenter(page, cell);
+    expect(Math.abs(handleCenter - cellCenter)).toBeLessThan(5);
+  });
+
+  test('row handle repositions when moving from merged to normal cell', async ({ page }) => {
+    const TABLE_3ROWS = '<table><tr><td>A</td><td>B</td></tr><tr><td>C</td><td>D</td></tr><tr><td>E</td><td>F</td></tr></table>';
+    await mergeFirstColumnCells(page, TABLE_3ROWS);
+
+    const mergedCell = page.locator(`${editorSelector} td[rowspan]`).first();
+    await expect(mergedCell).toBeVisible();
+
+    // Hover merged cell first
+    await mergedCell.hover();
+    await page.waitForTimeout(200);
+
+    const rowHandle = page.locator('.dm-table-row-handle');
+    await expect(rowHandle).toBeVisible();
+    const mergedHandleCenter = await getRowHandleCenter(page);
+    const mergedCellCenter = await getCellCenter(page, mergedCell);
+    expect(Math.abs(mergedHandleCenter - mergedCellCenter)).toBeLessThan(5);
+
+    // Now hover a normal cell in the last row
+    const lastRowCell = page.locator(`${editorSelector} tr`).last().locator('td').first();
+    await lastRowCell.hover();
+    await page.waitForTimeout(200);
+
+    const normalHandleCenter = await getRowHandleCenter(page);
+    const normalCellCenter = await getCellCenter(page, lastRowCell);
+    expect(Math.abs(normalHandleCenter - normalCellCenter)).toBeLessThan(5);
+
+    // The two positions must differ (merged cell center is higher)
+    expect(Math.abs(mergedHandleCenter - normalHandleCenter)).toBeGreaterThan(10);
+  });
+});

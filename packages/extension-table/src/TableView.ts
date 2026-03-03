@@ -351,12 +351,18 @@ export class TableView implements NodeView {
     this.colHandle.style.left = String(cellRect.left - containerRect.left + cellRect.width / 2 - 12) + 'px';
     this.colHandle.style.top = String(tableRect.top - containerRect.top - 16) + 'px';
 
-    // Row handle: left of the table, centered on the hovered row
-    const tr = cell.closest('tr');
-    if (tr) {
-      const trRect = tr.getBoundingClientRect();
-      this.rowHandle.style.left = String(tableRect.left - containerRect.left - 16) + 'px';
-      this.rowHandle.style.top = String(trRect.top - containerRect.top + trRect.height / 2 - 12) + 'px';
+    // Row handle: left of the table, centered on the hovered row.
+    // For merged cells (rowspan > 1), use the cell rect (spans all rows)
+    // instead of the <tr> rect (only the first row of the span).
+    this.rowHandle.style.left = String(tableRect.left - containerRect.left - 16) + 'px';
+    if (cell.rowSpan > 1) {
+      this.rowHandle.style.top = String(cellRect.top - containerRect.top + cellRect.height / 2 - 12) + 'px';
+    } else {
+      const tr = cell.closest('tr');
+      if (tr) {
+        const trRect = tr.getBoundingClientRect();
+        this.rowHandle.style.top = String(trRect.top - containerRect.top + trRect.height / 2 - 12) + 'px';
+      }
     }
 
   }
