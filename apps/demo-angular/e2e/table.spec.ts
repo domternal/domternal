@@ -2553,3 +2553,267 @@ test.describe('Table — Nested Tables Blocked', () => {
     expect(tableCount).toBe(1);
   });
 });
+
+// =============================================================================
+// Table — Multi-cell link set/unset
+// =============================================================================
+
+test.describe('Table — Multi-cell link operations', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  /** Create a CellSelection via the editor API. */
+  async function selectCells(page: Page, anchorIdx: number, headIdx: number) {
+    await page.evaluate(({ anchor, head }) => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (!comp?.editor) return;
+      const cells: number[] = [];
+      comp.editor.state.doc.descendants((node: any, pos: number) => {
+        if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+          cells.push(pos);
+        }
+      });
+      if (cells[anchor] != null && cells[head] != null) {
+        comp.editor.commands.setCellSelection({ anchorCell: cells[anchor], headCell: cells[head] });
+      }
+    }, { anchor: anchorIdx, head: headIdx });
+    await page.waitForTimeout(200);
+  }
+
+  const LINK_TABLE = '<table><tr><td>alpha</td><td>beta</td></tr><tr><td>gamma</td><td>delta</td></tr></table>';
+
+  test('setLink applies to all selected cells', async ({ page }) => {
+    await setContentAndFocus(page, LINK_TABLE);
+    await selectCells(page, 0, 1);
+
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands?.setLink?.({ href: 'https://example.com' });
+    });
+    await page.waitForTimeout(100);
+
+    const html = await getEditorHTML(page);
+    const linkCount = (html.match(/<a /g) || []).length;
+    expect(linkCount).toBeGreaterThanOrEqual(2);
+  });
+
+  test('unsetLink removes from all selected cells', async ({ page }) => {
+    // Set links in all 4 cells
+    const linkedTable = '<table><tr><td><p><a href="https://example.com">alpha</a></p></td><td><p><a href="https://example.com">beta</a></p></td></tr><tr><td><p><a href="https://example.com">gamma</a></p></td><td><p><a href="https://example.com">delta</a></p></td></tr></table>';
+    await setContentAndFocus(page, linkedTable);
+
+    // Select first two cells and unsetLink
+    await selectCells(page, 0, 1);
+
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands?.unsetLink?.();
+    });
+    await page.waitForTimeout(100);
+
+    // The two selected cells should have no links
+    const cells = await page.locator(`${editorSelector} td`).all();
+    const cell0 = await cells[0]!.innerHTML();
+    const cell1 = await cells[1]!.innerHTML();
+    expect(cell0).not.toContain('<a ');
+    expect(cell1).not.toContain('<a ');
+    // The other two cells should still have links
+    const cell2 = await cells[2]!.innerHTML();
+    const cell3 = await cells[3]!.innerHTML();
+    expect(cell2).toContain('<a ');
+    expect(cell3).toContain('<a ');
+  });
+
+  test('unsetLink removes from all 4 selected cells', async ({ page }) => {
+    const linkedTable = '<table><tr><td><p><a href="https://example.com">alpha</a></p></td><td><p><a href="https://example.com">beta</a></p></td></tr><tr><td><p><a href="https://example.com">gamma</a></p></td><td><p><a href="https://example.com">delta</a></p></td></tr></table>';
+    await setContentAndFocus(page, linkedTable);
+
+    // Select all 4 cells
+    await selectCells(page, 0, 3);
+
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands?.unsetLink?.();
+    });
+    await page.waitForTimeout(100);
+
+    const html = await getEditorHTML(page);
+    expect(html).not.toContain('<a ');
+  });
+
+  test('toggleLink adds link to all selected cells', async ({ page }) => {
+    await setContentAndFocus(page, LINK_TABLE);
+    await selectCells(page, 0, 3);
+
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands?.toggleLink?.({ href: 'https://toggle.com' });
+    });
+    await page.waitForTimeout(100);
+
+    const html = await getEditorHTML(page);
+    const linkCount = (html.match(/href="https:\/\/toggle\.com"/g) || []).length;
+    expect(linkCount).toBe(4);
+  });
+
+  test('toggleLink removes link from all selected cells when all have links', async ({ page }) => {
+    const linkedTable = '<table><tr><td><p><a href="https://example.com">alpha</a></p></td><td><p><a href="https://example.com">beta</a></p></td></tr><tr><td><p><a href="https://example.com">gamma</a></p></td><td><p><a href="https://example.com">delta</a></p></td></tr></table>';
+    await setContentAndFocus(page, linkedTable);
+    await selectCells(page, 0, 3);
+
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands?.toggleLink?.({ href: 'https://example.com' });
+    });
+    await page.waitForTimeout(100);
+
+    const html = await getEditorHTML(page);
+    expect(html).not.toContain('<a ');
+  });
+
+  test('setLink then unsetLink round-trips across multiple cells', async ({ page }) => {
+    await setContentAndFocus(page, LINK_TABLE);
+    // Select all 4 cells
+    await selectCells(page, 0, 3);
+
+    // Set link
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands?.setLink?.({ href: 'https://round-trip.com' });
+    });
+    await page.waitForTimeout(100);
+
+    let html = await getEditorHTML(page);
+    expect((html.match(/<a /g) || []).length).toBe(4);
+
+    // Re-select all 4 cells (setLink changes selection)
+    await selectCells(page, 0, 3);
+
+    // Unset link
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands?.unsetLink?.();
+    });
+    await page.waitForTimeout(100);
+
+    html = await getEditorHTML(page);
+    expect(html).not.toContain('<a ');
+    // Content should still be there
+    expect(html).toContain('alpha');
+    expect(html).toContain('beta');
+    expect(html).toContain('gamma');
+    expect(html).toContain('delta');
+  });
+});
+
+// =============================================================================
+// Table — Block commands with CellSelection (horizontal rule, etc.)
+// =============================================================================
+
+test.describe('Table — Block commands with CellSelection', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  /** Create a CellSelection via the editor API. */
+  async function selectCells(page: Page, anchorIdx: number, headIdx: number) {
+    await page.evaluate(({ anchor, head }) => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (!comp?.editor) return;
+      const cells: number[] = [];
+      comp.editor.state.doc.descendants((node: any, pos: number) => {
+        if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+          cells.push(pos);
+        }
+      });
+      if (cells[anchor] != null && cells[head] != null) {
+        comp.editor.commands.setCellSelection({ anchorCell: cells[anchor], headCell: cells[head] });
+      }
+    }, { anchor: anchorIdx, head: headIdx });
+    await page.waitForTimeout(200);
+  }
+
+  const HR_TABLE = '<table><tr><td>alpha</td><td>beta</td></tr><tr><td>gamma</td><td>delta</td></tr></table>';
+
+  test('setHorizontalRule with single cell cursor preserves table structure', async ({ page }) => {
+    await setContentAndFocus(page, HR_TABLE);
+    await placeCursorInCell(page, 0);
+
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands?.setHorizontalRule?.();
+    });
+    await page.waitForTimeout(100);
+
+    // Table should still exist
+    const tableCount = await page.locator(`${editorSelector} table`).count();
+    expect(tableCount).toBe(1);
+    // HR should be inside the cell
+    const hrCount = await page.locator(`${editorSelector} td hr`).count();
+    expect(hrCount).toBe(1);
+  });
+
+  test('setHorizontalRule is blocked with multi-cell selection', async ({ page }) => {
+    await setContentAndFocus(page, HR_TABLE);
+    await selectCells(page, 0, 1);
+
+    const result = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      return comp?.editor?.commands?.setHorizontalRule?.() ?? null;
+    });
+    await page.waitForTimeout(100);
+
+    // Command should return false (blocked)
+    expect(result).toBe(false);
+    // Table should be untouched — still 1 table, 4 cells, no HR
+    const tableCount = await page.locator(`${editorSelector} table`).count();
+    expect(tableCount).toBe(1);
+    const cellCount = await page.locator(`${editorSelector} td`).count();
+    expect(cellCount).toBe(4);
+    const hrCount = await page.locator(`${editorSelector} hr`).count();
+    expect(hrCount).toBe(0);
+  });
+
+  test('setHorizontalRule is blocked with all cells selected', async ({ page }) => {
+    await setContentAndFocus(page, HR_TABLE);
+    await selectCells(page, 0, 3);
+
+    const result = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      return comp?.editor?.commands?.setHorizontalRule?.() ?? null;
+    });
+    await page.waitForTimeout(100);
+
+    expect(result).toBe(false);
+    const tableCount = await page.locator(`${editorSelector} table`).count();
+    expect(tableCount).toBe(1);
+    expect(await getEditorHTML(page)).not.toContain('<hr');
+  });
+});

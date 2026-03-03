@@ -514,18 +514,21 @@ export const Link = Mark.create<LinkOptions>({
           const markType = state.schema.marks['link'];
           if (!markType) return false;
 
-          const { from, to, empty } = tr.selection;
+          const { empty, ranges } = tr.selection;
 
           if (empty) {
             // Extend to full link range around cursor
-            const $pos = tr.doc.resolve(from);
+            const $pos = tr.doc.resolve(tr.selection.from);
             const range = getMarkRange($pos, markType);
             if (!range) return false;
             if (!dispatch) return true;
             tr.removeMark(range.from, range.to, markType);
           } else {
             if (!dispatch) return true;
-            tr.removeMark(from, to, markType);
+            // Iterate over selection ranges (handles CellSelection with multiple ranges)
+            for (const range of ranges) {
+              tr.removeMark(range.$from.pos, range.$to.pos, markType);
+            }
           }
 
           dispatch(tr);
@@ -541,11 +544,11 @@ export const Link = Mark.create<LinkOptions>({
           const markType = state.schema.marks['link'];
           if (!markType) return false;
 
-          const { from, to, empty } = tr.selection;
+          const { empty, ranges } = tr.selection;
 
           if (empty) {
             // Extend to full link range around cursor
-            const $pos = tr.doc.resolve(from);
+            const $pos = tr.doc.resolve(tr.selection.from);
             const range = getMarkRange($pos, markType);
 
             if (range && tr.doc.rangeHasMark(range.from, range.to, markType)) {
@@ -564,10 +567,16 @@ export const Link = Mark.create<LinkOptions>({
             }
           } else {
             if (!dispatch) return true;
-            if (tr.doc.rangeHasMark(from, to, markType)) {
-              tr.removeMark(from, to, markType);
-            } else {
-              tr.addMark(from, to, markType.create(attributes));
+            // Iterate over selection ranges (handles CellSelection with multiple ranges)
+            const hasMark = ranges.every(range =>
+              tr.doc.rangeHasMark(range.$from.pos, range.$to.pos, markType),
+            );
+            for (const range of ranges) {
+              if (hasMark) {
+                tr.removeMark(range.$from.pos, range.$to.pos, markType);
+              } else {
+                tr.addMark(range.$from.pos, range.$to.pos, markType.create(attributes));
+              }
             }
           }
 

@@ -51,6 +51,10 @@ export const HorizontalRule = Node.create<HorizontalRuleOptions>({
           const { $from } = tr.selection;
           const parent = $from.parent;
 
+          // Block insertion when selection is not in a textblock (e.g. CellSelection
+          // resolves $from at the tableRow level — inserting HR there splits the table)
+          if (!parent.isTextblock) return false;
+
           if (dispatch) {
             // If cursor is in an empty block, replace it with HR + new paragraph
             if (parent.content.size === 0 && parent.type.name === 'paragraph') {
