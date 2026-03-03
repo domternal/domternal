@@ -306,11 +306,13 @@ export const toggleMark: CommandSpec<[markName: string, attributes?: Attrs]> =
       return false;
     }
 
-    const { from, to, empty } = tr.selection;
+    const { empty, ranges } = tr.selection;
+    if (!ranges.length) return false;
 
     // Check if mark can be applied — respects both schema (allowsMarkType)
     // and mark exclusions (e.g. code mark excludes bold/italic/etc.)
     if (empty) {
+      const from = ranges[0]!.$from.pos;
       const $pos = tr.doc.resolve(from);
       if (!$pos.parent.inlineContent || !$pos.parent.type.allowsMarkType(markType)) {
         return false;
@@ -322,17 +324,19 @@ export const toggleMark: CommandSpec<[markName: string, attributes?: Attrs]> =
     } else {
       const ctx = { parentAllows: false, hasText: false, hasApplicableText: false };
 
-      tr.doc.nodesBetween(from, to, (node) => {
-        if (node.inlineContent && node.type.allowsMarkType(markType)) {
-          ctx.parentAllows = true;
-        }
-        if (node.isText) {
-          ctx.hasText = true;
-          if (!node.marks.some((m) => m.type.excludes(markType) && m.type !== markType)) {
-            ctx.hasApplicableText = true;
+      for (const range of ranges) {
+        tr.doc.nodesBetween(range.$from.pos, range.$to.pos, (node) => {
+          if (node.inlineContent && node.type.allowsMarkType(markType)) {
+            ctx.parentAllows = true;
           }
-        }
-      });
+          if (node.isText) {
+            ctx.hasText = true;
+            if (!node.marks.some((m) => m.type.excludes(markType) && m.type !== markType)) {
+              ctx.hasApplicableText = true;
+            }
+          }
+        });
+      }
 
       if (!ctx.parentAllows || (ctx.hasText && !ctx.hasApplicableText)) {
         return false;
@@ -342,6 +346,7 @@ export const toggleMark: CommandSpec<[markName: string, attributes?: Attrs]> =
 
     if (empty) {
       // Cursor mode — toggle stored mark
+      const from = ranges[0]!.$from.pos;
       const cursorMarks = tr.storedMarks
         ?? state.storedMarks
         ?? tr.doc.resolve(from).marks();
@@ -352,11 +357,16 @@ export const toggleMark: CommandSpec<[markName: string, attributes?: Attrs]> =
         tr.addStoredMark(markType.create(attributes ?? null));
       }
     } else {
-      // Range mode — check if mark is present, then toggle
-      if (tr.doc.rangeHasMark(from, to, markType)) {
-        tr.removeMark(from, to, markType);
-      } else {
-        tr.addMark(from, to, markType.create(attributes ?? null));
+      // Range mode — iterate over selection ranges (handles CellSelection)
+      const hasMark = ranges.every(range =>
+        tr.doc.rangeHasMark(range.$from.pos, range.$to.pos, markType),
+      );
+      for (const range of ranges) {
+        if (hasMark) {
+          tr.removeMark(range.$from.pos, range.$to.pos, markType);
+        } else {
+          tr.addMark(range.$from.pos, range.$to.pos, markType.create(attributes ?? null));
+        }
       }
     }
 
@@ -379,7 +389,8 @@ export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
       return false;
     }
 
-    const { from, to, empty } = tr.selection;
+    const { empty, ranges } = tr.selection;
+    if (!ranges.length) return false;
 
     // Can't add mark to empty selection (unless storedMarks)
     if (empty) {
@@ -388,6 +399,7 @@ export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
         return true;
       }
 
+      const from = ranges[0]!.$from.pos;
       // Merge with existing mark attributes to preserve sibling attributes
       // (e.g., fontFamily should not be lost when setting fontSize on textStyle)
       // Priority: stored marks on tr > stored marks on state > marks at cursor position
@@ -412,19 +424,24 @@ export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
     // Merge per-node to preserve each node's own attributes
     // (e.g., one word has fontFamily: 'Arial', another has 'Georgia' —
     //  setting fontSize should preserve each node's fontFamily independently)
+    // Iterate over selection ranges to handle CellSelection (multiple ranges)
     const nodeMarks: { from: number; to: number; attrs: Attrs }[] = [];
-    tr.doc.nodesBetween(from, to, (node, pos) => {
-      if (!node.isText) return;
-      const existing = markType.isInSet(node.marks);
-      const nodeAttrs = existing
-        ? { ...existing.attrs, ...attributes }
-        : (attributes ?? {});
-      nodeMarks.push({
-        from: Math.max(pos, from),
-        to: Math.min(pos + node.nodeSize, to),
-        attrs: nodeAttrs,
+    for (const range of ranges) {
+      const rfrom = range.$from.pos;
+      const rto = range.$to.pos;
+      tr.doc.nodesBetween(rfrom, rto, (node, pos) => {
+        if (!node.isText) return;
+        const existing = markType.isInSet(node.marks);
+        const nodeAttrs = existing
+          ? { ...existing.attrs, ...attributes }
+          : (attributes ?? {});
+        nodeMarks.push({
+          from: Math.max(pos, rfrom),
+          to: Math.min(pos + node.nodeSize, rto),
+          attrs: nodeAttrs,
+        });
       });
-    });
+    }
 
     if (nodeMarks.length > 0) {
       for (const nm of nodeMarks) {
@@ -432,7 +449,9 @@ export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
       }
     } else {
       // No text nodes found (e.g., selection across empty blocks) — apply globally
-      tr.addMark(from, to, markType.create(attributes));
+      for (const range of ranges) {
+        tr.addMark(range.$from.pos, range.$to.pos, markType.create(attributes));
+      }
     }
 
     dispatch(tr);
@@ -453,7 +472,7 @@ export const unsetMark: CommandSpec<[markName: string]> =
       return false;
     }
 
-    const { from, to, empty } = tr.selection;
+    const { empty, ranges } = tr.selection;
 
     // For empty selection, remove from stored marks
     if (empty) {
@@ -470,7 +489,9 @@ export const unsetMark: CommandSpec<[markName: string]> =
       return true;
     }
 
-    tr.removeMark(from, to, markType);
+    for (const range of ranges) {
+      tr.removeMark(range.$from.pos, range.$to.pos, markType);
+    }
     dispatch(tr);
     return true;
   };
@@ -487,7 +508,7 @@ export const unsetMark: CommandSpec<[markName: string]> =
 export const unsetAllMarks: CommandSpec =
   () =>
   ({ state, tr, dispatch, editor }) => {
-    const { from, to, empty } = tr.selection;
+    const { empty, ranges } = tr.selection;
 
     if (empty) return false;
     if (!dispatch) return true;
@@ -504,7 +525,9 @@ export const unsetAllMarks: CommandSpec =
 
     for (const markName of Object.keys(state.schema.marks)) {
       if (!skipMarks.has(markName)) {
-        tr.removeMark(from, to, state.schema.marks[markName]);
+        for (const range of ranges) {
+          tr.removeMark(range.$from.pos, range.$to.pos, state.schema.marks[markName]);
+        }
       }
     }
     tr.setStoredMarks([]);

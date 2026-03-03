@@ -56,12 +56,12 @@
   display: none;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  border: 1px solid var(--dm-border-color, #e0e0e0);
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--dm-accent, #2563eb);
   border-radius: 50%;
   background: var(--dm-bg, #ffffff);
-  color: var(--dm-muted, #999999);
+  color: var(--dm-accent, #2563eb);
   cursor: pointer;
   padding: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
@@ -76,8 +76,8 @@
 
   svg {
     display: block;
-    width: 9px;
-    height: 9px;
+    width: 8px;
+    height: 8px;
   }
 }
 
@@ -190,7 +190,8 @@
 // ─── Focused cell highlight (cursor is inside this cell) ─────────────────────
 .dm-editor td.dm-cell-focused,
 .dm-editor th.dm-cell-focused {
-  box-shadow: inset 0 0 0 1px var(--dm-accent, #2563eb);
+  outline: 1px solid var(--dm-accent, #2563eb);
+  outline-offset: -1px;
 }
 
 // Dropdown panel

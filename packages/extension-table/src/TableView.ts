@@ -489,9 +489,8 @@ export class TableView implements NodeView {
     this.cellHandleCell = cell;
     const containerRect = this.dom.getBoundingClientRect();
     const cellRect = cell.getBoundingClientRect();
-    const centerX = (cellRect.left + cellRect.right) / 2 - containerRect.left - 8;
-    this.cellHandle.style.left = `${centerX}px`;
-    this.cellHandle.style.top = `${cellRect.top - containerRect.top - 8}px`;
+    this.cellHandle.style.left = `${cellRect.left - containerRect.left - 7}px`;
+    this.cellHandle.style.top = `${cellRect.top - containerRect.top - 7}px`;
     this.cellHandle.style.display = 'flex';
   }
 

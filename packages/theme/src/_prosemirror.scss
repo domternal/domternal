@@ -128,10 +128,10 @@ img.ProseMirror-separator {
 
 .dm-editor .column-resize-handle {
   position: absolute;
-  right: -2px;
+  right: -1.5px;
   top: 0;
   bottom: 0;
-  width: 4px;
+  width: 2px;
   z-index: 20;
   background-color: var(--dm-accent, #2563eb);
   pointer-events: none;
