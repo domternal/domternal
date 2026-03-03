@@ -685,13 +685,48 @@ export const wrapIn: CommandSpec<[nodeName: string, attributes?: Attrs]> =
 export const toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]> =
   (nodeName: string, attributes?: Attrs) =>
   (props) => {
-    const { state, tr } = props;
+    const { state, tr, dispatch } = props;
     const nodeType = state.schema.nodes[nodeName];
 
     if (!nodeType) {
       return false;
     }
 
+    const { ranges } = tr.selection;
+
+    const isInsideWrap = (pos: number): boolean => {
+      const $pos = tr.doc.resolve(pos);
+      for (let d = $pos.depth; d > 0; d--) {
+        if ($pos.node(d).type === nodeType) return true;
+      }
+      return false;
+    };
+
+    // Multi-range selection (CellSelection): handle each cell independently
+    if (ranges.length > 1) {
+      const allWrapped = ranges.every(range => isInsideWrap(range.$from.pos));
+      if (!dispatch) return true;
+
+      // Process in reverse to preserve positions
+      for (let i = ranges.length - 1; i >= 0; i--) {
+        const { $from, $to } = ranges[i]!;
+        const blockRange = $from.blockRange($to);
+        if (!blockRange) continue;
+
+        if (allWrapped) {
+          const target = liftTarget(blockRange);
+          if (target != null) tr.lift(blockRange, target);
+        } else {
+          const wrapping = findWrapping(blockRange, nodeType, attributes);
+          if (wrapping) tr.wrap(blockRange, wrapping);
+        }
+      }
+
+      dispatch(tr.scrollIntoView());
+      return true;
+    }
+
+    // Single-range selection: existing logic
     // Collect non-empty textblocks in the selection with their positions.
     // Empty textblocks (e.g., trailing node) are excluded so they don't
     // affect toggle direction. This handles AllSelection correctly.
@@ -703,22 +738,11 @@ export const toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]> =
       }
     });
 
-    const isInsideWrap = (pos: number): boolean => {
-      const $pos = tr.doc.resolve(pos);
-      for (let d = $pos.depth; d > 0; d--) {
-        if ($pos.node(d).type === nodeType) return true;
-      }
-      return false;
-    };
-
     const allWrapped = contentBlocks.length > 0
       ? contentBlocks.every(({ pos }) => isInsideWrap(pos))
       : isInsideWrap(from);
 
     if (allWrapped) {
-      // Narrow selection to the first non-empty textblock so lift() operates
-      // within the wrapper rather than at doc level. When all textblocks are
-      // empty, use the current selection position instead.
       const first = contentBlocks[0];
       if (first) {
         tr.setSelection(TextSelection.create(tr.doc, first.pos + 1));
@@ -742,6 +766,22 @@ export const toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]> =
 export const lift: CommandSpec =
   () =>
   ({ tr, dispatch }) => {
+    const { ranges } = tr.selection;
+
+    // Multi-range selection (CellSelection): lift each cell independently
+    if (ranges.length > 1) {
+      if (!dispatch) return true;
+      for (let i = ranges.length - 1; i >= 0; i--) {
+        const { $from, $to } = ranges[i]!;
+        const range = $from.blockRange($to);
+        if (!range) continue;
+        const target = liftTarget(range);
+        if (target != null) tr.lift(range, target);
+      }
+      dispatch(tr.scrollIntoView());
+      return true;
+    }
+
     const { $from, $to } = tr.selection;
     const range = $from.blockRange($to);
     if (!range) return false;
@@ -780,45 +820,100 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
       return false;
     }
 
-    // Collect non-empty textblocks with their list context.
-    // Empty textblocks (e.g., trailing node) are excluded so they don't
-    // affect toggle direction. This handles AllSelection correctly.
-    const { from, to } = tr.selection;
-    const contentBlocks: { pos: number; inTargetList: boolean; inSomeList: boolean; otherListPos: number | null }[] = [];
-
-    const collectListContext = ($pos: ReturnType<typeof tr.doc.resolve>, pos: number): void => {
-      let inTargetList = false;
-      let inSomeList = false;
-      let otherListPos: number | null = null;
-
-      for (let d = $pos.depth; d >= 0; d--) {
-        const n = $pos.node(d);
-        if (n.type === listType) {
-          inTargetList = true;
-          inSomeList = true;
-          break;
+    const collectListContext = (
+      doc: PMNode,
+      rfrom: number,
+      rto: number,
+    ): { pos: number; inTargetList: boolean; inSomeList: boolean; otherListPos: number | null }[] => {
+      const blocks: { pos: number; inTargetList: boolean; inSomeList: boolean; otherListPos: number | null }[] = [];
+      doc.nodesBetween(rfrom, rto, (node, pos) => {
+        if (!node.isTextblock || node.content.size === 0) return;
+        let inTargetList = false;
+        let inSomeList = false;
+        let otherListPos: number | null = null;
+        const $pos = doc.resolve(pos);
+        for (let d = $pos.depth; d >= 0; d--) {
+          const n = $pos.node(d);
+          if (n.type === listType) {
+            inTargetList = true;
+            inSomeList = true;
+            break;
+          }
+          const groups = (n.type.spec.group ?? '').split(/\s+/);
+          if (groups.includes('list')) {
+            inSomeList = true;
+            otherListPos = $pos.before(d);
+            break;
+          }
         }
-        const groups = (n.type.spec.group ?? '').split(/\s+/);
-        if (groups.includes('list')) {
-          inSomeList = true;
-          otherListPos = $pos.before(d);
-          break;
+        blocks.push({ pos, inTargetList, inSomeList, otherListPos });
+      });
+      return blocks;
+    };
+
+    const { ranges } = tr.selection;
+
+    // Multi-range selection (CellSelection): handle each cell independently
+    if (ranges.length > 1) {
+      // Collect across all ranges to determine global toggle direction
+      const allBlocks: { pos: number; inTargetList: boolean; inSomeList: boolean; otherListPos: number | null }[] = [];
+      for (const range of ranges) {
+        const blocks = collectListContext(tr.doc, range.$from.pos, range.$to.pos);
+        allBlocks.push(...blocks);
+      }
+
+      const allInTargetList = allBlocks.length > 0 && allBlocks.every((b) => b.inTargetList);
+      if (!dispatch) return true;
+
+      if (allInTargetList) {
+        // Lift: per-cell in reverse
+        for (let i = ranges.length - 1; i >= 0; i--) {
+          const { $from, $to } = ranges[i]!;
+          const cellBlocks = collectListContext(tr.doc, $from.pos, $to.pos);
+          const first = cellBlocks[0];
+          const last = cellBlocks[cellBlocks.length - 1];
+          if (!first || !last) continue;
+          const narrowSel = TextSelection.create(tr.doc, first.pos + 1, last.pos + 1);
+          const narrowState = EditorState.create({ doc: tr.doc, selection: narrowSel });
+          liftListItem(listItemType)(narrowState, (liftTr) => {
+            // Apply lift steps to our transaction
+            for (const step of liftTr.steps) {
+              tr.step(step);
+            }
+          });
+        }
+      } else {
+        // Wrap: per-cell in reverse
+        for (let i = ranges.length - 1; i >= 0; i--) {
+          const { $from, $to } = ranges[i]!;
+          const blockRange = $from.blockRange($to);
+          if (!blockRange) continue;
+          wrapRangeInList(tr, blockRange, listType, attributes);
         }
       }
 
-      contentBlocks.push({ pos, inTargetList, inSomeList, otherListPos });
-    };
+      dispatch(tr.scrollIntoView());
+      return true;
+    }
 
-    tr.doc.nodesBetween(from, to, (node, pos) => {
-      if (!node.isTextblock || node.content.size === 0) return;
-      collectListContext(tr.doc.resolve(pos), pos);
-    });
+    // Single-range selection: existing logic
+    const { from, to } = tr.selection;
+    const contentBlocks = collectListContext(tr.doc, from, to);
 
     // Cursor in empty textblock (e.g. new list item): nodesBetween skipped it,
     // but we still need its list context so toggle/convert/lift work correctly.
     if (contentBlocks.length === 0) {
       const $cur = tr.doc.resolve(from);
-      collectListContext($cur, from);
+      let inTargetList = false;
+      let inSomeList = false;
+      let otherListPos: number | null = null;
+      for (let d = $cur.depth; d >= 0; d--) {
+        const n = $cur.node(d);
+        if (n.type === listType) { inTargetList = true; inSomeList = true; break; }
+        const groups = (n.type.spec.group ?? '').split(/\s+/);
+        if (groups.includes('list')) { inSomeList = true; otherListPos = $cur.before(d); break; }
+      }
+      contentBlocks.push({ pos: from, inTargetList, inSomeList, otherListPos });
     }
 
     const allInTargetList = contentBlocks.length > 0 && contentBlocks.every((b) => b.inTargetList);
@@ -826,11 +921,6 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
 
     // Case 1: All non-empty textblocks are in the target list type → lift items out
     if (allInTargetList) {
-      // liftListItem reads state.selection directly. When that's AllSelection
-      // (doc level), it can't find list items. Create a state with narrowed
-      // selection inside the list so liftListItem works correctly.
-      // Use tr.doc (not state.doc) for chain compatibility — prior commands
-      // in a chain may have modified the document.
       const first = contentBlocks[0];
       const last = contentBlocks[contentBlocks.length - 1];
       if (!first || !last) return false;
@@ -854,8 +944,6 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
       const listNode = tr.doc.nodeAt(otherPos);
       if (!listNode) return false;
 
-      // If item types differ (e.g., taskItem ↔ listItem), replace entire list
-      // to avoid invalid intermediate state (parent content spec violation)
       const firstChild = listNode.firstChild;
       if (firstChild && firstChild.type !== listItemType) {
         const cursorOffset = tr.selection.from - otherPos;
@@ -865,13 +953,9 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
         });
         const newList = listType.create(attributes, newItems);
         tr.replaceWith(otherPos, otherPos + listNode.nodeSize, newList);
-        // Restore cursor — replaceWith collapses positions inside the replaced
-        // range to the end, which lands after the list. Re-resolve the same
-        // relative offset inside the new (structurally identical) list.
         const restored = otherPos + Math.min(cursorOffset, newList.nodeSize - 1);
         tr.setSelection(TextSelection.near(tr.doc.resolve(restored)));
       } else {
-        // Same item type, just change the wrapper
         tr.setNodeMarkup(otherPos, listType, attributes);
       }
 
@@ -880,7 +964,6 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
     }
 
     // Case 3: Not in a list → wrap in the target list type
-    // Use tr.selection and wrapRangeInList(tr, ...) for chain compatibility
     const { $from: $wrapFrom, $to: $wrapTo } = tr.selection;
     const wrapRange = $wrapFrom.blockRange($wrapTo);
     if (!wrapRange) return false;
