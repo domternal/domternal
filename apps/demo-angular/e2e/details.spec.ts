@@ -1318,3 +1318,96 @@ test.describe('Details — initial demo content', () => {
     expect(text).toContain('rich text');
   });
 });
+
+// =============================================================================
+// Details — CellSelection (multi-cell toggle)
+// =============================================================================
+
+test.describe('Details — CellSelection toggle', () => {
+  const TABLE = '<table><tr><td><p>A</p></td><td><p>B</p></td></tr><tr><td><p>C</p></td><td><p>D</p></td></tr></table>';
+
+  /** Select cells by index and run toggleDetails via editor API. */
+  async function selectCellsAndToggle(page: Page, anchorIdx: number, headIdx: number) {
+    await page.evaluate(({ anchor, head }) => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (!comp?.editor) return;
+      const cells: number[] = [];
+      comp.editor.state.doc.descendants((node: any, pos: number) => {
+        if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') cells.push(pos);
+      });
+      comp.editor.commands.setCellSelection({ anchorCell: cells[anchor], headCell: cells[head] });
+      comp.editor.commands.toggleDetails();
+    }, { anchor: anchorIdx, head: headIdx });
+    await page.waitForTimeout(150);
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector, { state: 'visible' });
+  });
+
+  test('wraps all selected cells in details', async ({ page }) => {
+    await setContentAndFocus(page, TABLE);
+    // Select all 4 cells (anchor=0, head=3)
+    await selectCellsAndToggle(page, 0, 3);
+
+    // Each cell should now have a details node
+    const details = page.locator(`${editorSelector} td div[data-type="details"]`);
+    expect(await details.count()).toBe(4);
+  });
+
+  test('unwraps all selected cells from details (toggle off)', async ({ page }) => {
+    await setContentAndFocus(page, TABLE);
+    // Wrap all 4 cells
+    await selectCellsAndToggle(page, 0, 3);
+    expect(await page.locator(`${editorSelector} td div[data-type="details"]`).count()).toBe(4);
+
+    // Toggle again to unwrap
+    await selectCellsAndToggle(page, 0, 3);
+
+    // No details should remain
+    expect(await page.locator(`${editorSelector} td div[data-type="details"]`).count()).toBe(0);
+  });
+
+  test('wraps only cells not already in details (mixed state)', async ({ page }) => {
+    await setContentAndFocus(page, TABLE);
+    // First wrap only cells 0 and 1 (first row)
+    await selectCellsAndToggle(page, 0, 1);
+    expect(await page.locator(`${editorSelector} td div[data-type="details"]`).count()).toBe(2);
+
+    // Now select all 4 cells and toggle — should wrap the remaining 2
+    await selectCellsAndToggle(page, 0, 3);
+    expect(await page.locator(`${editorSelector} td div[data-type="details"]`).count()).toBe(4);
+  });
+
+  test('preserves cell text content after wrap and unwrap', async ({ page }) => {
+    await setContentAndFocus(page, TABLE);
+    await selectCellsAndToggle(page, 0, 3);
+    await selectCellsAndToggle(page, 0, 3);
+
+    // After round-trip, cells should still have their original text
+    const html = await getEditorHTML(page);
+    expect(html).toContain('A');
+    expect(html).toContain('B');
+    expect(html).toContain('C');
+    expect(html).toContain('D');
+  });
+
+  test('selecting 2 cells wraps only those 2', async ({ page }) => {
+    await setContentAndFocus(page, TABLE);
+    // Select only cells 0 and 2 (first column)
+    await selectCellsAndToggle(page, 0, 2);
+
+    const details = page.locator(`${editorSelector} td div[data-type="details"]`);
+    expect(await details.count()).toBe(2);
+
+    // Second column cells should NOT have details
+    const cells = page.locator(`${editorSelector} td`);
+    const cell1HTML = await cells.nth(1).innerHTML();
+    const cell3HTML = await cells.nth(3).innerHTML();
+    expect(cell1HTML).not.toContain('data-type="details"');
+    expect(cell3HTML).not.toContain('data-type="details"');
+  });
+});

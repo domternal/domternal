@@ -297,19 +297,123 @@ export const Details = Node.create<DetailsOptions>({
 
       toggleDetails:
         () =>
-        ({ state, commands }) => {
-          const detailsType = state.schema.nodes['details'];
-          if (!detailsType) return false;
+        ({ state, tr, dispatch }) => {
+          const { schema } = state;
+          const detailsType = schema.nodes['details'];
+          const summaryType = schema.nodes['detailsSummary'];
+          const contentType = schema.nodes['detailsContent'];
+          if (!detailsType || !summaryType || !contentType) return false;
 
-          const { $from } = state.selection;
+          /** Wrap blocks in $from.blockRange($to) with a details node. Returns start pos or -1. */
+          const wrapInDetails = (
+            t: typeof tr,
+            $from: ReturnType<typeof tr.doc.resolve>,
+            $to: ReturnType<typeof tr.doc.resolve>,
+          ): number => {
+            const range = $from.blockRange($to);
+            if (!range) return -1;
+            for (let d = $from.depth; d > 0; d--) {
+              if ($from.node(d).type === detailsType) return -1;
+            }
+            const blocks = [];
+            for (let i = range.startIndex; i < range.endIndex; i++) {
+              blocks.push(range.parent.child(i));
+            }
+            if (blocks.length === 0) return -1;
+            const summary = summaryType.create(null);
+            const content = contentType.create(null, blocks);
+            t.replaceWith(range.start, range.end, detailsType.create(null, [summary, content]));
+            return range.start;
+          };
 
-          for (let d = $from.depth; d > 0; d--) {
-            if ($from.node(d).type === detailsType) {
-              return commands.unsetDetails();
+          /** Unwrap a details node found by findParentNode. Returns start pos or -1. */
+          const unwrapDetails = (
+            t: typeof tr,
+            details: { pos: number; node: typeof tr.doc },
+          ): number => {
+            const sums = findChildren(details.node, (n) => n.type === summaryType);
+            const conts = findChildren(details.node, (n) => n.type === contentType);
+            if (!sums.length || !conts.length) return -1;
+            const detailsSummary = sums[0]!;
+            const detailsContent = conts[0]!;
+            const from = details.pos;
+            const $f = t.doc.resolve(from);
+            const to = from + details.node.nodeSize;
+            const defaultType = $f.parent.type.contentMatch.defaultType;
+            const result = [];
+            if (defaultType && detailsSummary.node.content.size > 0) {
+              result.push(defaultType.create(null, detailsSummary.node.content));
+            }
+            detailsContent.node.forEach((child) => result.push(child));
+            t.replaceWith(from, to, result);
+            return from;
+          };
+
+          const { ranges } = state.selection;
+
+          // ── Single range (normal TextSelection) ──
+          if (ranges.length <= 1) {
+            const { $from } = state.selection;
+            for (let d = $from.depth; d > 0; d--) {
+              if ($from.node(d).type === detailsType) {
+                if (!dispatch) return true;
+                const details = findParentNode((n) => n.type === detailsType)(tr.selection);
+                if (!details) return false;
+                const pos = unwrapDetails(tr, details);
+                if (pos < 0) return false;
+                tr.setSelection(TextSelection.create(tr.doc, pos + 1));
+                dispatch(tr.scrollIntoView());
+                return true;
+              }
+            }
+            if (!dispatch) return true;
+            const pos = wrapInDetails(tr, tr.selection.$from, tr.selection.$to);
+            if (pos < 0) return false;
+            // pos + 1 = inside details, + 1 = inside summary
+            tr.setSelection(TextSelection.create(tr.doc, pos + 2));
+            dispatch(tr.scrollIntoView());
+            return true;
+          }
+
+          // ── Multi range (CellSelection) ──
+          // CellSelection range.$from is at the cell content start (before children),
+          // NOT inside a details node. Check the cell's first child instead.
+          const cellHasDetails = (doc: typeof state.doc, from: number): boolean => {
+            const $f = doc.resolve(from);
+            const cell = $f.parent;
+            return cell.childCount === 1 && cell.firstChild?.type === detailsType;
+          };
+
+          // Snapshot positions and sort descending to process bottom-first
+          const cells = ranges
+            .map((r) => ({ from: r.$from.pos, to: r.$to.pos }))
+            .sort((a, b) => b.from - a.from);
+
+          // Determine global toggle direction on unmodified doc
+          const allInDetails = cells.every((c) => cellHasDetails(state.doc, c.from));
+
+          if (!dispatch) return true;
+
+          for (const cell of cells) {
+            const from = tr.mapping.map(cell.from);
+            const to = tr.mapping.map(cell.to);
+
+            if (allInDetails) {
+              // The details node is the first (only) child of the cell, right at `from`
+              const detailsNode = tr.doc.nodeAt(from);
+              if (detailsNode?.type === detailsType) {
+                unwrapDetails(tr, { pos: from, node: detailsNode });
+              }
+            } else {
+              if (cellHasDetails(tr.doc, from)) continue;
+              const $f = tr.doc.resolve(from);
+              const $to2 = tr.doc.resolve(to);
+              wrapInDetails(tr, $f, $to2);
             }
           }
 
-          return commands.setDetails();
+          dispatch(tr.scrollIntoView());
+          return true;
         },
 
       openDetails: () => ({ commands }) => commands.setDetailsOpen(true),
