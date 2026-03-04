@@ -334,8 +334,9 @@ export const Details = Node.create<DetailsOptions>({
             const sums = findChildren(details.node, (n) => n.type === summaryType);
             const conts = findChildren(details.node, (n) => n.type === contentType);
             if (!sums.length || !conts.length) return -1;
-            const detailsSummary = sums[0]!;
-            const detailsContent = conts[0]!;
+            const detailsSummary = sums[0];
+            const detailsContent = conts[0];
+            if (!detailsSummary || !detailsContent) return -1;
             const from = details.pos;
             const $f = t.doc.resolve(from);
             const to = from + details.node.nodeSize;

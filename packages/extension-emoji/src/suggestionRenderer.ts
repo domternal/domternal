@@ -92,7 +92,7 @@ export function createEmojiSuggestionRenderer(): () => SuggestionRenderer {
           btn.setAttribute('aria-selected', 'true');
         });
 
-        container!.appendChild(btn);
+        container?.appendChild(btn);
       });
     }
 
