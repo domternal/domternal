@@ -7,12 +7,6 @@
   "sideEffects": false,
   "main": "./dist/fesm2022/domternal-angular.mjs",
   "types": "./dist/types/domternal-angular.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/types/domternal-angular.d.ts",
-      "default": "./dist/fesm2022/domternal-angular.mjs"
-    }
-  },
   "peerDependencies": {
     "@angular/core": ">=17.0.0",
     "@angular/forms": ">=17.0.0",
