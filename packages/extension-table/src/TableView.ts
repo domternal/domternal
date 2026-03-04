@@ -634,7 +634,7 @@ export class TableView implements NodeView {
     this.openToolbarDropdown(triggerBtn, 'dm-table-controls-dropdown dm-table-cell-dropdown', (dropdown) => {
       const palette = document.createElement('div');
       palette.className = 'dm-color-palette';
-      palette.style.setProperty('--dm-palette-columns', '5');
+      palette.style.setProperty('--dm-palette-columns', '4');
 
       const resetBtn = document.createElement('button');
       resetBtn.type = 'button';

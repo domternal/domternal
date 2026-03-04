@@ -104,6 +104,12 @@
   border-radius: var(--dm-button-border-radius);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   animation: dm-fade-in 0.2s ease;
+
+  // Color palette panels get a softer, rounder container
+  &.dm-color-palette {
+    padding: 0.5rem;
+    border-radius: 0.75rem;
+  }
 }
 
 // Dropdown item

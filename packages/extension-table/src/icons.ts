@@ -45,16 +45,14 @@ export const ICON_ALIGN_BOTTOM =
 export const CELL_ICON =
   '<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="2" cy="2" r="1.2" fill="currentColor"/><circle cx="6" cy="2" r="1.2" fill="currentColor"/><circle cx="2" cy="6" r="1.2" fill="currentColor"/><circle cx="6" cy="6" r="1.2" fill="currentColor"/></svg>';
 
-// Default cell background colors (5 rows × 5 columns) — matches Highlight palette
+// Default cell background colors (4 rows × 4 columns)
 export const CELL_COLORS = [
-  // Row 1 — Classic warm highlights
-  '#fef08a', '#fde68a', '#fed7aa', '#fecaca', '#fbcfe8',
-  // Row 2 — Lighter warm pastels
-  '#fef9c3', '#fef3c7', '#ffedd5', '#fee2e2', '#fce7f3',
-  // Row 3 — Cool highlights
-  '#a7f3d0', '#99f6e4', '#a5f3fc', '#bfdbfe', '#c4b5fd',
-  // Row 4 — Lighter cool pastels
-  '#d1fae5', '#ccfbf1', '#cffafe', '#dbeafe', '#ede9fe',
-  // Row 5 — Neutrals
-  '#e5e7eb', '#d1d5db', '#f3f4f6', '#fafafa', '#ffffff',
+  // Row 1 — Warm highlights
+  '#fef08a', '#fed7aa', '#fecaca', '#fbcfe8',
+  // Row 2 — Cool highlights
+  '#a7f3d0', '#a5f3fc', '#bfdbfe', '#c4b5fd',
+  // Row 3 — Light pastels
+  '#fef9c3', '#ffedd5', '#dbeafe', '#ede9fe',
+  // Row 4 — Neutrals
+  '#e5e7eb', '#d1d5db', '#f3f4f6', '#ffffff',
 ];
