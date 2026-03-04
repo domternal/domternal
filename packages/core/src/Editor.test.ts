@@ -662,6 +662,51 @@ describe('Editor', () => {
 
         expect(editor.isActive('bold')).toBe(false);
       });
+
+      it('returns false when range selection spans only empty paragraphs (no text)', () => {
+        editor = new Editor({
+          schema: schemaWithHeading,
+          content: '<p></p><p></p>',
+        });
+
+        // Select across both empty paragraphs
+        const { state, view } = editor;
+        const tr = state.tr.setSelection(TextSelection.create(state.doc, 1, 3));
+        view.dispatch(tr);
+
+        expect(editor.isActive('bold')).toBe(false);
+      });
+
+      it('returns false when range selection spans a single empty paragraph', () => {
+        editor = new Editor({
+          schema: schemaWithHeading,
+          content: '<p>Text</p><p></p>',
+        });
+
+        // Select inside the empty paragraph (position 7 = inside second <p>)
+        const { state, view } = editor;
+        // The empty paragraph is at doc position: <p>Text</p> = 1+"Text"+1 = 6, so <p></p> inner = 7
+        const tr = state.tr.setSelection(TextSelection.create(state.doc, 7, 7));
+        view.dispatch(tr);
+
+        // Empty selection at cursor in empty paragraph — no stored marks
+        expect(editor.isActive('bold')).toBe(false);
+      });
+
+      it('returns true when range has text and all text is marked', () => {
+        editor = new Editor({
+          schema: schemaWithHeading,
+          content: '<p><strong>A</strong></p><p></p>',
+        });
+
+        // Select from inside first paragraph to empty paragraph
+        const { state, view } = editor;
+        const tr = state.tr.setSelection(TextSelection.create(state.doc, 1, 5));
+        view.dispatch(tr);
+
+        // The text "A" has bold, empty paragraph has no text — should still be true
+        expect(editor.isActive('bold')).toBe(true);
+      });
     });
   });
 
