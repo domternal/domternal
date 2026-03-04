@@ -208,7 +208,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   animation: dm-fade-in 0.15s ease;
 
-  button {
+  > button {
     display: flex;
     align-items: center;
     width: 100%;
@@ -235,12 +235,6 @@
   min-width: auto;
   width: max-content;
   padding: 0.375rem;
-
-  // Override: swatches inside cell dropdown don't need full width
-  button.dm-color-swatch,
-  button.dm-color-palette-reset {
-    width: auto;
-  }
 }
 
 .dm-table-cell-dropdown-separator {
