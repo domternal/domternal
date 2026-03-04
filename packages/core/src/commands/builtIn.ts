@@ -872,7 +872,7 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
         .sort((a, b) => b.from - a.from);
 
       // Helper: collectListContext with empty-textblock fallback
-      const collectCellContext = (doc: PMNode, from: number, to: number) => {
+      const collectCellContext = (doc: PMNode, from: number, to: number): { pos: number; inTargetList: boolean; inSomeList: boolean; otherListPos: number | null }[] => {
         const blocks = collectListContext(doc, from, to);
         if (blocks.length === 0) {
           const $cur = doc.resolve(from);
@@ -929,7 +929,7 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
           } else if (cellInSomeList) {
             // Convert: change list type in-place
             const otherPos = cellBlocks.find((b) => b.otherListPos !== null)?.otherListPos;
-            if (otherPos == null) continue;
+            if (otherPos === null || otherPos === undefined) continue;
             const listNode = tr.doc.nodeAt(otherPos);
             if (!listNode) continue;
             const firstChild = listNode.firstChild;

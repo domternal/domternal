@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { test } from './fixtures.js';
+import { expect } from '@playwright/test';
 
 const editorSelector = 'domternal-editor .ProseMirror';
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';

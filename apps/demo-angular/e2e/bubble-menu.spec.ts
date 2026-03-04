@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test } from './fixtures.js';
+import { expect, type Page } from '@playwright/test';
 
 const editorSelector = 'domternal-editor .ProseMirror';
 const bubbleMenu = '.dm-bubble-menu';

@@ -7,7 +7,7 @@ import { TableHeader } from './TableHeader.js';
 import { TableView } from './TableView.js';
 import { createTable } from './helpers/createTable.js';
 import { cellAttributes } from './helpers/cellAttributes.js';
-import { Document, Text, Paragraph, Editor } from '@domternal/core';
+import { Document, Text, Paragraph, Editor, BulletList, ListItem, TaskList, TaskItem } from '@domternal/core';
 import { TextSelection } from 'prosemirror-state';
 import { CellSelection } from 'prosemirror-tables';
 
@@ -1345,14 +1345,13 @@ describe('Tab/Shift-Tab with lists in table cells', () => {
   let editor: InstanceType<typeof Editor>;
 
   afterEach(() => {
-    if (editor && !editor.isDestroyed) editor.destroy();
+    if (!editor.isDestroyed) editor.destroy();
   });
 
   // Need list extensions so the schema knows about listItem/taskItem
-  const { BulletList, ListItem, TaskList, TaskItem } = require('@domternal/core');
   const listExtensions = [...allExtensions, BulletList, ListItem, TaskList, TaskItem];
 
-  function focusAt(pos: number) {
+  function focusAt(pos: number): void {
     const sel = TextSelection.create(editor.state.doc, pos);
     editor.view.dispatch(editor.state.tr.setSelection(sel));
   }
