@@ -19,6 +19,12 @@ import { type TableView, tableViewMap } from '../TableView.js';
 
 const pluginKey = new PluginKey<DecorationSet>('cellSelection');
 
+/** Resolve the DOM element at a ProseMirror position (text nodes → parentElement). */
+function domElementAt(view: EditorView, pos: number): HTMLElement | null {
+  const { node } = view.domAtPos(pos);
+  return node instanceof HTMLElement ? node : node.parentElement;
+}
+
 export function createCellSelectionPlugin(): Plugin {
   return new Plugin({
     key: pluginKey,
@@ -52,7 +58,7 @@ export function createCellSelectionPlugin(): Plugin {
           // decoration only during active drag, not on mere hover near border)
           const draggingCell = view.dom.querySelector('.column-resize-dragging');
           if (draggingCell) {
-            const container = draggingCell.closest('.dm-table-container');
+            const container = draggingCell.closest<HTMLElement>('.dm-table-container');
             const tv = container ? tableViewMap.get(container) : undefined;
             if (tv && tv !== resizingView) {
               tv.hideForResize();
@@ -68,11 +74,8 @@ export function createCellSelectionPlugin(): Plugin {
           if (sel instanceof CellSelection) {
             // CellSelection → show toolbar (unless suppressed by row/col handle), hide cell handle
             const anchorPos = sel.$anchorCell.pos;
-            const domInfo = view.domAtPos(anchorPos + 1);
-            const el = domInfo.node instanceof HTMLElement
-              ? domInfo.node
-              : domInfo.node.parentElement;
-            const container = el?.closest('.dm-table-container') as HTMLElement | null;
+            const el = domElementAt(view, anchorPos + 1);
+            const container = el?.closest<HTMLElement>('.dm-table-container');
             const tv = container ? tableViewMap.get(container) : undefined;
             if (tv) {
               if (!tv.suppressCellToolbar) {
@@ -107,12 +110,9 @@ export function createCellSelectionPlugin(): Plugin {
               // Only show cell handle for cursor (empty selection).
               // When text is selected the bubble menu is visible at the same spot
               // and would intercept clicks intended for the cell handle.
-              const domInfo = view.domAtPos($from.pos);
-              const domEl = domInfo.node instanceof HTMLElement
-                ? domInfo.node
-                : domInfo.node.parentElement;
-              const cellEl = domEl?.closest('td, th') as HTMLTableCellElement | null;
-              const container = cellEl?.closest('.dm-table-container') as HTMLElement | null;
+              const domEl = domElementAt(view, $from.pos);
+              const cellEl = domEl?.closest<HTMLTableCellElement>('td, th');
+              const container = cellEl?.closest<HTMLElement>('.dm-table-container');
               const tv = container ? tableViewMap.get(container) : undefined;
               if (tv && cellEl) {
                 tv.showCellHandle(cellEl);

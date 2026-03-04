@@ -307,13 +307,12 @@ export const toggleMark: CommandSpec<[markName: string, attributes?: Attrs]> =
     }
 
     const { empty, ranges } = tr.selection;
-    if (!ranges.length) return false;
+    const firstRange = ranges[0];
+    if (!firstRange) return false;
 
     // Check if mark can be applied — respects both schema (allowsMarkType)
     // and mark exclusions (e.g. code mark excludes bold/italic/etc.)
     if (empty) {
-      const firstRange = ranges[0];
-      if (!firstRange) return false;
       const from = firstRange.$from.pos;
       const $pos = tr.doc.resolve(from);
       if (!$pos.parent.inlineContent || !$pos.parent.type.allowsMarkType(markType)) {
@@ -348,8 +347,6 @@ export const toggleMark: CommandSpec<[markName: string, attributes?: Attrs]> =
 
     if (empty) {
       // Cursor mode — toggle stored mark
-      const firstRange = ranges[0];
-      if (!firstRange) return false;
       const from = firstRange.$from.pos;
       const cursorMarks = tr.storedMarks
         ?? state.storedMarks
@@ -713,11 +710,17 @@ export const toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]> =
       const allWrapped = ranges.every(range => isInsideWrap(range.$from.pos));
       if (!dispatch) return true;
 
-      // Process in reverse to preserve positions
-      for (let i = ranges.length - 1; i >= 0; i--) {
-        const range = ranges[i];
-        if (!range) continue;
-        const { $from, $to } = range;
+      // Snapshot positions and sort descending so bottom-of-doc modifications
+      // don't shift positions of cells still to be processed.
+      const cellPositions = ranges
+        .map((r) => ({ from: r.$from.pos, to: r.$to.pos }))
+        .sort((a, b) => b.from - a.from);
+
+      for (const cell of cellPositions) {
+        const from = tr.mapping.map(cell.from);
+        const to = tr.mapping.map(cell.to);
+        const $from = tr.doc.resolve(from);
+        const $to = tr.doc.resolve(to);
         const blockRange = $from.blockRange($to);
         if (!blockRange) continue;
 
@@ -779,10 +782,16 @@ export const lift: CommandSpec =
     // Multi-range selection (CellSelection): lift each cell independently
     if (ranges.length > 1) {
       if (!dispatch) return true;
-      for (let i = ranges.length - 1; i >= 0; i--) {
-        const selRange = ranges[i];
-        if (!selRange) continue;
-        const { $from, $to } = selRange;
+
+      const cellPositions = ranges
+        .map((r) => ({ from: r.$from.pos, to: r.$to.pos }))
+        .sort((a, b) => b.from - a.from);
+
+      for (const cell of cellPositions) {
+        const from = tr.mapping.map(cell.from);
+        const to = tr.mapping.map(cell.to);
+        const $from = tr.doc.resolve(from);
+        const $to = tr.doc.resolve(to);
         const range = $from.blockRange($to);
         if (!range) continue;
         const target = liftTarget(range);
@@ -830,12 +839,13 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
       return false;
     }
 
-    const collectListContext = (
-      doc: PMNode,
-      rfrom: number,
-      rto: number,
-    ): { pos: number; inTargetList: boolean; inSomeList: boolean; otherListPos: number | null }[] => {
-      const blocks: { pos: number; inTargetList: boolean; inSomeList: boolean; otherListPos: number | null }[] = [];
+    interface ListBlockCtx { pos: number; inTargetList: boolean; inSomeList: boolean; otherListPos: number | null }
+
+    /** Collect list context for non-empty textblocks in a range.
+     *  If no textblocks are found (cursor in empty block), falls back to the
+     *  resolved position's ancestor context so toggle/convert/lift still work. */
+    const collectListContext = (doc: PMNode, rfrom: number, rto: number): ListBlockCtx[] => {
+      const blocks: ListBlockCtx[] = [];
       doc.nodesBetween(rfrom, rto, (node, pos) => {
         if (!node.isTextblock || node.content.size === 0) return;
         let inTargetList = false;
@@ -858,6 +868,25 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
         }
         blocks.push({ pos, inTargetList, inSomeList, otherListPos });
       });
+
+      // Empty-textblock fallback: cursor in empty list item etc.
+      // Use the textblock node position (not cursor position) so that
+      // pos + 1 points into the textblock content, not past it.
+      if (blocks.length === 0) {
+        const $cur = doc.resolve(rfrom);
+        const nodePos = $cur.parent.inlineContent ? $cur.before($cur.depth) : rfrom;
+        let inTargetList = false;
+        let inSomeList = false;
+        let otherListPos: number | null = null;
+        for (let d = $cur.depth; d >= 0; d--) {
+          const n = $cur.node(d);
+          if (n.type === listType) { inTargetList = true; inSomeList = true; break; }
+          const groups = (n.type.spec.group ?? '').split(/\s+/);
+          if (groups.includes('list')) { inSomeList = true; otherListPos = $cur.before(d); break; }
+        }
+        blocks.push({ pos: nodePos, inTargetList, inSomeList, otherListPos });
+      }
+
       return blocks;
     };
 
@@ -871,29 +900,10 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
         .map((r) => ({ from: r.$from.pos, to: r.$to.pos }))
         .sort((a, b) => b.from - a.from);
 
-      // Helper: collectListContext with empty-textblock fallback
-      const collectCellContext = (doc: PMNode, from: number, to: number): { pos: number; inTargetList: boolean; inSomeList: boolean; otherListPos: number | null }[] => {
-        const blocks = collectListContext(doc, from, to);
-        if (blocks.length === 0) {
-          const $cur = doc.resolve(from);
-          let inTargetList = false;
-          let inSomeList = false;
-          let otherListPos: number | null = null;
-          for (let d = $cur.depth; d >= 0; d--) {
-            const n = $cur.node(d);
-            if (n.type === listType) { inTargetList = true; inSomeList = true; break; }
-            const groups = (n.type.spec.group ?? '').split(/\s+/);
-            if (groups.includes('list')) { inSomeList = true; otherListPos = $cur.before(d); break; }
-          }
-          blocks.push({ pos: from, inTargetList, inSomeList, otherListPos });
-        }
-        return blocks;
-      };
-
       // Determine global toggle direction on unmodified doc
-      const allBlocks: { pos: number; inTargetList: boolean; inSomeList: boolean; otherListPos: number | null }[] = [];
+      const allBlocks: ListBlockCtx[] = [];
       for (const cell of cellPositions) {
-        allBlocks.push(...collectCellContext(tr.doc, cell.from, cell.to));
+        allBlocks.push(...collectListContext(tr.doc, cell.from, cell.to));
       }
       const allInTargetList = allBlocks.length > 0 && allBlocks.every((b) => b.inTargetList);
       if (!dispatch) return true;
@@ -903,7 +913,7 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
         for (const cell of cellPositions) {
           const from = tr.mapping.map(cell.from);
           const to = tr.mapping.map(cell.to);
-          const cellBlocks = collectCellContext(tr.doc, from, to);
+          const cellBlocks = collectListContext(tr.doc, from, to);
           const first = cellBlocks[0];
           const last = cellBlocks[cellBlocks.length - 1];
           if (!first || !last) continue;
@@ -920,7 +930,7 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
         for (const cell of cellPositions) {
           const from = tr.mapping.map(cell.from);
           const to = tr.mapping.map(cell.to);
-          const cellBlocks = collectCellContext(tr.doc, from, to);
+          const cellBlocks = collectListContext(tr.doc, from, to);
           const cellInTarget = cellBlocks.length > 0 && cellBlocks.every((b) => b.inTargetList);
           const cellInSomeList = cellBlocks.length > 0 && cellBlocks.every((b) => b.inSomeList);
 
@@ -958,25 +968,9 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
       return true;
     }
 
-    // Single-range selection: existing logic
+    // Single-range selection
     const { from, to } = tr.selection;
     const contentBlocks = collectListContext(tr.doc, from, to);
-
-    // Cursor in empty textblock (e.g. new list item): nodesBetween skipped it,
-    // but we still need its list context so toggle/convert/lift work correctly.
-    if (contentBlocks.length === 0) {
-      const $cur = tr.doc.resolve(from);
-      let inTargetList = false;
-      let inSomeList = false;
-      let otherListPos: number | null = null;
-      for (let d = $cur.depth; d >= 0; d--) {
-        const n = $cur.node(d);
-        if (n.type === listType) { inTargetList = true; inSomeList = true; break; }
-        const groups = (n.type.spec.group ?? '').split(/\s+/);
-        if (groups.includes('list')) { inSomeList = true; otherListPos = $cur.before(d); break; }
-      }
-      contentBlocks.push({ pos: from, inTargetList, inSomeList, otherListPos });
-    }
 
     const allInTargetList = contentBlocks.length > 0 && contentBlocks.every((b) => b.inTargetList);
     const allInSomeList = contentBlocks.length > 0 && contentBlocks.every((b) => b.inSomeList);

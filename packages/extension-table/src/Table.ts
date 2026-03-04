@@ -302,16 +302,29 @@ export const Table = Node.create<TableOptions>({
   addKeyboardShortcuts() {
     const editor = this.editor;
 
+    /** Check if cursor is inside a list item (defer Tab/Shift-Tab to list extensions). */
+    const isInListItem = (): boolean => {
+      if (!editor) return false;
+      const { $from } = editor.state.selection;
+      for (let d = $from.depth; d >= 0; d--) {
+        const name = $from.node(d).type.name;
+        if (name === 'listItem' || name === 'taskItem') return true;
+      }
+      return false;
+    };
+
+    /** Delete the entire table when all cells are selected (Backspace/Delete). */
+    const deleteTableHandler = (): boolean => {
+      if (!editor) return false;
+      return deleteTableWhenAllCellsSelected({
+        state: editor.state,
+        dispatch: editor.view.dispatch,
+      });
+    };
+
     return {
       Tab: () => {
-        if (!editor) return false;
-
-        // If cursor is inside a list item, defer to list extension for indentation
-        const { $from } = editor.state.selection;
-        for (let d = $from.depth; d >= 0; d--) {
-          const name = $from.node(d).type.name;
-          if (name === 'listItem' || name === 'taskItem') return false;
-        }
+        if (!editor || isInListItem()) return false;
 
         // Try to move to next cell
         if (editor.commands['goToNextCell']?.()) {
@@ -328,49 +341,14 @@ export const Table = Node.create<TableOptions>({
       },
 
       'Shift-Tab': () => {
-        if (!editor) return false;
-
-        // If cursor is inside a list item, defer to list extension for outdentation
-        const { $from } = editor.state.selection;
-        for (let d = $from.depth; d >= 0; d--) {
-          const name = $from.node(d).type.name;
-          if (name === 'listItem' || name === 'taskItem') return false;
-        }
-
+        if (!editor || isInListItem()) return false;
         return editor.commands['goToPreviousCell']?.() ?? false;
       },
 
-      Backspace: () => {
-        if (!editor) return false;
-        return deleteTableWhenAllCellsSelected({
-          state: editor.state,
-          dispatch: editor.view.dispatch,
-        });
-      },
-
-      'Mod-Backspace': () => {
-        if (!editor) return false;
-        return deleteTableWhenAllCellsSelected({
-          state: editor.state,
-          dispatch: editor.view.dispatch,
-        });
-      },
-
-      Delete: () => {
-        if (!editor) return false;
-        return deleteTableWhenAllCellsSelected({
-          state: editor.state,
-          dispatch: editor.view.dispatch,
-        });
-      },
-
-      'Mod-Delete': () => {
-        if (!editor) return false;
-        return deleteTableWhenAllCellsSelected({
-          state: editor.state,
-          dispatch: editor.view.dispatch,
-        });
-      },
+      Backspace: deleteTableHandler,
+      'Mod-Backspace': deleteTableHandler,
+      Delete: deleteTableHandler,
+      'Mod-Delete': deleteTableHandler,
     };
   },
 

@@ -4,7 +4,7 @@
  * Creates: div.dm-table-container > [handles] + div.tableWrapper > table > colgroup + tbody
  * - Container enables row/column hover controls (handles with dropdown menus)
  * - Wrapper div enables horizontal scrolling for wide tables
- * - Colgroup reflects column widths (foundation for PRO column resize)
+ * - Colgroup reflects column widths from the columnResizing plugin
  * - ContentDOM = tbody (ProseMirror renders row content into tbody)
  */
 
@@ -44,7 +44,6 @@ export const tableViewMap = new WeakMap<HTMLElement, TableView>();
 
 export class TableView implements NodeView {
   node: PMNode;
-  cellMinWidth: number;
   defaultCellMinWidth: number;
   view: EditorView;
 
@@ -79,9 +78,8 @@ export class TableView implements NodeView {
   private boundDocMouseDown: (e: MouseEvent) => void;
   private boundDocKeyDown: (e: KeyboardEvent) => void;
 
-  constructor(node: PMNode, cellMinWidth: number, view: EditorView, defaultCellMinWidth = 100) {
+  constructor(node: PMNode, _cellMinWidth: number, view: EditorView, defaultCellMinWidth = 100) {
     this.node = node;
-    this.cellMinWidth = cellMinWidth;
     this.defaultCellMinWidth = defaultCellMinWidth;
     this.view = view;
 
@@ -364,7 +362,6 @@ export class TableView implements NodeView {
         this.rowHandle.style.top = String(trRect.top - containerRect.top + trRect.height / 2 - 12) + 'px';
       }
     }
-
   }
 
   private getCellIndices(cell: HTMLTableCellElement): { row: number; col: number } {
@@ -476,10 +473,7 @@ export class TableView implements NodeView {
       if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
         const cellPos = $pos.before(d);
         const sel = CellSelection.create(this.view.state.doc, cellPos, cellPos);
-        this.view.dispatch(
-          this.view.state.tr.setSelection(sel as unknown as ReturnType<typeof TextSelection.create>),
-        );
-        this.view.focus();
+        this.dispatchCellSelection(sel);
         break;
       }
     }
@@ -521,6 +515,14 @@ export class TableView implements NodeView {
     return pos;
   }
 
+  /** Dispatch a CellSelection and focus the editor. */
+  private dispatchCellSelection(sel: CellSelection): void {
+    this.view.dispatch(
+      this.view.state.tr.setSelection(sel as unknown as ReturnType<typeof TextSelection.create>),
+    );
+    this.view.focus();
+  }
+
   private selectRow(row: number): void {
     const tablePos = this.getTablePos();
     const tableStart = tablePos + 1;
@@ -531,10 +533,7 @@ export class TableView implements NodeView {
     const headOffset = map.map[row * map.width + map.width - 1];
     if (anchorOffset === undefined || headOffset === undefined) return;
     const sel = CellSelection.create(this.view.state.doc, tableStart + anchorOffset, tableStart + headOffset);
-    this.view.dispatch(
-      this.view.state.tr.setSelection(sel as unknown as ReturnType<typeof TextSelection.create>),
-    );
-    this.view.focus();
+    this.dispatchCellSelection(sel);
   }
 
   private selectColumn(col: number): void {
@@ -547,10 +546,7 @@ export class TableView implements NodeView {
     const headOffset = map.map[(map.height - 1) * map.width + col];
     if (anchorOffset === undefined || headOffset === undefined) return;
     const sel = CellSelection.create(this.view.state.doc, tableStart + anchorOffset, tableStart + headOffset);
-    this.view.dispatch(
-      this.view.state.tr.setSelection(sel as unknown as ReturnType<typeof TextSelection.create>),
-    );
-    this.view.focus();
+    this.dispatchCellSelection(sel);
   }
 
   private setCursorInCell(row: number, col: number): void {
