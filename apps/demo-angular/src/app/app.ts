@@ -104,6 +104,9 @@ export class App {
     'bold', 'italic', 'underline',
     '|',
     { dropdown: 'More Format', icon: 'textStrikethrough', items: ['strike', 'code', 'subscript', 'superscript'], displayMode: 'icon' },
+    '|',
+    { dropdown: 'Test text', icon: 'test', items: ['bold', 'italic', 'underline'], displayMode: 'text' },
+    '|',
     'clearFormatting',
     '|',
     'heading',
@@ -121,6 +124,12 @@ export class App {
 
   onEditorCreated(editor: Editor): void {
     this.editor.set(editor);
+  }
+
+  switchToolbarMode(useLayout: boolean): void {
+    this.useLayout.set(useLayout);
+    // Re-focus editor after toolbar swap so buttons work immediately
+    requestAnimationFrame(() => this.editor()?.commands.focus());
   }
 
   toggleTheme(): void {

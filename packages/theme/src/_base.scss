@@ -13,7 +13,9 @@
   line-height: var(--dm-editor-line-height);
   border: var(--dm-editor-border);
   border-radius: var(--dm-editor-border-radius);
+  box-shadow: var(--dm-editor-shadow, none);
   overflow: hidden;
+  color-scheme: var(--dm-color-scheme, light);
 
   .ProseMirror {
     padding: var(--dm-editor-padding);
@@ -26,7 +28,7 @@
 
   // Focus ring on wrapper when editor is focused
   &:focus-within {
-    box-shadow: var(--dm-editor-focus-ring);
+    box-shadow: var(--dm-editor-focus-ring, var(--dm-editor-shadow, none));
   }
 
   // Text selection colors

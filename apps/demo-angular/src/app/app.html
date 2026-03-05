@@ -14,8 +14,8 @@
 
   @if (editor(); as ed) {
     <div class="toolbar-mode-toggle">
-      <button [class.active]="!useLayout()" (click)="useLayout.set(false)">Default toolbar</button>
-      <button [class.active]="useLayout()" (click)="useLayout.set(true)">Custom layout</button>
+      <button [class.active]="!useLayout()" (click)="switchToolbarMode(false)">Default toolbar</button>
+      <button [class.active]="useLayout()" (click)="switchToolbarMode(true)">Custom layout</button>
     </div>
     @if (useLayout()) {
       <domternal-toolbar [editor]="ed" [layout]="toolbarLayout" />

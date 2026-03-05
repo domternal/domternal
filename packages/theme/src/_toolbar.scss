@@ -9,9 +9,10 @@
   gap: var(--dm-toolbar-gap);
   padding: var(--dm-toolbar-padding);
   background: var(--dm-toolbar-bg);
-  border: var(--dm-toolbar-border);
-  border-bottom: none;
+  border: 1px solid var(--dm-border-color, #e5e7eb);
+  border-bottom: 1px solid var(--dm-border-color, #e5e7eb);
   border-radius: var(--dm-toolbar-border-radius);
+  box-shadow: var(--dm-editor-shadow, none);
 }
 
 // Button group
@@ -97,12 +98,13 @@
   z-index: 50;
   display: flex;
   flex-direction: column;
+  gap: 0.125rem;
   min-width: 8rem;
   padding: 0.25rem;
-  background: var(--dm-toolbar-bg);
-  border: var(--dm-toolbar-border);
-  border-radius: var(--dm-button-border-radius);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  background: var(--dm-bg, #fff);
+  border: 1px solid var(--dm-border-color, #e5e7eb);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
   animation: dm-fade-in 0.2s ease;
 
   // Color palette panels get a softer, rounder container
