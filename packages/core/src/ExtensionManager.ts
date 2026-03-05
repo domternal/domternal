@@ -133,6 +133,11 @@ export class ExtensionManager {
   private _toolbarItems: ToolbarItem[] | null = null;
 
   /**
+   * Cached node views (collected lazily)
+   */
+  private _nodeViews: Record<string, NodeViewConstructor> | null = null;
+
+  /**
    * Creates a new ExtensionManager
    *
    * @param options - Extensions or direct schema
@@ -227,7 +232,8 @@ export class ExtensionManager {
    * Gets node views from all Node extensions that define addNodeView
    */
   get nodeViews(): Record<string, NodeViewConstructor> {
-    return this.collectNodeViews();
+    this._nodeViews ??= this.collectNodeViews();
+    return this._nodeViews;
   }
 
   // === Cache Invalidation ===
@@ -256,6 +262,7 @@ export class ExtensionManager {
     this._plugins = null;
     this._commands = null;
     this._toolbarItems = null;
+    this._nodeViews = null;
   }
 
   // === Extension Processing ===
@@ -376,12 +383,96 @@ export class ExtensionManager {
   }
 
   /**
-   * Converts GlobalAttributeSpec to ProseMirror-compatible attribute spec
+   * Applies global attributes to a node or mark spec.
+   * Merges extra attrs into spec.attrs, wraps parseDOM getAttrs to parse
+   * global attributes from DOM elements, and wraps toDOM to inject rendered
+   * global HTML attributes into the output.
    */
-  private convertGlobalAttrToNodeAttr(
-    spec: GlobalAttributeSpec
-  ): { default?: unknown } {
-    return { default: spec.default };
+  private applyGlobalAttributes(
+    spec: NodeSpec | MarkSpec,
+    extraAttrs: Record<string, GlobalAttributeSpec>,
+  ): void {
+    // 1. Convert global attrs to PM attrs and merge
+    const convertedAttrs: Record<string, { default?: unknown }> = {};
+    for (const [attrName, attrSpec] of Object.entries(extraAttrs)) {
+      convertedAttrs[attrName] = { default: attrSpec.default };
+    }
+    spec.attrs = { ...spec.attrs, ...convertedAttrs };
+
+    // 2. Wrap parseDOM handlers to include global attribute parsing
+    if (spec.parseDOM) {
+      spec.parseDOM = spec.parseDOM.map((rule) => {
+        const originalGetAttrs = rule.getAttrs as
+          | ((dom: HTMLElement | string) => Record<string, unknown> | false | null)
+          | undefined;
+        return {
+          ...rule,
+          getAttrs: (dom: HTMLElement | string) => {
+            const baseAttrs = originalGetAttrs
+              ? originalGetAttrs(dom)
+              : rule.attrs ?? {};
+
+            if (baseAttrs === false) return false;
+
+            // Parse global attributes from DOM (only if element, not style string)
+            const globalParsed: Record<string, unknown> = {};
+            if (typeof dom !== 'string') {
+              for (const [name, attrSpec] of Object.entries(extraAttrs)) {
+                if (attrSpec.parseHTML) {
+                  globalParsed[name] = attrSpec.parseHTML(dom);
+                }
+              }
+            }
+
+            return { ...baseAttrs, ...globalParsed };
+          },
+        };
+      });
+    }
+
+    // 3. Wrap toDOM to inject rendered global HTML attributes
+    const originalToDOM = spec.toDOM;
+    if (originalToDOM) {
+      // Use a generic wrapper — first arg is always a node or mark with .attrs
+      const wrappedToDOM = (...args: unknown[]): unknown => {
+        const result = (originalToDOM as (...a: unknown[]) => unknown)(...args);
+        if (!Array.isArray(result)) return result;
+
+        // First arg is always the node or mark, which has .attrs
+        const nodeOrMark = args[0] as { attrs: Record<string, unknown> };
+
+        let extraHtmlAttrs: Record<string, string> = {};
+        for (const [, attrSpec] of Object.entries(extraAttrs)) {
+          if (attrSpec.renderHTML) {
+            const rendered = attrSpec.renderHTML(nodeOrMark.attrs);
+            if (rendered) {
+              extraHtmlAttrs = mergeHTMLAttrs(extraHtmlAttrs, rendered) as Record<string, string>;
+            }
+          }
+        }
+
+        // Merge into result[1] if it's an attributes object
+        if (
+          result.length >= 2 &&
+          typeof result[1] === 'object' &&
+          result[1] !== null &&
+          !Array.isArray(result[1])
+        ) {
+          const existingAttrs = result[1] as Record<string, unknown>;
+          result[1] = { ...existingAttrs, ...extraHtmlAttrs };
+        } else if (Object.keys(extraHtmlAttrs).length > 0) {
+          // Insert attributes object at position 1
+          const rest = result.slice(1) as unknown[];
+          return [result[0], extraHtmlAttrs, ...rest];
+        }
+
+        return result;
+      };
+      // Cast needed: wrappedToDOM is generic but spec.toDOM expects specific signatures.
+      // The wrapper preserves the original signature by forwarding all arguments.
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
+      (spec as any).toDOM = wrappedToDOM;
+    }
   }
 
   /**
@@ -400,78 +491,9 @@ export class ExtensionManager {
         const nodeExt = ext as Node;
         const spec = nodeExt.createNodeSpec();
 
-        // Merge global attributes into this node's attrs
         const extraAttrs = globalAttrs.get(ext.name);
         if (extraAttrs) {
-          const convertedAttrs: Record<string, { default?: unknown }> = {};
-          for (const [attrName, attrSpec] of Object.entries(extraAttrs)) {
-            convertedAttrs[attrName] = this.convertGlobalAttrToNodeAttr(attrSpec);
-          }
-          spec.attrs = { ...spec.attrs, ...convertedAttrs };
-
-          // Merge parseDOM handlers to include global attribute parsing
-          if (spec.parseDOM) {
-            spec.parseDOM = spec.parseDOM.map((rule) => {
-              const originalGetAttrs = rule.getAttrs;
-              return {
-                ...rule,
-                getAttrs: (dom: HTMLElement) => {
-                  const baseAttrs = originalGetAttrs
-                    ? originalGetAttrs(dom)
-                    : rule.attrs ?? {};
-
-                  if (baseAttrs === false) return false;
-
-                  // Parse global attributes from DOM
-                  const globalParsed: Record<string, unknown> = {};
-                  for (const [name, attrSpec] of Object.entries(extraAttrs)) {
-                    if (attrSpec.parseHTML) {
-                      globalParsed[name] = attrSpec.parseHTML(dom);
-                    }
-                  }
-
-                  return { ...baseAttrs, ...globalParsed };
-                },
-              };
-            });
-          }
-
-          // Merge toDOM to include global attribute rendering
-          const originalToDOM = spec.toDOM;
-          if (originalToDOM) {
-            spec.toDOM = (node) => {
-              const result = originalToDOM(node);
-              if (!Array.isArray(result)) return result;
-
-              // Get extra HTML attributes from global attrs
-              let extraHtmlAttrs: Record<string, string> = {};
-              for (const [, attrSpec] of Object.entries(extraAttrs)) {
-                if (attrSpec.renderHTML) {
-                  const rendered = attrSpec.renderHTML(node.attrs);
-                  if (rendered) {
-                    extraHtmlAttrs = mergeHTMLAttrs(extraHtmlAttrs, rendered) as Record<string, string>;
-                  }
-                }
-              }
-
-              // Merge into result[1] if it's an attributes object
-              if (
-                result.length >= 2 &&
-                typeof result[1] === 'object' &&
-                result[1] !== null &&
-                !Array.isArray(result[1])
-              ) {
-                const existingAttrs = result[1] as Record<string, unknown>;
-                result[1] = { ...existingAttrs, ...extraHtmlAttrs };
-              } else if (Object.keys(extraHtmlAttrs).length > 0) {
-                // Insert attributes object at position 1
-                const rest = result.slice(1) as unknown[];
-                return [result[0], extraHtmlAttrs, ...rest];
-              }
-
-              return result;
-            };
-          }
+          this.applyGlobalAttributes(spec, extraAttrs);
         }
 
         nodes[ext.name] = spec;
@@ -484,79 +506,9 @@ export class ExtensionManager {
         const markExt = ext as Mark;
         const spec = markExt.createMarkSpec();
 
-        // Merge global attributes into this mark's attrs
         const extraAttrs = globalAttrs.get(ext.name);
         if (extraAttrs) {
-          const convertedAttrs: Record<string, { default?: unknown }> = {};
-          for (const [attrName, attrSpec] of Object.entries(extraAttrs)) {
-            convertedAttrs[attrName] = this.convertGlobalAttrToNodeAttr(attrSpec);
-          }
-          spec.attrs = { ...spec.attrs, ...convertedAttrs };
-
-          // Merge parseDOM handlers for marks
-          if (spec.parseDOM) {
-            spec.parseDOM = spec.parseDOM.map((rule) => {
-              const originalGetAttrs = rule.getAttrs as
-                | ((dom: HTMLElement | string) => Record<string, unknown> | false | null)
-                | undefined;
-              return {
-                ...rule,
-                getAttrs: (dom: HTMLElement | string) => {
-                  const baseAttrs = originalGetAttrs
-                    ? originalGetAttrs(dom)
-                    : rule.attrs ?? {};
-
-                  if (baseAttrs === false) return false;
-
-                  // Parse global attributes from DOM (only if element, not style string)
-                  const globalParsed: Record<string, unknown> = {};
-                  if (typeof dom !== 'string') {
-                    for (const [name, attrSpec] of Object.entries(extraAttrs)) {
-                      if (attrSpec.parseHTML) {
-                        globalParsed[name] = attrSpec.parseHTML(dom);
-                      }
-                    }
-                  }
-
-                  return { ...baseAttrs, ...globalParsed };
-                },
-              };
-            });
-          }
-
-          // Merge toDOM for marks
-          const originalToDOM = spec.toDOM;
-          if (originalToDOM) {
-            spec.toDOM = (mark, inline) => {
-              const result = originalToDOM(mark, inline);
-              if (!Array.isArray(result)) return result;
-
-              let extraHtmlAttrs: Record<string, string> = {};
-              for (const [, attrSpec] of Object.entries(extraAttrs)) {
-                if (attrSpec.renderHTML) {
-                  const rendered = attrSpec.renderHTML(mark.attrs);
-                  if (rendered) {
-                    extraHtmlAttrs = mergeHTMLAttrs(extraHtmlAttrs, rendered) as Record<string, string>;
-                  }
-                }
-              }
-
-              if (
-                result.length >= 2 &&
-                typeof result[1] === 'object' &&
-                result[1] !== null &&
-                !Array.isArray(result[1])
-              ) {
-                const existingAttrs = result[1] as Record<string, unknown>;
-                result[1] = { ...existingAttrs, ...extraHtmlAttrs };
-              } else if (Object.keys(extraHtmlAttrs).length > 0) {
-                const rest = result.slice(1) as unknown[];
-                return [result[0], extraHtmlAttrs, ...rest];
-              }
-
-              return result;
-            };
-          }
+          this.applyGlobalAttributes(spec, extraAttrs);
         }
 
         marks[ext.name] = spec;

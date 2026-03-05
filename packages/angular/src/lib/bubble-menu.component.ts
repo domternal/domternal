@@ -221,9 +221,13 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     if (selection.node) return selection.node.type.name;
     if (selection.empty) return null;
 
-    // Inside a table cell — use 'table' context if defined, so the consumer controls visibility
+    // Cross-cell TextSelection (drag across table cells) — hide bubble menu.
+    // Node identity comparison works because ProseMirror reuses node objects.
     const fromCell = this.findCellNode(selection.$from);
-    if (fromCell && 'table' in ctxs) return 'table';
+    if (fromCell) {
+      const toCell = this.findCellNode(selection.$to);
+      if (toCell && fromCell !== toCell) return 'table';
+    }
 
     const fromName = selection.$from.parent.type.name;
     if (fromName in ctxs) return fromName;

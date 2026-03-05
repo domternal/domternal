@@ -27,6 +27,7 @@ import type { NodeSpec, NodeType, TagParseRule } from 'prosemirror-model';
 import { Extension, type ExtensionEditorInterface, mergeConfigWithParentBinding } from './Extension.js';
 import type { NodeConfig, NodeContext } from './types/NodeConfig.js';
 import { callOrReturn } from './helpers/callOrReturn.js';
+import { buildProseMirrorAttrs, buildHTMLAttributes } from './helpers/specBuilder.js';
 
 /**
  * Extended editor interface for Node
@@ -250,17 +251,7 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
     // Attributes - convert AttributeSpecs to ProseMirror attrs
     const attributeSpecs = callOrReturn(this.config.addAttributes, this);
     if (attributeSpecs) {
-      spec.attrs = {};
-      for (const [name, attrSpec] of Object.entries(attributeSpecs)) {
-        spec.attrs[name] = {
-          default: attrSpec.default,
-        };
-        // Add validate if defined (ProseMirror 1.22.0+)
-        if (attrSpec.validate) {
-          (spec.attrs[name] as { validate?: unknown }).validate =
-            attrSpec.validate;
-        }
-      }
+      spec.attrs = buildProseMirrorAttrs(attributeSpecs);
     }
 
     // Parse rules - convert to parseDOM
@@ -340,26 +331,9 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
       const nodeInstance = this;
 
       spec.toDOM = (node) => {
-        // Build HTML attributes from node attrs and renderHTML functions
-        let htmlAttrs: Record<string, unknown> = {};
-
-        if (attrSpecs) {
-          for (const [name, attrSpec] of Object.entries(attrSpecs)) {
-            // Skip if not rendered
-            if (attrSpec.rendered === false) continue;
-
-            // Use renderHTML if defined, otherwise add directly
-            if (attrSpec.renderHTML) {
-              const rendered = attrSpec.renderHTML(node.attrs);
-              if (rendered) {
-                htmlAttrs = { ...htmlAttrs, ...rendered };
-              }
-            } else if (node.attrs[name] !== undefined && node.attrs[name] !== null) {
-              // Default: use attribute value directly
-              htmlAttrs[name] = node.attrs[name];
-            }
-          }
-        }
+        const htmlAttrs = attrSpecs
+          ? buildHTMLAttributes(node.attrs, attrSpecs)
+          : {};
 
         // Call renderFn with Node instance as 'this' context
         return renderFn.call(nodeInstance, { node, HTMLAttributes: htmlAttrs });

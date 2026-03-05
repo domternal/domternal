@@ -234,8 +234,12 @@
 .dm-table-cell-dropdown {
   min-width: auto;
   width: max-content;
-  padding: 0.5rem;
+  padding: 0;
   border-radius: 0.75rem;
+
+  .dm-color-palette {
+    padding: 0.5rem;
+  }
 }
 
 .dm-table-cell-dropdown-separator {

@@ -17,12 +17,12 @@ import type {
   ChainedCommands,
   CanCommands,
 } from './types/Commands.js';
-import { builtInCommands } from './commands/builtIn.js';
+import { builtInCommands } from './commands/index.js';
 import { createChainBuilder } from './ChainBuilder.js';
 import { createCanChecker } from './CanChecker.js';
 
 // Re-export option types for backward compatibility
-export type { SetContentOptions, ClearContentOptions } from './commands/builtIn.js';
+export type { SetContentOptions, ClearContentOptions } from './commands/index.js';
 
 /**
  * Editor interface for CommandManager
@@ -52,6 +52,9 @@ export class CommandManager {
 
   /** Cached raw commands (built-in + extension) */
   private _rawCommands: CommandMap | null = null;
+
+  /** Cached commands proxy to avoid allocation on every access */
+  private _cachedCommands: SingleCommands | null = null;
 
   /** Cached dispatch function to avoid allocation on every command */
   private readonly _dispatch: (tr: Transaction) => void;
@@ -103,9 +106,11 @@ export class CommandManager {
    * editor.commands.insertText('Hello');
    */
   get commands(): SingleCommands {
+    if (this._cachedCommands) return this._cachedCommands;
+
     const { editor, rawCommands } = this;
 
-    return new Proxy({} as SingleCommands, {
+    this._cachedCommands = new Proxy({} as SingleCommands, {
       get: (_, name: string) => {
         const rawCommand = rawCommands[name];
         if (!rawCommand) {
@@ -125,6 +130,8 @@ export class CommandManager {
         };
       },
     });
+
+    return this._cachedCommands;
   }
 
   /**
@@ -177,5 +184,6 @@ export class CommandManager {
    */
   clearCache(): void {
     this._rawCommands = null;
+    this._cachedCommands = null;
   }
 }

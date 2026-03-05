@@ -1161,7 +1161,7 @@ test.describe('Table — Cell toolbar', () => {
 
     // Should have color swatches
     const swatches = dropdown.locator('.dm-color-swatch');
-    expect(await swatches.count()).toBe(10);
+    expect(await swatches.count()).toBe(16);
   });
 
   test('clicking color swatch applies background', async ({ page }) => {

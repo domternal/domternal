@@ -29,6 +29,7 @@ import type { MarkSpec, MarkType, ParseRule } from 'prosemirror-model';
 import { Extension, type ExtensionEditorInterface, mergeConfigWithParentBinding } from './Extension.js';
 import type { MarkConfig, MarkContext } from './types/MarkConfig.js';
 import { callOrReturn } from './helpers/callOrReturn.js';
+import { buildProseMirrorAttrs, buildHTMLAttributes } from './helpers/specBuilder.js';
 
 /**
  * Extended editor interface for Mark
@@ -230,17 +231,7 @@ export class Mark<Options = unknown, Storage = unknown> extends Extension<
     // Attributes - convert AttributeSpecs to ProseMirror attrs
     const attributeSpecs = callOrReturn(this.config.addAttributes, this);
     if (attributeSpecs) {
-      spec.attrs = {};
-      for (const [name, attrSpec] of Object.entries(attributeSpecs)) {
-        spec.attrs[name] = {
-          default: attrSpec.default,
-        };
-        // Add validate if defined (ProseMirror 1.22.0+)
-        if (attrSpec.validate) {
-          (spec.attrs[name] as { validate?: unknown }).validate =
-            attrSpec.validate;
-        }
-      }
+      spec.attrs = buildProseMirrorAttrs(attributeSpecs);
     }
 
     // Parse rules - convert to parseDOM
@@ -306,33 +297,15 @@ export class Mark<Options = unknown, Storage = unknown> extends Extension<
     if (this.config.renderHTML) {
       const renderFn = this.config.renderHTML;
       const attrSpecs = attributeSpecs;
+      // eslint-disable-next-line @typescript-eslint/no-this-alias
+      const markInstance = this;
 
       spec.toDOM = (mark, _inline) => {
-        // Build HTML attributes from mark attrs and renderHTML functions
-        let htmlAttrs: Record<string, unknown> = {};
+        const htmlAttrs = attrSpecs
+          ? buildHTMLAttributes(mark.attrs, attrSpecs)
+          : {};
 
-        if (attrSpecs) {
-          for (const [name, attrSpec] of Object.entries(attrSpecs)) {
-            // Skip if not rendered
-            if (attrSpec.rendered === false) continue;
-
-            // Use renderHTML if defined, otherwise add directly
-            if (attrSpec.renderHTML) {
-              const rendered = attrSpec.renderHTML(mark.attrs);
-              if (rendered) {
-                htmlAttrs = { ...htmlAttrs, ...rendered };
-              }
-            } else if (
-              mark.attrs[name] !== undefined &&
-              mark.attrs[name] !== null
-            ) {
-              // Default: use attribute value directly
-              htmlAttrs[name] = mark.attrs[name];
-            }
-          }
-        }
-
-        return renderFn.call(this, { mark, HTMLAttributes: htmlAttrs });
+        return renderFn.call(markInstance, { mark, HTMLAttributes: htmlAttrs });
       };
     }
 
