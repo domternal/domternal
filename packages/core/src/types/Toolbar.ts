@@ -142,6 +142,9 @@ export interface ToolbarDropdown {
 
   /** Number of columns in grid layout. @default 10 */
   gridColumns?: number;
+
+  /** How to display items in the dropdown panel: icon + text (default), text only, or icon only. */
+  displayMode?: 'icon-text' | 'text' | 'icon';
 }
 
 /**
@@ -181,6 +184,8 @@ export interface ToolbarLayoutDropdown {
   icon: string;
   /** Item names to include as sub-items */
   items: string[];
+  /** How to display items in the dropdown panel: icon + text (default), text only, or icon only. */
+  displayMode?: 'icon-text' | 'text' | 'icon';
 }
 
 /**

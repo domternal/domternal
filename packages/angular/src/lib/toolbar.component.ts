@@ -112,7 +112,8 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                     }
                   </div>
                 } @else {
-                  <div class="dm-toolbar-dropdown-panel" role="menu">
+                  <div class="dm-toolbar-dropdown-panel" role="menu"
+                       [attr.data-display-mode]="asDropdown(item).displayMode ?? null">
                     @for (sub of asDropdown(item).items; track sub.name) {
                       <button
                         type="button"
@@ -121,7 +122,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                         role="menuitem"
                         [attr.aria-label]="sub.label"
                         [attr.style]="sub.style ?? null"
-                        [innerHTML]="getCachedItemIcon(sub.icon, sub.label)"
+                        [innerHTML]="getCachedItemContent(sub.icon, sub.label, asDropdown(item).displayMode)"
                         (mousedown)="$event.preventDefault()"
                         (click)="onDropdownItemClick(sub)"
                       ></button>
@@ -240,6 +241,25 @@ export class DomternalToolbarComponent implements OnDestroy {
     let cached = this.htmlCache.get(key);
     if (!cached) {
       cached = this.sanitizer.bypassSecurityTrustHtml(this.resolveIconSvg(iconName) + ' ' + label);
+      this.htmlCache.set(key, cached);
+    }
+    return cached;
+  }
+
+  getCachedItemContent(iconName: string, label: string, displayMode?: 'icon-text' | 'text' | 'icon'): SafeHtml {
+    const mode = displayMode ?? 'icon-text';
+    const key = `dc:${iconName}:${label}:${mode}`;
+    let cached = this.htmlCache.get(key);
+    if (!cached) {
+      let html: string;
+      if (mode === 'text') {
+        html = label;
+      } else if (mode === 'icon') {
+        html = this.resolveIconSvg(iconName);
+      } else {
+        html = this.resolveIconSvg(iconName) + ' ' + label;
+      }
+      cached = this.sanitizer.bypassSecurityTrustHtml(html);
       this.htmlCache.set(key, cached);
     }
     return cached;

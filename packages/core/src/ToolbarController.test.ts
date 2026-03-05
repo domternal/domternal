@@ -1277,5 +1277,27 @@ describe('ToolbarController', () => {
       expect(controller.groups).toHaveLength(1);
       expect(controller.groups[0]!.items[0]!.name).toBe('bold');
     });
+
+    it('passes displayMode from layout dropdown to built dropdown', () => {
+      const items: ToolbarItem[] = [btn('bold'), btn('italic')];
+      const layout: ToolbarLayoutEntry[] = [
+        { dropdown: 'Format', icon: 'textB', items: ['bold', 'italic'], displayMode: 'text' },
+      ];
+      controller = new ToolbarController(createMockEditor(items), vi.fn(), layout);
+
+      const dd = controller.groups[0]!.items[0]! as ToolbarDropdown;
+      expect(dd.displayMode).toBe('text');
+    });
+
+    it('omits displayMode when not specified in layout dropdown', () => {
+      const items: ToolbarItem[] = [btn('bold')];
+      const layout: ToolbarLayoutEntry[] = [
+        { dropdown: 'Format', icon: 'textB', items: ['bold'] },
+      ];
+      controller = new ToolbarController(createMockEditor(items), vi.fn(), layout);
+
+      const dd = controller.groups[0]!.items[0]! as ToolbarDropdown;
+      expect(dd.displayMode).toBeUndefined();
+    });
   });
 });

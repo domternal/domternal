@@ -387,13 +387,15 @@ export class ToolbarController {
         if (btn) subItems.push(btn);
       }
       if (subItems.length > 0) {
-        current.push({
+        const dd: ToolbarDropdown = {
           type: 'dropdown',
           name: `layout-dd-${entry.dropdown}`,
           icon: entry.icon,
           label: entry.dropdown,
           items: subItems,
-        });
+        };
+        if (entry.displayMode) dd.displayMode = entry.displayMode;
+        current.push(dd);
       }
     }
 

@@ -112,6 +112,26 @@
   }
 }
 
+// Display-mode: icon-only — compact grid-like panel
+.dm-toolbar-dropdown-panel[data-display-mode="icon"] {
+  min-width: 0;
+
+  .dm-toolbar-dropdown-item {
+    width: auto;
+    padding: 0.375rem;
+    justify-content: center;
+  }
+}
+
+// Display-mode: text-only — shrink to text width, no icon gap
+.dm-toolbar-dropdown-panel[data-display-mode="text"] {
+  min-width: 0;
+
+  .dm-toolbar-dropdown-item {
+    gap: 0;
+  }
+}
+
 // Dropdown item
 .dm-toolbar-dropdown-item {
   display: flex;

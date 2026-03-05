@@ -103,7 +103,7 @@ export class App {
   toolbarLayout: ToolbarLayoutEntry[] = [
     'bold', 'italic', 'underline',
     '|',
-    { dropdown: 'More Format', icon: 'textStrikethrough', items: ['strike', 'code', 'subscript', 'superscript'] },
+    { dropdown: 'More Format', icon: 'textStrikethrough', items: ['strike', 'code', 'subscript', 'superscript'], displayMode: 'icon' },
     'clearFormatting',
     '|',
     'heading',

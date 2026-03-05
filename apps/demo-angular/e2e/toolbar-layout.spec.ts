@@ -376,6 +376,20 @@ test.describe('Toolbar layout — custom dropdown (More Format)', () => {
     const strikeItem = page.locator('.dm-toolbar-dropdown-item[aria-label="Strikethrough"]');
     await expect(strikeItem).toHaveClass(/active/);
   });
+
+  test('displayMode "text" renders only text, no SVG icon', async ({ page }) => {
+    await page.locator(moreFormatDropdown).click();
+
+    const items = page.locator('.dm-toolbar-dropdown-panel .dm-toolbar-dropdown-item');
+    const count = await items.count();
+    for (let i = 0; i < count; i++) {
+      const html = await items.nth(i).innerHTML();
+      expect(html).not.toContain('<svg');
+      // Should contain label text
+      const label = await items.nth(i).getAttribute('aria-label');
+      expect(html).toContain(label);
+    }
+  });
 });
 
 // =============================================================================
@@ -401,6 +415,18 @@ test.describe('Toolbar layout — existing dropdowns preserved', () => {
 
     const html = await getEditorHTML(page);
     expect(html).toContain('<h1>');
+  });
+
+  test('existing dropdowns without displayMode still show icon + text', async ({ page }) => {
+    await page.locator(headingDropdown).click();
+
+    const firstItem = page.locator('.dm-toolbar-dropdown-panel .dm-toolbar-dropdown-item').first();
+    const html = await firstItem.innerHTML();
+    // Should contain SVG icon
+    expect(html).toContain('<svg');
+    // Should contain label text
+    const label = await firstItem.getAttribute('aria-label');
+    expect(html).toContain(label);
   });
 
   test('text alignment dropdown is present and works', async ({ page }) => {
