@@ -36,6 +36,7 @@ import {
   ClearFormatting,
   Dropcursor,
   Editor,
+  type ToolbarLayoutEntry,
 } from '@domternal/core';
 import { CodeBlockLowlight } from '@domternal/extension-code-block-lowlight';
 import { Image } from '@domternal/extension-image';
@@ -98,6 +99,25 @@ export class App {
   emojiData = emojis;
   editor = signal<Editor | null>(null);
   isDark = signal(false);
+  useLayout = signal(false);
+  toolbarLayout: ToolbarLayoutEntry[] = [
+    'bold', 'italic', 'underline',
+    '|',
+    { dropdown: 'More Format', icon: 'textStrikethrough', items: ['strike', 'code', 'subscript', 'superscript'] },
+    'clearFormatting',
+    '|',
+    'heading',
+    '|',
+    'textAlign',
+    '|',
+    'textColor', 'highlight',
+    '|',
+    'bulletList', 'orderedList', 'taskList',
+    '|',
+    'link', 'image', 'emoji',
+    '|',
+    'undo', 'redo',
+  ];
 
   onEditorCreated(editor: Editor): void {
     this.editor.set(editor);

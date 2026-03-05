@@ -163,3 +163,30 @@ export interface ToolbarSeparator {
 
 /** Any toolbar item */
 export type ToolbarItem = ToolbarButton | ToolbarDropdown | ToolbarSeparator;
+
+// =============================================================================
+// Layout
+// =============================================================================
+
+/**
+ * A custom dropdown defined in a toolbar layout.
+ *
+ * @example
+ * { dropdown: 'Format', icon: 'textB', items: ['bold', 'italic', 'underline'] }
+ */
+export interface ToolbarLayoutDropdown {
+  /** Label for the dropdown trigger */
+  dropdown: string;
+  /** Icon key for the dropdown trigger */
+  icon: string;
+  /** Item names to include as sub-items */
+  items: string[];
+}
+
+/**
+ * A single entry in a toolbar layout array.
+ *
+ * - `string` — item name (e.g. `'bold'`) or separator (`'|'`)
+ * - `ToolbarLayoutDropdown` — custom dropdown grouping
+ */
+export type ToolbarLayoutEntry = string | ToolbarLayoutDropdown;

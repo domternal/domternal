@@ -85,4 +85,6 @@ export type {
   ToolbarDropdown,
   ToolbarSeparator,
   ToolbarItem,
+  ToolbarLayoutDropdown,
+  ToolbarLayoutEntry,
 } from './Toolbar.js';

@@ -86,3 +86,35 @@ body.dm-theme-dark .filler-block {
   background: #2a2a2a;
   border-color: #555;
 }
+
+.toolbar-mode-toggle {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+
+  button {
+    background: none;
+    border: 1px solid #ccc;
+    border-radius: 0.375rem;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8125rem;
+    cursor: pointer;
+    color: inherit;
+
+    &.active {
+      background: #e0e7ff;
+      border-color: #6366f1;
+      color: #4338ca;
+    }
+  }
+}
+
+body.dm-theme-dark .toolbar-mode-toggle button {
+  border-color: #555;
+
+  &.active {
+    background: #312e81;
+    border-color: #818cf8;
+    color: #c7d2fe;
+  }
+}

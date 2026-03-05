@@ -13,7 +13,15 @@
   </div>
 
   @if (editor(); as ed) {
-    <domternal-toolbar [editor]="ed" />
+    <div class="toolbar-mode-toggle">
+      <button [class.active]="!useLayout()" (click)="useLayout.set(false)">Default toolbar</button>
+      <button [class.active]="useLayout()" (click)="useLayout.set(true)">Custom layout</button>
+    </div>
+    @if (useLayout()) {
+      <domternal-toolbar [editor]="ed" [layout]="toolbarLayout" />
+    } @else {
+      <domternal-toolbar [editor]="ed" />
+    }
   }
 
 

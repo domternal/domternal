@@ -6,7 +6,7 @@ import {
   ToolbarController,
   type ToolbarControllerEditor,
 } from './ToolbarController.js';
-import type { ToolbarItem, ToolbarButton, ToolbarDropdown } from './types/Toolbar.js';
+import type { ToolbarItem, ToolbarButton, ToolbarDropdown, ToolbarLayoutEntry } from './types/Toolbar.js';
 
 // === Test helpers ===
 
@@ -1096,6 +1096,186 @@ describe('ToolbarController', () => {
       controller.subscribe();
 
       expect(isActive).not.toHaveBeenCalled();
+    });
+  });
+
+  // =========================================================================
+  // Layout mode
+  // =========================================================================
+  describe('layout mode', () => {
+    it('resolves string items into a single group', () => {
+      const items: ToolbarItem[] = [
+        btn('bold', { group: 'format' }),
+        btn('italic', { group: 'format' }),
+        btn('undo', { group: 'history' }),
+      ];
+      const layout: ToolbarLayoutEntry[] = ['bold', 'italic', 'undo'];
+      controller = new ToolbarController(createMockEditor(items), vi.fn(), layout);
+
+      expect(controller.groups).toHaveLength(1);
+      const names = controller.groups[0]!.items.map(i => i.name);
+      expect(names).toEqual(['bold', 'italic', 'undo']);
+    });
+
+    it('splits groups with | separators', () => {
+      const items: ToolbarItem[] = [
+        btn('bold'), btn('italic'), btn('undo'),
+      ];
+      const layout: ToolbarLayoutEntry[] = ['bold', 'italic', '|', 'undo'];
+      controller = new ToolbarController(createMockEditor(items), vi.fn(), layout);
+
+      expect(controller.groups).toHaveLength(2);
+      expect(controller.groups[0]!.items.map(i => i.name)).toEqual(['bold', 'italic']);
+      expect(controller.groups[1]!.items.map(i => i.name)).toEqual(['undo']);
+    });
+
+    it('builds custom dropdown from layout entry', () => {
+      const items: ToolbarItem[] = [
+        btn('bold'), btn('italic'), btn('underline'),
+      ];
+      const layout: ToolbarLayoutEntry[] = [
+        { dropdown: 'Format', icon: 'textB', items: ['bold', 'italic', 'underline'] },
+      ];
+      controller = new ToolbarController(createMockEditor(items), vi.fn(), layout);
+
+      expect(controller.groups).toHaveLength(1);
+      const dd = controller.groups[0]!.items[0]!;
+      expect(dd.type).toBe('dropdown');
+      expect(dd.name).toBe('layout-dd-Format');
+      expect((dd as ToolbarDropdown).items.map(i => i.name)).toEqual(['bold', 'italic', 'underline']);
+    });
+
+    it('references existing dropdown by name', () => {
+      const items: ToolbarItem[] = [
+        dropdown('heading', [btn('h1'), btn('h2'), btn('h3')], { group: 'blocks' }),
+        btn('bold', { group: 'format' }),
+      ];
+      const layout: ToolbarLayoutEntry[] = ['bold', '|', 'heading'];
+      controller = new ToolbarController(createMockEditor(items), vi.fn(), layout);
+
+      expect(controller.groups).toHaveLength(2);
+      expect(controller.groups[0]!.items[0]!.name).toBe('bold');
+      const dd = controller.groups[1]!.items[0]!;
+      expect(dd.type).toBe('dropdown');
+      expect(dd.name).toBe('heading');
+      expect((dd as ToolbarDropdown).items).toHaveLength(3);
+    });
+
+    it('silently skips unknown item names', () => {
+      const items: ToolbarItem[] = [btn('bold')];
+      const layout: ToolbarLayoutEntry[] = ['bold', 'nonexistent', 'alsoMissing'];
+      controller = new ToolbarController(createMockEditor(items), vi.fn(), layout);
+
+      expect(controller.groups).toHaveLength(1);
+      expect(controller.groups[0]!.items).toHaveLength(1);
+      expect(controller.groups[0]!.items[0]!.name).toBe('bold');
+    });
+
+    it('omits custom dropdown when all sub-items are unknown', () => {
+      const items: ToolbarItem[] = [btn('bold')];
+      const layout: ToolbarLayoutEntry[] = [
+        'bold',
+        { dropdown: 'Missing', icon: 'x', items: ['foo', 'bar'] },
+      ];
+      controller = new ToolbarController(createMockEditor(items), vi.fn(), layout);
+
+      expect(controller.groups).toHaveLength(1);
+      expect(controller.groups[0]!.items).toHaveLength(1);
+    });
+
+    it('preserves layout order, ignores extension priority', () => {
+      const items: ToolbarItem[] = [
+        btn('low', { priority: 10 }),
+        btn('high', { priority: 200 }),
+        btn('mid', { priority: 100 }),
+      ];
+      const layout: ToolbarLayoutEntry[] = ['mid', 'low', 'high'];
+      controller = new ToolbarController(createMockEditor(items), vi.fn(), layout);
+
+      const names = controller.groups[0]!.items.map(i => i.name);
+      expect(names).toEqual(['mid', 'low', 'high']);
+    });
+
+    it('no layout = default grouping (backward compatible)', () => {
+      const items: ToolbarItem[] = [
+        btn('bold', { group: 'format' }),
+        btn('undo', { group: 'history' }),
+      ];
+      controller = new ToolbarController(createMockEditor(items), vi.fn());
+
+      expect(controller.groups).toHaveLength(2);
+      expect(controller.groups[0]!.name).toBe('format');
+      expect(controller.groups[1]!.name).toBe('history');
+    });
+
+    it('keyboard nav works with layout items', () => {
+      const items: ToolbarItem[] = [btn('bold'), btn('italic'), btn('undo')];
+      const layout: ToolbarLayoutEntry[] = ['bold', '|', 'undo'];
+      controller = new ToolbarController(createMockEditor(items), vi.fn(), layout);
+
+      expect(controller.flatButtonCount).toBe(2);
+      expect(controller.getFlatIndex('bold')).toBe(0);
+      expect(controller.getFlatIndex('undo')).toBe(1);
+      expect(controller.getFlatIndex('italic')).toBe(-1); // not in layout
+    });
+
+    it('active/disabled state works for layout-resolved items', () => {
+      const isActive = vi.fn().mockImplementation((name: string) => name === 'bold');
+      const canToggleBold = vi.fn().mockReturnValue(true);
+      const canToggleItalic = vi.fn().mockReturnValue(false);
+      const items: ToolbarItem[] = [
+        btn('bold', { isActive: 'bold', command: 'toggleBold' }),
+        btn('italic', { isActive: 'italic', command: 'toggleItalic' }),
+      ];
+      const layout: ToolbarLayoutEntry[] = ['bold', 'italic'];
+      const editor = createMockEditor(items, {
+        isActive,
+        can: () => ({ toggleBold: canToggleBold, toggleItalic: canToggleItalic }),
+        on: vi.fn(),
+        off: vi.fn(),
+      });
+
+      controller = new ToolbarController(editor, vi.fn(), layout);
+      controller.subscribe();
+
+      expect(controller.activeMap.get('bold')).toBe(true);
+      expect(controller.isActive(items[1] as ToolbarButton)).toBe(false);
+      expect(controller.isDisabled(items[0] as ToolbarButton)).toBe(false);
+      expect(controller.disabledMap.get('italic')).toBe(true);
+    });
+
+    it('resolves dropdown sub-items as standalone buttons', () => {
+      const items: ToolbarItem[] = [
+        dropdown('heading', [
+          btn('h1', { command: 'toggleHeading', commandArgs: [{ level: 1 }] }),
+          btn('h2', { command: 'toggleHeading', commandArgs: [{ level: 2 }] }),
+        ]),
+      ];
+      // Pull h1 out as standalone, skip h2
+      const layout: ToolbarLayoutEntry[] = ['h1'];
+      controller = new ToolbarController(createMockEditor(items), vi.fn(), layout);
+
+      expect(controller.groups).toHaveLength(1);
+      expect(controller.groups[0]!.items).toHaveLength(1);
+      expect(controller.groups[0]!.items[0]!.name).toBe('h1');
+      expect(controller.groups[0]!.items[0]!.type).toBe('button');
+    });
+
+    it('consecutive separators produce no empty groups', () => {
+      const items: ToolbarItem[] = [btn('bold'), btn('undo')];
+      const layout: ToolbarLayoutEntry[] = ['bold', '|', '|', '|', 'undo'];
+      controller = new ToolbarController(createMockEditor(items), vi.fn(), layout);
+
+      expect(controller.groups).toHaveLength(2);
+    });
+
+    it('leading/trailing separators are ignored', () => {
+      const items: ToolbarItem[] = [btn('bold')];
+      const layout: ToolbarLayoutEntry[] = ['|', 'bold', '|'];
+      controller = new ToolbarController(createMockEditor(items), vi.fn(), layout);
+
+      expect(controller.groups).toHaveLength(1);
+      expect(controller.groups[0]!.items[0]!.name).toBe('bold');
     });
   });
 });

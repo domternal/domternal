@@ -26,6 +26,7 @@ import type {
   ToolbarControllerEditor,
   IconSet,
   ToolbarGroup,
+  ToolbarLayoutEntry,
 } from '@domternal/core';
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
@@ -138,6 +139,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
 export class DomternalToolbarComponent implements OnDestroy {
   readonly editor = input.required<Editor>();
   readonly icons = input<IconSet | null>(null);
+  readonly layout = input<ToolbarLayoutEntry[]>();
 
   /** Exposed state signals for template */
   readonly groups = signal<ToolbarGroup[]>([]);
@@ -366,9 +368,11 @@ export class DomternalToolbarComponent implements OnDestroy {
   private setupController(editor: Editor): void {
     this.destroyController();
 
-    this.controller = new ToolbarController(editor as unknown as ToolbarControllerEditor, () => {
-      this.ngZone.run(() => this.syncState());
-    });
+    this.controller = new ToolbarController(
+      editor as unknown as ToolbarControllerEditor,
+      () => this.ngZone.run(() => this.syncState()),
+      this.layout(),
+    );
     this.controller.subscribe();
     this.syncState();
 

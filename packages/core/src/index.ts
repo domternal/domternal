@@ -67,6 +67,8 @@ export type {
   ToolbarDropdown,
   ToolbarSeparator,
   ToolbarItem,
+  ToolbarLayoutDropdown,
+  ToolbarLayoutEntry,
 } from './types/index.js';
 
 // === ProseMirror re-exports (for framework wrappers) ===
