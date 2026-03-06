@@ -104,7 +104,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                           class="dm-color-palette-reset"
                           role="menuitem"
                           [attr.aria-label]="sub.label"
-                          [innerHTML]="getCachedItemIcon(sub.icon, sub.label)"
+                          [innerHTML]="getCachedItemContent(sub.icon, sub.label)"
                           (mousedown)="$event.preventDefault()"
                           (click)="onDropdownItemClick(sub)"
                         ></button>
@@ -166,7 +166,6 @@ export class DomternalToolbarComponent implements OnDestroy {
       const editor = this.editor();
       untracked(() => this.setupController(editor));
     });
-
   }
 
   ngOnDestroy(): void {
@@ -187,6 +186,7 @@ export class DomternalToolbarComponent implements OnDestroy {
 
   isDropdownActive(dropdown: ToolbarDropdown): boolean {
     if (dropdown.layout === 'grid') return false; // color dropdowns use bar indicator instead
+    if (dropdown.dynamicLabel) return false; // label text already communicates state
     this.activeVersion(); // subscribe to changes
     return dropdown.items.some((item) => this.controller?.activeMap.get(item.name) ?? false);
   }
@@ -211,7 +211,15 @@ export class DomternalToolbarComponent implements OnDestroy {
       return cached;
     }
 
-    // Non-grid dropdown — show active sub-item's icon when dynamicIcon is enabled
+    // Non-grid dropdown — show active sub-item's label as text
+    if (dropdown.dynamicLabel) {
+      if (activeItem) return this.getCachedTriggerLabel(activeItem.label);
+      // Headings have CSS-driven font sizes — show icon instead of a number
+      if (this.editor().view.hasFocus() && this.editor().isActive('heading')) {
+        return this.getCachedTriggerLabel(this.resolveIconSvg(dropdown.icon));
+      }
+      return this.getCachedTriggerLabel('16px');
+    }
     const icon = dropdown.dynamicIcon && activeItem ? activeItem.icon : dropdown.icon;
     return this.getCachedTriggerIcon(icon);
   }
@@ -252,21 +260,23 @@ export class DomternalToolbarComponent implements OnDestroy {
     return cached;
   }
 
-  getCachedTriggerIcon(iconName: string): SafeHtml {
-    const key = `t:${iconName}`;
+  getCachedTriggerLabel(label: string): SafeHtml {
+    const key = `tl:${label}`;
     let cached = this.htmlCache.get(key);
     if (!cached) {
-      cached = this.sanitizer.bypassSecurityTrustHtml(this.resolveIconSvg(iconName) + this.dropdownCaret);
+      cached = this.sanitizer.bypassSecurityTrustHtml(
+        `<span class="dm-toolbar-trigger-label">${label}</span>` + this.dropdownCaret,
+      );
       this.htmlCache.set(key, cached);
     }
     return cached;
   }
 
-  getCachedItemIcon(iconName: string, label: string): SafeHtml {
-    const key = `d:${iconName}:${label}`;
+  getCachedTriggerIcon(iconName: string): SafeHtml {
+    const key = `t:${iconName}`;
     let cached = this.htmlCache.get(key);
     if (!cached) {
-      cached = this.sanitizer.bypassSecurityTrustHtml(this.resolveIconSvg(iconName) + ' ' + label);
+      cached = this.sanitizer.bypassSecurityTrustHtml(this.resolveIconSvg(iconName) + this.dropdownCaret);
       this.htmlCache.set(key, cached);
     }
     return cached;
