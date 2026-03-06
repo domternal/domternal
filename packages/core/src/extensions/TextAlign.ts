@@ -118,6 +118,7 @@ export const TextAlign = Extension.create<TextAlignOptions>({
         label: 'Text Alignment',
         group: 'alignment',
         priority: 200,
+        dynamicIcon: true,
         items: [
           {
             type: 'button',

@@ -815,7 +815,7 @@ describe('Details addToolbarItems', () => {
       expect(button.name).toBe('details');
       expect(button.command).toBe('toggleDetails');
       expect(button.isActive).toBe('details');
-      expect(button.icon).toBe('caretDown');
+      expect(button.icon).toBe('caretCircleRight');
       expect(button.label).toBe('Toggle Details');
       expect(button.group).toBe('insert');
       expect(button.priority).toBe(100);

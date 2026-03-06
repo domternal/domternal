@@ -148,6 +148,9 @@ export interface ToolbarDropdown {
 
   /** Default color for the trigger indicator bar when no item is active (grid dropdowns only). */
   defaultIndicatorColor?: string;
+
+  /** When true, the trigger icon updates to reflect the active sub-item's icon. */
+  dynamicIcon?: boolean;
 }
 
 /**

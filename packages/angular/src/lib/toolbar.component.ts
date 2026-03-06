@@ -211,8 +211,8 @@ export class DomternalToolbarComponent implements OnDestroy {
       return cached;
     }
 
-    // Non-grid dropdown — show active sub-item's icon (or default)
-    const icon = activeItem ? activeItem.icon : dropdown.icon;
+    // Non-grid dropdown — show active sub-item's icon when dynamicIcon is enabled
+    const icon = dropdown.dynamicIcon && activeItem ? activeItem.icon : dropdown.icon;
     return this.getCachedTriggerIcon(icon);
   }
 

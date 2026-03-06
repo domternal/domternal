@@ -101,7 +101,7 @@ export class App {
   isDark = signal(false);
   useLayout = signal(false);
   toolbarLayout: ToolbarLayoutEntry[] = [
-    'bold', 'italic', 'underline',
+    'bold', 'italic', 'underline', 'heading1',
     '|',
     { dropdown: 'Formatting', icon: 'textStrikethrough', items: ['strike', 'code', 'subscript', 'superscript'], displayMode: 'icon' },
     { dropdown: 'Lists', icon: 'listBullets', items: ['bulletList', 'orderedList', 'taskList'], displayMode: 'text' },

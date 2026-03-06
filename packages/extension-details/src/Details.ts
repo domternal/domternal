@@ -197,7 +197,7 @@ export const Details = Node.create<DetailsOptions>({
         name: 'details',
         command: 'toggleDetails',
         isActive: 'details',
-        icon: 'caretDown',
+        icon: 'caretCircleRight',
         label: 'Toggle Details',
         group: 'insert',
         priority: 100,
