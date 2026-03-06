@@ -145,6 +145,9 @@ export interface ToolbarDropdown {
 
   /** How to display items in the dropdown panel: icon + text (default), text only, or icon only. */
   displayMode?: 'icon-text' | 'text' | 'icon';
+
+  /** Default color for the trigger indicator bar when no item is active (grid dropdowns only). */
+  defaultIndicatorColor?: string;
 }
 
 /**

@@ -76,7 +76,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                 [attr.aria-label]="asDropdown(item).label"
                 [title]="asDropdown(item).label"
                 [tabindex]="getFlatIndex(item.name) === focusedIndex() ? 0 : -1"
-                [innerHTML]="getCachedTriggerIcon(asDropdown(item).icon)"
+                [innerHTML]="getDropdownTriggerHtml(asDropdown(item))"
                 (mousedown)="$event.preventDefault()"
                 (click)="onDropdownToggle(asDropdown(item))"
                 (focus)="onButtonFocus(item.name)"
@@ -186,8 +186,34 @@ export class DomternalToolbarComponent implements OnDestroy {
   }
 
   isDropdownActive(dropdown: ToolbarDropdown): boolean {
+    if (dropdown.layout === 'grid') return false; // color dropdowns use bar indicator instead
     this.activeVersion(); // subscribe to changes
     return dropdown.items.some((item) => this.controller?.activeMap.get(item.name) ?? false);
+  }
+
+  /** Returns trigger innerHTML: dynamic icon + caret (+ color indicator for grid dropdowns). */
+  getDropdownTriggerHtml(dropdown: ToolbarDropdown): SafeHtml {
+    this.activeVersion(); // subscribe to changes
+    const activeItem = dropdown.items.find((item) => this.controller?.activeMap.get(item.name));
+
+    if (dropdown.layout === 'grid') {
+      const color = activeItem?.color ?? dropdown.defaultIndicatorColor ?? null;
+      const key = `tr:${dropdown.icon}:${color ?? ''}`;
+      let cached = this.htmlCache.get(key);
+      if (!cached) {
+        let html = this.resolveIconSvg(dropdown.icon) + this.dropdownCaret;
+        if (color) {
+          html += `<span class="dm-toolbar-color-indicator" style="background-color: ${color}"></span>`;
+        }
+        cached = this.sanitizer.bypassSecurityTrustHtml(html);
+        this.htmlCache.set(key, cached);
+      }
+      return cached;
+    }
+
+    // Non-grid dropdown — show active sub-item's icon (or default)
+    const icon = activeItem ? activeItem.icon : dropdown.icon;
+    return this.getCachedTriggerIcon(icon);
   }
 
   /**

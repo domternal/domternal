@@ -130,5 +130,4 @@ export class App {
     this.isDark.update(v => !v);
     document.body.classList.toggle('dm-theme-dark');
   }
-
 }
