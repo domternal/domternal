@@ -93,19 +93,26 @@
 
 // Text label inside dropdown trigger (dynamicLabel mode)
 .dm-toolbar-trigger-label {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  display: inline-block;
+  vertical-align: middle;
+  text-align: center;
   font-size: 0.8125rem;
   line-height: 1;
   white-space: nowrap;
-  width: 1.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 2.5rem;
 
   // Icon inside label span (e.g. font-size icon for headings)
   svg {
     width: 1.125rem;
     height: 1.125rem;
   }
+}
+
+// Wider trigger label for dropdowns with long labels (e.g. font family names)
+[data-dropdown="fontFamily"] .dm-toolbar-trigger-label {
+  width: 5rem;
 }
 
 // Dropdown caret icon

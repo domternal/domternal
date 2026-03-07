@@ -154,6 +154,9 @@ export interface ToolbarDropdown {
 
   /** When true, the trigger shows the active sub-item's label as text instead of an icon. */
   dynamicLabel?: boolean;
+
+  /** Text shown in trigger when dynamicLabel is true and no item is active. Falls back to icon if not set. */
+  dynamicLabelFallback?: string;
 }
 
 /**
