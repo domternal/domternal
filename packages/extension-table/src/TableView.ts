@@ -31,6 +31,8 @@ import {
   ICON_COLOR, ICON_ALIGNMENT, ICON_HEADER, ICON_MERGE, ICON_SPLIT,
   ICON_ALIGN_LEFT, ICON_ALIGN_CENTER, ICON_ALIGN_RIGHT,
   ICON_ALIGN_TOP, ICON_ALIGN_MIDDLE, ICON_ALIGN_BOTTOM,
+  ICON_ROW_PLUS_TOP, ICON_ROW_PLUS_BOTTOM, ICON_DELETE_ROW,
+  ICON_COL_PLUS_LEFT, ICON_COL_PLUS_RIGHT, ICON_DELETE_COL,
   CELL_ICON, CELL_COLORS,
 } from './icons.js';
 
@@ -572,23 +574,23 @@ export class TableView implements NodeView {
     dropdown.addEventListener('mouseenter', this.boundCancelHide);
     dropdown.addEventListener('mousedown', (e) => { e.preventDefault(); });
 
-    const items: { label: string; action: () => void }[] =
+    const items: { icon: string; label: string; action: () => void }[] =
       type === 'row'
         ? [
-            { label: 'Insert Row Above', action: () => { this.execRowCmd(addRowBefore); } },
-            { label: 'Insert Row Below', action: () => { this.execRowCmd(addRowAfter); } },
-            { label: 'Delete Row', action: () => { this.execRowCmd(deleteRow); } },
+            { icon: ICON_ROW_PLUS_TOP, label: 'Insert Row Above', action: () => { this.execRowCmd(addRowBefore); } },
+            { icon: ICON_ROW_PLUS_BOTTOM, label: 'Insert Row Below', action: () => { this.execRowCmd(addRowAfter); } },
+            { icon: ICON_DELETE_ROW, label: 'Delete Row', action: () => { this.execRowCmd(deleteRow); } },
           ]
         : [
-            { label: 'Insert Column Left', action: () => { this.execColCmd(addColumnBefore); } },
-            { label: 'Insert Column Right', action: () => { this.execColCmd(addColumnAfter); } },
-            { label: 'Delete Column', action: () => { this.execColCmd(deleteColumn); } },
+            { icon: ICON_COL_PLUS_LEFT, label: 'Insert Column Left', action: () => { this.execColCmd(addColumnBefore); } },
+            { icon: ICON_COL_PLUS_RIGHT, label: 'Insert Column Right', action: () => { this.execColCmd(addColumnAfter); } },
+            { icon: ICON_DELETE_COL, label: 'Delete Column', action: () => { this.execColCmd(deleteColumn); } },
           ];
 
     for (const item of items) {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.textContent = item.label;
+      btn.innerHTML = `<span class="dm-table-controls-dropdown-icon">${item.icon}</span>${item.label}`;
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         item.action();
