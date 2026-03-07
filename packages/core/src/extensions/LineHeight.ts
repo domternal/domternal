@@ -134,10 +134,12 @@ export const LineHeight = Extension.create<LineHeightOptions>({
       {
         type: 'dropdown',
         name: 'lineHeight',
-        icon: 'lineSegment',
+        icon: 'lineSpacing',
         label: 'Line Height',
         group: 'textStyle',
         priority: 50,
+        displayMode: 'text',
+        dynamicLabel: true,
         items: [
           ...this.options.lineHeights.map((lh, i) => ({
             type: 'button' as const,
@@ -145,7 +147,7 @@ export const LineHeight = Extension.create<LineHeightOptions>({
             command: 'setLineHeight',
             commandArgs: [lh],
             isActive: types.map((t) => ({ name: t, attributes: { lineHeight: lh } })),
-            icon: 'lineSegment',
+            icon: 'lineSpacing',
             label: lh,
             priority: 200 - i,
           })),
@@ -153,7 +155,7 @@ export const LineHeight = Extension.create<LineHeightOptions>({
             type: 'button' as const,
             name: 'unsetLineHeight',
             command: 'unsetLineHeight',
-            icon: 'lineSegment',
+            icon: 'lineSpacing',
             label: 'Default',
           },
         ],

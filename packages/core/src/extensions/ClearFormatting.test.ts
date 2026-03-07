@@ -22,7 +22,7 @@ describe('ClearFormatting', () => {
       if (button?.type === 'button') {
         expect(button.name).toBe('clearFormatting');
         expect(button.command).toBe('unsetAllMarks');
-        expect(button.icon).toBe('textT');
+        expect(button.icon).toBe('textTSlash');
         expect(button.label).toBe('Clear Formatting');
         expect(button.group).toBe('utilities');
         expect(button.priority).toBe(200);

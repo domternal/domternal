@@ -18,6 +18,7 @@ describe('FontSize', () => {
     it('has default options', () => {
       expect(FontSize.options).toEqual({
         fontSizes: ['12px', '14px', '16px', '18px', '24px', '32px'],
+        showReset: false,
       });
     });
 

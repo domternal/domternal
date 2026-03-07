@@ -32,7 +32,7 @@ export const ClearFormatting = Extension.create({
         type: 'button',
         name: 'clearFormatting',
         command: 'unsetAllMarks',
-        icon: 'textT',
+        icon: 'textTSlash',
         label: 'Clear Formatting',
         group: 'utilities',
         priority: 200,

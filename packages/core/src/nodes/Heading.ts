@@ -130,7 +130,7 @@ export const Heading = Node.create<HeadingOptions>({
       name: 'paragraph',
       command: 'setParagraph',
       isActive: 'paragraph',
-      icon: 'paragraph',
+      icon: 'textT',
       label: 'Normal text',
       shortcut: 'Mod-Alt-0',
     };
