@@ -114,7 +114,7 @@ export const TextColor = Extension.create<TextColorOptions>({
       unsetTextColor:
         () =>
         ({ commands }) => {
-          commands.setMark('textStyle', { color: null });
+          if (!commands.setMark('textStyle', { color: null })) return false;
           commands.removeEmptyTextStyle();
           return true;
         },

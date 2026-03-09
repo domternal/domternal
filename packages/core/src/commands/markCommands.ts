@@ -111,15 +111,31 @@ export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
     const { empty, ranges } = tr.selection;
     if (!ranges.length) return false;
 
-    // Can't add mark to empty selection (unless storedMarks)
-    if (empty) {
-      // For empty selection, add to stored marks
-      if (!dispatch) {
-        return true;
-      }
+    // Check if mark can be applied — respects schema (allowsMarkType)
+    const firstRange = ranges[0];
+    if (!firstRange) return false;
 
-      const firstRange = ranges[0];
-      if (!firstRange) return false;
+    if (empty) {
+      const $pos = tr.doc.resolve(firstRange.$from.pos);
+      if (!$pos.parent.inlineContent || !$pos.parent.type.allowsMarkType(markType)) {
+        return false;
+      }
+    } else {
+      let parentAllows = false;
+      for (const range of ranges) {
+        tr.doc.nodesBetween(range.$from.pos, range.$to.pos, (node) => {
+          if (node.inlineContent && node.type.allowsMarkType(markType)) {
+            parentAllows = true;
+          }
+        });
+      }
+      if (!parentAllows) return false;
+    }
+
+    // Cursor mode — add to stored marks
+    if (empty) {
+      if (!dispatch) return true;
+
       const from = firstRange.$from.pos;
       // Merge with existing mark attributes to preserve sibling attributes
       // (e.g., fontFamily should not be lost when setting fontSize on textStyle)

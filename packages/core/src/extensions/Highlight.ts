@@ -124,7 +124,7 @@ export const Highlight = Extension.create<HighlightOptions>({
       unsetHighlight:
         () =>
         ({ commands }) => {
-          commands.setMark('textStyle', { backgroundColor: null });
+          if (!commands.setMark('textStyle', { backgroundColor: null })) return false;
           commands.removeEmptyTextStyle();
           return true;
         },

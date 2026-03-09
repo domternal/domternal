@@ -76,6 +76,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                 [attr.aria-label]="asDropdown(item).label"
                 [title]="asDropdown(item).label"
                 [tabindex]="getFlatIndex(item.name) === focusedIndex() ? 0 : -1"
+                [disabled]="isDisabled(asDropdown(item).name)"
                 [attr.data-dropdown]="asDropdown(item).name"
                 [innerHTML]="getDropdownTriggerHtml(asDropdown(item))"
                 (mousedown)="$event.preventDefault()"

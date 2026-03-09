@@ -91,7 +91,7 @@ export const FontSize = Extension.create<FontSizeOptions>({
       unsetFontSize:
         () =>
         ({ commands }) => {
-          commands.setMark('textStyle', { fontSize: null });
+          if (!commands.setMark('textStyle', { fontSize: null })) return false;
           commands.removeEmptyTextStyle();
           return true;
         },

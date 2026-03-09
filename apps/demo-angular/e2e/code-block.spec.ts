@@ -235,3 +235,74 @@ test.describe('Code block — keyboard behavior', () => {
     expect(html).toContain('<pre>');
   });
 });
+
+// ─── Toolbar disabled state in code block ─────────────────────────────
+
+test.describe('Code block — toolbar disabled state', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+    await setContentAndFocus(page, '<pre><code>const x = 1;</code></pre><p>normal text</p>');
+    await focusCodeBlockEnd(page);
+    await page.waitForTimeout(200);
+  });
+
+  // Helper to get dropdown trigger button by aria-label
+  const dropdownTrigger = (page: Page, label: string) =>
+    page.locator(`button.dm-toolbar-dropdown-trigger[aria-label="${label}"]`);
+
+  // Helper to get regular toolbar button by aria-label
+  const toolbarButton = (page: Page, label: string) =>
+    page.locator(`button.dm-toolbar-button[aria-label="${label}"]`);
+
+  test('fontFamily dropdown is disabled in code block', async ({ page }) => {
+    await expect(dropdownTrigger(page, 'Font Family')).toBeDisabled();
+  });
+
+  test('fontSize dropdown is disabled in code block', async ({ page }) => {
+    await expect(dropdownTrigger(page, 'Font Size')).toBeDisabled();
+  });
+
+  test('textColor dropdown is disabled in code block', async ({ page }) => {
+    await expect(dropdownTrigger(page, 'Text Color')).toBeDisabled();
+  });
+
+  test('highlight dropdown is disabled in code block', async ({ page }) => {
+    await expect(dropdownTrigger(page, 'Highlight')).toBeDisabled();
+  });
+
+  test('textAlign dropdown is disabled in code block', async ({ page }) => {
+    await expect(dropdownTrigger(page, 'Text Alignment')).toBeDisabled();
+  });
+
+  test('lineHeight dropdown is disabled in code block', async ({ page }) => {
+    await expect(dropdownTrigger(page, 'Line Height')).toBeDisabled();
+  });
+
+  test('heading dropdown is NOT disabled in code block', async ({ page }) => {
+    await expect(dropdownTrigger(page, 'Heading')).toBeEnabled();
+  });
+
+  test('bold and italic buttons are disabled in code block', async ({ page }) => {
+    await expect(toolbarButton(page, 'Bold')).toBeDisabled();
+    await expect(toolbarButton(page, 'Italic')).toBeDisabled();
+  });
+
+  test('dropdowns re-enable when cursor moves to normal paragraph', async ({ page }) => {
+    // Verify disabled in code block
+    await expect(dropdownTrigger(page, 'Font Family')).toBeDisabled();
+    await expect(dropdownTrigger(page, 'Font Size')).toBeDisabled();
+
+    // Click into normal paragraph
+    await page.locator(`${editorSelector} p`).click();
+    await page.waitForTimeout(200);
+
+    // Should be enabled now
+    await expect(dropdownTrigger(page, 'Font Family')).toBeEnabled();
+    await expect(dropdownTrigger(page, 'Font Size')).toBeEnabled();
+    await expect(dropdownTrigger(page, 'Text Color')).toBeEnabled();
+    await expect(dropdownTrigger(page, 'Highlight')).toBeEnabled();
+    await expect(dropdownTrigger(page, 'Text Alignment')).toBeEnabled();
+    await expect(dropdownTrigger(page, 'Line Height')).toBeEnabled();
+  });
+});

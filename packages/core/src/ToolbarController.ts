@@ -446,6 +446,14 @@ export class ToolbarController {
             if (this.checkButtonActive(sub)) changed = true;
             if (this.checkButtonDisabled(sub, canProxy)) changed = true;
           }
+          // Dropdown trigger is disabled when ALL sub-items are disabled
+          const allDisabled = item.items.length > 0
+            && item.items.every(sub => this._disabledMap.get(sub.name));
+          const wasDropdownDisabled = this._disabledMap.get(item.name) ?? false;
+          if (wasDropdownDisabled !== allDisabled) {
+            this._disabledMap.set(item.name, allDisabled);
+            changed = true;
+          }
         }
       }
     }

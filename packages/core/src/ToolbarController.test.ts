@@ -708,6 +708,89 @@ describe('ToolbarController', () => {
   });
 
   // =========================================================================
+  // dropdown disabled state
+  // =========================================================================
+  describe('dropdown disabled state', () => {
+    it('dropdown disabled when all sub-items are disabled', () => {
+      const dd = dropdown('fontFamily', [
+        btn('fontFamily-Arial', { command: 'setFontFamily', commandArgs: ['Arial'] }),
+        btn('fontFamily-Georgia', { command: 'setFontFamily', commandArgs: ['Georgia'] }),
+      ]);
+      const editor = createMockEditor([dd], {
+        can: () => ({ setFontFamily: () => false }),
+      });
+
+      controller = new ToolbarController(editor, vi.fn());
+      controller.subscribe();
+
+      expect(controller.disabledMap.get('fontFamily')).toBe(true);
+    });
+
+    it('dropdown enabled when at least one sub-item is enabled', () => {
+      const dd = dropdown('fontFamily', [
+        btn('fontFamily-Arial', { command: 'setFontFamily', commandArgs: ['Arial'] }),
+        btn('fontFamily-Georgia', { command: 'setFontFamily', commandArgs: ['Georgia'] }),
+      ]);
+      const editor = createMockEditor([dd], {
+        can: () => ({ setFontFamily: () => true }),
+      });
+
+      controller = new ToolbarController(editor, vi.fn());
+      controller.subscribe();
+
+      expect(controller.disabledMap.get('fontFamily')).toBeUndefined();
+    });
+
+    it('dropdown with empty items is not disabled', () => {
+      const dd = dropdown('empty', []);
+      const editor = createMockEditor([dd]);
+
+      controller = new ToolbarController(editor, vi.fn());
+      controller.subscribe();
+
+      expect(controller.disabledMap.get('empty')).toBeUndefined();
+    });
+
+    it('dropdown disabled state stored in disabledMap under dropdown name', () => {
+      const dd = dropdown('textColor', [
+        btn('textColor-red', { command: 'setTextColor', commandArgs: ['red'] }),
+      ]);
+      const editor = createMockEditor([dd], {
+        can: () => ({ setTextColor: () => false }),
+      });
+
+      controller = new ToolbarController(editor, vi.fn());
+      controller.subscribe();
+
+      expect(controller.disabledMap.get('textColor')).toBe(true);
+      expect(controller.disabledMap.get('textColor-red')).toBe(true);
+    });
+
+    it('dropdown disabled state toggles when can() result changes', () => {
+      let canSet = false;
+      const dd = dropdown('fontSize', [
+        btn('fontSize-16px', { command: 'setFontSize', commandArgs: ['16px'] }),
+      ]);
+      const onChange = vi.fn();
+      const editor = createMockEditor([dd], {
+        can: () => ({ setFontSize: () => canSet }),
+      });
+
+      controller = new ToolbarController(editor, onChange);
+      controller.subscribe();
+
+      expect(controller.disabledMap.get('fontSize')).toBe(true);
+
+      // Simulate cursor moving out of code block
+      canSet = true;
+      onChange.mockClear();
+      controller.subscribe();
+
+      expect(controller.disabledMap.get('fontSize')).toBe(false);
+    });
+  });
+
+  // =========================================================================
   // executeCommand
   // =========================================================================
   describe('executeCommand', () => {

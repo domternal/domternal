@@ -85,7 +85,7 @@ export const FontFamily = Extension.create<FontFamilyOptions>({
       unsetFontFamily:
         () =>
         ({ commands }) => {
-          commands.setMark('textStyle', { fontFamily: null });
+          if (!commands.setMark('textStyle', { fontFamily: null })) return false;
           commands.removeEmptyTextStyle();
           return true;
         },
