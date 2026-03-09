@@ -64,11 +64,11 @@ test.describe('FontSize — toolbar dropdown', () => {
     await expect(panel).toBeVisible();
   });
 
-  test('dropdown contains 6 sizes + Default = 7 items', async ({ page }) => {
+  test('dropdown contains 6 size items (no reset by default)', async ({ page }) => {
     await page.locator(dropdownTrigger).click();
     const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Font Size"]) .dm-toolbar-dropdown-panel');
     const items = panel.locator('.dm-toolbar-dropdown-item');
-    await expect(items).toHaveCount(7);
+    await expect(items).toHaveCount(6);
   });
 
   test('clicking trigger again closes dropdown', async ({ page }) => {
@@ -85,7 +85,98 @@ test.describe('FontSize — toolbar dropdown', () => {
     for (const size of DEFAULT_SIZES) {
       await expect(panel.locator(`button[aria-label="${size}"]`)).toBeVisible();
     }
-    await expect(panel.locator('button[aria-label="Default"]')).toBeVisible();
+  });
+
+  test('dropdown panel has text displayMode', async ({ page }) => {
+    await page.locator(dropdownTrigger).click();
+    const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Font Size"]) .dm-toolbar-dropdown-panel');
+    await expect(panel).toHaveAttribute('data-display-mode', 'text');
+  });
+});
+
+// ─── Dynamic label trigger ────────────────────────────────────────────
+
+test.describe('FontSize — dynamicLabel trigger', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('trigger shows computed font-size when no explicit size is set', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH);
+    await page.locator(`${editorSelector} p`).click();
+
+    // dynamicLabelFallback + computedStyleProperty → shows computed size (e.g. "16px")
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toBeVisible();
+    // The computed value should be a pixel size string
+    const text = await triggerLabel.textContent();
+    expect(text).toMatch(/^\d+px$/);
+  });
+
+  test('trigger shows "24px" when cursor is in 24px text', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH_24);
+    await page.locator(`${editorSelector} span`).click();
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('24px');
+  });
+
+  test('trigger shows "32px" when cursor is in 32px text', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH_32);
+    await page.locator(`${editorSelector} span`).click();
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('32px');
+  });
+
+  test('trigger updates after applying size via toolbar', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH);
+    await selectAll(page);
+    await setSizeViaToolbar(page, '24px');
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('24px');
+  });
+
+  test('trigger does not have active class (dynamicLabel replaces active state)', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH_24);
+    await page.locator(`${editorSelector} span`).click();
+
+    await expect(page.locator(dropdownTrigger)).not.toHaveClass(/active/);
+  });
+
+  test('trigger shows custom non-list size "220px" via computedStyleProperty', async ({ page }) => {
+    // Set content and place cursor at position 3 (inside styled text) in one step
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) {
+        comp.editor.setContent('<p><span style="font-size: 220px">huge text</span></p>', false);
+        comp.editor.commands.focus(3);
+      }
+    });
+    await page.waitForTimeout(200);
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('220px');
+  });
+
+  test('trigger shows custom non-list size "50px" via computedStyleProperty', async ({ page }) => {
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) {
+        comp.editor.setContent('<p><span style="font-size: 50px">medium text</span></p>', false);
+        comp.editor.commands.focus(3);
+      }
+    });
+    await page.waitForTimeout(200);
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('50px');
   });
 });
 
@@ -158,33 +249,46 @@ test.describe('FontSize — set via toolbar', () => {
     await setSizeViaToolbar(page, '24px');
 
     const html = await getEditorHTML(page);
-    // Browser may add trailing semicolon to style
     expect(html).toMatch(/<span[^>]*style="font-size: 24px;?"[^>]*>/);
   });
 });
 
-// ─── Unset / Default ──────────────────────────────────────────────────
+// ─── Unset font size (via command) ───────────────────────────────────
 
-test.describe('FontSize — unset (Default)', () => {
+test.describe('FontSize — unset via command', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
   });
 
-  test('clicking Default removes font-size from text', async ({ page }) => {
+  test('unsetFontSize command removes font-size from text', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH_24);
     await selectAll(page);
-    await setSizeViaToolbar(page, 'Default');
+
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands.unsetFontSize();
+    });
+    await page.waitForTimeout(100);
 
     const html = await getEditorHTML(page);
     expect(html).not.toContain('font-size');
     expect(html).toContain('large text');
   });
 
-  test('Default removes span wrapper when no other styles', async ({ page }) => {
+  test('unsetFontSize removes span wrapper when no other styles', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH_24);
     await selectAll(page);
-    await setSizeViaToolbar(page, 'Default');
+
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands.unsetFontSize();
+    });
+    await page.waitForTimeout(100);
 
     const html = await getEditorHTML(page);
     expect(html).not.toContain('<span');
@@ -198,7 +302,6 @@ test.describe('FontSize — unset (Default)', () => {
     let html = await getEditorHTML(page);
     expect(html).toContain('font-size: 32px');
 
-    // Re-focus editor and select all via evaluate (toolbar interaction loses editor focus)
     await page.evaluate((sel) => {
       const editor = document.querySelector(sel) as HTMLElement;
       editor?.focus();
@@ -211,7 +314,15 @@ test.describe('FontSize — unset (Default)', () => {
       }
     }, editorSelector);
     await page.waitForTimeout(50);
-    await setSizeViaToolbar(page, 'Default');
+
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands.unsetFontSize();
+    });
+    await page.waitForTimeout(100);
+
     html = await getEditorHTML(page);
     expect(html).not.toContain('font-size');
   });
@@ -265,26 +376,12 @@ test.describe('FontSize — change between sizes', () => {
   });
 });
 
-// ─── Active state ─────────────────────────────────────────────────────
+// ─── Active state in dropdown ─────────────────────────────────────────
 
 test.describe('FontSize — active state', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
-  });
-
-  test('dropdown trigger shows active when size is set', async ({ page }) => {
-    await setContentAndFocus(page, PARAGRAPH_24);
-    await page.locator(`${editorSelector} span`).click();
-
-    await expect(page.locator(dropdownTrigger)).toHaveClass(/active/);
-  });
-
-  test('dropdown trigger not active for unstyled text', async ({ page }) => {
-    await setContentAndFocus(page, PARAGRAPH);
-    await page.locator(`${editorSelector} p`).click();
-
-    await expect(page.locator(dropdownTrigger)).not.toHaveClass(/active/);
   });
 
   test('correct size item shows active in dropdown', async ({ page }) => {
@@ -317,6 +414,16 @@ test.describe('FontSize — active state', () => {
     const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Font Size"]) .dm-toolbar-dropdown-panel');
     await expect(panel.locator('button[aria-label="24px"]')).toHaveClass(/active/);
     await expect(panel.locator('button[aria-label="16px"]')).not.toHaveClass(/active/);
+  });
+
+  test('no item active for unstyled text', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH);
+    await page.locator(`${editorSelector} p`).click();
+    await page.locator(dropdownTrigger).click();
+
+    const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Font Size"]) .dm-toolbar-dropdown-panel');
+    const activeItems = panel.locator('.dm-toolbar-dropdown-item--active');
+    await expect(activeItems).toHaveCount(0);
   });
 });
 
@@ -360,13 +467,12 @@ test.describe('FontSize — parseHTML', () => {
     expect(html).not.toContain('font-size');
   });
 
-  test('rejects font-size not in allowed list', async ({ page }) => {
-    await setContentAndFocus(page, '<p><span style="font-size: 99px">not allowed</span></p>');
+  test('accepts font-size not in configured list (99px)', async ({ page }) => {
+    await setContentAndFocus(page, '<p><span style="font-size: 99px">custom size</span></p>');
 
     const html = await getEditorHTML(page);
-    // 99px is not in the default list, so it should be stripped
-    expect(html).not.toContain('font-size: 99px');
-    expect(html).toContain('not allowed');
+    expect(html).toContain('font-size: 99px');
+    expect(html).toContain('custom size');
   });
 
   test('preserves 12px (smallest default size)', async ({ page }) => {
@@ -375,6 +481,92 @@ test.describe('FontSize — parseHTML', () => {
     const html = await getEditorHTML(page);
     expect(html).toContain('font-size: 12px');
     expect(html).toContain('small text');
+  });
+});
+
+// ─── Custom HTML — no validation (any size accepted) ─────────────────
+
+test.describe('FontSize — custom HTML (any size accepted)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('accepts large custom size (220px) from pasted HTML', async ({ page }) => {
+    await setContentAndFocus(page, '<p><span style="font-size: 220px">huge text</span></p>');
+
+    const html = await getEditorHTML(page);
+    expect(html).toContain('font-size: 220px');
+    expect(html).toContain('huge text');
+  });
+
+  test('accepts tiny custom size (7px) from pasted HTML', async ({ page }) => {
+    await setContentAndFocus(page, '<p><span style="font-size: 7px">tiny text</span></p>');
+
+    const html = await getEditorHTML(page);
+    expect(html).toContain('font-size: 7px');
+    expect(html).toContain('tiny text');
+  });
+
+  test('accepts 100px from pasted HTML', async ({ page }) => {
+    await setContentAndFocus(page, '<p><span style="font-size: 100px">big text</span></p>');
+
+    const html = await getEditorHTML(page);
+    expect(html).toContain('font-size: 100px');
+    expect(html).toContain('big text');
+  });
+
+  test('custom size has no active item in dropdown', async ({ page }) => {
+    await setContentAndFocus(page, '<p><span style="font-size: 220px">huge text</span></p>');
+    await page.locator(`${editorSelector} span`).click();
+    await page.locator(dropdownTrigger).click();
+
+    const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Font Size"]) .dm-toolbar-dropdown-panel');
+    const activeItems = panel.locator('.dm-toolbar-dropdown-item--active');
+    await expect(activeItems).toHaveCount(0);
+  });
+
+  test('can overwrite custom size with known size via toolbar', async ({ page }) => {
+    await setContentAndFocus(page, '<p><span style="font-size: 220px">huge text</span></p>');
+    await selectAll(page);
+    await setSizeViaToolbar(page, '24px');
+
+    const html = await getEditorHTML(page);
+    expect(html).toContain('font-size: 24px');
+    expect(html).not.toContain('font-size: 220px');
+  });
+
+  test('preserves custom size alongside known size on different text', async ({ page }) => {
+    await setContentAndFocus(page, '<p><span style="font-size: 220px">custom</span> <span style="font-size: 24px">known</span></p>');
+
+    const html = await getEditorHTML(page);
+    expect(html).toContain('font-size: 220px');
+    expect(html).toContain('font-size: 24px');
+  });
+
+  test('trigger updates when moving between custom and known size text', async ({ page }) => {
+    await setContentAndFocus(page, '<p><span style="font-size: 220px">custom</span> <span style="font-size: 24px">known</span></p>');
+
+    // Place cursor in custom size text (position 3 = inside "custom")
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands.focus(3);
+    });
+    await page.waitForTimeout(150);
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('220px');
+
+    // Move cursor to known size text (position 9 = inside "known")
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands.focus(9);
+    });
+    await page.waitForTimeout(150);
+    await expect(triggerLabel).toHaveText('24px');
   });
 });
 
@@ -388,7 +580,6 @@ test.describe('FontSize — partial selection', () => {
 
   test('apply size to partial text creates styled span', async ({ page }) => {
     await setContentAndFocus(page, '<p>hello world</p>');
-    // Select "hello" using evaluate for precision
     await page.evaluate((sel) => {
       const editor = document.querySelector(sel);
       const textNode = editor?.querySelector('p')?.firstChild;
@@ -412,7 +603,6 @@ test.describe('FontSize — partial selection', () => {
   test('apply different sizes to different paragraphs', async ({ page }) => {
     await setContentAndFocus(page, '<p>first line</p><p>second line</p>');
 
-    // Select first paragraph text
     await page.evaluate((sel) => {
       const editor = document.querySelector(sel);
       const textNode = editor?.querySelector('p:first-child')?.firstChild;
@@ -427,7 +617,6 @@ test.describe('FontSize — partial selection', () => {
 
     await page.waitForTimeout(50);
 
-    // Select second paragraph text
     await page.evaluate((sel) => {
       const editor = document.querySelector(sel);
       const p2 = editor?.querySelectorAll('p')[1];
@@ -457,7 +646,6 @@ test.describe('FontSize — multiple paragraphs', () => {
 
   test('apply size to first paragraph only', async ({ page }) => {
     await setContentAndFocus(page, TWO_PARAGRAPHS);
-    // Select only first paragraph text via evaluate
     await page.evaluate((sel) => {
       const editor = document.querySelector(sel);
       const textNode = editor?.querySelector('p:first-child')?.firstChild;
@@ -472,7 +660,6 @@ test.describe('FontSize — multiple paragraphs', () => {
 
     const html = await getEditorHTML(page);
     expect(html).toContain('font-size: 24px');
-    // Second paragraph should remain unstyled
     expect(html).toContain('second paragraph</p>');
   });
 
@@ -533,7 +720,14 @@ test.describe('FontSize — combined with other marks', () => {
   test('unset font-size preserves font-family', async ({ page }) => {
     await setContentAndFocus(page, '<p><span style="font-family: Georgia; font-size: 24px">styled text</span></p>');
     await selectAll(page);
-    await setSizeViaToolbar(page, 'Default');
+
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands.unsetFontSize();
+    });
+    await page.waitForTimeout(100);
 
     const html = await getEditorHTML(page);
     expect(html).not.toContain('font-size');
@@ -552,7 +746,6 @@ test.describe('FontSize — persistence', () => {
 
   test('font-size persists after typing more text', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH_24);
-    // Click inside styled span and type at the end
     await page.locator(`${editorSelector} span`).click();
     await page.keyboard.press('End');
     await page.keyboard.type(' extra');
@@ -644,7 +837,6 @@ test.describe('FontSize — edge cases', () => {
 
   test('font-size does not bleed into adjacent paragraphs', async ({ page }) => {
     await setContentAndFocus(page, '<p>first</p><p>second</p>');
-    // Select only first paragraph
     await page.evaluate((sel) => {
       const editor = document.querySelector(sel);
       const textNode = editor?.querySelector('p:first-child')?.firstChild;

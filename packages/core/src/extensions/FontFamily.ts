@@ -105,6 +105,7 @@ export const FontFamily = Extension.create<FontFamilyOptions>({
         priority: 150,
         displayMode: 'text',
         dynamicLabel: true,
+        computedStyleProperty: 'font-family',
         items: this.options.fontFamilies.map((font, i) => ({
           type: 'button' as const,
           name: `fontFamily-${font}`,

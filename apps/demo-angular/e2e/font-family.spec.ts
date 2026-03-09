@@ -41,8 +41,7 @@ async function setFontViaToolbar(page: Page, label: string) {
   await panel.locator(`button[aria-label="${label}"]`).click();
 }
 
-/** Check that the HTML contains the given font name in a font-family declaration.
- *  Browser may quote multi-word font names (e.g., &quot;Courier New&quot;) */
+/** Check that the HTML contains the given font name in a font-family declaration */
 function expectFontFamily(html: string, fontName: string) {
   expect(html).toContain('font-family');
   expect(html).toContain(fontName);
@@ -79,11 +78,11 @@ test.describe('FontFamily — toolbar dropdown', () => {
     await expect(panel).toBeVisible();
   });
 
-  test('dropdown contains 8 fonts + Default = 9 items', async ({ page }) => {
+  test('dropdown contains 8 font items', async ({ page }) => {
     await page.locator(dropdownTrigger).click();
     const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Font Family"]) .dm-toolbar-dropdown-panel');
     const items = panel.locator('.dm-toolbar-dropdown-item');
-    await expect(items).toHaveCount(9);
+    await expect(items).toHaveCount(8);
   });
 
   test('clicking trigger again closes dropdown', async ({ page }) => {
@@ -100,7 +99,12 @@ test.describe('FontFamily — toolbar dropdown', () => {
     for (const font of DEFAULT_FONTS) {
       await expect(panel.locator(`button[aria-label="${font}"]`)).toBeVisible();
     }
-    await expect(panel.locator('button[aria-label="Default"]')).toBeVisible();
+  });
+
+  test('dropdown panel has text displayMode', async ({ page }) => {
+    await page.locator(dropdownTrigger).click();
+    const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Font Family"]) .dm-toolbar-dropdown-panel');
+    await expect(panel).toHaveAttribute('data-display-mode', 'text');
   });
 });
 
@@ -123,13 +127,94 @@ test.describe('FontFamily — font preview', () => {
       expect(style).toContain(expected);
     }
   });
+});
 
-  test('Default item has no font-family style', async ({ page }) => {
-    await page.locator(dropdownTrigger).click();
-    const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Font Family"]) .dm-toolbar-dropdown-panel');
-    const defaultBtn = panel.locator('button[aria-label="Default"]');
-    const style = await defaultBtn.getAttribute('style');
-    expect(style).toBeNull();
+// ─── Dynamic label trigger ────────────────────────────────────────────
+
+test.describe('FontFamily — dynamicLabel trigger', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('trigger shows icon (Aa) when no font is set', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH);
+    await page.locator(`${editorSelector} p`).click();
+
+    // No inline font-family → icon fallback (Aa SVG)
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toBeVisible();
+    const svg = triggerLabel.locator('svg');
+    await expect(svg).toBeVisible();
+  });
+
+  test('trigger shows "Arial" when cursor is in Arial text', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH_ARIAL);
+    await page.locator(`${editorSelector} span`).click();
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('Arial');
+  });
+
+  test('trigger shows "Georgia" when cursor is in Georgia text', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH_GEORGIA);
+    await page.locator(`${editorSelector} span`).click();
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('Georgia');
+  });
+
+  test('trigger shows "Courier New" when cursor is in Courier New text', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH_COURIER);
+    await page.locator(`${editorSelector} span`).click();
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('Courier New');
+  });
+
+  test('trigger updates when moving between styled and unstyled text', async ({ page }) => {
+    await setContentAndFocus(page, '<p><span style="font-family: Arial">styled</span> plain</p>');
+
+    // Click on styled text
+    await page.locator(`${editorSelector} span`).click();
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('Arial');
+
+    // Click at end of plain text
+    await page.evaluate((sel) => {
+      const editor = document.querySelector(sel);
+      const p = editor?.querySelector('p');
+      const textNode = p?.lastChild;
+      if (!textNode) return;
+      const range = document.createRange();
+      range.setStart(textNode, 1);
+      range.collapse(true);
+      const s = window.getSelection();
+      s?.removeAllRanges();
+      s?.addRange(range);
+      (editor as HTMLElement)?.focus();
+    }, editorSelector);
+    await page.waitForTimeout(100);
+
+    // Should revert to icon (Aa SVG) — no inline font on plain text
+    const svg = triggerLabel.locator('svg');
+    await expect(svg).toBeVisible();
+  });
+
+  test('trigger label updates after applying font via toolbar', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH);
+    await selectAll(page);
+    await setFontViaToolbar(page, 'Tahoma');
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('Tahoma');
+  });
+
+  test('trigger does not have active class (dynamicLabel replaces active state)', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH_ARIAL);
+    await page.locator(`${editorSelector} span`).click();
+
+    await expect(page.locator(dropdownTrigger)).not.toHaveClass(/active/);
   });
 });
 
@@ -224,28 +309,42 @@ test.describe('FontFamily — set via toolbar', () => {
   });
 });
 
-// ─── Unset / Default ──────────────────────────────────────────────────
+// ─── Unset font (via command) ────────────────────────────────────────
 
-test.describe('FontFamily — unset (Default)', () => {
+test.describe('FontFamily — unset via command', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
   });
 
-  test('clicking Default removes font-family from text', async ({ page }) => {
+  test('unsetFontFamily command removes font-family from text', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH_ARIAL);
     await selectAll(page);
-    await setFontViaToolbar(page, 'Default');
+
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands.unsetFontFamily();
+    });
+    await page.waitForTimeout(100);
 
     const html = await getEditorHTML(page);
     expectNoFontFamily(html);
     expect(html).toContain('arial text');
   });
 
-  test('Default removes span wrapper when no other styles', async ({ page }) => {
+  test('unsetFontFamily removes span wrapper when no other styles', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH_ARIAL);
     await selectAll(page);
-    await setFontViaToolbar(page, 'Default');
+
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands.unsetFontFamily();
+    });
+    await page.waitForTimeout(100);
 
     const html = await getEditorHTML(page);
     expect(html).not.toContain('<span');
@@ -259,7 +358,7 @@ test.describe('FontFamily — unset (Default)', () => {
     let html = await getEditorHTML(page);
     expectFontFamily(html, 'Georgia');
 
-    // Re-focus editor and select all via evaluate (toolbar interaction loses editor focus)
+    // Re-focus and select all, then unset via command
     await page.evaluate((sel) => {
       const editor = document.querySelector(sel) as HTMLElement;
       editor?.focus();
@@ -272,7 +371,15 @@ test.describe('FontFamily — unset (Default)', () => {
       }
     }, editorSelector);
     await page.waitForTimeout(50);
-    await setFontViaToolbar(page, 'Default');
+
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands.unsetFontFamily();
+    });
+    await page.waitForTimeout(100);
+
     html = await getEditorHTML(page);
     expectNoFontFamily(html);
   });
@@ -326,26 +433,12 @@ test.describe('FontFamily — change between fonts', () => {
   });
 });
 
-// ─── Active state ─────────────────────────────────────────────────────
+// ─── Active state in dropdown ─────────────────────────────────────────
 
 test.describe('FontFamily — active state', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
-  });
-
-  test('dropdown trigger shows active when font is set', async ({ page }) => {
-    await setContentAndFocus(page, PARAGRAPH_ARIAL);
-    await page.locator(`${editorSelector} span`).click();
-
-    await expect(page.locator(dropdownTrigger)).toHaveClass(/active/);
-  });
-
-  test('dropdown trigger not active for unstyled text', async ({ page }) => {
-    await setContentAndFocus(page, PARAGRAPH);
-    await page.locator(`${editorSelector} p`).click();
-
-    await expect(page.locator(dropdownTrigger)).not.toHaveClass(/active/);
   });
 
   test('correct font item shows active in dropdown', async ({ page }) => {
@@ -378,6 +471,16 @@ test.describe('FontFamily — active state', () => {
     const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Font Family"]) .dm-toolbar-dropdown-panel');
     await expect(panel.locator('button[aria-label="Verdana"]')).toHaveClass(/active/);
     await expect(panel.locator('button[aria-label="Arial"]')).not.toHaveClass(/active/);
+  });
+
+  test('no item active for unstyled text', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH);
+    await page.locator(`${editorSelector} p`).click();
+    await page.locator(dropdownTrigger).click();
+
+    const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Font Family"]) .dm-toolbar-dropdown-panel');
+    const activeItems = panel.locator('.dm-toolbar-dropdown-item--active');
+    await expect(activeItems).toHaveCount(0);
   });
 });
 
@@ -422,21 +525,366 @@ test.describe('FontFamily — parseHTML', () => {
   });
 
   test('parses quoted font-family from browser-style HTML', async ({ page }) => {
-    // Browsers may add quotes around font names with spaces
     await setContentAndFocus(page, '<p><span style="font-family: \'Times New Roman\'">quoted font</span></p>');
 
     const html = await getEditorHTML(page);
     expect(html).toContain('Times New Roman');
     expect(html).toContain('quoted font');
   });
+});
 
-  test('rejects font-family not in allowed list', async ({ page }) => {
-    await setContentAndFocus(page, '<p><span style="font-family: Papyrus">not allowed</span></p>');
+// ─── Custom HTML — no validation (any font accepted) ─────────────────
+
+test.describe('FontFamily — custom HTML (any font accepted)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('accepts font-family not in configured list (Papyrus)', async ({ page }) => {
+    await setContentAndFocus(page, '<p><span style="font-family: Papyrus">custom font</span></p>');
 
     const html = await getEditorHTML(page);
-    // Papyrus is not in the default list, so it should be stripped
+    expectFontFamily(html, 'Papyrus');
+    expect(html).toContain('custom font');
+  });
+
+  test('accepts Comic Sans MS from pasted HTML', async ({ page }) => {
+    await setContentAndFocus(page, '<p><span style="font-family: \'Comic Sans MS\'">funny text</span></p>');
+
+    const html = await getEditorHTML(page);
+    expectFontFamily(html, 'Comic Sans MS');
+    expect(html).toContain('funny text');
+  });
+
+  test('accepts Impact from pasted HTML', async ({ page }) => {
+    await setContentAndFocus(page, '<p><span style="font-family: Impact">impact text</span></p>');
+
+    const html = await getEditorHTML(page);
+    expectFontFamily(html, 'Impact');
+    expect(html).toContain('impact text');
+  });
+
+  test('unknown font has no active item in dropdown', async ({ page }) => {
+    await setContentAndFocus(page, '<p><span style="font-family: Papyrus">custom font</span></p>');
+    await page.locator(`${editorSelector} span`).click();
+    await page.locator(dropdownTrigger).click();
+
+    const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Font Family"]) .dm-toolbar-dropdown-panel');
+    const activeItems = panel.locator('.dm-toolbar-dropdown-item--active');
+    await expect(activeItems).toHaveCount(0);
+  });
+
+  test('unknown font shows font name on trigger via computedStyleProperty', async ({ page }) => {
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) {
+        comp.editor.setContent('<p><span style="font-family: Papyrus">custom font</span></p>', false);
+        comp.editor.commands.focus(3);
+      }
+    });
+    await page.waitForTimeout(200);
+
+    // Papyrus is not in the configured fontFamilies list, so isActive won't match
+    // But computedStyleProperty reads the inline font-family and displays it
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('Papyrus');
+  });
+
+  test('can overwrite unknown font with known font via toolbar', async ({ page }) => {
+    await setContentAndFocus(page, '<p><span style="font-family: Papyrus">custom font</span></p>');
+    await selectAll(page);
+    await setFontViaToolbar(page, 'Arial');
+
+    const html = await getEditorHTML(page);
+    expectFontFamily(html, 'Arial');
     expect(html).not.toContain('Papyrus');
-    expect(html).toContain('not allowed');
+  });
+
+  test('preserves unknown font alongside known font on different text', async ({ page }) => {
+    await setContentAndFocus(page, '<p><span style="font-family: Papyrus">custom</span> <span style="font-family: Arial">known</span></p>');
+
+    const html = await getEditorHTML(page);
+    expectFontFamily(html, 'Papyrus');
+    expectFontFamily(html, 'Arial');
+  });
+});
+
+// ─── computedStyleProperty — dynamic trigger for custom fonts ─────────
+
+test.describe('FontFamily — computedStyleProperty trigger', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('trigger shows "Papyrus" for non-list font via inline style', async ({ page }) => {
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) {
+        comp.editor.setContent('<p><span style="font-family: Papyrus">custom</span></p>', false);
+        comp.editor.commands.focus(3);
+      }
+    });
+    await page.waitForTimeout(200);
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('Papyrus');
+  });
+
+  test('trigger shows "Impact" for another non-list font', async ({ page }) => {
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) {
+        comp.editor.setContent('<p><span style="font-family: Impact">impact</span></p>', false);
+        comp.editor.commands.focus(3);
+      }
+    });
+    await page.waitForTimeout(200);
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('Impact');
+  });
+
+  test('trigger shows "Comic Sans MS" for quoted multi-word non-list font', async ({ page }) => {
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) {
+        comp.editor.setContent('<p><span style="font-family: \'Comic Sans MS\'">funny</span></p>', false);
+        comp.editor.commands.focus(3);
+      }
+    });
+    await page.waitForTimeout(200);
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('Comic Sans MS');
+  });
+
+  test('trigger shows first font when font stack is set via inline style', async ({ page }) => {
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) {
+        comp.editor.setContent('<p><span style="font-family: Papyrus, fantasy">stack</span></p>', false);
+        comp.editor.commands.focus(3);
+      }
+    });
+    await page.waitForTimeout(200);
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('Papyrus');
+  });
+
+  test('trigger shows icon for unstyled text (no inline font-family)', async ({ page }) => {
+    await setContentAndFocus(page, '<p>plain text</p>');
+    await page.locator(`${editorSelector} p`).click();
+
+    // No inline font-family on <p> → falls through to icon (Aa SVG)
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    const svg = triggerLabel.locator('svg');
+    await expect(svg).toBeVisible();
+  });
+
+  test('trigger updates from custom font to known font after toolbar change', async ({ page }) => {
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) {
+        comp.editor.setContent('<p><span style="font-family: Papyrus">custom</span></p>', false);
+        comp.editor.commands.focus(3);
+      }
+    });
+    await page.waitForTimeout(200);
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('Papyrus');
+
+    // Select all and change to Arial
+    await page.keyboard.press(`${modifier}+A`);
+    await setFontViaToolbar(page, 'Arial');
+
+    await expect(triggerLabel).toHaveText('Arial');
+  });
+
+  test('trigger updates from known font to custom font after command', async ({ page }) => {
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) {
+        comp.editor.setContent('<p><span style="font-family: Arial">text</span></p>', false);
+        comp.editor.commands.focus(3);
+      }
+    });
+    await page.waitForTimeout(200);
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('Arial');
+
+    // Change to custom font via command
+    await page.keyboard.press(`${modifier}+A`);
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands.setFontFamily('Papyrus');
+    });
+    await page.waitForTimeout(200);
+
+    // Re-position cursor inside the text to read inline style
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands.focus(3);
+    });
+    await page.waitForTimeout(100);
+
+    await expect(triggerLabel).toHaveText('Papyrus');
+  });
+
+  test('no dropdown item is active for custom non-list font', async ({ page }) => {
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) {
+        comp.editor.setContent('<p><span style="font-family: Impact">text</span></p>', false);
+        comp.editor.commands.focus(3);
+      }
+    });
+    await page.waitForTimeout(200);
+
+    // Trigger shows "Impact" but no dropdown item highlighted
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('Impact');
+
+    await page.locator(dropdownTrigger).click();
+    const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Font Family"]) .dm-toolbar-dropdown-panel');
+    const activeItems = panel.locator('.dm-toolbar-dropdown-item--active');
+    await expect(activeItems).toHaveCount(0);
+  });
+
+  test('overwriting custom font with known font shows active in dropdown', async ({ page }) => {
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) {
+        comp.editor.setContent('<p><span style="font-family: Papyrus">text</span></p>', false);
+        comp.editor.commands.focus(3);
+      }
+    });
+    await page.waitForTimeout(200);
+
+    await page.keyboard.press(`${modifier}+A`);
+    await setFontViaToolbar(page, 'Georgia');
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('Georgia');
+
+    // Georgia should now be active in dropdown
+    await page.locator(dropdownTrigger).click();
+    const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Font Family"]) .dm-toolbar-dropdown-panel');
+    await expect(panel.locator('button[aria-label="Georgia"]')).toHaveClass(/active/);
+  });
+
+  test('trigger shows icon for heading text (no inline font-family)', async ({ page }) => {
+    await setContentAndFocus(page, '<h2>heading text</h2>');
+    await page.locator(`${editorSelector} h2`).click();
+
+    // Heading has no inline font-family → icon
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    const svg = triggerLabel.locator('svg');
+    await expect(svg).toBeVisible();
+  });
+
+  test('trigger shows font name for heading with explicit font', async ({ page }) => {
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) {
+        comp.editor.setContent('<h2><span style="font-family: Georgia">styled heading</span></h2>', false);
+        comp.editor.commands.focus(3);
+      }
+    });
+    await page.waitForTimeout(200);
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('Georgia');
+  });
+
+  test('trigger reverts from font name to icon after unsetting font', async ({ page }) => {
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) {
+        comp.editor.setContent('<p><span style="font-family: Papyrus">text</span></p>', false);
+        comp.editor.commands.focus(3);
+      }
+    });
+    await page.waitForTimeout(200);
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('Papyrus');
+
+    // Unset font-family
+    await page.keyboard.press(`${modifier}+A`);
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands.unsetFontFamily();
+    });
+    await page.waitForTimeout(100);
+
+    // Should revert to icon
+    const svg = triggerLabel.locator('svg');
+    await expect(svg).toBeVisible();
+  });
+
+  test('trigger shows "Test" for custom font name from demo content', async ({ page }) => {
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) {
+        comp.editor.setContent('<p><span style="font-family: Test">test font</span></p>', false);
+        comp.editor.commands.focus(3);
+      }
+    });
+    await page.waitForTimeout(200);
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('Test');
+  });
+
+  test('trigger shows "Lucida Console" for monospace custom font', async ({ page }) => {
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) {
+        comp.editor.setContent('<p><span style="font-family: \'Lucida Console\'">mono</span></p>', false);
+        comp.editor.commands.focus(3);
+      }
+    });
+    await page.waitForTimeout(200);
+
+    const triggerLabel = page.locator(dropdownTrigger + ' .dm-toolbar-trigger-label');
+    await expect(triggerLabel).toHaveText('Lucida Console');
   });
 });
 
@@ -450,7 +898,6 @@ test.describe('FontFamily — partial selection', () => {
 
   test('apply font to partial text creates styled span', async ({ page }) => {
     await setContentAndFocus(page, '<p>hello world</p>');
-    // Select "hello" using evaluate for precision
     await page.evaluate((sel) => {
       const editor = document.querySelector(sel);
       const textNode = editor?.querySelector('p')?.firstChild;
@@ -466,7 +913,6 @@ test.describe('FontFamily — partial selection', () => {
 
     const html = await getEditorHTML(page);
     expectFontFamily(html, 'Georgia');
-    // "world" should remain unstyled
     expect(html).toContain('world');
     const spans = html.match(/<span[^>]*font-family[^>]*>/g);
     expect(spans).toHaveLength(1);
@@ -475,7 +921,6 @@ test.describe('FontFamily — partial selection', () => {
   test('apply different fonts to different paragraphs', async ({ page }) => {
     await setContentAndFocus(page, '<p>first line</p><p>second line</p>');
 
-    // Select first paragraph text
     await page.evaluate((sel) => {
       const editor = document.querySelector(sel);
       const textNode = editor?.querySelector('p:first-child')?.firstChild;
@@ -490,7 +935,6 @@ test.describe('FontFamily — partial selection', () => {
 
     await page.waitForTimeout(50);
 
-    // Select second paragraph text
     await page.evaluate((sel) => {
       const editor = document.querySelector(sel);
       const p2 = editor?.querySelectorAll('p')[1];
@@ -520,7 +964,6 @@ test.describe('FontFamily — multiple paragraphs', () => {
 
   test('apply font to first paragraph only', async ({ page }) => {
     await setContentAndFocus(page, TWO_PARAGRAPHS);
-    // Select only first paragraph text via evaluate
     await page.evaluate((sel) => {
       const editor = document.querySelector(sel);
       const textNode = editor?.querySelector('p:first-child')?.firstChild;
@@ -535,7 +978,6 @@ test.describe('FontFamily — multiple paragraphs', () => {
 
     const html = await getEditorHTML(page);
     expectFontFamily(html, 'Arial');
-    // Second paragraph should remain unstyled
     expect(html).toContain('second paragraph</p>');
   });
 
@@ -596,7 +1038,14 @@ test.describe('FontFamily — combined with other marks', () => {
   test('unset font-family preserves font-size', async ({ page }) => {
     await setContentAndFocus(page, '<p><span style="font-family: Georgia; font-size: 24px">styled text</span></p>');
     await selectAll(page);
-    await setFontViaToolbar(page, 'Default');
+
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      comp?.editor?.commands.unsetFontFamily();
+    });
+    await page.waitForTimeout(100);
 
     const html = await getEditorHTML(page);
     expectNoFontFamily(html);
@@ -616,7 +1065,6 @@ test.describe('FontFamily — persistence', () => {
 
   test('font-family persists after typing more text', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH_GEORGIA);
-    // Click inside styled span and type at the end
     await page.locator(`${editorSelector} span`).click();
     await page.keyboard.press('End');
     await page.keyboard.type(' extra');
@@ -667,7 +1115,6 @@ test.describe('FontFamily — edge cases', () => {
     await page.locator(`${editorSelector} p`).click();
     await page.keyboard.press('End');
 
-    // Set font with collapsed cursor
     await setFontViaToolbar(page, 'Georgia');
     await page.keyboard.type(' new');
 
@@ -709,7 +1156,6 @@ test.describe('FontFamily — edge cases', () => {
 
   test('font-family does not bleed into adjacent paragraphs', async ({ page }) => {
     await setContentAndFocus(page, '<p>first</p><p>second</p>');
-    // Select only first paragraph
     await page.evaluate((sel) => {
       const editor = document.querySelector(sel);
       const textNode = editor?.querySelector('p:first-child')?.firstChild;
@@ -723,7 +1169,6 @@ test.describe('FontFamily — edge cases', () => {
     await setFontViaToolbar(page, 'Georgia');
 
     const html = await getEditorHTML(page);
-    // Second paragraph should not have font-family
     expect(html).toContain('second</p>');
   });
 
@@ -732,7 +1177,6 @@ test.describe('FontFamily — edge cases', () => {
     const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Font Family"]) .dm-toolbar-dropdown-panel');
     await expect(panel).toBeVisible();
 
-    // Click on editor body
     await page.locator(editorSelector).click();
     await expect(panel).not.toBeVisible();
   });

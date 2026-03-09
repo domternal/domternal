@@ -9,6 +9,7 @@ import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { Editor } from '../Editor.js';
 import { TextSelection } from 'prosemirror-state';
+import type { ToolbarItem, ToolbarDropdown } from '../types/Toolbar.js';
 
 describe('FontFamily', () => {
   describe('configuration', () => {
@@ -78,7 +79,7 @@ describe('FontFamily', () => {
       expect(result).toBe(null);
     });
 
-    it('renderHTML returns null for disallowed fontFamily', () => {
+    it('renderHTML accepts any fontFamily (no validation)', () => {
       const CustomFontFamily = FontFamily.configure({
         fontFamilies: ['Arial', 'Times New Roman'],
       });
@@ -86,7 +87,7 @@ describe('FontFamily', () => {
       const renderHTML = globalAttrs?.[0]?.attributes['fontFamily']?.renderHTML;
 
       const result = renderHTML?.({ fontFamily: 'Comic Sans MS' });
-      expect(result).toBe(null);
+      expect(result).toEqual({ style: "font-family: 'Comic Sans MS'" });
     });
   });
 
@@ -107,7 +108,7 @@ describe('FontFamily', () => {
   });
 
   describe('font validation', () => {
-    it('rejects invalid font when fontFamilies list is provided', () => {
+    it('accepts any font regardless of fontFamilies list', () => {
       const CustomFontFamily = FontFamily.configure({
         fontFamilies: ['Arial', 'Times New Roman'],
       });
@@ -124,7 +125,92 @@ describe('FontFamily', () => {
       const handler = setFontFamily('Courier New');
       const result = (handler as (ctx: typeof mockContext) => boolean)(mockContext);
 
-      expect(result).toBe(false);
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('addToolbarItems', () => {
+    it('returns a dropdown item', () => {
+      const items = FontFamily.config.addToolbarItems?.call(FontFamily) as ToolbarItem[];
+      expect(items).toHaveLength(1);
+      expect(items[0]?.type).toBe('dropdown');
+    });
+
+    it('dropdown has correct base properties', () => {
+      const items = FontFamily.config.addToolbarItems?.call(FontFamily) as ToolbarItem[];
+      const dd = items[0] as ToolbarDropdown;
+      expect(dd.name).toBe('fontFamily');
+      expect(dd.icon).toBe('textAa');
+      expect(dd.label).toBe('Font Family');
+      expect(dd.group).toBe('textStyle');
+      expect(dd.priority).toBe(150);
+      expect(dd.displayMode).toBe('text');
+    });
+
+    it('dropdown has dynamicLabel enabled', () => {
+      const items = FontFamily.config.addToolbarItems?.call(FontFamily) as ToolbarItem[];
+      const dd = items[0] as ToolbarDropdown;
+      expect(dd.dynamicLabel).toBe(true);
+    });
+
+    it('dropdown has computedStyleProperty set to font-family', () => {
+      const items = FontFamily.config.addToolbarItems?.call(FontFamily) as ToolbarItem[];
+      const dd = items[0] as ToolbarDropdown;
+      expect(dd.computedStyleProperty).toBe('font-family');
+    });
+
+    it('dropdown has no dynamicLabelFallback (falls back to icon)', () => {
+      const items = FontFamily.config.addToolbarItems?.call(FontFamily) as ToolbarItem[];
+      const dd = items[0] as ToolbarDropdown;
+      expect(dd.dynamicLabelFallback).toBeUndefined();
+    });
+
+    it('dropdown contains items for all configured font families', () => {
+      const items = FontFamily.config.addToolbarItems?.call(FontFamily) as ToolbarItem[];
+      const dd = items[0] as ToolbarDropdown;
+      expect(dd.items).toHaveLength(8);
+      expect(dd.items[0]?.label).toBe('Arial');
+      expect(dd.items[7]?.label).toBe('Courier New');
+    });
+
+    it('each dropdown item has correct command and isActive', () => {
+      const items = FontFamily.config.addToolbarItems?.call(FontFamily) as ToolbarItem[];
+      const dd = items[0] as ToolbarDropdown;
+      const arialItem = dd.items[0]!;
+      expect(arialItem.command).toBe('setFontFamily');
+      expect(arialItem.commandArgs).toEqual(['Arial']);
+      expect(arialItem.isActive).toEqual({ name: 'textStyle', attributes: { fontFamily: 'Arial' } });
+    });
+
+    it('each dropdown item has font-family style for preview', () => {
+      const items = FontFamily.config.addToolbarItems?.call(FontFamily) as ToolbarItem[];
+      const dd = items[0] as ToolbarDropdown;
+      expect(dd.items[0]?.style).toBe('font-family: Arial');
+      // Multi-word font names get quoted
+      expect(dd.items[3]?.style).toBe("font-family: 'Trebuchet MS'");
+    });
+
+    it('items have descending priority', () => {
+      const items = FontFamily.config.addToolbarItems?.call(FontFamily) as ToolbarItem[];
+      const dd = items[0] as ToolbarDropdown;
+      expect(dd.items[0]?.priority).toBe(200);
+      expect(dd.items[1]?.priority).toBe(199);
+      expect(dd.items[7]?.priority).toBe(193);
+    });
+
+    it('returns empty array when fontFamilies is empty', () => {
+      const Empty = FontFamily.configure({ fontFamilies: [] });
+      const items = Empty.config.addToolbarItems?.call(Empty) as ToolbarItem[];
+      expect(items).toHaveLength(0);
+    });
+
+    it('uses configured font families', () => {
+      const Custom = FontFamily.configure({ fontFamilies: ['Roboto', 'Open Sans'] });
+      const items = Custom.config.addToolbarItems?.call(Custom) as ToolbarItem[];
+      const dd = items[0] as ToolbarDropdown;
+      expect(dd.items).toHaveLength(2);
+      expect(dd.items[0]?.label).toBe('Roboto');
+      expect(dd.items[1]?.label).toBe('Open Sans');
     });
   });
 

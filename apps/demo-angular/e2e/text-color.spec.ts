@@ -132,6 +132,77 @@ test.describe('TextColor — toolbar dropdown', () => {
   });
 });
 
+// ─── Color indicator bar on trigger ──────────────────────────────────
+
+test.describe('TextColor — color indicator bar', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('trigger has color indicator element', async ({ page }) => {
+    const indicator = page.locator(dropdownTrigger + ' .dm-toolbar-color-indicator');
+    await expect(indicator).toBeVisible();
+  });
+
+  test('indicator shows default black color for unstyled text', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH);
+    await page.locator(`${editorSelector} p`).click();
+
+    const indicator = page.locator(dropdownTrigger + ' .dm-toolbar-color-indicator');
+    const bgColor = await indicator.evaluate(el => getComputedStyle(el).backgroundColor);
+    // Default indicator color is #000000
+    expect(bgColor).toBe('rgb(0, 0, 0)');
+  });
+
+  test('indicator updates to red when cursor is in red text', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH_RED);
+    await page.locator(`${editorSelector} span`).click();
+
+    const indicator = page.locator(dropdownTrigger + ' .dm-toolbar-color-indicator');
+    const bgColor = await indicator.evaluate(el => getComputedStyle(el).backgroundColor);
+    expect(bgColor).toBe('rgb(224, 49, 49)');
+  });
+
+  test('indicator updates to blue when cursor is in blue text', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH_BLUE);
+    await page.locator(`${editorSelector} span`).click();
+
+    const indicator = page.locator(dropdownTrigger + ' .dm-toolbar-color-indicator');
+    const bgColor = await indicator.evaluate(el => getComputedStyle(el).backgroundColor);
+    expect(bgColor).toBe('rgb(25, 113, 194)');
+  });
+
+  test('indicator reverts to black after unsetting color', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH_RED);
+    await selectAll(page);
+    await setColorViaToolbar(page, 'Default');
+    await page.waitForTimeout(100);
+
+    const indicator = page.locator(dropdownTrigger + ' .dm-toolbar-color-indicator');
+    const bgColor = await indicator.evaluate(el => getComputedStyle(el).backgroundColor);
+    expect(bgColor).toBe('rgb(0, 0, 0)');
+  });
+
+  test('indicator updates after changing color via toolbar', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH);
+    await selectAll(page);
+    await setColorViaToolbar(page, GREEN);
+    await page.waitForTimeout(100);
+
+    const indicator = page.locator(dropdownTrigger + ' .dm-toolbar-color-indicator');
+    const bgColor = await indicator.evaluate(el => getComputedStyle(el).backgroundColor);
+    expect(bgColor).toBe('rgb(47, 158, 68)');
+  });
+
+  test('trigger does not have active class (grid dropdowns use indicator instead)', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH_RED);
+    await page.locator(`${editorSelector} span`).click();
+
+    await expect(page.locator(dropdownTrigger)).not.toHaveClass(/active/);
+  });
+});
+
 // ─── Set color via toolbar ────────────────────────────────────────────
 
 test.describe('TextColor — set via toolbar', () => {
@@ -222,7 +293,6 @@ test.describe('TextColor — unset (Default)', () => {
     let html = await getEditorHTML(page);
     expectColor(html, BLUE);
 
-    // Re-focus editor and select all via evaluate (toolbar interaction loses editor focus)
     await page.evaluate((sel) => {
       const editor = document.querySelector(sel) as HTMLElement;
       editor?.focus();
@@ -256,7 +326,6 @@ test.describe('TextColor — change between colors', () => {
 
     const html = await getEditorHTML(page);
     expectColor(html, BLUE);
-    // Red should be gone
     expect(html).not.toContain(RED);
     expect(html).not.toContain(HEX_TO_RGB[RED]);
   });
@@ -300,20 +369,6 @@ test.describe('TextColor — active state', () => {
     await page.waitForSelector(editorSelector);
   });
 
-  test('dropdown trigger shows active when color is set', async ({ page }) => {
-    await setContentAndFocus(page, PARAGRAPH_RED);
-    await page.locator(`${editorSelector} span`).click();
-
-    await expect(page.locator(dropdownTrigger)).toHaveClass(/active/);
-  });
-
-  test('dropdown trigger not active for unstyled text', async ({ page }) => {
-    await setContentAndFocus(page, PARAGRAPH);
-    await page.locator(`${editorSelector} p`).click();
-
-    await expect(page.locator(dropdownTrigger)).not.toHaveClass(/active/);
-  });
-
   test('correct color swatch shows active in palette', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH_RED);
     await page.locator(`${editorSelector} span`).click();
@@ -344,6 +399,16 @@ test.describe('TextColor — active state', () => {
     const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Text Color"]) .dm-toolbar-dropdown-panel');
     await expect(panel.locator(`button[aria-label="${GREEN}"]`)).toHaveClass(/active/);
     await expect(panel.locator(`button[aria-label="${RED}"]`)).not.toHaveClass(/active/);
+  });
+
+  test('no swatch active for unstyled text', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH);
+    await page.locator(`${editorSelector} p`).click();
+    await page.locator(dropdownTrigger).click();
+
+    const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Text Color"]) .dm-toolbar-dropdown-panel');
+    const activeSwatches = panel.locator('.dm-color-swatch--active');
+    await expect(activeSwatches).toHaveCount(0);
   });
 });
 

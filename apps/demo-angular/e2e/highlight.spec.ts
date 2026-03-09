@@ -68,6 +68,73 @@ test.describe('Highlight — dropdown', () => {
   });
 });
 
+// ─── Color indicator bar on trigger ──────────────────────────────────
+
+test.describe('Highlight — color indicator bar', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('trigger has no indicator when cursor is on unstyled text', async ({ page }) => {
+    await setContentAndFocus(page, '<p>plain text</p>');
+    await page.locator(`${editorSelector} p`).click();
+
+    // Highlight has no defaultIndicatorColor, so indicator element should not exist
+    const indicator = page.locator(highlightTrigger + ' .dm-toolbar-color-indicator');
+    await expect(indicator).toHaveCount(0);
+  });
+
+  test('trigger shows indicator when cursor is on highlighted text', async ({ page }) => {
+    await setContentAndFocus(page, '<p><span style="background-color: #fef08a">highlighted</span></p>');
+    await page.locator(`${editorSelector} span`).click();
+
+    const indicator = page.locator(highlightTrigger + ' .dm-toolbar-color-indicator');
+    await expect(indicator).toBeVisible();
+    const bgColor = await indicator.evaluate(el => getComputedStyle(el).backgroundColor);
+    expect(bgColor).toBe('rgb(254, 240, 138)');
+  });
+
+  test('indicator disappears after removing highlight', async ({ page }) => {
+    await setContentAndFocus(page, '<p><span style="background-color: #fef08a">highlighted</span></p>');
+    await page.locator(`${editorSelector} span`).click();
+    await page.keyboard.press(`${modifier}+a`);
+    await page.locator(highlightTrigger).click();
+    await page.locator(noHighlightBtn).click();
+    await page.waitForTimeout(100);
+
+    const indicator = page.locator(highlightTrigger + ' .dm-toolbar-color-indicator');
+    await expect(indicator).toHaveCount(0);
+  });
+
+  test('indicator updates color after changing highlight', async ({ page }) => {
+    await replaceAndSelectAll(page, 'change color');
+    // Apply first color (swatch 0)
+    await page.locator(highlightTrigger).click();
+    await page.locator(swatchSelector).first().click();
+    await page.waitForTimeout(50);
+
+    const indicator = page.locator(highlightTrigger + ' .dm-toolbar-color-indicator');
+    const color1 = await indicator.evaluate(el => getComputedStyle(el).backgroundColor);
+
+    // Apply different color (swatch 3)
+    await page.keyboard.press(`${modifier}+a`);
+    await page.locator(highlightTrigger).click();
+    await page.locator(swatchSelector).nth(3).click();
+    await page.waitForTimeout(50);
+
+    const color2 = await indicator.evaluate(el => getComputedStyle(el).backgroundColor);
+    expect(color1).not.toBe(color2);
+  });
+
+  test('trigger does not have active class (grid dropdowns use indicator)', async ({ page }) => {
+    await setContentAndFocus(page, '<p><span style="background-color: #fef08a">highlighted</span></p>');
+    await page.locator(`${editorSelector} span`).click();
+
+    await expect(page.locator(highlightTrigger)).not.toHaveClass(/active/);
+  });
+});
+
 // ─── Applying highlight ──────────────────────────────────────────────
 
 test.describe('Highlight — applying', () => {

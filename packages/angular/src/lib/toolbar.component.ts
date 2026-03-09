@@ -215,15 +215,24 @@ export class DomternalToolbarComponent implements OnDestroy {
     // Non-grid dropdown — show active sub-item's label as text
     if (dropdown.dynamicLabel) {
       if (activeItem) return this.getCachedTriggerLabel(activeItem.label);
-      if (dropdown.dynamicLabelFallback) {
-        if (dropdown.computedStyleProperty) {
-          let computed = this.getComputedStyleAtCursor(dropdown.computedStyleProperty);
-          if (computed && dropdown.computedStyleProperty === 'font-family') {
+
+      // Try reading CSS property from DOM (inline or computed depending on property)
+      if (dropdown.computedStyleProperty) {
+        let computed: string | null;
+        if (dropdown.computedStyleProperty === 'font-family') {
+          // Font-family: read ONLY inline style (explicit mark), not computed (browser default)
+          computed = this.getInlineStyleAtCursor(dropdown.computedStyleProperty);
+          if (computed) {
             const first = computed.split(',')[0].replace(/['"]+/g, '').trim();
-            computed = first.startsWith('-') ? null : first;
+            computed = first || null;
           }
-          return this.getCachedTriggerLabel(computed ?? dropdown.dynamicLabelFallback);
+        } else {
+          computed = this.getComputedStyleAtCursor(dropdown.computedStyleProperty);
         }
+        if (computed) return this.getCachedTriggerLabel(computed);
+      }
+
+      if (dropdown.dynamicLabelFallback) {
         return this.getCachedTriggerLabel(dropdown.dynamicLabelFallback);
       }
       return this.getCachedTriggerLabel(dropdown.icon, true);
@@ -490,7 +499,25 @@ export class DomternalToolbarComponent implements OnDestroy {
         ? resolved.node
         : resolved.node.parentElement;
       if (!el) return null;
-      return window.getComputedStyle(el).getPropertyValue(prop) || null;
+      // Prefer inline style (explicit mark) over computed style (inherited from heading, etc.)
+      return el.style.getPropertyValue(prop)
+        || window.getComputedStyle(el).getPropertyValue(prop)
+        || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Read only inline style — no computed fallback (used for font-family). */
+  private getInlineStyleAtCursor(prop: string): string | null {
+    try {
+      const { from } = this.editor().state.selection;
+      const resolved = this.editor().view.domAtPos(from);
+      const el = resolved.node instanceof HTMLElement
+        ? resolved.node
+        : resolved.node.parentElement;
+      if (!el) return null;
+      return el.style.getPropertyValue(prop) || null;
     } catch {
       return null;
     }

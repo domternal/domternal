@@ -35,7 +35,8 @@ declare module '../types/Commands.js' {
 
 export interface FontSizeOptions {
   /**
-   * List of allowed font sizes (e.g., ['12px', '14px', '16px']).
+   * List of font sizes shown in the toolbar dropdown.
+   * Any font size is accepted from pasted HTML regardless of this list.
    * @default ['12px', '14px', '16px', '18px', '24px', '32px']
    */
   fontSizes: string[];
@@ -71,14 +72,6 @@ export const FontSize = Extension.create<FontSizeOptions>({
               const fontSize = attributes['fontSize'] as string | null;
               if (!fontSize) return null;
 
-              // Validate size if fontSizes list is provided
-              if (
-                this.options.fontSizes.length > 0 &&
-                !this.options.fontSizes.includes(fontSize)
-              ) {
-                return null;
-              }
-
               return { style: `font-size: ${fontSize}` };
             },
           },
@@ -92,14 +85,6 @@ export const FontSize = Extension.create<FontSizeOptions>({
       setFontSize:
         (fontSize: string) =>
         ({ commands }) => {
-          // Validate size if fontSizes list is provided
-          if (
-            this.options.fontSizes.length > 0 &&
-            !this.options.fontSizes.includes(fontSize)
-          ) {
-            return false;
-          }
-
           return commands.setMark('textStyle', { fontSize });
         },
 
