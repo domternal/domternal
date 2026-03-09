@@ -157,6 +157,9 @@ export interface ToolbarDropdown {
 
   /** Text shown in trigger when dynamicLabel is true and no item is active. Falls back to icon if not set. */
   dynamicLabelFallback?: string;
+
+  /** CSS property to read from computed style at cursor when no item is active (e.g. 'font-size', 'font-family'). */
+  computedStyleProperty?: string;
 }
 
 /**

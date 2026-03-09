@@ -153,6 +153,7 @@ export const FontSize = Extension.create<FontSizeOptions>({
         displayMode: 'text',
         dynamicLabel: true,
         dynamicLabelFallback: '16px',
+        computedStyleProperty: 'font-size',
         items,
       },
     ];

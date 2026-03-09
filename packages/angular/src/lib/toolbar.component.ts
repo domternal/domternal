@@ -216,8 +216,15 @@ export class DomternalToolbarComponent implements OnDestroy {
     if (dropdown.dynamicLabel) {
       if (activeItem) return this.getCachedTriggerLabel(activeItem.label);
       if (dropdown.dynamicLabelFallback) {
-        const computed = this.getComputedStyleAtCursor('font-size');
-        return this.getCachedTriggerLabel(computed ?? dropdown.dynamicLabelFallback);
+        if (dropdown.computedStyleProperty) {
+          let computed = this.getComputedStyleAtCursor(dropdown.computedStyleProperty);
+          if (computed && dropdown.computedStyleProperty === 'font-family') {
+            const first = computed.split(',')[0].replace(/['"]+/g, '').trim();
+            computed = first.startsWith('-') ? null : first;
+          }
+          return this.getCachedTriggerLabel(computed ?? dropdown.dynamicLabelFallback);
+        }
+        return this.getCachedTriggerLabel(dropdown.dynamicLabelFallback);
       }
       return this.getCachedTriggerLabel(dropdown.icon, true);
     }
