@@ -470,22 +470,17 @@ export class ToolbarController {
     const wasDisabled = this._disabledMap.get(item.name) ?? false;
     let nowDisabled = false;
 
-    // Buttons with emitEvent are never disabled — they emit an event, not a command.
-    // They still participate in active-state checks (checkButtonActive) because
-    // active state reflects document state (e.g. link button shows active on links).
-    if (!item.emitEvent) {
-      try {
-        if (canProxy) {
-          const canCmd = canProxy[item.command];
-          if (canCmd) {
-            nowDisabled = item.commandArgs?.length
-              ? !canCmd(...item.commandArgs)
-              : !canCmd();
-          }
+    try {
+      if (canProxy) {
+        const canCmd = canProxy[item.command];
+        if (canCmd) {
+          nowDisabled = item.commandArgs?.length
+            ? !canCmd(...item.commandArgs)
+            : !canCmd();
         }
-      } catch {
-        // Command dry-run may throw (e.g. buggy extension) — treat as enabled
       }
+    } catch {
+      // Command dry-run may throw (e.g. buggy extension) — treat as enabled
     }
 
     if (wasDisabled !== nowDisabled) {

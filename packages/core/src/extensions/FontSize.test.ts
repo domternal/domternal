@@ -8,7 +8,7 @@ import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { Editor } from '../Editor.js';
-import type { ToolbarItem, ToolbarDropdown } from '../types/Toolbar.js';
+import type { ToolbarDropdown } from '../types/Toolbar.js';
 
 describe('FontSize', () => {
   describe('configuration', () => {
@@ -127,13 +127,13 @@ describe('FontSize', () => {
 
   describe('addToolbarItems', () => {
     it('returns a dropdown item', () => {
-      const items = FontSize.config.addToolbarItems?.call(FontSize) as ToolbarItem[];
+      const items = FontSize.config.addToolbarItems?.call(FontSize) ?? [];
       expect(items).toHaveLength(1);
       expect(items[0]?.type).toBe('dropdown');
     });
 
     it('dropdown has correct base properties', () => {
-      const items = FontSize.config.addToolbarItems?.call(FontSize) as ToolbarItem[];
+      const items = FontSize.config.addToolbarItems?.call(FontSize) ?? [];
       const dd = items[0] as ToolbarDropdown;
       expect(dd.name).toBe('fontSize');
       expect(dd.icon).toBe('textSize');
@@ -144,25 +144,25 @@ describe('FontSize', () => {
     });
 
     it('dropdown has dynamicLabel enabled', () => {
-      const items = FontSize.config.addToolbarItems?.call(FontSize) as ToolbarItem[];
+      const items = FontSize.config.addToolbarItems?.call(FontSize) ?? [];
       const dd = items[0] as ToolbarDropdown;
       expect(dd.dynamicLabel).toBe(true);
     });
 
     it('dropdown has computedStyleProperty set to font-size', () => {
-      const items = FontSize.config.addToolbarItems?.call(FontSize) as ToolbarItem[];
+      const items = FontSize.config.addToolbarItems?.call(FontSize) ?? [];
       const dd = items[0] as ToolbarDropdown;
       expect(dd.computedStyleProperty).toBe('font-size');
     });
 
     it('dropdown has dynamicLabelFallback of 16px', () => {
-      const items = FontSize.config.addToolbarItems?.call(FontSize) as ToolbarItem[];
+      const items = FontSize.config.addToolbarItems?.call(FontSize) ?? [];
       const dd = items[0] as ToolbarDropdown;
       expect(dd.dynamicLabelFallback).toBe('16px');
     });
 
     it('dropdown contains items for all configured font sizes', () => {
-      const items = FontSize.config.addToolbarItems?.call(FontSize) as ToolbarItem[];
+      const items = FontSize.config.addToolbarItems?.call(FontSize) ?? [];
       const dd = items[0] as ToolbarDropdown;
       expect(dd.items).toHaveLength(6);
       expect(dd.items[0]?.label).toBe('12px');
@@ -170,7 +170,7 @@ describe('FontSize', () => {
     });
 
     it('each dropdown item has correct command and isActive', () => {
-      const items = FontSize.config.addToolbarItems?.call(FontSize) as ToolbarItem[];
+      const items = FontSize.config.addToolbarItems?.call(FontSize) ?? [];
       const dd = items[0] as ToolbarDropdown;
       const item16 = dd.items[2]!;
       expect(item16.command).toBe('setFontSize');
@@ -179,7 +179,7 @@ describe('FontSize', () => {
     });
 
     it('items have descending priority', () => {
-      const items = FontSize.config.addToolbarItems?.call(FontSize) as ToolbarItem[];
+      const items = FontSize.config.addToolbarItems?.call(FontSize) ?? [];
       const dd = items[0] as ToolbarDropdown;
       expect(dd.items[0]?.priority).toBe(200);
       expect(dd.items[1]?.priority).toBe(199);
@@ -187,13 +187,13 @@ describe('FontSize', () => {
 
     it('returns empty array when fontSizes is empty', () => {
       const Empty = FontSize.configure({ fontSizes: [], showReset: false });
-      const items = Empty.config.addToolbarItems?.call(Empty) as ToolbarItem[];
+      const items = Empty.config.addToolbarItems?.call(Empty) ?? [];
       expect(items).toHaveLength(0);
     });
 
     it('prepends 16px if not in configured sizes', () => {
       const Custom = FontSize.configure({ fontSizes: ['12px', '24px'], showReset: false });
-      const items = Custom.config.addToolbarItems?.call(Custom) as ToolbarItem[];
+      const items = Custom.config.addToolbarItems?.call(Custom) ?? [];
       const dd = items[0] as ToolbarDropdown;
       expect(dd.items).toHaveLength(3);
       expect(dd.items[0]?.label).toBe('16px');
@@ -202,7 +202,7 @@ describe('FontSize', () => {
     });
 
     it('does not duplicate 16px if already in configured sizes', () => {
-      const items = FontSize.config.addToolbarItems?.call(FontSize) as ToolbarItem[];
+      const items = FontSize.config.addToolbarItems?.call(FontSize) ?? [];
       const dd = items[0] as ToolbarDropdown;
       const labels = dd.items.map(i => i.label);
       expect(labels.filter(l => l === '16px')).toHaveLength(1);
@@ -210,7 +210,7 @@ describe('FontSize', () => {
 
     it('includes reset button when showReset is true', () => {
       const WithReset = FontSize.configure({ fontSizes: ['12px', '16px'], showReset: true });
-      const items = WithReset.config.addToolbarItems?.call(WithReset) as ToolbarItem[];
+      const items = WithReset.config.addToolbarItems?.call(WithReset) ?? [];
       const dd = items[0] as ToolbarDropdown;
       const last = dd.items[dd.items.length - 1]!;
       expect(last.name).toBe('unsetFontSize');
@@ -220,7 +220,7 @@ describe('FontSize', () => {
     });
 
     it('excludes reset button when showReset is false', () => {
-      const items = FontSize.config.addToolbarItems?.call(FontSize) as ToolbarItem[];
+      const items = FontSize.config.addToolbarItems?.call(FontSize) ?? [];
       const dd = items[0] as ToolbarDropdown;
       const names = dd.items.map(i => i.name);
       expect(names).not.toContain('unsetFontSize');

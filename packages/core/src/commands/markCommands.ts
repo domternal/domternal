@@ -120,16 +120,27 @@ export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
       if (!$pos.parent.inlineContent || !$pos.parent.type.allowsMarkType(markType)) {
         return false;
       }
+      // Respect mark exclusions (e.g. code mark excludes all other marks)
+      const cursorMarks = tr.storedMarks ?? state.storedMarks ?? $pos.marks();
+      if (cursorMarks.some((m) => m.type.excludes(markType) && m.type !== markType)) {
+        return false;
+      }
     } else {
-      let parentAllows = false;
+      const ctx = { parentAllows: false, hasText: false, hasApplicableText: false };
       for (const range of ranges) {
         tr.doc.nodesBetween(range.$from.pos, range.$to.pos, (node) => {
           if (node.inlineContent && node.type.allowsMarkType(markType)) {
-            parentAllows = true;
+            ctx.parentAllows = true;
+          }
+          if (node.isText) {
+            ctx.hasText = true;
+            if (!node.marks.some((m) => m.type.excludes(markType) && m.type !== markType)) {
+              ctx.hasApplicableText = true;
+            }
           }
         });
       }
-      if (!parentAllows) return false;
+      if (!ctx.parentAllows || (ctx.hasText && !ctx.hasApplicableText)) return false;
     }
 
     // Cursor mode — add to stored marks

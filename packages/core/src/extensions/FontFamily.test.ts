@@ -9,7 +9,7 @@ import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { Editor } from '../Editor.js';
 import { TextSelection } from 'prosemirror-state';
-import type { ToolbarItem, ToolbarDropdown } from '../types/Toolbar.js';
+import type { ToolbarDropdown } from '../types/Toolbar.js';
 
 describe('FontFamily', () => {
   describe('configuration', () => {
@@ -131,13 +131,13 @@ describe('FontFamily', () => {
 
   describe('addToolbarItems', () => {
     it('returns a dropdown item', () => {
-      const items = FontFamily.config.addToolbarItems?.call(FontFamily) as ToolbarItem[];
+      const items = FontFamily.config.addToolbarItems?.call(FontFamily) ?? [];
       expect(items).toHaveLength(1);
       expect(items[0]?.type).toBe('dropdown');
     });
 
     it('dropdown has correct base properties', () => {
-      const items = FontFamily.config.addToolbarItems?.call(FontFamily) as ToolbarItem[];
+      const items = FontFamily.config.addToolbarItems?.call(FontFamily) ?? [];
       const dd = items[0] as ToolbarDropdown;
       expect(dd.name).toBe('fontFamily');
       expect(dd.icon).toBe('textAa');
@@ -148,25 +148,25 @@ describe('FontFamily', () => {
     });
 
     it('dropdown has dynamicLabel enabled', () => {
-      const items = FontFamily.config.addToolbarItems?.call(FontFamily) as ToolbarItem[];
+      const items = FontFamily.config.addToolbarItems?.call(FontFamily) ?? [];
       const dd = items[0] as ToolbarDropdown;
       expect(dd.dynamicLabel).toBe(true);
     });
 
     it('dropdown has computedStyleProperty set to font-family', () => {
-      const items = FontFamily.config.addToolbarItems?.call(FontFamily) as ToolbarItem[];
+      const items = FontFamily.config.addToolbarItems?.call(FontFamily) ?? [];
       const dd = items[0] as ToolbarDropdown;
       expect(dd.computedStyleProperty).toBe('font-family');
     });
 
     it('dropdown has no dynamicLabelFallback (falls back to icon)', () => {
-      const items = FontFamily.config.addToolbarItems?.call(FontFamily) as ToolbarItem[];
+      const items = FontFamily.config.addToolbarItems?.call(FontFamily) ?? [];
       const dd = items[0] as ToolbarDropdown;
       expect(dd.dynamicLabelFallback).toBeUndefined();
     });
 
     it('dropdown contains items for all configured font families', () => {
-      const items = FontFamily.config.addToolbarItems?.call(FontFamily) as ToolbarItem[];
+      const items = FontFamily.config.addToolbarItems?.call(FontFamily) ?? [];
       const dd = items[0] as ToolbarDropdown;
       expect(dd.items).toHaveLength(8);
       expect(dd.items[0]?.label).toBe('Arial');
@@ -174,7 +174,7 @@ describe('FontFamily', () => {
     });
 
     it('each dropdown item has correct command and isActive', () => {
-      const items = FontFamily.config.addToolbarItems?.call(FontFamily) as ToolbarItem[];
+      const items = FontFamily.config.addToolbarItems?.call(FontFamily) ?? [];
       const dd = items[0] as ToolbarDropdown;
       const arialItem = dd.items[0]!;
       expect(arialItem.command).toBe('setFontFamily');
@@ -183,7 +183,7 @@ describe('FontFamily', () => {
     });
 
     it('each dropdown item has font-family style for preview', () => {
-      const items = FontFamily.config.addToolbarItems?.call(FontFamily) as ToolbarItem[];
+      const items = FontFamily.config.addToolbarItems?.call(FontFamily) ?? [];
       const dd = items[0] as ToolbarDropdown;
       expect(dd.items[0]?.style).toBe('font-family: Arial');
       // Multi-word font names get quoted
@@ -191,7 +191,7 @@ describe('FontFamily', () => {
     });
 
     it('items have descending priority', () => {
-      const items = FontFamily.config.addToolbarItems?.call(FontFamily) as ToolbarItem[];
+      const items = FontFamily.config.addToolbarItems?.call(FontFamily) ?? [];
       const dd = items[0] as ToolbarDropdown;
       expect(dd.items[0]?.priority).toBe(200);
       expect(dd.items[1]?.priority).toBe(199);
@@ -200,13 +200,13 @@ describe('FontFamily', () => {
 
     it('returns empty array when fontFamilies is empty', () => {
       const Empty = FontFamily.configure({ fontFamilies: [] });
-      const items = Empty.config.addToolbarItems?.call(Empty) as ToolbarItem[];
+      const items = Empty.config.addToolbarItems?.call(Empty) ?? [];
       expect(items).toHaveLength(0);
     });
 
     it('uses configured font families', () => {
       const Custom = FontFamily.configure({ fontFamilies: ['Roboto', 'Open Sans'] });
-      const items = Custom.config.addToolbarItems?.call(Custom) as ToolbarItem[];
+      const items = Custom.config.addToolbarItems?.call(Custom) ?? [];
       const dd = items[0] as ToolbarDropdown;
       expect(dd.items).toHaveLength(2);
       expect(dd.items[0]?.label).toBe('Roboto');

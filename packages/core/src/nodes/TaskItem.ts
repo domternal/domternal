@@ -30,7 +30,7 @@ export interface TaskItemOptions {
 export const TaskItem = Node.create<TaskItemOptions>({
   name: 'taskItem',
 
-  content: 'paragraph block*',
+  content: 'block+',
 
   defining: true,
 

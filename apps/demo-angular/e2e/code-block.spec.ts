@@ -288,6 +288,27 @@ test.describe('Code block — toolbar disabled state', () => {
     await expect(toolbarButton(page, 'Italic')).toBeDisabled();
   });
 
+  test('link button is disabled in code block with selection', async ({ page }) => {
+    // Select all text inside the code block
+    await page.locator(`${editorSelector} pre`).click();
+    await page.keyboard.press('Meta+a');
+    await page.waitForTimeout(200);
+
+    await expect(toolbarButton(page, 'Link')).toBeDisabled();
+  });
+
+  test('insert emoji button is disabled in code block', async ({ page }) => {
+    await expect(toolbarButton(page, 'Insert Emoji')).toBeDisabled();
+  });
+
+  test('insert image button is disabled in code block', async ({ page }) => {
+    await expect(toolbarButton(page, 'Insert Image')).toBeDisabled();
+  });
+
+  test('insert table button is disabled in code block', async ({ page }) => {
+    await expect(toolbarButton(page, 'Insert Table')).toBeDisabled();
+  });
+
   test('dropdowns re-enable when cursor moves to normal paragraph', async ({ page }) => {
     // Verify disabled in code block
     await expect(dropdownTrigger(page, 'Font Family')).toBeDisabled();
@@ -304,5 +325,21 @@ test.describe('Code block — toolbar disabled state', () => {
     await expect(dropdownTrigger(page, 'Highlight')).toBeEnabled();
     await expect(dropdownTrigger(page, 'Text Alignment')).toBeEnabled();
     await expect(dropdownTrigger(page, 'Line Height')).toBeEnabled();
+  });
+
+  test('insert buttons re-enable when cursor moves to normal paragraph', async ({ page }) => {
+    // Verify disabled in code block
+    await expect(toolbarButton(page, 'Insert Emoji')).toBeDisabled();
+    await expect(toolbarButton(page, 'Insert Image')).toBeDisabled();
+    await expect(toolbarButton(page, 'Insert Table')).toBeDisabled();
+
+    // Click into normal paragraph
+    await page.locator(`${editorSelector} p`).click();
+    await page.waitForTimeout(200);
+
+    // Should be enabled now
+    await expect(toolbarButton(page, 'Insert Emoji')).toBeEnabled();
+    await expect(toolbarButton(page, 'Insert Image')).toBeEnabled();
+    await expect(toolbarButton(page, 'Insert Table')).toBeEnabled();
   });
 });

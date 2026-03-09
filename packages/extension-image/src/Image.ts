@@ -422,6 +422,9 @@ export const Image = Node.create<ImageOptions>({
 
           if (!this.nodeType) return false;
 
+          // Refuse insertion inside code blocks
+          if (tr.selection.$from.parent.type.spec.code) return false;
+
           if (dispatch) {
             const node = this.nodeType.create(attributes);
             tr.replaceSelectionWith(node);

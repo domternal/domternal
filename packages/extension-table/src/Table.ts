@@ -156,12 +156,12 @@ export const Table = Node.create<TableOptions>({
       insertTable:
         (options?: { rows?: number; cols?: number; withHeaderRow?: boolean }) =>
         ({ state, tr, dispatch }) => {
-          // Prevent nesting tables — refuse if cursor is inside a table
+          // Prevent insertion inside tables and code blocks
           const $from = state.selection.$from;
           for (let d = $from.depth; d > 0; d--) {
-            if ($from.node(d).type.name === 'table') {
-              return false;
-            }
+            const node = $from.node(d);
+            if (node.type.name === 'table') return false;
+            if (node.type.spec.code) return false;
           }
 
           const rows = options?.rows ?? 3;

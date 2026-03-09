@@ -235,25 +235,27 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
       insertEmoji:
         (name: string) =>
         ({ tr, dispatch }) => {
+          // Refuse insertion inside code blocks
+          if (tr.selection.$from.parent.type.spec.code) return false;
+
+          if (!this.options.plainText && !this.nodeType) return false;
+
           const item = this.storage._nameMap?.get(name);
-          if (!item) return false;
-
-          if (this.options.plainText) {
-            if (dispatch) {
-              tr.insertText(item.emoji);
-              dispatch(tr);
-              this.storage.addFrequentlyUsed(name);
-            }
-            return true;
-          }
-
-          if (!this.nodeType) return false;
 
           if (dispatch) {
-            const node = this.nodeType.create({ name });
-            tr.replaceSelectionWith(node);
+            if (!item) return false;
+
+            if (this.options.plainText) {
+              tr.insertText(item.emoji);
+            } else {
+              const node = this.nodeType!.create({ name });
+              tr.replaceSelectionWith(node);
+            }
             dispatch(tr);
             this.storage.addFrequentlyUsed(name);
+          } else if (!item) {
+            // Dry-run: unknown name but context is valid — report as capable
+            return true;
           }
 
           return true;

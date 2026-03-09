@@ -524,6 +524,18 @@ export const Link = Mark.create<LinkOptions>({
             if (!dispatch) return true;
             tr.removeMark(range.from, range.to, markType);
           } else {
+            // Cannot add/remove links in nodes that disallow marks (e.g. code block)
+            if (!tr.selection.$from.parent.type.allowsMarkType(markType)) return false;
+            // Cannot link text inside exclusive marks (e.g. inline code with excludes: '_')
+            const ctx = { hasApplicableText: false };
+            for (const range of ranges) {
+              tr.doc.nodesBetween(range.$from.pos, range.$to.pos, (node) => {
+                if (node.isText && !node.marks.some((m) => m.type.excludes(markType) && m.type !== markType)) {
+                  ctx.hasApplicableText = true;
+                }
+              });
+            }
+            if (!ctx.hasApplicableText) return false;
             if (!dispatch) return true;
             // Iterate over selection ranges (handles CellSelection with multiple ranges)
             for (const range of ranges) {

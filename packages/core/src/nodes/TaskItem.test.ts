@@ -24,8 +24,8 @@ describe('TaskItem', () => {
       expect(TaskItem.type).toBe('node');
     });
 
-    it('has paragraph block* content', () => {
-      expect(TaskItem.config.content).toBe('paragraph block*');
+    it('has block+ content', () => {
+      expect(TaskItem.config.content).toBe('block+');
     });
 
     it('is defining', () => {

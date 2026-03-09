@@ -670,7 +670,7 @@ describe('ToolbarController', () => {
       expect(canSetHeading).toHaveBeenCalledWith({ level: 1 });
     });
 
-    it('buttons with emitEvent are never disabled', () => {
+    it('buttons with emitEvent are disabled when can() returns false', () => {
       const items: ToolbarItem[] = [
         btn('link', { command: 'setLink', emitEvent: 'openLinkPopover' }),
       ];
@@ -681,7 +681,7 @@ describe('ToolbarController', () => {
       controller = new ToolbarController(editor, vi.fn());
       controller.subscribe();
 
-      expect(controller.isDisabled(items[0] as ToolbarButton)).toBe(false);
+      expect(controller.isDisabled(items[0] as ToolbarButton)).toBe(true);
     });
 
     it('handles can() throwing gracefully', () => {
