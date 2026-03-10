@@ -293,6 +293,12 @@ export class Editor extends EventEmitter<EditorEvents> {
     // Check if it's a node
     const nodeType = schema.nodes[name];
     if (nodeType) {
+      // NodeSelection — check the selected node directly (atom/leaf nodes like image)
+      const selNode = (selection as { node?: { type: typeof nodeType; attrs: Record<string, unknown> } }).node;
+      if (selNode?.type === nodeType) {
+        return attrs ? this.matchAttributes(selNode.attrs, attrs) : true;
+      }
+
       // Check both $from and $to paths — the node must be an ancestor
       // of both ends of the selection for it to be considered active.
       const { $to } = selection;

@@ -98,6 +98,9 @@ export interface ToolbarButton {
 
   /** Show in the main toolbar. @default true. Set false for bubble-menu-only items. */
   toolbar?: boolean;
+
+  /** Bubble menu context name. When set, this item is included in the default bubble menu for this context. */
+  bubbleMenu?: string;
 }
 
 /**

@@ -88,8 +88,8 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   /** Fixed item names (e.g. ['bold', 'italic', 'code']). Omit for auto mode (all format items). */
   readonly items = input<string[]>();
 
-  /** Context-aware: map context names to item arrays or `true` for all valid items */
-  readonly contexts = input<Record<string, string[] | true>>();
+  /** Context-aware: map context names to item arrays, `true` for all valid items, or `null` to disable */
+  readonly contexts = input<Record<string, string[] | true | null>>();
 
   /** Internal — updated on transactions. Not meant to be set from outside. */
   readonly resolvedItems = signal<BubbleMenuItem[]>([]);
@@ -105,6 +105,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   private activeMap = new Map<string, boolean>();
   private disabledMap = new Map<string, boolean>();
   private htmlCache = new Map<string, SafeHtml>();
+  private bubbleDefaults = new Map<string, BubbleMenuItem[]>();
   private transactionHandler: (() => void) | null = null;
 
   constructor() {
@@ -121,9 +122,13 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
         if (ctxs) {
           shouldShowFn = ({ state }: { state: { selection: SelectionShape } }) => {
             const context = this.detectContext(state.selection, ctxs);
-            if (!context || !(context in ctxs)) return false;
-            const val = ctxs[context];
-            return val === true || (Array.isArray(val) && val.length > 0);
+            if (!context) return false;
+            if (context in ctxs) {
+              const val = ctxs[context];
+              if (val === null) return false;
+              return val === true || (Array.isArray(val) && val.length > 0);
+            }
+            return this.bubbleDefaults.has(context);
           };
         } else {
           // Auto/items mode: show when any endpoint's parent allows marks
@@ -225,7 +230,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
       .sort((a, b) => (b.priority ?? 100) - (a.priority ?? 100));
   }
 
-  private detectContext(selection: SelectionShape, ctxs: Record<string, string[] | true>): string | null {
+  private detectContext(selection: SelectionShape, ctxs: Record<string, string[] | true | null>): string | null {
     // CellSelection (duck-type: has $anchorCell) — never show bubble menu
     if ('$anchorCell' in selection) return null;
     if (selection.node) return selection.node.type.name;
@@ -276,8 +281,41 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     });
   }
 
+  private buildBubbleDefaults(editor: Editor): void {
+    this.bubbleDefaults.clear();
+    const byCtx = new Map<string, ToolbarButton[]>();
+    const addItem = (btn: ToolbarButton): void => {
+      const ctx = (btn as unknown as Record<string, unknown>)['bubbleMenu'] as string | undefined;
+      if (!ctx) return;
+      let arr = byCtx.get(ctx);
+      if (!arr) { arr = []; byCtx.set(ctx, arr); }
+      arr.push(btn);
+    };
+    for (const item of editor.toolbarItems) {
+      if (item.type === 'button') addItem(item);
+      else if (item.type === 'dropdown') {
+        for (const sub of item.items) addItem(sub);
+      }
+    }
+    for (const [ctx, items] of byCtx) {
+      items.sort((a, b) => (b.priority ?? 100) - (a.priority ?? 100));
+      const result: BubbleMenuItem[] = [];
+      let lastGroup: string | undefined;
+      let sepIdx = 0;
+      for (const item of items) {
+        if (lastGroup !== undefined && item.group !== lastGroup) {
+          result.push({ type: 'separator', name: `bsep-${sepIdx++}` });
+        }
+        result.push(item);
+        lastGroup = item.group;
+      }
+      this.bubbleDefaults.set(ctx, result);
+    }
+  }
+
   private setupItemTracking(editor: Editor): void {
     this.buildItemMap(editor);
+    this.buildBubbleDefaults(editor);
 
     if (this.contexts()) {
       this.updateContextItems(editor);
@@ -303,18 +341,26 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   private updateContextItems(editor: Editor): void {
     const ctxs = this.contexts()!;
     const ctx = this.detectContext(editor.state.selection as unknown as SelectionShape, ctxs);
-    if (!ctx || !(ctx in ctxs)) {
+    if (!ctx) {
       this.resolvedItems.set([]);
       return;
     }
-    const val = ctxs[ctx];
-    if (val === true) {
-      this.resolvedItems.set(this.filterBySchema(editor, ctx, this.getFormatItems()));
+    if (ctx in ctxs) {
+      const val = ctxs[ctx];
+      if (val === null || (Array.isArray(val) && val.length === 0)) {
+        this.resolvedItems.set([]);
+        return;
+      }
+      if (val === true) {
+        this.resolvedItems.set(this.filterBySchema(editor, ctx, this.getFormatItems()));
+      } else {
+        const resolved = this.resolveNames(val);
+        const buttons = resolved.filter((i): i is ToolbarButton => i.type !== 'separator');
+        const filtered = new Set(this.filterBySchema(editor, ctx, buttons).map(b => b.name));
+        this.resolvedItems.set(resolved.filter(i => i.type === 'separator' || filtered.has(i.name)));
+      }
     } else {
-      const resolved = this.resolveNames(val);
-      const buttons = resolved.filter((i): i is ToolbarButton => i.type !== 'separator');
-      const filtered = new Set(this.filterBySchema(editor, ctx, buttons).map(b => b.name));
-      this.resolvedItems.set(resolved.filter(i => i.type === 'separator' || filtered.has(i.name)));
+      this.resolvedItems.set(this.bubbleDefaults.get(ctx) ?? []);
     }
   }
 
