@@ -39,6 +39,15 @@ interface SelectionShape {
   node?: { type: { name: string } };
 }
 
+/** Check if a resolved position is inside a table cell or header. */
+function isInsideTableCell($pos: ResolvedPosShape): boolean {
+  for (let d = $pos.depth; d > 0; d--) {
+    const name = $pos.node(d).type.name;
+    if (name === 'tableCell' || name === 'tableHeader') return true;
+  }
+  return false;
+}
+
 /** ProseMirror schema shape for mark filtering */
 interface SchemaShape {
   nodes: Record<string, { allowsMarkType: (mt: unknown) => boolean }>;
@@ -120,6 +129,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
           // Auto/items mode: show when any endpoint's parent allows marks
           shouldShowFn = ({ state }: { state: { selection: SelectionShape } }) => {
             if (state.selection.empty || state.selection.node) return false;
+            if (isInsideTableCell(state.selection.$from)) return false;
             return state.selection.$from.parent.type.spec.marks !== ''
                 || state.selection.$to.parent.type.spec.marks !== '';
           };
@@ -216,17 +226,18 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   }
 
   private detectContext(selection: SelectionShape, ctxs: Record<string, string[] | true>): string | null {
-    // CellSelection (duck-type: has $anchorCell from prosemirror-tables) — never show bubble menu
-    if ('$anchorCell' in selection) return 'table';
+    // CellSelection (duck-type: has $anchorCell) — never show bubble menu
+    if ('$anchorCell' in selection) return null;
     if (selection.node) return selection.node.type.name;
     if (selection.empty) return null;
 
-    // Cross-cell TextSelection (drag across table cells) — hide bubble menu.
-    // Node identity comparison works because ProseMirror reuses node objects.
+    // TextSelection inside a table cell → 'table' context.
+    // Cross-cell TextSelection (drag across cells) → hide bubble menu.
     const fromCell = this.findCellNode(selection.$from);
     if (fromCell) {
       const toCell = this.findCellNode(selection.$to);
-      if (toCell && fromCell !== toCell) return 'table';
+      if (toCell && fromCell !== toCell) return null;
+      return 'table';
     }
 
     const fromName = selection.$from.parent.type.name;
@@ -251,7 +262,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
   /** Filters out mark items that the context node type doesn't allow (e.g. bold on codeBlock) */
   private filterBySchema(editor: Editor, contextName: string, items: ToolbarButton[]): ToolbarButton[] {
-    if (contextName === 'text') return items;
+    if (contextName === 'text' || contextName === 'table') return items;
     const schema = (editor.state as unknown as { schema?: SchemaShape }).schema;
     if (!schema) return items;
     const nodeType = schema.nodes[contextName];

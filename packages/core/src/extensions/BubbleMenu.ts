@@ -63,17 +63,12 @@ function defaultShouldShow({
   // Don't show if editor is not editable
   if (!editor.isEditable) return false;
 
-  // Don't show if selection spans across different table cells.
-  // A cross-cell TextSelection happens during mouse drag across cells —
-  // the bubble menu would float over the table confusingly.
+  // Don't show inside table cells — the cell toolbar handles table formatting.
+  // Extensions can opt-in via a custom shouldShow if needed.
   const $from = state.doc.resolve(from);
   for (let d = $from.depth; d > 0; d--) {
     const name = $from.node(d).type.name;
-    if (name === 'tableCell' || name === 'tableHeader') {
-      const cellEnd = $from.before(d) + $from.node(d).nodeSize;
-      if (to > cellEnd) return false;
-      break;
-    }
+    if (name === 'tableCell' || name === 'tableHeader') return false;
   }
 
   return true;
