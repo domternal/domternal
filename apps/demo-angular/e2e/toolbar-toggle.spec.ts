@@ -151,7 +151,7 @@ test.describe('Image popover — toggle & aria-expanded', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
-    await page.locator(editorSelector).click();
+    await setContentAndFocus(page, '<p>Hello</p>');
   });
 
   test('toolbar button click opens image popover', async ({ page }) => {
@@ -235,7 +235,7 @@ test.describe('Emoji picker — toggle', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
-    await page.locator(editorSelector).click();
+    await setContentAndFocus(page, '<p>Hello</p>');
   });
 
   test('toolbar button click opens emoji picker', async ({ page }) => {

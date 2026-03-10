@@ -32,8 +32,10 @@ const imageBtn = `${toolbar} button[aria-label="Insert Image"]`;
 const emojiBtn = `${toolbar} button[aria-label="Insert Emoji"]`;
 const clearFormattingBtn = `${toolbar} button[aria-label="Clear Formatting"]`;
 
-// Custom dropdown created by layout
-const moreFormatDropdown = `${toolbar} button[aria-label="More Format"]`;
+// Custom dropdowns created by layout
+const formattingDropdown = `${toolbar} button[aria-label="Formatting"]`;
+const listsDropdown = `${toolbar} button[aria-label="Lists"]`;
+const insertDropdown = `${toolbar} button[aria-label="Insert"]`;
 
 async function switchToLayout(page: Page) {
   await page.locator(toggleLayout).click();
@@ -183,13 +185,13 @@ test.describe('Toolbar layout — structure', () => {
     }
   });
 
-  test('layout has correct number of groups (8 from layout with 7 separators)', async ({ page }) => {
-    // Layout: [bold, italic, underline] | [More Format, clearFormatting] | [heading] | [textAlign] | [textColor, highlight] | [bulletList, orderedList, taskList] | [link, image, emoji] | [undo, redo]
+  test('layout has correct number of groups (6 groups with 5 separators)', async ({ page }) => {
+    // Layout: [bold, italic, underline, heading1] | [Formatting, Lists, clearFormatting] | [heading, textAlign] | [textColor, highlight] | [Insert] | [undo, redo]
     const groups = page.locator(group);
-    await expect(groups).toHaveCount(8);
+    await expect(groups).toHaveCount(6);
   });
 
-  test('first group contains bold, italic, underline in order', async ({ page }) => {
+  test('first group contains bold, italic, underline, heading 1 in order', async ({ page }) => {
     const firstGroup = page.locator(group).first();
     const buttons = firstGroup.locator('.dm-toolbar-button');
 
@@ -199,7 +201,7 @@ test.describe('Toolbar layout — structure', () => {
       labels.push(await buttons.nth(i).getAttribute('aria-label') ?? '');
     }
 
-    expect(labels).toEqual(['Bold', 'Italic', 'Underline']);
+    expect(labels).toEqual(['Bold', 'Italic', 'Underline', 'Heading 1']);
   });
 
   test('last group contains undo, redo in order', async ({ page }) => {
@@ -229,7 +231,7 @@ test.describe('Toolbar layout — structure', () => {
   });
 
   test('strike, code, subscript, superscript are NOT standalone buttons', async ({ page }) => {
-    // These are inside the "More Format" custom dropdown, not top-level
+    // These are inside the "Formatting" custom dropdown, not top-level
     await expect(page.locator(`${toolbar} > .dm-toolbar-group > button[aria-label="Strikethrough"]`)).toHaveCount(0);
     await expect(page.locator(`${toolbar} > .dm-toolbar-group > button[aria-label="Code"]`)).toHaveCount(0);
     await expect(page.locator(`${toolbar} > .dm-toolbar-group > button[aria-label="Subscript"]`)).toHaveCount(0);
@@ -248,43 +250,43 @@ test.describe('Toolbar layout — structure', () => {
 });
 
 // =============================================================================
-// Custom dropdown — "More Format"
+// Custom dropdown — "Formatting"
 // =============================================================================
 
-test.describe('Toolbar layout — custom dropdown (More Format)', () => {
+test.describe('Toolbar layout — custom dropdown (Formatting)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
     await switchToLayout(page);
   });
 
-  test('More Format dropdown trigger is visible', async ({ page }) => {
-    await expect(page.locator(moreFormatDropdown)).toBeVisible();
+  test('Formatting dropdown trigger is visible', async ({ page }) => {
+    await expect(page.locator(formattingDropdown)).toBeVisible();
   });
 
-  test('More Format trigger has dropdown caret', async ({ page }) => {
-    const html = await page.locator(moreFormatDropdown).innerHTML();
+  test('Formatting trigger has dropdown caret', async ({ page }) => {
+    const html = await page.locator(formattingDropdown).innerHTML();
     expect(html).toContain('dm-dropdown-caret');
   });
 
-  test('More Format trigger has aria-haspopup', async ({ page }) => {
-    await expect(page.locator(moreFormatDropdown)).toHaveAttribute('aria-haspopup', 'true');
+  test('Formatting trigger has aria-haspopup', async ({ page }) => {
+    await expect(page.locator(formattingDropdown)).toHaveAttribute('aria-haspopup', 'true');
   });
 
-  test('More Format trigger has aria-expanded="false" initially', async ({ page }) => {
-    await expect(page.locator(moreFormatDropdown)).toHaveAttribute('aria-expanded', 'false');
+  test('Formatting trigger has aria-expanded="false" initially', async ({ page }) => {
+    await expect(page.locator(formattingDropdown)).toHaveAttribute('aria-expanded', 'false');
   });
 
-  test('clicking More Format opens dropdown panel', async ({ page }) => {
-    await page.locator(moreFormatDropdown).click();
+  test('clicking Formatting opens dropdown panel', async ({ page }) => {
+    await page.locator(formattingDropdown).click();
 
     const panel = page.locator('.dm-toolbar-dropdown-panel');
     await expect(panel).toBeVisible();
-    await expect(page.locator(moreFormatDropdown)).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator(formattingDropdown)).toHaveAttribute('aria-expanded', 'true');
   });
 
-  test('More Format dropdown contains strike, code, subscript, superscript', async ({ page }) => {
-    await page.locator(moreFormatDropdown).click();
+  test('Formatting dropdown contains strike, code, subscript, superscript', async ({ page }) => {
+    await page.locator(formattingDropdown).click();
 
     const panel = page.locator('.dm-toolbar-dropdown-panel');
     const items = panel.locator('.dm-toolbar-dropdown-item');
@@ -298,87 +300,87 @@ test.describe('Toolbar layout — custom dropdown (More Format)', () => {
     expect(labels).toEqual(['Strikethrough', 'Code', 'Subscript', 'Superscript']);
   });
 
-  test('clicking More Format again closes dropdown', async ({ page }) => {
-    await page.locator(moreFormatDropdown).click();
+  test('clicking Formatting again closes dropdown', async ({ page }) => {
+    await page.locator(formattingDropdown).click();
     await expect(page.locator('.dm-toolbar-dropdown-panel')).toBeVisible();
 
-    await page.locator(moreFormatDropdown).click();
+    await page.locator(formattingDropdown).click();
     await expect(page.locator('.dm-toolbar-dropdown-panel')).not.toBeVisible();
-    await expect(page.locator(moreFormatDropdown)).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator(formattingDropdown)).toHaveAttribute('aria-expanded', 'false');
   });
 
-  test('clicking outside closes More Format dropdown', async ({ page }) => {
-    await page.locator(moreFormatDropdown).click();
+  test('clicking outside closes Formatting dropdown', async ({ page }) => {
+    await page.locator(formattingDropdown).click();
     await expect(page.locator('.dm-toolbar-dropdown-panel')).toBeVisible();
 
     await page.locator(editorSelector).click();
     await expect(page.locator('.dm-toolbar-dropdown-panel')).not.toBeVisible();
   });
 
-  test('Escape closes More Format dropdown', async ({ page }) => {
-    await page.locator(moreFormatDropdown).click();
+  test('Escape closes Formatting dropdown', async ({ page }) => {
+    await page.locator(formattingDropdown).click();
     await expect(page.locator('.dm-toolbar-dropdown-panel')).toBeVisible();
 
-    await page.locator(moreFormatDropdown).focus();
+    await page.locator(formattingDropdown).focus();
     await page.keyboard.press('Escape');
     await expect(page.locator('.dm-toolbar-dropdown-panel')).not.toBeVisible();
   });
 
-  test('strikethrough item in More Format applies mark to selected text', async ({ page }) => {
+  test('strikethrough item in Formatting applies mark to selected text', async ({ page }) => {
     await setContentAndFocus(page, '<p>hello world</p>');
     await replaceAndSelectAll(page, 'strike me');
 
-    await page.locator(moreFormatDropdown).click();
+    await page.locator(formattingDropdown).click();
     await page.locator('button[aria-label="Strikethrough"]').click();
 
     const html = await getEditorHTML(page);
     expect(html).toContain('<s>strike me</s>');
   });
 
-  test('code item in More Format applies mark to selected text', async ({ page }) => {
+  test('code item in Formatting applies mark to selected text', async ({ page }) => {
     await setContentAndFocus(page, '<p>hello world</p>');
     await replaceAndSelectAll(page, 'code me');
 
-    await page.locator(moreFormatDropdown).click();
+    await page.locator(formattingDropdown).click();
     await page.locator('button[aria-label="Code"]').click();
 
     const html = await getEditorHTML(page);
     expect(html).toContain('<code>code me</code>');
   });
 
-  test('subscript item in More Format applies mark', async ({ page }) => {
+  test('subscript item in Formatting applies mark', async ({ page }) => {
     await setContentAndFocus(page, '<p>hello world</p>');
     await replaceAndSelectAll(page, 'sub me');
 
-    await page.locator(moreFormatDropdown).click();
+    await page.locator(formattingDropdown).click();
     await page.locator('button[aria-label="Subscript"]').click();
 
     const html = await getEditorHTML(page);
     expect(html).toContain('<sub>sub me</sub>');
   });
 
-  test('superscript item in More Format applies mark', async ({ page }) => {
+  test('superscript item in Formatting applies mark', async ({ page }) => {
     await setContentAndFocus(page, '<p>hello world</p>');
     await replaceAndSelectAll(page, 'sup me');
 
-    await page.locator(moreFormatDropdown).click();
+    await page.locator(formattingDropdown).click();
     await page.locator('button[aria-label="Superscript"]').click();
 
     const html = await getEditorHTML(page);
     expect(html).toContain('<sup>sup me</sup>');
   });
 
-  test('active state shows inside More Format dropdown for applied mark', async ({ page }) => {
+  test('active state shows inside Formatting dropdown for applied mark', async ({ page }) => {
     await setContentAndFocus(page, '<p><s>struck text</s></p>');
     await page.locator(`${editorSelector} s`).click();
 
-    await page.locator(moreFormatDropdown).click();
+    await page.locator(formattingDropdown).click();
     const strikeItem = page.locator('.dm-toolbar-dropdown-item[aria-label="Strikethrough"]');
     await expect(strikeItem).toHaveClass(/active/);
   });
 
   test('displayMode "text" renders only text, no SVG icon', async ({ page }) => {
-    await page.locator(moreFormatDropdown).click();
+    await page.locator(formattingDropdown).click();
 
     const items = page.locator('.dm-toolbar-dropdown-panel .dm-toolbar-dropdown-item');
     const count = await items.count();
@@ -527,6 +529,7 @@ test.describe('Toolbar layout — button functionality', () => {
   test('bullet list button toggles bullet list', async ({ page }) => {
     await setContentAndFocus(page, '<p>list item</p>');
     await page.locator(`${editorSelector} p`).click();
+    await page.locator(listsDropdown).click();
     await page.locator(bulletListBtn).click();
 
     const html = await getEditorHTML(page);
@@ -537,6 +540,7 @@ test.describe('Toolbar layout — button functionality', () => {
   test('ordered list button toggles ordered list', async ({ page }) => {
     await setContentAndFocus(page, '<p>numbered item</p>');
     await page.locator(`${editorSelector} p`).click();
+    await page.locator(listsDropdown).click();
     await page.locator(orderedListBtn).click();
 
     const html = await getEditorHTML(page);
@@ -547,6 +551,7 @@ test.describe('Toolbar layout — button functionality', () => {
   test('task list button toggles task list', async ({ page }) => {
     await setContentAndFocus(page, '<p>todo item</p>');
     await page.locator(`${editorSelector} p`).click();
+    await page.locator(listsDropdown).click();
     await page.locator(taskListBtn).click();
 
     const html = await getEditorHTML(page);
@@ -768,15 +773,18 @@ test.describe('Toolbar layout — emitEvent buttons', () => {
     await switchToLayout(page);
   });
 
-  test('link button is present in layout', async ({ page }) => {
+  test('link button is present in Insert dropdown', async ({ page }) => {
+    await page.locator(insertDropdown).click();
     await expect(page.locator(linkBtn)).toBeVisible();
   });
 
-  test('image button is present in layout', async ({ page }) => {
+  test('image button is present in Insert dropdown', async ({ page }) => {
+    await page.locator(insertDropdown).click();
     await expect(page.locator(imageBtn)).toBeVisible();
   });
 
-  test('emoji button is present in layout', async ({ page }) => {
+  test('emoji button is present in Insert dropdown', async ({ page }) => {
+    await page.locator(insertDropdown).click();
     await expect(page.locator(emojiBtn)).toBeVisible();
   });
 
@@ -784,31 +792,34 @@ test.describe('Toolbar layout — emitEvent buttons', () => {
     await setContentAndFocus(page, '<p>Hello World</p>');
     await selectText(page, 0, 5);
 
+    await page.locator(insertDropdown).click();
     await page.locator(linkBtn).click();
     await expect(page.locator('.dm-link-popover')).toHaveAttribute('data-show', '');
   });
 
   test('image button opens image popover', async ({ page }) => {
-    await page.locator(editorSelector).click();
+    await setContentAndFocus(page, '<p>Hello World</p>');
 
+    await page.locator(insertDropdown).click();
     await page.locator(imageBtn).click();
     await expect(page.locator('.dm-image-popover[data-show]')).toBeVisible();
   });
 
   test('emoji button opens emoji picker', async ({ page }) => {
-    await page.locator(editorSelector).click();
+    await setContentAndFocus(page, '<p>Hello World</p>');
 
+    await page.locator(insertDropdown).click();
     await page.locator(emojiBtn).click();
     await expect(page.locator('.dm-emoji-picker')).toBeVisible();
   });
 
-  test('link button has aria-expanded when popover is open', async ({ page }) => {
+  test('link popover opens from Insert dropdown', async ({ page }) => {
     await setContentAndFocus(page, '<p>Hello World</p>');
     await selectText(page, 0, 5);
 
+    await page.locator(insertDropdown).click();
     await page.locator(linkBtn).click();
     await expect(page.locator('.dm-link-popover')).toHaveAttribute('data-show', '');
-    await expect(page.locator(linkBtn)).toHaveAttribute('aria-expanded', 'true');
   });
 });
 
@@ -921,13 +932,13 @@ test.describe('Toolbar layout — grouping differences', () => {
     expect(strikeCount + codeCount).toBeGreaterThan(0);
   });
 
-  test('layout mode has "More Format" dropdown that default mode does not', async ({ page }) => {
-    // Default mode should NOT have "More Format"
-    await expect(page.locator(moreFormatDropdown)).toHaveCount(0);
+  test('layout mode has "Formatting" dropdown that default mode does not', async ({ page }) => {
+    // Default mode should NOT have "Formatting"
+    await expect(page.locator(formattingDropdown)).toHaveCount(0);
 
-    // Layout mode should have "More Format"
+    // Layout mode should have "Formatting"
     await switchToLayout(page);
-    await expect(page.locator(moreFormatDropdown)).toBeVisible();
+    await expect(page.locator(formattingDropdown)).toBeVisible();
   });
 });
 
@@ -1019,13 +1030,13 @@ test.describe('Toolbar layout — combining operations', () => {
     expect(html).toContain('bold italic');
   });
 
-  test('bold button + strikethrough from More Format dropdown', async ({ page }) => {
+  test('bold button + strikethrough from Formatting dropdown', async ({ page }) => {
     await replaceAndSelectAll(page, 'combo text');
     await page.locator(boldBtn).click();
 
     await page.keyboard.press(`${modifier}+a`);
 
-    await page.locator(moreFormatDropdown).click();
+    await page.locator(formattingDropdown).click();
     await page.locator('.dm-toolbar-dropdown-item[aria-label="Strikethrough"]').click();
 
     const html = await getEditorHTML(page);
@@ -1100,9 +1111,9 @@ test.describe('Toolbar layout — tooltips', () => {
     expect(title).toContain('Italic');
   });
 
-  test('More Format dropdown trigger has tooltip', async ({ page }) => {
-    const title = await page.locator(moreFormatDropdown).getAttribute('title');
-    expect(title).toBe('More Format');
+  test('Formatting dropdown trigger has tooltip', async ({ page }) => {
+    const title = await page.locator(formattingDropdown).getAttribute('title');
+    expect(title).toBe('Formatting');
   });
 
   test('heading dropdown trigger has tooltip', async ({ page }) => {
@@ -1122,8 +1133,8 @@ test.describe('Toolbar layout — cross-dropdown interactions', () => {
     await switchToLayout(page);
   });
 
-  test('opening heading closes More Format', async ({ page }) => {
-    await page.locator(moreFormatDropdown).click();
+  test('opening heading closes Formatting', async ({ page }) => {
+    await page.locator(formattingDropdown).click();
     await expect(page.locator('.dm-toolbar-dropdown-panel')).toBeVisible();
 
     await page.locator(headingDropdown).click();
@@ -1132,18 +1143,18 @@ test.describe('Toolbar layout — cross-dropdown interactions', () => {
     await expect(panels).toHaveCount(1);
   });
 
-  test('opening More Format closes heading', async ({ page }) => {
+  test('opening Formatting closes heading', async ({ page }) => {
     await page.locator(headingDropdown).click();
     await expect(page.locator('.dm-toolbar-dropdown-panel')).toBeVisible();
 
-    await page.locator(moreFormatDropdown).click();
+    await page.locator(formattingDropdown).click();
     // Only one panel should be open
     const panels = page.locator('.dm-toolbar-dropdown-panel');
     await expect(panels).toHaveCount(1);
   });
 
   test('clicking regular button closes any open dropdown', async ({ page }) => {
-    await page.locator(moreFormatDropdown).click();
+    await page.locator(formattingDropdown).click();
     await expect(page.locator('.dm-toolbar-dropdown-panel')).toBeVisible();
 
     await page.locator(boldBtn).click({ force: true });

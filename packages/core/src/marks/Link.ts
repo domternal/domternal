@@ -524,13 +524,13 @@ export const Link = Mark.create<LinkOptions>({
             if (!dispatch) return true;
             tr.removeMark(range.from, range.to, markType);
           } else {
-            // Cannot add/remove links in nodes that disallow marks (e.g. code block)
-            if (!tr.selection.$from.parent.type.allowsMarkType(markType)) return false;
-            // Cannot link text inside exclusive marks (e.g. inline code with excludes: '_')
+            // Check that at least one text node in the selection is in a context that allows links.
+            // This correctly handles CellSelection (multiple ranges) and code blocks (marks: '').
             const ctx = { hasApplicableText: false };
             for (const range of ranges) {
-              tr.doc.nodesBetween(range.$from.pos, range.$to.pos, (node) => {
-                if (node.isText && !node.marks.some((m) => m.type.excludes(markType) && m.type !== markType)) {
+              tr.doc.nodesBetween(range.$from.pos, range.$to.pos, (node, _pos, parent) => {
+                if (node.isText && parent?.type.allowsMarkType(markType)
+                  && !node.marks.some((m) => m.type.excludes(markType) && m.type !== markType)) {
                   ctx.hasApplicableText = true;
                 }
               });

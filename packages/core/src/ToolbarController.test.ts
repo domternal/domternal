@@ -670,18 +670,32 @@ describe('ToolbarController', () => {
       expect(canSetHeading).toHaveBeenCalledWith({ level: 1 });
     });
 
-    it('buttons with emitEvent are disabled when can() returns false', () => {
+    it('emitEvent buttons are disabled when cursor is in code block', () => {
       const items: ToolbarItem[] = [
         btn('link', { command: 'setLink', emitEvent: 'openLinkPopover' }),
       ];
       const editor = createMockEditor(items, {
-        can: () => ({ setLink: () => false }),
+        isActive: (name) => name === 'codeBlock',
       });
 
       controller = new ToolbarController(editor, vi.fn());
       controller.subscribe();
 
       expect(controller.isDisabled(items[0] as ToolbarButton)).toBe(true);
+    });
+
+    it('emitEvent buttons are enabled when cursor is not in code block', () => {
+      const items: ToolbarItem[] = [
+        btn('link', { command: 'setLink', emitEvent: 'openLinkPopover' }),
+      ];
+      const editor = createMockEditor(items, {
+        isActive: () => false,
+      });
+
+      controller = new ToolbarController(editor, vi.fn());
+      controller.subscribe();
+
+      expect(controller.isDisabled(items[0] as ToolbarButton)).toBe(false);
     });
 
     it('handles can() throwing gracefully', () => {

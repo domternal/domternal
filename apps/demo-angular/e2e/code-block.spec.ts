@@ -288,12 +288,7 @@ test.describe('Code block — toolbar disabled state', () => {
     await expect(toolbarButton(page, 'Italic')).toBeDisabled();
   });
 
-  test('link button is disabled in code block with selection', async ({ page }) => {
-    // Select all text inside the code block
-    await page.locator(`${editorSelector} pre`).click();
-    await page.keyboard.press('Meta+a');
-    await page.waitForTimeout(200);
-
+  test('link button is disabled in code block', async ({ page }) => {
     await expect(toolbarButton(page, 'Link')).toBeDisabled();
   });
 

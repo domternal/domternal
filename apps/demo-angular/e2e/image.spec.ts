@@ -302,7 +302,7 @@ test.describe('Image — toolbar button & popover', () => {
   });
 
   test('clicking toolbar button opens image popover', async ({ page }) => {
-    await page.locator(`${editorSelector}`).click();
+    await setEditorContent(page, '<p>Hello World</p>');
     await page.locator(imageBtn).click();
 
     const popover = page.locator('.dm-image-popover[data-show]');
@@ -310,7 +310,7 @@ test.describe('Image — toolbar button & popover', () => {
   });
 
   test('popover has URL input, apply button, and browse button', async ({ page }) => {
-    await page.locator(`${editorSelector}`).click();
+    await setEditorContent(page, '<p>Hello World</p>');
     await page.locator(imageBtn).click();
 
     const input = page.locator('.dm-image-popover-input');
@@ -322,7 +322,7 @@ test.describe('Image — toolbar button & popover', () => {
   });
 
   test('URL input is focusable when popover opens', async ({ page }) => {
-    await page.locator(`${editorSelector}`).click();
+    await setEditorContent(page, PARA_ONLY);
     await page.locator(imageBtn).click();
     await expect(page.locator('.dm-image-popover[data-show]')).toBeVisible();
 
@@ -333,7 +333,7 @@ test.describe('Image — toolbar button & popover', () => {
   });
 
   test('clicking toolbar button again closes popover (toggle)', async ({ page }) => {
-    await page.locator(`${editorSelector}`).click();
+    await setEditorContent(page, PARA_ONLY);
     await page.locator(imageBtn).click();
 
     const popover = page.locator('.dm-image-popover[data-show]');
@@ -346,7 +346,7 @@ test.describe('Image — toolbar button & popover', () => {
   });
 
   test('Escape closes the popover', async ({ page }) => {
-    await page.locator(`${editorSelector}`).click();
+    await setEditorContent(page, PARA_ONLY);
     await page.locator(imageBtn).click();
 
     await expect(page.locator('.dm-image-popover[data-show]')).toBeVisible();
@@ -411,7 +411,7 @@ test.describe('Image — toolbar button & popover', () => {
   });
 
   test('popover is appended to body (not inside editor)', async ({ page }) => {
-    await page.locator(`${editorSelector}`).click();
+    await setEditorContent(page, PARA_ONLY);
     await page.locator(imageBtn).click();
 
     const isBodyChild = await page.evaluate(() => {
@@ -433,7 +433,7 @@ test.describe('Image — popover keyboard navigation', () => {
   });
 
   test('Tab from input moves focus to apply button', async ({ page }) => {
-    await page.locator(`${editorSelector}`).click();
+    await setEditorContent(page, PARA_ONLY);
     await page.locator(imageBtn).click();
     await expect(page.locator('.dm-image-popover[data-show]')).toBeVisible();
 
@@ -445,7 +445,7 @@ test.describe('Image — popover keyboard navigation', () => {
   });
 
   test('Tab from apply button moves to browse button', async ({ page }) => {
-    await page.locator(`${editorSelector}`).click();
+    await setEditorContent(page, PARA_ONLY);
     await page.locator(imageBtn).click();
     await expect(page.locator('.dm-image-popover[data-show]')).toBeVisible();
 
@@ -458,7 +458,7 @@ test.describe('Image — popover keyboard navigation', () => {
   });
 
   test('Tab from browse button cycles back to input', async ({ page }) => {
-    await page.locator(`${editorSelector}`).click();
+    await setEditorContent(page, PARA_ONLY);
     await page.locator(imageBtn).click();
     await expect(page.locator('.dm-image-popover[data-show]')).toBeVisible();
 
@@ -472,7 +472,7 @@ test.describe('Image — popover keyboard navigation', () => {
   });
 
   test('Shift+Tab from apply button moves back to input', async ({ page }) => {
-    await page.locator(`${editorSelector}`).click();
+    await setEditorContent(page, PARA_ONLY);
     await page.locator(imageBtn).click();
     await expect(page.locator('.dm-image-popover[data-show]')).toBeVisible();
 
@@ -487,7 +487,7 @@ test.describe('Image — popover keyboard navigation', () => {
   });
 
   test('Escape on apply button closes popover', async ({ page }) => {
-    await page.locator(`${editorSelector}`).click();
+    await setEditorContent(page, PARA_ONLY);
     await page.locator(imageBtn).click();
     await expect(page.locator('.dm-image-popover[data-show]')).toBeVisible();
 
@@ -975,7 +975,7 @@ test.describe('Image — CSS styling', () => {
   });
 
   test('popover becomes visible with data-show attribute', async ({ page }) => {
-    await page.locator(`${editorSelector}`).click();
+    await setEditorContent(page, PARA_ONLY);
     await page.locator(imageBtn).click();
 
     // Wait for the CSS transition to complete
@@ -1073,7 +1073,7 @@ test.describe('Image — edge cases', () => {
   });
 
   test('clicking outside popover closes it', async ({ page }) => {
-    await page.locator(`${editorSelector}`).click();
+    await setEditorContent(page, PARA_ONLY);
     await page.locator(imageBtn).click();
     await expect(page.locator('.dm-image-popover[data-show]')).toBeVisible();
 
@@ -1177,7 +1177,7 @@ test.describe('Image — popover styling', () => {
   });
 
   test('popover has flex display', async ({ page }) => {
-    await page.locator(`${editorSelector}`).click();
+    await setEditorContent(page, PARA_ONLY);
     await page.locator(imageBtn).click();
 
     const popover = page.locator('.dm-image-popover');
@@ -1186,7 +1186,7 @@ test.describe('Image — popover styling', () => {
   });
 
   test('popover has border-radius', async ({ page }) => {
-    await page.locator(`${editorSelector}`).click();
+    await setEditorContent(page, PARA_ONLY);
     await page.locator(imageBtn).click();
 
     const popover = page.locator('.dm-image-popover');
@@ -1195,7 +1195,7 @@ test.describe('Image — popover styling', () => {
   });
 
   test('popover has box-shadow', async ({ page }) => {
-    await page.locator(`${editorSelector}`).click();
+    await setEditorContent(page, PARA_ONLY);
     await page.locator(imageBtn).click();
 
     const popover = page.locator('.dm-image-popover');
@@ -1204,7 +1204,7 @@ test.describe('Image — popover styling', () => {
   });
 
   test('URL input has min-width', async ({ page }) => {
-    await page.locator(`${editorSelector}`).click();
+    await setEditorContent(page, PARA_ONLY);
     await page.locator(imageBtn).click();
 
     const input = page.locator('.dm-image-popover-input');

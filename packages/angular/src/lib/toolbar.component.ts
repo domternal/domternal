@@ -126,7 +126,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                         [attr.style]="sub.style ?? null"
                         [innerHTML]="getCachedItemContent(sub.icon, sub.label, asDropdown(item).displayMode)"
                         (mousedown)="$event.preventDefault()"
-                        (click)="onDropdownItemClick(sub)"
+                        (click)="onDropdownItemClick(sub, $event)"
                       ></button>
                     }
                   </div>
@@ -379,11 +379,21 @@ export class DomternalToolbarComponent implements OnDestroy {
     }
   }
 
-  onDropdownItemClick(item: ToolbarButton): void {
+  onDropdownItemClick(item: ToolbarButton, event?: Event): void {
+    // For emitEvent items, use the dropdown trigger as anchor (sub-item gets removed when dropdown closes)
+    let anchor: HTMLElement | undefined;
+    if (item.emitEvent && event?.currentTarget) {
+      const wrapper = (event.currentTarget as HTMLElement).closest('.dm-toolbar-dropdown-wrapper');
+      anchor = wrapper?.querySelector('.dm-toolbar-dropdown-trigger') as HTMLElement | undefined;
+    }
     this.cleanupFloating?.();
     this.cleanupFloating = null;
-    this.controller?.executeCommand(item);
     this.controller?.closeDropdown();
+    if (item.emitEvent) {
+      (this.editor().emit as (e: string, d: unknown) => void)(item.emitEvent, { anchorElement: anchor });
+    } else {
+      this.controller?.executeCommand(item);
+    }
   }
 
   onButtonFocus(name: string): void {

@@ -471,7 +471,12 @@ export class ToolbarController {
     let nowDisabled = false;
 
     try {
-      if (canProxy) {
+      if (item.emitEvent) {
+        // emitEvent buttons open a popover — can't do meaningful can() dry-run
+        // because the command needs user-provided args (href, src, etc.).
+        // Instead, check if cursor is in a code block where marks/inserts are blocked.
+        nowDisabled = this.editor.isActive('codeBlock');
+      } else if (canProxy) {
         const canCmd = canProxy[item.command];
         if (canCmd) {
           nowDisabled = item.commandArgs?.length

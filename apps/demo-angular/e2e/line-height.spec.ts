@@ -247,11 +247,12 @@ test.describe('LineHeight — active state', () => {
     await page.waitForSelector(editorSelector);
   });
 
-  test('dropdown trigger shows active when line-height is set', async ({ page }) => {
+  test('dropdown trigger label shows current line-height value', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH_15);
     await page.locator(`${editorSelector} p`).click();
 
-    await expect(page.locator(dropdownTrigger)).toHaveClass(/active/);
+    // dynamicLabel dropdowns communicate state via label text, not active class
+    await expect(page.locator(dropdownTrigger)).toContainText('1.5');
   });
 
   test('dropdown trigger not active for default text', async ({ page }) => {
@@ -436,14 +437,12 @@ test.describe('LineHeight — edge cases', () => {
     await page.waitForSelector(editorSelector);
   });
 
-  test('line-height does not apply to code blocks', async ({ page }) => {
+  test('line-height dropdown is disabled in code blocks', async ({ page }) => {
     await setContentAndFocus(page, '<pre><code>code line</code></pre>');
     await page.locator(`${editorSelector} pre`).click();
-    await setHeightViaToolbar(page, '2');
 
-    const html = await getEditorHTML(page);
-    // Code blocks are not in the types list, so line-height should not apply
-    expect(html).not.toContain('line-height');
+    // Dropdown trigger is disabled in code blocks (lineHeight types don't include codeBlock)
+    await expect(page.locator(dropdownTrigger)).toBeDisabled();
   });
 
   test('line-height on paragraph inside blockquote', async ({ page }) => {
