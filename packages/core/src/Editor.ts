@@ -268,18 +268,24 @@ export class Editor extends EventEmitter<EditorEvents> {
         return true;
       }
 
-      // For range selection, check if entire range has the mark.
-      // Uses object to track state — linter can't narrow object properties through callbacks.
-      const check = { hasText: false, hasMark: true };
-      state.doc.nodesBetween(from, to, (node) => {
+      // For range selection, check if all applicable text has the mark.
+      // Skip text that can't have this mark: inside blocks that don't allow it
+      // (e.g. code blocks) or carrying a mark that excludes it (e.g. inline code).
+      const check = { hasApplicableText: false, hasMark: true };
+      state.doc.nodesBetween(from, to, (node, _pos, parent) => {
         if (node.isText) {
-          check.hasText = true;
+          if (parent && !parent.type.allowsMarkType(markType)) {
+            return; // skip text in mark-incompatible blocks
+          }
+          if (node.marks.some(m => m.type.excludes(markType) && m.type !== markType)) {
+            return; // skip text with marks that exclude this mark type
+          }
+          check.hasApplicableText = true;
           const nodeMark = node.marks.find(m => m.type === markType);
           if (!nodeMark) {
             check.hasMark = false;
             return false; // Stop iteration
           }
-          // Check attributes if specified
           if (attrs && !this.matchAttributes(nodeMark.attrs, attrs)) {
             check.hasMark = false;
             return false;
@@ -287,7 +293,7 @@ export class Editor extends EventEmitter<EditorEvents> {
         }
         return true;
       });
-      return check.hasText && check.hasMark;
+      return check.hasApplicableText && check.hasMark;
     }
 
     // Check if it's a node

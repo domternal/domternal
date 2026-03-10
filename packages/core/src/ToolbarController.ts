@@ -426,8 +426,6 @@ export class ToolbarController {
    * Updates active state map by checking editor.isActive() for each button.
    */
   private updateActiveStates(): void {
-    let changed = false;
-
     // Cache can() proxy once per cycle — avoids creating a new Proxy per button
     let canProxy: Record<string, (...args: unknown[]) => boolean> | null = null;
     try {
@@ -439,29 +437,27 @@ export class ToolbarController {
     for (const group of this._groups) {
       for (const item of group.items) {
         if (item.type === 'button') {
-          if (this.checkButtonActive(item)) changed = true;
-          if (this.checkButtonDisabled(item, canProxy)) changed = true;
-          if (this.checkButtonExpanded(item)) changed = true;
+          this.checkButtonActive(item);
+          this.checkButtonDisabled(item, canProxy);
+          this.checkButtonExpanded(item);
         } else if (item.type === 'dropdown') {
           for (const sub of item.items) {
-            if (this.checkButtonActive(sub)) changed = true;
-            if (this.checkButtonDisabled(sub, canProxy)) changed = true;
+            this.checkButtonActive(sub);
+            this.checkButtonDisabled(sub, canProxy);
           }
           // Dropdown trigger is disabled when ALL sub-items are disabled
           const allDisabled = item.items.length > 0
             && item.items.every(sub => this._disabledMap.get(sub.name));
-          const wasDropdownDisabled = this._disabledMap.get(item.name) ?? false;
-          if (wasDropdownDisabled !== allDisabled) {
-            this._disabledMap.set(item.name, allDisabled);
-            changed = true;
-          }
+          this._disabledMap.set(item.name, allDisabled);
         }
       }
     }
 
-    if (changed) {
-      this.onChange();
-    }
+    // Always notify — even when no active/disabled states changed, cursor
+    // position may have moved, which affects dynamic trigger labels that
+    // read computed styles at cursor (e.g. font-size, font-family dropdowns
+    // showing values not in the configured list).
+    this.onChange();
   }
 
   private checkButtonDisabled(
