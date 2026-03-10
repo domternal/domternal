@@ -17,7 +17,7 @@
 
 import { Node, PluginKey, positionFloating, defaultIcons } from '@domternal/core';
 import type { Editor, CommandSpec, ToolbarItem } from '@domternal/core';
-import { Plugin } from 'prosemirror-state';
+import { Plugin, NodeSelection } from 'prosemirror-state';
 import { InputRule } from 'prosemirror-inputrules';
 import type { Node as PmNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
@@ -340,6 +340,20 @@ export const Image = Node.create<ImageOptions>({
         img.style.width = `${String(node.attrs['width'] as number)}px`;
       }
       dom.appendChild(img);
+
+      // Click-to-select: floated images confuse ProseMirror's posAtCoords,
+      // so we explicitly create a NodeSelection on mousedown.
+      dom.addEventListener('mousedown', (e) => {
+        if ((e.target as HTMLElement).closest('.dm-image-handle')) return;
+        const pos = getPos();
+        if (pos === undefined) return;
+        const { selection } = view.state;
+        // Already selected → let default (drag) proceed
+        if (selection instanceof NodeSelection && selection.from === pos) return;
+        e.preventDefault();
+        view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));
+        view.focus();
+      });
 
       // Resize handles (4 corners)
       for (const corner of ['nw', 'ne', 'sw', 'se']) {

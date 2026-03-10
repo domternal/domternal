@@ -42,6 +42,7 @@
     &[data-float="left"],
     &[data-float="right"] {
       max-width: 60%;
+      z-index: 1; // above inline text so clicks always hit the image, not the paragraph behind
     }
 
     // Selected state — accent outline + visible handles
