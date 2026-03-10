@@ -248,7 +248,9 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
             if (this.options.plainText) {
               tr.insertText(item.emoji);
             } else {
-              const node = this.nodeType!.create({ name });
+              const nt = this.nodeType;
+              if (!nt) return false;
+              const node = nt.create({ name });
               tr.replaceSelectionWith(node);
             }
             dispatch(tr);
