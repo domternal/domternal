@@ -186,12 +186,15 @@
 }
 
 // ─── Cell alignment via data attributes ─────────────────────────────────────
-.dm-editor td,
-.dm-editor th {
-  &[data-text-align='center'] { text-align: center; }
-  &[data-text-align='right']  { text-align: right; }
-  &[data-vertical-align='middle'] { vertical-align: middle; }
-  &[data-vertical-align='bottom'] { vertical-align: bottom; }
+// Scoped under .ProseMirror table to beat the content rule
+// .dm-editor .ProseMirror table th { text-align: left } (specificity 0,2,2).
+.dm-editor .ProseMirror table {
+  td, th {
+    &[data-text-align='center'] { text-align: center; }
+    &[data-text-align='right']  { text-align: right; }
+    &[data-vertical-align='middle'] { vertical-align: middle; }
+    &[data-vertical-align='bottom'] { vertical-align: bottom; }
+  }
 }
 
 // ─── Focused cell highlight (cursor is inside this cell) ─────────────────────
