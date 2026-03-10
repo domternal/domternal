@@ -23,6 +23,11 @@ body.dm-theme-dark {
   .dm-editor {
     --dm-editor-padding: 4rem 4.8rem;
   }
+
+  domternal-editor {
+    max-height: 50vh;
+    overflow-y: auto;
+  }
 }
 
 .demo > h1 {

@@ -9,6 +9,7 @@ import { Node } from '../Node.js';
 import { wrappingInputRule } from 'prosemirror-inputrules';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
+import { TaskItem } from './TaskItem.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -88,6 +89,10 @@ export const TaskList = Node.create<TaskListOptions>({
         priority: 170,
       },
     ];
+  },
+
+  addExtensions() {
+    return [TaskItem];
   },
 
   addInputRules() {

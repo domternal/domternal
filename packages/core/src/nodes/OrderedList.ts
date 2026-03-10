@@ -9,6 +9,7 @@ import { Node } from '../Node.js';
 import { wrappingInputRule } from 'prosemirror-inputrules';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
+import { ListItem } from './ListItem.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -101,6 +102,10 @@ export const OrderedList = Node.create<OrderedListOptions>({
         return editor?.commands['toggleOrderedList']?.() ?? false;
       },
     };
+  },
+
+  addExtensions() {
+    return [ListItem];
   },
 
   addInputRules() {

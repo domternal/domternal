@@ -693,8 +693,8 @@ export class TableView implements NodeView {
       // (the cell toolbar is only visible during CellSelection)
       const sel = this.view.state.selection as CellSelection;
       const cellNode = this.view.state.doc.nodeAt(sel.$anchorCell.pos);
-      const curTextAlign = (cellNode?.attrs['textAlign'] as string) ?? null;
-      const curVerticalAlign = (cellNode?.attrs['verticalAlign'] as string) ?? null;
+      const curTextAlign = (cellNode?.attrs['textAlign'] as string | undefined) ?? null;
+      const curVerticalAlign = (cellNode?.attrs['verticalAlign'] as string | undefined) ?? null;
 
       const hAligns: { value: string; label: string; icon: string }[] = [
         { value: 'left', label: 'Align left', icon: ICON_ALIGN_LEFT },

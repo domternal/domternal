@@ -186,7 +186,7 @@ test.describe('Toolbar layout — structure', () => {
   });
 
   test('layout has correct number of groups (6 groups with 5 separators)', async ({ page }) => {
-    // Layout: [bold, italic, underline, heading1] | [Formatting, Lists, clearFormatting] | [heading, textAlign] | [textColor, highlight] | [Insert] | [undo, redo]
+    // Layout: [bold, italic, underline, heading1] | [Formatting, Lists, clearFormatting] | [heading, textAlign, lineHeight] | [textColor, highlight] | [Insert] | [undo, redo]
     const groups = page.locator(group);
     await expect(groups).toHaveCount(6);
   });

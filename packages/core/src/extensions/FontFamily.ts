@@ -25,6 +25,7 @@
 import { Extension } from '../Extension.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
+import { TextStyle } from '../marks/TextStyle.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -90,6 +91,10 @@ export const FontFamily = Extension.create<FontFamilyOptions>({
           return true;
         },
     };
+  },
+
+  addExtensions() {
+    return [TextStyle];
   },
 
   addToolbarItems(): ToolbarItem[] {

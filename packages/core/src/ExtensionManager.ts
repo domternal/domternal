@@ -163,15 +163,17 @@ export class ExtensionManager {
 
     // Process extensions following the pipeline:
     // 1. Flatten (expand addExtensions)
-    // 2. Resolve (sort by priority)
-    // 3. Detect conflicts (AD-7)
-    // 4. Check dependencies
-    // 5. Bind editor to extensions
-    // 6. Build schema
-    // 7. Initialize storage
+    // 2. Deduplicate (keep last occurrence — explicit configs override auto-included defaults)
+    // 3. Resolve (sort by priority)
+    // 4. Detect conflicts (AD-7)
+    // 5. Check dependencies
+    // 6. Bind editor to extensions
+    // 7. Build schema
+    // 8. Initialize storage
 
     const flattened = this.flattenExtensions(options.extensions);
-    this._extensions = this.resolveExtensions(flattened);
+    const deduped = this.deduplicateExtensions(flattened);
+    this._extensions = this.resolveExtensions(deduped);
     this.detectConflicts();
     this.checkDependencies();
     this.bindEditorToExtensions();
@@ -289,6 +291,20 @@ export class ExtensionManager {
     }
 
     return result;
+  }
+
+  /**
+   * Removes duplicate extensions by name, keeping the last occurrence.
+   * This allows parent extensions to auto-include children via addExtensions()
+   * while letting users override with explicitly configured versions.
+   */
+  private deduplicateExtensions(extensions: AnyExtension[]): AnyExtension[] {
+    const seen = new Map<string, number>();
+    for (let i = 0; i < extensions.length; i++) {
+      const ext = extensions[i];
+      if (ext) seen.set(ext.name, i);
+    }
+    return extensions.filter((ext, i) => seen.get(ext.name) === i);
   }
 
   /**

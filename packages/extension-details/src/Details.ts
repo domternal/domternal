@@ -22,6 +22,8 @@ import type { ViewMutationRecord } from 'prosemirror-view';
 import { isNodeVisible } from './helpers/isNodeVisible.js';
 import { findClosestVisibleNode } from './helpers/findClosestVisibleNode.js';
 import { setGapCursor } from './helpers/setGapCursor.js';
+import { DetailsSummary } from './DetailsSummary.js';
+import { DetailsContent } from './DetailsContent.js';
 
 declare module '@domternal/core' {
   interface RawCommands {
@@ -203,6 +205,10 @@ export const Details = Node.create<DetailsOptions>({
         priority: 100,
       },
     ];
+  },
+
+  addExtensions() {
+    return [DetailsSummary, DetailsContent];
   },
 
   addCommands() {

@@ -14,7 +14,7 @@ describe('isActive skips mark-incompatible text', () => {
   let editor: Editor;
 
   afterEach(() => {
-    editor?.destroy();
+    editor.destroy();
   });
 
   it('returns true when all applicable text has mark (code block text skipped)', () => {

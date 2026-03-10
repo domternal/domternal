@@ -12,36 +12,12 @@
     <p>This block adds content above the editor so you can test page scroll behavior with floating elements (emoji picker, suggestion dropdown, bubble menu, etc.).</p>
   </div>
 
-  @if (editor(); as ed) {
-    <div class="toolbar-mode-toggle">
-      <button [class.active]="!useLayout()" (click)="switchToolbarMode(false)">Default toolbar</button>
-      <button [class.active]="useLayout()" (click)="switchToolbarMode(true)">Custom layout</button>
-    </div>
-    @if (useLayout()) {
-      <domternal-toolbar [editor]="ed" [layout]="toolbarLayout" />
-    } @else {
-      <domternal-toolbar [editor]="ed" />
-    }
-  }
+  <div class="toolbar-mode-toggle">
+    <button [class.active]="!useLayout()" (click)="useLayout.set(false)">Default toolbar</button>
+    <button [class.active]="useLayout()" (click)="useLayout.set(true)">Custom layout</button>
+  </div>
 
-  <domternal-editor
-    #ec
-    [extensions]="extensions"
-    [content]="editorContent"
-    style="max-height: 50vh; overflow-y: auto;"
-    (editorCreated)="onEditorCreated($event)"
-  />
-
-  @if (editor(); as ed) {
-    <domternal-bubble-menu [editor]="ed" [contexts]="{
-      text: ['bold', 'italic', 'underline', 'strike', 'code', '|', 'link'],
-    }" />
-    <domternal-emoji-picker [editor]="ed" [emojis]="emojiData" />
-  }
-
-
-  <h3>HTML Output</h3>
-  <pre class="output">{{ ec.htmlContent() }}</pre>
+  <app-editor-demo [useLayout]="useLayout()" />
 
   <div class="filler-block">
     <h3>Below Editor Content</h3>

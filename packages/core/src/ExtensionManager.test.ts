@@ -191,17 +191,19 @@ describe('ExtensionManager', () => {
     });
   });
 
-  describe('detectConflicts (AD-7)', () => {
-    it('throws error for duplicate extension names', () => {
-      const Ext1 = Extension.create({ name: 'duplicate' });
-      const Ext2 = Extension.create({ name: 'duplicate' });
+  describe('deduplicateExtensions', () => {
+    it('keeps last occurrence when duplicate names exist', () => {
+      const Ext1 = Extension.create({ name: 'duplicate', priority: 50 });
+      const Ext2 = Extension.create({ name: 'duplicate', priority: 200 });
 
-      expect(() => {
-        new ExtensionManager(
-          { extensions: [DocumentNode, ParagraphNode, TextNode, Ext1, Ext2] },
-          mockEditor
-        );
-      }).toThrow('Extension name conflict: "duplicate"');
+      const manager = new ExtensionManager(
+        { extensions: [DocumentNode, ParagraphNode, TextNode, Ext1, Ext2] },
+        mockEditor
+      );
+
+      const dupes = manager.extensions.filter((e) => e.name === 'duplicate');
+      expect(dupes).toHaveLength(1);
+      expect((dupes[0] as Extension).config.priority).toBe(200);
     });
   });
 
@@ -447,6 +449,62 @@ describe('ExtensionManager', () => {
         error: expect.objectContaining({ message: 'string error' }),
         context: 'test.context',
       });
+    });
+  });
+
+  describe('addExtensions auto-include (TextStyle pattern)', () => {
+    const ChildMark = Mark.create({
+      name: 'childMark',
+      parseHTML() { return [{ tag: 'span.child' }]; },
+      renderHTML() { return ['span', { class: 'child' }, 0]; },
+    });
+
+    const ParentExtension = Extension.create({
+      name: 'parent',
+      addExtensions() {
+        return [ChildMark];
+      },
+    });
+
+    it('extension auto-includes a mark via addExtensions()', () => {
+      const manager = new ExtensionManager(
+        { extensions: [DocumentNode, ParagraphNode, TextNode, ParentExtension] },
+        mockEditor,
+      );
+
+      const names = manager.extensions.map((e) => e.name);
+      expect(names).toContain('parent');
+      expect(names).toContain('childMark');
+      expect(manager.schema.marks['childMark']).toBeDefined();
+    });
+
+    it('deduplicates when child mark is also provided explicitly', () => {
+      const manager = new ExtensionManager(
+        { extensions: [DocumentNode, ParagraphNode, TextNode, ChildMark, ParentExtension] },
+        mockEditor,
+      );
+
+      const childCount = manager.extensions.filter((e) => e.name === 'childMark').length;
+      expect(childCount).toBe(1);
+      expect(manager.schema.marks['childMark']).toBeDefined();
+    });
+
+    it('multiple parents sharing same child produce only one instance', () => {
+      const Parent2 = Extension.create({
+        name: 'parent2',
+        addExtensions() {
+          return [ChildMark];
+        },
+      });
+
+      const manager = new ExtensionManager(
+        { extensions: [DocumentNode, ParagraphNode, TextNode, ParentExtension, Parent2] },
+        mockEditor,
+      );
+
+      const childCount = manager.extensions.filter((e) => e.name === 'childMark').length;
+      expect(childCount).toBe(1);
+      expect(manager.schema.marks['childMark']).toBeDefined();
     });
   });
 
