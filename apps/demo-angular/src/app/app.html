@@ -24,28 +24,20 @@
     }
   }
 
+  <domternal-editor
+    #ec
+    [extensions]="extensions"
+    [content]="editorContent"
+    style="max-height: 50vh; overflow-y: auto;"
+    (editorCreated)="onEditorCreated($event)"
+  />
 
-    <domternal-editor
-      #ec
-      [extensions]="extensions"
-      [content]="editorContent"
-      style="max-height: 50vh; overflow-y: auto;"
-      (editorCreated)="onEditorCreated($event)"
-    />
-
-    @if (editor(); as ed) {
-      <domternal-bubble-menu [editor]="ed" [contexts]="{
-        text: ['bold', 'italic', 'underline', 'strike', 'code', '|', 'link'],
-      }" />
-      <domternal-emoji-picker [editor]="ed" [emojis]="emojiData" />
-      <!--<domternal-floating-menu [editor]="ed">
-        <button (mousedown)="$event.preventDefault()" (click)="ed.commands.toggleHeading({level: 1})">H1</button>
-        <button (mousedown)="$event.preventDefault()" (click)="ed.commands.toggleHeading({level: 2})">H2</button>
-        <button (mousedown)="$event.preventDefault()" (click)="ed.commands.toggleBulletList()">List</button>
-        <button (mousedown)="$event.preventDefault()" (click)="ed.commands.toggleBlockquote()">Quote</button>
-        <button (mousedown)="$event.preventDefault()" (click)="ed.commands.setHorizontalRule()">—</button>
-      </domternal-floating-menu>-->
-    }
+  @if (editor(); as ed) {
+    <domternal-bubble-menu [editor]="ed" [contexts]="{
+      text: ['bold', 'italic', 'underline', 'strike', 'code', '|', 'link'],
+    }" />
+    <domternal-emoji-picker [editor]="ed" [emojis]="emojiData" />
+  }
 
 
   <h3>HTML Output</h3>

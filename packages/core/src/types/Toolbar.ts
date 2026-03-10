@@ -204,6 +204,8 @@ export interface ToolbarLayoutDropdown {
   items: string[];
   /** How to display items in the dropdown panel: icon + text (default), text only, or icon only. */
   displayMode?: 'icon-text' | 'text' | 'icon';
+  /** When true, the trigger icon updates to reflect the active sub-item's icon. */
+  dynamicIcon?: boolean;
 }
 
 /**

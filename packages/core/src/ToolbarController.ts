@@ -395,6 +395,7 @@ export class ToolbarController {
           items: subItems,
         };
         if (entry.displayMode) dd.displayMode = entry.displayMode;
+        if (entry.dynamicIcon) dd.dynamicIcon = entry.dynamicIcon;
         current.push(dd);
       }
     }
