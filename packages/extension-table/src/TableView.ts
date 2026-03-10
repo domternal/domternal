@@ -82,6 +82,7 @@ export class TableView implements NodeView {
   private boundCancelHide: () => void;
   private boundDocMouseDown: (e: MouseEvent) => void;
   private boundDocKeyDown: (e: KeyboardEvent) => void;
+  private boundScroll: () => void;
 
   constructor(node: PMNode, _cellMinWidth: number, view: EditorView, defaultCellMinWidth = 100) {
     this.node = node;
@@ -94,6 +95,7 @@ export class TableView implements NodeView {
     this.boundCancelHide = this.cancelHide.bind(this);
     this.boundDocMouseDown = this.onDocMouseDown.bind(this);
     this.boundDocKeyDown = this.onDocKeyDown.bind(this);
+    this.boundScroll = () => { this.closeDropdown(); };
     // Create outer container (position: relative, overflow: visible)
     this.dom = document.createElement('div');
     this.dom.className = 'dm-table-container';
@@ -619,18 +621,16 @@ export class TableView implements NodeView {
       dropdown.appendChild(btn);
     }
 
-    // Position below the handle
+    // Position below the handle — fixed to viewport so it escapes overflow containers
     const handle = type === 'row' ? this.rowHandle : this.colHandle;
     const handleRect = handle.getBoundingClientRect();
-    const containerRect = this.dom.getBoundingClientRect();
-    dropdown.style.left = String(handleRect.left - containerRect.left) + 'px';
-    dropdown.style.top = String(handleRect.bottom - containerRect.top + 4) + 'px';
+    dropdown.style.position = 'fixed';
+    dropdown.style.left = String(handleRect.left) + 'px';
+    dropdown.style.top = String(handleRect.bottom + 4) + 'px';
 
-    this.dom.appendChild(dropdown);
+    document.body.appendChild(dropdown);
     this.dropdown = dropdown;
-
-    document.addEventListener('mousedown', this.boundDocMouseDown, true);
-    document.addEventListener('keydown', this.boundDocKeyDown);
+    this.addDropdownListeners();
   }
 
   // ─── Cell toolbar dropdowns ──────────────────────────────────────────
@@ -743,28 +743,38 @@ export class TableView implements NodeView {
   }
 
   private positionToolbarDropdown(dropdown: HTMLElement, triggerBtn: HTMLButtonElement): void {
-    const containerRect = this.dom.getBoundingClientRect();
     const btnRect = triggerBtn.getBoundingClientRect();
-    const editorEl = this.dom.closest('.dm-editor');
-    const editorRight = editorEl ? editorEl.getBoundingClientRect().right : window.innerWidth;
 
-    // Position below the toolbar button
-    dropdown.style.top = String(btnRect.bottom - containerRect.top + 4) + 'px';
+    // Fixed position so dropdown escapes overflow containers
+    dropdown.style.position = 'fixed';
+    dropdown.style.top = String(btnRect.bottom + 4) + 'px';
 
-    // Append first to measure
-    this.dom.appendChild(dropdown);
+    // Append to body first to measure
+    document.body.appendChild(dropdown);
     this.dropdown = dropdown;
 
-    // Try left-aligned to button; if overflows, shift left
+    // Try left-aligned to button; if overflows viewport, shift left
     const dropdownWidth = dropdown.offsetWidth;
-    let leftPos = btnRect.left - containerRect.left;
-    if (btnRect.left + dropdownWidth > editorRight) {
-      leftPos = editorRight - containerRect.left - dropdownWidth - 4;
+    let leftPos = btnRect.left;
+    if (leftPos + dropdownWidth > window.innerWidth) {
+      leftPos = window.innerWidth - dropdownWidth - 4;
     }
     dropdown.style.left = String(Math.max(0, leftPos)) + 'px';
 
+    this.addDropdownListeners();
+  }
+
+  private addDropdownListeners(): void {
     document.addEventListener('mousedown', this.boundDocMouseDown, true);
     document.addEventListener('keydown', this.boundDocKeyDown);
+    // Close on any scroll (editor or page) so fixed dropdown doesn't drift
+    window.addEventListener('scroll', this.boundScroll, true);
+  }
+
+  private removeDropdownListeners(): void {
+    document.removeEventListener('mousedown', this.boundDocMouseDown, true);
+    document.removeEventListener('keydown', this.boundDocKeyDown);
+    window.removeEventListener('scroll', this.boundScroll, true);
   }
 
   private closeDropdown(): void {
@@ -776,8 +786,7 @@ export class TableView implements NodeView {
     this.cellToolbar.querySelectorAll('.dm-table-cell-toolbar-btn--open').forEach(
       (el) => { el.classList.remove('dm-table-cell-toolbar-btn--open'); },
     );
-    document.removeEventListener('mousedown', this.boundDocMouseDown, true);
-    document.removeEventListener('keydown', this.boundDocKeyDown);
+    this.removeDropdownListeners();
   }
 
   private onDocMouseDown(e: MouseEvent): void {
