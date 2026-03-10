@@ -104,14 +104,13 @@
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: var(--dm-icon, #666);
+  color: var(--dm-text, #1a1a1a);
   cursor: pointer;
   transition: background-color 0.15s, color 0.15s;
 
   &:hover,
   &.dm-table-cell-toolbar-btn--open {
     background: var(--dm-hover, rgba(0, 0, 0, 0.06));
-    color: var(--dm-text, #1a1a1a);
   }
 
   &:disabled {
