@@ -7,10 +7,10 @@
 
 .dm-editor .ProseMirror {
   img {
-    // Floated images shouldn't exceed 50% width
+    // Floated images shouldn't exceed 60% width
     &[style*="float: left"],
     &[style*="float: right"] {
-      max-width: 50%;
+      max-width: 60%;
     }
   }
 }
@@ -41,7 +41,7 @@
     }
     &[data-float="left"],
     &[data-float="right"] {
-      max-width: 50%;
+      max-width: 60%;
     }
 
     // Selected state — accent outline + visible handles
