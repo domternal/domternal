@@ -58,8 +58,11 @@ export class TableView implements NodeView {
   private colHandle: HTMLButtonElement;
   private rowHandle: HTMLButtonElement;
   private cellToolbar: HTMLElement;
+  private colorBtn: HTMLButtonElement | null = null;
+  private alignBtn: HTMLButtonElement | null = null;
   private mergeBtn: HTMLButtonElement | null = null;
   private splitBtn: HTMLButtonElement | null = null;
+  private headerBtn: HTMLButtonElement | null = null;
   private cellHandle: HTMLButtonElement;
   private cellHandleCell: HTMLTableCellElement | null = null;
   private dropdown: HTMLElement | null = null;
@@ -234,20 +237,20 @@ export class TableView implements NodeView {
     });
 
     // Color button (with dropdown)
-    const colorBtn = this.createToolbarButton(ICON_COLOR, 'Cell color', CHEVRON_DOWN);
-    colorBtn.addEventListener('click', (e) => {
+    this.colorBtn = this.createToolbarButton(ICON_COLOR, 'Cell color', CHEVRON_DOWN);
+    this.colorBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.showColorDropdown(colorBtn);
+      this.showColorDropdown(this.colorBtn!);
     });
-    toolbar.appendChild(colorBtn);
+    toolbar.appendChild(this.colorBtn);
 
     // Alignment button (with dropdown)
-    const alignBtn = this.createToolbarButton(ICON_ALIGNMENT, 'Alignment', CHEVRON_DOWN);
-    alignBtn.addEventListener('click', (e) => {
+    this.alignBtn = this.createToolbarButton(ICON_ALIGNMENT, 'Alignment', CHEVRON_DOWN);
+    this.alignBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.showAlignmentDropdown(alignBtn);
+      this.showAlignmentDropdown(this.alignBtn!);
     });
-    toolbar.appendChild(alignBtn);
+    toolbar.appendChild(this.alignBtn);
 
     // Separator
     const sep1 = document.createElement('span');
@@ -276,12 +279,12 @@ export class TableView implements NodeView {
     toolbar.appendChild(sep2);
 
     // Toggle header button (direct action, no dropdown)
-    const headerBtn = this.createToolbarButton(ICON_HEADER, 'Toggle header cell');
-    headerBtn.addEventListener('click', (e) => {
+    this.headerBtn = this.createToolbarButton(ICON_HEADER, 'Toggle header cell');
+    this.headerBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleHeaderCell(this.view.state, this.view.dispatch);
     });
-    toolbar.appendChild(headerBtn);
+    toolbar.appendChild(this.headerBtn);
 
     return toolbar;
   }
@@ -428,6 +431,22 @@ export class TableView implements NodeView {
     const canSplit = splitCell(this.view.state);
     if (this.mergeBtn) this.mergeBtn.disabled = !canMerge;
     if (this.splitBtn) this.splitBtn.disabled = !canSplit;
+
+    // Highlight trigger buttons based on selected cell attributes
+    const sel = this.view.state.selection;
+    if (sel instanceof CellSelection) {
+      let hasCustomAlign = false;
+      let hasCustomColor = false;
+      let allHeaders = true;
+      sel.forEachCell((node) => {
+        if (node.attrs['textAlign'] || node.attrs['verticalAlign']) hasCustomAlign = true;
+        if (node.attrs['background']) hasCustomColor = true;
+        if (node.type.name !== 'tableHeader') allHeaders = false;
+      });
+      this.alignBtn?.classList.toggle('dm-table-cell-toolbar-btn--active', hasCustomAlign);
+      this.colorBtn?.classList.toggle('dm-table-cell-toolbar-btn--active', hasCustomColor);
+      this.headerBtn?.classList.toggle('dm-table-cell-toolbar-btn--active', allHeaders);
+    }
   }
 
   // ─── Cell handle (small circle for single-cell operations) ──────────
@@ -670,9 +689,12 @@ export class TableView implements NodeView {
 
   private showAlignmentDropdown(triggerBtn: HTMLButtonElement): void {
     this.openToolbarDropdown(triggerBtn, 'dm-table-controls-dropdown dm-table-cell-align-dropdown', (dropdown) => {
-      const firstSelected = this.table.querySelector<HTMLTableCellElement>('.selectedCell');
-      const curTextAlign = firstSelected?.getAttribute('data-text-align') ?? null;
-      const curVerticalAlign = firstSelected?.getAttribute('data-vertical-align') ?? null;
+      // Read current alignment from the anchor cell in ProseMirror state
+      // (the cell toolbar is only visible during CellSelection)
+      const sel = this.view.state.selection as CellSelection;
+      const cellNode = this.view.state.doc.nodeAt(sel.$anchorCell.pos);
+      const curTextAlign = (cellNode?.attrs['textAlign'] as string) ?? null;
+      const curVerticalAlign = (cellNode?.attrs['verticalAlign'] as string) ?? null;
 
       const hAligns: { value: string; label: string; icon: string }[] = [
         { value: 'left', label: 'Align left', icon: ICON_ALIGN_LEFT },
