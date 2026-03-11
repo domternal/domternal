@@ -82,7 +82,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   readonly editor = input.required<Editor>();
   readonly shouldShow = input<BubbleMenuOptions['shouldShow']>();
   readonly placement = input<'top' | 'bottom'>('top');
-  readonly offset = input<[number, number]>([0, 8]);
+  readonly offset = input<number>(8);
   readonly updateDelay = input(0);
 
   /** Fixed item names (e.g. ['bold', 'italic', 'code']). Omit for auto mode (all format items). */

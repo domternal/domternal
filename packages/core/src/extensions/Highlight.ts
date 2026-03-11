@@ -169,8 +169,6 @@ export const Highlight = Extension.create<HighlightOptions>({
     return {
       'Mod-Shift-h': () =>
         this.editor?.commands.toggleHighlight() ?? false,
-      'Mod-Shift-H': () =>
-        this.editor?.commands.toggleHighlight() ?? false,
     };
   },
 

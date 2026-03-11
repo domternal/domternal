@@ -106,13 +106,6 @@ export const markInputRulePatterns = {
   bold: /(?:\*\*|__)([^*_]+)(?:\*\*|__)$/,
 
   /**
-   * Italic: *text* or _text_
-   * Matches text wrapped in single asterisks or underscores
-   * Uses lookbehind to avoid matching bold (**) patterns
-   */
-  italic: /(?:^|[^*_])(\*|_)([^*_]+)\1$/,
-
-  /**
    * Strike: ~~text~~
    * Matches text wrapped in double tildes
    */

@@ -231,7 +231,6 @@ describe('markInputRule', () => {
   describe('markInputRulePatterns', () => {
     it('exports pre-built patterns', () => {
       expect(markInputRulePatterns.bold).toBeInstanceOf(RegExp);
-      expect(markInputRulePatterns.italic).toBeInstanceOf(RegExp);
       expect(markInputRulePatterns.strike).toBeInstanceOf(RegExp);
       expect(markInputRulePatterns.code).toBeInstanceOf(RegExp);
       expect(markInputRulePatterns.highlight).toBeInstanceOf(RegExp);
@@ -258,21 +257,6 @@ describe('markInputRule', () => {
       it('does not match *text*', () => {
         const match = markInputRulePatterns.bold.exec('*hello*');
         expect(match).toBeNull();
-      });
-    });
-
-    describe('italic pattern', () => {
-      it('matches *text*', () => {
-        const match = markInputRulePatterns.italic.exec('*hello*');
-        expect(match).not.toBeNull();
-        // The capture groups are different for italic pattern
-        expect(match?.[2]).toBe('hello');
-      });
-
-      it('matches _text_', () => {
-        const match = markInputRulePatterns.italic.exec('_world_');
-        expect(match).not.toBeNull();
-        expect(match?.[2]).toBe('world');
       });
     });
 

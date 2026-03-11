@@ -57,15 +57,8 @@ export const OrderedList = Node.create<OrderedListOptions>({
     return [{ tag: 'ol' }];
   },
 
-  renderHTML({ node, HTMLAttributes }) {
-    const start = node.attrs['start'] as number;
-    const attrs: Record<string, unknown> = { ...this.options.HTMLAttributes, ...HTMLAttributes };
-
-    if (start !== 1) {
-      attrs['start'] = String(start);
-    }
-
-    return ['ol', attrs, 0];
+  renderHTML({ HTMLAttributes }) {
+    return ['ol', { ...this.options.HTMLAttributes, ...HTMLAttributes }, 0];
   },
 
   addCommands() {

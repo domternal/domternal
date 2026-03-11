@@ -24,7 +24,7 @@ describe('BubbleMenu', () => {
       expect(BubbleMenu.options.updateDelay).toBe(0);
       expect(typeof BubbleMenu.options.shouldShow).toBe('function');
       expect(BubbleMenu.options.placement).toBe('top');
-      expect(BubbleMenu.options.offset).toEqual([0, 8]);
+      expect(BubbleMenu.options.offset).toBe(8);
     });
 
     it('can configure element', () => {
@@ -59,9 +59,9 @@ describe('BubbleMenu', () => {
 
     it('can configure offset', () => {
       const CustomBubbleMenu = BubbleMenu.configure({
-        offset: [10, 20],
+        offset: 20,
       });
-      expect(CustomBubbleMenu.options.offset).toEqual([10, 20]);
+      expect(CustomBubbleMenu.options.offset).toBe(20);
     });
 
   });

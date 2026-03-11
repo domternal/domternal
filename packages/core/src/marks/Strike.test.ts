@@ -63,20 +63,17 @@ describe('Strike', () => {
   });
 
   describe('addKeyboardShortcuts', () => {
-    it('provides Mod-Shift-s and Mod-Shift-S shortcuts', () => {
+    it('provides Mod-Shift-s shortcut', () => {
       const shortcuts = Strike.config.addKeyboardShortcuts?.call(Strike);
       expect(shortcuts).toHaveProperty('Mod-Shift-s');
-      expect(shortcuts).toHaveProperty('Mod-Shift-S');
     });
 
-    it('shortcuts return false when no editor', () => {
+    it('shortcut returns false when no editor', () => {
       const shortcuts = Strike.config.addKeyboardShortcuts?.call({
         ...Strike, editor: undefined, options: Strike.options,
       } as any);
-       
+
       expect((shortcuts?.['Mod-Shift-s'] as any)?.()).toBe(false);
-       
-      expect((shortcuts?.['Mod-Shift-S'] as any)?.()).toBe(false);
     });
   });
 

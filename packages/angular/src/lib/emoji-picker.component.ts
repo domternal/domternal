@@ -248,6 +248,7 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
     this.searchQuery.set('');
     this.anchorEl = null;
     this.removeGlobalListeners();
+    this.editor().view.focus();
   }
 
   private setupEventListener(editor: Editor): void {

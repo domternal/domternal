@@ -470,12 +470,10 @@ export const Details = Node.create<DetailsOptions>({
         // Safari bug: backspace removes all text in <summary>
         // Handle manually by deleting one char
         if ($anchor.parentOffset !== 0) {
-          return editor.commands['command']?.(({ tr }: { tr: { delete: (from: number, to: number) => void } }) => {
-            const from = $anchor.pos - 1;
-            const to = $anchor.pos;
-            tr.delete(from, to);
-            return true;
-          }) ?? false;
+          const { tr } = editor.state;
+          tr.delete($anchor.pos - 1, $anchor.pos);
+          editor.view.dispatch(tr);
+          return true;
         }
 
         // At start of summary — unset details

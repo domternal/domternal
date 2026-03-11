@@ -26,7 +26,7 @@ import type { FloatingMenuOptions } from '@domternal/core';
 export class DomternalFloatingMenuComponent implements OnDestroy {
   readonly editor = input.required<Editor>();
   readonly shouldShow = input<FloatingMenuOptions['shouldShow']>();
-  readonly offset = input<[number, number]>([0, 0]);
+  readonly offset = input<number>(0);
 
   private menuEl = viewChild.required<ElementRef<HTMLElement>>('menuEl');
   private pluginKey: PluginKey;
