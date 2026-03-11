@@ -77,10 +77,9 @@ describe('Italic', () => {
   });
 
   describe('addKeyboardShortcuts', () => {
-    it('provides Mod-i and Mod-I shortcuts', () => {
+    it('provides Mod-i shortcut', () => {
       const shortcuts = Italic.config.addKeyboardShortcuts?.call(Italic);
       expect(shortcuts).toHaveProperty('Mod-i');
-      expect(shortcuts).toHaveProperty('Mod-I');
     });
 
     it('shortcuts return false when no editor', () => {
@@ -89,8 +88,6 @@ describe('Italic', () => {
       } as any);
        
       expect((shortcuts?.['Mod-i'] as any)?.()).toBe(false);
-       
-      expect((shortcuts?.['Mod-I'] as any)?.()).toBe(false);
     });
   });
 

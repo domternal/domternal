@@ -106,9 +106,7 @@ export const FontSize = Extension.create<FontSizeOptions>({
   addToolbarItems(): ToolbarItem[] {
     if (this.options.fontSizes.length === 0) return [];
 
-    const sizes = this.options.fontSizes.includes('16px')
-      ? this.options.fontSizes
-      : ['16px', ...this.options.fontSizes];
+    const sizes = this.options.fontSizes;
 
     const items: ToolbarButton[] = sizes.map((size, i) => ({
       type: 'button' as const,

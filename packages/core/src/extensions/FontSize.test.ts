@@ -191,21 +191,13 @@ describe('FontSize', () => {
       expect(items).toHaveLength(0);
     });
 
-    it('prepends 16px if not in configured sizes', () => {
+    it('uses configured sizes without modification', () => {
       const Custom = FontSize.configure({ fontSizes: ['12px', '24px'], showReset: false });
       const items = Custom.config.addToolbarItems?.call(Custom) ?? [];
       const dd = items[0] as ToolbarDropdown;
-      expect(dd.items).toHaveLength(3);
-      expect(dd.items[0]?.label).toBe('16px');
-      expect(dd.items[1]?.label).toBe('12px');
-      expect(dd.items[2]?.label).toBe('24px');
-    });
-
-    it('does not duplicate 16px if already in configured sizes', () => {
-      const items = FontSize.config.addToolbarItems?.call(FontSize) ?? [];
-      const dd = items[0] as ToolbarDropdown;
-      const labels = dd.items.map(i => i.label);
-      expect(labels.filter(l => l === '16px')).toHaveLength(1);
+      expect(dd.items).toHaveLength(2);
+      expect(dd.items[0]?.label).toBe('12px');
+      expect(dd.items[1]?.label).toBe('24px');
     });
 
     it('includes reset button when showReset is true', () => {

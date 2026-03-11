@@ -110,7 +110,6 @@ export {
   markInputRule,
   markInputRulePatterns,
   isValidUrl,
-  extractUrls,
   generateHTML,
   generateJSON,
   generateText,
