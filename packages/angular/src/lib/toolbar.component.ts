@@ -258,11 +258,14 @@ export class DomternalToolbarComponent implements OnDestroy {
 
   getTooltip(item: ToolbarButton): string {
     if (item.shortcut) {
-      const mod = isMac ? '\u2318' : 'Ctrl';
-      const shortcut = item.shortcut
-        .replace('Mod', mod)
-        .replace('Shift', '\u21E7')
-        .replace('Alt', isMac ? '\u2325' : 'Alt');
+      const parts = item.shortcut.split('-');
+      const mapped = parts.map(p => {
+        if (p === 'Mod') return isMac ? '\u2318' : 'Ctrl';
+        if (p === 'Shift') return isMac ? '\u21E7' : 'Shift';
+        if (p === 'Alt') return isMac ? '\u2325' : 'Alt';
+        return p.toUpperCase();
+      });
+      const shortcut = isMac ? mapped.join('') : mapped.join('+');
       return `${item.label} (${shortcut})`;
     }
     return item.label;

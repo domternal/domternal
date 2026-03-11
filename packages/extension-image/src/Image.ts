@@ -381,8 +381,10 @@ export const Image = Node.create<ImageOptions>({
 
             const pos = getPos();
             if (pos === undefined) return;
+            const currentNode = view.state.doc.nodeAt(pos);
+            if (!currentNode) return;
             const tr = view.state.tr.setNodeMarkup(pos, undefined, {
-              ...node.attrs,
+              ...currentNode.attrs,
               width: img.offsetWidth,
             });
             view.dispatch(tr);

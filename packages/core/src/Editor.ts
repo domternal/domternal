@@ -89,7 +89,6 @@ export class Editor extends EventEmitter<EditorEvents> {
    */
   private commandManager!: CommandManager;
 
-
   /**
    * ProseMirror EditorView instance
    */

@@ -242,7 +242,7 @@ export class TableView implements NodeView {
     this.colorBtn = this.createToolbarButton(ICON_COLOR, 'Cell color', CHEVRON_DOWN);
     this.colorBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.showColorDropdown(this.colorBtn!);
+      if (this.colorBtn) this.showColorDropdown(this.colorBtn);
     });
     toolbar.appendChild(this.colorBtn);
 
@@ -250,7 +250,7 @@ export class TableView implements NodeView {
     this.alignBtn = this.createToolbarButton(ICON_ALIGNMENT, 'Alignment', CHEVRON_DOWN);
     this.alignBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.showAlignmentDropdown(this.alignBtn!);
+      if (this.alignBtn) this.showAlignmentDropdown(this.alignBtn);
     });
     toolbar.appendChild(this.alignBtn);
 

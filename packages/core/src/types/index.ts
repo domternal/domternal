@@ -14,10 +14,8 @@ export type {
 // Editor options
 export type {
   AnyExtension,
-  TextDirection,
   FocusPosition,
   EditorOptions,
-  ResolvedEditorOptions,
 } from './EditorOptions.js';
 
 // Editor events

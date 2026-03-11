@@ -15,10 +15,8 @@ export type {
   Range,
   // Editor options
   AnyExtension,
-  TextDirection,
   FocusPosition,
   EditorOptions,
-  ResolvedEditorOptions,
   // Editor events
   EditorInstance,
   TransactionEventProps,

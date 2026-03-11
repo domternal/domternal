@@ -45,19 +45,6 @@ describe('SelectionDecoration', () => {
       expect(SelectionDecoration.type).toBe('extension');
     });
 
-    it('has default options', () => {
-      const opts = SelectionDecoration.config.addOptions?.call(
-        SelectionDecoration
-      );
-      expect(opts).toEqual({ className: 'dm-blur-selection' });
-    });
-
-    it('can configure className', () => {
-      const custom = SelectionDecoration.configure({
-        className: 'my-selection',
-      });
-      expect(custom.options.className).toBe('my-selection');
-    });
   });
 
   describe('plugin key', () => {

@@ -412,13 +412,13 @@ export class ToolbarController {
    */
   private buildFlatList(): FlatButton[] {
     const flat: FlatButton[] = [];
-    this._groups.forEach((group, gi) => {
-      group.items.forEach((item, ii) => {
+    for (const [gi, group] of this._groups.entries()) {
+      for (const [ii, item] of group.items.entries()) {
         if (item.type === 'button' || item.type === 'dropdown') {
           flat.push({ item, groupIndex: gi, itemIndex: ii });
         }
-      });
-    });
+      }
+    }
     return flat;
   }
 

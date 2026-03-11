@@ -162,7 +162,7 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
     }
   }
 
-  const elements = Array.from(container.querySelectorAll('*'));
+  const elements = Array.from(container.querySelectorAll('blockquote, table, td, th, pre, code, hr, a, img, h1, h2, h3, h4, h5, h6, ul, ol, li, details, summary, div, span'));
 
   for (const el of elements) {
     const tag = el.tagName;

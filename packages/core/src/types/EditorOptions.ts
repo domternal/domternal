@@ -5,10 +5,7 @@ import type {
   TransactionEventProps,
   FocusEventProps,
   ContentErrorProps,
-  PasteEventProps,
-  DropEventProps,
   MountEventProps,
-  DeleteEventProps,
   ErrorEventProps,
 } from './EditorEvents.js';
 import type { Extension } from '../Extension.js';
@@ -22,11 +19,6 @@ import type { Mark } from '../Mark.js';
  * - Mark: Schema marks (Bold, Italic)
  */
 export type AnyExtension = Extension | Node | Mark;
-
-/**
- * Text direction for the editor
- */
-export type TextDirection = 'ltr' | 'rtl';
 
 /**
  * Autofocus options for the editor
@@ -85,52 +77,6 @@ export interface EditorOptions {
   autofocus?: FocusPosition;
 
   /**
-   * Enable input rules (markdown shortcuts like **bold**)
-   * @default true
-   */
-  enableInputRules?: boolean;
-
-  /**
-   * Enable paste rules (auto-linking URLs, etc.)
-   * @default true
-   */
-  enablePasteRules?: boolean;
-
-  /**
-   * Validate content against schema (AD-8: Content Validation)
-   * When true, warns about content that doesn't match the schema
-   * @default true
-   */
-  enableContentCheck?: boolean;
-
-  /**
-   * Inject custom CSS into the editor
-   */
-  injectCSS?: boolean;
-
-  /**
-   * Nonce for CSP (Content Security Policy) compliance
-   * Added to injected style tags
-   */
-  injectNonce?: string;
-
-  /**
-   * HTML attributes to add to the editor element
-   */
-  editorProps?: Record<string, unknown>;
-
-  /**
-   * Parse options for HTML content
-   */
-  parseOptions?: Record<string, unknown>;
-
-  /**
-   * Text direction for RTL language support
-   * @default 'ltr'
-   */
-  textDirection?: TextDirection;
-
-  /**
    * Transform function applied to clipboard HTML on copy/cut.
    * Use with `inlineStyles` from core to auto-apply inline CSS on copy:
    *
@@ -159,11 +105,6 @@ export interface EditorOptions {
    * Called when editor view is mounted to DOM
    */
   onMount?: (props: MountEventProps) => void;
-
-  /**
-   * Called when editor view is unmounted from DOM
-   */
-  onUnmount?: (props: MountEventProps) => void;
 
   /**
    * Called when the document content changes
@@ -202,40 +143,8 @@ export interface EditorOptions {
   onContentError?: (props: ContentErrorProps) => void;
 
   /**
-   * Called when content is pasted
-   * Return true to prevent default paste handling
-   */
-  onPaste?: (props: PasteEventProps) => boolean | undefined;
-
-  /**
-   * Called when content is dropped
-   * Return true to prevent default drop handling
-   */
-  onDrop?: (props: DropEventProps) => boolean | undefined;
-
-  /**
-   * Called when content is deleted
-   */
-  onDelete?: (props: DeleteEventProps) => void;
-
-  /**
    * Called when an extension throws an error (2.7: Extension Error Isolation)
    * Allows graceful error handling without crashing the editor
    */
   onError?: (props: ErrorEventProps) => void;
-}
-
-/**
- * Required options that must be resolved before creating the editor
- *
- * Step 1.3: schema is required
- * Step 2+: schema OR extensions must be provided
- */
-export interface ResolvedEditorOptions extends EditorOptions {
-  schema: Schema;
-  extensions: AnyExtension[];
-  editable: boolean;
-  enableInputRules: boolean;
-  enablePasteRules: boolean;
-  enableContentCheck: boolean;
 }
