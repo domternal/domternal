@@ -32,9 +32,10 @@ import {
   ClearFormatting,
   Dropcursor,
   Editor,
+  inlineStyles,
   type ToolbarLayoutEntry,
 } from '@domternal/core';
-import { CodeBlockLowlight } from '@domternal/extension-code-block-lowlight';
+import { CodeBlockLowlight, createCodeHighlighter } from '@domternal/extension-code-block-lowlight';
 import { Image } from '@domternal/extension-image';
 import { Details } from '@domternal/extension-details';
 import { Table } from '@domternal/extension-table';
@@ -43,6 +44,7 @@ import { createLowlight, common } from 'lowlight';
 import { DEMO_CONTENT } from './demo-content.js';
 
 const lowlight = createLowlight(common);
+const codeHighlighter = createCodeHighlighter(lowlight);
 
 @Component({
   selector: 'app-editor-demo',
@@ -98,6 +100,10 @@ export class EditorDemoComponent {
         requestAnimationFrame(() => editor.commands.focus());
       }
     });
+  }
+
+  getStyledHtml(html: string): string {
+    return inlineStyles(html, { codeHighlighter });
   }
 
   onEditorCreated(editor: Editor): void {

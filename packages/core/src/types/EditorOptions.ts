@@ -130,6 +130,18 @@ export interface EditorOptions {
    */
   textDirection?: TextDirection;
 
+  /**
+   * Transform function applied to clipboard HTML on copy/cut.
+   * Use with `inlineStyles` from core to auto-apply inline CSS on copy:
+   *
+   * @example
+   * ```ts
+   * import { inlineStyles } from '@domternal/core';
+   * new Editor({ clipboardHTMLTransform: inlineStyles });
+   * ```
+   */
+  clipboardHTMLTransform?: (html: string) => string;
+
   // === Event Callbacks ===
 
   /**

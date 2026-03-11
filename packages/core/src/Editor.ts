@@ -7,12 +7,13 @@ import type { Transaction, Plugin, PluginKey } from 'prosemirror-state';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { DOMSerializer } from 'prosemirror-model';
-import type { Schema } from 'prosemirror-model';
+import type { Schema, Fragment } from 'prosemirror-model';
 
 import { EventEmitter } from './EventEmitter.js';
 import { ExtensionManager } from './ExtensionManager.js';
 import { CommandManager } from './CommandManager.js';
 import { createDocument, isDocumentEmpty } from './helpers/index.js';
+import { inlineStyles, type InlineStyleOverrides } from './utils/inlineStyles.js';
 import {
   focus as focusCommand,
   blur as blurCommand,
@@ -408,8 +409,12 @@ export class Editor extends EventEmitter<EditorEvents> {
 
   /**
    * Gets the document content as HTML string
+   *
+   * @param options - Optional settings
+   * @param options.styled - When true (or an override object), applies inline CSS
+   *   styles so the HTML renders correctly outside the editor (email, CMS, etc.)
    */
-  getHTML(): string {
+  getHTML(options?: { styled?: boolean | InlineStyleOverrides }): string {
     const fragment = DOMSerializer.fromSchema(this.schema).serializeFragment(
       this.state.doc.content
     );
@@ -418,7 +423,7 @@ export class Editor extends EventEmitter<EditorEvents> {
     div.appendChild(fragment);
 
     // Browser DOM normalizes hex colors to rgb() — convert back to hex within style attrs
-    return div.innerHTML.replace(/style="([^"]*)"/g, (_match, style: string) =>
+    const html = div.innerHTML.replace(/style="([^"]*)"/g, (_match, style: string) =>
       'style="' +
         style.replace(
           /rgb\((\d+),\s*(\d+),\s*(\d+)\)/g,
@@ -427,6 +432,13 @@ export class Editor extends EventEmitter<EditorEvents> {
         ) +
         '"',
     );
+
+    if (options?.styled) {
+      const overrides = typeof options.styled === 'object' ? options.styled : undefined;
+      return inlineStyles(html, overrides);
+    }
+
+    return html;
   }
 
   /**
@@ -649,6 +661,25 @@ export class Editor extends EventEmitter<EditorEvents> {
       dispatchTransaction: this.dispatchTransaction.bind(this),
       editable: () => this.options.editable ?? true,
       ...(Object.keys(nodeViews).length > 0 ? { nodeViews } : {}),
+      // Clipboard transform — apply user-provided transform (e.g. inlineStyles) on copy/cut
+      ...(this.options.clipboardHTMLTransform ? (() => {
+        const transform = this.options.clipboardHTMLTransform!;
+        const schema = this._extensionManager.schema;
+        return {
+          clipboardSerializer: {
+            serializeFragment: (fragment: unknown, options?: Record<string, unknown>) => {
+              const base = DOMSerializer.fromSchema(schema);
+              const dom = base.serializeFragment(fragment as Fragment, options);
+              const wrapper = document.createElement('div');
+              wrapper.appendChild(dom);
+              wrapper.innerHTML = transform(wrapper.innerHTML);
+              const frag = document.createDocumentFragment();
+              while (wrapper.firstChild) frag.appendChild(wrapper.firstChild);
+              return frag;
+            },
+          } as unknown as DOMSerializer,
+        };
+      })() : {}),
       // Handle focus/blur events
       handleDOMEvents: {
         focus: (_view, event) => {

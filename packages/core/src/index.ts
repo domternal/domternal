@@ -96,6 +96,13 @@ export {
   type PositionFloatingOptions,
 } from './utils/positionFloating.js';
 
+// === Inline Styles ===
+export {
+  inlineStyles,
+  applyInlineStyles,
+  type InlineStyleOverrides,
+} from './utils/inlineStyles.js';
+
 // === Helpers ===
 export {
   createDocument,

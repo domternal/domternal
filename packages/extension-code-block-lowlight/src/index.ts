@@ -8,3 +8,7 @@ export {
   generateHighlightedHTML,
   type GenerateHighlightedHTMLOptions,
 } from './generateHighlightedHTML.js';
+export {
+  createCodeHighlighter,
+  type CreateCodeHighlighterOptions,
+} from './createCodeHighlighter.js';
