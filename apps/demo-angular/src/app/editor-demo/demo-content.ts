@@ -8,7 +8,7 @@ export const DEMO_CONTENT = `
 }</code></pre>
 <p>Code blocks now have <em>syntax highlighting</em>.</p>
 <h3>More Content for Scrolling</h3>
-<p>This paragraph exists to create enough content so the editor has an internal scrollbar at 50vh max-height. Try typing <code>:smile</code> here to trigger the emoji suggestion dropdown, then scroll both the editor and the page.</p>
+<p>This paragraph adds more content to the editor. Try typing <code>:smile</code> here to trigger the emoji suggestion dropdown.</p>
 <ul>
   <li>First item in a list</li>
   <li>Second item with <strong>bold text</strong></li>
@@ -17,9 +17,7 @@ export const DEMO_CONTENT = `
 <blockquote><p>A blockquote to add more vertical content to the editor.</p></blockquote>
 <p>Another paragraph. Keep scrolling to test positioning behavior of floating elements.</p>
 <h3>Even More Content</h3>
-<p>This is filler text used to fill the editor so it has enough content to scroll internally at 50vh max-height. It helps test floating elements like the bubble menu, emoji picker, and toolbar dropdowns while scrolling.</p>
-<p>Another filler paragraph. The more content here, the easier it is to verify that popups, tooltips, and dropdowns stay correctly positioned during scroll.</p>
-<p>One more paragraph to ensure the editor has a visible scrollbar. Try selecting text, inserting emojis, or toggling list types while scrolling.</p>
+<p>Try selecting text to see the bubble menu, or insert emojis and toggle list types with the toolbar.</p>
 <h3>Table Example</h3>
 <table>
   <tr><th>Feature</th><th>Free</th><th>Pro</th></tr>

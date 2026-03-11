@@ -418,8 +418,6 @@ export const Image = Node.create<ImageOptions>({
         deselectNode() {
           dom.classList.remove('ProseMirror-selectednode');
         },
-        // eslint-disable-next-line @typescript-eslint/no-empty-function
-        destroy() {},
       };
     };
   },

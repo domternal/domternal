@@ -150,9 +150,8 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
 
   // Syntax-highlight code blocks if a highlighter is provided
   if (overrides?.codeHighlighter) {
-    const codeBlocks = container.querySelectorAll('pre > code');
-    for (let i = 0; i < codeBlocks.length; i++) {
-      const code = codeBlocks[i] as HTMLElement;
+    const codeBlocks = Array.from(container.querySelectorAll('pre > code'));
+    for (const code of codeBlocks) {
       const raw = code.textContent || '';
       const langClass = Array.from(code.classList).find(c => c.startsWith('language-'));
       const language = langClass ? langClass.slice('language-'.length) : null;
@@ -163,12 +162,11 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
     }
   }
 
-  const elements = container.querySelectorAll('*');
+  const elements = Array.from(container.querySelectorAll('*'));
 
-  for (let i = 0; i < elements.length; i++) {
-    const el = elements[i] as HTMLElement;
+  for (const el of elements) {
     const tag = el.tagName;
-    const existing = el.getAttribute('style') || '';
+    const existing = el.getAttribute('style') ?? '';
     let styles = '';
 
     switch (tag) {
@@ -180,13 +178,23 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
         styles = `border-collapse: collapse; width: 100%; margin: 0.75em 0;`;
         break;
 
-      case 'TD':
+      case 'TD': {
         styles = `border: ${v.tableBorder}; padding: 0.5em 0.75em; min-width: 100px;`;
+        const tdTextAlign = el.getAttribute('data-text-align');
+        if (tdTextAlign) styles += ` text-align: ${tdTextAlign};`;
+        const tdVerticalAlign = el.getAttribute('data-vertical-align');
+        if (tdVerticalAlign) styles += ` vertical-align: ${tdVerticalAlign};`;
         break;
+      }
 
-      case 'TH':
+      case 'TH': {
         styles = `border: ${v.tableBorder}; padding: 0.5em 0.75em; min-width: 100px; font-weight: 600; background: ${v.tableHeaderBg}; text-align: left;`;
+        const thTextAlign = el.getAttribute('data-text-align');
+        if (thTextAlign) styles += ` text-align: ${thTextAlign};`;
+        const thVerticalAlign = el.getAttribute('data-vertical-align');
+        if (thVerticalAlign) styles += ` vertical-align: ${thVerticalAlign};`;
         break;
+      }
 
       case 'PRE':
         styles = `background: ${v.codeBlockBg}; font-family: ${v.codeBlockFont}; font-size: 0.875em; padding: 1em; border-radius: 0.375rem; overflow-x: auto; margin: 0.75em 0;`;
@@ -194,7 +202,7 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
 
       case 'CODE': {
         const parent = el.parentElement;
-        if (parent && parent.tagName === 'PRE') {
+        if (parent?.tagName === 'PRE') {
           // Code inside pre — reset inline code styles
           styles = 'background: none; padding: 0; border: none; border-radius: 0; font-size: inherit;';
         } else {
@@ -252,9 +260,9 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
           styles = 'display: flex; align-items: flex-start; gap: 0.5em; margin: 0.25em 0;';
           // Checked task item — style the content div
           if (el.getAttribute('data-checked') === 'true') {
-            const contentDiv = el.querySelector(':scope > div') as HTMLElement | null;
+            const contentDiv = el.querySelector(':scope > div');
             if (contentDiv) {
-              const contentExisting = contentDiv.getAttribute('style') || '';
+              const contentExisting = contentDiv.getAttribute('style') ?? '';
               contentDiv.setAttribute(
                 'style',
                 'text-decoration: line-through; opacity: 0.6;' + contentExisting,
@@ -274,7 +282,14 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
         styles = `font-weight: 600; padding: 0.5em 0.75em; background: ${v.detailsBg}; border-radius: 0.375rem 0.375rem 0 0; cursor: pointer; list-style: none;`;
         break;
 
+      case 'DIV':
+        if (el.hasAttribute('data-details-content')) {
+          styles = `padding: 0.5em 0.75em; border-top: ${v.detailsBorder};`;
+        }
+        break;
+
       case 'SPAN': {
+        if (!el.className) break;
         // Syntax highlighting — apply inline color for hljs-* classes
         const classList = el.className.split(' ');
         for (const cls of classList) {
@@ -299,23 +314,6 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
           styles += ' background-color: #ffeef0;';
         }
         break;
-      }
-    }
-
-    // DIV with data-details-content
-    if (tag === 'DIV' && el.hasAttribute('data-details-content')) {
-      styles = `padding: 0.5em 0.75em; border-top: ${v.detailsBorder};`;
-    }
-
-    // Table cell data-attributes → inline styles
-    if (tag === 'TD' || tag === 'TH') {
-      const textAlign = el.getAttribute('data-text-align');
-      if (textAlign) {
-        styles += ` text-align: ${textAlign};`;
-      }
-      const verticalAlign = el.getAttribute('data-vertical-align');
-      if (verticalAlign) {
-        styles += ` vertical-align: ${verticalAlign};`;
       }
     }
 

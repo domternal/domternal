@@ -23,11 +23,6 @@ body.dm-theme-dark {
   .dm-editor {
     --dm-editor-padding: 4rem 4.8rem;
   }
-
-  domternal-editor {
-    max-height: 50vh;
-    overflow-y: auto;
-  }
 }
 
 .demo > h1 {
@@ -61,13 +56,13 @@ body.dm-theme-dark {
     background: rgba(255, 255, 255, 0.1);
   }
 
-  .output {
+  .output, .output-styled {
     background: #2a2a2a;
     color: #e0e0e0;
   }
 }
 
-.output {
+.output, .output-styled {
   background: #f5f5f5;
   padding: 1rem;
   border-radius: 0.375rem;

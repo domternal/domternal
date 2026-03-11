@@ -61,7 +61,7 @@ describe('inlineStyles', () => {
 
   it('resets styles for code inside pre', () => {
     const result = inlineStyles('<pre><code>block</code></pre>');
-    const codeMatch = result.match(/<code style="([^"]*)"/);
+    const codeMatch = /<code style="([^"]*)"/.exec(result);
     expect(codeMatch).toBeTruthy();
     const codeStyle = codeMatch![1];
     expect(codeStyle).toContain('background: none');
@@ -73,7 +73,7 @@ describe('inlineStyles', () => {
 
   it('adds background, font-family, padding to pre', () => {
     const result = inlineStyles('<pre><code>code</code></pre>');
-    const preMatch = result.match(/<pre style="([^"]*)"/);
+    const preMatch = /<pre style="([^"]*)"/.exec(result);
     expect(preMatch).toBeTruthy();
     const preStyle = preMatch![1];
     expect(preStyle).toContain('background: #f0f0f0');
@@ -203,7 +203,7 @@ describe('inlineStyles', () => {
 
   it('adds padding and border-top to details-content div', () => {
     const result = inlineStyles('<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>');
-    const divMatch = result.match(/<div data-details-content[^>]*style="([^"]*)"/);
+    const divMatch = /<div data-details-content[^>]*style="([^"]*)"/.exec(result);
     expect(divMatch).toBeTruthy();
     expect(divMatch![1]).toContain('padding: 0.5em 0.75em');
     expect(divMatch![1]).toContain('border-top: 1px solid #e5e7eb');

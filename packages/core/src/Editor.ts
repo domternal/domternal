@@ -594,6 +594,29 @@ export class Editor extends EventEmitter<EditorEvents> {
   // === Private Methods ===
 
   /**
+   * Builds a clipboardSerializer that applies a transform function to HTML on copy/cut.
+   */
+  private buildClipboardSerializer(
+    transform: (html: string) => string,
+    schema: Schema,
+  ): { clipboardSerializer: DOMSerializer } {
+    return {
+      clipboardSerializer: {
+        serializeFragment: (fragment: unknown, options?: Record<string, unknown>) => {
+          const base = DOMSerializer.fromSchema(schema);
+          const dom = base.serializeFragment(fragment as Fragment, options);
+          const wrapper = document.createElement('div');
+          wrapper.appendChild(dom);
+          wrapper.innerHTML = transform(wrapper.innerHTML);
+          const frag = document.createDocumentFragment();
+          while (wrapper.firstChild) frag.appendChild(wrapper.firstChild);
+          return frag;
+        },
+      } as unknown as DOMSerializer,
+    };
+  }
+
+  /**
    * Creates the editor instance
    */
   private createEditor(): void {
@@ -662,24 +685,9 @@ export class Editor extends EventEmitter<EditorEvents> {
       editable: () => this.options.editable ?? true,
       ...(Object.keys(nodeViews).length > 0 ? { nodeViews } : {}),
       // Clipboard transform — apply user-provided transform (e.g. inlineStyles) on copy/cut
-      ...(this.options.clipboardHTMLTransform ? (() => {
-        const transform = this.options.clipboardHTMLTransform!;
-        const schema = this._extensionManager.schema;
-        return {
-          clipboardSerializer: {
-            serializeFragment: (fragment: unknown, options?: Record<string, unknown>) => {
-              const base = DOMSerializer.fromSchema(schema);
-              const dom = base.serializeFragment(fragment as Fragment, options);
-              const wrapper = document.createElement('div');
-              wrapper.appendChild(dom);
-              wrapper.innerHTML = transform(wrapper.innerHTML);
-              const frag = document.createDocumentFragment();
-              while (wrapper.firstChild) frag.appendChild(wrapper.firstChild);
-              return frag;
-            },
-          } as unknown as DOMSerializer,
-        };
-      })() : {}),
+      ...(this.options.clipboardHTMLTransform
+        ? this.buildClipboardSerializer(this.options.clipboardHTMLTransform, this._extensionManager.schema)
+        : {}),
       // Handle focus/blur events
       handleDOMEvents: {
         focus: (_view, event) => {

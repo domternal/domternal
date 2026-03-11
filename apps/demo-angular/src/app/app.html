@@ -6,23 +6,10 @@
     </button>
   </h1>
 
-  <div class="filler-block">
-    <h3>Scroll Test Area</h3>
-    <p>This block adds content above the editor so you can test page scroll behavior with floating elements (emoji picker, suggestion dropdown, bubble menu, etc.).</p>
-    <p>This block adds content above the editor so you can test page scroll behavior with floating elements (emoji picker, suggestion dropdown, bubble menu, etc.).</p>
-  </div>
-
   <div class="toolbar-mode-toggle">
     <button [class.active]="!useLayout()" (click)="useLayout.set(false)">Default toolbar</button>
     <button [class.active]="useLayout()" (click)="useLayout.set(true)">Custom layout</button>
   </div>
 
   <app-editor-demo [useLayout]="useLayout()" />
-
-  <div class="filler-block">
-    <h3>Below Editor Content</h3>
-    <p>This block adds content below the editor for testing page scroll. You should be able to scroll the page while the editor stays at max 50vh height with its own internal scrollbar.</p>
-    <p>This block adds content below the editor for testing page scroll. You should be able to scroll the page while the editor stays at max 50vh height with its own internal scrollbar.</p>
-    <p>This block adds content below the editor for testing page scroll. You should be able to scroll the page while the editor stays at max 50vh height with its own internal scrollbar.</p>
-  </div>
 </div>
