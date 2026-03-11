@@ -665,9 +665,9 @@ describe('InvisibleChars', () => {
     });
 
     describe('keyboard shortcuts', () => {
-      it('registers Mod-Shift-8 shortcut', () => {
+      it('registers Mod-Shift-i shortcut', () => {
         const shortcuts = InvisibleChars.config.addKeyboardShortcuts?.call(InvisibleChars);
-        expect(shortcuts).toHaveProperty('Mod-Shift-8');
+        expect(shortcuts).toHaveProperty('Mod-Shift-i');
       });
 
       it('shortcut returns false when no editor', () => {
@@ -675,7 +675,7 @@ describe('InvisibleChars', () => {
           ...InvisibleChars,
           editor: undefined,
         } as unknown as typeof InvisibleChars);
-        expect((shortcuts!['Mod-Shift-8'] as () => boolean)()).toBe(false);
+        expect((shortcuts!['Mod-Shift-i'] as () => boolean)()).toBe(false);
       });
     });
 
