@@ -6,13 +6,13 @@
  *
  * Keyboard shortcuts:
  * - Enter: Split list item at cursor, or lift out of list if item is empty
- * - Tab: Sink (indent) list item
- * - Shift-Tab: Lift (outdent) list item
+ * - Tab/Shift-Tab: Handled by ListKeymap extension (included via addExtensions)
  */
 
 import { Node } from '../Node.js';
-import { splitListItem, liftListItem, sinkListItem } from 'prosemirror-schema-list';
+import { splitListItem, liftListItem } from 'prosemirror-schema-list';
 import { Selection } from 'prosemirror-state';
+import { ListKeymap } from '../extensions/ListKeymap.js';
 
 export interface ListItemOptions {
   HTMLAttributes: Record<string, unknown>;
@@ -35,6 +35,10 @@ export const ListItem = Node.create<ListItemOptions>({
 
   renderHTML({ HTMLAttributes }) {
     return ['li', { ...this.options.HTMLAttributes, ...HTMLAttributes }, 0];
+  },
+
+  addExtensions() {
+    return [ListKeymap];
   },
 
   addKeyboardShortcuts() {
@@ -71,18 +75,6 @@ export const ListItem = Node.create<ListItemOptions>({
         }
 
         return liftListItem(this.nodeType)(state, view.dispatch);
-      },
-      Tab: () => {
-        if (!this.editor || !this.nodeType) return false;
-        const { $from } = this.editor.state.selection;
-        if ($from.node(-1).type !== this.nodeType) return false;
-        return sinkListItem(this.nodeType)(this.editor.state, this.editor.view.dispatch);
-      },
-      'Shift-Tab': () => {
-        if (!this.editor || !this.nodeType) return false;
-        const { $from } = this.editor.state.selection;
-        if ($from.node(-1).type !== this.nodeType) return false;
-        return liftListItem(this.nodeType)(this.editor.state, this.editor.view.dispatch);
       },
     };
   },

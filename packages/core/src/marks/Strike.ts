@@ -63,7 +63,6 @@ export const Strike = Mark.create<StrikeOptions>({
   addKeyboardShortcuts() {
     return {
       'Mod-Shift-s': () => this.editor?.commands['toggleMark']?.('strike') ?? false,
-      'Mod-Shift-S': () => this.editor?.commands['toggleMark']?.('strike') ?? false,
     };
   },
 

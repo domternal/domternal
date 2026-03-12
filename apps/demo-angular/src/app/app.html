@@ -6,57 +6,10 @@
     </button>
   </h1>
 
-  <div class="filler-block">
-    <h3>Scroll Test Area</h3>
-    <p>This block adds content above the editor so you can test page scroll behavior with floating elements (emoji picker, suggestion dropdown, bubble menu, etc.).</p>
-    <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.</p>
+  <div class="toolbar-mode-toggle">
+    <button [class.active]="!useLayout()" (click)="useLayout.set(false)">Default toolbar</button>
+    <button [class.active]="useLayout()" (click)="useLayout.set(true)">Custom layout</button>
   </div>
 
-  @if (editor(); as ed) {
-    <div class="toolbar-mode-toggle">
-      <button [class.active]="!useLayout()" (click)="switchToolbarMode(false)">Default toolbar</button>
-      <button [class.active]="useLayout()" (click)="switchToolbarMode(true)">Custom layout</button>
-    </div>
-    @if (useLayout()) {
-      <domternal-toolbar [editor]="ed" [layout]="toolbarLayout" />
-    } @else {
-      <domternal-toolbar [editor]="ed" />
-    }
-  }
-
-
-    <domternal-editor
-      #ec
-      [extensions]="extensions"
-      [content]="editorContent"
-      style="max-height: 50vh; overflow-y: auto;"
-      (editorCreated)="onEditorCreated($event)"
-    />
-
-    @if (editor(); as ed) {
-      <domternal-bubble-menu [editor]="ed" [contexts]="{
-        text: ['bold', 'italic', 'underline', 'strike', 'code', '|', 'link'],
-        image: ['imageFloatNone', 'imageFloatLeft', 'imageFloatCenter', 'imageFloatRight', '|', 'deleteImage'],
-        table: []
-      }" />
-      <domternal-emoji-picker [editor]="ed" [emojis]="emojiData" />
-      <!--<domternal-floating-menu [editor]="ed">
-        <button (mousedown)="$event.preventDefault()" (click)="ed.commands.toggleHeading({level: 1})">H1</button>
-        <button (mousedown)="$event.preventDefault()" (click)="ed.commands.toggleHeading({level: 2})">H2</button>
-        <button (mousedown)="$event.preventDefault()" (click)="ed.commands.toggleBulletList()">List</button>
-        <button (mousedown)="$event.preventDefault()" (click)="ed.commands.toggleBlockquote()">Quote</button>
-        <button (mousedown)="$event.preventDefault()" (click)="ed.commands.setHorizontalRule()">—</button>
-      </domternal-floating-menu>-->
-    }
-
-
-  <h3>HTML Output</h3>
-  <pre class="output">{{ ec.htmlContent() }}</pre>
-
-  <div class="filler-block">
-    <h3>Below Editor Content</h3>
-    <p>This block adds content below the editor for testing page scroll. You should be able to scroll the page while the editor stays at max 50vh height with its own internal scrollbar.</p>
-    <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
-    <p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.</p>
-  </div>
+  <app-editor-demo [useLayout]="useLayout()" />
 </div>

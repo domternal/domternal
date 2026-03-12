@@ -277,12 +277,12 @@ test.describe('Image — float', () => {
     expect(display).toBe('block');
   });
 
-  test('floated images max-width is 50%', async ({ page }) => {
+  test('floated images max-width is 60%', async ({ page }) => {
     await setEditorContent(page, IMG_FLOAT_LEFT);
 
     const wrapper = page.locator(`${editorSelector} .dm-image-resizable`).first();
     const maxWidth = await wrapper.evaluate((el) => getComputedStyle(el).maxWidth);
-    expect(maxWidth).toBe('50%');
+    expect(maxWidth).toBe('60%');
   });
 });
 
@@ -785,6 +785,50 @@ test.describe('Image — bubble menu', () => {
     await bubbleMenu.locator('button[title="Inline"]').click();
     await page.waitForTimeout(200);
     await expect(bubbleMenu).toHaveAttribute('data-show', '');
+  });
+
+  test('clicking floated-right image after text selection selects the image', async ({ page }) => {
+    // Regression: float-right pulls image out of flow; posAtCoords resolved
+    // clicks to the text behind the float instead of the image NodeView.
+    const content = `<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p><img src="${BASE64_1PX}" style="float: right; margin: 0 0 1em 1em;" width="120"><p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>`;
+    await setEditorContent(page, content);
+
+    const wrapper = page.locator(`${editorSelector} .dm-image-resizable`).first();
+    const para = page.locator(`${editorSelector} > p`).first();
+
+    // Select text in the paragraph a couple of times (simulates user behaviour)
+    await para.click();
+    await page.waitForTimeout(50);
+    await para.click({ clickCount: 2 }); // double-click selects a word
+    await page.waitForTimeout(50);
+    await para.click(); // single click to collapse
+    await page.waitForTimeout(50);
+
+    // Now click the floated image — should select it
+    await wrapper.click();
+    await page.waitForTimeout(150);
+
+    await expect(wrapper).toHaveClass(/ProseMirror-selectednode/);
+  });
+
+  test('clicking floated-left image after text selection selects the image', async ({ page }) => {
+    const content = `<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p><img src="${BASE64_1PX}" style="float: left; margin: 0 1em 1em 0;" width="120"><p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.</p>`;
+    await setEditorContent(page, content);
+
+    const wrapper = page.locator(`${editorSelector} .dm-image-resizable`).first();
+    const para = page.locator(`${editorSelector} > p`).last();
+
+    // Select text next to the float
+    await para.click({ clickCount: 2 });
+    await page.waitForTimeout(50);
+    await para.click();
+    await page.waitForTimeout(50);
+
+    // Click the floated image
+    await wrapper.click();
+    await page.waitForTimeout(150);
+
+    await expect(wrapper).toHaveClass(/ProseMirror-selectednode/);
   });
 
   test('bubble menu hides when clicking away from image', async ({ page }) => {

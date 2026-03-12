@@ -104,14 +104,18 @@
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: var(--dm-icon, #666);
+  color: var(--dm-text, #1a1a1a);
   cursor: pointer;
   transition: background-color 0.15s, color 0.15s;
 
   &:hover,
   &.dm-table-cell-toolbar-btn--open {
     background: var(--dm-hover, rgba(0, 0, 0, 0.06));
-    color: var(--dm-text, #1a1a1a);
+  }
+
+  &--active {
+    color: var(--dm-accent, #2563eb);
+    background: var(--dm-accent-surface, rgba(37, 99, 235, 0.1));
   }
 
   &:disabled {
@@ -139,52 +143,58 @@
 }
 
 // ─── Alignment dropdown ─────────────────────────────────────────────────────
+// Scoped under .dm-table-cell-align-dropdown so specificity (0,2,0) beats the
+// generic .dm-table-controls-dropdown > button rule (0,1,1).
 .dm-table-cell-align-dropdown {
   min-width: auto;
   width: max-content;
   padding: 0.25rem;
-}
 
-.dm-table-align-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.3rem 0.5rem;
-  border: none;
-  border-radius: 0.25rem;
-  background: transparent;
-  color: var(--dm-text, #1a1a1a);
-  cursor: pointer;
-  font-size: 0.8125rem;
-  white-space: nowrap;
-  transition: background-color 0.15s;
+  .dm-table-align-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.3rem 0.5rem;
+    border: none;
+    border-radius: 0.25rem;
+    background: transparent;
+    color: var(--dm-text, #1a1a1a);
+    cursor: pointer;
+    font-size: 0.8125rem;
+    white-space: nowrap;
+    transition: background-color 0.15s, color 0.15s;
 
-  &:hover {
-    background: var(--dm-hover, rgba(0, 0, 0, 0.06));
+    &:hover {
+      background: var(--dm-hover, rgba(0, 0, 0, 0.06));
+    }
+
+    &--active {
+      color: var(--dm-accent, #2563eb);
+      background: var(--dm-accent-surface, rgba(37, 99, 235, 0.1));
+    }
   }
 
-  &--active {
-    color: var(--dm-accent, #2563eb);
-  }
-}
+  .dm-table-align-item-icon {
+    display: flex;
+    align-items: center;
 
-.dm-table-align-item-icon {
-  display: flex;
-  align-items: center;
-
-  svg {
-    display: block;
+    svg {
+      display: block;
+    }
   }
 }
 
 // ─── Cell alignment via data attributes ─────────────────────────────────────
-.dm-editor td,
-.dm-editor th {
-  &[data-text-align='center'] { text-align: center; }
-  &[data-text-align='right']  { text-align: right; }
-  &[data-vertical-align='middle'] { vertical-align: middle; }
-  &[data-vertical-align='bottom'] { vertical-align: bottom; }
+// Scoped under .ProseMirror table to beat the content rule
+// .dm-editor .ProseMirror table th { text-align: left } (specificity 0,2,2).
+.dm-editor .ProseMirror table {
+  td, th {
+    &[data-text-align='center'] { text-align: center; }
+    &[data-text-align='right']  { text-align: right; }
+    &[data-vertical-align='middle'] { vertical-align: middle; }
+    &[data-vertical-align='bottom'] { vertical-align: bottom; }
+  }
 }
 
 // ─── Focused cell highlight (cursor is inside this cell) ─────────────────────

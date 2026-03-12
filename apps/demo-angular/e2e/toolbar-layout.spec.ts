@@ -186,7 +186,7 @@ test.describe('Toolbar layout — structure', () => {
   });
 
   test('layout has correct number of groups (6 groups with 5 separators)', async ({ page }) => {
-    // Layout: [bold, italic, underline, heading1] | [Formatting, Lists, clearFormatting] | [heading, textAlign] | [textColor, highlight] | [Insert] | [undo, redo]
+    // Layout: [bold, italic, underline, heading1] | [Formatting, Lists, clearFormatting] | [heading, textAlign, lineHeight] | [textColor, highlight] | [Insert] | [undo, redo]
     const groups = page.locator(group);
     await expect(groups).toHaveCount(6);
   });
@@ -379,17 +379,17 @@ test.describe('Toolbar layout — custom dropdown (Formatting)', () => {
     await expect(strikeItem).toHaveClass(/active/);
   });
 
-  test('displayMode "text" renders only text, no SVG icon', async ({ page }) => {
+  test('displayMode "icon" renders only SVG icon, no label text', async ({ page }) => {
     await page.locator(formattingDropdown).click();
 
     const items = page.locator('.dm-toolbar-dropdown-panel .dm-toolbar-dropdown-item');
     const count = await items.count();
     for (let i = 0; i < count; i++) {
       const html = await items.nth(i).innerHTML();
-      expect(html).not.toContain('<svg');
-      // Should contain label text
+      expect(html).toContain('<svg');
+      // Should NOT contain label text as plain content (only in aria-label)
       const label = await items.nth(i).getAttribute('aria-label');
-      expect(html).toContain(label);
+      expect(html).not.toContain(`>${label}<`);
     }
   });
 });

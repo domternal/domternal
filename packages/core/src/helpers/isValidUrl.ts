@@ -1,7 +1,7 @@
 /**
  * URL Validation Helper
  *
- * Provides utilities for validating and checking URLs.
+ * Provides a utility for validating URLs.
  */
 
 /**
@@ -41,16 +41,4 @@ export function isValidUrl(
   } catch {
     return false;
   }
-}
-
-/**
- * Extracts URLs from text
- *
- * @param text - The text to search for URLs
- * @returns Array of found URLs
- */
-export function extractUrls(text: string): string[] {
-  // Match URLs starting with http:// or https://
-  const urlRegex = /https?:\/\/[^\s<>[\](){}'"]+/gi;
-  return text.match(urlRegex) ?? [];
 }

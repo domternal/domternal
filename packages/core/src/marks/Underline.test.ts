@@ -62,10 +62,9 @@ describe('Underline', () => {
   });
 
   describe('addKeyboardShortcuts', () => {
-    it('provides Mod-u and Mod-U shortcuts', () => {
+    it('provides Mod-u shortcut', () => {
       const shortcuts = Underline.config.addKeyboardShortcuts?.call(Underline);
       expect(shortcuts).toHaveProperty('Mod-u');
-      expect(shortcuts).toHaveProperty('Mod-U');
     });
 
     it('shortcuts return false when no editor', () => {
@@ -74,8 +73,6 @@ describe('Underline', () => {
       } as any);
        
       expect((shortcuts?.['Mod-u'] as any)?.()).toBe(false);
-       
-      expect((shortcuts?.['Mod-U'] as any)?.()).toBe(false);
     });
   });
 

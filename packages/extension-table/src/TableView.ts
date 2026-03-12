@@ -58,8 +58,11 @@ export class TableView implements NodeView {
   private colHandle: HTMLButtonElement;
   private rowHandle: HTMLButtonElement;
   private cellToolbar: HTMLElement;
+  private colorBtn: HTMLButtonElement | null = null;
+  private alignBtn: HTMLButtonElement | null = null;
   private mergeBtn: HTMLButtonElement | null = null;
   private splitBtn: HTMLButtonElement | null = null;
+  private headerBtn: HTMLButtonElement | null = null;
   private cellHandle: HTMLButtonElement;
   private cellHandleCell: HTMLTableCellElement | null = null;
   private dropdown: HTMLElement | null = null;
@@ -79,6 +82,7 @@ export class TableView implements NodeView {
   private boundCancelHide: () => void;
   private boundDocMouseDown: (e: MouseEvent) => void;
   private boundDocKeyDown: (e: KeyboardEvent) => void;
+  private boundScroll: () => void;
 
   constructor(node: PMNode, _cellMinWidth: number, view: EditorView, defaultCellMinWidth = 100) {
     this.node = node;
@@ -91,6 +95,7 @@ export class TableView implements NodeView {
     this.boundCancelHide = this.cancelHide.bind(this);
     this.boundDocMouseDown = this.onDocMouseDown.bind(this);
     this.boundDocKeyDown = this.onDocKeyDown.bind(this);
+    this.boundScroll = () => { this.closeDropdown(); };
     // Create outer container (position: relative, overflow: visible)
     this.dom = document.createElement('div');
     this.dom.className = 'dm-table-container';
@@ -234,20 +239,20 @@ export class TableView implements NodeView {
     });
 
     // Color button (with dropdown)
-    const colorBtn = this.createToolbarButton(ICON_COLOR, 'Cell color', CHEVRON_DOWN);
-    colorBtn.addEventListener('click', (e) => {
+    this.colorBtn = this.createToolbarButton(ICON_COLOR, 'Cell color', CHEVRON_DOWN);
+    this.colorBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.showColorDropdown(colorBtn);
+      if (this.colorBtn) this.showColorDropdown(this.colorBtn);
     });
-    toolbar.appendChild(colorBtn);
+    toolbar.appendChild(this.colorBtn);
 
     // Alignment button (with dropdown)
-    const alignBtn = this.createToolbarButton(ICON_ALIGNMENT, 'Alignment', CHEVRON_DOWN);
-    alignBtn.addEventListener('click', (e) => {
+    this.alignBtn = this.createToolbarButton(ICON_ALIGNMENT, 'Alignment', CHEVRON_DOWN);
+    this.alignBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.showAlignmentDropdown(alignBtn);
+      if (this.alignBtn) this.showAlignmentDropdown(this.alignBtn);
     });
-    toolbar.appendChild(alignBtn);
+    toolbar.appendChild(this.alignBtn);
 
     // Separator
     const sep1 = document.createElement('span');
@@ -276,12 +281,12 @@ export class TableView implements NodeView {
     toolbar.appendChild(sep2);
 
     // Toggle header button (direct action, no dropdown)
-    const headerBtn = this.createToolbarButton(ICON_HEADER, 'Toggle header cell');
-    headerBtn.addEventListener('click', (e) => {
+    this.headerBtn = this.createToolbarButton(ICON_HEADER, 'Toggle header cell');
+    this.headerBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       toggleHeaderCell(this.view.state, this.view.dispatch);
     });
-    toolbar.appendChild(headerBtn);
+    toolbar.appendChild(this.headerBtn);
 
     return toolbar;
   }
@@ -428,6 +433,22 @@ export class TableView implements NodeView {
     const canSplit = splitCell(this.view.state);
     if (this.mergeBtn) this.mergeBtn.disabled = !canMerge;
     if (this.splitBtn) this.splitBtn.disabled = !canSplit;
+
+    // Highlight trigger buttons based on selected cell attributes
+    const sel = this.view.state.selection;
+    if (sel instanceof CellSelection) {
+      let hasCustomAlign = false;
+      let hasCustomColor = false;
+      let allHeaders = true;
+      sel.forEachCell((node) => {
+        if (node.attrs['textAlign'] || node.attrs['verticalAlign']) hasCustomAlign = true;
+        if (node.attrs['background']) hasCustomColor = true;
+        if (node.type.name !== 'tableHeader') allHeaders = false;
+      });
+      this.alignBtn?.classList.toggle('dm-table-cell-toolbar-btn--active', hasCustomAlign);
+      this.colorBtn?.classList.toggle('dm-table-cell-toolbar-btn--active', hasCustomColor);
+      this.headerBtn?.classList.toggle('dm-table-cell-toolbar-btn--active', allHeaders);
+    }
   }
 
   // ─── Cell handle (small circle for single-cell operations) ──────────
@@ -600,18 +621,16 @@ export class TableView implements NodeView {
       dropdown.appendChild(btn);
     }
 
-    // Position below the handle
+    // Position below the handle — fixed to viewport so it escapes overflow containers
     const handle = type === 'row' ? this.rowHandle : this.colHandle;
     const handleRect = handle.getBoundingClientRect();
-    const containerRect = this.dom.getBoundingClientRect();
-    dropdown.style.left = String(handleRect.left - containerRect.left) + 'px';
-    dropdown.style.top = String(handleRect.bottom - containerRect.top + 4) + 'px';
+    dropdown.style.position = 'fixed';
+    dropdown.style.left = String(handleRect.left) + 'px';
+    dropdown.style.top = String(handleRect.bottom + 4) + 'px';
 
-    this.dom.appendChild(dropdown);
+    document.body.appendChild(dropdown);
     this.dropdown = dropdown;
-
-    document.addEventListener('mousedown', this.boundDocMouseDown, true);
-    document.addEventListener('keydown', this.boundDocKeyDown);
+    this.addDropdownListeners();
   }
 
   // ─── Cell toolbar dropdowns ──────────────────────────────────────────
@@ -670,9 +689,12 @@ export class TableView implements NodeView {
 
   private showAlignmentDropdown(triggerBtn: HTMLButtonElement): void {
     this.openToolbarDropdown(triggerBtn, 'dm-table-controls-dropdown dm-table-cell-align-dropdown', (dropdown) => {
-      const firstSelected = this.table.querySelector<HTMLTableCellElement>('.selectedCell');
-      const curTextAlign = firstSelected?.getAttribute('data-text-align') ?? null;
-      const curVerticalAlign = firstSelected?.getAttribute('data-vertical-align') ?? null;
+      // Read current alignment from the anchor cell in ProseMirror state
+      // (the cell toolbar is only visible during CellSelection)
+      const sel = this.view.state.selection as CellSelection;
+      const cellNode = this.view.state.doc.nodeAt(sel.$anchorCell.pos);
+      const curTextAlign = (cellNode?.attrs['textAlign'] as string | undefined) ?? null;
+      const curVerticalAlign = (cellNode?.attrs['verticalAlign'] as string | undefined) ?? null;
 
       const hAligns: { value: string; label: string; icon: string }[] = [
         { value: 'left', label: 'Align left', icon: ICON_ALIGN_LEFT },
@@ -721,28 +743,38 @@ export class TableView implements NodeView {
   }
 
   private positionToolbarDropdown(dropdown: HTMLElement, triggerBtn: HTMLButtonElement): void {
-    const containerRect = this.dom.getBoundingClientRect();
     const btnRect = triggerBtn.getBoundingClientRect();
-    const editorEl = this.dom.closest('.dm-editor');
-    const editorRight = editorEl ? editorEl.getBoundingClientRect().right : window.innerWidth;
 
-    // Position below the toolbar button
-    dropdown.style.top = String(btnRect.bottom - containerRect.top + 4) + 'px';
+    // Fixed position so dropdown escapes overflow containers
+    dropdown.style.position = 'fixed';
+    dropdown.style.top = String(btnRect.bottom + 4) + 'px';
 
-    // Append first to measure
-    this.dom.appendChild(dropdown);
+    // Append to body first to measure
+    document.body.appendChild(dropdown);
     this.dropdown = dropdown;
 
-    // Try left-aligned to button; if overflows, shift left
+    // Try left-aligned to button; if overflows viewport, shift left
     const dropdownWidth = dropdown.offsetWidth;
-    let leftPos = btnRect.left - containerRect.left;
-    if (btnRect.left + dropdownWidth > editorRight) {
-      leftPos = editorRight - containerRect.left - dropdownWidth - 4;
+    let leftPos = btnRect.left;
+    if (leftPos + dropdownWidth > window.innerWidth) {
+      leftPos = window.innerWidth - dropdownWidth - 4;
     }
     dropdown.style.left = String(Math.max(0, leftPos)) + 'px';
 
+    this.addDropdownListeners();
+  }
+
+  private addDropdownListeners(): void {
     document.addEventListener('mousedown', this.boundDocMouseDown, true);
     document.addEventListener('keydown', this.boundDocKeyDown);
+    // Close on any scroll (editor or page) so fixed dropdown doesn't drift
+    window.addEventListener('scroll', this.boundScroll, true);
+  }
+
+  private removeDropdownListeners(): void {
+    document.removeEventListener('mousedown', this.boundDocMouseDown, true);
+    document.removeEventListener('keydown', this.boundDocKeyDown);
+    window.removeEventListener('scroll', this.boundScroll, true);
   }
 
   private closeDropdown(): void {
@@ -754,8 +786,7 @@ export class TableView implements NodeView {
     this.cellToolbar.querySelectorAll('.dm-table-cell-toolbar-btn--open').forEach(
       (el) => { el.classList.remove('dm-table-cell-toolbar-btn--open'); },
     );
-    document.removeEventListener('mousedown', this.boundDocMouseDown, true);
-    document.removeEventListener('keydown', this.boundDocKeyDown);
+    this.removeDropdownListeners();
   }
 
   private onDocMouseDown(e: MouseEvent): void {

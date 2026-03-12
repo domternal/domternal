@@ -77,48 +77,49 @@ export const Placeholder = Extension.create<PlaceholderOptions>({
               return DecorationSet.empty;
             }
 
-            const decorations: Decoration[] = [];
-            const currentNodePos = selection.$anchor.depth > 0
-              ? selection.$anchor.before(selection.$anchor.depth)
-              : -1;
-
             // Check if document is empty (for editor-level class)
             const isDocEmpty =
               doc.childCount === 1 &&
               doc.firstChild?.isTextblock &&
               doc.firstChild.content.size === 0;
 
-            doc.descendants((node, pos) => {
-              // Skip non-textblocks
-              if (!node.isTextblock) return;
+            const { includeChildren, showOnlyCurrent, emptyNodeClass, emptyEditorClass } = this.options;
 
-              // Check if node is empty
-              const isEmpty = this.options.includeChildren
+            const isNodeEmpty = (node: PMNode): boolean =>
+              includeChildren
                 ? node.content.size === 0
                 : node.childCount === 0 ||
                   (node.childCount === 1 &&
-                    node.firstChild?.isText &&
+                    !!node.firstChild?.isText &&
                     !node.firstChild.text);
 
-              if (!isEmpty) return;
+            const getPlaceholderText = (node: PMNode, pos: number): string =>
+              typeof this.options.placeholder === 'function'
+                ? this.options.placeholder({ node, pos })
+                : this.options.placeholder;
 
-              // If showOnlyCurrent, only show for current node
-              if (this.options.showOnlyCurrent && pos !== currentNodePos) {
-                return;
-              }
+            const makeDecoration = (node: PMNode, pos: number): Decoration =>
+              Decoration.node(pos, pos + node.nodeSize, {
+                class: `${emptyNodeClass}${isDocEmpty ? ` ${emptyEditorClass}` : ''}`,
+                'data-placeholder': getPlaceholderText(node, pos),
+              });
 
-              // Get placeholder text
-              const placeholderText =
-                typeof this.options.placeholder === 'function'
-                  ? this.options.placeholder({ node, pos })
-                  : this.options.placeholder;
+            // Fast path: showOnlyCurrent (default) — O(1), check only the anchor node
+            if (showOnlyCurrent) {
+              const { $anchor } = selection;
+              if ($anchor.depth === 0) return DecorationSet.empty;
+              const node = $anchor.parent;
+              if (!node.isTextblock || !isNodeEmpty(node)) return DecorationSet.empty;
+              const pos = $anchor.before($anchor.depth);
+              return DecorationSet.create(doc, [makeDecoration(node, pos)]);
+            }
 
-              decorations.push(
-                Decoration.node(pos, pos + node.nodeSize, {
-                  class: `${this.options.emptyNodeClass}${isDocEmpty ? ` ${this.options.emptyEditorClass}` : ''}`,
-                  'data-placeholder': placeholderText,
-                })
-              );
+            // Slow path: show placeholder in all empty textblocks
+            const decorations: Decoration[] = [];
+            doc.descendants((node, pos) => {
+              if (!node.isTextblock) return;
+              if (!isNodeEmpty(node)) return;
+              decorations.push(makeDecoration(node, pos));
             });
 
             return DecorationSet.create(doc, decorations);

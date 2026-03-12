@@ -267,7 +267,7 @@ export const InvisibleChars = Extension.create<
 
   addKeyboardShortcuts() {
     return {
-      'Mod-Shift-8': () => {
+      'Mod-Shift-i': () => {
         return this.editor?.commands.toggleInvisibleChars() ?? false;
       },
     };
@@ -281,7 +281,7 @@ export const InvisibleChars = Extension.create<
         command: 'toggleInvisibleChars',
         icon: 'paragraph',
         label: 'Invisible Characters',
-        shortcut: 'Mod-Shift-8',
+        shortcut: 'Mod-Shift-I',
         group: 'utility',
         priority: 100,
         isActiveFn: (editor) => {

@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import type { Node as PMNode } from 'prosemirror-model';
 import { TextSelection } from 'prosemirror-state';
-import { splitListItem } from 'prosemirror-schema-list';
+import { splitListItem, sinkListItem } from 'prosemirror-schema-list';
 import { ListItem } from './ListItem.js';
 import { BulletList } from './BulletList.js';
 import { OrderedList } from './OrderedList.js';
@@ -85,34 +85,12 @@ describe('ListItem', () => {
       expect(shortcuts).toHaveProperty('Enter');
     });
 
-    it('provides Tab shortcut', () => {
+    it('Tab/Shift-Tab handled by ListKeymap extension', () => {
+      // Tab and Shift-Tab are provided by ListKeymap (included via addExtensions),
+      // not directly by ListItem's addKeyboardShortcuts.
       const shortcuts = ListItem.config.addKeyboardShortcuts?.call(ListItem);
-
-      expect(shortcuts).toHaveProperty('Tab');
-    });
-
-    it('provides Shift-Tab shortcut', () => {
-      const shortcuts = ListItem.config.addKeyboardShortcuts?.call(ListItem);
-
-      expect(shortcuts).toHaveProperty('Shift-Tab');
-    });
-
-    it('Tab returns false when no editor/nodeType', () => {
-       
-      const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
-        ...ListItem, editor: undefined, nodeType: undefined, options: ListItem.options,
-      } as any);
-       
-      expect((shortcuts?.['Tab'] as any)?.()).toBe(false);
-    });
-
-    it('Shift-Tab returns false when no editor/nodeType', () => {
-       
-      const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
-        ...ListItem, editor: undefined, nodeType: undefined, options: ListItem.options,
-      } as any);
-       
-      expect((shortcuts?.['Shift-Tab'] as any)?.()).toBe(false);
+      expect(shortcuts).not.toHaveProperty('Tab');
+      expect(shortcuts).not.toHaveProperty('Shift-Tab');
     });
   });
 
@@ -190,60 +168,21 @@ describe('ListItem', () => {
       expect(outerListItem.child(1).type.name).toBe('bulletList');
     });
 
-    it('Tab sinks list item when editor is available', () => {
+    it('Tab sinks list item via ListKeymap', () => {
       editor = new Editor({
         extensions: [Document, Text, Paragraph, BulletList, ListItem],
         content: '<ul><li><p>Item 1</p></li><li><p>Item 2</p></li></ul>',
       });
 
       // Position cursor in second list item
-      // Structure: ul > li > p > "Item 1" | li > p > "Item 2"
-      // doc(0) > bulletList(1) > listItem(2) > p(3) > "Item 1"(4-9) > /p(10) > /li(11) > li(12) > p(13) > "Item 2"(14-19)
       editor.view.dispatch(
         editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 14))
       );
 
-      const nodeType = editor.state.schema.nodes['listItem'];
-       
-      const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
-        ...ListItem, editor, nodeType, options: ListItem.options,
-      } as any);
-
-       
-      const result = (shortcuts?.['Tab'] as any)?.();
-      expect(result).toBe(true);
-    });
-
-    it('Shift-Tab lifts nested list item', () => {
-      editor = new Editor({
-        extensions: [Document, Text, Paragraph, BulletList, ListItem],
-        content: '<ul><li><p>Parent</p><ul><li><p>Child</p></li></ul></li></ul>',
-      });
-
-      // Position cursor in nested (child) list item
-      // doc > ul > li > p > "Parent" > /p > ul > li > p > "Child"
-      // Find position inside "Child"
-      const doc = editor.state.doc;
-      // Find a text position inside "Child"
-      let childPos = 0;
-      doc.descendants((node, pos) => {
-        if (node.isText && node.text === 'Child') {
-          childPos = pos;
-        }
-      });
-
-      editor.view.dispatch(
-        editor.state.tr.setSelection(TextSelection.create(doc, childPos))
-      );
-
-      const nodeType = editor.state.schema.nodes['listItem'];
-       
-      const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
-        ...ListItem, editor, nodeType, options: ListItem.options,
-      } as any);
-
-       
-      const result = (shortcuts?.['Shift-Tab'] as any)?.();
+      // ListKeymap (included via ListItem.addExtensions) provides Tab handler.
+      // Verify sinkListItem works on the editor.
+      const nodeType = editor.state.schema.nodes['listItem']!;
+      const result = sinkListItem(nodeType)(editor.state, editor.view.dispatch);
       expect(result).toBe(true);
     });
 
@@ -282,40 +221,6 @@ describe('ListItem', () => {
       } as any);
 
       const result = (shortcuts?.['Enter'] as any)?.();
-      expect(result).toBe(false);
-    });
-
-    it('Tab guard: returns false when cursor parent is not listItem', () => {
-      editor = new Editor({
-        extensions: [Document, Text, Paragraph, BulletList, ListItem],
-        content: '<p>Not in a list</p>',
-      });
-
-      editor.focus('start');
-
-      const nodeType = editor.state.schema.nodes['listItem'];
-      const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
-        ...ListItem, editor, nodeType, options: ListItem.options,
-      } as any);
-
-      const result = (shortcuts?.['Tab'] as any)?.();
-      expect(result).toBe(false);
-    });
-
-    it('Shift-Tab guard: returns false when cursor parent is not listItem', () => {
-      editor = new Editor({
-        extensions: [Document, Text, Paragraph, BulletList, ListItem],
-        content: '<p>Not in a list</p>',
-      });
-
-      editor.focus('start');
-
-      const nodeType = editor.state.schema.nodes['listItem'];
-      const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
-        ...ListItem, editor, nodeType, options: ListItem.options,
-      } as any);
-
-      const result = (shortcuts?.['Shift-Tab'] as any)?.();
       expect(result).toBe(false);
     });
 

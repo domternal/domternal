@@ -158,12 +158,6 @@ export interface GenerateTextOptions {
    * @default '\n\n'
    */
   blockSeparator?: string;
-
-  /**
-   * Separator between text nodes within the same block.
-   * @default ''
-   */
-  textSeparator?: string;
 }
 
 /**
@@ -191,26 +185,9 @@ export function generateText(
   extensions: AnyExtension[],
   options: GenerateTextOptions = {}
 ): string {
-  const { blockSeparator = '\n\n', textSeparator = '' } = options;
+  const { blockSeparator = '\n\n' } = options;
   const schema = buildSchemaFromExtensions(extensions);
   const doc = PMNode.fromJSON(schema, content);
 
-  const blocks: string[] = [];
-
-  doc.descendants((node) => {
-    if (node.isTextblock) {
-      const texts: string[] = [];
-      node.content.forEach((child) => {
-        if (child.isText && child.text) {
-          texts.push(child.text);
-        }
-      });
-      if (texts.length > 0) {
-        blocks.push(texts.join(textSeparator));
-      }
-    }
-    return true;
-  });
-
-  return blocks.join(blockSeparator);
+  return doc.textBetween(0, doc.content.size, blockSeparator);
 }

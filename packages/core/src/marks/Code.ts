@@ -60,7 +60,6 @@ export const Code = Mark.create<CodeOptions>({
   addKeyboardShortcuts() {
     return {
       'Mod-e': () => this.editor?.commands['toggleMark']?.('code') ?? false,
-      'Mod-E': () => this.editor?.commands['toggleMark']?.('code') ?? false,
     };
   },
 

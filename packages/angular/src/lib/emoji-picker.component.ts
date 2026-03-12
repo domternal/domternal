@@ -216,7 +216,8 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
       if (!grid) return;
       const label = grid.querySelector(`[data-category="${cat}"]`) as HTMLElement | null;
       if (label) {
-        label.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        // Use manual scrollTop instead of scrollIntoView to avoid scrolling the page
+        grid.scrollTo({ top: label.offsetTop - grid.offsetTop, behavior: 'smooth' });
       }
     });
   }
@@ -247,6 +248,7 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
     this.searchQuery.set('');
     this.anchorEl = null;
     this.removeGlobalListeners();
+    this.editor().view.focus();
   }
 
   private setupEventListener(editor: Editor): void {

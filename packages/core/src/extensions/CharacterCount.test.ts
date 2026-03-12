@@ -226,6 +226,8 @@ describe('CharacterCount', () => {
       expect(storage?.words()).toBe(0);
       expect(storage?.percentage()).toBe(0);
       expect(storage?.remaining()).toBe(Infinity);
+      expect(storage?.wordPercentage()).toBe(0);
+      expect(storage?.wordRemaining()).toBe(Infinity);
       expect(storage?.isLimitExceeded()).toBe(false);
     });
   });
@@ -345,6 +347,42 @@ describe('CharacterCount integration', () => {
     editor.view.dispatch(tr);
     // Content should remain unchanged (blocked by filterTransaction)
     expect(editor.getText()).toBe('Hello');
+  });
+
+  it('wordPercentage() returns 0 when no word limit', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CharacterCount],
+      content: '<p>Hello world</p>',
+    });
+    const storage = editor.storage['characterCount'] as CharacterCountStorage;
+    expect(storage.wordPercentage()).toBe(0);
+  });
+
+  it('wordPercentage() returns percentage when word limit set', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CharacterCount.configure({ wordLimit: 10 })],
+      content: '<p>Hello world</p>',
+    });
+    const storage = editor.storage['characterCount'] as CharacterCountStorage;
+    expect(storage.wordPercentage()).toBe(20);
+  });
+
+  it('wordRemaining() returns Infinity when no word limit', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CharacterCount],
+      content: '<p>Hello world</p>',
+    });
+    const storage = editor.storage['characterCount'] as CharacterCountStorage;
+    expect(storage.wordRemaining()).toBe(Infinity);
+  });
+
+  it('wordRemaining() returns remaining words when word limit set', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CharacterCount.configure({ wordLimit: 5 })],
+      content: '<p>Hello world</p>',
+    });
+    const storage = editor.storage['characterCount'] as CharacterCountStorage;
+    expect(storage.wordRemaining()).toBe(3);
   });
 
   it('word limit blocks insertion', () => {

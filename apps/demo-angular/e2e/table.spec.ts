@@ -1225,6 +1225,60 @@ test.describe('Table — Cell toolbar', () => {
     expect(await cell.getAttribute('data-vertical-align')).toBe('middle');
   });
 
+  test('alignment dropdown shows active state for current alignment', async ({ page }) => {
+    await setContentAndFocus(page, TABLE_NO_HEADER);
+    await selectCells(page, 0, 0);
+
+    const toolbar = page.locator('.dm-table-cell-toolbar');
+    const alignBtn = toolbar.locator('.dm-table-cell-toolbar-btn').nth(1);
+
+    // Open alignment dropdown — default should be "Align left" active
+    await alignBtn.click();
+    await page.waitForTimeout(100);
+
+    const items = page.locator('.dm-table-cell-align-dropdown .dm-table-align-item');
+    // "Align left" (index 0) should have --active class
+    await expect(items.nth(0)).toHaveClass(/dm-table-align-item--active/);
+    // "Align center" (index 1) should NOT
+    await expect(items.nth(1)).not.toHaveClass(/dm-table-align-item--active/);
+
+    // Click "Align center"
+    await items.nth(1).click();
+    await page.waitForTimeout(100);
+
+    // Re-open dropdown
+    await alignBtn.click();
+    await page.waitForTimeout(100);
+
+    // Now "Align center" should be active, "Align left" should not
+    const items2 = page.locator('.dm-table-cell-align-dropdown .dm-table-align-item');
+    await expect(items2.nth(0)).not.toHaveClass(/dm-table-align-item--active/);
+    await expect(items2.nth(1)).toHaveClass(/dm-table-align-item--active/);
+  });
+
+  test('alignment trigger button highlights when non-default alignment is set', async ({ page }) => {
+    await setContentAndFocus(page, TABLE_NO_HEADER);
+    await selectCells(page, 0, 0);
+
+    const toolbar = page.locator('.dm-table-cell-toolbar');
+    const alignBtn = toolbar.locator('.dm-table-cell-toolbar-btn').nth(1);
+
+    // Default alignment — trigger should NOT be active
+    await expect(alignBtn).not.toHaveClass(/dm-table-cell-toolbar-btn--active/);
+
+    // Set center alignment
+    await alignBtn.click();
+    await page.waitForTimeout(100);
+    await page.locator('.dm-table-cell-align-dropdown .dm-table-align-item').nth(1).click();
+    await page.waitForTimeout(200);
+
+    // Re-select to refresh toolbar
+    await selectCells(page, 0, 0);
+
+    // Trigger should now be active (blue)
+    await expect(toolbar.locator('.dm-table-cell-toolbar-btn').nth(1)).toHaveClass(/dm-table-cell-toolbar-btn--active/);
+  });
+
   test('toggle button closes dropdown when clicking same button', async ({ page }) => {
     await setContentAndFocus(page, SIMPLE_TABLE);
     await selectCells(page, 0, 1);

@@ -128,7 +128,22 @@ export const TextStyle = Mark.create<TextStyleOptions>({
           if (!hasEmptyTextStyle) return false;
 
           if (dispatch) {
-            tr.removeMark(from, to, markType);
+            // Only remove textStyle from nodes where ALL attributes are null.
+            // A blanket tr.removeMark(from, to) would also strip marks that
+            // have active attributes (e.g. color) on adjacent nodes.
+            tr.doc.nodesBetween(from, to, (node, pos) => {
+              const mark = node.marks.find(m => m.type === markType);
+              if (mark) {
+                const hasActiveAttr = Object.values(mark.attrs).some(
+                  v => v !== null && v !== undefined,
+                );
+                if (!hasActiveAttr) {
+                  const nodeFrom = Math.max(pos, from);
+                  const nodeTo = Math.min(pos + node.nodeSize, to);
+                  tr.removeMark(nodeFrom, nodeTo, markType);
+                }
+              }
+            });
             dispatch(tr);
           }
 

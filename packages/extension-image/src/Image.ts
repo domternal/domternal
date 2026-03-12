@@ -17,7 +17,7 @@
 
 import { Node, PluginKey, positionFloating, defaultIcons } from '@domternal/core';
 import type { Editor, CommandSpec, ToolbarItem } from '@domternal/core';
-import { Plugin } from 'prosemirror-state';
+import { Plugin, NodeSelection } from 'prosemirror-state';
 import { InputRule } from 'prosemirror-inputrules';
 import type { Node as PmNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
@@ -308,12 +308,12 @@ export const Image = Node.create<ImageOptions>({
         emitEvent: 'insertImage',
       },
       // Bubble menu only: float controls
-      { type: 'button', name: 'imageFloatNone', command: 'setImageFloat', commandArgs: ['none'], icon: 'imageInline', label: 'Inline', group: 'image-float', priority: 100, isActive: { name: 'image', attributes: { float: 'none' } }, toolbar: false },
-      { type: 'button', name: 'imageFloatLeft', command: 'setImageFloat', commandArgs: ['left'], icon: 'textAlignLeft', label: 'Float left', group: 'image-float', priority: 90, isActive: { name: 'image', attributes: { float: 'left' } }, toolbar: false },
-      { type: 'button', name: 'imageFloatCenter', command: 'setImageFloat', commandArgs: ['center'], icon: 'textAlignCenter', label: 'Center', group: 'image-float', priority: 80, isActive: { name: 'image', attributes: { float: 'center' } }, toolbar: false },
-      { type: 'button', name: 'imageFloatRight', command: 'setImageFloat', commandArgs: ['right'], icon: 'textAlignRight', label: 'Float right', group: 'image-float', priority: 70, isActive: { name: 'image', attributes: { float: 'right' } }, toolbar: false },
+      { type: 'button', name: 'imageFloatNone', command: 'setImageFloat', commandArgs: ['none'], icon: 'textIndent', label: 'Inline', group: 'image-float', priority: 100, isActive: { name: 'image', attributes: { float: 'none' } }, toolbar: false, bubbleMenu: 'image' },
+      { type: 'button', name: 'imageFloatLeft', command: 'setImageFloat', commandArgs: ['left'], icon: 'textAlignLeft', label: 'Float left', group: 'image-float', priority: 90, isActive: { name: 'image', attributes: { float: 'left' } }, toolbar: false, bubbleMenu: 'image' },
+      { type: 'button', name: 'imageFloatCenter', command: 'setImageFloat', commandArgs: ['center'], icon: 'textAlignCenter', label: 'Center', group: 'image-float', priority: 80, isActive: { name: 'image', attributes: { float: 'center' } }, toolbar: false, bubbleMenu: 'image' },
+      { type: 'button', name: 'imageFloatRight', command: 'setImageFloat', commandArgs: ['right'], icon: 'textAlignRight', label: 'Float right', group: 'image-float', priority: 70, isActive: { name: 'image', attributes: { float: 'right' } }, toolbar: false, bubbleMenu: 'image' },
       // Bubble menu only: delete
-      { type: 'button', name: 'deleteImage', command: 'deleteImage', icon: 'trash', label: 'Delete', group: 'image-actions', priority: 50, toolbar: false },
+      { type: 'button', name: 'deleteImage', command: 'deleteImage', icon: 'trash', label: 'Delete', group: 'image-actions', priority: 50, toolbar: false, bubbleMenu: 'image' },
     ];
   },
 
@@ -341,6 +341,20 @@ export const Image = Node.create<ImageOptions>({
       }
       dom.appendChild(img);
 
+      // Click-to-select: floated images confuse ProseMirror's posAtCoords,
+      // so we explicitly create a NodeSelection on mousedown.
+      dom.addEventListener('mousedown', (e) => {
+        if ((e.target as HTMLElement).closest('.dm-image-handle')) return;
+        const pos = getPos();
+        if (pos === undefined) return;
+        const { selection } = view.state;
+        // Already selected → let default (drag) proceed
+        if (selection instanceof NodeSelection && selection.from === pos) return;
+        e.preventDefault();
+        view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));
+        view.focus();
+      });
+
       // Resize handles (4 corners)
       for (const corner of ['nw', 'ne', 'sw', 'se']) {
         const handle = document.createElement('div');
@@ -367,8 +381,10 @@ export const Image = Node.create<ImageOptions>({
 
             const pos = getPos();
             if (pos === undefined) return;
+            const currentNode = view.state.doc.nodeAt(pos);
+            if (!currentNode) return;
             const tr = view.state.tr.setNodeMarkup(pos, undefined, {
-              ...node.attrs,
+              ...currentNode.attrs,
               width: img.offsetWidth,
             });
             view.dispatch(tr);
@@ -404,8 +420,6 @@ export const Image = Node.create<ImageOptions>({
         deselectNode() {
           dom.classList.remove('ProseMirror-selectednode');
         },
-        // eslint-disable-next-line @typescript-eslint/no-empty-function
-        destroy() {},
       };
     };
   },

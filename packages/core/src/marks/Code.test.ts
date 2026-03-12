@@ -57,10 +57,9 @@ describe('Code', () => {
   });
 
   describe('addKeyboardShortcuts', () => {
-    it('provides Mod-e and Mod-E shortcuts', () => {
+    it('provides Mod-e shortcut', () => {
       const shortcuts = Code.config.addKeyboardShortcuts?.call(Code);
       expect(shortcuts).toHaveProperty('Mod-e');
-      expect(shortcuts).toHaveProperty('Mod-E');
     });
 
     it('shortcuts return false when no editor', () => {
@@ -69,8 +68,6 @@ describe('Code', () => {
       } as any);
        
       expect((shortcuts?.['Mod-e'] as any)?.()).toBe(false);
-       
-      expect((shortcuts?.['Mod-E'] as any)?.()).toBe(false);
     });
   });
 

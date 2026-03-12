@@ -108,10 +108,9 @@ describe('Bold', () => {
   });
 
   describe('addKeyboardShortcuts', () => {
-    it('provides Mod-b and Mod-B shortcuts', () => {
+    it('provides Mod-b shortcut', () => {
       const shortcuts = Bold.config.addKeyboardShortcuts?.call(Bold);
       expect(shortcuts).toHaveProperty('Mod-b');
-      expect(shortcuts).toHaveProperty('Mod-B');
     });
 
     it('shortcuts return false when no editor', () => {
@@ -120,8 +119,6 @@ describe('Bold', () => {
       } as any);
        
       expect((shortcuts?.['Mod-b'] as any)?.()).toBe(false);
-       
-      expect((shortcuts?.['Mod-B'] as any)?.()).toBe(false);
     });
   });
 

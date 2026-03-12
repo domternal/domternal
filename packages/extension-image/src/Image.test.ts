@@ -1403,7 +1403,7 @@ describe('Image addToolbarItems', () => {
       if (item?.type === 'button') {
         expect(item.command).toBe('setImageFloat');
         expect(item.commandArgs).toEqual(['none']);
-        expect(item.icon).toBe('imageInline');
+        expect(item.icon).toBe('textIndent');
         expect(item.label).toBe('Inline');
         expect(item.group).toBe('image-float');
       }

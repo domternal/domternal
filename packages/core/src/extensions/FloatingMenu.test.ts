@@ -19,7 +19,7 @@ describe('FloatingMenu', () => {
     it('has default options', () => {
       expect(FloatingMenu.options.element).toBe(null);
       expect(typeof FloatingMenu.options.shouldShow).toBe('function');
-      expect(FloatingMenu.options.offset).toEqual([0, 0]);
+      expect(FloatingMenu.options.offset).toBe(0);
     });
 
     it('can configure element', () => {
@@ -40,9 +40,9 @@ describe('FloatingMenu', () => {
 
     it('can configure offset', () => {
       const CustomFloatingMenu = FloatingMenu.configure({
-        offset: [10, 20],
+        offset: 20,
       });
-      expect(CustomFloatingMenu.options.offset).toEqual([10, 20]);
+      expect(CustomFloatingMenu.options.offset).toBe(20);
     });
 
   });
@@ -332,7 +332,7 @@ describe('FloatingMenu', () => {
 
       const CustomFloatingMenu = FloatingMenu.configure({
         element: menuElement,
-        offset: [15, 25],
+        offset: 25,
       });
 
       editor = new Editor({
@@ -406,7 +406,7 @@ describe('FloatingMenu', () => {
         pluginKey: new PluginKey('testFloating3'),
         editor,
         element: menuElement,
-        offset: [10, 20],
+        offset: 20,
       });
 
       expect(plugin).toBeDefined();

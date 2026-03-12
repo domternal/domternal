@@ -7,12 +7,13 @@ import type { Transaction, Plugin, PluginKey } from 'prosemirror-state';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { DOMSerializer } from 'prosemirror-model';
-import type { Schema } from 'prosemirror-model';
+import type { Schema, Fragment } from 'prosemirror-model';
 
 import { EventEmitter } from './EventEmitter.js';
 import { ExtensionManager } from './ExtensionManager.js';
 import { CommandManager } from './CommandManager.js';
 import { createDocument, isDocumentEmpty } from './helpers/index.js';
+import { inlineStyles, type InlineStyleOverrides } from './utils/inlineStyles.js';
 import {
   focus as focusCommand,
   blur as blurCommand,
@@ -87,7 +88,6 @@ export class Editor extends EventEmitter<EditorEvents> {
    * Manages commands
    */
   private commandManager!: CommandManager;
-
 
   /**
    * ProseMirror EditorView instance
@@ -268,18 +268,24 @@ export class Editor extends EventEmitter<EditorEvents> {
         return true;
       }
 
-      // For range selection, check if entire range has the mark.
-      // Uses object to track state — linter can't narrow object properties through callbacks.
-      const check = { hasText: false, hasMark: true };
-      state.doc.nodesBetween(from, to, (node) => {
+      // For range selection, check if all applicable text has the mark.
+      // Skip text that can't have this mark: inside blocks that don't allow it
+      // (e.g. code blocks) or carrying a mark that excludes it (e.g. inline code).
+      const check = { hasApplicableText: false, hasMark: true };
+      state.doc.nodesBetween(from, to, (node, _pos, parent) => {
         if (node.isText) {
-          check.hasText = true;
+          if (parent && !parent.type.allowsMarkType(markType)) {
+            return; // skip text in mark-incompatible blocks
+          }
+          if (node.marks.some(m => m.type.excludes(markType) && m.type !== markType)) {
+            return; // skip text with marks that exclude this mark type
+          }
+          check.hasApplicableText = true;
           const nodeMark = node.marks.find(m => m.type === markType);
           if (!nodeMark) {
             check.hasMark = false;
             return false; // Stop iteration
           }
-          // Check attributes if specified
           if (attrs && !this.matchAttributes(nodeMark.attrs, attrs)) {
             check.hasMark = false;
             return false;
@@ -287,12 +293,18 @@ export class Editor extends EventEmitter<EditorEvents> {
         }
         return true;
       });
-      return check.hasText && check.hasMark;
+      return check.hasApplicableText && check.hasMark;
     }
 
     // Check if it's a node
     const nodeType = schema.nodes[name];
     if (nodeType) {
+      // NodeSelection — check the selected node directly (atom/leaf nodes like image)
+      const selNode = (selection as { node?: { type: typeof nodeType; attrs: Record<string, unknown> } }).node;
+      if (selNode?.type === nodeType) {
+        return attrs ? this.matchAttributes(selNode.attrs, attrs) : true;
+      }
+
       // Check both $from and $to paths — the node must be an ancestor
       // of both ends of the selection for it to be considered active.
       const { $to } = selection;
@@ -396,8 +408,12 @@ export class Editor extends EventEmitter<EditorEvents> {
 
   /**
    * Gets the document content as HTML string
+   *
+   * @param options - Optional settings
+   * @param options.styled - When true (or an override object), applies inline CSS
+   *   styles so the HTML renders correctly outside the editor (email, CMS, etc.)
    */
-  getHTML(): string {
+  getHTML(options?: { styled?: boolean | InlineStyleOverrides }): string {
     const fragment = DOMSerializer.fromSchema(this.schema).serializeFragment(
       this.state.doc.content
     );
@@ -406,7 +422,7 @@ export class Editor extends EventEmitter<EditorEvents> {
     div.appendChild(fragment);
 
     // Browser DOM normalizes hex colors to rgb() — convert back to hex within style attrs
-    return div.innerHTML.replace(/style="([^"]*)"/g, (_match, style: string) =>
+    const html = div.innerHTML.replace(/style="([^"]*)"/g, (_match, style: string) =>
       'style="' +
         style.replace(
           /rgb\((\d+),\s*(\d+),\s*(\d+)\)/g,
@@ -415,6 +431,13 @@ export class Editor extends EventEmitter<EditorEvents> {
         ) +
         '"',
     );
+
+    if (options?.styled) {
+      const overrides = typeof options.styled === 'object' ? options.styled : undefined;
+      return inlineStyles(html, overrides);
+    }
+
+    return html;
   }
 
   /**
@@ -570,6 +593,29 @@ export class Editor extends EventEmitter<EditorEvents> {
   // === Private Methods ===
 
   /**
+   * Builds a clipboardSerializer that applies a transform function to HTML on copy/cut.
+   */
+  private buildClipboardSerializer(
+    transform: (html: string) => string,
+    schema: Schema,
+  ): { clipboardSerializer: DOMSerializer } {
+    return {
+      clipboardSerializer: {
+        serializeFragment: (fragment: unknown, options?: Record<string, unknown>) => {
+          const base = DOMSerializer.fromSchema(schema);
+          const dom = base.serializeFragment(fragment as Fragment, options);
+          const wrapper = document.createElement('div');
+          wrapper.appendChild(dom);
+          wrapper.innerHTML = transform(wrapper.innerHTML);
+          const frag = document.createDocumentFragment();
+          while (wrapper.firstChild) frag.appendChild(wrapper.firstChild);
+          return frag;
+        },
+      } as unknown as DOMSerializer,
+    };
+  }
+
+  /**
    * Creates the editor instance
    */
   private createEditor(): void {
@@ -637,6 +683,10 @@ export class Editor extends EventEmitter<EditorEvents> {
       dispatchTransaction: this.dispatchTransaction.bind(this),
       editable: () => this.options.editable ?? true,
       ...(Object.keys(nodeViews).length > 0 ? { nodeViews } : {}),
+      // Clipboard transform — apply user-provided transform (e.g. inlineStyles) on copy/cut
+      ...(this.options.clipboardHTMLTransform
+        ? this.buildClipboardSerializer(this.options.clipboardHTMLTransform, this._extensionManager.schema)
+        : {}),
       // Handle focus/blur events
       handleDOMEvents: {
         focus: (_view, event) => {

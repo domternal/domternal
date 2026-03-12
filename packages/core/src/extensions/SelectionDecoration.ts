@@ -12,13 +12,7 @@
 import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import { Extension } from '../Extension.js';
 
-export interface SelectionDecorationOptions {
-  /**
-   * Kept for backward-compatible imports. No longer used.
-   * @default 'dm-blur-selection'
-   */
-  className: string;
-}
+export interface SelectionDecorationOptions {}
 
 export const selectionDecorationPluginKey = new PluginKey(
   'selectionDecoration'
@@ -27,12 +21,6 @@ export const selectionDecorationPluginKey = new PluginKey(
 export const SelectionDecoration = Extension.create<SelectionDecorationOptions>(
   {
     name: 'selectionDecoration',
-
-    addOptions() {
-      return {
-        className: 'dm-blur-selection',
-      };
-    },
 
     addProseMirrorPlugins() {
       return [

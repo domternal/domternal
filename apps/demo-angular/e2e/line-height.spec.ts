@@ -6,8 +6,8 @@ const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
 const dropdownTrigger = 'button[aria-label="Line Height"]';
 
-// Demo app configures these 4 line heights
-const LINE_HEIGHTS = ['1', '1.15', '1.5', '2'];
+// Extension defaults: ['1', '1.15', '1.25', '1.5', '2']
+const LINE_HEIGHTS = ['1', '1.15', '1.25', '1.5', '2'];
 
 async function setContentAndFocus(page: Page, html: string) {
   await page.evaluate((h) => {
@@ -62,11 +62,11 @@ test.describe('LineHeight — toolbar dropdown', () => {
     await expect(panel).toBeVisible();
   });
 
-  test('dropdown contains 4 heights + Default = 5 items', async ({ page }) => {
+  test('dropdown contains 5 heights + Default = 6 items', async ({ page }) => {
     await page.locator(dropdownTrigger).click();
     const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Line Height"]) .dm-toolbar-dropdown-panel');
     const items = panel.locator('.dm-toolbar-dropdown-item');
-    await expect(items).toHaveCount(5);
+    await expect(items).toHaveCount(6);
   });
 
   test('clicking trigger again closes dropdown', async ({ page }) => {

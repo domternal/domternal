@@ -46,9 +46,21 @@ test.describe('Toolbar — keyboard navigation', () => {
   });
 
   test('ArrowRight wraps from last to first', async ({ page }) => {
+    // Set bold content + select all so ClearFormatting (last button) is enabled
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) {
+        comp.editor.setContent('<p><strong>bold</strong></p>', false);
+        comp.editor.commands.selectAll();
+      }
+    });
+    await page.waitForTimeout(200);
+
     const buttons = page.locator(toolbarButton);
     const count = await buttons.count();
-    // Focus last button
+    // Focus last enabled button
     await buttons.nth(count - 1).focus();
 
     await page.keyboard.press('ArrowRight');
@@ -71,6 +83,18 @@ test.describe('Toolbar — keyboard navigation', () => {
   });
 
   test('End moves focus to last button', async ({ page }) => {
+    // Set bold content + select all so ClearFormatting (last button) is enabled
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) {
+        comp.editor.setContent('<p><strong>bold</strong></p>', false);
+        comp.editor.commands.selectAll();
+      }
+    });
+    await page.waitForTimeout(200);
+
     const buttons = page.locator(toolbarButton);
     const count = await buttons.count();
     await buttons.first().focus();

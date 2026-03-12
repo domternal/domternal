@@ -15,10 +15,8 @@ export type {
   Range,
   // Editor options
   AnyExtension,
-  TextDirection,
   FocusPosition,
   EditorOptions,
-  ResolvedEditorOptions,
   // Editor events
   EditorInstance,
   TransactionEventProps,
@@ -96,6 +94,13 @@ export {
   type PositionFloatingOptions,
 } from './utils/positionFloating.js';
 
+// === Inline Styles ===
+export {
+  inlineStyles,
+  applyInlineStyles,
+  type InlineStyleOverrides,
+} from './utils/inlineStyles.js';
+
 // === Helpers ===
 export {
   createDocument,
@@ -105,7 +110,6 @@ export {
   markInputRule,
   markInputRulePatterns,
   isValidUrl,
-  extractUrls,
   generateHTML,
   generateJSON,
   generateText,

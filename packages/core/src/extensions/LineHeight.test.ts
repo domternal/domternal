@@ -18,7 +18,7 @@ describe('LineHeight', () => {
     it('has default options', () => {
       expect(LineHeight.options).toEqual({
         types: ['paragraph', 'heading'],
-        lineHeights: [],
+        lineHeights: ['1', '1.15', '1.25', '1.5', '2'],
         defaultLineHeight: null,
       });
     });

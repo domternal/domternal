@@ -1,0 +1,27 @@
+@if (editor(); as ed) {
+  @if (useLayout()) {
+    <domternal-toolbar [editor]="ed" [layout]="toolbarLayout" />
+  } @else {
+    <domternal-toolbar [editor]="ed" />
+  }
+}
+
+<domternal-editor
+  #ec
+  [extensions]="extensions"
+  [content]="editorContent"
+  (editorCreated)="onEditorCreated($event)"
+/>
+
+@if (editor(); as ed) {
+  <domternal-bubble-menu [editor]="ed" [contexts]="{
+    text: ['bold', 'italic', 'underline', 'strike', 'code', '|', 'link'],
+  }" />
+  <domternal-emoji-picker [editor]="ed" [emojis]="emojiData" />
+}
+
+<h3>HTML Output</h3>
+<pre class="output">{{ ec.htmlContent() }}</pre>
+
+<h3>Styled HTML Output</h3>
+<pre class="output-styled">{{ getStyledHtml(ec.htmlContent()) }}</pre>

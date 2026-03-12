@@ -57,6 +57,9 @@ import { createTable } from './helpers/createTable.js';
 import { deleteTableWhenAllCellsSelected } from './helpers/deleteTableWhenAllCellsSelected.js';
 import { createResizeSuppressionPlugin } from './plugins/resizeSuppressionPlugin.js';
 import { createCellSelectionPlugin } from './plugins/cellSelectionPlugin.js';
+import { TableRow } from './TableRow.js';
+import { TableCell } from './TableCell.js';
+import { TableHeader } from './TableHeader.js';
 
 declare module '@domternal/core' {
   interface RawCommands {
@@ -136,6 +139,10 @@ export const Table = Node.create<TableOptions>({
 
   renderHTML({ HTMLAttributes }) {
     return ['table', { ...this.options.HTMLAttributes, ...HTMLAttributes }, ['tbody', 0]];
+  },
+
+  addExtensions() {
+    return [TableRow, TableCell, TableHeader];
   },
 
   addNodeView() {

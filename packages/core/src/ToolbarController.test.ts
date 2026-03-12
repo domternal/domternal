@@ -595,7 +595,7 @@ describe('ToolbarController', () => {
       expect(controller.activeMap.get('h1')).toBe(true);
     });
 
-    it('does not call onChange when active state has not changed', () => {
+    it('calls onChange even when active state has not changed (cursor position may affect dynamic labels)', () => {
       let transactionHandler: (() => void) | null = null;
       const isActive = vi.fn().mockReturnValue(false);
       const items: ToolbarItem[] = [btn('bold', { isActive: 'bold' })];
@@ -612,11 +612,12 @@ describe('ToolbarController', () => {
       controller.subscribe();
       onChange.mockClear();
 
-      // Trigger transaction — active state is still false
+      // Trigger transaction — active state is still false, but onChange
+      // is still called because cursor position may have changed and
+      // dynamic labels (e.g. font-size) read computed styles at cursor.
       transactionHandler!();
 
-      // No change → onChange should not be called
-      expect(onChange).not.toHaveBeenCalled();
+      expect(onChange).toHaveBeenCalledOnce();
     });
   });
 
@@ -752,7 +753,7 @@ describe('ToolbarController', () => {
       controller = new ToolbarController(editor, vi.fn());
       controller.subscribe();
 
-      expect(controller.disabledMap.get('fontFamily')).toBeUndefined();
+      expect(controller.disabledMap.get('fontFamily')).toBe(false);
     });
 
     it('dropdown with empty items is not disabled', () => {
@@ -762,7 +763,7 @@ describe('ToolbarController', () => {
       controller = new ToolbarController(editor, vi.fn());
       controller.subscribe();
 
-      expect(controller.disabledMap.get('empty')).toBeUndefined();
+      expect(controller.disabledMap.get('empty')).toBe(false);
     });
 
     it('dropdown disabled state stored in disabledMap under dropdown name', () => {
@@ -1092,7 +1093,7 @@ describe('ToolbarController', () => {
       expect(onChange).toHaveBeenCalled();
     });
 
-    it('does not call onChange when expanded state has not changed', () => {
+    it('calls onChange even when expanded state has not changed (dynamic labels may need refresh)', () => {
       let transactionHandler: (() => void) | null = null;
       const storage: Record<string, unknown> = { link: { isOpen: true } };
       const items: ToolbarItem[] = [
@@ -1114,8 +1115,9 @@ describe('ToolbarController', () => {
       // Trigger transaction — isOpen is still true
       transactionHandler!();
 
-      // No change → onChange should not be called
-      expect(onChange).not.toHaveBeenCalled();
+      // onChange is always called because cursor position may have changed,
+      // affecting dynamic trigger labels even when active/expanded states haven't.
+      expect(onChange).toHaveBeenCalledOnce();
     });
 
     it('destroy clears expandedMap', () => {

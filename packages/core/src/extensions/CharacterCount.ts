@@ -51,6 +51,16 @@ export interface CharacterCountStorage {
   remaining: () => number;
 
   /**
+   * Get percentage of word limit used (0-100). Returns 0 if no word limit.
+   */
+  wordPercentage: () => number;
+
+  /**
+   * Get remaining words before limit. Returns Infinity if no word limit.
+   */
+  wordRemaining: () => number;
+
+  /**
    * Check if limit is exceeded.
    */
   isLimitExceeded: () => boolean;
@@ -78,6 +88,8 @@ export const CharacterCount = Extension.create<
       words: () => 0,
       percentage: () => 0,
       remaining: () => Infinity,
+      wordPercentage: () => 0,
+      wordRemaining: () => Infinity,
       isLimitExceeded: () => false,
     };
   },
@@ -115,6 +127,17 @@ export const CharacterCount = Extension.create<
     this.storage.remaining = () => {
       if (this.options.limit === null) return Infinity;
       return Math.max(0, this.options.limit - getCharacters());
+    };
+
+    this.storage.wordPercentage = () => {
+      if (this.options.wordLimit === null) return 0;
+      const words = getWords();
+      return Math.min(100, Math.round((words / this.options.wordLimit) * 100));
+    };
+
+    this.storage.wordRemaining = () => {
+      if (this.options.wordLimit === null) return Infinity;
+      return Math.max(0, this.options.wordLimit - getWords());
     };
 
     this.storage.isLimitExceeded = () => {

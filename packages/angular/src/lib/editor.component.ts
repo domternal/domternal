@@ -212,12 +212,13 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
         const ed = this._editor!;
 
         if (transaction.docChanged) {
-          this._htmlContent.set(ed.getHTML());
+          const html = ed.getHTML();
+          this._htmlContent.set(html);
           this._jsonContent.set(ed.getJSON());
           this._isEmpty.set(ed.isEmpty);
           this.contentUpdated.emit({ editor: ed });
 
-          const value: Content = this.outputFormat() === 'html' ? ed.getHTML() : ed.getJSON();
+          const value: Content = this.outputFormat() === 'html' ? html : ed.getJSON();
           this.onChange(value);
         }
 

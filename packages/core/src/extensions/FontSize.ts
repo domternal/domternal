@@ -25,6 +25,7 @@
 import { Extension } from '../Extension.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarButton, ToolbarItem } from '../types/Toolbar.js';
+import { TextStyle } from '../marks/TextStyle.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -98,12 +99,14 @@ export const FontSize = Extension.create<FontSizeOptions>({
     };
   },
 
+  addExtensions() {
+    return [TextStyle];
+  },
+
   addToolbarItems(): ToolbarItem[] {
     if (this.options.fontSizes.length === 0) return [];
 
-    const sizes = this.options.fontSizes.includes('16px')
-      ? this.options.fontSizes
-      : ['16px', ...this.options.fontSizes];
+    const sizes = this.options.fontSizes;
 
     const items: ToolbarButton[] = sizes.map((size, i) => ({
       type: 'button' as const,

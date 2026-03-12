@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isValidUrl, extractUrls } from './isValidUrl.js';
+import { isValidUrl } from './isValidUrl.js';
 
 describe('isValidUrl', () => {
   describe('valid URLs', () => {
@@ -70,37 +70,5 @@ describe('isValidUrl', () => {
     it('accepts custom protocols', () => {
       expect(isValidUrl('ftp://files.example.com', { protocols: ['ftp:'] })).toBe(true);
     });
-  });
-});
-
-describe('extractUrls', () => {
-  it('extracts http URLs from text', () => {
-    const result = extractUrls('Visit http://example.com for info');
-    expect(result).toEqual(['http://example.com']);
-  });
-
-  it('extracts https URLs from text', () => {
-    const result = extractUrls('Visit https://example.com for info');
-    expect(result).toEqual(['https://example.com']);
-  });
-
-  it('extracts multiple URLs', () => {
-    const result = extractUrls('See https://a.com and https://b.com');
-    expect(result).toEqual(['https://a.com', 'https://b.com']);
-  });
-
-  it('extracts URLs with paths', () => {
-    const result = extractUrls('Go to https://example.com/path/page');
-    expect(result).toEqual(['https://example.com/path/page']);
-  });
-
-  it('returns empty array when no URLs', () => {
-    const result = extractUrls('No URLs here');
-    expect(result).toEqual([]);
-  });
-
-  it('returns empty array for empty string', () => {
-    const result = extractUrls('');
-    expect(result).toEqual([]);
   });
 });

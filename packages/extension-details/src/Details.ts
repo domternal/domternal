@@ -22,6 +22,8 @@ import type { ViewMutationRecord } from 'prosemirror-view';
 import { isNodeVisible } from './helpers/isNodeVisible.js';
 import { findClosestVisibleNode } from './helpers/findClosestVisibleNode.js';
 import { setGapCursor } from './helpers/setGapCursor.js';
+import { DetailsSummary } from './DetailsSummary.js';
+import { DetailsContent } from './DetailsContent.js';
 
 declare module '@domternal/core' {
   interface RawCommands {
@@ -203,6 +205,10 @@ export const Details = Node.create<DetailsOptions>({
         priority: 100,
       },
     ];
+  },
+
+  addExtensions() {
+    return [DetailsSummary, DetailsContent];
   },
 
   addCommands() {
@@ -464,12 +470,10 @@ export const Details = Node.create<DetailsOptions>({
         // Safari bug: backspace removes all text in <summary>
         // Handle manually by deleting one char
         if ($anchor.parentOffset !== 0) {
-          return editor.commands['command']?.(({ tr }: { tr: { delete: (from: number, to: number) => void } }) => {
-            const from = $anchor.pos - 1;
-            const to = $anchor.pos;
-            tr.delete(from, to);
-            return true;
-          }) ?? false;
+          const { tr } = editor.state;
+          tr.delete($anchor.pos - 1, $anchor.pos);
+          editor.view.dispatch(tr);
+          return true;
         }
 
         // At start of summary — unset details

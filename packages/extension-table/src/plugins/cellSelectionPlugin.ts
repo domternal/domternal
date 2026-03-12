@@ -108,8 +108,7 @@ export function createCellSelectionPlugin(): Plugin {
 
             if (inCell && sel.empty) {
               // Only show cell handle for cursor (empty selection).
-              // When text is selected the bubble menu is visible at the same spot
-              // and would intercept clicks intended for the cell handle.
+              // During text selection the handle would be distracting.
               const domEl = domElementAt(view, $from.pos);
               const cellEl = domEl?.closest<HTMLTableCellElement>('td, th');
               const container = cellEl?.closest<HTMLElement>('.dm-table-container');

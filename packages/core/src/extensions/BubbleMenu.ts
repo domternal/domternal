@@ -63,17 +63,12 @@ function defaultShouldShow({
   // Don't show if editor is not editable
   if (!editor.isEditable) return false;
 
-  // Don't show if selection spans across different table cells.
-  // A cross-cell TextSelection happens during mouse drag across cells —
-  // the bubble menu would float over the table confusingly.
+  // Don't show inside table cells — the cell toolbar handles table formatting.
+  // Extensions can opt-in via a custom shouldShow if needed.
   const $from = state.doc.resolve(from);
   for (let d = $from.depth; d > 0; d--) {
     const name = $from.node(d).type.name;
-    if (name === 'tableCell' || name === 'tableHeader') {
-      const cellEnd = $from.before(d) + $from.node(d).nodeSize;
-      if (to > cellEnd) return false;
-      break;
-    }
+    if (name === 'tableCell' || name === 'tableHeader') return false;
   }
 
   return true;
@@ -111,10 +106,10 @@ export interface BubbleMenuOptions {
   placement: 'top' | 'bottom';
 
   /**
-   * Offset in pixels from the selection [x, y].
-   * @default [0, 8]
+   * Offset in pixels from the selection.
+   * @default 8
    */
-  offset: [number, number];
+  offset: number;
 }
 
 interface BubbleMenuPluginState {
@@ -129,7 +124,7 @@ export interface CreateBubbleMenuPluginOptions {
   element: HTMLElement;
   shouldShow?: BubbleMenuOptions['shouldShow'];
   placement?: 'top' | 'bottom';
-  offset?: [number, number];
+  offset?: number;
   updateDelay?: number;
 }
 
@@ -145,11 +140,13 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
     element,
     shouldShow = defaultShouldShow,
     placement = 'top',
-    offset = [0, 8],
+    offset = 8,
     updateDelay = 0,
   } = options;
 
   let updateTimeout: ReturnType<typeof setTimeout> | null = null;
+  let focusTimeout: ReturnType<typeof setTimeout> | null = null;
+  let mouseupTimeout: ReturnType<typeof setTimeout> | null = null;
   let cleanupFloating: (() => void) | null = null;
 
   const updatePosition = (view: EditorView, from: number, to: number): void => {
@@ -179,7 +176,7 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
 
     cleanupFloating = positionFloatingOnce(reference, element, {
       placement,
-      offsetValue: offset[1],
+      offsetValue: offset,
     });
 
     element.setAttribute('data-show', '');
@@ -273,7 +270,7 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
         if (!mouseDown) return;
         mouseDown = false;
         // Defer to let ProseMirror finalize selection changes from the mouseup
-        setTimeout(() => {
+        mouseupTimeout = setTimeout(() => {
           if (mouseDown) return; // new drag started
           const currentState = pluginKey.getState(editor.view.state) as
             | BubbleMenuPluginState
@@ -289,7 +286,7 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
         // Must re-check shouldShow with current state — plugin state may be stale
         // if blur/focus happened without a transaction (e.g. cell handle click,
         // browser extension, or external focus change).
-        setTimeout(() => {
+        focusTimeout = setTimeout(() => {
           if (suppressed) {
             hideMenu();
             return;
@@ -400,6 +397,12 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
           if (updateTimeout) {
             clearTimeout(updateTimeout);
           }
+          if (focusTimeout) {
+            clearTimeout(focusTimeout);
+          }
+          if (mouseupTimeout) {
+            clearTimeout(mouseupTimeout);
+          }
           hideMenu();
         },
       };
@@ -416,7 +419,7 @@ export const BubbleMenu = Extension.create<BubbleMenuOptions>({
       updateDelay: 0,
       shouldShow: defaultShouldShow,
       placement: 'top' as const,
-      offset: [0, 8] as [number, number],
+      offset: 8,
     };
   },
 

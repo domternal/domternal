@@ -3,13 +3,11 @@
 // =============================================================================
 
 .dm-bubble-menu {
-  // Button tokens (same as .dm-toolbar but smaller — bubble menu should be compact)
-  --dm-toolbar-bg: var(--dm-surface, #f8f9fa);
-  --dm-toolbar-border: 1px solid var(--dm-border-color, #e0e0e0);
-  --dm-toolbar-padding: 0.125rem;
-  --dm-toolbar-gap: 0.0625rem;
-  --dm-button-size: 1.5rem;
-  --dm-button-border-radius: 0.1875rem;
+  // Button tokens (compact sizing for bubble menu)
+  --dm-toolbar-padding: 0.25rem;
+  --dm-toolbar-gap: 0.125rem;
+  --dm-button-size: 1.75rem;
+  --dm-button-border-radius: 0.25rem;
   --dm-button-color: var(--dm-text, #1a1a1a);
   --dm-button-hover-bg: var(--dm-hover, rgba(0, 0, 0, 0.06));
   --dm-button-active-bg: var(--dm-active, rgba(0, 0, 0, 0.12));
@@ -18,13 +16,13 @@
 
   // Smaller icons to match compact buttons
   .dm-toolbar-button svg {
-    width: 0.875rem;
-    height: 0.875rem;
+    width: 1rem;
+    height: 1rem;
   }
 
   .dm-toolbar-separator {
     width: 1px;
-    height: 1rem;
+    height: 1.125rem;
     background: var(--dm-separator-color, var(--dm-border-color, #e0e0e0));
     margin: 0 0.125rem;
     flex-shrink: 0;
@@ -35,10 +33,10 @@
   align-items: center;
   gap: var(--dm-toolbar-gap);
   padding: var(--dm-toolbar-padding);
-  background: var(--dm-toolbar-bg);
-  border: var(--dm-toolbar-border);
-  border-radius: var(--dm-button-border-radius);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  background: var(--dm-bg, #fff);
+  border: 1px solid var(--dm-border-color, #e5e7eb);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
   visibility: hidden;
   opacity: 0;
   z-index: 50;

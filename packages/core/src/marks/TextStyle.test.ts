@@ -195,6 +195,40 @@ describe('TextStyle', () => {
       expect(result).toBe(false);
     });
 
+    it('removeEmptyTextStyle preserves non-empty marks on adjacent nodes', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, TextColor],
+        content: '<p>RedPlain</p>',
+      });
+
+      const markType = editor.state.schema.marks['textStyle']!;
+
+      // Manually apply textStyle with color on "Red" (pos 1-4)
+      // and empty textStyle on "Plain" (pos 4-9)
+      editor.view.dispatch(
+        editor.state.tr
+          .addMark(1, 4, markType.create({ color: '#ff0000' }))
+          .addMark(4, 9, markType.create({ color: null }))
+      );
+
+      // Select entire text range: "RedPlain"
+      editor.view.dispatch(
+        editor.state.tr.setSelection(
+          TextSelection.create(editor.state.doc, 1, 9)
+        )
+      );
+
+      const result = editor.commands.removeEmptyTextStyle();
+      expect(result).toBe(true);
+
+      // "Red" should still have its color mark
+      const p = editor.state.doc.child(0);
+      const redNode = p.child(0);
+      const redMark = redNode.marks.find(m => m.type === markType);
+      expect(redMark).toBeDefined();
+      expect(redMark!.attrs['color']).toBe('#ff0000');
+    });
+
     it('removeEmptyTextStyle returns false when no empty text styles exist', () => {
       editor = new Editor({
         extensions,

@@ -83,10 +83,10 @@ export interface FloatingMenuOptions {
   }) => boolean;
 
   /**
-   * Offset in pixels from the cursor position [x, y].
-   * @default [0, 0]
+   * Offset in pixels from the cursor position.
+   * @default 0
    */
-  offset: [number, number];
+  offset: number;
 }
 
 export interface CreateFloatingMenuPluginOptions {
@@ -94,7 +94,7 @@ export interface CreateFloatingMenuPluginOptions {
   editor: Editor;
   element: HTMLElement;
   shouldShow?: FloatingMenuOptions['shouldShow'];
-  offset?: [number, number];
+  offset?: number;
 }
 
 /**
@@ -108,7 +108,7 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
     editor,
     element,
     shouldShow = defaultShouldShow,
-    offset = [0, 0],
+    offset = 0,
   } = options;
 
   let cleanupFloating: (() => void) | null = null;
@@ -125,7 +125,7 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
       cleanupFloating?.();
       cleanupFloating = positionFloatingOnce(domNode, element, {
         placement: 'bottom-start',
-        offsetValue: offset[1],
+        offsetValue: offset,
       });
       element.setAttribute('data-show', '');
     }
@@ -206,7 +206,7 @@ export const FloatingMenu = Extension.create<FloatingMenuOptions>({
     return {
       element: null,
       shouldShow: defaultShouldShow,
-      offset: [0, 0] as [number, number],
+      offset: 0,
     };
   },
 

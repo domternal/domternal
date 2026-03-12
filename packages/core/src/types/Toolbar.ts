@@ -98,6 +98,9 @@ export interface ToolbarButton {
 
   /** Show in the main toolbar. @default true. Set false for bubble-menu-only items. */
   toolbar?: boolean;
+
+  /** Bubble menu context name. When set, this item is included in the default bubble menu for this context. */
+  bubbleMenu?: string;
 }
 
 /**
@@ -201,6 +204,8 @@ export interface ToolbarLayoutDropdown {
   items: string[];
   /** How to display items in the dropdown panel: icon + text (default), text only, or icon only. */
   displayMode?: 'icon-text' | 'text' | 'icon';
+  /** When true, the trigger icon updates to reflect the active sub-item's icon. */
+  dynamicIcon?: boolean;
 }
 
 /**

@@ -111,18 +111,16 @@ describe('Highlight', () => {
   });
 
   describe('addKeyboardShortcuts', () => {
-    it('provides Mod-Shift-h and Mod-Shift-H shortcuts', () => {
+    it('provides Mod-Shift-h shortcut', () => {
       const shortcuts = Highlight.config.addKeyboardShortcuts?.call(Highlight);
       expect(shortcuts).toHaveProperty('Mod-Shift-h');
-      expect(shortcuts).toHaveProperty('Mod-Shift-H');
     });
 
-    it('shortcuts return false when no editor', () => {
+    it('shortcut returns false when no editor', () => {
       const shortcuts = Highlight.config.addKeyboardShortcuts?.call({
         ...Highlight, editor: undefined, options: Highlight.options,
       } as any);
       expect((shortcuts?.['Mod-Shift-h'] as any)?.()).toBe(false);
-      expect((shortcuts?.['Mod-Shift-H'] as any)?.()).toBe(false);
     });
   });
 

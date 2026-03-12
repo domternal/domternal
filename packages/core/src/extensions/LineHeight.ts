@@ -42,7 +42,7 @@ export interface LineHeightOptions {
   /**
    * List of allowed line heights (e.g., ['1', '1.5', '2']).
    * If empty, all values are allowed.
-   * @default []
+   * @default ['1', '1.15', '1.25', '1.5', '2']
    */
   lineHeights: string[];
 
@@ -59,7 +59,7 @@ export const LineHeight = Extension.create<LineHeightOptions>({
   addOptions() {
     return {
       types: ['paragraph', 'heading'],
-      lineHeights: [],
+      lineHeights: ['1', '1.15', '1.25', '1.5', '2'],
       defaultLineHeight: null,
     };
   },
