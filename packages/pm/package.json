@@ -1,0 +1,101 @@
+{
+  "name": "@domternal/pm",
+  "version": "0.0.1",
+  "description": "ProseMirror package re-exports for Domternal",
+  "author": "Domternal",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    "./commands": {
+      "import": "./src/commands.js",
+      "require": "./src/commands.cjs",
+      "types": "./src/commands.d.ts"
+    },
+    "./dropcursor": {
+      "import": "./src/dropcursor.js",
+      "require": "./src/dropcursor.cjs",
+      "types": "./src/dropcursor.d.ts"
+    },
+    "./gapcursor": {
+      "import": "./src/gapcursor.js",
+      "require": "./src/gapcursor.cjs",
+      "types": "./src/gapcursor.d.ts"
+    },
+    "./history": {
+      "import": "./src/history.js",
+      "require": "./src/history.cjs",
+      "types": "./src/history.d.ts"
+    },
+    "./inputrules": {
+      "import": "./src/inputrules.js",
+      "require": "./src/inputrules.cjs",
+      "types": "./src/inputrules.d.ts"
+    },
+    "./keymap": {
+      "import": "./src/keymap.js",
+      "require": "./src/keymap.cjs",
+      "types": "./src/keymap.d.ts"
+    },
+    "./model": {
+      "import": "./src/model.js",
+      "require": "./src/model.cjs",
+      "types": "./src/model.d.ts"
+    },
+    "./schema-list": {
+      "import": "./src/schema-list.js",
+      "require": "./src/schema-list.cjs",
+      "types": "./src/schema-list.d.ts"
+    },
+    "./state": {
+      "import": "./src/state.js",
+      "require": "./src/state.cjs",
+      "types": "./src/state.d.ts"
+    },
+    "./tables": {
+      "import": "./src/tables.js",
+      "require": "./src/tables.cjs",
+      "types": "./src/tables.d.ts"
+    },
+    "./transform": {
+      "import": "./src/transform.js",
+      "require": "./src/transform.cjs",
+      "types": "./src/transform.d.ts"
+    },
+    "./view": {
+      "import": "./src/view.js",
+      "require": "./src/view.cjs",
+      "types": "./src/view.d.ts"
+    }
+  },
+  "files": [
+    "src"
+  ],
+  "dependencies": {
+    "prosemirror-commands": "^1.7.1",
+    "prosemirror-dropcursor": "^1.8.2",
+    "prosemirror-gapcursor": "^1.4.0",
+    "prosemirror-history": "^1.5.0",
+    "prosemirror-inputrules": "^1.5.1",
+    "prosemirror-keymap": "^1.2.3",
+    "prosemirror-model": "^1.25.4",
+    "prosemirror-schema-list": "^1.5.1",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-tables": "^1.7.0",
+    "prosemirror-transform": "^1.10.5",
+    "prosemirror-view": "^1.41.5"
+  },
+  "keywords": [
+    "prosemirror",
+    "domternal"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/domternal/domternal.git",
+    "directory": "packages/pm"
+  },
+  "bugs": {
+    "url": "https://github.com/domternal/domternal/issues"
+  },
+  "homepage": "https://domternal.com"
+}

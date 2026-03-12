@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { TextSelection } from 'prosemirror-state';
+import { TextSelection } from '@domternal/pm/state';
 import { Code } from './Code.js';
 import { Bold } from './Bold.js';
 import { Document } from '../nodes/Document.js';

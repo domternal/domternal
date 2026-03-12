@@ -31,9 +31,9 @@
  * Styles are included automatically via `@domternal/theme` (`_floating-menu.scss`).
  */
 import { Extension } from '../Extension.js';
-import { Plugin, PluginKey } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
-import type { EditorState } from 'prosemirror-state';
+import { Plugin, PluginKey } from '@domternal/pm/state';
+import type { EditorView } from '@domternal/pm/view';
+import type { EditorState } from '@domternal/pm/state';
 import type { Editor } from '../Editor.js';
 import { positionFloatingOnce } from '../utils/positionFloating.js';
 

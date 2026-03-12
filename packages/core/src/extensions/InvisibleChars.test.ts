@@ -8,8 +8,8 @@ import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { HardBreak } from '../nodes/HardBreak.js';
 import { Editor } from '../Editor.js';
-import { DecorationSet } from 'prosemirror-view';
-import { TextSelection } from 'prosemirror-state';
+import { DecorationSet } from '@domternal/pm/view';
+import { TextSelection } from '@domternal/pm/state';
 import type { ToolbarButton } from '../types/Toolbar.js';
 
 interface InvisibleCharsPluginState { visible: boolean; decorations: DecorationSet }

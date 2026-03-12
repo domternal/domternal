@@ -4,9 +4,9 @@
  * Creates input rules for applying marks based on regex patterns.
  * Used for markdown-style shortcuts like **bold**, *italic*, ~~strike~~, etc.
  */
-import { InputRule } from 'prosemirror-inputrules';
-import type { MarkType } from 'prosemirror-model';
-import type { EditorState } from 'prosemirror-state';
+import { InputRule } from '@domternal/pm/inputrules';
+import type { MarkType } from '@domternal/pm/model';
+import type { EditorState } from '@domternal/pm/state';
 
 /**
  * Options for creating a mark input rule

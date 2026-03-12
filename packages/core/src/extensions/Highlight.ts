@@ -23,7 +23,7 @@
  */
 import { Extension } from '../Extension.js';
 import { normalizeColor } from '../helpers/normalizeColor.js';
-import { InputRule } from 'prosemirror-inputrules';
+import { InputRule } from '@domternal/pm/inputrules';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 

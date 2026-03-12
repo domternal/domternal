@@ -6,10 +6,10 @@ import {
   imageUploadPluginKey,
   _resetPlaceholderCounter,
 } from './imageUploadPlugin.js';
-import { Schema } from 'prosemirror-model';
-import { EditorState } from 'prosemirror-state';
-import { NodeSelection } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
+import { Schema } from '@domternal/pm/model';
+import { EditorState } from '@domternal/pm/state';
+import { NodeSelection } from '@domternal/pm/state';
+import { EditorView } from '@domternal/pm/view';
 
 describe('Image', () => {
   describe('configuration', () => {

@@ -7,8 +7,8 @@
  *
  * Enabled when the Link mark has `exitable: true` configured.
  */
-import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
-import type { MarkType } from 'prosemirror-model';
+import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
+import type { MarkType } from '@domternal/pm/model';
 
 /**
  * Options for the link exit plugin

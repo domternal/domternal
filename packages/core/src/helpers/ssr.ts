@@ -12,8 +12,8 @@ import {
   Node as PMNode,
   DOMSerializer,
   DOMParser as PMDOMParser,
-} from 'prosemirror-model';
-import type { Schema } from 'prosemirror-model';
+} from '@domternal/pm/model';
+import type { Schema } from '@domternal/pm/model';
 import type { AnyExtension, JSONContent } from '../types/index.js';
 import { ExtensionManager } from '../ExtensionManager.js';
 

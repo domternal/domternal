@@ -2,7 +2,7 @@
  * Tests for UniqueID extension
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { Fragment, Slice } from 'prosemirror-model';
+import { Fragment, Slice } from '@domternal/pm/model';
 import { UniqueID } from './UniqueID.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';

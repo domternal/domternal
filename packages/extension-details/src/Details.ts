@@ -17,8 +17,8 @@
 
 import { Node, findParentNode, findChildren, defaultBlockAt } from '@domternal/core';
 import type { CommandSpec, ToolbarItem } from '@domternal/core';
-import { Plugin, PluginKey, Selection, TextSelection } from 'prosemirror-state';
-import type { ViewMutationRecord } from 'prosemirror-view';
+import { Plugin, PluginKey, Selection, TextSelection } from '@domternal/pm/state';
+import type { ViewMutationRecord } from '@domternal/pm/view';
 import { isNodeVisible } from './helpers/isNodeVisible.js';
 import { findClosestVisibleNode } from './helpers/findClosestVisibleNode.js';
 import { setGapCursor } from './helpers/setGapCursor.js';

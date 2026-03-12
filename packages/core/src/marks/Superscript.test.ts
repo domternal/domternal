@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { TextSelection } from 'prosemirror-state';
+import { TextSelection } from '@domternal/pm/state';
 import { Superscript } from './Superscript.js';
 import { Subscript } from './Subscript.js';
 import { Document } from '../nodes/Document.js';

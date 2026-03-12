@@ -1,9 +1,9 @@
 /**
  * Node commands — setBlockType, toggleBlockType, wrapIn, toggleWrap, lift
  */
-import { TextSelection } from 'prosemirror-state';
-import { findWrapping, liftTarget } from 'prosemirror-transform';
-import type { Attrs, Node as PMNode } from 'prosemirror-model';
+import { TextSelection } from '@domternal/pm/state';
+import { findWrapping, liftTarget } from '@domternal/pm/transform';
+import type { Attrs, Node as PMNode } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
 
 /**

@@ -7,7 +7,7 @@
  * - Smart quotes
  * - Arrows, fractions, symbols
  */
-import { InputRule } from 'prosemirror-inputrules';
+import { InputRule } from '@domternal/pm/inputrules';
 import { Extension } from '../Extension.js';
 
 export interface TypographyOptions {

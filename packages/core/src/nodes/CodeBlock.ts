@@ -11,8 +11,8 @@
  */
 
 import { Node } from '../Node.js';
-import { textblockTypeInputRule } from 'prosemirror-inputrules';
-import { TextSelection } from 'prosemirror-state';
+import { textblockTypeInputRule } from '@domternal/pm/inputrules';
+import { TextSelection } from '@domternal/pm/state';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 

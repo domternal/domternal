@@ -1,4 +1,4 @@
-import type { Schema } from 'prosemirror-model';
+import type { Schema } from '@domternal/pm/model';
 import type { Content } from './Content.js';
 import type {
   CreateEventProps,

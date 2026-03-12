@@ -5,9 +5,9 @@
  * Node.create(), and Mark.create() factory methods.
  */
 
-import type { Plugin, Transaction, EditorState } from 'prosemirror-state';
-import type { InputRule } from 'prosemirror-inputrules';
-import type { EditorView } from 'prosemirror-view';
+import type { Plugin, Transaction, EditorState } from '@domternal/pm/state';
+import type { InputRule } from '@domternal/pm/inputrules';
+import type { EditorView } from '@domternal/pm/view';
 import type { Command, KeyboardShortcutCommand, SingleCommands } from './Commands.js';
 import type { ToolbarItem } from './Toolbar.js';
 

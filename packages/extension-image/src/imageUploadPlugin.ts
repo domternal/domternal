@@ -8,10 +8,10 @@
  * On success: placeholder removed, real image node inserted.
  * On error: placeholder removed, onUploadError called.
  */
-import { Plugin, PluginKey } from 'prosemirror-state';
-import { Decoration, DecorationSet } from 'prosemirror-view';
-import type { EditorView } from 'prosemirror-view';
-import type { NodeType } from 'prosemirror-model';
+import { Plugin, PluginKey } from '@domternal/pm/state';
+import { Decoration, DecorationSet } from '@domternal/pm/view';
+import type { EditorView } from '@domternal/pm/view';
+import type { NodeType } from '@domternal/pm/model';
 
 export const imageUploadPluginKey = new PluginKey('imageUpload');
 

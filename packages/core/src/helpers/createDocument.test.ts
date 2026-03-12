@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Schema } from 'prosemirror-model';
+import { Schema } from '@domternal/pm/model';
 import { createDocument } from './createDocument.js';
 
 // Minimal test schema

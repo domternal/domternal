@@ -5,9 +5,9 @@
  * for creating ProseMirror node extensions.
  */
 
-import type { Node as PMNode, DOMOutputSpec, NodeType } from 'prosemirror-model';
-import type { EditorState, Plugin } from 'prosemirror-state';
-import type { EditorView, NodeViewConstructor } from 'prosemirror-view';
+import type { Node as PMNode, DOMOutputSpec, NodeType } from '@domternal/pm/model';
+import type { EditorState, Plugin } from '@domternal/pm/state';
+import type { EditorView, NodeViewConstructor } from '@domternal/pm/view';
 import type { ExtensionConfigBase, ExtensionContext } from './ExtensionConfig.js';
 import type { AttributeSpecs } from './AttributeSpec.js';
 

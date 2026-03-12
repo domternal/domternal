@@ -4,7 +4,7 @@ import { CodeBlockLowlight } from './CodeBlockLowlight.js';
 import { lowlightPluginKey } from './lowlightPlugin.js';
 import { generateHighlightedHTML } from './generateHighlightedHTML.js';
 import { Document, Text, Paragraph, Editor, CodeBlock } from '@domternal/core';
-import type { DecorationSet } from 'prosemirror-view';
+import type { DecorationSet } from '@domternal/pm/view';
 
 const lowlight = createLowlight(common);
 

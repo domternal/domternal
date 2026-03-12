@@ -1,7 +1,7 @@
-import { Plugin, PluginKey } from 'prosemirror-state';
-import type { EditorState, Transaction } from 'prosemirror-state';
-import { Decoration, DecorationSet } from 'prosemirror-view';
-import type { Node as PMNode } from 'prosemirror-model';
+import { Plugin, PluginKey } from '@domternal/pm/state';
+import type { EditorState, Transaction } from '@domternal/pm/state';
+import { Decoration, DecorationSet } from '@domternal/pm/view';
+import type { Node as PMNode } from '@domternal/pm/model';
 import type { createLowlight } from 'lowlight';
 
 /** The lowlight instance type (return type of createLowlight) */

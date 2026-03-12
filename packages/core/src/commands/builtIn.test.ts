@@ -2,7 +2,7 @@
  * Tests for built-in commands
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { TextSelection, AllSelection } from 'prosemirror-state';
+import { TextSelection, AllSelection } from '@domternal/pm/state';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';

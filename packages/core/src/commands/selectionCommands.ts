@@ -1,9 +1,9 @@
 /**
  * Selection commands — focus, blur, selectAll, selectNodeBackward, deleteSelection
  */
-import { TextSelection, AllSelection } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
-import { selectNodeBackward as pmSelectNodeBackward } from 'prosemirror-commands';
+import { TextSelection, AllSelection } from '@domternal/pm/state';
+import type { EditorView } from '@domternal/pm/view';
+import { selectNodeBackward as pmSelectNodeBackward } from '@domternal/pm/commands';
 import type { CommandSpec } from '../types/Commands.js';
 import type { FocusPosition } from '../types/index.js';
 

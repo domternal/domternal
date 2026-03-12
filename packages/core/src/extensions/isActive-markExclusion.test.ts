@@ -8,7 +8,7 @@ import { TextStyle } from '../marks/TextStyle.js';
 import { FontSize } from './FontSize.js';
 import { CodeBlock } from '../nodes/CodeBlock.js';
 import { Code } from '../marks/Code.js';
-import { AllSelection, TextSelection } from 'prosemirror-state';
+import { AllSelection, TextSelection } from '@domternal/pm/state';
 
 describe('isActive skips mark-incompatible text', () => {
   let editor: Editor;

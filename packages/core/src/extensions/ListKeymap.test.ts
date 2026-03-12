@@ -8,7 +8,7 @@ import { OrderedList } from '../nodes/OrderedList.js';
 import { ListItem } from '../nodes/ListItem.js';
 import { BaseKeymap } from './BaseKeymap.js';
 import { Editor } from '../Editor.js';
-import { TextSelection } from 'prosemirror-state';
+import { TextSelection } from '@domternal/pm/state';
 
 const baseExtensions = [
   Document,

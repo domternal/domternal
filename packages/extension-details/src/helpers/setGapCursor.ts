@@ -3,9 +3,9 @@
  * and the content is collapsed. Sets a GapCursor after the details node.
  */
 import { findParentNode, findChildren } from '@domternal/core';
-import { GapCursor } from 'prosemirror-gapcursor';
-import type { EditorState } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
+import { GapCursor } from '@domternal/pm/gapcursor';
+import type { EditorState } from '@domternal/pm/state';
+import type { EditorView } from '@domternal/pm/view';
 import { isNodeVisible } from './isNodeVisible.js';
 
 interface EditorLike {

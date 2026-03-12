@@ -25,7 +25,7 @@
  * - And more standard editing commands
  */
 import { Extension } from '../Extension.js';
-import { keymap } from 'prosemirror-keymap';
+import { keymap } from '@domternal/pm/keymap';
 import {
   baseKeymap,
   chainCommands,
@@ -33,8 +33,8 @@ import {
   liftEmptyBlock,
   newlineInCode,
   splitBlock,
-} from 'prosemirror-commands';
-import type { Command } from 'prosemirror-state';
+} from '@domternal/pm/commands';
+import type { Command } from '@domternal/pm/state';
 
 export interface BaseKeymapOptions {
   /**

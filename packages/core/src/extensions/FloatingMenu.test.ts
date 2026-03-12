@@ -8,7 +8,7 @@ import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { Heading } from '../nodes/Heading.js';
 import { Editor } from '../Editor.js';
-import { PluginKey, TextSelection } from 'prosemirror-state';
+import { PluginKey, TextSelection } from '@domternal/pm/state';
 
 describe('FloatingMenu', () => {
   describe('configuration', () => {

@@ -1,9 +1,9 @@
 /**
  * List commands — toggleList
  */
-import { TextSelection, EditorState } from 'prosemirror-state';
-import { wrapRangeInList, liftListItem } from 'prosemirror-schema-list';
-import type { Attrs, Node as PMNode } from 'prosemirror-model';
+import { TextSelection, EditorState } from '@domternal/pm/state';
+import { wrapRangeInList, liftListItem } from '@domternal/pm/schema-list';
+import type { Attrs, Node as PMNode } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
 
 /**

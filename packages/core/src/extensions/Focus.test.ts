@@ -5,8 +5,8 @@ import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { Blockquote } from '../nodes/Blockquote.js';
 import { Editor } from '../Editor.js';
-import { DecorationSet } from 'prosemirror-view';
-import { TextSelection } from 'prosemirror-state';
+import { DecorationSet } from '@domternal/pm/view';
+import { TextSelection } from '@domternal/pm/state';
 
 const baseExtensions = [Document, Text, Paragraph, Blockquote];
 

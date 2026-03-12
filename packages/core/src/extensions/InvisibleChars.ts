@@ -31,9 +31,9 @@
  * ```
  */
 import { Extension } from '../Extension.js';
-import { Plugin, PluginKey } from 'prosemirror-state';
-import { Decoration, DecorationSet } from 'prosemirror-view';
-import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { Plugin, PluginKey } from '@domternal/pm/state';
+import { Decoration, DecorationSet } from '@domternal/pm/view';
+import type { Node as ProseMirrorNode } from '@domternal/pm/model';
 import type { Editor } from '../Editor.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { linkClickPlugin, linkClickPluginKey } from './linkClickPlugin.js';
-import { Schema } from 'prosemirror-model';
-import { EditorState } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
+import { Schema } from '@domternal/pm/model';
+import { EditorState } from '@domternal/pm/state';
+import { EditorView } from '@domternal/pm/view';
 
 const schema = new Schema({
   nodes: {

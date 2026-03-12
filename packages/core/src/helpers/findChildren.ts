@@ -4,7 +4,7 @@
  * @example
  * const summaries = findChildren(detailsNode, node => node.type.name === 'detailsSummary');
  */
-import type { Node as PMNode } from 'prosemirror-model';
+import type { Node as PMNode } from '@domternal/pm/model';
 
 export interface FindChildResult {
   node: PMNode;

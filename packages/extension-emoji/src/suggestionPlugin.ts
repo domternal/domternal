@@ -7,10 +7,10 @@
  *
  * This is a zero-dependency implementation — no external suggestion library needed.
  */
-import { Plugin, PluginKey } from 'prosemirror-state';
-import type { EditorState, Transaction } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
-import type { NodeType } from 'prosemirror-model';
+import { Plugin, PluginKey } from '@domternal/pm/state';
+import type { EditorState, Transaction } from '@domternal/pm/state';
+import type { EditorView } from '@domternal/pm/view';
+import type { NodeType } from '@domternal/pm/model';
 import type { EmojiItem } from './emojis.js';
 import type { EmojiStorage } from './Emoji.js';
 

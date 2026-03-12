@@ -1,7 +1,7 @@
 /**
  * Mark commands — toggleMark, setMark, unsetMark, unsetAllMarks
  */
-import type { Attrs } from 'prosemirror-model';
+import type { Attrs } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
 import { Mark } from '../Mark.js';
 

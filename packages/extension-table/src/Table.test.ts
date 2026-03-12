@@ -8,8 +8,8 @@ import { TableView } from './TableView.js';
 import { createTable } from './helpers/createTable.js';
 import { cellAttributes } from './helpers/cellAttributes.js';
 import { Document, Text, Paragraph, Editor, BulletList, ListItem, TaskList, TaskItem } from '@domternal/core';
-import { TextSelection } from 'prosemirror-state';
-import { CellSelection } from 'prosemirror-tables';
+import { TextSelection } from '@domternal/pm/state';
+import { CellSelection } from '@domternal/pm/tables';
 
 type AnyJson = any;
 

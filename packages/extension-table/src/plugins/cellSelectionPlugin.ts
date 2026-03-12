@@ -12,9 +12,9 @@
  *    column resize drag.
  */
 
-import { Plugin, PluginKey, type PluginView } from 'prosemirror-state';
-import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
-import { CellSelection } from 'prosemirror-tables';
+import { Plugin, PluginKey, type PluginView } from '@domternal/pm/state';
+import { Decoration, DecorationSet, type EditorView } from '@domternal/pm/view';
+import { CellSelection } from '@domternal/pm/tables';
 import { type TableView, tableViewMap } from '../TableView.js';
 
 const pluginKey = new PluginKey<DecorationSet>('cellSelection');

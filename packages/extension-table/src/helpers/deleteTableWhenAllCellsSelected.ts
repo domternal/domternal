@@ -5,9 +5,9 @@
  * When a CellSelection covers all cells in a table, delete the entire table.
  */
 
-import { CellSelection, findTable } from 'prosemirror-tables';
-import { TextSelection } from 'prosemirror-state';
-import type { EditorState, Transaction } from 'prosemirror-state';
+import { CellSelection, findTable } from '@domternal/pm/tables';
+import { TextSelection } from '@domternal/pm/state';
+import type { EditorState, Transaction } from '@domternal/pm/state';
 
 export function deleteTableWhenAllCellsSelected({
   state,

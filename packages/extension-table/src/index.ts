@@ -15,4 +15,4 @@ export { createTable } from './helpers/createTable.js';
 export { deleteTableWhenAllCellsSelected } from './helpers/deleteTableWhenAllCellsSelected.js';
 
 // Re-export useful types from prosemirror-tables
-export { CellSelection, TableMap } from 'prosemirror-tables';
+export { CellSelection, TableMap } from '@domternal/pm/tables';

@@ -6,10 +6,10 @@
  * - Shift-Tab: Lift (outdent) list item
  * - Backspace: Lift list item when at start of empty item
  */
-import { liftListItem, sinkListItem } from 'prosemirror-schema-list';
-import type { NodeType } from 'prosemirror-model';
-import type { EditorState } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
+import { liftListItem, sinkListItem } from '@domternal/pm/schema-list';
+import type { NodeType } from '@domternal/pm/model';
+import type { EditorState } from '@domternal/pm/state';
+import type { EditorView } from '@domternal/pm/view';
 import { Extension } from '../Extension.js';
 import type { ExtensionEditorInterface } from '../Extension.js';
 

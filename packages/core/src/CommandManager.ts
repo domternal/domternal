@@ -7,8 +7,8 @@
  * - chain() for chainable commands
  * - can() for checking command availability
  */
-import type { Transaction } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
+import type { Transaction } from '@domternal/pm/state';
+import type { EditorView } from '@domternal/pm/view';
 import type {
   CommandProps,
   Command,

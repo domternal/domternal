@@ -1,11 +1,11 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import type { Node as PMNode } from 'prosemirror-model';
+import type { Node as PMNode } from '@domternal/pm/model';
 import { HorizontalRule } from './HorizontalRule.js';
 import { Document } from './Document.js';
 import { Text } from './Text.js';
 import { Paragraph } from './Paragraph.js';
 import { Editor } from '../Editor.js';
-import { TextSelection } from 'prosemirror-state';
+import { TextSelection } from '@domternal/pm/state';
 
 const extensions = [Document, Text, Paragraph, HorizontalRule];
 

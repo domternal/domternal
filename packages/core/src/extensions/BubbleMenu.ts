@@ -28,9 +28,9 @@
  * ```
  */
 import { Extension } from '../Extension.js';
-import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
-import type { EditorState } from 'prosemirror-state';
+import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
+import type { EditorView } from '@domternal/pm/view';
+import type { EditorState } from '@domternal/pm/state';
 import type { Editor } from '../Editor.js';
 import { positionFloatingOnce } from '../utils/positionFloating.js';
 

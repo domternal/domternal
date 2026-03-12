@@ -8,8 +8,8 @@
  * columnResizing's mousemove handler from detecting borders.
  */
 
-import { Plugin } from 'prosemirror-state';
-import { columnResizingPluginKey } from 'prosemirror-tables';
+import { Plugin } from '@domternal/pm/state';
+import { columnResizingPluginKey } from '@domternal/pm/tables';
 
 export function createResizeSuppressionPlugin(): Plugin {
   return new Plugin({

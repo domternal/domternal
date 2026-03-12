@@ -18,9 +18,9 @@
  * editor.commands.unsetLink();
  * ```
  */
-import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
-import type { MarkType } from 'prosemirror-model';
-import { Decoration, DecorationSet } from 'prosemirror-view';
+import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
+import type { MarkType } from '@domternal/pm/model';
+import { Decoration, DecorationSet } from '@domternal/pm/view';
 import { Mark } from '../Mark.js';
 import { isValidUrl } from '../helpers/isValidUrl.js';
 import { getMarkRange } from '../helpers/getMarkRange.js';

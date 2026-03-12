@@ -7,8 +7,8 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { Editor } from '../Editor.js';
 import type { JSONContent } from '../types/Content.js';
-import { TextSelection } from 'prosemirror-state';
-import { splitListItem, liftListItem, sinkListItem } from 'prosemirror-schema-list';
+import { TextSelection } from '@domternal/pm/state';
+import { splitListItem, liftListItem, sinkListItem } from '@domternal/pm/schema-list';
 import { Document } from './Document.js';
 import { Text } from './Text.js';
 import { Paragraph } from './Paragraph.js';

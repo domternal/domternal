@@ -3,8 +3,8 @@ import { Mention } from './Mention.js';
 import type { MentionStorage } from './Mention.js';
 import type { MentionTrigger } from './mentionSuggestionPlugin.js';
 import { Document, Text, Paragraph, Editor } from '@domternal/core';
-import { TextSelection } from 'prosemirror-state';
-import type { DecorationSet } from 'prosemirror-view';
+import { TextSelection } from '@domternal/pm/state';
+import type { DecorationSet } from '@domternal/pm/view';
 
 const allExtensions = [Document, Text, Paragraph, Mention];
 

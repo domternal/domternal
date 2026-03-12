@@ -4,8 +4,8 @@
  * Tests the storage functions and limit enforcement.
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { Schema } from 'prosemirror-model';
-import { EditorState } from 'prosemirror-state';
+import { Schema } from '@domternal/pm/model';
+import { EditorState } from '@domternal/pm/state';
 import { CharacterCount, characterCountPluginKey } from './CharacterCount.js';
 import type { CharacterCountStorage } from './CharacterCount.js';
 import { Document } from '../nodes/Document.js';

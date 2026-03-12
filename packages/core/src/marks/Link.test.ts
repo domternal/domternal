@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { TextSelection } from 'prosemirror-state';
-import { splitBlock } from 'prosemirror-commands';
+import { TextSelection } from '@domternal/pm/state';
+import { splitBlock } from '@domternal/pm/commands';
 import { Link } from './Link.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';

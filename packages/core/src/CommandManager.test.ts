@@ -6,9 +6,9 @@
  */
 /* eslint-disable @typescript-eslint/no-empty-function, @typescript-eslint/restrict-template-expressions */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { Schema } from 'prosemirror-model';
-import { EditorState, TextSelection } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
+import { Schema } from '@domternal/pm/model';
+import { EditorState, TextSelection } from '@domternal/pm/state';
+import { EditorView } from '@domternal/pm/view';
 import { CommandManager } from './CommandManager.js';
 import type { CommandMap } from './types/Commands.js';
 

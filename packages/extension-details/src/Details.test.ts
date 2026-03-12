@@ -3,7 +3,7 @@ import { Details } from './Details.js';
 import { DetailsSummary } from './DetailsSummary.js';
 import { DetailsContent } from './DetailsContent.js';
 import { Document, Text, Paragraph, Editor, Bold, Italic } from '@domternal/core';
-import { TextSelection } from 'prosemirror-state';
+import { TextSelection } from '@domternal/pm/state';
 
 const allExtensions = [Document, Text, Paragraph, Details, DetailsSummary, DetailsContent];
 

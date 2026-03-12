@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 import { describe, it, expect } from 'vitest';
-import { Schema } from 'prosemirror-model';
-import { EditorState } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
+import { Schema } from '@domternal/pm/model';
+import { EditorState } from '@domternal/pm/state';
+import { EditorView } from '@domternal/pm/view';
 import { CanChecker, createCanChecker } from './CanChecker.js';
 import type { CommandMap } from './types/Commands.js';
 

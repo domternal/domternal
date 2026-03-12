@@ -4,7 +4,7 @@
  * Walks backward and forward from the position to find contiguous
  * text nodes that share the same mark type, returning the full range.
  */
-import type { MarkType, ResolvedPos } from 'prosemirror-model';
+import type { MarkType, ResolvedPos } from '@domternal/pm/model';
 
 export interface MarkRange {
   from: number;

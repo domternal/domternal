@@ -2,14 +2,14 @@
  * Tests for BubbleMenu extension
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { TextSelection, NodeSelection } from 'prosemirror-state';
+import { TextSelection, NodeSelection } from '@domternal/pm/state';
 import { BubbleMenu, bubbleMenuPluginKey, createBubbleMenuPlugin } from './BubbleMenu.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { HorizontalRule } from '../nodes/HorizontalRule.js';
 import { Editor } from '../Editor.js';
-import { PluginKey } from 'prosemirror-state';
+import { PluginKey } from '@domternal/pm/state';
 
 interface BubbleMenuPluginState { visible: boolean; from: number; to: number }
 

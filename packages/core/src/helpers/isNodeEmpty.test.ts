@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Schema, Node as PMNode } from 'prosemirror-model';
+import { Schema, Node as PMNode } from '@domternal/pm/model';
 import { isNodeEmpty, isDocumentEmpty } from './isNodeEmpty.js';
 
 // Test schema with various node types

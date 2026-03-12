@@ -1,4 +1,4 @@
-import type { EditorState, Transaction } from 'prosemirror-state';
+import type { EditorState, Transaction } from '@domternal/pm/state';
 
 /**
  * Editor instance type (forward declaration)

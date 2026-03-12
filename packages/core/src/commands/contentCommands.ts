@@ -1,8 +1,8 @@
 /**
  * Content commands — setContent, clearContent, insertText, insertContent
  */
-import { TextSelection } from 'prosemirror-state';
-import { Fragment, Slice, DOMParser as ProseMirrorDOMParser } from 'prosemirror-model';
+import { TextSelection } from '@domternal/pm/state';
+import { Fragment, Slice, DOMParser as ProseMirrorDOMParser } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
 import type { Content } from '../types/index.js';
 import { createDocument } from '../helpers/index.js';

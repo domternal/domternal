@@ -29,9 +29,9 @@
 
 import { Node } from '@domternal/core';
 import type { CommandSpec, ToolbarItem } from '@domternal/core';
-import { TextSelection } from 'prosemirror-state';
-import type { Node as PMNode } from 'prosemirror-model';
-import type { EditorView, NodeView, NodeViewConstructor } from 'prosemirror-view';
+import { TextSelection } from '@domternal/pm/state';
+import type { Node as PMNode } from '@domternal/pm/model';
+import type { EditorView, NodeView, NodeViewConstructor } from '@domternal/pm/view';
 import {
   tableEditing,
   columnResizing,
@@ -50,7 +50,7 @@ import {
   goToNextCell,
   fixTables,
   CellSelection,
-} from 'prosemirror-tables';
+} from '@domternal/pm/tables';
 
 import { TableView } from './TableView.js';
 import { createTable } from './helpers/createTable.js';

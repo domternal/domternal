@@ -12,11 +12,11 @@
  * - invalidNodes context check
  * - appendText after insertion
  */
-import { Plugin, PluginKey } from 'prosemirror-state';
-import type { EditorState, Transaction } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
-import type { NodeType } from 'prosemirror-model';
-import { Decoration, DecorationSet } from 'prosemirror-view';
+import { Plugin, PluginKey } from '@domternal/pm/state';
+import type { EditorState, Transaction } from '@domternal/pm/state';
+import type { EditorView } from '@domternal/pm/view';
+import type { NodeType } from '@domternal/pm/model';
+import { Decoration, DecorationSet } from '@domternal/pm/view';
 
 // ─── Public Types ────────────────────────────────────────────────────────────
 

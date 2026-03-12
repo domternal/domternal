@@ -8,9 +8,9 @@
  * 3. The handler logic works when called directly
  */
 import { describe, it, expect } from 'vitest';
-import { Schema } from 'prosemirror-model';
-import type { Transaction } from 'prosemirror-state';
-import { EditorState } from 'prosemirror-state';
+import { Schema } from '@domternal/pm/model';
+import type { Transaction } from '@domternal/pm/state';
+import { EditorState } from '@domternal/pm/state';
 import { markInputRule, markInputRulePatterns } from './markInputRule.js';
 
 describe('markInputRule', () => {

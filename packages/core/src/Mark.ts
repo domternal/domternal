@@ -25,7 +25,7 @@
  * });
  */
 
-import type { MarkSpec, MarkType, ParseRule } from 'prosemirror-model';
+import type { MarkSpec, MarkType, ParseRule } from '@domternal/pm/model';
 import { Extension, type ExtensionEditorInterface, mergeConfigWithParentBinding } from './Extension.js';
 import type { MarkConfig, MarkContext } from './types/MarkConfig.js';
 import { callOrReturn } from './helpers/callOrReturn.js';

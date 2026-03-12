@@ -8,9 +8,9 @@
  * - ContentDOM = tbody (ProseMirror renders row content into tbody)
  */
 
-import type { Node as PMNode } from 'prosemirror-model';
-import type { EditorView, NodeView } from 'prosemirror-view';
-import { TextSelection } from 'prosemirror-state';
+import type { Node as PMNode } from '@domternal/pm/model';
+import type { EditorView, NodeView } from '@domternal/pm/view';
+import { TextSelection } from '@domternal/pm/state';
 import {
   TableMap,
   CellSelection,
@@ -24,7 +24,7 @@ import {
   splitCell,
   setCellAttr,
   toggleHeaderCell,
-} from 'prosemirror-tables';
+} from '@domternal/pm/tables';
 
 import {
   DOTS_H, DOTS_V, CHEVRON_DOWN,

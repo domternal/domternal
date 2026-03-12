@@ -9,8 +9,8 @@
  *   console.log(details.pos, details.node);
  * }
  */
-import type { Node as PMNode } from 'prosemirror-model';
-import type { Selection } from 'prosemirror-state';
+import type { Node as PMNode } from '@domternal/pm/model';
+import type { Selection } from '@domternal/pm/state';
 
 export interface FindParentNodeResult {
   pos: number;

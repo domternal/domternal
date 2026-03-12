@@ -6,9 +6,9 @@
  */
 
 import { Node } from '../Node.js';
-import { InputRule } from 'prosemirror-inputrules';
-import type { EditorState } from 'prosemirror-state';
-import { TextSelection } from 'prosemirror-state';
+import { InputRule } from '@domternal/pm/inputrules';
+import type { EditorState } from '@domternal/pm/state';
+import { TextSelection } from '@domternal/pm/state';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 

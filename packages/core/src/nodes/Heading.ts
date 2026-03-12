@@ -6,9 +6,9 @@
  */
 
 import { Node } from '../Node.js';
-import { textblockTypeInputRule } from 'prosemirror-inputrules';
-import { keymap } from 'prosemirror-keymap';
-import type { Command as PMCommand } from 'prosemirror-state';
+import { textblockTypeInputRule } from '@domternal/pm/inputrules';
+import { keymap } from '@domternal/pm/keymap';
+import type { Command as PMCommand } from '@domternal/pm/state';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem, ToolbarButton } from '../types/Toolbar.js';
 

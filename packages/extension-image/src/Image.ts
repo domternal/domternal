@@ -17,10 +17,10 @@
 
 import { Node, PluginKey, positionFloating, defaultIcons } from '@domternal/core';
 import type { Editor, CommandSpec, ToolbarItem } from '@domternal/core';
-import { Plugin, NodeSelection } from 'prosemirror-state';
-import { InputRule } from 'prosemirror-inputrules';
-import type { Node as PmNode } from 'prosemirror-model';
-import type { EditorView } from 'prosemirror-view';
+import { Plugin, NodeSelection } from '@domternal/pm/state';
+import { InputRule } from '@domternal/pm/inputrules';
+import type { Node as PmNode } from '@domternal/pm/model';
+import type { EditorView } from '@domternal/pm/view';
 import { imageUploadPlugin } from './imageUploadPlugin.js';
 
 /** Float values for image text wrapping. */

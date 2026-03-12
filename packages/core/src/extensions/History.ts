@@ -3,7 +3,7 @@
  *
  * Provides undo/redo functionality using prosemirror-history.
  */
-import { history, undo, redo } from 'prosemirror-history';
+import { history, undo, redo } from '@domternal/pm/history';
 import { Extension } from '../Extension.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';

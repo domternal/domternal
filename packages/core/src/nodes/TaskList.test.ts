@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import type { Node as PMNode } from 'prosemirror-model';
+import type { Node as PMNode } from '@domternal/pm/model';
 import { TaskList } from './TaskList.js';
 import { TaskItem } from './TaskItem.js';
 import { Document } from './Document.js';

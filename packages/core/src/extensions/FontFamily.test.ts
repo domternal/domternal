@@ -8,7 +8,7 @@ import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { Editor } from '../Editor.js';
-import { TextSelection } from 'prosemirror-state';
+import { TextSelection } from '@domternal/pm/state';
 import type { ToolbarDropdown } from '../types/Toolbar.js';
 
 describe('FontFamily', () => {

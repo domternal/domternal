@@ -26,8 +26,8 @@
  */
 import { Node } from '@domternal/core';
 import type { CommandSpec, ToolbarItem } from '@domternal/core';
-import { InputRule } from 'prosemirror-inputrules';
-import type { EditorState } from 'prosemirror-state';
+import { InputRule } from '@domternal/pm/inputrules';
+import type { EditorState } from '@domternal/pm/state';
 import { emojis as defaultEmojis } from './emojis.js';
 import type { EmojiItem } from './emojis.js';
 import { emoticons } from './emoticons.js';

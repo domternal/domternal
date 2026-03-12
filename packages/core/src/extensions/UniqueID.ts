@@ -20,9 +20,9 @@
  * ```
  */
 import { Extension } from '../Extension.js';
-import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
-import { Fragment, Slice } from 'prosemirror-model';
-import type { Node as PMNode } from 'prosemirror-model';
+import { Plugin, PluginKey, type Transaction } from '@domternal/pm/state';
+import { Fragment, Slice } from '@domternal/pm/model';
+import type { Node as PMNode } from '@domternal/pm/model';
 import type { Editor } from '../Editor.js';
 
 /**

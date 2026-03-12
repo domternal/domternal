@@ -8,15 +8,15 @@
  * - Extension storage management
  * - Conflict detection (AD-7)
  */
-import { Schema } from 'prosemirror-model';
-import type { NodeSpec, MarkSpec } from 'prosemirror-model';
-import type { Plugin, Transaction } from 'prosemirror-state';
-import type { NodeViewConstructor } from 'prosemirror-view';
-import { keymap } from 'prosemirror-keymap';
-import { inputRules as createInputRulesPlugin } from 'prosemirror-inputrules';
-import type { InputRule } from 'prosemirror-inputrules';
+import { Schema } from '@domternal/pm/model';
+import type { NodeSpec, MarkSpec } from '@domternal/pm/model';
+import type { Plugin, Transaction } from '@domternal/pm/state';
+import type { NodeViewConstructor } from '@domternal/pm/view';
+import { keymap } from '@domternal/pm/keymap';
+import { inputRules as createInputRulesPlugin } from '@domternal/pm/inputrules';
+import type { InputRule } from '@domternal/pm/inputrules';
 
-import type { Command as PMCommand } from 'prosemirror-state';
+import type { Command as PMCommand } from '@domternal/pm/state';
 
 import type { AnyExtension } from './types/EditorOptions.js';
 import type { CommandMap } from './types/Commands.js';

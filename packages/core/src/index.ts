@@ -70,7 +70,7 @@ export type {
 } from './types/index.js';
 
 // === ProseMirror re-exports (for framework wrappers) ===
-export { PluginKey } from 'prosemirror-state';
+export { PluginKey } from '@domternal/pm/state';
 
 // === Core classes ===
 export { EventEmitter } from './EventEmitter.js';

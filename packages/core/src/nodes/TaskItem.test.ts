@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import type { Node as PMNode } from 'prosemirror-model';
-import { TextSelection } from 'prosemirror-state';
+import type { Node as PMNode } from '@domternal/pm/model';
+import { TextSelection } from '@domternal/pm/state';
 import { TaskItem } from './TaskItem.js';
 import { TaskList } from './TaskList.js';
 import { BulletList } from './BulletList.js';

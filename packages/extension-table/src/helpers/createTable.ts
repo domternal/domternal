@@ -5,8 +5,8 @@
  * First row gets tableHeader cells if withHeaderRow is true.
  */
 
-import type { Node as PMNode, Schema } from 'prosemirror-model';
-import { tableNodeTypes } from 'prosemirror-tables';
+import type { Node as PMNode, Schema } from '@domternal/pm/model';
+import { tableNodeTypes } from '@domternal/pm/tables';
 
 export function createTable(
   schema: Schema,

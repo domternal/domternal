@@ -27,7 +27,7 @@
  */
 import { Node } from '@domternal/core';
 import type { CommandSpec } from '@domternal/core';
-import type { Node as PMNode, DOMOutputSpec } from 'prosemirror-model';
+import type { Node as PMNode, DOMOutputSpec } from '@domternal/pm/model';
 import { createMentionSuggestionPlugin } from './mentionSuggestionPlugin.js';
 import type { MentionTrigger } from './mentionSuggestionPlugin.js';
 

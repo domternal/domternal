@@ -26,8 +26,8 @@
 
 import type { ExtensionConfig, ExtensionConfigBase, ExtensionContext } from './types/ExtensionConfig.js';
 import type { SingleCommands } from './types/Commands.js';
-import type { EditorState } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
+import type { EditorState } from '@domternal/pm/state';
+import type { EditorView } from '@domternal/pm/view';
 import { callOrReturn } from './helpers/callOrReturn.js';
 
 /**

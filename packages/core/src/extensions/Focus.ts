@@ -4,8 +4,8 @@
  * Adds CSS classes to nodes that contain the current selection.
  * Useful for highlighting the focused paragraph or block.
  */
-import { Plugin, PluginKey } from 'prosemirror-state';
-import { Decoration, DecorationSet } from 'prosemirror-view';
+import { Plugin, PluginKey } from '@domternal/pm/state';
+import { Decoration, DecorationSet } from '@domternal/pm/view';
 import { Extension } from '../Extension.js';
 
 export interface FocusOptions {

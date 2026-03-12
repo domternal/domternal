@@ -4,7 +4,7 @@
  * Provides character and word counting with optional limits.
  * Access counts via editor.storage.characterCount.characters() and .words()
  */
-import { Plugin, PluginKey } from 'prosemirror-state';
+import { Plugin, PluginKey } from '@domternal/pm/state';
 import { Extension } from '../Extension.js';
 
 export interface CharacterCountOptions {

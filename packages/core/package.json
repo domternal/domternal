@@ -34,22 +34,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "node -e \"const p=JSON.parse(require('fs').readFileSync('package.json','utf8'));delete p.devDependencies;if(p.dependencies){for(const[k,v]of Object.entries(p.dependencies)){if(v==='workspace:*')p.dependencies[k]='>=0.0.1'}}require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
+    "postpublish": "git checkout package.json"
   },
   "dependencies": {
+    "@domternal/pm": "workspace:*",
     "@floating-ui/dom": "^1.7.5",
-    "linkifyjs": "^4.3.2",
-    "prosemirror-commands": "^1.7.1",
-    "prosemirror-dropcursor": "^1.8.2",
-    "prosemirror-gapcursor": "^1.4.0",
-    "prosemirror-history": "^1.5.0",
-    "prosemirror-inputrules": "^1.5.1",
-    "prosemirror-keymap": "^1.2.3",
-    "prosemirror-model": "^1.25.4",
-    "prosemirror-schema-list": "^1.5.1",
-    "prosemirror-state": "^1.4.4",
-    "prosemirror-transform": "^1.10.5",
-    "prosemirror-view": "^1.41.5"
+    "linkifyjs": "^4.3.2"
   },
   "peerDependencies": {
     "linkedom": "^0.18.0"

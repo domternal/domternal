@@ -5,8 +5,8 @@
  * of the document, making it easier to type after block elements like
  * code blocks, images, or tables.
  */
-import { Plugin, PluginKey } from 'prosemirror-state';
-import type { NodeType } from 'prosemirror-model';
+import { Plugin, PluginKey } from '@domternal/pm/state';
+import type { NodeType } from '@domternal/pm/model';
 import { Extension } from '../Extension.js';
 
 export interface TrailingNodeOptions {

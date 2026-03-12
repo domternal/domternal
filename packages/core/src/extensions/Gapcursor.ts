@@ -4,7 +4,7 @@
  * Allows cursor to be placed in positions that normally wouldn't accept text,
  * like before/after tables or other block nodes.
  */
-import { gapCursor } from 'prosemirror-gapcursor';
+import { gapCursor } from '@domternal/pm/gapcursor';
 import { Extension } from '../Extension.js';
 
 export const Gapcursor = Extension.create({

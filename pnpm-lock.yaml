@@ -160,12 +160,154 @@ importers:
 
   packages/core:
     dependencies:
+      '@domternal/pm':
+        specifier: workspace:*
+        version: link:../pm
       '@floating-ui/dom':
         specifier: ^1.7.5
         version: 1.7.5
       linkifyjs:
         specifier: ^4.3.2
         version: 4.3.2
+    devDependencies:
+      '@types/node':
+        specifier: ^25.2.3
+        version: 25.2.3
+      jsdom:
+        specifier: ^27.4.0
+        version: 27.4.0
+      linkedom:
+        specifier: ^0.18.0
+        version: 0.18.12
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(postcss@8.5.6)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
+  packages/extension-code-block-lowlight:
+    dependencies:
+      '@domternal/core':
+        specifier: workspace:*
+        version: link:../core
+      '@domternal/pm':
+        specifier: workspace:*
+        version: link:../pm
+      hast-util-to-html:
+        specifier: ^9.0.0
+        version: 9.0.5
+    devDependencies:
+      jsdom:
+        specifier: ^27.4.0
+        version: 27.4.0
+      lowlight:
+        specifier: ^3.3.0
+        version: 3.3.0
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(postcss@8.5.6)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
+  packages/extension-details:
+    dependencies:
+      '@domternal/core':
+        specifier: workspace:*
+        version: link:../core
+      '@domternal/pm':
+        specifier: workspace:*
+        version: link:../pm
+    devDependencies:
+      jsdom:
+        specifier: ^27.4.0
+        version: 27.4.0
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(postcss@8.5.6)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
+  packages/extension-emoji:
+    dependencies:
+      '@domternal/core':
+        specifier: workspace:*
+        version: link:../core
+      '@domternal/pm':
+        specifier: workspace:*
+        version: link:../pm
+    devDependencies:
+      jsdom:
+        specifier: ^27.4.0
+        version: 27.4.0
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(postcss@8.5.6)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
+  packages/extension-image:
+    dependencies:
+      '@domternal/core':
+        specifier: workspace:*
+        version: link:../core
+      '@domternal/pm':
+        specifier: workspace:*
+        version: link:../pm
+    devDependencies:
+      jsdom:
+        specifier: ^27.4.0
+        version: 27.4.0
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(postcss@8.5.6)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
+  packages/extension-mention:
+    dependencies:
+      '@domternal/core':
+        specifier: workspace:*
+        version: link:../core
+      '@domternal/pm':
+        specifier: workspace:*
+        version: link:../pm
+    devDependencies:
+      jsdom:
+        specifier: ^27.4.0
+        version: 27.4.0
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(postcss@8.5.6)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
+  packages/extension-table:
+    dependencies:
+      '@domternal/core':
+        specifier: workspace:*
+        version: link:../core
+      '@domternal/pm':
+        specifier: workspace:*
+        version: link:../pm
+    devDependencies:
+      jsdom:
+        specifier: ^27.4.0
+        version: 27.4.0
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(postcss@8.5.6)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
+  packages/pm:
+    dependencies:
       prosemirror-commands:
         specifier: ^1.7.1
         version: 1.7.1
@@ -193,196 +335,15 @@ importers:
       prosemirror-state:
         specifier: ^1.4.4
         version: 1.4.4
+      prosemirror-tables:
+        specifier: ^1.7.0
+        version: 1.8.5
       prosemirror-transform:
         specifier: ^1.10.5
         version: 1.10.5
       prosemirror-view:
         specifier: ^1.41.5
         version: 1.41.5
-    devDependencies:
-      '@types/node':
-        specifier: ^25.2.3
-        version: 25.2.3
-      jsdom:
-        specifier: ^27.4.0
-        version: 27.4.0
-      linkedom:
-        specifier: ^0.18.0
-        version: 0.18.12
-      tsup:
-        specifier: ^8.5.1
-        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(postcss@8.5.6)(typescript@5.9.3)(yaml@2.8.2)
-      typescript:
-        specifier: ~5.9.3
-        version: 5.9.3
-
-  packages/extension-code-block-lowlight:
-    dependencies:
-      '@domternal/core':
-        specifier: workspace:*
-        version: link:../core
-      hast-util-to-html:
-        specifier: ^9.0.0
-        version: 9.0.5
-      prosemirror-model:
-        specifier: ^1.25.4
-        version: 1.25.4
-      prosemirror-state:
-        specifier: ^1.4.4
-        version: 1.4.4
-      prosemirror-view:
-        specifier: ^1.41.5
-        version: 1.41.5
-    devDependencies:
-      jsdom:
-        specifier: ^27.4.0
-        version: 27.4.0
-      lowlight:
-        specifier: ^3.3.0
-        version: 3.3.0
-      tsup:
-        specifier: ^8.5.1
-        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(postcss@8.5.6)(typescript@5.9.3)(yaml@2.8.2)
-      typescript:
-        specifier: ~5.9.3
-        version: 5.9.3
-
-  packages/extension-details:
-    dependencies:
-      '@domternal/core':
-        specifier: workspace:*
-        version: link:../core
-      prosemirror-gapcursor:
-        specifier: ^1.4.0
-        version: 1.4.0
-      prosemirror-model:
-        specifier: ^1.25.4
-        version: 1.25.4
-      prosemirror-state:
-        specifier: ^1.4.4
-        version: 1.4.4
-      prosemirror-view:
-        specifier: ^1.41.5
-        version: 1.41.5
-    devDependencies:
-      jsdom:
-        specifier: ^27.4.0
-        version: 27.4.0
-      tsup:
-        specifier: ^8.5.1
-        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(postcss@8.5.6)(typescript@5.9.3)(yaml@2.8.2)
-      typescript:
-        specifier: ~5.9.3
-        version: 5.9.3
-
-  packages/extension-emoji:
-    dependencies:
-      '@domternal/core':
-        specifier: workspace:*
-        version: link:../core
-      prosemirror-inputrules:
-        specifier: ^1.5.1
-        version: 1.5.1
-      prosemirror-model:
-        specifier: ^1.25.4
-        version: 1.25.4
-      prosemirror-state:
-        specifier: ^1.4.4
-        version: 1.4.4
-      prosemirror-view:
-        specifier: ^1.41.5
-        version: 1.41.5
-    devDependencies:
-      jsdom:
-        specifier: ^27.4.0
-        version: 27.4.0
-      tsup:
-        specifier: ^8.5.1
-        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(postcss@8.5.6)(typescript@5.9.3)(yaml@2.8.2)
-      typescript:
-        specifier: ~5.9.3
-        version: 5.9.3
-
-  packages/extension-image:
-    dependencies:
-      '@domternal/core':
-        specifier: workspace:*
-        version: link:../core
-      prosemirror-inputrules:
-        specifier: ^1.5.1
-        version: 1.5.1
-      prosemirror-model:
-        specifier: ^1.25.4
-        version: 1.25.4
-      prosemirror-state:
-        specifier: ^1.4.4
-        version: 1.4.4
-      prosemirror-view:
-        specifier: ^1.41.5
-        version: 1.41.5
-    devDependencies:
-      jsdom:
-        specifier: ^27.4.0
-        version: 27.4.0
-      tsup:
-        specifier: ^8.5.1
-        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(postcss@8.5.6)(typescript@5.9.3)(yaml@2.8.2)
-      typescript:
-        specifier: ~5.9.3
-        version: 5.9.3
-
-  packages/extension-mention:
-    dependencies:
-      '@domternal/core':
-        specifier: workspace:*
-        version: link:../core
-      prosemirror-model:
-        specifier: ^1.25.4
-        version: 1.25.4
-      prosemirror-state:
-        specifier: ^1.4.4
-        version: 1.4.4
-      prosemirror-view:
-        specifier: ^1.41.5
-        version: 1.41.5
-    devDependencies:
-      jsdom:
-        specifier: ^27.4.0
-        version: 27.4.0
-      tsup:
-        specifier: ^8.5.1
-        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(postcss@8.5.6)(typescript@5.9.3)(yaml@2.8.2)
-      typescript:
-        specifier: ~5.9.3
-        version: 5.9.3
-
-  packages/extension-table:
-    dependencies:
-      '@domternal/core':
-        specifier: workspace:*
-        version: link:../core
-      prosemirror-model:
-        specifier: ^1.25.4
-        version: 1.25.4
-      prosemirror-state:
-        specifier: ^1.4.4
-        version: 1.4.4
-      prosemirror-tables:
-        specifier: ^1.8.0
-        version: 1.8.5
-      prosemirror-view:
-        specifier: ^1.41.5
-        version: 1.41.5
-    devDependencies:
-      jsdom:
-        specifier: ^27.4.0
-        version: 27.4.0
-      tsup:
-        specifier: ^8.5.1
-        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(postcss@8.5.6)(typescript@5.9.3)(yaml@2.8.2)
-      typescript:
-        specifier: ~5.9.3
-        version: 5.9.3
 
   packages/theme:
     devDependencies:

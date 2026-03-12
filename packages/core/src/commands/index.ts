@@ -84,7 +84,7 @@ export const builtInCommands: CommandMap = {
 } as CommandMap;
 
 // Module augmentation: register built-in commands with typed signatures
-import type { Attrs } from 'prosemirror-model';
+import type { Attrs } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
 import type { FocusPosition, Content } from '../types/index.js';
 import type { SetContentOptions, ClearContentOptions } from './contentCommands.js';

@@ -6,7 +6,7 @@
  */
 
 import { Node } from '../Node.js';
-import { wrappingInputRule } from 'prosemirror-inputrules';
+import { wrappingInputRule } from '@domternal/pm/inputrules';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 import { ListItem } from './ListItem.js';

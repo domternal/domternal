@@ -4,9 +4,9 @@
  * Shows placeholder text when the editor is empty.
  * Supports both static and dynamic (function-based) placeholders.
  */
-import { Plugin, PluginKey } from 'prosemirror-state';
-import { Decoration, DecorationSet } from 'prosemirror-view';
-import type { Node as PMNode } from 'prosemirror-model';
+import { Plugin, PluginKey } from '@domternal/pm/state';
+import { Decoration, DecorationSet } from '@domternal/pm/view';
+import type { Node as PMNode } from '@domternal/pm/model';
 import { Extension } from '../Extension.js';
 
 export interface PlaceholderOptions {

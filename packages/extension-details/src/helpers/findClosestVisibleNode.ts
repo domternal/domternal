@@ -2,7 +2,7 @@
  * Find the closest visible ancestor node matching a predicate.
  * Walks up from $pos, checking both the predicate and DOM visibility.
  */
-import type { Node as PMNode, ResolvedPos } from 'prosemirror-model';
+import type { Node as PMNode, ResolvedPos } from '@domternal/pm/model';
 import { isNodeVisible } from './isNodeVisible.js';
 
 interface EditorLike {

@@ -5,8 +5,8 @@
  */
 /* eslint-disable @typescript-eslint/no-confusing-void-expression, @typescript-eslint/only-throw-error */
 import { describe, it, expect, vi } from 'vitest';
-import { Schema } from 'prosemirror-model';
-import type { Plugin } from 'prosemirror-state';
+import { Schema } from '@domternal/pm/model';
+import type { Plugin } from '@domternal/pm/state';
 import { ExtensionManager } from './ExtensionManager.js';
 import { Extension } from './Extension.js';
 import { Node } from './Node.js';

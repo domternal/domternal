@@ -23,7 +23,7 @@
  * });
  */
 
-import type { NodeSpec, NodeType, TagParseRule } from 'prosemirror-model';
+import type { NodeSpec, NodeType, TagParseRule } from '@domternal/pm/model';
 import { Extension, type ExtensionEditorInterface, mergeConfigWithParentBinding } from './Extension.js';
 import type { NodeConfig, NodeContext } from './types/NodeConfig.js';
 import { callOrReturn } from './helpers/callOrReturn.js';

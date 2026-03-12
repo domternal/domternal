@@ -11,8 +11,8 @@
  */
 
 import { Node, findParentNode, defaultBlockAt } from '@domternal/core';
-import { Selection } from 'prosemirror-state';
-import type { ViewMutationRecord } from 'prosemirror-view';
+import { Selection } from '@domternal/pm/state';
+import type { ViewMutationRecord } from '@domternal/pm/view';
 
 export interface DetailsContentOptions {
   HTMLAttributes: Record<string, unknown>;

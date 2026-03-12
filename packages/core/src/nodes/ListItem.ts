@@ -10,8 +10,8 @@
  */
 
 import { Node } from '../Node.js';
-import { splitListItem, liftListItem } from 'prosemirror-schema-list';
-import { Selection } from 'prosemirror-state';
+import { splitListItem, liftListItem } from '@domternal/pm/schema-list';
+import { Selection } from '@domternal/pm/state';
 import { ListKeymap } from '../extensions/ListKeymap.js';
 
 export interface ListItemOptions {

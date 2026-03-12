@@ -5,7 +5,7 @@ import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { Heading } from '../nodes/Heading.js';
 import { Editor } from '../Editor.js';
-import { TextSelection } from 'prosemirror-state';
+import { TextSelection } from '@domternal/pm/state';
 
 const extensions = [Document, Text, Paragraph, Heading, TextAlign];
 

@@ -2,7 +2,7 @@
  * Tests for Highlight extension
  */
 import { describe, it, expect, afterEach } from 'vitest';
-import { TextSelection } from 'prosemirror-state';
+import { TextSelection } from '@domternal/pm/state';
 import { Highlight, DEFAULT_HIGHLIGHT_COLORS } from './Highlight.js';
 import { TextColor } from './TextColor.js';
 import { TextStyle } from '../marks/TextStyle.js';

@@ -5,8 +5,8 @@
  * Triggers when user types a space, punctuation, or presses Enter after a URL.
  * Uses linkifyjs for robust URL detection.
  */
-import { Plugin, PluginKey } from 'prosemirror-state';
-import type { MarkType } from 'prosemirror-model';
+import { Plugin, PluginKey } from '@domternal/pm/state';
+import type { MarkType } from '@domternal/pm/model';
 import { find } from 'linkifyjs';
 
 /**

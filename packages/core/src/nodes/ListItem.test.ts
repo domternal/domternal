@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import type { Node as PMNode } from 'prosemirror-model';
-import { TextSelection } from 'prosemirror-state';
-import { splitListItem, sinkListItem } from 'prosemirror-schema-list';
+import type { Node as PMNode } from '@domternal/pm/model';
+import { TextSelection } from '@domternal/pm/state';
+import { splitListItem, sinkListItem } from '@domternal/pm/schema-list';
 import { ListItem } from './ListItem.js';
 import { BulletList } from './BulletList.js';
 import { OrderedList } from './OrderedList.js';

@@ -3,11 +3,11 @@
  *
  * Manages extensions, schema, commands, and the ProseMirror EditorView/State.
  */
-import type { Transaction, Plugin, PluginKey } from 'prosemirror-state';
-import { EditorState } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
-import { DOMSerializer } from 'prosemirror-model';
-import type { Schema, Fragment } from 'prosemirror-model';
+import type { Transaction, Plugin, PluginKey } from '@domternal/pm/state';
+import { EditorState } from '@domternal/pm/state';
+import { EditorView } from '@domternal/pm/view';
+import { DOMSerializer } from '@domternal/pm/model';
+import type { Schema, Fragment } from '@domternal/pm/model';
 
 import { EventEmitter } from './EventEmitter.js';
 import { ExtensionManager } from './ExtensionManager.js';
@@ -41,7 +41,7 @@ import type {
  * @example
  * ```ts
  * import { Editor } from '@domternal/core';
- * import { Schema } from 'prosemirror-model';
+ * import { Schema } from '@domternal/pm/model';
  *
  * const schema = new Schema({
  *   nodes: { doc: { content: 'paragraph+' }, paragraph: { content: 'text*' }, text: {} }

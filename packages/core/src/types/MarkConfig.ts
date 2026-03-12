@@ -5,9 +5,9 @@
  * for creating ProseMirror mark extensions.
  */
 
-import type { Mark as PMMark, DOMOutputSpec, MarkType } from 'prosemirror-model';
-import type { EditorState } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
+import type { Mark as PMMark, DOMOutputSpec, MarkType } from '@domternal/pm/model';
+import type { EditorState } from '@domternal/pm/state';
+import type { EditorView } from '@domternal/pm/view';
 import type { ExtensionConfigBase, ExtensionContext } from './ExtensionConfig.js';
 import type { AttributeSpecs } from './AttributeSpec.js';
 

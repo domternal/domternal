@@ -1,7 +1,7 @@
 /**
  * Check if a ProseMirror node is empty
  */
-import type { Node as PMNode } from 'prosemirror-model';
+import type { Node as PMNode } from '@domternal/pm/model';
 
 /**
  * Options for isNodeEmpty check

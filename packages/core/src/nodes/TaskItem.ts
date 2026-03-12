@@ -12,8 +12,8 @@
  */
 
 import { Node } from '../Node.js';
-import { splitListItem, liftListItem, sinkListItem } from 'prosemirror-schema-list';
-import { Selection } from 'prosemirror-state';
+import { splitListItem, liftListItem, sinkListItem } from '@domternal/pm/schema-list';
+import { Selection } from '@domternal/pm/state';
 import type { CommandSpec } from '../types/Commands.js';
 
 declare module '../types/Commands.js' {

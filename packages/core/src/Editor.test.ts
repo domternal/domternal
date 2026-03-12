@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { Schema } from 'prosemirror-model';
-import { TextSelection } from 'prosemirror-state';
+import { Schema } from '@domternal/pm/model';
+import { TextSelection } from '@domternal/pm/state';
 import { Editor } from './Editor.js';
 import type { EditorOptions } from './types/index.js';
 

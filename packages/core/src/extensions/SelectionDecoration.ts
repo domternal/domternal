@@ -9,7 +9,7 @@
  * `mousedown`, so they never trigger blur — the selection stays intact
  * while the user interacts with editor UI.
  */
-import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
+import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
 import { Extension } from '../Extension.js';
 
 export interface SelectionDecorationOptions {}

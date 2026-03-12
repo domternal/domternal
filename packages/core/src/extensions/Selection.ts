@@ -31,8 +31,8 @@
  * ```
  */
 import { Extension } from '../Extension.js';
-import { NodeSelection, TextSelection, Selection as PMSelection } from 'prosemirror-state';
-import type { Node as PMNode } from 'prosemirror-model';
+import { NodeSelection, TextSelection, Selection as PMSelection } from '@domternal/pm/state';
+import type { Node as PMNode } from '@domternal/pm/model';
 import type { Editor } from '../Editor.js';
 import type { CommandSpec } from '../types/Commands.js';
 

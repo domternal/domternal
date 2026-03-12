@@ -15,8 +15,8 @@
  *   // Both commands can be executed
  * }
  */
-import type { EditorState, Transaction } from 'prosemirror-state';
-import type { EditorView } from 'prosemirror-view';
+import type { EditorState, Transaction } from '@domternal/pm/state';
+import type { EditorView } from '@domternal/pm/view';
 import type {
   CommandProps,
   Command,

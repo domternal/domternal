@@ -4,7 +4,7 @@
  * Shows a visual indicator when dragging content to help users
  * see where the content will be dropped.
  */
-import { dropCursor } from 'prosemirror-dropcursor';
+import { dropCursor } from '@domternal/pm/dropcursor';
 import { Extension } from '../Extension.js';
 
 export interface DropcursorOptions {

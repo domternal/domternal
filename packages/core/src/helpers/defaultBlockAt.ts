@@ -10,7 +10,7 @@
  *   const node = type.createAndFill();
  * }
  */
-import type { ContentMatch, NodeType } from 'prosemirror-model';
+import type { ContentMatch, NodeType } from '@domternal/pm/model';
 
 export const defaultBlockAt = (match: ContentMatch): NodeType | null => {
   for (let i = 0; i < match.edgeCount; i++) {

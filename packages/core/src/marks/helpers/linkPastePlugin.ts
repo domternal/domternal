@@ -5,8 +5,8 @@
  * - If text is selected: wraps selection in a link
  * - If no selection: inserts URL as clickable link text
  */
-import { Plugin, PluginKey } from 'prosemirror-state';
-import type { MarkType } from 'prosemirror-model';
+import { Plugin, PluginKey } from '@domternal/pm/state';
+import type { MarkType } from '@domternal/pm/model';
 
 /**
  * Options for the link paste plugin

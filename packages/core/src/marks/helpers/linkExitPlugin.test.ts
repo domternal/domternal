@@ -1,8 +1,8 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { linkExitPlugin, linkExitPluginKey } from './linkExitPlugin.js';
-import { Schema } from 'prosemirror-model';
-import { EditorState, TextSelection } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
+import { Schema } from '@domternal/pm/model';
+import { EditorState, TextSelection } from '@domternal/pm/state';
+import { EditorView } from '@domternal/pm/view';
 
 const schema = new Schema({
   nodes: {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildCommandProps, createAccumulatingDispatch } from './commandPropsBuilder.js';
-import { Schema } from 'prosemirror-model';
-import { EditorState, TextSelection } from 'prosemirror-state';
+import { Schema } from '@domternal/pm/model';
+import { EditorState, TextSelection } from '@domternal/pm/state';
 
 const schema = new Schema({
   nodes: {
