@@ -320,6 +320,30 @@ function freezeColumnWidths(view: EditorView, handlePos: number, cellMinWidth: n
     }
   }
 
+  // Prevent table growth from sub-pixel border rounding in border-collapse.
+  // Each cell.offsetWidth rounds independently, so their sum can exceed
+  // table.offsetWidth by 1-2px. Adjust the last measured column to compensate.
+  try {
+    let tableDom: HTMLElement | null = view.domAtPos(tableStart).node as HTMLElement;
+    while (tableDom && tableDom.nodeName !== 'TABLE') tableDom = tableDom.parentNode as HTMLElement;
+    if (tableDom) {
+      const actualWidth = tableDom.offsetWidth;
+      if (actualWidth > 0) {
+        let measuredTotal = 0;
+        for (let col = 0; col < map.width; col++) measuredTotal += measuredWidths[col]!;
+        const diff = measuredTotal - actualWidth;
+        if (diff > 0) {
+          for (let col = map.width - 1; col >= 0; col--) {
+            if (colNeedsWidth[col]) {
+              measuredWidths[col] = Math.max(cellMinWidth, measuredWidths[col]! - diff);
+              break;
+            }
+          }
+        }
+      }
+    }
+  } catch { /* DOM lookup failed — continue with unadjusted widths */ }
+
   // Accumulate colwidth arrays per cell (handles colspan cells visited multiple times)
   const cellColwidths = new Map<number, number[]>();
 
