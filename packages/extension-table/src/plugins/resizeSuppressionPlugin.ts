@@ -1,6 +1,6 @@
 /**
  * Suppress column-resize handle during non-resize mouse drags and
- * freeze all column widths when a column resize starts.
+ * implement configurable column resize behavior.
  *
  * The columnResizing plugin detects cell borders on every mousemove and
  * shows a blue resize line — confusing when the user is dragging to
@@ -8,38 +8,58 @@
  * `dm-mouse-drag` CSS class during non-resize drags and blocks
  * columnResizing's mousemove handler from detecting borders.
  *
- * Additionally, when a column resize starts (mousedown on a resize handle),
- * this plugin measures the DOM widths of all columns that don't have explicit
- * colwidth attributes and stores them in the document. This ensures that
- * during and after the drag, all columns have fixed pixel widths and only
- * the dragged column changes — other columns don't redistribute.
+ * Resize behaviors:
+ * - `neighbor`: adjacent column compensates, table width stays constant (Google Docs style)
+ * - `independent`: all columns freeze, only dragged column changes, table width grows/shrinks
+ * - `redistribute`: original prosemirror-tables behavior, columns redistribute to fill width
  */
 
 import { Plugin } from '@domternal/pm/state';
+import type { Transaction } from '@domternal/pm/state';
+import type { Node as PMNode } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
 import { columnResizingPluginKey, TableMap } from '@domternal/pm/tables';
 
-export function createResizeSuppressionPlugin(): Plugin {
+export interface ResizeSuppressionOptions {
+  resizeBehavior: 'neighbor' | 'independent' | 'redistribute';
+  cellMinWidth: number;
+  defaultCellMinWidth: number;
+}
+
+export function createResizeSuppressionPlugin(options: ResizeSuppressionOptions): Plugin {
+  const { resizeBehavior, cellMinWidth, defaultCellMinWidth } = options;
+
   return new Plugin({
     props: {
       handleDOMEvents: {
         mousedown: (view, event) => {
           if (event.button !== 0) return false;
-          // Only suppress for non-resize drags (activeHandle === -1 means
-          // the cursor is NOT on a column border)
           const resizeState = columnResizingPluginKey.getState(view.state) as
             | { activeHandle: number; dragging: unknown } | undefined;
+
           if (!resizeState || resizeState.activeHandle === -1) {
+            // Non-resize drag — suppress columnResizing border detection
             view.dom.classList.add('dm-mouse-drag');
             document.addEventListener('mouseup', () => {
               view.dom.classList.remove('dm-mouse-drag');
             }, { once: true });
-          } else {
-            // Resize handle mousedown — freeze all column widths before
-            // the columnResizing plugin starts the drag
-            freezeColumnWidths(view, resizeState.activeHandle);
+            return false;
           }
-          return false;
+
+          // Resize handle mousedown — branch by behavior
+          if (resizeBehavior === 'redistribute') {
+            // Let columnResizing handle everything (original PM behavior)
+            return false;
+          }
+
+          if (resizeBehavior === 'independent') {
+            // Freeze all column widths, then let columnResizing handle the drag
+            freezeColumnWidths(view, resizeState.activeHandle, cellMinWidth, defaultCellMinWidth);
+            return false;
+          }
+
+          // 'neighbor' mode — intercept and handle the drag ourselves
+          return handleNeighborResize(view, event, resizeState.activeHandle, cellMinWidth, defaultCellMinWidth);
         },
         mousemove: (view, event) => {
           if (event.buttons !== 1) return false;
@@ -55,13 +75,168 @@ export function createResizeSuppressionPlugin(): Plugin {
   });
 }
 
+// ─── Neighbor resize ──────────────────────────────────────────────────────────
+
 /**
- * Before a column resize starts, measure all column widths from the DOM
- * and store them as colwidth attributes on every cell. This converts the
- * table from CSS width: 100% (columns redistribute) to a fixed pixel
- * width (only the dragged column changes).
+ * Google Docs-style resize: the adjacent column compensates so total table
+ * width stays constant. Fully intercepts the drag from columnResizing.
  */
-function freezeColumnWidths(view: EditorView, handlePos: number): void {
+function handleNeighborResize(
+  view: EditorView,
+  event: MouseEvent,
+  activeHandle: number,
+  cellMinWidth: number,
+  defaultCellMinWidth: number,
+): boolean {
+  // Step 1 — freeze all columns so every col has an explicit width
+  freezeColumnWidths(view, activeHandle, cellMinWidth, defaultCellMinWidth);
+
+  // Step 2 — re-read state after freeze dispatch
+  const state = view.state;
+  const resizeState = columnResizingPluginKey.getState(state) as
+    | { activeHandle: number; dragging: unknown } | undefined;
+  const handle = resizeState?.activeHandle ?? -1;
+  if (handle === -1) return false;
+
+  const $cell = state.doc.resolve(handle);
+  const table = $cell.node(-1);
+  const map = TableMap.get(table);
+  const tableStart = $cell.start(-1);
+  const nodeAfter = $cell.nodeAfter;
+  if (!nodeAfter) return false;
+  const draggedCol = map.colCount($cell.pos - tableStart)! + ((nodeAfter.attrs['colspan'] as number) || 1) - 1;
+  const neighborCol = draggedCol + 1;
+
+  // Step 3 — last column: no neighbor, fall back (freeze already ran = independent)
+  if (neighborCol >= map.width) return false;
+
+  // Step 4 — read starting widths from frozen attrs
+  const startWidth = readColWidth(table, map, draggedCol, defaultCellMinWidth);
+  const neighborStartWidth = readColWidth(table, map, neighborCol, defaultCellMinWidth);
+  const startX = event.clientX;
+
+  // Step 5 — set dragging meta (triggers decorations + cellSelectionPlugin hideForResize)
+  view.dispatch(state.tr.setMeta(columnResizingPluginKey, {
+    setDragging: { startX, startWidth },
+  }));
+
+  // Step 6 — find table DOM for direct col manipulation
+  let tableDom: HTMLElement | null = view.domAtPos(tableStart).node as HTMLElement;
+  while (tableDom && tableDom.nodeName !== 'TABLE') tableDom = tableDom.parentNode as HTMLElement;
+  const cols = tableDom?.querySelector('colgroup')?.children;
+  if (!cols) return false;
+
+  const win = view.dom.ownerDocument.defaultView ?? window;
+
+  function move(e: MouseEvent) {
+    if (!e.buttons) return finish(e);
+
+    const offset = e.clientX - startX;
+    // Clamp so both columns stay >= cellMinWidth and their sum stays constant
+    const clamped = Math.max(
+      -(startWidth - cellMinWidth),
+      Math.min(offset, neighborStartWidth - cellMinWidth),
+    );
+    const newDraggedW = startWidth + clamped;
+    const newNeighborW = neighborStartWidth - clamped;
+
+    (cols![draggedCol] as HTMLElement).style.width = newDraggedW + 'px';
+    (cols![neighborCol] as HTMLElement).style.width = newNeighborW + 'px';
+  }
+
+  function finish(e: MouseEvent) {
+    win.removeEventListener('mouseup', finish);
+    win.removeEventListener('mousemove', move);
+
+    const pluginState = columnResizingPluginKey.getState(view.state) as
+      | { activeHandle: number; dragging: { startX: number; startWidth: number } | null } | undefined;
+    if (!pluginState?.dragging) return;
+
+    // Calculate final widths
+    const offset = e.clientX - startX;
+    const clamped = Math.max(
+      -(startWidth - cellMinWidth),
+      Math.min(offset, neighborStartWidth - cellMinWidth),
+    );
+    const finalDraggedW = Math.round(startWidth + clamped);
+    const finalNeighborW = Math.round(neighborStartWidth - clamped);
+
+    // Re-resolve table from current state (may have changed during drag)
+    const curState = view.state;
+    const curHandle = pluginState.activeHandle;
+    const $curCell = curState.doc.resolve(curHandle);
+    const curTable = $curCell.node(-1);
+    const curMap = TableMap.get(curTable);
+    const curStart = $curCell.start(-1);
+
+    // Store both column widths + clear dragging in one atomic transaction
+    const tr = curState.tr;
+    storeColWidth(tr, curTable, curMap, curStart, draggedCol, finalDraggedW);
+    storeColWidth(tr, curTable, curMap, curStart, neighborCol, finalNeighborW);
+    tr.setMeta(columnResizingPluginKey, { setDragging: null });
+    view.dispatch(tr);
+  }
+
+  win.addEventListener('mouseup', finish);
+  win.addEventListener('mousemove', move);
+  event.preventDefault();
+  return true;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Read the effective column width from the first-row cell at the given column index. */
+function readColWidth(table: PMNode, map: TableMap, col: number, fallback: number): number {
+  const offset = map.map[col]!;
+  const cell = table.nodeAt(offset);
+  if (!cell) return fallback;
+  const idx = col - map.colCount(offset)!;
+  const colwidth = cell.attrs['colwidth'] as number[] | null;
+  return colwidth?.[idx] ?? fallback;
+}
+
+/**
+ * Store a single column's width across all rows in a transaction.
+ * Same pattern as prosemirror-tables' updateColumnWidth.
+ */
+function storeColWidth(
+  tr: Transaction,
+  table: PMNode,
+  map: TableMap,
+  tableStart: number,
+  col: number,
+  width: number,
+): void {
+  for (let row = 0; row < map.height; row++) {
+    const mapIndex = row * map.width + col;
+    // Skip if same cell as row above (rowspan)
+    if (row > 0 && map.map[mapIndex] === map.map[mapIndex - map.width]) continue;
+
+    const pos = map.map[mapIndex]!;
+    const cellNode = table.nodeAt(pos);
+    if (!cellNode) continue;
+
+    const attrs = cellNode.attrs;
+    const colspan = (attrs['colspan'] as number) || 1;
+    const index = colspan === 1 ? 0 : col - map.colCount(pos)!;
+    const colwidth = attrs['colwidth'] as number[] | null;
+
+    if (colwidth && colwidth[index] === width) continue;
+
+    const newColwidth = colwidth ? colwidth.slice() : new Array(colspan).fill(0) as number[];
+    newColwidth[index] = width;
+    tr.setNodeMarkup(tableStart + pos, null, { ...attrs, colwidth: newColwidth });
+  }
+}
+
+// ─── Freeze all columns ──────────────────────────────────────────────────────
+
+/**
+ * Measure all column widths from the DOM and store them as colwidth attributes
+ * on every cell. Converts the table from CSS-distributed widths to fixed pixel
+ * widths so columns don't redistribute during resize.
+ */
+function freezeColumnWidths(view: EditorView, handlePos: number, cellMinWidth: number, defaultCellMinWidth: number): void {
   const state = view.state;
   const $cell = state.doc.resolve(handlePos);
 
@@ -136,12 +311,12 @@ function freezeColumnWidths(view: EditorView, handlePos: number): void {
             }
           }
         }
-        measuredWidths[col] = Math.max(25, Math.round(domWidth / parts));
+        measuredWidths[col] = Math.max(cellMinWidth, Math.round(domWidth / parts));
       } else {
-        measuredWidths[col] = 100;
+        measuredWidths[col] = defaultCellMinWidth;
       }
     } catch {
-      measuredWidths[col] = 100;
+      measuredWidths[col] = defaultCellMinWidth;
     }
   }
 

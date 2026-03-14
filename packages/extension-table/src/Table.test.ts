@@ -48,6 +48,7 @@ describe('Table', () => {
         HTMLAttributes: {},
         cellMinWidth: 25,
         defaultCellMinWidth: 100,
+        resizeBehavior: 'neighbor',
         allowTableNodeSelection: false,
         View: TableView,
       });

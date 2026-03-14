@@ -104,6 +104,15 @@ export interface TableOptions {
   defaultCellMinWidth: number;
 
   /**
+   * Column resize behavior when dragging a column border.
+   * - `'neighbor'`: adjacent column compensates, table width stays constant (Google Docs style)
+   * - `'independent'`: only dragged column changes, table width grows/shrinks
+   * - `'redistribute'`: all columns redistribute to fill available width (prosemirror-tables default)
+   * @default 'neighbor'
+   */
+  resizeBehavior: 'neighbor' | 'independent' | 'redistribute';
+
+  /**
    * Allow selecting the entire table as a node selection.
    * @default false
    */
@@ -128,6 +137,7 @@ export const Table = Node.create<TableOptions>({
       HTMLAttributes: {},
       cellMinWidth: 25,
       defaultCellMinWidth: 100,
+      resizeBehavior: 'neighbor',
       allowTableNodeSelection: false,
       View: TableView,
     };
@@ -375,7 +385,11 @@ export const Table = Node.create<TableOptions>({
 
   addProseMirrorPlugins() {
     return [
-      createResizeSuppressionPlugin(),
+      createResizeSuppressionPlugin({
+        resizeBehavior: this.options.resizeBehavior,
+        cellMinWidth: this.options.cellMinWidth,
+        defaultCellMinWidth: this.options.defaultCellMinWidth,
+      }),
 
       columnResizing({
         cellMinWidth: this.options.cellMinWidth,
