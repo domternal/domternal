@@ -55,6 +55,7 @@ import {
 import { TableView } from './TableView.js';
 import { createTable } from './helpers/createTable.js';
 import { deleteTableWhenAllCellsSelected } from './helpers/deleteTableWhenAllCellsSelected.js';
+import { constrainedAddColumn } from './helpers/constrainedColumn.js';
 import { createResizeSuppressionPlugin } from './plugins/resizeSuppressionPlugin.js';
 import { createCellSelectionPlugin } from './plugins/cellSelectionPlugin.js';
 import { TableRow } from './TableRow.js';
@@ -113,6 +114,14 @@ export interface TableOptions {
   resizeBehavior: 'neighbor' | 'independent' | 'redistribute';
 
   /**
+   * Prevent the table from exceeding its container (.tableWrapper) width.
+   * When true: last-column resize is capped, add-column redistributes if needed.
+   * When false: original behavior (table can grow beyond container).
+   * @default true
+   */
+  constrainToContainer: boolean;
+
+  /**
    * Allow selecting the entire table as a node selection.
    * @default false
    */
@@ -122,7 +131,7 @@ export interface TableOptions {
    * Custom NodeView constructor. Override to provide framework-specific rendering.
    * Set to null to disable custom NodeView.
    */
-  View: (new (node: PMNode, cellMinWidth: number, view: EditorView, defaultCellMinWidth?: number) => NodeView) | null;
+  View: (new (node: PMNode, cellMinWidth: number, view: EditorView, defaultCellMinWidth?: number, constrainToContainer?: boolean) => NodeView) | null;
 }
 
 export const Table = Node.create<TableOptions>({
@@ -138,6 +147,7 @@ export const Table = Node.create<TableOptions>({
       cellMinWidth: 25,
       defaultCellMinWidth: 100,
       resizeBehavior: 'neighbor',
+      constrainToContainer: true,
       allowTableNodeSelection: false,
       View: TableView,
     };
@@ -159,13 +169,14 @@ export const Table = Node.create<TableOptions>({
     const ViewClass = this.options.View;
     const cellMinWidth = this.options.cellMinWidth;
     const defaultCellMinWidth = this.options.defaultCellMinWidth;
+    const constrainToContainer = this.options.constrainToContainer;
 
     if (!ViewClass) {
       return undefined as unknown as NodeViewConstructor;
     }
 
     return ((node: PMNode, view: EditorView) =>
-      new ViewClass(node, cellMinWidth, view, defaultCellMinWidth)) as unknown as NodeViewConstructor;
+      new ViewClass(node, cellMinWidth, view, defaultCellMinWidth, constrainToContainer)) as unknown as NodeViewConstructor;
   },
 
   addCommands() {
@@ -225,14 +236,22 @@ export const Table = Node.create<TableOptions>({
 
       addColumnBefore:
         () =>
-        ({ state, dispatch }) => {
-          return addColumnBefore(state, dispatch);
+        ({ state, dispatch, editor }) => {
+          if (!this.options.constrainToContainer || !dispatch) {
+            return addColumnBefore(state, dispatch);
+          }
+          const view = editor.view as EditorView;
+          return constrainedAddColumn(addColumnBefore, view, this.options.cellMinWidth, this.options.defaultCellMinWidth);
         },
 
       addColumnAfter:
         () =>
-        ({ state, dispatch }) => {
-          return addColumnAfter(state, dispatch);
+        ({ state, dispatch, editor }) => {
+          if (!this.options.constrainToContainer || !dispatch) {
+            return addColumnAfter(state, dispatch);
+          }
+          const view = editor.view as EditorView;
+          return constrainedAddColumn(addColumnAfter, view, this.options.cellMinWidth, this.options.defaultCellMinWidth);
         },
 
       deleteColumn:
@@ -389,6 +408,7 @@ export const Table = Node.create<TableOptions>({
         resizeBehavior: this.options.resizeBehavior,
         cellMinWidth: this.options.cellMinWidth,
         defaultCellMinWidth: this.options.defaultCellMinWidth,
+        constrainToContainer: this.options.constrainToContainer,
       }),
 
       columnResizing({

@@ -115,6 +115,26 @@ describe('resizeBehavior configuration', () => {
   });
 });
 
+// ─── constrainToContainer configuration ───────────────────────────────────────
+
+describe('constrainToContainer configuration', () => {
+  it('defaults to true', () => {
+    expect(Table.options.constrainToContainer).toBe(true);
+  });
+
+  it('can configure to false', () => {
+    const Custom = Table.configure({ constrainToContainer: false });
+    expect(Custom.options.constrainToContainer).toBe(false);
+  });
+
+  it('preserves other options when configuring constrainToContainer', () => {
+    const Custom = Table.configure({ constrainToContainer: false, cellMinWidth: 50 });
+    expect(Custom.options.constrainToContainer).toBe(false);
+    expect(Custom.options.cellMinWidth).toBe(50);
+    expect(Custom.options.resizeBehavior).toBe('neighbor');
+  });
+});
+
 // ─── Plugin structure ─────────────────────────────────────────────────────────
 
 describe('resizeSuppression plugin', () => {

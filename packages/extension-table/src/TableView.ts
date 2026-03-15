@@ -26,6 +26,8 @@ import {
   toggleHeaderCell,
 } from '@domternal/pm/tables';
 
+import { constrainedAddColumn } from './helpers/constrainedColumn.js';
+
 import {
   DOTS_H, DOTS_V, CHEVRON_DOWN,
   ICON_COLOR, ICON_ALIGNMENT, ICON_HEADER, ICON_MERGE, ICON_SPLIT,
@@ -46,8 +48,10 @@ export const tableViewMap = new WeakMap<HTMLElement, TableView>();
 
 export class TableView implements NodeView {
   node: PMNode;
+  cellMinWidth: number;
   defaultCellMinWidth: number;
   view: EditorView;
+  constrainToContainer: boolean;
 
   dom: HTMLElement;
   table: HTMLTableElement;
@@ -84,10 +88,12 @@ export class TableView implements NodeView {
   private boundDocKeyDown: (e: KeyboardEvent) => void;
   private boundScroll: () => void;
 
-  constructor(node: PMNode, _cellMinWidth: number, view: EditorView, defaultCellMinWidth = 100) {
+  constructor(node: PMNode, cellMinWidth: number, view: EditorView, defaultCellMinWidth = 100, constrainToContainer = true) {
     this.node = node;
+    this.cellMinWidth = cellMinWidth;
     this.defaultCellMinWidth = defaultCellMinWidth;
     this.view = view;
+    this.constrainToContainer = constrainToContainer;
 
     // Bind handlers
     this.boundMouseMove = this.onMouseMove.bind(this);
@@ -815,6 +821,10 @@ export class TableView implements NodeView {
 
   private execColCmd(cmd: PMCommand): void {
     this.setCursorInCell(0, this.hoveredCol);
+    if (this.constrainToContainer && (cmd === addColumnBefore || cmd === addColumnAfter)) {
+      constrainedAddColumn(cmd, this.view, this.cellMinWidth, this.defaultCellMinWidth);
+      return;
+    }
     cmd(this.view.state, this.view.dispatch);
   }
 
