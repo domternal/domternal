@@ -53,6 +53,10 @@ const codeHighlighter = createCodeHighlighter(lowlight);
   templateUrl: './editor-demo.component.html',
 })
 export class EditorDemoComponent {
+  private readonly params = new URLSearchParams(window.location.search);
+  private readonly constrainTable = !this.params.has('constrainTable', 'false');
+  private readonly resizeBehavior = (this.params.get('resizeBehavior') ?? 'neighbor') as 'neighbor' | 'independent' | 'redistribute';
+
   extensions = [
     // Inline formatting
     Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
@@ -63,7 +67,7 @@ export class EditorDemoComponent {
     // Text styling (TextColor/FontSize/FontFamily auto-include TextStyle)
     TextAlign, TextColor, FontSize, FontFamily, LineHeight,
     // Table (auto-includes TableRow, TableCell, TableHeader)
-    Table,
+    Table.configure({ constrainToContainer: this.constrainTable, resizeBehavior: this.resizeBehavior }),
     // Details / Accordion (auto-includes DetailsSummary, DetailsContent)
     Details,
     // Media & Emoji

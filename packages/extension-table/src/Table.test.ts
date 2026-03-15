@@ -49,9 +49,19 @@ describe('Table', () => {
         cellMinWidth: 25,
         defaultCellMinWidth: 100,
         resizeBehavior: 'neighbor',
+        constrainToContainer: true,
         allowTableNodeSelection: false,
         View: TableView,
       });
+    });
+
+    it('constrainToContainer defaults to true', () => {
+      expect(Table.options.constrainToContainer).toBe(true);
+    });
+
+    it('can set constrainToContainer to false', () => {
+      const Custom = Table.configure({ constrainToContainer: false });
+      expect(Custom.options.constrainToContainer).toBe(false);
     });
 
     it('can configure HTMLAttributes', () => {

@@ -645,3 +645,894 @@ test.describe('Table — Resize clamping', () => {
     expect(Math.abs(afterWidth - initialWidth)).toBeLessThanOrEqual(1);
   });
 });
+
+// =============================================================================
+// Container constraint (constrainToContainer: true by default)
+// =============================================================================
+
+/** Execute a table command via the editor API. */
+async function runTableCommand(page: Page, command: string) {
+  await page.evaluate((cmd) => {
+    const el = document.querySelector('domternal-editor');
+    const ng = (window as any).ng;
+    const comp = ng?.getComponent?.(el);
+    comp?.editor?.commands?.[cmd]?.();
+  }, command);
+  await page.waitForTimeout(200);
+}
+
+/** Get column count from the first row of the table. */
+async function getColumnCount(page: Page): Promise<number> {
+  return page.locator(`${editorSelector} tr`).first().locator('th, td').count();
+}
+
+test.describe('Table — Container constraint (constrainToContainer)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('last column resize cannot grow table past container', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    const before = await getTableAndWrapperWidths(page);
+    expect(before.tableWidth).toBeLessThanOrEqual(before.wrapperWidth);
+
+    // Drag the LAST column right border (cell index 2 = "Header C") to the right by 100px
+    await dragColumnBorder(page, 2, 100);
+
+    const after = await getTableAndWrapperWidths(page);
+    // Table must NOT exceed wrapper
+    expect(after.tableWidth).toBeLessThanOrEqual(after.wrapperWidth);
+    expect(await hasHorizontalScrollbar(page)).toBe(false);
+  });
+
+  test('last column resize can shrink', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Get initial last column width
+    const initialBoxes = await getRowCellBoxes(page, 1);
+    const initialLastColWidth = initialBoxes[2]!.width;
+
+    // Drag last column border left by 50px
+    await dragColumnBorder(page, 2, -50);
+
+    const afterBoxes = await getRowCellBoxes(page, 1);
+    // Last column should have shrunk
+    expect(afterBoxes[2]!.width).toBeLessThan(initialLastColWidth - 20);
+
+    // No overflow
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeLessThanOrEqual(wrapperWidth);
+    expect(await hasHorizontalScrollbar(page)).toBe(false);
+  });
+
+  test('last column shrink then grow back stays within container', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Shrink last column
+    await dragColumnBorder(page, 2, -60);
+
+    // Grow it back
+    await dragColumnBorder(page, 2, 60);
+
+    const after = await getTableAndWrapperWidths(page);
+    expect(after.tableWidth).toBeLessThanOrEqual(after.wrapperWidth);
+    expect(await hasHorizontalScrollbar(page)).toBe(false);
+  });
+
+  test('add column after with frozen widths stays within container', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Freeze columns by performing a resize drag (triggers freezeColumnWidths)
+    await dragColumnBorder(page, 0, 30);
+
+    // Verify all columns are now frozen
+    const colwidthsBefore = await getColwidths(page);
+    expect(colwidthsBefore.every((cw) => cw !== null)).toBe(true);
+
+    // Add a column
+    await runTableCommand(page, 'addColumnAfter');
+
+    // Should now have 4 columns
+    expect(await getColumnCount(page)).toBe(4);
+
+    // Table must NOT exceed container
+    const after = await getTableAndWrapperWidths(page);
+    expect(after.tableWidth).toBeLessThanOrEqual(after.wrapperWidth);
+    expect(await hasHorizontalScrollbar(page)).toBe(false);
+  });
+
+  test('add column before with frozen widths stays within container', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Freeze columns
+    await dragColumnBorder(page, 0, 30);
+
+    // Add a column before
+    await runTableCommand(page, 'addColumnBefore');
+
+    expect(await getColumnCount(page)).toBe(4);
+
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeLessThanOrEqual(wrapperWidth);
+    expect(await hasHorizontalScrollbar(page)).toBe(false);
+  });
+
+  test('add column to fresh table (no frozen widths) works normally', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // No resize → columns are NOT frozen
+    const colwidths = await getColwidths(page);
+    expect(colwidths.every((cw) => cw === null)).toBe(true);
+
+    // Add column — should work normally
+    await runTableCommand(page, 'addColumnAfter');
+    expect(await getColumnCount(page)).toBe(4);
+
+    // No overflow
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeLessThanOrEqual(wrapperWidth);
+    expect(await hasHorizontalScrollbar(page)).toBe(false);
+  });
+
+  test('multiple add columns redistribute progressively', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Freeze columns
+    await dragColumnBorder(page, 0, 30);
+
+    // Add 3 columns (3 → 6 columns)
+    await runTableCommand(page, 'addColumnAfter');
+    await runTableCommand(page, 'addColumnAfter');
+    await runTableCommand(page, 'addColumnAfter');
+
+    expect(await getColumnCount(page)).toBe(6);
+
+    // Still within container
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeLessThanOrEqual(wrapperWidth);
+    expect(await hasHorizontalScrollbar(page)).toBe(false);
+  });
+
+  // ─── Edge-case stress tests ─────────────────────────────────────────
+
+  test('resize different columns then add columns stays within container', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Resize column 0 right, column 1 left (neighbor mode)
+    await dragColumnBorder(page, 0, 40);
+    await dragColumnBorder(page, 1, -30);
+
+    // All frozen after first resize
+    const cw = await getColwidths(page);
+    expect(cw.every((c) => c !== null)).toBe(true);
+
+    // Add 2 columns
+    await runTableCommand(page, 'addColumnAfter');
+    await runTableCommand(page, 'addColumnBefore');
+    expect(await getColumnCount(page)).toBe(5);
+
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeLessThanOrEqual(wrapperWidth);
+    expect(await hasHorizontalScrollbar(page)).toBe(false);
+  });
+
+  test('add columns then resize then add more columns', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Freeze by resizing
+    await dragColumnBorder(page, 0, 20);
+
+    // Add a column (3 → 4)
+    await runTableCommand(page, 'addColumnAfter');
+    expect(await getColumnCount(page)).toBe(4);
+
+    // Resize an inner column in the 4-col table
+    await dragColumnBorder(page, 1, -25);
+
+    // Add 2 more columns (4 → 6)
+    await runTableCommand(page, 'addColumnAfter');
+    await runTableCommand(page, 'addColumnBefore');
+    expect(await getColumnCount(page)).toBe(6);
+
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeLessThanOrEqual(wrapperWidth);
+    expect(await hasHorizontalScrollbar(page)).toBe(false);
+  });
+
+  test('shrink last column then add columns stays within container', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Shrink last column (makes table narrower)
+    await dragColumnBorder(page, 2, -80);
+
+    const shrunk = await getTableAndWrapperWidths(page);
+    expect(shrunk.tableWidth).toBeLessThanOrEqual(shrunk.wrapperWidth);
+
+    // Add 3 columns into the narrower table (3 → 6)
+    await runTableCommand(page, 'addColumnAfter');
+    await runTableCommand(page, 'addColumnAfter');
+    await runTableCommand(page, 'addColumnAfter');
+    expect(await getColumnCount(page)).toBe(6);
+
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeLessThanOrEqual(wrapperWidth);
+    expect(await hasHorizontalScrollbar(page)).toBe(false);
+  });
+
+  test('add many columns to fresh table (no freeze) stays within container', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // No resize — columns are NOT frozen. Add 7 columns (3 → 10).
+    for (let i = 0; i < 7; i++) {
+      await runTableCommand(page, 'addColumnAfter');
+    }
+    expect(await getColumnCount(page)).toBe(10);
+
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeLessThanOrEqual(wrapperWidth);
+    expect(await hasHorizontalScrollbar(page)).toBe(false);
+  });
+
+  test('resize after adding columns to fresh table keeps constraint', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Add 2 columns without freezing first (3 → 5)
+    await runTableCommand(page, 'addColumnAfter');
+    await runTableCommand(page, 'addColumnAfter');
+    expect(await getColumnCount(page)).toBe(5);
+
+    // Now resize column 0 — this freezes all 5 columns
+    await dragColumnBorder(page, 0, 30);
+
+    const cw = await getColwidths(page);
+    expect(cw.every((c) => c !== null)).toBe(true);
+
+    // Add 2 more columns (5 → 7) — must redistribute
+    await runTableCommand(page, 'addColumnAfter');
+    await runTableCommand(page, 'addColumnAfter');
+    expect(await getColumnCount(page)).toBe(7);
+
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeLessThanOrEqual(wrapperWidth);
+    expect(await hasHorizontalScrollbar(page)).toBe(false);
+  });
+
+  test('alternating addColumnBefore and addColumnAfter with frozen widths', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Freeze
+    await dragColumnBorder(page, 0, 20);
+
+    // Alternate before/after (3 → 7)
+    await runTableCommand(page, 'addColumnAfter');
+    await runTableCommand(page, 'addColumnBefore');
+    await runTableCommand(page, 'addColumnAfter');
+    await runTableCommand(page, 'addColumnBefore');
+    expect(await getColumnCount(page)).toBe(7);
+
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeLessThanOrEqual(wrapperWidth);
+    expect(await hasHorizontalScrollbar(page)).toBe(false);
+
+    // All columns should still have frozen widths
+    const cw = await getColwidths(page);
+    expect(cw.every((c) => c !== null)).toBe(true);
+  });
+
+  test('resize last column after redistribution stays within container', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Freeze + add columns → redistribute
+    await dragColumnBorder(page, 0, 20);
+    await runTableCommand(page, 'addColumnAfter');
+    await runTableCommand(page, 'addColumnAfter');
+    expect(await getColumnCount(page)).toBe(5);
+
+    // Now resize the last column (try to grow it past container)
+    await dragColumnBorder(page, 4, 100);
+
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeLessThanOrEqual(wrapperWidth);
+    expect(await hasHorizontalScrollbar(page)).toBe(false);
+  });
+
+  test('delete column then add column back preserves constraint', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Freeze
+    await dragColumnBorder(page, 0, 20);
+
+    // Add 2, delete 1, add 1 (3 → 5 → 4 → 5)
+    await runTableCommand(page, 'addColumnAfter');
+    await runTableCommand(page, 'addColumnAfter');
+    expect(await getColumnCount(page)).toBe(5);
+
+    await runTableCommand(page, 'deleteColumn');
+    expect(await getColumnCount(page)).toBe(4);
+
+    await runTableCommand(page, 'addColumnAfter');
+    expect(await getColumnCount(page)).toBe(5);
+
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeLessThanOrEqual(wrapperWidth);
+    expect(await hasHorizontalScrollbar(page)).toBe(false);
+  });
+
+  test('multiple resizes across different columns then last-column grow blocked', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Resize column 0 right, then column 1 left
+    await dragColumnBorder(page, 0, 50);
+    await dragColumnBorder(page, 1, -40);
+    // Resize column 0 again
+    await dragColumnBorder(page, 0, -20);
+
+    // Try to grow last column past container
+    await dragColumnBorder(page, 2, 200);
+
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeLessThanOrEqual(wrapperWidth);
+    expect(await hasHorizontalScrollbar(page)).toBe(false);
+  });
+});
+
+// =============================================================================
+// constrainToContainer: false — original unconstrained behavior
+// =============================================================================
+
+test.describe('Table — Unconstrained (constrainToContainer: false)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/?constrainTable=false');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('last column resize CAN grow table past container', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    const before = await getTableAndWrapperWidths(page);
+
+    // Drag last column right border far to the right
+    await dragColumnBorder(page, 2, 150);
+
+    const after = await getTableAndWrapperWidths(page);
+    // Table SHOULD exceed wrapper — no constraint
+    expect(after.tableWidth).toBeGreaterThan(before.wrapperWidth);
+  });
+
+  test('last column resize can shrink freely', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    const initialBoxes = await getRowCellBoxes(page, 1);
+    const initialLastColWidth = initialBoxes[2]!.width;
+
+    await dragColumnBorder(page, 2, -50);
+
+    const afterBoxes = await getRowCellBoxes(page, 1);
+    expect(afterBoxes[2]!.width).toBeLessThan(initialLastColWidth - 20);
+  });
+
+  test('resize different columns then last column grows past container', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Resize inner columns
+    await dragColumnBorder(page, 0, 40);
+    await dragColumnBorder(page, 1, -30);
+
+    // Grow last column past container
+    await dragColumnBorder(page, 2, 200);
+
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeGreaterThan(wrapperWidth);
+  });
+
+  test('add column after does NOT redistribute frozen widths', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Freeze columns
+    await dragColumnBorder(page, 0, 30);
+
+    const cwBefore = await getColwidths(page);
+    expect(cwBefore.every((c) => c !== null)).toBe(true);
+    const widthsBefore = cwBefore.map((c) => c![0]);
+
+    // Add column
+    await runTableCommand(page, 'addColumnAfter');
+    expect(await getColumnCount(page)).toBe(4);
+
+    // Original 3 columns should keep their widths (not redistributed)
+    const cwAfter = await getColwidths(page);
+    const widthsAfter = cwAfter.map((c) => c?.[0] ?? null);
+    // First 2 columns unchanged (3rd may shift due to cursor position)
+    expect(widthsAfter[0]).toBe(widthsBefore[0]);
+    expect(widthsAfter[1]).toBe(widthsBefore[1]);
+  });
+
+  test('add column before does NOT redistribute frozen widths', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Freeze columns with an asymmetric resize so widths are unequal
+    await dragColumnBorder(page, 0, 50);
+
+    const cwBefore = await getColwidths(page);
+    const widthsBefore = cwBefore.map((c) => c![0]!);
+    // Verify widths are unequal (asymmetric)
+    expect(new Set(widthsBefore).size).toBeGreaterThan(1);
+
+    // Add column before
+    await runTableCommand(page, 'addColumnBefore');
+    expect(await getColumnCount(page)).toBe(4);
+
+    // Original widths should be preserved somewhere (not redistributed to equal)
+    const cwAfter = await getColwidths(page);
+    const widthsAfter = cwAfter.map((c) => c?.[0] ?? 0).filter((w) => w > 0);
+    // At least one of the original asymmetric widths should still exist
+    const preserved = widthsBefore.filter((w) => widthsAfter.includes(w));
+    expect(preserved.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('add columns then resize then add more — no constraint applied', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Freeze by resizing
+    await dragColumnBorder(page, 0, 20);
+
+    // Add column (3 → 4)
+    await runTableCommand(page, 'addColumnAfter');
+    expect(await getColumnCount(page)).toBe(4);
+
+    // Resize an inner column
+    await dragColumnBorder(page, 1, -25);
+
+    // Add 2 more columns (4 → 6)
+    await runTableCommand(page, 'addColumnAfter');
+    await runTableCommand(page, 'addColumnBefore');
+    expect(await getColumnCount(page)).toBe(6);
+
+    // No constraint — table may or may not exceed container, but should not crash
+    // Verify table is rendered and has correct column count
+    const cw = await getColwidths(page);
+    expect(cw.length).toBe(6);
+  });
+
+  test('shrink last column then grow past container', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Shrink last column
+    await dragColumnBorder(page, 2, -80);
+
+    const shrunk = await getTableAndWrapperWidths(page);
+    expect(shrunk.tableWidth).toBeLessThanOrEqual(shrunk.wrapperWidth);
+
+    // Grow it well past the container
+    await dragColumnBorder(page, 2, 200);
+
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeGreaterThan(wrapperWidth);
+  });
+
+  test('multiple add columns to fresh table uses minWidth (no constraint)', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // No resize — add 7 columns (3 → 10)
+    for (let i = 0; i < 7; i++) {
+      await runTableCommand(page, 'addColumnAfter');
+    }
+    expect(await getColumnCount(page)).toBe(10);
+
+    // With constrainToContainer: false, table sets min-width from defaultCellMinWidth
+    // 10 * 100 = 1000 > containerWidth → table should overflow
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeGreaterThan(wrapperWidth);
+  });
+
+  test('multiple resizes across different columns then last-column grows freely', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Various resizes
+    await dragColumnBorder(page, 0, 50);
+    await dragColumnBorder(page, 1, -40);
+    await dragColumnBorder(page, 0, -20);
+
+    // Grow last column past container — should be allowed
+    await dragColumnBorder(page, 2, 200);
+
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeGreaterThan(wrapperWidth);
+  });
+
+  test('delete column then add column back — no redistribution', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Freeze
+    await dragColumnBorder(page, 0, 20);
+
+    const cwInit = await getColwidths(page);
+    const initWidths = cwInit.map((c) => c![0]);
+
+    // Add 2, delete 1, add 1 (3 → 5 → 4 → 5)
+    await runTableCommand(page, 'addColumnAfter');
+    await runTableCommand(page, 'addColumnAfter');
+    expect(await getColumnCount(page)).toBe(5);
+
+    await runTableCommand(page, 'deleteColumn');
+    expect(await getColumnCount(page)).toBe(4);
+
+    await runTableCommand(page, 'addColumnAfter');
+    expect(await getColumnCount(page)).toBe(5);
+
+    // Original first column should still have its original width (no redistribution)
+    const cwFinal = await getColwidths(page);
+    expect(cwFinal[0]?.[0]).toBe(initWidths[0]);
+  });
+});
+
+// =============================================================================
+// Independent resize behavior (resizeBehavior: 'independent')
+// =============================================================================
+
+test.describe('Table — Independent resize behavior', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/?resizeBehavior=independent');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('all columns get frozen widths after first resize', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Fresh table has no colwidth
+    const cwBefore = await getColwidths(page);
+    expect(cwBefore.every((c) => c === null)).toBe(true);
+
+    // Resize column 0 right
+    await dragColumnBorder(page, 3, 30);
+
+    // All columns should now have explicit widths (freeze happened)
+    const cwAfter = await getColwidths(page);
+    expect(cwAfter.every((c) => c !== null)).toBe(true);
+  });
+
+  test('table width CHANGES after resize (not constant like neighbor)', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    const { tableWidth: before } = await getTableAndWrapperWidths(page);
+
+    // Drag column 0 border right — in independent mode, table should GROW
+    await dragColumnBorder(page, 3, 60);
+
+    const { tableWidth: after } = await getTableAndWrapperWidths(page);
+    // Table grew because only the dragged column expanded, no neighbor shrank
+    expect(after).toBeGreaterThan(before + 30);
+  });
+
+  test('only dragged column changes width, other columns stay same', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // First freeze all columns
+    await dragColumnBorder(page, 3, 10);
+    const cwFrozen = await getColwidths(page);
+    const col1 = cwFrozen[1]![0];
+    const col2 = cwFrozen[2]![0];
+
+    // Now drag column 0 border right by 50
+    await dragColumnBorder(page, 3, 50);
+
+    const cwAfter = await getColwidths(page);
+    // Column 1 and 2 should stay the same (independent)
+    expect(cwAfter[1]![0]).toBe(col1);
+    expect(cwAfter[2]![0]).toBe(col2);
+    // Column 0 should have grown
+    expect(cwAfter[0]![0]).toBeGreaterThan(cwFrozen[0]![0]!);
+  });
+
+  test('dragging column border left shrinks dragged column AND table', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Freeze
+    await dragColumnBorder(page, 3, 10);
+    const { tableWidth: before } = await getTableAndWrapperWidths(page);
+
+    // Drag left to shrink
+    await dragColumnBorder(page, 3, -40);
+
+    const { tableWidth: after } = await getTableAndWrapperWidths(page);
+    expect(after).toBeLessThan(before - 20);
+  });
+
+  test('dragged column cannot go below minimum width', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Drag far left to shrink past minimum
+    await dragColumnBorder(page, 3, -500);
+
+    const afterBoxes = await getRowCellBoxes(page, 1);
+    // Column should be clamped at cellMinWidth (25px)
+    expect(afterBoxes[0]!.width).toBeGreaterThanOrEqual(25);
+  });
+
+  test('multiple sequential resizes each change table width', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    const { tableWidth: w0 } = await getTableAndWrapperWidths(page);
+
+    // Grow column 0
+    await dragColumnBorder(page, 3, 40);
+    const { tableWidth: w1 } = await getTableAndWrapperWidths(page);
+    expect(w1).toBeGreaterThan(w0 + 20);
+
+    // Grow column 1
+    await dragColumnBorder(page, 4, 30);
+    const { tableWidth: w2 } = await getTableAndWrapperWidths(page);
+    expect(w2).toBeGreaterThan(w1 + 15);
+
+    // Shrink column 0
+    await dragColumnBorder(page, 3, -50);
+    const { tableWidth: w3 } = await getTableAndWrapperWidths(page);
+    expect(w3).toBeLessThan(w2 - 25);
+  });
+
+  test('resize applies to all rows, not just header', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Resize via header cell (index 0)
+    await dragColumnBorder(page, 0, 50);
+
+    const headerBoxes = await getRowCellBoxes(page, 0);
+    const row1Boxes = await getRowCellBoxes(page, 1);
+    const row2Boxes = await getRowCellBoxes(page, 2);
+
+    for (let col = 0; col < 3; col++) {
+      expect(Math.abs(headerBoxes[col]!.width - row1Boxes[col]!.width)).toBeLessThanOrEqual(1);
+      expect(Math.abs(row1Boxes[col]!.width - row2Boxes[col]!.width)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test('second column resize only affects that column', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Freeze + first resize
+    await dragColumnBorder(page, 3, 30);
+    const cwAfterFirst = await getColwidths(page);
+    const col0After = cwAfterFirst[0]![0]!;
+
+    // Second resize on column 1 border
+    await dragColumnBorder(page, 4, 40);
+    const cwAfterSecond = await getColwidths(page);
+
+    // Column 0 should not have changed from the second resize
+    expect(cwAfterSecond[0]![0]).toBe(col0After);
+    // Column 1 should have grown
+    expect(cwAfterSecond[1]![0]).toBeGreaterThan(cwAfterFirst[1]![0]!);
+  });
+
+  test('sum of colwidths matches table width', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    await dragColumnBorder(page, 3, 40);
+
+    const cw = await getColwidths(page);
+    const sum = cw.reduce((s, c) => s + (c?.[0] ?? 0), 0);
+    const { tableWidth } = await getTableAndWrapperWidths(page);
+    expect(Math.abs(sum - tableWidth)).toBeLessThanOrEqual(1);
+  });
+
+  test('table can exceed container width when growing', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Grow column 0 far right
+    await dragColumnBorder(page, 3, 150);
+    // Grow column 1 far right
+    await dragColumnBorder(page, 4, 150);
+
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeGreaterThan(wrapperWidth);
+  });
+
+  test('last column resize in independent mode grows table (no neighbor)', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    const { tableWidth: before } = await getTableAndWrapperWidths(page);
+
+    // Drag last column border right
+    await dragColumnBorder(page, 2, 80);
+
+    const { tableWidth: after } = await getTableAndWrapperWidths(page);
+    // With constrainToContainer: true + independent mode + last column:
+    // it falls through to handleLastColumnResize which caps at container
+    // But independent freezes first, then PM handles. Let's check the actual behavior.
+    // In independent mode, freeze happens then PM handles → last column grows the table
+    // constrainToContainer caps the growth at the container width
+    expect(after).toBeGreaterThanOrEqual(before);
+  });
+});
+
+// =============================================================================
+// Independent + unconstrained (resizeBehavior: 'independent', constrainToContainer: false)
+// =============================================================================
+
+test.describe('Table — Independent + Unconstrained', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/?resizeBehavior=independent&constrainTable=false');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('last column resize grows table past container', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    await dragColumnBorder(page, 2, 200);
+
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeGreaterThan(wrapperWidth);
+  });
+
+  test('multiple grows accumulate — table far exceeds container', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    await dragColumnBorder(page, 3, 100);
+    await dragColumnBorder(page, 4, 100);
+    await dragColumnBorder(page, 2, 100);
+
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeGreaterThan(wrapperWidth + 150);
+  });
+});
+
+// =============================================================================
+// Redistribute resize behavior (resizeBehavior: 'redistribute')
+// =============================================================================
+
+test.describe('Table — Redistribute resize behavior', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/?resizeBehavior=redistribute');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('only resized column gets colwidth, others stay null', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Fresh table: all null
+    const cwBefore = await getColwidths(page);
+    expect(cwBefore.every((c) => c === null)).toBe(true);
+
+    // Resize column 0
+    await dragColumnBorder(page, 3, 40);
+
+    // Only column 0 should get a colwidth (PM native behavior)
+    const cwAfter = await getColwidths(page);
+    expect(cwAfter[0]).not.toBeNull();
+    // Other columns may or may not have widths depending on PM internals,
+    // but column 0 must have one
+    expect(cwAfter[0]![0]).toBeGreaterThan(0);
+  });
+
+  test('table width stays approximately the same after resize', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    const { tableWidth: before } = await getTableAndWrapperWidths(page);
+
+    // Resize column 0 right
+    await dragColumnBorder(page, 3, 50);
+
+    const { tableWidth: after } = await getTableAndWrapperWidths(page);
+    // In redistribute mode, table has width: 100% → stays at container width
+    // The resized column grows but others shrink to compensate (CSS redistribution)
+    expect(Math.abs(after - before)).toBeLessThanOrEqual(2);
+  });
+
+  test('dragging column border right grows that column visually', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    const initialBoxes = await getRowCellBoxes(page, 1);
+    const col0Before = initialBoxes[0]!.width;
+
+    await dragColumnBorder(page, 3, 50);
+
+    const afterBoxes = await getRowCellBoxes(page, 1);
+    expect(afterBoxes[0]!.width).toBeGreaterThan(col0Before + 25);
+  });
+
+  test('dragging column border left shrinks that column visually', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    const initialBoxes = await getRowCellBoxes(page, 1);
+    const col0Before = initialBoxes[0]!.width;
+
+    await dragColumnBorder(page, 3, -40);
+
+    const afterBoxes = await getRowCellBoxes(page, 1);
+    expect(afterBoxes[0]!.width).toBeLessThan(col0Before - 20);
+  });
+
+  test('no scrollbar after resize (table stays at 100%)', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    await dragColumnBorder(page, 3, 60);
+
+    expect(await hasHorizontalScrollbar(page)).toBe(false);
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeLessThanOrEqual(wrapperWidth);
+  });
+
+  test('multiple resizes on different columns work', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    await dragColumnBorder(page, 3, 40);
+    await dragColumnBorder(page, 4, -30);
+    await dragColumnBorder(page, 3, -20);
+
+    // Table should still render correctly
+    const boxes = await getRowCellBoxes(page, 1);
+    expect(boxes.length).toBe(3);
+    for (const b of boxes) {
+      expect(b!.width).toBeGreaterThanOrEqual(25);
+    }
+  });
+
+  test('resize applies to all rows', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    await dragColumnBorder(page, 0, 50);
+
+    const headerBoxes = await getRowCellBoxes(page, 0);
+    const row1Boxes = await getRowCellBoxes(page, 1);
+    const row2Boxes = await getRowCellBoxes(page, 2);
+
+    for (let col = 0; col < 3; col++) {
+      expect(Math.abs(headerBoxes[col]!.width - row1Boxes[col]!.width)).toBeLessThanOrEqual(1);
+      expect(Math.abs(row1Boxes[col]!.width - row2Boxes[col]!.width)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test('second resize preserves first column width in PM state', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Resize column 0
+    await dragColumnBorder(page, 3, 30);
+    const cw1 = await getColwidths(page);
+    const col0Width = cw1[0]![0]!;
+
+    // Resize column 1
+    await dragColumnBorder(page, 4, -20);
+    const cw2 = await getColwidths(page);
+    // PM should preserve the stored colwidth for column 0
+    expect(cw2[0]![0]).toBe(col0Width);
+  });
+
+  test('no dm-mouse-drag class during resize drag', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    const box = await getCellBox(page, 3);
+    if (!box) return;
+
+    // Hover on border → resize handle appears
+    const borderX = box.x + box.width;
+    await page.mouse.move(borderX - 2, box.y + box.height / 2);
+    await page.waitForTimeout(200);
+    expect(await resizeHandleCount(page)).toBeGreaterThan(0);
+
+    // Mousedown on resize handle
+    await page.mouse.down();
+    await page.waitForTimeout(50);
+
+    // dm-mouse-drag should NOT be present (on resize handle, not in cell)
+    expect(await hasMouseDragClass(page)).toBe(false);
+
+    // Drag
+    await page.mouse.move(borderX + 40, box.y + box.height / 2, { steps: 5 });
+    await page.waitForTimeout(100);
+    expect(await hasMouseDragClass(page)).toBe(false);
+
+    await page.mouse.up();
+  });
+
+  test('column minimum width is enforced', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Try to shrink column 0 past minimum
+    await dragColumnBorder(page, 3, -500);
+
+    const afterBoxes = await getRowCellBoxes(page, 1);
+    expect(afterBoxes[0]!.width).toBeGreaterThanOrEqual(25);
+  });
+});

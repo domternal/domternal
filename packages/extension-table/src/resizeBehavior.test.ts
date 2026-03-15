@@ -115,6 +115,26 @@ describe('resizeBehavior configuration', () => {
   });
 });
 
+// ─── constrainToContainer configuration ───────────────────────────────────────
+
+describe('constrainToContainer configuration', () => {
+  it('defaults to true', () => {
+    expect(Table.options.constrainToContainer).toBe(true);
+  });
+
+  it('can configure to false', () => {
+    const Custom = Table.configure({ constrainToContainer: false });
+    expect(Custom.options.constrainToContainer).toBe(false);
+  });
+
+  it('preserves other options when configuring constrainToContainer', () => {
+    const Custom = Table.configure({ constrainToContainer: false, cellMinWidth: 50 });
+    expect(Custom.options.constrainToContainer).toBe(false);
+    expect(Custom.options.cellMinWidth).toBe(50);
+    expect(Custom.options.resizeBehavior).toBe('neighbor');
+  });
+});
+
 // ─── Plugin structure ─────────────────────────────────────────────────────────
 
 describe('resizeSuppression plugin', () => {
@@ -771,15 +791,17 @@ describe('mousemove suppression', () => {
 describe('freeze width normalization', () => {
   let editor: InstanceType<typeof Editor> | undefined;
 
-  // Save original offsetWidth descriptor so we can mock/restore per test
+  // Save original descriptors so we can mock/restore per test
   const origDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
+  // eslint-disable-next-line @typescript-eslint/unbound-method
+  const origBCR = HTMLElement.prototype.getBoundingClientRect;
 
   afterEach(() => {
     editor?.destroy();
-    // Restore original offsetWidth
     if (origDescriptor) {
       Object.defineProperty(HTMLElement.prototype, 'offsetWidth', origDescriptor);
     }
+    HTMLElement.prototype.getBoundingClientRect = origBCR;
   });
 
   it('adjusts measured widths when sum exceeds table offsetWidth', () => {
@@ -788,8 +810,8 @@ describe('freeze width normalization', () => {
       content: tableHTML(), // no colwidths → all columns need measurement
     });
 
-    // Mock offsetWidth: table returns 400, each cell returns 134
-    // sum(134, 134, 134) = 402 > 400 → normalization should fix this
+    // Mock offsetWidth: each cell returns 134; table BCR returns 400
+    // sum(134, 134, 134) = 402 > 399 (floor(400) - 1) → normalization kicks in
     Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
       configurable: true,
       get() {
@@ -798,6 +820,10 @@ describe('freeze width normalization', () => {
         return 0;
       },
     });
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      const w = this.tagName === 'TABLE' ? 400 : 0;
+      return new DOMRect(0, 0, w, 0);
+    };
 
     const cellPos = firstCellPos(editor);
     setActiveHandle(editor, cellPos);
@@ -805,15 +831,15 @@ describe('freeze width normalization', () => {
     const event = new MouseEvent('mousedown', { button: 0, bubbles: true, clientX: 100 });
     editor.view.dom.dispatchEvent(event);
 
-    // Verify: colwidths should sum to 400, not 402
+    // Verify: colwidths should sum to 399 (target = floor(400) - 1 for collapsed border)
     const firstRow = getFirstRowColwidths(editor);
     const sum = firstRow.reduce((s, cw) => s + (cw?.[0] ?? 0), 0);
-    expect(sum).toBe(400);
+    expect(sum).toBe(399);
 
-    // Last column absorbs the 2px difference: 134 - 2 = 132
+    // Last column absorbs the 3px difference: 134 - 3 = 131
     expect(firstRow[0]![0]).toBe(134);
     expect(firstRow[1]![0]).toBe(134);
-    expect(firstRow[2]![0]).toBe(132);
+    expect(firstRow[2]![0]).toBe(131);
   });
 
   it('does not adjust when sum matches table offsetWidth', () => {
@@ -822,7 +848,7 @@ describe('freeze width normalization', () => {
       content: tableHTML(),
     });
 
-    // Mock: sum = 400 = table offsetWidth → no adjustment needed
+    // Mock: sum(133*3) = 399 = floor(400) - 1 → no adjustment needed
     Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
       configurable: true,
       get() {
@@ -831,6 +857,10 @@ describe('freeze width normalization', () => {
         return 0;
       },
     });
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      const w = this.tagName === 'TABLE' ? 400 : 0;
+      return new DOMRect(0, 0, w, 0);
+    };
 
     const cellPos = firstCellPos(editor);
     setActiveHandle(editor, cellPos);
@@ -838,7 +868,7 @@ describe('freeze width normalization', () => {
     const event = new MouseEvent('mousedown', { button: 0, bubbles: true, clientX: 100 });
     editor.view.dom.dispatchEvent(event);
 
-    // sum(133, 133, 133) = 399 ≤ 400 → no shrinkage applied
+    // sum(133, 133, 133) = 399 ≤ 399 → no shrinkage applied
     const firstRow = getFirstRowColwidths(editor);
     expect(firstRow[0]![0]).toBe(133);
     expect(firstRow[1]![0]).toBe(133);
@@ -859,6 +889,10 @@ describe('freeze width normalization', () => {
         return 0;
       },
     });
+    HTMLElement.prototype.getBoundingClientRect = function () {
+      const w = this.tagName === 'TABLE' ? 600 : 0;
+      return new DOMRect(0, 0, w, 0);
+    };
 
     const cellPos = firstCellPos(editor);
     setActiveHandle(editor, cellPos);
@@ -868,10 +902,10 @@ describe('freeze width normalization', () => {
     });
     editor.view.dom.dispatchEvent(event);
 
-    // sum(201, 201, 201) = 603 > 600 → last col adjusted to 201 - 3 = 198
+    // sum(201, 201, 201) = 603 > 599 (floor(600) - 1) → last col adjusted to 201 - 4 = 197
     const firstRow = getFirstRowColwidths(editor);
     const sum = firstRow.reduce((s, cw) => s + (cw?.[0] ?? 0), 0);
-    expect(sum).toBe(600);
+    expect(sum).toBe(599);
 
     // Clean up the drag
     const upEvent = new MouseEvent('mouseup', { bubbles: true, clientX: 100 });
