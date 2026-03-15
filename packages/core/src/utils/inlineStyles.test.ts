@@ -393,4 +393,125 @@ describe('inlineStyles', () => {
     });
     expect(called).toBe(false);
   });
+
+  // === Table column widths ===
+
+  const TABLE_WITH_COLWIDTHS =
+    '<table><tbody>' +
+      '<tr><th data-colwidth="100">A</th><th data-colwidth="200">B</th><th data-colwidth="300">C</th></tr>' +
+      '<tr><td data-colwidth="100">1</td><td data-colwidth="200">2</td><td data-colwidth="300">3</td></tr>' +
+    '</tbody></table>';
+
+  it('default (percent): converts data-colwidth to percentage widths on first-row cells', () => {
+    const result = inlineStyles(TABLE_WITH_COLWIDTHS);
+    // 100/600 = 16.67%, 200/600 = 33.33%, 300/600 = 50.00%
+    expect(result).toContain('width: 16.67%');
+    expect(result).toContain('width: 33.33%');
+    expect(result).toContain('width: 50.00%');
+    expect(result).toContain('table-layout: fixed');
+  });
+
+  it('percent mode: preserves data-colwidth for round-trip', () => {
+    const result = inlineStyles(TABLE_WITH_COLWIDTHS, { tableColumnWidths: 'percent' });
+    expect(result).toContain('data-colwidth="100"');
+    expect(result).toContain('data-colwidth="200"');
+    expect(result).toContain('data-colwidth="300"');
+  });
+
+  it('percent mode: table without data-colwidth is unchanged', () => {
+    const html = '<table><tbody><tr><th>A</th><th>B</th></tr></tbody></table>';
+    const result = inlineStyles(html);
+    // No percentage or pixel widths on cells — only table has width: 100%
+    expect(result).not.toContain('width: 16');
+    expect(result).not.toContain('width: 33');
+    expect(result).not.toContain('width: 50');
+    expect(result).toContain('width: 100%');
+  });
+
+  it('percent mode: skips table when only some cells have colwidth', () => {
+    const html =
+      '<table><tbody>' +
+        '<tr><th data-colwidth="100">A</th><th>B</th></tr>' +
+      '</tbody></table>';
+    const result = inlineStyles(html);
+    // Should not add percentage widths on cells
+    expect(result).not.toContain('width: 16');
+    expect(result).not.toContain('width: 50');
+    // data-colwidth should remain (table was skipped)
+    expect(result).toContain('data-colwidth');
+  });
+
+  it('pixel mode: converts data-colwidth to pixel widths on first-row cells', () => {
+    const result = inlineStyles(TABLE_WITH_COLWIDTHS, { tableColumnWidths: 'pixel' });
+    expect(result).toContain('width: 100px');
+    expect(result).toContain('width: 200px');
+    expect(result).toContain('width: 300px');
+  });
+
+  it('pixel mode: sets fixed table width and table-layout', () => {
+    const result = inlineStyles(TABLE_WITH_COLWIDTHS, { tableColumnWidths: 'pixel' });
+    expect(result).toContain('width: 600px');
+    expect(result).not.toContain('width: 100%');
+    expect(result).toContain('table-layout: fixed');
+  });
+
+  it('pixel mode: preserves data-colwidth for round-trip', () => {
+    const result = inlineStyles(TABLE_WITH_COLWIDTHS, { tableColumnWidths: 'pixel' });
+    expect(result).toContain('data-colwidth="100"');
+    expect(result).toContain('data-colwidth="200"');
+    expect(result).toContain('data-colwidth="300"');
+  });
+
+  it('none mode: preserves data-colwidth and adds no width styles to cells', () => {
+    const result = inlineStyles(TABLE_WITH_COLWIDTHS, { tableColumnWidths: 'none' });
+    expect(result).toContain('data-colwidth="100"');
+    expect(result).toContain('data-colwidth="200"');
+    expect(result).toContain('data-colwidth="300"');
+    // No percentage or pixel widths derived from colwidths
+    expect(result).not.toContain('width: 16.67%');
+    expect(result).not.toContain('width: 200px');
+    expect(result).not.toContain('width: 300px');
+    expect(result).not.toContain('table-layout: fixed');
+  });
+
+  it('percent mode: handles colspan cell with multiple colwidth values', () => {
+    const html =
+      '<table><tbody>' +
+        '<tr><th data-colwidth="100,200" colspan="2">AB</th><th data-colwidth="300">C</th></tr>' +
+      '</tbody></table>';
+    const result = inlineStyles(html);
+    // colspan cell: (100+200)/600 = 50%, third cell: 300/600 = 50%
+    expect(result).toContain('width: 50.00%');
+    expect(result).toContain('data-colwidth');
+  });
+
+  it('pixel mode: handles colspan cell with multiple colwidth values', () => {
+    const html =
+      '<table><tbody>' +
+        '<tr><th data-colwidth="100,200" colspan="2">AB</th><th data-colwidth="300">C</th></tr>' +
+      '</tbody></table>';
+    const result = inlineStyles(html, { tableColumnWidths: 'pixel' });
+    expect(result).toContain('width: 300px');
+    expect(result).toContain('data-colwidth');
+    // Table width = 600px
+    expect(result).toContain('width: 600px');
+  });
+
+  it('pixel mode: real editor HTML with <p> inside cells', () => {
+    const html =
+      '<table><tbody>' +
+        '<tr><th data-colwidth="25"><p>Feature</p></th><th data-colwidth="399"><p>Free</p></th><th data-colwidth="212"><p>Pro</p></th></tr>' +
+        '<tr><td data-colwidth="25"><p>Basic editing</p></td><td data-colwidth="399"><p>Yes</p></td><td data-colwidth="212"><p>Yes</p></td></tr>' +
+      '</tbody></table>';
+    const result = inlineStyles(html, { tableColumnWidths: 'pixel' });
+    // First-row cells get pixel widths
+    expect(result).toContain('width: 25px');
+    expect(result).toContain('width: 399px');
+    expect(result).toContain('width: 212px');
+    // Table gets fixed width (25 + 399 + 212 = 636)
+    expect(result).toContain('width: 636px');
+    expect(result).not.toContain('width: 100%');
+    // data-colwidth preserved for round-trip
+    expect(result).toContain('data-colwidth');
+  });
 });
