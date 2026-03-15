@@ -246,6 +246,7 @@ function handleLastColumnResize(
     const offset = e.clientX - startX;
     const clamped = Math.max(-(startWidth - cellMinWidth), Math.min(offset, maxGrow));
     (cols[draggedCol] as HTMLElement).style.width = String(startWidth + clamped) + 'px';
+    if (tableDom) tableDom.style.width = String(totalWidth + clamped) + 'px';
   }
 
   function finish(e: MouseEvent): void {
