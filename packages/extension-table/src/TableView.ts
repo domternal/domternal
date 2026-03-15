@@ -880,7 +880,7 @@ export class TableView implements NodeView {
       this.table.style.minWidth = '';
     } else {
       this.table.style.width = '';
-      this.table.style.minWidth = String(totalWidth) + 'px';
+      this.table.style.minWidth = this.constrainToContainer ? '' : String(totalWidth) + 'px';
     }
   }
 }
