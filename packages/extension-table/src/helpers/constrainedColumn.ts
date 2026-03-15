@@ -109,7 +109,7 @@ export function redistributeColumns(
 
   // Apply widths to all cells via setNodeMarkup
   for (let col = 0; col < map.width; col++) {
-    const targetW = newWidths[col];
+    const targetW = newWidths[col]!;
     for (let row = 0; row < map.height; row++) {
       const mapIndex = row * map.width + col;
       // Skip if same cell as row above (rowspan)
