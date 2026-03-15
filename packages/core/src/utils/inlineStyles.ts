@@ -358,7 +358,7 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
       if (v.tableColumnWidths === 'percent') {
         table.setAttribute('style', tableStyle + ' table-layout: fixed;');
         for (const cell of firstRowCells) {
-          const raw = cell.getAttribute('data-colwidth')!;
+          const raw = cell.getAttribute('data-colwidth') ?? '';
           const parsed = raw.split(',').map(Number);
           const cellPercent = parsed.reduce((s, w) => s + w, 0) / sum * 100;
           const existing = cell.getAttribute('style') ?? '';
@@ -366,13 +366,13 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
         }
       } else {
         // pixel mode
-        table.setAttribute('style', tableStyle.replace(/width:\s*100%/, `width: ${sum}px`) + ' table-layout: fixed;');
+        table.setAttribute('style', tableStyle.replace(/width:\s*100%/, `width: ${String(sum)}px`) + ' table-layout: fixed;');
         for (const cell of firstRowCells) {
-          const raw = cell.getAttribute('data-colwidth')!;
+          const raw = cell.getAttribute('data-colwidth') ?? '';
           const parsed = raw.split(',').map(Number);
           const cellWidth = parsed.reduce((s, w) => s + w, 0);
           const existing = cell.getAttribute('style') ?? '';
-          cell.setAttribute('style', existing + ` width: ${cellWidth}px;`);
+          cell.setAttribute('style', existing + ` width: ${String(cellWidth)}px;`);
         }
       }
 

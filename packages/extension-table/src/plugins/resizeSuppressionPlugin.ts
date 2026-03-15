@@ -104,7 +104,7 @@ function handleNeighborResize(
   const tableStart = $cell.start(-1);
   const nodeAfter = $cell.nodeAfter;
   if (!nodeAfter) return false;
-  const draggedCol = map.colCount($cell.pos - tableStart)! + ((nodeAfter.attrs['colspan'] as number) || 1) - 1;
+  const draggedCol = map.colCount($cell.pos - tableStart) + ((nodeAfter.attrs['colspan'] as number) || 1) - 1;
   const neighborCol = draggedCol + 1;
 
   // Step 3 — last column: no neighbor, fall back (freeze already ran = independent)
@@ -121,15 +121,19 @@ function handleNeighborResize(
   }));
 
   // Step 6 — find table DOM for direct col manipulation
-  let tableDom: HTMLElement | null = view.domAtPos(tableStart).node as HTMLElement;
-  while (tableDom && tableDom.nodeName !== 'TABLE') tableDom = tableDom.parentNode as HTMLElement;
-  const cols = tableDom?.querySelector('colgroup')?.children;
-  if (!cols) return false;
+  let tableDom = view.domAtPos(tableStart).node as HTMLElement | null;
+  while (tableDom && tableDom.nodeName !== 'TABLE') tableDom = tableDom.parentNode as HTMLElement | null;
+  const colgroup = tableDom?.querySelector('colgroup')?.children;
+  if (!colgroup) return false;
+  const cols = colgroup;
 
   const win = view.dom.ownerDocument.defaultView ?? window;
 
-  function move(e: MouseEvent) {
-    if (!e.buttons) return finish(e);
+  function move(e: MouseEvent): void {
+    if (!e.buttons) {
+      finish(e);
+      return;
+    }
 
     const offset = e.clientX - startX;
     // Clamp so both columns stay >= cellMinWidth and their sum stays constant
@@ -140,11 +144,11 @@ function handleNeighborResize(
     const newDraggedW = startWidth + clamped;
     const newNeighborW = neighborStartWidth - clamped;
 
-    (cols![draggedCol] as HTMLElement).style.width = newDraggedW + 'px';
-    (cols![neighborCol] as HTMLElement).style.width = newNeighborW + 'px';
+    (cols[draggedCol] as HTMLElement).style.width = String(newDraggedW) + 'px';
+    (cols[neighborCol] as HTMLElement).style.width = String(newNeighborW) + 'px';
   }
 
-  function finish(e: MouseEvent) {
+  function finish(e: MouseEvent): void {
     win.removeEventListener('mouseup', finish);
     win.removeEventListener('mousemove', move);
 
@@ -187,10 +191,10 @@ function handleNeighborResize(
 
 /** Read the effective column width from the first-row cell at the given column index. */
 function readColWidth(table: PMNode, map: TableMap, col: number, fallback: number): number {
-  const offset = map.map[col]!;
+  const offset = map.map[col] ?? 0;
   const cell = table.nodeAt(offset);
   if (!cell) return fallback;
-  const idx = col - map.colCount(offset)!;
+  const idx = col - map.colCount(offset);
   const colwidth = cell.attrs['colwidth'] as number[] | null;
   return colwidth?.[idx] ?? fallback;
 }
@@ -212,16 +216,16 @@ function storeColWidth(
     // Skip if same cell as row above (rowspan)
     if (row > 0 && map.map[mapIndex] === map.map[mapIndex - map.width]) continue;
 
-    const pos = map.map[mapIndex]!;
+    const pos = map.map[mapIndex] ?? 0;
     const cellNode = table.nodeAt(pos);
     if (!cellNode) continue;
 
     const attrs = cellNode.attrs;
     const colspan = (attrs['colspan'] as number) || 1;
-    const index = colspan === 1 ? 0 : col - map.colCount(pos)!;
+    const index = colspan === 1 ? 0 : col - map.colCount(pos);
     const colwidth = attrs['colwidth'] as number[] | null;
 
-    if (colwidth && colwidth[index] === width) continue;
+    if (colwidth?.[index] === width) continue;
 
     const newColwidth = colwidth ? colwidth.slice() : new Array(colspan).fill(0) as number[];
     newColwidth[index] = width;
@@ -261,16 +265,16 @@ function freezeColumnWidths(view: EditorView, handlePos: number, cellMinWidth: n
   let anyNeedsWidth = false;
 
   for (let col = 0; col < map.width; col++) {
-    const cellOffset = map.map[col]!; // first row
+    const cellOffset = map.map[col] ?? 0;
     const cellNode = table.nodeAt(cellOffset);
     if (!cellNode) {
       colNeedsWidth.push(true);
       anyNeedsWidth = true;
       continue;
     }
-    const colWithinCell = col - map.colCount(cellOffset)!;
+    const colWithinCell = col - map.colCount(cellOffset);
     const colwidth = cellNode.attrs['colwidth'] as number[] | null;
-    if (colwidth && colwidth[colWithinCell]) {
+    if (colwidth?.[colWithinCell]) {
       colNeedsWidth.push(false);
     } else {
       colNeedsWidth.push(true);
@@ -284,29 +288,33 @@ function freezeColumnWidths(view: EditorView, handlePos: number, cellMinWidth: n
   const measuredWidths: number[] = new Array(map.width) as number[];
 
   for (let col = 0; col < map.width; col++) {
-    const cellOffset = map.map[col]!; // first row
-    const cellNode = table.nodeAt(cellOffset)!;
+    const cellOffset = map.map[col] ?? 0;
+    const cellNode = table.nodeAt(cellOffset);
+    if (!cellNode) {
+      measuredWidths[col] = defaultCellMinWidth;
+      continue;
+    }
     const colspan = (cellNode.attrs['colspan'] as number) || 1;
     const colwidth = cellNode.attrs['colwidth'] as number[] | null;
-    const colWithinCell = col - map.colCount(cellOffset)!;
+    const colWithinCell = col - map.colCount(cellOffset);
 
     if (!colNeedsWidth[col]) {
-      // Already has explicit width
-      measuredWidths[col] = colwidth![colWithinCell]!;
+      measuredWidths[col] = colwidth?.[colWithinCell] ?? defaultCellMinWidth;
       continue;
     }
 
     // Measure from DOM
     try {
       const dom = view.domAtPos(tableStart + cellOffset);
-      const cellDom = dom.node.childNodes[dom.offset] as HTMLElement;
+      const cellDom = dom.node.childNodes[dom.offset] as HTMLElement | undefined;
       if (cellDom) {
         let domWidth = cellDom.offsetWidth;
         let parts = colspan;
         if (colwidth) {
           for (let j = 0; j < colspan; j++) {
-            if (colwidth[j]) {
-              domWidth -= colwidth[j]!;
+            const cw = colwidth[j];
+            if (cw) {
+              domWidth -= cw;
               parts--;
             }
           }
@@ -324,18 +332,18 @@ function freezeColumnWidths(view: EditorView, handlePos: number, cellMinWidth: n
   // Each cell.offsetWidth rounds independently, so their sum can exceed
   // table.offsetWidth by 1-2px. Adjust the last measured column to compensate.
   try {
-    let tableDom: HTMLElement | null = view.domAtPos(tableStart).node as HTMLElement;
-    while (tableDom && tableDom.nodeName !== 'TABLE') tableDom = tableDom.parentNode as HTMLElement;
+    let tableDom = view.domAtPos(tableStart).node as HTMLElement | null;
+    while (tableDom && tableDom.nodeName !== 'TABLE') tableDom = tableDom.parentNode as HTMLElement | null;
     if (tableDom) {
       const actualWidth = tableDom.offsetWidth;
       if (actualWidth > 0) {
         let measuredTotal = 0;
-        for (let col = 0; col < map.width; col++) measuredTotal += measuredWidths[col]!;
+        for (let col = 0; col < map.width; col++) measuredTotal += (measuredWidths[col] ?? 0);
         const diff = measuredTotal - actualWidth;
         if (diff > 0) {
           for (let col = map.width - 1; col >= 0; col--) {
             if (colNeedsWidth[col]) {
-              measuredWidths[col] = Math.max(cellMinWidth, measuredWidths[col]! - diff);
+              measuredWidths[col] = Math.max(cellMinWidth, (measuredWidths[col] ?? 0) - diff);
               break;
             }
           }
@@ -350,26 +358,27 @@ function freezeColumnWidths(view: EditorView, handlePos: number, cellMinWidth: n
   for (let col = 0; col < map.width; col++) {
     if (!colNeedsWidth[col]) continue;
 
-    const width = measuredWidths[col]!;
+    const width = measuredWidths[col] ?? 0;
 
     for (let row = 0; row < map.height; row++) {
       const mapIndex = row * map.width + col;
       // Skip if same cell as row above (rowspan)
       if (row > 0 && map.map[mapIndex] === map.map[mapIndex - map.width]) continue;
 
-      const pos = map.map[mapIndex]!;
+      const pos = map.map[mapIndex] ?? 0;
       const cellNode = table.nodeAt(pos);
       if (!cellNode) continue;
 
       const attrs = cellNode.attrs;
       const colspan = (attrs['colspan'] as number) || 1;
-      const index = colspan === 1 ? 0 : col - map.colCount(pos)!;
+      const index = colspan === 1 ? 0 : col - map.colCount(pos);
 
       if (!cellColwidths.has(pos)) {
         const existing = attrs['colwidth'] as number[] | null;
         cellColwidths.set(pos, existing ? existing.slice() : new Array(colspan).fill(0) as number[]);
       }
-      cellColwidths.get(pos)![index!] = width;
+      const arr = cellColwidths.get(pos);
+      if (arr) arr[index] = width;
     }
   }
 

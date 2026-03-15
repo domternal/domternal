@@ -3,13 +3,14 @@ import { Table } from './Table.js';
 import { TableRow } from './TableRow.js';
 import { TableCell } from './TableCell.js';
 import { TableHeader } from './TableHeader.js';
-import { Document, Text, Paragraph, Editor } from '@domternal/core';
+import { Document, Text, Paragraph, Editor, type AnyExtension } from '@domternal/core';
 import { columnResizingPluginKey, TableMap } from '@domternal/pm/tables';
 
 
 // JSDOM doesn't implement elementFromPoint — ProseMirror's posAtCoords calls it
 // on mousedown. Mock it to prevent uncaught exceptions during event dispatch.
 beforeAll(() => {
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (!document.elementFromPoint) {
     document.elementFromPoint = () => null;
   }
@@ -18,15 +19,15 @@ beforeAll(() => {
 const baseExtensions = [Document, Text, Paragraph, Table, TableRow, TableCell, TableHeader];
 
 /** Create extensions with a specific resizeBehavior. */
-function extensionsWithBehavior(behavior: 'neighbor' | 'independent' | 'redistribute') {
+function extensionsWithBehavior(behavior: 'neighbor' | 'independent' | 'redistribute'): AnyExtension[] {
   return [Document, Text, Paragraph, Table.configure({ resizeBehavior: behavior }), TableRow, TableCell, TableHeader];
 }
 
 /** HTML for a 2-row × 3-col table with optional colwidths. */
 function tableHTML(colwidths?: (number | null)[]): string {
   const cw = colwidths ?? [null, null, null];
-  const makeCell = (tag: string, w: number | null) => {
-    const attr = w ? ` data-colwidth="${w}"` : '';
+  const makeCell = (tag: string, w: number | null): string => {
+    const attr = w ? ` data-colwidth="${String(w)}"` : '';
     return `<${tag}${attr}><p>X</p></${tag}>`;
   };
   const headerRow = cw.map((w) => makeCell('th', w)).join('');
@@ -83,9 +84,10 @@ function setActiveHandle(editor: InstanceType<typeof Editor>, cellPos: number): 
 }
 
 /** Get the columnResizing plugin state. */
-function getResizeState(editor: InstanceType<typeof Editor>) {
-  return columnResizingPluginKey.getState(editor.state) as
-    | { activeHandle: number; dragging: { startX: number; startWidth: number } | null } | undefined;
+type ResizePluginState = { activeHandle: number; dragging: { startX: number; startWidth: number } | null } | undefined;
+
+function getResizeState(editor: InstanceType<typeof Editor>): ResizePluginState {
+  return columnResizingPluginKey.getState(editor.state) as ResizePluginState;
 }
 
 // ─── Configuration ────────────────────────────────────────────────────────────
@@ -116,7 +118,7 @@ describe('resizeBehavior configuration', () => {
 // ─── Plugin structure ─────────────────────────────────────────────────────────
 
 describe('resizeSuppression plugin', () => {
-  let editor: InstanceType<typeof Editor>;
+  let editor: InstanceType<typeof Editor> | undefined;
 
   afterEach(() => {
     editor?.destroy();
@@ -147,7 +149,7 @@ describe('resizeSuppression plugin', () => {
 // ─── dm-mouse-drag class (non-resize drag suppression) ───────────────────────
 
 describe('dm-mouse-drag class', () => {
-  let editor: InstanceType<typeof Editor>;
+  let editor: InstanceType<typeof Editor> | undefined;
 
   afterEach(() => {
     editor?.destroy();
@@ -206,7 +208,7 @@ describe('dm-mouse-drag class', () => {
 // ─── Redistribute mode ───────────────────────────────────────────────────────
 
 describe('redistribute mode', () => {
-  let editor: InstanceType<typeof Editor>;
+  let editor: InstanceType<typeof Editor> | undefined;
 
   afterEach(() => {
     editor?.destroy();
@@ -252,7 +254,7 @@ describe('redistribute mode', () => {
 // ─── Independent mode (freezeColumnWidths) ───────────────────────────────────
 
 describe('independent mode', () => {
-  let editor: InstanceType<typeof Editor>;
+  let editor: InstanceType<typeof Editor> | undefined;
 
   afterEach(() => {
     editor?.destroy();
@@ -375,7 +377,7 @@ describe('independent mode', () => {
 // ─── Neighbor mode ───────────────────────────────────────────────────────────
 
 describe('neighbor mode', () => {
-  let editor: InstanceType<typeof Editor>;
+  let editor: InstanceType<typeof Editor> | undefined;
 
   afterEach(() => {
     editor?.destroy();
@@ -641,7 +643,7 @@ describe('neighbor mode', () => {
 // ─── Last column edge case ───────────────────────────────────────────────────
 
 describe('neighbor mode — last column fallback', () => {
-  let editor: InstanceType<typeof Editor>;
+  let editor: InstanceType<typeof Editor> | undefined;
 
   afterEach(() => {
     editor?.destroy();
@@ -668,7 +670,7 @@ describe('neighbor mode — last column fallback', () => {
     const map = TableMap.get(table);
     const tableStart = 1; // doc(0) + table content starts at 1
     const $cell = editor.state.doc.resolve(lastCellPos);
-    const col = map.colCount($cell.pos - tableStart)!;
+    const col = map.colCount($cell.pos - tableStart);
     expect(col).toBe(map.width - 1); // should be last column
 
     setActiveHandle(editor, lastCellPos);
@@ -688,7 +690,7 @@ describe('neighbor mode — last column fallback', () => {
 // ─── Colwidth serialization round-trip ───────────────────────────────────────
 
 describe('colwidth preservation through resize', () => {
-  let editor: InstanceType<typeof Editor>;
+  let editor: InstanceType<typeof Editor> | undefined;
 
   afterEach(() => {
     editor?.destroy();
@@ -744,7 +746,7 @@ function getFirstRowColwidthsFrom(editor: InstanceType<typeof Editor>): (number[
 // ─── Mousemove suppression ───────────────────────────────────────────────────
 
 describe('mousemove suppression', () => {
-  let editor: InstanceType<typeof Editor>;
+  let editor: InstanceType<typeof Editor> | undefined;
 
   afterEach(() => {
     editor?.destroy();
@@ -767,10 +769,10 @@ describe('mousemove suppression', () => {
 // ─── Freeze width normalization (sub-pixel border rounding fix) ─────────────
 
 describe('freeze width normalization', () => {
-  let editor: InstanceType<typeof Editor>;
+  let editor: InstanceType<typeof Editor> | undefined;
 
   // Save original offsetWidth descriptor so we can mock/restore per test
-  const origDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth')!;
+  const origDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
 
   afterEach(() => {
     editor?.destroy();
