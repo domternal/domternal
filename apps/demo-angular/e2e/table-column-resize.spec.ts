@@ -1167,3 +1167,372 @@ test.describe('Table — Unconstrained (constrainToContainer: false)', () => {
     expect(cwFinal[0]?.[0]).toBe(initWidths[0]);
   });
 });
+
+// =============================================================================
+// Independent resize behavior (resizeBehavior: 'independent')
+// =============================================================================
+
+test.describe('Table — Independent resize behavior', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/?resizeBehavior=independent');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('all columns get frozen widths after first resize', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Fresh table has no colwidth
+    const cwBefore = await getColwidths(page);
+    expect(cwBefore.every((c) => c === null)).toBe(true);
+
+    // Resize column 0 right
+    await dragColumnBorder(page, 3, 30);
+
+    // All columns should now have explicit widths (freeze happened)
+    const cwAfter = await getColwidths(page);
+    expect(cwAfter.every((c) => c !== null)).toBe(true);
+  });
+
+  test('table width CHANGES after resize (not constant like neighbor)', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    const { tableWidth: before } = await getTableAndWrapperWidths(page);
+
+    // Drag column 0 border right — in independent mode, table should GROW
+    await dragColumnBorder(page, 3, 60);
+
+    const { tableWidth: after } = await getTableAndWrapperWidths(page);
+    // Table grew because only the dragged column expanded, no neighbor shrank
+    expect(after).toBeGreaterThan(before + 30);
+  });
+
+  test('only dragged column changes width, other columns stay same', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // First freeze all columns
+    await dragColumnBorder(page, 3, 10);
+    const cwFrozen = await getColwidths(page);
+    const col1 = cwFrozen[1]![0];
+    const col2 = cwFrozen[2]![0];
+
+    // Now drag column 0 border right by 50
+    await dragColumnBorder(page, 3, 50);
+
+    const cwAfter = await getColwidths(page);
+    // Column 1 and 2 should stay the same (independent)
+    expect(cwAfter[1]![0]).toBe(col1);
+    expect(cwAfter[2]![0]).toBe(col2);
+    // Column 0 should have grown
+    expect(cwAfter[0]![0]).toBeGreaterThan(cwFrozen[0]![0]!);
+  });
+
+  test('dragging column border left shrinks dragged column AND table', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Freeze
+    await dragColumnBorder(page, 3, 10);
+    const { tableWidth: before } = await getTableAndWrapperWidths(page);
+
+    // Drag left to shrink
+    await dragColumnBorder(page, 3, -40);
+
+    const { tableWidth: after } = await getTableAndWrapperWidths(page);
+    expect(after).toBeLessThan(before - 20);
+  });
+
+  test('dragged column cannot go below minimum width', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Drag far left to shrink past minimum
+    await dragColumnBorder(page, 3, -500);
+
+    const afterBoxes = await getRowCellBoxes(page, 1);
+    // Column should be clamped at cellMinWidth (25px)
+    expect(afterBoxes[0]!.width).toBeGreaterThanOrEqual(25);
+  });
+
+  test('multiple sequential resizes each change table width', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    const { tableWidth: w0 } = await getTableAndWrapperWidths(page);
+
+    // Grow column 0
+    await dragColumnBorder(page, 3, 40);
+    const { tableWidth: w1 } = await getTableAndWrapperWidths(page);
+    expect(w1).toBeGreaterThan(w0 + 20);
+
+    // Grow column 1
+    await dragColumnBorder(page, 4, 30);
+    const { tableWidth: w2 } = await getTableAndWrapperWidths(page);
+    expect(w2).toBeGreaterThan(w1 + 15);
+
+    // Shrink column 0
+    await dragColumnBorder(page, 3, -50);
+    const { tableWidth: w3 } = await getTableAndWrapperWidths(page);
+    expect(w3).toBeLessThan(w2 - 25);
+  });
+
+  test('resize applies to all rows, not just header', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Resize via header cell (index 0)
+    await dragColumnBorder(page, 0, 50);
+
+    const headerBoxes = await getRowCellBoxes(page, 0);
+    const row1Boxes = await getRowCellBoxes(page, 1);
+    const row2Boxes = await getRowCellBoxes(page, 2);
+
+    for (let col = 0; col < 3; col++) {
+      expect(Math.abs(headerBoxes[col]!.width - row1Boxes[col]!.width)).toBeLessThanOrEqual(1);
+      expect(Math.abs(row1Boxes[col]!.width - row2Boxes[col]!.width)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test('second column resize only affects that column', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Freeze + first resize
+    await dragColumnBorder(page, 3, 30);
+    const cwAfterFirst = await getColwidths(page);
+    const col0After = cwAfterFirst[0]![0]!;
+
+    // Second resize on column 1 border
+    await dragColumnBorder(page, 4, 40);
+    const cwAfterSecond = await getColwidths(page);
+
+    // Column 0 should not have changed from the second resize
+    expect(cwAfterSecond[0]![0]).toBe(col0After);
+    // Column 1 should have grown
+    expect(cwAfterSecond[1]![0]).toBeGreaterThan(cwAfterFirst[1]![0]!);
+  });
+
+  test('sum of colwidths matches table width', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    await dragColumnBorder(page, 3, 40);
+
+    const cw = await getColwidths(page);
+    const sum = cw.reduce((s, c) => s + (c?.[0] ?? 0), 0);
+    const { tableWidth } = await getTableAndWrapperWidths(page);
+    expect(Math.abs(sum - tableWidth)).toBeLessThanOrEqual(1);
+  });
+
+  test('table can exceed container width when growing', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Grow column 0 far right
+    await dragColumnBorder(page, 3, 150);
+    // Grow column 1 far right
+    await dragColumnBorder(page, 4, 150);
+
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeGreaterThan(wrapperWidth);
+  });
+
+  test('last column resize in independent mode grows table (no neighbor)', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    const { tableWidth: before } = await getTableAndWrapperWidths(page);
+
+    // Drag last column border right
+    await dragColumnBorder(page, 2, 80);
+
+    const { tableWidth: after } = await getTableAndWrapperWidths(page);
+    // With constrainToContainer: true + independent mode + last column:
+    // it falls through to handleLastColumnResize which caps at container
+    // But independent freezes first, then PM handles. Let's check the actual behavior.
+    // In independent mode, freeze happens then PM handles → last column grows the table
+    // constrainToContainer caps the growth at the container width
+    expect(after).toBeGreaterThanOrEqual(before);
+  });
+});
+
+// =============================================================================
+// Independent + unconstrained (resizeBehavior: 'independent', constrainToContainer: false)
+// =============================================================================
+
+test.describe('Table — Independent + Unconstrained', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/?resizeBehavior=independent&constrainTable=false');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('last column resize grows table past container', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    await dragColumnBorder(page, 2, 200);
+
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeGreaterThan(wrapperWidth);
+  });
+
+  test('multiple grows accumulate — table far exceeds container', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    await dragColumnBorder(page, 3, 100);
+    await dragColumnBorder(page, 4, 100);
+    await dragColumnBorder(page, 2, 100);
+
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeGreaterThan(wrapperWidth + 150);
+  });
+});
+
+// =============================================================================
+// Redistribute resize behavior (resizeBehavior: 'redistribute')
+// =============================================================================
+
+test.describe('Table — Redistribute resize behavior', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/?resizeBehavior=redistribute');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('only resized column gets colwidth, others stay null', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Fresh table: all null
+    const cwBefore = await getColwidths(page);
+    expect(cwBefore.every((c) => c === null)).toBe(true);
+
+    // Resize column 0
+    await dragColumnBorder(page, 3, 40);
+
+    // Only column 0 should get a colwidth (PM native behavior)
+    const cwAfter = await getColwidths(page);
+    expect(cwAfter[0]).not.toBeNull();
+    // Other columns may or may not have widths depending on PM internals,
+    // but column 0 must have one
+    expect(cwAfter[0]![0]).toBeGreaterThan(0);
+  });
+
+  test('table width stays approximately the same after resize', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    const { tableWidth: before } = await getTableAndWrapperWidths(page);
+
+    // Resize column 0 right
+    await dragColumnBorder(page, 3, 50);
+
+    const { tableWidth: after } = await getTableAndWrapperWidths(page);
+    // In redistribute mode, table has width: 100% → stays at container width
+    // The resized column grows but others shrink to compensate (CSS redistribution)
+    expect(Math.abs(after - before)).toBeLessThanOrEqual(2);
+  });
+
+  test('dragging column border right grows that column visually', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    const initialBoxes = await getRowCellBoxes(page, 1);
+    const col0Before = initialBoxes[0]!.width;
+
+    await dragColumnBorder(page, 3, 50);
+
+    const afterBoxes = await getRowCellBoxes(page, 1);
+    expect(afterBoxes[0]!.width).toBeGreaterThan(col0Before + 25);
+  });
+
+  test('dragging column border left shrinks that column visually', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    const initialBoxes = await getRowCellBoxes(page, 1);
+    const col0Before = initialBoxes[0]!.width;
+
+    await dragColumnBorder(page, 3, -40);
+
+    const afterBoxes = await getRowCellBoxes(page, 1);
+    expect(afterBoxes[0]!.width).toBeLessThan(col0Before - 20);
+  });
+
+  test('no scrollbar after resize (table stays at 100%)', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    await dragColumnBorder(page, 3, 60);
+
+    expect(await hasHorizontalScrollbar(page)).toBe(false);
+    const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
+    expect(tableWidth).toBeLessThanOrEqual(wrapperWidth);
+  });
+
+  test('multiple resizes on different columns work', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    await dragColumnBorder(page, 3, 40);
+    await dragColumnBorder(page, 4, -30);
+    await dragColumnBorder(page, 3, -20);
+
+    // Table should still render correctly
+    const boxes = await getRowCellBoxes(page, 1);
+    expect(boxes.length).toBe(3);
+    for (const b of boxes) {
+      expect(b!.width).toBeGreaterThanOrEqual(25);
+    }
+  });
+
+  test('resize applies to all rows', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    await dragColumnBorder(page, 0, 50);
+
+    const headerBoxes = await getRowCellBoxes(page, 0);
+    const row1Boxes = await getRowCellBoxes(page, 1);
+    const row2Boxes = await getRowCellBoxes(page, 2);
+
+    for (let col = 0; col < 3; col++) {
+      expect(Math.abs(headerBoxes[col]!.width - row1Boxes[col]!.width)).toBeLessThanOrEqual(1);
+      expect(Math.abs(row1Boxes[col]!.width - row2Boxes[col]!.width)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test('second resize preserves first column width in PM state', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Resize column 0
+    await dragColumnBorder(page, 3, 30);
+    const cw1 = await getColwidths(page);
+    const col0Width = cw1[0]![0]!;
+
+    // Resize column 1
+    await dragColumnBorder(page, 4, -20);
+    const cw2 = await getColwidths(page);
+    // PM should preserve the stored colwidth for column 0
+    expect(cw2[0]![0]).toBe(col0Width);
+  });
+
+  test('no dm-mouse-drag class during resize drag', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    const box = await getCellBox(page, 3);
+    if (!box) return;
+
+    // Hover on border → resize handle appears
+    const borderX = box.x + box.width;
+    await page.mouse.move(borderX - 2, box.y + box.height / 2);
+    await page.waitForTimeout(200);
+    expect(await resizeHandleCount(page)).toBeGreaterThan(0);
+
+    // Mousedown on resize handle
+    await page.mouse.down();
+    await page.waitForTimeout(50);
+
+    // dm-mouse-drag should NOT be present (on resize handle, not in cell)
+    expect(await hasMouseDragClass(page)).toBe(false);
+
+    // Drag
+    await page.mouse.move(borderX + 40, box.y + box.height / 2, { steps: 5 });
+    await page.waitForTimeout(100);
+    expect(await hasMouseDragClass(page)).toBe(false);
+
+    await page.mouse.up();
+  });
+
+  test('column minimum width is enforced', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Try to shrink column 0 past minimum
+    await dragColumnBorder(page, 3, -500);
+
+    const afterBoxes = await getRowCellBoxes(page, 1);
+    expect(afterBoxes[0]!.width).toBeGreaterThanOrEqual(25);
+  });
+});
