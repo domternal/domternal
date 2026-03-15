@@ -24,10 +24,11 @@ export interface ResizeSuppressionOptions {
   resizeBehavior: 'neighbor' | 'independent' | 'redistribute';
   cellMinWidth: number;
   defaultCellMinWidth: number;
+  constrainToContainer: boolean;
 }
 
 export function createResizeSuppressionPlugin(options: ResizeSuppressionOptions): Plugin {
-  const { resizeBehavior, cellMinWidth, defaultCellMinWidth } = options;
+  const { resizeBehavior, cellMinWidth, defaultCellMinWidth, constrainToContainer } = options;
 
   return new Plugin({
     props: {
@@ -59,7 +60,7 @@ export function createResizeSuppressionPlugin(options: ResizeSuppressionOptions)
           }
 
           // 'neighbor' mode — intercept and handle the drag ourselves
-          return handleNeighborResize(view, event, resizeState.activeHandle, cellMinWidth, defaultCellMinWidth);
+          return handleNeighborResize(view, event, resizeState.activeHandle, cellMinWidth, defaultCellMinWidth, constrainToContainer);
         },
         mousemove: (view, event) => {
           if (event.buttons !== 1) return false;
@@ -87,6 +88,7 @@ function handleNeighborResize(
   activeHandle: number,
   cellMinWidth: number,
   defaultCellMinWidth: number,
+  constrainToContainer: boolean,
 ): boolean {
   // Step 1 — freeze all columns so every col has an explicit width
   freezeColumnWidths(view, activeHandle, cellMinWidth, defaultCellMinWidth);
@@ -107,8 +109,11 @@ function handleNeighborResize(
   const draggedCol = map.colCount($cell.pos - tableStart) + ((nodeAfter.attrs['colspan'] as number) || 1) - 1;
   const neighborCol = draggedCol + 1;
 
-  // Step 3 — last column: no neighbor, fall back (freeze already ran = independent)
-  if (neighborCol >= map.width) return false;
+  // Step 3 — last column: no neighbor
+  if (neighborCol >= map.width) {
+    if (!constrainToContainer) return false; // old behavior: independent resize
+    return handleLastColumnResize(view, event, table, map, tableStart, draggedCol, cellMinWidth, defaultCellMinWidth);
+  }
 
   // Step 4 — read starting widths from frozen attrs
   const startWidth = readColWidth(table, map, draggedCol, defaultCellMinWidth);
@@ -177,6 +182,93 @@ function handleNeighborResize(
     const tr = curState.tr;
     storeColWidth(tr, curTable, curMap, curStart, draggedCol, finalDraggedW);
     storeColWidth(tr, curTable, curMap, curStart, neighborCol, finalNeighborW);
+    tr.setMeta(columnResizingPluginKey, { setDragging: null });
+    view.dispatch(tr);
+  }
+
+  win.addEventListener('mouseup', finish);
+  win.addEventListener('mousemove', move);
+  event.preventDefault();
+  return true;
+}
+
+// ─── Last-column constrained resize ──────────────────────────────────────────
+
+/**
+ * Constrained last-column resize: allows shrinking but caps growing so the
+ * table never exceeds the container (.tableWrapper) width.
+ */
+function handleLastColumnResize(
+  view: EditorView,
+  event: MouseEvent,
+  table: PMNode,
+  map: TableMap,
+  tableStart: number,
+  draggedCol: number,
+  cellMinWidth: number,
+  defaultCellMinWidth: number,
+): boolean {
+  const startWidth = readColWidth(table, map, draggedCol, defaultCellMinWidth);
+  const startX = event.clientX;
+
+  // Find table DOM and colgroup
+  let tableDom = view.domAtPos(tableStart).node as HTMLElement | null;
+  while (tableDom && tableDom.nodeName !== 'TABLE') tableDom = tableDom.parentNode as HTMLElement | null;
+  const colgroupChildren = tableDom?.querySelector('colgroup')?.children;
+  if (!colgroupChildren) return false;
+  const cols = colgroupChildren;
+
+  // Compute total width from frozen attrs
+  let totalWidth = 0;
+  for (let c = 0; c < map.width; c++) {
+    totalWidth += readColWidth(table, map, c, defaultCellMinWidth);
+  }
+
+  // Compute max growth before hitting container edge.
+  // Subtract 1 for the collapsed outer border (same adjustment as freezeColumnWidths)
+  // because table.offsetWidth = colwidthsSum + ~1px border in border-collapse mode.
+  let containerWidth = 0;
+  try {
+    const wrapper = tableDom?.closest('.tableWrapper') as HTMLElement | null;
+    if (wrapper) containerWidth = Math.floor(wrapper.getBoundingClientRect().width) - 1;
+  } catch { /* DOM unavailable */ }
+  const maxGrow = containerWidth > 0 ? containerWidth - totalWidth : 0;
+
+  // Set dragging meta (triggers decorations + cellSelectionPlugin hideForResize)
+  view.dispatch(view.state.tr.setMeta(columnResizingPluginKey, {
+    setDragging: { startX, startWidth },
+  }));
+
+  const win = view.dom.ownerDocument.defaultView ?? window;
+
+  function move(e: MouseEvent): void {
+    if (!e.buttons) { finish(e); return; }
+    const offset = e.clientX - startX;
+    const clamped = Math.max(-(startWidth - cellMinWidth), Math.min(offset, maxGrow));
+    (cols[draggedCol] as HTMLElement).style.width = String(startWidth + clamped) + 'px';
+    if (tableDom) tableDom.style.width = String(totalWidth + clamped) + 'px';
+  }
+
+  function finish(e: MouseEvent): void {
+    win.removeEventListener('mouseup', finish);
+    win.removeEventListener('mousemove', move);
+
+    const pluginState = columnResizingPluginKey.getState(view.state) as
+      | { activeHandle: number; dragging: { startX: number; startWidth: number } | null } | undefined;
+    if (!pluginState?.dragging) return;
+
+    const offset = e.clientX - startX;
+    const clamped = Math.max(-(startWidth - cellMinWidth), Math.min(offset, maxGrow));
+    const finalWidth = Math.round(startWidth + clamped);
+
+    const curState = view.state;
+    const $curCell = curState.doc.resolve(pluginState.activeHandle);
+    const curTable = $curCell.node(-1);
+    const curMap = TableMap.get(curTable);
+    const curStart = $curCell.start(-1);
+
+    const tr = curState.tr;
+    storeColWidth(tr, curTable, curMap, curStart, draggedCol, finalWidth);
     tr.setMeta(columnResizingPluginKey, { setDragging: null });
     view.dispatch(tr);
   }
@@ -330,12 +422,15 @@ function freezeColumnWidths(view: EditorView, handlePos: number, cellMinWidth: n
 
   // Prevent table growth from sub-pixel border rounding in border-collapse.
   // Each cell.offsetWidth rounds independently, so their sum can exceed
-  // table.offsetWidth by 1-2px. Adjust the last measured column to compensate.
+  // the table's content area by 1-2px. Additionally, border-collapse adds
+  // the outer collapsed border (~1px) on top of the content width, so
+  // frozen colwidths must sum to content_area, not border-box width.
+  // We subtract 1 from floor(BCR) to account for the collapsed border.
   try {
     let tableDom = view.domAtPos(tableStart).node as HTMLElement | null;
     while (tableDom && tableDom.nodeName !== 'TABLE') tableDom = tableDom.parentNode as HTMLElement | null;
     if (tableDom) {
-      const actualWidth = tableDom.offsetWidth;
+      const actualWidth = Math.floor(tableDom.getBoundingClientRect().width) - 1;
       if (actualWidth > 0) {
         let measuredTotal = 0;
         for (let col = 0; col < map.width; col++) measuredTotal += (measuredWidths[col] ?? 0);

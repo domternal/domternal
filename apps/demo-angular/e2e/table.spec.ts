@@ -3727,3 +3727,201 @@ test.describe('Table — Toolbar marks inactive for empty cell selection', () =>
     }
   });
 });
+
+// ─── Sub-pixel overflow on resize click ─────────────────────────────────────
+
+test.describe('Table — Column resize: no overflow on click', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('clicking resize handle does not cause table overflow', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    // Force the tableWrapper to a fractional width to trigger the sub-pixel rounding bug.
+    await page.evaluate((sel) => {
+      const wrapper = document.querySelector(sel + ' .tableWrapper') as HTMLElement;
+      if (wrapper) wrapper.style.width = '600.6px';
+      // Also test if box-sizing: border-box is applied
+      const table = document.querySelector(sel + ' table') as HTMLElement;
+      console.log('[box-sizing]', table ? getComputedStyle(table).boxSizing : 'no table');
+    }, editorSelector);
+    await page.waitForTimeout(50);
+
+    // Measure before click
+    const before = await page.evaluate((sel) => {
+      const wrapper = document.querySelector(sel + ' .tableWrapper') as HTMLElement;
+      const table = document.querySelector(sel + ' table') as HTMLElement;
+      if (!wrapper || !table) return null;
+      // Try to scroll — most reliable overflow detection
+      wrapper.scrollLeft = 999;
+      const canScrollBefore = wrapper.scrollLeft > 0;
+      wrapper.scrollLeft = 0;
+      return {
+        canScroll: canScrollBefore,
+        wrapperBCR: wrapper.getBoundingClientRect().width,
+        tableBCR: table.getBoundingClientRect().width,
+        tableStyleWidth: table.style.width,
+      };
+    }, editorSelector);
+
+    expect(before).not.toBeNull();
+    expect(before!.canScroll).toBe(false); // no overflow before click
+    console.log('Before:', before);
+
+    // Click (not drag) the resize handle
+    const firstTh = page.locator(`${editorSelector} th`).first();
+    const box = await firstTh.boundingBox();
+    expect(box).not.toBeNull();
+
+    await page.mouse.move(box!.x + box!.width - 2, box!.y + box!.height / 2);
+    await page.waitForTimeout(100);
+    await page.mouse.down();
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+
+    // Measure after click
+    const after = await page.evaluate((sel) => {
+      const wrapper = document.querySelector(sel + ' .tableWrapper') as HTMLElement;
+      const table = document.querySelector(sel + ' table') as HTMLElement;
+      if (!wrapper || !table) return null;
+      wrapper.scrollLeft = 999;
+      const canScrollAfter = wrapper.scrollLeft > 0;
+      wrapper.scrollLeft = 0;
+      return {
+        canScroll: canScrollAfter,
+        wrapperBCR: wrapper.getBoundingClientRect().width,
+        tableBCR: table.getBoundingClientRect().width,
+        tableStyleWidth: table.style.width,
+        tableStyleMinWidth: table.style.minWidth,
+      };
+    }, editorSelector);
+
+    expect(after).not.toBeNull();
+    console.log('After:', after);
+
+    // THE KEY ASSERTION: the wrapper must not be scrollable after clicking the handle.
+    expect(after!.canScroll).toBe(false);
+
+    // Restore
+    await page.evaluate((sel) => {
+      const wrapper = document.querySelector(sel + ' .tableWrapper') as HTMLElement;
+      if (wrapper) wrapper.style.width = '';
+    }, editorSelector);
+  });
+
+  test('clicking resize handle does not cause overflow at various widths', async ({ page }) => {
+    // Test a wide range of viewport widths to catch sub-pixel rounding edge cases.
+    // The bug occurs when table.getBoundingClientRect().width has fractional part >= 0.5,
+    // causing offsetWidth to round UP beyond the container.
+    const failures: string[] = [];
+
+    for (const width of [795, 796, 797, 798, 799, 800, 801, 802, 803, 804, 805,
+      750, 751, 752, 753, 1023, 1024, 1025, 900, 901, 902, 903]) {
+      await page.setViewportSize({ width, height: 600 });
+      await page.waitForTimeout(50);
+      await setContentAndFocus(page, SIMPLE_TABLE);
+
+      // Click resize handle
+      const firstTh = page.locator(`${editorSelector} th`).first();
+      const box = await firstTh.boundingBox();
+      if (!box) continue;
+
+      await page.mouse.move(box.x + box.width - 2, box.y + box.height / 2);
+      await page.waitForTimeout(100);
+      await page.mouse.down();
+      await page.mouse.up();
+      await page.waitForTimeout(200);
+
+      const result = await page.evaluate((sel) => {
+        const wrapper = document.querySelector(sel + ' .tableWrapper') as HTMLElement;
+        const table = document.querySelector(sel + ' table') as HTMLElement;
+        if (!wrapper || !table) return null;
+        return {
+          client: wrapper.clientWidth,
+          scroll: wrapper.scrollWidth,
+          tableBCR: table.getBoundingClientRect().width,
+          tableStyleWidth: table.style.width,
+        };
+      }, editorSelector);
+
+      if (result && result.scroll > result.client) {
+        failures.push(
+          `viewport=${width}: scroll=${result.scroll} > client=${result.client}, ` +
+          `tableBCR=${result.tableBCR}, styleWidth=${result.tableStyleWidth}`,
+        );
+      }
+    }
+
+    if (failures.length > 0) {
+      console.log('OVERFLOW FAILURES:\n' + failures.join('\n'));
+    }
+    expect(failures, `Overflow detected at ${failures.length} viewport widths:\n${failures.join('\n')}`).toHaveLength(0);
+  });
+
+  test('no overflow with fractional-width container', async ({ page }) => {
+    // Sweep through many fractional wrapper widths to find where sum(cell.offsetWidth)
+    // exceeds wrapper content width after freezeColumnWidths stores the colwidths.
+    const failures: string[] = [];
+    const debugInfo: string[] = [];
+
+    for (let i = 0; i < 50; i++) {
+      const w = 600 + i * 0.3; // fractional widths: 600.0, 600.3, 600.6, ...
+      await setContentAndFocus(page, SIMPLE_TABLE);
+
+      await page.evaluate(({ sel, width }) => {
+        const wrapper = document.querySelector(sel + ' .tableWrapper') as HTMLElement;
+        if (wrapper) wrapper.style.width = width + 'px';
+      }, { sel: editorSelector, width: w });
+      await page.waitForTimeout(30);
+
+      const firstTh = page.locator(`${editorSelector} th`).first();
+      const box = await firstTh.boundingBox();
+      if (!box) continue;
+
+      await page.mouse.move(box.x + box.width - 2, box.y + box.height / 2);
+      await page.waitForTimeout(80);
+      await page.mouse.down();
+      await page.mouse.up();
+      await page.waitForTimeout(150);
+
+      const result = await page.evaluate((sel) => {
+        const wrapper = document.querySelector(sel + ' .tableWrapper') as HTMLElement;
+        const table = document.querySelector(sel + ' table') as HTMLElement;
+        if (!wrapper || !table) return null;
+        wrapper.scrollLeft = 999;
+        const canScroll = wrapper.scrollLeft > 0;
+        wrapper.scrollLeft = 0;
+        return {
+          canScroll,
+          wrapperBCR: wrapper.getBoundingClientRect().width,
+          tableBCR: table.getBoundingClientRect().width,
+          tableOffset: table.offsetWidth,
+          tableClient: table.clientWidth,
+          styleWidth: table.style.width,
+        };
+      }, editorSelector);
+
+      if (result) {
+        const line = `w=${w.toFixed(1)}: wBCR=${result.wrapperBCR} tBCR=${result.tableBCR} tOff=${result.tableOffset} tCli=${result.tableClient} style=${result.styleWidth} scroll=${result.canScroll}`;
+        debugInfo.push(line);
+        if (result.canScroll) {
+          failures.push(line);
+        }
+      }
+    }
+
+    // Restore
+    await page.evaluate((sel) => {
+      const wrapper = document.querySelector(sel + ' .tableWrapper') as HTMLElement;
+      if (wrapper) wrapper.style.width = '';
+    }, editorSelector);
+
+    console.log('DEBUG:\n' + debugInfo.join('\n'));
+    if (failures.length > 0) {
+      console.log('FAILURES:\n' + failures.join('\n'));
+    }
+    expect(failures, `Overflow at ${failures.length} widths:\n${failures.join('\n')}`).toHaveLength(0);
+  });
+});
