@@ -330,12 +330,15 @@ function freezeColumnWidths(view: EditorView, handlePos: number, cellMinWidth: n
 
   // Prevent table growth from sub-pixel border rounding in border-collapse.
   // Each cell.offsetWidth rounds independently, so their sum can exceed
-  // table.offsetWidth by 1-2px. Adjust the last measured column to compensate.
+  // the table's content area by 1-2px. Additionally, border-collapse adds
+  // the outer collapsed border (~1px) on top of the content width, so
+  // frozen colwidths must sum to content_area, not border-box width.
+  // We subtract 1 from floor(BCR) to account for the collapsed border.
   try {
     let tableDom = view.domAtPos(tableStart).node as HTMLElement | null;
     while (tableDom && tableDom.nodeName !== 'TABLE') tableDom = tableDom.parentNode as HTMLElement | null;
     if (tableDom) {
-      const actualWidth = tableDom.offsetWidth;
+      const actualWidth = Math.floor(tableDom.getBoundingClientRect().width) - 1;
       if (actualWidth > 0) {
         let measuredTotal = 0;
         for (let col = 0; col < map.width; col++) measuredTotal += (measuredWidths[col] ?? 0);
