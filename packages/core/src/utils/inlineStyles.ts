@@ -31,6 +31,13 @@ export interface InlineStyleOverrides {
   detailsBorder?: string;
   detailsBg?: string;
   /**
+   * How to export table column widths from `data-colwidth` attributes.
+   * - `'percent'` (default): convert to percentage widths on first-row cells
+   * - `'pixel'`: convert to pixel widths on first-row cells, table gets fixed width
+   * - `'none'`: leave `data-colwidth` as-is, no width styles applied
+   */
+  tableColumnWidths?: 'percent' | 'pixel' | 'none';
+  /**
    * Optional callback to syntax-highlight code blocks.
    * Receives the raw text content and optional language, returns highlighted HTML
    * with `<span class="hljs-*">` markup (or any spans with inline styles).
@@ -130,6 +137,7 @@ const DEFAULTS: StyleDefaults = {
   linkColor: '#2563eb',
   detailsBorder: '1px solid #e5e7eb',
   detailsBg: '#f8f9fa',
+  tableColumnWidths: 'percent' as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -179,7 +187,7 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
         break;
 
       case 'TD': {
-        styles = `border: ${v.tableBorder}; padding: 0.5em 0.75em; min-width: 100px;`;
+        styles = `border: ${v.tableBorder}; padding: 0.5em 0.75em; overflow-wrap: break-word; word-wrap: break-word; box-sizing: border-box;`;
         const tdTextAlign = el.getAttribute('data-text-align');
         if (tdTextAlign) styles += ` text-align: ${tdTextAlign};`;
         const tdVerticalAlign = el.getAttribute('data-vertical-align');
@@ -188,7 +196,7 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
       }
 
       case 'TH': {
-        styles = `border: ${v.tableBorder}; padding: 0.5em 0.75em; min-width: 100px; font-weight: 600; background: ${v.tableHeaderBg}; text-align: left;`;
+        styles = `border: ${v.tableBorder}; padding: 0.5em 0.75em; overflow-wrap: break-word; word-wrap: break-word; box-sizing: border-box; font-weight: 600; background: ${v.tableHeaderBg}; text-align: left;`;
         const thTextAlign = el.getAttribute('data-text-align');
         if (thTextAlign) styles += ` text-align: ${thTextAlign};`;
         const thVerticalAlign = el.getAttribute('data-vertical-align');
@@ -320,6 +328,55 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
     // Merge: theme defaults first, then existing inline styles (user-set wins)
     if (styles) {
       el.setAttribute('style', styles + ' ' + existing);
+    }
+  }
+
+  // --- Table column widths (second pass) ---
+  if (v.tableColumnWidths !== 'none') {
+    const tables = Array.from(container.querySelectorAll('table'));
+    for (const table of tables) {
+      const firstRow = table.querySelector('tr');
+      if (!firstRow) continue;
+
+      const firstRowCells = Array.from(firstRow.querySelectorAll<HTMLElement>('td, th'));
+      // Collect all column widths from first-row cells (handles colspan via comma-separated values)
+      const widths: number[] = [];
+      let allHaveWidths = true;
+      for (const cell of firstRowCells) {
+        const raw = cell.getAttribute('data-colwidth');
+        if (!raw) { allHaveWidths = false; break; }
+        const parsed = raw.split(',').map(Number);
+        if (parsed.some(n => !n || isNaN(n))) { allHaveWidths = false; break; }
+        widths.push(...parsed);
+      }
+      if (!allHaveWidths || widths.length === 0) continue;
+
+      const sum = widths.reduce((s, w) => s + w, 0);
+
+      // table-layout: fixed ensures the browser respects the exact widths
+      const tableStyle = table.getAttribute('style') ?? '';
+      if (v.tableColumnWidths === 'percent') {
+        table.setAttribute('style', tableStyle + ' table-layout: fixed;');
+        for (const cell of firstRowCells) {
+          const raw = cell.getAttribute('data-colwidth') ?? '';
+          const parsed = raw.split(',').map(Number);
+          const cellPercent = parsed.reduce((s, w) => s + w, 0) / sum * 100;
+          const existing = cell.getAttribute('style') ?? '';
+          cell.setAttribute('style', existing + ` width: ${cellPercent.toFixed(2)}%;`);
+        }
+      } else {
+        // pixel mode
+        table.setAttribute('style', tableStyle.replace(/width:\s*100%/, `width: ${String(sum)}px`) + ' table-layout: fixed;');
+        for (const cell of firstRowCells) {
+          const raw = cell.getAttribute('data-colwidth') ?? '';
+          const parsed = raw.split(',').map(Number);
+          const cellWidth = parsed.reduce((s, w) => s + w, 0);
+          const existing = cell.getAttribute('style') ?? '';
+          cell.setAttribute('style', existing + ` width: ${String(cellWidth)}px;`);
+        }
+      }
+
+      // Keep data-colwidth on cells for round-trip back into the editor
     }
   }
 }

@@ -2302,17 +2302,17 @@ test.describe('Table — Column resize: drag', () => {
     expect(Math.abs(afterWidth - beforeWidth)).toBeLessThan(20);
   });
 
-  test('table minWidth is consistent with defaultCellMinWidth after drag', async ({ page }) => {
+  test('table width is consistent with defaultCellMinWidth after drag', async ({ page }) => {
     await setContentAndFocus(page, SIMPLE_TABLE);
 
     await dragColumnBorder(page, 0, 50);
 
     const styles = await getTableStyles(page);
-    // After dragging first column, col 0 has explicit width.
-    // Cols 1 and 2 still don't → minWidth should include defaultCellMinWidth(100) for each.
-    // minWidth = draggedWidth + 100 + 100
-    const minWidth = parseInt(styles.minWidth);
-    expect(minWidth).toBeGreaterThanOrEqual(300);
+    // In neighbor mode, freezeColumnWidths gives all columns explicit widths
+    // before the drag starts → fixedWidth=true → table uses style.width (not minWidth).
+    // Total should be >= 300 (dragged col + 2 × defaultCellMinWidth(100)).
+    const tableWidth = parseInt(styles.width) || parseInt(styles.minWidth);
+    expect(tableWidth).toBeGreaterThanOrEqual(300);
   });
 
   test('dragging second column border works', async ({ page }) => {

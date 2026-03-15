@@ -103,7 +103,7 @@ export class EditorDemoComponent {
   }
 
   getStyledHtml(html: string): string {
-    return inlineStyles(html, { codeHighlighter });
+    return inlineStyles(html, { codeHighlighter, tableColumnWidths: 'pixel' });
   }
 
   onEditorCreated(editor: Editor): void {

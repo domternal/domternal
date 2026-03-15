@@ -6,6 +6,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: var(--dm-toolbar-justify, flex-start);
   gap: var(--dm-toolbar-gap);
   padding: var(--dm-toolbar-padding);
   background: var(--dm-toolbar-bg);

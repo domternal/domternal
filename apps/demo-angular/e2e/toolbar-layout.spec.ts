@@ -412,8 +412,9 @@ test.describe('Toolbar layout — existing dropdowns preserved', () => {
     await page.locator(`${editorSelector} p`).click();
 
     await page.locator(headingDropdown).click();
-    await expect(page.locator('button[aria-label="Heading 1"]')).toBeVisible();
-    await page.locator('button[aria-label="Heading 1"]').click();
+    const dropdownPanel = page.locator('.dm-toolbar-dropdown-panel');
+    await expect(dropdownPanel.locator('button[aria-label="Heading 1"]')).toBeVisible();
+    await dropdownPanel.locator('button[aria-label="Heading 1"]').click();
 
     const html = await getEditorHTML(page);
     expect(html).toContain('<h1>');
