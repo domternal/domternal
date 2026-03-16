@@ -153,6 +153,8 @@ export class DomternalToolbarComponent implements OnDestroy {
 
   private controller: ToolbarController | null = null;
   private clickOutsideHandler: ((e: Event) => void) | null = null;
+  private dismissOverlayHandler: (() => void) | null = null;
+  private editorEl: HTMLElement | null = null;
   private cleanupFloating: (() => void) | null = null;
   private ngZone = inject(NgZone);
   private elRef = inject(ElementRef);
@@ -474,6 +476,20 @@ export class DomternalToolbarComponent implements OnDestroy {
       }
     };
     document.addEventListener('mousedown', this.clickOutsideHandler);
+
+    // Listen for dismiss-overlays (e.g. table handle clicks that stopPropagation on mousedown)
+    this.editorEl = editor.view.dom.closest('.dm-editor') as HTMLElement | null;
+    if (this.editorEl) {
+      this.dismissOverlayHandler = () => {
+        if (this.openDropdown()) {
+          this.cleanupFloating?.();
+          this.cleanupFloating = null;
+          this.controller?.closeDropdown();
+          this.ngZone.run(() => this.syncState());
+        }
+      };
+      this.editorEl.addEventListener('dm:dismiss-overlays', this.dismissOverlayHandler);
+    }
   }
 
   private destroyController(): void {
@@ -482,6 +498,11 @@ export class DomternalToolbarComponent implements OnDestroy {
     if (this.clickOutsideHandler) {
       document.removeEventListener('mousedown', this.clickOutsideHandler);
       this.clickOutsideHandler = null;
+    }
+    if (this.dismissOverlayHandler && this.editorEl) {
+      this.editorEl.removeEventListener('dm:dismiss-overlays', this.dismissOverlayHandler);
+      this.dismissOverlayHandler = null;
+      this.editorEl = null;
     }
     if (this.controller) {
       this.controller.destroy();
