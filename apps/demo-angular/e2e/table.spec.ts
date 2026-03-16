@@ -566,6 +566,80 @@ test.describe('Table — Deletion', () => {
     const tableCount = await page.locator(`${editorSelector} table`).count();
     expect(tableCount).toBe(0);
   });
+
+  test('Delete Column on last remaining column deletes entire table', async ({ page }) => {
+    // Start with a 1-column table
+    const oneColTable = '<p>Before</p><table><tr><th>A</th></tr><tr><td>1</td></tr></table><p>After</p>';
+    await setContentAndFocus(page, oneColTable);
+    await placeCursorInCell(page, 0);
+
+    await clickTableOp(page, 'Delete Column');
+    await page.waitForTimeout(100);
+
+    const tableCount = await page.locator(`${editorSelector} table`).count();
+    expect(tableCount).toBe(0);
+    // Surrounding content preserved
+    const html = await getEditorHTML(page);
+    expect(html).toContain('Before');
+    expect(html).toContain('After');
+  });
+
+  test('Delete Row on last remaining row deletes entire table', async ({ page }) => {
+    // Start with a 1-row table (no header)
+    const oneRowTable = '<p>Before</p><table><tr><td>A</td><td>B</td></tr></table><p>After</p>';
+    await setContentAndFocus(page, oneRowTable);
+    await placeCursorInCell(page, 0);
+
+    await clickTableOp(page, 'Delete Row');
+    await page.waitForTimeout(100);
+
+    const tableCount = await page.locator(`${editorSelector} table`).count();
+    expect(tableCount).toBe(0);
+    const html = await getEditorHTML(page);
+    expect(html).toContain('Before');
+    expect(html).toContain('After');
+  });
+
+  test('Delete Column repeatedly until last column deletes table', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+    // Delete columns one by one: 3 → 2 → 1 → table gone
+    await placeCursorInCell(page, 0);
+    await clickTableOp(page, 'Delete Column');
+    await placeCursorInCell(page, 0);
+    await clickTableOp(page, 'Delete Column');
+
+    // Now 1 column remains
+    let tableCount = await page.locator(`${editorSelector} table`).count();
+    expect(tableCount).toBe(1);
+
+    // Delete the last column — should remove entire table
+    await placeCursorInCell(page, 0);
+    await clickTableOp(page, 'Delete Column');
+    await page.waitForTimeout(100);
+
+    tableCount = await page.locator(`${editorSelector} table`).count();
+    expect(tableCount).toBe(0);
+  });
+
+  test('Delete Row repeatedly until last row deletes table', async ({ page }) => {
+    // Use table without header for simpler row deletion
+    await setContentAndFocus(page, TABLE_NO_HEADER);
+    // TABLE_NO_HEADER has 2 rows, 2 cols
+    await placeCursorInCell(page, 0);
+    await clickTableOp(page, 'Delete Row');
+
+    // 1 row remains
+    let tableCount = await page.locator(`${editorSelector} table`).count();
+    expect(tableCount).toBe(1);
+
+    // Delete the last row — should remove entire table
+    await placeCursorInCell(page, 0);
+    await clickTableOp(page, 'Delete Row');
+    await page.waitForTimeout(100);
+
+    tableCount = await page.locator(`${editorSelector} table`).count();
+    expect(tableCount).toBe(0);
+  });
 });
 
 // =============================================================================

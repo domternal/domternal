@@ -20,10 +20,13 @@ import {
   addColumnBefore,
   addColumnAfter,
   deleteColumn,
+  deleteTable,
   mergeCells,
   splitCell,
   setCellAttr,
   toggleHeaderCell,
+  isInTable,
+  selectedRect,
 } from '@domternal/pm/tables';
 
 import { constrainedAddColumn } from './helpers/constrainedColumn.js';
@@ -816,7 +819,15 @@ export class TableView implements NodeView {
 
   private execRowCmd(cmd: PMCommand): void {
     this.setCursorInCell(this.hoveredRow, 0);
-    cmd(this.view.state, this.view.dispatch);
+    const state = this.view.state;
+    if (cmd === deleteRow && isInTable(state)) {
+      const rect = selectedRect(state);
+      if (rect.top === 0 && rect.bottom === rect.map.height) {
+        deleteTable(state, this.view.dispatch);
+        return;
+      }
+    }
+    cmd(state, this.view.dispatch);
   }
 
   private execColCmd(cmd: PMCommand): void {
@@ -825,7 +836,15 @@ export class TableView implements NodeView {
       constrainedAddColumn(cmd, this.view, this.cellMinWidth, this.defaultCellMinWidth);
       return;
     }
-    cmd(this.view.state, this.view.dispatch);
+    const state = this.view.state;
+    if (cmd === deleteColumn && isInTable(state)) {
+      const rect = selectedRect(state);
+      if (rect.left === 0 && rect.right === rect.map.width) {
+        deleteTable(state, this.view.dispatch);
+        return;
+      }
+    }
+    cmd(state, this.view.dispatch);
   }
 
   // ─── Column management ───────────────────────────────────────────────
