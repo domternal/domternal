@@ -48,14 +48,21 @@ export function createResizeSuppressionPlugin(options: ResizeSuppressionOptions)
           }
 
           // Resize handle mousedown — branch by behavior
-          if (resizeBehavior === 'redistribute') {
-            // Let columnResizing handle everything (original PM behavior)
-            return false;
-          }
-
-          if (resizeBehavior === 'independent') {
-            // Freeze all column widths, then let columnResizing handle the drag
-            freezeColumnWidths(view, resizeState.activeHandle, cellMinWidth, defaultCellMinWidth);
+          if (resizeBehavior === 'redistribute' || resizeBehavior === 'independent') {
+            if (resizeBehavior === 'independent') {
+              freezeColumnWidths(view, resizeState.activeHandle, cellMinWidth, defaultCellMinWidth);
+            }
+            // ProseMirror's columnResizing handles the drag but never clears
+            // activeHandle on mouseup, so the blue decoration persists if the
+            // mouse is released outside the editor. Clear it ourselves.
+            const win = view.dom.ownerDocument.defaultView ?? window;
+            win.addEventListener('mouseup', () => {
+              const st = columnResizingPluginKey.getState(view.state) as
+                | { activeHandle: number; dragging: unknown } | undefined;
+              if (st && st.activeHandle > -1 && !st.dragging) {
+                view.dispatch(view.state.tr.setMeta(columnResizingPluginKey, { setHandle: -1 }));
+              }
+            }, { once: true });
             return false;
           }
 
@@ -184,6 +191,10 @@ function handleNeighborResize(
     storeColWidth(tr, curTable, curMap, curStart, neighborCol, finalNeighborW);
     tr.setMeta(columnResizingPluginKey, { setDragging: null });
     view.dispatch(tr);
+
+    // Clear activeHandle so the blue decoration disappears even if the
+    // mouse was released outside the editor (mouseleave won't fire).
+    view.dispatch(view.state.tr.setMeta(columnResizingPluginKey, { setHandle: -1 }));
   }
 
   win.addEventListener('mouseup', finish);
@@ -271,6 +282,10 @@ function handleLastColumnResize(
     storeColWidth(tr, curTable, curMap, curStart, draggedCol, finalWidth);
     tr.setMeta(columnResizingPluginKey, { setDragging: null });
     view.dispatch(tr);
+
+    // Clear activeHandle so the blue decoration disappears even if the
+    // mouse was released outside the editor (mouseleave won't fire).
+    view.dispatch(view.state.tr.setMeta(columnResizingPluginKey, { setHandle: -1 }));
   }
 
   win.addEventListener('mouseup', finish);
