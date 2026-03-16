@@ -2063,7 +2063,7 @@ test.describe('Table — Column resize: colgroup', () => {
 
 test.describe('Table — Column resize: table width', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/?constrainTable=false');
     await page.waitForSelector(editorSelector);
   });
 
