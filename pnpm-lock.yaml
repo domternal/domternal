@@ -217,6 +217,13 @@ importers:
         version: 8.0.0(@types/node@25.2.3)(esbuild@0.27.4)(jiti@2.6.1)(less@4.5.1)(sass@1.97.3)(yaml@2.8.2)
 
   examples/core-ui:
+    dependencies:
+      '@domternal/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@domternal/theme':
+        specifier: workspace:*
+        version: link:../../packages/theme
     devDependencies:
       typescript:
         specifier: ~5.9.3

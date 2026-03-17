@@ -1,7 +1,10 @@
-import { Editor, StarterKit } from '@domternal/core';
+import {
+  Editor, Document, Text, Paragraph,
+  Bold, Italic, Underline,
+} from '@domternal/core';
 
 const editor = new Editor({
   element: document.getElementById('editor')!,
-  extensions: [StarterKit],
-  content: '<p>Hello <strong>World</strong>!</p>',
+  extensions: [Document, Text, Paragraph, Bold, Italic, Underline],
+  content: '<p>Hello <strong>Bold</strong>, <em>Italic</em> and <u>Underline</u>!</p>',
 });
