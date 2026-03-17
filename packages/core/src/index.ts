@@ -308,6 +308,9 @@ export {
   type FontSizeOptions,
   // Formatting Utilities
   ClearFormatting,
+  // Link UI
+  LinkPopover,
+  type LinkPopoverOptions,
   // Menu Extensions
   BubbleMenu,
   createBubbleMenuPlugin,

@@ -40,6 +40,7 @@ import { Dropcursor, type DropcursorOptions } from './Dropcursor.js';
 import { Gapcursor } from './Gapcursor.js';
 import { TrailingNode, type TrailingNodeOptions } from './TrailingNode.js';
 import { ListKeymap, type ListKeymapOptions } from './ListKeymap.js';
+import { LinkPopover, type LinkPopoverOptions } from './LinkPopover.js';
 
 export interface StarterKitOptions {
   // Nodes
@@ -147,6 +148,10 @@ export interface StarterKitOptions {
    * Set to false to disable the ListKeymap extension, or pass options to configure it.
    */
   listKeymap?: false | Partial<ListKeymapOptions>;
+  /**
+   * Set to false to disable the LinkPopover extension, or pass options to configure it.
+   */
+  linkPopover?: false | Partial<LinkPopoverOptions>;
 }
 
 export const StarterKit = Extension.create<StarterKitOptions>({
@@ -202,6 +207,7 @@ export const StarterKit = Extension.create<StarterKitOptions>({
     maybeAdd(Gapcursor as never, this.options.gapcursor as never);
     maybeAdd(TrailingNode, this.options.trailingNode);
     maybeAdd(ListKeymap, this.options.listKeymap);
+    maybeAdd(LinkPopover, this.options.linkPopover);
 
     return extensions;
   },

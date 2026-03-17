@@ -63,6 +63,9 @@ export { FontSize, type FontSizeOptions } from './FontSize.js';
 // Formatting Utilities
 export { ClearFormatting } from './ClearFormatting.js';
 
+// Link UI
+export { LinkPopover, type LinkPopoverOptions } from './LinkPopover.js';
+
 // Menu Extensions
 export {
   BubbleMenu,
