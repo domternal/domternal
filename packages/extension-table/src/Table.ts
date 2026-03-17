@@ -30,6 +30,7 @@
 import { Node } from '@domternal/core';
 import type { CommandSpec, ToolbarItem } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
+import type { Transaction } from '@domternal/pm/state';
 import type { Node as PMNode } from '@domternal/pm/model';
 import type { EditorView, NodeView, NodeViewConstructor } from '@domternal/pm/view';
 import {
@@ -50,6 +51,9 @@ import {
   goToNextCell,
   fixTables,
   CellSelection,
+  selectedRect,
+  TableMap,
+  isInTable,
 } from '@domternal/pm/tables';
 
 import { TableView } from './TableView.js';
@@ -231,6 +235,11 @@ export const Table = Node.create<TableOptions>({
       deleteRow:
         () =>
         ({ state, dispatch }) => {
+          if (!isInTable(state)) return false;
+          const rect = selectedRect(state);
+          if (rect.top === 0 && rect.bottom === rect.map.height) {
+            return deleteTable(state, dispatch);
+          }
           return deleteRow(state, dispatch);
         },
 
@@ -257,7 +266,30 @@ export const Table = Node.create<TableOptions>({
       deleteColumn:
         () =>
         ({ state, dispatch }) => {
-          return deleteColumn(state, dispatch);
+          if (!isInTable(state)) return false;
+          const rect = selectedRect(state);
+          if (rect.left === 0 && rect.right === rect.map.width) {
+            return deleteTable(state, dispatch);
+          }
+          if (!dispatch) return true;
+
+          let captured: Transaction | undefined;
+          deleteColumn(state, (tr) => { captured = tr; });
+          if (!captured) return false;
+
+          const table = captured.doc.nodeAt(rect.tableStart - 1);
+          if (table) {
+            const map = TableMap.get(table);
+            const targetCol = Math.min(rect.left, map.width - 1);
+            const cellOffset = map.map[targetCol];
+            if (cellOffset !== undefined) {
+              const $pos = captured.doc.resolve(rect.tableStart + cellOffset + 1);
+              captured.setSelection(TextSelection.near($pos));
+            }
+          }
+
+          dispatch(captured);
+          return true;
         },
 
       toggleHeaderRow:
