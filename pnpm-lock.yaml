@@ -204,6 +204,10 @@ importers:
         version: 5.9.3
 
   examples/core:
+    dependencies:
+      '@domternal/core':
+        specifier: workspace:*
+        version: link:../../packages/core
     devDependencies:
       typescript:
         specifier: ~5.9.3
