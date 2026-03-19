@@ -1,12 +1,18 @@
 import { Component, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import {
+  DomternalEditorComponent,
+  DomternalToolbarComponent,
+  DomternalBubbleMenuComponent,
+} from '@domternal/angular';
+import { Editor, StarterKit, BubbleMenu } from '@domternal/core';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [DomternalEditorComponent, DomternalToolbarComponent, DomternalBubbleMenuComponent],
   templateUrl: './app.html',
-  styleUrl: './app.scss'
 })
 export class App {
-  protected readonly title = signal('angular');
+  editor = signal<Editor | null>(null);
+  extensions = [StarterKit, BubbleMenu];
+  content = '<p>Hello from Angular!</p>';
 }
