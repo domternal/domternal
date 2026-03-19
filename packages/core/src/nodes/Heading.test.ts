@@ -39,7 +39,7 @@ describe('Heading', () => {
 
     it('has default options', () => {
       expect(Heading.options).toEqual({
-        levels: [1, 2, 3, 4, 5, 6],
+        levels: [1, 2, 3, 4],
         HTMLAttributes: {},
       });
     });
@@ -76,9 +76,9 @@ describe('Heading', () => {
   describe('parseHTML', () => {
     it('returns rules for all configured levels', () => {
       const rules = Heading.config.parseHTML?.call(Heading);
-      expect(rules).toHaveLength(6);
+      expect(rules).toHaveLength(4);
       expect(rules?.[0]).toEqual({ tag: 'h1', attrs: { level: 1 } });
-      expect(rules?.[5]).toEqual({ tag: 'h6', attrs: { level: 6 } });
+      expect(rules?.[3]).toEqual({ tag: 'h4', attrs: { level: 4 } });
     });
 
     it('only parses configured levels', () => {
@@ -132,7 +132,8 @@ describe('Heading', () => {
     it('provides shortcuts for all levels', () => {
       const shortcuts = Heading.config.addKeyboardShortcuts?.call(Heading);
       expect(shortcuts).toHaveProperty('Mod-Alt-1');
-      expect(shortcuts).toHaveProperty('Mod-Alt-6');
+      expect(shortcuts).toHaveProperty('Mod-Alt-4');
+      expect(shortcuts).not.toHaveProperty('Mod-Alt-5');
     });
 
     it('only provides shortcuts for configured levels', () => {
@@ -224,11 +225,11 @@ describe('Heading', () => {
     it('parses all heading levels', () => {
       editor = new Editor({
         extensions,
-        content: '<h1>H1</h1><h2>H2</h2><h3>H3</h3><h4>H4</h4><h5>H5</h5><h6>H6</h6>',
+        content: '<h1>H1</h1><h2>H2</h2><h3>H3</h3><h4>H4</h4>',
       });
-      expect(editor.state.doc.childCount).toBe(6);
+      expect(editor.state.doc.childCount).toBe(4);
       expect(editor.state.doc.child(0).attrs['level']).toBe(1);
-      expect(editor.state.doc.child(5).attrs['level']).toBe(6);
+      expect(editor.state.doc.child(3).attrs['level']).toBe(4);
     });
 
     it('renders headings correctly', () => {

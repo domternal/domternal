@@ -272,14 +272,12 @@ describe('Node Integration', () => {
           <h2>H2</h2>
           <h3>H3</h3>
           <h4>H4</h4>
-          <h5>H5</h5>
-          <h6>H6</h6>
         `,
       });
 
       const doc = editor.state.doc;
 
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 4; i++) {
         const heading = doc.child(i);
         expect(heading.type.name).toBe('heading');
         expect(heading.attrs['level']).toBe(i + 1);

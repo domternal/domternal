@@ -182,15 +182,9 @@ importers:
       '@angular/core':
         specifier: ^21.2.5
         version: 21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1)
-      '@angular/forms':
-        specifier: ^21.2.5
-        version: 21.2.5(@angular/common@21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/platform-browser@21.2.5(@angular/common@21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1)))(rxjs@7.8.2)
       '@angular/platform-browser':
         specifier: ^21.2.5
         version: 21.2.5(@angular/common@21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))
-      '@angular/router':
-        specifier: ^21.2.5
-        version: 21.2.5(@angular/common@21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/platform-browser@21.2.5(@angular/common@21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1)))(rxjs@7.8.2)
       '@domternal/angular':
         specifier: workspace:*
         version: link:../../packages/angular
@@ -673,15 +667,6 @@ packages:
     peerDependenciesMeta:
       '@angular/animations':
         optional: true
-
-  '@angular/router@21.2.5':
-    resolution: {integrity: sha512-yQGhTVGvh8OMW3auj13+g+OCSQj7gyBQON/2X4LuCvIUG71NPV6Fqzfk9DKTKaXpqo0FThy8/LPJ0Lsy3CRejg==}
-    engines: {node: ^20.19.0 || ^22.12.0 || >=24.0.0}
-    peerDependencies:
-      '@angular/common': ^21.2.5
-      '@angular/core': ^21.2.5
-      '@angular/platform-browser': ^21.2.5
-      rxjs: ^6.5.3 || ^7.4.0
 
   '@asamuzakjp/css-color@4.1.1':
     resolution: {integrity: sha512-B0Hv6G3gWGMn0xKJ0txEi/jM5iFpT3MfDxmhZFb4W047GvytCf1DHQ1D69W3zHI4yWe2aTZAA0JnbMZ7Xc8DuQ==}
@@ -7380,14 +7365,6 @@ snapshots:
     dependencies:
       '@angular/common': 21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2)
       '@angular/core': 21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1)
-      tslib: 2.8.1
-
-  '@angular/router@21.2.5(@angular/common@21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/platform-browser@21.2.5(@angular/common@21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1)))(rxjs@7.8.2)':
-    dependencies:
-      '@angular/common': 21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2)
-      '@angular/core': 21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1)
-      '@angular/platform-browser': 21.2.5(@angular/common@21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))
-      rxjs: 7.8.2
       tslib: 2.8.1
 
   '@asamuzakjp/css-color@4.1.1':

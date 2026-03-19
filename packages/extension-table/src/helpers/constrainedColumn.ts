@@ -52,20 +52,29 @@ export function getTableInfo(state: EditorState): TableInfo | null {
 }
 
 /**
+ * Walk up from a position inside a table to find the TABLE element in the DOM.
+ * Returns null if the DOM is unavailable.
+ */
+export function findTableDom(view: EditorView, tableStart: number): HTMLTableElement | null {
+  try {
+    let node = view.domAtPos(tableStart).node as HTMLElement | null;
+    while (node && node.nodeName !== 'TABLE') {
+      node = node.parentNode as HTMLElement | null;
+    }
+    return node as HTMLTableElement | null;
+  } catch { return null; }
+}
+
+/**
  * Measure the container (.tableWrapper) width from the DOM.
  * Subtracts 1 for the collapsed outer border (border-collapse adds ~1px
  * to table.offsetWidth beyond the sum of colwidths).
  * Returns 0 if the DOM is unavailable.
  */
 export function getContainerWidth(view: EditorView, tableStart: number): number {
-  try {
-    let tableDom = view.domAtPos(tableStart).node as HTMLElement | null;
-    while (tableDom && tableDom.nodeName !== 'TABLE') {
-      tableDom = tableDom.parentNode as HTMLElement | null;
-    }
-    const wrapper = tableDom?.closest('.tableWrapper') as HTMLElement | null;
-    if (wrapper) return Math.floor(wrapper.getBoundingClientRect().width) - 1;
-  } catch { /* DOM unavailable */ }
+  const tableDom = findTableDom(view, tableStart);
+  const wrapper = tableDom?.closest('.tableWrapper') as HTMLElement | null;
+  if (wrapper) return Math.floor(wrapper.getBoundingClientRect().width) - 1;
   return 0;
 }
 

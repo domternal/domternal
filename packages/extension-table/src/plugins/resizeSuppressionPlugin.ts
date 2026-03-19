@@ -19,6 +19,7 @@ import type { Transaction } from '@domternal/pm/state';
 import type { Node as PMNode } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
 import { columnResizingPluginKey, TableMap } from '@domternal/pm/tables';
+import { findTableDom, getContainerWidth } from '../helpers/constrainedColumn.js';
 
 export interface ResizeSuppressionOptions {
   resizeBehavior: 'neighbor' | 'independent' | 'redistribute';
@@ -133,8 +134,7 @@ function handleNeighborResize(
   }));
 
   // Step 6 — find table DOM for direct col manipulation
-  let tableDom = view.domAtPos(tableStart).node as HTMLElement | null;
-  while (tableDom && tableDom.nodeName !== 'TABLE') tableDom = tableDom.parentNode as HTMLElement | null;
+  const tableDom = findTableDom(view, tableStart);
   const colgroup = tableDom?.querySelector('colgroup')?.children;
   if (!colgroup) return false;
   const cols = colgroup;
@@ -223,8 +223,7 @@ function handleLastColumnResize(
   const startX = event.clientX;
 
   // Find table DOM and colgroup
-  let tableDom = view.domAtPos(tableStart).node as HTMLElement | null;
-  while (tableDom && tableDom.nodeName !== 'TABLE') tableDom = tableDom.parentNode as HTMLElement | null;
+  const tableDom = findTableDom(view, tableStart);
   const colgroupChildren = tableDom?.querySelector('colgroup')?.children;
   if (!colgroupChildren) return false;
   const cols = colgroupChildren;
@@ -235,14 +234,8 @@ function handleLastColumnResize(
     totalWidth += readColWidth(table, map, c, defaultCellMinWidth);
   }
 
-  // Compute max growth before hitting container edge.
-  // Subtract 1 for the collapsed outer border (same adjustment as freezeColumnWidths)
-  // because table.offsetWidth = colwidthsSum + ~1px border in border-collapse mode.
-  let containerWidth = 0;
-  try {
-    const wrapper = tableDom?.closest('.tableWrapper') as HTMLElement | null;
-    if (wrapper) containerWidth = Math.floor(wrapper.getBoundingClientRect().width) - 1;
-  } catch { /* DOM unavailable */ }
+  // Compute max growth before hitting container edge
+  const containerWidth = getContainerWidth(view, tableStart);
   const maxGrow = containerWidth > 0 ? containerWidth - totalWidth : 0;
 
   // Set dragging meta (triggers decorations + cellSelectionPlugin hideForResize)
@@ -442,8 +435,7 @@ function freezeColumnWidths(view: EditorView, handlePos: number, cellMinWidth: n
   // frozen colwidths must sum to content_area, not border-box width.
   // We subtract 1 from floor(BCR) to account for the collapsed border.
   try {
-    let tableDom = view.domAtPos(tableStart).node as HTMLElement | null;
-    while (tableDom && tableDom.nodeName !== 'TABLE') tableDom = tableDom.parentNode as HTMLElement | null;
+    const tableDom = findTableDom(view, tableStart);
     if (tableDom) {
       const actualWidth = Math.floor(tableDom.getBoundingClientRect().width) - 1;
       if (actualWidth > 0) {
