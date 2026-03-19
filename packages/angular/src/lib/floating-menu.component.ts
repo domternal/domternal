@@ -38,11 +38,12 @@ export class DomternalFloatingMenuComponent implements OnDestroy {
     );
 
     afterNextRender(() => {
+      const shouldShow = this.shouldShow();
       const plugin = createFloatingMenuPlugin({
         pluginKey: this.pluginKey,
         editor: this.editor(),
         element: this.menuEl().nativeElement,
-        shouldShow: this.shouldShow(),
+        ...(shouldShow && { shouldShow }),
         offset: this.offset(),
       });
       this.editor().registerPlugin(plugin);

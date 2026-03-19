@@ -5,10 +5,12 @@
   "author": "Domternal",
   "license": "MIT",
   "sideEffects": true,
+  "types": "index.d.ts",
   "style": "dist/domternal-theme.css",
   "sass": "src/index.scss",
   "exports": {
     ".": {
+      "types": "./index.d.ts",
       "sass": "./src/index.scss",
       "style": "./dist/domternal-theme.css",
       "default": "./dist/domternal-theme.css"
@@ -18,7 +20,8 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "index.d.ts"
   ],
   "scripts": {
     "build": "sass src/index.scss dist/domternal-theme.css --style=compressed --no-source-map && sass src/index.scss dist/domternal-theme.expanded.css --style=expanded --no-source-map"

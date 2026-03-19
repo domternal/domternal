@@ -353,7 +353,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
       }
       if (val === true) {
         this.resolvedItems.set(this.filterBySchema(editor, ctx, this.getFormatItems()));
-      } else {
+      } else if (Array.isArray(val)) {
         const resolved = this.resolveNames(val);
         const buttons = resolved.filter((i): i is ToolbarButton => i.type !== 'separator');
         const filtered = new Set(this.filterBySchema(editor, ctx, buttons).map(b => b.name));

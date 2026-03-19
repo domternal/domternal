@@ -351,7 +351,7 @@ export const LinkPopover = Extension.create<LinkPopoverOptions>({
 
   addProseMirrorPlugins() {
     const editor = this.editor as unknown as Editor;
-    const markType = editor.view.state.schema.marks['link'];
+    const markType = editor.schema.marks['link'];
     if (!markType) return [];
 
     return [

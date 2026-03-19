@@ -39,14 +39,18 @@ import { positionFloatingOnce } from '../utils/positionFloating.js';
 
 export const floatingMenuPluginKey = new PluginKey('floatingMenu');
 
-// Default shouldShow: empty paragraph with cursor
+// Default shouldShow: empty paragraph with cursor in editable editor
 function defaultShouldShow({
+  editor,
   state,
 }: {
   editor: Editor;
   view: EditorView;
   state: EditorState;
 }): boolean {
+  // Don't show if editor is not editable
+  if (!editor.isEditable) return false;
+
   const { selection } = state;
   const { $from, empty } = selection;
 

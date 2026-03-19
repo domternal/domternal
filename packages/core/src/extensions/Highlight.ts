@@ -140,7 +140,8 @@ export const Highlight = Extension.create<HighlightOptions>({
           let hasHighlight = false;
 
           if (empty) {
-            const mark = markType.isInSet(state.doc.resolve(from).marks());
+            const marks = state.storedMarks ?? state.doc.resolve(from).marks();
+            const mark = markType.isInSet(marks);
             hasHighlight = !!mark?.attrs['backgroundColor'];
           } else {
             state.doc.nodesBetween(from, to, (node) => {

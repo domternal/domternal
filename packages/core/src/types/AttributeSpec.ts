@@ -40,14 +40,17 @@ export interface AttributeSpec {
   keepOnSplit?: boolean;
 
   /**
-   * Validate attribute value
-   * Returns true if valid, false otherwise
-   * Available in ProseMirror 1.22.0+
+   * Validate attribute value (ProseMirror 1.22.0+).
+   * When a string, a `|`-separated list of primitive types
+   * (`"number"`, `"string"`, `"boolean"`, `"null"`, `"undefined"`).
+   * When a function, it should throw if the value is invalid.
    *
    * @example
-   * validate: (value) => typeof value === 'number' && value >= 1 && value <= 6
+   * validate: 'number'
+   * validate: 'string|null'
+   * validate: (value) => { if (typeof value !== 'number') throw new Error('expected number'); }
    */
-  validate?: (value: unknown) => boolean;
+  validate?: string | ((value: unknown) => void);
 
   /**
    * Parse attribute value from HTML element

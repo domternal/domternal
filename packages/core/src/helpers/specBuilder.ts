@@ -45,7 +45,7 @@ export function buildHTMLAttributes(
   attrs: Record<string, unknown>,
   attrSpecs: AttributeSpecs,
 ): Record<string, unknown> {
-  let htmlAttrs: Record<string, unknown> = {};
+  const htmlAttrs: Record<string, unknown> = {};
 
   for (const [name, attrSpec] of Object.entries(attrSpecs)) {
     // Skip if not rendered

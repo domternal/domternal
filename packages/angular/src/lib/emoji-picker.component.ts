@@ -269,7 +269,7 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
 
         // Set initial active category
         const names = this.categoryNames();
-        if (names.length > 0) {
+        if (names.length > 0 && names[0]) {
           this.activeCategory.set(names[0]);
         }
 

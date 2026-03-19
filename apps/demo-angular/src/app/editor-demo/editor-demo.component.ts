@@ -15,6 +15,7 @@ import {
   Subscript,
   Superscript,
   Link,
+  LinkPopover,
   Heading,
   Blockquote,
   HardBreak,
@@ -74,7 +75,7 @@ export class EditorDemoComponent {
     Image,
     Emoji.configure({ emojis, suggestion: { render: createEmojiSuggestionRenderer() } }),
     // Editor utilities
-    InvisibleChars, SelectionDecoration, ClearFormatting, Dropcursor,
+    LinkPopover, InvisibleChars, SelectionDecoration, ClearFormatting, Dropcursor,
   ];
   editorContent = DEMO_CONTENT;
   emojiData = emojis;

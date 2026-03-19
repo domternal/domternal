@@ -40,7 +40,7 @@ describe('buildHTMLAttributes', () => {
     const specs = {
       level: {
         default: 1,
-        renderHTML: (a: Record<string, unknown>) => ({ 'data-level': a['level'] }),
+        renderHTML: (a: Record<string, unknown>) => ({ 'data-level': a['level'] as number }),
       },
       class: {
         default: null,

@@ -94,7 +94,7 @@ describe('FloatingMenu', () => {
       };
 
       const result = FloatingMenu.options.shouldShow({
-        editor: {} as Editor,
+        editor: { isEditable: true } as Editor,
         view: {} as never,
         state: mockState as never,
       });
@@ -114,7 +114,7 @@ describe('FloatingMenu', () => {
       };
 
       const result = FloatingMenu.options.shouldShow({
-        editor: {} as Editor,
+        editor: { isEditable: true } as Editor,
         view: {} as never,
         state: mockState as never,
       });
@@ -134,7 +134,7 @@ describe('FloatingMenu', () => {
       };
 
       const result = FloatingMenu.options.shouldShow({
-        editor: {} as Editor,
+        editor: { isEditable: true } as Editor,
         view: {} as never,
         state: mockState as never,
       });
@@ -154,7 +154,27 @@ describe('FloatingMenu', () => {
       };
 
       const result = FloatingMenu.options.shouldShow({
-        editor: {} as Editor,
+        editor: { isEditable: true } as Editor,
+        view: {} as never,
+        state: mockState as never,
+      });
+
+      expect(result).toBe(false);
+    });
+
+    it('returns false when editor is not editable', () => {
+      const mockState = {
+        selection: {
+          empty: true,
+          $from: {
+            parent: { type: { name: 'paragraph' }, content: { size: 0 } },
+            parentOffset: 0,
+          },
+        },
+      };
+
+      const result = FloatingMenu.options.shouldShow({
+        editor: { isEditable: false } as Editor,
         view: {} as never,
         state: mockState as never,
       });
@@ -174,7 +194,7 @@ describe('FloatingMenu', () => {
       };
 
       const result = FloatingMenu.options.shouldShow({
-        editor: {} as Editor,
+        editor: { isEditable: true } as Editor,
         view: {} as never,
         state: mockState as never,
       });

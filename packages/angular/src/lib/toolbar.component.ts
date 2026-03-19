@@ -226,7 +226,7 @@ export class DomternalToolbarComponent implements OnDestroy {
           // Font-family: read ONLY inline style (explicit mark), not computed (browser default)
           computed = this.getInlineStyleAtCursor(dropdown.computedStyleProperty);
           if (computed) {
-            const first = computed.split(',')[0].replace(/['"]+/g, '').trim();
+            const first = computed.split(',')[0]?.replace(/['"]+/g, '').trim();
             computed = first || null;
           }
         } else {

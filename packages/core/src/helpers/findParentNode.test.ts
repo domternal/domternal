@@ -4,7 +4,6 @@ import { Editor } from '../Editor.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
-import { Heading } from '../nodes/Heading.js';
 import { Blockquote } from '../nodes/Blockquote.js';
 import { BulletList } from '../nodes/BulletList.js';
 import { ListItem } from '../nodes/ListItem.js';

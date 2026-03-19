@@ -107,148 +107,53 @@ export const Typography = Extension.create<TypographyOptions>({
   addInputRules() {
     const rules: InputRule[] = [];
 
-    // Em-dash: -- → —
+    // Helper for simple text replacement rules
+    const textReplace = (find: RegExp, replacement: string): InputRule =>
+      new InputRule(find, (state, _match, start, end) =>
+        state.tr.replaceWith(start, end, state.schema.text(replacement)));
+
     if (this.options.emDash) {
-      rules.push(
-        new InputRule(/--$/, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('—'));
-        })
-      );
+      rules.push(textReplace(/--$/, '\u2014')); // -- → —
     }
 
-    // Ellipsis: ... → …
     if (this.options.ellipsis) {
-      rules.push(
-        new InputRule(/\.\.\.$/, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('…'));
-        })
-      );
+      rules.push(textReplace(/\.\.\.$/, '\u2026')); // ... → …
     }
 
-    // Arrows
     if (this.options.arrows) {
-      // <- → ←
-      rules.push(
-        new InputRule(/<-$/, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('←'));
-        })
-      );
-      // -> → →
-      rules.push(
-        new InputRule(/->$/, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('→'));
-        })
-      );
-      // => → ⇒
-      rules.push(
-        new InputRule(/=>$/, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('⇒'));
-        })
-      );
+      rules.push(textReplace(/<-$/, '\u2190'));  // <- → ←
+      rules.push(textReplace(/->$/, '\u2192'));  // -> → →
+      rules.push(textReplace(/=>$/, '\u21D2'));  // => → ⇒
     }
 
-    // Fractions
     if (this.options.fractions) {
-      rules.push(
-        new InputRule(/1\/2$/, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('½'));
-        })
-      );
-      rules.push(
-        new InputRule(/1\/4$/, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('¼'));
-        })
-      );
-      rules.push(
-        new InputRule(/3\/4$/, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('¾'));
-        })
-      );
-      rules.push(
-        new InputRule(/1\/3$/, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('⅓'));
-        })
-      );
-      rules.push(
-        new InputRule(/2\/3$/, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('⅔'));
-        })
-      );
+      rules.push(textReplace(/1\/2$/, '\u00BD')); // 1/2 → ½
+      rules.push(textReplace(/1\/4$/, '\u00BC')); // 1/4 → ¼
+      rules.push(textReplace(/3\/4$/, '\u00BE')); // 3/4 → ¾
+      rules.push(textReplace(/1\/3$/, '\u2153')); // 1/3 → ⅓
+      rules.push(textReplace(/2\/3$/, '\u2154')); // 2/3 → ⅔
     }
 
-    // Symbols
     if (this.options.symbols) {
-      // (c) → ©
-      rules.push(
-        new InputRule(/\(c\)$/i, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('©'));
-        })
-      );
-      // (r) → ®
-      rules.push(
-        new InputRule(/\(r\)$/i, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('®'));
-        })
-      );
-      // (tm) → ™
-      rules.push(
-        new InputRule(/\(tm\)$/i, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('™'));
-        })
-      );
-      // (sm) → ℠
-      rules.push(
-        new InputRule(/\(sm\)$/i, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('℠'));
-        })
-      );
+      rules.push(textReplace(/\(c\)$/i, '\u00A9'));  // (c) → ©
+      rules.push(textReplace(/\(r\)$/i, '\u00AE'));  // (r) → ®
+      rules.push(textReplace(/\(tm\)$/i, '\u2122')); // (tm) → ™
+      rules.push(textReplace(/\(sm\)$/i, '\u2120')); // (sm) → ℠
     }
 
-    // Math symbols
     if (this.options.math) {
-      // +/- → ±
-      rules.push(
-        new InputRule(/\+\/-$/, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('±'));
-        })
-      );
-      // != → ≠
-      rules.push(
-        new InputRule(/!=$/, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('≠'));
-        })
-      );
-      // <= → ≤
-      rules.push(
-        new InputRule(/<=$/, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('≤'));
-        })
-      );
-      // >= → ≥
-      rules.push(
-        new InputRule(/>=$/, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('≥'));
-        })
-      );
+      rules.push(textReplace(/\+\/-$/, '\u00B1')); // +/- → ±
+      rules.push(textReplace(/!=$/, '\u2260'));     // != → ≠
+      rules.push(textReplace(/<=$/, '\u2264'));     // <= → ≤
+      rules.push(textReplace(/>=$/, '\u2265'));     // >= → ≥
     }
 
-    // Guillemets
     if (this.options.guillemets) {
-      // << → «
-      rules.push(
-        new InputRule(/<<$/, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('«'));
-        })
-      );
-      // >> → »
-      rules.push(
-        new InputRule(/>>$/, (state, _match, start, end) => {
-          return state.tr.replaceWith(start, end, state.schema.text('»'));
-        })
-      );
+      rules.push(textReplace(/<<$/, '\u00AB')); // << → «
+      rules.push(textReplace(/>>$/, '\u00BB')); // >> → »
     }
 
-    // Smart quotes
+    // Smart quotes (need match groups, can't use textReplace)
     if (this.options.smartQuotes) {
       const { openDoubleQuote, closeDoubleQuote, openSingleQuote, closeSingleQuote } = this.options;
 

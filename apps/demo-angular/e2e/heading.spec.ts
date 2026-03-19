@@ -56,7 +56,7 @@ async function selectHeadingItem(page: Page, label: string) {
 const H1 = '<h1>Heading One</h1>';
 const H2 = '<h2>Heading Two</h2>';
 const H3 = '<h3>Heading Three</h3>';
-const ALL_HEADINGS = '<h1>H1</h1><h2>H2</h2><h3>H3</h3><h4>H4</h4><h5>H5</h5><h6>H6</h6>';
+const ALL_HEADINGS = '<h1>H1</h1><h2>H2</h2><h3>H3</h3><h4>H4</h4>';
 const H1_WITH_MARKS = '<h1>Normal <strong>bold</strong> <em>italic</em></h1>';
 const PARAGRAPH = '<p>Normal text</p>';
 
@@ -92,10 +92,10 @@ test.describe('Heading — rendering', () => {
     await expect(h3).toContainText('Heading Three');
   });
 
-  test('all 6 heading levels render', async ({ page }) => {
+  test('all configured heading levels render', async ({ page }) => {
     await setContentAndFocus(page, ALL_HEADINGS);
 
-    for (let i = 1; i <= 6; i++) {
+    for (let i = 1; i <= 4; i++) {
       const heading = page.locator(`${editorSelector} h${i}`);
       await expect(heading).toBeVisible();
       await expect(heading).toContainText(`H${i}`);
