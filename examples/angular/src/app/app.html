@@ -1,0 +1,11 @@
+@if (editor(); as ed) {
+  <domternal-toolbar [editor]="ed" />
+}
+<domternal-editor
+  [extensions]="extensions"
+  [content]="content"
+  (editorCreated)="editor.set($event)"
+/>
+@if (editor(); as ed) {
+  <domternal-bubble-menu [editor]="ed" />
+}

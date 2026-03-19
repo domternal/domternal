@@ -32,7 +32,7 @@ export const Heading = Node.create<HeadingOptions>({
 
   addOptions() {
     return {
-      levels: [1, 2, 3, 4, 5, 6],
+      levels: [1, 2, 3, 4],
       HTMLAttributes: {},
     };
   },
@@ -110,10 +110,11 @@ export const Heading = Node.create<HeadingOptions>({
       1: 'textHOne',
       2: 'textHTwo',
       3: 'textHThree',
+      4: 'textHFour',
     };
 
     const headingItems: ToolbarButton[] = this.options.levels
-      .filter((level) => level <= 3)
+      .filter((level) => level <= 4)
       .map((level) => ({
         type: 'button' as const,
         name: `heading${String(level)}`,

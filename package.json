@@ -15,6 +15,19 @@
     "typecheck": "nx run-many --target=typecheck --all"
   },
   "private": true,
+  "pnpm": {
+    "overrides": {
+      "@angular/core": "^21.2.4",
+      "@angular/common": "^21.2.4",
+      "@angular/compiler": "^21.2.4",
+      "@angular/compiler-cli": "^21.2.4",
+      "@angular/forms": "^21.2.4",
+      "@angular/platform-browser": "^21.2.4",
+      "@angular/router": "^21.2.4",
+      "@angular/build": "^21.2.4",
+      "@angular/cli": "^21.2.4"
+    }
+  },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@nx/js": "22.3.3",
