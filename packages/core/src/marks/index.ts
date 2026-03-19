@@ -25,4 +25,7 @@ export {
   autolinkPlugin,
   autolinkPluginKey,
   type AutolinkPluginOptions,
+  linkExitPlugin,
+  linkExitPluginKey,
+  type LinkExitPluginOptions,
 } from './helpers/index.js';

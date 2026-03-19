@@ -55,7 +55,7 @@ export function buildHTMLAttributes(
     if (attrSpec.renderHTML) {
       const rendered = attrSpec.renderHTML(attrs);
       if (rendered) {
-        htmlAttrs = { ...htmlAttrs, ...rendered };
+        Object.assign(htmlAttrs, rendered);
       }
     } else if (attrs[name] !== undefined && attrs[name] !== null) {
       // Default: use attribute value directly

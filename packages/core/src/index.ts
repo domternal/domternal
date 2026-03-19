@@ -246,6 +246,19 @@ export {
   type SuperscriptOptions,
   TextStyle,
   type TextStyleOptions,
+  // Link helpers
+  linkClickPlugin,
+  linkClickPluginKey,
+  type LinkClickPluginOptions,
+  linkPastePlugin,
+  linkPastePluginKey,
+  type LinkPastePluginOptions,
+  autolinkPlugin,
+  autolinkPluginKey,
+  type AutolinkPluginOptions,
+  linkExitPlugin,
+  linkExitPluginKey,
+  type LinkExitPluginOptions,
 } from './marks/index.js';
 
 // === Extensions ===

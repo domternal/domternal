@@ -229,13 +229,6 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
       (spec as Record<string, unknown>)['tableRole'] =
         this.config.tableRole;
 
-    // Top node (only for document)
-    if (this.config.topNode) {
-      // ProseMirror doesn't have a topNode property on NodeSpec
-      // This is handled by Schema constructor's topNode option
-      // We'll handle this in ExtensionManager
-    }
-
     // Leaf text - bind to extension instance so this.storage etc. are available
     if (this.config.leafText !== undefined) {
       if (typeof this.config.leafText === 'function') {

@@ -21,3 +21,9 @@ export {
   autolinkPluginKey,
   type AutolinkPluginOptions,
 } from './autolinkPlugin.js';
+
+export {
+  linkExitPlugin,
+  linkExitPluginKey,
+  type LinkExitPluginOptions,
+} from './linkExitPlugin.js';

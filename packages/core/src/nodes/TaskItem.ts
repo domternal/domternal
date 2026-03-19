@@ -133,7 +133,7 @@ export const TaskItem = Node.create<TaskItemOptions>({
         const { state, view } = this.editor;
         const { $from } = state.selection;
         // Only handle Enter when cursor's immediate item ancestor is a taskItem
-        if ($from.node(-1).type !== this.nodeType) return false;
+        if ($from.depth < 1 || $from.node(-1).type !== this.nodeType) return false;
 
         // Standard split for non-empty items
         if (splitListItem(this.nodeType)(state, view.dispatch)) return true;
@@ -195,13 +195,13 @@ export const TaskItem = Node.create<TaskItemOptions>({
       Tab: () => {
         if (!this.editor || !this.nodeType) return false;
         const { $from } = this.editor.state.selection;
-        if ($from.node(-1).type !== this.nodeType) return false;
+        if ($from.depth < 1 || $from.node(-1).type !== this.nodeType) return false;
         return sinkListItem(this.nodeType)(this.editor.state, this.editor.view.dispatch);
       },
       'Shift-Tab': () => {
         if (!this.editor || !this.nodeType) return false;
         const { $from } = this.editor.state.selection;
-        if ($from.node(-1).type !== this.nodeType) return false;
+        if ($from.depth < 1 || $from.node(-1).type !== this.nodeType) return false;
         return liftListItem(this.nodeType)(this.editor.state, this.editor.view.dispatch);
       },
       'Mod-Enter': () => {

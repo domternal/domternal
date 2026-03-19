@@ -14,6 +14,7 @@ import { ExtensionManager } from './ExtensionManager.js';
 import { CommandManager } from './CommandManager.js';
 import { createDocument, isDocumentEmpty } from './helpers/index.js';
 import { inlineStyles, type InlineStyleOverrides } from './utils/inlineStyles.js';
+import { normalizeColor } from './helpers/normalizeColor.js';
 import {
   focus as focusCommand,
   blur as blurCommand,
@@ -425,9 +426,8 @@ export class Editor extends EventEmitter<EditorEvents> {
     const html = div.innerHTML.replace(/style="([^"]*)"/g, (_match, style: string) =>
       'style="' +
         style.replace(
-          /rgb\((\d+),\s*(\d+),\s*(\d+)\)/g,
-          (_, r: string, g: string, b: string) =>
-            '#' + [r, g, b].map(c => Number(c).toString(16).padStart(2, '0')).join(''),
+          /rgba?\(\s*\d+[\s,]+\d+[\s,]+\d+[^)]*\)/g,
+          (colorStr) => normalizeColor(colorStr),
         ) +
         '"',
     );
