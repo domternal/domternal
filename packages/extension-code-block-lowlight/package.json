@@ -38,14 +38,16 @@
     "postpublish": "git checkout package.json"
   },
   "dependencies": {
-    "@domternal/core": "workspace:*",
-    "@domternal/pm": "workspace:*",
     "hast-util-to-html": "^9.0.0"
   },
   "peerDependencies": {
+    "@domternal/core": ">=0.0.1",
+    "@domternal/pm": ">=0.0.1",
     "lowlight": "^3.0.0"
   },
   "devDependencies": {
+    "@domternal/core": "workspace:*",
+    "@domternal/pm": "workspace:*",
     "jsdom": "^27.4.0",
     "lowlight": "^3.3.0",
     "tsup": "^8.5.1",

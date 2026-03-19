@@ -316,16 +316,16 @@ importers:
 
   packages/extension-code-block-lowlight:
     dependencies:
+      hast-util-to-html:
+        specifier: ^9.0.0
+        version: 9.0.5
+    devDependencies:
       '@domternal/core':
         specifier: workspace:*
         version: link:../core
       '@domternal/pm':
         specifier: workspace:*
         version: link:../pm
-      hast-util-to-html:
-        specifier: ^9.0.0
-        version: 9.0.5
-    devDependencies:
       jsdom:
         specifier: ^27.4.0
         version: 27.4.0
@@ -340,14 +340,13 @@ importers:
         version: 5.9.3
 
   packages/extension-details:
-    dependencies:
+    devDependencies:
       '@domternal/core':
         specifier: workspace:*
         version: link:../core
       '@domternal/pm':
         specifier: workspace:*
         version: link:../pm
-    devDependencies:
       jsdom:
         specifier: ^27.4.0
         version: 27.4.0
@@ -359,14 +358,13 @@ importers:
         version: 5.9.3
 
   packages/extension-emoji:
-    dependencies:
+    devDependencies:
       '@domternal/core':
         specifier: workspace:*
         version: link:../core
       '@domternal/pm':
         specifier: workspace:*
         version: link:../pm
-    devDependencies:
       jsdom:
         specifier: ^27.4.0
         version: 27.4.0
@@ -378,14 +376,13 @@ importers:
         version: 5.9.3
 
   packages/extension-image:
-    dependencies:
+    devDependencies:
       '@domternal/core':
         specifier: workspace:*
         version: link:../core
       '@domternal/pm':
         specifier: workspace:*
         version: link:../pm
-    devDependencies:
       jsdom:
         specifier: ^27.4.0
         version: 27.4.0
@@ -397,14 +394,13 @@ importers:
         version: 5.9.3
 
   packages/extension-mention:
-    dependencies:
+    devDependencies:
       '@domternal/core':
         specifier: workspace:*
         version: link:../core
       '@domternal/pm':
         specifier: workspace:*
         version: link:../pm
-    devDependencies:
       jsdom:
         specifier: ^27.4.0
         version: 27.4.0
@@ -416,14 +412,13 @@ importers:
         version: 5.9.3
 
   packages/extension-table:
-    dependencies:
+    devDependencies:
       '@domternal/core':
         specifier: workspace:*
         version: link:../core
       '@domternal/pm':
         specifier: workspace:*
         version: link:../pm
-    devDependencies:
       jsdom:
         specifier: ^27.4.0
         version: 27.4.0

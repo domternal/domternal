@@ -37,11 +37,13 @@
     "prepublishOnly": "node -e \"const p=JSON.parse(require('fs').readFileSync('package.json','utf8'));delete p.devDependencies;if(p.dependencies){for(const[k,v]of Object.entries(p.dependencies)){if(v==='workspace:*')p.dependencies[k]='>=0.0.1'}}require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
     "postpublish": "git checkout package.json"
   },
-  "dependencies": {
-    "@domternal/core": "workspace:*",
-    "@domternal/pm": "workspace:*"
+  "peerDependencies": {
+    "@domternal/core": ">=0.0.1",
+    "@domternal/pm": ">=0.0.1"
   },
   "devDependencies": {
+    "@domternal/core": "workspace:*",
+    "@domternal/pm": "workspace:*",
     "jsdom": "^27.4.0",
     "tsup": "^8.5.1",
     "typescript": "~5.9.3"

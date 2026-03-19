@@ -40,6 +40,10 @@ jobs:
 
       - name: Validate packages
         run: |
-          cd packages/core
-          npx publint
-          npx @arethetypeswrong/cli --pack
+          for pkg in packages/core packages/extension-table packages/extension-image packages/extension-emoji packages/extension-mention packages/extension-details packages/extension-code-block-lowlight; do
+            echo "--- Validating $pkg ---"
+            cd "$pkg"
+            npx publint
+            npx @arethetypeswrong/cli --pack
+            cd "$GITHUB_WORKSPACE"
+          done

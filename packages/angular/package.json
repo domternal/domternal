@@ -8,10 +8,13 @@
   "main": "./dist/fesm2022/domternal-angular.mjs",
   "types": "./dist/types/domternal-angular.d.ts",
   "peerDependencies": {
-    "@angular/core": ">=17.0.0",
-    "@angular/forms": ">=17.0.0",
+    "@angular/core": ">=17.1.0",
+    "@angular/forms": ">=17.1.0",
     "@domternal/core": ">=0.0.1"
   },
+  "files": [
+    "dist"
+  ],
   "dependencies": {
     "tslib": "^2.8.0"
   },
