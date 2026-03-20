@@ -77,6 +77,8 @@ export interface HighlightOptions {
 export const Highlight = Extension.create<HighlightOptions>({
   name: 'highlight',
 
+  dependencies: ['textStyle'],
+
   addOptions() {
     return {
       colors: DEFAULT_HIGHLIGHT_COLORS,

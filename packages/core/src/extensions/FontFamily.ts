@@ -46,6 +46,8 @@ export interface FontFamilyOptions {
 export const FontFamily = Extension.create<FontFamilyOptions>({
   name: 'fontFamily',
 
+  dependencies: ['textStyle'],
+
   addOptions() {
     return {
       fontFamilies: ['Arial', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Times New Roman', 'Georgia', 'Palatino Linotype', 'Courier New'],

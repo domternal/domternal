@@ -343,6 +343,8 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
 export const LinkPopover = Extension.create<LinkPopoverOptions>({
   name: 'linkPopover',
 
+  dependencies: ['link'],
+
   addOptions() {
     return {
       protocols: ['http:', 'https:', 'mailto:', 'tel:'],

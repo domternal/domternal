@@ -52,6 +52,8 @@ export interface FontSizeOptions {
 export const FontSize = Extension.create<FontSizeOptions>({
   name: 'fontSize',
 
+  dependencies: ['textStyle'],
+
   addOptions() {
     return {
       fontSizes: ['12px', '14px', '16px', '18px', '24px', '32px'],

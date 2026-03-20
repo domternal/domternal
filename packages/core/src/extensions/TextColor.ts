@@ -74,6 +74,8 @@ export interface TextColorOptions {
 export const TextColor = Extension.create<TextColorOptions>({
   name: 'textColor',
 
+  dependencies: ['textStyle'],
+
   addOptions() {
     return {
       colors: DEFAULT_TEXT_COLORS,
