@@ -192,7 +192,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
       (this.editor().emit as (e: string, d: unknown) => void)(item.emitEvent, {});
       return;
     }
-    ToolbarController.executeItem(this.editor(), item);
+    ToolbarController.executeItem(this.editor() as never, item);
   }
 
   // === Internal ===
@@ -370,7 +370,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
     for (const item of this.resolvedItems()) {
       if (item.type === 'separator') continue;
-      this.activeMap.set(item.name, ToolbarController.resolveActive(editor, item));
+      this.activeMap.set(item.name, ToolbarController.resolveActive(editor as never, item));
       try {
         const canCmd = canProxy?.[item.command];
         this.disabledMap.set(item.name, canCmd
