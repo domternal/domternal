@@ -2,7 +2,7 @@
   "name": "@domternal/theme",
   "version": "0.0.1",
   "description": "Default themes and styles for Domternal editor",
-  "author": "Domternal",
+  "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
   "sideEffects": true,
   "types": "index.d.ts",

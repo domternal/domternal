@@ -2,7 +2,7 @@
   "name": "@domternal/extension-table",
   "version": "0.0.1",
   "description": "Table extension for Domternal editor",
-  "author": "Domternal",
+  "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,

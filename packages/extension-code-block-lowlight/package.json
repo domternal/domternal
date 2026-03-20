@@ -2,7 +2,7 @@
   "name": "@domternal/extension-code-block-lowlight",
   "version": "0.0.1",
   "description": "Code block with syntax highlighting via lowlight for Domternal editor",
-  "author": "Domternal",
+  "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
