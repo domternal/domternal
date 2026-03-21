@@ -14,7 +14,7 @@ A lightweight, extensible rich text editor toolkit built on [ProseMirror](https:
 - **112+ chainable commands** - `editor.chain().focus().toggleBold().run()`
 - **Tree-shakeable** - import only what you use, unused code is stripped from the bundle
 - **TypeScript first** - every schema, command, option, and event is fully typed
-- **Light and dark theme** - 50+ CSS custom properties for full visual control
+- **Light and dark theme** - 70+ CSS custom properties for full visual control
 - **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
 - **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
 
@@ -22,8 +22,8 @@ A lightweight, extensible rich text editor toolkit built on [ProseMirror](https:
 
 | Package | Description |
 |---------|-------------|
-| [`@domternal/core`](packages/core) | Framework-agnostic editor engine with 13 nodes, 9 marks, 25 extensions, toolbar controller, and 49 built-in icons |
-| [`@domternal/theme`](packages/theme) | Light and dark themes with 50+ CSS custom properties |
+| [`@domternal/core`](packages/core) | Framework-agnostic editor engine with 13 nodes, 9 marks, 25 extensions, toolbar controller, and 45 built-in icons |
+| [`@domternal/theme`](packages/theme) | Light and dark themes with 70+ CSS custom properties |
 | [`@domternal/angular`](packages/angular) | Angular components: editor, toolbar, bubble menu, floating menu, emoji picker |
 | [`@domternal/pm`](packages/pm) | ProseMirror re-exports (state, view, model, transform, commands, keymap, history, tables, and more) |
 | [`@domternal/extension-table`](packages/extension-table) | Tables with 18 commands: merge, split, resize, cell styling, row/column controls |
@@ -32,8 +32,6 @@ A lightweight, extensible rich text editor toolkit built on [ProseMirror](https:
 | [`@domternal/extension-mention`](packages/extension-mention) | `@mention` autocomplete with multi-trigger and async support |
 | [`@domternal/extension-details`](packages/extension-details) | Collapsible details/accordion blocks |
 | [`@domternal/extension-code-block-lowlight`](packages/extension-code-block-lowlight) | Syntax-highlighted code blocks powered by lowlight |
-
-## Quick Start
 
 ### Headless Core (Vanilla JS/TS)
 
