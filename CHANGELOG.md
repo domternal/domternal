@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1 (2026-03-21)
+
+- Added per-package README files for all 10 packages (now visible on npmjs.com)
+- Fixed `@domternal/pm` exports order (types first) and added `.d.cts` declarations for full CJS/Node10/Node16 resolution
+- Fixed `@domternal/theme` missing `type` field in package.json
+- Fixed `@domternal/angular` missing `type: "module"` and `exports` field in package.json
+
 ## 0.1.0 (2026-03-21)
 
 Initial public release.
