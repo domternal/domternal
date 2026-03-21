@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2 (2026-03-21)
+
+- Fixed homepage URL in all packages
+
 ## 0.1.1 (2026-03-21)
 
 - Added per-package README files for all 10 packages (now visible on npmjs.com)
