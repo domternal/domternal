@@ -4,9 +4,15 @@
   "description": "Angular components for Domternal editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
+  "type": "module",
   "sideEffects": false,
-  "main": "./dist/fesm2022/domternal-angular.mjs",
   "types": "./dist/types/domternal-angular.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/types/domternal-angular.d.ts",
+      "default": "./dist/fesm2022/domternal-angular.mjs"
+    }
+  },
   "peerDependencies": {
     "@angular/core": ">=17.1.0",
     "@angular/forms": ">=17.1.0",
