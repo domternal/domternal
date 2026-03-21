@@ -1,6 +1,6 @@
 {
   "name": "@domternal/extension-mention",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Mention extension for Domternal editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
@@ -34,12 +34,12 @@
     "test:watch": "vitest",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "node -e \"const p=JSON.parse(require('fs').readFileSync('package.json','utf8'));delete p.devDependencies;if(p.dependencies){for(const[k,v]of Object.entries(p.dependencies)){if(v==='workspace:*')p.dependencies[k]='>=0.0.1'}}require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
+    "prepublishOnly": "node -e \"const p=JSON.parse(require('fs').readFileSync('package.json','utf8'));delete p.devDependencies;if(p.dependencies){for(const[k,v]of Object.entries(p.dependencies)){if(v==='workspace:*')p.dependencies[k]='>=0.1.0'}}require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
     "postpublish": "git checkout package.json"
   },
   "peerDependencies": {
-    "@domternal/core": ">=0.0.1",
-    "@domternal/pm": ">=0.0.1"
+    "@domternal/core": ">=0.1.0",
+    "@domternal/pm": ">=0.1.0"
   },
   "devDependencies": {
     "@domternal/core": "workspace:*",
