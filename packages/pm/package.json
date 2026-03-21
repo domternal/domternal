@@ -8,64 +8,140 @@
   "sideEffects": false,
   "exports": {
     "./commands": {
-      "types": "./src/commands.d.ts",
-      "import": "./src/commands.js",
-      "require": "./src/commands.cjs"
+      "import": {
+        "types": "./src/commands.d.ts",
+        "default": "./src/commands.js"
+      },
+      "require": {
+        "types": "./src/commands.d.cts",
+        "default": "./src/commands.cjs"
+      }
     },
     "./dropcursor": {
-      "types": "./src/dropcursor.d.ts",
-      "import": "./src/dropcursor.js",
-      "require": "./src/dropcursor.cjs"
+      "import": {
+        "types": "./src/dropcursor.d.ts",
+        "default": "./src/dropcursor.js"
+      },
+      "require": {
+        "types": "./src/dropcursor.d.cts",
+        "default": "./src/dropcursor.cjs"
+      }
     },
     "./gapcursor": {
-      "types": "./src/gapcursor.d.ts",
-      "import": "./src/gapcursor.js",
-      "require": "./src/gapcursor.cjs"
+      "import": {
+        "types": "./src/gapcursor.d.ts",
+        "default": "./src/gapcursor.js"
+      },
+      "require": {
+        "types": "./src/gapcursor.d.cts",
+        "default": "./src/gapcursor.cjs"
+      }
     },
     "./history": {
-      "types": "./src/history.d.ts",
-      "import": "./src/history.js",
-      "require": "./src/history.cjs"
+      "import": {
+        "types": "./src/history.d.ts",
+        "default": "./src/history.js"
+      },
+      "require": {
+        "types": "./src/history.d.cts",
+        "default": "./src/history.cjs"
+      }
     },
     "./inputrules": {
-      "types": "./src/inputrules.d.ts",
-      "import": "./src/inputrules.js",
-      "require": "./src/inputrules.cjs"
+      "import": {
+        "types": "./src/inputrules.d.ts",
+        "default": "./src/inputrules.js"
+      },
+      "require": {
+        "types": "./src/inputrules.d.cts",
+        "default": "./src/inputrules.cjs"
+      }
     },
     "./keymap": {
-      "types": "./src/keymap.d.ts",
-      "import": "./src/keymap.js",
-      "require": "./src/keymap.cjs"
+      "import": {
+        "types": "./src/keymap.d.ts",
+        "default": "./src/keymap.js"
+      },
+      "require": {
+        "types": "./src/keymap.d.cts",
+        "default": "./src/keymap.cjs"
+      }
     },
     "./model": {
-      "types": "./src/model.d.ts",
-      "import": "./src/model.js",
-      "require": "./src/model.cjs"
+      "import": {
+        "types": "./src/model.d.ts",
+        "default": "./src/model.js"
+      },
+      "require": {
+        "types": "./src/model.d.cts",
+        "default": "./src/model.cjs"
+      }
     },
     "./schema-list": {
-      "types": "./src/schema-list.d.ts",
-      "import": "./src/schema-list.js",
-      "require": "./src/schema-list.cjs"
+      "import": {
+        "types": "./src/schema-list.d.ts",
+        "default": "./src/schema-list.js"
+      },
+      "require": {
+        "types": "./src/schema-list.d.cts",
+        "default": "./src/schema-list.cjs"
+      }
     },
     "./state": {
-      "types": "./src/state.d.ts",
-      "import": "./src/state.js",
-      "require": "./src/state.cjs"
+      "import": {
+        "types": "./src/state.d.ts",
+        "default": "./src/state.js"
+      },
+      "require": {
+        "types": "./src/state.d.cts",
+        "default": "./src/state.cjs"
+      }
     },
     "./tables": {
-      "types": "./src/tables.d.ts",
-      "import": "./src/tables.js",
-      "require": "./src/tables.cjs"
+      "import": {
+        "types": "./src/tables.d.ts",
+        "default": "./src/tables.js"
+      },
+      "require": {
+        "types": "./src/tables.d.cts",
+        "default": "./src/tables.cjs"
+      }
     },
     "./transform": {
-      "types": "./src/transform.d.ts",
-      "import": "./src/transform.js",
-      "require": "./src/transform.cjs"
+      "import": {
+        "types": "./src/transform.d.ts",
+        "default": "./src/transform.js"
+      },
+      "require": {
+        "types": "./src/transform.d.cts",
+        "default": "./src/transform.cjs"
+      }
     },
     "./view": {
-      "types": "./src/view.d.ts",
-      "import": "./src/view.js",
-      "require": "./src/view.cjs"
+      "import": {
+        "types": "./src/view.d.ts",
+        "default": "./src/view.js"
+      },
+      "require": {
+        "types": "./src/view.d.cts",
+        "default": "./src/view.cjs"
+      }
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "commands": ["src/commands.d.ts"],
+      "dropcursor": ["src/dropcursor.d.ts"],
+      "gapcursor": ["src/gapcursor.d.ts"],
+      "history": ["src/history.d.ts"],
+      "inputrules": ["src/inputrules.d.ts"],
+      "keymap": ["src/keymap.d.ts"],
+      "model": ["src/model.d.ts"],
+      "schema-list": ["src/schema-list.d.ts"],
+      "state": ["src/state.d.ts"],
+      "tables": ["src/tables.d.ts"],
+      "transform": ["src/transform.d.ts"],
+      "view": ["src/view.d.ts"]
     }
   },
   "files": [
