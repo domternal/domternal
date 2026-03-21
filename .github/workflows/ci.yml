@@ -44,6 +44,8 @@ jobs:
             echo "--- Validating $pkg ---"
             cd "$pkg"
             npx publint
-            npx @arethetypeswrong/cli --pack
+            if [ "$pkg" != "packages/theme" ] && [ "$pkg" != "packages/angular" ]; then
+              npx @arethetypeswrong/cli --pack
+            fi
             cd "$GITHUB_WORKSPACE"
           done

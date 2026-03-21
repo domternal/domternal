@@ -4,6 +4,7 @@
   "description": "Default themes and styles for Domternal editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
+  "type": "commonjs",
   "sideEffects": true,
   "types": "index.d.ts",
   "style": "dist/domternal-theme.css",
