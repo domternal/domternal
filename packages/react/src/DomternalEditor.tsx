@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
-import type { Content, AnyExtension, FocusPosition, JSONContent, Editor } from '@domternal/core';
+import type { Content, JSONContent, Editor } from '@domternal/core';
 import { useEditor, type UseEditorOptions } from './useEditor.js';
 import { useEditorState } from './useEditorState.js';
 import { EditorProvider } from './EditorContext.js';
@@ -60,7 +60,7 @@ export const DomternalEditor = forwardRef<DomternalEditorRef, DomternalEditorPro
 
     const { editor, editorRef } = useEditor({
       ...editorOptions,
-      content: value ?? content,
+      content: value ?? content ?? '',
       outputFormat,
     });
 

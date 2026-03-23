@@ -7,7 +7,7 @@ import {
   BaseKeymap,
   History,
 } from '@domternal/core';
-import type { Content, AnyExtension, FocusPosition, JSONContent, TransactionEventProps, FocusEventProps } from '@domternal/core';
+import type { Content, AnyExtension, FocusPosition, TransactionEventProps, FocusEventProps } from '@domternal/core';
 
 export const DEFAULT_EXTENSIONS: AnyExtension[] = [Document, Paragraph, Text, BaseKeymap, History];
 
@@ -44,7 +44,7 @@ export function useEditor(options: UseEditorOptions = {}) {
     content = '',
     editable = true,
     autofocus = false,
-    immediatelyRender = true,
+    // immediatelyRender reserved for future SSR support
     outputFormat = 'html',
   } = options;
 

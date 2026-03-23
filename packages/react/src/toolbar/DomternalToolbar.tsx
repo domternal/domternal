@@ -43,7 +43,6 @@ export function DomternalToolbar({ editor: editorProp, icons, layout }: Domterna
     getFlatIndex,
     handleDropdownToggle,
     closeDropdown,
-    syncState,
   } = useToolbarController(editor, layout);
 
   const {

@@ -50,12 +50,12 @@ function findCellNode(pos: ResolvedPosShape): { type: { name: string } } | null 
 
 export interface UseBubbleMenuOptions {
   editor: Editor | null;
-  shouldShow?: BubbleMenuOptions['shouldShow'];
-  placement?: 'top' | 'bottom';
-  offset?: number;
-  updateDelay?: number;
-  items?: string[];
-  contexts?: Record<string, string[] | true | null>;
+  shouldShow?: BubbleMenuOptions['shouldShow'] | undefined;
+  placement?: 'top' | 'bottom' | undefined;
+  offset?: number | undefined;
+  updateDelay?: number | undefined;
+  items?: string[] | undefined;
+  contexts?: Record<string, string[] | true | null> | undefined;
 }
 
 export function useBubbleMenu(options: UseBubbleMenuOptions) {
