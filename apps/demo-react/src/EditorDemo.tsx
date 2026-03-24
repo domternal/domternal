@@ -64,7 +64,7 @@ const extensions = [
   Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
   BulletList, OrderedList, TaskList,
   TextAlign, TextColor, FontSize, FontFamily, LineHeight,
-  Table.configure({ constrainToContainer: true, resizeBehavior: 'neighbor' as const }),
+  Table,
   Details,
   Image,
   Emoji.configure({ emojis, enableEmoticons: true, suggestion: { render: createEmojiSuggestionRenderer() } }),
