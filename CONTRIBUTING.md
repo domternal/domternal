@@ -61,6 +61,10 @@ Include:
 - **What** - Problem/issue being solved (optional)
 - **Test plan** - Steps to verify (optional)
 
+## Contributor License Agreement (CLA)
+
+Before your first pull request can be merged, you need to sign our [Contributor License Agreement (CLA)](https://gist.github.com/ThomasNowHere/cdca6f890b). The CLA confirms that you have the right to contribute your code and that you grant the project permission to use it. When you open a PR, the CLA Assistant bot will post a comment with a link to sign. You only need to sign once.
+
 ## Development
 
 ```bash

@@ -1,26 +1,37 @@
 # Domternal
 
+[![Domternal Editor](https://domternal.dev/readme/readme-banner.png)](https://domternal.dev)
+
 A lightweight, extensible rich text editor toolkit built on [ProseMirror](https://prosemirror.net/). Framework-agnostic headless core with first-class **Angular** support. Use it headless with vanilla JS/TS, add the built-in toolbar and theme, or drop in ready-made Angular components.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/domternal/domternal/actions/workflows/ci.yml/badge.svg)](https://github.com/domternal/domternal/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@domternal/core.svg?label=%40domternal%2Fcore)](https://www.npmjs.com/package/@domternal/core)
+
+**[Website](https://domternal.dev)** · **[Getting Started](https://domternal.dev/v1/getting-started)** · **[Packages & Bundle Size](https://domternal.dev/v1/packages)** · **[StackBlitz (Angular)](https://stackblitz.com/edit/domternal-angular-full-example)** · **[StackBlitz (Vanilla TS)](https://stackblitz.com/edit/domternal-vanilla-full-example)**
 
 ## Features
 
 - **Headless core** - use with any framework or vanilla JS/TS
 - **Angular components** - editor, toolbar, bubble menu, floating menu, emoji picker (signals, OnPush, zoneless-ready)
-- **Full table support** - cell merging, column resize, row/column controls, cell toolbar - all free
-- **23 nodes, 9 marks, 25 extensions** - paragraphs, headings, lists, task lists, code blocks, blockquotes, images, tables, details/accordion, emoji, mentions, and more
-- **112+ chainable commands** - `editor.chain().focus().toggleBold().run()`
-- **Tree-shakeable** - import only what you use, unused code is stripped from the bundle
-- **TypeScript first** - every schema, command, option, and event is fully typed
+- **57 extensions across 10 packages** - 23 nodes, 9 marks, and 25 behavior extensions
+- **140+ chainable commands** - `editor.chain().focus().toggleBold().run()`
+- **Full table support** - cell merging, column resize, row/column controls, cell toolbar, all free and MIT licensed
+- **Tree-shakeable** - import only what you use, your bundler strips the rest
+- **~38 KB gzipped** (own code), [~108 KB total](https://domternal.dev/v1/packages) with ProseMirror
+- **TypeScript first** - 100% typed, zero `any`
+- **4,200+ tests** - 2,675 unit tests and 1,550 E2E tests across 34 Playwright specs
 - **Light and dark theme** - 70+ CSS custom properties for full visual control
 - **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
 - **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
 
-## Quick Start (Vanilla JS/TS)
+## Quick Start
 
-### Headless Core (Vanilla JS/TS)
+### Headless (Vanilla JS/TS)
+
+```bash
+pnpm add @domternal/core
+```
 
 ```ts
 import { Editor, Document, Text, Paragraph, Bold, Italic, Underline } from '@domternal/core';
@@ -33,8 +44,6 @@ const editor = new Editor({
 ```
 
 Import only what you need for full control and zero bloat. Use `StarterKit` for a batteries-included setup with headings, lists, code blocks, history, and more.
-
-### More Setups
 
 > **[Getting Started Guide](https://domternal.dev/v1/getting-started)** - headless core, themed UI with toolbar, and Angular component setup
 >
@@ -61,11 +70,15 @@ See [Packages & Bundle Size](https://domternal.dev/v1/packages) for a full break
 
 ## Documentation
 
-Full documentation, live playground, and API reference at [domternal.dev](https://domternal.dev).
+Full documentation, live playgrounds, and API reference at **[domternal.dev](https://domternal.dev)**.
+
+- [Getting Started](https://domternal.dev/v1/getting-started) - install and create your first editor
+- [Introduction](https://domternal.dev/v1/introduction) - core concepts, architecture, and design decisions
+- [Packages & Bundle Size](https://domternal.dev/v1/packages) - what each package includes and bundle size breakdown
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for commit conventions, PR guidelines, and development setup.
 
 ```bash
 pnpm install    # Install dependencies
