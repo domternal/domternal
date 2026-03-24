@@ -1,0 +1,36 @@
+{
+  "name": "demo-react",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "@domternal/react": "workspace:*",
+    "@domternal/core": "workspace:*",
+    "@domternal/extension-code-block-lowlight": "workspace:*",
+    "@domternal/extension-details": "workspace:*",
+    "@domternal/extension-emoji": "workspace:*",
+    "@domternal/extension-image": "workspace:*",
+    "@domternal/extension-mention": "workspace:*",
+    "@domternal/extension-table": "workspace:*",
+    "@domternal/theme": "workspace:*",
+    "lowlight": "^3.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.5.2",
+    "typescript": "~5.9.3",
+    "vite": "^6.3.0",
+    "sass": "^1.89.0"
+  }
+}
