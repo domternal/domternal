@@ -1,6 +1,6 @@
 # Domternal
 
-![Domternal - Lightweight Rich Text Editor Toolkit](https://domternal.dev/readme/readme-banner.svg)
+[![Domternal Editor](https://domternal.dev/readme/readme-banner.png)](https://domternal.dev)
 
 A lightweight, extensible rich text editor toolkit built on [ProseMirror](https://prosemirror.net/). Framework-agnostic headless core with first-class **Angular** support. Use it headless with vanilla JS/TS, add the built-in toolbar and theme, or drop in ready-made Angular components.
 
