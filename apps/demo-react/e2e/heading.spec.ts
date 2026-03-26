@@ -260,10 +260,10 @@ test.describe('Heading — toolbar dropdown', () => {
   test('clicking dropdown shows heading options', async ({ page }) => {
     await page.locator(headingDropdown).click();
 
-    await expect(page.locator('button[aria-label="Normal text"]')).toBeVisible();
-    await expect(page.locator('button[aria-label="Heading 1"]')).toBeVisible();
-    await expect(page.locator('button[aria-label="Heading 2"]')).toBeVisible();
-    await expect(page.locator('button[aria-label="Heading 3"]')).toBeVisible();
+    await expect(page.locator('.dm-toolbar button[aria-label="Normal text"]')).toBeVisible();
+    await expect(page.locator('.dm-toolbar button[aria-label="Heading 1"]')).toBeVisible();
+    await expect(page.locator('.dm-toolbar button[aria-label="Heading 2"]')).toBeVisible();
+    await expect(page.locator('.dm-toolbar button[aria-label="Heading 3"]')).toBeVisible();
   });
 
   test('selecting Heading 1 converts paragraph to h1', async ({ page }) => {
@@ -322,7 +322,7 @@ test.describe('Heading — toolbar dropdown', () => {
 
     await page.locator(headingDropdown).click();
 
-    const h2Item = page.locator('button[aria-label="Heading 2"]');
+    const h2Item = page.locator('.dm-toolbar button[aria-label="Heading 2"]');
     await expect(h2Item).toHaveClass(/active/);
   });
 
@@ -332,7 +332,7 @@ test.describe('Heading — toolbar dropdown', () => {
 
     await page.locator(headingDropdown).click();
 
-    const paraItem = page.locator('button[aria-label="Normal text"]');
+    const paraItem = page.locator('.dm-toolbar button[aria-label="Normal text"]');
     await expect(paraItem).toHaveClass(/active/);
   });
 });

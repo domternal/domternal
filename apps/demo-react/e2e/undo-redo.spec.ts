@@ -7,8 +7,8 @@ const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 const btn = {
   undo: 'button[aria-label="Undo"]',
   redo: 'button[aria-label="Redo"]',
-  bold: 'button[aria-label="Bold"]',
-  italic: 'button[aria-label="Italic"]',
+  bold: '.dm-toolbar button[aria-label="Bold"]',
+  italic: '.dm-toolbar button[aria-label="Italic"]',
   blockquote: 'button[aria-label="Blockquote"]',
 } as const;
 

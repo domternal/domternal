@@ -9,10 +9,10 @@ import { expect, type Page } from '@playwright/test';
 const editorSelector = '.dm-editor .ProseMirror';
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
-const fontFamilyTrigger = 'button[aria-label="Font Family"]';
-const fontSizeTrigger = 'button[aria-label="Font Size"]';
-const textColorTrigger = 'button[aria-label="Text Color"]';
-const highlightTrigger = 'button[aria-label="Highlight"]';
+const fontFamilyTrigger = '.dm-toolbar button[aria-label="Font Family"]';
+const fontSizeTrigger = '.dm-toolbar button[aria-label="Font Size"]';
+const textColorTrigger = '.dm-toolbar button[aria-label="Text Color"]';
+const highlightTrigger = '.dm-toolbar button[aria-label="Highlight"]';
 
 const RED = '#e03131';
 const BLUE = '#1971c2';

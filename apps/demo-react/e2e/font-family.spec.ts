@@ -4,7 +4,7 @@ import { expect, type Page } from '@playwright/test';
 const editorSelector = '.dm-editor .ProseMirror';
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
-const dropdownTrigger = 'button[aria-label="Font Family"]';
+const dropdownTrigger = '.dm-toolbar button[aria-label="Font Family"]';
 
 const DEFAULT_FONTS = [
   'Arial', 'Verdana', 'Tahoma', 'Trebuchet MS',

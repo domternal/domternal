@@ -18,6 +18,7 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
   const cleanupFloatingRef = useRef<(() => void) | null>(null);
   const clickOutsideRef = useRef<((e: Event) => void) | null>(null);
   const keydownRef = useRef<((e: KeyboardEvent) => void) | null>(null);
+  const isOpenRef = useRef(false);
 
   const categories = useMemo(() => {
     const map = new Map<string, EmojiPickerItem[]>();
@@ -69,6 +70,7 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
   const close = useCallback(() => {
     cleanupFloatingRef.current?.();
     cleanupFloatingRef.current = null;
+    isOpenRef.current = false;
     setIsOpen(false);
     setStorageOpen(editor, false);
     setSearchQuery('');
@@ -107,12 +109,13 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
     const handler = (...args: unknown[]) => {
       const data = args[0] as { anchorElement?: HTMLElement } | undefined;
 
-      if (isOpen) {
+      if (isOpenRef.current) {
         close();
         return;
       }
 
       anchorRef.current = data?.anchorElement ?? null;
+      isOpenRef.current = true;
       setIsOpen(true);
       setStorageOpen(editor, true);
       setSearchQuery('');
@@ -144,7 +147,7 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
       (editor.off as (e: string, h: (...args: unknown[]) => void) => void)('insertEmoji', handler);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, isOpen]);
+  }, [editor]);
 
   const selectEmoji = useCallback((item: EmojiPickerItem) => {
     if (!editor) return;

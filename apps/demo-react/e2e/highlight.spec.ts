@@ -344,7 +344,7 @@ test.describe('Highlight — combined with other marks', () => {
   test('highlight + text color render on same span', async ({ page }) => {
     await replaceAndSelectAll(page, 'both colors');
     // Apply text color first
-    await page.locator('button[aria-label="Text Color"]').click();
+    await page.locator('.dm-toolbar button[aria-label="Text Color"]').click();
     await page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Text Color"]) .dm-color-swatch').first().click();
 
     // Apply highlight
@@ -363,7 +363,7 @@ test.describe('Highlight — combined with other marks', () => {
 
   test('highlight + bold renders correctly', async ({ page }) => {
     await replaceAndSelectAll(page, 'bold highlight');
-    await page.locator('button[aria-label="Bold"]').click();
+    await page.locator('.dm-toolbar button[aria-label="Bold"]').click();
     await page.keyboard.press(`${modifier}+a`);
     await page.locator(highlightTrigger).click();
     await page.locator(swatchSelector).first().click();

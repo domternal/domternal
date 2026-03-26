@@ -115,7 +115,7 @@ test.describe('Toolbar — dropdown keyboard', () => {
 
   test('Escape closes open dropdown when toolbar button focused', async ({ page }) => {
     // Focus the trigger button, then click to open dropdown
-    const trigger = page.locator('button[aria-label="Highlight"]');
+    const trigger = page.locator('.dm-toolbar button[aria-label="Highlight"]');
     await trigger.focus();
     await trigger.click();
 
@@ -129,7 +129,7 @@ test.describe('Toolbar — dropdown keyboard', () => {
   });
 
   test('clicking outside dropdown closes it', async ({ page }) => {
-    await page.locator('button[aria-label="Highlight"]').click();
+    await page.locator('.dm-toolbar button[aria-label="Highlight"]').click();
     const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Highlight"]) .dm-color-palette');
     await expect(panel).toBeVisible();
 
@@ -164,13 +164,13 @@ test.describe('Toolbar — ARIA', () => {
   });
 
   test('toggle buttons have aria-pressed', async ({ page }) => {
-    const boldBtn = page.locator('button[aria-label="Bold"]');
+    const boldBtn = page.locator('.dm-toolbar button[aria-label="Bold"]');
     const pressed = await boldBtn.getAttribute('aria-pressed');
     expect(pressed).toBe('false');
   });
 
   test('dropdown trigger has aria-haspopup and aria-expanded', async ({ page }) => {
-    const trigger = page.locator('button[aria-label="Highlight"]');
+    const trigger = page.locator('.dm-toolbar button[aria-label="Highlight"]');
     await expect(trigger).toHaveAttribute('aria-haspopup', 'true');
     await expect(trigger).toHaveAttribute('aria-expanded', 'false');
 

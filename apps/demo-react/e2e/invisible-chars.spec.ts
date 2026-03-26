@@ -3,7 +3,7 @@ import { expect, type Page } from '@playwright/test';
 
 const editorSelector = '.dm-editor .ProseMirror';
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
-const icButton = 'button[aria-label="Invisible Characters"]';
+const icButton = '.dm-toolbar button[aria-label="Invisible Characters"]';
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 

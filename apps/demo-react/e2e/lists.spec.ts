@@ -8,7 +8,7 @@ const btn = {
   bullet: 'button[aria-label="Bullet List"]',
   ordered: 'button[aria-label="Ordered List"]',
   task: 'button[aria-label="Task List"]',
-  bold: 'button[aria-label="Bold"]',
+  bold: '.dm-toolbar button[aria-label="Bold"]',
 } as const;
 
 async function setContentAndFocus(page: Page, html: string) {

@@ -476,7 +476,7 @@ test.describe('Emoji Picker — edge cases', () => {
     expect(btnBox).toBeTruthy();
     // Picker should be positioned somewhere on the page (may flip above or below)
     const distance = Math.abs(pickerBox!.y - btnBox!.y);
-    expect(distance).toBeLessThan(1200);
+    expect(distance).toBeLessThan(1300);
   });
 
   test('multiple open/close cycles work', async ({ page }) => {

@@ -60,12 +60,16 @@ const mockUsers: MentionItem[] = [
   { id: '8', label: 'Henry Ford' },
 ];
 
+const params = new URLSearchParams(window.location.search);
+const constrainTable = !params.has('constrainTable', 'false');
+const resizeBehavior = (params.get('resizeBehavior') ?? 'neighbor') as 'neighbor' | 'independent' | 'redistribute';
+
 const extensions = [
   Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
   Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
   BulletList, OrderedList, TaskList,
   TextAlign, TextColor, FontSize, FontFamily, LineHeight,
-  Table,
+  Table.configure({ constrainToContainer: constrainTable, resizeBehavior }),
   Details,
   Image,
   Emoji.configure({ emojis, enableEmoticons: true, suggestion: { render: createEmojiSuggestionRenderer() } }),
@@ -142,7 +146,7 @@ export function EditorDemo({ useLayout }: EditorDemoProps) {
         <>
           <DomternalBubbleMenu
             editor={editor}
-            contexts={{ text: ['bold', 'italic', 'underline', 'strike', 'code'] }}
+            contexts={{ text: ['bold', 'italic', 'underline', 'strike', 'code', '|', 'link'] }}
           />
           <DomternalEmojiPicker editor={editor} emojis={emojis} />
         </>

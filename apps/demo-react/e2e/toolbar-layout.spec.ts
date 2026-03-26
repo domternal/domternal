@@ -331,7 +331,7 @@ test.describe('Toolbar layout — custom dropdown (Formatting)', () => {
     await replaceAndSelectAll(page, 'strike me');
 
     await page.locator(formattingDropdown).click();
-    await page.locator('button[aria-label="Strikethrough"]').click();
+    await page.locator('.dm-toolbar button[aria-label="Strikethrough"]').click();
 
     const html = await getEditorHTML(page);
     expect(html).toContain('<s>strike me</s>');
@@ -342,7 +342,7 @@ test.describe('Toolbar layout — custom dropdown (Formatting)', () => {
     await replaceAndSelectAll(page, 'code me');
 
     await page.locator(formattingDropdown).click();
-    await page.locator('button[aria-label="Code"]').click();
+    await page.locator('.dm-toolbar button[aria-label="Code"]').click();
 
     const html = await getEditorHTML(page);
     expect(html).toContain('<code>code me</code>');
@@ -353,7 +353,7 @@ test.describe('Toolbar layout — custom dropdown (Formatting)', () => {
     await replaceAndSelectAll(page, 'sub me');
 
     await page.locator(formattingDropdown).click();
-    await page.locator('button[aria-label="Subscript"]').click();
+    await page.locator('.dm-toolbar button[aria-label="Subscript"]').click();
 
     const html = await getEditorHTML(page);
     expect(html).toContain('<sub>sub me</sub>');
@@ -364,7 +364,7 @@ test.describe('Toolbar layout — custom dropdown (Formatting)', () => {
     await replaceAndSelectAll(page, 'sup me');
 
     await page.locator(formattingDropdown).click();
-    await page.locator('button[aria-label="Superscript"]').click();
+    await page.locator('.dm-toolbar button[aria-label="Superscript"]').click();
 
     const html = await getEditorHTML(page);
     expect(html).toContain('<sup>sup me</sup>');
@@ -439,7 +439,7 @@ test.describe('Toolbar layout — existing dropdowns preserved', () => {
     await page.locator(`${editorSelector} p`).click();
 
     await page.locator(textAlignDropdown).click();
-    await page.locator('button[aria-label="Align Center"]').click();
+    await page.locator('.dm-toolbar button[aria-label="Align Center"]').click();
 
     const html = await getEditorHTML(page);
     expect(html).toContain('text-align: center');
@@ -1052,7 +1052,7 @@ test.describe('Toolbar layout — combining operations', () => {
 
     // Set heading
     await page.locator(headingDropdown).click();
-    await page.locator('button[aria-label="Heading 2"]').click();
+    await page.locator('.dm-toolbar button[aria-label="Heading 2"]').click();
 
     // Select all and bold
     await page.keyboard.press(`${modifier}+a`);
