@@ -167,6 +167,7 @@ test.describe('TextColor — color indicator bar', () => {
   test('indicator updates to blue when cursor is in blue text', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH_BLUE);
     await page.locator(`${editorSelector} span`).click();
+    await page.waitForTimeout(100);
 
     const indicator = page.locator(dropdownTrigger + ' .dm-toolbar-color-indicator');
     const bgColor = await indicator.evaluate(el => getComputedStyle(el).backgroundColor);

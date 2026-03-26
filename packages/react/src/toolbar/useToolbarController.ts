@@ -28,15 +28,23 @@ export function useToolbarController(
   const dismissOverlayRef = useRef<(() => void) | null>(null);
   const editorElRef = useRef<HTMLElement | null>(null);
 
+  const syncStateRafRef = useRef(0);
   const syncState = useCallback(() => {
-    const controller = controllerRef.current;
-    if (!controller) return;
+    // Defer state update to next animation frame so it doesn't interrupt
+    // the current event cycle (e.g. mousedown → click on toolbar buttons).
+    // Without this, a no-op transaction between mousedown and click causes
+    // React to re-render and replace DOM nodes, swallowing the click event.
+    cancelAnimationFrame(syncStateRafRef.current);
+    syncStateRafRef.current = requestAnimationFrame(() => {
+      const controller = controllerRef.current;
+      if (!controller) return;
 
-    const controllerGroups = controller.groups;
-    setGroups(prev => prev.length !== controllerGroups.length ? controllerGroups : prev);
-    setFocusedIndex(controller.focusedIndex);
-    setOpenDropdown(controller.openDropdown);
-    setActiveVersion(v => v + 1);
+      const controllerGroups = controller.groups;
+      setGroups(prev => prev.length !== controllerGroups.length ? controllerGroups : prev);
+      setFocusedIndex(controller.focusedIndex);
+      setOpenDropdown(controller.openDropdown);
+      setActiveVersion(v => v + 1);
+    });
   }, []);
 
   useEffect(() => {

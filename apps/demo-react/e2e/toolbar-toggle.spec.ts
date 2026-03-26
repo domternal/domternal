@@ -357,8 +357,8 @@ test.describe('Cross-popover interactions', () => {
     await selectText(page, 0, 5);
   });
 
-  // Image popover requires text selection containing an image node - skip for now
-  test.skip('opening image popover while link popover is open closes link popover', async ({ page }) => {
+  // Image popover requires an image node in selection to show - these tests use plain text
+  test('opening image popover while link popover is open closes link popover', async ({ page }) => {
     await page.locator(linkBtn).click();
     await expect(page.locator(linkPopover)).toHaveAttribute('data-show', '');
     await expect(page.locator(linkBtn)).toHaveAttribute('aria-expanded', 'true');
@@ -371,18 +371,21 @@ test.describe('Cross-popover interactions', () => {
     await expect(page.locator(linkBtn)).not.toHaveAttribute('aria-expanded');
   });
 
-  test.skip('opening emoji picker while link popover is open closes link popover', async ({ page }) => {
+  // React synthetic events batch state updates differently than Angular zone.run -
+  // link popover mousedown close and emoji button click happen in separate React render cycles
+  test('opening emoji picker while link popover is open closes link popover', async ({ page }) => {
     await page.locator(linkBtn).click();
+    await page.waitForTimeout(300);
     await expect(page.locator(linkPopover)).toHaveAttribute('data-show', '');
 
     await page.locator(emojiBtn).click();
-    await page.waitForTimeout(400);
-    await expect(page.locator(emojiPicker)).toBeVisible();
+    await page.waitForTimeout(500);
+    await expect(page.locator(emojiPicker)).toBeVisible({ timeout: 3000 });
     await expect(page.locator(linkPopover)).not.toHaveAttribute('data-show');
     await expect(page.locator(linkBtn)).not.toHaveAttribute('aria-expanded');
   });
 
-  test.skip('opening link popover while image popover is open closes image popover', async ({ page }) => {
+  test('opening link popover while image popover is open closes image popover', async ({ page }) => {
     await page.locator(imageBtn).click();
     await expect(page.locator(`${imagePopover}[data-show]`)).toBeVisible();
     await expect(page.locator(imageBtn)).toHaveAttribute('aria-expanded', 'true');
@@ -395,7 +398,7 @@ test.describe('Cross-popover interactions', () => {
     await expect(page.locator(imageBtn)).not.toHaveAttribute('aria-expanded');
   });
 
-  test.skip('opening link popover while emoji picker is open closes emoji picker', async ({ page }) => {
+  test('opening link popover while emoji picker is open closes emoji picker', async ({ page }) => {
     await page.locator(emojiBtn).click();
     await page.waitForTimeout(300);
     await expect(page.locator(emojiPicker)).toBeVisible();
@@ -406,7 +409,7 @@ test.describe('Cross-popover interactions', () => {
     await expect(page.locator(emojiPicker)).not.toBeVisible();
   });
 
-  test.skip('opening highlight dropdown while link popover is open closes link popover', async ({ page }) => {
+  test('opening highlight dropdown while link popover is open closes link popover', async ({ page }) => {
     await page.locator(linkBtn).click();
     await expect(page.locator(linkPopover)).toHaveAttribute('data-show', '');
 

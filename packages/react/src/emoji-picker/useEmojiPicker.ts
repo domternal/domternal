@@ -88,7 +88,10 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
         target !== anchorRef.current &&
         !anchorRef.current?.contains(target)
       ) {
-        close();
+        // Defer close to next frame so the current mousedown/click cycle
+        // completes without React re-rendering and replacing DOM nodes
+        // (which would swallow the click event on toolbar buttons).
+        requestAnimationFrame(() => close());
       }
     };
     document.addEventListener('mousedown', clickOutsideRef.current);
