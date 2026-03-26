@@ -164,7 +164,7 @@ test.describe('Toolbar — ARIA', () => {
   });
 
   test('toggle buttons have aria-pressed', async ({ page }) => {
-    const boldBtn = page.locator('button[aria-label="Bold"]');
+    const boldBtn = page.locator('.dm-toolbar button[aria-label="Bold"]');
     const pressed = await boldBtn.getAttribute('aria-pressed');
     expect(pressed).toBe('false');
   });

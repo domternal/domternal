@@ -132,7 +132,7 @@ export function DomternalToolbar({ editor: editorProp, icons, layout }: Domterna
             }
             if (item.type === 'dropdown') {
               const dd = item as ToolbarDropdownType;
-              const activeItem = dd.items.find((sub) => controllerRef.current?.activeMap.get(sub.name));
+              const activeItem = dd.items.find((sub: ToolbarButtonType) => controllerRef.current?.activeMap.get(sub.name));
 
               // Handle dynamic label with computed style
               let triggerHtml = getDropdownTriggerHtml(dd, activeItem);
@@ -164,7 +164,6 @@ export function DomternalToolbar({ editor: editorProp, icons, layout }: Domterna
                   tabIndex={getFlatIndex(dd.name) === focusedIndex ? 0 : -1}
                   triggerHtml={triggerHtml}
                   getCachedItemContent={getCachedItemContent}
-                  getCachedIcon={getCachedIcon}
                   onToggle={handleDropdownToggle}
                   onItemClick={onDropdownItemClick}
                   onFocus={onButtonFocus}

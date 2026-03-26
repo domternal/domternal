@@ -331,7 +331,7 @@ test.describe('Toolbar layout — custom dropdown (Formatting)', () => {
     await replaceAndSelectAll(page, 'strike me');
 
     await page.locator(formattingDropdown).click();
-    await page.locator('button[aria-label="Strikethrough"]').click();
+    await page.locator('.dm-toolbar-dropdown-panel button[aria-label="Strikethrough"]').click();
 
     const html = await getEditorHTML(page);
     expect(html).toContain('<s>strike me</s>');
@@ -342,7 +342,7 @@ test.describe('Toolbar layout — custom dropdown (Formatting)', () => {
     await replaceAndSelectAll(page, 'code me');
 
     await page.locator(formattingDropdown).click();
-    await page.locator('button[aria-label="Code"]').click();
+    await page.locator('.dm-toolbar-dropdown-panel button[aria-label="Code"]').click();
 
     const html = await getEditorHTML(page);
     expect(html).toContain('<code>code me</code>');

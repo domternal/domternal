@@ -26,11 +26,11 @@ export interface EditorState {
  * ```
  */
 export function useEditorState(editor: Editor | null): EditorState;
-export function useEditorState<T>(editor: Editor | null, selector: (editor: Editor) => T): T;
+export function useEditorState<T>(editor: Editor | null, selector: (editor: Editor) => T): T | undefined;
 export function useEditorState<T>(
   editor: Editor | null,
   selector?: (editor: Editor) => T,
-): EditorState | T {
+): EditorState | T | undefined {
   if (selector) {
     return useEditorStateSelector(editor, selector);
   }
@@ -99,7 +99,7 @@ function getFullState(editor: Editor | null): EditorState {
 
 // --- Selector mode (useSyncExternalStore) ---
 
-function useEditorStateSelector<T>(editor: Editor | null, selector: (editor: Editor) => T): T {
+function useEditorStateSelector<T>(editor: Editor | null, selector: (editor: Editor) => T): T | undefined {
   const selectorRef = useRef(selector);
   selectorRef.current = selector;
 
@@ -121,7 +121,7 @@ function useEditorStateSelector<T>(editor: Editor | null, selector: (editor: Edi
   );
 
   const getSnapshot = useCallback(() => {
-    if (!editor || editor.isDestroyed) return undefined as T;
+    if (!editor || editor.isDestroyed) return undefined;
     return selectorRef.current(editor);
   }, [editor]);
 

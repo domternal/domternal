@@ -88,6 +88,7 @@ export function useToolbarController(
     }
 
     return () => {
+      cancelAnimationFrame(syncStateRafRef.current);
       cleanupFloatingRef.current?.();
       cleanupFloatingRef.current = null;
 

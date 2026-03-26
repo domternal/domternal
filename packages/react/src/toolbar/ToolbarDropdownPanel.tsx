@@ -4,7 +4,6 @@ export interface ToolbarDropdownPanelProps {
   dropdown: ToolbarDropdown;
   isActive: (name: string) => boolean;
   getCachedItemContent: (icon: string, label: string, mode?: 'icon-text' | 'text' | 'icon') => string;
-  getCachedIcon: (name: string) => string;
   onItemClick: (item: ToolbarButton, event: React.MouseEvent) => void;
 }
 
@@ -12,7 +11,6 @@ export function ToolbarDropdownPanel({
   dropdown,
   isActive,
   getCachedItemContent,
-  getCachedIcon,
   onItemClick,
 }: ToolbarDropdownPanelProps) {
   if (dropdown.layout === 'grid') {
@@ -22,7 +20,7 @@ export function ToolbarDropdownPanel({
         role="menu"
         style={{ '--dm-palette-columns': String(dropdown.gridColumns ?? 10) } as React.CSSProperties}
       >
-        {dropdown.items.map((sub) =>
+        {dropdown.items.map((sub: ToolbarButton) =>
           sub.color ? (
             <button
               key={sub.name}
@@ -58,7 +56,7 @@ export function ToolbarDropdownPanel({
       role="menu"
       data-display-mode={dropdown.displayMode ?? null}
     >
-      {dropdown.items.map((sub) => (
+      {dropdown.items.map((sub: ToolbarButton) => (
         <button
           key={sub.name}
           type="button"

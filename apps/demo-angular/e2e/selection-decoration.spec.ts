@@ -2,7 +2,7 @@ import { test } from './fixtures.js';
 import { expect } from '@playwright/test';
 
 const editorSelector = 'domternal-editor .ProseMirror';
-const boldButton = 'button[aria-label="Bold"]';
+const boldButton = '.dm-toolbar button[aria-label="Bold"]';
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
 test.describe('SelectionDecoration', () => {
@@ -70,7 +70,7 @@ test.describe('SelectionDecoration', () => {
       await page.keyboard.press(`${modifier}+a`);
 
       // Open link popover (focus moves to input → editor blurs)
-      await page.locator('button[aria-label="Link"]').click();
+      await page.locator('.dm-toolbar button[aria-label="Link"]').click();
       await page.waitForSelector('.dm-link-popover[data-show]');
       await page.waitForTimeout(100);
 
@@ -91,7 +91,7 @@ test.describe('SelectionDecoration', () => {
       await page.keyboard.type('decorate me');
       await page.keyboard.press(`${modifier}+a`);
 
-      await page.locator('button[aria-label="Link"]').click();
+      await page.locator('.dm-toolbar button[aria-label="Link"]').click();
       await page.waitForSelector('.dm-link-popover[data-show]');
       await page.waitForTimeout(100);
 
@@ -107,7 +107,7 @@ test.describe('SelectionDecoration', () => {
       await page.keyboard.type('temp');
       await page.keyboard.press(`${modifier}+a`);
 
-      await page.locator('button[aria-label="Link"]').click();
+      await page.locator('.dm-toolbar button[aria-label="Link"]').click();
       await page.waitForSelector('.dm-link-popover[data-show]');
       await page.waitForTimeout(100);
 

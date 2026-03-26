@@ -28,7 +28,7 @@ export function ToolbarButton({
       type="button"
       className={`dm-toolbar-button${isActive ? ' dm-toolbar-button--active' : ''}`}
       aria-pressed={isActive}
-      aria-expanded={ariaExpanded ?? undefined}
+      aria-expanded={ariaExpanded === 'true' ? true : undefined}
       aria-label={item.label}
       title={tooltip}
       tabIndex={tabIndex}

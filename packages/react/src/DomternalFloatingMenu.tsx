@@ -28,6 +28,11 @@ export function DomternalFloatingMenu({
     new PluginKey('reactFloatingMenu-' + Math.random().toString(36).slice(2, 8)),
   );
 
+  const shouldShowRef = useRef(shouldShow);
+  shouldShowRef.current = shouldShow;
+  const offsetRef = useRef(offset);
+  offsetRef.current = offset;
+
   useEffect(() => {
     if (!editor || editor.isDestroyed || !menuRef.current) return;
 
@@ -35,8 +40,8 @@ export function DomternalFloatingMenu({
       pluginKey: pluginKeyRef.current,
       editor,
       element: menuRef.current,
-      ...(shouldShow && { shouldShow }),
-      offset,
+      ...(shouldShowRef.current && { shouldShow: shouldShowRef.current }),
+      offset: offsetRef.current,
     });
     editor.registerPlugin(plugin);
 
@@ -45,7 +50,7 @@ export function DomternalFloatingMenu({
         editor.unregisterPlugin(pluginKeyRef.current);
       }
     };
-  }, [editor, shouldShow, offset]);
+  }, [editor]);
 
   return (
     <div ref={menuRef} className="dm-floating-menu">

@@ -363,7 +363,7 @@ test.describe('Highlight — combined with other marks', () => {
 
   test('highlight + bold renders correctly', async ({ page }) => {
     await replaceAndSelectAll(page, 'bold highlight');
-    await page.locator('button[aria-label="Bold"]').click();
+    await page.locator('.dm-toolbar button[aria-label="Bold"]').click();
     await page.keyboard.press(`${modifier}+a`);
     await page.locator(highlightTrigger).click();
     await page.locator(swatchSelector).first().click();

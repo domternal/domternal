@@ -10,7 +10,6 @@ export interface ToolbarDropdownProps {
   tabIndex: number;
   triggerHtml: string;
   getCachedItemContent: (icon: string, label: string, mode?: 'icon-text' | 'text' | 'icon') => string;
-  getCachedIcon: (name: string) => string;
   onToggle: (dropdown: ToolbarDropdownType) => void;
   onItemClick: (item: ToolbarButton, event: React.MouseEvent) => void;
   onFocus: (name: string) => void;
@@ -25,7 +24,6 @@ export function ToolbarDropdown({
   tabIndex,
   triggerHtml,
   getCachedItemContent,
-  getCachedIcon,
   onToggle,
   onItemClick,
   onFocus,
@@ -52,7 +50,6 @@ export function ToolbarDropdown({
           dropdown={dropdown}
           isActive={isActive}
           getCachedItemContent={getCachedItemContent}
-          getCachedIcon={getCachedIcon}
           onItemClick={onItemClick}
         />
       )}

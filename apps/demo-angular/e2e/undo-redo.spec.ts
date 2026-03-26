@@ -5,11 +5,11 @@ const editorSelector = 'domternal-editor .ProseMirror';
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
 const btn = {
-  undo: 'button[aria-label="Undo"]',
-  redo: 'button[aria-label="Redo"]',
-  bold: 'button[aria-label="Bold"]',
-  italic: 'button[aria-label="Italic"]',
-  blockquote: 'button[aria-label="Blockquote"]',
+  undo: '.dm-toolbar button[aria-label="Undo"]',
+  redo: '.dm-toolbar button[aria-label="Redo"]',
+  bold: '.dm-toolbar button[aria-label="Bold"]',
+  italic: '.dm-toolbar button[aria-label="Italic"]',
+  blockquote: '.dm-toolbar button[aria-label="Blockquote"]',
 } as const;
 
 async function getEditorHTML(page: Page): Promise<string> {

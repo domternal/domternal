@@ -56,12 +56,11 @@ export function DomternalBubbleMenu({
 
   const getCachedHtml = (name: string): string => {
     const cache = htmlCacheRef.current;
-    let cached = cache.get(name);
-    if (!cached) {
-      cached = getCachedIcon(name);
-      cache.set(name, cached);
-    }
-    return cached;
+    const cached = cache.get(name);
+    if (cached) return cached;
+    const html = getCachedIcon(name);
+    cache.set(name, html);
+    return html;
   };
 
   return (
