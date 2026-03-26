@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import {
   useEditor,
   useEditorState,
@@ -109,6 +110,14 @@ export function EditorDemo({ useLayout }: EditorDemoProps) {
 
   const { htmlContent } = useEditorState(editor);
 
+  // Expose editor on window for E2E test access (replaces Angular's ng.getComponent pattern)
+  useEffect(() => {
+    if (editor) {
+      (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] = editor;
+    }
+    return () => { (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] = undefined; };
+  }, [editor]);
+
   const getStyledHtml = (html: string): string => {
     return inlineStyles(html, { codeHighlighter, tableColumnWidths: 'pixel' });
   };
@@ -133,7 +142,7 @@ export function EditorDemo({ useLayout }: EditorDemoProps) {
         <>
           <DomternalBubbleMenu
             editor={editor}
-            contexts={{ text: ['bold', 'italic', 'underline', 'strike', 'code', '|', 'link'] }}
+            contexts={{ text: ['bold', 'italic', 'underline', 'strike', 'code'] }}
           />
           <DomternalEmojiPicker editor={editor} emojis={emojis} />
         </>
