@@ -1,6 +1,6 @@
 {
   "name": "@domternal/pm",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "ProseMirror package re-exports for Domternal",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
