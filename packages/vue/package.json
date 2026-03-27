@@ -1,0 +1,53 @@
+{
+  "name": "@domternal/vue",
+  "version": "0.3.0",
+  "description": "Vue 3 components for Domternal editor",
+  "author": "https://github.com/ThomasNowHere",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "@domternal/source": "./src/index.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "vue": ">=3.3",
+    "@domternal/core": ">=0.2.0"
+  },
+  "devDependencies": {
+    "@domternal/core": "workspace:*",
+    "vue": "^3.5.13",
+    "tsup": "^8.5.1",
+    "typescript": "~5.9.3"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "vue",
+    "vue3",
+    "prosemirror",
+    "editor",
+    "rich-text",
+    "domternal"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/domternal/domternal.git",
+    "directory": "packages/vue"
+  },
+  "bugs": {
+    "url": "https://github.com/domternal/domternal/issues"
+  },
+  "homepage": "https://domternal.dev"
+}
