@@ -38,6 +38,7 @@
 
 .dm-theme-light,
 .dm-theme-light .dm-editor,
-.dm-theme-light .dm-toolbar {
+.dm-theme-light .dm-toolbar,
+.dm-theme-light .dm-table-controls-dropdown {
   @include light-tokens;
 }

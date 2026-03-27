@@ -167,9 +167,16 @@ importers:
       lowlight:
         specifier: ^3.3.0
         version: 3.3.0
+      sharp:
+        specifier: ^0.34.5
+        version: 0.34.5
       tailwindcss:
         specifier: ^4.2.1
         version: 4.2.1
+    devDependencies:
+      '@astrojs/sitemap':
+        specifier: ^3.7.1
+        version: 3.7.1
 
   examples/angular:
     dependencies:
@@ -8714,8 +8721,7 @@ snapshots:
 
   '@humanwhocodes/retry@0.4.3': {}
 
-  '@img/colour@1.1.0':
-    optional: true
+  '@img/colour@1.1.0': {}
 
   '@img/sharp-darwin-arm64@0.34.5':
     optionalDependencies:
@@ -13636,7 +13642,8 @@ snapshots:
     optionalDependencies:
       '@parcel/watcher': 2.5.6
 
-  sax@1.4.4: {}
+  sax@1.4.4:
+    optional: true
 
   sax@1.5.0: {}
 
@@ -13710,7 +13717,6 @@ snapshots:
       '@img/sharp-win32-arm64': 0.34.5
       '@img/sharp-win32-ia32': 0.34.5
       '@img/sharp-win32-x64': 0.34.5
-    optional: true
 
   shebang-command@2.0.0:
     dependencies:
@@ -13792,7 +13798,7 @@ snapshots:
       '@types/node': 24.12.0
       '@types/sax': 1.2.7
       arg: 5.0.2
-      sax: 1.4.4
+      sax: 1.5.0
 
   slice-ansi@7.1.2:
     dependencies:

@@ -638,6 +638,7 @@ export class TableView implements NodeView {
     dropdown.style.left = String(handleRect.left) + 'px';
     dropdown.style.top = String(handleRect.bottom + 4) + 'px';
 
+    this.copyThemeClass(dropdown);
     document.body.appendChild(dropdown);
     this.dropdown = dropdown;
     this.addDropdownListeners();
@@ -762,6 +763,7 @@ export class TableView implements NodeView {
     dropdown.style.top = String(btnRect.bottom + 4) + 'px';
 
     // Append to body first to measure
+    this.copyThemeClass(dropdown);
     document.body.appendChild(dropdown);
     this.dropdown = dropdown;
 
@@ -774,6 +776,18 @@ export class TableView implements NodeView {
     dropdown.style.left = String(Math.max(0, leftPos)) + 'px';
 
     this.addDropdownListeners();
+  }
+
+  /** Copy dm-theme-* class from the editor to the dropdown so CSS variables apply when appended to body. */
+  private copyThemeClass(dropdown: HTMLElement): void {
+    const editorEl = this.view.dom.closest('.dm-editor');
+    const themeEl = editorEl?.closest('[class*="dm-theme-"]') ?? editorEl;
+    if (!themeEl) return;
+    themeEl.classList.forEach((cls) => {
+      if (cls.startsWith('dm-theme-')) {
+        dropdown.classList.add(cls);
+      }
+    });
   }
 
   private addDropdownListeners(): void {
