@@ -8,6 +8,7 @@
 import { Node } from '../Node.js';
 import { textblockTypeInputRule } from '@domternal/pm/inputrules';
 import { keymap } from '@domternal/pm/keymap';
+import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { Command as PMCommand } from '@domternal/pm/state';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem, ToolbarButton } from '../types/Toolbar.js';
@@ -151,7 +152,39 @@ export const Heading = Node.create<HeadingOptions>({
   },
 
   addProseMirrorPlugins() {
+    const { options, editor } = this;
+
+    // Build a map from code (e.g. 'Digit2') to heading level for levels
+    // where Alt produces special characters on macOS, preventing the
+    // regular keymap from matching.
+    const codeToLevel: Record<string, number> = {};
+    for (const level of options.levels) {
+      codeToLevel[`Digit${String(level)}`] = level;
+    }
+    // Also handle Mod-Alt-0 for setParagraph
+    codeToLevel['Digit0'] = 0;
+
     return [
+      new Plugin({
+        key: new PluginKey('headingKeydownFix'),
+        props: {
+          handleDOMEvents: {
+            keydown(_view, event) {
+              if (!event.altKey || !(event.metaKey || event.ctrlKey)) return false;
+              const level = codeToLevel[event.code];
+              if (level === undefined) return false;
+
+              event.preventDefault();
+              if (level === 0) {
+                editor?.commands['setParagraph']?.();
+              } else {
+                editor?.commands['toggleHeading']?.({ level });
+              }
+              return true;
+            },
+          },
+        },
+      }),
       keymap({
         Backspace: ((state, dispatch) => {
           const { selection } = state;
