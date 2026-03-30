@@ -192,13 +192,13 @@ export class DomternalToolbarComponent implements OnDestroy {
     if (dropdown.layout === 'grid') return false; // color dropdowns use bar indicator instead
     if (dropdown.dynamicLabel) return false; // label text already communicates state
     this.activeVersion(); // subscribe to changes
-    return dropdown.items.some((item) => this.controller?.activeMap.get(item.name) ?? false);
+    return dropdown.items.some((item: ToolbarButton) => this.controller?.activeMap.get(item.name) ?? false);
   }
 
   /** Returns trigger innerHTML: dynamic icon + caret (+ color indicator for grid dropdowns). */
   getDropdownTriggerHtml(dropdown: ToolbarDropdown): SafeHtml {
     this.activeVersion(); // subscribe to changes
-    const activeItem = dropdown.items.find((item) => this.controller?.activeMap.get(item.name));
+    const activeItem = dropdown.items.find((item: ToolbarButton) => this.controller?.activeMap.get(item.name));
 
     if (dropdown.layout === 'grid') {
       const color = activeItem?.color ?? dropdown.defaultIndicatorColor ?? null;
@@ -261,7 +261,7 @@ export class DomternalToolbarComponent implements OnDestroy {
   getTooltip(item: ToolbarButton): string {
     if (item.shortcut) {
       const parts = item.shortcut.split('-');
-      const mapped = parts.map(p => {
+      const mapped = parts.map((p: string) => {
         if (p === 'Mod') return isMac ? '\u2318' : 'Ctrl';
         if (p === 'Shift') return isMac ? '\u21E7' : 'Shift';
         if (p === 'Alt') return isMac ? '\u2325' : 'Alt';

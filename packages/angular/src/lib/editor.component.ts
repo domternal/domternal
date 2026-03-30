@@ -25,7 +25,7 @@ import {
   BaseKeymap,
   History,
 } from '@domternal/core';
-import type { Content, AnyExtension, FocusPosition, JSONContent } from '@domternal/core';
+import type { Content, AnyExtension, FocusPosition, JSONContent, TransactionEventProps, FocusEventProps } from '@domternal/core';
 
 export const DEFAULT_EXTENSIONS: AnyExtension[] = [Document, Paragraph, Text, BaseKeymap, History];
 
@@ -207,7 +207,7 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
     this._jsonContent.set(this._editor.getJSON());
     this._isEmpty.set(this._editor.isEmpty);
 
-    this._editor.on('transaction', ({ transaction }) => {
+    this._editor.on('transaction', ({ transaction }: TransactionEventProps) => {
       this.ngZone.run(() => {
         const ed = this._editor!;
 
@@ -228,14 +228,14 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
       });
     });
 
-    this._editor.on('focus', ({ event }) => {
+    this._editor.on('focus', ({ event }: FocusEventProps) => {
       this.ngZone.run(() => {
         this._isFocused.set(true);
         this.focusChanged.emit({ editor: this._editor!, event });
       });
     });
 
-    this._editor.on('blur', ({ event }) => {
+    this._editor.on('blur', ({ event }: FocusEventProps) => {
       this.ngZone.run(() => {
         this._isFocused.set(false);
         this.blurChanged.emit({ editor: this._editor!, event });
