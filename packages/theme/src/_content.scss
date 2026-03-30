@@ -77,12 +77,8 @@
   blockquote {
     border-left: var(--dm-blockquote-border);
     color: var(--dm-blockquote-color);
-    margin: 0.75em 0;
-    padding: 0.25em 0 0.25em 1em;
-
-    p {
-      margin-top: 0;
-    }
+    margin: 0.5em 0;
+    padding: 0.1em 0 0.1em 0.8em;
   }
 
   // ---------------------------------------------------------------------------
@@ -119,8 +115,6 @@
 
   a {
     color: var(--dm-link-color);
-    cursor: pointer;
-
     &:hover {
       color: var(--dm-link-hover-color);
     }
