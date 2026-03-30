@@ -11,7 +11,7 @@
  */
 
 import { Node } from '../Node.js';
-import { textblockTypeInputRule } from '@domternal/pm/inputrules';
+import { textblockTypeInputRule } from '../helpers/textblockTypeInputRule.js';
 import { TextSelection } from '@domternal/pm/state';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
@@ -179,14 +179,14 @@ export const CodeBlock = Node.create<CodeBlockOptions>({
     }
 
     return [
-      textblockTypeInputRule(
-        /^```([a-z]*)?[\s\n]$/,
-        nodeType,
-        (match) => {
+      textblockTypeInputRule({
+        find: /^```([a-z]*)?[\s\n]$/,
+        type: nodeType,
+        getAttributes: (match) => {
           const language = match[1] ?? null;
           return { language };
-        }
-      ),
+        },
+      }),
     ];
   },
 });

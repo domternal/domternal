@@ -84,5 +84,39 @@ describe('listCommands', () => {
       editor.commands.toggleList('taskList', 'taskItem');
       expect(editor.getHTML()).toContain('data-type="taskList"');
     });
+
+    it('mixed: bullet list + paragraphs → toggle bullet list flattens and wraps', () => {
+      editor = new Editor({
+        extensions,
+        content: '<ul><li><p>first</p></li></ul><p>second</p><p>third</p>',
+      });
+      // Select all content
+      const docSize = editor.state.doc.content.size;
+      setSelection(editor, 0, docSize);
+      const result = editor.commands.toggleList('bulletList', 'listItem');
+      const html = editor.getHTML();
+      expect(result).toBe(true);
+      expect(html).toContain('first');
+      expect(html).toContain('second');
+      expect(html).toContain('third');
+      // Should be a single flat bullet list, NOT nested
+      const ulCount = (html.match(/<ul>/g) ?? []).length;
+      expect(ulCount).toBe(1);
+    });
+
+    it('mixed: bullet list + paragraphs → toggle ordered list', () => {
+      editor = new Editor({
+        extensions,
+        content: '<ul><li><p>first</p></li></ul><p>second</p><p>third</p>',
+      });
+      const docSize = editor.state.doc.content.size;
+      setSelection(editor, 0, docSize);
+      editor.commands.toggleList('orderedList', 'listItem');
+      const html = editor.getHTML();
+      expect(html).toContain('<ol>');
+      expect(html).not.toContain('<ul>');
+      expect(html).toContain('first');
+      expect(html).toContain('second');
+    });
   });
 });

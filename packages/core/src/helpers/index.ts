@@ -15,6 +15,23 @@ export {
   type MarkInputRuleOptions,
 } from './markInputRule.js';
 export {
+  wrappingInputRule,
+  notInsideList,
+  type WrappingInputRuleOptions,
+} from './wrappingInputRule.js';
+export {
+  textblockTypeInputRule,
+  type TextblockTypeInputRuleOptions,
+} from './textblockTypeInputRule.js';
+export {
+  textInputRule,
+  type TextInputRuleOptions,
+} from './textInputRule.js';
+export {
+  nodeInputRule,
+  type NodeInputRuleOptions,
+} from './nodeInputRule.js';
+export {
   isValidUrl,
   type IsValidUrlOptions,
 } from './isValidUrl.js';

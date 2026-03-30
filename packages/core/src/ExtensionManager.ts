@@ -13,8 +13,8 @@ import type { NodeSpec, MarkSpec } from '@domternal/pm/model';
 import type { Plugin, Transaction } from '@domternal/pm/state';
 import type { NodeViewConstructor } from '@domternal/pm/view';
 import { keymap } from '@domternal/pm/keymap';
-import { inputRules as createInputRulesPlugin } from '@domternal/pm/inputrules';
 import type { InputRule } from '@domternal/pm/inputrules';
+import { inputRulesPlugin as createInputRulesPlugin } from './helpers/inputRulesPlugin.js';
 
 import type { Command as PMCommand } from '@domternal/pm/state';
 
@@ -555,16 +555,18 @@ export class ExtensionManager {
   private buildPlugins(): Plugin[] {
     const plugins: Plugin[] = [];
 
+    // Collect input rules and create inputRules plugin.
+    // The plugin includes a built-in Backspace handler (via handleKeyDown)
+    // that undoes the last input rule before any keymap plugin can intercept it.
+    const rules = this.collectInputRules();
+    if (rules.length > 0) {
+      plugins.push(createInputRulesPlugin({ rules }));
+    }
+
     // Collect keyboard shortcuts and create keymap plugin
     const shortcuts = this.collectKeyboardShortcuts();
     if (Object.keys(shortcuts).length > 0) {
       plugins.push(keymap(shortcuts));
-    }
-
-    // Collect input rules and create inputRules plugin
-    const rules = this.collectInputRules();
-    if (rules.length > 0) {
-      plugins.push(createInputRulesPlugin({ rules }));
     }
 
     // Collect custom plugins from extensions

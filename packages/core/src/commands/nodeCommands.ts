@@ -1,7 +1,6 @@
 /**
  * Node commands — setBlockType, toggleBlockType, wrapIn, toggleWrap, lift
  */
-import { TextSelection } from '@domternal/pm/state';
 import { findWrapping, liftTarget } from '@domternal/pm/transform';
 import type { Attrs, Node as PMNode } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
@@ -219,8 +218,18 @@ export const toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]> =
 
     if (allWrapped) {
       const first = contentBlocks[0];
-      if (first) {
-        tr.setSelection(TextSelection.create(tr.doc, first.pos + 1));
+      const last = contentBlocks[contentBlocks.length - 1];
+      if (first && last) {
+        const $liftFrom = tr.doc.resolve(first.pos + 1);
+        const $liftTo = tr.doc.resolve(last.pos + 1);
+        const range = $liftFrom.blockRange($liftTo);
+        if (!range) return false;
+        const target = liftTarget(range);
+        if (target === null) return false;
+        if (!dispatch) return true;
+        tr.lift(range, target).scrollIntoView();
+        dispatch(tr);
+        return true;
       }
       return lift()(props);
     }

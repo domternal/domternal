@@ -6,7 +6,7 @@
  */
 
 import { Node } from '../Node.js';
-import { wrappingInputRule } from '@domternal/pm/inputrules';
+import { wrappingInputRule, notInsideList } from '../helpers/wrappingInputRule.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 import { TaskItem } from './TaskItem.js';
@@ -104,9 +104,9 @@ export const TaskList = Node.create<TaskListOptions>({
 
     return [
       // [ ] at start of line creates unchecked task
-      wrappingInputRule(/^\s*\[\s?\]\s$/, nodeType),
+      wrappingInputRule({ find: /^\s*\[\s?\]\s$/, type: nodeType, guard: notInsideList }),
       // [x] or [X] at start of line creates checked task
-      wrappingInputRule(/^\s*\[[xX]\]\s$/, nodeType),
+      wrappingInputRule({ find: /^\s*\[[xX]\]\s$/, type: nodeType, guard: notInsideList }),
     ];
   },
 });

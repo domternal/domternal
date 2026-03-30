@@ -2,9 +2,47 @@
  * List commands — toggleList
  */
 import { TextSelection, EditorState } from '@domternal/pm/state';
+import type { Transaction } from '@domternal/pm/state';
 import { wrapRangeInList, liftListItem } from '@domternal/pm/schema-list';
-import type { Attrs, Node as PMNode } from '@domternal/pm/model';
+import { canJoin } from '@domternal/pm/transform';
+import type { Attrs, NodeType, Node as PMNode } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
+
+/**
+ * Find the innermost list of the given type around the selection,
+ * then join it with an adjacent list of the same type if possible.
+ */
+function joinListBackwards(tr: Transaction, listType: NodeType): void {
+  const { $from } = tr.selection;
+  for (let d = $from.depth; d >= 0; d--) {
+    if ($from.node(d).type === listType) {
+      const listPos = $from.before(d);
+      if (listPos > 0 && canJoin(tr.doc, listPos)) {
+        const nodeBefore = tr.doc.resolve(listPos - 1).parent;
+        if (nodeBefore.type === listType) {
+          tr.join(listPos);
+        }
+      }
+      return;
+    }
+  }
+}
+
+function joinListForwards(tr: Transaction, listType: NodeType): void {
+  const { $from } = tr.selection;
+  for (let d = $from.depth; d >= 0; d--) {
+    if ($from.node(d).type === listType) {
+      const after = $from.after(d);
+      if (after < tr.doc.content.size && canJoin(tr.doc, after)) {
+        const nodeAfter = tr.doc.nodeAt(after);
+        if (nodeAfter?.type === listType) {
+          tr.join(after);
+        }
+      }
+      return;
+    }
+  }
+}
 
 /**
  * ToggleList command - toggles a list type on the current selection
@@ -207,11 +245,73 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
       return true;
     }
 
-    // Case 3: Not in a list → wrap in the target list type
-    const { $from: $wrapFrom, $to: $wrapTo } = tr.selection;
+    // Case 3: Not in a list (or mixed) → flatten lists if needed, then wrap
+    const blocksInList = contentBlocks.filter((b) => b.inSomeList);
+
+    if (blocksInList.length === 0) {
+      // Pure wrap: no blocks in any list
+      const { $from: $wf, $to: $wt } = tr.selection;
+      const wr = $wf.blockRange($wt);
+      if (!wr) return false;
+      if (!wrapRangeInList(dispatch ? tr : null, wr, listType, attributes)) return false;
+      if (dispatch) {
+        joinListBackwards(tr, listType);
+        joinListForwards(tr, listType);
+        dispatch(tr.scrollIntoView());
+      }
+      return true;
+    }
+
+    // Mixed selection: some blocks in lists, some not.
+    // Flatten existing lists to their child blocks first (like tiptap's clearNodes),
+    // then wrap everything in the target list.
+    if (!dispatch) return true;
+
+    // Collect unique list positions
+    const seen = new Set<number>();
+    const listPositions: number[] = [];
+    for (const block of blocksInList) {
+      const $pos = tr.doc.resolve(block.pos);
+      for (let d = $pos.depth; d >= 0; d--) {
+        const groups = ($pos.node(d).type.spec.group ?? '').split(/\s+/);
+        if (groups.includes('list')) {
+          const lpos = $pos.before(d);
+          if (!seen.has(lpos)) {
+            seen.add(lpos);
+            listPositions.push(lpos);
+          }
+          break;
+        }
+      }
+    }
+
+    // Process bottom-to-top so earlier positions stay stable
+    listPositions.sort((a, b) => b - a);
+    for (const pos of listPositions) {
+      const listNode = tr.doc.nodeAt(pos);
+      if (!listNode) continue;
+      const children: PMNode[] = [];
+      listNode.forEach((item) => {
+        item.forEach((child) => children.push(child));
+      });
+      tr.replaceWith(pos, pos + listNode.nodeSize, children);
+    }
+
+    // Wrap everything in the target list.
+    // Use original from/to mapped through the transaction (tr.selection may
+    // have collapsed after replaceWith, so we map the raw positions instead).
+    const mappedFrom = tr.mapping.map(from, -1);
+    const mappedTo = tr.mapping.map(to, 1);
+    const $wrapFrom = tr.doc.resolve(mappedFrom);
+    const $wrapTo = tr.doc.resolve(mappedTo);
     const wrapRange = $wrapFrom.blockRange($wrapTo);
     if (!wrapRange) return false;
-    if (!wrapRangeInList(dispatch ? tr : null, wrapRange, listType, attributes)) return false;
-    if (dispatch) dispatch(tr.scrollIntoView());
+    wrapRangeInList(tr, wrapRange, listType, attributes);
+
+    // Merge with adjacent lists of the same type
+    joinListBackwards(tr, listType);
+    joinListForwards(tr, listType);
+
+    dispatch(tr.scrollIntoView());
     return true;
   };

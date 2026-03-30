@@ -6,7 +6,7 @@
  */
 
 import { Node } from '../Node.js';
-import { wrappingInputRule } from '@domternal/pm/inputrules';
+import { wrappingInputRule } from '../helpers/wrappingInputRule.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 
@@ -96,7 +96,7 @@ export const Blockquote = Node.create<BlockquoteOptions>({
     }
 
     return [
-      wrappingInputRule(/^\s*>\s$/, nodeType),
+      wrappingInputRule({ find: /^\s*>\s$/, type: nodeType }),
     ];
   },
 });

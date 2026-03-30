@@ -18,6 +18,7 @@ import { Italic } from '../marks/Italic.js';
 import { Link } from '../marks/Link.js';
 import { TextStyle } from '../marks/TextStyle.js';
 import { Selection } from '../extensions/Selection.js';
+import { TrailingNode } from '../extensions/TrailingNode.js';
 import { FontFamily } from '../extensions/FontFamily.js';
 import { FontSize } from '../extensions/FontSize.js';
 import { Editor } from '../Editor.js';
@@ -585,6 +586,43 @@ describe('builtIn commands', () => {
       const result = editor.commands.toggleWrap('blockquote');
       expect(result).toBe(true);
       expect(editor.getHTML()).not.toContain('<blockquote>');
+    });
+
+    it('unwraps blockquote with AllSelection when multiple paragraphs are wrapped', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Blockquote],
+        content: '<blockquote><p>Line 1</p><p>Line 2</p><p>Line 3</p><p>Line 4</p><p>Line 5</p></blockquote>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      const { state } = editor;
+      const tr = state.tr.setSelection(new AllSelection(state.doc));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.toggleWrap('blockquote');
+      expect(result).toBe(true);
+      expect(editor.getHTML()).not.toContain('<blockquote>');
+      expect(editor.getHTML()).toContain('Line 1');
+      expect(editor.getHTML()).toContain('Line 5');
+    });
+
+    it('unwraps blockquote with AllSelection + TrailingNode when multiple paragraphs are wrapped', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Blockquote, TrailingNode],
+        content: '<blockquote><p>Line 1</p><p>Line 2</p><p>Line 3</p><p>Line 4</p><p>Line 5</p></blockquote>',
+      });
+      document.body.appendChild(editor.view.dom);
+
+      // TrailingNode appendTransaction should have added an empty paragraph
+      const { state } = editor;
+      const tr = state.tr.setSelection(new AllSelection(state.doc));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.toggleWrap('blockquote');
+      expect(result).toBe(true);
+      expect(editor.getHTML()).not.toContain('<blockquote>');
+      expect(editor.getHTML()).toContain('Line 1');
+      expect(editor.getHTML()).toContain('Line 5');
     });
   });
 

@@ -28,6 +28,12 @@ export interface MarkInputRuleOptions {
   type: MarkType;
 
   /**
+   * Whether Backspace can undo this input rule immediately after it fires.
+   * @default true
+   */
+  undoable?: boolean;
+
+  /**
    * Optional: get attributes from the match
    *
    * @param match - The regex match array
@@ -60,7 +66,7 @@ export interface MarkInputRuleOptions {
  * @returns ProseMirror InputRule
  */
 export function markInputRule(options: MarkInputRuleOptions): InputRule {
-  const { find, type, getAttributes } = options;
+  const { find, type, getAttributes, undoable } = options;
 
   return new InputRule(
     find,
@@ -91,7 +97,8 @@ export function markInputRule(options: MarkInputRuleOptions): InputRule {
       tr.removeStoredMark(type);
 
       return tr;
-    }
+    },
+    undoable !== undefined ? { undoable } : {},
   );
 }
 

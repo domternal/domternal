@@ -2945,3 +2945,354 @@ test.describe('Edge cases — toolbar button list creation from paragraph', () =
     expect(html).toContain('Listed');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+// INPUT RULES INSIDE EXISTING LIST ITEMS
+// ═══════════════════════════════════════════════════════════════════════
+
+test.describe('Edge cases — input rules inside existing list items', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  // ── Bullet list input rules inside bullet list ──
+
+  test('"- " inside empty bullet list item does NOT create nested bullet list', async ({ page }) => {
+    await setContentAndFocus(page, '<ul><li><p>first</p></li><li><p></p></li></ul>');
+    // Click on the empty second list item
+    const items = page.locator(`${editorSelector} li p`);
+    await items.nth(1).click();
+    await page.waitForTimeout(50);
+
+    await page.keyboard.type('- ');
+    await page.waitForTimeout(150);
+
+    const html = await getEditorHTML(page);
+    // Should NOT have nested <ul> inside <li>
+    const nestedUlCount = (html.match(/<ul>/g) || []).length;
+    expect(nestedUlCount).toBe(1); // only the original <ul>
+    // The "- " text should appear as typed content, not trigger a new list
+    expect(html).toContain('- ');
+  });
+
+  test('"* " inside empty bullet list item does NOT create nested bullet list', async ({ page }) => {
+    await setContentAndFocus(page, '<ul><li><p>first</p></li><li><p></p></li></ul>');
+    const items = page.locator(`${editorSelector} li p`);
+    await items.nth(1).click();
+    await page.waitForTimeout(50);
+
+    await page.keyboard.type('* ');
+    await page.waitForTimeout(150);
+
+    const html = await getEditorHTML(page);
+    const nestedUlCount = (html.match(/<ul>/g) || []).length;
+    expect(nestedUlCount).toBe(1);
+    expect(html).toContain('* ');
+  });
+
+  test('"+ " inside empty bullet list item does NOT create nested bullet list', async ({ page }) => {
+    await setContentAndFocus(page, '<ul><li><p>first</p></li><li><p></p></li></ul>');
+    const items = page.locator(`${editorSelector} li p`);
+    await items.nth(1).click();
+    await page.waitForTimeout(50);
+
+    await page.keyboard.type('+ ');
+    await page.waitForTimeout(150);
+
+    const html = await getEditorHTML(page);
+    const nestedUlCount = (html.match(/<ul>/g) || []).length;
+    expect(nestedUlCount).toBe(1);
+    expect(html).toContain('+ ');
+  });
+
+  // ── Ordered list input rules inside bullet list ──
+
+  test('"1. " inside bullet list item does NOT create nested ordered list', async ({ page }) => {
+    await setContentAndFocus(page, '<ul><li><p>first</p></li><li><p></p></li></ul>');
+    const items = page.locator(`${editorSelector} li p`);
+    await items.nth(1).click();
+    await page.waitForTimeout(50);
+
+    await page.keyboard.type('1. ');
+    await page.waitForTimeout(150);
+
+    const html = await getEditorHTML(page);
+    expect(html).not.toContain('<ol>');
+    expect(html).toContain('1. ');
+  });
+
+  // ── Task list input rules inside bullet list ──
+
+  test('"[ ] " inside bullet list item does NOT create nested task list', async ({ page }) => {
+    await setContentAndFocus(page, '<ul><li><p>first</p></li><li><p></p></li></ul>');
+    const items = page.locator(`${editorSelector} li p`);
+    await items.nth(1).click();
+    await page.waitForTimeout(50);
+
+    await page.keyboard.type('[ ] ');
+    await page.waitForTimeout(150);
+
+    const html = await getEditorHTML(page);
+    expect(html).not.toContain('data-type="taskList"');
+    expect(html).toContain('[ ] ');
+  });
+
+  // ── Bullet list input rules inside ordered list ──
+
+  test('"- " inside ordered list item does NOT create nested bullet list', async ({ page }) => {
+    await setContentAndFocus(page, '<ol><li><p>first</p></li><li><p></p></li></ol>');
+    const items = page.locator(`${editorSelector} li p`);
+    await items.nth(1).click();
+    await page.waitForTimeout(50);
+
+    await page.keyboard.type('- ');
+    await page.waitForTimeout(150);
+
+    const html = await getEditorHTML(page);
+    expect(html).not.toContain('<ul>');
+    expect(html).toContain('- ');
+  });
+
+  // ── Ordered list input rules inside ordered list ──
+
+  test('"1. " inside ordered list item does NOT create nested ordered list', async ({ page }) => {
+    await setContentAndFocus(page, '<ol><li><p>first</p></li><li><p></p></li></ol>');
+    const items = page.locator(`${editorSelector} li p`);
+    await items.nth(1).click();
+    await page.waitForTimeout(50);
+
+    await page.keyboard.type('1. ');
+    await page.waitForTimeout(150);
+
+    const html = await getEditorHTML(page);
+    const olCount = (html.match(/<ol[^>]*>/g) || []).length;
+    expect(olCount).toBe(1);
+    expect(html).toContain('1. ');
+  });
+
+  // ── Task list input rules inside task list ──
+
+  test('"[ ] " inside task list item does NOT create nested task list', async ({ page }) => {
+    const fixture = [
+      '<ul data-type="taskList">',
+      '<li data-type="taskItem" data-checked="false">',
+      '<label contenteditable="false"><input type="checkbox"></label>',
+      '<div><p>task one</p></div>',
+      '</li>',
+      '<li data-type="taskItem" data-checked="false">',
+      '<label contenteditable="false"><input type="checkbox"></label>',
+      '<div><p></p></div>',
+      '</li>',
+      '</ul>',
+    ].join('');
+    await setContentAndFocus(page, fixture);
+
+    // Click on the empty second task item
+    const taskDivs = page.locator(`${editorSelector} li[data-type="taskItem"] div p`);
+    await taskDivs.nth(1).click();
+    await page.waitForTimeout(50);
+
+    await page.keyboard.type('[ ] ');
+    await page.waitForTimeout(150);
+
+    const html = await getEditorHTML(page);
+    // Should have only one taskList, not a nested one
+    const taskListCount = (html.match(/data-type="taskList"/g) || []).length;
+    expect(taskListCount).toBe(1);
+  });
+
+  // ── Bullet list input rules inside task list ──
+
+  test('"- " inside task list item does NOT create nested bullet list', async ({ page }) => {
+    const fixture = [
+      '<ul data-type="taskList">',
+      '<li data-type="taskItem" data-checked="false">',
+      '<label contenteditable="false"><input type="checkbox"></label>',
+      '<div><p></p></div>',
+      '</li>',
+      '</ul>',
+    ].join('');
+    await setContentAndFocus(page, fixture);
+
+    const taskDiv = page.locator(`${editorSelector} li[data-type="taskItem"] div p`);
+    await taskDiv.click();
+    await page.waitForTimeout(50);
+
+    await page.keyboard.type('- ');
+    await page.waitForTimeout(150);
+
+    const html = await getEditorHTML(page);
+    // Should NOT have a regular <ul> (without data-type) created inside the task list
+    expect(html).not.toMatch(/<ul>(?![\s\S]*data-type)/);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// MIXED SELECTION: list item(s) + free paragraphs → toggle list
+// ═══════════════════════════════════════════════════════════════════════
+
+const BULLET_THEN_PARAS =
+  '<ul><li><p>first_element_of_list</p></li></ul><p>free_text</p><p>free_text2</p>';
+
+const ORDERED_THEN_PARAS =
+  '<ol><li><p>first_element_of_list</p></li></ol><p>free_text</p><p>free_text2</p>';
+
+const TASK_THEN_PARAS = [
+  '<ul data-type="taskList">',
+  '<li data-type="taskItem" data-checked="false">',
+  '<label contenteditable="false"><input type="checkbox"></label>',
+  '<div><p>first_element_of_list</p></div>',
+  '</li>',
+  '</ul>',
+  '<p>free_text</p>',
+  '<p>free_text2</p>',
+].join('');
+
+/** Select all editor content via Mod-A */
+async function selectAll(page: Page) {
+  await page.locator(editorSelector).click();
+  await page.keyboard.press(`${modifier}+a`);
+  await page.waitForTimeout(100);
+}
+
+test.describe('Mixed selection: bullet list item + free paragraphs', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('select all then toggle bullet list wraps all in single flat list', async ({ page }) => {
+    await setContentAndFocus(page, BULLET_THEN_PARAS);
+    await selectAll(page);
+    await page.locator(btn.bullet).click();
+    await page.waitForTimeout(150);
+
+    const html = await getEditorHTML(page);
+    expect(html).toContain('first_element_of_list');
+    expect(html).toContain('free_text');
+    // Single flat bullet list, no nesting
+    expect(countOccurrences(html, '<ul>')).toBe(1);
+    expect(countOccurrences(html, '<li>')).toBe(3);
+    expect(html).not.toContain('<ol>');
+  });
+
+  test('select all then toggle ordered list converts and wraps all', async ({ page }) => {
+    await setContentAndFocus(page, BULLET_THEN_PARAS);
+    await selectAll(page);
+    await page.locator(btn.ordered).click();
+    await page.waitForTimeout(150);
+
+    const html = await getEditorHTML(page);
+    expect(html).toContain('first_element_of_list');
+    expect(countOccurrences(html, '<ol>')).toBe(1);
+    expect(countOccurrences(html, '<li>')).toBe(3);
+    expect(html).not.toContain('<ul>');
+  });
+
+  test('select all then toggle task list converts and wraps all', async ({ page }) => {
+    await setContentAndFocus(page, BULLET_THEN_PARAS);
+    await selectAll(page);
+    await page.locator(btn.task).click();
+    await page.waitForTimeout(150);
+
+    const html = await getEditorHTML(page);
+    expect(html).toContain('first_element_of_list');
+    expect(countOccurrences(html, 'data-type="taskList"')).toBe(1);
+    expect(countOccurrences(html, 'data-type="taskItem"')).toBe(3);
+    expect(html).not.toContain('<ul>');
+    expect(html).not.toContain('<ol>');
+  });
+});
+
+test.describe('Mixed selection: ordered list item + free paragraphs', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('select all then toggle ordered list wraps all in single flat list', async ({ page }) => {
+    await setContentAndFocus(page, ORDERED_THEN_PARAS);
+    await selectAll(page);
+    await page.locator(btn.ordered).click();
+    await page.waitForTimeout(150);
+
+    const html = await getEditorHTML(page);
+    expect(html).toContain('first_element_of_list');
+    expect(countOccurrences(html, '<ol>')).toBe(1);
+    expect(countOccurrences(html, '<li>')).toBe(3);
+    expect(html).not.toContain('<ul>');
+  });
+
+  test('select all then toggle bullet list converts and wraps all', async ({ page }) => {
+    await setContentAndFocus(page, ORDERED_THEN_PARAS);
+    await selectAll(page);
+    await page.locator(btn.bullet).click();
+    await page.waitForTimeout(150);
+
+    const html = await getEditorHTML(page);
+    expect(html).toContain('first_element_of_list');
+    expect(countOccurrences(html, '<ul>')).toBe(1);
+    expect(countOccurrences(html, '<li>')).toBe(3);
+    expect(html).not.toContain('<ol>');
+  });
+
+  test('select all then toggle task list converts and wraps all', async ({ page }) => {
+    await setContentAndFocus(page, ORDERED_THEN_PARAS);
+    await selectAll(page);
+    await page.locator(btn.task).click();
+    await page.waitForTimeout(150);
+
+    const html = await getEditorHTML(page);
+    expect(html).toContain('first_element_of_list');
+    expect(countOccurrences(html, 'data-type="taskList"')).toBe(1);
+    expect(countOccurrences(html, 'data-type="taskItem"')).toBe(3);
+    expect(html).not.toContain('<ul>');
+    expect(html).not.toContain('<ol>');
+  });
+});
+
+test.describe('Mixed selection: task list item + free paragraphs', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('select all then toggle task list wraps all in single flat list', async ({ page }) => {
+    await setContentAndFocus(page, TASK_THEN_PARAS);
+    await selectAll(page);
+    await page.locator(btn.task).click();
+    await page.waitForTimeout(150);
+
+    const html = await getEditorHTML(page);
+    expect(html).toContain('first_element_of_list');
+    expect(countOccurrences(html, 'data-type="taskList"')).toBe(1);
+    expect(countOccurrences(html, 'data-type="taskItem"')).toBe(3);
+  });
+
+  test('select all then toggle bullet list converts and wraps all', async ({ page }) => {
+    await setContentAndFocus(page, TASK_THEN_PARAS);
+    await selectAll(page);
+    await page.locator(btn.bullet).click();
+    await page.waitForTimeout(150);
+
+    const html = await getEditorHTML(page);
+    expect(html).toContain('first_element_of_list');
+    expect(countOccurrences(html, '<ul>')).toBe(1);
+    expect(countOccurrences(html, '<li>')).toBe(3);
+    expect(html).not.toContain('data-type="taskList"');
+  });
+
+  test('select all then toggle ordered list converts and wraps all', async ({ page }) => {
+    await setContentAndFocus(page, TASK_THEN_PARAS);
+    await selectAll(page);
+    await page.locator(btn.ordered).click();
+    await page.waitForTimeout(150);
+
+    const html = await getEditorHTML(page);
+    expect(html).toContain('first_element_of_list');
+    expect(countOccurrences(html, '<ol>')).toBe(1);
+    expect(countOccurrences(html, '<li>')).toBe(3);
+    expect(html).not.toContain('data-type="taskList"');
+  });
+});

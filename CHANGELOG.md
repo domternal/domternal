@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.1 (2026-03-27)
+
+### Fixes
+
+- fix(theme,table): apply dark theme to table dropdowns appended to document.body (#49)
+- fix(theme,table): improve syntax highlighting contrast ratios for WCAG AA (#49)
+- fix(core,table): toolbar layout button name fixes (#48)
+
+### Docs
+
+- Unified README across all 10 packages with badges, features, and documentation links (#48)
+- Rewrite main README (#47)
+
 ## 0.2.0 (2026-03-21)
 
 Initial public release.

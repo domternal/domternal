@@ -194,6 +194,59 @@ test.describe('Heading — input rules', () => {
   });
 });
 
+test.describe('Heading — keyboard shortcuts', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('Mod-Alt-1 toggles h1', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH);
+    await page.locator(`${editorSelector} p`).click();
+
+    await page.keyboard.press('Meta+Alt+1');
+
+    const html = await getEditorHTML(page);
+    expect(html).toContain('<h1>');
+    expect(html).toContain('Normal text');
+  });
+
+  test('Mod-Alt-1 toggles h1 back to paragraph', async ({ page }) => {
+    await setContentAndFocus(page, H1);
+    await page.locator(`${editorSelector} h1`).click();
+
+    await page.keyboard.press('Meta+Alt+1');
+
+    const html = await getEditorHTML(page);
+    expect(html).not.toContain('<h1>');
+    expect(html).toContain('<p>');
+    expect(html).toContain('Heading One');
+  });
+
+  test('Mod-Alt-3 toggles h3', async ({ page }) => {
+    await setContentAndFocus(page, PARAGRAPH);
+    await page.locator(`${editorSelector} p`).click();
+
+    await page.keyboard.press('Meta+Alt+3');
+
+    const html = await getEditorHTML(page);
+    expect(html).toContain('<h3>');
+    expect(html).toContain('Normal text');
+  });
+
+  test('Mod-Alt-0 converts heading to paragraph', async ({ page }) => {
+    await setContentAndFocus(page, H1);
+    await page.locator(`${editorSelector} h1`).click();
+
+    await page.keyboard.press('Meta+Alt+0');
+
+    const html = await getEditorHTML(page);
+    expect(html).not.toContain('<h1>');
+    expect(html).toContain('<p>');
+    expect(html).toContain('Heading One');
+  });
+});
+
 test.describe('Heading — toolbar dropdown', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
