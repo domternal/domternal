@@ -77,9 +77,9 @@ export function wrappingInputRule(options: WrappingInputRuleOptions): InputRule 
       const range = $start.blockRange();
       const wrapping = range && findWrapping(range, type, attrs);
       if (!wrapping) return null;
-      tr.wrap(range!, wrapping);
+      tr.wrap(range, wrapping);
       const before = tr.doc.resolve(start - 1).nodeBefore;
-      if (before && before.type === type && canJoin(tr.doc, start - 1) &&
+      if (before?.type === type && canJoin(tr.doc, start - 1) &&
           (!joinPredicate || joinPredicate(match, before))) {
         tr.join(start - 1);
       }

@@ -100,7 +100,7 @@ describe('listCommands', () => {
       expect(html).toContain('second');
       expect(html).toContain('third');
       // Should be a single flat bullet list, NOT nested
-      const ulCount = (html.match(/<ul>/g) || []).length;
+      const ulCount = (html.match(/<ul>/g) ?? []).length;
       expect(ulCount).toBe(1);
     });
 

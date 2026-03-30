@@ -18,6 +18,14 @@ import type { InputRule } from '@domternal/pm/inputrules';
 import type { EditorView } from '@domternal/pm/view';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 
+interface InternalRule {
+  match: RegExp;
+  handler: (state: EditorState, match: RegExpExecArray, start: number, end: number) => Transaction | null;
+  undoable: boolean;
+  inCode: boolean | 'only';
+  inCodeMark: boolean;
+}
+
 const MAX_MATCH = 500;
 
 function run(
@@ -40,14 +48,8 @@ function run(
       '\ufffc',
     ) + text;
 
-  for (let i = 0; i < rules.length; i++) {
-    const rule = rules[i] as InputRule & {
-      match: RegExp;
-      handler: (state: EditorState, match: RegExpExecArray, start: number, end: number) => Transaction | null;
-      undoable: boolean;
-      inCode: boolean | 'only';
-      inCodeMark: boolean;
-    };
+  for (const rawRule of rules) {
+    const rule = rawRule as InputRule & InternalRule;
 
     if (!rule.inCodeMark && $from.marks().some((m) => m.type.spec.code)) continue;
     if ($from.parent.type.spec.code) {
@@ -62,11 +64,11 @@ function run(
     const startPos = from - (match[0].length - text.length);
 
     if (!rule.inCodeMark) {
-      let hasMark = false;
+      const codeMarks: boolean[] = [];
       state.doc.nodesBetween(startPos, $from.pos, (node) => {
-        if (node.isInline && node.marks.some((m) => m.type.spec.code)) hasMark = true;
+        if (node.isInline && node.marks.some((m) => m.type.spec.code)) codeMarks.push(true);
       });
-      if (hasMark) continue;
+      if (codeMarks.length > 0) continue;
     }
 
     const tr = rule.handler(state, match, startPos, to);
@@ -100,7 +102,9 @@ function undoInputRule(plugin: Plugin, state: EditorState, dispatch?: (tr: Trans
     const tr = state.tr;
     const toUndo = undoable.transform;
     for (let j = toUndo.steps.length - 1; j >= 0; j--) {
-      tr.step(toUndo.steps[j].invert(toUndo.docs[j]));
+      const step = toUndo.steps[j];
+      const doc = toUndo.docs[j];
+      if (step && doc) tr.step(step.invert(doc));
     }
     if (undoable.text) {
       const marks = tr.doc.resolve(undoable.from).marks();
@@ -124,8 +128,8 @@ export function inputRulesPlugin({ rules }: { rules: InputRule[] }): Plugin {
       init(): InputRulesState | null {
         return null;
       },
-      apply(tr, prev): InputRulesState | null {
-        const stored = tr.getMeta(plugin);
+      apply(tr: Transaction, prev: InputRulesState | null): InputRulesState | null {
+        const stored = tr.getMeta(plugin) as InputRulesState | undefined;
         if (stored) return stored;
 
         // Preserve state across appendTransaction (e.g. TrailingNode)
@@ -135,30 +139,31 @@ export function inputRulesPlugin({ rules }: { rules: InputRule[] }): Plugin {
       },
     },
     props: {
-      handleTextInput(view, from, to, text) {
+      handleTextInput(view: EditorView, from: number, to: number, text: string) {
         return run(view, from, to, text, rules, plugin);
       },
-      handleKeyDown(view, event) {
+      handleKeyDown(view: EditorView, event: KeyboardEvent) {
         // Intercept Backspace to undo the last input rule.
         // handleKeyDown fires before any keymap plugin, so this
         // cannot be blocked by extension Backspace handlers.
         if (event.key === 'Backspace' && !event.ctrlKey && !event.metaKey && !event.altKey) {
-          return undoInputRule(plugin, view.state, (tr) => view.dispatch(tr));
+          return undoInputRule(plugin, view.state, (tr) => { view.dispatch(tr); });
         }
         return false;
       },
       handleDOMEvents: {
-        compositionend: (view) => {
+        compositionend: (view: EditorView) => {
           setTimeout(() => {
             const { $cursor } = view.state.selection as { $cursor?: { pos: number } };
-            if ($cursor) run(view, $cursor.pos, $cursor.pos, '', rules, plugin);
+            if ($cursor) { run(view, $cursor.pos, $cursor.pos, '', rules, plugin); }
           });
         },
       },
     },
     // Tag so external undoInputRule can also find this plugin
     isInputRules: true,
-  } as Parameters<typeof Plugin>[0] & { isInputRules: boolean });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as ConstructorParameters<typeof Plugin<any>>[0] & { isInputRules: boolean });
 
   return plugin;
 }
