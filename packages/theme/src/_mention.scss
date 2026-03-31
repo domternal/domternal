@@ -23,3 +23,54 @@
     text-underline-offset: 2px;
   }
 }
+
+// ─── Inline Suggestion Dropdown ─────────────────────────────────────────────
+
+.dm-mention-suggestion {
+  position: absolute;
+  z-index: 100;
+  min-width: 12rem;
+  max-width: 20rem;
+  padding: 0.25rem;
+  background: var(--dm-surface, #f8f9fa);
+  border: 1px solid var(--dm-border-color, #e0e0e0);
+  border-radius: 0.25rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  animation: dm-fade-in 0.2s ease;
+}
+
+.dm-mention-suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.375rem 0.5rem;
+  border: none;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--dm-text, #1a1a1a);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  text-align: left;
+  transition: background-color 0.1s;
+
+  &:hover,
+  &--selected {
+    background: var(--dm-hover, rgba(0, 0, 0, 0.06));
+  }
+}
+
+.dm-mention-suggestion-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dm-mention-suggestion-empty {
+  padding: 0.5rem;
+  text-align: center;
+  color: var(--dm-text, #1a1a1a);
+  opacity: 0.5;
+  font-size: 0.8125rem;
+}

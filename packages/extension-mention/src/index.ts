@@ -11,5 +11,8 @@ export type {
   MentionSuggestionRenderer,
 } from './mentionSuggestionPlugin.js';
 
+// Default suggestion renderer
+export { createMentionSuggestionRenderer } from './mentionSuggestionRenderer.js';
+
 // Default export for convenience
 export { Mention as default } from './Mention.js';

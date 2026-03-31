@@ -32,5 +32,7 @@ export const DEMO_CONTENT = `
     <ul><li>Item one</li><li>Item two</li></ul>
   </div>
 </details>
+<h3>Mentions</h3>
+<p>Type <code>@</code> followed by a name to mention someone: <span data-type="mention" data-id="1" data-label="Alice Johnson" data-mention-type="user" class="mention">@Alice Johnson</span> and <span data-type="mention" data-id="7" data-label="Grace Hopper" data-mention-type="user" class="mention">@Grace Hopper</span> are already mentioned here.</p>
 <p>Try typing <code>:wave</code> anywhere to insert an emoji via the suggestion dropdown.</p>
 <p><span style="font-size: 17px; font-family: Georgia">This paragraph uses a custom font size and family to test text style rendering.</span></p>`;
