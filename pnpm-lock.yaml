@@ -152,6 +152,9 @@ importers:
       '@domternal/extension-details':
         specifier: workspace:*
         version: link:../packages/extension-details
+      '@domternal/extension-emoji':
+        specifier: workspace:*
+        version: link:../packages/extension-emoji
       '@domternal/extension-image':
         specifier: workspace:*
         version: link:../packages/extension-image

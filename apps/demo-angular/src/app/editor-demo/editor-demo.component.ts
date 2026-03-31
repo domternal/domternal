@@ -73,7 +73,7 @@ export class EditorDemoComponent {
     Details,
     // Media & Emoji
     Image,
-    Emoji.configure({ emojis, suggestion: { render: createEmojiSuggestionRenderer() } }),
+    Emoji.configure({ emojis, enableEmoticons: true, suggestion: { render: createEmojiSuggestionRenderer() } }),
     // Editor utilities
     LinkPopover, InvisibleChars, SelectionDecoration, ClearFormatting, Dropcursor,
   ];
