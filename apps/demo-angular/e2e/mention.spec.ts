@@ -600,6 +600,15 @@ test.describe('Mention — Suggestion Dropdown', () => {
     await page.waitForTimeout(200);
     await expect(page.locator(suggestionSelector)).not.toBeVisible();
   });
+
+  test('@ inside inline code mark does not trigger suggestion', async ({ page }) => {
+    await clearAndType(page, 'Some text ');
+    // Apply inline code mark then type @
+    await page.keyboard.press(`${modifier}+e`);
+    await page.keyboard.type('@test');
+    await page.waitForTimeout(200);
+    await expect(page.locator(suggestionSelector)).not.toBeVisible();
+  });
 });
 
 // =============================================================================

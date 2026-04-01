@@ -6,7 +6,7 @@
  * callbacks so framework wrappers can display a dropdown picker.
  *
  * Adapted from the emoji suggestion plugin with additions:
- * - Async items support with 150ms debounce
+ * - Async items support with configurable debounce
  * - Multiple plugin instances (one per trigger, unique PluginKey)
  * - Inline decoration on active trigger+query range
  * - invalidNodes context check
@@ -142,7 +142,12 @@ function findMentionQuery(
 
   const { $from } = selection;
 
-  // Check if cursor is in an invalid node
+  // Don't activate inside code contexts (codeBlock node or inline code mark)
+  if ($from.parent.type.spec.code) return null;
+  const activeMarks = state.storedMarks ?? $from.marks();
+  if (activeMarks.some((m) => m.type.name === 'code')) return null;
+
+  // Check if cursor is in a custom invalid node
   if (invalidNodes.length > 0) {
     const parentNodeType = $from.parent.type.name;
     if (invalidNodes.includes(parentNodeType)) return null;
