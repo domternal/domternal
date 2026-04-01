@@ -3,7 +3,8 @@
 [![Version](https://img.shields.io/npm/v/@domternal/extension-emoji.svg)](https://www.npmjs.com/package/@domternal/extension-emoji)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-A lightweight, extensible rich text editor toolkit built on <u>[ProseMirror](https://prosemirror.net/)</u>. Framework-agnostic headless core with first-class **Angular** support. Use it headless with vanilla JS/TS, add the built-in toolbar and theme, or drop in ready-made Angular components. Fully tree-shakeable, import only what you use, unused extensions are stripped from your bundle.
+A lightweight, extensible rich text editor toolkit built on <u>[ProseMirror](https://prosemirror.net/)</u>. Framework-agnostic headless core with first-class Angular support.  
+Use it headless with vanilla JS/TS, add the built-in toolbar and theme, or drop in ready-made Angular components. Fully tree-shakeable, import only what you use, unused extensions are stripped from your bundle.
 
 ## Links
 
@@ -21,7 +22,7 @@ See <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> for a ful
 - **Tree-shakeable** - import only what you use, your bundler strips the rest
 - **~38 KB gzipped** (own code), <u>[~108 KB total](https://domternal.dev/v1/packages)</u> with ProseMirror
 - **TypeScript first** - 100% typed, zero `any`
-- **4,200+ tests** - 2,675 unit tests and 1,550 E2E tests across 34 Playwright specs
+- **4,400+ tests** - 2,687 unit tests and 1,796 E2E tests across 37 Playwright specs
 - **Light and dark theme** - 70+ CSS custom properties for full visual control
 - **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
 - **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering

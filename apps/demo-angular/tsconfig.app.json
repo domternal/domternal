@@ -11,6 +11,9 @@
       "path": "../../packages/extension-table"
     },
     {
+      "path": "../../packages/extension-mention"
+    },
+    {
       "path": "../../packages/extension-image"
     },
     {

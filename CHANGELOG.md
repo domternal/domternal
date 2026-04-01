@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.3.0 (2026-04-01)
+
+### Features
+
+- feat(mention): add default mention suggestion renderer with keyboard navigation and dark mode support (#52)
+- feat(core): custom inputRules plugin with Backspace undo for all input rules (blockquote, lists, headings, code blocks) (#51)
+- feat(core): add input rule helper wrappers (wrappingInputRule, textblockTypeInputRule, nodeInputRule, textInputRule, markInputRule) with undoable option (#51)
+
+### Fixes
+
+- fix(core): HR input rule trailing paragraph and undo cursor position (#52)
+- fix(core): use event.code for heading shortcuts to fix macOS Alt key issues (#51)
+- fix(core): toggleWrap lifts all paragraphs when unwrapping with AllSelection (#51)
+- fix(core): prevent list input rules from firing inside existing list items (#51)
+- fix(core): flatten mixed list+paragraph selections into single flat list (#51)
+- fix(mention): add code mark guard to suggestion plugin (#52)
+- fix(mention): fix keydown handling in suggestion plugin (#52)
+- fix(theme): remove browser-default CSS from content styles (#51)
+- fix(theme): adjust blockquote spacing, remove link cursor override (#51)
+- fix(theme): add dark mode styles for mention dropdown (#52)
+
+### Tests
+
+- 195 new E2E tests: mention (81), horizontal rule, image (38), emoji (27), details (11), blockquote input rule, heading shortcuts, lists (#51, #52)
+
 ## 0.2.1 (2026-03-27)
 
 ### Fixes

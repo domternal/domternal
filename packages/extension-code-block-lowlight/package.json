@@ -1,6 +1,6 @@
 {
   "name": "@domternal/extension-code-block-lowlight",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Code block with syntax highlighting via lowlight for Domternal editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
