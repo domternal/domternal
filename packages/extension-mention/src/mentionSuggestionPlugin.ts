@@ -6,7 +6,7 @@
  * callbacks so framework wrappers can display a dropdown picker.
  *
  * Adapted from the emoji suggestion plugin with additions:
- * - Async items support with 150ms debounce
+ * - Async items support with configurable debounce
  * - Multiple plugin instances (one per trigger, unique PluginKey)
  * - Inline decoration on active trigger+query range
  * - invalidNodes context check
@@ -74,6 +74,8 @@ export interface MentionSuggestionProps {
   command: (item: MentionItem) => void;
   /** Returns the client rect of the cursor for positioning the popup. */
   clientRect: (() => DOMRect | null) | null;
+  /** The ProseMirror editor DOM element (for appending popups inside the editor tree). */
+  element: HTMLElement;
 }
 
 /** Render callbacks for the suggestion popup. */
@@ -140,7 +142,12 @@ function findMentionQuery(
 
   const { $from } = selection;
 
-  // Check if cursor is in an invalid node
+  // Don't activate inside code contexts (codeBlock node or inline code mark)
+  if ($from.parent.type.spec.code) return null;
+  const activeMarks = state.storedMarks ?? $from.marks();
+  if (activeMarks.some((m) => m.type.name === 'code')) return null;
+
+  // Check if cursor is in a custom invalid node
   if (invalidNodes.length > 0) {
     const parentNodeType = $from.parent.type.name;
     if (invalidNodes.includes(parentNodeType)) return null;
@@ -318,12 +325,12 @@ export function createMentionSuggestionPlugin(
                 void result.then((items) => {
                   const latest = key.getState(view.state);
                   if (!latest?.active || !latest.range) return;
-                  notifyRenderer({ query: latest.query, range: latest.range, items, command, clientRect });
+                  notifyRenderer({ query: latest.query, range: latest.range, items, command, clientRect, element: view.dom });
                 }).catch(() => {
                   // Swallow — suggestion stays active with no items
                 });
               } else {
-                notifyRenderer({ query: cur.query, range: cur.range, items: result, command, clientRect });
+                notifyRenderer({ query: cur.query, range: cur.range, items: result, command, clientRect, element: view.dom });
               }
             };
 
@@ -354,24 +361,34 @@ export function createMentionSuggestionPlugin(
     },
 
     props: {
-      handleKeyDown(view: EditorView, event: KeyboardEvent): boolean {
-        const state = key.getState(view.state);
-        if (!state?.active) return false;
+      // Use handleDOMEvents.keydown instead of handleKeyDown so that
+      // suggestion key handling fires BEFORE keymap plugins (which use
+      // handleKeyDown and would otherwise intercept Enter/ArrowUp/ArrowDown).
+      handleDOMEvents: {
+        keydown(view: EditorView, event: KeyboardEvent): boolean {
+          const state = key.getState(view.state);
+          if (!state?.active) return false;
 
-        // Escape closes suggestion
-        if (event.key === 'Escape') {
-          const { tr } = view.state;
-          tr.setMeta(key, 'dismiss');
-          view.dispatch(tr);
-          return true;
-        }
+          // Escape closes suggestion
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            const { tr } = view.state;
+            tr.setMeta(key, 'dismiss');
+            view.dispatch(tr);
+            return true;
+          }
 
-        // Delegate to renderer for ArrowUp/Down/Enter
-        if (renderer) {
-          return renderer.onKeyDown(event);
-        }
+          // Delegate to renderer for ArrowUp/Down/Enter
+          if (renderer) {
+            const handled = renderer.onKeyDown(event);
+            if (handled) {
+              event.preventDefault();
+            }
+            return handled;
+          }
 
-        return false;
+          return false;
+        },
       },
 
       decorations(state: EditorState): DecorationSet {

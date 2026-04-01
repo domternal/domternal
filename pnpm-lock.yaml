@@ -97,6 +97,9 @@ importers:
       '@domternal/extension-image':
         specifier: workspace:*
         version: link:../../packages/extension-image
+      '@domternal/extension-mention':
+        specifier: workspace:*
+        version: link:../../packages/extension-mention
       '@domternal/extension-table':
         specifier: workspace:*
         version: link:../../packages/extension-table
@@ -152,6 +155,15 @@ importers:
       '@domternal/extension-details':
         specifier: workspace:*
         version: link:../packages/extension-details
+      '@domternal/extension-emoji':
+        specifier: workspace:*
+        version: link:../packages/extension-emoji
+      '@domternal/extension-image':
+        specifier: workspace:*
+        version: link:../packages/extension-image
+      '@domternal/extension-mention':
+        specifier: workspace:*
+        version: link:../packages/extension-mention
       '@domternal/extension-table':
         specifier: workspace:*
         version: link:../packages/extension-table

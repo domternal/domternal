@@ -52,6 +52,7 @@
 .dm-theme-dark .dm-bubble-menu,
 .dm-theme-dark .dm-emoji-picker,
 .dm-theme-dark .dm-emoji-suggestion,
+.dm-theme-dark .dm-mention-suggestion,
 .dm-theme-dark .dm-table-controls-dropdown {
   @include dark-tokens;
 }
@@ -64,6 +65,7 @@
   .dm-theme-auto .dm-bubble-menu,
   .dm-theme-auto .dm-emoji-picker,
   .dm-theme-auto .dm-emoji-suggestion,
+  .dm-theme-auto .dm-mention-suggestion,
   .dm-theme-auto .dm-table-controls-dropdown {
     @include dark-tokens;
   }

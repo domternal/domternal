@@ -120,18 +120,19 @@ export const HorizontalRule = Node.create<HorizontalRuleOptions>({
 
           if (match[0]) {
             const $start = state.doc.resolve(start);
-            // Replace the entire parent block (paragraph) with HR
+            // Replace the entire parent block (paragraph) with HR + new paragraph
             const from = $start.before();
             const to = $start.after();
-            tr.replaceWith(from, to, nodeType.create());
+            const paragraph = state.schema.nodes['paragraph']?.create();
+            const nodes = paragraph
+              ? [nodeType.create(), paragraph]
+              : [nodeType.create()];
+            tr.replaceWith(from, to, nodes);
 
-            // Move selection after the HR if possible
-            if (from + 1 < tr.doc.content.size) {
-              const $after = tr.doc.resolve(from + 1);
-              const sel = TextSelection.findFrom($after, 1);
-              if (sel) {
-                tr.setSelection(sel);
-              }
+            // Move selection into the new paragraph after the HR
+            const sel = TextSelection.findFrom(tr.doc.resolve(from + 1), 1);
+            if (sel) {
+              tr.setSelection(sel);
             }
           }
 

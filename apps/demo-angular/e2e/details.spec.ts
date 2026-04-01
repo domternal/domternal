@@ -1412,3 +1412,241 @@ test.describe('Details — CellSelection toggle', () => {
     expect(cell3HTML).not.toContain('data-type="details"');
   });
 });
+
+// =============================================================================
+// Documentation verification tests
+// =============================================================================
+
+test.describe('Details — documentation verification', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  // --- unsetDetails: empty summary produces NO paragraph ---
+  test('unsetDetails on empty summary does NOT create a paragraph for the summary', async ({ page }) => {
+    await setContentAndFocus(page, DETAILS_EMPTY_SUMMARY);
+    // Focus inside the empty summary using editor API
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) comp.editor.commands.focus('start');
+    });
+    await page.waitForTimeout(50);
+
+    // Unwrap via command
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) comp.editor.commands.unsetDetails();
+    });
+    await page.waitForTimeout(100);
+
+    // Should only have the content paragraph, no empty paragraph from the summary
+    const paragraphs = page.locator(`${editorSelector} > p`);
+    const count = await paragraphs.count();
+    // The content had one paragraph "Content", so we should have exactly 1 paragraph
+    expect(count).toBe(1);
+    const text = await paragraphs.first().textContent();
+    expect(text).toContain('Content');
+  });
+
+  // --- unsetDetails: non-empty summary becomes a paragraph ---
+  test('unsetDetails on non-empty summary creates a paragraph for the summary text', async ({ page }) => {
+    await setContentAndFocus(page, DETAILS_BASIC);
+    await focusSummaryStart(page);
+
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (comp?.editor) comp.editor.commands.unsetDetails();
+    });
+    await page.waitForTimeout(100);
+
+    // Should have 2 paragraphs: summary text + content
+    const paragraphs = page.locator(`${editorSelector} > p`);
+    const count = await paragraphs.count();
+    expect(count).toBe(2);
+    await expect(paragraphs.nth(0)).toContainText('Summary title');
+    await expect(paragraphs.nth(1)).toContainText('Content body');
+  });
+
+  // --- Enter in summary creates block at START of detailsContent ---
+  test('Enter in summary creates new block at the START of content (before existing content)', async ({ page }) => {
+    await setContentAndFocus(page, DETAILS_BASIC);
+    await clickDetailsToggle(page);
+    await focusSummaryEnd(page);
+
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('First block');
+
+    // The typed text should be in the FIRST paragraph of detailsContent
+    const contentParas = page.locator(`${editorSelector} div[data-details-content] p`);
+    const count = await contentParas.count();
+    expect(count).toBe(2);
+    await expect(contentParas.nth(0)).toContainText('First block');
+    await expect(contentParas.nth(1)).toContainText('Content body');
+  });
+
+  // --- ArrowRight in middle of summary does NOT jump out ---
+  test('ArrowRight in middle of summary text moves cursor normally (does not gap-cursor)', async ({ page }) => {
+    await setContentAndFocus(page, DETAILS_BASIC + '<p>After</p>');
+    // Click the summary to focus it, then use Home to move to start
+    const summary = page.locator(`${editorSelector} div[data-type="details"] summary`);
+    await summary.click();
+    await page.waitForTimeout(50);
+
+    // Move to start of summary, then right a couple of times (still middle)
+    const modifier = process.platform === 'darwin' ? 'Meta' : 'Home';
+    if (process.platform === 'darwin') {
+      await page.keyboard.press('Meta+ArrowLeft');
+    } else {
+      await page.keyboard.press('Home');
+    }
+    await page.waitForTimeout(50);
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.type('X');
+
+    // The X should be inside the summary
+    const summaryText = await summary.textContent();
+    expect(summaryText).toContain('X');
+    // And not in the after paragraph
+    const afterPara = page.locator(`${editorSelector} > p`);
+    const afterText = await afterPara.textContent();
+    expect(afterText).not.toContain('X');
+  });
+
+  // --- setDetails nesting prevention returns false ---
+  test('setDetails command returns false when already inside details', async ({ page }) => {
+    await setContentAndFocus(page, DETAILS_BASIC);
+    await clickDetailsToggle(page);
+    await focusContentParagraph(page);
+
+    const result = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      return comp?.editor?.commands.setDetails() ?? null;
+    });
+    expect(result).toBe(false);
+  });
+
+  // --- toggleDetails single range: inside details = unwrap ---
+  test('toggleDetails unwraps when cursor is inside details (single range)', async ({ page }) => {
+    await setContentAndFocus(page, DETAILS_BASIC);
+    await focusSummaryStart(page);
+
+    const result = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      return comp?.editor?.commands.toggleDetails() ?? null;
+    });
+    expect(result).toBe(true);
+
+    const details = page.locator(`${editorSelector} div[data-type="details"]`);
+    await expect(details).toHaveCount(0);
+  });
+
+  // --- Content spec: detailsContent requires at least one block (block+) ---
+  test('detailsContent always has at least one block node', async ({ page }) => {
+    await setContentAndFocus(page, DETAILS_BASIC);
+    await clickDetailsToggle(page);
+
+    const blocks = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (!comp?.editor) return -1;
+      let count = 0;
+      comp.editor.state.doc.descendants((node: any) => {
+        if (node.type.name === 'detailsContent') {
+          count = node.childCount;
+          return false;
+        }
+      });
+      return count;
+    });
+    expect(blocks).toBeGreaterThanOrEqual(1);
+  });
+
+  // --- Schema: content spec is exactly detailsSummary + detailsContent ---
+  test('details node has exactly one detailsSummary and one detailsContent child', async ({ page }) => {
+    await setContentAndFocus(page, DETAILS_BASIC);
+
+    const children = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      if (!comp?.editor) return [];
+      const types: string[] = [];
+      comp.editor.state.doc.descendants((node: any) => {
+        if (node.type.name === 'details') {
+          node.forEach((child: any) => types.push(child.type.name));
+          return false;
+        }
+      });
+      return types;
+    });
+    expect(children).toEqual(['detailsSummary', 'detailsContent']);
+  });
+
+  // --- HTML rendering outputs semantic <details><summary> + <div data-details-content> ---
+  test('getHTML() outputs <details>, <summary>, and <div data-details-content>', async ({ page }) => {
+    await setContentAndFocus(page, DETAILS_BASIC);
+
+    const html = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const ng = (window as any).ng;
+      const comp = ng?.getComponent?.(el);
+      return comp?.editor?.getHTML() ?? '';
+    });
+    expect(html).toContain('<details>');
+    expect(html).toContain('<summary>Summary title</summary>');
+    expect(html).toContain('<div data-details-content="">');
+    expect(html).toContain('</details>');
+  });
+
+  // --- Enter in summary when collapsed: opens content ---
+  test('Enter in summary opens collapsed content and places cursor in new block at start', async ({ page }) => {
+    await setContentAndFocus(page, DETAILS_BASIC);
+    expect(await isDetailsOpen(page)).toBe(false);
+
+    await focusSummaryEnd(page);
+    await page.keyboard.press('Enter');
+
+    // Content should now be open
+    expect(await isDetailsOpen(page)).toBe(true);
+    const content = page.locator(`${editorSelector} div[data-details-content]`);
+    await expect(content).not.toHaveAttribute('hidden');
+
+    // Cursor should be in a new block at the start of content
+    await page.keyboard.type('Newly typed');
+    const contentParas = page.locator(`${editorSelector} div[data-details-content] p`);
+    // There should be 2 paragraphs: the new one + the original
+    await expect(contentParas).toHaveCount(2);
+    await expect(contentParas.nth(0)).toContainText('Newly typed');
+  });
+
+  // --- Toolbar item: isActive reflects cursor position ---
+  test('toolbar details button active state reflects cursor position', async ({ page }) => {
+    await setContentAndFocus(page, DETAILS_BETWEEN_PARAS);
+
+    // Click outside details
+    await page.locator(`${editorSelector} > p`).first().click();
+    const btn = page.locator(detailsBtn);
+    await expect(btn).toHaveAttribute('aria-pressed', 'false');
+
+    // Click inside summary
+    await page.locator(`${editorSelector} div[data-type="details"] summary`).click();
+    await expect(btn).toHaveAttribute('aria-pressed', 'true');
+
+    // Click outside again
+    await page.locator(`${editorSelector} > p`).last().click();
+    await expect(btn).toHaveAttribute('aria-pressed', 'false');
+  });
+});

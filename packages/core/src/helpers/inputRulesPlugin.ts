@@ -16,6 +16,7 @@
 import { Plugin } from '@domternal/pm/state';
 import type { InputRule } from '@domternal/pm/inputrules';
 import type { EditorView } from '@domternal/pm/view';
+import { TextSelection } from '@domternal/pm/state';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 
 interface InternalRule {
@@ -109,6 +110,11 @@ function undoInputRule(plugin: Plugin, state: EditorState, dispatch?: (tr: Trans
     if (undoable.text) {
       const marks = tr.doc.resolve(undoable.from).marks();
       tr.replaceWith(undoable.from, undoable.to, state.schema.text(undoable.text, marks));
+      // Place cursor at the end of the restored text
+      const endPos = undoable.from + undoable.text.length;
+      if (endPos <= tr.doc.content.size) {
+        tr.setSelection(TextSelection.create(tr.doc, endPos));
+      }
     } else {
       tr.delete(undoable.from, undoable.to);
     }

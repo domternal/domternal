@@ -41,11 +41,24 @@ import { Image } from '@domternal/extension-image';
 import { Details } from '@domternal/extension-details';
 import { Table } from '@domternal/extension-table';
 import { Emoji, emojis, createEmojiSuggestionRenderer } from '@domternal/extension-emoji';
+import { Mention, createMentionSuggestionRenderer } from '@domternal/extension-mention';
+import type { MentionItem } from '@domternal/extension-mention';
 import { createLowlight, common } from 'lowlight';
 import { DEMO_CONTENT } from './demo-content.js';
 
 const lowlight = createLowlight(common);
 const codeHighlighter = createCodeHighlighter(lowlight);
+
+const mockUsers: MentionItem[] = [
+  { id: '1', label: 'Alice Johnson' },
+  { id: '2', label: 'Bob Smith' },
+  { id: '3', label: 'Charlie Brown' },
+  { id: '4', label: 'Diana Prince' },
+  { id: '5', label: 'Eve Adams' },
+  { id: '6', label: 'Frank Castle' },
+  { id: '7', label: 'Grace Hopper' },
+  { id: '8', label: 'Henry Ford' },
+];
 
 @Component({
   selector: 'app-editor-demo',
@@ -73,7 +86,18 @@ export class EditorDemoComponent {
     Details,
     // Media & Emoji
     Image,
-    Emoji.configure({ emojis, suggestion: { render: createEmojiSuggestionRenderer() } }),
+    Emoji.configure({ emojis, enableEmoticons: true, suggestion: { render: createEmojiSuggestionRenderer() } }),
+    // Mentions
+    Mention.configure({
+      suggestion: {
+        char: '@',
+        name: 'user',
+        items: ({ query }: { query: string }) => mockUsers.filter((u) => u.label.toLowerCase().includes(query.toLowerCase())),
+        render: createMentionSuggestionRenderer(),
+        minQueryLength: 0,
+        invalidNodes: ['codeBlock'],
+      },
+    }),
     // Editor utilities
     LinkPopover, InvisibleChars, SelectionDecoration, ClearFormatting, Dropcursor,
   ];

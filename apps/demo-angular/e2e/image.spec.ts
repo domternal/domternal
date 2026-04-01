@@ -43,6 +43,13 @@ const IMG_FLOAT_RIGHT = `<img src="${BASE64_1PX}" style="float: right; margin: 0
 const IMG_FLOAT_CENTER = `<img src="${BASE64_1PX}" style="display: block; margin-left: auto; margin-right: auto;">`;
 const IMG_WITH_WIDTH = `<img src="${BASE64_1PX}" width="300">`;
 const PARA_ONLY = '<p>Some text here</p>';
+const IMG_ALIGN_LEFT = `<img src="${BASE64_1PX}" align="left">`;
+const IMG_ALIGN_RIGHT = `<img src="${BASE64_1PX}" align="right">`;
+const IMG_ALIGN_CENTER = `<img src="${BASE64_1PX}" align="center">`;
+const IMG_ALIGN_MIDDLE = `<img src="${BASE64_1PX}" align="middle">`;
+const IMG_NO_SRC = '<img alt="no source">';
+const CODE_BLOCK_CONTENT = '<pre><code>console.log("hello")</code></pre>';
+const IMG_IN_PARA = `<p>text <img src="${BASE64_1PX}" alt="inline"> more</p>`;
 
 // ═══════════════════════════════════════════════════════════════════════
 // RENDERING
@@ -1254,5 +1261,520 @@ test.describe('Image — popover styling', () => {
     const input = page.locator('.dm-image-popover-input');
     const minWidth = await input.evaluate((el) => getComputedStyle(el).minWidth);
     expect(minWidth).not.toBe('0px');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// DOCS VERIFICATION — additional tests for documented behavior
+// ═══════════════════════════════════════════════════════════════════════
+
+test.describe('Image — docs verification: parseHTML', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('img without src attribute is NOT parsed as image node', async ({ page }) => {
+    await setEditorContent(page, IMG_NO_SRC);
+    const images = page.locator('.dm-image-resizable');
+    await expect(images).toHaveCount(0);
+  });
+
+  test('float parsed from style="float: left"', async ({ page }) => {
+    await setEditorContent(page, IMG_FLOAT_LEFT);
+    const wrapper = page.locator('.dm-image-resizable');
+    await expect(wrapper).toHaveAttribute('data-float', 'left');
+  });
+
+  test('float parsed from style="float: right"', async ({ page }) => {
+    await setEditorContent(page, IMG_FLOAT_RIGHT);
+    const wrapper = page.locator('.dm-image-resizable');
+    await expect(wrapper).toHaveAttribute('data-float', 'right');
+  });
+
+  test('float parsed from style margin-left/right auto (center)', async ({ page }) => {
+    await setEditorContent(page, IMG_FLOAT_CENTER);
+    const wrapper = page.locator('.dm-image-resizable');
+    await expect(wrapper).toHaveAttribute('data-float', 'center');
+  });
+
+  test('float parsed from align="left"', async ({ page }) => {
+    await setEditorContent(page, IMG_ALIGN_LEFT);
+    const wrapper = page.locator('.dm-image-resizable');
+    await expect(wrapper).toHaveAttribute('data-float', 'left');
+  });
+
+  test('float parsed from align="right"', async ({ page }) => {
+    await setEditorContent(page, IMG_ALIGN_RIGHT);
+    const wrapper = page.locator('.dm-image-resizable');
+    await expect(wrapper).toHaveAttribute('data-float', 'right');
+  });
+
+  test('float parsed from align="center"', async ({ page }) => {
+    await setEditorContent(page, IMG_ALIGN_CENTER);
+    const wrapper = page.locator('.dm-image-resizable');
+    await expect(wrapper).toHaveAttribute('data-float', 'center');
+  });
+
+  test('float parsed from align="middle" (mapped to center)', async ({ page }) => {
+    await setEditorContent(page, IMG_ALIGN_MIDDLE);
+    const wrapper = page.locator('.dm-image-resizable');
+    await expect(wrapper).toHaveAttribute('data-float', 'center');
+  });
+});
+
+test.describe('Image — docs verification: commands', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('setImage returns false inside a code block', async ({ page }) => {
+    await setEditorContent(page, CODE_BLOCK_CONTENT);
+    // Place cursor inside code block
+    await page.locator(editorSelector + ' pre').click();
+    const result = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.commands.setImage({ src: 'https://example.com/img.png' });
+    });
+    expect(result).toBe(false);
+  });
+
+  test('setImageFloat returns false for invalid value', async ({ page }) => {
+    await setEditorContent(page, IMG_BASIC);
+    // Select the image
+    await page.locator('.dm-image-resizable').click();
+    const result = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.commands.setImageFloat('invalid-value');
+    });
+    expect(result).toBe(false);
+  });
+
+  test('setImageFloat returns false when no image is selected', async ({ page }) => {
+    await setEditorContent(page, PARA_ONLY);
+    await page.locator(editorSelector).click();
+    const result = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.commands.setImageFloat('left');
+    });
+    expect(result).toBe(false);
+  });
+
+  test('setImage replaces existing selected image (NodeSelection)', async ({ page }) => {
+    await setEditorContent(page, IMG_ALT);
+    // Select the existing image
+    await page.locator('.dm-image-resizable').click();
+    await page.waitForTimeout(100);
+    // Replace with new image via setImage
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      comp?.editor?.commands.setImage({ src: 'https://example.com/replaced.png', alt: 'Replaced' });
+    });
+    await page.waitForTimeout(100);
+    // Should still have exactly one image, with the new alt
+    const images = page.locator('.dm-image-resizable');
+    await expect(images).toHaveCount(1);
+    const alt = await page.locator('.dm-image-resizable img').getAttribute('alt');
+    expect(alt).toBe('Replaced');
+  });
+
+  test('deleteImage always returns true even without image selected', async ({ page }) => {
+    await setEditorContent(page, PARA_ONLY);
+    await page.locator(editorSelector).click();
+    const result = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.commands.deleteImage();
+    });
+    expect(result).toBe(true);
+  });
+});
+
+test.describe('Image — docs verification: input rules', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('input rule with single-quoted title', async ({ page }) => {
+    await setEditorContent(page, PARA_ONLY);
+    const editor = page.locator(editorSelector);
+    await editor.click();
+    // Select all and delete to start fresh
+    await page.keyboard.press('Meta+a');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type("![photo](https://example.com/img.png 'My Title')", { delay: 10 });
+    await page.waitForTimeout(200);
+    const img = page.locator('.dm-image-resizable img');
+    await expect(img).toHaveCount(1);
+    const title = await img.getAttribute('title');
+    expect(title).toBe('My Title');
+  });
+
+  test('input rule blocks javascript: URL', async ({ page }) => {
+    await setEditorContent(page, PARA_ONLY);
+    const editor = page.locator(editorSelector);
+    await editor.click();
+    await page.keyboard.press('Meta+a');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('![xss](javascript:alert(1))', { delay: 10 });
+    await page.waitForTimeout(200);
+    const images = page.locator('.dm-image-resizable');
+    await expect(images).toHaveCount(0);
+  });
+});
+
+test.describe('Image — docs verification: leafText', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('getText() returns alt attribute as text representation', async ({ page }) => {
+    await setEditorContent(page, IMG_ALT);
+    const text = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.getText();
+    });
+    expect(text).toContain('Red pixel');
+  });
+});
+
+test.describe('Image — docs verification: float rendering HTML output', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('float left outputs correct inline style', async ({ page }) => {
+    await setEditorContent(page, IMG_FLOAT_LEFT);
+    const html: string = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.getHTML() ?? '';
+    });
+    expect(html).toContain('float: left');
+    // Browser normalizes `0` to `0px` in computed margin values
+    expect(html).toMatch(/margin:\s*0(px)?\s+1em\s+1em\s+0(px)?/);
+  });
+
+  test('float right outputs correct inline style', async ({ page }) => {
+    await setEditorContent(page, IMG_FLOAT_RIGHT);
+    const html: string = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.getHTML() ?? '';
+    });
+    expect(html).toContain('float: right');
+    // Browser normalizes `0` to `0px` in computed margin values
+    expect(html).toMatch(/margin:\s*0(px)?\s+0(px)?\s+1em\s+1em/);
+  });
+
+  test('center outputs correct inline style', async ({ page }) => {
+    await setEditorContent(page, IMG_FLOAT_CENTER);
+    const html: string = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.getHTML() ?? '';
+    });
+    expect(html).toContain('display: block');
+    expect(html).toContain('margin-left: auto');
+    expect(html).toContain('margin-right: auto');
+  });
+
+  test('float none outputs no style attribute', async ({ page }) => {
+    await setEditorContent(page, IMG_BASIC);
+    const html: string = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.getHTML() ?? '';
+    });
+    // Non-floated image should have no style attribute
+    expect(html).toMatch(/<img[^>]*src=/);
+    expect(html).not.toMatch(/<img[^>]*style=/);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+// DOCS VERIFICATION 2 — additional edge cases
+// ═══════════════════════════════════════════════════════════════════════
+
+test.describe('Image — docs verification: allowBase64 option', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('with allowBase64: true (default), data:image/ URL is accepted by setImage', async ({ page }) => {
+    const result = await page.evaluate((b64) => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.commands.setImage({ src: b64 });
+    }, BASE64_1PX);
+    expect(result).toBe(true);
+  });
+
+  test('setImage blocks data:text/html regardless of allowBase64', async ({ page }) => {
+    const result = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.commands.setImage({ src: 'data:text/html,<script>alert(1)</script>' });
+    });
+    expect(result).toBe(false);
+  });
+
+  test('setImage accepts relative path URLs', async ({ page }) => {
+    const result = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.commands.setImage({ src: './images/photo.jpg' });
+    });
+    expect(result).toBe(true);
+  });
+
+  test('setImage accepts absolute path URLs', async ({ page }) => {
+    const result = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.commands.setImage({ src: '/uploads/photo.jpg' });
+    });
+    expect(result).toBe(true);
+  });
+
+  test('setImage accepts protocol-relative URLs', async ({ page }) => {
+    const result = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.commands.setImage({ src: '//cdn.example.com/img.png' });
+    });
+    expect(result).toBe(true);
+  });
+
+  test('setImage blocks file: protocol', async ({ page }) => {
+    const result = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.commands.setImage({ src: 'file:///etc/passwd' });
+    });
+    expect(result).toBe(false);
+  });
+});
+
+test.describe('Image — docs verification: setImage attributes', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('setImage with all attributes renders them in HTML', async ({ page }) => {
+    await setEditorContent(page, PARA_ONLY);
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      comp?.editor?.commands.setImage({
+        src: 'https://example.com/photo.jpg',
+        alt: 'Test alt',
+        title: 'Test title',
+        width: 400,
+        loading: 'lazy',
+        float: 'left',
+      });
+    });
+    await page.waitForTimeout(100);
+    const html: string = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.getHTML() ?? '';
+    });
+    expect(html).toContain('src="https://example.com/photo.jpg"');
+    expect(html).toContain('alt="Test alt"');
+    expect(html).toContain('title="Test title"');
+    expect(html).toContain('width="400"');
+    expect(html).toContain('loading="lazy"');
+    expect(html).toContain('float: left');
+  });
+
+  test('setImage with crossorigin renders in HTML', async ({ page }) => {
+    await setEditorContent(page, PARA_ONLY);
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      comp?.editor?.commands.setImage({
+        src: 'https://example.com/photo.jpg',
+        crossorigin: 'anonymous',
+      });
+    });
+    await page.waitForTimeout(100);
+    const html: string = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.getHTML() ?? '';
+    });
+    expect(html).toContain('crossorigin="anonymous"');
+  });
+
+  test('null attributes are omitted from rendered HTML', async ({ page }) => {
+    await setEditorContent(page, PARA_ONLY);
+    await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      comp?.editor?.commands.setImage({ src: 'https://example.com/photo.jpg' });
+    });
+    await page.waitForTimeout(100);
+    const html: string = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.getHTML() ?? '';
+    });
+    expect(html).toContain('src="https://example.com/photo.jpg"');
+    expect(html).not.toContain('alt=');
+    expect(html).not.toContain('title=');
+    expect(html).not.toContain('width=');
+    expect(html).not.toContain('height=');
+    expect(html).not.toContain('loading=');
+    expect(html).not.toContain('crossorigin=');
+    expect(html).not.toContain('style=');
+  });
+});
+
+test.describe('Image — docs verification: input rule edge cases', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('input rule with double-quoted title', async ({ page }) => {
+    await setEditorContent(page, PARA_ONLY);
+    const editor = page.locator(editorSelector);
+    await editor.click();
+    await page.keyboard.press('Meta+a');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('![alt](https://example.com/img.png "Double Title")', { delay: 10 });
+    await page.waitForTimeout(200);
+    const img = page.locator('.dm-image-resizable img');
+    await expect(img).toHaveCount(1);
+    expect(await img.getAttribute('title')).toBe('Double Title');
+  });
+
+  test('input rule without title (only alt and src)', async ({ page }) => {
+    await setEditorContent(page, PARA_ONLY);
+    const editor = page.locator(editorSelector);
+    await editor.click();
+    await page.keyboard.press('Meta+a');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('![my alt](https://example.com/img.png)', { delay: 10 });
+    await page.waitForTimeout(200);
+    const img = page.locator('.dm-image-resizable img');
+    await expect(img).toHaveCount(1);
+    expect(await img.getAttribute('alt')).toBe('my alt');
+    // Title should not be set
+    const title = await img.getAttribute('title');
+    expect(title === null || title === '').toBeTruthy();
+  });
+
+  test('input rule can appear after text on the same line', async ({ page }) => {
+    await setEditorContent(page, PARA_ONLY);
+    const editor = page.locator(editorSelector);
+    await editor.click();
+    await page.keyboard.press('Meta+a');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.type('check this ![pic](https://example.com/img.png)', { delay: 10 });
+    await page.waitForTimeout(200);
+    const img = page.locator('.dm-image-resizable img');
+    await expect(img).toHaveCount(1);
+  });
+});
+
+test.describe('Image — docs verification: bubble menu active state', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('Float left button has active class when image is floated left', async ({ page }) => {
+    await setEditorContent(page, IMG_FLOAT_LEFT);
+    await page.locator('.dm-image-resizable').click();
+    await page.waitForTimeout(200);
+    const floatLeftBtn = page.locator('.dm-bubble-menu button[aria-label="Float left"]');
+    await expect(floatLeftBtn).toHaveClass(/dm-toolbar-button--active/);
+  });
+
+  test('Inline button has active class for non-floated image', async ({ page }) => {
+    await setEditorContent(page, IMG_BASIC);
+    await page.locator('.dm-image-resizable').click();
+    await page.waitForTimeout(200);
+    const inlineBtn = page.locator('.dm-bubble-menu button[aria-label="Inline"]');
+    await expect(inlineBtn).toHaveClass(/dm-toolbar-button--active/);
+  });
+
+  test('Center button has active class when image is centered', async ({ page }) => {
+    await setEditorContent(page, IMG_FLOAT_CENTER);
+    await page.locator('.dm-image-resizable').click();
+    await page.waitForTimeout(200);
+    const centerBtn = page.locator('.dm-bubble-menu button[aria-label="Center"]');
+    await expect(centerBtn).toHaveClass(/dm-toolbar-button--active/);
+  });
+
+  test('active state updates when float changes', async ({ page }) => {
+    await setEditorContent(page, IMG_BASIC);
+    await page.locator('.dm-image-resizable').click();
+    await page.waitForTimeout(200);
+    // Initially inline
+    const inlineBtn = page.locator('.dm-bubble-menu button[aria-label="Inline"]');
+    await expect(inlineBtn).toHaveClass(/dm-toolbar-button--active/);
+    // Click Float right
+    const rightBtn = page.locator('.dm-bubble-menu button[aria-label="Float right"]');
+    await rightBtn.click();
+    await page.waitForTimeout(200);
+    // Now Float right should be active, Inline should not
+    await expect(rightBtn).toHaveClass(/dm-toolbar-button--active/);
+    await expect(inlineBtn).not.toHaveClass(/dm-toolbar-button--active/);
+  });
+});
+
+test.describe('Image — docs verification: JSON representation', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('getJSON() contains all image attributes with defaults', async ({ page }) => {
+    await setEditorContent(page, IMG_BASIC);
+    const json = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.getJSON();
+    });
+    // Find the image node in the JSON
+    const imageNode = json?.content?.find((n: any) => n.type === 'image');
+    expect(imageNode).toBeTruthy();
+    expect(imageNode.attrs.src).toContain('data:image/png');
+    expect(imageNode.attrs.alt).toBeNull();
+    expect(imageNode.attrs.title).toBeNull();
+    expect(imageNode.attrs.width).toBeNull();
+    expect(imageNode.attrs.height).toBeNull();
+    expect(imageNode.attrs.loading).toBeNull();
+    expect(imageNode.attrs.crossorigin).toBeNull();
+    expect(imageNode.attrs.float).toBe('none');
+  });
+
+  test('getJSON() includes set attributes', async ({ page }) => {
+    await setEditorContent(page, IMG_ALL_ATTRS);
+    const json = await page.evaluate(() => {
+      const el = document.querySelector('domternal-editor');
+      const comp = (window as any).ng?.getComponent?.(el);
+      return comp?.editor?.getJSON();
+    });
+    const imageNode = json?.content?.find((n: any) => n.type === 'image');
+    expect(imageNode).toBeTruthy();
+    expect(imageNode.attrs.alt).toBe('Pixel');
+    expect(imageNode.attrs.title).toBe('A pixel');
+    expect(imageNode.attrs.width).toBe('200');
   });
 });
