@@ -147,29 +147,29 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0(@astrojs/starlight@0.38.1(astro@6.0.4(@types/node@25.2.3)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.32.0)(rollup@4.55.1)(sass@1.97.3)(typescript@5.9.3)(yaml@2.8.2)))(tailwindcss@4.2.1)
       '@domternal/core':
-        specifier: workspace:*
-        version: link:../packages/core
+        specifier: 0.3.0
+        version: 0.3.0(linkedom@0.18.12)
       '@domternal/extension-code-block-lowlight':
-        specifier: workspace:*
-        version: link:../packages/extension-code-block-lowlight
+        specifier: 0.3.0
+        version: 0.3.0(@domternal/core@0.3.0(linkedom@0.18.12))(@domternal/pm@0.3.0)(lowlight@3.3.0)
       '@domternal/extension-details':
-        specifier: workspace:*
-        version: link:../packages/extension-details
+        specifier: 0.3.0
+        version: 0.3.0(@domternal/core@0.3.0(linkedom@0.18.12))(@domternal/pm@0.3.0)
       '@domternal/extension-emoji':
-        specifier: workspace:*
-        version: link:../packages/extension-emoji
+        specifier: 0.3.0
+        version: 0.3.0(@domternal/core@0.3.0(linkedom@0.18.12))(@domternal/pm@0.3.0)
       '@domternal/extension-image':
-        specifier: workspace:*
-        version: link:../packages/extension-image
+        specifier: 0.3.0
+        version: 0.3.0(@domternal/core@0.3.0(linkedom@0.18.12))(@domternal/pm@0.3.0)
       '@domternal/extension-mention':
-        specifier: workspace:*
-        version: link:../packages/extension-mention
+        specifier: 0.3.0
+        version: 0.3.0(@domternal/core@0.3.0(linkedom@0.18.12))(@domternal/pm@0.3.0)
       '@domternal/extension-table':
-        specifier: workspace:*
-        version: link:../packages/extension-table
+        specifier: 0.3.0
+        version: 0.3.0(@domternal/core@0.3.0(linkedom@0.18.12))(@domternal/pm@0.3.0)
       '@domternal/theme':
-        specifier: workspace:*
-        version: link:../packages/theme
+        specifier: 0.3.0
+        version: 0.3.0
       '@tailwindcss/vite':
         specifier: ^4.2.1
         version: 4.2.1(vite@8.0.0(@types/node@25.2.3)(esbuild@0.27.4)(jiti@2.6.1)(less@4.5.1)(sass@1.97.3)(yaml@2.8.2))
@@ -492,6 +492,21 @@ importers:
       sass:
         specifier: ^1.89.0
         version: 1.97.3
+
+  packages/vue:
+    devDependencies:
+      '@domternal/core':
+        specifier: workspace:*
+        version: link:../core
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+      vue:
+        specifier: ^3.5.13
+        version: 3.5.32(typescript@5.9.3)
 
 packages:
 
@@ -1399,6 +1414,64 @@ packages:
   '@ctrl/tinycolor@4.2.0':
     resolution: {integrity: sha512-kzyuwOAQnXJNLS9PSyrk0CWk35nWJW/zl/6KvnTBMFK65gm7U1/Z5BqjxeapjZCIhQcM/DsrEmcbRwDyXyXK4A==}
     engines: {node: '>=14'}
+
+  '@domternal/core@0.3.0':
+    resolution: {integrity: sha512-uxIK06njH1ug4MBqR4kGwQLgWMSnUnHIAjicVRhUoQsbZhjsBp1OiD4Jodp4lTDC5W2IugPNzOyTxaiqcIokfQ==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      linkedom: ^0.18.0
+    peerDependenciesMeta:
+      linkedom:
+        optional: true
+
+  '@domternal/extension-code-block-lowlight@0.3.0':
+    resolution: {integrity: sha512-H16+ckLXhTENnirt7qzg6Ki3R8iaDz9FSl7jUQsdzYoAW4uEh6bMss3q3lk5v5KeGDWTL2tMzv3Ps21bvH7EcQ==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@domternal/core': '>=0.2.0'
+      '@domternal/pm': '>=0.2.0'
+      lowlight: ^3.0.0
+
+  '@domternal/extension-details@0.3.0':
+    resolution: {integrity: sha512-tV98Idzr2hfnTu7vlVe0nQ6TE30PkQKCwh51WKv2z3MVr9YhYmtcoH7utSXwMWIG31FyUYbpqzjdc/4naQs7Hg==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@domternal/core': '>=0.2.0'
+      '@domternal/pm': '>=0.2.0'
+
+  '@domternal/extension-emoji@0.3.0':
+    resolution: {integrity: sha512-CvWYL9JQtoE7LsB57blTpfYR3s31VOI2rNr/Iwm7/jG8tLvPap7JmEd1G5dV/zx2JeTUORHp9jO+MacRBLbjOw==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@domternal/core': '>=0.2.0'
+      '@domternal/pm': '>=0.2.0'
+
+  '@domternal/extension-image@0.3.0':
+    resolution: {integrity: sha512-xiRz2FzohxWBhQ5zfJMEeGs/Hcgqgwwjn0qHn1eGcWJ1mxOKtVK46mOP0UBbtB/QLh+bh40sDNoGtHVVx6xDSA==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@domternal/core': '>=0.2.0'
+      '@domternal/pm': '>=0.2.0'
+
+  '@domternal/extension-mention@0.3.0':
+    resolution: {integrity: sha512-bsgx96BwYIUI4ZR3XGd7AQw8kUfJfScZnscW3EF+cpe29f6+Iz4zkLTmNiQJZoq4V00a1W/Wq/le35Ui34RTJw==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@domternal/core': '>=0.2.0'
+      '@domternal/pm': '>=0.2.0'
+
+  '@domternal/extension-table@0.3.0':
+    resolution: {integrity: sha512-NBfEKQ4oeY1e/vTSLQea4CuDEAaO9hHI6R5jcu7TFL3YUtOIFE1bog0Hn9kvx3yBFtFH3Fhh4+BYjXixXl8S+g==}
+    engines: {node: '>=20'}
+    peerDependencies:
+      '@domternal/core': '>=0.2.0'
+      '@domternal/pm': '>=0.2.0'
+
+  '@domternal/pm@0.3.0':
+    resolution: {integrity: sha512-+vwzGZqLBiiAyl6eq9x4xk3Woi8AJVIQ7KsIXBYuOHS50gN0++d7ji7+wh/OyrCuYY36urrGXXqtw6grQJPZUQ==}
+
+  '@domternal/theme@0.3.0':
+    resolution: {integrity: sha512-wpHuE0/izmp7DzsSVOjtoLKBNVBTLfDFOq5c6grkvvsSmKCa9t0S81oUvJmVuuhBR35a2BlocOrTi4+gt7SO3A==}
 
   '@emnapi/core@1.8.1':
     resolution: {integrity: sha512-AvT9QFpxK0Zd8J0jopedNm+w/2fIzvtPKPjqyw9jwvBaReTTqPBk9Hixaz7KbjimP+QNz605/XnjFcDAL2pqBg==}
@@ -3584,6 +3657,35 @@ packages:
   '@vitest/utils@4.0.17':
     resolution: {integrity: sha512-RG6iy+IzQpa9SB8HAFHJ9Y+pTzI+h8553MrciN9eC6TFBErqrQaTas4vG+MVj8S4uKk8uTT2p0vgZPnTdxd96w==}
 
+  '@vue/compiler-core@3.5.32':
+    resolution: {integrity: sha512-4x74Tbtqnda8s/NSD6e1Dr5p1c8HdMU5RWSjMSUzb8RTcUQqevDCxVAitcLBKT+ie3o0Dl9crc/S/opJM7qBGQ==}
+
+  '@vue/compiler-dom@3.5.32':
+    resolution: {integrity: sha512-ybHAu70NtiEI1fvAUz3oXZqkUYEe5J98GjMDpTGl5iHb0T15wQYLR4wE3h9xfuTNA+Cm2f4czfe8B4s+CCH57Q==}
+
+  '@vue/compiler-sfc@3.5.32':
+    resolution: {integrity: sha512-8UYUYo71cP/0YHMO814TRZlPuUUw3oifHuMR7Wp9SNoRSrxRQnhMLNlCeaODNn6kNTJsjFoQ/kqIj4qGvya4Xg==}
+
+  '@vue/compiler-ssr@3.5.32':
+    resolution: {integrity: sha512-Gp4gTs22T3DgRotZ8aA/6m2jMR+GMztvBXUBEUOYOcST+giyGWJ4WvFd7QLHBkzTxkfOt8IELKNdpzITLbA2rw==}
+
+  '@vue/reactivity@3.5.32':
+    resolution: {integrity: sha512-/ORasxSGvZ6MN5gc+uE364SxFdJ0+WqVG0CENXaGW58TOCdrAW76WWaplDtECeS1qphvtBZtR+3/o1g1zL4xPQ==}
+
+  '@vue/runtime-core@3.5.32':
+    resolution: {integrity: sha512-pDrXCejn4UpFDFmMd27AcJEbHaLemaE5o4pbb7sLk79SRIhc6/t34BQA7SGNgYtbMnvbF/HHOftYBgFJtUoJUQ==}
+
+  '@vue/runtime-dom@3.5.32':
+    resolution: {integrity: sha512-1CDVv7tv/IV13V8Nip1k/aaObVbWqRlVCVezTwx3K07p7Vxossp5JU1dcPNhJk3w347gonIUT9jQOGutyJrSVQ==}
+
+  '@vue/server-renderer@3.5.32':
+    resolution: {integrity: sha512-IOjm2+JQwRFS7W28HNuJeXQle9KdZbODFY7hFGVtnnghF51ta20EWAZJHX+zLGtsHhaU6uC9BGPV52KVpYryMQ==}
+    peerDependencies:
+      vue: 3.5.32
+
+  '@vue/shared@3.5.32':
+    resolution: {integrity: sha512-ksNyrmRQzWJJ8n3cRDuSF7zNNontuJg1YHnmWRJd2AMu8Ij2bqwiiri2lH5rHtYPZjj4STkNcgcmiQqlOjiYGg==}
+
   '@yarnpkg/lockfile@1.1.0':
     resolution: {integrity: sha512-GpSwvyXOcOOlV70vbnzjj4fW5xW/FdUF6nQEt1ENy7m4ZCczi1+/buVUPAqmGfqznsORNFzUMjctTIp8a9tuCQ==}
 
@@ -4089,6 +4191,9 @@ packages:
   cssstyle@6.2.0:
     resolution: {integrity: sha512-Fm5NvhYathRnXNVndkUsCCuR63DCLVVwGOOwQw782coXFi5HhkXdu289l59HlXZBawsyNccXfWRYvLzcDCdDig==}
     engines: {node: '>=20'}
+
+  csstype@3.2.3:
+    resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
 
   data-urls@6.0.1:
     resolution: {integrity: sha512-euIQENZg6x8mj3fO6o9+fOW8MimUI4PpD/fZBhJfeioZVy9TUpM4UY7KjQNVZFlqwJ0UdzRDzkycB997HEq1BQ==}
@@ -6906,6 +7011,14 @@ packages:
       jsdom:
         optional: true
 
+  vue@3.5.32:
+    resolution: {integrity: sha512-vM4z4Q9tTafVfMAK7IVzmxg34rSzTFMyIe0UUEijUCkn9+23lj0WRfA83dg7eQZIUlgOSGrkViIaCfqSAUXsMw==}
+    peerDependencies:
+      typescript: '*'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
   w3c-keyname@2.2.8:
     resolution: {integrity: sha512-dpojBhNsCNN7T82Tm7k26A6G9ML3NkhDsnw9n/eoxSRlVBB4CEtIQ/KTCLI2Fwf3ataSXRhYFkQi3SlnFwPvPQ==}
 
@@ -8381,6 +8494,63 @@ snapshots:
   '@csstools/css-tokenizer@4.0.0': {}
 
   '@ctrl/tinycolor@4.2.0': {}
+
+  '@domternal/core@0.3.0(linkedom@0.18.12)':
+    dependencies:
+      '@domternal/pm': 0.3.0
+      '@floating-ui/dom': 1.7.5
+      linkifyjs: 4.3.2
+    optionalDependencies:
+      linkedom: 0.18.12
+
+  '@domternal/extension-code-block-lowlight@0.3.0(@domternal/core@0.3.0(linkedom@0.18.12))(@domternal/pm@0.3.0)(lowlight@3.3.0)':
+    dependencies:
+      '@domternal/core': 0.3.0(linkedom@0.18.12)
+      '@domternal/pm': 0.3.0
+      hast-util-to-html: 9.0.5
+      lowlight: 3.3.0
+
+  '@domternal/extension-details@0.3.0(@domternal/core@0.3.0(linkedom@0.18.12))(@domternal/pm@0.3.0)':
+    dependencies:
+      '@domternal/core': 0.3.0(linkedom@0.18.12)
+      '@domternal/pm': 0.3.0
+
+  '@domternal/extension-emoji@0.3.0(@domternal/core@0.3.0(linkedom@0.18.12))(@domternal/pm@0.3.0)':
+    dependencies:
+      '@domternal/core': 0.3.0(linkedom@0.18.12)
+      '@domternal/pm': 0.3.0
+
+  '@domternal/extension-image@0.3.0(@domternal/core@0.3.0(linkedom@0.18.12))(@domternal/pm@0.3.0)':
+    dependencies:
+      '@domternal/core': 0.3.0(linkedom@0.18.12)
+      '@domternal/pm': 0.3.0
+
+  '@domternal/extension-mention@0.3.0(@domternal/core@0.3.0(linkedom@0.18.12))(@domternal/pm@0.3.0)':
+    dependencies:
+      '@domternal/core': 0.3.0(linkedom@0.18.12)
+      '@domternal/pm': 0.3.0
+
+  '@domternal/extension-table@0.3.0(@domternal/core@0.3.0(linkedom@0.18.12))(@domternal/pm@0.3.0)':
+    dependencies:
+      '@domternal/core': 0.3.0(linkedom@0.18.12)
+      '@domternal/pm': 0.3.0
+
+  '@domternal/pm@0.3.0':
+    dependencies:
+      prosemirror-commands: 1.7.1
+      prosemirror-dropcursor: 1.8.2
+      prosemirror-gapcursor: 1.4.0
+      prosemirror-history: 1.5.0
+      prosemirror-inputrules: 1.5.1
+      prosemirror-keymap: 1.2.3
+      prosemirror-model: 1.25.4
+      prosemirror-schema-list: 1.5.1
+      prosemirror-state: 1.4.4
+      prosemirror-tables: 1.8.5
+      prosemirror-transform: 1.10.5
+      prosemirror-view: 1.41.5
+
+  '@domternal/theme@0.3.0': {}
 
   '@emnapi/core@1.8.1':
     dependencies:
@@ -10153,6 +10323,60 @@ snapshots:
       '@vitest/pretty-format': 4.0.17
       tinyrainbow: 3.0.3
 
+  '@vue/compiler-core@3.5.32':
+    dependencies:
+      '@babel/parser': 7.29.2
+      '@vue/shared': 3.5.32
+      entities: 7.0.1
+      estree-walker: 2.0.2
+      source-map-js: 1.2.1
+
+  '@vue/compiler-dom@3.5.32':
+    dependencies:
+      '@vue/compiler-core': 3.5.32
+      '@vue/shared': 3.5.32
+
+  '@vue/compiler-sfc@3.5.32':
+    dependencies:
+      '@babel/parser': 7.29.2
+      '@vue/compiler-core': 3.5.32
+      '@vue/compiler-dom': 3.5.32
+      '@vue/compiler-ssr': 3.5.32
+      '@vue/shared': 3.5.32
+      estree-walker: 2.0.2
+      magic-string: 0.30.21
+      postcss: 8.5.8
+      source-map-js: 1.2.1
+
+  '@vue/compiler-ssr@3.5.32':
+    dependencies:
+      '@vue/compiler-dom': 3.5.32
+      '@vue/shared': 3.5.32
+
+  '@vue/reactivity@3.5.32':
+    dependencies:
+      '@vue/shared': 3.5.32
+
+  '@vue/runtime-core@3.5.32':
+    dependencies:
+      '@vue/reactivity': 3.5.32
+      '@vue/shared': 3.5.32
+
+  '@vue/runtime-dom@3.5.32':
+    dependencies:
+      '@vue/reactivity': 3.5.32
+      '@vue/runtime-core': 3.5.32
+      '@vue/shared': 3.5.32
+      csstype: 3.2.3
+
+  '@vue/server-renderer@3.5.32(vue@3.5.32(typescript@5.9.3))':
+    dependencies:
+      '@vue/compiler-ssr': 3.5.32
+      '@vue/shared': 3.5.32
+      vue: 3.5.32(typescript@5.9.3)
+
+  '@vue/shared@3.5.32': {}
+
   '@yarnpkg/lockfile@1.1.0': {}
 
   '@yarnpkg/parsers@3.0.2':
@@ -10756,6 +10980,8 @@ snapshots:
       '@csstools/css-syntax-patches-for-csstree': 1.1.1(css-tree@3.1.0)
       css-tree: 3.1.0
       lru-cache: 11.2.7
+
+  csstype@3.2.3: {}
 
   data-urls@6.0.1:
     dependencies:
@@ -14358,6 +14584,16 @@ snapshots:
       - terser
       - tsx
       - yaml
+
+  vue@3.5.32(typescript@5.9.3):
+    dependencies:
+      '@vue/compiler-dom': 3.5.32
+      '@vue/compiler-sfc': 3.5.32
+      '@vue/runtime-dom': 3.5.32
+      '@vue/server-renderer': 3.5.32(vue@3.5.32(typescript@5.9.3))
+      '@vue/shared': 3.5.32
+    optionalDependencies:
+      typescript: 5.9.3
 
   w3c-keyname@2.2.8: {}
 
