@@ -42,15 +42,15 @@ declare module '../types/Commands.js' {
  * Row 5: neutrals
  */
 export const DEFAULT_HIGHLIGHT_COLORS: string[] = [
-  // Row 1 — Classic warm highlights
+  // Row 1 - Classic warm highlights
   '#fef08a', '#fde68a', '#fed7aa', '#fecaca', '#fbcfe8',
-  // Row 2 — Lighter warm pastels
+  // Row 2 - Lighter warm pastels
   '#fef9c3', '#fef3c7', '#ffedd5', '#fee2e2', '#fce7f3',
-  // Row 3 — Cool highlights
+  // Row 3 - Cool highlights
   '#a7f3d0', '#99f6e4', '#a5f3fc', '#bfdbfe', '#c4b5fd',
-  // Row 4 — Lighter cool pastels
+  // Row 4 - Lighter cool pastels
   '#d1fae5', '#ccfbf1', '#cffafe', '#dbeafe', '#ede9fe',
-  // Row 5 — Neutrals
+  // Row 5 - Neutrals
   '#e5e7eb', '#d1d5db', '#f3f4f6', '#fafafa', '#ffffff',
 ];
 

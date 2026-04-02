@@ -3,7 +3,7 @@
  *
  * Collapses the editor's range selection to a cursor when the editor loses
  * focus.  This prevents a "ghost selection" from lingering after the user
- * clicks outside the editor (approach A — same as Google Docs / Notion).
+ * clicks outside the editor (approach A - same as Google Docs / Notion).
  *
  * Toolbar and bubble-menu buttons call `event.preventDefault()` on
  * `mousedown`, so they never trigger blur — the selection stays intact

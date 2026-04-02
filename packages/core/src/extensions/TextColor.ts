@@ -12,7 +12,7 @@
  *   extensions: [
  *     // ... other extensions
  *     TextStyle,
- *     TextColor, // uses the default 80-color palette
+ *     TextColor, // uses the default 25-color palette
  *   ],
  * });
  *
@@ -44,15 +44,15 @@ declare module '../types/Commands.js' {
  * Columns: Red, Orange/Yellow, Green, Blue, Purple
  */
 export const DEFAULT_TEXT_COLORS: string[] = [
-  // Row 1 — Neutrals
+  // Row 1 - Neutrals
   '#000000', '#595959', '#a6a6a6', '#d9d9d9', '#ffffff',
-  // Row 2 — Pastel
+  // Row 2 - Pastel
   '#ffc9c9', '#fff3bf', '#b2f2bb', '#a5d8ff', '#d0bfff',
-  // Row 3 — Vivid
+  // Row 3 - Vivid
   '#e03131', '#f08c00', '#2f9e44', '#1971c2', '#7048e8',
-  // Row 4 — Medium
+  // Row 4 - Medium
   '#ff6b6b', '#ffd43b', '#69db7c', '#4dabf7', '#9775fa',
-  // Row 5 — Dark
+  // Row 5 - Dark
   '#c92a2a', '#e67700', '#2b8a3e', '#1864ab', '#6741d9',
 ];
 
