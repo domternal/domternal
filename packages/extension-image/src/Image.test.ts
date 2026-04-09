@@ -573,7 +573,7 @@ describe('Image', () => {
 
       const imageExt = editor.extensionManager.extensions.find(
         (e) => e.name === 'image'
-      );
+      ) as import('@domternal/core').Extension | undefined;
       const rules = imageExt?.config.addInputRules?.call(imageExt);
       expect(rules).toHaveLength(1);
     });
