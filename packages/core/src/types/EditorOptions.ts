@@ -8,17 +8,27 @@ import type {
   MountEventProps,
   ErrorEventProps,
 } from './EditorEvents.js';
-import type { Extension } from '../Extension.js';
-import type { Node } from '../Node.js';
-import type { Mark } from '../Mark.js';
-
 /**
- * Union type for all extension types
- * - Extension: Pure functionality (History, Placeholder)
- * - Node: Schema nodes (Paragraph, Heading)
- * - Mark: Schema marks (Bold, Italic)
+ * Type-erased base for Extension, Node, and Mark.
+ *
+ * The Extension class has generic Options/Storage parameters, and methods
+ * like `configure(options: Partial<Options>)` that make Options contravariant.
+ * This means `Extension<MyOptions>` is not assignable to `Extension<unknown>`.
+ *
+ * AnyExtension uses an interface with only the properties that ExtensionManager
+ * and the editor need at runtime, avoiding the generic variance issue. Every
+ * Extension<O, S>, Node<O, S>, and Mark<O, S> structurally satisfies this
+ * interface regardless of their generic parameters.
  */
-export type AnyExtension = Extension | Node | Mark;
+export interface AnyExtension {
+  readonly type: 'extension' | 'node' | 'mark';
+  readonly name: string;
+  readonly options: unknown;
+  storage: unknown;
+  readonly config: unknown;
+  editor: unknown;
+  parent?: ((...args: unknown[]) => unknown) | undefined;
+}
 
 /**
  * Autofocus options for the editor
