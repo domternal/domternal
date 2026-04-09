@@ -70,3 +70,16 @@ pnpm test       # Run tests
 pnpm lint       # Run linter
 pnpm typecheck  # Run type checker
 ```
+
+## Release
+
+1. Branch: `git checkout -b release/X.Y.Z` from main
+2. Bump `"version"` in all 11 `packages/*/package.json` + `domternal.dev/package.json`
+3. Bump `peerDependencies` and `prepublishOnly` hook versions to `>=X.Y.Z`
+4. Bump `examples/*/package.json` deps to `^X.Y.Z`
+5. Update `CHANGELOG.md` and `domternal.dev` changelog
+6. Update all 12 READMEs (root + 11 packages)
+7. Verify: `pnpm test && pnpm build && pnpm typecheck && pnpm lint`
+8. Merge to main, tag `vX.Y.Z`, push with tags
+9. Publish: pm, core, theme, angular, react, then extensions
+10. Create GitHub release from tag
