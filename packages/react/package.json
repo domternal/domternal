@@ -1,6 +1,6 @@
 {
   "name": "@domternal/react",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "React components for Domternal editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
@@ -21,7 +21,7 @@
   "peerDependencies": {
     "react": ">=18",
     "react-dom": ">=18",
-    "@domternal/core": ">=0.2.0"
+    "@domternal/core": ">=0.4.0"
   },
   "devDependencies": {
     "@domternal/core": "workspace:*",

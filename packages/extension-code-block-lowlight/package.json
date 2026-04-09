@@ -1,6 +1,6 @@
 {
   "name": "@domternal/extension-code-block-lowlight",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Code block with syntax highlighting via lowlight for Domternal editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
@@ -41,8 +41,8 @@
     "hast-util-to-html": "^9.0.0"
   },
   "peerDependencies": {
-    "@domternal/core": ">=0.2.0",
-    "@domternal/pm": ">=0.2.0",
+    "@domternal/core": ">=0.4.0",
+    "@domternal/pm": ">=0.4.0",
     "lowlight": "^3.0.0"
   },
   "devDependencies": {

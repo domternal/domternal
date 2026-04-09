@@ -1,6 +1,6 @@
 {
   "name": "@domternal/extension-mention",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Mention extension for Domternal editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
@@ -38,8 +38,8 @@
     "postpublish": "git checkout package.json"
   },
   "peerDependencies": {
-    "@domternal/core": ">=0.2.0",
-    "@domternal/pm": ">=0.2.0"
+    "@domternal/core": ">=0.4.0",
+    "@domternal/pm": ">=0.4.0"
   },
   "devDependencies": {
     "@domternal/core": "workspace:*",
