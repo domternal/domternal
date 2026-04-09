@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1 (2026-04-09)
+
+### Fixes
+
+- fix(angular,react): prevent page scroll when emoji picker opens by using `focus({ preventScroll: true })`
+- fix(react): replace wrapper `<div>` with `<Fragment>` in emoji picker grid so categories render as rows instead of columns
+
 ## 0.4.0 (2026-04-09)
 
 ### Features
