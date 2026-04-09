@@ -156,7 +156,6 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
 
   // Create editor on mount
   useEffect(() => {
-
     // Use the ref element if available, otherwise create a detached div
     // (composable pattern: Domternal.Content will adopt the DOM later)
     const element = editorRef.current ?? document.createElement('div');

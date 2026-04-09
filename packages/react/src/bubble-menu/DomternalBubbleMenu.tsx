@@ -43,6 +43,7 @@ export function DomternalBubbleMenu({
     isItemActive,
     isItemDisabled,
     executeCommand,
+    activeVersion,
     getCachedIcon,
   } = useBubbleMenu({
     editor,
@@ -53,6 +54,9 @@ export function DomternalBubbleMenu({
     items,
     contexts,
   });
+
+  // Force re-read of activeVersion in render to subscribe to state changes
+  void activeVersion;
 
   const getCachedHtml = (name: string): string => {
     const cache = htmlCacheRef.current;
