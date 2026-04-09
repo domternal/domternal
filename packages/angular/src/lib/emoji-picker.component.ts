@@ -290,7 +290,7 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
             });
           }
           const input = this.elRef.nativeElement.querySelector('.dm-emoji-picker-search input') as HTMLInputElement | null;
-          input?.focus();
+          input?.focus({ preventScroll: true });
         });
       });
     };

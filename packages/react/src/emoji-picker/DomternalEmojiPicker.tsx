@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import type { Editor } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useEmojiPicker, type EmojiPickerItem } from './useEmojiPicker.js';
@@ -122,7 +123,7 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
                 </>
               )}
               {categoryNames.map((cat) => (
-                <div key={cat}>
+                <Fragment key={cat}>
                   <div className="dm-emoji-picker-category-label" data-category={cat}>
                     {cat}
                   </div>
@@ -139,7 +140,7 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
                       {item.emoji}
                     </button>
                   ))}
-                </div>
+                </Fragment>
               ))}
             </>
           )}
