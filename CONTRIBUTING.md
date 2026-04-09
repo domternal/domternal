@@ -81,4 +81,4 @@ pnpm typecheck  # Run type checker
 7. Verify: `pnpm test && pnpm build && pnpm typecheck && pnpm lint`
 8. Merge to main, tag `vX.Y.Z`, push with tags
 9. Publish: pm, core, theme, angular, react, then extensions
-10. Create GitHub release from tag
+10. Create GitHub release from tag with title `vX.Y.Z` and changelog entry as body
