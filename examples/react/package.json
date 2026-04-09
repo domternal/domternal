@@ -10,8 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@domternal/core": "^0.3.0",
-    "@domternal/theme": "^0.3.0",
+    "@domternal/core": "^0.4.0",
+    "@domternal/theme": "^0.4.0",
     "@domternal/react": "workspace:*",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
