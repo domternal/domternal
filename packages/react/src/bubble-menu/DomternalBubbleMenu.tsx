@@ -43,6 +43,7 @@ export function DomternalBubbleMenu({
     isItemActive,
     isItemDisabled,
     executeCommand,
+    activeVersion,
     getCachedIcon,
   } = useBubbleMenu({
     editor,
@@ -54,6 +55,9 @@ export function DomternalBubbleMenu({
     contexts,
   });
 
+  // Force re-read of activeVersion in render to subscribe to state changes
+  void activeVersion;
+
   const getCachedHtml = (name: string): string => {
     const cache = htmlCacheRef.current;
     const cached = cache.get(name);
@@ -64,20 +68,22 @@ export function DomternalBubbleMenu({
   };
 
   return (
-    <div ref={menuRef} className="dm-bubble-menu">
+    <div ref={menuRef} className="dm-bubble-menu" role="toolbar" aria-label="Text formatting">
       {resolvedItems.map((item) => {
         if (item.type === 'separator') {
-          return <span key={item.name} className="dm-toolbar-separator" />;
+          return <span key={item.name} className="dm-toolbar-separator" role="separator" />;
         }
         const btn = item as ToolbarButton;
+        const active = isItemActive(btn);
         return (
           <button
             key={btn.name}
             type="button"
-            className={`dm-toolbar-button${isItemActive(btn) ? ' dm-toolbar-button--active' : ''}`}
+            className={`dm-toolbar-button${active ? ' dm-toolbar-button--active' : ''}`}
             disabled={isItemDisabled(btn)}
             title={btn.label}
             aria-label={btn.label}
+            aria-pressed={active}
             dangerouslySetInnerHTML={{ __html: getCachedHtml(btn.icon) }}
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => executeCommand(btn)}

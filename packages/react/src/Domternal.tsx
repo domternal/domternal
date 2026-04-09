@@ -102,6 +102,13 @@ function DomternalEmojiPickerSub(props: Omit<DomternalEmojiPickerProps, 'editor'
 
 // --- Attach subcomponents ---
 
+DomternalContent.displayName = 'Domternal.Content';
+DomternalLoading.displayName = 'Domternal.Loading';
+DomternalToolbarSub.displayName = 'Domternal.Toolbar';
+DomternalBubbleMenuSub.displayName = 'Domternal.BubbleMenu';
+DomternalFloatingMenuSub.displayName = 'Domternal.FloatingMenu';
+DomternalEmojiPickerSub.displayName = 'Domternal.EmojiPicker';
+
 Domternal.Content = DomternalContent;
 Domternal.Loading = DomternalLoading;
 Domternal.Toolbar = DomternalToolbarSub;

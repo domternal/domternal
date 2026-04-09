@@ -23,6 +23,7 @@ export interface DomternalEditorRef {
   jsonContent: JSONContent | null;
   isEmpty: boolean;
   isFocused: boolean;
+  isEditable: boolean;
 }
 
 /**
@@ -63,7 +64,7 @@ export const DomternalEditor = forwardRef<DomternalEditorRef, DomternalEditorPro
 
     const { editor, editorRef } = useEditor({
       ...editorOptions,
-      content: value ?? content ?? '',
+      content: content ?? value ?? '',
       outputFormat,
     });
 
@@ -76,6 +77,7 @@ export const DomternalEditor = forwardRef<DomternalEditorRef, DomternalEditorPro
       jsonContent: state.jsonContent,
       isEmpty: state.isEmpty,
       isFocused: state.isFocused,
+      isEditable: state.isEditable,
     }), [editor, state]);
 
     // Controlled mode: sync value prop to editor
@@ -117,10 +119,10 @@ export const DomternalEditor = forwardRef<DomternalEditorRef, DomternalEditorPro
 
     return (
       <EditorProvider editor={editor}>
+        {children}
         <div className={classes}>
           <div ref={editorRef} />
         </div>
-        {children}
       </EditorProvider>
     );
   },

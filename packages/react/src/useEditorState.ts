@@ -51,8 +51,13 @@ function useEditorStateFull(editor: Editor | null): EditorState {
     // Set initial state
     setState(getFullState(editor));
 
-    const onTransaction = () => {
+    const onTransaction = ({ transaction }: { transaction: { docChanged: boolean } }) => {
       setState(prev => {
+        if (!transaction.docChanged) {
+          const editable = editor.isEditable;
+          if (prev.isEditable === editable) return prev;
+          return { ...prev, isEditable: editable };
+        }
         const html = editor.getHTML();
         const json = editor.getJSON();
         const empty = editor.isEmpty;

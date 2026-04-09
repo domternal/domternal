@@ -8,6 +8,7 @@ interface PMNode {
   type: { name: string; spec: { group?: string } };
   attrs: Record<string, unknown>;
   textContent: string;
+  nodeSize: number;
 }
 
 /**
@@ -170,7 +171,7 @@ class ReactNodeView {
       deleteNode: () => {
         const pos = this.getPos();
         const { tr } = this.editor.view.state;
-        tr.delete(pos, pos + 1);
+        tr.delete(pos, pos + this.node.nodeSize);
         this.editor.view.dispatch(tr);
       },
     };

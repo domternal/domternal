@@ -78,7 +78,6 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
     content = '',
     editable = true,
     autofocus = false,
-    immediatelyRender = true,
     outputFormat = 'html',
   } = options;
 
@@ -155,13 +154,8 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
     setEditor(null);
   }
 
-  // SSR guard: skip creation during server-side rendering
-  const isSSR = typeof window === 'undefined';
-
   // Create editor on mount
   useEffect(() => {
-    if (isSSR && !immediatelyRender) return;
-
     // Use the ref element if available, otherwise create a detached div
     // (composable pattern: Domternal.Content will adopt the DOM later)
     const element = editorRef.current ?? document.createElement('div');
