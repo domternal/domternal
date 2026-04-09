@@ -139,7 +139,7 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
           });
         }
         const input = pickerRef.current?.querySelector('.dm-emoji-picker-search input') as HTMLInputElement | null;
-        input?.focus();
+        input?.focus({ preventScroll: true });
       });
     };
 
