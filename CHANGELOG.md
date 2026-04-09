@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.4.0 (2026-04-09)
+
+### Features
+
+- feat(react): add `@domternal/react` wrapper with hooks, composable components, toolbar, bubble menu, floating menu, emoji picker, and React node views (#54)
+- feat(react): scaffold React example app and demo app with full E2E test suite
+- feat(core): export `NodeViewContext` interface for framework wrapper node view integration
+
+### Fixes
+
+- fix(react): `deleteNode` in `ReactNodeViewRenderer` uses `node.nodeSize` instead of hardcoded `1` for correct deletion of nodes with content
+- fix(react): `useEditorState` skips expensive `getHTML()`/`getJSON()` on selection-only transactions
+- fix(react): `DomternalEditor` renders children before editor div (toolbar above content)
+- fix(react): bubble menu `activeVersion` triggers re-renders for active/disabled state updates
+- fix(core): replace `AnyExtension` union type with interface to fix generic variance issue with `configure()`
+
+### Accessibility
+
+- Bubble menu: `role="toolbar"`, `aria-label`, `aria-pressed` on buttons, `role="separator"` on dividers
+- `displayName` on all `Domternal` compound subcomponents for React DevTools
+- `DomternalEditorRef` exposes `isEditable`
+
+### Tests
+
+- 1856 E2E tests for React demo app (38 spec files covering all extensions, toolbar, bubble menu, emoji picker, tables, mentions, and more)
+- 60 React-specific E2E tests: bubble menu a11y, `aria-pressed` sync, active class updates, `useEditorState` reactive output, dark theme toggle, toolbar layout switch, context-aware bubble menu filtering
+
+### Packages
+
+- New: `@domternal/react` - React 18+ wrapper with `Domternal` composable component, `useEditor`, `useEditorState`, `DomternalEditor`, `EditorContent`, `DomternalToolbar`, `DomternalBubbleMenu`, `DomternalFloatingMenu`, `DomternalEmojiPicker`, `ReactNodeViewRenderer`
+
 ## 0.3.0 (2026-04-01)
 
 ### Features
