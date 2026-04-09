@@ -3,8 +3,8 @@
 [![Version](https://img.shields.io/npm/v/@domternal/react.svg)](https://www.npmjs.com/package/@domternal/react)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-A lightweight, extensible rich text editor toolkit built on <u>[ProseMirror](https://prosemirror.net/)</u>. Framework-agnostic headless core with first-class React support.  
-Use it headless with vanilla JS/TS, add the built-in toolbar and theme, or drop in ready-made React components. Fully tree-shakeable, import only what you use, unused extensions are stripped from your bundle.
+A lightweight, extensible rich text editor toolkit built on <u>[ProseMirror](https://prosemirror.net/)</u>. Framework-agnostic headless core with first-class Angular support.  
+Use it headless with vanilla JS/TS, add the built-in toolbar and theme, or drop in ready-made Angular components. Fully tree-shakeable, import only what you use, unused extensions are stripped from your bundle.
 
 ## Links
 
@@ -15,36 +15,17 @@ Use it headless with vanilla JS/TS, add the built-in toolbar and theme, or drop 
 See <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> for a full breakdown of all packages and what each one includes.
 
 - **Headless core** - use with any framework or vanilla JS/TS
-- **React components** - `Domternal` composable component, toolbar, bubble menu, floating menu, emoji picker, custom node views
-- **57 extensions across 11 packages** - 23 nodes, 9 marks, and 25 behavior extensions
+- **Angular components** - editor, toolbar, bubble menu, floating menu, emoji picker (signals, OnPush, zoneless-ready)
+- **57 extensions across 10 packages** - 23 nodes, 9 marks, and 25 behavior extensions
 - **140+ chainable commands** - `editor.chain().focus().toggleBold().run()`
 - **Full table support** - cell merging, column resize, row/column controls, cell toolbar, all free and MIT licensed
 - **Tree-shakeable** - import only what you use, your bundler strips the rest
-- **TypeScript first** - 100% typed
-- **6,000+ tests** - 2,687 unit tests and 3,700+ E2E tests
+- **~38 KB gzipped** (own code), <u>[~108 KB total](https://domternal.dev/v1/packages)</u> with ProseMirror
+- **TypeScript first** - 100% typed, zero `any`
+- **4,400+ tests** - 2,687 unit tests and 1,796 E2E tests across 37 Playwright specs
 - **Light and dark theme** - 70+ CSS custom properties for full visual control
 - **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
 - **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
-
-## Quick Start
-
-```tsx
-import { Domternal } from '@domternal/react';
-import { StarterKit, BubbleMenu } from '@domternal/core';
-
-export default function Editor() {
-  return (
-    <Domternal
-      extensions={[StarterKit, BubbleMenu]}
-      content="<p>Hello!</p>"
-    >
-      <Domternal.Toolbar />
-      <Domternal.Content />
-      <Domternal.BubbleMenu />
-    </Domternal>
-  );
-}
-```
 
 ## Documentation
 
