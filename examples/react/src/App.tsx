@@ -6,11 +6,9 @@ export default function Editor() {
     <Domternal
       extensions={[StarterKit, BubbleMenu]}
       content="<p>Hello!</p>"
-      immediatelyRender={false} // SSR-safe
     >
-      <Domternal.Loading>Loading editor...</Domternal.Loading>
       <Domternal.Toolbar />
-      <Domternal.Content className="editor-content" />
+      <Domternal.Content />
       <Domternal.BubbleMenu />
     </Domternal>
   );

@@ -319,8 +319,7 @@ test.describe('TextStyle — toolbar triggers reflect combined state', () => {
     await page.locator(`${editorSelector} span`).click();
 
     const indicator = page.locator(textColorTrigger + ' .dm-toolbar-color-indicator');
-    const bgColor = await indicator.evaluate(el => getComputedStyle(el).backgroundColor);
-    expect(bgColor).toBe('rgb(224, 49, 49)');
+    await expect(indicator).toHaveCSS('background-color', 'rgb(224, 49, 49)');
   });
 });
 
