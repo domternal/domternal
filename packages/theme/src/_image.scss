@@ -134,6 +134,11 @@
     background: rgba(0, 0, 0, 0.06);
   }
 
+  &:focus-visible {
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: 1px;
+  }
+
   svg {
     width: 0.875rem;
     height: 0.875rem;

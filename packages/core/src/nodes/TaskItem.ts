@@ -82,6 +82,7 @@ export const TaskItem = Node.create<TaskItemOptions>({
           {
             type: 'checkbox',
             checked: node.attrs['checked'] ? 'checked' : null,
+            'aria-label': 'Task status',
           },
         ],
       ],

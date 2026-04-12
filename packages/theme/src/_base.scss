@@ -21,7 +21,7 @@
     padding: var(--dm-editor-padding);
     min-height: 6rem;
 
-    &:focus {
+    &:focus-visible {
       outline: none;
     }
   }
@@ -57,4 +57,43 @@
 @keyframes dm-fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+
+// =============================================================================
+// Reduced motion — disable animations/transitions for users who request it
+// =============================================================================
+
+@media (prefers-reduced-motion: reduce) {
+  .dm-emoji-picker,
+  .dm-emoji-suggestion,
+  .dm-mention-suggestion,
+  .dm-toolbar-dropdown-panel,
+  .dm-table-controls-dropdown,
+  .dm-table-cell-toolbar {
+    animation: none;
+  }
+
+  .dm-bubble-menu[data-show],
+  .dm-floating-menu,
+  .dm-link-popover,
+  .dm-image-popover,
+  .dm-toolbar-button,
+  .dm-toolbar-dropdown-item,
+  .dm-color-palette-reset,
+  .dm-color-swatch,
+  .dm-emoji-picker-tab,
+  .dm-emoji-swatch,
+  .dm-emoji-suggestion-item,
+  .dm-mention-suggestion-item,
+  .dm-table-col-handle,
+  .dm-table-row-handle,
+  .dm-table-cell-handle,
+  .dm-table-cell-toolbar-btn,
+  .dm-table-controls-dropdown > button,
+  .dm-table-align-item,
+  .dm-image-popover-btn,
+  .dm-link-popover-btn,
+  .dm-editor .ProseMirror div[data-type="details"] > button[type="button"]::before {
+    transition: none;
+  }
 }

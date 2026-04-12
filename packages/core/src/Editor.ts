@@ -682,6 +682,12 @@ export class Editor extends EventEmitter<EditorEvents> {
       state,
       dispatchTransaction: this.dispatchTransaction.bind(this),
       editable: () => this.options.editable ?? true,
+      attributes: () => ({
+        role: 'textbox',
+        'aria-multiline': 'true',
+        'aria-label': this.options.ariaLabel ?? 'Rich text editor',
+        ...((this.options.editable ?? true) ? {} : { 'aria-readonly': 'true' }),
+      }),
       ...(Object.keys(nodeViews).length > 0 ? { nodeViews } : {}),
       // Clipboard transform — apply user-provided transform (e.g. inlineStyles) on copy/cut
       ...(this.options.clipboardHTMLTransform

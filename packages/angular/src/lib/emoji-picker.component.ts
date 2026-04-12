@@ -48,6 +48,7 @@ const CATEGORY_ICONS: Record<string, string> = {
             placeholder="Search emoji..."
             [value]="searchQuery()"
             (input)="onSearch($event)"
+            aria-label="Search emoji"
             (keydown.escape)="close()"
           />
         </div>
@@ -58,6 +59,8 @@ const CATEGORY_ICONS: Record<string, string> = {
               type="button"
               class="dm-emoji-picker-tab"
               [class.dm-emoji-picker-tab--active]="activeCategory() === cat"
+              role="tab"
+              [attr.aria-selected]="activeCategory() === cat"
               [title]="cat"
               [attr.aria-label]="cat"
               (mousedown)="$event.preventDefault()"
@@ -66,12 +69,13 @@ const CATEGORY_ICONS: Record<string, string> = {
           }
         </div>
 
-        <div class="dm-emoji-picker-grid" #grid (scroll)="onGridScroll()">
+        <div class="dm-emoji-picker-grid" #grid (scroll)="onGridScroll()" (keydown)="onGridKeydown($event)">
           @if (searchQuery()) {
             @for (item of filteredEmojis(); track item.name) {
               <button
                 type="button"
                 class="dm-emoji-swatch"
+                [attr.tabindex]="-1"
                 [title]="formatName(item.name)"
                 [attr.aria-label]="formatName(item.name)"
                 (mousedown)="$event.preventDefault()"
@@ -224,6 +228,27 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
         grid.scrollTo({ top: label.offsetTop - grid.offsetTop, behavior: 'smooth' });
       }
     });
+  }
+
+  onGridKeydown(event: KeyboardEvent): void {
+    const grid = this.elRef.nativeElement.querySelector('.dm-emoji-picker-grid') as HTMLElement | null;
+    if (!grid) return;
+    const swatches = Array.from(grid.querySelectorAll('.dm-emoji-swatch')) as HTMLElement[];
+    if (!swatches.length) return;
+    const current = document.activeElement as HTMLElement;
+    const idx = swatches.indexOf(current);
+    if (idx === -1) return;
+    const cols = 8;
+    let next = idx;
+    switch (event.key) {
+      case 'ArrowRight': event.preventDefault(); next = Math.min(idx + 1, swatches.length - 1); break;
+      case 'ArrowLeft': event.preventDefault(); next = Math.max(idx - 1, 0); break;
+      case 'ArrowDown': event.preventDefault(); next = Math.min(idx + cols, swatches.length - 1); break;
+      case 'ArrowUp': event.preventDefault(); next = Math.max(idx - cols, 0); break;
+      case 'Enter': case ' ': event.preventDefault(); swatches[idx]?.click(); return;
+      default: return;
+    }
+    swatches[next]?.focus();
   }
 
   onGridScroll(): void {

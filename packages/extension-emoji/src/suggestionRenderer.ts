@@ -122,6 +122,7 @@ export function createEmojiSuggestionRenderer(): () => SuggestionRenderer {
         container = document.createElement('div');
         container.className = 'dm-emoji-suggestion';
         container.setAttribute('role', 'listbox');
+        container.setAttribute('aria-label', 'Emoji suggestions');
 
         // Append inside .dm-editor (which has position:relative) so the
         // dropdown scrolls with the editor content via CSS — zero jitter

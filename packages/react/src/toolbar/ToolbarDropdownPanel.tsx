@@ -27,6 +27,7 @@ export function ToolbarDropdownPanel({
               type="button"
               className={`dm-color-swatch${isActive(sub.name) ? ' dm-color-swatch--active' : ''}`}
               role="menuitem"
+              tabIndex={-1}
               aria-label={sub.label}
               title={sub.label}
               style={{ backgroundColor: sub.color }}
@@ -39,6 +40,7 @@ export function ToolbarDropdownPanel({
               type="button"
               className="dm-color-palette-reset"
               role="menuitem"
+              tabIndex={-1}
               aria-label={sub.label}
               dangerouslySetInnerHTML={{ __html: getCachedItemContent(sub.icon, sub.label) }}
               onMouseDown={(e) => e.preventDefault()}
@@ -62,6 +64,7 @@ export function ToolbarDropdownPanel({
           type="button"
           className={`dm-toolbar-dropdown-item${isActive(sub.name) ? ' dm-toolbar-dropdown-item--active' : ''}`}
           role="menuitem"
+          tabIndex={-1}
           aria-label={sub.label}
           ref={(el: HTMLButtonElement | null) => { if (el && sub.style) el.setAttribute('style', sub.style); }}
           dangerouslySetInnerHTML={{ __html: getCachedItemContent(sub.icon, sub.label, dropdown.displayMode) }}

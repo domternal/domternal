@@ -81,6 +81,13 @@ export interface EditorOptions {
   editable?: boolean;
 
   /**
+   * Accessible label for the editor.
+   * Sets aria-label on the contenteditable element.
+   * @default 'Rich text editor'
+   */
+  ariaLabel?: string;
+
+  /**
    * Autofocus behavior on mount
    * @default false
    */

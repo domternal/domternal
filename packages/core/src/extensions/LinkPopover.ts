@@ -55,6 +55,7 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
   input.type = 'url';
   input.placeholder = 'Enter URL...';
   input.className = 'dm-link-popover-input';
+  input.setAttribute('aria-label', 'URL');
 
   const applyBtn = document.createElement('button');
   applyBtn.type = 'button';

@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useCallback } from 'react';
 import type { Editor } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useEmojiPicker, type EmojiPickerItem } from './useEmojiPicker.js';
@@ -50,6 +50,26 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
     categories,
   } = useEmojiPicker(editor, emojis);
 
+  const onGridKeyDown = useCallback((event: React.KeyboardEvent) => {
+    const grid = event.currentTarget as HTMLElement;
+    const swatches = Array.from(grid.querySelectorAll('.dm-emoji-swatch')) as HTMLElement[];
+    if (!swatches.length) return;
+    const current = document.activeElement as HTMLElement;
+    const idx = swatches.indexOf(current);
+    if (idx === -1) return;
+    const cols = 8;
+    let next = idx;
+    switch (event.key) {
+      case 'ArrowRight': event.preventDefault(); next = Math.min(idx + 1, swatches.length - 1); break;
+      case 'ArrowLeft': event.preventDefault(); next = Math.max(idx - 1, 0); break;
+      case 'ArrowDown': event.preventDefault(); next = Math.min(idx + cols, swatches.length - 1); break;
+      case 'ArrowUp': event.preventDefault(); next = Math.max(idx - cols, 0); break;
+      case 'Enter': case ' ': event.preventDefault(); swatches[idx]?.click(); return;
+      default: return;
+    }
+    swatches[next]?.focus();
+  }, []);
+
   if (!isOpen) return <div ref={pickerRef} className="dm-emoji-picker-host" />;
 
   return (
@@ -59,6 +79,7 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
           <input
             type="text"
             placeholder="Search emoji..."
+            aria-label="Search emoji"
             value={searchQuery}
             onChange={onSearch}
             onKeyDown={(e) => { if (e.key === 'Escape') close(); }}
@@ -71,6 +92,8 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
               key={cat}
               type="button"
               className={`dm-emoji-picker-tab${activeCategory === cat ? ' dm-emoji-picker-tab--active' : ''}`}
+              role="tab"
+              aria-selected={activeCategory === cat}
               title={cat}
               aria-label={cat}
               onMouseDown={(e) => e.preventDefault()}
@@ -81,7 +104,7 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
           ))}
         </div>
 
-        <div className="dm-emoji-picker-grid" onScroll={onGridScroll}>
+        <div className="dm-emoji-picker-grid" onScroll={onGridScroll} onKeyDown={onGridKeyDown}>
           {searchQuery ? (
             <>
               {filteredEmojis.length > 0 ? (
@@ -90,6 +113,7 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
                     key={item.name}
                     type="button"
                     className="dm-emoji-swatch"
+                    tabIndex={-1}
                     title={formatName(item.name)}
                     aria-label={formatName(item.name)}
                     onMouseDown={(e) => e.preventDefault()}
@@ -112,6 +136,7 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
                       key={item.name}
                       type="button"
                       className="dm-emoji-swatch"
+                      tabIndex={-1}
                       title={formatName(item.name)}
                       aria-label={formatName(item.name)}
                       onMouseDown={(e) => e.preventDefault()}
@@ -132,6 +157,7 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
                       key={item.name}
                       type="button"
                       className="dm-emoji-swatch"
+                      tabIndex={-1}
                       title={formatName(item.name)}
                       aria-label={formatName(item.name)}
                       onMouseDown={(e) => e.preventDefault()}
