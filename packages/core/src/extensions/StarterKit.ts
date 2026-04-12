@@ -41,6 +41,7 @@ import { Gapcursor } from './Gapcursor.js';
 import { TrailingNode, type TrailingNodeOptions } from './TrailingNode.js';
 import { ListKeymap, type ListKeymapOptions } from './ListKeymap.js';
 import { LinkPopover, type LinkPopoverOptions } from './LinkPopover.js';
+import { SelectionDecoration } from './SelectionDecoration.js';
 
 export interface StarterKitOptions {
   // Nodes
@@ -152,6 +153,12 @@ export interface StarterKitOptions {
    * Set to false to disable the LinkPopover extension, or pass options to configure it.
    */
   linkPopover?: false | Partial<LinkPopoverOptions>;
+  /**
+   * Set to false to disable the SelectionDecoration extension.
+   * When enabled, the editor collapses range selections on blur to prevent
+   * ghost selections from lingering after clicking outside the editor.
+   */
+  selectionDecoration?: false;
 }
 
 export const StarterKit = Extension.create<StarterKitOptions>({
@@ -208,6 +215,7 @@ export const StarterKit = Extension.create<StarterKitOptions>({
     maybeAdd(TrailingNode, this.options.trailingNode);
     maybeAdd(ListKeymap, this.options.listKeymap);
     maybeAdd(LinkPopover, this.options.linkPopover);
+    maybeAdd(SelectionDecoration as never, this.options.selectionDecoration as never);
 
     return extensions;
   },
