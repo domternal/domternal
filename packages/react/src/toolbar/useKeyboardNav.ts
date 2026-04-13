@@ -46,9 +46,8 @@ export function useKeyboardNav(
         if (controller.openDropdown) {
           focusDropdownItem(1);
         } else {
-          const buttons = toolbarRef.current?.querySelectorAll('.dm-toolbar-button') as NodeListOf<HTMLButtonElement> | undefined;
-          const btn = buttons?.[controller.focusedIndex];
-          if (btn?.getAttribute('aria-haspopup')) {
+          const btn = document.activeElement as HTMLElement | null;
+          if (btn?.getAttribute('aria-haspopup') && btn.closest('.dm-toolbar')) {
             btn.click();
             requestAnimationFrame(() => focusDropdownItem(0, true));
           }

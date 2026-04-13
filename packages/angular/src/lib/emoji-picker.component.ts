@@ -92,6 +92,7 @@ const CATEGORY_ICONS: Record<string, string> = {
                 <button
                   type="button"
                   class="dm-emoji-swatch"
+                  [attr.tabindex]="-1"
                   [title]="formatName(item.name)"
                   [attr.aria-label]="formatName(item.name)"
                   (mousedown)="$event.preventDefault()"
@@ -105,6 +106,7 @@ const CATEGORY_ICONS: Record<string, string> = {
                 <button
                   type="button"
                   class="dm-emoji-swatch"
+                  [attr.tabindex]="-1"
                   [title]="formatName(item.name)"
                   [attr.aria-label]="formatName(item.name)"
                   (mousedown)="$event.preventDefault()"
