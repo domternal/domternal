@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.5.0 (2026-04-13)
+
+### Features
+
+- feat(core): add `SelectionDecoration` to StarterKit (opt-out via `selectionDecoration: false`), collapses range selection on blur to prevent ghost selections
+- feat(core): add `ariaLabel` option to `EditorOptions` for configurable editor label
+- feat(core): editor element now has `role="textbox"`, `aria-multiline="true"`, and `aria-label` by default
+- feat(core): dynamic `aria-readonly` attribute synced with `setEditable()` state
+- feat(core): floating menu sets default `role="toolbar"` and `aria-label="Floating menu"`
+- feat(theme): `:focus-visible` indicators on 16 interactive element types (toolbar, emoji, table, popovers, details)
+- feat(theme): `prefers-reduced-motion` media query disabling all animations and transitions
+- feat(angular): bubble menu ARIA parity with React (`role="toolbar"`, `aria-label`, `aria-pressed`, `role="separator"`)
+- feat(angular,react): ArrowUp/ArrowDown keyboard navigation inside open toolbar dropdown menus
+- feat(angular,react): emoji picker grid 2D keyboard navigation (arrows, Enter/Space to select)
+- feat(angular,react): emoji picker tabs with `role="tab"` and `aria-selected`
+
+### Fixes
+
+- fix(theme): move `prefers-reduced-motion` block to end of stylesheet to correctly override all animation/transition rules
+- fix(angular): add missing `tabindex="-1"` on frequently used and category emoji swatches
+- fix(react): use `document.activeElement` for ArrowDown dropdown trigger detection instead of `controller.focusedIndex`
+
+### Accessibility
+
+- `aria-label="URL"` on link popover input, `aria-label="Image URL"` on image popover input
+- `aria-label="Task status"` on task item checkboxes
+- `aria-label="Search emoji"` on emoji picker search input
+- `aria-label="Emoji suggestions"` and `aria-label="Mention suggestions"` on suggestion containers
+- Table cell toolbar: `role="toolbar"` with `aria-label="Cell formatting"`
+- Table dropdowns: `role="menu"` with `aria-label`, `role="menuitem"` on items, `role="separator"` on dividers
+- Dropdown menu items: `tabindex="-1"` for keyboard focusability (Angular + React)
+
+### Tests
+
+- 105 new E2E accessibility tests (56 Angular + 49 React) covering editor ARIA, bubble menu, dropdown keyboard nav, emoji picker, task checkbox, link/image popover, emoji/mention suggestions, focus-visible, and prefers-reduced-motion
+- 10 new E2E tests for SelectionDecoration blur behavior (5 Angular + 5 React)
+
 ## 0.4.1 (2026-04-09)
 
 ### Fixes
