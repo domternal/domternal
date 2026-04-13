@@ -68,6 +68,11 @@ export function DomternalToolbar({ editor: editorProp, icons, layout }: Domterna
       return;
     }
     controllerRef.current?.executeCommand(item);
+
+    // Always refocus editor after executing a command via toolbar button.
+    // Mouse clicks already keep focus via mousedown.preventDefault();
+    // keyboard activations (Enter/Space) need explicit refocus.
+    requestAnimationFrame(() => editor.view.focus());
   }, [editor, closeDropdown]);
 
   const onDropdownItemClick = useCallback((item: ToolbarButtonType, event: React.MouseEvent) => {
@@ -86,6 +91,9 @@ export function DomternalToolbar({ editor: editorProp, icons, layout }: Domterna
     } else {
       controllerRef.current?.executeCommand(item);
     }
+
+    // Refocus editor so ::selection highlight stays visible
+    requestAnimationFrame(() => editor.view.focus());
   }, [editor, closeDropdown]);
 
   const onButtonFocus = useCallback((name: string) => {

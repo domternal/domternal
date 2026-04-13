@@ -360,6 +360,15 @@ export class DomternalToolbarComponent implements OnDestroy {
       return;
     }
     this.controller?.executeCommand(item);
+
+    // If the button was activated via keyboard (Enter/Space on a focused
+    // toolbar button), refocus the editor so the browser renders the
+    // ::selection highlight for the still-active range.
+    // Keyboard-triggered click events have detail === 0.
+    // Always refocus editor after executing a command via toolbar button.
+    // Mouse clicks already keep focus via mousedown.preventDefault();
+    // keyboard activations (Enter/Space) need explicit refocus.
+    requestAnimationFrame(() => this.editor().view.focus());
   }
 
   onDropdownToggle(dropdown: ToolbarDropdown): void {
@@ -404,6 +413,9 @@ export class DomternalToolbarComponent implements OnDestroy {
     } else {
       this.controller?.executeCommand(item);
     }
+
+    // Refocus editor so ::selection highlight stays visible
+    requestAnimationFrame(() => this.editor().view.focus());
   }
 
   onButtonFocus(name: string): void {
