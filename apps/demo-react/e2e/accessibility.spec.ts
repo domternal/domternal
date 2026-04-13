@@ -75,7 +75,7 @@ test.describe('Toolbar — dropdown ArrowDown/ArrowUp', () => {
     await page.waitForSelector(editorSelector);
   });
 
-  test('ArrowDown on dropdown trigger opens dropdown and focuses first item', async ({ page }) => {
+  test('ArrowDown on dropdown trigger opens dropdown, second ArrowDown focuses first item', async ({ page }) => {
     const trigger = page.locator(`${toolbar} button[aria-label="Highlight"]`);
     await trigger.focus();
     await page.keyboard.press('ArrowDown');
@@ -83,8 +83,8 @@ test.describe('Toolbar — dropdown ArrowDown/ArrowUp', () => {
     const panel = page.locator('.dm-toolbar-dropdown-panel');
     await expect(panel).toBeVisible({ timeout: 2000 });
 
-    // After panel is visible, manually focus the first item
-    // (ArrowDown opens via click, then a second ArrowDown navigates items)
+    // First ArrowDown opens the dropdown; second ArrowDown focuses the first item
+    // (React's render cycle requires a separate key press to navigate into the panel)
     await page.keyboard.press('ArrowDown');
     await page.waitForTimeout(100);
 
@@ -577,12 +577,10 @@ test.describe('Emoji suggestion — ARIA', () => {
     await page.keyboard.press(`${modifier}+a`);
     await page.keyboard.press('Backspace');
     await page.keyboard.type(':sm');
-    await page.waitForTimeout(300);
 
     const suggestion = page.locator(suggestionSelector);
-    if (await suggestion.isVisible()) {
-      await expect(suggestion).toHaveAttribute('role', 'listbox');
-    }
+    await expect(suggestion).toBeVisible({ timeout: 3000 });
+    await expect(suggestion).toHaveAttribute('role', 'listbox');
   });
 
   test('suggestion container has aria-label', async ({ page }) => {
@@ -591,12 +589,10 @@ test.describe('Emoji suggestion — ARIA', () => {
     await page.keyboard.press(`${modifier}+a`);
     await page.keyboard.press('Backspace');
     await page.keyboard.type(':sm');
-    await page.waitForTimeout(300);
 
     const suggestion = page.locator(suggestionSelector);
-    if (await suggestion.isVisible()) {
-      await expect(suggestion).toHaveAttribute('aria-label', 'Emoji suggestions');
-    }
+    await expect(suggestion).toBeVisible({ timeout: 3000 });
+    await expect(suggestion).toHaveAttribute('aria-label', 'Emoji suggestions');
   });
 
   test('suggestion items have role="option"', async ({ page }) => {
@@ -605,13 +601,12 @@ test.describe('Emoji suggestion — ARIA', () => {
     await page.keyboard.press(`${modifier}+a`);
     await page.keyboard.press('Backspace');
     await page.keyboard.type(':sm');
-    await page.waitForTimeout(300);
 
+    const suggestion = page.locator(suggestionSelector);
+    await expect(suggestion).toBeVisible({ timeout: 3000 });
     const items = page.locator(`${suggestionSelector} [role="option"]`);
-    if (await page.locator(suggestionSelector).isVisible()) {
-      const count = await items.count();
-      expect(count).toBeGreaterThan(0);
-    }
+    const count = await items.count();
+    expect(count).toBeGreaterThan(0);
   });
 });
 
@@ -634,13 +629,11 @@ test.describe('Mention suggestion — ARIA', () => {
     await page.keyboard.press(`${modifier}+a`);
     await page.keyboard.press('Backspace');
     await page.keyboard.type('@');
-    await page.waitForTimeout(300);
 
     const suggestion = page.locator(suggestionSelector);
-    if (await suggestion.isVisible()) {
-      await expect(suggestion).toHaveAttribute('role', 'listbox');
-      await expect(suggestion).toHaveAttribute('aria-label', 'Mention suggestions');
-    }
+    await expect(suggestion).toBeVisible({ timeout: 3000 });
+    await expect(suggestion).toHaveAttribute('role', 'listbox');
+    await expect(suggestion).toHaveAttribute('aria-label', 'Mention suggestions');
   });
 });
 
