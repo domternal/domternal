@@ -227,7 +227,14 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
       const label = grid.querySelector(`[data-category="${cat}"]`) as HTMLElement | null;
       if (label) {
         // Use manual scrollTop instead of scrollIntoView to avoid scrolling the page
-        grid.scrollTo({ top: label.offsetTop - grid.offsetTop, behavior: 'smooth' });
+        grid.scrollTo({ top: label.offsetTop - grid.offsetTop });
+        // Focus first emoji swatch after scroll completes
+        setTimeout(() => {
+          const firstSwatch = label.nextElementSibling;
+          if (firstSwatch instanceof HTMLElement && firstSwatch.classList.contains('dm-emoji-swatch')) {
+            firstSwatch.focus();
+          }
+        }, 50);
       }
     });
   }

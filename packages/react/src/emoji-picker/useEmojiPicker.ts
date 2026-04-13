@@ -173,7 +173,14 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
       if (!grid) return;
       const label = grid.querySelector(`[data-category="${cat}"]`) as HTMLElement | null;
       if (label) {
-        grid.scrollTo({ top: label.offsetTop - grid.offsetTop, behavior: 'smooth' });
+        grid.scrollTo({ top: label.offsetTop - grid.offsetTop });
+        // Focus first emoji swatch after scroll completes
+        setTimeout(() => {
+          const firstSwatch = label.nextElementSibling;
+          if (firstSwatch instanceof HTMLElement && firstSwatch.classList.contains('dm-emoji-swatch')) {
+            firstSwatch.focus();
+          }
+        }, 50);
       }
     });
   }, []);
