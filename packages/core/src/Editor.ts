@@ -503,6 +503,13 @@ export class Editor extends EventEmitter<EditorEvents> {
   setEditable(editable: boolean): this {
     this.options.editable = editable;
 
+    // Sync aria-readonly with editable state
+    if (editable) {
+      this.view.dom.removeAttribute('aria-readonly');
+    } else {
+      this.view.dom.setAttribute('aria-readonly', 'true');
+    }
+
     // ProseMirror rechecks editable on each transaction
     // Dispatch empty transaction to trigger re-evaluation
     this.view.dispatch(this.state.tr);

@@ -740,6 +740,7 @@ export class TableView implements NodeView {
 
       const sep = document.createElement('div');
       sep.className = 'dm-table-cell-dropdown-separator';
+      sep.setAttribute('role', 'separator');
       dropdown.appendChild(sep);
 
       for (const a of vAligns) {

@@ -73,6 +73,10 @@
     animation: none;
   }
 
+  .dm-editor .ProseMirror-gapcursor::after {
+    animation: none;
+  }
+
   .dm-bubble-menu[data-show],
   .dm-floating-menu,
   .dm-link-popover,
