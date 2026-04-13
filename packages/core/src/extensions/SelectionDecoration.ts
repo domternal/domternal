@@ -30,12 +30,15 @@ export const SelectionDecoration = Extension.create<SelectionDecorationOptions>(
             handleDOMEvents: {
               blur(view, event) {
                 // Don't collapse selection when focus moves to editor-related
-                // UI (e.g. link popover input). Elements marked with
-                // [data-dm-editor-ui] are treated as part of the editor.
+                // UI (e.g. toolbar, bubble menu, link popover input).
+                // Elements marked with [data-dm-editor-ui] or inside
+                // .dm-toolbar / .dm-bubble-menu are treated as part of the editor.
                 const related = event.relatedTarget;
                 if (
                   related instanceof HTMLElement &&
-                  related.closest('[data-dm-editor-ui]')
+                  (related.closest('[data-dm-editor-ui]') ||
+                   related.closest('.dm-toolbar') ||
+                   related.closest('.dm-bubble-menu'))
                 ) {
                   return false;
                 }

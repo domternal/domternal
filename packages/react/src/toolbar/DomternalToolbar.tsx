@@ -106,6 +106,7 @@ export function DomternalToolbar({ editor: editorProp, icons, layout }: Domterna
       className="dm-toolbar"
       role="toolbar"
       aria-label="Editor formatting"
+      data-dm-editor-ui=""
       onKeyDown={onKeyDown}
     >
       {groups.map((group, gi) => (

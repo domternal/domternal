@@ -38,6 +38,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
   host: {
     'class': 'dm-toolbar',
     'role': 'toolbar',
+    'data-dm-editor-ui': '',
     '[attr.aria-label]': '"Editor formatting"',
     '(keydown)': 'onKeydown($event)',
   },
@@ -441,9 +442,8 @@ export class DomternalToolbarComponent implements OnDestroy {
         if (this.openDropdown()) {
           this.focusDropdownItem(1);
         } else {
-          const buttons = this.elRef.nativeElement.querySelectorAll('.dm-toolbar-button') as NodeListOf<HTMLElement>;
-          const btn = buttons[this.controller?.focusedIndex ?? 0];
-          if (btn?.getAttribute('aria-haspopup')) {
+          const btn = document.activeElement as HTMLElement | null;
+          if (btn?.getAttribute('aria-haspopup') && btn.closest('.dm-toolbar')) {
             btn.click();
             requestAnimationFrame(() => this.focusDropdownItem(0, true));
           }

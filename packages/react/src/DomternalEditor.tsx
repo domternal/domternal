@@ -120,7 +120,7 @@ export const DomternalEditor = forwardRef<DomternalEditorRef, DomternalEditorPro
     return (
       <EditorProvider editor={editor}>
         {children}
-        <div className={classes}>
+        <div className={classes} data-dm-editor-ui="">
           <div ref={editorRef} />
         </div>
       </EditorProvider>

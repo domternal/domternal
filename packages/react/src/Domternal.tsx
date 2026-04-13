@@ -67,7 +67,7 @@ function DomternalContent({ className }: { className?: string }) {
   const classes = className ? `dm-editor ${className}` : 'dm-editor';
 
   return (
-    <div className={classes}>
+    <div className={classes} data-dm-editor-ui="">
       <div ref={containerRef} />
     </div>
   );
