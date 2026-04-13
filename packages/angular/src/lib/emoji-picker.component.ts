@@ -238,8 +238,15 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
     const swatches = Array.from(grid.querySelectorAll('.dm-emoji-swatch')) as HTMLElement[];
     if (!swatches.length) return;
     const current = document.activeElement as HTMLElement;
-    const idx = swatches.indexOf(current);
-    if (idx === -1) return;
+    let idx = swatches.indexOf(current);
+    if (idx === -1) {
+      // Focus is on grid container, not a swatch — enter the grid
+      if (['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(event.key)) {
+        event.preventDefault();
+        swatches[0]?.focus();
+      }
+      return;
+    }
     const cols = 8;
     let next = idx;
     switch (event.key) {
