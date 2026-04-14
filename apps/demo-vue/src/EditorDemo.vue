@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref } from 'vue';
+import { computed, watch } from 'vue';
 import {
   useEditor,
   useEditorState,
@@ -47,7 +47,7 @@ import type { MentionItem } from '@domternal/extension-mention';
 import { createLowlight, common } from 'lowlight';
 import { DEMO_CONTENT } from './demo-content.js';
 
-const props = defineProps<{ useLayout: boolean }>();
+const { useLayout } = defineProps<{ useLayout: boolean }>();
 
 const lowlight = createLowlight(common);
 const codeHighlighter = createCodeHighlighter(lowlight);
@@ -109,23 +109,21 @@ const { editor, editorRef } = useEditor({ extensions, content: DEMO_CONTENT });
 const { htmlContent } = useEditorState(editor);
 
 // Expose editor on window for E2E test access
-onMounted(() => {
-  if (editor.value) {
-    (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] = editor.value;
-  }
-});
-onBeforeUnmount(() => {
-  (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] = undefined;
-});
+watch(editor, (ed) => {
+  (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] = ed ?? undefined;
+}, { immediate: true });
 
-function getStyledHtml(html: string): string {
-  return inlineStyles(html, { codeHighlighter, tableColumnWidths: 'pixel' });
-}
+const styledHtml = computed(() =>
+  htmlContent.value ? inlineStyles(htmlContent.value, { codeHighlighter, tableColumnWidths: 'pixel' }) : '',
+);
+
+defineExpose({ editor, editorRef });
 </script>
 
 <template>
   <DomternalToolbar
     v-if="editor"
+    :key="useLayout ? 'custom' : 'default'"
     :editor="editor"
     :layout="useLayout ? toolbarLayout : undefined"
   />
@@ -146,5 +144,5 @@ function getStyledHtml(html: string): string {
   <pre class="output">{{ htmlContent }}</pre>
 
   <h3>Styled HTML Output</h3>
-  <pre class="output-styled">{{ htmlContent ? getStyledHtml(htmlContent) : '' }}</pre>
+  <pre class="output-styled">{{ styledHtml }}</pre>
 </template>
