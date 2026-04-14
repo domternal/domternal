@@ -147,7 +147,7 @@ export const DomternalToolbar = defineComponent({
                     tooltip: getTooltip(btn),
                     iconHtml: getCachedIcon(btn.icon),
                     ariaExpanded: getAriaExpanded(btn),
-                    onClick: (clickedItem: ToolbarButtonType) => onButtonClick(clickedItem),
+                    onClick: (clickedItem: ToolbarButtonType, event: MouseEvent) => onButtonClick(clickedItem, event),
                     onFocus: onButtonFocus,
                   });
                 }

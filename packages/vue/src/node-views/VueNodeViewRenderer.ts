@@ -9,6 +9,7 @@ interface PMNode {
   type: { name: string; spec: { group?: string } };
   attrs: Record<string, unknown>;
   textContent: string;
+  nodeSize: number;
 }
 
 /**
@@ -145,7 +146,7 @@ class VueNodeView {
       deleteNode: () => {
         const pos = init.getPos();
         const { tr } = this.editor.view.state;
-        tr.delete(pos, pos + 1);
+        tr.delete(pos, pos + this.props.node.nodeSize);
         this.editor.view.dispatch(tr);
       },
     }) as VueNodeViewProps;
