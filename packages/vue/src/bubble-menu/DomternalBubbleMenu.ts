@@ -50,26 +50,28 @@ export const DomternalBubbleMenu = defineComponent({
       // Read activeVersion to establish reactive dependency
       void activeVersion.value;
 
-      return h('div', { ref: menuRef, class: 'dm-bubble-menu' }, [
+      return h('div', { ref: menuRef, class: 'dm-bubble-menu', role: 'toolbar', 'aria-label': 'Text formatting' }, [
         ...resolvedItems.value.map((item: BubbleMenuItem) => {
           if (item.type === 'separator') {
-            return h('span', { key: item.name, class: 'dm-bubble-menu-separator', role: 'separator' });
+            return h('span', { key: item.name, class: 'dm-toolbar-separator', role: 'separator' });
           }
 
           const btn = item as ToolbarButton;
+          const active = isItemActive(btn);
           return h('button', {
             key: btn.name,
             type: 'button',
-            class: ['dm-toolbar-button', isItemActive(btn) && 'dm-toolbar-button--active'],
+            class: ['dm-toolbar-button', active && 'dm-toolbar-button--active'],
             disabled: isItemDisabled(btn),
             'aria-label': btn.label,
+            'aria-pressed': active,
             title: btn.label,
             innerHTML: getCachedIcon(btn.icon),
             onMousedown: (e: MouseEvent) => e.preventDefault(),
             onClick: () => executeCommand(btn),
           });
         }),
-        slots.default?.(),
+        slots['default']?.(),
       ]);
     };
   },

@@ -24,19 +24,20 @@ export const EDITOR_KEY: InjectionKey<ShallowRef<Editor | null>> = Symbol('domte
 export function provideEditor(editor: ShallowRef<Editor | null>): void {
   provide(EDITOR_KEY, editor);
 
-  // Store appContext for VueNodeViewRenderer
+  // Store appContext for VueNodeViewRenderer.
+  // We must preserve the original appContext object (not spread it) so that
+  // config, mixins, and the prototype chain remain intact. The provides
+  // property is overridden with the component instance's provides to ensure
+  // Vue's prototype-chain-based inject resolution works in node views.
   const instance = getCurrentInstance();
   if (instance) {
     watchEffect(() => {
       const ed = editor.value;
       if (ed) {
-        // The provides property MUST be a direct reference (not spread)
-        // to preserve Vue's prototype chain for inject resolution.
-        appContextStore.set(ed, {
-          ...instance.appContext,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          provides: (instance as any).provides,
-        });
+        const ctx = Object.create(instance.appContext) as typeof instance.appContext;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (ctx as any).provides = (instance as any).provides;
+        appContextStore.set(ed, ctx);
       }
     });
   }

@@ -1,4 +1,4 @@
-import { computed, onScopeDispose, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { ComputedRef, Ref, ShallowRef } from 'vue';
 import type { Editor, JSONContent } from '@domternal/core';
 import { useDebouncedRef } from './utils.js';

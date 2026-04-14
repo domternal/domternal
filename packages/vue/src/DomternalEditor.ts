@@ -70,18 +70,18 @@ export const DomternalEditor = defineComponent({
   emits: ['update:modelValue'],
   setup(props, { slots, emit, expose }) {
     const { editor, editorRef } = useEditor({
-      extensions: props.extensions,
+      ...(props.extensions && { extensions: props.extensions }),
       content: props.modelValue ?? props.content ?? '',
       editable: props.editable,
       autofocus: props.autofocus,
       immediatelyRender: props.immediatelyRender,
       outputFormat: props.outputFormat,
-      onCreate: props.onCreate,
-      onUpdate: props.onUpdate,
-      onSelectionChange: props.onSelectionChange,
-      onFocus: props.onFocus,
-      onBlur: props.onBlur,
-      onDestroy: props.onDestroy,
+      ...(props.onCreate && { onCreate: props.onCreate }),
+      ...(props.onUpdate && { onUpdate: props.onUpdate }),
+      ...(props.onSelectionChange && { onSelectionChange: props.onSelectionChange }),
+      ...(props.onFocus && { onFocus: props.onFocus }),
+      ...(props.onBlur && { onBlur: props.onBlur }),
+      ...(props.onDestroy && { onDestroy: props.onDestroy }),
     });
 
     const state = useEditorState(editor);
@@ -119,6 +119,7 @@ export const DomternalEditor = defineComponent({
           }
         }
       },
+      { flush: 'post' },
     );
 
     // v-model: emit update:modelValue on content changes
@@ -140,8 +141,8 @@ export const DomternalEditor = defineComponent({
     return () => {
       const classes = props.class ? `dm-editor ${props.class}` : 'dm-editor';
       return [
-        h('div', { class: classes }, [h('div', { ref: editorRef })]),
-        slots.default?.(),
+        h('div', { class: classes, 'data-dm-editor-ui': '' }, [h('div', { ref: editorRef })]),
+        slots['default']?.(),
       ];
     };
   },

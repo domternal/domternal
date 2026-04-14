@@ -135,7 +135,7 @@ export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiP
             });
           }
           const input = pickerRef.value?.querySelector('.dm-emoji-picker-search input') as HTMLInputElement | null;
-          input?.focus();
+          input?.focus({ preventScroll: true });
         });
       };
 
@@ -177,7 +177,15 @@ export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiP
       if (!grid) return;
       const label = grid.querySelector(`[data-category="${cat}"]`) as HTMLElement | null;
       if (label) {
-        grid.scrollTo({ top: label.offsetTop - grid.offsetTop, behavior: 'smooth' });
+        grid.scrollTo({ top: label.offsetTop - grid.offsetTop });
+        // Defer focus until after scroll completes to avoid onGridScroll
+        // resetting activeCategory while the scroll animation is in progress.
+        setTimeout(() => {
+          const firstSwatch = label.nextElementSibling;
+          if (firstSwatch instanceof HTMLElement && firstSwatch.classList.contains('dm-emoji-swatch')) {
+            firstSwatch.focus();
+          }
+        }, 50);
       }
     });
   }

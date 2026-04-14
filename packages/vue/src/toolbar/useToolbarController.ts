@@ -1,5 +1,5 @@
 import { onMounted, onScopeDispose, ref, shallowRef } from 'vue';
-import type { Ref, ShallowRef } from 'vue';
+import type { ShallowRef } from 'vue';
 import {
   ToolbarController,
   positionFloatingOnce,

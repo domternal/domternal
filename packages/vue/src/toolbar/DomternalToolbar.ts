@@ -76,6 +76,11 @@ export const DomternalToolbar = defineComponent({
         return;
       }
       executeCommand(item);
+
+      // Always refocus editor after executing a command via toolbar button.
+      // Mouse clicks already keep focus via mousedown.preventDefault();
+      // keyboard activations (Enter/Space) need explicit refocus.
+      requestAnimationFrame(() => editor.view.focus());
     }
 
     function onDropdownItemClick(item: ToolbarButtonType, event: MouseEvent) {
@@ -95,6 +100,9 @@ export const DomternalToolbar = defineComponent({
       } else {
         executeCommand(item);
       }
+
+      // Refocus editor so ::selection highlight stays visible
+      requestAnimationFrame(() => editor.view.focus());
     }
 
     function onButtonFocus(name: string) {
@@ -118,6 +126,7 @@ export const DomternalToolbar = defineComponent({
           class: 'dm-toolbar',
           role: 'toolbar',
           'aria-label': 'Editor formatting',
+          'data-dm-editor-ui': '',
           onKeydown: onKeyDown,
         },
         groups.value.map((group, gi) =>

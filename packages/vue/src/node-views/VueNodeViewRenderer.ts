@@ -55,13 +55,13 @@ export function VueNodeViewRenderer(
   options: VueNodeViewRendererOptions = {},
 ) {
   // Handle class-based Vue components with __vccOpts
-  const normalizedComponent = typeof component === 'function' && '__vccOpts' in component
-    ? (component as unknown as Record<string, Component>)['__vccOpts']
+  const normalizedComponent: Component = typeof component === 'function' && '__vccOpts' in component
+    ? ((component as unknown as Record<string, Component>)['__vccOpts'] ?? component)
     : component;
 
   markRaw(normalizedComponent);
 
-  const constructor = (node: PMNode, _view: unknown, getPos: () => number, decorations: unknown[]) => {
+  const constructor = (node: PMNode, _view: unknown, getPos: () => number, decorations: unknown[]): VueNodeView | { dom: HTMLElement; update: () => boolean; destroy: () => void } => {
     const ctx = (constructor as unknown as { __domternalContext?: NodeViewContext }).__domternalContext;
     const editor = ctx?.editor as Editor;
     const extension = ctx?.extension ?? { name: node.type.name, options: {} };
@@ -70,7 +70,7 @@ export function VueNodeViewRenderer(
     const appContext = editor ? appContextStore.get(editor) : undefined;
     if (!appContext) {
       const dom = document.createElement('div');
-      return { dom, update: () => false, destroy: () => {} } as unknown as ReturnType<typeof constructor>;
+      return { dom, update: () => false, destroy: () => {} };
     }
 
     return new VueNodeView(normalizedComponent, {

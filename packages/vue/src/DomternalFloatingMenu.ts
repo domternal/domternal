@@ -44,6 +44,6 @@ export const DomternalFloatingMenu = defineComponent({
     });
 
     return () =>
-      h('div', { ref: menuRef, class: 'dm-floating-menu' }, slots.default?.());
+      h('div', { ref: menuRef, class: 'dm-floating-menu' }, slots['default']?.());
   },
 });

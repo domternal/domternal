@@ -15,6 +15,20 @@ export function useKeyboardNav(
     }
   }
 
+  function focusDropdownItem(direction: number, first?: boolean) {
+    const panel = toolbarRef.value?.querySelector('.dm-toolbar-dropdown-panel') as HTMLElement | null;
+    if (!panel) return;
+    const items = Array.from(panel.querySelectorAll('[role="menuitem"]')) as HTMLElement[];
+    if (!items.length) return;
+    if (first) { items[0]?.focus(); return; }
+    const current = document.activeElement as HTMLElement;
+    const idx = items.indexOf(current);
+    const next = idx === -1
+      ? (direction > 0 ? 0 : items.length - 1)
+      : (idx + direction + items.length) % items.length;
+    items[next]?.focus();
+  }
+
   function onKeyDown(event: KeyboardEvent) {
     const controller = controllerRef.current;
     if (!controller) return;
@@ -30,6 +44,26 @@ export function useKeyboardNav(
         controller.navigatePrev();
         focusCurrentButton();
         break;
+      case 'ArrowDown': {
+        event.preventDefault();
+        if (controller.openDropdown) {
+          focusDropdownItem(1);
+        } else {
+          const btn = document.activeElement as HTMLElement | null;
+          if (btn?.getAttribute('aria-haspopup') && btn.closest('.dm-toolbar')) {
+            btn.click();
+            requestAnimationFrame(() => focusDropdownItem(0, true));
+          }
+        }
+        break;
+      }
+      case 'ArrowUp': {
+        event.preventDefault();
+        if (controller.openDropdown) {
+          focusDropdownItem(-1);
+        }
+        break;
+      }
       case 'Home':
         event.preventDefault();
         controller.navigateFirst();
@@ -50,5 +84,5 @@ export function useKeyboardNav(
     }
   }
 
-  return { onKeyDown };
+  return { onKeyDown, focusCurrentButton };
 }

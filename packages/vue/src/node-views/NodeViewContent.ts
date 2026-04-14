@@ -23,12 +23,16 @@ export const NodeViewContent = defineComponent({
   setup(props, { attrs }) {
     const nodeViewContentRef = inject(NODE_VIEW_CONTENT_REF, undefined);
 
-    return () =>
-      h(props.as, {
+    return () => {
+      const baseProps: Record<string, unknown> = {
         ...attrs,
         'data-node-view-content': '',
         style: { whiteSpace: 'pre-wrap', ...(attrs.style as Record<string, string> | undefined) },
-        ref: nodeViewContentRef,
-      });
+      };
+      if (nodeViewContentRef) {
+        baseProps['ref'] = nodeViewContentRef;
+      }
+      return h(props.as, baseProps);
+    };
   },
 });

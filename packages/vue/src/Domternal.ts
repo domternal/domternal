@@ -47,23 +47,23 @@ export const Domternal = defineComponent({
   },
   setup(props, { slots }) {
     const { editor } = useEditor({
-      extensions: props.extensions,
+      ...(props.extensions && { extensions: props.extensions }),
       content: props.content,
       editable: props.editable,
       autofocus: props.autofocus,
       outputFormat: props.outputFormat,
       immediatelyRender: props.immediatelyRender,
-      onCreate: props.onCreate,
-      onUpdate: props.onUpdate,
-      onSelectionChange: props.onSelectionChange,
-      onFocus: props.onFocus,
-      onBlur: props.onBlur,
-      onDestroy: props.onDestroy,
+      ...(props.onCreate && { onCreate: props.onCreate }),
+      ...(props.onUpdate && { onUpdate: props.onUpdate }),
+      ...(props.onSelectionChange && { onSelectionChange: props.onSelectionChange }),
+      ...(props.onFocus && { onFocus: props.onFocus }),
+      ...(props.onBlur && { onBlur: props.onBlur }),
+      ...(props.onDestroy && { onDestroy: props.onDestroy }),
     });
 
     provideEditor(editor);
 
-    return () => slots.default?.();
+    return () => slots['default']?.();
   },
 }) as ReturnType<typeof defineComponent> & {
   Content: ReturnType<typeof defineComponent>;
@@ -99,7 +99,7 @@ const DomternalContent = defineComponent({
 
     return () => {
       const classes = props.class ? `dm-editor ${props.class}` : 'dm-editor';
-      return h('div', { class: classes }, [h('div', { ref: containerRef })]);
+      return h('div', { class: classes, 'data-dm-editor-ui': '' }, [h('div', { ref: containerRef })]);
     };
   },
 });
@@ -109,18 +109,10 @@ const DomternalLoading = defineComponent({
   name: 'DomternalLoading',
   setup(_props, { slots }) {
     const { editor } = useCurrentEditor();
-    return () => (editor.value ? null : slots.default?.());
+    return () => (editor.value ? null : slots['default']?.());
   },
 });
 
-// Subcomponents for Toolbar, BubbleMenu, FloatingMenu, EmojiPicker are
-// attached after their respective component files are created (Phase 4-7).
-// For now, assign placeholder references that will be replaced.
 Domternal.Content = DomternalContent;
 Domternal.Loading = DomternalLoading;
-
-// These will be assigned in index.ts after all components are defined:
-// Domternal.Toolbar = ...
-// Domternal.BubbleMenu = ...
-// Domternal.FloatingMenu = ...
-// Domternal.EmojiPicker = ...
+// Toolbar, BubbleMenu, FloatingMenu, EmojiPicker are assigned in index.ts

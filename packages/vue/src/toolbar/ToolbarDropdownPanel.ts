@@ -32,6 +32,7 @@ export const ToolbarDropdownPanel = defineComponent({
                   type: 'button',
                   class: ['dm-color-swatch', isActive(sub.name) && 'dm-color-swatch--active'],
                   role: 'menuitem',
+                  tabindex: -1,
                   'aria-label': sub.label,
                   title: sub.label,
                   style: { backgroundColor: sub.color },
@@ -43,6 +44,7 @@ export const ToolbarDropdownPanel = defineComponent({
                   type: 'button',
                   class: 'dm-color-palette-reset',
                   role: 'menuitem',
+                  tabindex: -1,
                   'aria-label': sub.label,
                   innerHTML: getCachedItemContent(sub.icon, sub.label),
                   onMousedown: (e: MouseEvent) => e.preventDefault(),
@@ -65,7 +67,9 @@ export const ToolbarDropdownPanel = defineComponent({
             type: 'button',
             class: ['dm-toolbar-dropdown-item', isActive(sub.name) && 'dm-toolbar-dropdown-item--active'],
             role: 'menuitem',
+            tabindex: -1,
             'aria-label': sub.label,
+            title: sub.label,
             innerHTML: getCachedItemContent(sub.icon, sub.label, dropdown.displayMode),
             onVnodeMounted: (vnode: VNode) => {
               if (sub.style && vnode.el) (vnode.el as HTMLElement).setAttribute('style', sub.style);

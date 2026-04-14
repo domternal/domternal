@@ -31,7 +31,7 @@ export const NodeViewWrapper = defineComponent({
           style: { whiteSpace: 'normal', ...(attrs.style as Record<string, string> | undefined) },
           onDragstart: onDragStart,
         },
-        slots.default?.(),
+        slots['default']?.(),
       );
   },
 });

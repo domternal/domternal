@@ -57,11 +57,39 @@ export const DomternalEmojiPicker = defineComponent({
       props.emojis,
     );
 
+    function onGridKeyDown(event: KeyboardEvent) {
+      const grid = event.currentTarget as HTMLElement;
+      const swatches = Array.from(grid.querySelectorAll('.dm-emoji-swatch')) as HTMLElement[];
+      if (!swatches.length) return;
+      const current = document.activeElement as HTMLElement;
+      let idx = swatches.indexOf(current);
+      if (idx === -1) {
+        // Focus is on grid container, not a swatch - enter the grid
+        if (['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(event.key)) {
+          event.preventDefault();
+          swatches[0]?.focus();
+        }
+        return;
+      }
+      const cols = 8;
+      let next = idx;
+      switch (event.key) {
+        case 'ArrowRight': event.preventDefault(); next = Math.min(idx + 1, swatches.length - 1); break;
+        case 'ArrowLeft': event.preventDefault(); next = Math.max(idx - 1, 0); break;
+        case 'ArrowDown': event.preventDefault(); next = Math.min(idx + cols, swatches.length - 1); break;
+        case 'ArrowUp': event.preventDefault(); next = Math.max(idx - cols, 0); break;
+        case 'Enter': case ' ': event.preventDefault(); swatches[idx]?.click(); return;
+        default: return;
+      }
+      swatches[next]?.focus();
+    }
+
     function renderEmojiButton(item: EmojiPickerItem) {
       return h('button', {
         key: item.name,
         type: 'button',
         class: 'dm-emoji-swatch',
+        tabindex: -1,
         title: formatName(item.name),
         'aria-label': formatName(item.name),
         onMousedown: (e: MouseEvent) => e.preventDefault(),
@@ -81,6 +109,7 @@ export const DomternalEmojiPicker = defineComponent({
             h('input', {
               type: 'text',
               placeholder: 'Search emoji...',
+              'aria-label': 'Search emoji',
               value: searchQuery.value,
               onInput: onSearch,
               onKeydown: (e: KeyboardEvent) => { if (e.key === 'Escape') close(); },
@@ -94,6 +123,8 @@ export const DomternalEmojiPicker = defineComponent({
                 key: cat,
                 type: 'button',
                 class: ['dm-emoji-picker-tab', activeCategory.value === cat && 'dm-emoji-picker-tab--active'],
+                role: 'tab',
+                'aria-selected': activeCategory.value === cat,
                 title: cat,
                 'aria-label': cat,
                 onMousedown: (e: MouseEvent) => e.preventDefault(),
@@ -103,7 +134,7 @@ export const DomternalEmojiPicker = defineComponent({
           ),
 
           // Grid
-          h('div', { class: 'dm-emoji-picker-grid', onScroll: onGridScroll },
+          h('div', { class: 'dm-emoji-picker-grid', onScroll: onGridScroll, onKeydown: onGridKeyDown },
             searchQuery.value
               ? (filteredEmojis.value.length > 0
                   ? filteredEmojis.value.map(renderEmojiButton)

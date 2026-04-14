@@ -61,15 +61,6 @@ export function useEditor(options: UseEditorOptions = {}): {
   editor: ShallowRef<Editor | null>;
   editorRef: Ref<HTMLDivElement | undefined>;
 } {
-  const {
-    extensions = [],
-    content = '',
-    editable = true,
-    autofocus = false,
-    outputFormat = 'html',
-    immediatelyRender = false,
-  } = options;
-
   const editor = shallowRef<Editor | null>(null);
   const editorRef = ref<HTMLDivElement>();
   let pendingContent: Content | null = null;
@@ -94,6 +85,9 @@ export function useEditor(options: UseEditorOptions = {}): {
   }
 
   function createEditorInstance(element: HTMLElement, initialContent: Content, focus: FocusPosition) {
+    const extensions = options.extensions ?? [];
+    const editable = options.editable ?? true;
+
     const ed = new Editor({
       element,
       extensions: [...DEFAULT_EXTENSIONS, ...extensions],
@@ -115,12 +109,14 @@ export function useEditor(options: UseEditorOptions = {}): {
       pendingContent = current.getJSON();
       options.onDestroy?.();
 
-      // Clone DOM before destroy to prevent content flash during transitions
+      // Clone editor DOM before destroy to prevent content flash during
+      // unmount transitions. Insert clone before original, then destroy.
       const dom = current.view.dom;
       const parent = dom?.parentNode;
       if (parent) {
-        const clone = parent.cloneNode(true) as HTMLElement;
-        parent.parentNode?.replaceChild(clone, parent);
+        const clone = dom.cloneNode(true) as HTMLElement;
+        clone.style.pointerEvents = 'none';
+        parent.insertBefore(clone, dom);
       }
 
       current.destroy();
@@ -128,27 +124,27 @@ export function useEditor(options: UseEditorOptions = {}): {
     editor.value = null;
   }
 
-  if (immediatelyRender) {
+  if (options.immediatelyRender) {
     const element = document.createElement('div');
-    createEditorInstance(element, content, autofocus);
+    createEditorInstance(element, options.content ?? '', options.autofocus ?? false);
   }
 
   onMounted(() => {
     if (editor.value) return; // Already created via immediatelyRender
 
     const element = editorRef.value ?? document.createElement('div');
-    const initialContent = pendingContent ?? content;
+    const initialContent = pendingContent ?? options.content ?? '';
     pendingContent = null;
-    createEditorInstance(element, initialContent, autofocus);
+    createEditorInstance(element, initialContent, options.autofocus ?? false);
   });
 
   onScopeDispose(() => {
     destroyCurrentEditor();
   });
 
-  // Sync editable
+  // Sync editable - watch options object property, not destructured primitive
   watch(
-    () => editable,
+    () => options.editable ?? true,
     (newEditable) => {
       const ed = editor.value;
       if (ed && !ed.isDestroyed) {
@@ -157,9 +153,9 @@ export function useEditor(options: UseEditorOptions = {}): {
     },
   );
 
-  // Recreate editor when extensions change
+  // Recreate editor when extensions array reference changes
   watch(
-    () => extensions,
+    () => options.extensions,
     (newExtensions, oldExtensions) => {
       if (!editor.value || editor.value.isDestroyed) return;
       if (newExtensions === oldExtensions) return;
@@ -174,11 +170,12 @@ export function useEditor(options: UseEditorOptions = {}): {
 
   // Sync content from outside
   watch(
-    () => content,
+    () => options.content,
     (newContent) => {
       const ed = editor.value;
-      if (!ed || ed.isDestroyed) return;
+      if (!ed || ed.isDestroyed || newContent === undefined) return;
 
+      const outputFormat = options.outputFormat ?? 'html';
       if (outputFormat === 'html') {
         if (newContent !== ed.getHTML()) {
           ed.setContent(newContent, false);
