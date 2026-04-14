@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.1 (2026-04-14)
+
+### Fixes
+
+- fix(core): `SelectionDecoration` preserves selection when focus moves to toolbar or editor UI (`data-dm-editor-ui`, `.dm-toolbar`, `.dm-bubble-menu` blur checks)
+- fix(angular): ArrowDown dropdown trigger detection uses `document.activeElement` instead of `controller.focusedIndex` (parity with React)
+- fix(angular,react): toolbar refocuses editor after keyboard-activated commands (Enter/Space) to preserve `::selection` highlight
+- fix(angular,react): arrow keys enter emoji grid when focus is on grid container
+- fix(angular,react): selecting emoji category tab via keyboard focuses first emoji in that category
+- fix(theme): table dropdown hover fallback for dark mode
+
+### Tests
+
+- 26 new E2E tests (13 Angular + 13 React) for toolbar dropdown keyboard navigation, text color, font size, heading, ARIA attributes, and Enter on color swatch
+
 ## 0.5.0 (2026-04-13)
 
 ### Features
