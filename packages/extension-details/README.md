@@ -24,7 +24,7 @@ See <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> for a ful
 - **Tree-shakeable** - import only what you use, your bundler strips the rest
 - **~38 KB gzipped** (own code), <u>[~108 KB total](https://domternal.dev/v1/packages)</u> with ProseMirror
 - **TypeScript first** - 100% typed, zero `any`
-- **6,400+ tests** - 2,677 unit tests and 3,767 E2E tests across 78 Playwright specs
+- **6,400+ tests** - 2,677 unit tests and 3,793 E2E tests across 80 Playwright specs
 - **Light and dark theme** - 70+ CSS custom properties for full visual control
 - **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
 - **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
