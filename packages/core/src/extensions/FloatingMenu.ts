@@ -115,6 +115,12 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
     offset = 0,
   } = options;
 
+  // Set default ARIA attributes if not already provided
+  if (!element.getAttribute('role')) {
+    element.setAttribute('role', 'toolbar');
+    element.setAttribute('aria-label', 'Floating menu');
+  }
+
   let cleanupFloating: (() => void) | null = null;
 
   const updatePosition = (view: EditorView): void => {

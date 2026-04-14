@@ -59,13 +59,14 @@ interface SchemaShape {
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
-    <div #menuEl class="dm-bubble-menu">
+    <div #menuEl class="dm-bubble-menu" role="toolbar" aria-label="Text formatting">
       @for (item of resolvedItems(); track item.name) {
         @if (item.type === 'separator') {
-          <span class="dm-toolbar-separator"></span>
+          <span class="dm-toolbar-separator" role="separator"></span>
         } @else {
           <button type="button" class="dm-toolbar-button"
             [class.dm-toolbar-button--active]="isItemActive(item)"
+            [attr.aria-pressed]="isItemActive(item)"
             [disabled]="isItemDisabled(item)"
             [title]="item.label"
             [attr.aria-label]="item.label"

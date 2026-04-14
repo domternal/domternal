@@ -34,7 +34,7 @@ export const DEFAULT_EXTENSIONS: AnyExtension[] = [Document, Paragraph, Text, Ba
   template: '<div #editorRef></div>',
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
-  host: { class: 'dm-editor' },
+  host: { class: 'dm-editor', 'data-dm-editor-ui': '' },
   styles: [`:host { display: block; }`],
   providers: [
     {

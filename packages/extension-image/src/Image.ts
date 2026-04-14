@@ -497,6 +497,7 @@ export const Image = Node.create<ImageOptions>({
       urlInput.type = 'url';
       urlInput.placeholder = 'Image URL...';
       urlInput.className = 'dm-image-popover-input';
+      urlInput.setAttribute('aria-label', 'Image URL');
 
       const applyBtn = document.createElement('button');
       applyBtn.type = 'button';

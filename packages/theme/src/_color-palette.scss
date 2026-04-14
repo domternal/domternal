@@ -35,6 +35,11 @@
     background: var(--dm-button-hover-bg, rgba(0, 0, 0, 0.06));
   }
 
+  &:focus-visible {
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: 1px;
+  }
+
   svg {
     width: 0.875rem;
     height: 0.875rem;
@@ -56,6 +61,11 @@
   &:hover {
     transform: scale(1.15);
     z-index: 1;
+    box-shadow: 0 0 0 2px var(--dm-toolbar-bg, #f8f9fa),
+                0 0 0 3px var(--dm-accent, #2563eb);
+  }
+
+  &:focus-visible {
     box-shadow: 0 0 0 2px var(--dm-toolbar-bg, #f8f9fa),
                 0 0 0 3px var(--dm-accent, #2563eb);
   }

@@ -87,6 +87,11 @@
     background: var(--dm-hover, rgba(0, 0, 0, 0.06));
   }
 
+  &:focus-visible {
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: 1px;
+  }
+
   &--active {
     opacity: 1;
     background: var(--dm-active, rgba(0, 0, 0, 0.12));
@@ -136,6 +141,11 @@
     background: var(--dm-hover, rgba(0, 0, 0, 0.06));
     transform: scale(1.15);
   }
+
+  &:focus-visible {
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: 1px;
+  }
 }
 
 // "No emoji found" message
@@ -182,6 +192,11 @@
   &:hover,
   &--selected {
     background: var(--dm-hover, rgba(0, 0, 0, 0.06));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: 1px;
   }
 }
 

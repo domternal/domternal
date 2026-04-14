@@ -242,6 +242,8 @@ export class TableView implements NodeView {
   private buildCellToolbar(): HTMLElement {
     const toolbar = document.createElement('div');
     toolbar.className = 'dm-table-cell-toolbar';
+    toolbar.setAttribute('role', 'toolbar');
+    toolbar.setAttribute('aria-label', 'Cell formatting');
     toolbar.addEventListener('mousedown', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -601,6 +603,8 @@ export class TableView implements NodeView {
 
     const dropdown = document.createElement('div');
     dropdown.className = 'dm-table-controls-dropdown';
+    dropdown.setAttribute('role', 'menu');
+    dropdown.setAttribute('aria-label', type === 'row' ? 'Row options' : 'Column options');
     dropdown.addEventListener('mouseenter', this.boundCancelHide);
     dropdown.addEventListener('mousedown', (e) => { e.preventDefault(); });
 
@@ -620,6 +624,7 @@ export class TableView implements NodeView {
     for (const item of items) {
       const btn = document.createElement('button');
       btn.type = 'button';
+      btn.setAttribute('role', 'menuitem');
       btn.setAttribute('aria-label', item.label);
       btn.innerHTML = `<span class="dm-table-controls-dropdown-icon">${item.icon}</span>${item.label}`;
       btn.addEventListener('click', (e) => {
@@ -657,6 +662,7 @@ export class TableView implements NodeView {
 
     const dropdown = document.createElement('div');
     dropdown.className = className;
+    dropdown.setAttribute('role', 'menu');
     dropdown.addEventListener('mousedown', (e) => { e.preventDefault(); });
     buildContent(dropdown);
     this.positionToolbarDropdown(dropdown, triggerBtn);
@@ -664,6 +670,7 @@ export class TableView implements NodeView {
 
   private showColorDropdown(triggerBtn: HTMLButtonElement): void {
     this.openToolbarDropdown(triggerBtn, 'dm-table-controls-dropdown dm-table-cell-dropdown', (dropdown) => {
+      dropdown.setAttribute('aria-label', 'Cell background color');
       const palette = document.createElement('div');
       palette.className = 'dm-color-palette';
       palette.style.setProperty('--dm-palette-columns', '4');
@@ -671,6 +678,7 @@ export class TableView implements NodeView {
       const resetBtn = document.createElement('button');
       resetBtn.type = 'button';
       resetBtn.className = 'dm-color-palette-reset';
+      resetBtn.setAttribute('role', 'menuitem');
       resetBtn.setAttribute('aria-label', 'Default color');
       resetBtn.innerHTML =
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor" width="14" height="14"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm88,104a87.56,87.56,0,0,1-20.41,56.28L71.72,60.41A88,88,0,0,1,216,128ZM40,128A87.56,87.56,0,0,1,60.41,71.72L184.28,195.59A88,88,0,0,1,40,128Z"/></svg>' +
@@ -686,6 +694,7 @@ export class TableView implements NodeView {
         const swatch = document.createElement('button');
         swatch.type = 'button';
         swatch.className = 'dm-color-swatch';
+        swatch.setAttribute('role', 'menuitem');
         swatch.style.backgroundColor = color;
         swatch.setAttribute('aria-label', color);
         swatch.addEventListener('click', (e) => {
@@ -701,6 +710,7 @@ export class TableView implements NodeView {
 
   private showAlignmentDropdown(triggerBtn: HTMLButtonElement): void {
     this.openToolbarDropdown(triggerBtn, 'dm-table-controls-dropdown dm-table-cell-align-dropdown', (dropdown) => {
+      dropdown.setAttribute('aria-label', 'Cell alignment');
       // Read current alignment from the anchor cell in ProseMirror state
       // (the cell toolbar is only visible during CellSelection)
       const sel = this.view.state.selection as CellSelection;
@@ -730,6 +740,7 @@ export class TableView implements NodeView {
 
       const sep = document.createElement('div');
       sep.className = 'dm-table-cell-dropdown-separator';
+      sep.setAttribute('role', 'separator');
       dropdown.appendChild(sep);
 
       for (const a of vAligns) {
@@ -746,6 +757,7 @@ export class TableView implements NodeView {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'dm-table-align-item' + (active ? ' dm-table-align-item--active' : '');
+    btn.setAttribute('role', 'menuitem');
     btn.setAttribute('aria-label', label);
     btn.innerHTML = `<span class="dm-table-align-item-icon">${icon}</span><span>${label}</span>`;
     btn.addEventListener('click', (e) => {

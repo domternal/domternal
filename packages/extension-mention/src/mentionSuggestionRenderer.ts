@@ -117,6 +117,7 @@ export function createMentionSuggestionRenderer(): () => MentionSuggestionRender
         container = document.createElement('div');
         container.className = 'dm-mention-suggestion';
         container.setAttribute('role', 'listbox');
+        container.setAttribute('aria-label', 'Mention suggestions');
 
         const editorEl = props.element.closest('.dm-editor');
         const appendTarget = editorEl ?? document.body;

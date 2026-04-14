@@ -6,14 +6,14 @@ const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
 // Toolbar button selectors
 const btn = {
-  bold: 'button[aria-label="Bold"]',
-  italic: 'button[aria-label="Italic"]',
-  underline: 'button[aria-label="Underline"]',
-  strike: 'button[aria-label="Strikethrough"]',
-  code: 'button[aria-label="Code"]',
-  highlight: 'button[aria-label="Highlight"]',
-  subscript: 'button[aria-label="Subscript"]',
-  superscript: 'button[aria-label="Superscript"]',
+  bold: '.dm-toolbar button[aria-label="Bold"]',
+  italic: '.dm-toolbar button[aria-label="Italic"]',
+  underline: '.dm-toolbar button[aria-label="Underline"]',
+  strike: '.dm-toolbar button[aria-label="Strikethrough"]',
+  code: '.dm-toolbar button[aria-label="Code"]',
+  highlight: '.dm-toolbar button[aria-label="Highlight"]',
+  subscript: '.dm-toolbar button[aria-label="Subscript"]',
+  superscript: '.dm-toolbar button[aria-label="Superscript"]',
 } as const;
 
 async function setContentAndFocus(page: Page, html: string) {

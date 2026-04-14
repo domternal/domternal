@@ -1,5 +1,95 @@
 # Changelog
 
+## 0.5.1 (2026-04-14)
+
+### Fixes
+
+- fix(core): `SelectionDecoration` preserves selection when focus moves to toolbar or editor UI (`data-dm-editor-ui`, `.dm-toolbar`, `.dm-bubble-menu` blur checks)
+- fix(angular): ArrowDown dropdown trigger detection uses `document.activeElement` instead of `controller.focusedIndex` (parity with React)
+- fix(angular,react): toolbar refocuses editor after keyboard-activated commands (Enter/Space) to preserve `::selection` highlight
+- fix(angular,react): arrow keys enter emoji grid when focus is on grid container
+- fix(angular,react): selecting emoji category tab via keyboard focuses first emoji in that category
+- fix(theme): table dropdown hover fallback for dark mode
+
+### Tests
+
+- 26 new E2E tests (13 Angular + 13 React) for toolbar dropdown keyboard navigation, text color, font size, heading, ARIA attributes, and Enter on color swatch
+
+## 0.5.0 (2026-04-13)
+
+### Features
+
+- feat(core): add `SelectionDecoration` to StarterKit (opt-out via `selectionDecoration: false`), collapses range selection on blur to prevent ghost selections
+- feat(core): add `ariaLabel` option to `EditorOptions` for configurable editor label
+- feat(core): editor element now has `role="textbox"`, `aria-multiline="true"`, and `aria-label` by default
+- feat(core): dynamic `aria-readonly` attribute synced with `setEditable()` state
+- feat(core): floating menu sets default `role="toolbar"` and `aria-label="Floating menu"`
+- feat(theme): `:focus-visible` indicators on 16 interactive element types (toolbar, emoji, table, popovers, details)
+- feat(theme): `prefers-reduced-motion` media query disabling all animations and transitions
+- feat(angular): bubble menu ARIA parity with React (`role="toolbar"`, `aria-label`, `aria-pressed`, `role="separator"`)
+- feat(angular,react): ArrowUp/ArrowDown keyboard navigation inside open toolbar dropdown menus
+- feat(angular,react): emoji picker grid 2D keyboard navigation (arrows, Enter/Space to select)
+- feat(angular,react): emoji picker tabs with `role="tab"` and `aria-selected`
+
+### Fixes
+
+- fix(theme): move `prefers-reduced-motion` block to end of stylesheet to correctly override all animation/transition rules
+- fix(angular): add missing `tabindex="-1"` on frequently used and category emoji swatches
+- fix(react): use `document.activeElement` for ArrowDown dropdown trigger detection instead of `controller.focusedIndex`
+
+### Accessibility
+
+- `aria-label="URL"` on link popover input, `aria-label="Image URL"` on image popover input
+- `aria-label="Task status"` on task item checkboxes
+- `aria-label="Search emoji"` on emoji picker search input
+- `aria-label="Emoji suggestions"` and `aria-label="Mention suggestions"` on suggestion containers
+- Table cell toolbar: `role="toolbar"` with `aria-label="Cell formatting"`
+- Table dropdowns: `role="menu"` with `aria-label`, `role="menuitem"` on items, `role="separator"` on dividers
+- Dropdown menu items: `tabindex="-1"` for keyboard focusability (Angular + React)
+
+### Tests
+
+- 105 new E2E accessibility tests (56 Angular + 49 React) covering editor ARIA, bubble menu, dropdown keyboard nav, emoji picker, task checkbox, link/image popover, emoji/mention suggestions, focus-visible, and prefers-reduced-motion
+- 10 new E2E tests for SelectionDecoration blur behavior (5 Angular + 5 React)
+
+## 0.4.1 (2026-04-09)
+
+### Fixes
+
+- fix(angular,react): prevent page scroll when emoji picker opens by using `focus({ preventScroll: true })`
+- fix(react): replace wrapper `<div>` with `<Fragment>` in emoji picker grid so categories render as rows instead of columns
+
+## 0.4.0 (2026-04-09)
+
+### Features
+
+- feat(react): add `@domternal/react` wrapper with hooks, composable components, toolbar, bubble menu, floating menu, emoji picker, and React node views (#54)
+- feat(react): scaffold React example app and demo app with full E2E test suite
+- feat(core): export `NodeViewContext` interface for framework wrapper node view integration
+
+### Fixes
+
+- fix(react): `deleteNode` in `ReactNodeViewRenderer` uses `node.nodeSize` instead of hardcoded `1` for correct deletion of nodes with content
+- fix(react): `useEditorState` skips expensive `getHTML()`/`getJSON()` on selection-only transactions
+- fix(react): `DomternalEditor` renders children before editor div (toolbar above content)
+- fix(react): bubble menu `activeVersion` triggers re-renders for active/disabled state updates
+- fix(core): replace `AnyExtension` union type with interface to fix generic variance issue with `configure()`
+
+### Accessibility
+
+- Bubble menu: `role="toolbar"`, `aria-label`, `aria-pressed` on buttons, `role="separator"` on dividers
+- `displayName` on all `Domternal` compound subcomponents for React DevTools
+- `DomternalEditorRef` exposes `isEditable`
+
+### Tests
+
+- 1856 E2E tests for React demo app (38 spec files covering all extensions, toolbar, bubble menu, emoji picker, tables, mentions, and more)
+- 60 React-specific E2E tests: bubble menu a11y, `aria-pressed` sync, active class updates, `useEditorState` reactive output, dark theme toggle, toolbar layout switch, context-aware bubble menu filtering
+
+### Packages
+
+- New: `@domternal/react` - React 18+ wrapper with `Domternal` composable component, `useEditor`, `useEditorState`, `DomternalEditor`, `EditorContent`, `DomternalToolbar`, `DomternalBubbleMenu`, `DomternalFloatingMenu`, `DomternalEmojiPicker`, `ReactNodeViewRenderer`
+
 ## 0.3.0 (2026-04-01)
 
 ### Features

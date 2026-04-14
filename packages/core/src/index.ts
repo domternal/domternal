@@ -79,6 +79,7 @@ export {
   ExtensionManager,
   type ExtensionManagerOptions,
   type ExtensionManagerEditor,
+  type NodeViewContext,
 } from './ExtensionManager.js';
 export {
   CommandManager,

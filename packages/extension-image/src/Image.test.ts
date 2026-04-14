@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { Image } from './Image.js';
-import { Document, Text, Paragraph, Editor } from '@domternal/core';
+import { Document, Text, Paragraph, Editor, type Extension } from '@domternal/core';
 import {
   imageUploadPlugin,
   imageUploadPluginKey,
@@ -573,7 +573,7 @@ describe('Image', () => {
 
       const imageExt = editor.extensionManager.extensions.find(
         (e) => e.name === 'image'
-      );
+      ) as Extension | undefined;
       const rules = imageExt?.config.addInputRules?.call(imageExt);
       expect(rules).toHaveLength(1);
     });

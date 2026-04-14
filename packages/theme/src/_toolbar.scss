@@ -63,6 +63,11 @@
     pointer-events: none;
   }
 
+  &:focus-visible {
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: 1px;
+  }
+
   // Icon inside button
   svg {
     width: 1.125rem;
@@ -195,6 +200,11 @@
   &--active {
     color: var(--dm-button-active-color);
     background: var(--dm-button-active-bg);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: 1px;
   }
 
   svg {

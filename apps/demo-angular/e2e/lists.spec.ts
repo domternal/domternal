@@ -5,10 +5,10 @@ const editorSelector = 'domternal-editor .ProseMirror';
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
 const btn = {
-  bullet: 'button[aria-label="Bullet List"]',
-  ordered: 'button[aria-label="Ordered List"]',
-  task: 'button[aria-label="Task List"]',
-  bold: 'button[aria-label="Bold"]',
+  bullet: '.dm-toolbar button[aria-label="Bullet List"]',
+  ordered: '.dm-toolbar button[aria-label="Ordered List"]',
+  task: '.dm-toolbar button[aria-label="Task List"]',
+  bold: '.dm-toolbar button[aria-label="Bold"]',
 } as const;
 
 async function setContentAndFocus(page: Page, html: string) {

@@ -25,6 +25,9 @@
       "path": "./packages/core"
     },
     {
+      "path": "./packages/react"
+    },
+    {
       "path": "./packages/vue"
     }
   ]

@@ -21,7 +21,7 @@
     padding: var(--dm-editor-padding);
     min-height: 6rem;
 
-    &:focus {
+    &:focus-visible {
       outline: none;
     }
   }
@@ -58,3 +58,4 @@
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+

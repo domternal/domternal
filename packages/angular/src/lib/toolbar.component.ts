@@ -38,6 +38,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
   host: {
     'class': 'dm-toolbar',
     'role': 'toolbar',
+    'data-dm-editor-ui': '',
     '[attr.aria-label]': '"Editor formatting"',
     '(keydown)': 'onKeydown($event)',
   },
@@ -94,6 +95,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                           class="dm-color-swatch"
                           [class.dm-color-swatch--active]="isActive(sub.name)"
                           role="menuitem"
+                          [attr.tabindex]="-1"
                           [attr.aria-label]="sub.label"
                           [title]="sub.label"
                           [style.background-color]="sub.color"
@@ -105,8 +107,10 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                           type="button"
                           class="dm-color-palette-reset"
                           role="menuitem"
+                          [attr.tabindex]="-1"
                           [attr.aria-label]="sub.label"
                           [innerHTML]="getCachedItemContent(sub.icon, sub.label)"
+                          [attr.tabindex]="-1"
                           (mousedown)="$event.preventDefault()"
                           (click)="onDropdownItemClick(sub)"
                         ></button>
@@ -122,6 +126,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(na
                         class="dm-toolbar-dropdown-item"
                         [class.dm-toolbar-dropdown-item--active]="isActive(sub.name)"
                         role="menuitem"
+                        [attr.tabindex]="-1"
                         [attr.aria-label]="sub.label"
                         [attr.style]="sub.style ?? null"
                         [innerHTML]="getCachedItemContent(sub.icon, sub.label, asDropdown(item).displayMode)"
@@ -355,6 +360,15 @@ export class DomternalToolbarComponent implements OnDestroy {
       return;
     }
     this.controller?.executeCommand(item);
+
+    // If the button was activated via keyboard (Enter/Space on a focused
+    // toolbar button), refocus the editor so the browser renders the
+    // ::selection highlight for the still-active range.
+    // Keyboard-triggered click events have detail === 0.
+    // Always refocus editor after executing a command via toolbar button.
+    // Mouse clicks already keep focus via mousedown.preventDefault();
+    // keyboard activations (Enter/Space) need explicit refocus.
+    requestAnimationFrame(() => this.editor().view.focus());
   }
 
   onDropdownToggle(dropdown: ToolbarDropdown): void {
@@ -399,6 +413,9 @@ export class DomternalToolbarComponent implements OnDestroy {
     } else {
       this.controller?.executeCommand(item);
     }
+
+    // Refocus editor so ::selection highlight stays visible
+    requestAnimationFrame(() => this.editor().view.focus());
   }
 
   onButtonFocus(name: string): void {
@@ -432,6 +449,26 @@ export class DomternalToolbarComponent implements OnDestroy {
         this.controller.navigateLast();
         this.focusCurrentButton();
         break;
+      case 'ArrowDown': {
+        event.preventDefault();
+        if (this.openDropdown()) {
+          this.focusDropdownItem(1);
+        } else {
+          const btn = document.activeElement as HTMLElement | null;
+          if (btn?.getAttribute('aria-haspopup') && btn.closest('.dm-toolbar')) {
+            btn.click();
+            requestAnimationFrame(() => this.focusDropdownItem(0, true));
+          }
+        }
+        break;
+      }
+      case 'ArrowUp': {
+        event.preventDefault();
+        if (this.openDropdown()) {
+          this.focusDropdownItem(-1);
+        }
+        break;
+      }
       case 'Escape':
         if (this.openDropdown()) {
           event.preventDefault();
@@ -446,6 +483,20 @@ export class DomternalToolbarComponent implements OnDestroy {
   }
 
   // === Private ===
+
+  private focusDropdownItem(direction: number, first?: boolean): void {
+    const panel = this.elRef.nativeElement.querySelector('.dm-toolbar-dropdown-panel') as HTMLElement | null;
+    if (!panel) return;
+    const items = Array.from(panel.querySelectorAll('[role="menuitem"]')) as HTMLElement[];
+    if (!items.length) return;
+    if (first) { items[0]?.focus(); return; }
+    const current = document.activeElement as HTMLElement;
+    const idx = items.indexOf(current);
+    const next = idx === -1
+      ? (direction > 0 ? 0 : items.length - 1)
+      : (idx + direction + items.length) % items.length;
+    items[next]?.focus();
+  }
 
   private resolveIconSvg(name: string): string {
     const customIcons = this.icons();

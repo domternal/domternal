@@ -45,6 +45,15 @@ export interface ExtensionManagerEditor {
 }
 
 /**
+ * Context attached to node view constructors for framework wrappers.
+ * Accessible via `(constructor as any).__domternalContext`.
+ */
+export interface NodeViewContext {
+  editor: ExtensionManagerEditor;
+  extension: { name: string; options: Record<string, unknown> };
+}
+
+/**
  * Options for ExtensionManager constructor
  */
 export interface ExtensionManagerOptions {
@@ -694,8 +703,12 @@ export class ExtensionManager {
   }
 
   /**
-   * Collects node views from all Node extensions
-   * Returns a map of node name → NodeViewConstructor for EditorView
+   * Collects node views from all Node extensions.
+   * Returns a map of node name to NodeViewConstructor for EditorView.
+   *
+   * Each constructor is annotated with `__domternalContext` containing
+   * the editor and extension metadata so framework wrappers (React, Vue)
+   * can access them without changing the ProseMirror calling convention.
    */
   private collectNodeViews(): Record<string, NodeViewConstructor> {
     const nodeViews: Record<string, NodeViewConstructor> = {};
@@ -710,6 +723,11 @@ export class ExtensionManager {
           `${ext.name}.addNodeView`
         );
         if (nodeView) {
+          // Annotate with editor + extension context for framework wrappers
+          (nodeView as NodeViewConstructor & { __domternalContext?: NodeViewContext }).__domternalContext = {
+            editor: this.editor,
+            extension: { name: nodeExt.name, options: nodeExt.options as Record<string, unknown> },
+          };
           nodeViews[ext.name] = nodeView;
         }
       }
