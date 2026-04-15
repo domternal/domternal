@@ -10,7 +10,7 @@ A lightweight, extensible rich text editor toolkit built on [ProseMirror](https:
 
 **[Website](https://domternal.dev)** · **[Getting Started](https://domternal.dev/v1/getting-started)** · **[Packages & Bundle Size](https://domternal.dev/v1/packages)**
 
-**[StackBlitz (Angular)](https://stackblitz.com/edit/domternal-angular-full-example)** · **[StackBlitz (React)](https://stackblitz.com/edit/domternal-react-full-example)** · **[StackBlitz (Vanilla TS)](https://stackblitz.com/edit/domternal-vanilla-full-example)**
+**[StackBlitz (Angular)](https://stackblitz.com/edit/domternal-angular-full-example)** · **[StackBlitz (React)](https://stackblitz.com/edit/domternal-react-full-example)** · **[StackBlitz (Vue)](https://stackblitz.com/edit/domternal-vue-full-example)** · **[StackBlitz (Vanilla TS)](https://stackblitz.com/edit/domternal-vanilla-full-example)**
 
 ## Features
 
@@ -49,11 +49,13 @@ const editor = new Editor({
 
 Import only what you need for full control and zero bloat. Use `StarterKit` for a batteries-included setup with headings, lists, code blocks, history, and more.
 
-> **[Getting Started Guide](https://domternal.dev/v1/getting-started)** - headless core, themed UI with toolbar, and Angular/React component setup
+> **[Getting Started Guide](https://domternal.dev/v1/getting-started)** - headless core, themed UI with toolbar, and Angular/React/Vue component setup
 >
 > **[StackBlitz (Angular)](https://stackblitz.com/edit/domternal-angular-full-example)** - full Angular example with all extensions, toolbar, and bubble menu
 >
 > **[StackBlitz (React)](https://stackblitz.com/edit/domternal-react-full-example)** - full React example with composable components, toolbar, and bubble menu
+>
+> **[StackBlitz (Vue)](https://stackblitz.com/edit/domternal-vue-full-example)** - full Vue example with composable components, toolbar, and bubble menu
 >
 > **[StackBlitz (Vanilla TS)](https://stackblitz.com/edit/domternal-vanilla-full-example)** - full vanilla example with toolbar, bubble menu, and all extensions
 
@@ -65,6 +67,7 @@ Import only what you need for full control and zero bloat. Use `StarterKit` for 
 | [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme) | Light and dark themes with 70+ CSS custom properties |
 | [`@domternal/angular`](https://www.npmjs.com/package/@domternal/angular) | 5 Angular components: editor, toolbar, bubble menu, floating menu, emoji picker |
 | [`@domternal/react`](https://www.npmjs.com/package/@domternal/react) | React 18+ wrapper: composable component, toolbar, bubble menu, floating menu, emoji picker, node views |
+| [`@domternal/vue`](https://www.npmjs.com/package/@domternal/vue) | Vue 3.3+ wrapper: composable component, composables, toolbar, bubble menu, floating menu, emoji picker, node views |
 | [`@domternal/pm`](https://www.npmjs.com/package/@domternal/pm) | ProseMirror re-exports (state, view, model, transform, commands, keymap, history, tables, and more) |
 | [`@domternal/extension-table`](https://www.npmjs.com/package/@domternal/extension-table) | Tables with 18 commands: merge, split, resize, cell styling, row/column controls |
 | [`@domternal/extension-image`](https://www.npmjs.com/package/@domternal/extension-image) | Image with paste/drop upload, URL input, XSS protection, bubble menu |
