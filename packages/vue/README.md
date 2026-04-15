@@ -1,6 +1,6 @@
-# @domternal/extension-emoji
+# @domternal/vue
 
-[![Version](https://img.shields.io/npm/v/@domternal/extension-emoji.svg)](https://www.npmjs.com/package/@domternal/extension-emoji)
+[![Version](https://img.shields.io/npm/v/@domternal/vue.svg)](https://www.npmjs.com/package/@domternal/vue)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
 A lightweight, extensible rich text editor toolkit built on <u>[ProseMirror](https://prosemirror.net/)</u>. Framework-agnostic headless core with first-class Angular, React, and Vue support.  

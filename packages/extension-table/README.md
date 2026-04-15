@@ -3,7 +3,7 @@
 [![Version](https://img.shields.io/npm/v/@domternal/extension-table.svg)](https://www.npmjs.com/package/@domternal/extension-table)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-A lightweight, extensible rich text editor toolkit built on <u>[ProseMirror](https://prosemirror.net/)</u>. Framework-agnostic headless core with first-class Angular and React support.  
+A lightweight, extensible rich text editor toolkit built on <u>[ProseMirror](https://prosemirror.net/)</u>. Framework-agnostic headless core with first-class Angular, React, and Vue support.  
 Use it headless with vanilla JS/TS, add the built-in toolbar and theme, or drop in ready-made framework components. Fully tree-shakeable, import only what you use, unused extensions are stripped from your bundle.
 
 ## Links
@@ -18,7 +18,8 @@ See <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> for a ful
 - **Headless core** - use with any framework or vanilla JS/TS
 - **Angular components** - editor, toolbar, bubble menu, floating menu, emoji picker (signals, OnPush, zoneless-ready)
 - **React components** - composable `Domternal` component, toolbar, bubble menu, floating menu, emoji picker, custom node views (React 18+)
-- **57 extensions across 11 packages** - 23 nodes, 9 marks, and 25 behavior extensions
+- **Vue components** - composable `Domternal` component, `useEditor`/`useEditorState` composables, toolbar, bubble menu, floating menu, emoji picker, custom node views (Vue 3.3+)
+- **57 extensions across 12 packages** - 23 nodes, 9 marks, and 25 behavior extensions
 - **140+ chainable commands** - `editor.chain().focus().toggleBold().run()`
 - **Full table support** - cell merging, column resize, row/column controls, cell toolbar, all free and MIT licensed
 - **Tree-shakeable** - import only what you use, your bundler strips the rest

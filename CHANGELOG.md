@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.6.0 (2026-04-15)
+
+### Features
+
+- feat(vue): add `@domternal/vue` wrapper with `Domternal` compound component, `useEditor`/`useEditorState` composables, `DomternalEditor` (v-model), `DomternalToolbar`, `DomternalBubbleMenu`, `DomternalFloatingMenu`, `DomternalEmojiPicker`, and `VueNodeViewRenderer` (Vue 3.3+) (#64)
+- feat(vue): `useCurrentEditor()` inject for descendant components with Vue `appContext` forwarding into ProseMirror node views
+- feat(vue): `VueNodeViewRenderer` with reactive node/selected props, `NodeViewWrapper`, `NodeViewContent`, drag handle, and nested editable content
+
+### Fixes
+
+- fix(core): add `Backspace` handler to `TaskItem` - pressing Backspace at start of first task item now lifts it out of the task list (parity with `BulletList`/`OrderedList`)
+
+### Tests
+
+- 2014 E2E tests for Vue demo app: 1923 ported from demo-react (41 spec files across all extensions) + 91 Vue-specific tests covering v-model two-way binding, `<Domternal>` compound component, `useCurrentEditor()` provide/inject chain, `useEditorState` selector mode, and `VueNodeViewRenderer` lifecycle/reactivity/inject forwarding (22 tests via Callout demo extension)
+
+### Packages
+
+- New: `@domternal/vue` - Vue 3 wrapper with composable components, composables, and Vue node view renderer with `appContext` chain forwarding
+
 ## 0.5.1 (2026-04-14)
 
 ### Fixes
