@@ -371,8 +371,8 @@ test.describe('Cross-popover interactions', () => {
     await expect(page.locator(linkBtn)).not.toHaveAttribute('aria-expanded');
   });
 
-  // React synthetic events batch state updates differently than Angular zone.run -
-  // link popover mousedown close and emoji button click happen in separate React render cycles
+  // Vue reactivity flushes state updates differently than Angular zone.run -
+  // link popover mousedown close and emoji button click happen in separate Vue render cycles
   test('opening emoji picker while link popover is open closes link popover', async ({ page }) => {
     await page.locator(linkBtn).click();
     await page.waitForTimeout(300);

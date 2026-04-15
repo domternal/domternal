@@ -246,7 +246,7 @@ test.describe('Dark theme toggle', () => {
 });
 
 // =============================================================================
-// Toolbar layout switch (React state re-render)
+// Toolbar layout switch (Vue reactivity)
 // =============================================================================
 
 test.describe('Toolbar layout switch', () => {

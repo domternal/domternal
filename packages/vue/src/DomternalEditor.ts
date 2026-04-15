@@ -67,7 +67,9 @@ export const DomternalEditor = defineComponent({
     onBlur: { type: Function as PropType<(props: { editor: import('@domternal/core').Editor; event: FocusEvent }) => void>, default: undefined },
     onDestroy: { type: Function as PropType<() => void>, default: undefined },
   },
-  emits: ['update:modelValue'],
+  emits: {
+    'update:modelValue': (_value: Content | JSONContent) => true,
+  },
   setup(props, { slots, emit, expose }) {
     const { editor, editorRef } = useEditor({
       ...(props.extensions && { extensions: props.extensions }),

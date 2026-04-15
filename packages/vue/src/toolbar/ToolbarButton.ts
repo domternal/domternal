@@ -13,7 +13,10 @@ export const ToolbarButton = defineComponent({
     iconHtml: { type: String, required: true },
     ariaExpanded: { type: String as PropType<string | null>, default: null },
   },
-  emits: ['click', 'focus'],
+  emits: {
+    click: (_item: ToolbarButtonType, _event: MouseEvent) => true,
+    focus: (_name: string) => true,
+  },
   setup(props, { emit }) {
     return () =>
       h('button', {

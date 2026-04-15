@@ -1,4 +1,4 @@
-import { defineComponent, h, markRaw, provide, reactive, render } from 'vue';
+import { defineComponent, h, markRaw, provide, render, shallowReactive } from 'vue';
 import type { AppContext, Component } from 'vue';
 import type { Editor, NodeViewContext } from '@domternal/core';
 import { appContextStore, pendingAppContextStore } from '../utils.js';
@@ -147,8 +147,10 @@ class VueNodeView {
 
     const contentDOM = this.contentDOM;
 
-    // Create reactive props - property mutations auto-trigger Vue re-renders
-    this.props = reactive({
+    // Shallow-reactive props: only top-level mutations trigger re-renders.
+    // Editor/node are markRaw'd (skipped by reactivity anyway); shallowReactive
+    // avoids Vue walking into them on every access.
+    this.props = shallowReactive({
       editor: markRaw(init.editor),
       node: markRaw(init.node),
       selected: false,
