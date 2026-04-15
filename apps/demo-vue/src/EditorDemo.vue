@@ -108,6 +108,11 @@ const toolbarLayout: ToolbarLayoutEntry[] = [
 const { editor, editorRef } = useEditor({ extensions, content: DEMO_CONTENT });
 const { htmlContent } = useEditorState(editor);
 
+// Selector mode (Vue-specific: computed with memoization)
+const isBold = useEditorState(editor, (ed) => ed.isActive('bold'));
+const isItalic = useEditorState(editor, (ed) => ed.isActive('italic'));
+const isEmpty = useEditorState(editor, (ed) => ed.isEmpty);
+
 // Expose editor on window for E2E test access
 watch(editor, (ed) => {
   (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] = ed ?? undefined;
@@ -139,6 +144,13 @@ defineExpose({ editor, editorRef });
     />
     <DomternalEmojiPicker :editor="editor" :emojis="emojis" />
   </template>
+
+  <h3>Selector State (useEditorState with selector)</h3>
+  <div class="selector-state" data-testid="selector-state">
+    <span data-testid="is-bold">isBold: {{ isBold }}</span>
+    <span data-testid="is-italic">isItalic: {{ isItalic }}</span>
+    <span data-testid="is-empty">isEmpty: {{ isEmpty }}</span>
+  </div>
 
   <h3>HTML Output</h3>
   <pre class="output">{{ htmlContent }}</pre>

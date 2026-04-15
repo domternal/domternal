@@ -1,4 +1,4 @@
-import { onMounted, onScopeDispose, ref, shallowRef } from 'vue';
+import { onMounted, onScopeDispose, ref, shallowRef, watch } from 'vue';
 import type { ShallowRef } from 'vue';
 import {
   PluginKey,
@@ -74,9 +74,13 @@ export function useBubbleMenu(options: UseBubbleMenuOptions) {
   let bubbleDefaults = new Map<string, BubbleMenuItem[]>();
   let currentResolvedItems: BubbleMenuItem[] = [];
 
-  onMounted(() => {
-    const ed = editor.value;
-    if (!ed || ed.isDestroyed || !menuRef.value) return;
+  let initialized = false;
+  let stopEditorWatch: (() => void) | null = null;
+  // Init when both editor is ready AND the component has mounted (menuRef
+  // populated). onMounted guarantees DOM; then wait for editor if needed.
+  const doInit = (ed: Editor) => {
+      if (initialized || !ed || ed.isDestroyed || !menuRef.value) return;
+      initialized = true;
 
     // Build item map
     itemMap = new Map();
@@ -255,12 +259,35 @@ export function useBubbleMenu(options: UseBubbleMenuOptions) {
     ed.on('transaction', transactionHandler);
     updateStates(ed);
 
-    onScopeDispose(() => {
-      ed.off('transaction', transactionHandler);
-      if (!ed.isDestroyed) {
-        ed.unregisterPlugin(pluginKey);
+    initializedEditor = ed;
+    initializedHandler = transactionHandler;
+  };
+
+  let initializedEditor: Editor | null = null;
+  let initializedHandler: (() => void) | null = null;
+
+  onMounted(() => {
+    if (editor.value) {
+      doInit(editor.value);
+    } else {
+      stopEditorWatch = watch(editor, (ed) => {
+        if (ed) {
+          doInit(ed);
+          stopEditorWatch?.();
+          stopEditorWatch = null;
+        }
+      });
+    }
+  });
+
+  onScopeDispose(() => {
+    stopEditorWatch?.();
+    if (initializedEditor && initializedHandler) {
+      initializedEditor.off('transaction', initializedHandler);
+      if (!initializedEditor.isDestroyed) {
+        initializedEditor.unregisterPlugin(pluginKey);
       }
-    });
+    }
   });
 
   function updateContextItems(

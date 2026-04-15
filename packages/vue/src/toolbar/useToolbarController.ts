@@ -1,4 +1,4 @@
-import { onMounted, onScopeDispose, ref, shallowRef } from 'vue';
+import { onScopeDispose, ref, shallowRef, watch } from 'vue';
 import type { ShallowRef } from 'vue';
 import {
   ToolbarController,
@@ -46,43 +46,48 @@ export function useToolbarController(
     });
   }
 
-  onMounted(() => {
-    const ed = editor.value;
-    if (!ed || ed.isDestroyed) return;
+  // Initialize controller when editor becomes available. Using watch with
+  // immediate:true handles both cases: editor already set (manual mode via
+  // v-if) and editor set later (compound mode where the toolbar mounts
+  // before the parent useEditor finishes).
+  watch(
+    editor,
+    (ed) => {
+      if (controller || !ed || ed.isDestroyed) return;
 
-    controller = new ToolbarController(
-      ed as unknown as ToolbarControllerEditor,
-      syncState,
-      layout,
-    );
-    controller.subscribe();
-    syncState();
+      controller = new ToolbarController(
+        ed as unknown as ToolbarControllerEditor,
+        syncState,
+        layout,
+      );
+      controller.subscribe();
+      syncState();
 
-    // Click outside to close dropdown
-    clickOutsideHandler = (e: Event) => {
-      if (controller?.openDropdown && toolbarRef.value && !toolbarRef.value.contains(e.target as Node)) {
-        cleanupFloating?.();
-        cleanupFloating = null;
-        controller.closeDropdown();
-        syncState();
-      }
-    };
-    document.addEventListener('mousedown', clickOutsideHandler);
-
-    // Dismiss overlays (e.g. table handle clicks)
-    editorEl = ed.view.dom.closest('.dm-editor') as HTMLElement | null;
-    if (editorEl) {
-      dismissOverlayHandler = () => {
-        if (controller?.openDropdown) {
+      clickOutsideHandler = (e: Event) => {
+        if (controller?.openDropdown && toolbarRef.value && !toolbarRef.value.contains(e.target as Node)) {
           cleanupFloating?.();
           cleanupFloating = null;
           controller.closeDropdown();
           syncState();
         }
       };
-      editorEl.addEventListener('dm:dismiss-overlays', dismissOverlayHandler);
-    }
-  });
+      document.addEventListener('mousedown', clickOutsideHandler);
+
+      editorEl = ed.view.dom.closest('.dm-editor') as HTMLElement | null;
+      if (editorEl) {
+        dismissOverlayHandler = () => {
+          if (controller?.openDropdown) {
+            cleanupFloating?.();
+            cleanupFloating = null;
+            controller.closeDropdown();
+            syncState();
+          }
+        };
+        editorEl.addEventListener('dm:dismiss-overlays', dismissOverlayHandler);
+      }
+    },
+    { immediate: true },
+  );
 
   onScopeDispose(() => {
     cancelAnimationFrame(syncStateRaf);

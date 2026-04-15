@@ -551,3 +551,87 @@ test.describe('Bubble menu — context-aware filtering', () => {
     await expect(page.locator('.dm-bubble-menu [role="separator"]')).toHaveCount(1);
   });
 });
+
+// =============================================================================
+// useEditorState selector mode (Vue-specific: computed with memoization)
+// =============================================================================
+
+test.describe('useEditorState selector mode', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('isBold selector is false on unformatted text', async ({ page }) => {
+    await setContentAndFocus(page, '<p>Plain text</p>');
+    await expect(page.locator('[data-testid="is-bold"]')).toHaveText('isBold: false');
+  });
+
+  test('isBold selector becomes true when cursor is in bold text', async ({ page }) => {
+    await setContentAndFocus(page, '<p><strong>Bold here</strong></p>');
+    await page.locator(`${editorSelector} strong`).click();
+    await page.waitForTimeout(150);
+
+    await expect(page.locator('[data-testid="is-bold"]')).toHaveText('isBold: true');
+  });
+
+  test('isBold selector updates after toggling bold via keyboard', async ({ page }) => {
+    await setContentAndFocus(page, '<p>Toggle me</p>');
+    await selectText(page, 0, 9);
+
+    await expect(page.locator('[data-testid="is-bold"]')).toHaveText('isBold: false');
+
+    await page.keyboard.press(`${modifier}+b`);
+    await page.waitForTimeout(200);
+
+    await expect(page.locator('[data-testid="is-bold"]')).toHaveText('isBold: true');
+  });
+
+  test('isItalic selector updates independently from isBold', async ({ page }) => {
+    await setContentAndFocus(page, '<p>Test it</p>');
+    await selectText(page, 0, 7);
+
+    await page.keyboard.press(`${modifier}+i`);
+    await page.waitForTimeout(200);
+
+    await expect(page.locator('[data-testid="is-italic"]')).toHaveText('isItalic: true');
+    await expect(page.locator('[data-testid="is-bold"]')).toHaveText('isBold: false');
+  });
+
+  test('isEmpty selector is true for empty editor', async ({ page }) => {
+    await setContentAndFocus(page, '<p></p>');
+    await expect(page.locator('[data-testid="is-empty"]')).toHaveText('isEmpty: true');
+  });
+
+  test('isEmpty selector is false when content exists', async ({ page }) => {
+    await setContentAndFocus(page, '<p>Not empty</p>');
+    await expect(page.locator('[data-testid="is-empty"]')).toHaveText('isEmpty: false');
+  });
+
+  test('selector updates after bulk content change via setContent', async ({ page }) => {
+    await setContentAndFocus(page, '<p></p>');
+    await expect(page.locator('[data-testid="is-empty"]')).toHaveText('isEmpty: true');
+
+    await page.evaluate(() => {
+      const editor = (window as unknown as Record<string, { setContent: (h: string, emit?: boolean) => void }>)['__DEMO_EDITOR__'];
+      if (editor) editor.setContent('<p>Now has content</p>', false);
+    });
+    await page.waitForTimeout(200);
+
+    await expect(page.locator('[data-testid="is-empty"]')).toHaveText('isEmpty: false');
+  });
+
+  test('selector state matches toolbar button aria-pressed state', async ({ page }) => {
+    await setContentAndFocus(page, '<p>Match state</p>');
+    await selectText(page, 0, 11);
+    await page.keyboard.press(`${modifier}+b`);
+    await page.waitForTimeout(200);
+
+    const isBoldText = await page.locator('[data-testid="is-bold"]').textContent();
+    const boldBtn = page.locator('.dm-toolbar button[aria-label="Bold"]');
+    const ariaPressed = await boldBtn.getAttribute('aria-pressed');
+
+    expect(isBoldText).toBe('isBold: true');
+    expect(ariaPressed).toBe('true');
+  });
+});

@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import EditorDemo from './EditorDemo.vue';
+import VModelDemo from './VModelDemo.vue';
+import CompoundDemo from './CompoundDemo.vue';
 
 const isDark = ref(false);
 const useLayout = ref(false);
+const demoMode = ref<'manual' | 'vmodel' | 'compound'>('manual');
 
 function toggleTheme() {
   isDark.value = !isDark.value;
@@ -20,15 +23,67 @@ function toggleTheme() {
       </button>
     </h1>
 
-    <div class="toolbar-mode-toggle">
-      <button :class="{ active: !useLayout }" @click="useLayout = false">
-        Default toolbar
+    <div class="demo-mode-toggle" data-testid="demo-mode-toggle">
+      <button
+        data-testid="mode-manual"
+        :class="{ active: demoMode === 'manual' }"
+        @click="demoMode = 'manual'"
+      >
+        Manual (useEditor)
       </button>
-      <button :class="{ active: useLayout }" @click="useLayout = true">
-        Custom layout
+      <button
+        data-testid="mode-vmodel"
+        :class="{ active: demoMode === 'vmodel' }"
+        @click="demoMode = 'vmodel'"
+      >
+        v-model (DomternalEditor)
+      </button>
+      <button
+        data-testid="mode-compound"
+        :class="{ active: demoMode === 'compound' }"
+        @click="demoMode = 'compound'"
+      >
+        Compound (&lt;Domternal&gt;)
       </button>
     </div>
 
-    <EditorDemo :use-layout="useLayout" />
+    <template v-if="demoMode === 'manual'">
+      <div class="toolbar-mode-toggle">
+        <button :class="{ active: !useLayout }" @click="useLayout = false">
+          Default toolbar
+        </button>
+        <button :class="{ active: useLayout }" @click="useLayout = true">
+          Custom layout
+        </button>
+      </div>
+
+      <EditorDemo :use-layout="useLayout" />
+    </template>
+
+    <VModelDemo v-else-if="demoMode === 'vmodel'" />
+
+    <CompoundDemo v-else-if="demoMode === 'compound'" />
   </div>
 </template>
+
+<style scoped>
+.demo-mode-toggle {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+.demo-mode-toggle button {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  color: inherit;
+}
+.demo-mode-toggle button.active {
+  background: #e0e7ff;
+  border-color: #6366f1;
+  color: #4338ca;
+}
+</style>
