@@ -8,6 +8,7 @@
  * - Enter: Split task item at cursor
  * - Tab: Sink (indent) task item
  * - Shift-Tab: Lift (outdent) task item
+ * - Backspace: Lift task item when at start of empty-ish item (converts to paragraph)
  * - Mod-Enter: Toggle task checked state
  */
 
@@ -204,6 +205,29 @@ export const TaskItem = Node.create<TaskItemOptions>({
         const { $from } = this.editor.state.selection;
         if ($from.depth < 1 || $from.node(-1).type !== this.nodeType) return false;
         return liftListItem(this.nodeType)(this.editor.state, this.editor.view.dispatch);
+      },
+      Backspace: () => {
+        if (!this.editor || !this.nodeType) return false;
+        const { state, view } = this.editor;
+        const { $from, empty } = state.selection;
+
+        // Only at start of a textblock with empty selection
+        if (!empty || $from.parentOffset !== 0) return false;
+
+        // Find enclosing taskItem
+        let taskItemDepth = -1;
+        for (let d = $from.depth; d > 0; d--) {
+          if ($from.node(d).type === this.nodeType) {
+            taskItemDepth = d;
+            break;
+          }
+        }
+        if (taskItemDepth === -1) return false;
+
+        // Only lift when cursor is in the first child of the taskItem
+        if ($from.index(taskItemDepth) !== 0) return false;
+
+        return liftListItem(this.nodeType)(state, view.dispatch);
       },
       'Mod-Enter': () => {
         return this.editor?.commands['toggleTask']?.() ?? false;
