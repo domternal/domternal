@@ -3,10 +3,11 @@ import { ref } from 'vue';
 import EditorDemo from './EditorDemo.vue';
 import VModelDemo from './VModelDemo.vue';
 import CompoundDemo from './CompoundDemo.vue';
+import NodeViewDemo from './NodeViewDemo.vue';
 
 const isDark = ref(false);
 const useLayout = ref(false);
-const demoMode = ref<'manual' | 'vmodel' | 'compound'>('manual');
+const demoMode = ref<'manual' | 'vmodel' | 'compound' | 'nodeview'>('manual');
 
 function toggleTheme() {
   isDark.value = !isDark.value;
@@ -45,6 +46,13 @@ function toggleTheme() {
       >
         Compound (&lt;Domternal&gt;)
       </button>
+      <button
+        data-testid="mode-nodeview"
+        :class="{ active: demoMode === 'nodeview' }"
+        @click="demoMode = 'nodeview'"
+      >
+        NodeView (VueNodeViewRenderer)
+      </button>
     </div>
 
     <template v-if="demoMode === 'manual'">
@@ -63,6 +71,8 @@ function toggleTheme() {
     <VModelDemo v-else-if="demoMode === 'vmodel'" />
 
     <CompoundDemo v-else-if="demoMode === 'compound'" />
+
+    <NodeViewDemo v-else-if="demoMode === 'nodeview'" />
   </div>
 </template>
 

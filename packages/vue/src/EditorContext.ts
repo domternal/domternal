@@ -1,7 +1,7 @@
 import { getCurrentInstance, inject, provide, shallowRef, watchEffect } from 'vue';
 import type { InjectionKey, ShallowRef } from 'vue';
 import type { Editor } from '@domternal/core';
-import { appContextStore } from './utils.js';
+import { appContextStore, pendingAppContextStore } from './utils.js';
 
 /**
  * Typed injection key for the editor instance.
@@ -31,13 +31,26 @@ export function provideEditor(editor: ShallowRef<Editor | null>): void {
   // Vue's prototype-chain-based inject resolution works in node views.
   const instance = getCurrentInstance();
   if (instance) {
+    const buildCtx = () => {
+      const ctx = Object.create(instance.appContext) as typeof instance.appContext;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (ctx as any).provides = (instance as any).provides;
+      return ctx;
+    };
+
+    // Set pending context immediately so node view constructors firing during
+    // new Editor() (before editor.value is assigned) can find it.
+    pendingAppContextStore.value = buildCtx();
+
     watchEffect(() => {
       const ed = editor.value;
       if (ed) {
-        const ctx = Object.create(instance.appContext) as typeof instance.appContext;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (ctx as any).provides = (instance as any).provides;
+        const ctx = buildCtx();
         appContextStore.set(ed, ctx);
+        // Clear pending once we have a per-editor entry.
+        if (pendingAppContextStore.value && !appContextStore.has(ed)) {
+          pendingAppContextStore.value = ctx;
+        }
       }
     });
   }

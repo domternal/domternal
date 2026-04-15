@@ -51,3 +51,15 @@ export function useDebouncedRef<T>(initialValue: T) {
  * WeakMap ensures no memory leaks when editors are garbage collected.
  */
 export const appContextStore = new WeakMap<Editor, AppContext>();
+
+/**
+ * Pending appContext for editors currently being constructed.
+ *
+ * Node view constructors fire DURING `new Editor(...)` - before the editor
+ * instance can be stored in appContextStore. To support `useCurrentEditor()`
+ * and provide/inject inside node views, `provideEditor()` stashes the
+ * appContext here. `useEditor()` reads it when creating the editor, then
+ * clears it. VueNodeViewRenderer falls back to this when the per-editor
+ * entry is not yet populated.
+ */
+export const pendingAppContextStore = { value: null as AppContext | null };

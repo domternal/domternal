@@ -1,7 +1,7 @@
 import { defineComponent, h, markRaw, provide, reactive, render } from 'vue';
 import type { AppContext, Component } from 'vue';
 import type { Editor, NodeViewContext } from '@domternal/core';
-import { appContextStore } from '../utils.js';
+import { appContextStore, pendingAppContextStore } from '../utils.js';
 import { NODE_VIEW_ON_DRAG_START, NODE_VIEW_CONTENT_REF } from './VueNodeViewContext.js';
 
 /** ProseMirror node shape passed to node views. */
@@ -19,11 +19,11 @@ export interface VueNodeViewProps {
   editor: Editor;
   node: PMNode;
   selected: boolean;
-  getPos: () => number;
+  getPos: () => number | undefined;
   updateAttributes: (attrs: Record<string, unknown>) => void;
   deleteNode: () => void;
   extension: { name: string; options: Record<string, unknown> };
-  decorations: unknown[];
+  decorations: readonly unknown[];
 }
 
 export interface VueNodeViewRendererOptions {
@@ -62,14 +62,32 @@ export function VueNodeViewRenderer(
 
   markRaw(normalizedComponent);
 
-  const constructor = (node: PMNode, _view: unknown, getPos: () => number, decorations: unknown[]): VueNodeView | { dom: HTMLElement; update: () => boolean; destroy: () => void } => {
+  const constructor = (node: PMNode, _view: unknown, getPos: () => number | undefined, decorations: readonly unknown[]): VueNodeView | { dom: HTMLElement; update: () => boolean; destroy: () => void } => {
     const ctx = (constructor as unknown as { __domternalContext?: NodeViewContext }).__domternalContext;
     const editor = ctx?.editor as Editor;
     const extension = ctx?.extension ?? { name: node.type.name, options: {} };
 
-    // Guard: if appContext not stored yet (EditorContent hasn't mounted), return empty NodeView
-    const appContext = editor ? appContextStore.get(editor) : undefined;
+    // Look up appContext for this editor. Node view constructors fire DURING
+    // new Editor() (before editor.value is set by useEditor), so the
+    // per-editor store may be empty. Fall back to pendingAppContextStore
+    // which provideEditor() populates synchronously on setup.
+    // If neither is found, provideEditor() was never called - warn and bail.
+    let appContext = editor ? appContextStore.get(editor) : undefined;
     if (!appContext) {
+      appContext = pendingAppContextStore.value ?? undefined;
+      if (appContext && editor) {
+        // Associate with the editor so later updates use the per-editor entry
+        appContextStore.set(editor, appContext);
+      }
+    }
+    if (!appContext) {
+      if (typeof globalThis !== 'undefined' && (globalThis as { __DEV__?: boolean }).__DEV__ !== false) {
+        console.warn(
+          '[VueNodeViewRenderer] appContext not found for editor. ' +
+          'Custom Vue node views require provideEditor(editor) to be called, ' +
+          'either manually after useEditor() or automatically via <Domternal> root.',
+        );
+      }
       const dom = document.createElement('div');
       return { dom, update: () => false, destroy: () => {} };
     }
@@ -89,8 +107,8 @@ export function VueNodeViewRenderer(
 interface VueNodeViewInit {
   editor: Editor;
   node: PMNode;
-  getPos: () => number;
-  decorations: unknown[];
+  getPos: () => number | undefined;
+  decorations: readonly unknown[];
   extension: { name: string; options: Record<string, unknown> };
 }
 
@@ -139,12 +157,14 @@ class VueNodeView {
       decorations: init.decorations,
       updateAttributes: (attrs: Record<string, unknown>) => {
         const pos = init.getPos();
+        if (pos === undefined) return;
         const { tr } = this.editor.view.state;
         tr.setNodeMarkup(pos, undefined, { ...this.props.node.attrs, ...attrs });
         this.editor.view.dispatch(tr);
       },
       deleteNode: () => {
         const pos = init.getPos();
+        if (pos === undefined) return;
         const { tr } = this.editor.view.state;
         tr.delete(pos, pos + this.props.node.nodeSize);
         this.editor.view.dispatch(tr);
@@ -164,33 +184,40 @@ class VueNodeView {
       }
     };
 
+    // Wrapper component that provides node-view context to the user's
+    // component and renders it as a child. Using a wrapper (instead of
+    // h(component, reactiveProps) directly) ensures that mutations on
+    // `reactiveProps` reliably propagate to the child: the wrapper's render
+    // function re-runs on reactive changes, and the child component
+    // receives a fresh props reference each time.
+    const reactiveProps = this.props;
     const extended = defineComponent({
-      extends: { ...component } as ReturnType<typeof defineComponent>,
-      props: Object.keys(this.props) as (keyof VueNodeViewProps)[],
-      setup: (reactiveProps: VueNodeViewProps) => {
+      setup() {
         provide(NODE_VIEW_ON_DRAG_START, onDragStart);
         provide(NODE_VIEW_CONTENT_REF, contentRefCallback);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return (component as any).setup?.(reactiveProps, { expose: () => {} });
+        // Return render function that reads from reactiveProps - accessing
+        // any reactive property creates a dependency, triggering re-render.
+        return () =>
+          h(component, {
+            editor: reactiveProps.editor,
+            node: reactiveProps.node,
+            selected: reactiveProps.selected,
+            getPos: reactiveProps.getPos,
+            updateAttributes: reactiveProps.updateAttributes,
+            deleteNode: reactiveProps.deleteNode,
+            extension: reactiveProps.extension,
+            decorations: reactiveProps.decorations,
+          });
       },
-      // Preserve scoped CSS and devtools metadata
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      __scopeId: (component as any).__scopeId,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      __cssModules: (component as any).__cssModules,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      __name: (component as any).__name,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      __file: (component as any).__file,
     });
 
     // Render with appContext forwarding for provide/inject chain
-    const vNode = h(extended, this.props);
+    const vNode = h(extended);
     vNode.appContext = this.appContext;
     render(vNode, this.dom);
   }
 
-  update(node: PMNode, decorations: unknown[]): boolean {
+  update(node: PMNode, decorations: readonly unknown[]): boolean {
     if (node.type.name !== this.props.node.type.name) return false;
     this.props.node = markRaw(node);
     this.props.decorations = decorations;
@@ -209,7 +236,7 @@ class VueNodeView {
     render(null, this.dom);
   }
 
-  ignoreMutation(mutation: MutationRecord): boolean {
+  ignoreMutation(mutation: MutationRecord | { type: 'selection'; target: Node }): boolean {
     if (!this.contentDOM) return true;
     return !this.contentDOM.contains(mutation.target);
   }
