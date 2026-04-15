@@ -1,5 +1,5 @@
-import { defineComponent, h, Fragment } from 'vue';
-import type { PropType } from 'vue';
+import { computed, defineComponent, h, Fragment } from 'vue';
+import type { PropType, ShallowRef } from 'vue';
 import type {
   Editor,
   IconSet,
@@ -49,7 +49,7 @@ export const DomternalToolbar = defineComponent({
       closeDropdown,
       executeCommand,
     } = useToolbarController(
-      { get value() { return props.editor ?? contextEditor.value; } } as import('vue').ShallowRef<Editor | null>,
+      computed(() => props.editor ?? contextEditor.value) as ShallowRef<Editor | null>,
       props.layout,
     );
 

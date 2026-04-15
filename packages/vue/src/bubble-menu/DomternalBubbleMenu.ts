@@ -1,5 +1,5 @@
-import { defineComponent, h } from 'vue';
-import type { PropType } from 'vue';
+import { computed, defineComponent, h } from 'vue';
+import type { PropType, ShallowRef } from 'vue';
 import type { Editor, ToolbarButton, BubbleMenuOptions } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useBubbleMenu, type BubbleMenuItem } from './useBubbleMenu.js';
@@ -37,7 +37,7 @@ export const DomternalBubbleMenu = defineComponent({
       activeVersion,
       getCachedIcon,
     } = useBubbleMenu({
-      editor: { get value() { return props.editor ?? contextEditor.value; } } as import('vue').ShallowRef<Editor | null>,
+      editor: computed(() => props.editor ?? contextEditor.value) as ShallowRef<Editor | null>,
       shouldShow: props.shouldShow,
       placement: props.placement,
       offset: props.offset,

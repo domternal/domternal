@@ -1,5 +1,5 @@
-import { defineComponent, h } from 'vue';
-import type { PropType } from 'vue';
+import { computed, defineComponent, h } from 'vue';
+import type { PropType, ShallowRef } from 'vue';
 import type { Editor } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useEmojiPicker, type EmojiPickerItem } from './useEmojiPicker.js';
@@ -53,7 +53,7 @@ export const DomternalEmojiPicker = defineComponent({
       close,
       categories,
     } = useEmojiPicker(
-      { get value() { return props.editor ?? contextEditor.value; } } as import('vue').ShallowRef<Editor | null>,
+      computed(() => props.editor ?? contextEditor.value) as ShallowRef<Editor | null>,
       props.emojis,
     );
 
