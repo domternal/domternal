@@ -8,10 +8,10 @@ export default defineConfig({
     headless: true,
   },
   webServer: {
-    command: 'pnpm start',
+    command: 'pnpm build && pnpm preview --port 5173',
     url: 'http://localhost:5173',
     reuseExistingServer: true,
-    timeout: 60000,
+    timeout: 120000,
   },
   projects: [
     { name: 'chromium', use: { browserName: 'chromium' } },
