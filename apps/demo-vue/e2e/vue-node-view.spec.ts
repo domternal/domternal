@@ -13,24 +13,20 @@
  *   forwarding via pendingAppContextStore)
  * - ProseMirror selectNode/deselectNode updates the reactive `selected` prop
  */
-import { test } from './fixtures.js';
+import { test, EDITOR_SELECTOR } from './fixtures.js';
 import { expect, type Page } from '@playwright/test';
 
-const editorSelector = '.dm-editor .ProseMirror';
 const wrapper = '[data-testid="callout-wrapper"]';
 
 async function openNodeViewDemo({ page }: { page: Page }) {
   await page.goto('/');
   await page.locator('[data-testid="mode-nodeview"]').click();
-  await page.waitForSelector(editorSelector);
-  await page.waitForSelector(wrapper);
+  await expect(page.locator(EDITOR_SELECTOR)).toBeVisible();
+  await expect(page.locator(wrapper).first()).toBeVisible();
 }
 
 async function getEditorHTML(page: Page): Promise<string> {
-  return page.evaluate(() => {
-    const editor = (window as unknown as Record<string, { getHTML: () => string } | undefined>)['__DEMO_EDITOR__'];
-    return editor?.getHTML() ?? '';
-  });
+  return page.evaluate(() => window.__DEMO_EDITOR__?.getHTML() ?? '');
 }
 
 test.describe('VueNodeViewRenderer — rendering', () => {
@@ -183,7 +179,7 @@ test.describe('VueNodeViewRenderer — provide/inject forwarding (appContext)', 
 
     const isFocused = await page.evaluate(
       (sel) => document.querySelector(sel) === document.activeElement,
-      editorSelector,
+      EDITOR_SELECTOR,
     );
     expect(isFocused).toBe(true);
   });

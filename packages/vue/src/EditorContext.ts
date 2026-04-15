@@ -45,12 +45,9 @@ export function provideEditor(editor: ShallowRef<Editor | null>): void {
     watchEffect(() => {
       const ed = editor.value;
       if (ed) {
-        const ctx = buildCtx();
-        appContextStore.set(ed, ctx);
-        // Clear pending once we have a per-editor entry.
-        if (pendingAppContextStore.value && !appContextStore.has(ed)) {
-          pendingAppContextStore.value = ctx;
-        }
+        appContextStore.set(ed, buildCtx());
+        // Clear pending once the per-editor entry is populated.
+        pendingAppContextStore.value = null;
       }
     });
   }

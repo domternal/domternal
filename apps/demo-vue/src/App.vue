@@ -19,13 +19,14 @@ function toggleTheme() {
   <div class="demo">
     <h1>
       Domternal Vue Demo
-      <button class="theme-toggle" :title="isDark ? 'Switch to light' : 'Switch to dark'" @click="toggleTheme">
+      <button type="button" class="theme-toggle" :title="isDark ? 'Switch to light' : 'Switch to dark'" @click="toggleTheme">
         {{ isDark ? '\u2600\uFE0F' : '\uD83C\uDF19' }}
       </button>
     </h1>
 
     <div class="demo-mode-toggle" data-testid="demo-mode-toggle">
       <button
+        type="button"
         data-testid="mode-manual"
         :class="{ active: demoMode === 'manual' }"
         @click="demoMode = 'manual'"
@@ -33,6 +34,7 @@ function toggleTheme() {
         Manual (useEditor)
       </button>
       <button
+        type="button"
         data-testid="mode-vmodel"
         :class="{ active: demoMode === 'vmodel' }"
         @click="demoMode = 'vmodel'"
@@ -40,6 +42,7 @@ function toggleTheme() {
         v-model (DomternalEditor)
       </button>
       <button
+        type="button"
         data-testid="mode-compound"
         :class="{ active: demoMode === 'compound' }"
         @click="demoMode = 'compound'"
@@ -47,6 +50,7 @@ function toggleTheme() {
         Compound (&lt;Domternal&gt;)
       </button>
       <button
+        type="button"
         data-testid="mode-nodeview"
         :class="{ active: demoMode === 'nodeview' }"
         @click="demoMode = 'nodeview'"
@@ -57,10 +61,10 @@ function toggleTheme() {
 
     <template v-if="demoMode === 'manual'">
       <div class="toolbar-mode-toggle">
-        <button :class="{ active: !useLayout }" @click="useLayout = false">
+        <button type="button" :class="{ active: !useLayout }" @click="useLayout = false">
           Default toolbar
         </button>
-        <button :class="{ active: useLayout }" @click="useLayout = true">
+        <button type="button" :class="{ active: useLayout }" @click="useLayout = true">
           Custom layout
         </button>
       </div>

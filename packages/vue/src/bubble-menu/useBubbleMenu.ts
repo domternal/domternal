@@ -68,10 +68,14 @@ export function useBubbleMenu(options: UseBubbleMenuOptions) {
   const resolvedItems = shallowRef<BubbleMenuItem[]>([]);
   const activeVersion = useDebouncedRef(0);
 
+  // Persistent state maps accessed by exposed helpers (isItemActive,
+  // isItemDisabled) before doInit runs; must start as empty Maps.
   const activeMapRef = new Map<string, boolean>();
   const disabledMapRef = new Map<string, boolean>();
-  let itemMap = new Map<string, ToolbarButton>();
-  let bubbleDefaults = new Map<string, BubbleMenuItem[]>();
+  // itemMap and bubbleDefaults are only used inside doInit; declared here so
+  // closures inside doInit can rebind on each run.
+  let itemMap: Map<string, ToolbarButton>;
+  let bubbleDefaults: Map<string, BubbleMenuItem[]>;
   let currentResolvedItems: BubbleMenuItem[] = [];
 
   let initialized = false;
@@ -79,8 +83,8 @@ export function useBubbleMenu(options: UseBubbleMenuOptions) {
   // Init when both editor is ready AND the component has mounted (menuRef
   // populated). onMounted guarantees DOM; then wait for editor if needed.
   const doInit = (ed: Editor) => {
-      if (initialized || !ed || ed.isDestroyed || !menuRef.value) return;
-      initialized = true;
+    if (initialized || !ed || ed.isDestroyed || !menuRef.value) return;
+    initialized = true;
 
     // Build item map
     itemMap = new Map();

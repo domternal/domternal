@@ -36,9 +36,9 @@ function clearContent() {
     <h2>v-model Two-Way Binding Demo</h2>
 
     <div class="vmodel-controls">
-      <button data-testid="set-initial" @click="setContent('<p>Initial from parent</p>')">Set initial</button>
-      <button data-testid="set-bold" @click="setContent('<p><strong>Bold from parent</strong></p>')">Set bold from parent</button>
-      <button data-testid="clear" @click="clearContent">Clear</button>
+      <button type="button" data-testid="set-initial" @click="setContent('<p>Initial from parent</p>')">Set initial</button>
+      <button type="button" data-testid="set-bold" @click="setContent('<p><strong>Bold from parent</strong></p>')">Set bold from parent</button>
+      <button type="button" data-testid="clear" @click="clearContent">Clear</button>
       <span data-testid="update-count">Updates: {{ updateCount }}</span>
     </div>
 

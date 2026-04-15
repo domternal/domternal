@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed } from 'vue';
 import {
   useEditor,
   useEditorState,
@@ -46,6 +46,7 @@ import { Mention, createMentionSuggestionRenderer } from '@domternal/extension-m
 import type { MentionItem } from '@domternal/extension-mention';
 import { createLowlight, common } from 'lowlight';
 import { DEMO_CONTENT } from './demo-content.js';
+import { useExposeEditorForE2E } from './useExposeEditorForE2E.js';
 
 const { useLayout } = defineProps<{ useLayout: boolean }>();
 
@@ -113,10 +114,7 @@ const isBold = useEditorState(editor, (ed) => ed.isActive('bold'));
 const isItalic = useEditorState(editor, (ed) => ed.isActive('italic'));
 const isEmpty = useEditorState(editor, (ed) => ed.isEmpty);
 
-// Expose editor on window for E2E test access
-watch(editor, (ed) => {
-  (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] = ed ?? undefined;
-}, { immediate: true });
+useExposeEditorForE2E(editor);
 
 const styledHtml = computed(() =>
   htmlContent.value ? inlineStyles(htmlContent.value, { codeHighlighter, tableColumnWidths: 'pixel' }) : '',

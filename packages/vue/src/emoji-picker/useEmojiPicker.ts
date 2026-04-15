@@ -9,6 +9,12 @@ export interface EmojiPickerItem {
   group: string;
 }
 
+/**
+ * Delay before focusing a swatch after scrollTo - prevents onGridScroll from
+ * overwriting activeCategory during the browser's native scroll settle.
+ */
+const SCROLL_SETTLE_MS = 50;
+
 export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiPickerItem[]) {
   const isOpen = ref(false);
   const searchQuery = ref('');
@@ -185,7 +191,7 @@ export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiP
           if (firstSwatch instanceof HTMLElement && firstSwatch.classList.contains('dm-emoji-swatch')) {
             firstSwatch.focus();
           }
-        }, 50);
+        }, SCROLL_SETTLE_MS);
       }
     });
   }

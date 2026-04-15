@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount } from 'vue';
 import { useEditor, DomternalToolbar, provideEditor } from '@domternal/vue';
+import { useExposeEditorForE2E } from './useExposeEditorForE2E.js';
 import {
   Bold,
   Italic,
@@ -36,14 +36,7 @@ function insertCallout(variant: CalloutVariant) {
   editor.value?.chain().focus().insertCallout(variant).run();
 }
 
-// Expose editor on window for E2E tests
-watch(editor, (ed) => {
-  (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] = ed ?? undefined;
-}, { immediate: true });
-
-onBeforeUnmount(() => {
-  (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] = undefined;
-});
+useExposeEditorForE2E(editor);
 
 defineExpose({ editor, editorRef });
 </script>
@@ -53,10 +46,10 @@ defineExpose({ editor, editorRef });
     <h2>Vue NodeView Demo</h2>
 
     <div class="nodeview-controls">
-      <button data-testid="insert-info" @click="insertCallout('info')">+ Info</button>
-      <button data-testid="insert-warning" @click="insertCallout('warning')">+ Warning</button>
-      <button data-testid="insert-success" @click="insertCallout('success')">+ Success</button>
-      <button data-testid="insert-danger" @click="insertCallout('danger')">+ Danger</button>
+      <button type="button" data-testid="insert-info" @click="insertCallout('info')">+ Info</button>
+      <button type="button" data-testid="insert-warning" @click="insertCallout('warning')">+ Warning</button>
+      <button type="button" data-testid="insert-success" @click="insertCallout('success')">+ Success</button>
+      <button type="button" data-testid="insert-danger" @click="insertCallout('danger')">+ Danger</button>
     </div>
 
     <DomternalToolbar v-if="editor" :editor="editor" />
