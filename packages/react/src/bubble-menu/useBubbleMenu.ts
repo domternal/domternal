@@ -193,7 +193,8 @@ export function useBubbleMenu(options: UseBubbleMenuOptions) {
         };
       } else {
         shouldShowFn = ({ state }: { state: { selection: SelectionShape } }) => {
-          if (state.selection.empty || state.selection.node) return false;
+          if (state.selection.empty) return false;
+          if (state.selection.node) return bubbleDefaults.has(state.selection.node.type.name);
           if (isInsideTableCell(state.selection.$from)) return false;
           return state.selection.$from.parent.type.spec.marks !== ''
             || state.selection.$to.parent.type.spec.marks !== '';
@@ -243,10 +244,19 @@ export function useBubbleMenu(options: UseBubbleMenuOptions) {
       }
     };
 
+    const defaultItems = items ? resolveNames(items) : resolveNames(['bold', 'italic', 'underline']);
+
     // Transaction handler
     const transactionHandler = () => {
       if (contexts) {
         updateContextItems(editor, contexts, detectContext, resolveNames, getFormatItems, filterBySchema, bubbleDefaults, setItems);
+      } else {
+        const sel = editor.state.selection as unknown as SelectionShape;
+        if (sel.node && bubbleDefaults.has(sel.node.type.name)) {
+          setItems(bubbleDefaults.get(sel.node.type.name) ?? []);
+        } else {
+          setItems(defaultItems);
+        }
       }
       updateStates(editor);
       setActiveVersion(v => v + 1);

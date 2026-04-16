@@ -135,7 +135,8 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
         } else {
           // Auto/items mode: show when any endpoint's parent allows marks
           shouldShowFn = ({ state }: { state: { selection: SelectionShape } }) => {
-            if (state.selection.empty || state.selection.node) return false;
+            if (state.selection.empty) return false;
+            if (state.selection.node) return this.bubbleDefaults.has(state.selection.node.type.name);
             if (isInsideTableCell(state.selection.$from)) return false;
             return state.selection.$from.parent.type.spec.marks !== ''
                 || state.selection.$to.parent.type.spec.marks !== '';
@@ -327,10 +328,21 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
       this.resolvedItems.set(this.resolveNames(['bold', 'italic', 'underline']));
     }
 
+    const defaultItems = this.items()
+      ? this.resolveNames(this.items()!)
+      : this.resolveNames(['bold', 'italic', 'underline']);
+
     this.transactionHandler = () => {
       this.ngZone.run(() => {
         if (this.contexts()) {
           this.updateContextItems(editor);
+        } else {
+          const sel = editor.state.selection as unknown as SelectionShape;
+          if (sel.node && this.bubbleDefaults.has(sel.node.type.name)) {
+            this.resolvedItems.set(this.bubbleDefaults.get(sel.node.type.name) ?? []);
+          } else {
+            this.resolvedItems.set(defaultItems);
+          }
         }
         this.updateStates(editor);
         this.activeVersion.update(v => v + 1);
