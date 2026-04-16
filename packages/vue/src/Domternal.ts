@@ -1,4 +1,4 @@
-import { defineComponent, h, ref, watchEffect } from 'vue';
+import { defineComponent, h, ref, watch, watchEffect } from 'vue';
 import type { PropType } from 'vue';
 import type { AnyExtension, Content, FocusPosition } from '@domternal/core';
 import { useEditor, type UseEditorOptions } from './useEditor.js';
@@ -62,6 +62,14 @@ export const Domternal = defineComponent({
     });
 
     provideEditor(editor);
+
+    watch(
+      () => props.editable,
+      (newEditable) => {
+        const ed = editor.value;
+        if (ed && !ed.isDestroyed) ed.setEditable(newEditable);
+      },
+    );
 
     return () => slots['default']?.();
   },

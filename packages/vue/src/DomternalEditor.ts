@@ -100,6 +100,16 @@ export const DomternalEditor = defineComponent({
     // Provide editor to descendant components
     provideEditor(editor);
 
+    // Sync editable prop to editor (useEditor's internal watcher can't track
+    // props because the options object is a plain non-reactive snapshot)
+    watch(
+      () => props.editable,
+      (newEditable) => {
+        const ed = editor.value;
+        if (ed && !ed.isDestroyed) ed.setEditable(newEditable);
+      },
+    );
+
     // v-model: sync modelValue prop to editor
     const prevModelValue = ref(props.modelValue);
     watch(
