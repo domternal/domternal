@@ -49,6 +49,7 @@ export const EditorContent = defineComponent({
       h('div', {
         ref: containerRef,
         class: props.class,
+        'data-dm-editor-ui': '',
       });
   },
 });

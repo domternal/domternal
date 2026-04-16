@@ -45,6 +45,7 @@ export function EditorContent({ editor, innerRef, ...htmlProps }: EditorContentP
         if (typeof innerRef === 'function') innerRef(node);
         else if (innerRef) (innerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
       }}
+      data-dm-editor-ui=""
       {...htmlProps}
     />
   );
