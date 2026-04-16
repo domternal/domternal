@@ -74,11 +74,18 @@ pnpm typecheck  # Run type checker
 ## Release
 
 1. Branch: `git checkout -b release/X.Y.Z` from main
-2. Bump `"version"` in all 11 `packages/*/package.json` + `domternal.dev/package.json`
+2. Bump `"version"` in all 12 `packages/*/package.json` + `domternal.dev/package.json`
 3. Bump `peerDependencies` and `prepublishOnly` hook versions to `>=X.Y.Z`
-5. Update `CHANGELOG.md` and `domternal.dev` changelog
-6. Update all 13 READMEs (root + 12 packages)
-7. Verify: `pnpm test && pnpm build && pnpm typecheck && pnpm lint`
-8. Merge to main, tag `vX.Y.Z`, push with tags
-9. Publish: pm, core, theme, angular, react, vue, then extensions
-10. Create GitHub release from tag with title `vX.Y.Z` and changelog entry as body
+4. Update `CHANGELOG.md` and `domternal.dev` changelog
+5. Update all 13 READMEs (root + 12 packages)
+6. Verify: `pnpm test && pnpm build && pnpm typecheck && pnpm lint`
+7. Merge to main, tag `vX.Y.Z`, push with tags
+8. Publish in order: pm, core, theme, angular, react, vue, then extensions
+9. Create GitHub release from tag with title `vX.Y.Z` and changelog entry as body
+
+### Publish notes
+
+- **Order matters**: pm first, core second, then the rest. Other packages depend on them.
+- **`prepublishOnly`** runs `pnpm build` automatically before every publish, so dist is always included.
+- **If publish fails** after `prepublishOnly` already stripped `devDependencies`, `postpublish` won't run. Restore manually: `git checkout packages/*/package.json`
+- **Tag on main**: always tag after merging to main, not on the release branch.
