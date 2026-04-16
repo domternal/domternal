@@ -25,7 +25,9 @@
     "index.d.ts"
   ],
   "scripts": {
-    "build": "sass src/index.scss dist/domternal-theme.css --style=compressed --no-source-map && sass src/index.scss dist/domternal-theme.expanded.css --style=expanded --no-source-map"
+    "build": "sass src/index.scss dist/domternal-theme.css --style=compressed --no-source-map && sass src/index.scss dist/domternal-theme.expanded.css --style=expanded --no-source-map",
+    "prepublishOnly": "pnpm build && node -e \"const p=JSON.parse(require('fs').readFileSync('package.json','utf8'));delete p.devDependencies;require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
+    "postpublish": "git checkout package.json"
   },
   "devDependencies": {
     "sass": "^1.89.0"
