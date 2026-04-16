@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.1 (2026-04-16)
+
+### Fixes
+
+- fix(angular): `@domternal/angular@0.6.0` was published without compiled output (#66)
+
+### Improvements
+
+- chore: add automatic `pnpm build` to `prepublishOnly` hook in all packages to prevent publishing without dist
+
 ## 0.6.0 (2026-04-15)
 
 ### Features
