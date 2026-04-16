@@ -15,9 +15,9 @@
     "@angular/compiler": "^21.2.0",
     "@angular/core": "^21.2.0",
     "@angular/platform-browser": "^21.2.0",
-    "@domternal/angular": "workspace:*",
-    "@domternal/core": "workspace:*",
-    "@domternal/theme": "workspace:*",
+    "@domternal/angular": "^0.6.1",
+    "@domternal/core": "^0.6.1",
+    "@domternal/theme": "^0.6.1",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },
