@@ -52,6 +52,8 @@ export interface EmojiOptions {
   HTMLAttributes: Record<string, unknown>;
   /** Suggestion plugin config for autocomplete picker. Default: null (disabled). */
   suggestion: SuggestionOptions | null;
+  /** Show emoji button in toolbar. Default: true. Set to false for vanilla setups without a picker component. */
+  toolbar: boolean;
 }
 
 export interface EmojiStorage {
@@ -108,6 +110,7 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
       enableEmoticons: false,
       plainText: false,
       HTMLAttributes: {},
+      toolbar: true,
       suggestion: null,
     };
   },
@@ -226,6 +229,7 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
         group: 'insert',
         priority: 50,
         emitEvent: 'insertEmoji',
+        toolbar: this.options.toolbar,
       },
     ];
   },
