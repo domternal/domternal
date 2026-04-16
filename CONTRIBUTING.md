@@ -74,7 +74,7 @@ pnpm typecheck  # Run type checker
 ## Release
 
 1. Branch: `git checkout -b release/X.Y.Z` from main
-2. Bump `"version"` in all 11 `packages/*/package.json` + `domternal.dev/package.json`
+2. Bump `"version"` in all 12 `packages/*/package.json` + `domternal.dev/package.json`
 3. Bump `peerDependencies` and `prepublishOnly` hook versions to `>=X.Y.Z`
 5. Update `CHANGELOG.md` and `domternal.dev` changelog
 6. Update all 13 READMEs (root + 12 packages)
