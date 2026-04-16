@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.2 (2026-04-16)
+
+### Fixes
+
+- fix(vue): `Domternal` compound subcomponents (`Domternal.Toolbar`, `Domternal.BubbleMenu`, etc.) were tree-shaken away in production builds due to `sideEffects: false`. Moved assignments into `Domternal.ts` so bundlers can't drop them.
+- fix(vue): `editable` prop on `<Domternal>` and `<DomternalEditor>` was not syncing at runtime. Added reactive `watch` since `useEditor`'s internal watcher can't track plain object props.
+- fix(react,vue): toolbar keyboard activation (Enter/Space) did not work in `EditorContent`. Added `data-dm-editor-ui` attribute so `SelectionDecoration` preserves selection on toolbar focus.
+
 ## 0.6.1 (2026-04-16)
 
 ### Fixes
