@@ -1,6 +1,6 @@
 {
   "name": "@domternal/angular",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Angular components for Domternal editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
@@ -37,7 +37,7 @@
   },
   "scripts": {
     "build": "ng-packagr -p ng-package.json",
-    "prepublishOnly": "pnpm build && node -e \"const p=JSON.parse(require('fs').readFileSync('package.json','utf8'));delete p.devDependencies;if(p.dependencies){for(const[k,v]of Object.entries(p.dependencies)){if(v==='workspace:*')p.dependencies[k]='>=0.6.1'}}require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
+    "prepublishOnly": "pnpm build && node -e \"const p=JSON.parse(require('fs').readFileSync('package.json','utf8'));delete p.devDependencies;if(p.dependencies){for(const[k,v]of Object.entries(p.dependencies)){if(v==='workspace:*')p.dependencies[k]='>=0.6.0'}}require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
     "postpublish": "git checkout package.json"
   },
   "keywords": [
