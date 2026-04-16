@@ -59,7 +59,7 @@ Include:
 - **Features** - Key capabilities added (for `feat` PRs)
 - **Changes** - What was modified (for `fix`/`refactor` PRs)
 - **What** - Problem/issue being solved (optional)
-- **Test plan** - Steps to verify (optional)
+- **Verified** - What was tested and how (e.g. "built all packages, ran unit tests, tested in demo app")
 
 ## Development
 

@@ -38,14 +38,5 @@ export type { Content, AnyExtension, FocusPosition, JSONContent } from '@domtern
 export { generateHTML, generateJSON, generateText } from '@domternal/core';
 export type { GenerateHTMLOptions, GenerateJSONOptions, GenerateTextOptions } from '@domternal/core';
 
-// Wire up Domternal namespaced subcomponents
-import { Domternal } from './Domternal.js';
-import { DomternalToolbar } from './toolbar/DomternalToolbar.js';
-import { DomternalBubbleMenu } from './bubble-menu/DomternalBubbleMenu.js';
-import { DomternalFloatingMenu } from './DomternalFloatingMenu.js';
-import { DomternalEmojiPicker } from './emoji-picker/DomternalEmojiPicker.js';
-
-Domternal.Toolbar = DomternalToolbar;
-Domternal.BubbleMenu = DomternalBubbleMenu;
-Domternal.FloatingMenu = DomternalFloatingMenu;
-Domternal.EmojiPicker = DomternalEmojiPicker;
+// Subcomponent assignments (Toolbar, BubbleMenu, etc.) live in Domternal.ts
+// to prevent tree-shaking from dropping them as unused side effects.
