@@ -11,9 +11,9 @@
     "type-check": "vue-tsc --build"
   },
   "dependencies": {
-    "@domternal/core": "^0.6.1",
-    "@domternal/theme": "^0.6.1",
-    "@domternal/vue": "^0.6.1",
+    "@domternal/core": "^0.6.2",
+    "@domternal/theme": "^0.6.2",
+    "@domternal/vue": "^0.6.2",
     "vue": "^3.5.31"
   },
   "devDependencies": {

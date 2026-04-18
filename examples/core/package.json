@@ -13,6 +13,6 @@
     "vite": "^8.0.0"
   },
   "dependencies": {
-    "@domternal/core": "^0.6.1"
+    "@domternal/core": "^0.6.2"
   }
 }

@@ -10,9 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@domternal/core": "^0.6.1",
-    "@domternal/theme": "^0.6.1",
-    "@domternal/react": "^0.6.1",
+    "@domternal/core": "^0.6.2",
+    "@domternal/theme": "^0.6.2",
+    "@domternal/react": "^0.6.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
