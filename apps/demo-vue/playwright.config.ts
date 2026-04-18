@@ -4,12 +4,12 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 30000,
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://localhost:5174',
     headless: true,
   },
   webServer: {
-    command: 'pnpm build && pnpm preview --port 5173',
-    url: 'http://localhost:5173',
+    command: 'pnpm build && pnpm preview --port 5174',
+    url: 'http://localhost:5174',
     reuseExistingServer: true,
     timeout: 120000,
   },
