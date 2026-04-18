@@ -11,6 +11,7 @@
     "build": "nx run-many --target=build --all",
     "dev": "nx run-many --target=dev --all",
     "test": "nx run-many --target=test --all",
+    "test:e2e": "nx run-many --target=test:e2e --all",
     "lint": "nx run-many --target=lint --all",
     "typecheck": "nx run-many --target=typecheck --all"
   },
