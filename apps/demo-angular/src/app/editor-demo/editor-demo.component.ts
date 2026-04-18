@@ -70,6 +70,8 @@ export class EditorDemoComponent {
   private readonly params = new URLSearchParams(window.location.search);
   private readonly constrainTable = !this.params.has('constrainTable', 'false');
   private readonly resizeBehavior = (this.params.get('resizeBehavior') ?? 'neighbor') as 'neighbor' | 'independent' | 'redistribute';
+  private readonly emojiToolbar = this.params.get('emojiToolbar') !== 'false';
+  readonly bubbleAuto = this.params.get('bubbleAuto') === 'true';
 
   extensions = [
     // Inline formatting
@@ -86,7 +88,7 @@ export class EditorDemoComponent {
     Details,
     // Media & Emoji
     Image,
-    Emoji.configure({ emojis, enableEmoticons: true, suggestion: { render: createEmojiSuggestionRenderer() } }),
+    Emoji.configure({ emojis, enableEmoticons: true, toolbar: this.emojiToolbar, suggestion: { render: createEmojiSuggestionRenderer() } }),
     // Mentions
     Mention.configure({
       suggestion: {

@@ -14,9 +14,13 @@
 />
 
 @if (editor(); as ed) {
-  <domternal-bubble-menu [editor]="ed" [contexts]="{
-    text: ['bold', 'italic', 'underline', 'strike', 'code', '|', 'link'],
-  }" />
+  @if (bubbleAuto) {
+    <domternal-bubble-menu [editor]="ed" />
+  } @else {
+    <domternal-bubble-menu [editor]="ed" [contexts]="{
+      text: ['bold', 'italic', 'underline', 'strike', 'code', '|', 'link'],
+    }" />
+  }
   <domternal-emoji-picker [editor]="ed" [emojis]="emojiData" />
 }
 
