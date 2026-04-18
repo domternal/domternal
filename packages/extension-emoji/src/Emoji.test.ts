@@ -50,6 +50,7 @@ describe('Emoji', () => {
         plainText: false,
         HTMLAttributes: {},
         suggestion: null,
+        toolbar: true,
       });
     });
 
@@ -78,6 +79,15 @@ describe('Emoji', () => {
       ];
       const Custom = Emoji.configure({ emojis: custom });
       expect(Custom.options.emojis).toBe(custom);
+    });
+
+    it('defaults toolbar to true', () => {
+      expect(Emoji.options.toolbar).toBe(true);
+    });
+
+    it('can configure toolbar to false', () => {
+      const Custom = Emoji.configure({ toolbar: false });
+      expect(Custom.options.toolbar).toBe(false);
     });
   });
 
@@ -893,6 +903,23 @@ describe('Emoji addToolbarItems', () => {
     const button = items?.[0];
     if (button?.type === 'button') {
       expect(button.emitEvent).toBe('insertEmoji');
+    }
+  });
+
+  it('sets toolbar flag to true by default', () => {
+    const items = Emoji.config.addToolbarItems?.call(Emoji);
+    const button = items?.[0];
+    if (button?.type === 'button') {
+      expect(button.toolbar).toBe(true);
+    }
+  });
+
+  it('sets toolbar flag to false when configured with toolbar: false', () => {
+    const Custom = Emoji.configure({ toolbar: false });
+    const items = Custom.config.addToolbarItems?.call(Custom);
+    const button = items?.[0];
+    if (button?.type === 'button') {
+      expect(button.toolbar).toBe(false);
     }
   });
 });
