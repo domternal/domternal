@@ -104,4 +104,59 @@ test.describe('Bubble menu — auto mode (no contexts)', () => {
     const bubbleMenu = page.locator('.dm-bubble-menu');
     await expect(bubbleMenu).toBeVisible();
   });
+
+  test('text selection shows bold/italic/underline by default in auto mode', async ({ page }) => {
+    const editor = page.locator(editorSelector);
+    await editor.click();
+    await page.keyboard.press(`${modifier}+a`);
+    await page.waitForTimeout(200);
+
+    const bubbleMenu = page.locator('.dm-bubble-menu');
+    await expect(bubbleMenu).toBeVisible();
+    await expect(bubbleMenu.locator('button[title="Bold"]')).toBeVisible();
+    await expect(bubbleMenu.locator('button[title="Italic"]')).toBeVisible();
+    await expect(bubbleMenu.locator('button[title="Underline"]')).toBeVisible();
+    // Image-specific controls should NOT be present
+    await expect(bubbleMenu.locator('button[title="Float left"]')).toHaveCount(0);
+  });
+
+  test('items switch from image to text on selection change', async ({ page }) => {
+    await setEditorContent(page, `<p>Hello world</p>${IMG_BASIC}<p>More text</p>`);
+
+    // Step 1: select image
+    const wrapper = page.locator(`${editorSelector} .dm-image-resizable`).first();
+    await wrapper.click();
+    await page.waitForTimeout(300);
+
+    const bubbleMenu = page.locator('.dm-bubble-menu');
+    await expect(bubbleMenu.locator('button[title="Float left"]')).toBeVisible();
+
+    // Step 2: select text (in first paragraph)
+    await page.locator(editorSelector).locator('p').first().click();
+    await page.keyboard.press(`${modifier}+a`);
+    await page.waitForTimeout(300);
+
+    await expect(bubbleMenu.locator('button[title="Bold"]')).toBeVisible();
+    await expect(bubbleMenu.locator('button[title="Float left"]')).toHaveCount(0);
+  });
+
+  test('items switch from text to image on selection change', async ({ page }) => {
+    await setEditorContent(page, `<p>Hello world</p>${IMG_BASIC}<p>More text</p>`);
+
+    // Step 1: select text first
+    await page.locator(editorSelector).locator('p').first().click();
+    await page.keyboard.press(`${modifier}+a`);
+    await page.waitForTimeout(300);
+
+    const bubbleMenu = page.locator('.dm-bubble-menu');
+    await expect(bubbleMenu.locator('button[title="Bold"]')).toBeVisible();
+
+    // Step 2: select image
+    const wrapper = page.locator(`${editorSelector} .dm-image-resizable`).first();
+    await wrapper.click();
+    await page.waitForTimeout(300);
+
+    await expect(bubbleMenu.locator('button[title="Float left"]')).toBeVisible();
+    await expect(bubbleMenu.locator('button[title="Bold"]')).toHaveCount(0);
+  });
 });
