@@ -35,8 +35,22 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Test
-        run: pnpm test
+      - name: Test with coverage
+        run: pnpm test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+          files: >-
+            ./packages/core/coverage/lcov.info,
+            ./packages/extension-code-block-lowlight/coverage/lcov.info,
+            ./packages/extension-details/coverage/lcov.info,
+            ./packages/extension-emoji/coverage/lcov.info,
+            ./packages/extension-image/coverage/lcov.info,
+            ./packages/extension-mention/coverage/lcov.info,
+            ./packages/extension-table/coverage/lcov.info
 
       - name: Validate packages
         run: |
