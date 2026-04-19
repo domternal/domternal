@@ -12,6 +12,7 @@
     "dev": "nx run-many --target=dev --all",
     "test": "nx run-many --target=test --all",
     "test:coverage": "nx run-many --target=test --all -- --coverage",
+    "coverage:index": "pnpm test:coverage && node scripts/generate-coverage-index.mjs",
     "test:e2e": "nx run-many --target=test:e2e --all",
     "lint": "nx run-many --target=lint --all",
     "typecheck": "nx run-many --target=typecheck --all"
