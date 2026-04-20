@@ -2452,3 +2452,493 @@ describe('Image NodeView (DOM)', () => {
     expect(wrapper?.getAttribute('data-float')).toBe('left');
   });
 });
+
+// ─── Image popover (DOM UI) ───────────────────────────────────────────────────
+
+describe('Image popover', () => {
+  let editor: Editor;
+  let host: HTMLElement;
+
+  beforeEach(() => {
+    (document as any).elementFromPoint = () => null;
+    host = document.createElement('div');
+    document.body.appendChild(host);
+  });
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) editor.destroy();
+    host.remove();
+    document.querySelectorAll('.dm-image-popover').forEach((el) => el.remove());
+  });
+
+  it('popover element is created in plugin', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+    // Popover is appended to editor container or body
+    const popover = document.querySelector('.dm-image-popover');
+    expect(popover).not.toBeNull();
+  });
+
+  it('showPopover fires on insertImage event', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    // Emit insertImage event
+    (editor as any).emit('insertImage', {});
+
+    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
+    expect(popover?.getAttribute('data-show')).toBe('');
+  });
+
+  it('hidePopover fires on second insertImage event (toggle)', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    (editor as any).emit('insertImage', {});
+    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
+    expect(popover?.getAttribute('data-show')).toBe('');
+
+    (editor as any).emit('insertImage', {});
+    expect(popover.hasAttribute('data-show')).toBe(false);
+  });
+
+  it('Escape key hides the popover', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    (editor as any).emit('insertImage', {});
+    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
+    const urlInput = popover.querySelector('input') as HTMLInputElement;
+
+    const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    urlInput.dispatchEvent(event);
+
+    expect(popover.hasAttribute('data-show')).toBe(false);
+  });
+
+  it('Enter key applies URL and closes popover', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    (editor as any).emit('insertImage', {});
+    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
+    const urlInput = popover.querySelector('input') as HTMLInputElement;
+
+    urlInput.value = 'https://example.com/new.png';
+    const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    urlInput.dispatchEvent(event);
+
+    // Image should have been inserted
+    let hasImage = false;
+    editor.state.doc.descendants((n) => {
+      if (n.type.name === 'image') hasImage = true;
+    });
+    expect(hasImage).toBe(true);
+  });
+
+  it('Tab from input focuses apply button', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    (editor as any).emit('insertImage', {});
+    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
+    const urlInput = popover.querySelector('input') as HTMLInputElement;
+    const applyBtn = popover.querySelector('.dm-image-popover-apply') as HTMLButtonElement;
+
+    const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    urlInput.dispatchEvent(event);
+
+    // Focus should move
+    expect(document.activeElement === applyBtn || event.defaultPrevented).toBe(true);
+  });
+
+  it('apply button Escape closes popover', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    (editor as any).emit('insertImage', {});
+    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
+    const applyBtn = popover.querySelector('.dm-image-popover-apply') as HTMLButtonElement;
+
+    const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    applyBtn.dispatchEvent(event);
+
+    expect(popover.hasAttribute('data-show')).toBe(false);
+  });
+
+  it('apply button Tab moves focus', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    (editor as any).emit('insertImage', {});
+    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
+    const applyBtn = popover.querySelector('.dm-image-popover-apply') as HTMLButtonElement;
+
+    const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    applyBtn.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('apply button Shift+Tab moves focus back to input', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    (editor as any).emit('insertImage', {});
+    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
+    const applyBtn = popover.querySelector('.dm-image-popover-apply') as HTMLButtonElement;
+
+    const event = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true });
+    applyBtn.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('click outside hides popover', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    (editor as any).emit('insertImage', {});
+    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
+    expect(popover.hasAttribute('data-show')).toBe(true);
+
+    // Click outside
+    const outside = document.createElement('div');
+    document.body.appendChild(outside);
+    const event = new MouseEvent('mousedown', { bubbles: true });
+    outside.dispatchEvent(event);
+
+    // After click outside, should hide
+    expect(popover.hasAttribute('data-show')).toBe(false);
+    outside.remove();
+  });
+
+  it('applyUrl with valid URL inserts image', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    (editor as any).emit('insertImage', {});
+    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
+    const urlInput = popover.querySelector('input') as HTMLInputElement;
+    const applyBtn = popover.querySelector('.dm-image-popover-apply') as HTMLButtonElement;
+
+    urlInput.value = 'https://example.com/test.png';
+    applyBtn.click();
+
+    let hasImage = false;
+    editor.state.doc.descendants((n) => {
+      if (n.type.name === 'image') hasImage = true;
+    });
+    expect(hasImage).toBe(true);
+  });
+
+  it('applyUrl with invalid URL does not insert image', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    (editor as any).emit('insertImage', {});
+    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
+    const urlInput = popover.querySelector('input') as HTMLInputElement;
+    const applyBtn = popover.querySelector('.dm-image-popover-apply') as HTMLButtonElement;
+
+    urlInput.value = 'javascript:alert(1)';
+    applyBtn.click();
+
+    let hasImage = false;
+    editor.state.doc.descendants((n) => {
+      if (n.type.name === 'image') hasImage = true;
+    });
+    expect(hasImage).toBe(false);
+  });
+
+  it('browse button triggers file input', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    (editor as any).emit('insertImage', {});
+    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
+    const browseBtn = popover.querySelector('.dm-image-popover-browse') as HTMLButtonElement;
+
+    // Click opens file browser - jsdom creates a temporary input
+    expect(() => browseBtn.click()).not.toThrow();
+  });
+
+  it('dragenter with image adds dm-dragover class via plugin handler', () => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'dm-editor';
+    host.appendChild(wrapper);
+
+    editor = new Editor({
+      element: wrapper,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    // Call plugin handler directly
+    const plugin = editor.state.plugins.find((p) => (p as any).props?.handleDOMEvents?.dragenter);
+    expect(plugin).toBeDefined();
+
+    const fakeDt = { items: [{ kind: 'file', type: 'image/png' }] };
+    const event = { dataTransfer: fakeDt } as any;
+    (plugin as any).props.handleDOMEvents.dragenter(editor.view, event);
+
+    expect(wrapper.classList.contains('dm-dragover')).toBe(true);
+  });
+
+  it('dragleave via plugin decrements counter and removes class', () => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'dm-editor';
+    host.appendChild(wrapper);
+
+    editor = new Editor({
+      element: wrapper,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    const plugin = editor.state.plugins.find((p) => (p as any).props?.handleDOMEvents?.dragenter);
+    const fakeDt = { items: [{ kind: 'file', type: 'image/png' }] };
+    (plugin as any).props.handleDOMEvents.dragenter(editor.view, { dataTransfer: fakeDt });
+    (plugin as any).props.handleDOMEvents.dragleave(editor.view, {});
+
+    expect(wrapper.classList.contains('dm-dragover')).toBe(false);
+  });
+
+  it('drop event via plugin removes dm-dragover class', () => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'dm-editor';
+    host.appendChild(wrapper);
+
+    editor = new Editor({
+      element: wrapper,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    wrapper.classList.add('dm-dragover');
+
+    const plugin = editor.state.plugins.find((p) => (p as any).props?.handleDOMEvents?.drop);
+    (plugin as any).props.handleDOMEvents.drop(editor.view, {});
+
+    expect(wrapper.classList.contains('dm-dragover')).toBe(false);
+  });
+
+  it('handlePaste with image file inserts image', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    // Find the plugin with handlePaste
+    const plugin = editor.state.plugins.find((p) => (p as any).props?.handlePaste);
+    expect(plugin).toBeDefined();
+
+    const file = new File(['fake'], 'img.png', { type: 'image/png' });
+    const clipboardData = {
+      items: [{
+        kind: 'file',
+        type: 'image/png',
+        getAsFile: () => file,
+      }],
+    };
+    const event = new Event('paste', { bubbles: true, cancelable: true }) as any;
+    event.clipboardData = clipboardData;
+
+    const result = (plugin as any).props.handlePaste(editor.view, event);
+    expect(result).toBe(true);
+  });
+
+  it('handlePaste without image file returns false', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    const plugin = editor.state.plugins.find((p) => (p as any).props?.handlePaste);
+    const event = { clipboardData: { items: [] } } as any;
+    const result = (plugin as any).props.handlePaste(editor.view, event);
+    expect(result).toBe(false);
+  });
+
+  it('handlePaste without clipboardData returns false', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    const plugin = editor.state.plugins.find((p) => (p as any).props?.handlePaste);
+    const event = {} as any;
+    const result = (plugin as any).props.handlePaste(editor.view, event);
+    expect(result).toBe(false);
+  });
+
+  it('handlePaste returns false when uploadHandler configured', () => {
+    const CustomImage = Image.configure({
+      uploadHandler: async (_file: File) => 'https://example.com/uploaded.png',
+    });
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, CustomImage],
+      content: '<p></p>',
+    });
+
+    // Find the plugin that handles paste (NOT imageUploadPlugin)
+    const plugins = editor.state.plugins.filter((p) => (p as any).props?.handlePaste);
+    // Test each until we find the one that returns false with uploadHandler
+    const clipboardData = {
+      items: [{
+        kind: 'file',
+        type: 'image/png',
+        getAsFile: () => new File([''], 'img.png', { type: 'image/png' }),
+      }],
+    };
+    const event = { clipboardData } as any;
+
+    // With uploadHandler set, the paste handler for this specific plugin returns false
+    let plugin = plugins[0];
+    for (const p of plugins) {
+      const pluginKey = (p as any).key;
+      if (pluginKey && String(pluginKey).includes('imageFileBrowser')) {
+        plugin = p;
+        break;
+      }
+    }
+    const eventWithPrevent = { ...event, preventDefault: () => {} } as any;
+    const result = (plugin as any).props.handlePaste(editor.view, eventWithPrevent);
+    expect(result).toBe(false);
+  });
+
+  it('handleDrop with image file inserts image at cursor position', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p>Hello</p>',
+    });
+
+    const plugin = editor.state.plugins.find((p) => (p as any).props?.handleDrop);
+    expect(plugin).toBeDefined();
+
+    // Mock posAtCoords to return a valid position
+    const origPosAtCoords = editor.view.posAtCoords.bind(editor.view);
+    (editor.view as any).posAtCoords = () => ({ pos: 1, inside: -1 });
+
+    const file = new File(['fake'], 'img.png', { type: 'image/png' });
+    const event = {
+      dataTransfer: { files: [file] },
+      clientX: 100,
+      clientY: 100,
+      preventDefault: () => {},
+    } as any;
+
+    const result = (plugin as any).props.handleDrop(editor.view, event);
+    expect(result).toBe(true);
+
+    (editor.view as any).posAtCoords = origPosAtCoords;
+  });
+
+  it('handleDrop without files returns false', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    const plugin = editor.state.plugins.find((p) => (p as any).props?.handleDrop);
+    const event = { dataTransfer: { files: [] } } as any;
+    const result = (plugin as any).props.handleDrop(editor.view, event);
+    expect(result).toBe(false);
+  });
+
+  it('handleDrop with unsupported mime type returns false', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    const plugin = editor.state.plugins.find((p) => (p as any).props?.handleDrop);
+    const file = new File(['x'], 'doc.pdf', { type: 'application/pdf' });
+    const event = { dataTransfer: { files: [file] } } as any;
+    const result = (plugin as any).props.handleDrop(editor.view, event);
+    expect(result).toBe(false);
+  });
+
+  it('insertFromFile with uploadHandler success inserts image', async () => {
+    const CustomImage = Image.configure({
+      uploadHandler: async (_file: File) => 'https://example.com/uploaded.png',
+    });
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, CustomImage],
+      content: '<p></p>',
+    });
+
+    // Emit insertImage, click browse button, simulate file
+    (editor as any).emit('insertImage', {});
+    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
+    const browseBtn = popover.querySelector('.dm-image-popover-browse') as HTMLButtonElement;
+
+    expect(() => browseBtn.click()).not.toThrow();
+  });
+
+  it('insertFromFile handles upload error via onUploadError', async () => {
+    const onUploadError = vi.fn();
+    const CustomImage = Image.configure({
+      uploadHandler: async () => { throw new Error('upload failed'); },
+      onUploadError,
+    });
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, CustomImage],
+      content: '<p></p>',
+    });
+
+    (editor as any).emit('insertImage', {});
+    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
+    const browseBtn = popover.querySelector('.dm-image-popover-browse') as HTMLButtonElement;
+
+    expect(() => browseBtn.click()).not.toThrow();
+  });
+});

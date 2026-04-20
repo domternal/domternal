@@ -1,7 +1,7 @@
 /**
  * Tests for FloatingMenu extension
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { FloatingMenu, floatingMenuPluginKey, createFloatingMenuPlugin } from './FloatingMenu.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
@@ -522,6 +522,76 @@ describe('FloatingMenu', () => {
       });
 
       expect(result).toBe(false);
+    });
+  });
+
+  describe('plugin integration with editor (DOM)', () => {
+    let editor: Editor | undefined;
+    let host: HTMLElement;
+
+    beforeEach(() => {
+      if (!Element.prototype.getClientRects) {
+        Element.prototype.getClientRects = function () {
+          return [] as unknown as DOMRectList;
+        };
+      }
+      host = document.createElement('div');
+      host.className = 'dm-editor';
+      document.body.appendChild(host);
+    });
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+      host.remove();
+    });
+
+    it('element gets role and aria-label when missing', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, FloatingMenu.configure({ element })],
+        content: '<p>Hello</p>',
+      });
+
+      expect(element.getAttribute('role')).toBe('toolbar');
+      expect(element.getAttribute('aria-label')).toBe('Floating menu');
+    });
+
+    it('element is moved inside .dm-editor ancestor', () => {
+      const element = document.createElement('div');
+      document.body.appendChild(element);
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, FloatingMenu.configure({ element })],
+        content: '<p>Hello</p>',
+      });
+
+      expect(element.parentElement).toBe(host);
+    });
+
+    it('hides menu initially', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, FloatingMenu.configure({ element })],
+        content: '<p></p>',
+      });
+
+      expect(element.hasAttribute('data-show')).toBe(false);
+    });
+
+    it('preserves pre-existing role/label attributes', () => {
+      const element = document.createElement('div');
+      element.setAttribute('role', 'custom-role');
+      element.setAttribute('aria-label', 'Custom Label');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, FloatingMenu.configure({ element })],
+        content: '<p>Hello</p>',
+      });
+
+      expect(element.getAttribute('role')).toBe('custom-role');
+      expect(element.getAttribute('aria-label')).toBe('Custom Label');
     });
   });
 });

@@ -288,4 +288,119 @@ describe('Highlight', () => {
       expect(editor.isActive('textStyle', { backgroundColor: '#ff0000' })).toBe(false);
     });
   });
+
+  describe('toggleHighlight command', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    it('adds highlight when not present in range', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, Highlight],
+        content: '<p>Hello world</p>',
+      });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)));
+
+      const result = editor.commands.toggleHighlight();
+      expect(result).toBe(true);
+      expect(editor.isActive('textStyle', { backgroundColor: '#fef08a' })).toBe(true);
+    });
+
+    it('removes highlight when present in range', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, Highlight],
+        content: '<p><span style="background-color: #fef08a">Hello</span> world</p>',
+      });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)));
+
+      const result = editor.commands.toggleHighlight();
+      expect(result).toBe(true);
+      expect(editor.isActive('textStyle', { backgroundColor: '#fef08a' })).toBe(false);
+    });
+
+    it('toggleHighlight with empty selection uses stored marks', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, Highlight],
+        content: '<p>Hello</p>',
+      });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3)));
+
+      const result = editor.commands.toggleHighlight();
+      expect(result).toBe(true);
+    });
+
+    it('toggleHighlight accepts custom color', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, Highlight],
+        content: '<p>Hello</p>',
+      });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)));
+
+      const result = editor.commands.toggleHighlight({ color: '#ff0000' });
+      expect(result).toBe(true);
+      expect(editor.isActive('textStyle', { backgroundColor: '#ff0000' })).toBe(true);
+    });
+  });
+
+  describe('keyboard shortcut Mod-Shift-h', () => {
+    it('is defined', () => {
+      const shortcuts = Highlight.config.addKeyboardShortcuts?.call(Highlight);
+      expect(shortcuts).toHaveProperty('Mod-Shift-h');
+    });
+
+    it('returns false when editor is null', () => {
+      const shortcuts = Highlight.config.addKeyboardShortcuts?.call({
+        ...Highlight, editor: null,
+      });
+      const result = (shortcuts?.['Mod-Shift-h'] as any)?.();
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('input rule (==text==)', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    it('converts ==text== to highlighted text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, Highlight],
+        content: '<p>==word==</p>',
+      });
+
+      const highlightExt = editor.extensionManager.extensions.find((e) => e.name === 'highlight')!;
+      const rules = highlightExt.config.addInputRules!.call({
+        ...highlightExt,
+        options: highlightExt.options,
+      } as any)!;
+
+      expect(rules.length).toBeGreaterThan(0);
+      const rule = rules[0]!;
+      const match = ['==word==', 'word'] as RegExpMatchArray;
+      const result = (rule.handler as any)(editor.state, match, 1, 9);
+      expect(result).not.toBeNull();
+    });
+
+    it('returns null when match[1] is empty', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, Highlight],
+        content: '<p>hello</p>',
+      });
+
+      const highlightExt = editor.extensionManager.extensions.find((e) => e.name === 'highlight')!;
+      const rules = highlightExt.config.addInputRules!.call({
+        ...highlightExt,
+        options: highlightExt.options,
+      } as any)!;
+
+      const rule = rules[0]!;
+      const match = ['====', ''] as RegExpMatchArray;
+      const result = (rule.handler as any)(editor.state, match, 1, 5);
+      expect(result).toBeNull();
+    });
+  });
 });
