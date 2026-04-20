@@ -228,4 +228,29 @@ describe('LineHeight', () => {
       expect(paragraph.attrs['lineHeight']).toBe(null);
     });
   });
+
+  describe('addToolbarItems', () => {
+    it('returns empty array when lineHeights is empty', () => {
+      const Custom = LineHeight.configure({ lineHeights: [] });
+      const items = Custom.config.addToolbarItems?.call({ ...Custom, options: Custom.options });
+      expect(items).toEqual([]);
+    });
+
+    it('returns dropdown with all configured lineHeights', () => {
+      const items = LineHeight.config.addToolbarItems?.call({ ...LineHeight, options: LineHeight.options });
+      expect(items).toHaveLength(1);
+      const dropdown = items![0] as any;
+      expect(dropdown.type).toBe('dropdown');
+      expect(dropdown.name).toBe('lineHeight');
+      expect(dropdown.items.length).toBeGreaterThan(0);
+    });
+
+    it('button items have correct command and args', () => {
+      const items = LineHeight.config.addToolbarItems?.call({ ...LineHeight, options: LineHeight.options });
+      const dropdown = items![0] as any;
+      const firstButton = dropdown.items[0];
+      expect(firstButton.type).toBe('button');
+      expect(firstButton.command).toBe('setLineHeight');
+    });
+  });
 });

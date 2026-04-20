@@ -89,4 +89,31 @@ describe('getMarkRange', () => {
 
     expect(range).toBeUndefined();
   });
+
+  it('walks backward across multiple text nodes with same link mark', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, Bold, Link],
+      content: '<p><a href="https://example.com">part1</a><a href="https://example.com"><strong>part2</strong></a></p>',
+    });
+
+    const linkType = editor.state.schema.marks['link']!;
+    // Cursor at the boundary
+    const $pos = editor.state.doc.resolve(10);
+    const range = getMarkRange($pos, linkType);
+
+    expect(range).toBeDefined();
+  });
+
+  it('walks forward across multiple text nodes with same link mark', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, Bold, Link],
+      content: '<p><a href="https://example.com"><strong>part1</strong></a><a href="https://example.com">part2</a></p>',
+    });
+
+    const linkType = editor.state.schema.marks['link']!;
+    const $pos = editor.state.doc.resolve(2);
+    const range = getMarkRange($pos, linkType);
+
+    expect(range).toBeDefined();
+  });
 });

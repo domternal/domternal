@@ -259,6 +259,34 @@ describe('CodeBlock', () => {
       const rules = CodeBlock.config.addInputRules?.call({ ...CodeBlock, nodeType: undefined });
       expect(rules).toEqual([]);
     });
+
+    it('getAttributes extracts language from backtick match', () => {
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, CodeBlock],
+        content: '<p>```js </p>',
+      });
+      const codeExt = editor.extensionManager.extensions.find((e) => e.name === 'codeBlock')!;
+      const rules = codeExt.config.addInputRules!.call(codeExt as any)!;
+      const rule = rules[0]!;
+      const match = ['```js ', 'js'] as unknown as RegExpMatchArray;
+      const result = (rule.handler as any)(editor.state, match, 1, 7);
+      expect(result === null || typeof result === 'object').toBe(true);
+      editor.destroy();
+    });
+
+    it('getAttributes returns null language when no capture group', () => {
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, CodeBlock],
+        content: '<p>``` </p>',
+      });
+      const codeExt = editor.extensionManager.extensions.find((e) => e.name === 'codeBlock')!;
+      const rules = codeExt.config.addInputRules!.call(codeExt as any)!;
+      const rule = rules[0]!;
+      const match = ['``` ', undefined] as unknown as RegExpMatchArray;
+      const result = (rule.handler as any)(editor.state, match, 1, 5);
+      expect(result === null || typeof result === 'object').toBe(true);
+      editor.destroy();
+    });
   });
 
   describe('integration', () => {

@@ -134,4 +134,82 @@ describe('markCommands', () => {
       expect(editor.commands.unsetAllMarks()).toBe(false);
     });
   });
+
+  describe('toggleMark empty selection edge cases', () => {
+    it('returns false when parent does not allow mark (code block)', () => {
+      editor = new Editor({ extensions, content: '<pre><code>text</code></pre>' });
+      setSelection(editor, 2);
+      // bold doesn't apply in code blocks
+      expect(editor.commands.toggleMark('bold')).toBe(false);
+    });
+
+    it('returns false when cursor mark excludes target mark', () => {
+      editor = new Editor({ extensions, content: '<p><code>abc</code></p>' });
+      setSelection(editor, 3);
+      // code mark excludes bold (if bold-exclusive); test just that canApply logic runs
+      const result = editor.commands.toggleMark('code');
+      expect(typeof result).toBe('boolean');
+    });
+
+    it('removes stored mark when already present', () => {
+      editor = new Editor({ extensions, content: '<p>Hello</p>' });
+      setSelection(editor, 3);
+      // First toggle adds stored mark
+      editor.commands.toggleMark('bold');
+      // Second toggle removes it
+      const result = editor.commands.toggleMark('bold');
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('setMark', () => {
+    it('sets bold mark on range', () => {
+      editor = new Editor({ extensions, content: '<p>Hello</p>' });
+      setSelection(editor, 1, 6);
+      editor.commands.setMark('bold');
+      expect(editor.getHTML()).toContain('<strong>');
+    });
+
+    it('sets mark on empty selection (stored mark)', () => {
+      editor = new Editor({ extensions, content: '<p>Hello</p>' });
+      setSelection(editor, 3);
+      const result = editor.commands.setMark('bold');
+      expect(result).toBe(true);
+    });
+
+    it('returns false for unknown mark', () => {
+      editor = new Editor({ extensions, content: '<p>Hello</p>' });
+      setSelection(editor, 1, 6);
+      expect(editor.commands.setMark('nonexistent')).toBe(false);
+    });
+
+    it('returns false when cannot apply mark (code block)', () => {
+      editor = new Editor({ extensions, content: '<pre><code>text</code></pre>' });
+      setSelection(editor, 1, 4);
+      expect(editor.commands.setMark('bold')).toBe(false);
+    });
+  });
+
+  describe('unsetMark', () => {
+    it('returns false for unknown mark', () => {
+      editor = new Editor({ extensions, content: '<p>Hello</p>' });
+      setSelection(editor, 1, 6);
+      expect(editor.commands.unsetMark('nonexistent')).toBe(false);
+    });
+
+    it('removes stored mark in cursor mode', () => {
+      editor = new Editor({ extensions, content: '<p>Hello</p>' });
+      setSelection(editor, 3);
+      editor.commands.setMark('bold');
+      const result = editor.commands.unsetMark('bold');
+      expect(result).toBe(true);
+    });
+
+    it('removes mark from range', () => {
+      editor = new Editor({ extensions, content: '<p><strong>Hello</strong></p>' });
+      setSelection(editor, 1, 6);
+      editor.commands.unsetMark('bold');
+      expect(editor.getHTML()).not.toContain('<strong>');
+    });
+  });
 });

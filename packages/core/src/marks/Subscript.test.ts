@@ -151,4 +151,22 @@ describe('Subscript', () => {
       expect(editor.getHTML()).toContain('<sub>2</sub>');
     });
   });
+
+  describe('addToolbarItems', () => {
+    it('returns subscript button', () => {
+      const items = Subscript.config.addToolbarItems?.call(Subscript);
+      expect(items).toHaveLength(1);
+      const btn = items![0] as any;
+      expect(btn.name).toBe('subscript');
+      expect(btn.command).toBe('toggleSubscript');
+    });
+
+    it('returns superscript button', () => {
+      const items = Superscript.config.addToolbarItems?.call(Superscript);
+      expect(items).toHaveLength(1);
+      const btn = items![0] as any;
+      expect(btn.name).toBe('superscript');
+      expect(btn.command).toBe('toggleSuperscript');
+    });
+  });
 });

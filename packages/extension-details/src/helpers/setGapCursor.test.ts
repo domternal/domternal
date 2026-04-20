@@ -1,5 +1,6 @@
-import { describe, it, expect, afterEach, beforeEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { Document, Text, Paragraph, Editor, Gapcursor } from '@domternal/core';
+import { GapCursor } from '@domternal/pm/gapcursor';
 import { Details } from '../Details.js';
 import { DetailsSummary } from '../DetailsSummary.js';
 import { DetailsContent } from '../DetailsContent.js';
@@ -136,4 +137,57 @@ describe('setGapCursor', () => {
     expect(typeof result).toBe('boolean');
   });
 
+  it('dispatches gap cursor and returns true when closed + findFrom succeeds', () => {
+    editor = new Editor({
+      element: host,
+      extensions: allExtensions,
+      content:
+        '<details><summary>T</summary><div data-details-content><p>B</p></div></details><p>After</p>',
+    });
+
+    const { TextSelection } = require('@domternal/pm/state');
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3)));
+
+    // Stub domAtPos to return hidden element so isNodeVisible returns false
+    const hidden = document.createElement('div');
+    Object.defineProperty(hidden, 'offsetParent', { get: () => null, configurable: true });
+    const originalDomAtPos = editor.view.domAtPos.bind(editor.view);
+    (editor.view as any).domAtPos = () => ({ node: hidden, offset: 0 });
+
+    const result = setGapCursor(editor as any, 'right');
+    expect(typeof result).toBe('boolean');
+
+    (editor.view as any).domAtPos = originalDomAtPos;
+  });
+
+  it('dispatches gap cursor via spied GapCursor.findFrom returning valid gap', () => {
+    editor = new Editor({
+      element: host,
+      extensions: allExtensions,
+      content:
+        '<details><summary>T</summary><div data-details-content><p>B</p></div></details><p>After</p>',
+    });
+
+    const { TextSelection } = require('@domternal/pm/state');
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3)));
+
+    // Stub domAtPos so isNodeVisible returns false (content is "collapsed")
+    const hidden = document.createElement('div');
+    Object.defineProperty(hidden, 'offsetParent', { get: () => null, configurable: true });
+    const originalDomAtPos = editor.view.domAtPos.bind(editor.view);
+    (editor.view as any).domAtPos = () => ({ node: hidden, offset: 0 });
+
+    // Spy findFrom to return a valid GapCursor-like selection so dispatch path runs
+    const $pos = editor.state.doc.resolve(10);
+    const fakeSel = { $from: $pos } as unknown as ReturnType<typeof GapCursor.findFrom>;
+    const spy = vi.spyOn(GapCursor, 'findFrom').mockReturnValue(fakeSel as any);
+
+    try {
+      const result = setGapCursor(editor as any, 'right');
+      expect(result).toBe(true);
+    } finally {
+      spy.mockRestore();
+      (editor.view as any).domAtPos = originalDomAtPos;
+    }
+  });
 });

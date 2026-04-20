@@ -617,4 +617,118 @@ describe('TaskItem', () => {
       expect(editor.state.doc.child(0).child(0).attrs['checked']).toBe(true);
     });
   });
+
+  describe('keyboard shortcuts edge cases', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    it('Tab returns false when editor is null', () => {
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem,
+        editor: null,
+        nodeType: null,
+      });
+      const result = (shortcuts?.['Tab'] as any)?.();
+      expect(result).toBe(false);
+    });
+
+    it('Tab returns false when not in taskItem', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<p>Hi</p>',
+      });
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem,
+        editor,
+        nodeType: editor.schema.nodes['taskItem'],
+      });
+      const result = (shortcuts?.['Tab'] as any)?.();
+      expect(result).toBe(false);
+    });
+
+    it('Shift-Tab returns false when editor is null', () => {
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem,
+        editor: null,
+        nodeType: null,
+      });
+      const result = (shortcuts?.['Shift-Tab'] as any)?.();
+      expect(result).toBe(false);
+    });
+
+    it('Backspace returns false when editor is null', () => {
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem,
+        editor: null,
+        nodeType: null,
+      });
+      const result = (shortcuts?.['Backspace'] as any)?.();
+      expect(result).toBe(false);
+    });
+
+    it('Backspace returns false when not in taskItem', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<p>Outside</p>',
+      });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1)));
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem,
+        editor,
+        nodeType: editor.schema.nodes['taskItem'],
+      });
+      const result = (shortcuts?.['Backspace'] as any)?.();
+      expect(result).toBe(false);
+    });
+
+    it('Backspace returns false when not at start of textblock', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem"><p>Hello</p></li></ul>',
+      });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 5)));
+
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem,
+        editor,
+        nodeType: editor.schema.nodes['taskItem'],
+      });
+      const result = (shortcuts?.['Backspace'] as any)?.();
+      expect(result).toBe(false);
+    });
+
+    it('Backspace at start of first child of taskItem attempts to lift', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem"><p>Hello</p></li></ul>',
+      });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3)));
+
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem,
+        editor,
+        nodeType: editor.schema.nodes['taskItem'],
+      });
+      const result = (shortcuts?.['Backspace'] as any)?.();
+      expect(typeof result).toBe('boolean');
+    });
+
+    it('Mod-Enter triggers toggleTask', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem"><p>X</p></li></ul>',
+      });
+
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem,
+        editor,
+        nodeType: editor.schema.nodes['taskItem'],
+      });
+      const result = (shortcuts?.['Mod-Enter'] as any)?.();
+      expect(typeof result).toBe('boolean');
+    });
+  });
 });

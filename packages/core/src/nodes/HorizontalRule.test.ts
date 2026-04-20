@@ -236,4 +236,49 @@ describe('HorizontalRule', () => {
       expect(hrCount).toBe(3);
     });
   });
+
+  describe('addToolbarItems', () => {
+    it('returns a single button item', () => {
+      const items = HorizontalRule.config.addToolbarItems?.call(HorizontalRule);
+      expect(items).toHaveLength(1);
+      expect(items?.[0]?.type).toBe('button');
+    });
+
+    it('button has correct metadata', () => {
+      const items = HorizontalRule.config.addToolbarItems?.call(HorizontalRule);
+      const button = items?.[0];
+      if (button?.type === 'button') {
+        expect(button.name).toBe('horizontalRule');
+        expect(button.command).toBe('setHorizontalRule');
+        expect(button.icon).toBe('minus');
+      }
+    });
+  });
+
+  describe('input rule (--- )', () => {
+    it('creates HR + paragraph from --- input', () => {
+      const ed = new Editor({
+        extensions,
+        content: '<p>--- </p>',
+      });
+
+      const hrExt = ed.extensionManager.extensions.find((e) => e.name === 'horizontalRule')!;
+      const rules = hrExt.config.addInputRules!.call(hrExt as any)!;
+      expect(rules.length).toBe(1);
+
+      const rule = rules[0]!;
+      const match = ['--- '] as RegExpMatchArray;
+      const result = (rule.handler as any)(ed.state, match, 1);
+      expect(result).not.toBeNull();
+      ed.destroy();
+    });
+
+    it('returns empty array when nodeType is missing', () => {
+      const rules = HorizontalRule.config.addInputRules?.call({
+        ...HorizontalRule,
+        nodeType: undefined,
+      });
+      expect(rules).toEqual([]);
+    });
+  });
 });

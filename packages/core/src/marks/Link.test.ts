@@ -388,4 +388,118 @@ describe('Link', () => {
       expect(result).toBe(false);
     });
   });
+
+  describe('toggleLink with empty selection', () => {
+    it('toggles stored mark on cursor (no link → adds stored mark)', () => {
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, Link],
+        content: '<p>hello</p>',
+      });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3)));
+      const result = editor.commands.toggleLink({ href: 'https://example.com' });
+      expect(result).toBe(true);
+      editor.destroy();
+    });
+
+    it('removes stored mark when already set on cursor', () => {
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, Link],
+        content: '<p>hello</p>',
+      });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3)));
+      editor.commands.toggleLink({ href: 'https://example.com' });
+      const result = editor.commands.toggleLink({ href: 'https://example.com' });
+      expect(result).toBe(true);
+      editor.destroy();
+    });
+
+    it('removes link from full range when cursor inside existing link', () => {
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, Link],
+        content: '<p><a href="https://example.com">linked</a></p>',
+      });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3)));
+      const result = editor.commands.toggleLink({ href: 'https://example.com' });
+      expect(result).toBe(true);
+      expect(editor.getHTML()).not.toContain('<a');
+      editor.destroy();
+    });
+
+    it('toggleLink with range selection removes mark when all text has link', () => {
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, Link],
+        content: '<p><a href="https://example.com">linked</a></p>',
+      });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 7)));
+      const result = editor.commands.toggleLink({ href: 'https://example.com' });
+      expect(result).toBe(true);
+      expect(editor.getHTML()).not.toContain('<a');
+      editor.destroy();
+    });
+  });
+
+  describe('Mod-k keyboard shortcut', () => {
+    it('emits linkEdit event', () => {
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, Link],
+        content: '<p>hello</p>',
+      });
+      let fired = false;
+      editor.on('linkEdit' as any, () => { fired = true; });
+      const shortcuts = Link.config.addKeyboardShortcuts?.call({ editor } as any);
+      const modK = shortcuts?.['Mod-k'];
+      expect(modK?.()).toBe(true);
+      expect(fired).toBe(true);
+      editor.destroy();
+    });
+  });
+
+  describe('addToolbarItems', () => {
+    it('returns link button with emitEvent=linkEdit', () => {
+      const items = Link.config.addToolbarItems?.call({ editor: null } as any);
+      expect(items).toHaveLength(1);
+      const item = items![0] as any;
+      expect(item.name).toBe('link');
+      expect(item.emitEvent).toBe('linkEdit');
+    });
+  });
+
+  describe('keepOnSplit appendTransaction', () => {
+    it('strips link from storedMarks after block split at start of new block', () => {
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, Link],
+        content: '<p><a href="https://example.com">linked</a></p>',
+      });
+      // Select end of link and split block
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 7)));
+      splitBlock(editor.state, editor.view.dispatch);
+      // After split, storedMarks should not contain link
+      const stored = editor.state.storedMarks;
+      if (stored) {
+        expect(stored.some((m) => m.type.name === 'link')).toBe(false);
+      }
+      editor.destroy();
+    });
+
+    it('appendTransaction strips link when storedMarks contains it at parentOffset 0', () => {
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, Link],
+        content: '<p>text</p>',
+      });
+      const linkType = editor.schema.marks['link']!;
+      // Set stored mark = link, do a docChanged transaction ending at parentOffset 0
+      // Create a new empty paragraph and set cursor to its start with stored link mark
+      const tr = editor.state.tr;
+      tr.insertText('a', 1, 1);
+      tr.setSelection(TextSelection.create(tr.doc, 1));
+      tr.setStoredMarks([linkType.create({ href: 'https://example.com' })]);
+      editor.view.dispatch(tr);
+      // The appendTransaction should have stripped the link from storedMarks
+      const stored = editor.state.storedMarks;
+      if (stored) {
+        expect(stored.some((m) => m.type.name === 'link')).toBe(false);
+      }
+      editor.destroy();
+    });
+  });
 });

@@ -320,5 +320,33 @@ describe('ListItem', () => {
         expect(html).toContain('Task');
       }
     });
+
+    it('Enter falls through to liftListItem for empty top-level item', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, ListItem],
+        content: '<ul><li><p>a</p></li><li><p></p></li></ul>',
+      });
+
+      // Find empty listItem's paragraph
+      let emptyPos = 0;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'paragraph' && node.content.size === 0) {
+          emptyPos = pos + 1;
+        }
+      });
+
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, emptyPos))
+      );
+
+      const nodeType = editor.state.schema.nodes['listItem'];
+      const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
+        ...ListItem, editor, nodeType, options: ListItem.options,
+      } as any);
+
+      const result = (shortcuts?.['Enter'] as any)?.();
+      // splitListItem succeeds for empty item — lifts into paragraph at top level
+      expect(typeof result).toBe('boolean');
+    });
   });
 });

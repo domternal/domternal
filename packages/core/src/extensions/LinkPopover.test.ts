@@ -397,4 +397,266 @@ describe('LinkPopover', () => {
       expect(popover.hasAttribute('data-show')).toBe(true);
     });
   });
+
+  describe('additional coverage', () => {
+    it('applyLink with empty input hides popover', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      const anchor = document.createElement('button');
+      host.appendChild(anchor);
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)));
+      (editor as any).emit('linkEdit', { anchorElement: anchor });
+      const popover = document.querySelector('.dm-link-popover') as HTMLElement;
+      const input = popover.querySelector('input') as HTMLInputElement;
+      const applyBtn = popover.querySelector('.dm-link-popover-apply') as HTMLButtonElement;
+      input.value = '';
+      applyBtn.click();
+      expect(popover.hasAttribute('data-show')).toBe(false);
+    });
+
+    it('applyLink with invalid URL after protocol check hides popover', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      const anchor = document.createElement('button');
+      host.appendChild(anchor);
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)));
+      (editor as any).emit('linkEdit', { anchorElement: anchor });
+      const popover = document.querySelector('.dm-link-popover') as HTMLElement;
+      const input = popover.querySelector('input') as HTMLInputElement;
+      const applyBtn = popover.querySelector('.dm-link-popover-apply') as HTMLButtonElement;
+      input.value = 'javascript:alert(1)';
+      applyBtn.click();
+      expect(popover.hasAttribute('data-show')).toBe(false);
+    });
+
+    it('applyLink on existing link with empty selection updates range', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<p><a href="https://old.com">linked</a></p>',
+      });
+      const anchor = document.createElement('button');
+      host.appendChild(anchor);
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3)));
+      (editor as any).emit('linkEdit', { anchorElement: anchor });
+      const popover = document.querySelector('.dm-link-popover') as HTMLElement;
+      const input = popover.querySelector('input') as HTMLInputElement;
+      const applyBtn = popover.querySelector('.dm-link-popover-apply') as HTMLButtonElement;
+      input.value = 'https://new.com';
+      applyBtn.click();
+      expect(editor.getHTML()).toContain('https://new.com');
+    });
+
+    it('Enter key on input triggers applyLink', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      const anchor = document.createElement('button');
+      host.appendChild(anchor);
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)));
+      (editor as any).emit('linkEdit', { anchorElement: anchor });
+      const popover = document.querySelector('.dm-link-popover') as HTMLElement;
+      const input = popover.querySelector('input') as HTMLInputElement;
+      input.value = 'https://example.com';
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      expect(editor.getHTML()).toContain('https://example.com');
+    });
+
+    it('Escape on input closes popover', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      const anchor = document.createElement('button');
+      host.appendChild(anchor);
+      (editor as any).emit('linkEdit', { anchorElement: anchor });
+      const popover = document.querySelector('.dm-link-popover') as HTMLElement;
+      const input = popover.querySelector('input') as HTMLInputElement;
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      expect(popover.hasAttribute('data-show')).toBe(false);
+    });
+
+    it('Tab on input focuses apply button', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      const anchor = document.createElement('button');
+      host.appendChild(anchor);
+      (editor as any).emit('linkEdit', { anchorElement: anchor });
+      const popover = document.querySelector('.dm-link-popover') as HTMLElement;
+      const input = popover.querySelector('input') as HTMLInputElement;
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+      expect(popover).toBeTruthy();
+    });
+
+    it('Shift+Tab on input focuses apply button (no existing link)', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      const anchor = document.createElement('button');
+      host.appendChild(anchor);
+      (editor as any).emit('linkEdit', { anchorElement: anchor });
+      const popover = document.querySelector('.dm-link-popover') as HTMLElement;
+      const input = popover.querySelector('input') as HTMLInputElement;
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true }));
+      expect(popover).toBeTruthy();
+    });
+
+    it('Shift+Tab on input focuses remove button when existing link', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<p><a href="https://old.com">linked</a></p>',
+      });
+      const anchor = document.createElement('button');
+      host.appendChild(anchor);
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3)));
+      (editor as any).emit('linkEdit', { anchorElement: anchor });
+      const popover = document.querySelector('.dm-link-popover') as HTMLElement;
+      const input = popover.querySelector('input') as HTMLInputElement;
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true }));
+      expect(popover).toBeTruthy();
+    });
+
+    it('Escape on button closes popover', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      const anchor = document.createElement('button');
+      host.appendChild(anchor);
+      (editor as any).emit('linkEdit', { anchorElement: anchor });
+      const popover = document.querySelector('.dm-link-popover') as HTMLElement;
+      const applyBtn = popover.querySelector('.dm-link-popover-apply') as HTMLButtonElement;
+      applyBtn.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      expect(popover.hasAttribute('data-show')).toBe(false);
+    });
+
+    it('Tab on apply button with existing link focuses remove button', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<p><a href="https://old.com">linked</a></p>',
+      });
+      const anchor = document.createElement('button');
+      host.appendChild(anchor);
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3)));
+      (editor as any).emit('linkEdit', { anchorElement: anchor });
+      const popover = document.querySelector('.dm-link-popover') as HTMLElement;
+      const applyBtn = popover.querySelector('.dm-link-popover-apply') as HTMLButtonElement;
+      applyBtn.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+      expect(popover).toBeTruthy();
+    });
+
+    it('Tab on apply button without existing link focuses input', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      const anchor = document.createElement('button');
+      host.appendChild(anchor);
+      (editor as any).emit('linkEdit', { anchorElement: anchor });
+      const popover = document.querySelector('.dm-link-popover') as HTMLElement;
+      const applyBtn = popover.querySelector('.dm-link-popover-apply') as HTMLButtonElement;
+      applyBtn.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+      expect(popover).toBeTruthy();
+    });
+
+    it('Shift+Tab on apply button focuses input', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      const anchor = document.createElement('button');
+      host.appendChild(anchor);
+      (editor as any).emit('linkEdit', { anchorElement: anchor });
+      const popover = document.querySelector('.dm-link-popover') as HTMLElement;
+      const applyBtn = popover.querySelector('.dm-link-popover-apply') as HTMLButtonElement;
+      applyBtn.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true }));
+      expect(popover).toBeTruthy();
+    });
+
+    it('Shift+Tab on remove button focuses apply button', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<p><a href="https://old.com">linked</a></p>',
+      });
+      const anchor = document.createElement('button');
+      host.appendChild(anchor);
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3)));
+      (editor as any).emit('linkEdit', { anchorElement: anchor });
+      const popover = document.querySelector('.dm-link-popover') as HTMLElement;
+      const removeBtn = popover.querySelector('.dm-link-popover-remove') as HTMLButtonElement;
+      removeBtn.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true }));
+      expect(popover).toBeTruthy();
+    });
+
+    it('Enter on apply button triggers click', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      const anchor = document.createElement('button');
+      host.appendChild(anchor);
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)));
+      (editor as any).emit('linkEdit', { anchorElement: anchor });
+      const popover = document.querySelector('.dm-link-popover') as HTMLElement;
+      const input = popover.querySelector('input') as HTMLInputElement;
+      const applyBtn = popover.querySelector('.dm-link-popover-apply') as HTMLButtonElement;
+      input.value = 'https://example.com';
+      applyBtn.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      expect(editor.getHTML()).toContain('https://example.com');
+    });
+
+    it('linkEdit while open hides popover (toggle)', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      const anchor = document.createElement('button');
+      host.appendChild(anchor);
+      (editor as any).emit('linkEdit', { anchorElement: anchor });
+      const popover = document.querySelector('.dm-link-popover') as HTMLElement;
+      expect(popover.hasAttribute('data-show')).toBe(true);
+      (editor as any).emit('linkEdit', { anchorElement: anchor });
+      expect(popover.hasAttribute('data-show')).toBe(false);
+    });
+
+    it('applyLink auto-prepends https:// when no protocol', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      const anchor = document.createElement('button');
+      host.appendChild(anchor);
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)));
+      (editor as any).emit('linkEdit', { anchorElement: anchor });
+      const popover = document.querySelector('.dm-link-popover') as HTMLElement;
+      const input = popover.querySelector('input') as HTMLInputElement;
+      const applyBtn = popover.querySelector('.dm-link-popover-apply') as HTMLButtonElement;
+      input.value = 'example.com';
+      applyBtn.click();
+      expect(editor.getHTML()).toContain('https://example.com');
+    });
+  });
 });

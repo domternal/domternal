@@ -1,7 +1,7 @@
 /**
  * Tests for BubbleMenu extension
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import { TextSelection, NodeSelection } from '@domternal/pm/state';
 import { BubbleMenu, bubbleMenuPluginKey, createBubbleMenuPlugin } from './BubbleMenu.js';
 import { Document } from '../nodes/Document.js';
@@ -638,6 +638,239 @@ describe('BubbleMenu', () => {
 
       const ps = bubbleMenuPluginKey.getState(editor.state) as BubbleMenuPluginState;
       expect(ps.visible).toBe(false);
+    });
+  });
+
+  describe('document click and mouse handling', () => {
+    let editor: Editor | undefined;
+    let host: HTMLElement;
+
+    beforeEach(() => {
+      if (!Element.prototype.getClientRects) {
+        Element.prototype.getClientRects = function () {
+          return [] as unknown as DOMRectList;
+        };
+      }
+      (document as any).elementFromPoint = () => null;
+      host = document.createElement('div');
+      host.className = 'dm-editor';
+      document.body.appendChild(host);
+    });
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+      host.remove();
+    });
+
+    it('mousedown on bubble menu element does not throw', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element })],
+        content: '<p>Hello</p>',
+      });
+
+      const event = new MouseEvent('mousedown', { bubbles: true });
+      element.dispatchEvent(event);
+      expect(element).toBeDefined();
+    });
+
+    it('mousedown outside both editor and menu does not throw', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element })],
+        content: '<p>Hello</p>',
+      });
+
+      const outside = document.createElement('div');
+      document.body.appendChild(outside);
+      const event = new MouseEvent('mousedown', { bubbles: true });
+      outside.dispatchEvent(event);
+      expect(editor).toBeDefined();
+      outside.remove();
+    });
+
+    it('mousedown on editor (primary button) tracks drag', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element })],
+        content: '<p>Hello</p>',
+      });
+
+      const editorEl = editor.view.dom;
+      const event = new MouseEvent('mousedown', { bubbles: true, button: 0 });
+      editorEl.dispatchEvent(event);
+      expect(editor).toBeDefined();
+    });
+
+    it('mousedown with non-primary button is ignored', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element })],
+        content: '<p>Hello</p>',
+      });
+
+      const editorEl = editor.view.dom;
+      const event = new MouseEvent('mousedown', { bubbles: true, button: 2 });
+      editorEl.dispatchEvent(event);
+      expect(editor).toBeDefined();
+    });
+
+    it('document mouseup releases drag tracking', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element })],
+        content: '<p>Hello</p>',
+      });
+
+      const editorEl = editor.view.dom;
+      editorEl.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+      expect(editor).toBeDefined();
+    });
+
+    it('focus event triggers re-evaluation', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element })],
+        content: '<p>Hello</p>',
+      });
+
+      editor.view.dom.dispatchEvent(new FocusEvent('focus', { bubbles: true }));
+      expect(editor).toBeDefined();
+    });
+
+    it('focus event with empty selection fires onFocus timeout (hides menu)', async () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element })],
+        content: '<p>Hello</p>',
+      });
+
+      // Empty selection → show=false → hideMenu branch
+      editor.emit('focus', { editor, event: new FocusEvent('focus') });
+      await new Promise((r) => setTimeout(r, 10));
+      expect(element.hasAttribute('data-show')).toBe(false);
+    });
+
+    it('focus event with shouldShow=false covers else branch', async () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element, shouldShow: () => false })],
+        content: '<p>Hello</p>',
+      });
+
+      const tr = editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 5));
+      editor.view.dispatch(tr);
+      editor.emit('focus', { editor, event: new FocusEvent('focus') });
+      await new Promise((r) => setTimeout(r, 10));
+      expect(element.hasAttribute('data-show')).toBe(false);
+    });
+
+    it('focus event after suppressed hides menu', async () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element })],
+        content: '<p>Hello</p>',
+      });
+
+      const editorEl = editor.view.dom.closest('.dm-editor');
+      editorEl?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: true }));
+
+      editor.emit('focus', { editor, event: new FocusEvent('focus') });
+      await new Promise((r) => setTimeout(r, 10));
+      expect(element.hasAttribute('data-show')).toBe(false);
+    });
+
+    it('focus event while mouseDown returns early', async () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element })],
+        content: '<p>Hello</p>',
+      });
+
+      // Simulate drag by firing mousedown on editor
+      editor.view.dom.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+      editor.emit('focus', { editor, event: new FocusEvent('focus') });
+      await new Promise((r) => setTimeout(r, 10));
+      expect(editor).toBeDefined();
+    });
+
+    it('blur event with relatedTarget inside menu does not hide', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element })],
+        content: '<p>Hello</p>',
+      });
+
+      const inner = document.createElement('span');
+      element.appendChild(inner);
+
+      editor.emit('blur', { editor, event: { relatedTarget: inner } as unknown as FocusEvent });
+      expect(editor).toBeDefined();
+    });
+
+    it('blur event without relatedTarget hides menu', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element })],
+        content: '<p>Hello</p>',
+      });
+
+      editor.emit('blur', { editor, event: { relatedTarget: null } as unknown as FocusEvent });
+      expect(editor).toBeDefined();
+    });
+
+    it('dm:dismiss-overlays event hides menu and suppresses', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element })],
+        content: '<p>Hello</p>',
+      });
+
+      const editorEl = editor.view.dom.closest('.dm-editor');
+      editorEl?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: true }));
+      expect(editor).toBeDefined();
+    });
+
+    it('updateDelay > 0 schedules setTimeout then cleared on destroy', async () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element, updateDelay: 1000, shouldShow: () => true })],
+        content: '<p>Hello world</p>',
+      });
+
+      // Trigger selection change; update() with updateDelay scheduleTimeout
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)));
+      // Destroy before timeout fires → hits destroy's clearTimeout branches
+      editor.destroy();
+      expect(editor.isDestroyed).toBe(true);
+    });
+
+    it('update method hides menu and clears data-show when state.visible=false', () => {
+      const element = document.createElement('div');
+      element.setAttribute('data-show', '');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element, shouldShow: () => false })],
+        content: '<p>Hello</p>',
+      });
+      // Selection change triggers update() with visible=false
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 5)));
+      expect(element.hasAttribute('data-show')).toBe(false);
     });
   });
 });

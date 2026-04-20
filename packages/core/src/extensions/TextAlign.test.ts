@@ -213,4 +213,23 @@ describe('TextAlign', () => {
       expect(matches?.length).toBe(2);
     });
   });
+
+  describe('addToolbarItems', () => {
+    it('returns dropdown with alignment buttons', () => {
+      const items = TextAlign.config.addToolbarItems?.call({ ...TextAlign, options: TextAlign.options });
+      expect(items).toHaveLength(1);
+      const dd = items![0] as any;
+      expect(dd.type).toBe('dropdown');
+      expect(dd.name).toBe('textAlign');
+      expect(dd.items.length).toBeGreaterThanOrEqual(4);
+    });
+
+    it('dropdown items reference configured types in isActive', () => {
+      const items = TextAlign.config.addToolbarItems?.call({ ...TextAlign, options: TextAlign.options });
+      const dd = items![0] as any;
+      const firstItem = dd.items[0];
+      expect(firstItem.isActive).toBeDefined();
+      expect(Array.isArray(firstItem.isActive)).toBe(true);
+    });
+  });
 });
