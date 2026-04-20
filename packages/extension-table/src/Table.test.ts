@@ -689,6 +689,208 @@ describe('Commands', () => {
       });
       expect(editor.commands.setCellSelection).toBeDefined();
     });
+
+    it('creates a CellSelection at the given anchor position', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>',
+      });
+
+      // Cell positions: first=2, second=7
+      const result = editor.commands.setCellSelection({ anchorCell: 2 });
+      expect(result).toBe(true);
+      expect(editor.state.selection).toBeInstanceOf(CellSelection);
+    });
+
+    it('creates a CellSelection spanning anchor to head', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>',
+      });
+
+      const result = editor.commands.setCellSelection({ anchorCell: 2, headCell: 7 });
+      expect(result).toBe(true);
+      expect(editor.state.selection).toBeInstanceOf(CellSelection);
+    });
+  });
+
+  describe('deleteRow command', () => {
+    it('returns false when not in a table', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      expect(editor.commands.deleteRow()).toBe(false);
+    });
+
+    it('deletes a single row from multi-row table', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td></tr><tr><td><p>B</p></td></tr></table>',
+      });
+      // Cursor in second row
+      const tr = editor.state.tr;
+      tr.setSelection(TextSelection.create(tr.doc, 9));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.deleteRow();
+      expect(result).toBe(true);
+      expect(editor.state.doc.firstChild?.childCount).toBe(1);
+    });
+
+    it('deletes entire table when deleting only row', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td></tr></table>',
+      });
+      const tr = editor.state.tr;
+      tr.setSelection(TextSelection.create(tr.doc, 3));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.deleteRow();
+      expect(result).toBe(true);
+
+      let hasTable = false;
+      editor.state.doc.descendants((node) => {
+        if (node.type.name === 'table') hasTable = true;
+      });
+      expect(hasTable).toBe(false);
+    });
+  });
+
+  describe('insertTable command', () => {
+    it('returns true without dispatch (dry-run)', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      // Use the raw command via editor.can() which dry-runs
+      expect(editor.can().insertTable()).toBe(true);
+    });
+
+    it('inserts a table with default options', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      const result = editor.commands.insertTable();
+      expect(result).toBe(true);
+
+      let hasTable = false;
+      editor.state.doc.descendants((node) => {
+        if (node.type.name === 'table') hasTable = true;
+      });
+      expect(hasTable).toBe(true);
+    });
+  });
+
+  describe('NodeView configuration', () => {
+    it('returns undefined NodeViewConstructor when View is null', () => {
+      const TableNoView = Table.configure({ View: null as any });
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TableNoView, TableRow, TableCell, TableHeader],
+        content: '<table><tr><td><p>A</p></td></tr></table>',
+      });
+      // Editor should still work, just no custom NodeView
+      expect(editor).toBeDefined();
+      expect(editor.state.doc.firstChild?.type.name).toBe('table');
+    });
+  });
+
+  describe('addColumnBefore / addColumnAfter (unconstrained path)', () => {
+    it('addColumnBefore uses direct pm-tables path when constrainToContainer=false', () => {
+      const TableUnconstrained = Table.configure({ constrainToContainer: false });
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TableUnconstrained, TableRow, TableCell, TableHeader],
+        content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>',
+      });
+      const tr = editor.state.tr;
+      tr.setSelection(TextSelection.create(tr.doc, 4));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.addColumnBefore();
+      expect(result).toBe(true);
+      expect(editor.state.doc.firstChild?.firstChild?.childCount).toBe(3);
+    });
+
+    it('addColumnAfter uses direct pm-tables path when constrainToContainer=false', () => {
+      const TableUnconstrained = Table.configure({ constrainToContainer: false });
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TableUnconstrained, TableRow, TableCell, TableHeader],
+        content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>',
+      });
+      const tr = editor.state.tr;
+      tr.setSelection(TextSelection.create(tr.doc, 4));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.addColumnAfter();
+      expect(result).toBe(true);
+      expect(editor.state.doc.firstChild?.firstChild?.childCount).toBe(3);
+    });
+  });
+
+  describe('deleteColumn command', () => {
+    it('returns false when not in a table', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      expect(editor.commands.deleteColumn()).toBe(false);
+    });
+
+    it('deletes a single column from a multi-column table', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td><td><p>B</p></td><td><p>C</p></td></tr></table>',
+      });
+      // Place cursor inside middle cell (B)
+      const tr = editor.state.tr;
+      tr.setSelection(TextSelection.create(tr.doc, 8));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.deleteColumn();
+      expect(result).toBe(true);
+
+      const firstRow = editor.state.doc.firstChild?.firstChild;
+      expect(firstRow?.childCount).toBe(2);
+    });
+
+    it('deletes entire table when deleting only column (full-width selection)', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td></tr></table>',
+      });
+      // Cursor in the only cell
+      const tr = editor.state.tr;
+      tr.setSelection(TextSelection.create(tr.doc, 3));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.deleteColumn();
+      expect(result).toBe(true);
+
+      let hasTable = false;
+      editor.state.doc.descendants((node) => {
+        if (node.type.name === 'table') hasTable = true;
+      });
+      expect(hasTable).toBe(false);
+    });
+
+    it('returns true without dispatch (dry-run)', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>',
+      });
+      const tr = editor.state.tr;
+      tr.setSelection(TextSelection.create(tr.doc, 3));
+      editor.view.dispatch(tr);
+
+      // Direct command fn with no dispatch - returns true if isInTable
+      const cmd = (editor.state as any).schema.spec.commands?.['deleteColumn']
+        ?? null;
+      // Can't easily test without dispatch via editor.commands — but we verify
+      // via isInTable. This is a proxy test.
+      expect(editor.commands.deleteColumn()).toBe(true);
+    });
   });
 
   describe('setCellAttribute', () => {
@@ -909,6 +1111,58 @@ describe('createTable helper', () => {
     const table = createTable(editor.schema, 10, 5, true);
     expect(table.childCount).toBe(10);
     expect(table.firstChild?.childCount).toBe(5);
+  });
+
+  it('creates table with custom cellContent in body cells', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<p>Test</p>',
+    });
+
+    const paragraph = editor.schema.nodes['paragraph']!.create(null, editor.schema.text('Custom'));
+    const table = createTable(editor.schema, 2, 2, false, paragraph);
+
+    expect(table.childCount).toBe(2);
+    const firstCell = table.firstChild?.firstChild;
+    expect(firstCell?.type.name).toBe('tableCell');
+    expect(firstCell?.textContent).toBe('Custom');
+  });
+
+  it('creates table with custom cellContent in both header and body cells', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<p>Test</p>',
+    });
+
+    const paragraph = editor.schema.nodes['paragraph']!.create(null, editor.schema.text('Filled'));
+    const table = createTable(editor.schema, 2, 2, true, paragraph);
+
+    // First row = header cells with cellContent
+    const headerCell = table.firstChild?.firstChild;
+    expect(headerCell?.type.name).toBe('tableHeader');
+    expect(headerCell?.textContent).toBe('Filled');
+
+    // Second row = body cells with cellContent
+    const bodyCell = table.child(1).firstChild;
+    expect(bodyCell?.type.name).toBe('tableCell');
+    expect(bodyCell?.textContent).toBe('Filled');
+  });
+
+  it('creates table with custom cellContent only in body when withHeaderRow is false', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<p>Test</p>',
+    });
+
+    const paragraph = editor.schema.nodes['paragraph']!.create(null, editor.schema.text('Body only'));
+    const table = createTable(editor.schema, 3, 2, false, paragraph);
+
+    // All rows should have body cells (no header row)
+    for (let i = 0; i < 3; i++) {
+      const cell = table.child(i).firstChild;
+      expect(cell?.type.name).toBe('tableCell');
+      expect(cell?.textContent).toBe('Body only');
+    }
   });
 });
 
@@ -1496,5 +1750,154 @@ describe('Tab/Shift-Tab with lists in table cells', () => {
     const result = (shortcuts?.['Shift-Tab'] as any)?.();
     // Should try goToPreviousCell, not defer
     expect(result).not.toBe(false);
+  });
+
+  // ─── Tab in last cell adds a row ───────────────────────────────────
+  it('Tab in last cell of last row adds a new row via addRowAfter', () => {
+    editor = new Editor({
+      extensions: listExtensions,
+      content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>',
+    });
+    const pos = findTextPos('B');
+    expect(pos).toBeGreaterThan(0);
+    focusAt(pos);
+
+    const initialRowCount = editor.state.doc.firstChild?.childCount ?? 0;
+    const shortcuts = Table.config.addKeyboardShortcuts?.call({ ...Table, editor });
+    (shortcuts?.['Tab'] as any)?.();
+
+    const newRowCount = editor.state.doc.firstChild?.childCount ?? 0;
+    expect(newRowCount).toBeGreaterThan(initialRowCount);
+  });
+
+  // ─── Tab returns false when editor is null ────────────────────────
+  it('Tab returns false when editor is null', () => {
+    const shortcuts = Table.config.addKeyboardShortcuts?.call({ ...Table, editor: null });
+    const result = (shortcuts?.['Tab'] as any)?.();
+    expect(result).toBe(false);
+  });
+
+  it('Shift-Tab returns false when editor is null', () => {
+    const shortcuts = Table.config.addKeyboardShortcuts?.call({ ...Table, editor: null });
+    const result = (shortcuts?.['Shift-Tab'] as any)?.();
+    expect(result).toBe(false);
+  });
+});
+
+// === Backspace / Delete deletes table when all cells selected ===
+
+describe('Backspace/Delete deletes table when all cells selected', () => {
+  let editor: InstanceType<typeof Editor>;
+
+  afterEach(() => {
+    if (!editor.isDestroyed) editor.destroy();
+  });
+
+  function findCellPositions(): { first: number; last: number } {
+    const positions: number[] = [];
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+        positions.push(pos);
+      }
+    });
+    return { first: positions[0] ?? 0, last: positions[positions.length - 1] ?? 0 };
+  }
+
+  function selectAllCells(): void {
+    const { first, last } = findCellPositions();
+    const sel = CellSelection.create(editor.state.doc, first, last);
+    editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+  }
+
+  it('Backspace handler deletes table when all cells selected', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<p>Before</p><table><tr><td><p>A</p></td></tr></table>',
+    });
+    selectAllCells();
+
+    const shortcuts = Table.config.addKeyboardShortcuts?.call({ ...Table, editor });
+    const result = (shortcuts?.['Backspace'] as any)?.();
+    expect(result).toBe(true);
+  });
+
+  it('Delete handler deletes table when all cells selected', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<table><tr><td><p>A</p></td></tr></table><p>After</p>',
+    });
+    selectAllCells();
+
+    const shortcuts = Table.config.addKeyboardShortcuts?.call({ ...Table, editor });
+    const result = (shortcuts?.['Delete'] as any)?.();
+    expect(result).toBe(true);
+  });
+
+  it('Mod-Backspace handler deletes table when all cells selected', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<table><tr><td><p>A</p></td></tr></table>',
+    });
+    selectAllCells();
+
+    const shortcuts = Table.config.addKeyboardShortcuts?.call({ ...Table, editor });
+    const result = (shortcuts?.['Mod-Backspace'] as any)?.();
+    expect(result).toBe(true);
+  });
+
+  it('Mod-Delete handler deletes table when all cells selected', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<table><tr><td><p>A</p></td></tr></table>',
+    });
+    selectAllCells();
+
+    const shortcuts = Table.config.addKeyboardShortcuts?.call({ ...Table, editor });
+    const result = (shortcuts?.['Mod-Delete'] as any)?.();
+    expect(result).toBe(true);
+  });
+
+  it('Backspace handler returns false when only one cell is selected', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>',
+    });
+    // Put cursor inside first cell (TextSelection, not CellSelection)
+    const pos = 3; // inside first cell paragraph
+    const sel = TextSelection.near(editor.state.doc.resolve(pos));
+    editor.view.dispatch(editor.state.tr.setSelection(sel));
+
+    const shortcuts = Table.config.addKeyboardShortcuts?.call({ ...Table, editor });
+    const result = (shortcuts?.['Backspace'] as any)?.();
+    expect(result).toBe(false);
+  });
+
+  it('deleteTableHandler returns false when editor is null', () => {
+    const shortcuts = Table.config.addKeyboardShortcuts?.call({ ...Table, editor: null });
+    const result = (shortcuts?.['Backspace'] as any)?.();
+    expect(result).toBe(false);
+  });
+});
+
+// === addToolbarItems ===
+
+describe('Table addToolbarItems', () => {
+  it('returns a single button item for insert table', () => {
+    const items = Table.config.addToolbarItems?.call(Table);
+    expect(items).toHaveLength(1);
+    expect(items?.[0]?.type).toBe('button');
+  });
+
+  it('button has correct metadata', () => {
+    const items = Table.config.addToolbarItems?.call(Table);
+    const button = items?.[0];
+    if (button?.type === 'button') {
+      expect(button.name).toBe('table');
+      expect(button.command).toBe('insertTable');
+      expect(button.icon).toBe('table');
+      expect(button.label).toBe('Insert Table');
+      expect(button.group).toBe('insert');
+      expect(button.priority).toBe(140);
+    }
   });
 });

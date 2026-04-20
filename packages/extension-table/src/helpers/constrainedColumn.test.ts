@@ -5,7 +5,13 @@ import { TableCell } from '../TableCell.js';
 import { TableHeader } from '../TableHeader.js';
 import { Document, Text, Paragraph, Editor } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
-import { getTableInfo, redistributeColumns } from './constrainedColumn.js';
+import {
+  getTableInfo,
+  redistributeColumns,
+  findTableDom,
+  getContainerWidth,
+  constrainedAddColumn,
+} from './constrainedColumn.js';
 import { addColumnAfter, addColumnBefore } from '@domternal/pm/tables';
 
 const allExtensions = [Document, Text, Paragraph, Table, TableRow, TableCell, TableHeader];
@@ -259,5 +265,242 @@ describe('redistributeColumns', () => {
       expect(cw).not.toBeNull();
       expect(cw![0]).toBe(150);
     }
+  });
+});
+
+// ─── findTableDom ─────────────────────────────────────────────────────────────
+
+describe('findTableDom', () => {
+  let editor: InstanceType<typeof Editor> | undefined;
+  let host: HTMLElement | undefined;
+
+  afterEach(() => {
+    editor?.destroy();
+    host?.remove();
+  });
+
+  it('returns null when given an invalid position (catches throw)', () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: allExtensions,
+      content: tableHTML([200, 200]),
+    });
+
+    // Position out of range triggers throw inside view.domAtPos
+    const result = findTableDom(editor.view, 99999);
+    expect(result).toBeNull();
+  });
+
+  it('returns null when position is not inside a table', () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: allExtensions,
+      content: '<p>Not a table</p>',
+    });
+
+    // Walk up from pos 0 - won't find a TABLE element
+    const result = findTableDom(editor.view, 0);
+    expect(result).toBeNull();
+  });
+
+  it('returns null when view throws on domAtPos (catch block)', () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: allExtensions,
+      content: tableHTML([200, 200]),
+    });
+
+    // Monkeypatch view.domAtPos to throw
+    const origDomAtPos = editor.view.domAtPos.bind(editor.view);
+    editor.view.domAtPos = () => { throw new Error('synthetic'); };
+
+    const result = findTableDom(editor.view, 2);
+    expect(result).toBeNull();
+
+    // Restore
+    editor.view.domAtPos = origDomAtPos;
+  });
+});
+
+// ─── getContainerWidth ────────────────────────────────────────────────────────
+
+describe('getContainerWidth', () => {
+  let editor: InstanceType<typeof Editor> | undefined;
+  let host: HTMLElement | undefined;
+
+  afterEach(() => {
+    editor?.destroy();
+    host?.remove();
+  });
+
+  it('returns 0 when wrapper cannot be found (invalid position)', () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: allExtensions,
+      content: tableHTML([200, 200]),
+    });
+
+    // Invalid position triggers null in findTableDom, which means no wrapper
+    const width = getContainerWidth(editor.view, 99999);
+    expect(width).toBe(0);
+  });
+
+  it('returns 0 when position is outside any table', () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: allExtensions,
+      content: '<p>No table here</p>',
+    });
+
+    const width = getContainerWidth(editor.view, 0);
+    expect(width).toBe(0);
+  });
+});
+
+// ─── constrainedAddColumn ─────────────────────────────────────────────────────
+
+describe('constrainedAddColumn', () => {
+  let editor: InstanceType<typeof Editor> | undefined;
+  let host: HTMLElement | undefined;
+
+  afterEach(() => {
+    editor?.destroy();
+    host?.remove();
+  });
+
+  it('delegates to pmCommand directly when columns are not all frozen', () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: allExtensions,
+      content: tableHTML([null, null]),
+    });
+    focusFirstCell(editor);
+
+    const pmCommand = addColumnAfter;
+    const result = constrainedAddColumn(pmCommand, editor.view, 25, 100);
+    expect(result).toBe(true);
+
+    // Should have 3 columns now
+    const table = editor.state.doc.firstChild!;
+    const firstRow = table.firstChild!;
+    expect(firstRow.childCount).toBe(3);
+  });
+
+  it('delegates to pmCommand when container width cannot be measured (wrapper not in DOM)', () => {
+    // No element attached - view DOM not measurable
+    editor = new Editor({
+      extensions: allExtensions,
+      content: tableHTML([200, 200]),
+    });
+    focusFirstCell(editor);
+
+    const result = constrainedAddColumn(addColumnAfter, editor.view, 25, 100);
+    expect(result).toBe(true); // pmCommand path
+
+    const table = editor.state.doc.firstChild!;
+    const firstRow = table.firstChild!;
+    expect(firstRow.childCount).toBe(3);
+  });
+
+  it('returns false when not in a table (no info)', () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: allExtensions,
+      content: '<p>Not in table</p>',
+    });
+
+    const result = constrainedAddColumn(addColumnAfter, editor.view, 25, 100);
+    expect(result).toBe(false);
+  });
+
+  it('redistributes when frozen columns would overflow container', () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: allExtensions,
+      content: tableHTML([200, 200]), // frozen columns
+    });
+    focusFirstCell(editor);
+
+    // Mock getBoundingClientRect on the .tableWrapper to return a tight container
+    // oldTotal (400) + defaultCellMinWidth (100) = 500 > 420 → redistribute path
+    const wrapper = host.querySelector('.tableWrapper') as HTMLElement;
+    expect(wrapper).not.toBeNull();
+    wrapper.getBoundingClientRect = () => ({
+      width: 420,
+      height: 100,
+      top: 0,
+      left: 0,
+      right: 420,
+      bottom: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    const result = constrainedAddColumn(addColumnAfter, editor.view, 25, 100);
+    expect(result).toBe(true);
+
+    // Should have 3 columns now, all redistributed
+    const table = editor.state.doc.firstChild!;
+    const firstRow = table.firstChild!;
+    expect(firstRow.childCount).toBe(3);
+
+    // All columns should have colwidth set and sum to ~container width
+    const widths = Array.from({ length: firstRow.childCount }, (_, i) => {
+      const cw = firstRow.child(i).attrs['colwidth'] as number[] | null;
+      return cw?.[0] ?? 0;
+    });
+    const total = widths.reduce((a, b) => a + b, 0);
+    expect(total).toBeLessThanOrEqual(420);
+    expect(total).toBeGreaterThan(0);
+  });
+
+  it('takes pmCommand path when frozen but plenty of space', () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: allExtensions,
+      content: tableHTML([100, 100]),
+    });
+    focusFirstCell(editor);
+
+    // Huge container → table + new column fits easily (oldTotal 200 + 100 = 300 <= 1000)
+    const wrapper = host.querySelector('.tableWrapper') as HTMLElement;
+    wrapper.getBoundingClientRect = () => ({
+      width: 1000,
+      height: 100,
+      top: 0,
+      left: 0,
+      right: 1000,
+      bottom: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    const result = constrainedAddColumn(addColumnAfter, editor.view, 25, 100);
+    expect(result).toBe(true);
+
+    // 3 columns but widths NOT redistributed (pmCommand path)
+    const table = editor.state.doc.firstChild!;
+    const firstRow = table.firstChild!;
+    expect(firstRow.childCount).toBe(3);
   });
 });
