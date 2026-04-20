@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, signal, input, effect, untracked } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, input, effect, untracked, computed } from '@angular/core';
 import {
   DomternalEditorComponent,
   DomternalToolbarComponent,
@@ -106,6 +106,21 @@ export class EditorDemoComponent {
   editorContent = DEMO_CONTENT;
   emojiData = emojis;
   editor = signal<Editor | null>(null);
+  // Selector-state tick: bumped on every transaction / selection change
+  // so downstream computed() re-reads editor.isActive() / editor.isEmpty.
+  readonly stateTick = signal(0);
+  readonly isBold = computed(() => {
+    this.stateTick();
+    return untracked(() => this.editor()?.isActive('bold') ?? false);
+  });
+  readonly isItalic = computed(() => {
+    this.stateTick();
+    return untracked(() => this.editor()?.isActive('italic') ?? false);
+  });
+  readonly isEmptyState = computed(() => {
+    this.stateTick();
+    return untracked(() => this.editor()?.isEmpty ?? true);
+  });
   readonly useLayout = input(false);
   toolbarLayout: ToolbarLayoutEntry[] = [
     'bold', 'italic', 'underline', 'heading1',
@@ -139,5 +154,11 @@ export class EditorDemoComponent {
 
   onEditorCreated(editor: Editor): void {
     this.editor.set(editor);
+    // Demo-only: expose editor on window for Playwright E2E tests
+    (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] = editor;
+  }
+
+  bumpState(): void {
+    this.stateTick.update((n) => n + 1);
   }
 }

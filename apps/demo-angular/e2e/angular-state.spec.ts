@@ -1,11 +1,11 @@
 /**
- * React-specific E2E tests for useEditorState reactive sync,
- * dark theme toggle, and toolbar layout switch (React re-render).
+ * Angular-specific E2E tests for signal-based htmlContent reactive sync,
+ * dark theme toggle, and toolbar layout switch (Angular signals).
  */
 import { test } from './fixtures.js';
 import { expect, type Page } from '@playwright/test';
 
-const editorSelector = '.dm-editor .ProseMirror';
+const editorSelector = 'domternal-editor .ProseMirror';
 const htmlOutput = 'pre.output';
 const styledOutput = 'pre.output-styled';
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
@@ -41,10 +41,10 @@ async function selectText(page: Page, startOffset: number, endOffset: number, se
 }
 
 // =============================================================================
-// useEditorState — HTML output reactive sync
+// htmlContent signal — HTML output reactive sync
 // =============================================================================
 
-test.describe('useEditorState — reactive HTML output', () => {
+test.describe('htmlContent signal — reactive HTML output', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -233,20 +233,21 @@ test.describe('Dark theme toggle', () => {
     const btn = page.locator('.theme-toggle');
 
     // Initially shows moon (light mode)
-    const initialText = await btn.textContent();
-    expect(initialText?.trim()).toBeTruthy();
+    const initialText = (await btn.textContent())?.trim();
+    expect(initialText).toBeTruthy();
 
     await btn.click();
+    // Wait for Angular change detection to update the button text
+    await expect(btn).not.toHaveText(initialText ?? '');
 
-    // After click should show different icon
-    const afterText = await btn.textContent();
-    expect(afterText?.trim()).toBeTruthy();
+    const afterText = (await btn.textContent())?.trim();
+    expect(afterText).toBeTruthy();
     expect(afterText).not.toBe(initialText);
   });
 });
 
 // =============================================================================
-// Toolbar layout switch (React state re-render)
+// Toolbar layout switch (Angular signal re-render)
 // =============================================================================
 
 test.describe('Toolbar layout switch', () => {
@@ -553,10 +554,10 @@ test.describe('Bubble menu — context-aware filtering', () => {
 });
 
 // =============================================================================
-// useEditorState selector mode (React-specific: memoized via useSyncExternalStore)
+// Selector state (Angular computed() over signal tick)
 // =============================================================================
 
-test.describe('useEditorState selector mode', () => {
+test.describe('Selector state — computed signals', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

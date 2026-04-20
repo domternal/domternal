@@ -11,6 +11,8 @@
   [extensions]="extensions"
   [content]="editorContent"
   (editorCreated)="onEditorCreated($event)"
+  (contentUpdated)="bumpState()"
+  (selectionChanged)="bumpState()"
 />
 
 @if (editor(); as ed) {
@@ -23,6 +25,13 @@
   }
   <domternal-emoji-picker [editor]="ed" [emojis]="emojiData" />
 }
+
+<h3>Selector State (signal-based isActive)</h3>
+<div class="selector-state" data-testid="selector-state">
+  <span data-testid="is-bold">isBold: {{ isBold() }}</span>
+  <span data-testid="is-italic">isItalic: {{ isItalic() }}</span>
+  <span data-testid="is-empty">isEmpty: {{ isEmptyState() }}</span>
+</div>
 
 <h3>HTML Output</h3>
 <pre class="output">{{ ec.htmlContent() }}</pre>

@@ -116,6 +116,11 @@ export function EditorDemo({ useLayout }: EditorDemoProps) {
 
   const { htmlContent } = useEditorState(editor);
 
+  // Selector mode (React-specific: memoized via useSyncExternalStore)
+  const isBold = useEditorState(editor, (ed) => ed.isActive('bold'));
+  const isItalic = useEditorState(editor, (ed) => ed.isActive('italic'));
+  const isEmpty = useEditorState(editor, (ed) => ed.isEmpty);
+
   // Expose editor on window for E2E test access
   useEffect(() => {
     if (editor) {
@@ -151,6 +156,13 @@ export function EditorDemo({ useLayout }: EditorDemoProps) {
           <DomternalEmojiPicker editor={editor} emojis={emojis} />
         </>
       )}
+
+      <h3>Selector State (useEditorState with selector)</h3>
+      <div className="selector-state" data-testid="selector-state">
+        <span data-testid="is-bold">isBold: {String(isBold ?? false)}</span>
+        <span data-testid="is-italic">isItalic: {String(isItalic ?? false)}</span>
+        <span data-testid="is-empty">isEmpty: {String(isEmpty ?? true)}</span>
+      </div>
 
       <h3>HTML Output</h3>
       <pre className="output">{htmlContent}</pre>
