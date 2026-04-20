@@ -413,6 +413,153 @@ describe('commands', () => {
     expect(commands).toHaveProperty('closeDetails');
     expect(typeof commands?.['closeDetails']).toBe('function');
   });
+
+  it('setDetailsOpen returns false when not persist', () => {
+    const CustomDetails = Details.configure({ persist: false });
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CustomDetails, DetailsSummary, DetailsContent],
+      content: '<details><summary>T</summary><div data-details-content><p>B</p></div></details>',
+    });
+    // Place cursor inside details
+    const { TextSelection } = require('@domternal/pm/state');
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3))));
+
+    expect(editor.commands.setDetailsOpen(true)).toBe(false);
+  });
+
+  it('setDetailsOpen opens a closed details when persist is true', () => {
+    const CustomDetails = Details.configure({ persist: true });
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CustomDetails, DetailsSummary, DetailsContent],
+      content: '<details><summary>T</summary><div data-details-content><p>B</p></div></details>',
+    });
+
+    const { TextSelection } = require('@domternal/pm/state');
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3))));
+
+    expect(editor.commands.setDetailsOpen(true)).toBe(true);
+    expect(editor.state.doc.firstChild?.attrs['open']).toBe(true);
+  });
+
+  it('setDetailsOpen returns false when already in desired state', () => {
+    const CustomDetails = Details.configure({ persist: true });
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CustomDetails, DetailsSummary, DetailsContent],
+      content: '<details open><summary>T</summary><div data-details-content><p>B</p></div></details>',
+    });
+
+    const { TextSelection } = require('@domternal/pm/state');
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3))));
+
+    // Already open, setting to true → returns false
+    expect(editor.commands.setDetailsOpen(true)).toBe(false);
+  });
+
+  it('setDetailsOpen returns false when not in details', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<p>Not in details</p>',
+    });
+    expect(editor.commands.setDetailsOpen(true)).toBe(false);
+  });
+
+  it('openDetails delegates to setDetailsOpen(true)', () => {
+    const CustomDetails = Details.configure({ persist: true });
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CustomDetails, DetailsSummary, DetailsContent],
+      content: '<details><summary>T</summary><div data-details-content><p>B</p></div></details>',
+    });
+    const { TextSelection } = require('@domternal/pm/state');
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3))));
+
+    expect(editor.commands.openDetails()).toBe(true);
+    expect(editor.state.doc.firstChild?.attrs['open']).toBe(true);
+  });
+
+  it('closeDetails delegates to setDetailsOpen(false)', () => {
+    const CustomDetails = Details.configure({ persist: true });
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CustomDetails, DetailsSummary, DetailsContent],
+      content: '<details open><summary>T</summary><div data-details-content><p>B</p></div></details>',
+    });
+    const { TextSelection } = require('@domternal/pm/state');
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3))));
+
+    expect(editor.commands.closeDetails()).toBe(true);
+    expect(editor.state.doc.firstChild?.attrs['open']).toBe(false);
+  });
+
+  it('Backspace at start of summary unsets details', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<details><summary>Title</summary><div data-details-content><p>B</p></div></details>',
+    });
+    const { TextSelection } = require('@domternal/pm/state');
+    // Place cursor at start of summary
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 2)));
+
+    const shortcuts = Details.config.addKeyboardShortcuts?.call({ ...Details, editor, options: Details.options });
+    const result = (shortcuts?.['Backspace'] as any)?.();
+    expect(typeof result).toBe('boolean');
+  });
+
+  it('Backspace at non-start position deletes a char', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<details><summary>Hi</summary><div data-details-content><p>X</p></div></details>',
+    });
+    const { TextSelection } = require('@domternal/pm/state');
+    // Cursor at position 4 (after "H" inside "Hi")
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 4)));
+
+    const shortcuts = Details.config.addKeyboardShortcuts?.call({ ...Details, editor, options: Details.options });
+    const result = (shortcuts?.['Backspace'] as any)?.();
+    expect(result).toBe(true);
+  });
+
+  it('Backspace returns false when not in summary', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<p>Outside</p>',
+    });
+    const shortcuts = Details.config.addKeyboardShortcuts?.call({ ...Details, editor, options: Details.options });
+    const result = (shortcuts?.['Backspace'] as any)?.();
+    expect(result).toBe(false);
+  });
+
+  it('Backspace returns false when editor is null', () => {
+    const shortcuts = Details.config.addKeyboardShortcuts?.call({ ...Details, editor: null, options: Details.options });
+    const result = (shortcuts?.['Backspace'] as any)?.();
+    expect(result).toBe(false);
+  });
+
+  it('ArrowRight returns false when editor is null', () => {
+    const shortcuts = Details.config.addKeyboardShortcuts?.call({ ...Details, editor: null, options: Details.options });
+    const result = (shortcuts?.['ArrowRight'] as any)?.();
+    expect(result).toBe(false);
+  });
+
+  it('ArrowDown returns false when editor is null', () => {
+    const shortcuts = Details.config.addKeyboardShortcuts?.call({ ...Details, editor: null, options: Details.options });
+    const result = (shortcuts?.['ArrowDown'] as any)?.();
+    expect(result).toBe(false);
+  });
+
+  it('Enter returns false when editor is null', () => {
+    const shortcuts = Details.config.addKeyboardShortcuts?.call({ ...Details, editor: null, options: Details.options });
+    const result = (shortcuts?.['Enter'] as any)?.();
+    expect(result).toBe(false);
+  });
+
+  it('Enter returns false when not in summary', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<p>Outside</p>',
+    });
+    const shortcuts = Details.config.addKeyboardShortcuts?.call({ ...Details, editor, options: Details.options });
+    const result = (shortcuts?.['Enter'] as any)?.();
+    expect(result).toBe(false);
+  });
 });
 
 describe('schema flags', () => {

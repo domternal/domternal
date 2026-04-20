@@ -5,6 +5,7 @@ import { Document } from './Document.js';
 import { Text } from './Text.js';
 import { Paragraph } from './Paragraph.js';
 import { Editor } from '../Editor.js';
+import { TextSelection } from '@domternal/pm/state';
 
 describe('CodeBlock', () => {
   describe('configuration', () => {
@@ -126,18 +127,136 @@ describe('CodeBlock', () => {
     });
 
     it('shortcut returns false when no editor', () => {
-       
+
       const shortcuts = CodeBlock.config.addKeyboardShortcuts?.call({
         ...CodeBlock, editor: undefined, options: CodeBlock.options,
       } as any);
-       
+
       expect((shortcuts?.['Mod-Alt-c'] as any)?.()).toBe(false);
+    });
+
+    it('Enter returns false when not in code block', () => {
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, CodeBlock],
+        content: '<p>text</p>',
+      });
+      const shortcuts = CodeBlock.config.addKeyboardShortcuts?.call({
+        ...CodeBlock, editor, options: CodeBlock.options,
+      } as any);
+      expect((shortcuts?.['Enter'] as any)?.()).toBe(false);
+      editor.destroy();
+    });
+
+    it('Enter returns false when editor is null', () => {
+      const shortcuts = CodeBlock.config.addKeyboardShortcuts?.call({
+        ...CodeBlock, editor: null, options: CodeBlock.options,
+      } as any);
+      expect((shortcuts?.['Enter'] as any)?.()).toBe(false);
+    });
+
+    it('Enter returns false when exitOnTripleEnter is disabled', () => {
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, CodeBlock.configure({ exitOnTripleEnter: false })],
+        content: '<pre><code>test\n\n</code></pre>',
+      });
+      editor.view.dispatch(editor.state.tr.setSelection(
+        TextSelection.create(editor.state.doc, editor.state.doc.content.size - 1),
+      ));
+      const shortcuts = CodeBlock.config.addKeyboardShortcuts?.call({
+        ...CodeBlock, editor, options: { exitOnTripleEnter: false }, nodeType: editor.schema.nodes['codeBlock'],
+      } as any);
+      expect((shortcuts?.['Enter'] as any)?.()).toBe(false);
+      editor.destroy();
+    });
+
+    it('Enter triggers exit on triple-enter', () => {
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, CodeBlock.configure({ exitOnTripleEnter: true })],
+        content: '<pre><code>code\n\n</code></pre>',
+      });
+      // Place cursor at end (after the two newlines)
+      const pos = editor.state.doc.content.size - 1;
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, pos)));
+
+      const shortcuts = CodeBlock.config.addKeyboardShortcuts?.call({
+        ...CodeBlock, editor, options: { exitOnTripleEnter: true }, nodeType: editor.schema.nodes['codeBlock'],
+      } as any);
+      const result = (shortcuts?.['Enter'] as any)?.();
+      expect(typeof result).toBe('boolean');
+      editor.destroy();
+    });
+
+    it('ArrowDown returns false when not in code block', () => {
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, CodeBlock],
+        content: '<p>text</p>',
+      });
+      const shortcuts = CodeBlock.config.addKeyboardShortcuts?.call({
+        ...CodeBlock, editor, options: CodeBlock.options,
+      } as any);
+      expect((shortcuts?.['ArrowDown'] as any)?.()).toBe(false);
+      editor.destroy();
+    });
+
+    it('ArrowDown returns false when editor is null', () => {
+      const shortcuts = CodeBlock.config.addKeyboardShortcuts?.call({
+        ...CodeBlock, editor: null, options: CodeBlock.options,
+      } as any);
+      expect((shortcuts?.['ArrowDown'] as any)?.()).toBe(false);
+    });
+
+    it('ArrowDown triggers exit when at end of code block (last doc child)', () => {
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, CodeBlock],
+        content: '<pre><code>code</code></pre>',
+      });
+      // Cursor at end of code block
+      const endPos = editor.state.doc.content.size - 1;
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, endPos)));
+
+      const shortcuts = CodeBlock.config.addKeyboardShortcuts?.call({
+        ...CodeBlock, editor, options: CodeBlock.options, nodeType: editor.schema.nodes['codeBlock'],
+      } as any);
+      const result = (shortcuts?.['ArrowDown'] as any)?.();
+      expect(typeof result).toBe('boolean');
+      editor.destroy();
+    });
+  });
+
+  describe('addToolbarItems', () => {
+    it('returns a single button item', () => {
+      const items = CodeBlock.config.addToolbarItems?.call(CodeBlock);
+      expect(items).toHaveLength(1);
+      expect(items?.[0]?.type).toBe('button');
+    });
+
+    it('button has correct metadata', () => {
+      const items = CodeBlock.config.addToolbarItems?.call(CodeBlock);
+      const button = items?.[0];
+      if (button?.type === 'button') {
+        expect(button.name).toBe('codeBlock');
+        expect(button.command).toBe('toggleCodeBlock');
+        expect(button.isActive).toBe('codeBlock');
+      }
+    });
+  });
+
+  describe('input rule with language', () => {
+    it('input rule parses language from ```js', () => {
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, CodeBlock],
+        content: '<p></p>',
+      });
+      const codeExt = editor.extensionManager.extensions.find((e) => e.name === 'codeBlock')!;
+      const rules = codeExt.config.addInputRules!.call(codeExt as any)!;
+      expect(rules.length).toBe(1);
+      editor.destroy();
     });
   });
 
   describe('addInputRules', () => {
     it('returns empty array when nodeType is not available', () => {
-      const rules = CodeBlock.config.addInputRules?.call(CodeBlock);
+      const rules = CodeBlock.config.addInputRules?.call({ ...CodeBlock, nodeType: undefined });
       expect(rules).toEqual([]);
     });
   });

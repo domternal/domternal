@@ -526,9 +526,134 @@ describe('Mention', () => {
   // ─── Keyboard Shortcuts ────────────────────────────────────────────────
 
   describe('keyboard shortcuts', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
     it('defines Backspace shortcut', () => {
       const shortcuts = Mention.config.addKeyboardShortcuts?.call(Mention);
       expect(shortcuts).toHaveProperty('Backspace');
+    });
+
+    it('Backspace returns false when selection is not empty', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<p>Hello @<span data-type="mention" data-id="1" data-label="Alice">Alice</span></p>',
+      });
+      // Create a range selection
+      const tr = editor.state.tr;
+      tr.setSelection(TextSelection.create(tr.doc, 1, 5));
+      editor.view.dispatch(tr);
+
+      const shortcuts = Mention.config.addKeyboardShortcuts?.call({ ...Mention, editor, options: Mention.options });
+      const result = (shortcuts?.['Backspace'] as any)?.();
+      expect(result).toBe(false);
+    });
+
+    it('Backspace returns false when editor is null', () => {
+      const shortcuts = Mention.config.addKeyboardShortcuts?.call({ ...Mention, editor: null, options: Mention.options });
+      const result = (shortcuts?.['Backspace'] as any)?.();
+      expect(result).toBe(false);
+    });
+
+    it('Backspace returns false when node before is not a mention', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<p>Hello</p>',
+      });
+      // Cursor at end of "Hello"
+      const tr = editor.state.tr;
+      tr.setSelection(TextSelection.create(tr.doc, 6));
+      editor.view.dispatch(tr);
+
+      const shortcuts = Mention.config.addKeyboardShortcuts?.call({ ...Mention, editor, options: Mention.options });
+      const result = (shortcuts?.['Backspace'] as any)?.();
+      expect(result).toBe(false);
+    });
+
+    it('Backspace deletes mention node when cursor is right after it', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<p>Hi <span data-type="mention" data-id="1" data-label="Alice" data-mention-type="user">@Alice</span></p>',
+      });
+      // Place cursor at end (after mention)
+      const endPos = editor.state.doc.content.size - 1;
+      const tr = editor.state.tr;
+      tr.setSelection(TextSelection.create(tr.doc, endPos));
+      editor.view.dispatch(tr);
+
+      const shortcuts = Mention.config.addKeyboardShortcuts?.call({ ...Mention, editor, options: Mention.options, storage: editor.storage['mention'] });
+      const result = (shortcuts?.['Backspace'] as any)?.();
+
+      expect(result).toBe(true);
+      // Mention should be gone
+      let hasMention = false;
+      editor.state.doc.descendants((node) => {
+        if (node.type.name === 'mention') hasMention = true;
+      });
+      expect(hasMention).toBe(false);
+    });
+
+    it('Backspace with deleteTriggerWithBackspace deletes trigger char + mention', () => {
+      const CustomMention = Mention.configure({
+        deleteTriggerWithBackspace: true,
+        suggestion: { char: '@', name: 'user' },
+      });
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomMention],
+        content: '<p>Hi @<span data-type="mention" data-id="1" data-label="Alice" data-mention-type="user">@Alice</span></p>',
+      });
+
+      const endPos = editor.state.doc.content.size - 1;
+      const tr = editor.state.tr;
+      tr.setSelection(TextSelection.create(tr.doc, endPos));
+      editor.view.dispatch(tr);
+
+      const shortcuts = CustomMention.config.addKeyboardShortcuts?.call({
+        ...CustomMention,
+        editor,
+        options: CustomMention.options,
+        storage: editor.storage['mention'],
+      });
+      const result = (shortcuts?.['Backspace'] as any)?.();
+
+      expect(result).toBe(true);
+      // Both the mention AND the preceding "@" trigger should be gone
+      const text = editor.state.doc.textContent;
+      expect(text).toBe('Hi ');
+    });
+
+    it('Backspace with deleteTriggerWithBackspace skips trigger char removal when char does not match', () => {
+      const CustomMention = Mention.configure({
+        deleteTriggerWithBackspace: true,
+        suggestion: { char: '@', name: 'user' },
+      });
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomMention],
+        // No "@" before the mention — just spaces
+        content: '<p>Hi  <span data-type="mention" data-id="1" data-label="Alice" data-mention-type="user">@Alice</span></p>',
+      });
+
+      const endPos = editor.state.doc.content.size - 1;
+      const tr = editor.state.tr;
+      tr.setSelection(TextSelection.create(tr.doc, endPos));
+      editor.view.dispatch(tr);
+
+      const shortcuts = CustomMention.config.addKeyboardShortcuts?.call({
+        ...CustomMention,
+        editor,
+        options: CustomMention.options,
+        storage: editor.storage['mention'],
+      });
+      const result = (shortcuts?.['Backspace'] as any)?.();
+
+      expect(result).toBe(true);
+      // Mention removed, preceding text preserved (no trigger char to remove)
+      const text = editor.state.doc.textContent;
+      expect(text).not.toContain('@Alice');
+      expect(text).toContain('Hi');
     });
   });
 

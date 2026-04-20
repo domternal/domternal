@@ -243,6 +243,77 @@ describe('redistributeColumns', () => {
     }
   });
 
+  it('skips same cell across rowspan rows (branch: rowspan skip)', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<table><tr><td rowspan="2" data-colwidth="200"><p>Merged</p></td><td data-colwidth="200"><p>B</p></td></tr><tr><td data-colwidth="150"><p>C</p></td></tr></table>',
+    });
+    focusFirstCell(editor);
+
+    let captured: any;
+    addColumnAfter(editor.state, (tr) => { captured = tr; });
+    expect(captured).toBeDefined();
+
+    const info = getTableInfo(editor.state)!;
+    redistributeColumns(captured, info.tableStart, 600, 25);
+    editor.view.dispatch(captured);
+
+    // Should not throw, rowspan cell should still be present
+    const firstRow = editor.state.doc.firstChild!.firstChild!;
+    expect(firstRow.childCount).toBeGreaterThan(0);
+  });
+
+  it('handles colspan cells correctly (branch: colspan > 1)', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<table><tr><td colspan="2" data-colwidth="200,200"><p>Merged</p></td><td data-colwidth="200"><p>C</p></td></tr></table>',
+    });
+    focusFirstCell(editor);
+
+    let captured: any;
+    addColumnAfter(editor.state, (tr) => { captured = tr; });
+
+    const info = getTableInfo(editor.state)!;
+    redistributeColumns(captured, info.tableStart, 600, 25);
+    editor.view.dispatch(captured);
+
+    // No throw; table structure intact
+    const firstRow = editor.state.doc.firstChild!.firstChild!;
+    expect(firstRow.childCount).toBeGreaterThan(0);
+  });
+
+  it('skips cells that already have target width (branch: colwidth[index] === targetW)', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      // Column widths already 150 — targeting 600/4 columns = 150 each
+      content: '<table><tr><td data-colwidth="150"><p>A</p></td><td data-colwidth="150"><p>B</p></td><td data-colwidth="150"><p>C</p></td></tr></table>',
+    });
+    focusFirstCell(editor);
+
+    let captured: any;
+    addColumnAfter(editor.state, (tr) => { captured = tr; });
+
+    const info = getTableInfo(editor.state)!;
+    // 600/4 = 150, matches existing widths → setNodeMarkup skip branch
+    redistributeColumns(captured, info.tableStart, 600, 25);
+    editor.view.dispatch(captured);
+
+    // No throw
+    const firstRow = editor.state.doc.firstChild!.firstChild!;
+    expect(firstRow.childCount).toBe(4);
+  });
+
+  it('returns early when tableStartPos does not resolve to a table (branch: tableDepth === -1)', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<p>No table</p>',
+    });
+
+    const tr = editor.state.tr;
+    // Resolve a position in a non-table doc
+    expect(() => redistributeColumns(tr, 0, 600, 25)).not.toThrow();
+  });
+
   it('applies widths to all rows not just first', () => {
     editor = new Editor({
       extensions: allExtensions,

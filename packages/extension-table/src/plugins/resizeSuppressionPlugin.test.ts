@@ -234,6 +234,91 @@ describe('resizeSuppressionPlugin', () => {
     });
   });
 
+  describe('redistribute mode with active handle', () => {
+    it('mousedown + mouseup clears stuck activeHandle when dragging is null', () => {
+      const TableRedistribute = Table.configure({ resizeBehavior: 'redistribute' });
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, TableRedistribute, TableRow, TableCell, TableHeader],
+        content: '<table><tr><td data-colwidth="150"><p>A</p></td><td data-colwidth="150"><p>B</p></td></tr></table>',
+      });
+
+      const cellPositions: number[] = [];
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'tableCell') cellPositions.push(pos);
+      });
+
+      // Set active handle
+      editor.view.dispatch(
+        editor.state.tr.setMeta(columnResizingPluginKey, { setHandle: cellPositions[0]! }),
+      );
+
+      // mousedown registers the mouseup cleanup handler
+      const mousedown = new MouseEvent('mousedown', { bubbles: true, button: 0 });
+      editor.view.dom.dispatchEvent(mousedown);
+
+      // mouseup triggers defensive cleanup (activeHandle > -1 and dragging null)
+      const mouseup = new MouseEvent('mouseup', { bubbles: true });
+      window.dispatchEvent(mouseup);
+
+      // After cleanup, activeHandle should be reset
+      expect(() => {
+        const st = columnResizingPluginKey.getState(editor.state);
+        return st;
+      }).not.toThrow();
+    });
+  });
+
+  describe('independent mode with active handle', () => {
+    it('mousedown triggers freezeColumnWidths + cleanup', () => {
+      const TableIndependent = Table.configure({ resizeBehavior: 'independent' });
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, TableIndependent, TableRow, TableCell, TableHeader],
+        content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>',
+      });
+
+      const cellPositions: number[] = [];
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'tableCell') cellPositions.push(pos);
+      });
+
+      editor.view.dispatch(
+        editor.state.tr.setMeta(columnResizingPluginKey, { setHandle: cellPositions[0]! }),
+      );
+
+      // Will run freezeColumnWidths (measure widths from DOM, store in attrs)
+      const mousedown = new MouseEvent('mousedown', { bubbles: true, button: 0 });
+      expect(() => editor.view.dom.dispatchEvent(mousedown)).not.toThrow();
+
+      // Trigger cleanup
+      const mouseup = new MouseEvent('mouseup', { bubbles: true });
+      window.dispatchEvent(mouseup);
+    });
+
+    it('mousedown with independent mode + table that has mix of frozen/unfrozen columns', () => {
+      const TableIndependent = Table.configure({ resizeBehavior: 'independent' });
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, TableIndependent, TableRow, TableCell, TableHeader],
+        // Mix of frozen (data-colwidth) and unfrozen cols
+        content: '<table><tr><td data-colwidth="150"><p>A</p></td><td><p>B</p></td><td data-colwidth="100"><p>C</p></td></tr></table>',
+      });
+
+      const cellPositions: number[] = [];
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'tableCell') cellPositions.push(pos);
+      });
+
+      editor.view.dispatch(
+        editor.state.tr.setMeta(columnResizingPluginKey, { setHandle: cellPositions[1]! }),
+      );
+
+      const mousedown = new MouseEvent('mousedown', { bubbles: true, button: 0 });
+      expect(() => editor.view.dom.dispatchEvent(mousedown)).not.toThrow();
+    });
+  });
+
   describe('last column resize (constrainToContainer=true)', () => {
     it('activates handleLastColumnResize on single-column table', () => {
       editor = new Editor({

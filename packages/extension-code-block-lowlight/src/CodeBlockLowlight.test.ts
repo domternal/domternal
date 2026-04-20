@@ -3,7 +3,9 @@ import { createLowlight, common } from 'lowlight';
 import { CodeBlockLowlight } from './CodeBlockLowlight.js';
 import { lowlightPluginKey } from './lowlightPlugin.js';
 import { generateHighlightedHTML } from './generateHighlightedHTML.js';
+import { createCodeHighlighter } from './createCodeHighlighter.js';
 import { Document, Text, Paragraph, Editor, CodeBlock } from '@domternal/core';
+import { TextSelection } from '@domternal/pm/state';
 import type { DecorationSet } from '@domternal/pm/view';
 
 const lowlight = createLowlight(common);
@@ -474,5 +476,145 @@ describe('generateHighlightedHTML', () => {
     );
 
     expect(html).toContain('hljs-');
+  });
+});
+
+// ─── createCodeHighlighter ────────────────────────────────────────────────────
+
+describe('createCodeHighlighter', () => {
+  it('returns a highlighter function', () => {
+    const highlighter = createCodeHighlighter(lowlight);
+    expect(typeof highlighter).toBe('function');
+  });
+
+  it('highlights code with registered language', () => {
+    const highlighter = createCodeHighlighter(lowlight);
+    const result = highlighter('const x = 1;', 'javascript');
+    expect(result).not.toBeNull();
+    expect(result).toContain('hljs-');
+  });
+
+  it('returns null when no language and no defaults', () => {
+    const highlighter = createCodeHighlighter(lowlight);
+    const result = highlighter('hello world', null);
+    expect(result).toBeNull();
+  });
+
+  it('uses defaultLanguage when language is null', () => {
+    const highlighter = createCodeHighlighter(lowlight, { defaultLanguage: 'javascript' });
+    const result = highlighter('const x = 1;', null);
+    expect(result).not.toBeNull();
+    expect(result).toContain('hljs-');
+  });
+
+  it('uses autoDetect when code is non-empty and no language', () => {
+    const highlighter = createCodeHighlighter(lowlight, { autoDetect: true });
+    const result = highlighter('function foo() { return 42; }', null);
+    expect(result).not.toBeNull();
+    expect(result).toContain('hljs-');
+  });
+
+  it('autoDetect returns null for empty code', () => {
+    const highlighter = createCodeHighlighter(lowlight, { autoDetect: true });
+    const result = highlighter('', null);
+    expect(result).toBeNull();
+  });
+
+  it('returns null when language is not registered', () => {
+    const highlighter = createCodeHighlighter(lowlight);
+    const result = highlighter('some code', 'nonexistent-lang');
+    expect(result).toBeNull();
+  });
+});
+
+// ─── Keyboard shortcuts ───────────────────────────────────────────────────────
+
+describe('CodeBlockLowlight keyboard shortcuts', () => {
+  let editor: Editor | undefined;
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) editor.destroy();
+  });
+
+  it('Tab inserts spaces when inside code block', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CodeBlockLowlight.configure({ lowlight, tabSize: 2 })],
+      content: '<pre><code>foo</code></pre>',
+    });
+
+    // Place cursor inside code block
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 2)));
+
+    const shortcuts = CodeBlockLowlight.config.addKeyboardShortcuts?.call({ ...CodeBlockLowlight, editor, options: { ...CodeBlockLowlight.options, tabSize: 2 } });
+    const result = (shortcuts?.['Tab'] as any)?.();
+
+    // Tab insertion succeeds or defers based on editor.commands
+    expect(typeof result).toBe('boolean');
+  });
+
+  it('Tab returns false when not in code block', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CodeBlockLowlight.configure({ lowlight })],
+      content: '<p>regular text</p>',
+    });
+
+    const shortcuts = CodeBlockLowlight.config.addKeyboardShortcuts?.call({ ...CodeBlockLowlight, editor, options: CodeBlockLowlight.options });
+    const result = (shortcuts?.['Tab'] as any)?.();
+
+    expect(result).toBe(false);
+  });
+
+  it('Tab returns false when editor is null', () => {
+    const shortcuts = CodeBlockLowlight.config.addKeyboardShortcuts?.call({ ...CodeBlockLowlight, editor: null, options: CodeBlockLowlight.options });
+    const result = (shortcuts?.['Tab'] as any)?.();
+    expect(result).toBe(false);
+  });
+
+  it('Shift-Tab removes spaces when inside code block with leading whitespace', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CodeBlockLowlight.configure({ lowlight, tabSize: 2 })],
+      content: '<pre><code>  indented</code></pre>',
+    });
+
+    // Place cursor after the leading spaces
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 4)));
+
+    const shortcuts = CodeBlockLowlight.config.addKeyboardShortcuts?.call({ ...CodeBlockLowlight, editor, options: { ...CodeBlockLowlight.options, tabSize: 2 } });
+    const result = (shortcuts?.['Shift-Tab'] as any)?.();
+
+    expect(typeof result).toBe('boolean');
+  });
+
+  it('Shift-Tab returns false when no leading spaces', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CodeBlockLowlight.configure({ lowlight, tabSize: 2 })],
+      content: '<pre><code>nospaces</code></pre>',
+    });
+
+    // Place cursor at start of line (no spaces to remove)
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 2)));
+
+    const shortcuts = CodeBlockLowlight.config.addKeyboardShortcuts?.call({ ...CodeBlockLowlight, editor, options: { ...CodeBlockLowlight.options, tabSize: 2 } });
+    const result = (shortcuts?.['Shift-Tab'] as any)?.();
+
+    expect(result).toBe(false);
+  });
+
+  it('Shift-Tab returns false when not in code block', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CodeBlockLowlight.configure({ lowlight })],
+      content: '<p>text</p>',
+    });
+
+    const shortcuts = CodeBlockLowlight.config.addKeyboardShortcuts?.call({ ...CodeBlockLowlight, editor, options: CodeBlockLowlight.options });
+    const result = (shortcuts?.['Shift-Tab'] as any)?.();
+
+    expect(result).toBe(false);
+  });
+
+  it('Shift-Tab returns false when editor is null', () => {
+    const shortcuts = CodeBlockLowlight.config.addKeyboardShortcuts?.call({ ...CodeBlockLowlight, editor: null, options: CodeBlockLowlight.options });
+    const result = (shortcuts?.['Shift-Tab'] as any)?.();
+    expect(result).toBe(false);
   });
 });

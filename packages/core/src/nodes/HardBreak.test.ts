@@ -188,5 +188,73 @@ describe('HardBreak', () => {
       const html = editor.getHTML();
       expect(html).toContain('<br>');
     });
+
+    it('insertNbsp inserts a non-breaking space', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, HardBreak],
+        content: '<p>Hello</p>',
+      });
+      const result = editor.commands.insertNbsp();
+      expect(result).toBe(true);
+      expect(editor.state.doc.textContent).toContain('\u00A0');
+    });
+  });
+
+  describe('keyboard shortcuts', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    it('Mod-Enter inserts hard break', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, HardBreak],
+        content: '<p>Hi</p>',
+      });
+      const shortcuts = HardBreak.config.addKeyboardShortcuts?.call({ ...HardBreak, editor });
+      const result = (shortcuts?.['Mod-Enter'] as any)?.();
+      expect(result).toBe(true);
+    });
+
+    it('Shift-Enter inserts hard break', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, HardBreak],
+        content: '<p>Hi</p>',
+      });
+      const shortcuts = HardBreak.config.addKeyboardShortcuts?.call({ ...HardBreak, editor });
+      const result = (shortcuts?.['Shift-Enter'] as any)?.();
+      expect(result).toBe(true);
+    });
+
+    it('Mod-Shift-Space inserts nbsp', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, HardBreak],
+        content: '<p>Hi</p>',
+      });
+      const shortcuts = HardBreak.config.addKeyboardShortcuts?.call({ ...HardBreak, editor });
+      const result = (shortcuts?.['Mod-Shift-Space'] as any)?.();
+      expect(result).toBe(true);
+    });
+
+    it('returns false when editor is null', () => {
+      const shortcuts = HardBreak.config.addKeyboardShortcuts?.call({ ...HardBreak, editor: null });
+      expect((shortcuts?.['Mod-Enter'] as any)?.()).toBe(false);
+      expect((shortcuts?.['Shift-Enter'] as any)?.()).toBe(false);
+      expect((shortcuts?.['Mod-Shift-Space'] as any)?.()).toBe(false);
+    });
+  });
+
+  describe('addToolbarItems', () => {
+    it('provides a hard-break toolbar button', () => {
+      const items = HardBreak.config.addToolbarItems?.call(HardBreak);
+      expect(items).toHaveLength(1);
+      const button = items![0];
+      expect(button?.type).toBe('button');
+      if (button?.type === 'button') {
+        expect(button.name).toBe('hardBreak');
+        expect(button.command).toBe('setHardBreak');
+      }
+    });
   });
 });

@@ -5,6 +5,7 @@ import { emojis, allEmojis } from './emojis.js';
 import type { EmojiItem } from './emojis.js';
 import { emoticons } from './emoticons.js';
 import { Document, Text, Paragraph, Editor } from '@domternal/core';
+import { TextSelection } from '@domternal/pm/state';
 
 const allExtensions = [Document, Text, Paragraph, Emoji];
 
@@ -630,9 +631,257 @@ describe('commands', () => {
 });
 
 describe('input rules', () => {
+  let editor: Editor | undefined;
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) editor.destroy();
+  });
+
   it('defines addInputRules', () => {
     expect(Emoji.config.addInputRules).toBeDefined();
     expect(typeof Emoji.config.addInputRules).toBe('function');
+  });
+
+  it('shortcode rule converts :smile: to emoji node', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<p>:grinning:</p>', // provides enough content to cover positions
+    });
+
+    const rules = Emoji.config.addInputRules?.call({
+      ...Emoji,
+      options: Emoji.options,
+      storage: editor.storage['emoji'],
+      nodeType: editor.schema.nodes['emoji']!,
+    });
+
+    expect(rules).toBeDefined();
+    expect(rules!.length).toBeGreaterThan(0);
+
+    const rule = rules![0]!;
+    const state = editor.state;
+    const match = [':grinning:', 'grinning'] as RegExpMatchArray;
+    // positions 1 (start of ":") to 11 (end of ":") in "<p>:grinning:</p>"
+    const tr = (rule.handler as any)(state, match, 1, 11);
+    expect(tr).not.toBeNull();
+  });
+
+  it('shortcode rule returns null when cursor is inside codeBlock', async () => {
+    const { CodeBlock } = await import('@domternal/core');
+    editor = new Editor({
+      extensions: [...allExtensions, CodeBlock],
+      content: '<pre><code>hi</code></pre>',
+    });
+
+    // Place cursor inside code block
+    const tr = editor.state.tr;
+    const codeEnd = editor.state.doc.content.size - 1;
+    tr.setSelection(TextSelection.create(tr.doc, codeEnd));
+    editor.view.dispatch(tr);
+
+    const rules = Emoji.config.addInputRules?.call({
+      ...Emoji,
+      options: Emoji.options,
+      storage: editor.storage['emoji'],
+      nodeType: editor.schema.nodes['emoji']!,
+    });
+
+    const rule = rules![0]!;
+    const match = [':grinning:', 'grinning'] as RegExpMatchArray;
+    const result = (rule.handler as any)(editor.state, match, 1, 11);
+    expect(result).toBeNull();
+  });
+
+  it('shortcode rule returns null when shortcode not found', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<p></p>',
+    });
+
+    const rules = Emoji.config.addInputRules?.call({
+      ...Emoji,
+      options: Emoji.options,
+      storage: editor.storage['emoji'],
+      nodeType: editor.schema.nodes['emoji']!,
+    });
+
+    const rule = rules![0]!;
+    const match = [':notarealemoji:', 'notarealemoji'] as RegExpMatchArray;
+    const result = (rule.handler as any)(editor.state, match, 1, 15);
+    expect(result).toBeNull();
+  });
+
+  it('shortcode rule uses plainText mode when configured', () => {
+    const CustomEmoji = Emoji.configure({ plainText: true });
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CustomEmoji],
+      content: '<p>:grinning:</p>',
+    });
+
+    const rules = CustomEmoji.config.addInputRules?.call({
+      ...CustomEmoji,
+      options: CustomEmoji.options,
+      storage: editor.storage['emoji'],
+      nodeType: null,
+    });
+
+    const rule = rules![0]!;
+    const match = [':grinning:', 'grinning'] as RegExpMatchArray;
+    const result = (rule.handler as any)(editor.state, match, 1, 11);
+    // Plain text: inserts emoji character directly
+    expect(result).not.toBeNull();
+  });
+
+  it('shortcode rule returns null when neither plainText nor nodeType', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<p></p>',
+    });
+
+    const rules = Emoji.config.addInputRules?.call({
+      ...Emoji,
+      options: Emoji.options,
+      storage: editor.storage['emoji'],
+      nodeType: null, // no nodeType, plainText false → returns null
+    });
+
+    const rule = rules![0]!;
+    const match = [':grinning:', 'grinning'] as RegExpMatchArray;
+    const result = (rule.handler as any)(editor.state, match, 1, 11);
+    expect(result).toBeNull();
+  });
+
+  it('emoticon rules enabled when enableEmoticons=true', () => {
+    const CustomEmoji = Emoji.configure({ enableEmoticons: true });
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CustomEmoji],
+      content: '<p></p>',
+    });
+
+    const rules = CustomEmoji.config.addInputRules?.call({
+      ...CustomEmoji,
+      options: CustomEmoji.options,
+      storage: editor.storage['emoji'],
+      nodeType: editor.schema.nodes['emoji']!,
+    });
+
+    // Should have shortcode rule + emoticon rules
+    expect(rules!.length).toBeGreaterThan(1);
+  });
+
+  it('emoticon rule converts :) to emoji node', () => {
+    const CustomEmoji = Emoji.configure({ enableEmoticons: true });
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CustomEmoji],
+      content: '<p>Hi :) </p>',
+    });
+
+    const rules = CustomEmoji.config.addInputRules?.call({
+      ...CustomEmoji,
+      options: CustomEmoji.options,
+      storage: editor.storage['emoji'],
+      nodeType: editor.schema.nodes['emoji']!,
+    });
+
+    // Find the :) rule
+    const smileRule = rules!.find((r) => r.match.source.includes(':\\)'));
+    expect(smileRule).toBeDefined();
+
+    const match = [' :) ', ':)'] as any;
+    match.index = 2;
+    // start param is where the match begins (position of space before :) in "Hi :) ")
+    const result = (smileRule!.handler as any)(editor.state, match, 3, 7);
+    expect(result).not.toBeNull();
+  });
+
+  it('emoticon rule returns null inside code', async () => {
+    const { CodeBlock } = await import('@domternal/core');
+    const CustomEmoji = Emoji.configure({ enableEmoticons: true });
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CodeBlock, CustomEmoji],
+      content: '<pre><code>:) </code></pre>',
+    });
+
+    // Cursor inside code block
+    const tr = editor.state.tr;
+    const pos = editor.state.doc.content.size - 1;
+    tr.setSelection(TextSelection.create(tr.doc, pos));
+    editor.view.dispatch(tr);
+
+    const rules = CustomEmoji.config.addInputRules?.call({
+      ...CustomEmoji,
+      options: CustomEmoji.options,
+      storage: editor.storage['emoji'],
+      nodeType: editor.schema.nodes['emoji']!,
+    });
+
+    const smileRule = rules!.find((r) => r.match.source.includes(':\\)'));
+    const match = [':) ', ':)'] as any;
+    match.index = 0;
+    const result = (smileRule!.handler as any)(editor.state, match, 1, 4);
+    expect(result).toBeNull();
+  });
+
+  it('emoticon rule plainText mode inserts emoji text', () => {
+    const CustomEmoji = Emoji.configure({ enableEmoticons: true, plainText: true });
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, CustomEmoji],
+      content: '<p>Hi :) </p>',
+    });
+
+    const rules = CustomEmoji.config.addInputRules?.call({
+      ...CustomEmoji,
+      options: CustomEmoji.options,
+      storage: editor.storage['emoji'],
+      nodeType: null,
+    });
+
+    const smileRule = rules!.find((r) => r.match.source.includes(':\\)'));
+    const match = [' :) ', ':)'] as any;
+    match.index = 2;
+    const result = (smileRule!.handler as any)(editor.state, match, 3, 7);
+    expect(result).not.toBeNull();
+  });
+});
+
+describe('default storage stubs (addStorage)', () => {
+  it('default getFrequentlyUsed returns empty array before onCreate', () => {
+    const storage = Emoji.config.addStorage?.call(Emoji) as any;
+    expect(storage.getFrequentlyUsed()).toEqual([]);
+  });
+
+  it('default addFrequentlyUsed returns undefined before onCreate', () => {
+    const storage = Emoji.config.addStorage?.call(Emoji) as any;
+    expect(storage.addFrequentlyUsed('test')).toBeUndefined();
+  });
+
+  it('default findEmoji returns undefined before onCreate', () => {
+    const storage = Emoji.config.addStorage?.call(Emoji) as any;
+    expect(storage.findEmoji('test')).toBeUndefined();
+  });
+
+  it('default searchEmoji returns empty array before onCreate', () => {
+    const storage = Emoji.config.addStorage?.call(Emoji) as any;
+    expect(storage.searchEmoji('test')).toEqual([]);
+  });
+});
+
+describe('insertEmoji dry-run', () => {
+  let editor: Editor | undefined;
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) editor.destroy();
+  });
+
+  it('can().insertEmoji() returns true for unknown name (dry-run path)', () => {
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<p></p>',
+    });
+
+    // editor.can() dry-runs the command (no dispatch)
+    // Unknown name + no dispatch → hits the dry-run return true branch
+    expect(editor.can().insertEmoji('nonexistent_emoji_name')).toBe(true);
   });
 });
 

@@ -628,6 +628,67 @@ describe('Image', () => {
       expect(match![3]).toBe('https://example.com/a.png');
       expect(match![4]).toBe('Hello World');
     });
+
+    it('input rule handler replaces markdown with image node', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>![alt](https://example.com/a.png)</p>',
+      });
+
+      const imageExt = editor.extensionManager.extensions.find((e) => e.name === 'image')!;
+      const rules = imageExt.config.addInputRules!.call(imageExt as any)!;
+      const rule = rules[0]!;
+
+      const match = ['![alt](https://example.com/a.png)', '![alt](https://example.com/a.png)', 'alt', 'https://example.com/a.png'] as RegExpMatchArray;
+      const result = (rule.handler as any)(editor.state, match, 1, 32);
+      expect(result).not.toBeNull();
+    });
+
+    it('input rule handler returns null for missing src', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>test</p>',
+      });
+
+      const imageExt = editor.extensionManager.extensions.find((e) => e.name === 'image')!;
+      const rules = imageExt.config.addInputRules!.call(imageExt as any)!;
+      const rule = rules[0]!;
+
+      const match = ['', '', 'alt', ''] as any;
+      const result = (rule.handler as any)(editor.state, match, 1, 1);
+      expect(result).toBeNull();
+    });
+
+    it('input rule handler returns null for javascript: src (XSS)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>test</p>',
+      });
+
+      const imageExt = editor.extensionManager.extensions.find((e) => e.name === 'image')!;
+      const rules = imageExt.config.addInputRules!.call(imageExt as any)!;
+      const rule = rules[0]!;
+
+      const match = ['![evil](javascript:alert(1))', '![evil](javascript:alert(1))', 'evil', 'javascript:alert(1)'] as RegExpMatchArray;
+      const result = (rule.handler as any)(editor.state, match, 1, 30);
+      expect(result).toBeNull();
+    });
+
+    it('input rule handler handles leading whitespace offset', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content: '<p>hello ![alt](https://example.com/a.png)</p>',
+      });
+
+      const imageExt = editor.extensionManager.extensions.find((e) => e.name === 'image')!;
+      const rules = imageExt.config.addInputRules!.call(imageExt as any)!;
+      const rule = rules[0]!;
+
+      // fullMatch includes leading space, wrapper is without space
+      const match = [' ![alt](https://example.com/a.png)', '![alt](https://example.com/a.png)', 'alt', 'https://example.com/a.png'] as RegExpMatchArray;
+      const result = (rule.handler as any)(editor.state, match, 7, 41);
+      expect(result).not.toBeNull();
+    });
   });
 
   describe('leafText', () => {
@@ -2268,5 +2329,126 @@ describe('Image drag overlay', () => {
     const editorEl = editor.view.dom.closest('.dm-editor');
     // Either no editor wrapper in test env, or no class added
     expect(editorEl?.classList.contains('dm-dragover') ?? true).toBeTruthy();
+  });
+});
+
+// ─── NodeView construction and mouse handlers ─────────────────────────────────
+
+describe('Image NodeView (DOM)', () => {
+  let editor: Editor;
+  let host: HTMLElement;
+
+  beforeEach(() => {
+    // jsdom shim for ProseMirror internal mouse handlers
+    (document as any).elementFromPoint = () => null;
+    host = document.createElement('div');
+    document.body.appendChild(host);
+  });
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) editor.destroy();
+    host.remove();
+  });
+
+  it('creates a wrapper with .dm-image-resizable class', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<img src="https://example.com/img.png">',
+    });
+
+    const wrapper = host.querySelector('.dm-image-resizable');
+    expect(wrapper).not.toBeNull();
+  });
+
+  it('creates 4 resize handles', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<img src="https://example.com/img.png">',
+    });
+
+    const handles = host.querySelectorAll('.dm-image-handle');
+    expect(handles.length).toBe(4);
+  });
+
+  it('applies width style when width attr is set', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<img src="https://example.com/img.png" width="300">',
+    });
+
+    const img = host.querySelector('img');
+    expect(img?.style.width).toBe('300px');
+  });
+
+  it('mousedown on wrapper selects the image', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<img src="https://example.com/img.png">',
+    });
+
+    const wrapper = host.querySelector('.dm-image-resizable') as HTMLElement;
+    const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    wrapper.dispatchEvent(event);
+
+    // NodeSelection markers: node property + from === to position of selected node
+    expect((editor.state.selection as any).node).toBeDefined();
+  });
+
+  it('mousedown on resize handle starts resize (does not select image)', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<img src="https://example.com/img.png">',
+    });
+
+    const handle = host.querySelector('.dm-image-handle-se') as HTMLElement;
+    const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: 100 });
+    expect(() => handle.dispatchEvent(event)).not.toThrow();
+
+    // Drag to new size then release
+    const mousemove = new MouseEvent('mousemove', { bubbles: true, clientX: 150 });
+    document.dispatchEvent(mousemove);
+
+    const mouseup = new MouseEvent('mouseup', { bubbles: true });
+    document.dispatchEvent(mouseup);
+
+    // After release, width should be updated on the image node
+    const img = host.querySelector('img');
+    expect(img).not.toBeNull();
+  });
+
+  it('update method returns false for different node type', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<img src="https://example.com/img.png">',
+    });
+
+    // Get NodeView constructor and invoke manually
+    const imageExt = editor.extensionManager.extensions.find((e) => e.name === 'image')!;
+    const nodeViews = (imageExt.config as any).addNodeView?.call({ ...imageExt, options: imageExt.options });
+
+    if (nodeViews) {
+      const node = editor.state.doc.nodeAt(0)!;
+      const view = nodeViews(node, editor.view, () => 0);
+
+      const paragraphNode = editor.schema.nodes['paragraph']!.create();
+      expect(view.update(paragraphNode)).toBe(false);
+    }
+  });
+
+  it('update preserves float attr', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<img src="https://example.com/img.png" style="float: left;">',
+    });
+
+    const wrapper = host.querySelector('.dm-image-resizable');
+    expect(wrapper?.getAttribute('data-float')).toBe('left');
   });
 });

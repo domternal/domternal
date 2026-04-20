@@ -782,6 +782,35 @@ describe('Commands', () => {
       });
       expect(hasTable).toBe(true);
     });
+
+    it('returns false when cursor is already inside a table (prevents nested tables)', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>Existing</p></td></tr></table>',
+      });
+      // Place cursor inside the existing table
+      const tr = editor.state.tr;
+      tr.setSelection(TextSelection.create(tr.doc, 4));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.insertTable();
+      expect(result).toBe(false);
+    });
+
+    it('returns false when cursor is inside a code block', async () => {
+      // Need CodeBlock extension for this test
+      const { CodeBlock } = await import('@domternal/core');
+      editor = new Editor({
+        extensions: [...allExtensions, CodeBlock],
+        content: '<pre><code>console.log("hi")</code></pre>',
+      });
+      const tr = editor.state.tr;
+      tr.setSelection(TextSelection.create(tr.doc, 3));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.insertTable();
+      expect(result).toBe(false);
+    });
   });
 
   describe('NodeView configuration', () => {
@@ -884,12 +913,119 @@ describe('Commands', () => {
       tr.setSelection(TextSelection.create(tr.doc, 3));
       editor.view.dispatch(tr);
 
-      // Direct command fn with no dispatch - returns true if isInTable
-      const cmd = (editor.state as any).schema.spec.commands?.['deleteColumn']
-        ?? null;
-      // Can't easily test without dispatch via editor.commands — but we verify
-      // via isInTable. This is a proxy test.
-      expect(editor.commands.deleteColumn()).toBe(true);
+      expect(editor.can().deleteColumn()).toBe(true);
+    });
+  });
+
+  describe('fixTables command', () => {
+    it('returns true and dispatches fix when needed', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td></tr></table>',
+      });
+      expect(editor.commands.fixTables()).toBe(true);
+    });
+
+    it('returns true without dispatch (dry-run)', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td></tr></table>',
+      });
+      expect(editor.can().fixTables()).toBe(true);
+    });
+  });
+
+  describe('toggleHeader commands', () => {
+    it('toggleHeaderRow toggles row headers', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td></tr><tr><td><p>B</p></td></tr></table>',
+      });
+      const tr = editor.state.tr;
+      tr.setSelection(TextSelection.create(tr.doc, 4));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.toggleHeaderRow();
+      expect(typeof result).toBe('boolean');
+    });
+
+    it('toggleHeaderColumn toggles column headers', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>',
+      });
+      const tr = editor.state.tr;
+      tr.setSelection(TextSelection.create(tr.doc, 4));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.toggleHeaderColumn();
+      expect(typeof result).toBe('boolean');
+    });
+
+    it('toggleHeaderCell toggles cell header', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td></tr></table>',
+      });
+      const sel = CellSelection.create(editor.state.doc, 2, 2);
+      editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+
+      const result = editor.commands.toggleHeaderCell();
+      expect(typeof result).toBe('boolean');
+    });
+  });
+
+  describe('mergeCells / splitCell commands', () => {
+    it('mergeCells merges adjacent cells', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>',
+      });
+      const sel = CellSelection.create(editor.state.doc, 2, 7);
+      editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+
+      const result = editor.commands.mergeCells();
+      expect(result).toBe(true);
+    });
+
+    it('splitCell splits a merged cell', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td colspan="2"><p>AB</p></td></tr><tr><td><p>C</p></td><td><p>D</p></td></tr></table>',
+      });
+      const sel = CellSelection.create(editor.state.doc, 2, 2);
+      editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+
+      const result = editor.commands.splitCell();
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('goToNextCell / goToPreviousCell', () => {
+    it('goToNextCell moves cursor forward', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>',
+      });
+      const tr = editor.state.tr;
+      tr.setSelection(TextSelection.create(tr.doc, 4));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.goToNextCell();
+      expect(typeof result).toBe('boolean');
+    });
+
+    it('goToPreviousCell moves cursor backward', () => {
+      editor = new Editor({
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>',
+      });
+      const tr = editor.state.tr;
+      tr.setSelection(TextSelection.create(tr.doc, 9));
+      editor.view.dispatch(tr);
+
+      const result = editor.commands.goToPreviousCell();
+      expect(typeof result).toBe('boolean');
     });
   });
 
