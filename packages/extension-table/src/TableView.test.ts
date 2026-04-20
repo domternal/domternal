@@ -1520,15 +1520,16 @@ describe('TableView', () => {
 
       // @ts-expect-error - private field
       const triggerBtn = view.colorBtn!;
-      // Mock getBoundingClientRect for the button
+      // Mock getBoundingClientRect — btnRect.left > innerWidth forces leftPos > innerWidth,
+      // so leftPos + dropdownWidth > innerWidth branch fires.
       triggerBtn.getBoundingClientRect = () => ({
-        left: 80,
-        right: 100,
+        left: 200,
+        right: 220,
         top: 0,
         bottom: 20,
         width: 20,
         height: 20,
-        x: 80,
+        x: 200,
         y: 0,
         toJSON: () => ({}),
       });
@@ -1538,10 +1539,107 @@ describe('TableView', () => {
 
       const dropdown = document.querySelector('.dm-table-cell-dropdown') as HTMLElement;
       expect(dropdown).not.toBeNull();
-      // Dropdown left should be clamped (not go off screen)
+      // leftPos got shifted left - should be <= innerWidth
+      const leftStyle = parseFloat(dropdown.style.left);
+      expect(leftStyle).toBeLessThanOrEqual(100);
 
       // Restore
       Object.defineProperty(window, 'innerWidth', { value: origWidth, configurable: true });
+    });
+  });
+
+  describe('toolbar button mousedown prevents default', () => {
+    it('merge button mousedown preventsDefault', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td></tr></table>',
+      });
+      const view = getTableView(editor)!;
+
+      // Toolbar buttons have mousedown handler to prevent editor blur
+      const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+      // @ts-expect-error - private field
+      view.mergeBtn!.dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(true);
+    });
+
+    it('color button mousedown preventsDefault', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td></tr></table>',
+      });
+      const view = getTableView(editor)!;
+
+      const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+      // @ts-expect-error - private field
+      view.colorBtn!.dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(true);
+    });
+  });
+
+  describe('ignoreMutation with real MutationRecord', () => {
+    it('returns true for childList mutation outside contentDOM', async () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td></tr></table>',
+      });
+      const view = getTableView(editor)!;
+
+      // Create real MutationObserver to get real MutationRecord
+      const records = await new Promise<MutationRecord[]>((resolve) => {
+        const observer = new MutationObserver((recs) => {
+          observer.disconnect();
+          resolve(recs);
+        });
+        observer.observe(view.dom, { childList: true, subtree: true });
+        // Add a child to colHandle (outside contentDOM)
+        // @ts-expect-error - private field
+        view.colHandle.appendChild(document.createElement('span'));
+      });
+
+      expect(records.length).toBeGreaterThan(0);
+      expect(view.ignoreMutation(records[0]!)).toBe(true);
+    });
+  });
+
+  describe('cell toolbar button click listeners', () => {
+    it('colorBtn click opens color dropdown', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td></tr></table>',
+      });
+      const view = getTableView(editor)!;
+      const sel = CellSelection.create(editor.state.doc, 2, 2);
+      editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+
+      // @ts-expect-error - private field
+      view.colorBtn!.click();
+
+      const dropdown = document.querySelector('.dm-table-cell-dropdown');
+      expect(dropdown?.getAttribute('aria-label')).toBe('Cell background color');
+    });
+
+    it('alignBtn click opens alignment dropdown', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td></tr></table>',
+      });
+      const view = getTableView(editor)!;
+      const sel = CellSelection.create(editor.state.doc, 2, 2);
+      editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+
+      // @ts-expect-error - private field
+      view.alignBtn!.click();
+
+      const dropdown = document.querySelector('.dm-table-cell-align-dropdown');
+      expect(dropdown?.getAttribute('aria-label')).toBe('Cell alignment');
     });
   });
 

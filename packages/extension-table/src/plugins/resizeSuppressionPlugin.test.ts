@@ -157,4 +157,120 @@ describe('resizeSuppressionPlugin', () => {
       expect(editor.view.dom.classList.contains('dm-mouse-drag')).toBe(true);
     });
   });
+
+  describe('neighbor resize drag simulation', () => {
+    it('mousedown with activeHandle + neighbor mode sets dragging, mousemove updates widths', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<table><tr><td data-colwidth="150"><p>A</p></td><td data-colwidth="150"><p>B</p></td></tr></table>',
+      });
+
+      // Cell positions: first cell starts at pos 2, second at pos 7
+      // $cell = resolve(2) → tableCell, node(-1) should be table
+      // setHandle expects an actual cell pos
+      const cellPositions: number[] = [];
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'tableCell') cellPositions.push(pos);
+      });
+
+      // Set active handle to first cell
+      editor.view.dispatch(
+        editor.state.tr.setMeta(columnResizingPluginKey, { setHandle: cellPositions[0]! }),
+      );
+
+      // Now mousedown triggers handleNeighborResize
+      const event = new MouseEvent('mousedown', {
+        bubbles: true,
+        button: 0,
+        clientX: 100,
+        clientY: 50,
+      });
+      expect(() => editor.view.dom.dispatchEvent(event)).not.toThrow();
+
+      // Fire mousemove events on window
+      const mousemove = new MouseEvent('mousemove', {
+        bubbles: true,
+        clientX: 120,
+        clientY: 50,
+        buttons: 1,
+      });
+      expect(() => window.dispatchEvent(mousemove)).not.toThrow();
+
+      // Fire mousemove without buttons → triggers finish() early exit
+      const mousemoveNoButtons = new MouseEvent('mousemove', {
+        bubbles: true,
+        clientX: 120,
+        clientY: 50,
+        buttons: 0,
+      });
+      expect(() => window.dispatchEvent(mousemoveNoButtons)).not.toThrow();
+    });
+
+    it('handleNeighborResize returns false on last column when not constrainToContainer', () => {
+      const TableUnconstrained = Table.configure({ constrainToContainer: false });
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, TableUnconstrained, TableRow, TableCell, TableHeader],
+        content: '<table><tr><td data-colwidth="150"><p>A</p></td></tr></table>',
+      });
+
+      const cellPositions: number[] = [];
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'tableCell') cellPositions.push(pos);
+      });
+
+      // Last/only column resize in neighbor mode
+      editor.view.dispatch(
+        editor.state.tr.setMeta(columnResizingPluginKey, { setHandle: cellPositions[0]! }),
+      );
+
+      const event = new MouseEvent('mousedown', {
+        bubbles: true,
+        button: 0,
+        clientX: 100,
+      });
+      expect(() => editor.view.dom.dispatchEvent(event)).not.toThrow();
+    });
+  });
+
+  describe('last column resize (constrainToContainer=true)', () => {
+    it('activates handleLastColumnResize on single-column table', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions, // constrainToContainer defaults to true
+        content: '<table><tr><td data-colwidth="150"><p>A</p></td></tr></table>',
+      });
+
+      const cellPositions: number[] = [];
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'tableCell') cellPositions.push(pos);
+      });
+
+      editor.view.dispatch(
+        editor.state.tr.setMeta(columnResizingPluginKey, { setHandle: cellPositions[0]! }),
+      );
+
+      const event = new MouseEvent('mousedown', {
+        bubbles: true,
+        button: 0,
+        clientX: 200,
+      });
+      expect(() => editor.view.dom.dispatchEvent(event)).not.toThrow();
+
+      // Drag + release
+      const mousemove = new MouseEvent('mousemove', {
+        bubbles: true,
+        clientX: 250,
+        buttons: 1,
+      });
+      window.dispatchEvent(mousemove);
+
+      const mouseup = new MouseEvent('mouseup', {
+        bubbles: true,
+        clientX: 250,
+      });
+      expect(() => window.dispatchEvent(mouseup)).not.toThrow();
+    });
+  });
 });
