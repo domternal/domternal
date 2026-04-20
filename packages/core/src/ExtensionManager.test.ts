@@ -674,9 +674,9 @@ describe('ExtensionManager', () => {
         name: 'para2',
         group: 'block',
         content: 'inline*',
-        toDOM: () => ['p', { style: 'color: red' }, 0] as any,
-        parseDOM: [{ tag: 'p' }],
-      });
+        renderHTML: () => ['p', { style: 'color: red' }, 0] as any,
+        parseHTML: () => [{ tag: 'p' }],
+      } as any);
       const AttrExt = Extension.create({
         name: 'styler',
         addGlobalAttributes() {

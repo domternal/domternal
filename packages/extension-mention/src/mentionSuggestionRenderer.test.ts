@@ -33,8 +33,8 @@ describe('createMentionSuggestionRenderer', () => {
 
   afterEach(() => {
     host.remove();
-    document.querySelectorAll('.dm-mention-suggestion').forEach((el) => el.remove());
-    document.querySelectorAll('.dm-editor').forEach((el) => el.remove());
+    document.querySelectorAll('.dm-mention-suggestion').forEach((el) => { el.remove(); });
+    document.querySelectorAll('.dm-editor').forEach((el) => { el.remove(); });
   });
 
   it('returns a factory function', () => {
@@ -102,7 +102,7 @@ describe('createMentionSuggestionRenderer', () => {
     it('limits items to MAX_ITEMS (8)', () => {
       const manyItems: MentionItem[] = Array.from({ length: 15 }, (_, i) => ({
         id: String(i),
-        label: `User ${i}`,
+        label: `User ${String(i)}`,
       }));
       const renderer = createMentionSuggestionRenderer()();
       renderer.onStart(makeProps({ items: manyItems }));
@@ -202,7 +202,7 @@ describe('createMentionSuggestionRenderer', () => {
       const renderer = createMentionSuggestionRenderer()();
       renderer.onStart(makeProps());
       renderer.onExit();
-      expect(() => renderer.onExit()).not.toThrow();
+      expect(() => { renderer.onExit(); }).not.toThrow();
     });
   });
 
@@ -321,7 +321,7 @@ describe('createMentionSuggestionRenderer', () => {
       const renderer = createMentionSuggestionRenderer()();
       renderer.onStart(makeProps());
 
-      const item = document.querySelector('.dm-mention-suggestion-item') as HTMLButtonElement;
+      const item = document.querySelector('.dm-mention-suggestion-item')!;
       const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
       item.dispatchEvent(event);
 
@@ -366,7 +366,7 @@ describe('createMentionSuggestionRenderer', () => {
       const props = makeProps();
       (props as any).clientRect = () => null;
 
-      expect(() => renderer.onStart(props)).not.toThrow();
+      expect(() => { renderer.onStart(props); }).not.toThrow();
       renderer.onExit();
     });
 

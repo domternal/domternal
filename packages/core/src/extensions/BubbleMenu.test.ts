@@ -646,11 +646,10 @@ describe('BubbleMenu', () => {
     let host: HTMLElement;
 
     beforeEach(() => {
-      if (!Element.prototype.getClientRects) {
-        Element.prototype.getClientRects = function () {
-          return [] as unknown as DOMRectList;
-        };
-      }
+      // Shims for jsdom (floating-ui + ProseMirror)
+      Element.prototype.getClientRects = function () {
+        return [] as unknown as DOMRectList;
+      };
       (document as any).elementFromPoint = () => null;
       host = document.createElement('div');
       host.className = 'dm-editor';
@@ -845,7 +844,7 @@ describe('BubbleMenu', () => {
       expect(editor).toBeDefined();
     });
 
-    it('updateDelay > 0 schedules setTimeout then cleared on destroy', async () => {
+    it('updateDelay > 0 schedules setTimeout then cleared on destroy', () => {
       const element = document.createElement('div');
       editor = new Editor({
         element: host,

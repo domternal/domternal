@@ -9,7 +9,7 @@ import { TableHeader } from '../TableHeader.js';
 const allExtensions = [Document, Text, Paragraph, Table, TableRow, TableCell, TableHeader];
 
 describe('resizeSuppressionPlugin', () => {
-  let editor: Editor;
+  let editor: Editor | undefined;
   let host: HTMLElement;
 
   beforeEach(() => {
@@ -82,7 +82,7 @@ describe('resizeSuppressionPlugin', () => {
 
       // Normal mousedown with no resize in progress
       const event = new MouseEvent('mousedown', { bubbles: true, button: 0 });
-      expect(() => editor.view.dom.dispatchEvent(event)).not.toThrow();
+      expect(() => editor!.view.dom.dispatchEvent(event)).not.toThrow();
     });
   });
 
@@ -96,7 +96,7 @@ describe('resizeSuppressionPlugin', () => {
 
       const event = new MouseEvent('mousemove', { bubbles: true, buttons: 0 });
       // Should not throw
-      expect(() => editor.view.dom.dispatchEvent(event)).not.toThrow();
+      expect(() => editor!.view.dom.dispatchEvent(event)).not.toThrow();
     });
 
     it('processes mousemove when button is pressed', () => {
@@ -107,7 +107,7 @@ describe('resizeSuppressionPlugin', () => {
       });
 
       const event = new MouseEvent('mousemove', { bubbles: true, buttons: 1 });
-      expect(() => editor.view.dom.dispatchEvent(event)).not.toThrow();
+      expect(() => editor!.view.dom.dispatchEvent(event)).not.toThrow();
     });
 
     it('allows columnResizing during active resize drag (dragging state)', () => {
@@ -126,7 +126,7 @@ describe('resizeSuppressionPlugin', () => {
 
       // mousemove during drag - should return false (allow columnResizing)
       const event = new MouseEvent('mousemove', { bubbles: true, buttons: 1 });
-      expect(() => editor.view.dom.dispatchEvent(event)).not.toThrow();
+      expect(() => editor!.view.dom.dispatchEvent(event)).not.toThrow();
     });
   });
 
@@ -140,7 +140,7 @@ describe('resizeSuppressionPlugin', () => {
       });
 
       const event = new MouseEvent('mousedown', { bubbles: true, button: 0 });
-      expect(() => editor.view.dom.dispatchEvent(event)).not.toThrow();
+      expect(() => editor!.view.dom.dispatchEvent(event)).not.toThrow();
       expect(editor.view.dom.classList.contains('dm-mouse-drag')).toBe(true);
     });
 
@@ -153,7 +153,7 @@ describe('resizeSuppressionPlugin', () => {
       });
 
       const event = new MouseEvent('mousedown', { bubbles: true, button: 0 });
-      expect(() => editor.view.dom.dispatchEvent(event)).not.toThrow();
+      expect(() => editor!.view.dom.dispatchEvent(event)).not.toThrow();
       expect(editor.view.dom.classList.contains('dm-mouse-drag')).toBe(true);
     });
   });
@@ -186,7 +186,7 @@ describe('resizeSuppressionPlugin', () => {
         clientX: 100,
         clientY: 50,
       });
-      expect(() => editor.view.dom.dispatchEvent(event)).not.toThrow();
+      expect(() => editor!.view.dom.dispatchEvent(event)).not.toThrow();
 
       // Fire mousemove events on window
       const mousemove = new MouseEvent('mousemove', {
@@ -230,7 +230,7 @@ describe('resizeSuppressionPlugin', () => {
         button: 0,
         clientX: 100,
       });
-      expect(() => editor.view.dom.dispatchEvent(event)).not.toThrow();
+      expect(() => editor!.view.dom.dispatchEvent(event)).not.toThrow();
     });
   });
 
@@ -263,7 +263,7 @@ describe('resizeSuppressionPlugin', () => {
 
       // After cleanup, activeHandle should be reset
       expect(() => {
-        const st = columnResizingPluginKey.getState(editor.state);
+        const st = columnResizingPluginKey.getState(editor!.state);
         return st;
       }).not.toThrow();
     });
@@ -289,7 +289,7 @@ describe('resizeSuppressionPlugin', () => {
 
       // Will run freezeColumnWidths (measure widths from DOM, store in attrs)
       const mousedown = new MouseEvent('mousedown', { bubbles: true, button: 0 });
-      expect(() => editor.view.dom.dispatchEvent(mousedown)).not.toThrow();
+      expect(() => editor!.view.dom.dispatchEvent(mousedown)).not.toThrow();
 
       // Trigger cleanup
       const mouseup = new MouseEvent('mouseup', { bubbles: true });
@@ -315,7 +315,7 @@ describe('resizeSuppressionPlugin', () => {
       );
 
       const mousedown = new MouseEvent('mousedown', { bubbles: true, button: 0 });
-      expect(() => editor.view.dom.dispatchEvent(mousedown)).not.toThrow();
+      expect(() => editor!.view.dom.dispatchEvent(mousedown)).not.toThrow();
     });
   });
 
@@ -341,7 +341,7 @@ describe('resizeSuppressionPlugin', () => {
         button: 0,
         clientX: 200,
       });
-      expect(() => editor.view.dom.dispatchEvent(event)).not.toThrow();
+      expect(() => editor!.view.dom.dispatchEvent(event)).not.toThrow();
 
       // Drag + release
       const mousemove = new MouseEvent('mousemove', {

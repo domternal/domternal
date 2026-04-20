@@ -248,7 +248,7 @@ describe('CodeBlock', () => {
         content: '<p></p>',
       });
       const codeExt = editor.extensionManager.extensions.find((e) => e.name === 'codeBlock')!;
-      const rules = codeExt.config.addInputRules!.call(codeExt as any)!;
+      const rules = (codeExt as any).config.addInputRules!.call(codeExt as any)!;
       expect(rules.length).toBe(1);
       editor.destroy();
     });
@@ -266,10 +266,10 @@ describe('CodeBlock', () => {
         content: '<p>```js </p>',
       });
       const codeExt = editor.extensionManager.extensions.find((e) => e.name === 'codeBlock')!;
-      const rules = codeExt.config.addInputRules!.call(codeExt as any)!;
+      const rules = (codeExt as any).config.addInputRules!.call(codeExt as any)!;
       const rule = rules[0]!;
       const match = ['```js ', 'js'] as unknown as RegExpMatchArray;
-      const result = (rule.handler as any)(editor.state, match, 1, 7);
+      const result = ((rule).handler)(editor.state, match, 1, 7);
       expect(result === null || typeof result === 'object').toBe(true);
       editor.destroy();
     });
@@ -280,10 +280,10 @@ describe('CodeBlock', () => {
         content: '<p>``` </p>',
       });
       const codeExt = editor.extensionManager.extensions.find((e) => e.name === 'codeBlock')!;
-      const rules = codeExt.config.addInputRules!.call(codeExt as any)!;
+      const rules = (codeExt as any).config.addInputRules!.call(codeExt as any)!;
       const rule = rules[0]!;
       const match = ['``` ', undefined] as unknown as RegExpMatchArray;
-      const result = (rule.handler as any)(editor.state, match, 1, 5);
+      const result = ((rule).handler)(editor.state, match, 1, 5);
       expect(result === null || typeof result === 'object').toBe(true);
       editor.destroy();
     });

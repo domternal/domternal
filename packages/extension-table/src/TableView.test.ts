@@ -16,13 +16,13 @@ import { TableView, tableViewMap } from './TableView.js';
 const allExtensions = [Document, Text, Paragraph, Table, TableRow, TableCell, TableHeader];
 
 function getTableView(editor: Editor): TableView | undefined {
-  const container = editor.view.dom.querySelector('.dm-table-container') as HTMLElement | null;
+  const container = editor.view.dom.querySelector<HTMLElement>('.dm-table-container');
   if (!container) return undefined;
   return tableViewMap.get(container);
 }
 
 describe('TableView', () => {
-  let editor: Editor;
+  let editor: Editor | undefined;
   let host: HTMLElement;
 
   beforeEach(() => {
@@ -184,7 +184,7 @@ describe('TableView', () => {
       const view = getTableView(editor)!;
       view.hideForResize(); // sets _resizeDragging = true
 
-      const cell = view.table.querySelector('td') as HTMLTableCellElement;
+      const cell = view.table.querySelector('td')!;
       view.showCellHandle(cell);
 
       // @ts-expect-error - private field
@@ -198,7 +198,7 @@ describe('TableView', () => {
         content: '<table><tr><td><p>A</p></td></tr></table>',
       });
       const view = getTableView(editor)!;
-      const cell = view.table.querySelector('td') as HTMLTableCellElement;
+      const cell = view.table.querySelector('td')!;
 
       view.showCellHandle(cell);
 
@@ -284,7 +284,7 @@ describe('TableView', () => {
       });
       const view = getTableView(editor)!;
       // Access private method via any
-      const cellE = view.table.querySelectorAll('td')[4] as HTMLTableCellElement;
+      const cellE = view.table.querySelectorAll('td')[4]!;
       // @ts-expect-error - private method
       const indices = view.getCellIndices(cellE);
       expect(indices.row).toBe(1);
@@ -312,7 +312,7 @@ describe('TableView', () => {
         content: '<table><tr><td colspan="2"><p>Merged</p></td><td><p>B</p></td></tr></table>',
       });
       const view = getTableView(editor)!;
-      const cellB = view.table.querySelectorAll('td')[1] as HTMLTableCellElement;
+      const cellB = view.table.querySelectorAll('td')[1]!;
       // @ts-expect-error - private method
       const indices = view.getCellIndices(cellB);
       expect(indices.col).toBe(2);
@@ -486,7 +486,6 @@ describe('TableView', () => {
       const view = getTableView(editor)!;
       // @ts-expect-error - private method
       view.showDropdown('row');
-      // @ts-expect-error - private property
       view.suppressCellToolbar = true;
 
       // @ts-expect-error - private method
@@ -571,7 +570,7 @@ describe('TableView', () => {
       const view = getTableView(editor)!;
       // @ts-expect-error - private method
       view.showDropdown('row');
-      const dropdown = document.querySelector('.dm-table-controls-dropdown') as HTMLElement;
+      const dropdown = document.querySelector('.dm-table-controls-dropdown')!;
 
       // @ts-expect-error - private method
       view.onDocMouseDown({ target: dropdown } as MouseEvent);
@@ -745,7 +744,6 @@ describe('TableView', () => {
         content: '<table><tr><td><p>A</p></td></tr></table>',
       });
       const view = getTableView(editor)!;
-      // @ts-expect-error - private field force
       view.constrainToContainer = false;
       // @ts-expect-error - private field
       view.hoveredCol = 0;
@@ -820,7 +818,7 @@ describe('TableView', () => {
         content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>',
       });
       const view = getTableView(editor)!;
-      const cell = view.table.querySelector('td') as HTMLTableCellElement;
+      const cell = view.table.querySelector('td')!;
 
       // @ts-expect-error - private field
       view.cellHandleCell = cell;
@@ -843,7 +841,7 @@ describe('TableView', () => {
       const view = getTableView(editor)!;
       view.hideForResize();
 
-      const cell = view.table.querySelector('td') as HTMLTableCellElement;
+      const cell = view.table.querySelector('td')!;
       // @ts-expect-error - private method
       view.onMouseMove({ target: cell } as unknown as MouseEvent);
 
@@ -886,7 +884,7 @@ describe('TableView', () => {
         content: '<table><tr><td><p>A</p></td></tr></table>',
       });
       const view = getTableView(editor)!;
-      const cell = view.table.querySelector('td') as HTMLTableCellElement;
+      const cell = view.table.querySelector('td')!;
 
       // @ts-expect-error - private method
       view.onMouseMove({ target: cell } as unknown as MouseEvent);
@@ -902,7 +900,7 @@ describe('TableView', () => {
         content: '<table><tr><td><p>A</p></td></tr></table>',
       });
       const view = getTableView(editor)!;
-      const cell = view.table.querySelector('td') as HTMLTableCellElement;
+      const cell = view.table.querySelector('td')!;
 
       // @ts-expect-error - private method
       view.onMouseMove({ target: cell } as unknown as MouseEvent);
@@ -990,7 +988,7 @@ describe('TableView', () => {
       view.showDropdown('row');
 
       const dropdown = document.querySelector('.dm-table-controls-dropdown')!;
-      const btn = dropdown.querySelector('button[aria-label="Insert Row Above"]') as HTMLButtonElement;
+      const btn = dropdown.querySelector<HTMLButtonElement>('button[aria-label="Insert Row Above"]')!;
       btn.click();
 
       expect(editor.state.doc.firstChild?.childCount).toBe(2);
@@ -1009,7 +1007,7 @@ describe('TableView', () => {
       view.showDropdown('row');
 
       const dropdown = document.querySelector('.dm-table-controls-dropdown')!;
-      const btn = dropdown.querySelector('button[aria-label="Insert Row Below"]') as HTMLButtonElement;
+      const btn = dropdown.querySelector<HTMLButtonElement>('button[aria-label="Insert Row Below"]')!;
       btn.click();
 
       expect(editor.state.doc.firstChild?.childCount).toBe(2);
@@ -1028,7 +1026,7 @@ describe('TableView', () => {
       view.showDropdown('row');
 
       const dropdown = document.querySelector('.dm-table-controls-dropdown')!;
-      const btn = dropdown.querySelector('button[aria-label="Delete Row"]') as HTMLButtonElement;
+      const btn = dropdown.querySelector<HTMLButtonElement>('button[aria-label="Delete Row"]')!;
       btn.click();
 
       expect(editor.state.doc.firstChild?.childCount).toBe(1);
@@ -1049,7 +1047,7 @@ describe('TableView', () => {
       view.showDropdown('column');
 
       const dropdown = document.querySelector('.dm-table-controls-dropdown')!;
-      const btn = dropdown.querySelector('button[aria-label="Insert Column Left"]') as HTMLButtonElement;
+      const btn = dropdown.querySelector<HTMLButtonElement>('button[aria-label="Insert Column Left"]')!;
       btn.click();
 
       expect(editor.state.doc.firstChild?.firstChild?.childCount).toBe(2);
@@ -1068,7 +1066,7 @@ describe('TableView', () => {
       view.showDropdown('column');
 
       const dropdown = document.querySelector('.dm-table-controls-dropdown')!;
-      const btn = dropdown.querySelector('button[aria-label="Insert Column Right"]') as HTMLButtonElement;
+      const btn = dropdown.querySelector<HTMLButtonElement>('button[aria-label="Insert Column Right"]')!;
       btn.click();
 
       expect(editor.state.doc.firstChild?.firstChild?.childCount).toBe(2);
@@ -1087,7 +1085,7 @@ describe('TableView', () => {
       view.showDropdown('column');
 
       const dropdown = document.querySelector('.dm-table-controls-dropdown')!;
-      const btn = dropdown.querySelector('button[aria-label="Delete Column"]') as HTMLButtonElement;
+      const btn = dropdown.querySelector<HTMLButtonElement>('button[aria-label="Delete Column"]')!;
       btn.click();
 
       expect(editor.state.doc.firstChild?.firstChild?.childCount).toBe(1);
@@ -1110,7 +1108,7 @@ describe('TableView', () => {
       const dropdown = document.querySelector('.dm-table-cell-dropdown')!;
       expect(dropdown).not.toBeNull();
       expect(dropdown.getAttribute('aria-label')).toBe('Cell background color');
-      expect(dropdown.querySelector('.dm-color-palette-reset')).not.toBeNull();
+      expect(dropdown.querySelector<HTMLButtonElement>('.dm-color-palette-reset')).not.toBeNull();
       expect(dropdown.querySelectorAll('.dm-color-swatch').length).toBeGreaterThan(0);
     });
 
@@ -1130,7 +1128,7 @@ describe('TableView', () => {
       // @ts-expect-error - private method
       view.showColorDropdown(triggerBtn);
 
-      const reset = document.querySelector('.dm-color-palette-reset') as HTMLButtonElement;
+      const reset = document.querySelector<HTMLButtonElement>('.dm-color-palette-reset')!;
       reset.click();
 
       // Dropdown should close
@@ -1152,7 +1150,7 @@ describe('TableView', () => {
       // @ts-expect-error - private method
       view.showColorDropdown(triggerBtn);
 
-      const swatch = document.querySelector('.dm-color-swatch') as HTMLButtonElement;
+      const swatch = document.querySelector<HTMLButtonElement>('.dm-color-swatch')!;
       swatch.click();
 
       // Dropdown should close after click
@@ -1219,7 +1217,7 @@ describe('TableView', () => {
       // @ts-expect-error - private method
       view.showAlignmentDropdown(triggerBtn);
 
-      const center = document.querySelector('[aria-label="Align center"]') as HTMLButtonElement;
+      const center = document.querySelector<HTMLButtonElement>('[aria-label="Align center"]')!;
       center.click();
 
       const cell = editor.state.doc.firstChild?.firstChild?.firstChild;
@@ -1241,7 +1239,7 @@ describe('TableView', () => {
       // @ts-expect-error - private method
       view.showAlignmentDropdown(triggerBtn);
 
-      const middle = document.querySelector('[aria-label="Align middle"]') as HTMLButtonElement;
+      const middle = document.querySelector<HTMLButtonElement>('[aria-label="Align middle"]')!;
       middle.click();
 
       const cell = editor.state.doc.firstChild?.firstChild?.firstChild;
@@ -1381,7 +1379,7 @@ describe('TableView', () => {
         content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>',
       });
       const view = getTableView(editor)!;
-      const cell = view.table.querySelector('td') as HTMLTableCellElement;
+      const cell = view.table.querySelector('td')!;
       // @ts-expect-error - private field
       view.cellHandleCell = cell;
       // @ts-expect-error - private field
@@ -1470,7 +1468,7 @@ describe('TableView', () => {
         content: '<table><tr><td rowspan="2"><p>Merged</p></td><td><p>B</p></td></tr><tr><td><p>C</p></td></tr></table>',
       });
       const view = getTableView(editor)!;
-      const mergedCell = view.table.querySelector('td[rowspan="2"]') as HTMLTableCellElement;
+      const mergedCell = view.table.querySelector('td[rowspan="2"]')!;
 
       expect(() => {
         // @ts-expect-error - private method
@@ -1487,7 +1485,7 @@ describe('TableView', () => {
         content: '<table><tr><td><p>A</p></td></tr></table>',
       });
       const view = getTableView(editor)!;
-      const cell = view.table.querySelector('td') as HTMLTableCellElement;
+      const cell = view.table.querySelector('td')!;
 
       // @ts-expect-error - private method
       view.onMouseMove({ target: cell } as unknown as MouseEvent);
@@ -1537,7 +1535,7 @@ describe('TableView', () => {
       // @ts-expect-error - private method
       view.showColorDropdown(triggerBtn);
 
-      const dropdown = document.querySelector('.dm-table-cell-dropdown') as HTMLElement;
+      const dropdown = document.querySelector<HTMLElement>('.dm-table-cell-dropdown')!;
       expect(dropdown).not.toBeNull();
       // leftPos got shifted left - should be <= innerWidth
       const leftStyle = parseFloat(dropdown.style.left);

@@ -63,7 +63,7 @@ describe('positionFloating', () => {
 
   it('cleanup function can be called without errors', () => {
     cleanup = positionFloating(reference, floating);
-    expect(() => cleanup!()).not.toThrow();
+    expect(() => { cleanup!(); }).not.toThrow();
     cleanup = null;
   });
 });
@@ -112,7 +112,7 @@ describe('positionFloatingOnce', () => {
 
   it('cleanup function can be called', () => {
     cleanup = positionFloatingOnce(reference, floating);
-    expect(() => cleanup!()).not.toThrow();
+    expect(() => { cleanup!(); }).not.toThrow();
     cleanup = null;
   });
 

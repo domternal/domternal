@@ -27,7 +27,7 @@ function selectAllCells(editor: Editor): void {
 }
 
 describe('deleteTableWhenAllCellsSelected', () => {
-  let editor: Editor;
+  let editor: Editor | undefined;
 
   afterEach(() => {
     if (editor && !editor.isDestroyed) editor.destroy();

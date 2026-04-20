@@ -447,8 +447,8 @@ describe('Link', () => {
       let fired = false;
       editor.on('linkEdit' as any, () => { fired = true; });
       const shortcuts = Link.config.addKeyboardShortcuts?.call({ editor } as any);
-      const modK = shortcuts?.['Mod-k'];
-      expect(modK?.()).toBe(true);
+      const modK = shortcuts?.['Mod-k'] as any;
+      expect(modK?.({} as any)).toBe(true);
       expect(fired).toBe(true);
       editor.destroy();
     });

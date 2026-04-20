@@ -662,7 +662,7 @@ describe('input rules', () => {
     const state = editor.state;
     const match = [':grinning:', 'grinning'] as RegExpMatchArray;
     // positions 1 (start of ":") to 11 (end of ":") in "<p>:grinning:</p>"
-    const tr = (rule.handler as any)(state, match, 1, 11);
+    const tr = ((rule as any).handler)(state, match, 1, 11);
     expect(tr).not.toBeNull();
   });
 
@@ -688,7 +688,7 @@ describe('input rules', () => {
 
     const rule = rules![0]!;
     const match = [':grinning:', 'grinning'] as RegExpMatchArray;
-    const result = (rule.handler as any)(editor.state, match, 1, 11);
+    const result = ((rule as any).handler)(editor.state, match, 1, 11);
     expect(result).toBeNull();
   });
 
@@ -707,7 +707,7 @@ describe('input rules', () => {
 
     const rule = rules![0]!;
     const match = [':notarealemoji:', 'notarealemoji'] as RegExpMatchArray;
-    const result = (rule.handler as any)(editor.state, match, 1, 15);
+    const result = ((rule as any).handler)(editor.state, match, 1, 15);
     expect(result).toBeNull();
   });
 
@@ -727,7 +727,7 @@ describe('input rules', () => {
 
     const rule = rules![0]!;
     const match = [':grinning:', 'grinning'] as RegExpMatchArray;
-    const result = (rule.handler as any)(editor.state, match, 1, 11);
+    const result = ((rule as any).handler)(editor.state, match, 1, 11);
     // Plain text: inserts emoji character directly
     expect(result).not.toBeNull();
   });
@@ -747,7 +747,7 @@ describe('input rules', () => {
 
     const rule = rules![0]!;
     const match = [':grinning:', 'grinning'] as RegExpMatchArray;
-    const result = (rule.handler as any)(editor.state, match, 1, 11);
+    const result = ((rule as any).handler)(editor.state, match, 1, 11);
     expect(result).toBeNull();
   });
 
@@ -784,13 +784,13 @@ describe('input rules', () => {
     });
 
     // Find the :) rule
-    const smileRule = rules!.find((r) => r.match.source.includes(':\\)'));
+    const smileRule = rules!.find((r) => (r as any).match.source.includes(':\\)'));
     expect(smileRule).toBeDefined();
 
     const match = [' :) ', ':)'] as any;
     match.index = 2;
     // start param is where the match begins (position of space before :) in "Hi :) ")
-    const result = (smileRule!.handler as any)(editor.state, match, 3, 7);
+    const result = (((smileRule as any).handler))(editor.state, match, 3, 7);
     expect(result).not.toBeNull();
   });
 
@@ -815,10 +815,10 @@ describe('input rules', () => {
       nodeType: editor.schema.nodes['emoji']!,
     });
 
-    const smileRule = rules!.find((r) => r.match.source.includes(':\\)'));
+    const smileRule = rules!.find((r) => (r as any).match.source.includes(':\\)'));
     const match = [':) ', ':)'] as any;
     match.index = 0;
-    const result = (smileRule!.handler as any)(editor.state, match, 1, 4);
+    const result = (((smileRule as any).handler))(editor.state, match, 1, 4);
     expect(result).toBeNull();
   });
 
@@ -836,10 +836,10 @@ describe('input rules', () => {
       nodeType: null,
     });
 
-    const smileRule = rules!.find((r) => r.match.source.includes(':\\)'));
+    const smileRule = rules!.find((r) => (r as any).match.source.includes(':\\)'));
     const match = [' :) ', ':)'] as any;
     match.index = 2;
-    const result = (smileRule!.handler as any)(editor.state, match, 3, 7);
+    const result = (((smileRule as any).handler))(editor.state, match, 3, 7);
     expect(result).not.toBeNull();
   });
 });

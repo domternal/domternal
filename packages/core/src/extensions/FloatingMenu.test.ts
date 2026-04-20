@@ -530,11 +530,10 @@ describe('FloatingMenu', () => {
     let host: HTMLElement;
 
     beforeEach(() => {
-      if (!Element.prototype.getClientRects) {
-        Element.prototype.getClientRects = function () {
-          return [] as unknown as DOMRectList;
-        };
-      }
+      // Shim for jsdom (floating-ui positioning)
+      Element.prototype.getClientRects = function () {
+        return [] as unknown as DOMRectList;
+      };
       host = document.createElement('div');
       host.className = 'dm-editor';
       document.body.appendChild(host);

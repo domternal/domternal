@@ -373,7 +373,7 @@ describe('Highlight', () => {
       });
 
       const highlightExt = editor.extensionManager.extensions.find((e) => e.name === 'highlight')!;
-      const rules = highlightExt.config.addInputRules!.call({
+      const rules = (highlightExt as any).config.addInputRules!.call({
         ...highlightExt,
         options: highlightExt.options,
       } as any)!;
@@ -381,7 +381,7 @@ describe('Highlight', () => {
       expect(rules.length).toBeGreaterThan(0);
       const rule = rules[0]!;
       const match = ['==word==', 'word'] as RegExpMatchArray;
-      const result = (rule.handler as any)(editor.state, match, 1, 9);
+      const result = (rule.handler)(editor.state, match, 1, 9);
       expect(result).not.toBeNull();
     });
 
@@ -392,14 +392,14 @@ describe('Highlight', () => {
       });
 
       const highlightExt = editor.extensionManager.extensions.find((e) => e.name === 'highlight')!;
-      const rules = highlightExt.config.addInputRules!.call({
+      const rules = (highlightExt as any).config.addInputRules!.call({
         ...highlightExt,
         options: highlightExt.options,
       } as any)!;
 
       const rule = rules[0]!;
       const match = ['====', ''] as RegExpMatchArray;
-      const result = (rule.handler as any)(editor.state, match, 1, 5);
+      const result = (rule.handler)(editor.state, match, 1, 5);
       expect(result).toBeNull();
     });
   });

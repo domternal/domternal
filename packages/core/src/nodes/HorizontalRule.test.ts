@@ -263,12 +263,12 @@ describe('HorizontalRule', () => {
       });
 
       const hrExt = ed.extensionManager.extensions.find((e) => e.name === 'horizontalRule')!;
-      const rules = hrExt.config.addInputRules!.call(hrExt as any)!;
+      const rules = (hrExt as any).config.addInputRules!.call(hrExt as any)!;
       expect(rules.length).toBe(1);
 
       const rule = rules[0]!;
       const match = ['--- '] as RegExpMatchArray;
-      const result = (rule.handler as any)(ed.state, match, 1);
+      const result = ((rule).handler)(ed.state, match, 1);
       expect(result).not.toBeNull();
       ed.destroy();
     });

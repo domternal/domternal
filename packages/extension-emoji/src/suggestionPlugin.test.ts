@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { Document, Text, Paragraph, Editor } from '@domternal/core';
+import { TextSelection } from '@domternal/pm/state';
 import { Emoji } from './Emoji.js';
 import { emojiSuggestionPluginKey } from './suggestionPlugin.js';
 import type { SuggestionRenderer } from './suggestionPlugin.js';
@@ -26,7 +27,7 @@ function makeRenderer(): {
 }
 
 describe('emojiSuggestionPlugin', () => {
-  let editor: Editor;
+  let editor: Editor | undefined;
   let host: HTMLElement;
 
   beforeEach(() => {
@@ -114,7 +115,7 @@ describe('emojiSuggestionPlugin', () => {
 
   describe('keydown handling', () => {
     it('Escape dismisses suggestion', async () => {
-      const { renderer, onStart, onExit } = makeRenderer();
+      const { renderer, onExit } = makeRenderer();
       const CustomEmoji = Emoji.configure({
         emojis: defaultEmojis,
         suggestion: { render: () => renderer },
@@ -175,7 +176,7 @@ describe('emojiSuggestionPlugin', () => {
       });
 
       const event = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
-      expect(() => editor.view.dom.dispatchEvent(event)).not.toThrow();
+      expect(() => editor!.view.dom.dispatchEvent(event)).not.toThrow();
     });
   });
 
@@ -185,7 +186,7 @@ describe('emojiSuggestionPlugin', () => {
       const renderer: SuggestionRenderer = {
         onStart: (props) => { capturedCommand = props.command; },
         onUpdate: (props) => { capturedCommand = props.command; },
-        onExit: () => {},
+        onExit: () => { /* noop */ },
         onKeyDown: () => false,
       };
 
@@ -222,7 +223,7 @@ describe('emojiSuggestionPlugin', () => {
       const renderer: SuggestionRenderer = {
         onStart: (props) => { capturedCommand = props.command; },
         onUpdate: (props) => { capturedCommand = props.command; },
-        onExit: () => {},
+        onExit: () => { /* noop */ },
         onKeyDown: () => false,
       };
 
@@ -252,8 +253,8 @@ describe('emojiSuggestionPlugin', () => {
       let capturedClientRect: (() => DOMRect | null) | null = null;
       const renderer: SuggestionRenderer = {
         onStart: (props) => { capturedClientRect = props.clientRect; },
-        onUpdate: () => {},
-        onExit: () => {},
+        onUpdate: () => { /* noop */ },
+        onExit: () => { /* noop */ },
         onKeyDown: () => false,
       };
 
@@ -316,7 +317,7 @@ describe('emojiSuggestionPlugin', () => {
       await new Promise((r) => setTimeout(r, 50));
 
       const event = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
-      expect(() => editor.view.dom.dispatchEvent(event)).not.toThrow();
+      expect(() => editor!.view.dom.dispatchEvent(event)).not.toThrow();
       // No renderer → returns false, doesn't preventDefault
       expect(event.defaultPrevented).toBe(false);
     });
@@ -359,7 +360,6 @@ describe('emojiSuggestionPlugin', () => {
         content: '<p>Hi :sm world</p>',
       });
 
-      const { TextSelection } = require('@domternal/pm/state');
       // Range selection (not collapsed)
       editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 2, 7)));
       await new Promise((r) => setTimeout(r, 50));
@@ -381,7 +381,6 @@ describe('emojiSuggestionPlugin', () => {
 
       editor.commands.focus();
       // Cursor after 'abc:sm'
-      const { TextSelection } = require('@domternal/pm/state');
       editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 7)));
       await new Promise((r) => setTimeout(r, 50));
 
@@ -423,7 +422,6 @@ describe('emojiSuggestionPlugin', () => {
       });
 
       editor.commands.focus();
-      const { TextSelection } = require('@domternal/pm/state');
       // Cursor inside code mark
       editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3)));
       editor.view.dispatch(editor.state.tr.insertText(':', 3));
@@ -446,7 +444,6 @@ describe('emojiSuggestionPlugin', () => {
       });
 
       editor.commands.focus();
-      const { TextSelection } = require('@domternal/pm/state');
       editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3)));
       editor.view.dispatch(editor.state.tr.insertText(':', 3));
       await new Promise((r) => setTimeout(r, 50));
@@ -467,7 +464,6 @@ describe('emojiSuggestionPlugin', () => {
       });
 
       editor.commands.focus();
-      const { TextSelection } = require('@domternal/pm/state');
       editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 8)));
       await new Promise((r) => setTimeout(r, 50));
 
@@ -482,7 +478,7 @@ describe('emojiSuggestionPlugin', () => {
       const renderer = {
         onStart: (props: any) => { capturedCommand = props.command; },
         onUpdate: (props: any) => { capturedCommand = props.command; },
-        onExit: () => {},
+        onExit: () => { /* noop */ },
         onKeyDown: () => false,
       };
 

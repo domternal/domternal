@@ -17,7 +17,7 @@ describe('nodeInputRule', () => {
       type: editor.schema.nodes['horizontalRule']!,
     });
     expect(rule).toBeDefined();
-    expect(rule.handler).toBeDefined();
+    expect((rule as any).handler).toBeDefined();
     editor.destroy();
   });
 
@@ -32,7 +32,7 @@ describe('nodeInputRule', () => {
     });
 
     const match = ['---'] as RegExpMatchArray;
-    const result = (rule.handler as any)(editor.state, match, 1, 4);
+    const result = ((rule as any).handler)(editor.state, match, 1, 4);
     expect(result).not.toBeNull();
     editor.destroy();
   });
@@ -42,7 +42,7 @@ describe('nodeInputRule', () => {
       extensions: [Document, Text, Paragraph, HorizontalRule],
       content: '<p>---</p>',
     });
-    const getAttributes = (match: RegExpMatchArray) => ({ text: match[0] });
+    const getAttributes = (match: RegExpMatchArray): { text: string } => ({ text: match[0] });
     const rule = nodeInputRule({
       find: /---/,
       type: editor.schema.nodes['horizontalRule']!,
@@ -50,7 +50,7 @@ describe('nodeInputRule', () => {
     });
 
     const match = ['---'] as RegExpMatchArray;
-    const result = (rule.handler as any)(editor.state, match, 1, 4);
+    const result = ((rule as any).handler)(editor.state, match, 1, 4);
     expect(result).not.toBeNull();
     editor.destroy();
   });
@@ -67,7 +67,7 @@ describe('nodeInputRule', () => {
     });
 
     const match = ['---'] as RegExpMatchArray;
-    const result = (rule.handler as any)(editor.state, match, 1, 4);
+    const result = ((rule as any).handler)(editor.state, match, 1, 4);
     expect(result).toBeNull();
     editor.destroy();
   });
@@ -98,7 +98,7 @@ describe('nodeInputRule', () => {
     });
 
     const match = ['---'] as RegExpMatchArray;
-    const result = (rule.handler as any)(editor.state, match, 1, 4);
+    const result = ((rule as any).handler)(editor.state, match, 1, 4);
     expect(result).not.toBeNull();
     editor.destroy();
   });

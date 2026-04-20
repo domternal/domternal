@@ -8,7 +8,7 @@ import { Paragraph } from '../nodes/Paragraph.js';
 import { Heading } from '../nodes/Heading.js';
 
 describe('inputRulesPlugin', () => {
-  let editor: Editor;
+  let editor: Editor | undefined;
   let host: HTMLElement;
 
   beforeEach(() => {
@@ -22,7 +22,7 @@ describe('inputRulesPlugin', () => {
   });
 
   it('creates a Plugin instance', () => {
-    const rule = new InputRule(/---/, (state, match, start, end) => {
+    const rule = new InputRule(/---/, (state, _match, start, end) => {
       return state.tr.insertText('*', start, end);
     });
     const plugin = inputRulesPlugin({ rules: [rule] });
@@ -53,7 +53,7 @@ describe('inputRulesPlugin', () => {
     const plugin = inputRulesPlugin({ rules: [rule] });
 
     const event = new KeyboardEvent('keydown', { key: 'a' });
-    const result = plugin.props.handleKeyDown!(editor.view, event);
+    const result = (plugin.props.handleKeyDown as any)(editor.view, event);
     expect(result).toBe(false);
   });
 
@@ -68,7 +68,7 @@ describe('inputRulesPlugin', () => {
     const plugin = inputRulesPlugin({ rules: [rule] });
 
     const event = new KeyboardEvent('keydown', { key: 'Backspace', ctrlKey: true });
-    const result = plugin.props.handleKeyDown!(editor.view, event);
+    const result = (plugin.props.handleKeyDown as any)(editor.view, event);
     expect(result).toBe(false);
   });
 
@@ -83,7 +83,7 @@ describe('inputRulesPlugin', () => {
     const plugin = inputRulesPlugin({ rules: [rule] });
 
     const event = new KeyboardEvent('keydown', { key: 'Backspace' });
-    const result = plugin.props.handleKeyDown!(editor.view, event);
+    const result = (plugin.props.handleKeyDown as any)(editor.view, event);
     // No undo state → returns false
     expect(result).toBe(false);
   });
@@ -100,7 +100,7 @@ describe('inputRulesPlugin', () => {
 
     // Use a mock view with composing=true
     const mockView = { ...editor.view, composing: true, state: editor.state, dispatch: editor.view.dispatch.bind(editor.view) };
-    const result = plugin.props.handleTextInput!(mockView as any, 1, 1, 'a');
+    const result = (plugin.props.handleTextInput as any)(mockView as any, 1, 1, 'a');
     expect(result).toBe(false);
   });
 
@@ -117,7 +117,7 @@ describe('inputRulesPlugin', () => {
     const plugin = inputRulesPlugin({ rules: [rule] });
 
     // Simulate typing "c" after "ab" — match "abc" fires
-    const result = plugin.props.handleTextInput!(editor.view, 3, 3, 'c');
+    const result = (plugin.props.handleTextInput as any)(editor.view, 3, 3, 'c');
     expect(typeof result).toBe('boolean');
   });
 
@@ -131,7 +131,7 @@ describe('inputRulesPlugin', () => {
     const rule = new InputRule(/xyz/, (state) => state.tr);
     const plugin = inputRulesPlugin({ rules: [rule] });
 
-    const result = plugin.props.handleTextInput!(editor.view, 6, 6, 'o');
+    const result = (plugin.props.handleTextInput as any)(editor.view, 6, 6, 'o');
     expect(result).toBe(false);
   });
 
@@ -151,7 +151,7 @@ describe('inputRulesPlugin', () => {
     if (!plugin) return;
 
     const event = new KeyboardEvent('keydown', { key: 'Backspace' });
-    const result = plugin.props.handleKeyDown!(editor.view, event);
+    const result = (plugin.props.handleKeyDown as any)(editor.view, event);
     expect(typeof result).toBe('boolean');
   });
 
@@ -165,7 +165,7 @@ describe('inputRulesPlugin', () => {
     const rule = new InputRule(/abc/, (state) => state.tr);
     const plugin = inputRulesPlugin({ rules: [rule] });
 
-    const handler = plugin.props.handleDOMEvents?.compositionend;
+    const handler = plugin.props.handleDOMEvents?.compositionend as any;
     expect(typeof handler).toBe('function');
     if (handler) {
       expect(() => handler(editor!.view, new CompositionEvent('compositionend'))).not.toThrow();
@@ -189,7 +189,7 @@ describe('inputRulesPlugin', () => {
       state: editor.state,
       dispatch: editor.view.dispatch.bind(editor.view),
     };
-    const result = plugin.props.handleTextInput!(mockView as any, 1, 1, 'c');
+    const result = (plugin.props.handleTextInput as any)(mockView as any, 1, 1, 'c');
     expect(typeof result).toBe('boolean');
   });
 
@@ -214,7 +214,7 @@ describe('inputRulesPlugin', () => {
 
     // Now Backspace should undo
     const event = new KeyboardEvent('keydown', { key: 'Backspace' });
-    const result = plugin.props.handleKeyDown!(editor.view, event);
+    const result = (plugin.props.handleKeyDown as any)(editor.view, event);
     expect(typeof result).toBe('boolean');
   });
 
@@ -291,7 +291,7 @@ describe('inputRulesPlugin', () => {
     const newState = editor.state.reconfigure({ plugins: [...editor.state.plugins, plugin] });
     editor.view.updateState(newState);
 
-    const result = plugin.props.handleTextInput!(editor.view, 3, 3, ' ');
+    const result = (plugin.props.handleTextInput as any)(editor.view, 3, 3, ' ');
     expect(result).toBe(true);
   });
 
@@ -306,7 +306,7 @@ describe('inputRulesPlugin', () => {
     (rule as any).inCode = 'only';
     const plugin = inputRulesPlugin({ rules: [rule] });
 
-    const result = plugin.props.handleTextInput!(editor.view, 6, 6, 'o');
+    const result = (plugin.props.handleTextInput as any)(editor.view, 6, 6, 'o');
     expect(result).toBe(false);
   });
 
@@ -328,7 +328,7 @@ describe('inputRulesPlugin', () => {
     editor.view.dispatch(editor.state.tr.setMeta(plugin, storedState));
 
     const event = new KeyboardEvent('keydown', { key: 'Backspace' });
-    const result = plugin.props.handleKeyDown!(editor.view, event);
+    const result = (plugin.props.handleKeyDown as any)(editor.view, event);
     expect(result).toBe(true);
   });
 
@@ -348,7 +348,7 @@ describe('inputRulesPlugin', () => {
     editor.view.dispatch(editor.state.tr.setMeta(plugin, storedState));
 
     const event = new KeyboardEvent('keydown', { key: 'Backspace' });
-    const result = plugin.props.handleKeyDown!(editor.view, event);
+    const result = (plugin.props.handleKeyDown as any)(editor.view, event);
     expect(result).toBe(true);
   });
 
@@ -363,7 +363,7 @@ describe('inputRulesPlugin', () => {
     const rule = new InputRule(/abc/, (state) => state.tr);
     const plugin = inputRulesPlugin({ rules: [rule] });
     // cursor in code block
-    const result = plugin.props.handleTextInput!(editor.view, 2, 2, 'a');
+    const result = (plugin.props.handleTextInput as any)(editor.view, 2, 2, 'a');
     expect(result).toBe(false);
   });
 
@@ -380,7 +380,7 @@ describe('inputRulesPlugin', () => {
 
     const rule = new InputRule(/ab/, (state) => state.tr);
     const plugin = inputRulesPlugin({ rules: [rule] });
-    const result = plugin.props.handleTextInput!(editor.view, 3, 3, 'b');
+    const result = (plugin.props.handleTextInput as any)(editor.view, 3, 3, 'b');
     expect(typeof result).toBe('boolean');
   });
 
@@ -395,7 +395,7 @@ describe('inputRulesPlugin', () => {
     // Rule that doesn't match — ensures handleTextInput returns false normally
     const rule = new InputRule(/xyz/, (state) => state.tr);
     const plugin = inputRulesPlugin({ rules: [rule] });
-    const result = plugin.props.handleTextInput!(editor.view, 4, 4, 'c');
+    const result = (plugin.props.handleTextInput as any)(editor.view, 4, 4, 'c');
     expect(result).toBe(false);
   });
 });

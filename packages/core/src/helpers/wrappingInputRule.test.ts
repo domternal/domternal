@@ -34,7 +34,7 @@ describe('wrappingInputRule', () => {
       guard: () => false,
     });
     const match = ['> '] as RegExpMatchArray;
-    const result = (rule.handler as any)(editor.state, match, 1, 3);
+    const result = ((rule as any).handler)(editor.state, match, 1, 3);
     expect(result).toBeNull();
     editor.destroy();
   });
@@ -50,7 +50,7 @@ describe('wrappingInputRule', () => {
       guard: () => true,
     });
     const match = ['> '] as RegExpMatchArray;
-    const result = (rule.handler as any)(editor.state, match, 1, 3);
+    const result = ((rule as any).handler)(editor.state, match, 1, 3);
     expect(result).not.toBeNull();
     editor.destroy();
   });
@@ -66,7 +66,7 @@ describe('wrappingInputRule', () => {
       getAttributes: {},
     });
     const match = ['> '] as RegExpMatchArray;
-    const result = (rule.handler as any)(editor.state, match, 1, 3);
+    const result = ((rule as any).handler)(editor.state, match, 1, 3);
     expect(result).not.toBeNull();
     editor.destroy();
   });
@@ -82,7 +82,7 @@ describe('wrappingInputRule', () => {
       getAttributes: () => null,
     });
     const match = ['> '] as RegExpMatchArray;
-    const result = (rule.handler as any)(editor.state, match, 1, 3);
+    const result = ((rule as any).handler)(editor.state, match, 1, 3);
     expect(result).not.toBeNull();
     editor.destroy();
   });
@@ -98,7 +98,7 @@ describe('wrappingInputRule', () => {
       joinPredicate: () => false,
     });
     const match = ['> '] as RegExpMatchArray;
-    const result = (rule.handler as any)(editor.state, match, 1, 3);
+    const result = ((rule as any).handler)(editor.state, match, 1, 3);
     expect(result).not.toBeNull();
     editor.destroy();
   });
@@ -114,7 +114,7 @@ describe('wrappingInputRule', () => {
       type: editor.schema.nodes['paragraph']!, // paragraph can't wrap paragraph
     });
     const match = ['> '] as RegExpMatchArray;
-    const result = (rule.handler as any)(editor.state, match, 1, 3);
+    const result = ((rule as any).handler)(editor.state, match, 1, 3);
     expect(result).toBeNull();
     editor.destroy();
   });

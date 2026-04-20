@@ -34,8 +34,8 @@ describe('createEmojiSuggestionRenderer', () => {
 
   afterEach(() => {
     host.remove();
-    document.querySelectorAll('.dm-emoji-suggestion').forEach((el) => el.remove());
-    document.querySelectorAll('.dm-editor').forEach((el) => el.remove());
+    document.querySelectorAll('.dm-emoji-suggestion').forEach((el) => { el.remove(); });
+    document.querySelectorAll('.dm-editor').forEach((el) => { el.remove(); });
   });
 
   it('returns a factory function', () => {
@@ -103,8 +103,8 @@ describe('createEmojiSuggestionRenderer', () => {
     it('limits items to MAX_ITEMS (10)', () => {
       const manyItems: EmojiItem[] = Array.from({ length: 20 }, (_, i) => ({
         emoji: '🙂',
-        name: `emoji_${i}`,
-        shortcodes: [`e${i}`],
+        name: `emoji_${String(i)}`,
+        shortcodes: [`e${String(i)}`],
         tags: [],
         group: 'Smileys',
       }));
@@ -199,7 +199,7 @@ describe('createEmojiSuggestionRenderer', () => {
       const renderer = createEmojiSuggestionRenderer()();
       renderer.onStart(makeProps());
       renderer.onExit();
-      expect(() => renderer.onExit()).not.toThrow();
+      expect(() => { renderer.onExit(); }).not.toThrow();
     });
   });
 
@@ -318,7 +318,7 @@ describe('createEmojiSuggestionRenderer', () => {
       const renderer = createEmojiSuggestionRenderer()();
       renderer.onStart(makeProps());
 
-      const item = document.querySelector('.dm-emoji-suggestion-item') as HTMLButtonElement;
+      const item = document.querySelector('.dm-emoji-suggestion-item')!;
       const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
       item.dispatchEvent(event);
 
@@ -361,7 +361,7 @@ describe('createEmojiSuggestionRenderer', () => {
       const props = makeProps();
       (props as any).clientRect = () => null;
 
-      expect(() => renderer.onStart(props)).not.toThrow();
+      expect(() => { renderer.onStart(props); }).not.toThrow();
       renderer.onExit();
     });
   });

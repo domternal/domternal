@@ -311,7 +311,7 @@ describe('redistributeColumns', () => {
 
     const tr = editor.state.tr;
     // Resolve a position in a non-table doc
-    expect(() => redistributeColumns(tr, 0, 600, 25)).not.toThrow();
+    expect(() => { redistributeColumns(tr, 0, 600, 25); }).not.toThrow();
   });
 
   it('applies widths to all rows not just first', () => {
@@ -510,7 +510,7 @@ describe('constrainedAddColumn', () => {
 
     // Mock getBoundingClientRect on the .tableWrapper to return a tight container
     // oldTotal (400) + defaultCellMinWidth (100) = 500 > 420 → redistribute path
-    const wrapper = host.querySelector('.tableWrapper') as HTMLElement;
+    const wrapper = host.querySelector('.tableWrapper')!;
     expect(wrapper).not.toBeNull();
     wrapper.getBoundingClientRect = () => ({
       width: 420,
@@ -553,7 +553,7 @@ describe('constrainedAddColumn', () => {
     focusFirstCell(editor);
 
     // Huge container → table + new column fits easily (oldTotal 200 + 100 = 300 <= 1000)
-    const wrapper = host.querySelector('.tableWrapper') as HTMLElement;
+    const wrapper = host.querySelector('.tableWrapper')!;
     wrapper.getBoundingClientRect = () => ({
       width: 1000,
       height: 100,

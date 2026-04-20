@@ -11,7 +11,7 @@ import { tableViewMap } from '../TableView.js';
 const allExtensions = [Document, Text, Paragraph, Table, TableRow, TableCell, TableHeader];
 
 describe('cellSelectionPlugin', () => {
-  let editor: Editor;
+  let editor: Editor | undefined;
   let host: HTMLElement;
 
   beforeEach(() => {
@@ -86,7 +86,7 @@ describe('cellSelectionPlugin', () => {
       );
 
       // Now start a CellSelection in the second table
-      const sel = CellSelection.create(editor.state.doc, cellPositions[1]!, cellPositions[1]!);
+      const sel = CellSelection.create(editor.state.doc, cellPositions[1]!, cellPositions[1]);
       editor.view.dispatch(
         editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection),
       );
@@ -108,7 +108,7 @@ describe('cellSelectionPlugin', () => {
         content: '<table><tr><td><p>A</p></td></tr></table>',
       });
 
-      const container = host.querySelector('.dm-table-container') as HTMLElement;
+      const container = host.querySelector<HTMLElement>('.dm-table-container')!;
       const view = tableViewMap.get(container)!;
 
       // Manually add column-resize-dragging class to a cell

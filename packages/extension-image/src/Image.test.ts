@@ -636,11 +636,11 @@ describe('Image', () => {
       });
 
       const imageExt = editor.extensionManager.extensions.find((e) => e.name === 'image')!;
-      const rules = imageExt.config.addInputRules!.call(imageExt as any)!;
+      const rules = (imageExt as any).config.addInputRules!.call(imageExt as any)!;
       const rule = rules[0]!;
 
       const match = ['![alt](https://example.com/a.png)', '![alt](https://example.com/a.png)', 'alt', 'https://example.com/a.png'] as RegExpMatchArray;
-      const result = (rule.handler as any)(editor.state, match, 1, 32);
+      const result = (rule.handler)(editor.state, match, 1, 32);
       expect(result).not.toBeNull();
     });
 
@@ -651,11 +651,11 @@ describe('Image', () => {
       });
 
       const imageExt = editor.extensionManager.extensions.find((e) => e.name === 'image')!;
-      const rules = imageExt.config.addInputRules!.call(imageExt as any)!;
+      const rules = (imageExt as any).config.addInputRules!.call(imageExt as any)!;
       const rule = rules[0]!;
 
       const match = ['', '', 'alt', ''] as any;
-      const result = (rule.handler as any)(editor.state, match, 1, 1);
+      const result = (rule.handler)(editor.state, match, 1, 1);
       expect(result).toBeNull();
     });
 
@@ -666,11 +666,11 @@ describe('Image', () => {
       });
 
       const imageExt = editor.extensionManager.extensions.find((e) => e.name === 'image')!;
-      const rules = imageExt.config.addInputRules!.call(imageExt as any)!;
+      const rules = (imageExt as any).config.addInputRules!.call(imageExt as any)!;
       const rule = rules[0]!;
 
       const match = ['![evil](javascript:alert(1))', '![evil](javascript:alert(1))', 'evil', 'javascript:alert(1)'] as RegExpMatchArray;
-      const result = (rule.handler as any)(editor.state, match, 1, 30);
+      const result = (rule.handler)(editor.state, match, 1, 30);
       expect(result).toBeNull();
     });
 
@@ -681,12 +681,12 @@ describe('Image', () => {
       });
 
       const imageExt = editor.extensionManager.extensions.find((e) => e.name === 'image')!;
-      const rules = imageExt.config.addInputRules!.call(imageExt as any)!;
+      const rules = (imageExt as any).config.addInputRules!.call(imageExt as any)!;
       const rule = rules[0]!;
 
       // fullMatch includes leading space, wrapper is without space
       const match = [' ![alt](https://example.com/a.png)', '![alt](https://example.com/a.png)', 'alt', 'https://example.com/a.png'] as RegExpMatchArray;
-      const result = (rule.handler as any)(editor.state, match, 7, 41);
+      const result = (rule.handler)(editor.state, match, 7, 41);
       expect(result).not.toBeNull();
     });
   });
@@ -2335,7 +2335,7 @@ describe('Image drag overlay', () => {
 // ─── NodeView construction and mouse handlers ─────────────────────────────────
 
 describe('Image NodeView (DOM)', () => {
-  let editor: Editor;
+  let editor: Editor | undefined;
   let host: HTMLElement;
 
   beforeEach(() => {
@@ -2390,7 +2390,7 @@ describe('Image NodeView (DOM)', () => {
       content: '<img src="https://example.com/img.png">',
     });
 
-    const wrapper = host.querySelector('.dm-image-resizable') as HTMLElement;
+    const wrapper = host.querySelector('.dm-image-resizable')!;
     const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
     wrapper.dispatchEvent(event);
 
@@ -2405,7 +2405,7 @@ describe('Image NodeView (DOM)', () => {
       content: '<img src="https://example.com/img.png">',
     });
 
-    const handle = host.querySelector('.dm-image-handle-se') as HTMLElement;
+    const handle = host.querySelector('.dm-image-handle-se')!;
     const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: 100 });
     expect(() => handle.dispatchEvent(event)).not.toThrow();
 
@@ -2430,7 +2430,7 @@ describe('Image NodeView (DOM)', () => {
 
     // Get NodeView constructor and invoke manually
     const imageExt = editor.extensionManager.extensions.find((e) => e.name === 'image')!;
-    const nodeViews = (imageExt.config as any).addNodeView?.call({ ...imageExt, options: imageExt.options });
+    const nodeViews = ((imageExt as any).config).addNodeView?.call({ ...imageExt, options: imageExt.options });
 
     if (nodeViews) {
       const node = editor.state.doc.nodeAt(0)!;
@@ -2456,7 +2456,7 @@ describe('Image NodeView (DOM)', () => {
 // ─── Image popover (DOM UI) ───────────────────────────────────────────────────
 
 describe('Image popover', () => {
-  let editor: Editor;
+  let editor: Editor | undefined;
   let host: HTMLElement;
 
   beforeEach(() => {
@@ -2468,7 +2468,7 @@ describe('Image popover', () => {
   afterEach(() => {
     if (editor && !editor.isDestroyed) editor.destroy();
     host.remove();
-    document.querySelectorAll('.dm-image-popover').forEach((el) => el.remove());
+    document.querySelectorAll('.dm-image-popover').forEach((el) => { el.remove(); });
   });
 
   it('popover element is created in plugin', () => {
@@ -2492,8 +2492,8 @@ describe('Image popover', () => {
     // Emit insertImage event
     (editor as any).emit('insertImage', {});
 
-    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
-    expect(popover?.getAttribute('data-show')).toBe('');
+    const popover = document.querySelector('.dm-image-popover')!;
+    expect(popover.getAttribute('data-show')).toBe('');
   });
 
   it('hidePopover fires on second insertImage event (toggle)', () => {
@@ -2504,8 +2504,8 @@ describe('Image popover', () => {
     });
 
     (editor as any).emit('insertImage', {});
-    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
-    expect(popover?.getAttribute('data-show')).toBe('');
+    const popover = document.querySelector('.dm-image-popover')!;
+    expect(popover.getAttribute('data-show')).toBe('');
 
     (editor as any).emit('insertImage', {});
     expect(popover.hasAttribute('data-show')).toBe(false);
@@ -2519,8 +2519,8 @@ describe('Image popover', () => {
     });
 
     (editor as any).emit('insertImage', {});
-    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
-    const urlInput = popover.querySelector('input') as HTMLInputElement;
+    const popover = document.querySelector('.dm-image-popover')!;
+    const urlInput = popover.querySelector('input')!;
 
     const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
     urlInput.dispatchEvent(event);
@@ -2536,8 +2536,8 @@ describe('Image popover', () => {
     });
 
     (editor as any).emit('insertImage', {});
-    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
-    const urlInput = popover.querySelector('input') as HTMLInputElement;
+    const popover = document.querySelector('.dm-image-popover')!;
+    const urlInput = popover.querySelector('input')!;
 
     urlInput.value = 'https://example.com/new.png';
     const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
@@ -2559,9 +2559,9 @@ describe('Image popover', () => {
     });
 
     (editor as any).emit('insertImage', {});
-    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
-    const urlInput = popover.querySelector('input') as HTMLInputElement;
-    const applyBtn = popover.querySelector('.dm-image-popover-apply') as HTMLButtonElement;
+    const popover = document.querySelector('.dm-image-popover')!;
+    const urlInput = popover.querySelector('input')!;
+    const applyBtn = popover.querySelector<HTMLButtonElement>('.dm-image-popover-apply')!;
 
     const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
     urlInput.dispatchEvent(event);
@@ -2578,8 +2578,8 @@ describe('Image popover', () => {
     });
 
     (editor as any).emit('insertImage', {});
-    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
-    const applyBtn = popover.querySelector('.dm-image-popover-apply') as HTMLButtonElement;
+    const popover = document.querySelector('.dm-image-popover')!;
+    const applyBtn = popover.querySelector<HTMLButtonElement>('.dm-image-popover-apply')!;
 
     const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
     applyBtn.dispatchEvent(event);
@@ -2595,8 +2595,8 @@ describe('Image popover', () => {
     });
 
     (editor as any).emit('insertImage', {});
-    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
-    const applyBtn = popover.querySelector('.dm-image-popover-apply') as HTMLButtonElement;
+    const popover = document.querySelector('.dm-image-popover')!;
+    const applyBtn = popover.querySelector<HTMLButtonElement>('.dm-image-popover-apply')!;
 
     const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
     applyBtn.dispatchEvent(event);
@@ -2612,8 +2612,8 @@ describe('Image popover', () => {
     });
 
     (editor as any).emit('insertImage', {});
-    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
-    const applyBtn = popover.querySelector('.dm-image-popover-apply') as HTMLButtonElement;
+    const popover = document.querySelector('.dm-image-popover')!;
+    const applyBtn = popover.querySelector<HTMLButtonElement>('.dm-image-popover-apply')!;
 
     const event = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true });
     applyBtn.dispatchEvent(event);
@@ -2629,7 +2629,7 @@ describe('Image popover', () => {
     });
 
     (editor as any).emit('insertImage', {});
-    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
+    const popover = document.querySelector('.dm-image-popover')!;
     expect(popover.hasAttribute('data-show')).toBe(true);
 
     // Click outside
@@ -2651,9 +2651,9 @@ describe('Image popover', () => {
     });
 
     (editor as any).emit('insertImage', {});
-    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
-    const urlInput = popover.querySelector('input') as HTMLInputElement;
-    const applyBtn = popover.querySelector('.dm-image-popover-apply') as HTMLButtonElement;
+    const popover = document.querySelector('.dm-image-popover')!;
+    const urlInput = popover.querySelector('input')!;
+    const applyBtn = popover.querySelector<HTMLButtonElement>('.dm-image-popover-apply')!;
 
     urlInput.value = 'https://example.com/test.png';
     applyBtn.click();
@@ -2673,9 +2673,9 @@ describe('Image popover', () => {
     });
 
     (editor as any).emit('insertImage', {});
-    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
-    const urlInput = popover.querySelector('input') as HTMLInputElement;
-    const applyBtn = popover.querySelector('.dm-image-popover-apply') as HTMLButtonElement;
+    const popover = document.querySelector('.dm-image-popover')!;
+    const urlInput = popover.querySelector('input')!;
+    const applyBtn = popover.querySelector<HTMLButtonElement>('.dm-image-popover-apply')!;
 
     urlInput.value = 'javascript:alert(1)';
     applyBtn.click();
@@ -2695,11 +2695,11 @@ describe('Image popover', () => {
     });
 
     (editor as any).emit('insertImage', {});
-    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
-    const browseBtn = popover.querySelector('.dm-image-popover-browse') as HTMLButtonElement;
+    const popover = document.querySelector('.dm-image-popover')!;
+    const browseBtn = popover.querySelector<HTMLButtonElement>('.dm-image-popover-browse')!;
 
     // Click opens file browser - jsdom creates a temporary input
-    expect(() => browseBtn.click()).not.toThrow();
+    expect(() => { browseBtn.click(); }).not.toThrow();
   });
 
   it('dragenter with image adds dm-dragover class via plugin handler', () => {
@@ -2816,7 +2816,7 @@ describe('Image popover', () => {
 
   it('handlePaste returns false when uploadHandler configured', () => {
     const CustomImage = Image.configure({
-      uploadHandler: async (_file: File) => 'https://example.com/uploaded.png',
+      uploadHandler: (_file: File) => Promise.resolve('https://example.com/uploaded.png'),
     });
     editor = new Editor({
       element: host,
@@ -2845,7 +2845,7 @@ describe('Image popover', () => {
         break;
       }
     }
-    const eventWithPrevent = { ...event, preventDefault: () => {} } as any;
+    const eventWithPrevent = { ...event, preventDefault: () => { /* noop */ } };
     const result = (plugin as any).props.handlePaste(editor.view, eventWithPrevent);
     expect(result).toBe(false);
   });
@@ -2869,7 +2869,7 @@ describe('Image popover', () => {
       dataTransfer: { files: [file] },
       clientX: 100,
       clientY: 100,
-      preventDefault: () => {},
+      preventDefault: () => { /* noop */ },
     } as any;
 
     const result = (plugin as any).props.handleDrop(editor.view, event);
@@ -2905,9 +2905,9 @@ describe('Image popover', () => {
     expect(result).toBe(false);
   });
 
-  it('insertFromFile with uploadHandler success inserts image', async () => {
+  it("insertFromFile with uploadHandler success inserts image", () => {
     const CustomImage = Image.configure({
-      uploadHandler: async (_file: File) => 'https://example.com/uploaded.png',
+      uploadHandler: (_file: File) => Promise.resolve('https://example.com/uploaded.png'),
     });
     editor = new Editor({
       element: host,
@@ -2917,16 +2917,16 @@ describe('Image popover', () => {
 
     // Emit insertImage, click browse button, simulate file
     (editor as any).emit('insertImage', {});
-    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
-    const browseBtn = popover.querySelector('.dm-image-popover-browse') as HTMLButtonElement;
+    const popover = document.querySelector('.dm-image-popover')!;
+    const browseBtn = popover.querySelector<HTMLButtonElement>('.dm-image-popover-browse')!;
 
-    expect(() => browseBtn.click()).not.toThrow();
+    expect(() => { browseBtn.click(); }).not.toThrow();
   });
 
-  it('insertFromFile handles upload error via onUploadError', async () => {
+  it("insertFromFile handles upload error via onUploadError", () => {
     const onUploadError = vi.fn();
     const CustomImage = Image.configure({
-      uploadHandler: async () => { throw new Error('upload failed'); },
+      uploadHandler: () => { throw new Error("upload failed"); },
       onUploadError,
     });
     editor = new Editor({
@@ -2936,9 +2936,9 @@ describe('Image popover', () => {
     });
 
     (editor as any).emit('insertImage', {});
-    const popover = document.querySelector('.dm-image-popover') as HTMLElement;
-    const browseBtn = popover.querySelector('.dm-image-popover-browse') as HTMLButtonElement;
+    const popover = document.querySelector('.dm-image-popover')!;
+    const browseBtn = popover.querySelector<HTMLButtonElement>('.dm-image-popover-browse')!;
 
-    expect(() => browseBtn.click()).not.toThrow();
+    expect(() => { browseBtn.click(); }).not.toThrow();
   });
 });

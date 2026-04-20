@@ -599,7 +599,7 @@ describe('Mention', () => {
     it('Backspace with deleteTriggerWithBackspace deletes trigger char + mention', () => {
       const CustomMention = Mention.configure({
         deleteTriggerWithBackspace: true,
-        suggestion: { char: '@', name: 'user' },
+        suggestion: { char: "@", name: "user", items: () => [] } as any,
       });
       editor = new Editor({
         extensions: [Document, Text, Paragraph, CustomMention],
@@ -628,7 +628,7 @@ describe('Mention', () => {
     it('Backspace with deleteTriggerWithBackspace skips trigger char removal when char does not match', () => {
       const CustomMention = Mention.configure({
         deleteTriggerWithBackspace: true,
-        suggestion: { char: '@', name: 'user' },
+        suggestion: { char: "@", name: "user", items: () => [] } as any,
       });
       editor = new Editor({
         extensions: [Document, Text, Paragraph, CustomMention],

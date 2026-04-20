@@ -207,7 +207,7 @@ describe('listCommands', () => {
       const fakeSel: any = { ranges: [r1, r2], $from: r1.$from, $to: r2.$to, from: r1.$from.pos, to: r2.$to.pos };
       Object.defineProperty(tr, 'selection', { value: fakeSel, configurable: true });
       const cmd = toggleList('bulletList', 'listItem');
-      const result = cmd({ editor, state, tr, dispatch: undefined, chain: () => editor.chain(), can: () => editor.can(), commands: editor.commands });
+      const result = cmd({ editor: editor, state, tr, dispatch: undefined, chain: () => editor!.chain(), can: () => editor!.can(), commands: editor.commands });
       expect(result).toBe(true);
     });
 
@@ -235,7 +235,7 @@ describe('listCommands', () => {
       const tr = state.tr;
       tr.setSelection(TextSelection.create(state.doc, 3));
       const cmd = toggleList('orderedList', 'listItem');
-      const result = cmd({ editor, state, tr, dispatch: undefined, chain: () => editor.chain(), can: () => editor.can(), commands: editor.commands });
+      const result = cmd({ editor: editor, state, tr, dispatch: undefined, chain: () => editor!.chain(), can: () => editor!.can(), commands: editor.commands });
       expect(result).toBe(true);
     });
 
@@ -276,8 +276,8 @@ describe('listCommands', () => {
           '<ul><li><p>a</p></li></ul><p>b</p>',
       });
       const doc = editor.state.doc;
-      const r1 = new (require('@domternal/pm/state').SelectionRange)(doc.resolve(3), doc.resolve(3));
-      const r2 = new (require('@domternal/pm/state').SelectionRange)(doc.resolve(8), doc.resolve(9));
+      const r1 = new SelectionRange(doc.resolve(3), doc.resolve(3));
+      const r2 = new SelectionRange(doc.resolve(8), doc.resolve(9));
       const state = editor.state;
       const tr = state.tr;
       Object.defineProperty(tr, 'selection', {
@@ -285,7 +285,7 @@ describe('listCommands', () => {
         configurable: true,
       });
       const cmd = toggleList('bulletList', 'listItem');
-      const result = cmd({ editor, state, tr, dispatch: (t) => { editor.view.dispatch(t); }, chain: () => editor.chain(), can: () => editor.can(), commands: editor.commands });
+      const result = cmd({ editor: editor, state, tr, dispatch: (t) => { editor!.view.dispatch(t); }, chain: () => editor!.chain(), can: () => editor!.can(), commands: editor.commands });
       expect(result).toBe(true);
     });
   });

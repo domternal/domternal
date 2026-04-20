@@ -32,7 +32,7 @@ describe('textblockTypeInputRule', () => {
     });
 
     const match = ['# '] as RegExpMatchArray;
-    const result = (rule.handler as any)(editor.state, match, 1, 3);
+    const result = ((rule as any).handler)(editor.state, match, 1, 3);
     expect(result).not.toBeNull();
     editor.destroy();
   });
@@ -49,7 +49,7 @@ describe('textblockTypeInputRule', () => {
     });
 
     const match = ['# '] as RegExpMatchArray;
-    const result = (rule.handler as any)(editor.state, match, 1, 3);
+    const result = ((rule as any).handler)(editor.state, match, 1, 3);
     expect(result).not.toBeNull();
     editor.destroy();
   });
@@ -65,7 +65,7 @@ describe('textblockTypeInputRule', () => {
     });
 
     const match = ['# '] as RegExpMatchArray;
-    const result = (rule.handler as any)(editor.state, match, 1, 3);
+    const result = ((rule as any).handler)(editor.state, match, 1, 3);
     expect(result).not.toBeNull();
     editor.destroy();
   });

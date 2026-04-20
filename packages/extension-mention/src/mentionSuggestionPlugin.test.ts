@@ -31,7 +31,7 @@ function makeRenderer(): {
 }
 
 describe('mentionSuggestionPlugin', () => {
-  let editor: Editor;
+  let editor: Editor | undefined;
   let host: HTMLElement;
 
   beforeEach(() => {
@@ -59,7 +59,7 @@ describe('mentionSuggestionPlugin', () => {
         content: '<p>Hello</p>',
       });
 
-      expect(() => dismissMentionSuggestion(editor.view, 'user')).not.toThrow();
+      expect(() => { dismissMentionSuggestion(editor!.view, 'user'); }).not.toThrow();
     });
   });
 
@@ -140,7 +140,7 @@ describe('mentionSuggestionPlugin', () => {
 
       // Dispatch a non-Escape keydown
       const event = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
-      expect(() => editor.view.dom.dispatchEvent(event)).not.toThrow();
+      expect(() => editor!.view.dom.dispatchEvent(event)).not.toThrow();
       // Without renderer, keydown returns false (doesn't preventDefault)
       expect(event.defaultPrevented).toBe(false);
     });
@@ -238,7 +238,7 @@ describe('mentionSuggestionPlugin', () => {
       expect(event.defaultPrevented).toBe(false);
     });
 
-    it('keydown returns false when suggestion is not active', async () => {
+    it('keydown returns false when suggestion is not active', () => {
       const { renderer } = makeRenderer();
       const CustomMention = Mention.configure({
         suggestion: {
@@ -256,7 +256,7 @@ describe('mentionSuggestionPlugin', () => {
 
       // No @ typed, suggestion inactive
       const event = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
-      expect(() => editor.view.dom.dispatchEvent(event)).not.toThrow();
+      expect(() => editor!.view.dom.dispatchEvent(event)).not.toThrow();
     });
   });
 

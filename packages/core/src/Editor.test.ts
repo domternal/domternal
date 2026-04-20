@@ -896,7 +896,7 @@ describe('Editor', () => {
     it('onError callback fires when error event emitted', () => {
       const onError = vi.fn();
       editor = new Editor({ schema: testSchema, onError });
-      editor.emit('error', { error: new Error('test'), editor });
+      editor.emit('error', { error: new Error('test'), editor, context: 'test' });
       expect(onError).toHaveBeenCalled();
     });
 
@@ -914,7 +914,7 @@ describe('Editor', () => {
     });
 
     it('clipboardHTMLTransform wraps and transforms serialized HTML', () => {
-      const transform = (html: string) => html.replace(/<p>/g, '<p class="x">');
+      const transform = (html: string): string => html.replace(/<p>/g, '<p class="x">');
       editor = new Editor({
         schema: testSchema,
         content: 'hello',

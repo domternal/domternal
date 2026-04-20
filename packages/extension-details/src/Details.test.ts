@@ -421,7 +421,6 @@ describe('commands', () => {
       content: '<details><summary>T</summary><div data-details-content><p>B</p></div></details>',
     });
     // Place cursor inside details
-    const { TextSelection } = require('@domternal/pm/state');
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3))));
 
     expect(editor.commands.setDetailsOpen(true)).toBe(false);
@@ -434,7 +433,6 @@ describe('commands', () => {
       content: '<details><summary>T</summary><div data-details-content><p>B</p></div></details>',
     });
 
-    const { TextSelection } = require('@domternal/pm/state');
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3))));
 
     expect(editor.commands.setDetailsOpen(true)).toBe(true);
@@ -448,7 +446,6 @@ describe('commands', () => {
       content: '<details open><summary>T</summary><div data-details-content><p>B</p></div></details>',
     });
 
-    const { TextSelection } = require('@domternal/pm/state');
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3))));
 
     // Already open, setting to true → returns false
@@ -469,7 +466,6 @@ describe('commands', () => {
       extensions: [Document, Text, Paragraph, CustomDetails, DetailsSummary, DetailsContent],
       content: '<details><summary>T</summary><div data-details-content><p>B</p></div></details>',
     });
-    const { TextSelection } = require('@domternal/pm/state');
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3))));
 
     expect(editor.commands.openDetails()).toBe(true);
@@ -482,7 +478,6 @@ describe('commands', () => {
       extensions: [Document, Text, Paragraph, CustomDetails, DetailsSummary, DetailsContent],
       content: '<details open><summary>T</summary><div data-details-content><p>B</p></div></details>',
     });
-    const { TextSelection } = require('@domternal/pm/state');
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3))));
 
     expect(editor.commands.closeDetails()).toBe(true);
@@ -494,7 +489,6 @@ describe('commands', () => {
       extensions: allExtensions,
       content: '<details><summary>Title</summary><div data-details-content><p>B</p></div></details>',
     });
-    const { TextSelection } = require('@domternal/pm/state');
     // Place cursor at start of summary
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 2)));
 
@@ -508,7 +502,6 @@ describe('commands', () => {
       extensions: allExtensions,
       content: '<details><summary>Hi</summary><div data-details-content><p>X</p></div></details>',
     });
-    const { TextSelection } = require('@domternal/pm/state');
     // Cursor at position 4 (after "H" inside "Hi")
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 4)));
 
@@ -2402,7 +2395,6 @@ describe('appendTransaction cursor correction', () => {
     });
 
     // Cursor in first paragraph
-    const beforeSel = editor.state.selection;
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1)));
 
     // selection should not be corrected
@@ -2438,12 +2430,10 @@ describe('appendTransaction cursor correction', () => {
     });
 
     // Hide the details content element (offsetParent null)
-    const contentEl = host.querySelector('[data-details-content]') as HTMLElement;
-    if (contentEl) {
-      const allEls = [contentEl, ...Array.from(contentEl.querySelectorAll('*'))] as HTMLElement[];
-      for (const el of allEls) {
-        Object.defineProperty(el, 'offsetParent', { get: () => null, configurable: true });
-      }
+    const contentEl = host.querySelector('[data-details-content]')!;
+    const allEls = [contentEl, ...Array.from(contentEl.querySelectorAll('*'))] as HTMLElement[];
+    for (const el of allEls) {
+      Object.defineProperty(el, 'offsetParent', { get: () => null, configurable: true });
     }
 
     // First set cursor in "Before" (visible), then dispatch into hidden region
@@ -2488,7 +2478,7 @@ describe('appendTransaction cursor correction', () => {
       ...Details,
       options: Details.options,
       editor,
-    } as any)!;
+    } as any);
     const toggleCmd = commands['toggleDetails']!();
 
     const mockState = {
@@ -2499,7 +2489,7 @@ describe('appendTransaction cursor correction', () => {
       tr: editor.state.tr,
     };
 
-    const result = toggleCmd({ state: mockState as any, dispatch: () => {}, tr: editor.state.tr } as any);
+    const result = toggleCmd({ state: mockState as any, dispatch: () => { /* noop */ }, tr: editor.state.tr } as any);
     expect(typeof result).toBe('boolean');
   });
 
@@ -2525,7 +2515,7 @@ describe('appendTransaction cursor correction', () => {
       ...Details,
       options: Details.options,
       editor,
-    } as any)!;
+    } as any);
     const toggleCmd = commands['toggleDetails']!();
 
     const mockState = {
@@ -2566,7 +2556,7 @@ describe('appendTransaction cursor correction', () => {
       ...Details,
       options: Details.options,
       editor,
-    } as any)!;
+    } as any);
     const toggleCmd = commands['toggleDetails']!();
 
     // Create mock state with fake selection
@@ -2578,7 +2568,7 @@ describe('appendTransaction cursor correction', () => {
       tr: editor.state.tr,
     };
 
-    const result = toggleCmd({ state: mockState as any, dispatch: () => {}, tr: editor.state.tr } as any);
+    const result = toggleCmd({ state: mockState as any, dispatch: () => { /* noop */ }, tr: editor.state.tr } as any);
     expect(typeof result).toBe('boolean');
   });
 
@@ -2591,12 +2581,10 @@ describe('appendTransaction cursor correction', () => {
       content: '<details><summary>Title</summary><div data-details-content><p>Hidden</p></div></details><p>After</p>',
     });
 
-    const contentEl = host.querySelector('[data-details-content]') as HTMLElement;
-    if (contentEl) {
-      const allEls = [contentEl, ...Array.from(contentEl.querySelectorAll('*'))] as HTMLElement[];
-      for (const el of allEls) {
-        Object.defineProperty(el, 'offsetParent', { get: () => null, configurable: true });
-      }
+    const contentEl = host.querySelector('[data-details-content]')!;
+    const allEls = [contentEl, ...Array.from(contentEl.querySelectorAll('*'))] as HTMLElement[];
+    for (const el of allEls) {
+      Object.defineProperty(el, 'offsetParent', { get: () => null, configurable: true });
     }
 
     // First cursor in "After" (visible), then backward into hidden

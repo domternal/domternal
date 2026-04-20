@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { Document, Text, Paragraph, Editor, Gapcursor } from '@domternal/core';
 import { GapCursor } from '@domternal/pm/gapcursor';
+import { TextSelection } from '@domternal/pm/state';
 import { Details } from '../Details.js';
 import { DetailsSummary } from '../DetailsSummary.js';
 import { DetailsContent } from '../DetailsContent.js';
@@ -9,7 +10,7 @@ import { setGapCursor } from './setGapCursor.js';
 const allExtensions = [Document, Text, Paragraph, Details, DetailsSummary, DetailsContent, Gapcursor];
 
 describe('setGapCursor', () => {
-  let editor: Editor;
+  let editor: Editor | undefined;
   let host: HTMLElement;
 
   beforeEach(() => {
@@ -36,7 +37,6 @@ describe('setGapCursor', () => {
     const tr = editor.state.tr;
     tr.setSelection(editor.state.doc.type.name === 'doc' ? tr.selection : tr.selection);
     // Force range selection
-    const { TextSelection } = require('@domternal/pm/state');
     const sel = TextSelection.create(tr.doc, 2, 5);
     tr.setSelection(sel);
     editor.view.dispatch(tr);
@@ -62,7 +62,6 @@ describe('setGapCursor', () => {
     });
 
     // Place cursor in summary
-    const { TextSelection } = require('@domternal/pm/state');
     const summaryPos = 2;
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, summaryPos)));
 
@@ -77,7 +76,6 @@ describe('setGapCursor', () => {
     });
 
     // Place cursor at start of summary (not end)
-    const { TextSelection } = require('@domternal/pm/state');
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 2)));
 
     expect(setGapCursor(editor as any, 'right')).toBe(false);
@@ -90,7 +88,6 @@ describe('setGapCursor', () => {
       content: '<details><summary>Title</summary><div data-details-content><p>Body</p></div></details><p>After</p>',
     });
 
-    const { TextSelection } = require('@domternal/pm/state');
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3)));
 
     // Monkey-patch view.domAtPos to return element with offsetParent null for content-area positions
@@ -118,19 +115,16 @@ describe('setGapCursor', () => {
       content: '<details><summary>T</summary><div data-details-content><p>B</p></div></details><p>After</p>',
     });
 
-    const { TextSelection } = require('@domternal/pm/state');
     // Cursor at end of "T" (pos 3: summary starts at 2, "T" is at 2, end is 3)
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3)));
 
     // Force content to be hidden so isNodeVisible returns false
-    const contentEl = host.querySelector('[data-details-content]') as HTMLElement;
-    if (contentEl) {
-      Object.defineProperty(contentEl, 'offsetParent', { get: () => null, configurable: true });
-      // Also hide direct children
-      contentEl.querySelectorAll('*').forEach((child) => {
-        Object.defineProperty(child, 'offsetParent', { get: () => null, configurable: true });
-      });
-    }
+    const contentEl = host.querySelector('[data-details-content]')!;
+    Object.defineProperty(contentEl, 'offsetParent', { get: () => null, configurable: true });
+    // Also hide direct children
+    contentEl.querySelectorAll('*').forEach((child) => {
+      Object.defineProperty(child, 'offsetParent', { get: () => null, configurable: true });
+    });
 
     const result = setGapCursor(editor as any, 'right');
     // Result depends on whether GapCursor.findFrom succeeds
@@ -145,7 +139,6 @@ describe('setGapCursor', () => {
         '<details><summary>T</summary><div data-details-content><p>B</p></div></details><p>After</p>',
     });
 
-    const { TextSelection } = require('@domternal/pm/state');
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3)));
 
     // Stub domAtPos to return hidden element so isNodeVisible returns false
@@ -168,7 +161,6 @@ describe('setGapCursor', () => {
         '<details><summary>T</summary><div data-details-content><p>B</p></div></details><p>After</p>',
     });
 
-    const { TextSelection } = require('@domternal/pm/state');
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3)));
 
     // Stub domAtPos so isNodeVisible returns false (content is "collapsed")
