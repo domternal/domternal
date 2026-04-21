@@ -35,7 +35,7 @@ export function useEditorState<T>(
   // given call site. Switching modes would shift inner hook counts and corrupt
   // React's hook ordering. The guard below throws a clear error before that
   // corruption happens, instead of relying solely on the ESLint comment below.
-  const isSelectorMode = selector !== undefined;
+  const isSelectorMode = typeof selector === 'function';
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const modeRef = useRef<boolean | null>(null);
   modeRef.current ??= isSelectorMode;
@@ -43,7 +43,7 @@ export function useEditorState<T>(
     throw new Error('useEditorState selector mode must remain stable for a component instance.');
   }
 
-  if (selector !== undefined) {
+  if (isSelectorMode) {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     return useEditorStateSelector(editor, selector);
   }
