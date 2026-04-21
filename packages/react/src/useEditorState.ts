@@ -43,7 +43,7 @@ export function useEditorState<T>(
     throw new Error('useEditorState selector mode must remain stable for a component instance.');
   }
 
-  if (isSelectorMode) {
+  if (typeof selector === 'function') {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     return useEditorStateSelector(editor, selector);
   }

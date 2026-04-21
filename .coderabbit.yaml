@@ -72,7 +72,7 @@ reviews:
         pinned action versions.
 
   auto_review:
-    enabled: true
+    enabled: false
     auto_incremental_review: true
     drafts: false
     base_branches:
