@@ -1,8 +1,8 @@
+import type { OnDestroy } from '@angular/core';
 import {
   Component,
   ChangeDetectionStrategy,
   ViewEncapsulation,
-  OnDestroy,
   input,
   signal,
   effect,
@@ -14,7 +14,6 @@ import {
 import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 
 import {
-  Editor,
   ToolbarController,
   defaultIcons,
   positionFloatingOnce,
@@ -27,7 +26,8 @@ import type {
   IconSet,
   ToolbarGroup,
   ToolbarLayoutEntry,
-} from '@domternal/core';
+
+  Editor} from '@domternal/core';
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
 
@@ -162,7 +162,7 @@ export class DomternalToolbarComponent implements OnDestroy {
   private editorEl: HTMLElement | null = null;
   private cleanupFloating: (() => void) | null = null;
   private ngZone = inject(NgZone);
-  private elRef = inject(ElementRef);
+  private elRef = inject<ElementRef<HTMLElement>>(ElementRef);
   private sanitizer = inject(DomSanitizer);
 
   /** SafeHtml cache — same reference returned for same key, prevents DOM churn */
@@ -173,7 +173,7 @@ export class DomternalToolbarComponent implements OnDestroy {
   constructor() {
     effect(() => {
       const editor = this.editor();
-      untracked(() => this.setupController(editor));
+      untracked(() => { this.setupController(editor); });
     });
   }
 
@@ -232,7 +232,7 @@ export class DomternalToolbarComponent implements OnDestroy {
           computed = this.getInlineStyleAtCursor(dropdown.computedStyleProperty);
           if (computed) {
             const first = computed.split(',')[0]?.replace(/['"]+/g, '').trim();
-            computed = first || null;
+            computed = first ?? null;
           }
         } else {
           computed = this.getComputedStyleAtCursor(dropdown.computedStyleProperty);
@@ -368,7 +368,7 @@ export class DomternalToolbarComponent implements OnDestroy {
     // Always refocus editor after executing a command via toolbar button.
     // Mouse clicks already keep focus via mousedown.preventDefault();
     // keyboard activations (Enter/Space) need explicit refocus.
-    requestAnimationFrame(() => this.editor().view.focus());
+    requestAnimationFrame(() => { this.editor().view.focus(); });
   }
 
   onDropdownToggle(dropdown: ToolbarDropdown): void {
@@ -380,12 +380,12 @@ export class DomternalToolbarComponent implements OnDestroy {
     // Position the panel after Angular renders it (tracks resize, not scroll)
     if (this.openDropdown()) {
       requestAnimationFrame(() => {
-        const trigger = this.elRef.nativeElement.querySelector(
+        const trigger = this.elRef.nativeElement.querySelector<HTMLElement>(
           `[aria-expanded="true"]`,
-        ) as HTMLElement | null;
-        const panel = trigger?.parentElement?.querySelector(
+        );
+        const panel = trigger?.parentElement?.querySelector<HTMLElement>(
           '.dm-toolbar-dropdown-panel',
-        ) as HTMLElement | null;
+        );
         if (trigger && panel) {
           // List dropdowns align to trigger's left edge; grid/picker dropdowns center
           const placement = dropdown.layout === 'grid' ? 'bottom' : 'bottom-start';
@@ -415,7 +415,7 @@ export class DomternalToolbarComponent implements OnDestroy {
     }
 
     // Refocus editor so ::selection highlight stays visible
-    requestAnimationFrame(() => this.editor().view.focus());
+    requestAnimationFrame(() => { this.editor().view.focus(); });
   }
 
   onButtonFocus(name: string): void {
@@ -457,7 +457,7 @@ export class DomternalToolbarComponent implements OnDestroy {
           const btn = document.activeElement as HTMLElement | null;
           if (btn?.getAttribute('aria-haspopup') && btn.closest('.dm-toolbar')) {
             btn.click();
-            requestAnimationFrame(() => this.focusDropdownItem(0, true));
+            requestAnimationFrame(() => { this.focusDropdownItem(0, true); });
           }
         }
         break;
@@ -485,9 +485,9 @@ export class DomternalToolbarComponent implements OnDestroy {
   // === Private ===
 
   private focusDropdownItem(direction: number, first?: boolean): void {
-    const panel = this.elRef.nativeElement.querySelector('.dm-toolbar-dropdown-panel') as HTMLElement | null;
+    const panel = this.elRef.nativeElement.querySelector<HTMLElement>('.dm-toolbar-dropdown-panel');
     if (!panel) return;
-    const items = Array.from(panel.querySelectorAll('[role="menuitem"]')) as HTMLElement[];
+    const items = Array.from(panel.querySelectorAll<HTMLElement>('[role="menuitem"]'));
     if (!items.length) return;
     if (first) { items[0]?.focus(); return; }
     const current = document.activeElement as HTMLElement;
@@ -511,7 +511,7 @@ export class DomternalToolbarComponent implements OnDestroy {
 
     this.controller = new ToolbarController(
       editor as unknown as ToolbarControllerEditor,
-      () => this.ngZone.run(() => this.syncState()),
+      () => { this.ngZone.run(() => { this.syncState(); }); },
       this.layout(),
     );
     this.controller.subscribe();
@@ -523,20 +523,20 @@ export class DomternalToolbarComponent implements OnDestroy {
         this.cleanupFloating?.();
         this.cleanupFloating = null;
         this.controller?.closeDropdown();
-        this.ngZone.run(() => this.syncState());
+        this.ngZone.run(() => { this.syncState(); });
       }
     };
     document.addEventListener('mousedown', this.clickOutsideHandler);
 
     // Listen for dismiss-overlays (e.g. table handle clicks that stopPropagation on mousedown)
-    this.editorEl = editor.view.dom.closest('.dm-editor') as HTMLElement | null;
+    this.editorEl = editor.view.dom.closest('.dm-editor');
     if (this.editorEl) {
       this.dismissOverlayHandler = () => {
         if (this.openDropdown()) {
           this.cleanupFloating?.();
           this.cleanupFloating = null;
           this.controller?.closeDropdown();
-          this.ngZone.run(() => this.syncState());
+          this.ngZone.run(() => { this.syncState(); });
         }
       };
       this.editorEl.addEventListener('dm:dismiss-overlays', this.dismissOverlayHandler);
@@ -611,9 +611,9 @@ export class DomternalToolbarComponent implements OnDestroy {
 
   private focusCurrentButton(): void {
     const idx = this.controller?.focusedIndex ?? 0;
-    const buttons = this.elRef.nativeElement.querySelectorAll(
+    const buttons = this.elRef.nativeElement.querySelectorAll<HTMLButtonElement>(
       '.dm-toolbar-button'
-    ) as NodeListOf<HTMLButtonElement>;
+    );
     buttons[idx]?.focus();
   }
 }

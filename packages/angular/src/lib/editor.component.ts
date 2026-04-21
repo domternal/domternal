@@ -1,6 +1,6 @@
+import type { ElementRef, OnDestroy } from '@angular/core';
 import {
   Component,
-  ElementRef,
   ViewEncapsulation,
   afterNextRender,
   forwardRef,
@@ -8,14 +8,14 @@ import {
   ChangeDetectionStrategy,
   inject,
   NgZone,
-  OnDestroy,
   effect,
   input,
   output,
   viewChild,
   untracked,
 } from '@angular/core';
-import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
+import type { ControlValueAccessor } from '@angular/forms';
+import { NG_VALUE_ACCESSOR } from '@angular/forms';
 
 import {
   Editor,
@@ -61,7 +61,7 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
   readonly selectionChanged = output<{ editor: Editor }>();
   readonly focusChanged = output<{ editor: Editor; event: FocusEvent }>();
   readonly blurChanged = output<{ editor: Editor; event: FocusEvent }>();
-  readonly editorDestroyed = output<void>();
+  readonly editorDestroyed = output();
 
   // === Signals (read-only public state) ===
   private _htmlContent = signal('');
@@ -85,8 +85,8 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
   }
 
   // === ControlValueAccessor ===
-  private onChange: (value: Content) => void = () => {};
-  private onTouched: () => void = () => {};
+  private onChange: (value: Content) => void = () => { /* noop until registerOnChange */ };
+  private onTouched: () => void = () => { /* noop until registerOnTouched */ };
   private _pendingContent: Content | null = null;
 
   private ngZone = inject(NgZone);

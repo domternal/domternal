@@ -1,20 +1,14 @@
+import type { OnDestroy, ElementRef } from '@angular/core';
 import {
   Component,
   ChangeDetectionStrategy,
   ViewEncapsulation,
-  OnDestroy,
   input,
   viewChild,
-  ElementRef,
   afterNextRender,
 } from '@angular/core';
-
-import {
-  Editor,
-  PluginKey,
-  createFloatingMenuPlugin,
-} from '@domternal/core';
-import type { FloatingMenuOptions } from '@domternal/core';
+import { PluginKey, createFloatingMenuPlugin } from '@domternal/core';
+import type { FloatingMenuOptions, Editor } from '@domternal/core';
 
 @Component({
   selector: 'domternal-floating-menu',
