@@ -1,4 +1,4 @@
-import { type ElementType, type HTMLAttributes } from 'react';
+import type { ElementType, HTMLAttributes, ReactNode } from 'react';
 import { useReactNodeView } from './ReactNodeViewContext.js';
 
 export interface NodeViewContentProps extends HTMLAttributes<HTMLElement> {
@@ -10,7 +10,7 @@ export interface NodeViewContentProps extends HTMLAttributes<HTMLElement> {
  * Placeholder for editable nested content within a custom React node view.
  * ProseMirror manages the content DOM inside this element.
  */
-export function NodeViewContent({ as: Tag = 'div', style, ...props }: NodeViewContentProps) {
+export function NodeViewContent({ as: Tag = 'div', style, ...props }: NodeViewContentProps): ReactNode {
   const { nodeViewContentRef } = useReactNodeView();
 
   return (

@@ -3,7 +3,7 @@ import type { ToolbarButton } from '@domternal/core';
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent);
 
-export function useTooltip() {
+export function useTooltip(): { getTooltip: (item: ToolbarButton) => string } {
   const getTooltip = useCallback((item: ToolbarButton): string => {
     if (item.shortcut) {
       const parts = item.shortcut.split('-');

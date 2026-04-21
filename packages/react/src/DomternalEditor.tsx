@@ -104,7 +104,7 @@ export const DomternalEditor = forwardRef<DomternalEditorRef, DomternalEditorPro
     useEffect(() => {
       if (!editor || editor.isDestroyed || !onChangeRef.current) return;
 
-      const handler = () => {
+      const handler = (): void => {
         const cb = onChangeRef.current;
         if (!cb) return;
         const val = outputFormat === 'html' ? editor.getHTML() : editor.getJSON();

@@ -5,17 +5,20 @@ export function useKeyboardNav(
   controllerRef: React.RefObject<ToolbarController | null>,
   toolbarRef: React.RefObject<HTMLDivElement | null>,
   closeDropdown: () => void,
-) {
-  const focusCurrentButton = useCallback(() => {
+): {
+  onKeyDown: (event: React.KeyboardEvent) => void;
+  focusCurrentButton: () => void;
+} {
+  const focusCurrentButton = useCallback((): void => {
     const idx = controllerRef.current?.focusedIndex ?? 0;
-    const buttons = toolbarRef.current?.querySelectorAll('.dm-toolbar-button') as NodeListOf<HTMLButtonElement> | undefined;
+    const buttons = toolbarRef.current?.querySelectorAll<HTMLButtonElement>('.dm-toolbar-button');
     buttons?.[idx]?.focus();
-  }, []); // controllerRef and toolbarRef are stable refs
+  }, [controllerRef, toolbarRef]);
 
-  const focusDropdownItem = useCallback((direction: number, first?: boolean) => {
-    const panel = toolbarRef.current?.querySelector('.dm-toolbar-dropdown-panel') as HTMLElement | null;
+  const focusDropdownItem = useCallback((direction: number, first?: boolean): void => {
+    const panel = toolbarRef.current?.querySelector<HTMLElement>('.dm-toolbar-dropdown-panel');
     if (!panel) return;
-    const items = Array.from(panel.querySelectorAll('[role="menuitem"]')) as HTMLElement[];
+    const items = Array.from(panel.querySelectorAll<HTMLElement>('[role="menuitem"]'));
     if (!items.length) return;
     if (first) { items[0]?.focus(); return; }
     const current = document.activeElement as HTMLElement;
@@ -24,9 +27,9 @@ export function useKeyboardNav(
       ? (direction > 0 ? 0 : items.length - 1)
       : (idx + direction + items.length) % items.length;
     items[next]?.focus();
-  }, []);
+  }, [toolbarRef]);
 
-  const onKeyDown = useCallback((event: React.KeyboardEvent) => {
+  const onKeyDown = useCallback((event: React.KeyboardEvent): void => {
     const controller = controllerRef.current;
     if (!controller) return;
 
@@ -49,7 +52,7 @@ export function useKeyboardNav(
           const btn = document.activeElement as HTMLElement | null;
           if (btn?.getAttribute('aria-haspopup') && btn.closest('.dm-toolbar')) {
             btn.click();
-            requestAnimationFrame(() => focusDropdownItem(0, true));
+            requestAnimationFrame(() => { focusDropdownItem(0, true); });
           }
         }
         break;
@@ -79,7 +82,7 @@ export function useKeyboardNav(
         }
         break;
     }
-  }, [closeDropdown, focusCurrentButton, focusDropdownItem]);
+  }, [closeDropdown, focusCurrentButton, focusDropdownItem, controllerRef]);
 
   return { onKeyDown, focusCurrentButton };
 }

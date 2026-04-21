@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import type { Editor, BubbleMenuOptions, ToolbarButton } from '@domternal/core';
+import { useRef, type ReactNode } from 'react';
+import type { Editor, BubbleMenuOptions } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useBubbleMenu } from './useBubbleMenu.js';
 
@@ -31,7 +31,7 @@ export function DomternalBubbleMenu({
   items,
   contexts,
   children,
-}: DomternalBubbleMenuProps) {
+}: DomternalBubbleMenuProps): ReactNode {
   const { editor: contextEditor } = useCurrentEditor();
   const editor = editorProp ?? contextEditor;
 
@@ -73,7 +73,7 @@ export function DomternalBubbleMenu({
         if (item.type === 'separator') {
           return <span key={item.name} className="dm-toolbar-separator" role="separator" />;
         }
-        const btn = item as ToolbarButton;
+        const btn = item;
         const active = isItemActive(btn);
         return (
           <button
@@ -85,8 +85,8 @@ export function DomternalBubbleMenu({
             aria-label={btn.label}
             aria-pressed={active}
             dangerouslySetInnerHTML={{ __html: getCachedHtml(btn.icon) }}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => executeCommand(btn)}
+            onMouseDown={(e) => { e.preventDefault(); }}
+            onClick={() => { executeCommand(btn); }}
           />
         );
       })}

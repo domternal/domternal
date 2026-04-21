@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { ToolbarButton, ToolbarDropdown as ToolbarDropdownType } from '@domternal/core';
 import { ToolbarDropdownPanel } from './ToolbarDropdownPanel.js';
 
@@ -27,7 +28,7 @@ export function ToolbarDropdown({
   onToggle,
   onItemClick,
   onFocus,
-}: ToolbarDropdownProps) {
+}: ToolbarDropdownProps): ReactNode {
   return (
     <div className="dm-toolbar-dropdown-wrapper">
       <button
@@ -41,9 +42,9 @@ export function ToolbarDropdown({
         disabled={isDisabled}
         data-dropdown={dropdown.name}
         dangerouslySetInnerHTML={{ __html: triggerHtml }}
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => onToggle(dropdown)}
-        onFocus={() => onFocus(dropdown.name)}
+        onMouseDown={(e) => { e.preventDefault(); }}
+        onClick={() => { onToggle(dropdown); }}
+        onFocus={() => { onFocus(dropdown.name); }}
       />
       {isOpen && (
         <ToolbarDropdownPanel

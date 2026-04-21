@@ -1,4 +1,4 @@
-import { Fragment, useCallback } from 'react';
+import { Fragment, useCallback, type ReactNode } from 'react';
 import type { Editor } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useEmojiPicker, type EmojiPickerItem } from './useEmojiPicker.js';
@@ -30,7 +30,7 @@ export interface DomternalEmojiPickerProps {
   emojis: EmojiPickerItem[];
 }
 
-export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEmojiPickerProps) {
+export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEmojiPickerProps): ReactNode {
   const { editor: contextEditor } = useCurrentEditor();
   const editor = editorProp ?? contextEditor;
 
@@ -50,12 +50,12 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
     categories,
   } = useEmojiPicker(editor, emojis);
 
-  const onGridKeyDown = useCallback((event: React.KeyboardEvent) => {
+  const onGridKeyDown = useCallback((event: React.KeyboardEvent): void => {
     const grid = event.currentTarget as HTMLElement;
-    const swatches = Array.from(grid.querySelectorAll('.dm-emoji-swatch')) as HTMLElement[];
+    const swatches = Array.from(grid.querySelectorAll<HTMLElement>('.dm-emoji-swatch'));
     if (!swatches.length) return;
     const current = document.activeElement as HTMLElement;
-    let idx = swatches.indexOf(current);
+    const idx = swatches.indexOf(current);
     if (idx === -1) {
       // Focus is on grid container, not a swatch — enter the grid
       if (['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(event.key)) {
@@ -103,8 +103,8 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
               aria-selected={activeCategory === cat}
               title={cat}
               aria-label={cat}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => scrollToCategory(cat)}
+              onMouseDown={(e) => { e.preventDefault(); }}
+              onClick={() => { scrollToCategory(cat); }}
             >
               {categoryIcon(cat)}
             </button>
@@ -123,8 +123,8 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
                     tabIndex={-1}
                     title={formatName(item.name)}
                     aria-label={formatName(item.name)}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => selectEmoji(item)}
+                    onMouseDown={(e) => { e.preventDefault(); }}
+                    onClick={() => { selectEmoji(item); }}
                   >
                     {item.emoji}
                   </button>
@@ -146,8 +146,8 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
                       tabIndex={-1}
                       title={formatName(item.name)}
                       aria-label={formatName(item.name)}
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => selectEmoji(item)}
+                      onMouseDown={(e) => { e.preventDefault(); }}
+                      onClick={() => { selectEmoji(item); }}
                     >
                       {item.emoji}
                     </button>
@@ -167,8 +167,8 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
                       tabIndex={-1}
                       title={formatName(item.name)}
                       aria-label={formatName(item.name)}
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => selectEmoji(item)}
+                      onMouseDown={(e) => { e.preventDefault(); }}
+                      onClick={() => { selectEmoji(item); }}
                     >
                       {item.emoji}
                     </button>

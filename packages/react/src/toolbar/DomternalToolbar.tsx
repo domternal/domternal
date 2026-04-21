@@ -1,9 +1,8 @@
-import { Fragment, useCallback } from 'react';
+import { Fragment, useCallback, type ReactNode } from 'react';
 import type {
   Editor,
   IconSet,
   ToolbarButton as ToolbarButtonType,
-  ToolbarDropdown as ToolbarDropdownType,
   ToolbarItem,
   ToolbarLayoutEntry,
 } from '@domternal/core';
@@ -25,7 +24,7 @@ export interface DomternalToolbarProps {
   layout?: ToolbarLayoutEntry[];
 }
 
-export function DomternalToolbar({ editor: editorProp, icons, layout }: DomternalToolbarProps) {
+export function DomternalToolbar({ editor: editorProp, icons, layout }: DomternalToolbarProps): ReactNode {
   const { editor: contextEditor } = useCurrentEditor();
   const editor = editorProp ?? contextEditor;
 
@@ -54,7 +53,7 @@ export function DomternalToolbar({ editor: editorProp, icons, layout }: Domterna
   const { getTooltip } = useTooltip();
   const { onKeyDown } = useKeyboardNav(controllerRef, toolbarRef, closeDropdown);
 
-  const onButtonClick = useCallback((item: ToolbarButtonType, event: React.MouseEvent) => {
+  const onButtonClick = useCallback((item: ToolbarButtonType, event: React.MouseEvent): void => {
     if (!editor) return;
 
     // Close any open dropdown first
@@ -72,16 +71,16 @@ export function DomternalToolbar({ editor: editorProp, icons, layout }: Domterna
     // Always refocus editor after executing a command via toolbar button.
     // Mouse clicks already keep focus via mousedown.preventDefault();
     // keyboard activations (Enter/Space) need explicit refocus.
-    requestAnimationFrame(() => editor.view.focus());
-  }, [editor, closeDropdown]);
+    requestAnimationFrame(() => { editor.view.focus(); });
+  }, [editor, closeDropdown, controllerRef]);
 
-  const onDropdownItemClick = useCallback((item: ToolbarButtonType, event: React.MouseEvent) => {
+  const onDropdownItemClick = useCallback((item: ToolbarButtonType, event: React.MouseEvent): void => {
     if (!editor) return;
 
     let anchor: HTMLElement | undefined;
     if (item.emitEvent) {
       const wrapper = (event.currentTarget as HTMLElement).closest('.dm-toolbar-dropdown-wrapper');
-      anchor = wrapper?.querySelector('.dm-toolbar-dropdown-trigger') as HTMLElement | undefined;
+      anchor = wrapper?.querySelector<HTMLElement>('.dm-toolbar-dropdown-trigger') ?? undefined;
     }
 
     closeDropdown();
@@ -93,15 +92,15 @@ export function DomternalToolbar({ editor: editorProp, icons, layout }: Domterna
     }
 
     // Refocus editor so ::selection highlight stays visible
-    requestAnimationFrame(() => editor.view.focus());
-  }, [editor, closeDropdown]);
+    requestAnimationFrame(() => { editor.view.focus(); });
+  }, [editor, closeDropdown, controllerRef]);
 
-  const onButtonFocus = useCallback((name: string) => {
+  const onButtonFocus = useCallback((name: string): void => {
     const index = controllerRef.current?.getFlatIndex(name) ?? -1;
     if (index >= 0) {
       controllerRef.current?.setFocusedIndex(index);
     }
-  }, []);
+  }, [controllerRef]);
 
   // Force re-read of activeVersion in render to subscribe to state changes
   void activeVersion;
@@ -123,7 +122,7 @@ export function DomternalToolbar({ editor: editorProp, icons, layout }: Domterna
           <div className="dm-toolbar-group" role="group" aria-label={group.name || 'Tools'}>
           {group.items.map((item: ToolbarItem) => {
             if (item.type === 'button') {
-              const btn = item as ToolbarButtonType;
+              const btn = item;
               return (
                 <ToolbarButton
                   key={btn.name}
@@ -140,7 +139,7 @@ export function DomternalToolbar({ editor: editorProp, icons, layout }: Domterna
               );
             }
             if (item.type === 'dropdown') {
-              const dd = item as ToolbarDropdownType;
+              const dd = item;
               const activeItem = dd.items.find((sub: ToolbarButtonType) => controllerRef.current?.activeMap.get(sub.name));
 
               // Handle dynamic label with computed style
@@ -151,7 +150,7 @@ export function DomternalToolbar({ editor: editorProp, icons, layout }: Domterna
                   computed = getInlineStyleAtCursor(editor, dd.computedStyleProperty);
                   if (computed) {
                     const first = computed.split(',')[0]?.replace(/['"]+/g, '').trim();
-                    computed = first || null;
+                    computed = first ?? null;
                   }
                 } else {
                   computed = getComputedStyleAtCursor(editor, dd.computedStyleProperty);

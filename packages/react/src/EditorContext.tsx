@@ -31,7 +31,7 @@ export interface EditorProviderProps {
  * </EditorProvider>
  * ```
  */
-export function EditorProvider({ editor, children }: EditorProviderProps) {
+export function EditorProvider({ editor, children }: EditorProviderProps): ReactNode {
   const value = useMemo<EditorContextValue>(() => ({ editor }), [editor]);
   return <EditorContext.Provider value={value}>{children}</EditorContext.Provider>;
 }
