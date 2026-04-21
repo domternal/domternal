@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { PluginKey, createFloatingMenuPlugin } from '@domternal/core';
 import type { Editor, FloatingMenuOptions } from '@domternal/core';
 import { useCurrentEditor } from './EditorContext.js';
@@ -19,7 +19,7 @@ export function DomternalFloatingMenu({
   shouldShow,
   offset = 0,
   children,
-}: DomternalFloatingMenuProps) {
+}: DomternalFloatingMenuProps): ReactNode {
   const { editor: contextEditor } = useCurrentEditor();
   const editor = editorProp ?? contextEditor;
 
@@ -36,8 +36,9 @@ export function DomternalFloatingMenu({
   useEffect(() => {
     if (!editor || editor.isDestroyed || !menuRef.current) return;
 
+    const pluginKey = pluginKeyRef.current;
     const plugin = createFloatingMenuPlugin({
-      pluginKey: pluginKeyRef.current,
+      pluginKey,
       editor,
       element: menuRef.current,
       ...(shouldShowRef.current && { shouldShow: shouldShowRef.current }),
@@ -47,7 +48,7 @@ export function DomternalFloatingMenu({
 
     return () => {
       if (!editor.isDestroyed) {
-        editor.unregisterPlugin(pluginKeyRef.current);
+        editor.unregisterPlugin(pluginKey);
       }
     };
   }, [editor]);

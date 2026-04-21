@@ -1,26 +1,25 @@
+import type { OnDestroy, ElementRef } from '@angular/core';
 import {
   Component,
   ChangeDetectionStrategy,
   ViewEncapsulation,
-  OnDestroy,
   input,
   signal,
   inject,
   NgZone,
   viewChild,
-  ElementRef,
   afterNextRender,
 } from '@angular/core';
 import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 
 import {
-  Editor,
   PluginKey,
   ToolbarController,
   createBubbleMenuPlugin,
   defaultIcons,
 } from '@domternal/core';
-import type { BubbleMenuOptions, ToolbarButton } from '@domternal/core';
+import type { BubbleMenuOptions, ToolbarButton ,
+  Editor} from '@domternal/core';
 
 interface BubbleMenuSeparator { type: 'separator'; name: string }
 type BubbleMenuItem = ToolbarButton | BubbleMenuSeparator;
@@ -218,7 +217,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     let sepIdx = 0;
     for (const name of names) {
       if (name === '|') {
-        result.push({ type: 'separator', name: `sep-${sepIdx++}` });
+        result.push({ type: 'separator', name: `sep-${String(sepIdx++)}` });
       } else {
         const item = this.itemMap.get(name);
         if (item) result.push(item);
@@ -278,7 +277,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     return items.filter(item => {
       const markName = typeof item.isActive === 'string' ? item.isActive : null;
       if (!markName) return true;
-      const markType = schema.marks?.[markName];
+      const markType = schema.marks[markName];
       if (!markType) return true;
       return nodeType.allowsMarkType(markType);
     });
@@ -307,7 +306,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
       let sepIdx = 0;
       for (const item of items) {
         if (lastGroup !== undefined && item.group !== lastGroup) {
-          result.push({ type: 'separator', name: `bsep-${sepIdx++}` });
+          result.push({ type: 'separator', name: `bsep-${String(sepIdx++)}` });
         }
         result.push(item);
         lastGroup = item.group;
@@ -320,16 +319,17 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     this.buildItemMap(editor);
     this.buildBubbleDefaults(editor);
 
+    const items = this.items();
     if (this.contexts()) {
       this.updateContextItems(editor);
-    } else if (this.items()) {
-      this.resolvedItems.set(this.resolveNames(this.items()!));
+    } else if (items) {
+      this.resolvedItems.set(this.resolveNames(items));
     } else {
       this.resolvedItems.set(this.resolveNames(['bold', 'italic', 'underline']));
     }
 
-    const defaultItems = this.items()
-      ? this.resolveNames(this.items()!)
+    const defaultItems = items
+      ? this.resolveNames(items)
       : this.resolveNames(['bold', 'italic', 'underline']);
 
     this.transactionHandler = () => {
@@ -353,7 +353,8 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   }
 
   private updateContextItems(editor: Editor): void {
-    const ctxs = this.contexts()!;
+    const ctxs = this.contexts();
+    if (!ctxs) return;
     const ctx = this.detectContext(editor.state.selection as unknown as SelectionShape, ctxs);
     if (!ctx) {
       this.resolvedItems.set([]);
@@ -380,7 +381,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
   private updateStates(editor: Editor): void {
     let canProxy: Record<string, (...args: unknown[]) => boolean> | null = null;
-    try { canProxy = editor.can() as unknown as Record<string, (...args: unknown[]) => boolean>; } catch {}
+    try { canProxy = editor.can() as unknown as Record<string, (...args: unknown[]) => boolean>; } catch { /* ignore */ }
 
     for (const item of this.resolvedItems()) {
       if (item.type === 'separator') continue;

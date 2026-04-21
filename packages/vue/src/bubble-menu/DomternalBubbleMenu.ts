@@ -1,6 +1,6 @@
 import { computed, defineComponent, h } from 'vue';
 import type { PropType, ShallowRef } from 'vue';
-import type { Editor, ToolbarButton, BubbleMenuOptions } from '@domternal/core';
+import type { Editor, BubbleMenuOptions } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useBubbleMenu, type BubbleMenuItem } from './useBubbleMenu.js';
 
@@ -56,7 +56,7 @@ export const DomternalBubbleMenu = defineComponent({
             return h('span', { key: item.name, class: 'dm-toolbar-separator', role: 'separator' });
           }
 
-          const btn = item as ToolbarButton;
+          const btn = item;
           const active = isItemActive(btn);
           return h('button', {
             key: btn.name,
@@ -67,8 +67,8 @@ export const DomternalBubbleMenu = defineComponent({
             'aria-pressed': active,
             title: btn.label,
             innerHTML: getCachedIcon(btn.icon),
-            onMousedown: (e: MouseEvent) => e.preventDefault(),
-            onClick: () => executeCommand(btn),
+            onMousedown: (e: MouseEvent) => { e.preventDefault(); },
+            onClick: () => { executeCommand(btn); },
           });
         }),
         slots['default']?.(),

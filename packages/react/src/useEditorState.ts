@@ -31,9 +31,23 @@ export function useEditorState<T>(
   editor: Editor | null,
   selector?: (editor: Editor) => T,
 ): EditorState | T | undefined {
-  if (selector) {
+  // Runtime guard: selector presence must remain stable across renders for a
+  // given call site. Switching modes would shift inner hook counts and corrupt
+  // React's hook ordering. The guard below throws a clear error before that
+  // corruption happens, instead of relying solely on the ESLint comment below.
+  const isSelectorMode = typeof selector === 'function';
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const modeRef = useRef<boolean | null>(null);
+  modeRef.current ??= isSelectorMode;
+  if (modeRef.current !== isSelectorMode) {
+    throw new Error('useEditorState selector mode must remain stable for a component instance.');
+  }
+
+  if (typeof selector === 'function') {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     return useEditorStateSelector(editor, selector);
   }
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   return useEditorStateFull(editor);
 }
 
@@ -51,7 +65,7 @@ function useEditorStateFull(editor: Editor | null): EditorState {
     // Set initial state
     setState(getFullState(editor));
 
-    const onTransaction = ({ transaction }: { transaction: { docChanged: boolean } }) => {
+    const onTransaction = ({ transaction }: { transaction: { docChanged: boolean } }): void => {
       setState(prev => {
         if (!transaction.docChanged) {
           const editable = editor.isEditable;
@@ -67,11 +81,11 @@ function useEditorStateFull(editor: Editor | null): EditorState {
       });
     };
 
-    const onFocus = () => {
+    const onFocus = (): void => {
       setState(prev => prev.isFocused ? prev : { ...prev, isFocused: true });
     };
 
-    const onBlur = () => {
+    const onBlur = (): void => {
       setState(prev => !prev.isFocused ? prev : { ...prev, isFocused: false });
     };
 
@@ -109,14 +123,14 @@ function useEditorStateSelector<T>(editor: Editor | null, selector: (editor: Edi
   selectorRef.current = selector;
 
   const subscribe = useCallback(
-    (callback: () => void) => {
-      if (!editor || editor.isDestroyed) return () => {};
+    (callback: () => void): (() => void) => {
+      if (!editor || editor.isDestroyed) return () => { /* noop */ };
 
       editor.on('transaction', callback);
       editor.on('focus', callback);
       editor.on('blur', callback);
 
-      return () => {
+      return (): void => {
         editor.off('transaction', callback);
         editor.off('focus', callback);
         editor.off('blur', callback);
@@ -125,7 +139,7 @@ function useEditorStateSelector<T>(editor: Editor | null, selector: (editor: Edi
     [editor],
   );
 
-  const getSnapshot = useCallback(() => {
+  const getSnapshot = useCallback((): T | undefined => {
     if (!editor || editor.isDestroyed) return undefined;
     return selectorRef.current(editor);
   }, [editor]);

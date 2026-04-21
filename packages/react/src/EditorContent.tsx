@@ -1,4 +1,4 @@
-import { useEffect, useRef, type HTMLAttributes, type Ref } from 'react';
+import { useEffect, useRef, type HTMLAttributes, type Ref, type ReactNode } from 'react';
 import type { Editor } from '@domternal/core';
 
 export interface EditorContentProps extends HTMLAttributes<HTMLDivElement> {
@@ -20,7 +20,7 @@ export interface EditorContentProps extends HTMLAttributes<HTMLDivElement> {
  * return <EditorContent editor={editor} className="my-editor" />;
  * ```
  */
-export function EditorContent({ editor, innerRef, ...htmlProps }: EditorContentProps) {
+export function EditorContent({ editor, innerRef, ...htmlProps }: EditorContentProps): ReactNode {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -41,9 +41,9 @@ export function EditorContent({ editor, innerRef, ...htmlProps }: EditorContentP
   return (
     <div
       ref={(node) => {
-        (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+        containerRef.current = node;
         if (typeof innerRef === 'function') innerRef(node);
-        else if (innerRef) (innerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+        else if (innerRef) innerRef.current = node;
       }}
       data-dm-editor-ui=""
       {...htmlProps}

@@ -1,5 +1,5 @@
 import { customRef } from 'vue';
-import type { AppContext } from 'vue';
+import type { AppContext, Ref } from 'vue';
 import type { Editor } from '@domternal/core';
 
 /**
@@ -13,7 +13,7 @@ import type { Editor } from '@domternal/core';
  * Improved over Tiptap's implementation: cancels previous rAFs on rapid
  * updates, ensuring only one trigger per double-frame window.
  */
-export function useDebouncedRef<T>(initialValue: T) {
+export function useDebouncedRef<T>(initialValue: T): Ref<T> {
   let value = initialValue;
   let rafId1: number | undefined;
   let rafId2: number | undefined;

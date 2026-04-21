@@ -47,6 +47,11 @@ ignore:
   - "**/index.ts"
   - "packages/*/src/types/"
   - "packages/*/src/icons/index.ts"
+  # Framework wrappers have no unit tests; covered by E2E specs in apps/demo-*.
+  # Remove from this list if unit tests are added later.
+  - "packages/react/"
+  - "packages/vue/"
+  - "packages/angular/"
   - "apps/"
   - "examples/"
   - "domternal.dev/"

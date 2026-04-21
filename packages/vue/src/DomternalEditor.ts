@@ -1,6 +1,6 @@
 import { defineComponent, h, ref, watch } from 'vue';
 import type { PropType } from 'vue';
-import type { Content, AnyExtension, FocusPosition, JSONContent } from '@domternal/core';
+import type { Content, AnyExtension, FocusPosition, JSONContent, Editor } from '@domternal/core';
 import { useEditor } from './useEditor.js';
 import { useEditorState } from './useEditorState.js';
 import { provideEditor } from './EditorContext.js';
@@ -14,11 +14,11 @@ export interface DomternalEditorProps {
   outputFormat?: 'html' | 'json';
   modelValue?: Content;
   class?: string;
-  onCreate?: (editor: import('@domternal/core').Editor) => void;
-  onUpdate?: (props: { editor: import('@domternal/core').Editor }) => void;
-  onSelectionChange?: (props: { editor: import('@domternal/core').Editor }) => void;
-  onFocus?: (props: { editor: import('@domternal/core').Editor; event: FocusEvent }) => void;
-  onBlur?: (props: { editor: import('@domternal/core').Editor; event: FocusEvent }) => void;
+  onCreate?: (editor: Editor) => void;
+  onUpdate?: (props: { editor: Editor }) => void;
+  onSelectionChange?: (props: { editor: Editor }) => void;
+  onFocus?: (props: { editor: Editor; event: FocusEvent }) => void;
+  onBlur?: (props: { editor: Editor; event: FocusEvent }) => void;
   onDestroy?: () => void;
 }
 
@@ -60,11 +60,11 @@ export const DomternalEditor = defineComponent({
     outputFormat: { type: String as PropType<'html' | 'json'>, default: 'html' },
     modelValue: { type: [String, Object] as PropType<Content>, default: undefined },
     class: { type: String, default: undefined },
-    onCreate: { type: Function as PropType<(editor: import('@domternal/core').Editor) => void>, default: undefined },
-    onUpdate: { type: Function as PropType<(props: { editor: import('@domternal/core').Editor }) => void>, default: undefined },
-    onSelectionChange: { type: Function as PropType<(props: { editor: import('@domternal/core').Editor }) => void>, default: undefined },
-    onFocus: { type: Function as PropType<(props: { editor: import('@domternal/core').Editor; event: FocusEvent }) => void>, default: undefined },
-    onBlur: { type: Function as PropType<(props: { editor: import('@domternal/core').Editor; event: FocusEvent }) => void>, default: undefined },
+    onCreate: { type: Function as PropType<(editor: Editor) => void>, default: undefined },
+    onUpdate: { type: Function as PropType<(props: { editor: Editor }) => void>, default: undefined },
+    onSelectionChange: { type: Function as PropType<(props: { editor: Editor }) => void>, default: undefined },
+    onFocus: { type: Function as PropType<(props: { editor: Editor; event: FocusEvent }) => void>, default: undefined },
+    onBlur: { type: Function as PropType<(props: { editor: Editor; event: FocusEvent }) => void>, default: undefined },
     onDestroy: { type: Function as PropType<() => void>, default: undefined },
   },
   emits: {
@@ -138,7 +138,7 @@ export const DomternalEditor = defineComponent({
     watch(editor, (ed, _oldEd, onCleanup) => {
       if (!ed || ed.isDestroyed) return;
 
-      const handler = () => {
+      const handler = (): void => {
         const val: string | JSONContent = props.outputFormat === 'html'
           ? ed.getHTML()
           : ed.getJSON();

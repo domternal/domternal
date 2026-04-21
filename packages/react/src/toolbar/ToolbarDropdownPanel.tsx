@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { ToolbarButton, ToolbarDropdown } from '@domternal/core';
 
 export interface ToolbarDropdownPanelProps {
@@ -12,7 +13,7 @@ export function ToolbarDropdownPanel({
   isActive,
   getCachedItemContent,
   onItemClick,
-}: ToolbarDropdownPanelProps) {
+}: ToolbarDropdownPanelProps): ReactNode {
   if (dropdown.layout === 'grid') {
     return (
       <div
@@ -31,8 +32,8 @@ export function ToolbarDropdownPanel({
               aria-label={sub.label}
               title={sub.label}
               style={{ backgroundColor: sub.color }}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={(e) => onItemClick(sub, e)}
+              onMouseDown={(e) => { e.preventDefault(); }}
+              onClick={(e) => { onItemClick(sub, e); }}
             />
           ) : (
             <button
@@ -43,8 +44,8 @@ export function ToolbarDropdownPanel({
               tabIndex={-1}
               aria-label={sub.label}
               dangerouslySetInnerHTML={{ __html: getCachedItemContent(sub.icon, sub.label) }}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={(e) => onItemClick(sub, e)}
+              onMouseDown={(e) => { e.preventDefault(); }}
+              onClick={(e) => { onItemClick(sub, e); }}
             />
           ),
         )}
@@ -68,8 +69,8 @@ export function ToolbarDropdownPanel({
           aria-label={sub.label}
           ref={(el: HTMLButtonElement | null) => { if (el && sub.style) el.setAttribute('style', sub.style); }}
           dangerouslySetInnerHTML={{ __html: getCachedItemContent(sub.icon, sub.label, dropdown.displayMode) }}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={(e) => onItemClick(sub, e)}
+          onMouseDown={(e) => { e.preventDefault(); }}
+          onClick={(e) => { onItemClick(sub, e); }}
         />
       ))}
     </div>

@@ -1,5 +1,5 @@
 import { computed, onScopeDispose, ref, watch } from 'vue';
-import type { ShallowRef } from 'vue';
+import type { ComputedRef, Ref, ShallowRef } from 'vue';
 import { positionFloatingOnce } from '@domternal/core';
 import type { Editor } from '@domternal/core';
 
@@ -15,7 +15,23 @@ export interface EmojiPickerItem {
  */
 const SCROLL_SETTLE_MS = 50;
 
-export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiPickerItem[]) {
+export interface UseEmojiPickerResult {
+  isOpen: Ref<boolean>;
+  searchQuery: Ref<string>;
+  activeCategory: Ref<string>;
+  categories: ComputedRef<Map<string, EmojiPickerItem[]>>;
+  categoryNames: ComputedRef<string[]>;
+  filteredEmojis: ComputedRef<EmojiPickerItem[]>;
+  frequentlyUsed: ComputedRef<EmojiPickerItem[]>;
+  pickerRef: Ref<HTMLDivElement | undefined>;
+  selectEmoji: (item: EmojiPickerItem) => void;
+  onSearch: (event: Event) => void;
+  scrollToCategory: (cat: string) => void;
+  onGridScroll: () => void;
+  close: () => void;
+}
+
+export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiPickerItem[]): UseEmojiPickerResult {
   const isOpen = ref(false);
   const searchQuery = ref('');
   const activeCategory = ref('');
@@ -52,16 +68,17 @@ export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiP
   const frequentlyUsed = computed(() => {
     if (!isOpen.value) return [];
     const storage = getEmojiStorage(editor.value);
-    const getFreq = storage?.['getFrequentlyUsed'] as (() => string[]) | undefined;
+    if (!storage) return [];
+    const getFreq = storage['getFrequentlyUsed'] as (() => string[]) | undefined;
     if (!getFreq) return [];
     const names = getFreq();
     if (!names.length) return [];
-    const nameMap = storage!['_nameMap'] as Map<string, EmojiPickerItem> | undefined;
+    const nameMap = storage['_nameMap'] as Map<string, EmojiPickerItem> | undefined;
     if (!nameMap) return [];
     return names.slice(0, 16).map((n) => nameMap.get(n)).filter(Boolean) as EmojiPickerItem[];
   });
 
-  function removeGlobalListeners() {
+  function removeGlobalListeners(): void {
     if (clickOutsideHandler) {
       document.removeEventListener('mousedown', clickOutsideHandler);
       clickOutsideHandler = null;
@@ -72,7 +89,7 @@ export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiP
     }
   }
 
-  function close() {
+  function close(): void {
     cleanupFloating?.();
     cleanupFloating = null;
     isOpen.value = false;
@@ -83,8 +100,8 @@ export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiP
     editor.value?.view.focus();
   }
 
-  function addGlobalListeners() {
-    clickOutsideHandler = (e: Event) => {
+  function addGlobalListeners(): void {
+    clickOutsideHandler = (e: Event): void => {
       const target = e.target as Node;
       if (
         pickerRef.value &&
@@ -92,12 +109,12 @@ export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiP
         target !== anchorEl &&
         !anchorEl?.contains(target)
       ) {
-        requestAnimationFrame(() => close());
+        requestAnimationFrame(() => { close(); });
       }
     };
     document.addEventListener('mousedown', clickOutsideHandler);
 
-    keydownHandler = (e: KeyboardEvent) => {
+    keydownHandler = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') {
         e.preventDefault();
         close();
@@ -112,7 +129,7 @@ export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiP
     (ed, _oldEd, onCleanup) => {
       if (!ed || ed.isDestroyed) return;
 
-      const handler = (...args: unknown[]) => {
+      const handler = (...args: unknown[]): void => {
         const data = args[0] as { anchorElement?: HTMLElement } | undefined;
 
         if (isOpen.value) {
@@ -132,7 +149,7 @@ export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiP
         addGlobalListeners();
 
         requestAnimationFrame(() => {
-          const panel = pickerRef.value?.querySelector('.dm-emoji-picker') as HTMLElement | null;
+          const panel = pickerRef.value?.querySelector<HTMLElement>('.dm-emoji-picker');
           if (panel && anchorEl) {
             cleanupFloating?.();
             cleanupFloating = positionFloatingOnce(anchorEl, panel, {
@@ -140,7 +157,7 @@ export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiP
               offsetValue: 4,
             });
           }
-          const input = pickerRef.value?.querySelector('.dm-emoji-picker-search input') as HTMLInputElement | null;
+          const input = pickerRef.value?.querySelector<HTMLInputElement>('.dm-emoji-picker-search input');
           input?.focus({ preventScroll: true });
         });
       };
@@ -161,7 +178,7 @@ export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiP
     cleanupFloating = null;
   });
 
-  function selectEmoji(item: EmojiPickerItem) {
+  function selectEmoji(item: EmojiPickerItem): void {
     const ed = editor.value;
     if (!ed) return;
     const cmd = ed.commands as Record<string, (...args: unknown[]) => boolean>;
@@ -171,17 +188,17 @@ export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiP
     close();
   }
 
-  function onSearch(event: Event) {
+  function onSearch(event: Event): void {
     searchQuery.value = (event.target as HTMLInputElement).value;
   }
 
-  function scrollToCategory(cat: string) {
+  function scrollToCategory(cat: string): void {
     searchQuery.value = '';
     activeCategory.value = cat;
     requestAnimationFrame(() => {
-      const grid = pickerRef.value?.querySelector('.dm-emoji-picker-grid') as HTMLElement | null;
+      const grid = pickerRef.value?.querySelector<HTMLElement>('.dm-emoji-picker-grid');
       if (!grid) return;
-      const label = grid.querySelector(`[data-category="${cat}"]`) as HTMLElement | null;
+      const label = grid.querySelector<HTMLElement>(`[data-category="${cat}"]`);
       if (label) {
         grid.scrollTo({ top: label.offsetTop - grid.offsetTop });
         // Defer focus until after scroll completes to avoid onGridScroll
@@ -196,12 +213,12 @@ export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiP
     });
   }
 
-  function onGridScroll() {
+  function onGridScroll(): void {
     if (searchQuery.value) return;
-    const grid = pickerRef.value?.querySelector('.dm-emoji-picker-grid') as HTMLElement | null;
+    const grid = pickerRef.value?.querySelector<HTMLElement>('.dm-emoji-picker-grid');
     if (!grid) return;
 
-    const labels = Array.from(grid.querySelectorAll('.dm-emoji-picker-category-label[data-category]')) as HTMLElement[];
+    const labels = Array.from(grid.querySelectorAll<HTMLElement>('.dm-emoji-picker-category-label[data-category]'));
     let currentCat = '';
     for (const label of labels) {
       if (label.offsetTop - grid.offsetTop <= grid.scrollTop + 20) {
@@ -232,8 +249,8 @@ export function useEmojiPicker(editor: ShallowRef<Editor | null>, emojis: EmojiP
 
 function getEmojiStorage(editor: Editor | null): Record<string, unknown> | null {
   if (!editor) return null;
-  const storage = editor.storage as Record<string, unknown>;
-  return (storage['emoji'] as Record<string, unknown>) ?? null;
+  const storage = editor.storage;
+  return (storage['emoji'] as Record<string, unknown> | undefined) ?? null;
 }
 
 function setStorageOpen(editor: Editor | null, open: boolean): void {

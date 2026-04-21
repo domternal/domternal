@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { positionFloatingOnce } from '@domternal/core';
 import type { Editor } from '@domternal/core';
 
@@ -8,7 +8,23 @@ export interface EmojiPickerItem {
   group: string;
 }
 
-export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[]) {
+export interface UseEmojiPickerResult {
+  isOpen: boolean;
+  searchQuery: string;
+  activeCategory: string;
+  categories: Map<string, EmojiPickerItem[]>;
+  categoryNames: string[];
+  filteredEmojis: EmojiPickerItem[];
+  frequentlyUsed: EmojiPickerItem[];
+  pickerRef: RefObject<HTMLDivElement | null>;
+  selectEmoji: (item: EmojiPickerItem) => void;
+  onSearch: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  scrollToCategory: (cat: string) => void;
+  onGridScroll: () => void;
+  close: () => void;
+}
+
+export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[]): UseEmojiPickerResult {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('');
@@ -47,16 +63,17 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
     // Re-evaluate when panel opens
     if (!isOpen) return [];
     const storage = getEmojiStorage(editor);
-    const getFreq = storage?.['getFrequentlyUsed'] as (() => string[]) | undefined;
+    if (!storage) return [];
+    const getFreq = storage['getFrequentlyUsed'] as (() => string[]) | undefined;
     if (!getFreq) return [];
     const names = getFreq();
     if (!names.length) return [];
-    const nameMap = storage!['_nameMap'] as Map<string, EmojiPickerItem> | undefined;
+    const nameMap = storage['_nameMap'] as Map<string, EmojiPickerItem> | undefined;
     if (!nameMap) return [];
     return names.slice(0, 16).map((n) => nameMap.get(n)).filter(Boolean) as EmojiPickerItem[];
   }, [isOpen, editor]);
 
-  const removeGlobalListeners = useCallback(() => {
+  const removeGlobalListeners = useCallback((): void => {
     if (clickOutsideRef.current) {
       document.removeEventListener('mousedown', clickOutsideRef.current);
       clickOutsideRef.current = null;
@@ -67,7 +84,7 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
     }
   }, []);
 
-  const close = useCallback(() => {
+  const close = useCallback((): void => {
     cleanupFloatingRef.current?.();
     cleanupFloatingRef.current = null;
     isOpenRef.current = false;
@@ -79,8 +96,8 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
     editor?.view.focus();
   }, [editor, removeGlobalListeners]);
 
-  const addGlobalListeners = useCallback(() => {
-    clickOutsideRef.current = (e: Event) => {
+  const addGlobalListeners = useCallback((): void => {
+    clickOutsideRef.current = (e: Event): void => {
       const target = e.target as Node;
       if (
         pickerRef.current &&
@@ -91,12 +108,12 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
         // Defer close to next frame so the current mousedown/click cycle
         // completes without React re-rendering and replacing DOM nodes
         // (which would swallow the click event on toolbar buttons).
-        requestAnimationFrame(() => close());
+        requestAnimationFrame(() => { close(); });
       }
     };
     document.addEventListener('mousedown', clickOutsideRef.current);
 
-    keydownRef.current = (e: KeyboardEvent) => {
+    keydownRef.current = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') {
         e.preventDefault();
         close();
@@ -109,7 +126,7 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
   useEffect(() => {
     if (!editor || editor.isDestroyed) return;
 
-    const handler = (...args: unknown[]) => {
+    const handler = (...args: unknown[]): void => {
       const data = args[0] as { anchorElement?: HTMLElement } | undefined;
 
       if (isOpenRef.current) {
@@ -130,7 +147,7 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
       addGlobalListeners();
 
       requestAnimationFrame(() => {
-        const panel = pickerRef.current?.querySelector('.dm-emoji-picker') as HTMLElement | null;
+        const panel = pickerRef.current?.querySelector<HTMLElement>('.dm-emoji-picker');
         if (panel && anchorRef.current) {
           cleanupFloatingRef.current?.();
           cleanupFloatingRef.current = positionFloatingOnce(anchorRef.current, panel, {
@@ -138,7 +155,7 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
             offsetValue: 4,
           });
         }
-        const input = pickerRef.current?.querySelector('.dm-emoji-picker-search input') as HTMLInputElement | null;
+        const input = pickerRef.current?.querySelector<HTMLInputElement>('.dm-emoji-picker-search input');
         input?.focus({ preventScroll: true });
       });
     };
@@ -152,7 +169,7 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
 
-  const selectEmoji = useCallback((item: EmojiPickerItem) => {
+  const selectEmoji = useCallback((item: EmojiPickerItem): void => {
     if (!editor) return;
     const cmd = editor.commands as Record<string, (...args: unknown[]) => boolean>;
     if (cmd['insertEmoji']) {
@@ -161,17 +178,17 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
     close();
   }, [editor, close]);
 
-  const onSearch = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+  const onSearch = useCallback((event: React.ChangeEvent<HTMLInputElement>): void => {
     setSearchQuery(event.target.value);
   }, []);
 
-  const scrollToCategory = useCallback((cat: string) => {
+  const scrollToCategory = useCallback((cat: string): void => {
     setSearchQuery('');
     setActiveCategory(cat);
     requestAnimationFrame(() => {
-      const grid = pickerRef.current?.querySelector('.dm-emoji-picker-grid') as HTMLElement | null;
+      const grid = pickerRef.current?.querySelector<HTMLElement>('.dm-emoji-picker-grid');
       if (!grid) return;
-      const label = grid.querySelector(`[data-category="${cat}"]`) as HTMLElement | null;
+      const label = grid.querySelector<HTMLElement>(`[data-category="${cat}"]`);
       if (label) {
         grid.scrollTo({ top: label.offsetTop - grid.offsetTop });
         // Focus first emoji swatch after scroll completes
@@ -190,12 +207,12 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
   const searchQueryRef = useRef(searchQuery);
   searchQueryRef.current = searchQuery;
 
-  const onGridScroll = useCallback(() => {
+  const onGridScroll = useCallback((): void => {
     if (searchQueryRef.current) return;
-    const grid = pickerRef.current?.querySelector('.dm-emoji-picker-grid') as HTMLElement | null;
+    const grid = pickerRef.current?.querySelector<HTMLElement>('.dm-emoji-picker-grid');
     if (!grid) return;
 
-    const labels = Array.from(grid.querySelectorAll('.dm-emoji-picker-category-label[data-category]')) as HTMLElement[];
+    const labels = Array.from(grid.querySelectorAll<HTMLElement>('.dm-emoji-picker-category-label[data-category]'));
     let currentCat = '';
     for (const label of labels) {
       if (label.offsetTop - grid.offsetTop <= grid.scrollTop + 20) {
@@ -226,8 +243,8 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
 
 function getEmojiStorage(editor: Editor | null): Record<string, unknown> | null {
   if (!editor) return null;
-  const storage = editor.storage as Record<string, unknown>;
-  return (storage['emoji'] as Record<string, unknown>) ?? null;
+  const storage = editor.storage;
+  return (storage['emoji'] as Record<string, unknown> | undefined) ?? null;
 }
 
 function setStorageOpen(editor: Editor | null, open: boolean): void {

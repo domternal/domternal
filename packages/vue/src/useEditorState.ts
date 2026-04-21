@@ -41,7 +41,13 @@ export function useEditorState<T>(
 
 // --- Full state mode ---
 
-function getFullState(ed: Editor | null) {
+function getFullState(ed: Editor | null): {
+  html: string;
+  json: JSONContent | null;
+  empty: boolean;
+  focused: boolean;
+  editable: boolean;
+} {
   if (!ed || ed.isDestroyed) {
     return { html: '', json: null as JSONContent | null, empty: true, focused: false, editable: true };
   }
@@ -82,7 +88,7 @@ function useEditorStateFull(editor: ShallowRef<Editor | null>): EditorState {
       isFocused.value = state.focused;
       isEditable.value = state.editable;
 
-      const onTransaction = () => {
+      const onTransaction = (): void => {
         const html = ed.getHTML();
         const json = ed.getJSON();
         const empty = ed.isEmpty;
@@ -93,11 +99,11 @@ function useEditorStateFull(editor: ShallowRef<Editor | null>): EditorState {
         jsonContent.value = json;
       };
 
-      const onFocus = () => {
+      const onFocus = (): void => {
         if (!isFocused.value) isFocused.value = true;
       };
 
-      const onBlur = () => {
+      const onBlur = (): void => {
         if (isFocused.value) isFocused.value = false;
       };
 
@@ -130,7 +136,7 @@ function useEditorStateSelector<T>(
     (ed, _oldEd, onCleanup) => {
       if (!ed || ed.isDestroyed) return;
 
-      const bump = () => { version.value++; };
+      const bump = (): void => { version.value++; };
 
       ed.on('transaction', bump);
       ed.on('focus', bump);

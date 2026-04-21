@@ -118,6 +118,9 @@ export function redistributeColumns(
 
   // Apply widths to all cells via setNodeMarkup
   for (let col = 0; col < map.width; col++) {
+    // newWidths has colCount entries; ProseMirror table invariant guarantees
+    // map.width === colCount, so this index is always defined.
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const targetW = newWidths[col]!;
     for (let row = 0; row < map.height; row++) {
       const mapIndex = row * map.width + col;

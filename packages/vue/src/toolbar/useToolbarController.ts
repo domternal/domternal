@@ -1,5 +1,5 @@
 import { onScopeDispose, ref, shallowRef, watch } from 'vue';
-import type { ShallowRef } from 'vue';
+import type { Ref, ShallowRef } from 'vue';
 import {
   ToolbarController,
   positionFloatingOnce,
@@ -14,10 +14,28 @@ import type {
 } from '@domternal/core';
 import { useDebouncedRef } from '../utils.js';
 
+export interface UseToolbarControllerResult {
+  controller: { readonly current: ToolbarController | null };
+  groups: ShallowRef<ToolbarGroup[]>;
+  focusedIndex: Ref<number>;
+  openDropdown: Ref<string | null>;
+  activeVersion: Ref<number>;
+  toolbarRef: Ref<HTMLDivElement | undefined>;
+  isActive: (name: string) => boolean;
+  isDisabled: (name: string) => boolean;
+  isDropdownActive: (dropdown: ToolbarDropdown) => boolean;
+  getAriaExpanded: (item: ToolbarButton) => string | null;
+  getFlatIndex: (name: string) => number;
+  handleDropdownToggle: (dropdown: ToolbarDropdown) => void;
+  closeDropdown: () => void;
+  executeCommand: (item: ToolbarButton) => void;
+  syncState: () => void;
+}
+
 export function useToolbarController(
   editor: ShallowRef<Editor | null>,
   layout?: ToolbarLayoutEntry[],
-) {
+): UseToolbarControllerResult {
   const groups = shallowRef<ToolbarGroup[]>([]);
   const focusedIndex = ref(0);
   const openDropdown = ref<string | null>(null);
@@ -31,7 +49,7 @@ export function useToolbarController(
   let editorEl: HTMLElement | null = null;
   let syncStateRaf = 0;
 
-  function syncState() {
+  function syncState(): void {
     cancelAnimationFrame(syncStateRaf);
     syncStateRaf = requestAnimationFrame(() => {
       if (!controller) return;
@@ -73,7 +91,7 @@ export function useToolbarController(
       };
       document.addEventListener('mousedown', clickOutsideHandler);
 
-      editorEl = ed.view.dom.closest('.dm-editor') as HTMLElement | null;
+      editorEl = ed.view.dom.closest('.dm-editor');
       if (editorEl) {
         dismissOverlayHandler = () => {
           if (controller?.openDropdown) {
@@ -119,8 +137,9 @@ export function useToolbarController(
   function isDropdownActive(dropdown: ToolbarDropdown): boolean {
     if (dropdown.layout === 'grid') return false;
     if (dropdown.dynamicLabel) return false;
-    if (!controller) return false;
-    return dropdown.items.some((item: ToolbarButton) => controller!.activeMap.get(item.name) ?? false);
+    const ctl = controller;
+    if (!ctl) return false;
+    return dropdown.items.some((item: ToolbarButton) => ctl.activeMap.get(item.name) ?? false);
   }
 
   function getAriaExpanded(item: ToolbarButton): string | null {
@@ -132,7 +151,7 @@ export function useToolbarController(
     return controller?.getFlatIndex(name) ?? -1;
   }
 
-  function handleDropdownToggle(dropdown: ToolbarDropdown) {
+  function handleDropdownToggle(dropdown: ToolbarDropdown): void {
     if (!controller) return;
 
     cleanupFloating?.();
@@ -142,8 +161,8 @@ export function useToolbarController(
 
     if (controller.openDropdown) {
       requestAnimationFrame(() => {
-        const trigger = toolbarRef.value?.querySelector('[aria-expanded="true"]') as HTMLElement | null;
-        const panel = trigger?.parentElement?.querySelector('.dm-toolbar-dropdown-panel') as HTMLElement | null;
+        const trigger = toolbarRef.value?.querySelector<HTMLElement>('[aria-expanded="true"]');
+        const panel = trigger?.parentElement?.querySelector<HTMLElement>('.dm-toolbar-dropdown-panel');
         if (trigger && panel) {
           const placement = dropdown.layout === 'grid' ? 'bottom' : 'bottom-start';
           cleanupFloating = positionFloatingOnce(trigger, panel, {
@@ -155,14 +174,14 @@ export function useToolbarController(
     }
   }
 
-  function closeDropdown() {
+  function closeDropdown(): void {
     cleanupFloating?.();
     cleanupFloating = null;
     controller?.closeDropdown();
     syncState();
   }
 
-  function executeCommand(item: ToolbarButton) {
+  function executeCommand(item: ToolbarButton): void {
     controller?.executeCommand(item);
   }
 

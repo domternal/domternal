@@ -1,4 +1,4 @@
-import { type ElementType, type HTMLAttributes } from 'react';
+import type { ElementType, HTMLAttributes, ReactNode } from 'react';
 import { useReactNodeView } from './ReactNodeViewContext.js';
 
 export interface NodeViewWrapperProps extends HTMLAttributes<HTMLElement> {
@@ -10,7 +10,7 @@ export interface NodeViewWrapperProps extends HTMLAttributes<HTMLElement> {
  * Container component for custom React node views.
  * Handles drag events and marks the element as a node view wrapper.
  */
-export function NodeViewWrapper({ as: Tag = 'div', style, ...props }: NodeViewWrapperProps) {
+export function NodeViewWrapper({ as: Tag = 'div', style, ...props }: NodeViewWrapperProps): ReactNode {
   const { onDragStart } = useReactNodeView();
 
   return (

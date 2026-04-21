@@ -1,0 +1,126 @@
+early_access: false
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  commit_status: true
+  fail_commit_status: false
+  collapse_walkthrough: true
+  changed_files_summary: true
+  sequence_diagrams: true
+  assess_linked_issues: true
+  related_issues: false
+  related_prs: true
+  suggested_labels: true
+  auto_apply_labels: false
+  suggested_reviewers: false
+  auto_assign_reviewers: false
+  abort_on_close: true
+  disable_cache: false
+
+  path_filters:
+    - '!**/dist/**'
+    - '!**/node_modules/**'
+    - '!**/.angular/**'
+    - '!**/coverage/**'
+    - '!**/playwright-report/**'
+    - '!**/test-results/**'
+    - '!pnpm-lock.yaml'
+    - '!**/*.min.js'
+    - '!**/*.map'
+
+  path_instructions:
+    - path: 'packages/core/**'
+      instructions: >-
+        Core ProseMirror-based editor. Flag changes affecting the public API surface,
+        tree-shaking (sideEffects: false), or StarterKit integration.
+    - path: 'packages/{react,vue,angular}/**'
+      instructions: >-
+        Framework wrappers. When logic changes in one wrapper, verify parity across
+        all three. Preserve framework idioms: React hook stability, Vue computed()
+        as ShallowRef for watch() compat, Angular inject<ElementRef<HTMLElement>>() DI.
+    - path: 'packages/extension-*/**'
+      instructions: >-
+        Tiptap-style extensions. Check StarterKit integration, addToolbarItems() hook,
+        isFormatting flag on marks, and bubble/floating menu wiring.
+    - path: 'apps/demo-*/**'
+      instructions: >-
+        Demo apps (Angular/React/Vue). Source changes here showcase editor features;
+        keep parity across demos. Don't flag test-only window globals.
+    - path: 'apps/demo-*/e2e/**'
+      instructions: >-
+        Playwright E2E. Don't flag long selectors, hardcoded timeouts, retries,
+        or test-only hooks like window.__DEMO_EDITOR__.
+    - path: '**/*.{test,spec}.ts'
+      instructions: >-
+        Test files. Don't flag non-null assertions or unsafe type patterns that
+        are explicitly allowed via eslint.config.mjs test-file overrides.
+    - path: 'examples/**'
+      instructions: >-
+        Starter templates for library consumers. Prefer minimal, idiomatic code over
+        cleverness. Don't impose strict lint rules; these are not CI-gated.
+    - path: 'domternal.dev/**'
+      instructions: >-
+        Astro Starlight docs site. Focus on content accuracy, link validity, and
+        MDX frontmatter. Don't flag design choices.
+    - path: '.github/workflows/**'
+      instructions: >-
+        GitHub Actions CI. Check for secret leaks, permission bloat, and
+        pinned action versions.
+
+  auto_review:
+    enabled: false
+    auto_incremental_review: true
+    drafts: false
+    base_branches:
+      - main
+
+  tools:
+    markdownlint:
+      enabled: true
+    actionlint:
+      enabled: true
+    shellcheck:
+      enabled: true
+    github-checks:
+      enabled: true
+      timeout_ms: 180000
+
+  finishing_touches:
+    docstrings:
+      enabled: true
+    unit_tests:
+      enabled: false
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  opt_out: false
+  learnings:
+    scope: auto
+  issues:
+    scope: auto
+  pull_requests:
+    scope: auto
+
+code_generation:
+  docstrings:
+    language: en-US
+    path_instructions:
+      - path: 'packages/core/**'
+        instructions: >-
+          JSDoc for public API. Include @example blocks for commands and extensions.
+      - path: 'packages/{react,vue,angular}/**'
+        instructions: >-
+          JSDoc for hooks/composables/components. Document props, events, and
+          framework-specific caveats.
+  unit_tests:
+    path_instructions:
+      - path: 'packages/**/*.ts'
+        instructions: >-
+          Use Vitest. Mock ProseMirror state only when testing commands; prefer
+          real Editor instance via DOMParser/new Editor() for integration tests.

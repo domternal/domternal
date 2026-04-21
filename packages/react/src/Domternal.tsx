@@ -37,7 +37,7 @@ export interface DomternalProps extends UseEditorOptions {
  * </Domternal>
  * ```
  */
-export function Domternal({ children, deps, ...options }: DomternalProps) {
+export function Domternal({ children, deps, ...options }: DomternalProps): ReactNode {
   const { editor } = useEditor(options, deps);
 
   return (
@@ -50,7 +50,7 @@ export function Domternal({ children, deps, ...options }: DomternalProps) {
 // --- Subcomponents ---
 
 /** Renders the editor content area. Mounts the editor view DOM from context. */
-function DomternalContent({ className }: { className?: string }) {
+function DomternalContent({ className }: { className?: string }): ReactNode {
   const { editor } = useCurrentEditor();
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -74,29 +74,29 @@ function DomternalContent({ className }: { className?: string }) {
 }
 
 /** Renders children only while editor is not yet ready (SSR loading state). */
-function DomternalLoading({ children }: { children: ReactNode }) {
+function DomternalLoading({ children }: { children: ReactNode }): ReactNode {
   const { editor } = useCurrentEditor();
   if (editor) return null;
   return <>{children}</>;
 }
 
 /** Toolbar subcomponent. Uses editor from context automatically. */
-function DomternalToolbarSub(props: Omit<DomternalToolbarProps, 'editor'>) {
+function DomternalToolbarSub(props: Omit<DomternalToolbarProps, 'editor'>): ReactNode {
   return <DomternalToolbar {...props} />;
 }
 
 /** BubbleMenu subcomponent. Uses editor from context automatically. */
-function DomternalBubbleMenuSub(props: Omit<DomternalBubbleMenuProps, 'editor'>) {
+function DomternalBubbleMenuSub(props: Omit<DomternalBubbleMenuProps, 'editor'>): ReactNode {
   return <DomternalBubbleMenu {...props} />;
 }
 
 /** FloatingMenu subcomponent. Uses editor from context automatically. */
-function DomternalFloatingMenuSub(props: Omit<DomternalFloatingMenuProps, 'editor'>) {
+function DomternalFloatingMenuSub(props: Omit<DomternalFloatingMenuProps, 'editor'>): ReactNode {
   return <DomternalFloatingMenu {...props} />;
 }
 
 /** EmojiPicker subcomponent. Uses editor from context automatically. */
-function DomternalEmojiPickerSub(props: Omit<DomternalEmojiPickerProps, 'editor'>) {
+function DomternalEmojiPickerSub(props: Omit<DomternalEmojiPickerProps, 'editor'>): ReactNode {
   return <DomternalEmojiPicker {...props} />;
 }
 

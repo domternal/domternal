@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { ToolbarButton as ToolbarButtonType } from '@domternal/core';
 
 export interface ToolbarButtonProps {
@@ -22,7 +23,7 @@ export function ToolbarButton({
   ariaExpanded,
   onClick,
   onFocus,
-}: ToolbarButtonProps) {
+}: ToolbarButtonProps): ReactNode {
   return (
     <button
       type="button"
@@ -34,9 +35,9 @@ export function ToolbarButton({
       tabIndex={tabIndex}
       disabled={isDisabled}
       dangerouslySetInnerHTML={{ __html: iconHtml }}
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={(e) => onClick(item, e)}
-      onFocus={() => onFocus(item.name)}
+      onMouseDown={(e) => { e.preventDefault(); }}
+      onClick={(e) => { onClick(item, e); }}
+      onFocus={() => { onFocus(item.name); }}
     />
   );
 }

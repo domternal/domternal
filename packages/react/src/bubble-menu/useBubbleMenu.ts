@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import {
   PluginKey,
   ToolbarController,
@@ -58,7 +58,17 @@ export interface UseBubbleMenuOptions {
   contexts?: Record<string, string[] | true | null> | undefined;
 }
 
-export function useBubbleMenu(options: UseBubbleMenuOptions) {
+export interface UseBubbleMenuResult {
+  menuRef: RefObject<HTMLDivElement | null>;
+  resolvedItems: BubbleMenuItem[];
+  isItemActive: (item: ToolbarButton) => boolean;
+  isItemDisabled: (item: ToolbarButton) => boolean;
+  executeCommand: (item: ToolbarButton) => void;
+  activeVersion: number;
+  getCachedIcon: (name: string) => string;
+}
+
+export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResult {
   const { editor, shouldShow, placement = 'top', offset = 8, updateDelay = 0, items, contexts } = options;
 
   const menuRef = useRef<HTMLDivElement>(null);
@@ -91,7 +101,7 @@ export function useBubbleMenu(options: UseBubbleMenuOptions) {
     // Build bubble defaults
     const bubbleDefaults = new Map<string, BubbleMenuItem[]>();
     const byCtx = new Map<string, ToolbarButton[]>();
-    const addItem = (btn: ToolbarButton) => {
+    const addItem = (btn: ToolbarButton): void => {
       const ctx = (btn as unknown as Record<string, unknown>)['bubbleMenu'] as string | undefined;
       if (!ctx) return;
       let arr = byCtx.get(ctx);
@@ -111,7 +121,7 @@ export function useBubbleMenu(options: UseBubbleMenuOptions) {
       let sepIdx = 0;
       for (const item of ctxItems) {
         if (lastGroup !== undefined && item.group !== lastGroup) {
-          result.push({ type: 'separator', name: `bsep-${sepIdx++}` });
+          result.push({ type: 'separator', name: `bsep-${String(sepIdx++)}` });
         }
         result.push(item);
         lastGroup = item.group;
@@ -126,7 +136,7 @@ export function useBubbleMenu(options: UseBubbleMenuOptions) {
       let sepIdx = 0;
       for (const name of names) {
         if (name === '|') {
-          result.push({ type: 'separator', name: `sep-${sepIdx++}` });
+          result.push({ type: 'separator', name: `sep-${String(sepIdx++)}` });
         } else {
           const item = itemMap.get(name);
           if (item) result.push(item);
@@ -171,7 +181,7 @@ export function useBubbleMenu(options: UseBubbleMenuOptions) {
       return schemaItems.filter(item => {
         const markName = typeof item.isActive === 'string' ? item.isActive : null;
         if (!markName) return true;
-        const markType = schema.marks?.[markName];
+        const markType = schema.marks[markName];
         if (!markType) return true;
         return nodeType.allowsMarkType(markType);
       });
@@ -203,8 +213,9 @@ export function useBubbleMenu(options: UseBubbleMenuOptions) {
     }
 
     // Register plugin
+    const pluginKey = pluginKeyRef.current;
     const plugin = createBubbleMenuPlugin({
-      pluginKey: pluginKeyRef.current,
+      pluginKey,
       editor,
       element: menuRef.current,
       shouldShow: shouldShowFn,
@@ -214,7 +225,7 @@ export function useBubbleMenu(options: UseBubbleMenuOptions) {
     });
     editor.registerPlugin(plugin);
 
-    const setItems = (newItems: BubbleMenuItem[]) => {
+    const setItems = (newItems: BubbleMenuItem[]): void => {
       resolvedItemsRef.current = newItems;
       setResolvedItems(newItems);
     };
@@ -228,9 +239,9 @@ export function useBubbleMenu(options: UseBubbleMenuOptions) {
       setItems(resolveNames(['bold', 'italic', 'underline']));
     }
 
-    const updateStates = (ed: Editor) => {
+    const updateStates = (ed: Editor): void => {
       let canProxy: Record<string, (...args: unknown[]) => boolean> | null = null;
-      try { canProxy = ed.can() as unknown as Record<string, (...args: unknown[]) => boolean>; } catch {}
+      try { canProxy = ed.can() as unknown as Record<string, (...args: unknown[]) => boolean>; } catch { /* ignore */ }
 
       for (const item of resolvedItemsRef.current) {
         if (item.type === 'separator') continue;
@@ -247,7 +258,7 @@ export function useBubbleMenu(options: UseBubbleMenuOptions) {
     const defaultItems = items ? resolveNames(items) : resolveNames(['bold', 'italic', 'underline']);
 
     // Transaction handler
-    const transactionHandler = () => {
+    const transactionHandler = (): void => {
       if (contexts) {
         updateContextItems(editor, contexts, detectContext, resolveNames, getFormatItems, filterBySchema, bubbleDefaults, setItems);
       } else {
@@ -267,7 +278,7 @@ export function useBubbleMenu(options: UseBubbleMenuOptions) {
     return () => {
       editor.off('transaction', transactionHandler);
       if (!editor.isDestroyed) {
-        editor.unregisterPlugin(pluginKeyRef.current);
+        editor.unregisterPlugin(pluginKey);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -282,7 +293,7 @@ export function useBubbleMenu(options: UseBubbleMenuOptions) {
     filterBySchema: (ctx: string, items: ToolbarButton[]) => ToolbarButton[],
     defaults: Map<string, BubbleMenuItem[]>,
     setItems: (items: BubbleMenuItem[]) => void,
-  ) {
+  ): void {
     const ctx = detectContext(ed.state.selection as unknown as SelectionShape, ctxs);
     if (!ctx) { setItems([]); return; }
 
@@ -313,7 +324,7 @@ export function useBubbleMenu(options: UseBubbleMenuOptions) {
     return disabledMapRef.current.get(item.name) ?? false;
   };
 
-  const executeCommand = (item: ToolbarButton) => {
+  const executeCommand = (item: ToolbarButton): void => {
     if (!editor) return;
     if (item.emitEvent) {
       (editor.emit as (e: string, d: unknown) => void)(item.emitEvent, {});

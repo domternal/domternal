@@ -68,9 +68,9 @@ export interface ReactNodeViewRendererOptions {
 export function ReactNodeViewRenderer(
   component: React.ComponentType<ReactNodeViewProps>,
   options: ReactNodeViewRendererOptions = {},
-) {
+): (node: PMNode, view: unknown, getPos: () => number, decorations: unknown[]) => ReactNodeView {
   // Return ProseMirror-compatible NodeViewConstructor: (node, view, getPos, decorations) => NodeView
-  const constructor = (node: PMNode, _view: unknown, getPos: () => number, decorations: unknown[]) => {
+  const constructor = (node: PMNode, _view: unknown, getPos: () => number, decorations: unknown[]): ReactNodeView => {
     // Read context injected by core's ExtensionManager.collectNodeViews()
     const ctx = (constructor as unknown as { __domternalContext?: NodeViewContext }).__domternalContext;
     const editor = ctx?.editor as Editor;
@@ -141,7 +141,7 @@ class ReactNodeView {
     this.render();
   }
 
-  private render() {
+  private render(): void {
     const contextValue: ReactNodeViewContextValue = {
       onDragStart: (event: DragEvent) => {
         if (this.editor.view.dragging) {
@@ -191,20 +191,20 @@ class ReactNodeView {
     return true;
   }
 
-  selectNode() {
+  selectNode(): void {
     this.selected = true;
     this.render();
   }
 
-  deselectNode() {
+  deselectNode(): void {
     this.selected = false;
     this.render();
   }
 
-  destroy() {
+  destroy(): void {
     // Defer unmount to avoid React warnings about synchronous unmount
     const root = this.root;
-    setTimeout(() => root.unmount(), 0);
+    setTimeout(() => { root.unmount(); }, 0);
   }
 
   ignoreMutation(mutation: MutationRecord): boolean {

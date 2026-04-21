@@ -72,7 +72,12 @@ export interface UseEditorOptions {
  * // Editor is recreated when locale changes
  * ```
  */
-export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList) {
+export interface UseEditorResult {
+  editor: Editor | null;
+  editorRef: React.RefObject<HTMLDivElement | null>;
+}
+
+export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList): UseEditorResult {
   const {
     extensions = [],
     content = '',
@@ -103,7 +108,7 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
   const depsRef = useRef(deps);
 
   /** Wire transaction, focus, blur event handlers to an editor instance. */
-  function wireEvents(ed: Editor) {
+  function wireEvents(ed: Editor): void {
     ed.on('transaction', ({ transaction }: TransactionEventProps) => {
       const cbs = callbacksRef.current;
       if (transaction.docChanged) {
@@ -124,7 +129,7 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
   }
 
   /** Create editor and wire events. Returns the new instance. */
-  function createEditorInstance(element: HTMLElement, initialContent: Content, focus: FocusPosition) {
+  function createEditorInstance(element: HTMLElement, initialContent: Content, focus: FocusPosition): Editor {
     const ed = new Editor({
       element,
       extensions: [...DEFAULT_EXTENSIONS, ...extensions],
@@ -143,7 +148,7 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
   }
 
   /** Destroy current editor, preserving content for recreation. */
-  function destroyCurrentEditor() {
+  function destroyCurrentEditor(): void {
     const current = instanceRef.current;
     if (current && !current.isDestroyed) {
       pendingContentRef.current = current.getJSON();
@@ -196,8 +201,11 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
     if (!deps || !instanceRef.current || instanceRef.current.isDestroyed) return;
     // Skip if deps haven't actually changed (initial render)
     if (depsRef.current === deps) return;
-    if (depsRef.current && deps.length === depsRef.current.length &&
-        deps.every((d, i) => d === depsRef.current![i])) return;
+    const prevDeps = depsRef.current;
+    if (prevDeps?.length === deps.length
+        && deps.every((d, i) => d === prevDeps[i])) {
+      return;
+    }
 
     const element = instanceRef.current.view.dom.parentElement ?? document.createElement('div');
     destroyCurrentEditor();
@@ -222,7 +230,6 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
         ed.setContent(content, false);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [content]);
 
   return { editor, editorRef };

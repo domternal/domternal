@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import {
   ToolbarController,
   positionFloatingOnce,
@@ -12,10 +12,27 @@ import type {
   ToolbarLayoutEntry,
 } from '@domternal/core';
 
+export interface UseToolbarControllerResult {
+  controller: RefObject<ToolbarController | null>;
+  groups: ToolbarGroup[];
+  focusedIndex: number;
+  openDropdown: string | null;
+  activeVersion: number;
+  toolbarRef: RefObject<HTMLDivElement | null>;
+  isActive: (name: string) => boolean;
+  isDisabled: (name: string) => boolean;
+  isDropdownActive: (dropdown: ToolbarDropdown) => boolean;
+  getAriaExpanded: (item: ToolbarButton) => string | null;
+  getFlatIndex: (name: string) => number;
+  handleDropdownToggle: (dropdown: ToolbarDropdown) => void;
+  closeDropdown: () => void;
+  syncState: () => void;
+}
+
 export function useToolbarController(
   editor: Editor | null,
   layout?: ToolbarLayoutEntry[],
-) {
+): UseToolbarControllerResult {
   const [groups, setGroups] = useState<ToolbarGroup[]>([]);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -29,7 +46,7 @@ export function useToolbarController(
   const editorElRef = useRef<HTMLElement | null>(null);
 
   const syncStateRafRef = useRef(0);
-  const syncState = useCallback(() => {
+  const syncState = useCallback((): void => {
     // Defer state update to next animation frame so it doesn't interrupt
     // the current event cycle (e.g. mousedown → click on toolbar buttons).
     // Without this, a no-op transaction between mousedown and click causes
@@ -60,7 +77,7 @@ export function useToolbarController(
     syncState();
 
     // Click outside to close dropdown
-    const clickOutside = (e: Event) => {
+    const clickOutside = (e: Event): void => {
       if (controller.openDropdown && toolbarRef.current && !toolbarRef.current.contains(e.target as Node)) {
         cleanupFloatingRef.current?.();
         cleanupFloatingRef.current = null;
@@ -72,10 +89,10 @@ export function useToolbarController(
     document.addEventListener('mousedown', clickOutside);
 
     // Dismiss overlays (e.g. table handle clicks)
-    const editorEl = editor.view.dom.closest('.dm-editor') as HTMLElement | null;
+    const editorEl = editor.view.dom.closest<HTMLElement>('.dm-editor');
     editorElRef.current = editorEl;
     if (editorEl) {
-      const dismiss = () => {
+      const dismiss = (): void => {
         if (controller.openDropdown) {
           cleanupFloatingRef.current?.();
           cleanupFloatingRef.current = null;
@@ -134,7 +151,7 @@ export function useToolbarController(
     return controllerRef.current?.getFlatIndex(name) ?? -1;
   }, []);
 
-  const handleDropdownToggle = useCallback((dropdown: ToolbarDropdown) => {
+  const handleDropdownToggle = useCallback((dropdown: ToolbarDropdown): void => {
     const controller = controllerRef.current;
     if (!controller) return;
 
@@ -145,8 +162,8 @@ export function useToolbarController(
 
     if (controller.openDropdown) {
       requestAnimationFrame(() => {
-        const trigger = toolbarRef.current?.querySelector('[aria-expanded="true"]') as HTMLElement | null;
-        const panel = trigger?.parentElement?.querySelector('.dm-toolbar-dropdown-panel') as HTMLElement | null;
+        const trigger = toolbarRef.current?.querySelector<HTMLElement>('[aria-expanded="true"]');
+        const panel = trigger?.parentElement?.querySelector<HTMLElement>('.dm-toolbar-dropdown-panel');
         if (trigger && panel) {
           const placement = dropdown.layout === 'grid' ? 'bottom' : 'bottom-start';
           cleanupFloatingRef.current = positionFloatingOnce(trigger, panel, {
@@ -158,7 +175,7 @@ export function useToolbarController(
     }
   }, [syncState]);
 
-  const closeDropdown = useCallback(() => {
+  const closeDropdown = useCallback((): void => {
     cleanupFloatingRef.current?.();
     cleanupFloatingRef.current = null;
     controllerRef.current?.closeDropdown();

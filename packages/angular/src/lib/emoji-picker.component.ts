@@ -1,8 +1,8 @@
+import type { OnDestroy } from '@angular/core';
 import {
   Component,
   ChangeDetectionStrategy,
   ViewEncapsulation,
-  OnDestroy,
   input,
   signal,
   computed,
@@ -13,7 +13,8 @@ import {
   untracked,
 } from '@angular/core';
 
-import { Editor, positionFloatingOnce } from '@domternal/core';
+import type { Editor } from '@domternal/core';
+import { positionFloatingOnce } from '@domternal/core';
 
 export interface EmojiPickerItem {
   emoji: string;
@@ -130,7 +131,7 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
 
   private anchorEl: HTMLElement | null = null;
   private ngZone = inject(NgZone);
-  private elRef = inject(ElementRef);
+  private elRef = inject<ElementRef<HTMLElement>>(ElementRef);
   private clickOutsideHandler: ((e: Event) => void) | null = null;
   private keydownHandler: ((e: KeyboardEvent) => void) | null = null;
   private eventHandler: ((...args: unknown[]) => void) | null = null;
@@ -170,11 +171,12 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
     // Re-evaluate when panel opens (isOpen changes)
     this.isOpen();
     const storage = this.getEmojiStorage();
-    const getFreq = storage?.['getFrequentlyUsed'] as (() => string[]) | undefined;
+    if (!storage) return [];
+    const getFreq = storage['getFrequentlyUsed'] as (() => string[]) | undefined;
     if (!getFreq) return [];
     const names = getFreq();
     if (!names.length) return [];
-    const nameMap = storage!['_nameMap'] as Map<string, EmojiPickerItem> | undefined;
+    const nameMap = storage['_nameMap'] as Map<string, EmojiPickerItem> | undefined;
     if (!nameMap) return [];
     return names.slice(0, 16).map((n) => nameMap.get(n)).filter(Boolean) as EmojiPickerItem[];
   });
@@ -182,7 +184,7 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
   constructor() {
     effect(() => {
       const editor = this.editor();
-      untracked(() => this.setupEventListener(editor));
+      untracked(() => { this.setupEventListener(editor); });
     });
   }
 
@@ -222,9 +224,9 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
 
     // Wait for search to clear and DOM to update
     requestAnimationFrame(() => {
-      const grid = this.elRef.nativeElement.querySelector('.dm-emoji-picker-grid') as HTMLElement | null;
+      const grid = this.elRef.nativeElement.querySelector<HTMLElement>('.dm-emoji-picker-grid');
       if (!grid) return;
-      const label = grid.querySelector(`[data-category="${cat}"]`) as HTMLElement | null;
+      const label = grid.querySelector<HTMLElement>(`[data-category="${cat}"]`);
       if (label) {
         // Use manual scrollTop instead of scrollIntoView to avoid scrolling the page
         grid.scrollTo({ top: label.offsetTop - grid.offsetTop });
@@ -240,12 +242,12 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
   }
 
   onGridKeydown(event: KeyboardEvent): void {
-    const grid = this.elRef.nativeElement.querySelector('.dm-emoji-picker-grid') as HTMLElement | null;
+    const grid = this.elRef.nativeElement.querySelector<HTMLElement>('.dm-emoji-picker-grid');
     if (!grid) return;
-    const swatches = Array.from(grid.querySelectorAll('.dm-emoji-swatch')) as HTMLElement[];
+    const swatches = Array.from(grid.querySelectorAll<HTMLElement>('.dm-emoji-swatch'));
     if (!swatches.length) return;
     const current = document.activeElement as HTMLElement;
-    let idx = swatches.indexOf(current);
+    const idx = swatches.indexOf(current);
     if (idx === -1) {
       // Focus is on grid container, not a swatch — enter the grid
       if (['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(event.key)) {
@@ -268,10 +270,10 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
   }
 
   onGridScroll(): void {
-    const grid = this.elRef.nativeElement.querySelector('.dm-emoji-picker-grid') as HTMLElement | null;
+    const grid = this.elRef.nativeElement.querySelector<HTMLElement>('.dm-emoji-picker-grid');
     if (!grid || this.searchQuery()) return;
 
-    const labels = Array.from(grid.querySelectorAll('.dm-emoji-picker-category-label[data-category]')) as HTMLElement[];
+    const labels = Array.from(grid.querySelectorAll<HTMLElement>('.dm-emoji-picker-category-label[data-category]'));
 
     let currentCat = '';
     for (const label of labels) {
@@ -322,7 +324,7 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
 
         // Position panel and focus search input after render
         requestAnimationFrame(() => {
-          const panel = this.elRef.nativeElement.querySelector('.dm-emoji-picker') as HTMLElement | null;
+          const panel = this.elRef.nativeElement.querySelector<HTMLElement>('.dm-emoji-picker');
           if (panel && this.anchorEl) {
             this.cleanupFloating?.();
             this.cleanupFloating = positionFloatingOnce(this.anchorEl, panel, {
@@ -330,7 +332,7 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
               offsetValue: 4,
             });
           }
-          const input = this.elRef.nativeElement.querySelector('.dm-emoji-picker-search input') as HTMLInputElement | null;
+          const input = this.elRef.nativeElement.querySelector<HTMLInputElement>('.dm-emoji-picker-search input');
           input?.focus({ preventScroll: true });
         });
       });
@@ -348,7 +350,7 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
         target !== this.anchorEl &&
         !this.anchorEl?.contains(target)
       ) {
-        this.ngZone.run(() => this.close());
+        this.ngZone.run(() => { this.close(); });
       }
     };
     document.addEventListener('mousedown', this.clickOutsideHandler);
@@ -356,7 +358,7 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
     this.keydownHandler = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && this.isOpen()) {
         e.preventDefault();
-        this.ngZone.run(() => this.close());
+        this.ngZone.run(() => { this.close(); });
       }
     };
     document.addEventListener('keydown', this.keydownHandler);
@@ -383,8 +385,8 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
   }
 
   private getEmojiStorage(): Record<string, unknown> | null {
-    const storage = this.editor().storage as Record<string, unknown>;
-    return (storage['emoji'] as Record<string, unknown>) ?? null;
+    const storage = this.editor().storage;
+    return (storage['emoji'] as Record<string, unknown> | undefined) ?? null;
   }
 
   private cleanup(): void {

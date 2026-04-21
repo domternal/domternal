@@ -31,10 +31,10 @@ export function provideEditor(editor: ShallowRef<Editor | null>): void {
   // Vue's prototype-chain-based inject resolution works in node views.
   const instance = getCurrentInstance();
   if (instance) {
-    const buildCtx = () => {
+    const buildCtx = (): typeof instance.appContext => {
       const ctx = Object.create(instance.appContext) as typeof instance.appContext;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (ctx as any).provides = (instance as any).provides;
+      const instanceWithProvides = instance as unknown as { provides: Record<string | symbol, unknown> };
+      (ctx as unknown as { provides: Record<string | symbol, unknown> }).provides = instanceWithProvides.provides;
       return ctx;
     };
 
