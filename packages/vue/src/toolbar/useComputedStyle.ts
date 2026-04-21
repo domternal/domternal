@@ -1,17 +1,18 @@
 import type { Editor } from '@domternal/core';
 
+function resolveElementAtCursor(editor: Editor): HTMLElement | null {
+  const { from } = editor.state.selection;
+  const { node } = editor.view.domAtPos(from);
+  return node instanceof HTMLElement ? node : node.parentElement;
+}
+
 /**
  * Reads a CSS property at the current cursor position.
  * Prefers inline style, falls back to computed style.
  */
 export function getComputedStyleAtCursor(editor: Editor, prop: string): string | null {
   try {
-    const { from } = editor.state.selection;
-    const domAtPos = editor.view.domAtPos(from);
-    const startNode: Node | null = domAtPos.node;
-    const node: HTMLElement | null = startNode instanceof HTMLElement
-      ? startNode
-      : startNode.parentElement;
+    const node = resolveElementAtCursor(editor);
     if (!node) return null;
 
     const inline = node.style.getPropertyValue(prop);
@@ -29,12 +30,7 @@ export function getComputedStyleAtCursor(editor: Editor, prop: string): string |
  */
 export function getInlineStyleAtCursor(editor: Editor, prop: string): string | null {
   try {
-    const { from } = editor.state.selection;
-    const domAtPos = editor.view.domAtPos(from);
-    const startNode: Node | null = domAtPos.node;
-    const node: HTMLElement | null = startNode instanceof HTMLElement
-      ? startNode
-      : startNode.parentElement;
+    const node = resolveElementAtCursor(editor);
     if (!node) return null;
 
     return node.style.getPropertyValue(prop) || null;

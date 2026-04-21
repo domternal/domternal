@@ -31,8 +31,18 @@ export function useEditorState<T>(
   editor: Editor | null,
   selector?: (editor: Editor) => T,
 ): EditorState | T | undefined {
-  // Safe: call pattern is stable per call site (selector is either always present or never).
-  // ESLint can't infer this from overloads, so disable rule of hooks.
+  // Runtime guard: selector presence must remain stable across renders for a
+  // given call site. Switching modes would shift inner hook counts and corrupt
+  // React's hook ordering. The guard below throws a clear error before that
+  // corruption happens, instead of relying solely on the ESLint comment below.
+  const isSelectorMode = typeof selector === 'function';
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const modeRef = useRef<boolean | null>(null);
+  modeRef.current ??= isSelectorMode;
+  if (modeRef.current !== isSelectorMode) {
+    throw new Error('useEditorState selector mode must remain stable for a component instance.');
+  }
+
   if (selector) {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     return useEditorStateSelector(editor, selector);
