@@ -36,8 +36,8 @@ export const ToolbarDropdownPanel = defineComponent({
                   'aria-label': sub.label,
                   title: sub.label,
                   style: { backgroundColor: sub.color },
-                  onMousedown: (e: MouseEvent) => e.preventDefault(),
-                  onClick: (e: MouseEvent) => emit('itemClick', sub, e),
+                  onMousedown: (e: MouseEvent) => { e.preventDefault(); },
+                  onClick: (e: MouseEvent) => { emit('itemClick', sub, e); },
                 })
               : h('button', {
                   key: sub.name,
@@ -47,8 +47,8 @@ export const ToolbarDropdownPanel = defineComponent({
                   tabindex: -1,
                   'aria-label': sub.label,
                   innerHTML: getCachedItemContent(sub.icon, sub.label),
-                  onMousedown: (e: MouseEvent) => e.preventDefault(),
-                  onClick: (e: MouseEvent) => emit('itemClick', sub, e),
+                  onMousedown: (e: MouseEvent) => { e.preventDefault(); },
+                  onClick: (e: MouseEvent) => { emit('itemClick', sub, e); },
                 }),
           ),
         );
@@ -74,8 +74,8 @@ export const ToolbarDropdownPanel = defineComponent({
             onVnodeMounted: (vnode: VNode) => {
               if (sub.style && vnode.el) (vnode.el as HTMLElement).setAttribute('style', sub.style);
             },
-            onMousedown: (e: MouseEvent) => e.preventDefault(),
-            onClick: (e: MouseEvent) => emit('itemClick', sub, e),
+            onMousedown: (e: MouseEvent) => { e.preventDefault(); },
+            onClick: (e: MouseEvent) => { emit('itemClick', sub, e); },
           }),
         ),
       );

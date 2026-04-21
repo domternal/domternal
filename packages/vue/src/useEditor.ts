@@ -65,7 +65,7 @@ export function useEditor(options: UseEditorOptions = {}): {
   const editorRef = ref<HTMLDivElement>();
   let pendingContent: Content | null = null;
 
-  function wireEvents(ed: Editor) {
+  function wireEvents(ed: Editor): void {
     ed.on('transaction', ({ transaction }: TransactionEventProps) => {
       if (transaction.docChanged) {
         options.onUpdate?.({ editor: ed });
@@ -84,7 +84,7 @@ export function useEditor(options: UseEditorOptions = {}): {
     });
   }
 
-  function createEditorInstance(element: HTMLElement, initialContent: Content, focus: FocusPosition) {
+  function createEditorInstance(element: HTMLElement, initialContent: Content, focus: FocusPosition): Editor {
     const extensions = options.extensions ?? [];
     const editable = options.editable ?? true;
 
@@ -103,7 +103,7 @@ export function useEditor(options: UseEditorOptions = {}): {
     return ed;
   }
 
-  function destroyCurrentEditor() {
+  function destroyCurrentEditor(): void {
     const current = editor.value;
     if (current && !current.isDestroyed) {
       pendingContent = current.getJSON();
@@ -112,7 +112,7 @@ export function useEditor(options: UseEditorOptions = {}): {
       // Clone editor DOM before destroy to prevent content flash during
       // unmount transitions. Insert clone before original, then destroy.
       const dom = current.view.dom;
-      const parent = dom?.parentNode;
+      const parent = dom.parentNode;
       if (parent) {
         const clone = dom.cloneNode(true) as HTMLElement;
         clone.style.pointerEvents = 'none';

@@ -24,7 +24,7 @@ export const DomternalFloatingMenu = defineComponent({
 
     let registered = false;
     let stopWatch: (() => void) | null = null;
-    const doRegister = (editor: Editor) => {
+    const doRegister = (editor: Editor): void => {
       if (registered || editor.isDestroyed || !menuRef.value) return;
       registered = true;
 

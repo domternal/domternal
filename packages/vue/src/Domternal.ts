@@ -1,5 +1,5 @@
 import { defineComponent, h, ref, watch, watchEffect } from 'vue';
-import type { PropType } from 'vue';
+import type { Component, PropType } from 'vue';
 import type { AnyExtension, Content, FocusPosition } from '@domternal/core';
 import { useEditor, type UseEditorOptions } from './useEditor.js';
 import { provideEditor, useCurrentEditor } from './EditorContext.js';
@@ -77,13 +77,13 @@ export const Domternal = defineComponent({
 
     return () => slots['default']?.();
   },
-}) as ReturnType<typeof defineComponent> & {
-  Content: ReturnType<typeof defineComponent>;
-  Loading: ReturnType<typeof defineComponent>;
-  Toolbar: ReturnType<typeof defineComponent>;
-  BubbleMenu: ReturnType<typeof defineComponent>;
-  FloatingMenu: ReturnType<typeof defineComponent>;
-  EmojiPicker: ReturnType<typeof defineComponent>;
+}) as unknown as Component & {
+  Content: Component;
+  Loading: Component;
+  Toolbar: Component;
+  BubbleMenu: Component;
+  FloatingMenu: Component;
+  EmojiPicker: Component;
 };
 
 // --- Subcomponents ---

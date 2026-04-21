@@ -57,12 +57,12 @@ export const DomternalEmojiPicker = defineComponent({
       props.emojis,
     );
 
-    function onGridKeyDown(event: KeyboardEvent) {
+    function onGridKeyDown(event: KeyboardEvent): void {
       const grid = event.currentTarget as HTMLElement;
-      const swatches = Array.from(grid.querySelectorAll('.dm-emoji-swatch')) as HTMLElement[];
+      const swatches = Array.from(grid.querySelectorAll<HTMLElement>('.dm-emoji-swatch'));
       if (!swatches.length) return;
       const current = document.activeElement as HTMLElement;
-      let idx = swatches.indexOf(current);
+      const idx = swatches.indexOf(current);
       if (idx === -1) {
         // Focus is on grid container, not a swatch - enter the grid
         if (['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(event.key)) {
@@ -84,7 +84,7 @@ export const DomternalEmojiPicker = defineComponent({
       swatches[next]?.focus();
     }
 
-    function renderEmojiButton(item: EmojiPickerItem) {
+    function renderEmojiButton(item: EmojiPickerItem): ReturnType<typeof h> {
       return h('button', {
         key: item.name,
         type: 'button',
@@ -92,8 +92,8 @@ export const DomternalEmojiPicker = defineComponent({
         tabindex: -1,
         title: formatName(item.name),
         'aria-label': formatName(item.name),
-        onMousedown: (e: MouseEvent) => e.preventDefault(),
-        onClick: () => selectEmoji(item),
+        onMousedown: (e: MouseEvent) => { e.preventDefault(); },
+        onClick: () => { selectEmoji(item); },
       }, item.emoji);
     }
 
@@ -127,8 +127,8 @@ export const DomternalEmojiPicker = defineComponent({
                 'aria-selected': activeCategory.value === cat,
                 title: cat,
                 'aria-label': cat,
-                onMousedown: (e: MouseEvent) => e.preventDefault(),
-                onClick: () => scrollToCategory(cat),
+                onMousedown: (e: MouseEvent) => { e.preventDefault(); },
+                onClick: () => { scrollToCategory(cat); },
               }, categoryIcon(cat)),
             ),
           ),

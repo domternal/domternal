@@ -54,9 +54,9 @@ export interface VueNodeViewRendererOptions {
 export function VueNodeViewRenderer(
   component: Component,
   options: VueNodeViewRendererOptions = {},
-) {
+): (node: PMNode, view: unknown, getPos: () => number | undefined, decorations: readonly unknown[]) => VueNodeView | { dom: HTMLElement; update: () => boolean; destroy: () => void } {
   // Handle class-based Vue components with __vccOpts
-  const normalizedComponent: Component = typeof component === 'function' && '__vccOpts' in component
+  const normalizedComponent: Component = typeof component === 'function'
     ? ((component as unknown as Record<string, Component>)['__vccOpts'] ?? component)
     : component;
 
@@ -64,7 +64,7 @@ export function VueNodeViewRenderer(
 
   const constructor = (node: PMNode, _view: unknown, getPos: () => number | undefined, decorations: readonly unknown[]): VueNodeView | { dom: HTMLElement; update: () => boolean; destroy: () => void } => {
     const ctx = (constructor as unknown as { __domternalContext?: NodeViewContext }).__domternalContext;
-    const editor = ctx?.editor as Editor;
+    const editor = ctx?.editor as Editor | undefined;
     const extension = ctx?.extension ?? { name: node.type.name, options: {} };
 
     // Look up appContext for this editor. Node view constructors fire DURING
@@ -80,8 +80,8 @@ export function VueNodeViewRenderer(
         appContextStore.set(editor, appContext);
       }
     }
-    if (!appContext) {
-      if (typeof globalThis !== 'undefined' && (globalThis as { __DEV__?: boolean }).__DEV__ !== false) {
+    if (!appContext || !editor) {
+      if ((globalThis as { __DEV__?: boolean }).__DEV__ !== false) {
         console.warn(
           '[VueNodeViewRenderer] appContext not found for editor. ' +
           'Custom Vue node views require provideEditor(editor) to be called, ' +
@@ -89,7 +89,7 @@ export function VueNodeViewRenderer(
         );
       }
       const dom = document.createElement('div');
-      return { dom, update: () => false, destroy: () => {} };
+      return { dom, update: () => false, destroy: () => { /* noop */ } };
     }
 
     return new VueNodeView(normalizedComponent, {
@@ -174,13 +174,13 @@ class VueNodeView {
     }) as VueNodeViewProps;
 
     // Create extended component that provides node view context
-    const onDragStart = (event: DragEvent) => {
+    const onDragStart = (event: DragEvent): void => {
       if (this.editor.view.dragging) {
         event.dataTransfer?.setData('text/plain', this.props.node.textContent);
       }
     };
 
-    const contentRefCallback = (el: HTMLElement | null) => {
+    const contentRefCallback = (el: HTMLElement | null): void => {
       if (el && contentDOM && !el.contains(contentDOM)) {
         el.appendChild(contentDOM);
       }
@@ -226,15 +226,15 @@ class VueNodeView {
     return true;
   }
 
-  selectNode() {
+  selectNode(): void {
     this.props.selected = true;
   }
 
-  deselectNode() {
+  deselectNode(): void {
     this.props.selected = false;
   }
 
-  destroy() {
+  destroy(): void {
     render(null, this.dom);
   }
 

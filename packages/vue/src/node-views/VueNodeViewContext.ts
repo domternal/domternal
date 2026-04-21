@@ -26,7 +26,10 @@ export const NODE_VIEW_CONTENT_REF: InjectionKey<(el: HTMLElement | null) => voi
  * const { onDragStart, nodeViewContentRef } = useVueNodeView();
  * ```
  */
-export function useVueNodeView() {
+export function useVueNodeView(): {
+  onDragStart: ((event: DragEvent) => void) | undefined;
+  nodeViewContentRef: ((el: HTMLElement | null) => void) | undefined;
+} {
   const onDragStart = inject(NODE_VIEW_ON_DRAG_START, undefined);
   const nodeViewContentRef = inject(NODE_VIEW_CONTENT_REF, undefined);
   return { onDragStart, nodeViewContentRef };

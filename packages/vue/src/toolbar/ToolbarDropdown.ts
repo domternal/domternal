@@ -33,9 +33,9 @@ export const ToolbarDropdown = defineComponent({
           disabled: props.isDisabled,
           'data-dropdown': props.dropdown.name,
           innerHTML: props.triggerHtml,
-          onMousedown: (e: MouseEvent) => e.preventDefault(),
-          onClick: () => emit('toggle', props.dropdown),
-          onFocus: () => emit('focus', props.dropdown.name),
+          onMousedown: (e: MouseEvent) => { e.preventDefault(); },
+          onClick: () => { emit('toggle', props.dropdown); },
+          onFocus: () => { emit('focus', props.dropdown.name); },
         }),
       ];
 
@@ -45,7 +45,7 @@ export const ToolbarDropdown = defineComponent({
             dropdown: props.dropdown,
             isActive: props.isActive,
             getCachedItemContent: props.getCachedItemContent,
-            onItemClick: (item: ToolbarButton, event: MouseEvent) => emit('itemClick', item, event),
+            onItemClick: (item: ToolbarButton, event: MouseEvent) => { emit('itemClick', item, event); },
           }),
         );
       }

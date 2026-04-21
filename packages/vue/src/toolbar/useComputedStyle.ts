@@ -8,17 +8,16 @@ export function getComputedStyleAtCursor(editor: Editor, prop: string): string |
   try {
     const { from } = editor.state.selection;
     const domAtPos = editor.view.domAtPos(from);
-    let node = domAtPos.node;
-    if (!(node instanceof HTMLElement)) {
-      node = (node as Node).parentElement as HTMLElement;
-    }
+    const startNode: Node | null = domAtPos.node;
+    const node: HTMLElement | null = startNode instanceof HTMLElement
+      ? startNode
+      : startNode.parentElement;
     if (!node) return null;
 
-    const el = node as HTMLElement;
-    const inline = el.style.getPropertyValue(prop);
+    const inline = node.style.getPropertyValue(prop);
     if (inline) return inline;
 
-    return window.getComputedStyle(el).getPropertyValue(prop) || null;
+    return window.getComputedStyle(node).getPropertyValue(prop) || null;
   } catch {
     return null;
   }
@@ -32,13 +31,13 @@ export function getInlineStyleAtCursor(editor: Editor, prop: string): string | n
   try {
     const { from } = editor.state.selection;
     const domAtPos = editor.view.domAtPos(from);
-    let node = domAtPos.node;
-    if (!(node instanceof HTMLElement)) {
-      node = (node as Node).parentElement as HTMLElement;
-    }
+    const startNode: Node | null = domAtPos.node;
+    const node: HTMLElement | null = startNode instanceof HTMLElement
+      ? startNode
+      : startNode.parentElement;
     if (!node) return null;
 
-    return (node as HTMLElement).style.getPropertyValue(prop) || null;
+    return node.style.getPropertyValue(prop) || null;
   } catch {
     return null;
   }

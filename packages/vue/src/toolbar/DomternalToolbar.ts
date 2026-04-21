@@ -4,7 +4,6 @@ import type {
   Editor,
   IconSet,
   ToolbarButton as ToolbarButtonType,
-  ToolbarDropdown as ToolbarDropdownType,
   ToolbarItem,
   ToolbarLayoutEntry,
 } from '@domternal/core';
@@ -62,7 +61,7 @@ export const DomternalToolbar = defineComponent({
     const { getTooltip } = useTooltip();
     const { onKeyDown } = useKeyboardNav(controllerRef, toolbarRef, closeDropdown);
 
-    function onButtonClick(item: ToolbarButtonType, event?: Event) {
+    function onButtonClick(item: ToolbarButtonType, event?: Event): void {
       const editor = props.editor ?? contextEditor.value;
       if (!editor) return;
 
@@ -71,7 +70,8 @@ export const DomternalToolbar = defineComponent({
       }
 
       if (item.emitEvent) {
-        const anchor = (event?.target as HTMLElement)?.closest?.('.dm-toolbar-button') as HTMLElement ?? event?.target as HTMLElement;
+        const target = event?.target as HTMLElement | undefined;
+        const anchor = target?.closest<HTMLElement>('.dm-toolbar-button') ?? target;
         (editor.emit as (e: string, d: unknown) => void)(item.emitEvent, { anchorElement: anchor });
         return;
       }
@@ -80,17 +80,17 @@ export const DomternalToolbar = defineComponent({
       // Always refocus editor after executing a command via toolbar button.
       // Mouse clicks already keep focus via mousedown.preventDefault();
       // keyboard activations (Enter/Space) need explicit refocus.
-      requestAnimationFrame(() => editor.view.focus());
+      requestAnimationFrame(() => { editor.view.focus(); });
     }
 
-    function onDropdownItemClick(item: ToolbarButtonType, event: MouseEvent) {
+    function onDropdownItemClick(item: ToolbarButtonType, event: MouseEvent): void {
       const editor = props.editor ?? contextEditor.value;
       if (!editor) return;
 
       let anchor: HTMLElement | undefined;
       if (item.emitEvent) {
-        const wrapper = (event.target as HTMLElement)?.closest?.('.dm-toolbar-dropdown-wrapper');
-        anchor = wrapper?.querySelector('.dm-toolbar-dropdown-trigger') as HTMLElement | undefined;
+        const wrapper = (event.target as HTMLElement).closest('.dm-toolbar-dropdown-wrapper');
+        anchor = wrapper?.querySelector<HTMLElement>('.dm-toolbar-dropdown-trigger') ?? undefined;
       }
 
       closeDropdown();
@@ -102,10 +102,10 @@ export const DomternalToolbar = defineComponent({
       }
 
       // Refocus editor so ::selection highlight stays visible
-      requestAnimationFrame(() => editor.view.focus());
+      requestAnimationFrame(() => { editor.view.focus(); });
     }
 
-    function onButtonFocus(name: string) {
+    function onButtonFocus(name: string): void {
       const index = controllerRef.current?.getFlatIndex(name) ?? -1;
       if (index >= 0) {
         controllerRef.current?.setFocusedIndex(index);
@@ -137,7 +137,7 @@ export const DomternalToolbar = defineComponent({
               { class: 'dm-toolbar-group', role: 'group', 'aria-label': group.name || 'Tools' },
               group.items.map((item: ToolbarItem) => {
                 if (item.type === 'button') {
-                  const btn = item as ToolbarButtonType;
+                  const btn = item;
                   return h(ToolbarButton, {
                     key: btn.name,
                     item: btn,
@@ -147,12 +147,12 @@ export const DomternalToolbar = defineComponent({
                     tooltip: getTooltip(btn),
                     iconHtml: getCachedIcon(btn.icon),
                     ariaExpanded: getAriaExpanded(btn),
-                    onClick: (clickedItem: ToolbarButtonType, event: MouseEvent) => onButtonClick(clickedItem, event),
+                    onClick: (clickedItem: ToolbarButtonType, event: MouseEvent) => { onButtonClick(clickedItem, event); },
                     onFocus: onButtonFocus,
                   });
                 }
                 if (item.type === 'dropdown') {
-                  const dd = item as ToolbarDropdownType;
+                  const dd = item;
                   const activeItem = dd.items.find((sub: ToolbarButtonType) => controllerRef.current?.activeMap.get(sub.name));
 
                   let triggerHtml = getDropdownTriggerHtml(dd, activeItem);
@@ -162,7 +162,7 @@ export const DomternalToolbar = defineComponent({
                       computed = getInlineStyleAtCursor(editor, dd.computedStyleProperty);
                       if (computed) {
                         const first = computed.split(',')[0]?.replace(/['"]+/g, '').trim();
-                        computed = first || null;
+                        computed = first ?? null;
                       }
                     } else {
                       computed = getComputedStyleAtCursor(editor, dd.computedStyleProperty);

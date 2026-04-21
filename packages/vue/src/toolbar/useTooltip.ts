@@ -6,7 +6,7 @@ const MODIFIER_MAP: Record<string, string> = isMac
   ? { Mod: '\u2318', Shift: '\u21E7', Alt: '\u2325' }
   : { Mod: 'Ctrl', Shift: 'Shift', Alt: 'Alt' };
 
-export function useTooltip() {
+export function useTooltip(): { getTooltip: (item: ToolbarButton) => string } {
   function getTooltip(item: ToolbarButton): string {
     if (!item.shortcut) return item.label;
 

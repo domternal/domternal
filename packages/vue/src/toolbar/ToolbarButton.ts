@@ -29,9 +29,9 @@ export const ToolbarButton = defineComponent({
         'aria-expanded': props.ariaExpanded === 'true' ? true : undefined,
         'aria-label': props.item.label,
         title: props.tooltip,
-        onMousedown: (e: MouseEvent) => e.preventDefault(),
-        onClick: (e: MouseEvent) => emit('click', props.item, e),
-        onFocus: () => emit('focus', props.item.name),
+        onMousedown: (e: MouseEvent) => { e.preventDefault(); },
+        onClick: (e: MouseEvent) => { emit('click', props.item, e); },
+        onFocus: () => { emit('focus', props.item.name); },
       });
   },
 });
