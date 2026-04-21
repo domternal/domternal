@@ -319,16 +319,17 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     this.buildItemMap(editor);
     this.buildBubbleDefaults(editor);
 
+    const items = this.items();
     if (this.contexts()) {
       this.updateContextItems(editor);
-    } else if (this.items()) {
-      this.resolvedItems.set(this.resolveNames(this.items()!));
+    } else if (items) {
+      this.resolvedItems.set(this.resolveNames(items));
     } else {
       this.resolvedItems.set(this.resolveNames(['bold', 'italic', 'underline']));
     }
 
-    const defaultItems = this.items()
-      ? this.resolveNames(this.items()!)
+    const defaultItems = items
+      ? this.resolveNames(items)
       : this.resolveNames(['bold', 'italic', 'underline']);
 
     this.transactionHandler = () => {
@@ -352,7 +353,8 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   }
 
   private updateContextItems(editor: Editor): void {
-    const ctxs = this.contexts()!;
+    const ctxs = this.contexts();
+    if (!ctxs) return;
     const ctx = this.detectContext(editor.state.selection as unknown as SelectionShape, ctxs);
     if (!ctx) {
       this.resolvedItems.set([]);

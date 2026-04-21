@@ -137,8 +137,9 @@ export function useToolbarController(
   function isDropdownActive(dropdown: ToolbarDropdown): boolean {
     if (dropdown.layout === 'grid') return false;
     if (dropdown.dynamicLabel) return false;
-    if (!controller) return false;
-    return dropdown.items.some((item: ToolbarButton) => controller!.activeMap.get(item.name) ?? false);
+    const ctl = controller;
+    if (!ctl) return false;
+    return dropdown.items.some((item: ToolbarButton) => ctl.activeMap.get(item.name) ?? false);
   }
 
   function getAriaExpanded(item: ToolbarButton): string | null {

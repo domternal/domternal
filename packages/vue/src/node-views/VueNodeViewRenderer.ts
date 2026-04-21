@@ -82,6 +82,7 @@ export function VueNodeViewRenderer(
     }
     if (!appContext || !editor) {
       if ((globalThis as { __DEV__?: boolean }).__DEV__ !== false) {
+        // eslint-disable-next-line no-console
         console.warn(
           '[VueNodeViewRenderer] appContext not found for editor. ' +
           'Custom Vue node views require provideEditor(editor) to be called, ' +

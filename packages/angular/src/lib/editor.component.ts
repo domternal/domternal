@@ -100,8 +100,9 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
     effect(() => {
       const editable = this.editable();
       if (!this._editor || this._editor.isDestroyed) return;
+      const ed = this._editor;
       untracked(() => {
-        this._editor!.setEditable(editable);
+        ed.setEditable(editable);
         this._isEditable.set(editable);
       });
     });
@@ -111,15 +112,16 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
       const content = this.content();
       const format = this.outputFormat();
       if (!this._editor || this._editor.isDestroyed) return;
+      const ed = this._editor;
       untracked(() => {
         const current = format === 'html'
-          ? this._editor!.getHTML()
-          : JSON.stringify(this._editor!.getJSON());
+          ? ed.getHTML()
+          : JSON.stringify(ed.getJSON());
         const incoming = format === 'html'
           ? (content as string)
           : JSON.stringify(content);
         if (incoming !== current) {
-          this._editor!.setContent(content, false);
+          ed.setContent(content, false);
         }
       });
     });
@@ -207,9 +209,10 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
     this._jsonContent.set(this._editor.getJSON());
     this._isEmpty.set(this._editor.isEmpty);
 
-    this._editor.on('transaction', ({ transaction }: TransactionEventProps) => {
+    const editor = this._editor;
+    editor.on('transaction', ({ transaction }: TransactionEventProps) => {
       this.ngZone.run(() => {
-        const ed = this._editor!;
+        const ed = editor;
 
         if (transaction.docChanged) {
           const html = ed.getHTML();
@@ -228,24 +231,24 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
       });
     });
 
-    this._editor.on('focus', ({ event }: FocusEventProps) => {
+    editor.on('focus', ({ event }: FocusEventProps) => {
       this.ngZone.run(() => {
         this._isFocused.set(true);
-        this.focusChanged.emit({ editor: this._editor!, event });
+        this.focusChanged.emit({ editor, event });
       });
     });
 
-    this._editor.on('blur', ({ event }: FocusEventProps) => {
+    editor.on('blur', ({ event }: FocusEventProps) => {
       this.ngZone.run(() => {
         this._isFocused.set(false);
-        this.blurChanged.emit({ editor: this._editor!, event });
+        this.blurChanged.emit({ editor, event });
         this.onTouched();
       });
     });
 
     // Emit editor created
     this.ngZone.run(() => {
-      this.editorCreated.emit(this._editor!);
+      this.editorCreated.emit(editor);
     });
   }
 }

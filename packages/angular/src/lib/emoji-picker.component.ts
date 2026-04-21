@@ -171,11 +171,12 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
     // Re-evaluate when panel opens (isOpen changes)
     this.isOpen();
     const storage = this.getEmojiStorage();
-    const getFreq = storage?.['getFrequentlyUsed'] as (() => string[]) | undefined;
+    if (!storage) return [];
+    const getFreq = storage['getFrequentlyUsed'] as (() => string[]) | undefined;
     if (!getFreq) return [];
     const names = getFreq();
     if (!names.length) return [];
-    const nameMap = storage!['_nameMap'] as Map<string, EmojiPickerItem> | undefined;
+    const nameMap = storage['_nameMap'] as Map<string, EmojiPickerItem> | undefined;
     if (!nameMap) return [];
     return names.slice(0, 16).map((n) => nameMap.get(n)).filter(Boolean) as EmojiPickerItem[];
   });

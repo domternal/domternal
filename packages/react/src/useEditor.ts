@@ -201,8 +201,11 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
     if (!deps || !instanceRef.current || instanceRef.current.isDestroyed) return;
     // Skip if deps haven't actually changed (initial render)
     if (depsRef.current === deps) return;
-    if (deps.length === depsRef.current?.length &&
-        deps.every((d, i) => d === depsRef.current![i])) return;
+    const prevDeps = depsRef.current;
+    if (prevDeps?.length === deps.length
+        && deps.every((d, i) => d === prevDeps[i])) {
+      return;
+    }
 
     const element = instanceRef.current.view.dom.parentElement ?? document.createElement('div');
     destroyCurrentEditor();
