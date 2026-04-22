@@ -32,6 +32,7 @@ import type {
   CanCommands,
   Command,
   ToolbarItem,
+  FloatingMenuItem,
 } from './types/index.js';
 
 /**
@@ -221,6 +222,15 @@ export class Editor extends EventEmitter<EditorEvents> {
    */
   get toolbarItems(): ToolbarItem[] {
     return this._extensionManager.toolbarItems;
+  }
+
+  /**
+   * Gets floating-menu items registered by all extensions.
+   * Used by framework floating-menu components to auto-generate the
+   * block-insert menu shown on empty paragraphs.
+   */
+  get floatingMenuItems(): FloatingMenuItem[] {
+    return this._extensionManager.floatingMenuItems;
   }
 
   // === Active State Methods ===

@@ -10,6 +10,7 @@ import type { InputRule } from '@domternal/pm/inputrules';
 import type { EditorView } from '@domternal/pm/view';
 import type { Command, KeyboardShortcutCommand, SingleCommands } from './Commands.js';
 import type { ToolbarItem } from './Toolbar.js';
+import type { FloatingMenuItem } from './FloatingMenu.js';
 
 /**
  * Editor instance type (forward declaration)
@@ -241,6 +242,27 @@ export interface ExtensionConfigBase<Options = unknown, Storage = unknown> {
    * }
    */
   addToolbarItems?: () => ToolbarItem[];
+
+  /**
+   * Floating-menu items this extension contributes.
+   * Block-insert menu shown on empty paragraphs aggregates these items
+   * across all extensions. Framework wrappers render them as a WAI-ARIA
+   * menu with groups, arrow-key navigation, and Enter to execute.
+   *
+   * @example
+   * addFloatingMenuItems() {
+   *   return [{
+   *     name: 'heading-1',
+   *     label: 'Heading 1',
+   *     description: 'Big section heading',
+   *     icon: 'textHOne',
+   *     group: 'Basic',
+   *     command: 'toggleHeading',
+   *     commandArgs: [{ level: 1 }],
+   *   }];
+   * }
+   */
+  addFloatingMenuItems?: () => FloatingMenuItem[];
 
   // === Lifecycle Hooks ===
 

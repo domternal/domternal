@@ -22,6 +22,7 @@ import type { AnyExtension } from './types/EditorOptions.js';
 import type { CommandMap } from './types/Commands.js';
 import type { GlobalAttributes, GlobalAttributeSpec } from './types/ExtensionConfig.js';
 import type { ToolbarItem } from './types/Toolbar.js';
+import type { FloatingMenuItem } from './types/FloatingMenu.js';
 import type { Extension } from './Extension.js';
 import type { Node } from './Node.js';
 import type { Mark } from './Mark.js';
@@ -142,6 +143,11 @@ export class ExtensionManager {
   private _toolbarItems: ToolbarItem[] | null = null;
 
   /**
+   * Cached floating-menu items (collected lazily)
+   */
+  private _floatingMenuItems: FloatingMenuItem[] | null = null;
+
+  /**
    * Cached node views (collected lazily)
    */
   private _nodeViews: Record<string, NodeViewConstructor> | null = null;
@@ -240,6 +246,15 @@ export class ExtensionManager {
   }
 
   /**
+   * Gets floating-menu items from all extensions
+   * Cached after first call
+   */
+  get floatingMenuItems(): FloatingMenuItem[] {
+    this._floatingMenuItems ??= this.collectFloatingMenuItems();
+    return this._floatingMenuItems;
+  }
+
+  /**
    * Gets node views from all Node extensions that define addNodeView
    */
   get nodeViews(): Record<string, NodeViewConstructor> {
@@ -257,6 +272,7 @@ export class ExtensionManager {
     this._plugins = null;
     this._commands = null;
     this._toolbarItems = null;
+    this._floatingMenuItems = null;
     this._nodeViews = null;
   }
 
@@ -692,6 +708,28 @@ export class ExtensionManager {
         const extItems = this.safeCall(
           () => callOrReturn(addItems, ext) as ToolbarItem[] | undefined,
           `${ext.name}.addToolbarItems`
+        );
+        if (extItems && extItems.length > 0) {
+          items.push(...extItems);
+        }
+      }
+    }
+
+    return items;
+  }
+
+  /**
+   * Collects floating-menu items from all extensions via `addFloatingMenuItems()`.
+   */
+  private collectFloatingMenuItems(): FloatingMenuItem[] {
+    const items: FloatingMenuItem[] = [];
+
+    for (const ext of this._extensions) {
+      const addItems = (ext as Extension).config.addFloatingMenuItems;
+      if (addItems) {
+        const extItems = this.safeCall(
+          () => callOrReturn(addItems, ext) as FloatingMenuItem[] | undefined,
+          `${ext.name}.addFloatingMenuItems`
         );
         if (extItems && extItems.length > 0) {
           items.push(...extItems);

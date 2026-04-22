@@ -67,6 +67,9 @@ export type {
   ToolbarItem,
   ToolbarLayoutDropdown,
   ToolbarLayoutEntry,
+  // Floating menu types
+  FloatingMenuItem,
+  FloatingMenuItemsOverride,
 } from './types/index.js';
 
 // === ProseMirror re-exports (for framework wrappers) ===
@@ -148,6 +151,13 @@ export {
   type ToolbarControllerEditor,
   type ToolbarGroup,
 } from './ToolbarController.js';
+
+// === Floating Menu Controller ===
+export {
+  FloatingMenuController,
+  FLOATING_MENU_NO_FOCUS,
+  type FloatingMenuGroup,
+} from './FloatingMenuController.js';
 
 // === Icons ===
 export { defaultIcons } from './icons/index.js';
@@ -344,6 +354,7 @@ export {
   floatingMenuPluginKey,
   type FloatingMenuOptions,
   type CreateFloatingMenuPluginOptions,
+  type FloatingMenuKeymap,
   // Bundle
   StarterKit,
   type StarterKitOptions,
