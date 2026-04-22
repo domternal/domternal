@@ -349,12 +349,6 @@ export {
   bubbleMenuPluginKey,
   type BubbleMenuOptions,
   type CreateBubbleMenuPluginOptions,
-  FloatingMenu,
-  createFloatingMenuPlugin,
-  floatingMenuPluginKey,
-  type FloatingMenuOptions,
-  type CreateFloatingMenuPluginOptions,
-  type FloatingMenuKeymap,
   // Bundle
   StarterKit,
   type StarterKitOptions,

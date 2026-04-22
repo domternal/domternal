@@ -74,14 +74,6 @@ export {
   type BubbleMenuOptions,
   type CreateBubbleMenuPluginOptions,
 } from './BubbleMenu.js';
-export {
-  FloatingMenu,
-  createFloatingMenuPlugin,
-  floatingMenuPluginKey,
-  type FloatingMenuOptions,
-  type CreateFloatingMenuPluginOptions,
-  type FloatingMenuKeymap,
-} from './FloatingMenu.js';
 
 // Bundle
 export { StarterKit, type StarterKitOptions } from './StarterKit.js';

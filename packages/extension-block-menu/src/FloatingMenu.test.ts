@@ -3,11 +3,7 @@
  */
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { FloatingMenu, floatingMenuPluginKey, createFloatingMenuPlugin } from './FloatingMenu.js';
-import { Document } from '../nodes/Document.js';
-import { Text } from '../nodes/Text.js';
-import { Paragraph } from '../nodes/Paragraph.js';
-import { Heading } from '../nodes/Heading.js';
-import { Editor } from '../Editor.js';
+import { Document, Text, Paragraph, Heading, Editor } from '@domternal/core';
 import { PluginKey, TextSelection } from '@domternal/pm/state';
 
 describe('FloatingMenu', () => {

@@ -10,13 +10,11 @@
  *
  * Styles ship via `@domternal/theme` (`_floating-menu.scss`).
  */
-import { Extension } from '../Extension.js';
+import { Extension, positionFloatingOnce } from '@domternal/core';
+import type { Editor, FloatingMenuItemsOverride } from '@domternal/core';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import type { EditorState } from '@domternal/pm/state';
-import type { Editor } from '../Editor.js';
-import type { FloatingMenuItemsOverride } from '../types/FloatingMenu.js';
-import { positionFloatingOnce } from '../utils/positionFloating.js';
 
 export const floatingMenuPluginKey = new PluginKey('floatingMenu');
 
