@@ -116,6 +116,10 @@ export function DomternalFloatingMenu({
     const controller = new FloatingMenuController(editor, forceRender, items);
     controller.subscribe();
     controllerRef.current = controller;
+    // Controller is stored on a ref (not state) — React won't re-render on
+    // that assignment, so trigger a bump so the next render reads the newly
+    // available groups/focusedIndex.
+    forceRender();
     return () => {
       controller.destroy();
       controllerRef.current = null;
@@ -288,12 +292,7 @@ function FloatingMenuItemButton({
           dangerouslySetInnerHTML={{ __html: iconHtml }}
         />
       )}
-      <span className="dm-floating-menu-item-text">
-        <span className="dm-floating-menu-item-label">{item.label}</span>
-        {item.description && (
-          <span className="dm-floating-menu-item-description">{item.description}</span>
-        )}
-      </span>
+      <span className="dm-floating-menu-item-label">{item.label}</span>
       {item.shortcut && (
         <span className="dm-floating-menu-item-shortcut" aria-hidden="true">
           {item.shortcut}

@@ -256,12 +256,7 @@ export const DomternalFloatingMenu = defineComponent({
                         innerHTML: iconHtml,
                       })
                       : null,
-                    h('span', { class: 'dm-floating-menu-item-text' }, [
-                      h('span', { class: 'dm-floating-menu-item-label' }, item.label),
-                      item.description
-                        ? h('span', { class: 'dm-floating-menu-item-description' }, item.description)
-                        : null,
-                    ]),
+                    h('span', { class: 'dm-floating-menu-item-label' }, item.label),
                     item.shortcut
                       ? h('span', { class: 'dm-floating-menu-item-shortcut', 'aria-hidden': 'true' }, item.shortcut)
                       : null,
