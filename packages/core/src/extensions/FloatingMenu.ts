@@ -108,7 +108,7 @@ function matchShortcut(event: KeyboardEvent, shortcut: string): boolean {
   if (!key) return false;
   const mods = new Set(parts.slice(0, -1));
   const isMac = /Mac|iPhone|iPad|iPod/i.test(
-    typeof navigator === 'undefined' ? '' : navigator.platform,
+    typeof navigator === 'undefined' ? '' : navigator.userAgent,
   );
   const needMod = mods.has('Mod');
   const needAlt = mods.has('Alt');
