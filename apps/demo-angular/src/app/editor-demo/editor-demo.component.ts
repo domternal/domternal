@@ -3,6 +3,7 @@ import {
   DomternalEditorComponent,
   DomternalToolbarComponent,
   DomternalBubbleMenuComponent,
+  DomternalFloatingMenuComponent,
   DomternalEmojiPickerComponent,
 } from '@domternal/angular';
 import {
@@ -63,7 +64,7 @@ const mockUsers: MentionItem[] = [
 @Component({
   selector: 'app-editor-demo',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DomternalEditorComponent, DomternalToolbarComponent, DomternalBubbleMenuComponent, DomternalEmojiPickerComponent],
+  imports: [DomternalEditorComponent, DomternalToolbarComponent, DomternalBubbleMenuComponent, DomternalFloatingMenuComponent, DomternalEmojiPickerComponent],
   templateUrl: './editor-demo.component.html',
 })
 export class EditorDemoComponent {

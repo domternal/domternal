@@ -4,6 +4,7 @@ import {
   useEditorState,
   DomternalToolbar,
   DomternalBubbleMenu,
+  DomternalFloatingMenu,
   DomternalEmojiPicker,
 } from '@domternal/react';
 import {
@@ -153,6 +154,7 @@ export function EditorDemo({ useLayout }: EditorDemoProps) {
               contexts={{ text: ['bold', 'italic', 'underline', 'strike', 'code', '|', 'link'] }}
             />
           )}
+          <DomternalFloatingMenu editor={editor} />
           <DomternalEmojiPicker editor={editor} emojis={emojis} />
         </>
       )}

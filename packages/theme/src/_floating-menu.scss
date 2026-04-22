@@ -1,24 +1,153 @@
 // =============================================================================
 // Floating Menu Styles
+//
+// Block-insert menu shown on empty paragraphs. Rendered by framework
+// wrappers as a WAI-ARIA menu with role="menu"/"group"/"menuitem".
 // =============================================================================
 
 .dm-floating-menu {
   position: absolute;
   display: flex;
   flex-direction: column;
-  gap: var(--dm-toolbar-gap);
-  padding: var(--dm-toolbar-padding);
+  gap: 0.25rem;
+  min-width: 16rem;
+  max-height: 22rem;
+  overflow-y: auto;
+  padding: 0.375rem;
   background: var(--dm-toolbar-bg);
-  border: var(--dm-toolbar-border);
-  border-radius: var(--dm-button-border-radius);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  border: 1px solid var(--dm-border-color, #e5e7eb);
+  border-radius: var(--dm-toolbar-border-radius, 0.5rem);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08), 0 4px 10px rgba(0, 0, 0, 0.04);
   visibility: hidden;
   opacity: 0;
-  transition: opacity 0.2s ease, visibility 0.2s;
+  transition: opacity 0.15s ease, visibility 0.15s;
   z-index: 50;
 
   &[data-show] {
     visibility: visible;
     opacity: 1;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Group heading (e.g. "Basic", "Lists", "Media")
+  // ---------------------------------------------------------------------------
+  &-group-label {
+    padding: 0.375rem 0.5rem 0.125rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--dm-muted, #999);
+    user-select: none;
+  }
+
+  &-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+
+    // Visual separator between unlabelled groups; labelled groups get
+    // spacing from their label instead.
+    & + &:not(:has(+ .dm-floating-menu-group-label)) {
+      margin-top: 0.25rem;
+    }
+  }
+
+  &-group-wrapper {
+    display: flex;
+    flex-direction: column;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Menu item button
+  // ---------------------------------------------------------------------------
+  &-item {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    width: 100%;
+    padding: 0.375rem 0.5rem;
+    border: none;
+    border-radius: var(--dm-button-border-radius, 0.375rem);
+    background: transparent;
+    color: var(--dm-button-color, inherit);
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    transition: background-color 0.12s;
+
+    &:hover:not([aria-disabled="true"]),
+    &:focus:not([aria-disabled="true"]) {
+      background: var(--dm-button-hover-bg, rgba(0, 0, 0, 0.04));
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--dm-accent, #2563eb);
+      outline-offset: -2px;
+    }
+
+    &[aria-disabled="true"],
+    &:disabled {
+      opacity: var(--dm-button-disabled-opacity, 0.45);
+      cursor: not-allowed;
+    }
+  }
+
+  // Icon — square slot with Phosphor SVG
+  &-item-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex-shrink: 0;
+    border-radius: 0.25rem;
+    background: var(--dm-surface, #f8f9fa);
+    color: var(--dm-editor-text, inherit);
+
+    svg {
+      width: 1.125rem;
+      height: 1.125rem;
+    }
+  }
+
+  // Text column — label + optional description stacked
+  &-item-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+    line-height: 1.25;
+  }
+
+  &-item-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--dm-editor-text, inherit);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &-item-description {
+    font-size: 0.75rem;
+    color: var(--dm-muted, #999);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  // Shortcut hint chip (e.g. "# ", "> ", "[ ] ")
+  &-item-shortcut {
+    flex-shrink: 0;
+    padding: 0.0625rem 0.375rem;
+    margin-left: auto;
+    font-family: var(--dm-editor-font-family-mono, ui-monospace, monospace);
+    font-size: 0.6875rem;
+    color: var(--dm-muted, #999);
+    background: var(--dm-surface, #f8f9fa);
+    border: 1px solid var(--dm-border-color, #e5e7eb);
+    border-radius: 0.25rem;
+    user-select: none;
   }
 }
