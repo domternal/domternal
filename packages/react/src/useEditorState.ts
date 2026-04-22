@@ -36,7 +36,6 @@ export function useEditorState<T>(
   // React's hook ordering. The guard below throws a clear error before that
   // corruption happens, instead of relying solely on the ESLint comment below.
   const isSelectorMode = typeof selector === 'function';
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   const modeRef = useRef<boolean | null>(null);
   modeRef.current ??= isSelectorMode;
   if (modeRef.current !== isSelectorMode) {

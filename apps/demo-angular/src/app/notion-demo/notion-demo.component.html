@@ -1,0 +1,17 @@
+<div class="notion-page">
+  <domternal-editor
+    [extensions]="extensions"
+    [content]="editorContent"
+    (editorCreated)="onEditorCreated($event)"
+  />
+
+  @if (editor(); as ed) {
+    <domternal-bubble-menu
+      [editor]="ed"
+      [contexts]="{
+        text: ['bold', 'italic', 'underline', 'strike', 'code', '|', 'link'],
+      }"
+    />
+    <domternal-floating-menu [editor]="ed" />
+  }
+</div>

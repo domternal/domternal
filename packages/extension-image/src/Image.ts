@@ -16,7 +16,7 @@
  */
 
 import { Node, PluginKey, positionFloating, defaultIcons } from '@domternal/core';
-import type { Editor, CommandSpec, ToolbarItem } from '@domternal/core';
+import type { Editor, CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
 import { Plugin, NodeSelection } from '@domternal/pm/state';
 import { InputRule } from '@domternal/pm/inputrules';
 import type { Node as PmNode } from '@domternal/pm/model';
@@ -314,6 +314,28 @@ export const Image = Node.create<ImageOptions>({
       { type: 'button', name: 'imageFloatRight', command: 'setImageFloat', commandArgs: ['right'], icon: 'textAlignRight', label: 'Float right', group: 'image-float', priority: 70, isActive: { name: 'image', attributes: { float: 'right' } }, toolbar: false, bubbleMenu: 'image' },
       // Bubble menu only: delete
       { type: 'button', name: 'deleteImage', command: 'deleteImage', icon: 'trash', label: 'Delete', group: 'image-actions', priority: 50, toolbar: false, bubbleMenu: 'image' },
+    ];
+  },
+
+  addFloatingMenuItems(): FloatingMenuItem[] {
+    return [
+      {
+        name: 'image',
+        label: 'Image',
+        description: 'Upload or embed with a link',
+        icon: 'image',
+        group: 'Media',
+        priority: 200,
+        keywords: ['image', 'picture', 'photo', 'img'],
+        // Open the image URL popover. Matches the toolbar's `emitEvent` flow:
+        // subscribers listen for `insertImage` to mount the popover UI.
+        command: (editor) => {
+          (editor as unknown as { emit: (event: string, payload: unknown) => void }).emit(
+            'insertImage',
+            {},
+          );
+        },
+      },
     ];
   },
 

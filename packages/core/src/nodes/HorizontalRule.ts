@@ -11,6 +11,7 @@ import type { EditorState } from '@domternal/pm/state';
 import { TextSelection } from '@domternal/pm/state';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
+import type { FloatingMenuItem } from '../types/FloatingMenu.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -101,6 +102,22 @@ export const HorizontalRule = Node.create<HorizontalRuleOptions>({
         label: 'Horizontal Rule',
         group: 'blocks',
         priority: 130,
+      },
+    ];
+  },
+
+  addFloatingMenuItems(): FloatingMenuItem[] {
+    return [
+      {
+        name: 'horizontal-rule',
+        label: 'Divider',
+        description: 'Insert a horizontal rule',
+        icon: 'minus',
+        group: 'Basic',
+        priority: 150,
+        keywords: ['divider', 'hr', 'line', 'separator', 'horizontal rule'],
+        shortcut: '--- ',
+        command: 'setHorizontalRule',
       },
     ];
   },

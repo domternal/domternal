@@ -28,7 +28,7 @@
  */
 
 import { Node } from '@domternal/core';
-import type { CommandSpec, ToolbarItem } from '@domternal/core';
+import type { CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
 import type { Node as PMNode } from '@domternal/pm/model';
@@ -430,6 +430,21 @@ export const Table = Node.create<TableOptions>({
         label: 'Insert Table',
         group: 'insert',
         priority: 140,
+      },
+    ];
+  },
+
+  addFloatingMenuItems(): FloatingMenuItem[] {
+    return [
+      {
+        name: 'table',
+        label: 'Table',
+        description: 'Insert a simple table',
+        icon: 'table',
+        group: 'Media',
+        priority: 190,
+        keywords: ['table', 'grid', 'rows', 'columns'],
+        command: 'insertTable',
       },
     ];
   },

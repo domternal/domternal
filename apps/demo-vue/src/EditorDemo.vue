@@ -5,6 +5,7 @@ import {
   useEditorState,
   DomternalToolbar,
   DomternalBubbleMenu,
+  DomternalFloatingMenu,
   DomternalEmojiPicker,
 } from '@domternal/vue';
 import {
@@ -147,6 +148,7 @@ defineExpose({ editor, editorRef });
       :editor="editor"
       :contexts="{ text: ['bold', 'italic', 'underline', 'strike', 'code', '|', 'link'] }"
     />
+    <DomternalFloatingMenu :editor="editor" />
     <DomternalEmojiPicker :editor="editor" :emojis="emojis" />
   </template>
 

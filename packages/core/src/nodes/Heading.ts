@@ -12,6 +12,7 @@ import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { Command as PMCommand } from '@domternal/pm/state';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem, ToolbarButton } from '../types/Toolbar.js';
+import type { FloatingMenuItem } from '../types/FloatingMenu.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -149,6 +150,34 @@ export const Heading = Node.create<HeadingOptions>({
         dynamicIcon: true,
       },
     ];
+  },
+
+  addFloatingMenuItems(): FloatingMenuItem[] {
+    const iconMap: Record<number, string> = {
+      1: 'textHOne',
+      2: 'textHTwo',
+      3: 'textHThree',
+    };
+    const descriptionMap: Record<number, string> = {
+      1: 'Big section heading',
+      2: 'Medium section heading',
+      3: 'Small section heading',
+    };
+    // Only levels 1-3 in the quick-insert menu; deeper levels stay toolbar-only.
+    return this.options.levels
+      .filter((level) => level <= 3)
+      .map((level): FloatingMenuItem => ({
+        name: `heading-${String(level)}`,
+        label: `Heading ${String(level)}`,
+        description: descriptionMap[level] ?? 'Section heading',
+        icon: iconMap[level] ?? 'textH',
+        group: 'Basic',
+        priority: 210 - level * 10,
+        keywords: ['heading', `h${String(level)}`, 'title'],
+        shortcut: '#'.repeat(level) + ' ',
+        command: 'toggleHeading',
+        commandArgs: [{ level }],
+      }));
   },
 
   addProseMirrorPlugins() {

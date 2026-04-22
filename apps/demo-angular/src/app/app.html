@@ -7,9 +7,14 @@
   </h1>
 
   <div class="toolbar-mode-toggle">
-    <button [class.active]="!useLayout()" (click)="useLayout.set(false)">Default toolbar</button>
-    <button [class.active]="useLayout()" (click)="useLayout.set(true)">Custom layout</button>
+    <button [class.active]="mode() === 'default'" (click)="mode.set('default')">Default toolbar</button>
+    <button [class.active]="mode() === 'custom'" (click)="mode.set('custom')">Custom layout</button>
+    <button [class.active]="mode() === 'notion'" (click)="mode.set('notion')">Notion style</button>
   </div>
 
-  <app-editor-demo [useLayout]="useLayout()" />
+  @if (mode() === 'notion') {
+    <app-notion-demo />
+  } @else {
+    <app-editor-demo [useLayout]="useLayout()" />
+  }
 </div>

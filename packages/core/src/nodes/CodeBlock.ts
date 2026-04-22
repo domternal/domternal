@@ -15,6 +15,7 @@ import { textblockTypeInputRule } from '../helpers/textblockTypeInputRule.js';
 import { TextSelection } from '@domternal/pm/state';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
+import type { FloatingMenuItem } from '../types/FloatingMenu.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -167,6 +168,22 @@ export const CodeBlock = Node.create<CodeBlockOptions>({
         shortcut: 'Mod-Alt-C',
         group: 'blocks',
         priority: 140,
+      },
+    ];
+  },
+
+  addFloatingMenuItems(): FloatingMenuItem[] {
+    return [
+      {
+        name: 'code-block',
+        label: 'Code block',
+        description: 'Capture a code snippet',
+        icon: 'codeBlock',
+        group: 'Basic',
+        priority: 160,
+        keywords: ['code', 'snippet', 'pre'],
+        shortcut: '``` ',
+        command: 'toggleCodeBlock',
       },
     ];
   },

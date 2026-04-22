@@ -80,6 +80,7 @@ export {
   floatingMenuPluginKey,
   type FloatingMenuOptions,
   type CreateFloatingMenuPluginOptions,
+  type FloatingMenuKeymap,
 } from './FloatingMenu.js';
 
 // Bundle

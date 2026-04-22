@@ -86,3 +86,9 @@ export type {
   ToolbarLayoutDropdown,
   ToolbarLayoutEntry,
 } from './Toolbar.js';
+
+// Floating menu types
+export type {
+  FloatingMenuItem,
+  FloatingMenuItemsOverride,
+} from './FloatingMenu.js';
