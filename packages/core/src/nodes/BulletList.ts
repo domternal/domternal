@@ -9,6 +9,7 @@ import { Node } from '../Node.js';
 import { wrappingInputRule, notInsideList } from '../helpers/wrappingInputRule.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
+import type { FloatingMenuItem } from '../types/FloatingMenu.js';
 import { ListItem } from './ListItem.js';
 
 declare module '../types/Commands.js' {
@@ -65,6 +66,22 @@ export const BulletList = Node.create<BulletListOptions>({
         shortcut: 'Mod-Shift-8',
         group: 'lists',
         priority: 200,
+      },
+    ];
+  },
+
+  addFloatingMenuItems(): FloatingMenuItem[] {
+    return [
+      {
+        name: 'bullet-list',
+        label: 'Bulleted list',
+        description: 'Create a simple bulleted list',
+        icon: 'listBullets',
+        group: 'Lists',
+        priority: 200,
+        keywords: ['bullet', 'list', 'unordered', 'ul'],
+        shortcut: '- ',
+        command: 'toggleBulletList',
       },
     ];
   },

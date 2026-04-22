@@ -9,6 +9,7 @@ import { Node } from '../Node.js';
 import { wrappingInputRule, notInsideList } from '../helpers/wrappingInputRule.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
+import type { FloatingMenuItem } from '../types/FloatingMenu.js';
 import { TaskItem } from './TaskItem.js';
 
 declare module '../types/Commands.js' {
@@ -87,6 +88,22 @@ export const TaskList = Node.create<TaskListOptions>({
         shortcut: 'Mod-Shift-9',
         group: 'lists',
         priority: 170,
+      },
+    ];
+  },
+
+  addFloatingMenuItems(): FloatingMenuItem[] {
+    return [
+      {
+        name: 'task-list',
+        label: 'To-do list',
+        description: 'Track tasks with a checkbox list',
+        icon: 'listChecks',
+        group: 'Lists',
+        priority: 180,
+        keywords: ['todo', 'task', 'checkbox', 'check'],
+        shortcut: '[ ] ',
+        command: 'toggleTaskList',
       },
     ];
   },

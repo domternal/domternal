@@ -16,7 +16,7 @@
  */
 
 import { Node, findParentNode, findChildren, defaultBlockAt } from '@domternal/core';
-import type { CommandSpec, ToolbarItem } from '@domternal/core';
+import type { CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
 import { Plugin, PluginKey, Selection, TextSelection } from '@domternal/pm/state';
 import type { ViewMutationRecord } from '@domternal/pm/view';
 import { isNodeVisible } from './helpers/isNodeVisible.js';
@@ -204,6 +204,21 @@ export const Details = Node.create<DetailsOptions>({
         label: 'Toggle Details',
         group: 'insert',
         priority: 100,
+      },
+    ];
+  },
+
+  addFloatingMenuItems(): FloatingMenuItem[] {
+    return [
+      {
+        name: 'details',
+        label: 'Toggle block',
+        description: 'Collapsible content area',
+        icon: 'caretCircleRight',
+        group: 'Advanced',
+        priority: 100,
+        keywords: ['toggle', 'collapse', 'details', 'accordion'],
+        command: 'toggleDetails',
       },
     ];
   },

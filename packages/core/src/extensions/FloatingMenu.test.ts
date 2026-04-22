@@ -552,8 +552,8 @@ describe('FloatingMenu', () => {
         content: '<p>Hello</p>',
       });
 
-      expect(element.getAttribute('role')).toBe('toolbar');
-      expect(element.getAttribute('aria-label')).toBe('Floating menu');
+      expect(element.getAttribute('role')).toBe('menu');
+      expect(element.getAttribute('aria-label')).toBe('Insert block');
     });
 
     it('element is moved inside .dm-editor ancestor', () => {

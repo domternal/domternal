@@ -9,6 +9,7 @@ import { Node } from '../Node.js';
 import { wrappingInputRule, notInsideList } from '../helpers/wrappingInputRule.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
+import type { FloatingMenuItem } from '../types/FloatingMenu.js';
 import { ListItem } from './ListItem.js';
 
 declare module '../types/Commands.js' {
@@ -84,6 +85,22 @@ export const OrderedList = Node.create<OrderedListOptions>({
         shortcut: 'Mod-Shift-7',
         group: 'lists',
         priority: 190,
+      },
+    ];
+  },
+
+  addFloatingMenuItems(): FloatingMenuItem[] {
+    return [
+      {
+        name: 'ordered-list',
+        label: 'Numbered list',
+        description: 'Create a numbered list',
+        icon: 'listNumbers',
+        group: 'Lists',
+        priority: 190,
+        keywords: ['ordered', 'numbered', 'list', 'ol', '1.'],
+        shortcut: '1. ',
+        command: 'toggleOrderedList',
       },
     ];
   },
