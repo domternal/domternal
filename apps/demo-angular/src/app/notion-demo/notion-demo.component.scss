@@ -12,6 +12,7 @@
   padding: 0 1rem;
 
   // Override the editor's default chrome to create a seamless page feel.
+  /* stylelint-disable-next-line selector-pseudo-element-no-unknown */
   ::ng-deep .dm-editor {
     // Remove border, shadow, rounded corners — looks like a plain page.
     border: none;
@@ -25,6 +26,7 @@
     --dm-editor-padding: 0;
   }
 
+  /* stylelint-disable-next-line selector-pseudo-element-no-unknown */
   ::ng-deep .ProseMirror {
     padding: 0;
     min-height: 60vh;

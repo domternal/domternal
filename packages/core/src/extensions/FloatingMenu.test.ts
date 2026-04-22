@@ -1,7 +1,7 @@
 /**
  * Tests for FloatingMenu extension
  */
-import { describe, it, expect, afterEach, beforeEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { FloatingMenu, floatingMenuPluginKey, createFloatingMenuPlugin } from './FloatingMenu.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
@@ -681,6 +681,333 @@ describe('FloatingMenu', () => {
 
       editor.destroy();
       expect(editor.isDestroyed).toBe(true);
+    });
+  });
+
+  // =========================================================================
+  // Keyboard entry: handleKeyDown + matchShortcut branches
+  // =========================================================================
+  describe('keyboard entry (handleKeyDown)', () => {
+    let editor: Editor | undefined;
+    let host: HTMLElement;
+
+    beforeEach(() => {
+      Element.prototype.getClientRects = function () {
+        return [] as unknown as DOMRectList;
+      };
+      host = document.createElement('div');
+      host.className = 'dm-editor';
+      document.body.appendChild(host);
+    });
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+      host.remove();
+    });
+
+    function mountVisible(element: HTMLElement, keymap?: { enterMenu?: string[] }): void {
+      const config = { element, shouldShow: (): boolean => true };
+      const configured = keymap
+        ? FloatingMenu.configure({ ...config, keymap })
+        : FloatingMenu.configure(config);
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, configured],
+        content: '<p></p>',
+      });
+      element.setAttribute('data-show', ''); // force visible state for plugin gate
+    }
+
+    it('ignores keydown when menu is hidden', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [
+          Document,
+          Text,
+          Paragraph,
+          FloatingMenu.configure({ element, shouldShow: () => false }),
+        ],
+        content: '<p>Hello</p>',
+      });
+
+      const event = new KeyboardEvent('keydown', { key: 'F10', altKey: true });
+      const preventDefault = vi.spyOn(event, 'preventDefault');
+      editor.view.dom.dispatchEvent(event);
+      expect(preventDefault).not.toHaveBeenCalled();
+    });
+
+    it('Alt-F10 focuses the first menu item and prevents default', () => {
+      const element = document.createElement('div');
+      const btn = document.createElement('button');
+      btn.setAttribute('data-floating-menu-item', '');
+      btn.tabIndex = 0;
+      element.appendChild(btn);
+      mountVisible(element);
+
+      const event = new KeyboardEvent('keydown', { key: 'F10', altKey: true });
+      const preventDefault = vi.spyOn(event, 'preventDefault');
+      editor!.view.dom.dispatchEvent(event);
+
+      expect(preventDefault).toHaveBeenCalled();
+      expect(document.activeElement).toBe(btn);
+    });
+
+    it('Alt-F10 without any focusable menu item does not preventDefault', () => {
+      const element = document.createElement('div');
+      mountVisible(element);
+
+      const event = new KeyboardEvent('keydown', { key: 'F10', altKey: true });
+      const preventDefault = vi.spyOn(event, 'preventDefault');
+      editor!.view.dom.dispatchEvent(event);
+
+      expect(preventDefault).not.toHaveBeenCalled();
+    });
+
+    it('skips aria-disabled items when focusing, falls back to next focusable', () => {
+      const element = document.createElement('div');
+      const disabled = document.createElement('button');
+      disabled.setAttribute('data-floating-menu-item', '');
+      disabled.setAttribute('aria-disabled', 'true');
+      const enabled = document.createElement('button');
+      enabled.setAttribute('data-floating-menu-item', '');
+      element.append(disabled, enabled);
+      mountVisible(element);
+
+      editor!.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'F10', altKey: true }));
+      expect(document.activeElement).toBe(enabled);
+    });
+
+    it('falls back to plain button when no data-floating-menu-item nodes exist', () => {
+      const element = document.createElement('div');
+      const btn = document.createElement('button');
+      element.appendChild(btn);
+      mountVisible(element);
+
+      editor!.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'F10', altKey: true }));
+      expect(document.activeElement).toBe(btn);
+    });
+
+    it('Mod-/ shortcut matches Ctrl-/ off macOS', () => {
+      // jsdom's navigator.userAgent is Mozilla/... Linux/x86_64 by default
+      const element = document.createElement('div');
+      const btn = document.createElement('button');
+      btn.setAttribute('data-floating-menu-item', '');
+      element.appendChild(btn);
+      mountVisible(element);
+
+      const event = new KeyboardEvent('keydown', { key: '/', ctrlKey: true });
+      const preventDefault = vi.spyOn(event, 'preventDefault');
+      editor!.view.dom.dispatchEvent(event);
+      expect(preventDefault).toHaveBeenCalled();
+    });
+
+    it('ignores non-matching key events', () => {
+      const element = document.createElement('div');
+      const btn = document.createElement('button');
+      btn.setAttribute('data-floating-menu-item', '');
+      element.appendChild(btn);
+      mountVisible(element);
+
+      const event = new KeyboardEvent('keydown', { key: 'x' });
+      const preventDefault = vi.spyOn(event, 'preventDefault');
+      editor!.view.dom.dispatchEvent(event);
+      expect(preventDefault).not.toHaveBeenCalled();
+    });
+
+    it('shortcut key match is case-insensitive for single-char keys', () => {
+      const element = document.createElement('div');
+      const btn = document.createElement('button');
+      btn.setAttribute('data-floating-menu-item', '');
+      element.appendChild(btn);
+      mountVisible(element, { enterMenu: ['Mod-A'] });
+
+      const event = new KeyboardEvent('keydown', { key: 'a', ctrlKey: true });
+      const preventDefault = vi.spyOn(event, 'preventDefault');
+      editor!.view.dom.dispatchEvent(event);
+      expect(preventDefault).toHaveBeenCalled();
+    });
+
+    it('respects explicit Shift modifier', () => {
+      const element = document.createElement('div');
+      const btn = document.createElement('button');
+      btn.setAttribute('data-floating-menu-item', '');
+      element.appendChild(btn);
+      mountVisible(element, { enterMenu: ['Shift-F1'] });
+
+      // Without Shift — no match.
+      editor!.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'F1' }));
+      expect(document.activeElement).not.toBe(btn);
+
+      // With Shift — match.
+      editor!.view.dom.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'F1', shiftKey: true }),
+      );
+      expect(document.activeElement).toBe(btn);
+    });
+
+    it('matches explicit Meta modifier', () => {
+      const element = document.createElement('div');
+      const btn = document.createElement('button');
+      btn.setAttribute('data-floating-menu-item', '');
+      element.appendChild(btn);
+      mountVisible(element, { enterMenu: ['Meta-K'] });
+
+      editor!.view.dom.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'k', metaKey: true }),
+      );
+      expect(document.activeElement).toBe(btn);
+    });
+
+    it('ignores shortcut with empty key parts', () => {
+      const element = document.createElement('div');
+      const btn = document.createElement('button');
+      btn.setAttribute('data-floating-menu-item', '');
+      element.appendChild(btn);
+      mountVisible(element, { enterMenu: [''] });
+
+      editor!.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+      expect(document.activeElement).not.toBe(btn);
+    });
+
+    it('empty keymap disables keyboard entry', () => {
+      const element = document.createElement('div');
+      const btn = document.createElement('button');
+      btn.setAttribute('data-floating-menu-item', '');
+      element.appendChild(btn);
+      mountVisible(element, { enterMenu: [] });
+
+      editor!.view.dom.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'F10', altKey: true }),
+      );
+      expect(document.activeElement).not.toBe(btn);
+    });
+  });
+
+  // =========================================================================
+  // Dismiss paths: click-outside and dm:dismiss-overlays
+  // =========================================================================
+  describe('dismissal', () => {
+    let editor: Editor | undefined;
+    let host: HTMLElement;
+
+    beforeEach(() => {
+      Element.prototype.getClientRects = function () {
+        return [] as unknown as DOMRectList;
+      };
+      // jsdom lacks elementFromPoint; ProseMirror's internal mousedown
+      // handler calls posAtCoords → elementFromPoint. Stub to null.
+      (document as unknown as { elementFromPoint: () => Element | null }).elementFromPoint =
+        (): Element | null => null;
+      host = document.createElement('div');
+      host.className = 'dm-editor';
+      document.body.appendChild(host);
+    });
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+      host.remove();
+    });
+
+    it('click-outside handler hides a visible menu', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [
+          Document,
+          Text,
+          Paragraph,
+          FloatingMenu.configure({ element, shouldShow: () => true }),
+        ],
+        content: '<p></p>',
+      });
+      element.setAttribute('data-show', '');
+
+      const outside = document.createElement('div');
+      document.body.appendChild(outside);
+      outside.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      expect(element.hasAttribute('data-show')).toBe(false);
+      outside.remove();
+    });
+
+    it('click-outside handler ignores clicks while menu is hidden', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [
+          Document,
+          Text,
+          Paragraph,
+          FloatingMenu.configure({ element, shouldShow: () => false }),
+        ],
+        content: '<p>Hello</p>',
+      });
+
+      // Sanity: not showing.
+      expect(element.hasAttribute('data-show')).toBe(false);
+      const outside = document.createElement('div');
+      document.body.appendChild(outside);
+      // Should not throw, no state change.
+      expect(() =>
+        outside.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })),
+      ).not.toThrow();
+      outside.remove();
+    });
+
+    it('click-outside handler ignores clicks inside menu element', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [
+          Document,
+          Text,
+          Paragraph,
+          FloatingMenu.configure({ element, shouldShow: () => true }),
+        ],
+        content: '<p></p>',
+      });
+      element.setAttribute('data-show', '');
+
+      const inner = document.createElement('span');
+      element.appendChild(inner);
+      inner.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      expect(element.hasAttribute('data-show')).toBe(true);
+    });
+
+    it('click-outside handler ignores clicks inside editor view', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [
+          Document,
+          Text,
+          Paragraph,
+          FloatingMenu.configure({ element, shouldShow: () => true }),
+        ],
+        content: '<p></p>',
+      });
+      element.setAttribute('data-show', '');
+
+      editor.view.dom.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      expect(element.hasAttribute('data-show')).toBe(true);
+    });
+
+    it('dm:dismiss-overlays event hides the menu', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [
+          Document,
+          Text,
+          Paragraph,
+          FloatingMenu.configure({ element, shouldShow: () => true }),
+        ],
+        content: '<p></p>',
+      });
+      element.setAttribute('data-show', '');
+
+      host.dispatchEvent(new Event('dm:dismiss-overlays'));
+      expect(element.hasAttribute('data-show')).toBe(false);
     });
   });
 });
