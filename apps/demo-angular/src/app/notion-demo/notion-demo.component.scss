@@ -1,0 +1,56 @@
+// Notion-style page: wide, borderless, centered content with generous padding.
+// Scoped with `:host` so it does not leak into the default demo.
+
+:host {
+  display: block;
+  width: 100%;
+}
+
+.notion-page {
+  max-width: 46rem;
+  margin: 2rem auto 6rem;
+  padding: 0 1rem;
+
+  // Override the editor's default chrome to create a seamless page feel.
+  ::ng-deep .dm-editor {
+    // Remove border, shadow, rounded corners — looks like a plain page.
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+
+    // Generous reading line-height and size, similar to Notion.
+    --dm-editor-font-size: 1.0625rem;
+    --dm-editor-line-height: 1.7;
+    --dm-editor-padding: 0;
+  }
+
+  ::ng-deep .ProseMirror {
+    padding: 0;
+    min-height: 60vh;
+    outline: none;
+
+    // Tighter heading rhythm than default, more Notion-like.
+    h1 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      margin-top: 1.5rem;
+      margin-bottom: 0.75rem;
+    }
+    h2 {
+      font-size: 1.625rem;
+      font-weight: 600;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-top: 1.25rem;
+      margin-bottom: 0.375rem;
+    }
+    p {
+      margin: 0.25rem 0;
+    }
+  }
+}
