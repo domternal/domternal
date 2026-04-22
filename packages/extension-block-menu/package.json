@@ -1,0 +1,70 @@
+{
+  "name": "@domternal/extension-block-menu",
+  "version": "0.6.2",
+  "description": "Block-menu UX extensions for Domternal editor — FloatingMenu, BlockHandle (hover gutter + drag), SlashCommand, ContextMenu, and keyboard reorder",
+  "author": "https://github.com/ThomasNowHere",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup --clean",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm build && node -e \"const p=JSON.parse(require('fs').readFileSync('package.json','utf8'));delete p.devDependencies;if(p.dependencies){for(const[k,v]of Object.entries(p.dependencies)){if(v==='workspace:*')p.dependencies[k]='>=0.6.0'}}require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
+    "postpublish": "git checkout package.json"
+  },
+  "peerDependencies": {
+    "@domternal/core": ">=0.6.0",
+    "@domternal/pm": ">=0.6.0"
+  },
+  "devDependencies": {
+    "@domternal/core": "workspace:*",
+    "@domternal/pm": "workspace:*",
+    "jsdom": "^27.4.0",
+    "tsup": "^8.5.1",
+    "typescript": "~5.9.3"
+  },
+  "keywords": [
+    "prosemirror",
+    "editor",
+    "block-menu",
+    "floating-menu",
+    "slash-command",
+    "block-handle",
+    "notion",
+    "domternal"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/domternal/domternal.git",
+    "directory": "packages/extension-block-menu"
+  },
+  "bugs": {
+    "url": "https://github.com/domternal/domternal/issues"
+  },
+  "homepage": "https://domternal.dev"
+}
