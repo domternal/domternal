@@ -29,3 +29,6 @@ export type {
   BlockHandlePluginState,
   CreateBlockHandlePluginOptions,
 } from './BlockHandle.js';
+
+// KeyboardReorder — Mod-Shift-ArrowUp/Down moves top-level block
+export { KeyboardReorder } from './KeyboardReorder.js';
