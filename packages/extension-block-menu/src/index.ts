@@ -16,3 +16,16 @@ export type {
   CreateFloatingMenuPluginOptions,
   FloatingMenuKeymap,
 } from './FloatingMenu.js';
+
+// BlockHandle — hover gutter with plus button and drag handle
+export {
+  BlockHandle,
+  createBlockHandlePlugin,
+  blockHandlePluginKey,
+} from './BlockHandle.js';
+
+export type {
+  BlockHandleOptions,
+  BlockHandlePluginState,
+  CreateBlockHandlePluginOptions,
+} from './BlockHandle.js';
