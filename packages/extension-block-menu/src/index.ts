@@ -45,3 +45,23 @@ export type {
   CreateBlockContextMenuPluginOptions,
   TurnIntoTarget,
 } from './BlockContextMenu.js';
+
+// SlashCommand — type `/` to open filtered insert menu popup
+export {
+  SlashCommand,
+  createSlashCommandPlugin,
+  slashCommandPluginKey,
+  dismissSlashCommand,
+  filterSlashItems,
+} from './SlashCommand.js';
+
+export type {
+  SlashCommandOptions,
+  SlashCommandProps,
+  SlashCommandRenderer,
+  SlashCommandPluginState,
+  CreateSlashCommandPluginOptions,
+} from './SlashCommand.js';
+
+// Default DOM renderer for the SlashCommand popup
+export { createSlashSuggestionRenderer } from './createSlashSuggestionRenderer.js';
