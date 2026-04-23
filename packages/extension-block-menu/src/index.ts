@@ -32,3 +32,16 @@ export type {
 
 // KeyboardReorder — Mod-Shift-ArrowUp/Down moves top-level block
 export { KeyboardReorder } from './KeyboardReorder.js';
+
+// BlockContextMenu — click drag handle to open Delete / Duplicate / Turn into
+export {
+  BlockContextMenu,
+  createBlockContextMenuPlugin,
+  blockContextMenuPluginKey,
+} from './BlockContextMenu.js';
+
+export type {
+  BlockContextMenuOptions,
+  CreateBlockContextMenuPluginOptions,
+  TurnIntoTarget,
+} from './BlockContextMenu.js';
