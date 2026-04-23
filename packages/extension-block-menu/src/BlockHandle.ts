@@ -24,9 +24,11 @@
  */
 import { Extension, defaultIcons } from '@domternal/core';
 import type { Editor } from '@domternal/core';
-import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
+import { NodeSelection, Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
+import type { Slice } from '@domternal/pm/model';
 import { findTopLevelBlock } from './helpers/findTopLevelBlock.js';
+import { moveBlock } from './helpers/moveBlock.js';
 
 export const blockHandlePluginKey = new PluginKey<BlockHandlePluginState>('blockHandle');
 
@@ -49,6 +51,21 @@ export interface BlockHandleOptions {
 export interface BlockHandlePluginState {
   /** Absolute position of the top-level block currently under the cursor, or null. */
   hoveredPos: number | null;
+  /**
+   * Source position of the block currently being dragged (set on
+   * dragstart, cleared on dragend). Used by `handleDrop` to determine
+   * whether the drop originated from our handle.
+   */
+  draggedFrom: number | null;
+}
+
+/**
+ * Minimal shape for ProseMirror's internal `view.dragging` property.
+ * Assigning to it tells PM that a drag is in progress and which slice is
+ * being moved; PM's default drop handler reads this to finalise the move.
+ */
+interface PMViewWithDragging {
+  dragging: { slice: Slice; move: boolean } | null;
 }
 
 export interface CreateBlockHandlePluginOptions {
@@ -100,7 +117,7 @@ function resolveBlockAtCoords(
 export function createBlockHandlePlugin(
   options: CreateBlockHandlePluginOptions,
 ): Plugin<BlockHandlePluginState> {
-  const { pluginKey, editor, hideDelay } = options;
+  const { pluginKey, editor, hideDelay, disableDrag } = options;
 
   // --- Build DOM once. Buttons rendered with the shared Phosphor icons.
   const root = document.createElement('div');
@@ -155,6 +172,10 @@ export function createBlockHandlePlugin(
     const current = pluginKey.getState(view.state)?.hoveredPos ?? null;
     if (current === pos) return;
     view.dispatch(view.state.tr.setMeta(pluginKey, { hoveredPos: pos }));
+  };
+
+  const setDraggedFrom = (view: EditorView, pos: number | null): void => {
+    view.dispatch(view.state.tr.setMeta(pluginKey, { draggedFrom: pos }));
   };
 
   const onMouseMove = (event: MouseEvent): void => {
@@ -216,22 +237,155 @@ export function createBlockHandlePlugin(
     event.preventDefault();
   };
 
+  // --- Drag handle: click opens context menu, drag reorders the block.
+  //
+  // Browser semantics we rely on: when `draggable="true"` and the user
+  // presses and releases without moving more than ~3px (browser threshold),
+  // a `click` event fires and no `dragstart` is dispatched. Conversely, if
+  // the user moves past that threshold, `dragstart` fires and `click` does
+  // NOT. This gives us a free, reliable click-vs-drag split — no custom
+  // threshold tracking needed.
+
+  const onDragBtnClick = (event: MouseEvent): void => {
+    event.preventDefault();
+    const state = pluginKey.getState(editor.view.state);
+    const pos = state?.hoveredPos ?? null;
+    if (pos == null) return;
+    // Dispatch custom event for BlockContextMenu plugin to pick up. Using
+    // a CustomEvent with detail preserves both the source block and the
+    // anchor element for positioning.
+    editorEl?.dispatchEvent(new CustomEvent('dm:block-context-menu-open', {
+      bubbles: false,
+      detail: { blockPos: pos, anchorElement: dragBtn },
+    }));
+  };
+
+  const onDragStart = (event: DragEvent): void => {
+    if (disableDrag) {
+      event.preventDefault();
+      return;
+    }
+    const state = pluginKey.getState(editor.view.state);
+    const pos = state?.hoveredPos ?? null;
+    if (pos == null) {
+      event.preventDefault();
+      return;
+    }
+    const node = editor.view.state.doc.nodeAt(pos);
+    if (!node) {
+      event.preventDefault();
+      return;
+    }
+
+    const sourceEnd = pos + node.nodeSize;
+    const slice = editor.view.state.doc.slice(pos, sourceEnd);
+
+    // Select the whole block as a NodeSelection so ProseMirror knows what
+    // is being dragged (important for Dropcursor and drop-target logic).
+    editor.view.dispatch(
+      editor.view.state.tr.setSelection(
+        NodeSelection.create(editor.view.state.doc, pos),
+      ),
+    );
+
+    // Inform ProseMirror that a drag is in progress. Its built-in handlers
+    // (Dropcursor, default drop) read `view.dragging` to decide behaviour.
+    (editor.view as unknown as PMViewWithDragging).dragging = { slice, move: true };
+
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      // `text/plain` fallback — Firefox cancels the drag if no data is set.
+      event.dataTransfer.setData('text/plain', node.textContent);
+      const dom = editor.view.nodeDOM(pos);
+      if (dom instanceof HTMLElement) {
+        event.dataTransfer.setDragImage(dom, 10, 10);
+      }
+    }
+
+    setDraggedFrom(editor.view, pos);
+    // Hide the handle itself during drag — it's being used, not hovered.
+    hide();
+
+    // Let other overlays know (close any open menus/popovers).
+    editorEl?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
+  };
+
+  const onDragEnd = (): void => {
+    (editor.view as unknown as PMViewWithDragging).dragging = null;
+    setDraggedFrom(editor.view, null);
+  };
+
   return new Plugin<BlockHandlePluginState>({
     key: pluginKey,
 
     state: {
-      init: (): BlockHandlePluginState => ({ hoveredPos: null }),
+      init: (): BlockHandlePluginState => ({ hoveredPos: null, draggedFrom: null }),
       apply(tr, prev): BlockHandlePluginState {
         const meta = tr.getMeta(pluginKey) as Partial<BlockHandlePluginState> | undefined;
-        if (meta && 'hoveredPos' in meta) {
-          return { ...prev, hoveredPos: meta.hoveredPos ?? null };
+        let next = prev;
+        if (meta) {
+          if ('hoveredPos' in meta) {
+            next = { ...next, hoveredPos: meta.hoveredPos ?? null };
+          }
+          if ('draggedFrom' in meta) {
+            next = { ...next, draggedFrom: meta.draggedFrom ?? null };
+          }
         }
-        // If the doc changed, positions may shift — invalidate hovered state;
-        // next mousemove will reset it.
-        if (tr.docChanged && prev.hoveredPos !== null) {
-          return { ...prev, hoveredPos: null };
+        // When doc changes, hovered position may be stale (positions shifted);
+        // clear it so the next mousemove resolves correctly. `draggedFrom`
+        // remains — PM's drop handler resolves before docChanged fires.
+        if (tr.docChanged && next.hoveredPos !== null) {
+          next = { ...next, hoveredPos: null };
         }
-        return prev;
+        return next;
+      },
+    },
+
+    props: {
+      handleDrop(view, event, _slice, moved): boolean {
+        if (!moved) return false;
+        const state = pluginKey.getState(view.state);
+        const draggedFrom = state?.draggedFrom ?? null;
+        // Not our drag — let PM / other handlers process it.
+        if (draggedFrom == null) return false;
+
+        const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
+        if (!coords) {
+          event.preventDefault();
+          return true;
+        }
+
+        const sourceNode = view.state.doc.nodeAt(draggedFrom);
+        if (!sourceNode) {
+          event.preventDefault();
+          return true;
+        }
+
+        // Resolve drop target to a top-level block boundary. Compare the
+        // cursor Y against the target block's vertical midpoint: above =
+        // insert before, below = insert after. This matches Dropcursor's
+        // visual line placement.
+        const targetTopLevel = findTopLevelBlock(view.state.doc, coords.pos);
+        if (!targetTopLevel) {
+          event.preventDefault();
+          return true;
+        }
+
+        let targetPos = targetTopLevel.pos;
+        const targetDOM = view.nodeDOM(targetTopLevel.pos);
+        if (targetDOM instanceof HTMLElement) {
+          const rect = targetDOM.getBoundingClientRect();
+          const midY = rect.top + rect.height / 2;
+          if (event.clientY > midY) {
+            targetPos = targetTopLevel.end;
+          }
+        }
+
+        event.preventDefault();
+        const tr = view.state.tr;
+        moveBlock(tr, draggedFrom, targetPos);
+        view.dispatch(tr.scrollIntoView());
+        return true;
       },
     },
 
@@ -253,10 +407,10 @@ export function createBlockHandlePlugin(
 
       plusBtn.addEventListener('mousedown', onButtonMouseDown);
       plusBtn.addEventListener('click', onPlusClick);
-      // Drag button handlers land in Phase 3b. Mousedown preventDefault is
-      // necessary here too so future dragstart doesn't steal editor focus
-      // in a way that breaks state reads.
       dragBtn.addEventListener('mousedown', onButtonMouseDown);
+      dragBtn.addEventListener('click', onDragBtnClick);
+      dragBtn.addEventListener('dragstart', onDragStart);
+      dragBtn.addEventListener('dragend', onDragEnd);
 
       return {
         destroy: () => {
@@ -268,6 +422,9 @@ export function createBlockHandlePlugin(
           plusBtn.removeEventListener('mousedown', onButtonMouseDown);
           plusBtn.removeEventListener('click', onPlusClick);
           dragBtn.removeEventListener('mousedown', onButtonMouseDown);
+          dragBtn.removeEventListener('click', onDragBtnClick);
+          dragBtn.removeEventListener('dragstart', onDragStart);
+          dragBtn.removeEventListener('dragend', onDragEnd);
           editorEl?.classList.remove('dm-editor--has-block-handle');
           root.remove();
           editorEl = null;
