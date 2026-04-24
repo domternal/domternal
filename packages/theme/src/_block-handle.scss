@@ -1,0 +1,81 @@
+// =============================================================================
+// Block Handle
+// Left-gutter handle (⋮⋮ drag + + insert) rendered on hover over each
+// top-level block when BlockHandle extension is enabled.
+// =============================================================================
+
+// When the extension mounts it adds `dm-editor--has-block-handle` to the
+// editor wrapper. We reserve padding-left on `.ProseMirror` so the handle
+// (which sits at `left: 0.5rem` inside the editor) has space without being
+// clipped by the editor's `overflow: hidden`.
+.dm-editor--has-block-handle .ProseMirror {
+  padding-left: 3rem;
+}
+
+.dm-block-handle {
+  position: absolute;
+  left: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.12s ease, visibility 0.12s;
+  z-index: 25;
+
+  &[data-show] {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  // Individual buttons (⋮⋮ drag, + insert)
+  &-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.5rem;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--dm-muted, #999);
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background-color 0.1s, color 0.1s;
+
+    &:hover {
+      background: var(--dm-button-hover-bg, rgba(0, 0, 0, 0.04));
+      color: var(--dm-editor-text, inherit);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--dm-accent, #2563eb);
+      outline-offset: -1px;
+    }
+
+    svg {
+      width: 1rem;
+      height: 1rem;
+      pointer-events: none;
+    }
+  }
+
+  // Drag handle — grab cursor + slight nudge active state
+  &-drag {
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  // Insert (+) button — subtle accent on hover
+  &-plus {
+    &:hover {
+      color: var(--dm-accent, #2563eb);
+    }
+  }
+}

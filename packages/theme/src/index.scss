@@ -33,10 +33,13 @@
 @use 'toolbar';
 @use 'color-palette';
 
-// 6. Menus (bubble, floating, link popover)
+// 6. Menus (bubble, floating, link popover, block-menu)
 @use 'bubble-menu';
 @use 'floating-menu';
 @use 'link-popover';
+@use 'block-handle';
+@use 'slash-command';
+@use 'context-menu';
 
 // 7. Extension-specific styles
 @use 'placeholder';
