@@ -24,7 +24,7 @@ afterEach(() => {
   host = undefined;
 });
 
-function makeEditor(html: string = '<p>Hello</p>'): Editor {
+function makeEditor(html = '<p>Hello</p>'): Editor {
   host = document.createElement('div');
   host.className = 'dm-editor';
   document.body.appendChild(host);
@@ -38,7 +38,9 @@ function makeEditor(html: string = '<p>Hello</p>'): Editor {
  * drag-handle DOM path.
  */
 function openContextMenu(blockPos: number, anchor?: HTMLElement): void {
-  const anchorEl = anchor ?? (host?.querySelector('.ProseMirror') as HTMLElement);
+  const fallback = host ? host.querySelector<HTMLElement>('.ProseMirror') : null;
+  const anchorEl = anchor ?? fallback;
+  if (!anchorEl) return;
   host?.dispatchEvent(
     new CustomEvent('dm:block-context-menu-open', {
       detail: { blockPos, anchorElement: anchorEl },

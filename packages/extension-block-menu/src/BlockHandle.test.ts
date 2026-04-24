@@ -20,7 +20,7 @@ afterEach(() => {
   host = undefined;
 });
 
-function makeEditor(html: string = '<p>Hello</p>'): Editor {
+function makeEditor(html = '<p>Hello</p>'): Editor {
   host = document.createElement('div');
   host.className = 'dm-editor';
   document.body.appendChild(host);

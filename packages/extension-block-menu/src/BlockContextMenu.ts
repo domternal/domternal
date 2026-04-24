@@ -147,19 +147,19 @@ export function createBlockContextMenuPlugin(
   };
 
   const runDelete = (): void => {
-    if (currentBlockPos == null) return;
+    if (currentBlockPos === null) return;
     const pos = currentBlockPos;
     runAndClose((tr) => { deleteBlock(tr, pos); });
   };
 
   const runDuplicate = (): void => {
-    if (currentBlockPos == null) return;
+    if (currentBlockPos === null) return;
     const pos = currentBlockPos;
     runAndClose((tr) => { duplicateBlock(tr, pos); });
   };
 
   const runTurnInto = (target: TurnIntoTarget): void => {
-    if (currentBlockPos == null) return;
+    if (currentBlockPos === null) return;
     const pos = currentBlockPos;
     const targetType = editor.view.state.schema.nodes[target.nodeType];
     if (!targetType) return;
@@ -288,9 +288,11 @@ export function createBlockContextMenuPlugin(
 
   // --- Event handlers
   const onOpen = (event: Event): void => {
-    const ce = event as CustomEvent<BlockContextMenuOpenDetail>;
-    if (!ce.detail) return;
-    open(ce.detail);
+    // CustomEvent<T> types detail as T but at runtime it can be undefined
+    // if a plain Event was dispatched. Guard via unknown cast.
+    const detail = (event as unknown as { detail?: BlockContextMenuOpenDetail }).detail;
+    if (!detail) return;
+    open(detail);
   };
 
   const onDismiss = (): void => {

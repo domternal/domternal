@@ -72,11 +72,11 @@ describe('blockOperations', () => {
       const tr = editor.state.tr;
       duplicateBlock(tr, heading?.pos ?? 0);
       editor.view.dispatch(tr);
-      const children: Array<{ name: string; level: number }> = [];
+      const children: { name: string; level: number }[] = [];
       editor.state.doc.forEach((n) => {
         children.push({
           name: n.type.name,
-          level: (n.attrs['level'] as number) ?? 0,
+          level: n.attrs['level'] as number,
         });
       });
       expect(children).toEqual([

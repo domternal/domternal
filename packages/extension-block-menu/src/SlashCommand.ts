@@ -162,7 +162,7 @@ export function filterSlashItems(items: FloatingMenuItem[], query: string): Floa
   if (query.length === 0) return items;
   const q = query.toLowerCase();
 
-  const ranked: Array<{ item: FloatingMenuItem; score: number }> = [];
+  const ranked: { item: FloatingMenuItem; score: number }[] = [];
   for (const item of items) {
     const label = item.label.toLowerCase();
     if (label.startsWith(q)) {

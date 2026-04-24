@@ -68,7 +68,7 @@ describe('filterSlashItems', () => {
 
 const extensions = [Document, Text, Paragraph, Heading, SlashCommand];
 
-function makeEditor(html: string = '<p></p>'): Editor {
+function makeEditor(html = '<p></p>'): Editor {
   return new Editor({ extensions, content: html });
 }
 

@@ -210,7 +210,7 @@ export function createBlockHandlePlugin(
     event.preventDefault();
     const state = pluginKey.getState(editor.view.state);
     const pos = state?.hoveredPos ?? null;
-    if (pos == null) return;
+    if (pos === null) return;
     const node = editor.view.state.doc.nodeAt(pos);
     if (!node) return;
 
@@ -250,7 +250,7 @@ export function createBlockHandlePlugin(
     event.preventDefault();
     const state = pluginKey.getState(editor.view.state);
     const pos = state?.hoveredPos ?? null;
-    if (pos == null) return;
+    if (pos === null) return;
     // Dispatch custom event for BlockContextMenu plugin to pick up. Using
     // a CustomEvent with detail preserves both the source block and the
     // anchor element for positioning.
@@ -267,7 +267,7 @@ export function createBlockHandlePlugin(
     }
     const state = pluginKey.getState(editor.view.state);
     const pos = state?.hoveredPos ?? null;
-    if (pos == null) {
+    if (pos === null) {
       event.preventDefault();
       return;
     }
@@ -347,7 +347,7 @@ export function createBlockHandlePlugin(
         const state = pluginKey.getState(view.state);
         const draggedFrom = state?.draggedFrom ?? null;
         // Not our drag — let PM / other handlers process it.
-        if (draggedFrom == null) return false;
+        if (draggedFrom === null) return false;
 
         const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
         if (!coords) {
