@@ -38,6 +38,12 @@ import { Details } from '@domternal/extension-details';
 import { Table } from '@domternal/extension-table';
 import { Emoji, emojis, createEmojiSuggestionRenderer } from '@domternal/extension-emoji';
 import { Mention, createMentionSuggestionRenderer } from '@domternal/extension-mention';
+import {
+  BlockHandle,
+  BlockContextMenu,
+  KeyboardReorder,
+  SlashCommand,
+} from '@domternal/extension-block-menu';
 import type { MentionItem } from '@domternal/extension-mention';
 import { createLowlight, common } from 'lowlight';
 
@@ -103,6 +109,13 @@ export class NotionDemoComponent {
       },
     }),
     LinkPopover, SelectionDecoration, ClearFormatting, Dropcursor,
+    // Block-manipulation UX trio (Notion-style). All three share the
+    // `addFloatingMenuItems()` hook items and are opt-in from the
+    // `@domternal/extension-block-menu` package.
+    BlockHandle,
+    BlockContextMenu,
+    KeyboardReorder,
+    SlashCommand,
   ];
 
   editorContent = STARTER_CONTENT;

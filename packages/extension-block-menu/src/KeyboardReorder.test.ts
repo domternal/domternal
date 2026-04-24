@@ -24,7 +24,7 @@ function dispatchShortcut(editor: Editor, key: string): boolean {
     { ...KeyboardReorder, editor } as unknown as typeof KeyboardReorder & { editor: Editor },
   );
   const handler = shortcuts?.[key];
-  return handler ? handler() : false;
+  return handler ? handler({ editor: editor as never }) : false;
 }
 
 function setCursor(editor: Editor, pos: number): void {

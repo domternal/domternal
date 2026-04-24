@@ -88,6 +88,9 @@ importers:
       '@domternal/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@domternal/extension-block-menu':
+        specifier: workspace:*
+        version: link:../../packages/extension-block-menu
       '@domternal/extension-code-block-lowlight':
         specifier: workspace:*
         version: link:../../packages/extension-code-block-lowlight
