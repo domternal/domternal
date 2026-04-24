@@ -128,7 +128,11 @@ export class FloatingMenuController {
 
   /**
    * Rebuilds items from the editor. Call when the editor's extensions
-   * change (rare) or on explicit refresh.
+   * change (rare) or on explicit refresh. Notification is delegated to
+   * `updateDisabledStates` which fires `onChange` only when a disabled
+   * state flipped — wrappers that need to react to pure group-structure
+   * changes do so by bumping their own render signal after constructing
+   * / re-using the controller (see framework wrapper usage).
    */
   rebuild(): void {
     const items = FloatingMenuController.resolveItems(this.editor, this.override);

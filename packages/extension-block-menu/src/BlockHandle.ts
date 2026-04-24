@@ -18,9 +18,6 @@
  * adds a `dm-editor--has-block-handle` class to the `.dm-editor` container
  * so the theme stylesheet can widen `.ProseMirror` padding-left to create
  * gutter space inside the `overflow:hidden` editor wrapper.
- *
- * Phase 3 in this file wires hover + plus button. Phase 3b adds drag
- * (dragstart + drop transaction + click-vs-drag threshold).
  */
 import { Extension, defaultIcons } from '@domternal/core';
 import type { Editor } from '@domternal/core';
@@ -234,8 +231,16 @@ export function createBlockHandlePlugin(
     editorEl?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
   };
 
-  // Prevent mousedown from stealing editor focus before the click fires.
-  const onButtonMouseDown = (event: MouseEvent): void => {
+  // Plus button: keep editor focus during click so the FloatingMenu that
+  // auto-appears after insert can read the correct state. `preventDefault`
+  // on mousedown stops the button from grabbing focus.
+  //
+  // Drag button: must NOT call `preventDefault` on mousedown — for a
+  // `draggable="true"` element, the browser requires the default mousedown
+  // action to initiate a drag. Cancelling it silently kills drag-to-reorder
+  // in Chrome/Safari. Focus is restored explicitly after context-menu
+  // actions via `editor.view.focus()`.
+  const onPlusBtnMouseDown = (event: MouseEvent): void => {
     event.preventDefault();
   };
 
@@ -418,9 +423,11 @@ export function createBlockHandlePlugin(
       editorEl.addEventListener('mouseenter', onMouseEnter);
       editorEl.addEventListener('dm:dismiss-overlays', onDismissOverlays);
 
-      plusBtn.addEventListener('mousedown', onButtonMouseDown);
+      plusBtn.addEventListener('mousedown', onPlusBtnMouseDown);
       plusBtn.addEventListener('click', onPlusClick);
-      dragBtn.addEventListener('mousedown', onButtonMouseDown);
+      // dragBtn: intentionally no mousedown handler — see comment on
+      // `onPlusBtnMouseDown`. Click / dragstart / dragend cover the two
+      // interactions (context menu vs drag-to-reorder).
       dragBtn.addEventListener('click', onDragBtnClick);
       dragBtn.addEventListener('dragstart', onDragStart);
       dragBtn.addEventListener('dragend', onDragEnd);
@@ -432,9 +439,8 @@ export function createBlockHandlePlugin(
           editorEl?.removeEventListener('mouseleave', onMouseLeave);
           editorEl?.removeEventListener('mouseenter', onMouseEnter);
           editorEl?.removeEventListener('dm:dismiss-overlays', onDismissOverlays);
-          plusBtn.removeEventListener('mousedown', onButtonMouseDown);
+          plusBtn.removeEventListener('mousedown', onPlusBtnMouseDown);
           plusBtn.removeEventListener('click', onPlusClick);
-          dragBtn.removeEventListener('mousedown', onButtonMouseDown);
           dragBtn.removeEventListener('click', onDragBtnClick);
           dragBtn.removeEventListener('dragstart', onDragStart);
           dragBtn.removeEventListener('dragend', onDragEnd);

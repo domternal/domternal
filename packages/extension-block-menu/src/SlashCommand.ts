@@ -221,11 +221,32 @@ export function createSlashCommandPlugin(
       },
     },
 
-    view() {
+    view(editorView) {
+      // Cooperative dismissal: other overlays broadcast `dm:dismiss-overlays`
+      // when they open; listen and close the slash popup so two floating
+      // menus never appear at once.
+      const editorEl = editorView.dom.closest<HTMLElement>('.dm-editor');
+      const dismissHandler = (): void => {
+        const state = pluginKey.getState(editor.view.state);
+        if (state?.active) dismissSlashCommand(editor.view);
+      };
+      editorEl?.addEventListener('dm:dismiss-overlays', dismissHandler);
+
+      // Track whether we've already fired the open-time dismiss so we only
+      // do it on transition false→true.
+      let wasActive = false;
+
       return {
         update(view: EditorView) {
           const state = pluginKey.getState(view.state);
           if (!state) return;
+
+          // On activation (first true after being false), broadcast dismiss
+          // to close any other overlays that might be open.
+          if (state.active && !wasActive) {
+            editorEl?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
+          }
+          wasActive = state.active;
 
           if (state.active && state.range) {
             const items = FloatingMenuController.resolveItems(editor, itemsOverride);
@@ -291,9 +312,13 @@ export function createSlashCommandPlugin(
         },
 
         destroy() {
+          editorEl?.removeEventListener('dm:dismiss-overlays', dismissHandler);
           if (renderer) {
-            renderer.onExit();
-            renderer = null;
+            try {
+              renderer.onExit();
+            } finally {
+              renderer = null;
+            }
           }
         },
       };

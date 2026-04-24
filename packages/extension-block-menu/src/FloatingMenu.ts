@@ -117,8 +117,11 @@ const IS_MAC = typeof navigator !== 'undefined'
  */
 function matchShortcut(event: KeyboardEvent, shortcut: string): boolean {
   const parts = shortcut.split('-');
-  const keyPart = parts.pop();
+  let keyPart = parts.pop();
   if (!keyPart) return false;
+  // prosemirror-keymap convention: `Space` is an alias for ' ' since the
+  // literal character is awkward to type in a shortcut string.
+  if (keyPart === 'Space') keyPart = ' ';
 
   let needCtrl = false;
   let needMeta = false;

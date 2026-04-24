@@ -1,5 +1,6 @@
 import type { Attrs, NodeType } from '@domternal/pm/model';
 import type { Transaction } from '@domternal/pm/state';
+import { TextSelection } from '@domternal/pm/state';
 
 /**
  * Block-level transaction helpers shared between BlockContextMenu commands
@@ -24,10 +25,20 @@ export function deleteBlock(tr: Transaction, blockPos: number): Transaction {
   // paragraph instead so the editor stays usable (mirrors Notion).
   if (tr.doc.childCount === 1) {
     const paragraphType = tr.doc.type.schema.nodes['paragraph'];
-    if (paragraphType) {
-      tr.replaceWith(blockPos, blockEnd, paragraphType.create());
+    if (!paragraphType) {
+      // No paragraph type in this schema — we can't safely replace.
+      // Bail out rather than let the delete throw.
       return tr;
     }
+    // `createAndFill` fills required attrs with defaults — safer than
+    // `create()` when the schema's paragraph requires non-null attrs
+    // (custom user schemas can do that).
+    const replacement = paragraphType.createAndFill();
+    if (!replacement) return tr;
+    tr.replaceWith(blockPos, blockEnd, replacement);
+    // Put the cursor inside the new paragraph so the user can start typing.
+    tr.setSelection(TextSelection.near(tr.doc.resolve(blockPos + 1)));
+    return tr;
   }
 
   tr.delete(blockPos, blockEnd);

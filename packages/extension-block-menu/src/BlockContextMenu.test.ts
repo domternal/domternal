@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   Document,
   Text,
@@ -222,11 +222,16 @@ describe('BlockContextMenu click execution', () => {
   });
 
   it('closes menu and refocuses editor after item execution', () => {
-    makeEditor('<p>x</p>');
+    const ed = makeEditor('<p>x</p>');
+    const focusSpy = vi.spyOn(ed.view, 'focus');
     openContextMenu(0);
     const menu = host?.querySelector('.dm-block-context-menu');
     expect(menu?.hasAttribute('data-show')).toBe(true);
     findItemByLabel('Duplicate')?.click();
     expect(menu?.hasAttribute('data-show')).toBe(false);
+    // `runAndClose` calls `editor.view.focus()` in its finally block —
+    // jsdom's focus state on contenteditable is unreliable, so spy on the
+    // method itself to verify refocus was attempted.
+    expect(focusSpy).toHaveBeenCalled();
   });
 });

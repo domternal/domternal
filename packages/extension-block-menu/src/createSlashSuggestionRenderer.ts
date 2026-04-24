@@ -19,6 +19,11 @@ import {
 import type { FloatingMenuItem } from '@domternal/core';
 import type { SlashCommandProps, SlashCommandRenderer } from './SlashCommand.js';
 
+// Module-level counter for unique id suffixes — lets us set
+// `aria-activedescendant` on the menu root so screen readers announce the
+// selection as the user arrow-keys through items.
+let idCounter = 0;
+
 export function createSlashSuggestionRenderer(): SlashCommandRenderer {
   let root: HTMLDivElement | null = null;
   let cleanupFloating: (() => void) | null = null;
@@ -27,6 +32,11 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
   let flatItems: FloatingMenuItem[] = [];
   let selectedIndex = 0;
   let currentCommand: SlashCommandProps['command'] | null = null;
+  // Flag set during onExit so any pending event that was already queued
+  // (e.g. a trailing mousedown+click after the teardown starts) can bail
+  // instead of dispatching into a now-destroyed editor.
+  let destroyed = false;
+  const rendererId = `dm-slash-${String(++idCounter)}`;
 
   const renderPopup = (props: SlashCommandProps): void => {
     if (!root) return;
@@ -37,6 +47,10 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
     if (props.items.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'dm-slash-command-empty';
+      // `role="status"` + `aria-live="polite"` makes screen readers
+      // announce the filter result change without stealing focus.
+      empty.setAttribute('role', 'status');
+      empty.setAttribute('aria-live', 'polite');
       empty.textContent = 'No matches';
       root.appendChild(empty);
       return;
@@ -62,6 +76,9 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
         btn.setAttribute('role', 'menuitem');
         btn.setAttribute('aria-label', item.label);
         btn.tabIndex = -1;
+        // Stable id per-button so the root element can set
+        // `aria-activedescendant` to announce the current selection.
+        btn.id = `${rendererId}-item-${String(flatItems.length)}`;
 
         // Build DOM safely: only the icon SVG (from our trusted phosphor
         // set) is interpolated as HTML. label / description / shortcut use
@@ -106,6 +123,10 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
         btn.addEventListener('mouseenter', () => { selectItem(indexForItem); });
         btn.addEventListener('click', (e: MouseEvent) => {
           e.preventDefault();
+          // Guard against post-teardown clicks: a mousedown-to-click pair
+          // can span `onExit` if the user was holding the mouse button
+          // when the popup was dismissed by an outside event.
+          if (destroyed) return;
           currentCommand?.(item);
         });
 
@@ -128,6 +149,12 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
       } else {
         btn.removeAttribute('data-selected');
       }
+    }
+    const selected = itemButtons[index];
+    if (root && selected) {
+      root.setAttribute('aria-activedescendant', selected.id);
+    } else {
+      root?.removeAttribute('aria-activedescendant');
     }
   };
 
@@ -153,6 +180,7 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
     onStart(props): void {
       currentCommand = props.command;
       selectedIndex = 0;
+      destroyed = false;
 
       root = document.createElement('div');
       root.className = 'dm-slash-command-menu';
@@ -176,6 +204,7 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
     },
 
     onExit(): void {
+      destroyed = true;
       cleanupFloating?.();
       cleanupFloating = null;
       root?.remove();

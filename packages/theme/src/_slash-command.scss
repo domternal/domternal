@@ -38,11 +38,9 @@
     border-radius: 3px;
     transition: background-color 0.15s;
   }
-  &:hover::-webkit-scrollbar-thumb {
-    background: var(--dm-scrollbar-thumb-hover, rgba(0, 0, 0, 0.28));
-  }
+  &:hover::-webkit-scrollbar-thumb,
   &::-webkit-scrollbar-thumb:hover {
-    background: var(--dm-scrollbar-thumb-hover, rgba(0, 0, 0, 0.4));
+    background: var(--dm-scrollbar-thumb-hover, rgba(0, 0, 0, 0.28));
   }
 
   // Inline decoration on the active `/query` range (highlight subtle).

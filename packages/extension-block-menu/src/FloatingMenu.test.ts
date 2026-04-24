@@ -524,9 +524,14 @@ describe('FloatingMenu', () => {
   describe('plugin integration with editor (DOM)', () => {
     let editor: Editor | undefined;
     let host: HTMLElement;
+    let originalGetClientRects: typeof Element.prototype.getClientRects;
 
     beforeEach(() => {
-      // Shim for jsdom (floating-ui positioning)
+      // Shim for jsdom (floating-ui positioning). Capture the original so
+      // afterEach can restore it — otherwise the stub persists across test
+      // files running in the same worker.
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      originalGetClientRects = Element.prototype.getClientRects;
       Element.prototype.getClientRects = function () {
         return [] as unknown as DOMRectList;
       };
@@ -538,6 +543,7 @@ describe('FloatingMenu', () => {
     afterEach(() => {
       if (editor && !editor.isDestroyed) editor.destroy();
       host.remove();
+      Element.prototype.getClientRects = originalGetClientRects;
     });
 
     it('element gets role and aria-label when missing', () => {
@@ -602,7 +608,7 @@ describe('FloatingMenu', () => {
       expect(element.hasAttribute('data-show')).toBe(false);
     });
 
-    it('plugin update calls updatePosition when shouldShow returns true (empty paragraph)', () => {
+    it('plugin update sets data-show when shouldShow returns true (empty paragraph)', () => {
       const element = document.createElement('div');
       editor = new Editor({
         element: host,
@@ -610,10 +616,11 @@ describe('FloatingMenu', () => {
         content: '<p></p>',
       });
 
-      // Dispatch a selection update
+      // Dispatch a selection update to trigger the update() hook.
       editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1)));
-      // Either data-show set, or domNode not HTMLElement → no attribute set
-      expect(element).toBeDefined();
+      // Because shouldShow is forced-true and the doc has a resolvable
+      // block DOM, updatePosition sets `data-show`.
+      expect(element.hasAttribute('data-show')).toBe(true);
     });
 
     it('onFocus when shouldShow returns false hides menu', () => {
@@ -628,7 +635,7 @@ describe('FloatingMenu', () => {
       expect(element.hasAttribute('data-show')).toBe(false);
     });
 
-    it('onFocus when shouldShow returns true calls updatePosition', () => {
+    it('onFocus when shouldShow returns true sets data-show', () => {
       const element = document.createElement('div');
       editor = new Editor({
         element: host,
@@ -637,22 +644,25 @@ describe('FloatingMenu', () => {
       });
 
       editor.emit('focus', { editor, event: new FocusEvent('focus') });
-      expect(element).toBeDefined();
+      expect(element.hasAttribute('data-show')).toBe(true);
     });
 
-    it('onBlur with relatedTarget inside menu does not hide', () => {
+    it('onBlur with relatedTarget inside menu does not hide (menu stays visible)', () => {
       const element = document.createElement('div');
       editor = new Editor({
         element: host,
-        extensions: [Document, Text, Paragraph, FloatingMenu.configure({ element })],
-        content: '<p>Hello</p>',
+        extensions: [Document, Text, Paragraph, FloatingMenu.configure({ element, shouldShow: () => true })],
+        content: '<p></p>',
       });
+      // Show the menu first.
+      editor.emit('focus', { editor, event: new FocusEvent('focus') });
+      expect(element.hasAttribute('data-show')).toBe(true);
 
+      // Blur with relatedTarget inside menu → should NOT hide.
       const inner = document.createElement('span');
       element.appendChild(inner);
-
       editor.emit('blur', { editor, event: { relatedTarget: inner } as unknown as FocusEvent });
-      expect(editor).toBeDefined();
+      expect(element.hasAttribute('data-show')).toBe(true);
     });
 
     it('onBlur without relatedTarget hides menu', () => {
@@ -686,8 +696,11 @@ describe('FloatingMenu', () => {
   describe('keyboard entry (handleKeyDown)', () => {
     let editor: Editor | undefined;
     let host: HTMLElement;
+    let originalGetClientRects: typeof Element.prototype.getClientRects;
 
     beforeEach(() => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      originalGetClientRects = Element.prototype.getClientRects;
       Element.prototype.getClientRects = function () {
         return [] as unknown as DOMRectList;
       };
@@ -699,6 +712,7 @@ describe('FloatingMenu', () => {
     afterEach(() => {
       if (editor && !editor.isDestroyed) editor.destroy();
       host.remove();
+      Element.prototype.getClientRects = originalGetClientRects;
     });
 
     function mountVisible(element: HTMLElement, keymap?: { enterMenu?: string[] }): void {
@@ -886,8 +900,14 @@ describe('FloatingMenu', () => {
   describe('dismissal', () => {
     let editor: Editor | undefined;
     let host: HTMLElement;
+    let originalGetClientRects: typeof Element.prototype.getClientRects;
+    let originalElementFromPoint: typeof document.elementFromPoint;
 
     beforeEach(() => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      originalGetClientRects = Element.prototype.getClientRects;
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      originalElementFromPoint = document.elementFromPoint;
       Element.prototype.getClientRects = function () {
         return [] as unknown as DOMRectList;
       };
@@ -903,6 +923,8 @@ describe('FloatingMenu', () => {
     afterEach(() => {
       if (editor && !editor.isDestroyed) editor.destroy();
       host.remove();
+      Element.prototype.getClientRects = originalGetClientRects;
+      document.elementFromPoint = originalElementFromPoint;
     });
 
     it('click-outside handler hides a visible menu', () => {

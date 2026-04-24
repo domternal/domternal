@@ -20,16 +20,19 @@
   background: var(--dm-toolbar-bg, var(--dm-bg, #ffffff));
   border: 1px solid var(--dm-border-color, #e5e7eb);
   border-radius: var(--dm-toolbar-border-radius, 0.5rem);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08), 0 4px 10px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--dm-popover-shadow,
+    0 10px 25px rgba(0, 0, 0, 0.08),
+    0 4px 10px rgba(0, 0, 0, 0.04));
   visibility: hidden;
   opacity: 0;
   transition: opacity 0.15s ease, visibility 0.15s;
-  z-index: 50;
+  z-index: var(--dm-z-popover, 50);
 
   // Slim, translucent scrollbar — Firefox via scrollbar-* properties,
-  // Chrome/Safari/Edge via ::-webkit-scrollbar pseudo-elements.
+  // Chrome/Safari/Edge via ::-webkit-scrollbar pseudo-elements. Colors are
+  // tokenised so dark theme overrides keep contrast on dark surfaces.
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+  scrollbar-color: var(--dm-scrollbar-thumb, rgba(0, 0, 0, 0.18)) transparent;
 
   &::-webkit-scrollbar {
     width: 6px;
@@ -39,15 +42,13 @@
     margin: 0.375rem 0;
   }
   &::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.18);
+    background: var(--dm-scrollbar-thumb, rgba(0, 0, 0, 0.18));
     border-radius: 3px;
     transition: background-color 0.15s;
   }
-  &:hover::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.28);
-  }
+  &:hover::-webkit-scrollbar-thumb,
   &::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.4);
+    background: var(--dm-scrollbar-thumb-hover, rgba(0, 0, 0, 0.28));
   }
 
   &[data-show] {
