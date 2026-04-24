@@ -57,11 +57,22 @@ describe('findTopLevelBlock', () => {
     editor.destroy();
   });
 
-  it('returns null for position 0 (document root, depth 0)', () => {
+  it('returns the first block when given position 0 (top-level boundary)', () => {
     const editor = makeEditor('<p>Hi</p>');
     const result = findTopLevelBlock(editor.state.doc, 0);
-    // Pos 0 resolves with depth === 0 (doc level) → helper bails.
-    expect(result).toBeNull();
+    // Pos 0 is a top-level boundary (doc start = first child start).
+    expect(result?.node.type.name).toBe('paragraph');
+    expect(result?.pos).toBe(0);
+    expect(result?.index).toBe(0);
+    editor.destroy();
+  });
+
+  it('returns the Nth block for a top-level boundary between blocks', () => {
+    const editor = makeEditor('<p>A</p><p>B</p><p>C</p>');
+    // Each <p>x</p> is 3 chars → boundaries at 0, 3, 6, 9
+    const result = findTopLevelBlock(editor.state.doc, 3);
+    expect(result?.node.textContent).toBe('B');
+    expect(result?.index).toBe(1);
     editor.destroy();
   });
 

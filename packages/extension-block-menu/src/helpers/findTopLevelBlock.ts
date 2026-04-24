@@ -31,7 +31,20 @@ export interface TopLevelBlock {
 export function findTopLevelBlock(doc: Node, pos: number): TopLevelBlock | null {
   if (pos < 0 || pos > doc.content.size) return null;
   const $pos = doc.resolve(pos);
-  if ($pos.depth === 0) return null;
+
+  // Position exactly at a top-level boundary (between blocks, or at doc
+  // start). `doc.nodeAt(pos)` returns the node that starts at this position.
+  if ($pos.depth === 0) {
+    const node = doc.nodeAt(pos);
+    if (!node) return null;
+    return {
+      node,
+      pos,
+      end: pos + node.nodeSize,
+      index: $pos.index(0),
+    };
+  }
+
   const node = $pos.node(1);
   const blockPos = $pos.before(1);
   const index = $pos.index(0);
