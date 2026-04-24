@@ -111,10 +111,18 @@ export function createBlockContextMenuPlugin(
   // Roving tabindex: which menuitem is currently focused (-1 = none).
   let focusedIndex = 0;
   let menuItemButtons: HTMLButtonElement[] = [];
+  // Tracks the rAF id scheduled by `open()` for the initial focus so we
+  // can cancel it if the menu closes before the frame fires (otherwise the
+  // callback races with teardown and may focus a stale button).
+  let initialFocusRaf: number | null = null;
 
   const isOpen = (): boolean => root.hasAttribute('data-show');
 
   const hide = (): void => {
+    if (initialFocusRaf !== null) {
+      cancelAnimationFrame(initialFocusRaf);
+      initialFocusRaf = null;
+    }
     cleanupFloating?.();
     cleanupFloating = null;
     root.removeAttribute('data-show');
@@ -294,7 +302,10 @@ export function createBlockContextMenuPlugin(
     // Focus first menu item so keyboard users can Arrow through immediately.
     focusedIndex = 0;
     // Wait for layout so the focus call sees the newly visible element.
-    requestAnimationFrame(() => {
+    // Track the rAF id so `hide()` can cancel it if the menu closes before
+    // the frame fires.
+    initialFocusRaf = requestAnimationFrame(() => {
+      initialFocusRaf = null;
       menuItemButtons[0]?.focus();
     });
   };
@@ -315,8 +326,8 @@ export function createBlockContextMenuPlugin(
 
   const onClickOutside = (event: Event): void => {
     if (!isOpen()) return;
-    const target = event.target as Node | null;
-    if (!target) return;
+    const target = event.target;
+    if (!(target instanceof Node)) return;
     if (root.contains(target)) return;
     hide();
   };

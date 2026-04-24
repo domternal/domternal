@@ -285,9 +285,12 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
       const onBlur = ({ event }: { event: FocusEvent }): void => {
         // Keep the menu visible if focus moved into it — users can
         // interact with menu items without the menu vanishing.
-        if (event.relatedTarget && element.contains(event.relatedTarget as Node)) {
-          return;
-        }
+        // `relatedTarget` is `EventTarget | null`, not `Node` — guard with
+        // an `instanceof Node` check so `.contains()` receives a valid arg
+        // even for exotic focus targets (e.g. AbortSignal-based targets
+        // never raise a focus event in practice, but the cast is unsound).
+        const related = event.relatedTarget;
+        if (related instanceof Node && element.contains(related)) return;
         hideMenu();
       };
 
@@ -295,8 +298,8 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
       // other UI (dropdowns, popovers) handles the same click.
       clickOutsideHandler = (e: Event): void => {
         if (!isVisible()) return;
-        const target = e.target as Node | null;
-        if (!target) return;
+        const target = e.target;
+        if (!(target instanceof Node)) return;
         if (element.contains(target)) return;
         if (editor.view.dom.contains(target)) return;
         hideMenu();
