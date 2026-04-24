@@ -105,6 +105,9 @@ export {
   type InlineStyleOverrides,
 } from './utils/inlineStyles.js';
 
+// === Clipboard ===
+export { writeToClipboard } from './utils/clipboard.js';
+
 // === Helpers ===
 export {
   createDocument,
