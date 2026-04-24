@@ -24,6 +24,7 @@ export function moveBlock(
   sourcePos: number,
   targetPos: number,
 ): Transaction {
+  if (sourcePos < 0 || sourcePos >= tr.doc.content.size) return tr;
   const sourceNode = tr.doc.nodeAt(sourcePos);
   if (!sourceNode) return tr;
   const sourceEnd = sourcePos + sourceNode.nodeSize;

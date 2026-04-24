@@ -14,6 +14,7 @@ import type { Transaction } from '@domternal/pm/state';
  * Removes the block at `blockPos` entirely.
  */
 export function deleteBlock(tr: Transaction, blockPos: number): Transaction {
+  if (blockPos < 0 || blockPos >= tr.doc.content.size) return tr;
   const node = tr.doc.nodeAt(blockPos);
   if (!node) return tr;
   tr.delete(blockPos, blockPos + node.nodeSize);
@@ -25,6 +26,7 @@ export function deleteBlock(tr: Transaction, blockPos: number): Transaction {
  * it. The copy has the same content, attrs, and marks.
  */
 export function duplicateBlock(tr: Transaction, blockPos: number): Transaction {
+  if (blockPos < 0 || blockPos >= tr.doc.content.size) return tr;
   const node = tr.doc.nodeAt(blockPos);
   if (!node) return tr;
   const blockEnd = blockPos + node.nodeSize;
@@ -46,6 +48,7 @@ export function turnIntoBlock(
   targetType: NodeType,
   attrs?: Attrs,
 ): Transaction {
+  if (blockPos < 0 || blockPos >= tr.doc.content.size) return tr;
   const node = tr.doc.nodeAt(blockPos);
   if (!node) return tr;
   // `setBlockType` requires the target to be a textblock; if it isn't, bail.
