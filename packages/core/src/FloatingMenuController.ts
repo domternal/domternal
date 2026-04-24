@@ -18,14 +18,9 @@
 
 import type { Editor } from './Editor.js';
 import type { FloatingMenuItem, FloatingMenuItemsOverride } from './types/FloatingMenu.js';
+import { groupFloatingMenuItems, type FloatingMenuGroup } from './utils/groupFloatingMenuItems.js';
 
-/**
- * A group of floating-menu items sharing the same `group` value.
- */
-export interface FloatingMenuGroup {
-  name: string;
-  items: FloatingMenuItem[];
-}
+export type { FloatingMenuGroup };
 
 /** -1 means no item is focused (menu not entered via keyboard). */
 export const FLOATING_MENU_NO_FOCUS = -1;
@@ -242,30 +237,12 @@ export class FloatingMenuController {
 
   /**
    * Groups items by `group` preserving insertion order, then sorts by
-   * priority (higher first) within each group.
+   * priority (higher first) within each group. Delegates to the shared
+   * utility so `SlashCommand`'s renderer and this controller always
+   * produce identical ordering.
    */
   private groupItems(items: FloatingMenuItem[]): FloatingMenuGroup[] {
-    const map = new Map<string, FloatingMenuItem[]>();
-    const order: string[] = [];
-
-    for (const item of items) {
-      const name = item.group ?? '';
-      let list = map.get(name);
-      if (!list) {
-        list = [];
-        map.set(name, list);
-        order.push(name);
-      }
-      list.push(item);
-    }
-
-    const groups: FloatingMenuGroup[] = [];
-    for (const name of order) {
-      const list = map.get(name) ?? [];
-      list.sort((a, b) => (b.priority ?? 100) - (a.priority ?? 100));
-      groups.push({ name, items: list });
-    }
-    return groups;
+    return groupFloatingMenuItems(items);
   }
 
   /**

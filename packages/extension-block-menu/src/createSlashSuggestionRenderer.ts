@@ -11,35 +11,13 @@
  * buttons with `icon + label + shortcut chip` layout. A dedicated
  * `dm-slash-command-menu` root class scopes SCSS overrides.
  */
-import { defaultIcons, positionFloatingOnce } from '@domternal/core';
+import {
+  defaultIcons,
+  groupFloatingMenuItems,
+  positionFloatingOnce,
+} from '@domternal/core';
 import type { FloatingMenuItem } from '@domternal/core';
 import type { SlashCommandProps, SlashCommandRenderer } from './SlashCommand.js';
-
-interface SlashGroup {
-  name: string;
-  items: FloatingMenuItem[];
-}
-
-function groupItems(items: FloatingMenuItem[]): SlashGroup[] {
-  const map = new Map<string, FloatingMenuItem[]>();
-  const order: string[] = [];
-  for (const item of items) {
-    const name = item.group ?? '';
-    let list = map.get(name);
-    if (!list) {
-      list = [];
-      map.set(name, list);
-      order.push(name);
-    }
-    list.push(item);
-  }
-  return order.map((name) => ({
-    name,
-    items: (map.get(name) ?? []).slice().sort(
-      (a, b) => (b.priority ?? 100) - (a.priority ?? 100),
-    ),
-  }));
-}
 
 export function createSlashSuggestionRenderer(): SlashCommandRenderer {
   let root: HTMLDivElement | null = null;
@@ -64,7 +42,7 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
       return;
     }
 
-    const groups = groupItems(props.items);
+    const groups = groupFloatingMenuItems(props.items);
     for (const group of groups) {
       if (group.name) {
         const label = document.createElement('div');
@@ -85,22 +63,43 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
         btn.setAttribute('aria-label', item.label);
         btn.tabIndex = -1;
 
+        // Build DOM safely: only the icon SVG (from our trusted phosphor
+        // set) is interpolated as HTML. label / description / shortcut use
+        // textContent since FloatingMenuItem fields may come from arbitrary
+        // extension authors and could carry unescaped HTML/scripts.
         const iconHTML = item.icon ? (defaultIcons[item.icon] ?? '') : '';
-        const description = item.description
-          ? `<span class="dm-slash-command-item-description">${item.description}</span>`
-          : '';
-        const shortcut = item.shortcut
-          ? `<span class="dm-slash-command-item-shortcut" aria-hidden="true">${item.shortcut}</span>`
-          : '';
+        if (iconHTML) {
+          const iconSpan = document.createElement('span');
+          iconSpan.className = 'dm-slash-command-item-icon';
+          iconSpan.setAttribute('aria-hidden', 'true');
+          iconSpan.innerHTML = iconHTML;
+          btn.appendChild(iconSpan);
+        }
 
-        btn.innerHTML = `
-          ${iconHTML ? `<span class="dm-slash-command-item-icon" aria-hidden="true">${iconHTML}</span>` : ''}
-          <span class="dm-slash-command-item-text">
-            <span class="dm-slash-command-item-label">${item.label}</span>
-            ${description}
-          </span>
-          ${shortcut}
-        `.trim();
+        const textSpan = document.createElement('span');
+        textSpan.className = 'dm-slash-command-item-text';
+
+        const labelSpan = document.createElement('span');
+        labelSpan.className = 'dm-slash-command-item-label';
+        labelSpan.textContent = item.label;
+        textSpan.appendChild(labelSpan);
+
+        if (item.description) {
+          const descSpan = document.createElement('span');
+          descSpan.className = 'dm-slash-command-item-description';
+          descSpan.textContent = item.description;
+          textSpan.appendChild(descSpan);
+        }
+
+        btn.appendChild(textSpan);
+
+        if (item.shortcut) {
+          const shortcutSpan = document.createElement('span');
+          shortcutSpan.className = 'dm-slash-command-item-shortcut';
+          shortcutSpan.setAttribute('aria-hidden', 'true');
+          shortcutSpan.textContent = item.shortcut;
+          btn.appendChild(shortcutSpan);
+        }
 
         const indexForItem = flatItems.length;
         btn.addEventListener('mousedown', (e: MouseEvent) => { e.preventDefault(); });

@@ -17,20 +17,47 @@ export function deleteBlock(tr: Transaction, blockPos: number): Transaction {
   if (blockPos < 0 || blockPos >= tr.doc.content.size) return tr;
   const node = tr.doc.nodeAt(blockPos);
   if (!node) return tr;
-  tr.delete(blockPos, blockPos + node.nodeSize);
+  const blockEnd = blockPos + node.nodeSize;
+
+  // The doc schema typically requires `block+` — deleting the only block
+  // would violate that and throw on dispatch. Replace with a fresh
+  // paragraph instead so the editor stays usable (mirrors Notion).
+  if (tr.doc.childCount === 1) {
+    const paragraphType = tr.doc.type.schema.nodes['paragraph'];
+    if (paragraphType) {
+      tr.replaceWith(blockPos, blockEnd, paragraphType.create());
+      return tr;
+    }
+  }
+
+  tr.delete(blockPos, blockEnd);
   return tr;
 }
 
 /**
  * Duplicates the block at `blockPos` by inserting a copy immediately after
- * it. The copy has the same content, attrs, and marks.
+ * it. The copy preserves content, attrs, AND node-level marks (important
+ * for annotation / comment extensions that attach marks to blocks).
+ *
+ * @param transformAttrs Optional mapper invoked on the source attrs to
+ *   produce the copy's attrs. Use this to regenerate unique IDs so the
+ *   duplicate doesn't collide with the original (e.g. `{ ...attrs, id: uuid() }`).
  */
-export function duplicateBlock(tr: Transaction, blockPos: number): Transaction {
+export function duplicateBlock(
+  tr: Transaction,
+  blockPos: number,
+  transformAttrs?: (attrs: Attrs) => Attrs,
+): Transaction {
   if (blockPos < 0 || blockPos >= tr.doc.content.size) return tr;
   const node = tr.doc.nodeAt(blockPos);
   if (!node) return tr;
   const blockEnd = blockPos + node.nodeSize;
-  tr.insert(blockEnd, node.copy(node.content));
+  const attrs = transformAttrs ? transformAttrs(node.attrs) : node.attrs;
+  // `type.create(attrs, content, marks)` preserves all three; plain
+  // `node.copy(content)` drops the node's marks which breaks use cases
+  // like block-level annotations.
+  const copy = node.type.create(attrs, node.content, node.marks);
+  tr.insert(blockEnd, copy);
   return tr;
 }
 

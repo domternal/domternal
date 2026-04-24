@@ -199,8 +199,19 @@ export function createSlashCommandPlugin(
       apply(tr: Transaction, prev, _oldState, newState): SlashCommandPluginState {
         if (tr.getMeta(pluginKey) === 'dismiss') return { ...INITIAL_STATE };
 
-        const isUserInput = tr.docChanged || tr.selectionSet;
-        if (!isUserInput) return prev;
+        // Neither doc nor selection changed — nothing to do (popup stays as-is).
+        if (!tr.docChanged && !tr.selectionSet) return prev;
+
+        // If only the doc changed (e.g. collaborative edit while popup is
+        // open), map the current query range through the new positions
+        // instead of re-running findSlashQuery — selection didn't move,
+        // so the user's cursor is still where it was.
+        if (tr.docChanged && !tr.selectionSet && prev.active && prev.range) {
+          const from = tr.mapping.mapResult(prev.range.from);
+          const to = tr.mapping.mapResult(prev.range.to);
+          if (from.deleted || to.deleted) return { ...INITIAL_STATE };
+          return { ...prev, range: { from: from.pos, to: to.pos } };
+        }
 
         const result = findSlashQuery(newState, char, invalidNodes);
         if (result) {
@@ -233,9 +244,12 @@ export function createSlashCommandPlugin(
               view.dispatch(tr);
 
               // Execute the item on a fresh transaction (its command will
-              // read the latest state).
+              // read the latest state). Items that open a popover (Image
+              // URL, Link, etc.) need the popover to claim focus — don't
+              // force focus back to the editor here. Simple insert items
+              // already leave focus in the editor, so no focus() call is
+              // needed in either case.
               FloatingMenuController.executeItem(editor, item);
-              view.focus();
             };
 
             const clientRect = (): DOMRect | null => {

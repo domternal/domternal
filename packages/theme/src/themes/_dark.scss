@@ -29,6 +29,11 @@
   --dm-code-surface: #2d2d2d;
   --dm-code-color: inherit;
   --dm-highlight-bg: rgba(255, 243, 205, 0.2);
+
+  // Scrollbar thumb + popover shadow — lighten for contrast on dark bg.
+  --dm-scrollbar-thumb: rgba(255, 255, 255, 0.18);
+  --dm-scrollbar-thumb-hover: rgba(255, 255, 255, 0.32);
+  --dm-popover-shadow: 0 10px 25px rgba(0, 0, 0, 0.4), 0 4px 10px rgba(0, 0, 0, 0.25);
   --dm-blockquote-border: 3px solid #555555;
   --dm-blockquote-color: #a0a0a0;
 
@@ -53,7 +58,9 @@
 .dm-theme-dark .dm-emoji-picker,
 .dm-theme-dark .dm-emoji-suggestion,
 .dm-theme-dark .dm-mention-suggestion,
-.dm-theme-dark .dm-table-controls-dropdown {
+.dm-theme-dark .dm-table-controls-dropdown,
+.dm-theme-dark .dm-slash-command-menu,
+.dm-theme-dark .dm-block-context-menu {
   @include dark-tokens;
 }
 
@@ -66,7 +73,9 @@
   .dm-theme-auto .dm-emoji-picker,
   .dm-theme-auto .dm-emoji-suggestion,
   .dm-theme-auto .dm-mention-suggestion,
-  .dm-theme-auto .dm-table-controls-dropdown {
+  .dm-theme-auto .dm-table-controls-dropdown,
+  .dm-theme-auto .dm-slash-command-menu,
+  .dm-theme-auto .dm-block-context-menu {
     @include dark-tokens;
   }
 }

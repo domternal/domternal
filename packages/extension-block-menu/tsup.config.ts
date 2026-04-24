@@ -14,6 +14,7 @@ export default defineConfig({
   treeshake: true,
   external: [
     '@domternal/core',
+    '@domternal/pm',
     '@domternal/pm/model',
     '@domternal/pm/state',
     '@domternal/pm/view',

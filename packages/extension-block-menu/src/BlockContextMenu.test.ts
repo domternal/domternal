@@ -165,3 +165,68 @@ describe('BlockContextMenu DOM integration', () => {
     expect(labels).not.toContain('Heading 1');
   });
 });
+
+describe('BlockContextMenu click execution', () => {
+  function findItemByLabel(label: string): HTMLButtonElement | null {
+    const items = host?.querySelectorAll<HTMLButtonElement>('.dm-block-context-menu-item');
+    if (!items) return null;
+    for (const btn of Array.from(items)) {
+      if (btn.getAttribute('aria-label') === label) return btn;
+    }
+    return null;
+  }
+
+  it('Delete removes the targeted block', () => {
+    makeEditor('<p>First</p><p>Second</p><p>Third</p>');
+    // Open on the second paragraph (starts at pos 7).
+    openContextMenu(7);
+    const delBtn = findItemByLabel('Delete');
+    expect(delBtn).not.toBeNull();
+    delBtn?.click();
+    const texts: string[] = [];
+    editor?.state.doc.forEach((n) => { texts.push(n.textContent); });
+    expect(texts).toEqual(['First', 'Third']);
+  });
+
+  it('Delete on the only remaining block replaces with empty paragraph', () => {
+    makeEditor('<h1>Only</h1>');
+    openContextMenu(0);
+    const delBtn = findItemByLabel('Delete');
+    delBtn?.click();
+    const doc = editor?.state.doc;
+    expect(doc?.childCount).toBe(1);
+    expect(doc?.firstChild?.type.name).toBe('paragraph');
+    expect(doc?.firstChild?.textContent).toBe('');
+  });
+
+  it('Duplicate inserts an identical copy below the source', () => {
+    makeEditor('<p>Hello</p>');
+    openContextMenu(0);
+    const dupBtn = findItemByLabel('Duplicate');
+    dupBtn?.click();
+    const texts: string[] = [];
+    editor?.state.doc.forEach((n) => { texts.push(n.textContent); });
+    expect(texts).toEqual(['Hello', 'Hello']);
+  });
+
+  it('Turn into Heading 1 converts paragraph preserving inline content', () => {
+    makeEditor('<p>Hello world</p>');
+    openContextMenu(0);
+    const h1Btn = findItemByLabel('Heading 1');
+    expect(h1Btn).not.toBeNull();
+    h1Btn?.click();
+    const firstChild = editor?.state.doc.firstChild;
+    expect(firstChild?.type.name).toBe('heading');
+    expect(firstChild?.attrs['level']).toBe(1);
+    expect(firstChild?.textContent).toBe('Hello world');
+  });
+
+  it('closes menu and refocuses editor after item execution', () => {
+    makeEditor('<p>x</p>');
+    openContextMenu(0);
+    const menu = host?.querySelector('.dm-block-context-menu');
+    expect(menu?.hasAttribute('data-show')).toBe(true);
+    findItemByLabel('Duplicate')?.click();
+    expect(menu?.hasAttribute('data-show')).toBe(false);
+  });
+});

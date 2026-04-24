@@ -73,13 +73,22 @@ describe('BlockHandle plugin state', () => {
     expect(state?.draggedFrom).toBe(0);
   });
 
-  it('clears hoveredPos when document changes (positions may shift)', () => {
+  it('maps hoveredPos through doc changes instead of clearing it', () => {
     const ed = makeEditor('<p>A</p><p>B</p>');
-    // Set hovered first
+    // Set hovered at start of second paragraph (pos 3).
     ed.view.dispatch(ed.state.tr.setMeta(blockHandlePluginKey, { hoveredPos: 3 }));
     expect(blockHandlePluginKey.getState(ed.state)?.hoveredPos).toBe(3);
-    // Now change the doc — hover should invalidate
+    // Inserting a char inside the first paragraph shifts positions after it.
     ed.view.dispatch(ed.state.tr.insertText('X', 1));
+    // Hovered pos should now be 4 (shifted by +1), not null.
+    expect(blockHandlePluginKey.getState(ed.state)?.hoveredPos).toBe(4);
+  });
+
+  it('clears hoveredPos when the hovered range is deleted', () => {
+    const ed = makeEditor('<p>A</p><p>B</p>');
+    ed.view.dispatch(ed.state.tr.setMeta(blockHandlePluginKey, { hoveredPos: 3 }));
+    // Delete the second paragraph entirely (positions 3..6).
+    ed.view.dispatch(ed.state.tr.delete(3, 6));
     expect(blockHandlePluginKey.getState(ed.state)?.hoveredPos).toBe(null);
   });
 

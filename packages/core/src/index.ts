@@ -159,6 +159,9 @@ export {
   type FloatingMenuGroup,
 } from './FloatingMenuController.js';
 
+// === Shared helpers ===
+export { groupFloatingMenuItems } from './utils/groupFloatingMenuItems.js';
+
 // === Icons ===
 export { defaultIcons } from './icons/index.js';
 

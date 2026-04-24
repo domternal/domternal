@@ -23,11 +23,6 @@
     "@domternal/core": ">=0.6.0",
     "@domternal/extension-block-menu": ">=0.6.0"
   },
-  "peerDependenciesMeta": {
-    "@domternal/extension-block-menu": {
-      "optional": true
-    }
-  },
   "devDependencies": {
     "@domternal/core": "workspace:*",
     "@domternal/extension-block-menu": "workspace:*",

@@ -208,6 +208,8 @@ export function createBlockHandlePlugin(
   // FloatingMenu pick up the empty-line state.
   const onPlusClick = (event: MouseEvent): void => {
     event.preventDefault();
+    event.stopPropagation();
+    if (!editor.isEditable) return;
     const state = pluginKey.getState(editor.view.state);
     const pos = state?.hoveredPos ?? null;
     if (pos === null) return;
@@ -248,6 +250,8 @@ export function createBlockHandlePlugin(
 
   const onDragBtnClick = (event: MouseEvent): void => {
     event.preventDefault();
+    event.stopPropagation();
+    if (!editor.isEditable) return;
     const state = pluginKey.getState(editor.view.state);
     const pos = state?.hoveredPos ?? null;
     if (pos === null) return;
@@ -261,7 +265,7 @@ export function createBlockHandlePlugin(
   };
 
   const onDragStart = (event: DragEvent): void => {
-    if (disableDrag) {
+    if (disableDrag || !editor.isEditable) {
       event.preventDefault();
       return;
     }
@@ -331,11 +335,20 @@ export function createBlockHandlePlugin(
             next = { ...next, draggedFrom: meta.draggedFrom ?? null };
           }
         }
-        // When doc changes, hovered position may be stale (positions shifted);
-        // clear it so the next mousemove resolves correctly. `draggedFrom`
-        // remains — PM's drop handler resolves before docChanged fires.
-        if (tr.docChanged && next.hoveredPos !== null) {
-          next = { ...next, hoveredPos: null };
+        // Map positions through doc changes so collaborative / programmatic
+        // transactions that happen while hovering or dragging don't leave
+        // us pointing at the wrong block. `mapping.mapResult` reports
+        // `deleted: true` when the position falls inside a removed range —
+        // in that case we null out the field.
+        if (tr.docChanged) {
+          if (next.hoveredPos !== null) {
+            const mapped = tr.mapping.mapResult(next.hoveredPos);
+            next = { ...next, hoveredPos: mapped.deleted ? null : mapped.pos };
+          }
+          if (next.draggedFrom !== null) {
+            const mapped = tr.mapping.mapResult(next.draggedFrom);
+            next = { ...next, draggedFrom: mapped.deleted ? null : mapped.pos };
+          }
         }
         return next;
       },

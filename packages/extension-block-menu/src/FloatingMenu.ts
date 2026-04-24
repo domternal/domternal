@@ -96,30 +96,80 @@ export interface CreateFloatingMenuPluginOptions {
   keymap?: FloatingMenuKeymap | undefined;
 }
 
+// Cache platform check at module load rather than per-keystroke.
+const IS_MAC = typeof navigator !== 'undefined'
+  && /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
 /**
- * Parses a shortcut string like `Alt-F10` or `Mod-/` against a keyboard
- * event. `Mod` maps to Cmd on macOS, Ctrl elsewhere.
+ * Parses a shortcut string (e.g. `Alt-F10`, `Mod-/`, `Shift-Ctrl-Enter`)
+ * against a KeyboardEvent. Matches prosemirror-keymap's grammar:
+ *
+ * - Modifiers can appear in any order and separated by `-`.
+ * - `Mod` maps to Cmd on macOS, Ctrl elsewhere.
+ * - Aliases: `Cmd` / `m` / `Meta`, `Ctrl` / `c` / `Control`, `Alt` / `a`,
+ *   `Shift` / `s`.
+ * - Named keys use `KeyEvent.key` values directly (e.g. `F10`, `Enter`,
+ *   `ArrowUp`). Letters are case-insensitive; `Shift-` prefix is implied
+ *   for shifted-character keys.
+ *
+ * @returns true if the event matches the shortcut exactly (all and only
+ * the listed modifiers, same key).
  */
 function matchShortcut(event: KeyboardEvent, shortcut: string): boolean {
   const parts = shortcut.split('-');
-  const key = parts[parts.length - 1];
-  if (!key) return false;
-  const mods = new Set(parts.slice(0, -1));
-  const isMac = /Mac|iPhone|iPad|iPod/i.test(
-    typeof navigator === 'undefined' ? '' : navigator.userAgent,
-  );
-  const needMod = mods.has('Mod');
-  const needAlt = mods.has('Alt');
-  const needShift = mods.has('Shift');
-  const needCtrl = mods.has('Ctrl') || (needMod && !isMac);
-  const needMeta = mods.has('Meta') || (needMod && isMac);
+  const keyPart = parts.pop();
+  if (!keyPart) return false;
+
+  let needCtrl = false;
+  let needMeta = false;
+  let needAlt = false;
+  let needShift = false;
+
+  for (const mod of parts) {
+    switch (mod) {
+      case 'Mod':
+      case 'mod':
+        if (IS_MAC) needMeta = true;
+        else needCtrl = true;
+        break;
+      case 'Cmd':
+      case 'cmd':
+      case 'Meta':
+      case 'meta':
+      case 'm':
+        needMeta = true;
+        break;
+      case 'Ctrl':
+      case 'ctrl':
+      case 'Control':
+      case 'control':
+      case 'c':
+        needCtrl = true;
+        break;
+      case 'Alt':
+      case 'alt':
+      case 'a':
+        needAlt = true;
+        break;
+      case 'Shift':
+      case 'shift':
+      case 's':
+        needShift = true;
+        break;
+      default:
+        return false;
+    }
+  }
 
   if (event.altKey !== needAlt) return false;
-  if (event.shiftKey !== needShift) return false;
   if (event.ctrlKey !== needCtrl) return false;
   if (event.metaKey !== needMeta) return false;
-  // Compare case-insensitively; single-char keys use event.key literal.
-  return event.key === key || event.key.toLowerCase() === key.toLowerCase();
+  // For single-character keys, ignore Shift (since Shift is part of the
+  // character itself, e.g. Shift+/ produces `?`). For named keys (F10,
+  // ArrowUp, Enter, etc.), require Shift match exactly.
+  if (keyPart.length > 1 && event.shiftKey !== needShift) return false;
+
+  return event.key === keyPart || event.key.toLowerCase() === keyPart.toLowerCase();
 }
 
 /**

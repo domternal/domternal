@@ -18,6 +18,7 @@
 import { Extension, defaultIcons, positionFloatingOnce } from '@domternal/core';
 import type { Editor } from '@domternal/core';
 import { Plugin, PluginKey } from '@domternal/pm/state';
+import type { Transaction } from '@domternal/pm/state';
 import type { Attrs } from '@domternal/pm/model';
 import {
   deleteBlock,
@@ -133,9 +134,7 @@ export function createBlockContextMenuPlugin(
    * Executes a block operation, then closes the menu and returns focus to
    * the editor so the user can continue typing.
    */
-  const runAndClose = (apply: (tr: ReturnType<typeof editor.view.state.tr.deleteRange>) => void): void => {
-    // Signature trick above keeps TS happy without importing Transaction.
-    // Use a fresh transaction each call.
+  const runAndClose = (apply: (tr: Transaction) => void): void => {
     const tr = editor.view.state.tr;
     try {
       apply(tr);
@@ -198,15 +197,16 @@ export function createBlockContextMenuPlugin(
       const eligible = turnIntoTargets.filter((target) => {
         const type = editor.view.state.schema.nodes[target.nodeType];
         if (!type?.isTextblock) return false;
-        // Skip targets identical to current (same name AND matching attrs).
-        if (type.name === node.type.name) {
-          const attrs = target.attrs ?? {};
-          const matches = Object.entries(attrs).every(
-            ([k, v]) => (node.attrs as Record<string, unknown>)[k] === v,
-          );
-          if (matches) return false;
+        // Skip targets identical to the current block (same node type AND
+        // matching attrs — e.g. hide "Heading 1" when already on H1).
+        if (type.name !== node.type.name) return true;
+        const targetAttrs = target.attrs;
+        if (!targetAttrs) return false;
+        const nodeAttrs = node.attrs as Record<string, unknown>;
+        for (const k of Object.keys(targetAttrs)) {
+          if (nodeAttrs[k] !== (targetAttrs as Record<string, unknown>)[k]) return true;
         }
-        return true;
+        return false;
       });
 
       if (eligible.length > 0) {
@@ -243,8 +243,21 @@ export function createBlockContextMenuPlugin(
     btn.setAttribute('aria-label', label);
     btn.tabIndex = menuItemButtons.length === 0 ? 0 : -1;
 
+    // Build DOM safely: icon SVG is trusted (from our own phosphor set), but
+    // `label` may come from user-supplied `turnIntoTargets` config — use
+    // textContent for any string that could originate outside this package.
     const iconHTML = defaultIcons[iconKey] ?? '';
-    btn.innerHTML = `<span class="dm-block-context-menu-item-icon" aria-hidden="true">${iconHTML}</span><span class="dm-block-context-menu-item-label">${label}</span>`;
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'dm-block-context-menu-item-icon';
+    iconSpan.setAttribute('aria-hidden', 'true');
+    iconSpan.innerHTML = iconHTML;
+
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'dm-block-context-menu-item-label';
+    labelSpan.textContent = label;
+
+    btn.appendChild(iconSpan);
+    btn.appendChild(labelSpan);
 
     btn.addEventListener('mousedown', (e: MouseEvent) => { e.preventDefault(); });
     btn.addEventListener('click', (e: MouseEvent) => {
