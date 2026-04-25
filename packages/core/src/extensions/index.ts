@@ -35,6 +35,12 @@ export {
   uniqueIDPluginKey,
   type UniqueIDOptions,
 } from './UniqueID.js';
+export {
+  BlockColor,
+  DEFAULT_BLOCK_COLORS,
+  DEFAULT_BLOCK_COLOR_TYPES,
+  type BlockColorOptions,
+} from './BlockColor.js';
 
 // Selection & Editor Utilities
 export {

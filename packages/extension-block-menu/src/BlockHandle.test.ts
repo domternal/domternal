@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   Document,
   Text,
@@ -36,6 +36,9 @@ describe('BlockHandle configuration', () => {
   it('has default options', () => {
     expect(BlockHandle.options.hideDelay).toBe(200);
     expect(BlockHandle.options.disableDrag).toBe(false);
+    expect(BlockHandle.options.autoScroll).toBe(true);
+    expect(BlockHandle.options.autoScrollThreshold).toBe(48);
+    expect(BlockHandle.options.autoScrollMaxSpeed).toBe(18);
   });
 
   it('can configure hideDelay', () => {
@@ -46,6 +49,17 @@ describe('BlockHandle configuration', () => {
   it('can configure disableDrag', () => {
     const configured = BlockHandle.configure({ disableDrag: true });
     expect(configured.options.disableDrag).toBe(true);
+  });
+
+  it('can configure auto-scroll options', () => {
+    const configured = BlockHandle.configure({
+      autoScroll: false,
+      autoScrollThreshold: 80,
+      autoScrollMaxSpeed: 30,
+    });
+    expect(configured.options.autoScroll).toBe(false);
+    expect(configured.options.autoScrollThreshold).toBe(80);
+    expect(configured.options.autoScrollMaxSpeed).toBe(30);
   });
 });
 
@@ -154,5 +168,195 @@ describe('BlockHandle DOM integration', () => {
     makeEditor();
     const handle = host?.querySelector('.dm-block-handle');
     expect(handle?.hasAttribute('data-show')).toBe(false);
+  });
+});
+
+/**
+ * Auto-scroll tests drive the plugin's drag lifecycle directly so we don't
+ * depend on jsdom's incomplete HTML5 drag-and-drop emulation. RAF is
+ * stubbed so each "frame" is a manual tick — cleaner than wall-clock waits
+ * and deterministic across CI speeds. `DragEvent` and `scrollBy` both need
+ * polyfilling because jsdom doesn't implement them.
+ */
+describe('BlockHandle auto-scroll during drag', () => {
+  let rafCallbacks: FrameRequestCallback[] = [];
+  let originalScrollBy: typeof document.documentElement.scrollBy | undefined;
+  let scrollByCalls: [number, number][] = [];
+
+  /**
+   * jsdom doesn't implement `DragEvent`, but ProseMirror and the plugin
+   * only read standard properties (`clientY`, `dataTransfer`). Use a plain
+   * `Event` with type "dragstart"/"dragover"/"dragend" + a clientY patch.
+   */
+  function makeDragLikeEvent(type: string, init: { clientY?: number } = {}): Event {
+    const ev = new Event(type, { bubbles: true, cancelable: true });
+    if (init.clientY !== undefined) {
+      Object.defineProperty(ev, 'clientY', { value: init.clientY, configurable: true });
+    }
+    return ev;
+  }
+
+  function installRafStub(): void {
+    rafCallbacks = [];
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      rafCallbacks.push(cb);
+      return rafCallbacks.length;
+    });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {
+      // No-op: we drain callbacks manually in `tickRaf`.
+    });
+  }
+
+  function installScrollByStub(): void {
+    scrollByCalls = [];
+    // eslint-disable-next-line @typescript-eslint/unbound-method
+    originalScrollBy = document.documentElement.scrollBy;
+    // jsdom doesn't ship `scrollBy` on Element. Define a stub we can read.
+    Object.defineProperty(document.documentElement, 'scrollBy', {
+      value: (x: number, y: number): void => { scrollByCalls.push([x, y]); },
+      configurable: true,
+      writable: true,
+    });
+  }
+
+  function restoreScrollByStub(): void {
+    if (originalScrollBy === undefined) {
+      // jsdom had no original — remove the stub entirely so subsequent
+      // tests see the original jsdom behaviour (no scrollBy on the element).
+      delete (document.documentElement as unknown as Record<string, unknown>)['scrollBy'];
+    } else {
+      Object.defineProperty(document.documentElement, 'scrollBy', {
+        value: originalScrollBy,
+        configurable: true,
+        writable: true,
+      });
+    }
+    originalScrollBy = undefined;
+  }
+
+  /** Runs exactly one pending RAF callback (simulates a single frame). */
+  function tickRaf(): void {
+    const cb = rafCallbacks.shift();
+    cb?.(performance.now());
+  }
+
+  function makeEditorWithHandle(): Editor {
+    host = document.createElement('div');
+    host.className = 'dm-editor';
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Heading, BlockHandle],
+      content: '<p>Hello</p>',
+    });
+    return editor;
+  }
+
+  function dispatchDragStart(): void {
+    const dragBtn = host?.querySelector<HTMLElement>('.dm-block-handle-drag');
+    if (!dragBtn) throw new Error('drag button missing');
+    // Pre-populate hoveredPos so onDragStart's guard passes. Paragraph
+    // starts at position 0 in the default schema.
+    editor?.view.dispatch(
+      editor.state.tr.setMeta(blockHandlePluginKey, { hoveredPos: 0 }),
+    );
+    dragBtn.dispatchEvent(makeDragLikeEvent('dragstart'));
+  }
+
+  function dispatchDragOver(clientY: number): void {
+    document.dispatchEvent(makeDragLikeEvent('dragover', { clientY }));
+  }
+
+  function dispatchDragEnd(): void {
+    const dragBtn = host?.querySelector<HTMLElement>('.dm-block-handle-drag');
+    dragBtn?.dispatchEvent(makeDragLikeEvent('dragend'));
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    restoreScrollByStub();
+    rafCallbacks = [];
+    scrollByCalls = [];
+  });
+
+  it('schedules a RAF loop on dragstart when autoScroll is enabled (default)', () => {
+    installRafStub();
+    makeEditorWithHandle();
+    expect(rafCallbacks.length).toBe(0);
+    dispatchDragStart();
+    expect(rafCallbacks.length).toBe(1);
+  });
+
+  it('scrolls up when dragover is within threshold of top edge', () => {
+    installRafStub();
+    installScrollByStub();
+    makeEditorWithHandle();
+
+    dispatchDragStart();
+    // clientY=20 is inside the default 48px top threshold.
+    dispatchDragOver(20);
+    tickRaf();
+
+    expect(scrollByCalls.length).toBeGreaterThan(0);
+    const [dx, dy] = scrollByCalls[0] ?? [0, 0];
+    expect(dx).toBe(0);
+    expect(dy).toBeLessThan(0); // up = negative delta
+  });
+
+  it('scrolls down when dragover is within threshold of bottom edge', () => {
+    installRafStub();
+    installScrollByStub();
+    makeEditorWithHandle();
+
+    dispatchDragStart();
+    // jsdom default window.innerHeight = 768; close to bottom = inside threshold.
+    dispatchDragOver(window.innerHeight - 10);
+    tickRaf();
+
+    expect(scrollByCalls.length).toBeGreaterThan(0);
+    const [, dy] = scrollByCalls[0] ?? [0, 0];
+    expect(dy).toBeGreaterThan(0); // down = positive delta
+  });
+
+  it('does not scroll when dragover is in the center zone', () => {
+    installRafStub();
+    installScrollByStub();
+    makeEditorWithHandle();
+
+    dispatchDragStart();
+    dispatchDragOver(window.innerHeight / 2);
+    tickRaf();
+
+    expect(scrollByCalls.length).toBe(0);
+  });
+
+  it('does not schedule a RAF loop when autoScroll is false', () => {
+    installRafStub();
+    // Replace the default extension with an auto-scroll-disabled variant.
+    host = document.createElement('div');
+    host.className = 'dm-editor';
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Heading, BlockHandle.configure({ autoScroll: false })],
+      content: '<p>Hello</p>',
+    });
+    dispatchDragStart();
+    expect(rafCallbacks.length).toBe(0);
+  });
+
+  it('stops the loop on dragend', () => {
+    installRafStub();
+    installScrollByStub();
+    makeEditorWithHandle();
+
+    dispatchDragStart();
+    dispatchDragOver(20);
+    tickRaf(); // one scroll tick scheduled another RAF
+    expect(rafCallbacks.length).toBe(1); // next frame queued
+    dispatchDragEnd();
+    scrollByCalls = [];
+    tickRaf(); // tick the queued callback; autoScrollTarget should be null now
+    expect(scrollByCalls.length).toBe(0);
   });
 });

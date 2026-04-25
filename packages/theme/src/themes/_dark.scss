@@ -49,6 +49,29 @@
   --dm-syntax-addition-bg: #033a16;
   --dm-syntax-deletion: #ffdcd7;
   --dm-syntax-deletion-bg: #67060c;
+
+  // Block colors (Notion-style dark-mode palette). Backgrounds are
+  // desaturated darker tones; text colors get lifted to stay legible.
+  // Source: Notion dark palette (hand-mapped from Matthias Frank reference).
+  --dm-block-bg-gray: #2f2f2f;
+  --dm-block-bg-brown: #4a3228;
+  --dm-block-bg-orange: #5c3b1e;
+  --dm-block-bg-yellow: #564328;
+  --dm-block-bg-green: #243d30;
+  --dm-block-bg-blue: #143a4e;
+  --dm-block-bg-purple: #3c2d49;
+  --dm-block-bg-pink: #4e2c3c;
+  --dm-block-bg-red: #5c1e1e;
+
+  --dm-block-text-gray: #9b9b9b;
+  --dm-block-text-brown: #bf967f;
+  --dm-block-text-orange: #e9a668;
+  --dm-block-text-yellow: #e4c575;
+  --dm-block-text-green: #8bb69b;
+  --dm-block-text-blue: #7fb2d4;
+  --dm-block-text-purple: #b195d1;
+  --dm-block-text-pink: #d68aae;
+  --dm-block-text-red: #e0776f;
 }
 
 .dm-theme-dark,

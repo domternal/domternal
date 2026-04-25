@@ -37,6 +37,17 @@ interface UniqueIDOptionsShape {
   generateID?: () => string;
 }
 
+/**
+ * Same pattern for `blockColor` — we peek at the palette + types list but
+ * don't import `BlockColorOptions` directly because the Colors UI degrades
+ * gracefully when the extension isn't loaded.
+ */
+interface BlockColorOptionsShape {
+  types?: string[];
+  bgColors?: string[];
+  textColors?: string[];
+}
+
 export const blockContextMenuPluginKey = new PluginKey('blockContextMenu');
 
 /**
@@ -94,6 +105,13 @@ export interface BlockContextMenuOptions {
    * matching their URL scheme.
    */
   onCopyLink?: (blockId: string, editor: Editor) => string;
+  /**
+   * Show the Colors section (text color + background) when the `BlockColor`
+   * extension is loaded and the target block is in its `types` list.
+   * Without BlockColor this option has no effect.
+   * @default true
+   */
+  blockColorEnabled?: boolean;
 }
 
 export interface CreateBlockContextMenuPluginOptions {
@@ -103,6 +121,7 @@ export interface CreateBlockContextMenuPluginOptions {
   turnIntoTargets: TurnIntoTarget[];
   copyLinkEnabled: boolean;
   onCopyLink: (blockId: string, editor: Editor) => string;
+  blockColorEnabled: boolean;
 }
 
 /**
@@ -134,12 +153,13 @@ interface BlockContextMenuOpenDetail {
 export function createBlockContextMenuPlugin(
   options: CreateBlockContextMenuPluginOptions,
 ): Plugin {
-  const { pluginKey, editor, turnIntoEnabled, turnIntoTargets, copyLinkEnabled, onCopyLink } = options;
+  const { pluginKey, editor, turnIntoEnabled, turnIntoTargets, copyLinkEnabled, onCopyLink, blockColorEnabled } = options;
 
-  // Cache UniqueID detection once at plugin construction. The editor's
-  // extension list AND its options are immutable for the editor's lifetime,
-  // so there's no need to re-check on every menu open. `null` means
-  // "UniqueID not loaded" which disables the Copy link item.
+  // Cache optional-extension detection once at plugin construction. The
+  // editor's extension list AND its options are immutable for the editor's
+  // lifetime, so there's no need to re-check on every menu open. `null`
+  // for each means the paired extension isn't loaded (and the matching
+  // menu section is hidden).
   const uniqueIDExt = editor.extensionManager.extensions.find((ext) => ext.name === 'uniqueID');
   const uniqueIDAttrName: string | null = uniqueIDExt
     ? ((uniqueIDExt.options as UniqueIDOptionsShape).attributeName ?? 'id')
@@ -147,6 +167,14 @@ export function createBlockContextMenuPlugin(
   const uniqueIDGenerate: (() => string) | null = uniqueIDExt
     ? ((uniqueIDExt.options as UniqueIDOptionsShape).generateID ?? null)
     : null;
+
+  const blockColorExt = editor.extensionManager.extensions.find((ext) => ext.name === 'blockColor');
+  const blockColorOpts = blockColorExt
+    ? (blockColorExt.options as BlockColorOptionsShape)
+    : null;
+  const blockColorTypes: string[] | null = blockColorOpts?.types ?? null;
+  const blockBgPalette: string[] = blockColorOpts?.bgColors ?? [];
+  const blockTextPalette: string[] = blockColorOpts?.textColors ?? [];
 
   // --- Build popup DOM once.
   const root = document.createElement('div');
@@ -247,6 +275,21 @@ export function createBlockContextMenuPlugin(
   };
 
   /**
+   * Sets `bgColor` or `textColor` directly on the block at `currentBlockPos`
+   * via `setNodeMarkup`. Bypasses the BlockColor command's ancestor walk
+   * because the menu already knows which block was targeted.
+   */
+  const runSetColor = (attr: 'bgColor' | 'textColor', color: string | null): void => {
+    if (currentBlockPos === null) return;
+    const pos = currentBlockPos;
+    runAndClose((tr) => {
+      const n = tr.doc.nodeAt(pos);
+      if (!n) return;
+      tr.setNodeMarkup(pos, undefined, { ...n.attrs, [attr]: color });
+    });
+  };
+
+  /**
    * Re-renders menu items based on the current target block. Hides "Turn
    * into" targets that match the current block's type (no-op conversions)
    * and filters "Turn into" entirely when the target type is not a textblock.
@@ -283,6 +326,39 @@ export function createBlockContextMenuPlugin(
       }
     }
     root.appendChild(primaryGroup);
+
+    // --- Colors section (text color + background)
+    // Shown only when BlockColor is loaded AND the target block type is in
+    // its `types` list. The picker renders two rows of swatches (bg + text)
+    // plus a "clear" swatch that unsets the attribute.
+    if (blockColorEnabled && blockColorTypes?.includes(node.type.name)) {
+      const label = document.createElement('div');
+      label.className = 'dm-block-context-menu-group-label';
+      label.textContent = 'Colors';
+      root.appendChild(label);
+
+      const currentBg = (node.attrs as Record<string, unknown>)['bgColor'] as string | null;
+      const currentText = (node.attrs as Record<string, unknown>)['textColor'] as string | null;
+
+      root.appendChild(
+        buildSwatchRow(
+          'Text color',
+          'text',
+          blockTextPalette,
+          currentText,
+          (color) => { runSetColor('textColor', color); },
+        ),
+      );
+      root.appendChild(
+        buildSwatchRow(
+          'Background',
+          'bg',
+          blockBgPalette,
+          currentBg,
+          (color) => { runSetColor('bgColor', color); },
+        ),
+      );
+    }
 
     // --- Turn into section (textblocks only, different from current type)
     if (turnIntoEnabled && node.type.isTextblock) {
@@ -358,6 +434,71 @@ export function createBlockContextMenuPlugin(
     });
     menuItemButtons.push(btn);
     return btn;
+  };
+
+  /**
+   * Build a single color-picker swatch. `null` color becomes a "clear"
+   * swatch (unset the attribute). Swatches participate in roving-tabindex
+   * keyboard nav alongside menu items.
+   */
+  const makeSwatch = (
+    variant: 'bg' | 'text',
+    color: string | null,
+    current: string | null,
+    onClick: (c: string | null) => void,
+  ): HTMLButtonElement => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `dm-block-color-swatch dm-block-color-swatch--${variant}`;
+    btn.setAttribute('role', 'menuitem');
+    const labelText = color === null
+      ? (variant === 'bg' ? 'No background' : 'Default text color')
+      : `${variant === 'bg' ? 'Background' : 'Text color'}: ${color}`;
+    btn.setAttribute('aria-label', labelText);
+    btn.setAttribute('data-color', color ?? 'null');
+    if (current === color || (color === null && !current)) {
+      btn.setAttribute('aria-pressed', 'true');
+    } else {
+      btn.setAttribute('aria-pressed', 'false');
+    }
+    btn.tabIndex = menuItemButtons.length === 0 ? 0 : -1;
+
+    btn.addEventListener('mousedown', (e: MouseEvent) => { e.preventDefault(); });
+    btn.addEventListener('click', (e: MouseEvent) => {
+      e.preventDefault();
+      onClick(color);
+    });
+    menuItemButtons.push(btn);
+    return btn;
+  };
+
+  /**
+   * Compose a labelled swatch row (a strip of color buttons) for either
+   * text color or background. The first entry is always a "clear" swatch
+   * that unsets the attribute.
+   */
+  const buildSwatchRow = (
+    rowLabel: string,
+    variant: 'bg' | 'text',
+    palette: string[],
+    current: string | null,
+    onClick: (color: string | null) => void,
+  ): HTMLElement => {
+    const row = document.createElement('div');
+    row.className = 'dm-block-color-row';
+    row.setAttribute('role', 'group');
+    row.setAttribute('aria-label', rowLabel);
+
+    const visuallyHidden = document.createElement('span');
+    visuallyHidden.className = 'dm-block-color-row-label';
+    visuallyHidden.textContent = rowLabel;
+    row.appendChild(visuallyHidden);
+
+    row.appendChild(makeSwatch(variant, null, current, onClick));
+    for (const c of palette) {
+      row.appendChild(makeSwatch(variant, c, current, onClick));
+    }
+    return row;
   };
 
   /**
@@ -485,6 +626,7 @@ export const BlockContextMenu = Extension.create<BlockContextMenuOptions>({
       turnIntoTargets: DEFAULT_TURN_INTO,
       copyLinkEnabled: true,
       onCopyLink: defaultCopyLinkUrl,
+      blockColorEnabled: true,
     };
   },
 
@@ -499,6 +641,7 @@ export const BlockContextMenu = Extension.create<BlockContextMenuOptions>({
         turnIntoTargets: this.options.turnIntoTargets ?? DEFAULT_TURN_INTO,
         copyLinkEnabled: this.options.copyLinkEnabled ?? true,
         onCopyLink: this.options.onCopyLink ?? defaultCopyLinkUrl,
+        blockColorEnabled: this.options.blockColorEnabled ?? true,
       }),
     ];
   },

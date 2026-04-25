@@ -1,0 +1,176 @@
+// =============================================================================
+// Block Colors
+// Notion-style block-level backgrounds and text colors. Applied when the
+// BlockColor extension (@domternal/core) sets `data-bg-color` /
+// `data-text-color` attributes on block elements. Tokens mirror Notion's
+// public palette for instant familiarity; dark-mode overrides live in
+// `themes/_dark.scss`.
+//
+// Palette source (light-mode): https://matthiasfrank.de/en/notion-colors/
+// 9 named colors; `default` is implicit (no data attribute = no token).
+// =============================================================================
+
+:root {
+  --dm-block-bg-gray: #f1f1ef;
+  --dm-block-bg-brown: #f3eeee;
+  --dm-block-bg-orange: #f8ecdf;
+  --dm-block-bg-yellow: #faf3dd;
+  --dm-block-bg-green: #eef3ed;
+  --dm-block-bg-blue: #e9f3f7;
+  --dm-block-bg-purple: #f6f3f8;
+  --dm-block-bg-pink: #f9f2f5;
+  --dm-block-bg-red: #faecec;
+
+  --dm-block-text-gray: #787774;
+  --dm-block-text-brown: #976d57;
+  --dm-block-text-orange: #cc782f;
+  --dm-block-text-yellow: #c29343;
+  --dm-block-text-green: #548164;
+  --dm-block-text-blue: #487ca5;
+  --dm-block-text-purple: #8a67ab;
+  --dm-block-text-pink: #b35488;
+  --dm-block-text-red: #c4554d;
+}
+
+// -----------------------------------------------------------------------------
+// Background
+// Tint the whole block. Scoped under `.dm-editor .ProseMirror` so it only
+// applies inside a Domternal editor instance — won't leak to host content.
+// Small inline padding so the tint visually "hugs" the text instead of
+// bleeding edge-to-edge on narrow blocks.
+// -----------------------------------------------------------------------------
+.dm-editor .ProseMirror {
+  [data-bg-color="gray"]   { background-color: var(--dm-block-bg-gray); }
+  [data-bg-color="brown"]  { background-color: var(--dm-block-bg-brown); }
+  [data-bg-color="orange"] { background-color: var(--dm-block-bg-orange); }
+  [data-bg-color="yellow"] { background-color: var(--dm-block-bg-yellow); }
+  [data-bg-color="green"]  { background-color: var(--dm-block-bg-green); }
+  [data-bg-color="blue"]   { background-color: var(--dm-block-bg-blue); }
+  [data-bg-color="purple"] { background-color: var(--dm-block-bg-purple); }
+  [data-bg-color="pink"]   { background-color: var(--dm-block-bg-pink); }
+  [data-bg-color="red"]    { background-color: var(--dm-block-bg-red); }
+
+  [data-bg-color] {
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+  }
+
+  // List containers get the background but not the padding tweak —
+  // their list-item children already handle spacing.
+  ul[data-bg-color],
+  ol[data-bg-color] {
+    padding: 0.125rem 0.375rem 0.125rem 1.5rem;
+  }
+
+  [data-text-color="gray"]   { color: var(--dm-block-text-gray); }
+  [data-text-color="brown"]  { color: var(--dm-block-text-brown); }
+  [data-text-color="orange"] { color: var(--dm-block-text-orange); }
+  [data-text-color="yellow"] { color: var(--dm-block-text-yellow); }
+  [data-text-color="green"]  { color: var(--dm-block-text-green); }
+  [data-text-color="blue"]   { color: var(--dm-block-text-blue); }
+  [data-text-color="purple"] { color: var(--dm-block-text-purple); }
+  [data-text-color="pink"]   { color: var(--dm-block-text-pink); }
+  [data-text-color="red"]    { color: var(--dm-block-text-red); }
+}
+
+// -----------------------------------------------------------------------------
+// Swatch row — horizontal strip of color swatches, one per row in the
+// BlockContextMenu Colors section (one for text, one for background).
+// -----------------------------------------------------------------------------
+.dm-block-color-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.dm-block-color-row-label {
+  // Visually hidden but readable by screen readers. The visible row label
+  // comes from `.dm-block-context-menu-group-label` ("Colors") above.
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+// -----------------------------------------------------------------------------
+// Color swatches — used by BlockContextMenu's color picker and available
+// for host apps that render their own pickers. One ring per palette entry
+// plus a neutral "clear" swatch.
+// -----------------------------------------------------------------------------
+.dm-block-color-swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 1px solid var(--dm-border-color, #e5e7eb);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+
+  &:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 2px var(--dm-accent-surface, rgba(37, 99, 235, 0.15));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: 1px;
+  }
+
+  // Inner tint dot — used for both bg and text variants so rows look uniform.
+  &::before {
+    content: '';
+    display: block;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+  }
+
+  // "No color" swatch — strike-through slash rendered via gradient.
+  &[data-color="null"]::before {
+    background:
+      linear-gradient(
+        to top right,
+        transparent calc(50% - 1px),
+        var(--dm-muted, #999) calc(50% - 1px),
+        var(--dm-muted, #999) calc(50% + 1px),
+        transparent calc(50% + 1px)
+      );
+    border: 1px solid var(--dm-border-color, #e5e7eb);
+  }
+}
+
+// Background swatches render the tint as the dot interior.
+.dm-block-color-swatch--bg {
+  &[data-color="gray"]::before   { background: var(--dm-block-bg-gray); }
+  &[data-color="brown"]::before  { background: var(--dm-block-bg-brown); }
+  &[data-color="orange"]::before { background: var(--dm-block-bg-orange); }
+  &[data-color="yellow"]::before { background: var(--dm-block-bg-yellow); }
+  &[data-color="green"]::before  { background: var(--dm-block-bg-green); }
+  &[data-color="blue"]::before   { background: var(--dm-block-bg-blue); }
+  &[data-color="purple"]::before { background: var(--dm-block-bg-purple); }
+  &[data-color="pink"]::before   { background: var(--dm-block-bg-pink); }
+  &[data-color="red"]::before    { background: var(--dm-block-bg-red); }
+}
+
+// Text swatches show a capital A in the named color against a neutral dot.
+.dm-block-color-swatch--text {
+  &[data-color="gray"]::before   { background: var(--dm-block-text-gray); }
+  &[data-color="brown"]::before  { background: var(--dm-block-text-brown); }
+  &[data-color="orange"]::before { background: var(--dm-block-text-orange); }
+  &[data-color="yellow"]::before { background: var(--dm-block-text-yellow); }
+  &[data-color="green"]::before  { background: var(--dm-block-text-green); }
+  &[data-color="blue"]::before   { background: var(--dm-block-text-blue); }
+  &[data-color="purple"]::before { background: var(--dm-block-text-purple); }
+  &[data-color="pink"]::before   { background: var(--dm-block-text-pink); }
+  &[data-color="red"]::before    { background: var(--dm-block-text-red); }
+}

@@ -322,6 +322,10 @@ export {
   UniqueID,
   uniqueIDPluginKey,
   type UniqueIDOptions,
+  BlockColor,
+  DEFAULT_BLOCK_COLORS,
+  DEFAULT_BLOCK_COLOR_TYPES,
+  type BlockColorOptions,
   // Selection & Editor Utilities
   Selection,
   type SelectionOptions,

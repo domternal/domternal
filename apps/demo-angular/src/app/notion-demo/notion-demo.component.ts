@@ -31,6 +31,7 @@ import {
   ClearFormatting,
   Dropcursor,
   UniqueID,
+  BlockColor,
   Editor,
 } from '@domternal/core';
 import { CodeBlockLowlight } from '@domternal/extension-code-block-lowlight';
@@ -113,6 +114,9 @@ export class NotionDemoComponent implements OnDestroy {
     // Assigns stable IDs to top-level blocks so BlockContextMenu can offer
     // "Copy link to block" — the ID becomes the URL hash (e.g. `#abc123`).
     UniqueID,
+    // Block-level text + background colors (Notion palette). Exposed via
+    // the BlockContextMenu's Colors section when this extension is loaded.
+    BlockColor,
     // Block-manipulation UX trio (Notion-style). All three share the
     // `addFloatingMenuItems()` hook items and are opt-in from the
     // `@domternal/extension-block-menu` package.

@@ -8,7 +8,9 @@ import {
   CodeBlock,
   BulletList,
   OrderedList,
+  ListItem,
   UniqueID,
+  BlockColor,
   Editor,
 } from '@domternal/core';
 import { BlockContextMenu } from './BlockContextMenu.js';
@@ -456,5 +458,136 @@ describe('BlockContextMenu Copy link + UniqueID integration', () => {
     expect(firstId).toBe(originalId);
     expect(secondId).toBeTruthy();
     expect(secondId).not.toBe(originalId);
+  });
+});
+
+describe('BlockContextMenu Colors section (BlockColor integration)', () => {
+  function makeEditorWithBlockColor(
+    html = '<p>Hello</p>',
+    contextMenuOptions: Parameters<typeof BlockContextMenu.configure>[0] = {},
+    blockColorTypes?: string[],
+  ): Editor {
+    host = document.createElement('div');
+    host.className = 'dm-editor';
+    document.body.appendChild(host);
+    const blockColorExt = blockColorTypes
+      ? BlockColor.configure({ types: blockColorTypes })
+      : BlockColor;
+    editor = new Editor({
+      element: host,
+      extensions: [
+        Document,
+        Text,
+        Paragraph,
+        Heading,
+        Blockquote,
+        BulletList,
+        ListItem,
+        CodeBlock,
+        blockColorExt,
+        BlockContextMenu.configure(contextMenuOptions),
+      ],
+      content: html,
+    });
+    return editor;
+  }
+
+  function swatchFor(variant: 'bg' | 'text', color: string | null): HTMLButtonElement | null {
+    const selector = `.dm-block-color-swatch--${variant}[data-color="${color ?? 'null'}"]`;
+    return host?.querySelector<HTMLButtonElement>(selector) ?? null;
+  }
+
+  it('renders Colors section when BlockColor is loaded', () => {
+    makeEditorWithBlockColor();
+    openContextMenu(0);
+    const label = Array.from(host?.querySelectorAll('.dm-block-context-menu-group-label') ?? [])
+      .map((el) => el.textContent);
+    expect(label).toContain('Colors');
+  });
+
+  it('hides Colors section when BlockColor is not loaded', () => {
+    makeEditor('<p>Hi</p>');
+    openContextMenu(0);
+    const label = Array.from(host?.querySelectorAll('.dm-block-context-menu-group-label') ?? [])
+      .map((el) => el.textContent);
+    expect(label).not.toContain('Colors');
+  });
+
+  it('hides Colors section when blockColorEnabled is false', () => {
+    makeEditorWithBlockColor('<p>Hi</p>', { blockColorEnabled: false });
+    openContextMenu(0);
+    const label = Array.from(host?.querySelectorAll('.dm-block-context-menu-group-label') ?? [])
+      .map((el) => el.textContent);
+    expect(label).not.toContain('Colors');
+  });
+
+  it('hides Colors section for types not in BlockColor.types', () => {
+    // Configure BlockColor to cover only paragraph; open menu on a heading.
+    makeEditorWithBlockColor('<h1>Title</h1>', {}, ['paragraph']);
+    openContextMenu(0);
+    const label = Array.from(host?.querySelectorAll('.dm-block-context-menu-group-label') ?? [])
+      .map((el) => el.textContent);
+    expect(label).not.toContain('Colors');
+  });
+
+  it('renders text + background swatch rows with null-reset + 9 palette entries', () => {
+    makeEditorWithBlockColor();
+    openContextMenu(0);
+    const textSwatches = host?.querySelectorAll('.dm-block-color-swatch--text') ?? [];
+    const bgSwatches = host?.querySelectorAll('.dm-block-color-swatch--bg') ?? [];
+    // Each row = 1 null-reset + 9 palette colors = 10 buttons.
+    expect(textSwatches.length).toBe(10);
+    expect(bgSwatches.length).toBe(10);
+  });
+
+  it('background swatch click sets bgColor on the block', () => {
+    makeEditorWithBlockColor('<p>Hi</p>');
+    openContextMenu(0);
+    swatchFor('bg', 'yellow')?.click();
+    expect(editor?.state.doc.firstChild?.attrs['bgColor']).toBe('yellow');
+  });
+
+  it('text swatch click sets textColor on the block', () => {
+    makeEditorWithBlockColor('<p>Hi</p>');
+    openContextMenu(0);
+    swatchFor('text', 'blue')?.click();
+    expect(editor?.state.doc.firstChild?.attrs['textColor']).toBe('blue');
+  });
+
+  it('null-reset swatch clears the attribute', () => {
+    makeEditorWithBlockColor('<p data-bg-color="yellow">Hi</p>');
+    openContextMenu(0);
+    swatchFor('bg', null)?.click();
+    expect(editor?.state.doc.firstChild?.attrs['bgColor']).toBe(null);
+  });
+
+  it('swatches have role=menuitem and aria-pressed reflects active state', () => {
+    makeEditorWithBlockColor('<p data-bg-color="yellow">Hi</p>');
+    openContextMenu(0);
+    const yellowBg = swatchFor('bg', 'yellow');
+    const redBg = swatchFor('bg', 'red');
+    expect(yellowBg?.getAttribute('role')).toBe('menuitem');
+    expect(yellowBg?.getAttribute('aria-pressed')).toBe('true');
+    expect(redBg?.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('swatches have descriptive aria-labels', () => {
+    makeEditorWithBlockColor('<p>Hi</p>');
+    openContextMenu(0);
+    expect(swatchFor('bg', 'yellow')?.getAttribute('aria-label')).toBe('Background: yellow');
+    expect(swatchFor('text', 'gray')?.getAttribute('aria-label')).toBe('Text color: gray');
+    expect(swatchFor('bg', null)?.getAttribute('aria-label')).toBe('No background');
+    expect(swatchFor('text', null)?.getAttribute('aria-label')).toBe('Default text color');
+  });
+
+  it('closes menu + refocuses editor after a swatch click', () => {
+    const ed = makeEditorWithBlockColor('<p>Hi</p>');
+    const focusSpy = vi.spyOn(ed.view, 'focus');
+    openContextMenu(0);
+    const menu = host?.querySelector('.dm-block-context-menu');
+    expect(menu?.hasAttribute('data-show')).toBe(true);
+    swatchFor('bg', 'green')?.click();
+    expect(menu?.hasAttribute('data-show')).toBe(false);
+    expect(focusSpy).toHaveBeenCalled();
   });
 });
