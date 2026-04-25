@@ -61,6 +61,20 @@ describe('BlockHandle configuration', () => {
     expect(configured.options.autoScrollThreshold).toBe(80);
     expect(configured.options.autoScrollMaxSpeed).toBe(30);
   });
+
+  it('nested is disabled by default', () => {
+    expect(BlockHandle.options.nested).toBe(false);
+  });
+
+  it('can enable nested with `true` shorthand', () => {
+    const configured = BlockHandle.configure({ nested: true });
+    expect(configured.options.nested).toBe(true);
+  });
+
+  it('can enable nested with a custom allowedNodes list', () => {
+    const configured = BlockHandle.configure({ nested: { allowedNodes: ['listItem'] } });
+    expect(configured.options.nested).toEqual({ allowedNodes: ['listItem'] });
+  });
 });
 
 describe('BlockHandle plugin state', () => {

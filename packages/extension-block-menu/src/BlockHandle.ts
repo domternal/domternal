@@ -24,8 +24,11 @@ import type { Editor } from '@domternal/core';
 import { NodeSelection, Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import type { Slice } from '@domternal/pm/model';
-import { findTopLevelBlock } from './helpers/findTopLevelBlock.js';
+import { findTopLevelBlock, findDraggableBlock } from './helpers/findTopLevelBlock.js';
 import { moveBlock } from './helpers/moveBlock.js';
+
+/** Default list of nodes treated as drag-targetable when `nested: true`. */
+export const DEFAULT_NESTED_NODES: string[] = ['listItem', 'taskItem'];
 
 export const blockHandlePluginKey = new PluginKey<BlockHandlePluginState>('blockHandle');
 
@@ -62,6 +65,18 @@ export interface BlockHandleOptions {
    * @default 18
    */
   autoScrollMaxSpeed?: number;
+  /**
+   * Whether the handle should resolve to nested block containers (list
+   * items, task items, and optionally others) instead of always the
+   * top-level block.
+   *
+   * - `false` — only top-level blocks are hoverable / draggable (default).
+   * - `true` — list items and task items resolve individually.
+   * - `{ allowedNodes: [...] }` — custom whitelist of node type names.
+   *
+   * @default false
+   */
+  nested?: boolean | { allowedNodes?: string[] };
 }
 
 export interface BlockHandlePluginState {
@@ -92,6 +107,11 @@ export interface CreateBlockHandlePluginOptions {
   autoScroll: boolean;
   autoScrollThreshold: number;
   autoScrollMaxSpeed: number;
+  /**
+   * If empty, the plugin only resolves top-level blocks (classic mode).
+   * If non-empty, these node type names get hover / drag targeting.
+   */
+  nestedNodes: string[];
 }
 
 /**
@@ -114,17 +134,41 @@ function findScrollableAncestor(el: HTMLElement): HTMLElement | null {
 }
 
 /**
- * Finds the top-level block under the given client coordinates by walking
- * doc children and comparing y against each block DOM's bounding rect.
- * Falls back to `posAtCoords` when no block directly matches (e.g. when
- * the cursor is in padding between blocks).
+ * Finds the block under the given client coordinates.
+ *
+ * When `nestedNodes` is non-empty, the plugin is in "nested mode": uses
+ * `posAtCoords` + `findDraggableBlock` to resolve the deepest allowed
+ * ancestor (list item, task item, etc.). This lets users drag individual
+ * list items instead of always the whole list.
+ *
+ * When `nestedNodes` is empty, classic behavior: walk doc children and
+ * compare Y against each top-level block's DOM rect, with a `posAtCoords`
+ * fallback for positions in between blocks.
  */
 function resolveBlockAtCoords(
   view: EditorView,
   clientX: number,
   clientY: number,
+  nestedNodes: string[],
 ): { pos: number; rect: DOMRect } | null {
   const doc = view.state.doc;
+
+  // Nested mode — resolve via posAtCoords, then walk ancestors to the
+  // deepest allowed draggable. nodeDOM gives us the rect for positioning.
+  if (nestedNodes.length > 0) {
+    const coord = view.posAtCoords({ left: clientX, top: clientY });
+    if (coord) {
+      const draggable = findDraggableBlock(doc, coord.pos, nestedNodes);
+      if (draggable) {
+        const dom = view.nodeDOM(draggable.pos);
+        if (dom instanceof HTMLElement) {
+          return { pos: draggable.pos, rect: dom.getBoundingClientRect() };
+        }
+      }
+    }
+    // Fall through to classic top-level walk if nested lookup missed.
+  }
+
   let offset = 0;
   for (let i = 0; i < doc.childCount; i++) {
     const child = doc.child(i);
@@ -155,7 +199,7 @@ function resolveBlockAtCoords(
 export function createBlockHandlePlugin(
   options: CreateBlockHandlePluginOptions,
 ): Plugin<BlockHandlePluginState> {
-  const { pluginKey, editor, hideDelay, disableDrag, autoScroll, autoScrollThreshold, autoScrollMaxSpeed } = options;
+  const { pluginKey, editor, hideDelay, disableDrag, autoScroll, autoScrollThreshold, autoScrollMaxSpeed, nestedNodes } = options;
 
   // --- Build DOM once. Buttons rendered with the shared Phosphor icons.
   const root = document.createElement('div');
@@ -229,7 +273,7 @@ export function createBlockHandlePlugin(
 
   const onMouseMove = (event: MouseEvent): void => {
     if (!editorEl) return;
-    const resolved = resolveBlockAtCoords(editor.view, event.clientX, event.clientY);
+    const resolved = resolveBlockAtCoords(editor.view, event.clientX, event.clientY, nestedNodes);
     if (!resolved) {
       scheduleHide();
       return;
@@ -510,23 +554,27 @@ export function createBlockHandlePlugin(
           return true;
         }
 
-        // Resolve drop target to a top-level block boundary. Compare the
-        // cursor Y against the target block's vertical midpoint: above =
-        // insert before, below = insert after. This matches Dropcursor's
-        // visual line placement.
-        const targetTopLevel = findTopLevelBlock(view.state.doc, coords.pos);
-        if (!targetTopLevel) {
+        // Resolve drop target. In nested mode, use the same
+        // `findDraggableBlock` walk so dropping between list items lands
+        // the slice at the correct boundary within the list. In classic
+        // mode, fall back to the top-level block. Either way, compare
+        // cursor Y against the target's vertical midpoint: above = insert
+        // before, below = insert after (matches Dropcursor placement).
+        const targetBlock = nestedNodes.length > 0
+          ? findDraggableBlock(view.state.doc, coords.pos, nestedNodes)
+          : findTopLevelBlock(view.state.doc, coords.pos);
+        if (!targetBlock) {
           event.preventDefault();
           return true;
         }
 
-        let targetPos = targetTopLevel.pos;
-        const targetDOM = view.nodeDOM(targetTopLevel.pos);
+        let targetPos = targetBlock.pos;
+        const targetDOM = view.nodeDOM(targetBlock.pos);
         if (targetDOM instanceof HTMLElement) {
           const rect = targetDOM.getBoundingClientRect();
           const midY = rect.top + rect.height / 2;
           if (event.clientY > midY) {
-            targetPos = targetTopLevel.end;
+            targetPos = targetBlock.end;
           }
         }
 
@@ -597,6 +645,7 @@ export const BlockHandle = Extension.create<BlockHandleOptions>({
       autoScroll: true,
       autoScrollThreshold: 48,
       autoScrollMaxSpeed: 18,
+      nested: false,
     };
   },
 
@@ -612,7 +661,23 @@ export const BlockHandle = Extension.create<BlockHandleOptions>({
         autoScroll: this.options.autoScroll ?? true,
         autoScrollThreshold: this.options.autoScrollThreshold ?? 48,
         autoScrollMaxSpeed: this.options.autoScrollMaxSpeed ?? 18,
+        nestedNodes: resolveNestedNodes(this.options.nested),
       }),
     ];
   },
 });
+
+/**
+ * Normalises the user-facing `nested` option (boolean | config object)
+ * into the flat `string[]` that the plugin wants internally:
+ * - `false` / undefined → empty list (classic top-level-only mode).
+ * - `true` → default list (list item, task item).
+ * - `{ allowedNodes: [...] }` → explicit list; empty array disables.
+ */
+function resolveNestedNodes(nested: BlockHandleOptions['nested']): string[] {
+  if (nested === true) return DEFAULT_NESTED_NODES;
+  if (nested && typeof nested === 'object') {
+    return nested.allowedNodes ?? DEFAULT_NESTED_NODES;
+  }
+  return [];
+}

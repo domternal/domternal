@@ -120,7 +120,10 @@ export class NotionDemoComponent implements OnDestroy {
     // Block-manipulation UX trio (Notion-style). All three share the
     // `addFloatingMenuItems()` hook items and are opt-in from the
     // `@domternal/extension-block-menu` package.
-    BlockHandle,
+    // `nested: true` gives individual drag handles for list items + task
+    // items so users can reorder a single bullet without grabbing the
+    // whole list.
+    BlockHandle.configure({ nested: true }),
     BlockContextMenu,
     KeyboardReorder,
     SlashCommand,

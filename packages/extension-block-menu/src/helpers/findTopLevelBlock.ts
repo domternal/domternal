@@ -55,3 +55,47 @@ export function findTopLevelBlock(doc: Node, pos: number): TopLevelBlock | null 
     index,
   };
 }
+
+/**
+ * Resolves the deepest ancestor whose node type name appears in
+ * `draggableTypes`. Falls back to `findTopLevelBlock` (depth-1 walk) if no
+ * ancestor in the list matches.
+ *
+ * Used by `BlockHandle` when the `nested` option is active: the plugin
+ * hovers over list items / task items individually instead of always
+ * anchoring on the whole list.
+ *
+ * Walking is deepest-first so nested lists resolve to the innermost
+ * matching item (the one the cursor is actually inside).
+ */
+export function findDraggableBlock(
+  doc: Node,
+  pos: number,
+  draggableTypes: string[],
+): TopLevelBlock | null {
+  if (pos < 0 || pos > doc.content.size) return null;
+  if (draggableTypes.length === 0) return findTopLevelBlock(doc, pos);
+  const $pos = doc.resolve(pos);
+
+  // Walk ancestors from deepest to shallowest (skip depth 0 = doc itself).
+  for (let depth = $pos.depth; depth >= 1; depth--) {
+    const node = $pos.node(depth);
+    if (draggableTypes.includes(node.type.name)) {
+      const blockPos = $pos.before(depth);
+      // The "index" for a nested draggable is its index within its direct
+      // parent — consistent with what the block's drag logic expects when
+      // reordering siblings.
+      const index = $pos.index(depth - 1);
+      return {
+        node,
+        pos: blockPos,
+        end: blockPos + node.nodeSize,
+        index,
+      };
+    }
+  }
+
+  // No allowed-node ancestor found — fall back to the top-level block so
+  // hover/drag still works for plain paragraphs outside any container.
+  return findTopLevelBlock(doc, pos);
+}

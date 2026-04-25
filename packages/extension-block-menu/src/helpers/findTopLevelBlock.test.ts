@@ -6,11 +6,15 @@ import {
   Heading,
   Blockquote,
   BulletList,
+  OrderedList,
+  ListItem,
+  TaskList,
+  TaskItem,
   Editor,
 } from '@domternal/core';
-import { findTopLevelBlock } from './findTopLevelBlock.js';
+import { findTopLevelBlock, findDraggableBlock } from './findTopLevelBlock.js';
 
-const extensions = [Document, Text, Paragraph, Heading, Blockquote, BulletList];
+const extensions = [Document, Text, Paragraph, Heading, Blockquote, BulletList, OrderedList, ListItem, TaskList, TaskItem];
 
 function makeEditor(html: string): Editor {
   return new Editor({ extensions, content: html });
@@ -105,6 +109,70 @@ describe('findTopLevelBlock', () => {
     const result = findTopLevelBlock(editor.state.doc, posInThirdParagraph);
     expect(result?.node.textContent).toBe('c');
     expect(result?.index).toBe(2);
+    editor.destroy();
+  });
+});
+
+describe('findDraggableBlock', () => {
+  it('returns the list item when `listItem` is in draggable types', () => {
+    const editor = makeEditor('<ul><li><p>Item A</p></li><li><p>Item B</p></li></ul>');
+    // Cursor inside the first list-item paragraph.
+    const pos = 4;
+    const result = findDraggableBlock(editor.state.doc, pos, ['listItem', 'taskItem']);
+    expect(result?.node.type.name).toBe('listItem');
+    // First list item, index 0 among its siblings inside the bulletList.
+    expect(result?.index).toBe(0);
+    editor.destroy();
+  });
+
+  it('returns the task item when `taskItem` is in draggable types', () => {
+    const editor = makeEditor('<ul data-type="taskList"><li data-type="taskItem"><p>Todo</p></li></ul>');
+    const pos = 4;
+    const result = findDraggableBlock(editor.state.doc, pos, ['listItem', 'taskItem']);
+    expect(result?.node.type.name).toBe('taskItem');
+    editor.destroy();
+  });
+
+  it('falls back to the top-level block when no ancestor matches', () => {
+    const editor = makeEditor('<ul><li><p>Item</p></li></ul>');
+    // `heading` is in the allowed list but this doc has none.
+    const pos = 4;
+    const result = findDraggableBlock(editor.state.doc, pos, ['heading']);
+    expect(result?.node.type.name).toBe('bulletList');
+    editor.destroy();
+  });
+
+  it('prefers the deepest match when nested lists have two list items', () => {
+    const editor = makeEditor(
+      '<ul><li><p>Outer</p><ul><li><p>Inner</p></li></ul></li></ul>',
+    );
+    // Inside the inner list item's paragraph. Depth is: doc > ul(1) >
+    // li(2) > ul(3) > li(4) > p(5). Deepest listItem is depth 4.
+    const pos = 12;
+    const result = findDraggableBlock(editor.state.doc, pos, ['listItem']);
+    expect(result?.node.type.name).toBe('listItem');
+    expect(result?.node.textContent).toContain('Inner');
+    editor.destroy();
+  });
+
+  it('returns the paragraph itself when it is explicitly in allowed types', () => {
+    const editor = makeEditor('<p>Hi</p>');
+    const result = findDraggableBlock(editor.state.doc, 1, ['paragraph']);
+    expect(result?.node.type.name).toBe('paragraph');
+    editor.destroy();
+  });
+
+  it('returns null for out-of-bounds positions', () => {
+    const editor = makeEditor('<p>Hi</p>');
+    expect(findDraggableBlock(editor.state.doc, -5, ['paragraph'])).toBeNull();
+    expect(findDraggableBlock(editor.state.doc, 999, ['paragraph'])).toBeNull();
+    editor.destroy();
+  });
+
+  it('empty allowedTypes falls back to findTopLevelBlock behaviour', () => {
+    const editor = makeEditor('<ul><li><p>Item</p></li></ul>');
+    const result = findDraggableBlock(editor.state.doc, 4, []);
+    expect(result?.node.type.name).toBe('bulletList');
     editor.destroy();
   });
 });
