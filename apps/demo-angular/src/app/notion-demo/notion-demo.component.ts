@@ -30,6 +30,7 @@ import {
   SelectionDecoration,
   ClearFormatting,
   Dropcursor,
+  UniqueID,
   Editor,
 } from '@domternal/core';
 import { CodeBlockLowlight } from '@domternal/extension-code-block-lowlight';
@@ -109,6 +110,9 @@ export class NotionDemoComponent {
       },
     }),
     LinkPopover, SelectionDecoration, ClearFormatting, Dropcursor,
+    // Assigns stable IDs to top-level blocks so BlockContextMenu can offer
+    // "Copy link to block" — the ID becomes the URL hash (e.g. `#abc123`).
+    UniqueID,
     // Block-manipulation UX trio (Notion-style). All three share the
     // `addFloatingMenuItems()` hook items and are opt-in from the
     // `@domternal/extension-block-menu` package.
@@ -125,5 +129,30 @@ export class NotionDemoComponent {
     this.editor.set(editor);
     // Expose for E2E + playing around in devtools.
     (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] = editor;
+
+    // Surface a simple toast when "Copy link to block" succeeds. Host apps
+    // own this UX: BlockContextMenu only emits `dm:copy-link-success`.
+    const host = editor.view.dom.closest<HTMLElement>('.dm-editor');
+    host?.addEventListener('dm:copy-link-success', (event: Event) => {
+      const detail = (event as CustomEvent<{ url: string; success: boolean }>).detail;
+      if (!detail.success) return;
+      const toast = document.createElement('div');
+      toast.textContent = 'Link copied';
+      toast.setAttribute('role', 'status');
+      Object.assign(toast.style, {
+        position: 'fixed',
+        bottom: '1.5rem',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        padding: '0.5rem 1rem',
+        background: 'rgba(0,0,0,0.85)',
+        color: 'white',
+        borderRadius: '0.375rem',
+        fontSize: '0.875rem',
+        zIndex: '9999',
+      });
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 1800);
+    });
   }
 }
