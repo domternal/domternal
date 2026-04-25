@@ -158,7 +158,8 @@ export function createBlockContextMenuPlugin(
   let editorEl: HTMLElement | null = null;
   let cleanupFloating: (() => void) | null = null;
   let currentBlockPos: number | null = null;
-  // Roving tabindex: which menuitem is currently focused (-1 = none).
+  // Roving tabindex: which menuitem is currently focused. Initialised to 0
+  // because the menu auto-focuses the first item on open.
   let focusedIndex = 0;
   let menuItemButtons: HTMLButtonElement[] = [];
   // Tracks the rAF id scheduled by `open()` for the initial focus so we

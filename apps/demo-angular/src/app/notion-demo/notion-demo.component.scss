@@ -57,9 +57,11 @@
   }
 }
 
-// Toast surfaced by the Notion demo when a block link is copied. Positioned
-// fixed above the viewport bottom. Scoped to `:host` so it doesn't leak to
-// other demos. `::ng-deep` lets us target the node we append to <body>.
+// Toast surfaced by the Notion demo when a block link is copied (or fails
+// to copy). Positioned fixed above the viewport bottom. The success variant
+// is neutral dark; the `--error` modifier uses a warning red. `::ng-deep`
+// is needed because the toast is appended to `<body>` and therefore lives
+// outside the component's encapsulation scope.
 /* stylelint-disable-next-line selector-pseudo-element-no-unknown */
 ::ng-deep .notion-demo-toast {
   position: fixed;
@@ -73,4 +75,8 @@
   font-size: 0.875rem;
   z-index: 9999;
   pointer-events: none;
+
+  &--error {
+    background: rgba(185, 28, 28, 0.95); // red-700 at ~95% opacity
+  }
 }
