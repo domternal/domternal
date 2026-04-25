@@ -80,8 +80,9 @@ export interface BlockContextMenuOptions {
    */
   turnIntoTargets?: TurnIntoTarget[];
   /**
-   * Show "Copy link" when the target block has an id attribute. Automatically
-   * becomes relevant when the `UniqueID` extension is loaded in the editor.
+   * Show "Copy link" when the target block has an id attribute AND the
+   * `UniqueID` extension is loaded in the editor. Without UniqueID this
+   * option has no effect — the item never appears regardless of value.
    * @default true
    */
   copyLinkEnabled?: boolean;
@@ -136,9 +137,9 @@ export function createBlockContextMenuPlugin(
   const { pluginKey, editor, turnIntoEnabled, turnIntoTargets, copyLinkEnabled, onCopyLink } = options;
 
   // Cache UniqueID detection once at plugin construction. The editor's
-  // extension list is immutable for the lifetime of the editor, so there's
-  // no need to re-check on every menu open. `null` means "UniqueID not
-  // loaded" which disables the Copy link item.
+  // extension list AND its options are immutable for the editor's lifetime,
+  // so there's no need to re-check on every menu open. `null` means
+  // "UniqueID not loaded" which disables the Copy link item.
   const uniqueIDExt = editor.extensionManager.extensions.find((ext) => ext.name === 'uniqueID');
   const uniqueIDAttrName: string | null = uniqueIDExt
     ? ((uniqueIDExt.options as UniqueIDOptionsShape).attributeName ?? 'id')
@@ -223,12 +224,13 @@ export function createBlockContextMenuPlugin(
   const runCopyLink = (blockId: string): void => {
     const url = onCopyLink(blockId, editor);
     void writeToClipboard(url).then((ok: boolean) => {
-      // Fire a custom event so host apps can render a toast or fallback UI.
-      // Event detail carries both the URL and the id so the host can format
-      // its own message ("Copied https://..." or "Copied link to paragraph").
-      editorEl?.dispatchEvent(new CustomEvent('dm:copy-link-success', {
+      // Semantic event split: `success` fires only when the write actually
+      // succeeded, `error` fires otherwise. Host apps listen to one or both.
+      // Detail carries the URL and id so the host can format its own message.
+      const name = ok ? 'dm:copy-link-success' : 'dm:copy-link-error';
+      editorEl?.dispatchEvent(new CustomEvent(name, {
         bubbles: false,
-        detail: { url, blockId, success: ok },
+        detail: { url, blockId },
       }));
     });
     hide();

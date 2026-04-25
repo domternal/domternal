@@ -270,6 +270,7 @@ describe('BlockContextMenu Copy link + UniqueID integration', () => {
   function makeEditorWithUniqueID(
     html = '<p>Hello</p>',
     contextMenuOptions: Parameters<typeof BlockContextMenu.configure>[0] = {},
+    uniqueIDTypes: string[] = ['paragraph', 'heading'],
   ): Editor {
     host = document.createElement('div');
     host.className = 'dm-editor';
@@ -282,12 +283,28 @@ describe('BlockContextMenu Copy link + UniqueID integration', () => {
         Paragraph,
         Heading,
         Blockquote,
-        UniqueID.configure({ types: ['paragraph', 'heading'] }),
+        CodeBlock,
+        UniqueID.configure({ types: uniqueIDTypes }),
         BlockContextMenu.configure(contextMenuOptions),
       ],
       content: html,
     });
     return editor;
+  }
+
+  /**
+   * UniqueID assigns ids via a `setTimeout(..., 0)` in its view hook; the
+   * exact moment the transaction fires isn't observable from the test. Poll
+   * for up to 500ms until the first-block id shows up to avoid flakes on
+   * slow CI. Accepts an optional `attr` override for non-default schemas.
+   */
+  async function waitForUniqueIDs(attr = 'id', maxTries = 100): Promise<void> {
+    for (let i = 0; i < maxTries; i++) {
+      const id = editor?.state.doc.firstChild?.attrs[attr] as unknown;
+      if (typeof id === 'string' && id.length > 0) return;
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    throw new Error('Timeout waiting for UniqueID to assign ids');
   }
 
   function findItemByLabel(label: string): HTMLButtonElement | null {
@@ -301,8 +318,7 @@ describe('BlockContextMenu Copy link + UniqueID integration', () => {
 
   it('shows Copy link item when UniqueID is loaded and block has id', async () => {
     makeEditorWithUniqueID();
-    // UniqueID assigns ids asynchronously via setTimeout in its view hook.
-    await new Promise((r) => setTimeout(r, 10));
+    await waitForUniqueIDs();
     openContextMenu(0);
     expect(findItemByLabel('Copy link')).not.toBeNull();
   });
@@ -315,7 +331,17 @@ describe('BlockContextMenu Copy link + UniqueID integration', () => {
 
   it('hides Copy link item when copyLinkEnabled is false', async () => {
     makeEditorWithUniqueID('<p>Hello</p>', { copyLinkEnabled: false });
-    await new Promise((r) => setTimeout(r, 10));
+    await waitForUniqueIDs();
+    openContextMenu(0);
+    expect(findItemByLabel('Copy link')).toBeNull();
+  });
+
+  it('hides Copy link item when block type is not in UniqueID.types', async () => {
+    // UniqueID covers only 'paragraph' — code blocks get no id, so no item.
+    makeEditorWithUniqueID('<pre><code>x</code></pre>', {}, ['paragraph']);
+    // Wait a tick for UniqueID's initial transaction to run; we aren't
+    // waiting for an id because none is ever assigned on this block.
+    await new Promise((r) => setTimeout(r, 20));
     openContextMenu(0);
     expect(findItemByLabel('Copy link')).toBeNull();
   });
@@ -328,7 +354,7 @@ describe('BlockContextMenu Copy link + UniqueID integration', () => {
     });
 
     makeEditorWithUniqueID();
-    await new Promise((r) => setTimeout(r, 10));
+    await waitForUniqueIDs();
     openContextMenu(0);
     findItemByLabel('Copy link')?.click();
     // Allow the pending clipboard promise to resolve before asserting.
@@ -350,7 +376,7 @@ describe('BlockContextMenu Copy link + UniqueID integration', () => {
     );
 
     makeEditorWithUniqueID('<p>Hello</p>', { onCopyLink });
-    await new Promise((r) => setTimeout(r, 10));
+    await waitForUniqueIDs();
     openContextMenu(0);
     findItemByLabel('Copy link')?.click();
 
@@ -364,33 +390,61 @@ describe('BlockContextMenu Copy link + UniqueID integration', () => {
     expect(editorArg).toBe(editor);
   });
 
-  it('Copy link dispatches dm:copy-link-success on the editor host', async () => {
+  it('Copy link dispatches dm:copy-link-success when clipboard write succeeds', async () => {
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText: vi.fn().mockResolvedValue(undefined) },
       configurable: true,
     });
-    const listener = vi.fn();
+    const success = vi.fn();
+    const error = vi.fn();
 
     makeEditorWithUniqueID();
-    await new Promise((r) => setTimeout(r, 10));
-    host?.addEventListener('dm:copy-link-success', listener);
+    await waitForUniqueIDs();
+    host?.addEventListener('dm:copy-link-success', success);
+    host?.addEventListener('dm:copy-link-error', error);
     openContextMenu(0);
     findItemByLabel('Copy link')?.click();
     await new Promise((r) => setTimeout(r, 0));
 
-    expect(listener).toHaveBeenCalledTimes(1);
-    const firstCall = listener.mock.calls[0];
+    expect(success).toHaveBeenCalledTimes(1);
+    expect(error).not.toHaveBeenCalled();
+    const firstCall = success.mock.calls[0];
     expect(firstCall).toBeDefined();
     if (!firstCall) return;
-    const ev = firstCall[0] as CustomEvent<{ url: string; blockId: string; success: boolean }>;
+    const ev = firstCall[0] as CustomEvent<{ url: string; blockId: string }>;
     expect(ev.detail.url).toMatch(/#/);
     expect(typeof ev.detail.blockId).toBe('string');
-    expect(ev.detail.success).toBe(true);
+  });
+
+  it('Copy link dispatches dm:copy-link-error when clipboard write fails', async () => {
+    // Reject the async API AND force the execCommand fallback to fail, so
+    // `writeToClipboard` returns false end-to-end.
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
+      configurable: true,
+    });
+    (document as unknown as ExecCommandDoc).execCommand = () => false;
+    const success = vi.fn();
+    const error = vi.fn();
+
+    makeEditorWithUniqueID();
+    await waitForUniqueIDs();
+    host?.addEventListener('dm:copy-link-success', success);
+    host?.addEventListener('dm:copy-link-error', error);
+    openContextMenu(0);
+    findItemByLabel('Copy link')?.click();
+    // Two macrotasks: first for the rejected clipboard promise, second for
+    // the `.then` handler that dispatches the event.
+    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(success).not.toHaveBeenCalled();
   });
 
   it('Duplicate regenerates id when UniqueID is loaded', async () => {
     makeEditorWithUniqueID('<p>Hello</p>');
-    await new Promise((r) => setTimeout(r, 10));
+    await waitForUniqueIDs();
     const originalId = editor?.state.doc.firstChild?.attrs['id'] as string;
     expect(originalId).toBeTruthy();
 

@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, OnDestroy, signal } from '@angular/core';
 import {
   DomternalEditorComponent,
   DomternalBubbleMenuComponent,
@@ -79,7 +79,7 @@ const STARTER_CONTENT = `
   templateUrl: './notion-demo.component.html',
   styleUrls: ['./notion-demo.component.scss'],
 })
-export class NotionDemoComponent {
+export class NotionDemoComponent implements OnDestroy {
   extensions = [
     // Inline formatting (available via bubble menu on selection)
     Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
@@ -125,34 +125,39 @@ export class NotionDemoComponent {
   editorContent = STARTER_CONTENT;
   editor = signal<Editor | null>(null);
 
+  // Tracked so `ngOnDestroy` can remove it. Without this, repeatedly
+  // mounting the component (HMR / route re-entry) would accumulate
+  // listeners on the same `.dm-editor` DOM node.
+  private copyLinkHost: HTMLElement | null = null;
+  private copyLinkListener: ((event: Event) => void) | null = null;
+
   onEditorCreated(editor: Editor): void {
     this.editor.set(editor);
     // Expose for E2E + playing around in devtools.
     (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] = editor;
 
-    // Surface a simple toast when "Copy link to block" succeeds. Host apps
-    // own this UX: BlockContextMenu only emits `dm:copy-link-success`.
+    // Surface a toast when "Copy link to block" succeeds. Host apps own
+    // this UX: BlockContextMenu only emits `dm:copy-link-success` (on
+    // actual success) and `dm:copy-link-error` (on clipboard failure).
     const host = editor.view.dom.closest<HTMLElement>('.dm-editor');
-    host?.addEventListener('dm:copy-link-success', (event: Event) => {
-      const detail = (event as CustomEvent<{ url: string; success: boolean }>).detail;
-      if (!detail.success) return;
+    if (!host) return;
+    this.copyLinkHost = host;
+    this.copyLinkListener = (): void => {
       const toast = document.createElement('div');
+      toast.className = 'notion-demo-toast';
       toast.textContent = 'Link copied';
       toast.setAttribute('role', 'status');
-      Object.assign(toast.style, {
-        position: 'fixed',
-        bottom: '1.5rem',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        padding: '0.5rem 1rem',
-        background: 'rgba(0,0,0,0.85)',
-        color: 'white',
-        borderRadius: '0.375rem',
-        fontSize: '0.875rem',
-        zIndex: '9999',
-      });
       document.body.appendChild(toast);
       setTimeout(() => toast.remove(), 1800);
-    });
+    };
+    host.addEventListener('dm:copy-link-success', this.copyLinkListener);
+  }
+
+  ngOnDestroy(): void {
+    if (this.copyLinkHost && this.copyLinkListener) {
+      this.copyLinkHost.removeEventListener('dm:copy-link-success', this.copyLinkListener);
+    }
+    this.copyLinkHost = null;
+    this.copyLinkListener = null;
   }
 }
