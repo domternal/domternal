@@ -15,6 +15,11 @@
  * ```
  */
 export async function writeToClipboard(text: string): Promise<boolean> {
+  // TS DOM types model `navigator` and `navigator.clipboard` as always
+  // defined, but in SSR environments `navigator` is undefined entirely,
+  // and in insecure / older browsers `clipboard` itself is missing. The
+  // runtime checks are genuinely necessary even though TS disagrees.
+  /* eslint-disable @typescript-eslint/no-unnecessary-condition */
   if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
     try {
       await navigator.clipboard.writeText(text);
@@ -23,6 +28,7 @@ export async function writeToClipboard(text: string): Promise<boolean> {
       // Fall through to execCommand fallback.
     }
   }
+  /* eslint-enable @typescript-eslint/no-unnecessary-condition */
 
   if (typeof document === 'undefined') return false;
 
@@ -40,7 +46,10 @@ export async function writeToClipboard(text: string): Promise<boolean> {
     textarea.select();
     textarea.setSelectionRange(0, text.length);
     // `execCommand` is deprecated but remains the only synchronous fallback
-    // for clipboard writes when the async API is unavailable.
+    // for clipboard writes when the async API is unavailable. Modern
+    // browsers all ship `navigator.clipboard`, so this path is hit only in
+    // edge cases (insecure context, permissions denied).
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     return document.execCommand('copy');
   } catch {
     return false;

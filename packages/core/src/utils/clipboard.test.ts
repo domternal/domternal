@@ -9,6 +9,7 @@ interface ExecCommandDoc {
 
 describe('writeToClipboard', () => {
   let originalClipboard: typeof navigator.clipboard | undefined;
+  // eslint-disable-next-line @typescript-eslint/no-deprecated
   let originalExecCommand: typeof document.execCommand | undefined;
 
   beforeEach(() => {
