@@ -43,6 +43,25 @@ export interface BlockHandleOptions {
    * @default false
    */
   disableDrag?: boolean;
+  /**
+   * Auto-scroll the nearest scrollable ancestor when the user drags near
+   * the top/bottom edge of the viewport. Disable if the host app manages
+   * its own drag scroll behaviour.
+   * @default true
+   */
+  autoScroll?: boolean;
+  /**
+   * Distance in CSS pixels from the top/bottom edge that triggers
+   * auto-scroll. Larger values start scrolling sooner.
+   * @default 48
+   */
+  autoScrollThreshold?: number;
+  /**
+   * Peak scroll speed in CSS pixels per animation frame. Speed ramps
+   * linearly from 0 at the threshold to this value at the edge.
+   * @default 18
+   */
+  autoScrollMaxSpeed?: number;
 }
 
 export interface BlockHandlePluginState {
@@ -70,6 +89,28 @@ export interface CreateBlockHandlePluginOptions {
   editor: Editor;
   hideDelay: number;
   disableDrag: boolean;
+  autoScroll: boolean;
+  autoScrollThreshold: number;
+  autoScrollMaxSpeed: number;
+}
+
+/**
+ * Walks up from `el` to the nearest ancestor that actually scrolls
+ * vertically. Returns `document.scrollingElement` (typically `<html>`) when
+ * no ancestor qualifies — that's the last-resort scroll target for a full-
+ * page editor.
+ */
+function findScrollableAncestor(el: HTMLElement): HTMLElement | null {
+  let cur: HTMLElement | null = el;
+  while (cur) {
+    const style = getComputedStyle(cur);
+    const overflowY = style.overflowY;
+    if ((overflowY === 'auto' || overflowY === 'scroll') && cur.scrollHeight > cur.clientHeight) {
+      return cur;
+    }
+    cur = cur.parentElement;
+  }
+  return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
 }
 
 /**
@@ -114,7 +155,7 @@ function resolveBlockAtCoords(
 export function createBlockHandlePlugin(
   options: CreateBlockHandlePluginOptions,
 ): Plugin<BlockHandlePluginState> {
-  const { pluginKey, editor, hideDelay, disableDrag } = options;
+  const { pluginKey, editor, hideDelay, disableDrag, autoScroll, autoScrollThreshold, autoScrollMaxSpeed } = options;
 
   // --- Build DOM once. Buttons rendered with the shared Phosphor icons.
   const root = document.createElement('div');
@@ -139,6 +180,17 @@ export function createBlockHandlePlugin(
 
   let editorEl: HTMLElement | null = null;
   let hideTimer: number | null = null;
+
+  // Auto-scroll state (populated during an active drag).
+  let autoScrollRaf: number | null = null;
+  let autoScrollTarget: HTMLElement | null = null;
+  let lastDragoverClientY: number | null = null;
+  // Timestamp (ms, performance.now) of the most recent dragover event. Used
+  // by the RAF loop as a dead-man switch — if no dragover arrived in the
+  // last 1.5s we assume the drag was cancelled (crashed tab, browser ate
+  // the dragend event) and stop the loop to avoid leaking frames.
+  let lastDragoverAt = 0;
+  const DRAGOVER_SILENCE_MS = 1500;
 
   const clearHideTimer = (): void => {
     if (hideTimer !== null) {
@@ -269,6 +321,80 @@ export function createBlockHandlePlugin(
     }));
   };
 
+  // --- Auto-scroll during drag.
+  //
+  // A single RAF loop runs for the whole drag. Each frame reads the last
+  // known dragover Y and, if it's within `autoScrollThreshold` of the top
+  // or bottom edge of the scrollable target, nudges scroll by a ramped
+  // speed (linear from 0 at the threshold to `autoScrollMaxSpeed` at the
+  // edge). The loop self-terminates if dragover has been silent for longer
+  // than `DRAGOVER_SILENCE_MS` — a cheap failsafe against the browser
+  // skipping the `dragend` event (it happens on some OS/browser combos).
+
+  const onDocumentDragover = (event: DragEvent): void => {
+    lastDragoverClientY = event.clientY;
+    lastDragoverAt = performance.now();
+  };
+
+  const stopAutoScroll = (): void => {
+    if (autoScrollRaf !== null) {
+      cancelAnimationFrame(autoScrollRaf);
+      autoScrollRaf = null;
+    }
+    autoScrollTarget = null;
+    lastDragoverClientY = null;
+    lastDragoverAt = 0;
+    document.removeEventListener('dragover', onDocumentDragover);
+  };
+
+  const autoScrollTick = (): void => {
+    if (autoScrollTarget === null) {
+      autoScrollRaf = null;
+      return;
+    }
+    // Dead-man switch: if the browser stopped sending dragover events, the
+    // drag is effectively over. Bail rather than spinning forever.
+    if (lastDragoverAt > 0 && performance.now() - lastDragoverAt > DRAGOVER_SILENCE_MS) {
+      stopAutoScroll();
+      return;
+    }
+    if (lastDragoverClientY !== null) {
+      // Use the scroll target's own rect when it's a bounded element; fall
+      // back to the viewport for `document.documentElement` / body so the
+      // threshold math stays in screen space.
+      const isPageScroll = autoScrollTarget === document.documentElement
+        || autoScrollTarget === document.body;
+      const top = isPageScroll ? 0 : autoScrollTarget.getBoundingClientRect().top;
+      const bottom = isPageScroll
+        ? window.innerHeight
+        : autoScrollTarget.getBoundingClientRect().bottom;
+      const distFromTop = lastDragoverClientY - top;
+      const distFromBottom = bottom - lastDragoverClientY;
+      let delta = 0;
+      if (distFromTop < autoScrollThreshold && distFromTop >= 0) {
+        // Ramp: at the edge (dist=0) speed is maxSpeed; at threshold speed is 0.
+        delta = -Math.round(autoScrollMaxSpeed * (1 - distFromTop / autoScrollThreshold));
+      } else if (distFromBottom < autoScrollThreshold && distFromBottom >= 0) {
+        delta = Math.round(autoScrollMaxSpeed * (1 - distFromBottom / autoScrollThreshold));
+      }
+      if (delta !== 0) {
+        autoScrollTarget.scrollBy(0, delta);
+      }
+    }
+    autoScrollRaf = requestAnimationFrame(autoScrollTick);
+  };
+
+  const startAutoScroll = (): void => {
+    if (!autoScroll) return;
+    if (!editorEl) return;
+    autoScrollTarget = findScrollableAncestor(editorEl);
+    if (!autoScrollTarget) return;
+    lastDragoverClientY = null;
+    lastDragoverAt = performance.now();
+    document.addEventListener('dragover', onDocumentDragover);
+    autoScrollRaf = requestAnimationFrame(autoScrollTick);
+  };
+
   const onDragStart = (event: DragEvent): void => {
     if (disableDrag || !editor.isEditable) {
       event.preventDefault();
@@ -317,11 +443,16 @@ export function createBlockHandlePlugin(
 
     // Let other overlays know (close any open menus/popovers).
     editorEl?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
+
+    // Begin tracking dragover Y and ramping scroll as the cursor nears
+    // viewport edges. No-op when `autoScroll: false` or no scroll ancestor.
+    startAutoScroll();
   };
 
   const onDragEnd = (): void => {
     (editor.view as unknown as PMViewWithDragging).dragging = null;
     setDraggedFrom(editor.view, null);
+    stopAutoScroll();
   };
 
   return new Plugin<BlockHandlePluginState>({
@@ -435,6 +566,9 @@ export function createBlockHandlePlugin(
       return {
         destroy: () => {
           clearHideTimer();
+          // If the editor is destroyed mid-drag, stop the RAF loop and
+          // drop the document-level dragover listener immediately.
+          stopAutoScroll();
           editorEl?.removeEventListener('mousemove', onMouseMove);
           editorEl?.removeEventListener('mouseleave', onMouseLeave);
           editorEl?.removeEventListener('mouseenter', onMouseEnter);
@@ -460,6 +594,9 @@ export const BlockHandle = Extension.create<BlockHandleOptions>({
     return {
       hideDelay: 200,
       disableDrag: false,
+      autoScroll: true,
+      autoScrollThreshold: 48,
+      autoScrollMaxSpeed: 18,
     };
   },
 
@@ -472,6 +609,9 @@ export const BlockHandle = Extension.create<BlockHandleOptions>({
         editor,
         hideDelay: this.options.hideDelay ?? 200,
         disableDrag: this.options.disableDrag ?? false,
+        autoScroll: this.options.autoScroll ?? true,
+        autoScrollThreshold: this.options.autoScrollThreshold ?? 48,
+        autoScrollMaxSpeed: this.options.autoScrollMaxSpeed ?? 18,
       }),
     ];
   },
