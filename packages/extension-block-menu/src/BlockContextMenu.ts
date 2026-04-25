@@ -15,7 +15,7 @@
  * so theming is consistent: `role="menu"` container, `role="menuitem"`
  * buttons, `data-show` for visibility, positioned via `positionFloatingOnce`.
  */
-import { Extension, defaultIcons, positionFloatingOnce } from '@domternal/core';
+import { Extension, defaultIcons, positionFloatingOnce, writeToClipboard } from '@domternal/core';
 import type { Editor } from '@domternal/core';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
@@ -26,6 +26,16 @@ import {
   turnIntoBlock,
 } from './helpers/blockOperations.js';
 import { findTopLevelBlock } from './helpers/findTopLevelBlock.js';
+
+/**
+ * Shape of the `uniqueID` extension's options. We only read the two fields
+ * we care about; duplicating the full `UniqueIDOptions` type here avoids
+ * importing it from core (which would couple an otherwise-optional feature).
+ */
+interface UniqueIDOptionsShape {
+  attributeName?: string;
+  generateID?: () => string;
+}
 
 export const blockContextMenuPluginKey = new PluginKey('blockContextMenu');
 
@@ -69,6 +79,20 @@ export interface BlockContextMenuOptions {
    * @default DEFAULT_TURN_INTO
    */
   turnIntoTargets?: TurnIntoTarget[];
+  /**
+   * Show "Copy link" when the target block has an id attribute. Automatically
+   * becomes relevant when the `UniqueID` extension is loaded in the editor.
+   * @default true
+   */
+  copyLinkEnabled?: boolean;
+  /**
+   * Build the URL written to the clipboard when the user clicks "Copy link".
+   * Receives the block's id and the editor; returns a full URL. Default
+   * appends `#<id>` to the current pathname+search, which works for static
+   * pages. Frameworks with client-side routing should provide a callback
+   * matching their URL scheme.
+   */
+  onCopyLink?: (blockId: string, editor: Editor) => string;
 }
 
 export interface CreateBlockContextMenuPluginOptions {
@@ -76,6 +100,19 @@ export interface CreateBlockContextMenuPluginOptions {
   editor: Editor;
   turnIntoEnabled: boolean;
   turnIntoTargets: TurnIntoTarget[];
+  copyLinkEnabled: boolean;
+  onCopyLink: (blockId: string, editor: Editor) => string;
+}
+
+/**
+ * Default URL template for "Copy link to block" — appends `#<blockId>` to
+ * the current pathname+search. Works for static sites; SPA hosts should
+ * override via the `onCopyLink` option.
+ */
+function defaultCopyLinkUrl(blockId: string): string {
+  if (typeof window === 'undefined') return `#${blockId}`;
+  const { pathname, search } = window.location;
+  return `${pathname}${search}#${blockId}`;
 }
 
 /**
@@ -96,7 +133,19 @@ interface BlockContextMenuOpenDetail {
 export function createBlockContextMenuPlugin(
   options: CreateBlockContextMenuPluginOptions,
 ): Plugin {
-  const { pluginKey, editor, turnIntoEnabled, turnIntoTargets } = options;
+  const { pluginKey, editor, turnIntoEnabled, turnIntoTargets, copyLinkEnabled, onCopyLink } = options;
+
+  // Cache UniqueID detection once at plugin construction. The editor's
+  // extension list is immutable for the lifetime of the editor, so there's
+  // no need to re-check on every menu open. `null` means "UniqueID not
+  // loaded" which disables the Copy link item.
+  const uniqueIDExt = editor.extensionManager.extensions.find((ext) => ext.name === 'uniqueID');
+  const uniqueIDAttrName: string | null = uniqueIDExt
+    ? ((uniqueIDExt.options as UniqueIDOptionsShape).attributeName ?? 'id')
+    : null;
+  const uniqueIDGenerate: (() => string) | null = uniqueIDExt
+    ? ((uniqueIDExt.options as UniqueIDOptionsShape).generateID ?? null)
+    : null;
 
   // --- Build popup DOM once.
   const root = document.createElement('div');
@@ -162,7 +211,28 @@ export function createBlockContextMenuPlugin(
   const runDuplicate = (): void => {
     if (currentBlockPos === null) return;
     const pos = currentBlockPos;
-    runAndClose((tr) => { duplicateBlock(tr, pos); });
+    // When UniqueID is loaded, regenerate the id on the copy so it doesn't
+    // collide with the source. All other attrs (colors, levels, etc.) are
+    // preserved by spreading.
+    const transformAttrs = uniqueIDAttrName && uniqueIDGenerate
+      ? (attrs: Attrs): Attrs => ({ ...attrs, [uniqueIDAttrName]: uniqueIDGenerate() })
+      : undefined;
+    runAndClose((tr) => { duplicateBlock(tr, pos, transformAttrs); });
+  };
+
+  const runCopyLink = (blockId: string): void => {
+    const url = onCopyLink(blockId, editor);
+    void writeToClipboard(url).then((ok: boolean) => {
+      // Fire a custom event so host apps can render a toast or fallback UI.
+      // Event detail carries both the URL and the id so the host can format
+      // its own message ("Copied https://..." or "Copied link to paragraph").
+      editorEl?.dispatchEvent(new CustomEvent('dm:copy-link-success', {
+        bubbles: false,
+        detail: { url, blockId, success: ok },
+      }));
+    });
+    hide();
+    editor.view.focus();
   };
 
   const runTurnInto = (target: TurnIntoTarget): void => {
@@ -197,6 +267,17 @@ export function createBlockContextMenuPlugin(
       primaryGroup.appendChild(
         makeItem('Duplicate', 'copy', runDuplicate),
       );
+    }
+    // Copy link — only when UniqueID is loaded AND this block has an id attr
+    // AND the feature is enabled. Items on paragraphs without an id (legacy
+    // content) gracefully skip the item rather than copying an empty hash.
+    if (copyLinkEnabled && uniqueIDAttrName) {
+      const id = (node.attrs as Record<string, unknown>)[uniqueIDAttrName];
+      if (typeof id === 'string' && id.length > 0) {
+        primaryGroup.appendChild(
+          makeItem('Copy link', 'link', () => { runCopyLink(id); }),
+        );
+      }
     }
     root.appendChild(primaryGroup);
 
@@ -399,6 +480,8 @@ export const BlockContextMenu = Extension.create<BlockContextMenuOptions>({
     return {
       turnIntoEnabled: true,
       turnIntoTargets: DEFAULT_TURN_INTO,
+      copyLinkEnabled: true,
+      onCopyLink: defaultCopyLinkUrl,
     };
   },
 
@@ -411,6 +494,8 @@ export const BlockContextMenu = Extension.create<BlockContextMenuOptions>({
         editor,
         turnIntoEnabled: this.options.turnIntoEnabled ?? true,
         turnIntoTargets: this.options.turnIntoTargets ?? DEFAULT_TURN_INTO,
+        copyLinkEnabled: this.options.copyLinkEnabled ?? true,
+        onCopyLink: this.options.onCopyLink ?? defaultCopyLinkUrl,
       }),
     ];
   },
