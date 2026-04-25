@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import {
   Document,
   Text,
@@ -8,6 +8,7 @@ import {
   CodeBlock,
   BulletList,
   OrderedList,
+  UniqueID,
   Editor,
 } from '@domternal/core';
 import { BlockContextMenu } from './BlockContextMenu.js';
@@ -233,5 +234,173 @@ describe('BlockContextMenu click execution', () => {
     // jsdom's focus state on contenteditable is unreliable, so spy on the
     // method itself to verify refocus was attempted.
     expect(focusSpy).toHaveBeenCalled();
+  });
+});
+
+describe('BlockContextMenu Copy link + UniqueID integration', () => {
+  interface ExecCommandDoc {
+    execCommand?: (command: string) => boolean;
+  }
+
+  let originalClipboard: typeof navigator.clipboard | undefined;
+  // eslint-disable-next-line @typescript-eslint/no-deprecated
+  let originalExecCommand: typeof document.execCommand | undefined;
+
+  beforeEach(() => {
+    originalClipboard = navigator.clipboard;
+    originalExecCommand = (document as unknown as ExecCommandDoc).execCommand;
+    // Provide a stubbed execCommand so the clipboard fallback path succeeds
+    // in environments where jsdom doesn't ship one.
+    (document as unknown as ExecCommandDoc).execCommand = () => true;
+  });
+
+  afterEach(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: originalClipboard,
+      configurable: true,
+    });
+    if (originalExecCommand === undefined) {
+      delete (document as unknown as ExecCommandDoc).execCommand;
+    } else {
+      (document as unknown as ExecCommandDoc).execCommand = originalExecCommand;
+    }
+    vi.restoreAllMocks();
+  });
+
+  function makeEditorWithUniqueID(
+    html = '<p>Hello</p>',
+    contextMenuOptions: Parameters<typeof BlockContextMenu.configure>[0] = {},
+  ): Editor {
+    host = document.createElement('div');
+    host.className = 'dm-editor';
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: [
+        Document,
+        Text,
+        Paragraph,
+        Heading,
+        Blockquote,
+        UniqueID.configure({ types: ['paragraph', 'heading'] }),
+        BlockContextMenu.configure(contextMenuOptions),
+      ],
+      content: html,
+    });
+    return editor;
+  }
+
+  function findItemByLabel(label: string): HTMLButtonElement | null {
+    const items = host?.querySelectorAll<HTMLButtonElement>('.dm-block-context-menu-item');
+    if (!items) return null;
+    for (const btn of Array.from(items)) {
+      if (btn.getAttribute('aria-label') === label) return btn;
+    }
+    return null;
+  }
+
+  it('shows Copy link item when UniqueID is loaded and block has id', async () => {
+    makeEditorWithUniqueID();
+    // UniqueID assigns ids asynchronously via setTimeout in its view hook.
+    await new Promise((r) => setTimeout(r, 10));
+    openContextMenu(0);
+    expect(findItemByLabel('Copy link')).not.toBeNull();
+  });
+
+  it('hides Copy link item when UniqueID is not loaded', () => {
+    makeEditor('<p>Hello</p>');
+    openContextMenu(0);
+    expect(findItemByLabel('Copy link')).toBeNull();
+  });
+
+  it('hides Copy link item when copyLinkEnabled is false', async () => {
+    makeEditorWithUniqueID('<p>Hello</p>', { copyLinkEnabled: false });
+    await new Promise((r) => setTimeout(r, 10));
+    openContextMenu(0);
+    expect(findItemByLabel('Copy link')).toBeNull();
+  });
+
+  it('Copy link click writes the URL to the clipboard', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true,
+    });
+
+    makeEditorWithUniqueID();
+    await new Promise((r) => setTimeout(r, 10));
+    openContextMenu(0);
+    findItemByLabel('Copy link')?.click();
+    // Allow the pending clipboard promise to resolve before asserting.
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    const arg = writeText.mock.calls[0]?.[0] as string;
+    // URL ends with `#<id>`; the id comes from UniqueID so we can't hard-code.
+    expect(arg).toMatch(/#[a-f0-9-]+$/);
+  });
+
+  it('Copy link respects onCopyLink override', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      configurable: true,
+    });
+    const onCopyLink = vi.fn<(id: string, ed: Editor) => string>(
+      (id) => `https://app.example/doc?block=${id}`,
+    );
+
+    makeEditorWithUniqueID('<p>Hello</p>', { onCopyLink });
+    await new Promise((r) => setTimeout(r, 10));
+    openContextMenu(0);
+    findItemByLabel('Copy link')?.click();
+
+    expect(onCopyLink).toHaveBeenCalledTimes(1);
+    const call = onCopyLink.mock.calls[0];
+    expect(call).toBeDefined();
+    if (!call) return;
+    const [id, editorArg] = call;
+    expect(typeof id).toBe('string');
+    expect(id.length).toBeGreaterThan(0);
+    expect(editorArg).toBe(editor);
+  });
+
+  it('Copy link dispatches dm:copy-link-success on the editor host', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+      configurable: true,
+    });
+    const listener = vi.fn();
+
+    makeEditorWithUniqueID();
+    await new Promise((r) => setTimeout(r, 10));
+    host?.addEventListener('dm:copy-link-success', listener);
+    openContextMenu(0);
+    findItemByLabel('Copy link')?.click();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    const firstCall = listener.mock.calls[0];
+    expect(firstCall).toBeDefined();
+    if (!firstCall) return;
+    const ev = firstCall[0] as CustomEvent<{ url: string; blockId: string; success: boolean }>;
+    expect(ev.detail.url).toMatch(/#/);
+    expect(typeof ev.detail.blockId).toBe('string');
+    expect(ev.detail.success).toBe(true);
+  });
+
+  it('Duplicate regenerates id when UniqueID is loaded', async () => {
+    makeEditorWithUniqueID('<p>Hello</p>');
+    await new Promise((r) => setTimeout(r, 10));
+    const originalId = editor?.state.doc.firstChild?.attrs['id'] as string;
+    expect(originalId).toBeTruthy();
+
+    openContextMenu(0);
+    findItemByLabel('Duplicate')?.click();
+
+    const firstId = editor?.state.doc.child(0).attrs['id'] as string;
+    const secondId = editor?.state.doc.child(1).attrs['id'] as string;
+    expect(firstId).toBe(originalId);
+    expect(secondId).toBeTruthy();
+    expect(secondId).not.toBe(originalId);
   });
 });
