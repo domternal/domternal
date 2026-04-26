@@ -74,8 +74,18 @@ export function duplicateBlock(
 
 /**
  * Transforms the block at `blockPos` into a different textblock type while
- * preserving its inline content. Uses `tr.setBlockType` which only applies
- * when the target type is a textblock and the range contains textblocks.
+ * preserving its inline content AND any attributes that are valid on the
+ * target type. Without this, `setBlockType` would reset global attrs
+ * (bgColor, textColor, id, etc.) to their defaults — surprising users who
+ * expect "Turn into" to keep a block's color and identity.
+ *
+ * Which attrs carry over is decided by the target type's schema: attrs that
+ * exist on BOTH source and target flow through; attrs specific to the
+ * source type (e.g., `level` on a Heading when turning into Paragraph) are
+ * dropped naturally because the target doesn't declare them.
+ *
+ * The explicit `attrs` argument (e.g., `{ level: 2 }` for Heading 2) takes
+ * precedence over source attrs with the same key.
  *
  * Returns the transaction unchanged if the target type is not a textblock
  * or if the node at `blockPos` can't be transformed.
@@ -92,6 +102,18 @@ export function turnIntoBlock(
   // `setBlockType` requires the target to be a textblock; if it isn't, bail.
   if (!targetType.isTextblock) return tr;
   const blockEnd = blockPos + node.nodeSize;
-  tr.setBlockType(blockPos, blockEnd, targetType, attrs);
+
+  // Preserve source attrs that the target type also declares, then overlay
+  // caller-provided attrs on top. `targetType.spec.attrs` is the schema
+  // truth about which attrs are valid on the new type.
+  const validKeys = Object.keys(targetType.spec.attrs ?? {});
+  const preserved: Record<string, unknown> = {};
+  const sourceAttrs = node.attrs as Record<string, unknown>;
+  for (const key of validKeys) {
+    if (key in sourceAttrs) preserved[key] = sourceAttrs[key];
+  }
+  const mergedAttrs = attrs ? { ...preserved, ...attrs } : preserved;
+
+  tr.setBlockType(blockPos, blockEnd, targetType, mergedAttrs);
   return tr;
 }

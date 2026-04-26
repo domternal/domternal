@@ -6,6 +6,7 @@ import {
   Heading,
   Blockquote,
   CodeBlock,
+  BlockColor,
   Editor,
 } from '@domternal/core';
 import {
@@ -158,6 +159,61 @@ describe('blockOperations', () => {
       turnIntoBlock(tr, 999, paragraphType!);
       expect(tr.steps.length).toBe(0);
       editor.destroy();
+    });
+
+    it('preserves global attributes (bgColor, textColor) across type change', () => {
+      // With BlockColor loaded, both paragraph and heading declare bgColor
+      // and textColor attributes via addGlobalAttributes. Turning a colored
+      // paragraph into a heading must carry the colors over.
+      const host = document.createElement('div');
+      host.className = 'dm-editor';
+      document.body.appendChild(host);
+      const editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, Heading, BlockColor],
+        content: '<p data-bg-color="yellow" data-text-color="gray">Hello</p>',
+      });
+      const first = findTopLevelBlock(editor.state.doc, 1);
+      const headingType = editor.state.schema.nodes['heading'];
+      const tr = editor.state.tr;
+      turnIntoBlock(tr, first?.pos ?? 0, headingType!, { level: 1 });
+      editor.view.dispatch(tr);
+
+      const firstChild = editor.state.doc.firstChild;
+      expect(firstChild?.type.name).toBe('heading');
+      expect(firstChild?.attrs['level']).toBe(1);
+      // Colors survive the transformation.
+      expect(firstChild?.attrs['bgColor']).toBe('yellow');
+      expect(firstChild?.attrs['textColor']).toBe('gray');
+      editor.destroy();
+      host.remove();
+    });
+
+    it('caller-supplied attrs override preserved attrs with the same key', () => {
+      // If source has level=2 (from an attribute other than heading) and
+      // target is heading with level=1 supplied, the override wins. This
+      // uses paragraph-to-heading where paragraph has no `level` attr —
+      // the test is conceptual: the merge order is preserved-first then
+      // overrides.
+      const host = document.createElement('div');
+      host.className = 'dm-editor';
+      document.body.appendChild(host);
+      const editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, Heading, BlockColor],
+        content: '<h2 data-bg-color="blue">Two</h2>',
+      });
+      const first = findTopLevelBlock(editor.state.doc, 1);
+      const headingType = editor.state.schema.nodes['heading'];
+      const tr = editor.state.tr;
+      turnIntoBlock(tr, first?.pos ?? 0, headingType!, { level: 1 });
+      editor.view.dispatch(tr);
+
+      const firstChild = editor.state.doc.firstChild;
+      expect(firstChild?.attrs['level']).toBe(1); // override
+      expect(firstChild?.attrs['bgColor']).toBe('blue'); // preserved
+      editor.destroy();
+      host.remove();
     });
   });
 });
