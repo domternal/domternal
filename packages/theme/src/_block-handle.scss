@@ -9,8 +9,12 @@
 // (which sits at `left: 0.5rem` inside the editor) has space without being
 // clipped by the editor's `overflow: hidden`. Width is tokenised via
 // `--dm-block-handle-gutter` so themes can widen/narrow the gutter.
+//
+// Default is 4rem (64px) so the handle — 8px offset + ~46px of drag+plus
+// buttons ≈ 54px total — ends with clear visual separation before text
+// starts. A smaller gutter makes the handle overlap block content.
 .dm-editor--has-block-handle .ProseMirror {
-  padding-left: var(--dm-block-handle-gutter, 3rem);
+  padding-left: var(--dm-block-handle-gutter, 4rem);
 }
 
 .dm-block-handle {

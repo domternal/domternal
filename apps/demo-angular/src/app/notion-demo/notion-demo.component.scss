@@ -28,7 +28,12 @@
 
   /* stylelint-disable-next-line selector-pseudo-element-no-unknown */
   ::ng-deep .ProseMirror {
-    padding: 0;
+    // Do not reset `padding` here — the `--dm-editor-padding: 0` above
+    // already zeroes all sides via the theme's base rule, and
+    // `.dm-editor--has-block-handle .ProseMirror { padding-left: 3rem }`
+    // then restores the left gutter so the drag/plus handle has room.
+    // A `padding: 0` shorthand here would come later in the cascade and
+    // wipe that gutter, parking the handle on top of the block content.
     min-height: 60vh;
     outline: none;
 
