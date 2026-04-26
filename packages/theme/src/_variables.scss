@@ -42,6 +42,20 @@
   // Override per-editor if you need wider/narrower whitespace left of content.
   --dm-block-handle-gutter: 3rem;
 
+  // Horizontal offset of the BlockHandle from the editor's left edge.
+  // Negative values place the handle in the surrounding whitespace
+  // (requires `.dm-editor--has-block-handle { overflow: visible }`).
+  // Override to move the handle fully outside a centered content column
+  // — see the Notion demo for an example.
+  --dm-block-handle-left: -0.5rem;
+
+  // Inline padding pre-applied to every colorable block (paragraph, heading,
+  // blockquote, list item, task item). Pre-applying it here means that the
+  // `[data-bg-color]` rule in `_block-colors.scss` only paints a background
+  // — it does NOT add padding — so toggling a color does NOT shift text.
+  // Mirrors Notion's layout convention.
+  --dm-block-inline-padding: 0.375rem;
+
   // Shared drop shadow for popover surfaces (floating menu, slash command,
   // context menu). Override in dark theme for visibility on dark bg.
   --dm-popover-shadow: 0 10px 25px rgba(0, 0, 0, 0.08), 0 4px 10px rgba(0, 0, 0, 0.04);

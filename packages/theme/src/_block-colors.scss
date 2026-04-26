@@ -50,16 +50,15 @@
   [data-bg-color="pink"]   { background-color: var(--dm-block-bg-pink); }
   [data-bg-color="red"]    { background-color: var(--dm-block-bg-red); }
 
+  // Inline padding is pre-applied to colorable blocks in `_content.scss`
+  // (and to the editor itself for lists/blockquotes) so toggling a color
+  // does NOT shift text — the tint paints into existing padding. This
+  // rule is therefore minimal: only the rounded corners + a hair of
+  // vertical padding so the tint reads as a "pill" around short text
+  // instead of an edge-to-edge band.
   [data-bg-color] {
-    padding: 0.125rem 0.375rem;
+    padding-block: 0.125rem;
     border-radius: 0.25rem;
-  }
-
-  // List containers get the background but not the padding tweak —
-  // their list-item children already handle spacing.
-  ul[data-bg-color],
-  ol[data-bg-color] {
-    padding: 0.125rem 0.375rem 0.125rem 1.5rem;
   }
 
   [data-text-color="gray"]   { color: var(--dm-block-text-gray); }

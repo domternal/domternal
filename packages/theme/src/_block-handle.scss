@@ -5,27 +5,37 @@
 // =============================================================================
 
 // When the extension mounts it adds `dm-editor--has-block-handle` to the
-// editor wrapper. We reserve padding-left on `.ProseMirror` so the handle
-// (which sits at `left: 0.5rem` inside the editor) has space without being
-// clipped by the editor's `overflow: hidden`. Width is tokenised via
-// `--dm-block-handle-gutter` so themes can widen/narrow the gutter.
+// editor wrapper. Two things happen:
 //
-// Default is 4rem (64px) so the handle — 8px offset + ~46px of drag+plus
-// buttons ≈ 54px total — ends with clear visual separation before text
-// starts. A smaller gutter makes the handle overlap block content.
-.dm-editor--has-block-handle .ProseMirror {
-  padding-left: var(--dm-block-handle-gutter, 4rem);
+// 1) ProseMirror reserves gutter space with `padding-left` so text does
+//    not flow under the handle.
+// 2) The editor opens its horizontal overflow so the handle — positioned
+//    with a negative `left` — can render in the page margin rather than
+//    eating into the content column.
+//
+// Gutter default is 4rem (64px). Handle is 8px OUTSIDE the editor's
+// left edge (see `.dm-block-handle { left: -0.5rem }`) and ~46px wide,
+// so it ends ~38px inside the editor; the remaining ~26px of gutter is
+// breathing room before text, matching Notion's feel.
+.dm-editor--has-block-handle {
+  overflow: visible;
+
+  .ProseMirror {
+    padding-left: var(--dm-block-handle-gutter, 4rem);
+  }
 }
 
-// Selected-node halo — painted while the user drags a block or when a
-// NodeSelection is active. Gives the grabbed block visual weight so the
-// drag target is unambiguous, even when the drag preview sits under the
-// cursor far away. The pseudo-element is `z-index: -1` + `inset: -0.25rem`
-// so the halo sits *behind* the text and around the block's content
-// box, matching Tiptap's Notion-like editor treatment.
-.dm-editor .ProseMirror-selectednode,
-.dm-editor .ProseMirror-selectednoderange {
+// Selected-node visual indicator: the base theme's `outline: 2px solid`
+// (see `_prosemirror.scss`) paints OUTSIDE the block's border-box and
+// bleeds over anything adjacent — including the `.notion-page` right
+// border in the Notion demo, making it look like the border is missing.
+// When BlockHandle is active, suppress the outline and replace it with a
+// subtle `::before` halo that sits BEHIND the block content (`z-index: -1`)
+// and therefore never overlaps surrounding chrome.
+.dm-editor--has-block-handle .ProseMirror-selectednode,
+.dm-editor--has-block-handle .ProseMirror-selectednoderange {
   position: relative;
+  outline: none;
 
   &::before {
     content: '';
@@ -40,7 +50,14 @@
 
 .dm-block-handle {
   position: absolute;
-  left: 0.5rem;
+  // Tokenised so demos with a centered narrower content column can move
+  // the handle further out (e.g., `--dm-block-handle-left: -3.5rem`) to
+  // place it fully in the surrounding whitespace. Default `-0.5rem` keeps
+  // the handle just outside the editor's left border for full-width
+  // editors with the standard `--dm-block-handle-gutter` reservation on
+  // ProseMirror. Requires `overflow: visible` (set above on
+  // `.dm-editor--has-block-handle`) so it isn't clipped.
+  left: var(--dm-block-handle-left, -0.5rem);
   display: flex;
   align-items: center;
   gap: 2px;
