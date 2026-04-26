@@ -26,6 +26,7 @@ import type { EditorView } from '@domternal/pm/view';
 import type { Slice } from '@domternal/pm/model';
 import { findTopLevelBlock, findDraggableBlock } from './helpers/findTopLevelBlock.js';
 import { moveBlock } from './helpers/moveBlock.js';
+import { buildDragPreview } from './helpers/cloneElement.js';
 
 /** Default list of nodes treated as drag-targetable when `nested: true`. */
 export const DEFAULT_NESTED_NODES: string[] = ['listItem', 'taskItem'];
@@ -94,9 +95,18 @@ export interface BlockHandlePluginState {
  * Minimal shape for ProseMirror's internal `view.dragging` property.
  * Assigning to it tells PM that a drag is in progress and which slice is
  * being moved; PM's default drop handler reads this to finalise the move.
+ *
+ * `node` is an undocumented but critical field — when present, PM's drop
+ * handler treats it as the authoritative source selection to delete from
+ * the old location, rather than relying on `view.state.selection`. The
+ * browser may shift the selection mid-drag (e.g. when the user clicks
+ * somewhere else during the drag), which without `node` causes the
+ * original block to survive the drop. Setting it explicitly from the
+ * `NodeSelection` we created on dragstart is Tiptap's fix for the same
+ * family of bugs.
  */
 interface PMViewWithDragging {
-  dragging: { slice: Slice; move: boolean } | null;
+  dragging: { slice: Slice; move: boolean; node?: NodeSelection } | null;
 }
 
 export interface CreateBlockHandlePluginOptions {
@@ -116,9 +126,11 @@ export interface CreateBlockHandlePluginOptions {
 
 /**
  * Walks up from `el` to the nearest ancestor that actually scrolls
- * vertically. Returns `document.scrollingElement` (typically `<html>`) when
- * no ancestor qualifies — that's the last-resort scroll target for a full-
- * page editor.
+ * vertically. Returns `null` when no bounded scrollable ancestor exists —
+ * the caller should then skip its custom scroll loop and let the browser's
+ * native drag-edge autoscroll handle page-level scrolling. Running both
+ * our RAF scrollBy AND the browser's native scroll at the same time
+ * double-scrolls and feels janky.
  */
 function findScrollableAncestor(el: HTMLElement): HTMLElement | null {
   let cur: HTMLElement | null = el;
@@ -130,7 +142,7 @@ function findScrollableAncestor(el: HTMLElement): HTMLElement | null {
     }
     cur = cur.parentElement;
   }
-  return (document.scrollingElement as HTMLElement | null) ?? document.documentElement;
+  return null;
 }
 
 /**
@@ -225,6 +237,27 @@ export function createBlockHandlePlugin(
   let editorEl: HTMLElement | null = null;
   let hideTimer: number | null = null;
 
+  // Hover-tick state — rAF-coalesced to keep the handle glide-smooth even
+  // when mousemove fires ~240Hz on high-refresh pointers. Only one rAF is
+  // registered at a time; latest coords win. `currentHoveredPos` is the
+  // identity gate: we only repaint when the ProseMirror position under
+  // the cursor *changes*, not on every micro-move within the same block.
+  let hoverRaf: number | null = null;
+  let pendingHoverCoords: { x: number; y: number } | null = null;
+  let currentHoveredPos: number | null = null;
+  // Set on `mousedown` on the drag button, cleared on `mouseup` / `dragend`.
+  // While truthy, hover updates are paused so the handle does NOT jump to
+  // a neighbouring block during the browser's drag-initiation window
+  // (the ~3-5px mousedown+move that decides click-vs-drag). Without this
+  // lock, the handle slides out from under the user's cursor before the
+  // browser has decided the interaction is a drag, and `dragstart` never
+  // fires — feels like "click and hold does nothing".
+  let dragPressActive = false;
+
+  // Active drag preview wrapper — built on dragstart via `buildDragPreview`,
+  // removed on drop/dragend.
+  let dragPreview: HTMLElement | null = null;
+
   // Auto-scroll state (populated during an active drag).
   let autoScrollRaf: number | null = null;
   let autoScrollTarget: HTMLElement | null = null;
@@ -247,6 +280,7 @@ export function createBlockHandlePlugin(
 
   const hide = (): void => {
     root.removeAttribute('data-show');
+    currentHoveredPos = null;
   };
 
   const scheduleHide = (): void => {
@@ -273,17 +307,49 @@ export function createBlockHandlePlugin(
     view.dispatch(view.state.tr.setMeta(pluginKey, { draggedFrom: pos }));
   };
 
+  // mousemove is the single hottest event on the editor — high-refresh
+  // pointers fire it at 240+Hz. Running `posAtCoords` + `getBoundingClientRect`
+  // + `style.top` writes on every tick causes visible wobble because each
+  // layout read forces sync layout and each write flips the visibility of
+  // the handle one frame at a time. Coalescing to one rAF per frame and
+  // gating reposition on ProseMirror-position identity eliminates both.
   const onMouseMove = (event: MouseEvent): void => {
     if (!editorEl) return;
-    const resolved = resolveBlockAtCoords(editor.view, event.clientX, event.clientY, nestedNodes);
-    if (!resolved) {
-      scheduleHide();
-      return;
-    }
-    clearHideTimer();
-    const editorRect = editorEl.getBoundingClientRect();
-    show(resolved.rect, editorRect);
-    updateHoverState(editor.view, resolved.pos);
+    // Freeze the handle in place while the user is pressing the drag
+    // button. Moving it here would slide the button out from under the
+    // cursor before the browser decides the interaction is a drag.
+    if (dragPressActive) return;
+    pendingHoverCoords = { x: event.clientX, y: event.clientY };
+    if (hoverRaf !== null) return;
+    hoverRaf = requestAnimationFrame(() => {
+      hoverRaf = null;
+      const coords = pendingHoverCoords;
+      pendingHoverCoords = null;
+      if (!coords || !editorEl) return;
+      const resolved = resolveBlockAtCoords(editor.view, coords.x, coords.y, nestedNodes);
+      if (!resolved) {
+        scheduleHide();
+        return;
+      }
+      clearHideTimer();
+      // `updateHoverState` is a no-op when PM plugin state already matches
+      // — keep it unconditional so that if a prior docChanged transaction
+      // cleared `state.hoveredPos` (forward-assoc mapping can still miss
+      // the edge cases around setNodeMarkup), the next hover tick
+      // re-asserts it. Skipping this led to "click on drag handle does
+      // nothing" after a color-swatch change, since the subsequent click
+      // would bail with `hoveredPos === null`.
+      updateHoverState(editor.view, resolved.pos);
+      // Identity gate for the visual reposition only: don't rewrite
+      // style.top + data-show if the cursor is still over the same block.
+      // That's where the measurable smoothness win lives.
+      if (resolved.pos === currentHoveredPos && root.hasAttribute('data-show')) {
+        return;
+      }
+      currentHoveredPos = resolved.pos;
+      const editorRect = editorEl.getBoundingClientRect();
+      show(resolved.rect, editorRect);
+    });
   };
 
   const onMouseLeave = (): void => {
@@ -340,6 +406,16 @@ export function createBlockHandlePlugin(
   // actions via `editor.view.focus()`.
   const onPlusBtnMouseDown = (event: MouseEvent): void => {
     event.preventDefault();
+  };
+
+  // Lock the handle in place from mousedown through dragend (or mouseup
+  // without drag). Prevents the rAF hover loop from repositioning the
+  // handle out from under the cursor during the click-vs-drag window.
+  const onDragBtnMouseDown = (): void => {
+    dragPressActive = true;
+  };
+  const releaseDragPress = (): void => {
+    dragPressActive = false;
   };
 
   // --- Drag handle: click opens context menu, drag reorders the block.
@@ -405,17 +481,13 @@ export function createBlockHandlePlugin(
       return;
     }
     if (lastDragoverClientY !== null) {
-      // Use the scroll target's own rect when it's a bounded element; fall
-      // back to the viewport for `document.documentElement` / body so the
-      // threshold math stays in screen space.
-      const isPageScroll = autoScrollTarget === document.documentElement
-        || autoScrollTarget === document.body;
-      const top = isPageScroll ? 0 : autoScrollTarget.getBoundingClientRect().top;
-      const bottom = isPageScroll
-        ? window.innerHeight
-        : autoScrollTarget.getBoundingClientRect().bottom;
-      const distFromTop = lastDragoverClientY - top;
-      const distFromBottom = bottom - lastDragoverClientY;
+      // `findScrollableAncestor` only returns bounded elements now, so we
+      // measure against the scrollable rect directly. Page-level scroll
+      // is handled by the browser's own drag-edge autoscroll (running
+      // both would double-scroll and visibly jank).
+      const rect = autoScrollTarget.getBoundingClientRect();
+      const distFromTop = lastDragoverClientY - rect.top;
+      const distFromBottom = rect.bottom - lastDragoverClientY;
       let delta = 0;
       if (distFromTop < autoScrollThreshold && distFromTop >= 0) {
         // Ramp: at the edge (dist=0) speed is maxSpeed; at threshold speed is 0.
@@ -460,45 +532,85 @@ export function createBlockHandlePlugin(
 
     const sourceEnd = pos + node.nodeSize;
     const slice = editor.view.state.doc.slice(pos, sourceEnd);
+    const nodeSelection = NodeSelection.create(editor.view.state.doc, pos);
 
-    // Select the whole block as a NodeSelection so ProseMirror knows what
-    // is being dragged (important for Dropcursor and drop-target logic).
-    editor.view.dispatch(
-      editor.view.state.tr.setSelection(
-        NodeSelection.create(editor.view.state.doc, pos),
-      ),
-    );
-
-    // Inform ProseMirror that a drag is in progress. Its built-in handlers
-    // (Dropcursor, default drop) read `view.dragging` to decide behaviour.
-    (editor.view as unknown as PMViewWithDragging).dragging = { slice, move: true };
-
+    // Set the drag preview BEFORE any PM dispatch: the browser only honours
+    // `setDragImage` during the initial dragstart tick. If we dispatch a
+    // transaction first, PM re-renders and the nodeDOM we captured may be
+    // replaced before we set the image.
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = 'move';
       // `text/plain` fallback — Firefox cancels the drag if no data is set.
       event.dataTransfer.setData('text/plain', node.textContent);
       const dom = editor.view.nodeDOM(pos);
       if (dom instanceof HTMLElement) {
-        event.dataTransfer.setDragImage(dom, 10, 10);
+        // Build a styled, off-screen clone as the drag preview. Passing
+        // the live DOM to setDragImage captures ambient transforms, clip,
+        // and scroll offsets from ancestors — the clone is always crisp.
+        dragPreview = buildDragPreview(dom);
+        event.dataTransfer.setDragImage(dragPreview, 10, 10);
       }
     }
 
-    setDraggedFrom(editor.view, pos);
-    // Hide the handle itself during drag — it's being used, not hovered.
-    hide();
+    // Inform ProseMirror that a drag is in progress. Including `node` is
+    // critical: PM's built-in drop handler deletes the source using this
+    // NodeSelection rather than the current view selection, which may
+    // shift unexpectedly mid-drag. Without it, the block occasionally
+    // survives the drop (the classic "phantom source" bug).
+    //
+    // This assignment is sync-only and doesn't mutate the DOM; it's safe
+    // to do inside the dragstart tick.
+    (editor.view as unknown as PMViewWithDragging).dragging = {
+      slice,
+      move: true,
+      node: nodeSelection,
+    };
 
-    // Let other overlays know (close any open menus/popovers).
-    editorEl?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
+    // CRITICAL — do not move this work back into the sync dragstart tick.
+    //
+    // Chrome's HTML5 drag machinery commits the drag in the microtask
+    // immediately after the `dragstart` handler returns. If the drag
+    // source's DOM mutates in any way between dragstart and that commit,
+    // Chrome aborts the drag and fires `dragend` INSTANTLY — the user
+    // sees "click and hold does absolutely nothing" (crbug/168544,
+    // react-dnd #1085).
+    //
+    // Concrete failure we observed: dispatching
+    // `setSelection(NodeSelection) + setMeta(draggedFrom)` synchronously
+    // caused PM to add the `.ProseMirror-selectednode` class to the
+    // dragged block's DOM. That class mutation was enough for Chrome
+    // to kill the drag before a single `drag` or `dragover` event fired.
+    //
+    // Deferring to `setTimeout(..., 0)` runs after the browser has
+    // already committed; the subsequent mutations are safe.
+    window.setTimeout(() => {
+      editor.view.dispatch(
+        editor.view.state.tr
+          .setSelection(nodeSelection)
+          .setMeta(pluginKey, { draggedFrom: pos }),
+      );
+      editorEl?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
+      hide();
+    }, 0);
 
     // Begin tracking dragover Y and ramping scroll as the cursor nears
     // viewport edges. No-op when `autoScroll: false` or no scroll ancestor.
     startAutoScroll();
   };
 
+  const teardownDragPreview = (): void => {
+    if (dragPreview) {
+      dragPreview.remove();
+      dragPreview = null;
+    }
+  };
+
   const onDragEnd = (): void => {
     (editor.view as unknown as PMViewWithDragging).dragging = null;
     setDraggedFrom(editor.view, null);
     stopAutoScroll();
+    teardownDragPreview();
+    releaseDragPress();
   };
 
   return new Plugin<BlockHandlePluginState>({
@@ -519,16 +631,19 @@ export function createBlockHandlePlugin(
         }
         // Map positions through doc changes so collaborative / programmatic
         // transactions that happen while hovering or dragging don't leave
-        // us pointing at the wrong block. `mapping.mapResult` reports
-        // `deleted: true` when the position falls inside a removed range —
-        // in that case we null out the field.
+        // us pointing at the wrong block. Use assoc=1 (forward bias) so
+        // `setNodeMarkup` on the hovered block — which replaces the node
+        // with the same type but new attrs — does NOT treat the left
+        // boundary as deleted. Without the forward bias, BlockColor's
+        // swatch click would wipe `hoveredPos`, causing the next click
+        // on the handle to bail silently.
         if (tr.docChanged) {
           if (next.hoveredPos !== null) {
-            const mapped = tr.mapping.mapResult(next.hoveredPos);
+            const mapped = tr.mapping.mapResult(next.hoveredPos, 1);
             next = { ...next, hoveredPos: mapped.deleted ? null : mapped.pos };
           }
           if (next.draggedFrom !== null) {
-            const mapped = tr.mapping.mapResult(next.draggedFrom);
+            const mapped = tr.mapping.mapResult(next.draggedFrom, 1);
             next = { ...next, draggedFrom: mapped.deleted ? null : mapped.pos };
           }
         }
@@ -537,47 +652,39 @@ export function createBlockHandlePlugin(
     },
 
     props: {
+      // Custom drop handler — gives Notion-like "above-mid → insert before,
+      // below-mid → insert after" block-level semantics instead of PM's
+      // default `posAtCoords + dropPoint` which for short paragraphs
+      // rounds to an arbitrary neighbour boundary and surprises users.
+      // The `moveBlock` helper handles the delete+insert + position
+      // adjustment so the block keeps its attrs (UniqueID, colors) and
+      // the doc ends up in a predictable state.
       handleDrop(view, event, _slice, moved): boolean {
         if (!moved) return false;
         const state = pluginKey.getState(view.state);
         const draggedFrom = state?.draggedFrom ?? null;
-        // Not our drag — let PM / other handlers process it.
         if (draggedFrom === null) return false;
 
         const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
-        if (!coords) {
-          event.preventDefault();
-          return true;
-        }
+        if (!coords) { event.preventDefault(); return true; }
 
         const sourceNode = view.state.doc.nodeAt(draggedFrom);
-        if (!sourceNode) {
-          event.preventDefault();
-          return true;
-        }
+        if (!sourceNode) { event.preventDefault(); return true; }
 
-        // Resolve drop target. In nested mode, use the same
-        // `findDraggableBlock` walk so dropping between list items lands
-        // the slice at the correct boundary within the list. In classic
-        // mode, fall back to the top-level block. Either way, compare
-        // cursor Y against the target's vertical midpoint: above = insert
-        // before, below = insert after (matches Dropcursor placement).
+        // In nested mode resolve the target against the same draggable-node
+        // list used for hover, so dropping between list items lands the
+        // slice at the correct boundary inside the list.
         const targetBlock = nestedNodes.length > 0
           ? findDraggableBlock(view.state.doc, coords.pos, nestedNodes)
           : findTopLevelBlock(view.state.doc, coords.pos);
-        if (!targetBlock) {
-          event.preventDefault();
-          return true;
-        }
+        if (!targetBlock) { event.preventDefault(); return true; }
 
         let targetPos = targetBlock.pos;
         const targetDOM = view.nodeDOM(targetBlock.pos);
         if (targetDOM instanceof HTMLElement) {
           const rect = targetDOM.getBoundingClientRect();
           const midY = rect.top + rect.height / 2;
-          if (event.clientY > midY) {
-            targetPos = targetBlock.end;
-          }
+          if (event.clientY > midY) targetPos = targetBlock.end;
         }
 
         event.preventDefault();
@@ -606,9 +713,16 @@ export function createBlockHandlePlugin(
 
       plusBtn.addEventListener('mousedown', onPlusBtnMouseDown);
       plusBtn.addEventListener('click', onPlusClick);
-      // dragBtn: intentionally no mousedown handler — see comment on
-      // `onPlusBtnMouseDown`. Click / dragstart / dragend cover the two
-      // interactions (context menu vs drag-to-reorder).
+      // dragBtn mousedown is a no-preventDefault listener — we rely on
+      // the browser's native drag initiation (`draggable="true"`) and
+      // only use mousedown to set a hover-freeze lock so the handle
+      // doesn't slide away before the drag threshold is crossed.
+      dragBtn.addEventListener('mousedown', onDragBtnMouseDown);
+      // Fallback for the click-without-drag case: if the user presses
+      // then releases without moving, the browser fires `mouseup` but
+      // no `dragend`. Releasing the lock on document mouseup covers
+      // both paths (drag ended off-target + plain click).
+      document.addEventListener('mouseup', releaseDragPress);
       dragBtn.addEventListener('click', onDragBtnClick);
       dragBtn.addEventListener('dragstart', onDragStart);
       dragBtn.addEventListener('dragend', onDragEnd);
@@ -619,12 +733,19 @@ export function createBlockHandlePlugin(
           // If the editor is destroyed mid-drag, stop the RAF loop and
           // drop the document-level dragover listener immediately.
           stopAutoScroll();
+          teardownDragPreview();
+          if (hoverRaf !== null) {
+            cancelAnimationFrame(hoverRaf);
+            hoverRaf = null;
+          }
           editorEl?.removeEventListener('mousemove', onMouseMove);
           editorEl?.removeEventListener('mouseleave', onMouseLeave);
           editorEl?.removeEventListener('mouseenter', onMouseEnter);
           editorEl?.removeEventListener('dm:dismiss-overlays', onDismissOverlays);
           plusBtn.removeEventListener('mousedown', onPlusBtnMouseDown);
           plusBtn.removeEventListener('click', onPlusClick);
+          dragBtn.removeEventListener('mousedown', onDragBtnMouseDown);
+          document.removeEventListener('mouseup', releaseDragPress);
           dragBtn.removeEventListener('click', onDragBtnClick);
           dragBtn.removeEventListener('dragstart', onDragStart);
           dragBtn.removeEventListener('dragend', onDragEnd);

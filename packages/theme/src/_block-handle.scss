@@ -17,6 +17,27 @@
   padding-left: var(--dm-block-handle-gutter, 4rem);
 }
 
+// Selected-node halo — painted while the user drags a block or when a
+// NodeSelection is active. Gives the grabbed block visual weight so the
+// drag target is unambiguous, even when the drag preview sits under the
+// cursor far away. The pseudo-element is `z-index: -1` + `inset: -0.25rem`
+// so the halo sits *behind* the text and around the block's content
+// box, matching Tiptap's Notion-like editor treatment.
+.dm-editor .ProseMirror-selectednode,
+.dm-editor .ProseMirror-selectednoderange {
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -0.25rem;
+    background-color: var(--dm-block-selected-halo, rgba(112, 207, 248, 0.25));
+    border-radius: 0.25rem;
+    pointer-events: none;
+    z-index: -1;
+  }
+}
+
 .dm-block-handle {
   position: absolute;
   left: 0.5rem;
@@ -50,6 +71,12 @@
     cursor: pointer;
     border-radius: 3px;
     transition: background-color 0.1s, color 0.1s;
+    // Defensive: stop text selection / touch pan from hijacking the
+    // pointer during mousedown-to-drag. Not strictly required on
+    // Chrome/Firefox but avoids edge cases on Safari + touch devices.
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
 
     &:hover {
       background: var(--dm-button-hover-bg, rgba(0, 0, 0, 0.04));

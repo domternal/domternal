@@ -196,6 +196,9 @@ describe('BlockHandle auto-scroll during drag', () => {
   let rafCallbacks: FrameRequestCallback[] = [];
   let originalScrollBy: typeof document.documentElement.scrollBy | undefined;
   let scrollByCalls: [number, number][] = [];
+  // Wrapper DIV that `findScrollableAncestor` resolves to — tests need a
+  // bounded scrollable ancestor (see `makeEditorWithHandle`).
+  let scrollWrapper: HTMLElement | undefined;
 
   /**
    * jsdom doesn't implement `DragEvent`, but ProseMirror and the plugin
@@ -254,10 +257,36 @@ describe('BlockHandle auto-scroll during drag', () => {
     cb?.(performance.now());
   }
 
+  /**
+   * Wraps the editor host in a parent that reports as vertically scrollable
+   * (overflow-y: scroll + scrollHeight > clientHeight). `findScrollableAncestor`
+   * now intentionally returns null when no bounded scrollable ancestor
+   * exists — page-level scroll is owned by the browser's native drag-edge
+   * autoscroll, so our RAF loop would double-up. Tests wrap the editor in
+   * a real bounded container so the loop has a legitimate target.
+   */
   function makeEditorWithHandle(): Editor {
+    scrollWrapper = document.createElement('div');
+    scrollWrapper.style.overflowY = 'scroll';
+    scrollWrapper.style.height = '400px';
+    // jsdom doesn't update scroll metrics based on inline style. Force the
+    // two properties `findScrollableAncestor` reads so the wrapper qualifies.
+    Object.defineProperty(scrollWrapper, 'scrollHeight', { value: 2000, configurable: true });
+    Object.defineProperty(scrollWrapper, 'clientHeight', { value: 400, configurable: true });
+    // Same story for scrollBy — jsdom omits it on Element.
+    scrollWrapper.scrollBy = ((x: number, y: number): void => { scrollByCalls.push([x, y]); }) as Element['scrollBy'];
+    Object.defineProperty(scrollWrapper, 'getBoundingClientRect', {
+      value: (): DOMRect => ({
+        top: 0, left: 0, right: 800, bottom: 400,
+        x: 0, y: 0, width: 800, height: 400, toJSON: (): object => ({}),
+      }),
+      configurable: true,
+    });
+    document.body.appendChild(scrollWrapper);
+
     host = document.createElement('div');
     host.className = 'dm-editor';
-    document.body.appendChild(host);
+    scrollWrapper.appendChild(host);
     editor = new Editor({
       element: host,
       extensions: [Document, Text, Paragraph, Heading, BlockHandle],
@@ -291,6 +320,10 @@ describe('BlockHandle auto-scroll during drag', () => {
     restoreScrollByStub();
     rafCallbacks = [];
     scrollByCalls = [];
+    if (scrollWrapper) {
+      scrollWrapper.remove();
+      scrollWrapper = undefined;
+    }
   });
 
   it('schedules a RAF loop on dragstart when autoScroll is enabled (default)', () => {
@@ -323,8 +356,9 @@ describe('BlockHandle auto-scroll during drag', () => {
     makeEditorWithHandle();
 
     dispatchDragStart();
-    // jsdom default window.innerHeight = 768; close to bottom = inside threshold.
-    dispatchDragOver(window.innerHeight - 10);
+    // Wrapper rect goes from top=0 to bottom=400. 390 is 10px from the
+    // bottom edge — inside the default 48px threshold.
+    dispatchDragOver(390);
     tickRaf();
 
     expect(scrollByCalls.length).toBeGreaterThan(0);
@@ -338,7 +372,9 @@ describe('BlockHandle auto-scroll during drag', () => {
     makeEditorWithHandle();
 
     dispatchDragStart();
-    dispatchDragOver(window.innerHeight / 2);
+    // Middle of the 400px-tall wrapper — well outside both top and bottom
+    // thresholds.
+    dispatchDragOver(200);
     tickRaf();
 
     expect(scrollByCalls.length).toBe(0);
