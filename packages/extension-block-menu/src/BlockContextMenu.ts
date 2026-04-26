@@ -213,6 +213,12 @@ export function createBlockContextMenuPlugin(
   const focusItem = (index: number): void => {
     if (menuItemButtons.length === 0) return;
     const clamped = Math.max(0, Math.min(index, menuItemButtons.length - 1));
+    // Roving tabindex: only the currently-focused item is in the Tab order.
+    // Without this, Tab-away-and-back lands on the wrong item (WAI-ARIA menu pattern).
+    for (let i = 0; i < menuItemButtons.length; i++) {
+      const btn = menuItemButtons[i];
+      if (btn) btn.tabIndex = i === clamped ? 0 : -1;
+    }
     focusedIndex = clamped;
     menuItemButtons[clamped]?.focus();
   };
