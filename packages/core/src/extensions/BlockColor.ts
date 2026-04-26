@@ -106,6 +106,16 @@ export const BlockColor = Extension.create<BlockColorOptions>({
     };
   },
 
+  // Defensive fallback: an empty `bgColors`/`textColors` array would render
+  // a broken Colors UI (section title with only the null-reset swatch).
+  // Replace empties with the default palette so users who pass `{}` as an
+  // override still get a working picker. Runs AFTER `addOptions()` merges
+  // user config with defaults, so this only fires for explicit empty arrays.
+  onBeforeCreate() {
+    if (this.options.bgColors.length === 0) this.options.bgColors = DEFAULT_BLOCK_COLORS;
+    if (this.options.textColors.length === 0) this.options.textColors = DEFAULT_BLOCK_COLORS;
+  },
+
   addGlobalAttributes() {
     return [
       {

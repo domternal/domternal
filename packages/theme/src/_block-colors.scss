@@ -162,15 +162,37 @@
   &[data-color="red"]::before    { background: var(--dm-block-bg-red); }
 }
 
-// Text swatches show a capital A in the named color against a neutral dot.
+// Text swatches render a capital "A" in the named color on a neutral dot
+// background, mirroring Notion's convention so users can tell at a glance
+// which row sets text vs background. The "A" comes from the `content`
+// pseudo-element; the dot background stays neutral (var(--dm-surface)) so
+// the colored glyph is readable regardless of palette tint.
 .dm-block-color-swatch--text {
-  &[data-color="gray"]::before   { background: var(--dm-block-text-gray); }
-  &[data-color="brown"]::before  { background: var(--dm-block-text-brown); }
-  &[data-color="orange"]::before { background: var(--dm-block-text-orange); }
-  &[data-color="yellow"]::before { background: var(--dm-block-text-yellow); }
-  &[data-color="green"]::before  { background: var(--dm-block-text-green); }
-  &[data-color="blue"]::before   { background: var(--dm-block-text-blue); }
-  &[data-color="purple"]::before { background: var(--dm-block-text-purple); }
-  &[data-color="pink"]::before   { background: var(--dm-block-text-pink); }
-  &[data-color="red"]::before    { background: var(--dm-block-text-red); }
+  &::before {
+    content: 'A';
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--dm-editor-font-family, system-ui, sans-serif);
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--dm-surface, #f8f9fa);
+    color: var(--dm-editor-text, #333);
+  }
+
+  &[data-color="null"]::before {
+    // The strike-through "no color" swatch already renders its own glyph;
+    // clear the "A" so the two indicators don't stack.
+    content: '';
+  }
+
+  &[data-color="gray"]::before   { color: var(--dm-block-text-gray); }
+  &[data-color="brown"]::before  { color: var(--dm-block-text-brown); }
+  &[data-color="orange"]::before { color: var(--dm-block-text-orange); }
+  &[data-color="yellow"]::before { color: var(--dm-block-text-yellow); }
+  &[data-color="green"]::before  { color: var(--dm-block-text-green); }
+  &[data-color="blue"]::before   { color: var(--dm-block-text-blue); }
+  &[data-color="purple"]::before { color: var(--dm-block-text-purple); }
+  &[data-color="pink"]::before   { color: var(--dm-block-text-pink); }
+  &[data-color="red"]::before    { color: var(--dm-block-text-red); }
 }

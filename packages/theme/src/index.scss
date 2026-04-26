@@ -94,9 +94,11 @@
   .dm-link-popover-btn,
   .dm-block-handle,
   .dm-block-handle-btn,
+  .dm-block-color-swatch,
   .dm-slash-command-item,
   .dm-block-context-menu-item,
   .dm-editor .ProseMirror div[data-type="details"] > button[type="button"]::before {
     transition: none;
+    transform: none;
   }
 }

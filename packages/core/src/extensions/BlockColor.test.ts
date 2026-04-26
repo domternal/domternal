@@ -68,6 +68,30 @@ describe('BlockColor configuration', () => {
     expect(configured.options.bgColors).toEqual(['yellow', 'blue']);
     expect(configured.options.textColors).toEqual(['red']);
   });
+
+  it('falls back to the default palette when bgColors or textColors is empty', () => {
+    // Empty palettes would render a broken picker (section with no swatches).
+    // onBeforeCreate swaps them for the default list so the feature stays usable.
+    const configured = BlockColor.configure({ bgColors: [], textColors: [] });
+    const host = document.createElement('div');
+    host.className = 'dm-editor';
+    document.body.appendChild(host);
+    const ed = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, configured],
+      content: '<p>Hi</p>',
+    });
+    interface PaletteShape {
+      bgColors: string[];
+      textColors: string[];
+    }
+    const ext = ed.extensionManager.extensions.find((e) => e.name === 'blockColor');
+    const opts = ext?.options as PaletteShape | undefined;
+    expect(opts?.bgColors).toEqual(DEFAULT_BLOCK_COLORS);
+    expect(opts?.textColors).toEqual(DEFAULT_BLOCK_COLORS);
+    ed.destroy();
+    host.remove();
+  });
 });
 
 describe('BlockColor schema integration', () => {

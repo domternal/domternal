@@ -231,10 +231,12 @@ export function createBlockHandlePlugin(
   let lastDragoverClientY: number | null = null;
   // Timestamp (ms, performance.now) of the most recent dragover event. Used
   // by the RAF loop as a dead-man switch — if no dragover arrived in the
-  // last 1.5s we assume the drag was cancelled (crashed tab, browser ate
-  // the dragend event) and stop the loop to avoid leaking frames.
+  // last N seconds we assume the drag was cancelled (crashed tab, browser
+  // ate the dragend event) and stop the loop to avoid leaking frames.
+  // Threshold is generous to tolerate users holding cursor still mid-drag
+  // (e.g., while the system pages in content under a slow scroll).
   let lastDragoverAt = 0;
-  const DRAGOVER_SILENCE_MS = 1500;
+  const DRAGOVER_SILENCE_MS = 3000;
 
   const clearHideTimer = (): void => {
     if (hideTimer !== null) {
