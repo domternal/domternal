@@ -28,10 +28,13 @@
     box-shadow: none;
     background: transparent;
 
-    // Centered narrower column for the content. The surrounding margin
-    // is where the BlockHandle lives. This is the "main column + side
-    // column for icons" Notion layout.
-    max-width: 36rem;
+    // Centered content column. Width matches the default toolbar demo's
+    // text area (`.demo .dm-editor` has 4.8rem inner padding on each side
+    // inside its 210mm container, leaving ~38rem of usable text width)
+    // so the writing experience feels identical across modes — only the
+    // chrome around it differs. The surrounding margin is where the
+    // BlockHandle lives.
+    max-width: 38rem;
     margin: 0 auto;
 
     // Generous reading line-height and size, similar to Notion.
