@@ -665,6 +665,33 @@ test.describe('Nested drag handle', () => {
     const texts = await page.locator(`${editorSelector} li`).allTextContents();
     expect(texts.filter((t) => t.trim() === 'One').length).toBeGreaterThanOrEqual(2);
   });
+
+  test('hovering in the side gutter (X outside ProseMirror) keeps list item target', async ({ page }) => {
+    await setContent(page, '<ul><li><p>First</p></li><li><p>Second</p></li><li><p>Third</p></li></ul>');
+    const li = page.locator(`${editorSelector} li`).nth(1);
+    const liBox = await li.boundingBox();
+    expect(liBox).not.toBeNull();
+    if (!liBox) return;
+
+    // Move cursor INTO the left side gutter (X far to the left of the
+    // editor) at the second list item's vertical band. With the
+    // clamp-to-content fix, the resolver should still target the list
+    // item — not jump up to the whole list.
+    await page.mouse.move(20, liBox.y + liBox.height / 2);
+
+    // Trigger the hover rAF via a real mousemove event on the editor parent
+    // (where our hover listener lives).
+    await li.hover({ position: { x: 5, y: liBox.height / 2 } });
+
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+    const handleBox = await page.locator(blockHandleSelector).boundingBox();
+    expect(handleBox).not.toBeNull();
+    if (handleBox) {
+      // Handle should anchor near the second list item (Y ≈ liBox.y),
+      // not at the top of the entire list (which would be much higher).
+      expect(Math.abs(handleBox.y - liBox.y)).toBeLessThan(24);
+    }
+  });
 });
 
 // ────────────────────────────────────────────────────────────────────────
