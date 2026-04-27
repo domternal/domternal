@@ -27,6 +27,12 @@ import type { Slice } from '@domternal/pm/model';
 import { findTopLevelBlock, findDraggableBlock } from './helpers/findTopLevelBlock.js';
 import { moveBlock } from './helpers/moveBlock.js';
 import { buildDragPreview } from './helpers/cloneElement.js';
+import { clampToContent } from './helpers/clampCoords.js';
+import { normalizeEdgeDetection } from './helpers/edgeDetection.js';
+import type { EdgeDetectionConfig, EdgePreset } from './helpers/edgeDetection.js';
+import { DEFAULT_DRAG_HANDLE_RULES } from './helpers/defaultRules.js';
+import { findBestDragTarget } from './helpers/findBestDragTarget.js';
+import type { DragHandleRule } from './helpers/scoring.js';
 
 /** Default list of nodes treated as drag-targetable when `nested: true`. */
 export const DEFAULT_NESTED_NODES: string[] = ['listItem', 'taskItem'];
@@ -72,12 +78,58 @@ export interface BlockHandleOptions {
    * top-level block.
    *
    * - `false` — only top-level blocks are hoverable / draggable (default).
-   * - `true` — list items and task items resolve individually.
-   * - `{ allowedNodes: [...] }` — custom whitelist of node type names.
+   * - `true` — list items and task items resolve individually (Notion behaviour).
+   * - object — fine-grained config; see `NestedConfig`.
    *
    * @default false
    */
-  nested?: boolean | { allowedNodes?: string[] };
+  nested?: boolean | NestedConfig;
+}
+
+/**
+ * Configuration for nested resolution. Backwards-compatible with the
+ * earlier `{ allowedNodes }` literal — every field is optional.
+ */
+export interface NestedConfig {
+  /**
+   * Node type names treated as drag targets when nested mode is on.
+   * @default ['listItem', 'taskItem']
+   */
+  allowedNodes?: string[];
+  /**
+   * Restrict resolution to nodes that have at least one ancestor of one
+   * of these type names. Use to scope nested mode to specific structures
+   * (e.g. only inside `table`). Empty / omitted → no restriction.
+   */
+  allowedContainers?: string[];
+  /**
+   * Tiptap-style "promote to parent at the gutter" behaviour. When the
+   * cursor is within `threshold` px of a configured edge, the candidate's
+   * score is reduced by `strength * depth` — deeper nodes are penalised
+   * more, so a shallower ancestor (e.g. the wrapping list) wins near the
+   * boundary.
+   *
+   * - `false` / `undefined` / `'none'` → Notion behaviour (deepest match).
+   * - `true` / `'left'` → Tiptap defaults: edges `['left','top']`, threshold 12, strength 500.
+   * - `'right'` / `'both'` → preset variants.
+   * - object → custom config (any field optional, merged over defaults).
+   *
+   * @default false
+   */
+  promoteOnEdge?: boolean | EdgePreset | Partial<EdgeDetectionConfig>;
+  /**
+   * Append custom scoring rules. Default rules still apply unless
+   * `defaultRules: false` is also set.
+   */
+  rules?: DragHandleRule[];
+  /**
+   * Set to `false` to disable the four built-in scoring rules
+   * (listItemFirstChild, listWrapperDeprioritize, tableStructure,
+   * inlineContent). Almost always wanted; opt-out only for testing /
+   * specialised host editors.
+   * @default true
+   */
+  defaultRules?: boolean;
 }
 
 export interface BlockHandlePluginState {
@@ -109,6 +161,22 @@ interface PMViewWithDragging {
   dragging: { slice: Slice; move: boolean; node?: NodeSelection } | null;
 }
 
+/**
+ * Internal, fully-resolved view of `NestedConfig`. Plain string arrays
+ * + an optional edge config so the resolver doesn't have to interpret
+ * presets at hover time.
+ */
+export interface NestedResolution {
+  /** Allowed drag targets. Empty array → top-level-only mode. */
+  allowedNodes: string[];
+  /** Optional ancestor whitelist; empty array → no restriction. */
+  allowedContainers: string[];
+  /** Edge promotion config; `null` → Notion-style deepest match. */
+  edgeConfig: EdgeDetectionConfig | null;
+  /** Effective rule list (defaults + user, or just user when defaults off). */
+  rules: DragHandleRule[];
+}
+
 export interface CreateBlockHandlePluginOptions {
   pluginKey: PluginKey<BlockHandlePluginState>;
   editor: Editor;
@@ -117,11 +185,7 @@ export interface CreateBlockHandlePluginOptions {
   autoScroll: boolean;
   autoScrollThreshold: number;
   autoScrollMaxSpeed: number;
-  /**
-   * If empty, the plugin only resolves top-level blocks (classic mode).
-   * If non-empty, these node type names get hover / drag targeting.
-   */
-  nestedNodes: string[];
+  nested: NestedResolution;
 }
 
 /**
@@ -161,26 +225,62 @@ function resolveBlockAtCoords(
   view: EditorView,
   clientX: number,
   clientY: number,
-  nestedNodes: string[],
-): { pos: number; rect: DOMRect } | null {
-  const doc = view.state.doc;
-
-  // Nested mode — resolve via posAtCoords, then walk ancestors to the
-  // deepest allowed draggable. nodeDOM gives us the rect for positioning.
-  if (nestedNodes.length > 0) {
-    const coord = view.posAtCoords({ left: clientX, top: clientY });
-    if (coord) {
-      const draggable = findDraggableBlock(doc, coord.pos, nestedNodes);
-      if (draggable) {
-        const dom = view.nodeDOM(draggable.pos);
-        if (dom instanceof HTMLElement) {
-          return { pos: draggable.pos, rect: dom.getBoundingClientRect() };
-        }
-      }
-    }
-    // Fall through to classic top-level walk if nested lookup missed.
+  nested: NestedResolution,
+): { pos: number; rect: DOMRect; dom: HTMLElement } | null {
+  // Mode A — top-level only (classic). Walk doc children by Y range; X
+  // is intentionally ignored so the handle still surfaces when the
+  // cursor is in the side gutter.
+  if (nested.allowedNodes.length === 0) {
+    return resolveTopLevelByY(view, clientY);
   }
 
+  // Common to nested modes: clamp coords into the editor's content
+  // rectangle so resolution survives cursor-in-gutter and above/below
+  // edge cases (where `posAtCoords` would otherwise return null).
+  const clamped = clampToContent(view, clientX, clientY);
+  if (!clamped) return null;
+
+  // Mode C — Tiptap-style scoring with edge promotion.
+  if (nested.edgeConfig) {
+    const target = findBestDragTarget(view, clamped.x, clamped.y, {
+      rules: nested.rules,
+      edgeConfig: nested.edgeConfig,
+      allowedNodeTypes: nested.allowedNodes,
+      allowedContainers: nested.allowedContainers,
+    });
+    if (target) {
+      return { pos: target.pos, rect: target.rect, dom: target.dom };
+    }
+    // Scoring picked nothing — fall through to top-level so the handle
+    // still surfaces on the doc's outer block.
+    return resolveTopLevelByY(view, clamped.y);
+  }
+
+  // Mode B — Notion-style: deepest allowed ancestor at the cursor.
+  const coord = view.posAtCoords({ left: clamped.x, top: clamped.y });
+  if (coord) {
+    const draggable = findDraggableBlock(view.state.doc, coord.pos, nested.allowedNodes);
+    if (draggable) {
+      const dom = view.nodeDOM(draggable.pos);
+      if (dom instanceof HTMLElement) {
+        return { pos: draggable.pos, rect: dom.getBoundingClientRect(), dom };
+      }
+    }
+  }
+  return resolveTopLevelByY(view, clamped.y);
+}
+
+/**
+ * Top-level fallback used by every mode: walk the doc's direct children
+ * and return the one whose vertical range contains `clientY`. X is
+ * ignored so the handle resolves correctly even when the cursor sits
+ * outside the editor's horizontal bounds.
+ */
+function resolveTopLevelByY(
+  view: EditorView,
+  clientY: number,
+): { pos: number; rect: DOMRect; dom: HTMLElement } | null {
+  const doc = view.state.doc;
   let offset = 0;
   for (let i = 0; i < doc.childCount; i++) {
     const child = doc.child(i);
@@ -188,19 +288,20 @@ function resolveBlockAtCoords(
     if (dom instanceof HTMLElement) {
       const rect = dom.getBoundingClientRect();
       if (clientY >= rect.top && clientY <= rect.bottom) {
-        return { pos: offset, rect };
+        return { pos: offset, rect, dom };
       }
     }
     offset += child.nodeSize;
   }
-  // Fallback: ask ProseMirror for the nearest position and walk up.
-  const coord = view.posAtCoords({ left: clientX, top: clientY });
+  // Last resort: the cursor isn't vertically inside any block — let
+  // PM pick the nearest position and walk up to top level.
+  const coord = view.posAtCoords({ left: 0, top: clientY });
   if (!coord) return null;
   const top = findTopLevelBlock(doc, coord.pos);
   if (!top) return null;
   const dom = view.nodeDOM(top.pos);
   if (!(dom instanceof HTMLElement)) return null;
-  return { pos: top.pos, rect: dom.getBoundingClientRect() };
+  return { pos: top.pos, rect: dom.getBoundingClientRect(), dom };
 }
 
 /**
@@ -211,7 +312,7 @@ function resolveBlockAtCoords(
 export function createBlockHandlePlugin(
   options: CreateBlockHandlePluginOptions,
 ): Plugin<BlockHandlePluginState> {
-  const { pluginKey, editor, hideDelay, disableDrag, autoScroll, autoScrollThreshold, autoScrollMaxSpeed, nestedNodes } = options;
+  const { pluginKey, editor, hideDelay, disableDrag, autoScroll, autoScrollThreshold, autoScrollMaxSpeed, nested } = options;
 
   // --- Build DOM once. Buttons rendered with the shared Phosphor icons.
   const root = document.createElement('div');
@@ -296,8 +397,23 @@ export function createBlockHandlePlugin(
     }, hideDelay);
   };
 
-  const show = (blockRect: DOMRect, editorRect: DOMRect): void => {
-    const top = blockRect.top - editorRect.top;
+  const show = (blockEl: HTMLElement, blockRect: DOMRect, editorRect: DOMRect): void => {
+    // Vertically center the handle on the FIRST LINE of the block, not on
+    // the block's top edge. For tall blocks (e.g., H1 with line-height
+    // 2.8rem) the top edge sits well above the visible text, leaving the
+    // handle floating above the title. Aligning to the first line's
+    // center matches Notion's positioning regardless of font size.
+    const cs = getComputedStyle(blockEl);
+    let lineHeight = parseFloat(cs.lineHeight);
+    if (!Number.isFinite(lineHeight)) {
+      // `line-height: normal` returns a non-numeric string — fall back to
+      // ~1.2× the font size (browser default for `normal`).
+      const fontSize = parseFloat(cs.fontSize) || 16;
+      lineHeight = fontSize * 1.2;
+    }
+    const handleHeight = root.offsetHeight || 24;
+    const offsetIntoBlock = Math.max(0, (lineHeight - handleHeight) / 2);
+    const top = blockRect.top - editorRect.top + offsetIntoBlock;
     root.style.top = `${String(top)}px`;
     root.setAttribute('data-show', '');
   };
@@ -331,7 +447,7 @@ export function createBlockHandlePlugin(
       const coords = pendingHoverCoords;
       pendingHoverCoords = null;
       if (!coords || !editorEl) return;
-      const resolved = resolveBlockAtCoords(editor.view, coords.x, coords.y, nestedNodes);
+      const resolved = resolveBlockAtCoords(editor.view, coords.x, coords.y, nested);
       if (!resolved) {
         scheduleHide();
         return;
@@ -353,7 +469,7 @@ export function createBlockHandlePlugin(
       }
       currentHoveredPos = resolved.pos;
       const editorRect = editorEl.getBoundingClientRect();
-      show(resolved.rect, editorRect);
+      show(resolved.dom, resolved.rect, editorRect);
     });
   };
 
@@ -670,27 +786,24 @@ export function createBlockHandlePlugin(
         const draggedFrom = state?.draggedFrom ?? null;
         if (draggedFrom === null) return false;
 
-        const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
-        if (!coords) { event.preventDefault(); return true; }
-
         const sourceNode = view.state.doc.nodeAt(draggedFrom);
         if (!sourceNode) { event.preventDefault(); return true; }
 
-        // In nested mode resolve the target against the same draggable-node
-        // list used for hover, so dropping between list items lands the
-        // slice at the correct boundary inside the list.
-        const targetBlock = nestedNodes.length > 0
-          ? findDraggableBlock(view.state.doc, coords.pos, nestedNodes)
-          : findTopLevelBlock(view.state.doc, coords.pos);
-        if (!targetBlock) { event.preventDefault(); return true; }
+        // Reuse the SAME resolver hover uses, so the drop target matches
+        // exactly what the user saw under the cursor — including edge
+        // promotion when configured. Without this, hover and drop can
+        // disagree at the gutter, dropping a list item onto its parent.
+        const resolved = resolveBlockAtCoords(view, event.clientX, event.clientY, nested);
+        if (!resolved) { event.preventDefault(); return true; }
 
-        let targetPos = targetBlock.pos;
-        const targetDOM = view.nodeDOM(targetBlock.pos);
-        if (targetDOM instanceof HTMLElement) {
-          const rect = targetDOM.getBoundingClientRect();
-          const midY = rect.top + rect.height / 2;
-          if (event.clientY > midY) targetPos = targetBlock.end;
-        }
+        // Above-mid → insert before; below-mid → insert after. Mirrors
+        // the visible position of `prosemirror-dropcursor`'s indicator
+        // for the user.
+        const rect = resolved.dom.getBoundingClientRect();
+        const midY = rect.top + rect.height / 2;
+        const targetNode = view.state.doc.nodeAt(resolved.pos);
+        const targetEnd = targetNode ? resolved.pos + targetNode.nodeSize : resolved.pos;
+        const targetPos = event.clientY > midY ? targetEnd : resolved.pos;
 
         event.preventDefault();
         const tr = view.state.tr;
@@ -798,7 +911,7 @@ export const BlockHandle = Extension.create<BlockHandleOptions>({
         autoScroll: this.options.autoScroll ?? true,
         autoScrollThreshold: this.options.autoScrollThreshold ?? 48,
         autoScrollMaxSpeed: this.options.autoScrollMaxSpeed ?? 18,
-        nestedNodes: resolveNestedNodes(this.options.nested),
+        nested: resolveNestedConfig(this.options.nested),
       }),
     ];
   },
@@ -806,15 +919,36 @@ export const BlockHandle = Extension.create<BlockHandleOptions>({
 
 /**
  * Normalises the user-facing `nested` option (boolean | config object)
- * into the flat `string[]` that the plugin wants internally:
- * - `false` / undefined → empty list (classic top-level-only mode).
- * - `true` → default list (list item, task item).
- * - `{ allowedNodes: [...] }` → explicit list; empty array disables.
+ * into the resolver-friendly `NestedResolution`:
+ *
+ * - `false` / `undefined` → top-level-only (mode A).
+ * - `true` → default list (list item, task item), Notion-style (mode B).
+ * - object → explicit config; defaults fill in for missing fields.
  */
-function resolveNestedNodes(nested: BlockHandleOptions['nested']): string[] {
-  if (nested === true) return DEFAULT_NESTED_NODES;
-  if (nested && typeof nested === 'object') {
-    return nested.allowedNodes ?? DEFAULT_NESTED_NODES;
+export function resolveNestedConfig(nested: BlockHandleOptions['nested']): NestedResolution {
+  if (nested === true) {
+    return {
+      allowedNodes: [...DEFAULT_NESTED_NODES],
+      allowedContainers: [],
+      edgeConfig: null,
+      rules: [...DEFAULT_DRAG_HANDLE_RULES],
+    };
   }
-  return [];
+  if (nested && typeof nested === 'object') {
+    const allowedNodes = nested.allowedNodes ?? DEFAULT_NESTED_NODES;
+    if (allowedNodes.length === 0) {
+      return { allowedNodes: [], allowedContainers: [], edgeConfig: null, rules: [] };
+    }
+    const useDefaults = nested.defaultRules ?? true;
+    const rules: DragHandleRule[] = [];
+    if (useDefaults) rules.push(...DEFAULT_DRAG_HANDLE_RULES);
+    if (nested.rules) rules.push(...nested.rules);
+    return {
+      allowedNodes: [...allowedNodes],
+      allowedContainers: nested.allowedContainers ? [...nested.allowedContainers] : [],
+      edgeConfig: normalizeEdgeDetection(nested.promoteOnEdge),
+      rules,
+    };
+  }
+  return { allowedNodes: [], allowedContainers: [], edgeConfig: null, rules: [] };
 }

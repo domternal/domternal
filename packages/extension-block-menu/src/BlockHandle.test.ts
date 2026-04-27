@@ -6,7 +6,8 @@ import {
   Heading,
   Editor,
 } from '@domternal/core';
-import { BlockHandle, blockHandlePluginKey } from './BlockHandle.js';
+import { BlockHandle, blockHandlePluginKey, resolveNestedConfig } from './BlockHandle.js';
+import { DEFAULT_DRAG_HANDLE_RULES } from './helpers/defaultRules.js';
 
 const extensions = [Document, Text, Paragraph, Heading, BlockHandle];
 
@@ -74,6 +75,89 @@ describe('BlockHandle configuration', () => {
   it('can enable nested with a custom allowedNodes list', () => {
     const configured = BlockHandle.configure({ nested: { allowedNodes: ['listItem'] } });
     expect(configured.options.nested).toEqual({ allowedNodes: ['listItem'] });
+  });
+
+  it('nested config accepts promoteOnEdge boolean', () => {
+    const configured = BlockHandle.configure({ nested: { promoteOnEdge: true } });
+    expect(configured.options.nested).toEqual({ promoteOnEdge: true });
+  });
+
+  it('nested config accepts promoteOnEdge preset string', () => {
+    const configured = BlockHandle.configure({ nested: { promoteOnEdge: 'both' } });
+    expect((configured.options.nested as { promoteOnEdge: string }).promoteOnEdge).toBe('both');
+  });
+
+  it('nested config accepts custom EdgeDetectionConfig partial', () => {
+    const configured = BlockHandle.configure({
+      nested: { promoteOnEdge: { threshold: 24, strength: 250 } },
+    });
+    expect((configured.options.nested as { promoteOnEdge: { threshold: number } }).promoteOnEdge)
+      .toEqual({ threshold: 24, strength: 250 });
+  });
+
+  it('nested config accepts allowedContainers + custom rules + defaultRules toggle', () => {
+    // (extension stage — `resolveNestedConfig` resolution covered below)
+    const customRule = { id: 'custom', evaluate: (): number => 0 };
+    const configured = BlockHandle.configure({
+      nested: {
+        allowedNodes: ['paragraph'],
+        allowedContainers: ['blockquote'],
+        rules: [customRule],
+        defaultRules: false,
+      },
+    });
+    const nested = configured.options.nested as {
+      allowedNodes: string[];
+      allowedContainers: string[];
+      rules: unknown[];
+      defaultRules: boolean;
+    };
+    expect(nested.allowedNodes).toEqual(['paragraph']);
+    expect(nested.allowedContainers).toEqual(['blockquote']);
+    expect(nested.rules).toHaveLength(1);
+    expect(nested.defaultRules).toBe(false);
+  });
+});
+
+describe('resolveNestedConfig', () => {
+  it('false / undefined → top-level only (empty allowedNodes)', () => {
+    expect(resolveNestedConfig(false).allowedNodes).toEqual([]);
+    expect(resolveNestedConfig(undefined).allowedNodes).toEqual([]);
+  });
+
+  it('true → defaults + Notion mode (no edgeConfig)', () => {
+    const r = resolveNestedConfig(true);
+    expect(r.allowedNodes).toEqual(['listItem', 'taskItem']);
+    expect(r.edgeConfig).toBeNull();
+    expect(r.rules).toHaveLength(DEFAULT_DRAG_HANDLE_RULES.length);
+  });
+
+  it('object with promoteOnEdge → Tiptap mode (edgeConfig populated)', () => {
+    const r = resolveNestedConfig({ promoteOnEdge: true });
+    expect(r.edgeConfig).toEqual({ edges: ['left', 'top'], threshold: 12, strength: 500 });
+  });
+
+  it('object with promoteOnEdge: "right" → mirrors edges', () => {
+    const r = resolveNestedConfig({ promoteOnEdge: 'right' });
+    expect(r.edgeConfig?.edges).toEqual(['right', 'top']);
+  });
+
+  it('object with custom rules + defaultRules:false → only user rules', () => {
+    const customRule = { id: 'custom', evaluate: (): number => 0 };
+    const r = resolveNestedConfig({ rules: [customRule], defaultRules: false });
+    expect(r.rules).toEqual([customRule]);
+  });
+
+  it('object with allowedContainers passes through', () => {
+    const r = resolveNestedConfig({ allowedContainers: ['blockquote', 'details'] });
+    expect(r.allowedContainers).toEqual(['blockquote', 'details']);
+  });
+
+  it('explicitly empty allowedNodes → top-level mode', () => {
+    const r = resolveNestedConfig({ allowedNodes: [] });
+    expect(r.allowedNodes).toEqual([]);
+    expect(r.edgeConfig).toBeNull();
+    expect(r.rules).toEqual([]);
   });
 });
 
