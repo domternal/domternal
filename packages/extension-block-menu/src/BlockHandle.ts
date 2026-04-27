@@ -235,6 +235,11 @@ export function createBlockHandlePlugin(
   root.appendChild(plusBtn);
 
   let editorEl: HTMLElement | null = null;
+  // Element that captures hover events. Usually `editorEl.parentElement`
+  // so the listener catches mouse moves in the side gutter (where the
+  // BlockHandle sits visually when the editor is centered narrower than
+  // the page). Falls back to `editorEl` if no parent exists.
+  let hoverEl: HTMLElement | null = null;
   let hideTimer: number | null = null;
 
   // Hover-tick state — rAF-coalesced to keep the handle glide-smooth even
@@ -706,9 +711,17 @@ export function createBlockHandlePlugin(
       editorEl.appendChild(root);
       hide();
 
-      editorEl.addEventListener('mousemove', onMouseMove);
-      editorEl.addEventListener('mouseleave', onMouseLeave);
-      editorEl.addEventListener('mouseenter', onMouseEnter);
+      // Hover detection lives on `.dm-editor`'s parent (typically the page
+      // wrapper, e.g. `.notion-page`'s framework-host child) so the listener
+      // also catches mouse movement in the side gutter — the area where the
+      // BlockHandle visually lives when the editor is centered narrower than
+      // the page. `resolveBlockAtCoords` falls back to a Y-range walk when
+      // the cursor's X is outside `.ProseMirror`, so the block under the
+      // cursor still resolves correctly.
+      hoverEl = editorEl.parentElement ?? editorEl;
+      hoverEl.addEventListener('mousemove', onMouseMove);
+      hoverEl.addEventListener('mouseleave', onMouseLeave);
+      hoverEl.addEventListener('mouseenter', onMouseEnter);
       editorEl.addEventListener('dm:dismiss-overlays', onDismissOverlays);
 
       plusBtn.addEventListener('mousedown', onPlusBtnMouseDown);
@@ -738,9 +751,9 @@ export function createBlockHandlePlugin(
             cancelAnimationFrame(hoverRaf);
             hoverRaf = null;
           }
-          editorEl?.removeEventListener('mousemove', onMouseMove);
-          editorEl?.removeEventListener('mouseleave', onMouseLeave);
-          editorEl?.removeEventListener('mouseenter', onMouseEnter);
+          hoverEl?.removeEventListener('mousemove', onMouseMove);
+          hoverEl?.removeEventListener('mouseleave', onMouseLeave);
+          hoverEl?.removeEventListener('mouseenter', onMouseEnter);
           editorEl?.removeEventListener('dm:dismiss-overlays', onDismissOverlays);
           plusBtn.removeEventListener('mousedown', onPlusBtnMouseDown);
           plusBtn.removeEventListener('click', onPlusClick);
@@ -752,6 +765,7 @@ export function createBlockHandlePlugin(
           editorEl?.classList.remove('dm-editor--has-block-handle');
           root.remove();
           editorEl = null;
+          hoverEl = null;
         },
       };
     },
