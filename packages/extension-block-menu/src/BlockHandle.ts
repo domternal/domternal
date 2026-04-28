@@ -24,7 +24,7 @@ import type { Editor } from '@domternal/core';
 import { NodeSelection, Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import type { Slice } from '@domternal/pm/model';
-import { findTopLevelBlock, findDraggableBlock } from './helpers/findTopLevelBlock.js';
+import { findTopLevelBlock, findDeepestBlockAtY } from './helpers/findTopLevelBlock.js';
 import { moveBlock } from './helpers/moveBlock.js';
 import { buildDragPreview } from './helpers/cloneElement.js';
 import { clampToContent } from './helpers/clampCoords.js';
@@ -212,10 +212,20 @@ function findScrollableAncestor(el: HTMLElement): HTMLElement | null {
 /**
  * Finds the block under the given client coordinates.
  *
- * When `nestedNodes` is non-empty, the plugin is in "nested mode": uses
- * `posAtCoords` + `findDraggableBlock` to resolve the deepest allowed
- * ancestor (list item, task item, etc.). This lets users drag individual
- * list items instead of always the whole list.
+ * When `nestedNodes` is non-empty, the plugin is in "nested mode":
+ * resolves the deepest allowed block (list item, task item, etc.) at
+ * the cursor row so users drag individual list items instead of always
+ * the whole list.
+ *
+ * - Mode B (Notion default): spatial Y-walk via `findDeepestBlockAtY`.
+ *   `posAtCoords` would resolve to whatever sits at the cursor's X,
+ *   which in the gutter is OUTER content (the inner items are indented
+ *   further right). Notion's actual behaviour is to anchor the handle
+ *   on the row the cursor is in, regardless of X — that's what the
+ *   spatial walk gives us.
+ * - Mode C (Tiptap-style scoring): uses `findBestDragTarget` with
+ *   edge promotion. By design, gutter-X promotes to OUTER (different
+ *   UX choice). Opt in via `promoteOnEdge`.
  *
  * When `nestedNodes` is empty, classic behavior: walk doc children and
  * compare Y against each top-level block's DOM rect, with a `posAtCoords`
@@ -256,16 +266,11 @@ function resolveBlockAtCoords(
     return resolveTopLevelByY(view, clamped.y);
   }
 
-  // Mode B — Notion-style: deepest allowed ancestor at the cursor.
-  const coord = view.posAtCoords({ left: clamped.x, top: clamped.y });
-  if (coord) {
-    const draggable = findDraggableBlock(view.state.doc, coord.pos, nested.allowedNodes);
-    if (draggable) {
-      const dom = view.nodeDOM(draggable.pos);
-      if (dom instanceof HTMLElement) {
-        return { pos: draggable.pos, rect: dom.getBoundingClientRect(), dom };
-      }
-    }
+  // Mode B — Notion-style: deepest allowed block at the cursor row.
+  // X is intentionally ignored; see `findDeepestBlockAtY` rationale.
+  const found = findDeepestBlockAtY(view, clamped.y, nested.allowedNodes);
+  if (found) {
+    return { pos: found.pos, rect: found.rect, dom: found.dom };
   }
   return resolveTopLevelByY(view, clamped.y);
 }
