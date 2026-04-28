@@ -531,3 +531,194 @@ test.describe('Resolver edge cases', () => {
     expect((await blockAt(page, (await hoveredPos(page)) ?? 0))?.text).toBe('Task item');
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────
+// 6. Nested list-in-list resolution — Notion-style spatial Y-walk
+// ────────────────────────────────────────────────────────────────────────
+//
+// Regression coverage for the bug where hovering in the gutter at an
+// inner nested-list-item's Y row resolved to the OUTER list item (because
+// `posAtCoords` on the gutter-clamped X landed inside the outer's content
+// area, before the inner's left indent). The fix replaces `posAtCoords +
+// findDraggableBlock` with `findDeepestBlockAtY`, which ignores X and
+// picks the smallest (innermost) block whose vertical rect contains the
+// cursor's Y.
+
+test.describe('Nested list-in-list resolution', () => {
+  test.beforeEach(async ({ page }) => {
+    await goNotion(page);
+    // Notion demo's default content already has top-of-page H1 etc — make
+    // the inner blocks land in viewport with a tall window for these
+    // tests. Other suites use the default 1280x720 viewport.
+    await page.setViewportSize({ width: 1280, height: 1500 });
+  });
+
+  /**
+   * Resolves the block currently anchoring the handle by its text content,
+   * via plugin state. Returns null if no block is hovered.
+   */
+  async function hoveredBlock(page: Page): Promise<{ type: string; text: string } | null> {
+    const pos = await hoveredPos(page);
+    return pos !== null ? blockAt(page, pos) : null;
+  }
+
+  test('gutter hover at INNER item Y resolves to the INNER list item, not outer', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Outer</p>'
+      + '<ul><li><p>Inner A</p></li><li><p>Inner B</p></li></ul>'
+      + '</li></ul>',
+    );
+
+    // Use the inner paragraph as the Y anchor — `li:has-text("Inner A")`
+    // would match the outer LI too because its textContent includes
+    // descendants. The P's Y center is inside the inner LI's rect.
+    const innerAP = page.locator(`${editorSelector} p`, { hasText: 'Inner A' });
+    const aBox = await boxOf(innerAP);
+
+    // Cursor in the SIDE GUTTER (left of `.dm-editor`), Y aligned with
+    // Inner A's row. This was the failing case.
+    await hoverAt(page, await sideGutterX(page), aBox.y + aBox.height / 2);
+    const block = await hoveredBlock(page);
+    expect(block?.type).toBe('listItem');
+    expect(block?.text).toBe('Inner A');
+  });
+
+  test('hover just inside editor left edge at INNER Y still resolves to INNER', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Outer</p>'
+      + '<ul><li><p>Inner A</p></li></ul>'
+      + '</li></ul>',
+    );
+
+    const editorBox = await boxOf(page.locator(editorSelector));
+    // Locate the INNER paragraph specifically — `li:has-text("Inner A")`
+    // would match the outer LI too (textContent includes descendants).
+    // The paragraph's Y center sits inside the inner LI's rect.
+    const innerP = page.locator(`${editorSelector} p`, { hasText: 'Inner A' });
+    const aBox = await boxOf(innerP);
+
+    // X = editor's left edge + 5px (still left of the inner item's text
+    // due to outer + inner indentation). Pre-fix this would have resolved
+    // to the OUTER li because `posAtCoords` would land at the outer's
+    // left-padded content area.
+    await hoverAt(page, editorBox.x + 5, aBox.y + aBox.height / 2);
+    const block = await hoveredBlock(page);
+    expect(block?.type).toBe('listItem');
+    expect(block?.text).toBe('Inner A');
+  });
+
+  test('hover at OUTER paragraph row (above nested list) resolves to OUTER', async ({ page }) => {
+    // The outer list-item's paragraph row sits ABOVE the nested list. At
+    // that Y, only the outer rect contains the cursor — inner items are
+    // below — so outer wins by being the only allowed match.
+    await setContent(
+      page,
+      '<ul><li><p>Outer paragraph text</p>'
+      + '<ul><li><p>Inner</p></li></ul>'
+      + '</li></ul>',
+    );
+
+    const outerPara = page.locator(`${editorSelector} li > p`, { hasText: 'Outer paragraph text' }).first();
+    const oBox = await boxOf(outerPara);
+
+    await hoverAt(page, await sideGutterX(page), oBox.y + oBox.height / 2);
+    const block = await hoveredBlock(page);
+    expect(block?.type).toBe('listItem');
+    expect(block?.text).toContain('Outer paragraph text');
+    // Sanity: the outer's text contains its inner's text ("Inner") too,
+    // so a strict equality would fail; substring is the correct check.
+    expect(block?.text).toContain('Inner');
+  });
+
+  test('three-level nesting: gutter hover at deepest item Y resolves to deepest item', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>L1</p>'
+      + '<ul><li><p>L2</p>'
+      + '<ul><li><p>L3 deepest</p></li></ul>'
+      + '</li></ul>'
+      + '</li></ul>',
+    );
+
+    // Anchor on the L3 paragraph's rect — every ancestor LI's
+    // textContent includes "L3 deepest" so `li:has-text(...)` would
+    // match all three.
+    const l3P = page.locator(`${editorSelector} p`, { hasText: 'L3 deepest' });
+    const l3Box = await boxOf(l3P);
+
+    await hoverAt(page, await sideGutterX(page), l3Box.y + l3Box.height / 2);
+    const block = await hoveredBlock(page);
+    expect(block?.type).toBe('listItem');
+    expect(block?.text).toBe('L3 deepest');
+  });
+
+  test('drop from gutter X onto inner item Y reorders inner items, leaves outer intact', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Outer</p>'
+      + '<ul>'
+      + '<li><p>First inner</p></li>'
+      + '<li><p>Second inner</p></li>'
+      + '<li><p>Third inner</p></li>'
+      + '</ul>'
+      + '</li></ul>',
+    );
+
+    // Hover the FIRST inner item via the gutter to set the drag source.
+    // Use the paragraph locator — outer LI's textContent contains all
+    // three inner texts, so `li:has-text("First inner")` would match
+    // the outer LI by mistake.
+    const firstInnerP = page.locator(`${editorSelector} p`, { hasText: 'First inner' });
+    const fBox = await boxOf(firstInnerP);
+    await hoverAt(page, await sideGutterX(page), fBox.y + fBox.height / 2);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+
+    // Sanity: hover resolved to first inner.
+    const sourceBlock = await hoveredBlock(page);
+    expect(sourceBlock?.text).toBe('First inner');
+
+    // Synthetic HTML5 drag — Playwright's `mouse.down/move/up` doesn't
+    // emit native dragstart/drop events in headless Chromium, so we
+    // dispatch the events explicitly (same pattern as the earlier
+    // "drop on a list item from side-gutter X" test).
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+
+    const thirdInnerP = page.locator(`${editorSelector} p`, { hasText: 'Third inner' });
+    const tBox = await boxOf(thirdInnerP);
+
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    // Wait for the deferred PM dispatch (setTimeout(0) in onDragStart)
+    // to land its `setSelection + setMeta(draggedFrom)` transaction.
+    await page.waitForTimeout(20);
+
+    // Drop in the bottom half of the third inner's row (X clamped just
+    // inside `.ProseMirror`'s left edge to stay within PM's drop bounds).
+    const dropX = tBox.x + 5;
+    const dropY = tBox.y + tBox.height * 0.8;
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt, clientX: dropX, clientY: dropY,
+    });
+    await page.locator(editorSelector).dispatchEvent('drop', {
+      dataTransfer: dt, clientX: dropX, clientY: dropY,
+    });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    await dt.dispose();
+
+    // Outer list intact (single top-level bulletList still wraps everything).
+    const blocks = await getBlocks(page);
+    expect(blocks.length).toBe(1);
+    expect(blocks[0]?.type).toBe('bulletList');
+
+    // Inner items reordered to [Second, Third, First] — pre-fix the
+    // drop would have promoted "First inner" to a sibling of "Outer"
+    // because the resolver returned outer for the gutter hover.
+    const innerTexts = (await page
+      .locator(`${editorSelector} li li p`)
+      .allTextContents()).map((t) => t.trim());
+    expect(innerTexts).toEqual(['Second inner', 'Third inner', 'First inner']);
+  });
+});

@@ -78,7 +78,14 @@ const STARTER_CONTENT = `
 <ul data-type="taskList">
   <li data-type="taskItem" data-checked="true"><p>Basic formatting (bold, italic, code, link)</p></li>
   <li data-type="taskItem" data-checked="true"><p>Block drag handle + context menu</p></li>
-  <li data-type="taskItem" data-checked="false"><p>AI autocomplete integration</p></li>
+  <li data-type="taskItem" data-checked="false">
+    <p>AI autocomplete integration</p>
+    <ul data-type="taskList">
+      <li data-type="taskItem" data-checked="true"><p>Wire up provider abstraction</p></li>
+      <li data-type="taskItem" data-checked="false"><p>Streaming completions</p></li>
+      <li data-type="taskItem" data-checked="false"><p>Inline accept/reject UI</p></li>
+    </ul>
+  </li>
   <li data-type="taskItem" data-checked="false"><p>Real-time collaboration</p></li>
 </ul>
 
