@@ -1,3 +1,4 @@
+import type { Node } from '@domternal/pm/model';
 import type { Transaction } from '@domternal/pm/state';
 
 /**
@@ -7,14 +8,20 @@ import type { Transaction } from '@domternal/pm/state';
  *
  * Position math:
  * - Slice the source node first (before delete).
- * - Delete the source range.
+ * - Expand the deletion range outward to swallow any single-child wrapper
+ *   ancestors (e.g. a nested `ul` whose only `li` is the source) — leaving
+ *   them behind would either violate their `listItem+`-style content rule
+ *   (PM's fitter then keeps an empty `<li>` placeholder, which is the bug
+ *   we're fixing) or leave a no-op container behind.
+ * - Delete the (possibly expanded) range.
  * - Adjust target: if target was after the source, subtract the removed size
  *   because positions after the deletion shift left.
  * - Insert the slice at the adjusted target.
  *
  * Self-drop safety:
- * - If `targetPos` falls inside `[sourcePos, sourceEnd]`, return the
- *   transaction unchanged (moving a block into itself is invalid).
+ * - If `targetPos` falls inside the expanded deletion range, return the
+ *   transaction unchanged (moving a block into itself or its wrapper is
+ *   invalid).
  * - If there's no node at `sourcePos`, return unchanged.
  *
  * Returns the same transaction (chainable), not a new one.
@@ -28,13 +35,43 @@ export function moveBlock(
   const sourceNode = tr.doc.nodeAt(sourcePos);
   if (!sourceNode) return tr;
   const sourceEnd = sourcePos + sourceNode.nodeSize;
-  if (targetPos >= sourcePos && targetPos <= sourceEnd) return tr;
 
+  const { from, to } = expandToEmptyWrappers(tr.doc, sourcePos, sourceEnd);
+  if (targetPos >= from && targetPos <= to) return tr;
+
+  // Slice ONLY the source node (not the wrappers we're about to remove —
+  // they exist purely as redundant single-child containers and should not
+  // travel with the source to its new location).
   const slice = tr.doc.slice(sourcePos, sourceEnd);
-  tr.delete(sourcePos, sourceEnd);
-  const adjustedTarget = targetPos > sourcePos
-    ? targetPos - (sourceEnd - sourcePos)
+  tr.delete(from, to);
+  const adjustedTarget = targetPos > from
+    ? targetPos - (to - from)
     : targetPos;
   tr.insert(adjustedTarget, slice.content);
   return tr;
+}
+
+/**
+ * Walks up from `[from, to]` widening the range as long as the immediate
+ * parent ancestor is a single-child container (i.e. removing the source
+ * would leave the parent empty). Stops at the first ancestor with siblings
+ * (or at the doc root). Used to guarantee that dragging the only `<li>`
+ * out of a nested `<ul>` removes the wrapper too — without this the parent
+ * `<ul>`'s `listItem+` content rule would force PM to retain an empty
+ * `<li>` placeholder.
+ */
+function expandToEmptyWrappers(
+  doc: Node,
+  from: number,
+  to: number,
+): { from: number; to: number } {
+  let curFrom = from;
+  let curTo = to;
+  let $pos = doc.resolve(curFrom);
+  while ($pos.depth > 0 && $pos.node($pos.depth).childCount === 1) {
+    curFrom = $pos.before($pos.depth);
+    curTo = $pos.after($pos.depth);
+    $pos = doc.resolve(curFrom);
+  }
+  return { from: curFrom, to: curTo };
 }

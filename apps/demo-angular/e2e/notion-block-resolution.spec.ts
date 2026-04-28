@@ -722,3 +722,209 @@ test.describe('Nested list-in-list resolution', () => {
     expect(innerTexts).toEqual(['Second inner', 'Third inner', 'First inner']);
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────
+// 7. Empty-wrapper cleanup on drag — single-child wrappers must not leak
+// ────────────────────────────────────────────────────────────────────────
+//
+// Regression coverage for the bug where dragging the ONLY listItem out
+// of a nested list left an empty `<li>` placeholder behind. PM's schema
+// fitter retains it to satisfy `bulletList → listItem+`. Fix lives in
+// `moveBlock` (expand the delete range outward through single-child
+// containers).
+
+test.describe('Empty-wrapper cleanup on drag', () => {
+  test.beforeEach(async ({ page }) => {
+    await goNotion(page);
+    await page.setViewportSize({ width: 1280, height: 1500 });
+  });
+
+  /** Counts list items / task items whose textContent is empty. */
+  async function countEmptyListItems(page: Page): Promise<number> {
+    return page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { descendants: (cb: (n: { type: { name: string }; textContent: string }) => boolean | void) => void } } }
+        | undefined;
+      let n = 0;
+      ed?.state.doc.descendants((node) => {
+        if (
+          (node.type.name === 'listItem' || node.type.name === 'taskItem')
+          && node.textContent === ''
+        ) n++;
+        return true;
+      });
+      return n;
+    });
+  }
+
+  /** Synthetic drag from the currently-shown handle to a drop target row. */
+  async function dragHandleTo(page: Page, dropX: number, dropY: number): Promise<void> {
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    // Allow the deferred PM dispatch (setTimeout(0) in onDragStart) to land.
+    await page.waitForTimeout(20);
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt, clientX: dropX, clientY: dropY,
+    });
+    await page.locator(editorSelector).dispatchEvent('drop', {
+      dataTransfer: dt, clientX: dropX, clientY: dropY,
+    });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    await dt.dispose();
+  }
+
+  test('drag the ONLY listItem out of a nested ul → outer LI keeps just its paragraph, no empty <li> ghost', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul>'
+      + '<li><p>Outer</p>'
+      + '<ul><li><p>Solo inner</p></li></ul>'
+      + '</li>'
+      + '</ul>'
+      + '<p>Tail</p>',
+    );
+
+    const innerP = page.locator(`${editorSelector} p`, { hasText: 'Solo inner' });
+    const iBox = await boxOf(innerP);
+    await hoverAt(page, await sideGutterX(page), iBox.y + iBox.height / 2);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+
+    const tailP = page.locator(`${editorSelector} p`, { hasText: 'Tail' });
+    const tBox = await boxOf(tailP);
+    await dragHandleTo(page, tBox.x + 5, tBox.y + tBox.height * 0.8);
+
+    // No empty list-item placeholders survived.
+    expect(await countEmptyListItems(page)).toBe(0);
+
+    // Outer LI now has ONLY its paragraph (no nested empty UL).
+    const outerLiInfo = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { descendants: (cb: (n: { type: { name: string }; textContent: string; childCount: number; firstChild: { type: { name: string } } | null }) => boolean | void) => void } } }
+        | undefined;
+      let info: { childCount: number; firstChildType: string | undefined } | null = null;
+      ed?.state.doc.descendants((node) => {
+        if (info !== null) return false;
+        if (node.type.name === 'listItem' && node.textContent === 'Outer') {
+          info = { childCount: node.childCount, firstChildType: node.firstChild?.type.name };
+          return false;
+        }
+        return true;
+      });
+      return info;
+    });
+    expect(outerLiInfo).toEqual({ childCount: 1, firstChildType: 'paragraph' });
+
+    // Dragged item's text survives somewhere in the doc.
+    expect((await page.locator(editorSelector).textContent()) ?? '').toContain('Solo inner');
+  });
+
+  test('drag the ONLY taskItem out of a nested taskList → no empty taskItem ghost', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList">'
+      + '<li data-type="taskItem"><p>Outer task</p>'
+      + '<ul data-type="taskList">'
+      + '<li data-type="taskItem"><p>Lone subtask</p></li>'
+      + '</ul>'
+      + '</li>'
+      + '</ul>'
+      + '<p>Tail</p>',
+    );
+
+    const innerP = page.locator(`${editorSelector} p`, { hasText: 'Lone subtask' });
+    const iBox = await boxOf(innerP);
+    await hoverAt(page, await sideGutterX(page), iBox.y + iBox.height / 2);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+
+    const tailP = page.locator(`${editorSelector} p`, { hasText: 'Tail' });
+    const tBox = await boxOf(tailP);
+    await dragHandleTo(page, tBox.x + 5, tBox.y + tBox.height * 0.8);
+
+    expect(await countEmptyListItems(page)).toBe(0);
+    expect((await page.locator(editorSelector).textContent()) ?? '').toContain('Lone subtask');
+  });
+
+  test('drag a sibling-having inner item → wrapper UL stays, sibling stays', async ({ page }) => {
+    // Regression check: when the source has a sibling, the wrapper UL
+    // must NOT be expanded into the deletion (the sibling still needs it).
+    await setContent(
+      page,
+      '<ul>'
+      + '<li><p>Outer</p>'
+      + '<ul>'
+      + '<li><p>First inner</p></li>'
+      + '<li><p>Second inner</p></li>'
+      + '</ul>'
+      + '</li>'
+      + '</ul>'
+      + '<p>Tail</p>',
+    );
+
+    const firstP = page.locator(`${editorSelector} p`, { hasText: 'First inner' });
+    const fBox = await boxOf(firstP);
+    await hoverAt(page, await sideGutterX(page), fBox.y + fBox.height / 2);
+
+    const tailP = page.locator(`${editorSelector} p`, { hasText: 'Tail' });
+    const tBox = await boxOf(tailP);
+    await dragHandleTo(page, tBox.x + 5, tBox.y + tBox.height * 0.8);
+
+    // Outer LI still wraps a nested UL containing only "Second inner".
+    const innerTexts = (await page.locator(`${editorSelector} li li p`).allTextContents())
+      .map((t) => t.trim());
+    expect(innerTexts).toEqual(['Second inner']);
+    expect(await countEmptyListItems(page)).toBe(0);
+  });
+
+  test('drag the ONLY listItem of a TOP-level UL → top-level UL is removed', async ({ page }) => {
+    // Source LI is the only child of a top-level UL (not nested). Moving
+    // it out should remove the wrapping UL entirely from top level —
+    // pre-fix would leave an empty <ul><li></li></ul>.
+    await setContent(
+      page,
+      '<ul><li><p>Solo top</p></li></ul>'
+      + '<p>Tail</p>',
+    );
+
+    const soloP = page.locator(`${editorSelector} p`, { hasText: 'Solo top' });
+    const sBox = await boxOf(soloP);
+    await hoverAt(page, await sideGutterX(page), sBox.y + sBox.height / 2);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+
+    const tailP = page.locator(`${editorSelector} p`, { hasText: 'Tail' });
+    const tBox = await boxOf(tailP);
+    await dragHandleTo(page, tBox.x + 5, tBox.y + tBox.height * 0.8);
+
+    expect(await countEmptyListItems(page)).toBe(0);
+    expect((await page.locator(editorSelector).textContent()) ?? '').toContain('Solo top');
+  });
+
+  test('keyboard reorder (Mod-Shift-Down) on the ONLY inner item also cleans up the wrapper', async ({ page }) => {
+    // KeyboardReorder uses the same `moveBlock`, so the fix applies
+    // here too. Guards against regressions if either path stops
+    // routing through the shared helper.
+    await setContent(
+      page,
+      '<ul>'
+      + '<li><p>Outer</p>'
+      + '<ul><li><p>Solo inner</p></li></ul>'
+      + '</li>'
+      + '</ul>'
+      + '<p>Tail</p>',
+    );
+
+    // Place caret inside the solo inner paragraph.
+    await page.locator(`${editorSelector} p:has-text("Solo inner")`).click();
+    await page.waitForTimeout(50);
+
+    // Mod-Shift-Down moves the current block down by one slot. With the
+    // fix, the empty wrapper UL collapses too.
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Shift+ArrowDown`);
+    await page.waitForTimeout(80);
+
+    expect(await countEmptyListItems(page)).toBe(0);
+    expect((await page.locator(editorSelector).textContent()) ?? '').toContain('Solo inner');
+  });
+});
