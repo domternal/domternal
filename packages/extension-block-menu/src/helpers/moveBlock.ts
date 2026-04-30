@@ -1,5 +1,5 @@
-import type { Node } from '@domternal/pm/model';
 import type { Transaction } from '@domternal/pm/state';
+import { expandToEmptyWrappers } from './expandToEmptyWrappers.js';
 
 /**
  * Moves a top-level block from `sourcePos` to `targetPos` in-place on the
@@ -51,27 +51,3 @@ export function moveBlock(
   return tr;
 }
 
-/**
- * Walks up from `[from, to]` widening the range as long as the immediate
- * parent ancestor is a single-child container (i.e. removing the source
- * would leave the parent empty). Stops at the first ancestor with siblings
- * (or at the doc root). Used to guarantee that dragging the only `<li>`
- * out of a nested `<ul>` removes the wrapper too — without this the parent
- * `<ul>`'s `listItem+` content rule would force PM to retain an empty
- * `<li>` placeholder.
- */
-function expandToEmptyWrappers(
-  doc: Node,
-  from: number,
-  to: number,
-): { from: number; to: number } {
-  let curFrom = from;
-  let curTo = to;
-  let $pos = doc.resolve(curFrom);
-  while ($pos.depth > 0 && $pos.node($pos.depth).childCount === 1) {
-    curFrom = $pos.before($pos.depth);
-    curTo = $pos.after($pos.depth);
-    $pos = doc.resolve(curFrom);
-  }
-  return { from: curFrom, to: curTo };
-}

@@ -1,6 +1,7 @@
 import type { Attrs, NodeType } from '@domternal/pm/model';
 import type { Transaction } from '@domternal/pm/state';
 import { TextSelection } from '@domternal/pm/state';
+import { expandToEmptyWrappers } from './expandToEmptyWrappers.js';
 
 /**
  * Block-level transaction helpers shared between BlockContextMenu commands
@@ -13,6 +14,23 @@ import { TextSelection } from '@domternal/pm/state';
 
 /**
  * Removes the block at `blockPos` entirely.
+ *
+ * Two correctness properties:
+ *
+ * 1. **Single-child wrapper expansion.** Deleting an inner block whose
+ *    parent only had that block as its single child would leave PM
+ *    fitting an empty placeholder (e.g. a `<ul>` with one `<li>` whose
+ *    paragraph is blank) to satisfy schemas like `bulletList → listItem+`.
+ *    Worse: in some schemas the fitter unwraps the parent and the
+ *    user perceives "delete killed the whole list". We expand the
+ *    deletion range outward through such wrappers (same logic as
+ *    `moveBlock`) so the entire orphan chain is removed atomically.
+ *
+ * 2. **Doc-empty fallback.** If the expanded range covers the entire
+ *    doc (e.g. doc had `[ul[only-li]]` and we expand to remove ul +
+ *    li), the delete would leave an empty doc and violate `block+`
+ *    on the doc itself. We replace with a fresh paragraph instead so
+ *    the editor stays usable (matches Notion).
  */
 export function deleteBlock(tr: Transaction, blockPos: number): Transaction {
   if (blockPos < 0 || blockPos >= tr.doc.content.size) return tr;
@@ -20,28 +38,27 @@ export function deleteBlock(tr: Transaction, blockPos: number): Transaction {
   if (!node) return tr;
   const blockEnd = blockPos + node.nodeSize;
 
-  // The doc schema typically requires `block+` — deleting the only block
-  // would violate that and throw on dispatch. Replace with a fresh
-  // paragraph instead so the editor stays usable (mirrors Notion).
-  if (tr.doc.childCount === 1) {
+  const { from, to } = expandToEmptyWrappers(tr.doc, blockPos, blockEnd);
+
+  // After expansion, would the doc be left empty? Compare the expanded
+  // range to the doc's full content range — equality means we covered
+  // every top-level child via single-child wrapper chains.
+  const wouldEmptyDoc = from === 0 && to === tr.doc.content.size;
+  if (wouldEmptyDoc) {
     const paragraphType = tr.doc.type.schema.nodes['paragraph'];
     if (!paragraphType) {
-      // No paragraph type in this schema — we can't safely replace.
-      // Bail out rather than let the delete throw.
+      // Schema has no `paragraph` type — bail rather than risk an
+      // invalid replacement.
       return tr;
     }
-    // `createAndFill` fills required attrs with defaults — safer than
-    // `create()` when the schema's paragraph requires non-null attrs
-    // (custom user schemas can do that).
     const replacement = paragraphType.createAndFill();
     if (!replacement) return tr;
-    tr.replaceWith(blockPos, blockEnd, replacement);
-    // Put the cursor inside the new paragraph so the user can start typing.
-    tr.setSelection(TextSelection.near(tr.doc.resolve(blockPos + 1)));
+    tr.replaceWith(from, to, replacement);
+    tr.setSelection(TextSelection.near(tr.doc.resolve(from + 1)));
     return tr;
   }
 
-  tr.delete(blockPos, blockEnd);
+  tr.delete(from, to);
   return tr;
 }
 

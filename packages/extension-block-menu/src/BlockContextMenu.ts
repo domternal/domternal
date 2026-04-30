@@ -25,7 +25,6 @@ import {
   duplicateBlock,
   turnIntoBlock,
 } from './helpers/blockOperations.js';
-import { findTopLevelBlock } from './helpers/findTopLevelBlock.js';
 
 /**
  * Shape of the `uniqueID` extension's options. We only read the two fields
@@ -510,15 +509,22 @@ export function createBlockContextMenuPlugin(
   /**
    * Opens the menu anchored to `anchorElement`, targeting `blockPos`.
    * Dispatches `dm:dismiss-overlays` first so any other chrome closes.
+   *
+   * `detail.blockPos` is whatever block the dispatcher (BlockHandle)
+   * resolved under the cursor — this includes nested list items when
+   * `BlockHandle.nested` is enabled. Using `findTopLevelBlock` here
+   * would walk past those and target the wrapping list, which would
+   * mean a "Delete" click on a single list item nukes the entire list
+   * (the user's reported bug).
    */
   const open = (detail: BlockContextMenuOpenDetail): void => {
     if (!editorEl) return;
 
-    const topLevel = findTopLevelBlock(editor.view.state.doc, detail.blockPos);
-    if (!topLevel) return;
+    const node = editor.view.state.doc.nodeAt(detail.blockPos);
+    if (!node) return;
 
-    currentBlockPos = topLevel.pos;
-    renderItems(topLevel.pos);
+    currentBlockPos = detail.blockPos;
+    renderItems(detail.blockPos);
     if (menuItemButtons.length === 0) return;
 
     editorEl.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));

@@ -1212,3 +1212,384 @@ test.describe('Drop in inter-block gaps', () => {
     expect(stillShown).not.toBeNull();
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────
+// 9. Block context menu Delete — must not nuke surrounding structure
+// ────────────────────────────────────────────────────────────────────────
+//
+// Regression coverage: clicking the drag handle on a list item and then
+// "Delete" in the context menu deleted the WHOLE list (PM's content fitter
+// unwrapped the parent UL because deleting an inner LI from a UL whose
+// `tr.doc.childCount === 1` triggered the wrong fallback branch). The fix
+// shares the same single-child-wrapper expansion logic with `moveBlock`.
+
+test.describe('BlockContextMenu Delete', () => {
+  test.beforeEach(async ({ page }) => {
+    await goNotion(page);
+    await page.setViewportSize({ width: 1280, height: 1500 });
+  });
+
+  /**
+   * Open the context menu on the textblock that contains `text`. Tries
+   * common textblock tags so headings / blockquotes / paragraphs all
+   * work without per-test custom locators.
+   */
+  async function openMenuOn(page: Page, text: string): Promise<void> {
+    const textblock = page
+      .locator(`${editorSelector} :is(p, h1, h2, h3, h4, h5, h6)`, { hasText: text })
+      .first();
+    const tBox = await boxOf(textblock);
+    await hoverAt(page, await sideGutterX(page), tBox.y + tBox.height / 2);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+    // Click the drag handle (without dragging) → opens BlockContextMenu.
+    await page.locator(dragBtnSelector).click();
+    await expect(page.locator('.dm-block-context-menu')).toBeVisible();
+  }
+
+  test('deleting the FIRST item in a multi-item list keeps the list with the remaining items', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Item A</p></li><li><p>Item B</p></li><li><p>Item C</p></li></ul>',
+    );
+    await openMenuOn(page, 'Item A');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+
+    const liTexts = (await page.locator(`${editorSelector} li p`).allTextContents())
+      .map((t) => t.trim());
+    expect(liTexts).toEqual(['Item B', 'Item C']);
+  });
+
+  test('deleting the ONLY item of a list with siblings removes the list entirely (no empty <ul>)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Lonely</p></li></ul><p>After</p>');
+    await openMenuOn(page, 'Lonely');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+
+    const top = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } }
+        | undefined;
+      const out: Array<{ type: string; text: string }> = [];
+      ed?.state.doc.forEach((n) => out.push({ type: n.type.name, text: n.textContent }));
+      return out;
+    });
+    expect(top).toEqual([{ type: 'paragraph', text: 'After' }]);
+  });
+
+  test('deleting the ONLY item of the ONLY top-level list replaces the doc with an empty paragraph', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Only</p></li></ul>');
+    await openMenuOn(page, 'Only');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+
+    const top = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } }
+        | undefined;
+      const out: Array<{ type: string; text: string }> = [];
+      ed?.state.doc.forEach((n) => out.push({ type: n.type.name, text: n.textContent }));
+      return out;
+    });
+    expect(top).toEqual([{ type: 'paragraph', text: '' }]);
+  });
+
+  test('deleting an inner item of a NESTED list keeps both outer and (still-populated) nested wrapper intact', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Outer</p>'
+      + '<ul>'
+      + '<li><p>Inner X</p></li>'
+      + '<li><p>Inner Y</p></li>'
+      + '</ul>'
+      + '</li></ul>',
+    );
+    await openMenuOn(page, 'Inner X');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+
+    // Outer LI keeps its paragraph + nested UL with the surviving inner item.
+    const outerInfo = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { firstChild: { childCount: number; lastChild: { type: { name: string }; childCount: number; firstChild: { textContent: string } | null } | null } | null } | null } } }
+        | undefined;
+      const outerLi = ed?.state.doc.firstChild?.firstChild;
+      return outerLi
+        ? {
+            childCount: outerLi.childCount,
+            nestedType: outerLi.lastChild?.type.name,
+            nestedChildCount: outerLi.lastChild?.childCount,
+            nestedFirstText: outerLi.lastChild?.firstChild?.textContent,
+          }
+        : null;
+    });
+    expect(outerInfo).toEqual({
+      childCount: 2,
+      nestedType: 'bulletList',
+      nestedChildCount: 1,
+      nestedFirstText: 'Inner Y',
+    });
+  });
+
+  test('deleting the ONLY inner item of a nested list collapses the nested UL but keeps outer + the rest', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Outer</p>'
+      + '<ul><li><p>Lone inner</p></li></ul>'
+      + '</li></ul>'
+      + '<p>Trailing</p>',
+    );
+    await openMenuOn(page, 'Lone inner');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+
+    // Outer LI now has only its paragraph (nested UL gone).
+    const outerInfo = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { firstChild: { childCount: number; firstChild: { type: { name: string }; textContent: string } | null } | null } | null } } }
+        | undefined;
+      const outerLi = ed?.state.doc.firstChild?.firstChild;
+      return outerLi
+        ? {
+            childCount: outerLi.childCount,
+            firstType: outerLi.firstChild?.type.name,
+            firstText: outerLi.firstChild?.textContent,
+          }
+        : null;
+    });
+    expect(outerInfo).toEqual({ childCount: 1, firstType: 'paragraph', firstText: 'Outer' });
+
+    const top = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { type: { name: string } }) => void) => void } } }
+        | undefined;
+      const out: string[] = [];
+      ed?.state.doc.forEach((n) => out.push(n.type.name));
+      return out;
+    });
+    expect(top).toEqual(['bulletList', 'paragraph']);
+  });
+
+  // ── List position coverage ──
+
+  test('deleting the LAST item of a multi-item list keeps the list with the surviving items', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Item A</p></li><li><p>Item B</p></li><li><p>Item C</p></li></ul>',
+    );
+    await openMenuOn(page, 'Item C');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+
+    const liTexts = (await page.locator(`${editorSelector} li p`).allTextContents())
+      .map((t) => t.trim());
+    expect(liTexts).toEqual(['Item A', 'Item B']);
+  });
+
+  test('deleting the MIDDLE item of a multi-item list keeps order of surrounding items', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Item A</p></li><li><p>Item B</p></li><li><p>Item C</p></li></ul>',
+    );
+    await openMenuOn(page, 'Item B');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+
+    const liTexts = (await page.locator(`${editorSelector} li p`).allTextContents())
+      .map((t) => t.trim());
+    expect(liTexts).toEqual(['Item A', 'Item C']);
+  });
+
+  // ── List type coverage ──
+
+  test('deleting an ordered list item only removes that item, keeps the OL', async ({ page }) => {
+    await setContent(page, '<ol><li><p>One</p></li><li><p>Two</p></li><li><p>Three</p></li></ol>');
+    await openMenuOn(page, 'Two');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+
+    const liTexts = (await page.locator(`${editorSelector} ol li p`).allTextContents())
+      .map((t) => t.trim());
+    expect(liTexts).toEqual(['One', 'Three']);
+  });
+
+  test('deleting a task item only removes that item, keeps the taskList', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList">'
+      + '<li data-type="taskItem"><p>Task One</p></li>'
+      + '<li data-type="taskItem"><p>Task Two</p></li>'
+      + '<li data-type="taskItem"><p>Task Three</p></li>'
+      + '</ul>',
+    );
+    await openMenuOn(page, 'Task Two');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+
+    const taskTexts = (await page.locator(`${editorSelector} li[data-type="taskItem"] p`).allTextContents())
+      .map((t) => t.trim());
+    expect(taskTexts).toEqual(['Task One', 'Task Three']);
+  });
+
+  test('deleting the only task item of a task list removes the whole task list', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Solo task</p></li></ul>'
+      + '<p>After</p>',
+    );
+    await openMenuOn(page, 'Solo task');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+
+    const top = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } }
+        | undefined;
+      const out: Array<{ type: string; text: string }> = [];
+      ed?.state.doc.forEach((n) => out.push({ type: n.type.name, text: n.textContent }));
+      return out;
+    });
+    expect(top).toEqual([{ type: 'paragraph', text: 'After' }]);
+  });
+
+  // ── Non-list block regression coverage ──
+
+  test('deleting a top-level paragraph (non-list) only removes that paragraph', async ({ page }) => {
+    await setContent(page, '<p>First</p><p>Middle</p><p>Last</p>');
+    await openMenuOn(page, 'Middle');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+
+    const texts = (await page.locator(`${editorSelector} > p`).allTextContents())
+      .map((t) => t.trim());
+    expect(texts).toEqual(['First', 'Last']);
+  });
+
+  test('deleting a heading only removes that heading', async ({ page }) => {
+    await setContent(page, '<p>Above</p><h2>The heading</h2><p>Below</p>');
+    await openMenuOn(page, 'The heading');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+
+    const top = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } }
+        | undefined;
+      const out: Array<{ type: string; text: string }> = [];
+      ed?.state.doc.forEach((n) => out.push({ type: n.type.name, text: n.textContent }));
+      return out;
+    });
+    expect(top).toEqual([
+      { type: 'paragraph', text: 'Above' },
+      { type: 'paragraph', text: 'Below' },
+    ]);
+  });
+
+  test('deleting a blockquote removes the whole blockquote (not just its inner paragraph)', async ({ page }) => {
+    await setContent(page, '<p>Above</p><blockquote><p>Quoted</p></blockquote><p>Below</p>');
+    await openMenuOn(page, 'Quoted');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+
+    const top = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } }
+        | undefined;
+      const out: Array<{ type: string; text: string }> = [];
+      ed?.state.doc.forEach((n) => out.push({ type: n.type.name, text: n.textContent }));
+      return out;
+    });
+    // Blockquote is a single-child wrapper of its paragraph → expansion
+    // catches it, so the whole blockquote disappears (no orphan empty
+    // blockquote left behind).
+    expect(top).toEqual([
+      { type: 'paragraph', text: 'Above' },
+      { type: 'paragraph', text: 'Below' },
+    ]);
+  });
+
+  // ── Behavioural invariants ──
+
+  test('undo restores the deleted block in its original position', async ({ page }) => {
+    await setContent(page, '<ul><li><p>X</p></li><li><p>Y</p></li><li><p>Z</p></li></ul>');
+    await openMenuOn(page, 'Y');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+
+    expect(
+      (await page.locator(`${editorSelector} li p`).allTextContents()).map((t) => t.trim()),
+    ).toEqual(['X', 'Z']);
+
+    // Editor must have focus for the keyboard shortcut to reach PM.
+    await page.locator(`${editorSelector}`).click();
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+z`);
+    await page.waitForTimeout(80);
+
+    expect(
+      (await page.locator(`${editorSelector} li p`).allTextContents()).map((t) => t.trim()),
+    ).toEqual(['X', 'Y', 'Z']);
+  });
+
+  test('multiple consecutive deletes whittle the list down to one item then to an empty paragraph', async ({ page }) => {
+    await setContent(page, '<ul><li><p>One</p></li><li><p>Two</p></li></ul>');
+
+    await openMenuOn(page, 'One');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+    expect(
+      (await page.locator(`${editorSelector} li p`).allTextContents()).map((t) => t.trim()),
+    ).toEqual(['Two']);
+
+    await openMenuOn(page, 'Two');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+
+    const top = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } }
+        | undefined;
+      const out: Array<{ type: string; text: string }> = [];
+      ed?.state.doc.forEach((n) => out.push({ type: n.type.name, text: n.textContent }));
+      return out;
+    });
+    // List collapsed (single-child wrapper expansion), then doc-empty
+    // fallback inserted a fresh paragraph.
+    expect(top).toEqual([{ type: 'paragraph', text: '' }]);
+  });
+
+  test('deleting a list item leaves no empty list-item placeholders anywhere in the doc', async ({ page }) => {
+    // Sweep across the suite's most-likely edge cases — counting empty
+    // placeholders is the single tightest invariant for the regression.
+    await setContent(
+      page,
+      '<ul><li><p>Outer</p>'
+      + '<ul><li><p>Solo inner</p></li></ul>'
+      + '</li></ul>'
+      + '<ul data-type="taskList"><li data-type="taskItem"><p>Lone task</p></li></ul>'
+      + '<p>Tail</p>',
+    );
+    await openMenuOn(page, 'Solo inner');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+    await openMenuOn(page, 'Lone task');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+
+    const emptyPlaceholders = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { descendants: (cb: (n: { type: { name: string }; textContent: string }) => boolean | void) => void } } }
+        | undefined;
+      let n = 0;
+      ed?.state.doc.descendants((node) => {
+        if (
+          (node.type.name === 'listItem' || node.type.name === 'taskItem')
+          && node.textContent === ''
+        ) n++;
+        return true;
+      });
+      return n;
+    });
+    expect(emptyPlaceholders).toBe(0);
+  });
+});
