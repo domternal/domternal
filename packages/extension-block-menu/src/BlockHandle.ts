@@ -24,7 +24,7 @@ import type { Editor } from '@domternal/core';
 import { NodeSelection, Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import type { Slice } from '@domternal/pm/model';
-import { findTopLevelBlock, findDeepestBlockAtY } from './helpers/findTopLevelBlock.js';
+import { findDeepestBlockAtY } from './helpers/findTopLevelBlock.js';
 import { moveBlock } from './helpers/moveBlock.js';
 import { buildDragPreview } from './helpers/cloneElement.js';
 import { clampToContent } from './helpers/clampCoords.js';
@@ -280,6 +280,16 @@ function resolveBlockAtCoords(
  * and return the one whose vertical range contains `clientY`. X is
  * ignored so the handle resolves correctly even when the cursor sits
  * outside the editor's horizontal bounds.
+ *
+ * When no top-level block strictly contains `clientY` (cursor sits in
+ * the inter-block gap, above the first block, or below the last), this
+ * falls back to the **closest** top-level block by vertical distance.
+ * The previous fallback used `posAtCoords({ left: 0, top: clientY })`
+ * which returned `null` when X=0 was outside the editor's content area —
+ * leading to silent drop-in-gap failures (the user sees a hover that
+ * anchors but the drop does nothing). Closest-by-Y is robust regardless
+ * of horizontal layout and matches Notion's "drop sticks to the nearest
+ * block" UX.
  */
 function resolveTopLevelByY(
   view: EditorView,
@@ -287,6 +297,7 @@ function resolveTopLevelByY(
 ): { pos: number; rect: DOMRect; dom: HTMLElement } | null {
   const doc = view.state.doc;
   let offset = 0;
+  let closest: { pos: number; rect: DOMRect; dom: HTMLElement; dist: number } | null = null;
   for (let i = 0; i < doc.childCount; i++) {
     const child = doc.child(i);
     const dom = view.nodeDOM(offset);
@@ -295,18 +306,67 @@ function resolveTopLevelByY(
       if (clientY >= rect.top && clientY <= rect.bottom) {
         return { pos: offset, rect, dom };
       }
+      const dist = clientY < rect.top ? rect.top - clientY : clientY - rect.bottom;
+      if (closest === null || dist < closest.dist) {
+        closest = { pos: offset, rect, dom, dist };
+      }
     }
     offset += child.nodeSize;
   }
-  // Last resort: the cursor isn't vertically inside any block — let
-  // PM pick the nearest position and walk up to top level.
-  const coord = view.posAtCoords({ left: 0, top: clientY });
-  if (!coord) return null;
-  const top = findTopLevelBlock(doc, coord.pos);
-  if (!top) return null;
-  const dom = view.nodeDOM(top.pos);
-  if (!(dom instanceof HTMLElement)) return null;
-  return { pos: top.pos, rect: dom.getBoundingClientRect(), dom };
+  if (closest) return { pos: closest.pos, rect: closest.rect, dom: closest.dom };
+  return null;
+}
+
+const LIST_WRAPPER_TYPE_NAMES = new Set(['bulletList', 'orderedList', 'taskList']);
+
+/**
+ * Notion-style "drop sticks to the list" semantics. When the resolved
+ * drop target is a list-wrapper container (bulletList / orderedList /
+ * taskList) and the cursor sits ABOVE its top edge or BELOW its bottom
+ * edge, descend into the wrapper and pick the FIRST or LAST listItem
+ * (respectively) so the drop lands inside the list rather than creating
+ * a sibling list of one item.
+ *
+ * Without this, a drop in the small gap between a list bottom and the
+ * next block would be processed against the wrapper UL — and PM's
+ * subsequent insert at the wrapper's end position would auto-wrap the
+ * dragged listItem in a brand-new bulletList sibling, which is rarely
+ * what users intend (most lists were the user's grouping; they want the
+ * drag to keep things in the same list).
+ *
+ * Returns `resolved` unchanged when:
+ * - The resolved node isn't a list wrapper.
+ * - The wrapper has no children (e.g. mid-edit transient state).
+ * - The cursor is INSIDE the wrapper's vertical extent (the resolver
+ *   would have already returned a child via `findDeepestBlockAtY` in
+ *   that case; if we got the wrapper despite being inside, the caller's
+ *   default targeting is already correct).
+ */
+function adjustDropTargetForListWrapper(
+  view: EditorView,
+  resolved: { pos: number; rect: DOMRect; dom: HTMLElement },
+  clientY: number,
+): { pos: number; rect: DOMRect; dom: HTMLElement } {
+  const node = view.state.doc.nodeAt(resolved.pos);
+  if (!node) return resolved;
+  if (!LIST_WRAPPER_TYPE_NAMES.has(node.type.name)) return resolved;
+  if (node.childCount === 0) return resolved;
+
+  const isAbove = clientY < resolved.rect.top;
+  const isBelow = clientY > resolved.rect.bottom;
+  if (!isAbove && !isBelow) return resolved;
+
+  // Find absolute pos of the first or last child relative to the wrapper.
+  // Wrapper opens at `resolved.pos`, so its first child starts at
+  // `resolved.pos + 1` (one past the open token).
+  const targetIndex = isBelow ? node.childCount - 1 : 0;
+  let childPos = resolved.pos + 1;
+  for (let i = 0; i < targetIndex; i++) {
+    childPos += node.child(i).nodeSize;
+  }
+  const childDom = view.nodeDOM(childPos);
+  if (!(childDom instanceof HTMLElement)) return resolved;
+  return { pos: childPos, rect: childDom.getBoundingClientRect(), dom: childDom };
 }
 
 /**
@@ -798,13 +858,21 @@ export function createBlockHandlePlugin(
         // exactly what the user saw under the cursor — including edge
         // promotion when configured. Without this, hover and drop can
         // disagree at the gutter, dropping a list item onto its parent.
-        const resolved = resolveBlockAtCoords(view, event.clientX, event.clientY, nested);
-        if (!resolved) { event.preventDefault(); return true; }
+        const initial = resolveBlockAtCoords(view, event.clientX, event.clientY, nested);
+        if (!initial) { event.preventDefault(); return true; }
+
+        // When the resolver returned a list-wrapper container (e.g.
+        // because the cursor is in the gap right above/below a list),
+        // descend into the wrapper's first/last item so the drop lands
+        // INSIDE the list. Without this, PM would rewrap the source in
+        // a brand-new sibling list of one item — which is rarely what
+        // the user wants when their cursor is visually next to the list.
+        const resolved = adjustDropTargetForListWrapper(view, initial, event.clientY);
 
         // Above-mid → insert before; below-mid → insert after. Mirrors
         // the visible position of `prosemirror-dropcursor`'s indicator
         // for the user.
-        const rect = resolved.dom.getBoundingClientRect();
+        const rect = resolved.rect;
         const midY = rect.top + rect.height / 2;
         const targetNode = view.state.doc.nodeAt(resolved.pos);
         const targetEnd = targetNode ? resolved.pos + targetNode.nodeSize : resolved.pos;

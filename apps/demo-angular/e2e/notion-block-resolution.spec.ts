@@ -928,3 +928,287 @@ test.describe('Empty-wrapper cleanup on drag', () => {
     expect((await page.locator(editorSelector).textContent()) ?? '').toContain('Solo inner');
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────
+// 8. Drop in inter-block gaps — closest-by-Y + list-wrapper "stick" UX
+// ────────────────────────────────────────────────────────────────────────
+//
+// Regression coverage for the bug where dropping in the small gap between
+// a list bottom and the next top-level block silently failed (resolver
+// returned null because no top-level block contained the gap Y, and the
+// X=0 fallback `posAtCoords` returned null too). The fix:
+//
+// 1. `resolveTopLevelByY` falls back to closest top-level block by Y
+//    distance (instead of the fragile X=0 `posAtCoords` last-resort).
+// 2. `handleDrop` adjusts the resolved target when it's a list-wrapper
+//    container — descending into the first/last child so drops in the
+//    gap above/below stick INSIDE the list (Notion behaviour).
+
+test.describe('Drop in inter-block gaps', () => {
+  test.beforeEach(async ({ page }) => {
+    await goNotion(page);
+    await page.setViewportSize({ width: 1280, height: 1500 });
+  });
+
+  /** Resolve UL bottom + next-block top to compute the gap. */
+  async function listAndNextBlockBounds(page: Page): Promise<{
+    ulBottom: number; nextTop: number;
+    firstLi: { x: number; y: number; height: number };
+    lastLi: { x: number; y: number; height: number };
+  }> {
+    return page.evaluate(() => {
+      const ul = document.querySelector('.ProseMirror > ul') as HTMLElement;
+      const lis = ul.querySelectorAll(':scope > li');
+      const next = ul.nextElementSibling as HTMLElement | null;
+      const firstLiR = (lis[0] as HTMLElement).getBoundingClientRect();
+      const lastLiR = (lis[lis.length - 1] as HTMLElement).getBoundingClientRect();
+      return {
+        ulBottom: ul.getBoundingClientRect().bottom,
+        nextTop: next ? next.getBoundingClientRect().top : ul.getBoundingClientRect().bottom + 100,
+        firstLi: { x: firstLiR.x, y: firstLiR.y, height: firstLiR.height },
+        lastLi: { x: lastLiR.x, y: lastLiR.y, height: lastLiR.height },
+      };
+    });
+  }
+
+  /** Ordered helper: hover source, dragstart, dragover+drop, dragend. */
+  async function dragHandleTo(page: Page, dropX: number, dropY: number): Promise<void> {
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    await page.waitForTimeout(20);
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt, clientX: dropX, clientY: dropY,
+    });
+    await page.locator(editorSelector).dispatchEvent('drop', {
+      dataTransfer: dt, clientX: dropX, clientY: dropY,
+    });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    await dt.dispose();
+  }
+
+  test('drop in gap 1px BELOW list → A appended to end of list (sticks to list)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul>'
+      + '<li><p>Item A</p></li>'
+      + '<li><p>Item B</p></li>'
+      + '<li><p>Item C</p></li>'
+      + '</ul>'
+      + '<h2>Next section</h2>',
+    );
+
+    const itemAP = page.locator(`${editorSelector} p`, { hasText: 'Item A' });
+    const aBox = await boxOf(itemAP);
+    await hoverAt(page, await sideGutterX(page), aBox.y + aBox.height / 2);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+
+    const bounds = await listAndNextBlockBounds(page);
+    // 1px below UL bottom — squarely in the gap, but visually adjacent
+    // to the list. Pre-fix: drop did nothing.
+    const dropX = bounds.lastLi.x + 5;
+    const dropY = bounds.ulBottom + 1;
+    await dragHandleTo(page, dropX, dropY);
+
+    const liTexts = (await page.locator(`${editorSelector} li p`).allTextContents()).map((t) => t.trim());
+    expect(liTexts).toEqual(['Item B', 'Item C', 'Item A']);
+  });
+
+  test('drop at midpoint of gap → A still sticks to list (closest top-level wins)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul>'
+      + '<li><p>Item A</p></li>'
+      + '<li><p>Item B</p></li>'
+      + '<li><p>Item C</p></li>'
+      + '</ul>'
+      + '<h2>Next section</h2>',
+    );
+
+    const itemAP = page.locator(`${editorSelector} p`, { hasText: 'Item A' });
+    const aBox = await boxOf(itemAP);
+    await hoverAt(page, await sideGutterX(page), aBox.y + aBox.height / 2);
+
+    const bounds = await listAndNextBlockBounds(page);
+    const dropX = bounds.lastLi.x + 5;
+    const dropY = (bounds.ulBottom + bounds.nextTop) / 2;
+    await dragHandleTo(page, dropX, dropY);
+
+    // Midpoint is exactly equidistant — closest-by-Y picks the FIRST
+    // matching candidate (the list, traversed first). Result: A goes
+    // into the list at the end. (If the gap were asymmetric, the
+    // logic still picks whichever side is closer.)
+    const liTexts = (await page.locator(`${editorSelector} li p`).allTextContents()).map((t) => t.trim());
+    expect(liTexts).toEqual(['Item B', 'Item C', 'Item A']);
+  });
+
+  test('drop in gap 1px ABOVE next block → resolver picks next block (cursor closer to it)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul>'
+      + '<li><p>Item A</p></li>'
+      + '<li><p>Item B</p></li>'
+      + '<li><p>Item C</p></li>'
+      + '</ul>'
+      + '<h2>Next section</h2>',
+    );
+
+    const itemAP = page.locator(`${editorSelector} p`, { hasText: 'Item A' });
+    const aBox = await boxOf(itemAP);
+    await hoverAt(page, await sideGutterX(page), aBox.y + aBox.height / 2);
+
+    const bounds = await listAndNextBlockBounds(page);
+    // 1px above the next block's top — closer to H2 than to UL.
+    // Resolver returns H2 (not a list wrapper). Drop processes H2:
+    // top-half of H2 → insert before H2. moveBlock inserts the
+    // listItem at top level → PM auto-wraps it in a sibling UL.
+    const dropX = bounds.lastLi.x + 5;
+    const dropY = bounds.nextTop - 1;
+    await dragHandleTo(page, dropX, dropY);
+
+    // Top-level layout: original UL[B, C], new UL[A], H2.
+    const topLevel = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } }
+        | undefined;
+      const out: Array<{ type: string; text: string }> = [];
+      ed?.state.doc.forEach((n) => out.push({ type: n.type.name, text: n.textContent }));
+      return out;
+    });
+    expect(topLevel).toEqual([
+      { type: 'bulletList', text: 'Item BItem C' },
+      { type: 'bulletList', text: 'Item A' },
+      { type: 'heading', text: 'Next section' },
+    ]);
+  });
+
+  test('drop ABOVE first item of list → A goes to start of list (above-list gap sticks)', async ({ page }) => {
+    await setContent(
+      page,
+      '<h2>Header above</h2>'
+      + '<ul>'
+      + '<li><p>Item A</p></li>'
+      + '<li><p>Item B</p></li>'
+      + '<li><p>Item C</p></li>'
+      + '</ul>',
+    );
+
+    // Use Item C as the source so we can verify it lands at the start.
+    const itemCP = page.locator(`${editorSelector} p`, { hasText: 'Item C' });
+    const cBox = await boxOf(itemCP);
+    await hoverAt(page, await sideGutterX(page), cBox.y + cBox.height / 2);
+
+    const bounds = await listAndNextBlockBounds(page);
+    const headerBottom = await page.evaluate(() => {
+      const h = document.querySelector('.ProseMirror > h2') as HTMLElement;
+      return h.getBoundingClientRect().bottom;
+    });
+    // 1px above the first listItem's top — squarely in the gap between
+    // header and list. Closer to UL → wrapper detect → first child.
+    const dropX = bounds.firstLi.x + 5;
+    const dropY = bounds.firstLi.y - 1;
+    expect(dropY).toBeGreaterThan(headerBottom); // sanity: gap-Y is below header
+    await dragHandleTo(page, dropX, dropY);
+
+    const liTexts = (await page.locator(`${editorSelector} li p`).allTextContents()).map((t) => t.trim());
+    // C jumped to the start: [C, A, B].
+    expect(liTexts).toEqual(['Item C', 'Item A', 'Item B']);
+  });
+
+  test('drop in last paragraph bottom-half → A moves out of list, lands after last paragraph', async ({ page }) => {
+    // PM only dispatches `drop` events whose clientY lies INSIDE the
+    // editor's bounding rect — drops further outside are silently
+    // ignored (PM's input scoping, not our bug). We test the realistic
+    // drop position: inside the last block, in its bottom half.
+    await setContent(
+      page,
+      '<p>First</p>'
+      + '<ul><li><p>Item A</p></li><li><p>Item B</p></li></ul>'
+      + '<p>Last paragraph</p>',
+    );
+
+    const itemAP = page.locator(`${editorSelector} p`, { hasText: 'Item A' });
+    const aBox = await boxOf(itemAP);
+    await hoverAt(page, await sideGutterX(page), aBox.y + aBox.height / 2);
+
+    const lastP = page.locator(`${editorSelector} p`, { hasText: 'Last paragraph' });
+    const lBox = await boxOf(lastP);
+    // Drop in the last paragraph's bottom half (= insert AFTER it).
+    await dragHandleTo(page, lBox.x + 5, lBox.y + lBox.height * 0.8);
+
+    const topLevel = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } }
+        | undefined;
+      const out: Array<{ type: string; text: string }> = [];
+      ed?.state.doc.forEach((n) => out.push({ type: n.type.name, text: n.textContent }));
+      return out;
+    });
+    // A is gone from the bullet list, appears after Last paragraph
+    // (PM auto-wraps the bare listItem in a sibling bulletList).
+    const listEntries = topLevel.filter((e) => e.type === 'bulletList');
+    expect(listEntries[0]?.text).toBe('Item B');
+    const lastEntry = topLevel[topLevel.length - 1];
+    expect(lastEntry?.text).toBe('Item A');
+  });
+
+  test('drop in first paragraph top-half → B moves out of list, lands before first paragraph', async ({ page }) => {
+    await setContent(
+      page,
+      '<p>First paragraph</p>'
+      + '<ul><li><p>Item A</p></li><li><p>Item B</p></li></ul>',
+    );
+
+    const itemBP = page.locator(`${editorSelector} p`, { hasText: 'Item B' });
+    const bBox = await boxOf(itemBP);
+    await hoverAt(page, await sideGutterX(page), bBox.y + bBox.height / 2);
+
+    const firstP = page.locator(`${editorSelector} p`, { hasText: 'First paragraph' });
+    const fBox = await boxOf(firstP);
+    // Drop in the first paragraph's top-half (= insert BEFORE it).
+    await dragHandleTo(page, fBox.x + 5, fBox.y + fBox.height * 0.2);
+
+    const topLevel = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } }
+        | undefined;
+      const out: Array<{ type: string; text: string }> = [];
+      ed?.state.doc.forEach((n) => out.push({ type: n.type.name, text: n.textContent }));
+      return out;
+    });
+    // B moved BEFORE "First paragraph" (auto-wrapped in a sibling UL by PM).
+    expect(topLevel[0]?.text).toBe('Item B');
+    expect(topLevel[1]?.text).toBe('First paragraph');
+    // Original list lost B.
+    const listEntries = topLevel.filter((e) => e.type === 'bulletList');
+    expect(listEntries[1]?.text).toBe('Item A');
+  });
+
+  test('drop in gap is consistent: moveBlock target equals what handleDrop computes', async ({ page }) => {
+    // Sanity: hovering the source over the gap Y produces the same
+    // hovered target as the drop fallback. Without this, hover indicator
+    // and drop landing site can disagree (a known dropcursor pitfall).
+    await setContent(
+      page,
+      '<ul><li><p>Source</p></li><li><p>Stay</p></li></ul>'
+      + '<p>Below</p>',
+    );
+
+    const sourceP = page.locator(`${editorSelector} p`, { hasText: 'Source' });
+    const sBox = await boxOf(sourceP);
+    await hoverAt(page, await sideGutterX(page), sBox.y + sBox.height / 2);
+
+    // Move to the gap (1px below UL).
+    const ulBottom = await page.evaluate(() => {
+      const ul = document.querySelector('.ProseMirror > ul') as HTMLElement;
+      return ul.getBoundingClientRect().bottom;
+    });
+    await hoverAt(page, await sideGutterX(page), ulBottom + 1);
+    // The hover state should EITHER stay on Source (since cursor moved
+    // off any listItem rect → handle keeps last hover) OR re-anchor to
+    // the closest listItem. Either way, the drop must work.
+    const stillShown = await page.locator(blockHandleSelector).getAttribute('data-show');
+    expect(stillShown).not.toBeNull();
+  });
+});

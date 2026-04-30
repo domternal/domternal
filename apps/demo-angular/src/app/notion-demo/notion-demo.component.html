@@ -1,5 +1,6 @@
 <div class="notion-page">
   <domternal-editor
+    #ec
     [extensions]="extensions"
     [content]="editorContent"
     (editorCreated)="onEditorCreated($event)"
@@ -15,3 +16,9 @@
     <domternal-floating-menu [editor]="ed" />
   }
 </div>
+
+<h3>HTML Output</h3>
+<pre class="output">{{ ec.htmlContent() }}</pre>
+
+<h3>Styled HTML Output</h3>
+<pre class="output-styled">{{ getStyledHtml(ec.htmlContent()) }}</pre>

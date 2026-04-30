@@ -33,8 +33,9 @@ import {
   UniqueID,
   BlockColor,
   Editor,
+  inlineStyles,
 } from '@domternal/core';
-import { CodeBlockLowlight } from '@domternal/extension-code-block-lowlight';
+import { CodeBlockLowlight, createCodeHighlighter } from '@domternal/extension-code-block-lowlight';
 import { Image } from '@domternal/extension-image';
 import { Details } from '@domternal/extension-details';
 import { Table } from '@domternal/extension-table';
@@ -50,6 +51,7 @@ import type { MentionItem } from '@domternal/extension-mention';
 import { createLowlight, common } from 'lowlight';
 
 const lowlight = createLowlight(common);
+const codeHighlighter = createCodeHighlighter(lowlight);
 
 const mockUsers: MentionItem[] = [
   { id: '1', label: 'Alice Johnson' },
@@ -201,6 +203,11 @@ export class NotionDemoComponent implements OnDestroy {
     };
     host.addEventListener('dm:copy-link-success', this.copyLinkSuccessListener);
     host.addEventListener('dm:copy-link-error', this.copyLinkErrorListener);
+  }
+
+  /** Inline-style the live HTML output for the "Styled HTML" pane. */
+  getStyledHtml(html: string): string {
+    return inlineStyles(html, { codeHighlighter, tableColumnWidths: 'pixel' });
   }
 
   ngOnDestroy(): void {
