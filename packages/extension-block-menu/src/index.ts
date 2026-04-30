@@ -65,3 +65,7 @@ export type {
 
 // Default DOM renderer for the SlashCommand popup
 export { createSlashSuggestionRenderer } from './createSlashSuggestionRenderer.js';
+
+// SmartPaste — preserves block formatting when pasting at inline positions
+export { SmartPaste } from './SmartPaste.js';
+export type { SmartPasteOptions } from './SmartPaste.js';

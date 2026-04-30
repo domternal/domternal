@@ -45,6 +45,7 @@ import {
   BlockContextMenu,
   KeyboardReorder,
   SlashCommand,
+  SmartPaste,
 } from '@domternal/extension-block-menu';
 import type { MentionItem } from '@domternal/extension-mention';
 import { createLowlight, common } from 'lowlight';
@@ -167,6 +168,9 @@ export class NotionDemoComponent implements OnDestroy {
     BlockContextMenu,
     KeyboardReorder,
     SlashCommand,
+    // Preserve block formatting when pasting at inline positions
+    // (the classic "copy h1, Shift+Enter, paste → loses heading" case).
+    SmartPaste,
   ];
 
   editorContent = STARTER_CONTENT;
