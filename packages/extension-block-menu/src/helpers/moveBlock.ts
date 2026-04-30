@@ -1,5 +1,6 @@
 import type { Transaction } from '@domternal/pm/state';
 import { expandToEmptyWrappers } from './expandToEmptyWrappers.js';
+import { convertListItemForParent } from './convertListItemForParent.js';
 
 /**
  * Moves a top-level block from `sourcePos` to `targetPos` in-place on the
@@ -16,7 +17,9 @@ import { expandToEmptyWrappers } from './expandToEmptyWrappers.js';
  * - Delete the (possibly expanded) range.
  * - Adjust target: if target was after the source, subtract the removed size
  *   because positions after the deletion shift left.
- * - Insert the slice at the adjusted target.
+ * - Adapt the slice to the target parent's content rule (auto-convert
+ *   listItem ↔ taskItem when dropping across list types — Notion behaviour).
+ * - Insert the (possibly converted) slice at the adjusted target.
  *
  * Self-drop safety:
  * - If `targetPos` falls inside the expanded deletion range, return the
@@ -47,7 +50,19 @@ export function moveBlock(
   const adjustedTarget = targetPos > from
     ? targetPos - (to - from)
     : targetPos;
-  tr.insert(adjustedTarget, slice.content);
+
+  // Auto-convert listItem ↔ taskItem when crossing list types, matching
+  // Notion's "drop adapts to context" UX. When the target's parent isn't
+  // a list wrapper (top-level drops, paragraph parents, etc.) the helper
+  // returns the slice content unchanged.
+  const targetParent = tr.doc.resolve(adjustedTarget).parent;
+  const adaptedContent = convertListItemForParent(
+    tr.doc.type.schema,
+    slice.content,
+    targetParent.type,
+  );
+
+  tr.insert(adjustedTarget, adaptedContent);
   return tr;
 }
 

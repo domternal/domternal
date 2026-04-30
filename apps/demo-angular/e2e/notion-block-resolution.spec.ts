@@ -1593,3 +1593,241 @@ test.describe('BlockContextMenu Delete', () => {
     expect(emptyPlaceholders).toBe(0);
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────
+// 10. Cross-list-type drop — auto-convert listItem ↔ taskItem
+// ────────────────────────────────────────────────────────────────────────
+//
+// Regression coverage for the bug where dropping a `listItem` into a
+// `taskList` produced an empty checkbox containing the bullet item
+// (PM's content fitter wrapping the wrong-type child to satisfy
+// `taskItem+`). The fix adapts the dragged item's wrapper type to
+// match the target parent's content rule — Notion-style.
+
+test.describe('Cross-list-type drop auto-converts wrapper', () => {
+  test.beforeEach(async ({ page }) => {
+    await goNotion(page);
+    await page.setViewportSize({ width: 1280, height: 1500 });
+  });
+
+  /** Hover a paragraph + dragstart + drop on another paragraph's bottom-half. */
+  async function dragFromTo(page: Page, sourceText: string, targetText: string): Promise<void> {
+    const sourceP = page.locator(`${editorSelector} p`, { hasText: sourceText }).first();
+    const sBox = await boxOf(sourceP);
+    await hoverAt(page, await sideGutterX(page), sBox.y + sBox.height / 2);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    await page.waitForTimeout(20);
+
+    const targetP = page.locator(`${editorSelector} p`, { hasText: targetText }).first();
+    const tBox = await boxOf(targetP);
+    const dropX = tBox.x + 5;
+    const dropY = tBox.y + tBox.height * 0.8;
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt, clientX: dropX, clientY: dropY,
+    });
+    await page.locator(editorSelector).dispatchEvent('drop', {
+      dataTransfer: dt, clientX: dropX, clientY: dropY,
+    });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    await dt.dispose();
+  }
+
+  /** Returns the type name of every listItem/taskItem in the doc, in order. */
+  async function itemTypes(page: Page): Promise<Array<{ type: string; text: string; checked: unknown }>> {
+    return page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { descendants: (cb: (n: { type: { name: string }; textContent: string; attrs: Record<string, unknown> }) => boolean | void) => void } } }
+        | undefined;
+      const out: Array<{ type: string; text: string; checked: unknown }> = [];
+      ed?.state.doc.descendants((node) => {
+        if (node.type.name === 'listItem' || node.type.name === 'taskItem') {
+          out.push({ type: node.type.name, text: node.textContent, checked: node.attrs['checked'] });
+        }
+        return true;
+      });
+      return out;
+    });
+  }
+
+  // ── Bullet → Task ──
+
+  test('drag a bullet item into a task list → converts to taskItem (unchecked)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Bullet source</p></li></ul>'
+      + '<ul data-type="taskList">'
+      + '<li data-type="taskItem"><p>Existing task</p></li>'
+      + '</ul>',
+    );
+    await dragFromTo(page, 'Bullet source', 'Existing task');
+
+    const items = await itemTypes(page);
+    // Only `Existing task` and the converted `Bullet source` (now a taskItem).
+    // `Bullet source` is below `Existing task` because we dropped on the
+    // bottom half.
+    expect(items).toEqual([
+      { type: 'taskItem', text: 'Existing task', checked: false },
+      { type: 'taskItem', text: 'Bullet source', checked: false },
+    ]);
+  });
+
+  test('drag a bullet item into the MIDDLE of a task list → still converts to taskItem', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Bullet source</p></li></ul>'
+      + '<ul data-type="taskList">'
+      + '<li data-type="taskItem" data-checked="true"><p>Task A</p></li>'
+      + '<li data-type="taskItem"><p>Task B</p></li>'
+      + '</ul>',
+    );
+    // Drop on Task A's bottom-half → lands between A and B (still inside taskList).
+    await dragFromTo(page, 'Bullet source', 'Task A');
+
+    const items = await itemTypes(page);
+    expect(items.map((i) => i.type)).toEqual(['taskItem', 'taskItem', 'taskItem']);
+    expect(items.map((i) => i.text)).toEqual(['Task A', 'Bullet source', 'Task B']);
+    // Existing checked state preserved on Task A; new converted item is unchecked.
+    expect(items[0]?.checked).toBe(true);
+    expect(items[1]?.checked).toBe(false);
+  });
+
+  // ── Task → Bullet/Ordered ──
+
+  test('drag a task item into a bullet list → converts to listItem (drops checked)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList">'
+      + '<li data-type="taskItem" data-checked="true"><p>Task source</p></li>'
+      + '</ul>'
+      + '<ul><li><p>Existing bullet</p></li></ul>',
+    );
+    await dragFromTo(page, 'Task source', 'Existing bullet');
+
+    const items = await itemTypes(page);
+    // listItem schema doesn't carry `checked`, so attr is stripped.
+    expect(items).toEqual([
+      { type: 'listItem', text: 'Existing bullet', checked: undefined },
+      { type: 'listItem', text: 'Task source', checked: undefined },
+    ]);
+  });
+
+  test('drag a task item into an ordered list → converts to listItem', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList">'
+      + '<li data-type="taskItem"><p>Task source</p></li>'
+      + '</ul>'
+      + '<ol><li><p>Existing numbered</p></li></ol>',
+    );
+    await dragFromTo(page, 'Task source', 'Existing numbered');
+
+    const items = await itemTypes(page);
+    expect(items.map((i) => i.type)).toEqual(['listItem', 'listItem']);
+    expect(items.map((i) => i.text)).toEqual(['Existing numbered', 'Task source']);
+  });
+
+  // ── No-op cases ──
+
+  test('drag a bullet item into another bullet list → no conversion', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>From here</p></li></ul>'
+      + '<ul><li><p>To here</p></li></ul>',
+    );
+    await dragFromTo(page, 'From here', 'To here');
+    const items = await itemTypes(page);
+    expect(items.map((i) => i.type)).toEqual(['listItem', 'listItem']);
+  });
+
+  test('drag a bullet item into an ordered list → still listItem (no conversion needed, same item type)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Bullet source</p></li></ul>'
+      + '<ol><li><p>Numbered target</p></li></ol>',
+    );
+    await dragFromTo(page, 'Bullet source', 'Numbered target');
+    const items = await itemTypes(page);
+    // Both lists use `listItem`, so no wrapper conversion is needed —
+    // the source just lands inside the ordered list as a listItem.
+    expect(items.map((i) => i.type)).toEqual(['listItem', 'listItem']);
+  });
+
+  // ── Top-level drop unaffected ──
+
+  test('drag a bullet item to a top-level paragraph → wraps in fresh bulletList (no auto-convert)', async ({ page }) => {
+    // Top-level drop has parent = doc (not a list wrapper) → conversion
+    // helper short-circuits, source stays a listItem and PM auto-wraps.
+    await setContent(
+      page,
+      '<ul><li><p>Source</p></li></ul>'
+      + '<p>Target paragraph</p>',
+    );
+    await dragFromTo(page, 'Source', 'Target paragraph');
+
+    const top = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } }
+        | undefined;
+      const out: Array<{ type: string; text: string }> = [];
+      ed?.state.doc.forEach((n) => out.push({ type: n.type.name, text: n.textContent }));
+      return out;
+    });
+    // Source bulletList disappeared (single-child wrapper expanded on
+    // delete). Target paragraph + new wrapped bulletList AFTER it.
+    expect(top).toEqual([
+      { type: 'paragraph', text: 'Target paragraph' },
+      { type: 'bulletList', text: 'Source' },
+    ]);
+  });
+
+  // ── Inner content preserved during conversion ──
+
+  test('converted item retains its inner paragraph + nested lists', async ({ page }) => {
+    // Source: a bullet item that itself contains a nested task list.
+    // Drop into a task list. Outer wrapper: listItem → taskItem.
+    // Inner nested taskList: stays a taskList (already correct type).
+    await setContent(
+      page,
+      '<ul><li>'
+      + '<p>Outer source</p>'
+      + '<ul data-type="taskList"><li data-type="taskItem"><p>Inner kept</p></li></ul>'
+      + '</li></ul>'
+      + '<ul data-type="taskList"><li data-type="taskItem"><p>Existing task</p></li></ul>',
+    );
+    await dragFromTo(page, 'Outer source', 'Existing task');
+
+    // Outer item is now a taskItem, and its first child is the paragraph,
+    // its second child is the (still) nested taskList.
+    const structure = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { descendants: (cb: (n: { type: { name: string }; textContent: string; childCount: number; firstChild: { type: { name: string } } | null; lastChild: { type: { name: string } } | null }) => boolean | void) => void } } }
+        | undefined;
+      const out: Array<{ type: string; text: string; childCount: number; firstChildType: string | undefined; lastChildType: string | undefined }> = [];
+      ed?.state.doc.descendants((node) => {
+        if (node.type.name === 'taskItem' && node.textContent.includes('Outer source')) {
+          out.push({
+            type: node.type.name,
+            text: node.textContent,
+            childCount: node.childCount,
+            firstChildType: node.firstChild?.type.name,
+            lastChildType: node.lastChild?.type.name,
+          });
+        }
+        return true;
+      });
+      return out;
+    });
+    expect(structure).toHaveLength(1);
+    expect(structure[0]).toMatchObject({
+      type: 'taskItem',
+      childCount: 2,
+      firstChildType: 'paragraph',
+      lastChildType: 'taskList',
+    });
+  });
+});
