@@ -223,14 +223,17 @@ describe('SmartPaste', () => {
     editor.destroy();
   });
 
-  it('paste H1 inside paragraph that follows a hardBreak (Shift+Enter case)', () => {
-    // The exact user-reported scenario. Set up paragraph with hardBreak
-    // mid-content; caret at end of paragraph (after the break).
+  it('paste H1 inside paragraph that follows a hardBreak (Shift+Enter case) → trailing hb TRIMMED, heading sibling', () => {
+    // The exact user-reported scenario. Paragraph "Existing" + Shift+Enter
+    // (so trailing hardBreak), caret at end of paragraph (after the break).
+    // Fix: trim the trailing hardBreak (so the paragraph's only inline
+    // child is the text "Existing") and insert the heading as a sibling.
+    // Otherwise the trailing hb renders as a phantom empty row between
+    // the text and the heading.
     const editor = makeEditor('<p>Existing</p>');
     const pPos = findPos(editor, (n) => n.type.name === 'paragraph');
     const p = editor.state.doc.nodeAt(pPos);
     if (!p) throw new Error();
-    // Insert hardBreak at end of "Existing"
     const hardBreakType = editor.schema.nodes['hardBreak'];
     if (!hardBreakType) throw new Error();
     const trBreak = editor.state.tr.insert(pPos + 1 + 'Existing'.length, hardBreakType.create());
@@ -246,25 +249,130 @@ describe('SmartPaste', () => {
     expect(top.length).toBe(2);
     expect(top[0]?.type).toBe('paragraph');
     expect(top[0]?.text).toBe('Existing');
+    // CRITICAL: paragraph's only inline child is the text node — the
+    // trailing hardBreak that fired this code path has been trimmed.
+    expect(top[0]?.childCount).toBe(1);
     expect(top[1]?.type).toBe('heading');
     expect(top[1]?.text).toBe('After break');
     editor.destroy();
   });
 
-  it('paste H1 in EMPTY paragraph → heading inserted (boundary case: offset=0 AND offset=parentSize)', () => {
-    // Edge case: empty paragraph, caret at offset 0 (which is also parent.size).
-    // First branch (offset === 0) wins → insert before parent.
+  it('paste H1 in EMPTY paragraph → empty paragraph REPLACED by heading (no stray empty p)', () => {
+    // Edge case: empty paragraph. Old behaviour inserted heading BEFORE
+    // the empty p (per offset=0 branch), leaving an unwanted trailing
+    // empty paragraph. New behaviour: replace the parent textblock when
+    // it's effectively empty so the result is the heading alone.
     const editor = makeEditor('<p></p>');
     const slice = htmlSlice(editor, '<h1>New</h1>');
     pasteAtPos(editor, 1, slice); // inside empty paragraph
 
     const top: { type: string; text: string }[] = [];
     editor.state.doc.forEach((n) => top.push({ type: n.type.name, text: n.textContent }));
-    // Heading inserted before the (empty) paragraph.
     expect(top).toEqual([
       { type: 'heading', text: 'New' },
-      { type: 'paragraph', text: '' },
     ]);
+    editor.destroy();
+  });
+
+  it('paste H1 in EMPTY paragraph inside list item → empty p REPLACED by heading', () => {
+    const editor = makeEditor('<ul><li><p>Existing</p></li><li><p></p></li></ul>');
+    const slice = htmlSlice(editor, '<h1>New</h1>');
+    // Caret in the empty paragraph (second list item).
+    let pos = -1;
+    let count = 0;
+    editor.state.doc.descendants((n, p) => {
+      if (n.type.name === 'paragraph') { count += 1; if (count === 2) { pos = p; return false; } }
+      return true;
+    });
+    pasteAtPos(editor, pos + 1, slice);
+
+    const ul = editor.state.doc.firstChild;
+    const secondLi = ul?.lastChild;
+    expect(ul?.childCount).toBe(2);
+    expect(secondLi?.childCount).toBe(1);
+    expect(secondLi?.firstChild?.type.name).toBe('heading');
+    expect(secondLi?.firstChild?.textContent).toBe('New');
+    editor.destroy();
+  });
+
+  it('paste H1 in paragraph with ONLY a trailing hardBreak → trailing hb trimmed, heading inserted as next sibling', () => {
+    // Shift+Enter on an empty paragraph yielded `<p><br></p>`. The user
+    // model: the hardBreak created a NEW logical row, the paste fills
+    // THAT row. Result: an empty paragraph (the original "first row"
+    // remains) followed by the heading (the new "second row").
+    const editor = makeEditor('<p></p>');
+    const hardBreakType = editor.schema.nodes['hardBreak'];
+    if (!hardBreakType) throw new Error();
+    editor.view.dispatch(editor.state.tr.insert(1, hardBreakType.create()));
+
+    const slice = htmlSlice(editor, '<h1>Heading</h1>');
+    // Caret AFTER the hardBreak (offset=1 of single-hardBreak paragraph).
+    pasteAtPos(editor, 2, slice);
+
+    const top: { type: string; text: string; size: number }[] = [];
+    editor.state.doc.forEach((n) => top.push({ type: n.type.name, text: n.textContent, size: n.content.size }));
+    expect(top).toEqual([
+      { type: 'paragraph', text: '', size: 0 }, // hardBreak trimmed
+      { type: 'heading', text: 'Heading', size: 7 },
+    ]);
+    editor.destroy();
+  });
+
+  it('paste single bulletList slice into a list item → merged as siblings (no nested list)', () => {
+    const editor = makeEditor('<ul><li><p>Existing</p></li></ul>');
+    const slice = htmlSlice(editor, '<ul><li><p>Pasted</p></li></ul>');
+    const pPos = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Existing');
+    const p = editor.state.doc.nodeAt(pPos);
+    if (!p) throw new Error();
+    // Caret at end of "Existing".
+    pasteAtPos(editor, pPos + p.nodeSize - 1, slice);
+
+    expect(editor.state.doc.childCount).toBe(1);
+    const ul = editor.state.doc.firstChild;
+    expect(ul?.type.name).toBe('bulletList');
+    expect(ul?.childCount).toBe(2);
+    const items: { type: string; text: string }[] = [];
+    for (let i = 0; i < (ul?.childCount ?? 0); i++) {
+      const li = ul?.child(i);
+      if (li) items.push({ type: li.type.name, text: li.firstChild?.textContent ?? '' });
+    }
+    expect(items).toEqual([
+      { type: 'listItem', text: 'Existing' },
+      { type: 'listItem', text: 'Pasted' },
+    ]);
+    editor.destroy();
+  });
+
+  it('paste two-item bulletList slice at START of list item → both items inserted as PREVIOUS siblings', () => {
+    const editor = makeEditor('<ul><li><p>One</p></li></ul>');
+    const slice = htmlSlice(editor, '<ul><li><p>A</p></li><li><p>B</p></li></ul>');
+    const pPos = findPos(editor, (n) => n.type.name === 'paragraph');
+    pasteAtPos(editor, pPos + 1, slice); // caret at start of "One"
+
+    const ul = editor.state.doc.firstChild;
+    expect(ul?.childCount).toBe(3);
+    const texts: string[] = [];
+    for (let i = 0; i < (ul?.childCount ?? 0); i++) texts.push(ul?.child(i).firstChild?.textContent ?? '');
+    expect(texts).toEqual(['A', 'B', 'One']);
+    editor.destroy();
+  });
+
+  it('paste bulletList slice in EMPTY list-item paragraph → list-item REPLACED by slice items', () => {
+    const editor = makeEditor('<ul><li><p>Existing</p></li><li><p></p></li></ul>');
+    const slice = htmlSlice(editor, '<ul><li><p>A</p></li></ul>');
+    let pos = -1;
+    let count = 0;
+    editor.state.doc.descendants((n, p) => {
+      if (n.type.name === 'paragraph') { count += 1; if (count === 2) { pos = p; return false; } }
+      return true;
+    });
+    pasteAtPos(editor, pos + 1, slice);
+
+    const ul = editor.state.doc.firstChild;
+    expect(ul?.childCount).toBe(2);
+    const texts: string[] = [];
+    for (let i = 0; i < (ul?.childCount ?? 0); i++) texts.push(ul?.child(i).firstChild?.textContent ?? '');
+    expect(texts).toEqual(['Existing', 'A']);
     editor.destroy();
   });
 

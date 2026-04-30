@@ -42,6 +42,7 @@ import { Details } from '@domternal/extension-details';
 import { Table } from '@domternal/extension-table';
 import { Emoji, emojis, createEmojiSuggestionRenderer } from '@domternal/extension-emoji';
 import { Mention, createMentionSuggestionRenderer } from '@domternal/extension-mention';
+import { SmartPaste } from '@domternal/extension-block-menu';
 import type { MentionItem } from '@domternal/extension-mention';
 import { createLowlight, common } from 'lowlight';
 import { DEMO_CONTENT } from './demo-content.js';
@@ -102,6 +103,10 @@ export class EditorDemoComponent {
     }),
     // Editor utilities
     LinkPopover, InvisibleChars, SelectionDecoration, ClearFormatting, Dropcursor,
+    // Preserve block formatting when pasting block content (heading,
+    // codeBlock, blockquote, list, hr) at inline positions — without it
+    // PM's content fitter strips the block wrapper and reduces to plain text.
+    SmartPaste,
   ];
   editorContent = DEMO_CONTENT;
   emojiData = emojis;
