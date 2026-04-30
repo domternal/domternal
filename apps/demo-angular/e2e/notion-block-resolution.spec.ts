@@ -2052,4 +2052,426 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
       lastChildType: 'taskList',
     });
   });
+
+  // ────────────────────────────────────────────────────────────────────
+  // Deeper coverage of arbitrary-block wrap behaviour
+  // ────────────────────────────────────────────────────────────────────
+
+  /**
+   * Helper: hover source paragraph/heading/code/quote, dragstart, drop on
+   * target paragraph at chosen Y fraction (0=top → before, 0.8=bottom → after).
+   */
+  async function dragSourceToTarget(
+    page: Page,
+    sourceText: string,
+    targetText: string,
+    yFraction = 0.8,
+  ): Promise<void> {
+    const sourceLoc = page
+      .locator(`${editorSelector} :is(p, h1, h2, h3, h4, h5, h6, pre, blockquote)`, { hasText: sourceText })
+      .first();
+    const sBox = await boxOf(sourceLoc);
+    await hoverAt(page, await sideGutterX(page), sBox.y + sBox.height / 2);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    await page.waitForTimeout(20);
+
+    const targetLoc = page.locator(`${editorSelector} li p`, { hasText: targetText }).first();
+    const tBox = await boxOf(targetLoc);
+    const dropX = tBox.x + 5;
+    const dropY = tBox.y + tBox.height * yFraction;
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX: dropX, clientY: dropY });
+    await page.locator(editorSelector).dispatchEvent('drop', { dataTransfer: dt, clientX: dropX, clientY: dropY });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    await dt.dispose();
+  }
+
+  /** Returns first heading inside a list item with given text. */
+  async function findHeadingInside(page: Page, text: string): Promise<{ level: number; text: string } | null> {
+    return page.evaluate((txt) => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { descendants: (cb: (n: { type: { name: string }; attrs: Record<string, unknown>; textContent: string }) => boolean | void) => void } } }
+        | undefined;
+      let found: { level: number; text: string } | null = null;
+      ed?.state.doc.descendants((node) => {
+        if (found !== null) return false;
+        if (node.type.name === 'heading' && node.textContent === txt) {
+          found = { level: node.attrs['level'] as number, text: node.textContent };
+          return false;
+        }
+        return true;
+      });
+      return found;
+    }, text);
+  }
+
+  // ── Heading levels: ensure level isn't normalised to h1 across wrap ──
+
+  // The Heading extension's default `levels` config is [1, 2, 3, 4] —
+  // we already cover H1 + H2 above, so this loop adds H3 + H4 to lock
+  // in level preservation across the supported range. (H5/H6 aren't in
+  // the default schema; testing them would require schema reconfig.)
+  for (const level of [3, 4] as const) {
+    test(`drag H${level} into bulletList → heading level=${level} preserved`, async ({ page }) => {
+      await setContent(
+        page,
+        `<h${level}>Header ${level}</h${level}><ul><li><p>Existing</p></li></ul>`,
+      );
+      await dragSourceToTarget(page, `Header ${level}`, 'Existing');
+      const h = await findHeadingInside(page, `Header ${level}`);
+      expect(h).toEqual({ level, text: `Header ${level}` });
+    });
+  }
+
+  // ── Drop position variants ──
+
+  test('drag H1 onto TOP-half of an existing list item → wrapped heading inserted BEFORE that item', async ({ page }) => {
+    await setContent(page, '<h1>Title</h1><ul><li><p>Existing</p></li></ul>');
+    await dragSourceToTarget(page, 'Title', 'Existing', 0.2);
+
+    const ulChildren = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { firstChild: { type: { name: string }; textContent: string } | null } | null } | null } } }
+        | undefined;
+      const ul = ed?.state.doc.firstChild;
+      const out: { type: string; text: string }[] = [];
+      for (let i = 0; i < (ul?.childCount ?? 0); i++) {
+        const li = ul?.child(i);
+        const fc = li?.firstChild;
+        if (fc) out.push({ type: fc.type.name, text: fc.textContent });
+      }
+      return out;
+    });
+    expect(ulChildren).toEqual([
+      { type: 'heading', text: 'Title' },
+      { type: 'paragraph', text: 'Existing' },
+    ]);
+  });
+
+  test('drag H1 onto BOTTOM-half of an existing list item → wrapped heading inserted AFTER that item', async ({ page }) => {
+    await setContent(page, '<h1>Title</h1><ul><li><p>Existing</p></li></ul>');
+    await dragSourceToTarget(page, 'Title', 'Existing', 0.8);
+
+    const ulChildren = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { firstChild: { type: { name: string }; textContent: string } | null } | null } | null } } }
+        | undefined;
+      const ul = ed?.state.doc.firstChild;
+      const out: { type: string; text: string }[] = [];
+      for (let i = 0; i < (ul?.childCount ?? 0); i++) {
+        const li = ul?.child(i);
+        const fc = li?.firstChild;
+        if (fc) out.push({ type: fc.type.name, text: fc.textContent });
+      }
+      return out;
+    });
+    expect(ulChildren).toEqual([
+      { type: 'paragraph', text: 'Existing' },
+      { type: 'heading', text: 'Title' },
+    ]);
+  });
+
+  test('drag H1 to MIDDLE of a multi-item list → heading wrapped in listItem at that position', async ({ page }) => {
+    await setContent(
+      page,
+      '<h1>Heading</h1>'
+      + '<ul><li><p>Alpha</p></li><li><p>Beta</p></li><li><p>Gamma</p></li></ul>',
+    );
+    // Drop on Beta bottom-half → between Beta and Gamma.
+    await dragSourceToTarget(page, 'Heading', 'Beta', 0.8);
+
+    const items = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { firstChild: { type: { name: string }; textContent: string } | null } | null } | null } } }
+        | undefined;
+      const ul = ed?.state.doc.firstChild;
+      const out: { type: string; text: string }[] = [];
+      for (let i = 0; i < (ul?.childCount ?? 0); i++) {
+        const li = ul?.child(i);
+        const fc = li?.firstChild;
+        if (fc) out.push({ type: fc.type.name, text: fc.textContent });
+      }
+      return out;
+    });
+    expect(items).toEqual([
+      { type: 'paragraph', text: 'Alpha' },
+      { type: 'paragraph', text: 'Beta' },
+      { type: 'heading', text: 'Heading' },
+      { type: 'paragraph', text: 'Gamma' },
+    ]);
+  });
+
+  // ── Atom block wrap ──
+
+  test('drag a horizontalRule into bulletList → wrapped in listItem (atom-block wrap)', async ({ page }) => {
+    // Source HR is between two paragraphs to make hovering it feasible
+    // (an HR rendered alone is 1px tall — putting paragraphs around helps
+    // the gutter hover Y land on the HR row).
+    await setContent(page, '<p>Above HR</p><hr><p>Below HR</p><ul><li><p>Existing</p></li></ul>');
+
+    const hr = page.locator(`${editorSelector} hr`).first();
+    const hrBox = await boxOf(hr);
+    // Hover anywhere with an HR-overlapping Y; HR rect is small but non-zero.
+    await hoverAt(page, await sideGutterX(page), hrBox.y + Math.max(1, hrBox.height / 2));
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    await page.waitForTimeout(20);
+
+    const target = page.locator(`${editorSelector} li p`, { hasText: 'Existing' });
+    const tBox = await boxOf(target);
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX: tBox.x + 5, clientY: tBox.y + tBox.height * 0.8 });
+    await page.locator(editorSelector).dispatchEvent('drop', { dataTransfer: dt, clientX: tBox.x + 5, clientY: tBox.y + tBox.height * 0.8 });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    await dt.dispose();
+
+    // The bulletList now contains TWO listItems: the original "Existing"
+    // and a wrapper around the hr.
+    const ulChildren = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { descendants: (cb: (n: { type: { name: string }; childCount: number; firstChild: { type: { name: string } } | null }) => boolean | void) => void } } }
+        | undefined;
+      const out: { liChildType: string }[] = [];
+      ed?.state.doc.descendants((node) => {
+        if (node.type.name === 'bulletList') {
+          for (let i = 0; i < node.childCount; i++) {
+            const li = (node as unknown as { child: (i: number) => { firstChild: { type: { name: string } } | null } }).child(i);
+            out.push({ liChildType: li.firstChild?.type.name ?? 'unknown' });
+          }
+          return false;
+        }
+        return true;
+      });
+      return out;
+    });
+    // Order: original "Existing" first (paragraph), then hr-wrapping listItem.
+    expect(ulChildren).toEqual([
+      { liChildType: 'paragraph' },
+      { liChildType: 'horizontalRule' },
+    ]);
+  });
+
+  // ── Attribute preservation across wrap ──
+
+  test('heading id (UniqueID) preserved across wrap into listItem', async ({ page }) => {
+    await setContent(page, '<h1>Tagged</h1><ul><li><p>Existing</p></li></ul>');
+
+    // Capture original heading id (UniqueID generates one on initial parse).
+    const originalId = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { descendants: (cb: (n: { type: { name: string }; attrs: Record<string, unknown> }) => boolean | void) => void } } }
+        | undefined;
+      let id: string | null = null;
+      ed?.state.doc.descendants((node) => {
+        if (id !== null) return false;
+        if (node.type.name === 'heading') { id = (node.attrs['id'] as string) ?? null; return false; }
+        return true;
+      });
+      return id;
+    });
+    expect(originalId).toBeTruthy();
+
+    await dragSourceToTarget(page, 'Tagged', 'Existing');
+
+    const newId = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { descendants: (cb: (n: { type: { name: string }; attrs: Record<string, unknown> }) => boolean | void) => void } } }
+        | undefined;
+      let id: string | null = null;
+      ed?.state.doc.descendants((node) => {
+        if (id !== null) return false;
+        if (node.type.name === 'heading') { id = (node.attrs['id'] as string) ?? null; return false; }
+        return true;
+      });
+      return id;
+    });
+    expect(newId).toBe(originalId);
+  });
+
+  test('codeBlock language attr preserved across wrap into listItem', async ({ page }) => {
+    await setContent(
+      page,
+      '<pre><code class="language-typescript">const x: number = 1;</code></pre>'
+      + '<ul><li><p>Existing</p></li></ul>',
+    );
+    await dragSourceToTarget(page, 'const x: number = 1;', 'Existing');
+
+    const cb = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { descendants: (cb: (n: { type: { name: string }; attrs: Record<string, unknown>; textContent: string }) => boolean | void) => void } } }
+        | undefined;
+      let info: { language: unknown; text: string } | null = null;
+      ed?.state.doc.descendants((node) => {
+        if (info !== null) return false;
+        if (node.type.name === 'codeBlock') {
+          info = { language: node.attrs['language'], text: node.textContent };
+          return false;
+        }
+        return true;
+      });
+      return info;
+    });
+    expect(cb).toEqual({ language: 'typescript', text: 'const x: number = 1;' });
+  });
+
+  test('heading marks (bold) preserved inside its content across wrap', async ({ page }) => {
+    await setContent(
+      page,
+      '<h2>Plain <strong>Bold</strong> text</h2>'
+      + '<ul><li><p>Existing</p></li></ul>',
+    );
+    await dragSourceToTarget(page, 'Plain Bold text', 'Existing');
+
+    // Walk the doc and find the heading inside the listItem; verify a
+    // text node carries the `bold` mark.
+    const info = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { descendants: (cb: (n: { type: { name: string }; isText: boolean; text?: string; marks: { type: { name: string } }[] }) => boolean | void) => void } } }
+        | undefined;
+      let inHeading = false;
+      const result: { boldFound: boolean; text: string } = { boldFound: false, text: '' };
+      ed?.state.doc.descendants((node) => {
+        if (node.type.name === 'heading') { inHeading = true; result.text = (node as unknown as { textContent: string }).textContent; return true; }
+        if (inHeading && node.isText && node.text === 'Bold') {
+          result.boldFound = node.marks.some((m) => m.type.name === 'bold');
+          return false;
+        }
+        return true;
+      });
+      return result;
+    });
+    expect(info.text).toBe('Plain Bold text');
+    expect(info.boldFound).toBe(true);
+  });
+
+  // ── Round-trip + undo ──
+
+  test('drag H1 into list, then drag back out of list → heading still has level=1', async ({ page }) => {
+    // Round-trip: heading goes IN (wrapped in listItem) and back OUT
+    // (still level=1 after a second drag onto a top-level paragraph).
+    // Set up the doc with a tail paragraph upfront so we don't have to
+    // synthesise it mid-test (which proved flaky in CI).
+    await setContent(
+      page,
+      '<h1>Roundtrip</h1>'
+      + '<ul><li><p>Existing</p></li></ul>'
+      + '<p>Tail target</p>',
+    );
+    await dragSourceToTarget(page, 'Roundtrip', 'Existing');
+
+    // Sanity: heading is now wrapped in a listItem inside the UL.
+    let h = await findHeadingInside(page, 'Roundtrip');
+    expect(h?.level).toBe(1);
+
+    // Drag the heading (now inside the list) back out onto the tail
+    // paragraph. Source locator chain accepts both `li p` and top-level
+    // `p`, so we use the heading's own selector instead.
+    const sourceLoc = page.locator(`${editorSelector} h1`, { hasText: 'Roundtrip' }).first();
+    const sBox = await boxOf(sourceLoc);
+    await hoverAt(page, await sideGutterX(page), sBox.y + sBox.height / 2);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    await page.waitForTimeout(20);
+
+    const tail = page.locator(`${editorSelector} > p`, { hasText: 'Tail target' });
+    const tBox = await boxOf(tail);
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt, clientX: tBox.x + 5, clientY: tBox.y + tBox.height * 0.8,
+    });
+    await page.locator(editorSelector).dispatchEvent('drop', {
+      dataTransfer: dt, clientX: tBox.x + 5, clientY: tBox.y + tBox.height * 0.8,
+    });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    await dt.dispose();
+
+    // Final: heading still has level=1. Structure has the heading
+    // promoted out of the list (PM auto-wraps in fresh bulletList when
+    // a listItem is dropped at top-level).
+    h = await findHeadingInside(page, 'Roundtrip');
+    expect(h?.level).toBe(1);
+  });
+
+  test('undo restores original top-level heading after drag-into-list', async ({ page }) => {
+    await setContent(page, '<h1>Reversible</h1><ul><li><p>Existing</p></li></ul>');
+    const before = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { childCount: number; firstChild: { type: { name: string } } | null; lastChild: { type: { name: string } } | null } } }
+        | undefined;
+      return {
+        count: ed?.state.doc.childCount,
+        firstType: ed?.state.doc.firstChild?.type.name,
+        lastType: ed?.state.doc.lastChild?.type.name,
+      };
+    });
+    expect(before).toEqual({ count: 2, firstType: 'heading', lastType: 'bulletList' });
+
+    await dragSourceToTarget(page, 'Reversible', 'Existing');
+
+    // Sanity: heading now nested inside list.
+    const after = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { childCount: number; firstChild: { type: { name: string } } | null } } }
+        | undefined;
+      return { count: ed?.state.doc.childCount, firstType: ed?.state.doc.firstChild?.type.name };
+    });
+    expect(after).toEqual({ count: 1, firstType: 'bulletList' });
+
+    // Undo (Mod+Z) should restore the original two-block doc.
+    await page.locator(editorSelector).click();
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+z`);
+    await page.waitForTimeout(120);
+
+    const restored = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { childCount: number; firstChild: { type: { name: string } } | null; lastChild: { type: { name: string } } | null } } }
+        | undefined;
+      return {
+        count: ed?.state.doc.childCount,
+        firstType: ed?.state.doc.firstChild?.type.name,
+        lastType: ed?.state.doc.lastChild?.type.name,
+      };
+    });
+    expect(restored).toEqual({ count: 2, firstType: 'heading', lastType: 'bulletList' });
+  });
+
+  // ── No empty placeholders sweep ──
+
+  test('after drag-into-list, no empty list-item placeholders linger anywhere in the doc', async ({ page }) => {
+    await setContent(
+      page,
+      '<h1>Title</h1><h2>Sub</h2><pre><code>code</code></pre>'
+      + '<ul><li><p>Existing</p></li></ul>',
+    );
+    await dragSourceToTarget(page, 'Title', 'Existing');
+    await dragSourceToTarget(page, 'Sub', 'Existing');
+    await dragSourceToTarget(page, 'code', 'Existing');
+
+    const empties = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { descendants: (cb: (n: { type: { name: string }; textContent: string }) => boolean | void) => void } } }
+        | undefined;
+      let count = 0;
+      ed?.state.doc.descendants((node) => {
+        if (
+          (node.type.name === 'listItem' || node.type.name === 'taskItem')
+          && node.textContent === ''
+        ) count++;
+        return true;
+      });
+      return count;
+    });
+    expect(empties).toBe(0);
+  });
 });
