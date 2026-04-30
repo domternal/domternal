@@ -1787,6 +1787,228 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
 
   // ── Inner content preserved during conversion ──
 
+  // ── Arbitrary-block wrap (heading, paragraph, codeBlock, blockquote, hr) ──
+
+  test('drag a top-level H1 into a bulletList → heading is wrapped in a fresh listItem inside the list', async ({ page }) => {
+    await setContent(page, '<h1>Big title</h1><ul><li><p>Existing</p></li></ul>');
+
+    const h1 = page.locator(`${editorSelector} h1`, { hasText: 'Big title' });
+    const h1Box = await boxOf(h1);
+    await hoverAt(page, await sideGutterX(page), h1Box.y + h1Box.height / 2);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    await page.waitForTimeout(20);
+    const target = page.locator(`${editorSelector} li p`, { hasText: 'Existing' });
+    const tBox = await boxOf(target);
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX: tBox.x + 5, clientY: tBox.y + tBox.height * 0.8 });
+    await page.locator(editorSelector).dispatchEvent('drop', { dataTransfer: dt, clientX: tBox.x + 5, clientY: tBox.y + tBox.height * 0.8 });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    await dt.dispose();
+
+    // Expect: bulletList with TWO listItems — first the original
+    // paragraph "Existing", second a wrapped heading "Big title".
+    const tree = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { type: { name: string }; childCount: number; child: (i: number) => { type: { name: string }; firstChild: { type: { name: string }; textContent: string; attrs: Record<string, unknown> } | null } | null } | null; childCount: number } } }
+        | undefined;
+      const ul = ed?.state.doc.firstChild;
+      return {
+        topCount: ed?.state.doc.childCount,
+        ulType: ul?.type.name,
+        ulChildCount: ul?.childCount,
+        firstItemType: ul?.child(0)?.firstChild?.type.name,
+        firstItemText: ul?.child(0)?.firstChild?.textContent,
+        secondItemType: ul?.child(1)?.firstChild?.type.name,
+        secondItemText: ul?.child(1)?.firstChild?.textContent,
+        secondItemLevel: ul?.child(1)?.firstChild?.attrs['level'],
+      };
+    });
+    expect(tree).toEqual({
+      topCount: 1,
+      ulType: 'bulletList',
+      ulChildCount: 2,
+      firstItemType: 'paragraph',
+      firstItemText: 'Existing',
+      secondItemType: 'heading',
+      secondItemText: 'Big title',
+      secondItemLevel: 1,
+    });
+  });
+
+  test('drag a top-level H2 into a taskList → heading wrapped in a fresh taskItem (checked=false)', async ({ page }) => {
+    await setContent(
+      page,
+      '<h2>Section heading</h2>'
+      + '<ul data-type="taskList"><li data-type="taskItem"><p>Task</p></li></ul>',
+    );
+
+    const h2 = page.locator(`${editorSelector} h2`, { hasText: 'Section heading' });
+    const h2Box = await boxOf(h2);
+    await hoverAt(page, await sideGutterX(page), h2Box.y + h2Box.height / 2);
+
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    await page.waitForTimeout(20);
+    const target = page.locator(`${editorSelector} li p`, { hasText: 'Task' });
+    const tBox = await boxOf(target);
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX: tBox.x + 5, clientY: tBox.y + tBox.height * 0.8 });
+    await page.locator(editorSelector).dispatchEvent('drop', { dataTransfer: dt, clientX: tBox.x + 5, clientY: tBox.y + tBox.height * 0.8 });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    await dt.dispose();
+
+    const tree = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { type: { name: string }; childCount: number; child: (i: number) => { type: { name: string }; attrs: Record<string, unknown>; firstChild: { type: { name: string }; textContent: string } | null } | null } | null } } }
+        | undefined;
+      const tl = ed?.state.doc.firstChild;
+      const second = tl?.child(1);
+      return {
+        ulType: tl?.type.name,
+        ulChildCount: tl?.childCount,
+        secondType: second?.type.name,
+        secondChecked: second?.attrs['checked'],
+        secondInner: second?.firstChild?.type.name,
+        secondInnerText: second?.firstChild?.textContent,
+      };
+    });
+    expect(tree).toEqual({
+      ulType: 'taskList',
+      ulChildCount: 2,
+      secondType: 'taskItem',
+      secondChecked: false,
+      secondInner: 'heading',
+      secondInnerText: 'Section heading',
+    });
+  });
+
+  test('drag a top-level paragraph into a bulletList → wrapped in listItem (most common case)', async ({ page }) => {
+    await setContent(page, '<p>Standalone para</p><ul><li><p>Existing</p></li></ul>');
+
+    const para = page.locator(`${editorSelector} > p`, { hasText: 'Standalone para' });
+    const pBox = await boxOf(para);
+    await hoverAt(page, await sideGutterX(page), pBox.y + pBox.height / 2);
+
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    await page.waitForTimeout(20);
+    const target = page.locator(`${editorSelector} li p`, { hasText: 'Existing' });
+    const tBox = await boxOf(target);
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX: tBox.x + 5, clientY: tBox.y + tBox.height * 0.8 });
+    await page.locator(editorSelector).dispatchEvent('drop', { dataTransfer: dt, clientX: tBox.x + 5, clientY: tBox.y + tBox.height * 0.8 });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    await dt.dispose();
+
+    const liTexts = (await page.locator(`${editorSelector} li p`).allTextContents()).map((t) => t.trim());
+    expect(liTexts).toEqual(['Existing', 'Standalone para']);
+
+    const top = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { childCount: number; firstChild: { type: { name: string } } | null } } }
+        | undefined;
+      return { count: ed?.state.doc.childCount, firstType: ed?.state.doc.firstChild?.type.name };
+    });
+    expect(top).toEqual({ count: 1, firstType: 'bulletList' });
+  });
+
+  test('drag a top-level codeBlock into a bulletList → wrapped in listItem (preserves code text)', async ({ page }) => {
+    await setContent(
+      page,
+      '<pre><code>console.log("hi")</code></pre>'
+      + '<ul><li><p>Existing</p></li></ul>',
+    );
+
+    const code = page.locator(`${editorSelector} pre`, { hasText: 'console.log' });
+    const cBox = await boxOf(code);
+    await hoverAt(page, await sideGutterX(page), cBox.y + cBox.height / 2);
+
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    await page.waitForTimeout(20);
+    const target = page.locator(`${editorSelector} li p`, { hasText: 'Existing' });
+    const tBox = await boxOf(target);
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX: tBox.x + 5, clientY: tBox.y + tBox.height * 0.8 });
+    await page.locator(editorSelector).dispatchEvent('drop', { dataTransfer: dt, clientX: tBox.x + 5, clientY: tBox.y + tBox.height * 0.8 });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    await dt.dispose();
+
+    const tree = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { firstChild: { type: { name: string }; textContent: string } | null } | null } | null; childCount: number } } }
+        | undefined;
+      const ul = ed?.state.doc.firstChild;
+      return {
+        topCount: ed?.state.doc.childCount,
+        ulChildCount: ul?.childCount,
+        secondInner: ul?.child(1)?.firstChild?.type.name,
+        secondText: ul?.child(1)?.firstChild?.textContent,
+      };
+    });
+    expect(tree).toEqual({
+      topCount: 1,
+      ulChildCount: 2,
+      secondInner: 'codeBlock',
+      secondText: 'console.log("hi")',
+    });
+  });
+
+  test('drag a top-level blockquote into a bulletList → wrapped in listItem (blockquote keeps its inner paragraph)', async ({ page }) => {
+    await setContent(
+      page,
+      '<blockquote><p>Quoted text</p></blockquote>'
+      + '<ul><li><p>Existing</p></li></ul>',
+    );
+
+    const bq = page.locator(`${editorSelector} blockquote`);
+    const bqBox = await boxOf(bq);
+    await hoverAt(page, await sideGutterX(page), bqBox.y + bqBox.height / 2);
+
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    await page.waitForTimeout(20);
+    const target = page.locator(`${editorSelector} li p`, { hasText: 'Existing' });
+    const tBox = await boxOf(target);
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX: tBox.x + 5, clientY: tBox.y + tBox.height * 0.8 });
+    await page.locator(editorSelector).dispatchEvent('drop', { dataTransfer: dt, clientX: tBox.x + 5, clientY: tBox.y + tBox.height * 0.8 });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    await dt.dispose();
+
+    const tree = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { firstChild: { type: { name: string }; firstChild: { type: { name: string }; textContent: string } | null } | null } | null } | null; childCount: number } } }
+        | undefined;
+      const ul = ed?.state.doc.firstChild;
+      const second = ul?.child(1);
+      return {
+        topCount: ed?.state.doc.childCount,
+        ulChildCount: ul?.childCount,
+        secondWrapper: second?.firstChild?.type.name,
+        secondInnerInner: second?.firstChild?.firstChild?.type.name,
+        secondInnerText: second?.firstChild?.firstChild?.textContent,
+      };
+    });
+    expect(tree).toEqual({
+      topCount: 1,
+      ulChildCount: 2,
+      secondWrapper: 'blockquote',
+      secondInnerInner: 'paragraph',
+      secondInnerText: 'Quoted text',
+    });
+  });
+
+  // ── Inner content preserved during conversion ──
+
   test('converted item retains its inner paragraph + nested lists', async ({ page }) => {
     // Source: a bullet item that itself contains a nested task list.
     // Drop into a task list. Outer wrapper: listItem → taskItem.

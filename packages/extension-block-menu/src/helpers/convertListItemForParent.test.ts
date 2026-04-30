@@ -3,6 +3,10 @@ import {
   Document,
   Text,
   Paragraph,
+  Heading,
+  Blockquote,
+  CodeBlock,
+  HorizontalRule,
   BulletList,
   OrderedList,
   ListItem,
@@ -14,7 +18,7 @@ import { Fragment } from '@domternal/pm/model';
 import { convertListItemForParent } from './convertListItemForParent.js';
 
 const extensions = [
-  Document, Text, Paragraph,
+  Document, Text, Paragraph, Heading, Blockquote, CodeBlock, HorizontalRule,
   BulletList, OrderedList, ListItem,
   TaskList, TaskItem,
 ];
@@ -211,5 +215,128 @@ describe('convertListItemForParent', () => {
     const out = convertListItemForParent(ed.schema, fragment, bulletListType);
     expect(out).toBe(fragment);
     ed.destroy();
+  });
+
+  // ── Arbitrary-block wrap (heading/paragraph/codeBlock/blockquote/hr) ──
+
+  it('wraps a top-level heading in a fresh listItem when target is bulletList', () => {
+    const editor = makeEditor('<h1>The title</h1>');
+    const headingPos = findPos(editor, (n) => n.type.name === 'heading');
+    const h = editor.state.doc.nodeAt(headingPos);
+    if (!h) throw new Error();
+    const fragment = Fragment.from(h);
+    const bulletListType = editor.schema.nodes['bulletList'];
+    if (!bulletListType) throw new Error();
+
+    const out = convertListItemForParent(editor.schema, fragment, bulletListType);
+    expect(out.firstChild?.type.name).toBe('listItem');
+    expect(out.firstChild?.childCount).toBe(1);
+    expect(out.firstChild?.firstChild?.type.name).toBe('heading');
+    expect(out.firstChild?.firstChild?.attrs['level']).toBe(1);
+    expect(out.firstChild?.firstChild?.textContent).toBe('The title');
+    editor.destroy();
+  });
+
+  it('wraps a top-level heading in a fresh taskItem (with checked=false) when target is taskList', () => {
+    const editor = makeEditor('<h2>Section</h2>');
+    const headingPos = findPos(editor, (n) => n.type.name === 'heading');
+    const h = editor.state.doc.nodeAt(headingPos);
+    if (!h) throw new Error();
+    const fragment = Fragment.from(h);
+    const taskListType = editor.schema.nodes['taskList'];
+    if (!taskListType) throw new Error();
+
+    const out = convertListItemForParent(editor.schema, fragment, taskListType);
+    expect(out.firstChild?.type.name).toBe('taskItem');
+    expect(out.firstChild?.attrs['checked']).toBe(false);
+    expect(out.firstChild?.firstChild?.type.name).toBe('heading');
+    expect(out.firstChild?.firstChild?.textContent).toBe('Section');
+    editor.destroy();
+  });
+
+  it('wraps a paragraph in a listItem (most common drop case)', () => {
+    const editor = makeEditor('<p>Just text</p>');
+    const pPos = findPos(editor, (n) => n.type.name === 'paragraph');
+    const p = editor.state.doc.nodeAt(pPos);
+    if (!p) throw new Error();
+    const fragment = Fragment.from(p);
+    const bulletListType = editor.schema.nodes['bulletList'];
+    if (!bulletListType) throw new Error();
+
+    const out = convertListItemForParent(editor.schema, fragment, bulletListType);
+    expect(out.firstChild?.type.name).toBe('listItem');
+    expect(out.firstChild?.firstChild?.type.name).toBe('paragraph');
+    expect(out.firstChild?.firstChild?.textContent).toBe('Just text');
+    editor.destroy();
+  });
+
+  it('wraps a codeBlock in a listItem (preserves language attr)', () => {
+    const editor = makeEditor('<pre><code class="language-js">code()</code></pre>');
+    const cbPos = findPos(editor, (n) => n.type.name === 'codeBlock');
+    const cb = editor.state.doc.nodeAt(cbPos);
+    if (!cb) throw new Error();
+    const fragment = Fragment.from(cb);
+    const bulletListType = editor.schema.nodes['bulletList'];
+    if (!bulletListType) throw new Error();
+
+    const out = convertListItemForParent(editor.schema, fragment, bulletListType);
+    expect(out.firstChild?.type.name).toBe('listItem');
+    expect(out.firstChild?.firstChild?.type.name).toBe('codeBlock');
+    expect(out.firstChild?.firstChild?.textContent).toBe('code()');
+    editor.destroy();
+  });
+
+  it('wraps a blockquote in a listItem (blockquote keeps its own paragraph child)', () => {
+    const editor = makeEditor('<blockquote><p>Quoted</p></blockquote>');
+    const bqPos = findPos(editor, (n) => n.type.name === 'blockquote');
+    const bq = editor.state.doc.nodeAt(bqPos);
+    if (!bq) throw new Error();
+    const fragment = Fragment.from(bq);
+    const bulletListType = editor.schema.nodes['bulletList'];
+    if (!bulletListType) throw new Error();
+
+    const out = convertListItemForParent(editor.schema, fragment, bulletListType);
+    expect(out.firstChild?.type.name).toBe('listItem');
+    expect(out.firstChild?.firstChild?.type.name).toBe('blockquote');
+    expect(out.firstChild?.firstChild?.firstChild?.type.name).toBe('paragraph');
+    expect(out.firstChild?.firstChild?.textContent).toBe('Quoted');
+    editor.destroy();
+  });
+
+  it('wraps a horizontalRule (atom block) in a listItem', () => {
+    const editor = makeEditor('<hr><p>after</p>');
+    const hrPos = findPos(editor, (n) => n.type.name === 'horizontalRule');
+    const hr = editor.state.doc.nodeAt(hrPos);
+    if (!hr) throw new Error();
+    const fragment = Fragment.from(hr);
+    const bulletListType = editor.schema.nodes['bulletList'];
+    if (!bulletListType) throw new Error();
+
+    const out = convertListItemForParent(editor.schema, fragment, bulletListType);
+    expect(out.firstChild?.type.name).toBe('listItem');
+    expect(out.firstChild?.firstChild?.type.name).toBe('horizontalRule');
+    editor.destroy();
+  });
+
+  it('handles a fragment with mixed types: matching item + non-list block (each wrapped or kept)', () => {
+    // Build a fragment containing a listItem AND a paragraph (synthetic
+    // multi-block slice). Target = bulletList. listItem stays as-is;
+    // paragraph gets wrapped.
+    const editor = makeEditor('<ul><li><p>Existing</p></li></ul><p>Loose</p>');
+    const li = editor.state.doc.firstChild?.firstChild;
+    const loose = editor.state.doc.lastChild;
+    if (!li || !loose) throw new Error();
+    const fragment = Fragment.fromArray([li, loose]);
+    const bulletListType = editor.schema.nodes['bulletList'];
+    if (!bulletListType) throw new Error();
+
+    const out = convertListItemForParent(editor.schema, fragment, bulletListType);
+    expect(out.childCount).toBe(2);
+    expect(out.child(0).type.name).toBe('listItem');
+    expect(out.child(0).textContent).toBe('Existing');
+    expect(out.child(1).type.name).toBe('listItem'); // paragraph wrapped
+    expect(out.child(1).firstChild?.type.name).toBe('paragraph');
+    expect(out.child(1).textContent).toBe('Loose');
+    editor.destroy();
   });
 });
