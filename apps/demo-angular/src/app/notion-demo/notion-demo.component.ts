@@ -31,6 +31,7 @@ import {
   ClearFormatting,
   UniqueID,
   BlockColor,
+  Placeholder,
   Editor,
   inlineStyles,
 } from '@domternal/core';
@@ -171,6 +172,13 @@ export class NotionDemoComponent implements OnDestroy {
     // Preserve block formatting when pasting at inline positions
     // (the classic "copy h1, Shift+Enter, paste → loses heading" case).
     SmartPaste,
+    // Notion-style hint on the focused empty paragraph only. Other empty
+    // blocks (heading, codeBlock, blockquote) get an empty string so the
+    // hint stays diskretno - not on every block in the document.
+    Placeholder.configure({
+      placeholder: ({ node }) =>
+        node.type.name === 'paragraph' ? "Press '/' for commands" : '',
+    }),
   ];
 
   editorContent = STARTER_CONTENT;

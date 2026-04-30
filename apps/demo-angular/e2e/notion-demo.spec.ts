@@ -134,6 +134,57 @@ test.describe('Notion demo — mode switch & layout', () => {
     await expect(page.locator('app-notion-demo domternal-toolbar')).toHaveCount(0);
   });
 
+  test("placeholder hint \"Press '/' for commands\" shows on focused empty paragraph", async ({ page }) => {
+    await goNotion(page);
+    // Starter content ends with a trailing empty paragraph. Click into it.
+    const lastP = page.locator(`${editorSelector} > p`).last();
+    await lastP.click();
+
+    // The empty paragraph should be marked .is-empty with the placeholder text.
+    await expect(lastP).toHaveClass(/is-empty/);
+    await expect(lastP).toHaveAttribute('data-placeholder', "Press '/' for commands");
+  });
+
+  test('placeholder DISAPPEARS once user types in the empty paragraph', async ({ page }) => {
+    await goNotion(page);
+    const lastP = page.locator(`${editorSelector} > p`).last();
+    await lastP.click();
+    await expect(lastP).toHaveClass(/is-empty/);
+
+    await page.keyboard.type('hello');
+    await expect(lastP).not.toHaveClass(/is-empty/);
+  });
+
+  test('placeholder shows ONLY on the focused paragraph (not other empty blocks)', async ({ page }) => {
+    await goNotion(page);
+    // Append a second empty paragraph + click into the first empty one.
+    const lastP = page.locator(`${editorSelector} > p`).last();
+    await lastP.click();
+    await page.keyboard.press('Enter'); // creates a second empty paragraph
+    // Focus the first empty paragraph (second-to-last). The newly-created one is focused.
+    // Move focus back: arrow up.
+    await page.keyboard.press('ArrowUp');
+
+    // Exactly ONE .is-empty in the editor.
+    const emptyCount = await page.locator(`${editorSelector} .is-empty`).count();
+    expect(emptyCount).toBe(1);
+  });
+
+  test('placeholder text is EMPTY for non-paragraph empty blocks (heading / codeBlock)', async ({ page }) => {
+    await goNotion(page);
+    // Insert an empty heading via slash menu equivalent — quickest way is to
+    // type # then Space (markdown input rule) on an empty paragraph.
+    const lastP = page.locator(`${editorSelector} > p`).last();
+    await lastP.click();
+    await page.keyboard.type('# ');
+    await page.waitForTimeout(80);
+    // The heading should be focused & empty.
+    const heading = page.locator(`${editorSelector} h1`).last();
+    await expect(heading).toHaveClass(/is-empty/);
+    // Configured placeholder function returns '' for non-paragraph nodes.
+    await expect(heading).toHaveAttribute('data-placeholder', '');
+  });
+
   test('UniqueID stamps every starter block with a stable id', async ({ page }) => {
     await goNotion(page);
     const ids = await page.evaluate(() => {
@@ -576,24 +627,98 @@ test.describe('Slash command', () => {
 // 10. Floating menu (empty-line insert)
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('FloatingMenu', () => {
+test.describe('FloatingMenu — Notion-style explicit trigger', () => {
+  // The notion-demo wires the floating menu with `requireExplicitTrigger:
+  // true` so the menu mirrors Notion: it does NOT auto-pop on every empty
+  // paragraph, only when the BlockHandle `+` button (or any caller of
+  // `showFloatingMenu`) explicitly opens it. Empty paragraphs instead show
+  // a placeholder hint "Press '/' for commands".
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
-  test('appears when the cursor lands on an empty paragraph', async ({ page }) => {
-    await setContent(page, '<p></p>');
-    await page.click(editorSelector);
-    // Simulate the cursor being in the empty block.
+  test('does NOT auto-show when cursor lands on an empty paragraph (Enter behaviour)', async ({ page }) => {
+    await setContent(page, '<p>Above</p><p></p>');
+    // Click into the empty paragraph - cursor is now on an empty row,
+    // exactly like pressing Enter at the end of "Above" would have.
+    await page.locator(`${editorSelector} > p`).last().click();
     await page.keyboard.press('End');
+    // Menu must remain hidden. We give it a moment to ensure no async
+    // path silently shows it.
+    await page.waitForTimeout(150);
+    await expect(page.locator(floatingMenuSelector)).not.toBeVisible();
+  });
+
+  test('does NOT auto-show after user presses Enter to create a new empty paragraph', async ({ page }) => {
+    await setContent(page, '<p>Hello</p>');
+    await page.locator(`${editorSelector} > p`).click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter'); // creates a new empty paragraph
+    await page.waitForTimeout(150);
+    await expect(page.locator(floatingMenuSelector)).not.toBeVisible();
+  });
+
+  test('OPENS when the BlockHandle `+` button is clicked', async ({ page }) => {
+    await setContent(page, '<p>Block</p>');
+    // Hover the block to reveal the handle.
+    await page.locator(`${editorSelector} > p`).hover();
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+    // Click the `+` button - inserts a new empty paragraph below AND
+    // explicitly triggers the floating menu.
+    await page.click(plusBtnSelector);
     await expect(page.locator(floatingMenuSelector)).toBeVisible();
   });
 
-  test('hides once the line has content', async ({ page }) => {
-    await setContent(page, '<p></p>');
-    await page.click(editorSelector);
-    await page.keyboard.press('End');
+  test('CLOSES when the user types after `+` button opened it (paragraph no longer empty)', async ({ page }) => {
+    await setContent(page, '<p>Block</p>');
+    await page.locator(`${editorSelector} > p`).hover();
+    await page.click(plusBtnSelector);
+    await expect(page.locator(floatingMenuSelector)).toBeVisible();
+    // Once user types, the paragraph isn't empty -> shouldShow=false ->
+    // menu hides AND triggered flag clears.
+    await page.keyboard.type('a');
+    await expect(page.locator(floatingMenuSelector)).not.toBeVisible({ timeout: 1500 });
+  });
+
+  test('after dismissal via typing, navigating to ANOTHER empty paragraph does NOT re-open menu', async ({ page }) => {
+    // Verifies the explicit-trigger flag clears on dismissal so the next
+    // empty paragraph the user lands on doesn't silently re-show the menu.
+    await setContent(page, '<p>One</p><p></p><p>Three</p>');
+    // Open menu via `+`, then type to dismiss.
+    await page.locator(`${editorSelector} > p:has-text("One")`).hover();
+    await page.click(plusBtnSelector);
     await expect(page.locator(floatingMenuSelector)).toBeVisible();
     await page.keyboard.type('x');
     await expect(page.locator(floatingMenuSelector)).not.toBeVisible({ timeout: 1500 });
+
+    // Now click into the (still) empty paragraph that already existed.
+    await page.locator(`${editorSelector} > p`).filter({ hasText: '' }).first().click();
+    await page.keyboard.press('End');
+    await page.waitForTimeout(150);
+    await expect(page.locator(floatingMenuSelector)).not.toBeVisible();
+  });
+
+  test('clicking outside the editor closes the menu after `+` opened it', async ({ page }) => {
+    await setContent(page, '<p>Block</p>');
+    await page.locator(`${editorSelector} > p`).hover();
+    await page.click(plusBtnSelector);
+    await expect(page.locator(floatingMenuSelector)).toBeVisible();
+    // Click far outside the editor + menu DOM (the page heading).
+    await page.locator('h1').first().click({ force: true });
+    await expect(page.locator(floatingMenuSelector)).not.toBeVisible({ timeout: 1500 });
+  });
+
+  test('placeholder hint replaces the auto-popup on empty paragraphs', async ({ page }) => {
+    // The Notion-style replacement: instead of auto-showing the menu,
+    // empty paragraphs render a discreet placeholder via the Placeholder
+    // extension (covered in the "mode switch & layout" describe — this
+    // test cross-checks the two systems coexist).
+    await setContent(page, '<p></p>');
+    const lastP = page.locator(`${editorSelector} > p`).last();
+    await lastP.click();
+    await expect(lastP).toHaveClass(/is-empty/);
+    await expect(lastP).toHaveAttribute('data-placeholder', "Press '/' for commands");
+    // And the menu remains hidden alongside the placeholder.
+    await page.waitForTimeout(120);
+    await expect(page.locator(floatingMenuSelector)).not.toBeVisible();
   });
 });
 

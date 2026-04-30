@@ -3,6 +3,19 @@
 // Popup shown when the user types `/`. Rendered by
 // `createSlashSuggestionRenderer()` and positioned at the cursor.
 // Visual vocabulary mirrors the floating menu for consistency.
+//
+// Class names follow the renderer's output verbatim:
+//   - `dm-slash-command-menu` (outer)
+//   - `dm-slash-command-group` / `-group-label`
+//   - `dm-slash-command-item` / `-item-icon` / `-item-text` / `-item-label`
+//     / `-item-description` / `-item-shortcut`
+//   - `dm-slash-command-empty`
+//   - `dm-slash-command-query` (inline decoration on the active `/query`)
+//
+// We intentionally do NOT nest the inner elements under `.dm-slash-command-menu`
+// (a previous version did so via SCSS `&-item` concatenation, which produced
+// `.dm-slash-command-menu-item-*` selectors that the renderer never emitted -
+// items rendered without size constraints, ballooning the menu).
 // =============================================================================
 
 .dm-slash-command-menu {
@@ -22,7 +35,7 @@
     0 4px 10px rgba(0, 0, 0, 0.04));
   z-index: var(--dm-z-popover, 50);
 
-  // Slim custom scrollbar — matches the floating-menu styling.
+  // Slim custom scrollbar - matches the floating-menu styling.
   scrollbar-width: thin;
   scrollbar-color: var(--dm-scrollbar-thumb, rgba(0, 0, 0, 0.18)) transparent;
 
@@ -42,119 +55,119 @@
   &::-webkit-scrollbar-thumb:hover {
     background: var(--dm-scrollbar-thumb-hover, rgba(0, 0, 0, 0.28));
   }
+}
 
-  // Inline decoration on the active `/query` range (highlight subtle).
-  &-query {
-    color: var(--dm-accent, #2563eb);
+// Inline decoration on the active `/query` range (highlight subtle).
+.dm-slash-command-query {
+  color: var(--dm-accent, #2563eb);
+}
+
+// ---------------------------------------------------------------------------
+// Group heading
+// ---------------------------------------------------------------------------
+.dm-slash-command-group-label {
+  padding: 0.375rem 0.5rem 0.125rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--dm-muted, #999);
+  user-select: none;
+}
+
+.dm-slash-command-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+// ---------------------------------------------------------------------------
+// Menu item button
+// ---------------------------------------------------------------------------
+.dm-slash-command-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.375rem 0.5rem;
+  border: none;
+  border-radius: var(--dm-button-border-radius, 0.375rem);
+  background: transparent;
+  color: var(--dm-editor-text, inherit);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 0.1s;
+
+  // Selected state set imperatively by the renderer so keyboard and
+  // mouse selection share the same visual.
+  &[data-selected] {
+    background: var(--dm-button-hover-bg, rgba(0, 0, 0, 0.04));
   }
 
-  // ---------------------------------------------------------------------------
-  // Group heading
-  // ---------------------------------------------------------------------------
-  &-group-label {
-    padding: 0.375rem 0.5rem 0.125rem;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--dm-muted, #999);
-    user-select: none;
+  &:focus-visible {
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: -2px;
   }
+}
 
-  &-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.125rem;
+.dm-slash-command-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  color: var(--dm-editor-text, inherit);
+
+  svg {
+    width: 1.125rem;
+    height: 1.125rem;
   }
+}
 
-  // ---------------------------------------------------------------------------
-  // Menu item button
-  // ---------------------------------------------------------------------------
-  &-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    width: 100%;
-    padding: 0.375rem 0.5rem;
-    border: none;
-    border-radius: var(--dm-button-border-radius, 0.375rem);
-    background: transparent;
-    color: var(--dm-editor-text, inherit);
-    text-align: left;
-    font: inherit;
-    cursor: pointer;
-    transition: background-color 0.1s;
+.dm-slash-command-item-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+}
 
-    // Selected state set imperatively by the renderer so keyboard and
-    // mouse selection share the same visual.
-    &[data-selected] {
-      background: var(--dm-button-hover-bg, rgba(0, 0, 0, 0.04));
-    }
+.dm-slash-command-item-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--dm-editor-text, inherit);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
-    &:focus-visible {
-      outline: 2px solid var(--dm-accent, #2563eb);
-      outline-offset: -2px;
-    }
-  }
+.dm-slash-command-item-description {
+  font-size: 0.75rem;
+  color: var(--dm-muted, #999);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
-  &-item-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.25rem;
-    height: 1.25rem;
-    flex-shrink: 0;
-    color: var(--dm-editor-text, inherit);
+// Shortcut hint chip (e.g. `# `, `> `)
+.dm-slash-command-item-shortcut {
+  flex-shrink: 0;
+  padding: 0.0625rem 0.375rem;
+  font-family: var(--dm-editor-font-family-mono, ui-monospace, monospace);
+  font-size: 0.6875rem;
+  color: var(--dm-muted, #999);
+  background: var(--dm-surface, #f8f9fa);
+  border: 1px solid var(--dm-border-color, #e5e7eb);
+  border-radius: 0.25rem;
+  user-select: none;
+}
 
-    svg {
-      width: 1.125rem;
-      height: 1.125rem;
-    }
-  }
-
-  &-item-text {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-width: 0;
-    line-height: 1.25;
-  }
-
-  &-item-label {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--dm-editor-text, inherit);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  &-item-description {
-    font-size: 0.75rem;
-    color: var(--dm-muted, #999);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  // Shortcut hint chip (e.g. `# `, `> `)
-  &-item-shortcut {
-    flex-shrink: 0;
-    padding: 0.0625rem 0.375rem;
-    font-family: var(--dm-editor-font-family-mono, ui-monospace, monospace);
-    font-size: 0.6875rem;
-    color: var(--dm-muted, #999);
-    background: var(--dm-surface, #f8f9fa);
-    border: 1px solid var(--dm-border-color, #e5e7eb);
-    border-radius: 0.25rem;
-    user-select: none;
-  }
-
-  // Shown when the filter returns no items
-  &-empty {
-    padding: 0.5rem 0.75rem;
-    font-size: 0.8125rem;
-    color: var(--dm-muted, #999);
-    user-select: none;
-  }
+// Shown when the filter returns no items
+.dm-slash-command-empty {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--dm-muted, #999);
+  user-select: none;
 }

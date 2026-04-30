@@ -33,6 +33,7 @@ import type { EdgeDetectionConfig, EdgePreset } from './helpers/edgeDetection.js
 import { DEFAULT_DRAG_HANDLE_RULES } from './helpers/defaultRules.js';
 import { findBestDragTarget } from './helpers/findBestDragTarget.js';
 import type { DragHandleRule } from './helpers/scoring.js';
+import { showFloatingMenu } from './FloatingMenu.js';
 
 /** Default list of nodes treated as drag-targetable when `nested: true`. */
 export const DEFAULT_NESTED_NODES: string[] = ['listItem', 'taskItem'];
@@ -598,8 +599,20 @@ export function createBlockHandlePlugin(
     updateHoverState(editor.view, null);
   };
 
-  // --- Plus button: insert paragraph after hovered block, focus, and let
-  // FloatingMenu pick up the empty-line state.
+  // --- Plus button: dismiss other overlays, insert empty paragraph
+  // after the hovered block, focus, then EXPLICITLY trigger the
+  // FloatingMenu. Order matters:
+  //
+  //   1. Dispatch `dm:dismiss-overlays` FIRST — closes BubbleMenu /
+  //      ContextMenu / SlashCommand and any opt-in FloatingMenu that's
+  //      already open elsewhere. We do this before flipping our own
+  //      explicit-trigger flag so the dismissal can't accidentally
+  //      clear it.
+  //   2. Insert the paragraph + move the caret + focus.
+  //   3. Call `showFloatingMenu(view)` — required for FloatingMenu
+  //      instances configured with `requireExplicitTrigger: true`
+  //      (Notion-style; no auto-show on plain Enter). Default instances
+  //      ignore the meta and auto-show on the empty paragraph anyway.
   const onPlusClick = (event: MouseEvent): void => {
     event.preventDefault();
     event.stopPropagation();
@@ -613,19 +626,20 @@ export function createBlockHandlePlugin(
     const paragraphType = editor.view.state.schema.nodes['paragraph'];
     if (!paragraphType) return;
 
+    // (1) Close anything else that might be open.
+    editorEl?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
+
+    // (2) Insert the new paragraph + park the caret inside it.
     const blockEnd = pos + node.nodeSize;
     const tr = editor.view.state.tr;
     tr.insert(blockEnd, paragraphType.create());
-    // Place cursor inside the new paragraph (blockEnd + 1 lands after the
-    // opening paragraph token).
     const sel = TextSelection.near(tr.doc.resolve(blockEnd + 1));
     tr.setSelection(sel);
     editor.view.dispatch(tr.scrollIntoView());
     editor.view.focus();
 
-    // Let other overlays know something opened; also ensures BubbleMenu /
-    // ContextMenu close if they were somehow visible.
-    editorEl?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
+    // (3) Mark this insert as an explicit "user wants the menu" gesture.
+    showFloatingMenu(editor.view);
   };
 
   // Plus button: keep editor focus during click so the FloatingMenu that

@@ -95,6 +95,15 @@ export class DomternalFloatingMenuComponent implements OnDestroy {
   readonly items = input<FloatingMenuItemsOverride | undefined>(undefined);
   readonly keymap = input<FloatingMenuKeymap | undefined>(undefined);
   readonly icons = input<IconSet | undefined>(undefined);
+  /**
+   * When true, the menu does NOT auto-show on every empty paragraph;
+   * it only opens when the BlockHandle `+` button (or any caller of
+   * `showFloatingMenu`) explicitly triggers it. Notion-style behaviour
+   * - empty rows show a placeholder, the slash menu is the keyboard
+   * trigger, the `+` button is the gutter trigger.
+   * @default false
+   */
+  readonly requireExplicitTrigger = input<boolean>(false);
 
   private menuEl = viewChild.required<ElementRef<HTMLElement>>('menuEl');
   private ngZone = inject(NgZone);
@@ -140,6 +149,7 @@ export class DomternalFloatingMenuComponent implements OnDestroy {
         ...(shouldShow && { shouldShow }),
         offset: this.offset(),
         ...(keymap && { keymap }),
+        requireExplicitTrigger: this.requireExplicitTrigger(),
       });
       editor.registerPlugin(plugin);
 
