@@ -128,3 +128,30 @@
     }
   }
 }
+
+// =============================================================================
+// Drop indicator
+// Custom horizontal drop line drawn during drag-from-handle. Positioned
+// absolutely inside `.dm-editor` (which is `position: relative`) by JS,
+// only made visible via the `data-show` attribute. Spans the resolved
+// drop-target block's width so the user sees exactly which block (and
+// which side) the drop will land at — including the difference between
+// "into the list" and "as a sibling block" outcomes when dragging in
+// the gap between a list and the next block.
+// =============================================================================
+.dm-block-drop-indicator {
+  position: absolute;
+  height: 2px;
+  background: var(--dm-accent, #2563eb);
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 5;
+  // Hidden by default; JS adds `data-show` to reveal.
+  display: none;
+  // Slight glow so the line reads on top of any background colour.
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.15);
+
+  &[data-show] {
+    display: block;
+  }
+}

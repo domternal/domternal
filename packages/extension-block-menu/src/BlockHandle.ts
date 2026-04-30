@@ -84,6 +84,18 @@ export interface BlockHandleOptions {
    * @default false
    */
   nested?: boolean | NestedConfig;
+  /**
+   * Show a custom drop indicator line during drag-from-handle that
+   * mirrors EXACTLY where the drop will land. Replaces the need for
+   * `prosemirror-dropcursor` for our drag flow — `dropcursor` uses
+   * PM's default `posAtCoords` which can disagree with our resolver
+   * (especially in side-gutter / inter-block-gap drops).
+   *
+   * Set to `false` if you want the standard `prosemirror-dropcursor`
+   * behaviour or are providing your own indicator.
+   * @default true
+   */
+  dropIndicator?: boolean;
 }
 
 /**
@@ -186,6 +198,7 @@ export interface CreateBlockHandlePluginOptions {
   autoScrollThreshold: number;
   autoScrollMaxSpeed: number;
   nested: NestedResolution;
+  dropIndicator: boolean;
 }
 
 /**
@@ -370,6 +383,33 @@ function adjustDropTargetForListWrapper(
 }
 
 /**
+ * Computes the FINAL drop placement using the same logic `handleDrop`
+ * uses. Returned by both the actual drop handler AND the visual drop
+ * indicator so the line draws exactly where the drop will land — no
+ * "indicator says one place, item drops elsewhere" mismatch (the classic
+ * dropcursor pain point with custom drop handlers).
+ *
+ * - `rect` is the resolved target block's rect (for drawing the line)
+ * - `insertAfter` decides whether the line sits above or below the rect
+ *   AND whether the drop pos becomes `pos + nodeSize` or `pos`
+ *
+ * Returns `null` when the resolver finds no candidate (e.g. empty doc).
+ */
+function computeDropPlacement(
+  view: EditorView,
+  clientX: number,
+  clientY: number,
+  nested: NestedResolution,
+): { pos: number; rect: DOMRect; insertAfter: boolean } | null {
+  const initial = resolveBlockAtCoords(view, clientX, clientY, nested);
+  if (!initial) return null;
+  const resolved = adjustDropTargetForListWrapper(view, initial, clientY);
+  const rect = resolved.rect;
+  const midY = rect.top + rect.height / 2;
+  return { pos: resolved.pos, rect, insertAfter: clientY > midY };
+}
+
+/**
  * Creates a standalone BlockHandle ProseMirror plugin. Exported so
  * framework wrappers can build on top without going through the Extension
  * factory.
@@ -377,7 +417,7 @@ function adjustDropTargetForListWrapper(
 export function createBlockHandlePlugin(
   options: CreateBlockHandlePluginOptions,
 ): Plugin<BlockHandlePluginState> {
-  const { pluginKey, editor, hideDelay, disableDrag, autoScroll, autoScrollThreshold, autoScrollMaxSpeed, nested } = options;
+  const { pluginKey, editor, hideDelay, disableDrag, autoScroll, autoScrollThreshold, autoScrollMaxSpeed, nested, dropIndicator } = options;
 
   // --- Build DOM once. Buttons rendered with the shared Phosphor icons.
   const root = document.createElement('div');
@@ -399,6 +439,13 @@ export function createBlockHandlePlugin(
 
   root.appendChild(dragBtn);
   root.appendChild(plusBtn);
+
+  // --- Drop indicator: a thin horizontal line drawn at the resolved
+  // drop target during an active drag. Built once, hidden by default,
+  // appended into `.dm-editor` alongside the handle.
+  const indicator = document.createElement('div');
+  indicator.className = 'dm-block-drop-indicator';
+  indicator.setAttribute('data-dm-editor-ui', '');
 
   let editorEl: HTMLElement | null = null;
   // Element that captures hover events. Usually `editorEl.parentElement`
@@ -642,6 +689,41 @@ export function createBlockHandlePlugin(
   const onDocumentDragover = (event: DragEvent): void => {
     lastDragoverClientY = event.clientY;
     lastDragoverAt = performance.now();
+    if (dropIndicator) {
+      updateDropIndicator(event.clientX, event.clientY);
+    }
+  };
+
+  /**
+   * Reposition the drop-indicator line at the same target `handleDrop`
+   * would land at for these coordinates. Called from the document-level
+   * `dragover` listener while a drag is in progress.
+   *
+   * Hides the indicator when the resolver finds nothing (e.g. cursor
+   * outside the editor's content range during a no-op drag-out).
+   */
+  const updateDropIndicator = (clientX: number, clientY: number): void => {
+    if (!editorEl) return;
+    const placement = computeDropPlacement(editor.view, clientX, clientY, nested);
+    if (!placement) {
+      indicator.removeAttribute('data-show');
+      return;
+    }
+    const editorRect = editorEl.getBoundingClientRect();
+    // Line Y: line sits ABOVE the rect when inserting before, BELOW
+    // when inserting after. Both are aligned to the rect's edge so the
+    // user sees exactly which boundary is the landing site.
+    const lineY = (placement.insertAfter ? placement.rect.bottom : placement.rect.top) - editorRect.top;
+    // Line X spans the resolved block's width — gives a strong visual
+    // cue for indented blocks (nested list items show a shorter line
+    // matching their column, which makes "into list" vs "before next
+    // block" outcomes immediately distinguishable).
+    const left = placement.rect.left - editorRect.left;
+    const width = placement.rect.right - placement.rect.left;
+    indicator.style.top = `${String(lineY)}px`;
+    indicator.style.left = `${String(left)}px`;
+    indicator.style.width = `${String(width)}px`;
+    indicator.setAttribute('data-show', '');
   };
 
   const stopAutoScroll = (): void => {
@@ -652,7 +734,29 @@ export function createBlockHandlePlugin(
     autoScrollTarget = null;
     lastDragoverClientY = null;
     lastDragoverAt = 0;
+    // Listener removed by `removeDragoverListener` (called from dragend)
+    // — keeping it here too is redundant but harmless; left in case of
+    // legacy callers.
     document.removeEventListener('dragover', onDocumentDragover);
+  };
+
+  const hideDropIndicator = (): void => {
+    indicator.removeAttribute('data-show');
+  };
+
+  let dragoverAttached = false;
+  /** Register a single document-level dragover listener for the active
+   * drag. Shared by auto-scroll AND drop-indicator features so they stay
+   * in lockstep without double-listening. */
+  const startDragListeners = (): void => {
+    if (dragoverAttached) return;
+    document.addEventListener('dragover', onDocumentDragover);
+    dragoverAttached = true;
+  };
+  const stopDragListeners = (): void => {
+    if (!dragoverAttached) return;
+    document.removeEventListener('dragover', onDocumentDragover);
+    dragoverAttached = false;
   };
 
   const autoScrollTick = (): void => {
@@ -695,7 +799,6 @@ export function createBlockHandlePlugin(
     if (!autoScrollTarget) return;
     lastDragoverClientY = null;
     lastDragoverAt = performance.now();
-    document.addEventListener('dragover', onDocumentDragover);
     autoScrollRaf = requestAnimationFrame(autoScrollTick);
   };
 
@@ -782,6 +885,9 @@ export function createBlockHandlePlugin(
     // Begin tracking dragover Y and ramping scroll as the cursor nears
     // viewport edges. No-op when `autoScroll: false` or no scroll ancestor.
     startAutoScroll();
+    // The shared document-level dragover listener powers BOTH auto-scroll
+    // and the drop-indicator. Attached once per drag, removed in dragend.
+    startDragListeners();
   };
 
   const teardownDragPreview = (): void => {
@@ -795,6 +901,8 @@ export function createBlockHandlePlugin(
     (editor.view as unknown as PMViewWithDragging).dragging = null;
     setDraggedFrom(editor.view, null);
     stopAutoScroll();
+    stopDragListeners();
+    hideDropIndicator();
     teardownDragPreview();
     releaseDragPress();
   };
@@ -854,29 +962,14 @@ export function createBlockHandlePlugin(
         const sourceNode = view.state.doc.nodeAt(draggedFrom);
         if (!sourceNode) { event.preventDefault(); return true; }
 
-        // Reuse the SAME resolver hover uses, so the drop target matches
-        // exactly what the user saw under the cursor — including edge
-        // promotion when configured. Without this, hover and drop can
-        // disagree at the gutter, dropping a list item onto its parent.
-        const initial = resolveBlockAtCoords(view, event.clientX, event.clientY, nested);
-        if (!initial) { event.preventDefault(); return true; }
+        // Shared placement helper — used by the visual indicator too, so
+        // the drop lands EXACTLY where the user saw the line.
+        const placement = computeDropPlacement(view, event.clientX, event.clientY, nested);
+        if (!placement) { event.preventDefault(); return true; }
 
-        // When the resolver returned a list-wrapper container (e.g.
-        // because the cursor is in the gap right above/below a list),
-        // descend into the wrapper's first/last item so the drop lands
-        // INSIDE the list. Without this, PM would rewrap the source in
-        // a brand-new sibling list of one item — which is rarely what
-        // the user wants when their cursor is visually next to the list.
-        const resolved = adjustDropTargetForListWrapper(view, initial, event.clientY);
-
-        // Above-mid → insert before; below-mid → insert after. Mirrors
-        // the visible position of `prosemirror-dropcursor`'s indicator
-        // for the user.
-        const rect = resolved.rect;
-        const midY = rect.top + rect.height / 2;
-        const targetNode = view.state.doc.nodeAt(resolved.pos);
-        const targetEnd = targetNode ? resolved.pos + targetNode.nodeSize : resolved.pos;
-        const targetPos = event.clientY > midY ? targetEnd : resolved.pos;
+        const targetNode = view.state.doc.nodeAt(placement.pos);
+        const targetEnd = targetNode ? placement.pos + targetNode.nodeSize : placement.pos;
+        const targetPos = placement.insertAfter ? targetEnd : placement.pos;
 
         event.preventDefault();
         const tr = view.state.tr;
@@ -895,7 +988,11 @@ export function createBlockHandlePlugin(
 
       editorEl.classList.add('dm-editor--has-block-handle');
       editorEl.appendChild(root);
+      if (dropIndicator) {
+        editorEl.appendChild(indicator);
+      }
       hide();
+      hideDropIndicator();
 
       // Hover detection lives on `.dm-editor`'s parent (typically the page
       // wrapper, e.g. `.notion-page`'s framework-host child) so the listener
@@ -932,6 +1029,9 @@ export function createBlockHandlePlugin(
           // If the editor is destroyed mid-drag, stop the RAF loop and
           // drop the document-level dragover listener immediately.
           stopAutoScroll();
+          stopDragListeners();
+          hideDropIndicator();
+          indicator.remove();
           teardownDragPreview();
           if (hoverRaf !== null) {
             cancelAnimationFrame(hoverRaf);
@@ -969,6 +1069,7 @@ export const BlockHandle = Extension.create<BlockHandleOptions>({
       autoScrollThreshold: 48,
       autoScrollMaxSpeed: 18,
       nested: false,
+      dropIndicator: true,
     };
   },
 
@@ -985,6 +1086,7 @@ export const BlockHandle = Extension.create<BlockHandleOptions>({
         autoScrollThreshold: this.options.autoScrollThreshold ?? 48,
         autoScrollMaxSpeed: this.options.autoScrollMaxSpeed ?? 18,
         nested: resolveNestedConfig(this.options.nested),
+        dropIndicator: this.options.dropIndicator ?? true,
       }),
     ];
   },

@@ -29,7 +29,6 @@ import {
   LineHeight,
   SelectionDecoration,
   ClearFormatting,
-  Dropcursor,
   UniqueID,
   BlockColor,
   Editor,
@@ -148,7 +147,10 @@ export class NotionDemoComponent implements OnDestroy {
         invalidNodes: ['codeBlock'],
       },
     }),
-    LinkPopover, SelectionDecoration, ClearFormatting, Dropcursor,
+    // BlockHandle ships its own custom drop indicator that mirrors EXACTLY
+    // where the drop will land (via the shared `computeDropPlacement`
+    // helper), so we omit `Dropcursor` here. See `dropIndicator` option.
+    LinkPopover, SelectionDecoration, ClearFormatting,
     // Assigns stable IDs to top-level blocks so BlockContextMenu can offer
     // "Copy link to block" — the ID becomes the URL hash (e.g. `#abc123`).
     UniqueID,
