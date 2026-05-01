@@ -3,7 +3,7 @@
  *
  * Bug: `onDragStart` defers committing `draggedFrom` to plugin state via
  * `setTimeout(0)` (works around a Chrome quirk where DOM mutations during
- * dragstart abort the drag — see `BlockHandle.ts` for the full comment).
+ * dragstart abort the drag - see `BlockHandle.ts` for the full comment).
  * On extremely fast drags (mousedown → tiny pixel move → release in <1
  * frame) the timer hasn't run by the time the browser fires `drop`, and
  * `state.draggedFrom` is still null. PM also clears `view.dragging`
@@ -17,7 +17,7 @@
  * `view.dragging` clearing.
  *
  * This spec dispatches dragstart + drop in a single synchronous JS task
- * (worst-case timing — emulates the user's fast-release scenario). The
+ * (worst-case timing - emulates the user's fast-release scenario). The
  * old behaviour returned without moving the block; the fix moves it.
  */
 import { test } from './fixtures.js';
@@ -69,7 +69,7 @@ test('fast drag (dragstart → dragover → drop in one synchronous task) still 
   const cx = thirdBox.x + thirdBox.width / 2;
   const cy = thirdBox.y + thirdBox.height * 0.8;
 
-  // ALL events fire inside one `evaluate` — no Playwright round-trips
+  // ALL events fire inside one `evaluate` - no Playwright round-trips
   // between them, so the deferred `setTimeout(0)` from `onDragStart`
   // CANNOT fire between dragstart and drop. This emulates the worst-case
   // user timing: click handle, jerk mouse, release in <16ms.
@@ -90,13 +90,13 @@ test('fast drag (dragstart → dragover → drop in one synchronous task) still 
   expect(blocks).toEqual(['Bravo', 'Charlie', 'Alpha']);
 });
 
-test('fast drag does NOT throw "Selection passed to setSelection" — late timer is gated', async ({ page }) => {
+test('fast drag does NOT throw "Selection passed to setSelection" - late timer is gated', async ({ page }) => {
   // Companion to the test above. After the synchronous drag completes,
   // the deferred `setTimeout(0)` from `onDragStart` STILL fires (it was
   // queued and the browser eventually runs it). Without the guard added
   // in the fix, that callback would dispatch a transaction with a stale
   // `nodeSelection` against a doc whose positions changed during the
-  // already-completed drop — PM throws RangeError. The fix checks
+  // already-completed drop - PM throws RangeError. The fix checks
   // `pendingDraggedFrom === null` (cleared by `onDragEnd` BEFORE the
   // late timer fires) and bails out cleanly.
   const errors: string[] = [];

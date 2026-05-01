@@ -6,8 +6,8 @@
  * and the snapshot loses styles that depend on pseudo-classes or
  * ancestors that don't follow into the detached clone.
  *
- * The workaround — borrowed from Tiptap's `@tiptap/extension-drag-handle`
- * — is to `cloneNode(true)` and then walk every descendant copying the
+ * The workaround - borrowed from Tiptap's `@tiptap/extension-drag-handle`
+ * - is to `cloneNode(true)` and then walk every descendant copying the
  * computed `cssText` onto the clone's inline `style`. That freezes the
  * rendered appearance into the clone so the browser can paint a crisp,
  * detached preview. The clone lives inside a wrapper positioned far
@@ -38,7 +38,7 @@ export function buildDragPreview(source: HTMLElement): HTMLElement {
 
 /**
  * Recursively copy `cssText` from `src` into `dst`'s inline `style`.
- * Pseudo-elements and `::before`/`::after` content are not handled —
+ * Pseudo-elements and `::before`/`::after` content are not handled -
  * they rarely matter for a drag thumbnail and would balloon the clone.
  */
 function copyComputedStyles(src: Element, dst: Element): void {

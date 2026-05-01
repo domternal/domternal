@@ -272,7 +272,7 @@ describe('findDeepestBlockAtY', () => {
     const innerPos = posOf(editor, (n) => n.type.name === 'taskItem' && n.textContent === 'Inner sub');
 
     // Outer Y range 100-300; Inner only 200-260. Cursor Y=130 is above
-    // the inner item — only outer contains it, so outer wins.
+    // the inner item - only outer contains it, so outer wins.
     const rects = new Map<number, HTMLElement>([
       [outerPos, elWithRect({ top: 100, bottom: 300 })],
       [innerPos, elWithRect({ top: 200, bottom: 260 })],
@@ -357,7 +357,7 @@ describe('findDeepestBlockAtY', () => {
   it('skips a subtree whose container does not vertically contain the cursor', () => {
     // Outer list at Y 100-200; nested list at Y 100-150 (above cursor).
     // Cursor at Y=180 must NOT match the inner item (which is inside the
-    // pruned subtree) — even if its synthetic rect happened to contain Y.
+    // pruned subtree) - even if its synthetic rect happened to contain Y.
     const editor = makeEditor(
       '<ul><li><p>Outer</p><ul><li><p>Inner</p></li></ul></li></ul>',
     );

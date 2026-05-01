@@ -104,7 +104,7 @@ export class EditorDemoComponent {
     // Editor utilities
     LinkPopover, InvisibleChars, SelectionDecoration, ClearFormatting, Dropcursor,
     // Preserve block formatting when pasting block content (heading,
-    // codeBlock, blockquote, list, hr) at inline positions — without it
+    // codeBlock, blockquote, list, hr) at inline positions - without it
     // PM's content fitter strips the block wrapper and reduces to plain text.
     SmartPaste,
   ];

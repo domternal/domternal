@@ -9,8 +9,8 @@
 //
 // 1) ProseMirror reserves gutter space with `padding-left` so text does
 //    not flow under the handle.
-// 2) The editor opens its horizontal overflow so the handle — positioned
-//    with a negative `left` — can render in the page margin rather than
+// 2) The editor opens its horizontal overflow so the handle - positioned
+//    with a negative `left` - can render in the page margin rather than
 //    eating into the content column.
 //
 // Gutter default is 4rem (64px). Handle is 8px OUTSIDE the editor's
@@ -27,7 +27,7 @@
 
 // Selected-node visual indicator: the base theme's `outline: 2px solid`
 // (see `_prosemirror.scss`) paints OUTSIDE the block's border-box and
-// bleeds over anything adjacent — including the `.notion-page` right
+// bleeds over anything adjacent - including the `.notion-page` right
 // border in the Notion demo, making it look like the border is missing.
 // When BlockHandle is active, suppress the outline and replace it with a
 // subtle `::before` halo that sits BEHIND the block content (`z-index: -1`)
@@ -101,6 +101,8 @@
     }
 
     &:focus-visible {
+      // INSET ring (-1px): block handle buttons sit in the gutter; an outset
+      // ring would extend into adjacent content / next sibling block.
       outline: 2px solid var(--dm-accent, #2563eb);
       outline-offset: -1px;
     }
@@ -112,7 +114,7 @@
     }
   }
 
-  // Drag handle — grab cursor + slight nudge active state
+  // Drag handle - grab cursor + slight nudge active state
   &-drag {
     cursor: grab;
 
@@ -121,7 +123,7 @@
     }
   }
 
-  // Insert (+) button — subtle accent on hover
+  // Insert (+) button - subtle accent on hover
   &-plus {
     &:hover {
       color: var(--dm-accent, #2563eb);
@@ -135,7 +137,7 @@
 // absolutely inside `.dm-editor` (which is `position: relative`) by JS,
 // only made visible via the `data-show` attribute. Spans the resolved
 // drop-target block's width so the user sees exactly which block (and
-// which side) the drop will land at — including the difference between
+// which side) the drop will land at - including the difference between
 // "into the list" and "as a sibling block" outcomes when dragging in
 // the gap between a list and the next block.
 // =============================================================================
@@ -153,7 +155,7 @@
   // Nudge the line a few pixels DOWN from the upper block's bottom edge so
   // it visually sits in the gap between blocks rather than glued to the
   // block above. Visual-only (transform doesn't shift layout) so the
-  // computed `top` from JS still reflects the true anchor — the indicator
+  // computed `top` from JS still reflects the true anchor - the indicator
   // and the actual drop position stay in sync.
   transform: translateY(3px);
 

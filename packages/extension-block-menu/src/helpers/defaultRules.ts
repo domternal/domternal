@@ -16,7 +16,7 @@ const TABLE_INTERNAL_TYPES = new Set(['tableRow', 'tableCell', 'tableHeader']);
 
 /**
  * The first child paragraph of a list item should NOT be the drag
- * target — dragging that paragraph alone breaks the list. Promote up to
+ * target - dragging that paragraph alone breaks the list. Promote up to
  * the list item itself.
  */
 const listItemFirstChild: DragHandleRule = {
@@ -42,7 +42,7 @@ const listWrapperDeprioritize: DragHandleRule = {
 /**
  * Table internals (`tableRow`, `tableCell`, `tableHeader`, and direct
  * children of `tableHeader`) are managed by the Table extension's own
- * controls — never the block handle.
+ * controls - never the block handle.
  */
 const tableStructure: DragHandleRule = {
   id: 'tableStructure',

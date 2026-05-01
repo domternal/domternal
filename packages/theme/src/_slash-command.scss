@@ -106,6 +106,8 @@
   }
 
   &:focus-visible {
+    // INSET ring (-2px): slash items are tightly packed; outset would overlap
+    // the neighbour. Matches the context-menu item rule.
     outline: 2px solid var(--dm-accent, #2563eb);
     outline-offset: -2px;
   }

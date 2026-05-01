@@ -1,11 +1,11 @@
 /**
- * Clipboard helper — writes plain text to the system clipboard.
+ * Clipboard helper - writes plain text to the system clipboard.
  *
  * Tries the modern async Clipboard API first; if unavailable or denied
  * (Safari private mode, insecure context, missing user gesture), falls
  * back to a hidden textarea + `document.execCommand('copy')`.
  *
- * Returns `true` on success, `false` on failure. Never throws — callers
+ * Returns `true` on success, `false` on failure. Never throws - callers
  * decide how to surface failure (toast, re-throw, silent).
  *
  * @example

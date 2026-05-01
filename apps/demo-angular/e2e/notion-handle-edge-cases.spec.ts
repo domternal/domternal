@@ -13,13 +13,13 @@
  * Categories covered here:
  *   1. First-line vertical centering of the handle for tall blocks (h1-h3,
  *      multi-line paragraphs, empty paragraphs).
- *   2. Atom blocks — horizontal rule surfaces a handle of its own.
- *   3. Default-rule exclusions — table internals don't surface a handle on
+ *   2. Atom blocks - horizontal rule surfaces a handle of its own.
+ *   3. Default-rule exclusions - table internals don't surface a handle on
  *      their cells/rows; the table itself is the drag target.
- *   4. Layout assertions — `.dm-editor` is centered at ≤38rem inside the
+ *   4. Layout assertions - `.dm-editor` is centered at ≤38rem inside the
  *      Notion page, leaving symmetric side gutters where the handle lives.
- *   5. Hover hide-delay (200ms) — quick re-entries don't drop the handle.
- *   6. Doc-mutation invariants — typing, undo/redo, color-toggle keep the
+ *   5. Hover hide-delay (200ms) - quick re-entries don't drop the handle.
+ *   6. Doc-mutation invariants - typing, undo/redo, color-toggle keep the
  *      hover target stable.
  */
 import { test } from './fixtures.js';
@@ -41,7 +41,7 @@ async function goNotion(page: Page): Promise<void> {
 async function waitForAllIds(page: Page): Promise<void> {
   // Only block on top-level node types that UniqueID actually stamps.
   // Tables, details, and other structural wrappers are intentionally
-  // skipped by the extension's default `types` list — waiting for them
+  // skipped by the extension's default `types` list - waiting for them
   // would deadlock the spec.
   const STAMPED_TYPES = [
     'paragraph', 'heading', 'blockquote', 'codeBlock',
@@ -119,7 +119,7 @@ async function blockAt(page: Page, pos: number): Promise<{ type: string; text: s
 }
 
 // ────────────────────────────────────────────────────────────────────────
-// 1. First-line vertical centering — handle aligns to the first line of a
+// 1. First-line vertical centering - handle aligns to the first line of a
 //    block, not its top edge or visual center
 // ────────────────────────────────────────────────────────────────────────
 
@@ -220,14 +220,14 @@ test.describe('Vertical alignment on the first line of a block', () => {
     expect((await blockAt(page, pos ?? 0))?.type).toBe('blockquote');
 
     const handle = await boxOf(page.locator(blockHandleSelector));
-    // First "line" inside a blockquote is the first paragraph's first line —
+    // First "line" inside a blockquote is the first paragraph's first line -
     // handle should be in the upper half of the blockquote rect.
     expect(handle.y + handle.height / 2).toBeLessThan(bBox.y + bBox.height * 0.5);
   });
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 2. Atom-leaf blocks — handle for image, horizontal rule
+// 2. Atom-leaf blocks - handle for image, horizontal rule
 // ────────────────────────────────────────────────────────────────────────
 
 test.describe('Atom-leaf block handle', () => {
@@ -244,7 +244,7 @@ test.describe('Atom-leaf block handle', () => {
     expect((await blockAt(page, pos ?? 0))?.type).toBe('horizontalRule');
   });
 
-  test('hr is a top-level atom — drag handle resolves to it even when squeezed between paragraphs', async ({ page }) => {
+  test('hr is a top-level atom - drag handle resolves to it even when squeezed between paragraphs', async ({ page }) => {
     await setContent(page, '<p>Above</p><hr><p>Below</p>');
     const hr = page.locator(`${editorSelector} hr`);
     const hrBox = await boxOf(hr);
@@ -258,10 +258,10 @@ test.describe('Atom-leaf block handle', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 3. Default-rule exclusions — table internals NOT picked
+// 3. Default-rule exclusions - table internals NOT picked
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Default scoring rules — exclusions', () => {
+test.describe('Default scoring rules - exclusions', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('hovering inside a table cell resolves to the TABLE block, not tableCell/tableRow/tableHeader', async ({ page }) => {
@@ -306,7 +306,7 @@ test.describe('Default scoring rules — exclusions', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 4. Layout — content column is centered with symmetric side gutters
+// 4. Layout - content column is centered with symmetric side gutters
 // ────────────────────────────────────────────────────────────────────────
 
 test.describe('Notion demo layout invariants', () => {
@@ -351,7 +351,7 @@ test.describe('Notion demo layout invariants', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 5. Hover hide debounce — quick re-entries don't drop the handle
+// 5. Hover hide debounce - quick re-entries don't drop the handle
 // ────────────────────────────────────────────────────────────────────────
 
 test.describe('Hover hide-delay (200ms)', () => {
@@ -366,7 +366,7 @@ test.describe('Hover hide-delay (200ms)', () => {
     await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
 
     // Move mouse far above (out of editor parent bounds), then return
-    // quickly — within the 200ms hide-delay window.
+    // quickly - within the 200ms hide-delay window.
     await page.mouse.move(0, 0);
     await page.waitForTimeout(80);
     await hoverAt(page, pBox.x + pBox.width / 2, pBox.y + pBox.height / 2);
@@ -401,7 +401,7 @@ test.describe('Hover hide-delay (200ms)', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 6. Doc-mutation invariants — typing / undo / color-toggle preserve hover
+// 6. Doc-mutation invariants - typing / undo / color-toggle preserve hover
 // ────────────────────────────────────────────────────────────────────────
 
 test.describe('Doc-mutation invariants', () => {
@@ -423,7 +423,7 @@ test.describe('Doc-mutation invariants', () => {
     await page.keyboard.press('End');
     await page.keyboard.type('!!!');
 
-    // Hover again — handle should still resolve to the same block (id stable).
+    // Hover again - handle should still resolve to the same block (id stable).
     await para.hover();
     const afterId = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -463,7 +463,7 @@ test.describe('Doc-mutation invariants', () => {
     await page.click('.dm-block-color-swatch--bg[data-color="yellow"]');
     await expect(page.locator('.dm-block-context-menu')).not.toHaveAttribute('data-show', '');
 
-    // Hover again — handle still works on the color-tinted block.
+    // Hover again - handle still works on the color-tinted block.
     await para.hover();
     await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
     const pos = await hoveredPos(page);
@@ -472,7 +472,7 @@ test.describe('Doc-mutation invariants', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 7. Mixed adjacent block types — independent resolution
+// 7. Mixed adjacent block types - independent resolution
 // ────────────────────────────────────────────────────────────────────────
 
 test.describe('Mixed adjacent blocks resolve independently', () => {

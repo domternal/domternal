@@ -142,7 +142,7 @@ describe('moveBlock', () => {
     moveBlock(tr, innerPos, target);
     editor.view.dispatch(tr);
 
-    // The outer LI now has only the paragraph "Outer" — the nested UL
+    // The outer LI now has only the paragraph "Outer" - the nested UL
     // is gone (no empty <li> ghost).
     const outerLi = findPos(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Outer');
     const outerLiNode = editor.state.doc.nodeAt(outerLi);
@@ -159,7 +159,7 @@ describe('moveBlock', () => {
 
   it('walks up multiple single-child wrappers in one go', () => {
     // Two stacked wrappers: top UL > LI > nested UL > LI(source).
-    // Moving the source LI must collapse BOTH wrappers — the original
+    // Moving the source LI must collapse BOTH wrappers - the original
     // location should leave NO empty LI placeholders behind. PM may
     // re-wrap the inserted LI in a fresh UL at the drop site, so this
     // test asserts the absence of empty placeholders rather than the

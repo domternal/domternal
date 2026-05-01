@@ -5,7 +5,7 @@
  * at an INLINE caret position (anywhere inside a textblock) made PM's
  * default content fitter strip the wrapper and paste only inline text.
  * Most visible trigger: copy a heading, click into a list item, press
- * Shift+Enter to create a hardBreak, paste — heading lost its level.
+ * Shift+Enter to create a hardBreak, paste - heading lost its level.
  *
  * SmartPaste detects this case (closed slice + non-paragraph block)
  * and either inserts before / after the parent textblock or splits
@@ -39,7 +39,7 @@ async function setContent(page: Page, html: string): Promise<void> {
 /**
  * Dispatch a synthetic `paste` event on `view.dom` carrying `html` in
  * the DataTransfer. PM's pipeline parses the html into a Slice and feeds
- * it to handlePaste — exercising SmartPaste end-to-end.
+ * it to handlePaste - exercising SmartPaste end-to-end.
  */
 async function pasteHtml(page: Page, html: string): Promise<void> {
   await page.evaluate((h) => {
@@ -253,7 +253,7 @@ test.describe('SmartPaste', () => {
     // PM normalises trailing whitespace in setContent, so we use HOME +
     // 0 right-arrows to land at start, then test merge by typing.
     // Cleaner: pre-existing text is "Hello"; pasted is "world"; expected
-    // merge result is "Helloworld" (no auto-space — that's PM default).
+    // merge result is "Helloworld" (no auto-space - that's PM default).
     await setContent(page, '<p>Hello</p>');
     await page.locator(`${editorSelector} > p`).click();
     await page.keyboard.press('End');
@@ -380,7 +380,7 @@ test.describe('SmartPaste', () => {
   // used to insert the heading BEFORE the paragraph (per the offset===0
   // branch), leaving an empty trailing `<p>` that broke Enter handling.
   // Fix: replace the empty parent with the slice content so the listItem
-  // ends up with exactly the inserted block(s) — no stray empty p.
+  // ends up with exactly the inserted block(s) - no stray empty p.
 
   test('paste H1 in EMPTY paragraph inside list item → empty p replaced (no trailing paragraph)', async ({ page }) => {
     // Two-item list, second is empty. Caret in second (empty) item.
@@ -455,13 +455,13 @@ test.describe('SmartPaste', () => {
   // ── Trailing hardBreak (Shift+Enter) ──
   // User model: Shift+Enter creates a NEW logical row where the cursor
   // sits, paste fills THAT row. The trailing hardBreak that produced
-  // the visual empty row is consumed by the paste — no stray empty row
+  // the visual empty row is consumed by the paste - no stray empty row
   // appears either above or below the inserted block.
   //
-  // - `<p><br>|</p>` (empty + Shift+Enter) → `<p></p>` + `<heading>` —
+  // - `<p><br>|</p>` (empty + Shift+Enter) → `<p></p>` + `<heading>` -
   //   the empty first row remains, heading lands in the new row below.
   // - `<p>Text<br>|</p>` (text + Shift+Enter) → `<p>Text</p>` + `<heading>`
-  //   — text and heading are adjacent, NO extra empty row in between.
+  //   - text and heading are adjacent, NO extra empty row in between.
 
   test('paste H1 in EMPTY paragraph + Shift+Enter inside list item → empty row PRESERVED, heading as sibling', async ({ page }) => {
     // Bug: previously the whole `<p><br></p>` was replaced by the heading,
@@ -517,7 +517,7 @@ test.describe('SmartPaste', () => {
     // Bug #2: previously `<p>Existing<br></p><h1>Heading</h1>` left the
     // trailing hardBreak in the paragraph, rendering as 3 visual rows
     // (text / empty / heading). Fix: trim trailing hb so it's 2 rows
-    // (text / heading) — the new logical row from Shift+Enter is filled
+    // (text / heading) - the new logical row from Shift+Enter is filled
     // by the heading itself.
     await setContent(page, '<ul><li><p>Existing</p></li></ul>');
     await page.locator(`${editorSelector} li p`, { hasText: 'Existing' }).click();
@@ -544,7 +544,7 @@ test.describe('SmartPaste', () => {
       liChildCount: 2,
       firstType: 'paragraph',
       firstText: 'Existing',
-      firstInlineChildren: 1, // ONLY the text node — no trailing hardBreak
+      firstInlineChildren: 1, // ONLY the text node - no trailing hardBreak
       lastType: 'heading',
       lastText: 'Heading',
     });
@@ -604,7 +604,7 @@ test.describe('SmartPaste', () => {
       topCount: 2,
       firstType: 'paragraph',
       firstText: 'Hello',
-      firstInline: 1, // ONLY the text node — no trailing hardBreak
+      firstInline: 1, // ONLY the text node - no trailing hardBreak
       lastType: 'heading',
       lastText: 'Heading',
     });
@@ -620,7 +620,7 @@ test.describe('SmartPaste', () => {
     await setCaretInParagraph(page, 'Hello world', 5);
     await pasteHtml(page, '<h1>BREAK</h1>');
 
-    // Type a marker char — should land INSIDE the inserted heading, at its end.
+    // Type a marker char - should land INSIDE the inserted heading, at its end.
     await page.keyboard.type('!');
 
     expect(await topBlocks(page)).toEqual([
@@ -662,7 +662,7 @@ test.describe('SmartPaste', () => {
   // ── Pasting list slice (bulletList / orderedList / taskList) ──
   // Bug: copying a list item produces a clipboard with a `<ul><li>...</li></ul>`
   // wrapper. SmartPaste's old logic treated `bulletList` as a "non-paragraph
-  // block" and inserted it as a sibling INSIDE the current list item — creating
+  // block" and inserted it as a sibling INSIDE the current list item - creating
   // a nested list ("dupli bullet item" in user-speak). Fix: when the slice is
   // a single list and the target is inside a list item, merge the slice's
   // items as siblings of the current item.
@@ -770,7 +770,7 @@ test.describe('SmartPaste', () => {
 
   test('paste bulletList slice in TOP-LEVEL paragraph context → still inserts a separate list (not absorbed)', async ({ page }) => {
     // When cursor is NOT inside a list, pasting a list slice should keep
-    // it as a separate top-level list — NOT skip handling.
+    // it as a separate top-level list - NOT skip handling.
     await setContent(page, '<p>Above</p>');
     await page.locator(`${editorSelector} > p`).click();
     await page.keyboard.press('End');
@@ -854,7 +854,7 @@ async function setCaretAtEndOfParagraph(page: Page, text: string): Promise<void>
   await page.waitForTimeout(50);
 }
 
-test.describe('SmartPaste — trailing hardBreak (Shift+Enter)', () => {
+test.describe('SmartPaste - trailing hardBreak (Shift+Enter)', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   // ── Block-type matrix in list-item context ──
@@ -888,7 +888,7 @@ test.describe('SmartPaste — trailing hardBreak (Shift+Enter)', () => {
         liChildCount: 2,
         firstType: 'paragraph',
         firstText: 'Existing',
-        firstInline: 1, // text only — no trailing <br>
+        firstInline: 1, // text only - no trailing <br>
         lastType: 'heading',
         lastText: `Heading${level}`,
         lastLevel: level,
@@ -1125,7 +1125,7 @@ test.describe('SmartPaste — trailing hardBreak (Shift+Enter)', () => {
     });
     expect(tree).toEqual({
       liChildCount: 2,
-      pInline: 1, // single text node — no trailing hardBreak
+      pInline: 1, // single text node - no trailing hardBreak
       textType: 'text',
       textValue: 'Bold',
       textMarks: ['bold'],
@@ -1147,7 +1147,7 @@ test.describe('SmartPaste — trailing hardBreak (Shift+Enter)', () => {
     await page.waitForTimeout(50);
     await pasteHtml(page, '<h1>Heading</h1>');
 
-    // First top-level node: <p>A<br>B</p> — one middle hardBreak survives.
+    // First top-level node: <p>A<br>B</p> - one middle hardBreak survives.
     const tree = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | { state: { doc: { childCount: number; firstChild: { type: { name: string }; childCount: number; child: (i: number) => { type: { name: string }; text?: string } } | null; lastChild: { type: { name: string }; textContent: string } | null } } }
@@ -1201,7 +1201,7 @@ test.describe('SmartPaste — trailing hardBreak (Shift+Enter)', () => {
     });
     await pasteHtml(page, '<h1>BREAK</h1>');
 
-    // listItem now has [p"Hello", h1"BREAK", p" world"] — split + insert.
+    // listItem now has [p"Hello", h1"BREAK", p" world"] - split + insert.
     const items = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | { state: { doc: { firstChild: { firstChild: { childCount: number; child: (i: number) => { type: { name: string }; textContent: string } | null } | null } | null } } }
@@ -1223,7 +1223,7 @@ test.describe('SmartPaste — trailing hardBreak (Shift+Enter)', () => {
 
   test('caret BEFORE trailing hardBreak (`A|<br>`) → standard end-insert; trailing <br> stays', async ({ page }) => {
     // Build `<p>A<br></p>` then move caret BEFORE the hardBreak (offset=1).
-    // offset !== parentSize, so trim path doesn't fire — heading is
+    // offset !== parentSize, so trim path doesn't fire - heading is
     // appended after the paragraph by the regular split logic and the
     // trailing hardBreak survives.
     await setContent(page, '<p>A</p>');
@@ -1244,7 +1244,7 @@ test.describe('SmartPaste — trailing hardBreak (Shift+Enter)', () => {
     });
     await pasteHtml(page, '<h1>Heading</h1>');
 
-    // Caret was in MIDDLE (offset=1, parentSize=2) — split path. Result:
+    // Caret was in MIDDLE (offset=1, parentSize=2) - split path. Result:
     // <p>A</p><h1>Heading</h1><p><br></p>. The trailing <br> survives
     // intact in the second-half paragraph.
     const tree = await page.evaluate(() => {
@@ -1287,7 +1287,7 @@ test.describe('SmartPaste — trailing hardBreak (Shift+Enter)', () => {
     expect(tree).toEqual({
       liChildCount: 2,
       firstText: 'Hello',
-      firstInline: 1, // single text node — same as in trim case (no hb to trim either)
+      firstInline: 1, // single text node - same as in trim case (no hb to trim either)
       lastType: 'heading',
       lastText: 'Heading',
     });
@@ -1340,10 +1340,10 @@ test.describe('SmartPaste — trailing hardBreak (Shift+Enter)', () => {
   // so a single Ctrl+Z reverts both the trim and the heading insertion.
   // We wait long enough between the Shift+Enter and the paste so PM's
   // history plugin doesn't merge them into a single group (default
-  // `newGroupDelay` is 500 ms) — otherwise one undo would also revert
+  // `newGroupDelay` is 500 ms) - otherwise one undo would also revert
   // the Shift+Enter, defeating the point of the assertion.
 
-  test('Ctrl+Z after trim+paste reverts the paste only — trailing <br> back in place', async ({ page }) => {
+  test('Ctrl+Z after trim+paste reverts the paste only - trailing <br> back in place', async ({ page }) => {
     await setContent(page, '<p>Existing</p>');
     await setCaretAtEndOfParagraph(page, 'Existing');
     await page.keyboard.press('Shift+Enter');
@@ -1489,7 +1489,7 @@ test.describe('SmartPaste — trailing hardBreak (Shift+Enter)', () => {
     // The first paragraph inside the listItem must contain ZERO <br>
     // elements. (PM may render an empty paragraph with a placeholder
     // `<br>` for caret positioning, but that's only inside fully-empty
-    // paragraphs — our paragraph has the text "Existing".)
+    // paragraphs - our paragraph has the text "Existing".)
     const brCount = await page.locator(`${editorSelector} li p:nth-of-type(1) br`).count();
     expect(brCount).toBe(0);
   });
@@ -1519,7 +1519,7 @@ test.describe('SmartPaste — trailing hardBreak (Shift+Enter)', () => {
     });
     await pasteHtml(page, '<h1>Heading</h1>');
 
-    // After range delete, paragraph is "Exis" (no trailing hardBreak —
+    // After range delete, paragraph is "Exis" (no trailing hardBreak -
     // the selection swallowed it). Then heading inserted as sibling.
     const tree = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as

@@ -41,13 +41,13 @@ export function deleteBlock(tr: Transaction, blockPos: number): Transaction {
   const { from, to } = expandToEmptyWrappers(tr.doc, blockPos, blockEnd);
 
   // After expansion, would the doc be left empty? Compare the expanded
-  // range to the doc's full content range — equality means we covered
+  // range to the doc's full content range - equality means we covered
   // every top-level child via single-child wrapper chains.
   const wouldEmptyDoc = from === 0 && to === tr.doc.content.size;
   if (wouldEmptyDoc) {
     const paragraphType = tr.doc.type.schema.nodes['paragraph'];
     if (!paragraphType) {
-      // Schema has no `paragraph` type — bail rather than risk an
+      // Schema has no `paragraph` type - bail rather than risk an
       // invalid replacement.
       return tr;
     }
@@ -93,7 +93,7 @@ export function duplicateBlock(
  * Transforms the block at `blockPos` into a different textblock type while
  * preserving its inline content AND any attributes that are valid on the
  * target type. Without this, `setBlockType` would reset global attrs
- * (bgColor, textColor, id, etc.) to their defaults — surprising users who
+ * (bgColor, textColor, id, etc.) to their defaults - surprising users who
  * expect "Turn into" to keep a block's color and identity.
  *
  * Which attrs carry over is decided by the target type's schema: attrs that

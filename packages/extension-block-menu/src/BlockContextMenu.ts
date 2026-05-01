@@ -4,9 +4,9 @@
  * Popup menu that opens when the user clicks the BlockHandle `⋮⋮` drag
  * handle without dragging. Offers block-level operations for the target:
  *
- * - **Delete**    — remove the block
- * - **Duplicate** — insert an identical copy below
- * - **Turn into** — change the block type (paragraph, heading, quote, etc.)
+ * - **Delete**    - remove the block
+ * - **Duplicate** - insert an identical copy below
+ * - **Turn into** - change the block type (paragraph, heading, quote, etc.)
  *
  * Triggered by the `dm:block-context-menu-open` custom event dispatched
  * from BlockHandle; payload carries `{ blockPos, anchorElement }`.
@@ -37,7 +37,7 @@ interface UniqueIDOptionsShape {
 }
 
 /**
- * Same pattern for `blockColor` — we peek at the palette + types list but
+ * Same pattern for `blockColor` - we peek at the palette + types list but
  * don't import `BlockColorOptions` directly because the Colors UI degrades
  * gracefully when the extension isn't loaded.
  */
@@ -92,7 +92,7 @@ export interface BlockContextMenuOptions {
   /**
    * Show "Copy link" when the target block has an id attribute AND the
    * `UniqueID` extension is loaded in the editor. Without UniqueID this
-   * option has no effect — the item never appears regardless of value.
+   * option has no effect - the item never appears regardless of value.
    * @default true
    */
   copyLinkEnabled?: boolean;
@@ -124,7 +124,7 @@ export interface CreateBlockContextMenuPluginOptions {
 }
 
 /**
- * Default URL template for "Copy link to block" — appends `#<blockId>` to
+ * Default URL template for "Copy link to block" - appends `#<blockId>` to
  * the current pathname+search. Works for static sites; SPA hosts should
  * override via the `onCopyLink` option.
  */
@@ -319,7 +319,7 @@ export function createBlockContextMenuPlugin(
         makeItem('Duplicate', 'copy', runDuplicate),
       );
     }
-    // Copy link — only when UniqueID is loaded AND this block has an id attr
+    // Copy link - only when UniqueID is loaded AND this block has an id attr
     // AND the feature is enabled. Items on paragraphs without an id (legacy
     // content) gracefully skip the item rather than copying an empty hash.
     if (copyLinkEnabled && uniqueIDAttrName) {
@@ -371,7 +371,7 @@ export function createBlockContextMenuPlugin(
         const type = editor.view.state.schema.nodes[target.nodeType];
         if (!type?.isTextblock) return false;
         // Skip targets identical to the current block (same node type AND
-        // matching attrs — e.g. hide "Heading 1" when already on H1).
+        // matching attrs - e.g. hide "Heading 1" when already on H1).
         if (type.name !== node.type.name) return true;
         const targetAttrs = target.attrs;
         if (!targetAttrs) return false;
@@ -403,21 +403,51 @@ export function createBlockContextMenuPlugin(
     }
   };
 
-  /** Helper to construct a menuitem button and register it for nav. */
+  /**
+   * Construct the chrome shared by every menu button (regular item + color
+   * swatch): role=menuitem, roving-tabindex registration, mousedown
+   * preventDefault (keeps editor focus), click handler.
+   */
+  const createMenuButton = (config: {
+    className: string;
+    ariaLabel: string;
+    onClick: () => void;
+    attributes?: Record<string, string>;
+  }): HTMLButtonElement => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = config.className;
+    btn.setAttribute('role', 'menuitem');
+    btn.setAttribute('aria-label', config.ariaLabel);
+    if (config.attributes) {
+      for (const [k, v] of Object.entries(config.attributes)) {
+        btn.setAttribute(k, v);
+      }
+    }
+    btn.tabIndex = menuItemButtons.length === 0 ? 0 : -1;
+    btn.addEventListener('mousedown', (e: MouseEvent) => { e.preventDefault(); });
+    btn.addEventListener('click', (e: MouseEvent) => {
+      e.preventDefault();
+      config.onClick();
+    });
+    menuItemButtons.push(btn);
+    return btn;
+  };
+
+  /** Helper to construct a menuitem button (icon + label) and register it for nav. */
   const makeItem = (
     label: string,
     iconKey: string,
     onClick: () => void,
   ): HTMLButtonElement => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'dm-block-context-menu-item';
-    btn.setAttribute('role', 'menuitem');
-    btn.setAttribute('aria-label', label);
-    btn.tabIndex = menuItemButtons.length === 0 ? 0 : -1;
+    const btn = createMenuButton({
+      className: 'dm-block-context-menu-item',
+      ariaLabel: label,
+      onClick,
+    });
 
     // Build DOM safely: icon SVG is trusted (from our own phosphor set), but
-    // `label` may come from user-supplied `turnIntoTargets` config — use
+    // `label` may come from user-supplied `turnIntoTargets` config - use
     // textContent for any string that could originate outside this package.
     const iconHTML = defaultIcons[iconKey] ?? '';
     const iconSpan = document.createElement('span');
@@ -431,13 +461,6 @@ export function createBlockContextMenuPlugin(
 
     btn.appendChild(iconSpan);
     btn.appendChild(labelSpan);
-
-    btn.addEventListener('mousedown', (e: MouseEvent) => { e.preventDefault(); });
-    btn.addEventListener('click', (e: MouseEvent) => {
-      e.preventDefault();
-      onClick();
-    });
-    menuItemButtons.push(btn);
     return btn;
   };
 
@@ -452,29 +475,19 @@ export function createBlockContextMenuPlugin(
     current: string | null,
     onClick: (c: string | null) => void,
   ): HTMLButtonElement => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = `dm-block-color-swatch dm-block-color-swatch--${variant}`;
-    btn.setAttribute('role', 'menuitem');
-    const labelText = color === null
+    const ariaLabel = color === null
       ? (variant === 'bg' ? 'No background' : 'Default text color')
       : `${variant === 'bg' ? 'Background' : 'Text color'}: ${color}`;
-    btn.setAttribute('aria-label', labelText);
-    btn.setAttribute('data-color', color ?? 'null');
-    if (current === color || (color === null && !current)) {
-      btn.setAttribute('aria-pressed', 'true');
-    } else {
-      btn.setAttribute('aria-pressed', 'false');
-    }
-    btn.tabIndex = menuItemButtons.length === 0 ? 0 : -1;
-
-    btn.addEventListener('mousedown', (e: MouseEvent) => { e.preventDefault(); });
-    btn.addEventListener('click', (e: MouseEvent) => {
-      e.preventDefault();
-      onClick(color);
+    const isPressed = (current === color || (color === null && !current));
+    return createMenuButton({
+      className: `dm-block-color-swatch dm-block-color-swatch--${variant}`,
+      ariaLabel,
+      onClick: () => { onClick(color); },
+      attributes: {
+        'data-color': color ?? 'null',
+        'aria-pressed': isPressed ? 'true' : 'false',
+      },
     });
-    menuItemButtons.push(btn);
-    return btn;
   };
 
   /**
@@ -511,7 +524,7 @@ export function createBlockContextMenuPlugin(
    * Dispatches `dm:dismiss-overlays` first so any other chrome closes.
    *
    * `detail.blockPos` is whatever block the dispatcher (BlockHandle)
-   * resolved under the cursor — this includes nested list items when
+   * resolved under the cursor - this includes nested list items when
    * `BlockHandle.nested` is enabled. Using `findTopLevelBlock` here
    * would walk past those and target the wrapping list, which would
    * mean a "Delete" click on a single list item nukes the entire list
@@ -549,9 +562,10 @@ export function createBlockContextMenuPlugin(
 
   // --- Event handlers
   const onOpen = (event: Event): void => {
-    // CustomEvent<T> types detail as T but at runtime it can be undefined
-    // if a plain Event was dispatched. Guard via unknown cast.
-    const detail = (event as unknown as { detail?: BlockContextMenuOpenDetail }).detail;
+    // CustomEvent<T> extends Event so the downcast is safe; we widen detail
+    // to `T | undefined` to keep the runtime guard for cases where a plain
+    // Event was dispatched without detail.
+    const detail = (event as CustomEvent<BlockContextMenuOpenDetail | undefined>).detail;
     if (!detail) return;
     open(detail);
   };

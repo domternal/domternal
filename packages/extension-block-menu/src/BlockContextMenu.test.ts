@@ -125,7 +125,7 @@ describe('BlockContextMenu DOM integration', () => {
   });
 
   it('omits Duplicate for horizontal rules (though HR not in this test setup, renders dynamic)', () => {
-    // Paragraph has Duplicate visible — verifies dynamic rendering decision.
+    // Paragraph has Duplicate visible - verifies dynamic rendering decision.
     makeEditor('<p>X</p>');
     openContextMenu(0);
     const items = host?.querySelectorAll('.dm-block-context-menu-item');
@@ -232,7 +232,7 @@ describe('BlockContextMenu click execution', () => {
     expect(menu?.hasAttribute('data-show')).toBe(true);
     findItemByLabel('Duplicate')?.click();
     expect(menu?.hasAttribute('data-show')).toBe(false);
-    // `runAndClose` calls `editor.view.focus()` in its finally block —
+    // `runAndClose` calls `editor.view.focus()` in its finally block -
     // jsdom's focus state on contenteditable is unreliable, so spy on the
     // method itself to verify refocus was attempted.
     expect(focusSpy).toHaveBeenCalled();
@@ -339,7 +339,7 @@ describe('BlockContextMenu Copy link + UniqueID integration', () => {
   });
 
   it('hides Copy link item when block type is not in UniqueID.types', async () => {
-    // UniqueID covers only 'paragraph' — code blocks get no id, so no item.
+    // UniqueID covers only 'paragraph' - code blocks get no id, so no item.
     makeEditorWithUniqueID('<pre><code>x</code></pre>', {}, ['paragraph']);
     // Wait a tick for UniqueID's initial transaction to run; we aren't
     // waiting for an id because none is ever assigned on this block.

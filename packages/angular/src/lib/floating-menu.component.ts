@@ -112,7 +112,7 @@ export class DomternalFloatingMenuComponent implements OnDestroy {
 
   private controller: FloatingMenuController | null = null;
 
-  // Signal that bumps on every controller change — templates read it to
+  // Signal that bumps on every controller change - templates read it to
   // re-run @for tracking. OnPush components need explicit change triggers.
   private version = signal(0);
   private iconCache = new Map<string, SafeHtml>();
@@ -165,7 +165,7 @@ export class DomternalFloatingMenuComponent implements OnDestroy {
       );
       controller.subscribe();
       this.controller = controller;
-      // Controller is a plain field, not a signal — bumping `version` is
+      // Controller is a plain field, not a signal - bumping `version` is
       // what tells the `groups`/`focusedIndex` computeds to re-evaluate
       // and pick up the freshly assigned controller instance.
       this.version.update((v) => v + 1);

@@ -2,7 +2,7 @@
  * Drag-and-drop E2E coverage for the Notion demo.
  *
  * Playwright cannot faithfully reproduce the HTML5 drag lifecycle via
- * plain mouse moves — the browser only dispatches `dragstart`/`drop`
+ * plain mouse moves - the browser only dispatches `dragstart`/`drop`
  * when a real OS drag is in flight. To work around that we install a
  * shared `DataTransfer` (synthesised in the page context) and fire the
  * canonical sequence `dragstart → dragover → drop → dragend` ourselves
@@ -14,7 +14,7 @@
  * correctness of source/target position math, self-drop safety, nested
  * list-item reorder, and attribute preservation (UniqueID / BlockColor)
  * across the move. It does NOT cover the real-OS pieces (drag image,
- * auto-scroll ramp, browser drag cancel) — those stay unit-tested in
+ * auto-scroll ramp, browser drag cancel) - those stay unit-tested in
  * `packages/extension-block-menu/src/BlockHandle.test.ts`.
  */
 import { test } from './fixtures.js';
@@ -70,12 +70,12 @@ async function getBlocks(page: Page): Promise<Array<{ type: string; text: string
 /**
  * Perform a synthetic HTML5 drag from the drag handle onto a target
  * block. `dropZone` decides which half of the target the drop lands in
- * — `"top"` triggers insert-before, `"bottom"` insert-after (mirrors
+ * - `"top"` triggers insert-before, `"bottom"` insert-after (mirrors
  * the mid-point check in `BlockHandle.handleDrop`).
  *
  * The function hovers the source block first so the handle mounts,
  * then runs the full event sequence against that handle and the target
- * block. Returns nothing — assertions inspect the resulting doc.
+ * block. Returns nothing - assertions inspect the resulting doc.
  */
 async function dragBlock(
   page: Page,
@@ -87,7 +87,7 @@ async function dragBlock(
   await sourceBlock.hover();
   await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
 
-  // 2. Build a single DataTransfer to thread through all four events —
+  // 2. Build a single DataTransfer to thread through all four events -
   //    some browsers wipe clipboard-like payloads between separate handles,
   //    so we reuse the same object (matches real-drag semantics).
   const dt = await page.evaluateHandle(() => new DataTransfer());
@@ -128,10 +128,10 @@ async function cleanupDt(dt: JSHandle<DataTransfer>): Promise<void> {
 }
 
 // ────────────────────────────────────────────────────────────────────────
-// 1. Basic reorder — top-level blocks
+// 1. Basic reorder - top-level blocks
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Drag & drop — top-level reorder', () => {
+test.describe('Drag & drop - top-level reorder', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('drag first paragraph onto (below mid of) second → swaps order', async ({ page }) => {
@@ -171,10 +171,10 @@ test.describe('Drag & drop — top-level reorder', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 2. Mixed-type drag — heading + paragraph + blockquote + task list
+// 2. Mixed-type drag - heading + paragraph + blockquote + task list
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Drag & drop — mixed block types', () => {
+test.describe('Drag & drop - mixed block types', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('drag a heading below a paragraph (type survives move)', async ({ page }) => {
@@ -203,10 +203,10 @@ test.describe('Drag & drop — mixed block types', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 3. Attribute preservation — UniqueID + BlockColor survive drag
+// 3. Attribute preservation - UniqueID + BlockColor survive drag
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Drag & drop — attribute preservation', () => {
+test.describe('Drag & drop - attribute preservation', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('dragged block keeps its UniqueID (move, not duplicate)', async ({ page }) => {
@@ -246,10 +246,10 @@ test.describe('Drag & drop — attribute preservation', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 4. Nested drag — list items reorder inside their list
+// 4. Nested drag - list items reorder inside their list
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Drag & drop — nested list items', () => {
+test.describe('Drag & drop - nested list items', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('drag second list item above first → reorders without breaking the list', async ({ page }) => {
@@ -284,10 +284,10 @@ test.describe('Drag & drop — nested list items', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 5. Side-effects — dragging state + overlay cleanup
+// 5. Side-effects - dragging state + overlay cleanup
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Drag & drop — side-effects during the drag lifecycle', () => {
+test.describe('Drag & drop - side-effects during the drag lifecycle', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('`view.dragging` is set on dragstart and cleared on dragend', async ({ page }) => {
@@ -361,12 +361,12 @@ test.describe('Drag & drop — side-effects during the drag lifecycle', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 6. disableDrag guard — even though the extension is configured for
+// 6. disableDrag guard - even though the extension is configured for
 //    drag in the demo, we verify the early-return in `onDragStart` by
 //    triggering dragstart when nothing is hovered (no hoveredPos).
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Drag & drop — safety rails', () => {
+test.describe('Drag & drop - safety rails', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('drop indicator hides when cursor leaves the editor drop zone (top edge)', async ({ page }) => {
@@ -448,7 +448,7 @@ test.describe('Drag & drop — safety rails', () => {
   test('drop indicator shows in the handle gutter (left of editor padding box)', async ({ page }) => {
     // The handle visually lives in a left gutter outside .dm-editor's
     // padding box (negative `left` in CSS). The drop zone gate must
-    // include this gutter — otherwise dragging FROM the handle would
+    // include this gutter - otherwise dragging FROM the handle would
     // hide the indicator the moment the cursor sat over the handle.
     await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
     const first = page.locator(`${editorSelector} p:has-text("Alpha")`);
@@ -515,7 +515,7 @@ test.describe('Drag & drop — safety rails', () => {
   test('drop indicator hides when cursor leaves the editor drop zone (and reappears on re-entry)', async ({ page }) => {
     // The dragover listener is document-wide (so it catches cursor in the
     // side gutter where the handle lives). But the browser only fires the
-    // `drop` event on the element under the cursor at release — if that's
+    // `drop` event on the element under the cursor at release - if that's
     // outside `.dm-editor`, PM's handleDrop never runs and nothing
     // happens. We must NOT promise a drop when one cannot succeed.
     await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
@@ -564,7 +564,7 @@ test.describe('Drag & drop — safety rails', () => {
     // The user's bug: cursor was in the left gutter (where the BlockHandle
     // visually sits at `left: -3.5rem`), the indicator showed a "drop will
     // land here" line, but releasing the mouse did nothing. Browser's
-    // `drop` event fires on the element under the cursor — in the gutter,
+    // `drop` event fires on the element under the cursor - in the gutter,
     // that's `.notion-page` or `body`, NOT `.ProseMirror`, so PM's
     // `handleDrop` never ran. Fix: document-level drop listener performs
     // the move when the cursor is in our drop zone but outside PM's view.
@@ -586,7 +586,7 @@ test.describe('Drag & drop — safety rails', () => {
     if (!editorBox || !thirdBox) return;
 
     // Cursor is 40px LEFT of `.dm-editor` (in the handle gutter), at the
-    // vertical mid-point of "Charlie" — so insertAfter is true and the
+    // vertical mid-point of "Charlie" - so insertAfter is true and the
     // block should land at the end of the doc.
     const gutterX = editorBox.x - 40;
     const targetY = thirdBox.y + thirdBox.height * 0.8;
@@ -613,7 +613,7 @@ test.describe('Drag & drop — safety rails', () => {
 
   test('drop in the gutter targets a block ABOVE the dragged source (insert before)', async ({ page }) => {
     // Companion to the previous test (which dropped AFTER the third block).
-    // Here we drop in the gutter at a Y above the source — expect the block
+    // Here we drop in the gutter at a Y above the source - expect the block
     // to land BEFORE that target. Verifies insertAfter=false path of the
     // document drop listener.
     await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
@@ -653,7 +653,7 @@ test.describe('Drag & drop — safety rails', () => {
 
   test('gutter drop preserves block id (UniqueID survives the move)', async ({ page }) => {
     // The doc-level drop path uses the same `moveBlock` helper as PM's
-    // handleDrop — `transformAttrs` is not invoked, so the source's
+    // handleDrop - `transformAttrs` is not invoked, so the source's
     // UniqueID must remain intact. Critical because Copy-link relies
     // on stable ids; a doc-listener-induced regen would silently break
     // shared block links.
@@ -699,14 +699,14 @@ test.describe('Drag & drop — safety rails', () => {
       return ids;
     });
 
-    // Same set of ids, just reordered — Alpha's id moved to position 2.
+    // Same set of ids, just reordered - Alpha's id moved to position 2.
     expect(new Set(idsAfter)).toEqual(new Set(idsBefore));
     expect(idsAfter[2]).toBe(idsBefore[0]);
     await dt.dispose();
   });
 
   test('drop in the right-side gutter (margin between editor right edge and page edge) reorders', async ({ page }) => {
-    // Mirror of the left-gutter case — the drop zone tolerance applies
+    // Mirror of the left-gutter case - the drop zone tolerance applies
     // on the right side too (16px). Notion-style demos often have
     // visible margin to the right of the centered editor; users can
     // drag into that margin and expect the drop to "stick".
@@ -740,10 +740,10 @@ test.describe('Drag & drop — safety rails', () => {
     await dt.dispose();
   });
 
-  test('two consecutive gutter drops in the same drag session — only the FIRST one moves the block', async ({ page }) => {
+  test('two consecutive gutter drops in the same drag session - only the FIRST one moves the block', async ({ page }) => {
     // Once `drop` is processed, the drag is over (browser also fires
     // `dragend`). A subsequent `drop` event in the same session has no
-    // `view.dragging` payload — the doc listener must bail. This guards
+    // `view.dragging` payload - the doc listener must bail. This guards
     // against a stale-state regression where a second synthesised drop
     // would still trigger another move using cached plugin state.
     await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
@@ -764,14 +764,14 @@ test.describe('Drag & drop — safety rails', () => {
     await page.evaluate(({ x, y }) => {
       document.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
     }, { x: gutterX, y: targetY });
-    // First drop — should move.
+    // First drop - should move.
     await page.evaluate(({ x, y }) => {
       document.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
     }, { x: gutterX, y: targetY });
     await handle.dispatchEvent('dragend', { dataTransfer: dt });
     await page.waitForTimeout(80);
 
-    // Second drop fired AFTER dragend — listeners are gone, view.dragging
+    // Second drop fired AFTER dragend - listeners are gone, view.dragging
     // is cleared. Should be a no-op.
     await page.evaluate(({ x, y }) => {
       document.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
@@ -794,7 +794,7 @@ test.describe('Drag & drop — safety rails', () => {
     const editorBox = await page.locator('.dm-editor').boundingBox();
     if (!editorBox) return;
 
-    // No dragstart fired — view.dragging is null. Dispatch a drop that
+    // No dragstart fired - view.dragging is null. Dispatch a drop that
     // would otherwise look "valid" (in zone, valid coords).
     await page.evaluate(({ x, y }) => {
       document.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
@@ -807,7 +807,7 @@ test.describe('Drag & drop — safety rails', () => {
   });
 
   test('gutter drop reorders nested list items inside the same list', async ({ page }) => {
-    // Verifies the new doc-listener path works for nested lists —
+    // Verifies the new doc-listener path works for nested lists -
     // dragging via the per-item handle (with nested:true config) and
     // dropping in the gutter should reorder INSIDE the list, not promote
     // the item to a top-level sibling.
@@ -880,7 +880,7 @@ test.describe('Drag & drop — safety rails', () => {
   });
 
   test('drop OUTSIDE drop zone is a no-op even with the new document drop listener', async ({ page }) => {
-    // Far outside the editor (corner of viewport) — gate fails, doc
+    // Far outside the editor (corner of viewport) - gate fails, doc
     // listener bails, dragend fires without a move. Critical: the new
     // global drop listener must not "rescue" drops that the user
     // intentionally cancelled by dragging way out of the editor.
@@ -914,7 +914,7 @@ test.describe('Drag & drop — safety rails', () => {
     const handle = page.locator(dragBtnSelector);
     const dt = await page.evaluateHandle(() => new DataTransfer());
     await handle.dispatchEvent('dragstart', { dataTransfer: dt });
-    // Drop event on `body` (outside the editor) — PM's handleDrop never
+    // Drop event on `body` (outside the editor) - PM's handleDrop never
     // runs because the event doesn't bubble through `.dm-editor`.
     await page.locator('body').dispatchEvent('drop', { dataTransfer: dt, clientX: 5, clientY: 5 });
     await handle.dispatchEvent('dragend', { dataTransfer: dt });
@@ -972,7 +972,7 @@ test.describe('Drag & drop — safety rails', () => {
       observedTops.push(top);
     }
 
-    // All three samples should yield the EXACT same indicator Y — the
+    // All three samples should yield the EXACT same indicator Y - the
     // fix collapses both halves of the gap to a single canonical line.
     expect(new Set(observedTops).size).toBe(1);
 
@@ -982,7 +982,7 @@ test.describe('Drag & drop — safety rails', () => {
 
   test('dragstart without a resolved hover is cancelled (no reorder)', async ({ page }) => {
     await setContent(page, '<p>A</p><p>B</p>');
-    // Reset the plugin hovered state explicitly via a no-op meta commit — no
+    // Reset the plugin hovered state explicitly via a no-op meta commit - no
     // hover happened, so `hoveredPos` is null.
     const blocksBefore = await getBlocks(page);
     const dt = await page.evaluateHandle(() => new DataTransfer());

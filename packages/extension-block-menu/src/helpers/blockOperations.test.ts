@@ -95,7 +95,7 @@ describe('blockOperations', () => {
     it('deleting the ONLY LI in a UL removes the entire UL when other top-level blocks exist', () => {
       // doc = [UL[only-A], paragraph]. Without the wrapper expansion the
       // delete would either leave an empty <li> placeholder or drop the
-      // whole UL via PM's content fitter — the user's reported bug.
+      // whole UL via PM's content fitter - the user's reported bug.
       const editor = makeListEditor('<ul><li><p>A</p></li></ul><p>After</p>');
       const liA = findPos(editor, (n) => n.type.name === 'listItem' && n.textContent === 'A');
       const tr = editor.state.tr;
@@ -322,7 +322,7 @@ describe('blockOperations', () => {
     it('caller-supplied attrs override preserved attrs with the same key', () => {
       // If source has level=2 (from an attribute other than heading) and
       // target is heading with level=1 supplied, the override wins. This
-      // uses paragraph-to-heading where paragraph has no `level` attr —
+      // uses paragraph-to-heading where paragraph has no `level` attr -
       // the test is conceptual: the merge order is preserved-first then
       // overrides.
       const host = document.createElement('div');

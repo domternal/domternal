@@ -1,4 +1,4 @@
-// Phosphor Icons (MIT) — https://phosphoricons.com/
+// Phosphor Icons (MIT) - https://phosphoricons.com/
 
 import type { IconSet } from '../types/Toolbar.js';
 

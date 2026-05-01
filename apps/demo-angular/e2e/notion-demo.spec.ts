@@ -13,7 +13,7 @@
  * the demo's `__DEMO_EDITOR__` window handle. Drag-heavy paths (true
  * HTML5 drag sequence, auto-scroll ramp) are only loosely asserted
  * because Playwright's synthetic drag events don't trigger all browser
- * scroll side-effects reliably — those stay unit-tested.
+ * scroll side-effects reliably - those stay unit-tested.
  */
 import { test } from './fixtures.js';
 import { expect, type Page, type Locator } from '@playwright/test';
@@ -39,7 +39,7 @@ async function goNotion(page: Page): Promise<void> {
   await page.click(modeToggleNotion);
   await page.waitForSelector(editorSelector);
   // Wait for UniqueID's appendTransaction to stamp EVERY block, not just
-  // the first one — Copy link only renders when the target block has an
+  // the first one - Copy link only renders when the target block has an
   // id and we may target any of them in later tests.
   await waitForAllIds(page);
 }
@@ -59,7 +59,7 @@ async function waitForAllIds(page: Page): Promise<void> {
   }, { timeout: 3000 });
 }
 
-/** Replace editor content then focus — used by most tests. */
+/** Replace editor content then focus - used by most tests. */
 async function setContent(page: Page, html: string): Promise<void> {
   await page.evaluate((h) => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -113,7 +113,7 @@ async function getBlocks(page: Page): Promise<Array<{ type: string; text: string
 // 1. Mode switch + base layout
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Notion demo — mode switch & layout', () => {
+test.describe('Notion demo - mode switch & layout', () => {
   test('Notion mode button mounts the notion-demo component', async ({ page }) => {
     await page.goto('/');
     await page.click(modeToggleNotion);
@@ -172,7 +172,7 @@ test.describe('Notion demo — mode switch & layout', () => {
 
   test('placeholder text is EMPTY for non-paragraph empty blocks (heading / codeBlock)', async ({ page }) => {
     await goNotion(page);
-    // Insert an empty heading via slash menu equivalent — quickest way is to
+    // Insert an empty heading via slash menu equivalent - quickest way is to
     // type # then Space (markdown input rule) on an empty paragraph.
     const lastP = page.locator(`${editorSelector} > p`).last();
     await lastP.click();
@@ -202,10 +202,10 @@ test.describe('Notion demo — mode switch & layout', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 2. BlockHandle — hover gutter + plus + visibility / positioning
+// 2. BlockHandle - hover gutter + plus + visibility / positioning
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('BlockHandle — hover behaviour', () => {
+test.describe('BlockHandle - hover behaviour', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('handle is hidden before any hover', async ({ page }) => {
@@ -258,10 +258,10 @@ test.describe('BlockHandle — hover behaviour', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 3. BlockContextMenu — structure, visibility, dismissal
+// 3. BlockContextMenu - structure, visibility, dismissal
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('BlockContextMenu — structure', () => {
+test.describe('BlockContextMenu - structure', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('click on drag handle opens the context menu', async ({ page }) => {
@@ -271,7 +271,7 @@ test.describe('BlockContextMenu — structure', () => {
   });
 
   test('menu contains Delete, Duplicate, Copy link, and Turn into items', async ({ page }) => {
-    // Use a heading so the "Turn into: Paragraph" entry is offered — when
+    // Use a heading so the "Turn into: Paragraph" entry is offered - when
     // the target equals the source node type the entry is filtered out.
     await setContent(page, '<h2>A heading</h2>');
     await hoverBlock(page, 'h2');
@@ -315,7 +315,7 @@ test.describe('BlockContextMenu — structure', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 4. Delete — including empty-doc guard
+// 4. Delete - including empty-doc guard
 // ────────────────────────────────────────────────────────────────────────
 
 test.describe('Delete block', () => {
@@ -344,7 +344,7 @@ test.describe('Delete block', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 5. Duplicate — preserves content, regenerates UniqueID, keeps colors
+// 5. Duplicate - preserves content, regenerates UniqueID, keeps colors
 // ────────────────────────────────────────────────────────────────────────
 
 test.describe('Duplicate block', () => {
@@ -361,7 +361,7 @@ test.describe('Duplicate block', () => {
     expect(blocks[1]?.text).toBe('Repeat me');
   });
 
-  test('Duplicate regenerates UniqueID — source and copy have different ids', async ({ page }) => {
+  test('Duplicate regenerates UniqueID - source and copy have different ids', async ({ page }) => {
     await setContent(page, '<p>Dup IDs</p>');
     await hoverBlock(page, 'p');
     await openContextMenu(page);
@@ -388,7 +388,7 @@ test.describe('Duplicate block', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 6. Copy link — event, URL format, toast
+// 6. Copy link - event, URL format, toast
 // ────────────────────────────────────────────────────────────────────────
 
 test.describe('Copy link to block', () => {
@@ -432,7 +432,7 @@ test.describe('Copy link to block', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 7. Turn into — type + attribute preservation
+// 7. Turn into - type + attribute preservation
 // ────────────────────────────────────────────────────────────────────────
 
 test.describe('Turn into', () => {
@@ -488,7 +488,7 @@ test.describe('Turn into', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 8. Block colors — swatches, aria-pressed, clear
+// 8. Block colors - swatches, aria-pressed, clear
 // ────────────────────────────────────────────────────────────────────────
 
 test.describe('Block colors', () => {
@@ -606,7 +606,7 @@ test.describe('Slash command', () => {
     // The renderer marks the active item with `data-selected` (present
     // as a bare attribute). Exactly one at a time is the invariant.
     // (Arrow-key nav within the suggestion popup is covered by unit tests
-    //  in packages/extension-block-menu — replicating it here is flaky
+    //  in packages/extension-block-menu - replicating it here is flaky
     //  because key forwarding depends on Playwright's synthetic focus
     //  model interacting with tiptap's SuggestionPluginKey.)
     const count = await page.locator(`${slashItemSelector}[data-selected]`).count();
@@ -627,7 +627,7 @@ test.describe('Slash command', () => {
 // 10. Floating menu (empty-line insert)
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('FloatingMenu — Notion-style explicit trigger', () => {
+test.describe('FloatingMenu - Notion-style explicit trigger', () => {
   // The notion-demo wires the floating menu with `requireExplicitTrigger:
   // true` so the menu mirrors Notion: it does NOT auto-pop on every empty
   // paragraph, only when the BlockHandle `+` button (or any caller of
@@ -709,7 +709,7 @@ test.describe('FloatingMenu — Notion-style explicit trigger', () => {
   test('placeholder hint replaces the auto-popup on empty paragraphs', async ({ page }) => {
     // The Notion-style replacement: instead of auto-showing the menu,
     // empty paragraphs render a discreet placeholder via the Placeholder
-    // extension (covered in the "mode switch & layout" describe — this
+    // extension (covered in the "mode switch & layout" describe - this
     // test cross-checks the two systems coexist).
     await setContent(page, '<p></p>');
     const lastP = page.locator(`${editorSelector} > p`).last();
@@ -732,7 +732,7 @@ test.describe('KeyboardReorder', () => {
   test('Mod+Shift+ArrowDown moves the current block down', async ({ page }) => {
     await setContent(page, '<p>A</p><p>B</p><p>C</p>');
     // Click inside the first paragraph so the .ProseMirror element has
-    // real DOM focus — PM's keymap plugin only fires on editable focus.
+    // real DOM focus - PM's keymap plugin only fires on editable focus.
     await page.locator(`${editorSelector} p:has-text("A")`).click();
     await page.keyboard.press(`${modifier}+Shift+ArrowDown`);
     const blocks = await getBlocks(page);
@@ -781,7 +781,7 @@ test.describe('Nested drag handle', () => {
     await page.locator(`${editorSelector} li`).nth(0).hover();
     await page.click(dragBtnSelector);
     await page.click(`${contextItemSelector}:has-text("Duplicate")`);
-    // Count <li>s present in the document — a copy of "One" appears as a
+    // Count <li>s present in the document - a copy of "One" appears as a
     // new sibling, so we expect at least 3 total. (Number of <ul>s may
     // vary depending on whether PM keeps the copy inside the source list
     // or briefly splits it; we only care about the item count.)
@@ -801,7 +801,7 @@ test.describe('Nested drag handle', () => {
     // Move cursor INTO the left side gutter (X far to the left of the
     // editor) at the second list item's vertical band. With the
     // clamp-to-content fix, the resolver should still target the list
-    // item — not jump up to the whole list.
+    // item - not jump up to the whole list.
     await page.mouse.move(20, liBox.y + liBox.height / 2);
 
     // Trigger the hover rAF via a real mousemove event on the editor parent
@@ -820,7 +820,7 @@ test.describe('Nested drag handle', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 13. Accessibility — roles, roving tabindex, keyboard nav
+// 13. Accessibility - roles, roving tabindex, keyboard nav
 // ────────────────────────────────────────────────────────────────────────
 
 test.describe('Accessibility', () => {
@@ -871,7 +871,7 @@ test.describe('Accessibility', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 14. Cross-feature interaction — make sure things compose correctly
+// 14. Cross-feature interaction - make sure things compose correctly
 // ────────────────────────────────────────────────────────────────────────
 
 test.describe('Cross-feature smoke', () => {

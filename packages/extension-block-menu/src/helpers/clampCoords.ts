@@ -9,7 +9,7 @@
  * a wide editor with `padding-left: 4rem` still anchors X clamps to
  * where text actually lives.
  *
- * Returns `null` for an empty document — caller should bail out and
+ * Returns `null` for an empty document - caller should bail out and
  * keep the handle hidden.
  */
 import type { EditorView } from '@domternal/pm/view';

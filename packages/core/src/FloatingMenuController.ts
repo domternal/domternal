@@ -9,7 +9,7 @@
  *
  * @example
  * const controller = new FloatingMenuController(editor, () => {
- *   // onChange — re-render
+ *   // onChange - re-render
  * });
  * controller.subscribe();
  * // ... controller.groups, controller.focusedIndex, controller.execute(item)
@@ -130,7 +130,7 @@ export class FloatingMenuController {
    * Rebuilds items from the editor. Call when the editor's extensions
    * change (rare) or on explicit refresh. Notification is delegated to
    * `updateDisabledStates` which fires `onChange` only when a disabled
-   * state flipped — wrappers that need to react to pure group-structure
+   * state flipped - wrappers that need to react to pure group-structure
    * changes do so by bumping their own render signal after constructing
    * / re-using the controller (see framework wrapper usage).
    */
@@ -164,7 +164,7 @@ export class FloatingMenuController {
     this.onChange();
   }
 
-  /** ArrowDown — wrap to first at end. */
+  /** ArrowDown - wrap to first at end. */
   next(): number {
     if (this._flatItems.length === 0) return FLOATING_MENU_NO_FOCUS;
     const cur = this._focusedIndex < 0 ? -1 : this._focusedIndex;
@@ -173,7 +173,7 @@ export class FloatingMenuController {
     return this._focusedIndex;
   }
 
-  /** ArrowUp — wrap to last at start. */
+  /** ArrowUp - wrap to last at start. */
   prev(): number {
     if (this._flatItems.length === 0) return FLOATING_MENU_NO_FOCUS;
     const len = this._flatItems.length;

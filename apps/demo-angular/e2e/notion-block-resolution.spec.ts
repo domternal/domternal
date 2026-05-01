@@ -1,12 +1,12 @@
 /**
  * E2E coverage for the BlockHandle resolution pipeline:
  *
- * 1. **Side gutter hover** (commit `da291e6`) — the hover listener lives on
+ * 1. **Side gutter hover** (commit `da291e6`) - the hover listener lives on
  *    `.dm-editor`'s parent so the handle surfaces when the cursor sits in
  *    the page margin where the icons visually live, not just over the
  *    text column.
  *
- * 2. **Scoring-based resolution** (current branch) — `clampToContent`
+ * 2. **Scoring-based resolution** (current branch) - `clampToContent`
  *    keeps `posAtCoords` honest when cursor is in the gutter / above /
  *    below blocks; `findBestDragTarget` walks ancestors and tie-breaks
  *    by deepest depth; `handleDrop` reuses the same resolver so the drop
@@ -91,7 +91,7 @@ async function boxOf(locator: Locator): Promise<{ x: number; y: number; width: n
 }
 
 /**
- * X coordinate that sits in the LEFT SIDE GUTTER — to the left of the
+ * X coordinate that sits in the LEFT SIDE GUTTER - to the left of the
  * `.dm-editor`'s content column but still inside `<app-notion-demo>`'s
  * width (where the BlockHandle hover listener lives). Picking 10px to
  * the left of the editor box guarantees we're in the gutter without
@@ -130,7 +130,7 @@ async function hoveredPos(page: Page): Promise<number | null> {
   });
 }
 
-/** Returns the block at `pos` (PM nodeAt) — type + text. */
+/** Returns the block at `pos` (PM nodeAt) - type + text. */
 async function blockAt(page: Page, pos: number): Promise<{ type: string; text: string } | null> {
   return page.evaluate((p) => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -142,7 +142,7 @@ async function blockAt(page: Page, pos: number): Promise<{ type: string; text: s
 }
 
 // ────────────────────────────────────────────────────────────────────────
-// 1. Side gutter hover — handle surfaces in the page margin
+// 1. Side gutter hover - handle surfaces in the page margin
 // ────────────────────────────────────────────────────────────────────────
 
 test.describe('Side gutter hover', () => {
@@ -235,7 +235,7 @@ test.describe('Side gutter hover', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 2. Vertical clamp — hover above first / below last
+// 2. Vertical clamp - hover above first / below last
 // ────────────────────────────────────────────────────────────────────────
 
 test.describe('Vertical clamp around the doc bounds', () => {
@@ -270,7 +270,7 @@ test.describe('Vertical clamp around the doc bounds', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 3. Notion-mode resolution invariants — deepest list item wins
+// 3. Notion-mode resolution invariants - deepest list item wins
 // ────────────────────────────────────────────────────────────────────────
 
 test.describe('Notion-mode block resolution', () => {
@@ -281,7 +281,7 @@ test.describe('Notion-mode block resolution', () => {
     const li = page.locator(`${editorSelector} li`);
     const liBox = await boxOf(li);
 
-    // Hover squarely on the text — both `<p>` and `<li>` are under the
+    // Hover squarely on the text - both `<p>` and `<li>` are under the
     // cursor; the resolver must pick the `<li>` (allowedNodes contains
     // `listItem` but not `paragraph`).
     await hoverAt(page, liBox.x + liBox.width / 2, liBox.y + liBox.height / 2);
@@ -355,7 +355,7 @@ test.describe('Notion-mode block resolution', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 4. handleDrop reuses the same resolver — drop target equals hover target
+// 4. handleDrop reuses the same resolver - drop target equals hover target
 // ────────────────────────────────────────────────────────────────────────
 
 test.describe('Drop position consistency with hover', () => {
@@ -374,7 +374,7 @@ test.describe('Drop position consistency with hover', () => {
     const bBox = await boxOf(bravo);
 
     await handle.dispatchEvent('dragstart', { dataTransfer: dt });
-    // Drop X ~5px inside the left edge of the content rect — exercises
+    // Drop X ~5px inside the left edge of the content rect - exercises
     // the edge of `clampToContent`'s clamp without going outside PM's
     // own drop-handler bounds (PM's drop pipeline ignores events whose
     // clientX is wholly outside `view.dom`'s rect).
@@ -432,7 +432,7 @@ test.describe('Drop position consistency with hover', () => {
     const cBox = await boxOf(itemC);
 
     await handle.dispatchEvent('dragstart', { dataTransfer: dt });
-    // Drop near the left edge of C's row — exercises the clamp without
+    // Drop near the left edge of C's row - exercises the clamp without
     // going outside PM's own drop-handler bounds.
     const dropX = cBox.x + 5;
     await page.locator(editorSelector).dispatchEvent('dragover', {
@@ -466,7 +466,7 @@ test.describe('Resolver edge cases', () => {
     const pBox = await boxOf(para);
 
     // The hover listener lives on `.dm-editor`'s parent (`<app-notion-demo>`)
-    // — so the leftmost practical X is just inside that container. Hovering
+    // - so the leftmost practical X is just inside that container. Hovering
     // outside the parent box reasonably stops surfacing the handle (the
     // listener can't see those mousemoves).
     const x = await sideGutterX(page);
@@ -509,7 +509,7 @@ test.describe('Resolver edge cases', () => {
     await expect(page.locator(blockHandleSelector)).not.toHaveAttribute('data-show', '');
   });
 
-  test('multiple list types adjacent: bullet then ordered then task — each item resolves individually', async ({ page }) => {
+  test('multiple list types adjacent: bullet then ordered then task - each item resolves individually', async ({ page }) => {
     await setContent(
       page,
       '<ul><li><p>Bullet item</p></li></ul>'
@@ -533,7 +533,7 @@ test.describe('Resolver edge cases', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 6. Nested list-in-list resolution — Notion-style spatial Y-walk
+// 6. Nested list-in-list resolution - Notion-style spatial Y-walk
 // ────────────────────────────────────────────────────────────────────────
 //
 // Regression coverage for the bug where hovering in the gutter at an
@@ -547,7 +547,7 @@ test.describe('Resolver edge cases', () => {
 test.describe('Nested list-in-list resolution', () => {
   test.beforeEach(async ({ page }) => {
     await goNotion(page);
-    // Notion demo's default content already has top-of-page H1 etc — make
+    // Notion demo's default content already has top-of-page H1 etc - make
     // the inner blocks land in viewport with a tall window for these
     // tests. Other suites use the default 1280x720 viewport.
     await page.setViewportSize({ width: 1280, height: 1500 });
@@ -570,7 +570,7 @@ test.describe('Nested list-in-list resolution', () => {
       + '</li></ul>',
     );
 
-    // Use the inner paragraph as the Y anchor — `li:has-text("Inner A")`
+    // Use the inner paragraph as the Y anchor - `li:has-text("Inner A")`
     // would match the outer LI too because its textContent includes
     // descendants. The P's Y center is inside the inner LI's rect.
     const innerAP = page.locator(`${editorSelector} p`, { hasText: 'Inner A' });
@@ -593,7 +593,7 @@ test.describe('Nested list-in-list resolution', () => {
     );
 
     const editorBox = await boxOf(page.locator(editorSelector));
-    // Locate the INNER paragraph specifically — `li:has-text("Inner A")`
+    // Locate the INNER paragraph specifically - `li:has-text("Inner A")`
     // would match the outer LI too (textContent includes descendants).
     // The paragraph's Y center sits inside the inner LI's rect.
     const innerP = page.locator(`${editorSelector} p`, { hasText: 'Inner A' });
@@ -611,8 +611,8 @@ test.describe('Nested list-in-list resolution', () => {
 
   test('hover at OUTER paragraph row (above nested list) resolves to OUTER', async ({ page }) => {
     // The outer list-item's paragraph row sits ABOVE the nested list. At
-    // that Y, only the outer rect contains the cursor — inner items are
-    // below — so outer wins by being the only allowed match.
+    // that Y, only the outer rect contains the cursor - inner items are
+    // below - so outer wins by being the only allowed match.
     await setContent(
       page,
       '<ul><li><p>Outer paragraph text</p>'
@@ -642,7 +642,7 @@ test.describe('Nested list-in-list resolution', () => {
       + '</li></ul>',
     );
 
-    // Anchor on the L3 paragraph's rect — every ancestor LI's
+    // Anchor on the L3 paragraph's rect - every ancestor LI's
     // textContent includes "L3 deepest" so `li:has-text(...)` would
     // match all three.
     const l3P = page.locator(`${editorSelector} p`, { hasText: 'L3 deepest' });
@@ -667,7 +667,7 @@ test.describe('Nested list-in-list resolution', () => {
     );
 
     // Hover the FIRST inner item via the gutter to set the drag source.
-    // Use the paragraph locator — outer LI's textContent contains all
+    // Use the paragraph locator - outer LI's textContent contains all
     // three inner texts, so `li:has-text("First inner")` would match
     // the outer LI by mistake.
     const firstInnerP = page.locator(`${editorSelector} p`, { hasText: 'First inner' });
@@ -679,7 +679,7 @@ test.describe('Nested list-in-list resolution', () => {
     const sourceBlock = await hoveredBlock(page);
     expect(sourceBlock?.text).toBe('First inner');
 
-    // Synthetic HTML5 drag — Playwright's `mouse.down/move/up` doesn't
+    // Synthetic HTML5 drag - Playwright's `mouse.down/move/up` doesn't
     // emit native dragstart/drop events in headless Chromium, so we
     // dispatch the events explicitly (same pattern as the earlier
     // "drop on a list item from side-gutter X" test).
@@ -713,7 +713,7 @@ test.describe('Nested list-in-list resolution', () => {
     expect(blocks.length).toBe(1);
     expect(blocks[0]?.type).toBe('bulletList');
 
-    // Inner items reordered to [Second, Third, First] — pre-fix the
+    // Inner items reordered to [Second, Third, First] - pre-fix the
     // drop would have promoted "First inner" to a sibling of "Outer"
     // because the resolver returned outer for the gutter hover.
     const innerTexts = (await page
@@ -724,7 +724,7 @@ test.describe('Nested list-in-list resolution', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 7. Empty-wrapper cleanup on drag — single-child wrappers must not leak
+// 7. Empty-wrapper cleanup on drag - single-child wrappers must not leak
 // ────────────────────────────────────────────────────────────────────────
 //
 // Regression coverage for the bug where dragging the ONLY listItem out
@@ -879,7 +879,7 @@ test.describe('Empty-wrapper cleanup on drag', () => {
 
   test('drag the ONLY listItem of a TOP-level UL → top-level UL is removed', async ({ page }) => {
     // Source LI is the only child of a top-level UL (not nested). Moving
-    // it out should remove the wrapping UL entirely from top level —
+    // it out should remove the wrapping UL entirely from top level -
     // pre-fix would leave an empty <ul><li></li></ul>.
     await setContent(
       page,
@@ -930,7 +930,7 @@ test.describe('Empty-wrapper cleanup on drag', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 8. Drop in inter-block gaps — closest-by-Y + list-wrapper "stick" UX
+// 8. Drop in inter-block gaps - closest-by-Y + list-wrapper "stick" UX
 // ────────────────────────────────────────────────────────────────────────
 //
 // Regression coverage for the bug where dropping in the small gap between
@@ -941,7 +941,7 @@ test.describe('Empty-wrapper cleanup on drag', () => {
 // 1. `resolveTopLevelByY` falls back to closest top-level block by Y
 //    distance (instead of the fragile X=0 `posAtCoords` last-resort).
 // 2. `handleDrop` adjusts the resolved target when it's a list-wrapper
-//    container — descending into the first/last child so drops in the
+//    container - descending into the first/last child so drops in the
 //    gap above/below stick INSIDE the list (Notion behaviour).
 
 test.describe('Drop in inter-block gaps', () => {
@@ -1005,7 +1005,7 @@ test.describe('Drop in inter-block gaps', () => {
     await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
 
     const bounds = await listAndNextBlockBounds(page);
-    // 1px below UL bottom — squarely in the gap, but visually adjacent
+    // 1px below UL bottom - squarely in the gap, but visually adjacent
     // to the list. Pre-fix: drop did nothing.
     const dropX = bounds.lastLi.x + 5;
     const dropY = bounds.ulBottom + 1;
@@ -1035,7 +1035,7 @@ test.describe('Drop in inter-block gaps', () => {
     const dropY = (bounds.ulBottom + bounds.nextTop) / 2;
     await dragHandleTo(page, dropX, dropY);
 
-    // Midpoint is exactly equidistant — closest-by-Y picks the FIRST
+    // Midpoint is exactly equidistant - closest-by-Y picks the FIRST
     // matching candidate (the list, traversed first). Result: A goes
     // into the list at the end. (If the gap were asymmetric, the
     // logic still picks whichever side is closer.)
@@ -1059,7 +1059,7 @@ test.describe('Drop in inter-block gaps', () => {
     await hoverAt(page, await sideGutterX(page), aBox.y + aBox.height / 2);
 
     const bounds = await listAndNextBlockBounds(page);
-    // 1px above the next block's top — closer to H2 than to UL.
+    // 1px above the next block's top - closer to H2 than to UL.
     // Resolver returns H2 (not a list wrapper). Drop processes H2:
     // top-half of H2 → insert before H2. moveBlock inserts the
     // listItem at top level → PM auto-wraps it in a sibling UL.
@@ -1104,7 +1104,7 @@ test.describe('Drop in inter-block gaps', () => {
       const h = document.querySelector('.ProseMirror > h2') as HTMLElement;
       return h.getBoundingClientRect().bottom;
     });
-    // 1px above the first listItem's top — squarely in the gap between
+    // 1px above the first listItem's top - squarely in the gap between
     // header and list. Closer to UL → wrapper detect → first child.
     const dropX = bounds.firstLi.x + 5;
     const dropY = bounds.firstLi.y - 1;
@@ -1118,7 +1118,7 @@ test.describe('Drop in inter-block gaps', () => {
 
   test('drop in last paragraph bottom-half → A moves out of list, lands after last paragraph', async ({ page }) => {
     // PM only dispatches `drop` events whose clientY lies INSIDE the
-    // editor's bounding rect — drops further outside are silently
+    // editor's bounding rect - drops further outside are silently
     // ignored (PM's input scoping, not our bug). We test the realistic
     // drop position: inside the last block, in its bottom half.
     await setContent(
@@ -1214,7 +1214,7 @@ test.describe('Drop in inter-block gaps', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 9. Block context menu Delete — must not nuke surrounding structure
+// 9. Block context menu Delete - must not nuke surrounding structure
 // ────────────────────────────────────────────────────────────────────────
 //
 // Regression coverage: clicking the drag handle on a list item and then
@@ -1559,7 +1559,7 @@ test.describe('BlockContextMenu Delete', () => {
   });
 
   test('deleting a list item leaves no empty list-item placeholders anywhere in the doc', async ({ page }) => {
-    // Sweep across the suite's most-likely edge cases — counting empty
+    // Sweep across the suite's most-likely edge cases - counting empty
     // placeholders is the single tightest invariant for the regression.
     await setContent(
       page,
@@ -1595,14 +1595,14 @@ test.describe('BlockContextMenu Delete', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 10. Cross-list-type drop — auto-convert listItem ↔ taskItem
+// 10. Cross-list-type drop - auto-convert listItem ↔ taskItem
 // ────────────────────────────────────────────────────────────────────────
 //
 // Regression coverage for the bug where dropping a `listItem` into a
 // `taskList` produced an empty checkbox containing the bullet item
 // (PM's content fitter wrapping the wrong-type child to satisfy
 // `taskItem+`). The fix adapts the dragged item's wrapper type to
-// match the target parent's content rule — Notion-style.
+// match the target parent's content rule - Notion-style.
 
 test.describe('Cross-list-type drop auto-converts wrapper', () => {
   test.beforeEach(async ({ page }) => {
@@ -1752,7 +1752,7 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     );
     await dragFromTo(page, 'Bullet source', 'Numbered target');
     const items = await itemTypes(page);
-    // Both lists use `listItem`, so no wrapper conversion is needed —
+    // Both lists use `listItem`, so no wrapper conversion is needed -
     // the source just lands inside the ordered list as a listItem.
     expect(items.map((i) => i.type)).toEqual(['listItem', 'listItem']);
   });
@@ -1809,7 +1809,7 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     await page.waitForTimeout(80);
     await dt.dispose();
 
-    // Expect: bulletList with TWO listItems — first the original
+    // Expect: bulletList with TWO listItems - first the original
     // paragraph "Existing", second a wrapped heading "Big title".
     const tree = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -2111,7 +2111,7 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
 
   // ── Heading levels: ensure level isn't normalised to h1 across wrap ──
 
-  // The Heading extension's default `levels` config is [1, 2, 3, 4] —
+  // The Heading extension's default `levels` config is [1, 2, 3, 4] -
   // we already cover H1 + H2 above, so this loop adds H3 + H4 to lock
   // in level preservation across the supported range. (H5/H6 aren't in
   // the default schema; testing them would require schema reconfig.)
@@ -2209,7 +2209,7 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
 
   test('drag a horizontalRule into bulletList → wrapped in listItem (atom-block wrap)', async ({ page }) => {
     // Source HR is between two paragraphs to make hovering it feasible
-    // (an HR rendered alone is 1px tall — putting paragraphs around helps
+    // (an HR rendered alone is 1px tall - putting paragraphs around helps
     // the gutter hover Y land on the HR row).
     await setContent(page, '<p>Above HR</p><hr><p>Below HR</p><ul><li><p>Existing</p></li></ul>');
 

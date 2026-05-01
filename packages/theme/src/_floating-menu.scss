@@ -28,7 +28,7 @@
   transition: opacity 0.15s ease, visibility 0.15s;
   z-index: var(--dm-z-popover, 50);
 
-  // Slim, translucent scrollbar — Firefox via scrollbar-* properties,
+  // Slim, translucent scrollbar - Firefox via scrollbar-* properties,
   // Chrome/Safari/Edge via ::-webkit-scrollbar pseudo-elements. Colors are
   // tokenised so dark theme overrides keep contrast on dark surfaces.
   scrollbar-width: thin;

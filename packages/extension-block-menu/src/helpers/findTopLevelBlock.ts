@@ -24,10 +24,10 @@ export interface TopLevelBlock {
  * out of bounds.
  *
  * Used by:
- * - BlockHandle — resolve the block under the cursor for hover / drag / click
- * - SlashCommand — validate that the `/` trigger is at the start of a top-level block
- * - KeyboardReorder — find the block currently containing the selection to move
- * - ContextMenu — resolve the block whose options are being displayed
+ * - BlockHandle - resolve the block under the cursor for hover / drag / click
+ * - SlashCommand - validate that the `/` trigger is at the start of a top-level block
+ * - KeyboardReorder - find the block currently containing the selection to move
+ * - ContextMenu - resolve the block whose options are being displayed
  */
 export function findTopLevelBlock(doc: Node, pos: number): TopLevelBlock | null {
   if (pos < 0 || pos > doc.content.size) return null;
@@ -84,7 +84,7 @@ export function findDraggableBlock(
     if (draggableTypes.includes(node.type.name)) {
       const blockPos = $pos.before(depth);
       // The "index" for a nested draggable is its index within its direct
-      // parent — consistent with what the block's drag logic expects when
+      // parent - consistent with what the block's drag logic expects when
       // reordering siblings.
       const index = $pos.index(depth - 1);
       return {
@@ -96,7 +96,7 @@ export function findDraggableBlock(
     }
   }
 
-  // No allowed-node ancestor found — fall back to the top-level block so
+  // No allowed-node ancestor found - fall back to the top-level block so
   // hover/drag still works for plain paragraphs outside any container.
   return findTopLevelBlock(doc, pos);
 }
@@ -118,11 +118,11 @@ export interface DeepestBlockMatch {
  * AND whose type appears in `allowedTypes`, the one with the **smallest
  * height** wins (innermost in a vertical block layout).
  *
- * X is intentionally ignored — the gutter where the BlockHandle visually
+ * X is intentionally ignored - the gutter where the BlockHandle visually
  * lives sits to the left of `.ProseMirror`, so any X-based resolution
  * (`posAtCoords`, point-in-rect tests) would resolve to whatever happens
  * to be at the editor's left edge, which is the OUTER block when nested
- * lists are indented further right. This is the "Notion behaviour" — the
+ * lists are indented further right. This is the "Notion behaviour" - the
  * handle anchors on the row the cursor is actually in, regardless of how
  * far left the cursor strayed.
  *
@@ -148,7 +148,7 @@ export function findDeepestBlockAtY(
     if (!(dom instanceof HTMLElement)) return true;
     const rect = dom.getBoundingClientRect();
     // Skip the entire subtree when the cursor isn't vertically inside this
-    // node — children of a non-containing parent can't contain the cursor
+    // node - children of a non-containing parent can't contain the cursor
     // either, so pruning here is what keeps the walk O(depth) instead of
     // O(doc).
     if (clientY < rect.top || clientY > rect.bottom) return false;

@@ -79,9 +79,9 @@ export interface BlockHandleOptions {
    * items, task items, and optionally others) instead of always the
    * top-level block.
    *
-   * - `false` — only top-level blocks are hoverable / draggable (default).
-   * - `true` — list items and task items resolve individually (Notion behaviour).
-   * - object — fine-grained config; see `NestedConfig`.
+   * - `false` - only top-level blocks are hoverable / draggable (default).
+   * - `true` - list items and task items resolve individually (Notion behaviour).
+   * - object - fine-grained config; see `NestedConfig`.
    *
    * @default false
    */
@@ -89,7 +89,7 @@ export interface BlockHandleOptions {
   /**
    * Show a custom drop indicator line during drag-from-handle that
    * mirrors EXACTLY where the drop will land. Replaces the need for
-   * `prosemirror-dropcursor` for our drag flow — `dropcursor` uses
+   * `prosemirror-dropcursor` for our drag flow - `dropcursor` uses
    * PM's default `posAtCoords` which can disagree with our resolver
    * (especially in side-gutter / inter-block-gap drops).
    *
@@ -102,7 +102,7 @@ export interface BlockHandleOptions {
 
 /**
  * Configuration for nested resolution. Backwards-compatible with the
- * earlier `{ allowedNodes }` literal — every field is optional.
+ * earlier `{ allowedNodes }` literal - every field is optional.
  */
 export interface NestedConfig {
   /**
@@ -119,7 +119,7 @@ export interface NestedConfig {
   /**
    * Tiptap-style "promote to parent at the gutter" behaviour. When the
    * cursor is within `threshold` px of a configured edge, the candidate's
-   * score is reduced by `strength * depth` — deeper nodes are penalised
+   * score is reduced by `strength * depth` - deeper nodes are penalised
    * more, so a shallower ancestor (e.g. the wrapping list) wins near the
    * boundary.
    *
@@ -162,7 +162,7 @@ export interface BlockHandlePluginState {
  * Assigning to it tells PM that a drag is in progress and which slice is
  * being moved; PM's default drop handler reads this to finalise the move.
  *
- * `node` is an undocumented but critical field — when present, PM's drop
+ * `node` is an undocumented but critical field - when present, PM's drop
  * handler treats it as the authoritative source selection to delete from
  * the old location, rather than relying on `view.state.selection`. The
  * browser may shift the selection mid-drag (e.g. when the user clicks
@@ -173,6 +173,11 @@ export interface BlockHandlePluginState {
  */
 interface PMViewWithDragging {
   dragging: { slice: Slice; move: boolean; node?: NodeSelection } | null;
+}
+
+/** Casts `EditorView` to expose PM's internal `dragging` field. */
+function asDragView(view: EditorView): PMViewWithDragging {
+  return view as unknown as PMViewWithDragging;
 }
 
 /**
@@ -205,7 +210,7 @@ export interface CreateBlockHandlePluginOptions {
 
 /**
  * Walks up from `el` to the nearest ancestor that actually scrolls
- * vertically. Returns `null` when no bounded scrollable ancestor exists —
+ * vertically. Returns `null` when no bounded scrollable ancestor exists -
  * the caller should then skip its custom scroll loop and let the browser's
  * native drag-edge autoscroll handle page-level scrolling. Running both
  * our RAF scrollBy AND the browser's native scroll at the same time
@@ -236,7 +241,7 @@ function findScrollableAncestor(el: HTMLElement): HTMLElement | null {
  *   `posAtCoords` would resolve to whatever sits at the cursor's X,
  *   which in the gutter is OUTER content (the inner items are indented
  *   further right). Notion's actual behaviour is to anchor the handle
- *   on the row the cursor is in, regardless of X — that's what the
+ *   on the row the cursor is in, regardless of X - that's what the
  *   spatial walk gives us.
  * - Mode C (Tiptap-style scoring): uses `findBestDragTarget` with
  *   edge promotion. By design, gutter-X promotes to OUTER (different
@@ -252,7 +257,7 @@ function resolveBlockAtCoords(
   clientY: number,
   nested: NestedResolution,
 ): { pos: number; rect: DOMRect; dom: HTMLElement } | null {
-  // Mode A — top-level only (classic). Walk doc children by Y range; X
+  // Mode A - top-level only (classic). Walk doc children by Y range; X
   // is intentionally ignored so the handle still surfaces when the
   // cursor is in the side gutter.
   if (nested.allowedNodes.length === 0) {
@@ -265,7 +270,7 @@ function resolveBlockAtCoords(
   const clamped = clampToContent(view, clientX, clientY);
   if (!clamped) return null;
 
-  // Mode C — Tiptap-style scoring with edge promotion.
+  // Mode C - Tiptap-style scoring with edge promotion.
   if (nested.edgeConfig) {
     const target = findBestDragTarget(view, clamped.x, clamped.y, {
       rules: nested.rules,
@@ -276,12 +281,12 @@ function resolveBlockAtCoords(
     if (target) {
       return { pos: target.pos, rect: target.rect, dom: target.dom };
     }
-    // Scoring picked nothing — fall through to top-level so the handle
+    // Scoring picked nothing - fall through to top-level so the handle
     // still surfaces on the doc's outer block.
     return resolveTopLevelByY(view, clamped.y);
   }
 
-  // Mode B — Notion-style: deepest allowed block at the cursor row.
+  // Mode B - Notion-style: deepest allowed block at the cursor row.
   // X is intentionally ignored; see `findDeepestBlockAtY` rationale.
   const found = findDeepestBlockAtY(view, clamped.y, nested.allowedNodes);
   if (found) {
@@ -300,7 +305,7 @@ function resolveBlockAtCoords(
  * the inter-block gap, above the first block, or below the last), this
  * falls back to the **closest** top-level block by vertical distance.
  * The previous fallback used `posAtCoords({ left: 0, top: clientY })`
- * which returned `null` when X=0 was outside the editor's content area —
+ * which returned `null` when X=0 was outside the editor's content area -
  * leading to silent drop-in-gap failures (the user sees a hover that
  * anchors but the drop does nothing). Closest-by-Y is robust regardless
  * of horizontal layout and matches Notion's "drop sticks to the nearest
@@ -343,7 +348,7 @@ const LIST_WRAPPER_TYPE_NAMES = new Set(['bulletList', 'orderedList', 'taskList'
  * a sibling list of one item.
  *
  * Without this, a drop in the small gap between a list bottom and the
- * next block would be processed against the wrapper UL — and PM's
+ * next block would be processed against the wrapper UL - and PM's
  * subsequent insert at the wrapper's end position would auto-wrap the
  * dragged listItem in a brand-new bulletList sibling, which is rarely
  * what users intend (most lists were the user's grouping; they want the
@@ -387,7 +392,7 @@ function adjustDropTargetForListWrapper(
 /**
  * Computes the FINAL drop placement using the same logic `handleDrop`
  * uses. Returned by both the actual drop handler AND the visual drop
- * indicator so the line draws exactly where the drop will land — no
+ * indicator so the line draws exactly where the drop will land - no
  * "indicator says one place, item drops elsewhere" mismatch (the classic
  * dropcursor pain point with custom drop handlers).
  *
@@ -400,7 +405,7 @@ function adjustDropTargetForListWrapper(
  * **Inter-block gap normalization.** When the cursor sits in the gap
  * between two siblings, `resolveBlockAtCoords` flips between them based
  * on Y proximity. Without normalization the indicator would draw at two
- * different rect edges (upper.bottom vs lower.top) — visually two lines
+ * different rect edges (upper.bottom vs lower.top) - visually two lines
  * for what is the SAME logical drop slot (PM treats `endOf(upper)` and
  * `startOf(lower)` as one position in the parent's content array). To
  * unify the visual we canonicalise `insertAfter=false` to "after the
@@ -433,14 +438,14 @@ function computeDropPlacement(
 
 /**
  * Returns the previous sibling at the same parent depth as `pos` (which
- * must be the position immediately BEFORE a node — same convention as
+ * must be the position immediately BEFORE a node - same convention as
  * `nodeAt`). Returns `null` when the node has no previous sibling (it's
  * the first child of its parent) or when the previous sibling has no DOM
  * representation.
  *
  * Works for any depth: top-level blocks resolve against `doc`; nested
  * blocks (list items, table cells) resolve against their immediate
- * container — so the canonical "between" position is always the upper
+ * container - so the canonical "between" position is always the upper
  * sibling within the SAME container, never crossing container boundaries.
  */
 function findPreviousSiblingAtSameDepth(
@@ -504,7 +509,7 @@ export function createBlockHandlePlugin(
   let hoverEl: HTMLElement | null = null;
   let hideTimer: number | null = null;
 
-  // Hover-tick state — rAF-coalesced to keep the handle glide-smooth even
+  // Hover-tick state - rAF-coalesced to keep the handle glide-smooth even
   // when mousemove fires ~240Hz on high-refresh pointers. Only one rAF is
   // registered at a time; latest coords win. `currentHoveredPos` is the
   // identity gate: we only repaint when the ProseMirror position under
@@ -518,10 +523,10 @@ export function createBlockHandlePlugin(
   // (the ~3-5px mousedown+move that decides click-vs-drag). Without this
   // lock, the handle slides out from under the user's cursor before the
   // browser has decided the interaction is a drag, and `dragstart` never
-  // fires — feels like "click and hold does nothing".
+  // fires - feels like "click and hold does nothing".
   let dragPressActive = false;
 
-  // Active drag preview wrapper — built on dragstart via `buildDragPreview`,
+  // Active drag preview wrapper - built on dragstart via `buildDragPreview`,
   // removed on drop/dragend.
   let dragPreview: HTMLElement | null = null;
 
@@ -534,18 +539,33 @@ export function createBlockHandlePlugin(
   // dragend, so it never lingers across drags.
   let pendingDraggedFrom: number | null = null;
 
-  // Auto-scroll state (populated during an active drag).
-  let autoScrollRaf: number | null = null;
-  let autoScrollTarget: HTMLElement | null = null;
-  let lastDragoverClientY: number | null = null;
-  // Timestamp (ms, performance.now) of the most recent dragover event. Used
-  // by the RAF loop as a dead-man switch — if no dragover arrived in the
-  // last N seconds we assume the drag was cancelled (crashed tab, browser
-  // ate the dragend event) and stop the loop to avoid leaking frames.
-  // Threshold is generous to tolerate users holding cursor still mid-drag
-  // (e.g., while the system pages in content under a slow scroll).
-  let lastDragoverAt = 0;
-  const DRAGOVER_SILENCE_MS = 3000;
+  // Auto-scroll state machine (populated during an active drag, reset by
+  // `resetAutoScroll`). Grouped into one object so every reset clears every
+  // field - prevents the "I forgot to reset X" class of bug.
+  //
+  // `lastDragoverAt` is a `performance.now()` timestamp used by the RAF
+  // loop as a dead-man switch: if no dragover arrived for `DRAGOVER_SILENCE_MS`,
+  // we assume the drag was cancelled (browser ate dragend, OS-level abort)
+  // and stop the loop to avoid leaking frames. 1.5s is generous enough to
+  // tolerate users holding cursor still mid-drag, tight enough to recover
+  // quickly when the browser drops events.
+  const DRAGOVER_SILENCE_MS = 1500;
+  const autoScrollState: {
+    raf: number | null;
+    target: HTMLElement | null;
+    lastClientY: number | null;
+    lastAt: number;
+  } = { raf: null, target: null, lastClientY: null, lastAt: 0 };
+
+  const resetAutoScroll = (): void => {
+    if (autoScrollState.raf !== null) {
+      cancelAnimationFrame(autoScrollState.raf);
+    }
+    autoScrollState.raf = null;
+    autoScrollState.target = null;
+    autoScrollState.lastClientY = null;
+    autoScrollState.lastAt = 0;
+  };
 
   const clearHideTimer = (): void => {
     if (hideTimer !== null) {
@@ -576,7 +596,7 @@ export function createBlockHandlePlugin(
     const cs = getComputedStyle(blockEl);
     let lineHeight = parseFloat(cs.lineHeight);
     if (!Number.isFinite(lineHeight)) {
-      // `line-height: normal` returns a non-numeric string — fall back to
+      // `line-height: normal` returns a non-numeric string - fall back to
       // ~1.2× the font size (browser default for `normal`).
       const fontSize = parseFloat(cs.fontSize) || 16;
       lineHeight = fontSize * 1.2;
@@ -598,7 +618,7 @@ export function createBlockHandlePlugin(
     view.dispatch(view.state.tr.setMeta(pluginKey, { draggedFrom: pos }));
   };
 
-  // mousemove is the single hottest event on the editor — high-refresh
+  // mousemove is the single hottest event on the editor - high-refresh
   // pointers fire it at 240+Hz. Running `posAtCoords` + `getBoundingClientRect`
   // + `style.top` writes on every tick causes visible wobble because each
   // layout read forces sync layout and each write flips the visibility of
@@ -624,7 +644,7 @@ export function createBlockHandlePlugin(
       }
       clearHideTimer();
       // `updateHoverState` is a no-op when PM plugin state already matches
-      // — keep it unconditional so that if a prior docChanged transaction
+      // - keep it unconditional so that if a prior docChanged transaction
       // cleared `state.hoveredPos` (forward-assoc mapping can still miss
       // the edge cases around setNodeMarkup), the next hover tick
       // re-asserts it. Skipping this led to "click on drag handle does
@@ -660,13 +680,13 @@ export function createBlockHandlePlugin(
   // after the hovered block, focus, then EXPLICITLY trigger the
   // FloatingMenu. Order matters:
   //
-  //   1. Dispatch `dm:dismiss-overlays` FIRST — closes BubbleMenu /
+  //   1. Dispatch `dm:dismiss-overlays` FIRST - closes BubbleMenu /
   //      ContextMenu / SlashCommand and any opt-in FloatingMenu that's
   //      already open elsewhere. We do this before flipping our own
   //      explicit-trigger flag so the dismissal can't accidentally
   //      clear it.
   //   2. Insert the paragraph + move the caret + focus.
-  //   3. Call `showFloatingMenu(view)` — required for FloatingMenu
+  //   3. Call `showFloatingMenu(view)` - required for FloatingMenu
   //      instances configured with `requireExplicitTrigger: true`
   //      (Notion-style; no auto-show on plain Enter). Default instances
   //      ignore the meta and auto-show on the empty paragraph anyway.
@@ -703,7 +723,7 @@ export function createBlockHandlePlugin(
   // auto-appears after insert can read the correct state. `preventDefault`
   // on mousedown stops the button from grabbing focus.
   //
-  // Drag button: must NOT call `preventDefault` on mousedown — for a
+  // Drag button: must NOT call `preventDefault` on mousedown - for a
   // `draggable="true"` element, the browser requires the default mousedown
   // action to initiate a drag. Cancelling it silently kills drag-to-reorder
   // in Chrome/Safari. Focus is restored explicitly after context-menu
@@ -728,7 +748,7 @@ export function createBlockHandlePlugin(
   // presses and releases without moving more than ~3px (browser threshold),
   // a `click` event fires and no `dragstart` is dispatched. Conversely, if
   // the user moves past that threshold, `dragstart` fires and `click` does
-  // NOT. This gives us a free, reliable click-vs-drag split — no custom
+  // NOT. This gives us a free, reliable click-vs-drag split - no custom
   // threshold tracking needed.
 
   const onDragBtnClick = (event: MouseEvent): void => {
@@ -754,17 +774,17 @@ export function createBlockHandlePlugin(
   // or bottom edge of the scrollable target, nudges scroll by a ramped
   // speed (linear from 0 at the threshold to `autoScrollMaxSpeed` at the
   // edge). The loop self-terminates if dragover has been silent for longer
-  // than `DRAGOVER_SILENCE_MS` — a cheap failsafe against the browser
+  // than `DRAGOVER_SILENCE_MS` - a cheap failsafe against the browser
   // skipping the `dragend` event (it happens on some OS/browser combos).
 
   const onDocumentDragover = (event: DragEvent): void => {
-    lastDragoverClientY = event.clientY;
-    lastDragoverAt = performance.now();
+    autoScrollState.lastClientY = event.clientY;
+    autoScrollState.lastAt = performance.now();
     const inZone = isCursorOverDropZone(event.clientX, event.clientY);
     // CRITICAL: when the cursor is in our drop zone (incl. the gutter
     // outside `.ProseMirror`'s padding box), we MUST call preventDefault
     // on dragover. Without it, the browser refuses to fire the subsequent
-    // `drop` event on non-PM targets (notion-page, body, etc.) — the
+    // `drop` event on non-PM targets (notion-page, body, etc.) - the
     // user's release becomes a silent no-op. With it, drop fires on
     // whatever element is under the cursor; bubbles up to our document
     // drop listener, which performs the move.
@@ -781,7 +801,7 @@ export function createBlockHandlePlugin(
   /**
    * Document-level drop listener. Catches drops that happened OUTSIDE
    * `.ProseMirror` (handle gutter, notion-page padding) but INSIDE our
-   * indicator zone — places where the user just saw a "drop will land
+   * indicator zone - places where the user just saw a "drop will land
    * here" line and reasonably expects the release to take effect.
    *
    * Bubbles after PM's own handler (registered on `view.dom`); when PM
@@ -793,7 +813,7 @@ export function createBlockHandlePlugin(
   const onDocumentDrop = (event: DragEvent): void => {
     if (event.defaultPrevented) return;
     const view = editor.view;
-    const dragging = (view as unknown as PMViewWithDragging).dragging;
+    const dragging = asDragView(view).dragging;
     if (!dragging) return;
     if (!isCursorOverDropZone(event.clientX, event.clientY)) return;
     if (performBlockDrop(event.clientX, event.clientY)) {
@@ -802,7 +822,7 @@ export function createBlockHandlePlugin(
   };
 
   /**
-   * Shared drop logic — runs from both PM's `handleDrop` (when cursor
+   * Shared drop logic - runs from both PM's `handleDrop` (when cursor
    * is over `.ProseMirror`) and our document-level drop listener (when
    * cursor is in the gutter/margin area but still inside the indicator
    * zone). Returns `true` when a move was dispatched, so callers can
@@ -812,21 +832,21 @@ export function createBlockHandlePlugin(
     const view = editor.view;
     const state = pluginKey.getState(view.state);
     // Read the source position with a tiered fallback:
-    // 1. Plugin state `draggedFrom` — the canonical source. Set via the
+    // 1. Plugin state `draggedFrom` - the canonical source. Set via the
     //    deferred dispatch in `onDragStart` (Chrome microtask-window
     //    workaround) so it MAY still be null on very fast drags where
     //    drop fires before the timer has run.
-    // 2. Closure-scoped `pendingDraggedFrom` — set SYNCHRONOUSLY in
+    // 2. Closure-scoped `pendingDraggedFrom` - set SYNCHRONOUSLY in
     //    `onDragStart`. Independent of both the deferred dispatch AND of
     //    PM's `view.dragging`, which PM's internal drop handler clears
     //    BEFORE invoking the plugin `handleDrop` hook (so reading
     //    `view.dragging.node.from` here would already see null).
-    // 3. `view.dragging.node.from` — last-ditch resort for callers that
+    // 3. `view.dragging.node.from` - last-ditch resort for callers that
     //    might fire `drop` directly without ever invoking our
     //    `onDragStart` (synthetic e2e events bypass the handle).
     const draggedFrom = state?.draggedFrom
       ?? pendingDraggedFrom
-      ?? (view as unknown as PMViewWithDragging).dragging?.node?.from
+      ?? asDragView(view).dragging?.node?.from
       ?? null;
     if (draggedFrom === null) return false;
     const sourceNode = view.state.doc.nodeAt(draggedFrom);
@@ -886,7 +906,7 @@ export function createBlockHandlePlugin(
     // when inserting after. Both are aligned to the rect's edge so the
     // user sees exactly which boundary is the landing site.
     const lineY = (placement.insertAfter ? placement.rect.bottom : placement.rect.top) - editorRect.top;
-    // Line X spans the resolved block's width — gives a strong visual
+    // Line X spans the resolved block's width - gives a strong visual
     // cue for indented blocks (nested list items show a shorter line
     // matching their column, which makes "into list" vs "before next
     // block" outcomes immediately distinguishable).
@@ -899,15 +919,9 @@ export function createBlockHandlePlugin(
   };
 
   const stopAutoScroll = (): void => {
-    if (autoScrollRaf !== null) {
-      cancelAnimationFrame(autoScrollRaf);
-      autoScrollRaf = null;
-    }
-    autoScrollTarget = null;
-    lastDragoverClientY = null;
-    lastDragoverAt = 0;
+    resetAutoScroll();
     // Listener removed by `removeDragoverListener` (called from dragend)
-    // — keeping it here too is redundant but harmless; left in case of
+    // - keeping it here too is redundant but harmless; left in case of
     // legacy callers.
     document.removeEventListener('dragover', onDocumentDragover);
   };
@@ -935,24 +949,25 @@ export function createBlockHandlePlugin(
   };
 
   const autoScrollTick = (): void => {
-    if (autoScrollTarget === null) {
-      autoScrollRaf = null;
+    const target = autoScrollState.target;
+    if (target === null) {
+      autoScrollState.raf = null;
       return;
     }
     // Dead-man switch: if the browser stopped sending dragover events, the
     // drag is effectively over. Bail rather than spinning forever.
-    if (lastDragoverAt > 0 && performance.now() - lastDragoverAt > DRAGOVER_SILENCE_MS) {
+    if (autoScrollState.lastAt > 0 && performance.now() - autoScrollState.lastAt > DRAGOVER_SILENCE_MS) {
       stopAutoScroll();
       return;
     }
-    if (lastDragoverClientY !== null) {
+    if (autoScrollState.lastClientY !== null) {
       // `findScrollableAncestor` only returns bounded elements now, so we
       // measure against the scrollable rect directly. Page-level scroll
       // is handled by the browser's own drag-edge autoscroll (running
       // both would double-scroll and visibly jank).
-      const rect = autoScrollTarget.getBoundingClientRect();
-      const distFromTop = lastDragoverClientY - rect.top;
-      const distFromBottom = rect.bottom - lastDragoverClientY;
+      const rect = target.getBoundingClientRect();
+      const distFromTop = autoScrollState.lastClientY - rect.top;
+      const distFromBottom = rect.bottom - autoScrollState.lastClientY;
       let delta = 0;
       if (distFromTop < autoScrollThreshold && distFromTop >= 0) {
         // Ramp: at the edge (dist=0) speed is maxSpeed; at threshold speed is 0.
@@ -961,20 +976,21 @@ export function createBlockHandlePlugin(
         delta = Math.round(autoScrollMaxSpeed * (1 - distFromBottom / autoScrollThreshold));
       }
       if (delta !== 0) {
-        autoScrollTarget.scrollBy(0, delta);
+        target.scrollBy(0, delta);
       }
     }
-    autoScrollRaf = requestAnimationFrame(autoScrollTick);
+    autoScrollState.raf = requestAnimationFrame(autoScrollTick);
   };
 
   const startAutoScroll = (): void => {
     if (!autoScroll) return;
     if (!editorEl) return;
-    autoScrollTarget = findScrollableAncestor(editorEl);
-    if (!autoScrollTarget) return;
-    lastDragoverClientY = null;
-    lastDragoverAt = performance.now();
-    autoScrollRaf = requestAnimationFrame(autoScrollTick);
+    const target = findScrollableAncestor(editorEl);
+    if (!target) return;
+    autoScrollState.target = target;
+    autoScrollState.lastClientY = null;
+    autoScrollState.lastAt = performance.now();
+    autoScrollState.raf = requestAnimationFrame(autoScrollTick);
   };
 
   const onDragStart = (event: DragEvent): void => {
@@ -1008,13 +1024,13 @@ export function createBlockHandlePlugin(
     // replaced before we set the image.
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = 'move';
-      // `text/plain` fallback — Firefox cancels the drag if no data is set.
+      // `text/plain` fallback - Firefox cancels the drag if no data is set.
       event.dataTransfer.setData('text/plain', node.textContent);
       const dom = editor.view.nodeDOM(pos);
       if (dom instanceof HTMLElement) {
         // Build a styled, off-screen clone as the drag preview. Passing
         // the live DOM to setDragImage captures ambient transforms, clip,
-        // and scroll offsets from ancestors — the clone is always crisp.
+        // and scroll offsets from ancestors - the clone is always crisp.
         dragPreview = buildDragPreview(dom);
         event.dataTransfer.setDragImage(dragPreview, 10, 10);
       }
@@ -1028,18 +1044,18 @@ export function createBlockHandlePlugin(
     //
     // This assignment is sync-only and doesn't mutate the DOM; it's safe
     // to do inside the dragstart tick.
-    (editor.view as unknown as PMViewWithDragging).dragging = {
+    asDragView(editor.view).dragging = {
       slice,
       move: true,
       node: nodeSelection,
     };
 
-    // CRITICAL — do not move this work back into the sync dragstart tick.
+    // CRITICAL - do not move this work back into the sync dragstart tick.
     //
     // Chrome's HTML5 drag machinery commits the drag in the microtask
     // immediately after the `dragstart` handler returns. If the drag
     // source's DOM mutates in any way between dragstart and that commit,
-    // Chrome aborts the drag and fires `dragend` INSTANTLY — the user
+    // Chrome aborts the drag and fires `dragend` INSTANTLY - the user
     // sees "click and hold does absolutely nothing" (crbug/168544,
     // react-dnd #1085).
     //
@@ -1053,13 +1069,13 @@ export function createBlockHandlePlugin(
     // already committed; the subsequent mutations are safe.
     //
     // Skip the dispatch entirely if the drag has already ended by the
-    // time this fires — happens on extremely fast drags where dragstart
+    // time this fires - happens on extremely fast drags where dragstart
     // → drop → dragend all complete in a single JS task before the timer
     // gets a chance to run. `onDragEnd` clears `pendingDraggedFrom` to
     // null, so we use that as the "is drag still alive?" signal. Without
     // this guard, the post-drag dispatch would attempt to apply a stale
     // `nodeSelection` against a doc whose positions changed during the
-    // already-completed drop — PM throws "Selection passed to
+    // already-completed drop - PM throws "Selection passed to
     // setSelection must point at the current document".
     window.setTimeout(() => {
       if (pendingDraggedFrom === null) return;
@@ -1088,7 +1104,7 @@ export function createBlockHandlePlugin(
   };
 
   const onDragEnd = (): void => {
-    (editor.view as unknown as PMViewWithDragging).dragging = null;
+    asDragView(editor.view).dragging = null;
     setDraggedFrom(editor.view, null);
     pendingDraggedFrom = null;
     stopAutoScroll();
@@ -1117,8 +1133,8 @@ export function createBlockHandlePlugin(
         // Map positions through doc changes so collaborative / programmatic
         // transactions that happen while hovering or dragging don't leave
         // us pointing at the wrong block. Use assoc=1 (forward bias) so
-        // `setNodeMarkup` on the hovered block — which replaces the node
-        // with the same type but new attrs — does NOT treat the left
+        // `setNodeMarkup` on the hovered block - which replaces the node
+        // with the same type but new attrs - does NOT treat the left
         // boundary as deleted. Without the forward bias, BlockColor's
         // swatch click would wipe `hoveredPos`, causing the next click
         // on the handle to bail silently.
@@ -1137,7 +1153,7 @@ export function createBlockHandlePlugin(
     },
 
     props: {
-      // Custom drop handler — gives Notion-like "above-mid → insert before,
+      // Custom drop handler - gives Notion-like "above-mid → insert before,
       // below-mid → insert after" block-level semantics instead of PM's
       // default `posAtCoords + dropPoint` which for short paragraphs
       // rounds to an arbitrary neighbour boundary and surprises users.
@@ -1154,7 +1170,7 @@ export function createBlockHandlePlugin(
           event.preventDefault();
           return true;
         }
-        // Source node missing, no resolved placement — still consume
+        // Source node missing, no resolved placement - still consume
         // the event so PM doesn't fall back to its default drop logic.
         event.preventDefault();
         return true;
@@ -1178,7 +1194,7 @@ export function createBlockHandlePlugin(
 
       // Hover detection lives on `.dm-editor`'s parent (typically the page
       // wrapper, e.g. `.notion-page`'s framework-host child) so the listener
-      // also catches mouse movement in the side gutter — the area where the
+      // also catches mouse movement in the side gutter - the area where the
       // BlockHandle visually lives when the editor is centered narrower than
       // the page. `resolveBlockAtCoords` falls back to a Y-range walk when
       // the cursor's X is outside `.ProseMirror`, so the block under the
@@ -1191,7 +1207,7 @@ export function createBlockHandlePlugin(
 
       plusBtn.addEventListener('mousedown', onPlusBtnMouseDown);
       plusBtn.addEventListener('click', onPlusClick);
-      // dragBtn mousedown is a no-preventDefault listener — we rely on
+      // dragBtn mousedown is a no-preventDefault listener - we rely on
       // the browser's native drag initiation (`draggable="true"`) and
       // only use mousedown to set a hover-freeze lock so the handle
       // doesn't slide away before the drag threshold is crossed.

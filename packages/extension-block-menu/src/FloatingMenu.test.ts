@@ -437,7 +437,7 @@ describe('FloatingMenu', () => {
         content: '<p>Hello world</p>',
       });
 
-      // Paragraph has content — menu should be hidden
+      // Paragraph has content - menu should be hidden
       expect(menuElement.hasAttribute('data-show')).toBe(false);
 
       // Insert text into position
@@ -528,7 +528,7 @@ describe('FloatingMenu', () => {
 
     beforeEach(() => {
       // Shim for jsdom (floating-ui positioning). Capture the original so
-      // afterEach can restore it — otherwise the stub persists across test
+      // afterEach can restore it - otherwise the stub persists across test
       // files running in the same worker.
       // eslint-disable-next-line @typescript-eslint/unbound-method
       originalGetClientRects = Element.prototype.getClientRects;
@@ -845,11 +845,11 @@ describe('FloatingMenu', () => {
       element.appendChild(btn);
       mountVisible(element, { enterMenu: ['Shift-F1'] });
 
-      // Without Shift — no match.
+      // Without Shift - no match.
       editor!.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'F1' }));
       expect(document.activeElement).not.toBe(btn);
 
-      // With Shift — match.
+      // With Shift - match.
       editor!.view.dom.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'F1', shiftKey: true }),
       );

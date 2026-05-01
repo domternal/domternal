@@ -94,7 +94,7 @@ export interface FloatingMenuOptions {
    * hint, the slash command (`/`) is the keyboard trigger, and the menu
    * opens via the gutter `+` button only.
    *
-   * @default false (auto-shows on every empty paragraph — backward compat)
+   * @default false (auto-shows on every empty paragraph - backward compat)
    */
   requireExplicitTrigger?: boolean;
 }
@@ -331,7 +331,7 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
 
     view: (editorView) => {
       // Move the menu into `.dm-editor` so `position:absolute` resolves
-      // against the scrollable editor container — zero jitter on scroll.
+      // against the scrollable editor container - zero jitter on scroll.
       editorEl = editorView.dom.closest('.dm-editor');
       if (editorEl && element.parentElement !== editorEl) {
         editorEl.appendChild(element);

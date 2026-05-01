@@ -4,13 +4,13 @@
  * Pasting block-level content (heading, codeBlock, blockquote, image,
  * horizontalRule, list-wrappers, etc.) at an INLINE position (anywhere
  * inside a textblock) normally goes through PM's content fitter, which
- * strips the block wrapper and pastes only the inline text — losing the
+ * strips the block wrapper and pastes only the inline text - losing the
  * original formatting. SmartPaste catches the relevant cases and routes
  * each to the right insertion strategy.
  *
  * Strategies, in priority order:
  *
- *  1. **List-slice into a list ancestor** — the clipboard slice is a
+ *  1. **List-slice into a list ancestor** - the clipboard slice is a
  *     single `bulletList` / `orderedList` / `taskList` and the caret is
  *     inside a list of compatible structure. Items from the slice are
  *     adapted (via `convertListItemForParent`) and merged as siblings of
@@ -18,7 +18,7 @@
  *     list. Without this: the default branch would create a NESTED list
  *     inside the current item.
  *
- *  2. **Trailing hardBreak (Shift+Enter scenario)** — the parent
+ *  2. **Trailing hardBreak (Shift+Enter scenario)** - the parent
  *     textblock ends with a `hardBreak` and the cursor sits right after
  *     it (`offset === parentSize`). The user pressed Shift+Enter to
  *     create a fresh "logical row" and the paste should fill THAT row.
@@ -27,28 +27,28 @@
  *     - empty `<p><br></p>` → `<p></p>` + `<heading>` (the empty row
  *       remains, the heading lands in the new row below it),
  *     - `<p>Text<br></p>` → `<p>Text</p>` + `<heading>` (the heading
- *       lands directly after the text — no stray empty row in between).
+ *       lands directly after the text - no stray empty row in between).
  *
- *  3. **Truly empty parent paragraph** — `parentSize === 0` (the user
+ *  3. **Truly empty parent paragraph** - `parentSize === 0` (the user
  *     never created a fresh row, the paragraph itself IS the row). The
  *     parent is REPLACED with the slice content. Common path: paste a
  *     heading into a freshly-created blank list item.
  *
- *  4. **Caret at START of parent** — slice inserted BEFORE the parent
+ *  4. **Caret at START of parent** - slice inserted BEFORE the parent
  *     textblock (sibling).
  *
- *  5. **Caret at END of parent** — slice inserted AFTER the parent
+ *  5. **Caret at END of parent** - slice inserted AFTER the parent
  *     textblock (sibling).
  *
- *  6. **Caret in MIDDLE of parent text** — parent textblock is split at
+ *  6. **Caret in MIDDLE of parent text** - parent textblock is split at
  *     the cursor and the slice is inserted between the two halves.
  *
- *  7. **Range selection** — the range is deleted first, then the
+ *  7. **Range selection** - the range is deleted first, then the
  *     resulting caret runs through cases 2-6.
  *
  * Skipped (PM default kicks in) when:
  *  - Cursor isn't inside a textblock (already at a block boundary).
- *  - Slice's top-level blocks are ALL plain paragraphs — PM's default
+ *  - Slice's top-level blocks are ALL plain paragraphs - PM's default
  *    smoothly merges them with the current textblock, which is the
  *    right behaviour for ordinary text.
  *
@@ -115,11 +115,11 @@ function handleSmartPaste(view: EditorView, slice: Slice): boolean {
   // PM's default block-paste already does the right thing.
   if (!$from.parent.isTextblock) return false;
 
-  // Bail when slice has no non-paragraph block at its top level — PM's
+  // Bail when slice has no non-paragraph block at its top level - PM's
   // default merges plain inline content cleanly.
   if (!sliceHasNonParagraphBlock(slice)) return false;
 
-  // Strategy 1: list-slice into list ancestor — merge as siblings.
+  // Strategy 1: list-slice into list ancestor - merge as siblings.
   if (tryPasteListSliceIntoList(view, slice)) return true;
 
   // Strategies 2-7: collapse range, then route by parent state + offset.
@@ -147,7 +147,7 @@ function handleSmartPaste(view: EditorView, slice: Slice): boolean {
     tr.insert(adjustedParentEnd, slice.content);
     setCaretAtEndOfInserted(tr, adjustedParentEnd, slice.content);
   } else if (parentSize === 0) {
-    // Truly-empty parent (no Shift+Enter break either) — replace the
+    // Truly-empty parent (no Shift+Enter break either) - replace the
     // parent with the slice content. Avoids leaving a stray empty p
     // before/after the inserted block.
     tr.replaceWith(parentStart, parentEnd, slice.content);
@@ -163,7 +163,7 @@ function handleSmartPaste(view: EditorView, slice: Slice): boolean {
     // insert the slice content at the BOUNDARY between the two new
     // halves. After split, the cursor's original pos sits at the END
     // of the first half (just before its close marker); the boundary
-    // we want is one past that — `cursorPos + 1` (between the close
+    // we want is one past that - `cursorPos + 1` (between the close
     // of the first half and the open of the second).
     const cursorPos = $pos.pos;
     tr.split(cursorPos);
@@ -230,7 +230,7 @@ function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
   if (!selection.empty) tr.deleteSelection();
 
   // Re-resolve after potential range delete. Bail if we lost the list
-  // ancestor (selection straddled out — let the fallback paths run).
+  // ancestor (selection straddled out - let the fallback paths run).
   const $pos = tr.selection.$from;
   if ($pos.depth < listItemDepth) return false;
   if (!LIST_TYPES.has($pos.node(listDepth).type.name)) return false;
@@ -291,7 +291,7 @@ function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
  *
  * Position math: the fragment occupies `[insertAt, insertAt + content.size)`
  * in the new doc. `insertAt + content.size - 1` is the position right
- * before the outermost close-token of the last inserted top-level child —
+ * before the outermost close-token of the last inserted top-level child -
  * i.e., the END of its content.
  */
 function setCaretAtEndOfInserted(tr: Transaction, insertAt: number, content: Fragment): void {

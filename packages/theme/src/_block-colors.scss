@@ -2,40 +2,14 @@
 // Block Colors
 // Notion-style block-level backgrounds and text colors. Applied when the
 // BlockColor extension (@domternal/core) sets `data-bg-color` /
-// `data-text-color` attributes on block elements. Tokens mirror Notion's
-// public palette for instant familiarity; dark-mode overrides live in
-// `themes/_dark.scss`.
-//
-// Palette source (light-mode): https://matthiasfrank.de/en/notion-colors/
-// 9 named colors; `default` is implicit (no data attribute = no token).
+// `data-text-color` attributes on block elements. Token definitions live
+// in `_variables.scss` (light) and `themes/_dark.scss` (dark).
 // =============================================================================
-
-:root {
-  --dm-block-bg-gray: #f1f1ef;
-  --dm-block-bg-brown: #f3eeee;
-  --dm-block-bg-orange: #f8ecdf;
-  --dm-block-bg-yellow: #faf3dd;
-  --dm-block-bg-green: #eef3ed;
-  --dm-block-bg-blue: #e9f3f7;
-  --dm-block-bg-purple: #f6f3f8;
-  --dm-block-bg-pink: #f9f2f5;
-  --dm-block-bg-red: #faecec;
-
-  --dm-block-text-gray: #787774;
-  --dm-block-text-brown: #976d57;
-  --dm-block-text-orange: #cc782f;
-  --dm-block-text-yellow: #c29343;
-  --dm-block-text-green: #548164;
-  --dm-block-text-blue: #487ca5;
-  --dm-block-text-purple: #8a67ab;
-  --dm-block-text-pink: #b35488;
-  --dm-block-text-red: #c4554d;
-}
 
 // -----------------------------------------------------------------------------
 // Background
 // Tint the whole block. Scoped under `.dm-editor .ProseMirror` so it only
-// applies inside a Domternal editor instance — won't leak to host content.
+// applies inside a Domternal editor instance - won't leak to host content.
 // Small inline padding so the tint visually "hugs" the text instead of
 // bleeding edge-to-edge on narrow blocks.
 // -----------------------------------------------------------------------------
@@ -52,7 +26,7 @@
 
   // Inline padding is pre-applied to colorable blocks in `_content.scss`
   // (and to the editor itself for lists/blockquotes) so toggling a color
-  // does NOT shift text — the tint paints into existing padding. This
+  // does NOT shift text - the tint paints into existing padding. This
   // rule is therefore minimal: only the rounded corners + a hair of
   // vertical padding so the tint reads as a "pill" around short text
   // instead of an edge-to-edge band.
@@ -73,7 +47,7 @@
 }
 
 // -----------------------------------------------------------------------------
-// Swatch row — horizontal strip of color swatches, one per row in the
+// Swatch row - horizontal strip of color swatches, one per row in the
 // BlockContextMenu Colors section (one for text, one for background).
 // -----------------------------------------------------------------------------
 .dm-block-color-row {
@@ -98,7 +72,7 @@
 }
 
 // -----------------------------------------------------------------------------
-// Color swatches — used by BlockContextMenu's color picker and available
+// Color swatches - used by BlockContextMenu's color picker and available
 // for host apps that render their own pickers. One ring per palette entry
 // plus a neutral "clear" swatch.
 // -----------------------------------------------------------------------------
@@ -121,11 +95,14 @@
   }
 
   &:focus-visible {
+    // OUTSET ring (offset > 0): swatch dot fills almost the entire button
+    // surface, so an inset outline would render UNDER the dot. Pulling the
+    // ring outward keeps it visible against any palette tint.
     outline: 2px solid var(--dm-accent, #2563eb);
     outline-offset: 1px;
   }
 
-  // Inner tint dot — used for both bg and text variants so rows look uniform.
+  // Inner tint dot - used for both bg and text variants so rows look uniform.
   &::before {
     content: '';
     display: block;
@@ -134,7 +111,7 @@
     border-radius: 50%;
   }
 
-  // "No color" swatch — strike-through slash rendered via gradient.
+  // "No color" swatch - strike-through slash rendered via gradient.
   &[data-color="null"]::before {
     background:
       linear-gradient(

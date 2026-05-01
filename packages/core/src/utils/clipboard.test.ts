@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { writeToClipboard } from './clipboard.js';
 
-// jsdom doesn't populate `document.execCommand` natively — define a stub we
+// jsdom doesn't populate `document.execCommand` natively - define a stub we
 // can spy on, then remove it after each test so we don't leak state.
 interface ExecCommandDoc {
   execCommand?: (command: string) => boolean;

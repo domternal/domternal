@@ -70,7 +70,7 @@ const RECT = (top: number, left: number, height: number, width: number): DOMRect
   x: left, y: top, width, height, toJSON: () => ({}),
 } as DOMRect);
 
-describe('findBestDragTarget — Notion mode (no edge promotion)', () => {
+describe('findBestDragTarget - Notion mode (no edge promotion)', () => {
   it('returns the deepest list item under the cursor', () => {
     const ed = makeEditor('<ul><li><p>One</p></li><li><p>Two</p></li></ul>');
     // posAtCoords stub points inside the first paragraph's text.
@@ -113,7 +113,7 @@ describe('findBestDragTarget — Notion mode (no edge promotion)', () => {
   });
 });
 
-describe('findBestDragTarget — Tiptap mode (edge promotion)', () => {
+describe('findBestDragTarget - Tiptap mode (edge promotion)', () => {
   it('promotes deeper item to shallower ancestor near left edge', () => {
     // Cursor at left edge of the listItem AND its parent bulletList.
     // Without edge promotion: deepest listItem wins.
@@ -122,14 +122,14 @@ describe('findBestDragTarget — Tiptap mode (edge promotion)', () => {
     //   bulletList (depth 1) deduction = 500  → score = 500 (default rule
     //     `listWrapperDeprioritize` excludes it, so net candidates empty)
     // But for the assertion we instead allow `paragraph` as the second
-    // candidate type — it's at depth 3 with deduction 1500 → also excluded.
+    // candidate type - it's at depth 3 with deduction 1500 → also excluded.
     // The cleanest test: with rules disabled, edge promotion picks the
     // shallowest near-edge candidate.
     const ed = makeEditor('<ul><li><p>One</p></li></ul>');
     stubViewLayout(ed, 3, new Map([
       [0, RECT(100, 200, 200, 400)],   // bulletList (depth 1)
-      [1, RECT(105, 200, 30, 380)],    // listItem (depth 2) — same left edge
-      [2, RECT(105, 200, 30, 360)],    // paragraph (depth 3) — same left edge
+      [1, RECT(105, 200, 30, 380)],    // listItem (depth 2) - same left edge
+      [2, RECT(105, 200, 30, 360)],    // paragraph (depth 3) - same left edge
     ]));
     // Cursor RIGHT AT left edge of all three (200, 110).
     const out = findBestDragTarget(ed.view, 200, 110, {
@@ -159,7 +159,7 @@ describe('findBestDragTarget — Tiptap mode (edge promotion)', () => {
   });
 });
 
-describe('findBestDragTarget — edge cases', () => {
+describe('findBestDragTarget - edge cases', () => {
   it('returns null when posAtCoords returns null', () => {
     const ed = makeEditor('<p>Hi</p>');
     const view = ed.view as unknown as {
@@ -184,5 +184,27 @@ describe('findBestDragTarget — edge cases', () => {
     });
     // text excluded by `inlineContent` rule; paragraph wins.
     expect(out?.node.type.name).toBe('paragraph');
+  });
+
+  it('returns null when edge deduction zeros every candidate (Mode C fallthrough)', () => {
+    // Reproduces the BlockHandle resolveBlockAtCoords "Mode C fallthrough"
+    // path: an edge config strict enough (huge `strength`) to push every
+    // candidate below zero. The resolver MUST return null so the caller
+    // can fall back to the top-level resolution path. Without this guard,
+    // the resolver would silently pick a sub-zero candidate and the drag
+    // handle would anchor on something the user didn't intend.
+    const ed = makeEditor('<ul><li><p>One</p></li></ul>');
+    stubViewLayout(ed, 3, new Map([
+      [0, RECT(100, 200, 200, 400)],
+      [1, RECT(105, 200, 30, 380)],
+      [2, RECT(105, 200, 30, 360)],
+    ]));
+    const out = findBestDragTarget(ed.view, 200, 110, {
+      rules: [],
+      // strength 10000 * any depth >> BASE_SCORE → every candidate scores < 0.
+      edgeConfig: { edges: ['left'], threshold: 12, strength: 10000 },
+      allowedNodeTypes: ['bulletList', 'listItem', 'paragraph'],
+    });
+    expect(out).toBeNull();
   });
 });

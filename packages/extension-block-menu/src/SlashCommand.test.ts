@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import type { FloatingMenuItem } from '@domternal/core';
 import { Document, Text, Paragraph, Heading, Editor } from '@domternal/core';
 import {
@@ -108,5 +108,72 @@ describe('SlashCommand plugin', () => {
     const state = slashCommandPluginKey.getState(editor.state);
     expect(state).toEqual({ active: false, query: '', range: null });
     editor.destroy();
+  });
+});
+
+// --- Re-entrant dispatch regression --------------------------------------------
+//
+// When the slash popup activates, its `view.update` synchronously dispatches
+// `dm:dismiss-overlays` so other overlays close. A `suppressDismissHandler`
+// flag stops our own listener from firing back at us. The flag's lifecycle
+// is fragile: `wasActive = true` must be set BEFORE the dispatch so the
+// re-entrant `update` (other overlays may dispatch a PM transaction in
+// response) sees `becameActive === false` and doesn't fire a SECOND
+// `dm:dismiss-overlays` whose nested `finally` would reset the flag and
+// open us up to self-dismissal.
+
+describe('SlashCommand - re-entrant dispatch suppression', () => {
+  let host: HTMLElement | undefined;
+  let editor: Editor | undefined;
+
+  afterEach(() => {
+    editor?.destroy();
+    editor = undefined;
+    host?.remove();
+    host = undefined;
+  });
+
+  function mountEditor(content = '<p>/</p>'): Editor {
+    host = document.createElement('div');
+    host.className = 'dm-editor';
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Heading, SlashCommand],
+      content,
+    });
+    return editor;
+  }
+
+  it('survives a re-entrant transaction triggered by dm:dismiss-overlays', () => {
+    const ed = mountEditor();
+    // Move cursor to after the `/` char and trigger a re-evaluation. The
+    // plugin's apply() detects the slash query and flips `active` to true;
+    // view.update() will dispatch dm:dismiss-overlays.
+    const tr = ed.state.tr.setSelection(
+      // Selection right after `/` - position 2: doc(0) > p(1) > "/"(2).
+      // Use TextSelection.near via a no-op meta to nudge apply().
+      ed.state.selection,
+    );
+    // Re-entrant listener: when our open-time dispatch fires, we synchronously
+    // dispatch a PM transaction. `view.update` re-runs while still inside
+    // the original `update`. Without correct flag ordering this would self-dismiss.
+    let reentryCount = 0;
+    host?.addEventListener('dm:dismiss-overlays', () => {
+      reentryCount++;
+      // Re-enter `update` with a no-op selectionSet transaction.
+      ed.view.dispatch(ed.view.state.tr.setSelection(ed.view.state.selection));
+    });
+
+    // Force the slash popup to activate by typing a `/` at cursor.
+    ed.view.dispatch(tr);
+    ed.view.dispatch(ed.view.state.tr.insertText('/'));
+
+    const state = slashCommandPluginKey.getState(ed.state);
+    // The popup must still be active after the re-entrant ping. The exact
+    // count varies by PM version (each transaction triggers update()), but
+    // crucially: more than zero re-entries fired AND state.active is true.
+    expect(reentryCount).toBeGreaterThan(0);
+    expect(state?.active).toBe(true);
   });
 });

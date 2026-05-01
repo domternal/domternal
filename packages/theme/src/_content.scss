@@ -10,7 +10,7 @@
   // Block inline padding
   // ---------------------------------------------------------------------------
   // Pre-applied so that toggling `data-bg-color` on a block does NOT shift
-  // text — the colored background paints into existing padding instead of
+  // text - the colored background paints into existing padding instead of
   // adding new padding (`_block-colors.scss` only sets `background-color`
   // + `border-radius`, no padding). Mirrors Notion's layout. Wrapped in
   // `:where()` so specificity stays at 0 and host apps can override per
@@ -93,7 +93,7 @@
     margin: 0.5em 0;
     // Right padding picks up the same `--dm-block-inline-padding` token
     // so colored blockquotes get breathing room from the right edge.
-    // Left stays at 0.8em — that gap is for the border-left bar, not
+    // Left stays at 0.8em - that gap is for the border-left bar, not
     // text inset.
     padding: 0.1em var(--dm-block-inline-padding) 0.1em 0.8em;
   }
@@ -114,7 +114,7 @@
       margin: 0.25em 0;
 
       > p {
-        // List item paragraphs reset inline padding — bullet indentation
+        // List item paragraphs reset inline padding - bullet indentation
         // is owned by the list container; doubling up shifts text under
         // the bullet's hanging indent.
         margin: 0.1em 0;

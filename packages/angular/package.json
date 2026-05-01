@@ -16,7 +16,7 @@
   "peerDependencies": {
     "@angular/core": ">=17.1.0",
     "@angular/forms": ">=17.1.0",
-    "@domternal/core": ">=0.6.1",
+    "@domternal/core": ">=0.6.0",
     "@domternal/extension-block-menu": ">=0.6.0"
   },
   "files": [

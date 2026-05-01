@@ -75,7 +75,7 @@ describe('convertListItemForParent', () => {
     const out = convertListItemForParent(editor.schema, fragment, bulletListType);
     expect(out.firstChild?.type.name).toBe('listItem');
     // `listItem` schema doesn't declare `checked`, so PM silently
-    // ignores it on creation — the converted node has no `checked`.
+    // ignores it on creation - the converted node has no `checked`.
     expect((out.firstChild?.attrs as Record<string, unknown>)['checked']).toBeUndefined();
     expect(out.firstChild?.textContent).toBe('From task');
     editor.destroy();
@@ -106,7 +106,7 @@ describe('convertListItemForParent', () => {
     if (!bulletListType) throw new Error();
 
     const out = convertListItemForParent(editor.schema, fragment, bulletListType);
-    // Same fragment object — no reallocation when nothing changed.
+    // Same fragment object - no reallocation when nothing changed.
     expect(out).toBe(fragment);
     editor.destroy();
   });
@@ -128,7 +128,7 @@ describe('convertListItemForParent', () => {
   it('preserves nested children inside the converted item (nested lists keep their original type)', () => {
     // Source: a listItem that contains a paragraph + a nested taskList.
     // Convert to taskItem (target is taskList). The inner taskList should
-    // stay a taskList — only the OUTER wrapper switches type.
+    // stay a taskList - only the OUTER wrapper switches type.
     const editor = makeEditor(
       '<ul><li><p>Outer</p>'
       + '<ul data-type="taskList"><li data-type="taskItem"><p>Inner task</p></li></ul>'

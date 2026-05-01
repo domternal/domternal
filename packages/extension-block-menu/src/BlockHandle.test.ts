@@ -96,7 +96,7 @@ describe('BlockHandle configuration', () => {
   });
 
   it('nested config accepts allowedContainers + custom rules + defaultRules toggle', () => {
-    // (extension stage — `resolveNestedConfig` resolution covered below)
+    // (extension stage - `resolveNestedConfig` resolution covered below)
     const customRule = { id: 'custom', evaluate: (): number => 0 };
     const configured = BlockHandle.configure({
       nested: {
@@ -272,7 +272,7 @@ describe('BlockHandle DOM integration', () => {
 /**
  * Auto-scroll tests drive the plugin's drag lifecycle directly so we don't
  * depend on jsdom's incomplete HTML5 drag-and-drop emulation. RAF is
- * stubbed so each "frame" is a manual tick — cleaner than wall-clock waits
+ * stubbed so each "frame" is a manual tick - cleaner than wall-clock waits
  * and deterministic across CI speeds. `DragEvent` and `scrollBy` both need
  * polyfilling because jsdom doesn't implement them.
  */
@@ -280,7 +280,7 @@ describe('BlockHandle auto-scroll during drag', () => {
   let rafCallbacks: FrameRequestCallback[] = [];
   let originalScrollBy: typeof document.documentElement.scrollBy | undefined;
   let scrollByCalls: [number, number][] = [];
-  // Wrapper DIV that `findScrollableAncestor` resolves to — tests need a
+  // Wrapper DIV that `findScrollableAncestor` resolves to - tests need a
   // bounded scrollable ancestor (see `makeEditorWithHandle`).
   let scrollWrapper: HTMLElement | undefined;
 
@@ -322,7 +322,7 @@ describe('BlockHandle auto-scroll during drag', () => {
 
   function restoreScrollByStub(): void {
     if (originalScrollBy === undefined) {
-      // jsdom had no original — remove the stub entirely so subsequent
+      // jsdom had no original - remove the stub entirely so subsequent
       // tests see the original jsdom behaviour (no scrollBy on the element).
       delete (document.documentElement as unknown as Record<string, unknown>)['scrollBy'];
     } else {
@@ -345,7 +345,7 @@ describe('BlockHandle auto-scroll during drag', () => {
    * Wraps the editor host in a parent that reports as vertically scrollable
    * (overflow-y: scroll + scrollHeight > clientHeight). `findScrollableAncestor`
    * now intentionally returns null when no bounded scrollable ancestor
-   * exists — page-level scroll is owned by the browser's native drag-edge
+   * exists - page-level scroll is owned by the browser's native drag-edge
    * autoscroll, so our RAF loop would double-up. Tests wrap the editor in
    * a real bounded container so the loop has a legitimate target.
    */
@@ -357,7 +357,7 @@ describe('BlockHandle auto-scroll during drag', () => {
     // two properties `findScrollableAncestor` reads so the wrapper qualifies.
     Object.defineProperty(scrollWrapper, 'scrollHeight', { value: 2000, configurable: true });
     Object.defineProperty(scrollWrapper, 'clientHeight', { value: 400, configurable: true });
-    // Same story for scrollBy — jsdom omits it on Element.
+    // Same story for scrollBy - jsdom omits it on Element.
     scrollWrapper.scrollBy = ((x: number, y: number): void => { scrollByCalls.push([x, y]); }) as Element['scrollBy'];
     Object.defineProperty(scrollWrapper, 'getBoundingClientRect', {
       value: (): DOMRect => ({
@@ -441,7 +441,7 @@ describe('BlockHandle auto-scroll during drag', () => {
 
     dispatchDragStart();
     // Wrapper rect goes from top=0 to bottom=400. 390 is 10px from the
-    // bottom edge — inside the default 48px threshold.
+    // bottom edge - inside the default 48px threshold.
     dispatchDragOver(390);
     tickRaf();
 
@@ -456,7 +456,7 @@ describe('BlockHandle auto-scroll during drag', () => {
     makeEditorWithHandle();
 
     dispatchDragStart();
-    // Middle of the 400px-tall wrapper — well outside both top and bottom
+    // Middle of the 400px-tall wrapper - well outside both top and bottom
     // thresholds.
     dispatchDragOver(200);
     tickRaf();

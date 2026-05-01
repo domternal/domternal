@@ -1,10 +1,10 @@
-// @domternal/extension-block-menu — public API
+// @domternal/extension-block-menu - public API
 //
 // Notion-style block manipulation extensions. All features use the
 // `FloatingMenuItem` contract and `addFloatingMenuItems()` hook from
 // `@domternal/core`.
 
-// FloatingMenu — empty-line insert menu trigger
+// FloatingMenu - empty-line insert menu trigger
 export {
   FloatingMenu,
   createFloatingMenuPlugin,
@@ -17,7 +17,7 @@ export type {
   FloatingMenuKeymap,
 } from './FloatingMenu.js';
 
-// BlockHandle — hover gutter with plus button and drag handle
+// BlockHandle - hover gutter with plus button and drag handle
 export {
   BlockHandle,
   createBlockHandlePlugin,
@@ -30,10 +30,10 @@ export type {
   CreateBlockHandlePluginOptions,
 } from './BlockHandle.js';
 
-// KeyboardReorder — Mod-Shift-ArrowUp/Down moves top-level block
+// KeyboardReorder - Mod-Shift-ArrowUp/Down moves top-level block
 export { KeyboardReorder } from './KeyboardReorder.js';
 
-// BlockContextMenu — click drag handle to open Delete / Duplicate / Turn into
+// BlockContextMenu - click drag handle to open Delete / Duplicate / Turn into
 export {
   BlockContextMenu,
   createBlockContextMenuPlugin,
@@ -46,7 +46,7 @@ export type {
   TurnIntoTarget,
 } from './BlockContextMenu.js';
 
-// SlashCommand — type `/` to open filtered insert menu popup
+// SlashCommand - type `/` to open filtered insert menu popup
 export {
   SlashCommand,
   createSlashCommandPlugin,
@@ -66,6 +66,6 @@ export type {
 // Default DOM renderer for the SlashCommand popup
 export { createSlashSuggestionRenderer } from './createSlashSuggestionRenderer.js';
 
-// SmartPaste — preserves block formatting when pasting at inline positions
+// SmartPaste - preserves block formatting when pasting at inline positions
 export { SmartPaste } from './SmartPaste.js';
 export type { SmartPasteOptions } from './SmartPaste.js';

@@ -38,7 +38,7 @@ const DEFAULTS: EdgeDetectionConfig = {
 
 /**
  * Normalise the user-facing `promoteOnEdge` value into a concrete
- * `EdgeDetectionConfig` or `null` (Notion mode — no scoring needed).
+ * `EdgeDetectionConfig` or `null` (Notion mode - no scoring needed).
  *
  * - `false` / `undefined` / `'none'` → `null` (no edge promotion)
  * - `true` / `'left'`                → defaults
@@ -53,7 +53,7 @@ export function normalizeEdgeDetection(
   if (value === true || value === 'left') return { ...DEFAULTS };
   if (value === 'right') return { ...DEFAULTS, edges: ['right', 'top'] };
   if (value === 'both') return { ...DEFAULTS, edges: ['left', 'right', 'top'] };
-  // Custom partial — merge over defaults so callers can override one knob
+  // Custom partial - merge over defaults so callers can override one knob
   // without redeclaring the rest.
   return {
     edges: value.edges ?? DEFAULTS.edges,

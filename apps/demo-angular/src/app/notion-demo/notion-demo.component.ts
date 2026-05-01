@@ -120,18 +120,25 @@ const STARTER_CONTENT = `
   styleUrls: ['./notion-demo.component.scss'],
 })
 export class NotionDemoComponent implements OnDestroy {
+  /**
+   * Toast display durations (ms). Error toast lingers ~50% longer because it
+   * carries diagnostic copy users may want to read; success is shorter to
+   * stay out of the way.
+   */
+  private static readonly TOAST_MS = { success: 1800, error: 2600 };
+
   extensions = [
     // Inline formatting (available via bubble menu on selection)
     Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
     // Block elements (inserted via floating menu on empty lines)
     Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
     BulletList, OrderedList, TaskList,
-    // Text styling — available via bubble menu
+    // Text styling - available via bubble menu
     TextAlign, TextColor, FontSize, FontFamily, LineHeight,
     Table,
     Details,
     Image,
-    // `toolbar: false` — no toolbar button, but `:` suggestion picker still works
+    // `toolbar: false` - no toolbar button, but `:` suggestion picker still works
     Emoji.configure({
       emojis,
       enableEmoticons: true,
@@ -154,7 +161,7 @@ export class NotionDemoComponent implements OnDestroy {
     // helper), so we omit `Dropcursor` here. See `dropIndicator` option.
     LinkPopover, SelectionDecoration, ClearFormatting,
     // Assigns stable IDs to top-level blocks so BlockContextMenu can offer
-    // "Copy link to block" — the ID becomes the URL hash (e.g. `#abc123`).
+    // "Copy link to block" - the ID becomes the URL hash (e.g. `#abc123`).
     UniqueID,
     // Block-level text + background colors (Notion palette). Exposed via
     // the BlockContextMenu's Colors section when this extension is loaded.
@@ -197,7 +204,7 @@ export class NotionDemoComponent implements OnDestroy {
     // Expose for E2E + playing around in devtools.
     (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] = editor;
 
-    // Tear down any previously-attached listeners before wiring new ones —
+    // Tear down any previously-attached listeners before wiring new ones -
     // protects against leaking listeners when the editor is recreated
     // (HMR, re-entering the route, etc.).
     this.removeCopyLinkListeners();
@@ -210,10 +217,10 @@ export class NotionDemoComponent implements OnDestroy {
     this.copyLinkHost = host;
 
     this.copyLinkSuccessListener = (): void => {
-      this.showToast('Link copied', 'status', 'notion-demo-toast', 1800);
+      this.showToast('Link copied', 'status', 'notion-demo-toast', NotionDemoComponent.TOAST_MS.success);
     };
     this.copyLinkErrorListener = (): void => {
-      this.showToast('Failed to copy link', 'alert', 'notion-demo-toast notion-demo-toast--error', 2600);
+      this.showToast('Failed to copy link', 'alert', 'notion-demo-toast notion-demo-toast--error', NotionDemoComponent.TOAST_MS.error);
     };
     host.addEventListener('dm:copy-link-success', this.copyLinkSuccessListener);
     host.addEventListener('dm:copy-link-error', this.copyLinkErrorListener);

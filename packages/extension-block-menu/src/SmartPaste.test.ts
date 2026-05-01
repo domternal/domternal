@@ -47,10 +47,10 @@ function pasteAtPos(editor: Editor, pos: number, slice: Slice): void {
   // Trigger handlePaste via DOM clipboard event with synthetic DataTransfer.
   // We need to actually pass the slice content as text/html since SmartPaste
   // reads `slice` from PM's pipeline. PM converts the html to a Slice itself
-  // in handlePaste — so we feed back HTML.
+  // in handlePaste - so we feed back HTML.
   // Call handlePaste directly via the plugin prop. SmartPaste ignores
   // the event parameter, so jsdom not having ClipboardEvent/DataTransfer
-  // doesn't matter for these unit tests — pass a plain `Event`.
+  // doesn't matter for these unit tests - pass a plain `Event`.
   const plugin = editor.view.state.plugins.find((p) => p.spec.props?.handlePaste);
   if (!plugin?.spec.props?.handlePaste) throw new Error('SmartPaste plugin not found');
   plugin.spec.props.handlePaste.call(plugin, editor.view, new Event('paste') as ClipboardEvent, slice);
@@ -249,7 +249,7 @@ describe('SmartPaste', () => {
     expect(top.length).toBe(2);
     expect(top[0]?.type).toBe('paragraph');
     expect(top[0]?.text).toBe('Existing');
-    // CRITICAL: paragraph's only inline child is the text node — the
+    // CRITICAL: paragraph's only inline child is the text node - the
     // trailing hardBreak that fired this code path has been trimmed.
     expect(top[0]?.childCount).toBe(1);
     expect(top[1]?.type).toBe('heading');
@@ -381,13 +381,13 @@ describe('SmartPaste', () => {
     const editor = makeEditor('<p>A</p><p>B</p>');
     const slice = htmlSlice(editor, '<h1>X</h1>');
     // Place selection at boundary between paragraphs (NodeSelection
-    // would also satisfy "not in textblock" — easier to verify with
+    // would also satisfy "not in textblock" - easier to verify with
     // top-level pos 3 which is between A and B).
     const pluginList = editor.view.state.plugins;
     const plugin = pluginList.find((pl) => pl.spec.props?.handlePaste);
     if (!plugin?.spec.props?.handlePaste) throw new Error();
     const ev = new Event('paste') as ClipboardEvent;
-    // Set selection at pos 3 (between p and p) — actually PM clamps this
+    // Set selection at pos 3 (between p and p) - actually PM clamps this
     // to a TextSelection at the closest text position, so we'll use
     // a NodeSelection-like situation: skip this test if can't construct.
     // Simpler: just verify with a normal paste in textblock returns true.
@@ -397,11 +397,11 @@ describe('SmartPaste', () => {
     const tr = editor.state.tr.setSelection(TextSelection.create(editor.state.doc, pPos + p.nodeSize - 1));
     editor.view.dispatch(tr);
     const handled = plugin.spec.props.handlePaste.call(plugin, editor.view, ev, slice);
-    expect(handled).toBe(true); // textblock case — handled
+    expect(handled).toBe(true); // textblock case - handled
     editor.destroy();
   });
 
-  it('respects `enabled: false` — plugin no-op, default paste behaviour preserved', () => {
+  it('respects `enabled: false` - plugin no-op, default paste behaviour preserved', () => {
     const ed = new Editor({
       extensions: [
         Document, Text, Paragraph, Heading, Blockquote, BulletList, ListItem,

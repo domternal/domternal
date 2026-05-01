@@ -22,7 +22,7 @@
   // Override the editor's default chrome to create a seamless page feel.
   /* stylelint-disable-next-line selector-pseudo-element-no-unknown */
   ::ng-deep .dm-editor {
-    // Remove border, shadow, rounded corners — looks like a plain page.
+    // Remove border, shadow, rounded corners - looks like a plain page.
     border: none;
     border-radius: 0;
     box-shadow: none;
@@ -31,7 +31,7 @@
     // Centered content column. Width matches the default toolbar demo's
     // text area (`.demo .dm-editor` has 4.8rem inner padding on each side
     // inside its 210mm container, leaving ~38rem of usable text width)
-    // so the writing experience feels identical across modes — only the
+    // so the writing experience feels identical across modes - only the
     // chrome around it differs. The surrounding margin is where the
     // BlockHandle lives.
     max-width: 38rem;
@@ -44,7 +44,7 @@
 
     // Handle lives fully OUTSIDE the centered content column. The
     // ProseMirror gutter token is zeroed because the handle no longer
-    // overlaps the content — there is nothing to reserve. The handle
+    // overlaps the content - there is nothing to reserve. The handle
     // offset is large enough that its 46px-wide button strip ends with
     // a few px of breathing room before the content's left edge.
     --dm-block-handle-gutter: 0;

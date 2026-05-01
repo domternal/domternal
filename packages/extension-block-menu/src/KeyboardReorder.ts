@@ -2,7 +2,7 @@
  * KeyboardReorder Extension
  *
  * Keyboard shortcuts to move the top-level block containing the selection
- * up or down — accessibility companion to BlockHandle's drag UX:
+ * up or down - accessibility companion to BlockHandle's drag UX:
  *
  * - `Mod-Shift-ArrowUp`   → move current block above the previous sibling
  * - `Mod-Shift-ArrowDown` → move current block below the next sibling

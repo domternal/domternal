@@ -19,7 +19,7 @@ import {
 import type { FloatingMenuItem } from '@domternal/core';
 import type { SlashCommandProps, SlashCommandRenderer } from './SlashCommand.js';
 
-// Module-level counter for unique id suffixes — lets us set
+// Module-level counter for unique id suffixes - lets us set
 // `aria-activedescendant` on the menu root so screen readers announce the
 // selection as the user arrow-keys through items.
 let idCounter = 0;
@@ -150,7 +150,7 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
       }
     }
     const selected = itemButtons[index];
-    // Scroll the selected item into view WITHIN the popup only — never via
+    // Scroll the selected item into view WITHIN the popup only - never via
     // `scrollIntoView`, which walks ancestors and would yank the page when
     // called during `renderPopup` (runs before `positionFloatingOnce`
     // resolves, so the popup is still at its natural flow position at the

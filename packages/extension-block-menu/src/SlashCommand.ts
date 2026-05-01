@@ -199,12 +199,12 @@ export function createSlashCommandPlugin(
       apply(tr: Transaction, prev, _oldState, newState): SlashCommandPluginState {
         if (tr.getMeta(pluginKey) === 'dismiss') return { ...INITIAL_STATE };
 
-        // Neither doc nor selection changed — nothing to do (popup stays as-is).
+        // Neither doc nor selection changed - nothing to do (popup stays as-is).
         if (!tr.docChanged && !tr.selectionSet) return prev;
 
         // If only the doc changed (e.g. collaborative edit while popup is
         // open), map the current query range through the new positions
-        // instead of re-running findSlashQuery — selection didn't move,
+        // instead of re-running findSlashQuery - selection didn't move,
         // so the user's cursor is still where it was.
         if (tr.docChanged && !tr.selectionSet && prev.active && prev.range) {
           const from = tr.mapping.mapResult(prev.range.from);
@@ -259,7 +259,7 @@ export function createSlashCommandPlugin(
           // this same `update` callback. Without flipping `wasActive` first
           // the re-entry would think the popup is still opening and dispatch
           // a *second* `dm:dismiss-overlays` whose nested `finally` would
-          // reset `suppressDismissHandler` to false — letting our own
+          // reset `suppressDismissHandler` to false - letting our own
           // dismiss listener fire on the way out and tear down the popup
           // we just created. (`clientRect()` then returns null because the
           // plugin state was just cleared, so the second `onStart` paints
@@ -293,7 +293,7 @@ export function createSlashCommandPlugin(
 
               // Execute the item on a fresh transaction (its command will
               // read the latest state). Items that open a popover (Image
-              // URL, Link, etc.) need the popover to claim focus — don't
+              // URL, Link, etc.) need the popover to claim focus - don't
               // force focus back to the editor here. Simple insert items
               // already leave focus in the editor, so no focus() call is
               // needed in either case.

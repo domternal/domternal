@@ -1,5 +1,5 @@
 // =============================================================================
-// @domternal/theme — Main Entry
+// @domternal/theme - Main Entry
 // =============================================================================
 // Import this file to get all Domternal editor styles:
 //
@@ -56,7 +56,7 @@
 @use 'themes/light';
 @use 'themes/dark';
 
-// 9. Reduced motion — must come last to override all animation/transition rules
+// 9. Reduced motion - must come last to override all animation/transition rules
 // =============================================================================
 @media (prefers-reduced-motion: reduce) {
   .dm-emoji-picker,

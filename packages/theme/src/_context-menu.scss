@@ -89,6 +89,9 @@
     }
 
     &:focus-visible {
+      // INSET ring (-2px): menu items are tightly packed; an outset ring
+      // would overlap the neighbour. -2px keeps the ring fully inside the
+      // hover background fill.
       outline: 2px solid var(--dm-accent, #2563eb);
       outline-offset: -2px;
     }

@@ -30,7 +30,7 @@
   --dm-code-color: inherit;
   --dm-highlight-bg: rgba(255, 243, 205, 0.2);
 
-  // Scrollbar thumb + popover shadow — lighten for contrast on dark bg.
+  // Scrollbar thumb + popover shadow - lighten for contrast on dark bg.
   --dm-scrollbar-thumb: rgba(255, 255, 255, 0.18);
   --dm-scrollbar-thumb-hover: rgba(255, 255, 255, 0.32);
   --dm-popover-shadow: 0 10px 25px rgba(0, 0, 0, 0.4), 0 4px 10px rgba(0, 0, 0, 0.25);
@@ -72,6 +72,13 @@
   --dm-block-text-purple: #b195d1;
   --dm-block-text-pink: #d68aae;
   --dm-block-text-red: #e0776f;
+
+  // Selected-block halo - lift opacity for visibility on dark bg.
+  --dm-block-selected-halo: rgba(112, 207, 248, 0.35);
+
+  // Note: layout / geometry tokens (--dm-block-handle-gutter,
+  // --dm-block-handle-left, --dm-block-inline-padding) are intentionally
+  // NOT overridden here - geometry stays identical between light/dark.
 }
 
 .dm-theme-dark,
@@ -87,7 +94,7 @@
   @include dark-tokens;
 }
 
-// Auto dark mode — follows system preference
+// Auto dark mode - follows system preference
 @media (prefers-color-scheme: dark) {
   .dm-theme-auto,
   .dm-theme-auto .dm-editor,

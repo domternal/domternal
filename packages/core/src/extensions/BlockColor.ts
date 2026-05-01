@@ -44,7 +44,7 @@ declare module '../types/Commands.js' {
 /**
  * Notion's public palette. Names are semantic (not tied to specific hex);
  * the stylesheet owns the actual colors so themes can customize them.
- * `'default'` is implicit — represented by `null` (no data attribute).
+ * `'default'` is implicit - represented by `null` (no data attribute).
  */
 export const DEFAULT_BLOCK_COLORS: string[] = [
   'gray',
@@ -60,7 +60,7 @@ export const DEFAULT_BLOCK_COLORS: string[] = [
 
 /**
  * Default set of block types that receive the color attributes. `codeBlock`
- * is intentionally excluded — `<pre><code>` already has its own background
+ * is intentionally excluded - `<pre><code>` already has its own background
  * that would conflict visually. Similarly, details-content blocks have
  * their own affordance. Callers can extend via `types` option.
  */
@@ -169,7 +169,7 @@ export const BlockColor = Extension.create<BlockColorOptions>({
     function setAttr(attr: 'bgColor' | 'textColor', palette: string[]) {
       return (color: string | null): Command =>
         ({ state, dispatch }) => {
-          // Palette guard — `null` always allowed (clears the attr).
+          // Palette guard - `null` always allowed (clears the attr).
           if (color !== null && !palette.includes(color)) return false;
           const pos = findTargetPos(state);
           if (pos === null) return false;

@@ -1,7 +1,7 @@
 /**
  * Scoring infrastructure for resolving the best drag target among the
  * nodes under a cursor. The model is borrowed from Tiptap's drag-handle
- * extension (MIT) — every candidate node starts at `BASE_SCORE` (1000),
+ * extension (MIT) - every candidate node starts at `BASE_SCORE` (1000),
  * each rule subtracts a deduction, and the highest-scoring candidate
  * wins. Returning a deduction `>= BASE_SCORE` effectively excludes the
  * node from consideration.
@@ -15,7 +15,7 @@ export const BASE_SCORE = 1000;
 /**
  * Context passed to a rule's `evaluate()` callback. Captures everything
  * a rule might need to decide whether the node should be excluded or
- * deprioritised — node + position info, parent + siblings, depth, plus
+ * deprioritised - node + position info, parent + siblings, depth, plus
  * the live editor view for ad-hoc DOM queries.
  */
 export interface RuleContext {
