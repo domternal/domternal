@@ -303,7 +303,14 @@ describe('SlashCommand - re-entrant dispatch suppression', () => {
   it('renderer command callback deletes /query range and dismisses popup', () => {
     // Custom renderer that captures the `command` callback so we can invoke
     // it ourselves - simulates the user clicking an item in the popup.
-    let captured: ((item: { name: string; label: string; command: string }) => void) | null = null;
+    // Wrap in an object: TS narrows a top-level `let` to `null` after
+    // initialization (closure-side reassignments aren't tracked by control
+    // flow analysis), so a plain `let captured: Fn | null = null` would
+    // fail typecheck at the call site below with "Type 'never' is not
+    // callable". Property access on an object skips that narrowing.
+    const cell: { captured: ((item: { name: string; label: string; command: string }) => void) | null } = {
+      captured: null,
+    };
     const customExt = SlashCommand.configure({
       // Inject a custom item so executeItem has something to run.
       items: () => [
@@ -311,10 +318,10 @@ describe('SlashCommand - re-entrant dispatch suppression', () => {
       ],
       render: () => ({
         onStart: (props): void => {
-          captured = props.command as typeof captured;
+          cell.captured = props.command;
         },
         onUpdate: (props): void => {
-          captured = props.command as typeof captured;
+          cell.captured = props.command;
         },
         onExit: () => { /* noop */ },
         onKeyDown: () => false,
@@ -332,11 +339,11 @@ describe('SlashCommand - re-entrant dispatch suppression', () => {
 
     editor.view.dispatch(editor.state.tr.insertText('/'));
     expect(slashCommandPluginKey.getState(editor.state)?.active).toBe(true);
-    expect(captured).not.toBeNull();
+    expect(cell.captured).not.toBeNull();
 
     // Invoke the captured command - this exercises the inner closure body
     // (delete query range + dismiss meta + executeItem).
-    captured?.({ name: 'h1', label: 'Heading 1', command: 'toggleHeading' });
+    cell.captured?.({ name: 'h1', label: 'Heading 1', command: 'toggleHeading' });
 
     // Popup should be dismissed.
     const after = slashCommandPluginKey.getState(editor.state);
@@ -346,11 +353,13 @@ describe('SlashCommand - re-entrant dispatch suppression', () => {
   });
 
   it('renderer command callback is a no-op when popup state has no range', () => {
-    let captured: ((item: { name: string; label: string; command: string }) => void) | null = null;
+    const cell: { captured: ((item: { name: string; label: string; command: string }) => void) | null } = {
+      captured: null,
+    };
     const customExt = SlashCommand.configure({
       items: () => [{ name: 'h1', label: 'Heading 1', command: 'toggleHeading' }],
       render: () => ({
-        onStart: (props): void => { captured = props.command as typeof captured; },
+        onStart: (props): void => { cell.captured = props.command; },
         onUpdate: () => { /* noop */ },
         onExit: () => { /* noop */ },
         onKeyDown: () => false,
@@ -367,13 +376,13 @@ describe('SlashCommand - re-entrant dispatch suppression', () => {
     });
 
     editor.view.dispatch(editor.state.tr.insertText('/'));
-    expect(captured).not.toBeNull();
+    expect(cell.captured).not.toBeNull();
 
     // Dismiss FIRST so plugin state.range becomes null, then invoke the
     // captured command - early-return branch (`if (!current?.range) return;`).
     dismissSlashCommand(editor.view);
     expect(() => {
-      captured?.({ name: 'h1', label: 'Heading 1', command: 'toggleHeading' });
+      cell.captured?.({ name: 'h1', label: 'Heading 1', command: 'toggleHeading' });
     }).not.toThrow();
     expect(slashCommandPluginKey.getState(editor.state)?.active).toBe(false);
   });
