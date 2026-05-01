@@ -369,6 +369,326 @@ test.describe('Drag & drop — side-effects during the drag lifecycle', () => {
 test.describe('Drag & drop — safety rails', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
+  test('drop indicator hides when cursor leaves the editor drop zone (top edge)', async ({ page }) => {
+    await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
+    const first = page.locator(`${editorSelector} p:has-text("Alpha")`);
+    await first.hover();
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+
+    const editorBox = await page.locator('.dm-editor').boundingBox();
+    expect(editorBox).not.toBeNull();
+    if (!editorBox) return;
+
+    // Just inside top → shows
+    const innerTop = await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('dragover', { bubbles: true, clientX: x, clientY: y }));
+      return document.querySelector('.dm-block-drop-indicator')?.hasAttribute('data-show');
+    }, { x: editorBox.x + editorBox.width / 2, y: editorBox.y + 5 });
+    expect(innerTop).toBe(true);
+
+    // Far above editor → hides
+    const aboveEditor = await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('dragover', { bubbles: true, clientX: x, clientY: y }));
+      return document.querySelector('.dm-block-drop-indicator')?.hasAttribute('data-show');
+    }, { x: editorBox.x + editorBox.width / 2, y: editorBox.y - 100 });
+    expect(aboveEditor).toBe(false);
+
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+  });
+
+  test('drop indicator hides when cursor leaves the editor drop zone (bottom edge)', async ({ page }) => {
+    await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
+    const first = page.locator(`${editorSelector} p:has-text("Alpha")`);
+    await first.hover();
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+
+    const editorBox = await page.locator('.dm-editor').boundingBox();
+    expect(editorBox).not.toBeNull();
+    if (!editorBox) return;
+
+    // Far below editor → hides
+    const belowEditor = await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('dragover', { bubbles: true, clientX: x, clientY: y }));
+      return document.querySelector('.dm-block-drop-indicator')?.hasAttribute('data-show');
+    }, { x: editorBox.x + editorBox.width / 2, y: editorBox.y + editorBox.height + 200 });
+    expect(belowEditor).toBe(false);
+
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+  });
+
+  test('drop indicator hides when cursor leaves the editor drop zone (right edge)', async ({ page }) => {
+    await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
+    const first = page.locator(`${editorSelector} p:has-text("Alpha")`);
+    await first.hover();
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+
+    const editorBox = await page.locator('.dm-editor').boundingBox();
+    expect(editorBox).not.toBeNull();
+    if (!editorBox) return;
+
+    // Far right of editor → hides
+    const rightOfEditor = await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('dragover', { bubbles: true, clientX: x, clientY: y }));
+      return document.querySelector('.dm-block-drop-indicator')?.hasAttribute('data-show');
+    }, { x: editorBox.x + editorBox.width + 200, y: editorBox.y + editorBox.height / 2 });
+    expect(rightOfEditor).toBe(false);
+
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+  });
+
+  test('drop indicator shows in the handle gutter (left of editor padding box)', async ({ page }) => {
+    // The handle visually lives in a left gutter outside .dm-editor's
+    // padding box (negative `left` in CSS). The drop zone gate must
+    // include this gutter — otherwise dragging FROM the handle would
+    // hide the indicator the moment the cursor sat over the handle.
+    await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
+    const first = page.locator(`${editorSelector} p:has-text("Alpha")`);
+    await first.hover();
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+
+    const editorBox = await page.locator('.dm-editor').boundingBox();
+    expect(editorBox).not.toBeNull();
+    if (!editorBox) return;
+
+    // 40px left of editor (within handle gutter, ≤ 80px tolerance) → shows
+    const inGutter = await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('dragover', { bubbles: true, clientX: x, clientY: y }));
+      return document.querySelector('.dm-block-drop-indicator')?.hasAttribute('data-show');
+    }, { x: editorBox.x - 40, y: editorBox.y + editorBox.height / 2 });
+    expect(inGutter).toBe(true);
+
+    // 200px left of editor (way past the gutter) → hides
+    const farLeft = await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('dragover', { bubbles: true, clientX: x, clientY: y }));
+      return document.querySelector('.dm-block-drop-indicator')?.hasAttribute('data-show');
+    }, { x: editorBox.x - 200, y: editorBox.y + editorBox.height / 2 });
+    expect(farLeft).toBe(false);
+
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+  });
+
+  test('drop indicator round-trips: inside → outside → inside restores it', async ({ page }) => {
+    await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
+    const first = page.locator(`${editorSelector} p:has-text("Alpha")`);
+    await first.hover();
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+
+    const insideBox = await first.boundingBox();
+    expect(insideBox).not.toBeNull();
+    if (!insideBox) return;
+
+    const probe = async (x: number, y: number): Promise<boolean | undefined> =>
+      page.evaluate(({ cx, cy }) => {
+        document.dispatchEvent(new DragEvent('dragover', { bubbles: true, clientX: cx, clientY: cy }));
+        return document.querySelector('.dm-block-drop-indicator')?.hasAttribute('data-show');
+      }, { cx: x, cy: y });
+
+    // Show
+    expect(await probe(insideBox.x + insideBox.width / 2, insideBox.y + insideBox.height * 0.8)).toBe(true);
+    // Hide
+    expect(await probe(5, 5)).toBe(false);
+    // Show again
+    expect(await probe(insideBox.x + insideBox.width / 2, insideBox.y + insideBox.height * 0.8)).toBe(true);
+    // Hide again
+    expect(await probe(5, 5)).toBe(false);
+    // Show again
+    expect(await probe(insideBox.x + insideBox.width / 2, insideBox.y + insideBox.height * 0.8)).toBe(true);
+
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+  });
+
+  test('drop indicator hides when cursor leaves the editor drop zone (and reappears on re-entry)', async ({ page }) => {
+    // The dragover listener is document-wide (so it catches cursor in the
+    // side gutter where the handle lives). But the browser only fires the
+    // `drop` event on the element under the cursor at release — if that's
+    // outside `.dm-editor`, PM's handleDrop never runs and nothing
+    // happens. We must NOT promise a drop when one cannot succeed.
+    await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
+    const first = page.locator(`${editorSelector} p:has-text("Alpha")`);
+    await first.hover();
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+
+    // 1. Cursor INSIDE editor → indicator shows.
+    const insideBox = await first.boundingBox();
+    expect(insideBox).not.toBeNull();
+    if (!insideBox) return;
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt,
+      clientX: insideBox.x + insideBox.width / 2,
+      clientY: insideBox.y + insideBox.height * 0.8,
+    });
+    await expect(page.locator('.dm-block-drop-indicator')).toHaveAttribute('data-show', '');
+
+    // 2. Cursor FAR OUTSIDE editor (top-left corner of viewport) →
+    // indicator hidden. Synthesise the dragover via document.dispatchEvent
+    // so the document-level listener attached during dragstart receives
+    // it regardless of which element happens to be under the cursor.
+    const afterOutside = await page.evaluate(() => {
+      const evt = new DragEvent('dragover', { bubbles: true, cancelable: true, clientX: 5, clientY: 5 });
+      document.dispatchEvent(evt);
+      return document.querySelector('.dm-block-drop-indicator')?.hasAttribute('data-show');
+    });
+    expect(afterOutside).toBe(false);
+
+    // 3. Cursor BACK inside editor → indicator restored.
+    const afterInside = await page.evaluate(({ x, y }) => {
+      const evt = new DragEvent('dragover', { bubbles: true, cancelable: true, clientX: x, clientY: y });
+      document.dispatchEvent(evt);
+      return document.querySelector('.dm-block-drop-indicator')?.hasAttribute('data-show');
+    }, { x: insideBox.x + insideBox.width / 2, y: insideBox.y + insideBox.height * 0.8 });
+    expect(afterInside).toBe(true);
+
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+  });
+
+  test('drop in the handle gutter (outside .ProseMirror, inside drop zone) reorders the block', async ({ page }) => {
+    // The user's bug: cursor was in the left gutter (where the BlockHandle
+    // visually sits at `left: -3.5rem`), the indicator showed a "drop will
+    // land here" line, but releasing the mouse did nothing. Browser's
+    // `drop` event fires on the element under the cursor — in the gutter,
+    // that's `.notion-page` or `body`, NOT `.ProseMirror`, so PM's
+    // `handleDrop` never ran. Fix: document-level drop listener performs
+    // the move when the cursor is in our drop zone but outside PM's view.
+    await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
+    const first = page.locator(`${editorSelector} p:has-text("Alpha")`);
+    const third = page.locator(`${editorSelector} p:has-text("Charlie")`);
+    await first.hover();
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    // Let the `setTimeout(0)` inside `onDragStart` commit `draggedFrom`
+    // to plugin state. Without it `performBlockDrop` reads null and bails.
+    await page.waitForTimeout(20);
+
+    const editorBox = await page.locator('.dm-editor').boundingBox();
+    const thirdBox = await third.boundingBox();
+    expect(editorBox).not.toBeNull();
+    expect(thirdBox).not.toBeNull();
+    if (!editorBox || !thirdBox) return;
+
+    // Cursor is 40px LEFT of `.dm-editor` (in the handle gutter), at the
+    // vertical mid-point of "Charlie" — so insertAfter is true and the
+    // block should land at the end of the doc.
+    const gutterX = editorBox.x - 40;
+    const targetY = thirdBox.y + thirdBox.height * 0.8;
+
+    // Multiple separate `evaluate` round-trips are CRITICAL: the
+    // dragstart handler scheduled a `setTimeout(0)` that commits
+    // `draggedFrom` to plugin state. Each await between Playwright calls
+    // yields back to the browser long enough for that timer to fire.
+    // Single combined evaluate would race ahead of the commit and
+    // `performBlockDrop` would bail with `draggedFrom === null`.
+    await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+    }, { x: gutterX, y: targetY });
+    await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+    }, { x: gutterX, y: targetY });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+
+    const blocks = await getBlocks(page);
+    expect(blocks.map((b) => b.text)).toEqual(['Bravo', 'Charlie', 'Alpha']);
+    await dt.dispose();
+  });
+
+  test('drop in .ProseMirror is handled exactly once (no double-drop with document listener)', async ({ page }) => {
+    // Both PM's handleDrop AND the document-level drop listener could
+    // theoretically run for the same release when the cursor is over PM.
+    // PM runs first (target = view.dom), preventDefault is called, our
+    // doc listener sees `defaultPrevented === true` and bails. End state
+    // is one block move, not two.
+    await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
+    const first = page.locator(`${editorSelector} p:has-text("Alpha")`);
+    const third = page.locator(`${editorSelector} p:has-text("Charlie")`);
+    await first.hover();
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+
+    const thirdBox = await third.boundingBox();
+    expect(thirdBox).not.toBeNull();
+    if (!thirdBox) return;
+
+    // Drop directly on .ProseMirror (PM's normal handleDrop path).
+    const cx = thirdBox.x + thirdBox.width / 2;
+    const cy = thirdBox.y + thirdBox.height * 0.8;
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX: cx, clientY: cy });
+    await page.locator(editorSelector).dispatchEvent('drop', { dataTransfer: dt, clientX: cx, clientY: cy });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+
+    const blocks = await getBlocks(page);
+    // Single move: Alpha goes after Charlie. NOT double-moved.
+    expect(blocks.map((b) => b.text)).toEqual(['Bravo', 'Charlie', 'Alpha']);
+    expect(blocks).toHaveLength(3);
+    await dt.dispose();
+  });
+
+  test('drop OUTSIDE drop zone is a no-op even with the new document drop listener', async ({ page }) => {
+    // Far outside the editor (corner of viewport) — gate fails, doc
+    // listener bails, dragend fires without a move. Critical: the new
+    // global drop listener must not "rescue" drops that the user
+    // intentionally cancelled by dragging way out of the editor.
+    await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
+    const first = page.locator(`${editorSelector} p:has-text("Alpha")`);
+    const blocksBefore = await getBlocks(page);
+    await first.hover();
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    await page.evaluate(() => {
+      document.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, clientX: 5, clientY: 5 }));
+      document.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, clientX: 5, clientY: 5 }));
+    });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    const blocksAfter = await getBlocks(page);
+    expect(blocksAfter.map((b) => b.text)).toEqual(blocksBefore.map((b) => b.text));
+    await dt.dispose();
+  });
+
+  test('release outside the drop zone is a no-op (cancel gesture)', async ({ page }) => {
+    // Companion to the test above: when the user drops outside the
+    // editor, the document is unchanged. This pairs with the indicator
+    // gate to make "drag out → release" a natural cancel motion (matches
+    // Notion, Google Docs, Finder file drag).
+    await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
+    const first = page.locator(`${editorSelector} p:has-text("Alpha")`);
+    const blocksBefore = await getBlocks(page);
+    await first.hover();
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    // Drop event on `body` (outside the editor) — PM's handleDrop never
+    // runs because the event doesn't bubble through `.dm-editor`.
+    await page.locator('body').dispatchEvent('drop', { dataTransfer: dt, clientX: 5, clientY: 5 });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    const blocksAfter = await getBlocks(page);
+    expect(blocksAfter.map((b) => b.text)).toEqual(blocksBefore.map((b) => b.text));
+    await dt.dispose();
+  });
+
   test('drop indicator stays anchored at the same Y across the entire inter-block gap', async ({ page }) => {
     // Two top-level blocks with native CSS margins (h2 → p). The user's
     // bug report: dragging in the gap between them showed two distinct
@@ -437,7 +757,7 @@ test.describe('Drag & drop — safety rails', () => {
     await page.locator(`${editorSelector} p`).first().hover();
     await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { view: { state: { tr: unknown }; dispatch: (tr: unknown) => void; state: { plugins: Array<{ spec: { key?: { key: string } } }> } } }
+        | { view: { state: { tr: unknown; plugins: Array<{ spec: { key?: { key: string } } }> }; dispatch: (tr: unknown) => void } }
         | undefined;
       if (!ed) return;
       // Find the BlockHandle plugin key and null out its hoveredPos.

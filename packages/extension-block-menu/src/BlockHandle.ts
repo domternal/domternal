@@ -750,9 +750,94 @@ export function createBlockHandlePlugin(
   const onDocumentDragover = (event: DragEvent): void => {
     lastDragoverClientY = event.clientY;
     lastDragoverAt = performance.now();
+    const inZone = isCursorOverDropZone(event.clientX, event.clientY);
+    // CRITICAL: when the cursor is in our drop zone (incl. the gutter
+    // outside `.ProseMirror`'s padding box), we MUST call preventDefault
+    // on dragover. Without it, the browser refuses to fire the subsequent
+    // `drop` event on non-PM targets (notion-page, body, etc.) — the
+    // user's release becomes a silent no-op. With it, drop fires on
+    // whatever element is under the cursor; bubbles up to our document
+    // drop listener, which performs the move.
+    if (inZone) event.preventDefault();
     if (dropIndicator) {
+      if (!inZone) {
+        indicator.removeAttribute('data-show');
+        return;
+      }
       updateDropIndicator(event.clientX, event.clientY);
     }
+  };
+
+  /**
+   * Document-level drop listener. Catches drops that happened OUTSIDE
+   * `.ProseMirror` (handle gutter, notion-page padding) but INSIDE our
+   * indicator zone — places where the user just saw a "drop will land
+   * here" line and reasonably expects the release to take effect.
+   *
+   * Bubbles after PM's own handler (registered on `view.dom`); when PM
+   * handled the drop already we see `event.defaultPrevented === true`
+   * and bail to avoid double-processing. When PM didn't see the drop
+   * (cursor was in the gutter, target is `.notion-page` or similar)
+   * `defaultPrevented` is false and we run the same drop logic ourselves.
+   */
+  const onDocumentDrop = (event: DragEvent): void => {
+    if (event.defaultPrevented) return;
+    const view = editor.view;
+    const dragging = (view as unknown as PMViewWithDragging).dragging;
+    if (!dragging) return;
+    if (!isCursorOverDropZone(event.clientX, event.clientY)) return;
+    if (performBlockDrop(event.clientX, event.clientY)) {
+      event.preventDefault();
+    }
+  };
+
+  /**
+   * Shared drop logic — runs from both PM's `handleDrop` (when cursor
+   * is over `.ProseMirror`) and our document-level drop listener (when
+   * cursor is in the gutter/margin area but still inside the indicator
+   * zone). Returns `true` when a move was dispatched, so callers can
+   * decide whether to `preventDefault()` on the source event.
+   */
+  const performBlockDrop = (clientX: number, clientY: number): boolean => {
+    const view = editor.view;
+    const state = pluginKey.getState(view.state);
+    const draggedFrom = state?.draggedFrom ?? null;
+    if (draggedFrom === null) return false;
+    const sourceNode = view.state.doc.nodeAt(draggedFrom);
+    if (!sourceNode) return false;
+    const placement = computeDropPlacement(view, clientX, clientY, nested);
+    if (!placement) return false;
+    const targetNode = view.state.doc.nodeAt(placement.pos);
+    const targetEnd = targetNode ? placement.pos + targetNode.nodeSize : placement.pos;
+    const targetPos = placement.insertAfter ? targetEnd : placement.pos;
+    const tr = view.state.tr;
+    moveBlock(tr, draggedFrom, targetPos);
+    view.dispatch(tr.scrollIntoView());
+    return true;
+  };
+
+  /**
+   * Defines the rectangle in which a drop on the editor will succeed.
+   * Equals `.dm-editor`'s bounding box extended by:
+   * - `80px` on the left to cover the gutter where the BlockHandle
+   *   visually sits (negative `left` positioned outside the padding box)
+   * - `16px` top/right/bottom for tolerance against subpixel jitter and
+   *   small CSS margins immediately outside the editor
+   *
+   * Hardcoded so the gate stays predictable regardless of how callers
+   * style the wrapper (`.notion-page`, custom hosts). Callers that want a
+   * different threshold can swap the indicator behaviour by overriding
+   * `dropIndicator: false` and rendering their own visual.
+   */
+  const isCursorOverDropZone = (clientX: number, clientY: number): boolean => {
+    if (!editorEl) return false;
+    const rect = editorEl.getBoundingClientRect();
+    const TOL_LEFT = 80;
+    const TOL = 16;
+    return clientX >= rect.left - TOL_LEFT
+      && clientX <= rect.right + TOL
+      && clientY >= rect.top - TOL
+      && clientY <= rect.bottom + TOL;
   };
 
   /**
@@ -806,17 +891,20 @@ export function createBlockHandlePlugin(
   };
 
   let dragoverAttached = false;
-  /** Register a single document-level dragover listener for the active
-   * drag. Shared by auto-scroll AND drop-indicator features so they stay
-   * in lockstep without double-listening. */
+  /** Register document-level dragover + drop listeners for the active
+   * drag. Shared by auto-scroll AND drop-indicator AND the
+   * gutter-area drop handling so they stay in lockstep without
+   * double-listening. */
   const startDragListeners = (): void => {
     if (dragoverAttached) return;
     document.addEventListener('dragover', onDocumentDragover);
+    document.addEventListener('drop', onDocumentDrop);
     dragoverAttached = true;
   };
   const stopDragListeners = (): void => {
     if (!dragoverAttached) return;
     document.removeEventListener('dragover', onDocumentDragover);
+    document.removeEventListener('drop', onDocumentDrop);
     dragoverAttached = false;
   };
 
@@ -1014,28 +1102,19 @@ export function createBlockHandlePlugin(
       // The `moveBlock` helper handles the delete+insert + position
       // adjustment so the block keeps its attrs (UniqueID, colors) and
       // the doc ends up in a predictable state.
-      handleDrop(view, event, _slice, moved): boolean {
+      handleDrop(_view, event, _slice, moved): boolean {
         if (!moved) return false;
-        const state = pluginKey.getState(view.state);
-        const draggedFrom = state?.draggedFrom ?? null;
-        if (draggedFrom === null) return false;
-
-        const sourceNode = view.state.doc.nodeAt(draggedFrom);
-        if (!sourceNode) { event.preventDefault(); return true; }
-
-        // Shared placement helper — used by the visual indicator too, so
-        // the drop lands EXACTLY where the user saw the line.
-        const placement = computeDropPlacement(view, event.clientX, event.clientY, nested);
-        if (!placement) { event.preventDefault(); return true; }
-
-        const targetNode = view.state.doc.nodeAt(placement.pos);
-        const targetEnd = targetNode ? placement.pos + targetNode.nodeSize : placement.pos;
-        const targetPos = placement.insertAfter ? targetEnd : placement.pos;
-
+        // Delegates to the shared `performBlockDrop`, which is also used
+        // by the document-level drop listener so the same move logic runs
+        // whether the drop fired on `.ProseMirror` (this path) or on
+        // surrounding chrome inside our indicator zone (doc listener).
+        if (performBlockDrop(event.clientX, event.clientY)) {
+          event.preventDefault();
+          return true;
+        }
+        // Source node missing, no resolved placement — still consume
+        // the event so PM doesn't fall back to its default drop logic.
         event.preventDefault();
-        const tr = view.state.tr;
-        moveBlock(tr, draggedFrom, targetPos);
-        view.dispatch(tr.scrollIntoView());
         return true;
       },
     },
