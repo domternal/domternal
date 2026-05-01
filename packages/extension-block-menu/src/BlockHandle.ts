@@ -395,6 +395,18 @@ function adjustDropTargetForListWrapper(
  *   AND whether the drop pos becomes `pos + nodeSize` or `pos`
  *
  * Returns `null` when the resolver finds no candidate (e.g. empty doc).
+ *
+ * **Inter-block gap normalization.** When the cursor sits in the gap
+ * between two siblings, `resolveBlockAtCoords` flips between them based
+ * on Y proximity. Without normalization the indicator would draw at two
+ * different rect edges (upper.bottom vs lower.top) — visually two lines
+ * for what is the SAME logical drop slot (PM treats `endOf(upper)` and
+ * `startOf(lower)` as one position in the parent's content array). To
+ * unify the visual we canonicalise `insertAfter=false` to "after the
+ * previous sibling" whenever a previous sibling exists at the same depth.
+ * Net effect: one gap → one line, anchored at the bottom edge of the
+ * upper block, with the upper block's width (which equals the lower's
+ * for prose at the same depth, so the line spans the content column).
  */
 function computeDropPlacement(
   view: EditorView,
@@ -407,7 +419,42 @@ function computeDropPlacement(
   const resolved = adjustDropTargetForListWrapper(view, initial, clientY);
   const rect = resolved.rect;
   const midY = rect.top + rect.height / 2;
-  return { pos: resolved.pos, rect, insertAfter: clientY > midY };
+  const insertAfter = clientY > midY;
+
+  if (!insertAfter) {
+    const prev = findPreviousSiblingAtSameDepth(view, resolved.pos);
+    if (prev) {
+      return { pos: prev.pos, rect: prev.rect, insertAfter: true };
+    }
+  }
+  return { pos: resolved.pos, rect, insertAfter };
+}
+
+/**
+ * Returns the previous sibling at the same parent depth as `pos` (which
+ * must be the position immediately BEFORE a node — same convention as
+ * `nodeAt`). Returns `null` when the node has no previous sibling (it's
+ * the first child of its parent) or when the previous sibling has no DOM
+ * representation.
+ *
+ * Works for any depth: top-level blocks resolve against `doc`; nested
+ * blocks (list items, table cells) resolve against their immediate
+ * container — so the canonical "between" position is always the upper
+ * sibling within the SAME container, never crossing container boundaries.
+ */
+function findPreviousSiblingAtSameDepth(
+  view: EditorView,
+  pos: number,
+): { pos: number; rect: DOMRect } | null {
+  const doc = view.state.doc;
+  if (pos <= 0) return null;
+  const $pos = doc.resolve(pos);
+  if ($pos.index() === 0) return null;
+  const prevNode = $pos.parent.child($pos.index() - 1);
+  const prevPos = pos - prevNode.nodeSize;
+  const prevDom = view.nodeDOM(prevPos);
+  if (!(prevDom instanceof HTMLElement)) return null;
+  return { pos: prevPos, rect: prevDom.getBoundingClientRect() };
 }
 
 /**

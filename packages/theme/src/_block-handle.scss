@@ -150,6 +150,12 @@
   display: none;
   // Slight glow so the line reads on top of any background colour.
   box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.15);
+  // Nudge the line a few pixels DOWN from the upper block's bottom edge so
+  // it visually sits in the gap between blocks rather than glued to the
+  // block above. Visual-only (transform doesn't shift layout) so the
+  // computed `top` from JS still reflects the true anchor — the indicator
+  // and the actual drop position stay in sync.
+  transform: translateY(3px);
 
   &[data-show] {
     display: block;

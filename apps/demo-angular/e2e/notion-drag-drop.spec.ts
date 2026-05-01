@@ -369,6 +369,62 @@ test.describe('Drag & drop — side-effects during the drag lifecycle', () => {
 test.describe('Drag & drop — safety rails', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
+  test('drop indicator stays anchored at the same Y across the entire inter-block gap', async ({ page }) => {
+    // Two top-level blocks with native CSS margins (h2 → p). The user's
+    // bug report: dragging in the gap between them showed two distinct
+    // indicator lines as the cursor crossed the gap midpoint, even
+    // though both resolve to the SAME drop slot. Fix canonicalises the
+    // resolved placement to the upper block + insertAfter=true, so the
+    // indicator's `top` should stay constant anywhere in the gap.
+    await setContent(page, '<h2>Heading</h2><p>Paragraph</p><p>Tail</p>');
+    const heading = page.locator(`${editorSelector} h2:has-text("Heading")`);
+    const paragraph = page.locator(`${editorSelector} p:has-text("Paragraph")`);
+
+    await heading.hover();
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+
+    const headingBox = await heading.boundingBox();
+    const paragraphBox = await paragraph.boundingBox();
+    expect(headingBox).not.toBeNull();
+    expect(paragraphBox).not.toBeNull();
+    if (!headingBox || !paragraphBox) return;
+
+    const gapTop = headingBox.y + headingBox.height;
+    const gapBottom = paragraphBox.y;
+    expect(gapBottom).toBeGreaterThan(gapTop);
+    const gapMid = (gapTop + gapBottom) / 2;
+
+    // Three cursor positions: heading's lower half, mid-gap, paragraph's
+    // upper half. Pre-fix the indicator jumped between heading.bottom
+    // and paragraph.top across these three points.
+    const samples = [
+      headingBox.y + headingBox.height * 0.8,
+      gapMid,
+      paragraphBox.y + paragraphBox.height * 0.2,
+    ];
+    const observedTops: string[] = [];
+    for (const clientY of samples) {
+      const clientX = headingBox.x + headingBox.width / 2;
+      await page.locator(editorSelector).dispatchEvent('dragover', {
+        dataTransfer: dt,
+        clientX,
+        clientY,
+      });
+      const top = await page.locator('.dm-block-drop-indicator').evaluate((el) => (el as HTMLElement).style.top);
+      observedTops.push(top);
+    }
+
+    // All three samples should yield the EXACT same indicator Y — the
+    // fix collapses both halves of the gap to a single canonical line.
+    expect(new Set(observedTops).size).toBe(1);
+
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+  });
+
   test('dragstart without a resolved hover is cancelled (no reorder)', async ({ page }) => {
     await setContent(page, '<p>A</p><p>B</p>');
     // Reset the plugin hovered state explicitly via a no-op meta commit — no
