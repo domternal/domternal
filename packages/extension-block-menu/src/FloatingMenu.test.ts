@@ -2,7 +2,14 @@
  * Tests for FloatingMenu extension
  */
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
-import { FloatingMenu, floatingMenuPluginKey, createFloatingMenuPlugin } from './FloatingMenu.js';
+import {
+  FloatingMenu,
+  floatingMenuPluginKey,
+  createFloatingMenuPlugin,
+  showFloatingMenu,
+  hideFloatingMenu,
+  FLOATING_MENU_META,
+} from './FloatingMenu.js';
 import { Document, Text, Paragraph, Heading, Editor } from '@domternal/core';
 import { PluginKey, TextSelection } from '@domternal/pm/state';
 
@@ -1026,6 +1033,310 @@ describe('FloatingMenu', () => {
 
       host.dispatchEvent(new Event('dm:dismiss-overlays'));
       expect(element.hasAttribute('data-show')).toBe(false);
+    });
+  });
+
+  // =========================================================================
+  // showFloatingMenu / hideFloatingMenu programmatic API
+  // =========================================================================
+  describe('showFloatingMenu / hideFloatingMenu', () => {
+    let editor: Editor | undefined;
+    let host: HTMLElement;
+
+    beforeEach(() => {
+      host = document.createElement('div');
+      host.className = 'dm-editor';
+      document.body.appendChild(host);
+    });
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+      host.remove();
+    });
+
+    it('showFloatingMenu dispatches the show meta', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, FloatingMenu.configure({ element, shouldShow: () => false })],
+        content: '<p></p>',
+      });
+
+      const dispatch = vi.spyOn(editor.view, 'dispatch');
+      showFloatingMenu(editor.view);
+
+      expect(dispatch).toHaveBeenCalled();
+      const tr = dispatch.mock.calls[0]?.[0];
+      expect(tr?.getMeta(FLOATING_MENU_META)).toBe('show');
+    });
+
+    it('hideFloatingMenu dispatches the hide meta', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, FloatingMenu.configure({ element, shouldShow: () => false })],
+        content: '<p></p>',
+      });
+
+      const dispatch = vi.spyOn(editor.view, 'dispatch');
+      hideFloatingMenu(editor.view);
+
+      expect(dispatch).toHaveBeenCalled();
+      const tr = dispatch.mock.calls[0]?.[0];
+      expect(tr?.getMeta(FLOATING_MENU_META)).toBe('hide');
+    });
+
+    it('plugin state apply: show meta sets triggered=true', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, FloatingMenu.configure({ element, shouldShow: () => false })],
+        content: '<p></p>',
+      });
+
+      showFloatingMenu(editor.view);
+      const state = floatingMenuPluginKey.getState(editor.state) as { triggered: boolean } | undefined;
+      expect(state?.triggered).toBe(true);
+    });
+
+    it('plugin state apply: hide meta sets triggered=false', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, FloatingMenu.configure({ element, shouldShow: () => false })],
+        content: '<p></p>',
+      });
+
+      showFloatingMenu(editor.view);
+      hideFloatingMenu(editor.view);
+      const state = floatingMenuPluginKey.getState(editor.state) as { triggered: boolean } | undefined;
+      expect(state?.triggered).toBe(false);
+    });
+
+    it('plugin state apply: unrelated meta value leaves state untouched', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, FloatingMenu.configure({ element, shouldShow: () => false })],
+        content: '<p></p>',
+      });
+
+      showFloatingMenu(editor.view);
+      // Garbage meta value goes through `apply` and falls into the "return prev" branch.
+      editor.view.dispatch(editor.view.state.tr.setMeta(FLOATING_MENU_META, 'garbage' as unknown as 'show'));
+      const state = floatingMenuPluginKey.getState(editor.state) as { triggered: boolean } | undefined;
+      expect(state?.triggered).toBe(true);
+    });
+  });
+
+  // =========================================================================
+  // requireExplicitTrigger flow (Notion-style empty-line behaviour)
+  // =========================================================================
+  describe('requireExplicitTrigger', () => {
+    let editor: Editor | undefined;
+    let host: HTMLElement;
+    let originalGetClientRects: typeof Element.prototype.getClientRects;
+
+    beforeEach(() => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      originalGetClientRects = Element.prototype.getClientRects;
+      Element.prototype.getClientRects = function () {
+        return [] as unknown as DOMRectList;
+      };
+      host = document.createElement('div');
+      host.className = 'dm-editor';
+      document.body.appendChild(host);
+    });
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+      host.remove();
+      Element.prototype.getClientRects = originalGetClientRects;
+    });
+
+    it('menu stays hidden on empty paragraph until showFloatingMenu fires', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [
+          Document,
+          Text,
+          Paragraph,
+          FloatingMenu.configure({ element, shouldShow: () => true, requireExplicitTrigger: true }),
+        ],
+        content: '<p></p>',
+      });
+
+      // shouldShow is `() => true` but the explicit-trigger gate keeps the
+      // menu hidden until something dispatches the `show` meta.
+      expect(element.hasAttribute('data-show')).toBe(false);
+    });
+
+    it('showFloatingMenu makes the menu visible when shouldShow agrees', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [
+          Document,
+          Text,
+          Paragraph,
+          FloatingMenu.configure({ element, shouldShow: () => true, requireExplicitTrigger: true }),
+        ],
+        content: '<p></p>',
+      });
+
+      showFloatingMenu(editor.view);
+      expect(element.hasAttribute('data-show')).toBe(true);
+    });
+
+    it('moving away from empty paragraph auto-clears triggered state', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [
+          Document,
+          Text,
+          Paragraph,
+          FloatingMenu.configure({
+            element,
+            // Only show on empty paragraphs; once the user types, shouldShow → false.
+            shouldShow: ({ state }): boolean => {
+              const { $from, empty } = state.selection;
+              return empty && $from.parent.type.name === 'paragraph' && $from.parent.content.size === 0;
+            },
+            requireExplicitTrigger: true,
+          }),
+        ],
+        content: '<p></p>',
+      });
+
+      showFloatingMenu(editor.view);
+      expect(element.hasAttribute('data-show')).toBe(true);
+
+      // Type a character → paragraph no longer empty → shouldShow=false →
+      // update path hides the menu AND auto-clears triggered.
+      editor.view.dispatch(editor.view.state.tr.insertText('x'));
+      expect(element.hasAttribute('data-show')).toBe(false);
+      const state = floatingMenuPluginKey.getState(editor.state) as { triggered: boolean } | undefined;
+      expect(state?.triggered).toBe(false);
+    });
+
+    it('dm:dismiss-overlays clears the explicit-trigger flag', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [
+          Document,
+          Text,
+          Paragraph,
+          FloatingMenu.configure({ element, shouldShow: () => true, requireExplicitTrigger: true }),
+        ],
+        content: '<p></p>',
+      });
+
+      showFloatingMenu(editor.view);
+      expect((floatingMenuPluginKey.getState(editor.state) as { triggered: boolean } | undefined)?.triggered).toBe(true);
+
+      host.dispatchEvent(new Event('dm:dismiss-overlays'));
+      expect(element.hasAttribute('data-show')).toBe(false);
+      const state = floatingMenuPluginKey.getState(editor.state) as { triggered: boolean } | undefined;
+      expect(state?.triggered).toBe(false);
+    });
+  });
+
+  // =========================================================================
+  // matchShortcut: alias variants and unknown-modifier rejection
+  // =========================================================================
+  describe('matchShortcut alias coverage', () => {
+    let editor: Editor | undefined;
+    let host: HTMLElement;
+    let originalGetClientRects: typeof Element.prototype.getClientRects;
+
+    beforeEach(() => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
+      originalGetClientRects = Element.prototype.getClientRects;
+      Element.prototype.getClientRects = function () {
+        return [] as unknown as DOMRectList;
+      };
+      host = document.createElement('div');
+      host.className = 'dm-editor';
+      document.body.appendChild(host);
+    });
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+      host.remove();
+      Element.prototype.getClientRects = originalGetClientRects;
+    });
+
+    function mountWithShortcut(shortcut: string): { element: HTMLElement; btn: HTMLButtonElement } {
+      const element = document.createElement('div');
+      const btn = document.createElement('button');
+      btn.setAttribute('data-floating-menu-item', '');
+      btn.tabIndex = 0;
+      element.appendChild(btn);
+      editor = new Editor({
+        element: host,
+        extensions: [
+          Document,
+          Text,
+          Paragraph,
+          FloatingMenu.configure({
+            element,
+            shouldShow: () => true,
+            keymap: { enterMenu: [shortcut] },
+          }),
+        ],
+        content: '<p></p>',
+      });
+      element.setAttribute('data-show', '');
+      return { element, btn };
+    }
+
+    it.each([
+      ['Ctrl-F10', { ctrlKey: true }],
+      ['ctrl-F10', { ctrlKey: true }],
+      ['Control-F10', { ctrlKey: true }],
+      ['control-F10', { ctrlKey: true }],
+      ['c-F10', { ctrlKey: true }],
+      ['Cmd-F10', { metaKey: true }],
+      ['cmd-F10', { metaKey: true }],
+      ['Meta-F10', { metaKey: true }],
+      ['meta-F10', { metaKey: true }],
+      ['m-F10', { metaKey: true }],
+      ['Alt-F10', { altKey: true }],
+      ['alt-F10', { altKey: true }],
+      ['a-F10', { altKey: true }],
+      ['shift-F10', { shiftKey: true }],
+      ['s-F10', { shiftKey: true }],
+    ])('shortcut "%s" focuses the menu item', (shortcut, modifiers) => {
+      const { btn } = mountWithShortcut(shortcut);
+      const event = new KeyboardEvent('keydown', { key: 'F10', ...modifiers });
+      editor!.view.dom.dispatchEvent(event);
+      expect(document.activeElement).toBe(btn);
+    });
+
+    it('unknown modifier in shortcut returns false (no focus, no preventDefault)', () => {
+      const { btn } = mountWithShortcut('Bogus-F10');
+      const event = new KeyboardEvent('keydown', { key: 'F10' });
+      const preventDefault = vi.spyOn(event, 'preventDefault');
+      editor!.view.dom.dispatchEvent(event);
+      expect(preventDefault).not.toHaveBeenCalled();
+      expect(document.activeElement).not.toBe(btn);
+    });
+
+    it('Space alias maps to literal " " key', () => {
+      const { btn } = mountWithShortcut('Alt-Space');
+      const event = new KeyboardEvent('keydown', { key: ' ', altKey: true });
+      editor!.view.dom.dispatchEvent(event);
+      expect(document.activeElement).toBe(btn);
+    });
+
+    it('empty shortcut string returns false (defensive bail)', () => {
+      const { btn } = mountWithShortcut('');
+      const event = new KeyboardEvent('keydown', { key: 'F10' });
+      editor!.view.dom.dispatchEvent(event);
+      expect(document.activeElement).not.toBe(btn);
     });
   });
 });

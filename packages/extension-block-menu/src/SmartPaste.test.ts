@@ -413,4 +413,76 @@ describe('SmartPaste', () => {
     expect(plugin).toBeUndefined();
     ed.destroy();
   });
+
+  // ─── List-slice into list ancestor: under-tested branches ────────────────────
+  describe('list-slice paste into existing list', () => {
+    it('paste list slice at MIDDLE of listItem text splits and inserts items as siblings', () => {
+      const editor = makeEditor('<ul><li><p>HelloWorld</p></li></ul>');
+      const slice = htmlSlice(editor, '<ul><li><p>Inserted</p></li></ul>');
+      const pPos = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'HelloWorld');
+      // Caret in middle of the text: position pPos + 1 (text start) + 5 (after "Hello").
+      pasteAtPos(editor, pPos + 1 + 5, slice);
+
+      // Expectation: list now has THREE items - "Hello", "Inserted", "World".
+      // The middle-of-text branch splits the listItem and inserts the adapted
+      // slice between the two halves.
+      const listItems: string[] = [];
+      editor.state.doc.descendants((node) => {
+        if (node.type.name === 'listItem') listItems.push(node.textContent);
+      });
+      expect(listItems).toEqual(['Hello', 'Inserted', 'World']);
+      editor.destroy();
+    });
+
+    it('paste list slice after Shift+Enter trailing hardBreak inserts items as siblings of the listItem', () => {
+      // Build a listItem whose textblock ends with a hardBreak (Shift+Enter case).
+      const editor = makeEditor('<ul><li><p>Existing</p></li></ul>');
+      // Inject hardBreak at end of "Existing" paragraph.
+      const pPos = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Existing');
+      const p = editor.state.doc.nodeAt(pPos);
+      if (!p) throw new Error('p not found');
+      const hardBreakType = editor.schema.nodes['hardBreak'];
+      if (!hardBreakType) throw new Error('hardBreak not in schema');
+      const insertAt = pPos + p.nodeSize - 1;
+      const tr = editor.state.tr.insert(insertAt, hardBreakType.create());
+      editor.view.dispatch(tr);
+
+      const slice = htmlSlice(editor, '<ul><li><p>FromPaste</p></li></ul>');
+      // Caret RIGHT AFTER the hardBreak (at the end of the paragraph).
+      const pPos2 = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Existing');
+      const p2 = editor.state.doc.nodeAt(pPos2);
+      if (!p2) throw new Error('p2 not found');
+      pasteAtPos(editor, pPos2 + p2.nodeSize - 1, slice);
+
+      const items: string[] = [];
+      editor.state.doc.descendants((node) => {
+        if (node.type.name === 'listItem') items.push(node.textContent);
+      });
+      // Original listItem keeps "Existing" (hardBreak was the trailing
+      // shift+enter); pasted item lands as a sibling AFTER it.
+      expect(items).toEqual(['Existing', 'FromPaste']);
+      editor.destroy();
+    });
+
+    it('list-slice paste with no list ancestor at caret falls through to default branches', () => {
+      // Caret in a plain paragraph (no list ancestor) - tryPasteListSliceIntoList
+      // returns false and the regular branches handle the case.
+      const editor = makeEditor('<p>Outside</p>');
+      const slice = htmlSlice(editor, '<ul><li><p>Item</p></li></ul>');
+      const pPos = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Outside');
+      const p = editor.state.doc.nodeAt(pPos);
+      if (!p) throw new Error();
+      // Caret at end of "Outside" - regular textblock-end branch.
+      pasteAtPos(editor, pPos + p.nodeSize - 1, slice);
+
+      // The list slice should still appear (regular paste path inserts
+      // it as a sibling block after the paragraph).
+      const items: string[] = [];
+      editor.state.doc.descendants((node) => {
+        if (node.type.name === 'listItem') items.push(node.textContent);
+      });
+      expect(items).toEqual(['Item']);
+      editor.destroy();
+    });
+  });
 });
