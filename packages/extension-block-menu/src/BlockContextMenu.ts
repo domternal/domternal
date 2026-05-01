@@ -154,11 +154,17 @@ export function createBlockContextMenuPlugin(
 ): Plugin {
   const { pluginKey, editor, turnIntoEnabled, turnIntoTargets, copyLinkEnabled, onCopyLink, blockColorEnabled } = options;
 
-  // Cache optional-extension detection once at plugin construction. The
-  // editor's extension list AND its options are immutable for the editor's
-  // lifetime, so there's no need to re-check on every menu open. `null`
-  // for each means the paired extension isn't loaded (and the matching
-  // menu section is hidden).
+  // Cache optional-extension detection once at plugin construction. With
+  // the standard `Extension.configure(...)` setup the extension list AND
+  // its options are immutable for the editor's lifetime, so there's no
+  // need to re-check on every menu open. `null` for each means the paired
+  // extension isn't loaded (and the matching menu section is hidden).
+  //
+  // CONSTRAINT: hosts that re-register `uniqueID` / `blockColor` at
+  // runtime (or live-mutate their options) won't see the change reflected
+  // here - the menu would still read the values it captured at construction.
+  // We don't support that flow today; if it becomes a need, move these
+  // reads inside `renderItems()` so each open re-resolves fresh state.
   const uniqueIDExt = editor.extensionManager.extensions.find((ext) => ext.name === 'uniqueID');
   const uniqueIDAttrName: string | null = uniqueIDExt
     ? ((uniqueIDExt.options as UniqueIDOptionsShape).attributeName ?? 'id')

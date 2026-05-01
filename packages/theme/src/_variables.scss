@@ -88,7 +88,9 @@
   --dm-block-text-red: #c4554d;
 
   // Halo around the currently-selected block while a drag handle is active.
-  // Used by `_block-handle.scss` via `box-shadow: 0 0 0 2px var(...)`.
+  // Used by `_block-handle.scss` as the `::before` background-color (the
+  // pseudo-element sits behind the block at `z-index: -1` so the halo
+  // never overlaps surrounding chrome the way a real outline would).
   --dm-block-selected-halo: rgba(112, 207, 248, 0.25);
 
   // ---------------------------------------------------------------------------

@@ -5,15 +5,16 @@
 
 Notion-style block manipulation extensions for the Domternal editor.
 
-This package ships five complementary block-manipulation features that all share the same `addFloatingMenuItems()` extension hook and item contract in `@domternal/core`:
+This package ships six complementary block-manipulation features that all share the same `addFloatingMenuItems()` extension hook and item contract in `@domternal/core`:
 
-- **FloatingMenu** — shows an insert menu when the cursor is on an empty paragraph.
-- **BlockHandle** — renders a gutter handle on hover: `+` to insert below, `⋮⋮` to drag-reorder or open the context menu.
-- **SlashCommand** — opens a filtered suggestion popup when the user types `/`.
-- **KeyboardReorder** — `Mod-Shift-Up` / `Mod-Shift-Down` moves the current top-level block.
-- **BlockContextMenu** — small popup with Delete, Duplicate, and Turn-into options.
+- **FloatingMenu** - shows an insert menu when the cursor is on an empty paragraph.
+- **BlockHandle** - renders a gutter handle on hover: `+` to insert below, `⋮⋮` to drag-reorder or open the context menu.
+- **SlashCommand** - opens a filtered suggestion popup when the user types `/`.
+- **KeyboardReorder** - `Mod-Shift-Up` / `Mod-Shift-Down` moves the current top-level block.
+- **BlockContextMenu** - small popup with Delete, Duplicate, Copy link, Colors, and Turn-into options.
+- **SmartPaste** - preserves block formatting (heading, codeBlock, blockquote, lists, etc.) when pasting at inline positions, instead of letting ProseMirror's default fitter strip the wrapper.
 
-All five features are opt-in — add any subset to your editor's `extensions` list.
+All six features are opt-in - add any subset to your editor's `extensions` list.
 
 ## Links
 

@@ -22,12 +22,14 @@ export {
   BlockHandle,
   createBlockHandlePlugin,
   blockHandlePluginKey,
+  DEFAULT_NESTED_NODES,
 } from './BlockHandle.js';
 
 export type {
   BlockHandleOptions,
   BlockHandlePluginState,
   CreateBlockHandlePluginOptions,
+  NestedConfig,
 } from './BlockHandle.js';
 
 // KeyboardReorder - Mod-Shift-ArrowUp/Down moves top-level block

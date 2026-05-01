@@ -68,8 +68,6 @@ import type { EditorView } from '@domternal/pm/view';
 import type { Transaction } from '@domternal/pm/state';
 import { convertListItemForParent } from './helpers/convertListItemForParent.js';
 
-const SMART_PASTE_PLUGIN_KEY = 'smartPaste';
-
 const LIST_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
 
 export interface SmartPasteOptions {
@@ -82,7 +80,7 @@ export interface SmartPasteOptions {
 }
 
 export const SmartPaste = Extension.create<SmartPasteOptions>({
-  name: SMART_PASTE_PLUGIN_KEY,
+  name: 'smartPaste',
 
   addOptions() {
     return {

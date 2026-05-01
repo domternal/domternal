@@ -38,6 +38,17 @@ import { showFloatingMenu } from './FloatingMenu.js';
 /** Default list of nodes treated as drag-targetable when `nested: true`. */
 export const DEFAULT_NESTED_NODES: string[] = ['listItem', 'taskItem'];
 
+/**
+ * Drop-zone tolerance in CSS pixels. The handle's drop zone extends
+ * `DROP_ZONE_TOL_LEFT` past the editor's left edge (so the gutter where
+ * the handle visually lives counts as a valid drop area) and `DROP_ZONE_TOL`
+ * on every other edge (subpixel jitter + small margins outside `.dm-editor`).
+ * Hardcoded so the gate stays predictable regardless of how callers style
+ * the wrapper. Override behaviour by setting `dropIndicator: false` and
+ * rendering your own visual.
+ */
+const DROP_ZONE_TOL_LEFT = 80;
+const DROP_ZONE_TOL = 16;
 
 export const blockHandlePluginKey = new PluginKey<BlockHandlePluginState>('blockHandle');
 
@@ -735,11 +746,23 @@ export function createBlockHandlePlugin(
   // Lock the handle in place from mousedown through dragend (or mouseup
   // without drag). Prevents the rAF hover loop from repositioning the
   // handle out from under the cursor during the click-vs-drag window.
+  //
+  // Mouseup is attached lazily as a one-shot ONLY for the click-without-
+  // drag path: the user pressed the drag button but never crossed the
+  // browser's drag-init threshold. The dragend path calls `releaseDragPress`
+  // directly. Keeping the listener attached for the editor's lifetime
+  // (the previous design) leaked a global handler that fired on every
+  // click anywhere in the document.
   const onDragBtnMouseDown = (): void => {
     dragPressActive = true;
+    document.addEventListener('mouseup', releaseDragPress, { once: true });
   };
   const releaseDragPress = (): void => {
     dragPressActive = false;
+    // Defensive: dragend may fire BEFORE mouseup (the common drag-success
+    // path). Remove the once-listener so the next stray mouseup anywhere
+    // in the page doesn't fire into an already-released lock.
+    document.removeEventListener('mouseup', releaseDragPress);
   };
 
   // --- Drag handle: click opens context menu, drag reorders the block.
@@ -864,26 +887,18 @@ export function createBlockHandlePlugin(
 
   /**
    * Defines the rectangle in which a drop on the editor will succeed.
-   * Equals `.dm-editor`'s bounding box extended by:
-   * - `80px` on the left to cover the gutter where the BlockHandle
-   *   visually sits (negative `left` positioned outside the padding box)
-   * - `16px` top/right/bottom for tolerance against subpixel jitter and
-   *   small CSS margins immediately outside the editor
-   *
-   * Hardcoded so the gate stays predictable regardless of how callers
-   * style the wrapper (`.notion-page`, custom hosts). Callers that want a
-   * different threshold can swap the indicator behaviour by overriding
-   * `dropIndicator: false` and rendering their own visual.
+   * Equals `.dm-editor`'s bounding box extended by `DROP_ZONE_TOL_LEFT`
+   * on the left (gutter where the BlockHandle visually sits) and
+   * `DROP_ZONE_TOL` on every other edge. See the constant declarations
+   * at the top of the file for rationale.
    */
   const isCursorOverDropZone = (clientX: number, clientY: number): boolean => {
     if (!editorEl) return false;
     const rect = editorEl.getBoundingClientRect();
-    const TOL_LEFT = 80;
-    const TOL = 16;
-    return clientX >= rect.left - TOL_LEFT
-      && clientX <= rect.right + TOL
-      && clientY >= rect.top - TOL
-      && clientY <= rect.bottom + TOL;
+    return clientX >= rect.left - DROP_ZONE_TOL_LEFT
+      && clientX <= rect.right + DROP_ZONE_TOL
+      && clientY >= rect.top - DROP_ZONE_TOL
+      && clientY <= rect.bottom + DROP_ZONE_TOL;
   };
 
   /**
@@ -920,10 +935,6 @@ export function createBlockHandlePlugin(
 
   const stopAutoScroll = (): void => {
     resetAutoScroll();
-    // Listener removed by `removeDragoverListener` (called from dragend)
-    // - keeping it here too is redundant but harmless; left in case of
-    // legacy callers.
-    document.removeEventListener('dragover', onDocumentDragover);
   };
 
   const hideDropIndicator = (): void => {
@@ -955,9 +966,13 @@ export function createBlockHandlePlugin(
       return;
     }
     // Dead-man switch: if the browser stopped sending dragover events, the
-    // drag is effectively over. Bail rather than spinning forever.
+    // drag is effectively over (some OS/browser combos eat `dragend`).
+    // Tear down the same things `onDragEnd` would so we don't leak the
+    // document-level listeners or leave a stale drop indicator visible.
     if (autoScrollState.lastAt > 0 && performance.now() - autoScrollState.lastAt > DRAGOVER_SILENCE_MS) {
       stopAutoScroll();
+      stopDragListeners();
+      hideDropIndicator();
       return;
     }
     if (autoScrollState.lastClientY !== null) {
@@ -1212,11 +1227,8 @@ export function createBlockHandlePlugin(
       // only use mousedown to set a hover-freeze lock so the handle
       // doesn't slide away before the drag threshold is crossed.
       dragBtn.addEventListener('mousedown', onDragBtnMouseDown);
-      // Fallback for the click-without-drag case: if the user presses
-      // then releases without moving, the browser fires `mouseup` but
-      // no `dragend`. Releasing the lock on document mouseup covers
-      // both paths (drag ended off-target + plain click).
-      document.addEventListener('mouseup', releaseDragPress);
+      // (mouseup is attached lazily inside `onDragBtnMouseDown` as a
+      // one-shot - see its comment for the click-vs-drag rationale.)
       dragBtn.addEventListener('click', onDragBtnClick);
       dragBtn.addEventListener('dragstart', onDragStart);
       dragBtn.addEventListener('dragend', onDragEnd);
