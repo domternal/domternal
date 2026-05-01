@@ -224,9 +224,14 @@ export function createSlashCommandPlugin(
     view(editorView) {
       // Cooperative dismissal: other overlays broadcast `dm:dismiss-overlays`
       // when they open; listen and close the slash popup so two floating
-      // menus never appear at once.
+      // menus never appear at once. We suppress the handler while WE are
+      // the one dispatching - otherwise the slash popup would dismiss
+      // itself the moment it opens (the dispatch is synchronous and reaches
+      // our own listener before `update` reaches `renderer.onStart`).
       const editorEl = editorView.dom.closest<HTMLElement>('.dm-editor');
+      let suppressDismissHandler = false;
       const dismissHandler = (): void => {
+        if (suppressDismissHandler) return;
         const state = pluginKey.getState(editor.view.state);
         if (state?.active) dismissSlashCommand(editor.view);
       };
@@ -242,11 +247,33 @@ export function createSlashCommandPlugin(
           if (!state) return;
 
           // On activation (first true after being false), broadcast dismiss
-          // to close any other overlays that might be open.
-          if (state.active && !wasActive) {
-            editorEl?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
-          }
+          // to close any other overlays that might be open. The local
+          // suppression flag prevents our own dismissHandler from firing
+          // back at us (the dispatch is synchronous and would otherwise
+          // self-dismiss the popup the instant it opens).
+          //
+          // We MUST flip `wasActive = true` BEFORE dispatching, not after.
+          // The dispatch synchronously triggers other listeners (e.g.
+          // BlockHandle's `onDismissOverlays` which itself dispatches a
+          // ProseMirror transaction to clear `hoveredPos`); that re-enters
+          // this same `update` callback. Without flipping `wasActive` first
+          // the re-entry would think the popup is still opening and dispatch
+          // a *second* `dm:dismiss-overlays` whose nested `finally` would
+          // reset `suppressDismissHandler` to false — letting our own
+          // dismiss listener fire on the way out and tear down the popup
+          // we just created. (`clientRect()` then returns null because the
+          // plugin state was just cleared, so the second `onStart` paints
+          // an unpositioned popup at the bottom of `.dm-editor`.)
+          const becameActive = state.active && !wasActive;
           wasActive = state.active;
+          if (becameActive) {
+            suppressDismissHandler = true;
+            try {
+              editorEl?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
+            } finally {
+              suppressDismissHandler = false;
+            }
+          }
 
           if (state.active && state.range) {
             const items = FloatingMenuController.resolveItems(editor, itemsOverride);

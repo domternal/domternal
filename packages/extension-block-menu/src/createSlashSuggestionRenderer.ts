@@ -145,13 +145,23 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
     for (const [i, btn] of itemButtons.entries()) {
       if (i === index) {
         btn.setAttribute('data-selected', '');
-        btn.scrollIntoView({ block: 'nearest' });
       } else {
         btn.removeAttribute('data-selected');
       }
     }
     const selected = itemButtons[index];
+    // Scroll the selected item into view WITHIN the popup only — never via
+    // `scrollIntoView`, which walks ancestors and would yank the page when
+    // called during `renderPopup` (runs before `positionFloatingOnce`
+    // resolves, so the popup is still at its natural flow position at the
+    // bottom of `.dm-editor`).
     if (root && selected) {
+      const btnTop = selected.offsetTop;
+      const btnBottom = btnTop + selected.offsetHeight;
+      const viewTop = root.scrollTop;
+      const viewBottom = viewTop + root.clientHeight;
+      if (btnTop < viewTop) root.scrollTop = btnTop;
+      else if (btnBottom > viewBottom) root.scrollTop = btnBottom - root.clientHeight;
       root.setAttribute('aria-activedescendant', selected.id);
     } else {
       root?.removeAttribute('aria-activedescendant');
@@ -166,11 +176,16 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
 
   const reposition = (props: SlashCommandProps): void => {
     if (!root) return;
-    const rect = props.clientRect();
-    if (!rect) return;
     cleanupFloating?.();
+    // Pass a callable virtualRef so floating-ui's autoUpdate reads fresh
+    // cursor coords on every tick (scroll, resize). Capturing a single rect
+    // at call time would freeze the anchor and the popup would drift on
+    // scroll. Mirrors the emoji suggestion renderer's pattern.
+    const virtualRef = {
+      getBoundingClientRect: (): DOMRect => props.clientRect() ?? new DOMRect(),
+    };
     cleanupFloating = positionFloatingOnce(
-      { getBoundingClientRect: () => rect },
+      virtualRef,
       root,
       { placement: 'bottom-start', offsetValue: 4 },
     );
