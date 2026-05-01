@@ -611,6 +611,241 @@ test.describe('Drag & drop — safety rails', () => {
     await dt.dispose();
   });
 
+  test('drop in the gutter targets a block ABOVE the dragged source (insert before)', async ({ page }) => {
+    // Companion to the previous test (which dropped AFTER the third block).
+    // Here we drop in the gutter at a Y above the source — expect the block
+    // to land BEFORE that target. Verifies insertAfter=false path of the
+    // document drop listener.
+    await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
+    const second = page.locator(`${editorSelector} p:has-text("Bravo")`);
+    const third = page.locator(`${editorSelector} p:has-text("Charlie")`);
+    await third.hover();
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    await page.waitForTimeout(20);
+
+    const editorBox = await page.locator('.dm-editor').boundingBox();
+    const secondBox = await second.boundingBox();
+    expect(editorBox).not.toBeNull();
+    expect(secondBox).not.toBeNull();
+    if (!editorBox || !secondBox) return;
+
+    // Cursor in left gutter at the upper half of "Bravo" → insertAfter=false
+    // → after gap normalization, lands AFTER the previous sibling
+    // ("Alpha"), which is structurally identical to "before Bravo".
+    const gutterX = editorBox.x - 40;
+    const targetY = secondBox.y + secondBox.height * 0.2;
+
+    await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+    }, { x: gutterX, y: targetY });
+    await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+    }, { x: gutterX, y: targetY });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+
+    const blocks = await getBlocks(page);
+    expect(blocks.map((b) => b.text)).toEqual(['Alpha', 'Charlie', 'Bravo']);
+    await dt.dispose();
+  });
+
+  test('gutter drop preserves block id (UniqueID survives the move)', async ({ page }) => {
+    // The doc-level drop path uses the same `moveBlock` helper as PM's
+    // handleDrop — `transformAttrs` is not invoked, so the source's
+    // UniqueID must remain intact. Critical because Copy-link relies
+    // on stable ids; a doc-listener-induced regen would silently break
+    // shared block links.
+    await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
+    const idsBefore = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { attrs: Record<string, unknown> }) => void) => void } } }
+        | undefined;
+      const ids: string[] = [];
+      ed?.state.doc.forEach((n) => { ids.push((n.attrs['id'] as string) ?? ''); });
+      return ids;
+    });
+
+    const first = page.locator(`${editorSelector} p:has-text("Alpha")`);
+    const third = page.locator(`${editorSelector} p:has-text("Charlie")`);
+    await first.hover();
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    await page.waitForTimeout(20);
+
+    const editorBox = await page.locator('.dm-editor').boundingBox();
+    const thirdBox = await third.boundingBox();
+    if (!editorBox || !thirdBox) return;
+
+    const gutterX = editorBox.x - 40;
+    const targetY = thirdBox.y + thirdBox.height * 0.8;
+    await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+    }, { x: gutterX, y: targetY });
+    await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+    }, { x: gutterX, y: targetY });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+
+    const idsAfter = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { attrs: Record<string, unknown> }) => void) => void } } }
+        | undefined;
+      const ids: string[] = [];
+      ed?.state.doc.forEach((n) => { ids.push((n.attrs['id'] as string) ?? ''); });
+      return ids;
+    });
+
+    // Same set of ids, just reordered — Alpha's id moved to position 2.
+    expect(new Set(idsAfter)).toEqual(new Set(idsBefore));
+    expect(idsAfter[2]).toBe(idsBefore[0]);
+    await dt.dispose();
+  });
+
+  test('drop in the right-side gutter (margin between editor right edge and page edge) reorders', async ({ page }) => {
+    // Mirror of the left-gutter case — the drop zone tolerance applies
+    // on the right side too (16px). Notion-style demos often have
+    // visible margin to the right of the centered editor; users can
+    // drag into that margin and expect the drop to "stick".
+    await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
+    const first = page.locator(`${editorSelector} p:has-text("Alpha")`);
+    const third = page.locator(`${editorSelector} p:has-text("Charlie")`);
+    await first.hover();
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    await page.waitForTimeout(20);
+
+    const editorBox = await page.locator('.dm-editor').boundingBox();
+    const thirdBox = await third.boundingBox();
+    if (!editorBox || !thirdBox) return;
+
+    // 8px right of `.dm-editor` (within the 16px right tolerance).
+    const rightGutterX = editorBox.x + editorBox.width + 8;
+    const targetY = thirdBox.y + thirdBox.height * 0.8;
+    await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+    }, { x: rightGutterX, y: targetY });
+    await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+    }, { x: rightGutterX, y: targetY });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+
+    const blocks = await getBlocks(page);
+    expect(blocks.map((b) => b.text)).toEqual(['Bravo', 'Charlie', 'Alpha']);
+    await dt.dispose();
+  });
+
+  test('two consecutive gutter drops in the same drag session — only the FIRST one moves the block', async ({ page }) => {
+    // Once `drop` is processed, the drag is over (browser also fires
+    // `dragend`). A subsequent `drop` event in the same session has no
+    // `view.dragging` payload — the doc listener must bail. This guards
+    // against a stale-state regression where a second synthesised drop
+    // would still trigger another move using cached plugin state.
+    await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
+    const first = page.locator(`${editorSelector} p:has-text("Alpha")`);
+    const third = page.locator(`${editorSelector} p:has-text("Charlie")`);
+    await first.hover();
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    await page.waitForTimeout(20);
+
+    const editorBox = await page.locator('.dm-editor').boundingBox();
+    const thirdBox = await third.boundingBox();
+    if (!editorBox || !thirdBox) return;
+
+    const gutterX = editorBox.x - 40;
+    const targetY = thirdBox.y + thirdBox.height * 0.8;
+    await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+    }, { x: gutterX, y: targetY });
+    // First drop — should move.
+    await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+    }, { x: gutterX, y: targetY });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+
+    // Second drop fired AFTER dragend — listeners are gone, view.dragging
+    // is cleared. Should be a no-op.
+    await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+    }, { x: gutterX, y: targetY });
+    await page.waitForTimeout(80);
+
+    const blocks = await getBlocks(page);
+    // Single move only: Alpha at end.
+    expect(blocks.map((b) => b.text)).toEqual(['Bravo', 'Charlie', 'Alpha']);
+    await dt.dispose();
+  });
+
+  test('drop event arriving when no drag is active is silently ignored (defensive)', async ({ page }) => {
+    // Spurious drop events (other UI sending `drop` to document, browser
+    // bubble from an OS file drag, etc.) must not move a block when
+    // `view.dragging` is null. Guards against the cleanup window between
+    // dragend and the next user interaction.
+    await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
+    const blocksBefore = await getBlocks(page);
+    const editorBox = await page.locator('.dm-editor').boundingBox();
+    if (!editorBox) return;
+
+    // No dragstart fired — view.dragging is null. Dispatch a drop that
+    // would otherwise look "valid" (in zone, valid coords).
+    await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+      document.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+    }, { x: editorBox.x - 30, y: editorBox.y + 100 });
+    await page.waitForTimeout(80);
+
+    const blocksAfter = await getBlocks(page);
+    expect(blocksAfter.map((b) => b.text)).toEqual(blocksBefore.map((b) => b.text));
+  });
+
+  test('gutter drop reorders nested list items inside the same list', async ({ page }) => {
+    // Verifies the new doc-listener path works for nested lists —
+    // dragging via the per-item handle (with nested:true config) and
+    // dropping in the gutter should reorder INSIDE the list, not promote
+    // the item to a top-level sibling.
+    await setContent(page, '<ul><li><p>Alpha</p></li><li><p>Bravo</p></li><li><p>Charlie</p></li></ul>');
+    const first = page.locator(`${editorSelector} li:has-text("Alpha")`);
+    const third = page.locator(`${editorSelector} li:has-text("Charlie")`);
+    await first.hover();
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    await page.waitForTimeout(20);
+
+    const editorBox = await page.locator('.dm-editor').boundingBox();
+    const thirdBox = await third.boundingBox();
+    if (!editorBox || !thirdBox) return;
+
+    const gutterX = editorBox.x - 40;
+    const targetY = thirdBox.y + thirdBox.height * 0.8;
+    await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+    }, { x: gutterX, y: targetY });
+    await page.evaluate(({ x, y }) => {
+      document.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+    }, { x: gutterX, y: targetY });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+
+    // Doc still has ONE bulletList with three items reordered (no
+    // promotion to top-level siblings).
+    const blocks = await getBlocks(page);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]?.type).toBe('bulletList');
+    // Order: Alpha moved to end.
+    const liTexts = await page.locator(`${editorSelector} li`).allTextContents();
+    expect(liTexts).toEqual(['Bravo', 'Charlie', 'Alpha']);
+    await dt.dispose();
+  });
+
   test('drop in .ProseMirror is handled exactly once (no double-drop with document listener)', async ({ page }) => {
     // Both PM's handleDrop AND the document-level drop listener could
     // theoretically run for the same release when the cursor is over PM.
