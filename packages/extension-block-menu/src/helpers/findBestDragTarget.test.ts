@@ -7,6 +7,7 @@ import {
   Blockquote,
   BulletList,
   ListItem,
+  HorizontalRule,
   Editor,
 } from '@domternal/core';
 import { findBestDragTarget } from './findBestDragTarget.js';
@@ -28,7 +29,7 @@ function makeEditor(html: string): Editor {
   document.body.appendChild(host);
   editor = new Editor({
     element: host,
-    extensions: [Document, Text, Paragraph, Heading, Blockquote, BulletList, ListItem],
+    extensions: [Document, Text, Paragraph, Heading, Blockquote, BulletList, ListItem, HorizontalRule],
     content: html,
   });
   return editor;
@@ -184,6 +185,99 @@ describe('findBestDragTarget - edge cases', () => {
     });
     // text excluded by `inlineContent` rule; paragraph wins.
     expect(out?.node.type.name).toBe('paragraph');
+  });
+
+  // ── allowedContainers + atom-leaf path coverage ─────────────────────────
+
+  it('honours allowedContainers when ancestor matches (positive case)', () => {
+    // Paragraph inside a blockquote; allowedContainers requires `blockquote`
+    // ancestor. The matching ancestor is found, so the paragraph is selected.
+    const ed = makeEditor('<blockquote><p>Quoted</p></blockquote>');
+    // Doc structure: doc(0) > blockquote(1) > p(2) > text(3).
+    stubViewLayout(ed, 3, new Map([
+      [0, RECT(100, 200, 50, 400)],
+      [1, RECT(100, 200, 50, 400)],
+    ]));
+    const out = findBestDragTarget(ed.view, 250, 110, {
+      rules: [],
+      edgeConfig: null,
+      allowedNodeTypes: ['paragraph'],
+      allowedContainers: ['blockquote'],
+    });
+    expect(out?.node.type.name).toBe('paragraph');
+  });
+
+  it('returns null when allowedContainers list is provided but no matching ancestor exists', () => {
+    // Paragraph at document root; allowedContainers requires `blockquote`
+    // ancestor that doesn't exist - no candidate qualifies.
+    const ed = makeEditor('<p>Top level</p>');
+    stubViewLayout(ed, 1, new Map([[0, RECT(100, 200, 50, 400)]]));
+    const out = findBestDragTarget(ed.view, 250, 110, {
+      rules: [],
+      edgeConfig: null,
+      allowedNodeTypes: ['paragraph'],
+      allowedContainers: ['blockquote'],
+    });
+    expect(out).toBeNull();
+  });
+
+  it('synthesises a candidate for atom block (horizontal rule) at $pos.nodeAfter', () => {
+    // Cursor lands at the position before <hr>. PM resolves no ancestor
+    // for it - the only way to surface the handle is the atom-leaf
+    // fallback that synthesises a candidate at depth + 1.
+    const ed = makeEditor('<p>Before</p><hr><p>After</p>');
+    // Find the doc position right before the horizontalRule node.
+    let hrPos = -1;
+    ed.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'horizontalRule' && hrPos === -1) hrPos = pos;
+      return true;
+    });
+    expect(hrPos).toBeGreaterThan(-1);
+    stubViewLayout(ed, hrPos, new Map([
+      [hrPos, RECT(120, 200, 5, 400)],
+    ]));
+    const out = findBestDragTarget(ed.view, 300, 122, {
+      rules: [],
+      edgeConfig: null,
+      allowedNodeTypes: ['horizontalRule'],
+    });
+    expect(out?.node.type.name).toBe('horizontalRule');
+  });
+
+  it('atom-leaf fallback respects edge deduction (still returns null when zeroed)', () => {
+    const ed = makeEditor('<p>Before</p><hr><p>After</p>');
+    let hrPos = -1;
+    ed.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'horizontalRule' && hrPos === -1) hrPos = pos;
+      return true;
+    });
+    stubViewLayout(ed, hrPos, new Map([
+      [hrPos, RECT(120, 200, 5, 400)],
+    ]));
+    const out = findBestDragTarget(ed.view, 200, 122, {
+      rules: [],
+      edgeConfig: { edges: ['left'], threshold: 12, strength: 10000 },
+      allowedNodeTypes: ['horizontalRule'],
+    });
+    expect(out).toBeNull();
+  });
+
+  it('atom-leaf fallback skips when allowedNodeTypes excludes the atom', () => {
+    const ed = makeEditor('<p>Before</p><hr><p>After</p>');
+    let hrPos = -1;
+    ed.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'horizontalRule' && hrPos === -1) hrPos = pos;
+      return true;
+    });
+    stubViewLayout(ed, hrPos, new Map([
+      [hrPos, RECT(120, 200, 5, 400)],
+    ]));
+    const out = findBestDragTarget(ed.view, 300, 122, {
+      rules: [],
+      edgeConfig: null,
+      allowedNodeTypes: ['paragraph'], // hr is not in allowed types
+    });
+    expect(out).toBeNull();
   });
 
   it('returns null when edge deduction zeros every candidate (Mode C fallthrough)', () => {

@@ -145,6 +145,29 @@ describe('SlashCommand - re-entrant dispatch suppression', () => {
     return editor;
   }
 
+  it('Escape key dispatches dismiss meta when popup is active', () => {
+    mountEditor('<p></p>');
+    // Activate by typing `/`.
+    editor!.view.dispatch(editor!.state.tr.insertText('/'));
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(true);
+
+    const ev = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    editor!.view.dom.dispatchEvent(ev);
+
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(false);
+  });
+
+  it('keydown on inactive plugin is a no-op (event passes through)', () => {
+    mountEditor('<p>plain</p>');
+    const state0 = slashCommandPluginKey.getState(editor!.state);
+    expect(state0?.active).toBe(false);
+
+    // Sending Escape while inactive must not throw or change state.
+    const ev = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    expect(() => { editor!.view.dom.dispatchEvent(ev); }).not.toThrow();
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(false);
+  });
+
   it('survives a re-entrant transaction triggered by dm:dismiss-overlays', () => {
     const ed = mountEditor();
     // Move cursor to after the `/` char and trigger a re-evaluation. The

@@ -494,3 +494,123 @@ describe('BlockHandle auto-scroll during drag', () => {
     expect(scrollByCalls.length).toBe(0);
   });
 });
+
+// ── Event handler integration: hover/click lifecycle ──────────────────────
+// These tests drive the plugin through its DOM event listeners (not just
+// through plugin meta dispatches) to cover the click + hover + plus-button
+// + drag-button code paths that aren't reachable from pure state tests.
+
+describe('BlockHandle event handlers', () => {
+  function getHandleParts(): {
+    handle: HTMLElement | null | undefined;
+    dragBtn: HTMLElement | null | undefined;
+    plusBtn: HTMLElement | null | undefined;
+  } {
+    const handle = host?.querySelector<HTMLElement>('.dm-block-handle');
+    const dragBtn = host?.querySelector<HTMLElement>('.dm-block-handle-drag');
+    const plusBtn = host?.querySelector<HTMLElement>('.dm-block-handle-plus');
+    return { handle, dragBtn, plusBtn };
+  }
+
+  it('plus button click inserts an empty paragraph after the hovered block', () => {
+    makeEditor('<p>Hello</p>');
+    // Pre-set hoveredPos to the start of the paragraph so onPlusClick has a
+    // valid target. Position 0 is before the first paragraph.
+    editor?.view.dispatch(editor.state.tr.setMeta(blockHandlePluginKey, { hoveredPos: 0 }));
+
+    const before = editor?.state.doc.childCount ?? 0;
+    const { plusBtn } = getHandleParts();
+    plusBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    const after = editor?.state.doc.childCount ?? 0;
+    expect(after).toBe(before + 1);
+    // The inserted block should be a paragraph (the second top-level child).
+    expect(editor?.state.doc.lastChild?.type.name).toBe('paragraph');
+  });
+
+  it('plus button click is a no-op when hoveredPos is null', () => {
+    makeEditor('<p>Hello</p>');
+    const before = editor?.state.doc.childCount ?? 0;
+    const { plusBtn } = getHandleParts();
+    plusBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(editor?.state.doc.childCount).toBe(before);
+  });
+
+  it('plus button mousedown calls preventDefault to keep editor focus', () => {
+    makeEditor();
+    const { plusBtn } = getHandleParts();
+    const ev = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    plusBtn?.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+  });
+
+  it('drag button click (no drag) emits dm:block-context-menu-open with detail', () => {
+    makeEditor('<p>Hello</p>');
+    editor?.view.dispatch(editor.state.tr.setMeta(blockHandlePluginKey, { hoveredPos: 0 }));
+
+    let detail: { blockPos?: number; anchorElement?: HTMLElement } | null = null;
+    host?.addEventListener('dm:block-context-menu-open', (e: Event) => {
+      detail = (e as CustomEvent<{ blockPos: number; anchorElement: HTMLElement }>).detail;
+    });
+
+    const { dragBtn } = getHandleParts();
+    dragBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(detail).not.toBeNull();
+    expect(detail!.blockPos).toBe(0);
+    expect(detail!.anchorElement).toBe(dragBtn);
+  });
+
+  it('drag button click is a no-op when hoveredPos is null', () => {
+    makeEditor();
+    let fired = false;
+    host?.addEventListener('dm:block-context-menu-open', () => { fired = true; });
+
+    const { dragBtn } = getHandleParts();
+    dragBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(fired).toBe(false);
+  });
+
+  it('dm:dismiss-overlays event hides the handle and clears hoveredPos', () => {
+    makeEditor('<p>Hello</p>');
+    // Surface the handle by setting hoveredPos.
+    editor?.view.dispatch(editor.state.tr.setMeta(blockHandlePluginKey, { hoveredPos: 0 }));
+
+    host?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
+
+    expect(blockHandlePluginKey.getState(editor!.state)?.hoveredPos).toBeNull();
+  });
+
+  it('drag button mousedown does NOT call preventDefault (browser needs default for drag)', () => {
+    makeEditor();
+    const { dragBtn } = getHandleParts();
+    const ev = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    dragBtn?.dispatchEvent(ev);
+    // The handler must NOT preventDefault - that would kill HTML5 drag.
+    expect(ev.defaultPrevented).toBe(false);
+  });
+
+  it('plus button click is a no-op when editor is not editable', () => {
+    makeEditor('<p>Hello</p>');
+    editor?.setEditable(false);
+    editor?.view.dispatch(editor.state.tr.setMeta(blockHandlePluginKey, { hoveredPos: 0 }));
+
+    const before = editor?.state.doc.childCount ?? 0;
+    const { plusBtn } = getHandleParts();
+    plusBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(editor?.state.doc.childCount).toBe(before);
+  });
+
+  it('drag button click is a no-op when editor is not editable', () => {
+    makeEditor('<p>Hello</p>');
+    editor?.setEditable(false);
+    editor?.view.dispatch(editor.state.tr.setMeta(blockHandlePluginKey, { hoveredPos: 0 }));
+
+    let fired = false;
+    host?.addEventListener('dm:block-context-menu-open', () => { fired = true; });
+    const { dragBtn } = getHandleParts();
+    dragBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(fired).toBe(false);
+  });
+});
