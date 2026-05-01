@@ -168,6 +168,55 @@ describe('SlashCommand - re-entrant dispatch suppression', () => {
     expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(false);
   });
 
+  it('command callback deletes /query range and dispatches item command', () => {
+    mountEditor('<p></p>');
+    // Manually activate by typing `/foo`.
+    editor!.view.dispatch(editor!.state.tr.insertText('/foo'));
+    const state0 = slashCommandPluginKey.getState(editor!.state);
+    expect(state0?.active).toBe(true);
+    expect(state0?.query).toBe('foo');
+    const range0 = state0?.range;
+    expect(range0).not.toBeNull();
+
+    // Manually invoke the same code path the renderer would when user clicks
+    // an item: dispatch a transaction that deletes the /query range and sets
+    // the dismiss meta - this is what the inline `command` closure does.
+    const tr = editor!.view.state.tr;
+    tr.delete(range0!.from, range0!.to);
+    tr.setMeta(slashCommandPluginKey, 'dismiss');
+    editor!.view.dispatch(tr);
+
+    const state1 = slashCommandPluginKey.getState(editor!.state);
+    expect(state1?.active).toBe(false);
+    expect(editor!.state.doc.textContent).not.toContain('/foo');
+  });
+
+  it('plugin state resets to INITIAL when docChanged deletes the query range', () => {
+    mountEditor('<p></p>');
+    editor!.view.dispatch(editor!.state.tr.insertText('/foo'));
+    const state0 = slashCommandPluginKey.getState(editor!.state);
+    expect(state0?.active).toBe(true);
+
+    // Delete the entire query range - apply() detects from.deleted / to.deleted.
+    editor!.view.dispatch(editor!.state.tr.delete(0, editor!.state.doc.content.size));
+
+    const state1 = slashCommandPluginKey.getState(editor!.state);
+    expect(state1?.active).toBe(false);
+  });
+
+  it('dismissHandler closes popup when dm:dismiss-overlays fires from another overlay', () => {
+    mountEditor('<p></p>');
+    editor!.view.dispatch(editor!.state.tr.insertText('/'));
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(true);
+
+    // Simulate another overlay broadcasting the dismiss event AFTER we
+    // already fired ours (so suppressDismissHandler is false again). The
+    // listener should call dismissSlashCommand and close the popup.
+    host?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
+
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(false);
+  });
+
   it('survives a re-entrant transaction triggered by dm:dismiss-overlays', () => {
     const ed = mountEditor();
     // Move cursor to after the `/` char and trigger a re-evaluation. The

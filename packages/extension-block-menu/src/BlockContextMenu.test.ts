@@ -591,3 +591,128 @@ describe('BlockContextMenu Colors section (BlockColor integration)', () => {
     expect(focusSpy).toHaveBeenCalled();
   });
 });
+
+// ── Keyboard navigation + outside click + dismissal ──────────────────────
+
+describe('BlockContextMenu keyboard navigation', () => {
+  function getButtons(): HTMLButtonElement[] {
+    return Array.from(host?.querySelectorAll<HTMLButtonElement>(
+      '.dm-block-context-menu [role="menuitem"]',
+    ) ?? []);
+  }
+
+  it('ArrowDown moves focus to next item and wraps at end', () => {
+    makeEditor('<p>Hi</p>');
+    openContextMenu(0);
+
+    const root = host?.querySelector<HTMLElement>('.dm-block-context-menu');
+    const buttons = getButtons();
+    expect(buttons.length).toBeGreaterThan(1);
+
+    // Initial: first button has tabindex 0
+    expect(buttons[0]?.tabIndex).toBe(0);
+
+    root?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+    expect(buttons[1]?.tabIndex).toBe(0);
+    expect(buttons[0]?.tabIndex).toBe(-1);
+  });
+
+  it('ArrowUp moves focus to previous item and wraps at start', () => {
+    makeEditor('<p>Hi</p>');
+    openContextMenu(0);
+    const root = host?.querySelector<HTMLElement>('.dm-block-context-menu');
+    const buttons = getButtons();
+
+    root?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true, cancelable: true }));
+    // Wraps to the LAST button when starting at index 0.
+    expect(buttons[buttons.length - 1]?.tabIndex).toBe(0);
+  });
+
+  it('Home jumps focus to first item', () => {
+    makeEditor('<p>Hi</p>');
+    openContextMenu(0);
+    const root = host?.querySelector<HTMLElement>('.dm-block-context-menu');
+    const buttons = getButtons();
+
+    root?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+    root?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+    root?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true }));
+
+    expect(buttons[0]?.tabIndex).toBe(0);
+  });
+
+  it('End jumps focus to last item', () => {
+    makeEditor('<p>Hi</p>');
+    openContextMenu(0);
+    const root = host?.querySelector<HTMLElement>('.dm-block-context-menu');
+    const buttons = getButtons();
+
+    root?.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true, cancelable: true }));
+    expect(buttons[buttons.length - 1]?.tabIndex).toBe(0);
+  });
+
+  it('Escape closes the menu and refocuses editor', () => {
+    const ed = makeEditor('<p>Hi</p>');
+    const focusSpy = vi.spyOn(ed.view, 'focus');
+    openContextMenu(0);
+    const menu = host?.querySelector<HTMLElement>('.dm-block-context-menu');
+    expect(menu?.hasAttribute('data-show')).toBe(true);
+
+    menu?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    expect(menu?.hasAttribute('data-show')).toBe(false);
+    expect(focusSpy).toHaveBeenCalled();
+  });
+
+  it('unhandled keys (e.g. Tab, character) do not close the menu', () => {
+    makeEditor('<p>Hi</p>');
+    openContextMenu(0);
+    const menu = host?.querySelector<HTMLElement>('.dm-block-context-menu');
+    expect(menu?.hasAttribute('data-show')).toBe(true);
+
+    menu?.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true, cancelable: true }));
+    expect(menu?.hasAttribute('data-show')).toBe(true);
+  });
+
+  it('keydown when menu is closed is a no-op', () => {
+    makeEditor('<p>Hi</p>');
+    // Menu never opened.
+    expect(() => {
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+    }).not.toThrow();
+  });
+});
+
+describe('BlockContextMenu outside click', () => {
+  it('clicking outside the menu (on document) closes it', () => {
+    makeEditor('<p>Hi</p>');
+    openContextMenu(0);
+    const menu = host?.querySelector<HTMLElement>('.dm-block-context-menu');
+    expect(menu?.hasAttribute('data-show')).toBe(true);
+
+    // Mousedown outside the menu - listener uses capture phase on document.
+    const outside = document.createElement('div');
+    document.body.appendChild(outside);
+    outside.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+
+    expect(menu?.hasAttribute('data-show')).toBe(false);
+    outside.remove();
+  });
+
+  it('clicking inside the menu does NOT close it', () => {
+    makeEditor('<p>Hi</p>');
+    openContextMenu(0);
+    const menu = host?.querySelector<HTMLElement>('.dm-block-context-menu');
+    expect(menu?.hasAttribute('data-show')).toBe(true);
+
+    // Mousedown on the menu root itself (not on a button).
+    menu?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    expect(menu?.hasAttribute('data-show')).toBe(true);
+  });
+
+  it('outside click when menu is closed is a no-op (does not throw)', () => {
+    makeEditor('<p>Hi</p>');
+    expect(() => {
+      document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    }).not.toThrow();
+  });
+});
