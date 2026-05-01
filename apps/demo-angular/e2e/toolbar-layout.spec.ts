@@ -4,9 +4,10 @@ import { expect, type Page } from '@playwright/test';
 const editorSelector = 'domternal-editor .ProseMirror';
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
-// Toggle selectors
-const toggleDefault = '.toolbar-mode-toggle button:first-child';
-const toggleLayout = '.toolbar-mode-toggle button:last-child';
+// Toggle selectors. App.html now has THREE mode buttons (default / custom
+// layout / notion) so we anchor on nth-child instead of first/last.
+const toggleDefault = '.toolbar-mode-toggle button:nth-child(1)';
+const toggleLayout = '.toolbar-mode-toggle button:nth-child(2)';
 
 // Layout-mode toolbar selectors (scoped to domternal-toolbar)
 const toolbar = 'domternal-toolbar';

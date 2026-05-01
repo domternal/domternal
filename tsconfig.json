@@ -32,6 +32,9 @@
     },
     {
       "path": "./packages/angular"
+    },
+    {
+      "path": "./packages/extension-block-menu"
     }
   ]
 }

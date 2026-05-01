@@ -17,6 +17,9 @@
   "exclude": ["node_modules", "dist"],
   "references": [
     {
+      "path": "../extension-block-menu"
+    },
+    {
       "path": "../core"
     }
   ]
