@@ -38,6 +38,7 @@ import { showFloatingMenu } from './FloatingMenu.js';
 /** Default list of nodes treated as drag-targetable when `nested: true`. */
 export const DEFAULT_NESTED_NODES: string[] = ['listItem', 'taskItem'];
 
+
 export const blockHandlePluginKey = new PluginKey<BlockHandlePluginState>('blockHandle');
 
 export interface BlockHandleOptions {
@@ -524,6 +525,15 @@ export function createBlockHandlePlugin(
   // removed on drop/dragend.
   let dragPreview: HTMLElement | null = null;
 
+  // SYNC source position captured in `onDragStart`. Required because PM's
+  // internal drop handler clears `view.dragging` BEFORE the `handleDrop`
+  // plugin hook fires, AND the plugin-state `draggedFrom` is committed via
+  // a deferred `setTimeout(0)` (see comment on the dispatch in `onDragStart`)
+  // that may not have run by drop time on very fast drags. Closure scope is
+  // independent of both, so reading from here is reliable. Cleared on
+  // dragend, so it never lingers across drags.
+  let pendingDraggedFrom: number | null = null;
+
   // Auto-scroll state (populated during an active drag).
   let autoScrollRaf: number | null = null;
   let autoScrollTarget: HTMLElement | null = null;
@@ -801,7 +811,23 @@ export function createBlockHandlePlugin(
   const performBlockDrop = (clientX: number, clientY: number): boolean => {
     const view = editor.view;
     const state = pluginKey.getState(view.state);
-    const draggedFrom = state?.draggedFrom ?? null;
+    // Read the source position with a tiered fallback:
+    // 1. Plugin state `draggedFrom` — the canonical source. Set via the
+    //    deferred dispatch in `onDragStart` (Chrome microtask-window
+    //    workaround) so it MAY still be null on very fast drags where
+    //    drop fires before the timer has run.
+    // 2. Closure-scoped `pendingDraggedFrom` — set SYNCHRONOUSLY in
+    //    `onDragStart`. Independent of both the deferred dispatch AND of
+    //    PM's `view.dragging`, which PM's internal drop handler clears
+    //    BEFORE invoking the plugin `handleDrop` hook (so reading
+    //    `view.dragging.node.from` here would already see null).
+    // 3. `view.dragging.node.from` — last-ditch resort for callers that
+    //    might fire `drop` directly without ever invoking our
+    //    `onDragStart` (synthetic e2e events bypass the handle).
+    const draggedFrom = state?.draggedFrom
+      ?? pendingDraggedFrom
+      ?? (view as unknown as PMViewWithDragging).dragging?.node?.from
+      ?? null;
     if (draggedFrom === null) return false;
     const sourceNode = view.state.doc.nodeAt(draggedFrom);
     if (!sourceNode) return false;
@@ -962,6 +988,10 @@ export function createBlockHandlePlugin(
       event.preventDefault();
       return;
     }
+    // Capture source pos SYNCHRONOUSLY for `performBlockDrop`, which needs
+    // it before the deferred plugin-state commit (setTimeout(0) below) and
+    // works even after PM has cleared `view.dragging` in its drop handler.
+    pendingDraggedFrom = pos;
     const node = editor.view.state.doc.nodeAt(pos);
     if (!node) {
       event.preventDefault();
@@ -1021,7 +1051,18 @@ export function createBlockHandlePlugin(
     //
     // Deferring to `setTimeout(..., 0)` runs after the browser has
     // already committed; the subsequent mutations are safe.
+    //
+    // Skip the dispatch entirely if the drag has already ended by the
+    // time this fires — happens on extremely fast drags where dragstart
+    // → drop → dragend all complete in a single JS task before the timer
+    // gets a chance to run. `onDragEnd` clears `pendingDraggedFrom` to
+    // null, so we use that as the "is drag still alive?" signal. Without
+    // this guard, the post-drag dispatch would attempt to apply a stale
+    // `nodeSelection` against a doc whose positions changed during the
+    // already-completed drop — PM throws "Selection passed to
+    // setSelection must point at the current document".
     window.setTimeout(() => {
+      if (pendingDraggedFrom === null) return;
       editor.view.dispatch(
         editor.view.state.tr
           .setSelection(nodeSelection)
@@ -1049,6 +1090,7 @@ export function createBlockHandlePlugin(
   const onDragEnd = (): void => {
     (editor.view as unknown as PMViewWithDragging).dragging = null;
     setDraggedFrom(editor.view, null);
+    pendingDraggedFrom = null;
     stopAutoScroll();
     stopDragListeners();
     hideDropIndicator();
