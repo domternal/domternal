@@ -7,6 +7,19 @@
 
 .dm-editor .ProseMirror {
   // ---------------------------------------------------------------------------
+  // Block inline padding
+  // ---------------------------------------------------------------------------
+  // Pre-applied so that toggling `data-bg-color` on a block does NOT shift
+  // text - the colored background paints into existing padding instead of
+  // adding new padding (`_block-colors.scss` only sets `background-color`
+  // + `border-radius`, no padding). Mirrors Notion's layout. Wrapped in
+  // `:where()` so specificity stays at 0 and host apps can override per
+  // tag without selector wars.
+  :where(p, h1, h2, h3, h4, h5, h6) {
+    padding-inline: var(--dm-block-inline-padding);
+  }
+
+  // ---------------------------------------------------------------------------
   // Headings
   // ---------------------------------------------------------------------------
 
@@ -78,7 +91,11 @@
     border-left: var(--dm-blockquote-border);
     color: var(--dm-blockquote-color);
     margin: 0.5em 0;
-    padding: 0.1em 0 0.1em 0.8em;
+    // Right padding picks up the same `--dm-block-inline-padding` token
+    // so colored blockquotes get breathing room from the right edge.
+    // Left stays at 0.8em - that gap is for the border-left bar, not
+    // text inset.
+    padding: 0.1em var(--dm-block-inline-padding) 0.1em 0.8em;
   }
 
   // ---------------------------------------------------------------------------
@@ -89,12 +106,19 @@
   ol {
     margin: 0.75em 0;
     padding-left: 1.5em;
+    // Right padding so colored lists get breathing room on the right edge,
+    // matching the inline padding paragraphs and headings get above.
+    padding-right: var(--dm-block-inline-padding);
 
     li {
       margin: 0.25em 0;
 
       > p {
+        // List item paragraphs reset inline padding - bullet indentation
+        // is owned by the list container; doubling up shifts text under
+        // the bullet's hanging indent.
         margin: 0.1em 0;
+        padding-inline: 0;
       }
     }
   }

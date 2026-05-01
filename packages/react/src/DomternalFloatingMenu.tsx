@@ -12,7 +12,6 @@ import {
 } from 'react';
 import {
   PluginKey,
-  createFloatingMenuPlugin,
   FloatingMenuController,
   defaultIcons,
 } from '@domternal/core';
@@ -20,10 +19,13 @@ import type {
   Editor,
   FloatingMenuItem,
   FloatingMenuItemsOverride,
-  FloatingMenuKeymap,
-  FloatingMenuOptions,
   IconSet,
 } from '@domternal/core';
+import { createFloatingMenuPlugin } from '@domternal/extension-block-menu';
+import type {
+  FloatingMenuKeymap,
+  FloatingMenuOptions,
+} from '@domternal/extension-block-menu';
 import { useCurrentEditor } from './EditorContext.js';
 
 export interface DomternalFloatingMenuProps {

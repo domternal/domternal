@@ -105,6 +105,9 @@ export {
   type InlineStyleOverrides,
 } from './utils/inlineStyles.js';
 
+// === Clipboard ===
+export { writeToClipboard } from './utils/clipboard.js';
+
 // === Helpers ===
 export {
   createDocument,
@@ -158,6 +161,9 @@ export {
   FLOATING_MENU_NO_FOCUS,
   type FloatingMenuGroup,
 } from './FloatingMenuController.js';
+
+// === Shared helpers ===
+export { groupFloatingMenuItems } from './utils/groupFloatingMenuItems.js';
 
 // === Icons ===
 export { defaultIcons } from './icons/index.js';
@@ -316,6 +322,10 @@ export {
   UniqueID,
   uniqueIDPluginKey,
   type UniqueIDOptions,
+  BlockColor,
+  DEFAULT_BLOCK_COLORS,
+  DEFAULT_BLOCK_COLOR_TYPES,
+  type BlockColorOptions,
   // Selection & Editor Utilities
   Selection,
   type SelectionOptions,
@@ -349,12 +359,6 @@ export {
   bubbleMenuPluginKey,
   type BubbleMenuOptions,
   type CreateBubbleMenuPluginOptions,
-  FloatingMenu,
-  createFloatingMenuPlugin,
-  floatingMenuPluginKey,
-  type FloatingMenuOptions,
-  type CreateFloatingMenuPluginOptions,
-  type FloatingMenuKeymap,
   // Bundle
   StarterKit,
   type StarterKitOptions,

@@ -1,5 +1,5 @@
 // =============================================================================
-// @domternal/theme — Main Entry
+// @domternal/theme - Main Entry
 // =============================================================================
 // Import this file to get all Domternal editor styles:
 //
@@ -33,10 +33,13 @@
 @use 'toolbar';
 @use 'color-palette';
 
-// 6. Menus (bubble, floating, link popover)
+// 6. Menus (bubble, floating, link popover, block-menu)
 @use 'bubble-menu';
 @use 'floating-menu';
 @use 'link-popover';
+@use 'block-handle';
+@use 'slash-command';
+@use 'context-menu';
 
 // 7. Extension-specific styles
 @use 'placeholder';
@@ -47,12 +50,13 @@
 @use 'invisible-chars';
 @use 'emoji-picker';
 @use 'table-controls';
+@use 'block-colors';
 
 // 8. Themes
 @use 'themes/light';
 @use 'themes/dark';
 
-// 9. Reduced motion — must come last to override all animation/transition rules
+// 9. Reduced motion - must come last to override all animation/transition rules
 // =============================================================================
 @media (prefers-reduced-motion: reduce) {
   .dm-emoji-picker,
@@ -88,7 +92,13 @@
   .dm-table-align-item,
   .dm-image-popover-btn,
   .dm-link-popover-btn,
+  .dm-block-handle,
+  .dm-block-handle-btn,
+  .dm-block-color-swatch,
+  .dm-slash-command-item,
+  .dm-block-context-menu-item,
   .dm-editor .ProseMirror div[data-type="details"] > button[type="button"]::before {
     transition: none;
+    transform: none;
   }
 }

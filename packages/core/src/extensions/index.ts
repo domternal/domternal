@@ -35,6 +35,12 @@ export {
   uniqueIDPluginKey,
   type UniqueIDOptions,
 } from './UniqueID.js';
+export {
+  BlockColor,
+  DEFAULT_BLOCK_COLORS,
+  DEFAULT_BLOCK_COLOR_TYPES,
+  type BlockColorOptions,
+} from './BlockColor.js';
 
 // Selection & Editor Utilities
 export {
@@ -74,14 +80,6 @@ export {
   type BubbleMenuOptions,
   type CreateBubbleMenuPluginOptions,
 } from './BubbleMenu.js';
-export {
-  FloatingMenu,
-  createFloatingMenuPlugin,
-  floatingMenuPluginKey,
-  type FloatingMenuOptions,
-  type CreateFloatingMenuPluginOptions,
-  type FloatingMenuKeymap,
-} from './FloatingMenu.js';
 
 // Bundle
 export { StarterKit, type StarterKitOptions } from './StarterKit.js';

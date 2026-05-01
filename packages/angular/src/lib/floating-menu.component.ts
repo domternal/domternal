@@ -15,7 +15,6 @@ import {
 import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 import {
   PluginKey,
-  createFloatingMenuPlugin,
   FloatingMenuController,
   defaultIcons,
 } from '@domternal/core';
@@ -23,10 +22,13 @@ import type {
   Editor,
   FloatingMenuItem,
   FloatingMenuItemsOverride,
-  FloatingMenuKeymap,
-  FloatingMenuOptions,
   IconSet,
 } from '@domternal/core';
+import { createFloatingMenuPlugin } from '@domternal/extension-block-menu';
+import type {
+  FloatingMenuKeymap,
+  FloatingMenuOptions,
+} from '@domternal/extension-block-menu';
 
 /**
  * Block-insert floating menu for Angular.
@@ -93,6 +95,15 @@ export class DomternalFloatingMenuComponent implements OnDestroy {
   readonly items = input<FloatingMenuItemsOverride | undefined>(undefined);
   readonly keymap = input<FloatingMenuKeymap | undefined>(undefined);
   readonly icons = input<IconSet | undefined>(undefined);
+  /**
+   * When true, the menu does NOT auto-show on every empty paragraph;
+   * it only opens when the BlockHandle `+` button (or any caller of
+   * `showFloatingMenu`) explicitly triggers it. Notion-style behaviour
+   * - empty rows show a placeholder, the slash menu is the keyboard
+   * trigger, the `+` button is the gutter trigger.
+   * @default false
+   */
+  readonly requireExplicitTrigger = input<boolean>(false);
 
   private menuEl = viewChild.required<ElementRef<HTMLElement>>('menuEl');
   private ngZone = inject(NgZone);
@@ -101,7 +112,7 @@ export class DomternalFloatingMenuComponent implements OnDestroy {
 
   private controller: FloatingMenuController | null = null;
 
-  // Signal that bumps on every controller change — templates read it to
+  // Signal that bumps on every controller change - templates read it to
   // re-run @for tracking. OnPush components need explicit change triggers.
   private version = signal(0);
   private iconCache = new Map<string, SafeHtml>();
@@ -138,6 +149,7 @@ export class DomternalFloatingMenuComponent implements OnDestroy {
         ...(shouldShow && { shouldShow }),
         offset: this.offset(),
         ...(keymap && { keymap }),
+        requireExplicitTrigger: this.requireExplicitTrigger(),
       });
       editor.registerPlugin(plugin);
 
@@ -153,7 +165,7 @@ export class DomternalFloatingMenuComponent implements OnDestroy {
       );
       controller.subscribe();
       this.controller = controller;
-      // Controller is a plain field, not a signal — bumping `version` is
+      // Controller is a plain field, not a signal - bumping `version` is
       // what tells the `groups`/`focusedIndex` computeds to re-evaluate
       // and pick up the freshly assigned controller instance.
       this.version.update((v) => v + 1);

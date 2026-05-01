@@ -8,7 +8,6 @@ A lightweight, extensible rich text editor toolkit built on [ProseMirror](https:
 [![CI](https://github.com/domternal/domternal/actions/workflows/ci.yml/badge.svg)](https://github.com/domternal/domternal/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/domternal/domternal/graph/badge.svg)](https://codecov.io/gh/domternal/domternal)
 [![npm](https://img.shields.io/npm/v/@domternal/core.svg?label=%40domternal%2Fcore)](https://www.npmjs.com/package/@domternal/core)
-[![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/domternal/domternal?utm_source=oss&utm_medium=github&utm_campaign=domternal%2Fdomternal&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)](https://coderabbit.ai)
 
 **[Website](https://domternal.dev)** · **[Getting Started](https://domternal.dev/v1/getting-started)** · **[Packages & Bundle Size](https://domternal.dev/v1/packages)**
 

@@ -9,7 +9,7 @@
  *
  * @example
  * const controller = new FloatingMenuController(editor, () => {
- *   // onChange — re-render
+ *   // onChange - re-render
  * });
  * controller.subscribe();
  * // ... controller.groups, controller.focusedIndex, controller.execute(item)
@@ -18,14 +18,9 @@
 
 import type { Editor } from './Editor.js';
 import type { FloatingMenuItem, FloatingMenuItemsOverride } from './types/FloatingMenu.js';
+import { groupFloatingMenuItems, type FloatingMenuGroup } from './utils/groupFloatingMenuItems.js';
 
-/**
- * A group of floating-menu items sharing the same `group` value.
- */
-export interface FloatingMenuGroup {
-  name: string;
-  items: FloatingMenuItem[];
-}
+export type { FloatingMenuGroup };
 
 /** -1 means no item is focused (menu not entered via keyboard). */
 export const FLOATING_MENU_NO_FOCUS = -1;
@@ -133,7 +128,11 @@ export class FloatingMenuController {
 
   /**
    * Rebuilds items from the editor. Call when the editor's extensions
-   * change (rare) or on explicit refresh.
+   * change (rare) or on explicit refresh. Notification is delegated to
+   * `updateDisabledStates` which fires `onChange` only when a disabled
+   * state flipped - wrappers that need to react to pure group-structure
+   * changes do so by bumping their own render signal after constructing
+   * / re-using the controller (see framework wrapper usage).
    */
   rebuild(): void {
     const items = FloatingMenuController.resolveItems(this.editor, this.override);
@@ -165,7 +164,7 @@ export class FloatingMenuController {
     this.onChange();
   }
 
-  /** ArrowDown — wrap to first at end. */
+  /** ArrowDown - wrap to first at end. */
   next(): number {
     if (this._flatItems.length === 0) return FLOATING_MENU_NO_FOCUS;
     const cur = this._focusedIndex < 0 ? -1 : this._focusedIndex;
@@ -174,7 +173,7 @@ export class FloatingMenuController {
     return this._focusedIndex;
   }
 
-  /** ArrowUp — wrap to last at start. */
+  /** ArrowUp - wrap to last at start. */
   prev(): number {
     if (this._flatItems.length === 0) return FLOATING_MENU_NO_FOCUS;
     const len = this._flatItems.length;
@@ -242,30 +241,12 @@ export class FloatingMenuController {
 
   /**
    * Groups items by `group` preserving insertion order, then sorts by
-   * priority (higher first) within each group.
+   * priority (higher first) within each group. Delegates to the shared
+   * utility so `SlashCommand`'s renderer and this controller always
+   * produce identical ordering.
    */
   private groupItems(items: FloatingMenuItem[]): FloatingMenuGroup[] {
-    const map = new Map<string, FloatingMenuItem[]>();
-    const order: string[] = [];
-
-    for (const item of items) {
-      const name = item.group ?? '';
-      let list = map.get(name);
-      if (!list) {
-        list = [];
-        map.set(name, list);
-        order.push(name);
-      }
-      list.push(item);
-    }
-
-    const groups: FloatingMenuGroup[] = [];
-    for (const name of order) {
-      const list = map.get(name) ?? [];
-      list.sort((a, b) => (b.priority ?? 100) - (a.priority ?? 100));
-      groups.push({ name, items: list });
-    }
-    return groups;
+    return groupFloatingMenuItems(items);
   }
 
   /**
