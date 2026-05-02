@@ -32,6 +32,13 @@ export type {
   NestedConfig,
 } from './BlockHandle.js';
 
+// Rule scoring primitives - hosts can write custom DragHandleRule
+// implementations to extend the default exclusion / scoring set passed
+// through `BlockHandle.configure({ nested: { rules: [...] } })`.
+export { BASE_SCORE } from './helpers/scoring.js';
+export type { DragHandleRule, RuleContext } from './helpers/scoring.js';
+export { DEFAULT_DRAG_HANDLE_RULES } from './helpers/defaultRules.js';
+
 // KeyboardReorder - Mod-Shift-ArrowUp/Down moves top-level block
 export { KeyboardReorder } from './KeyboardReorder.js';
 

@@ -1142,7 +1142,7 @@ test.describe('Notion-strict list schema - drag handle over indented children', 
     await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
   });
 
-  test('handle at the indented heading row resolves to the parent listItem (default `allowedNodes` excludes heading)', async ({ page }) => {
+  test('handle at the indented heading row resolves to the HEADING itself (extended `allowedNodes`, listitems_improvements_2.md Phase 3)', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h2>Indented heading</h2></li></ul>');
     const heading = page.locator(`${editorSelector} li > h2`);
     const hBox = await heading.boundingBox();
@@ -1152,7 +1152,7 @@ test.describe('Notion-strict list schema - drag handle over indented children', 
     expect(resolvedPos).not.toBeNull();
     if (resolvedPos === null) return;
     const type = await blockTypeAt(page, resolvedPos);
-    expect(type).toBe('listItem');
+    expect(type).toBe('heading');
   });
 
   test('hovering at the LABEL row also resolves to the listItem (consistent across the whole li span)', async ({ page }) => {
@@ -1168,7 +1168,7 @@ test.describe('Notion-strict list schema - drag handle over indented children', 
     expect(type).toBe('listItem');
   });
 
-  test('TASK item: hover at indented heading row resolves to the parent taskItem', async ({ page }) => {
+  test('TASK item: hover at indented heading row resolves to the HEADING itself (extended allowedNodes)', async ({ page }) => {
     await setContent(
       page,
       '<ul data-type="taskList"><li data-type="taskItem">'
@@ -1185,10 +1185,10 @@ test.describe('Notion-strict list schema - drag handle over indented children', 
     expect(resolvedPos).not.toBeNull();
     if (resolvedPos === null) return;
     const type = await blockTypeAt(page, resolvedPos);
-    expect(type).toBe('taskItem');
+    expect(type).toBe('heading');
   });
 
-  test('drag from the indented heading row reorders the WHOLE list item (label + indented heading travel together)', async ({ page }) => {
+  test('drag from the indented heading row moves ONLY the heading (label stays in the list item, listitems_improvements_2.md Phase 3)', async ({ page }) => {
     await setContent(
       page,
       '<ul><li><p>First label</p><h2>First heading</h2></li>'
@@ -1215,23 +1215,25 @@ test.describe('Notion-strict list schema - drag handle over indented children', 
     await page.waitForTimeout(80);
     await dt.dispose();
 
-    // The whole "first" list item (with both label AND heading) moved
-    // out and now sits after the tail paragraph; the bulletList retains
-    // only the second item.
+    // ONLY the indented heading moved (mirrors keyboard Shift-Tab from
+    // Phase 4 of listitems_improvement.md). The first list item retains
+    // its label paragraph; the heading is now a top-level sibling.
     const items = await listItemShapes(page);
-    // Find the moved item that contains the heading.
-    const movedLi = items.find((i) => i.children?.some((c) => c.type === 'heading'));
-    expect(movedLi).toBeDefined();
-    expect(movedLi?.children).toEqual([
+    // The first list item should now contain ONLY the label paragraph.
+    const firstLi = items.find((i) => i.children?.some((c) => c.text === 'First label'));
+    expect(firstLi).toBeDefined();
+    expect(firstLi?.children).toEqual([
       expect.objectContaining({ type: 'paragraph', text: 'First label' }),
-      expect.objectContaining({ type: 'heading', text: 'First heading' }),
     ]);
   });
 
-  test('multi-block li: hovering at heading / blockquote / codeBlock rows ALL resolve to the SAME listItem', async ({ page }) => {
-    // With default `allowedNodes`, every nested child row maps to the
-    // parent list item. Cycle through three different child rows and
-    // confirm the handle target is the same listItem each time.
+  test('multi-block li: hovering at heading / blockquote / codeBlock rows resolves to EACH inner block (extended allowedNodes)', async ({ page }) => {
+    // With extended `allowedNodes` (listitems_improvements_2.md Phase 3),
+    // each nested child row maps to its own inner block, not the parent
+    // list item. The label-paragraph row still resolves to the listItem
+    // via the `listItemFirstChild` rule (asserted by the LABEL test
+    // above). Verify each non-label child resolves to its own type and
+    // the three positions are distinct.
     await setContent(
       page,
       '<ul><li>'
@@ -1241,8 +1243,13 @@ test.describe('Notion-strict list schema - drag handle over indented children', 
       + '<pre><code>The code</code></pre>'
       + '</li></ul>',
     );
+    const expected: Array<{ sel: string; type: string }> = [
+      { sel: 'li > h2', type: 'heading' },
+      { sel: 'li > blockquote', type: 'blockquote' },
+      { sel: 'li > pre', type: 'codeBlock' },
+    ];
     const positions: number[] = [];
-    for (const sel of ['li > h2', 'li > blockquote', 'li > pre']) {
+    for (const { sel, type: expectedType } of expected) {
       const block = page.locator(`${editorSelector} ${sel}`);
       const box = await block.boundingBox();
       if (!box) throw new Error(`${sel} missing`);
@@ -1251,11 +1258,11 @@ test.describe('Notion-strict list schema - drag handle over indented children', 
       expect(resolvedPos, `hover at ${sel}`).not.toBeNull();
       if (resolvedPos === null) continue;
       const type = await blockTypeAt(page, resolvedPos);
-      expect(type, `hover at ${sel}`).toBe('listItem');
+      expect(type, `hover at ${sel}`).toBe(expectedType);
       positions.push(resolvedPos);
     }
-    // All three hovers resolve to the SAME listItem (one and only).
-    expect(new Set(positions).size).toBe(1);
+    // All three hovers resolve to DIFFERENT inner blocks (extended mode).
+    expect(new Set(positions).size).toBe(3);
   });
 });
 

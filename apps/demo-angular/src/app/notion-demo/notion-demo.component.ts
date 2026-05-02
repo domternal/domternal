@@ -48,7 +48,9 @@ import {
   KeyboardReorder,
   SlashCommand,
   SmartPaste,
+  BASE_SCORE,
 } from '@domternal/extension-block-menu';
+import type { DragHandleRule } from '@domternal/extension-block-menu';
 import type { MentionItem } from '@domternal/extension-mention';
 import { createLowlight, common } from 'lowlight';
 
@@ -177,10 +179,42 @@ export class NotionDemoComponent implements OnDestroy {
     // Block-manipulation UX trio (Notion-style). All three share the
     // `addFloatingMenuItems()` hook items and are opt-in from the
     // `@domternal/extension-block-menu` package.
-    // `nested: true` gives individual drag handles for list items + task
-    // items so users can reorder a single bullet without grabbing the
-    // whole list.
-    BlockHandle.configure({ nested: true }),
+    // Notion-style nested drag handles. Beyond list/task items, we also
+    // surface handles on heading / paragraph / codeBlock / blockquote /
+    // horizontalRule so a user can grab a NESTED block (e.g. a heading
+    // that was Tab-indented as a child of a list item) independently.
+    //
+    // `listItemFirstChild` rule (defaultRules) handles the LABEL paragraph
+    // exclusion - hovering the label of a list item still resolves to the
+    // list item itself, not the inner paragraph.
+    //
+    // `paragraphInsideContainer` rule (custom, below) preserves the
+    // existing UX where structural containers (blockquote, table cells,
+    // details, etc.) are treated as ONE drag unit - hovering a paragraph
+    // inside them resolves to the container, not the inner paragraph.
+    // List items are intentionally NOT in this set: paragraphs nested in
+    // list items (after the label slot) should be individually draggable
+    // because they were Tab-indented as separate logical blocks.
+    BlockHandle.configure({
+      nested: {
+        allowedNodes: [
+          'listItem', 'taskItem',
+          'heading', 'paragraph', 'codeBlock', 'blockquote', 'horizontalRule',
+        ],
+        rules: [
+          {
+            id: 'paragraphInsideContainer',
+            evaluate: ({ node, parent }: { node: { type: { name: string } }; parent: { type: { name: string } } | null }) => {
+              if (node.type.name !== 'paragraph' || !parent) return 0;
+              const exclusionParents = new Set([
+                'blockquote', 'tableCell', 'tableHeader', 'tableRow', 'details', 'detailsContent',
+              ]);
+              return exclusionParents.has(parent.type.name) ? BASE_SCORE : 0;
+            },
+          } satisfies DragHandleRule,
+        ],
+      },
+    }),
     BlockContextMenu,
     KeyboardReorder,
     SlashCommand,
