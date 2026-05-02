@@ -8,7 +8,7 @@
 import { Node } from '../Node.js';
 import { textblockTypeInputRule } from '../helpers/textblockTypeInputRule.js';
 import { keymap } from '@domternal/pm/keymap';
-import { Plugin, PluginKey } from '@domternal/pm/state';
+import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
 import type { Command as PMCommand } from '@domternal/pm/state';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem, ToolbarButton } from '../types/Toolbar.js';
@@ -103,6 +103,66 @@ export const Heading = Node.create<HeadingOptions>({
         return editor?.commands['toggleHeading']?.({ level }) ?? false;
       };
     });
+
+    // Notion-style Enter on a heading. Lives in addKeyboardShortcuts
+    // (the COLLECTED keymap, plugin index 1 in the editor) rather than
+    // in addProseMirrorPlugins so it fires BEFORE the BaseKeymap plugin
+    // (index 2+, the angular wrapper's `DEFAULT_EXTENSIONS` register
+    // BaseKeymap before user extensions). Without that ordering,
+    // BaseKeymap's `liftEmptyBlock` would claim Enter on an empty
+    // heading first and lift it out of its parent.
+    //
+    // Behaviour:
+    //  - End of NON-EMPTY heading -> insert a paragraph as the next
+    //    sibling and move the caret into it.
+    //  - EMPTY heading -> convert IN PLACE to a paragraph (no extra
+    //    block; lets users back out of an accidental `# ` input rule).
+    //  - Mid / start-of-non-empty heading -> return false so the
+    //    default split runs (text splits in place; both halves stay
+    //    heading).
+    //
+    // ListItem.Enter / TaskItem.Enter both early-bail when the cursor
+    // is in a non-paragraph textblock, so this handler also fires for
+    // headings nested INSIDE a list item.
+    shortcuts['Enter'] = (): boolean => {
+      if (!editor) return false;
+      const { state, view } = editor;
+      const { selection } = state;
+      if (!selection.empty) return false;
+      const { $from } = selection;
+      if ($from.parent.type.name !== 'heading') return false;
+
+      const paragraphType = state.schema.nodes['paragraph'];
+      if (!paragraphType) return false;
+
+      // Empty heading: convert to paragraph in place.
+      if ($from.parent.content.size === 0) {
+        view.dispatch(
+          state.tr.setNodeMarkup($from.before($from.depth), paragraphType).scrollIntoView(),
+        );
+        return true;
+      }
+
+      // Non-empty: only act at the END of the heading.
+      if ($from.parentOffset !== $from.parent.content.size) return false;
+
+      const after = $from.after($from.depth);
+      const $after = state.doc.resolve(after);
+      const indexAfter = $after.index();
+      // Schema check: parent must accept paragraph at this position.
+      // Critical for nested-in-li context where the listItem's content
+      // rule (`paragraph block*`) restricts what can land where.
+      if (!$after.parent.canReplaceWith(indexAfter, indexAfter, paragraphType)) {
+        return false;
+      }
+
+      const tr = state.tr.insert(after, paragraphType.create());
+      // Caret at offset 0 inside the new paragraph (`after + 1` skips
+      // the paragraph's open token).
+      tr.setSelection(TextSelection.create(tr.doc, after + 1));
+      view.dispatch(tr.scrollIntoView());
+      return true;
+    };
 
     return shortcuts;
   },

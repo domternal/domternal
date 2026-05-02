@@ -1258,3 +1258,377 @@ test.describe('Notion-strict list schema - drag handle over indented children', 
     expect(new Set(positions).size).toBe(1);
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────
+// 11. Heading Enter (Phase 3) interactions with strict list schema
+// ────────────────────────────────────────────────────────────────────────
+//
+// Phase 3 adds a Notion-style Enter handler on heading: at end of a
+// non-empty heading, insert a paragraph as the next sibling; on an
+// EMPTY heading, convert in place to a paragraph; mid-heading falls
+// through to default splitBlock. The handler lives in Heading's
+// `addProseMirrorPlugins` keymap so it fires BEFORE the ListItem /
+// TaskItem Enter handlers in the addKeyboardShortcuts chain - that
+// ordering is what lets headings nested INSIDE a list item still
+// produce the "paragraph below in same li" behaviour rather than
+// splitting the list item via splitListItem.
+//
+// These tests pin the list-context interactions specifically (the
+// pure top-level cases live in `heading.spec.ts`).
+
+test.describe('Notion-strict list schema - Heading Enter inside a list item', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  /**
+   * Place the PM caret at end of the first node of `typeName` matching
+   * `text`. Uses PM's TextSelection API directly because the browser's
+   * `Range`/`Selection` doesn't reliably sync to PM for empty / atom
+   * textblocks or after a focus call.
+   */
+  async function caretAtEndOfNode(page: Page, typeName: string, text: string): Promise<void> {
+    await page.evaluate(({ tn, txt }) => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | {
+            state: { doc: { descendants: (cb: (n: { type: { name: string }; nodeSize: number; textContent: string }, p: number) => boolean | void) => void }; tr: { setSelection: (s: unknown) => unknown } };
+            view: { dispatch: (tr: unknown) => void; state: { selection: { constructor: { create: (doc: unknown, a: number) => unknown } } }; focus: () => void; dom: HTMLElement };
+          }
+        | undefined;
+      if (!ed) return;
+      let pos = -1;
+      let size = 0;
+      ed.state.doc.descendants((node, p) => {
+        if (pos !== -1) return false;
+        if (node.type.name === tn && node.textContent === txt) {
+          pos = p;
+          size = node.nodeSize;
+          return false;
+        }
+        return true;
+      });
+      if (pos === -1) return;
+      const TS = ed.view.state.selection.constructor;
+      // End of node = pos + size - 1 (one before the close token).
+      const tr = (ed.state.tr.setSelection as (s: unknown) => unknown)(TS.create((ed.state.doc as unknown), pos + size - 1));
+      ed.view.dispatch(tr);
+      ed.view.dom.focus();
+      ed.view.focus();
+    }, { tn: typeName, txt: text });
+  }
+
+  /** Place the PM caret at the START of the first node of `typeName` with `text`. */
+  async function caretAtStartOfNode(page: Page, typeName: string, text: string): Promise<void> {
+    await page.evaluate(({ tn, txt }) => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | {
+            state: { doc: { descendants: (cb: (n: { type: { name: string }; textContent: string }, p: number) => boolean | void) => void }; tr: { setSelection: (s: unknown) => unknown } };
+            view: { dispatch: (tr: unknown) => void; state: { selection: { constructor: { create: (doc: unknown, a: number) => unknown } } }; focus: () => void; dom: HTMLElement };
+          }
+        | undefined;
+      if (!ed) return;
+      let pos = -1;
+      ed.state.doc.descendants((node, p) => {
+        if (pos !== -1) return false;
+        if (node.type.name === tn && node.textContent === txt) { pos = p; return false; }
+        return true;
+      });
+      if (pos === -1) return;
+      const TS = ed.view.state.selection.constructor;
+      const tr = (ed.state.tr.setSelection as (s: unknown) => unknown)(TS.create((ed.state.doc as unknown), pos + 1));
+      ed.view.dispatch(tr);
+      ed.view.dom.focus();
+      ed.view.focus();
+    }, { tn: typeName, txt: text });
+  }
+
+  /** Place the PM caret at a specific text-offset inside the first node of `typeName` matching `fullText`. */
+  async function caretAtOffsetInNode(page: Page, typeName: string, fullText: string, offset: number): Promise<void> {
+    await page.evaluate(({ tn, txt, off }) => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | {
+            state: { doc: { descendants: (cb: (n: { type: { name: string }; textContent: string }, p: number) => boolean | void) => void }; tr: { setSelection: (s: unknown) => unknown } };
+            view: { dispatch: (tr: unknown) => void; state: { selection: { constructor: { create: (doc: unknown, a: number) => unknown } } }; focus: () => void; dom: HTMLElement };
+          }
+        | undefined;
+      if (!ed) return;
+      let pos = -1;
+      ed.state.doc.descendants((node, p) => {
+        if (pos !== -1) return false;
+        if (node.type.name === tn && node.textContent === txt) { pos = p; return false; }
+        return true;
+      });
+      if (pos === -1) return;
+      const TS = ed.view.state.selection.constructor;
+      const tr = (ed.state.tr.setSelection as (s: unknown) => unknown)(TS.create((ed.state.doc as unknown), pos + 1 + off));
+      ed.view.dispatch(tr);
+      ed.view.dom.focus();
+      ed.view.focus();
+    }, { tn: typeName, txt: fullText, off: offset });
+  }
+
+  test('heading nested in a bullet item: Enter at end inserts a paragraph as next sibling INSIDE the same listItem', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h2>Nested heading</h2></li></ul>');
+    await caretAtEndOfNode(page, 'heading', 'Nested heading');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    // Expect a single listItem with [label-p, heading, new-empty-p].
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      childCount: 3,
+      children: [
+        expect.objectContaining({ type: 'paragraph', text: 'Label' }),
+        expect.objectContaining({ type: 'heading', text: 'Nested heading' }),
+        expect.objectContaining({ type: 'paragraph', text: '' }),
+      ],
+    });
+  });
+
+  test('heading nested in a TASK item: Enter at end inserts a paragraph as next sibling INSIDE the same taskItem', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Task label</p><h2>Notes</h2></li></ul>',
+    );
+    await caretAtEndOfNode(page, 'heading', 'Notes');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      type: 'taskItem',
+      childCount: 3,
+      children: [
+        expect.objectContaining({ type: 'paragraph', text: 'Task label' }),
+        expect.objectContaining({ type: 'heading', text: 'Notes' }),
+        expect.objectContaining({ type: 'paragraph', text: '' }),
+      ],
+    });
+  });
+
+  test('heading nested in bullet item: typing AFTER Enter lands in the new paragraph (not the heading)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h2>Heading</h2></li></ul>');
+    await caretAtEndOfNode(page, 'heading', 'Heading');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('body text');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items[0]?.children).toEqual([
+      expect.objectContaining({ type: 'paragraph', text: 'Label' }),
+      expect.objectContaining({ type: 'heading', text: 'Heading' }),
+      expect.objectContaining({ type: 'paragraph', text: 'body text' }),
+    ]);
+  });
+
+  test('the new paragraph from Enter inherits the children-zone indent (Phase 1+2+3 interaction)', async ({ page }) => {
+    // After Enter at end of nested heading, the new paragraph sits in
+    // the children zone of the list item. Phase 2's selector
+    // (`> :not(p:first-child)...`) therefore targets it and applies
+    // the children-zone margin-inline-start.
+    await setContent(page, '<ul><li><p>Label</p><h2>Heading</h2></li></ul>');
+    await caretAtEndOfNode(page, 'heading', 'Heading');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Indented body');
+    await page.waitForTimeout(40);
+
+    const ml = await page.evaluate((sel) => {
+      const ps = document.querySelectorAll(`${sel} li > p`);
+      const lastP = ps[ps.length - 1];
+      if (!lastP) return -1;
+      return parseFloat(getComputedStyle(lastP).marginLeft);
+    }, editorSelector);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+
+  test('mid-heading-in-li Enter falls through (default splitBlock keeps both halves heading)', async ({ page }) => {
+    // Caret in the middle of the nested heading text. Heading Enter
+    // returns false; PM's default splitBlock runs and the heading
+    // splits in place. Both halves remain heading - they may end up
+    // either in the same li (ideal) or get reshuffled by ListItem's
+    // chained handlers, but neither half should disappear.
+    await setContent(page, '<ul><li><p>Label</p><h2>HelloWorld</h2></li></ul>');
+    await caretAtOffsetInNode(page, 'heading', 'HelloWorld', 'Hello'.length);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    // Both heading halves still exist somewhere in the doc.
+    const headings = await page.locator(`${editorSelector} h2`).allTextContents();
+    expect(headings).toContain('Hello');
+    expect(headings).toContain('World');
+  });
+
+  test('start-of-non-empty heading in li falls through (default split runs)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h2>Heading</h2></li></ul>');
+    await caretAtStartOfNode(page, 'heading', 'Heading');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    // Heading text "Heading" is preserved somewhere in the doc.
+    const allHeadings = await page.locator(`${editorSelector} h2`).allTextContents();
+    expect(allHeadings.join('|')).toContain('Heading');
+  });
+
+  test('empty heading in li + Enter converts the heading to a paragraph in place (li becomes [label-p, p-empty])', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h2></h2></li></ul>');
+    // Empty heading has no text content - locate via text='' which is
+    // unique here (the only heading is the empty nested one).
+    await caretAtEndOfNode(page, 'heading', '');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      childCount: 2,
+      children: [
+        expect.objectContaining({ type: 'paragraph', text: 'Label' }),
+        expect.objectContaining({ type: 'paragraph', text: '' }),
+      ],
+    });
+  });
+
+  test('mid-heading nested in TASK item Enter falls through (default splitBlock keeps both halves heading)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Task label</p><h2>HelloWorld</h2></li></ul>',
+    );
+    await caretAtOffsetInNode(page, 'heading', 'HelloWorld', 'Hello'.length);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    // Both heading halves still exist somewhere in the doc.
+    const headings = await page.locator(`${editorSelector} h2`).allTextContents();
+    expect(headings).toContain('Hello');
+    expect(headings).toContain('World');
+  });
+
+  test('start-of-non-empty heading nested in TASK item falls through (default split runs, content not lost)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Task label</p><h2>Heading</h2></li></ul>',
+    );
+    await caretAtStartOfNode(page, 'heading', 'Heading');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const allHeadings = await page.locator(`${editorSelector} h2`).allTextContents();
+    expect(allHeadings.join('|')).toContain('Heading');
+  });
+
+  test('multiple post-label headings in a li: Enter at end of the SECOND heading inserts paragraph between the two and after', async ({ page }) => {
+    // li starts with [label-p, h2-A, h2-B]. Enter at end of B inserts
+    // a new paragraph after B inside the same li -> [label-p, h2-A,
+    // h2-B, new-p].
+    await setContent(
+      page,
+      '<ul><li><p>Label</p><h2>Alpha</h2><h2>Beta</h2></li></ul>',
+    );
+    await caretAtEndOfNode(page, 'heading', 'Beta');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      childCount: 4,
+      children: [
+        expect.objectContaining({ type: 'paragraph', text: 'Label' }),
+        expect.objectContaining({ type: 'heading', text: 'Alpha' }),
+        expect.objectContaining({ type: 'heading', text: 'Beta' }),
+        expect.objectContaining({ type: 'paragraph', text: '' }),
+      ],
+    });
+  });
+
+  test('heading nested inside a blockquote that is itself nested in a li: Enter inserts paragraph inside the blockquote (deepest valid container)', async ({ page }) => {
+    // Super-nested case: ul > li > [label-p, blockquote(heading)].
+    // Enter at end of the heading inserts a paragraph as a sibling
+    // inside the blockquote. The handler's `canReplaceWith` check
+    // against the blockquote's content rule (`block+`) accepts a
+    // trailing paragraph.
+    await setContent(
+      page,
+      '<ul><li>'
+      + '<p>Label</p>'
+      + '<blockquote><h2>Quoted heading</h2></blockquote>'
+      + '</li></ul>',
+    );
+    await caretAtEndOfNode(page, 'heading', 'Quoted heading');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const bqInner = await page.evaluate((sel) => {
+      const bq = document.querySelector(`${sel} li > blockquote`);
+      if (!bq) return [];
+      return Array.from(bq.children).map((el) => el.tagName.toLowerCase());
+    }, editorSelector);
+    expect(bqInner).toEqual(['h2', 'p']);
+  });
+
+  test('defensive: cursor inside a CODEBLOCK nested in a li, Enter does NOT trigger heading-Enter (parent is codeBlock, not heading)', async ({ page }) => {
+    // Should fall through to the codeBlock / default behaviour - in
+    // particular, NOT promote the codeBlock or insert a paragraph
+    // sibling via the heading handler. The simplest invariant we can
+    // assert robustly is "the codeBlock is still inside the li after
+    // Enter, and a heading was not magically created".
+    await setContent(
+      page,
+      '<ul><li><p>Label</p><pre><code>console.log("x")</code></pre></li></ul>',
+    );
+    await caretAtEndOfNode(page, 'codeBlock', 'console.log("x")');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    // Heading must NOT have been inserted by our handler.
+    const headingCount = await page.locator(`${editorSelector} h1, ${editorSelector} h2, ${editorSelector} h3, ${editorSelector} h4`).count();
+    expect(headingCount).toBe(0);
+    // Original codeBlock content is still around (default codeBlock
+    // Enter inserts a newline inside the pre, doesn't escape it).
+    const codeText = await page.locator(`${editorSelector} pre`).first().textContent();
+    expect(codeText).toContain('console.log("x")');
+  });
+
+  test('defensive: cursor inside a BLOCKQUOTE nested in a li, Enter does NOT trigger heading-Enter (parent is blockquote->paragraph, not heading)', async ({ page }) => {
+    // The cursor lands inside the blockquote's inner paragraph (which
+    // IS a paragraph). ListItem.Enter would normally claim Enter but
+    // its `node(-1)` check fails (blockquote, not listItem) so it
+    // bails. Default splitBlock runs - blockquote-inner paragraph
+    // splits, no heading is inserted by our handler.
+    await setContent(
+      page,
+      '<ul><li><p>Label</p><blockquote><p>Quoted</p></blockquote></li></ul>',
+    );
+    await caretAtEndOfNode(page, 'paragraph', 'Quoted');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    // No heading was created by our handler - blockquote's inner
+    // content is still <p>...</p> (possibly split into two).
+    const headingCount = await page.locator(`${editorSelector} h1, ${editorSelector} h2, ${editorSelector} h3, ${editorSelector} h4`).count();
+    expect(headingCount).toBe(0);
+    const bqText = await page.locator(`${editorSelector} blockquote`).first().textContent();
+    expect(bqText).toContain('Quoted');
+  });
+
+  test('heading is NOT the first child of li (Phase-1 strict shape preserved): Enter does not violate schema', async ({ page }) => {
+    // Defensive: ensure the post-Enter listItem still has a paragraph
+    // as the first child (Phase 1 invariant). Enter's `canReplaceWith`
+    // schema check guarantees this even if the structure shifts.
+    await setContent(page, '<ul><li><p>Label</p><h2>Heading</h2></li></ul>');
+    await caretAtEndOfNode(page, 'heading', 'Heading');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const firstChildName = await page.evaluate((sel) => {
+      const el = document.querySelector(`${sel} li`);
+      return el?.firstElementChild?.tagName.toLowerCase() ?? '';
+    }, editorSelector);
+    // First child must remain a paragraph (or label if rendered with
+    // some wrapper - just ensure it's NOT a heading directly).
+    expect(firstChildName).not.toBe('h1');
+    expect(firstChildName).not.toBe('h2');
+    expect(firstChildName).not.toBe('h3');
+    expect(firstChildName).not.toBe('h4');
+  });
+});

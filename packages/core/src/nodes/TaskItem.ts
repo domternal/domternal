@@ -140,6 +140,12 @@ export const TaskItem = Node.create<TaskItemOptions>({
         const { $from } = state.selection;
         // Only handle Enter when cursor's immediate item ancestor is a taskItem
         if ($from.depth < 1 || $from.node(-1).type !== this.nodeType) return false;
+        // Defer when the cursor sits inside a NESTED non-paragraph block
+        // (heading, codeBlock, etc.) - that block's own Enter handler
+        // should run instead. Without this, splitListItem would split
+        // the entire task item and the nested-block-specific behaviour
+        // would never fire.
+        if ($from.parent.type.name !== 'paragraph') return false;
 
         // Standard split for non-empty items
         if (splitListItem(this.nodeType)(state, view.dispatch)) return true;
