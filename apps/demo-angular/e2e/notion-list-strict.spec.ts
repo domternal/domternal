@@ -549,3 +549,712 @@ test.describe('Notion-strict list schema - cross-type conversion', () => {
     });
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────
+// 8. Children-zone indent (Phase 2 visual styling)
+// ────────────────────────────────────────────────────────────────────────
+//
+// Notion-strict semantics: the FIRST paragraph of a list/task item is the
+// label aligned with the bullet/checkbox marker. Additional blocks
+// (heading, codeBlock, blockquote, …) render below it indented one level
+// (--dm-block-children-indent, default 1.5em) so the visual hierarchy
+// matches the document tree. Nested ul/ol inside bullet/ordered lists
+// already gain the same indent through their `padding-left`, so the
+// rule excludes them - but nested taskList wrappers (which have
+// `padding-left: 0`) DO pick up the children-zone margin so nested
+// task hierarchy stays visible.
+
+test.describe('Notion-strict list schema - children-zone indent', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  /** Returns computed `margin-left` (px) of the first matching element. */
+  async function marginLeft(page: Page, selector: string): Promise<number> {
+    return page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return -1;
+      return parseFloat(getComputedStyle(el).marginLeft);
+    }, selector);
+  }
+
+  /** Returns computed `margin-top` (px) of the first matching element. */
+  async function marginTop(page: Page, selector: string): Promise<number> {
+    return page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return -1;
+      return parseFloat(getComputedStyle(el).marginTop);
+    }, selector);
+  }
+
+  // ── Bullet list (`<ul>`) - all child types ──────────────────────────
+
+  test('bullet list: first paragraph (label) has NO children-zone indent', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Hello</p></li></ul>');
+    const ml = await marginLeft(page, `${editorSelector} li > p`);
+    expect(ml).toBe(0);
+  });
+
+  test('bullet list: subsequent paragraph (NOT first child) is indented', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><p>Second</p></li></ul>');
+    const ml = await marginLeft(page, `${editorSelector} li > p:nth-child(2)`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+
+  test('bullet list: nested h1 (top heading level) is indented', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>H1</h1></li></ul>');
+    const ml = await marginLeft(page, `${editorSelector} li > h1`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+
+  test('bullet list: nested h4 (deepest level the demo enables) is indented', async ({ page }) => {
+    // The Heading extension defaults `levels: [1, 2, 3, 4]`, so h5/h6
+    // round-trip back to the lowest enabled level on parse. h4 is the
+    // realistic "deep heading" we cover.
+    await setContent(page, '<ul><li><p>Label</p><h4>H4</h4></li></ul>');
+    const ml = await marginLeft(page, `${editorSelector} li > h4`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+
+  test('bullet list: nested codeBlock is indented', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><pre><code>code()</code></pre></li></ul>');
+    const ml = await marginLeft(page, `${editorSelector} li > pre`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+
+  test('bullet list: nested blockquote is indented', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><blockquote><p>Quote</p></blockquote></li></ul>');
+    const ml = await marginLeft(page, `${editorSelector} li > blockquote`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+
+  test('bullet list: nested horizontalRule (atom block) is indented', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><hr></li></ul>');
+    const ml = await marginLeft(page, `${editorSelector} li > hr`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+
+  test('bullet list: nested regular `<ul>` is NOT separately indented (prevents double up with its own padding-left)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Outer</p><ul><li><p>Inner</p></li></ul></li></ul>');
+    const ml = await marginLeft(page, `${editorSelector} li > ul:not([data-type="taskList"])`);
+    expect(ml).toBe(0);
+  });
+
+  test('bullet list: nested `<ol>` is NOT separately indented (prevents double up with its own padding-left)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Outer</p><ol><li><p>Inner</p></li></ol></li></ul>');
+    const ml = await marginLeft(page, `${editorSelector} li > ol`);
+    expect(ml).toBe(0);
+  });
+
+  test('bullet list: nested `<ul data-type="taskList">` IS indented (taskList has padding-left: 0)', async ({ page }) => {
+    // Cross-list-type nesting: a taskList inside a bullet item. The
+    // taskList wrapper has no marker padding of its own, so the
+    // children-zone rule INCLUDES it so the task checkboxes still
+    // sit visually one level below the bullet label.
+    await setContent(
+      page,
+      '<ul><li><p>Outer bullet</p>'
+      + '<ul data-type="taskList"><li data-type="taskItem"><p>Inner task</p></li></ul>'
+      + '</li></ul>',
+    );
+    const ml = await marginLeft(page, `${editorSelector} li > ul[data-type="taskList"]`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+
+  // ── Ordered list (`<ol>`) parity ────────────────────────────────────
+
+  test('ordered list: first paragraph (label) has NO children-zone indent', async ({ page }) => {
+    await setContent(page, '<ol><li><p>Hello</p></li></ol>');
+    const ml = await marginLeft(page, `${editorSelector} ol > li > p`);
+    expect(ml).toBe(0);
+  });
+
+  test('ordered list: nested heading is indented', async ({ page }) => {
+    await setContent(page, '<ol><li><p>Label</p><h2>Heading</h2></li></ol>');
+    const ml = await marginLeft(page, `${editorSelector} ol > li > h2`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+
+  test('ordered list: subsequent paragraph is indented', async ({ page }) => {
+    await setContent(page, '<ol><li><p>Label</p><p>Second</p></li></ol>');
+    const ml = await marginLeft(page, `${editorSelector} ol > li > p:nth-child(2)`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+
+  test('ordered list: nested `<ol>` is NOT doubly indented', async ({ page }) => {
+    await setContent(page, '<ol><li><p>Outer</p><ol><li><p>Inner</p></li></ol></li></ol>');
+    const ml = await marginLeft(page, `${editorSelector} ol > li > ol`);
+    expect(ml).toBe(0);
+  });
+
+  test('ordered list: nested `<ul>` is NOT doubly indented', async ({ page }) => {
+    await setContent(page, '<ol><li><p>Outer</p><ul><li><p>Inner</p></li></ul></li></ol>');
+    const ml = await marginLeft(page, `${editorSelector} ol > li > ul:not([data-type="taskList"])`);
+    expect(ml).toBe(0);
+  });
+
+  // ── Task list (`<ul data-type="taskList">`) - all child types ───────
+
+  test('task list: first paragraph (label) has NO children-zone indent', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Buy milk</p></li></ul>',
+    );
+    const ml = await marginLeft(page, `${editorSelector} li[data-type="taskItem"] > div > p`);
+    expect(ml).toBe(0);
+  });
+
+  test('task list: subsequent paragraph (NOT first) is indented', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><p>Second</p></li></ul>',
+    );
+    const ml = await marginLeft(page, `${editorSelector} li[data-type="taskItem"] > div > p:nth-child(2)`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+
+  test('task list: nested heading is indented', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Task label</p><h2>Notes</h2></li></ul>',
+    );
+    const ml = await marginLeft(page, `${editorSelector} li[data-type="taskItem"] > div > h2`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+
+  test('task list: nested codeBlock is indented', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><pre><code>x = 1</code></pre></li></ul>',
+    );
+    const ml = await marginLeft(page, `${editorSelector} li[data-type="taskItem"] > div > pre`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+
+  test('task list: nested blockquote is indented', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><blockquote><p>Q</p></blockquote></li></ul>',
+    );
+    const ml = await marginLeft(page, `${editorSelector} li[data-type="taskItem"] > div > blockquote`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+
+  test('task list: nested horizontalRule is indented', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><hr></li></ul>',
+    );
+    const ml = await marginLeft(page, `${editorSelector} li[data-type="taskItem"] > div > hr`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+
+  test('task list: nested taskList IS indented (taskList wrappers have padding-left: 0)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem">'
+      + '<p>Outer task</p>'
+      + '<ul data-type="taskList"><li data-type="taskItem"><p>Inner task</p></li></ul>'
+      + '</li></ul>',
+    );
+    const ml = await marginLeft(page, `${editorSelector} li[data-type="taskItem"] > div > ul[data-type="taskList"]`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+
+  test('task list: nested REGULAR `<ul>` (not taskList) is NOT separately indented (its own padding-left already provides indent)', async ({ page }) => {
+    // Cross-list-type nesting in the OPPOSITE direction: regular bullet
+    // nested inside a task item. The bullet ul has its own
+    // padding-left: 1.5em for marker indent, so we exclude it from the
+    // children-zone rule to avoid double-indent.
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem">'
+      + '<p>Outer task</p>'
+      + '<ul><li><p>Inner bullet</p></li></ul>'
+      + '</li></ul>',
+    );
+    const ml = await marginLeft(page, `${editorSelector} li[data-type="taskItem"] > div > ul:not([data-type="taskList"])`);
+    expect(ml).toBe(0);
+  });
+
+  test('task list: nested REGULAR `<ol>` is NOT separately indented', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem">'
+      + '<p>Outer task</p>'
+      + '<ol><li><p>Inner numbered</p></li></ol>'
+      + '</li></ul>',
+    );
+    const ml = await marginLeft(page, `${editorSelector} li[data-type="taskItem"] > div > ol`);
+    expect(ml).toBe(0);
+  });
+
+  // ── margin-top assertions (the rule sets BOTH margin-left and margin-top) ──
+
+  test('bullet list: indented heading also picks up margin-top: 0.25em', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h2>H2</h2></li></ul>');
+    const mt = await marginTop(page, `${editorSelector} li > h2`);
+    // 0.25em at 16px base ≈ 4px; allow some browser rounding.
+    expect(mt).toBeGreaterThanOrEqual(3);
+    expect(mt).toBeLessThanOrEqual(8);
+  });
+
+  test('task list: indented heading also picks up margin-top: 0.25em', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><h2>H2</h2></li></ul>',
+    );
+    const mt = await marginTop(page, `${editorSelector} li[data-type="taskItem"] > div > h2`);
+    expect(mt).toBeGreaterThanOrEqual(3);
+    expect(mt).toBeLessThanOrEqual(8);
+  });
+
+  test('bullet list: indented nested taskList also picks up margin-top: 0.25em', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Outer</p>'
+      + '<ul data-type="taskList"><li data-type="taskItem"><p>Inner</p></li></ul>'
+      + '</li></ul>',
+    );
+    const mt = await marginTop(page, `${editorSelector} li > ul[data-type="taskList"]`);
+    expect(mt).toBeGreaterThanOrEqual(3);
+    expect(mt).toBeLessThanOrEqual(8);
+  });
+
+  // ── Token override (`--dm-block-children-indent`) ──────────────────
+
+  test('overriding `--dm-block-children-indent` to 3em widens the children-zone indent', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h2>Heading</h2></li></ul>');
+    await page.evaluate(() => {
+      const root = document.querySelector('.dm-editor');
+      if (root instanceof HTMLElement) root.style.setProperty('--dm-block-children-indent', '3em');
+    });
+    const ml = await marginLeft(page, `${editorSelector} li > h2`);
+    // 3em at 16px ≈ 48px.
+    expect(ml).toBeGreaterThanOrEqual(40);
+  });
+
+  test('overriding `--dm-block-children-indent` to 0 collapses the children-zone (label + nested at same x)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h2>Heading</h2></li></ul>');
+    await page.evaluate(() => {
+      const root = document.querySelector('.dm-editor');
+      if (root instanceof HTMLElement) root.style.setProperty('--dm-block-children-indent', '0');
+    });
+    const ml = await marginLeft(page, `${editorSelector} li > h2`);
+    expect(ml).toBe(0);
+  });
+
+  // ── Phase 1 ↔ Phase 2 interaction (autofix scenarios) ─────────────
+
+  test('autofix-injected empty label paragraph + heading NOT inside the same li (legacy `<li><h1>...</h1></li>`)', async ({ page }) => {
+    // Phase 1's parser HOISTS the heading out of the li when it cannot
+    // satisfy the first-child slot, leaving the li with just an empty
+    // label paragraph. The heading lands at TOP level - NOT inside
+    // the li - so the children-zone indent does not (and should not)
+    // apply. This locks in that interaction.
+    await setContent(page, '<ul><li><h1>Hoisted</h1></li></ul>');
+    const headingMl = await marginLeft(page, `${editorSelector} h1`);
+    expect(headingMl).toBe(0);
+  });
+
+  test('schema-valid li with empty label + nested heading still indents the heading', async ({ page }) => {
+    // Distinct from the autofix scenario: the empty label is EXPLICIT
+    // (authored as `<p></p>`), so the parser keeps the heading inside
+    // the li. The children-zone rule then applies.
+    await setContent(page, '<ul><li><p></p><h2>Below empty label</h2></li></ul>');
+    const ml = await marginLeft(page, `${editorSelector} li > h2`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+
+  test('post-Phase-1 wrapped li from drag (label + heading) renders heading indented', async ({ page }) => {
+    // `convertListItemForParent` wraps a non-paragraph drop as
+    // `[empty-label-p, content]` (Notion-strict shape). The end result
+    // looks just like the explicit-empty-label case above: the content
+    // block sits below the empty label, indented.
+    await setContent(
+      page,
+      '<ul><li><p></p><h1>Wrapped heading</h1></li><li><p>Sibling</p></li></ul>',
+    );
+    const ml = await marginLeft(page, `${editorSelector} li:first-child > h1`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+
+  // ── Combinations / mixed children ─────────────────────────────────
+
+  test('multiple post-label children in a bullet item all get indented (heading, paragraph, blockquote, codeBlock, hr)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li>'
+      + '<p>Label</p>'
+      + '<h2>Heading</h2>'
+      + '<p>Body</p>'
+      + '<blockquote><p>Quote</p></blockquote>'
+      + '<pre><code>code</code></pre>'
+      + '<hr>'
+      + '</li></ul>',
+    );
+    const targets = ['li > h2', 'li > p:nth-child(3)', 'li > blockquote', 'li > pre', 'li > hr'];
+    for (const sel of targets) {
+      const ml = await marginLeft(page, `${editorSelector} ${sel}`);
+      expect(ml, `selector "${sel}" should be indented`).toBeGreaterThanOrEqual(20);
+    }
+  });
+
+  test('all five indented children share the SAME children-zone offset (no compounding)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li>'
+      + '<p>Label</p>'
+      + '<h2>Heading</h2>'
+      + '<p>Body</p>'
+      + '<blockquote><p>Quote</p></blockquote>'
+      + '<pre><code>code</code></pre>'
+      + '</li></ul>',
+    );
+    const h2Ml = await marginLeft(page, `${editorSelector} li > h2`);
+    const pMl = await marginLeft(page, `${editorSelector} li > p:nth-child(3)`);
+    const bqMl = await marginLeft(page, `${editorSelector} li > blockquote`);
+    const preMl = await marginLeft(page, `${editorSelector} li > pre`);
+    expect(h2Ml).toBe(pMl);
+    expect(h2Ml).toBe(bqMl);
+    expect(h2Ml).toBe(preMl);
+  });
+
+  test('deeply-nested bullet (3 levels): inner heading is indented relative to ITS OWN li, not stacked across levels', async ({ page }) => {
+    // Children-zone indent applies relative to each li, not summed
+    // across nesting levels. The innermost h3 should have the same
+    // computed margin-left (1.5em) as a heading at depth 1, even
+    // though the li itself is visually deep in the doc.
+    await setContent(
+      page,
+      '<ul><li><p>L1</p>'
+      + '<ul><li><p>L2</p>'
+      + '<ul><li><p>L3</p><h3>Deep heading</h3></li></ul>'
+      + '</li></ul>'
+      + '</li></ul>',
+    );
+    const innerMl = await marginLeft(page, `${editorSelector} ul ul ul > li > h3`);
+    const shallowSet = await page.evaluate(() => {
+      const editor = document.querySelector('app-notion-demo .ProseMirror');
+      const root = document.querySelector('.dm-editor');
+      if (!(editor instanceof HTMLElement) || !(root instanceof HTMLElement)) return null;
+      return root.style.getPropertyValue('--dm-block-children-indent');
+    });
+    expect(shallowSet).not.toBe('0');
+    expect(innerMl).toBeGreaterThanOrEqual(20);
+  });
+
+  // ── Defensive / negative cases ────────────────────────────────────
+
+  test('li with ONLY a label paragraph leaves margin-left at 0 (no children-zone applies)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Solo label</p></li></ul>');
+    const ml = await marginLeft(page, `${editorSelector} li > p`);
+    expect(ml).toBe(0);
+  });
+
+  test('empty paragraph as a NESTED child (after the label) still gets indented', async ({ page }) => {
+    // An empty paragraph after the label is unusual but legal under the
+    // schema. The children-zone rule still matches and the empty p is
+    // visually offset (carries cursor placement / vertical breathing
+    // room before the next nested block).
+    await setContent(page, '<ul><li><p>Label</p><p></p></li></ul>');
+    const ml = await marginLeft(page, `${editorSelector} li > p:nth-child(2)`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+
+  test('heading with inline marks (bold) inside a li still indents normally (marks are inline, not block)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Label</p><h2><strong>Bold</strong> Heading</h2></li></ul>',
+    );
+    const ml = await marginLeft(page, `${editorSelector} li > h2`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// 9. Children-zone indent under RTL (`dir="rtl"`)
+// ────────────────────────────────────────────────────────────────────────
+//
+// The SCSS uses `margin-inline-start` (logical property) so the
+// children-zone indent automatically flips to the right edge under RTL.
+// In LTR `margin-inline-start` resolves to `margin-left`; in RTL it
+// resolves to `margin-right`. The two test groups below assert each
+// direction separately so a regression to a physical `margin-left`
+// would surface immediately.
+
+test.describe('Notion-strict list schema - children-zone indent under RTL', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  /** Set `dir` on the .dm-editor and the inner ProseMirror so writing-mode picks up. */
+  async function setRTL(page: Page): Promise<void> {
+    await page.evaluate(() => {
+      const root = document.querySelector('.dm-editor');
+      const pm = document.querySelector('app-notion-demo .ProseMirror');
+      if (root instanceof HTMLElement) root.setAttribute('dir', 'rtl');
+      if (pm instanceof HTMLElement) pm.setAttribute('dir', 'rtl');
+    });
+    // Allow the browser to recompute styles for the new direction.
+    await page.waitForTimeout(20);
+  }
+
+  /** Returns computed `margin-right` (px) of the first matching element. */
+  async function marginRight(page: Page, selector: string): Promise<number> {
+    return page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return -1;
+      return parseFloat(getComputedStyle(el).marginRight);
+    }, selector);
+  }
+
+  /** Returns computed `margin-left` (px) of the first matching element. */
+  async function marginLeftAt(page: Page, selector: string): Promise<number> {
+    return page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return -1;
+      return parseFloat(getComputedStyle(el).marginLeft);
+    }, selector);
+  }
+
+  test('LTR (default): children-zone indent applies to margin-LEFT, margin-RIGHT stays 0', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h2>Heading</h2></li></ul>');
+    const ml = await marginLeftAt(page, `${editorSelector} li > h2`);
+    const mr = await marginRight(page, `${editorSelector} li > h2`);
+    expect(ml).toBeGreaterThanOrEqual(20);
+    expect(mr).toBe(0);
+  });
+
+  test('RTL bullet item: indented heading shifts to margin-RIGHT (margin-LEFT becomes 0)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h2>Heading</h2></li></ul>');
+    await setRTL(page);
+    const mr = await marginRight(page, `${editorSelector} li > h2`);
+    const ml = await marginLeftAt(page, `${editorSelector} li > h2`);
+    expect(mr).toBeGreaterThanOrEqual(20);
+    expect(ml).toBe(0);
+  });
+
+  test('RTL ordered list: indented heading uses margin-RIGHT', async ({ page }) => {
+    await setContent(page, '<ol><li><p>Label</p><h2>Heading</h2></li></ol>');
+    await setRTL(page);
+    const mr = await marginRight(page, `${editorSelector} ol > li > h2`);
+    expect(mr).toBeGreaterThanOrEqual(20);
+  });
+
+  test('RTL task item: indented heading uses margin-RIGHT', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><h2>Notes</h2></li></ul>',
+    );
+    await setRTL(page);
+    const mr = await marginRight(page, `${editorSelector} li[data-type="taskItem"] > div > h2`);
+    const ml = await marginLeftAt(page, `${editorSelector} li[data-type="taskItem"] > div > h2`);
+    expect(mr).toBeGreaterThanOrEqual(20);
+    expect(ml).toBe(0);
+  });
+
+  test('RTL: nested taskList inside bullet still picks up children-zone (margin-RIGHT side)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Outer</p>'
+      + '<ul data-type="taskList"><li data-type="taskItem"><p>Inner</p></li></ul>'
+      + '</li></ul>',
+    );
+    await setRTL(page);
+    const mr = await marginRight(page, `${editorSelector} li > ul[data-type="taskList"]`);
+    expect(mr).toBeGreaterThanOrEqual(20);
+  });
+
+  test('RTL: nested regular `<ul>` still excluded (NOT doubly indented on the right side)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Outer</p><ul><li><p>Inner</p></li></ul></li></ul>');
+    await setRTL(page);
+    const mr = await marginRight(page, `${editorSelector} li > ul:not([data-type="taskList"])`);
+    expect(mr).toBe(0);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// 10. Drag handle resolution over indented children
+// ────────────────────────────────────────────────────────────────────────
+//
+// The Notion demo enables `BlockHandle.configure({ nested: true })` with
+// the default `allowedNodes = ['listItem', 'taskItem']`. Hovering over
+// any row inside a list item - including an INDENTED nested child like
+// a heading or codeBlock - therefore resolves to the LIST ITEM (the
+// nearest allowed draggable ancestor), not the inner block. That gives
+// users a single "drag the whole bullet" gesture covering its entire
+// vertical span. These tests pin that behaviour and confirm the
+// children-zone CSS indent does not break hover targeting.
+
+test.describe('Notion-strict list schema - drag handle over indented children', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  const blockHandleSelector = '.dm-block-handle';
+  const dragBtnSelector = '.dm-block-handle-drag';
+
+  async function sideGutterX(page: Page): Promise<number> {
+    const editorBox = await page.locator(editorSelector).boundingBox();
+    if (!editorBox) throw new Error('editor missing');
+    return Math.max(0, editorBox.x - 10);
+  }
+
+  async function hoverAt(page: Page, x: number, y: number): Promise<void> {
+    await page.mouse.move(x, y);
+    await page.waitForTimeout(40);
+  }
+
+  async function hoveredPos(page: Page): Promise<number | null> {
+    return page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | {
+            view: {
+              state: {
+                plugins: Array<{
+                  spec?: { key?: { key?: string } };
+                  getState: (s: unknown) => { hoveredPos?: number | null } | undefined;
+                }>;
+              };
+            };
+          }
+        | undefined;
+      if (!ed) return null;
+      const plugin = ed.view.state.plugins.find((p) =>
+        typeof p.spec?.key?.key === 'string' && p.spec.key.key.startsWith('blockHandle$'),
+      );
+      if (!plugin) return null;
+      const s = plugin.getState(ed.view.state as unknown);
+      return s?.hoveredPos ?? null;
+    });
+  }
+
+  async function blockTypeAt(page: Page, pos: number): Promise<string | null> {
+    return page.evaluate((p) => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { nodeAt: (p: number) => { type: { name: string } } | null } } }
+        | undefined;
+      return ed?.state.doc.nodeAt(p)?.type.name ?? null;
+    }, pos);
+  }
+
+  test('hover at indented heading inside a bullet item surfaces the handle', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h2>Indented heading</h2></li></ul>');
+    const heading = page.locator(`${editorSelector} li > h2`);
+    const hBox = await heading.boundingBox();
+    if (!hBox) throw new Error('heading missing');
+    await hoverAt(page, await sideGutterX(page), hBox.y + hBox.height / 2);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+  });
+
+  test('handle at the indented heading row resolves to the parent listItem (default `allowedNodes` excludes heading)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h2>Indented heading</h2></li></ul>');
+    const heading = page.locator(`${editorSelector} li > h2`);
+    const hBox = await heading.boundingBox();
+    if (!hBox) throw new Error('heading missing');
+    await hoverAt(page, await sideGutterX(page), hBox.y + hBox.height / 2);
+    const resolvedPos = await hoveredPos(page);
+    expect(resolvedPos).not.toBeNull();
+    if (resolvedPos === null) return;
+    const type = await blockTypeAt(page, resolvedPos);
+    expect(type).toBe('listItem');
+  });
+
+  test('hovering at the LABEL row also resolves to the listItem (consistent across the whole li span)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label here</p><h2>Indented heading</h2></li></ul>');
+    const label = page.locator(`${editorSelector} li > p`);
+    const lBox = await label.boundingBox();
+    if (!lBox) throw new Error('label paragraph missing');
+    await hoverAt(page, await sideGutterX(page), lBox.y + lBox.height / 2);
+    const resolvedPos = await hoveredPos(page);
+    expect(resolvedPos).not.toBeNull();
+    if (resolvedPos === null) return;
+    const type = await blockTypeAt(page, resolvedPos);
+    expect(type).toBe('listItem');
+  });
+
+  test('TASK item: hover at indented heading row resolves to the parent taskItem', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem">'
+      + '<p>Task label</p>'
+      + '<h2>Indented heading inside task</h2>'
+      + '</li></ul>',
+    );
+    const heading = page.locator(`${editorSelector} li[data-type="taskItem"] > div > h2`);
+    const hBox = await heading.boundingBox();
+    if (!hBox) throw new Error('heading missing');
+    await hoverAt(page, await sideGutterX(page), hBox.y + hBox.height / 2);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+    const resolvedPos = await hoveredPos(page);
+    expect(resolvedPos).not.toBeNull();
+    if (resolvedPos === null) return;
+    const type = await blockTypeAt(page, resolvedPos);
+    expect(type).toBe('taskItem');
+  });
+
+  test('drag from the indented heading row reorders the WHOLE list item (label + indented heading travel together)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>First label</p><h2>First heading</h2></li>'
+      + '<li><p>Second label</p></li></ul>'
+      + '<p>Tail</p>',
+    );
+    const heading = page.locator(`${editorSelector} li > h2`);
+    const hBox = await heading.boundingBox();
+    if (!hBox) throw new Error('heading missing');
+    await hoverAt(page, await sideGutterX(page), hBox.y + hBox.height / 2);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    await page.waitForTimeout(20);
+
+    const tail = page.locator(`${editorSelector} p:has-text("Tail")`);
+    const tBox = await tail.boundingBox();
+    if (!tBox) throw new Error('tail missing');
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX: tBox.x + 5, clientY: tBox.y + tBox.height * 0.8 });
+    await page.locator(editorSelector).dispatchEvent('drop', { dataTransfer: dt, clientX: tBox.x + 5, clientY: tBox.y + tBox.height * 0.8 });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    await dt.dispose();
+
+    // The whole "first" list item (with both label AND heading) moved
+    // out and now sits after the tail paragraph; the bulletList retains
+    // only the second item.
+    const items = await listItemShapes(page);
+    // Find the moved item that contains the heading.
+    const movedLi = items.find((i) => i.children?.some((c) => c.type === 'heading'));
+    expect(movedLi).toBeDefined();
+    expect(movedLi?.children).toEqual([
+      expect.objectContaining({ type: 'paragraph', text: 'First label' }),
+      expect.objectContaining({ type: 'heading', text: 'First heading' }),
+    ]);
+  });
+
+  test('multi-block li: hovering at heading / blockquote / codeBlock rows ALL resolve to the SAME listItem', async ({ page }) => {
+    // With default `allowedNodes`, every nested child row maps to the
+    // parent list item. Cycle through three different child rows and
+    // confirm the handle target is the same listItem each time.
+    await setContent(
+      page,
+      '<ul><li>'
+      + '<p>Label</p>'
+      + '<h2>The heading</h2>'
+      + '<blockquote><p>The quote</p></blockquote>'
+      + '<pre><code>The code</code></pre>'
+      + '</li></ul>',
+    );
+    const positions: number[] = [];
+    for (const sel of ['li > h2', 'li > blockquote', 'li > pre']) {
+      const block = page.locator(`${editorSelector} ${sel}`);
+      const box = await block.boundingBox();
+      if (!box) throw new Error(`${sel} missing`);
+      await hoverAt(page, await sideGutterX(page), box.y + box.height / 2);
+      const resolvedPos = await hoveredPos(page);
+      expect(resolvedPos, `hover at ${sel}`).not.toBeNull();
+      if (resolvedPos === null) continue;
+      const type = await blockTypeAt(page, resolvedPos);
+      expect(type, `hover at ${sel}`).toBe('listItem');
+      positions.push(resolvedPos);
+    }
+    // All three hovers resolve to the SAME listItem (one and only).
+    expect(new Set(positions).size).toBe(1);
+  });
+});

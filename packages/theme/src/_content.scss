@@ -120,6 +120,24 @@
         margin: 0.1em 0;
         padding-inline: 0;
       }
+
+      // Notion-style "children zone" indent: post-label blocks (heading,
+      // codeBlock, blockquote, nested taskList, etc.) sit indented one
+      // level below the label paragraph aligned with the bullet.
+      //
+      // Excluded: regular `<ul>` and `<ol>` - they already gain the
+      // same visual indent through their own `padding-left: 1.5em` for
+      // bullet/number markers, so this rule would double-indent them.
+      // Nested `<ul data-type="taskList">` is NOT excluded because
+      // taskList wrappers use `padding-left: 0` (no marker indent),
+      // so they need the children-zone margin to stay visually nested.
+      //
+      // `margin-inline-start` (logical property) flips the indent to
+      // the right edge in RTL contexts (`dir="rtl"`) automatically.
+      > :not(p:first-child):not(ul:not([data-type="taskList"])):not(ol) {
+        margin-inline-start: var(--dm-block-children-indent, 1.5rem);
+        margin-top: 0.25rem;
+      }
     }
   }
 
