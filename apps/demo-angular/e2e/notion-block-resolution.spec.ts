@@ -900,6 +900,64 @@ test.describe('Empty-wrapper cleanup on drag', () => {
     expect((await page.locator(editorSelector).textContent()) ?? '').toContain('Solo top');
   });
 
+  test('drag the ONLY leaf of a 3-level nested list chain → entire chain collapses, no stub wrappers', async ({ page }) => {
+    // Each outer level uses an EXPLICIT empty paragraph as the label slot
+    // followed by the nested UL - mirroring what PM's content fitter will
+    // auto-inject once Notion-strict (`paragraph block*`) takes effect in
+    // Phase 1. The chain therefore walks repeatedly through the new
+    // single-meaningful-child branch (childCount=2 with an empty filler).
+    await setContent(
+      page,
+      '<ul><li><p></p>'
+      + '<ul><li><p></p>'
+      + '<ul><li><p>L3 deep</p></li></ul>'
+      + '</li></ul>'
+      + '</li></ul>'
+      + '<p>Tail</p>',
+    );
+
+    const innerP = page.locator(`${editorSelector} p`, { hasText: 'L3 deep' });
+    const iBox = await boxOf(innerP);
+    await hoverAt(page, await sideGutterX(page), iBox.y + iBox.height / 2);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+
+    const tailP = page.locator(`${editorSelector} p`, { hasText: 'Tail' });
+    const tBox = await boxOf(tailP);
+    await dragHandleTo(page, tBox.x + 5, tBox.y + tBox.height * 0.8);
+
+    expect(await countEmptyListItems(page)).toBe(0);
+    expect((await page.locator(editorSelector).textContent()) ?? '').toContain('L3 deep');
+  });
+
+  test('drag listItem out of a parent that holds [empty filler p + source UL] → parent collapses too', async ({ page }) => {
+    // Parent LI has childCount=2: an empty filler paragraph + the source
+    // nested UL. The classic single-child walk would stop here; the
+    // updated helper recognises the empty paragraph as discardable and
+    // keeps walking up so the outer UL collapses cleanly. This shape
+    // appears organically once the listItem schema becomes Notion-strict
+    // (`paragraph block*`); this test locks it down regardless of schema.
+    await setContent(
+      page,
+      '<ul><li>'
+      + '<p></p>'
+      + '<ul><li><p>Inner only</p></li></ul>'
+      + '</li></ul>'
+      + '<p>Tail</p>',
+    );
+
+    const innerP = page.locator(`${editorSelector} p`, { hasText: 'Inner only' });
+    const iBox = await boxOf(innerP);
+    await hoverAt(page, await sideGutterX(page), iBox.y + iBox.height / 2);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+
+    const tailP = page.locator(`${editorSelector} p`, { hasText: 'Tail' });
+    const tBox = await boxOf(tailP);
+    await dragHandleTo(page, tBox.x + 5, tBox.y + tBox.height * 0.8);
+
+    expect(await countEmptyListItems(page)).toBe(0);
+    expect((await page.locator(editorSelector).textContent()) ?? '').toContain('Inner only');
+  });
+
   test('keyboard reorder (Mod-Shift-Down) on the ONLY inner item also cleans up the wrapper', async ({ page }) => {
     // KeyboardReorder uses the same `moveBlock`, so the fix applies
     // here too. Guards against regressions if either path stops
@@ -1556,6 +1614,64 @@ test.describe('BlockContextMenu Delete', () => {
     // List collapsed (single-child wrapper expansion), then doc-empty
     // fallback inserted a fresh paragraph.
     expect(top).toEqual([{ type: 'paragraph', text: '' }]);
+  });
+
+  test('deleting the leaf of a 3-level nested list chain collapses the entire wrapper chain', async ({ page }) => {
+    // Each outer level uses an EXPLICIT empty paragraph as the label slot
+    // followed by the nested UL - mirroring what PM's content fitter will
+    // auto-inject once Notion-strict (`paragraph block*`) takes effect in
+    // Phase 1. The chain therefore walks repeatedly through the new
+    // single-meaningful-child branch (childCount=2 with an empty filler).
+    await setContent(
+      page,
+      '<ul><li><p></p>'
+      + '<ul><li><p></p>'
+      + '<ul><li><p>L3 deep</p></li></ul>'
+      + '</li></ul>'
+      + '</li></ul>'
+      + '<p>Sibling</p>',
+    );
+    await openMenuOn(page, 'L3 deep');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+
+    const top = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } }
+        | undefined;
+      const out: Array<{ type: string; text: string }> = [];
+      ed?.state.doc.forEach((n) => out.push({ type: n.type.name, text: n.textContent }));
+      return out;
+    });
+    expect(top).toEqual([{ type: 'paragraph', text: 'Sibling' }]);
+  });
+
+  test('deleting source out of a parent that holds [empty filler p + source UL] → parent collapses too', async ({ page }) => {
+    // Parent LI has childCount=2: an empty filler paragraph + the source
+    // nested UL. The classic single-child walk would stop here; the
+    // updated `expandToEmptyWrappers` recognises the empty paragraph as
+    // discardable and keeps walking, so the outer UL disappears too.
+    await setContent(
+      page,
+      '<ul><li>'
+      + '<p></p>'
+      + '<ul><li><p>Inner only</p></li></ul>'
+      + '</li></ul>'
+      + '<p>Tail</p>',
+    );
+    await openMenuOn(page, 'Inner only');
+    await page.locator('.dm-block-context-menu-item', { hasText: 'Delete' }).click();
+    await page.waitForTimeout(80);
+
+    const top = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } }
+        | undefined;
+      const out: Array<{ type: string; text: string }> = [];
+      ed?.state.doc.forEach((n) => out.push({ type: n.type.name, text: n.textContent }));
+      return out;
+    });
+    expect(top).toEqual([{ type: 'paragraph', text: 'Tail' }]);
   });
 
   test('deleting a list item leaves no empty list-item placeholders anywhere in the doc', async ({ page }) => {
