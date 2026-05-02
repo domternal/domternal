@@ -1,6 +1,9 @@
 import type { Node } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
 
+import { BASE_SCORE } from './scoring.js';
+import type { DragHandleRule, RuleContext } from './scoring.js';
+
 /**
  * Information about a top-level block in the document.
  */
@@ -131,6 +134,16 @@ export interface DeepestBlockMatch {
  * mode is exposed here as Mode C (`promoteOnEdge`) and uses
  * {@link ./findBestDragTarget findBestDragTarget} instead.
  *
+ * `rules` (default `[]`) is the same `DragHandleRule[]` Mode C uses for
+ * scoring, but here only the **exclusion** subset of the contract applies:
+ * a candidate whose rules' deductions sum to `>= BASE_SCORE` is skipped
+ * (the walker continues looking for a different match). Partial deductions
+ * have no effect in Mode B - we only need exclusion semantics. This keeps
+ * the `listItemFirstChild` (and similar) exclusion rules consistent
+ * between modes B and C: when a host extends `allowedTypes` to include
+ * `paragraph`, the label paragraph of a list item is automatically
+ * excluded so the handle still resolves to the list item itself.
+ *
  * Returns `null` when no allowed block contains `clientY` (e.g. cursor is
  * above the first block, below the last, or hovering a top-level node not
  * in `allowedTypes`). Callers should treat `null` as "fall through to
@@ -140,10 +153,11 @@ export function findDeepestBlockAtY(
   view: EditorView,
   clientY: number,
   allowedTypes: string[],
+  rules: DragHandleRule[] = [],
 ): DeepestBlockMatch | null {
   if (allowedTypes.length === 0) return null;
   let best: DeepestBlockMatch | null = null;
-  view.state.doc.descendants((node, pos) => {
+  view.state.doc.descendants((node, pos, parent, index) => {
     const dom = view.nodeDOM(pos);
     if (!(dom instanceof HTMLElement)) return true;
     const rect = dom.getBoundingClientRect();
@@ -152,11 +166,37 @@ export function findDeepestBlockAtY(
     // either, so pruning here is what keeps the walk O(depth) instead of
     // O(doc).
     if (clientY < rect.top || clientY > rect.bottom) return false;
-    if (
-      allowedTypes.includes(node.type.name) &&
-      (best === null || rect.height < best.rect.height)
-    ) {
-      best = { node, pos, dom, rect };
+    if (allowedTypes.includes(node.type.name)) {
+      let excluded = false;
+      if (rules.length > 0) {
+        const $pos = view.state.doc.resolve(pos);
+        const idx = index ?? 0;
+        const ctx: RuleContext = {
+          node,
+          pos,
+          // `pos` sits right BEFORE `node` (between siblings of `parent`),
+          // so $pos.depth is the parent's depth and `node` itself lives
+          // one level deeper.
+          depth: $pos.depth + 1,
+          parent: parent ?? null,
+          index: idx,
+          isFirst: idx === 0,
+          isLast: parent ? idx === parent.childCount - 1 : true,
+          $pos,
+          view,
+        };
+        let score = BASE_SCORE;
+        for (const rule of rules) {
+          score -= rule.evaluate(ctx);
+          if (score <= 0) {
+            excluded = true;
+            break;
+          }
+        }
+      }
+      if (!excluded && (best === null || rect.height < best.rect.height)) {
+        best = { node, pos, dom, rect };
+      }
     }
     return true;
   });

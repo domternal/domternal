@@ -299,7 +299,10 @@ function resolveBlockAtCoords(
 
   // Mode B - Notion-style: deepest allowed block at the cursor row.
   // X is intentionally ignored; see `findDeepestBlockAtY` rationale.
-  const found = findDeepestBlockAtY(view, clamped.y, nested.allowedNodes);
+  // `nested.rules` is forwarded so exclusion rules (e.g. listItemFirstChild)
+  // apply consistently with Mode C - hosts extending allowedNodes to
+  // include `paragraph` get label-paragraph exclusion for free.
+  const found = findDeepestBlockAtY(view, clamped.y, nested.allowedNodes, nested.rules);
   if (found) {
     return { pos: found.pos, rect: found.rect, dom: found.dom };
   }
