@@ -17,6 +17,11 @@ export {
 // List & Count
 export { ListKeymap, type ListKeymapOptions } from './ListKeymap.js';
 export {
+  ListIndent,
+  indentBlockAsListChild,
+  outdentBlockFromListItem,
+} from './ListIndent.js';
+export {
   CharacterCount,
   characterCountPluginKey,
   type CharacterCountOptions,

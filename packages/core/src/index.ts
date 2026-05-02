@@ -304,6 +304,9 @@ export {
   // List & Count
   ListKeymap,
   type ListKeymapOptions,
+  ListIndent,
+  indentBlockAsListChild,
+  outdentBlockFromListItem,
   CharacterCount,
   characterCountPluginKey,
   type CharacterCountOptions,

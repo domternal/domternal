@@ -15,6 +15,7 @@ import {
   Superscript,
   Link,
   LinkPopover,
+  ListIndent,
   Heading,
   Blockquote,
   HardBreak,
@@ -160,6 +161,13 @@ export class NotionDemoComponent implements OnDestroy {
     // where the drop will land (via the shared `computeDropPlacement`
     // helper), so we omit `Dropcursor` here. See `dropIndicator` option.
     LinkPopover, SelectionDecoration, ClearFormatting,
+    // ListIndent: Notion-inspired keyboard ergonomics across list
+    // boundaries. Tab on a top-level block whose previous sibling is a
+    // list moves it INTO the last list item as a nested child;
+    // Shift-Tab lifts it back out. Registered AFTER ListKeymap (which
+    // here lives implicitly inside BulletList/OrderedList/TaskList
+    // node extensions) so in-list-item Tab/Shift-Tab keep priority.
+    ListIndent,
     // Assigns stable IDs to top-level blocks so BlockContextMenu can offer
     // "Copy link to block" - the ID becomes the URL hash (e.g. `#abc123`).
     UniqueID,

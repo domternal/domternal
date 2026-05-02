@@ -40,6 +40,7 @@ import { Dropcursor, type DropcursorOptions } from './Dropcursor.js';
 import { Gapcursor } from './Gapcursor.js';
 import { TrailingNode, type TrailingNodeOptions } from './TrailingNode.js';
 import { ListKeymap, type ListKeymapOptions } from './ListKeymap.js';
+import { ListIndent } from './ListIndent.js';
 import { LinkPopover, type LinkPopoverOptions } from './LinkPopover.js';
 import { SelectionDecoration } from './SelectionDecoration.js';
 
@@ -150,6 +151,13 @@ export interface StarterKitOptions {
    */
   listKeymap?: false | Partial<ListKeymapOptions>;
   /**
+   * Set to false to disable the ListIndent extension. ListIndent adds
+   * Tab / Shift-Tab keymap that indents a top-level block under the
+   * previous list (and outdents back). Registered AFTER ListKeymap so
+   * the in-list-item Tab/Shift-Tab keep priority.
+   */
+  listIndent?: false;
+  /**
    * Set to false to disable the LinkPopover extension, or pass options to configure it.
    */
   linkPopover?: false | Partial<LinkPopoverOptions>;
@@ -214,6 +222,7 @@ export const StarterKit = Extension.create<StarterKitOptions>({
     maybeAdd(Gapcursor as never, this.options.gapcursor as never);
     maybeAdd(TrailingNode, this.options.trailingNode);
     maybeAdd(ListKeymap, this.options.listKeymap);
+    maybeAdd(ListIndent as never, this.options.listIndent as never);
     maybeAdd(LinkPopover, this.options.linkPopover);
     maybeAdd(SelectionDecoration as never, this.options.selectionDecoration as never);
 
