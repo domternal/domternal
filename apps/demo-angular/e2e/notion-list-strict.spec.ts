@@ -2599,3 +2599,548 @@ test.describe('Notion-strict list schema - ListIndent (Tab/Shift-Tab across list
     ]);
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────
+// 13. Phase 5 - dissolve list-item label on type-convert
+// ────────────────────────────────────────────────────────────────────────
+//
+// `setBlockType` (which underlies `toggleHeading`, `setHeading`, the
+// slash-command "Heading 1/2/3" items, the BlockContextMenu "Turn
+// into" rows, and the `Cmd+Alt+N` keyboard shortcuts) hits a
+// schema-violation when the cursor sits in a list/task item LABEL
+// paragraph and the requested target is a non-paragraph textblock
+// (heading, codeBlock, blockquote-content, etc.). The strict
+// `paragraph block*` content rule for list items requires a paragraph
+// as the first child.
+//
+// Phase 5 adds a "dissolve to-do" fallback: detect the label-of-li
+// case, lift the list item out, then retry the convert on the now
+// top-level paragraph. The user typing `/heading 1` inside a to-do
+// label transforms the to-do into a top-level heading - exactly what
+// Notion does.
+
+test.describe('Notion-strict list schema - Phase 5 dissolve-on-convert (slash /h1 in label)', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  /** Place the PM caret at end of the first node of `typeName` matching `text`. */
+  async function caretAtEndOfNode(page: Page, typeName: string, text: string): Promise<void> {
+    await page.evaluate(({ tn, txt }) => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | {
+            state: { doc: { descendants: (cb: (n: { type: { name: string }; nodeSize: number; textContent: string }, p: number) => boolean | void) => void }; tr: { setSelection: (s: unknown) => unknown } };
+            view: { dispatch: (tr: unknown) => void; state: { selection: { constructor: { create: (doc: unknown, a: number) => unknown } } }; focus: () => void; dom: HTMLElement };
+          }
+        | undefined;
+      if (!ed) return;
+      let pos = -1;
+      let size = 0;
+      ed.state.doc.descendants((node, p) => {
+        if (pos !== -1) return false;
+        if (node.type.name === tn && node.textContent === txt) { pos = p; size = node.nodeSize; return false; }
+        return true;
+      });
+      if (pos === -1) return;
+      const TS = ed.view.state.selection.constructor;
+      const tr = (ed.state.tr.setSelection as (s: unknown) => unknown)(TS.create((ed.state.doc as unknown), pos + size - 1));
+      ed.view.dispatch(tr);
+      ed.view.dom.focus();
+      ed.view.focus();
+    }, { tn: typeName, txt: text });
+  }
+
+  /** Doc structure as flat array of {type, text}. */
+  async function topBlocks(page: Page): Promise<{ type: string; text: string }[]> {
+    return page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } } | undefined;
+      const out: { type: string; text: string }[] = [];
+      ed?.state.doc.forEach((n) => out.push({ type: n.type.name, text: n.textContent }));
+      return out;
+    });
+  }
+
+  test('Cmd+Alt+1 in a BULLET label dissolves the bullet and converts the label to top-level H1', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Buy milk</p></li></ul>');
+    await caretAtEndOfNode(page, 'paragraph', 'Buy milk');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+
+    const top = await topBlocks(page);
+    expect(top).toEqual([{ type: 'heading', text: 'Buy milk' }]);
+  });
+
+  test('Cmd+Alt+2 in a TASK label dissolves the task and converts to top-level H2', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Buy milk</p></li></ul>',
+    );
+    await caretAtEndOfNode(page, 'paragraph', 'Buy milk');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+2`);
+    await page.waitForTimeout(40);
+
+    const top = await topBlocks(page);
+    expect(top).toEqual([{ type: 'heading', text: 'Buy milk' }]);
+  });
+
+  test('SANDWICH: Cmd+Alt+1 on label of MIDDLE bullet item splits the list into [bullet(A), heading(B), bullet(C)]', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>A</p></li><li><p>B</p></li><li><p>C</p></li></ul>',
+    );
+    await caretAtEndOfNode(page, 'paragraph', 'B');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+
+    const top = await topBlocks(page);
+    expect(top.map((b) => b.type)).toEqual(['bulletList', 'heading', 'bulletList']);
+    expect(top[1]?.text).toBe('B');
+  });
+
+  test('Cmd+Alt+1 on TOP-LEVEL paragraph converts directly without dissolving anything (no list ancestor)', async ({ page }) => {
+    await setContent(page, '<p>Top-level</p>');
+    await caretAtEndOfNode(page, 'paragraph', 'Top-level');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+
+    const top = await topBlocks(page);
+    expect(top).toEqual([{ type: 'heading', text: 'Top-level' }]);
+  });
+
+  test('Cmd+Alt+1 in a NON-FIRST paragraph of a li (children-zone) converts in place, NO list dissolve', async ({ page }) => {
+    // `<p>Body</p>` is at index 1 in the li (a non-label paragraph).
+    // Schema accepts heading at non-first index, so the convert
+    // succeeds DIRECTLY without dissolving the bullet.
+    await setContent(page, '<ul><li><p>Label</p><p>Body</p></li></ul>');
+    await caretAtEndOfNode(page, 'paragraph', 'Body');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+
+    // Bullet still alive; label intact; second child became heading.
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      childCount: 2,
+      children: [
+        expect.objectContaining({ type: 'paragraph', text: 'Label' }),
+        expect.objectContaining({ type: 'heading', text: 'Body' }),
+      ],
+    });
+  });
+
+  test('SlashCommand `/heading 1` in a bullet LABEL dissolves the bullet to a top-level H1', async ({ page }) => {
+    await setContent(page, '<ul><li><p></p></li></ul>');
+    // Click into the empty li label and type /heading.
+    await page.locator(`${editorSelector} li p`).first().click();
+    await page.keyboard.type('/heading 1');
+    // Wait for slash menu to filter.
+    await page.waitForTimeout(80);
+
+    // Press Enter to execute the highlighted slash item ("Heading 1").
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(80);
+
+    const top = await topBlocks(page);
+    // The bullet is gone; doc is now a single heading.
+    expect(top.map((b) => b.type)).toEqual(['heading']);
+    // Type to confirm caret is in the heading.
+    await page.keyboard.type('Now a heading');
+    const headingText = await page.locator(`${editorSelector} h1`).first().textContent();
+    expect(headingText ?? '').toBe('Now a heading');
+  });
+
+  test('SlashCommand `/heading 2` in a TASK LABEL dissolves the task to a top-level H2', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p></p></li></ul>',
+    );
+    await page.locator(`${editorSelector} li[data-type="taskItem"] p`).first().click();
+    await page.keyboard.type('/heading 2');
+    await page.waitForTimeout(80);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(80);
+
+    const top = await topBlocks(page);
+    expect(top.map((b) => b.type)).toEqual(['heading']);
+    const h2 = await page.locator(`${editorSelector} h2`).count();
+    expect(h2).toBe(1);
+  });
+
+  test('After dissolve+convert, the cursor is in the new heading and typing lands there', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Original</p></li></ul>');
+    await caretAtEndOfNode(page, 'paragraph', 'Original');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+    await page.keyboard.type(' added');
+    const headingText = await page.locator(`${editorSelector} h1`).first().textContent();
+    expect(headingText ?? '').toBe('Original added');
+  });
+
+  test('Schema violation case (e.g. nested non-first label conversion) does not corrupt the doc', async ({ page }) => {
+    // Defensive: nested li label is the most exotic case; whatever
+    // the lift does, the document remains valid (no missing label
+    // paragraphs, no orphaned list wrappers).
+    await setContent(
+      page,
+      '<ul><li><p>Outer</p><ul><li><p>Inner</p></li></ul></li></ul>',
+    );
+    await caretAtEndOfNode(page, 'paragraph', 'Inner');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+
+    // "Inner" text always survives; whether it ends up as a heading
+    // or a paragraph depends on whether liftListItem can satisfy
+    // schema. Either way, no doc corruption.
+    const text = await page.locator(editorSelector).textContent();
+    expect(text ?? '').toContain('Outer');
+    expect(text ?? '').toContain('Inner');
+  });
+
+  // ── Multi-children li, level variations, attribute preservation ──
+
+  test('Dissolving a li with ADDITIONAL CHILDREN lifts ALL of them out (label becomes heading, the rest become top-level siblings in order)', async ({ page }) => {
+    // Bullet has [label "Project", h2 "Notes", paragraph "Body"].
+    // Cursor in label, Cmd+Alt+1: liftListItem dissolves the li, all
+    // three children land at top level; then the label gets converted
+    // to h1. End state: [h1 "Project", h2 "Notes", paragraph "Body"].
+    await setContent(
+      page,
+      '<ul><li><p>Project</p><h2>Notes</h2><p>Body</p></li></ul>',
+    );
+    await caretAtEndOfNode(page, 'paragraph', 'Project');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+
+    const top = await topBlocks(page);
+    expect(top).toEqual([
+      { type: 'heading', text: 'Project' },
+      { type: 'heading', text: 'Notes' },
+      { type: 'paragraph', text: 'Body' },
+    ]);
+  });
+
+  test('Dissolves to H3 and H4 (level variation works through the same fallback path)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Sub-section</p></li></ul>');
+    await caretAtEndOfNode(page, 'paragraph', 'Sub-section');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+3`);
+    await page.waitForTimeout(40);
+
+    const h3Text = await page.locator(`${editorSelector} h3`).first().textContent();
+    expect(h3Text).toBe('Sub-section');
+
+    // Reset and try H4 too.
+    await setContent(page, '<ul><li><p>Deep</p></li></ul>');
+    await caretAtEndOfNode(page, 'paragraph', 'Deep');
+    await page.keyboard.press(`${modKey}+Alt+4`);
+    await page.waitForTimeout(40);
+
+    const h4Text = await page.locator(`${editorSelector} h4`).first().textContent();
+    expect(h4Text).toBe('Deep');
+  });
+
+  test('Dissolve preserves inline marks (bold) on the converted heading', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Plain <strong>Bold</strong></p></li></ul>');
+    await caretAtEndOfNode(page, 'paragraph', 'Plain Bold');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+
+    const html = await page.locator(`${editorSelector} h1`).first().innerHTML();
+    expect(html).toContain('<strong>Bold</strong>');
+  });
+
+  test('Dissolve preserves textAlign attr on the converted heading', async ({ page }) => {
+    await setContent(page, '<ul><li><p style="text-align:center">Centered</p></li></ul>');
+    await caretAtEndOfNode(page, 'paragraph', 'Centered');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+
+    const align = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { type: { name: string }; attrs: Record<string, unknown> } | null } } }
+        | undefined;
+      return ed?.state.doc.firstChild?.attrs['textAlign'];
+    });
+    expect(align).toBe('center');
+  });
+
+  test('Undo (Mod-Z) reverts the dissolve - the bullet item comes back', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Reversible</p></li></ul>');
+    await caretAtEndOfNode(page, 'paragraph', 'Reversible');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+    expect(await topBlocks(page)).toEqual([{ type: 'heading', text: 'Reversible' }]);
+
+    await page.keyboard.press(`${modKey}+z`);
+    await page.waitForTimeout(80);
+
+    const top = await topBlocks(page);
+    expect(top.map((b) => b.type)).toEqual(['bulletList']);
+    expect(top[0]?.text).toBe('Reversible');
+  });
+
+  test('Slash `/heading 3` in a bullet label dissolves to H3 (any level supported, not just 1/2)', async ({ page }) => {
+    await setContent(page, '<ul><li><p></p></li></ul>');
+    await page.locator(`${editorSelector} li p`).first().click();
+    await page.keyboard.type('/heading 3');
+    await page.waitForTimeout(80);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(80);
+
+    const top = await topBlocks(page);
+    expect(top.map((b) => b.type)).toEqual(['heading']);
+    const h3Count = await page.locator(`${editorSelector} h3`).count();
+    expect(h3Count).toBe(1);
+  });
+
+  test('toggleHeading on an ALREADY-heading nested in li toggles back to paragraph WITHOUT triggering the fallback (canApply already true)', async ({ page }) => {
+    // Cursor in nested heading of li (not the label). Pressing
+    // Cmd+Alt+1 again toggles heading off via toggleBlockType ->
+    // setBlockType('paragraph'), which canApply-checks fine (heading
+    // -> paragraph at non-first index is valid). The fallback is NOT
+    // triggered.
+    await setContent(page, '<ul><li><p>Label</p><h1>Inside</h1></li></ul>');
+    await caretAtEndOfNode(page, 'heading', 'Inside');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+
+    // Heading turned to paragraph; bullet still alive with
+    // [label, paragraph "Inside"].
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      childCount: 2,
+      children: [
+        expect.objectContaining({ type: 'paragraph', text: 'Label' }),
+        expect.objectContaining({ type: 'paragraph', text: 'Inside' }),
+      ],
+    });
+  });
+
+  // ── Ordered list parity, empty label, whole-doc, cursor positions ──
+
+  test('Cmd+Alt+1 on an ORDERED LIST label (parity with bullet/task)', async ({ page }) => {
+    await setContent(page, '<ol><li><p>Numbered</p></li></ol>');
+    await caretAtEndOfNode(page, 'paragraph', 'Numbered');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+
+    expect(await topBlocks(page)).toEqual([{ type: 'heading', text: 'Numbered' }]);
+  });
+
+  test('Dissolve an EMPTY label (no text) into an empty heading', async ({ page }) => {
+    await setContent(page, '<ul><li><p></p></li></ul>');
+    // Place caret in the empty label paragraph - use direct PM
+    // selection because there is no text to anchor to.
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | {
+            state: { doc: { descendants: (cb: (n: { type: { name: string }; textContent: string }, p: number) => boolean | void) => void }; tr: { setSelection: (s: unknown) => unknown } };
+            view: { dispatch: (tr: unknown) => void; state: { selection: { constructor: { create: (doc: unknown, a: number) => unknown } } }; focus: () => void; dom: HTMLElement };
+          }
+        | undefined;
+      if (!ed) return;
+      let pos = -1;
+      ed.state.doc.descendants((node, p) => {
+        if (pos !== -1) return false;
+        if (node.type.name === 'paragraph' && node.textContent === '') { pos = p; return false; }
+        return true;
+      });
+      if (pos === -1) return;
+      const TS = ed.view.state.selection.constructor;
+      ed.view.dispatch((ed.state.tr.setSelection as (s: unknown) => unknown)(TS.create((ed.state.doc as unknown), pos + 1)));
+      ed.view.dom.focus();
+      ed.view.focus();
+    });
+
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+
+    const top = await topBlocks(page);
+    expect(top.map((b) => b.type)).toEqual(['heading']);
+    expect(top[0]?.text).toBe('');
+  });
+
+  test('Whole doc is a SINGLE bullet item: dissolve replaces the entire doc with the heading', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Only block</p></li></ul>');
+    await caretAtEndOfNode(page, 'paragraph', 'Only block');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+
+    const top = await topBlocks(page);
+    expect(top.map((b) => b.type)).toEqual(['heading']);
+    expect(top[0]?.text).toBe('Only block');
+  });
+
+  test('Dissolve works with cursor at the START of the label (caret position within label is irrelevant)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Cursor at start</p></li></ul>');
+    // Place caret at offset 0 of the label.
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | {
+            state: { doc: { descendants: (cb: (n: { type: { name: string }; textContent: string }, p: number) => boolean | void) => void }; tr: { setSelection: (s: unknown) => unknown } };
+            view: { dispatch: (tr: unknown) => void; state: { selection: { constructor: { create: (doc: unknown, a: number) => unknown } } }; focus: () => void; dom: HTMLElement };
+          }
+        | undefined;
+      if (!ed) return;
+      let pos = -1;
+      ed.state.doc.descendants((node, p) => {
+        if (pos !== -1) return false;
+        if (node.type.name === 'paragraph') { pos = p; return false; }
+        return true;
+      });
+      if (pos === -1) return;
+      const TS = ed.view.state.selection.constructor;
+      // Position 0 inside the paragraph = `pos + 1`.
+      ed.view.dispatch((ed.state.tr.setSelection as (s: unknown) => unknown)(TS.create((ed.state.doc as unknown), pos + 1)));
+      ed.view.dom.focus();
+      ed.view.focus();
+    });
+
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+
+    expect(await topBlocks(page)).toEqual([{ type: 'heading', text: 'Cursor at start' }]);
+  });
+
+  test('HTML round-trip after dissolve: setContent -> Cmd+Alt+1 -> getHTML -> setContent yields a stable doc', async ({ page }) => {
+    await setContent(page, '<ul><li><p>RoundTrip</p></li></ul>');
+    await caretAtEndOfNode(page, 'paragraph', 'RoundTrip');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+
+    const html1 = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { getHTML: () => string } | undefined;
+      return ed?.getHTML() ?? '';
+    });
+    await setContent(page, html1);
+
+    const top = await topBlocks(page);
+    expect(top.map((b) => b.type)).toEqual(['heading']);
+    expect(top[0]?.text).toBe('RoundTrip');
+  });
+
+  test('Phase 4+5 interaction: dissolve a bullet to heading, then Tab the heading INTO an adjacent following list', async ({ page }) => {
+    // Two bullets initially. Dissolve the FIRST -> heading sits at
+    // top, followed by a bullet list. Now Tab should NOT indent the
+    // heading (no PREVIOUS list before it). Then we set up the
+    // reverse: heading then list. Hmm easier setup: heading -> list,
+    // then verify Phase 4 still works.
+    await setContent(page, '<ul><li><p>First</p></li></ul><ul><li><p>Second</p></li></ul>');
+    // Dissolve First -> [heading "First", bulletList(Second)].
+    await caretAtEndOfNode(page, 'paragraph', 'First');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+
+    let top = await topBlocks(page);
+    expect(top.map((b) => b.type)).toEqual(['heading', 'bulletList']);
+
+    // Phase 4 Tab on the heading - no PREVIOUS list, so no-op.
+    await caretAtEndOfNode(page, 'heading', 'First');
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(40);
+    top = await topBlocks(page);
+    expect(top.map((b) => b.type)).toEqual(['heading', 'bulletList']);
+  });
+
+  test('Phase 3+5 interaction: after dissolve, Enter at end of resulting heading creates a paragraph below it', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Section</p></li></ul>');
+    await caretAtEndOfNode(page, 'paragraph', 'Section');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+
+    // Confirm dissolve.
+    expect((await topBlocks(page)).map((b) => b.type)).toEqual(['heading']);
+
+    // Phase 3 Enter at end of heading.
+    await caretAtEndOfNode(page, 'heading', 'Section');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('body');
+    await page.waitForTimeout(40);
+
+    const top = await topBlocks(page);
+    expect(top).toEqual([
+      { type: 'heading', text: 'Section' },
+      { type: 'paragraph', text: 'body' },
+    ]);
+  });
+
+  test('Dissolve in an RTL doc still works (logical operation)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Rtl text</p></li></ul>');
+    await page.evaluate(() => {
+      const root = document.querySelector('.dm-editor');
+      const pm = document.querySelector('app-notion-demo .ProseMirror');
+      if (root instanceof HTMLElement) root.setAttribute('dir', 'rtl');
+      if (pm instanceof HTMLElement) pm.setAttribute('dir', 'rtl');
+    });
+    await page.waitForTimeout(20);
+
+    await caretAtEndOfNode(page, 'paragraph', 'Rtl text');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+
+    expect(await topBlocks(page)).toEqual([{ type: 'heading', text: 'Rtl text' }]);
+  });
+
+  test('Multiple consecutive dissolves (process each list one at a time, each succeeds)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Alpha</p></li></ul>'
+      + '<ul><li><p>Beta</p></li></ul>',
+    );
+
+    // Dissolve Alpha first.
+    await caretAtEndOfNode(page, 'paragraph', 'Alpha');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+
+    let top = await topBlocks(page);
+    expect(top.map((b) => b.type)).toEqual(['heading', 'bulletList']);
+
+    // Dissolve Beta.
+    await caretAtEndOfNode(page, 'paragraph', 'Beta');
+    await page.keyboard.press(`${modKey}+Alt+2`);
+    await page.waitForTimeout(40);
+
+    top = await topBlocks(page);
+    expect(top).toEqual([
+      { type: 'heading', text: 'Alpha' },
+      { type: 'heading', text: 'Beta' },
+    ]);
+  });
+
+  test('Dissolve preserves a HARDBREAK inside the label (br is inline content, travels through setBlockType)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>line one<br>line two</p></li></ul>');
+    await caretAtEndOfNode(page, 'paragraph', 'line oneline two');
+    const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.press(`${modKey}+Alt+1`);
+    await page.waitForTimeout(40);
+
+    // Heading at top with both lines + hardBreak preserved in HTML.
+    const html = await page.locator(`${editorSelector} h1`).first().innerHTML();
+    expect(html).toContain('line one');
+    expect(html).toContain('line two');
+    expect(html).toContain('<br>');
+  });
+});

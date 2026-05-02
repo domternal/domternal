@@ -2,8 +2,11 @@
  * Node commands — setBlockType, toggleBlockType, wrapIn, toggleWrap, lift
  */
 import { findWrapping, liftTarget } from '@domternal/pm/transform';
+import { liftListItem } from '@domternal/pm/schema-list';
 import type { Attrs, Node as PMNode } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
+
+const LIST_ITEM_TYPE_NAMES = new Set(['listItem', 'taskItem']);
 
 /**
  * SetBlockType command - changes the block type of the selection
@@ -44,7 +47,74 @@ export const setBlockType: CommandSpec<[nodeName: string, attributes?: Attrs]> =
       return found;
     });
 
-    if (!canApply) return false;
+    if (!canApply) {
+      // Notion-style fallback: cursor sits in the LABEL paragraph (the
+      // schema-required first child) of a list/task item and the
+      // requested block type cannot fit there. Dissolve the list item
+      // by lifting it out, then retry the convert on the (now
+      // top-level) paragraph - the user types `/heading 1` in a
+      // to-do label and the to-do becomes a heading.
+      //
+      // Activation conditions (single-cursor case only):
+      //   - selection is empty (single caret)
+      //   - cursor's nearest list-item ancestor exists
+      //   - cursor's containing block is at index 0 of that item
+      //     (the label slot)
+      //   - the chain transaction has NO prior steps (so the lift
+      //     steps captured from PM's `liftListItem` apply against the
+      //     same starting state as `tr`)
+      const { selection } = tr;
+      if (!selection.empty) return false;
+      if (tr.steps.length !== 0) return false;
+      const { $from } = selection;
+      let listItemDepth = -1;
+      for (let d = $from.depth; d >= 1; d--) {
+        if (LIST_ITEM_TYPE_NAMES.has($from.node(d).type.name)) {
+          listItemDepth = d;
+          break;
+        }
+      }
+      if (listItemDepth === -1) return false;
+      // Cursor must be in the FIRST child of the list item (label slot).
+      if ($from.index(listItemDepth) !== 0) return false;
+
+      const listItemType = $from.node(listItemDepth).type;
+      // Capture lift steps onto our chain transaction. PM's
+      // `liftListItem` builds a fresh tr from `state`; replaying its
+      // steps onto `tr` is safe because `tr` has no prior steps (we
+      // checked above) and therefore starts from the same doc.
+      const liftOk = liftListItem(listItemType)(state, (liftTr) => {
+        for (const step of liftTr.steps) tr.step(step);
+        if (liftTr.selectionSet) tr.setSelection(liftTr.selection);
+      });
+      if (!liftOk) return false;
+
+      // After the lift, the (formerly) label paragraph sits one
+      // wrapper level higher. Verify the new BLOCK PARENT (the
+      // textblock's grandparent - usually `doc` for top-level lifts)
+      // accepts the requested node type at the paragraph's index. We
+      // intentionally check the BLOCK PARENT, not `$reFrom.parent`
+      // (which is the textblock itself), because `canReplaceWith`
+      // applies at the parent's content slot, not inside the
+      // textblock.
+      const $reFrom = tr.doc.resolve(tr.selection.from);
+      if ($reFrom.depth < 1) return false;
+      const blockParent = $reFrom.node($reFrom.depth - 1);
+      const blockIndex = $reFrom.index($reFrom.depth - 1);
+      if (!blockParent.canReplaceWith(blockIndex, blockIndex + 1, nodeType)) {
+        return false;
+      }
+      if (!dispatch) return true;
+
+      tr.setBlockType(
+        tr.selection.from,
+        tr.selection.to,
+        nodeType,
+        (node) => ({ ...node.attrs, ...(attributes ?? {}) }),
+      );
+      dispatch(tr.scrollIntoView());
+      return true;
+    }
     if (!dispatch) return true;
 
     // Apply: use function attrs to preserve global attributes (textAlign, lineHeight, etc.)
