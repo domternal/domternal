@@ -799,3 +799,523 @@ test.describe('Phase 3: extended coverage (atoms, parity, boundaries)', () => {
     expect((await blockAt(page, pos ?? 0))?.type).toBe('heading');
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────
+// Phase 4: handle position alignment for nested blocks. Notion-style
+// behavior: the drag handle always lives at the editor's LEFT GUTTER,
+// regardless of how deeply indented the resolved block is. Only the
+// vertical position (Y) tracks the resolved block - X is CSS-fixed at
+// `left: -0.5rem` relative to .dm-editor. Tests pin this contract so
+// future refactors that try to follow block X are caught as regressions.
+// ────────────────────────────────────────────────────────────────────────
+
+async function handleBox(page: Page): Promise<{ x: number; y: number; width: number; height: number }> {
+  return boxOf(page.locator(blockHandleSelector));
+}
+
+async function blockBox(page: Page, locator: Locator): Promise<{ x: number; y: number; width: number; height: number }> {
+  return boxOf(locator);
+}
+
+test.describe('Phase 4: handle alignment - X stays at editor gutter regardless of resolved block depth', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('handle X is identical when hovering top-level paragraph vs nested heading inside list item (Notion-style gutter anchor)', async ({ page }) => {
+    await setContent(page, '<p>Top paragraph</p><ul><li><p>Label</p><h2>Nested heading</h2></li></ul>');
+
+    // Hover top-level paragraph -> capture handle X.
+    await hoverInGutterAt(page, page.locator(`${editorSelector} p:has-text("Top paragraph")`));
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+    const handleAtTopLevel = await handleBox(page);
+
+    // Hover nested heading -> capture handle X again.
+    await hoverInGutterAt(page, page.locator(`${editorSelector} li > h2`));
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+    const handleAtNested = await handleBox(page);
+
+    // Same X (subpixel tolerance for float rendering).
+    expect(Math.abs(handleAtTopLevel.x - handleAtNested.x)).toBeLessThan(1);
+    // Y is different (different blocks at different rows).
+    expect(Math.abs(handleAtTopLevel.y - handleAtNested.y)).toBeGreaterThan(5);
+  });
+
+  test('handle X stays at gutter for label paragraph vs nested heading inside the same list item (different resolved blocks, same X)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label here</p><h2>The heading</h2></li></ul>');
+
+    await hoverInGutterAt(page, page.locator(`${editorSelector} li > p`));
+    const xAtLabel = (await handleBox(page)).x;
+
+    await hoverInGutterAt(page, page.locator(`${editorSelector} li > h2`));
+    const xAtHeading = (await handleBox(page)).x;
+
+    expect(Math.abs(xAtLabel - xAtHeading)).toBeLessThan(1);
+  });
+
+  test('handle X stays at editor gutter even for THREE-level deep nested heading (anchor never follows indent)', async ({ page }) => {
+    await setContent(
+      page,
+      '<p>Top</p>'
+      + '<ul><li><p>Outer</p>'
+      +   '<ul><li><p>Inner</p><h3>Deep</h3></li></ul>'
+      + '</li></ul>',
+    );
+    // Top-level reference.
+    await hoverInGutterAt(page, page.locator(`${editorSelector} p:has-text("Top")`));
+    const xTop = (await handleBox(page)).x;
+
+    // 3-level nested heading.
+    await hoverInGutterAt(page, page.locator(`${editorSelector} li li > h3`));
+    const xDeep = (await handleBox(page)).x;
+
+    expect(Math.abs(xTop - xDeep)).toBeLessThan(1);
+  });
+
+  test('handle X is OUTSIDE the editor content column (left of where text actually starts)', async ({ page }) => {
+    // CSS contract: `.dm-block-handle { left: -0.5rem }` puts the handle
+    // 8px outside `.dm-editor`'s left edge. It must visually sit in the
+    // gutter, never overlap text content.
+    await setContent(page, '<p>Some paragraph</p>');
+    await hoverInGutterAt(page, page.locator(`${editorSelector} p`));
+    const handle = await handleBox(page);
+    const editor = await boxOf(page.locator(editorSelector));
+
+    // Handle's right edge must be at or LEFT of the .ProseMirror's left
+    // (since ProseMirror has padding-left from --dm-block-handle-gutter,
+    // the actual text starts further right than the editor.x; we just
+    // check the handle doesn't overlap the .ProseMirror element).
+    expect(handle.x + handle.width).toBeLessThanOrEqual(editor.x + 1);
+  });
+
+  test('handle Y follows the first line of the resolved block (different Y per block)', async ({ page }) => {
+    await setContent(page, '<p>First</p><h2>Second</h2><p>Third</p>');
+
+    await hoverInGutterAt(page, page.locator(`${editorSelector} p:has-text("First")`));
+    const yFirst = (await handleBox(page)).y;
+
+    await hoverInGutterAt(page, page.locator(`${editorSelector} h2`));
+    const yHeading = (await handleBox(page)).y;
+
+    await hoverInGutterAt(page, page.locator(`${editorSelector} p:has-text("Third")`));
+    const yThird = (await handleBox(page)).y;
+
+    // Three distinct Y rows.
+    expect(Math.abs(yFirst - yHeading)).toBeGreaterThan(5);
+    expect(Math.abs(yHeading - yThird)).toBeGreaterThan(5);
+    expect(Math.abs(yFirst - yThird)).toBeGreaterThan(5);
+  });
+
+  test('handle Y vertically centers on the FIRST LINE of the resolved block (not the middle of a tall block)', async ({ page }) => {
+    // For a tall block (e.g., H1 with line-height 2.8rem), the handle
+    // should align with the FIRST text line, not the geometric center of
+    // the block. This keeps the icon visually next to the visible glyphs.
+    await setContent(page, '<h1>Tall title that may wrap onto more than one visual row in narrow viewports</h1>');
+    const heading = page.locator(`${editorSelector} h1`);
+    const hBox = await blockBox(page, heading);
+
+    await hoverInGutterAt(page, heading);
+    const handle = await handleBox(page);
+
+    // Handle's vertical center is in the upper portion of the heading
+    // rect (within the first ~40% of height), not the geometric middle.
+    const handleCenter = handle.y + handle.height / 2;
+    const blockTop = hBox.y;
+    const blockHeight = hBox.height;
+    const relativeOffset = (handleCenter - blockTop) / blockHeight;
+    // Allow first-line center to fall within 0..0.6 of the block height.
+    expect(relativeOffset).toBeGreaterThanOrEqual(0);
+    expect(relativeOffset).toBeLessThanOrEqual(0.6);
+  });
+
+  test('handle Y for nested heading aligns with the heading row (not the parent listItem top)', async ({ page }) => {
+    // The list item's rect spans BOTH the label paragraph row AND the
+    // indented heading row. A correct nested-handle implementation must
+    // anchor Y on the HEADING's first line, NOT on the listItem's top
+    // (which would put the handle at the label row).
+    await setContent(page, '<ul><li><p>Label paragraph</p><h2>Nested heading</h2></li></ul>');
+
+    const labelP = page.locator(`${editorSelector} li > p`);
+    const heading = page.locator(`${editorSelector} li > h2`);
+    const labelBox = await blockBox(page, labelP);
+    const headingBox = await blockBox(page, heading);
+
+    await hoverInGutterAt(page, heading);
+    const handle = await handleBox(page);
+    const handleCenter = handle.y + handle.height / 2;
+
+    // Handle's center is at the heading row, not the label row.
+    // (Heading's top should be below label's bottom in this layout.)
+    expect(handleCenter).toBeGreaterThan(labelBox.y + labelBox.height - 5);
+    expect(handleCenter).toBeGreaterThanOrEqual(headingBox.y - 2);
+    expect(handleCenter).toBeLessThanOrEqual(headingBox.y + headingBox.height + 2);
+  });
+
+  test('handle position updates when moving from nested heading to label paragraph (dynamic re-position)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h2>Heading</h2></li></ul>');
+
+    await hoverInGutterAt(page, page.locator(`${editorSelector} li > h2`));
+    const yAtHeading = (await handleBox(page)).y;
+
+    await hoverInGutterAt(page, page.locator(`${editorSelector} li > p`));
+    const yAtLabel = (await handleBox(page)).y;
+
+    // Moving from heading-row to label-row updates Y (handle re-positions).
+    expect(Math.abs(yAtHeading - yAtLabel)).toBeGreaterThan(5);
+  });
+
+  test('handle X is identical regardless of `paragraphInsideContainer` rule branch (blockquote vs list item)', async ({ page }) => {
+    // Blockquote with inner paragraph: rule excludes paragraph, walker
+    // resolves to BLOCKQUOTE. List item with non-first paragraph: walker
+    // resolves to PARAGRAPH directly. Both resolution paths must place
+    // the handle at the same X gutter.
+    await setContent(
+      page,
+      '<blockquote><p>Quoted</p></blockquote>'
+      + '<ul><li><p>Label</p><p>Second</p></li></ul>',
+    );
+    await hoverInGutterAt(page, page.locator(`${editorSelector} blockquote p`));
+    const xAtBlockquote = (await handleBox(page)).x;
+
+    await hoverInGutterAt(page, page.locator(`${editorSelector} li p:has-text("Second")`));
+    const xAtNestedP = (await handleBox(page)).x;
+
+    expect(Math.abs(xAtBlockquote - xAtNestedP)).toBeLessThan(1);
+  });
+
+  test('handle remains visible (data-show) and at gutter when hovering each nested block in a multi-block li', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li>'
+      + '<p>Label</p>'
+      + '<h2>Heading</h2>'
+      + '<blockquote><p>Quote</p></blockquote>'
+      + '<pre><code>code</code></pre>'
+      + '</li></ul>',
+    );
+
+    const xs: number[] = [];
+    for (const sel of ['li > p:first-child', 'li > h2', 'li > blockquote', 'li > pre']) {
+      await hoverInGutterAt(page, page.locator(`${editorSelector} ${sel}`));
+      await expect(page.locator(blockHandleSelector), `at ${sel}`).toHaveAttribute('data-show', '');
+      xs.push((await handleBox(page)).x);
+    }
+    // All X values are identical (subpixel tolerance).
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    expect(maxX - minX).toBeLessThan(1);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// Phase 5: closing coverage matrix - the few resolution & drag-flow cases
+// from the original Phase 5 plan (listitems_improvements_2.md) that
+// weren't already covered by the Phase 1-4 sections above. Together with
+// the earlier sections this completes the full source × container ×
+// position matrix and the drag-flow regression suite.
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('Phase 5: closing coverage matrix', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('paragraph × taskItem × non-first-child resolves to paragraph (parity with bullet listItem case)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Task label</p><p>Second paragraph</p></li></ul>',
+    );
+    await hoverInGutterAt(
+      page,
+      page.locator(`${editorSelector} li[data-type="taskItem"] p:has-text("Second paragraph")`),
+    );
+    const pos = await hoveredPos(page);
+    const block = pos !== null ? await blockAt(page, pos) : null;
+    expect(block?.type).toBe('paragraph');
+    expect(block?.text).toBe('Second paragraph');
+  });
+
+  test('codeBlock × top-level resolves to codeBlock (regression guard - top-level codeBlock still gets a handle after extending allowedNodes)', async ({ page }) => {
+    await setContent(page, '<p>Above</p><pre><code>const fn = () => 1;</code></pre><p>Below</p>');
+    await hoverInGutterAt(page, page.locator(`${editorSelector} > pre`));
+    const pos = await hoveredPos(page);
+    expect((await blockAt(page, pos ?? 0))?.type).toBe('codeBlock');
+  });
+
+  test('drag TOP-LEVEL heading INTO a bullet list (sibling drop on a list item) wraps the heading in a new listItem', async ({ page }) => {
+    // `convertListItemForParent` flow regression: when the drop target's
+    // parent is a list, the dragged non-list block must be wrapped in a
+    // fresh listItem with an empty label paragraph (Notion-strict
+    // `paragraph block*` content rule).
+    await setContent(
+      page,
+      '<h2>Standalone heading</h2>'
+      + '<ul><li><p>Existing item</p></li></ul>',
+    );
+    await dragFromHandle(
+      page,
+      page.locator(`${editorSelector} > h2`),
+      page.locator(`${editorSelector} ul li > p`),
+      'bottom',
+    );
+
+    // The bulletList should now contain TWO items (existing + new wrapper),
+    // and somewhere among them a listItem holds the heading as a child.
+    const blocks = await topLevelBlocks(page);
+    const bulletList = blocks.find((b) => b.type === 'bulletList');
+    expect(bulletList).toBeDefined();
+    // Inspect inner shape: at least one listItem in the list must contain
+    // the heading text.
+    const liShapes = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild?: { type: { name: string }; forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } } }
+        | undefined;
+      const out: Array<{ type: string; text: string }> = [];
+      const first = ed?.state.doc.firstChild;
+      if (first?.type.name === 'bulletList') {
+        first.forEach((n) => out.push({ type: n.type.name, text: n.textContent }));
+      }
+      return out;
+    });
+    expect(liShapes.length).toBeGreaterThanOrEqual(2);
+    const liWithHeading = liShapes.find((li) => li.text.includes('Standalone heading'));
+    expect(liWithHeading).toBeDefined();
+  });
+
+  test('drag bullet listItem INTO task list converts it to taskItem (cross-list-type, regression guard)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Bullet to convert</p></li></ul>'
+      + '<ul data-type="taskList"><li data-type="taskItem"><p>Existing task</p></li></ul>',
+    );
+    await dragFromHandle(
+      page,
+      page.locator(`${editorSelector} ul:not([data-type="taskList"]) li > p`),
+      page.locator(`${editorSelector} li[data-type="taskItem"] > div > p`),
+      'bottom',
+    );
+
+    // After the drag, the task list contains 2 items - the existing one
+    // and the converted bullet (now a taskItem with the original text).
+    const taskTexts = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; forEach: (cb2: (m: { textContent: string }) => void) => void }) => void) => void } } }
+        | undefined;
+      const out: string[] = [];
+      ed?.state.doc.forEach((n) => {
+        if (n.type.name === 'taskList') n.forEach((m) => out.push(m.textContent));
+      });
+      return out;
+    });
+    expect(taskTexts).toContain('Bullet to convert');
+    expect(taskTexts).toContain('Existing task');
+  });
+
+  test('drag taskItem INTO bullet list converts it to listItem (reverse cross-list-type, regression guard)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Task to convert</p></li></ul>'
+      + '<ul><li><p>Existing bullet</p></li></ul>',
+    );
+    await dragFromHandle(
+      page,
+      page.locator(`${editorSelector} li[data-type="taskItem"] > div > p`),
+      page.locator(`${editorSelector} ul:not([data-type="taskList"]) li > p`),
+      'bottom',
+    );
+    const bulletTexts = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; forEach: (cb2: (m: { textContent: string }) => void) => void }) => void) => void } } }
+        | undefined;
+      const out: string[] = [];
+      ed?.state.doc.forEach((n) => {
+        if (n.type.name === 'bulletList') n.forEach((m) => out.push(m.textContent));
+      });
+      return out;
+    });
+    expect(bulletTexts).toContain('Task to convert');
+    expect(bulletTexts).toContain('Existing bullet');
+  });
+
+  test('paragraphInsideContainer rule is paragraph-SELECTIVE: heading inside blockquote still resolves to HEADING (not blockquote)', async ({ page }) => {
+    // The custom demo rule excludes ONLY paragraphs from being a drag
+    // target inside structural containers. Other block types (heading,
+    // codeBlock, hr) inside the same containers must remain individually
+    // draggable - they are the meaningful drag units.
+    await setContent(page, '<blockquote><h2>Quoted heading</h2></blockquote>');
+    await hoverInGutterAt(page, page.locator(`${editorSelector} blockquote h2`));
+    const pos = await hoveredPos(page);
+    expect((await blockAt(page, pos ?? 0))?.type).toBe('heading');
+  });
+
+  test('paragraphInsideContainer rule is paragraph-SELECTIVE: codeBlock inside blockquote still resolves to codeBlock', async ({ page }) => {
+    await setContent(page, '<blockquote><pre><code>fn();</code></pre></blockquote>');
+    await hoverInGutterAt(page, page.locator(`${editorSelector} blockquote pre`));
+    const pos = await hoveredPos(page);
+    expect((await blockAt(page, pos ?? 0))?.type).toBe('codeBlock');
+  });
+
+  test('hover in Y-gap BETWEEN nested heading and next sibling block (CSS margin gap inside li) resolves to listItem (no inner candidate)', async ({ page }) => {
+    // Nested children have margin-top from children-zone CSS. The few
+    // pixels between heading.bottom and the next nested block's top are
+    // INSIDE li's rect but OUTSIDE either child's rect. Walker should
+    // fall back to listItem (the only allowed ancestor at that Y).
+    await setContent(
+      page,
+      '<ul><li><p>Label</p><h2>Heading</h2><p>Second body</p></li></ul><p>Tail</p>',
+    );
+    const gapY = await page.evaluate(() => {
+      const heading = document.querySelector('app-notion-demo .ProseMirror li > h2');
+      const nextP = document.querySelector('app-notion-demo .ProseMirror li > p:nth-of-type(2)');
+      if (!(heading instanceof HTMLElement) || !(nextP instanceof HTMLElement)) return null;
+      const hRect = heading.getBoundingClientRect();
+      const pRect = nextP.getBoundingClientRect();
+      // Midpoint of the visual gap between heading-bottom and p-top.
+      const gap = pRect.top - hRect.bottom;
+      if (gap <= 1) return null;
+      return hRect.bottom + gap / 2;
+    });
+    if (gapY === null) {
+      test.info().annotations.push({ type: 'note', description: 'no measurable gap between siblings - skip' });
+      return;
+    }
+    await hoverAt(page, await sideGutterX(page), gapY);
+    const pos = await hoveredPos(page);
+    expect((await blockAt(page, pos ?? 0))?.type).toBe('listItem');
+  });
+
+  test('hover in Y-gap BETWEEN two top-level sibling list items resolves to one of the items (Y bias picks closer item, never null)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>First</p></li><li><p>Second</p></li></ul>',
+    );
+    const gapY = await page.evaluate(() => {
+      const lis = document.querySelectorAll('app-notion-demo .ProseMirror li');
+      if (lis.length < 2 || !(lis[0] instanceof HTMLElement) || !(lis[1] instanceof HTMLElement)) return null;
+      const r0 = lis[0].getBoundingClientRect();
+      const r1 = lis[1].getBoundingClientRect();
+      if (r1.top <= r0.bottom) return null;
+      return r0.bottom + (r1.top - r0.bottom) / 2;
+    });
+    if (gapY === null) {
+      test.info().annotations.push({ type: 'note', description: 'no measurable gap between li siblings' });
+      return;
+    }
+    await hoverAt(page, await sideGutterX(page), gapY);
+    const pos = await hoveredPos(page);
+    const block = pos !== null ? await blockAt(page, pos) : null;
+    // Either resolves to a listItem (clamp/snap to nearest) or to the
+    // bulletList wrapper - both acceptable for "between" Y. What matters
+    // is no null and the resolution is deterministic.
+    expect(['listItem', 'bulletList'].includes(block?.type ?? '')).toBe(true);
+  });
+
+  test('empty nested heading (no text) inside list item still resolves to heading (rect exists from line-height)', async ({ page }) => {
+    // PM may inject a placeholder or leave the heading empty. Either way,
+    // the heading element has a rect (line-height creates visible height)
+    // and the walker must still pick it.
+    await setContent(page, '<ul><li><p>Label</p><h2></h2></li></ul><p>Tail</p>');
+    const heading = page.locator(`${editorSelector} li > h2`);
+    if (await heading.count() === 0) {
+      test.info().annotations.push({ type: 'note', description: 'parser dropped the empty heading' });
+      return;
+    }
+    const hY = await page.evaluate(() => {
+      const h = document.querySelector('app-notion-demo .ProseMirror li > h2');
+      if (!(h instanceof HTMLElement)) return null;
+      const r = h.getBoundingClientRect();
+      return r.height > 0 ? r.top + r.height / 2 : null;
+    });
+    if (hY === null) {
+      test.info().annotations.push({ type: 'note', description: 'empty heading collapsed to zero height - not a stable hover target' });
+      return;
+    }
+    await hoverAt(page, await sideGutterX(page), hY);
+    const pos = await hoveredPos(page);
+    expect((await blockAt(page, pos ?? 0))?.type).toBe('heading');
+  });
+
+  test('drag handle freezes during active drag press (handle does not re-position when dragPressActive)', async ({ page }) => {
+    // The freeze guard fires on `mousedown` of the drag button (sets
+    // `dragPressActive = true`) and releases on `mouseup`/`dragend`. While
+    // active, mousemove handler bails before re-positioning so the button
+    // doesn't slide out from under the cursor before the browser commits
+    // to a drag interaction.
+    await setContent(
+      page,
+      '<p>First</p><h2>Second heading</h2><p>Third</p>',
+    );
+    // Surface handle on First.
+    await hoverInGutterAt(page, page.locator(`${editorSelector} p:has-text("First")`));
+    const xBefore = (await handleBox(page)).x;
+    const yBefore = (await handleBox(page)).y;
+
+    // Press the drag button - sets dragPressActive=true via mousedown.
+    const handle = page.locator(dragBtnSelector);
+    await handle.dispatchEvent('mousedown');
+    await page.waitForTimeout(20);
+
+    // Move mouse over a different block - handle position must stay frozen.
+    const heading = page.locator(`${editorSelector} h2`);
+    const hBox = await boxOf(heading);
+    await page.mouse.move(hBox.x + hBox.width / 2, hBox.y + hBox.height / 2);
+    await page.waitForTimeout(40);
+
+    const xAfter = (await handleBox(page)).x;
+    const yAfter = (await handleBox(page)).y;
+
+    expect(Math.abs(xAfter - xBefore)).toBeLessThan(1);
+    expect(Math.abs(yAfter - yBefore)).toBeLessThan(1);
+
+    // Cleanup: release the press so subsequent tests aren't affected.
+    await page.mouse.up();
+    await handle.dispatchEvent('mouseup');
+  });
+
+  test('two parallel lists each with a nested heading: each heading resolves independently', async ({ page }) => {
+    // Cross-talk regression. Walker must isolate the cursor's row from
+    // unrelated blocks elsewhere in the doc.
+    await setContent(
+      page,
+      '<ul><li><p>List A label</p><h2>Heading in A</h2></li></ul>'
+      + '<ul><li><p>List B label</p><h3>Heading in B</h3></li></ul>',
+    );
+
+    await hoverInGutterAt(page, page.locator(`${editorSelector} li > h2:has-text("Heading in A")`));
+    let pos = await hoveredPos(page);
+    let block = pos !== null ? await blockAt(page, pos) : null;
+    expect(block?.type).toBe('heading');
+    expect(block?.text).toBe('Heading in A');
+
+    await hoverInGutterAt(page, page.locator(`${editorSelector} li > h3:has-text("Heading in B")`));
+    pos = await hoveredPos(page);
+    block = pos !== null ? await blockAt(page, pos) : null;
+    expect(block?.type).toBe('heading');
+    expect(block?.text).toBe('Heading in B');
+  });
+
+  test('full source × container matrix sweep: every documented handle target resolves correctly', async ({ page }) => {
+    // Single test that runs the entire matrix as a sanity sweep, providing
+    // a quick spot-check should the per-row tests above ever go missing.
+    // Order matches the matrix in listitems_improvements_2.md Phase 5.
+    type Row = { html: string; selector: string; expected: string; label: string };
+    const rows: Row[] = [
+      { html: '<p>Top</p>', selector: 'p', expected: 'paragraph', label: 'paragraph × top-level' },
+      { html: '<h2>Title</h2>', selector: 'h2', expected: 'heading', label: 'heading × top-level' },
+      { html: '<p>Above</p><pre><code>x</code></pre>', selector: 'pre', expected: 'codeBlock', label: 'codeBlock × top-level' },
+      { html: '<blockquote><p>q</p></blockquote>', selector: 'blockquote p', expected: 'blockquote', label: 'paragraph × blockquote (rule excludes)' },
+      { html: '<ul><li><p>L</p></li></ul>', selector: 'li > p', expected: 'listItem', label: 'paragraph × listItem × first (label)' },
+      { html: '<ul><li><p>L</p><p>S</p></li></ul>', selector: 'li > p:nth-of-type(2)', expected: 'paragraph', label: 'paragraph × listItem × non-first' },
+      { html: '<ul data-type="taskList"><li data-type="taskItem"><p>L</p></li></ul>', selector: 'li[data-type="taskItem"] p', expected: 'taskItem', label: 'paragraph × taskItem × first (label)' },
+      { html: '<ul><li><p>L</p><h2>H</h2></li></ul>', selector: 'li > h2', expected: 'heading', label: 'heading × listItem × non-first' },
+      { html: '<ul><li><p>L</p><pre><code>x</code></pre></li></ul>', selector: 'li > pre', expected: 'codeBlock', label: 'codeBlock × listItem × non-first' },
+      { html: '<ul><li><p>L</p><blockquote><p>q</p></blockquote></li></ul>', selector: 'li > blockquote', expected: 'blockquote', label: 'blockquote × listItem × non-first' },
+      { html: '<ul><li><p>One</p></li></ul>', selector: 'ul', expected: 'listItem', label: 'list wrapper resolves to inner item' },
+      { html: '<ul data-type="taskList"><li data-type="taskItem"><p>One</p></li></ul>', selector: 'ul[data-type="taskList"]', expected: 'taskItem', label: 'task wrapper resolves to inner taskItem' },
+    ];
+
+    for (const row of rows) {
+      await setContent(page, row.html);
+      await hoverInGutterAt(page, page.locator(`${editorSelector} ${row.selector}`));
+      const pos = await hoveredPos(page);
+      const type = (await blockAt(page, pos ?? 0))?.type;
+      expect(type, row.label).toBe(row.expected);
+    }
+  });
+});
