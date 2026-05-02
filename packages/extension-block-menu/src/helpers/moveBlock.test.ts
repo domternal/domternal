@@ -158,14 +158,13 @@ describe('moveBlock', () => {
   });
 
   it('walks up multiple single-child wrappers in one go', () => {
-    // Two stacked wrappers: top UL > LI > nested UL > LI(source).
-    // Moving the source LI must collapse BOTH wrappers - the original
-    // location should leave NO empty LI placeholders behind. PM may
-    // re-wrap the inserted LI in a fresh UL at the drop site, so this
-    // test asserts the absence of empty placeholders rather than the
-    // absence of bullet lists altogether.
+    // Two stacked wrappers: top UL > LI > nested UL > LI(source). The
+    // outer li uses an empty paragraph as the (Notion-strict) label so
+    // the parser preserves nesting; the helper's single-meaningful-
+    // child branch then walks through that filler when moving the
+    // source out, leaving no empty LI placeholders behind.
     const editor = makeListEditor(
-      '<ul><li>'
+      '<ul><li><p></p>'
       + '<ul><li><p>Solo deeply nested</p></li></ul>'
       + '</li></ul>'
       + '<p>After</p>',

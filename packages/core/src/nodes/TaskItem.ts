@@ -31,7 +31,11 @@ export interface TaskItemOptions {
 export const TaskItem = Node.create<TaskItemOptions>({
   name: 'taskItem',
 
-  content: 'block+',
+  // Notion-strict: paragraph must be the first child (the "label" line aligned
+  // with the checkbox); additional blocks render below as nested children.
+  // Without this, a heading as first child would force flex alignment to the
+  // heading baseline and visually break the checkbox.
+  content: 'paragraph block*',
 
   defining: true,
 

@@ -219,7 +219,7 @@ describe('convertListItemForParent', () => {
 
   // ── Arbitrary-block wrap (heading/paragraph/codeBlock/blockquote/hr) ──
 
-  it('wraps a top-level heading in a fresh listItem when target is bulletList', () => {
+  it('wraps a top-level heading in a fresh listItem (Notion-strict: empty label paragraph + heading)', () => {
     const editor = makeEditor('<h1>The title</h1>');
     const headingPos = findPos(editor, (n) => n.type.name === 'heading');
     const h = editor.state.doc.nodeAt(headingPos);
@@ -230,14 +230,16 @@ describe('convertListItemForParent', () => {
 
     const out = convertListItemForParent(editor.schema, fragment, bulletListType);
     expect(out.firstChild?.type.name).toBe('listItem');
-    expect(out.firstChild?.childCount).toBe(1);
-    expect(out.firstChild?.firstChild?.type.name).toBe('heading');
-    expect(out.firstChild?.firstChild?.attrs['level']).toBe(1);
-    expect(out.firstChild?.firstChild?.textContent).toBe('The title');
+    expect(out.firstChild?.childCount).toBe(2);
+    expect(out.firstChild?.child(0)?.type.name).toBe('paragraph');
+    expect(out.firstChild?.child(0)?.textContent).toBe('');
+    expect(out.firstChild?.child(1)?.type.name).toBe('heading');
+    expect(out.firstChild?.child(1)?.attrs['level']).toBe(1);
+    expect(out.firstChild?.child(1)?.textContent).toBe('The title');
     editor.destroy();
   });
 
-  it('wraps a top-level heading in a fresh taskItem (with checked=false) when target is taskList', () => {
+  it('wraps a top-level heading in a fresh taskItem (Notion-strict: empty label paragraph + heading, checked=false)', () => {
     const editor = makeEditor('<h2>Section</h2>');
     const headingPos = findPos(editor, (n) => n.type.name === 'heading');
     const h = editor.state.doc.nodeAt(headingPos);
@@ -249,8 +251,11 @@ describe('convertListItemForParent', () => {
     const out = convertListItemForParent(editor.schema, fragment, taskListType);
     expect(out.firstChild?.type.name).toBe('taskItem');
     expect(out.firstChild?.attrs['checked']).toBe(false);
-    expect(out.firstChild?.firstChild?.type.name).toBe('heading');
-    expect(out.firstChild?.firstChild?.textContent).toBe('Section');
+    expect(out.firstChild?.childCount).toBe(2);
+    expect(out.firstChild?.child(0)?.type.name).toBe('paragraph');
+    expect(out.firstChild?.child(0)?.textContent).toBe('');
+    expect(out.firstChild?.child(1)?.type.name).toBe('heading');
+    expect(out.firstChild?.child(1)?.textContent).toBe('Section');
     editor.destroy();
   });
 
@@ -270,7 +275,7 @@ describe('convertListItemForParent', () => {
     editor.destroy();
   });
 
-  it('wraps a codeBlock in a listItem (preserves language attr)', () => {
+  it('wraps a codeBlock in a listItem (Notion-strict: empty label paragraph + codeBlock; preserves language attr)', () => {
     const editor = makeEditor('<pre><code class="language-js">code()</code></pre>');
     const cbPos = findPos(editor, (n) => n.type.name === 'codeBlock');
     const cb = editor.state.doc.nodeAt(cbPos);
@@ -281,12 +286,15 @@ describe('convertListItemForParent', () => {
 
     const out = convertListItemForParent(editor.schema, fragment, bulletListType);
     expect(out.firstChild?.type.name).toBe('listItem');
-    expect(out.firstChild?.firstChild?.type.name).toBe('codeBlock');
-    expect(out.firstChild?.firstChild?.textContent).toBe('code()');
+    expect(out.firstChild?.childCount).toBe(2);
+    expect(out.firstChild?.child(0)?.type.name).toBe('paragraph');
+    expect(out.firstChild?.child(0)?.textContent).toBe('');
+    expect(out.firstChild?.child(1)?.type.name).toBe('codeBlock');
+    expect(out.firstChild?.child(1)?.textContent).toBe('code()');
     editor.destroy();
   });
 
-  it('wraps a blockquote in a listItem (blockquote keeps its own paragraph child)', () => {
+  it('wraps a blockquote in a listItem (Notion-strict: empty label paragraph + blockquote with its inner paragraph)', () => {
     const editor = makeEditor('<blockquote><p>Quoted</p></blockquote>');
     const bqPos = findPos(editor, (n) => n.type.name === 'blockquote');
     const bq = editor.state.doc.nodeAt(bqPos);
@@ -297,13 +305,16 @@ describe('convertListItemForParent', () => {
 
     const out = convertListItemForParent(editor.schema, fragment, bulletListType);
     expect(out.firstChild?.type.name).toBe('listItem');
-    expect(out.firstChild?.firstChild?.type.name).toBe('blockquote');
-    expect(out.firstChild?.firstChild?.firstChild?.type.name).toBe('paragraph');
-    expect(out.firstChild?.firstChild?.textContent).toBe('Quoted');
+    expect(out.firstChild?.childCount).toBe(2);
+    expect(out.firstChild?.child(0)?.type.name).toBe('paragraph');
+    expect(out.firstChild?.child(0)?.textContent).toBe('');
+    expect(out.firstChild?.child(1)?.type.name).toBe('blockquote');
+    expect(out.firstChild?.child(1)?.firstChild?.type.name).toBe('paragraph');
+    expect(out.firstChild?.child(1)?.textContent).toBe('Quoted');
     editor.destroy();
   });
 
-  it('wraps a horizontalRule (atom block) in a listItem', () => {
+  it('wraps a horizontalRule (atom block) in a listItem (Notion-strict: empty label paragraph + hr)', () => {
     const editor = makeEditor('<hr><p>after</p>');
     const hrPos = findPos(editor, (n) => n.type.name === 'horizontalRule');
     const hr = editor.state.doc.nodeAt(hrPos);
@@ -314,7 +325,10 @@ describe('convertListItemForParent', () => {
 
     const out = convertListItemForParent(editor.schema, fragment, bulletListType);
     expect(out.firstChild?.type.name).toBe('listItem');
-    expect(out.firstChild?.firstChild?.type.name).toBe('horizontalRule');
+    expect(out.firstChild?.childCount).toBe(2);
+    expect(out.firstChild?.child(0)?.type.name).toBe('paragraph');
+    expect(out.firstChild?.child(0)?.textContent).toBe('');
+    expect(out.firstChild?.child(1)?.type.name).toBe('horizontalRule');
     editor.destroy();
   });
 

@@ -403,27 +403,34 @@ test.describe('SmartPaste', () => {
     });
     await pasteHtml(page, '<h1>Big title</h1>');
 
-    // Expected: second list item now contains ONLY the heading.
+    // Notion-strict: listItem requires paragraph as first child, so the
+    // empty-replace branch can't fully replace the empty p with a heading.
+    // PM's content fitter re-injects an empty paragraph as the label
+    // slot; the heading lands as the second child.
     const tree = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild: { childCount: number; lastChild: { type: { name: string }; childCount: number; firstChild: { type: { name: string }; textContent: string; attrs: Record<string, unknown> } | null } | null } | null } } }
+        | { state: { doc: { firstChild: { childCount: number; lastChild: { type: { name: string }; childCount: number; firstChild: { type: { name: string }; textContent: string } | null; lastChild: { type: { name: string }; textContent: string; attrs: Record<string, unknown> } | null } | null } | null } } }
         | undefined;
       const ul = ed?.state.doc.firstChild;
       const secondLi = ul?.lastChild;
       return {
         ulChildCount: ul?.childCount,
         secondLiChildCount: secondLi?.childCount,
-        secondLiOnlyChildType: secondLi?.firstChild?.type.name,
-        secondLiOnlyChildText: secondLi?.firstChild?.textContent,
-        secondLiOnlyChildLevel: secondLi?.firstChild?.attrs['level'],
+        secondLiLabelType: secondLi?.firstChild?.type.name,
+        secondLiLabelText: secondLi?.firstChild?.textContent,
+        secondLiContentType: secondLi?.lastChild?.type.name,
+        secondLiContentText: secondLi?.lastChild?.textContent,
+        secondLiContentLevel: secondLi?.lastChild?.attrs['level'],
       };
     });
     expect(tree).toEqual({
       ulChildCount: 2,
-      secondLiChildCount: 1,
-      secondLiOnlyChildType: 'heading',
-      secondLiOnlyChildText: 'Big title',
-      secondLiOnlyChildLevel: 1,
+      secondLiChildCount: 2,
+      secondLiLabelType: 'paragraph',
+      secondLiLabelText: '',
+      secondLiContentType: 'heading',
+      secondLiContentText: 'Big title',
+      secondLiContentLevel: 1,
     });
   });
 
@@ -648,13 +655,21 @@ test.describe('SmartPaste', () => {
       ed.view.focus();
     });
     await pasteHtml(page, '<h1>Title</h1>');
+    // Extra settle tick: when the empty parent is a list-item label,
+    // SmartPaste's insert-after path nudges the caret a tick later than
+    // the simple replace path. Without this, `keyboard.type` can race
+    // ahead of the post-paste selection commit and land mid-text.
+    await page.waitForTimeout(50);
     await page.keyboard.type('!');
 
+    // Notion-strict: paste left an empty label paragraph as listItem
+    // firstChild and the heading as lastChild; caret should be in the
+    // heading so the typed `!` lands there.
     const headingText = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild: { lastChild: { firstChild: { textContent: string } | null } | null } | null } } }
+        | { state: { doc: { firstChild: { lastChild: { lastChild: { textContent: string } | null } | null } | null } } }
         | undefined;
-      return ed?.state.doc.firstChild?.lastChild?.firstChild?.textContent;
+      return ed?.state.doc.firstChild?.lastChild?.lastChild?.textContent;
     });
     expect(headingText).toBe('Title!');
   });

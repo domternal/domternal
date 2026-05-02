@@ -24,11 +24,15 @@ const LIST_ITEM_TYPE = 'listItem';
  *    dropped (PM ignores attrs not declared by the target schema).
  *
  * 3. **Arbitrary-block wrap.** Source is something else (heading,
- *    paragraph, codeBlock, blockquote, hr, image, etc.). The target
- *    list expects items of a specific type, but `listItem`'s content
- *    rule is `block+` - meaning ANY block can live inside one. We
- *    wrap the dragged block in a fresh `listItem` (or `taskItem`)
- *    so the drop lands INSIDE the list, mirroring Notion's behaviour.
+ *    paragraph, codeBlock, blockquote, hr, image, etc.). We wrap the
+ *    dragged block in a fresh `listItem` (or `taskItem`) so the drop
+ *    lands INSIDE the list, mirroring Notion's behaviour.
+ *
+ *    Notion-strict listItem content (`paragraph block*`) requires the
+ *    first child to be a paragraph (the "label" line aligned with the
+ *    bullet/checkbox). For non-paragraph blocks we prepend an empty
+ *    label paragraph so the block attaches as a nested child below
+ *    it; for paragraphs we use them directly as the label.
  *
  *    Without this wrap, PM's content fitter would silently promote
  *    the dragged block to the next valid position (a sibling AFTER
@@ -78,12 +82,20 @@ export function convertListItemForParent(
     }
 
     // (3) Arbitrary block (heading, paragraph, codeBlock, …) - wrap it
-    // in a fresh item. `listItem.content = 'block+'`, so any block
-    // node fits as the wrapper's only child.
+    // in a fresh item. Notion-strict listItem requires `paragraph
+    // block*` content, so for non-paragraph children we prepend an
+    // empty label paragraph (the bullet/checkbox-aligned line) and
+    // attach the dragged block below it as a nested child.
     const wrapperAttrs: Record<string, unknown> = expectsTaskItem
       ? { checked: false }
       : {};
-    return targetItemType.create(wrapperAttrs, [child]);
+    if (child.type.name === 'paragraph') {
+      return targetItemType.create(wrapperAttrs, [child]);
+    }
+    const paragraphType = schema.nodes['paragraph'];
+    const labelParagraph = paragraphType?.createAndFill();
+    const content = labelParagraph ? [labelParagraph, child] : [child];
+    return targetItemType.create(wrapperAttrs, content);
   });
 
   return Fragment.from(replaced);

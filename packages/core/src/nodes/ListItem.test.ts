@@ -22,8 +22,8 @@ describe('ListItem', () => {
       expect(ListItem.type).toBe('node');
     });
 
-    it('has block+ content', () => {
-      expect(ListItem.config.content).toBe('block+');
+    it('has paragraph block* content (Notion-strict label slot)', () => {
+      expect(ListItem.config.content).toBe('paragraph block*');
     });
 
     it('is defining', () => {

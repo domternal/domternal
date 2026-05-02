@@ -124,12 +124,14 @@ describe('blockOperations', () => {
     });
 
     it('deleting a deeply nested only-child collapses the entire wrapper chain', () => {
-      // li(L1) > ul > li(L2) > ul > li(L3). Each ancestor is a single-child
-      // container of the source. Doc has [outer-UL, paragraph]. Deletion
-      // must remove the entire outer-UL, leaving just the paragraph.
+      // li(L1) > ul > li(L2) > ul > li(L3). Each outer li uses an empty
+      // paragraph as the (Notion-strict) label slot so the parser keeps
+      // the nested structure - bare `<li><ul>` flattens to top-level
+      // sibling lists. The helper's single-meaningful-child branch walks
+      // through these filler paragraphs so the entire outer-UL collapses.
       const editor = makeListEditor(
-        '<ul><li>'
-        + '<ul><li>'
+        '<ul><li><p></p>'
+        + '<ul><li><p></p>'
         + '<ul><li><p>L3 deep</p></li></ul>'
         + '</li></ul>'
         + '</li></ul>'

@@ -20,7 +20,9 @@ export interface ListItemOptions {
 
 export const ListItem = Node.create<ListItemOptions>({
   name: 'listItem',
-  content: 'block+',
+  // Notion-strict: paragraph must be the first child (the "label" line aligned
+  // with the bullet); additional blocks render below as nested children.
+  content: 'paragraph block*',
   defining: true,
 
   addOptions() {

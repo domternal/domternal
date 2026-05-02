@@ -514,7 +514,7 @@ test.describe('Resolver edge cases', () => {
       page,
       '<ul><li><p>Bullet item</p></li></ul>'
       + '<ol><li><p>Numbered item</p></li></ol>'
-      + '<ul data-type="taskList"><li data-checked="false"><p>Task item</p></li></ul>',
+      + '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task item</p></li></ul>',
     );
     const lis = page.locator(`${editorSelector} li`);
     const a = await boxOf(lis.nth(0));
@@ -1925,33 +1925,45 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     await page.waitForTimeout(80);
     await dt.dispose();
 
-    // Expect: bulletList with TWO listItems - first the original
-    // paragraph "Existing", second a wrapped heading "Big title".
+    // Expect: bulletList with TWO listItems - first the original paragraph
+    // "Existing", second a wrapped heading "Big title". Notion-strict
+    // listItem schema requires paragraph as first child, so the heading-
+    // wrapping listItem has [empty-label-p, heading] (childCount=2); the
+    // existing item still has just [p "Existing"] (childCount=1).
     const tree = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild: { type: { name: string }; childCount: number; child: (i: number) => { type: { name: string }; firstChild: { type: { name: string }; textContent: string; attrs: Record<string, unknown> } | null } | null } | null; childCount: number } } }
+        | { state: { doc: { firstChild: { type: { name: string }; childCount: number; child: (i: number) => { type: { name: string }; childCount: number; firstChild: { type: { name: string }; textContent: string } | null; lastChild: { type: { name: string }; textContent: string; attrs: Record<string, unknown> } | null } | null } | null; childCount: number } } }
         | undefined;
       const ul = ed?.state.doc.firstChild;
+      const second = ul?.child(1);
       return {
         topCount: ed?.state.doc.childCount,
         ulType: ul?.type.name,
         ulChildCount: ul?.childCount,
-        firstItemType: ul?.child(0)?.firstChild?.type.name,
-        firstItemText: ul?.child(0)?.firstChild?.textContent,
-        secondItemType: ul?.child(1)?.firstChild?.type.name,
-        secondItemText: ul?.child(1)?.firstChild?.textContent,
-        secondItemLevel: ul?.child(1)?.firstChild?.attrs['level'],
+        firstItemChildCount: ul?.child(0)?.childCount,
+        firstItemFirstType: ul?.child(0)?.firstChild?.type.name,
+        firstItemFirstText: ul?.child(0)?.firstChild?.textContent,
+        secondItemChildCount: second?.childCount,
+        secondItemLabelType: second?.firstChild?.type.name,
+        secondItemLabelText: second?.firstChild?.textContent,
+        secondItemContentType: second?.lastChild?.type.name,
+        secondItemContentText: second?.lastChild?.textContent,
+        secondItemContentLevel: second?.lastChild?.attrs['level'],
       };
     });
     expect(tree).toEqual({
       topCount: 1,
       ulType: 'bulletList',
       ulChildCount: 2,
-      firstItemType: 'paragraph',
-      firstItemText: 'Existing',
-      secondItemType: 'heading',
-      secondItemText: 'Big title',
-      secondItemLevel: 1,
+      firstItemChildCount: 1,
+      firstItemFirstType: 'paragraph',
+      firstItemFirstText: 'Existing',
+      secondItemChildCount: 2,
+      secondItemLabelType: 'paragraph',
+      secondItemLabelText: '',
+      secondItemContentType: 'heading',
+      secondItemContentText: 'Big title',
+      secondItemContentLevel: 1,
     });
   });
 
@@ -1978,9 +1990,11 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     await page.waitForTimeout(80);
     await dt.dispose();
 
+    // Notion-strict: taskItem requires paragraph as first child, so the
+    // heading-wrapping taskItem has [empty-label-p, heading].
     const tree = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild: { type: { name: string }; childCount: number; child: (i: number) => { type: { name: string }; attrs: Record<string, unknown>; firstChild: { type: { name: string }; textContent: string } | null } | null } | null } } }
+        | { state: { doc: { firstChild: { type: { name: string }; childCount: number; child: (i: number) => { type: { name: string }; childCount: number; attrs: Record<string, unknown>; firstChild: { type: { name: string }; textContent: string } | null; lastChild: { type: { name: string }; textContent: string } | null } | null } | null } } }
         | undefined;
       const tl = ed?.state.doc.firstChild;
       const second = tl?.child(1);
@@ -1989,8 +2003,11 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
         ulChildCount: tl?.childCount,
         secondType: second?.type.name,
         secondChecked: second?.attrs['checked'],
-        secondInner: second?.firstChild?.type.name,
-        secondInnerText: second?.firstChild?.textContent,
+        secondChildCount: second?.childCount,
+        secondLabelType: second?.firstChild?.type.name,
+        secondLabelText: second?.firstChild?.textContent,
+        secondContentType: second?.lastChild?.type.name,
+        secondContentText: second?.lastChild?.textContent,
       };
     });
     expect(tree).toEqual({
@@ -1998,8 +2015,11 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
       ulChildCount: 2,
       secondType: 'taskItem',
       secondChecked: false,
-      secondInner: 'heading',
-      secondInnerText: 'Section heading',
+      secondChildCount: 2,
+      secondLabelType: 'paragraph',
+      secondLabelText: '',
+      secondContentType: 'heading',
+      secondContentText: 'Section heading',
     });
   });
 
@@ -2057,23 +2077,32 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     await page.waitForTimeout(80);
     await dt.dispose();
 
+    // Notion-strict: listItem requires paragraph as first child, so the
+    // codeBlock-wrapping listItem has [empty-label-p, codeBlock].
     const tree = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { firstChild: { type: { name: string }; textContent: string } | null } | null } | null; childCount: number } } }
+        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { childCount: number; firstChild: { type: { name: string }; textContent: string } | null; lastChild: { type: { name: string }; textContent: string } | null } | null } | null; childCount: number } } }
         | undefined;
       const ul = ed?.state.doc.firstChild;
+      const second = ul?.child(1);
       return {
         topCount: ed?.state.doc.childCount,
         ulChildCount: ul?.childCount,
-        secondInner: ul?.child(1)?.firstChild?.type.name,
-        secondText: ul?.child(1)?.firstChild?.textContent,
+        secondChildCount: second?.childCount,
+        secondLabelType: second?.firstChild?.type.name,
+        secondLabelText: second?.firstChild?.textContent,
+        secondContentType: second?.lastChild?.type.name,
+        secondContentText: second?.lastChild?.textContent,
       };
     });
     expect(tree).toEqual({
       topCount: 1,
       ulChildCount: 2,
-      secondInner: 'codeBlock',
-      secondText: 'console.log("hi")',
+      secondChildCount: 2,
+      secondLabelType: 'paragraph',
+      secondLabelText: '',
+      secondContentType: 'codeBlock',
+      secondContentText: 'console.log("hi")',
     });
   });
 
@@ -2100,26 +2129,34 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     await page.waitForTimeout(80);
     await dt.dispose();
 
+    // Notion-strict: listItem requires paragraph as first child, so the
+    // blockquote-wrapping listItem has [empty-label-p, blockquote(p)].
     const tree = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { firstChild: { type: { name: string }; firstChild: { type: { name: string }; textContent: string } | null } | null } | null } | null; childCount: number } } }
+        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { childCount: number; firstChild: { type: { name: string }; textContent: string } | null; lastChild: { type: { name: string }; firstChild: { type: { name: string }; textContent: string } | null } | null } | null } | null; childCount: number } } }
         | undefined;
       const ul = ed?.state.doc.firstChild;
       const second = ul?.child(1);
       return {
         topCount: ed?.state.doc.childCount,
         ulChildCount: ul?.childCount,
-        secondWrapper: second?.firstChild?.type.name,
-        secondInnerInner: second?.firstChild?.firstChild?.type.name,
-        secondInnerText: second?.firstChild?.firstChild?.textContent,
+        secondChildCount: second?.childCount,
+        secondLabelType: second?.firstChild?.type.name,
+        secondLabelText: second?.firstChild?.textContent,
+        secondContentWrapper: second?.lastChild?.type.name,
+        secondContentInner: second?.lastChild?.firstChild?.type.name,
+        secondContentInnerText: second?.lastChild?.firstChild?.textContent,
       };
     });
     expect(tree).toEqual({
       topCount: 1,
       ulChildCount: 2,
-      secondWrapper: 'blockquote',
-      secondInnerInner: 'paragraph',
-      secondInnerText: 'Quoted text',
+      secondChildCount: 2,
+      secondLabelType: 'paragraph',
+      secondLabelText: '',
+      secondContentWrapper: 'blockquote',
+      secondContentInner: 'paragraph',
+      secondContentInnerText: 'Quoted text',
     });
   });
 
@@ -2249,16 +2286,20 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     await setContent(page, '<h1>Title</h1><ul><li><p>Existing</p></li></ul>');
     await dragSourceToTarget(page, 'Title', 'Existing', 0.2);
 
+    // Inspect each li's "primary content" via lastChild - for the heading-
+    // wrapping li that is the heading (firstChild is the empty Notion-
+    // strict label paragraph); for the existing item it is the same
+    // paragraph as firstChild (single-child li).
     const ulChildren = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { firstChild: { type: { name: string }; textContent: string } | null } | null } | null } } }
+        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { lastChild: { type: { name: string }; textContent: string } | null } | null } | null } } }
         | undefined;
       const ul = ed?.state.doc.firstChild;
       const out: { type: string; text: string }[] = [];
       for (let i = 0; i < (ul?.childCount ?? 0); i++) {
         const li = ul?.child(i);
-        const fc = li?.firstChild;
-        if (fc) out.push({ type: fc.type.name, text: fc.textContent });
+        const lc = li?.lastChild;
+        if (lc) out.push({ type: lc.type.name, text: lc.textContent });
       }
       return out;
     });
@@ -2274,14 +2315,14 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
 
     const ulChildren = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { firstChild: { type: { name: string }; textContent: string } | null } | null } | null } } }
+        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { lastChild: { type: { name: string }; textContent: string } | null } | null } | null } } }
         | undefined;
       const ul = ed?.state.doc.firstChild;
       const out: { type: string; text: string }[] = [];
       for (let i = 0; i < (ul?.childCount ?? 0); i++) {
         const li = ul?.child(i);
-        const fc = li?.firstChild;
-        if (fc) out.push({ type: fc.type.name, text: fc.textContent });
+        const lc = li?.lastChild;
+        if (lc) out.push({ type: lc.type.name, text: lc.textContent });
       }
       return out;
     });
@@ -2302,14 +2343,14 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
 
     const items = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { firstChild: { type: { name: string }; textContent: string } | null } | null } | null } } }
+        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { lastChild: { type: { name: string }; textContent: string } | null } | null } | null } } }
         | undefined;
       const ul = ed?.state.doc.firstChild;
       const out: { type: string; text: string }[] = [];
       for (let i = 0; i < (ul?.childCount ?? 0); i++) {
         const li = ul?.child(i);
-        const fc = li?.firstChild;
-        if (fc) out.push({ type: fc.type.name, text: fc.textContent });
+        const lc = li?.lastChild;
+        if (lc) out.push({ type: lc.type.name, text: lc.textContent });
       }
       return out;
     });
@@ -2349,17 +2390,19 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     await dt.dispose();
 
     // The bulletList now contains TWO listItems: the original "Existing"
-    // and a wrapper around the hr.
+    // and a wrapper around the hr. The hr-wrapping listItem follows the
+    // Notion-strict shape `[empty-label-p, hr]`; we inspect lastChild to
+    // get the meaningful content of each li.
     const ulChildren = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { descendants: (cb: (n: { type: { name: string }; childCount: number; firstChild: { type: { name: string } } | null }) => boolean | void) => void } } }
+        | { state: { doc: { descendants: (cb: (n: { type: { name: string }; childCount: number; lastChild: { type: { name: string } } | null }) => boolean | void) => void } } }
         | undefined;
       const out: { liChildType: string }[] = [];
       ed?.state.doc.descendants((node) => {
         if (node.type.name === 'bulletList') {
           for (let i = 0; i < node.childCount; i++) {
-            const li = (node as unknown as { child: (i: number) => { firstChild: { type: { name: string } } | null } }).child(i);
-            out.push({ liChildType: li.firstChild?.type.name ?? 'unknown' });
+            const li = (node as unknown as { child: (i: number) => { lastChild: { type: { name: string } } | null } }).child(i);
+            out.push({ liChildType: li.lastChild?.type.name ?? 'unknown' });
           }
           return false;
         }
