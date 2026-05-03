@@ -39,6 +39,23 @@ import { showFloatingMenu } from './FloatingMenu.js';
 export const DEFAULT_NESTED_NODES: string[] = ['listItem', 'taskItem'];
 
 /**
+ * Node types that accept a nested-child drop in MVP. When the resolver
+ * lands on one of these AND `clientX` exceeds `nestThreshold` from the
+ * left edge, `computeDropPlacement` returns `mode: 'nested'`. Other
+ * containers (blockquote, codeBlock, details) have their own content
+ * rules and remain sibling-only until explicit support lands.
+ */
+const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
+
+/**
+ * Default pixel threshold from the left edge of a list item beyond
+ * which drop commits to nested-child mode. Roughly the width of a
+ * bullet/checkbox marker (~24px) + a small buffer so the boundary
+ * sits just past where the marker visually ends.
+ */
+export const DEFAULT_NEST_THRESHOLD = 28;
+
+/**
  * Drop-zone tolerance in CSS pixels. The handle's drop zone extends
  * `DROP_ZONE_TOL_LEFT` past the editor's left edge (so the gutter where
  * the handle visually lives counts as a valid drop area) and `DROP_ZONE_TOL`
@@ -97,6 +114,22 @@ export interface BlockHandleOptions {
    * @default false
    */
   nested?: boolean | NestedConfig;
+  /**
+   * Pixel threshold from the LEFT edge of a list item beyond which a
+   * drop commits to nested-child mode (the dragged block becomes the
+   * last child of that item) instead of sibling mode (a new list item
+   * created next to it). Mirrors Notion's "drop indented = nested,
+   * drop on the marker = sibling" UX.
+   *
+   * Set to `0` to disable nested-drop entirely (every drop is sibling).
+   *
+   * The X-detection only fires when nested mode is on AND the resolved
+   * target is a `listItem` / `taskItem`. Other containers stay sibling-
+   * only until explicit support lands.
+   *
+   * @default 28
+   */
+  nestThreshold?: number;
   /**
    * Show a custom drop indicator line during drag-from-handle that
    * mirrors EXACTLY where the drop will land. Replaces the need for
@@ -217,6 +250,11 @@ export interface CreateBlockHandlePluginOptions {
   autoScrollMaxSpeed: number;
   nested: NestedResolution;
   dropIndicator: boolean;
+  /**
+   * Pixel threshold for nested-drop X-detection (see `BlockHandleOptions.nestThreshold`).
+   * `0` disables nested-drop.
+   */
+  nestThreshold: number;
 }
 
 /**
@@ -423,8 +461,13 @@ export interface DropPlacement {
   rect: DOMRect;
   /**
    * When `true` the drop lands AFTER the resolved block (line below);
-   * when `false` it lands BEFORE the block (line above). Irrelevant
-   * for `mode === 'nested'` placements.
+   * when `false` it lands BEFORE the block (line above). Computed from
+   * the cursor's Y position relative to the resolved block's mid-line
+   * regardless of `mode` so the existing drop pipeline (which reads this
+   * field) produces an identical sibling-style move while Phase 5's
+   * nested-child insertion is still being wired in. Phase 5 ignores
+   * this field for `mode === 'nested'` placements and dispatches via
+   * `insertAsListItemChild` instead.
    */
   insertAfter: boolean;
   /** Sibling drop (current behaviour) vs nested-child drop (drop-indent). */
@@ -465,10 +508,59 @@ export function computeDropPlacement(
   clientX: number,
   clientY: number,
   nested: NestedResolution,
+  nestThreshold: number = DEFAULT_NEST_THRESHOLD,
 ): DropPlacement | null {
   const initial = resolveBlockAtCoords(view, clientX, clientY, nested);
   if (!initial) return null;
   const resolved = adjustDropTargetForListWrapper(view, initial, clientY);
+
+  // X-threshold detection: when the resolved target is a list item and
+  // the cursor is sitting `>= nestThreshold` px from the left edge of
+  // its rect (and inside the rect's vertical span), commit to nested
+  // mode. The dragged block becomes the LAST child of the target item.
+  // Pipeline ignores `mode` until Phase 4 (indicator visual) and Phase
+  // 5 (drop transaction) wire it through; until then a 'nested' result
+  // still produces sibling behaviour at drop time.
+  //
+  // `nestThreshold === 0` is the explicit "disable" knob - the early
+  // exit guard below skips the entire X branch so every drop stays
+  // sibling regardless of X.
+  if (nestThreshold > 0) {
+    const targetNode = view.state.doc.nodeAt(resolved.pos);
+    if (targetNode && LIST_ITEM_TYPES.has(targetNode.type.name)) {
+      const targetRect = resolved.rect;
+      const xInTarget = clientX - targetRect.left;
+      const isInsideX = xInTarget >= 0 && xInTarget <= targetRect.width;
+      const isInNestZone = xInTarget >= nestThreshold;
+      const isInsideY = clientY >= targetRect.top && clientY <= targetRect.bottom;
+      if (isInsideX && isInNestZone && isInsideY) {
+        // Walk up to the wrapping list. `$resolved.before()` returns the
+        // position right before the parent at $resolved.depth - which
+        // for a position sitting BETWEEN siblings is the wrapper itself
+        // (bulletList / orderedList / taskList). `doc.nodeAt(wrapperPos)`
+        // can then resolve the wrapper for the Phase 5 tr math.
+        const $resolved = view.state.doc.resolve(resolved.pos);
+        const wrapperPos = $resolved.before();
+        // `insertAfter` mirrors the sibling-mode Y-mid calculation so the
+        // existing drop pipeline (which reads `placement.insertAfter` to
+        // compute `targetPos`) produces an identical result for the
+        // sibling-style move that runs today. Phase 5 will branch on
+        // `mode === 'nested'` and ignore insertAfter, switching to the
+        // `insertAsListItemChild` flow instead. This keeps the field
+        // semantically meaningful for both consumers.
+        const midY = targetRect.top + targetRect.height / 2;
+        return {
+          pos: resolved.pos,
+          rect: targetRect,
+          insertAfter: clientY > midY,
+          mode: 'nested',
+          targetItemPos: resolved.pos,
+          wrapperPos,
+        };
+      }
+    }
+  }
+
   const rect = resolved.rect;
   const midY = rect.top + rect.height / 2;
   const insertAfter = clientY > midY;
@@ -517,7 +609,7 @@ function findPreviousSiblingAtSameDepth(
 export function createBlockHandlePlugin(
   options: CreateBlockHandlePluginOptions,
 ): Plugin<BlockHandlePluginState> {
-  const { pluginKey, editor, hideDelay, disableDrag, autoScroll, autoScrollThreshold, autoScrollMaxSpeed, nested, dropIndicator } = options;
+  const { pluginKey, editor, hideDelay, disableDrag, autoScroll, autoScrollThreshold, autoScrollMaxSpeed, nested, dropIndicator, nestThreshold } = options;
 
   // --- Build DOM once. Buttons rendered with the shared Phosphor icons.
   const root = document.createElement('div');
@@ -909,7 +1001,7 @@ export function createBlockHandlePlugin(
     if (draggedFrom === null) return false;
     const sourceNode = view.state.doc.nodeAt(draggedFrom);
     if (!sourceNode) return false;
-    const placement = computeDropPlacement(view, clientX, clientY, nested);
+    const placement = computeDropPlacement(view, clientX, clientY, nested, nestThreshold);
     if (!placement) return false;
     const targetNode = view.state.doc.nodeAt(placement.pos);
     const targetEnd = targetNode ? placement.pos + targetNode.nodeSize : placement.pos;
@@ -946,7 +1038,7 @@ export function createBlockHandlePlugin(
    */
   const updateDropIndicator = (clientX: number, clientY: number): void => {
     if (!editorEl) return;
-    const placement = computeDropPlacement(editor.view, clientX, clientY, nested);
+    const placement = computeDropPlacement(editor.view, clientX, clientY, nested, nestThreshold);
     if (!placement) {
       indicator.removeAttribute('data-show');
       return;
@@ -966,6 +1058,11 @@ export function createBlockHandlePlugin(
     indicator.style.left = `${String(left)}px`;
     indicator.style.width = `${String(width)}px`;
     indicator.setAttribute('data-show', '');
+    // `data-mode` mirrors `placement.mode` so e2e + theme CSS can
+    // distinguish sibling vs nested drop visually. Phase 3 only sets
+    // the attribute; Phase 4 attaches the dashed indented styling for
+    // `[data-mode='nested']` so the user actually sees the difference.
+    indicator.setAttribute('data-mode', placement.mode);
   };
 
   const stopAutoScroll = (): void => {
@@ -1315,6 +1412,7 @@ export const BlockHandle = Extension.create<BlockHandleOptions>({
       autoScrollMaxSpeed: 18,
       nested: false,
       dropIndicator: true,
+      nestThreshold: DEFAULT_NEST_THRESHOLD,
     };
   },
 
@@ -1332,6 +1430,7 @@ export const BlockHandle = Extension.create<BlockHandleOptions>({
         autoScrollMaxSpeed: this.options.autoScrollMaxSpeed ?? 18,
         nested: resolveNestedConfig(this.options.nested),
         dropIndicator: this.options.dropIndicator ?? true,
+        nestThreshold: this.options.nestThreshold ?? DEFAULT_NEST_THRESHOLD,
       }),
     ];
   },

@@ -25,6 +25,7 @@ import {
   Paragraph,
   Heading,
   BulletList,
+  OrderedList,
   ListItem,
   TaskList,
   TaskItem,
@@ -33,7 +34,7 @@ import {
 import type { EditorView } from '@domternal/pm/view';
 import { computeDropPlacement, resolveNestedConfig, type DropPlacement } from './BlockHandle.js';
 
-const extensions = [Document, Text, Paragraph, Heading, BulletList, ListItem, TaskList, TaskItem];
+const extensions = [Document, Text, Paragraph, Heading, BulletList, OrderedList, ListItem, TaskList, TaskItem];
 
 function makeEditor(html: string): Editor {
   return new Editor({ extensions, content: html });
@@ -222,7 +223,11 @@ describe('computeDropPlacement - DropPlacement.mode contract', () => {
         [liBanana, elWithRect({ top: 150, bottom: 200 })],
       ]);
 
-      const result = computeDropPlacement(viewStub(editor, rects), 100, 125, NESTED_LIST);
+      // Pass nestThreshold=0 to exercise the legacy sibling-only path
+      // (Phase 3 X-detection disabled). Default threshold of 28 would
+      // otherwise flip clientX=100 over a list item rect into nested mode,
+      // which is covered by the dedicated Phase-3 nested-mode tests below.
+      const result = computeDropPlacement(viewStub(editor, rects), 100, 125, NESTED_LIST, 0);
       expect(result?.mode).toBe('sibling');
       expect(result?.targetItemPos).toBeUndefined();
       expect(result?.wrapperPos).toBeUndefined();
@@ -242,8 +247,9 @@ describe('computeDropPlacement - DropPlacement.mode contract', () => {
         [liTwo, elWithRect({ top: 150, bottom: 200 })],
       ]);
 
-      // Lower half of liTwo (170 > 175 mid? mid is 175, so 180 is lower half)
-      const result = computeDropPlacement(viewStub(editor, rects), 100, 180, NESTED_LIST);
+      // Lower half of liTwo (mid=175, Y=180 lower). nestThreshold=0
+      // disables nested-mode so the result stays sibling regardless of X.
+      const result = computeDropPlacement(viewStub(editor, rects), 100, 180, NESTED_LIST, 0);
       expect(result?.mode).toBe('sibling');
       expect(result?.insertAfter).toBe(true);
       expect(result?.pos).toBe(liTwo);
@@ -262,10 +268,273 @@ describe('computeDropPlacement - DropPlacement.mode contract', () => {
       ]);
 
       // Upper half of Banana - canonical path picks Apple with insertAfter=true.
-      const result = computeDropPlacement(viewStub(editor, rects), 100, 155, NESTED_LIST);
+      // nestThreshold=0 keeps the test on the sibling-only path so the
+      // canonical inter-item gap behaviour remains the assertion target.
+      const result = computeDropPlacement(viewStub(editor, rects), 100, 155, NESTED_LIST, 0);
       expect(result?.mode).toBe('sibling');
       expect(result?.pos).toBe(liApple);
       expect(result?.insertAfter).toBe(true);
+      editor.destroy();
+    });
+  });
+
+  describe('Phase 3 - X-threshold detection (nested mode)', () => {
+    // Default threshold is 28px from the LEFT edge of the target rect.
+    // All tests here use a target rect with `left: 0` so `clientX` maps
+    // 1:1 to "px from left edge".
+
+    it('cursor with X >= threshold over a listItem returns mode "nested" + targetItemPos + wrapperPos', () => {
+      const editor = makeEditor('<ul><li><p>Apple</p></li></ul>');
+      const ulPos = posOf(editor, (n) => n.type.name === 'bulletList');
+      const liApple = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Apple');
+      const rects = new Map<number, HTMLElement>([
+        [ulPos, elWithRect({ top: 100, bottom: 150 })],
+        [liApple, elWithRect({ top: 100, bottom: 150 })],
+      ]);
+
+      const result = computeDropPlacement(viewStub(editor, rects), 50, 125, NESTED_LIST);
+      expect(result?.mode).toBe('nested');
+      expect(result?.targetItemPos).toBe(liApple);
+      expect(result?.wrapperPos).toBe(ulPos);
+      editor.destroy();
+    });
+
+    it('cursor with X just BELOW threshold (27 < 28) over a listItem stays sibling', () => {
+      const editor = makeEditor('<ul><li><p>Apple</p></li></ul>');
+      const ulPos = posOf(editor, (n) => n.type.name === 'bulletList');
+      const liApple = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Apple');
+      const rects = new Map<number, HTMLElement>([
+        [ulPos, elWithRect({ top: 100, bottom: 150 })],
+        [liApple, elWithRect({ top: 100, bottom: 150 })],
+      ]);
+
+      const result = computeDropPlacement(viewStub(editor, rects), 27, 125, NESTED_LIST);
+      expect(result?.mode).toBe('sibling');
+      editor.destroy();
+    });
+
+    it('cursor with X EXACTLY at threshold (28) flips to nested', () => {
+      // `>= threshold` is the boundary so the threshold value itself is
+      // already in the nested zone (matches Notion's "everything past
+      // the bullet is the indent zone").
+      const editor = makeEditor('<ul><li><p>Apple</p></li></ul>');
+      const ulPos = posOf(editor, (n) => n.type.name === 'bulletList');
+      const liApple = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Apple');
+      const rects = new Map<number, HTMLElement>([
+        [ulPos, elWithRect({ top: 100, bottom: 150 })],
+        [liApple, elWithRect({ top: 100, bottom: 150 })],
+      ]);
+
+      const result = computeDropPlacement(viewStub(editor, rects), 28, 125, NESTED_LIST);
+      expect(result?.mode).toBe('nested');
+      editor.destroy();
+    });
+
+    it('cursor with Y ABOVE the listItem rect stays sibling even with nested-zone X', () => {
+      const editor = makeEditor('<ul><li><p>Apple</p></li><li><p>Banana</p></li></ul>');
+      const ulPos = posOf(editor, (n) => n.type.name === 'bulletList');
+      const liApple = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Apple');
+      const liBanana = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Banana');
+      const rects = new Map<number, HTMLElement>([
+        [ulPos, elWithRect({ top: 100, bottom: 200 })],
+        [liApple, elWithRect({ top: 100, bottom: 150 })],
+        [liBanana, elWithRect({ top: 150, bottom: 200 })],
+      ]);
+
+      // Y=140 is on liApple (resolved.rect contains it). X=50 is in nested zone.
+      // But the resolver lands on liApple at Y=140; that IS inside its rect.
+      // To force "Y above" we need clientY < resolved.rect.top - which means
+      // the resolver wouldn't land on a list item in the first place. This
+      // test instead simulates "above the FIRST listItem" by stubbing only
+      // the wrapper rect and pointing Y just above the wrapper - resolver
+      // falls back to closest-by-Y on the wrapper itself, not on a listItem.
+      const result = computeDropPlacement(viewStub(editor, rects), 50, 90, NESTED_LIST);
+      // Above the first listItem -> closest-by-Y resolves to a non-listItem
+      // top-level fallback OR to the closest item; either way the X path
+      // checks isInsideY which fails when the rect doesn't contain Y.
+      expect(result?.mode).toBe('sibling');
+      editor.destroy();
+    });
+
+    it('cursor over a non-listItem target (paragraph) stays sibling regardless of X', () => {
+      // X-detection only fires for listItem/taskItem targets.
+      const editor = makeEditor('<p>Hello world</p>');
+      const pPos = 0;
+      const rects = new Map<number, HTMLElement>([
+        [pPos, elWithRect({ top: 100, bottom: 130 })],
+      ]);
+
+      // Even with X=200 (well past 28px threshold), a paragraph target
+      // stays in sibling mode.
+      const result = computeDropPlacement(viewStub(editor, rects), 200, 115, NESTED_LIST);
+      expect(result?.mode).toBe('sibling');
+      editor.destroy();
+    });
+
+    it('taskItem target with nested-zone X returns mode "nested" (parity with bulletList)', () => {
+      const editor = makeEditor('<ul data-type="taskList"><li data-type="taskItem"><p>Task</p></li></ul>');
+      const tlPos = posOf(editor, (n) => n.type.name === 'taskList');
+      const liTask = posOf(editor, (n) => n.type.name === 'taskItem' && n.textContent === 'Task');
+      const rects = new Map<number, HTMLElement>([
+        [tlPos, elWithRect({ top: 100, bottom: 150 })],
+        [liTask, elWithRect({ top: 100, bottom: 150 })],
+      ]);
+
+      const result = computeDropPlacement(viewStub(editor, rects), 50, 125, NESTED_LIST);
+      expect(result?.mode).toBe('nested');
+      expect(result?.targetItemPos).toBe(liTask);
+      expect(result?.wrapperPos).toBe(tlPos);
+      editor.destroy();
+    });
+
+    it('orderedList listItem with nested-zone X returns mode "nested"', () => {
+      const editor = makeEditor('<ol><li><p>One</p></li></ol>');
+      const olPos = posOf(editor, (n) => n.type.name === 'orderedList');
+      const liOne = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'One');
+      const rects = new Map<number, HTMLElement>([
+        [olPos, elWithRect({ top: 100, bottom: 150 })],
+        [liOne, elWithRect({ top: 100, bottom: 150 })],
+      ]);
+
+      const result = computeDropPlacement(viewStub(editor, rects), 50, 125, NESTED_LIST);
+      expect(result?.mode).toBe('nested');
+      expect(result?.targetItemPos).toBe(liOne);
+      expect(result?.wrapperPos).toBe(olPos);
+      editor.destroy();
+    });
+
+    it('nestThreshold=0 disables nested mode entirely (every X stays sibling)', () => {
+      const editor = makeEditor('<ul><li><p>Apple</p></li></ul>');
+      const ulPos = posOf(editor, (n) => n.type.name === 'bulletList');
+      const liApple = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Apple');
+      const rects = new Map<number, HTMLElement>([
+        [ulPos, elWithRect({ top: 100, bottom: 150 })],
+        [liApple, elWithRect({ top: 100, bottom: 150 })],
+      ]);
+
+      // X=500 is way past any reasonable threshold but nestThreshold=0 disables.
+      const result = computeDropPlacement(viewStub(editor, rects), 500, 125, NESTED_LIST, 0);
+      expect(result?.mode).toBe('sibling');
+      editor.destroy();
+    });
+
+    it('custom nestThreshold=50 - X=49 stays sibling, X=50 flips to nested', () => {
+      const editor = makeEditor('<ul><li><p>Apple</p></li></ul>');
+      const ulPos = posOf(editor, (n) => n.type.name === 'bulletList');
+      const liApple = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Apple');
+      const rects = new Map<number, HTMLElement>([
+        [ulPos, elWithRect({ top: 100, bottom: 150 })],
+        [liApple, elWithRect({ top: 100, bottom: 150 })],
+      ]);
+
+      const below = computeDropPlacement(viewStub(editor, rects), 49, 125, NESTED_LIST, 50);
+      expect(below?.mode).toBe('sibling');
+
+      const at = computeDropPlacement(viewStub(editor, rects), 50, 125, NESTED_LIST, 50);
+      expect(at?.mode).toBe('nested');
+      editor.destroy();
+    });
+
+    it('cursor with X to the LEFT of the target rect (negative xInTarget) stays sibling', () => {
+      // Left rect edge=200; clientX=10 -> xInTarget=-190 (outside target).
+      // X-detection requires xInTarget >= 0 AND >= threshold.
+      const editor = makeEditor('<ul><li><p>Apple</p></li></ul>');
+      const ulPos = posOf(editor, (n) => n.type.name === 'bulletList');
+      const liApple = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Apple');
+      const rects = new Map<number, HTMLElement>([
+        [ulPos, elWithRect({ top: 100, bottom: 150, left: 200, right: 800 })],
+        [liApple, elWithRect({ top: 100, bottom: 150, left: 200, right: 800 })],
+      ]);
+
+      const result = computeDropPlacement(viewStub(editor, rects), 10, 125, NESTED_LIST);
+      expect(result?.mode).toBe('sibling');
+      editor.destroy();
+    });
+
+    it('cursor with X past the RIGHT edge of the target rect stays sibling', () => {
+      // Right rect edge=200; clientX=300 -> xInTarget=100, but >width=200.
+      const editor = makeEditor('<ul><li><p>Apple</p></li></ul>');
+      const ulPos = posOf(editor, (n) => n.type.name === 'bulletList');
+      const liApple = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Apple');
+      const rects = new Map<number, HTMLElement>([
+        [ulPos, elWithRect({ top: 100, bottom: 150, left: 0, right: 200 })],
+        [liApple, elWithRect({ top: 100, bottom: 150, left: 0, right: 200 })],
+      ]);
+
+      const result = computeDropPlacement(viewStub(editor, rects), 300, 125, NESTED_LIST);
+      expect(result?.mode).toBe('sibling');
+      editor.destroy();
+    });
+
+    it('default threshold (28) is applied when no nestThreshold arg is passed', () => {
+      // Verify the param default. clientX=28 must flip to nested.
+      const editor = makeEditor('<ul><li><p>Apple</p></li></ul>');
+      const ulPos = posOf(editor, (n) => n.type.name === 'bulletList');
+      const liApple = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Apple');
+      const rects = new Map<number, HTMLElement>([
+        [ulPos, elWithRect({ top: 100, bottom: 150 })],
+        [liApple, elWithRect({ top: 100, bottom: 150 })],
+      ]);
+
+      const result = computeDropPlacement(viewStub(editor, rects), 28, 125, NESTED_LIST);
+      expect(result?.mode).toBe('nested');
+      editor.destroy();
+    });
+
+    it('wrapperPos for a NESTED listItem (li inside li) returns the INNER list wrapper, not the outer one', () => {
+      // Doc shape:
+      //   bulletList (outer)
+      //   └─ listItem (outer)
+      //      ├─ paragraph "Outer label"
+      //      └─ bulletList (inner)
+      //         └─ listItem (inner) "Inner"
+      // Drop with nested-zone X on the INNER listItem must surface the
+      // INNER ul as wrapperPos so the Phase 5 tr math inserts the dragged
+      // block as a child of the INNER listItem, not the outer one.
+      const editor = makeEditor(
+        '<ul><li><p>Outer label</p><ul><li><p>Inner</p></li></ul></li></ul>',
+      );
+      const innerLiPos = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Inner');
+      // The inner ul sits one position before the inner listItem.
+      // Compute by walking parent chain: doc.resolve(innerLiPos).before().
+      const $inner = editor.state.doc.resolve(innerLiPos);
+      const expectedInnerUl = $inner.before();
+
+      const rects = new Map<number, HTMLElement>([
+        [innerLiPos, elWithRect({ top: 100, bottom: 150 })],
+        [expectedInnerUl, elWithRect({ top: 100, bottom: 150 })],
+      ]);
+
+      const result = computeDropPlacement(viewStub(editor, rects), 50, 125, NESTED_LIST);
+      expect(result?.mode).toBe('nested');
+      expect(result?.targetItemPos).toBe(innerLiPos);
+      // wrapperPos must equal the INNER ul's position, not the outer ul.
+      expect(result?.wrapperPos).toBe(expectedInnerUl);
+      editor.destroy();
+    });
+
+    it('nested mode keeps Y-mid based insertAfter so the existing pipeline produces an unchanged sibling-style move', async () => {
+      // Phase 3 sets `mode='nested'` but does NOT change `insertAfter` -
+      // the field continues to mirror the cursor's Y position relative
+      // to the rect's mid-line. Phase 5 will ignore insertAfter when
+      // mode is nested and dispatch via `insertAsListItemChild` instead.
+      const editor = makeEditor('<ul><li><p>Apple</p></li></ul>');
+      const ulPos = posOf(editor, (n) => n.type.name === 'bulletList');
+      const liApple = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Apple');
+      const rects = new Map<number, HTMLElement>([
+        [ulPos, elWithRect({ top: 100, bottom: 150 })],
+        [liApple, elWithRect({ top: 100, bottom: 150 })],
+      ]);
+
+      // Lower half of the item (mid=125, Y=145 lower) -> insertAfter=true.
+      const lower = computeDropPlacement(viewStub(editor, rects), 50, 145, NESTED_LIST);
+      expect(lower?.mode).toBe('nested');
+      expect(lower?.insertAfter).toBe(true);
+
+      // Upper half (Y=110 upper) -> insertAfter=false.
+      const upper = computeDropPlacement(viewStub(editor, rects), 50, 110, NESTED_LIST);
+      expect(upper?.mode).toBe('nested');
+      expect(upper?.insertAfter).toBe(false);
       editor.destroy();
     });
   });
