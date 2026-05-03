@@ -1634,6 +1634,7 @@ test.describe('Notion-strict list schema - Heading Enter inside a list item', ()
     expect(firstChildName).not.toBe('h3');
     expect(firstChildName).not.toBe('h4');
   });
+
 });
 
 // ────────────────────────────────────────────────────────────────────────
