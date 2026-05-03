@@ -1142,7 +1142,7 @@ test.describe('Notion-strict list schema - drag handle over indented children', 
     await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
   });
 
-  test('handle at the indented heading row resolves to the HEADING itself (extended `allowedNodes`, listitems_improvements_2.md Phase 3)', async ({ page }) => {
+  test('handle at the indented heading row resolves to the HEADING itself (extended allowedNodes)', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h2>Indented heading</h2></li></ul>');
     const heading = page.locator(`${editorSelector} li > h2`);
     const hBox = await heading.boundingBox();
@@ -1188,7 +1188,7 @@ test.describe('Notion-strict list schema - drag handle over indented children', 
     expect(type).toBe('heading');
   });
 
-  test('drag from the indented heading row moves ONLY the heading (label stays in the list item, listitems_improvements_2.md Phase 3)', async ({ page }) => {
+  test('drag from the indented heading row moves ONLY the heading (label stays in the list item)', async ({ page }) => {
     await setContent(
       page,
       '<ul><li><p>First label</p><h2>First heading</h2></li>'
@@ -1228,12 +1228,11 @@ test.describe('Notion-strict list schema - drag handle over indented children', 
   });
 
   test('multi-block li: hovering at heading / blockquote / codeBlock rows resolves to EACH inner block (extended allowedNodes)', async ({ page }) => {
-    // With extended `allowedNodes` (listitems_improvements_2.md Phase 3),
-    // each nested child row maps to its own inner block, not the parent
-    // list item. The label-paragraph row still resolves to the listItem
-    // via the `listItemFirstChild` rule (asserted by the LABEL test
-    // above). Verify each non-label child resolves to its own type and
-    // the three positions are distinct.
+    // With extended `allowedNodes`, each nested child row maps to its
+    // own inner block, not the parent list item. The label-paragraph row
+    // still resolves to the listItem via `listItemFirstChild` (asserted
+    // by the LABEL test above). Verify each non-label child resolves to
+    // its own type and the three positions are distinct.
     await setContent(
       page,
       '<ul><li>'

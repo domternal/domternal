@@ -50,7 +50,17 @@ import {
   SmartPaste,
   BASE_SCORE,
 } from '@domternal/extension-block-menu';
-import type { DragHandleRule } from '@domternal/extension-block-menu';
+import type { DragHandleRule, RuleContext } from '@domternal/extension-block-menu';
+
+/**
+ * Parents whose direct paragraph children should NOT surface their own
+ * drag handle - the container itself is the meaningful drag unit. Hoisted
+ * to module scope so the rule's `evaluate` callback doesn't allocate a
+ * new Set per candidate node during hover walks.
+ */
+const PARAGRAPH_EXCLUSION_PARENTS = new Set([
+  'blockquote', 'tableCell', 'tableHeader', 'tableRow', 'details', 'detailsContent',
+]);
 import type { MentionItem } from '@domternal/extension-mention';
 import { createLowlight, common } from 'lowlight';
 
@@ -179,22 +189,13 @@ export class NotionDemoComponent implements OnDestroy {
     // Block-manipulation UX trio (Notion-style). All three share the
     // `addFloatingMenuItems()` hook items and are opt-in from the
     // `@domternal/extension-block-menu` package.
-    // Notion-style nested drag handles. Beyond list/task items, we also
-    // surface handles on heading / paragraph / codeBlock / blockquote /
-    // horizontalRule so a user can grab a NESTED block (e.g. a heading
-    // that was Tab-indented as a child of a list item) independently.
     //
-    // `listItemFirstChild` rule (defaultRules) handles the LABEL paragraph
-    // exclusion - hovering the label of a list item still resolves to the
-    // list item itself, not the inner paragraph.
-    //
-    // `paragraphInsideContainer` rule (custom, below) preserves the
-    // existing UX where structural containers (blockquote, table cells,
-    // details, etc.) are treated as ONE drag unit - hovering a paragraph
-    // inside them resolves to the container, not the inner paragraph.
-    // List items are intentionally NOT in this set: paragraphs nested in
-    // list items (after the label slot) should be individually draggable
-    // because they were Tab-indented as separate logical blocks.
+    // BlockHandle: Notion-style nested drag handles. The default rules
+    // (`listItemFirstChild`) keep label paragraphs from competing with
+    // their list item; the custom `paragraphInsideContainer` rule keeps
+    // blockquote / table cells / details as one drag unit (paragraphs
+    // nested in list items remain individually draggable - they were
+    // Tab-indented as separate logical blocks).
     BlockHandle.configure({
       nested: {
         allowedNodes: [
@@ -204,13 +205,12 @@ export class NotionDemoComponent implements OnDestroy {
         rules: [
           {
             id: 'paragraphInsideContainer',
-            evaluate: ({ node, parent }: { node: { type: { name: string } }; parent: { type: { name: string } } | null }) => {
-              if (node.type.name !== 'paragraph' || !parent) return 0;
-              const exclusionParents = new Set([
-                'blockquote', 'tableCell', 'tableHeader', 'tableRow', 'details', 'detailsContent',
-              ]);
-              return exclusionParents.has(parent.type.name) ? BASE_SCORE : 0;
-            },
+            evaluate: ({ node, parent }: RuleContext) =>
+              node.type.name === 'paragraph'
+                && parent !== null
+                && PARAGRAPH_EXCLUSION_PARENTS.has(parent.type.name)
+                ? BASE_SCORE
+                : 0,
           } satisfies DragHandleRule,
         ],
       },

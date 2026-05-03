@@ -1,23 +1,28 @@
 /**
  * E2E coverage for the BlockHandle resolution on NESTED blocks inside
- * list/task items (Phase 1-5 of `_planning/listitems_improvements_2.md`).
+ * list/task items - the user-visible payoff of `_planning/
+ * listitems_improvements_2.md` (Phases 1-5).
  *
- * Pre-fix (current state) baseline:
- *  - `BlockHandle.configure({ nested: true })` in notion-demo only allows
- *    `listItem`/`taskItem` as drag targets (DEFAULT_NESTED_NODES).
- *  - Hovering a nested heading/codeBlock/blockquote inside a list item
- *    resolves to the LIST ITEM, not the inner block. → bug.
- *
- * Post-fix (Phase 2-3 of plan):
- *  - `findDeepestBlockAtY` accepts default rules so the `listItemFirstChild`
- *    rule excludes label paragraphs from being a drag target.
- *  - Demo `BlockHandle.configure` extends `nested.allowedNodes` to include
- *    heading/paragraph/codeBlock/blockquote/horizontalRule.
- *  - Hover over nested non-paragraph block resolves to that block.
- *
- * The "should-pass-after-fix" tests below FAIL on the current branch and
- * are the spec for Phase 5 of the plan. Tests in the "regression guards"
- * suite must keep passing throughout the rollout.
+ * What this spec exercises:
+ *  - Handle resolution matrix - source × container × position. Top-level
+ *    blocks resolve to themselves; nested blocks (heading / codeBlock /
+ *    blockquote / horizontalRule / non-first paragraph) inside a list or
+ *    task item surface a handle for that block, not for the parent item.
+ *  - `paragraphInsideContainer` custom rule - paragraphs nested in
+ *    blockquote / table cells / details still resolve to the container
+ *    (the rule excludes only paragraphs - other blocks remain individually
+ *    addressable inside the same containers).
+ *  - `clampCoords` regression - thin elements (e.g. 2px-tall hr) at the
+ *    very bottom of the last top-level block are reachable; out-of-bounds
+ *    Y still snaps to the nearest content edge.
+ *  - Multi-level nesting, atom blocks (hr), ordered list parity, edge
+ *    boundaries (rect.top + 1, rect.bottom - 1, sub-pixel rounding).
+ *  - Drag flow with the new handles - lifting a nested block out to top
+ *    level, cross-list drops, cross-list-type conversion, drag-press
+ *    handle freeze.
+ *  - Handle alignment contract - X is CSS-anchored to the editor gutter
+ *    regardless of resolved block depth; Y vertically centers on the
+ *    resolved block's first line.
  */
 import { test } from './fixtures.js';
 import { expect, type Page, type Locator } from '@playwright/test';
@@ -174,13 +179,15 @@ test.describe('Regression guards: handle resolution stays correct for existing c
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Phase 2-3 fix targets - FAILING in current state, expected to pass after fix
+// Nested handle resolution - inner blocks inside list/task items each
+// surface their own drag handle (was: handle always resolved to the
+// parent item). Originally the Phase 2-3 fix targets of plan 2.
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Nested block handle resolution (Phase 2-3 fix targets)', () => {
+test.describe('Nested block handle resolution', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
-  test('nested heading inside list item resolves to heading (currently bug: resolves to listItem)', async ({ page }) => {
+  test('nested heading inside list item resolves to heading', async ({ page }) => {
     await setContent(
       page,
       '<ul><li><p>Label</p><h2>Nested H2</h2></li></ul>',
@@ -257,14 +264,14 @@ test.describe('Nested block handle resolution (Phase 2-3 fix targets)', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Phase 3: paragraphInsideContainer rule - paragraphs inside structural
+// Custom paragraphInsideContainer rule - paragraphs inside structural
 // containers (blockquote, table cells, details) resolve to the container,
 // not the inner paragraph. Paragraphs inside list items (non-first child)
 // remain individually draggable - the rule excludes ONLY the named
 // container parents.
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Phase 3: paragraphInsideContainer rule', () => {
+test.describe('Custom paragraphInsideContainer rule', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('paragraph inside top-level blockquote resolves to blockquote (rule excludes paragraph)', async ({ page }) => {
@@ -310,9 +317,9 @@ test.describe('Phase 3: paragraphInsideContainer rule', () => {
   });
 
   test('non-first paragraph inside list item still resolves to the paragraph (rule does NOT cover listItem)', async ({ page }) => {
-    // Phase 3 design: nested non-first paragraphs in list items SHOULD be
-    // individually draggable (mirrors keyboard Tab/Shift-Tab semantics).
-    // The container exclusion list intentionally omits listItem/taskItem.
+    // Design rationale: nested non-first paragraphs in list items SHOULD
+    // be individually draggable (mirrors keyboard Tab/Shift-Tab). The
+    // container exclusion list intentionally omits listItem/taskItem.
     await setContent(page, '<ul><li><p>Label</p><p>Second</p></li></ul>');
     await hoverInGutterAt(page, page.locator(`${editorSelector} li p:has-text("Second")`));
     const pos = await hoveredPos(page);
@@ -351,13 +358,13 @@ test.describe('Phase 3: paragraphInsideContainer rule', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Phase 3: clampCoords bug fix regression. Y is only clamped when cursor
-// is OUTSIDE the editor's vertical span; thin nested elements at the very
-// bottom of the last top-level block must remain reachable. The pre-fix
-// behavior stripped 5px off the bottom even when Y was inside content.
+// clampCoords contract: Y is only clamped when cursor is OUTSIDE the
+// editor's vertical span; thin nested elements at the very bottom of the
+// last top-level block remain reachable. (A prior implementation stripped
+// 5px off the bottom even when Y was inside content - regression guard.)
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Phase 3: clampCoords thin-element-at-bottom regression', () => {
+test.describe('clampCoords thin-element-at-bottom regression', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('hr at the bottom of the last list item (last top-level block) resolves to horizontalRule, not listItem', async ({ page }) => {
@@ -416,11 +423,11 @@ test.describe('Phase 3: clampCoords thin-element-at-bottom regression', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Phase 3: multi-level nesting - deeper structures the deepest-Y walker
-// needs to traverse correctly with extended allowedNodes + rules.
+// Multi-level nesting - deeper structures the deepest-Y walker needs to
+// traverse correctly with extended allowedNodes + rules.
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Phase 3: multi-level nested resolution', () => {
+test.describe('Multi-level nested resolution', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('heading inside outer-li, sibling of inner ul: hover heading resolves to heading', async ({ page }) => {
@@ -467,9 +474,9 @@ test.describe('Phase 3: multi-level nested resolution', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Phase 3: drag flow - now that handles attach to nested blocks, dragging
-// them produces the expected DOM transitions. Mirrors keyboard parity:
-// drag nested heading out of li to top-level === Shift-Tab outdent.
+// Drag flow with nested handles - dragging an inner block produces the
+// expected DOM transitions. Mouse parity with keyboard: drag a nested
+// heading out of its list item to top level === Shift-Tab outdent.
 // ────────────────────────────────────────────────────────────────────────
 
 async function dragFromHandle(
@@ -510,7 +517,7 @@ async function topLevelBlocks(page: Page): Promise<Array<{ type: string; text: s
   });
 }
 
-test.describe('Phase 3: drag flow with nested handles', () => {
+test.describe('Drag flow with nested handles', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('drag nested heading out of li to a trailing paragraph → heading lands as top-level sibling, label stays in li', async ({ page }) => {
@@ -639,7 +646,7 @@ test.describe('Phase 3: drag flow with nested handles', () => {
     // Cross-list-item drag of a non-list block. The drop target is INSIDE
     // the bullet list (between li A and li B), so `convertListItemForParent`
     // wraps the heading in a fresh listItem with an empty label paragraph.
-    // This is Phase 3's "drag into list" path, distinct from "drag out".
+    // The "drag into list" path, distinct from "drag out".
     await setContent(
       page,
       '<ul>'
@@ -674,10 +681,10 @@ test.describe('Phase 3: drag flow with nested handles', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Phase 3: extra coverage - parity, atom blocks, edge cases
+// Extra coverage: list-type parity, atom blocks, sub-pixel edge cases.
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Phase 3: extended coverage (atoms, parity, boundaries)', () => {
+test.describe('Extended coverage: atoms, parity, boundaries', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('ordered list (ol) parity: nested heading inside ol > li resolves to heading (same as ul)', async ({ page }) => {
@@ -801,12 +808,11 @@ test.describe('Phase 3: extended coverage (atoms, parity, boundaries)', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Phase 4: handle position alignment for nested blocks. Notion-style
-// behavior: the drag handle always lives at the editor's LEFT GUTTER,
-// regardless of how deeply indented the resolved block is. Only the
-// vertical position (Y) tracks the resolved block - X is CSS-fixed at
-// `left: -0.5rem` relative to .dm-editor. Tests pin this contract so
-// future refactors that try to follow block X are caught as regressions.
+// Handle position contract. Notion-style: the drag handle always lives
+// at the editor's LEFT GUTTER regardless of how deeply indented the
+// resolved block is. Only Y tracks the resolved block; X is CSS-fixed
+// at `left: -0.5rem` relative to .dm-editor. Pinned here so future
+// refactors that try to follow block X are caught as regressions.
 // ────────────────────────────────────────────────────────────────────────
 
 async function handleBox(page: Page): Promise<{ x: number; y: number; width: number; height: number }> {
@@ -817,7 +823,7 @@ async function blockBox(page: Page, locator: Locator): Promise<{ x: number; y: n
   return boxOf(locator);
 }
 
-test.describe('Phase 4: handle alignment - X stays at editor gutter regardless of resolved block depth', () => {
+test.describe('Handle alignment: X stays at editor gutter regardless of resolved block depth', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('handle X is identical when hovering top-level paragraph vs nested heading inside list item (Notion-style gutter anchor)', async ({ page }) => {
@@ -1006,14 +1012,12 @@ test.describe('Phase 4: handle alignment - X stays at editor gutter regardless o
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Phase 5: closing coverage matrix - the few resolution & drag-flow cases
-// from the original Phase 5 plan (listitems_improvements_2.md) that
-// weren't already covered by the Phase 1-4 sections above. Together with
-// the earlier sections this completes the full source × container ×
-// position matrix and the drag-flow regression suite.
+// Source × container matrix sweep + drag-flow regression: the cases that
+// weren't already covered by the per-feature sections above. Completes
+// the full handle-resolution matrix and the drag-flow regression suite.
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Phase 5: closing coverage matrix', () => {
+test.describe('Source × container matrix and drag-flow regression', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('paragraph × taskItem × non-first-child resolves to paragraph (parity with bullet listItem case)', async ({ page }) => {
@@ -1293,7 +1297,7 @@ test.describe('Phase 5: closing coverage matrix', () => {
   test('full source × container matrix sweep: every documented handle target resolves correctly', async ({ page }) => {
     // Single test that runs the entire matrix as a sanity sweep, providing
     // a quick spot-check should the per-row tests above ever go missing.
-    // Order matches the matrix in listitems_improvements_2.md Phase 5.
+    // Order matches the matrix in listitems_improvements_2.md.
     type Row = { html: string; selector: string; expected: string; label: string };
     const rows: Row[] = [
       { html: '<p>Top</p>', selector: 'p', expected: 'paragraph', label: 'paragraph × top-level' },
