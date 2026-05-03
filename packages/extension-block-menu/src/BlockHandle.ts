@@ -404,6 +404,38 @@ function adjustDropTargetForListWrapper(
 }
 
 /**
+ * Resolved drop target shared by `handleDrop` and `updateDropIndicator`
+ * so the indicator draws exactly where the drop lands (no
+ * "indicator says X, item drops Y" mismatch).
+ *
+ * `mode` distinguishes the two ways a block can be dropped over a list
+ * item: `'sibling'` (the existing behaviour, drop position becomes a
+ * new sibling of the target via the standard `moveBlock` flow) and
+ * `'nested'` (drop becomes a nested child of `targetItemPos` inside
+ * `wrapperPos`, applied via `insertAsListItemChild`). Today every
+ * placement is `'sibling'`; the `'nested'` branch activates in a
+ * follow-up that adds X-threshold detection.
+ */
+export interface DropPlacement {
+  /** Position right BEFORE the resolved block (same convention as `nodeAt`). */
+  pos: number;
+  /** Bounding rect of the resolved block, used to draw the indicator line. */
+  rect: DOMRect;
+  /**
+   * When `true` the drop lands AFTER the resolved block (line below);
+   * when `false` it lands BEFORE the block (line above). Irrelevant
+   * for `mode === 'nested'` placements.
+   */
+  insertAfter: boolean;
+  /** Sibling drop (current behaviour) vs nested-child drop (drop-indent). */
+  mode: 'sibling' | 'nested';
+  /** Position of the target list item when `mode === 'nested'`. */
+  targetItemPos?: number;
+  /** Position of the containing list wrapper when `mode === 'nested'`. */
+  wrapperPos?: number;
+}
+
+/**
  * Computes the FINAL drop placement using the same logic `handleDrop`
  * uses. Returned by both the actual drop handler AND the visual drop
  * indicator so the line draws exactly where the drop will land - no
@@ -428,12 +460,12 @@ function adjustDropTargetForListWrapper(
  * upper block, with the upper block's width (which equals the lower's
  * for prose at the same depth, so the line spans the content column).
  */
-function computeDropPlacement(
+export function computeDropPlacement(
   view: EditorView,
   clientX: number,
   clientY: number,
   nested: NestedResolution,
-): { pos: number; rect: DOMRect; insertAfter: boolean } | null {
+): DropPlacement | null {
   const initial = resolveBlockAtCoords(view, clientX, clientY, nested);
   if (!initial) return null;
   const resolved = adjustDropTargetForListWrapper(view, initial, clientY);
@@ -444,10 +476,10 @@ function computeDropPlacement(
   if (!insertAfter) {
     const prev = findPreviousSiblingAtSameDepth(view, resolved.pos);
     if (prev) {
-      return { pos: prev.pos, rect: prev.rect, insertAfter: true };
+      return { pos: prev.pos, rect: prev.rect, insertAfter: true, mode: 'sibling' };
     }
   }
-  return { pos: resolved.pos, rect, insertAfter };
+  return { pos: resolved.pos, rect, insertAfter, mode: 'sibling' };
 }
 
 /**
