@@ -1313,6 +1313,37 @@ test.describe('Phase 4 indicator visual - dashed indented line in nested mode', 
     await dt.dispose();
   });
 
+  test('indicator has CSS transition on position properties (smooth glide on mode flip / target change)', async ({ page }) => {
+    // Phase 7 polish: indicator transitions left/width/top/transform on
+    // every reposition so mode flips and target changes mid-drag glide
+    // smoothly instead of snapping. Style swaps (background, border)
+    // stay instant so the sibling↔nested boundary is readable.
+    await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
+    const { handle, dt } = await startDragOver(
+      page,
+      page.locator(`${editorSelector} p:has-text("Source")`),
+      page.locator(`${editorSelector} li`),
+    );
+    const transition = await page.evaluate(() => {
+      const el = document.querySelector('.dm-block-drop-indicator');
+      if (!(el instanceof HTMLElement)) return null;
+      const cs = getComputedStyle(el);
+      return {
+        property: cs.transitionProperty,
+        duration: cs.transitionDuration,
+      };
+    });
+    expect(transition).not.toBeNull();
+    // Browsers comma-join multi-property transitions; check each axis.
+    expect(transition?.property).toContain('left');
+    expect(transition?.property).toContain('width');
+    expect(transition?.property).toContain('top');
+    expect(transition?.property).toContain('transform');
+    // 80ms duration on each axis; computed value comes back like "0.08s, 0.08s, 0.08s, 0.08s".
+    expect(transition?.duration).toContain('0.08s');
+    await endDrag(handle, dt);
+  });
+
   test('nested-mode indicator over a TASK ITEM target also dashed + indented', async ({ page }) => {
     await setContent(page,
       '<p>Source</p><ul data-type="taskList"><li data-type="taskItem"><p>Task</p></li></ul>',
