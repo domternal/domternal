@@ -117,6 +117,37 @@ describe('SmartPaste', () => {
     editor.destroy();
   });
 
+  it('paste H1 in MIDDLE of listItem paragraph "123456789" → splits label, heading and second half stay nested as listItem children', () => {
+    // User-reported scenario: caret between "4" and "5" in a list item
+    // paragraph, paste H1. SmartPaste's middle-of-text branch splits the
+    // label paragraph at the cursor and inserts the heading between the
+    // two halves. ALL three resulting blocks (p, h1, p) stay INSIDE the
+    // listItem - schema (`paragraph block*`) accepts: first child is still
+    // a paragraph, the rest fits the trailing block* slot.
+    const editor = makeEditor('<ul><li><p>123456789</p></li></ul>');
+    const slice = htmlSlice(editor, '<h1>Naslov</h1>');
+    const pPos = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === '123456789');
+    const caret = pPos + 1 + 4; // between "1234" and "5"
+    pasteAtPos(editor, caret, slice);
+
+    expect(editor.state.doc.childCount).toBe(1); // single top-level block (the bulletList)
+    const ul = editor.state.doc.firstChild;
+    expect(ul?.type.name).toBe('bulletList');
+    expect(ul?.childCount).toBe(1); // single list item, no split into siblings
+
+    const li = ul?.firstChild;
+    expect(li?.type.name).toBe('listItem');
+    expect(li?.childCount).toBe(3);
+    expect(li?.child(0)?.type.name).toBe('paragraph');
+    expect(li?.child(0)?.textContent).toBe('1234');
+    expect(li?.child(1)?.type.name).toBe('heading');
+    expect(li?.child(1)?.attrs['level']).toBe(1);
+    expect(li?.child(1)?.textContent).toBe('Naslov');
+    expect(li?.child(2)?.type.name).toBe('paragraph');
+    expect(li?.child(2)?.textContent).toBe('56789');
+    editor.destroy();
+  });
+
   it('paste H1 in MIDDLE of paragraph text → splits paragraph, heading between halves', () => {
     const editor = makeEditor('<p>Hello world</p>');
     const slice = htmlSlice(editor, '<h1>BREAK</h1>');

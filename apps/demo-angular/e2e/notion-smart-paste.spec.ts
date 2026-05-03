@@ -135,6 +135,32 @@ async function topBlocks(page: Page): Promise<TopBlock[]> {
   });
 }
 
+interface ListItemChild { type: string; text: string; level?: number }
+
+/**
+ * Returns the children of the FIRST list item in the doc as
+ * `{ type, text, level? }` records. Walks `doc.firstChild` (= the list
+ * wrapper) → `firstChild` (= the list item) and unrolls its direct
+ * children. Used heavily by the "paste in middle of list item" matrix.
+ */
+async function firstListItemChildren(page: Page): Promise<ListItemChild[]> {
+  return page.evaluate(() => {
+    const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+      | { state: { doc: { firstChild: { firstChild: { childCount: number; child: (i: number) => { type: { name: string }; textContent: string; attrs: Record<string, unknown> } | null } | null } | null } } }
+      | undefined;
+    const li = ed?.state.doc.firstChild?.firstChild;
+    const out: ListItemChild[] = [];
+    for (let i = 0; i < (li?.childCount ?? 0); i++) {
+      const c = li?.child(i);
+      if (!c) continue;
+      const rec: ListItemChild = { type: c.type.name, text: c.textContent };
+      if (c.type.name === 'heading') rec.level = c.attrs['level'] as number;
+      out.push(rec);
+    }
+    return out;
+  });
+}
+
 test.describe('SmartPaste', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
@@ -321,8 +347,10 @@ test.describe('SmartPaste', () => {
     await setCaretInParagraph(page, 'Hello world', 5);
     await pasteHtml(page, '<h1>SPLIT</h1>');
 
-    // listItem's content rule is `block+`, so split-and-insert here yields
-    // [p"Hello", h1"SPLIT", p" world"] all inside the same listItem.
+    // listItem's content rule is `paragraph block*` - the first child must
+    // remain a paragraph, but trailing children can be any block. Split-and-
+    // insert at offset 5 yields [p"Hello", h1"SPLIT", p" world"] all inside
+    // the same listItem; first child is still a paragraph so schema accepts.
     const tree = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | { state: { doc: { firstChild: { firstChild: { childCount: number; child: (i: number) => { type: { name: string }; textContent: string } | null } | null } | null } } }
@@ -339,6 +367,274 @@ test.describe('SmartPaste', () => {
       { type: 'paragraph', text: 'Hello' },
       { type: 'heading', text: 'SPLIT' },
       { type: 'paragraph', text: ' world' },
+    ]);
+  });
+
+  // ── Paste block content in MIDDLE of list-item paragraph ──
+  // Comprehensive matrix locking down the user-reported scenario:
+  // caret between chars of a list-item label paragraph, paste a non-paragraph
+  // block. Expected for ALL cases: SmartPaste's middle-of-text branch splits
+  // the label paragraph at the cursor and inserts the pasted block(s) BETWEEN
+  // the two halves, ALL inside the same listItem. Schema (`paragraph block*`)
+  // accepts: first child stays a paragraph, trailing children fit `block*`.
+
+  test('user-reported: paste H1 between chars 4 and 5 of "123456789" inside bullet list item', async ({ page }) => {
+    await setContent(page, '<ul><li><p>123456789</p></li></ul>');
+    await setCaretInParagraph(page, '123456789', 4); // between "4" and "5"
+    await pasteHtml(page, '<h1>Naslov</h1>');
+
+    // Doc invariant: still a single top-level block (the bulletList).
+    expect(await topBlocks(page)).toEqual([
+      { type: 'bulletList', text: '1234Naslov56789' },
+    ]);
+    // listItem invariant: 3 children, first is the paragraph "1234".
+    expect(await firstListItemChildren(page)).toEqual([
+      { type: 'paragraph', text: '1234' },
+      { type: 'heading', text: 'Naslov', level: 1 },
+      { type: 'paragraph', text: '56789' },
+    ]);
+  });
+
+  test('paste H1 between 4 and 5 of "123456789" inside ORDERED list item → same shape, listItem inside ol', async ({ page }) => {
+    await setContent(page, '<ol><li><p>123456789</p></li></ol>');
+    await setCaretInParagraph(page, '123456789', 4);
+    await pasteHtml(page, '<h1>Naslov</h1>');
+
+    expect(await topBlocks(page)).toEqual([
+      { type: 'orderedList', text: '1234Naslov56789' },
+    ]);
+    expect(await firstListItemChildren(page)).toEqual([
+      { type: 'paragraph', text: '1234' },
+      { type: 'heading', text: 'Naslov', level: 1 },
+      { type: 'paragraph', text: '56789' },
+    ]);
+  });
+
+  test('paste H1 between 4 and 5 of "123456789" inside TASK item → same shape, taskItem inside taskList', async ({ page }) => {
+    await setContent(page, '<ul data-type="taskList"><li data-type="taskItem"><p>123456789</p></li></ul>');
+    await setCaretInParagraph(page, '123456789', 4);
+    await pasteHtml(page, '<h1>Naslov</h1>');
+
+    expect(await topBlocks(page)).toEqual([
+      { type: 'taskList', text: '1234Naslov56789' },
+    ]);
+    expect(await firstListItemChildren(page)).toEqual([
+      { type: 'paragraph', text: '1234' },
+      { type: 'heading', text: 'Naslov', level: 1 },
+      { type: 'paragraph', text: '56789' },
+    ]);
+  });
+
+  test('heading levels 2-4 each preserve attrs through middle-of-listItem split', async ({ page }) => {
+    // Default Heading config exposes levels [1, 2, 3, 4]; levels 5/6 are
+    // NOT registered so PM's parser would demote `<h5>`/`<h6>` to paragraph.
+    for (const level of [2, 3, 4] as const) {
+      await setContent(page, '<ul><li><p>123456789</p></li></ul>');
+      await setCaretInParagraph(page, '123456789', 4);
+      await pasteHtml(page, `<h${level}>L${level}</h${level}>`);
+      expect(await firstListItemChildren(page)).toEqual([
+        { type: 'paragraph', text: '1234' },
+        { type: 'heading', text: `L${level}`, level },
+        { type: 'paragraph', text: '56789' },
+      ]);
+    }
+  });
+
+  test('paste codeBlock in middle of listItem paragraph → split, codeBlock between halves, language preserved', async ({ page }) => {
+    await setContent(page, '<ul><li><p>123456789</p></li></ul>');
+    await setCaretInParagraph(page, '123456789', 4);
+    await pasteHtml(page, '<pre><code class="language-typescript">const x = 1;</code></pre>');
+
+    const result = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { firstChild: { childCount: number; child: (i: number) => { type: { name: string }; textContent: string; attrs: Record<string, unknown> } | null } | null } | null } } }
+        | undefined;
+      const li = ed?.state.doc.firstChild?.firstChild;
+      return {
+        count: li?.childCount,
+        first: li?.child(0)?.type.name,
+        firstText: li?.child(0)?.textContent,
+        middle: li?.child(1)?.type.name,
+        middleText: li?.child(1)?.textContent,
+        middleLang: li?.child(1)?.attrs['language'],
+        last: li?.child(2)?.type.name,
+        lastText: li?.child(2)?.textContent,
+      };
+    });
+    expect(result).toEqual({
+      count: 3,
+      first: 'paragraph',
+      firstText: '1234',
+      middle: 'codeBlock',
+      middleText: 'const x = 1;',
+      middleLang: 'typescript',
+      last: 'paragraph',
+      lastText: '56789',
+    });
+  });
+
+  test('paste blockquote in middle of listItem paragraph → split, blockquote between halves', async ({ page }) => {
+    await setContent(page, '<ul><li><p>123456789</p></li></ul>');
+    await setCaretInParagraph(page, '123456789', 4);
+    await pasteHtml(page, '<blockquote><p>Quoted</p></blockquote>');
+
+    expect(await firstListItemChildren(page)).toEqual([
+      { type: 'paragraph', text: '1234' },
+      { type: 'blockquote', text: 'Quoted' },
+      { type: 'paragraph', text: '56789' },
+    ]);
+  });
+
+  test('paste hr (atom) in middle of listItem paragraph → split, hr between halves', async ({ page }) => {
+    await setContent(page, '<ul><li><p>123456789</p></li></ul>');
+    await setCaretInParagraph(page, '123456789', 4);
+    await pasteHtml(page, '<hr>');
+
+    expect(await firstListItemChildren(page)).toEqual([
+      { type: 'paragraph', text: '1234' },
+      { type: 'horizontalRule', text: '' },
+      { type: 'paragraph', text: '56789' },
+    ]);
+  });
+
+  test('paste mixed paragraph + heading in middle of listItem paragraph → both inserted between halves', async ({ page }) => {
+    await setContent(page, '<ul><li><p>123456789</p></li></ul>');
+    await setCaretInParagraph(page, '123456789', 4);
+    await pasteHtml(page, '<p>Mid</p><h2>Title</h2>');
+
+    expect(await firstListItemChildren(page)).toEqual([
+      { type: 'paragraph', text: '1234' },
+      { type: 'paragraph', text: 'Mid' },
+      { type: 'heading', text: 'Title', level: 2 },
+      { type: 'paragraph', text: '56789' },
+    ]);
+  });
+
+  test('caret at offset 1 of "123456789" → split at offset 1 (paragraphs "1" and "23456789")', async ({ page }) => {
+    await setContent(page, '<ul><li><p>123456789</p></li></ul>');
+    await setCaretInParagraph(page, '123456789', 1);
+    await pasteHtml(page, '<h1>X</h1>');
+
+    expect(await firstListItemChildren(page)).toEqual([
+      { type: 'paragraph', text: '1' },
+      { type: 'heading', text: 'X', level: 1 },
+      { type: 'paragraph', text: '23456789' },
+    ]);
+  });
+
+  test('caret at offset 8 of "123456789" → split at offset 8 (paragraphs "12345678" and "9")', async ({ page }) => {
+    await setContent(page, '<ul><li><p>123456789</p></li></ul>');
+    await setCaretInParagraph(page, '123456789', 8);
+    await pasteHtml(page, '<h1>X</h1>');
+
+    expect(await firstListItemChildren(page)).toEqual([
+      { type: 'paragraph', text: '12345678' },
+      { type: 'heading', text: 'X', level: 1 },
+      { type: 'paragraph', text: '9' },
+    ]);
+  });
+
+  test('listItem with EXISTING nested heading + paste H1 in middle of label → label split, h1 inserted between halves, EXISTING heading preserved as trailing child', async ({ page }) => {
+    // Initial: listItem has [p"123456789", h2"Existing"]
+    await setContent(page, '<ul><li><p>123456789</p><h2>Existing</h2></li></ul>');
+    await setCaretInParagraph(page, '123456789', 4);
+    await pasteHtml(page, '<h1>Naslov</h1>');
+
+    expect(await firstListItemChildren(page)).toEqual([
+      { type: 'paragraph', text: '1234' },
+      { type: 'heading', text: 'Naslov', level: 1 },
+      { type: 'paragraph', text: '56789' },
+      { type: 'heading', text: 'Existing', level: 2 },
+    ]);
+  });
+
+  test('range selection over chars 3-6 of "123456789" + paste H1 → range deleted, split, h1 between halves', async ({ page }) => {
+    await setContent(page, '<ul><li><p>123456789</p></li></ul>');
+    await setSelectionInParagraph(page, '123456789', 3, 6); // covers "456"
+    await pasteHtml(page, '<h1>Naslov</h1>');
+
+    expect(await firstListItemChildren(page)).toEqual([
+      { type: 'paragraph', text: '123' },
+      { type: 'heading', text: 'Naslov', level: 1 },
+      { type: 'paragraph', text: '789' },
+    ]);
+  });
+
+  test('paste H1 in middle of listItem with BOLD text → bold mark preserved on both halves', async ({ page }) => {
+    await setContent(page, '<ul><li><p><strong>123456789</strong></p></li></ul>');
+    await setCaretInParagraph(page, '123456789', 4);
+    await pasteHtml(page, '<h1>X</h1>');
+
+    // Verify both paragraph halves still carry the bold mark.
+    const marksByChild = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { firstChild: { childCount: number; child: (i: number) => { type: { name: string }; firstChild: { marks: { type: { name: string } }[] } | null } | null } | null } | null } } }
+        | undefined;
+      const li = ed?.state.doc.firstChild?.firstChild;
+      const out: { type: string; firstMark: string | null }[] = [];
+      for (let i = 0; i < (li?.childCount ?? 0); i++) {
+        const c = li?.child(i);
+        if (!c) continue;
+        out.push({ type: c.type.name, firstMark: c.firstChild?.marks?.[0]?.type.name ?? null });
+      }
+      return out;
+    });
+    expect(marksByChild).toEqual([
+      { type: 'paragraph', firstMark: 'bold' },
+      { type: 'heading', firstMark: null },
+      { type: 'paragraph', firstMark: 'bold' },
+    ]);
+  });
+
+  test('after paste in middle of listItem, undo restores original "123456789" paragraph', async ({ page }) => {
+    await setContent(page, '<ul><li><p>123456789</p></li></ul>');
+    await setCaretInParagraph(page, '123456789', 4);
+    await pasteHtml(page, '<h1>Naslov</h1>');
+
+    // Confirm split happened.
+    expect((await firstListItemChildren(page)).length).toBe(3);
+
+    // Mac uses Meta+z, others use Ctrl+z (matches existing undo tests in
+    // this file).
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
+    await page.waitForTimeout(80);
+
+    // Original shape: single listItem with single paragraph child.
+    expect(await firstListItemChildren(page)).toEqual([
+      { type: 'paragraph', text: '123456789' },
+    ]);
+  });
+
+  test('paste H1 between 4 and 5 in NESTED bullet listItem (depth-2) → only the inner item splits, outer item untouched', async ({ page }) => {
+    // Outer list with one item; inside that item, a nested bullet list with
+    // its own item containing "123456789". Paste H1 in the nested item's
+    // middle. The nested listItem splits; the outer listItem keeps its
+    // structure (label "Outer" + nested ul).
+    await setContent(page, '<ul><li><p>Outer</p><ul><li><p>123456789</p></li></ul></li></ul>');
+    await setCaretInParagraph(page, '123456789', 4);
+    await pasteHtml(page, '<h1>Naslov</h1>');
+
+    const result = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { firstChild: { childCount: number; child: (i: number) => { type: { name: string }; textContent: string; firstChild: { textContent: string } | null; childCount: number; child: (i: number) => unknown } | null } | null } | null } } }
+        | undefined;
+      const outerLi = ed?.state.doc.firstChild?.firstChild;
+      const outerLabel = outerLi?.child(0)?.textContent;
+      const nestedUl = outerLi?.child(1) as { childCount: number; child: (i: number) => { type: { name: string }; childCount: number; child: (i: number) => { type: { name: string }; textContent: string; attrs: Record<string, unknown> } } } | undefined;
+      const nestedLi = nestedUl?.child(0);
+      const nestedChildren: { type: string; text: string }[] = [];
+      for (let i = 0; i < (nestedLi?.childCount ?? 0); i++) {
+        const c = nestedLi?.child(i);
+        nestedChildren.push({ type: c?.type.name ?? '', text: c?.textContent ?? '' });
+      }
+      return { outerLabel, outerChildCount: outerLi?.childCount, nestedChildren };
+    });
+    expect(result.outerLabel).toBe('Outer');
+    expect(result.outerChildCount).toBe(2); // [label, nested ul]
+    expect(result.nestedChildren).toEqual([
+      { type: 'paragraph', text: '1234' },
+      { type: 'heading', text: 'Naslov' },
+      { type: 'paragraph', text: '56789' },
     ]);
   });
 
