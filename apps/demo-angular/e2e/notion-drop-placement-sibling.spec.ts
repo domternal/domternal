@@ -88,6 +88,27 @@ async function getBlocks(page: Page): Promise<BlockSnapshot[]> {
   });
 }
 
+interface ListItemChildSnapshot { type: string; text: string; level?: number }
+
+/** Children of the FIRST list item in the doc as `{type,text,level?}` records. */
+async function firstListItemChildren(page: Page): Promise<ListItemChildSnapshot[]> {
+  return page.evaluate(() => {
+    const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+      | { state: { doc: { firstChild: { firstChild: { childCount: number; child: (i: number) => { type: { name: string }; textContent: string; attrs: Record<string, unknown> } | null } | null } | null } } }
+      | undefined;
+    const li = ed?.state.doc.firstChild?.firstChild;
+    const out: ListItemChildSnapshot[] = [];
+    for (let i = 0; i < (li?.childCount ?? 0); i++) {
+      const c = li?.child(i);
+      if (!c) continue;
+      const rec: ListItemChildSnapshot = { type: c.type.name, text: c.textContent };
+      if (c.type.name === 'heading') rec.level = c.attrs['level'] as number;
+      out.push(rec);
+    }
+    return out;
+  });
+}
+
 async function listItemTypes(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -668,15 +689,11 @@ test.describe('Phase 3 X-detection - nested mode flip on list-item targets', () 
     await dt.dispose();
   });
 
-  test('drop with X in nested zone: TR pipeline still uses moveBlock (Phase 5 will switch to insertAsListItemChild)', async ({ page }) => {
-    // Phase 3 only sets mode='nested' in the placement; performBlockDrop
-    // ignores that field and calls moveBlock unconditionally. moveBlock
-    // adapts the dragged content to the target's container - dropping a
-    // paragraph onto a listItem position INSIDE a bulletList wraps it in
-    // a fresh listItem (`convertListItemForParent` flow), so the
-    // bulletList ends up with TWO sibling listItems. Phase 5 will branch
-    // on mode and produce a single listItem with the paragraph as a
-    // nested child instead.
+  test('drop with X in nested zone: source becomes a NESTED CHILD of the target list item (Phase 5 wired)', async ({ page }) => {
+    // Phase 5 reads `placement.mode` and dispatches via
+    // `insertAsListItemChild`. Source paragraph is appended as the LAST
+    // child of the target listItem - the bulletList still has exactly
+    // one listItem, but that listItem now holds [label, source].
     await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
     const source = page.locator(`${editorSelector} p:has-text("Source")`);
     const target = page.locator(`${editorSelector} li:has-text("Target")`);
@@ -694,32 +711,30 @@ test.describe('Phase 3 X-detection - nested mode flip on list-item targets', () 
     await page.waitForTimeout(80);
     await dt.dispose();
 
-    // Doc state after drop: single bulletList with 2 sibling listItems
-    // (Source paragraph wrapped in a new listItem + Target listItem).
-    // The Source paragraph is NOT a nested child inside Target's listItem.
+    // Doc state: single bulletList → single listItem → [label, nested paragraph].
     const tree = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { childCount: number; forEach: (cb: (n: { type: { name: string }; childCount: number; child: (i: number) => { type: { name: string }; childCount: number; firstChild: { textContent: string } | null }; firstChild: { childCount: number; firstChild: { textContent: string } | null } | null }) => void) => void } } }
+        | { state: { doc: { childCount: number; firstChild: { childCount: number; firstChild: { childCount: number; child: (i: number) => { type: { name: string }; textContent: string } | null } | null } | null } } }
         | undefined;
-      let topCount = -1;
-      let bulletListItems = -1;
-      let firstItemText = '';
-      let firstItemNestedCount = -1;
-      ed?.state.doc.forEach((n) => {
-        if (n.type.name === 'bulletList') {
-          topCount = ed.state.doc.childCount;
-          bulletListItems = n.childCount;
-          const li0 = n.child(0);
-          firstItemText = li0.firstChild?.textContent ?? '';
-          firstItemNestedCount = li0.childCount;
-        }
-      });
-      return { topCount, bulletListItems, firstItemText, firstItemNestedCount };
+      const ul = ed?.state.doc.firstChild;
+      const li = ul?.firstChild;
+      const out: { topCount: number | undefined; ulItems: number | undefined; liChildren: { type: string; text: string }[] } = {
+        topCount: ed?.state.doc.childCount,
+        ulItems: ul?.childCount,
+        liChildren: [],
+      };
+      for (let i = 0; i < (li?.childCount ?? 0); i++) {
+        const c = li?.child(i);
+        if (c) out.liChildren.push({ type: c.type.name, text: c.textContent });
+      }
+      return out;
     });
-    expect(tree.topCount).toBe(1); // single bulletList
-    expect(tree.bulletListItems).toBe(2); // 2 listItems (sibling-style move)
-    expect(tree.firstItemText).toBe('Source'); // source wrapped in first new listItem
-    expect(tree.firstItemNestedCount).toBe(1); // listItem just contains the paragraph, no nested child
+    expect(tree.topCount).toBe(1);
+    expect(tree.ulItems).toBe(1); // SINGLE listItem - source merged as nested child
+    expect(tree.liChildren).toEqual([
+      { type: 'paragraph', text: 'Target' },
+      { type: 'paragraph', text: 'Source' },
+    ]);
   });
 
   test('source = NESTED HANDLE (heading inside listItem) drag onto different listItem with nested-zone X flips to nested', async ({ page }) => {
@@ -772,53 +787,63 @@ test.describe('Phase 3 X-detection - nested mode flip on list-item targets', () 
     await dt.dispose();
   });
 
-  test('Y-mid based insertAfter survives in nested mode: drop on UPPER half of listItem with nested-zone X has different reorder result than LOWER half', async ({ page }) => {
-    // Phase 3 keeps `insertAfter` mirroring Y-mid even in nested mode so
-    // the existing pipeline (which uses insertAfter to compute targetPos)
-    // still produces a sensible sibling-style result. Verify by dropping
-    // onto upper half vs lower half and observing different orderings.
-    await setContent(page, '<ul><li><p>One</p></li><li><p>Two</p></li><li><p>Three</p></li></ul>');
-
-    // Lower-half drop on "One" with nested-zone X: source moves between
-    // One and Two (insertAfter=true → targetPos = end of One).
-    const second = page.locator(`${editorSelector} li:has-text("Two")`);
-    const first = page.locator(`${editorSelector} li:has-text("One")`);
-    await dragBlock(page, second, first, 'bottom', 'right');
-    let texts = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild: { forEach: (cb: (n: { textContent: string }) => void) => void } | null } } }
-        | undefined;
-      const out: string[] = [];
-      ed?.state.doc.firstChild?.forEach((n) => out.push(n.textContent));
-      return out;
-    });
-    expect(texts).toEqual(['One', 'Two', 'Three']); // self-drop guard kicks in (Two onto One bottom = no-op via canonicalisation)
-
-    // Reset doc and try upper-half drop with nested-zone X: insertAfter=false →
-    // targetPos = first listItem pos → Three relocated to before First.
+  test('drop with nested-zone X produces same nested-child result regardless of Y-mid (Phase 5 ignores insertAfter for nested mode)', async ({ page }) => {
+    // Phase 3 keeps `insertAfter` mirroring Y-mid in the placement
+    // shape, but Phase 5 ignores it for nested-mode drops because
+    // `insertAsListItemChild` always appends as the LAST child of the
+    // target item. Both upper-half and lower-half drops with nested-zone
+    // X therefore land at the SAME spot.
     await setContent(page, '<ul><li><p>One</p></li><li><p>Two</p></li><li><p>Three</p></li></ul>');
     const third = page.locator(`${editorSelector} li:has-text("Three")`);
-    const firstAgain = page.locator(`${editorSelector} li:has-text("One")`);
-    await dragBlock(page, third, firstAgain, 'top', 'right');
-    texts = await page.evaluate(() => {
+    const first = page.locator(`${editorSelector} li:has-text("One")`);
+
+    // Lower-half drop with right-zone X: Three becomes nested child of One.
+    await dragBlock(page, third, first, 'bottom', 'right');
+    const lowerHalfResult = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild: { forEach: (cb: (n: { textContent: string }) => void) => void } | null } } }
+        | { state: { doc: { firstChild: { childCount: number; firstChild: { childCount: number; lastChild: { type: { name: string } } | null } | null } | null } } }
         | undefined;
-      const out: string[] = [];
-      ed?.state.doc.firstChild?.forEach((n) => out.push(n.textContent));
-      return out;
+      const ul = ed?.state.doc.firstChild;
+      const firstLi = ul?.firstChild;
+      return {
+        ulItems: ul?.childCount,
+        firstLiChildren: firstLi?.childCount,
+        firstLiLastChildType: firstLi?.lastChild?.type.name,
+      };
     });
-    // Upper-half over "One" with right-zone X: nested-mode placement,
-    // insertAfter=false, targetPos = One's pos. moveBlock relocates
-    // "Three" before "One" -> [Three, One, Two].
-    expect(texts).toEqual(['Three', 'One', 'Two']);
+    // After nested-child insertion: outer ul has 2 listItems left
+    // (One with nested ul, Two). First listItem has [paragraph "One",
+    // nested bulletList].
+    expect(lowerHalfResult.ulItems).toBe(2);
+    expect(lowerHalfResult.firstLiChildren).toBe(2);
+    expect(lowerHalfResult.firstLiLastChildType).toBe('bulletList');
+
+    // Reset and repeat with upper-half drop - identical nested result.
+    await setContent(page, '<ul><li><p>One</p></li><li><p>Two</p></li><li><p>Three</p></li></ul>');
+    const thirdAgain = page.locator(`${editorSelector} li:has-text("Three")`);
+    const firstAgain = page.locator(`${editorSelector} li:has-text("One")`);
+    await dragBlock(page, thirdAgain, firstAgain, 'top', 'right');
+    const upperHalfResult = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { childCount: number; firstChild: { childCount: number; lastChild: { type: { name: string } } | null } | null } | null } } }
+        | undefined;
+      const ul = ed?.state.doc.firstChild;
+      const firstLi = ul?.firstChild;
+      return {
+        ulItems: ul?.childCount,
+        firstLiChildren: firstLi?.childCount,
+        firstLiLastChildType: firstLi?.lastChild?.type.name,
+      };
+    });
+    expect(upperHalfResult).toEqual(lowerHalfResult);
   });
 
-  test('SELF-DROP: drag listItem onto ITSELF with nested-zone X flips mode to nested - moveBlock guard prevents corruption', async ({ page }) => {
+  test('SELF-DROP: drag listItem onto ITSELF with nested-zone X - moveBlockAsNestedChild guard returns false, doc unchanged', async ({ page }) => {
     // The placement still reports mode='nested' because the resolver
-    // doesn't know "source == target". Drop pipeline's self-drop guard
-    // (in moveBlock) catches it and produces a no-op tr. Doc state stays
-    // intact. Phase 5 will inherit the same guard via insertAsListItemChild.
+    // doesn't know "source == target". `moveBlockAsNestedChild`
+    // catches the self-drop (target inside source range) and returns
+    // false; performBlockDrop falls through to the sibling path which
+    // ALSO no-ops (moveBlock has its own self-drop guard). Doc intact.
     await setContent(page, '<ul><li><p>Solo</p></li></ul>');
     const solo = page.locator(`${editorSelector} li:has-text("Solo")`);
     await solo.hover();
@@ -1314,33 +1339,530 @@ test.describe('Phase 4 indicator visual - dashed indented line in nested mode', 
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 3. Drop result invariants - drop transaction still uses moveBlock
-//    regardless of mode. Drop with right-zone X over a listItem flips
-//    mode to 'nested' (Phase 3) but the actual move is still sibling-
-//    style until Phase 5 wires `insertAsListItemChild`. Drop count and
-//    types stay stable.
+// 2e. Phase 5 - Nested drop transaction matrix. Source types appended
+//     as last child of the target list item via insertAsListItemChild.
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Phase 3 drop result - moveBlock still owns the transaction', () => {
+test.describe('Phase 5 nested drop matrix - source types appended as last child', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
-  test('drag with X on right side of list item flips mode to nested but doc still has 2 sibling listItems', async ({ page }) => {
-    // Phase 3 sets `mode='nested'` in the placement, yet `performBlockDrop`
-    // calls `moveBlock` regardless - so the dragged listItem becomes a
-    // sibling of the target item, not a nested child. Phase 5 will branch
-    // on mode and switch to `insertAsListItemChild` for the nested case.
+  /**
+   * Drop helper: drag from source onto target with explicit nested-zone X.
+   * Returns the editor's top-level + first-listItem-children snapshot.
+   */
+  async function dropNested(
+    page: Page,
+    sourceLocator: Locator,
+    targetLocator: Locator,
+  ): Promise<void> {
+    await sourceLocator.hover();
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    const handle = page.locator(dragBtnSelector);
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    const targetBox = await targetLocator.boundingBox();
+    if (!targetBox) throw new Error('no target box');
+    const clientX = targetBox.x + 50; // nested zone
+    // Aim Y at the LABEL portion (top 15%) so the resolver lands on the
+    // listItem itself, not on a deeper draggable block (e.g. an existing
+    // nested paragraph or heading whose vertical extent occupies the
+    // mid-area). The label paragraph is excluded by `listItemFirstChild`,
+    // so resolution lifts back up to the listItem.
+    const clientY = targetBox.y + targetBox.height * 0.15;
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX, clientY });
+    await page.locator(editorSelector).dispatchEvent('drop', { dataTransfer: dt, clientX, clientY });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    await dt.dispose();
+  }
+
+  test('paragraph dropped onto listItem with nested-zone X becomes nested child', async ({ page }) => {
+    await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} p:has-text("Source")`),
+      page.locator(`${editorSelector} li:has-text("Target")`),
+    );
+    expect(await firstListItemChildren(page)).toEqual([
+      { type: 'paragraph', text: 'Target' },
+      { type: 'paragraph', text: 'Source' },
+    ]);
+  });
+
+  test('heading dropped onto listItem with nested-zone X preserves level + becomes nested child', async ({ page }) => {
+    await setContent(page, '<h2>Title</h2><ul><li><p>Item</p></li></ul>');
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} h2`),
+      page.locator(`${editorSelector} li:has-text("Item")`),
+    );
+    expect(await firstListItemChildren(page)).toEqual([
+      { type: 'paragraph', text: 'Item' },
+      { type: 'heading', text: 'Title', level: 2 },
+    ]);
+  });
+
+  test('codeBlock dropped onto listItem with nested-zone X becomes nested child', async ({ page }) => {
+    await setContent(
+      page,
+      '<pre><code class="language-typescript">const x = 1;</code></pre><ul><li><p>L</p></li></ul>',
+    );
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} pre`),
+      page.locator(`${editorSelector} li:has-text("L")`),
+    );
+    const tree = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { firstChild: { childCount: number; lastChild: { type: { name: string }; textContent: string; attrs: Record<string, unknown> } | null } | null } | null } } }
+        | undefined;
+      const li = ed?.state.doc.firstChild?.firstChild;
+      const last = li?.lastChild;
+      return {
+        liChildren: li?.childCount,
+        lastType: last?.type.name,
+        lastText: last?.textContent,
+        lastLanguage: last?.attrs['language'],
+      };
+    });
+    expect(tree).toEqual({
+      liChildren: 2,
+      lastType: 'codeBlock',
+      lastText: 'const x = 1;',
+      lastLanguage: 'typescript',
+    });
+  });
+
+  test('blockquote dropped onto listItem with nested-zone X becomes nested child', async ({ page }) => {
+    await setContent(page, '<blockquote><p>Quote</p></blockquote><ul><li><p>L</p></li></ul>');
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} blockquote`),
+      page.locator(`${editorSelector} li:has-text("L")`),
+    );
+    const lastType = await page.evaluate(
+      () => {
+        const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+          | { state: { doc: { firstChild: { firstChild: { lastChild: { type: { name: string } } | null } | null } | null } } }
+          | undefined;
+        return ed?.state.doc.firstChild?.firstChild?.lastChild?.type.name;
+      },
+    );
+    expect(lastType).toBe('blockquote');
+  });
+
+  test('horizontalRule (atom) dropped onto listItem with nested-zone X becomes nested child', async ({ page }) => {
+    await setContent(page, '<hr><ul><li><p>L</p></li></ul>');
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} hr`),
+      page.locator(`${editorSelector} li:has-text("L")`),
+    );
+    expect(await firstListItemChildren(page)).toEqual([
+      { type: 'paragraph', text: 'L' },
+      { type: 'horizontalRule', text: '' },
+    ]);
+  });
+
+  test('listItem source dropped onto another listItem with nested-zone X wraps in fresh nested bulletList', async ({ page }) => {
+    await setContent(page, '<ul><li><p>One</p></li><li><p>Two</p></li></ul>');
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} li:has-text("Two")`),
+      page.locator(`${editorSelector} li:has-text("One")`),
+    );
+    const tree = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { childCount: number; firstChild: { childCount: number; firstChild: { textContent: string } | null; lastChild: { type: { name: string }; firstChild: { type: { name: string }; textContent: string } | null } | null } | null } | null } } }
+        | undefined;
+      const ul = ed?.state.doc.firstChild;
+      const li = ul?.firstChild;
+      return {
+        ulItems: ul?.childCount,
+        liChildren: li?.childCount,
+        liLabelText: li?.firstChild?.textContent,
+        nestedListType: li?.lastChild?.type.name,
+        nestedFirstItemType: li?.lastChild?.firstChild?.type.name,
+        nestedFirstItemText: li?.lastChild?.firstChild?.textContent,
+      };
+    });
+    expect(tree).toEqual({
+      ulItems: 1, // Two collapsed into nested ul of One
+      liChildren: 2, // [paragraph "One", nested bulletList]
+      liLabelText: 'One',
+      nestedListType: 'bulletList',
+      nestedFirstItemType: 'listItem',
+      nestedFirstItemText: 'Two',
+    });
+  });
+
+  test('cross-list-type: bullet listItem dropped onto taskItem with nested-zone X wraps in fresh nested taskList with adapted taskItem', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Bullet</p></li></ul>'
+      + '<ul data-type="taskList"><li data-type="taskItem"><p>Task</p></li></ul>',
+    );
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} ul:not([data-type="taskList"]) li`),
+      page.locator(`${editorSelector} li[data-type="taskItem"]`),
+    );
+    const tree = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { childCount: number; firstChild: { type: { name: string }; firstChild: { childCount: number; firstChild: { textContent: string } | null; lastChild: { type: { name: string }; firstChild: { type: { name: string }; textContent: string } | null } | null } | null } | null } } }
+        | undefined;
+      const top = ed?.state.doc.firstChild;
+      const taskItem = top?.firstChild;
+      return {
+        topCount: ed?.state.doc.childCount,
+        topType: top?.type.name,
+        taskItemChildren: taskItem?.childCount,
+        taskItemLabel: taskItem?.firstChild?.textContent,
+        nestedListType: taskItem?.lastChild?.type.name,
+        nestedFirstItemType: taskItem?.lastChild?.firstChild?.type.name,
+        nestedFirstItemText: taskItem?.lastChild?.firstChild?.textContent,
+      };
+    });
+    expect(tree).toEqual({
+      topCount: 1, // bullet ul collapsed
+      topType: 'taskList',
+      taskItemChildren: 2,
+      taskItemLabel: 'Task',
+      nestedListType: 'taskList', // wrapper matches target's type
+      nestedFirstItemType: 'taskItem', // bullet item adapted to taskItem
+      nestedFirstItemText: 'Bullet',
+    });
+  });
+
+  test('drop result has SINGLE listItem in target wrapper (Source paragraph DOES NOT create a sibling listItem)', async ({ page }) => {
+    // Regression guard: pre-Phase-5 behaviour wrapped the source paragraph
+    // in a fresh listItem and inserted as sibling (2 listItems in wrapper).
+    // Phase 5 nested-mode produces 1 listItem with the paragraph as nested child.
+    await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} p:has-text("Source")`),
+      page.locator(`${editorSelector} li:has-text("Target")`),
+    );
+    expect(await listItemTypes(page)).toEqual(['listItem']);
+  });
+
+  test('undo after nested drop reverts to original two-block doc shape', async ({ page }) => {
+    await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} p:has-text("Source")`),
+      page.locator(`${editorSelector} li:has-text("Target")`),
+    );
+    expect((await firstListItemChildren(page)).length).toBe(2);
+
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
+    await page.waitForTimeout(80);
+
+    // Original shape: paragraph + bulletList(li(p"Target")).
+    expect((await getBlocks(page)).map((b) => b.type)).toEqual(['paragraph', 'bulletList']);
+    const undoneTree = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; firstChild: { firstChild: { textContent: string } | null } | null }) => void) => void } } }
+        | undefined;
+      let liText = '';
+      ed?.state.doc.forEach((n) => {
+        if (n.type.name === 'bulletList') liText = n.firstChild?.firstChild?.textContent ?? '';
+      });
+      return liText;
+    });
+    expect(undoneTree).toBe('Target');
+  });
+
+  test('marks (bold) preserved on nested-dropped paragraph', async ({ page }) => {
+    await setContent(page, '<p><strong>Bold text</strong></p><ul><li><p>Item</p></li></ul>');
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} p:has-text("Bold text")`),
+      page.locator(`${editorSelector} li`),
+    );
+    const marks = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { firstChild: { lastChild: { firstChild: { marks: { type: { name: string } }[] } | null } | null } | null } | null } } }
+        | undefined;
+      const li = ed?.state.doc.firstChild?.firstChild;
+      const droppedP = li?.lastChild;
+      const text = droppedP?.firstChild;
+      return text?.marks?.map((m) => m.type.name) ?? [];
+    });
+    expect(marks).toContain('bold');
+  });
+
+  test('UniqueID preserved on nested drop (drop is a MOVE, not a duplicate)', async ({ page }) => {
+    await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
+    const sourceIdBefore = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { attrs: Record<string, unknown> } | null } } }
+        | undefined;
+      return ed?.state.doc.firstChild?.attrs['id'] as string | undefined;
+    });
+    expect(sourceIdBefore).toBeTruthy();
+
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} p:has-text("Source")`),
+      page.locator(`${editorSelector} li:has-text("Target")`),
+    );
+
+    const droppedId = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { firstChild: { lastChild: { attrs: Record<string, unknown> } | null } | null } | null } } }
+        | undefined;
+      return ed?.state.doc.firstChild?.firstChild?.lastChild?.attrs['id'] as string | undefined;
+    });
+    expect(droppedId).toBe(sourceIdBefore);
+  });
+
+  test('drop into ORDERED LIST item with nested-zone X works (parity with bullet/task)', async ({ page }) => {
+    await setContent(page, '<p>Source</p><ol><li><p>One</p></li></ol>');
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} p:has-text("Source")`),
+      page.locator(`${editorSelector} ol li`),
+    );
+    const tree = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { type: { name: string }; firstChild: { childCount: number; lastChild: { type: { name: string }; textContent: string } | null } | null } | null } } }
+        | undefined;
+      const top = ed?.state.doc.firstChild;
+      const li = top?.firstChild;
+      return {
+        topType: top?.type.name,
+        liChildren: li?.childCount,
+        liLastType: li?.lastChild?.type.name,
+        liLastText: li?.lastChild?.textContent,
+      };
+    });
+    expect(tree).toEqual({
+      topType: 'orderedList',
+      liChildren: 2,
+      liLastType: 'paragraph',
+      liLastText: 'Source',
+    });
+  });
+
+  test('drop into NESTED listItem (li inside li, 2-level deep target) lands on the INNER item', async ({ page }) => {
+    // Doc: outer ul > outer li > [outer label, inner ul > inner li]. Drop
+    // a top-level paragraph onto the inner listItem with nested-zone X.
+    // The new paragraph becomes a nested child of the INNER li, not the outer.
+    await setContent(
+      page,
+      '<p>Source</p><ul><li><p>OuterLabel</p><ul><li><p>InnerLabel</p></li></ul></li></ul>',
+    );
+    const innerLi = page.locator(`${editorSelector} li li`);
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} > p:has-text("Source")`),
+      innerLi,
+    );
+    const tree = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { firstChild: { childCount: number; firstChild: { textContent: string } | null; lastChild: { type: { name: string }; firstChild: { childCount: number; firstChild: { textContent: string } | null; lastChild: { type: { name: string }; textContent: string } | null } | null } | null } | null } | null } } }
+        | undefined;
+      const outerLi = ed?.state.doc.firstChild?.firstChild;
+      const outerLabel = outerLi?.firstChild?.textContent;
+      const innerListWrap = outerLi?.lastChild;
+      const innerListInnerLi = innerListWrap?.firstChild;
+      return {
+        outerLabel,
+        innerLiChildren: innerListInnerLi?.childCount,
+        innerLiLabel: innerListInnerLi?.firstChild?.textContent,
+        innerLiLastType: innerListInnerLi?.lastChild?.type.name,
+        innerLiLastText: innerListInnerLi?.lastChild?.textContent,
+      };
+    });
+    expect(tree).toEqual({
+      outerLabel: 'OuterLabel',
+      innerLiChildren: 2, // [innerLabel, droppedSource]
+      innerLiLabel: 'InnerLabel',
+      innerLiLastType: 'paragraph',
+      innerLiLastText: 'Source',
+    });
+  });
+
+  test('multi-step nesting: drop A into B, then drop C into A produces 3-level deep structure', async ({ page }) => {
+    await setContent(page, '<p>A</p><p>B</p><p>C</p><ul><li><p>Target</p></li></ul>');
+    // Drop A onto Target → Target now has nested A.
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} > p:has-text("A")`),
+      page.locator(`${editorSelector} li`),
+    );
+    // Drop B onto Target → B becomes second nested child of Target.
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} > p:has-text("B")`),
+      page.locator(`${editorSelector} li`),
+    );
+    // Drop C onto Target → C becomes third nested child of Target.
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} > p:has-text("C")`),
+      page.locator(`${editorSelector} li`),
+    );
+    expect(await firstListItemChildren(page)).toEqual([
+      { type: 'paragraph', text: 'Target' },
+      { type: 'paragraph', text: 'A' },
+      { type: 'paragraph', text: 'B' },
+      { type: 'paragraph', text: 'C' },
+    ]);
+    expect((await getBlocks(page)).length).toBe(1); // Just the bulletList; A/B/C all moved.
+  });
+
+  test('source from NESTED HANDLE (heading inside li-A) drops as NESTED child of li-B', async ({ page }) => {
+    // Plan 2 (nested handle source) + Plan 3 (X-detection) + Plan 5 (nested drop tr) compose.
+    await setContent(
+      page,
+      '<ul><li><p>A label</p><h2>Nested heading</h2></li><li><p>B label</p></li></ul>',
+    );
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} h2:has-text("Nested heading")`),
+      page.locator(`${editorSelector} li:has-text("B label")`),
+    );
+    // li-A becomes [A label] (nested heading removed). li-B becomes
+    // [B label, Nested heading].
+    const tree = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { childCount: number; firstChild: { textContent: string } | null; lastChild: { type: { name: string }; textContent: string } | null } | null } | null } } }
+        | undefined;
+      const ul = ed?.state.doc.firstChild;
+      const liA = ul?.child(0);
+      const liB = ul?.child(1);
+      return {
+        ulItems: ul?.childCount,
+        liAChildren: liA?.childCount,
+        liALabel: liA?.firstChild?.textContent,
+        liBChildren: liB?.childCount,
+        liBLabel: liB?.firstChild?.textContent,
+        liBLastType: liB?.lastChild?.type.name,
+        liBLastText: liB?.lastChild?.textContent,
+      };
+    });
+    expect(tree).toEqual({
+      ulItems: 2,
+      liAChildren: 1,
+      liALabel: 'A label',
+      liBChildren: 2,
+      liBLabel: 'B label',
+      liBLastType: 'heading',
+      liBLastText: 'Nested heading',
+    });
+  });
+
+  test('reverse cross-list-type: taskItem source dropped onto bullet listItem wraps in fresh nested bulletList', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Task source</p></li></ul>'
+      + '<ul><li><p>Bullet target</p></li></ul>',
+    );
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} li[data-type="taskItem"]`),
+      page.locator(`${editorSelector} ul:not([data-type="taskList"]) li`),
+    );
+    const tree = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { childCount: number; firstChild: { type: { name: string }; firstChild: { childCount: number; firstChild: { textContent: string } | null; lastChild: { type: { name: string }; firstChild: { type: { name: string }; textContent: string } | null } | null } | null } | null } } }
+        | undefined;
+      const top = ed?.state.doc.firstChild;
+      const li = top?.firstChild;
+      const nested = li?.lastChild;
+      return {
+        topCount: ed?.state.doc.childCount,
+        topType: top?.type.name,
+        liChildren: li?.childCount,
+        liLabel: li?.firstChild?.textContent,
+        nestedType: nested?.type.name,
+        nestedFirstItemType: nested?.firstChild?.type.name,
+        nestedFirstItemText: nested?.firstChild?.textContent,
+      };
+    });
+    expect(tree).toEqual({
+      topCount: 1, // taskList collapsed
+      topType: 'bulletList', // outer is now just the bullet list
+      liChildren: 2, // [Bullet target, nested ul]
+      liLabel: 'Bullet target',
+      nestedType: 'bulletList', // wrapper matches target's type
+      nestedFirstItemType: 'listItem', // task item adapted to listItem
+      nestedFirstItemText: 'Task source',
+    });
+  });
+
+  test('empty paragraph source dropped nested still produces a nested child', async ({ page }) => {
+    // Empty source: schema accepts empty paragraph as block content; nested drop succeeds.
+    await setContent(page, '<p></p><ul><li><p>Target</p></li></ul>');
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} > p`).first(),
+      page.locator(`${editorSelector} li:has-text("Target")`),
+    );
+    expect(await firstListItemChildren(page)).toEqual([
+      { type: 'paragraph', text: 'Target' },
+      { type: 'paragraph', text: '' },
+    ]);
+  });
+
+  test('drop on listItem WITH existing nested children appends the new block AFTER the existing nested heading', async ({ page }) => {
+    await setContent(page, '<p>Source</p><ul><li><p>Label</p><h2>Existing</h2></li></ul>');
+    await dropNested(
+      page,
+      page.locator(`${editorSelector} p:has-text("Source")`),
+      page.locator(`${editorSelector} li`),
+    );
+    expect(await firstListItemChildren(page)).toEqual([
+      { type: 'paragraph', text: 'Label' },
+      { type: 'heading', text: 'Existing', level: 2 },
+      { type: 'paragraph', text: 'Source' },
+    ]);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// 3. Drop result branch - sibling-zone X uses moveBlock, nested-zone X
+//    uses moveBlockAsNestedChild. Both produce the result the indicator
+//    visual promises.
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('Phase 5 drop result - mode branches the actual transaction', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('drag listItem with X on RIGHT side of another listItem nests as child (fresh sublist)', async ({ page }) => {
+    // Phase 5 path: nested-zone X over listItem dispatches via
+    // `insertAsListItemChild`. Source listItem wraps in a fresh
+    // bulletList and lands as last child of the target listItem.
     await setContent(page, '<ul><li><p>One</p></li><li><p>Two</p></li></ul>');
     const second = page.locator(`${editorSelector} li:has-text("Two")`);
     const first = page.locator(`${editorSelector} li:has-text("One")`);
     await dragBlock(page, second, first, 'bottom', 'right');
 
-    // Both items remain top-level siblings inside the same bulletList:
-    // still 1 top-level block, still 2 listItems (no nested merge yet).
+    // Outer ul now has 1 listItem (Two collapsed into nested ul of One).
     expect((await getBlocks(page)).length).toBe(1);
-    expect((await listItemTypes(page))).toEqual(['listItem', 'listItem']);
+    expect((await listItemTypes(page))).toEqual(['listItem']);
+    const tree = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { firstChild: { childCount: number; lastChild: { type: { name: string }; firstChild: { type: { name: string }; textContent: string } | null } | null } | null } | null } } }
+        | undefined;
+      const li = ed?.state.doc.firstChild?.firstChild;
+      const nestedList = li?.lastChild;
+      return {
+        liChildren: li?.childCount,
+        nestedType: nestedList?.type.name,
+        nestedItemType: nestedList?.firstChild?.type.name,
+        nestedItemText: nestedList?.firstChild?.textContent,
+      };
+    });
+    expect(tree.liChildren).toBe(2); // [paragraph, nested ul]
+    expect(tree.nestedType).toBe('bulletList');
+    expect(tree.nestedItemType).toBe('listItem');
+    expect(tree.nestedItemText).toBe('Two');
   });
 
-  test('drag with X on left side of list item produces sibling reorder', async ({ page }) => {
+  test('drag listItem with X on LEFT side of another listItem reorders as siblings (sibling path unchanged)', async ({ page }) => {
     await setContent(page, '<ul><li><p>One</p></li><li><p>Two</p></li></ul>');
     const second = page.locator(`${editorSelector} li:has-text("Two")`);
     const first = page.locator(`${editorSelector} li:has-text("One")`);

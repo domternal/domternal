@@ -26,6 +26,7 @@ import type { EditorView } from '@domternal/pm/view';
 import type { Slice } from '@domternal/pm/model';
 import { findDeepestBlockAtY } from './helpers/findTopLevelBlock.js';
 import { moveBlock } from './helpers/moveBlock.js';
+import { moveBlockAsNestedChild } from './helpers/moveBlockAsNestedChild.js';
 import { buildDragPreview } from './helpers/cloneElement.js';
 import { clampToContent } from './helpers/clampCoords.js';
 import { normalizeEdgeDetection } from './helpers/edgeDetection.js';
@@ -1011,10 +1012,28 @@ export function createBlockHandlePlugin(
     if (!sourceNode) return false;
     const placement = computeDropPlacement(view, clientX, clientY, nested, nestThreshold);
     if (!placement) return false;
+    const tr = view.state.tr;
+
+    if (
+      placement.mode === 'nested'
+      && placement.targetItemPos !== undefined
+      && placement.wrapperPos !== undefined
+    ) {
+      // Drop-indent path: append source as the last child of the target
+      // list item via `insertAsListItemChild`. On schema reject the
+      // helper leaves `tr` untouched and returns false; we fall back to
+      // the sibling-style move so the user's drag still produces a
+      // sensible result.
+      const ok = moveBlockAsNestedChild(tr, draggedFrom, placement.wrapperPos, placement.targetItemPos);
+      if (ok) {
+        view.dispatch(tr.scrollIntoView());
+        return true;
+      }
+    }
+
     const targetNode = view.state.doc.nodeAt(placement.pos);
     const targetEnd = targetNode ? placement.pos + targetNode.nodeSize : placement.pos;
     const targetPos = placement.insertAfter ? targetEnd : placement.pos;
-    const tr = view.state.tr;
     moveBlock(tr, draggedFrom, targetPos);
     view.dispatch(tr.scrollIntoView());
     return true;

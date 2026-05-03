@@ -98,7 +98,12 @@ async function dragBlock(
   if (!targetBox) return;
 
   // Coordinates inside the target: "top" drops above mid, "bottom" below.
-  const clientX = targetBox.x + targetBox.width / 2;
+  // X is intentionally near the left edge (4px) - this keeps the drop in
+  // the SIBLING zone (`clientX < nestThreshold`) so these pre-Phase-3
+  // tests retain their sibling-reorder semantics. Tests covering the
+  // Phase 3+ nested-drop branch live in
+  // `notion-drop-placement-sibling.spec.ts`.
+  const clientX = targetBox.x + 4;
   const clientY = dropZone === 'top'
     ? targetBox.y + targetBox.height * 0.2
     : targetBox.y + targetBox.height * 0.8;

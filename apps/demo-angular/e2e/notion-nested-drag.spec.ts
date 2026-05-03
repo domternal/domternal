@@ -492,7 +492,10 @@ async function dragFromHandle(
   const dt = await page.evaluateHandle(() => new DataTransfer());
   const handle = page.locator(dragBtnSelector);
   const targetBox = await boxOf(targetLocator);
-  const clientX = targetBox.x + targetBox.width / 2;
+  // Drop near the LEFT edge of the target (sibling zone) so these
+  // tests keep their pre-Phase-3 sibling-drop semantics. Phase 3
+  // nested-mode coverage lives in `notion-drop-placement-sibling.spec.ts`.
+  const clientX = targetBox.x + 4;
   const clientY = dropZone === 'top'
     ? targetBox.y + targetBox.height * 0.2
     : targetBox.y + targetBox.height * 0.8;
@@ -1091,7 +1094,12 @@ test.describe('Source × container matrix and drag-flow regression', () => {
     await dragFromHandle(
       page,
       page.locator(`${editorSelector} ul:not([data-type="taskList"]) li > p`),
-      page.locator(`${editorSelector} li[data-type="taskItem"] > div > p`),
+      // Target the TASK ITEM (not its inner paragraph) so dragFromHandle's
+      // `targetBox.x + 4` lands at the listItem's left edge - well within
+      // the sibling zone (`< nestThreshold`). The inner paragraph is
+      // visually indented by checkbox + margin, so +4 from its box.x
+      // would actually fall in the nested zone of the listItem rect.
+      page.locator(`${editorSelector} li[data-type="taskItem"]`),
       'bottom',
     );
 
