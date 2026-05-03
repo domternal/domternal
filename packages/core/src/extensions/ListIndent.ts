@@ -42,6 +42,7 @@ import { Extension } from '../Extension.js';
 import { NodeSelection, Selection } from '@domternal/pm/state';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 import type { Node as PMNode } from '@domternal/pm/model';
+import { insertAsListItemChild } from '../utils/insertAsListItemChild.js';
 
 const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
 const LIST_WRAPPER_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
@@ -111,44 +112,27 @@ export function indentBlockAsListChild(
 
   const prevSibling = state.doc.child(blockIndex - 1);
   if (!LIST_WRAPPER_TYPES.has(prevSibling.type.name)) return false;
-  if (prevSibling.childCount === 0) return false;
 
-  const lastItem = prevSibling.lastChild;
-  if (!lastItem) return false;
-  if (!LIST_ITEM_TYPES.has(lastItem.type.name)) return false;
-
-  // Schema check: can the last list item accept this block as a new
-  // child at the end? Notion-strict listItem content (`paragraph
-  // block*`) requires that the new block fits the trailing block*
-  // slot.
-  if (!lastItem.canReplaceWith(lastItem.childCount, lastItem.childCount, blockNode.type)) {
-    return false;
-  }
-
-  if (!dispatch) return true;
-  // Position of the previous sibling (the list wrapper) at the doc
-  // level. The last item of that wrapper sits inside it.
-  let prevSiblingStart = 0;
+  // Position of the previous sibling (= the list wrapper) at the doc
+  // level. Pre-computed here so a dry-run (no dispatch) and the
+  // dispatch path share the same value.
+  let wrapperPos = 0;
   for (let i = 0; i < blockIndex - 1; i++) {
-    prevSiblingStart += state.doc.child(i).nodeSize;
+    wrapperPos += state.doc.child(i).nodeSize;
   }
-  // Inside the wrapper, walk to the last item's start.
-  let lastItemStart = prevSiblingStart + 1;
-  for (let i = 0; i < prevSibling.childCount - 1; i++) {
-    lastItemStart += prevSibling.child(i).nodeSize;
-  }
-  // Position right BEFORE the last item's close token = end of the
-  // item's content where we want to insert the block.
-  const lastItemContentEnd = lastItemStart + lastItem.nodeSize - 1;
 
   const tr = state.tr;
-  // Delete the block FIRST. The previous sibling and last-item-end
-  // positions sit BEFORE blockStart so they are not shifted by the
-  // delete - we can use them as-is for the subsequent insert.
-  tr.delete(blockStart, blockEnd);
-  tr.insert(lastItemContentEnd, blockNode);
+  const result = insertAsListItemChild({
+    tr,
+    wrapperPos,
+    blockNode,
+    sourceRange: { from: blockStart, to: blockEnd },
+  });
+  if (!result.ok || result.insertedAt === undefined) return false;
+  if (!dispatch) return true;
+
   // Caret in the (now nested) block at offset 0 of its content.
-  tr.setSelection(Selection.near(tr.doc.resolve(lastItemContentEnd + 1)));
+  tr.setSelection(Selection.near(tr.doc.resolve(result.insertedAt + 1)));
   dispatch(tr.scrollIntoView());
   return true;
 }

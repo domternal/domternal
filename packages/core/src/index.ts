@@ -108,6 +108,13 @@ export {
 // === Clipboard ===
 export { writeToClipboard } from './utils/clipboard.js';
 
+// === List utilities ===
+export {
+  insertAsListItemChild,
+  type InsertAsListItemChildArgs,
+  type InsertAsListItemChildResult,
+} from './utils/insertAsListItemChild.js';
+
 // === Helpers ===
 export {
   createDocument,
