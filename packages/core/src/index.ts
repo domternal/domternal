@@ -114,6 +114,10 @@ export {
   type InsertAsListItemChildArgs,
   type InsertAsListItemChildResult,
 } from './utils/insertAsListItemChild.js';
+export {
+  getListItemCursorContext,
+  type ListItemCursorContext,
+} from './utils/listItemCursorContext.js';
 
 // === Helpers ===
 export {

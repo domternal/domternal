@@ -35,6 +35,7 @@ import {
   Placeholder,
   Editor,
   inlineStyles,
+  getListItemCursorContext,
 } from '@domternal/core';
 import { CodeBlockLowlight, createCodeHighlighter } from '@domternal/extension-code-block-lowlight';
 import { Image } from '@domternal/extension-image';
@@ -245,6 +246,10 @@ export class NotionDemoComponent implements OnDestroy {
     this.editor.set(editor);
     // Expose for E2E + playing around in devtools.
     (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] = editor;
+    // Expose getListItemCursorContext for E2E coverage of the pure
+    // utility - lets tests verify the util resolves correctly when run
+    // against the built dist (not just the unit-test source path).
+    (window as unknown as Record<string, unknown>)['__DOMTERNAL_LIST_CTX__'] = getListItemCursorContext;
 
     // Tear down any previously-attached listeners before wiring new ones -
     // protects against leaking listeners when the editor is recreated
