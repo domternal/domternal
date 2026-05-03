@@ -118,6 +118,9 @@ export {
   getListItemCursorContext,
   type ListItemCursorContext,
 } from './utils/listItemCursorContext.js';
+export {
+  liftEmptyChildrenZoneParagraph,
+} from './utils/liftEmptyChildrenZoneParagraph.js';
 
 // === Helpers ===
 export {

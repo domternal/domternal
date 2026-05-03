@@ -4,8 +4,17 @@
  * Individual list item that can contain paragraphs and nested blocks.
  * Used by BulletList and OrderedList.
  *
+ * Enter behaviour matrix (cursor's parent must be a paragraph):
+ *  - Cursor in LABEL paragraph (childIndex 0):
+ *    - Empty + Enter -> liftListItem (lift entire item out, "exit empty bullet")
+ *    - Non-empty + Enter -> splitListItem (new sibling listItem)
+ *  - Cursor in CHILDREN-ZONE paragraph (childIndex > 0):
+ *    - Empty + Enter -> liftEmptyChildrenZoneParagraph (lift ONLY this paragraph,
+ *      label & non-paragraph children stay inside the listItem). Mirrors Notion.
+ *    - Non-empty + Enter -> splitListItem (existing behaviour, may evolve in Plan 4 Phase 5)
+ *
  * Keyboard shortcuts:
- * - Enter: Split list item at cursor, or lift out of list if item is empty
+ * - Enter: see matrix above
  * - Tab/Shift-Tab: Handled by ListKeymap extension (included via addExtensions)
  */
 
@@ -13,6 +22,8 @@ import { Node } from '../Node.js';
 import { splitListItem, liftListItem } from '@domternal/pm/schema-list';
 import { Selection } from '@domternal/pm/state';
 import { ListKeymap } from '../extensions/ListKeymap.js';
+import { getListItemCursorContext } from '../utils/listItemCursorContext.js';
+import { liftEmptyChildrenZoneParagraph } from '../utils/liftEmptyChildrenZoneParagraph.js';
 
 export interface ListItemOptions {
   HTMLAttributes: Record<string, unknown>;
@@ -58,6 +69,16 @@ export const ListItem = Node.create<ListItemOptions>({
         // the entire list item and the nested-block-specific behaviour
         // would never get a chance.
         if ($from.parent.type.name !== 'paragraph') return false;
+
+        // Plan 4 Phase 3: Notion-style "exit indent" for an empty
+        // paragraph in the children-zone. Without this branch, the
+        // existing splitListItem -> liftListItem chain would lift the
+        // ENTIRE list item out, dumping all of its non-paragraph
+        // children to the top level (the original user-reported bug).
+        const ctx = getListItemCursorContext($from);
+        if (ctx && ctx.isInChildrenZone && ctx.paragraphIsEmpty) {
+          if (liftEmptyChildrenZoneParagraph(state, view.dispatch, ctx)) return true;
+        }
 
         if (splitListItem(this.nodeType)(state, view.dispatch)) return true;
 
