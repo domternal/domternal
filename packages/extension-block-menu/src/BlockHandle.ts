@@ -56,6 +56,14 @@ const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
 export const DEFAULT_NEST_THRESHOLD = 28;
 
 /**
+ * Pixel inset of the nested-mode drop indicator from the resolved
+ * block's left edge. Mirrors `--dm-block-children-indent` (1.5rem ≈
+ * 24px) so the dashed line lands exactly where a nested child block
+ * would render inside the list item.
+ */
+const NESTED_INDICATOR_INDENT_PX = 24;
+
+/**
  * Drop-zone tolerance in CSS pixels. The handle's drop zone extends
  * `DROP_ZONE_TOL_LEFT` past the editor's left edge (so the gutter where
  * the handle visually lives counts as a valid drop area) and `DROP_ZONE_TOL`
@@ -1035,6 +1043,20 @@ export function createBlockHandlePlugin(
    *
    * Hides the indicator when the resolver finds nothing (e.g. cursor
    * outside the editor's content range during a no-op drag-out).
+   *
+   * Two visual modes:
+   *
+   *  - **Sibling** - solid line at the rect's top OR bottom edge
+   *    (decided by `insertAfter`), spanning the full block width. The
+   *    line lives in the gap BETWEEN sibling blocks.
+   *  - **Nested** - dashed line at the rect's BOTTOM edge, indented to
+   *    where children render (matching `--dm-block-children-indent`,
+   *    nominally 24px). Communicates "this drop becomes a nested
+   *    child appended at the end" - the destination Phase 5 will
+   *    actually produce via `insertAsListItemChild`.
+   *
+   * The `data-mode` attribute carries the placement mode so theme CSS
+   * can swap solid for dashed via `&[data-mode='nested']`.
    */
   const updateDropIndicator = (clientX: number, clientY: number): void => {
     if (!editorEl) return;
@@ -1044,24 +1066,31 @@ export function createBlockHandlePlugin(
       return;
     }
     const editorRect = editorEl.getBoundingClientRect();
-    // Line Y: line sits ABOVE the rect when inserting before, BELOW
-    // when inserting after. Both are aligned to the rect's edge so the
-    // user sees exactly which boundary is the landing site.
-    const lineY = (placement.insertAfter ? placement.rect.bottom : placement.rect.top) - editorRect.top;
-    // Line X spans the resolved block's width - gives a strong visual
-    // cue for indented blocks (nested list items show a shorter line
-    // matching their column, which makes "into list" vs "before next
-    // block" outcomes immediately distinguishable).
-    const left = placement.rect.left - editorRect.left;
-    const width = placement.rect.right - placement.rect.left;
+
+    let lineY: number;
+    let left: number;
+    let width: number;
+    if (placement.mode === 'nested') {
+      // Indicator sits AT the bottom of the target list item, indented
+      // to the children-zone start. `NESTED_INDICATOR_INDENT_PX` mirrors
+      // the default `--dm-block-children-indent` CSS variable (1.5rem ≈
+      // 24px); custom themes that override the variable can override
+      // the indicator indent through the same CSS hook (see theme).
+      const indent = NESTED_INDICATOR_INDENT_PX;
+      lineY = placement.rect.bottom - editorRect.top;
+      left = placement.rect.left - editorRect.left + indent;
+      width = Math.max(0, placement.rect.width - indent);
+    } else {
+      // Sibling line: ABOVE rect when inserting before, BELOW when
+      // inserting after. Spans the full resolved block width.
+      lineY = (placement.insertAfter ? placement.rect.bottom : placement.rect.top) - editorRect.top;
+      left = placement.rect.left - editorRect.left;
+      width = placement.rect.width;
+    }
     indicator.style.top = `${String(lineY)}px`;
     indicator.style.left = `${String(left)}px`;
     indicator.style.width = `${String(width)}px`;
     indicator.setAttribute('data-show', '');
-    // `data-mode` mirrors `placement.mode` so e2e + theme CSS can
-    // distinguish sibling vs nested drop visually. Phase 3 only sets
-    // the attribute; Phase 4 attaches the dashed indented styling for
-    // `[data-mode='nested']` so the user actually sees the difference.
     indicator.setAttribute('data-mode', placement.mode);
   };
 

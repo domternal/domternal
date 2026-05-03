@@ -917,6 +917,403 @@ test.describe('Phase 3 X-detection - nested mode flip on list-item targets', () 
 });
 
 // ────────────────────────────────────────────────────────────────────────
+// 2d. Phase 4 - Indicator VISUAL contract for nested mode
+//     `[data-mode='nested']` swaps the solid full-width line for a
+//     dashed indented line so the user sees "drop will land as nested
+//     child" instead of "drop will land as sibling between blocks".
+//     Sibling visual is unchanged.
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('Phase 4 indicator visual - dashed indented line in nested mode', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  /**
+   * Helper: read indicator computed style + position info during an
+   * active drag-over. Returns only the fields relevant to nested-mode
+   * visual assertions.
+   */
+  async function indicatorInfo(page: Page): Promise<{
+    mode: string | null;
+    borderTopStyle: string;
+    backgroundColor: string;
+    leftPx: number;
+    widthPx: number;
+    topPx: number;
+  } | null> {
+    return page.evaluate(() => {
+      const el = document.querySelector('.dm-block-drop-indicator');
+      if (!(el instanceof HTMLElement)) return null;
+      const cs = getComputedStyle(el);
+      return {
+        mode: el.getAttribute('data-mode'),
+        borderTopStyle: cs.borderTopStyle,
+        backgroundColor: cs.backgroundColor,
+        leftPx: parseFloat(el.style.left || '0'),
+        widthPx: parseFloat(el.style.width || '0'),
+        topPx: parseFloat(el.style.top || '0'),
+      };
+    });
+  }
+
+  test('indicator over a listItem with nested-zone X has DASHED border-top + transparent background', async ({ page }) => {
+    await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
+    const source = page.locator(`${editorSelector} p:has-text("Source")`);
+    const target = page.locator(`${editorSelector} li:has-text("Target")`);
+    await source.hover();
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    const handle = page.locator(dragBtnSelector);
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    const targetBox = await target.boundingBox();
+    if (!targetBox) throw new Error('no target box');
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt,
+      clientX: targetBox.x + 40, // nested zone
+      clientY: targetBox.y + targetBox.height * 0.5,
+    });
+    const info = await indicatorInfo(page);
+    expect(info?.mode).toBe('nested');
+    expect(info?.borderTopStyle).toBe('dashed');
+    // backgroundColor in computed style appears as `rgba(0, 0, 0, 0)` for transparent.
+    expect(info?.backgroundColor).toMatch(/^(rgba\(0, 0, 0, 0\)|transparent)$/);
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+  });
+
+  test('indicator over a listItem with sibling-zone X has SOLID line (not dashed)', async ({ page }) => {
+    await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
+    const source = page.locator(`${editorSelector} p:has-text("Source")`);
+    const target = page.locator(`${editorSelector} li:has-text("Target")`);
+    await source.hover();
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    const handle = page.locator(dragBtnSelector);
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    const targetBox = await target.boundingBox();
+    if (!targetBox) throw new Error('no target box');
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt,
+      clientX: targetBox.x + 4, // sibling zone (before bullet marker)
+      clientY: targetBox.y + targetBox.height * 0.5,
+    });
+    const info = await indicatorInfo(page);
+    expect(info?.mode).toBe('sibling');
+    expect(info?.borderTopStyle).not.toBe('dashed');
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+  });
+
+  test('nested-mode indicator is INDENTED 24px from the resolved block left edge', async ({ page }) => {
+    await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
+    const source = page.locator(`${editorSelector} p:has-text("Source")`);
+    const target = page.locator(`${editorSelector} li:has-text("Target")`);
+    await source.hover();
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    const handle = page.locator(dragBtnSelector);
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    const targetBox = await target.boundingBox();
+    if (!targetBox) throw new Error('no target box');
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt,
+      clientX: targetBox.x + 40,
+      clientY: targetBox.y + targetBox.height * 0.5,
+    });
+
+    // Compare nested left vs sibling left for the same target. Use a
+    // separate dragover with sibling-zone X to capture the sibling left.
+    const nestedLeft = (await indicatorInfo(page))?.leftPx ?? 0;
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt,
+      clientX: targetBox.x + 4,
+      clientY: targetBox.y + targetBox.height * 0.5,
+    });
+    const siblingLeft = (await indicatorInfo(page))?.leftPx ?? 0;
+    // Nested indents by 24px (matches --dm-block-children-indent).
+    expect(nestedLeft - siblingLeft).toBeCloseTo(24, 0);
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+  });
+
+  test('nested-mode indicator width is 24px NARROWER than sibling-mode width over same target', async ({ page }) => {
+    await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
+    const source = page.locator(`${editorSelector} p:has-text("Source")`);
+    const target = page.locator(`${editorSelector} li:has-text("Target")`);
+    await source.hover();
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    const handle = page.locator(dragBtnSelector);
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    const targetBox = await target.boundingBox();
+    if (!targetBox) throw new Error('no target box');
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt,
+      clientX: targetBox.x + 40,
+      clientY: targetBox.y + targetBox.height * 0.5,
+    });
+    const nestedWidth = (await indicatorInfo(page))?.widthPx ?? 0;
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt,
+      clientX: targetBox.x + 4,
+      clientY: targetBox.y + targetBox.height * 0.5,
+    });
+    const siblingWidth = (await indicatorInfo(page))?.widthPx ?? 0;
+    expect(siblingWidth - nestedWidth).toBeCloseTo(24, 0);
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+  });
+
+  test('nested-mode indicator top sits at the listItem rect BOTTOM (not Y-mid based)', async ({ page }) => {
+    // Phase 4 nested visual always anchors at the listItem's bottom edge
+    // because the actual drop appends as last child. Top stays at
+    // rect.bottom regardless of where Y lands within the rect (as long
+    // as Y is inside the rect for X-detection to fire).
+    await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
+    const source = page.locator(`${editorSelector} p:has-text("Source")`);
+    const target = page.locator(`${editorSelector} li:has-text("Target")`);
+    await source.hover();
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    const handle = page.locator(dragBtnSelector);
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    const targetBox = await target.boundingBox();
+    if (!targetBox) throw new Error('no target box');
+
+    // Upper half Y - nested-mode indicator still anchors at rect.bottom.
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt,
+      clientX: targetBox.x + 40,
+      clientY: targetBox.y + targetBox.height * 0.2,
+    });
+    const upperInfo = await indicatorInfo(page);
+    // Lower half Y - same rect.bottom anchor.
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt,
+      clientX: targetBox.x + 40,
+      clientY: targetBox.y + targetBox.height * 0.8,
+    });
+    const lowerInfo = await indicatorInfo(page);
+    expect(upperInfo?.mode).toBe('nested');
+    expect(lowerInfo?.mode).toBe('nested');
+    // Both anchor at the same rect.bottom Y position (within 1px tolerance).
+    expect(Math.abs((upperInfo?.topPx ?? 0) - (lowerInfo?.topPx ?? 0))).toBeLessThanOrEqual(1);
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+  });
+
+  test('mode flip mid-drag: visual style swaps from solid to dashed and back without artefacts', async ({ page }) => {
+    await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
+    const source = page.locator(`${editorSelector} p:has-text("Source")`);
+    const target = page.locator(`${editorSelector} li:has-text("Target")`);
+    await source.hover();
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    const handle = page.locator(dragBtnSelector);
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    const targetBox = await target.boundingBox();
+    if (!targetBox) throw new Error('no target box');
+
+    async function readBorderTopStyle(xOffset: number): Promise<string> {
+      await page.locator(editorSelector).dispatchEvent('dragover', {
+        dataTransfer: dt,
+        clientX: targetBox!.x + xOffset,
+        clientY: targetBox!.y + targetBox!.height * 0.5,
+      });
+      return page.evaluate(() => {
+        const el = document.querySelector('.dm-block-drop-indicator');
+        if (!(el instanceof HTMLElement)) return '';
+        return getComputedStyle(el).borderTopStyle;
+      });
+    }
+    const sibling1 = await readBorderTopStyle(4);
+    const nested1 = await readBorderTopStyle(40);
+    const sibling2 = await readBorderTopStyle(10);
+    const nested2 = await readBorderTopStyle(50);
+    expect(sibling1).not.toBe('dashed');
+    expect(nested1).toBe('dashed');
+    expect(sibling2).not.toBe('dashed');
+    expect(nested2).toBe('dashed');
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+  });
+
+  test('nested-mode indicator over an ORDERED LIST item also dashed + indented (parity with bulletList)', async ({ page }) => {
+    await setContent(page, '<p>Source</p><ol><li><p>One</p></li></ol>');
+    const source = page.locator(`${editorSelector} p:has-text("Source")`);
+    const target = page.locator(`${editorSelector} ol li:has-text("One")`);
+    await source.hover();
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    const handle = page.locator(dragBtnSelector);
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    const targetBox = await target.boundingBox();
+    if (!targetBox) throw new Error('no target box');
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt,
+      clientX: targetBox.x + 40,
+      clientY: targetBox.y + targetBox.height * 0.5,
+    });
+    const info = await indicatorInfo(page);
+    expect(info?.mode).toBe('nested');
+    expect(info?.borderTopStyle).toBe('dashed');
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+  });
+
+  test('nested-mode indicator: box-shadow REMOVED (sibling uses glow, nested is bare dashed line)', async ({ page }) => {
+    // Sibling style includes a soft `box-shadow: 0 0 0 1px ...` glow so
+    // the solid line reads on top of background colours. Nested mode
+    // drops the glow because the dashed line + transparent bg is
+    // already distinct enough; keeping the shadow would render as a
+    // halo around an empty box, which looks broken.
+    await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
+    const source = page.locator(`${editorSelector} p:has-text("Source")`);
+    const target = page.locator(`${editorSelector} li:has-text("Target")`);
+    await source.hover();
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    const handle = page.locator(dragBtnSelector);
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    const targetBox = await target.boundingBox();
+    if (!targetBox) throw new Error('no target box');
+
+    // Sibling-zone X first - assert sibling has a non-trivial box-shadow.
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt,
+      clientX: targetBox.x + 4,
+      clientY: targetBox.y + targetBox.height * 0.5,
+    });
+    const siblingShadow = await page.evaluate(() => {
+      const el = document.querySelector('.dm-block-drop-indicator');
+      return el instanceof HTMLElement ? getComputedStyle(el).boxShadow : '';
+    });
+    expect(siblingShadow).not.toBe('none');
+    expect(siblingShadow).not.toBe('');
+
+    // Nested-zone X next - shadow gone.
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt,
+      clientX: targetBox.x + 40,
+      clientY: targetBox.y + targetBox.height * 0.5,
+    });
+    const nestedShadow = await page.evaluate(() => {
+      const el = document.querySelector('.dm-block-drop-indicator');
+      return el instanceof HTMLElement ? getComputedStyle(el).boxShadow : '';
+    });
+    expect(nestedShadow).toBe('none');
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+  });
+
+  test('nested-mode indicator: border-radius 0 (sibling has 1px rounding)', async ({ page }) => {
+    await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
+    const source = page.locator(`${editorSelector} p:has-text("Source")`);
+    const target = page.locator(`${editorSelector} li:has-text("Target")`);
+    await source.hover();
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    const handle = page.locator(dragBtnSelector);
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    const targetBox = await target.boundingBox();
+    if (!targetBox) throw new Error('no target box');
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt,
+      clientX: targetBox.x + 40,
+      clientY: targetBox.y + targetBox.height * 0.5,
+    });
+    const radius = await page.evaluate(() => {
+      const el = document.querySelector('.dm-block-drop-indicator');
+      return el instanceof HTMLElement ? getComputedStyle(el).borderTopLeftRadius : '';
+    });
+    expect(radius).toBe('0px');
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+  });
+
+  test('nested-mode indicator over an EMPTY list item (label paragraph blank) anchors at rect.bottom from line-height', async ({ page }) => {
+    // Empty paragraph collapses textually but the listItem rect has
+    // height from line-height. Indicator must still anchor at the rect
+    // bottom and indent the same way.
+    await setContent(page, '<p>Source</p><ul><li><p></p></li></ul>');
+    const source = page.locator(`${editorSelector} p:has-text("Source")`);
+    const target = page.locator(`${editorSelector} li`);
+    await source.hover();
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    const handle = page.locator(dragBtnSelector);
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    const targetBox = await target.boundingBox();
+    if (!targetBox) throw new Error('no target box');
+    expect(targetBox.height).toBeGreaterThan(8); // line-height keeps it non-collapsed
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt,
+      clientX: targetBox.x + 40,
+      clientY: targetBox.y + targetBox.height * 0.5,
+    });
+    const info = await indicatorInfo(page);
+    expect(info?.mode).toBe('nested');
+    expect(info?.borderTopStyle).toBe('dashed');
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+  });
+
+  test('nested-mode indicator over a listItem WITH existing nested children anchors at the FULL listItem rect bottom (not the label paragraph)', async ({ page }) => {
+    // listItem with [label paragraph, nested h2] - the listItem's
+    // bounding rect spans BOTH. The dashed line must anchor at the
+    // listItem's overall bottom, not at the label's bottom; otherwise
+    // the indicator would sit visually between the label and the
+    // existing nested heading instead of below the heading where a
+    // new nested child would actually render.
+    await setContent(page, '<p>Source</p><ul><li><p>Label</p><h2>Existing</h2></li></ul>');
+    const source = page.locator(`${editorSelector} p:has-text("Source")`);
+    const liTarget = page.locator(`${editorSelector} li`);
+    await source.hover();
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    const handle = page.locator(dragBtnSelector);
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    const liBox = await liTarget.boundingBox();
+    if (!liBox) throw new Error('no li box');
+
+    // Aim Y at the LABEL portion (top of li rect) so the resolver
+    // lands on the listItem (label first-child excluded by rule).
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt,
+      clientX: liBox.x + 40,
+      clientY: liBox.y + liBox.height * 0.15,
+    });
+    const info = await indicatorInfo(page);
+    expect(info?.mode).toBe('nested');
+
+    // Indicator top should equal the listItem's bottom edge in the
+    // editor-relative coordinate space. Read editor rect to convert.
+    const expectedTop = await page.evaluate(() => {
+      const li = document.querySelector('.ProseMirror li');
+      const editor = document.querySelector('.dm-editor');
+      if (!(li instanceof HTMLElement) || !(editor instanceof HTMLElement)) return -1;
+      return li.getBoundingClientRect().bottom - editor.getBoundingClientRect().top;
+    });
+    expect(expectedTop).toBeGreaterThan(0);
+    expect(Math.abs((info?.topPx ?? 0) - expectedTop)).toBeLessThanOrEqual(1);
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+  });
+
+  test('nested-mode indicator over a TASK ITEM target also dashed + indented', async ({ page }) => {
+    await setContent(page,
+      '<p>Source</p><ul data-type="taskList"><li data-type="taskItem"><p>Task</p></li></ul>',
+    );
+    const source = page.locator(`${editorSelector} p:has-text("Source")`);
+    const target = page.locator(`${editorSelector} li[data-type="taskItem"]`);
+    await source.hover();
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    const handle = page.locator(dragBtnSelector);
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    const targetBox = await target.boundingBox();
+    if (!targetBox) throw new Error('no target box');
+    await page.locator(editorSelector).dispatchEvent('dragover', {
+      dataTransfer: dt,
+      clientX: targetBox.x + 40,
+      clientY: targetBox.y + targetBox.height * 0.5,
+    });
+    const info = await indicatorInfo(page);
+    expect(info?.mode).toBe('nested');
+    expect(info?.borderTopStyle).toBe('dashed');
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
 // 3. Drop result invariants - drop transaction still uses moveBlock
 //    regardless of mode. Drop with right-zone X over a listItem flips
 //    mode to 'nested' (Phase 3) but the actual move is still sibling-
