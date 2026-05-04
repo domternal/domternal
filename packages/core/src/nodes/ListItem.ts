@@ -9,12 +9,20 @@
  *    - Empty + Enter -> liftListItem (lift entire item out, "exit empty bullet")
  *    - Non-empty + Enter -> splitListItem (new sibling listItem)
  *  - Cursor in CHILDREN-ZONE paragraph (childIndex > 0):
- *    - Empty + Enter -> liftEmptyChildrenZoneParagraph (lift ONLY this paragraph,
- *      label & non-paragraph children stay inside the listItem). Mirrors Notion.
- *    - Non-empty + Enter -> splitListItem (existing behaviour, may evolve in Plan 4 Phase 5)
+ *    - Empty + Enter -> insertChildrenZoneSibling (Notion-style: insert another
+ *      empty paragraph as next sibling INSIDE the same list item, accumulating
+ *      so the user can build elaborate children-zone content). Exit via the
+ *      Backspace handler below or Shift+Tab (ListIndent.outdentBlockFromListItem).
+ *    - Non-empty + Enter -> splitListItem (existing behaviour, may evolve later)
+ *
+ * Backspace behaviour:
+ *  - At start of EMPTY children-zone paragraph -> liftEmptyChildrenZoneParagraph
+ *    (exit list as a top-level paragraph). Discoverable counterpart to Enter
+ *    accumulation.
  *
  * Keyboard shortcuts:
  * - Enter: see matrix above
+ * - Backspace: see matrix above
  * - Tab/Shift-Tab: Handled by ListKeymap extension (included via addExtensions)
  */
 
@@ -23,6 +31,7 @@ import { splitListItem, liftListItem } from '@domternal/pm/schema-list';
 import { Selection } from '@domternal/pm/state';
 import { ListKeymap } from '../extensions/ListKeymap.js';
 import { getListItemCursorContext } from '../utils/listItemCursorContext.js';
+import { insertChildrenZoneSibling } from '../utils/insertChildrenZoneSibling.js';
 import { liftEmptyChildrenZoneParagraph } from '../utils/liftEmptyChildrenZoneParagraph.js';
 
 export interface ListItemOptions {
@@ -70,14 +79,13 @@ export const ListItem = Node.create<ListItemOptions>({
         // would never get a chance.
         if ($from.parent.type.name !== 'paragraph') return false;
 
-        // Plan 4 Phase 3: Notion-style "exit indent" for an empty
-        // paragraph in the children-zone. Without this branch, the
-        // existing splitListItem -> liftListItem chain would lift the
-        // ENTIRE list item out, dumping all of its non-paragraph
-        // children to the top level (the original user-reported bug).
+        // Plan 4 Phase 5: Notion-style accumulate. Cursor in an empty
+        // paragraph that sits in the children-zone (not the label) ->
+        // insert another empty paragraph as the next sibling INSIDE the
+        // same list item. Exit via Backspace or Shift+Tab.
         const ctx = getListItemCursorContext($from);
         if (ctx && ctx.isInChildrenZone && ctx.paragraphIsEmpty) {
-          if (liftEmptyChildrenZoneParagraph(state, view.dispatch, ctx)) return true;
+          if (insertChildrenZoneSibling(state, view.dispatch, ctx)) return true;
         }
 
         if (splitListItem(this.nodeType)(state, view.dispatch)) return true;
@@ -105,6 +113,29 @@ export const ListItem = Node.create<ListItemOptions>({
         }
 
         return liftListItem(this.nodeType)(state, view.dispatch);
+      },
+
+      Backspace: () => {
+        if (!this.editor || !this.nodeType) return false;
+        const { state, view } = this.editor;
+        const { $from, empty } = state.selection;
+        // Only act on collapsed selection at offset 0 of an empty
+        // textblock - the natural "this line is blank, remove it" intent.
+        if (!empty || $from.parentOffset !== 0) return false;
+        if ($from.parent.content.size !== 0) return false;
+
+        // Plan 4 Phase 6: Notion-style exit. Cursor in an EMPTY
+        // paragraph in the children-zone -> lift it out as a top-level
+        // paragraph (= exit the list one nesting level). Counterpart to
+        // the Enter accumulate path above.
+        const ctx = getListItemCursorContext($from);
+        if (ctx && ctx.isInChildrenZone && ctx.paragraphIsEmpty) {
+          if (liftEmptyChildrenZoneParagraph(state, view.dispatch, ctx)) return true;
+        }
+
+        // Fall through: ListKeymap / BaseKeymap handle the empty-label
+        // backspace cases (joinBackward / liftListItem).
+        return false;
       },
     };
   },

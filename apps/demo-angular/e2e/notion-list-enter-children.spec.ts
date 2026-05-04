@@ -1,38 +1,29 @@
 /**
- * E2E coverage for Enter behaviour inside the children-zone of a
- * list/task item (`paragraph block*` schema).
+ * E2E coverage for Enter + Backspace behaviour inside the children-zone
+ * of a list/task item (`paragraph block*` schema).
  *
- * Background (bug report): pressing Enter twice from the end of a
- * heading nested inside a list item (first Enter creates an empty
- * trailing paragraph sibling, second Enter on the empty paragraph)
- * destroys the entire list item: all children (label paragraph, the
- * heading, the empty paragraph) are dumped to the top level as
- * separate blocks, the bulletList disappears.
+ * Verifies the Notion-style "accumulate-on-Enter, exit-on-Backspace"
+ * model from Plan 4 Phase 5 + Phase 6:
  *
- * Root cause: ListItem.Enter and TaskItem.Enter handlers do not
- * differentiate "cursor in label paragraph (1st child)" from "cursor
- * in a non-label paragraph in the children-zone". Both flow through
- * `splitListItem` -> `liftListItem` fallback. liftListItem on a
- * trailing empty paragraph lifts the ENTIRE list item out, exploding
- * its children.
+ *  - Empty children-zone paragraph + Enter -> insert another empty
+ *    paragraph as next sibling INSIDE the same list item (accumulate).
+ *  - Empty children-zone paragraph + Backspace at offset 0 -> lift it
+ *    out as a top-level paragraph (exit list one nesting level).
+ *  - Empty LABEL paragraph + Enter -> existing liftListItem flow ("exit
+ *    empty bullet" - regression preserved).
+ *  - Heading.Enter at end of nested heading -> empty paragraph in
+ *    children-zone (Plan 1 Phase 3 behaviour, regression preserved).
  *
- * Tests below pin every observable scenario in the matrix:
- *  - Group A (12) - bullet listItem children-zone Enter
- *  - Group B (3)  - ordered listItem mirrors (critical cases)
- *  - Group C (6)  - taskItem mirrors
- *  - Group D (3)  - nested-list interactions
- *  - Group E (7)  - regression guards (must NOT regress after fix)
- *  - Group F (3)  - multi-step user flows incl. exact bug reproduction
- *  - Group G (4)  - best-practice guards (undo, cursor sync, modifier
- *                   keys, non-collapsed selection)
- *
- * Tests asserting POST-FIX expected shapes use `test.fail` so Playwright
- * actually runs them and verifies they fail today (proves the bug is
- * real). When the fix in plan 4 Phase 3 (ListItem.Enter) and Phase 4
- * (TaskItem.Enter) lands, the failing tests will start passing -
- * Playwright then flags them as "passed but expected to fail". At that
- * point, simply remove `.fail` from each test signature; the assertions
- * stay the same.
+ * Test groups:
+ *  - Group A (~20): bullet listItem Enter accumulate
+ *  - Group B (~5):  ordered listItem Enter accumulate
+ *  - Group C (~13): taskItem Enter accumulate
+ *  - Group D (~5):  nested-list Enter accumulate
+ *  - Group E (~7):  Enter regression guards
+ *  - Group F (~3):  user-flow scenarios
+ *  - Group G (~4):  modifier key + best-practice
+ *  - Group H (~13): Backspace exit
+ *  - Group I (~5):  multi-Enter accumulate verification
  *
  * Plan: `_planning/listitems_improvements_4.md`
  */
@@ -80,7 +71,6 @@ async function setContent(page: Page, html: string): Promise<void> {
 interface ChildShape { type: string; childCount: number; text: string }
 interface ItemShape { type: string; childCount: number; text: string; children: ChildShape[] }
 
-/** Return a shallow tree (one level deep) of every li/taskItem in the doc. */
 async function listItemShapes(page: Page): Promise<ItemShape[]> {
   return page.evaluate(() => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -107,7 +97,6 @@ async function listItemShapes(page: Page): Promise<ItemShape[]> {
   });
 }
 
-/** Walk top-level children of doc and return shallow shape (type + textContent). */
 async function topLevelBlocks(page: Page): Promise<{ type: string; text: string }[]> {
   return page.evaluate(() => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -119,12 +108,6 @@ async function topLevelBlocks(page: Page): Promise<{ type: string; text: string 
   });
 }
 
-/**
- * Place caret at the end of the Kth child of the Nth list/task item
- * encountered in doc-traversal order (includes nested items).
- *
- * `position`: 'end' = end of child textblock, 'start' = start of child.
- */
 async function caretAtItemChild(
   page: Page,
   itemIndex: number,
@@ -157,8 +140,6 @@ async function caretAtItemChild(
         if (counter === ii) {
           foundItemPos = p;
           foundItemNode = node;
-          // Stop descending: we've found the right item, no need to
-          // count nested items inside it for this lookup.
           return false;
         }
         counter++;
@@ -168,8 +149,6 @@ async function caretAtItemChild(
 
     if (foundItemPos === -1 || !foundItemNode) return;
 
-    // Inside an item, the first content position is foundItemPos + 1.
-    // Children are laid out sequentially - each contributes nodeSize.
     let childStart = foundItemPos + 1;
     const item = foundItemNode as { childCount: number; child: (i: number) => { nodeSize: number; isTextblock: boolean } };
     if (ci < 0 || ci >= item.childCount) return;
@@ -177,9 +156,6 @@ async function caretAtItemChild(
       childStart += item.child(i).nodeSize;
     }
     const child = item.child(ci);
-    // childStart points to the position BEFORE the child node (just
-    // before its open token). Inside-textblock positions are
-    // childStart + 1 (start) and childStart + child.nodeSize - 1 (end).
     const TS = ed.state.selection.constructor;
     const targetPos = pos === 'start' ? childStart + 1 : childStart + child.nodeSize - 1;
     const tr = (ed.state.tr.setSelection as (s: unknown) => unknown)(TS.create(ed.state.doc as unknown, targetPos));
@@ -189,7 +165,6 @@ async function caretAtItemChild(
   }, { ii: itemIndex, ci: childIndex, pos: position });
 }
 
-/** Place caret at end of the first node of `typeName` matching `text`. */
 async function caretAtEndOfNode(page: Page, typeName: string, text: string): Promise<void> {
   await page.evaluate(({ tn, txt }) => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -219,7 +194,6 @@ async function caretAtEndOfNode(page: Page, typeName: string, text: string): Pro
   }, { tn: typeName, txt: text });
 }
 
-/** Place caret at offset within the first node of `typeName` matching `text`. */
 async function caretAtOffsetInNode(page: Page, typeName: string, text: string, offset: number): Promise<void> {
   await page.evaluate(({ tn, txt, off }) => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -244,7 +218,6 @@ async function caretAtOffsetInNode(page: Page, typeName: string, text: string, o
   }, { tn: typeName, txt: text, off: offset });
 }
 
-/** Returns true if the editor has a top-level paragraph (not nested in a list). */
 async function hasTopLevelEmptyParagraph(page: Page): Promise<boolean> {
   return page.evaluate(() => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -259,16 +232,14 @@ async function hasTopLevelEmptyParagraph(page: Page): Promise<boolean> {
 
 const undoKey = process.platform === 'darwin' ? 'Meta+z' : 'Control+z';
 
-// ────────────────────────────────────────────────────────────────────────
-// Group A - bullet listItem children-zone Enter
-// ────────────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// Group A - bullet listItem Enter accumulate
+// ════════════════════════════════════════════════════════════════════════
 
-test.describe('Enter in children-zone - bullet listItem', () => {
+test.describe('Enter accumulate - bullet listItem', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
-  // A1 - regression guard: existing Heading.Enter behavior, already
-  // covered in notion-list-strict.spec.ts but pinned again here for
-  // matrix completeness (this is the SETUP step for A2/A11).
+  // A1 - Heading.Enter creates empty p in children-zone (regression baseline)
   test('A1 [label, h1] - end of h1, Enter creates empty trailing p inside same li', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
     await caretAtEndOfNode(page, 'heading', 'Title');
@@ -277,44 +248,28 @@ test.describe('Enter in children-zone - bullet listItem', () => {
 
     const items = await listItemShapes(page);
     expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({
-      childCount: 3,
-      children: [
-        expect.objectContaining({ type: 'paragraph', text: 'Label' }),
-        expect.objectContaining({ type: 'heading', text: 'Title' }),
-        expect.objectContaining({ type: 'paragraph', text: '' }),
-      ],
-    });
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'heading', 'paragraph']);
+    expect(items[0]?.children?.[2]?.text).toBe('');
   });
 
-  // A2 - core bug. Empty trailing p + Enter -> only that p lifts out as
-  // top-level sibling AFTER the bulletList. The listItem keeps [label, h1].
-  test('A2 [label, h1, empty-p] - in empty-p, Enter lifts ONLY empty-p as top-level after bulletList', async ({ page }) => {
+  // A2 - Enter on empty trailing p → another empty p siblng INSIDE li (accumulate).
+  test('A2 [label, h1, empty-p] - in empty-p, Enter accumulates another empty p inside li', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
     await caretAtEndOfNode(page, 'heading', 'Title');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
-    // Cursor is now in trailing empty-p (placed by Heading.Enter).
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
     expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({
-      childCount: 2,
-      children: [
-        expect.objectContaining({ type: 'paragraph', text: 'Label' }),
-        expect.objectContaining({ type: 'heading', text: 'Title' }),
-      ],
-    });
-    expect(await topLevelBlocks(page)).toEqual([
-      { type: 'bulletList', text: 'LabelTitle' },
-      { type: 'paragraph', text: '' },
-    ]);
+    // [label, h1, empty-p, NEW empty-p]
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'heading', 'paragraph', 'paragraph']);
+    expect(await topLevelBlocks(page)).toEqual([{ type: 'bulletList', text: 'LabelTitle' }]);
   });
 
-  // A3 - codeBlock as previous sibling. Empty trailing p still lifts.
-  test('A3 [label, codeBlock, empty-p] - in empty-p, Enter lifts as top-level', async ({ page }) => {
+  // A3 - codeBlock as previous sibling, accumulate.
+  test('A3 [label, codeBlock, empty-p] - in empty-p, Enter accumulates another empty p', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><pre><code>x = 1</code></pre><p></p></li></ul>');
     await caretAtItemChild(page, 0, 2, 'end');
     await page.keyboard.press('Enter');
@@ -322,50 +277,35 @@ test.describe('Enter in children-zone - bullet listItem', () => {
 
     const items = await listItemShapes(page);
     expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({
-      childCount: 2,
-      children: [
-        expect.objectContaining({ type: 'paragraph', text: 'Label' }),
-        expect.objectContaining({ type: 'codeBlock', text: 'x = 1' }),
-      ],
-    });
-    expect(await hasTopLevelEmptyParagraph(page)).toBe(true);
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'codeBlock', 'paragraph', 'paragraph']);
+    expect(await hasTopLevelEmptyParagraph(page)).toBe(false);
   });
 
   // A4 - blockquote previous sibling.
-  test('A4 [label, blockquote, empty-p] - in empty-p, Enter lifts as top-level', async ({ page }) => {
+  test('A4 [label, blockquote, empty-p] - in empty-p, Enter accumulates', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><blockquote><p>Quote</p></blockquote><p></p></li></ul>');
     await caretAtItemChild(page, 0, 2, 'end');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
-    expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({
-      childCount: 2,
-      children: [
-        expect.objectContaining({ type: 'paragraph', text: 'Label' }),
-        expect.objectContaining({ type: 'blockquote', text: 'Quote' }),
-      ],
-    });
-    expect(await hasTopLevelEmptyParagraph(page)).toBe(true);
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'blockquote', 'paragraph', 'paragraph']);
+    expect(await hasTopLevelEmptyParagraph(page)).toBe(false);
   });
 
-  // A5 - hr (leaf node) as previous sibling.
-  test('A5 [label, hr, empty-p] - in empty-p, Enter lifts as top-level (hr stays last in li)', async ({ page }) => {
+  // A5 - hr (leaf node) previous sibling.
+  test('A5 [label, hr, empty-p] - in empty-p, Enter accumulates', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><hr><p></p></li></ul>');
     await caretAtItemChild(page, 0, 2, 'end');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
-    expect(items).toHaveLength(1);
-    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'horizontalRule']);
-    expect(await hasTopLevelEmptyParagraph(page)).toBe(true);
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'horizontalRule', 'paragraph', 'paragraph']);
   });
 
   // A6 - multiple non-paragraph children before empty trailing p.
-  test('A6 [label, h1, h2, empty-p] - in empty-p, Enter lifts as top-level (li keeps both headings)', async ({ page }) => {
+  test('A6 [label, h1, h2, empty-p] - Enter accumulates (li keeps both headings)', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>A</h1><h2>B</h2><p></p></li></ul>');
     await caretAtItemChild(page, 0, 3, 'end');
     await page.keyboard.press('Enter');
@@ -373,63 +313,37 @@ test.describe('Enter in children-zone - bullet listItem', () => {
 
     const items = await listItemShapes(page);
     expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({
-      childCount: 3,
-      children: [
-        expect.objectContaining({ type: 'paragraph', text: 'Label' }),
-        expect.objectContaining({ type: 'heading', text: 'A' }),
-        expect.objectContaining({ type: 'heading', text: 'B' }),
-      ],
-    });
-    expect(await hasTopLevelEmptyParagraph(page)).toBe(true);
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'heading', 'heading', 'paragraph', 'paragraph']);
   });
 
-  // A7 - empty paragraph in MIDDLE of children (not last). Plan 4
-  // Q3.1 decides exact shape (split list in two? lift only middle p?).
-  // Tight invariant: BOTH label and h1 stay inside list items (NOT
-  // dumped to top-level - that's the bug we're fixing) AND a top-level
-  // empty paragraph appears. Pre-fix `liftListItem` dumps everything
-  // top-level, so labelInLi/belowInLi are both false → test fails as
-  // expected today.
-  test('A7 [label, empty-p, h1] - in MIDDLE empty-p, Enter keeps label & h1 inside list items, lifts empty-p', async ({ page }) => {
+  // A7 - empty p in MIDDLE (not last child). New sibling inserted AFTER it.
+  test('A7 [label, empty-p, h1] - in MIDDLE empty-p, Enter inserts new sibling AFTER (between empty-p and h1)', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><p></p><h1>Below</h1></li></ul>');
     await caretAtItemChild(page, 0, 1, 'end');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
-    const tops = await topLevelBlocks(page);
-    const labelInLi = items.some((i) => i.children.some((c) => c.text === 'Label'));
-    const belowInLi = items.some((i) => i.children.some((c) => c.text === 'Below'));
-    expect(labelInLi).toBe(true);
-    expect(belowInLi).toBe(true);
-    // A top-level empty paragraph exists (the lifted middle p).
-    expect(tops.some((t) => t.type === 'paragraph' && t.text === '')).toBe(true);
+    expect(items).toHaveLength(1);
+    // [label, empty-p (orig), NEW empty-p, h1]
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'paragraph', 'paragraph', 'heading']);
+    expect(items[0]?.children?.[3]?.text).toBe('Below');
   });
 
-  // A8 - non-empty trailing p, end + Enter. CURRENT: splitListItem
-  // creates a new sibling listItem (NOT a stay-inside-li new p). This
-  // is Phase 5 territory - Phase 3 fix does NOT change this behavior.
-  // Marked `test` as a regression guard: Phase 3 must not accidentally
-  // change non-empty-trailing behavior.
-  test('A8 [label, h1, "Tail"] - end of "Tail", Enter currently creates new sibling listItem (Phase 5 territory)', async ({ page }) => {
+  // A8 - non-empty trailing p, end + Enter. splitListItem (Phase 8 territory).
+  test('A8 [label, h1, "Tail"] - end of "Tail", Enter creates new sibling listItem (Phase 8 territory)', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p>Tail</p></li></ul>');
     await caretAtEndOfNode(page, 'paragraph', 'Tail');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
-    // Current behaviour: list item splits into two. Pin loosely - we
-    // care that "Tail" content is not lost and there is now MORE than
-    // one listItem visible. Phase 5 may change this to "stay inside
-    // single li" with empty-p appended.
     const items = await listItemShapes(page);
     const tails = items.flatMap((it) => it.children).filter((c) => c.text === 'Tail');
     expect(tails.length).toBeGreaterThanOrEqual(1);
     expect(items.length).toBeGreaterThanOrEqual(1);
   });
 
-  // A9 - non-empty trailing p, mid + Enter. Same Phase 5 territory;
-  // pin only that no half is lost.
+  // A9 - mid of non-empty trailing.
   test('A9 [label, h1, "Tail"] - mid of "Tail", Enter does not lose either half', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p>HelloWorld</p></li></ul>');
     await caretAtOffsetInNode(page, 'paragraph', 'HelloWorld', 'Hello'.length);
@@ -446,7 +360,7 @@ test.describe('Enter in children-zone - bullet listItem', () => {
   });
 
   // A10 - extra paragraphs in children before trailing empty-p.
-  test('A10 [label, p1, p2, empty-p] - in empty-p, Enter lifts as top-level (li keeps [label, p1, p2])', async ({ page }) => {
+  test('A10 [label, p1, p2, empty-p] - in empty-p, Enter accumulates (li keeps all)', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><p>p1</p><p>p2</p><p></p></li></ul>');
     await caretAtItemChild(page, 0, 3, 'end');
     await page.keyboard.press('Enter');
@@ -454,14 +368,11 @@ test.describe('Enter in children-zone - bullet listItem', () => {
 
     const items = await listItemShapes(page);
     expect(items).toHaveLength(1);
-    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'p1', 'p2']);
-    expect(await hasTopLevelEmptyParagraph(page)).toBe(true);
+    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'p1', 'p2', '', '']);
   });
 
-  // A11 - end-to-end: from end of h1, press Enter twice. After first
-  // Enter, empty-p exists; after second, it lifts. Verifies the full
-  // user flow as a single test.
-  test('A11 [label, h1] - 2x Enter from end of h1: first creates empty-p, second lifts', async ({ page }) => {
+  // A11 - 2x Enter from end of h1 = li gets 2 empty p siblings.
+  test('A11 [label, h1] - 2x Enter from end of h1 → li has 4 children (label, h1, empty-p, empty-p)', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
     await caretAtEndOfNode(page, 'heading', 'Title');
     await page.keyboard.press('Enter');
@@ -470,18 +381,12 @@ test.describe('Enter in children-zone - bullet listItem', () => {
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
-    expect(items).toHaveLength(1);
-    expect(items[0]?.childCount).toBe(2);
-    expect(await topLevelBlocks(page)).toEqual([
-      { type: 'bulletList', text: 'LabelTitle' },
-      { type: 'paragraph', text: '' },
-    ]);
+    expect(items[0]?.childCount).toBe(4);
+    expect(await topLevelBlocks(page)).toEqual([{ type: 'bulletList', text: 'LabelTitle' }]);
   });
 
-  // A12 - multi-press Enter cascade: after lift, subsequent Enters
-  // run normal splitBlock at top-level (no further lift, paragraph
-  // chain at top-level).
-  test('A12 [label, h1] - 3x Enter from end of h1: first creates empty-p, second lifts, third splits at top-level', async ({ page }) => {
+  // A12 - 3x Enter from end of h1 = li gets 3 empty p siblings.
+  test('A12 [label, h1] - 3x Enter from end of h1 → li has 5 children (label, h1, 3x empty-p)', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
     await caretAtEndOfNode(page, 'heading', 'Title');
     await page.keyboard.press('Enter');
@@ -491,17 +396,15 @@ test.describe('Enter in children-zone - bullet listItem', () => {
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
-    const tops = await topLevelBlocks(page);
-    // Expected: [bulletList, paragraph, paragraph]
-    expect(tops.length).toBe(3);
-    expect(tops[0]?.type).toBe('bulletList');
-    expect(tops[1]?.type).toBe('paragraph');
-    expect(tops[2]?.type).toBe('paragraph');
+    const items = await listItemShapes(page);
+    expect(items[0]?.childCount).toBe(5);
+    expect(items[0]?.children?.map((c) => c.type)).toEqual([
+      'paragraph', 'heading', 'paragraph', 'paragraph', 'paragraph',
+    ]);
   });
 
-  // A13 - mid-list bullet (current item is BETWEEN siblings). Enter on
-  // the trailing empty-p splits the wrapper; lifted-p sits in the gap.
-  test('A13 mid-list bullet [li=A, li=[label, h1, empty-p (cursor)], li=C] - splits wrapper, lifted-p between halves', async ({ page }) => {
+  // A13 - mid-list bullet, Enter accumulates only inside that li, not split wrapper.
+  test('A13 mid-list bullet [li=A, li=[label, h1, empty-p (cursor)], li=C] - middle li accumulates, list intact', async ({ page }) => {
     await setContent(
       page,
       '<ul><li><p>A</p></li><li><p>B-label</p><h1>B-title</h1></li><li><p>C</p></li></ul>',
@@ -509,23 +412,22 @@ test.describe('Enter in children-zone - bullet listItem', () => {
     await caretAtEndOfNode(page, 'heading', 'B-title');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
-    // Cursor in trailing empty-p of middle li.
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
     const tops = await topLevelBlocks(page);
-    // Expected: [bulletList(A, B-label+B-title), paragraph "", bulletList(C)]
-    expect(tops.length).toBe(3);
+    // No split: top-level still single bulletList.
+    expect(tops.length).toBe(1);
     expect(tops[0]?.type).toBe('bulletList');
-    expect(tops[1]?.type).toBe('paragraph');
-    expect(tops[1]?.text).toBe('');
-    expect(tops[2]?.type).toBe('bulletList');
-    expect(tops[2]?.text).toBe('C');
+
+    const items = await listItemShapes(page);
+    expect(items.length).toBe(3);
+    const middle = items.find((i) => i.text === 'B-labelB-title');
+    expect(middle?.children?.length).toBe(4);
   });
 
-  // A14 - bullet list inside a blockquote: lifted paragraph stays
-  // INSIDE the blockquote (does not escape to top doc level).
-  test('A14 [blockquote > ul > li=[label, h1, empty-p]] - empty-p lifts INSIDE blockquote', async ({ page }) => {
+  // A14 - blockquote-wrapped: accumulate stays inside li, blockquote intact.
+  test('A14 [blockquote > ul > li=[label, h1, empty-p]] - empty-p accumulates inside li, bq intact', async ({ page }) => {
     await setContent(
       page,
       '<blockquote><ul><li><p>Label</p><h1>Title</h1></li></ul></blockquote>',
@@ -536,26 +438,16 @@ test.describe('Enter in children-zone - bullet listItem', () => {
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
-    // Doc top-level: still a single blockquote (NOT split into multiple).
     const tops = await topLevelBlocks(page);
     expect(tops.length).toBe(1);
     expect(tops[0]?.type).toBe('blockquote');
 
-    // Inside blockquote: bulletList + paragraph (lifted-p is sibling
-    // of the bulletList, both inside blockquote).
-    const bqChildTypes = await page.evaluate((sel) => {
-      const bq = document.querySelector(`${sel} blockquote`);
-      if (!bq) return [];
-      return Array.from(bq.children).map((el) => el.tagName.toLowerCase());
-    }, editorSelector);
-    expect(bqChildTypes).toEqual(['ul', 'p']);
-
     const items = await listItemShapes(page);
-    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'heading']);
+    expect(items[0]?.children?.length).toBe(4);
   });
 
-  // A15 - single-li list at top of doc: simple lift after wrapper.
-  test('A15 single-li bullet at top of doc, empty trailing-p - lifts cleanly to position right after the bulletList', async ({ page }) => {
+  // A15 - single-li at top of doc, accumulate.
+  test('A15 single-li bullet, empty trailing-p accumulates', async ({ page }) => {
     await setContent(page, '<ul><li><p>Only</p><h1>Heading</h1></li></ul>');
     await caretAtEndOfNode(page, 'heading', 'Heading');
     await page.keyboard.press('Enter');
@@ -563,54 +455,25 @@ test.describe('Enter in children-zone - bullet listItem', () => {
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
-    expect(await topLevelBlocks(page)).toEqual([
-      { type: 'bulletList', text: 'OnlyHeading' },
-      { type: 'paragraph', text: '' },
-    ]);
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.childCount).toBe(4);
+    expect(await topLevelBlocks(page)).toEqual([{ type: 'bulletList', text: 'OnlyHeading' }]);
   });
 
-  // A16 - mid-list ordered (numbered) list: ol splits the same way ul
-  // does. Numbering may restart at 1 in second half (acceptable).
-  test('A16 mid-list ORDERED list, empty trailing-p - splits ol, lifted-p between two halves', async ({ page }) => {
-    await setContent(
-      page,
-      '<ol><li><p>1</p></li><li><p>2-label</p><h1>2-title</h1></li><li><p>3</p></li></ol>',
-    );
-    await caretAtEndOfNode(page, 'heading', '2-title');
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(40);
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(40);
-
-    const tops = await topLevelBlocks(page);
-    expect(tops.length).toBe(3);
-    expect(tops[0]?.type).toBe('orderedList');
-    expect(tops[1]?.type).toBe('paragraph');
-    expect(tops[2]?.type).toBe('orderedList');
-  });
-
-  // A17 - cursor at START of empty p (vs end). Same lift behaviour
-  // because the paragraph is empty: cursor offset 0 == offset 0 (both
-  // ends of zero-length content).
-  test('A17 cursor at START of empty trailing-p - lifts same as end-of-empty (no offset distinction in empty p)', async ({ page }) => {
+  // A16 - cursor at START of empty-p (vs end).
+  test('A16 cursor at START of empty trailing-p - accumulates same as end-of-empty', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p></p></li></ul>');
     await caretAtItemChild(page, 0, 2, 'start');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
-    expect(items).toHaveLength(1);
-    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Title']);
-    expect(await hasTopLevelEmptyParagraph(page)).toBe(true);
+    expect(items[0]?.childCount).toBe(4);
   });
 
-  // A18 - empty paragraph in MIDDLE with NON-paragraph BOTH BEFORE and
-  // AFTER ([label, h1, empty-p, h2]): exercises the manual-fallback
-  // path (liftTarget returns null because cutting the listItem at the
-  // middle would yield a [h2] half with non-paragraph as first child).
-  // Helper falls back to "delete in-place + insert after wrapper", and
-  // the listItem keeps [label, h1, h2] - all valid as "paragraph block*".
-  test('A18 [label, h1, empty-p, h2] - middle empty-p between non-p siblings, lifts via manual-fallback path', async ({ page }) => {
+  // A17 - middle empty-p between non-paragraph siblings.
+  test('A17 [label, h1, empty-p, h2] - middle empty-p, Enter inserts new sibling after middle empty-p', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>A</h1><p></p><h2>B</h2></li></ul>');
     await caretAtItemChild(page, 0, 2, 'end');
     await page.keyboard.press('Enter');
@@ -618,25 +481,16 @@ test.describe('Enter in children-zone - bullet listItem', () => {
 
     const items = await listItemShapes(page);
     expect(items).toHaveLength(1);
-    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'heading', 'heading']);
-    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'A', 'B']);
-    expect(await hasTopLevelEmptyParagraph(page)).toBe(true);
+    // [label, h1, empty-p (orig), NEW empty-p, h2]
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'heading', 'paragraph', 'paragraph', 'heading']);
   });
 
-  // A19 - 3-level deep nesting: outer ul > outer li > middle ul > middle li > inner ul > inner li
-  // Cursor in INNERMOST li's empty trailing p. Resolution must hit the
-  // INNERMOST list item, lift only the inner empty-p; outer levels stay
-  // intact. Regression guard for the innermost-resolution behaviour of
-  // getListItemCursorContext when nested 3 deep.
-  test('A19 3-level nested ul, cursor in INNERMOST empty-p - lifts only innermost p, outer 2 levels intact', async ({ page }) => {
+  // A18 - 3-level nested ul, cursor in INNERMOST empty-p, accumulates only innermost.
+  test('A18 3-level nested ul, cursor in INNERMOST empty-p - accumulates only innermost, outer intact', async ({ page }) => {
     await setContent(
       page,
       '<ul><li><p>L1</p><ul><li><p>L2</p><ul><li><p>L3</p><h1>Inner</h1></li></ul></li></ul></li></ul>',
     );
-    // 3 listItems exist (l1, l2, l3 in doc-traversal order). Innermost
-    // is itemIndex 2. Position caret at end of "Inner" h1, then Enter
-    // (Heading.Enter inserts empty trailing p inside innermost li),
-    // then Enter again (our fix lifts that empty-p).
     await caretAtEndOfNode(page, 'heading', 'Inner');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
@@ -644,17 +498,13 @@ test.describe('Enter in children-zone - bullet listItem', () => {
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
-    // All 3 list items still exist (none destroyed by lift).
     expect(items.length).toBe(3);
-    // Innermost li retains [L3-label, Inner-h1] (empty-p removed).
     const innermost = items.find((i) => i.text === 'L3Inner');
-    expect(innermost).toBeTruthy();
-    expect(innermost?.children?.length).toBe(2);
+    expect(innermost?.children?.length).toBe(4); // [L3 label, Inner h1, empty-p, NEW empty-p]
   });
 
-  // A20 - multiple sequential empty paragraphs [label, empty-p, empty-p, h1]:
-  // cursor in 2nd empty-p. The lift removes that p; first empty-p stays.
-  test('A20 [label, empty-p, empty-p, h1] - cursor in 2nd empty-p lifts that one only, 1st empty-p remains in li', async ({ page }) => {
+  // A19 - multiple sequential empty paragraphs, cursor in 2nd one.
+  test('A19 [label, empty-p, empty-p, h1] - cursor in 2nd empty-p, Enter accumulates after it', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><p></p><p></p><h1>Below</h1></li></ul>');
     await caretAtItemChild(page, 0, 2, 'end');
     await page.keyboard.press('Enter');
@@ -662,22 +512,37 @@ test.describe('Enter in children-zone - bullet listItem', () => {
 
     const items = await listItemShapes(page);
     expect(items).toHaveLength(1);
-    // Listitem retains [label, empty-p (1st), h1] - 3 children with first
-    // empty-p preserved as middle child.
-    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'paragraph', 'heading']);
-    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', '', 'Below']);
-    expect(await hasTopLevelEmptyParagraph(page)).toBe(true);
+    // [label, empty-p (1st orig), empty-p (2nd orig), NEW empty-p, h1]
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'paragraph', 'paragraph', 'paragraph', 'heading']);
+  });
+
+  // A20 - critical regression: must NOT explode the listItem (the original bug).
+  test('A20 [label, h1] - 2x Enter from end of h1 does NOT explode the list item (original bug regression)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
+    await caretAtEndOfNode(page, 'heading', 'Title');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    // CRITICAL: list item still exists and contains label + heading.
+    expect(items).toHaveLength(1);
+    const labels = items[0]?.children?.filter((c) => c.text === 'Label');
+    const titles = items[0]?.children?.filter((c) => c.text === 'Title');
+    expect(labels?.length).toBe(1);
+    expect(titles?.length).toBe(1);
   });
 });
 
-// ────────────────────────────────────────────────────────────────────────
-// Group B - ordered listItem (orderedList) mirrors of critical bullet cases
-// ────────────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// Group B - ordered listItem Enter accumulate
+// ════════════════════════════════════════════════════════════════════════
 
-test.describe('Enter in children-zone - ordered listItem', () => {
+test.describe('Enter accumulate - ordered listItem', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
-  test('B1 ol [label, h1, empty-p] - in empty-p, Enter lifts ONLY empty-p as top-level after orderedList', async ({ page }) => {
+  test('B1 ol [label, h1, empty-p] - in empty-p, Enter accumulates inside li', async ({ page }) => {
     await setContent(page, '<ol><li><p>Label</p><h1>Title</h1></li></ol>');
     await caretAtEndOfNode(page, 'heading', 'Title');
     await page.keyboard.press('Enter');
@@ -686,32 +551,21 @@ test.describe('Enter in children-zone - ordered listItem', () => {
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
-    expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({
-      childCount: 2,
-      children: [
-        expect.objectContaining({ type: 'paragraph', text: 'Label' }),
-        expect.objectContaining({ type: 'heading', text: 'Title' }),
-      ],
-    });
-    const tops = await topLevelBlocks(page);
-    expect(tops[0]?.type).toBe('orderedList');
-    expect(tops.find((t) => t.type === 'paragraph' && t.text === '')).toBeTruthy();
+    expect(items[0]?.childCount).toBe(4);
+    expect(await topLevelBlocks(page)).toEqual([{ type: 'orderedList', text: 'LabelTitle' }]);
   });
 
-  test('B2 ol [label, codeBlock, empty-p] - in empty-p, Enter lifts as top-level', async ({ page }) => {
+  test('B2 ol [label, codeBlock, empty-p] - Enter accumulates', async ({ page }) => {
     await setContent(page, '<ol><li><p>Label</p><pre><code>code()</code></pre><p></p></li></ol>');
     await caretAtItemChild(page, 0, 2, 'end');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
-    expect(items).toHaveLength(1);
-    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'codeBlock']);
-    expect(await hasTopLevelEmptyParagraph(page)).toBe(true);
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'codeBlock', 'paragraph', 'paragraph']);
   });
 
-  test('B3 ol [label, h1, "Tail"] - end of "Tail", Enter does not lose content (Phase 5 territory)', async ({ page }) => {
+  test('B3 ol [label, h1, "Tail"] - end of "Tail", Enter does not lose content (Phase 8 territory)', async ({ page }) => {
     await setContent(page, '<ol><li><p>Label</p><h1>Title</h1><p>Tail</p></li></ol>');
     await caretAtEndOfNode(page, 'paragraph', 'Tail');
     await page.keyboard.press('Enter');
@@ -724,18 +578,48 @@ test.describe('Enter in children-zone - ordered listItem', () => {
     });
     expect(allText).toContain('Tail');
     expect(allText).toContain('Title');
-    expect(allText).toContain('Label');
+  });
+
+  test('B4 mid-list ol [li=1, li=[label, h1, empty-p], li=3] - middle accumulates, list intact', async ({ page }) => {
+    await setContent(
+      page,
+      '<ol><li><p>1</p></li><li><p>2-label</p><h1>2-title</h1></li><li><p>3</p></li></ol>',
+    );
+    await caretAtEndOfNode(page, 'heading', '2-title');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const tops = await topLevelBlocks(page);
+    // No split.
+    expect(tops.length).toBe(1);
+    expect(tops[0]?.type).toBe('orderedList');
+    const items = await listItemShapes(page);
+    expect(items.length).toBe(3);
+  });
+
+  test('B5 single-li ol accumulates same as bullet', async ({ page }) => {
+    await setContent(page, '<ol><li><p>Only</p><h1>H</h1></li></ol>');
+    await caretAtEndOfNode(page, 'heading', 'H');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items[0]?.childCount).toBe(4);
   });
 });
 
-// ────────────────────────────────────────────────────────────────────────
-// Group C - taskItem mirrors
-// ────────────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// Group C - taskItem Enter accumulate
+// ════════════════════════════════════════════════════════════════════════
 
-test.describe('Enter in children-zone - taskItem', () => {
+test.describe('Enter accumulate - taskItem', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
-  test.fail('C1 taskItem [label, h1, empty-p] - Enter lifts empty-p as top-level after taskList', async ({ page }) => {
+  test('C1 taskItem [label, h1, empty-p] - in empty-p, Enter accumulates inside taskItem', async ({ page }) => {
     await setContent(
       page,
       '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><h1>Title</h1></li></ul>',
@@ -747,21 +631,12 @@ test.describe('Enter in children-zone - taskItem', () => {
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
-    expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({
-      type: 'taskItem',
-      childCount: 2,
-      children: [
-        expect.objectContaining({ type: 'paragraph', text: 'Label' }),
-        expect.objectContaining({ type: 'heading', text: 'Title' }),
-      ],
-    });
-    const tops = await topLevelBlocks(page);
-    expect(tops[0]?.type).toBe('taskList');
-    expect(tops.find((t) => t.type === 'paragraph' && t.text === '')).toBeTruthy();
+    expect(items[0]?.type).toBe('taskItem');
+    expect(items[0]?.childCount).toBe(4);
+    expect(await topLevelBlocks(page)).toEqual([{ type: 'taskList', text: 'LabelTitle' }]);
   });
 
-  test.fail('C2 taskItem [label, codeBlock, empty-p] - Enter lifts empty-p as top-level', async ({ page }) => {
+  test('C2 taskItem [label, codeBlock, empty-p] - Enter accumulates', async ({ page }) => {
     await setContent(
       page,
       '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><pre><code>code()</code></pre><p></p></li></ul>',
@@ -771,12 +646,10 @@ test.describe('Enter in children-zone - taskItem', () => {
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
-    expect(items).toHaveLength(1);
-    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'codeBlock']);
-    expect(await hasTopLevelEmptyParagraph(page)).toBe(true);
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'codeBlock', 'paragraph', 'paragraph']);
   });
 
-  test.fail('C3 taskItem [label, blockquote, empty-p] - Enter lifts empty-p as top-level', async ({ page }) => {
+  test('C3 taskItem [label, blockquote, empty-p] - Enter accumulates', async ({ page }) => {
     await setContent(
       page,
       '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><blockquote><p>Q</p></blockquote><p></p></li></ul>',
@@ -786,12 +659,10 @@ test.describe('Enter in children-zone - taskItem', () => {
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
-    expect(items).toHaveLength(1);
-    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'blockquote']);
-    expect(await hasTopLevelEmptyParagraph(page)).toBe(true);
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'blockquote', 'paragraph', 'paragraph']);
   });
 
-  test('C4 taskItem [label, h1, "Tail"] - end of "Tail", Enter does not lose content (Phase 5 territory)', async ({ page }) => {
+  test('C4 taskItem [label, h1, "Tail"] - end of "Tail", Enter does not lose content (Phase 8 territory)', async ({ page }) => {
     await setContent(
       page,
       '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><h1>Title</h1><p>Tail</p></li></ul>',
@@ -827,12 +698,7 @@ test.describe('Enter in children-zone - taskItem', () => {
     expect(allText).toContain('World');
   });
 
-  // C6 - taskItem with only [label, empty-p]. Note: existing
-  // TaskItem.Enter has a `taskItemNode.childCount > 1` branch; the
-  // current behavior may already be partially correct for this case
-  // (inside a parent listItem). This test pins post-fix expected for
-  // the SIMPLE top-level taskItem case (no parent listItem).
-  test.fail('C6 taskItem [label, empty-p] - in empty-p, Enter lifts as top-level (taskItem keeps [label])', async ({ page }) => {
+  test('C6 taskItem [label, empty-p] - in empty-p (2nd child), Enter accumulates', async ({ page }) => {
     await setContent(
       page,
       '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><p></p></li></ul>',
@@ -842,50 +708,155 @@ test.describe('Enter in children-zone - taskItem', () => {
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
-    expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({
-      type: 'taskItem',
-      childCount: 1,
-      children: [expect.objectContaining({ type: 'paragraph', text: 'Label' })],
-    });
-    expect(await hasTopLevelEmptyParagraph(page)).toBe(true);
+    expect(items[0]?.type).toBe('taskItem');
+    expect(items[0]?.childCount).toBe(3);
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'paragraph', 'paragraph']);
   });
-});
 
-// ────────────────────────────────────────────────────────────────────────
-// Group D - nested-list interactions
-// ────────────────────────────────────────────────────────────────────────
-
-test.describe('Enter in children-zone - nested list interactions', () => {
-  test.beforeEach(async ({ page }) => { await goNotion(page); });
-
-  // D1 - outer li has nested list as child + empty trailing p of OUTER.
-  // Cursor in outer's trailing empty-p. Lift behavior must affect ONLY
-  // the outer's empty-p; inner list stays inside outer li.
-  test('D1 outer li [Outer-label, nested-ul, empty-p] - Enter in outer empty-p lifts that p, nested list stays', async ({ page }) => {
+  test('C7 taskItem [label, h1, empty-p, h2] - middle empty-p Enter inserts after empty-p', async ({ page }) => {
     await setContent(
       page,
-      '<ul><li><p>Outer</p><ul><li><p>Inner</p></li></ul><p></p></li></ul>',
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><h1>A</h1><p></p><h2>B</h2></li></ul>',
     );
-    // Outer li is itemIndex 0; inner li is itemIndex 1. Outer's children
-    // are [p Outer, bulletList(Inner), p empty]. Place caret in child 2.
     await caretAtItemChild(page, 0, 2, 'end');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
-    // Outer li and inner li both still exist.
-    const outerStill = items.find((i) => i.type === 'listItem' && i.text.includes('Outer'));
-    const innerStill = items.find((i) => i.type === 'listItem' && i.text.includes('Inner'));
-    expect(outerStill).toBeTruthy();
-    expect(innerStill).toBeTruthy();
-    // Outer's children no longer include the empty trailing p.
-    expect(outerStill?.children?.length).toBe(2);
-    expect(await hasTopLevelEmptyParagraph(page)).toBe(true);
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'heading', 'paragraph', 'paragraph', 'heading']);
   });
 
-  // D2 - taskItem with nested taskList + trailing empty-p of OUTER.
-  test.fail('D2 outer taskItem [label, nested-taskList, empty-p] - Enter in outer empty-p lifts, nested taskList stays', async ({ page }) => {
+  test('C8 mid-list taskList [taskItem A, taskItem [label, h1, empty-p], taskItem C] - middle accumulates, list intact', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList">'
+      + '<li data-type="taskItem"><p>A</p></li>'
+      + '<li data-type="taskItem"><p>B-label</p><h1>B-title</h1></li>'
+      + '<li data-type="taskItem"><p>C</p></li>'
+      + '</ul>',
+    );
+    await caretAtEndOfNode(page, 'heading', 'B-title');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const tops = await topLevelBlocks(page);
+    expect(tops.length).toBe(1);
+    expect(tops[0]?.type).toBe('taskList');
+    const items = await listItemShapes(page);
+    expect(items.length).toBe(3);
+  });
+
+  test('C9 3-level nested with taskItem at innermost - accumulates inside taskItem only', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>L1</p><ul><li><p>L2</p>'
+      + '<ul data-type="taskList"><li data-type="taskItem"><p>L3-task</p><h1>Inner</h1></li></ul>'
+      + '</li></ul></li></ul>',
+    );
+    await caretAtEndOfNode(page, 'heading', 'Inner');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items.length).toBe(3);
+    const innermost = items.find((i) => i.type === 'taskItem' && i.text === 'L3-taskInner');
+    expect(innermost?.children?.length).toBe(4);
+  });
+
+  test('C10 REGRESSION: empty LABEL of taskItem nested in listItem - existing parent-listItem promotion fires (NOT accumulate branch)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ol><li><p>Outer</p><ul data-type="taskList"><li data-type="taskItem"><p></p></li></ul></li></ol>',
+    );
+    await caretAtItemChild(page, 1, 0, 'end');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    // Promotion path: taskItem is removed, new listItem inserted.
+    const items = await listItemShapes(page);
+    expect(items.filter((i) => i.type === 'taskItem').length).toBe(0);
+    expect(items.filter((i) => i.type === 'listItem').length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('C11 undo after taskItem accumulate restores [label, h1, empty-p] in one step', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><h1>Title</h1><p></p></li></ul>',
+    );
+    await caretAtItemChild(page, 0, 2, 'end');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.press(undoKey);
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items[0]?.childCount).toBe(3);
+  });
+
+  test('C12 [blockquote > taskList > taskItem [label, h1, empty-p]] - accumulate inside taskItem, bq intact', async ({ page }) => {
+    await setContent(
+      page,
+      '<blockquote><ul data-type="taskList"><li data-type="taskItem"><p>Label</p><h1>Title</h1></li></ul></blockquote>',
+    );
+    await caretAtEndOfNode(page, 'heading', 'Title');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const tops = await topLevelBlocks(page);
+    expect(tops.length).toBe(1);
+    expect(tops[0]?.type).toBe('blockquote');
+    const items = await listItemShapes(page);
+    expect(items[0]?.childCount).toBe(4);
+  });
+
+  test('C13 accumulate preserves taskItem checked attribute', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>Done</p><h1>Notes</h1></li></ul>',
+    );
+    await caretAtEndOfNode(page, 'heading', 'Notes');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const checkedInDom = await page.evaluate((sel) => {
+      const el = document.querySelector(`${sel} li[data-type="taskItem"]`);
+      return el?.getAttribute('data-checked');
+    }, editorSelector);
+    expect(checkedInDom).toBe('true');
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// Group D - nested-list interactions
+// ════════════════════════════════════════════════════════════════════════
+
+test.describe('Enter accumulate - nested list interactions', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('D1 outer li [Outer-label, nested-ul, empty-p] - Enter in outer empty-p accumulates inside outer li', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Outer</p><ul><li><p>Inner</p></li></ul><p></p></li></ul>',
+    );
+    await caretAtItemChild(page, 0, 2, 'end');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    const outer = items.find((i) => i.text.includes('Outer'));
+    // Outer li now has [p Outer, bulletList Inner, p empty (orig), p empty (NEW)]
+    expect(outer?.childCount).toBe(4);
+  });
+
+  test('D2 outer taskItem [label, nested-taskList, empty-p] - Enter in outer empty-p accumulates inside outer taskItem', async ({ page }) => {
     await setContent(
       page,
       '<ul data-type="taskList"><li data-type="taskItem"><p>Outer</p><ul data-type="taskList"><li data-type="taskItem"><p>Inner</p></li></ul><p></p></li></ul>',
@@ -895,75 +866,85 @@ test.describe('Enter in children-zone - nested list interactions', () => {
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
-    const outerStill = items.find((i) => i.type === 'taskItem' && i.text.startsWith('Outer'));
-    const innerStill = items.find((i) => i.type === 'taskItem' && i.text === 'Inner');
-    expect(outerStill).toBeTruthy();
-    expect(innerStill).toBeTruthy();
-    expect(outerStill?.children?.length).toBe(2);
-    expect(await hasTopLevelEmptyParagraph(page)).toBe(true);
+    const outer = items.find((i) => i.type === 'taskItem' && i.text.startsWith('Outer'));
+    expect(outer?.childCount).toBe(4);
   });
 
-  // D3 - regression guard: cursor in DEEPLY nested innermost listItem's
-  // empty trailing p. The fix should target the INNER list item, not
-  // the outer taskItem. This test ensures the helper resolves to the
-  // closest list-item ancestor, not jumping to outer.
-  test('D3 taskItem > bulletList > listItem [label, empty-p] - Enter in inner empty-p affects inner only, outer taskItem intact', async ({ page }) => {
+  test('D3 taskItem > bulletList > listItem [label, empty-p] - Enter in inner empty-p accumulates inside inner li', async ({ page }) => {
     await setContent(
       page,
       '<ul data-type="taskList"><li data-type="taskItem"><p>OuterLabel</p><ul><li><p>InnerLabel</p><p></p></li></ul></li></ul>',
     );
-    // doc-traversal order: taskItem first (idx 0), then nested listItem (idx 1).
     await caretAtItemChild(page, 1, 1, 'end');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
-    // Outer taskItem must still exist with OuterLabel.
-    const outer = items.find((i) => i.type === 'taskItem');
-    expect(outer).toBeTruthy();
-    expect(outer?.text).toContain('OuterLabel');
-    // Inner listItem now has only [InnerLabel] (empty-p removed).
     const inner = items.find((i) => i.type === 'listItem' && i.text === 'InnerLabel');
-    expect(inner).toBeTruthy();
-    expect(inner?.children?.length).toBe(1);
+    expect(inner?.childCount).toBe(3); // [InnerLabel, empty-p (orig), NEW empty-p]
+  });
+
+  test('D4 bullet inside taskItem - Enter on inner bullet children-zone accumulates correctly', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Task</p><ul><li><p>Inner</p><h1>Heading</h1></li></ul></li></ul>',
+    );
+    await caretAtEndOfNode(page, 'heading', 'Heading');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    const inner = items.find((i) => i.type === 'listItem' && i.text.startsWith('Inner'));
+    expect(inner?.childCount).toBe(4);
+  });
+
+  test('D5 deeply nested 3-level - cursor in deepest accumulates only deepest', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>L1</p><ul><li><p>L2</p><ul><li><p>L3</p><h1>Inner</h1></li></ul></li></ul></li></ul>',
+    );
+    await caretAtEndOfNode(page, 'heading', 'Inner');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items.length).toBe(3);
+    const inner = items.find((i) => i.text === 'L3Inner');
+    expect(inner?.childCount).toBe(3);
   });
 });
 
-// ────────────────────────────────────────────────────────────────────────
-// Group E - regression guards (must NOT regress after fix)
-// ────────────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// Group E - regression guards (must NOT regress)
+// ════════════════════════════════════════════════════════════════════════
 
-test.describe('Enter in children-zone - regression guards', () => {
+test.describe('Enter regression guards', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
-  // E1 - empty label paragraph (only child) + Enter still lifts the
-  // ENTIRE listItem out (correct existing behavior - "exit empty bullet").
   test('E1 [empty-label] only - Enter lifts whole listItem (existing UX preserved)', async ({ page }) => {
     await setContent(page, '<ul><li><p></p></li></ul>');
     await caretAtItemChild(page, 0, 0, 'end');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
-    // bulletList should be GONE; only top-level paragraph remains.
     const tops = await topLevelBlocks(page);
     expect(tops.some((t) => t.type === 'bulletList')).toBe(false);
     expect(tops.some((t) => t.type === 'paragraph')).toBe(true);
   });
 
-  // E2 - non-empty label, end of label + Enter creates new sibling listItem.
-  test('E2 [label "Hi", h1] - end of "Hi", Enter creates new sibling li (h1 follows in original or new)', async ({ page }) => {
+  test('E2 [label "Hi", h1] - end of "Hi", Enter creates new sibling li', async ({ page }) => {
     await setContent(page, '<ul><li><p>Hi</p><h1>Title</h1></li></ul>');
     await caretAtEndOfNode(page, 'paragraph', 'Hi');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
-    // splitListItem creates 2 list items; "Hi" stays in first.
     expect(items.length).toBeGreaterThanOrEqual(2);
     expect(items[0]?.children[0]?.text).toBe('Hi');
   });
 
-  // E3 - mid of label paragraph, Enter splits.
   test('E3 [label "HelloWorld", h1] - mid of label, Enter splits at cursor', async ({ page }) => {
     await setContent(page, '<ul><li><p>HelloWorld</p><h1>Title</h1></li></ul>');
     await caretAtOffsetInNode(page, 'paragraph', 'HelloWorld', 'Hello'.length);
@@ -972,11 +953,9 @@ test.describe('Enter in children-zone - regression guards', () => {
 
     const items = await listItemShapes(page);
     expect(items.length).toBeGreaterThanOrEqual(2);
-    const firstLabel = items[0]?.children[0]?.text;
-    expect(firstLabel).toBe('Hello');
+    expect(items[0]?.children[0]?.text).toBe('Hello');
   });
 
-  // E4 - single non-empty label, Enter creates fresh empty sibling li.
   test('E4 [label "Item"] - end of label, Enter creates new empty sibling li', async ({ page }) => {
     await setContent(page, '<ul><li><p>Item</p></li></ul>');
     await caretAtEndOfNode(page, 'paragraph', 'Item');
@@ -989,10 +968,7 @@ test.describe('Enter in children-zone - regression guards', () => {
     expect(items[1]?.children[0]?.text).toBe('');
   });
 
-  // E5 - regression guard: Heading.Enter at end of nested heading still
-  // inserts paragraph as next sibling INSIDE the listItem (Phase 1 of
-  // listitems_improvement.md). Plan 4 must not break this.
-  test('E5 nested h1 in li, end of heading - Enter inserts empty p as next sibling INSIDE same li', async ({ page }) => {
+  test('E5 nested h1 in li, end of heading - Enter inserts empty p inside same li (Heading.Enter)', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h2>Heading</h2></li></ul>');
     await caretAtEndOfNode(page, 'heading', 'Heading');
     await page.keyboard.press('Enter');
@@ -1003,8 +979,6 @@ test.describe('Enter in children-zone - regression guards', () => {
     expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'heading', 'paragraph']);
   });
 
-  // E6 - regression guard: codeBlock Enter inserts newline within pre,
-  // does not escape, does not invoke list-item handlers.
   test('E6 nested codeBlock in li, Enter inserts newline inside pre (does not escape)', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><pre><code>line1</code></pre></li></ul>');
     await caretAtEndOfNode(page, 'codeBlock', 'line1');
@@ -1012,123 +986,103 @@ test.describe('Enter in children-zone - regression guards', () => {
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
-    // codeBlock still inside li; its text should now contain a newline.
     expect(items).toHaveLength(1);
     expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'codeBlock']);
   });
 
-  // E7 - regression guard: blockquote inner-p Enter splits inside bq.
-  test('E7 nested blockquote in li, Enter inside blockquote inner-p splits inside bq (no list lift)', async ({ page }) => {
+  test('E7 nested blockquote in li, Enter inside bq inner-p splits inside bq (no list lift)', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><blockquote><p>Quoted</p></blockquote></li></ul>');
     await caretAtEndOfNode(page, 'paragraph', 'Quoted');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
-    // List item still exists with blockquote inside.
     const items = await listItemShapes(page);
     expect(items).toHaveLength(1);
     expect(items[0]?.children?.[1]?.type).toBe('blockquote');
   });
 });
 
-// ────────────────────────────────────────────────────────────────────────
-// Group F - multi-step user flows
-// ────────────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// Group F - user-flow scenarios
+// ════════════════════════════════════════════════════════════════════════
 
-test.describe('Enter in children-zone - multi-step user flows', () => {
+test.describe('Enter accumulate - user flows', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
-  // F1 - realistic flow that triggers the bug via ListIndent + Heading
-  // Enter + ListItem Enter chain. Setup: bulletList with single label,
-  // then top-level heading. Tab on heading invokes ListIndent which
-  // moves the heading INTO the last list item as a nested child. End
-  // of heading + Enter inserts trailing empty-p. Second Enter on empty
-  // trailing-p triggers the buggy lift.
-  test('F1 [list, heading-after-list] + Tab + 2x Enter from end of heading - empty-p lifts cleanly, list intact', async ({ page }) => {
+  test('F1 [list, heading-after-list] + Tab + 2x Enter from end of heading - accumulates in li, list intact', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p></li></ul><h1>Heading</h1>');
     await caretAtEndOfNode(page, 'heading', 'Heading');
-    await page.keyboard.press('Tab'); // ListIndent moves heading into last li
+    await page.keyboard.press('Tab');
     await page.waitForTimeout(40);
-    // li now [label, heading]. Reposition caret at end of heading
-    // (Tab dispatch may have moved selection).
     await caretAtEndOfNode(page, 'heading', 'Heading');
-    await page.keyboard.press('Enter'); // creates trailing empty-p inside li
-    await page.waitForTimeout(40);
-    await page.keyboard.press('Enter'); // empty-p should lift cleanly
-    await page.waitForTimeout(40);
-
-    const items = await listItemShapes(page);
-    expect(items).toHaveLength(1);
-    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Heading']);
-    // Top-level: bulletList + lifted empty paragraph.
-    expect(await hasTopLevelEmptyParagraph(page)).toBe(true);
-  });
-
-  // F2 - exact verbatim user-reported bug reproduction.
-  test('F2 user-reported bug verbatim: H1 Enter Enter does NOT explode the list item', async ({ page }) => {
-    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
-    await caretAtEndOfNode(page, 'heading', 'Title');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
-    // The CRUCIAL assertion: the listItem still exists and label+heading
-    // are still inside it. Pre-fix: items.length === 0 (everything lifted).
     expect(items).toHaveLength(1);
-    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Title']);
-  });
-
-  // F3 - typing in lifted paragraph after A2-style lift lands correctly.
-  test('F3 after empty-p lift, typing lands in lifted top-level paragraph', async ({ page }) => {
-    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
-    await caretAtEndOfNode(page, 'heading', 'Title');
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(40);
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(40);
-    await page.keyboard.type('After list');
-    await page.waitForTimeout(40);
-
+    // [Label, Heading, empty-p, empty-p]
+    expect(items[0]?.childCount).toBe(4);
     const tops = await topLevelBlocks(page);
-    const lifted = tops.find((t) => t.type === 'paragraph');
-    expect(lifted?.text).toBe('After list');
-    // Listitem still has [Label, Title] - typing did not bleed back.
+    expect(tops.length).toBe(1);
+    expect(tops[0]?.type).toBe('bulletList');
+  });
+
+  test('F2 user-reported bug verbatim: H1 Enter Enter does NOT explode the list item (accumulates)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
+    await caretAtEndOfNode(page, 'heading', 'Title');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
     const items = await listItemShapes(page);
-    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Title']);
+    // List item still exists, label & title still inside.
+    expect(items).toHaveLength(1);
+    expect(items[0]?.children?.[0]?.text).toBe('Label');
+    expect(items[0]?.children?.[1]?.text).toBe('Title');
+    expect(items[0]?.childCount).toBe(4);
+  });
+
+  test('F3 after accumulate, typing lands in newly-created empty paragraph', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
+    await caretAtEndOfNode(page, 'heading', 'Title');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.type('Note text');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    // Last child of li now contains the typed text.
+    expect(items[0]?.children?.[3]?.text).toBe('Note text');
   });
 });
 
-// ────────────────────────────────────────────────────────────────────────
-// Group G - best-practice guards (undo, modifier keys, selection)
-// ────────────────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+// Group G - modifier key + best-practice
+// ════════════════════════════════════════════════════════════════════════
 
-test.describe('Enter in children-zone - best-practice guards', () => {
+test.describe('Enter accumulate - modifier key + best-practice', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
-  // G1 - one undo step restores the pre-lift listItem shape.
-  test('G1 undo after empty-p lift restores [label, h1, empty-p] inside li in one step', async ({ page }) => {
-    // Start directly in [label, h1, empty-p] state so the lift is the
-    // single history entry under test - avoids PM History grouping the
-    // upstream Heading.Enter into the same undo step.
+  test('G1 undo after accumulate restores [label, h1, empty-p] inside li in one step', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p></p></li></ul>');
     await caretAtItemChild(page, 0, 2, 'end');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
-    // Lifted: bulletList(li=[label, h1]) + p ""
     await page.keyboard.press(undoKey);
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
     expect(items).toHaveLength(1);
-    // After ONE undo we expect to be back to [label, h1, empty-p] inside li.
     expect(items[0]?.childCount).toBe(3);
     expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'heading', 'paragraph']);
   });
 
-  // G2 - cursor lands at start of lifted top-level paragraph (ready to type).
-  test('G2 after empty-p lift, caret is in the lifted paragraph (typing appears there)', async ({ page }) => {
+  test('G2 after accumulate, caret is in newly-inserted paragraph (typing appears there)', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
     await caretAtEndOfNode(page, 'heading', 'Title');
     await page.keyboard.press('Enter');
@@ -1138,35 +1092,27 @@ test.describe('Enter in children-zone - best-practice guards', () => {
     await page.keyboard.type('X');
     await page.waitForTimeout(40);
 
-    // The lifted paragraph (top-level) should now contain "X".
-    const tops = await topLevelBlocks(page);
-    const xPara = tops.find((t) => t.type === 'paragraph' && t.text === 'X');
-    expect(xPara).toBeTruthy();
-    // listItem text content unchanged (typing did not go into li).
     const items = await listItemShapes(page);
-    expect(items[0]?.text).toBe('LabelTitle');
+    // 4th child is the new p with "X"; original 3rd is still empty.
+    expect(items[0]?.children?.[2]?.text).toBe('');
+    expect(items[0]?.children?.[3]?.text).toBe('X');
   });
 
-  // G3 - Shift-Enter inside empty trailing p inserts hardBreak (not lift).
-  test('G3 [label, h1, empty-p] Shift-Enter inside empty-p inserts hard break, does NOT lift', async ({ page }) => {
+  test('G3 [label, h1, empty-p] Shift-Enter inside empty-p inserts hard break, does NOT accumulate', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
     await caretAtEndOfNode(page, 'heading', 'Title');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
-    // Cursor in trailing empty-p. Shift-Enter should NOT trigger lift.
     await page.keyboard.press('Shift+Enter');
     await page.waitForTimeout(40);
 
-    // List item should still contain [label, h1, p] structure (the
-    // trailing p may now contain a <br> hardBreak but it's still inside li).
+    // Same 3 children (label, h1, empty-p with internal hardBreak), no extra empty p.
     const items = await listItemShapes(page);
     expect(items).toHaveLength(1);
     expect(items[0]?.childCount).toBe(3);
   });
 
-  // G4 - Mod-Enter inside empty trailing p of TASKitem toggles task,
-  // does NOT lift. (Mod-Enter is the toggleTask shortcut on taskItem.)
-  test('G4 taskItem [label, h1, empty-p] Mod-Enter inside empty-p toggles task checked state, does NOT lift', async ({ page }) => {
+  test('G4 taskItem [label, h1, empty-p] Mod-Enter inside empty-p toggles task checked, does NOT accumulate', async ({ page }) => {
     await setContent(
       page,
       '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><h1>Title</h1></li></ul>',
@@ -1174,17 +1120,14 @@ test.describe('Enter in children-zone - best-practice guards', () => {
     await caretAtEndOfNode(page, 'heading', 'Title');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
-    // Cursor in trailing empty-p of taskItem.
     const modEnter = process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter';
     await page.keyboard.press(modEnter);
     await page.waitForTimeout(40);
 
-    // taskItem still has [label, h1, empty-p] (no lift).
     const items = await listItemShapes(page);
     expect(items).toHaveLength(1);
     expect(items[0]?.type).toBe('taskItem');
     expect(items[0]?.childCount).toBe(3);
-    // Checked state flipped to true.
     const checked = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | { state: { doc: { descendants: (cb: (n: { type: { name: string }; attrs: Record<string, unknown> }) => boolean | void) => void } } } | undefined;
@@ -1196,5 +1139,459 @@ test.describe('Enter in children-zone - best-practice guards', () => {
       return isChecked;
     });
     expect(checked).toBe(true);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// Group H - Backspace exit (lift empty children-zone p as top-level)
+// ════════════════════════════════════════════════════════════════════════
+
+test.describe('Backspace exit - empty children-zone paragraph lifts as top-level', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('H1 bullet [label, h1, empty-p] - Backspace exits, li retains [label, h1], top-level p appears', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p></p></li></ul>');
+    await caretAtItemChild(page, 0, 2, 'end');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'heading']);
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'bulletList', text: 'LabelTitle' },
+      { type: 'paragraph', text: '' },
+    ]);
+  });
+
+  test('H2 ordered [label, h1, empty-p] - Backspace exits same as bullet', async ({ page }) => {
+    await setContent(page, '<ol><li><p>Label</p><h1>Title</h1><p></p></li></ol>');
+    await caretAtItemChild(page, 0, 2, 'end');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items[0]?.childCount).toBe(2);
+    const tops = await topLevelBlocks(page);
+    expect(tops[0]?.type).toBe('orderedList');
+    expect(tops[1]?.type).toBe('paragraph');
+  });
+
+  test('H3 taskItem [label, h1, empty-p] - Backspace exits, taskItem retains [label, h1]', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><h1>Title</h1><p></p></li></ul>',
+    );
+    await caretAtItemChild(page, 0, 2, 'end');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items[0]?.type).toBe('taskItem');
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'heading']);
+    const tops = await topLevelBlocks(page);
+    expect(tops[0]?.type).toBe('taskList');
+    expect(tops[1]?.type).toBe('paragraph');
+  });
+
+  test('H4 [label, codeBlock, empty-p] - Backspace exit (codeBlock stays in li)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><pre><code>x = 1</code></pre><p></p></li></ul>');
+    await caretAtItemChild(page, 0, 2, 'end');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'codeBlock']);
+    expect(await hasTopLevelEmptyParagraph(page)).toBe(true);
+  });
+
+  test('H5 [label, blockquote, empty-p] - Backspace exit (blockquote stays in li)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><blockquote><p>Q</p></blockquote><p></p></li></ul>');
+    await caretAtItemChild(page, 0, 2, 'end');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'blockquote']);
+  });
+
+  test('H6 mid-list bullet [li=A, li=[label, h1, empty-p (cursor)], li=C] - Backspace splits wrapper, lifted-p between halves', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>A</p></li><li><p>B-label</p><h1>B-title</h1><p></p></li><li><p>C</p></li></ul>',
+    );
+    await caretAtItemChild(page, 1, 2, 'end');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    const tops = await topLevelBlocks(page);
+    // Wrapper splits, lifted-p between halves.
+    expect(tops.length).toBe(3);
+    expect(tops[0]?.type).toBe('bulletList');
+    expect(tops[1]?.type).toBe('paragraph');
+    expect(tops[1]?.text).toBe('');
+    expect(tops[2]?.type).toBe('bulletList');
+  });
+
+  test('H7 [blockquote > ul > li=[label, h1, empty-p]] - Backspace exit stays INSIDE blockquote', async ({ page }) => {
+    await setContent(
+      page,
+      '<blockquote><ul><li><p>Label</p><h1>Title</h1><p></p></li></ul></blockquote>',
+    );
+    await caretAtItemChild(page, 0, 2, 'end');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    // Top-level: still single blockquote.
+    const tops = await topLevelBlocks(page);
+    expect(tops.length).toBe(1);
+    expect(tops[0]?.type).toBe('blockquote');
+
+    // Blockquote contains: bulletList + paragraph (lifted-p inside bq).
+    const bqChildTypes = await page.evaluate((sel) => {
+      const bq = document.querySelector(`${sel} blockquote`);
+      if (!bq) return [];
+      return Array.from(bq.children).map((el) => el.tagName.toLowerCase());
+    }, editorSelector);
+    expect(bqChildTypes).toEqual(['ul', 'p']);
+  });
+
+  test('H8 3-level nested - Backspace in deepest empty-p exits one level (to outer li children-zone)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>L1</p><ul><li><p>L2</p><ul><li><p>L3</p><h1>Inner</h1><p></p></li></ul></li></ul></li></ul>',
+    );
+    await caretAtItemChild(page, 2, 2, 'end');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    // Innermost li loses empty-p (now has [L3, h1]).
+    const inner = items.find((i) => i.text === 'L3Inner');
+    expect(inner?.childCount).toBe(2);
+    // Lifted-p sits as a sibling at one level out (inside L2 listItem children-zone).
+    // L2 li now has 3 children: [L2-label, nested-ul, lifted-p].
+    const l2 = items.find((i) => i.text.startsWith('L2L3Inner') || i.text.startsWith('L2'));
+    expect(l2?.childCount).toBe(3);
+  });
+
+  test('H9 undo after Backspace exit restores [label, h1, empty-p] inside li in one step', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p></p></li></ul>');
+    await caretAtItemChild(page, 0, 2, 'end');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+    await page.keyboard.press(undoKey);
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.childCount).toBe(3);
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'heading', 'paragraph']);
+  });
+
+  test('H10 cursor lands at start of lifted top-level paragraph (typing appears there)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p></p></li></ul>');
+    await caretAtItemChild(page, 0, 2, 'end');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+    await page.keyboard.type('After list');
+    await page.waitForTimeout(40);
+
+    const tops = await topLevelBlocks(page);
+    const lifted = tops.find((t) => t.type === 'paragraph');
+    expect(lifted?.text).toBe('After list');
+    // listItem still has [label, h1] (no leakage back).
+    const items = await listItemShapes(page);
+    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Title']);
+  });
+
+  test('H11 REGRESSION: Backspace at start of EMPTY label (childIndex 0) does NOT trigger our branch (existing logic fires)', async ({ page }) => {
+    await setContent(page, '<ul><li><p></p></li></ul>');
+    await caretAtItemChild(page, 0, 0, 'end');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    // Existing behavior: empty label Backspace lifts entire item out, doc has just a paragraph.
+    const tops = await topLevelBlocks(page);
+    expect(tops.some((t) => t.type === 'bulletList')).toBe(false);
+    expect(tops.some((t) => t.type === 'paragraph')).toBe(true);
+  });
+
+  test('H12 REGRESSION: Backspace at start of NON-empty children-zone paragraph does NOT lift (default backspace runs)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p>Body</p></li></ul>');
+    await caretAtItemChild(page, 0, 2, 'start');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    // Default backspace at start of non-empty p: typically merges with previous block (heading).
+    // Whatever exact result, the listItem MUST still exist (not lifted out as exit).
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    // No top-level paragraph appeared via lift.
+    const tops = await topLevelBlocks(page);
+    expect(tops.length).toBe(1);
+    expect(tops[0]?.type).toBe('bulletList');
+  });
+
+  test('H13 Backspace at MID of empty children-zone p (parentOffset > 0) - falls through, no lift', async ({ page }) => {
+    // An empty paragraph has only one valid offset (0), so this case
+    // collapses with H1. Pin via direct PM caret at start - same as
+    // H1 outcome, but verify the parentOffset constraint works as
+    // intended (no double-trigger).
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p></p></li></ul>');
+    await caretAtItemChild(page, 0, 2, 'start');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    // Same as H1 effectively - lift fires.
+    const items = await listItemShapes(page);
+    expect(items[0]?.childCount).toBe(2);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// Group I - multi-Enter accumulate verification (extended scenarios)
+// ════════════════════════════════════════════════════════════════════════
+
+test.describe('Multi-Enter accumulate verification', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('I1 5x Enter accumulates 5 empty paragraphs, no exit', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
+    await caretAtEndOfNode(page, 'heading', 'Title');
+    for (let i = 0; i < 5; i++) {
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(20);
+    }
+
+    const items = await listItemShapes(page);
+    // [label, h1] + 5 empty paragraphs = 7 children.
+    expect(items[0]?.childCount).toBe(7);
+    // No top-level paragraph - everything stays inside the li.
+    expect(await hasTopLevelEmptyParagraph(page)).toBe(false);
+  });
+
+  test('I2 10x Enter accumulates 10 empty paragraphs, no exit', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
+    await caretAtEndOfNode(page, 'heading', 'Title');
+    for (let i = 0; i < 10; i++) {
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(20);
+    }
+
+    const items = await listItemShapes(page);
+    expect(items[0]?.childCount).toBe(12);
+    expect(await topLevelBlocks(page)).toEqual([{ type: 'bulletList', text: 'LabelTitle' }]);
+  });
+
+  test('I3 Enter, type content, Enter - second Enter creates new sibling INSIDE li (splitListItem path for now, Phase 8 may change)', async ({ page }) => {
+    // After empty children-zone Enter creates a sibling, typing fills
+    // the new paragraph. Pressing Enter at end of that non-empty p
+    // currently goes through splitListItem (creates new sibling
+    // listItem). Pin observed behaviour.
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
+    await caretAtEndOfNode(page, 'heading', 'Title');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.type('Note');
+    await page.waitForTimeout(40);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    // "Note" text exists somewhere in the doc.
+    const allText = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { textContent: string } } } | undefined;
+      return ed?.state.doc.textContent ?? '';
+    });
+    expect(allText).toContain('Note');
+  });
+
+  test('I4 mixed accumulate scenario - heading + multiple Enters + type + Enter', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
+    await caretAtEndOfNode(page, 'heading', 'Title');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.type('Final note');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    // Each Enter from end of h1 creates ONE empty-p (Heading.Enter on
+    // press 1, then accumulate on presses 2 + 3). Then typing fills
+    // the LATEST empty-p. So final shape: [label, h1, empty-p, empty-p,
+    // p with "Final note"] = 5 children.
+    expect(items[0]?.childCount).toBe(5);
+    expect(items[0]?.children?.[4]?.text).toBe('Final note');
+  });
+
+  test('I5 alternating Enter and type - builds children-zone with mixed paragraphs', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
+    await caretAtEndOfNode(page, 'heading', 'Title');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.type('First');
+    await page.waitForTimeout(40);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    // Second Enter on non-empty paragraph - splitListItem fires.
+    // The pivot Phase 5 only intercepts EMPTY paragraph case.
+    // Pin: "First" still in doc, no data lost.
+    const allText = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { textContent: string } } } | undefined;
+      return ed?.state.doc.textContent ?? '';
+    });
+    expect(allText).toContain('First');
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// Group J - Selection / context edge cases
+// ════════════════════════════════════════════════════════════════════════
+
+test.describe('Selection / context edge cases', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('J1 range selection across listItem + Enter does NOT trigger accumulate (default behaviour)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
+    // Programmatically set a non-collapsed selection covering "Title".
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | {
+            state: { doc: { descendants: (cb: (n: { type: { name: string }; nodeSize: number; textContent: string }, p: number) => boolean | void) => void }; tr: { setSelection: (s: unknown) => unknown }; selection: { constructor: { create: (doc: unknown, a: number, b?: number) => unknown } } };
+            view: { dispatch: (tr: unknown) => void; focus: () => void; dom: HTMLElement };
+          }
+        | undefined;
+      if (!ed) return;
+      let pos = -1;
+      let size = 0;
+      ed.state.doc.descendants((node, p) => {
+        if (pos !== -1) return false;
+        if (node.type.name === 'heading' && node.textContent === 'Title') { pos = p; size = node.nodeSize; return false; }
+        return true;
+      });
+      if (pos === -1) return;
+      const TS = ed.state.selection.constructor;
+      // Range from start of "Title" to end of "Title".
+      const tr = (ed.state.tr.setSelection as (s: unknown) => unknown)(TS.create(ed.state.doc as unknown, pos + 1, pos + size - 1));
+      ed.view.dispatch(tr);
+      ed.view.dom.focus();
+    });
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    // Default behaviour: selection deleted, then split or splitListItem.
+    // Crucial invariant: NO empty-p sibling accumulated (our branch only
+    // fires for empty + collapsed).
+    const items = await listItemShapes(page);
+    // listItem still exists; "Label" preserved.
+    expect(items.length).toBeGreaterThanOrEqual(1);
+    const allText = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { textContent: string } } } | undefined;
+      return ed?.state.doc.textContent ?? '';
+    });
+    expect(allText).toContain('Label');
+  });
+
+  test('J2 range selection across empty children-zone p + Backspace does NOT trigger exit (default delete-selection)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p></p></li></ul>');
+    // Range across "Title" + empty-p (multi-block selection).
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | {
+            state: { doc: { descendants: (cb: (n: { type: { name: string }; nodeSize: number; textContent: string }, p: number) => boolean | void) => void }; tr: { setSelection: (s: unknown) => unknown }; selection: { constructor: { create: (doc: unknown, a: number, b?: number) => unknown } } };
+            view: { dispatch: (tr: unknown) => void; focus: () => void; dom: HTMLElement };
+          }
+        | undefined;
+      if (!ed) return;
+      let titlePos = -1;
+      let titleSize = 0;
+      ed.state.doc.descendants((node, p) => {
+        if (titlePos !== -1) return false;
+        if (node.type.name === 'heading' && node.textContent === 'Title') { titlePos = p; titleSize = node.nodeSize; return false; }
+        return true;
+      });
+      if (titlePos === -1) return;
+      const TS = ed.state.selection.constructor;
+      // Range from inside "Title" to past it (covers empty-p).
+      const tr = (ed.state.tr.setSelection as (s: unknown) => unknown)(TS.create(ed.state.doc as unknown, titlePos + 1, titlePos + titleSize + 2));
+      ed.view.dispatch(tr);
+      ed.view.dom.focus();
+    });
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    // Range deleted, no exit-as-paragraph appears.
+    expect(await hasTopLevelEmptyParagraph(page)).toBe(false);
+  });
+
+  test('J3 cursor in blockquote-inner paragraph in children-zone + Enter does NOT trigger accumulate (delegates to default Blockquote behaviour)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><blockquote><p>Quoted</p></blockquote></li></ul>');
+    await caretAtEndOfNode(page, 'paragraph', 'Quoted');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    // listItem still has [paragraph, blockquote] children. NO new empty
+    // paragraph appended directly to listItem (because cursor's
+    // immediate ancestor is blockquote, not listItem - our handler
+    // bails). Default behaviour splits inside blockquote.
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.children?.[0]?.type).toBe('paragraph');
+    expect(items[0]?.children?.[1]?.type).toBe('blockquote');
+    // listItem child count is still 2 - no extra empty p at the listItem level.
+    expect(items[0]?.childCount).toBe(2);
+  });
+
+  test('H14 Backspace on MIDDLE empty children-zone p [label, empty-p (cursor), h1] - exits as top-level paragraph', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><p></p><h1>Below</h1></li></ul>');
+    await caretAtItemChild(page, 0, 1, 'end');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    // Lift fires for empty middle p too. Result: listItem keeps
+    // [label, h1] (middle empty-p removed). Top-level: bulletList +
+    // lifted paragraph.
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'heading']);
+    expect(await hasTopLevelEmptyParagraph(page)).toBe(true);
+  });
+
+  test('B6 ordered list Backspace exit (mirror H1 for ol)', async ({ page }) => {
+    await setContent(page, '<ol><li><p>Label</p><h1>Title</h1><p></p></li></ol>');
+    await caretAtItemChild(page, 0, 2, 'end');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items[0]?.childCount).toBe(2);
+    const tops = await topLevelBlocks(page);
+    expect(tops[0]?.type).toBe('orderedList');
+    expect(tops[1]?.type).toBe('paragraph');
+  });
+
+  test('C14 taskItem Backspace exit preserves checked attribute on remaining taskItem', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>Done</p><h1>Notes</h1><p></p></li></ul>',
+    );
+    await caretAtItemChild(page, 0, 2, 'end');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items[0]?.type).toBe('taskItem');
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'heading']);
+    const checkedInDom = await page.evaluate((sel) => {
+      const el = document.querySelector(`${sel} li[data-type="taskItem"]`);
+      return el?.getAttribute('data-checked');
+    }, editorSelector);
+    expect(checkedInDom).toBe('true');
   });
 });

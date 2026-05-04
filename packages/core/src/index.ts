@@ -121,6 +121,9 @@ export {
 export {
   liftEmptyChildrenZoneParagraph,
 } from './utils/liftEmptyChildrenZoneParagraph.js';
+export {
+  insertChildrenZoneSibling,
+} from './utils/insertChildrenZoneSibling.js';
 
 // === Helpers ===
 export {

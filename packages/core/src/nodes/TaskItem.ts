@@ -4,11 +4,30 @@
  * Individual task/checkbox item that can contain paragraphs and nested blocks.
  * Used by TaskList.
  *
+ * Enter behaviour matrix (cursor's parent must be a paragraph):
+ *  - Cursor in LABEL paragraph (childIndex 0):
+ *    - Empty + Enter -> existing fallback chain: splitListItem (no-op),
+ *      then taskItem-in-listItem promotion (when applicable: orderedList >
+ *      listItem > taskList > taskItem nested context), else liftListItem.
+ *    - Non-empty + Enter -> splitListItem (new sibling taskItem)
+ *  - Cursor in CHILDREN-ZONE paragraph (childIndex > 0):
+ *    - Empty + Enter -> insertChildrenZoneSibling (Notion-style accumulate -
+ *      another empty paragraph as next sibling INSIDE the same taskItem).
+ *      Exit via Backspace or Shift+Tab (ListIndent).
+ *    - Non-empty + Enter -> splitListItem
+ *
+ * Backspace behaviour:
+ *  - At start of EMPTY children-zone paragraph (childIndex > 0) ->
+ *    liftEmptyChildrenZoneParagraph (exit list as top-level). Notion-style
+ *    "delete this line and exit" semantic.
+ *  - At start of EMPTY label paragraph (childIndex 0) -> existing
+ *    `liftListItem` (lifts the entire taskItem out, "exit empty checkbox").
+ *
  * Keyboard shortcuts:
- * - Enter: Split task item at cursor
+ * - Enter: see matrix above
+ * - Backspace: see matrix above
  * - Tab: Sink (indent) task item
  * - Shift-Tab: Lift (outdent) task item
- * - Backspace: Lift task item when at start of empty-ish item (converts to paragraph)
  * - Mod-Enter: Toggle task checked state
  */
 
@@ -16,6 +35,9 @@ import { Node } from '../Node.js';
 import { splitListItem, liftListItem, sinkListItem } from '@domternal/pm/schema-list';
 import { Selection } from '@domternal/pm/state';
 import type { CommandSpec } from '../types/Commands.js';
+import { getListItemCursorContext } from '../utils/listItemCursorContext.js';
+import { insertChildrenZoneSibling } from '../utils/insertChildrenZoneSibling.js';
+import { liftEmptyChildrenZoneParagraph } from '../utils/liftEmptyChildrenZoneParagraph.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -147,6 +169,16 @@ export const TaskItem = Node.create<TaskItemOptions>({
         // would never fire.
         if ($from.parent.type.name !== 'paragraph') return false;
 
+        // Plan 4 Phase 5: Notion-style accumulate for empty children-zone
+        // paragraphs - mirror of ListItem.Enter logic. Inserts another
+        // empty paragraph as the next sibling INSIDE the same taskItem
+        // so users can build elaborate nested content via Enter +
+        // slash commands. Exit via Backspace or Shift+Tab.
+        const ctx = getListItemCursorContext($from);
+        if (ctx && ctx.isInChildrenZone && ctx.paragraphIsEmpty) {
+          if (insertChildrenZoneSibling(state, view.dispatch, ctx)) return true;
+        }
+
         // Standard split for non-empty items
         if (splitListItem(this.nodeType)(state, view.dispatch)) return true;
 
@@ -223,6 +255,16 @@ export const TaskItem = Node.create<TaskItemOptions>({
 
         // Only at start of a textblock with empty selection
         if (!empty || $from.parentOffset !== 0) return false;
+
+        // Plan 4 Phase 6: Notion-style exit. Cursor in EMPTY children-zone
+        // paragraph (childIndex > 0) -> lift it out as a top-level
+        // paragraph. Discoverable counterpart to Enter accumulation.
+        if ($from.parent.content.size === 0) {
+          const ctx = getListItemCursorContext($from);
+          if (ctx && ctx.isInChildrenZone && ctx.paragraphIsEmpty) {
+            if (liftEmptyChildrenZoneParagraph(state, view.dispatch, ctx)) return true;
+          }
+        }
 
         // Find enclosing taskItem
         let taskItemDepth = -1;
