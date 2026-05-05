@@ -13,7 +13,11 @@
  *      empty paragraph as next sibling INSIDE the same list item, accumulating
  *      so the user can build elaborate children-zone content). Exit via the
  *      Backspace handler below or Shift+Tab (ListIndent.outdentBlockFromListItem).
- *    - Non-empty + Enter -> splitListItem (existing behaviour, may evolve later)
+ *    - Non-empty + Enter -> splitBlock (Phase 8: splits the paragraph in place,
+ *      both halves stay inside the same list item; cursor at end -> empty p
+ *      sibling appended; cursor mid -> text splits in two paragraphs). Mirrors
+ *      Notion's "Enter in children-zone always advances by one block at the
+ *      same nesting level".
  *
  * Backspace behaviour:
  *  - At start of EMPTY children-zone paragraph -> liftEmptyChildrenZoneParagraph
@@ -29,6 +33,7 @@
 import { Node } from '../Node.js';
 import { splitListItem, liftListItem } from '@domternal/pm/schema-list';
 import { Selection } from '@domternal/pm/state';
+import { splitBlock } from '@domternal/pm/commands';
 import { ListKeymap } from '../extensions/ListKeymap.js';
 import { getListItemCursorContext } from '../utils/listItemCursorContext.js';
 import { insertChildrenZoneSibling } from '../utils/insertChildrenZoneSibling.js';
@@ -79,13 +84,20 @@ export const ListItem = Node.create<ListItemOptions>({
         // would never get a chance.
         if ($from.parent.type.name !== 'paragraph') return false;
 
-        // Plan 4 Phase 5: Notion-style accumulate. Cursor in an empty
-        // paragraph that sits in the children-zone (not the label) ->
-        // insert another empty paragraph as the next sibling INSIDE the
-        // same list item. Exit via Backspace or Shift+Tab.
+        // Plan 4 Phase 5+8: children-zone Enter accumulates inside the
+        // list item, never splitting the wrapper into a new sibling
+        // listItem. Cursor in EMPTY children-zone -> insert another
+        // empty paragraph as next sibling. Cursor in NON-EMPTY children-
+        // zone -> splitBlock at cursor (text splits in place / empty
+        // sibling appended at end). Both keep the user in the children-
+        // zone of the same list item. Exit via Backspace or Shift+Tab.
         const ctx = getListItemCursorContext($from);
-        if (ctx && ctx.isInChildrenZone && ctx.paragraphIsEmpty) {
-          if (insertChildrenZoneSibling(state, view.dispatch, ctx)) return true;
+        if (ctx && ctx.isInChildrenZone) {
+          if (ctx.paragraphIsEmpty) {
+            if (insertChildrenZoneSibling(state, view.dispatch, ctx)) return true;
+          } else {
+            if (splitBlock(state, view.dispatch)) return true;
+          }
         }
 
         if (splitListItem(this.nodeType)(state, view.dispatch)) return true;

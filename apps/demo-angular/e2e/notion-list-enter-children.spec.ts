@@ -330,33 +330,34 @@ test.describe('Enter accumulate - bullet listItem', () => {
     expect(items[0]?.children?.[3]?.text).toBe('Below');
   });
 
-  // A8 - non-empty trailing p, end + Enter. splitListItem (Phase 8 territory).
-  test('A8 [label, h1, "Tail"] - end of "Tail", Enter creates new sibling listItem (Phase 8 territory)', async ({ page }) => {
+  // A8 - Phase 8: non-empty trailing p, end + Enter splits in place,
+  // empty p appended INSIDE same li (no new sibling listItem).
+  test('A8 [label, h1, "Tail"] - end of "Tail", Enter appends empty p inside same li', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p>Tail</p></li></ul>');
     await caretAtEndOfNode(page, 'paragraph', 'Tail');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
     const items = await listItemShapes(page);
-    const tails = items.flatMap((it) => it.children).filter((c) => c.text === 'Tail');
-    expect(tails.length).toBeGreaterThanOrEqual(1);
-    expect(items.length).toBeGreaterThanOrEqual(1);
+    expect(items).toHaveLength(1);
+    // [label, h1, "Tail", NEW empty-p]
+    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Title', 'Tail', '']);
+    // No new sibling listItem - top-level still single bulletList.
+    expect(await topLevelBlocks(page)).toEqual([{ type: 'bulletList', text: 'LabelTitleTail' }]);
   });
 
-  // A9 - mid of non-empty trailing.
-  test('A9 [label, h1, "Tail"] - mid of "Tail", Enter does not lose either half', async ({ page }) => {
+  // A9 - Phase 8: mid of non-empty trailing splits paragraph in place.
+  test('A9 [label, h1, "Tail"] - mid of "HelloWorld", Enter splits paragraph in place inside same li', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p>HelloWorld</p></li></ul>');
     await caretAtOffsetInNode(page, 'paragraph', 'HelloWorld', 'Hello'.length);
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
-    const allText = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { textContent: string } } } | undefined;
-      return ed?.state.doc.textContent ?? '';
-    });
-    expect(allText).toContain('Hello');
-    expect(allText).toContain('World');
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    // [label, h1, "Hello", "World"] - text split into two paragraphs both INSIDE same li.
+    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Title', 'Hello', 'World']);
+    expect(await topLevelBlocks(page)).toEqual([{ type: 'bulletList', text: 'LabelTitleHelloWorld' }]);
   });
 
   // A10 - extra paragraphs in children before trailing empty-p.
@@ -565,19 +566,16 @@ test.describe('Enter accumulate - ordered listItem', () => {
     expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'codeBlock', 'paragraph', 'paragraph']);
   });
 
-  test('B3 ol [label, h1, "Tail"] - end of "Tail", Enter does not lose content (Phase 8 territory)', async ({ page }) => {
+  test('B3 ol [label, h1, "Tail"] - end of "Tail", Enter appends empty p inside same li (Phase 8)', async ({ page }) => {
     await setContent(page, '<ol><li><p>Label</p><h1>Title</h1><p>Tail</p></li></ol>');
     await caretAtEndOfNode(page, 'paragraph', 'Tail');
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
-    const allText = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { textContent: string } } } | undefined;
-      return ed?.state.doc.textContent ?? '';
-    });
-    expect(allText).toContain('Tail');
-    expect(allText).toContain('Title');
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Title', 'Tail', '']);
+    expect(await topLevelBlocks(page)).toEqual([{ type: 'orderedList', text: 'LabelTitleTail' }]);
   });
 
   test('B4 mid-list ol [li=1, li=[label, h1, empty-p], li=3] - middle accumulates, list intact', async ({ page }) => {
@@ -662,7 +660,7 @@ test.describe('Enter accumulate - taskItem', () => {
     expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'blockquote', 'paragraph', 'paragraph']);
   });
 
-  test('C4 taskItem [label, h1, "Tail"] - end of "Tail", Enter does not lose content (Phase 8 territory)', async ({ page }) => {
+  test('C4 taskItem [label, h1, "Tail"] - end of "Tail", Enter appends empty p inside same taskItem (Phase 8)', async ({ page }) => {
     await setContent(
       page,
       '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><h1>Title</h1><p>Tail</p></li></ul>',
@@ -671,16 +669,14 @@ test.describe('Enter accumulate - taskItem', () => {
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
-    const allText = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { textContent: string } } } | undefined;
-      return ed?.state.doc.textContent ?? '';
-    });
-    expect(allText).toContain('Tail');
-    expect(allText).toContain('Title');
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.type).toBe('taskItem');
+    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Title', 'Tail', '']);
+    expect(await topLevelBlocks(page)).toEqual([{ type: 'taskList', text: 'LabelTitleTail' }]);
   });
 
-  test('C5 taskItem [label, h1, "Tail"] - mid of "Tail", Enter does not lose either half', async ({ page }) => {
+  test('C5 taskItem [label, h1, "HelloWorld"] - mid of paragraph, Enter splits in place inside same taskItem (Phase 8)', async ({ page }) => {
     await setContent(
       page,
       '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><h1>Title</h1><p>HelloWorld</p></li></ul>',
@@ -689,13 +685,10 @@ test.describe('Enter accumulate - taskItem', () => {
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
-    const allText = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { textContent: string } } } | undefined;
-      return ed?.state.doc.textContent ?? '';
-    });
-    expect(allText).toContain('Hello');
-    expect(allText).toContain('World');
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.type).toBe('taskItem');
+    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Title', 'Hello', 'World']);
   });
 
   test('C6 taskItem [label, empty-p] - in empty-p (2nd child), Enter accumulates', async ({ page }) => {
@@ -1384,11 +1377,7 @@ test.describe('Multi-Enter accumulate verification', () => {
     expect(await topLevelBlocks(page)).toEqual([{ type: 'bulletList', text: 'LabelTitle' }]);
   });
 
-  test('I3 Enter, type content, Enter - second Enter creates new sibling INSIDE li (splitListItem path for now, Phase 8 may change)', async ({ page }) => {
-    // After empty children-zone Enter creates a sibling, typing fills
-    // the new paragraph. Pressing Enter at end of that non-empty p
-    // currently goes through splitListItem (creates new sibling
-    // listItem). Pin observed behaviour.
+  test('I3 Enter, type content, Enter - second Enter appends empty p INSIDE li (Phase 8: splitBlock at end of non-empty children-zone p)', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
     await caretAtEndOfNode(page, 'heading', 'Title');
     await page.keyboard.press('Enter');
@@ -1398,13 +1387,11 @@ test.describe('Multi-Enter accumulate verification', () => {
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
 
-    // "Note" text exists somewhere in the doc.
-    const allText = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { textContent: string } } } | undefined;
-      return ed?.state.doc.textContent ?? '';
-    });
-    expect(allText).toContain('Note');
+    // "Note" stays in li, NEW empty p appended after.
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Title', 'Note', '']);
+    expect(await topLevelBlocks(page)).toEqual([{ type: 'bulletList', text: 'LabelTitleNote' }]);
   });
 
   test('I4 mixed accumulate scenario - heading + multiple Enters + type + Enter', async ({ page }) => {
@@ -1428,7 +1415,7 @@ test.describe('Multi-Enter accumulate verification', () => {
     expect(items[0]?.children?.[4]?.text).toBe('Final note');
   });
 
-  test('I5 alternating Enter and type - builds children-zone with mixed paragraphs', async ({ page }) => {
+  test('I5 alternating Enter and type - builds children-zone with mixed paragraphs (Phase 8: stays inside same li)', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
     await caretAtEndOfNode(page, 'heading', 'Title');
     await page.keyboard.press('Enter');
@@ -1437,15 +1424,18 @@ test.describe('Multi-Enter accumulate verification', () => {
     await page.waitForTimeout(40);
     await page.keyboard.press('Enter');
     await page.waitForTimeout(40);
-    // Second Enter on non-empty paragraph - splitListItem fires.
-    // The pivot Phase 5 only intercepts EMPTY paragraph case.
-    // Pin: "First" still in doc, no data lost.
-    const allText = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { textContent: string } } } | undefined;
-      return ed?.state.doc.textContent ?? '';
-    });
-    expect(allText).toContain('First');
+    await page.keyboard.type('Second');
+    await page.waitForTimeout(40);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.type('Third');
+    await page.waitForTimeout(40);
+
+    // All three notes accumulate INSIDE same li, no new sibling listItem.
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Title', 'First', 'Second', 'Third']);
+    expect(await topLevelBlocks(page)).toEqual([{ type: 'bulletList', text: 'LabelTitleFirstSecondThird' }]);
   });
 });
 
@@ -1593,5 +1583,220 @@ test.describe('Selection / context edge cases', () => {
       return el?.getAttribute('data-checked');
     }, editorSelector);
     expect(checkedInDom).toBe('true');
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════
+// Group K - Phase 8: non-empty children-zone Enter (splitBlock in place)
+// ════════════════════════════════════════════════════════════════════════
+
+test.describe('Phase 8 - non-empty children-zone Enter splits in place', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('K1 cursor at END of non-empty children-zone p - empty p sibling appended INSIDE same li', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p>Note</p></li></ul>');
+    await caretAtEndOfNode(page, 'paragraph', 'Note');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Title', 'Note', '']);
+  });
+
+  test('K2 cursor at MID of non-empty children-zone p - text splits in place inside li', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p>HelloWorld</p></li></ul>');
+    await caretAtOffsetInNode(page, 'paragraph', 'HelloWorld', 'Hello'.length);
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Title', 'Hello', 'World']);
+  });
+
+  test('K3 cursor at START of non-empty children-zone p - empty p inserted before, original content stays', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p>Note</p></li></ul>');
+    await caretAtItemChild(page, 0, 2, 'start');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    // splitBlock at offset 0: empty p inserted before, "Note" stays in original.
+    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Title', '', 'Note']);
+  });
+
+  test('K4 ordered list - end of non-empty children-zone p, Enter appends empty p inside same li', async ({ page }) => {
+    await setContent(page, '<ol><li><p>Label</p><h1>Title</h1><p>Note</p></li></ol>');
+    await caretAtEndOfNode(page, 'paragraph', 'Note');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Title', 'Note', '']);
+    expect(await topLevelBlocks(page)).toEqual([{ type: 'orderedList', text: 'LabelTitleNote' }]);
+  });
+
+  test('K5 taskItem - end of non-empty children-zone p, Enter appends empty p inside same taskItem', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><h1>Title</h1><p>Note</p></li></ul>',
+    );
+    await caretAtEndOfNode(page, 'paragraph', 'Note');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items[0]?.type).toBe('taskItem');
+    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Title', 'Note', '']);
+  });
+
+  test('K6 REGRESSION: non-empty LABEL Enter at end still creates new sibling listItem (NOT children-zone behavior)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>FirstItem</p></li></ul>');
+    await caretAtEndOfNode(page, 'paragraph', 'FirstItem');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    // Standard list-item split: "FirstItem" + empty new li.
+    expect(items).toHaveLength(2);
+    expect(items[0]?.children?.[0]?.text).toBe('FirstItem');
+    expect(items[1]?.children?.[0]?.text).toBe('');
+  });
+
+  test('K7 mid-list Phase 8 - middle li children-zone Enter accumulates inside that li, list intact', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>A</p></li><li><p>B-label</p><h1>B-title</h1><p>B-note</p></li><li><p>C</p></li></ul>',
+    );
+    await caretAtEndOfNode(page, 'paragraph', 'B-note');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const tops = await topLevelBlocks(page);
+    expect(tops.length).toBe(1);
+    expect(tops[0]?.type).toBe('bulletList');
+    const items = await listItemShapes(page);
+    expect(items.length).toBe(3); // No new sibling li created.
+    const middle = items.find((i) => i.text.includes('B-label'));
+    expect(middle?.children?.map((c) => c.text)).toEqual(['B-label', 'B-title', 'B-note', '']);
+  });
+
+  test('K8 undo regression - 1 step undo restores pre-split state', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p>Note</p></li></ul>');
+    await caretAtEndOfNode(page, 'paragraph', 'Note');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.press(undoKey);
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Title', 'Note']);
+  });
+
+  test('K9 cursor lands in NEW empty p after split-at-end (typing appears in new p)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p>Note</p></li></ul>');
+    await caretAtEndOfNode(page, 'paragraph', 'Note');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    await page.keyboard.type('Continued');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Title', 'Note', 'Continued']);
+  });
+
+  // K10 - mid-list ORDERED with non-empty children-zone p (K7 mirror for ol).
+  test('K10 mid-list ORDERED [li=1, li=[label, h1, "Note"], li=3] - middle li non-empty Enter accumulates inside, list intact', async ({ page }) => {
+    await setContent(
+      page,
+      '<ol><li><p>1</p></li><li><p>2-label</p><h1>2-title</h1><p>2-note</p></li><li><p>3</p></li></ol>',
+    );
+    await caretAtEndOfNode(page, 'paragraph', '2-note');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const tops = await topLevelBlocks(page);
+    expect(tops.length).toBe(1);
+    expect(tops[0]?.type).toBe('orderedList');
+    const items = await listItemShapes(page);
+    expect(items.length).toBe(3);
+    const middle = items.find((i) => i.text.includes('2-label'));
+    expect(middle?.children?.map((c) => c.text)).toEqual(['2-label', '2-title', '2-note', '']);
+  });
+
+  // K11 - mid-list TASK with non-empty children-zone p (K7 mirror for task).
+  test('K11 mid-list TASK [taskItem A, taskItem [label, h1, "Note"], taskItem C] - middle taskItem non-empty Enter accumulates inside, list intact', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList">'
+      + '<li data-type="taskItem"><p>A</p></li>'
+      + '<li data-type="taskItem"><p>B-label</p><h1>B-title</h1><p>B-note</p></li>'
+      + '<li data-type="taskItem"><p>C</p></li>'
+      + '</ul>',
+    );
+    await caretAtEndOfNode(page, 'paragraph', 'B-note');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const tops = await topLevelBlocks(page);
+    expect(tops.length).toBe(1);
+    expect(tops[0]?.type).toBe('taskList');
+    const items = await listItemShapes(page);
+    expect(items.length).toBe(3);
+    const middle = items.find((i) => i.text.includes('B-label'));
+    expect(middle?.type).toBe('taskItem');
+    expect(middle?.children?.map((c) => c.text)).toEqual(['B-label', 'B-title', 'B-note', '']);
+  });
+
+  // K12 - blockquote-wrapped list, non-empty children-zone p Enter (A14 mirror).
+  test('K12 [blockquote > ul > li=[label, h1, "Note"]] - non-empty Note Enter, accumulates inside li, blockquote intact', async ({ page }) => {
+    await setContent(
+      page,
+      '<blockquote><ul><li><p>Label</p><h1>Title</h1><p>Note</p></li></ul></blockquote>',
+    );
+    await caretAtEndOfNode(page, 'paragraph', 'Note');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const tops = await topLevelBlocks(page);
+    expect(tops.length).toBe(1);
+    expect(tops[0]?.type).toBe('blockquote');
+
+    const items = await listItemShapes(page);
+    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'Title', 'Note', '']);
+  });
+
+  // K13 - non-empty p BETWEEN non-paragraph siblings (mid-position case).
+  test('K13 [label, h1, "Note", h2] - end of "Note" Enter inserts empty p BETWEEN "Note" and h2 (inside same li)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Label</p><h1>A</h1><p>Note</p><h2>B</h2></li></ul>',
+    );
+    await caretAtEndOfNode(page, 'paragraph', 'Note');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+
+    const items = await listItemShapes(page);
+    expect(items).toHaveLength(1);
+    // [label, h1 A, "Note", NEW empty-p, h2 B]
+    expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'heading', 'paragraph', 'paragraph', 'heading']);
+    expect(items[0]?.children?.map((c) => c.text)).toEqual(['Label', 'A', 'Note', '', 'B']);
+  });
+
+  // K14 - 5x Enter from end of non-empty p accumulates 5 empty paragraphs.
+  test('K14 5x Enter from end of non-empty children-zone p - accumulates 5 empty paragraphs inside same li', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p>Note</p></li></ul>');
+    await caretAtEndOfNode(page, 'paragraph', 'Note');
+    for (let i = 0; i < 5; i++) {
+      await page.keyboard.press('Enter');
+      await page.waitForTimeout(20);
+    }
+
+    const items = await listItemShapes(page);
+    // [label, h1, "Note"] + 5 empty paragraphs = 8 children.
+    expect(items[0]?.childCount).toBe(8);
+    // Top-level: still single bulletList (no escape).
+    expect(await topLevelBlocks(page)).toEqual([{ type: 'bulletList', text: 'LabelTitleNote' }]);
   });
 });

@@ -14,7 +14,9 @@
  *    - Empty + Enter -> insertChildrenZoneSibling (Notion-style accumulate -
  *      another empty paragraph as next sibling INSIDE the same taskItem).
  *      Exit via Backspace or Shift+Tab (ListIndent).
- *    - Non-empty + Enter -> splitListItem
+ *    - Non-empty + Enter -> splitBlock (Phase 8: splits the paragraph in place,
+ *      both halves stay inside the same taskItem; cursor at end -> empty p
+ *      sibling appended; cursor mid -> text splits in two paragraphs).
  *
  * Backspace behaviour:
  *  - At start of EMPTY children-zone paragraph (childIndex > 0) ->
@@ -34,6 +36,7 @@
 import { Node } from '../Node.js';
 import { splitListItem, liftListItem, sinkListItem } from '@domternal/pm/schema-list';
 import { Selection } from '@domternal/pm/state';
+import { splitBlock } from '@domternal/pm/commands';
 import type { CommandSpec } from '../types/Commands.js';
 import { getListItemCursorContext } from '../utils/listItemCursorContext.js';
 import { insertChildrenZoneSibling } from '../utils/insertChildrenZoneSibling.js';
@@ -169,14 +172,18 @@ export const TaskItem = Node.create<TaskItemOptions>({
         // would never fire.
         if ($from.parent.type.name !== 'paragraph') return false;
 
-        // Plan 4 Phase 5: Notion-style accumulate for empty children-zone
-        // paragraphs - mirror of ListItem.Enter logic. Inserts another
-        // empty paragraph as the next sibling INSIDE the same taskItem
-        // so users can build elaborate nested content via Enter +
-        // slash commands. Exit via Backspace or Shift+Tab.
+        // Plan 4 Phase 5+8: children-zone Enter accumulates inside the
+        // taskItem, never splitting the wrapper into a new sibling
+        // taskItem. Empty p -> insertChildrenZoneSibling. Non-empty p
+        // -> splitBlock (text splits in place / empty p appended at
+        // end). Mirror of ListItem.Enter logic.
         const ctx = getListItemCursorContext($from);
-        if (ctx && ctx.isInChildrenZone && ctx.paragraphIsEmpty) {
-          if (insertChildrenZoneSibling(state, view.dispatch, ctx)) return true;
+        if (ctx && ctx.isInChildrenZone) {
+          if (ctx.paragraphIsEmpty) {
+            if (insertChildrenZoneSibling(state, view.dispatch, ctx)) return true;
+          } else {
+            if (splitBlock(state, view.dispatch)) return true;
+          }
         }
 
         // Standard split for non-empty items
