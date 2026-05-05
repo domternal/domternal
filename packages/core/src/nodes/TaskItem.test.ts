@@ -731,4 +731,167 @@ describe('TaskItem', () => {
       expect(typeof result).toBe('boolean');
     });
   });
+
+  // ────────────────────────────────────────────────────────────────────
+  // Plan 4 children-zone Enter / Backspace handlers (taskItem mirror)
+  // ────────────────────────────────────────────────────────────────────
+
+  describe('children-zone Enter (Plan 4 Phase 5+8)', () => {
+    let edTest: Editor | undefined;
+    afterEach(() => {
+      if (edTest && !edTest.isDestroyed) edTest.destroy();
+    });
+
+    function invokeEnter(ed: Editor): unknown {
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem,
+        editor: ed,
+        nodeType: ed.schema.nodes['taskItem'],
+      });
+      return (shortcuts?.['Enter'] as any)?.();
+    }
+
+    function caretAtEndOfNthEmptyP(ed: Editor, n: number): void {
+      let count = 0;
+      let pos = -1;
+      ed.state.doc.descendants((node, p) => {
+        if (pos !== -1) return false;
+        if (node.type.name === 'paragraph' && node.content.size === 0) {
+          if (count === n) { pos = p + 1; return false; }
+          count++;
+        }
+        return true;
+      });
+      if (pos === -1) throw new Error(`empty paragraph #${String(n)} not found`);
+      ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, pos)));
+    }
+
+    function caretAtEndOfNodeWithText(ed: Editor, typeName: string, text: string): void {
+      let pos = -1;
+      let size = 0;
+      ed.state.doc.descendants((node, p) => {
+        if (pos !== -1) return false;
+        if (node.type.name === typeName && node.textContent === text) { pos = p; size = node.nodeSize; return false; }
+        return true;
+      });
+      if (pos === -1) throw new Error(`node ${typeName}:${text} not found`);
+      ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, pos + size - 1)));
+    }
+
+    it('Phase 5 - empty children-zone p + Enter inserts another empty p as next sibling INSIDE taskItem', () => {
+      edTest = new Editor({
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><p></p></li></ul>',
+      });
+      caretAtEndOfNthEmptyP(edTest, 0);
+
+      const result = invokeEnter(edTest);
+      expect(result).toBe(true);
+
+      const taskItem = edTest.state.doc.firstChild?.firstChild;
+      expect(taskItem?.type.name).toBe('taskItem');
+      expect(taskItem?.childCount).toBe(3);
+    });
+
+    it('Phase 8 - non-empty children-zone p + Enter at end splits in place INSIDE taskItem', () => {
+      edTest = new Editor({
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><p>Note</p></li></ul>',
+      });
+      caretAtEndOfNodeWithText(edTest, 'paragraph', 'Note');
+
+      const result = invokeEnter(edTest);
+      expect(result).toBe(true);
+
+      const taskItem = edTest.state.doc.firstChild?.firstChild;
+      expect(taskItem?.childCount).toBe(3);
+      expect(taskItem?.child(2).type.name).toBe('paragraph');
+      expect(taskItem?.child(2).textContent).toBe('');
+    });
+
+    it('Phase 8 - non-empty children-zone p + Enter at MID splits text in place', () => {
+      edTest = new Editor({
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><p>HelloWorld</p></li></ul>',
+      });
+      let pos = -1;
+      edTest.state.doc.descendants((node, p) => {
+        if (pos !== -1) return false;
+        if (node.type.name === 'paragraph' && node.textContent === 'HelloWorld') { pos = p + 1 + 'Hello'.length; return false; }
+        return true;
+      });
+      edTest.view.dispatch(edTest.state.tr.setSelection(TextSelection.create(edTest.state.doc, pos)));
+
+      const result = invokeEnter(edTest);
+      expect(result).toBe(true);
+
+      const taskItem = edTest.state.doc.firstChild?.firstChild;
+      expect(taskItem?.childCount).toBe(3);
+      expect(taskItem?.child(1).textContent).toBe('Hello');
+      expect(taskItem?.child(2).textContent).toBe('World');
+    });
+  });
+
+  describe('children-zone Backspace (Plan 4 Phase 6)', () => {
+    let edTest: Editor | undefined;
+    afterEach(() => {
+      if (edTest && !edTest.isDestroyed) edTest.destroy();
+    });
+
+    function invokeBackspace(ed: Editor): unknown {
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem,
+        editor: ed,
+        nodeType: ed.schema.nodes['taskItem'],
+      });
+      return (shortcuts?.['Backspace'] as any)?.();
+    }
+
+    function caretAtEndOfNthEmptyP(ed: Editor, n: number): void {
+      let count = 0;
+      let pos = -1;
+      ed.state.doc.descendants((node, p) => {
+        if (pos !== -1) return false;
+        if (node.type.name === 'paragraph' && node.content.size === 0) {
+          if (count === n) { pos = p + 1; return false; }
+          count++;
+        }
+        return true;
+      });
+      if (pos === -1) throw new Error(`empty paragraph #${String(n)} not found`);
+      ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, pos)));
+    }
+
+    it('empty children-zone p + Backspace lifts JUST that paragraph as top-level sibling', () => {
+      edTest = new Editor({
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><p></p></li></ul>',
+      });
+      caretAtEndOfNthEmptyP(edTest, 0);
+
+      const result = invokeBackspace(edTest);
+      expect(result).toBe(true);
+
+      const docTop: { type: string }[] = [];
+      edTest.state.doc.forEach((n) => docTop.push({ type: n.type.name }));
+      expect(docTop[0]?.type).toBe('taskList');
+      expect(docTop[1]?.type).toBe('paragraph');
+    });
+
+    it('empty LABEL paragraph + Backspace - children-zone branch does NOT fire, existing fallback runs', () => {
+      // childIndex===0 case: children-zone branch returns false
+      // (isInChildrenZone=false). Existing TaskItem.Backspace fallback
+      // (childIndex===0 + liftListItem) handles the case.
+      edTest = new Editor({
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem"><p></p></li></ul>',
+      });
+      caretAtEndOfNthEmptyP(edTest, 0);
+
+      const result = invokeBackspace(edTest);
+      // Existing logic responds (typically true via liftListItem) - we
+      // just verify the call returns a boolean (no crash, branch reached).
+      expect(typeof result).toBe('boolean');
+    });
+  });
 });

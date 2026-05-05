@@ -177,6 +177,50 @@ describe('insertChildrenZoneSibling', () => {
     expect(editor.state.doc.toString()).toBe(before);
   });
 
+  it('stale ctx (cursor moved to non-paragraph after ctx was captured) - returns false defensively', () => {
+    // Construct a stale ctx scenario: capture ctx while cursor is in
+    // a children-zone empty paragraph, then move the cursor into a
+    // heading (whose parent is no longer a paragraph). The util's
+    // defensive `$from.parent.type.name !== 'paragraph'` guard should
+    // fire and return false without mutating.
+    editor = makeEditor('<ul><li><p>Label</p><h1>Heading</h1><p></p></li></ul>');
+    caretAtItemChild(editor, 0, 2);
+    const staleCtx = getListItemCursorContext(editor.state.selection.$from);
+    expect(staleCtx).not.toBeNull();
+
+    // Move cursor INTO the heading - $from.parent is now heading.
+    let headingPos = -1;
+    editor.state.doc.descendants((node, p) => {
+      if (headingPos !== -1) return false;
+      if (node.type.name === 'heading') { headingPos = p; return false; }
+      return true;
+    });
+    setCaretAt(editor, headingPos + 1);
+
+    const before = editor.state.doc.toString();
+    const ok = insertChildrenZoneSibling(editor.state, editor.view.dispatch.bind(editor.view), staleCtx!);
+    expect(ok).toBe(false);
+    expect(editor.state.doc.toString()).toBe(before);
+  });
+
+  it('stale ctx (paragraph filled with content after ctx was captured) - returns false defensively', () => {
+    // Capture ctx while paragraph is empty, then fill it with text via
+    // a separate transaction. The util's defensive
+    // `$from.parent.content.size !== 0` guard should fire.
+    editor = makeEditor('<ul><li><p>Label</p><h1>Title</h1><p></p></li></ul>');
+    caretAtItemChild(editor, 0, 2);
+    const staleCtx = getListItemCursorContext(editor.state.selection.$from);
+    expect(staleCtx?.paragraphIsEmpty).toBe(true);
+
+    // Insert text into the empty paragraph - it's no longer empty.
+    editor.view.dispatch(editor.state.tr.insertText('Filled'));
+
+    const before = editor.state.doc.toString();
+    const ok = insertChildrenZoneSibling(editor.state, editor.view.dispatch.bind(editor.view), staleCtx!);
+    expect(ok).toBe(false);
+    expect(editor.state.doc.toString()).toBe(before);
+  });
+
   it('multiple invocations accumulate empty paragraphs (Notion-style)', () => {
     editor = makeEditor('<ul><li><p>Label</p><h1>T</h1><p></p></li></ul>');
     caretAtItemChild(editor, 0, 2);
