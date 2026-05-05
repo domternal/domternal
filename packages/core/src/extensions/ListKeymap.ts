@@ -4,14 +4,25 @@
  * Provides keyboard shortcuts for list manipulation:
  * - Tab: Sink (indent) list item
  * - Shift-Tab: Lift (outdent) list item
- * - Backspace: Lift list item when at start of empty item
+ * - Backspace: Lift list item when at start of empty item.
+ *   Also handles the "exit-join" case: when the cursor is at start of an
+ *   empty paragraph whose previous sibling is a list-group node
+ *   (bulletList / orderedList / taskList), delete the empty paragraph and
+ *   place the caret at the end of the last textblock of the previous list.
+ *   Without this, PM's `joinBackward` wraps the empty paragraph back into
+ *   the list as a fresh listItem/taskItem, producing the "ping-pong"
+ *   regression: Enter (creates empty item), BS (lift -> empty top-level p),
+ *   BS again (joinBackward wraps p back as new item).
  */
+import { TextSelection } from '@domternal/pm/state';
 import { liftListItem, sinkListItem } from '@domternal/pm/schema-list';
 import type { NodeType } from '@domternal/pm/model';
 import type { EditorState } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import { Extension } from '../Extension.js';
 import type { ExtensionEditorInterface } from '../Extension.js';
+
+const LIST_GROUP_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
 
 export interface ListKeymapOptions {
   /**
@@ -87,6 +98,43 @@ export const ListKeymap = Extension.create<ListKeymapOptions>({
 
         // Only at start of textblock with empty selection
         if (!empty || $from.parentOffset !== 0) return false;
+
+        // "Exit-join" path: cursor at start of an EMPTY paragraph whose
+        // previous sibling (in its container) is a list-group node. Without
+        // this, PM's `joinBackward` would wrap the empty paragraph back
+        // into the list as a new listItem/taskItem (the "ping-pong" bug).
+        // We delete the empty paragraph and move the caret to the end of
+        // the last textblock of the previous list - the natural intent
+        // when the user backspaces from the line just below a list.
+        if (
+          $from.parent.type.name === 'paragraph' &&
+          $from.parent.content.size === 0 &&
+          $from.depth >= 1
+        ) {
+          const containerDepth = $from.depth - 1;
+          const idx = $from.index(containerDepth);
+          if (idx > 0) {
+            const container = $from.node(containerDepth);
+            const prev = container.child(idx - 1);
+            if (LIST_GROUP_TYPES.has(prev.type.name)) {
+              const paraStart = $from.before($from.depth);
+              const paraEnd = $from.after($from.depth);
+              const listEnd = paraStart;
+              const listStart = listEnd - prev.nodeSize;
+              let lastTextblockEnd = -1;
+              state.doc.nodesBetween(listStart, listEnd, (n, p) => {
+                if (n.isTextblock) lastTextblockEnd = p + 1 + n.content.size;
+                return true;
+              });
+              if (lastTextblockEnd !== -1) {
+                const tr = state.tr.delete(paraStart, paraEnd);
+                tr.setSelection(TextSelection.create(tr.doc, lastTextblockEnd));
+                view.dispatch(tr.scrollIntoView());
+                return true;
+              }
+            }
+          }
+        }
 
         const listItemType = state.schema.nodes[this.options.listItem];
         if (!listItemType) return false;
