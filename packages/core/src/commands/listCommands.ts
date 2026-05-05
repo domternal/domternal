@@ -1,5 +1,5 @@
 /**
- * List commands — toggleList
+ * List commands, toggleList
  */
 import { TextSelection, EditorState } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
@@ -7,6 +7,7 @@ import { wrapRangeInList, liftListItem } from '@domternal/pm/schema-list';
 import { canJoin } from '@domternal/pm/transform';
 import type { Attrs, NodeType, Node as PMNode } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
+import { getListItemCursorContext } from '../utils/listItemCursorContext.js';
 
 /**
  * Find the innermost list of the given type around the selection,
@@ -196,6 +197,41 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
 
     // Single-range selection
     const { from, to } = tr.selection;
+
+    // Children-zone exception. When the cursor is collapsed and sits in
+    // a paragraph that is a CHILDREN-ZONE block of a list/task item
+    // (i.e. NOT the first-child label paragraph), the user typically
+    // wants the slash command, toolbar, etc. to insert a NEW list of
+    // the target type at this position rather than to convert the
+    // ancestor list. Without this branch, `collectListContext`'s
+    // ancestor walk finds the parent list wrapper and the "convert in
+    // place" path runs, which silently re-types the surrounding bullet
+    // list. We wrap the cursor's paragraph in a fresh list of the
+    // target type as a sibling within the same children-zone, then
+    // run the standard adjacency joins so the new list merges with
+    // sibling lists of the same type when applicable (Notion-style
+    // "extend the list" feel).
+    //
+    // Only paragraphs are considered: heading / codeBlock have their
+    // own slash/Enter semantics and `getListItemCursorContext` already
+    // returns null for them.
+    if (from === to) {
+      const ctx = getListItemCursorContext(tr.selection.$from);
+      if (ctx?.isInChildrenZone) {
+        if (!dispatch) return true;
+        const blockRange = tr.selection.$from.blockRange();
+        if (blockRange && wrapRangeInList(tr, blockRange, listType, attributes)) {
+          joinListBackwards(tr, listType);
+          joinListForwards(tr, listType);
+          dispatch(tr.scrollIntoView());
+          return true;
+        }
+        // wrapRangeInList rejected by schema. Fall through to default
+        // toggle/convert path so the command still has a chance to do
+        // something rather than silently no-op.
+      }
+    }
+
     const contentBlocks = collectListContext(tr.doc, from, to);
 
     const allInTargetList = contentBlocks.length > 0 && contentBlocks.every((b) => b.inTargetList);
