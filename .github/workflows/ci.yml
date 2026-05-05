@@ -45,6 +45,7 @@ jobs:
           fail_ci_if_error: false
           files: >-
             ./packages/core/coverage/lcov.info,
+            ./packages/extension-block-menu/coverage/lcov.info,
             ./packages/extension-code-block-lowlight/coverage/lcov.info,
             ./packages/extension-details/coverage/lcov.info,
             ./packages/extension-emoji/coverage/lcov.info,
