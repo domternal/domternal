@@ -6,43 +6,53 @@ import type { ListItemCursorContext } from './listItemCursorContext.js';
 /**
  * "Notion-style exit-indent": when the cursor is in an EMPTY paragraph
  * inside the children-zone of a list/task item (NOT the first label
- * paragraph), pressing Enter should lift JUST that paragraph as a
+ * paragraph), pressing Backspace should lift JUST that paragraph as a
  * top-level sibling of the list, leaving every other child of the
  * list item (label, headings, codeBlocks, etc.) untouched.
  *
- * Without this helper, ListItem.Enter / TaskItem.Enter fall through
- * `splitListItem` to `liftListItem` which lifts the ENTIRE list item
- * out, dumping ALL of its children to the top level - the original
- * user-reported bug.
+ * Without this helper, ListItem.Backspace / TaskItem.Backspace fall
+ * through to PM defaults which would either merge the empty p with
+ * the previous block (silently mangling the children-zone) or, for
+ * the empty-LABEL case, lift the entire list item.
  *
  * Two paths:
  *
  *  1. **Standard lift path** (preferred when valid): when the empty
  *     paragraph sits at a position where PM can cleanly lift it via
  *     `tr.lift` + `liftTarget`, use that. Covers the common case of
- *     trailing empty paragraphs - PM handles wrapper splitting,
- *     blockquote-wrapped lists, etc. automatically.
+ *     trailing empty paragraphs (and middle empty p when the IMMEDIATE
+ *     next sibling is a paragraph that satisfies the listItem's
+ *     "paragraph block*" content rule for the after-cut half).
+ *     PM handles wrapper splitting, blockquote-wrapped lists, etc.
+ *     automatically.
  *
  *  2. **Manual delete + insert path** (fallback): when `liftTarget`
- *     returns null (typically when the empty paragraph is in the
- *     MIDDLE of children-zone and cutting the list item there would
- *     leave a non-paragraph as the first child of the after-cut half,
- *     violating the strict `paragraph block*` schema), the helper
- *     simply removes the empty paragraph from its position - the
- *     remaining children (label, then non-paragraph blocks) still
- *     satisfy the schema since the label paragraph is the unaffected
- *     first child. The new empty paragraph is then inserted at the
- *     top-level position appropriate for the wrapper context (after
- *     the wrapper for a single-item wrapper, or split-and-insert in
- *     the gap for a multi-item wrapper).
+ *     returns null - which happens when the empty paragraph is in
+ *     the MIDDLE of children-zone AND its IMMEDIATE next sibling is
+ *     a non-paragraph (heading / codeBlock / blockquote / hr), so
+ *     cutting the list item there would leave the non-paragraph as
+ *     the first child of the after-cut half, violating the strict
+ *     `paragraph block*` schema. The helper simply removes the empty
+ *     paragraph from its position - the remaining children stay
+ *     valid because the label paragraph (the unaffected first child)
+ *     still satisfies the schema. The new empty paragraph is then
+ *     inserted at the top-level position appropriate for the wrapper
+ *     context (after the wrapper for a single-item wrapper, or
+ *     split-and-insert in the gap for a multi-item wrapper).
  *
  * The single transaction means Mod-Z restores the pre-lift shape in
  * one undo step.
  *
  * Used by:
- *  - `ListItem.Enter` (Plan 4 Phase 3)
- *  - `TaskItem.Enter` (Plan 4 Phase 4 - same logic via the type-agnostic
- *    `ListItemCursorContext`).
+ *  - `ListItem.Backspace` (Plan 4 Phase 6)
+ *  - `TaskItem.Backspace` (Plan 4 Phase 6 mirror; the existing
+ *    childIndex===0 branch for "lift entire empty taskItem" runs
+ *    AFTER this children-zone branch so both stay live).
+ *
+ * Companion utility: `insertChildrenZoneSibling` performs the OPPOSITE
+ * operation (insert empty paragraph as next sibling INSIDE the same
+ * list item, accumulating). That utility is wired to the Enter
+ * handler (Plan 4 Phase 5).
  */
 export function liftEmptyChildrenZoneParagraph(
   state: EditorState,
@@ -100,15 +110,7 @@ export function liftEmptyChildrenZoneParagraph(
   if (!wrapperNode) return false;
   const wrapperEnd = ctx.wrapperPos + wrapperNode.nodeSize;
 
-  // Find item index within wrapper by linear walk.
-  let itemIndex = -1;
-  let walk = ctx.wrapperPos + 1;
-  for (let i = 0; i < wrapperNode.childCount; i++) {
-    if (walk === ctx.itemPos) { itemIndex = i; break; }
-    walk += wrapperNode.child(i).nodeSize;
-  }
-  if (itemIndex === -1) return false;
-  const isLastItem = itemIndex === wrapperNode.childCount - 1;
+  const isLastItem = ctx.itemIndexInWrapper === wrapperNode.childCount - 1;
 
   // Pre-flight schema check: wrapper's parent must accept a paragraph
   // at the lift target index. Without this, the manual operations

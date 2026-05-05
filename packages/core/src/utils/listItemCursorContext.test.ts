@@ -135,25 +135,18 @@ describe('getListItemCursorContext', () => {
     expect(ctx).toBeNull();
   });
 
-  it('returns null when the cursor is in a blockquote-inner paragraph nested in a li (parent is paragraph but blockquote, not list, is the immediate ancestor)', () => {
-    // Blockquote-inner paragraph: walk-up finds blockquote first, then
-    // listItem above. itemDepth becomes the listItem level. The
-    // paragraph's index WITHIN the blockquote is what `$from.index(itemDepth)`
-    // returns - but we measure index inside the LISTITEM (not blockquote),
-    // which is `1` (blockquote is the 2nd child of li). The paragraph's
-    // parent depth is "blockquote", not "listItem" - so `childIndex` is
-    // computed at the listItem depth and equals 1 (blockquote's slot in li).
-    // This test pins that context-resolution still WORKS for nested
-    // structures even though the immediate parent isn't the li.
+  it('returns null when the cursor is in a blockquote-inner paragraph nested in a li (paragraph is not a DIRECT child of the list item)', () => {
+    // The cursor's paragraph sits inside a blockquote inside the list
+    // item. The util requires the paragraph to be a DIRECT child of
+    // the list item - if an intermediate container (blockquote, table
+    // cell, details, ...) wraps it, the relevant Enter/Backspace
+    // semantics belong to the container, not the list item. The util
+    // returns null so callers fall through to default handling.
     editor = makeEditor('<ul><li><p>Label</p><blockquote><p>Quoted</p></blockquote></li></ul>');
-    // 2nd paragraph (the quoted one) is inside blockquote.
     const quotedPos = findNthPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Quoted', 0);
     setCaretAt(editor, quotedPos + 1);
     const ctx = getListItemCursorContext(editor.state.selection.$from);
-    expect(ctx).not.toBeNull();
-    expect(ctx?.isInChildrenZone).toBe(true);
-    // childIndex measures the BLOCKQUOTE's slot in the li (= 1).
-    expect(ctx?.childIndex).toBe(1);
+    expect(ctx).toBeNull();
   });
 
   it('cursor in label paragraph of bullet li - isInChildrenZone false, childIndex 0', () => {

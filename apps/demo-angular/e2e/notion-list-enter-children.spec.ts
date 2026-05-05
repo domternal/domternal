@@ -1584,6 +1584,54 @@ test.describe('Selection / context edge cases', () => {
     }, editorSelector);
     expect(checkedInDom).toBe('true');
   });
+
+  // C15 - REGRESSION: cursor in blockquote-inner empty paragraph nested
+  // in a li, Backspace does NOT trigger the children-zone exit branch
+  // (paragraph is not a DIRECT child of the listItem). The util
+  // `getListItemCursorContext` returns null for this case and the
+  // Backspace handler falls through to default PM behaviour.
+  test('C15 [li > blockquote > empty-p] - Backspace falls through to default (no list-item lift)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Label</p><blockquote><p></p></blockquote></li></ul>');
+    // Caret in the empty paragraph inside the blockquote.
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | {
+            state: { doc: { descendants: (cb: (n: { type: { name: string }; childCount: number; textContent: string; nodeSize: number }, p: number) => boolean | void) => void }; tr: { setSelection: (s: unknown) => unknown }; selection: { constructor: { create: (doc: unknown, a: number) => unknown } } };
+            view: { dispatch: (tr: unknown) => void; focus: () => void; dom: HTMLElement };
+          }
+        | undefined;
+      if (!ed) return;
+      // Find the empty paragraph that's inside a blockquote.
+      let pos = -1;
+      let inBlockquote = false;
+      ed.state.doc.descendants((n, p) => {
+        if (pos !== -1) return false;
+        if (n.type.name === 'blockquote') { inBlockquote = true; return true; }
+        if (inBlockquote && n.type.name === 'paragraph' && n.childCount === 0 && n.textContent === '') {
+          pos = p + 1;
+          return false;
+        }
+        return true;
+      });
+      if (pos === -1) return;
+      const TS = ed.state.selection.constructor;
+      const tr = (ed.state.tr.setSelection as (s: unknown) => unknown)(TS.create(ed.state.doc as unknown, pos));
+      ed.view.dispatch(tr);
+      ed.view.dom.focus();
+    });
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    // listItem must NOT be lifted, blockquote must NOT escape to top-level.
+    // Default PM joinBackward MAY merge the empty p with the blockquote
+    // boundary or with the previous block, but the listItem itself stays
+    // intact and the doc top-level remains a single bulletList.
+    const tops = await topLevelBlocks(page);
+    expect(tops.length).toBe(1);
+    expect(tops[0]?.type).toBe('bulletList');
+    // No top-level paragraph appeared via lift.
+    expect(await hasTopLevelEmptyParagraph(page)).toBe(false);
+  });
 });
 
 // ════════════════════════════════════════════════════════════════════════

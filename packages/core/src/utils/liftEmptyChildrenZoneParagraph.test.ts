@@ -187,6 +187,39 @@ describe('liftEmptyChildrenZoneParagraph', () => {
     expect(topLevelBlocks(editor).map((b) => b.type)).toEqual(['bulletList', 'paragraph']);
   });
 
+  it('Path 2 + isLastItem=false: middle empty-p in MIDDLE listItem of multi-item wrapper - splits wrapper, lifted-p between halves', () => {
+    // Path 2 fires because liftTarget returns null (cutting the
+    // listItem at the middle empty-p would yield [h1] as second-half
+    // first child = schema reject). isLastItem is false because the
+    // affected li is in the MIDDLE of a 3-item wrapper.
+    editor = makeEditor(
+      '<ul>'
+      + '<li><p>A</p></li>'
+      + '<li><p>L</p><p></p><h1>X</h1></li>'
+      + '<li><p>C</p></li>'
+      + '</ul>',
+    );
+    caretAtItemChild(editor, 1, 1);
+    const ctx = getListItemCursorContext(editor.state.selection.$from);
+    expect(ctx?.isLastChild).toBe(false);
+    expect(ctx?.itemIndexInWrapper).toBe(1);
+
+    const ok = liftEmptyChildrenZoneParagraph(editor.state, editor.view.dispatch.bind(editor.view), ctx!);
+    expect(ok).toBe(true);
+
+    // Wrapper splits in two with lifted-p in the gap. Affected li keeps
+    // [L, h1] (only the empty middle p was removed) and stays in the
+    // FIRST half of the split wrapper, alongside li=A.
+    const top = topLevelBlocks(editor);
+    expect(top.map((b) => b.type)).toEqual(['bulletList', 'paragraph', 'bulletList']);
+    expect(top[0]?.text).toBe('ALX');
+    expect(top[1]?.text).toBe('');
+    expect(top[2]?.text).toBe('C');
+    const items = listItemShapes(editor);
+    const affected = items.find((i) => i.text === 'LX');
+    expect(affected?.childTypes).toEqual(['paragraph', 'heading']);
+  });
+
   it('returns false when ctx.paragraphIsEmpty is false (non-empty paragraph in children-zone)', () => {
     editor = makeEditor('<ul><li><p>Label</p><p>Body</p></li></ul>');
     caretAtItemChild(editor, 0, 1);
