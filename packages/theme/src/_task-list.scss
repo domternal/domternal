@@ -3,23 +3,41 @@
 // =============================================================================
 // TaskList renders as ul[data-type="taskList"]
 // TaskItem renders as li[data-type="taskItem"] with label > input[checkbox] + div
+//
+// Visual goal: render task items the same way bullet items render. The checkbox
+// hangs in the padding-left area of the wrapper (like a native bullet marker)
+// and the label paragraph starts at the same column as bullet-list text. This
+// is achieved by giving the wrapper the same `padding-left: 1.5em` as <ul> and
+// absolutely positioning the label so it visually replaces the bullet glyph.
 // =============================================================================
 
 .dm-editor .ProseMirror {
   ul[data-type="taskList"] {
     list-style: none;
-    padding-left: 0;
+    padding-left: 1.5em;
 
     li[data-type="taskItem"] {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.5em;
+      position: relative;
+      margin: 0.25em 0;
 
       > label {
+        position: absolute;
+        // Hang the checkbox in the same column a native bullet glyph
+        // occupies. With the wrapper's `padding-left: 1.5em` (see `ul, ol`
+        // in _content.scss) and the checkbox's own width 1em, `-1.25em`
+        // from li.left places the checkbox's left edge at 0.25em from the
+        // ul's outer edge AND leaves a 0.25em breathing gap before the
+        // first text glyph (the right edge of the checkbox sits at
+        // li.left - 0.25em, the text starts at li.left).
+        left: -1.15em;
+        // `top` aligns the checkbox vertical center with the x-height of
+        // the first text line. With the demo's 1.7 line-height, the line
+        // box is ~1.7em tall but the visual text mass sits in the upper
+        // ~1em of it, so the checkbox sits slightly above the line center
+        // to match how a bullet glyph rests next to lower-case text.
+        top: 0.45em;
         display: flex;
         align-items: center;
-        flex-shrink: 0;
-        margin-top: 0.4em;
         user-select: none;
 
         input[type="checkbox"] {
@@ -33,34 +51,32 @@
       }
 
       > div {
-        flex: 1;
-        min-width: 0;
-
         > p {
-          margin: 0;
+          // Small breathing gap (~5px at the editor's default font size)
+          // between the checkbox and the paragraph text, applied only on
+          // the paragraph so nested ul/ol siblings stay flush with li.left
+          // and visually align with bullet-list nesting.
+          margin: 0.1em 0;
+          padding-inline: 0.3em 0;
         }
 
         // Notion-style "children zone" indent: post-label blocks
-        // (heading, codeBlock, nested taskList, etc.) render indented
-        // one level below the label paragraph that aligns with the
-        // checkbox.
+        // (heading, codeBlock, blockquote, etc.) render indented one
+        // level below the label paragraph aligned with the checkbox.
         //
-        // Excluded: regular `<ul>` and `<ol>` - they already gain the
-        // same visual indent through their own `padding-left: 1.5em`,
-        // so adding the children-zone margin would double-indent them.
-        // Nested `<ul data-type="taskList">` is NOT excluded because
-        // taskList wrappers use `padding-left: 0`, so they need the
-        // children-zone margin to stay visually nested.
-        //
-        // `margin-inline-start` (logical property) flips the indent to
-        // the right edge in RTL contexts (`dir="rtl"`) automatically.
-        > :not(p:first-child):not(ul:not([data-type="taskList"])):not(ol) {
+        // Excluded: ALL nested `<ul>` and `<ol>` (plain and taskList).
+        // Each list type already gains the same visual indent through
+        // its own `padding-left: 1.5em`, so adding the children-zone
+        // margin would push nested taskLists ~1.5em further right than
+        // nested plain bullet lists. `margin-inline-start` (logical
+        // property) flips the indent to the right edge in RTL.
+        > :not(p:first-child):not(ul):not(ol) {
           margin-inline-start: var(--dm-block-children-indent, 1.5rem);
           margin-top: 0.25rem;
         }
       }
 
-      // Checked state — strikethrough and dimmed
+      // Checked state, strikethrough and dimmed.
       &[data-checked="true"] > div {
         text-decoration: line-through;
         opacity: 0.6;
