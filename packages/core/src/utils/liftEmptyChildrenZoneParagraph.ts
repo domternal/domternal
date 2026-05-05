@@ -77,7 +77,7 @@ export function liftEmptyChildrenZoneParagraph(
   const range = $from.blockRange();
   if (range) {
     const target = liftTarget(range);
-    if (target != null) {
+    if (target !== null) {
       if (!dispatch) return true;
       const tr = state.tr.lift(range, target);
       const oldParaStart = $from.before($from.depth);

@@ -124,7 +124,7 @@ describe('nodeCommands', () => {
         // Caret inside "B" label.
         const bPos = (() => {
           let p = -1;
-          editor!.state.doc.descendants((n, pos) => {
+          editor.state.doc.descendants((n, pos) => {
             if (p !== -1) return false;
             if (n.type.name === 'paragraph' && n.textContent === 'B') { p = pos; return false; }
             return true;
@@ -154,7 +154,7 @@ describe('nodeCommands', () => {
         });
         const bPos = (() => {
           let p = -1;
-          editor!.state.doc.descendants((n, pos) => {
+          editor.state.doc.descendants((n, pos) => {
             if (p !== -1) return false;
             if (n.type.name === 'paragraph' && n.textContent === 'B') { p = pos; return false; }
             return true;
@@ -178,7 +178,7 @@ describe('nodeCommands', () => {
         // Caret inside the nested (non-first) paragraph.
         const pPos = (() => {
           let p = -1;
-          editor!.state.doc.descendants((n, pos) => {
+          editor.state.doc.descendants((n, pos) => {
             if (p !== -1) return false;
             if (n.type.name === 'paragraph' && n.textContent === 'Nested') { p = pos; return false; }
             return true;
@@ -242,7 +242,7 @@ describe('nodeCommands', () => {
         });
         const innerPos = (() => {
           let p = -1;
-          editor!.state.doc.descendants((n, pos) => {
+          editor.state.doc.descendants((n, pos) => {
             if (p !== -1) return false;
             if (n.type.name === 'paragraph' && n.textContent === 'Inner') { p = pos; return false; }
             return true;

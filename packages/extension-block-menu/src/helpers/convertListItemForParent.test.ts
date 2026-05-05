@@ -231,11 +231,11 @@ describe('convertListItemForParent', () => {
     const out = convertListItemForParent(editor.schema, fragment, bulletListType);
     expect(out.firstChild?.type.name).toBe('listItem');
     expect(out.firstChild?.childCount).toBe(2);
-    expect(out.firstChild?.child(0)?.type.name).toBe('paragraph');
-    expect(out.firstChild?.child(0)?.textContent).toBe('');
-    expect(out.firstChild?.child(1)?.type.name).toBe('heading');
-    expect(out.firstChild?.child(1)?.attrs['level']).toBe(1);
-    expect(out.firstChild?.child(1)?.textContent).toBe('The title');
+    expect(out.firstChild?.child(0).type.name).toBe('paragraph');
+    expect(out.firstChild?.child(0).textContent).toBe('');
+    expect(out.firstChild?.child(1).type.name).toBe('heading');
+    expect(out.firstChild?.child(1).attrs['level']).toBe(1);
+    expect(out.firstChild?.child(1).textContent).toBe('The title');
     editor.destroy();
   });
 
@@ -252,10 +252,10 @@ describe('convertListItemForParent', () => {
     expect(out.firstChild?.type.name).toBe('taskItem');
     expect(out.firstChild?.attrs['checked']).toBe(false);
     expect(out.firstChild?.childCount).toBe(2);
-    expect(out.firstChild?.child(0)?.type.name).toBe('paragraph');
-    expect(out.firstChild?.child(0)?.textContent).toBe('');
-    expect(out.firstChild?.child(1)?.type.name).toBe('heading');
-    expect(out.firstChild?.child(1)?.textContent).toBe('Section');
+    expect(out.firstChild?.child(0).type.name).toBe('paragraph');
+    expect(out.firstChild?.child(0).textContent).toBe('');
+    expect(out.firstChild?.child(1).type.name).toBe('heading');
+    expect(out.firstChild?.child(1).textContent).toBe('Section');
     editor.destroy();
   });
 
@@ -287,10 +287,10 @@ describe('convertListItemForParent', () => {
     const out = convertListItemForParent(editor.schema, fragment, bulletListType);
     expect(out.firstChild?.type.name).toBe('listItem');
     expect(out.firstChild?.childCount).toBe(2);
-    expect(out.firstChild?.child(0)?.type.name).toBe('paragraph');
-    expect(out.firstChild?.child(0)?.textContent).toBe('');
-    expect(out.firstChild?.child(1)?.type.name).toBe('codeBlock');
-    expect(out.firstChild?.child(1)?.textContent).toBe('code()');
+    expect(out.firstChild?.child(0).type.name).toBe('paragraph');
+    expect(out.firstChild?.child(0).textContent).toBe('');
+    expect(out.firstChild?.child(1).type.name).toBe('codeBlock');
+    expect(out.firstChild?.child(1).textContent).toBe('code()');
     editor.destroy();
   });
 
@@ -306,11 +306,11 @@ describe('convertListItemForParent', () => {
     const out = convertListItemForParent(editor.schema, fragment, bulletListType);
     expect(out.firstChild?.type.name).toBe('listItem');
     expect(out.firstChild?.childCount).toBe(2);
-    expect(out.firstChild?.child(0)?.type.name).toBe('paragraph');
-    expect(out.firstChild?.child(0)?.textContent).toBe('');
-    expect(out.firstChild?.child(1)?.type.name).toBe('blockquote');
-    expect(out.firstChild?.child(1)?.firstChild?.type.name).toBe('paragraph');
-    expect(out.firstChild?.child(1)?.textContent).toBe('Quoted');
+    expect(out.firstChild?.child(0).type.name).toBe('paragraph');
+    expect(out.firstChild?.child(0).textContent).toBe('');
+    expect(out.firstChild?.child(1).type.name).toBe('blockquote');
+    expect(out.firstChild?.child(1).firstChild?.type.name).toBe('paragraph');
+    expect(out.firstChild?.child(1).textContent).toBe('Quoted');
     editor.destroy();
   });
 
@@ -326,9 +326,9 @@ describe('convertListItemForParent', () => {
     const out = convertListItemForParent(editor.schema, fragment, bulletListType);
     expect(out.firstChild?.type.name).toBe('listItem');
     expect(out.firstChild?.childCount).toBe(2);
-    expect(out.firstChild?.child(0)?.type.name).toBe('paragraph');
-    expect(out.firstChild?.child(0)?.textContent).toBe('');
-    expect(out.firstChild?.child(1)?.type.name).toBe('horizontalRule');
+    expect(out.firstChild?.child(0).type.name).toBe('paragraph');
+    expect(out.firstChild?.child(0).textContent).toBe('');
+    expect(out.firstChild?.child(1).type.name).toBe('horizontalRule');
     editor.destroy();
   });
 

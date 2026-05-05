@@ -108,12 +108,12 @@ describe('SmartPaste', () => {
     // has THREE children: empty label, heading, original paragraph.
     const li = editor.state.doc.firstChild?.firstChild;
     expect(li?.childCount).toBe(3);
-    expect(li?.child(0)?.type.name).toBe('paragraph');
-    expect(li?.child(0)?.textContent).toBe('');
-    expect(li?.child(1)?.type.name).toBe('heading');
-    expect(li?.child(1)?.textContent).toBe('Inserted');
-    expect(li?.child(2)?.type.name).toBe('paragraph');
-    expect(li?.child(2)?.textContent).toBe('Existing');
+    expect(li?.child(0).type.name).toBe('paragraph');
+    expect(li?.child(0).textContent).toBe('');
+    expect(li?.child(1).type.name).toBe('heading');
+    expect(li?.child(1).textContent).toBe('Inserted');
+    expect(li?.child(2).type.name).toBe('paragraph');
+    expect(li?.child(2).textContent).toBe('Existing');
     editor.destroy();
   });
 
@@ -138,13 +138,13 @@ describe('SmartPaste', () => {
     const li = ul?.firstChild;
     expect(li?.type.name).toBe('listItem');
     expect(li?.childCount).toBe(3);
-    expect(li?.child(0)?.type.name).toBe('paragraph');
-    expect(li?.child(0)?.textContent).toBe('1234');
-    expect(li?.child(1)?.type.name).toBe('heading');
-    expect(li?.child(1)?.attrs['level']).toBe(1);
-    expect(li?.child(1)?.textContent).toBe('Naslov');
-    expect(li?.child(2)?.type.name).toBe('paragraph');
-    expect(li?.child(2)?.textContent).toBe('56789');
+    expect(li?.child(0).type.name).toBe('paragraph');
+    expect(li?.child(0).textContent).toBe('1234');
+    expect(li?.child(1).type.name).toBe('heading');
+    expect(li?.child(1).attrs['level']).toBe(1);
+    expect(li?.child(1).textContent).toBe('Naslov');
+    expect(li?.child(2).type.name).toBe('paragraph');
+    expect(li?.child(2).textContent).toBe('56789');
     editor.destroy();
   });
 
@@ -333,10 +333,10 @@ describe('SmartPaste', () => {
     const secondLi = ul?.lastChild;
     expect(ul?.childCount).toBe(2);
     expect(secondLi?.childCount).toBe(2);
-    expect(secondLi?.child(0)?.type.name).toBe('paragraph');
-    expect(secondLi?.child(0)?.textContent).toBe('');
-    expect(secondLi?.child(1)?.type.name).toBe('heading');
-    expect(secondLi?.child(1)?.textContent).toBe('New');
+    expect(secondLi?.child(0).type.name).toBe('paragraph');
+    expect(secondLi?.child(0).textContent).toBe('');
+    expect(secondLi?.child(1).type.name).toBe('heading');
+    expect(secondLi?.child(1).textContent).toBe('New');
     editor.destroy();
   });
 

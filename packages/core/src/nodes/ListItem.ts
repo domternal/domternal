@@ -92,7 +92,7 @@ export const ListItem = Node.create<ListItemOptions>({
         // sibling appended at end). Both keep the user in the children-
         // zone of the same list item. Exit via Backspace or Shift+Tab.
         const ctx = getListItemCursorContext($from);
-        if (ctx && ctx.isInChildrenZone) {
+        if (ctx?.isInChildrenZone) {
           if (ctx.paragraphIsEmpty) {
             if (insertChildrenZoneSibling(state, view.dispatch, ctx)) return true;
           } else {

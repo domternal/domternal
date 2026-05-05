@@ -205,11 +205,11 @@ export function outdentBlockFromListItem(
 
   // Schema check: can the wrapper's parent accept the block as a
   // sibling right AFTER the wrapper?
-  const wrapperParent = $from.node(wrapperDepth - 1);
   // `wrapperDepth - 1` may equal -1 only when the wrapper sits at
   // depth 0 - i.e. the wrapper IS the doc itself. The schema disallows
-  // this, but we guard defensively.
-  if (!wrapperParent) return false;
+  // this, but we guard defensively below.
+  if (wrapperDepth - 1 < 0) return false;
+  const wrapperParent = $from.node(wrapperDepth - 1);
   const wrapperIndexInParent = $from.index(wrapperDepth - 1);
   const blockNode = $from.node(blockDepth);
   if (

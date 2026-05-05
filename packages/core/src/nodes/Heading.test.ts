@@ -371,9 +371,9 @@ describe('Heading', () => {
       // Find the heading-extension keymap plugin (the one that holds
       // the Enter handler) by looking for a keymap whose props include
       // an `Enter` keybinding.
-      const plugins = ed.view.state.plugins as ReadonlyArray<{
+      const plugins = ed.view.state.plugins as readonly {
         props: { handleKeyDown?: (view: unknown, event: KeyboardEvent) => boolean };
-      }>;
+      }[];
       for (const p of plugins) {
         const handle = p.props.handleKeyDown;
         if (!handle) continue;
@@ -455,7 +455,7 @@ describe('Heading', () => {
 
       expect(tryEnter(editor)).toBe(true);
 
-      const first = editor.state.doc.firstChild as PMNode;
+      const first = editor.state.doc.firstChild!;
       expect(first.type.name).toBe('heading');
       expect(first.attrs['level']).toBe(3);
     });

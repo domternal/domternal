@@ -513,7 +513,7 @@ describe('computeDropPlacement - DropPlacement.mode contract', () => {
       editor.destroy();
     });
 
-    it('nested mode keeps Y-mid based insertAfter so the existing pipeline produces an unchanged sibling-style move', async () => {
+    it('nested mode keeps Y-mid based insertAfter so the existing pipeline produces an unchanged sibling-style move', () => {
       // Phase 3 sets `mode='nested'` but does NOT change `insertAfter` -
       // the field continues to mirror the cursor's Y position relative
       // to the rect's mid-line. Phase 5 will ignore insertAfter when

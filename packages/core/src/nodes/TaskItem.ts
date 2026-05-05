@@ -178,7 +178,7 @@ export const TaskItem = Node.create<TaskItemOptions>({
         // -> splitBlock (text splits in place / empty p appended at
         // end). Mirror of ListItem.Enter logic.
         const ctx = getListItemCursorContext($from);
-        if (ctx && ctx.isInChildrenZone) {
+        if (ctx?.isInChildrenZone) {
           if (ctx.paragraphIsEmpty) {
             if (insertChildrenZoneSibling(state, view.dispatch, ctx)) return true;
           } else {

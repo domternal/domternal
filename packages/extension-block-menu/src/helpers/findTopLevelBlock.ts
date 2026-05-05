@@ -170,7 +170,6 @@ export function findDeepestBlockAtY(
       let excluded = false;
       if (rules.length > 0) {
         const $pos = view.state.doc.resolve(pos);
-        const idx = index ?? 0;
         const ctx: RuleContext = {
           node,
           pos,
@@ -179,9 +178,9 @@ export function findDeepestBlockAtY(
           // one level deeper.
           depth: $pos.depth + 1,
           parent: parent ?? null,
-          index: idx,
-          isFirst: idx === 0,
-          isLast: parent ? idx === parent.childCount - 1 : true,
+          index,
+          isFirst: index === 0,
+          isLast: parent ? index === parent.childCount - 1 : true,
           $pos,
           view,
         };

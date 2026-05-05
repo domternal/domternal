@@ -66,7 +66,7 @@ describe('StarterKit', () => {
       expect(names).toContain('listIndent');
     });
 
-    it('listIndent: false opts out of the ListIndent extension while keeping ListKeymap intact', async () => {
+    it('listIndent: false opts out of the ListIndent extension while keeping ListKeymap intact', () => {
       const custom = StarterKit.configure({ listIndent: false });
       const extensions = custom.config.addExtensions?.call(custom);
       const names = extensions!.map((e) => e.name);

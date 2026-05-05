@@ -168,7 +168,7 @@ describe('ListIndent extension', () => {
       // Range across the paragraph.
       const pPos = (() => {
         let p = -1;
-        editor!.state.doc.descendants((n, pos) => {
+        editor.state.doc.descendants((n, pos) => {
           if (p !== -1) return false;
           if (n.type.name === 'paragraph' && n.textContent === 'Body') { p = pos; return false; }
           return true;
@@ -258,7 +258,7 @@ describe('ListIndent extension', () => {
       editor = makeEditor('<ul><li><p>L</p><h2>Inside</h2></li></ul>');
       const hPos = (() => {
         let p = -1;
-        editor!.state.doc.descendants((n, pos) => {
+        editor.state.doc.descendants((n, pos) => {
           if (p !== -1) return false;
           if (n.type.name === 'heading') { p = pos; return false; }
           return true;

@@ -91,6 +91,7 @@ function caretAtItemChild(
     }
     return true;
   });
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive narrow for TS (loop pairs foundItemNode with foundItemPos)
   if (foundItemPos === -1 || !foundItemNode) {
     throw new Error(`itemIndex ${String(itemIndex)} not found`);
   }

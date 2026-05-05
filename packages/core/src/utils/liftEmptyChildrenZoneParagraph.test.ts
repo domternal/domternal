@@ -55,6 +55,7 @@ function caretAtItemChild(
     }
     return true;
   });
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive narrow for TS (loop pairs foundItemNode with foundItemPos)
   if (foundItemPos === -1 || !foundItemNode) {
     throw new Error(`itemIndex ${String(itemIndex)} not found`);
   }
@@ -326,7 +327,7 @@ describe('liftEmptyChildrenZoneParagraph', () => {
     expect(editor.state.doc.toString()).not.toBe(before);
 
     // Trigger one undo via the History extension's command.
-    const undid = editor.commands['undo']?.();
+    const undid = editor.commands.undo();
     expect(undid).toBe(true);
     expect(editor.state.doc.toString()).toBe(before);
   });
