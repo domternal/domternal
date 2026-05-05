@@ -4,18 +4,43 @@
  * Individual task/checkbox item that can contain paragraphs and nested blocks.
  * Used by TaskList.
  *
+ * Enter behaviour matrix (cursor's parent must be a paragraph):
+ *  - Cursor in LABEL paragraph (childIndex 0):
+ *    - Empty + Enter -> existing fallback chain: splitListItem (no-op),
+ *      then taskItem-in-listItem promotion (when applicable: orderedList >
+ *      listItem > taskList > taskItem nested context), else liftListItem.
+ *    - Non-empty + Enter -> splitListItem (new sibling taskItem)
+ *  - Cursor in CHILDREN-ZONE paragraph (childIndex > 0):
+ *    - Empty + Enter -> insertChildrenZoneSibling (Notion-style accumulate -
+ *      another empty paragraph as next sibling INSIDE the same taskItem).
+ *      Exit via Backspace or Shift+Tab (ListIndent).
+ *    - Non-empty + Enter -> splitBlock (Phase 8: splits the paragraph in place,
+ *      both halves stay inside the same taskItem; cursor at end -> empty p
+ *      sibling appended; cursor mid -> text splits in two paragraphs).
+ *
+ * Backspace behaviour:
+ *  - At start of EMPTY children-zone paragraph (childIndex > 0) ->
+ *    liftEmptyChildrenZoneParagraph (exit list as top-level). Notion-style
+ *    "delete this line and exit" semantic.
+ *  - At start of EMPTY label paragraph (childIndex 0) -> existing
+ *    `liftListItem` (lifts the entire taskItem out, "exit empty checkbox").
+ *
  * Keyboard shortcuts:
- * - Enter: Split task item at cursor
+ * - Enter: see matrix above
+ * - Backspace: see matrix above
  * - Tab: Sink (indent) task item
  * - Shift-Tab: Lift (outdent) task item
- * - Backspace: Lift task item when at start of empty-ish item (converts to paragraph)
  * - Mod-Enter: Toggle task checked state
  */
 
 import { Node } from '../Node.js';
 import { splitListItem, liftListItem, sinkListItem } from '@domternal/pm/schema-list';
 import { Selection } from '@domternal/pm/state';
+import { splitBlock } from '@domternal/pm/commands';
 import type { CommandSpec } from '../types/Commands.js';
+import { getListItemCursorContext } from '../utils/listItemCursorContext.js';
+import { insertChildrenZoneSibling } from '../utils/insertChildrenZoneSibling.js';
+import { liftEmptyChildrenZoneParagraph } from '../utils/liftEmptyChildrenZoneParagraph.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -31,7 +56,11 @@ export interface TaskItemOptions {
 export const TaskItem = Node.create<TaskItemOptions>({
   name: 'taskItem',
 
-  content: 'block+',
+  // Notion-strict: paragraph must be the first child (the "label" line aligned
+  // with the checkbox); additional blocks render below as nested children.
+  // Without this, a heading as first child would force flex alignment to the
+  // heading baseline and visually break the checkbox.
+  content: 'paragraph block*',
 
   defining: true,
 
@@ -136,6 +165,26 @@ export const TaskItem = Node.create<TaskItemOptions>({
         const { $from } = state.selection;
         // Only handle Enter when cursor's immediate item ancestor is a taskItem
         if ($from.depth < 1 || $from.node(-1).type !== this.nodeType) return false;
+        // Defer when the cursor sits inside a NESTED non-paragraph block
+        // (heading, codeBlock, etc.) - that block's own Enter handler
+        // should run instead. Without this, splitListItem would split
+        // the entire task item and the nested-block-specific behaviour
+        // would never fire.
+        if ($from.parent.type.name !== 'paragraph') return false;
+
+        // Plan 4 Phase 5+8: children-zone Enter accumulates inside the
+        // taskItem, never splitting the wrapper into a new sibling
+        // taskItem. Empty p -> insertChildrenZoneSibling. Non-empty p
+        // -> splitBlock (text splits in place / empty p appended at
+        // end). Mirror of ListItem.Enter logic.
+        const ctx = getListItemCursorContext($from);
+        if (ctx?.isInChildrenZone) {
+          if (ctx.paragraphIsEmpty) {
+            if (insertChildrenZoneSibling(state, view.dispatch, ctx)) return true;
+          } else {
+            if (splitBlock(state, view.dispatch)) return true;
+          }
+        }
 
         // Standard split for non-empty items
         if (splitListItem(this.nodeType)(state, view.dispatch)) return true;
@@ -213,6 +262,16 @@ export const TaskItem = Node.create<TaskItemOptions>({
 
         // Only at start of a textblock with empty selection
         if (!empty || $from.parentOffset !== 0) return false;
+
+        // Plan 4 Phase 6: Notion-style exit. Cursor in EMPTY children-zone
+        // paragraph (childIndex > 0) -> lift it out as a top-level
+        // paragraph. Discoverable counterpart to Enter accumulation.
+        if ($from.parent.content.size === 0) {
+          const ctx = getListItemCursorContext($from);
+          if (ctx && ctx.isInChildrenZone && ctx.paragraphIsEmpty) {
+            if (liftEmptyChildrenZoneParagraph(state, view.dispatch, ctx)) return true;
+          }
+        }
 
         // Find enclosing taskItem
         let taskItemDepth = -1;

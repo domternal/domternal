@@ -39,6 +39,25 @@
         > p {
           margin: 0;
         }
+
+        // Notion-style "children zone" indent: post-label blocks
+        // (heading, codeBlock, nested taskList, etc.) render indented
+        // one level below the label paragraph that aligns with the
+        // checkbox.
+        //
+        // Excluded: regular `<ul>` and `<ol>` - they already gain the
+        // same visual indent through their own `padding-left: 1.5em`,
+        // so adding the children-zone margin would double-indent them.
+        // Nested `<ul data-type="taskList">` is NOT excluded because
+        // taskList wrappers use `padding-left: 0`, so they need the
+        // children-zone margin to stay visually nested.
+        //
+        // `margin-inline-start` (logical property) flips the indent to
+        // the right edge in RTL contexts (`dir="rtl"`) automatically.
+        > :not(p:first-child):not(ul:not([data-type="taskList"])):not(ol) {
+          margin-inline-start: var(--dm-block-children-indent, 1.5rem);
+          margin-top: 0.25rem;
+        }
       }
 
       // Checked state — strikethrough and dimmed

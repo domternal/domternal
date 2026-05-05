@@ -15,6 +15,7 @@ import {
   Superscript,
   Link,
   LinkPopover,
+  ListIndent,
   Heading,
   Blockquote,
   HardBreak,
@@ -34,6 +35,7 @@ import {
   Placeholder,
   Editor,
   inlineStyles,
+  getListItemCursorContext,
 } from '@domternal/core';
 import { CodeBlockLowlight, createCodeHighlighter } from '@domternal/extension-code-block-lowlight';
 import { Image } from '@domternal/extension-image';
@@ -47,7 +49,19 @@ import {
   KeyboardReorder,
   SlashCommand,
   SmartPaste,
+  BASE_SCORE,
 } from '@domternal/extension-block-menu';
+import type { DragHandleRule, RuleContext } from '@domternal/extension-block-menu';
+
+/**
+ * Parents whose direct paragraph children should NOT surface their own
+ * drag handle - the container itself is the meaningful drag unit. Hoisted
+ * to module scope so the rule's `evaluate` callback doesn't allocate a
+ * new Set per candidate node during hover walks.
+ */
+const PARAGRAPH_EXCLUSION_PARENTS = new Set([
+  'blockquote', 'tableCell', 'tableHeader', 'tableRow', 'details', 'detailsContent',
+]);
 import type { MentionItem } from '@domternal/extension-mention';
 import { createLowlight, common } from 'lowlight';
 
@@ -160,6 +174,13 @@ export class NotionDemoComponent implements OnDestroy {
     // where the drop will land (via the shared `computeDropPlacement`
     // helper), so we omit `Dropcursor` here. See `dropIndicator` option.
     LinkPopover, SelectionDecoration, ClearFormatting,
+    // ListIndent: Notion-inspired keyboard ergonomics across list
+    // boundaries. Tab on a top-level block whose previous sibling is a
+    // list moves it INTO the last list item as a nested child;
+    // Shift-Tab lifts it back out. Registered AFTER ListKeymap (which
+    // here lives implicitly inside BulletList/OrderedList/TaskList
+    // node extensions) so in-list-item Tab/Shift-Tab keep priority.
+    ListIndent,
     // Assigns stable IDs to top-level blocks so BlockContextMenu can offer
     // "Copy link to block" - the ID becomes the URL hash (e.g. `#abc123`).
     UniqueID,
@@ -169,10 +190,32 @@ export class NotionDemoComponent implements OnDestroy {
     // Block-manipulation UX trio (Notion-style). All three share the
     // `addFloatingMenuItems()` hook items and are opt-in from the
     // `@domternal/extension-block-menu` package.
-    // `nested: true` gives individual drag handles for list items + task
-    // items so users can reorder a single bullet without grabbing the
-    // whole list.
-    BlockHandle.configure({ nested: true }),
+    //
+    // BlockHandle: Notion-style nested drag handles. The default rules
+    // (`listItemFirstChild`) keep label paragraphs from competing with
+    // their list item; the custom `paragraphInsideContainer` rule keeps
+    // blockquote / table cells / details as one drag unit (paragraphs
+    // nested in list items remain individually draggable - they were
+    // Tab-indented as separate logical blocks).
+    BlockHandle.configure({
+      nested: {
+        allowedNodes: [
+          'listItem', 'taskItem',
+          'heading', 'paragraph', 'codeBlock', 'blockquote', 'horizontalRule',
+        ],
+        rules: [
+          {
+            id: 'paragraphInsideContainer',
+            evaluate: ({ node, parent }: RuleContext) =>
+              node.type.name === 'paragraph'
+                && parent !== null
+                && PARAGRAPH_EXCLUSION_PARENTS.has(parent.type.name)
+                ? BASE_SCORE
+                : 0,
+          } satisfies DragHandleRule,
+        ],
+      },
+    }),
     BlockContextMenu,
     KeyboardReorder,
     SlashCommand,
@@ -203,6 +246,10 @@ export class NotionDemoComponent implements OnDestroy {
     this.editor.set(editor);
     // Expose for E2E + playing around in devtools.
     (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] = editor;
+    // Expose getListItemCursorContext for E2E coverage of the pure
+    // utility - lets tests verify the util resolves correctly when run
+    // against the built dist (not just the unit-test source path).
+    (window as unknown as Record<string, unknown>)['__DOMTERNAL_LIST_CTX__'] = getListItemCursorContext;
 
     // Tear down any previously-attached listeners before wiring new ones -
     // protects against leaking listeners when the editor is recreated

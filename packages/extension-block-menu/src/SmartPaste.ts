@@ -69,6 +69,7 @@ import type { Transaction } from '@domternal/pm/state';
 import { convertListItemForParent } from './helpers/convertListItemForParent.js';
 
 const LIST_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
+const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
 
 export interface SmartPasteOptions {
   /**
@@ -145,11 +146,26 @@ function handleSmartPaste(view: EditorView, slice: Slice): boolean {
     tr.insert(adjustedParentEnd, slice.content);
     setCaretAtEndOfInserted(tr, adjustedParentEnd, slice.content);
   } else if (parentSize === 0) {
-    // Truly-empty parent (no Shift+Enter break either) - replace the
-    // parent with the slice content. Avoids leaving a stray empty p
-    // before/after the inserted block.
-    tr.replaceWith(parentStart, parentEnd, slice.content);
-    setCaretAtEndOfInserted(tr, parentStart, slice.content);
+    // Truly-empty parent (no Shift+Enter break either). Default: replace
+    // the parent with the slice content so we don't leave a stray empty
+    // p before/after the inserted block.
+    //
+    // Notion-strict carve-out: when the empty paragraph is the LABEL
+    // slot of a listItem/taskItem (the schema-required first child of
+    // `paragraph block*`), replacing it would either be schema-invalid
+    // or trigger PM's content fitter to inject a fresh empty paragraph.
+    // Insert the slice AFTER the label instead so the new content
+    // attaches as a nested child below the (still empty) label.
+    const isListItemLabel = $pos.depth >= 2
+      && LIST_ITEM_TYPES.has($pos.node($pos.depth - 1).type.name)
+      && $pos.index($pos.depth - 1) === 0;
+    if (isListItemLabel) {
+      tr.insert(parentEnd, slice.content);
+      setCaretAtEndOfInserted(tr, parentEnd, slice.content);
+    } else {
+      tr.replaceWith(parentStart, parentEnd, slice.content);
+      setCaretAtEndOfInserted(tr, parentStart, slice.content);
+    }
   } else if (offset === 0) {
     tr.insert(parentStart, slice.content);
     setCaretAtEndOfInserted(tr, parentStart, slice.content);

@@ -56,6 +56,20 @@
   // Mirrors Notion's layout convention.
   --dm-block-inline-padding: 0.375rem;
 
+  // Horizontal indent applied to non-first-paragraph children of list/task
+  // items - the "children zone" below the bullet/checkbox label paragraph.
+  // Notion semantics: label aligns with the marker, additional blocks
+  // (heading, codeBlock, blockquote, etc.) render indented one level
+  // below it.
+  //
+  // `rem` (not `em`): we want every children-zone block to land in the
+  // SAME visual column regardless of its own font-size, so the indent
+  // stays decoupled from the child element's typography (a heading's
+  // larger font would otherwise produce a wider em-based indent than
+  // a sibling paragraph). Override per-editor for tighter/looser
+  // hierarchy.
+  --dm-block-children-indent: 1.5rem;
+
   // Shared drop shadow for popover surfaces (floating menu, slash command,
   // context menu). Override in dark theme for visibility on dark bg.
   --dm-popover-shadow: 0 10px 25px rgba(0, 0, 0, 0.08), 0 4px 10px rgba(0, 0, 0, 0.04);

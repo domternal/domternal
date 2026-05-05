@@ -13,6 +13,9 @@ import {
   Editor,
 } from '@domternal/core';
 import { findTopLevelBlock, findDraggableBlock, findDeepestBlockAtY } from './findTopLevelBlock.js';
+import { DEFAULT_DRAG_HANDLE_RULES } from './defaultRules.js';
+import { BASE_SCORE } from './scoring.js';
+import type { DragHandleRule } from './scoring.js';
 import type { EditorView } from '@domternal/pm/view';
 
 const extensions = [Document, Text, Paragraph, Heading, Blockquote, BulletList, OrderedList, ListItem, TaskList, TaskItem];
@@ -350,6 +353,129 @@ describe('findDeepestBlockAtY', () => {
   it('returns null when nodeDOM returns null for every block', () => {
     const editor = makeEditor('<ul><li><p>Item</p></li></ul>');
     const result = findDeepestBlockAtY(viewStub(editor, new Map()), 150, ['listItem']);
+    expect(result).toBeNull();
+    editor.destroy();
+  });
+
+  // ──────────────────────────────────────────────────────────────────
+  // Rule exclusion - 4th argument introduced in listitems_improvements_2.md
+  // Phase 2. Mirrors the Mode C semantics from `findBestDragTarget`:
+  // a candidate whose rules' deductions sum to >= BASE_SCORE is skipped,
+  // letting walker continue and pick a different match (or fall through).
+  // ──────────────────────────────────────────────────────────────────
+
+  it('empty rules array - behaves identically to the no-rules signature (regression guard)', () => {
+    const editor = makeEditor('<ul><li><p>Apple</p></li></ul>');
+    const liPos = posOf(editor, (n) => n.type.name === 'listItem');
+    const rects = new Map<number, HTMLElement>([
+      [liPos, elWithRect({ top: 100, bottom: 150 })],
+    ]);
+    const withoutRules = findDeepestBlockAtY(viewStub(editor, rects), 125, ['listItem']);
+    const withEmpty = findDeepestBlockAtY(viewStub(editor, rects), 125, ['listItem'], []);
+    expect(withoutRules?.pos).toBe(liPos);
+    expect(withEmpty?.pos).toBe(liPos);
+    editor.destroy();
+  });
+
+  it('listItemFirstChild rule excludes the label paragraph when paragraph is in allowedTypes', () => {
+    // Without the rule, paragraph (height 30) would beat listItem
+    // (height 50) as the deepest match. With the rule, paragraph is
+    // excluded, so listItem wins.
+    const editor = makeEditor('<ul><li><p>Label</p></li></ul>');
+    const liPos = posOf(editor, (n) => n.type.name === 'listItem');
+    const pPos = posOf(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Label');
+    const rects = new Map<number, HTMLElement>([
+      [liPos, elWithRect({ top: 100, bottom: 150 })],
+      [pPos, elWithRect({ top: 100, bottom: 130 })],
+    ]);
+    const allowed = ['listItem', 'paragraph'];
+
+    const withoutRules = findDeepestBlockAtY(viewStub(editor, rects), 115, allowed);
+    expect(withoutRules?.node.type.name).toBe('paragraph');
+
+    const withRules = findDeepestBlockAtY(viewStub(editor, rects), 115, allowed, DEFAULT_DRAG_HANDLE_RULES);
+    expect(withRules?.node.type.name).toBe('listItem');
+    expect(withRules?.pos).toBe(liPos);
+
+    editor.destroy();
+  });
+
+  it('non-first-child paragraph in a list item still resolves to the paragraph (rule does not over-exclude)', () => {
+    // Phase 2 must NOT exclude every paragraph inside a list item -
+    // only the first-child label slot.
+    const editor = makeEditor('<ul><li><p>Label</p><p>Second</p></li></ul>');
+    const liPos = posOf(editor, (n) => n.type.name === 'listItem');
+    const labelPos = posOf(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Label');
+    const secondPos = posOf(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Second');
+    const rects = new Map<number, HTMLElement>([
+      [liPos, elWithRect({ top: 100, bottom: 200 })],
+      [labelPos, elWithRect({ top: 100, bottom: 130 })],
+      [secondPos, elWithRect({ top: 130, bottom: 160 })],
+    ]);
+    // Cursor at Y=145 sits inside li and inside the second paragraph but
+    // OUTSIDE the label paragraph (which spans 100..130).
+    const result = findDeepestBlockAtY(
+      viewStub(editor, rects), 145, ['listItem', 'paragraph'], DEFAULT_DRAG_HANDLE_RULES,
+    );
+    expect(result?.node.type.name).toBe('paragraph');
+    expect(result?.pos).toBe(secondPos);
+    editor.destroy();
+  });
+
+  it('custom rule that excludes a specific node type lets walker pick the next-best candidate', () => {
+    const excludeHeading: DragHandleRule = {
+      id: 'excludeHeading',
+      evaluate: ({ node }) => (node.type.name === 'heading' ? BASE_SCORE : 0),
+    };
+    const editor = makeEditor('<h2>Title</h2><p>Body</p>');
+    const hPos = posOf(editor, (n) => n.type.name === 'heading');
+    const pPos = posOf(editor, (n) => n.type.name === 'paragraph');
+    const rects = new Map<number, HTMLElement>([
+      [hPos, elWithRect({ top: 100, bottom: 150 })],
+      [pPos, elWithRect({ top: 150, bottom: 200 })],
+    ]);
+    // Cursor over the heading row.
+    const result = findDeepestBlockAtY(
+      viewStub(editor, rects), 125, ['heading', 'paragraph'], [excludeHeading],
+    );
+    // Heading is excluded -> walker would normally pick the next deepest
+    // match at Y=125, but the paragraph is at a different Y (150-200), so
+    // result is null (no allowed candidate at Y=125 once heading is out).
+    expect(result).toBeNull();
+    editor.destroy();
+  });
+
+  it('partial rule deduction (below BASE_SCORE) does not exclude the candidate (Mode B is exclusion-only)', () => {
+    // Mode B does not do scoring - any score above 0 keeps the candidate.
+    // A rule that returns BASE_SCORE - 1 is "almost excluded" in Mode C
+    // but stays in Mode B.
+    const partial: DragHandleRule = {
+      id: 'partial',
+      evaluate: () => BASE_SCORE - 1,
+    };
+    const editor = makeEditor('<ul><li><p>Item</p></li></ul>');
+    const liPos = posOf(editor, (n) => n.type.name === 'listItem');
+    const rects = new Map<number, HTMLElement>([
+      [liPos, elWithRect({ top: 100, bottom: 150 })],
+    ]);
+    const result = findDeepestBlockAtY(
+      viewStub(editor, rects), 125, ['listItem'], [partial],
+    );
+    expect(result?.pos).toBe(liPos);
+    editor.destroy();
+  });
+
+  it('two rules sum to BASE_SCORE - candidate is excluded (early break works)', () => {
+    const r1: DragHandleRule = { id: 'r1', evaluate: () => 600 };
+    const r2: DragHandleRule = { id: 'r2', evaluate: () => 400 };
+    const editor = makeEditor('<ul><li><p>Item</p></li></ul>');
+    const liPos = posOf(editor, (n) => n.type.name === 'listItem');
+    const rects = new Map<number, HTMLElement>([
+      [liPos, elWithRect({ top: 100, bottom: 150 })],
+    ]);
+    const result = findDeepestBlockAtY(
+      viewStub(editor, rects), 125, ['listItem'], [r1, r2],
+    );
     expect(result).toBeNull();
     editor.destroy();
   });

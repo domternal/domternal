@@ -93,7 +93,7 @@ describe('SmartPaste', () => {
     editor.destroy();
   });
 
-  it('paste H1 at START of paragraph → heading inserted as previous sibling block', () => {
+  it('paste H1 at START of paragraph → heading inserted between (auto-injected) label and original paragraph', () => {
     const editor = makeEditor('<ul><li><p>Existing</p></li></ul>');
     const slice = htmlSlice(editor, '<h1>Inserted</h1>');
     const pPos = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Existing');
@@ -101,12 +101,50 @@ describe('SmartPaste', () => {
     const caret = pPos + 1;
     pasteAtPos(editor, caret, slice);
 
+    // Notion-strict listItem schema (`paragraph block*`) requires the FIRST
+    // child to be a paragraph. SmartPaste's offset=0 branch inserts the
+    // heading BEFORE the existing paragraph; PM's content fitter then
+    // prepends an empty paragraph as the schema-required label slot. Result
+    // has THREE children: empty label, heading, original paragraph.
     const li = editor.state.doc.firstChild?.firstChild;
-    expect(li?.childCount).toBe(2);
-    expect(li?.firstChild?.type.name).toBe('heading');
-    expect(li?.firstChild?.textContent).toBe('Inserted');
-    expect(li?.lastChild?.type.name).toBe('paragraph');
-    expect(li?.lastChild?.textContent).toBe('Existing');
+    expect(li?.childCount).toBe(3);
+    expect(li?.child(0).type.name).toBe('paragraph');
+    expect(li?.child(0).textContent).toBe('');
+    expect(li?.child(1).type.name).toBe('heading');
+    expect(li?.child(1).textContent).toBe('Inserted');
+    expect(li?.child(2).type.name).toBe('paragraph');
+    expect(li?.child(2).textContent).toBe('Existing');
+    editor.destroy();
+  });
+
+  it('paste H1 in MIDDLE of listItem paragraph "123456789" → splits label, heading and second half stay nested as listItem children', () => {
+    // User-reported scenario: caret between "4" and "5" in a list item
+    // paragraph, paste H1. SmartPaste's middle-of-text branch splits the
+    // label paragraph at the cursor and inserts the heading between the
+    // two halves. ALL three resulting blocks (p, h1, p) stay INSIDE the
+    // listItem - schema (`paragraph block*`) accepts: first child is still
+    // a paragraph, the rest fits the trailing block* slot.
+    const editor = makeEditor('<ul><li><p>123456789</p></li></ul>');
+    const slice = htmlSlice(editor, '<h1>Naslov</h1>');
+    const pPos = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === '123456789');
+    const caret = pPos + 1 + 4; // between "1234" and "5"
+    pasteAtPos(editor, caret, slice);
+
+    expect(editor.state.doc.childCount).toBe(1); // single top-level block (the bulletList)
+    const ul = editor.state.doc.firstChild;
+    expect(ul?.type.name).toBe('bulletList');
+    expect(ul?.childCount).toBe(1); // single list item, no split into siblings
+
+    const li = ul?.firstChild;
+    expect(li?.type.name).toBe('listItem');
+    expect(li?.childCount).toBe(3);
+    expect(li?.child(0).type.name).toBe('paragraph');
+    expect(li?.child(0).textContent).toBe('1234');
+    expect(li?.child(1).type.name).toBe('heading');
+    expect(li?.child(1).attrs['level']).toBe(1);
+    expect(li?.child(1).textContent).toBe('Naslov');
+    expect(li?.child(2).type.name).toBe('paragraph');
+    expect(li?.child(2).textContent).toBe('56789');
     editor.destroy();
   });
 
@@ -274,7 +312,7 @@ describe('SmartPaste', () => {
     editor.destroy();
   });
 
-  it('paste H1 in EMPTY paragraph inside list item → empty p REPLACED by heading', () => {
+  it('paste H1 in EMPTY paragraph inside list item → heading appears with auto-injected label paragraph', () => {
     const editor = makeEditor('<ul><li><p>Existing</p></li><li><p></p></li></ul>');
     const slice = htmlSlice(editor, '<h1>New</h1>');
     // Caret in the empty paragraph (second list item).
@@ -286,12 +324,19 @@ describe('SmartPaste', () => {
     });
     pasteAtPos(editor, pos + 1, slice);
 
+    // Notion-strict listItem schema requires paragraph first; SmartPaste's
+    // empty-parent branch tries to REPLACE the empty paragraph with the
+    // heading, but PM's content fitter re-injects an empty paragraph as
+    // the required label slot, so the second item ends up with [empty-p,
+    // heading] instead of just [heading].
     const ul = editor.state.doc.firstChild;
     const secondLi = ul?.lastChild;
     expect(ul?.childCount).toBe(2);
-    expect(secondLi?.childCount).toBe(1);
-    expect(secondLi?.firstChild?.type.name).toBe('heading');
-    expect(secondLi?.firstChild?.textContent).toBe('New');
+    expect(secondLi?.childCount).toBe(2);
+    expect(secondLi?.child(0).type.name).toBe('paragraph');
+    expect(secondLi?.child(0).textContent).toBe('');
+    expect(secondLi?.child(1).type.name).toBe('heading');
+    expect(secondLi?.child(1).textContent).toBe('New');
     editor.destroy();
   });
 

@@ -63,6 +63,17 @@ describe('StarterKit', () => {
       expect(names).toContain('gapcursor');
       expect(names).toContain('trailingNode');
       expect(names).toContain('listKeymap');
+      expect(names).toContain('listIndent');
+    });
+
+    it('listIndent: false opts out of the ListIndent extension while keeping ListKeymap intact', () => {
+      const custom = StarterKit.configure({ listIndent: false });
+      const extensions = custom.config.addExtensions?.call(custom);
+      const names = extensions!.map((e) => e.name);
+      expect(names).not.toContain('listIndent');
+      // ListKeymap must still be present so in-list-item Tab/Shift-Tab
+      // (sinkListItem / liftListItem) keep working.
+      expect(names).toContain('listKeymap');
     });
 
     it('can disable individual extensions', () => {

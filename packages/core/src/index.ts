@@ -108,6 +108,23 @@ export {
 // === Clipboard ===
 export { writeToClipboard } from './utils/clipboard.js';
 
+// === List utilities ===
+export {
+  insertAsListItemChild,
+  type InsertAsListItemChildArgs,
+  type InsertAsListItemChildResult,
+} from './utils/insertAsListItemChild.js';
+export {
+  getListItemCursorContext,
+  type ListItemCursorContext,
+} from './utils/listItemCursorContext.js';
+export {
+  liftEmptyChildrenZoneParagraph,
+} from './utils/liftEmptyChildrenZoneParagraph.js';
+export {
+  insertChildrenZoneSibling,
+} from './utils/insertChildrenZoneSibling.js';
+
 // === Helpers ===
 export {
   createDocument,
@@ -304,6 +321,9 @@ export {
   // List & Count
   ListKeymap,
   type ListKeymapOptions,
+  ListIndent,
+  indentBlockAsListChild,
+  outdentBlockFromListItem,
   CharacterCount,
   characterCountPluginKey,
   type CharacterCountOptions,

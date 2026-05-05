@@ -356,6 +356,125 @@ describe('Heading', () => {
     });
   });
 
+  // Notion-style Enter handler. Three behaviours, all driven by the same
+  // keymap entry in `addProseMirrorPlugins`:
+  //   - End of non-empty heading -> insert paragraph as next sibling.
+  //   - Empty heading -> convert IN PLACE to paragraph (no extra block).
+  //   - Mid / start of non-empty heading -> bail (default split runs).
+  // The handler short-circuits when the cursor isn't inside a heading
+  // or when the selection isn't empty, so unrelated Enter presses are
+  // unaffected.
+  describe('Enter on heading (Notion-style)', () => {
+    /** Tries the heading Enter handler directly via the underlying PM
+     *  plugin keymap. Returns `true` when the handler claimed the press. */
+    function tryEnter(ed: Editor): boolean {
+      // Find the heading-extension keymap plugin (the one that holds
+      // the Enter handler) by looking for a keymap whose props include
+      // an `Enter` keybinding.
+      const plugins = ed.view.state.plugins as readonly {
+        props: { handleKeyDown?: (view: unknown, event: KeyboardEvent) => boolean };
+      }[];
+      for (const p of plugins) {
+        const handle = p.props.handleKeyDown;
+        if (!handle) continue;
+        const ev = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+        if (handle(ed.view as unknown, ev)) return true;
+      }
+      return false;
+    }
+
+    it('inserts paragraph after a non-empty heading when caret is at the end', () => {
+      editor = new Editor({ extensions, content: '<h1>Hello</h1>' });
+      const doc = editor.state.doc;
+      // Caret at end of heading content. Heading is at depth 1; its
+      // closing token sits at `1 + textLength`, so end-of-text is at
+      // `1 + 'Hello'.length`.
+      const end = 1 + 'Hello'.length;
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(doc, end)));
+
+      expect(tryEnter(editor)).toBe(true);
+
+      const types: string[] = [];
+      editor.state.doc.forEach((n: PMNode) => types.push(n.type.name));
+      expect(types).toEqual(['heading', 'paragraph']);
+      expect(editor.state.doc.firstChild?.textContent).toBe('Hello');
+      expect(editor.state.doc.lastChild?.textContent).toBe('');
+    });
+
+    it('converts an EMPTY heading to a paragraph in place (no extra block)', () => {
+      editor = new Editor({ extensions, content: '<h1></h1>' });
+      // Caret at the empty heading's only valid offset.
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1)));
+
+      expect(tryEnter(editor)).toBe(true);
+
+      const types: string[] = [];
+      editor.state.doc.forEach((n: PMNode) => types.push(n.type.name));
+      expect(types).toEqual(['paragraph']);
+    });
+
+    it('returns false (falls through) when caret is in the MIDDLE of heading text', () => {
+      editor = new Editor({ extensions, content: '<h1>Hello</h1>' });
+      // Caret between "Hel" and "lo".
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1 + 3)));
+
+      expect(tryEnter(editor)).toBe(false);
+      // Doc unchanged - default keymap (e.g. PM's splitBlock) would
+      // run elsewhere; we only verify we didn't claim the event.
+      const types: string[] = [];
+      editor.state.doc.forEach((n: PMNode) => types.push(n.type.name));
+      expect(types).toEqual(['heading']);
+    });
+
+    it('returns false when caret is at the START of a non-empty heading', () => {
+      editor = new Editor({ extensions, content: '<h1>Hello</h1>' });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1)));
+
+      expect(tryEnter(editor)).toBe(false);
+    });
+
+    it('returns false when the cursor is NOT inside a heading', () => {
+      editor = new Editor({ extensions, content: '<p>Hello</p>' });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1 + 5)));
+
+      expect(tryEnter(editor)).toBe(false);
+    });
+
+    it('returns false when the selection is a non-empty range', () => {
+      editor = new Editor({ extensions, content: '<h1>Hello</h1>' });
+      // Range from offset 1 to 4 - "He" plus "ll".
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 4)));
+
+      expect(tryEnter(editor)).toBe(false);
+    });
+
+    it('preserves the heading level on the existing heading after Enter (only the new sibling is a paragraph)', () => {
+      editor = new Editor({ extensions, content: '<h3>Hello</h3>' });
+      const end = 1 + 'Hello'.length;
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, end)));
+
+      expect(tryEnter(editor)).toBe(true);
+
+      const first = editor.state.doc.firstChild!;
+      expect(first.type.name).toBe('heading');
+      expect(first.attrs['level']).toBe(3);
+    });
+
+    it('places the caret at offset 0 of the newly-inserted paragraph (typing lands there, not in the heading)', () => {
+      editor = new Editor({ extensions, content: '<h1>Hello</h1>' });
+      const end = 1 + 'Hello'.length;
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, end)));
+      tryEnter(editor);
+
+      // Insert text via PM transaction at the current selection. If the
+      // caret landed correctly the text appears in the new paragraph,
+      // not appended to "Hello".
+      editor.view.dispatch(editor.state.tr.insertText('typed'));
+      expect(editor.state.doc.firstChild?.textContent).toBe('Hello');
+      expect(editor.state.doc.lastChild?.textContent).toBe('typed');
+    });
+  });
+
   describe('input rule getAttributes', () => {
     it('returns level matching number of #', () => {
       editor = new Editor({ extensions });

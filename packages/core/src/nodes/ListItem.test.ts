@@ -22,8 +22,8 @@ describe('ListItem', () => {
       expect(ListItem.type).toBe('node');
     });
 
-    it('has block+ content', () => {
-      expect(ListItem.config.content).toBe('block+');
+    it('has paragraph block* content (Notion-strict label slot)', () => {
+      expect(ListItem.config.content).toBe('paragraph block*');
     });
 
     it('is defining', () => {
@@ -347,6 +347,251 @@ describe('ListItem', () => {
       const result = (shortcuts?.['Enter'] as any)?.();
       // splitListItem succeeds for empty item — lifts into paragraph at top level
       expect(typeof result).toBe('boolean');
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────────
+  // Plan 4 children-zone Enter / Backspace handlers
+  // ────────────────────────────────────────────────────────────────────
+
+  describe('children-zone Enter (Plan 4 Phase 5+8)', () => {
+    let editor: Editor | undefined;
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    function invokeEnter(ed: Editor): unknown {
+      const nodeType = ed.state.schema.nodes['listItem'];
+      const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
+        ...ListItem, editor: ed, nodeType, options: ListItem.options,
+      } as any);
+      return (shortcuts?.['Enter'] as any)?.();
+    }
+
+    function caretAtEndOfNthEmptyP(ed: Editor, n: number): void {
+      let count = 0;
+      let pos = -1;
+      ed.state.doc.descendants((node, p) => {
+        if (pos !== -1) return false;
+        if (node.type.name === 'paragraph' && node.content.size === 0) {
+          if (count === n) { pos = p + 1; return false; }
+          count++;
+        }
+        return true;
+      });
+      if (pos === -1) throw new Error(`empty paragraph #${String(n)} not found`);
+      ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, pos)));
+    }
+
+    function caretAtEndOfNodeWithText(ed: Editor, typeName: string, text: string): void {
+      let pos = -1;
+      let size = 0;
+      ed.state.doc.descendants((node, p) => {
+        if (pos !== -1) return false;
+        if (node.type.name === typeName && node.textContent === text) { pos = p; size = node.nodeSize; return false; }
+        return true;
+      });
+      if (pos === -1) throw new Error(`node ${typeName}:${text} not found`);
+      ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, pos + size - 1)));
+    }
+
+    it('Phase 5 - empty children-zone p + Enter inserts another empty p as next sibling INSIDE same li', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, ListItem],
+        content: '<ul><li><p>Label</p><p></p></li></ul>',
+      });
+      caretAtEndOfNthEmptyP(editor, 0);
+
+      const result = invokeEnter(editor);
+      expect(result).toBe(true);
+
+      // li now has [Label, empty-p (orig), empty-p (NEW)] = 3 children.
+      const li = editor.state.doc.firstChild?.firstChild;
+      expect(li?.type.name).toBe('listItem');
+      expect(li?.childCount).toBe(3);
+    });
+
+    it('Phase 8 - non-empty children-zone p + Enter at end splits in place INSIDE same li', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, ListItem],
+        content: '<ul><li><p>Label</p><p>Note</p></li></ul>',
+      });
+      caretAtEndOfNodeWithText(editor, 'paragraph', 'Note');
+
+      const result = invokeEnter(editor);
+      expect(result).toBe(true);
+
+      // li now has [Label, "Note", empty-p (NEW)] - both halves stay inside li.
+      const li = editor.state.doc.firstChild?.firstChild;
+      expect(li?.childCount).toBe(3);
+      expect(li?.child(2).type.name).toBe('paragraph');
+      expect(li?.child(2).textContent).toBe('');
+    });
+
+    it('Phase 8 - non-empty children-zone p + Enter at MID splits text in place', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, ListItem],
+        content: '<ul><li><p>Label</p><p>HelloWorld</p></li></ul>',
+      });
+      // Caret at mid of "HelloWorld" (after "Hello").
+      let pos = -1;
+      editor.state.doc.descendants((node, p) => {
+        if (pos !== -1) return false;
+        if (node.type.name === 'paragraph' && node.textContent === 'HelloWorld') { pos = p + 1 + 'Hello'.length; return false; }
+        return true;
+      });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, pos)));
+
+      const result = invokeEnter(editor);
+      expect(result).toBe(true);
+
+      // li now has [Label, "Hello", "World"] - text split in place.
+      const li = editor.state.doc.firstChild?.firstChild;
+      expect(li?.childCount).toBe(3);
+      expect(li?.child(1).textContent).toBe('Hello');
+      expect(li?.child(2).textContent).toBe('World');
+    });
+
+    it('label paragraph empty + Enter does NOT trigger children-zone branch (lifts entire item)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, ListItem],
+        content: '<ul><li><p></p></li></ul>',
+      });
+      caretAtEndOfNthEmptyP(editor, 0);
+
+      const result = invokeEnter(editor);
+      expect(result).toBe(true);
+      // After lift, top-level has a paragraph (or bulletList may still be present).
+      // Critical: NO accumulated empty-p inside the listItem (children-zone branch did not fire).
+      const li = editor.state.doc.firstChild?.firstChild;
+      // listItem may be lifted out entirely; if still present, no extra siblings.
+      if (li?.type.name === 'listItem') {
+        expect(li.childCount).toBe(1);
+      }
+    });
+
+    it('label paragraph non-empty + Enter at end creates new sibling listItem (NOT children-zone accumulate)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, ListItem],
+        content: '<ul><li><p>OnlyLabel</p></li></ul>',
+      });
+      caretAtEndOfNodeWithText(editor, 'paragraph', 'OnlyLabel');
+
+      const result = invokeEnter(editor);
+      expect(result).toBe(true);
+
+      // splitListItem creates 2 list items.
+      const ul = editor.state.doc.firstChild;
+      expect(ul?.childCount).toBe(2);
+    });
+  });
+
+  describe('Backspace exit (Plan 4 Phase 6)', () => {
+    let editor: Editor | undefined;
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    function invokeBackspace(ed: Editor): unknown {
+      const nodeType = ed.state.schema.nodes['listItem'];
+      const shortcuts = ListItem.config.addKeyboardShortcuts?.call({
+        ...ListItem, editor: ed, nodeType, options: ListItem.options,
+      } as any);
+      return (shortcuts?.['Backspace'] as any)?.();
+    }
+
+    function caretAtEndOfNthEmptyP(ed: Editor, n: number): void {
+      let count = 0;
+      let pos = -1;
+      ed.state.doc.descendants((node, p) => {
+        if (pos !== -1) return false;
+        if (node.type.name === 'paragraph' && node.content.size === 0) {
+          if (count === n) { pos = p + 1; return false; }
+          count++;
+        }
+        return true;
+      });
+      if (pos === -1) throw new Error(`empty paragraph #${String(n)} not found`);
+      ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, pos)));
+    }
+
+    it('empty children-zone p + Backspace lifts JUST that paragraph as top-level sibling', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, ListItem],
+        content: '<ul><li><p>Label</p><p></p></li></ul>',
+      });
+      caretAtEndOfNthEmptyP(editor, 0);
+
+      const result = invokeBackspace(editor);
+      expect(result).toBe(true);
+
+      // li retains [Label]; top-level: [bulletList, paragraph (lifted)]
+      const docTop: { type: string; size: number }[] = [];
+      editor.state.doc.forEach((n) => docTop.push({ type: n.type.name, size: n.childCount }));
+      expect(docTop[0]?.type).toBe('bulletList');
+      expect(docTop[1]?.type).toBe('paragraph');
+    });
+
+    it('label paragraph (empty) + Backspace falls through (returns false), default handler runs', () => {
+      // childIndex===0 case: util returns isInChildrenZone=false, our
+      // branch does not fire, handler returns false (falls through).
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, ListItem],
+        content: '<ul><li><p></p></li></ul>',
+      });
+      caretAtEndOfNthEmptyP(editor, 0);
+
+      const result = invokeBackspace(editor);
+      expect(result).toBe(false);
+    });
+
+    it('non-empty paragraph + Backspace falls through (returns false)', () => {
+      // Backspace handler bails when paragraph.content.size !== 0.
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, ListItem],
+        content: '<ul><li><p>Label</p><p>Body</p></li></ul>',
+      });
+      // Caret at start of "Body".
+      let pos = -1;
+      editor.state.doc.descendants((node, p) => {
+        if (pos !== -1) return false;
+        if (node.type.name === 'paragraph' && node.textContent === 'Body') { pos = p + 1; return false; }
+        return true;
+      });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, pos)));
+
+      const result = invokeBackspace(editor);
+      expect(result).toBe(false);
+    });
+
+    it('caret at offset > 0 + Backspace falls through (returns false)', () => {
+      // parentOffset !== 0 guard.
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, ListItem],
+        content: '<ul><li><p>Label</p><p>X</p></li></ul>',
+      });
+      // Caret at end of "X" (parentOffset 1).
+      let pos = -1;
+      editor.state.doc.descendants((node, p) => {
+        if (pos !== -1) return false;
+        if (node.type.name === 'paragraph' && node.textContent === 'X') { pos = p + 2; return false; }
+        return true;
+      });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, pos)));
+
+      const result = invokeBackspace(editor);
+      expect(result).toBe(false);
+    });
+
+    it('Backspace bails when not in any list item (no editor.nodeType match)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, ListItem],
+        content: '<p>plain</p>',
+      });
+      editor.focus('start');
+
+      const result = invokeBackspace(editor);
+      expect(result).toBe(false);
     });
   });
 });

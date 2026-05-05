@@ -158,8 +158,32 @@
   // computed `top` from JS still reflects the true anchor - the indicator
   // and the actual drop position stay in sync.
   transform: translateY(3px);
+  // Smooth glide when the indicator moves between targets or flips
+  // between sibling and nested mode mid-drag. Only position properties
+  // animate; the categorical style swap (filled bar ↔ dashed border)
+  // intentionally stays instant to keep the mode boundary readable.
+  // Short duration so the line never feels laggy on fast drags.
+  transition: left 80ms ease-out, width 80ms ease-out, top 80ms ease-out, transform 80ms ease-out;
 
   &[data-show] {
     display: block;
+  }
+
+  // Nested-mode visual: dashed line indented to the children-zone start
+  // of the target list item. Communicates "this drop becomes a nested
+  // child appended at the end" rather than "a sibling between blocks".
+  // JS positions `top` at the rect's BOTTOM edge and `left` indented by
+  // 24px (mirrors `--dm-block-children-indent`), so the dashed line
+  // visually sits where a child block would render inside the item.
+  &[data-mode='nested'] {
+    height: 0;
+    background: transparent;
+    border-radius: 0;
+    border-top: 2px dashed var(--dm-accent, #2563eb);
+    box-shadow: none;
+    // Lift slightly so the line sits INSIDE the listItem's bottom edge
+    // rather than in the gap below - cancels the global +3px nudge and
+    // pulls the line 2px above rect.bottom.
+    transform: translateY(-2px);
   }
 }
