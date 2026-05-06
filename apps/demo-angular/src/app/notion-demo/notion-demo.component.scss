@@ -12,10 +12,17 @@
   max-width: 56rem;
   margin: 2rem auto 6rem;
   padding: 2rem 3rem;
-  background: var(--dm-editor-bg, #ffffff);
+  // Use the semantic base tokens (`--dm-bg`, `--dm-border-color`) so the
+  // page chrome follows the active theme. The dark theme sets these on
+  // any ancestor carrying `.dm-theme-dark` (in the demo: `<body>`), so the
+  // values cascade into this wrapper. The legacy `--dm-editor-bg` /
+  // `--dm-border` tokens are only defined on `.dm-editor` itself and
+  // therefore never reach this PARENT element, leaving the page white in
+  // dark mode.
+  background: var(--dm-bg, #ffffff);
   // Subtle page container: a hair of box-shadow outlines where content
   // lives without adding the hard border Notion specifically doesn't use.
-  border: 1px solid var(--dm-border, rgba(0, 0, 0, 0.08));
+  border: 1px solid var(--dm-border-color, rgba(0, 0, 0, 0.08));
   border-radius: 0.375rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 
