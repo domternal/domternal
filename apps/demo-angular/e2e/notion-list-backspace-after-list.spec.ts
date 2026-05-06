@@ -662,3 +662,182 @@ test.describe('Backspace after-list join - additional edges', () => {
     expect(sel.parentText).toBe('');
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════
+// Group I - middle-of-list Enter+BS+BS: list halves must rejoin into one
+// ════════════════════════════════════════════════════════════════════════
+//
+// Repro: ul[a, b, c]. Cursor at end of "b". Enter creates an empty li
+// between b and c. BS#1 lifts that empty li out of the middle, which
+// (per PM standard) splits the surrounding list into ul[a, b] + p"" + ul[c].
+// BS#2 must delete the empty p AND merge the two list halves back into a
+// single ul[a, b, c]. Without the join step, the doc is left with two
+// adjacent same-type list groups.
+
+test.describe('Backspace after-list join - middle-of-list sandwich (bullet)', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('I1 ul[1,2,3], Enter at end of 2, BS, BS -> single unified ul[1,2,3], caret at end of "2"', async ({ page }) => {
+    await setContent(page, '<ul><li><p>first</p></li><li><p>second</p></li><li><p>third</p></li></ul>');
+    await caretAtEndOfText(page, 'second');
+
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    expect(await listItemTexts(page)).toEqual(['first', 'second', '', 'third']);
+
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+    // PM's liftListItem on the empty middle item splits the list:
+    // [bulletList(1,2), paragraph(empty), bulletList(3)].
+    expect(await topLevelTypes(page)).toEqual(['bulletList', 'paragraph', 'bulletList']);
+
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    // The fix: empty p deleted AND the two ul halves merged back into one.
+    expect(await topLevelTypes(page)).toEqual(['bulletList']);
+    expect(await listItemTexts(page)).toEqual(['first', 'second', 'third']);
+    const sel = await selectionAt(page);
+    expect(sel.parentText).toBe('second');
+  });
+
+  test('I2 ul[a,b], Enter at end of a, BS, BS -> single unified ul[a,b], caret at end of "a"', async ({ page }) => {
+    // Two-item list, Enter on the FIRST item splits the list at index 1.
+    await setContent(page, '<ul><li><p>a</p></li><li><p>b</p></li></ul>');
+    await caretAtEndOfText(page, 'a');
+
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(40);
+    expect(await listItemTexts(page)).toEqual(['a', '', 'b']);
+
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+    expect(await topLevelTypes(page)).toEqual(['bulletList', 'paragraph', 'bulletList']);
+
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+    expect(await topLevelTypes(page)).toEqual(['bulletList']);
+    expect(await listItemTexts(page)).toEqual(['a', 'b']);
+    const sel = await selectionAt(page);
+    expect(sel.parentText).toBe('a');
+  });
+
+  test('I3 ul with bold/italic in items: marks survive the rejoin', async ({ page }) => {
+    // Mirrors the user-reported repro shape (bold/italic marks).
+    await setContent(
+      page,
+      '<ul><li><p>First item in a list</p></li><li><p>Second item with <strong>bold text</strong></p></li><li><p>Third item with <em>italic text</em></p></li></ul>',
+    );
+    await caretAtEndOfText(page, 'bold text');
+
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    expect(await topLevelTypes(page)).toEqual(['bulletList']);
+    const html = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>).__DEMO_EDITOR__ as
+        | { getHTML: () => string } | undefined;
+      return ed?.getHTML() ?? '';
+    });
+    // Marks preserved, single ul.
+    expect(html).toContain('<strong>bold text</strong>');
+    expect(html).toContain('<em>italic text</em>');
+    expect((html.match(/<ul/g) ?? []).length).toBe(1);
+    const sel = await selectionAt(page);
+    expect(sel.parentText).toBe('Second item with bold text');
+  });
+});
+
+test.describe('Backspace after-list join - middle-of-list sandwich (ordered)', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('I4 ol[1,2,3], Enter at end of 2, BS, BS -> single unified ol[1,2,3]', async ({ page }) => {
+    await setContent(page, '<ol><li><p>one</p></li><li><p>two</p></li><li><p>three</p></li></ol>');
+    await caretAtEndOfText(page, 'two');
+
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+    expect(await topLevelTypes(page)).toEqual(['orderedList', 'paragraph', 'orderedList']);
+
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+    expect(await topLevelTypes(page)).toEqual(['orderedList']);
+    expect(await listItemTexts(page)).toEqual(['one', 'two', 'three']);
+    const sel = await selectionAt(page);
+    expect(sel.parentText).toBe('two');
+  });
+});
+
+test.describe('Backspace after-list join - middle-of-list sandwich (task)', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('I5 task[a,b,c], Enter at end of b, BS, BS -> single unified taskList', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem"><label><input type="checkbox"></label><div><p>a</p></div></li><li data-type="taskItem"><label><input type="checkbox"></label><div><p>b</p></div></li><li data-type="taskItem"><label><input type="checkbox"></label><div><p>c</p></div></li></ul>',
+    );
+    await caretAtEndOfText(page, 'b');
+
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+    expect(await topLevelTypes(page)).toEqual(['taskList', 'paragraph', 'taskList']);
+
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+    expect(await topLevelTypes(page)).toEqual(['taskList']);
+    expect(await listItemTexts(page)).toEqual(['a', 'b', 'c']);
+    const sel = await selectionAt(page);
+    expect(sel.parentText).toBe('b');
+  });
+});
+
+test.describe('Backspace after-list join - middle-of-list sandwich (cross-type guard)', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('I6 manual ul + p"" + ol shape: BS deletes p, lists STAY separate (different types)', async ({ page }) => {
+    // If the empty p is between two list groups of DIFFERENT types, the
+    // exit-join branch deletes the empty p but does NOT merge them.
+    await setContent(page, '<ul><li><p>a</p></li></ul><p></p><ol><li><p>1</p></li></ol>');
+    await caretAtStartOfNthEmptyP(page, 0);
+
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    expect(await topLevelTypes(page)).toEqual(['bulletList', 'orderedList']);
+    expect(await listItemTexts(page)).toEqual(['a', '1']);
+    const sel = await selectionAt(page);
+    expect(sel.parentText).toBe('a');
+  });
+
+  test('I7 manual ul + p"" + heading shape: BS deletes p, heading remains separate', async ({ page }) => {
+    // Sanity guard: non-list next sibling is left untouched.
+    await setContent(page, '<ul><li><p>a</p></li></ul><p></p><h2>title</h2>');
+    await caretAtStartOfNthEmptyP(page, 0);
+
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    expect(await topLevelTypes(page)).toEqual(['bulletList', 'heading']);
+    const sel = await selectionAt(page);
+    expect(sel.parentText).toBe('a');
+  });
+
+  test('I8 manual ul + p"" + ul shape (no preceding Enter): BS merges the two same-type uls', async ({ page }) => {
+    // Direct shape, decoupled from the Enter+BS#1 flow. Exercises the
+    // exit-join + same-type join branch on its own.
+    await setContent(page, '<ul><li><p>a</p></li><li><p>b</p></li></ul><p></p><ul><li><p>c</p></li></ul>');
+    await caretAtStartOfNthEmptyP(page, 0);
+
+    await page.keyboard.press('Backspace');
+    await page.waitForTimeout(40);
+
+    expect(await topLevelTypes(page)).toEqual(['bulletList']);
+    expect(await listItemTexts(page)).toEqual(['a', 'b', 'c']);
+    const sel = await selectionAt(page);
+    expect(sel.parentText).toBe('b');
+  });
+});

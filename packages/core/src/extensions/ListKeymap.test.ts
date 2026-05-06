@@ -9,6 +9,7 @@ import { ListItem } from '../nodes/ListItem.js';
 import { BaseKeymap } from './BaseKeymap.js';
 import { Editor } from '../Editor.js';
 import { TextSelection } from '@domternal/pm/state';
+import { splitListItem } from '@domternal/pm/schema-list';
 
 const baseExtensions = [
   Document,
@@ -392,6 +393,92 @@ describe('ListKeymap', () => {
       const shortcuts = getShortcuts(editor);
       // Non-empty paragraph - exit-join branch doesn't fire (content.size guard).
       expect(shortcuts['Backspace']({ editor })).toBe(false);
+    });
+
+    // ────────────────────────────────────────────────────────────────────
+    // Empty p sandwiched between two same-type list groups: the common
+    // shape after Enter (splitListItem) + Backspace (liftListItem) on a
+    // MIDDLE item. The two list halves must be joined back into one.
+    // ────────────────────────────────────────────────────────────────────
+
+    it('bullet+bullet sandwich: joins the two ul halves into one', () => {
+      editor = new Editor({
+        extensions: baseExtensions,
+        content: '<ul><li><p>a</p></li><li><p>b</p></li></ul><p></p><ul><li><p>c</p></li></ul>',
+      });
+      caretAtStartOfNthEmptyP(editor, 0);
+
+      const shortcuts = getShortcuts(editor);
+      expect(shortcuts['Backspace']({ editor })).toBe(true);
+      expect(editor.getHTML()).toBe('<ul><li><p>a</p></li><li><p>b</p></li><li><p>c</p></li></ul>');
+      // Caret at end of "b" (the last textblock of the prev list before the join).
+      expect(editor.state.selection.$from.parent.textContent).toBe('b');
+    });
+
+    it('ordered+ordered sandwich: joins the two ol halves into one', () => {
+      editor = new Editor({
+        extensions: baseExtensions,
+        content: '<ol><li><p>1</p></li><li><p>2</p></li></ol><p></p><ol><li><p>3</p></li></ol>',
+      });
+      caretAtStartOfNthEmptyP(editor, 0);
+
+      const shortcuts = getShortcuts(editor);
+      expect(shortcuts['Backspace']({ editor })).toBe(true);
+      expect(editor.getHTML()).toBe('<ol><li><p>1</p></li><li><p>2</p></li><li><p>3</p></li></ol>');
+      expect(editor.state.selection.$from.parent.textContent).toBe('2');
+    });
+
+    it('bullet+ordered sandwich (different types): does NOT join, but still deletes the empty p', () => {
+      editor = new Editor({
+        extensions: baseExtensions,
+        content: '<ul><li><p>a</p></li></ul><p></p><ol><li><p>1</p></li></ol>',
+      });
+      caretAtStartOfNthEmptyP(editor, 0);
+
+      const shortcuts = getShortcuts(editor);
+      expect(shortcuts['Backspace']({ editor })).toBe(true);
+      expect(editor.getHTML()).toBe('<ul><li><p>a</p></li></ul><ol><li><p>1</p></li></ol>');
+      expect(editor.state.selection.$from.parent.textContent).toBe('a');
+    });
+
+    it('full Enter+BS+BS flow on a MIDDLE bullet item: list stays unified', () => {
+      editor = new Editor({
+        extensions: baseExtensions,
+        content: '<ul><li><p>first</p></li><li><p>second</p></li><li><p>third</p></li></ul>',
+      });
+
+      // Place cursor at the END of the second item's text.
+      let secondEnd = -1;
+      editor.state.doc.descendants((node, p) => {
+        if (node.isText && node.text === 'second') secondEnd = p + node.nodeSize;
+      });
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, secondEnd)),
+      );
+
+      // Enter: invokes splitListItem via the keymap chain.
+      const liType = editor.state.schema.nodes['listItem'];
+      if (!liType) throw new Error('listItem type missing from schema');
+      splitListItem(liType)(editor.state, editor.view.dispatch);
+
+      // BS#1: liftListItem on the new empty middle item -> splits the list.
+      let shortcuts = getShortcuts(editor);
+      expect(shortcuts['Backspace']({ editor })).toBe(true);
+
+      // The PM standard behaviour after liftListItem on a middle empty item
+      // is: ul[1, 2] + p"" + ul[3]. We assert that shape before BS#2 to make
+      // the regression target explicit.
+      expect(editor.getHTML()).toBe(
+        '<ul><li><p>first</p></li><li><p>second</p></li></ul><p></p><ul><li><p>third</p></li></ul>',
+      );
+
+      // BS#2: exit-join + same-type join -> single unified list, caret at end of "second".
+      shortcuts = getShortcuts(editor);
+      expect(shortcuts['Backspace']({ editor })).toBe(true);
+      expect(editor.getHTML()).toBe(
+        '<ul><li><p>first</p></li><li><p>second</p></li><li><p>third</p></li></ul>',
+      );
+      expect(editor.state.selection.$from.parent.textContent).toBe('second');
     });
   });
 });

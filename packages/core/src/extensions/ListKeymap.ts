@@ -106,6 +106,11 @@ export const ListKeymap = Extension.create<ListKeymapOptions>({
         // We delete the empty paragraph and move the caret to the end of
         // the last textblock of the previous list - the natural intent
         // when the user backspaces from the line just below a list.
+        //
+        // Additionally, when the empty paragraph sits BETWEEN two
+        // same-type list groups (the common shape after splitListItem +
+        // liftListItem on a middle item), join them so the original list
+        // is reunified rather than left as two adjacent siblings.
         if (
           $from.parent.type.name === 'paragraph' &&
           $from.parent.content.size === 0 &&
@@ -128,6 +133,22 @@ export const ListKeymap = Extension.create<ListKeymapOptions>({
               });
               if (lastTextblockEnd !== -1) {
                 const tr = state.tr.delete(paraStart, paraEnd);
+
+                // If the next sibling is a list group of the SAME type,
+                // join it onto the previous list. After the delete, the
+                // boundary between the two lists sits at `paraStart` in
+                // the new doc, so `tr.join(paraStart)` merges them.
+                const next = idx + 1 < container.childCount
+                  ? container.child(idx + 1)
+                  : null;
+                if (next?.type === prev.type) {
+                  try {
+                    tr.join(paraStart);
+                  } catch {
+                    // join failed (schema), keep just the delete
+                  }
+                }
+
                 tr.setSelection(TextSelection.create(tr.doc, lastTextblockEnd));
                 view.dispatch(tr.scrollIntoView());
                 return true;
