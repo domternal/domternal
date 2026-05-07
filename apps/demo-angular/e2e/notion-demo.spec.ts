@@ -827,6 +827,193 @@ test.describe('Slash command - typing-event activation', () => {
     await expect(page.locator(slashMenuSelector)).toBeVisible();
   });
 
+  test('typing `/h`, arrow-right past existing text dismisses (query does not swallow surrounding chars)', async ({ page }) => {
+    // Mid-text typing scenario. Doc has "hello world". User clicks
+    // between space and "w", types `/h` -> active query="h". Now arrow-
+    // right past `to` into "world". Without typing, range.to does not
+    // advance, the cursor leaves the typed span, popup dismisses.
+    await setContent(page, '<p>hello world</p>');
+    // Place cursor between space and 'w' (position 7).
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | {
+            state: {
+              doc: unknown;
+              tr: { setSelection: (s: unknown) => unknown };
+              selection: { constructor: { create: (doc: unknown, pos: number) => unknown } };
+            };
+            view: { dispatch: (tr: unknown) => void; focus: () => void };
+          }
+        | undefined;
+      if (!ed) return;
+      const TS = ed.state.selection.constructor;
+      const tr = (ed.state.tr.setSelection as (s: unknown) => unknown)(TS.create(ed.state.doc, 7));
+      ed.view.dispatch(tr);
+      ed.view.focus();
+    });
+    await page.keyboard.type('/h');
+    await expect(page.locator(slashMenuSelector)).toBeVisible();
+
+    // Real arrow-right keystroke. Cursor moves into "world".
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator(slashMenuSelector)).not.toBeVisible();
+  });
+
+  test('arrow-left WITHIN typed query keeps the menu active; arrow-right back keeps it', async ({ page }) => {
+    // Type `/heading`, arrow-left into the query -> menu stays open with
+    // unchanged query "heading". Arrow-right back to end -> still open.
+    await setContent(page, '<p></p>');
+    await page.click(editorSelector);
+    await page.keyboard.type('/heading');
+    await expect(page.locator(slashMenuSelector)).toBeVisible();
+
+    await page.keyboard.press('ArrowLeft');
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.locator(slashMenuSelector)).toBeVisible();
+    // Query content unchanged.
+    const queryUnchanged = await page.evaluate(() => {
+      const w = window as unknown as { __DEMO_EDITOR__?: unknown };
+      // Read the slash plugin state via the editor's state/plugins lookup.
+      const ed = w.__DEMO_EDITOR__ as { state: { plugins: { spec: { key?: { key?: string } } }[] } } | undefined;
+      if (!ed) return null;
+      // Find the slash plugin by its registered key name and read state.
+      for (const plugin of ed.state.plugins) {
+        const keyAny = (plugin as unknown as { key?: string }).key;
+        if (typeof keyAny === 'string' && keyAny.startsWith('slashCommand')) {
+          // Use plugin getState via state.field equivalent — fall back to
+          // reading from view state via the indirection PM provides.
+          break;
+        }
+      }
+      // Simpler: read the visible "query highlighted" decoration text by
+      // walking the doc - the plugin tags it with class dm-slash-command-query.
+      return document.querySelector('.dm-slash-command-query')?.textContent ?? '';
+    });
+    expect(queryUnchanged).toBe('/heading');
+
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator(slashMenuSelector)).toBeVisible();
+  });
+
+  test('arrow-left to BEFORE the `/` dismisses', async ({ page }) => {
+    await setContent(page, '<p></p>');
+    await page.click(editorSelector);
+    await page.keyboard.type('/he');
+    await expect(page.locator(slashMenuSelector)).toBeVisible();
+
+    // Three ArrowLeft moves: e -> /e -> //e -> before /. The third lands
+    // the cursor at the position OF the `/`, which is < range.from + 1.
+    await page.keyboard.press('ArrowLeft'); // between h and e
+    await expect(page.locator(slashMenuSelector)).toBeVisible();
+    await page.keyboard.press('ArrowLeft'); // between / and h
+    await expect(page.locator(slashMenuSelector)).toBeVisible();
+    await page.keyboard.press('ArrowLeft'); // before /
+    await expect(page.locator(slashMenuSelector)).not.toBeVisible();
+  });
+
+  test('arrow-left into query then typing in the middle extends the query', async ({ page }) => {
+    // Type `/he`, arrow-left between h and e, type `x`. Query becomes "hxe".
+    await setContent(page, '<p></p>');
+    await page.click(editorSelector);
+    await page.keyboard.type('/he');
+    await page.keyboard.press('ArrowLeft'); // /h|e
+    await page.keyboard.type('x');
+    // Visible decoration text reflects the typed query span.
+    const queryText = await page.evaluate(() =>
+      document.querySelector('.dm-slash-command-query')?.textContent ?? '',
+    );
+    expect(queryText).toBe('/hxe');
+    await expect(page.locator(slashMenuSelector)).toBeVisible();
+  });
+
+  test('Backspace SHRINKS the typed query (not just deletes trigger)', async ({ page }) => {
+    // Real keyboard backspace over query chars. Each press should shrink
+    // range.to and refilter. Different code path from "backspace removes
+    // the / itself" (which dismisses).
+    await setContent(page, '<p></p>');
+    await page.click(editorSelector);
+    await page.keyboard.type('/heading');
+    let q = await page.evaluate(() =>
+      document.querySelector('.dm-slash-command-query')?.textContent ?? '',
+    );
+    expect(q).toBe('/heading');
+    await expect(page.locator(slashMenuSelector)).toBeVisible();
+
+    await page.keyboard.press('Backspace');
+    q = await page.evaluate(() =>
+      document.querySelector('.dm-slash-command-query')?.textContent ?? '',
+    );
+    expect(q).toBe('/headin');
+    await expect(page.locator(slashMenuSelector)).toBeVisible();
+
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Backspace');
+    q = await page.evaluate(() =>
+      document.querySelector('.dm-slash-command-query')?.textContent ?? '',
+    );
+    expect(q).toBe('/head');
+    await expect(page.locator(slashMenuSelector)).toBeVisible();
+  });
+
+  test('mouse click WITHIN the typed query keeps the menu active', async ({ page }) => {
+    // Real mouse click landing inside the typed query span. Equivalent
+    // outcome to arrow-left mid-query but exercises a different DOM path
+    // (mousedown -> PM coordsAtDOM -> setSelection).
+    await setContent(page, '<p></p>');
+    await page.click(editorSelector);
+    await page.keyboard.type('/heading');
+    await expect(page.locator(slashMenuSelector)).toBeVisible();
+
+    // Click into the middle of the rendered "/heading" text. The
+    // decoration span's bounding box is the typed query.
+    await page.locator('.dm-slash-command-query').click();
+    await expect(page.locator(slashMenuSelector)).toBeVisible();
+    // Query content must still be "/heading".
+    const q = await page.evaluate(() =>
+      document.querySelector('.dm-slash-command-query')?.textContent ?? '',
+    );
+    expect(q).toBe('/heading');
+  });
+
+  test('mid-text typing /h then arrow-right does NOT add following text to query', async ({ page }) => {
+    // The whole point: prior to this fix, arrow-right past `to` would
+    // grow the query into existing text. Now it dismisses.
+    await setContent(page, '<p>hello world</p>');
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | {
+            state: {
+              doc: unknown;
+              tr: { setSelection: (s: unknown) => unknown };
+              selection: { constructor: { create: (doc: unknown, pos: number) => unknown } };
+            };
+            view: { dispatch: (tr: unknown) => void; focus: () => void };
+          }
+        | undefined;
+      if (!ed) return;
+      const TS = ed.state.selection.constructor;
+      const tr = (ed.state.tr.setSelection as (s: unknown) => unknown)(TS.create(ed.state.doc, 7));
+      ed.view.dispatch(tr);
+      ed.view.focus();
+    });
+    await page.keyboard.type('/h');
+    // Confirm typed query.
+    let qText = await page.evaluate(() =>
+      document.querySelector('.dm-slash-command-query')?.textContent ?? '',
+    );
+    expect(qText).toBe('/h');
+
+    // Arrow-right (cursor moves into "world"). Menu dismisses; the
+    // typed query text is no longer decorated.
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator(slashMenuSelector)).not.toBeVisible();
+    qText = await page.evaluate(() =>
+      document.querySelector('.dm-slash-command-query')?.textContent ?? '',
+    );
+    expect(qText).toBe('');
+  });
+
   test('active menu: moving cursor into ANOTHER block dismisses it; moving back does NOT reopen', async ({ page }) => {
     // Two blocks, type `/` at the end of the first, then move cursor to
     // the second. Active branch's findSlashQuery returns null (cursor

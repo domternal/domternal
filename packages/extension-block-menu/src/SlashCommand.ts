@@ -233,21 +233,87 @@ export function createSlashCommandPlugin(
         if (!tr.docChanged && !tr.selectionSet) return prev;
 
         // ── Branch 1: popup was ALREADY active ─────────────────────────
-        // Re-derive on every change: typing extends the query, backspace
-        // shrinks it, deleting the trigger or moving the cursor out of
-        // range deactivates. This is the same logic as before.
-        if (prev.active) {
-          // Doc-only change (collab edit) while the user's cursor stayed
-          // put: just map the range through the new positions.
-          if (tr.docChanged && !tr.selectionSet && prev.range) {
-            const from = tr.mapping.mapResult(prev.range.from);
-            const to = tr.mapping.mapResult(prev.range.to);
-            if (from.deleted || to.deleted) return { ...INITIAL_STATE };
-            return { ...prev, range: { from: from.pos, to: to.pos } };
+        //
+        // The query is the text between the trigger position (`range.from`)
+        // and the typed-end position (`range.to`). Crucially, `range.to`
+        // tracks WHAT THE USER TYPED, not the current cursor. That way
+        // navigating the cursor with arrow keys past existing text does
+        // not "swallow" surrounding chars into the query.
+        //
+        // Rules per transaction kind:
+        //   - docChange (typing / backspace / paste / collab):
+        //       * map both range bounds forward through tr.mapping
+        //       * if the trigger position itself was deleted, dismiss
+        //       * if the char at `range.from` is no longer the trigger,
+        //         dismiss (the `/` got replaced or pushed away)
+        //       * if the cursor moved PAST the mapped `to`, the user
+        //         typed more chars at the end - extend `to` to cursor
+        //   - selection-only (mouse click / arrow key without typing):
+        //       * cursor must remain in the typed query span
+        //         [from + 1, to]. Stepping out either end dismisses.
+        //         Mid-query navigation keeps the popup open with the
+        //         same query.
+        //   - non-empty selection (shift+arrow drag): dismiss.
+        if (prev.active && prev.range) {
+          let { from, to } = prev.range;
+
+          if (tr.docChanged) {
+            // bias = 1 (default, right): an insertion AT the trigger
+            // position pushes the `/` forward; we want our `from` to
+            // follow it. Same bias for `to` so a typed char inserted
+            // exactly at the end of the query extends the range.
+            const fromResult = tr.mapping.mapResult(from);
+            const toResult = tr.mapping.mapResult(to);
+            if (fromResult.deleted) return { ...INITIAL_STATE };
+            from = fromResult.pos;
+            to = toResult.pos;
+
+            // The char that was the trigger may have been replaced
+            // (e.g. autocomplete inserting AT `from`, or the user
+            // pasting over it). If so, the session is gone.
+            if (
+              newState.doc.textBetween(from, from + 1, undefined, '￼') !== char
+            ) {
+              return { ...INITIAL_STATE };
+            }
           }
-          const result = findSlashQuery(newState, char, invalidNodes);
-          if (result) return { active: true, query: result.query, range: result.range };
-          return { ...INITIAL_STATE };
+
+          // Range selections (shift+arrow, click-drag) make no sense for
+          // a single-cursor suggestion popup.
+          if (!newState.selection.empty) return { ...INITIAL_STATE };
+          const cursor = newState.selection.from;
+
+          // Cursor must remain at or after the first char of the query
+          // (i.e. at-or-past the position immediately after `/`).
+          if (cursor < from + 1) return { ...INITIAL_STATE };
+
+          if (cursor > to) {
+            // Past the typed end: only legal as the natural side-effect
+            // of typing more chars (cursor moves forward by the inserted
+            // length). A pure selection move past `to` (arrow-right past
+            // existing text) means the user left the typing session.
+            if (!tr.docChanged) return { ...INITIAL_STATE };
+            to = cursor;
+          }
+
+          // Defensive: a collab edit could have flipped the surrounding
+          // block into a code block / other invalidNodes type, in which
+          // case the slash session should not survive.
+          const $cursor = newState.doc.resolve(cursor);
+          if ($cursor.parent.type.spec.code) return { ...INITIAL_STATE };
+          if (invalidNodes.includes($cursor.parent.type.name)) {
+            return { ...INITIAL_STATE };
+          }
+
+          const query = newState.doc.textBetween(
+            from + 1,
+            to,
+            undefined,
+            '￼',
+          );
+          if (/[\n\t]/.test(query)) return { ...INITIAL_STATE };
+
+          return { active: true, query, range: { from, to } };
         }
 
         // ── Branch 2: popup was INACTIVE ───────────────────────────────
