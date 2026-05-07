@@ -138,7 +138,7 @@ export function liftEmptyChildrenZoneParagraph(
     // Single-item or last-item wrapper: delete in-place, insert after
     // the wrapper at parent depth (top-level slot).
     tr.delete(paraStart, paraEnd);
-    const insertPos = wrapperEnd - (paraEnd - paraStart);
+    const insertPos = tr.mapping.map(wrapperEnd);
     tr.insert(insertPos, newPara);
     tr.setSelection(TextSelection.create(tr.doc, insertPos + 1));
   } else {
@@ -148,7 +148,7 @@ export function liftEmptyChildrenZoneParagraph(
     // halves is at position `splitAt + 1` (= one position after the
     // close-token of the first half).
     tr.delete(paraStart, paraEnd);
-    const splitAt = itemEnd - (paraEnd - paraStart);
+    const splitAt = tr.mapping.map(itemEnd);
     tr.split(splitAt, 1);
     const insertPos = splitAt + 1;
     tr.insert(insertPos, newPara);

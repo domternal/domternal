@@ -16,6 +16,7 @@
  */
 import { TextSelection } from '@domternal/pm/state';
 import { liftListItem, sinkListItem } from '@domternal/pm/schema-list';
+import { canJoin } from '@domternal/pm/transform';
 import type { NodeType } from '@domternal/pm/model';
 import type { EditorState } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
@@ -138,15 +139,14 @@ export const ListKeymap = Extension.create<ListKeymapOptions>({
                 // join it onto the previous list. After the delete, the
                 // boundary between the two lists sits at `paraStart` in
                 // the new doc, so `tr.join(paraStart)` merges them.
+                // `canJoin` validates the schema accepts the merge before
+                // we call `join` (avoids try-catch that would swallow
+                // unrelated errors).
                 const next = idx + 1 < container.childCount
                   ? container.child(idx + 1)
                   : null;
-                if (next?.type === prev.type) {
-                  try {
-                    tr.join(paraStart);
-                  } catch {
-                    // join failed (schema), keep just the delete
-                  }
+                if (next?.type === prev.type && canJoin(tr.doc, paraStart)) {
+                  tr.join(paraStart);
                 }
 
                 tr.setSelection(TextSelection.create(tr.doc, lastTextblockEnd));

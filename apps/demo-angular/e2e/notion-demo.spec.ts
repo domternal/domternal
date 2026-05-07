@@ -432,6 +432,73 @@ test.describe('Copy link to block', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
+// 6b. Floating menu - dark theme token propagation
+// (regression: `.dm-floating-menu` was missing from the dark-theme selector
+// list, leaving its scrollbar / surface colours stuck on light values.)
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('Floating menu - theming', () => {
+  test('floating menu inherits dark-theme tokens when body has .dm-theme-dark', async ({ page }) => {
+    await page.goto('/');
+    // Toggle dark mode at the app level BEFORE switching into Notion mode -
+    // theme-toggle lives in app.html so it persists across the mode switch.
+    await page.locator('.theme-toggle').click();
+    await expect.poll(async () =>
+      page.evaluate(() => document.body.classList.contains('dm-theme-dark')),
+    ).toBe(true);
+
+    await page.click(modeToggleNotion);
+    await page.waitForSelector(editorSelector);
+    await waitForAllIds(page);
+
+    // Open the floating menu via the BlockHandle `+` button (Notion mode
+    // uses requireExplicitTrigger=true so the menu only shows on demand).
+    await hoverBlock(page, 'p');
+    await page.click(plusBtnSelector);
+    await expect(page.locator(floatingMenuSelector)).toHaveAttribute('data-show', '');
+
+    // The dark scrollbar token should resolve on the menu element. Reads
+    // the SAME custom property the menu's `scrollbar-color` consumes -
+    // proves the dark-tokens mixin reaches `.dm-floating-menu`.
+    const scrollbarThumb = await page.locator(floatingMenuSelector).evaluate(
+      (el) => getComputedStyle(el).getPropertyValue('--dm-scrollbar-thumb').trim(),
+    );
+    // Dark-mode value defined in `_dark.scss`.
+    expect(scrollbarThumb).toBe('rgba(255, 255, 255, 0.18)');
+
+    // Surface colour cascades from --dm-bg through the menu's
+    // `background: var(--dm-toolbar-bg, var(--dm-bg, ...))` chain.
+    const bg = await page.locator(floatingMenuSelector).evaluate(
+      (el) => getComputedStyle(el).getPropertyValue('--dm-bg').trim(),
+    );
+    expect(bg).toBe('#1e1e1e');
+  });
+
+  test('shortcut chip uses --dm-code-font token (regression: was an undefined --dm-editor-font-family-mono)', async ({ page }) => {
+    await goNotion(page);
+    await hoverBlock(page, 'p');
+    await page.click(plusBtnSelector);
+    await expect(page.locator(floatingMenuSelector)).toHaveAttribute('data-show', '');
+
+    // Find a menu item that exposes a shortcut chip (e.g. headings show `# `).
+    const chip = page.locator('.dm-floating-menu-item-shortcut').first();
+    await expect(chip).toBeVisible();
+
+    // The token must resolve to a real font stack (not the empty string a
+    // missing variable would yield). Reading from the chip itself ensures
+    // the var-lookup actually evaluates in the chip's cascade.
+    const fontFamily = await chip.evaluate((el) => getComputedStyle(el).fontFamily);
+    expect(fontFamily.toLowerCase()).toContain('mono');
+
+    // Also verify the canonical token resolves (defined in `_variables.scss`).
+    const tokenValue = await chip.evaluate((el) =>
+      getComputedStyle(el).getPropertyValue('--dm-code-font').trim(),
+    );
+    expect(tokenValue.length).toBeGreaterThan(0);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
 // 7. Turn into - type + attribute preservation
 // ────────────────────────────────────────────────────────────────────────
 
