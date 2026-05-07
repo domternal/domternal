@@ -1,0 +1,88 @@
+// =============================================================================
+// Notion Mode
+// =============================================================================
+// Opt-in stylistic preset for a Notion-style editor: borderless seamless
+// surface, centered narrow content column, generous reading rhythm, and a
+// BlockHandle that lives fully in the surrounding gutter.
+//
+// Apply by adding `dm-notion-mode` to the editor host element:
+//
+//   <domternal-editor class="dm-notion-mode" ... />
+//   <DomternalEditor className="dm-notion-mode" ... />     // React
+//   <domternal-editor :class="['dm-notion-mode']" ... />   // Vue
+//
+// Pair with:
+//   - FloatingMenu `requireExplicitTrigger=true` (so the menu only opens on
+//     the BlockHandle `+` button or programmatically, not on every empty p)
+//   - SlashCommand extension (typed `/` is the keyboard insert path)
+//   - BlockHandle + BlockContextMenu (the `extension-block-menu` package)
+//
+// The class drops the editor's chrome (border, shadow, rounded corners),
+// caps the content column width, scales typography up for readability,
+// and tightens heading margins for the closer rhythm Notion uses. Place
+// the editor inside a wider container (e.g. a 56rem page wrapper) so the
+// handle has somewhere to live in the side gutter.
+// =============================================================================
+
+.dm-editor.dm-notion-mode {
+  // Drop the default chrome - Notion pages have no card outline.
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+
+  // Centered, comfortably narrow reading column. The surrounding margin
+  // is where the BlockHandle sits (see token overrides below).
+  max-width: 38rem;
+  margin: 0 auto;
+
+  // Generous reading line-height and slightly larger text, similar to
+  // Notion. Padding is zeroed because the page wrapper already supplies
+  // the white space around the column.
+  --dm-editor-font-size: 1.0625rem;
+  --dm-editor-line-height: 1.7;
+  --dm-editor-padding: 0;
+
+  // Handle lives fully OUTSIDE the centered content column. Zeroing the
+  // ProseMirror gutter token reclaims the reserved column (the handle no
+  // longer overlaps content - there is nothing to reserve). The negative
+  // `left` token pulls the handle left of the column with a few px of
+  // breathing room before the content's left edge.
+  --dm-block-handle-gutter: 0;
+  --dm-block-handle-left: -3.5rem;
+
+  // The `top` checkbox tuning in `_task-list.scss` is for the default
+  // 1.6 line-height. Notion mode lifts line-height to 1.7, so nudge the
+  // checkbox down to keep it on the x-height of the first label line.
+  --dm-task-checkbox-top: 0.45em;
+
+  .ProseMirror {
+    min-height: 60vh;
+    outline: none;
+
+    // Tighter heading rhythm than the default content stylesheet, more
+    // Notion-like. Sizes are intentionally smaller than the toolbar
+    // demo's defaults so headings sit closer to body text.
+    h1 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      margin-top: 1.5rem;
+      margin-bottom: 0.75rem;
+    }
+    h2 {
+      font-size: 1.625rem;
+      font-weight: 600;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-top: 1.25rem;
+      margin-bottom: 0.375rem;
+    }
+    p {
+      margin: 0.25rem 0;
+    }
+  }
+}

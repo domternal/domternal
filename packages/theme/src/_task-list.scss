@@ -22,20 +22,17 @@
 
       > label {
         position: absolute;
-        // Hang the checkbox in the same column a native bullet glyph
-        // occupies. With the wrapper's `padding-left: 1.5em` (see `ul, ol`
-        // in _content.scss) and the checkbox's own width 1em, `-1.25em`
-        // from li.left places the checkbox's left edge at 0.25em from the
-        // ul's outer edge AND leaves a 0.25em breathing gap before the
-        // first text glyph (the right edge of the checkbox sits at
-        // li.left - 0.25em, the text starts at li.left).
-        left: -1.15em;
-        // `top` aligns the checkbox vertical center with the x-height of
-        // the first text line. With the demo's 1.7 line-height, the line
-        // box is ~1.7em tall but the visual text mass sits in the upper
-        // ~1em of it, so the checkbox sits slightly above the line center
-        // to match how a bullet glyph rests next to lower-case text.
-        top: 0.45em;
+        // Position is driven by tokens (defined in `_variables.scss`):
+        //  - `left` hangs the checkbox in the bullet column (paired with
+        //    the wrapper's `padding-left: 1.5em` and the checkbox's
+        //    1em width, the right edge of the checkbox sits at
+        //    `li.left - 0.25em` and text starts at `li.left`).
+        //  - `top` aligns with the first text line's x-height, so the
+        //    checkbox visually rests next to lower-case glyphs the way
+        //    a bullet glyph does. Override the token alongside
+        //    `--dm-editor-line-height` to keep alignment.
+        left: var(--dm-task-checkbox-left, -1.15em);
+        top: var(--dm-task-checkbox-top, 0.45em);
         display: flex;
         align-items: center;
         user-select: none;

@@ -499,6 +499,132 @@ test.describe('Floating menu - theming', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
+// 6c. `.dm-notion-mode` library class - visual contract + token surface
+// (regression: this class lives in `@domternal/theme`. The notion demo
+// applies it to the editor; these tests prove the CLASS itself yields the
+// expected visual contract independent of demo wrapper styling, so
+// React/Vue notion demos and consumer apps can reuse it.)
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('Notion-mode library class', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('editor host carries the class and inherits the visual contract', async ({ page }) => {
+    const editor = page.locator('app-notion-demo .dm-editor');
+    await expect(editor).toHaveClass(/dm-notion-mode/);
+
+    // The class strips chrome (border / radius / shadow) and pins the
+    // content column width. These are the visible affordances of "Notion
+    // mode" - any one of them disappearing would be a regression.
+    const styles = await editor.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return {
+        borderTop: cs.borderTopStyle,
+        borderRight: cs.borderRightStyle,
+        borderBottom: cs.borderBottomStyle,
+        borderLeft: cs.borderLeftStyle,
+        borderRadius: cs.borderRadius,
+        boxShadow: cs.boxShadow,
+        maxWidth: cs.maxWidth,
+        editorPadding: cs.getPropertyValue('--dm-editor-padding').trim(),
+        blockHandleGutter: cs.getPropertyValue('--dm-block-handle-gutter').trim(),
+        blockHandleLeft: cs.getPropertyValue('--dm-block-handle-left').trim(),
+        editorLineHeight: cs.getPropertyValue('--dm-editor-line-height').trim(),
+        editorFontSize: cs.getPropertyValue('--dm-editor-font-size').trim(),
+      };
+    });
+    expect(styles.borderTop).toBe('none');
+    expect(styles.borderRight).toBe('none');
+    expect(styles.borderBottom).toBe('none');
+    expect(styles.borderLeft).toBe('none');
+    expect(styles.borderRadius).toBe('0px');
+    expect(styles.boxShadow).toBe('none');
+    expect(styles.maxWidth).toBe('608px'); // 38rem at 16px base
+    expect(styles.editorPadding).toBe('0');
+    expect(styles.blockHandleGutter).toBe('0');
+    expect(styles.blockHandleLeft).toBe('-3.5rem');
+    expect(styles.editorLineHeight).toBe('1.7');
+    expect(styles.editorFontSize).toBe('1.0625rem');
+  });
+
+  test('class composes with .dm-theme-dark: chrome stripped + dark surface tokens active', async ({ page }) => {
+    // Toggle dark mode AFTER goNotion (the toggle persists across mode switches).
+    await page.locator('.theme-toggle').click();
+    await expect.poll(async () =>
+      page.evaluate(() => document.body.classList.contains('dm-theme-dark')),
+    ).toBe(true);
+
+    const editor = page.locator('app-notion-demo .dm-editor');
+    await expect(editor).toHaveClass(/dm-notion-mode/);
+
+    const styles = await editor.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return {
+        borderTop: cs.borderTopStyle,
+        bg: cs.getPropertyValue('--dm-bg').trim(),
+        text: cs.getPropertyValue('--dm-text').trim(),
+        editorPadding: cs.getPropertyValue('--dm-editor-padding').trim(),
+      };
+    });
+    // Notion contract still holds.
+    expect(styles.borderTop).toBe('none');
+    expect(styles.editorPadding).toBe('0');
+    // Dark theme tokens reach the editor through inheritance.
+    expect(styles.bg).toBe('#1e1e1e');
+    expect(styles.text).toBe('#e0e0e0');
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// 6d. Task-list checkbox tokens - override surface
+// (regression guard for `--dm-task-checkbox-left` / `--dm-task-checkbox-top`,
+// the public override hooks for the absolute-positioned checkbox label.)
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('Task-list checkbox tokens', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('overriding --dm-task-checkbox-left/-top moves the checkbox label', async ({ page }) => {
+    // Insert a task list + capture the default position (resolved against
+    // notion-mode's `--dm-editor-line-height: 1.7`).
+    await setContent(page,
+      '<ul data-type="taskList"><li data-type="taskItem"><p>task</p></li></ul>',
+    );
+    const label = page.locator(
+      `${editorSelector} ul[data-type="taskList"] li[data-type="taskItem"] > label`,
+    ).first();
+    await expect(label).toBeVisible();
+
+    const before = await label.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { left: cs.left, top: cs.top };
+    });
+
+    // Override both tokens via inline style on the editor host. The cascade
+    // pushes the new values into the label's `left` / `top` resolution.
+    await page.evaluate(() => {
+      const ed = document.querySelector<HTMLElement>('app-notion-demo .dm-editor');
+      ed?.style.setProperty('--dm-task-checkbox-left', '-2em');
+      ed?.style.setProperty('--dm-task-checkbox-top', '0.1em');
+    });
+
+    const after = await label.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { left: cs.left, top: cs.top };
+    });
+
+    // Position must have moved on BOTH axes.
+    expect(after.left).not.toBe(before.left);
+    expect(after.top).not.toBe(before.top);
+    // Direction sanity: -2em is further left than -1.15em → smaller (more
+    // negative) px value. Both values share the same em base so direct
+    // numeric compare is meaningful.
+    expect(parseFloat(after.left)).toBeLessThan(parseFloat(before.left));
+    expect(parseFloat(after.top)).toBeLessThan(parseFloat(before.top));
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
 // 7. Turn into - type + attribute preservation
 // ────────────────────────────────────────────────────────────────────────
 

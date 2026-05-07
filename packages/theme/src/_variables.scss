@@ -199,6 +199,18 @@
   --dm-details-border: 1px solid var(--dm-border-color);
   --dm-details-bg: var(--dm-surface);
   --dm-details-summary-font-weight: 600;
+
+  // ---------------------------------------------------------------------------
+  // Task list
+  // ---------------------------------------------------------------------------
+  // Position of the absolutely-positioned checkbox label inside a taskItem.
+  // `left` hangs the checkbox in the bullet column (paired with the
+  // wrapper's `padding-left: 1.5em` and the checkbox's own 1em width).
+  // `top` is tuned to the first text line's x-height. Override these when
+  // overriding `--dm-editor-line-height` so the checkbox stays aligned
+  // with the first label glyph.
+  --dm-task-checkbox-left: -1.15em;
+  --dm-task-checkbox-top: 0.45em;
 }
 
 // =============================================================================
