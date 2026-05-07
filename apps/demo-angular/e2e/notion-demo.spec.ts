@@ -624,6 +624,269 @@ test.describe('Slash command', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
+// 9b. Slash command - activation gated to a typing event
+// ────────────────────────────────────────────────────────────────────────
+//
+// The slash menu must only open when the user actively TYPES `/`. Clicking
+// next to a `/` already in the document, or pasting/loading content that
+// contains a `/`, must NOT open the menu - that `/` is plain text, not
+// an active session. Mirrors Notion.
+
+test.describe('Slash command - typing-event activation', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('clicking AFTER an existing `/` in pre-loaded content does NOT open the menu', async ({ page }) => {
+    // setContent loads "/abcd" as plain text (no typing event happened),
+    // so the menu must stay closed when the cursor lands next to the `/`.
+    await setContent(page, '<p>hello /abcd</p>');
+
+    // Click in the middle of "abcd". ProseMirror places the caret there.
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | {
+            state: {
+              doc: { descendants: (cb: (n: { isText: boolean; text?: string }, p: number) => boolean | undefined) => void };
+              tr: { setSelection: (s: unknown) => unknown };
+              selection: { constructor: { create: (doc: unknown, pos: number) => unknown } };
+            };
+            view: { dispatch: (tr: unknown) => void; focus: () => void; dom: HTMLElement };
+          }
+        | undefined;
+      if (!ed) return;
+      let pos = -1;
+      ed.state.doc.descendants((n, p) => {
+        if (pos !== -1) return false;
+        if (n.isText && n.text?.includes('/abcd')) {
+          // Land between "/" and "a" (immediately after the slash).
+          const idx = n.text.indexOf('/abcd');
+          pos = p + idx + 1;
+          return false;
+        }
+        return true;
+      });
+      if (pos === -1) return;
+      const TS = ed.state.selection.constructor;
+      const tr = (ed.state.tr.setSelection as (s: unknown) => unknown)(TS.create(ed.state.doc as unknown, pos));
+      ed.view.dispatch(tr);
+      ed.view.focus();
+    });
+
+    // Give the plugin a tick. The menu must still be hidden.
+    await page.waitForTimeout(80);
+    await expect(page.locator(slashMenuSelector)).not.toBeVisible();
+  });
+
+  test('clicking deeper INSIDE the word after `/` does NOT open the menu', async ({ page }) => {
+    // Same as above but cursor lands several chars past the `/`.
+    await setContent(page, '<p>hello /abcd</p>');
+
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | {
+            state: {
+              doc: { descendants: (cb: (n: { isText: boolean; text?: string }, p: number) => boolean | undefined) => void };
+              tr: { setSelection: (s: unknown) => unknown };
+              selection: { constructor: { create: (doc: unknown, pos: number) => unknown } };
+            };
+            view: { dispatch: (tr: unknown) => void; focus: () => void; dom: HTMLElement };
+          }
+        | undefined;
+      if (!ed) return;
+      let pos = -1;
+      ed.state.doc.descendants((n, p) => {
+        if (pos !== -1) return false;
+        if (n.isText && n.text?.includes('/abcd')) {
+          // Land in the middle of "abcd".
+          const idx = n.text.indexOf('/abcd');
+          pos = p + idx + 3; // /a|bcd
+          return false;
+        }
+        return true;
+      });
+      if (pos === -1) return;
+      const TS = ed.state.selection.constructor;
+      const tr = (ed.state.tr.setSelection as (s: unknown) => unknown)(TS.create(ed.state.doc as unknown, pos));
+      ed.view.dispatch(tr);
+      ed.view.focus();
+    });
+
+    await page.waitForTimeout(80);
+    await expect(page.locator(slashMenuSelector)).not.toBeVisible();
+  });
+
+  test('typing `/` then Esc, then clicking back next to it does NOT reopen', async ({ page }) => {
+    // Typing creates an active session. Esc dismisses it. Clicking back
+    // next to the same `/` must be a no-op for the popup - the `/` is now
+    // just plain text (Notion behaviour).
+    await setContent(page, '<p></p>');
+    await page.click(editorSelector);
+    await page.keyboard.type('/');
+    await expect(page.locator(slashMenuSelector)).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator(slashMenuSelector)).not.toBeVisible();
+
+    // Move cursor away then back to right after the `/`.
+    await page.keyboard.press('Home');
+    await page.keyboard.press('End');
+    await page.waitForTimeout(80);
+    await expect(page.locator(slashMenuSelector)).not.toBeVisible();
+  });
+
+  test('arrow-key navigation past an existing `/` does NOT open the menu', async ({ page }) => {
+    // Pure selection change via keyboard. No doc change -> no activation.
+    await setContent(page, '<p>hello /world</p>');
+    await page.click(editorSelector);
+    // Send a few ArrowLeft / ArrowRight to move through the `/`.
+    for (let i = 0; i < 8; i++) await page.keyboard.press('ArrowLeft');
+    await page.waitForTimeout(40);
+    await expect(page.locator(slashMenuSelector)).not.toBeVisible();
+    for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(40);
+    await expect(page.locator(slashMenuSelector)).not.toBeVisible();
+  });
+
+  test('typing `/` mid-text (between existing words) DOES open the menu', async ({ page }) => {
+    // Real typing event qualifies even though there's surrounding text.
+    await setContent(page, '<p>hello world</p>');
+    await page.click(editorSelector);
+    // Move cursor to the start of "world" (after the space). One Home + 6 Right.
+    await page.keyboard.press('Home');
+    for (let i = 0; i < 6; i++) await page.keyboard.press('ArrowRight');
+    await page.keyboard.type('/');
+    await expect(page.locator(slashMenuSelector)).toBeVisible();
+  });
+
+  test('paste-like programmatic insert of `/heading` does NOT open the menu', async ({ page }) => {
+    // Mimics paste / programmatic bulk insertion: editor.commands.insertContent
+    // emits a multi-char insertion in a single transaction. Activation is gated
+    // to a single-char `/` event, so the menu must stay closed.
+    await setContent(page, '<p></p>');
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { commands: { insertContent: (s: string) => boolean; focus: () => void } }
+        | undefined;
+      ed?.commands.focus();
+      ed?.commands.insertContent('/heading 1');
+    });
+    await page.waitForTimeout(80);
+    await expect(page.locator(slashMenuSelector)).not.toBeVisible();
+    // The `/heading 1` text remained as plain content.
+    const blocks = await getBlocks(page);
+    expect(blocks[0]?.text).toBe('/heading 1');
+  });
+
+  test('real clipboard paste of `/heading 1` (DOM paste event) does NOT open the menu', async ({ page }) => {
+    // Exercises the actual paste-event path through PM's clipboard plugin
+    // (transformPasted -> ReplaceStep with a multi-char slice). insertContent
+    // covers a closely related path, but the DOM paste event goes through
+    // additional plugin hooks - this test pins down both.
+    await setContent(page, '<p></p>');
+    await page.click(editorSelector);
+    await page.evaluate(() => {
+      const data = new DataTransfer();
+      data.setData('text/plain', '/heading 1');
+      const ev = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+      document.querySelector('app-notion-demo .ProseMirror')?.dispatchEvent(ev);
+    });
+    await page.waitForTimeout(80);
+    await expect(page.locator(slashMenuSelector)).not.toBeVisible();
+    const blocks = await getBlocks(page);
+    expect(blocks[0]?.text).toBe('/heading 1');
+  });
+
+  test('Backspace deleting the typed `/` dismisses the menu', async ({ page }) => {
+    // Active branch dismiss path: when the trigger char is removed, the
+    // popup closes. Real keyboard events (not just programmatic delete).
+    await setContent(page, '<p></p>');
+    await page.click(editorSelector);
+    await page.keyboard.type('/');
+    await expect(page.locator(slashMenuSelector)).toBeVisible();
+
+    await page.keyboard.press('Backspace');
+    await expect(page.locator(slashMenuSelector)).not.toBeVisible();
+    // The `/` is gone.
+    const blocks = await getBlocks(page);
+    expect(blocks[0]?.text ?? '').toBe('');
+  });
+
+  test('typing `/` AGAIN after dismissing once opens a fresh session', async ({ page }) => {
+    // Confirms activation isn't latched off after a dismiss - the next
+    // typing event still triggers a clean open.
+    await setContent(page, '<p></p>');
+    await page.click(editorSelector);
+    await page.keyboard.type('/');
+    await expect(page.locator(slashMenuSelector)).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator(slashMenuSelector)).not.toBeVisible();
+
+    // Type something, then `/` again.
+    await page.keyboard.type(' hello ');
+    await expect(page.locator(slashMenuSelector)).not.toBeVisible();
+    await page.keyboard.type('/');
+    await expect(page.locator(slashMenuSelector)).toBeVisible();
+  });
+
+  test('active menu: moving cursor into ANOTHER block dismisses it; moving back does NOT reopen', async ({ page }) => {
+    // Two blocks, type `/` at the end of the first, then move cursor to
+    // the second. Active branch's findSlashQuery returns null (cursor
+    // moved out of range) -> popup closes. Then moving back next to the
+    // `/` in block 1 must NOT reopen (selection-only change with the
+    // popup already inactive).
+    //
+    // Cursor moves are scripted through the editor handle (not real
+    // mouse clicks) because the open slash menu overlays the second
+    // paragraph in this layout - regular page.click wouldn't reach the
+    // target. The plugin sees the SAME `selectionSet` transaction either
+    // way, so this still exercises the dismiss-on-cursor-move path.
+    await setContent(page, '<p>first paragraph</p><p>second paragraph</p>');
+
+    const moveCursorToBlock = async (blockIndex: 0 | 1, atEnd: boolean): Promise<void> => {
+      await page.evaluate(({ blockIndex, atEnd }) => {
+        const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+          | {
+              state: {
+                doc: {
+                  child: (i: number) => { nodeSize: number };
+                  resolve: (pos: number) => unknown;
+                };
+                tr: { setSelection: (s: unknown) => unknown };
+                selection: { constructor: { create: (doc: unknown, pos: number) => unknown } };
+              };
+              view: { dispatch: (tr: unknown) => void; focus: () => void };
+            }
+          | undefined;
+        if (!ed) return;
+        // Position right inside block N: 1 (open of first p) + (size of preceding blocks).
+        // For atEnd: add (block.nodeSize - 2) for the inner end.
+        let pos = 0;
+        for (let i = 0; i < blockIndex; i++) pos += ed.state.doc.child(i).nodeSize;
+        pos += atEnd ? ed.state.doc.child(blockIndex).nodeSize - 1 : 1;
+        const TS = ed.state.selection.constructor;
+        const tr = (ed.state.tr.setSelection as (s: unknown) => unknown)(TS.create(ed.state.doc as unknown, pos));
+        ed.view.dispatch(tr);
+        ed.view.focus();
+      }, { blockIndex, atEnd });
+    };
+
+    await moveCursorToBlock(0, true);
+    // Type a space then `/` so the trigger qualifies (preceded by whitespace).
+    await page.keyboard.type(' /');
+    await expect(page.locator(slashMenuSelector)).toBeVisible();
+
+    // Move cursor into the second paragraph. Active branch deactivates.
+    await moveCursorToBlock(1, false);
+    await expect(page.locator(slashMenuSelector)).not.toBeVisible();
+
+    // Move cursor back to end of the first paragraph (right after the `/`).
+    // Now the popup is inactive AND no typing happened - must stay closed.
+    await moveCursorToBlock(0, true);
+    await page.waitForTimeout(80);
+    await expect(page.locator(slashMenuSelector)).not.toBeVisible();
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
 // 10. Floating menu (empty-line insert)
 // ────────────────────────────────────────────────────────────────────────
 

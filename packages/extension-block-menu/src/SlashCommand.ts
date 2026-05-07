@@ -34,6 +34,7 @@ import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import { Decoration, DecorationSet } from '@domternal/pm/view';
+import { ReplaceStep } from '@domternal/pm/transform';
 import { createSlashSuggestionRenderer } from './createSlashSuggestionRenderer.js';
 
 export const slashCommandPluginKey = new PluginKey<SlashCommandPluginState>('slashCommand');
@@ -112,6 +113,35 @@ const INITIAL_STATE: SlashCommandPluginState = {
   query: '',
   range: null,
 };
+
+/**
+ * Returns `true` only when the transaction's effect was inserting EXACTLY
+ * the trigger character as a single ReplaceStep with a single-char text
+ * slice (no opening/closing depth, no surrounding inserted content).
+ *
+ * This is the "did the user just type `/`" heuristic that gates popup
+ * activation. It distinguishes:
+ *   - real typing (`/`)                      ✓
+ *   - typing `/` while a range was selected  ✓ (one ReplaceStep, slice "/")
+ *   - paste of `/text...`                    ✗ (slice.size > 1)
+ *   - programmatic `insertContent('/foo')`   ✗ (slice.size > 1)
+ *   - selection-only changes (click/arrow)   ✗ (no steps)
+ *   - undo/redo creating a `/`               ✗ (multi-step / non-Replace)
+ *
+ * Rationale: tying activation to the typing event - not to the static
+ * presence of `/` before the cursor - matches Notion. Once a slash session
+ * is dismissed, the same `/` becomes plain text and doesn't reopen the
+ * popup if the user later clicks back next to it.
+ */
+function justTypedTrigger(tr: Transaction, char: string): boolean {
+  if (tr.steps.length !== 1) return false;
+  const step = tr.steps[0];
+  if (!(step instanceof ReplaceStep)) return false;
+  const slice = step.slice;
+  if (slice.size !== 1 || slice.openStart !== 0 || slice.openEnd !== 0) return false;
+  const node = slice.content.firstChild;
+  return !!(node && node.isText && node.text === char);
+}
 
 /**
  * Resolves the current `/query` at the cursor, if any. Returns null if the
@@ -202,22 +232,39 @@ export function createSlashCommandPlugin(
         // Neither doc nor selection changed - nothing to do (popup stays as-is).
         if (!tr.docChanged && !tr.selectionSet) return prev;
 
-        // If only the doc changed (e.g. collaborative edit while popup is
-        // open), map the current query range through the new positions
-        // instead of re-running findSlashQuery - selection didn't move,
-        // so the user's cursor is still where it was.
-        if (tr.docChanged && !tr.selectionSet && prev.active && prev.range) {
-          const from = tr.mapping.mapResult(prev.range.from);
-          const to = tr.mapping.mapResult(prev.range.to);
-          if (from.deleted || to.deleted) return { ...INITIAL_STATE };
-          return { ...prev, range: { from: from.pos, to: to.pos } };
+        // ── Branch 1: popup was ALREADY active ─────────────────────────
+        // Re-derive on every change: typing extends the query, backspace
+        // shrinks it, deleting the trigger or moving the cursor out of
+        // range deactivates. This is the same logic as before.
+        if (prev.active) {
+          // Doc-only change (collab edit) while the user's cursor stayed
+          // put: just map the range through the new positions.
+          if (tr.docChanged && !tr.selectionSet && prev.range) {
+            const from = tr.mapping.mapResult(prev.range.from);
+            const to = tr.mapping.mapResult(prev.range.to);
+            if (from.deleted || to.deleted) return { ...INITIAL_STATE };
+            return { ...prev, range: { from: from.pos, to: to.pos } };
+          }
+          const result = findSlashQuery(newState, char, invalidNodes);
+          if (result) return { active: true, query: result.query, range: result.range };
+          return { ...INITIAL_STATE };
         }
 
+        // ── Branch 2: popup was INACTIVE ───────────────────────────────
+        // Activation is gated to a real typing event of the trigger char.
+        // Selection-only changes (mouse click into existing `/text`,
+        // arrow-key navigation) and bulk doc changes (paste, programmatic
+        // `insertContent` of >1 char) MUST NOT open the popup, even if
+        // the cursor lands right after a `/` already in the document.
+        // This keeps the slash menu tied to a typing session - matching
+        // Notion: once the session is dismissed, the same `/` becomes
+        // plain text and clicking back next to it doesn't reopen anything.
+        if (!tr.docChanged) return prev;
+        if (!justTypedTrigger(tr, char)) return prev;
+
         const result = findSlashQuery(newState, char, invalidNodes);
-        if (result) {
-          return { active: true, query: result.query, range: result.range };
-        }
-        return prev.active ? { ...INITIAL_STATE } : prev;
+        if (result) return { active: true, query: result.query, range: result.range };
+        return prev;
       },
     },
 
