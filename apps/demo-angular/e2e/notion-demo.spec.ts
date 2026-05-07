@@ -1628,6 +1628,55 @@ test.describe('Table of Contents - Phase 1 spike', () => {
     expect(box!.x + box!.width).toBeLessThanOrEqual(viewportWidth);
   });
 
+  test('Phase 2: every heading gets a data-toc-id in the rendered DOM', async ({ page }) => {
+    await page.waitForFunction(() => {
+      const headings = document.querySelectorAll('app-notion-demo .ProseMirror :is(h1, h2, h3)');
+      return headings.length > 0
+        && Array.from(headings).every((h) => h.getAttribute('data-toc-id'));
+    }, { timeout: 3000 });
+    const ids = await page.evaluate(() => {
+      const headings = document.querySelectorAll<HTMLElement>('app-notion-demo .ProseMirror :is(h1, h2, h3)');
+      return Array.from(headings).map((h) => h.getAttribute('data-toc-id'));
+    });
+    expect(ids.length).toBeGreaterThan(0);
+    for (const id of ids) {
+      expect(id).toMatch(/^.{8}$/);
+    }
+    // IDs are unique within the document
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  test('Phase 2: editor.storage.toc.content mirrors the doc heading list', async ({ page }) => {
+    // Wait for the deferred storage seeding to complete (UniqueID-style
+    // setTimeout(0) inside the plugin's view().init).
+    await page.waitForFunction(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      const toc = ed?.storage['toc'] as { content: unknown[] } | undefined;
+      return Array.isArray(toc?.content) && toc.content.length > 0;
+    }, { timeout: 3000 });
+
+    const storage = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      const toc = ed?.storage['toc'] as
+        | { content: { id: string; level: number; textContent: string }[]; activeId: string | null }
+        | undefined;
+      return toc ?? null;
+    });
+
+    expect(storage).not.toBeNull();
+    expect(storage!.activeId).toBeNull(); // Phase 5 will populate this
+    expect(storage!.content.length).toBeGreaterThan(0);
+    for (const entry of storage!.content) {
+      expect(entry.id).toMatch(/^.{8}$/);
+      expect([1, 2, 3]).toContain(entry.level);
+      expect(typeof entry.textContent).toBe('string');
+    }
+  });
+
   test('outline sits in the right portion of the page (right gutter target)', async ({ page }) => {
     // D11 intent: the outline lives in the page's right gutter. The
     // Phase 1 spike's hello text is wide enough to overlap the editor
@@ -1643,5 +1692,136 @@ test.describe('Table of Contents - Phase 1 spike', () => {
     const outlineCenter = outlineBox!.x + outlineBox!.width / 2;
     const editorCenter = editorBox!.x + editorBox!.width / 2;
     expect(outlineCenter).toBeGreaterThan(editorCenter);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// Table of Contents - Phase 2 data layer
+// ────────────────────────────────────────────────────────────────────────
+// Real user-flow coverage for the heading discovery + ID assignment
+// system. Phase 2's unit tests cover algorithmic edges; these tests
+// cover the integrated demo path: live keyboard input, slash command
+// insertion, paste collision, HTML output roundtrip.
+
+test.describe('Table of Contents - Phase 2 data layer', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('keyboard level toggle (Mod+Alt+3) preserves data-toc-id', async ({ page }) => {
+    // Click into the first H2 ("Playground") and read its current id.
+    await page.click(`${editorSelector} h2 >> nth=0`);
+    const before = await page.evaluate(() => {
+      const h2 = document.querySelector<HTMLElement>('app-notion-demo .ProseMirror h2');
+      return h2?.getAttribute('data-toc-id') ?? null;
+    });
+    expect(before).toMatch(/^.{8}$/);
+
+    // Toggle to H3 via the framework keyboard shortcut. Heading.ts
+    // exposes Mod+Alt+<level> for every configured level.
+    await page.keyboard.press(`${modifier}+Alt+3`);
+
+    // Same DOM node is now an H3, with the SAME tocId. setBlockType
+    // preserves attrs (per nodeCommands.ts merge), so the framework
+    // keeps the heading's tocId across the level change.
+    const after = await page.evaluate(() => {
+      const h3 = document.querySelector<HTMLElement>('app-notion-demo .ProseMirror h3');
+      return h3?.getAttribute('data-toc-id') ?? null;
+    });
+    expect(after).toBe(before);
+  });
+
+  test('slash command "Heading 2" insertion creates a heading with a fresh data-toc-id', async ({ page }) => {
+    // Drop into an empty paragraph at the end of the doc and trigger
+    // the slash menu. We start from a fresh doc to control where the
+    // new heading lands.
+    await setContent(page, '<p></p>');
+    await page.click(editorSelector);
+    await page.keyboard.type('/heading 2');
+    await page.waitForSelector(slashMenuSelector);
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Fresh section');
+
+    // The new H2 must have a non-empty 8-char data-toc-id, distinct
+    // from any prior heading on the page.
+    const id = await page.evaluate(() => {
+      const headings = Array.from(document.querySelectorAll<HTMLElement>('app-notion-demo .ProseMirror h2'));
+      const fresh = headings.find((h) => h.textContent?.includes('Fresh section'));
+      return fresh?.getAttribute('data-toc-id') ?? null;
+    });
+    expect(id).toMatch(/^.{8}$/);
+  });
+
+  test('storage updates immediately when a new heading is typed', async ({ page }) => {
+    const initialCount = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      return ((ed?.storage['toc'] as { content: unknown[] } | undefined)?.content ?? []).length;
+    });
+    expect(initialCount).toBeGreaterThan(0);
+
+    await setContent(page, '<h1>One</h1>');
+    await page.click(editorSelector);
+    // Append another heading via slash menu.
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('/heading 3');
+    await page.waitForSelector(slashMenuSelector);
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Appended');
+
+    // Storage must reflect the new entry on the very next tick after
+    // the insert transaction's appendTransaction step lands.
+    await page.waitForFunction(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      const toc = ed?.storage['toc'] as { content: { textContent: string }[] } | undefined;
+      return toc?.content.some((e) => e.textContent === 'Appended') ?? false;
+    }, { timeout: 2000 });
+  });
+
+  test('exported HTML output preserves data-toc-id attributes', async ({ page }) => {
+    // The demo renders `editor.htmlContent()` into a <pre class="output"> block.
+    // Its serialized text is what would be saved to a backend or copied
+    // out for export, so it MUST include the data-toc-id markers.
+    const html = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { getHTML: () => string }
+        | undefined;
+      return ed?.getHTML() ?? '';
+    });
+    // At least one heading must round-trip a data-toc-id attribute.
+    expect(html).toMatch(/<h[1-3][^>]*data-toc-id="[^"]+"/);
+  });
+
+  test('pasted content with existing data-toc-id values keeps every ID unique', async ({ page }) => {
+    // Simulate a cross-document paste by setting content that contains
+    // a tocId already in use. The plugin must rename the duplicate so
+    // the doc remains a unique-ID space (avoids ambiguous hash anchors).
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(
+        '<h1 data-toc-id="duplicate">First</h1><h2 data-toc-id="duplicate">Second</h2>',
+        false,
+      );
+    });
+    await page.waitForFunction(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      const toc = ed?.storage['toc'] as { content: { id: string }[] } | undefined;
+      return (toc?.content ?? []).length === 2 && toc!.content.every((e) => e.id);
+    }, { timeout: 2000 });
+    const ids = await page.evaluate(() => {
+      const headings = Array.from(document.querySelectorAll<HTMLElement>('app-notion-demo .ProseMirror :is(h1, h2, h3)'));
+      return headings.map((h) => h.getAttribute('data-toc-id'));
+    });
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2); // unique
+    // First entry kept its loaded ID; second got renamed.
+    expect(ids[0]).toBe('duplicate');
+    expect(ids[1]).not.toBe('duplicate');
   });
 });

@@ -39,7 +39,7 @@ function mountPlugin(viewDom: HTMLElement): MountResult {
   const plugins = ext.config.addProseMirrorPlugins?.call({
     options: {},
     storage: {},
-  } as never) as Plugin[] | undefined;
+  } as never);
   const plugin = plugins?.[0];
   if (!plugin) {
     throw new Error('FloatingTocOutline did not register a plugin');

@@ -8,6 +8,9 @@
   "exclude": ["src/**/*.spec.ts"],
   "references": [
     {
+      "path": "../../packages/extension-toc"
+    },
+    {
       "path": "../../packages/extension-table"
     },
     {
