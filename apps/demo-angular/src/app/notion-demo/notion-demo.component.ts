@@ -52,6 +52,7 @@ import {
   BASE_SCORE,
 } from '@domternal/extension-block-menu';
 import type { DragHandleRule, RuleContext } from '@domternal/extension-block-menu';
+import { TableOfContents, FloatingTocOutline } from '@domternal/extension-toc';
 import { NOTION_DEMO_CONTENT } from './notion-demo-content.js';
 
 /**
@@ -181,6 +182,12 @@ export class NotionDemoComponent implements OnDestroy {
     // Preserve block formatting when pasting at inline positions
     // (the classic "copy h1, Shift+Enter, paste → loses heading" case).
     SmartPaste,
+    // Notion-style ToC (Phase 1 spike): TableOfContents is the data
+    // layer (storage placeholder for now), FloatingTocOutline mounts a
+    // visible "hello outline" div in the right gutter so we can validate
+    // the outlineHost positioning strategy before fleshing out ticks.
+    TableOfContents,
+    FloatingTocOutline,
     // Notion-style hint on the focused empty paragraph only. Other empty
     // blocks (heading, codeBlock, blockquote) get an empty string so the
     // hint stays diskretno - not on every block in the document.

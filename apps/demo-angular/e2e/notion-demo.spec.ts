@@ -1565,3 +1565,83 @@ test.describe('Cross-feature smoke', () => {
     await expect(page.locator(dragBtnSelector)).toBeVisible();
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────
+// Table of Contents - Phase 1 spike (FloatingTocOutline outlineHost test)
+// ────────────────────────────────────────────────────────────────────────
+// Validates D11 from `_planning/notion_toc_1.md`: the outline panel must
+// mount OUTSIDE `.dm-editor` (which has `overflow: hidden` and would
+// clip a right-rail child). Phase 4 replaces the spike with real ticks
+// + click navigation; these tests stay as the floor-level placement
+// regression check.
+
+test.describe('Table of Contents - Phase 1 spike', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('outline mounts in the page (not inside .dm-editor)', async ({ page }) => {
+    const outline = page.locator('.dm-toc-outline');
+    await expect(outline).toBeVisible();
+    // D11 contract: outline lives outside the editor's overflow:hidden box.
+    // We verify by counting matches inside .dm-editor (must be 0) and on
+    // the page overall (must be 1).
+    await expect(page.locator('.dm-editor .dm-toc-outline')).toHaveCount(0);
+    await expect(outline).toHaveCount(1);
+  });
+
+  test('outline destroys cleanly when leaving the route', async ({ page }) => {
+    await expect(page.locator('.dm-toc-outline')).toHaveCount(1);
+    // Switch back to the default toolbar demo (non-notion mode) - the
+    // editor and its plugins tear down. The outline's destroy callback
+    // must remove its DOM node so we don't leak an orphan after exit.
+    await page.click('.toolbar-mode-toggle button:has-text("Default toolbar")');
+    await page.waitForSelector('app-editor-demo');
+    await expect(page.locator('.dm-toc-outline')).toHaveCount(0);
+  });
+
+  test('outline does not accumulate across mode toggles (HMR re-enter)', async ({ page }) => {
+    // Real-world failure mode: each notion-mode entry mounts a fresh
+    // plugin, prior destroy callbacks must run cleanly so re-entering
+    // never produces 2+ outlines on the page.
+    await expect(page.locator('.dm-toc-outline')).toHaveCount(1);
+    await page.click('.toolbar-mode-toggle button:has-text("Default toolbar")');
+    await page.waitForSelector('app-editor-demo');
+    await page.click('.toolbar-mode-toggle button:has-text("Notion style")');
+    await page.waitForSelector(editorSelector);
+    // Exactly one outline, never two. Catches forgotten destroy hooks
+    // and shared module-level DOM state.
+    await expect(page.locator('.dm-toc-outline')).toHaveCount(1);
+  });
+
+  test('outline renders visibly within the viewport (no clipping)', async ({ page }) => {
+    // `toBeVisible()` only asserts the element is laid out somewhere -
+    // it would still pass for a 0-width clipped child of an
+    // overflow:hidden parent. Read the bounding box and the viewport
+    // width to confirm the outline ACTUALLY paints inside the visible
+    // area: width > 0, right edge inside viewport.
+    const outline = page.locator('.dm-toc-outline');
+    await expect(outline).toBeVisible();
+    const box = await outline.boundingBox();
+    const viewportWidth = await page.evaluate(() => window.innerWidth);
+    expect(box).not.toBeNull();
+    expect(box!.width).toBeGreaterThan(0);
+    expect(box!.height).toBeGreaterThan(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(viewportWidth);
+  });
+
+  test('outline sits in the right portion of the page (right gutter target)', async ({ page }) => {
+    // D11 intent: the outline lives in the page's right gutter. The
+    // Phase 1 spike's hello text is wide enough to overlap the editor
+    // visually, so we don't assert "outline.left > editor.right" - the
+    // real Phase 4 ticks will be ~16-18px wide and won't overlap.
+    // What we DO assert here is the directional contract: the outline's
+    // center is past the editor's center, i.e. it really is anchored to
+    // the right side of the layout, not the left.
+    const outlineBox = await page.locator('.dm-toc-outline').boundingBox();
+    const editorBox = await page.locator('app-notion-demo .dm-editor').boundingBox();
+    expect(outlineBox).not.toBeNull();
+    expect(editorBox).not.toBeNull();
+    const outlineCenter = outlineBox!.x + outlineBox!.width / 2;
+    const editorCenter = editorBox!.x + editorBox!.width / 2;
+    expect(outlineCenter).toBeGreaterThan(editorCenter);
+  });
+});

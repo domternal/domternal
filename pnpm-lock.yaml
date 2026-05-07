@@ -109,6 +109,9 @@ importers:
       '@domternal/extension-table':
         specifier: workspace:*
         version: link:../../packages/extension-table
+      '@domternal/extension-toc':
+        specifier: workspace:*
+        version: link:../../packages/extension-toc
       '@domternal/theme':
         specifier: workspace:*
         version: link:../../packages/theme
@@ -657,6 +660,24 @@ importers:
         version: 5.9.3
 
   packages/extension-table:
+    devDependencies:
+      '@domternal/core':
+        specifier: workspace:*
+        version: link:../core
+      '@domternal/pm':
+        specifier: workspace:*
+        version: link:../pm
+      jsdom:
+        specifier: ^27.4.0
+        version: 27.4.0
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
+  packages/extension-toc:
     devDependencies:
       '@domternal/core':
         specifier: workspace:*
@@ -6041,10 +6062,6 @@ packages:
 
   lowlight@3.3.0:
     resolution: {integrity: sha512-0JNhgFoPvP6U6lE/UdVsSq99tn6DhjjpAj5MxG49ewd2mOBVtwWYIT8ClyABhq198aXXODMU6Ox8DrGy/CpTZQ==}
-
-  lru-cache@11.2.4:
-    resolution: {integrity: sha512-B5Y16Jr9LB9dHVkh6ZevG+vAbOsNOYCX+sXvFWFu7B3Iz5mijW3zdbMyhsh8ANd2mSWBYdJgnqi+mL7/LrOPYg==}
-    engines: {node: 20 || >=22}
 
   lru-cache@11.2.7:
     resolution: {integrity: sha512-aY/R+aEsRelme17KGQa/1ZSIpLpNYYrhcrepKTZgE+W3WM16YMCaPwOHLHsmopZHELU0Ojin1lPVxKR0MihncA==}
@@ -13192,7 +13209,7 @@ snapshots:
 
   hosted-git-info@9.0.2:
     dependencies:
-      lru-cache: 11.2.4
+      lru-cache: 11.2.7
 
   html-encoding-sniffer@6.0.0:
     dependencies:
@@ -13703,8 +13720,6 @@ snapshots:
       '@types/hast': 3.0.4
       devlop: 1.1.0
       highlight.js: 11.11.1
-
-  lru-cache@11.2.4: {}
 
   lru-cache@11.2.7: {}
 
