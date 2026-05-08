@@ -70,10 +70,19 @@
     background-color 120ms ease-out,
     width 120ms ease-out;
 
-  &:hover,
+  &:hover {
+    background: var(--dm-toc-tick-hover-color, rgba(55, 53, 47, 0.7));
+  }
+
+  // Keyboard focus needs a real ring. The hover-only alpha bump
+  // (0.4 -> 0.7) is too subtle to act as a focus indicator for users
+  // who can't see hover state. Outline-offset 3px keeps the ring
+  // clear of the tick body without colliding with the next tick at
+  // the default `--dm-toc-tick-gap: 10px`.
   &:focus-visible {
     background: var(--dm-toc-tick-hover-color, rgba(55, 53, 47, 0.7));
-    outline: none;
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: 3px;
   }
 
   // Active state (Phase 5): the tick for the heading the user is
@@ -334,5 +343,67 @@
   .dm-toc-outline-row,
   .dm-toc-block-link {
     transition: none;
+  }
+
+  // Card start-state offset becomes 0 too: with no transition, the
+  // X translate would jump from `var(--dm-toc-card-offset)` to 0
+  // instantly anyway, but resetting the start position to 0 means
+  // the card never enters its mid-animation visual state on a fast
+  // expand/collapse cycle (which can briefly leak a 1-frame
+  // off-position card).
+  .dm-toc-outline-card {
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+// Phase 8 (print): the floating outline is a navigation chrome aid -
+// nothing to do with the document content. Hide it from print media
+// so users get a clean printout. Inline `/toc` blocks DO stay (they
+// belong to the document); links inside them lose their hover/active
+// background since print doesn't honor those anyway.
+@media print {
+  .dm-toc-outline {
+    display: none;
+  }
+  .dm-toc-block {
+    background: transparent;
+    border-color: rgba(0, 0, 0, 0.2);
+  }
+}
+
+// Phase 8 (forced-colors / Windows High Contrast): tick + card +
+// inline block backgrounds are stripped in forced-colors mode (the
+// OS replaces them with system colors). Without explicit borders the
+// ticks become invisible. The `Highlight` and `ButtonText` system
+// colors guarantee a visible affordance regardless of theme. The
+// `forced-color-adjust: none` opt-out is intentionally NOT used: we
+// want the OS palette, just with shapes still visible.
+@media (forced-colors: active) {
+  .dm-toc-outline-tick {
+    background: ButtonText;
+    border: 1px solid ButtonText;
+
+    &.dm-toc-outline-tick--active,
+    &[aria-current='location'] {
+      background: Highlight;
+      border-color: Highlight;
+    }
+  }
+
+  .dm-toc-outline-card {
+    border: 1px solid ButtonText;
+  }
+
+  .dm-toc-outline-row,
+  .dm-toc-block-link {
+    &.dm-toc-outline-tick--active,
+    &.dm-toc-block-link--active,
+    &[aria-current='location'] {
+      color: Highlight;
+    }
+  }
+
+  .dm-toc-block {
+    border: 1px solid ButtonText;
   }
 }

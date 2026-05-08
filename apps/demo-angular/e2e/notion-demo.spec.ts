@@ -3181,3 +3181,173 @@ test.describe('Table of Contents - Phase 7 inline block', () => {
     );
   });
 });
+
+// =============================================================================
+// Table of Contents - Phase 8 polish
+// =============================================================================
+// Phase 8 is a polish pass over Phases 4-7: a11y focus rings on ticks,
+// motion polish (card slide offset), print/forced-colors guards, and a
+// cross-cutting dark-mode walkthrough that exercises the outline + the
+// inline block in one flow.
+
+test.describe('Table of Contents - Phase 8 polish', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('keyboard focus on a tick paints a visible focus ring (a11y)', async ({ page }) => {
+    // `:focus-visible` is heuristic-based in Chromium and not reliably
+    // triggered by programmatic `.focus()` (which counts as
+    // "interaction" depending on the prior input modality stack).
+    // Instead, verify the CSS rule itself is authored correctly by
+    // walking stylesheet rules. This is robust across CI and proves
+    // the Phase 8 a11y polish landed in the published CSS.
+    const ringRule = await page.evaluate(() => {
+      for (const sheet of Array.from(document.styleSheets)) {
+        let rules: CSSRuleList;
+        try {
+          rules = sheet.cssRules;
+        } catch {
+          // Cross-origin stylesheet, skip.
+          continue;
+        }
+        for (const rule of Array.from(rules)) {
+          if (!(rule instanceof CSSStyleRule)) continue;
+          if (rule.selectorText.includes('.dm-toc-outline-tick') && rule.selectorText.includes(':focus-visible')) {
+            return {
+              outline: rule.style.outline || rule.style.outlineStyle + ' ' + rule.style.outlineColor + ' ' + rule.style.outlineWidth,
+              outlineOffset: rule.style.outlineOffset,
+            };
+          }
+        }
+      }
+      return null;
+    });
+    expect(ringRule).not.toBeNull();
+    // Outline shorthand should mention `solid` and a width of >=2px.
+    expect(ringRule!.outline.toLowerCase()).toContain('solid');
+    expect(ringRule!.outlineOffset).toBe('3px');
+  });
+
+  test('card slide offset bumped to 8px (more visible motion)', async ({ page }) => {
+    // The collapsed state sets `transform: translateY(-50%) translateX(<offset>)`.
+    // Phase 8 changed the default `--dm-toc-card-offset` from 4px to 8px
+    // so the slide-in is clearly intentional motion at 60fps. Read the
+    // resolved CSS variable.
+    const offset = await page.evaluate(() => {
+      const root = document.documentElement;
+      return window.getComputedStyle(root).getPropertyValue('--dm-toc-card-offset').trim();
+    });
+    expect(offset).toBe('8px');
+  });
+
+  test('reduced-motion zeroes the card start-position offset (no leaked mid-animation frame)', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const card = page.locator('.dm-toc-outline-card');
+    const transform = await card.evaluate((node) => window.getComputedStyle(node).transform);
+    // Computed transform serializes to a matrix. We assert the X
+    // translation component (4th element) is 0, which proves the
+    // reduced-motion branch nulled the offset.
+    // matrix(a, b, c, d, tx, ty) - tx is index 4 (0-indexed) when
+    // parsed from "matrix(...)"; for matrix3d it's index 12.
+    // Easier: check the transform doesn't contain a non-zero X.
+    expect(transform).not.toContain('matrix3d');
+    if (transform === 'none') {
+      // Some browsers serialize translate(0) as 'none' - acceptable.
+      expect(transform).toBe('none');
+    } else {
+      // matrix(1, 0, 0, 1, tx, ty) - tx must be 0.
+      const match = transform.match(/matrix\(([^)]+)\)/);
+      expect(match).not.toBeNull();
+      const parts = match![1].split(',').map((p) => parseFloat(p.trim()));
+      // tx is the 5th value (index 4).
+      expect(parts[4]).toBe(0);
+    }
+  });
+
+  test('cross-cutting dark theme walkthrough: outline tick + inline block both flip in one toggle', async ({ page }) => {
+    // Insert an inline /toc block first so we can verify both pieces
+    // share the dark cascade after one click.
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(
+        '<h1>Alpha</h1><h2>Beta</h2><div data-type="table-of-contents"></div><h2>Gamma</h2>',
+        false,
+      );
+    });
+    await page.waitForFunction(() =>
+      document.querySelector('.dm-toc-block-link') !== null
+        && document.querySelector('.dm-toc-outline-tick') !== null,
+    );
+
+    // Capture light-mode baseline. Read the resolved CSS variable from
+    // each surface's host (rather than the computed background) - this
+    // is more deterministic than backgroundColor (which is influenced
+    // by hover state, transitions etc.).
+    const lightVars = await page.evaluate(() => {
+      const tickHost = document.querySelector('.dm-toc-outline');
+      const blockHost = document.querySelector('.dm-toc-block');
+      return {
+        tickColor: tickHost
+          ? window.getComputedStyle(tickHost).getPropertyValue('--dm-toc-tick-color').trim()
+          : null,
+        blockBg: blockHost
+          ? window.getComputedStyle(blockHost).getPropertyValue('--dm-toc-block-bg').trim()
+          : null,
+      };
+    });
+    expect(lightVars.tickColor).toMatch(/55,\s*53,\s*47/);
+
+    // Toggle dark mode.
+    await page.click('.theme-toggle');
+    await expect(page.locator('body.dm-theme-dark')).toHaveCount(1);
+
+    const darkVars = await page.evaluate(() => {
+      const tickHost = document.querySelector('.dm-toc-outline');
+      const blockHost = document.querySelector('.dm-toc-block');
+      return {
+        tickColor: tickHost
+          ? window.getComputedStyle(tickHost).getPropertyValue('--dm-toc-tick-color').trim()
+          : null,
+        blockBg: blockHost
+          ? window.getComputedStyle(blockHost).getPropertyValue('--dm-toc-block-bg').trim()
+          : null,
+      };
+    });
+
+    // Both surfaces flipped in a single toggle. Dark variants use
+    // `rgba(255, 255, 255, ...)` (light text/surface on dark canvas).
+    expect(darkVars.tickColor).toMatch(/255,\s*255,\s*255/);
+    expect(darkVars.blockBg).toMatch(/255,\s*255,\s*255/);
+    expect(darkVars.tickColor).not.toBe(lightVars.tickColor);
+    expect(darkVars.blockBg).not.toBe(lightVars.blockBg);
+  });
+
+  test('print media hides the floating outline (decorative chrome, not document content)', async ({ page }) => {
+    await page.emulateMedia({ media: 'print' });
+    const outline = page.locator('.dm-toc-outline');
+    // `display: none` zeroes out the bounding box.
+    const box = await outline.boundingBox();
+    expect(box).toBeNull();
+  });
+
+  test('print media keeps the inline block visible (it IS document content)', async ({ page }) => {
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(
+        '<h1>One</h1><div data-type="table-of-contents"></div>',
+        false,
+      );
+    });
+    await page.waitForFunction(() => document.querySelector('.dm-toc-block') !== null);
+    await page.emulateMedia({ media: 'print' });
+    const block = page.locator('.dm-toc-block');
+    const box = await block.boundingBox();
+    expect(box).not.toBeNull();
+    // Print also strips the surface tint to ink-friendly transparent.
+    const bg = await block.evaluate((n) => window.getComputedStyle(n).backgroundColor);
+    expect(bg).toMatch(/rgba\(0,\s*0,\s*0,\s*0\)|transparent/);
+  });
+});

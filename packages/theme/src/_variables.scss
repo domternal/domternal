@@ -281,7 +281,10 @@
   --dm-toc-card-min-width: 180px;
   --dm-toc-card-max-width: 260px;
   --dm-toc-card-padding-block: 6px;
-  --dm-toc-card-offset: 4px;
+  // Card slides in from the right edge by this offset on hover/focus.
+  // 8px reads as a clearly intentional motion at 60fps without being
+  // showy; smaller values (4px) feel like a glitch on retina displays.
+  --dm-toc-card-offset: 8px;
   --dm-toc-card-transition: 180ms;
 
   --dm-toc-row-padding-block: 4px;
