@@ -1,26 +1,25 @@
 /**
- * FloatingTocOutline - Notion-style right-rail outline (Phase 4).
- *
- * Renders a column of small "tick" buttons in the right gutter, one
- * per heading in `editor.storage.toc.content`. Tick width encodes
- * heading level (h1 wide, h2 medium, h3 narrow). Click navigates via
- * `scrollToHeading`. Hides on small viewports and on docs with too
- * few headings to bother. Hover expansion (the full-text card),
- * active-state highlighting, and inline `/toc` block come in later
- * phases (5/6/7).
+ * FloatingTocOutline - Notion-style right-rail outline.
  *
  * Architecture:
  *   - Plugin lives in `addProseMirrorPlugins` so PM owns its lifecycle
  *     (auto destroy on editor teardown / HMR).
- *   - Subscribes to `TableOfContents` storage's `subscribers` Set
- *     instead of using `view().update()` - that filters re-renders to
- *     ToC-relevant changes only (selection moves, mark toggles, etc.
- *     do not trigger a re-render).
+ *   - Subscribes to `TableOfContents` storage's `subscribers` Set so
+ *     re-renders only fire on heading-affecting changes (selection
+ *     moves, mark toggles, etc. do not trigger).
  *   - Mounts the outline DOM in the closest non-overflow-hidden
  *     ancestor of the editor (D11). Falls back to `document.body`.
  *   - Position: fixed (D16, revised in Phase 4 from sticky which
- *     does not honor `right` as an absolute position). Multi-editor
- *     handling deferred to v2.
+ *     does not honor `right` as an absolute position).
+ *
+ * Phase progression:
+ *   - Phase 4: collapsed-state tick column, click navigation.
+ *   - Phase 5: active-state highlighting via IntersectionObserver.
+ *   - Phase 6: hover/focus reveals an expanded card with full-text
+ *     rows and per-level indent. State machine has THREE values:
+ *       hidden    - 0 headings / mobile / < minHeadings
+ *       collapsed - shown, ticks only (default)
+ *       expanded  - shown, card visible (hover OR focus-within)
  */
 import { Extension } from '@domternal/core';
 import type { Editor } from '@domternal/core';
@@ -75,19 +74,39 @@ export interface FloatingTocOutlineOptions {
    * @default 500
    */
   clickOverrideMs: number;
+  /**
+   * Delay (ms) between mouse entering the outline and the expanded
+   * card appearing. Prevents accidental expansion when the cursor
+   * sweeps across the right gutter.
+   * @default 120
+   */
+  hoverInDelay: number;
+  /**
+   * Delay (ms) between mouse leaving the outline and the card
+   * collapsing back to ticks. Generous so the user can move from
+   * tick column to row without the panel disappearing under the
+   * cursor.
+   * @default 350
+   */
+  hoverOutDelay: number;
 }
 
 const OUTLINE_CLASS = 'dm-toc-outline';
 const TICK_CLASS = 'dm-toc-outline-tick';
+const CARD_CLASS = 'dm-toc-outline-card';
+const ROW_CLASS = 'dm-toc-outline-row';
+const ACTIVE_TICK_CLASS = 'dm-toc-outline-tick--active';
+
+type OutlineState = 'hidden' | 'collapsed' | 'expanded';
 
 /**
  * Resolve the host element where the outline DOM mounts (D11).
  * `.dm-editor` has `overflow: hidden` and would clip a right-rail
- * child, so we always mount OUTSIDE it. Implementation note: in the
- * Angular wrapper, `view.dom` (`.ProseMirror`) lives inside an
- * unstyled template `<div>` inside `<domternal-editor.dm-editor>`.
- * Starting the walk from `view.dom.parentElement` would land on that
- * inner div (overflow: visible), still inside the editor. The
+ * child, so we always mount OUTSIDE it. In the Angular wrapper,
+ * `view.dom` (`.ProseMirror`) lives inside an unstyled template
+ * `<div>` inside `<domternal-editor.dm-editor>`. Starting the walk
+ * from `view.dom.parentElement` would land on that inner div
+ * (overflow: visible), still inside the editor. The
  * `closest('.dm-editor')` jump skips past the editor host first.
  */
 function resolveDefaultOutlineHost(view: EditorView): HTMLElement {
@@ -102,13 +121,13 @@ function resolveDefaultOutlineHost(view: EditorView): HTMLElement {
 }
 
 /**
- * Naive full-rebuild render. Doc heading counts are typically <50; the
- * inner DOM cost is microseconds. We swap to a diffing strategy if
- * profiling shows a real cost on much larger docs.
+ * Build the inner DOM for the outline: a column of tick buttons (the
+ * always-visible compact view) plus an absolutely-positioned card
+ * containing one row button per heading (revealed on hover/focus).
+ * Naive full-rebuild render: doc heading counts are typically <50;
+ * the inner DOM cost is microseconds.
  */
-function renderTicks(nav: HTMLElement, content: HeadingEntry[]): void {
-  // Clear existing children (no detach handlers - delegated click
-  // listener lives on the nav and survives child swaps).
+function renderOutlineContent(nav: HTMLElement, content: HeadingEntry[]): void {
   while (nav.firstChild) nav.removeChild(nav.firstChild);
 
   for (const entry of content) {
@@ -117,42 +136,39 @@ function renderTicks(nav: HTMLElement, content: HeadingEntry[]): void {
     tick.className = TICK_CLASS;
     tick.dataset['level'] = String(entry.level);
     tick.dataset['tocId'] = entry.id;
-    // Accessible label for screen readers - the visual tick has no
-    // text content, so we expose the heading text and level here.
     const label = entry.textContent.trim() || `Heading level ${String(entry.level)}`;
     tick.setAttribute('aria-label', `${label} (heading ${String(entry.level)})`);
     nav.appendChild(tick);
   }
+
+  // Expanded-view card. Always rendered; CSS opacity flips it in/out
+  // based on the parent nav's data-state attribute.
+  const card = document.createElement('div');
+  card.className = CARD_CLASS;
+  for (const entry of content) {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = ROW_CLASS;
+    row.dataset['level'] = String(entry.level);
+    row.dataset['tocId'] = entry.id;
+    row.textContent = entry.textContent.trim() || `Heading level ${String(entry.level)}`;
+    card.appendChild(row);
+  }
+  nav.appendChild(card);
 }
 
 /**
- * Apply the visibility guards: minHeadings (too few entries) and
- * mobile breakpoint (too narrow viewport). We use `data-state` and
- * `data-viewport` attributes so the actual show/hide is in CSS - lets
- * consumers override via custom selectors without monkey-patching us.
+ * Toggle the active-state visual on every element with a `data-toc-id`
+ * attribute (both ticks AND rows). At most one item gets the active
+ * class + `aria-current="location"`, all others have those cleared.
  */
-function applyVisibilityState(
-  nav: HTMLElement,
-  count: number,
-  options: FloatingTocOutlineOptions,
-  isMobile: boolean,
-): void {
-  nav.dataset['state'] = count < options.minHeadings ? 'hidden' : 'visible';
-  nav.dataset['viewport'] = isMobile ? 'mobile' : 'desktop';
-}
-
-/**
- * Toggle the active-state visual on every tick: at most one tick gets
- * the `--active` class + `aria-current="location"`, all others have
- * those cleared. Idempotent and cheap (just attribute writes).
- */
-function applyActiveTick(nav: HTMLElement, activeId: string | null): void {
-  for (const child of Array.from(nav.children)) {
-    if (!(child instanceof HTMLElement)) continue;
-    const isActive = activeId !== null && child.dataset['tocId'] === activeId;
-    child.classList.toggle('dm-toc-outline-tick--active', isActive);
-    if (isActive) child.setAttribute('aria-current', 'location');
-    else child.removeAttribute('aria-current');
+function applyActiveMarker(nav: HTMLElement, activeId: string | null): void {
+  const items = nav.querySelectorAll<HTMLElement>('[data-toc-id]');
+  for (const item of Array.from(items)) {
+    const isActive = activeId !== null && item.dataset['tocId'] === activeId;
+    item.classList.toggle(ACTIVE_TICK_CLASS, isActive);
+    if (isActive) item.setAttribute('aria-current', 'location');
+    else item.removeAttribute('aria-current');
   }
 }
 
@@ -176,6 +192,8 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
       activeRootMargin: '0px 0px -85% 0px',
       activeScrollParent: null,
       clickOverrideMs: 500,
+      hoverInDelay: 120,
+      hoverOutDelay: 350,
     };
   },
 
@@ -187,8 +205,6 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
       new Plugin({
         key: floatingTocOutlinePluginKey,
         view(editorView) {
-          // Mount the DOM node into the resolved host. Skip if no
-          // window (SSR safeguard, defensive).
           if (typeof window === 'undefined') {
             return { destroy(): void { /* no-op */ } };
           }
@@ -207,19 +223,30 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             : null;
           const isMobile = (): boolean => mq?.matches ?? false;
 
-          // Pull current TocStorage and subscribe to its updates.
-          // `editor.storage.toc` is created by the TableOfContents
-          // extension (Phase 2). If TableOfContents is not loaded,
-          // this extension is a no-op (renders nothing, no subscriber).
           const storage = editor?.storage['toc'] as TocStorage | undefined;
 
-          // Phase 5: active-state tracker. Lives even when storage is
-          // missing - destroy() is a safe no-op then. Manual override
-          // is timestamp-based: clicks bump `manualOverrideUntil` so
-          // IO-derived updates are ignored until the smooth-scroll lands.
+          // ── State machine ────────────────────────────────────────
+          // The outline has three derived states: hidden, collapsed,
+          // expanded. Hidden wins absolutely (mobile / minHeadings).
+          // Otherwise expanded if EITHER hover OR focus is active.
+          let isHoverActive = false;
+          let isFocusWithin = false;
+          const computeState = (): OutlineState => {
+            if (!storage) return 'hidden';
+            const count = storage.content.length;
+            if (count < options.minHeadings || isMobile()) return 'hidden';
+            if (isHoverActive || isFocusWithin) return 'expanded';
+            return 'collapsed';
+          };
+          const applyState = (): void => {
+            nav.dataset['state'] = computeState();
+            nav.dataset['viewport'] = isMobile() ? 'mobile' : 'desktop';
+          };
+
+          // ── Active-state tracker (Phase 5) ───────────────────────
           let manualOverrideUntil = 0;
           const writeActive = (id: string | null): void => {
-            applyActiveTick(nav, id);
+            applyActiveMarker(nav, id);
             if (storage && storage.activeId !== id) {
               storage.activeId = id;
             }
@@ -233,11 +260,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             },
           });
 
-          // Click delegation: the nav is the only listener anchor; the
-          // children get swapped on every storage update so attaching
-          // per-tick would mean re-binding on every render. Click also
-          // primes the manual override so the IO callback does not
-          // fight back during smooth-scroll.
+          // ── Click delegation ─────────────────────────────────────
           const onClick = (event: MouseEvent): void => {
             const target = (event.target as HTMLElement | null)?.closest<HTMLElement>(
               `[data-toc-id]`,
@@ -250,24 +273,71 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           };
           nav.addEventListener('click', onClick);
 
+          // ── Hover timers (Phase 6) ───────────────────────────────
+          // Asymmetric: short in-delay (don't expand on stray cursor
+          // sweeps), longer out-delay (don't disappear under cursor).
+          // Each transition cancels the opposite pending timer so
+          // bounce gestures (enter→leave fast, or leave→enter during
+          // out-delay) end up with the user-intended state.
+          let showTimer: ReturnType<typeof setTimeout> | null = null;
+          let hideTimer: ReturnType<typeof setTimeout> | null = null;
+          const cancelTimers = (): void => {
+            if (showTimer !== null) { clearTimeout(showTimer); showTimer = null; }
+            if (hideTimer !== null) { clearTimeout(hideTimer); hideTimer = null; }
+          };
+          const onMouseEnter = (): void => {
+            if (hideTimer !== null) { clearTimeout(hideTimer); hideTimer = null; }
+            if (showTimer !== null || isHoverActive) return;
+            showTimer = setTimeout(() => {
+              showTimer = null;
+              isHoverActive = true;
+              applyState();
+            }, options.hoverInDelay);
+          };
+          const onMouseLeave = (): void => {
+            if (showTimer !== null) { clearTimeout(showTimer); showTimer = null; }
+            if (!isHoverActive || hideTimer !== null) return;
+            hideTimer = setTimeout(() => {
+              hideTimer = null;
+              isHoverActive = false;
+              applyState();
+            }, options.hoverOutDelay);
+          };
+          nav.addEventListener('mouseenter', onMouseEnter);
+          nav.addEventListener('mouseleave', onMouseLeave);
+
+          // ── Focus a11y (Phase 6) ─────────────────────────────────
+          // Keyboard users get instant expansion when focus moves
+          // into the outline (no hover delay). Focusout uses a
+          // microtask check on relatedTarget to avoid a flash when
+          // focus moves between rows inside the same outline.
+          const onFocusIn = (): void => {
+            if (isFocusWithin) return;
+            isFocusWithin = true;
+            applyState();
+          };
+          const onFocusOut = (event: FocusEvent): void => {
+            const next = event.relatedTarget as Node | null;
+            if (next && nav.contains(next)) return;
+            isFocusWithin = false;
+            applyState();
+          };
+          nav.addEventListener('focusin', onFocusIn);
+          nav.addEventListener('focusout', onFocusOut);
+
+          // ── Storage subscription ─────────────────────────────────
           let unsubscribe: (() => void) | null = null;
           const onStorageUpdate = (): void => {
             if (!storage) return;
-            renderTicks(nav, storage.content);
-            applyVisibilityState(nav, storage.content.length, options, isMobile());
+            renderOutlineContent(nav, storage.content);
+            applyState();
             tracker.observe(collectHeadingDoms(editorView));
-            // After a re-render the tick DOM is fresh; reapply the
-            // current active marker so the highlighted tick survives
-            // a content rebuild.
-            applyActiveTick(nav, storage.activeId);
+            applyActiveMarker(nav, storage.activeId);
           };
 
           if (storage) {
             storage.subscribers.add(onStorageUpdate);
             unsubscribe = () => { storage.subscribers.delete(onStorageUpdate); };
-            // Initial paint: the storage may already have content if
-            // TableOfContents' deferred init has run. If not, the
-            // first onStorageUpdate fires when it does.
             onStorageUpdate();
           } else {
             // No TableOfContents loaded - render nothing, hide outline.
@@ -275,15 +345,17 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           }
 
           // Re-evaluate visibility on viewport changes.
-          const onMqChange = (): void => {
-            if (!storage) return;
-            applyVisibilityState(nav, storage.content.length, options, isMobile());
-          };
+          const onMqChange = (): void => { applyState(); };
           mq?.addEventListener('change', onMqChange);
 
           return {
             destroy(): void {
+              cancelTimers();
               nav.removeEventListener('click', onClick);
+              nav.removeEventListener('mouseenter', onMouseEnter);
+              nav.removeEventListener('mouseleave', onMouseLeave);
+              nav.removeEventListener('focusin', onFocusIn);
+              nav.removeEventListener('focusout', onFocusOut);
               mq?.removeEventListener('change', onMqChange);
               tracker.destroy();
               unsubscribe?.();

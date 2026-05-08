@@ -163,7 +163,10 @@ describe('FloatingTocOutline - Phase 4 ticks', () => {
     expect(queryOutline()?.dataset['state']).toBe('hidden');
 
     editor.setContent('<h1>One</h1><h2>Two</h2>');
-    expect(queryOutline()?.dataset['state']).toBe('visible');
+    // Phase 6 introduced a 3-state machine (hidden | collapsed |
+    // expanded). 'visible' was the Phase 4-5 name for what is now
+    // 'collapsed' (default visible state with ticks only).
+    expect(queryOutline()?.dataset['state']).toBe('collapsed');
   });
 
   it('hides itself on mobile viewports via the matchMedia breakpoint', async () => {
@@ -630,5 +633,317 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     expect((editor.storage['toc'] as { activeId: string | null }).activeId).toBe(
       visible.getAttribute('data-toc-id'),
     );
+  });
+});
+
+describe('FloatingTocOutline - Phase 6 hover expansion', () => {
+  let editor: Editor | undefined;
+  let originalMatchMedia: typeof window.matchMedia | undefined;
+
+  const queryCard = (): HTMLElement | null =>
+    document.querySelector<HTMLElement>('.dm-toc-outline-card');
+  const queryRows = (): HTMLButtonElement[] =>
+    Array.from(document.querySelectorAll<HTMLButtonElement>('.dm-toc-outline-row'));
+
+  /** Mount with stubbed matchMedia. Phase 6 tests don't need IO. */
+  const mountForHover = (
+    content: string,
+    options: { hoverInDelay?: number; hoverOutDelay?: number } = {},
+  ): Editor => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    originalMatchMedia = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: false, media: query, onchange: null,
+      addEventListener: (): void => undefined,
+      removeEventListener: (): void => undefined,
+      addListener: (): void => undefined, removeListener: (): void => undefined,
+      dispatchEvent: (): boolean => false,
+    })) as typeof window.matchMedia;
+    return new Editor({
+      element: host,
+      extensions: [
+        Document, Text, Paragraph, Heading, BaseKeymap, History,
+        TableOfContents,
+        FloatingTocOutline.configure(options),
+      ],
+      content,
+    });
+  };
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) editor.destroy();
+    editor = undefined;
+    document.body.innerHTML = '';
+    if (originalMatchMedia) window.matchMedia = originalMatchMedia;
+  });
+
+  it('renders an expanded-state card with one row per heading', async () => {
+    editor = mountForHover('<h1>Alpha</h1><h2>Beta</h2><h3>Gamma</h3>');
+    await flushDeferred();
+    const card = queryCard();
+    expect(card).not.toBeNull();
+    const rows = queryRows();
+    expect(rows).toHaveLength(3);
+    expect(rows.map((r) => r.dataset['level'])).toEqual(['1', '2', '3']);
+    expect(rows.map((r) => r.textContent)).toEqual(['Alpha', 'Beta', 'Gamma']);
+  });
+
+  it('default state is "collapsed" once headings are loaded', async () => {
+    editor = mountForHover('<h1>One</h1><h2>Two</h2>');
+    await flushDeferred();
+    expect(queryOutline()?.dataset['state']).toBe('collapsed');
+  });
+
+  it('hover transitions through showTimer to "expanded" state', async () => {
+    // Editor mounts with REAL timers - the deferred ID assignment
+    // inside TableOfContents uses setTimeout(0) which a global
+    // useFakeTimers() would freeze. We activate fake timers only
+    // AFTER mount + flush so the hover assertions can step time
+    // forward in isolation.
+    editor = mountForHover(
+      '<h1>One</h1><h2>Two</h2>',
+      { hoverInDelay: 100, hoverOutDelay: 300 },
+    );
+    await flushDeferred();
+    const nav = queryOutline()!;
+    expect(nav.dataset['state']).toBe('collapsed');
+
+    vi.useFakeTimers();
+    try {
+      nav.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
+      // showTimer not yet expired - state unchanged.
+      vi.advanceTimersByTime(50);
+      expect(nav.dataset['state']).toBe('collapsed');
+      // Past the in-delay: state flips.
+      vi.advanceTimersByTime(60);
+      expect(nav.dataset['state']).toBe('expanded');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('cancels the show-timer when the cursor leaves before it fires', async () => {
+    editor = mountForHover(
+      '<h1>One</h1><h2>Two</h2>',
+      { hoverInDelay: 100, hoverOutDelay: 300 },
+    );
+    await flushDeferred();
+    const nav = queryOutline()!;
+
+    vi.useFakeTimers();
+    try {
+      nav.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
+      vi.advanceTimersByTime(40);
+      // Quick exit before show-timer fires.
+      nav.dispatchEvent(new MouseEvent('mouseleave', { bubbles: false }));
+      // Even after the original in-delay would have lapsed, the state
+      // must NOT have flipped to 'expanded' - the timer was cancelled.
+      vi.advanceTimersByTime(200);
+      expect(nav.dataset['state']).toBe('collapsed');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('hover-out fades to "collapsed" after the configured delay', async () => {
+    editor = mountForHover(
+      '<h1>One</h1><h2>Two</h2>',
+      { hoverInDelay: 100, hoverOutDelay: 300 },
+    );
+    await flushDeferred();
+    const nav = queryOutline()!;
+
+    vi.useFakeTimers();
+    try {
+      nav.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
+      vi.advanceTimersByTime(110);
+      expect(nav.dataset['state']).toBe('expanded');
+
+      nav.dispatchEvent(new MouseEvent('mouseleave', { bubbles: false }));
+      // Within out-delay window: still expanded.
+      vi.advanceTimersByTime(200);
+      expect(nav.dataset['state']).toBe('expanded');
+      // Past out-delay: collapsed.
+      vi.advanceTimersByTime(150);
+      expect(nav.dataset['state']).toBe('collapsed');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('focus-within expands the outline immediately (no hover delay)', async () => {
+    editor = mountForHover('<h1>One</h1><h2>Two</h2>');
+    await flushDeferred();
+    const nav = queryOutline()!;
+    expect(nav.dataset['state']).toBe('collapsed');
+
+    // Focus a button inside the outline. focusin bubbles synchronously.
+    const tick = nav.querySelector<HTMLButtonElement>('.dm-toc-outline-tick');
+    tick?.focus();
+    expect(nav.dataset['state']).toBe('expanded');
+  });
+
+  it('blur out of the outline collapses (no flicker between siblings)', async () => {
+    editor = mountForHover('<h1>One</h1><h2>Two</h2>');
+    await flushDeferred();
+    const nav = queryOutline()!;
+    const tick = nav.querySelector<HTMLButtonElement>('.dm-toc-outline-tick')!;
+    const row = nav.querySelector<HTMLButtonElement>('.dm-toc-outline-row')!;
+
+    tick.focus();
+    expect(nav.dataset['state']).toBe('expanded');
+
+    // Tab between siblings inside the outline - focus moves but
+    // state must NOT flicker collapsed for a frame.
+    const focusoutEvent = new FocusEvent('focusout', {
+      bubbles: true,
+      relatedTarget: row,
+    });
+    tick.dispatchEvent(focusoutEvent);
+    expect(nav.dataset['state']).toBe('expanded');
+
+    // Now focus leaves the outline entirely - state should collapse.
+    const escapeEvent = new FocusEvent('focusout', {
+      bubbles: true,
+      relatedTarget: document.body,
+    });
+    tick.dispatchEvent(escapeEvent);
+    expect(nav.dataset['state']).toBe('collapsed');
+  });
+
+  it('clicking a row scrolls and writes activeId, same as clicking a tick', async () => {
+    const scrollSpy = vi.fn();
+    Element.prototype.scrollIntoView = scrollSpy as unknown as typeof Element.prototype.scrollIntoView;
+
+    editor = mountForHover('<h1>One</h1><h2>Two</h2><h3>Three</h3>');
+    await flushDeferred();
+    const rows = queryRows();
+    const target = rows[1]!;
+    const targetId = target.dataset['tocId'];
+
+    target.click();
+    expect(scrollSpy).toHaveBeenCalledTimes(1);
+    expect((editor.storage['toc'] as { activeId: string | null }).activeId).toBe(targetId);
+  });
+
+  it('active state syncs across both the tick and its corresponding row', async () => {
+    editor = mountForHover('<h1>One</h1><h2>Two</h2><h3>Three</h3>');
+    await flushDeferred();
+    const rows = queryRows();
+    const ticks = queryTicks();
+    rows[1]?.click();
+    const targetId = rows[1]?.dataset['tocId'];
+
+    // Both the tick AND the row at the same index share the active
+    // marker - they're the same logical entry, just two visual
+    // affordances.
+    const matchedTick = ticks.find((t) => t.dataset['tocId'] === targetId);
+    const matchedRow = rows.find((r) => r.dataset['tocId'] === targetId);
+    expect(matchedTick?.getAttribute('aria-current')).toBe('location');
+    expect(matchedRow?.getAttribute('aria-current')).toBe('location');
+  });
+
+  it('mobile breakpoint forces "hidden" even on focus / hover', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    originalMatchMedia = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      // Always-mobile stub.
+      matches: query.includes('max-width'),
+      media: query, onchange: null,
+      addEventListener: (): void => undefined,
+      removeEventListener: (): void => undefined,
+      addListener: (): void => undefined, removeListener: (): void => undefined,
+      dispatchEvent: (): boolean => false,
+    })) as typeof window.matchMedia;
+
+    editor = new Editor({
+      element: host,
+      extensions: [
+        Document, Text, Paragraph, Heading, BaseKeymap, History,
+        TableOfContents, FloatingTocOutline,
+      ],
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+    const nav = queryOutline()!;
+    expect(nav.dataset['state']).toBe('hidden');
+
+    // Even with focus, mobile keeps the outline hidden.
+    const tick = nav.querySelector<HTMLButtonElement>('.dm-toc-outline-tick');
+    tick?.focus();
+    expect(nav.dataset['state']).toBe('hidden');
+  });
+
+  it('re-enter during the hide-timer cancels the pending collapse', async () => {
+    editor = mountForHover(
+      '<h1>One</h1><h2>Two</h2>',
+      { hoverInDelay: 100, hoverOutDelay: 300 },
+    );
+    await flushDeferred();
+    const nav = queryOutline()!;
+
+    vi.useFakeTimers();
+    try {
+      // Expand via hover.
+      nav.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
+      vi.advanceTimersByTime(110);
+      expect(nav.dataset['state']).toBe('expanded');
+
+      // Mouse leaves - hide-timer is queued (300ms delay).
+      nav.dispatchEvent(new MouseEvent('mouseleave', { bubbles: false }));
+      vi.advanceTimersByTime(150);
+      // Still expanded - hide-timer hasn't fired yet.
+      expect(nav.dataset['state']).toBe('expanded');
+
+      // Cursor returns BEFORE hide-timer fires - timer must be
+      // cancelled so the user does not see a flash collapse.
+      nav.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
+      vi.advanceTimersByTime(500);
+      // Way past the original out-delay; state must remain expanded.
+      expect(nav.dataset['state']).toBe('expanded');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('custom hoverInDelay and hoverOutDelay options are honored over defaults', async () => {
+    editor = mountForHover(
+      '<h1>One</h1><h2>Two</h2>',
+      { hoverInDelay: 5, hoverOutDelay: 20 },
+    );
+    await flushDeferred();
+    const nav = queryOutline()!;
+
+    vi.useFakeTimers();
+    try {
+      nav.dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
+      // 5ms in-delay - tick by 6ms to land past it.
+      vi.advanceTimersByTime(6);
+      expect(nav.dataset['state']).toBe('expanded');
+
+      nav.dispatchEvent(new MouseEvent('mouseleave', { bubbles: false }));
+      // 20ms out-delay - tick by 25ms to land past it.
+      vi.advanceTimersByTime(25);
+      expect(nav.dataset['state']).toBe('collapsed');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('uses fallback row label when the heading text is empty', async () => {
+    editor = mountForHover('<h1></h1><h2>Has Text</h2>');
+    await flushDeferred();
+    const rows = queryRows();
+    expect(rows).toHaveLength(2);
+    // Empty heading: row substitutes a generic level-based label so
+    // the user sees something rather than a blank row.
+    expect(rows[0]?.textContent).toBe('Heading level 1');
+    expect(rows[1]?.textContent).toBe('Has Text');
   });
 });

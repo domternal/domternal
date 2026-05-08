@@ -41,6 +41,11 @@
   // based on heading count and matchMedia. Hiding via CSS (vs JS
   // `display: none` directly) lets consumers override without
   // monkey-patching the plugin.
+  //
+  // State machine: hidden | collapsed | expanded
+  //   hidden    - 0 headings / mobile / < minHeadings
+  //   collapsed - default; ticks visible, card hidden (Phase 4-5)
+  //   expanded  - hover or focus-within; card visible, ticks hidden (Phase 6)
   &[data-state='hidden'],
   &[data-viewport='mobile'] {
     display: none;
@@ -92,11 +97,133 @@
   &[data-level='6'] { width: var(--dm-toc-tick-h6-width, 4px); }
 }
 
-// Phase 8 (reduced-motion). Repeated here defensively in case the
-// global `@media (prefers-reduced-motion: reduce)` block in index.scss
-// is ever scoped to `.dm-editor`-only.
+// Phase 6: ticks fade out when the card takes over.
+.dm-toc-outline[data-state='expanded'] .dm-toc-outline-tick {
+  opacity: 0;
+  pointer-events: none;
+}
+
+// =============================================================================
+// Expanded card (Phase 6)
+// =============================================================================
+// The card is absolutely positioned within the nav (which is fixed at
+// the right gutter). Anchored to the nav's right edge and vertically
+// centered against the same midline as the tick column - it visually
+// REPLACES the ticks rather than appearing alongside them. CSS opacity
+// + transform handle the slide-in transition; the plugin only flips
+// the parent's data-state attribute.
+
+.dm-toc-outline-card {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%) translateX(var(--dm-toc-card-offset, 4px));
+  min-width: var(--dm-toc-card-min-width, 180px);
+  max-width: var(--dm-toc-card-max-width, 260px);
+  padding: var(--dm-toc-card-padding-block, 6px) 0;
+  background: var(--dm-toc-card-bg, rgba(255, 255, 255, 0.98));
+  border: var(--dm-toc-card-border, 1px solid rgba(0, 0, 0, 0.06));
+  border-radius: var(--dm-toc-card-radius, 6px);
+  box-shadow: var(--dm-toc-card-shadow, 0 8px 24px rgba(0, 0, 0, 0.08));
+
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+
+  // Hidden by default in collapsed state. opacity + transform together
+  // let the card softly slide in from the right when expanding. The
+  // pointer-events flip prevents interactions with the invisible card.
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--dm-toc-card-transition, 180ms) ease-out,
+    transform var(--dm-toc-card-transition, 180ms) ease-out;
+}
+
+.dm-toc-outline[data-state='expanded'] .dm-toc-outline-card {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%) translateX(0);
+}
+
+.dm-toc-outline-row {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: start;
+  font: inherit;
+  font-size: var(--dm-toc-row-font-size, 13px);
+  line-height: var(--dm-toc-row-line-height, 1.4);
+  color: var(--dm-toc-row-color, rgba(55, 53, 47, 0.7));
+  padding:
+    var(--dm-toc-row-padding-block, 4px)
+    var(--dm-toc-row-padding-inline-end, 16px)
+    var(--dm-toc-row-padding-block, 4px)
+    var(--dm-toc-row-padding-inline-start, 12px);
+  // Truncate long heading text - it's a navigation aid, not the
+  // headings themselves.
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: 3px;
+  transition: background-color 120ms ease-out, color 120ms ease-out;
+
+  &:hover {
+    background: var(--dm-toc-row-hover-bg, rgba(0, 0, 0, 0.04));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: -2px;
+  }
+
+  // Active row mirrors the active tick. Selector matches both the
+  // JS-applied class (`--active`) and the a11y attribute the plugin
+  // sets simultaneously - same convention as ticks.
+  &.dm-toc-outline-tick--active,
+  &[aria-current='location'] {
+    color: var(--dm-toc-row-active-color, rgba(55, 53, 47, 0.95));
+    font-weight: var(--dm-toc-row-active-weight, 600);
+  }
+
+  // Per-level indent - h1 sits flush at the start padding, h2 nudges
+  // in by one row-indent, h3 by two, etc. Keeps the visual hierarchy
+  // legible at a glance even when text is truncated.
+  &[data-level='1'] {
+    padding-inline-start: var(--dm-toc-row-padding-inline-start, 12px);
+  }
+  &[data-level='2'] {
+    padding-inline-start:
+      calc(var(--dm-toc-row-padding-inline-start, 12px) + var(--dm-toc-row-indent, 14px));
+  }
+  &[data-level='3'] {
+    padding-inline-start:
+      calc(var(--dm-toc-row-padding-inline-start, 12px) + var(--dm-toc-row-indent, 14px) * 2);
+  }
+  &[data-level='4'] {
+    padding-inline-start:
+      calc(var(--dm-toc-row-padding-inline-start, 12px) + var(--dm-toc-row-indent, 14px) * 3);
+  }
+  &[data-level='5'] {
+    padding-inline-start:
+      calc(var(--dm-toc-row-padding-inline-start, 12px) + var(--dm-toc-row-indent, 14px) * 4);
+  }
+  &[data-level='6'] {
+    padding-inline-start:
+      calc(var(--dm-toc-row-padding-inline-start, 12px) + var(--dm-toc-row-indent, 14px) * 5);
+  }
+}
+
+// Phase 8 (reduced-motion) - explicit guard so the card transitions
+// fall back to instant flips when the user has reduced motion turned
+// on. Repeated here defensively even though `index.scss` has a
+// global block, in case that block is ever scoped to `.dm-editor`-only.
 @media (prefers-reduced-motion: reduce) {
-  .dm-toc-outline-tick {
+  .dm-toc-outline-tick,
+  .dm-toc-outline-card,
+  .dm-toc-outline-row {
     transition: none;
   }
 }

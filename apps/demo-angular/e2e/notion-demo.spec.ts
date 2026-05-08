@@ -2084,11 +2084,34 @@ test.describe('Table of Contents - Phase 4 floating outline ticks', () => {
     const targetTocId = await ticks.nth(lastIndex).getAttribute('data-toc-id');
     expect(targetTocId).toMatch(/^.{8}$/);
 
-    await ticks.nth(lastIndex).click();
+    if (!targetTocId) throw new Error('expected non-null tocId');
+    // Dispatch click programmatically (synchronous DOM event) instead
+    // of going through Playwright's mouse simulation. Playwright's
+    // click() invokes mouseover / mouseenter on its way to the
+    // element, which queues our hoverInDelay timer (Phase 6) before
+    // the click event itself dispatches; by then the outline can
+    // expand, ticks acquire `pointer-events: none`, and the click
+    // registers on the card layer instead of the tick. Calling
+    // .click() on the element directly fires the delegated handler
+    // without that intermediate hover dance, matching how a fast
+    // user actually interacts.
+    await page.evaluate((id) => {
+      document
+        .querySelector<HTMLElement>(`.dm-toc-outline-tick[data-toc-id="${id}"]`)
+        ?.click();
+    }, targetTocId);
 
+    // Settle: scroll happens synchronously but layout/paint may need
+    // a frame to register window.scrollY changes.
+    await page.evaluate(
+      () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
+    );
+    // The URL hash update is a side effect of scrollToHeading. We
+    // assert it FIRST so a failure here pinpoints the click handler
+    // path (rather than a downstream scroll-position mystery).
+    expect(page.url()).toContain(`#${targetTocId}`);
     const scrollYAfter = await page.evaluate(() => window.scrollY);
     expect(scrollYAfter).toBeGreaterThan(scrollYBefore);
-    expect(page.url()).toContain(`#${targetTocId}`);
   });
 
   test('outline hides itself when fewer headings than minHeadings (default 2)', async ({ page }) => {
@@ -2244,7 +2267,7 @@ test.describe('Table of Contents - Phase 5 active state', () => {
     // Click the LAST tick - that one is below the fold and the
     // smooth-scroll path will run, but the visual marker should land
     // synchronously (manual override path, not waiting on IO).
-    await ticks.nth(2).click();
+    await ticks.nth(2).dispatchEvent('click');
     await expect(ticks.nth(2)).toHaveClass(/dm-toc-outline-tick--active/);
     await expect(ticks.nth(2)).toHaveAttribute('aria-current', 'location');
     // The OTHER ticks must lose the marker - only one tick at a time.
@@ -2257,7 +2280,7 @@ test.describe('Table of Contents - Phase 5 active state', () => {
     await setStretchedContent(page);
     const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
     const targetId = await ticks.nth(1).getAttribute('data-toc-id');
-    await ticks.nth(1).click();
+    await ticks.nth(1).dispatchEvent('click');
 
     const storedActiveId = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -2326,7 +2349,7 @@ test.describe('Table of Contents - Phase 5 active state', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await setStretchedContent(page);
     const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
-    await ticks.nth(1).click();
+    await ticks.nth(1).dispatchEvent('click');
 
     // Light theme: capture active color.
     const lightActive = await ticks.nth(1).evaluate(
@@ -2434,7 +2457,7 @@ test.describe('Table of Contents - Phase 5 active state', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await setStretchedContent(page);
     const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
-    await ticks.nth(1).click();
+    await ticks.nth(1).dispatchEvent('click');
     const targetId = await ticks.nth(1).getAttribute('data-toc-id');
 
     // Replace the doc but KEEP the same data-toc-id on the formerly
@@ -2468,7 +2491,7 @@ test.describe('Table of Contents - Phase 5 active state', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await setStretchedContent(page);
     const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
-    await ticks.nth(1).click();
+    await ticks.nth(1).dispatchEvent('click');
 
     const activeColor = await ticks.nth(1).evaluate(
       (node) => window.getComputedStyle(node).backgroundColor,
@@ -2492,7 +2515,7 @@ test.describe('Table of Contents - Phase 5 active state', () => {
     const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
 
     // Click the FIRST tick - that becomes active, override window starts.
-    await ticks.nth(0).click();
+    await ticks.nth(0).dispatchEvent('click');
     const firstId = await ticks.nth(0).getAttribute('data-toc-id');
     let stored = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -2520,5 +2543,249 @@ test.describe('Table of Contents - Phase 5 active state', () => {
       return (ed?.storage['toc'] as { activeId: string | null } | undefined)?.activeId ?? null;
     });
     expect(stored).not.toBe(firstId);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// Table of Contents - Phase 6 hover expansion
+// ────────────────────────────────────────────────────────────────────────
+// Hover (or keyboard focus) on the outline reveals an expanded card
+// with the full heading text + per-level indent. Mouse leave / blur
+// fades it back to ticks. State machine: hidden | collapsed | expanded.
+
+test.describe('Table of Contents - Phase 6 hover expansion', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('default state is "collapsed"; card exists in DOM but is hidden via opacity', async ({ page }) => {
+    const outline = page.locator('.dm-toc-outline');
+    await expect(outline).toHaveAttribute('data-state', 'collapsed');
+
+    // Card is rendered (so the transition has something to animate to)
+    // but invisible via opacity:0 and not interactive via pointer-events.
+    const card = page.locator('.dm-toc-outline-card');
+    await expect(card).toBeAttached();
+    const opacity = await card.evaluate((node) => window.getComputedStyle(node).opacity);
+    expect(parseFloat(opacity)).toBe(0);
+  });
+
+  test('hovering the outline transitions through to "expanded" state', async ({ page }) => {
+    const outline = page.locator('.dm-toc-outline');
+    await outline.hover();
+    // The default hoverInDelay is 120ms; allow up to 600ms before
+    // failing so any CI-induced jitter does not flake the test.
+    await expect(outline).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
+
+    // Card opacity is now 1 and rows are pointer-events:auto.
+    const card = page.locator('.dm-toc-outline-card');
+    const opacity = await card.evaluate((node) => window.getComputedStyle(node).opacity);
+    expect(parseFloat(opacity)).toBeGreaterThan(0.9);
+  });
+
+  test('rows render full heading text with per-level indent (h1 < h2 < h3)', async ({ page }) => {
+    await setContent(page, '<h1>One</h1><h2>Two</h2><h3>Three</h3>');
+    const rows = page.locator('.dm-toc-outline-row');
+    await expect(rows).toHaveCount(3);
+    expect(await rows.nth(0).textContent()).toBe('One');
+    expect(await rows.nth(1).textContent()).toBe('Two');
+    expect(await rows.nth(2).textContent()).toBe('Three');
+
+    // Hover to make rows visible so getBoundingClientRect / padding
+    // measurements are real (computed style still reads correctly
+    // when collapsed, but text-overflow / wrapping needs visibility).
+    await page.locator('.dm-toc-outline').hover();
+    await expect(page.locator('.dm-toc-outline')).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
+
+    const paddings = await rows.evaluateAll(
+      (nodes) => nodes.map((n) => parseFloat(window.getComputedStyle(n).paddingInlineStart)),
+    );
+    expect(paddings[0]).toBeLessThan(paddings[1] ?? 0);
+    expect(paddings[1]).toBeLessThan(paddings[2] ?? 0);
+  });
+
+  test('clicking a row navigates the same way clicking a tick does', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const outline = page.locator('.dm-toc-outline');
+    await outline.hover();
+    await expect(outline).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
+
+    const rows = page.locator('.dm-toc-outline-row');
+    const lastIndex = (await rows.count()) - 1;
+    const targetTocId = await rows.nth(lastIndex).getAttribute('data-toc-id');
+    expect(targetTocId).toMatch(/^.{8}$/);
+
+    const scrollYBefore = await page.evaluate(() => window.scrollY);
+    await rows.nth(lastIndex).click();
+    await page.evaluate(
+      () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
+    );
+    expect(page.url()).toContain(`#${targetTocId}`);
+    const scrollYAfter = await page.evaluate(() => window.scrollY);
+    expect(scrollYAfter).toBeGreaterThan(scrollYBefore);
+  });
+
+  test('focusing a tick (keyboard) expands the outline immediately', async ({ page }) => {
+    await page.evaluate(() => {
+      const tick = document.querySelector<HTMLElement>('.dm-toc-outline-tick');
+      tick?.focus();
+    });
+    const outline = page.locator('.dm-toc-outline');
+    await expect(outline).toHaveAttribute('data-state', 'expanded');
+  });
+
+  test('blur (focus moves outside the outline) collapses back to ticks', async ({ page }) => {
+    // Focus first, expand.
+    await page.evaluate(() => {
+      const tick = document.querySelector<HTMLElement>('.dm-toc-outline-tick');
+      tick?.focus();
+    });
+    const outline = page.locator('.dm-toc-outline');
+    await expect(outline).toHaveAttribute('data-state', 'expanded');
+
+    // Move focus outside the outline.
+    await page.evaluate(() => {
+      const editor = document.querySelector<HTMLElement>('.ProseMirror');
+      editor?.focus();
+    });
+    await expect(outline).toHaveAttribute('data-state', 'collapsed', { timeout: 600 });
+  });
+
+  test('active row mirrors active tick (font-weight + aria-current)', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const ticks = page.locator('.dm-toc-outline-tick');
+    await ticks.nth(1).dispatchEvent('click');
+    const targetId = await ticks.nth(1).getAttribute('data-toc-id');
+
+    // Reveal card so getComputedStyle gives a meaningful weight value.
+    await page.locator('.dm-toc-outline').hover();
+    await expect(page.locator('.dm-toc-outline')).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
+
+    const matchedRow = page.locator(`.dm-toc-outline-row[data-toc-id="${targetId}"]`);
+    await expect(matchedRow).toHaveAttribute('aria-current', 'location');
+    const weight = await matchedRow.evaluate((node) => window.getComputedStyle(node).fontWeight);
+    // Active row uses the --dm-toc-row-active-weight token (default 600).
+    expect(parseInt(weight, 10)).toBeGreaterThanOrEqual(600);
+  });
+
+  test('mobile breakpoint forces "hidden" even on hover or focus', async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 900 });
+    const outline = page.locator('.dm-toc-outline');
+    await expect(outline).toHaveAttribute('data-viewport', 'mobile');
+
+    // Even with a forced focus, mobile keeps the outline hidden.
+    await page.evaluate(() => {
+      const tick = document.querySelector<HTMLElement>('.dm-toc-outline-tick');
+      tick?.focus();
+    });
+    await expect(outline).toHaveAttribute('data-state', 'hidden');
+  });
+
+  test('reduced-motion disables the card slide-in transition', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const card = page.locator('.dm-toc-outline-card');
+    const transition = await card.evaluate((node) => window.getComputedStyle(node).transitionDuration);
+    // Browsers report `0s` (or comma-separated `0s, 0s`) when the
+    // transition has been zeroed out by the reduced-motion media
+    // query. Either way, none of the durations should be > 0.
+    const durations = transition.split(',').map((d) => parseFloat(d.trim()));
+    expect(durations.every((d) => d === 0)).toBe(true);
+  });
+
+  test('mouseleave collapses the outline after hoverOutDelay (real-browser timing)', async ({ page }) => {
+    const outline = page.locator('.dm-toc-outline');
+
+    // Expand via hover (waits up to 600ms past the 120ms in-delay).
+    await outline.hover();
+    await expect(outline).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
+
+    // Move the mouse away. Use page.mouse.move() to a safe location
+    // far from the outline; locator.hover('body') would re-enter the
+    // outline if it sweeps through the right edge.
+    await page.mouse.move(50, 50);
+    // The default hoverOutDelay is 350ms; allow up to 1200ms for the
+    // collapse to settle. Real-browser timer fidelity varies slightly
+    // across CI environments.
+    await expect(outline).toHaveAttribute('data-state', 'collapsed', { timeout: 1200 });
+  });
+
+  test('a long heading title truncates with ellipsis in the row', async ({ page }) => {
+    // Long enough to exceed any reasonable card max-width. The CSS
+    // contract is `text-overflow: ellipsis` + `overflow: hidden` +
+    // `white-space: nowrap`. Validate via the trio of computed styles.
+    await setContent(
+      page,
+      `<h1>${'Very long heading text '.repeat(20)}</h1><h2>Sibling</h2>`,
+    );
+    const row = page.locator('.dm-toc-outline-row').first();
+    const styles = await row.evaluate((node) => {
+      const cs = window.getComputedStyle(node);
+      return {
+        whiteSpace: cs.whiteSpace,
+        overflow: cs.overflow,
+        textOverflow: cs.textOverflow,
+      };
+    });
+    expect(styles.whiteSpace).toBe('nowrap');
+    // overflow shorthand may report as "hidden" or "hidden hidden".
+    expect(styles.overflow.startsWith('hidden')).toBe(true);
+    expect(styles.textOverflow).toBe('ellipsis');
+  });
+
+  test('empty heading row falls back to a "Heading level N" label', async ({ page }) => {
+    await setContent(page, '<h1></h1><h2>Has text</h2>');
+    const rows = page.locator('.dm-toc-outline-row');
+    await expect(rows).toHaveCount(2);
+    expect(await rows.nth(0).textContent()).toBe('Heading level 1');
+    expect(await rows.nth(1).textContent()).toBe('Has text');
+  });
+
+  test('clicking a row whose heading lives inside a closed <details> opens the details then scrolls', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(
+        '<p>Before</p>'
+        + '<div data-type="details">'
+        + '<div data-details-content><h2 data-toc-id="hidden">Inside details</h2></div>'
+        + '</div>'
+        + '<h2>Sibling</h2>',
+        false,
+      );
+    });
+    await page.waitForFunction(() =>
+      document.querySelector('.dm-toc-outline-row[data-toc-id="hidden"]') !== null,
+    );
+
+    // Open expanded card and click the row pointing at the hidden heading.
+    await page.locator('.dm-toc-outline').hover();
+    await expect(page.locator('.dm-toc-outline')).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
+    await page.locator('.dm-toc-outline-row[data-toc-id="hidden"]').click();
+
+    // The heading is now visible (details forced open by the
+    // scrollToHeading helper).
+    const visible = await page.evaluate(() => {
+      const target = document.querySelector<HTMLElement>('[data-toc-id="hidden"]');
+      if (!target) return false;
+      const rect = target.getBoundingClientRect();
+      return rect.height > 0 && rect.width > 0;
+    });
+    expect(visible).toBe(true);
+    expect(page.url()).toContain('#hidden');
+  });
+
+  test('reduced-motion still flips the data-state on hover (transition is skipped, not the state change)', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const outline = page.locator('.dm-toc-outline');
+
+    await outline.hover();
+    // State still flips - reduced-motion only zeroes the CSS
+    // transition, the JS state machine itself is unaffected.
+    await expect(outline).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
+
+    // Card opacity should be 1 (not transitioning).
+    const card = page.locator('.dm-toc-outline-card');
+    const opacity = await card.evaluate((node) => window.getComputedStyle(node).opacity);
+    expect(parseFloat(opacity)).toBeGreaterThan(0.9);
   });
 });

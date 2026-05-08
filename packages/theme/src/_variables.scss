@@ -271,4 +271,27 @@
   --dm-toc-padding-inline: 8px;
   --dm-toc-right-offset: 24px;
   --dm-toc-z-index: 10;
+
+  // Expanded card (Phase 6). The card replaces the tick column on
+  // hover/focus, showing the full heading text with per-level indent.
+  --dm-toc-card-bg: rgba(255, 255, 255, 0.98);
+  --dm-toc-card-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --dm-toc-card-radius: 6px;
+  --dm-toc-card-border: 1px solid rgba(0, 0, 0, 0.06);
+  --dm-toc-card-min-width: 180px;
+  --dm-toc-card-max-width: 260px;
+  --dm-toc-card-padding-block: 6px;
+  --dm-toc-card-offset: 4px;
+  --dm-toc-card-transition: 180ms;
+
+  --dm-toc-row-padding-block: 4px;
+  --dm-toc-row-padding-inline-start: 12px;
+  --dm-toc-row-padding-inline-end: 16px;
+  --dm-toc-row-indent: 14px;
+  --dm-toc-row-color: rgba(55, 53, 47, 0.7);
+  --dm-toc-row-hover-bg: rgba(0, 0, 0, 0.04);
+  --dm-toc-row-active-color: rgba(55, 53, 47, 0.95);
+  --dm-toc-row-active-weight: 600;
+  --dm-toc-row-font-size: 13px;
+  --dm-toc-row-line-height: 1.4;
 }
