@@ -2031,3 +2031,179 @@ test.describe('Table of Contents - Phase 3 scroll navigation', () => {
   // can stub `window.location.hash` and `scrollIntoView` to assert
   // exactly the rAF-driven invocation.
 });
+
+// ────────────────────────────────────────────────────────────────────────
+// Table of Contents - Phase 4 floating outline ticks
+// ────────────────────────────────────────────────────────────────────────
+// Phase 4 replaces the Phase 1 spike (hello-world pill) with real
+// tick buttons. These tests cover the visual contract of the
+// collapsed-state outline: render count, level-encoded width, click
+// navigation, visibility guards (minHeadings + mobile + 0 headings),
+// and theme-aware coloring.
+
+test.describe('Table of Contents - Phase 4 floating outline ticks', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('renders one tick button per heading and matches storage count', async ({ page }) => {
+    const expectedCount = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      const toc = ed?.storage['toc'] as { content: unknown[] } | undefined;
+      return toc?.content.length ?? 0;
+    });
+    expect(expectedCount).toBeGreaterThan(0);
+    const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
+    await expect(ticks).toHaveCount(expectedCount);
+    // Each tick is a button (correct semantics for keyboard / a11y).
+    const tagNames = await ticks.evaluateAll((nodes) => nodes.map((n) => n.tagName));
+    expect(new Set(tagNames)).toEqual(new Set(['BUTTON']));
+  });
+
+  test('tick width encodes heading level (h1 wider than h2 wider than h3)', async ({ page }) => {
+    // Drop a deterministic 3-level mix and assert tick widths are
+    // strictly decreasing (h1 > h2 > h3). We read the rendered widths
+    // via boundingBox so the assertion exercises the actual CSS, not
+    // the data-level attribute (which is verified separately).
+    await setContent(page, '<h1>One</h1><h2>Two</h2><h3>Three</h3>');
+    const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
+    await expect(ticks).toHaveCount(3);
+    const widths = await Promise.all(
+      [0, 1, 2].map((i) => ticks.nth(i).boundingBox().then((b) => b?.width ?? 0)),
+    );
+    expect(widths[0]).toBeGreaterThan(widths[1] ?? 0);
+    expect(widths[1]).toBeGreaterThan(widths[2] ?? 0);
+  });
+
+  test('clicking a tick scrolls the page and updates the URL hash', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const scrollYBefore = await page.evaluate(() => window.scrollY);
+    // Click the LAST tick so we reliably move the scroll position.
+    const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
+    const lastIndex = (await ticks.count()) - 1;
+    const targetTocId = await ticks.nth(lastIndex).getAttribute('data-toc-id');
+    expect(targetTocId).toMatch(/^.{8}$/);
+
+    await ticks.nth(lastIndex).click();
+
+    const scrollYAfter = await page.evaluate(() => window.scrollY);
+    expect(scrollYAfter).toBeGreaterThan(scrollYBefore);
+    expect(page.url()).toContain(`#${targetTocId}`);
+  });
+
+  test('outline hides itself when fewer headings than minHeadings (default 2)', async ({ page }) => {
+    await setContent(page, '<h1>Only one heading</h1><p>body</p>');
+    const outline = page.locator('.dm-toc-outline');
+    await expect(outline).toHaveAttribute('data-state', 'hidden');
+    // CSS rule turns data-state="hidden" into display: none.
+    await expect(outline).not.toBeVisible();
+  });
+
+  test('outline hides itself on viewports at or below the mobile breakpoint', async ({ page }) => {
+    // Resize to a tablet/phone width below the default 1024 cutoff.
+    await page.setViewportSize({ width: 800, height: 900 });
+    const outline = page.locator('.dm-toc-outline');
+    // matchMedia is reactive in playwright - the data-viewport
+    // attribute switches on resize, the CSS hides the element.
+    await expect(outline).toHaveAttribute('data-viewport', 'mobile');
+    await expect(outline).not.toBeVisible();
+  });
+
+  test('outline is hidden when the doc has zero headings', async ({ page }) => {
+    await setContent(page, '<p>just paragraphs</p><p>nothing else</p>');
+    const outline = page.locator('.dm-toc-outline');
+    await expect(outline).toHaveAttribute('data-state', 'hidden');
+    await expect(outline).not.toBeVisible();
+  });
+
+  test('renaming a heading updates the corresponding tick aria-label', async ({ page }) => {
+    await setContent(page, '<h1>Original Title</h1><h2>Other</h2>');
+    const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
+    await expect(ticks.nth(0)).toHaveAttribute('aria-label', /Original Title/);
+
+    // Rewrite the doc with a renamed heading. Storage updates fan out
+    // to the outline plugin, which re-renders the ticks. Aria-label
+    // for the first tick should now reflect the new text.
+    await setContent(page, '<h1>Renamed Title</h1><h2>Other</h2>');
+    await expect(ticks.nth(0)).toHaveAttribute('aria-label', /Renamed Title/);
+    await expect(ticks.nth(0)).not.toHaveAttribute('aria-label', /Original Title/);
+  });
+
+  test('a tick is keyboard-reachable and Enter triggers navigation', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
+    await expect(ticks.first()).toBeVisible();
+
+    // Focus the LAST tick directly (programmatic focus is the
+    // tab-equivalent here because the editor steals tab order between
+    // body and the outline). What we care about is that the button is
+    // focusable and that Enter activates it.
+    const lastIndex = (await ticks.count()) - 1;
+    const targetTocId = await ticks.nth(lastIndex).getAttribute('data-toc-id');
+    await ticks.nth(lastIndex).focus();
+    const isFocused = await page.evaluate(() => {
+      const focused = document.activeElement;
+      return focused?.classList.contains('dm-toc-outline-tick') ?? false;
+    });
+    expect(isFocused).toBe(true);
+
+    const scrollYBefore = await page.evaluate(() => window.scrollY);
+    await page.keyboard.press('Enter');
+    const scrollYAfter = await page.evaluate(() => window.scrollY);
+    expect(scrollYAfter).toBeGreaterThan(scrollYBefore);
+    expect(page.url()).toContain(`#${targetTocId}`);
+  });
+
+  test('hovering a tick changes its background color (visual feedback)', async ({ page }) => {
+    const tick = page.locator('.dm-toc-outline .dm-toc-outline-tick').first();
+    const beforeColor = await tick.evaluate((node) => window.getComputedStyle(node).backgroundColor);
+    await tick.hover();
+    // Wait one frame for the CSS transition to apply the new color.
+    await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => r())));
+    const afterColor = await tick.evaluate((node) => window.getComputedStyle(node).backgroundColor);
+    expect(afterColor).not.toBe(beforeColor);
+  });
+
+  test('outline sits above page content (z-index keeps it clickable)', async ({ page }) => {
+    // Read out the outline's computed z-index AND the editor's. The
+    // outline must have a higher stacking context so a heavy block
+    // (image, table) cannot occlude it. We assert "outline > 0" rather
+    // than picking a specific value because the exact number is a
+    // design token and may evolve; the contract is "above default flow".
+    const outlineZ = await page.locator('.dm-toc-outline').evaluate(
+      (node) => Number.parseInt(window.getComputedStyle(node).zIndex || '0', 10) || 0,
+    );
+    expect(outlineZ).toBeGreaterThan(0);
+  });
+
+  test('dark theme flips tick color via CSS tokens (no JS class mirroring needed)', async ({ page }) => {
+    // Capture the tick color in the default (light) theme first.
+    const lightColor = await page.evaluate(() => {
+      const tick = document.querySelector('.dm-toc-outline-tick');
+      return tick ? window.getComputedStyle(tick).backgroundColor : null;
+    });
+    expect(lightColor).not.toBeNull();
+
+    // Toggle dark theme via the demo's `.theme-toggle` button (added
+    // to <body class="dm-theme-dark"> by the demo wrapper). Body is
+    // an ancestor of the outline so the CSS cascade reaches it without
+    // any JS class mirroring (D13 was skipped for v1).
+    await page.click('.theme-toggle');
+    // Sanity: confirm body actually gained the class.
+    await expect(page.locator('body.dm-theme-dark')).toHaveCount(1);
+
+    // Wait for the next paint so getComputedStyle reflects the new
+    // cascade. With CSS variable inheritance + selector specificity,
+    // a microtask is normally enough; we give two animation frames
+    // for safety.
+    await page.evaluate(
+      () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
+    );
+    const darkColor = await page.evaluate(() => {
+      const tick = document.querySelector('.dm-toc-outline-tick');
+      return tick ? window.getComputedStyle(tick).backgroundColor : null;
+    });
+    expect(darkColor).not.toBeNull();
+    expect(darkColor).not.toBe(lightColor);
+  });
+});

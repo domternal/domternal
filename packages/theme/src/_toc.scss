@@ -1,0 +1,92 @@
+// =============================================================================
+// Table of Contents - Floating Outline
+// =============================================================================
+// Notion-style right-rail outline rendered by `@domternal/extension-toc`.
+// Lives OUTSIDE `.dm-editor` (which has `overflow: hidden`), so this
+// stylesheet does not nest under `.dm-editor` - tokens are pulled from
+// `:root` (defined in `_variables.scss`).
+//
+// Phase 4 ships the collapsed-state ticks + visibility guards. Phase 5
+// adds the active-state highlight; Phase 6 the hover-expanded card.
+// =============================================================================
+
+.dm-toc-outline {
+  // D16 (revised in Phase 4): position: fixed gives Notion-like
+  // behavior - the outline stays vertically centered in the viewport
+  // as the user scrolls, regardless of which container it mounted
+  // into. Trade-off: multi-editor on the same page would overlap;
+  // multi-editor support is v2 work.
+  position: fixed;
+  top: 50%;
+  right: var(--dm-toc-right-offset, 24px);
+  transform: translateY(-50%);
+  z-index: var(--dm-toc-z-index, 10);
+
+  // Stack ticks vertically with even gaps. flex-end keeps the right
+  // edge of every tick aligned even though widths differ per level.
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--dm-toc-tick-gap, 10px);
+  padding: var(--dm-toc-padding-block, 12px) var(--dm-toc-padding-inline, 8px);
+
+  // No background / no border in collapsed state - it's just a
+  // column of tiny marks. Phase 6's expanded card adds chrome.
+  background: transparent;
+  border: 0;
+  margin: 0;
+  pointer-events: auto;
+
+  // Visibility guards. The plugin sets data-state and data-viewport
+  // based on heading count and matchMedia. Hiding via CSS (vs JS
+  // `display: none` directly) lets consumers override without
+  // monkey-patching the plugin.
+  &[data-state='hidden'],
+  &[data-viewport='mobile'] {
+    display: none;
+  }
+}
+
+.dm-toc-outline-tick {
+  // Reset button defaults - we draw a solid filled rectangle.
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  background: var(--dm-toc-tick-color, rgba(55, 53, 47, 0.4));
+  height: var(--dm-toc-tick-height, 2px);
+  border-radius: var(--dm-toc-tick-radius, 1px);
+  // Width per heading level - h1 widest, deeper levels narrower.
+  // Default for unmatched levels falls through to h3-width.
+  width: var(--dm-toc-tick-h3-width, 8px);
+  transition:
+    background-color 120ms ease-out,
+    width 120ms ease-out;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--dm-toc-tick-hover-color, rgba(55, 53, 47, 0.7));
+    outline: none;
+  }
+
+  // Per-level width selectors. h1 / h2 / h3 are the canonical Notion
+  // levels; we also handle h4-h6 for consumers configuring custom
+  // levels via `levels: [1,2,3,4,5,6]`.
+  &[data-level='1'] { width: var(--dm-toc-tick-h1-width, 18px); }
+  &[data-level='2'] { width: var(--dm-toc-tick-h2-width, 12px); }
+  &[data-level='3'] { width: var(--dm-toc-tick-h3-width, 8px); }
+  &[data-level='4'] { width: var(--dm-toc-tick-h4-width, 6px); }
+  &[data-level='5'] { width: var(--dm-toc-tick-h5-width, 5px); }
+  &[data-level='6'] { width: var(--dm-toc-tick-h6-width, 4px); }
+}
+
+// Phase 8 (reduced-motion). Repeated here defensively in case the
+// global `@media (prefers-reduced-motion: reduce)` block in index.scss
+// is ever scoped to `.dm-editor`-only.
+@media (prefers-reduced-motion: reduce) {
+  .dm-toc-outline-tick {
+    transition: none;
+  }
+}

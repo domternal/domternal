@@ -237,3 +237,38 @@
   --dm-separator-color: var(--dm-border-color, #e5e7eb);
   --dm-separator-margin: 0.375rem;
 }
+
+// =============================================================================
+// Table-of-contents variables (on :root)
+// =============================================================================
+// The floating ToC outline mounts OUTSIDE `.dm-editor` (so it can sit in
+// the page's right gutter instead of being clipped by the editor's
+// `overflow: hidden`). Tokens therefore live on `:root` to be visible
+// regardless of cascade. Dark theme overrides land in `_dark.scss`.
+
+:root {
+  // Tick widths per heading level. H1 widest, H3 narrowest - the
+  // length encodes hierarchy in the collapsed (default) state.
+  --dm-toc-tick-h1-width: 18px;
+  --dm-toc-tick-h2-width: 12px;
+  --dm-toc-tick-h3-width: 8px;
+  --dm-toc-tick-h4-width: 6px;
+  --dm-toc-tick-h5-width: 5px;
+  --dm-toc-tick-h6-width: 4px;
+  --dm-toc-tick-height: 2px;
+  --dm-toc-tick-radius: 1px;
+  --dm-toc-tick-gap: 10px;
+
+  // Default tick color is the same low-contrast neutral Notion uses;
+  // the active variant (Phase 5) is full text color.
+  --dm-toc-tick-color: rgba(55, 53, 47, 0.4);
+  --dm-toc-tick-hover-color: rgba(55, 53, 47, 0.7);
+  --dm-toc-tick-active-color: rgba(55, 53, 47, 0.95);
+
+  // Panel chrome - mostly transparent in collapsed state, just enough
+  // padding to separate ticks visually from the page edge.
+  --dm-toc-padding-block: 12px;
+  --dm-toc-padding-inline: 8px;
+  --dm-toc-right-offset: 24px;
+  --dm-toc-z-index: 10;
+}

@@ -111,3 +111,27 @@
     @include dark-tokens;
   }
 }
+
+// =============================================================================
+// Floating ToC outline - dark variant
+// =============================================================================
+// The outline mounts OUTSIDE `.dm-editor`, so it needs its own dark
+// selector list - the @include dark-tokens above scopes only general
+// theme tokens (text, background, etc.) which we do not need to flip
+// here. Tick colors are the only ToC tokens that need a dark variant.
+
+.dm-theme-dark .dm-toc-outline,
+.dm-theme-dark.dm-toc-outline {
+  --dm-toc-tick-color: rgba(255, 255, 255, 0.3);
+  --dm-toc-tick-hover-color: rgba(255, 255, 255, 0.6);
+  --dm-toc-tick-active-color: rgba(255, 255, 255, 0.95);
+}
+
+@media (prefers-color-scheme: dark) {
+  .dm-theme-auto .dm-toc-outline,
+  .dm-theme-auto.dm-toc-outline {
+    --dm-toc-tick-color: rgba(255, 255, 255, 0.3);
+    --dm-toc-tick-hover-color: rgba(255, 255, 255, 0.6);
+    --dm-toc-tick-active-color: rgba(255, 255, 255, 0.95);
+  }
+}
