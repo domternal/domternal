@@ -135,6 +135,34 @@
   --dm-toc-row-active-color: rgba(255, 255, 255, 0.95);
 }
 
+// Phase 7 inline block - dark variant. The block lives INSIDE
+// .dm-editor so it inherits the dark cascade through the editor
+// host (which the existing dark-tokens block above already covers).
+// We only need to flip the block-specific tokens here.
+.dm-theme-dark .dm-toc-block,
+.dm-theme-dark.dm-toc-block {
+  --dm-toc-block-bg: rgba(255, 255, 255, 0.04);
+  --dm-toc-block-border: 1px solid rgba(255, 255, 255, 0.08);
+  --dm-toc-block-empty-color: rgba(255, 255, 255, 0.4);
+  --dm-toc-block-link-color: rgba(255, 255, 255, 0.7);
+  --dm-toc-block-link-hover-color: rgba(255, 255, 255, 0.95);
+  --dm-toc-block-link-hover-bg: rgba(255, 255, 255, 0.06);
+  --dm-toc-block-link-active-color: rgba(255, 255, 255, 0.95);
+}
+
+@media (prefers-color-scheme: dark) {
+  .dm-theme-auto .dm-toc-block,
+  .dm-theme-auto.dm-toc-block {
+    --dm-toc-block-bg: rgba(255, 255, 255, 0.04);
+    --dm-toc-block-border: 1px solid rgba(255, 255, 255, 0.08);
+    --dm-toc-block-empty-color: rgba(255, 255, 255, 0.4);
+    --dm-toc-block-link-color: rgba(255, 255, 255, 0.7);
+    --dm-toc-block-link-hover-color: rgba(255, 255, 255, 0.95);
+    --dm-toc-block-link-hover-bg: rgba(255, 255, 255, 0.06);
+    --dm-toc-block-link-active-color: rgba(255, 255, 255, 0.95);
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   .dm-theme-auto .dm-toc-outline,
   .dm-theme-auto.dm-toc-outline {

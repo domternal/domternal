@@ -27,9 +27,18 @@ export type {
   ActiveStateTrackerOptions,
 } from './helpers/activeStateTracker.js';
 
-// UI: floating right-rail outline. Phase 1 ships the spike (hello div);
-// Phase 4 swaps it for real ticks + click navigation.
+// UI: floating right-rail outline. Phase 4-6 ships the full
+// collapsed/expanded outline with active-state highlighting and
+// hover-expanded card.
 export {
   FloatingTocOutline,
   floatingTocOutlinePluginKey,
 } from './FloatingTocOutline.js';
+export type { FloatingTocOutlineOptions } from './FloatingTocOutline.js';
+
+// UI: inline `/toc` block (Phase 7). PM node + slash menu item
+// rendered as a regular document block. NodeView reactively reflects
+// the heading list and shares the active-state contract with the
+// floating outline.
+export { TableOfContentsBlock } from './TableOfContentsBlock.js';
+export type { TableOfContentsBlockOptions } from './TableOfContentsBlock.js';

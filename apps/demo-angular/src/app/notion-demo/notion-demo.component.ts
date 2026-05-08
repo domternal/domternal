@@ -52,7 +52,7 @@ import {
   BASE_SCORE,
 } from '@domternal/extension-block-menu';
 import type { DragHandleRule, RuleContext } from '@domternal/extension-block-menu';
-import { TableOfContents, FloatingTocOutline } from '@domternal/extension-toc';
+import { TableOfContents, FloatingTocOutline, TableOfContentsBlock } from '@domternal/extension-toc';
 import { NOTION_DEMO_CONTENT } from './notion-demo-content.js';
 
 /**
@@ -188,6 +188,7 @@ export class NotionDemoComponent implements OnDestroy {
     // the outlineHost positioning strategy before fleshing out ticks.
     TableOfContents,
     FloatingTocOutline,
+    TableOfContentsBlock,
     // Notion-style hint on the focused empty paragraph only. Other empty
     // blocks (heading, codeBlock, blockquote) get an empty string so the
     // hint stays diskretno - not on every block in the document.

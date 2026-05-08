@@ -216,6 +216,114 @@
   }
 }
 
+// =============================================================================
+// Inline /toc block (Phase 7)
+// =============================================================================
+// Lives INSIDE the editor as a regular content block (vs the floating
+// outline which mounts outside .dm-editor). User inserts via slash
+// menu; the NodeView dynamically renders the heading list. Click on a
+// row routes to scrollToHeading - same UX as the outline rows.
+
+.dm-toc-block {
+  display: block;
+  margin-block: var(--dm-toc-block-margin-block, 1rem);
+  padding:
+    var(--dm-toc-block-padding-block, 12px)
+    var(--dm-toc-block-padding-inline, 16px);
+  background: var(--dm-toc-block-bg, rgba(0, 0, 0, 0.02));
+  border: var(--dm-toc-block-border, 1px solid rgba(0, 0, 0, 0.08));
+  border-radius: var(--dm-toc-block-radius, 6px);
+
+  // Block is contenteditable=false (atom node, NodeView-rendered).
+  // Surface a subtle outline ring on PM selection so the user knows
+  // the block is selected (e.g. for delete with Backspace on the
+  // gap cursor immediately after).
+  &.ProseMirror-selectednode {
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: 2px;
+  }
+}
+
+.dm-toc-block-empty {
+  margin: 0;
+  color: var(--dm-toc-block-empty-color, rgba(55, 53, 47, 0.5));
+  font-style: var(--dm-toc-block-empty-font-style, italic);
+}
+
+.dm-toc-block-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.dm-toc-block-item {
+  margin: 0;
+}
+
+.dm-toc-block-link {
+  // Reset button defaults for an in-flow link-style affordance.
+  appearance: none;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--dm-toc-block-link-font-size, 0.9375rem);
+  line-height: var(--dm-toc-block-link-line-height, 1.5);
+  color: var(--dm-toc-block-link-color, rgba(55, 53, 47, 0.8));
+  text-align: start;
+  width: 100%;
+  display: block;
+  padding:
+    var(--dm-toc-block-link-padding-block, 4px)
+    var(--dm-toc-block-link-padding-inline, 8px);
+  border-radius: var(--dm-toc-block-link-radius, 3px);
+  transition: background-color 120ms ease-out, color 120ms ease-out;
+
+  &:hover {
+    color: var(--dm-toc-block-link-hover-color, rgba(55, 53, 47, 1));
+    background: var(--dm-toc-block-link-hover-bg, rgba(0, 0, 0, 0.04));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: -2px;
+  }
+
+  // Active row mirrors active tick / row (Phase 5/6 contract).
+  &.dm-toc-block-link--active,
+  &[aria-current='location'] {
+    color: var(--dm-toc-block-link-active-color, rgba(55, 53, 47, 0.95));
+    font-weight: var(--dm-toc-block-link-active-weight, 600);
+  }
+
+  // Per-level indent. Same shape as outline rows; padding on the
+  // link itself so the hover background covers the full visual row
+  // including the indent.
+  &[data-level='1'] {
+    padding-inline-start: var(--dm-toc-block-link-padding-inline, 8px);
+  }
+  &[data-level='2'] {
+    padding-inline-start:
+      calc(var(--dm-toc-block-link-padding-inline, 8px) + var(--dm-toc-block-link-indent, 16px));
+  }
+  &[data-level='3'] {
+    padding-inline-start:
+      calc(var(--dm-toc-block-link-padding-inline, 8px) + var(--dm-toc-block-link-indent, 16px) * 2);
+  }
+  &[data-level='4'] {
+    padding-inline-start:
+      calc(var(--dm-toc-block-link-padding-inline, 8px) + var(--dm-toc-block-link-indent, 16px) * 3);
+  }
+  &[data-level='5'] {
+    padding-inline-start:
+      calc(var(--dm-toc-block-link-padding-inline, 8px) + var(--dm-toc-block-link-indent, 16px) * 4);
+  }
+  &[data-level='6'] {
+    padding-inline-start:
+      calc(var(--dm-toc-block-link-padding-inline, 8px) + var(--dm-toc-block-link-indent, 16px) * 5);
+  }
+}
+
 // Phase 8 (reduced-motion) - explicit guard so the card transitions
 // fall back to instant flips when the user has reduced motion turned
 // on. Repeated here defensively even though `index.scss` has a
@@ -223,7 +331,8 @@
 @media (prefers-reduced-motion: reduce) {
   .dm-toc-outline-tick,
   .dm-toc-outline-card,
-  .dm-toc-outline-row {
+  .dm-toc-outline-row,
+  .dm-toc-block-link {
     transition: none;
   }
 }

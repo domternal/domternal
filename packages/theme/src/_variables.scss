@@ -294,4 +294,29 @@
   --dm-toc-row-active-weight: 600;
   --dm-toc-row-font-size: 13px;
   --dm-toc-row-line-height: 1.4;
+
+  // Inline /toc block (Phase 7). Lives INSIDE the editor as a
+  // first-class document block (vs the floating outline which lives
+  // outside .dm-editor). Styled like a Notion-ish callout: subtle
+  // surface tint, soft border, padded list of heading shortcuts.
+  --dm-toc-block-bg: rgba(0, 0, 0, 0.02);
+  --dm-toc-block-border: 1px solid rgba(0, 0, 0, 0.08);
+  --dm-toc-block-radius: 6px;
+  --dm-toc-block-padding-block: 12px;
+  --dm-toc-block-padding-inline: 16px;
+  --dm-toc-block-margin-block: 1rem;
+  --dm-toc-block-empty-color: rgba(55, 53, 47, 0.5);
+  --dm-toc-block-empty-font-style: italic;
+
+  --dm-toc-block-link-color: rgba(55, 53, 47, 0.8);
+  --dm-toc-block-link-hover-color: rgba(55, 53, 47, 1);
+  --dm-toc-block-link-hover-bg: rgba(0, 0, 0, 0.04);
+  --dm-toc-block-link-active-color: rgba(55, 53, 47, 0.95);
+  --dm-toc-block-link-active-weight: 600;
+  --dm-toc-block-link-padding-block: 4px;
+  --dm-toc-block-link-padding-inline: 8px;
+  --dm-toc-block-link-indent: 16px;
+  --dm-toc-block-link-radius: 3px;
+  --dm-toc-block-link-font-size: 0.9375rem;
+  --dm-toc-block-link-line-height: 1.5;
 }

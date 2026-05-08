@@ -249,6 +249,19 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             applyActiveMarker(nav, id);
             if (storage && storage.activeId !== id) {
               storage.activeId = id;
+              // Fan out to OTHER subscribers (Phase 7 inline block,
+              // potential consumer panels) so they re-render with
+              // the new active marker. Skip our own subscriber to
+              // avoid a redundant re-render of the outline DOM.
+              [...storage.subscribers].forEach((fn) => {
+                if (fn === onStorageUpdate) return;
+                try {
+                  fn();
+                } catch (err) {
+                  // eslint-disable-next-line no-console
+                  console.error('[extension-toc] subscriber threw during active fan-out:', err);
+                }
+              });
             }
           };
           const tracker = createActiveStateTracker({

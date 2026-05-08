@@ -2789,3 +2789,395 @@ test.describe('Table of Contents - Phase 6 hover expansion', () => {
     expect(parseFloat(opacity)).toBeGreaterThan(0.9);
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────
+// Table of Contents - Phase 7 inline /toc block
+// ────────────────────────────────────────────────────────────────────────
+// User inserts a `tableOfContents` block via the slash menu. The
+// NodeView renders a `<ul>` of heading shortcuts that updates as the
+// document changes; clicking a row navigates the same way the
+// floating outline does.
+
+test.describe('Table of Contents - Phase 7 inline block', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('typing /toc in an empty paragraph and selecting the item inserts the block', async ({ page }) => {
+    // Drop into an empty paragraph at end of doc, then trigger slash.
+    await setContent(page, '<p></p>');
+    await page.click(editorSelector);
+    await page.keyboard.type('/toc');
+    await page.waitForSelector(slashMenuSelector);
+    // The "Table of contents" item should be the first match for /toc.
+    await page.keyboard.press('Enter');
+
+    const block = page.locator('.dm-toc-block');
+    await expect(block).toHaveCount(1);
+    await expect(block).toHaveAttribute('data-type', 'table-of-contents');
+  });
+
+  test('inserted block lists the headings currently in the document', async ({ page }) => {
+    // Use setContent to inject a block + headings deterministically -
+    // the slash flow is covered by the test above; here we want to
+    // assert the row contents.
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(
+        '<h1>Alpha</h1><h2>Beta</h2><div data-type="table-of-contents"></div>',
+        false,
+      );
+    });
+    await page.waitForFunction(() =>
+      document.querySelectorAll('.dm-toc-block-link').length === 2,
+    );
+    const links = page.locator('.dm-toc-block-link');
+    expect(await links.nth(0).textContent()).toBe('Alpha');
+    expect(await links.nth(1).textContent()).toBe('Beta');
+  });
+
+  test('block reactively updates when a new heading is added after insertion', async ({ page }) => {
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(
+        '<h1>Only one</h1><div data-type="table-of-contents"></div>',
+        false,
+      );
+    });
+    await page.waitForFunction(() =>
+      document.querySelectorAll('.dm-toc-block-link').length === 1,
+    );
+
+    // Add a new heading via setContent, keeping the block. Inline
+    // block subscribes to storage updates and re-renders.
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(
+        '<h1>Only one</h1><h2>Now two</h2><div data-type="table-of-contents"></div>',
+        false,
+      );
+    });
+    await page.waitForFunction(() =>
+      document.querySelectorAll('.dm-toc-block-link').length === 2,
+    );
+    const labels = await page.locator('.dm-toc-block-link').evaluateAll(
+      (nodes) => nodes.map((n) => n.textContent),
+    );
+    expect(labels).toEqual(['Only one', 'Now two']);
+  });
+
+  test('clicking a block row scrolls to the heading and updates the URL hash', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    // Build a stretched doc so scroll is observable.
+    const filler = '<p>Lorem ipsum dolor sit amet</p>'.repeat(15);
+    await page.evaluate((body) => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(body, false);
+    }, `<div data-type="table-of-contents"></div><h1>Top</h1>${filler}<h2>Middle</h2>${filler}<h2>Bottom</h2>${filler}`);
+    await page.waitForFunction(() =>
+      document.querySelectorAll('.dm-toc-block-link').length === 3,
+    );
+
+    const links = page.locator('.dm-toc-block-link');
+    const targetTocId = await links.last().getAttribute('data-toc-id');
+    const scrollYBefore = await page.evaluate(() => window.scrollY);
+    await links.last().click();
+    await page.evaluate(
+      () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
+    );
+    expect(page.url()).toContain(`#${targetTocId}`);
+    const scrollYAfter = await page.evaluate(() => window.scrollY);
+    expect(scrollYAfter).toBeGreaterThan(scrollYBefore);
+  });
+
+  test('block shows the empty-state placeholder when the document has no headings', async ({ page }) => {
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent('<p>No headings yet</p><div data-type="table-of-contents"></div>', false);
+    });
+    await page.waitForFunction(() =>
+      document.querySelector('.dm-toc-block-empty') !== null,
+    );
+    const empty = page.locator('.dm-toc-block-empty');
+    await expect(empty).toBeVisible();
+    expect(await empty.textContent()).toMatch(/Add headings/i);
+    // No rows when the placeholder is up.
+    await expect(page.locator('.dm-toc-block-link')).toHaveCount(0);
+  });
+
+  test('block row mirrors active state from the floating outline', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const filler = '<p>filler</p>'.repeat(10);
+    await page.evaluate((body) => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(body, false);
+    }, `<div data-type="table-of-contents"></div><h1>One</h1>${filler}<h2>Two</h2>${filler}`);
+    await page.waitForFunction(() =>
+      document.querySelectorAll('.dm-toc-block-link').length === 2,
+    );
+
+    // Click the second tick on the floating outline. storage.activeId
+    // updates, fan-out fires, the inline block re-renders the active
+    // marker on its matching row.
+    const ticks = page.locator('.dm-toc-outline-tick');
+    await ticks.nth(1).dispatchEvent('click');
+    const targetId = await ticks.nth(1).getAttribute('data-toc-id');
+
+    const blockRow = page.locator(`.dm-toc-block-link[data-toc-id="${targetId}"]`);
+    await expect(blockRow).toHaveAttribute('aria-current', 'location');
+    await expect(blockRow).toHaveClass(/dm-toc-block-link--active/);
+  });
+
+  test('typing /outline (keyword alias) also matches the Table of contents item', async ({ page }) => {
+    await setContent(page, '<p></p>');
+    await page.click(editorSelector);
+    await page.keyboard.type('/outline');
+    await page.waitForSelector(slashMenuSelector);
+    await page.keyboard.press('Enter');
+
+    // The block shows up regardless of which keyword the user typed -
+    // /toc and /outline are equivalent invocation surfaces.
+    await expect(page.locator('.dm-toc-block')).toHaveCount(1);
+  });
+
+  test('selecting the block via NodeSelection + Backspace removes it from the doc', async ({ page }) => {
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(
+        '<h1>One</h1><div data-type="table-of-contents"></div><p></p>',
+        false,
+      );
+    });
+    await page.waitForFunction(() =>
+      document.querySelector('.dm-toc-block') !== null,
+    );
+
+    // Locate the block via raw transaction and delete its range.
+    // PM's NodeSelection + Backspace would do the same thing
+    // internally when the user presses Backspace on an atom block;
+    // we drive the deletion at the transaction layer to skip the
+    // selection-machinery dance (which has no convenient command
+    // surface for atom-by-position selection).
+    const removed = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | {
+            state: {
+              doc: {
+                firstChild: { nodeSize: number };
+                descendants: (cb: (node: { type: { name: string }; nodeSize: number }, pos: number) => void) => void;
+              };
+              tr: { delete: (from: number, to: number) => unknown };
+            };
+            view: { dispatch: (tr: unknown) => void };
+          }
+        | undefined;
+      if (!ed) return false;
+      let tocPos = -1;
+      let tocSize = 0;
+      ed.state.doc.descendants((node, pos) => {
+        if (node.type.name === 'tableOfContents') {
+          tocPos = pos;
+          tocSize = node.nodeSize;
+        }
+      });
+      if (tocPos < 0) return false;
+      const tr = ed.state.tr.delete(tocPos, tocPos + tocSize);
+      ed.view.dispatch(tr);
+      return true;
+    });
+    expect(removed).toBe(true);
+    await expect(page.locator('.dm-toc-block')).toHaveCount(0);
+  });
+
+  test('block rows expose keyboard a11y - focusable buttons with aria-label-style text', async ({ page }) => {
+    // Keyboard contract: rows are <button> elements (so Tab order
+    // includes them, Enter/Space activates), and their textContent
+    // is the heading title (so screen readers announce a meaningful
+    // label). Real Tab/Enter sequences depend on whole-page focus
+    // order which is brittle to assert; we test the building blocks
+    // (focusable, button semantics, click-on-press) instead.
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(
+        '<h1>One</h1><h2>Two</h2><div data-type="table-of-contents"></div>',
+        false,
+      );
+    });
+    await page.waitForFunction(() =>
+      document.querySelectorAll('.dm-toc-block-link').length === 2,
+    );
+
+    const links = page.locator('.dm-toc-block-link');
+    // Buttons by tag name (focusable in default tab order).
+    const tagNames = await links.evaluateAll((nodes) => nodes.map((n) => n.tagName));
+    expect(new Set(tagNames)).toEqual(new Set(['BUTTON']));
+
+    // Programmatic focus lands on the row (proves the element is
+    // actually focusable; jsdom and headless chromium agree on this).
+    await page.evaluate(() => {
+      const list = document.querySelectorAll<HTMLButtonElement>('.dm-toc-block-link');
+      list[0]?.focus();
+    });
+    const focusedTagName = await page.evaluate(
+      () => document.activeElement?.tagName ?? '',
+    );
+    expect(focusedTagName).toBe('BUTTON');
+
+    // Programmatic .click() (which Enter/Space synthesize on a
+    // focused button) fires the delegated handler and triggers the
+    // navigation, just like a real keyboard activation.
+    const targetTocId = await links.nth(0).getAttribute('data-toc-id');
+    await page.evaluate(() => {
+      const list = document.querySelectorAll<HTMLButtonElement>('.dm-toc-block-link');
+      list[0]?.click();
+    });
+    await page.evaluate(
+      () => new Promise<void>((r) => requestAnimationFrame(() => r())),
+    );
+    expect(page.url()).toContain(`#${targetTocId}`);
+  });
+
+  test('reduced-motion zeroes the row transition', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(
+        '<h1>One</h1><h2>Two</h2><div data-type="table-of-contents"></div>',
+        false,
+      );
+    });
+    await page.waitForFunction(() =>
+      document.querySelectorAll('.dm-toc-block-link').length === 2,
+    );
+    const link = page.locator('.dm-toc-block-link').first();
+    const transition = await link.evaluate(
+      (node) => window.getComputedStyle(node).transitionDuration,
+    );
+    const durations = transition.split(',').map((d) => parseFloat(d.trim()));
+    expect(durations.every((d) => d === 0)).toBe(true);
+  });
+
+  test('block has data-drag-handle attribute for BlockHandle integration', async ({ page }) => {
+    // The BlockHandle extension reads `data-drag-handle` to anchor
+    // its drag UX. We assert the attribute is present (real drag
+    // is exercised by extension-block-menu's own e2e suite).
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent('<h1>One</h1><div data-type="table-of-contents"></div>', false);
+    });
+    await page.waitForFunction(() =>
+      document.querySelector('.dm-toc-block') !== null,
+    );
+    const block = page.locator('.dm-toc-block');
+    await expect(block).toHaveAttribute('data-drag-handle', '');
+  });
+
+  test('selecting the block adds the ProseMirror-selectednode visual ring', async ({ page }) => {
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void; commands: { focus: () => boolean } }
+        | undefined;
+      ed?.setContent('<h1>One</h1><div data-type="table-of-contents"></div>', false);
+      ed?.commands.focus();
+    });
+    await page.waitForFunction(() =>
+      document.querySelector('.dm-toc-block') !== null,
+    );
+    // Click the block to give it node-selection (atom blocks accept
+    // click as a NodeSelection target).
+    await page.locator('.dm-toc-block').click();
+    // Outline ring is applied by the .ProseMirror-selectednode CSS
+    // rule when PM marks the node selected. Allow the class to
+    // settle on the next animation frame.
+    await page.evaluate(
+      () => new Promise<void>((r) => requestAnimationFrame(() => r())),
+    );
+    const hasRing = await page.locator('.dm-toc-block').evaluate(
+      (node) => node.classList.contains('ProseMirror-selectednode'),
+    );
+    expect(hasRing).toBe(true);
+  });
+
+  test('clicking a block row whose heading lives in a closed <details> opens it', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(
+        '<div data-type="table-of-contents"></div>'
+        + '<p>Before</p>'
+        + '<div data-type="details"><div data-details-content><h2 data-toc-id="hidden">Inside</h2></div></div>',
+        false,
+      );
+    });
+    await page.waitForFunction(() =>
+      document.querySelector('.dm-toc-block-link[data-toc-id="hidden"]') !== null,
+    );
+
+    await page.locator('.dm-toc-block-link[data-toc-id="hidden"]').click();
+    // The scrollToHeading helper opens any closed <details> ancestor
+    // before scrolling - the heading must now be measurable.
+    const visible = await page.evaluate(() => {
+      const target = document.querySelector<HTMLElement>('[data-toc-id="hidden"]');
+      if (!target) return false;
+      const rect = target.getBoundingClientRect();
+      return rect.height > 0 && rect.width > 0;
+    });
+    expect(visible).toBe(true);
+    expect(page.url()).toContain('#hidden');
+  });
+
+  test('exported HTML preserves the block; reload restores it', async ({ page }) => {
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(
+        '<h1>One</h1><div data-type="table-of-contents"></div><h2>Two</h2>',
+        false,
+      );
+    });
+    await page.waitForFunction(() =>
+      document.querySelector('.dm-toc-block') !== null,
+    );
+
+    // Roundtrip: read the rendered HTML, set it back. Block should
+    // re-parse and the NodeView should re-render with the live list.
+    const html = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { getHTML: () => string }
+        | undefined;
+      return ed?.getHTML() ?? '';
+    });
+    expect(html).toContain('data-type="table-of-contents"');
+
+    await page.evaluate((h) => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(h, false);
+    }, html);
+    await page.waitForFunction(() =>
+      document.querySelectorAll('.dm-toc-block-link').length === 2,
+    );
+  });
+});
