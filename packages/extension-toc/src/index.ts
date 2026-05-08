@@ -13,12 +13,14 @@ export { TableOfContents, tocPluginKey } from './TableOfContents.js';
 export type { HeadingEntry, TableOfContentsOptions, TocStorage } from './types.js';
 
 // Lower-level helpers - exported so consumers can reuse the heading
-// walk / ID assignment outside the bundled extension (e.g. server-side
-// rendering, custom plugins).
+// walk / ID assignment / scroll utilities outside the bundled
+// extension (e.g. server-side rendering, custom plugins).
 export { walkHeadings } from './helpers/headingWalk.js';
 export type { HeadingWalkEntry, HeadingWalkOptions } from './helpers/headingWalk.js';
 export { assignMissingTocIds } from './helpers/tocIdAttribute.js';
 export type { AssignTocIdsOptions } from './helpers/tocIdAttribute.js';
+export { scrollToHeading } from './helpers/scrollToHeading.js';
+export type { ScrollToHeadingOptions } from './helpers/scrollToHeading.js';
 
 // UI: floating right-rail outline. Phase 1 ships the spike (hello div);
 // Phase 4 swaps it for real ticks + click navigation.

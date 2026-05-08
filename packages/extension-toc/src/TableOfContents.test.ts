@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   Editor,
   Document,
@@ -342,6 +342,155 @@ describe('TableOfContents - integration with Editor', () => {
 
     expect(tocStorage(editor).content).toHaveLength(1);
     expect(collectTocIds(editor)[0]).toBe(idBefore);
+  });
+});
+
+describe('TableOfContents - scrollToHeading command', () => {
+  let editor: Editor | undefined;
+  let scrollIntoViewSpy: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    // jsdom does not implement scrollIntoView; stub it so the command
+    // can run end-to-end without throwing. We only assert call count
+    // and arguments here, not actual scroll position.
+    scrollIntoViewSpy = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoViewSpy as unknown as typeof Element.prototype.scrollIntoView;
+  });
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) editor.destroy();
+    editor = undefined;
+  });
+
+  it('returns true and scrolls when called with a known heading id', async () => {
+    editor = new Editor({
+      extensions: baseExtensions,
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+    const id = collectTocIds(editor)[1];
+    if (!id) throw new Error('expected second heading to have an id after init');
+
+    const result = editor.commands.scrollToHeading(id);
+    expect(result).toBe(true);
+    expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns false for an unknown id (no scroll, no exception)', async () => {
+    editor = new Editor({
+      extensions: baseExtensions,
+      content: '<h1>One</h1>',
+    });
+    await flushDeferred();
+    const result = editor.commands.scrollToHeading('definitely-not-a-real-id');
+    expect(result).toBe(false);
+    expect(scrollIntoViewSpy).not.toHaveBeenCalled();
+  });
+
+  it('is reachable through editor.can() without side effects', async () => {
+    editor = new Editor({
+      extensions: baseExtensions,
+      content: '<h1>One</h1>',
+    });
+    await flushDeferred();
+    const id = collectTocIds(editor)[0];
+    if (!id) throw new Error('expected heading id after init');
+
+    // can() runs the command in dry-run mode (dispatch undefined). Our
+    // wrapper short-circuits to `true` without invoking the helper, so
+    // no scrollIntoView call should land.
+    const canScroll = editor.can().scrollToHeading(id);
+    expect(canScroll).toBe(true);
+    expect(scrollIntoViewSpy).not.toHaveBeenCalled();
+  });
+
+  it('works through editor.chain() (composable with other commands)', async () => {
+    editor = new Editor({
+      extensions: baseExtensions,
+      content: '<h1>One</h1>',
+    });
+    await flushDeferred();
+    const id = collectTocIds(editor)[0];
+    if (!id) throw new Error('expected heading id after init');
+
+    // Chain returns true if all commands in the chain succeed. The
+    // `.run()` call commits the chain. scrollToHeading inside a chain
+    // should still fire its DOM side effect via the dispatch path.
+    const ok = editor.chain().scrollToHeading(id).run();
+    expect(ok).toBe(true);
+    expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('TableOfContents - initial-load hash navigation', () => {
+  let editor: Editor | undefined;
+  let scrollIntoViewSpy: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    scrollIntoViewSpy = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoViewSpy as unknown as typeof Element.prototype.scrollIntoView;
+    // Reset hash to a known clean state before each test.
+    history.replaceState(null, '', window.location.pathname);
+  });
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) editor.destroy();
+    editor = undefined;
+    history.replaceState(null, '', window.location.pathname);
+  });
+
+  /**
+   * Wait for both:
+   *   1. the `setTimeout(0)` that runs the initial ID assignment
+   *   2. the `requestAnimationFrame` that defers the hash scroll until
+   *      after the dispatch above has committed
+   */
+  const flushInitialLoadCycle = async (): Promise<void> => {
+    await flushDeferred();
+    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+  };
+
+  it('scrolls to the heading whose id matches window.location.hash on first paint', async () => {
+    history.replaceState(null, '', '#preset-id');
+    editor = new Editor({
+      extensions: baseExtensions,
+      content: '<h1 data-toc-id="preset-id">Bookmarked</h1><h2>Other</h2>',
+    });
+    await flushInitialLoadCycle();
+    expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not scroll when the hash does not match any heading', async () => {
+    history.replaceState(null, '', '#unknown');
+    editor = new Editor({
+      extensions: baseExtensions,
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushInitialLoadCycle();
+    expect(scrollIntoViewSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not scroll when there is no hash at all', async () => {
+    editor = new Editor({
+      extensions: baseExtensions,
+      content: '<h1>One</h1>',
+    });
+    await flushInitialLoadCycle();
+    expect(scrollIntoViewSpy).not.toHaveBeenCalled();
+  });
+
+  it('cancels the pending hash-scroll rAF when the editor is destroyed before it fires', async () => {
+    history.replaceState(null, '', '#preset');
+    editor = new Editor({
+      extensions: baseExtensions,
+      content: '<h1 data-toc-id="preset">Will be torn down</h1>',
+    });
+    // Run the setTimeout(0) so the rAF is scheduled, then destroy
+    // BEFORE the next animation frame can fire.
+    await flushDeferred();
+    editor.destroy();
+    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+    expect(scrollIntoViewSpy).not.toHaveBeenCalled();
   });
 });
 

@@ -22,10 +22,24 @@
  */
 import { Extension } from '@domternal/core';
 import type { Editor } from '@domternal/core';
+import type { CommandSpec } from '@domternal/core';
 import { Plugin, PluginKey, type EditorState } from '@domternal/pm/state';
+import type { EditorView } from '@domternal/pm/view';
 import { walkHeadings } from './helpers/headingWalk.js';
 import { assignMissingTocIds } from './helpers/tocIdAttribute.js';
+import { scrollToHeading } from './helpers/scrollToHeading.js';
 import type { HeadingEntry, TableOfContentsOptions, TocStorage } from './types.js';
+
+declare module '@domternal/core' {
+  interface RawCommands {
+    /**
+     * Scroll the editor view to the heading whose `data-toc-id` matches.
+     * No-op if the ID is unknown (returns false). Updates the URL hash
+     * via `history.replaceState`.
+     */
+    scrollToHeading: CommandSpec<[id: string]>;
+  }
+}
 
 export const tocPluginKey = new PluginKey('toc');
 
@@ -97,6 +111,23 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
     ];
   },
 
+  addCommands() {
+    return {
+      scrollToHeading:
+        (id: string) =>
+        ({ editor, dispatch }) => {
+          // Pure DOM side-effect, no PM transaction. In dry-run mode
+          // (`dispatch` undefined - happens during `editor.can()` checks
+          // and chain validation), report the operation as available
+          // without actually executing.
+          if (!dispatch) return true;
+          const view = (editor as { view?: EditorView }).view;
+          if (!view) return false;
+          return scrollToHeading(view, id);
+        },
+    };
+  },
+
   addProseMirrorPlugins() {
     const editor = this.editor as Editor | null;
     const options = this.options;
@@ -133,6 +164,7 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
           // (matches the UniqueID precedent). Re-reading from
           // `editorView.state` inside the timer avoids any stale
           // snapshot if the doc was replaced before the timer fires.
+          let rafId: number | null = null;
           const timeoutId = setTimeout(() => {
             if (editor?.isDestroyed) return;
             const tr = editorView.state.tr;
@@ -147,6 +179,22 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
               // first snapshot so consumers see the initial doc.
               refreshStorage(editorView.state);
             }
+
+            // Initial-load hash navigation. Run AFTER ID assignment +
+            // first paint so the heading we are scrolling to actually
+            // has a `data-toc-id` attribute and a measurable position.
+            // rAF gives the browser one frame to commit the dispatch
+            // above; the call is silent on missing IDs (no scroll, no
+            // hash change), so a stray `#section` from another part
+            // of the host app stays untouched.
+            if (typeof window !== 'undefined' && window.location.hash) {
+              const hash = window.location.hash.slice(1);
+              rafId = requestAnimationFrame(() => {
+                rafId = null;
+                if (editor?.isDestroyed) return;
+                scrollToHeading(editorView, hash);
+              });
+            }
           }, 0);
 
           return {
@@ -157,6 +205,7 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
             },
             destroy() {
               clearTimeout(timeoutId);
+              if (rafId !== null) cancelAnimationFrame(rafId);
               storage.subscribers.clear();
             },
           };

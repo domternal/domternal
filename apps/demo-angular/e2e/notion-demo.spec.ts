@@ -1825,3 +1825,209 @@ test.describe('Table of Contents - Phase 2 data layer', () => {
     expect(ids[1]).not.toBe('duplicate');
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────
+// Table of Contents - Phase 3 scrollToHeading + click navigation
+// ────────────────────────────────────────────────────────────────────────
+// Behavioral coverage for the editor.commands.scrollToHeading API and
+// the initial-load `window.location.hash` handling. Phase 4 will wire
+// the floating outline ticks to this command; for now it is the
+// programmatic surface only.
+
+test.describe('Table of Contents - Phase 3 scroll navigation', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('editor.commands.scrollToHeading scrolls the page and updates the URL hash', async ({ page }) => {
+    // Pick the LAST heading in the doc - we want the click to require
+    // a real, observable scroll (not just "land on what is already
+    // showing"). Notion-demo content has multiple h2/h3, so the last
+    // one is reliably below the fold on a default viewport.
+    const targetId = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      const toc = ed?.storage['toc'] as { content: { id: string }[] } | undefined;
+      return toc?.content[toc.content.length - 1]?.id ?? null;
+    });
+    expect(targetId).toMatch(/^.{8}$/);
+
+    // scrollIntoView's smooth behaviour does not reliably advance
+    // window.scrollY in headless chromium - some setups cap smooth
+    // scroll progress at zero. Force the helper into an instant scroll
+    // by setting `prefers-reduced-motion: reduce` for the page so we
+    // can deterministically measure scrollY.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const scrollYBefore = await page.evaluate(() => window.scrollY);
+
+    if (!targetId) throw new Error('expected a heading id from storage');
+    const result = await page.evaluate((id) => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { commands: { scrollToHeading?: (id: string) => boolean } }
+        | undefined;
+      return ed?.commands.scrollToHeading?.(id) ?? false;
+    }, targetId);
+
+    expect(result).toBe(true);
+    const scrollYAfter = await page.evaluate(() => window.scrollY);
+    expect(scrollYAfter).toBeGreaterThan(scrollYBefore);
+
+    // URL hash now reflects the target heading. Cross-checked via
+    // page.url() because location.hash inside evaluate may show stale
+    // value in some chromium builds before the navigation event flushes.
+    expect(page.url()).toContain(`#${targetId}`);
+  });
+
+  test('scrollToHeading returns false for a missing id without changing URL', async ({ page }) => {
+    const startUrl = page.url();
+    const result = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { commands: { scrollToHeading?: (id: string) => boolean } }
+        | undefined;
+      return ed?.commands.scrollToHeading?.('definitely-not-a-real-id') ?? null;
+    });
+    expect(result).toBe(false);
+    // URL stays exactly as it was - no stray `#nonexistent` left behind.
+    expect(page.url()).toBe(startUrl);
+  });
+
+  test('navigating to a heading nested inside a collapsed <details> opens the details before scrolling', async ({ page }) => {
+    // Inject content with a heading inside a collapsed <details>. Use
+    // a deterministic data-toc-id so we can target it by name.
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(
+        '<h1>Top</h1><div data-type="details"><div data-details-content><h2 data-toc-id="hidden">Behind a fold</h2></div></div>',
+        false,
+      );
+    });
+    // Wait for the heading to actually be in the DOM with its tocId.
+    await page.waitForFunction(() =>
+      document.querySelector('app-notion-demo .ProseMirror [data-toc-id="hidden"]') !== null,
+    );
+
+    // Sanity: the wrapping details should be closed (no open class /
+    // attribute). Our Details extension toggles via a custom open class
+    // rather than the native `open` attribute, so test for the class.
+    const detailsClosedBefore = await page.evaluate(() => {
+      const details = document.querySelector<HTMLElement>('app-notion-demo .ProseMirror div[data-type="details"]');
+      // Heuristic: any `open`/`is-open`-like class indicates open state.
+      return details ? !Array.from(details.classList).some((c) => /open/i.test(c)) : false;
+    });
+    expect(detailsClosedBefore).toBe(true);
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const ok = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { commands: { scrollToHeading: (id: string) => boolean } }
+        | undefined;
+      return ed?.commands.scrollToHeading('hidden') ?? false;
+    });
+    expect(ok).toBe(true);
+
+    // The heading should now be VISIBLE (its bounding rect has size).
+    // jsdom-style "open" toggling vs native `<details>` is irrelevant
+    // here - what matters is that the layout exposes the heading.
+    const visible = await page.evaluate(() => {
+      const target = document.querySelector<HTMLElement>('[data-toc-id="hidden"]');
+      if (!target) return false;
+      const rect = target.getBoundingClientRect();
+      return rect.height > 0 && rect.width > 0;
+    });
+    expect(visible).toBe(true);
+  });
+
+  test('editor.chain().scrollToHeading(id).run() scrolls and updates URL', async ({ page }) => {
+    const targetId = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      const toc = ed?.storage['toc'] as { content: { id: string }[] } | undefined;
+      return toc?.content[toc.content.length - 1]?.id ?? null;
+    });
+    expect(targetId).toMatch(/^.{8}$/);
+    if (!targetId) throw new Error('no heading id');
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const scrollYBefore = await page.evaluate(() => window.scrollY);
+    const ok = await page.evaluate((id) => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { chain: () => { scrollToHeading: (id: string) => { run: () => boolean } } }
+        | undefined;
+      return ed?.chain().scrollToHeading(id).run() ?? false;
+    }, targetId);
+    expect(ok).toBe(true);
+    const scrollYAfter = await page.evaluate(() => window.scrollY);
+    expect(scrollYAfter).toBeGreaterThan(scrollYBefore);
+    expect(page.url()).toContain(`#${targetId}`);
+  });
+
+  test('rapid successive scrollToHeading calls leave the URL on the LAST clicked heading', async ({ page }) => {
+    // Real-world: user clicks several outline rows in quick succession.
+    // Each call replaces the URL hash, so the final URL must reflect
+    // the LAST argument - no race, no stale hash from intermediate
+    // calls.
+    const ids = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      const toc = ed?.storage['toc'] as { content: { id: string }[] } | undefined;
+      return toc?.content.map((e) => e.id) ?? [];
+    });
+    expect(ids.length).toBeGreaterThanOrEqual(3);
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.evaluate((idList) => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { commands: { scrollToHeading: (id: string) => boolean } }
+        | undefined;
+      for (const id of idList) {
+        ed?.commands.scrollToHeading(id);
+      }
+    }, ids.slice(0, 3));
+    expect(page.url()).toContain(`#${ids[2]}`);
+  });
+
+  test('prefers-reduced-motion uses instant scroll, not smooth', async ({ page }) => {
+    // Spy on scrollIntoView before we trigger the command, so we can
+    // inspect the behavior argument the helper actually requested.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const targetId = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      const toc = ed?.storage['toc'] as { content: { id: string }[] } | undefined;
+      return toc?.content[1]?.id ?? null;
+    });
+    if (!targetId) throw new Error('no heading id');
+
+    const observedBehavior = await page.evaluate((id) => {
+      let captured: string | undefined;
+      const original = Element.prototype.scrollIntoView;
+      Element.prototype.scrollIntoView = function (opts: ScrollIntoViewOptions): void {
+        if (opts && typeof opts === 'object') captured = opts.behavior;
+        return original.call(this, opts);
+      };
+      try {
+        const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+          | { commands: { scrollToHeading: (id: string) => boolean } }
+          | undefined;
+        ed?.commands.scrollToHeading(id);
+      } finally {
+        Element.prototype.scrollIntoView = original;
+      }
+      return captured;
+    }, targetId);
+    expect(observedBehavior).toBe('auto');
+  });
+
+  // NOTE: initial-load `#hash` auto-scroll is verified via the
+  // unit/integration suite (TableOfContents.test.ts) rather than e2e.
+  // The demo regenerates random tocIds on every Notion-mode entry, so
+  // there is no reliable way to land at a fresh page with a hash that
+  // matches an existing heading without injecting deterministic
+  // content - which would pollute the user-facing demo. The unit test
+  // can stub `window.location.hash` and `scrollIntoView` to assert
+  // exactly the rAF-driven invocation.
+});
