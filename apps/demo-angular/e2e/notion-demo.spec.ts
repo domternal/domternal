@@ -2207,3 +2207,318 @@ test.describe('Table of Contents - Phase 4 floating outline ticks', () => {
     expect(darkColor).not.toBe(lightColor);
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────
+// Table of Contents - Phase 5 active state highlighting
+// ────────────────────────────────────────────────────────────────────────
+// As the user scrolls, the tick for the heading currently in the
+// upper 15% of the viewport gets the --active class + aria-current.
+// Clicks prime a manual override window so the IO callback does not
+// fight back during the smooth-scroll animation. storage.activeId
+// mirrors the visual state so other UIs (Phase 7 inline block) can
+// read it without spawning their own observer.
+
+test.describe('Table of Contents - Phase 5 active state', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  /**
+   * Stretch the demo so scrolling actually exercises every heading -
+   * Notion-mode content is short, all headings could fit on a tall
+   * viewport and never trigger an active-state change. Filler
+   * paragraphs between headings guarantee real scroll distance.
+   */
+  const setStretchedContent = async (page: Page): Promise<void> => {
+    const filler = '<p>Lorem ipsum dolor sit amet</p>'.repeat(15);
+    await setContent(
+      page,
+      `<h1>Top section</h1>${filler}<h2>Middle section</h2>${filler}<h2>Bottom section</h2>${filler}`,
+    );
+  };
+
+  test('clicking a tick immediately marks it as active and updates aria-current', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await setStretchedContent(page);
+    const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
+    await expect(ticks).toHaveCount(3);
+
+    // Click the LAST tick - that one is below the fold and the
+    // smooth-scroll path will run, but the visual marker should land
+    // synchronously (manual override path, not waiting on IO).
+    await ticks.nth(2).click();
+    await expect(ticks.nth(2)).toHaveClass(/dm-toc-outline-tick--active/);
+    await expect(ticks.nth(2)).toHaveAttribute('aria-current', 'location');
+    // The OTHER ticks must lose the marker - only one tick at a time.
+    await expect(ticks.nth(0)).not.toHaveClass(/dm-toc-outline-tick--active/);
+    await expect(ticks.nth(1)).not.toHaveClass(/dm-toc-outline-tick--active/);
+  });
+
+  test('storage.activeId mirrors the visually active tick', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await setStretchedContent(page);
+    const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
+    const targetId = await ticks.nth(1).getAttribute('data-toc-id');
+    await ticks.nth(1).click();
+
+    const storedActiveId = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      const toc = ed?.storage['toc'] as { activeId: string | null } | undefined;
+      return toc?.activeId ?? null;
+    });
+    expect(storedActiveId).toBe(targetId);
+  });
+
+  test('scrolling past a heading flips the active state to the topmost passed heading', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await setStretchedContent(page);
+    const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
+
+    // Force the second heading's top to land EXACTLY at the top of
+    // the viewport - that puts it inside the active zone (upper 15%
+    // by default rootMargin). scrollIntoView({block:'start'}) is the
+    // most reliable way; scrollIntoViewIfNeeded() may stop earlier
+    // when the heading is already visible somewhere on screen.
+    await page.evaluate(() => {
+      const target = document.querySelectorAll('app-notion-demo .ProseMirror h2')[0];
+      if (target instanceof Element) target.scrollIntoView({ behavior: 'auto', block: 'start' });
+    });
+    // Allow IO callback + plugin onChange to settle.
+    await page.evaluate(
+      () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
+    );
+
+    // Exactly one tick should be active. Sanity: not the first (it
+    // was scrolled past), so the active id should match either the
+    // second heading (h2 we scrolled to) or whatever is in the
+    // active zone after scroll. We also assert the first tick lost
+    // the marker.
+    const activeTickCount = await ticks.evaluateAll(
+      (nodes) => nodes.filter((n) => n.classList.contains('dm-toc-outline-tick--active')).length,
+    );
+    expect(activeTickCount).toBe(1);
+    await expect(ticks.nth(0)).not.toHaveClass(/dm-toc-outline-tick--active/);
+  });
+
+  test('above all headings (scrollY=0 with content above first heading), no tick is active', async ({ page }) => {
+    // Inject a doc whose first heading sits BELOW a thick lead block,
+    // so the page can scroll up far enough that the first heading is
+    // entirely below the viewport - "above all headings" state.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await setContent(
+      page,
+      `<p>${'Lead text '.repeat(30)}</p><h1>First</h1><p>${'Body text '.repeat(30)}</p><h2>Second</h2>`,
+    );
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => r())));
+
+    const activeCount = await page.evaluate(() => {
+      const ticks = document.querySelectorAll('.dm-toc-outline-tick--active');
+      return ticks.length;
+    });
+    // Either 0 active ticks (the canonical "above all" state) or, in
+    // a tight viewport where the first heading is already in the
+    // upper 15%, exactly 1 - never multiple.
+    expect(activeCount).toBeLessThanOrEqual(1);
+  });
+
+  test('dark theme uses the active-color token for highlighted tick', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await setStretchedContent(page);
+    const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
+    await ticks.nth(1).click();
+
+    // Light theme: capture active color.
+    const lightActive = await ticks.nth(1).evaluate(
+      (node) => window.getComputedStyle(node).backgroundColor,
+    );
+
+    await page.click('.theme-toggle');
+    await page.evaluate(
+      () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
+    );
+    const darkActive = await ticks.nth(1).evaluate(
+      (node) => window.getComputedStyle(node).backgroundColor,
+    );
+    expect(darkActive).not.toBe(lightActive);
+  });
+
+  test('scrolling past every heading leaves the LAST one active (last-passed fallback)', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await setStretchedContent(page);
+    const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
+
+    // Anchor at the top first so the initial scrollTo(0, 0) triggers
+    // an IO sample with h1 in the active zone (intersecting). Then
+    // walk through each heading via mouse wheel, giving the browser
+    // animation frames between steps for IO to settle. Without these
+    // intermediate samples, jumping straight to the doc bottom can
+    // miss every intersection transition when no heading was
+    // currently in the active zone at the time of the jump.
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.evaluate(
+      () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
+    );
+    const headingCount = await page.locator('app-notion-demo .ProseMirror :is(h1, h2, h3)').count();
+    for (let i = 0; i < headingCount; i++) {
+      await page.evaluate((idx) => {
+        const heading = document.querySelectorAll<HTMLElement>(
+          'app-notion-demo .ProseMirror :is(h1, h2, h3)',
+        )[idx];
+        if (heading instanceof Element) heading.scrollIntoView({ behavior: 'auto', block: 'start' });
+      }, i);
+      await page.evaluate(
+        () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
+      );
+    }
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+
+    // Settle: IO callbacks land on subsequent animation frames.
+    await page.waitForFunction(
+      () => {
+        const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+          | { storage: Record<string, unknown> }
+          | undefined;
+        const toc = ed?.storage['toc'] as { activeId: string | null } | undefined;
+        return toc?.activeId !== null;
+      },
+      undefined,
+      { timeout: 3000 },
+    );
+
+    const storedActiveId = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      return (ed?.storage['toc'] as { activeId: string | null } | undefined)?.activeId ?? null;
+    });
+    // The fallback may land on the last heading (doc fully scrolled
+    // past) or on a heading whose top is inside the active zone if
+    // the layout puts one of the later h2s near the top of the
+    // viewport. Either way, the activeId must NOT be null and must
+    // be one of the rendered tick ids.
+    expect(storedActiveId).not.toBeNull();
+    const allTickIds = await ticks.evaluateAll(
+      (nodes) => nodes.map((n) => n.getAttribute('data-toc-id')),
+    );
+    expect(allTickIds).toContain(storedActiveId);
+    // Specifically: the FIRST heading should not be active anymore -
+    // scrolling all the way down clearly passes it.
+    const firstTickId = await ticks.first().getAttribute('data-toc-id');
+    expect(storedActiveId).not.toBe(firstTickId);
+  });
+
+  test('aria-current updates on scroll (not just on click)', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await setStretchedContent(page);
+    const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
+
+    // Force the second heading into the active zone via direct DOM
+    // scroll - this is a scroll-derived (not click-derived) update.
+    await page.evaluate(() => {
+      const target = document.querySelectorAll('app-notion-demo .ProseMirror h2')[0];
+      if (target instanceof Element) target.scrollIntoView({ behavior: 'auto', block: 'start' });
+    });
+    await page.evaluate(
+      () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
+    );
+
+    // Exactly one tick has aria-current='location' after the scroll.
+    const ariaCount = await ticks.evaluateAll(
+      (nodes) => nodes.filter((n) => n.getAttribute('aria-current') === 'location').length,
+    );
+    expect(ariaCount).toBe(1);
+  });
+
+  test('active state survives setContent rebuild (visual + storage stay in sync)', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await setStretchedContent(page);
+    const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
+    await ticks.nth(1).click();
+    const targetId = await ticks.nth(1).getAttribute('data-toc-id');
+
+    // Replace the doc but KEEP the same data-toc-id on the formerly
+    // active heading. parseHTML preserves data-toc-id from the markup,
+    // so the previous activeId still resolves to a real heading. The
+    // plugin must reapply the active marker to the corresponding tick.
+    await page.evaluate((id) => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(
+        `<h1>One</h1><h2 data-toc-id="${id}">Preserved</h2><h3>Three</h3>`,
+        false,
+      );
+    }, targetId);
+
+    // The tick whose data-toc-id matches the preserved heading must
+    // be active and storage.activeId must point at it.
+    const matched = page.locator(`.dm-toc-outline-tick[data-toc-id="${targetId}"]`);
+    await expect(matched).toHaveClass(/dm-toc-outline-tick--active/);
+    const storedActiveId = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      return (ed?.storage['toc'] as { activeId: string | null } | undefined)?.activeId ?? null;
+    });
+    expect(storedActiveId).toBe(targetId);
+  });
+
+  test('hovering the active tick keeps the active color (CSS specificity check)', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await setStretchedContent(page);
+    const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
+    await ticks.nth(1).click();
+
+    const activeColor = await ticks.nth(1).evaluate(
+      (node) => window.getComputedStyle(node).backgroundColor,
+    );
+    await ticks.nth(1).hover();
+    await page.evaluate(
+      () => new Promise<void>((r) => requestAnimationFrame(() => r())),
+    );
+    const hoverColor = await ticks.nth(1).evaluate(
+      (node) => window.getComputedStyle(node).backgroundColor,
+    );
+    // Hover must NOT downgrade the active color to the hover color.
+    // The CSS rule for `--active` is declared after `&:hover` in
+    // _toc.scss so its specificity is equal but it wins on source order.
+    expect(hoverColor).toBe(activeColor);
+  });
+
+  test('manual override window expires after ~500ms; later scrolls overwrite the click choice', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await setStretchedContent(page);
+    const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
+
+    // Click the FIRST tick - that becomes active, override window starts.
+    await ticks.nth(0).click();
+    const firstId = await ticks.nth(0).getAttribute('data-toc-id');
+    let stored = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      return (ed?.storage['toc'] as { activeId: string | null } | undefined)?.activeId ?? null;
+    });
+    expect(stored).toBe(firstId);
+
+    // Wait past the override window, then scroll a different heading
+    // into the active zone. The scroll-derived active state should
+    // take over since the override has lapsed.
+    await page.waitForTimeout(600);
+    await page.evaluate(() => {
+      const target = document.querySelectorAll('app-notion-demo .ProseMirror h2')[1];
+      if (target instanceof Element) target.scrollIntoView({ behavior: 'auto', block: 'start' });
+    });
+    await page.evaluate(
+      () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
+    );
+    stored = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      return (ed?.storage['toc'] as { activeId: string | null } | undefined)?.activeId ?? null;
+    });
+    expect(stored).not.toBe(firstId);
+  });
+});

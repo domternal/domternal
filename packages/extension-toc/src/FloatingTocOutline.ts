@@ -27,6 +27,7 @@ import type { Editor } from '@domternal/core';
 import type { EditorView } from '@domternal/pm/view';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import { scrollToHeading } from './helpers/scrollToHeading.js';
+import { createActiveStateTracker } from './helpers/activeStateTracker.js';
 import type { TocStorage, HeadingEntry } from './types.js';
 
 export const floatingTocOutlinePluginKey = new PluginKey('floatingTocOutline');
@@ -52,6 +53,28 @@ export interface FloatingTocOutlineOptions {
    * `document.body`.
    */
   outlineHost?: (view: EditorView) => HTMLElement;
+  /**
+   * `IntersectionObserver` rootMargin used by the active-state
+   * tracker. The default constrains the active zone to the upper 15%
+   * of the scroll area (`'0px 0px -85% 0px'`). Override only if a
+   * sticky toolbar (or similar) shifts the visual top.
+   */
+  activeRootMargin: string;
+  /**
+   * Scroll container for the active-state tracker. `null` = the
+   * viewport (window). Override to a specific element when the
+   * editor lives inside a custom scrolling region.
+   * @default null
+   */
+  activeScrollParent: Element | Document | null;
+  /**
+   * Milliseconds during which the active-state tracker ignores
+   * scroll-derived updates after a click on a tick. Without this,
+   * the IO callback would override the clicked heading with whatever
+   * is currently in the active zone before the smooth-scroll lands.
+   * @default 500
+   */
+  clickOverrideMs: number;
 }
 
 const OUTLINE_CLASS = 'dm-toc-outline';
@@ -118,6 +141,31 @@ function applyVisibilityState(
   nav.dataset['viewport'] = isMobile ? 'mobile' : 'desktop';
 }
 
+/**
+ * Toggle the active-state visual on every tick: at most one tick gets
+ * the `--active` class + `aria-current="location"`, all others have
+ * those cleared. Idempotent and cheap (just attribute writes).
+ */
+function applyActiveTick(nav: HTMLElement, activeId: string | null): void {
+  for (const child of Array.from(nav.children)) {
+    if (!(child instanceof HTMLElement)) continue;
+    const isActive = activeId !== null && child.dataset['tocId'] === activeId;
+    child.classList.toggle('dm-toc-outline-tick--active', isActive);
+    if (isActive) child.setAttribute('aria-current', 'location');
+    else child.removeAttribute('aria-current');
+  }
+}
+
+/**
+ * Resolve every heading DOM node in the editor view that has a
+ * `data-toc-id` attribute. Returns elements in document order so the
+ * tracker's IntersectionObserver and pickActive logic see headings
+ * in the same order they appear visually.
+ */
+function collectHeadingDoms(view: EditorView): HTMLElement[] {
+  return Array.from(view.dom.querySelectorAll<HTMLElement>('[data-toc-id]'));
+}
+
 export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
   name: 'floatingTocOutline',
 
@@ -125,6 +173,9 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
     return {
       minHeadings: 2,
       mobileBreakpoint: 1024,
+      activeRootMargin: '0px 0px -85% 0px',
+      activeScrollParent: null,
+      clickOverrideMs: 500,
     };
   },
 
@@ -149,19 +200,6 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           nav.setAttribute('aria-label', 'Document outline');
           host.appendChild(nav);
 
-          // Click delegation: the nav is the only listener anchor; the
-          // children get swapped on every storage update so attaching
-          // per-tick would mean re-binding on every render.
-          const onClick = (event: MouseEvent): void => {
-            const target = (event.target as HTMLElement | null)?.closest<HTMLElement>(
-              `[data-toc-id]`,
-            );
-            const id = target?.dataset['tocId'];
-            if (!id) return;
-            scrollToHeading(editorView, id);
-          };
-          nav.addEventListener('click', onClick);
-
           // Mobile breakpoint via matchMedia. Falls back to "always
           // desktop" if the option is set to 0 (consumer opt-out).
           const mq = options.mobileBreakpoint > 0
@@ -174,11 +212,54 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           // extension (Phase 2). If TableOfContents is not loaded,
           // this extension is a no-op (renders nothing, no subscriber).
           const storage = editor?.storage['toc'] as TocStorage | undefined;
+
+          // Phase 5: active-state tracker. Lives even when storage is
+          // missing - destroy() is a safe no-op then. Manual override
+          // is timestamp-based: clicks bump `manualOverrideUntil` so
+          // IO-derived updates are ignored until the smooth-scroll lands.
+          let manualOverrideUntil = 0;
+          const writeActive = (id: string | null): void => {
+            applyActiveTick(nav, id);
+            if (storage && storage.activeId !== id) {
+              storage.activeId = id;
+            }
+          };
+          const tracker = createActiveStateTracker({
+            scrollParent: options.activeScrollParent,
+            rootMargin: options.activeRootMargin,
+            onChange: (id) => {
+              if (Date.now() < manualOverrideUntil) return;
+              writeActive(id);
+            },
+          });
+
+          // Click delegation: the nav is the only listener anchor; the
+          // children get swapped on every storage update so attaching
+          // per-tick would mean re-binding on every render. Click also
+          // primes the manual override so the IO callback does not
+          // fight back during smooth-scroll.
+          const onClick = (event: MouseEvent): void => {
+            const target = (event.target as HTMLElement | null)?.closest<HTMLElement>(
+              `[data-toc-id]`,
+            );
+            const id = target?.dataset['tocId'];
+            if (!id) return;
+            manualOverrideUntil = Date.now() + options.clickOverrideMs;
+            writeActive(id);
+            scrollToHeading(editorView, id);
+          };
+          nav.addEventListener('click', onClick);
+
           let unsubscribe: (() => void) | null = null;
           const onStorageUpdate = (): void => {
             if (!storage) return;
             renderTicks(nav, storage.content);
             applyVisibilityState(nav, storage.content.length, options, isMobile());
+            tracker.observe(collectHeadingDoms(editorView));
+            // After a re-render the tick DOM is fresh; reapply the
+            // current active marker so the highlighted tick survives
+            // a content rebuild.
+            applyActiveTick(nav, storage.activeId);
           };
 
           if (storage) {
@@ -204,6 +285,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             destroy(): void {
               nav.removeEventListener('click', onClick);
               mq?.removeEventListener('change', onMqChange);
+              tracker.destroy();
               unsubscribe?.();
               nav.remove();
             },

@@ -21,6 +21,11 @@ export { assignMissingTocIds } from './helpers/tocIdAttribute.js';
 export type { AssignTocIdsOptions } from './helpers/tocIdAttribute.js';
 export { scrollToHeading } from './helpers/scrollToHeading.js';
 export type { ScrollToHeadingOptions } from './helpers/scrollToHeading.js';
+export { createActiveStateTracker } from './helpers/activeStateTracker.js';
+export type {
+  ActiveStateTracker,
+  ActiveStateTrackerOptions,
+} from './helpers/activeStateTracker.js';
 
 // UI: floating right-rail outline. Phase 1 ships the spike (hello div);
 // Phase 4 swaps it for real ticks + click navigation.

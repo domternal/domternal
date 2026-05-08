@@ -71,6 +71,16 @@
     outline: none;
   }
 
+  // Active state (Phase 5): the tick for the heading the user is
+  // currently reading. Two selectors so consumers can target either:
+  // the JS-applied class (`--active`) or the a11y attribute set
+  // simultaneously by the plugin (`aria-current="location"`). Hover
+  // state on an active tick keeps the active color - no double-flash.
+  &.dm-toc-outline-tick--active,
+  &[aria-current='location'] {
+    background: var(--dm-toc-tick-active-color, rgba(55, 53, 47, 0.95));
+  }
+
   // Per-level width selectors. h1 / h2 / h3 are the canonical Notion
   // levels; we also handle h4-h6 for consumers configuring custom
   // levels via `levels: [1,2,3,4,5,6]`.
