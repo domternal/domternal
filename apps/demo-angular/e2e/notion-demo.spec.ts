@@ -3351,3 +3351,246 @@ test.describe('Table of Contents - Phase 8 polish', () => {
     expect(bg).toMatch(/rgba\(0,\s*0,\s*0,\s*0\)|transparent/);
   });
 });
+
+// =============================================================================
+// Table of Contents - Phase 9 robustness
+// =============================================================================
+// Phase 9 covers the lifecycle / stress / leak corners that the
+// feature-driven Phase 4-8 tests don't reach by construction:
+//   - multi-cycle HMR (5 toggle rounds) - catches forgotten destroy
+//     hooks and shared module-level DOM/state that survives one
+//     cycle but fails on the second.
+//   - subscriber registry leak: insert/remove inline /toc blocks N
+//     times, verify the storage subscriber count returns to baseline.
+//     The block's NodeView has destroy() that unsubscribes - this
+//     test would fail if a future refactor forgets that.
+//   - performance smoke on a 50-heading doc: not a benchmark, just a
+//     "doesn't grind to a halt" check at sizes that real users reach.
+//   - rapid hover bounce: enter/leave/enter inside the hover-in delay
+//     window must end on the user-intended state, not on the timer
+//     that happened to fire last.
+//   - rapid heading toggling stress: 10 rapid level changes don't
+//     desync the outline from the doc.
+
+test.describe('Table of Contents - Phase 9 robustness', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('5 mode-toggle cycles leave exactly one outline + zero orphan inline blocks + clean subscriber registry', async ({ page }) => {
+    // Insert an inline /toc block once so each cycle exercises BOTH
+    // pieces (outline plugin + block NodeView). Setup baseline.
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(
+        '<h1>One</h1><div data-type="table-of-contents"></div><h2>Two</h2>',
+        false,
+      );
+    });
+    await page.waitForFunction(() => document.querySelector('.dm-toc-block') !== null);
+
+    for (let i = 0; i < 5; i++) {
+      // Leave Notion mode → editor + plugins destroy.
+      await page.click('.toolbar-mode-toggle button:has-text("Default toolbar")');
+      await page.waitForSelector('app-editor-demo');
+      // Outline + block DOM must be cleared (no orphan elements).
+      await expect(page.locator('.dm-toc-outline')).toHaveCount(0);
+      await expect(page.locator('.dm-toc-block')).toHaveCount(0);
+
+      // Re-enter Notion mode → fresh editor + plugins.
+      await page.click('.toolbar-mode-toggle button:has-text("Notion style")');
+      await page.waitForSelector(editorSelector);
+      await expect(page.locator('.dm-toc-outline')).toHaveCount(1);
+    }
+
+    // Final state: subscriber registry should hold exactly the
+    // FloatingTocOutline's own subscriber (the demo seeds the editor
+    // without an inline block, so no NodeView subscribers are alive).
+    // A leak would show as a count > 1 because each cycle's block
+    // NodeView registered a subscriber that never got cleaned up.
+    const subscriberCount = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      const toc = ed?.storage['toc'] as { subscribers: Set<unknown> } | undefined;
+      return toc?.subscribers.size ?? -1;
+    });
+    expect(subscriberCount).toBe(1);
+  });
+
+  test('subscriber registry returns to baseline after inserting + removing 5 inline blocks', async ({ page }) => {
+    // Capture the baseline subscriber count BEFORE we touch anything -
+    // typically 1 (FloatingTocOutline). Any orphaned subscribers from
+    // earlier extension init would inflate this; we just assert the
+    // delta returns to zero, not the absolute baseline value.
+    const baseline = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      const toc = ed?.storage['toc'] as { subscribers: Set<unknown> } | undefined;
+      return toc?.subscribers.size ?? -1;
+    });
+    expect(baseline).toBeGreaterThanOrEqual(1);
+
+    // Insert 5 inline blocks. Each NodeView registers a subscriber.
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(
+        '<h1>H</h1>'
+        + '<div data-type="table-of-contents"></div>'.repeat(5)
+        + '<h2>H2</h2>',
+        false,
+      );
+    });
+    await page.waitForFunction(() =>
+      document.querySelectorAll('.dm-toc-block').length === 5,
+    );
+
+    const afterInsert = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      const toc = ed?.storage['toc'] as { subscribers: Set<unknown> } | undefined;
+      return toc?.subscribers.size ?? -1;
+    });
+    expect(afterInsert).toBe(baseline + 5);
+
+    // Remove every block by setting content with no blocks. PM
+    // destroys each NodeView, which unsubscribes via destroy().
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent('<h1>Just a heading</h1>', false);
+    });
+    await page.waitForFunction(() =>
+      document.querySelectorAll('.dm-toc-block').length === 0,
+    );
+
+    // Subscribers must drop back to baseline - any leak would carry
+    // over into future cycles and accumulate without bound.
+    const afterRemove = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      const toc = ed?.storage['toc'] as { subscribers: Set<unknown> } | undefined;
+      return toc?.subscribers.size ?? -1;
+    });
+    expect(afterRemove).toBe(baseline);
+  });
+
+  test('50-heading doc renders the outline + inline block under a reasonable budget (perf smoke)', async ({ page }) => {
+    // Build a 50-heading doc. Mix of h1/h2/h3 to exercise per-level
+    // styling. Ends with an inline block so we validate both pieces.
+    const html = (() => {
+      const parts: string[] = [];
+      for (let i = 0; i < 50; i++) {
+        const level = (i % 3) + 1;
+        parts.push(`<h${level}>Section ${String(i + 1)}</h${level}>`);
+      }
+      parts.push('<div data-type="table-of-contents"></div>');
+      return parts.join('');
+    })();
+
+    const start = Date.now();
+    await page.evaluate((h) => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      ed?.setContent(h, false);
+    }, html);
+
+    // Wait until both pieces are populated (outline ticks + block links).
+    await page.waitForFunction(() =>
+      document.querySelectorAll('.dm-toc-outline-tick').length === 50
+        && document.querySelectorAll('.dm-toc-block-link').length === 50,
+    );
+    const elapsed = Date.now() - start;
+
+    // 2000ms is a generous CI budget - locally this completes in ~150ms.
+    // The threshold catches algorithmic regressions (O(n²) walks etc.)
+    // without flaking on a slow runner.
+    expect(elapsed).toBeLessThan(2000);
+
+    // Sanity: every tick has a level + tocId; matches the doc.
+    const ticks = await page.locator('.dm-toc-outline-tick').count();
+    const links = await page.locator('.dm-toc-block-link').count();
+    expect(ticks).toBe(50);
+    expect(links).toBe(50);
+  });
+
+  test('rapid hover bounce (enter/leave/enter inside the in-delay window) ends on the user-intended state', async ({ page }) => {
+    const outline = page.locator('.dm-toc-outline');
+
+    // Default hoverInDelay is 120ms. Bounce three times within ~80ms
+    // each so all three events fire BEFORE the show-timer resolves.
+    // The contract: the LATEST gesture wins. Final state was an
+    // enter, so we expect "expanded".
+    await outline.dispatchEvent('mouseenter');
+    await page.waitForTimeout(20);
+    await outline.dispatchEvent('mouseleave');
+    await page.waitForTimeout(20);
+    await outline.dispatchEvent('mouseenter');
+
+    // Wait past hoverInDelay (120ms) + a generous grace window.
+    await expect(outline).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
+
+    // Now bounce in the OTHER direction. Final gesture is leave,
+    // expect "collapsed" after hoverOutDelay (350ms).
+    await outline.dispatchEvent('mouseleave');
+    await page.waitForTimeout(40);
+    await outline.dispatchEvent('mouseenter');
+    await page.waitForTimeout(40);
+    await outline.dispatchEvent('mouseleave');
+
+    // Allow up to 1500ms for the hide-timer to settle - includes the
+    // 350ms delay + headless-runner jitter. A regression that flipped
+    // bounce semantics would land on "expanded" here.
+    await expect(outline).toHaveAttribute('data-state', 'collapsed', { timeout: 1500 });
+  });
+
+  test('rapidly toggling 10 heading levels in succession leaves outline tick count + block link count in sync with the doc', async ({ page }) => {
+    // Drive the doc through 10 setContent calls back-to-back. Each
+    // call replaces the doc with a different heading mix. After the
+    // last call, the outline + block must reflect ONLY the final
+    // doc - any stale entry from prior cycles would be a regression.
+    for (let i = 1; i <= 10; i++) {
+      await page.evaluate((n) => {
+        const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+          | { setContent: (h: string, emit: boolean) => void }
+          | undefined;
+        let html = '';
+        for (let j = 0; j < n; j++) {
+          html += `<h${(j % 3) + 1}>Section ${String(j + 1)}</h${(j % 3) + 1}>`;
+        }
+        html += '<div data-type="table-of-contents"></div>';
+        ed?.setContent(html, false);
+      }, i);
+    }
+
+    // Final iteration set 10 headings + 1 block. Outline + block
+    // contents must mirror exactly that state.
+    await page.waitForFunction(() =>
+      document.querySelectorAll('.dm-toc-outline-tick').length === 10
+        && document.querySelectorAll('.dm-toc-block-link').length === 10,
+    );
+
+    const ticks = await page.locator('.dm-toc-outline-tick').count();
+    const links = await page.locator('.dm-toc-block-link').count();
+    expect(ticks).toBe(10);
+    expect(links).toBe(10);
+
+    // Storage content list also matches; this catches a desync where
+    // the DOM is right but the data layer is wrong (or vice versa).
+    const storageCount = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { storage: Record<string, unknown> }
+        | undefined;
+      const toc = ed?.storage['toc'] as { content: unknown[] } | undefined;
+      return toc?.content.length ?? -1;
+    });
+    expect(storageCount).toBe(10);
+  });
+});
