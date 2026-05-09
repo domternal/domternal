@@ -1,0 +1,409 @@
+// =============================================================================
+// Table of Contents - Floating Outline
+// =============================================================================
+// Notion-style right-rail outline rendered by `@domternal/extension-toc`.
+// Lives OUTSIDE `.dm-editor` (which has `overflow: hidden`), so this
+// stylesheet does not nest under `.dm-editor` - tokens are pulled from
+// `:root` (defined in `_variables.scss`).
+//
+// Phase 4 ships the collapsed-state ticks + visibility guards. Phase 5
+// adds the active-state highlight; Phase 6 the hover-expanded card.
+// =============================================================================
+
+.dm-toc-outline {
+  // D16 (revised in Phase 4): position: fixed gives Notion-like
+  // behavior - the outline stays vertically centered in the viewport
+  // as the user scrolls, regardless of which container it mounted
+  // into. Trade-off: multi-editor on the same page would overlap;
+  // multi-editor support is v2 work.
+  position: fixed;
+  top: 50%;
+  right: var(--dm-toc-right-offset, 24px);
+  transform: translateY(-50%);
+  z-index: var(--dm-toc-z-index, 10);
+
+  // Stack ticks vertically with even gaps. flex-end keeps the right
+  // edge of every tick aligned even though widths differ per level.
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--dm-toc-tick-gap, 10px);
+  padding: var(--dm-toc-padding-block, 12px) var(--dm-toc-padding-inline, 8px);
+
+  // No background / no border in collapsed state - it's just a
+  // column of tiny marks. Phase 6's expanded card adds chrome.
+  background: transparent;
+  border: 0;
+  margin: 0;
+  pointer-events: auto;
+
+  // Visibility guards. The plugin sets data-state and data-viewport
+  // based on heading count and matchMedia. Hiding via CSS (vs JS
+  // `display: none` directly) lets consumers override without
+  // monkey-patching the plugin.
+  //
+  // State machine: hidden | collapsed | expanded
+  //   hidden    - 0 headings / mobile / < minHeadings
+  //   collapsed - default; ticks visible, card hidden (Phase 4-5)
+  //   expanded  - hover or focus-within; card visible, ticks hidden (Phase 6)
+  &[data-state='hidden'],
+  &[data-viewport='mobile'] {
+    display: none;
+  }
+}
+
+.dm-toc-outline-tick {
+  // Reset button defaults - we draw a solid filled rectangle.
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  background: var(--dm-toc-tick-color, rgba(55, 53, 47, 0.4));
+  height: var(--dm-toc-tick-height, 2px);
+  border-radius: var(--dm-toc-tick-radius, 1px);
+  // Width per heading level - h1 widest, deeper levels narrower.
+  // Default for unmatched levels falls through to h3-width.
+  width: var(--dm-toc-tick-h3-width, 8px);
+  transition:
+    background-color 120ms ease-out,
+    width 120ms ease-out;
+
+  &:hover {
+    background: var(--dm-toc-tick-hover-color, rgba(55, 53, 47, 0.7));
+  }
+
+  // Keyboard focus needs a real ring. The hover-only alpha bump
+  // (0.4 -> 0.7) is too subtle to act as a focus indicator for users
+  // who can't see hover state. Outline-offset 3px keeps the ring
+  // clear of the tick body without colliding with the next tick at
+  // the default `--dm-toc-tick-gap: 10px`.
+  &:focus-visible {
+    background: var(--dm-toc-tick-hover-color, rgba(55, 53, 47, 0.7));
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: 3px;
+  }
+
+  // Active state (Phase 5): the tick for the heading the user is
+  // currently reading. Two selectors so consumers can target either:
+  // the JS-applied class (`--active`, shared with rows) or the a11y
+  // attribute set simultaneously by the plugin (`aria-current="location"`).
+  // Hover state on an active tick keeps the active color - no double-flash.
+  &.dm-toc--active,
+  &[aria-current='location'] {
+    background: var(--dm-toc-tick-active-color, rgba(55, 53, 47, 0.95));
+  }
+
+  // Per-level width selectors. h1 / h2 / h3 are the canonical Notion
+  // levels; we also handle h4-h6 for consumers configuring custom
+  // levels via `levels: [1,2,3,4,5,6]`.
+  &[data-level='1'] { width: var(--dm-toc-tick-h1-width, 18px); }
+  &[data-level='2'] { width: var(--dm-toc-tick-h2-width, 12px); }
+  &[data-level='3'] { width: var(--dm-toc-tick-h3-width, 8px); }
+  &[data-level='4'] { width: var(--dm-toc-tick-h4-width, 6px); }
+  &[data-level='5'] { width: var(--dm-toc-tick-h5-width, 5px); }
+  &[data-level='6'] { width: var(--dm-toc-tick-h6-width, 4px); }
+}
+
+// Phase 6: ticks fade out when the card takes over.
+.dm-toc-outline[data-state='expanded'] .dm-toc-outline-tick {
+  opacity: 0;
+  pointer-events: none;
+}
+
+// =============================================================================
+// Expanded card (Phase 6)
+// =============================================================================
+// The card is absolutely positioned within the nav (which is fixed at
+// the right gutter). Anchored to the nav's right edge and vertically
+// centered against the same midline as the tick column - it visually
+// REPLACES the ticks rather than appearing alongside them. CSS opacity
+// + transform handle the slide-in transition; the plugin only flips
+// the parent's data-state attribute.
+
+.dm-toc-outline-card {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%) translateX(var(--dm-toc-card-offset, 8px));
+  min-width: var(--dm-toc-card-min-width, 180px);
+  max-width: var(--dm-toc-card-max-width, 260px);
+  padding: var(--dm-toc-card-padding-block, 6px) 0;
+  background: var(--dm-toc-card-bg, rgba(255, 255, 255, 0.98));
+  border: var(--dm-toc-card-border, 1px solid rgba(0, 0, 0, 0.06));
+  border-radius: var(--dm-toc-card-radius, 6px);
+  box-shadow: var(--dm-toc-card-shadow, 0 8px 24px rgba(0, 0, 0, 0.08));
+
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+
+  // Hidden by default in collapsed state. opacity + transform together
+  // let the card softly slide in from the right when expanding. The
+  // pointer-events flip prevents interactions with the invisible card.
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--dm-toc-card-transition, 180ms) ease-out,
+    transform var(--dm-toc-card-transition, 180ms) ease-out;
+}
+
+.dm-toc-outline[data-state='expanded'] .dm-toc-outline-card {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(-50%) translateX(0);
+}
+
+.dm-toc-outline-row {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: start;
+  font: inherit;
+  font-size: var(--dm-toc-row-font-size, 13px);
+  line-height: var(--dm-toc-row-line-height, 1.4);
+  color: var(--dm-toc-row-color, rgba(55, 53, 47, 0.7));
+  padding:
+    var(--dm-toc-row-padding-block, 4px)
+    var(--dm-toc-row-padding-inline-end, 16px)
+    var(--dm-toc-row-padding-block, 4px)
+    var(--dm-toc-row-padding-inline-start, 12px);
+  // Truncate long heading text - it's a navigation aid, not the
+  // headings themselves.
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: 3px;
+  transition: background-color 120ms ease-out, color 120ms ease-out;
+
+  &:hover {
+    background: var(--dm-toc-row-hover-bg, rgba(0, 0, 0, 0.04));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: -2px;
+  }
+
+  // Active row mirrors the active tick. Selector matches both the
+  // JS-applied class (`--active`, shared with ticks) and the a11y
+  // attribute the plugin sets simultaneously - same convention as ticks.
+  &.dm-toc--active,
+  &[aria-current='location'] {
+    color: var(--dm-toc-row-active-color, rgba(55, 53, 47, 0.95));
+    font-weight: var(--dm-toc-row-active-weight, 600);
+  }
+
+  // Per-level indent - h1 sits flush at the start padding, h2 nudges
+  // in by one row-indent, h3 by two, etc. Keeps the visual hierarchy
+  // legible at a glance even when text is truncated.
+  &[data-level='1'] {
+    padding-inline-start: var(--dm-toc-row-padding-inline-start, 12px);
+  }
+  &[data-level='2'] {
+    padding-inline-start:
+      calc(var(--dm-toc-row-padding-inline-start, 12px) + var(--dm-toc-row-indent, 14px));
+  }
+  &[data-level='3'] {
+    padding-inline-start:
+      calc(var(--dm-toc-row-padding-inline-start, 12px) + var(--dm-toc-row-indent, 14px) * 2);
+  }
+  &[data-level='4'] {
+    padding-inline-start:
+      calc(var(--dm-toc-row-padding-inline-start, 12px) + var(--dm-toc-row-indent, 14px) * 3);
+  }
+  &[data-level='5'] {
+    padding-inline-start:
+      calc(var(--dm-toc-row-padding-inline-start, 12px) + var(--dm-toc-row-indent, 14px) * 4);
+  }
+  &[data-level='6'] {
+    padding-inline-start:
+      calc(var(--dm-toc-row-padding-inline-start, 12px) + var(--dm-toc-row-indent, 14px) * 5);
+  }
+}
+
+// =============================================================================
+// Inline /toc block (Phase 7)
+// =============================================================================
+// Lives INSIDE the editor as a regular content block (vs the floating
+// outline which mounts outside .dm-editor). User inserts via slash
+// menu; the NodeView dynamically renders the heading list. Click on a
+// row routes to scrollToHeading - same UX as the outline rows.
+
+.dm-toc-block {
+  display: block;
+  margin-block: var(--dm-toc-block-margin-block, 1rem);
+  padding:
+    var(--dm-toc-block-padding-block, 12px)
+    var(--dm-toc-block-padding-inline, 16px);
+  background: var(--dm-toc-block-bg, rgba(0, 0, 0, 0.02));
+  border: var(--dm-toc-block-border, 1px solid rgba(0, 0, 0, 0.08));
+  border-radius: var(--dm-toc-block-radius, 6px);
+
+  // Block is contenteditable=false (atom node, NodeView-rendered).
+  // Surface a subtle outline ring on PM selection so the user knows
+  // the block is selected (e.g. for delete with Backspace on the
+  // gap cursor immediately after).
+  &.ProseMirror-selectednode {
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: 2px;
+  }
+}
+
+.dm-toc-block-empty {
+  margin: 0;
+  color: var(--dm-toc-block-empty-color, rgba(55, 53, 47, 0.5));
+  font-style: var(--dm-toc-block-empty-font-style, italic);
+}
+
+.dm-toc-block-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.dm-toc-block-item {
+  margin: 0;
+}
+
+.dm-toc-block-link {
+  // Reset button defaults for an in-flow link-style affordance.
+  appearance: none;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--dm-toc-block-link-font-size, 0.9375rem);
+  line-height: var(--dm-toc-block-link-line-height, 1.5);
+  color: var(--dm-toc-block-link-color, rgba(55, 53, 47, 0.8));
+  text-align: start;
+  width: 100%;
+  display: block;
+  padding:
+    var(--dm-toc-block-link-padding-block, 4px)
+    var(--dm-toc-block-link-padding-inline, 8px);
+  border-radius: var(--dm-toc-block-link-radius, 3px);
+  transition: background-color 120ms ease-out, color 120ms ease-out;
+
+  &:hover {
+    color: var(--dm-toc-block-link-hover-color, rgba(55, 53, 47, 1));
+    background: var(--dm-toc-block-link-hover-bg, rgba(0, 0, 0, 0.04));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: -2px;
+  }
+
+  // Active row mirrors active tick / row (Phase 5/6 contract).
+  &.dm-toc-block-link--active,
+  &[aria-current='location'] {
+    color: var(--dm-toc-block-link-active-color, rgba(55, 53, 47, 0.95));
+    font-weight: var(--dm-toc-block-link-active-weight, 600);
+  }
+
+  // Per-level indent. Same shape as outline rows; padding on the
+  // link itself so the hover background covers the full visual row
+  // including the indent.
+  &[data-level='1'] {
+    padding-inline-start: var(--dm-toc-block-link-padding-inline, 8px);
+  }
+  &[data-level='2'] {
+    padding-inline-start:
+      calc(var(--dm-toc-block-link-padding-inline, 8px) + var(--dm-toc-block-link-indent, 16px));
+  }
+  &[data-level='3'] {
+    padding-inline-start:
+      calc(var(--dm-toc-block-link-padding-inline, 8px) + var(--dm-toc-block-link-indent, 16px) * 2);
+  }
+  &[data-level='4'] {
+    padding-inline-start:
+      calc(var(--dm-toc-block-link-padding-inline, 8px) + var(--dm-toc-block-link-indent, 16px) * 3);
+  }
+  &[data-level='5'] {
+    padding-inline-start:
+      calc(var(--dm-toc-block-link-padding-inline, 8px) + var(--dm-toc-block-link-indent, 16px) * 4);
+  }
+  &[data-level='6'] {
+    padding-inline-start:
+      calc(var(--dm-toc-block-link-padding-inline, 8px) + var(--dm-toc-block-link-indent, 16px) * 5);
+  }
+}
+
+// Phase 8 (reduced-motion) - explicit guard so the card transitions
+// fall back to instant flips when the user has reduced motion turned
+// on. Repeated here defensively even though `index.scss` has a
+// global block, in case that block is ever scoped to `.dm-editor`-only.
+@media (prefers-reduced-motion: reduce) {
+  .dm-toc-outline-tick,
+  .dm-toc-outline-card,
+  .dm-toc-outline-row,
+  .dm-toc-block-link {
+    transition: none;
+  }
+
+  // Card start-state offset becomes 0 too: with no transition, the
+  // X translate would jump from `var(--dm-toc-card-offset)` to 0
+  // instantly anyway, but resetting the start position to 0 means
+  // the card never enters its mid-animation visual state on a fast
+  // expand/collapse cycle (which can briefly leak a 1-frame
+  // off-position card).
+  .dm-toc-outline-card {
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+// Phase 8 (print): the floating outline is a navigation chrome aid -
+// nothing to do with the document content. Hide it from print media
+// so users get a clean printout. Inline `/toc` blocks DO stay (they
+// belong to the document); links inside them lose their hover/active
+// background since print doesn't honor those anyway.
+@media print {
+  .dm-toc-outline {
+    display: none;
+  }
+  .dm-toc-block {
+    background: transparent;
+    border-color: rgba(0, 0, 0, 0.2);
+  }
+}
+
+// Phase 8 (forced-colors / Windows High Contrast): tick + card +
+// inline block backgrounds are stripped in forced-colors mode (the
+// OS replaces them with system colors). Without explicit borders the
+// ticks become invisible. The `Highlight` and `ButtonText` system
+// colors guarantee a visible affordance regardless of theme. The
+// `forced-color-adjust: none` opt-out is intentionally NOT used: we
+// want the OS palette, just with shapes still visible.
+@media (forced-colors: active) {
+  .dm-toc-outline-tick {
+    background: ButtonText;
+    border: 1px solid ButtonText;
+
+    &.dm-toc--active,
+    &[aria-current='location'] {
+      background: Highlight;
+      border-color: Highlight;
+    }
+  }
+
+  .dm-toc-outline-card {
+    border: 1px solid ButtonText;
+  }
+
+  .dm-toc-outline-row,
+  .dm-toc-block-link {
+    &.dm-toc--active,
+    &.dm-toc-block-link--active,
+    &[aria-current='location'] {
+      color: Highlight;
+    }
+  }
+
+  .dm-toc-block {
+    border: 1px solid ButtonText;
+  }
+}

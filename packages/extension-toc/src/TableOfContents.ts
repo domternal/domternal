@@ -1,0 +1,241 @@
+/**
+ * TableOfContents extension - data layer for headings in the document.
+ *
+ * Three responsibilities, all opt-in via this single extension:
+ *
+ *   1. Schema: declare a `tocId` attribute on heading nodes (rendered to
+ *      DOM as `data-toc-id`). Existing heading attrs (`level`) are
+ *      preserved by the framework's `addGlobalAttributes` merge.
+ *
+ *   2. ID lifecycle: a PM plugin's `appendTransaction` assigns IDs to
+ *      anchors that lack one (predicate-skip pattern). `view().init`
+ *      seeds the doc on first mount via a deferred dispatch.
+ *
+ *   3. Storage: `editor.storage.toc.content` exposes a snapshot of
+ *      every heading-like node. Updates fan out via `onUpdate` (public
+ *      consumer hook) and the internal `subscribers` Set (used by the
+ *      floating outline plugin and the inline `/toc` block NodeView in
+ *      later phases).
+ *
+ * Phase 5 will fill in `isActive` / `isScrolledOver` when the active-
+ * state tracker (IntersectionObserver) feeds the storage.
+ */
+import { Extension } from '@domternal/core';
+import type { Editor } from '@domternal/core';
+import type { CommandSpec } from '@domternal/core';
+import { Plugin, PluginKey, type EditorState } from '@domternal/pm/state';
+import type { EditorView } from '@domternal/pm/view';
+import { walkHeadings } from './helpers/headingWalk.js';
+import { assignMissingTocIds } from './helpers/tocIdAttribute.js';
+import { scrollToHeading } from './helpers/scrollToHeading.js';
+import type { HeadingEntry, TableOfContentsOptions, TocStorage } from './types.js';
+
+declare module '@domternal/core' {
+  interface RawCommands {
+    /**
+     * Scroll the editor view to the heading whose `data-toc-id` matches.
+     * No-op if the ID is unknown (returns false). Updates the URL hash
+     * via `history.replaceState`.
+     */
+    scrollToHeading: CommandSpec<[id: string]>;
+  }
+}
+
+export const tocPluginKey = new PluginKey('toc');
+
+/**
+ * 8-char base36 default ID generator.
+ *
+ * `Math.random().toString(36)` can produce shorter strings when the
+ * RNG happens to return a value with few significant digits, so we
+ * concatenate until we have enough characters. Collisions are detected
+ * and retried by `assignMissingTocIds`, but a stable length keeps
+ * generated IDs visually consistent and predictable in tests.
+ */
+function defaultGenerateId(existingIds: ReadonlySet<string>): string {
+  // Re-roll on collision so the rare overlap is handled here rather than
+  // forcing the caller's retry loop to spin. Worst-case is a handful of
+  // attempts; with 36^8 ~= 2.8 trillion ids the practical bound is one.
+  for (let attempt = 0; attempt < 8; attempt++) {
+    let id = '';
+    while (id.length < 8) {
+      id += Math.random().toString(36).slice(2);
+    }
+    id = id.slice(0, 8);
+    if (!existingIds.has(id)) return id;
+  }
+  // Pathological fallback. Caller's outer retry will keep spinning if needed.
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function buildContent(state: EditorState, options: TableOfContentsOptions): HeadingEntry[] {
+  return walkHeadings(state.doc, {
+    levels: options.levels,
+    anchorTypes: options.anchorTypes,
+  }).map((entry) => ({
+    ...entry,
+    domNode: null,
+    isActive: false,
+    isScrolledOver: false,
+  }));
+}
+
+export const TableOfContents = Extension.create<TableOfContentsOptions, TocStorage>({
+  name: 'toc',
+
+  addOptions() {
+    return {
+      levels: [1, 2, 3],
+      anchorTypes: ['heading'],
+      generateId: defaultGenerateId,
+    };
+  },
+
+  addStorage() {
+    return {
+      content: [],
+      activeId: null,
+      subscribers: new Set<() => void>(),
+    };
+  },
+
+  addGlobalAttributes() {
+    return [
+      {
+        types: this.options.anchorTypes,
+        attributes: {
+          tocId: {
+            default: null,
+            parseHTML: (element: HTMLElement) => element.getAttribute('data-toc-id'),
+            renderHTML: (attributes: Record<string, unknown>) => {
+              const id = attributes['tocId'];
+              return typeof id === 'string' && id.length > 0
+                ? { 'data-toc-id': id }
+                : null;
+            },
+          },
+        },
+      },
+    ];
+  },
+
+  addCommands() {
+    return {
+      scrollToHeading:
+        (id: string) =>
+        ({ editor, dispatch }) => {
+          // Pure DOM side-effect, no PM transaction. In dry-run mode
+          // (`dispatch` undefined - happens during `editor.can()` checks
+          // and chain validation), report the operation as available
+          // without actually executing.
+          if (!dispatch) return true;
+          const view = (editor as { view?: EditorView }).view;
+          if (!view) return false;
+          return scrollToHeading(view, id);
+        },
+    };
+  },
+
+  addProseMirrorPlugins() {
+    const editor = this.editor as Editor | null;
+    const options = this.options;
+    const storage = this.storage;
+
+    const fanOut = (): void => {
+      options.onUpdate?.(storage);
+      // Copy to an array to make the iteration safe against subscribers
+      // unsubscribing themselves during the callback.
+      [...storage.subscribers].forEach((fn) => {
+        try {
+          fn();
+        } catch (err) {
+          // A misbehaving subscriber must not break the others. We log
+          // and continue rather than swallowing silently so app authors
+          // see the failure during development.
+          // eslint-disable-next-line no-console
+          console.error('[extension-toc] subscriber threw during fan-out:', err);
+        }
+      });
+    };
+
+    const refreshStorage = (state: EditorState): void => {
+      storage.content = buildContent(state, options);
+      fanOut();
+    };
+
+    return [
+      new Plugin({
+        key: tocPluginKey,
+        view(editorView) {
+          // Initial pass: assign IDs and populate storage. Deferred to
+          // the next tick so we don't dispatch during plugin init
+          // (matches the UniqueID precedent). Re-reading from
+          // `editorView.state` inside the timer avoids any stale
+          // snapshot if the doc was replaced before the timer fires.
+          let rafId: number | null = null;
+          const timeoutId = setTimeout(() => {
+            if (editor?.isDestroyed) return;
+            const tr = editorView.state.tr;
+            assignMissingTocIds(editorView.state.doc, tr, {
+              anchorTypes: options.anchorTypes,
+              generateId: options.generateId,
+            });
+            if (tr.docChanged) {
+              editorView.dispatch(tr);
+            } else {
+              // No IDs needed assigning, but storage still needs the
+              // first snapshot so consumers see the initial doc.
+              refreshStorage(editorView.state);
+            }
+
+            // Initial-load hash navigation. Run AFTER ID assignment +
+            // first paint so the heading we are scrolling to actually
+            // has a `data-toc-id` attribute and a measurable position.
+            // rAF gives the browser one frame to commit the dispatch
+            // above; the call is silent on missing IDs (no scroll, no
+            // hash change), so a stray `#section` from another part
+            // of the host app stays untouched.
+            if (typeof window !== 'undefined' && window.location.hash) {
+              // Decode the percent-encoding scrollToHeading writes back so
+              // a round-trip (write hash -> reload -> read hash) finds the
+              // same `data-toc-id` it started from.
+              let hash = window.location.hash.slice(1);
+              try {
+                hash = decodeURIComponent(hash);
+              } catch {
+                // Malformed encoding: fall back to the raw fragment.
+              }
+              rafId = requestAnimationFrame(() => {
+                rafId = null;
+                if (editor?.isDestroyed) return;
+                scrollToHeading(editorView, hash);
+              });
+            }
+          }, 0);
+
+          return {
+            update(view, prevState) {
+              if (view.state.doc !== prevState.doc) {
+                refreshStorage(view.state);
+              }
+            },
+            destroy() {
+              clearTimeout(timeoutId);
+              if (rafId !== null) cancelAnimationFrame(rafId);
+              storage.subscribers.clear();
+            },
+          };
+        },
+        appendTransaction(transactions, _oldState, newState) {
+          if (!transactions.some((tr) => tr.docChanged)) return null;
+          const tr = newState.tr;
+          assignMissingTocIds(newState.doc, tr, {
+            anchorTypes: options.anchorTypes,
+            generateId: options.generateId,
+          });
+          return tr.docChanged ? tr : null;
+        },
+      }),
+    ];
+  },
+});

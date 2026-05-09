@@ -289,4 +289,168 @@ describe('listCommands', () => {
       expect(result).toBe(true);
     });
   });
+
+  // ────────────────────────────────────────────────────────────────────
+  // Children-zone exception. Cursor in a non-label paragraph of a list
+  // item should INSERT a new list at the cursor instead of converting
+  // the ancestor list. Without this, a slash-command "Numbered list"
+  // on an empty children-zone paragraph silently re-types the parent
+  // bullet list.
+  // ────────────────────────────────────────────────────────────────────
+
+  describe('toggleList children-zone exception', () => {
+    function caretAtNthEmptyP(ed: Editor, n: number): void {
+      let count = 0;
+      let pos = -1;
+      ed.state.doc.descendants((node, p) => {
+        if (pos !== -1) return false;
+        if (node.type.name === 'paragraph' && node.content.size === 0) {
+          if (count === n) { pos = p + 1; return false; }
+          count++;
+        }
+        return true;
+      });
+      if (pos === -1) throw new Error(`empty paragraph #${String(n)} not found`);
+      ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, pos)));
+    }
+
+    function caretAtEndOfText(ed: Editor, text: string): void {
+      let pos = -1;
+      ed.state.doc.descendants((node, p) => {
+        if (pos !== -1) return false;
+        if (node.isText && node.text === text) { pos = p + text.length; return false; }
+        return true;
+      });
+      if (pos === -1) throw new Error(`text "${text}" not found`);
+      ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, pos)));
+    }
+
+    it('empty children-zone p in bullet item: toggleOrderedList inserts NEW ol, parent ul stays bullet', () => {
+      editor = new Editor({
+        extensions,
+        content: '<ul><li><p>label</p><p></p></li></ul>',
+      });
+      caretAtNthEmptyP(editor, 0);
+      const result = editor.commands.toggleList('orderedList', 'listItem');
+      expect(result).toBe(true);
+      const ul = editor.state.doc.firstChild;
+      expect(ul?.type.name).toBe('bulletList');
+      const li = ul?.firstChild;
+      expect(li?.type.name).toBe('listItem');
+      // li children: [label paragraph, NEW ordered list]
+      expect(li?.childCount).toBe(2);
+      expect(li?.child(0).type.name).toBe('paragraph');
+      expect(li?.child(1).type.name).toBe('orderedList');
+    });
+
+    it('non-empty children-zone p in bullet item: toggleOrderedList inserts NEW ol, parent ul stays bullet', () => {
+      editor = new Editor({
+        extensions,
+        content: '<ul><li><p>label</p><p>note</p></li></ul>',
+      });
+      caretAtEndOfText(editor, 'note');
+      const result = editor.commands.toggleList('orderedList', 'listItem');
+      expect(result).toBe(true);
+      const ul = editor.state.doc.firstChild;
+      expect(ul?.type.name).toBe('bulletList');
+      const li = ul?.firstChild;
+      expect(li?.childCount).toBe(2);
+      const newOl = li?.child(1);
+      expect(newOl?.type.name).toBe('orderedList');
+      expect(newOl?.firstChild?.textContent).toBe('note');
+    });
+
+    it('empty children-zone p in task item: toggleBulletList inserts NEW ul, parent taskList stays', () => {
+      editor = new Editor({
+        extensions,
+        content:
+          '<ul data-type="taskList"><li data-type="taskItem" data-checked="false">' +
+          '<label contenteditable="false"><input type="checkbox"></label>' +
+          '<div><p>task</p><p></p></div></li></ul>',
+      });
+      caretAtNthEmptyP(editor, 0);
+      const result = editor.commands.toggleList('bulletList', 'listItem');
+      expect(result).toBe(true);
+      const taskList = editor.state.doc.firstChild;
+      expect(taskList?.type.name).toBe('taskList');
+      const taskItem = taskList?.firstChild;
+      expect(taskItem?.type.name).toBe('taskItem');
+      // Last child of taskItem is the new bullet list.
+      const lastChild = taskItem?.lastChild;
+      expect(lastChild?.type.name).toBe('bulletList');
+    });
+
+    it('LABEL paragraph (childIndex 0) keeps existing convert behaviour: toggleOrderedList on bullet label converts ul to ol', () => {
+      editor = new Editor({
+        extensions,
+        content: '<ul><li><p>label</p></li></ul>',
+      });
+      caretAtEndOfText(editor, 'label');
+      const result = editor.commands.toggleList('orderedList', 'listItem');
+      expect(result).toBe(true);
+      // The ENTIRE list is converted, not "wrapped in another list".
+      const top = editor.state.doc.firstChild;
+      expect(top?.type.name).toBe('orderedList');
+    });
+
+    it('children-zone p between an existing ol sibling and a heading: new ol merges with the sibling ol via joinListBackwards', () => {
+      editor = new Editor({
+        extensions,
+        content:
+          '<ul><li><p>label</p><ol><li><p>existing</p></li></ol><p></p></li></ul>',
+      });
+      caretAtNthEmptyP(editor, 0);
+      const result = editor.commands.toggleList('orderedList', 'listItem');
+      expect(result).toBe(true);
+      const li = editor.state.doc.firstChild?.firstChild;
+      // Adjacent ols of same type merge into one.
+      expect(li?.childCount).toBe(2);
+      expect(li?.child(1).type.name).toBe('orderedList');
+      expect(li?.child(1).childCount).toBe(2);
+      expect(li?.child(1).child(0).textContent).toBe('existing');
+      expect(li?.child(1).child(1).textContent).toBe('');
+    });
+
+    it('top-level empty p (no list ancestor): existing wrap path runs (control)', () => {
+      editor = new Editor({
+        extensions,
+        content: '<p></p>',
+      });
+      caretAtNthEmptyP(editor, 0);
+      const result = editor.commands.toggleList('orderedList', 'listItem');
+      expect(result).toBe(true);
+      expect(editor.state.doc.firstChild?.type.name).toBe('orderedList');
+    });
+
+    it('range selection (non-collapsed) does not trigger the children-zone branch', () => {
+      // Non-collapsed selection in a children-zone p still goes through the
+      // generic toggle path. Documents the boundary of the new branch.
+      editor = new Editor({
+        extensions,
+        content: '<ul><li><p>label</p><p>content</p></li></ul>',
+      });
+      // Select the whole "content" word.
+      let from = -1;
+      let to = -1;
+      editor.state.doc.descendants((node, p) => {
+        if (node.isText && node.text === 'content') { from = p; to = p + node.nodeSize; return false; }
+        return true;
+      });
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, from, to)));
+      const result = editor.commands.toggleList('orderedList', 'listItem');
+      expect(result).toBe(true);
+      // Convert path: parent bullet list becomes ordered list (existing behaviour).
+      expect(editor.state.doc.firstChild?.type.name).toBe('orderedList');
+    });
+
+    it('returns true without dispatch when collapsed in children-zone (can wrap)', () => {
+      editor = new Editor({
+        extensions,
+        content: '<ul><li><p>label</p><p></p></li></ul>',
+      });
+      caretAtNthEmptyP(editor, 0);
+      const ok = editor.can().toggleList('orderedList', 'listItem');
+      expect(ok).toBe(true);
+    });
+  });
 });

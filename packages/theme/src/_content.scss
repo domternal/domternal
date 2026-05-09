@@ -109,32 +109,40 @@
     // Right padding so colored lists get breathing room on the right edge,
     // matching the inline padding paragraphs and headings get above.
     padding-right: var(--dm-block-inline-padding);
+  }
 
+  // Notion-style "children zone" indent for plain bullet/ordered lists ONLY.
+  // Scoped to `ul:not([data-type="taskList"]), ol` so it does NOT match the
+  // taskList wrapper - taskItems render via `<li><label/><div/></li>` and the
+  // generic rule would mistakenly apply margin-inline-start to that wrapper
+  // div, pushing the entire taskItem content (and the absolutely-positioned
+  // checkbox's containing block) one indent step to the right. Task list
+  // children-zone styling lives in `_task-list.scss` and is rooted on the
+  // inner `<div>` instead.
+  ul:not([data-type="taskList"]),
+  ol {
     li {
       margin: 0.25em 0;
 
       > p {
-        // List item paragraphs reset inline padding - bullet indentation
-        // is owned by the list container; doubling up shifts text under
-        // the bullet's hanging indent.
+        // List item paragraphs reset inline-end padding (bullet indentation
+        // is owned by the list container; doubling up shifts text under the
+        // bullet's hanging indent), and add a small inline-start padding
+        // (~5px at the editor's default font size) so the text breathes
+        // away from the bullet glyph instead of butting against it.
         margin: 0.1em 0;
-        padding-inline: 0;
+        padding-inline: 0.3em 0;
       }
 
-      // Notion-style "children zone" indent: post-label blocks (heading,
-      // codeBlock, blockquote, nested taskList, etc.) sit indented one
-      // level below the label paragraph aligned with the bullet.
-      //
-      // Excluded: regular `<ul>` and `<ol>` - they already gain the
-      // same visual indent through their own `padding-left: 1.5em` for
-      // bullet/number markers, so this rule would double-indent them.
-      // Nested `<ul data-type="taskList">` is NOT excluded because
-      // taskList wrappers use `padding-left: 0` (no marker indent),
-      // so they need the children-zone margin to stay visually nested.
-      //
-      // `margin-inline-start` (logical property) flips the indent to
-      // the right edge in RTL contexts (`dir="rtl"`) automatically.
-      > :not(p:first-child):not(ul:not([data-type="taskList"])):not(ol) {
+      // Post-label blocks (heading, codeBlock, blockquote, etc.) sit
+      // indented one level below the label paragraph aligned with the
+      // bullet. ALL nested `<ul>` and `<ol>` (plain and taskList) are
+      // excluded because each already gains the same visual indent
+      // through its own `padding-left: 1.5em`, so adding this margin
+      // would push nested taskLists further right than nested plain
+      // bullet lists. `margin-inline-start` flips the indent to the
+      // right edge in RTL.
+      > :not(p:first-child):not(ul):not(ol) {
         margin-inline-start: var(--dm-block-children-indent, 1.5rem);
         margin-top: 0.25rem;
       }

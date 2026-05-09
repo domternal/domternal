@@ -133,6 +133,17 @@ describe('SlashCommand - re-entrant dispatch suppression', () => {
     host = undefined;
   });
 
+  /**
+   * Dispatch one transaction PER CHARACTER so the activation heuristic
+   * (single ReplaceStep, single-char `/` slice) sees a real typing event,
+   * not a bulk insert. Mirrors what `page.keyboard.type()` does in e2e.
+   */
+  function typeText(ed: Editor, text: string): void {
+    for (const ch of text) {
+      ed.view.dispatch(ed.state.tr.insertText(ch));
+    }
+  }
+
   function mountEditor(content = '<p>/</p>'): Editor {
     host = document.createElement('div');
     host.className = 'dm-editor';
@@ -170,8 +181,10 @@ describe('SlashCommand - re-entrant dispatch suppression', () => {
 
   it('command callback deletes /query range and dispatches item command', () => {
     mountEditor('<p></p>');
-    // Manually activate by typing `/foo`.
-    editor!.view.dispatch(editor!.state.tr.insertText('/foo'));
+    // Activate by typing `/` then the query. `typeText` dispatches one
+    // transaction per character so the new "real typing only" heuristic
+    // sees the trigger.
+    typeText(editor!, '/foo');
     const state0 = slashCommandPluginKey.getState(editor!.state);
     expect(state0?.active).toBe(true);
     expect(state0?.query).toBe('foo');
@@ -193,7 +206,7 @@ describe('SlashCommand - re-entrant dispatch suppression', () => {
 
   it('plugin state resets to INITIAL when docChanged deletes the query range', () => {
     mountEditor('<p></p>');
-    editor!.view.dispatch(editor!.state.tr.insertText('/foo'));
+    typeText(editor!, '/foo');
     const state0 = slashCommandPluginKey.getState(editor!.state);
     expect(state0?.active).toBe(true);
 
@@ -219,7 +232,7 @@ describe('SlashCommand - re-entrant dispatch suppression', () => {
 
   it('docChanged-only transaction maps query range without re-running findSlashQuery', () => {
     mountEditor('<p></p>');
-    editor!.view.dispatch(editor!.state.tr.insertText('/foo'));
+    typeText(editor!, '/foo');
     const before = slashCommandPluginKey.getState(editor!.state);
     expect(before?.active).toBe(true);
     const range0 = before?.range;
@@ -248,7 +261,7 @@ describe('SlashCommand - re-entrant dispatch suppression', () => {
 
   it('docChanged that DELETES the query range resets to INITIAL', () => {
     mountEditor('<p></p>');
-    editor!.view.dispatch(editor!.state.tr.insertText('/foo'));
+    typeText(editor!, '/foo');
     expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(true);
 
     // Replace the entire textblock - mapping marks both ends as deleted.
@@ -432,5 +445,489 @@ describe('SlashCommand - re-entrant dispatch suppression', () => {
     // crucially: more than zero re-entries fired AND state.active is true.
     expect(reentryCount).toBeGreaterThan(0);
     expect(state?.active).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Activation gating: typing-event vs static-state
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Before this gate, `apply()` re-derived `active` from the doc text under
+// the cursor on EVERY transaction (including pure selection changes). That
+// meant clicking back into existing `/text` reopened the menu, even though
+// no typing had happened. Now activation requires a real typing event of
+// the trigger char (`/`) - matching Notion. Once dismissed, the same `/`
+// in the doc is just plain text until the user types `/` again.
+
+describe('SlashCommand - activation gated to a typing event', () => {
+  let host: HTMLElement | undefined;
+  let editor: Editor | undefined;
+
+  afterEach(() => {
+    editor?.destroy();
+    editor = undefined;
+    host?.remove();
+    host = undefined;
+  });
+
+  function mount(content = '<p></p>'): Editor {
+    host = document.createElement('div');
+    host.className = 'dm-editor';
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Heading, SlashCommand],
+      content,
+    });
+    return editor;
+  }
+
+  function typeText(ed: Editor, text: string): void {
+    for (const ch of text) ed.view.dispatch(ed.state.tr.insertText(ch));
+  }
+
+  function setCursor(ed: Editor, pos: number): void {
+    const sel = ed.state.selection.constructor as unknown as {
+      create: (doc: typeof ed.state.doc, pos: number) => typeof ed.state.selection;
+    };
+    ed.view.dispatch(ed.state.tr.setSelection(sel.create(ed.state.doc, pos)));
+  }
+
+  it('typing `/` activates (one-char ReplaceStep with text "/")', () => {
+    mount('<p></p>');
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(false);
+    editor!.view.dispatch(editor!.state.tr.insertText('/'));
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(true);
+  });
+
+  it('clicking AFTER an existing `/` (selection-only change) does NOT activate', () => {
+    // Reproduces the user-reported bug: doc has `/abcd`, user clicks
+    // somewhere inside or after the `/` - no typing happened, so the
+    // popup must stay closed.
+    mount('<p>hello /world</p>');
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(false);
+
+    // Cursor between `/` and "world" (right after the slash).
+    // Doc layout: <p>(1) h(2) e(3) l(4) l(5) o(6) ' '(7) '/'(8) w(9)...
+    setCursor(editor!, 8);
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(false);
+
+    // Cursor INSIDE the word after the `/`. Still no typing, still closed.
+    setCursor(editor!, 11);
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(false);
+  });
+
+  it('clicking BACK after a `/` we PREVIOUSLY typed but dismissed does NOT reactivate', () => {
+    // Type `/`, dismiss with Esc-equivalent (meta dismiss), click back.
+    // The `/` is now just text. Selection-only change must not reopen.
+    mount('<p></p>');
+    editor!.view.dispatch(editor!.state.tr.insertText('/'));
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(true);
+
+    dismissSlashCommand(editor!.view);
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(false);
+
+    // Move cursor away then back to right after the `/`.
+    // Doc: <p>(1) /(2). Cursor after `/` is at pos 2.
+    setCursor(editor!, 1);
+    setCursor(editor!, 2);
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(false);
+  });
+
+  it('multi-char paste containing `/` does NOT activate (slice.size > 1)', () => {
+    // Mimics paste / programmatic bulk insert. Should be plain text.
+    mount('<p></p>');
+    editor!.view.dispatch(editor!.state.tr.insertText('/heading 1'));
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(false);
+    expect(editor!.state.doc.textContent).toBe('/heading 1');
+  });
+
+  it('typing `/` after non-trigger chars activates only on the slash event', () => {
+    // h, e, l, l, o keep popup closed; `/` flips it on.
+    mount('<p></p>');
+    typeText(editor!, 'hello');
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(false);
+    editor!.view.dispatch(editor!.state.tr.insertText(' '));
+    editor!.view.dispatch(editor!.state.tr.insertText('/'));
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(true);
+  });
+
+  it('once active, typing query chars updates query (existing behaviour preserved)', () => {
+    mount('<p></p>');
+    typeText(editor!, '/he');
+    const state = slashCommandPluginKey.getState(editor!.state);
+    expect(state?.active).toBe(true);
+    expect(state?.query).toBe('he');
+  });
+
+  it('once active, backspacing the trigger char dismisses the popup', () => {
+    mount('<p></p>');
+    editor!.view.dispatch(editor!.state.tr.insertText('/'));
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(true);
+
+    // Backspace the `/`. Doc: <p>(1) /(2). After delete (1, 2), doc empty.
+    editor!.view.dispatch(editor!.state.tr.delete(1, 2));
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(false);
+  });
+
+  it('once active, moving the cursor OUT of the query range dismisses the popup', () => {
+    // Build the content via typing so we know the exact end position and
+    // don't depend on HTML-parser whitespace handling.
+    mount('<p></p>');
+    typeText(editor!, 'hello ');
+    editor!.view.dispatch(editor!.state.tr.insertText('/'));
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(true);
+
+    // Click to position 1 (start of paragraph) - cursor leaves the
+    // /query span. Active branch's findSlashQuery returns null (no `/`
+    // before cursor), so the popup deactivates.
+    setCursor(editor!, 1);
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(false);
+  });
+
+  it('typing `/` MID-TEXT (between existing words) activates', () => {
+    // Cursor between "hello " and "world", type `/`. justTypedTrigger
+    // returns true (single-char insert), findSlashQuery validates the
+    // position (preceded by whitespace), popup opens. Notion does the same.
+    mount('<p>hello world</p>');
+    // Doc: <p>(1) h(2)e(3)l(4)l(5)o(6) (7) w(8)o(9)r(10)l(11)d(12).
+    // Place cursor between space (after 7) and 'w' - position 7.
+    setCursor(editor!, 7);
+    editor!.view.dispatch(editor!.state.tr.insertText('/'));
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(true);
+  });
+
+  it('replace-while-selected typing `/` activates (selection range -> single-char "/")', () => {
+    // User selects "world", types `/`. PM emits one ReplaceStep that
+    // replaces the range with "/". slice.size === 1 -> justTypedTrigger
+    // true, popup opens.
+    const ed = mount('<p>hello world</p>');
+    // Select "world": positions 7..12.
+    const sel = ed.state.selection.constructor as unknown as {
+      create: (doc: typeof ed.state.doc, a: number, b: number) => typeof ed.state.selection;
+    };
+    ed.view.dispatch(ed.state.tr.setSelection(sel.create(ed.state.doc, 7, 12)));
+    ed.view.dispatch(ed.state.tr.insertText('/'));
+    // The selection-replacement is one ReplaceStep with a single-char "/"
+    // slice, so justTypedTrigger returns true and the popup activates.
+    expect(slashCommandPluginKey.getState(ed.state)?.active).toBe(true);
+  });
+
+  it('justTypedTrigger gating: setting content with `/abc` does NOT activate', () => {
+    // Initial content is parsed at editor creation - no transaction with
+    // the trigger char is dispatched, plugin starts inactive.
+    mount('<p>/already-here</p>');
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(false);
+  });
+
+  it('clicking after a `/` that was set as initial content does NOT activate', () => {
+    // The `/` came from setContent, not from typing. Cursor onto / past it
+    // is a selection-only change -> popup stays closed.
+    mount('<p>/foo bar</p>');
+    setCursor(editor!, 2); // right after `/`
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(false);
+    setCursor(editor!, 5); // mid-word
+    expect(slashCommandPluginKey.getState(editor!.state)?.active).toBe(false);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Active state: query tracks WHAT WAS TYPED, not the current cursor.
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Previously the query was derived from `[/ , cursor]` on every transaction,
+// so arrow-key navigation past existing text expanded the query into chars
+// the user never typed. The plugin now tracks `range.to` as a typed-end
+// position that only advances on doc changes (typing / paste). Pure
+// cursor moves either keep the popup with the SAME query (within the
+// typed span) or dismiss it (outside the typed span).
+
+describe('SlashCommand - typed-query tracking', () => {
+  let host: HTMLElement | undefined;
+  let editor: Editor | undefined;
+
+  afterEach(() => {
+    editor?.destroy();
+    editor = undefined;
+    host?.remove();
+    host = undefined;
+  });
+
+  function mount(content = '<p></p>'): Editor {
+    host = document.createElement('div');
+    host.className = 'dm-editor';
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Heading, SlashCommand],
+      content,
+    });
+    return editor;
+  }
+
+  function typeText(ed: Editor, text: string): void {
+    for (const ch of text) ed.view.dispatch(ed.state.tr.insertText(ch));
+  }
+
+  function setCursor(ed: Editor, pos: number): void {
+    const sel = ed.state.selection.constructor as unknown as {
+      create: (doc: typeof ed.state.doc, pos: number) => typeof ed.state.selection;
+    };
+    ed.view.dispatch(ed.state.tr.setSelection(sel.create(ed.state.doc, pos)));
+  }
+
+  it('typing extends range.to and grows query', () => {
+    const ed = mount('<p></p>');
+    typeText(ed, '/he');
+    const s = slashCommandPluginKey.getState(ed.state);
+    expect(s?.active).toBe(true);
+    expect(s?.query).toBe('he');
+    // Range covers the / and both typed chars: from = before /, to = after e.
+    expect(s?.range?.to).toBe((s?.range?.from ?? 0) + 3);
+  });
+
+  it('backspace shrinks range.to and shrinks query', () => {
+    const ed = mount('<p></p>');
+    typeText(ed, '/heading');
+    expect(slashCommandPluginKey.getState(ed.state)?.query).toBe('heading');
+
+    // Two backspaces: query becomes "headi".
+    ed.view.dispatch(ed.state.tr.delete(ed.state.selection.from - 1, ed.state.selection.from));
+    ed.view.dispatch(ed.state.tr.delete(ed.state.selection.from - 1, ed.state.selection.from));
+    const s = slashCommandPluginKey.getState(ed.state);
+    expect(s?.active).toBe(true);
+    expect(s?.query).toBe('headi');
+  });
+
+  it('backspace deleting the trigger char dismisses', () => {
+    const ed = mount('<p></p>');
+    ed.view.dispatch(ed.state.tr.insertText('/'));
+    expect(slashCommandPluginKey.getState(ed.state)?.active).toBe(true);
+    // Doc has just `/`. Delete it.
+    ed.view.dispatch(ed.state.tr.delete(1, 2));
+    expect(slashCommandPluginKey.getState(ed.state)?.active).toBe(false);
+  });
+
+  it('arrow-right PAST the typed end dismisses (does NOT swallow existing text)', () => {
+    // Mid-text typing: doc starts with "hello world", click after the
+    // space, type "/" -> active query="". Without typing further, move
+    // the cursor RIGHT into "world". Because no typing happened, the
+    // query span shouldn't grow; the popup must dismiss.
+    const ed = mount('<p>hello world</p>');
+    setCursor(ed, 7); // between space and 'w'
+    ed.view.dispatch(ed.state.tr.insertText('/'));
+    const s0 = slashCommandPluginKey.getState(ed.state);
+    expect(s0?.active).toBe(true);
+    expect(s0?.query).toBe('');
+    expect(s0?.range?.to).toBe(8); // right after the typed `/`
+
+    // Arrow-right past `to` (cursor now at 9 = inside "world").
+    setCursor(ed, 9);
+    expect(slashCommandPluginKey.getState(ed.state)?.active).toBe(false);
+  });
+
+  it('arrow-right past typed end dismisses, even with `/he` typed first', () => {
+    // After typing /he, range.to = end of "e". Arrow-right (cursor moves
+    // past existing text outside the typed span) -> dismiss.
+    const ed = mount('<p>hello world</p>');
+    setCursor(ed, 7);
+    typeText(ed, '/he');
+    // Doc now: "hello /heworld". /he is typed, "world" is existing.
+    // range.to should be at end of typed "e" (= initial cursor 7 + 3 typed = 10).
+    const s0 = slashCommandPluginKey.getState(ed.state);
+    expect(s0?.active).toBe(true);
+    expect(s0?.query).toBe('he');
+    const typedEnd = s0!.range!.to;
+
+    // Move cursor one past `to` (into the existing "world"). Dismiss.
+    setCursor(ed, typedEnd + 1);
+    expect(slashCommandPluginKey.getState(ed.state)?.active).toBe(false);
+  });
+
+  it('arrow-left WITHIN the typed query keeps it active and query unchanged', () => {
+    const ed = mount('<p></p>');
+    typeText(ed, '/heading');
+    const s0 = slashCommandPluginKey.getState(ed.state);
+    expect(s0?.query).toBe('heading');
+    const range0 = s0?.range;
+
+    // Cursor was at end (after "g"). Move LEFT into the middle of "heading".
+    // Cursor lands inside the typed span -> popup must stay open with the
+    // SAME query (the user has not changed what they typed).
+    setCursor(ed, range0!.to - 3); // cursor inside "head|ing"
+    const s1 = slashCommandPluginKey.getState(ed.state);
+    expect(s1?.active).toBe(true);
+    expect(s1?.query).toBe('heading');
+    expect(s1?.range).toEqual(range0);
+  });
+
+  it('arrow-left to range.from dismisses (cursor before the /)', () => {
+    const ed = mount('<p></p>');
+    typeText(ed, '/he');
+    const s0 = slashCommandPluginKey.getState(ed.state);
+    const fromPos = s0!.range!.from;
+
+    // Move cursor to position OF the trigger (before `/`).
+    setCursor(ed, fromPos);
+    expect(slashCommandPluginKey.getState(ed.state)?.active).toBe(false);
+  });
+
+  it('arrow-left, then typing in the middle, EXTENDS the query', () => {
+    const ed = mount('<p></p>');
+    typeText(ed, '/he');
+    const s0 = slashCommandPluginKey.getState(ed.state);
+    // Cursor is at end of "e" (range.to). Move cursor BETWEEN "h" and "e".
+    setCursor(ed, s0!.range!.from + 2); // /h|e
+    // Type "x" in the middle. The query becomes "hxe".
+    ed.view.dispatch(ed.state.tr.insertText('x'));
+    const s1 = slashCommandPluginKey.getState(ed.state);
+    expect(s1?.active).toBe(true);
+    expect(s1?.query).toBe('hxe');
+  });
+
+  it('arrow-left then arrow-right back to range.to keeps it active throughout', () => {
+    const ed = mount('<p></p>');
+    typeText(ed, '/heading');
+    const range0 = slashCommandPluginKey.getState(ed.state)?.range;
+
+    setCursor(ed, range0!.to - 4); // hea|ding
+    expect(slashCommandPluginKey.getState(ed.state)?.active).toBe(true);
+
+    setCursor(ed, range0!.to); // back to end
+    const s = slashCommandPluginKey.getState(ed.state);
+    expect(s?.active).toBe(true);
+    expect(s?.query).toBe('heading');
+    expect(s?.range).toEqual(range0);
+  });
+
+  it('Delete (forward delete) of a char OUTSIDE the typed query does NOT extend it', () => {
+    // Type /h with existing "world" after the cursor. Press Delete
+    // forward. The "w" of "world" is removed. Our query stays "h" and
+    // does not absorb anything from the deletion - the typed span is
+    // tracked independently of the surrounding text.
+    const ed = mount('<p>hello world</p>');
+    setCursor(ed, 7); // between space and 'w'
+    typeText(ed, '/h');
+    const s0 = slashCommandPluginKey.getState(ed.state);
+    expect(s0?.query).toBe('h');
+    const cursor0 = ed.state.selection.from;
+    const range0 = s0!.range;
+
+    // Forward-delete: removes char at cursor (the "w" of "world").
+    ed.view.dispatch(ed.state.tr.delete(cursor0, cursor0 + 1));
+    const s1 = slashCommandPluginKey.getState(ed.state);
+    expect(s1?.active).toBe(true);
+    expect(s1?.query).toBe('h');
+    expect(s1?.range).toEqual(range0);
+  });
+
+  it('non-empty selection (shift-arrow inside the popup query) dismisses', () => {
+    const ed = mount('<p></p>');
+    typeText(ed, '/heading');
+    const range0 = slashCommandPluginKey.getState(ed.state)?.range;
+
+    // Programmatic non-empty selection inside the query.
+    const sel = ed.state.selection.constructor as unknown as {
+      create: (doc: typeof ed.state.doc, a: number, b: number) => typeof ed.state.selection;
+    };
+    ed.view.dispatch(
+      ed.state.tr.setSelection(sel.create(ed.state.doc, range0!.from + 2, range0!.from + 4)),
+    );
+    expect(slashCommandPluginKey.getState(ed.state)?.active).toBe(false);
+  });
+
+  it('insertion BEFORE the slash maps from forward; query content unchanged', () => {
+    // Collab edit / programmatic insert before the trigger.
+    const ed = mount('<p></p>');
+    typeText(ed, '/foo');
+    const range0 = slashCommandPluginKey.getState(ed.state)?.range;
+
+    // Insert "X" at offset 1 (start of paragraph) without changing selection.
+    ed.view.dispatch(ed.state.tr.insert(1, ed.schema.text('X')));
+    const s = slashCommandPluginKey.getState(ed.state);
+    expect(s?.active).toBe(true);
+    expect(s?.query).toBe('foo');
+    expect(s?.range?.from).toBe((range0?.from ?? 0) + 1);
+    expect(s?.range?.to).toBe((range0?.to ?? 0) + 1);
+  });
+
+  it('replacing the trigger char itself dismisses the session', () => {
+    // Autocomplete / find-and-replace can swap the `/` for another char
+    // while the session is active. PM marks the `from` position as
+    // deleted by the mapping, which is the primary dismissal path -
+    // either way the popup must close.
+    const ed = mount('<p></p>');
+    typeText(ed, '/foo');
+    const range0 = slashCommandPluginKey.getState(ed.state)?.range;
+    if (!range0) throw new Error('range missing');
+
+    ed.view.dispatch(ed.state.tr.replaceWith(range0.from, range0.to, ed.schema.text('X foo')));
+    expect(slashCommandPluginKey.getState(ed.state)?.active).toBe(false);
+  });
+
+  it('parent flipping into an invalidNodes type dismisses an active session', () => {
+    // An active session inside a paragraph survives normal edits, but if
+    // a transaction converts the surrounding block into an invalid type
+    // (e.g. user toggles the paragraph into a heading while `heading` is
+    // configured as an invalid host), the session must dismiss.
+    host = document.createElement('div');
+    host.className = 'dm-editor';
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: [
+        Document,
+        Text,
+        Paragraph,
+        Heading,
+        SlashCommand.configure({ invalidNodes: ['heading'] }),
+      ],
+      content: '<p></p>',
+    });
+    typeText(editor, '/foo');
+    expect(slashCommandPluginKey.getState(editor.state)?.active).toBe(true);
+
+    // Convert the paragraph into a heading via setBlockType.
+    const headingType = editor.schema.nodes['heading'];
+    if (!headingType) throw new Error('heading node missing');
+    editor.view.dispatch(
+      editor.state.tr.setBlockType(0, editor.state.doc.content.size, headingType, { level: 1 }),
+    );
+    expect(slashCommandPluginKey.getState(editor.state)?.active).toBe(false);
+  });
+
+  it('typing `/` directly after a non-whitespace char does NOT activate (justTypedTrigger passes, findSlashQuery returns null)', () => {
+    // Real typing event (justTypedTrigger=true) but no whitespace before
+    // the trigger means findSlashQuery rejects it. Branch 2 must fall
+    // through to `return prev` rather than activating.
+    const ed = mount('<p>abc</p>');
+    setCursor(ed, 4); // immediately after 'c'
+    ed.view.dispatch(ed.state.tr.insertText('/'));
+    expect(slashCommandPluginKey.getState(ed.state)?.active).toBe(false);
+  });
+
+  it('docChange + cursor explicitly forced past mapped `to` extends `to` to cursor', () => {
+    // Normal typing keeps cursor and `to` in lockstep through right-bias
+    // mapping, so the "cursor > to" branch is unreachable through pure
+    // typing. A transaction that inserts AT `to` AND then explicitly
+    // moves the selection further forward exercises the extension path.
+    const ed = mount('<p></p>');
+    typeText(ed, '/foo');
+    const range0 = slashCommandPluginKey.getState(ed.state)?.range;
+    if (!range0) throw new Error('range missing');
+
+    const sel = ed.state.selection.constructor as unknown as {
+      create: (doc: typeof ed.state.doc, pos: number) => typeof ed.state.selection;
+    };
+    // Insert one char at `to` (right-bias maps both cursor and `to` to to+1),
+    // then override selection to to+2 to push cursor past `to`.
+    const tr = ed.state.tr.insert(range0.to, ed.schema.text('X'));
+    tr.setSelection(sel.create(tr.doc, range0.to + 2));
+    ed.view.dispatch(tr);
+
+    const s = slashCommandPluginKey.getState(ed.state);
+    expect(s?.active).toBe(true);
+    // The plugin should have re-pinned `to` to the new cursor position.
+    expect(s?.range?.to).toBe(ed.state.selection.from);
   });
 });

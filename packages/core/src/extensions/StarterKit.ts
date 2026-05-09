@@ -222,6 +222,11 @@ export const StarterKit = Extension.create<StarterKitOptions>({
     maybeAdd(Gapcursor as never, this.options.gapcursor as never);
     maybeAdd(TrailingNode, this.options.trailingNode);
     maybeAdd(ListKeymap, this.options.listKeymap);
+    // ListIndent MUST be registered AFTER ListKeymap. Collected keymaps run
+    // in `LATER || EARLIER` order, so a later `addKeyboardShortcuts` runs
+    // FIRST. ListIndent fires first, bails when the cursor is inside a
+    // list item, and ListKeymap then handles the in-list Tab/Shift-Tab
+    // (sinkListItem / liftListItem). Reordering breaks that delegation.
     maybeAdd(ListIndent as never, this.options.listIndent as never);
     maybeAdd(LinkPopover, this.options.linkPopover);
     maybeAdd(SelectionDecoration as never, this.options.selectionDecoration as never);

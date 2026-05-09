@@ -199,6 +199,18 @@
   --dm-details-border: 1px solid var(--dm-border-color);
   --dm-details-bg: var(--dm-surface);
   --dm-details-summary-font-weight: 600;
+
+  // ---------------------------------------------------------------------------
+  // Task list
+  // ---------------------------------------------------------------------------
+  // Position of the absolutely-positioned checkbox label inside a taskItem.
+  // `left` hangs the checkbox in the bullet column (paired with the
+  // wrapper's `padding-left: 1.5em` and the checkbox's own 1em width).
+  // `top` is tuned to the first text line's x-height. Override these when
+  // overriding `--dm-editor-line-height` so the checkbox stays aligned
+  // with the first label glyph.
+  --dm-task-checkbox-left: -1.15em;
+  --dm-task-checkbox-top: 0.45em;
 }
 
 // =============================================================================
@@ -224,4 +236,90 @@
   // Separator
   --dm-separator-color: var(--dm-border-color, #e5e7eb);
   --dm-separator-margin: 0.375rem;
+}
+
+// =============================================================================
+// Table-of-contents variables (on :root)
+// =============================================================================
+// The floating ToC outline mounts OUTSIDE `.dm-editor` (so it can sit in
+// the page's right gutter instead of being clipped by the editor's
+// `overflow: hidden`). Tokens therefore live on `:root` to be visible
+// regardless of cascade. Dark theme overrides land in `_dark.scss`.
+
+:root {
+  // Tick widths per heading level. H1 widest, H3 narrowest - the
+  // length encodes hierarchy in the collapsed (default) state.
+  --dm-toc-tick-h1-width: 18px;
+  --dm-toc-tick-h2-width: 12px;
+  --dm-toc-tick-h3-width: 8px;
+  --dm-toc-tick-h4-width: 6px;
+  --dm-toc-tick-h5-width: 5px;
+  --dm-toc-tick-h6-width: 4px;
+  --dm-toc-tick-height: 2px;
+  --dm-toc-tick-radius: 1px;
+  --dm-toc-tick-gap: 10px;
+
+  // Default tick color is the same low-contrast neutral Notion uses;
+  // the active variant (Phase 5) is full text color.
+  --dm-toc-tick-color: rgba(55, 53, 47, 0.4);
+  --dm-toc-tick-hover-color: rgba(55, 53, 47, 0.7);
+  --dm-toc-tick-active-color: rgba(55, 53, 47, 0.95);
+
+  // Panel chrome - mostly transparent in collapsed state, just enough
+  // padding to separate ticks visually from the page edge.
+  --dm-toc-padding-block: 12px;
+  --dm-toc-padding-inline: 8px;
+  --dm-toc-right-offset: 24px;
+  --dm-toc-z-index: 10;
+
+  // Expanded card (Phase 6). The card replaces the tick column on
+  // hover/focus, showing the full heading text with per-level indent.
+  --dm-toc-card-bg: rgba(255, 255, 255, 0.98);
+  --dm-toc-card-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --dm-toc-card-radius: 6px;
+  --dm-toc-card-border: 1px solid rgba(0, 0, 0, 0.06);
+  --dm-toc-card-min-width: 180px;
+  --dm-toc-card-max-width: 260px;
+  --dm-toc-card-padding-block: 6px;
+  // Card slides in from the right edge by this offset on hover/focus.
+  // 8px reads as a clearly intentional motion at 60fps without being
+  // showy; smaller values (4px) feel like a glitch on retina displays.
+  --dm-toc-card-offset: 8px;
+  --dm-toc-card-transition: 180ms;
+
+  --dm-toc-row-padding-block: 4px;
+  --dm-toc-row-padding-inline-start: 12px;
+  --dm-toc-row-padding-inline-end: 16px;
+  --dm-toc-row-indent: 14px;
+  --dm-toc-row-color: rgba(55, 53, 47, 0.7);
+  --dm-toc-row-hover-bg: rgba(0, 0, 0, 0.04);
+  --dm-toc-row-active-color: rgba(55, 53, 47, 0.95);
+  --dm-toc-row-active-weight: 600;
+  --dm-toc-row-font-size: 13px;
+  --dm-toc-row-line-height: 1.4;
+
+  // Inline /toc block (Phase 7). Lives INSIDE the editor as a
+  // first-class document block (vs the floating outline which lives
+  // outside .dm-editor). Styled like a Notion-ish callout: subtle
+  // surface tint, soft border, padded list of heading shortcuts.
+  --dm-toc-block-bg: rgba(0, 0, 0, 0.02);
+  --dm-toc-block-border: 1px solid rgba(0, 0, 0, 0.08);
+  --dm-toc-block-radius: 6px;
+  --dm-toc-block-padding-block: 12px;
+  --dm-toc-block-padding-inline: 16px;
+  --dm-toc-block-margin-block: 1rem;
+  --dm-toc-block-empty-color: rgba(55, 53, 47, 0.5);
+  --dm-toc-block-empty-font-style: italic;
+
+  --dm-toc-block-link-color: rgba(55, 53, 47, 0.8);
+  --dm-toc-block-link-hover-color: rgba(55, 53, 47, 1);
+  --dm-toc-block-link-hover-bg: rgba(0, 0, 0, 0.04);
+  --dm-toc-block-link-active-color: rgba(55, 53, 47, 0.95);
+  --dm-toc-block-link-active-weight: 600;
+  --dm-toc-block-link-padding-block: 4px;
+  --dm-toc-block-link-padding-inline: 8px;
+  --dm-toc-block-link-indent: 16px;
+  --dm-toc-block-link-radius: 3px;
+  --dm-toc-block-link-font-size: 0.9375rem;
+  --dm-toc-block-link-line-height: 1.5;
 }

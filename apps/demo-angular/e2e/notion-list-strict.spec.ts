@@ -644,11 +644,12 @@ test.describe('Notion-strict list schema - children-zone indent', () => {
     expect(ml).toBe(0);
   });
 
-  test('bullet list: nested `<ul data-type="taskList">` IS indented (taskList has padding-left: 0)', async ({ page }) => {
+  test('bullet list: nested `<ul data-type="taskList">` is NOT separately indented (taskList wrapper now has its own `padding-left: 1.5em`, matching bullet/ordered)', async ({ page }) => {
     // Cross-list-type nesting: a taskList inside a bullet item. The
-    // taskList wrapper has no marker padding of its own, so the
-    // children-zone rule INCLUDES it so the task checkboxes still
-    // sit visually one level below the bullet label.
+    // taskList wrapper now reserves its own padding-left for the
+    // checkbox column (mirroring `<ul, ol>`), so adding the children-
+    // zone margin would push the nested task list further right than
+    // a nested plain bullet, breaking visual parity. Excluded.
     await setContent(
       page,
       '<ul><li><p>Outer bullet</p>'
@@ -656,7 +657,7 @@ test.describe('Notion-strict list schema - children-zone indent', () => {
       + '</li></ul>',
     );
     const ml = await marginLeft(page, `${editorSelector} li > ul[data-type="taskList"]`);
-    expect(ml).toBeGreaterThanOrEqual(20);
+    expect(ml).toBe(0);
   });
 
   // ── Ordered list (`<ol>`) parity ────────────────────────────────────
@@ -747,7 +748,7 @@ test.describe('Notion-strict list schema - children-zone indent', () => {
     expect(ml).toBeGreaterThanOrEqual(20);
   });
 
-  test('task list: nested taskList IS indented (taskList wrappers have padding-left: 0)', async ({ page }) => {
+  test('task list: nested taskList is NOT separately indented (its own `padding-left: 1.5em` already gives the same visual indent as plain nested ul)', async ({ page }) => {
     await setContent(
       page,
       '<ul data-type="taskList"><li data-type="taskItem">'
@@ -756,7 +757,7 @@ test.describe('Notion-strict list schema - children-zone indent', () => {
       + '</li></ul>',
     );
     const ml = await marginLeft(page, `${editorSelector} li[data-type="taskItem"] > div > ul[data-type="taskList"]`);
-    expect(ml).toBeGreaterThanOrEqual(20);
+    expect(ml).toBe(0);
   });
 
   test('task list: nested REGULAR `<ul>` (not taskList) is NOT separately indented (its own padding-left already provides indent)', async ({ page }) => {
@@ -807,7 +808,11 @@ test.describe('Notion-strict list schema - children-zone indent', () => {
     expect(mt).toBeLessThanOrEqual(8);
   });
 
-  test('bullet list: indented nested taskList also picks up margin-top: 0.25em', async ({ page }) => {
+  test('bullet list: nested taskList does NOT pick up children-zone margin-top (excluded from rule, same as nested plain ul)', async ({ page }) => {
+    // The nested taskList still inherits the generic `ul, ol { margin: 0.75em 0 }`
+    // rule from _content.scss, so margin-top is the natural list spacing (~12px),
+    // NOT the children-zone increment (0.25em ~= 4px) which is excluded for
+    // ul/ol now that taskList has its own marker padding.
     await setContent(
       page,
       '<ul><li><p>Outer</p>'
@@ -815,8 +820,9 @@ test.describe('Notion-strict list schema - children-zone indent', () => {
       + '</li></ul>',
     );
     const mt = await marginTop(page, `${editorSelector} li > ul[data-type="taskList"]`);
-    expect(mt).toBeGreaterThanOrEqual(3);
-    expect(mt).toBeLessThanOrEqual(8);
+    // Strictly bigger than the children-zone increment (≤8px) to prove the
+    // exclusion is in effect.
+    expect(mt).toBeGreaterThan(8);
   });
 
   // ── Token override (`--dm-block-children-indent`) ──────────────────
@@ -1050,7 +1056,7 @@ test.describe('Notion-strict list schema - children-zone indent under RTL', () =
     expect(ml).toBe(0);
   });
 
-  test('RTL: nested taskList inside bullet still picks up children-zone (margin-RIGHT side)', async ({ page }) => {
+  test('RTL: nested taskList inside bullet is NOT separately indented on the right side (same exclusion as plain ul)', async ({ page }) => {
     await setContent(
       page,
       '<ul><li><p>Outer</p>'
@@ -1059,7 +1065,7 @@ test.describe('Notion-strict list schema - children-zone indent under RTL', () =
     );
     await setRTL(page);
     const mr = await marginRight(page, `${editorSelector} li > ul[data-type="taskList"]`);
-    expect(mr).toBeGreaterThanOrEqual(20);
+    expect(mr).toBe(0);
   });
 
   test('RTL: nested regular `<ul>` still excluded (NOT doubly indented on the right side)', async ({ page }) => {

@@ -51,8 +51,12 @@
 @use 'emoji-picker';
 @use 'table-controls';
 @use 'block-colors';
+@use 'toc';
 
-// 8. Themes
+// 8. Opt-in stylistic presets (apply via host class)
+@use 'notion-mode';
+
+// 9. Themes
 @use 'themes/light';
 @use 'themes/dark';
 

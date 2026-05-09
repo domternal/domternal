@@ -85,6 +85,7 @@
 .dm-theme-dark .dm-editor,
 .dm-theme-dark .dm-toolbar,
 .dm-theme-dark .dm-bubble-menu,
+.dm-theme-dark .dm-floating-menu,
 .dm-theme-dark .dm-emoji-picker,
 .dm-theme-dark .dm-emoji-suggestion,
 .dm-theme-dark .dm-mention-suggestion,
@@ -100,6 +101,7 @@
   .dm-theme-auto .dm-editor,
   .dm-theme-auto .dm-toolbar,
   .dm-theme-auto .dm-bubble-menu,
+  .dm-theme-auto .dm-floating-menu,
   .dm-theme-auto .dm-emoji-picker,
   .dm-theme-auto .dm-emoji-suggestion,
   .dm-theme-auto .dm-mention-suggestion,
@@ -107,5 +109,72 @@
   .dm-theme-auto .dm-slash-command-menu,
   .dm-theme-auto .dm-block-context-menu {
     @include dark-tokens;
+  }
+}
+
+// =============================================================================
+// Floating ToC outline - dark variant
+// =============================================================================
+// The outline mounts OUTSIDE `.dm-editor`, so it needs its own dark
+// selector list - the @include dark-tokens above scopes only general
+// theme tokens (text, background, etc.) which we do not need to flip
+// here. Tick colors are the only ToC tokens that need a dark variant.
+
+.dm-theme-dark .dm-toc-outline,
+.dm-theme-dark.dm-toc-outline {
+  --dm-toc-tick-color: rgba(255, 255, 255, 0.3);
+  --dm-toc-tick-hover-color: rgba(255, 255, 255, 0.6);
+  --dm-toc-tick-active-color: rgba(255, 255, 255, 0.95);
+
+  // Phase 6 card variants - flip light surfaces to dark equivalents.
+  --dm-toc-card-bg: rgba(45, 50, 56, 0.98);
+  --dm-toc-card-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --dm-toc-card-border: 1px solid rgba(255, 255, 255, 0.08);
+  --dm-toc-row-color: rgba(255, 255, 255, 0.7);
+  --dm-toc-row-hover-bg: rgba(255, 255, 255, 0.06);
+  --dm-toc-row-active-color: rgba(255, 255, 255, 0.95);
+}
+
+// Phase 7 inline block - dark variant. The block lives INSIDE
+// .dm-editor so it inherits the dark cascade through the editor
+// host (which the existing dark-tokens block above already covers).
+// We only need to flip the block-specific tokens here.
+.dm-theme-dark .dm-toc-block,
+.dm-theme-dark.dm-toc-block {
+  --dm-toc-block-bg: rgba(255, 255, 255, 0.04);
+  --dm-toc-block-border: 1px solid rgba(255, 255, 255, 0.08);
+  --dm-toc-block-empty-color: rgba(255, 255, 255, 0.4);
+  --dm-toc-block-link-color: rgba(255, 255, 255, 0.7);
+  --dm-toc-block-link-hover-color: rgba(255, 255, 255, 0.95);
+  --dm-toc-block-link-hover-bg: rgba(255, 255, 255, 0.06);
+  --dm-toc-block-link-active-color: rgba(255, 255, 255, 0.95);
+}
+
+@media (prefers-color-scheme: dark) {
+  .dm-theme-auto .dm-toc-block,
+  .dm-theme-auto.dm-toc-block {
+    --dm-toc-block-bg: rgba(255, 255, 255, 0.04);
+    --dm-toc-block-border: 1px solid rgba(255, 255, 255, 0.08);
+    --dm-toc-block-empty-color: rgba(255, 255, 255, 0.4);
+    --dm-toc-block-link-color: rgba(255, 255, 255, 0.7);
+    --dm-toc-block-link-hover-color: rgba(255, 255, 255, 0.95);
+    --dm-toc-block-link-hover-bg: rgba(255, 255, 255, 0.06);
+    --dm-toc-block-link-active-color: rgba(255, 255, 255, 0.95);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .dm-theme-auto .dm-toc-outline,
+  .dm-theme-auto.dm-toc-outline {
+    --dm-toc-tick-color: rgba(255, 255, 255, 0.3);
+    --dm-toc-tick-hover-color: rgba(255, 255, 255, 0.6);
+    --dm-toc-tick-active-color: rgba(255, 255, 255, 0.95);
+
+    --dm-toc-card-bg: rgba(45, 50, 56, 0.98);
+    --dm-toc-card-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    --dm-toc-card-border: 1px solid rgba(255, 255, 255, 0.08);
+    --dm-toc-row-color: rgba(255, 255, 255, 0.7);
+    --dm-toc-row-hover-bg: rgba(255, 255, 255, 0.06);
+    --dm-toc-row-active-color: rgba(255, 255, 255, 0.95);
   }
 }

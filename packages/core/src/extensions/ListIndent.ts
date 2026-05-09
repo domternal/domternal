@@ -32,11 +32,9 @@
  *    Outdent from middle positions would require splitting the list
  *    item, which is deferred.
  *
- * Note: ListIndent must be registered AFTER ListKeymap in the
- * extension chain. The collected-keymap chain is `LATER || EARLIER`,
- * so a later registration runs FIRST. ListIndent fires first, bails
- * when cursor is inside a list item, and ListKeymap then handles the
- * in-list flow.
+ * Registration order: ListIndent must come AFTER ListKeymap so its
+ * keymap runs FIRST and can defer to ListKeymap for in-list flows.
+ * StarterKit handles this; see the registration comment there.
  */
 import { Extension } from '../Extension.js';
 import { NodeSelection, Selection } from '@domternal/pm/state';
