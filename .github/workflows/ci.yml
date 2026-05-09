@@ -51,11 +51,12 @@ jobs:
             ./packages/extension-emoji/coverage/lcov.info,
             ./packages/extension-image/coverage/lcov.info,
             ./packages/extension-mention/coverage/lcov.info,
-            ./packages/extension-table/coverage/lcov.info
+            ./packages/extension-table/coverage/lcov.info,
+            ./packages/extension-toc/coverage/lcov.info
 
       - name: Validate packages
         run: |
-          for pkg in packages/pm packages/core packages/theme packages/angular packages/react packages/vue packages/extension-table packages/extension-image packages/extension-emoji packages/extension-mention packages/extension-details packages/extension-code-block-lowlight; do
+          for pkg in packages/pm packages/core packages/theme packages/angular packages/react packages/vue packages/extension-table packages/extension-image packages/extension-emoji packages/extension-mention packages/extension-details packages/extension-code-block-lowlight packages/extension-toc; do
             echo "--- Validating $pkg ---"
             cd "$pkg"
             npx publint

@@ -43,6 +43,9 @@ flag_management:
     - name: extension-table
       paths:
         - packages/extension-table/src/
+    - name: extension-toc
+      paths:
+        - packages/extension-toc/src/
 
 ignore:
   - "**/*.test.ts"
