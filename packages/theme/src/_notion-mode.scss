@@ -32,9 +32,11 @@
   background: transparent;
 
   // Centered, comfortably narrow reading column. The surrounding margin
-  // is where the BlockHandle sits (see token overrides below). `min()`
-  // keeps the column from overflowing on viewports narrower than 38rem.
-  max-width: min(38rem, 100%);
+  // is where the BlockHandle sits (see token overrides below). Consumers
+  // are expected to control the surrounding container width; on viewports
+  // narrower than 38rem the column overflows by design (Notion mode is
+  // opt-in).
+  max-width: 38rem;
   margin: 0 auto;
 
   // Generous reading line-height and slightly larger text, similar to

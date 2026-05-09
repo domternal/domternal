@@ -850,4 +850,84 @@ describe('SlashCommand - typed-query tracking', () => {
     expect(s?.range?.from).toBe((range0?.from ?? 0) + 1);
     expect(s?.range?.to).toBe((range0?.to ?? 0) + 1);
   });
+
+  it('replacing the trigger char itself dismisses the session', () => {
+    // Autocomplete / find-and-replace can swap the `/` for another char
+    // while the session is active. PM marks the `from` position as
+    // deleted by the mapping, which is the primary dismissal path -
+    // either way the popup must close.
+    const ed = mount('<p></p>');
+    typeText(ed, '/foo');
+    const range0 = slashCommandPluginKey.getState(ed.state)?.range;
+    if (!range0) throw new Error('range missing');
+
+    ed.view.dispatch(ed.state.tr.replaceWith(range0.from, range0.to, ed.schema.text('X foo')));
+    expect(slashCommandPluginKey.getState(ed.state)?.active).toBe(false);
+  });
+
+  it('parent flipping into an invalidNodes type dismisses an active session', () => {
+    // An active session inside a paragraph survives normal edits, but if
+    // a transaction converts the surrounding block into an invalid type
+    // (e.g. user toggles the paragraph into a heading while `heading` is
+    // configured as an invalid host), the session must dismiss.
+    host = document.createElement('div');
+    host.className = 'dm-editor';
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: [
+        Document,
+        Text,
+        Paragraph,
+        Heading,
+        SlashCommand.configure({ invalidNodes: ['heading'] }),
+      ],
+      content: '<p></p>',
+    });
+    typeText(editor, '/foo');
+    expect(slashCommandPluginKey.getState(editor.state)?.active).toBe(true);
+
+    // Convert the paragraph into a heading via setBlockType.
+    const headingType = editor.schema.nodes['heading'];
+    if (!headingType) throw new Error('heading node missing');
+    editor.view.dispatch(
+      editor.state.tr.setBlockType(0, editor.state.doc.content.size, headingType, { level: 1 }),
+    );
+    expect(slashCommandPluginKey.getState(editor.state)?.active).toBe(false);
+  });
+
+  it('typing `/` directly after a non-whitespace char does NOT activate (justTypedTrigger passes, findSlashQuery returns null)', () => {
+    // Real typing event (justTypedTrigger=true) but no whitespace before
+    // the trigger means findSlashQuery rejects it. Branch 2 must fall
+    // through to `return prev` rather than activating.
+    const ed = mount('<p>abc</p>');
+    setCursor(ed, 4); // immediately after 'c'
+    ed.view.dispatch(ed.state.tr.insertText('/'));
+    expect(slashCommandPluginKey.getState(ed.state)?.active).toBe(false);
+  });
+
+  it('docChange + cursor explicitly forced past mapped `to` extends `to` to cursor', () => {
+    // Normal typing keeps cursor and `to` in lockstep through right-bias
+    // mapping, so the "cursor > to" branch is unreachable through pure
+    // typing. A transaction that inserts AT `to` AND then explicitly
+    // moves the selection further forward exercises the extension path.
+    const ed = mount('<p></p>');
+    typeText(ed, '/foo');
+    const range0 = slashCommandPluginKey.getState(ed.state)?.range;
+    if (!range0) throw new Error('range missing');
+
+    const sel = ed.state.selection.constructor as unknown as {
+      create: (doc: typeof ed.state.doc, pos: number) => typeof ed.state.selection;
+    };
+    // Insert one char at `to` (right-bias maps both cursor and `to` to to+1),
+    // then override selection to to+2 to push cursor past `to`.
+    const tr = ed.state.tr.insert(range0.to, ed.schema.text('X'));
+    tr.setSelection(sel.create(tr.doc, range0.to + 2));
+    ed.view.dispatch(tr);
+
+    const s = slashCommandPluginKey.getState(ed.state);
+    expect(s?.active).toBe(true);
+    // The plugin should have re-pinned `to` to the new cursor position.
+    expect(s?.range?.to).toBe(ed.state.selection.from);
+  });
 });
