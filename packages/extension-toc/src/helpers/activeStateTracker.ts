@@ -160,8 +160,10 @@ export function createActiveStateTracker(
       // Diff: remove ones no longer present, add new ones. We keep
       // the observer alive across observe() calls so existing
       // bookkeeping in `intersecting` is still valid for elements
-      // that survive the swap.
+      // that survive the swap. Both directions use Sets to keep the
+      // diff O(n) even on docs with hundreds of headings.
       const nextSet = new Set(elements);
+      const priorSet = new Set(observed);
       for (const prior of observed) {
         if (!nextSet.has(prior)) {
           observer.unobserve(prior);
@@ -169,7 +171,7 @@ export function createActiveStateTracker(
         }
       }
       for (const el of elements) {
-        if (!observed.includes(el)) {
+        if (!priorSet.has(el)) {
           observer.observe(el);
         }
       }

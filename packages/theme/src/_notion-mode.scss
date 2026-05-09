@@ -32,8 +32,9 @@
   background: transparent;
 
   // Centered, comfortably narrow reading column. The surrounding margin
-  // is where the BlockHandle sits (see token overrides below).
-  max-width: 38rem;
+  // is where the BlockHandle sits (see token overrides below). `min()`
+  // keeps the column from overflowing on viewports narrower than 38rem.
+  max-width: min(38rem, 100%);
   margin: 0 auto;
 
   // Generous reading line-height and slightly larger text, similar to

@@ -63,7 +63,7 @@ function renderBlockContent(
   content: HeadingEntry[],
   emptyStateText: string,
 ): void {
-  while (wrapper.firstChild) wrapper.removeChild(wrapper.firstChild);
+  wrapper.replaceChildren();
 
   if (content.length === 0) {
     const empty = document.createElement('p');

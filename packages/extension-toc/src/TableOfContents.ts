@@ -52,12 +52,20 @@ export const tocPluginKey = new PluginKey('toc');
  * and retried by `assignMissingTocIds`, but a stable length keeps
  * generated IDs visually consistent and predictable in tests.
  */
-function defaultGenerateId(): string {
-  let id = '';
-  while (id.length < 8) {
-    id += Math.random().toString(36).slice(2);
+function defaultGenerateId(existingIds: ReadonlySet<string>): string {
+  // Re-roll on collision so the rare overlap is handled here rather than
+  // forcing the caller's retry loop to spin. Worst-case is a handful of
+  // attempts; with 36^8 ~= 2.8 trillion ids the practical bound is one.
+  for (let attempt = 0; attempt < 8; attempt++) {
+    let id = '';
+    while (id.length < 8) {
+      id += Math.random().toString(36).slice(2);
+    }
+    id = id.slice(0, 8);
+    if (!existingIds.has(id)) return id;
   }
-  return id.slice(0, 8);
+  // Pathological fallback. Caller's outer retry will keep spinning if needed.
+  return Math.random().toString(36).slice(2, 10);
 }
 
 function buildContent(state: EditorState, options: TableOfContentsOptions): HeadingEntry[] {
@@ -188,7 +196,15 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
             // hash change), so a stray `#section` from another part
             // of the host app stays untouched.
             if (typeof window !== 'undefined' && window.location.hash) {
-              const hash = window.location.hash.slice(1);
+              // Decode the percent-encoding scrollToHeading writes back so
+              // a round-trip (write hash -> reload -> read hash) finds the
+              // same `data-toc-id` it started from.
+              let hash = window.location.hash.slice(1);
+              try {
+                hash = decodeURIComponent(hash);
+              } catch {
+                // Malformed encoding: fall back to the raw fragment.
+              }
               rafId = requestAnimationFrame(() => {
                 rafId = null;
                 if (editor?.isDestroyed) return;

@@ -15,7 +15,7 @@ export const NOTION_DEMO_CONTENT = `
 
 <h2>Checklist</h2>
 <ul data-type="taskList">
-  <li data-type="taskItem" data-checked="false"><p>Basic formatting (bold, italic, code, link)</p></li>
+  <li data-type="taskItem" data-checked="true"><p>Basic formatting (bold, italic, code, link)</p></li>
   <li data-type="taskItem" data-checked="true"><p>Block drag handle + context menu</p></li>
   <li data-type="taskItem" data-checked="false">
     <p>AI autocomplete integration</p>

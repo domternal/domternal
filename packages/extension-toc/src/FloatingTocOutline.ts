@@ -95,7 +95,11 @@ const OUTLINE_CLASS = 'dm-toc-outline';
 const TICK_CLASS = 'dm-toc-outline-tick';
 const CARD_CLASS = 'dm-toc-outline-card';
 const ROW_CLASS = 'dm-toc-outline-row';
-const ACTIVE_TICK_CLASS = 'dm-toc-outline-tick--active';
+// Applied to BOTH tick buttons and row buttons (anything carrying
+// `data-toc-id` inside the outline), so the name is intentionally
+// neutral instead of "tick--active". Theme rules in `_toc.scss`
+// match this single class for ticks AND rows.
+const ACTIVE_CLASS = 'dm-toc--active';
 
 type OutlineState = 'hidden' | 'collapsed' | 'expanded';
 
@@ -128,7 +132,7 @@ function resolveDefaultOutlineHost(view: EditorView): HTMLElement {
  * the inner DOM cost is microseconds.
  */
 function renderOutlineContent(nav: HTMLElement, content: HeadingEntry[]): void {
-  while (nav.firstChild) nav.removeChild(nav.firstChild);
+  nav.replaceChildren();
 
   for (const entry of content) {
     const tick = document.createElement('button');
@@ -166,7 +170,7 @@ function applyActiveMarker(nav: HTMLElement, activeId: string | null): void {
   const items = nav.querySelectorAll<HTMLElement>('[data-toc-id]');
   for (const item of Array.from(items)) {
     const isActive = activeId !== null && item.dataset['tocId'] === activeId;
-    item.classList.toggle(ACTIVE_TICK_CLASS, isActive);
+    item.classList.toggle(ACTIVE_CLASS, isActive);
     if (isActive) item.setAttribute('aria-current', 'location');
     else item.removeAttribute('aria-current');
   }

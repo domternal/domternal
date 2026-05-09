@@ -2268,11 +2268,11 @@ test.describe('Table of Contents - Phase 5 active state', () => {
     // smooth-scroll path will run, but the visual marker should land
     // synchronously (manual override path, not waiting on IO).
     await ticks.nth(2).dispatchEvent('click');
-    await expect(ticks.nth(2)).toHaveClass(/dm-toc-outline-tick--active/);
+    await expect(ticks.nth(2)).toHaveClass(/dm-toc--active/);
     await expect(ticks.nth(2)).toHaveAttribute('aria-current', 'location');
     // The OTHER ticks must lose the marker - only one tick at a time.
-    await expect(ticks.nth(0)).not.toHaveClass(/dm-toc-outline-tick--active/);
-    await expect(ticks.nth(1)).not.toHaveClass(/dm-toc-outline-tick--active/);
+    await expect(ticks.nth(0)).not.toHaveClass(/dm-toc--active/);
+    await expect(ticks.nth(1)).not.toHaveClass(/dm-toc--active/);
   });
 
   test('storage.activeId mirrors the visually active tick', async ({ page }) => {
@@ -2317,10 +2317,10 @@ test.describe('Table of Contents - Phase 5 active state', () => {
     // active zone after scroll. We also assert the first tick lost
     // the marker.
     const activeTickCount = await ticks.evaluateAll(
-      (nodes) => nodes.filter((n) => n.classList.contains('dm-toc-outline-tick--active')).length,
+      (nodes) => nodes.filter((n) => n.classList.contains('dm-toc--active')).length,
     );
     expect(activeTickCount).toBe(1);
-    await expect(ticks.nth(0)).not.toHaveClass(/dm-toc-outline-tick--active/);
+    await expect(ticks.nth(0)).not.toHaveClass(/dm-toc--active/);
   });
 
   test('above all headings (scrollY=0 with content above first heading), no tick is active', async ({ page }) => {
@@ -2336,7 +2336,7 @@ test.describe('Table of Contents - Phase 5 active state', () => {
     await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => r())));
 
     const activeCount = await page.evaluate(() => {
-      const ticks = document.querySelectorAll('.dm-toc-outline-tick--active');
+      const ticks = document.querySelectorAll('.dm-toc--active');
       return ticks.length;
     });
     // Either 0 active ticks (the canonical "above all" state) or, in
@@ -2477,7 +2477,7 @@ test.describe('Table of Contents - Phase 5 active state', () => {
     // The tick whose data-toc-id matches the preserved heading must
     // be active and storage.activeId must point at it.
     const matched = page.locator(`.dm-toc-outline-tick[data-toc-id="${targetId}"]`);
-    await expect(matched).toHaveClass(/dm-toc-outline-tick--active/);
+    await expect(matched).toHaveClass(/dm-toc--active/);
     const storedActiveId = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | { storage: Record<string, unknown> }

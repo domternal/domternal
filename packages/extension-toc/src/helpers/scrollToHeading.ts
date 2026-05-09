@@ -91,7 +91,10 @@ export function scrollToHeading(
   target.scrollIntoView({ behavior, block: 'start' });
 
   if (options.updateHash !== false && typeof history !== 'undefined') {
-    history.replaceState(null, '', `#${id}`);
+    // Encode the id for the URL fragment. Default IDs are URL-safe base36,
+    // but a consumer-supplied `generateId` (e.g. slugify) may produce
+    // characters that need encoding (`#`, `&`, spaces, non-ASCII).
+    history.replaceState(null, '', `#${encodeURIComponent(id)}`);
   }
 
   return true;

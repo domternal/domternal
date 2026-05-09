@@ -39,6 +39,11 @@ import { createSlashSuggestionRenderer } from './createSlashSuggestionRenderer.j
 
 export const slashCommandPluginKey = new PluginKey<SlashCommandPluginState>('slashCommand');
 
+// Object Replacement Character. ProseMirror uses U+FFFC as a placeholder
+// for non-text leaf nodes when flattening a range to a string, so we never
+// want a real query char to collide with it.
+const PM_LEAF_PLACEHOLDER = '￼';
+
 // ─── Public renderer contract ─────────────────────────────────────────────
 
 export interface SlashCommandProps {
@@ -164,7 +169,7 @@ function findSlashQuery(
     0,
     $from.parentOffset,
     undefined,
-    '\ufffc',
+    PM_LEAF_PLACEHOLDER,
   );
   const triggerIndex = textBefore.lastIndexOf(triggerChar);
   if (triggerIndex === -1) return null;
@@ -272,7 +277,7 @@ export function createSlashCommandPlugin(
             // (e.g. autocomplete inserting AT `from`, or the user
             // pasting over it). If so, the session is gone.
             if (
-              newState.doc.textBetween(from, from + 1, undefined, '￼') !== char
+              newState.doc.textBetween(from, from + 1, undefined, PM_LEAF_PLACEHOLDER) !== char
             ) {
               return { ...INITIAL_STATE };
             }
@@ -309,7 +314,7 @@ export function createSlashCommandPlugin(
             from + 1,
             to,
             undefined,
-            '￼',
+            PM_LEAF_PLACEHOLDER,
           );
           if (/[\n\t]/.test(query)) return { ...INITIAL_STATE };
 

@@ -87,10 +87,10 @@
 
   // Active state (Phase 5): the tick for the heading the user is
   // currently reading. Two selectors so consumers can target either:
-  // the JS-applied class (`--active`) or the a11y attribute set
-  // simultaneously by the plugin (`aria-current="location"`). Hover
-  // state on an active tick keeps the active color - no double-flash.
-  &.dm-toc-outline-tick--active,
+  // the JS-applied class (`--active`, shared with rows) or the a11y
+  // attribute set simultaneously by the plugin (`aria-current="location"`).
+  // Hover state on an active tick keeps the active color - no double-flash.
+  &.dm-toc--active,
   &[aria-current='location'] {
     background: var(--dm-toc-tick-active-color, rgba(55, 53, 47, 0.95));
   }
@@ -126,7 +126,7 @@
   position: absolute;
   right: 0;
   top: 50%;
-  transform: translateY(-50%) translateX(var(--dm-toc-card-offset, 4px));
+  transform: translateY(-50%) translateX(var(--dm-toc-card-offset, 8px));
   min-width: var(--dm-toc-card-min-width, 180px);
   max-width: var(--dm-toc-card-max-width, 260px);
   padding: var(--dm-toc-card-padding-block, 6px) 0;
@@ -189,9 +189,9 @@
   }
 
   // Active row mirrors the active tick. Selector matches both the
-  // JS-applied class (`--active`) and the a11y attribute the plugin
-  // sets simultaneously - same convention as ticks.
-  &.dm-toc-outline-tick--active,
+  // JS-applied class (`--active`, shared with ticks) and the a11y
+  // attribute the plugin sets simultaneously - same convention as ticks.
+  &.dm-toc--active,
   &[aria-current='location'] {
     color: var(--dm-toc-row-active-color, rgba(55, 53, 47, 0.95));
     font-weight: var(--dm-toc-row-active-weight, 600);
@@ -383,7 +383,7 @@
     background: ButtonText;
     border: 1px solid ButtonText;
 
-    &.dm-toc-outline-tick--active,
+    &.dm-toc--active,
     &[aria-current='location'] {
       background: Highlight;
       border-color: Highlight;
@@ -396,7 +396,7 @@
 
   .dm-toc-outline-row,
   .dm-toc-block-link {
-    &.dm-toc-outline-tick--active,
+    &.dm-toc--active,
     &.dm-toc-block-link--active,
     &[aria-current='location'] {
       color: Highlight;

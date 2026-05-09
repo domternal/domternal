@@ -182,10 +182,8 @@ export class NotionDemoComponent implements OnDestroy {
     // Preserve block formatting when pasting at inline positions
     // (the classic "copy h1, Shift+Enter, paste → loses heading" case).
     SmartPaste,
-    // Notion-style ToC (Phase 1 spike): TableOfContents is the data
-    // layer (storage placeholder for now), FloatingTocOutline mounts a
-    // visible "hello outline" div in the right gutter so we can validate
-    // the outlineHost positioning strategy before fleshing out ticks.
+    // Notion-style Table of Contents: data layer + right-rail outline
+    // + inline /toc block. All three opt-in.
     TableOfContents,
     FloatingTocOutline,
     TableOfContentsBlock,
