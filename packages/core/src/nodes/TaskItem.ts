@@ -41,6 +41,7 @@ import type { CommandSpec } from '../types/Commands.js';
 import { getListItemCursorContext } from '../utils/listItemCursorContext.js';
 import { insertChildrenZoneSibling } from '../utils/insertChildrenZoneSibling.js';
 import { liftEmptyChildrenZoneParagraph } from '../utils/liftEmptyChildrenZoneParagraph.js';
+import { TaskItemNodeView } from './TaskItemNodeView.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -118,6 +119,12 @@ export const TaskItem = Node.create<TaskItemOptions>({
       ],
       ['div', 0],
     ];
+  },
+
+  addNodeView() {
+    const options = this.options;
+    return (node, view, getPos) =>
+      new TaskItemNodeView({ options, node, view, getPos });
   },
 
   addCommands() {

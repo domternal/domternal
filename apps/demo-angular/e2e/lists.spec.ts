@@ -590,6 +590,50 @@ test.describe('Task List — rendering', () => {
   });
 });
 
+// ═══════════════════════════════════════════════════════════════════════
+// TASK LIST - checkbox interactivity (Plan 5 NodeView)
+// ═══════════════════════════════════════════════════════════════════════
+
+test.describe('Task List — checkbox interactivity', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('clicking the checkbox toggles data-checked + applies strikethrough', async ({ page }) => {
+    await setContentAndFocus(page, TASK_LIST);
+    const li = page.locator(`${editorSelector} li[data-type="taskItem"]`).first();
+    const cb = li.locator('input[type="checkbox"]');
+    const labelDiv = li.locator('> div').first();
+
+    await expect(li).toHaveAttribute('data-checked', 'false');
+    await expect(cb).not.toBeChecked();
+    await expect(labelDiv).toHaveCSS('text-decoration-line', 'none');
+
+    await cb.click();
+
+    await expect(li).toHaveAttribute('data-checked', 'true');
+    await expect(cb).toBeChecked();
+    await expect(labelDiv).toHaveCSS('text-decoration-line', 'line-through');
+  });
+
+  test('clicking a checked task unchecks it + removes strikethrough', async ({ page }) => {
+    await setContentAndFocus(page, TASK_LIST_CHECKED);
+    const li = page.locator(`${editorSelector} li[data-type="taskItem"]`).first();
+    const cb = li.locator('input[type="checkbox"]');
+    const labelDiv = li.locator('> div').first();
+
+    await expect(li).toHaveAttribute('data-checked', 'true');
+    await expect(labelDiv).toHaveCSS('text-decoration-line', 'line-through');
+
+    await cb.click();
+
+    await expect(li).toHaveAttribute('data-checked', 'false');
+    await expect(cb).not.toBeChecked();
+    await expect(labelDiv).toHaveCSS('text-decoration-line', 'none');
+  });
+});
+
 test.describe('Task List — toolbar', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');

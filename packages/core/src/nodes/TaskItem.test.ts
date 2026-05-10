@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach } from 'vitest';
 import type { Node as PMNode } from '@domternal/pm/model';
 import { TextSelection } from '@domternal/pm/state';
 import { TaskItem } from './TaskItem.js';
@@ -892,6 +892,278 @@ describe('TaskItem', () => {
       // Existing logic responds (typically true via liftListItem) - we
       // just verify the call returns a boolean (no crash, branch reached).
       expect(typeof result).toBe('boolean');
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────────
+  // Plan 5 - TaskItem NodeView (checkbox interactivity)
+  // ────────────────────────────────────────────────────────────────────
+
+  describe('addNodeView (checkbox interactivity)', () => {
+    let editor: Editor | undefined;
+    let host: HTMLElement;
+
+    beforeEach(() => {
+      host = document.createElement('div');
+      document.body.appendChild(host);
+    });
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+      host.remove();
+    });
+
+    function getTaskItemElement(): HTMLLIElement {
+      const li = host.querySelector<HTMLLIElement>('li[data-type="taskItem"]');
+      if (!li) throw new Error('taskItem <li> not found in host');
+      return li;
+    }
+
+    function getCheckbox(): HTMLInputElement {
+      const cb = host.querySelector<HTMLInputElement>('li[data-type="taskItem"] input[type="checkbox"]');
+      if (!cb) throw new Error('checkbox not found in host');
+      return cb;
+    }
+
+    it('mounts with the renderHTML DOM structure (li > [label > input, div])', () => {
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task</p></li></ul>',
+      });
+
+      const li = getTaskItemElement();
+      expect(li.tagName).toBe('LI');
+      expect(li.children).toHaveLength(2);
+      const label = li.children[0] as HTMLElement;
+      const div = li.children[1] as HTMLElement;
+      expect(label.tagName).toBe('LABEL');
+      expect(label.getAttribute('contenteditable')).toBe('false');
+      expect(div.tagName).toBe('DIV');
+      expect(label.children).toHaveLength(1);
+      const input = label.children[0] as HTMLInputElement;
+      expect(input.tagName).toBe('INPUT');
+      expect(input.type).toBe('checkbox');
+      expect(input.getAttribute('aria-label')).toBe('Task status');
+    });
+
+    it('renders data-checked="false" + unchecked input when node.attrs.checked is false', () => {
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task</p></li></ul>',
+      });
+
+      expect(getTaskItemElement().getAttribute('data-checked')).toBe('false');
+      expect(getCheckbox().checked).toBe(false);
+    });
+
+    it('renders data-checked="true" + checked input when node.attrs.checked is true', () => {
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>Done</p></li></ul>',
+      });
+
+      expect(getTaskItemElement().getAttribute('data-checked')).toBe('true');
+      expect(getCheckbox().checked).toBe(true);
+    });
+
+    it('merges options.HTMLAttributes onto the <li>', () => {
+      const CustomTaskItem = TaskItem.configure({
+        HTMLAttributes: { class: 'styled-task-item', 'data-extra': 'x' },
+      });
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, TaskList, CustomTaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task</p></li></ul>',
+      });
+
+      const li = getTaskItemElement();
+      expect(li.classList.contains('styled-task-item')).toBe(true);
+      expect(li.getAttribute('data-extra')).toBe('x');
+      // Identity attributes still win
+      expect(li.getAttribute('data-type')).toBe('taskItem');
+      expect(li.getAttribute('data-checked')).toBe('false');
+    });
+
+    it('clicking the checkbox dispatches a transaction toggling node.attrs.checked', () => {
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task</p></li></ul>',
+      });
+      expect(editor.state.doc.child(0).child(0).attrs['checked']).toBe(false);
+
+      getCheckbox().click();
+
+      expect(editor.state.doc.child(0).child(0).attrs['checked']).toBe(true);
+    });
+
+    it('update() resyncs data-checked + input.checked after an external transaction', () => {
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task</p></li></ul>',
+      });
+
+      // External path: keyboard shortcut / command rather than mouse click.
+      editor.focus('start');
+      editor.commands.toggleTask();
+
+      expect(getTaskItemElement().getAttribute('data-checked')).toBe('true');
+      expect(getCheckbox().checked).toBe(true);
+
+      editor.commands.toggleTask();
+
+      expect(getTaskItemElement().getAttribute('data-checked')).toBe('false');
+      expect(getCheckbox().checked).toBe(false);
+    });
+
+    it('multiple consecutive clicks toggle correctly', () => {
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task</p></li></ul>',
+      });
+
+      const cb = getCheckbox();
+      cb.click(); // -> true
+      expect(editor.state.doc.child(0).child(0).attrs['checked']).toBe(true);
+      cb.click(); // -> false
+      expect(editor.state.doc.child(0).child(0).attrs['checked']).toBe(false);
+      cb.click(); // -> true again
+      expect(editor.state.doc.child(0).child(0).attrs['checked']).toBe(true);
+    });
+
+    it('clicking while editor is not editable does not change node.attrs.checked', () => {
+      // Functional contract: handleChange reads view.editable on every
+      // change event and bails when false, reverting the visual flip.
+      // The input.disabled sync happens through update() which PM only
+      // calls on doc-changing transactions; this test focuses on the
+      // path that actually matters - state cannot be mutated through
+      // the checkbox while the editor is read-only.
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task</p></li></ul>',
+      });
+      editor.setEditable(false);
+
+      getCheckbox().click();
+
+      expect(editor.state.doc.child(0).child(0).attrs['checked']).toBe(false);
+      // Visual revert: NodeView restores input.checked to mirror node.attrs.
+      expect(getCheckbox().checked).toBe(false);
+    });
+
+    it('input.disabled syncs when update() runs on a doc-changing transaction after setEditable(false)', () => {
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task</p></li></ul>',
+      });
+      editor.setEditable(false);
+
+      // A doc-changing tx flowing through the editable=false editor
+      // would normally be filtered, but we can still dispatch it via
+      // view.dispatch directly. Once update() runs, input.disabled
+      // reflects the new editable state.
+      const before = editor.state;
+      const tr = before.tr.insertText('x', 1);
+      editor.view.dispatch(tr);
+
+      expect(getCheckbox().disabled).toBe(true);
+    });
+
+    it('update() returns false on node type mismatch', () => {
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task</p></li></ul>',
+      });
+
+      // Reach into the running NodeView via the TaskItem extension's
+      // addNodeView factory and verify its update() rejects a non-taskItem
+      // node. This is a contract check (PM relies on the false return to
+      // rebuild the view); we cannot easily provoke it through normal
+      // editing because the schema would not produce that mutation.
+      const taskItemExt = editor.extensionManager.extensions.find((e) => e.name === 'taskItem');
+
+      const factory = (taskItemExt as any).config.addNodeView?.call({
+        ...taskItemExt,
+        options: taskItemExt!.options,
+        nodeType: editor.schema.nodes['taskItem'],
+        editor,
+      });
+      const taskNode = editor.state.doc.firstChild!.firstChild!;
+      const nv = factory(taskNode, editor.view, () => 0);
+
+      const paragraphNode = editor.schema.nodes['paragraph']!.create();
+      expect(nv.update(paragraphNode)).toBe(false);
+    });
+
+    it('getHTML() round-trip is preserved (renderHTML output unchanged)', () => {
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task</p></li></ul>',
+      });
+
+      const initialHtml = editor.getHTML();
+      // Click to toggle, getHTML reflects the new attr value.
+      getCheckbox().click();
+      const toggledHtml = editor.getHTML();
+
+      expect(initialHtml).toContain('data-type="taskItem"');
+      expect(initialHtml).toContain('data-checked="false"');
+      expect(toggledHtml).toContain('data-checked="true"');
+      // Click back, output goes back to original shape.
+      getCheckbox().click();
+      expect(editor.getHTML()).toBe(initialHtml);
+    });
+
+    it('parseDOM round-trip: setContent with data-checked="true" + click toggles off', () => {
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>Done</p></li></ul>',
+      });
+
+      expect(editor.state.doc.child(0).child(0).attrs['checked']).toBe(true);
+      expect(getCheckbox().checked).toBe(true);
+
+      getCheckbox().click();
+
+      expect(editor.state.doc.child(0).child(0).attrs['checked']).toBe(false);
+      expect(getTaskItemElement().getAttribute('data-checked')).toBe('false');
+    });
+
+    it('stopEvent returns true for events on the label subtree, false otherwise', () => {
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content: '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task</p></li></ul>',
+      });
+
+      const taskItemExt = editor.extensionManager.extensions.find((e) => e.name === 'taskItem');
+
+      const factory = (taskItemExt as any).config.addNodeView?.call({
+        ...taskItemExt,
+        options: taskItemExt!.options,
+        nodeType: editor.schema.nodes['taskItem'],
+        editor,
+      });
+      const taskNode = editor.state.doc.firstChild!.firstChild!;
+      const nv = factory(taskNode, editor.view, () => 0);
+
+      const labelEvent = new MouseEvent('mousedown');
+      Object.defineProperty(labelEvent, 'target', { value: nv.dom.querySelector('input'), writable: false });
+      expect(nv.stopEvent(labelEvent)).toBe(true);
+
+      const contentEvent = new MouseEvent('mousedown');
+      Object.defineProperty(contentEvent, 'target', { value: nv.contentDOM, writable: false });
+      expect(nv.stopEvent(contentEvent)).toBe(false);
     });
   });
 });

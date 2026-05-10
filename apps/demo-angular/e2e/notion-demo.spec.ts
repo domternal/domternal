@@ -625,6 +625,56 @@ test.describe('Task-list checkbox tokens', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
+// 6e. Task-list checkbox interactivity - NodeView (Plan 5)
+// (regression guard for the click-to-toggle path; without a NodeView the
+// native checkbox flips visually but PM never sees the change, so
+// data-checked stays the old value and the strikethrough rule
+// `[data-checked="true"] > div { text-decoration: line-through }` in
+// `_task-list.scss` never matches.)
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('Task-list checkbox interactivity (NodeView)', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('clicking the checkbox toggles data-checked + applies strikethrough', async ({ page }) => {
+    await setContent(page,
+      '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>todo</p></li></ul>',
+    );
+    const li = page.locator(`${editorSelector} li[data-type="taskItem"]`).first();
+    const cb = li.locator('input[type="checkbox"]');
+    const labelDiv = li.locator('> div').first();
+
+    await expect(li).toHaveAttribute('data-checked', 'false');
+    await expect(cb).not.toBeChecked();
+    await expect(labelDiv).toHaveCSS('text-decoration-line', 'none');
+
+    await cb.click();
+
+    await expect(li).toHaveAttribute('data-checked', 'true');
+    await expect(cb).toBeChecked();
+    await expect(labelDiv).toHaveCSS('text-decoration-line', 'line-through');
+  });
+
+  test('clicking again unchecks + removes strikethrough', async ({ page }) => {
+    await setContent(page,
+      '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>done</p></li></ul>',
+    );
+    const li = page.locator(`${editorSelector} li[data-type="taskItem"]`).first();
+    const cb = li.locator('input[type="checkbox"]');
+    const labelDiv = li.locator('> div').first();
+
+    await expect(li).toHaveAttribute('data-checked', 'true');
+    await expect(labelDiv).toHaveCSS('text-decoration-line', 'line-through');
+
+    await cb.click();
+
+    await expect(li).toHaveAttribute('data-checked', 'false');
+    await expect(cb).not.toBeChecked();
+    await expect(labelDiv).toHaveCSS('text-decoration-line', 'none');
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
 // 7. Turn into - type + attribute preservation
 // ────────────────────────────────────────────────────────────────────────
 
