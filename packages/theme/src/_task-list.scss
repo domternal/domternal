@@ -73,8 +73,15 @@
         }
       }
 
-      // Checked state, strikethrough and dimmed.
-      &[data-checked="true"] > div {
+      // Checked state: strikethrough and dim ONLY the label paragraph
+      // (the first child of the children-zone div). Targeting `> div`
+      // would propagate `text-decoration` and `opacity` into the
+      // entire children-zone subtree, including nested taskItems and
+      // children-zone notes paragraphs. Notion-style: checking a
+      // parent task marks ONLY that task's label, never bleeds into
+      // children. Schema enforces paragraph-as-first-child via
+      // `taskItem.content = 'paragraph block*'`.
+      &[data-checked="true"] > div > p:first-child {
         text-decoration: line-through;
         opacity: 0.6;
       }

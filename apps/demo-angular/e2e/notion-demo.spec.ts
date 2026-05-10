@@ -636,23 +636,23 @@ test.describe('Task-list checkbox tokens', () => {
 test.describe('Task-list checkbox interactivity (NodeView)', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
-  test('clicking the checkbox toggles data-checked + applies strikethrough', async ({ page }) => {
+  test('clicking the checkbox toggles data-checked + applies strikethrough on the label paragraph', async ({ page }) => {
     await setContent(page,
       '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>todo</p></li></ul>',
     );
     const li = page.locator(`${editorSelector} li[data-type="taskItem"]`).first();
     const cb = li.locator('input[type="checkbox"]');
-    const labelDiv = li.locator('> div').first();
+    const label = li.locator('> div > p').first();
 
     await expect(li).toHaveAttribute('data-checked', 'false');
     await expect(cb).not.toBeChecked();
-    await expect(labelDiv).toHaveCSS('text-decoration-line', 'none');
+    await expect(label).toHaveCSS('text-decoration-line', 'none');
 
     await cb.click();
 
     await expect(li).toHaveAttribute('data-checked', 'true');
     await expect(cb).toBeChecked();
-    await expect(labelDiv).toHaveCSS('text-decoration-line', 'line-through');
+    await expect(label).toHaveCSS('text-decoration-line', 'line-through');
   });
 
   test('clicking again unchecks + removes strikethrough', async ({ page }) => {
@@ -661,16 +661,162 @@ test.describe('Task-list checkbox interactivity (NodeView)', () => {
     );
     const li = page.locator(`${editorSelector} li[data-type="taskItem"]`).first();
     const cb = li.locator('input[type="checkbox"]');
-    const labelDiv = li.locator('> div').first();
+    const label = li.locator('> div > p').first();
 
     await expect(li).toHaveAttribute('data-checked', 'true');
-    await expect(labelDiv).toHaveCSS('text-decoration-line', 'line-through');
+    await expect(label).toHaveCSS('text-decoration-line', 'line-through');
 
     await cb.click();
 
     await expect(li).toHaveAttribute('data-checked', 'false');
     await expect(cb).not.toBeChecked();
-    await expect(labelDiv).toHaveCSS('text-decoration-line', 'none');
+    await expect(label).toHaveCSS('text-decoration-line', 'none');
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// 6f. Task-list checked-state isolation (Notion parity)
+// (regression guard against the strikethrough bleeding from the parent's
+// children-zone div into nested taskItems and children-zone notes
+// paragraphs. Notion behavior: only the parent's LABEL paragraph is
+// struck; nested children render at full opacity, no line-through,
+// regardless of the parent's `data-checked` state.)
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('Task-list checked-state isolation', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  // Shape: parent (li#0) checked + nested child taskList containing
+  // unchecked child (li#1) and checked grandchild semantics not needed.
+  const NESTED_CONTENT = `
+    <ul data-type="taskList">
+      <li data-type="taskItem" data-checked="false">
+        <p>parent</p>
+        <ul data-type="taskList">
+          <li data-type="taskItem" data-checked="false">
+            <p>child</p>
+          </li>
+        </ul>
+      </li>
+    </ul>`;
+
+  test('initial render: parent checked, child unchecked - only parent label is struck', async ({ page }) => {
+    await setContent(page,
+      '<ul data-type="taskList">' +
+        '<li data-type="taskItem" data-checked="true">' +
+          '<p>parent</p>' +
+          '<ul data-type="taskList">' +
+            '<li data-type="taskItem" data-checked="false">' +
+              '<p>child</p>' +
+            '</li>' +
+          '</ul>' +
+        '</li>' +
+      '</ul>',
+    );
+    const items = page.locator(`${editorSelector} li[data-type="taskItem"]`);
+    const parentLabel = items.nth(0).locator('> div > p').first();
+    const childLabel = items.nth(1).locator('> div > p').first();
+
+    await expect(parentLabel).toHaveCSS('text-decoration-line', 'line-through');
+    await expect(childLabel).toHaveCSS('text-decoration-line', 'none');
+  });
+
+  test('initial render: parent unchecked, child checked - only child label is struck', async ({ page }) => {
+    await setContent(page,
+      '<ul data-type="taskList">' +
+        '<li data-type="taskItem" data-checked="false">' +
+          '<p>parent</p>' +
+          '<ul data-type="taskList">' +
+            '<li data-type="taskItem" data-checked="true">' +
+              '<p>child</p>' +
+            '</li>' +
+          '</ul>' +
+        '</li>' +
+      '</ul>',
+    );
+    const items = page.locator(`${editorSelector} li[data-type="taskItem"]`);
+    const parentLabel = items.nth(0).locator('> div > p').first();
+    const childLabel = items.nth(1).locator('> div > p').first();
+
+    await expect(parentLabel).toHaveCSS('text-decoration-line', 'none');
+    await expect(childLabel).toHaveCSS('text-decoration-line', 'line-through');
+  });
+
+  test('initial render: both checked - both labels struck (one rule per item)', async ({ page }) => {
+    await setContent(page,
+      '<ul data-type="taskList">' +
+        '<li data-type="taskItem" data-checked="true">' +
+          '<p>parent</p>' +
+          '<ul data-type="taskList">' +
+            '<li data-type="taskItem" data-checked="true">' +
+              '<p>child</p>' +
+            '</li>' +
+          '</ul>' +
+        '</li>' +
+      '</ul>',
+    );
+    const items = page.locator(`${editorSelector} li[data-type="taskItem"]`);
+    const parentLabel = items.nth(0).locator('> div > p').first();
+    const childLabel = items.nth(1).locator('> div > p').first();
+
+    await expect(parentLabel).toHaveCSS('text-decoration-line', 'line-through');
+    await expect(childLabel).toHaveCSS('text-decoration-line', 'line-through');
+  });
+
+  test('clicking parent checkbox does NOT strike the nested child label', async ({ page }) => {
+    await setContent(page, NESTED_CONTENT.trim());
+    const items = page.locator(`${editorSelector} li[data-type="taskItem"]`);
+    const parentItem = items.nth(0);
+    const childLabel = items.nth(1).locator('> div > p').first();
+    const parentCheckbox = parentItem.locator('> label > input[type="checkbox"]').first();
+
+    // Sanity: both unchecked, neither struck.
+    await expect(items.nth(0).locator('> div > p').first()).toHaveCSS('text-decoration-line', 'none');
+    await expect(childLabel).toHaveCSS('text-decoration-line', 'none');
+
+    await parentCheckbox.click();
+
+    // Parent is now checked + struck; child label remains unchanged.
+    await expect(parentItem).toHaveAttribute('data-checked', 'true');
+    await expect(items.nth(0).locator('> div > p').first()).toHaveCSS('text-decoration-line', 'line-through');
+    await expect(items.nth(1)).toHaveAttribute('data-checked', 'false');
+    await expect(childLabel).toHaveCSS('text-decoration-line', 'none');
+  });
+
+  test('clicking parent checkbox does NOT dim the nested child label (opacity isolation)', async ({ page }) => {
+    await setContent(page, NESTED_CONTENT.trim());
+    const items = page.locator(`${editorSelector} li[data-type="taskItem"]`);
+    const parentCheckbox = items.nth(0).locator('> label > input[type="checkbox"]').first();
+    const childLabel = items.nth(1).locator('> div > p').first();
+
+    await parentCheckbox.click();
+
+    // The dim rule is applied alongside line-through on the label
+    // paragraph only, so the nested child label keeps full opacity
+    // (computed style = '1', not the parent's 0.6).
+    await expect(childLabel).toHaveCSS('opacity', '1');
+  });
+
+  test('clicking parent does NOT strike a children-zone notes paragraph', async ({ page }) => {
+    // Children-zone non-label paragraph: in Notion this stays normal
+    // when the parent is checked (only the label line is "done").
+    await setContent(page,
+      '<ul data-type="taskList">' +
+        '<li data-type="taskItem" data-checked="false">' +
+          '<p>label</p>' +
+          '<p>notes paragraph in children-zone</p>' +
+        '</li>' +
+      '</ul>',
+    );
+    const li = page.locator(`${editorSelector} li[data-type="taskItem"]`).first();
+    const cb = li.locator('> label > input[type="checkbox"]').first();
+    const labelP = li.locator('> div > p').nth(0);
+    const notesP = li.locator('> div > p').nth(1);
+
+    await cb.click();
+
+    await expect(labelP).toHaveCSS('text-decoration-line', 'line-through');
+    await expect(notesP).toHaveCSS('text-decoration-line', 'none');
   });
 });
 
