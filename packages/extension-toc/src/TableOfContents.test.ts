@@ -7,27 +7,41 @@ import {
   Heading,
   BaseKeymap,
   History,
+  UniqueID,
 } from '@domternal/core';
 import { TableOfContents } from './TableOfContents.js';
 import type { TocStorage } from './types.js';
 
-const baseExtensions = [Document, Text, Paragraph, Heading, BaseKeymap, History, TableOfContents];
+// Notion-style setup: TOC requires UniqueID as a peer extension.
+// `UniqueID` defaults assign `id` to heading nodes (and other block
+// types). TOC reads from `node.attrs.id` instead of writing its own.
+const baseExtensions = [
+  Document,
+  Text,
+  Paragraph,
+  Heading,
+  BaseKeymap,
+  History,
+  UniqueID,
+  TableOfContents,
+];
 
 /**
- * The plugin's `view().init` defers initial ID assignment / storage
- * population to `setTimeout(0)` (matches UniqueID; avoids dispatching
- * during plugin init). Tests must wait one macrotask before reading
- * `editor.storage.toc`.
+ * Both UniqueID and TOC defer their initial passes to `setTimeout(0)`
+ * (avoid dispatching during plugin init). Tests must wait one macrotask
+ * before reading `editor.storage.toc`. We wait two to be safe in case
+ * the relative ordering of the two timers shifts.
  */
-const flushDeferred = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+const flushDeferred = (): Promise<void> =>
+  new Promise((r) => setTimeout(() => setTimeout(r, 0), 0));
 
 const tocStorage = (editor: Editor): TocStorage => editor.storage['toc'] as TocStorage;
 
-const collectTocIds = (editor: Editor): (string | null)[] => {
+const collectHeadingIds = (editor: Editor): (string | null)[] => {
   const ids: (string | null)[] = [];
   editor.state.doc.descendants((node) => {
     if (node.type.name === 'heading') {
-      const id = node.attrs['tocId'];
+      const id = node.attrs['id'];
       ids.push(typeof id === 'string' && id.length > 0 ? id : null);
     }
   });
@@ -42,7 +56,10 @@ describe('TableOfContents - configuration', () => {
   it('exposes default options', () => {
     expect(TableOfContents.options.levels).toEqual([1, 2, 3]);
     expect(TableOfContents.options.anchorTypes).toEqual(['heading']);
-    expect(typeof TableOfContents.options.generateId).toBe('function');
+  });
+
+  it('does not expose generateId — id generation lives in UniqueID', () => {
+    expect((TableOfContents.options as { generateId?: unknown }).generateId).toBeUndefined();
   });
 
   it('initial storage is empty (subscribers Set is fresh)', () => {
@@ -55,15 +72,130 @@ describe('TableOfContents - configuration', () => {
     expect(storage.subscribers.size).toBe(0);
   });
 
-  it('declares tocId via addGlobalAttributes scoped to anchorTypes', () => {
-    const globalAttrs = TableOfContents.config.addGlobalAttributes?.call(TableOfContents);
-    expect(globalAttrs).toHaveLength(1);
-    expect(globalAttrs?.[0]?.types).toEqual(['heading']);
-    expect(globalAttrs?.[0]?.attributes).toHaveProperty('tocId');
+  it('does NOT declare a tocId schema attribute (id source is UniqueID)', () => {
+    // Pre-refactor TOC declared `tocId` via addGlobalAttributes; that
+    // is gone. The contract is now that UniqueID owns the schema attr
+    // and TOC reads it.
+    const globalAttrs = TableOfContents.config.addGlobalAttributes;
+    expect(globalAttrs).toBeUndefined();
   });
 });
 
-describe('TableOfContents - integration with Editor', () => {
+describe('TableOfContents - peer dependency on UniqueID', () => {
+  let editor: Editor | undefined;
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) editor.destroy();
+    editor = undefined;
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('logs a clear error when TOC is loaded without UniqueID', async () => {
+    // Intentionally exclude UniqueID from extensions to verify the
+    // peer-dependency contract.
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, Heading, BaseKeymap, History, TableOfContents],
+      content: '<h1>Lonely</h1>',
+    });
+    await flushDeferred();
+
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    const message = String(consoleErrorSpy.mock.calls[0]?.[0] ?? '');
+    expect(message).toContain('TableOfContents');
+    expect(message).toContain('UniqueID');
+  });
+
+  it('renders editor cleanly without UniqueID (no crash, just inert TOC)', async () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, Heading, BaseKeymap, History, TableOfContents],
+      content: '<h1>Lonely</h1>',
+    });
+    await flushDeferred();
+
+    // Editor itself works (paragraphs, headings render). TOC plugin is
+    // a no-op: storage stays empty.
+    expect(tocStorage(editor).content).toEqual([]);
+    expect(editor.getHTML()).toContain('<h1>');
+  });
+
+  it('does not register a scrollToHeading plugin path when UniqueID is absent', async () => {
+    // The command is still defined on RawCommands (declared in the
+    // extension); but with UniqueID missing, it can't find headings to
+    // navigate to. We verify the no-error path here.
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph, Heading, BaseKeymap, History, TableOfContents],
+      content: '<h1>Lonely</h1>',
+    });
+    await flushDeferred();
+
+    // scrollToHeading is registered (addCommands runs unconditionally),
+    // but with no headings carrying ids, it returns false.
+    const result = editor.commands['scrollToHeading']?.('any-id');
+    expect(result).toBe(false);
+  });
+});
+
+describe('TableOfContents - peer config validation', () => {
+  let editor: Editor | undefined;
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) editor.destroy();
+    editor = undefined;
+  });
+
+  it('warns when UniqueID.types omits an anchor type that TOC needs', async () => {
+    // Configure UniqueID to only handle paragraphs, not headings. TOC
+    // will walk headings (its default anchorTypes) but find no ids on
+    // them. We expect a clear console.warn at init.
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const NarrowUniqueID = UniqueID.configure({ types: ['paragraph'] });
+      editor = new Editor({
+        extensions: [
+          Document, Text, Paragraph, Heading, BaseKeymap, History, NarrowUniqueID, TableOfContents,
+        ],
+        content: '<h1>No id</h1>',
+      });
+      await flushDeferred();
+
+      expect(consoleWarnSpy).toHaveBeenCalled();
+      const message = String(consoleWarnSpy.mock.calls[0]?.[0] ?? '');
+      expect(message).toContain('TableOfContents');
+      expect(message).toContain('UniqueID.types');
+      expect(message).toContain('heading');
+
+      // TOC still functions: storage is populated but ids are empty.
+      const entries = tocStorage(editor).content;
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.id).toBe('');
+    } finally {
+      consoleWarnSpy.mockRestore();
+    }
+  });
+
+  it('does NOT warn when UniqueID.types covers all anchor types', async () => {
+    const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      // Default UniqueID.types includes 'heading'; default TOC.anchorTypes
+      // is ['heading']. No mismatch — no warn.
+      editor = new Editor({
+        extensions: baseExtensions,
+        content: '<h1>OK</h1>',
+      });
+      await flushDeferred();
+      expect(consoleWarnSpy).not.toHaveBeenCalled();
+    } finally {
+      consoleWarnSpy.mockRestore();
+    }
+  });
+});
+
+describe('TableOfContents - integration with UniqueID', () => {
   let editor: Editor | undefined;
 
   afterEach(() => {
@@ -84,9 +216,10 @@ describe('TableOfContents - integration with Editor', () => {
       { level: 2, text: 'Beta' },
       { level: 3, text: 'Gamma' },
     ]);
-    // Every entry has a non-empty stable ID
-    for (const e of entries) expect(e.id).toMatch(/^.{8}$/);
-    // Initial isActive / isScrolledOver flags are false (Phase 5 fills these in)
+    // Every entry has a non-empty stable ID sourced from UniqueID
+    for (const e of entries) expect(typeof e.id).toBe('string');
+    for (const e of entries) expect(e.id.length).toBeGreaterThan(0);
+    // Initial isActive / isScrolledOver flags are false
     for (const e of entries) {
       expect(e.isActive).toBe(false);
       expect(e.isScrolledOver).toBe(false);
@@ -94,30 +227,41 @@ describe('TableOfContents - integration with Editor', () => {
     }
   });
 
-  it('writes data-toc-id to the rendered DOM', async () => {
+  it('does NOT write data-toc-id to the rendered DOM (only native id remains)', async () => {
     editor = new Editor({
       extensions: baseExtensions,
       content: '<h1>One</h1>',
     });
     await flushDeferred();
     const heading = editor.view.dom.querySelector('h1');
-    expect(heading?.getAttribute('data-toc-id')).toMatch(/^.{8}$/);
+    expect(heading?.getAttribute('data-toc-id')).toBeNull();
+    expect(heading?.getAttribute('id')).toBeTruthy();
+    expect(heading?.getAttribute('id')).toMatch(/.+/);
   });
 
-  it('preserves an existing ID stamped by appendTransaction across a level toggle', async () => {
+  it('storage entry id mirrors the heading element id in the DOM', async () => {
+    editor = new Editor({
+      extensions: baseExtensions,
+      content: '<h1>Alpha</h1><h2>Beta</h2>',
+    });
+    await flushDeferred();
+    const headings = Array.from(editor.view.dom.querySelectorAll('h1, h2'));
+    const domIds = headings.map((h) => h.getAttribute('id'));
+    const storageIds = tocStorage(editor).content.map((e) => e.id);
+    expect(storageIds).toEqual(domIds);
+  });
+
+  it('preserves the heading id across a level toggle (UniqueID stability)', async () => {
     editor = new Editor({
       extensions: baseExtensions,
       content: '<h2>Section</h2>',
     });
     await flushDeferred();
-    const idBefore = collectTocIds(editor)[0];
+    const idBefore = collectHeadingIds(editor)[0];
     expect(idBefore).not.toBeNull();
 
-    // Toggle the heading from H2 to H3 via the framework command.
-    // The level attr changes; tocId must NOT be regenerated (this is
-    // the whole point of D4 - own attribute decoupled from UniqueID).
     editor.commands.setHeading({ level: 3 });
-    const idAfter = collectTocIds(editor)[0];
+    const idAfter = collectHeadingIds(editor)[0];
     expect(idAfter).toBe(idBefore);
 
     const entries = tocStorage(editor).content;
@@ -126,7 +270,7 @@ describe('TableOfContents - integration with Editor', () => {
     expect(entries[0]?.id).toBe(idBefore);
   });
 
-  it('assigns IDs to newly added headings on the same transaction', async () => {
+  it('populates storage when new headings are added after initial paint', async () => {
     editor = new Editor({
       extensions: baseExtensions,
       content: '<h1>Original</h1>',
@@ -134,15 +278,11 @@ describe('TableOfContents - integration with Editor', () => {
     await flushDeferred();
     expect(tocStorage(editor).content).toHaveLength(1);
 
-    // Replace the doc to add a second heading. setContent is the
-    // deterministic way to land at a known doc state, vs insertContent
-    // whose insertion point depends on cursor selection. The plugin's
-    // appendTransaction fires on the dispatched replacement, then
-    // `view().update` re-syncs storage.
     editor.setContent('<h1>Original</h1><h2>Fresh</h2>');
+    await flushDeferred();
     const entries = tocStorage(editor).content;
     expect(entries).toHaveLength(2);
-    for (const e of entries) expect(e.id).toMatch(/^.{8}$/);
+    for (const e of entries) expect(e.id.length).toBeGreaterThan(0);
     expect(entries[1]?.textContent).toBe('Fresh');
   });
 
@@ -154,7 +294,6 @@ describe('TableOfContents - integration with Editor', () => {
     await flushDeferred();
     expect(tocStorage(editor).content).toHaveLength(2);
 
-    // Delete the second heading by selecting it and replacing with empty.
     const doc = editor.state.doc;
     const secondHeadingPos = doc.child(0).nodeSize;
     const secondHeadingEnd = secondHeadingPos + doc.child(1).nodeSize;
@@ -163,20 +302,6 @@ describe('TableOfContents - integration with Editor', () => {
     const entries = tocStorage(editor).content;
     expect(entries).toHaveLength(1);
     expect(entries[0]?.textContent).toBe('Keep');
-  });
-
-  it('renames duplicate IDs that arrive via paste (collision rename)', async () => {
-    editor = new Editor({
-      extensions: baseExtensions,
-      content: '<h1 data-toc-id="dup">Loaded first</h1><h2 data-toc-id="dup">Loaded second</h2>',
-    });
-    await flushDeferred();
-
-    const ids = collectTocIds(editor);
-    expect(ids).toHaveLength(2);
-    expect(ids[0]).toBe('dup');
-    expect(ids[1]).not.toBe('dup');
-    expect(ids[1]).toMatch(/^.{8}$/);
   });
 
   it('fires onUpdate when storage content changes', async () => {
@@ -189,7 +314,9 @@ describe('TableOfContents - integration with Editor', () => {
       },
     });
     editor = new Editor({
-      extensions: [Document, Text, Paragraph, Heading, BaseKeymap, History, ConfiguredToc],
+      extensions: [
+        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID, ConfiguredToc,
+      ],
       content: '<h1>One</h1>',
     });
     await flushDeferred();
@@ -199,6 +326,7 @@ describe('TableOfContents - integration with Editor', () => {
     expect(lastStorageRef!.content).toHaveLength(1);
 
     editor.setContent('<h1>One</h1><h2>Two</h2>');
+    await flushDeferred();
     expect(callbackCount).toBeGreaterThan(initialCount);
     expect(lastStorageRef!.content).toHaveLength(2);
   });
@@ -214,18 +342,20 @@ describe('TableOfContents - integration with Editor', () => {
     const ed = editor;
     const fn = (): void => { calls += 1; };
     tocStorage(ed).subscribers.add(fn);
-    const unsubscribe = (): void => { tocStorage(ed).subscribers.delete(fn); };
 
     editor.setContent('<h1>One</h1><h2>Two</h2>');
-    expect(calls).toBe(1);
+    await flushDeferred();
+    expect(calls).toBeGreaterThanOrEqual(1);
 
-    unsubscribe();
+    const callsBefore = calls;
+    tocStorage(ed).subscribers.delete(fn);
 
     editor.setContent('<h1>One</h1><h2>Two</h2><h3>Three</h3>');
-    expect(calls).toBe(1);
+    await flushDeferred();
+    expect(calls).toBe(callsBefore);
   });
 
-  it('isolates two concurrent editor instances - storage does not bleed between them', async () => {
+  it('isolates two concurrent editor instances (storage does not bleed)', async () => {
     const editorA = new Editor({
       extensions: baseExtensions,
       content: '<h1>A</h1>',
@@ -242,7 +372,6 @@ describe('TableOfContents - integration with Editor', () => {
       expect(aContent[0]?.textContent).toBe('A');
       expect(bContent).toHaveLength(2);
       expect(bContent.map((e) => e.textContent)).toEqual(['B1', 'B2']);
-      // The Set instances must be distinct - same-reference would cross-fire.
       expect(aContent).not.toBe(bContent);
       expect((editorA.storage['toc'] as TocStorage).subscribers)
         .not.toBe((editorB.storage['toc'] as TocStorage).subscribers);
@@ -250,24 +379,6 @@ describe('TableOfContents - integration with Editor', () => {
       editorA.destroy();
       editorB.destroy();
     }
-  });
-
-  it('does not reassign IDs when the same heading is re-rendered (idempotency under repeated transactions)', async () => {
-    editor = new Editor({
-      extensions: baseExtensions,
-      content: '<h1>Stable</h1>',
-    });
-    await flushDeferred();
-    const idBefore = collectTocIds(editor)[0];
-
-    // Trigger several no-op-ish transactions that touch other parts of
-    // the doc but never the heading. The plugin should not regenerate
-    // the heading's ID on any of them.
-    for (let i = 0; i < 3; i++) {
-      editor.commands.insertContent('<p>text</p>');
-    }
-    const idAfter = collectTocIds(editor)[0];
-    expect(idAfter).toBe(idBefore);
   });
 
   it('initializes empty storage for a doc with no headings', async () => {
@@ -282,12 +393,13 @@ describe('TableOfContents - integration with Editor', () => {
   it('respects a custom levels filter passed via .configure', async () => {
     const ConfiguredToc = TableOfContents.configure({ levels: [1, 2] });
     editor = new Editor({
-      extensions: [Document, Text, Paragraph, Heading, BaseKeymap, History, ConfiguredToc],
+      extensions: [
+        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID, ConfiguredToc,
+      ],
       content: '<h1>One</h1><h2>Two</h2><h3>Three</h3>',
     });
     await flushDeferred();
     const entries = tocStorage(editor).content;
-    // H3 is filtered out by levels: [1, 2], so storage shows only H1+H2.
     expect(entries.map((e) => e.level)).toEqual([1, 2]);
   });
 
@@ -297,51 +409,39 @@ describe('TableOfContents - integration with Editor', () => {
       content: '<h1>Alpha</h1><h2>Beta</h2>',
     });
     await flushDeferred();
-    const idsBefore = collectTocIds(editor);
-    expect(idsBefore.every((id) => id?.length === 8)).toBe(true);
+    const idsBefore = collectHeadingIds(editor);
+    expect(idsBefore.every((id) => id !== null && id.length > 0)).toBe(true);
 
-    // Export to HTML, then re-import. parseHTML must read data-toc-id
-    // back into the schema attr; appendTransaction must NOT regenerate
-    // the IDs because they are present and unique.
     const html = editor.getHTML();
-    expect(html).toContain('data-toc-id');
+    expect(html).toContain('id=');
+    expect(html).not.toContain('data-toc-id');
 
     editor.setContent(html);
     await flushDeferred();
-    const idsAfter = collectTocIds(editor);
+    const idsAfter = collectHeadingIds(editor);
     expect(idsAfter).toEqual(idsBefore);
   });
 
-  it('preserves the original heading ID when an unrelated heading is added then removed', async () => {
-    // Verifies tocId stability across add/remove cycles. We avoid the
-    // PM undo/redo path here on purpose: undo interleaves the user
-    // transaction with the plugin's appendTransaction step in ways
-    // that depend on subtle History extension grouping. Direct insert
-    // + delete via raw transactions exercise the same "plugin assigns,
-    // doc shrinks back" contract without that fragility.
+  it('honors a custom UniqueID.attributeName via configure', async () => {
+    // Consumer wants ids in `data-id` instead of `id`. TOC reads the
+    // configured name from UniqueID's options at init.
+    const CustomUniqueID = UniqueID.configure({ attributeName: 'data-id' });
     editor = new Editor({
-      extensions: baseExtensions,
-      content: '<h1>Original</h1>',
+      extensions: [
+        Document, Text, Paragraph, Heading, BaseKeymap, History, CustomUniqueID, TableOfContents,
+      ],
+      content: '<h1>Customized</h1>',
     });
     await flushDeferred();
-    const idBefore = collectTocIds(editor)[0];
 
-    const headingType = editor.state.schema.nodes['heading'];
-    if (!headingType) throw new Error('heading schema missing');
-    const newH2 = headingType.create({ level: 2 }, editor.state.schema.text('Added'));
-    const insertTr = editor.state.tr.insert(editor.state.doc.content.size, newH2);
-    editor.view.dispatch(insertTr);
-    expect(tocStorage(editor).content).toHaveLength(2);
+    const entries = tocStorage(editor).content;
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.id).toBeTruthy();
 
-    // Delete the new heading. Storage should drop back to the original
-    // entry only, with the same ID it had at the start.
-    const docAfterInsert = editor.state.doc;
-    const newH2Pos = docAfterInsert.firstChild!.nodeSize;
-    const deleteTr = editor.state.tr.delete(newH2Pos, docAfterInsert.content.size);
-    editor.view.dispatch(deleteTr);
-
-    expect(tocStorage(editor).content).toHaveLength(1);
-    expect(collectTocIds(editor)[0]).toBe(idBefore);
+    const heading = editor.view.dom.querySelector('h1');
+    expect(heading?.getAttribute('data-id')).toBe(entries[0]?.id);
+    // Native `id` is NOT present (UniqueID writes its own attr name).
+    expect(heading?.getAttribute('id')).toBeNull();
   });
 });
 
@@ -350,9 +450,6 @@ describe('TableOfContents - scrollToHeading command', () => {
   let scrollIntoViewSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    // jsdom does not implement scrollIntoView; stub it so the command
-    // can run end-to-end without throwing. We only assert call count
-    // and arguments here, not actual scroll position.
     scrollIntoViewSpy = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoViewSpy as unknown as typeof Element.prototype.scrollIntoView;
   });
@@ -368,7 +465,7 @@ describe('TableOfContents - scrollToHeading command', () => {
       content: '<h1>One</h1><h2>Two</h2>',
     });
     await flushDeferred();
-    const id = collectTocIds(editor)[1];
+    const id = collectHeadingIds(editor)[1];
     if (!id) throw new Error('expected second heading to have an id after init');
 
     const result = editor.commands.scrollToHeading(id);
@@ -393,12 +490,9 @@ describe('TableOfContents - scrollToHeading command', () => {
       content: '<h1>One</h1>',
     });
     await flushDeferred();
-    const id = collectTocIds(editor)[0];
+    const id = collectHeadingIds(editor)[0];
     if (!id) throw new Error('expected heading id after init');
 
-    // can() runs the command in dry-run mode (dispatch undefined). Our
-    // wrapper short-circuits to `true` without invoking the helper, so
-    // no scrollIntoView call should land.
     const canScroll = editor.can().scrollToHeading(id);
     expect(canScroll).toBe(true);
     expect(scrollIntoViewSpy).not.toHaveBeenCalled();
@@ -410,14 +504,29 @@ describe('TableOfContents - scrollToHeading command', () => {
       content: '<h1>One</h1>',
     });
     await flushDeferred();
-    const id = collectTocIds(editor)[0];
+    const id = collectHeadingIds(editor)[0];
     if (!id) throw new Error('expected heading id after init');
 
-    // Chain returns true if all commands in the chain succeed. The
-    // `.run()` call commits the chain. scrollToHeading inside a chain
-    // should still fire its DOM side effect via the dispatch path.
     const ok = editor.chain().scrollToHeading(id).run();
     expect(ok).toBe(true);
+    expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the custom attributeName from UniqueID config when scrolling', async () => {
+    const CustomUniqueID = UniqueID.configure({ attributeName: 'data-id' });
+    editor = new Editor({
+      extensions: [
+        Document, Text, Paragraph, Heading, BaseKeymap, History, CustomUniqueID, TableOfContents,
+      ],
+      content: '<h1>Custom</h1>',
+    });
+    await flushDeferred();
+    const heading = editor.view.dom.querySelector('h1');
+    const id = heading?.getAttribute('data-id');
+    if (!id) throw new Error('expected data-id on heading');
+
+    const result = editor.commands.scrollToHeading(id);
+    expect(result).toBe(true);
     expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1);
   });
 });
@@ -429,7 +538,6 @@ describe('TableOfContents - initial-load hash navigation', () => {
   beforeEach(() => {
     scrollIntoViewSpy = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoViewSpy as unknown as typeof Element.prototype.scrollIntoView;
-    // Reset hash to a known clean state before each test.
     history.replaceState(null, '', window.location.pathname);
   });
 
@@ -439,14 +547,8 @@ describe('TableOfContents - initial-load hash navigation', () => {
     history.replaceState(null, '', window.location.pathname);
   });
 
-  /**
-   * Wait for both:
-   *   1. the `setTimeout(0)` that runs the initial ID assignment
-   *   2. the `requestAnimationFrame` that defers the hash scroll until
-   *      after the dispatch above has committed
-   */
   const flushInitialLoadCycle = async (): Promise<void> => {
-    await flushDeferred();
+    await new Promise((r) => setTimeout(() => setTimeout(r, 0), 0));
     await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
   };
 
@@ -454,7 +556,8 @@ describe('TableOfContents - initial-load hash navigation', () => {
     history.replaceState(null, '', '#preset-id');
     editor = new Editor({
       extensions: baseExtensions,
-      content: '<h1 data-toc-id="preset-id">Bookmarked</h1><h2>Other</h2>',
+      // Pre-seed the heading with the id we will navigate to.
+      content: '<h1 id="preset-id">Bookmarked</h1><h2>Other</h2>',
     });
     await flushInitialLoadCycle();
     expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1);
@@ -483,11 +586,11 @@ describe('TableOfContents - initial-load hash navigation', () => {
     history.replaceState(null, '', '#preset');
     editor = new Editor({
       extensions: baseExtensions,
-      content: '<h1 data-toc-id="preset">Will be torn down</h1>',
+      content: '<h1 id="preset">Will be torn down</h1>',
     });
-    // Run the setTimeout(0) so the rAF is scheduled, then destroy
-    // BEFORE the next animation frame can fire.
-    await flushDeferred();
+    // Run only the macrotasks (timeouts) so the rAF is scheduled.
+    // Destroy BEFORE the next animation frame can fire.
+    await new Promise((r) => setTimeout(() => setTimeout(r, 0), 0));
     editor.destroy();
     await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
     expect(scrollIntoViewSpy).not.toHaveBeenCalled();
@@ -517,7 +620,8 @@ describe('TableOfContents - subscribers fan-out resilience', () => {
     storage.subscribers.add(() => { othersCalled += 1; });
 
     editor!.setContent('<h1>Boot</h1><h2>After</h2>');
-    expect(othersCalled).toBe(1);
+    await flushDeferred();
+    expect(othersCalled).toBeGreaterThanOrEqual(1);
   });
 
   it('subscribers Set is cleared on plugin destroy (no leak across editor recreate)', async () => {

@@ -1,24 +1,31 @@
 /**
  * TableOfContents extension - data layer for headings in the document.
  *
- * Three responsibilities, all opt-in via this single extension:
+ * Two responsibilities (id assignment is NOT one of them — that lives in
+ * `UniqueID` which TOC declares as a peer dependency):
  *
- *   1. Schema: declare a `tocId` attribute on heading nodes (rendered to
- *      DOM as `data-toc-id`). Existing heading attrs (`level`) are
- *      preserved by the framework's `addGlobalAttributes` merge.
+ *   1. Storage: `editor.storage.toc.content` exposes a snapshot of every
+ *      heading-like node, sourced from the doc walk. The id field on
+ *      each entry is read from the UniqueID-assigned attribute (default
+ *      `id`, configurable via `UniqueID.configure({ attributeName })`).
  *
- *   2. ID lifecycle: a PM plugin's `appendTransaction` assigns IDs to
- *      anchors that lack one (predicate-skip pattern). `view().init`
- *      seeds the doc on first mount via a deferred dispatch.
- *
- *   3. Storage: `editor.storage.toc.content` exposes a snapshot of
- *      every heading-like node. Updates fan out via `onUpdate` (public
+ *   2. Reactivity: a PM plugin's `view().update` recomputes storage
+ *      whenever the doc changes; updates fan out via `onUpdate` (public
  *      consumer hook) and the internal `subscribers` Set (used by the
- *      floating outline plugin and the inline `/toc` block NodeView in
- *      later phases).
+ *      floating outline and the inline `/toc` block NodeView).
  *
- * Phase 5 will fill in `isActive` / `isScrolledOver` when the active-
- * state tracker (IntersectionObserver) feeds the storage.
+ * Peer dependency contract:
+ *
+ *   `UniqueID` from `@domternal/core` MUST be loaded in the editor's
+ *   extensions array for TableOfContents to function. If absent, the
+ *   plugin logs an error and returns an empty plugins array — the
+ *   extension is inert (no storage updates, no scroll command, no
+ *   hash navigation), but the editor itself is unaffected.
+ *
+ *   Recommended ordering: UniqueID before TableOfContents (TOC reads
+ *   UniqueID's options at init; ordering does not affect functionality
+ *   given ExtensionManager's last-wins dedup, but the conventional
+ *   placement is parent-then-consumer).
  */
 import { Extension } from '@domternal/core';
 import type { Editor } from '@domternal/core';
@@ -26,16 +33,15 @@ import type { CommandSpec } from '@domternal/core';
 import { Plugin, PluginKey, type EditorState } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import { walkHeadings } from './helpers/headingWalk.js';
-import { assignMissingTocIds } from './helpers/tocIdAttribute.js';
 import { scrollToHeading } from './helpers/scrollToHeading.js';
 import type { HeadingEntry, TableOfContentsOptions, TocStorage } from './types.js';
 
 declare module '@domternal/core' {
   interface RawCommands {
     /**
-     * Scroll the editor view to the heading whose `data-toc-id` matches.
-     * No-op if the ID is unknown (returns false). Updates the URL hash
-     * via `history.replaceState`.
+     * Scroll the editor view to the heading whose UniqueID-assigned
+     * attribute (default `id`) matches. No-op if the ID is unknown
+     * (returns false). Updates the URL hash via `history.replaceState`.
      */
     scrollToHeading: CommandSpec<[id: string]>;
   }
@@ -44,34 +50,26 @@ declare module '@domternal/core' {
 export const tocPluginKey = new PluginKey('toc');
 
 /**
- * 8-char base36 default ID generator.
- *
- * `Math.random().toString(36)` can produce shorter strings when the
- * RNG happens to return a value with few significant digits, so we
- * concatenate until we have enough characters. Collisions are detected
- * and retried by `assignMissingTocIds`, but a stable length keeps
- * generated IDs visually consistent and predictable in tests.
+ * Resolve the UniqueID extension's `attributeName` option, defaulting
+ * to `'id'`. Returns `null` if UniqueID is not loaded — the caller
+ * should treat this as "TOC cannot function" and short-circuit.
  */
-function defaultGenerateId(existingIds: ReadonlySet<string>): string {
-  // Re-roll on collision so the rare overlap is handled here rather than
-  // forcing the caller's retry loop to spin. Worst-case is a handful of
-  // attempts; with 36^8 ~= 2.8 trillion ids the practical bound is one.
-  for (let attempt = 0; attempt < 8; attempt++) {
-    let id = '';
-    while (id.length < 8) {
-      id += Math.random().toString(36).slice(2);
-    }
-    id = id.slice(0, 8);
-    if (!existingIds.has(id)) return id;
-  }
-  // Pathological fallback. Caller's outer retry will keep spinning if needed.
-  return Math.random().toString(36).slice(2, 10);
+function resolveAttrName(editor: Editor): string | null {
+  const ext = editor.extensionManager.extensions.find((e) => e.name === 'uniqueID');
+  if (!ext) return null;
+  const raw = (ext.options as { attributeName?: unknown }).attributeName;
+  return typeof raw === 'string' && raw.length > 0 ? raw : 'id';
 }
 
-function buildContent(state: EditorState, options: TableOfContentsOptions): HeadingEntry[] {
+function buildContent(
+  state: EditorState,
+  options: TableOfContentsOptions,
+  attrName: string,
+): HeadingEntry[] {
   return walkHeadings(state.doc, {
     levels: options.levels,
     anchorTypes: options.anchorTypes,
+    attrName,
   }).map((entry) => ({
     ...entry,
     domNode: null,
@@ -87,7 +85,6 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
     return {
       levels: [1, 2, 3],
       anchorTypes: ['heading'],
-      generateId: defaultGenerateId,
     };
   },
 
@@ -97,26 +94,6 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
       activeId: null,
       subscribers: new Set<() => void>(),
     };
-  },
-
-  addGlobalAttributes() {
-    return [
-      {
-        types: this.options.anchorTypes,
-        attributes: {
-          tocId: {
-            default: null,
-            parseHTML: (element: HTMLElement) => element.getAttribute('data-toc-id'),
-            renderHTML: (attributes: Record<string, unknown>) => {
-              const id = attributes['tocId'];
-              return typeof id === 'string' && id.length > 0
-                ? { 'data-toc-id': id }
-                : null;
-            },
-          },
-        },
-      },
-    ];
   },
 
   addCommands() {
@@ -131,7 +108,9 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
           if (!dispatch) return true;
           const view = (editor as { view?: EditorView }).view;
           if (!view) return false;
-          return scrollToHeading(view, id);
+          const ed = editor as unknown as Editor;
+          const attrName = resolveAttrName(ed) ?? 'id';
+          return scrollToHeading(view, id, { attrName });
         },
     };
   },
@@ -140,6 +119,43 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
     const editor = this.editor as Editor | null;
     const options = this.options;
     const storage = this.storage;
+
+    if (!editor) return [];
+
+    const attrName = resolveAttrName(editor);
+    if (attrName === null) {
+      // UniqueID is the source of truth for block ids. Without it,
+      // TOC has nothing to read — emit a loud error and return an
+      // empty plugin list so the editor still functions cleanly.
+      // eslint-disable-next-line no-console
+      console.error(
+        '[TableOfContents] requires the UniqueID extension to be loaded. ' +
+        'Add it to your extensions array:\n' +
+        '  import { UniqueID } from "@domternal/core";\n' +
+        '  extensions: [..., UniqueID, TableOfContents]',
+      );
+      return [];
+    }
+
+    // Surface a misconfiguration where UniqueID is loaded but its
+    // `types` list omits anchor types TOC needs to navigate to. The
+    // walk still succeeds, but anchored entries report id: '' and
+    // outline links cannot scroll. console.warn is loud enough to
+    // surface during development without crashing the editor.
+    const uniqueIDExt = editor.extensionManager.extensions.find((e) => e.name === 'uniqueID');
+    const uniqueIDTypes = (uniqueIDExt?.options as { types?: unknown }).types;
+    if (Array.isArray(uniqueIDTypes)) {
+      const missing = options.anchorTypes.filter((t) => !uniqueIDTypes.includes(t));
+      if (missing.length > 0) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[TableOfContents] anchorTypes ${JSON.stringify(missing)} are not in ` +
+          `UniqueID.types — outline navigation to those node types will fail. ` +
+          `Either add them to UniqueID.configure({ types: [...] }) or remove ` +
+          `them from TableOfContents.configure({ anchorTypes: [...] }).`,
+        );
+      }
+    }
 
     const fanOut = (): void => {
       options.onUpdate?.(storage);
@@ -159,7 +175,7 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
     };
 
     const refreshStorage = (state: EditorState): void => {
-      storage.content = buildContent(state, options);
+      storage.content = buildContent(state, options, attrName);
       fanOut();
     };
 
@@ -167,38 +183,24 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
       new Plugin({
         key: tocPluginKey,
         view(editorView) {
-          // Initial pass: assign IDs and populate storage. Deferred to
-          // the next tick so we don't dispatch during plugin init
-          // (matches the UniqueID precedent). Re-reading from
-          // `editorView.state` inside the timer avoids any stale
-          // snapshot if the doc was replaced before the timer fires.
+          // Defer initial storage population to the next macrotask so we
+          // don't observe state mid-init. UniqueID's own appendTransaction
+          // will have stamped ids by the time this fires; the tick of
+          // setTimeout(0) is enough for the initial dispatch ordering.
           let rafId: number | null = null;
           const timeoutId = setTimeout(() => {
-            if (editor?.isDestroyed) return;
-            const tr = editorView.state.tr;
-            assignMissingTocIds(editorView.state.doc, tr, {
-              anchorTypes: options.anchorTypes,
-              generateId: options.generateId,
-            });
-            if (tr.docChanged) {
-              editorView.dispatch(tr);
-            } else {
-              // No IDs needed assigning, but storage still needs the
-              // first snapshot so consumers see the initial doc.
-              refreshStorage(editorView.state);
-            }
+            if (editor.isDestroyed) return;
+            refreshStorage(editorView.state);
 
-            // Initial-load hash navigation. Run AFTER ID assignment +
-            // first paint so the heading we are scrolling to actually
-            // has a `data-toc-id` attribute and a measurable position.
-            // rAF gives the browser one frame to commit the dispatch
-            // above; the call is silent on missing IDs (no scroll, no
-            // hash change), so a stray `#section` from another part
-            // of the host app stays untouched.
+            // Initial-load hash navigation. Run AFTER UniqueID has stamped
+            // ids and storage is populated. rAF gives one frame for the
+            // browser to paint the first commit; the call is silent on
+            // missing IDs (no scroll, no hash change), so a stray
+            // `#section` from another part of the host app stays untouched.
             if (typeof window !== 'undefined' && window.location.hash) {
               // Decode the percent-encoding scrollToHeading writes back so
               // a round-trip (write hash -> reload -> read hash) finds the
-              // same `data-toc-id` it started from.
+              // same heading id it started from.
               let hash = window.location.hash.slice(1);
               try {
                 hash = decodeURIComponent(hash);
@@ -207,8 +209,8 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
               }
               rafId = requestAnimationFrame(() => {
                 rafId = null;
-                if (editor?.isDestroyed) return;
-                scrollToHeading(editorView, hash);
+                if (editor.isDestroyed) return;
+                scrollToHeading(editorView, hash, { attrName });
               });
             }
           }, 0);
@@ -225,15 +227,6 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
               storage.subscribers.clear();
             },
           };
-        },
-        appendTransaction(transactions, _oldState, newState) {
-          if (!transactions.some((tr) => tr.docChanged)) return null;
-          const tr = newState.tr;
-          assignMissingTocIds(newState.doc, tr, {
-            anchorTypes: options.anchorTypes,
-            generateId: options.generateId,
-          });
-          return tr.docChanged ? tr : null;
         },
       }),
     ];
