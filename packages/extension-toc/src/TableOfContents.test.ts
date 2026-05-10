@@ -135,7 +135,7 @@ describe('TableOfContents - peer dependency on UniqueID', () => {
 
     // scrollToHeading is registered (addCommands runs unconditionally),
     // but with no headings carrying ids, it returns false.
-    const result = editor.commands['scrollToHeading']?.('any-id');
+    const result = editor.commands.scrollToHeading('any-id');
     expect(result).toBe(false);
   });
 });
