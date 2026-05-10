@@ -42,6 +42,15 @@ export interface ActiveStateTrackerOptions {
    * a sticky toolbar) the user wants to ignore.
    */
   rootMargin?: string;
+  /**
+   * Attribute name on the observed heading elements that holds the
+   * stable id. Reported through `onChange` when an element becomes
+   * the active one. Defaults to `'id'` (UniqueID's default attribute
+   * name); pass a custom name when the consumer customizes
+   * `UniqueID.configure({ attributeName })`.
+   * @default 'id'
+   */
+  attrName?: string;
   /** Fired whenever the active heading id changes (or becomes null). */
   onChange: (activeId: string | null) => void;
 }
@@ -50,8 +59,9 @@ export interface ActiveStateTracker {
   /**
    * Re-observe the supplied DOM elements as the new heading set.
    * Replaces the prior list - elements no longer present are
-   * unobserved automatically. Each element should carry a
-   * `data-toc-id` attribute that the tracker reads to call onChange.
+   * unobserved automatically. Each element should carry an attribute
+   * named by the tracker's `attrName` option (default `'id'`); the
+   * tracker reads it to call onChange.
    */
   observe: (elements: readonly HTMLElement[]) => void;
   /**
@@ -61,15 +71,16 @@ export interface ActiveStateTracker {
 }
 
 const DEFAULT_ROOT_MARGIN = '0px 0px -85% 0px';
+const DEFAULT_ATTR_NAME = 'id';
 
 /**
- * Read the `data-toc-id` attribute. Returns null when missing - the
- * tracker silently skips those elements rather than throwing, which
- * keeps the contract forgiving for consumers that observe heading
- * candidates before IDs are assigned.
+ * Read the configured id attribute (default `id`). Returns null when
+ * missing - the tracker silently skips those elements rather than
+ * throwing, which keeps the contract forgiving for consumers that
+ * observe heading candidates before IDs are assigned.
  */
-function readTocId(el: HTMLElement): string | null {
-  return el.getAttribute('data-toc-id');
+function makeReadId(attrName: string): (el: HTMLElement) => string | null {
+  return (el) => el.getAttribute(attrName);
 }
 
 /**
@@ -82,6 +93,7 @@ function readTocId(el: HTMLElement): string | null {
 function pickActive(
   elements: readonly HTMLElement[],
   intersecting: ReadonlySet<HTMLElement>,
+  readId: (el: HTMLElement) => string | null,
 ): string | null {
   // Case 1: at least one heading inside the active zone. Pick the
   // topmost (smallest top in viewport coords), so the heading that is
@@ -96,7 +108,7 @@ function pickActive(
         winner = el;
       }
     }
-    return winner ? readTocId(winner) : null;
+    return winner ? readId(winner) : null;
   }
 
   // Case 2: nothing in the active zone. Fall back to the last passed
@@ -112,13 +124,19 @@ function pickActive(
       lastPassed = el;
     }
   }
-  return lastPassed ? readTocId(lastPassed) : null;
+  return lastPassed ? readId(lastPassed) : null;
 }
 
 export function createActiveStateTracker(
   options: ActiveStateTrackerOptions,
 ): ActiveStateTracker {
-  const { onChange, scrollParent = null, rootMargin = DEFAULT_ROOT_MARGIN } = options;
+  const {
+    onChange,
+    scrollParent = null,
+    rootMargin = DEFAULT_ROOT_MARGIN,
+    attrName = DEFAULT_ATTR_NAME,
+  } = options;
+  const readId = makeReadId(attrName);
 
   // Bail out gracefully on environments without IntersectionObserver
   // (very old jsdom, test setups). The plan calls for a scroll-based
@@ -144,7 +162,7 @@ export function createActiveStateTracker(
         if (entry.isIntersecting) intersecting.add(target);
         else intersecting.delete(target);
       }
-      const next = pickActive(observed, intersecting);
+      const next = pickActive(observed, intersecting, readId);
       if (next !== lastReportedId) {
         lastReportedId = next;
         onChange(next);
@@ -180,7 +198,7 @@ export function createActiveStateTracker(
       // Recompute current active immediately - even with no IO
       // callback fired, the set of observed elements changed and the
       // previous winner may no longer be in the doc.
-      const next = pickActive(observed, intersecting);
+      const next = pickActive(observed, intersecting, readId);
       if (next !== lastReportedId) {
         lastReportedId = next;
         onChange(next);

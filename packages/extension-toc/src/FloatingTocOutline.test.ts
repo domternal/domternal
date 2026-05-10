@@ -21,6 +21,7 @@ import {
   Heading,
   BaseKeymap,
   History,
+  UniqueID,
 } from '@domternal/core';
 import { TableOfContents } from './TableOfContents.js';
 import { FloatingTocOutline } from './FloatingTocOutline.js';
@@ -32,6 +33,7 @@ const baseExtensions = [
   Heading,
   BaseKeymap,
   History,
+  UniqueID,
   TableOfContents,
   FloatingTocOutline,
 ];
@@ -121,15 +123,19 @@ describe('FloatingTocOutline - Phase 4 ticks', () => {
     expect(outline?.getAttribute('aria-label')).toBe('Document outline');
   });
 
-  it('renders one tick per heading with correct level + tocId attrs', async () => {
+  it('renders one tick per heading with correct level + anchor attrs', async () => {
     editor = mount({ content: '<h1>Alpha</h1><h2>Beta</h2><h3>Gamma</h3>' });
     await flushDeferred();
     const ticks = queryTicks();
     expect(ticks).toHaveLength(3);
     expect(ticks.map((t) => t.dataset['level'])).toEqual(['1', '2', '3']);
-    // Each tick has a non-empty tocId matching the heading's data-toc-id.
+    // Each tick has a non-empty data-toc-anchor matching a heading id
+    // assigned by UniqueID. UniqueID's default format is UUID-style
+    // (~36 chars); we just assert non-empty since the format is
+    // UniqueID's concern, not the outline's.
     for (const tick of ticks) {
-      expect(tick.dataset['tocId']).toMatch(/^.{8}$/);
+      expect(tick.dataset['tocAnchor']).toBeTruthy();
+      expect(tick.dataset['tocAnchor']?.length).toBeGreaterThan(0);
     }
   });
 
@@ -227,6 +233,61 @@ describe('FloatingTocOutline - Phase 4 ticks', () => {
     expect(outline).not.toBeNull();
     expect(outline?.dataset['state']).toBe('hidden');
     expect(queryTicks()).toHaveLength(0);
+  });
+
+  it('is a graceful no-op when UniqueID is missing (TOC inert, outline hidden)', async () => {
+    // Setup: TableOfContents loaded but UniqueID NOT loaded. TOC's
+    // plugin emits console.error and returns []; storage.content
+    // stays empty; outline observes empty storage and renders hidden.
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    originalMatchMedia = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: false, media: query, onchange: null,
+      addEventListener: (): void => undefined,
+      removeEventListener: (): void => undefined,
+      addListener: (): void => undefined, removeListener: (): void => undefined,
+      dispatchEvent: (): boolean => false,
+    })) as typeof window.matchMedia;
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      editor = new Editor({
+        element: host,
+        // NOTE: UniqueID intentionally omitted - TOC's peer dep is missing.
+        extensions: [
+          Document, Text, Paragraph, Heading, BaseKeymap, History,
+          TableOfContents, FloatingTocOutline,
+        ],
+        content: '<h1>One</h1><h2>Two</h2>',
+      });
+      await flushDeferred();
+
+      // TOC's error message reaches the console.
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      // Outline DOM exists but is hidden (storage.content stayed empty).
+      const outline = queryOutline();
+      expect(outline).not.toBeNull();
+      expect(outline?.dataset['state']).toBe('hidden');
+      expect(queryTicks()).toHaveLength(0);
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('outline buttons carry data-toc-anchor (NOT data-toc-id)', async () => {
+    // Regression guard for the v0.7.0 attribute rename. The outline's
+    // own buttons use `data-toc-anchor` to identify which heading they
+    // link to; the heading element itself uses native `id` (set by
+    // UniqueID). The legacy `data-toc-id` must NOT appear anywhere.
+    editor = mount({ content: '<h1>Alpha</h1><h2>Beta</h2>' });
+    await flushDeferred();
+    const outline = queryOutline();
+    expect(outline).not.toBeNull();
+    // Every tick has `data-toc-anchor`, no tick has `data-toc-id`.
+    expect(outline?.querySelectorAll('[data-toc-anchor]').length).toBeGreaterThan(0);
+    expect(outline?.querySelectorAll('[data-toc-id]')).toHaveLength(0);
   });
 
   it('honors a custom outlineHost option', async () => {
@@ -419,11 +480,11 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     editor = await mountForActive('<h1>One</h1><h2>Two</h2><h3>Three</h3>');
     const ticks = queryTicks();
     const headingDoms = Array.from(
-      editor.view.dom.querySelectorAll<HTMLElement>('[data-toc-id]'),
+      editor.view.dom.querySelectorAll<HTMLElement>('[id]'),
     );
     const targetDom = headingDoms[1];
     if (!targetDom) throw new Error('expected at least 2 headings');
-    const targetId = targetDom.getAttribute('data-toc-id');
+    const targetId = targetDom.getAttribute('id');
 
     // Find the IO instance the tracker created and fire an
     // intersection event for the second heading.
@@ -434,7 +495,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     // The tick mirroring that heading must now carry both visual
     // markers (CSS class + aria-current). Storage's activeId tracks
     // the same id so other UIs (Phase 7 inline block) can read it.
-    const activeTick = ticks.find((t) => t.dataset['tocId'] === targetId);
+    const activeTick = ticks.find((t) => t.dataset['tocAnchor'] === targetId);
     expect(activeTick?.classList.contains('dm-toc--active')).toBe(true);
     expect(activeTick?.getAttribute('aria-current')).toBe('location');
     const storage = editor.storage['toc'] as { activeId: string | null };
@@ -445,12 +506,12 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     editor = await mountForActive('<h1>One</h1><h2>Two</h2><h3>Three</h3>');
     const ticks = queryTicks();
     const headingDoms = Array.from(
-      editor.view.dom.querySelectorAll<HTMLElement>('[data-toc-id]'),
+      editor.view.dom.querySelectorAll<HTMLElement>('[id]'),
     );
     const clickedTick = ticks[0];
     const otherDom = headingDoms[2];
     if (!clickedTick || !otherDom) throw new Error('setup mismatch');
-    const clickedId = clickedTick.dataset['tocId'];
+    const clickedId = clickedTick.dataset['tocAnchor'];
 
     clickedTick.click();
     expect(clickedTick.classList.contains('dm-toc--active')).toBe(true);
@@ -470,7 +531,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     editor = await mountForActive('<h1>One</h1><h2>Two</h2><h3>Three</h3>');
     const ticks = queryTicks();
     const headingDoms = Array.from(
-      editor.view.dom.querySelectorAll<HTMLElement>('[data-toc-id]'),
+      editor.view.dom.querySelectorAll<HTMLElement>('[id]'),
     );
 
     // Fire active for first heading, then for the third. The middle
@@ -486,7 +547,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     ]);
     const active = ticks.filter((t) => t.classList.contains('dm-toc--active'));
     expect(active).toHaveLength(1);
-    expect(active[0]?.dataset['tocId']).toBe(headingDoms[2]?.getAttribute('data-toc-id'));
+    expect(active[0]?.dataset['tocAnchor']).toBe(headingDoms[2]?.getAttribute('id'));
   });
 
   it('re-applies the current active marker after a content rebuild', async () => {
@@ -496,7 +557,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     // does not flash off.
     editor = await mountForActive('<h1>One</h1><h2>Two</h2>');
     const headingDoms = Array.from(
-      editor.view.dom.querySelectorAll<HTMLElement>('[data-toc-id]'),
+      editor.view.dom.querySelectorAll<HTMLElement>('[id]'),
     );
     const io = MockIntersectionObserver.instances[0];
     io?.fire([{ target: headingDoms[1]!, isIntersecting: true }]);
@@ -519,7 +580,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     // visual class set, never stale.
     const storage = editor.storage['toc'] as { activeId: string | null };
     if (storage.activeId) {
-      expect(stillActive?.dataset['tocId']).toBe(storage.activeId);
+      expect(stillActive?.dataset['tocAnchor']).toBe(storage.activeId);
     }
   });
 
@@ -536,7 +597,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     editor = await mountForActive('<h1>One</h1><h2>Two</h2><h3>Three</h3>');
     const ticks = queryTicks();
     const headingDoms = Array.from(
-      editor.view.dom.querySelectorAll<HTMLElement>('[data-toc-id]'),
+      editor.view.dom.querySelectorAll<HTMLElement>('[id]'),
     );
     const clickedTick = ticks[0];
     const otherDom = headingDoms[2];
@@ -553,7 +614,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     const spy = vi.spyOn(Date, 'now').mockImplementation(() => virtualNow);
     try {
       clickedTick.click();
-      const clickedId = clickedTick.dataset['tocId'];
+      const clickedId = clickedTick.dataset['tocAnchor'];
       expect((editor.storage['toc'] as { activeId: string | null }).activeId).toBe(clickedId);
 
       // Advance the virtual clock past the 500ms override window.
@@ -562,7 +623,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
       const io = MockIntersectionObserver.instances[0];
       io?.fire([{ target: otherDom, isIntersecting: true }]);
       const newActive = (editor.storage['toc'] as { activeId: string | null }).activeId;
-      expect(newActive).toBe(otherDom.getAttribute('data-toc-id'));
+      expect(newActive).toBe(otherDom.getAttribute('id'));
       expect(newActive).not.toBe(clickedId);
     } finally {
       spy.mockRestore();
@@ -601,7 +662,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
   it('ignores headings hidden by an ancestor (display:none) when picking active', async () => {
     editor = await mountForActive('<h1>Visible</h1><h2>InsideDetails</h2>');
     const headingDoms = Array.from(
-      editor.view.dom.querySelectorAll<HTMLElement>('[data-toc-id]'),
+      editor.view.dom.querySelectorAll<HTMLElement>('[id]'),
     );
     const visible = headingDoms[0];
     const hidden = headingDoms[1];
@@ -631,7 +692,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     ]);
 
     expect((editor.storage['toc'] as { activeId: string | null }).activeId).toBe(
-      visible.getAttribute('data-toc-id'),
+      visible.getAttribute('id'),
     );
   });
 });
@@ -666,6 +727,7 @@ describe('FloatingTocOutline - Phase 6 hover expansion', () => {
       element: host,
       extensions: [
         Document, Text, Paragraph, Heading, BaseKeymap, History,
+        UniqueID,
         TableOfContents,
         FloatingTocOutline.configure(options),
       ],
@@ -822,7 +884,7 @@ describe('FloatingTocOutline - Phase 6 hover expansion', () => {
     await flushDeferred();
     const rows = queryRows();
     const target = rows[1]!;
-    const targetId = target.dataset['tocId'];
+    const targetId = target.dataset['tocAnchor'];
 
     target.click();
     expect(scrollSpy).toHaveBeenCalledTimes(1);
@@ -835,13 +897,13 @@ describe('FloatingTocOutline - Phase 6 hover expansion', () => {
     const rows = queryRows();
     const ticks = queryTicks();
     rows[1]?.click();
-    const targetId = rows[1]?.dataset['tocId'];
+    const targetId = rows[1]?.dataset['tocAnchor'];
 
     // Both the tick AND the row at the same index share the active
     // marker - they're the same logical entry, just two visual
     // affordances.
-    const matchedTick = ticks.find((t) => t.dataset['tocId'] === targetId);
-    const matchedRow = rows.find((r) => r.dataset['tocId'] === targetId);
+    const matchedTick = ticks.find((t) => t.dataset['tocAnchor'] === targetId);
+    const matchedRow = rows.find((r) => r.dataset['tocAnchor'] === targetId);
     expect(matchedTick?.getAttribute('aria-current')).toBe('location');
     expect(matchedRow?.getAttribute('aria-current')).toBe('location');
   });

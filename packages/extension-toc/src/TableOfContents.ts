@@ -34,6 +34,7 @@ import { Plugin, PluginKey, type EditorState } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import { walkHeadings } from './helpers/headingWalk.js';
 import { scrollToHeading } from './helpers/scrollToHeading.js';
+import { resolveUniqueIDAttrName } from './helpers/uniqueIDIntegration.js';
 import type { HeadingEntry, TableOfContentsOptions, TocStorage } from './types.js';
 
 declare module '@domternal/core' {
@@ -48,18 +49,6 @@ declare module '@domternal/core' {
 }
 
 export const tocPluginKey = new PluginKey('toc');
-
-/**
- * Resolve the UniqueID extension's `attributeName` option, defaulting
- * to `'id'`. Returns `null` if UniqueID is not loaded — the caller
- * should treat this as "TOC cannot function" and short-circuit.
- */
-function resolveAttrName(editor: Editor): string | null {
-  const ext = editor.extensionManager.extensions.find((e) => e.name === 'uniqueID');
-  if (!ext) return null;
-  const raw = (ext.options as { attributeName?: unknown }).attributeName;
-  return typeof raw === 'string' && raw.length > 0 ? raw : 'id';
-}
 
 function buildContent(
   state: EditorState,
@@ -109,7 +98,7 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
           const view = (editor as { view?: EditorView }).view;
           if (!view) return false;
           const ed = editor as unknown as Editor;
-          const attrName = resolveAttrName(ed) ?? 'id';
+          const attrName = resolveUniqueIDAttrName(ed) ?? 'id';
           return scrollToHeading(view, id, { attrName });
         },
     };
@@ -122,7 +111,7 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
 
     if (!editor) return [];
 
-    const attrName = resolveAttrName(editor);
+    const attrName = resolveUniqueIDAttrName(editor);
     if (attrName === null) {
       // UniqueID is the source of truth for block ids. Without it,
       // TOC has nothing to read — emit a loud error and return an

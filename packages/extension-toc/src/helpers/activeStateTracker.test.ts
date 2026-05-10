@@ -47,7 +47,9 @@ class MockIntersectionObserver {
 
 const mountHeading = (id: string, top: number): HTMLElement => {
   const el = document.createElement('h2');
-  el.setAttribute('data-toc-id', id);
+  // Use native HTML id attribute (UniqueID's default), matching the
+  // tracker's default attrName.
+  el.setAttribute('id', id);
   el.textContent = `Heading ${id}`;
   document.body.appendChild(el);
   // Stub getBoundingClientRect so the tracker's geometry math is

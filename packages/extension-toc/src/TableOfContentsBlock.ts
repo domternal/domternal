@@ -28,6 +28,7 @@ import { Node } from '@domternal/core';
 import type { Editor, FloatingMenuItem } from '@domternal/core';
 import type { NodeViewConstructor } from '@domternal/pm/view';
 import { scrollToHeading } from './helpers/scrollToHeading.js';
+import { resolveUniqueIDAttrName } from './helpers/uniqueIDIntegration.js';
 import type { TocStorage, HeadingEntry } from './types.js';
 
 export interface TableOfContentsBlockOptions {
@@ -50,6 +51,13 @@ const ITEM_CLASS = 'dm-toc-block-item';
 const LINK_CLASS = 'dm-toc-block-link';
 const EMPTY_CLASS = 'dm-toc-block-empty';
 const ACTIVE_LINK_CLASS = 'dm-toc-block-link--active';
+// Data attribute on link buttons that points at the heading id we
+// scroll to. Distinct from the heading element's own id attribute
+// (set by `UniqueID`): this lives on OUR buttons inside the block,
+// the heading id lives on the heading element in the editor's DOM.
+// Symmetric with FloatingTocOutline's anchor scheme.
+const ANCHOR_ATTR = 'data-toc-anchor';
+const ANCHOR_DATASET_KEY = 'tocAnchor';
 
 /**
  * Render the block's inner DOM (children of the wrapper) for the
@@ -84,7 +92,7 @@ function renderBlockContent(
     link.type = 'button';
     link.className = LINK_CLASS;
     link.dataset['level'] = String(entry.level);
-    link.dataset['tocId'] = entry.id;
+    link.dataset[ANCHOR_DATASET_KEY] = entry.id;
     link.textContent = entry.textContent.trim() || `Heading level ${String(entry.level)}`;
 
     item.appendChild(link);
@@ -94,15 +102,16 @@ function renderBlockContent(
 }
 
 /**
- * Toggle the active marker on every link with a `data-toc-id`. At
- * most one link gets `aria-current="location"` + the active class.
- * Mirrors `applyActiveMarker` in FloatingTocOutline so the inline
- * block and the floating outline reflect the same active heading.
+ * Toggle the active marker on every link button (carrying a
+ * `data-toc-anchor` attribute). At most one link gets
+ * `aria-current="location"` + the active class. Mirrors
+ * `applyActiveMarker` in FloatingTocOutline so the inline block and
+ * the floating outline reflect the same active heading.
  */
 function applyActiveLink(wrapper: HTMLElement, activeId: string | null): void {
   const links = wrapper.querySelectorAll<HTMLElement>(`.${LINK_CLASS}`);
   for (const link of Array.from(links)) {
-    const isActive = activeId !== null && link.dataset['tocId'] === activeId;
+    const isActive = activeId !== null && link.dataset[ANCHOR_DATASET_KEY] === activeId;
     link.classList.toggle(ACTIVE_LINK_CLASS, isActive);
     if (isActive) link.setAttribute('aria-current', 'location');
     else link.removeAttribute('aria-current');
@@ -156,22 +165,27 @@ function makeNodeViewConstructor(
       renderBlockContent(dom, [], options.emptyStateText);
     }
 
+    // Resolve UniqueID's attrName once per NodeView mount. Falls back
+    // to 'id' when UniqueID is absent (TOC will have errored loudly,
+    // and this NodeView only renders the empty-state placeholder).
+    const attrName = resolveUniqueIDAttrName(editor) ?? 'id';
+
     // Click delegation: clicks anywhere inside the block bubble up
-    // to this listener. closest('[data-toc-id]') resolves to a link
-    // (or null if the click landed on the block chrome / empty
-    // placeholder); on a hit, we delegate to the shared
+    // to this listener. closest('[data-toc-anchor]') resolves to a
+    // link button (or null if the click landed on the block chrome /
+    // empty placeholder); on a hit, we delegate to the shared
     // scrollToHeading helper used by the floating outline as well.
     const onClick = (event: MouseEvent): void => {
       const target = (event.target as HTMLElement | null)?.closest<HTMLElement>(
-        '[data-toc-id]',
+        `[${ANCHOR_ATTR}]`,
       );
-      const id = target?.dataset['tocId'];
+      const id = target?.dataset[ANCHOR_DATASET_KEY];
       if (!id) return;
       // Prevent the click from bubbling to the editor and changing
       // selection - the NodeView is `contenteditable="false"` but
       // PM still tracks clicks on atoms for selection.
       event.preventDefault();
-      scrollToHeading(editor.view, id);
+      scrollToHeading(editor.view, id, { attrName });
     };
     dom.addEventListener('click', onClick);
 

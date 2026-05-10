@@ -27,6 +27,7 @@ import type { EditorView } from '@domternal/pm/view';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import { scrollToHeading } from './helpers/scrollToHeading.js';
 import { createActiveStateTracker } from './helpers/activeStateTracker.js';
+import { resolveUniqueIDAttrName } from './helpers/uniqueIDIntegration.js';
 import type { TocStorage, HeadingEntry } from './types.js';
 
 export const floatingTocOutlinePluginKey = new PluginKey('floatingTocOutline');
@@ -96,10 +97,19 @@ const TICK_CLASS = 'dm-toc-outline-tick';
 const CARD_CLASS = 'dm-toc-outline-card';
 const ROW_CLASS = 'dm-toc-outline-row';
 // Applied to BOTH tick buttons and row buttons (anything carrying
-// `data-toc-id` inside the outline), so the name is intentionally
+// `data-toc-anchor` inside the outline), so the name is intentionally
 // neutral instead of "tick--active". Theme rules in `_toc.scss`
 // match this single class for ticks AND rows.
 const ACTIVE_CLASS = 'dm-toc--active';
+// Data attribute on tick / row buttons that holds the heading id we
+// link to. Distinct from the heading element's own id attribute (set
+// by `UniqueID`): this attribute lives on OUR buttons inside the
+// outline DOM, the heading id lives on the heading element in the
+// editor's DOM. Click delegation reads this; active-state matching
+// reads this; the heading-element selector uses UniqueID's attrName.
+const ANCHOR_ATTR = 'data-toc-anchor';
+// Dataset key matching ANCHOR_ATTR (camelCase per DOMStringMap rules).
+const ANCHOR_DATASET_KEY = 'tocAnchor';
 
 type OutlineState = 'hidden' | 'collapsed' | 'expanded';
 
@@ -139,7 +149,7 @@ function renderOutlineContent(nav: HTMLElement, content: HeadingEntry[]): void {
     tick.type = 'button';
     tick.className = TICK_CLASS;
     tick.dataset['level'] = String(entry.level);
-    tick.dataset['tocId'] = entry.id;
+    tick.dataset[ANCHOR_DATASET_KEY] = entry.id;
     const label = entry.textContent.trim() || `Heading level ${String(entry.level)}`;
     tick.setAttribute('aria-label', `${label} (heading ${String(entry.level)})`);
     nav.appendChild(tick);
@@ -154,7 +164,7 @@ function renderOutlineContent(nav: HTMLElement, content: HeadingEntry[]): void {
     row.type = 'button';
     row.className = ROW_CLASS;
     row.dataset['level'] = String(entry.level);
-    row.dataset['tocId'] = entry.id;
+    row.dataset[ANCHOR_DATASET_KEY] = entry.id;
     row.textContent = entry.textContent.trim() || `Heading level ${String(entry.level)}`;
     card.appendChild(row);
   }
@@ -162,14 +172,15 @@ function renderOutlineContent(nav: HTMLElement, content: HeadingEntry[]): void {
 }
 
 /**
- * Toggle the active-state visual on every element with a `data-toc-id`
- * attribute (both ticks AND rows). At most one item gets the active
- * class + `aria-current="location"`, all others have those cleared.
+ * Toggle the active-state visual on every element with a `data-toc-anchor`
+ * attribute (both ticks AND rows in the outline DOM). At most one item
+ * gets the active class + `aria-current="location"`, all others have
+ * those cleared.
  */
 function applyActiveMarker(nav: HTMLElement, activeId: string | null): void {
-  const items = nav.querySelectorAll<HTMLElement>('[data-toc-id]');
+  const items = nav.querySelectorAll<HTMLElement>(`[${ANCHOR_ATTR}]`);
   for (const item of Array.from(items)) {
-    const isActive = activeId !== null && item.dataset['tocId'] === activeId;
+    const isActive = activeId !== null && item.dataset[ANCHOR_DATASET_KEY] === activeId;
     item.classList.toggle(ACTIVE_CLASS, isActive);
     if (isActive) item.setAttribute('aria-current', 'location');
     else item.removeAttribute('aria-current');
@@ -177,13 +188,13 @@ function applyActiveMarker(nav: HTMLElement, activeId: string | null): void {
 }
 
 /**
- * Resolve every heading DOM node in the editor view that has a
- * `data-toc-id` attribute. Returns elements in document order so the
- * tracker's IntersectionObserver and pickActive logic see headings
- * in the same order they appear visually.
+ * Resolve every heading DOM node in the editor view whose stable id
+ * attribute (UniqueID's `attrName`) is set. Returns elements in
+ * document order so the tracker's IntersectionObserver and pickActive
+ * logic see headings in the same order they appear visually.
  */
-function collectHeadingDoms(view: EditorView): HTMLElement[] {
-  return Array.from(view.dom.querySelectorAll<HTMLElement>('[data-toc-id]'));
+function collectHeadingDoms(view: EditorView, attrName: string): HTMLElement[] {
+  return Array.from(view.dom.querySelectorAll<HTMLElement>(`[${attrName}]`));
 }
 
 export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
@@ -212,6 +223,13 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           if (typeof window === 'undefined') {
             return { destroy(): void { /* no-op */ } };
           }
+
+          // UniqueID is the source of truth for heading ids in the DOM.
+          // Resolve its attribute name now so our IO selector targets
+          // the right thing. Falls back to 'id' if UniqueID is not
+          // loaded (TOC will have already errored loudly; the outline
+          // would render hidden because storage stays empty).
+          const attrName = editor ? resolveUniqueIDAttrName(editor) ?? 'id' : 'id';
 
           const hostResolver = options.outlineHost ?? resolveDefaultOutlineHost;
           const host = hostResolver(editorView);
@@ -271,6 +289,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           const tracker = createActiveStateTracker({
             scrollParent: options.activeScrollParent,
             rootMargin: options.activeRootMargin,
+            attrName,
             onChange: (id) => {
               if (Date.now() < manualOverrideUntil) return;
               writeActive(id);
@@ -280,13 +299,13 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           // ── Click delegation ─────────────────────────────────────
           const onClick = (event: MouseEvent): void => {
             const target = (event.target as HTMLElement | null)?.closest<HTMLElement>(
-              `[data-toc-id]`,
+              `[${ANCHOR_ATTR}]`,
             );
-            const id = target?.dataset['tocId'];
+            const id = target?.dataset[ANCHOR_DATASET_KEY];
             if (!id) return;
             manualOverrideUntil = Date.now() + options.clickOverrideMs;
             writeActive(id);
-            scrollToHeading(editorView, id);
+            scrollToHeading(editorView, id, { attrName });
           };
           nav.addEventListener('click', onClick);
 
@@ -348,7 +367,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             if (!storage) return;
             renderOutlineContent(nav, storage.content);
             applyState();
-            tracker.observe(collectHeadingDoms(editorView));
+            tracker.observe(collectHeadingDoms(editorView, attrName));
             applyActiveMarker(nav, storage.activeId);
           };
 
