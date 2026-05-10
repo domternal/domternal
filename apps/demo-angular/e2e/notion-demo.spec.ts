@@ -429,6 +429,49 @@ test.describe('Copy link to block', () => {
     await page.click(`${contextItemSelector}:has-text("Copy link")`);
     await expect(page.locator('.notion-demo-toast:not(.notion-demo-toast--error)')).toBeVisible();
   });
+
+  test('Copy link on a heading produces a URL whose hash equals the heading id', async ({ page }) => {
+    // After v0.7.0 unification, heading and paragraph share the same
+    // id system (UniqueID). Copy link, BlockContextMenu's UniqueID
+    // detection, and the floating outline all reference the same id.
+    // Verifies the round-trip: open menu on heading → copy link →
+    // pasted URL contains the SAME id that the heading carries in DOM.
+    await page.evaluate(() => {
+      const host = document.querySelector<HTMLElement>('.dm-editor');
+      (window as unknown as Record<string, unknown>)['__COPY_LINK_EVENTS__'] = [];
+      host?.addEventListener('dm:copy-link-success', (e: Event) => {
+        const ce = e as CustomEvent<{ url: string; blockId: string }>;
+        (
+          (window as unknown as Record<string, unknown>)['__COPY_LINK_EVENTS__'] as unknown[]
+        ).push(ce.detail);
+      });
+    });
+
+    // Read the first heading's id BEFORE invoking Copy link.
+    const headingId = await page.evaluate(() =>
+      document.querySelector<HTMLElement>(
+        'app-notion-demo .ProseMirror :is(h1, h2, h3)',
+      )?.getAttribute('id') ?? null,
+    );
+    expect(headingId).toBeTruthy();
+
+    await hoverBlock(page, 'h1');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Copy link")`);
+
+    await expect.poll(async () => page.evaluate(() =>
+      ((window as unknown as Record<string, unknown>)['__COPY_LINK_EVENTS__'] as unknown[]).length
+    )).toBeGreaterThan(0);
+
+    const event = await page.evaluate(() =>
+      ((window as unknown as Record<string, unknown>)['__COPY_LINK_EVENTS__'] as unknown[])[0]
+    ) as { url: string; blockId: string };
+
+    // The unification contract: BlockContextMenu's blockId comes from
+    // the SAME attribute that the heading element carries.
+    expect(event.blockId).toBe(headingId);
+    expect(event.url).toContain(`#${headingId!}`);
+  });
 });
 
 // ────────────────────────────────────────────────────────────────────────
@@ -1824,22 +1867,84 @@ test.describe('Table of Contents - Phase 1 spike', () => {
     expect(box!.x + box!.width).toBeLessThanOrEqual(viewportWidth);
   });
 
-  test('Phase 2: every heading gets a data-toc-id in the rendered DOM', async ({ page }) => {
+  test('every heading gets a native id attribute in the rendered DOM (sourced from UniqueID)', async ({ page }) => {
     await page.waitForFunction(() => {
       const headings = document.querySelectorAll('app-notion-demo .ProseMirror :is(h1, h2, h3)');
       return headings.length > 0
-        && Array.from(headings).every((h) => h.getAttribute('data-toc-id'));
+        && Array.from(headings).every((h) => h.getAttribute('id'));
     }, { timeout: 3000 });
     const ids = await page.evaluate(() => {
       const headings = document.querySelectorAll<HTMLElement>('app-notion-demo .ProseMirror :is(h1, h2, h3)');
-      return Array.from(headings).map((h) => h.getAttribute('data-toc-id'));
+      return Array.from(headings).map((h) => h.getAttribute('id'));
     });
     expect(ids.length).toBeGreaterThan(0);
     for (const id of ids) {
-      expect(id).toMatch(/^.{8}$/);
+      expect(id).toBeTruthy();
     }
     // IDs are unique within the document
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  test('regression: data-toc-id attribute is absent from DOM (replaced by native id in v0.7.0)', async ({ page }) => {
+    // The v0.7.0 unification dropped TOC's own `data-toc-id` schema
+    // attribute in favor of UniqueID's native `id`. This guard catches
+    // any future regression that re-introduces the dual id system.
+    await page.waitForSelector(`${editorSelector} h1[id], ${editorSelector} h2[id]`);
+    const stragglers = await page.evaluate(() =>
+      document.querySelectorAll('[data-toc-id]').length,
+    );
+    expect(stragglers).toBe(0);
+  });
+
+  test('outline buttons carry data-toc-anchor (NOT data-toc-id) — v0.7.0 rename', async ({ page }) => {
+    // FloatingTocOutline's tick + row buttons hold the heading id they
+    // link to under `data-toc-anchor`. The `data-toc-id` attribute is
+    // NOT used anywhere — see commit history for the unification.
+    const counts = await page.evaluate(() => ({
+      anchor: document.querySelectorAll('.dm-toc-outline [data-toc-anchor]').length,
+      legacy: document.querySelectorAll('.dm-toc-outline [data-toc-id]').length,
+    }));
+    expect(counts.anchor).toBeGreaterThan(0);
+    expect(counts.legacy).toBe(0);
+  });
+
+  test('native browser hash navigation: setting location.hash scrolls to the heading by id', async ({ page }) => {
+    // Native HTML id attribute means `<a href="#id">` links and
+    // `window.location.hash = '#id'` both auto-scroll without any JS
+    // from our extension. This is the headline benefit of the
+    // unification — the browser does the work that scrollToHeading
+    // used to monkey-patch via querySelector.
+    const targetId = await page.evaluate(() => {
+      // Pick the third heading (well below the fold for the demo's
+      // initial doc). Returns null if unavailable, which fails the
+      // expect below loudly with a useful selector.
+      const h = document.querySelectorAll<HTMLElement>(
+        'app-notion-demo .ProseMirror :is(h1, h2, h3)',
+      )[2];
+      return h?.getAttribute('id') ?? null;
+    });
+    expect(targetId).toBeTruthy();
+
+    // Capture the heading's pre-navigation Y position relative to viewport.
+    const beforeY = await page.locator(`${editorSelector} [id="${targetId!}"]`).evaluate(
+      (el) => el.getBoundingClientRect().top,
+    );
+
+    // Navigate via the URL hash. The browser auto-scrolls to the element
+    // whose `id` matches — no JS handler from our side is needed.
+    await page.evaluate((id) => { window.location.hash = `#${id}`; }, targetId!);
+
+    // Wait one frame for browser scroll to settle, then assert the
+    // heading is now near the top of the viewport.
+    await page.waitForTimeout(50);
+    const afterY = await page.locator(`${editorSelector} [id="${targetId!}"]`).evaluate(
+      (el) => el.getBoundingClientRect().top,
+    );
+
+    // The heading should now be much closer to the top (browser scrolls
+    // it into view). Exact offset depends on viewport height; the
+    // contract is "moved meaningfully toward y=0 from where it was".
+    expect(afterY).toBeLessThan(beforeY);
   });
 
   test('Phase 2: editor.storage.toc.content mirrors the doc heading list', async ({ page }) => {
@@ -1867,7 +1972,7 @@ test.describe('Table of Contents - Phase 1 spike', () => {
     expect(storage!.activeId).toBeNull(); // Phase 5 will populate this
     expect(storage!.content.length).toBeGreaterThan(0);
     for (const entry of storage!.content) {
-      expect(entry.id).toMatch(/^.{8}$/);
+      expect(entry.id).toBeTruthy();
       expect([1, 2, 3]).toContain(entry.level);
       expect(typeof entry.textContent).toBe('string');
     }
@@ -1902,30 +2007,30 @@ test.describe('Table of Contents - Phase 1 spike', () => {
 test.describe('Table of Contents - Phase 2 data layer', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
-  test('keyboard level toggle (Mod+Alt+3) preserves data-toc-id', async ({ page }) => {
+  test('keyboard level toggle (Mod+Alt+3) preserves the heading id', async ({ page }) => {
     // Click into the first H2 ("Playground") and read its current id.
     await page.click(`${editorSelector} h2 >> nth=0`);
     const before = await page.evaluate(() => {
       const h2 = document.querySelector<HTMLElement>('app-notion-demo .ProseMirror h2');
-      return h2?.getAttribute('data-toc-id') ?? null;
+      return h2?.getAttribute('id') ?? null;
     });
-    expect(before).toMatch(/^.{8}$/);
+    expect(before).toBeTruthy();
 
     // Toggle to H3 via the framework keyboard shortcut. Heading.ts
     // exposes Mod+Alt+<level> for every configured level.
     await page.keyboard.press(`${modifier}+Alt+3`);
 
-    // Same DOM node is now an H3, with the SAME tocId. setBlockType
+    // Same DOM node is now an H3, with the SAME id. setBlockType
     // preserves attrs (per nodeCommands.ts merge), so the framework
-    // keeps the heading's tocId across the level change.
+    // keeps the id across the level change.
     const after = await page.evaluate(() => {
       const h3 = document.querySelector<HTMLElement>('app-notion-demo .ProseMirror h3');
-      return h3?.getAttribute('data-toc-id') ?? null;
+      return h3?.getAttribute('id') ?? null;
     });
     expect(after).toBe(before);
   });
 
-  test('slash command "Heading 2" insertion creates a heading with a fresh data-toc-id', async ({ page }) => {
+  test('slash command "Heading 2" insertion creates a heading with a fresh id', async ({ page }) => {
     // Drop into an empty paragraph at the end of the doc and trigger
     // the slash menu. We start from a fresh doc to control where the
     // new heading lands.
@@ -1936,14 +2041,14 @@ test.describe('Table of Contents - Phase 2 data layer', () => {
     await page.keyboard.press('Enter');
     await page.keyboard.type('Fresh section');
 
-    // The new H2 must have a non-empty 8-char data-toc-id, distinct
+    // The new H2 must have a non-empty UUID-style id (UniqueID format), distinct
     // from any prior heading on the page.
     const id = await page.evaluate(() => {
       const headings = Array.from(document.querySelectorAll<HTMLElement>('app-notion-demo .ProseMirror h2'));
       const fresh = headings.find((h) => h.textContent?.includes('Fresh section'));
-      return fresh?.getAttribute('data-toc-id') ?? null;
+      return fresh?.getAttribute('id') ?? null;
     });
-    expect(id).toMatch(/^.{8}$/);
+    expect(id).toBeTruthy();
   });
 
   test('storage updates immediately when a new heading is typed', async ({ page }) => {
@@ -1976,30 +2081,30 @@ test.describe('Table of Contents - Phase 2 data layer', () => {
     }, { timeout: 2000 });
   });
 
-  test('exported HTML output preserves data-toc-id attributes', async ({ page }) => {
+  test('exported HTML output preserves id attributes', async ({ page }) => {
     // The demo renders `editor.htmlContent()` into a <pre class="output"> block.
     // Its serialized text is what would be saved to a backend or copied
-    // out for export, so it MUST include the data-toc-id markers.
+    // out for export, so it MUST include the id markers.
     const html = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | { getHTML: () => string }
         | undefined;
       return ed?.getHTML() ?? '';
     });
-    // At least one heading must round-trip a data-toc-id attribute.
-    expect(html).toMatch(/<h[1-3][^>]*data-toc-id="[^"]+"/);
+    // At least one heading must round-trip an id attribute.
+    expect(html).toMatch(/<h[1-3][^>]*\bid="[^"]+"/);
   });
 
-  test('pasted content with existing data-toc-id values keeps every ID unique', async ({ page }) => {
+  test('pasted content with existing id values keeps every ID unique', async ({ page }) => {
     // Simulate a cross-document paste by setting content that contains
-    // a tocId already in use. The plugin must rename the duplicate so
+    // an id already in use. The plugin must rename the duplicate so
     // the doc remains a unique-ID space (avoids ambiguous hash anchors).
     await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | { setContent: (h: string, emit: boolean) => void }
         | undefined;
       ed?.setContent(
-        '<h1 data-toc-id="duplicate">First</h1><h2 data-toc-id="duplicate">Second</h2>',
+        '<h1 id="duplicate">First</h1><h2 id="duplicate">Second</h2>',
         false,
       );
     });
@@ -2012,7 +2117,7 @@ test.describe('Table of Contents - Phase 2 data layer', () => {
     }, { timeout: 2000 });
     const ids = await page.evaluate(() => {
       const headings = Array.from(document.querySelectorAll<HTMLElement>('app-notion-demo .ProseMirror :is(h1, h2, h3)'));
-      return headings.map((h) => h.getAttribute('data-toc-id'));
+      return headings.map((h) => h.getAttribute('id'));
     });
     expect(ids).toHaveLength(2);
     expect(new Set(ids).size).toBe(2); // unique
@@ -2045,7 +2150,7 @@ test.describe('Table of Contents - Phase 3 scroll navigation', () => {
       const toc = ed?.storage['toc'] as { content: { id: string }[] } | undefined;
       return toc?.content[toc.content.length - 1]?.id ?? null;
     });
-    expect(targetId).toMatch(/^.{8}$/);
+    expect(targetId).toBeTruthy();
 
     // scrollIntoView's smooth behaviour does not reliably advance
     // window.scrollY in headless chromium - some setups cap smooth
@@ -2088,19 +2193,19 @@ test.describe('Table of Contents - Phase 3 scroll navigation', () => {
 
   test('navigating to a heading nested inside a collapsed <details> opens the details before scrolling', async ({ page }) => {
     // Inject content with a heading inside a collapsed <details>. Use
-    // a deterministic data-toc-id so we can target it by name.
+    // a deterministic id so we can target it by name.
     await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | { setContent: (h: string, emit: boolean) => void }
         | undefined;
       ed?.setContent(
-        '<h1>Top</h1><div data-type="details"><div data-details-content><h2 data-toc-id="hidden">Behind a fold</h2></div></div>',
+        '<h1>Top</h1><div data-type="details"><div data-details-content><h2 id="hidden">Behind a fold</h2></div></div>',
         false,
       );
     });
-    // Wait for the heading to actually be in the DOM with its tocId.
+    // Wait for the heading to actually be in the DOM with its id.
     await page.waitForFunction(() =>
-      document.querySelector('app-notion-demo .ProseMirror [data-toc-id="hidden"]') !== null,
+      document.querySelector('app-notion-demo .ProseMirror [id="hidden"]') !== null,
     );
 
     // Sanity: the wrapping details should be closed (no open class /
@@ -2126,7 +2231,7 @@ test.describe('Table of Contents - Phase 3 scroll navigation', () => {
     // jsdom-style "open" toggling vs native `<details>` is irrelevant
     // here - what matters is that the layout exposes the heading.
     const visible = await page.evaluate(() => {
-      const target = document.querySelector<HTMLElement>('[data-toc-id="hidden"]');
+      const target = document.querySelector<HTMLElement>('[id="hidden"]');
       if (!target) return false;
       const rect = target.getBoundingClientRect();
       return rect.height > 0 && rect.width > 0;
@@ -2142,7 +2247,7 @@ test.describe('Table of Contents - Phase 3 scroll navigation', () => {
       const toc = ed?.storage['toc'] as { content: { id: string }[] } | undefined;
       return toc?.content[toc.content.length - 1]?.id ?? null;
     });
-    expect(targetId).toMatch(/^.{8}$/);
+    expect(targetId).toBeTruthy();
     if (!targetId) throw new Error('no heading id');
 
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -2220,7 +2325,7 @@ test.describe('Table of Contents - Phase 3 scroll navigation', () => {
 
   // NOTE: initial-load `#hash` auto-scroll is verified via the
   // unit/integration suite (TableOfContents.test.ts) rather than e2e.
-  // The demo regenerates random tocIds on every Notion-mode entry, so
+  // The demo regenerates random ids on every Notion-mode entry, so
   // there is no reliable way to land at a fresh page with a hash that
   // matches an existing heading without injecting deterministic
   // content - which would pollute the user-facing demo. The unit test
@@ -2277,10 +2382,10 @@ test.describe('Table of Contents - Phase 4 floating outline ticks', () => {
     // Click the LAST tick so we reliably move the scroll position.
     const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
     const lastIndex = (await ticks.count()) - 1;
-    const targetTocId = await ticks.nth(lastIndex).getAttribute('data-toc-id');
-    expect(targetTocId).toMatch(/^.{8}$/);
+    const targetTocId = await ticks.nth(lastIndex).getAttribute('data-toc-anchor');
+    expect(targetTocId).toBeTruthy();
 
-    if (!targetTocId) throw new Error('expected non-null tocId');
+    if (!targetTocId) throw new Error('expected non-null anchor id');
     // Dispatch click programmatically (synchronous DOM event) instead
     // of going through Playwright's mouse simulation. Playwright's
     // click() invokes mouseover / mouseenter on its way to the
@@ -2293,7 +2398,7 @@ test.describe('Table of Contents - Phase 4 floating outline ticks', () => {
     // user actually interacts.
     await page.evaluate((id) => {
       document
-        .querySelector<HTMLElement>(`.dm-toc-outline-tick[data-toc-id="${id}"]`)
+        .querySelector<HTMLElement>(`.dm-toc-outline-tick[data-toc-anchor="${id}"]`)
         ?.click();
     }, targetTocId);
 
@@ -2358,7 +2463,7 @@ test.describe('Table of Contents - Phase 4 floating outline ticks', () => {
     // body and the outline). What we care about is that the button is
     // focusable and that Enter activates it.
     const lastIndex = (await ticks.count()) - 1;
-    const targetTocId = await ticks.nth(lastIndex).getAttribute('data-toc-id');
+    const targetTocId = await ticks.nth(lastIndex).getAttribute('data-toc-anchor');
     await ticks.nth(lastIndex).focus();
     const isFocused = await page.evaluate(() => {
       const focused = document.activeElement;
@@ -2475,7 +2580,7 @@ test.describe('Table of Contents - Phase 5 active state', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await setStretchedContent(page);
     const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
-    const targetId = await ticks.nth(1).getAttribute('data-toc-id');
+    const targetId = await ticks.nth(1).getAttribute('data-toc-anchor');
     await ticks.nth(1).dispatchEvent('click');
 
     const storedActiveId = await page.evaluate(() => {
@@ -2618,12 +2723,12 @@ test.describe('Table of Contents - Phase 5 active state', () => {
     // be one of the rendered tick ids.
     expect(storedActiveId).not.toBeNull();
     const allTickIds = await ticks.evaluateAll(
-      (nodes) => nodes.map((n) => n.getAttribute('data-toc-id')),
+      (nodes) => nodes.map((n) => n.getAttribute('data-toc-anchor')),
     );
     expect(allTickIds).toContain(storedActiveId);
     // Specifically: the FIRST heading should not be active anymore -
     // scrolling all the way down clearly passes it.
-    const firstTickId = await ticks.first().getAttribute('data-toc-id');
+    const firstTickId = await ticks.first().getAttribute('data-toc-anchor');
     expect(storedActiveId).not.toBe(firstTickId);
   });
 
@@ -2654,10 +2759,10 @@ test.describe('Table of Contents - Phase 5 active state', () => {
     await setStretchedContent(page);
     const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
     await ticks.nth(1).dispatchEvent('click');
-    const targetId = await ticks.nth(1).getAttribute('data-toc-id');
+    const targetId = await ticks.nth(1).getAttribute('data-toc-anchor');
 
-    // Replace the doc but KEEP the same data-toc-id on the formerly
-    // active heading. parseHTML preserves data-toc-id from the markup,
+    // Replace the doc but KEEP the same id on the formerly
+    // active heading. parseHTML preserves the id from the markup,
     // so the previous activeId still resolves to a real heading. The
     // plugin must reapply the active marker to the corresponding tick.
     await page.evaluate((id) => {
@@ -2665,14 +2770,14 @@ test.describe('Table of Contents - Phase 5 active state', () => {
         | { setContent: (h: string, emit: boolean) => void }
         | undefined;
       ed?.setContent(
-        `<h1>One</h1><h2 data-toc-id="${id}">Preserved</h2><h3>Three</h3>`,
+        `<h1>One</h1><h2 id="${id}">Preserved</h2><h3>Three</h3>`,
         false,
       );
     }, targetId);
 
-    // The tick whose data-toc-id matches the preserved heading must
+    // The tick whose data-toc-anchor matches the preserved heading must
     // be active and storage.activeId must point at it.
-    const matched = page.locator(`.dm-toc-outline-tick[data-toc-id="${targetId}"]`);
+    const matched = page.locator(`.dm-toc-outline-tick[data-toc-anchor="${targetId}"]`);
     await expect(matched).toHaveClass(/dm-toc--active/);
     const storedActiveId = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -2712,7 +2817,7 @@ test.describe('Table of Contents - Phase 5 active state', () => {
 
     // Click the FIRST tick - that becomes active, override window starts.
     await ticks.nth(0).dispatchEvent('click');
-    const firstId = await ticks.nth(0).getAttribute('data-toc-id');
+    const firstId = await ticks.nth(0).getAttribute('data-toc-anchor');
     let stored = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | { storage: Record<string, unknown> }
@@ -2806,8 +2911,8 @@ test.describe('Table of Contents - Phase 6 hover expansion', () => {
 
     const rows = page.locator('.dm-toc-outline-row');
     const lastIndex = (await rows.count()) - 1;
-    const targetTocId = await rows.nth(lastIndex).getAttribute('data-toc-id');
-    expect(targetTocId).toMatch(/^.{8}$/);
+    const targetTocId = await rows.nth(lastIndex).getAttribute('data-toc-anchor');
+    expect(targetTocId).toBeTruthy();
 
     const scrollYBefore = await page.evaluate(() => window.scrollY);
     await rows.nth(lastIndex).click();
@@ -2849,13 +2954,13 @@ test.describe('Table of Contents - Phase 6 hover expansion', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const ticks = page.locator('.dm-toc-outline-tick');
     await ticks.nth(1).dispatchEvent('click');
-    const targetId = await ticks.nth(1).getAttribute('data-toc-id');
+    const targetId = await ticks.nth(1).getAttribute('data-toc-anchor');
 
     // Reveal card so getComputedStyle gives a meaningful weight value.
     await page.locator('.dm-toc-outline').hover();
     await expect(page.locator('.dm-toc-outline')).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
 
-    const matchedRow = page.locator(`.dm-toc-outline-row[data-toc-id="${targetId}"]`);
+    const matchedRow = page.locator(`.dm-toc-outline-row[data-toc-anchor="${targetId}"]`);
     await expect(matchedRow).toHaveAttribute('aria-current', 'location');
     const weight = await matchedRow.evaluate((node) => window.getComputedStyle(node).fontWeight);
     // Active row uses the --dm-toc-row-active-weight token (default 600).
@@ -2943,25 +3048,25 @@ test.describe('Table of Contents - Phase 6 hover expansion', () => {
       ed?.setContent(
         '<p>Before</p>'
         + '<div data-type="details">'
-        + '<div data-details-content><h2 data-toc-id="hidden">Inside details</h2></div>'
+        + '<div data-details-content><h2 id="hidden">Inside details</h2></div>'
         + '</div>'
         + '<h2>Sibling</h2>',
         false,
       );
     });
     await page.waitForFunction(() =>
-      document.querySelector('.dm-toc-outline-row[data-toc-id="hidden"]') !== null,
+      document.querySelector('.dm-toc-outline-row[data-toc-anchor="hidden"]') !== null,
     );
 
     // Open expanded card and click the row pointing at the hidden heading.
     await page.locator('.dm-toc-outline').hover();
     await expect(page.locator('.dm-toc-outline')).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
-    await page.locator('.dm-toc-outline-row[data-toc-id="hidden"]').click();
+    await page.locator('.dm-toc-outline-row[data-toc-anchor="hidden"]').click();
 
     // The heading is now visible (details forced open by the
     // scrollToHeading helper).
     const visible = await page.evaluate(() => {
-      const target = document.querySelector<HTMLElement>('[data-toc-id="hidden"]');
+      const target = document.querySelector<HTMLElement>('[id="hidden"]');
       if (!target) return false;
       const rect = target.getBoundingClientRect();
       return rect.height > 0 && rect.width > 0;
@@ -3081,7 +3186,7 @@ test.describe('Table of Contents - Phase 7 inline block', () => {
     );
 
     const links = page.locator('.dm-toc-block-link');
-    const targetTocId = await links.last().getAttribute('data-toc-id');
+    const targetTocId = await links.last().getAttribute('data-toc-anchor');
     const scrollYBefore = await page.evaluate(() => window.scrollY);
     await links.last().click();
     await page.evaluate(
@@ -3127,9 +3232,9 @@ test.describe('Table of Contents - Phase 7 inline block', () => {
     // marker on its matching row.
     const ticks = page.locator('.dm-toc-outline-tick');
     await ticks.nth(1).dispatchEvent('click');
-    const targetId = await ticks.nth(1).getAttribute('data-toc-id');
+    const targetId = await ticks.nth(1).getAttribute('data-toc-anchor');
 
-    const blockRow = page.locator(`.dm-toc-block-link[data-toc-id="${targetId}"]`);
+    const blockRow = page.locator(`.dm-toc-block-link[data-toc-anchor="${targetId}"]`);
     await expect(blockRow).toHaveAttribute('aria-current', 'location');
     await expect(blockRow).toHaveClass(/dm-toc-block-link--active/);
   });
@@ -3236,7 +3341,7 @@ test.describe('Table of Contents - Phase 7 inline block', () => {
     // Programmatic .click() (which Enter/Space synthesize on a
     // focused button) fires the delegated handler and triggers the
     // navigation, just like a real keyboard activation.
-    const targetTocId = await links.nth(0).getAttribute('data-toc-id');
+    const targetTocId = await links.nth(0).getAttribute('data-toc-anchor');
     await page.evaluate(() => {
       const list = document.querySelectorAll<HTMLButtonElement>('.dm-toc-block-link');
       list[0]?.click();
@@ -3321,19 +3426,19 @@ test.describe('Table of Contents - Phase 7 inline block', () => {
       ed?.setContent(
         '<div data-type="table-of-contents"></div>'
         + '<p>Before</p>'
-        + '<div data-type="details"><div data-details-content><h2 data-toc-id="hidden">Inside</h2></div></div>',
+        + '<div data-type="details"><div data-details-content><h2 id="hidden">Inside</h2></div></div>',
         false,
       );
     });
     await page.waitForFunction(() =>
-      document.querySelector('.dm-toc-block-link[data-toc-id="hidden"]') !== null,
+      document.querySelector('.dm-toc-block-link[data-toc-anchor="hidden"]') !== null,
     );
 
-    await page.locator('.dm-toc-block-link[data-toc-id="hidden"]').click();
+    await page.locator('.dm-toc-block-link[data-toc-anchor="hidden"]').click();
     // The scrollToHeading helper opens any closed <details> ancestor
     // before scrolling - the heading must now be measurable.
     const visible = await page.evaluate(() => {
-      const target = document.querySelector<HTMLElement>('[data-toc-id="hidden"]');
+      const target = document.querySelector<HTMLElement>('[id="hidden"]');
       if (!target) return false;
       const rect = target.getBoundingClientRect();
       return rect.height > 0 && rect.width > 0;
@@ -3710,7 +3815,7 @@ test.describe('Table of Contents - Phase 9 robustness', () => {
     // without flaking on a slow runner.
     expect(elapsed).toBeLessThan(2000);
 
-    // Sanity: every tick has a level + tocId; matches the doc.
+    // Sanity: every tick has a level + anchor id; matches the doc.
     const ticks = await page.locator('.dm-toc-outline-tick').count();
     const links = await page.locator('.dm-toc-block-link').count();
     expect(ticks).toBe(50);
