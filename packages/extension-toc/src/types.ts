@@ -6,10 +6,14 @@
  * One entry in `editor.storage.toc.content`. The first 4 fields come
  * from the PM doc walk (`headingWalk`); `domNode` is resolved lazily on
  * scroll/observer passes; `isActive` and `isScrolledOver` are managed
- * by `activeStateTracker` (Phase 5).
+ * by `activeStateTracker`.
  */
 export interface HeadingEntry {
-  /** Stable identifier written as `data-toc-id` on the heading element. */
+  /**
+   * Stable identifier sourced from the `UniqueID` extension's per-block
+   * id (default DOM attribute: `id`). TOC reads this; it does not write
+   * its own. The id is a peer-resolved attribute, not owned by TOC.
+   */
   id: string;
   /** Heading level (1-6). */
   level: number;
@@ -54,20 +58,21 @@ export interface TableOfContentsOptions {
    * Node names to treat as anchors. Defaults to just the built-in
    * `heading` node; pass extra names to include custom heading-like
    * nodes contributed by other extensions.
+   *
+   * NOTE: every type listed here MUST also be in `UniqueID.options.types`
+   * (UniqueID's defaults already include `'heading'`). TOC reads ids
+   * UniqueID assigns; it does not assign them itself.
    * @default ['heading']
    */
   anchorTypes: string[];
 
   /**
-   * ID generator. Default: 8-char base36 string. Receives the current
-   * set of in-use IDs so generators can avoid collisions deterministically.
-   */
-  generateId: (existingIds: ReadonlySet<string>) => string;
-
-  /**
    * Public consumer callback fired whenever the heading list or active
    * state changes. Internal listeners use the `subscribers` Set on
    * storage; this option is the user-facing escape hatch.
+   *
+   * For custom id format, configure `UniqueID.generateID` instead - TOC
+   * reads UniqueID's ids and does not own id generation.
    */
   onUpdate?: (storage: TocStorage) => void;
 }
