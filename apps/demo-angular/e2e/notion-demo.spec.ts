@@ -1994,6 +1994,100 @@ test.describe('Table of Contents - Phase 1 spike', () => {
     const editorCenter = editorBox!.x + editorBox!.width / 2;
     expect(outlineCenter).toBeGreaterThan(editorCenter);
   });
+
+  test('outline uses editor anchor by default (data-anchor="editor", position:sticky, sits inside a shell)', async ({ page }) => {
+    // Default mode anchors the outline to the editor container instead
+    // of the viewport. Observable contracts:
+    //   1. The nav element carries `data-anchor="editor"`.
+    //   2. The nav is wrapped in `.dm-toc-outline-shell` (also marked
+    //      with data-anchor="editor").
+    //   3. The nav's computed `position` is `sticky` (which is what
+    //      keeps it vertically centered while the shell scrolls).
+    //   4. The shell's computed `position` is `absolute` (it spans the
+    //      host's full height at its right edge).
+    const outline = page.locator('.dm-toc-outline');
+    await expect(outline).toBeVisible();
+    await expect(outline).toHaveAttribute('data-anchor', 'editor');
+    const shell = page.locator('.dm-toc-outline-shell');
+    await expect(shell).toHaveAttribute('data-anchor', 'editor');
+    const navPosition = await outline.evaluate((el) => window.getComputedStyle(el).position);
+    expect(navPosition).toBe('sticky');
+    const shellPosition = await shell.evaluate((el) => window.getComputedStyle(el).position);
+    expect(shellPosition).toBe('absolute');
+  });
+
+  test('outline shell mounts inside the page container (.notion-page), not document.body', async ({ page }) => {
+    // The host resolver walks up from `.dm-editor` for the first
+    // non-overflow-hidden ancestor. In notion-demo that ancestor is
+    // `.notion-page`. Confirming the shell is a descendant of
+    // `.notion-page` proves the host was correctly resolved and the
+    // body fallback did NOT trigger.
+    const result = await page.evaluate(() => {
+      const shell = document.querySelector('.dm-toc-outline-shell');
+      const outline = document.querySelector('.dm-toc-outline');
+      const page = document.querySelector('.notion-page');
+      return {
+        shellFound: !!shell,
+        outlineFound: !!outline,
+        pageFound: !!page,
+        shellInsidePage: !!(shell && page && page.contains(shell)),
+        outlineInsideShell: !!(shell && outline && shell.contains(outline)),
+      };
+    });
+    expect(result.shellFound).toBe(true);
+    expect(result.outlineFound).toBe(true);
+    expect(result.pageFound).toBe(true);
+    expect(result.shellInsidePage).toBe(true);
+    expect(result.outlineInsideShell).toBe(true);
+  });
+
+  test('outline left edge sits past the editor right edge (no overlap with editor content)', async ({ page }) => {
+    // Editor-mode positioning places the shell at `left: 100%` of the
+    // host (.notion-page). The editor fills the host's content box. So
+    // the outline's left edge must be strictly past the editor's right
+    // edge (minus a small tolerance for sub-pixel rounding).
+    const outlineBox = await page.locator('.dm-toc-outline').boundingBox();
+    const editorBox = await page.locator('app-notion-demo .dm-editor').boundingBox();
+    expect(outlineBox).not.toBeNull();
+    expect(editorBox).not.toBeNull();
+    const editorRight = editorBox!.x + editorBox!.width;
+    expect(outlineBox!.x).toBeGreaterThanOrEqual(editorRight - 1);
+  });
+
+  test('host (.notion-page) is forced to position:relative so editor-mode anchoring works', async ({ page }) => {
+    // For the shell's `position: absolute` to resolve against
+    // `.notion-page`, the host must have a non-static position. The
+    // plugin mutates the host's inline style on mount; this test pins
+    // the contract from the consumer's perspective.
+    const hostPosition = await page.locator('.notion-page').evaluate(
+      (el) => window.getComputedStyle(el).position,
+    );
+    expect(hostPosition).toBe('relative');
+  });
+
+  test('outline stays vertically centered in viewport after scrolling (sticky behavior)', async ({ page }) => {
+    // Editor mode's whole point: the outline tracks the viewport's
+    // vertical midpoint while the host (.notion-page) is in view. A
+    // `position: absolute` outline at `top: 50%` would scroll AWAY
+    // (it would stick to 50% of the host, not the viewport). The
+    // sticky-in-shell approach pins it to viewport center until the
+    // host bottom approaches the viewport center, then releases.
+    //
+    // Test: read outline.y before scroll, then scroll the page down
+    // by 200px, then read outline.y again. If sticky is working, the
+    // outline's absolute viewport y should remain unchanged (still at
+    // ~50% of viewport height). With the buggy absolute-top:50%
+    // implementation it would have moved up by 200px.
+    const initialBox = await page.locator('.dm-toc-outline').boundingBox();
+    expect(initialBox).not.toBeNull();
+    await page.evaluate(() => { window.scrollBy(0, 200); });
+    // Give the browser a frame to settle the new sticky position.
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => { r(undefined); })));
+    const scrolledBox = await page.locator('.dm-toc-outline').boundingBox();
+    expect(scrolledBox).not.toBeNull();
+    // Allow a couple of px for sub-pixel rounding under sticky.
+    expect(Math.abs((scrolledBox!.y) - (initialBox!.y))).toBeLessThanOrEqual(2);
+  });
 });
 
 // ────────────────────────────────────────────────────────────────────────

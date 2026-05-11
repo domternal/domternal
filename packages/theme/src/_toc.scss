@@ -11,17 +11,6 @@
 // =============================================================================
 
 .dm-toc-outline {
-  // D16 (revised in Phase 4): position: fixed gives Notion-like
-  // behavior - the outline stays vertically centered in the viewport
-  // as the user scrolls, regardless of which container it mounted
-  // into. Trade-off: multi-editor on the same page would overlap;
-  // multi-editor support is v2 work.
-  position: fixed;
-  top: 50%;
-  right: var(--dm-toc-right-offset, 24px);
-  transform: translateY(-50%);
-  z-index: var(--dm-toc-z-index, 10);
-
   // Stack ticks vertically with even gaps. flex-end keeps the right
   // edge of every tick aligned even though widths differ per level.
   display: flex;
@@ -29,6 +18,7 @@
   align-items: flex-end;
   gap: var(--dm-toc-tick-gap, 10px);
   padding: var(--dm-toc-padding-block, 12px) var(--dm-toc-padding-inline, 8px);
+  z-index: var(--dm-toc-z-index, 10);
 
   // No background / no border in collapsed state - it's just a
   // column of tiny marks. Phase 6's expanded card adds chrome.
@@ -36,6 +26,30 @@
   border: 0;
   margin: 0;
   pointer-events: auto;
+
+  // Positioning branches via the plugin-set `data-anchor`:
+  //
+  // - editor (default): the nav is `position: sticky; top: 50vh` INSIDE
+  //   a shell (`.dm-toc-outline-shell`) that spans the host's full
+  //   height at its right edge. Result: the outline stays vertically
+  //   centered in the viewport while any part of the host is visible,
+  //   and naturally scrolls out when the user scrolls past the host
+  //   bottom.
+  // - viewport: glued to the viewport right edge with `position: fixed`,
+  //   vertically centered in the viewport. Notion-style behavior - the
+  //   outline stays put as the user scrolls, regardless of where the
+  //   editor sits on the page.
+  &[data-anchor='editor'] {
+    position: sticky;
+    top: 50vh;
+    transform: translateY(-50%);
+  }
+  &[data-anchor='viewport'] {
+    position: fixed;
+    top: 50%;
+    right: var(--dm-toc-right-offset, 24px);
+    transform: translateY(-50%);
+  }
 
   // Visibility guards. The plugin sets data-state and data-viewport
   // based on heading count and matchMedia. Hiding via CSS (vs JS
@@ -48,6 +62,32 @@
   //   expanded  - hover or focus-within; card visible, ticks hidden (Phase 6)
   &[data-state='hidden'],
   &[data-viewport='mobile'] {
+    display: none;
+  }
+}
+
+// Editor-mode shell: an out-of-flow column that runs the full vertical
+// extent of the mount host (`.notion-page` in the demo) at its right
+// edge. Width auto-shrinks to the nav's intrinsic width, so the shell
+// itself is invisible and non-interactive (clicks pass through). The
+// nav inside is `position: sticky` and uses the shell's height as its
+// sticky range, which is what produces the "vertically centered in
+// viewport while host is visible" effect.
+.dm-toc-outline-shell[data-anchor='editor'] {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 100%;
+  margin-left: var(--dm-toc-editor-offset, 8px);
+  z-index: var(--dm-toc-z-index, 10);
+  pointer-events: none;
+
+  // Hide the entire shell when the nav is hidden so we don't leave a
+  // dead zero-width column ghosting the layout. The nav's own
+  // data-state mirror is the source of truth; the shell tracks it via
+  // :has() so the visibility decision stays in one place.
+  &:has(.dm-toc-outline[data-state='hidden']),
+  &:has(.dm-toc-outline[data-viewport='mobile']) {
     display: none;
   }
 }
@@ -152,6 +192,21 @@
 .dm-toc-outline[data-state='expanded'] .dm-toc-outline-card {
   opacity: 1;
   pointer-events: auto;
+  transform: translateY(-50%) translateX(0);
+}
+
+// In `editor` anchor mode the nav sits immediately to the right of the
+// editor container. Default card direction (anchored to nav's right
+// edge, extending leftward) would overlap the editor content, so we
+// flip it: anchor to the nav's left edge and extend rightward into the
+// page gutter. Slide-in animation also flips direction (the card now
+// emerges from the left side of the nav rather than the right).
+.dm-toc-outline[data-anchor='editor'] .dm-toc-outline-card {
+  right: auto;
+  left: 0;
+  transform: translateY(-50%) translateX(calc(-1 * var(--dm-toc-card-offset, 8px)));
+}
+.dm-toc-outline[data-anchor='editor'][data-state='expanded'] .dm-toc-outline-card {
   transform: translateY(-50%) translateX(0);
 }
 
@@ -350,8 +405,11 @@
   // instantly anyway, but resetting the start position to 0 means
   // the card never enters its mid-animation visual state on a fast
   // expand/collapse cycle (which can briefly leak a 1-frame
-  // off-position card).
-  .dm-toc-outline-card {
+  // off-position card). Both anchor modes need this override - the
+  // editor-mode rule above raises specificity to `0,2,0`, so we match
+  // it here with an equal selector to stay decisive.
+  .dm-toc-outline-card,
+  .dm-toc-outline[data-anchor='editor'] .dm-toc-outline-card {
     transform: translateY(-50%) translateX(0);
   }
 }

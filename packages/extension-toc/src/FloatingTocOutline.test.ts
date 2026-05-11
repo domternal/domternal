@@ -312,9 +312,13 @@ describe('FloatingTocOutline - Phase 4 ticks', () => {
     editor = new Editor({
       element: editorHost,
       extensions: [
-        Document, Text, Paragraph, Heading, BaseKeymap, History,
+        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
         TableOfContents,
-        FloatingTocOutline.configure({ outlineHost: () => customHost }),
+        // Pin viewport mode here so the assertion targets the bare
+        // outline (editor mode wraps it in a `.dm-toc-outline-shell`,
+        // changing the parentage; that wrapping is exercised by the
+        // dedicated `anchor option` describe block below).
+        FloatingTocOutline.configure({ outlineHost: () => customHost, anchor: 'viewport' }),
       ],
       content: '<h1>One</h1><h2>Two</h2>',
     });
@@ -395,6 +399,236 @@ describe('FloatingTocOutline - Phase 4 ticks', () => {
     // we DON'T leave a dangling subscriber inside an already-destroyed
     // editor's storage that future fan-outs could try to invoke.
     expect(storage.subscribers.size).toBe(0);
+  });
+});
+
+/**
+ * The `anchor` option (added when the outline moved out of "fixed to
+ * viewport edge" exclusivity) drives both DOM-state (`data-anchor` on
+ * the nav) and side-effects (in `editor` mode the plugin sets
+ * `position: relative` on the host so the outline's `position: absolute`
+ * resolves against it). These tests cover both modes plus the cleanup
+ * symmetry (we restore the host's inline `position` only if we set it).
+ */
+describe('FloatingTocOutline - anchor option', () => {
+  let editor: Editor | undefined;
+  let originalMatchMedia: typeof window.matchMedia | undefined;
+
+  const stubMatchMedia = (): void => {
+    originalMatchMedia = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: false, media: query, onchange: null,
+      addEventListener: (): void => undefined,
+      removeEventListener: (): void => undefined,
+      addListener: (): void => undefined, removeListener: (): void => undefined,
+      dispatchEvent: (): boolean => false,
+    })) as typeof window.matchMedia;
+  };
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) editor.destroy();
+    editor = undefined;
+    document.body.innerHTML = '';
+    if (originalMatchMedia) {
+      window.matchMedia = originalMatchMedia;
+    } else {
+      // @ts-expect-error - clean up polyfill
+      delete window.matchMedia;
+    }
+  });
+
+  it('defaults to anchor="editor" (data-anchor reflects the default option)', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+
+    editor = new Editor({
+      element: host,
+      extensions: baseExtensions,
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+
+    const outline = queryOutline();
+    expect(outline?.dataset['anchor']).toBe('editor');
+  });
+
+  it('honors anchor="viewport" override', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+
+    editor = new Editor({
+      element: host,
+      extensions: [
+        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+        TableOfContents,
+        FloatingTocOutline.configure({ anchor: 'viewport' }),
+      ],
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+
+    expect(queryOutline()?.dataset['anchor']).toBe('viewport');
+  });
+
+  it('editor mode sets host inline position to "relative" when host is static', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    // Default computed position for a fresh <div> in jsdom is "static".
+    document.body.appendChild(host);
+    stubMatchMedia();
+
+    editor = new Editor({
+      element: host,
+      extensions: baseExtensions,
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+
+    // The plugin's mount host is the first non-overflow-hidden
+    // ancestor of `.dm-editor`. With our test setup that's the outer
+    // `host` div. It should now have inline `position: relative`.
+    expect(host.style.position).toBe('relative');
+  });
+
+  it('editor mode does NOT mutate host position when host already has non-static positioning', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    host.style.position = 'absolute';
+    document.body.appendChild(host);
+    stubMatchMedia();
+
+    editor = new Editor({
+      element: host,
+      extensions: baseExtensions,
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+
+    // Host kept its original inline position, no override.
+    expect(host.style.position).toBe('absolute');
+  });
+
+  it('viewport mode does NOT touch host position even when host is static', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+
+    editor = new Editor({
+      element: host,
+      extensions: [
+        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+        TableOfContents,
+        FloatingTocOutline.configure({ anchor: 'viewport' }),
+      ],
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+
+    // Viewport mode uses position: fixed which ignores ancestor context,
+    // so we never touch the host's position.
+    expect(host.style.position).toBe('');
+  });
+
+  it('editor mode wraps the nav in a .dm-toc-outline-shell with matching data-anchor', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+
+    editor = new Editor({
+      element: host,
+      extensions: baseExtensions,
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+
+    // Exactly one shell wraps the nav; nav's parent is the shell, not
+    // the host. The shell carries the same data-anchor for CSS to
+    // target. In viewport mode this test would fail (no shell created).
+    const shells = document.querySelectorAll('.dm-toc-outline-shell');
+    expect(shells).toHaveLength(1);
+    expect(shells[0]?.getAttribute('data-anchor')).toBe('editor');
+    const outline = queryOutline();
+    expect(outline?.parentElement).toBe(shells[0]);
+    // Shell sits inside the host.
+    expect(shells[0]?.parentElement).toBe(host);
+  });
+
+  it('viewport mode does NOT create a shell wrapper (nav lives directly under the host)', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+
+    editor = new Editor({
+      element: host,
+      extensions: [
+        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+        TableOfContents,
+        FloatingTocOutline.configure({ anchor: 'viewport' }),
+      ],
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+
+    expect(document.querySelectorAll('.dm-toc-outline-shell')).toHaveLength(0);
+    const outline = queryOutline();
+    expect(outline?.parentElement).toBe(host);
+  });
+
+  it('editor mode shell is removed on destroy (no orphan after teardown)', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+
+    editor = new Editor({
+      element: host,
+      extensions: baseExtensions,
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+    expect(document.querySelectorAll('.dm-toc-outline-shell')).toHaveLength(1);
+
+    editor.destroy();
+    editor = undefined;
+    expect(document.querySelectorAll('.dm-toc-outline-shell')).toHaveLength(0);
+    expect(document.querySelectorAll('.dm-toc-outline')).toHaveLength(0);
+  });
+
+  it('editor mode restores host inline position to original on destroy', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+
+    editor = new Editor({
+      element: host,
+      extensions: baseExtensions,
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+    expect(host.style.position).toBe('relative');
+
+    editor.destroy();
+    editor = undefined;
+    // After destroy, the previous inline value (empty string => host
+    // falls back to its stylesheet-computed `static`) is restored.
+    expect(host.style.position).toBe('');
   });
 });
 

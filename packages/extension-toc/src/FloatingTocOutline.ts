@@ -34,6 +34,24 @@ export const floatingTocOutlinePluginKey = new PluginKey('floatingTocOutline');
 
 export interface FloatingTocOutlineOptions {
   /**
+   * Where the outline anchors visually.
+   *
+   * - `'editor'` (default): outline sits just outside the editor
+   *   container's right edge using `position: absolute`. Scrolls with
+   *   the editor. Best for editors embedded in dashboards / sidebars
+   *   where the editor is not full-page.
+   * - `'viewport'`: outline is `position: fixed` to the right edge of
+   *   the viewport, vertically centered, regardless of where the editor
+   *   sits on the page. Best for Notion-style full-page editors.
+   *
+   * When `'editor'`, the plugin ensures the resolved mount host has
+   * `position: relative` (sets it if computed is `static`, restores on
+   * teardown). When `'viewport'`, no host mutation occurs.
+   *
+   * @default 'editor'
+   */
+  anchor: 'editor' | 'viewport';
+  /**
    * Hide the outline when the document has fewer than this many
    * headings - on a doc with one heading, the outline is just clutter.
    * @default 2
@@ -93,6 +111,11 @@ export interface FloatingTocOutlineOptions {
 }
 
 const OUTLINE_CLASS = 'dm-toc-outline';
+// Wrapper used only in `editor` anchor mode (see addProseMirrorPlugins).
+// Spans the full height of the mount host via `position: absolute; top:0;
+// bottom:0`; the nav inside is `position: sticky` so it stays vertically
+// centered in the viewport while any part of the host is on screen.
+const SHELL_CLASS = 'dm-toc-outline-shell';
 const TICK_CLASS = 'dm-toc-outline-tick';
 const CARD_CLASS = 'dm-toc-outline-card';
 const ROW_CLASS = 'dm-toc-outline-row';
@@ -202,6 +225,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
 
   addOptions() {
     return {
+      anchor: 'editor',
       minHeadings: 2,
       mobileBreakpoint: 1024,
       activeRootMargin: '0px 0px -85% 0px',
@@ -236,7 +260,53 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           const nav = document.createElement('nav');
           nav.className = OUTLINE_CLASS;
           nav.setAttribute('aria-label', 'Document outline');
-          host.appendChild(nav);
+          nav.dataset['anchor'] = options.anchor;
+
+          // Editor anchor mode wraps the nav in a shell that spans the
+          // host's full height. The shell is `position: absolute` glued
+          // to the host's right edge; the nav inside is `position:
+          // sticky; top: 50vh` so it stays vertically centered in the
+          // viewport while ANY part of the host is on screen, and
+          // naturally scrolls off when the host scrolls past. Viewport
+          // mode skips the shell - the nav is `position: fixed` and
+          // ignores its container entirely.
+          let shell: HTMLElement | null = null;
+          if (options.anchor === 'editor') {
+            shell = document.createElement('div');
+            shell.className = SHELL_CLASS;
+            shell.dataset['anchor'] = options.anchor;
+            shell.appendChild(nav);
+            host.appendChild(shell);
+          } else {
+            host.appendChild(nav);
+          }
+
+          // In `editor` anchor mode the shell uses `position: absolute`
+          // relative to the host. If the host's computed position is
+          // `static` (the default), absolute children would escape to
+          // the next positioned ancestor. Force `relative` on the host
+          // and remember whether we set it inline so destroy() can
+          // restore the original value cleanly. No-op in viewport mode
+          // (the nav is `position: fixed` and ignores host context).
+          let hostPositionRestore: (() => void) | null = null;
+          if (options.anchor === 'editor') {
+            // Real browsers return 'static' for an unstyled element;
+            // jsdom returns '' for the same input. Treat both as the
+            // unpositioned default and override. Skip when the host is
+            // explicitly relative / absolute / fixed / sticky so we do
+            // not stomp on the consumer's intentional choice.
+            const computed = window.getComputedStyle(host).position;
+            const isPositioned =
+              computed === 'relative' ||
+              computed === 'absolute' ||
+              computed === 'fixed' ||
+              computed === 'sticky';
+            if (!isPositioned) {
+              const prev = host.style.position;
+              host.style.position = 'relative';
+              hostPositionRestore = (): void => { host.style.position = prev; };
+            }
+          }
 
           // Mobile breakpoint via matchMedia. Falls back to "always
           // desktop" if the option is set to 0 (consumer opt-out).
@@ -395,7 +465,10 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
               mq?.removeEventListener('change', onMqChange);
               tracker.destroy();
               unsubscribe?.();
-              nav.remove();
+              // Remove the shell (which contains the nav) in editor
+              // mode, otherwise just the nav itself.
+              (shell ?? nav).remove();
+              hostPositionRestore?.();
             },
           };
         },
