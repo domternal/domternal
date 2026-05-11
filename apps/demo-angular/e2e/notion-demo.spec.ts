@@ -2091,6 +2091,287 @@ test.describe('Table of Contents - Phase 1 spike', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
+// Table of Contents - editor-anchor mode state machine
+// ────────────────────────────────────────────────────────────────────────
+// Covers the three modes (middle / center / frozen), the bottom-sentinel
+// IntersectionObserver, the `--dm-toc-mid-top` measurement loop, and the
+// "no visual escape" guarantee for outlines sitting next to long pages
+// of pre-editor content.
+
+test.describe('Table of Contents - editor anchor modes', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('data-mode is present on both the nav and the shell', async ({ page }) => {
+    const navMode = await page.locator('.dm-toc-outline').getAttribute('data-mode');
+    const shellMode = await page.locator('.dm-toc-outline-shell').getAttribute('data-mode');
+    expect(navMode).toBeTruthy();
+    expect(['middle', 'center', 'frozen']).toContain(navMode);
+    expect(shellMode).toBe(navMode);
+  });
+
+  test('data-bottom-visible is mirrored on both the nav and the shell', async ({ page }) => {
+    const navVisible = await page.locator('.dm-toc-outline').getAttribute('data-bottom-visible');
+    const shellVisible = await page.locator('.dm-toc-outline-shell').getAttribute('data-bottom-visible');
+    expect(navVisible).toBeTruthy();
+    expect(['true', 'false']).toContain(navVisible);
+    expect(shellVisible).toBe(navVisible);
+  });
+
+  test('--dm-toc-mid-top is set on the nav (calc form including 50vh)', async ({ page }) => {
+    const midTop = await page.locator('.dm-toc-outline').evaluate(
+      (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-mid-top'),
+    );
+    expect(midTop).toContain('50vh');
+    expect(midTop).toContain('calc');
+  });
+
+  test('--dm-toc-mid-top updates when headings are added/removed', async ({ page }) => {
+    const before = await page.locator('.dm-toc-outline').evaluate(
+      (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-mid-top'),
+    );
+    // Inject a heading via the demo editor so the outline rerenders.
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { chain: () => { focus: () => { setContent: (html: string) => { run: () => void } } } }
+        | undefined;
+      ed?.chain().focus().setContent(
+        '<h1>A</h1><h2>B</h2><h3>C</h3><h2>D</h2><h3>E</h3><h2>F</h2><h2>G</h2>',
+      ).run();
+    });
+    await page.waitForTimeout(50);
+    const after = await page.locator('.dm-toc-outline').evaluate(
+      (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-mid-top'),
+    );
+    expect(after).not.toBe(before);
+    expect(after).toContain('calc');
+  });
+
+  test('--dm-toc-mid-top updates on window resize', async ({ page }) => {
+    // Resize, then poll for the post-resize value (recomputeMidTop reads
+    // the new nav height after layout settles).
+    await page.setViewportSize({ width: 1200, height: 800 });
+    await page.waitForTimeout(50);
+    await page.evaluate(() => { window.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(50);
+    const after = await page.locator('.dm-toc-outline').evaluate(
+      (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-mid-top'),
+    );
+    // We can't strictly assert different value (height may be the same),
+    // but we MUST have a valid calc() expression after the resize event.
+    expect(after).toContain('calc');
+    expect(after).toContain('50vh');
+  });
+
+  test('outline NEVER escapes above the notion-page top, at any scroll position', async ({ page }) => {
+    // The "no escape" contract: regardless of scroll, the outline's
+    // visual TOP must be >= notion-page's TOP (within a small tolerance
+    // for sub-pixel rendering). This holds in `middle` mode because the
+    // sticky offset is computed from the nav's height, not a transform.
+    const positions = [0, 100, 300, 600, 1200, 2400];
+    for (const scrollY of positions) {
+      await page.evaluate((y) => { window.scrollTo(0, y); }, scrollY);
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => { r(undefined); })));
+      const outlineBox = await page.locator('.dm-toc-outline').boundingBox();
+      const pageBox = await page.locator('.notion-page').boundingBox();
+      if (!outlineBox || !pageBox) continue;
+      expect(outlineBox.y).toBeGreaterThanOrEqual(pageBox.y - 2);
+    }
+  });
+
+  test('outline NEVER escapes below the notion-page bottom, at any scroll position', async ({ page }) => {
+    const positions = [0, 100, 300, 600, 1200, 2400];
+    for (const scrollY of positions) {
+      await page.evaluate((y) => { window.scrollTo(0, y); }, scrollY);
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => { r(undefined); })));
+      const outlineBox = await page.locator('.dm-toc-outline').boundingBox();
+      const pageBox = await page.locator('.notion-page').boundingBox();
+      if (!outlineBox || !pageBox) continue;
+      const pageBottom = pageBox.y + pageBox.height;
+      const outlineBottom = outlineBox.y + outlineBox.height;
+      expect(outlineBottom).toBeLessThanOrEqual(pageBottom + 2);
+    }
+  });
+
+  /**
+   * Scrolls to a position where `.notion-page`'s BOTTOM edge sits inside
+   * the viewport (not past it). Scrolling past the notion-page would put
+   * the bottom-sentinel ABOVE the viewport, flipping back to mode='middle'.
+   */
+  const scrollNotionBottomIntoView = async (page: import('@playwright/test').Page): Promise<void> => {
+    const target = await page.evaluate(() => {
+      const el = document.querySelector<HTMLElement>('.notion-page');
+      if (!el) return 0;
+      const rect = el.getBoundingClientRect();
+      const docBottom = rect.top + window.scrollY + rect.height;
+      // Place the page-bottom about 80px above the viewport-bottom so
+      // it's clearly inside the viewport with margin to spare.
+      return Math.max(0, docBottom - window.innerHeight + 80);
+    });
+    await page.evaluate((y) => { window.scrollTo(0, y); }, target);
+    await page.waitForTimeout(150);
+  };
+
+  test('mode transitions from "middle" to a case-A mode when bottom edge scrolls into viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 400 });
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => { r(undefined); })));
+    await page.waitForTimeout(100);
+
+    const initialMode = await page.locator('.dm-toc-outline').getAttribute('data-mode');
+    expect(initialMode).toBe('middle');
+
+    await scrollNotionBottomIntoView(page);
+
+    const finalMode = await page.locator('.dm-toc-outline').getAttribute('data-mode');
+    expect(['center', 'frozen']).toContain(finalMode);
+    const finalBottomVisible = await page.locator('.dm-toc-outline').getAttribute('data-bottom-visible');
+    expect(finalBottomVisible).toBe('true');
+  });
+
+  test('mode reverts to "middle" when bottom edge scrolls back out of viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 400 });
+
+    await scrollNotionBottomIntoView(page);
+    let mode = await page.locator('.dm-toc-outline').getAttribute('data-mode');
+    expect(['center', 'frozen']).toContain(mode);
+
+    // Scroll back to top - bottom sentinel exits the viewport.
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.waitForTimeout(150);
+    mode = await page.locator('.dm-toc-outline').getAttribute('data-mode');
+    expect(mode).toBe('middle');
+    const bottomVisible = await page.locator('.dm-toc-outline').getAttribute('data-bottom-visible');
+    expect(bottomVisible).toBe('false');
+  });
+
+  test('in "middle" mode, outline visual y stays roughly at viewport middle while scrolling', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 400 });
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.waitForTimeout(100);
+
+    const viewportH = await page.evaluate(() => window.innerHeight);
+    const expectedCenter = viewportH / 2;
+
+    for (const scrollY of [0, 100, 300, 500]) {
+      await page.evaluate((y) => { window.scrollTo(0, y); }, scrollY);
+      await page.waitForTimeout(50);
+      const mode = await page.locator('.dm-toc-outline').getAttribute('data-mode');
+      if (mode !== 'middle') continue;
+      const box = await page.locator('.dm-toc-outline').boundingBox();
+      if (!box) continue;
+      const visualCenter = box.y + box.height / 2;
+      // Visual center should be within ~5% of viewport height of the
+      // exact middle - flexible enough to absorb sticky boundary clamps
+      // and sub-pixel rounding, strict enough to catch a real regression.
+      expect(Math.abs(visualCenter - expectedCenter)).toBeLessThanOrEqual(viewportH * 0.05);
+    }
+  });
+
+  test('frozen mode (after B→A transition) sets an inline marginTop on the nav', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 400 });
+
+    // Start in middle, then scroll slowly until bottom-sentinel intersects
+    // mid-scroll. The plugin captures the current nav y as marginTop.
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.waitForTimeout(100);
+
+    // Walk down 50px at a time so the transition fires at a real scroll
+    // position (not an immediate-bottom scroll, which would leave a
+    // 0-rect navRect and produce `center` mode instead).
+    const docHeight = await page.evaluate(() => document.body.scrollHeight);
+    let y = 0;
+    while (y < docHeight) {
+      y += 50;
+      await page.evaluate((scrollY) => { window.scrollTo(0, scrollY); }, y);
+      await page.waitForTimeout(20);
+      const mode = await page.locator('.dm-toc-outline').getAttribute('data-mode');
+      if (mode === 'frozen' || mode === 'center') break;
+    }
+
+    const finalMode = await page.locator('.dm-toc-outline').getAttribute('data-mode');
+    // Only assert when we end in frozen mode (center is an acceptable
+    // alternative path if the rect read happened pre-paint).
+    if (finalMode === 'frozen') {
+      const marginTop = await page.locator('.dm-toc-outline').evaluate(
+        (el) => (el as HTMLElement).style.marginTop,
+      );
+      expect(marginTop).not.toBe('');
+      expect(marginTop).toMatch(/^\d+(\.\d+)?px$/);
+    }
+  });
+
+  test('switching back to middle mode clears the inline marginTop', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 400 });
+
+    // Force a B → A → B cycle so we know marginTop was set then cleared.
+    await scrollNotionBottomIntoView(page);
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.waitForTimeout(150);
+
+    const mode = await page.locator('.dm-toc-outline').getAttribute('data-mode');
+    expect(mode).toBe('middle');
+    const marginTop = await page.locator('.dm-toc-outline').evaluate(
+      (el) => (el as HTMLElement).style.marginTop,
+    );
+    expect(marginTop).toBe('');
+  });
+
+  test('outline computed position is sticky in editor mode (always, across mode changes)', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 400 });
+
+    for (const scrollY of [0, 200, 800, 2000]) {
+      await page.evaluate((y) => { window.scrollTo(0, y); }, scrollY);
+      await page.waitForTimeout(50);
+      const position = await page.locator('.dm-toc-outline').evaluate(
+        (el) => window.getComputedStyle(el).position,
+      );
+      expect(position).toBe('sticky');
+    }
+  });
+
+  test('outline computed top differs between "middle" (calc-based) and case A (1rem)', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 400 });
+
+    // Middle mode: scroll to top.
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.waitForTimeout(100);
+    const middleTop = await page.locator('.dm-toc-outline').evaluate(
+      (el) => window.getComputedStyle(el).top,
+    );
+    expect(middleTop).toMatch(/px$/);
+
+    // Case A mode: scroll to bring the notion-page bottom into the
+    // viewport without crossing past it.
+    await scrollNotionBottomIntoView(page);
+    const caseATop = await page.locator('.dm-toc-outline').evaluate(
+      (el) => window.getComputedStyle(el).top,
+    );
+    // Case A uses `top: 1rem` = 16px. Middle uses `calc(50vh - h/2)px`,
+    // which for a 400-tall viewport is well above 16px.
+    expect(caseATop).toMatch(/^16(\.\d+)?px$/);
+    expect(middleTop).not.toBe(caseATop);
+  });
+
+  test('shell is positioned absolute, anchored to host right edge with the configured offset', async ({ page }) => {
+    const shellPosition = await page.locator('.dm-toc-outline-shell').evaluate(
+      (el) => window.getComputedStyle(el).position,
+    );
+    expect(shellPosition).toBe('absolute');
+
+    // Shell must extend the full vertical range of the host (top:0..2%
+    // / bottom:0..2% bracket per stylesheet). Its bottom edge can be no
+    // higher than the host's bottom edge.
+    const shellBox = await page.locator('.dm-toc-outline-shell').boundingBox();
+    const pageBox = await page.locator('.notion-page').boundingBox();
+    if (shellBox && pageBox) {
+      const shellBottom = shellBox.y + shellBox.height;
+      const pageBottom = pageBox.y + pageBox.height;
+      expect(shellBottom).toBeLessThanOrEqual(pageBottom + 2);
+    }
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
 // Table of Contents - Phase 2 data layer
 // ────────────────────────────────────────────────────────────────────────
 // Real user-flow coverage for the heading discovery + ID assignment

@@ -27,22 +27,28 @@
   margin: 0;
   pointer-events: auto;
 
-  // Positioning branches via the plugin-set `data-anchor`:
+  // Positioning by `data-anchor`:
   //
-  // - editor (default): the nav is `position: sticky; top: 50vh` INSIDE
-  //   a shell (`.dm-toc-outline-shell`) that spans the host's full
-  //   height at its right edge. Result: the outline stays vertically
-  //   centered in the viewport while any part of the host is visible,
-  //   and naturally scrolls out when the user scrolls past the host
-  //   bottom.
-  // - viewport: glued to the viewport right edge with `position: fixed`,
-  //   vertically centered in the viewport. Notion-style behavior - the
-  //   outline stays put as the user scrolls, regardless of where the
-  //   editor sits on the page.
+  // - editor: nav is `position: sticky`. Plugin toggles
+  //   `data-bottom-visible` via an IntersectionObserver on a sentinel
+  //   at the shell's bottom edge.
+  //   - bottom-visible='false' (editor extends below the viewport):
+  //     nav sticks at `--dm-toc-mid-top` (= `calc(50vh - height/2)`,
+  //     set from the measured nav height). The BOX is centered around
+  //     50vh - no transform - so the visual is fully constrained by
+  //     the containing block and never escapes the editor's bounds.
+  //   - bottom-visible='true' (editor's bottom is on screen): sticky
+  //     offset becomes `1rem`. The nav's natural position is set by
+  //     the shell (flex-center) or by inline margin-top (frozen mode)
+  //     so it stays put until the viewport top scrolls past it.
+  // - viewport: `position: fixed` to the right edge of the viewport,
+  //   vertically centered.
   &[data-anchor='editor'] {
     position: sticky;
-    top: 50vh;
-    transform: translateY(-50%);
+    top: var(--dm-toc-mid-top, 50vh);
+  }
+  &[data-anchor='editor'][data-bottom-visible='true'] {
+    top: var(--dm-toc-editor-top, 1rem);
   }
   &[data-anchor='viewport'] {
     position: fixed;
@@ -66,30 +72,32 @@
   }
 }
 
-// Editor-mode shell: an out-of-flow column that runs the full vertical
-// extent of the mount host (`.notion-page` in the demo) at its right
-// edge. Width auto-shrinks to the nav's intrinsic width, so the shell
-// itself is invisible and non-interactive (clicks pass through). The
-// nav inside is `position: sticky` and uses the shell's height as its
-// sticky range, which is what produces the "vertically centered in
-// viewport while host is visible" effect.
+// Editor-mode shell: out-of-flow column running the host's full
+// vertical extent at its right inside edge. Width shrinks to the nav's
+// intrinsic width; the shell itself is invisible. The nav inside
+// uses the shell's height as its sticky range.
 .dm-toc-outline-shell[data-anchor='editor'] {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 100%;
-  margin-left: var(--dm-toc-editor-offset, 8px);
+  top: 25px;
+  bottom: 25px;
+  right: var(--dm-toc-page-offset, 8px);
   z-index: var(--dm-toc-z-index, 10);
   pointer-events: none;
 
-  // Hide the entire shell when the nav is hidden so we don't leave a
-  // dead zero-width column ghosting the layout. The nav's own
-  // data-state mirror is the source of truth; the shell tracks it via
-  // :has() so the visibility decision stays in one place.
   &:has(.dm-toc-outline[data-state='hidden']),
   &:has(.dm-toc-outline[data-viewport='mobile']) {
     display: none;
   }
+}
+
+// mode='center': flex-center sets the nav's natural position to host
+// middle (used on mount when the editor fits the viewport). mode='frozen'
+// uses inline margin-top instead (set by the plugin at the B→A
+// transition). mode='middle' uses default block layout.
+.dm-toc-outline-shell[data-anchor='editor'][data-mode='center'] {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .dm-toc-outline-tick {
@@ -192,21 +200,6 @@
 .dm-toc-outline[data-state='expanded'] .dm-toc-outline-card {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(-50%) translateX(0);
-}
-
-// In `editor` anchor mode the nav sits immediately to the right of the
-// editor container. Default card direction (anchored to nav's right
-// edge, extending leftward) would overlap the editor content, so we
-// flip it: anchor to the nav's left edge and extend rightward into the
-// page gutter. Slide-in animation also flips direction (the card now
-// emerges from the left side of the nav rather than the right).
-.dm-toc-outline[data-anchor='editor'] .dm-toc-outline-card {
-  right: auto;
-  left: 0;
-  transform: translateY(-50%) translateX(calc(-1 * var(--dm-toc-card-offset, 8px)));
-}
-.dm-toc-outline[data-anchor='editor'][data-state='expanded'] .dm-toc-outline-card {
   transform: translateY(-50%) translateX(0);
 }
 
@@ -405,11 +398,8 @@
   // instantly anyway, but resetting the start position to 0 means
   // the card never enters its mid-animation visual state on a fast
   // expand/collapse cycle (which can briefly leak a 1-frame
-  // off-position card). Both anchor modes need this override - the
-  // editor-mode rule above raises specificity to `0,2,0`, so we match
-  // it here with an equal selector to stay decisive.
-  .dm-toc-outline-card,
-  .dm-toc-outline[data-anchor='editor'] .dm-toc-outline-card {
+  // off-position card).
+  .dm-toc-outline-card {
     transform: translateY(-50%) translateX(0);
   }
 }

@@ -36,17 +36,15 @@ export interface FloatingTocOutlineOptions {
   /**
    * Where the outline anchors visually.
    *
-   * - `'editor'` (default): outline sits just outside the editor
-   *   container's right edge using `position: absolute`. Scrolls with
-   *   the editor. Best for editors embedded in dashboards / sidebars
-   *   where the editor is not full-page.
+   * - `'editor'` (default): outline sits at the editor container's
+   *   right gutter (inside the host's padding). Sticky positioning
+   *   keeps it visible while the editor is on screen; switches to
+   *   ride-along behavior near the editor's bottom edge.
    * - `'viewport'`: outline is `position: fixed` to the right edge of
-   *   the viewport, vertically centered, regardless of where the editor
-   *   sits on the page. Best for Notion-style full-page editors.
+   *   the viewport, vertically centered. Best for full-page editors.
    *
-   * When `'editor'`, the plugin ensures the resolved mount host has
-   * `position: relative` (sets it if computed is `static`, restores on
-   * teardown). When `'viewport'`, no host mutation occurs.
+   * Editor mode mutates the host's `position` to `relative` if it's
+   * static (restores on teardown). Viewport mode does not touch the host.
    *
    * @default 'editor'
    */
@@ -111,10 +109,8 @@ export interface FloatingTocOutlineOptions {
 }
 
 const OUTLINE_CLASS = 'dm-toc-outline';
-// Wrapper used only in `editor` anchor mode (see addProseMirrorPlugins).
-// Spans the full height of the mount host via `position: absolute; top:0;
-// bottom:0`; the nav inside is `position: sticky` so it stays vertically
-// centered in the viewport while any part of the host is on screen.
+// Editor-mode wrapper spanning the host's full height; provides the
+// sticky containing block for the nav inside.
 const SHELL_CLASS = 'dm-toc-outline-shell';
 const TICK_CLASS = 'dm-toc-outline-tick';
 const CARD_CLASS = 'dm-toc-outline-card';
@@ -262,14 +258,8 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           nav.setAttribute('aria-label', 'Document outline');
           nav.dataset['anchor'] = options.anchor;
 
-          // Editor anchor mode wraps the nav in a shell that spans the
-          // host's full height. The shell is `position: absolute` glued
-          // to the host's right edge; the nav inside is `position:
-          // sticky; top: 50vh` so it stays vertically centered in the
-          // viewport while ANY part of the host is on screen, and
-          // naturally scrolls off when the host scrolls past. Viewport
-          // mode skips the shell - the nav is `position: fixed` and
-          // ignores its container entirely.
+          // Editor mode wraps the nav in a shell spanning the host's
+          // full height. Viewport mode mounts the nav directly.
           let shell: HTMLElement | null = null;
           if (options.anchor === 'editor') {
             shell = document.createElement('div');
@@ -281,20 +271,107 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             host.appendChild(nav);
           }
 
-          // In `editor` anchor mode the shell uses `position: absolute`
-          // relative to the host. If the host's computed position is
-          // `static` (the default), absolute children would escape to
-          // the next positioned ancestor. Force `relative` on the host
-          // and remember whether we set it inline so destroy() can
-          // restore the original value cleanly. No-op in viewport mode
-          // (the nav is `position: fixed` and ignores host context).
+          let bottomObserver: IntersectionObserver | null = null;
+          let bottomSentinel: HTMLElement | null = null;
+          let recomputeMidTop: () => void = () => { /* no-op outside editor mode */ };
+          if (
+            options.anchor === 'editor'
+            && shell
+            && typeof IntersectionObserver !== 'undefined'
+          ) {
+            const shellEl = shell;
+            bottomSentinel = document.createElement('div');
+            Object.assign(bottomSentinel.style, {
+              position: 'absolute',
+              bottom: '0',
+              left: '0',
+              width: '1px',
+              height: '1px',
+              pointerEvents: 'none',
+            });
+            shellEl.appendChild(bottomSentinel);
+
+            // Three modes drive the nav's vertical position:
+            //   middle - host bottom NOT in viewport: nav sticks at
+            //            `calc(50vh - height/2)` (visually centered).
+            //   center - host bottom in viewport from the start:
+            //            shell flex-centers the nav at host middle.
+            //   frozen - we entered case A via a B→A scroll transition:
+            //            inline `margin-top` pins the nav's natural at
+            //            its captured doc position (avoids the visual
+            //            jump that flex-center would cause mid-scroll).
+            const setMode = (mode: 'middle' | 'center' | 'frozen'): void => {
+              nav.dataset['mode'] = mode;
+              shellEl.dataset['mode'] = mode;
+              if (mode !== 'frozen') nav.style.marginTop = '';
+            };
+
+            // `top: calc(50vh - height/2)` (vs `50vh + translateY(-50%)`)
+            // keeps the nav's BOX centered around 50vh, not just its
+            // visual. The visual then matches the box exactly and is
+            // fully constrained by the containing block - the outline
+            // can never escape past the editor's bounds.
+            recomputeMidTop = (): void => {
+              const h = nav.offsetHeight;
+              if (h <= 0) return;
+              nav.style.setProperty('--dm-toc-mid-top', `calc(50vh - ${(h / 2).toFixed(2)}px)`);
+            };
+            recomputeMidTop();
+
+            const writeBottomVisible = (visible: boolean): void => {
+              const wasVisible = nav.dataset['bottomVisible'] === 'true';
+
+              // Capture the pre-transition rect BEFORE flipping
+              // attributes - updating `data-bottom-visible` reflows
+              // the sticky offset, so a later `getBoundingClientRect`
+              // would read the post-jump position.
+              let frozenOffset: number | null = null;
+              if (visible && !wasVisible) {
+                const navRect = nav.getBoundingClientRect();
+                if (navRect.height > 0 && navRect.top > 0) {
+                  frozenOffset = navRect.top - shellEl.getBoundingClientRect().top;
+                }
+              }
+
+              const value = visible ? 'true' : 'false';
+              nav.dataset['bottomVisible'] = value;
+              shellEl.dataset['bottomVisible'] = value;
+
+              if (!visible) { setMode('middle'); return; }
+              if (wasVisible) return;
+              if (frozenOffset !== null) {
+                nav.style.marginTop = `${String(frozenOffset)}px`;
+                setMode('frozen');
+              } else {
+                setMode('center');
+              }
+            };
+
+            // Seed initial state synchronously so the first paint
+            // already reflects the right mode (no IO-callback flicker).
+            const initialRect = bottomSentinel.getBoundingClientRect();
+            const initialVisible =
+              initialRect.bottom <= window.innerHeight && initialRect.bottom > 0;
+            nav.dataset['bottomVisible'] = initialVisible ? 'true' : 'false';
+            shellEl.dataset['bottomVisible'] = initialVisible ? 'true' : 'false';
+            setMode(initialVisible ? 'center' : 'middle');
+
+            bottomObserver = new IntersectionObserver(
+              (entries) => {
+                for (const entry of entries) writeBottomVisible(entry.isIntersecting);
+              },
+              { threshold: 0 },
+            );
+            bottomObserver.observe(bottomSentinel);
+          }
+
+          // Editor-mode shell is `position: absolute` and needs a
+          // non-static positioned ancestor. Force `relative` on the
+          // host if it has no explicit positioning, restore on destroy.
           let hostPositionRestore: (() => void) | null = null;
           if (options.anchor === 'editor') {
-            // Real browsers return 'static' for an unstyled element;
-            // jsdom returns '' for the same input. Treat both as the
-            // unpositioned default and override. Skip when the host is
-            // explicitly relative / absolute / fixed / sticky so we do
-            // not stomp on the consumer's intentional choice.
+            // jsdom returns '' instead of 'static' for unstyled elements,
+            // so test against the positioned values instead.
             const computed = window.getComputedStyle(host).position;
             const isPositioned =
               computed === 'relative' ||
@@ -439,6 +516,8 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             applyState();
             tracker.observe(collectHeadingDoms(editorView, attrName));
             applyActiveMarker(nav, storage.activeId);
+            // Headings changed - nav height changed - re-center.
+            recomputeMidTop();
           };
 
           if (storage) {
@@ -454,6 +533,10 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           const onMqChange = (): void => { applyState(); };
           mq?.addEventListener('change', onMqChange);
 
+          // 50vh changes with viewport height - re-center on resize.
+          const onResize = (): void => { recomputeMidTop(); };
+          window.addEventListener('resize', onResize);
+
           return {
             destroy(): void {
               cancelTimers();
@@ -463,10 +546,11 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
               nav.removeEventListener('focusin', onFocusIn);
               nav.removeEventListener('focusout', onFocusOut);
               mq?.removeEventListener('change', onMqChange);
+              window.removeEventListener('resize', onResize);
               tracker.destroy();
               unsubscribe?.();
-              // Remove the shell (which contains the nav) in editor
-              // mode, otherwise just the nav itself.
+              bottomObserver?.disconnect();
+              bottomSentinel?.remove();
               (shell ?? nav).remove();
               hostPositionRestore?.();
             },

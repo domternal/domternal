@@ -632,6 +632,323 @@ describe('FloatingTocOutline - anchor option', () => {
   });
 });
 
+/**
+ * Editor-anchor internals: the mode state machine, the
+ * `--dm-toc-mid-top` measurement loop, the bottom-sentinel
+ * IntersectionObserver, frozen-mode B→A capture, and IO/resize cleanup.
+ * Every test stubs `matchMedia` and the IO so callbacks can be fired
+ * manually (jsdom's IO never fires on its own).
+ */
+describe('FloatingTocOutline - editor anchor mode internals', () => {
+  let editor: Editor | undefined;
+  let originalMatchMedia: typeof window.matchMedia | undefined;
+  let originalIO: typeof IntersectionObserver | undefined;
+
+  /** Minimal IO mock that records constructor args + lets tests fire entries. */
+  class MockIO {
+    callback: IntersectionObserverCallback;
+    rootMargin: string;
+    observed = new Set<Element>();
+    static instances: MockIO[] = [];
+    constructor(cb: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+      this.callback = cb;
+      this.rootMargin = options?.rootMargin ?? '';
+      MockIO.instances.push(this);
+    }
+    observe(el: Element): void { this.observed.add(el); }
+    unobserve(el: Element): void { this.observed.delete(el); }
+    disconnect(): void { this.observed.clear(); }
+    takeRecords(): IntersectionObserverEntry[] { return []; }
+    root: Element | Document | null = null;
+    thresholds: number[] = [];
+    fire(entries: { target: Element; isIntersecting: boolean }[]): void {
+      const full = entries.map((e) => ({
+        target: e.target,
+        isIntersecting: e.isIntersecting,
+        boundingClientRect: e.target.getBoundingClientRect(),
+        intersectionRatio: e.isIntersecting ? 1 : 0,
+        intersectionRect: e.target.getBoundingClientRect(),
+        rootBounds: null,
+        time: Date.now(),
+      } as IntersectionObserverEntry));
+      this.callback(full, this as unknown as IntersectionObserver);
+    }
+  }
+
+  const stubMatchMedia = (): void => {
+    originalMatchMedia = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: false, media: query, onchange: null,
+      addEventListener: (): void => undefined,
+      removeEventListener: (): void => undefined,
+      addListener: (): void => undefined, removeListener: (): void => undefined,
+      dispatchEvent: (): boolean => false,
+    })) as typeof window.matchMedia;
+  };
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline, .dm-toc-outline-shell').forEach((n) => { n.remove(); });
+    originalIO = window.IntersectionObserver;
+    MockIO.instances = [];
+    (window as unknown as { IntersectionObserver: unknown }).IntersectionObserver =
+      MockIO as unknown as typeof IntersectionObserver;
+    stubMatchMedia();
+  });
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) editor.destroy();
+    editor = undefined;
+    document.body.innerHTML = '';
+    if (originalMatchMedia) window.matchMedia = originalMatchMedia;
+    if (originalIO) {
+      (window as unknown as { IntersectionObserver: typeof IntersectionObserver }).IntersectionObserver = originalIO;
+    } else {
+      // @ts-expect-error - clean up polyfill
+      delete window.IntersectionObserver;
+    }
+  });
+
+  /** The bottom-sentinel IO has empty rootMargin; the active tracker has '-85%'. */
+  const findSentinelIO = (): MockIO | undefined =>
+    MockIO.instances.find((o) => o.rootMargin === '');
+
+  const mount = async (content = '<h1>One</h1><h2>Two</h2>'): Promise<Editor> => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    return new Promise((resolve) => {
+      const ed = new Editor({ element: host, extensions: baseExtensions, content });
+      setTimeout(() => { resolve(ed); }, 0);
+    });
+  };
+
+  // ─── Mode state machine ────────────────────────────────────────────
+
+  it('initial mode is "middle" by default (jsdom rects are 0, sentinel reads as not visible)', async () => {
+    editor = await mount();
+    expect(queryOutline()?.dataset['mode']).toBe('middle');
+    expect(queryOutline()?.dataset['bottomVisible']).toBe('false');
+  });
+
+  it('shell mirrors the mode + bottom-visible data attributes set on the nav', async () => {
+    editor = await mount();
+    const nav = queryOutline();
+    const shell = document.querySelector<HTMLElement>('.dm-toc-outline-shell');
+    expect(shell?.dataset['mode']).toBe(nav?.dataset['mode']);
+    expect(shell?.dataset['bottomVisible']).toBe(nav?.dataset['bottomVisible']);
+  });
+
+  it('IO firing isIntersecting=true (B→A transition) flips mode to "center" (no frozen capture in jsdom)', async () => {
+    editor = await mount();
+    const io = findSentinelIO();
+    expect(io).toBeDefined();
+    const sentinel = [...io!.observed][0];
+    io!.fire([{ target: sentinel!, isIntersecting: true }]);
+    expect(queryOutline()?.dataset['mode']).toBe('center');
+    expect(queryOutline()?.dataset['bottomVisible']).toBe('true');
+  });
+
+  it('IO firing isIntersecting=true with a non-zero navRect.top transitions to "frozen" with marginTop pinned', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    const shell = document.querySelector<HTMLElement>('.dm-toc-outline-shell')!;
+    // Mock the rects so writeBottomVisible captures a frozen offset.
+    vi.spyOn(nav, 'getBoundingClientRect').mockReturnValue({
+      top: 400, bottom: 500, left: 0, right: 30, width: 30, height: 100,
+      x: 0, y: 400, toJSON: () => ({}),
+    } as DOMRect);
+    vi.spyOn(shell, 'getBoundingClientRect').mockReturnValue({
+      top: 80, bottom: 2000, left: 0, right: 30, width: 30, height: 1920,
+      x: 0, y: 80, toJSON: () => ({}),
+    } as DOMRect);
+
+    const io = findSentinelIO()!;
+    const sentinel = [...io.observed][0]!;
+    io.fire([{ target: sentinel, isIntersecting: true }]);
+
+    expect(nav.dataset['mode']).toBe('frozen');
+    // marginTop = navRect.top - shellRect.top = 400 - 80 = 320
+    expect(nav.style.marginTop).toBe('320px');
+  });
+
+  it('IO firing isIntersecting=false (A→B transition) reverts to "middle" and clears marginTop', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    const io = findSentinelIO()!;
+    const sentinel = [...io.observed][0]!;
+
+    // First go to 'center' via a true fire, then back to 'middle'.
+    io.fire([{ target: sentinel, isIntersecting: true }]);
+    nav.style.marginTop = '99px'; // pretend we had frozen state with margin
+    io.fire([{ target: sentinel, isIntersecting: false }]);
+
+    expect(nav.dataset['mode']).toBe('middle');
+    expect(nav.dataset['bottomVisible']).toBe('false');
+    expect(nav.style.marginTop).toBe('');
+  });
+
+  it('IO firing isIntersecting=true while ALREADY visible is a no-op (mode stays)', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    const io = findSentinelIO()!;
+    const sentinel = [...io.observed][0]!;
+    io.fire([{ target: sentinel, isIntersecting: true }]);
+    expect(nav.dataset['mode']).toBe('center');
+    // Fire again - no state change.
+    io.fire([{ target: sentinel, isIntersecting: true }]);
+    expect(nav.dataset['mode']).toBe('center');
+  });
+
+  // ─── --dm-toc-mid-top CSS variable ─────────────────────────────────
+
+  it('sets --dm-toc-mid-top on mount based on the nav offsetHeight', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    Object.defineProperty(nav, 'offsetHeight', { configurable: true, get: () => 200 });
+    // Trigger a re-render so recomputeMidTop runs on the new height.
+    editor.setContent('<h1>A</h1><h2>B</h2><h3>C</h3>');
+    await flushDeferred();
+    expect(nav.style.getPropertyValue('--dm-toc-mid-top')).toBe('calc(50vh - 100.00px)');
+  });
+
+  it('--dm-toc-mid-top is recomputed when headings change (storage update fires)', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    let h = 100;
+    Object.defineProperty(nav, 'offsetHeight', { configurable: true, get: () => h });
+    editor.setContent('<h1>One</h1><h2>Two</h2>');
+    await flushDeferred();
+    expect(nav.style.getPropertyValue('--dm-toc-mid-top')).toBe('calc(50vh - 50.00px)');
+
+    h = 300;
+    editor.setContent('<h1>A</h1><h2>B</h2><h3>C</h3><h2>D</h2>');
+    await flushDeferred();
+    expect(nav.style.getPropertyValue('--dm-toc-mid-top')).toBe('calc(50vh - 150.00px)');
+  });
+
+  it('--dm-toc-mid-top is recomputed when window resizes', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    Object.defineProperty(nav, 'offsetHeight', { configurable: true, get: () => 250 });
+    window.dispatchEvent(new Event('resize'));
+    expect(nav.style.getPropertyValue('--dm-toc-mid-top')).toBe('calc(50vh - 125.00px)');
+  });
+
+  it('recomputeMidTop is a no-op when nav offsetHeight is 0 (does NOT clear an existing value)', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    nav.style.setProperty('--dm-toc-mid-top', 'sentinel');
+    Object.defineProperty(nav, 'offsetHeight', { configurable: true, get: () => 0 });
+    window.dispatchEvent(new Event('resize'));
+    expect(nav.style.getPropertyValue('--dm-toc-mid-top')).toBe('sentinel');
+  });
+
+  it('viewport anchor mode does NOT set --dm-toc-mid-top (no shell, no measurement loop)', async () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: [
+        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+        TableOfContents,
+        FloatingTocOutline.configure({ anchor: 'viewport' }),
+      ],
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+    const nav = queryOutline()!;
+    Object.defineProperty(nav, 'offsetHeight', { configurable: true, get: () => 500 });
+    window.dispatchEvent(new Event('resize'));
+    expect(nav.style.getPropertyValue('--dm-toc-mid-top')).toBe('');
+  });
+
+  // ─── Bottom sentinel ───────────────────────────────────────────────
+
+  it('creates a 1px sentinel as direct child of the shell', async () => {
+    editor = await mount();
+    const shell = document.querySelector('.dm-toc-outline-shell')!;
+    const sentinels = Array.from(shell.children).filter(
+      (c) => c.tagName === 'DIV' && (c as HTMLElement).style.width === '1px',
+    );
+    expect(sentinels).toHaveLength(1);
+    const sentinel = sentinels[0] as HTMLElement;
+    expect(sentinel.style.position).toBe('absolute');
+    expect(sentinel.style.bottom).toBe('0px');
+    expect(sentinel.style.left).toBe('0px');
+    expect(sentinel.style.height).toBe('1px');
+    expect(sentinel.style.pointerEvents).toBe('none');
+  });
+
+  it('sentinel is observed by the bottom-visible IntersectionObserver', async () => {
+    editor = await mount();
+    const io = findSentinelIO();
+    expect(io).toBeDefined();
+    expect(io!.observed.size).toBe(1);
+  });
+
+  it('removes the sentinel + disconnects its IO on destroy', async () => {
+    editor = await mount();
+    const io = findSentinelIO()!;
+    const disconnectSpy = vi.spyOn(io, 'disconnect');
+    editor.destroy();
+    editor = undefined;
+    expect(document.querySelectorAll('.dm-toc-outline-shell')).toHaveLength(0);
+    expect(disconnectSpy).toHaveBeenCalled();
+  });
+
+  it('viewport anchor mode does NOT create a bottom sentinel or sentinel IO', async () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: [
+        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+        TableOfContents,
+        FloatingTocOutline.configure({ anchor: 'viewport' }),
+      ],
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+    // No shell - no place for a sentinel.
+    expect(document.querySelectorAll('.dm-toc-outline-shell')).toHaveLength(0);
+    // The only IO present (if any) is the active-state tracker (non-empty rootMargin).
+    expect(findSentinelIO()).toBeUndefined();
+  });
+
+  // ─── IntersectionObserver fallback ─────────────────────────────────
+
+  it('plugin still mounts (shell + nav) when IntersectionObserver is undefined', async () => {
+    // Tear down the IO polyfill installed in beforeEach.
+    (window as unknown as { IntersectionObserver: unknown }).IntersectionObserver = undefined;
+    editor = await mount();
+    expect(document.querySelectorAll('.dm-toc-outline-shell')).toHaveLength(1);
+    expect(queryOutline()).not.toBeNull();
+  });
+
+  it('without IntersectionObserver, no sentinel is created (no IO to observe it)', async () => {
+    (window as unknown as { IntersectionObserver: unknown }).IntersectionObserver = undefined;
+    editor = await mount();
+    const shell = document.querySelector('.dm-toc-outline-shell')!;
+    const sentinels = Array.from(shell.children).filter(
+      (c) => c.tagName === 'DIV' && (c as HTMLElement).style.width === '1px',
+    );
+    expect(sentinels).toHaveLength(0);
+  });
+
+  // ─── Cleanup ───────────────────────────────────────────────────────
+
+  it('removes the window resize listener on destroy (no leak)', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    Object.defineProperty(nav, 'offsetHeight', { configurable: true, get: () => 100 });
+    editor.destroy();
+    editor = undefined;
+    // Detach the nav from any references so a stray resize handler would
+    // throw on a dead node. We verify silence by firing resize: no error.
+    expect(() => { window.dispatchEvent(new Event('resize')); }).not.toThrow();
+  });
+});
+
 describe('FloatingTocOutline - Phase 5 active state', () => {
   let editor: Editor | undefined;
   let originalMatchMedia: typeof window.matchMedia | undefined;
@@ -722,7 +1039,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
 
     // Find the IO instance the tracker created and fire an
     // intersection event for the second heading.
-    const io = MockIntersectionObserver.instances[0];
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
     expect(io).toBeDefined();
     io?.fire([{ target: targetDom, isIntersecting: true }]);
 
@@ -754,7 +1071,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     // heading must NOT change the active visual. The plugin
     // intentionally suppresses scroll-derived updates while the
     // smooth-scroll initiated by the click is still landing.
-    const io = MockIntersectionObserver.instances[0];
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
     io?.fire([{ target: otherDom, isIntersecting: true }]);
     expect(clickedTick.classList.contains('dm-toc--active')).toBe(true);
     const storage = editor.storage['toc'] as { activeId: string | null };
@@ -771,7 +1088,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     // Fire active for first heading, then for the third. The middle
     // tick should never end up active, and only the latest reported
     // heading should carry the marker after each fire.
-    const io = MockIntersectionObserver.instances[0];
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
     io?.fire([{ target: headingDoms[0]!, isIntersecting: true }]);
     expect(ticks.filter((t) => t.classList.contains('dm-toc--active'))).toHaveLength(1);
 
@@ -793,7 +1110,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     const headingDoms = Array.from(
       editor.view.dom.querySelectorAll<HTMLElement>('[id]'),
     );
-    const io = MockIntersectionObserver.instances[0];
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
     io?.fire([{ target: headingDoms[1]!, isIntersecting: true }]);
     const activeIdBefore = (editor.storage['toc'] as { activeId: string | null }).activeId;
     expect(activeIdBefore).not.toBeNull();
@@ -820,7 +1137,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
 
   it('destroying the editor disconnects the IO observer', async () => {
     editor = await mountForActive('<h1>One</h1><h2>Two</h2>');
-    const io = MockIntersectionObserver.instances[0];
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
     expect(io?.observed.size).toBeGreaterThan(0);
     editor.destroy();
     editor = undefined;
@@ -854,7 +1171,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
       // Advance the virtual clock past the 500ms override window.
       virtualNow += 600;
 
-      const io = MockIntersectionObserver.instances[0];
+      const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
       io?.fire([{ target: otherDom, isIntersecting: true }]);
       const newActive = (editor.storage['toc'] as { activeId: string | null }).activeId;
       expect(newActive).toBe(otherDom.getAttribute('id'));
@@ -889,7 +1206,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
       content: '<h1>One</h1><h2>Two</h2>',
     });
     await flushDeferred();
-    const io = MockIntersectionObserver.instances[0];
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
     expect(io?.options?.rootMargin).toBe(customMargin);
   });
 
@@ -911,7 +1228,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
       toJSON: (): unknown => undefined,
     } as unknown as DOMRect);
 
-    const io = MockIntersectionObserver.instances[0];
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
     // Fire a non-intersecting state for both. With visible heading
     // already passed (negative top in the first observe call) the
     // tracker keeps reporting it as active; the hidden one cannot
