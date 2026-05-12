@@ -920,6 +920,209 @@ test.describe('Turn into', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
+// 7b. Turn into - wrapper targets (Bullet / Ordered / To-do / Quote)
+//
+// Covers: routing of the 4 new wrapper targets from the drag-handle menu,
+// step-down for non-paragraph textblock sources, Phase 4 wrapper-source
+// path (drag-handle on a list item → in-place list-type swap), schema
+// heuristics that hide Quote on listItem/taskItem, and the UniqueID
+// preservation invariant through a wrap.
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('Turn into - wrappers', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  // --- Paragraph source: 4 wrapper targets ---
+
+  test('paragraph → Bullet list wraps in <ul><li><p>', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    await hoverBlock(page, 'p');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Bullet list")`);
+    const blocks = await getBlocks(page);
+    expect(blocks[0]?.type).toBe('bulletList');
+    const html = await getHtml(page);
+    expect(html).toMatch(/<ul[^>]*>[\s\S]*<li[^>]*>[\s\S]*<p[^>]*>Hello world<\/p>/);
+  });
+
+  test('paragraph → Ordered list wraps in <ol><li><p>', async ({ page }) => {
+    await setContent(page, '<p>Item one</p>');
+    await hoverBlock(page, 'p');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Ordered list")`);
+    const blocks = await getBlocks(page);
+    expect(blocks[0]?.type).toBe('orderedList');
+    const html = await getHtml(page);
+    expect(html).toMatch(/<ol[^>]*>[\s\S]*<li[^>]*>[\s\S]*<p[^>]*>Item one<\/p>/);
+  });
+
+  test('paragraph → To-do list creates an unchecked task item', async ({ page }) => {
+    await setContent(page, '<p>Do it</p>');
+    await hoverBlock(page, 'p');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("To-do list")`);
+    const html = await getHtml(page);
+    expect(html).toContain('data-type="taskList"');
+    expect(html).toContain('data-type="taskItem"');
+    expect(html).toContain('data-checked="false"');
+    expect(html).toContain('Do it');
+  });
+
+  test('paragraph → Quote wraps in <blockquote>', async ({ page }) => {
+    await setContent(page, '<p>Quoted</p>');
+    await hoverBlock(page, 'p');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Quote")`);
+    const blocks = await getBlocks(page);
+    expect(blocks[0]?.type).toBe('blockquote');
+    expect(blocks[0]?.text).toBe('Quoted');
+  });
+
+  // --- Step-down: heading / codeBlock → list ---
+
+  test('heading → Bullet list drops level, wraps inner content in <ul><li><p>', async ({ page }) => {
+    // listItem schema requires paragraph as first child, so the heading is
+    // converted to a paragraph BEFORE the wrap step. Level attr is dropped.
+    await setContent(page, '<h2>Was a heading</h2>');
+    await hoverBlock(page, 'h2');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Bullet list")`);
+    const html = await getHtml(page);
+    expect(html).toMatch(/<ul[^>]*>[\s\S]*<li[^>]*>[\s\S]*<p[^>]*>Was a heading<\/p>/);
+    expect(html).not.toMatch(/<h[1-6][^>]*>Was a heading/);
+  });
+
+  test('codeBlock → Bullet list drops code semantics, wraps text in <ul><li><p>', async ({ page }) => {
+    await setContent(page, '<pre><code>const y = 2;</code></pre>');
+    await hoverBlock(page, 'pre');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Bullet list")`);
+    const html = await getHtml(page);
+    expect(html).toMatch(/<ul[^>]*>[\s\S]*<li[^>]*>[\s\S]*<p[^>]*>const y = 2;<\/p>/);
+    expect(html).not.toContain('<pre>');
+  });
+
+  // --- Direct quote wrap: source type preserved (no step-down) ---
+
+  test('codeBlock → Quote preserves the codeBlock inside <blockquote>', async ({ page }) => {
+    // blockquote.content = "block+" accepts codeBlock; no step-down needed.
+    await setContent(page, '<pre><code>let z = 3;</code></pre>');
+    await hoverBlock(page, 'pre');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Quote")`);
+    const html = await getHtml(page);
+    expect(html).toMatch(/<blockquote[^>]*>[\s\S]*<pre[^>]*>[\s\S]*let z = 3;/);
+  });
+
+  test('heading → Quote preserves heading + level inside <blockquote>', async ({ page }) => {
+    await setContent(page, '<h2>Heading in quote</h2>');
+    await hoverBlock(page, 'h2');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Quote")`);
+    const html = await getHtml(page);
+    expect(html).toMatch(/<blockquote[^>]*>[\s\S]*<h2[^>]*>Heading in quote<\/h2>/);
+  });
+
+  // --- Wrapper source via drag-handle (Phase 4): list-type swap ---
+
+  test('drag-handle on bullet list item hides "Bullet list" option (ancestor filter)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Already in list</p></li></ul>');
+    await hoverBlock(page, 'li');
+    await openContextMenu(page);
+    await expect(page.locator(`${contextItemSelector}[aria-label="Bullet list"]`)).toHaveCount(0);
+    await expect(page.locator(`${contextItemSelector}[aria-label="Ordered list"]`)).toBeVisible();
+    await expect(page.locator(`${contextItemSelector}[aria-label="To-do list"]`)).toBeVisible();
+  });
+
+  test('drag-handle on bullet list item converts UL → OL via Ordered list click', async ({ page }) => {
+    await setContent(page, '<ul><li><p>One</p></li><li><p>Two</p></li></ul>');
+    await hoverBlock(page, 'li');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Ordered list")`);
+    const blocks = await getBlocks(page);
+    expect(blocks[0]?.type).toBe('orderedList');
+    const html = await getHtml(page);
+    // Both items survive intact.
+    expect(html).toMatch(/<ol[^>]*>[\s\S]*<p[^>]*>One<\/p>[\s\S]*<p[^>]*>Two<\/p>/);
+  });
+
+  test('drag-handle on bullet list item hides "Quote" option (schema constraint)', async ({ page }) => {
+    // listItem.content requires paragraph as first child - wrapping the
+    // inner paragraph in blockquote would make blockquote the first
+    // child, which schema rejects. Hidden upfront to avoid no-op clicks.
+    await setContent(page, '<ul><li><p>X</p></li></ul>');
+    await hoverBlock(page, 'li');
+    await openContextMenu(page);
+    await expect(page.locator(`${contextItemSelector}[aria-label="Quote"]`)).toHaveCount(0);
+  });
+
+  test('drag-handle on bullet list item hides textblock targets', async ({ page }) => {
+    // Wrapper source + textblock target would need lift-then-convert,
+    // which is out of scope. The menu hides them entirely.
+    await setContent(page, '<ul><li><p>X</p></li></ul>');
+    await hoverBlock(page, 'li');
+    await openContextMenu(page);
+    await expect(page.locator(`${contextItemSelector}[aria-label="Heading 1"]`)).toHaveCount(0);
+    await expect(page.locator(`${contextItemSelector}[aria-label="Heading 2"]`)).toHaveCount(0);
+    await expect(page.locator(`${contextItemSelector}[aria-label="Paragraph"]`)).toHaveCount(0);
+    await expect(page.locator(`${contextItemSelector}[aria-label="Code block"]`)).toHaveCount(0);
+  });
+
+  test('drag-handle on task item converts taskList → bulletList', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task A</p></li></ul>',
+    );
+    await hoverBlock(page, 'li[data-type="taskItem"]');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Bullet list")`);
+    const blocks = await getBlocks(page);
+    expect(blocks[0]?.type).toBe('bulletList');
+    expect(blocks[0]?.text).toBe('Task A');
+  });
+
+  // --- UX: menu close after wrapper click ---
+
+  test('menu closes after wrapper target click', async ({ page }) => {
+    await setContent(page, '<p>Toggle me</p>');
+    await hoverBlock(page, 'p');
+    await openContextMenu(page);
+    await expect(page.locator(contextMenuSelector)).toHaveAttribute('data-show', '');
+    await page.click(`${contextItemSelector}:has-text("Bullet list")`);
+    await expect(page.locator(contextMenuSelector)).not.toHaveAttribute('data-show', '');
+  });
+
+  // --- Cross-feature: UniqueID preserved through wrap ---
+
+  test('Bullet list wrap preserves UniqueID on the inner paragraph', async ({ page }) => {
+    // The wrap step nests the original paragraph inside <li><p>; PM's
+    // wrapRangeInList preserves child node identity, so UniqueID's id
+    // attribute survives the wrap without re-stamping. Deep-link URLs
+    // that targeted the paragraph keep working after conversion.
+    await setContent(page, '<p>Keep id through wrap</p>');
+    const idBefore = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { attrs: Record<string, unknown> } | null } } }
+        | undefined;
+      return (ed?.state.doc.firstChild?.attrs['id'] as string | undefined) ?? '';
+    });
+    expect(idBefore).not.toBe('');
+    await hoverBlock(page, 'p');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Bullet list")`);
+    const idAfter = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: {
+            firstChild: { firstChild: { attrs: Record<string, unknown> } | null } | null;
+          } | null } } }
+        | undefined;
+      return (ed?.state.doc.firstChild?.firstChild?.firstChild?.attrs['id'] as string | undefined) ?? '';
+    });
+    expect(idAfter).toBe(idBefore);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
 // 8. Block colors - swatches, aria-pressed, clear
 // ────────────────────────────────────────────────────────────────────────
 

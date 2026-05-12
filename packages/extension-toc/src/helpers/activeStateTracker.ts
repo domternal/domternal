@@ -103,7 +103,7 @@ function pickActive(
     // "above all headings" state (scroll near the top of the doc,
     // no heading has yet crossed the viewport top). Keeping at least
     // one tick lit avoids a brief no-active flash on initial load.
-    if (firstVisible === null) firstVisible = el;
+    firstVisible ??= el;
   }
   const winner = lastPassed ?? firstVisible;
   return winner ? readId(winner) : null;
