@@ -1008,6 +1008,22 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     }
   });
 
+  /**
+   * Mock each heading's bounding-rect top so pickActive's "last passed"
+   * logic can see a deterministic scroll position in jsdom (where every
+   * real rect is 0,0,0,0). Width/height are set non-zero so the
+   * hidden-element guard does not skip them.
+   */
+  const mockHeadingTops = (headings: readonly HTMLElement[], tops: readonly number[]): void => {
+    headings.forEach((h, i) => {
+      const top = tops[i] ?? 100;
+      h.getBoundingClientRect = (): DOMRect => ({
+        top, bottom: top + 24, left: 0, right: 200, height: 24, width: 200,
+        x: 0, y: top, toJSON: (): unknown => undefined,
+      } as DOMRect);
+    });
+  };
+
   /** Build a mounted editor for active-state assertions. */
   const mountForActive = async (content: string): Promise<Editor> => {
     document.body.innerHTML = '';
@@ -1027,25 +1043,22 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     return ed;
   };
 
-  it('marks the intersecting heading as active and writes storage.activeId', async () => {
+  it('marks the last-passed heading (top <= 0) as active and writes storage.activeId', async () => {
     editor = await mountForActive('<h1>One</h1><h2>Two</h2><h3>Three</h3>');
     const ticks = queryTicks();
-    const headingDoms = Array.from(
-      editor.view.dom.querySelectorAll<HTMLElement>('[id]'),
-    );
+    const headingDoms = Array.from(editor.view.dom.querySelectorAll<HTMLElement>('h1, h2, h3'));
     const targetDom = headingDoms[1];
     if (!targetDom) throw new Error('expected at least 2 headings');
     const targetId = targetDom.getAttribute('id');
 
-    // Find the IO instance the tracker created and fire an
-    // intersection event for the second heading.
-    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
+    // Simulate scroll: heading 0 + 1 have crossed the viewport top
+    // (top < 0); heading 2 is still below. Active should be heading 1
+    // (the most-recently-passed, i.e. max top among `top <= 0`).
+    mockHeadingTops(headingDoms, [-100, -20, 200]);
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== '');
     expect(io).toBeDefined();
-    io?.fire([{ target: targetDom, isIntersecting: true }]);
+    io?.fire([{ target: targetDom, isIntersecting: false }]);
 
-    // The tick mirroring that heading must now carry both visual
-    // markers (CSS class + aria-current). Storage's activeId tracks
-    // the same id so other UIs (Phase 7 inline block) can read it.
     const activeTick = ticks.find((t) => t.dataset['tocAnchor'] === targetId);
     expect(activeTick?.classList.contains('dm-toc--active')).toBe(true);
     expect(activeTick?.getAttribute('aria-current')).toBe('location');
@@ -1081,21 +1094,19 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
   it('only one tick at a time has the active class', async () => {
     editor = await mountForActive('<h1>One</h1><h2>Two</h2><h3>Three</h3>');
     const ticks = queryTicks();
-    const headingDoms = Array.from(
-      editor.view.dom.querySelectorAll<HTMLElement>('[id]'),
-    );
+    const headingDoms = Array.from(editor.view.dom.querySelectorAll<HTMLElement>('h1, h2, h3'));
 
-    // Fire active for first heading, then for the third. The middle
-    // tick should never end up active, and only the latest reported
-    // heading should carry the marker after each fire.
-    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
-    io?.fire([{ target: headingDoms[0]!, isIntersecting: true }]);
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== '');
+
+    // First scroll position: only heading 0 has crossed the viewport top.
+    mockHeadingTops(headingDoms, [-10, 200, 400]);
+    io?.fire([{ target: headingDoms[0]!, isIntersecting: false }]);
     expect(ticks.filter((t) => t.classList.contains('dm-toc--active'))).toHaveLength(1);
 
-    io?.fire([
-      { target: headingDoms[0]!, isIntersecting: false },
-      { target: headingDoms[2]!, isIntersecting: true },
-    ]);
+    // Scroll further: heading 2 has just crossed the top. Active
+    // should now be heading 2 (max top among top <= 0).
+    mockHeadingTops(headingDoms, [-400, -200, -10]);
+    io?.fire([{ target: headingDoms[2]!, isIntersecting: false }]);
     const active = ticks.filter((t) => t.classList.contains('dm-toc--active'));
     expect(active).toHaveLength(1);
     expect(active[0]?.dataset['tocAnchor']).toBe(headingDoms[2]?.getAttribute('id'));
@@ -1107,11 +1118,11 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     // tracked active id to the new tick DOM so the visual highlight
     // does not flash off.
     editor = await mountForActive('<h1>One</h1><h2>Two</h2>');
-    const headingDoms = Array.from(
-      editor.view.dom.querySelectorAll<HTMLElement>('[id]'),
-    );
-    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
-    io?.fire([{ target: headingDoms[1]!, isIntersecting: true }]);
+    const headingDoms = Array.from(editor.view.dom.querySelectorAll<HTMLElement>('h1, h2, h3'));
+    // Simulate scroll: second heading just crossed the viewport top.
+    mockHeadingTops(headingDoms, [-100, -10]);
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== '');
+    io?.fire([{ target: headingDoms[1]!, isIntersecting: false }]);
     const activeIdBefore = (editor.storage['toc'] as { activeId: string | null }).activeId;
     expect(activeIdBefore).not.toBeNull();
 
@@ -1147,19 +1158,11 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
   it('manual override expires after the configured window so IO updates resume', async () => {
     editor = await mountForActive('<h1>One</h1><h2>Two</h2><h3>Three</h3>');
     const ticks = queryTicks();
-    const headingDoms = Array.from(
-      editor.view.dom.querySelectorAll<HTMLElement>('[id]'),
-    );
+    const headingDoms = Array.from(editor.view.dom.querySelectorAll<HTMLElement>('h1, h2, h3'));
     const clickedTick = ticks[0];
     const otherDom = headingDoms[2];
     if (!clickedTick || !otherDom) throw new Error('setup mismatch');
 
-    // We can't use vi.useFakeTimers() here - the Editor mount path
-    // uses real `setTimeout(0)` for deferred ID assignment, and
-    // faking timers would deadlock that. Instead we spy on
-    // `Date.now()` so the plugin's `manualOverrideUntil` check sees
-    // a clock that "advances" past the 500ms window without us
-    // having to actually sleep.
     const realNow = Date.now;
     let virtualNow = realNow();
     const spy = vi.spyOn(Date, 'now').mockImplementation(() => virtualNow);
@@ -1168,11 +1171,13 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
       const clickedId = clickedTick.dataset['tocAnchor'];
       expect((editor.storage['toc'] as { activeId: string | null }).activeId).toBe(clickedId);
 
-      // Advance the virtual clock past the 500ms override window.
       virtualNow += 600;
 
-      const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
-      io?.fire([{ target: otherDom, isIntersecting: true }]);
+      // After the override expires, an IO fire should re-pick based on
+      // current rects: heading 2 is now most recently passed.
+      mockHeadingTops(headingDoms, [-400, -200, -10]);
+      const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== '');
+      io?.fire([{ target: otherDom, isIntersecting: false }]);
       const newActive = (editor.storage['toc'] as { activeId: string | null }).activeId;
       expect(newActive).toBe(otherDom.getAttribute('id'));
       expect(newActive).not.toBe(clickedId);
@@ -1245,6 +1250,44 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     expect((editor.storage['toc'] as { activeId: string | null }).activeId).toBe(
       visible.getAttribute('id'),
     );
+  });
+
+  it('observes ONLY heading elements, not paragraphs (regression: tracker used to pick up any id-bearing element)', async () => {
+    // Reproduction: a doc with a paragraph + headings. UniqueID assigns
+    // ids to BOTH paragraph and headings by default. Before the fix,
+    // `collectHeadingDoms` used a bare `[id]` selector and fed the
+    // tracker every id-bearing element. The tracker would then report
+    // paragraph ids as "active", but `storage.activeId` would point at
+    // something that doesn't match any tick, so the visual active state
+    // disappeared.
+    editor = await mountForActive('<h1>One</h1><p>Body paragraph</p><h2>Two</h2>');
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== '');
+    expect(io).toBeDefined();
+    // The observed set must contain ONLY heading tags - never paragraphs.
+    const observedTags = Array.from(io!.observed).map((el) => el.tagName);
+    expect(observedTags.length).toBeGreaterThan(0);
+    for (const tag of observedTags) {
+      expect(tag).toMatch(/^H[1-6]$/);
+    }
+  });
+
+  it('only writes heading ids to storage.activeId (never a paragraph id)', async () => {
+    // Direct contract: every id the tracker reports must be one of the
+    // heading ids tracked by storage.content. A paragraph id slipping
+    // through would leave the outline unable to highlight a tick.
+    editor = await mountForActive('<h1>One</h1><p>Body paragraph</p><h2>Two</h2>');
+    const storage = editor.storage['toc'] as { activeId: string | null; content: { id: string }[] };
+    const headingIds = new Set(storage.content.map((c) => c.id));
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== '')!;
+
+    // Fire IO with every observed element as intersecting - whichever
+    // the tracker picks must be a heading id (per the observed-set
+    // contract above; this is the runtime-flow equivalent).
+    const observed = Array.from(io.observed);
+    io.fire(observed.map((target) => ({ target, isIntersecting: true })));
+    if (storage.activeId !== null) {
+      expect(headingIds).toContain(storage.activeId);
+    }
   });
 });
 

@@ -207,13 +207,29 @@ function applyActiveMarker(nav: HTMLElement, activeId: string | null): void {
 }
 
 /**
- * Resolve every heading DOM node in the editor view whose stable id
- * attribute (UniqueID's `attrName`) is set. Returns elements in
- * document order so the tracker's IntersectionObserver and pickActive
- * logic see headings in the same order they appear visually.
+ * Resolve the DOM node for each entry in `storage.content`. Looking up
+ * by entry id (instead of a bare `[id]` selector) restricts the
+ * tracker to actual heading elements - UniqueID assigns ids to many
+ * other node types (paragraphs, list items, etc.) and a bare query
+ * would feed the IntersectionObserver paragraph ids that never match
+ * any tick, leaving `storage.activeId` pointing at non-headings.
  */
-function collectHeadingDoms(view: EditorView, attrName: string): HTMLElement[] {
-  return Array.from(view.dom.querySelectorAll<HTMLElement>(`[${attrName}]`));
+function collectHeadingDoms(
+  view: EditorView,
+  attrName: string,
+  content: readonly { id: string }[],
+): HTMLElement[] {
+  const root = view.dom;
+  const out: HTMLElement[] = [];
+  const escape = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+    ? CSS.escape
+    : (s: string): string => s;
+  for (const entry of content) {
+    if (!entry.id) continue;
+    const el = root.querySelector<HTMLElement>(`[${attrName}="${escape(entry.id)}"]`);
+    if (el) out.push(el);
+  }
+  return out;
 }
 
 export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
@@ -583,7 +599,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             if (!storage) return;
             renderOutlineContent(nav, storage.content);
             applyState();
-            tracker.observe(collectHeadingDoms(editorView, attrName));
+            tracker.observe(collectHeadingDoms(editorView, attrName, storage.content));
             applyActiveMarker(nav, storage.activeId);
             // Headings changed - nav height changed - re-center.
             recomputeMidTop();

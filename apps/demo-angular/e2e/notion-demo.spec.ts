@@ -1969,7 +1969,9 @@ test.describe('Table of Contents - Phase 1 spike', () => {
     });
 
     expect(storage).not.toBeNull();
-    expect(storage!.activeId).toBeNull(); // Phase 5 will populate this
+    // activeId is seeded to the first heading (always-at-least-one-active
+    // fallback). The content list still must mirror the doc.
+    expect(storage!.activeId).toBe(storage!.content[0]?.id);
     expect(storage!.content.length).toBeGreaterThan(0);
     for (const entry of storage!.content) {
       expect(entry.id).toBeTruthy();
@@ -3212,26 +3214,197 @@ test.describe('Table of Contents - Phase 5 active state', () => {
     await expect(ticks.nth(0)).not.toHaveClass(/dm-toc--active/);
   });
 
-  test('above all headings (scrollY=0 with content above first heading), no tick is active', async ({ page }) => {
-    // Inject a doc whose first heading sits BELOW a thick lead block,
-    // so the page can scroll up far enough that the first heading is
-    // entirely below the viewport - "above all headings" state.
+  test('active tick stays lit while scrolling through a section past the last heading', async ({ page }) => {
+    // Regression guard: the tracker used to observe every element
+    // UniqueID assigned an id to (paragraphs, list items, ...), not
+    // just headings. The IO would then report a non-heading id as
+    // "active", `storage.activeId` would point at something that
+    // doesn't match any tick, and the visual active state would
+    // disappear once the user scrolled past the LAST heading. The fix
+    // restricts collectHeadingDoms to ids that actually appear in
+    // storage.content (= the heading set).
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await setStretchedContent(page);
+
+    // Scroll in increments so the IntersectionObserver fires for each
+    // heading as it crosses the active zone. A single jump to the
+    // bottom would skip the intersection-state transitions entirely
+    // and the tracker would never report any heading as active.
+    const docHeight = await page.evaluate(() => document.body.scrollHeight);
+    const viewportH = await page.evaluate(() => window.innerHeight);
+    const target = Math.max(0, docHeight - viewportH);
+    for (let y = 0; y <= target; y += 150) {
+      await page.evaluate((scrollY) => { window.scrollTo(0, scrollY); }, y);
+      await page.waitForTimeout(40);
+    }
+    await page.evaluate((scrollY) => { window.scrollTo(0, scrollY); }, target);
+    await page.waitForTimeout(120);
+
+    // Exactly one tick remains active (the last passed heading, per
+    // pickActive's case-2 fallback). The visual marker MUST match the
+    // storage's activeId - if not, the tracker is reporting a non-
+    // heading id that doesn't correspond to any tick.
+    const data = await page.evaluate(() => {
+      const active = document.querySelector('.dm-toc-outline-tick.dm-toc--active') as HTMLElement | null;
+      const storage = (window as unknown as { __DEMO_EDITOR__?: { storage: Record<string, unknown> } }).__DEMO_EDITOR__?.storage['toc'] as { activeId: string | null; content: { id: string }[] } | undefined;
+      return {
+        activeTickAnchor: active?.dataset['tocAnchor'] ?? null,
+        storageActiveId: storage?.activeId ?? null,
+        storageContentIds: storage?.content.map((c) => c.id) ?? [],
+      };
+    });
+    expect(data.activeTickAnchor).not.toBeNull();
+    expect(data.storageActiveId).not.toBeNull();
+    expect(data.activeTickAnchor).toBe(data.storageActiveId);
+    expect(data.storageContentIds).toContain(data.storageActiveId);
+  });
+
+  test('active switches exactly when the viewport top touches the next heading (precise crossing)', async ({ page }) => {
+    // Spec: H1 stays lit until viewport_top crosses H2's heading line.
+    // No 60px-style lead-in; the switch fires at the exact touch point.
+    // The scroll listener (rAF-throttled, see activeStateTracker)
+    // keeps the switch tight to actual scroll position - no IO latency.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await setStretchedContent(page);
+
+    const secondDocTop = await page.evaluate(() => {
+      const h = document.querySelectorAll('app-notion-demo .ProseMirror h2')[0];
+      if (!h) return -1;
+      return h.getBoundingClientRect().top + window.scrollY;
+    });
+    expect(secondDocTop).toBeGreaterThan(0);
+
+    const [firstId, secondId] = await page.evaluate(() => {
+      const hs = Array.from(document.querySelectorAll('app-notion-demo .ProseMirror :is(h1, h2)'));
+      return hs.slice(0, 2).map((h) => (h as HTMLElement).id);
+    });
+    expect(firstId).toBeTruthy();
+    expect(secondId).toBeTruthy();
+
+    const probe = async (): Promise<{ secondHeadingTop: number; activeId: string | null }> => {
+      return await page.evaluate(() => {
+        const second = document.querySelectorAll('app-notion-demo .ProseMirror h2')[0] as HTMLElement | undefined;
+        const active = document.querySelector('.dm-toc-outline-tick.dm-toc--active') as HTMLElement | null;
+        return {
+          secondHeadingTop: second ? second.getBoundingClientRect().top : Number.POSITIVE_INFINITY,
+          activeId: active?.dataset['tocAnchor'] ?? null,
+        };
+      });
+    };
+
+    // Park scroll where H2 is still well below the viewport top.
+    await page.evaluate((y) => { window.scrollTo(0, y); }, Math.max(0, secondDocTop - 300));
+    await page.waitForTimeout(80);
+    const before = await probe();
+    expect(before.secondHeadingTop).toBeGreaterThan(50);
+    expect(before.activeId).toBe(firstId);
+
+    // Park scroll exactly at H2's doc top - H2 now touches viewport top.
+    await page.evaluate((y) => { window.scrollTo(0, y); }, secondDocTop);
+    await page.waitForTimeout(80);
+    const at = await probe();
+    expect(Math.abs(at.secondHeadingTop)).toBeLessThanOrEqual(2);
+    expect(at.activeId).toBe(secondId);
+
+    // Park scroll BARELY below the touch point (H2 still positive top).
+    // Active must still be H1 - no premature switch.
+    await page.evaluate((y) => { window.scrollTo(0, y); }, secondDocTop - 20);
+    await page.waitForTimeout(80);
+    const justBefore = await probe();
+    expect(justBefore.secondHeadingTop).toBeGreaterThan(0);
+    expect(justBefore.activeId).toBe(firstId);
+  });
+
+  test('storage.activeId is ALWAYS in storage.content (never a non-heading id) across the entire scroll range', async ({ page }) => {
+    // Tightens the regression guard: at every sample point along a
+    // full doc scroll, storage.activeId must either be null OR appear
+    // in storage.content. Before the fix, mid-scroll positions would
+    // see activeId pointing at a paragraph id (UniqueID assigns ids
+    // to paragraphs too) which would not appear in content.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await setStretchedContent(page);
+    const docHeight = await page.evaluate(() => document.body.scrollHeight);
+    const viewportH = await page.evaluate(() => window.innerHeight);
+    const max = Math.max(0, docHeight - viewportH);
+
+    for (let y = 0; y <= max; y += 100) {
+      await page.evaluate((scrollY) => { window.scrollTo(0, scrollY); }, y);
+      await page.waitForTimeout(50);
+      const probe = await page.evaluate(() => {
+        const storage = (window as unknown as { __DEMO_EDITOR__?: { storage: Record<string, unknown> } })
+          .__DEMO_EDITOR__?.storage['toc'] as { activeId: string | null; content: { id: string }[] } | undefined;
+        return {
+          scrollY: window.scrollY,
+          activeId: storage?.activeId ?? null,
+          contentIds: storage?.content.map((c) => c.id) ?? [],
+        };
+      });
+      if (probe.activeId !== null) {
+        expect(probe.contentIds, `at scrollY=${String(probe.scrollY)}`).toContain(probe.activeId);
+      }
+    }
+  });
+
+  test('exactly one tick has the active class at every scroll position past the first heading', async ({ page }) => {
+    // Once the user has scrolled past the very first heading, AT LEAST
+    // ONE tick should be visually active at all times. The fallback
+    // pickActive (case 2: last-passed heading) is responsible for this.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await setStretchedContent(page);
+    const docHeight = await page.evaluate(() => document.body.scrollHeight);
+    const viewportH = await page.evaluate(() => window.innerHeight);
+    const max = Math.max(0, docHeight - viewportH);
+
+    // Step from the top of the doc downward; once an active tick
+    // appears, it must stay present through the rest of the scroll.
+    let everSawActive = false;
+    for (let y = 0; y <= max; y += 100) {
+      await page.evaluate((scrollY) => { window.scrollTo(0, scrollY); }, y);
+      await page.waitForTimeout(50);
+      const activeCount = await page.evaluate(
+        () => document.querySelectorAll('.dm-toc-outline-tick.dm-toc--active').length,
+      );
+      if (activeCount > 0) {
+        everSawActive = true;
+        // At most one tick should ever be active at a time.
+        expect(activeCount).toBe(1);
+      } else if (everSawActive) {
+        // Once we've seen an active tick, we should not lose it.
+        expect(activeCount).toBeGreaterThanOrEqual(1);
+      }
+    }
+    expect(everSawActive).toBe(true);
+  });
+
+  test('above all headings (scrollY=0 with content above first heading), the FIRST heading is the active fallback', async ({ page }) => {
+    // Inject a doc whose first heading sits BELOW a thick lead block.
+    // No heading has crossed the viewport top yet, so pickActive falls
+    // back to the first heading to keep at least one tick lit.
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await setContent(
       page,
       `<p>${'Lead text '.repeat(30)}</p><h1>First</h1><p>${'Body text '.repeat(30)}</p><h2>Second</h2>`,
     );
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => r())));
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => { r(); })));
 
-    const activeCount = await page.evaluate(() => {
-      const ticks = document.querySelectorAll('.dm-toc--active');
-      return ticks.length;
+    const result = await page.evaluate(() => {
+      // Scope to outline ticks; the inline /toc block has its own
+      // `--active` highlight that shares the same heading id but a
+      // different selector path.
+      const active = document.querySelectorAll('.dm-toc-outline-tick.dm-toc--active');
+      const firstHeadingId = document.querySelector(
+        'app-notion-demo .ProseMirror :is(h1, h2, h3)',
+      )?.id;
+      const activeAnchor = (active[0] as HTMLElement | undefined)?.dataset['tocAnchor'];
+      return {
+        activeCount: active.length,
+        firstHeadingId,
+        activeAnchor,
+      };
     });
-    // Either 0 active ticks (the canonical "above all" state) or, in
-    // a tight viewport where the first heading is already in the
-    // upper 15%, exactly 1 - never multiple.
-    expect(activeCount).toBeLessThanOrEqual(1);
+    expect(result.activeCount).toBe(1);
+    expect(result.activeAnchor).toBe(result.firstHeadingId);
   });
 
   test('dark theme uses the active-color token for highlighted tick', async ({ page }) => {

@@ -1,31 +1,21 @@
 /**
  * activeStateTracker - scrollspy for the floating ToC outline.
  *
- * Picks the "active" heading (the one the user is currently reading)
- * by combining IntersectionObserver readings with a fallback for
- * when no heading is in the active zone:
+ * The active heading is the LAST one whose top has reached (or moved
+ * above) the viewport top - the section the user is currently
+ * reading. Switching to the next heading happens only when ITS top
+ * crosses the viewport top, not earlier when it enters some lower
+ * band. The IntersectionObserver drives recomputation; the band
+ * `rootMargin` controls only how often the callback fires, not which
+ * heading wins.
  *
- *   - The active zone is the upper 15% of the scroll container
- *     (rootMargin = '0px 0px -85% 0px'). A heading is "intersecting"
- *     while its top is inside this band.
+ * Edge case: if the user is above all headings (e.g. first paint at
+ * top of doc, no heading has yet crossed the viewport top), no tick
+ * is highlighted (`activeId = null`).
  *
- *   - If multiple headings are intersecting, the TOPMOST wins (smaller
- *     boundingClientRect.top). This matches Notion's behavior - the
- *     heading that's about to scroll out is the one the user just
- *     finished reading.
- *
- *   - If NONE are intersecting, we look for the LAST PASSED heading -
- *     the one whose top is most recently negative (closest to 0 from
- *     below). This handles the "scrolled past everything" case where
- *     the user is reading the tail of the doc.
- *
- *   - If no heading has been passed either (the user is above all
- *     headings, e.g. on first paint at top of doc), the active id is
- *     null and no tick is highlighted.
- *
- * The tracker is decoupled from FloatingTocOutline so other Phase 7
- * consumers (e.g. inline /toc block) can adopt the same logic without
- * spawning their own observer.
+ * The tracker is decoupled from FloatingTocOutline so other consumers
+ * (e.g. inline /toc block) can adopt the same logic without spawning
+ * their own observer.
  */
 
 export interface ActiveStateTrackerOptions {
@@ -85,46 +75,38 @@ function makeReadId(attrName: string): (el: HTMLElement) => string | null {
 
 /**
  * From the supplied set of observed elements, decide which one is
- * "active" right now. Pure function over the live DOM rects - we call
- * `getBoundingClientRect` for each element. For typical doc sizes
- * (<200 headings) this is microseconds; if profiling ever flags it,
- * we can cache rects between IO callbacks.
+ * "active" right now. The active heading is the LAST one whose top has
+ * reached or crossed the viewport top - the switch fires exactly when
+ * the viewport-top line TOUCHES the next heading. Pure function over
+ * live DOM rects via `getBoundingClientRect`. Combined with a scroll-
+ * driven recompute (rAF-throttled, see below), the switch tracks the
+ * scroll position frame-by-frame instead of waiting on IO callbacks.
  */
 function pickActive(
   elements: readonly HTMLElement[],
-  intersecting: ReadonlySet<HTMLElement>,
+  _intersecting: ReadonlySet<HTMLElement>,
   readId: (el: HTMLElement) => string | null,
 ): string | null {
-  // Case 1: at least one heading inside the active zone. Pick the
-  // topmost (smallest top in viewport coords), so the heading that is
-  // about to leave the zone is the one the user is "at".
-  if (intersecting.size > 0) {
-    let winner: HTMLElement | null = null;
-    let winnerTop = Number.POSITIVE_INFINITY;
-    for (const el of intersecting) {
-      const top = el.getBoundingClientRect().top;
-      if (top < winnerTop) {
-        winnerTop = top;
-        winner = el;
-      }
-    }
-    return winner ? readId(winner) : null;
-  }
-
-  // Case 2: nothing in the active zone. Fall back to the last passed
-  // heading - the one whose top is closest to 0 from below (most
-  // recently scrolled past). If no element has been passed (we're
-  // above all headings), return null - no tick highlighted.
   let lastPassed: HTMLElement | null = null;
   let lastPassedTop = Number.NEGATIVE_INFINITY;
+  let firstVisible: HTMLElement | null = null;
   for (const el of elements) {
-    const top = el.getBoundingClientRect().top;
-    if (top < 0 && top > lastPassedTop) {
-      lastPassedTop = top;
+    const rect = el.getBoundingClientRect();
+    // Skip elements with no visual extent (display:none ancestor,
+    // detached, zero-sized).
+    if (rect.width === 0 && rect.height === 0) continue;
+    if (rect.top <= 0 && rect.top > lastPassedTop) {
+      lastPassedTop = rect.top;
       lastPassed = el;
     }
+    // Track the first laid-out heading as a fallback for the
+    // "above all headings" state (scroll near the top of the doc,
+    // no heading has yet crossed the viewport top). Keeping at least
+    // one tick lit avoids a brief no-active flash on initial load.
+    if (firstVisible === null) firstVisible = el;
   }
-  return lastPassed ? readId(lastPassed) : null;
+  const winner = lastPassed ?? firstVisible;
+  return winner ? readId(winner) : null;
 }
 
 export function createActiveStateTracker(
@@ -154,6 +136,15 @@ export function createActiveStateTracker(
   let lastReportedId: string | null | undefined; // undefined sentinel for "never reported"
   let destroyed = false;
 
+  const recompute = (): void => {
+    if (destroyed) return;
+    const next = pickActive(observed, intersecting, readId);
+    if (next !== lastReportedId) {
+      lastReportedId = next;
+      onChange(next);
+    }
+  };
+
   const observer = new IntersectionObserver(
     (entries) => {
       if (destroyed) return;
@@ -162,14 +153,29 @@ export function createActiveStateTracker(
         if (entry.isIntersecting) intersecting.add(target);
         else intersecting.delete(target);
       }
-      const next = pickActive(observed, intersecting, readId);
-      if (next !== lastReportedId) {
-        lastReportedId = next;
-        onChange(next);
-      }
+      recompute();
     },
     { root: scrollParent, rootMargin },
   );
+
+  // Scroll listener with rAF throttling. The IntersectionObserver
+  // fires only when the intersection state changes (a heading crosses
+  // the `rootMargin` boundary), which can leave the active id stale
+  // between transitions. Recomputing on every scroll frame keeps the
+  // switch tight to actual scroll position - the user sees the new
+  // heading light up as it slides into the active threshold band.
+  let scrollRaf: number | null = null;
+  const onScroll = (): void => {
+    if (scrollRaf !== null) return;
+    scrollRaf = requestAnimationFrame(() => {
+      scrollRaf = null;
+      recompute();
+    });
+  };
+  const scrollTarget: EventTarget = scrollParent instanceof Document || scrollParent === null
+    ? window
+    : scrollParent;
+  scrollTarget.addEventListener('scroll', onScroll, { passive: true });
 
   return {
     observe(elements: readonly HTMLElement[]): void {
@@ -208,6 +214,11 @@ export function createActiveStateTracker(
       if (destroyed) return;
       destroyed = true;
       observer.disconnect();
+      scrollTarget.removeEventListener('scroll', onScroll);
+      if (scrollRaf !== null) {
+        cancelAnimationFrame(scrollRaf);
+        scrollRaf = null;
+      }
       intersecting.clear();
       observed = [];
     },
