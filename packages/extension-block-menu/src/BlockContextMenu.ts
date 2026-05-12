@@ -25,6 +25,7 @@ import {
   duplicateBlock,
   turnIntoBlock,
 } from './helpers/blockOperations.js';
+import { turnIntoWrapper, type WrapperCommand } from './helpers/turnIntoWrapper.js';
 
 /**
  * Shape of the `uniqueID` extension's options. We only read the two fields
@@ -62,6 +63,14 @@ export interface TurnIntoTarget {
   nodeType: string;
   /** Optional node attributes (e.g. `{ level: 1 }` for Heading 1). */
   attrs?: Attrs;
+  /**
+   * Editor command to invoke for non-textblock (wrapper) targets like
+   * lists and blockquote. When set, runTurnInto routes through
+   * `turnIntoWrapper` which sets selection then dispatches the
+   * command, instead of calling `setBlockType`. Leave undefined for
+   * textblock targets (paragraph, heading, codeBlock).
+   */
+  command?: WrapperCommand;
 }
 
 const DEFAULT_TURN_INTO: TurnIntoTarget[] = [
@@ -69,11 +78,11 @@ const DEFAULT_TURN_INTO: TurnIntoTarget[] = [
   { label: 'Heading 1', icon: 'textHOne', nodeType: 'heading', attrs: { level: 1 } },
   { label: 'Heading 2', icon: 'textHTwo', nodeType: 'heading', attrs: { level: 2 } },
   { label: 'Heading 3', icon: 'textHThree', nodeType: 'heading', attrs: { level: 3 } },
-  { label: 'Quote', icon: 'quotes', nodeType: 'blockquote' },
+  { label: 'Bullet list', icon: 'listBullets', nodeType: 'bulletList', command: 'toggleBulletList' },
+  { label: 'Ordered list', icon: 'listNumbers', nodeType: 'orderedList', command: 'toggleOrderedList' },
+  { label: 'To-do list', icon: 'listChecks', nodeType: 'taskList', command: 'toggleTaskList' },
+  { label: 'Quote', icon: 'quotes', nodeType: 'blockquote', command: 'toggleBlockquote' },
   { label: 'Code block', icon: 'codeBlock', nodeType: 'codeBlock' },
-  { label: 'Bullet list', icon: 'listBullets', nodeType: 'bulletList' },
-  { label: 'Ordered list', icon: 'listNumbers', nodeType: 'orderedList' },
-  { label: 'To-do list', icon: 'listChecks', nodeType: 'taskList' },
 ];
 
 export interface BlockContextMenuOptions {
@@ -279,7 +288,29 @@ export function createBlockContextMenuPlugin(
 
   const runTurnInto = (target: TurnIntoTarget): void => {
     if (currentBlockPos === null) return;
-    const pos = currentBlockPos;
+    const sourceNode = editor.view.state.doc.nodeAt(currentBlockPos);
+    if (!sourceNode) return;
+
+    // When the targeted block is a wrapper (listItem / taskItem /
+    // blockquote), descend to its inner first textblock so the wrapper
+    // command operates on a valid textblock source. The filter in
+    // renderItems guarantees we only reach here for wrapper targets
+    // when source is a wrapper - textblock targets on wrapper sources
+    // are filtered out upstream.
+    const pos = sourceNode.type.isTextblock ? currentBlockPos : currentBlockPos + 1;
+
+    // Wrapper targets (lists, blockquote) use the helper which routes
+    // through the corresponding editor command. The command dispatches
+    // its own transaction (with scrollIntoView), so we only need to
+    // close the menu and restore focus afterwards.
+    if (target.command) {
+      turnIntoWrapper(editor, pos, target.command);
+      hide();
+      editor.view.focus();
+      return;
+    }
+    // Textblock targets: position-precise setBlockType via the existing
+    // pure helper. runAndClose handles dispatch + scrollIntoView + hide.
     const targetType = editor.view.state.schema.nodes[target.nodeType];
     if (!targetType) return;
     runAndClose((tr) => { turnIntoBlock(tr, pos, targetType, target.attrs); });
@@ -371,11 +402,57 @@ export function createBlockContextMenuPlugin(
       );
     }
 
-    // --- Turn into section (textblocks only, different from current type)
-    if (turnIntoEnabled && node.type.isTextblock) {
+    // --- Turn into section. Two source modes:
+    //
+    //   A. Textblock source (paragraph, heading, codeBlock): both
+    //      textblock and wrapper targets are eligible (subject to filter).
+    //   B. Wrapper source (listItem, taskItem, blockquote whose first
+    //      child is a textblock): only wrapper targets are eligible,
+    //      and we descend to the inner textblock for the ancestor walk.
+    //      Textblock targets would need a lift-then-convert step that
+    //      is out of scope - they're filtered out.
+    //
+    // Pure non-textblock atoms (HR) and wrapper-of-wrapper (bulletList
+    // whose first child is listItem, not a textblock) hide Turn into
+    // entirely - Notion matches this.
+    const sourceIsTextblock = node.type.isTextblock;
+    const sourceIsWrapper = !sourceIsTextblock && node.firstChild?.isTextblock === true;
+    if (turnIntoEnabled && (sourceIsTextblock || sourceIsWrapper)) {
+      // For wrapper sources, the ancestor walk starts at the inner
+      // textblock (blockPos + 1 = past the wrapper opening token) so
+      // it picks up listItem / taskList / blockquote correctly.
+      const ancestorPos = sourceIsTextblock ? blockPos : blockPos + 1;
+      const $pos = editor.view.state.doc.resolve(ancestorPos);
+      const ancestorTypeNames = new Set<string>();
+      for (let d = 0; d <= $pos.depth; d++) {
+        ancestorTypeNames.add($pos.node(d).type.name);
+      }
+
+      // listItem / taskItem schema requires their FIRST child to be a
+      // paragraph. Calling toggleBlockquote on that inner paragraph
+      // would try to make blockquote the first child, which the schema
+      // rejects. Hide the Quote target upfront to avoid a clickable-
+      // but-no-op item.
+      const isListItemFamilySource =
+        node.type.name === 'listItem' || node.type.name === 'taskItem';
+
       const eligible = turnIntoTargets.filter((target) => {
         const type = editor.view.state.schema.nodes[target.nodeType];
-        if (!type?.isTextblock) return false;
+        if (!type) return false;
+
+        // Wrapper target (toggleList / toggleBlockquote). Hide when an
+        // ancestor of the same type already wraps the block - Notion-
+        // style "you're already there, no point offering".
+        if (target.command) {
+          if (ancestorTypeNames.has(target.nodeType)) return false;
+          if (target.command === 'toggleBlockquote' && isListItemFamilySource) return false;
+          return true;
+        }
+
+        // Textblock target. Only valid when source is itself a textblock.
+        // Wrapper sources need lift-then-convert (out of scope).
+        if (!sourceIsTextblock) return false;
+        if (!type.isTextblock) return false;
         // Skip targets identical to the current block (same node type AND
         // matching attrs - e.g. hide "Heading 1" when already on H1).
         if (type.name !== node.type.name) return true;
