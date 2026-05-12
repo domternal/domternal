@@ -174,9 +174,17 @@
   position: absolute;
   right: 0;
   top: 50%;
-  transform: translateY(-50%) translateX(var(--dm-toc-card-offset, 8px));
+  // `--dm-toc-card-shift-y` is set by the plugin to nudge the card back
+  // into the viewport when the nav sits near the top or bottom edge.
+  transform:
+    translateY(calc(-50% + var(--dm-toc-card-shift-y, 0px)))
+    translateX(var(--dm-toc-card-offset, 8px));
   min-width: var(--dm-toc-card-min-width, 180px);
   max-width: var(--dm-toc-card-max-width, 260px);
+  // Long heading lists scroll internally rather than overflowing the
+  // viewport; the margin keeps the card off the chrome edges.
+  max-height: calc(100vh - 2 * var(--dm-toc-card-viewport-margin, 16px));
+  overflow-y: auto;
   padding: var(--dm-toc-card-padding-block, 6px) 0;
   background: var(--dm-toc-card-bg, rgba(255, 255, 255, 0.98));
   border: var(--dm-toc-card-border, 1px solid rgba(0, 0, 0, 0.06));
@@ -200,7 +208,9 @@
 .dm-toc-outline[data-state='expanded'] .dm-toc-outline-card {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(-50%) translateX(0);
+  transform:
+    translateY(calc(-50% + var(--dm-toc-card-shift-y, 0px)))
+    translateX(0);
 }
 
 .dm-toc-outline-row {
@@ -400,7 +410,9 @@
   // expand/collapse cycle (which can briefly leak a 1-frame
   // off-position card).
   .dm-toc-outline-card {
-    transform: translateY(-50%) translateX(0);
+    transform:
+      translateY(calc(-50% + var(--dm-toc-card-shift-y, 0px)))
+      translateX(0);
   }
 }
 

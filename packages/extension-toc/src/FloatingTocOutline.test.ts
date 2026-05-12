@@ -1560,3 +1560,206 @@ describe('FloatingTocOutline - Phase 6 hover expansion', () => {
     expect(rows[1]?.textContent).toBe('Has Text');
   });
 });
+
+/**
+ * Expanded-card edge behavior: closes on window scroll (so it doesn't
+ * lag the page or appear detached from any tick), and shifts vertically
+ * via `--dm-toc-card-shift-y` when the nav sits near a viewport edge.
+ */
+describe('FloatingTocOutline - expanded card scroll-close + viewport clamp', () => {
+  let editor: Editor | undefined;
+  let originalMatchMedia: typeof window.matchMedia | undefined;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    originalMatchMedia = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: false, media: query, onchange: null,
+      addEventListener: (): void => undefined,
+      removeEventListener: (): void => undefined,
+      addListener: (): void => undefined, removeListener: (): void => undefined,
+      dispatchEvent: (): boolean => false,
+    })) as typeof window.matchMedia;
+  });
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) editor.destroy();
+    editor = undefined;
+    document.body.innerHTML = '';
+    if (originalMatchMedia) window.matchMedia = originalMatchMedia;
+  });
+
+  const mount = async (content = '<h1>A</h1><h2>B</h2>'): Promise<Editor> => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const ed = new Editor({ element: host, extensions: baseExtensions, content });
+    await flushDeferred();
+    return ed;
+  };
+
+  const expandViaFocus = (nav: HTMLElement): void => {
+    const firstTick = nav.querySelector<HTMLButtonElement>('.dm-toc-outline-tick');
+    firstTick?.focus();
+    nav.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+  };
+
+  it('window scroll while expanded collapses the menu back to "collapsed"', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    expandViaFocus(nav);
+    expect(nav.dataset['state']).toBe('expanded');
+
+    window.dispatchEvent(new Event('scroll'));
+    expect(nav.dataset['state']).toBe('collapsed');
+  });
+
+  it('window scroll while collapsed is a no-op (does not flip state)', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    expect(nav.dataset['state']).toBe('collapsed');
+    window.dispatchEvent(new Event('scroll'));
+    expect(nav.dataset['state']).toBe('collapsed');
+  });
+
+  it('removes the window scroll listener on destroy (no leak after editor teardown)', async () => {
+    editor = await mount();
+    editor.destroy();
+    editor = undefined;
+    // After destroy, scrolling should not throw or touch any orphan refs.
+    expect(() => { window.dispatchEvent(new Event('scroll')); }).not.toThrow();
+  });
+
+  it('sets --dm-toc-card-shift-y on expansion when card overflows top of viewport', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card')!;
+    // Force a layout the plugin's clamp will treat as an overflow:
+    // card.top = -100 means the card would sit 100px above the viewport.
+    vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
+      top: -100, bottom: 200, left: 0, right: 200, width: 200, height: 300,
+      x: 0, y: -100, toJSON: () => ({}),
+    } as DOMRect);
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
+
+    expandViaFocus(nav);
+    // adjustCardPosition runs in requestAnimationFrame; flush it.
+    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+
+    const shift = card.style.getPropertyValue('--dm-toc-card-shift-y');
+    // Margin = 16. Needed shift = 16 - (-100) = 116.
+    expect(shift).toBe('116px');
+  });
+
+  it('sets a NEGATIVE --dm-toc-card-shift-y when card overflows bottom of viewport', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card')!;
+    // viewport=800, margin=16, maxBottom=784. card.bottom=900 => shift = 784-900 = -116.
+    vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
+      top: 600, bottom: 900, left: 0, right: 200, width: 200, height: 300,
+      x: 0, y: 600, toJSON: () => ({}),
+    } as DOMRect);
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
+
+    expandViaFocus(nav);
+    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+
+    expect(card.style.getPropertyValue('--dm-toc-card-shift-y')).toBe('-116px');
+  });
+
+  it('does NOT set --dm-toc-card-shift-y when the card fits entirely in the viewport', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card')!;
+    vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
+      top: 200, bottom: 500, left: 0, right: 200, width: 200, height: 300,
+      x: 0, y: 200, toJSON: () => ({}),
+    } as DOMRect);
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
+
+    expandViaFocus(nav);
+    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+
+    expect(card.style.getPropertyValue('--dm-toc-card-shift-y')).toBe('');
+  });
+
+  it('PRESERVES --dm-toc-card-shift-y across a collapse so the card does not visually jump during fade-out', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card')!;
+    vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
+      top: -50, bottom: 250, left: 0, right: 200, width: 200, height: 300,
+      x: 0, y: -50, toJSON: () => ({}),
+    } as DOMRect);
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
+
+    expandViaFocus(nav);
+    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+    const shiftWhileExpanded = card.style.getPropertyValue('--dm-toc-card-shift-y');
+    expect(shiftWhileExpanded).not.toBe('');
+
+    // Collapse by firing focusout with no related target inside nav.
+    // The shift stays so the card fades out at its shifted position
+    // (without re-triggering the transform transition mid-fade).
+    nav.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+    expect(nav.dataset['state']).toBe('collapsed');
+    expect(card.style.getPropertyValue('--dm-toc-card-shift-y')).toBe(shiftWhileExpanded);
+  });
+
+  it('does NOT recompute the shift while already expanded (a re-focus during a click would otherwise clobber it)', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card')!;
+    vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
+      top: -50, bottom: 250, left: 0, right: 200, width: 200, height: 300,
+      x: 0, y: -50, toJSON: () => ({}),
+    } as DOMRect);
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
+
+    expandViaFocus(nav);
+    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+    const firstShift = card.style.getPropertyValue('--dm-toc-card-shift-y');
+    expect(firstShift).toBe('66px');
+
+    // Re-fire focusin (as happens when a row inside the card receives
+    // focus on click). State stays expanded - the shift must be left
+    // alone, NOT recomputed against a card that may have moved
+    // mid-flow.
+    vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
+      top: 300, bottom: 600, left: 0, right: 200, width: 200, height: 300,
+      x: 0, y: 300, toJSON: () => ({}),
+    } as DOMRect);
+    nav.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+    expect(card.style.getPropertyValue('--dm-toc-card-shift-y')).toBe(firstShift);
+  });
+
+  it('recomputes --dm-toc-card-shift-y on the next expand (stale value cleared then re-set as needed)', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card')!;
+    const rectSpy = vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
+      top: -50, bottom: 250, left: 0, right: 200, width: 200, height: 300,
+      x: 0, y: -50, toJSON: () => ({}),
+    } as DOMRect);
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
+
+    expandViaFocus(nav);
+    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+    expect(card.style.getPropertyValue('--dm-toc-card-shift-y')).toBe('66px');
+
+    nav.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+    // Stale shift persists through collapse.
+    expect(card.style.getPropertyValue('--dm-toc-card-shift-y')).toBe('66px');
+
+    // Next expand at a different layout - shift recomputes to the new value.
+    rectSpy.mockReturnValue({
+      top: 200, bottom: 500, left: 0, right: 200, width: 200, height: 300,
+      x: 0, y: 200, toJSON: () => ({}),
+    } as DOMRect);
+    expandViaFocus(nav);
+    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+    expect(card.style.getPropertyValue('--dm-toc-card-shift-y')).toBe('');
+  });
+});

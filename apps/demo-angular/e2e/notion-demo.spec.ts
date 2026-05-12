@@ -2372,6 +2372,219 @@ test.describe('Table of Contents - editor anchor modes', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
+// Table of Contents - expanded card scroll-close + viewport clamp
+// ────────────────────────────────────────────────────────────────────────
+// The expanded hover card must:
+//   - Close on any window scroll (so it doesn't lag the page or detach
+//     from any anchored tick).
+//   - Stay inside the viewport. When the nav sits near the top or
+//     bottom edge, the plugin sets `--dm-toc-card-shift-y` to nudge the
+//     card back in.
+
+test.describe('Table of Contents - expanded card edges', () => {
+  test.beforeEach(async ({ page }) => {
+    await goNotion(page);
+    // Wider than the default 1024 mobile breakpoint so the outline
+    // stays visible (matchMedia would otherwise hide it).
+    await page.setViewportSize({ width: 1200, height: 700 });
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.waitForTimeout(100);
+  });
+
+  test('scrolling the window collapses the expanded card', async ({ page }) => {
+    const outline = page.locator('.dm-toc-outline');
+    // Focus a tick to force-expand (sidesteps hover-delay timers).
+    await outline.locator('.dm-toc-outline-tick').first().focus();
+    await page.waitForTimeout(50);
+    await expect(outline).toHaveAttribute('data-state', 'expanded');
+
+    await page.evaluate(() => { window.scrollBy(0, 50); });
+    await page.waitForTimeout(50);
+    await expect(outline).toHaveAttribute('data-state', 'collapsed');
+  });
+
+  test('scrolling while collapsed is a no-op (state stays collapsed)', async ({ page }) => {
+    const outline = page.locator('.dm-toc-outline');
+    await expect(outline).toHaveAttribute('data-state', 'collapsed');
+    await page.evaluate(() => { window.scrollBy(0, 100); });
+    await page.waitForTimeout(50);
+    await expect(outline).toHaveAttribute('data-state', 'collapsed');
+  });
+
+  test('card top edge sits within the viewport when nav is near the top of the screen', async ({ page }) => {
+    // Squeeze the viewport vertically so the nav (vertically centered)
+    // ends up close to the top - the unconstrained card would overflow
+    // upward. The clamp must keep card.top >= ~16px.
+    await page.setViewportSize({ width: 1200, height: 320 });
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.waitForTimeout(100);
+
+    await page.locator('.dm-toc-outline').locator('.dm-toc-outline-tick').first().focus();
+    await page.waitForTimeout(120);
+
+    const cardBox = await page.locator('.dm-toc-outline-card').boundingBox();
+    expect(cardBox).not.toBeNull();
+    // Margin is 16; allow 2px slack for sub-pixel rounding.
+    expect(cardBox!.y).toBeGreaterThanOrEqual(14);
+  });
+
+  test('card bottom edge sits within the viewport when nav is near the bottom of the screen', async ({ page }) => {
+    // Squeeze the viewport so the nav ends up near the bottom of the
+    // available area - the unconstrained card would overflow downward.
+    await page.setViewportSize({ width: 1200, height: 320 });
+    // Scroll near (but not past) the end so notion-page bottom is in view
+    // and the nav sits in the lower portion of the viewport.
+    await page.evaluate(() => {
+      const el = document.querySelector<HTMLElement>('.notion-page');
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const docBottom = rect.top + window.scrollY + rect.height;
+      window.scrollTo(0, Math.max(0, docBottom - window.innerHeight + 60));
+    });
+    await page.waitForTimeout(150);
+
+    await page.locator('.dm-toc-outline').locator('.dm-toc-outline-tick').first().focus();
+    await page.waitForTimeout(120);
+
+    const cardBox = await page.locator('.dm-toc-outline-card').boundingBox();
+    expect(cardBox).not.toBeNull();
+    const cardBottom = cardBox!.y + cardBox!.height;
+    const viewportH = await page.evaluate(() => window.innerHeight);
+    // Margin is 16; allow 2px slack for sub-pixel rounding.
+    expect(cardBottom).toBeLessThanOrEqual(viewportH - 14);
+  });
+
+  /**
+   * Puts the nav in case-A sticky-to-top by scrolling well past the
+   * nav's natural position - far enough that the natural in viewport
+   * is above the sticky offset (1rem), so the nav clamps to the top
+   * edge. The card's vertical-center then sits near the top of the
+   * viewport, forcing the shift clamp to engage. We stop ~80px before
+   * the page bottom so the bottom-sentinel stays in the viewport
+   * (otherwise we'd flip back to middle mode).
+   */
+  const stickNavNearViewportTop = async (page: import('@playwright/test').Page): Promise<void> => {
+    await page.setViewportSize({ width: 1200, height: 600 });
+    await page.evaluate(() => {
+      const el = document.querySelector<HTMLElement>('.notion-page');
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const docBottom = rect.top + window.scrollY + rect.height;
+      window.scrollTo(0, Math.max(0, docBottom - 80));
+    });
+    await page.waitForTimeout(200);
+  };
+
+  test('--dm-toc-card-shift-y is set on the card when clamping kicks in', async ({ page }) => {
+    await stickNavNearViewportTop(page);
+    await page.locator('.dm-toc-outline').locator('.dm-toc-outline-tick').first().focus();
+    await page.waitForTimeout(150);
+
+    const shift = await page.locator('.dm-toc-outline-card').evaluate(
+      (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-card-shift-y'),
+    );
+    expect(shift).toMatch(/^-?\d+(\.\d+)?px$/);
+  });
+
+  test('--dm-toc-card-shift-y is PRESERVED across a collapse (so the card does not visually jump during fade-out)', async ({ page }) => {
+    await stickNavNearViewportTop(page);
+    const firstTick = page.locator('.dm-toc-outline').locator('.dm-toc-outline-tick').first();
+    await firstTick.focus();
+    await page.waitForTimeout(150);
+    const shiftWhileExpanded = await page.locator('.dm-toc-outline-card').evaluate(
+      (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-card-shift-y'),
+    );
+    expect(shiftWhileExpanded).not.toBe('');
+
+    await firstTick.evaluate((el) => { (el as HTMLElement).blur(); });
+    await page.waitForTimeout(80);
+    // Shift stays so the transform transition does not animate during
+    // the opacity fade-out (which would look like a "jump back").
+    expect(
+      await page.locator('.dm-toc-outline-card').evaluate(
+        (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-card-shift-y'),
+      ),
+    ).toBe(shiftWhileExpanded);
+  });
+
+  test('clicking a shifted-card row does NOT visually jump the card during fade-out', async ({ page }) => {
+    // Regression guard for the "menu pops back" glitch: with the card
+    // shifted (e.g., card sits at viewport top via `--dm-toc-card-shift-y`),
+    // clicking a row inside it triggers scrollToHeading → page scroll
+    // → my onWindowScroll handler collapses the menu. If we cleared the
+    // shift at that moment, the transform transition would animate the
+    // card BACK to its unshifted position while it fades out, producing
+    // a visible jump. We preserve the shift instead.
+    await stickNavNearViewportTop(page);
+    await page.locator('.dm-toc-outline-tick').first().focus();
+    await page.waitForTimeout(200);
+
+    const initialShift = await page.locator('.dm-toc-outline-card').evaluate(
+      (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-card-shift-y'),
+    );
+    expect(initialShift).toMatch(/-?\d+(\.\d+)?px/);
+
+    // Click a row inside the card.
+    await page.locator('.dm-toc-outline-row').first().click({ force: true });
+
+    // Sample mid-fade-out (~60ms into the 180ms transition).
+    await page.waitForTimeout(60);
+
+    // Shift must still be set so the transform stays put while opacity fades.
+    const shiftMidFade = await page.locator('.dm-toc-outline-card').evaluate(
+      (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-card-shift-y'),
+    );
+    expect(shiftMidFade).toBe(initialShift);
+  });
+
+  test('shift stays stable across repeated hovers (no every-other-time alternation)', async ({ page }) => {
+    // Regression guard: previously, the second/fourth/... expand
+    // measured a stale (still visually-shifted) bounding rect right
+    // after clearing `--dm-toc-card-shift-y`, so it saw "no overflow"
+    // and left the shift empty - the card alternated between shifted
+    // and unshifted every other hover. The fix derives the natural
+    // position from the current shift instead of clearing-then-reading.
+    await stickNavNearViewportTop(page);
+    const tick = page.locator('.dm-toc-outline-tick').first();
+    const card = page.locator('.dm-toc-outline-card');
+
+    const readShift = (): Promise<string> => card.evaluate(
+      (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-card-shift-y'),
+    );
+
+    const samples: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      await tick.hover();
+      await page.waitForTimeout(250);
+      samples.push(await readShift());
+      // Move cursor off the outline without scrolling the page.
+      await page.mouse.move(100, 100);
+      await page.waitForTimeout(450);
+    }
+
+    // Every sample matches the first - no alternation.
+    expect(samples[0]).toMatch(/-?\d+(\.\d+)?px/);
+    for (const s of samples) expect(s).toBe(samples[0]);
+  });
+
+  test('card has max-height capped at viewport with internal scrolling', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 400 });
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.waitForTimeout(100);
+
+    await page.locator('.dm-toc-outline').locator('.dm-toc-outline-tick').first().focus();
+    await page.waitForTimeout(120);
+
+    const result = await page.locator('.dm-toc-outline-card').evaluate((el) => ({
+      maxHeight: window.getComputedStyle(el).maxHeight,
+      overflowY: window.getComputedStyle(el).overflowY,
+    }));
+    expect(result.maxHeight).toMatch(/px$/);
+    expect(['auto', 'scroll']).toContain(result.overflowY);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
 // Table of Contents - Phase 2 data layer
 // ────────────────────────────────────────────────────────────────────────
 // Real user-flow coverage for the heading discovery + ID assignment

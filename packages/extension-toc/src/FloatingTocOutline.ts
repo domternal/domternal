@@ -407,10 +407,79 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             if (isHoverActive || isFocusWithin) return 'expanded';
             return 'collapsed';
           };
+          let prevState: OutlineState | null = null;
           const applyState = (): void => {
-            nav.dataset['state'] = computeState();
+            const state = computeState();
+            nav.dataset['state'] = state;
             nav.dataset['viewport'] = isMobile() ? 'mobile' : 'desktop';
+            // Recompute the card's viewport clamp ONLY on the transition
+            // INTO expanded - not on every applyState call while already
+            // expanded. Calling it again mid-click (a row receiving
+            // focus re-fires focusin → applyState with state still
+            // 'expanded') would re-measure a card already mid-fade-out
+            // and clobber the existing shift, leaving the card visually
+            // snapped back to its unshifted position.
+            //
+            // We also DO NOT clear the shift on collapse - doing so
+            // triggers the transform transition (180ms) and the card
+            // visibly slides back to its unshifted position during the
+            // fade-out. The next expand calls `adjustCardPosition`,
+            // which self-clears any stale value before recomputing.
+            if (state === 'expanded' && prevState !== 'expanded') {
+              requestAnimationFrame(adjustCardPosition);
+            }
+            prevState = state;
           };
+
+          // Clamp the expanded card inside the viewport. When the nav
+          // is near the top or bottom edge, the default
+          // `top:50%; translateY(-50%)` would put the card off-screen;
+          // we add a `--dm-toc-card-shift-y` to nudge it back in.
+          //
+          // Subtle: do NOT remove the existing shift before measuring -
+          // `getBoundingClientRect` returns the visually-stale rect
+          // during a transform transition (the browser hasn't repainted
+          // the unshifted layout yet), which would falsely report "no
+          // overflow" and leave the card unshifted on every other
+          // expand. Instead, derive the natural (unshifted) position
+          // by subtracting the current shift from the measured rect,
+          // then write the new shift only when it actually changes.
+          const CARD_VIEWPORT_MARGIN = 16;
+          const adjustCardPosition = (): void => {
+            const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card');
+            if (!card) return;
+            const currentShift = parseFloat(
+              card.style.getPropertyValue('--dm-toc-card-shift-y'),
+            ) || 0;
+            const rect = card.getBoundingClientRect();
+            const naturalTop = rect.top - currentShift;
+            const naturalBottom = rect.bottom - currentShift;
+            const maxBottom = window.innerHeight - CARD_VIEWPORT_MARGIN;
+            let shift = 0;
+            if (naturalTop < CARD_VIEWPORT_MARGIN) {
+              shift = CARD_VIEWPORT_MARGIN - naturalTop;
+            } else if (naturalBottom > maxBottom) {
+              shift = maxBottom - naturalBottom;
+            }
+            if (shift === currentShift) return;
+            if (shift === 0) {
+              card.style.removeProperty('--dm-toc-card-shift-y');
+            } else {
+              card.style.setProperty('--dm-toc-card-shift-y', `${String(shift)}px`);
+            }
+          };
+
+          // Window scroll while expanded collapses the menu. The card
+          // would otherwise lag the page or appear detached from any
+          // anchored tick once the user starts reading.
+          const onWindowScroll = (): void => {
+            if (!isHoverActive && !isFocusWithin) return;
+            cancelTimers();
+            isHoverActive = false;
+            isFocusWithin = false;
+            applyState();
+          };
+          window.addEventListener('scroll', onWindowScroll, { passive: true });
 
           // ── Active-state tracker (Phase 5) ───────────────────────
           let manualOverrideUntil = 0;
@@ -547,6 +616,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
               nav.removeEventListener('focusout', onFocusOut);
               mq?.removeEventListener('change', onMqChange);
               window.removeEventListener('resize', onResize);
+              window.removeEventListener('scroll', onWindowScroll);
               tracker.destroy();
               unsubscribe?.();
               bottomObserver?.disconnect();
