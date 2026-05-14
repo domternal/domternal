@@ -1,25 +1,7 @@
 /**
- * FloatingTocOutline - Notion-style right-rail outline.
- *
- * Architecture:
- *   - Plugin lives in `addProseMirrorPlugins` so PM owns its lifecycle
- *     (auto destroy on editor teardown / HMR).
- *   - Subscribes to `TableOfContents` storage's `subscribers` Set so
- *     re-renders only fire on heading-affecting changes (selection
- *     moves, mark toggles, etc. do not trigger).
- *   - Mounts the outline DOM in the closest non-overflow-hidden
- *     ancestor of the editor (D11). Falls back to `document.body`.
- *   - Position: fixed (D16, revised in Phase 4 from sticky which
- *     does not honor `right` as an absolute position).
- *
- * Phase progression:
- *   - Phase 4: collapsed-state tick column, click navigation.
- *   - Phase 5: active-state highlighting via IntersectionObserver.
- *   - Phase 6: hover/focus reveals an expanded card with full-text
- *     rows and per-level indent. State machine has THREE values:
- *       hidden    - 0 headings / mobile / < minHeadings
- *       collapsed - shown, ticks only (default)
- *       expanded  - shown, card visible (hover OR focus-within)
+ * Right-rail outline. Subscribes to `TableOfContents` storage so re-renders
+ * fire only on heading-affecting changes. State machine: hidden / collapsed
+ * (ticks only) / expanded (hover or focus-within reveals the full card).
  */
 import { Extension } from '@domternal/core';
 import type { Editor } from '@domternal/core';
@@ -133,14 +115,11 @@ const ANCHOR_DATASET_KEY = 'tocAnchor';
 type OutlineState = 'hidden' | 'collapsed' | 'expanded';
 
 /**
- * Resolve the host element where the outline DOM mounts (D11).
- * `.dm-editor` has `overflow: hidden` and would clip a right-rail
- * child, so we always mount OUTSIDE it. In the Angular wrapper,
- * `view.dom` (`.ProseMirror`) lives inside an unstyled template
- * `<div>` inside `<domternal-editor.dm-editor>`. Starting the walk
- * from `view.dom.parentElement` would land on that inner div
- * (overflow: visible), still inside the editor. The
- * `closest('.dm-editor')` jump skips past the editor host first.
+ * Resolve the host element where the outline DOM mounts. `.dm-editor` has
+ * `overflow: hidden` and would clip a right-rail child, so we always mount
+ * OUTSIDE it - `closest('.dm-editor')` skips past the editor host before
+ * walking up (in wrappers, `view.dom.parentElement` would land on an inner
+ * template div still inside the editor).
  */
 function resolveDefaultOutlineHost(view: EditorView): HTMLElement {
   const editorHost = view.dom.closest<HTMLElement>('.dm-editor');
@@ -497,16 +476,14 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           };
           window.addEventListener('scroll', onWindowScroll, { passive: true });
 
-          // ── Active-state tracker (Phase 5) ───────────────────────
+          // ── Active-state tracker ─────────────────────────────────
           let manualOverrideUntil = 0;
           const writeActive = (id: string | null): void => {
             applyActiveMarker(nav, id);
             if (storage && storage.activeId !== id) {
               storage.activeId = id;
-              // Fan out to OTHER subscribers (Phase 7 inline block,
-              // potential consumer panels) so they re-render with
-              // the new active marker. Skip our own subscriber to
-              // avoid a redundant re-render of the outline DOM.
+              // Fan out to other subscribers, skipping our own to avoid
+              // a redundant re-render of the outline DOM.
               [...storage.subscribers].forEach((fn) => {
                 if (fn === onStorageUpdate) return;
                 try {
@@ -541,12 +518,9 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           };
           nav.addEventListener('click', onClick);
 
-          // ── Hover timers (Phase 6) ───────────────────────────────
+          // ── Hover timers ─────────────────────────────────────────
           // Asymmetric: short in-delay (don't expand on stray cursor
           // sweeps), longer out-delay (don't disappear under cursor).
-          // Each transition cancels the opposite pending timer so
-          // bounce gestures (enter→leave fast, or leave→enter during
-          // out-delay) end up with the user-intended state.
           let showTimer: ReturnType<typeof setTimeout> | null = null;
           let hideTimer: ReturnType<typeof setTimeout> | null = null;
           const cancelTimers = (): void => {
@@ -574,11 +548,10 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           nav.addEventListener('mouseenter', onMouseEnter);
           nav.addEventListener('mouseleave', onMouseLeave);
 
-          // ── Focus a11y (Phase 6) ─────────────────────────────────
-          // Keyboard users get instant expansion when focus moves
-          // into the outline (no hover delay). Focusout uses a
-          // microtask check on relatedTarget to avoid a flash when
-          // focus moves between rows inside the same outline.
+          // ── Focus a11y ───────────────────────────────────────────
+          // Keyboard users expand instantly on focus-in (no delay).
+          // Focusout checks relatedTarget to avoid a flash when focus
+          // moves between rows inside the same outline.
           const onFocusIn = (): void => {
             if (isFocusWithin) return;
             isFocusWithin = true;

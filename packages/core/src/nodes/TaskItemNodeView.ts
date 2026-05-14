@@ -1,34 +1,12 @@
 /**
- * TaskItemNodeView
- *
- * NodeView for the TaskItem node. Owns the live `<li>` DOM and translates
- * mouse interaction on the checkbox into ProseMirror transactions.
- *
- * Without a NodeView, clicking the checkbox flips it visually in the
- * browser but PM never learns about it: `node.attrs.checked` stays the
- * same, the next render restores the old state, and theme styling tied
- * to `data-checked="true"` (strikethrough in `_task-list.scss`) never
- * applies. The keyboard shortcut Mod+Enter calls the toggleTask command
- * directly so it already worked; this NodeView fixes the mouse path.
- *
- * DOM contract: identical structure to TaskItem.renderHTML so parseDOM
- * round-trips cleanly and getHTML() output is unchanged.
- *   <li data-type="taskItem" data-checked="true|false" {...HTMLAttributes}>
- *     <label contenteditable="false">
- *       <input type="checkbox" aria-label="Task status">
- *     </label>
- *     <div>{contentDOM}</div>
- *   </li>
- *
- * Event handling:
- *   - `change` on the input dispatches a setNodeMarkup transaction with
- *     the toggled `checked` attribute. PM then calls our `update(node)`
- *     which re-syncs `data-checked`, `input.checked`, and `input.disabled`.
- *   - `stopEvent` returns true for any event whose target is inside the
- *     label subtree, so PM does not turn a checkbox click into a node
- *     selection or otherwise interfere with the native checkbox.
- *   - `ignoreMutation` filters mutations on the label subtree because we
- *     manage that DOM ourselves; PM should not roll back our edits to it.
+ * Translates checkbox mouse interaction into ProseMirror transactions.
+ * Without a NodeView, clicking the checkbox flips it visually but PM never
+ * learns about it - `node.attrs.checked` stays the same and the next render
+ * restores the old state. Mod+Enter already worked via `toggleTask`; this
+ * NodeView fixes the mouse path. DOM matches TaskItem.renderHTML so parseDOM
+ * round-trips cleanly. `stopEvent` and `ignoreMutation` guard the label
+ * subtree so PM does not turn checkbox clicks into node selections or roll
+ * back our DOM edits.
  */
 
 import type { Node as PMNode, NodeType } from '@domternal/pm/model';

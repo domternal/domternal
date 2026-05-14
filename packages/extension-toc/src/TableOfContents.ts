@@ -1,31 +1,10 @@
 /**
- * TableOfContents extension - data layer for headings in the document.
+ * Data layer for headings. Storage snapshot at `editor.storage.toc.content`
+ * is rebuilt by the plugin's `view().update`; updates fan out via `onUpdate`
+ * (public) and the internal `subscribers` Set (outline + inline /toc block).
  *
- * Two responsibilities (id assignment is NOT one of them — that lives in
- * `UniqueID` which TOC declares as a peer dependency):
- *
- *   1. Storage: `editor.storage.toc.content` exposes a snapshot of every
- *      heading-like node, sourced from the doc walk. The id field on
- *      each entry is read from the UniqueID-assigned attribute (default
- *      `id`, configurable via `UniqueID.configure({ attributeName })`).
- *
- *   2. Reactivity: a PM plugin's `view().update` recomputes storage
- *      whenever the doc changes; updates fan out via `onUpdate` (public
- *      consumer hook) and the internal `subscribers` Set (used by the
- *      floating outline and the inline `/toc` block NodeView).
- *
- * Peer dependency contract:
- *
- *   `UniqueID` from `@domternal/core` MUST be loaded in the editor's
- *   extensions array for TableOfContents to function. If absent, the
- *   plugin logs an error and returns an empty plugins array — the
- *   extension is inert (no storage updates, no scroll command, no
- *   hash navigation), but the editor itself is unaffected.
- *
- *   Recommended ordering: UniqueID before TableOfContents (TOC reads
- *   UniqueID's options at init; ordering does not affect functionality
- *   given ExtensionManager's last-wins dedup, but the conventional
- *   placement is parent-then-consumer).
+ * Peer dependency: `UniqueID` from `@domternal/core` must be loaded. Without
+ * it the plugin logs an error and returns no plugins (extension inert).
  */
 import { Extension } from '@domternal/core';
 import type { Editor } from '@domternal/core';

@@ -469,14 +469,10 @@ export interface DropPlacement {
   /** Bounding rect of the resolved block, used to draw the indicator line. */
   rect: DOMRect;
   /**
-   * When `true` the drop lands AFTER the resolved block (line below);
-   * when `false` it lands BEFORE the block (line above). Computed from
-   * the cursor's Y position relative to the resolved block's mid-line
-   * regardless of `mode` so the existing drop pipeline (which reads this
-   * field) produces an identical sibling-style move while Phase 5's
-   * nested-child insertion is still being wired in. Phase 5 ignores
-   * this field for `mode === 'nested'` placements and dispatches via
-   * `insertAsListItemChild` instead.
+   * `true` -> drop lands AFTER the resolved block; `false` -> BEFORE.
+   * Computed from cursor Y vs the resolved block's mid-line. Read by the
+   * sibling-style drop pipeline; ignored when `mode === 'nested'` (the
+   * nested branch dispatches via `insertAsListItemChild`).
    */
   insertAfter: boolean;
   /** Sibling drop (current behaviour) vs nested-child drop (drop-indent). */
@@ -524,16 +520,9 @@ export function computeDropPlacement(
   const resolved = adjustDropTargetForListWrapper(view, initial, clientY);
 
   // X-threshold detection: when the resolved target is a list item and
-  // the cursor is sitting `>= nestThreshold` px from the left edge of
-  // its rect (and inside the rect's vertical span), commit to nested
-  // mode. The dragged block becomes the LAST child of the target item.
-  // Pipeline ignores `mode` until Phase 4 (indicator visual) and Phase
-  // 5 (drop transaction) wire it through; until then a 'nested' result
-  // still produces sibling behaviour at drop time.
-  //
-  // `nestThreshold === 0` is the explicit "disable" knob - the early
-  // exit guard below skips the entire X branch so every drop stays
-  // sibling regardless of X.
+  // the cursor sits >= nestThreshold px from its left edge (inside the
+  // rect's vertical span), commit to nested mode (drop becomes the
+  // target item's LAST child). `nestThreshold === 0` disables the branch.
   if (nestThreshold > 0) {
     const targetNode = view.state.doc.nodeAt(resolved.pos);
     if (targetNode && LIST_ITEM_TYPES.has(targetNode.type.name)) {
@@ -543,20 +532,14 @@ export function computeDropPlacement(
       const isInNestZone = xInTarget >= nestThreshold;
       const isInsideY = clientY >= targetRect.top && clientY <= targetRect.bottom;
       if (isInsideX && isInNestZone && isInsideY) {
-        // Walk up to the wrapping list. `$resolved.before()` returns the
-        // position right before the parent at $resolved.depth - which
-        // for a position sitting BETWEEN siblings is the wrapper itself
-        // (bulletList / orderedList / taskList). `doc.nodeAt(wrapperPos)`
-        // can then resolve the wrapper for the Phase 5 tr math.
+        // Walk up to the wrapping list. `$resolved.before()` is the
+        // position right before the parent at $resolved.depth, which for
+        // a position between siblings is the wrapper itself.
         const $resolved = view.state.doc.resolve(resolved.pos);
         const wrapperPos = $resolved.before();
         // `insertAfter` mirrors the sibling-mode Y-mid calculation so the
-        // existing drop pipeline (which reads `placement.insertAfter` to
-        // compute `targetPos`) produces an identical result for the
-        // sibling-style move that runs today. Phase 5 will branch on
-        // `mode === 'nested'` and ignore insertAfter, switching to the
-        // `insertAsListItemChild` flow instead. This keeps the field
-        // semantically meaningful for both consumers.
+        // field stays semantically meaningful when consumers (the nested
+        // branch ignores it).
         const midY = targetRect.top + targetRect.height / 2;
         return {
           pos: resolved.pos,
@@ -664,12 +647,6 @@ export function createBlockHandlePlugin(
   let hoverRaf: number | null = null;
   let pendingHoverCoords: { x: number; y: number } | null = null;
   let currentHoveredPos: number | null = null;
-  // DOM element of the block the handle is currently anchored to. Kept
-  // in sync with `currentHoveredPos` so it can be forwarded through
-  // `dm:block-context-menu-open` for the active-block highlight - more
-  // reliable than re-deriving via `view.nodeDOM(pos)` after a docView
-  // rerender (e.g. UniqueID attribute stamping).
-  let currentHoveredDom: HTMLElement | null = null;
   // Set on `mousedown` on the drag button, cleared on `mouseup` / `dragend`.
   // While truthy, hover updates are paused so the handle does NOT jump to
   // a neighbouring block during the browser's drag-initiation window
@@ -730,12 +707,10 @@ export function createBlockHandlePlugin(
   const hide = (): void => {
     root.removeAttribute('data-show');
     currentHoveredPos = null;
-    currentHoveredDom = null;
   };
 
   const scheduleHide = (): void => {
-    // Keep the handle pinned to the source block while the context menu
-    // is open - matches the same gate in `onMouseMove`.
+    // Context-menu pin: same gate as `onMouseMove`.
     if (editorEl?.hasAttribute('data-block-context-menu-open')) return;
     clearHideTimer();
     hideTimer = window.setTimeout(() => {
@@ -787,11 +762,8 @@ export function createBlockHandlePlugin(
     // button. Moving it here would slide the button out from under the
     // cursor before the browser decides the interaction is a drag.
     if (dragPressActive) return;
-    // Also freeze while the BlockContextMenu is open. The menu is
-    // anchored to the drag button of the source block; repositioning
-    // the handle to a different block would visually orphan the menu
-    // and break the "which block am I acting on?" cue. The attribute
-    // is set by `BlockContextMenu` (see its `open()` / `hide()`).
+    // Pin the handle to the source block while the BlockContextMenu
+    // is open - it serves as the menu's visual anchor.
     if (editorEl.hasAttribute('data-block-context-menu-open')) return;
     pendingHoverCoords = { x: event.clientX, y: event.clientY };
     if (hoverRaf !== null) return;
@@ -800,10 +772,8 @@ export function createBlockHandlePlugin(
       const coords = pendingHoverCoords;
       pendingHoverCoords = null;
       if (!coords || !editorEl) return;
-      // Re-check the context-menu gate inside the rAF: a mousemove
-      // queued before the menu opened can fire after `open()` runs,
-      // which would otherwise repaint the handle on a neighbour
-      // block and visually orphan the open menu.
+      // Re-check the pin gate: a mousemove queued pre-open can fire
+      // after `open()` and otherwise reposition the handle.
       if (editorEl.hasAttribute('data-block-context-menu-open')) return;
       const resolved = resolveBlockAtCoords(editor.view, coords.x, coords.y, nested);
       if (!resolved) {
@@ -826,7 +796,6 @@ export function createBlockHandlePlugin(
         return;
       }
       currentHoveredPos = resolved.pos;
-      currentHoveredDom = resolved.dom;
       const editorRect = editorEl.getBoundingClientRect();
       show(resolved.dom, resolved.rect, editorRect);
     });
@@ -841,14 +810,11 @@ export function createBlockHandlePlugin(
   };
 
   const onDismissOverlays = (): void => {
-    // BlockContextMenu fires `dm:dismiss-overlays` while opening to
-    // close OTHER popups (BubbleMenu, FloatingMenu, SlashCommand,
-    // etc.). The drag handle should NOT vanish in that case - it
-    // serves as the visual anchor for the menu that just opened. The
-    // host editor sets `data-block-context-menu-open` BEFORE firing
-    // the dismiss event so we can distinguish "another overlay
-    // dismissed us" from "the context menu we're anchoring is now
-    // open" and keep the handle visible in the latter.
+    // BlockContextMenu fires this event while opening to close other
+    // overlays; keep the handle visible because it anchors the menu.
+    // The attribute is set by `BlockContextMenu.open()` before the
+    // dispatch, so its presence means "context menu opening, not
+    // dismissing me".
     if (editorEl?.hasAttribute('data-block-context-menu-open')) return;
     hide();
     updateHoverState(editor.view, null);
@@ -953,7 +919,7 @@ export function createBlockHandlePlugin(
     // anchor element for positioning.
     editorEl?.dispatchEvent(new CustomEvent('dm:block-context-menu-open', {
       bubbles: false,
-      detail: { blockPos: pos, anchorElement: dragBtn, blockDom: currentHoveredDom ?? undefined },
+      detail: { blockPos: pos, anchorElement: dragBtn },
     }));
   };
 
@@ -1101,9 +1067,8 @@ export function createBlockHandlePlugin(
    *    line lives in the gap BETWEEN sibling blocks.
    *  - **Nested** - dashed line at the rect's BOTTOM edge, indented to
    *    where children render (matching `--dm-block-children-indent`,
-   *    nominally 24px). Communicates "this drop becomes a nested
-   *    child appended at the end" - the destination Phase 5 will
-   *    actually produce via `insertAsListItemChild`.
+   *    nominally 24px). Communicates "this drop becomes a nested child
+   *    appended at the end" via `insertAsListItemChild`.
    *
    * The `data-mode` attribute carries the placement mode so theme CSS
    * can swap solid for dashed via `&[data-mode='nested']`.

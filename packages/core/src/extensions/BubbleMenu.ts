@@ -1,31 +1,5 @@
 /**
- * BubbleMenu Extension
- *
- * Shows a floating menu when text is selected in the editor.
- * Useful for formatting toolbars that appear contextually.
- *
- * Styles are included automatically via `@domternal/theme` (`_bubble-menu.scss`).
- *
- * @example
- * ```ts
- * import { BubbleMenu } from '@domternal/core';
- *
- * // Create menu element
- * const menuElement = document.getElementById('bubble-menu');
- *
- * const editor = new Editor({
- *   extensions: [
- *     // ... other extensions
- *     BubbleMenu.configure({
- *       element: menuElement,
- *       shouldShow: ({ editor, state, from, to }) => {
- *         // Only show for text selections
- *         return !state.selection.empty;
- *       },
- *     }),
- *   ],
- * });
- * ```
+ * Floating menu shown when text is selected. Contextual formatting toolbar.
  */
 import { Extension } from '../Extension.js';
 import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';

@@ -120,10 +120,7 @@ export function createActiveStateTracker(
   } = options;
   const readId = makeReadId(attrName);
 
-  // Bail out gracefully on environments without IntersectionObserver
-  // (very old jsdom, test setups). The plan calls for a scroll-based
-  // fallback in Phase 5; for v1 we treat absence as "no tracking" -
-  // floating outline degrades to no active highlighting, no errors.
+  // No IntersectionObserver (old jsdom): degrade to no tracking, no errors.
   if (typeof IntersectionObserver === 'undefined') {
     return {
       observe(): void { /* no-op */ },

@@ -30,13 +30,10 @@ export interface HeadingEntry {
 }
 
 /**
- * Shape of `editor.storage.toc`.
- *
- * `subscribers` is the internal fan-out registry. Listeners (NodeViews
- * for the inline `/toc` block in Phase 7, the floating outline in Phase
- * 4-6) push themselves on mount and pop on destroy. The `onUpdate`
- * extension option is the public consumer-facing callback and is
- * orthogonal to this Set.
+ * Shape of `editor.storage.toc`. `subscribers` is the internal fan-out
+ * registry that listeners (NodeViews, floating outline) push themselves
+ * onto; the `onUpdate` option is the public consumer-facing callback and
+ * is orthogonal to this Set.
  */
 export interface TocStorage {
   content: HeadingEntry[];

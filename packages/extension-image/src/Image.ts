@@ -1,18 +1,9 @@
 /**
- * Image Node
+ * Block (default) or inline image element.
  *
- * Block-level (default) or inline image element.
- * Supports src, alt, title, width, height, loading, crossorigin, float attributes.
- *
- * Options:
- * - inline: false (default) — block-level image | true — inline image within paragraphs
- * - allowBase64: true (default) — allow data:image/ URLs | false — only http/https URLs
- *
- * XSS Protection (blocklist approach):
- * - Blocks javascript:, vbscript:, file: protocols
- * - Blocks data: URLs unless allowBase64 AND specifically data:image/
- * - Allows http(s), relative paths, protocol-relative URLs
- * - Defense in depth: validated in parseHTML, renderHTML, setImage command, and input rule
+ * XSS protection (blocklist): javascript:, vbscript:, file: are blocked;
+ * data: URLs require `allowBase64` AND data:image/. Validated in parseHTML,
+ * renderHTML, the `setImage` command, and the input rule (defense in depth).
  */
 
 import { Node, PluginKey, positionFloating, defaultIcons } from '@domternal/core';

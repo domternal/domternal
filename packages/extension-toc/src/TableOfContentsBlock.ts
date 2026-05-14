@@ -1,28 +1,8 @@
 /**
- * TableOfContentsBlock - inline `/toc` block (Phase 7).
- *
- * An atom block-level PM node the user inserts via the slash menu.
- * The node itself is empty in the document (just `<div data-type=
- * "table-of-contents">`); a NodeView dynamically renders a list of
- * the document's headings on top of it.
- *
- * Architecture:
- *   - Node spec (`atom: true`, no editable content). PM treats it as
- *     a single unit for selection / drag / delete.
- *   - NodeView fully owns the inner DOM. We subscribe to
- *     `editor.storage.toc.subscribers` (Phase 2 contract) so the
- *     block re-renders whenever the heading list changes - typing a
- *     new heading anywhere in the doc flows through to every block
- *     instance. Active state mirrors `storage.activeId` so the
- *     currently-read heading is bolded inside the block too.
- *   - Click delegation routes any tap on a row to
- *     `editor.commands.scrollToHeading` (Phase 3) - same code path
- *     as the floating outline (Phase 4-6) and same UX (smooth scroll
- *     + URL hash + open-collapsed-details).
- *   - The slash menu item lives on `addFloatingMenuItems()` - the
- *     single hook fed by every insert affordance (slash, floating
- *     menu, BlockHandle plus button) so the block is discoverable
- *     from all of them at once.
+ * Inline `/toc` block. Atom PM node whose NodeView re-renders from
+ * `editor.storage.toc.subscribers` so every instance reflects the latest
+ * heading list and the shared `activeId`. Clicks route to
+ * `editor.commands.scrollToHeading`, same code path as the floating outline.
  */
 import { Node } from '@domternal/core';
 import type { Editor, FloatingMenuItem } from '@domternal/core';

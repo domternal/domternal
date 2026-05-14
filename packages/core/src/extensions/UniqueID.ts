@@ -1,23 +1,6 @@
 /**
- * UniqueID Extension
- *
- * Automatically assigns unique IDs to specified node types.
- * Useful for collaborative editing, linking, and history tracking.
- *
- * @example
- * ```ts
- * import { UniqueID } from '@domternal/core';
- *
- * const editor = new Editor({
- *   extensions: [
- *     // ... other extensions
- *     UniqueID.configure({
- *       types: ['paragraph', 'heading'],
- *       attributeName: 'id',
- *     }),
- *   ],
- * });
- * ```
+ * Canonical block-id system. Assigns ids to configured node types and is
+ * read by TableOfContents and BlockContextMenu.
  */
 import { Extension } from '../Extension.js';
 import { Plugin, PluginKey, type Transaction } from '@domternal/pm/state';
@@ -25,9 +8,6 @@ import { Fragment, Slice } from '@domternal/pm/model';
 import type { Node as PMNode } from '@domternal/pm/model';
 import type { Editor } from '../Editor.js';
 
-/**
- * Simple UUID generator (no external dependency)
- */
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;

@@ -1,13 +1,7 @@
 // =============================================================================
 // Table of Contents - Floating Outline
-// =============================================================================
-// Notion-style right-rail outline rendered by `@domternal/extension-toc`.
-// Lives OUTSIDE `.dm-editor` (which has `overflow: hidden`), so this
-// stylesheet does not nest under `.dm-editor` - tokens are pulled from
-// `:root` (defined in `_variables.scss`).
-//
-// Phase 4 ships the collapsed-state ticks + visibility guards. Phase 5
-// adds the active-state highlight; Phase 6 the hover-expanded card.
+// Right-rail outline rendered by `@domternal/extension-toc`. Lives OUTSIDE
+// `.dm-editor` (which has `overflow: hidden`), so tokens pull from `:root`.
 // =============================================================================
 
 .dm-toc-outline {
@@ -20,8 +14,8 @@
   padding: var(--dm-toc-padding-block, 12px) var(--dm-toc-padding-inline, 8px);
   z-index: var(--dm-toc-z-index, 10);
 
-  // No background / no border in collapsed state - it's just a
-  // column of tiny marks. Phase 6's expanded card adds chrome.
+  // No background / no border in collapsed state - just a column of ticks.
+  // The expanded card adds its own chrome.
   background: transparent;
   border: 0;
   margin: 0;
@@ -64,8 +58,8 @@
   //
   // State machine: hidden | collapsed | expanded
   //   hidden    - 0 headings / mobile / < minHeadings
-  //   collapsed - default; ticks visible, card hidden (Phase 4-5)
-  //   expanded  - hover or focus-within; card visible, ticks hidden (Phase 6)
+  //   collapsed - default; ticks visible, card hidden
+  //   expanded  - hover or focus-within; card visible, ticks hidden
   &[data-state='hidden'],
   &[data-viewport='mobile'] {
     display: none;
@@ -133,11 +127,9 @@
     outline-offset: 3px;
   }
 
-  // Active state (Phase 5): the tick for the heading the user is
-  // currently reading. Two selectors so consumers can target either:
-  // the JS-applied class (`--active`, shared with rows) or the a11y
-  // attribute set simultaneously by the plugin (`aria-current="location"`).
-  // Hover state on an active tick keeps the active color - no double-flash.
+  // Active state: the tick for the heading the user is reading. Two
+  // selectors so consumers can target either the JS class (`--active`)
+  // or the a11y attribute (`aria-current="location"`).
   &.dm-toc--active,
   &[aria-current='location'] {
     background: var(--dm-toc-tick-active-color, rgba(55, 53, 47, 0.95));
@@ -154,14 +146,14 @@
   &[data-level='6'] { width: var(--dm-toc-tick-h6-width, 4px); }
 }
 
-// Phase 6: ticks fade out when the card takes over.
+// Ticks fade out when the card takes over.
 .dm-toc-outline[data-state='expanded'] .dm-toc-outline-tick {
   opacity: 0;
   pointer-events: none;
 }
 
 // =============================================================================
-// Expanded card (Phase 6)
+// Expanded card
 // =============================================================================
 // The card is absolutely positioned within the nav (which is fixed at
 // the right gutter). Anchored to the nav's right edge and vertically
@@ -284,12 +276,10 @@
 }
 
 // =============================================================================
-// Inline /toc block (Phase 7)
+// Inline /toc block
+// Lives INSIDE the editor as a regular content block. NodeView renders
+// the heading list; click on a row routes to scrollToHeading.
 // =============================================================================
-// Lives INSIDE the editor as a regular content block (vs the floating
-// outline which mounts outside .dm-editor). User inserts via slash
-// menu; the NodeView dynamically renders the heading list. Click on a
-// row routes to scrollToHeading - same UX as the outline rows.
 
 .dm-toc-block {
   display: block;
@@ -356,7 +346,7 @@
     outline-offset: -2px;
   }
 
-  // Active row mirrors active tick / row (Phase 5/6 contract).
+  // Active row mirrors the outline's active tick/row contract.
   &.dm-toc-block-link--active,
   &[aria-current='location'] {
     color: var(--dm-toc-block-link-active-color, rgba(55, 53, 47, 0.95));
@@ -391,10 +381,8 @@
   }
 }
 
-// Phase 8 (reduced-motion) - explicit guard so the card transitions
-// fall back to instant flips when the user has reduced motion turned
-// on. Repeated here defensively even though `index.scss` has a
-// global block, in case that block is ever scoped to `.dm-editor`-only.
+// Reduced-motion guard. Repeated here defensively even though `index.scss`
+// has a global block, in case that block is ever scoped to `.dm-editor`-only.
 @media (prefers-reduced-motion: reduce) {
   .dm-toc-outline-tick,
   .dm-toc-outline-card,
@@ -416,11 +404,8 @@
   }
 }
 
-// Phase 8 (print): the floating outline is a navigation chrome aid -
-// nothing to do with the document content. Hide it from print media
-// so users get a clean printout. Inline `/toc` blocks DO stay (they
-// belong to the document); links inside them lose their hover/active
-// background since print doesn't honor those anyway.
+// Print: hide the floating outline (navigation chrome, not content).
+// Inline `/toc` blocks stay since they belong to the document.
 @media print {
   .dm-toc-outline {
     display: none;
@@ -431,13 +416,9 @@
   }
 }
 
-// Phase 8 (forced-colors / Windows High Contrast): tick + card +
-// inline block backgrounds are stripped in forced-colors mode (the
-// OS replaces them with system colors). Without explicit borders the
-// ticks become invisible. The `Highlight` and `ButtonText` system
-// colors guarantee a visible affordance regardless of theme. The
-// `forced-color-adjust: none` opt-out is intentionally NOT used: we
-// want the OS palette, just with shapes still visible.
+// Forced-colors / Windows High Contrast: backgrounds are stripped, so
+// ticks need explicit borders to stay visible. We use `Highlight` /
+// `ButtonText` (OS palette) rather than `forced-color-adjust: none`.
 @media (forced-colors: active) {
   .dm-toc-outline-tick {
     background: ButtonText;

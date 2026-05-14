@@ -50,12 +50,11 @@ interface BlockColorOptionsShape {
 }
 
 /**
- * Plugin state schema. `activeBlockPos` is the document position of the
- * block whose context menu is currently open (null when no menu is
- * active). `props.decorations` reads this and renders a PM `Decoration`
- * applying the `dm-block-context-active` class - reliable across PM
- * view rerenders triggered by other transactions (e.g. UniqueID
- * attribute stamping), unlike direct DOM classList mutation.
+ * `props.decorations` reads `activeBlockPos` and applies the
+ * `dm-block-context-active` class via a PM Decoration. Decoration
+ * survives view rerenders that other transactions trigger (e.g.
+ * UniqueID stamping `id` via setNodeMarkup); inline classList
+ * mutation does not.
  */
 export interface BlockContextMenuPluginState {
   activeBlockPos: number | null;
@@ -163,14 +162,6 @@ function defaultCopyLinkUrl(blockId: string): string {
 interface BlockContextMenuOpenDetail {
   blockPos: number;
   anchorElement: HTMLElement;
-  /**
-   * DOM element of the source block. Optional - falls back to
-   * `view.nodeDOM(blockPos)` when missing. BlockHandle includes it so
-   * the highlight is applied to the exact block the drag button was
-   * rendered next to, even when PM's docView lookups would lag (e.g.
-   * after a UniqueID attr rerender).
-   */
-  blockDom?: HTMLElement;
 }
 
 /**
@@ -229,25 +220,19 @@ export function createBlockContextMenuPlugin(
   // can cancel it if the menu closes before the frame fires (otherwise the
   // callback races with teardown and may focus a stale button).
   let initialFocusRaf: number | null = null;
-  // Tracks whether the document-level scroll-lock listeners are currently
-  // installed. Notion-style behaviour: while the context menu is open the
-  // page underneath cannot be scrolled, so the menu stays anchored next to
-  // the drag handle. Scroll INSIDE the menu (its own `overflow-y: auto`)
-  // still works because the listener early-returns when the event target
-  // is inside `root`.
+  // Idempotency guard for the document-level wheel/touchmove listeners
+  // that block page scroll while the menu is open.
   let scrollLocked = false;
 
   const isOpen = (): boolean => root.hasAttribute('data-show');
 
   /**
-   * Wheel / touchmove handler that suppresses page scroll while the
-   * menu is open. Native scroll INSIDE the menu is allowed ONLY when
-   * the menu actually has scrollable overflow (content exceeds
-   * `max-height`). If the menu fits within its box, the wheel event
-   * would otherwise propagate to the page and scroll the body - this
-   * is what produced the "scrolling the menu suddenly scrolls the
-   * whole page" bug. Combined with `overscroll-behavior: contain` in
-   * the theme, the page never scrolls under the menu.
+   * Suppresses page scroll while the menu is open. Native scroll
+   * INSIDE the menu is allowed only when the menu actually has
+   * scrollable overflow; without that check a short menu would let
+   * wheel events bubble through and scroll the page.
+   * `overscroll-behavior: contain` in the theme stops chaining at
+   * the menu's scroll edges.
    */
   const onBlockScroll = (event: Event): void => {
     const target = event.target;
@@ -261,9 +246,8 @@ export function createBlockContextMenuPlugin(
   const lockScroll = (): void => {
     if (scrollLocked) return;
     scrollLocked = true;
-    // `passive: false` is required so the listener can call
-    // preventDefault(); modern browsers default wheel/touchmove to
-    // passive for scrolling performance.
+    // `passive: false` is required so preventDefault() takes effect:
+    // browsers default wheel/touchmove to passive for scroll perf.
     document.addEventListener('wheel', onBlockScroll, { passive: false });
     document.addEventListener('touchmove', onBlockScroll, { passive: false });
   };
@@ -283,16 +267,9 @@ export function createBlockContextMenuPlugin(
     cleanupFloating?.();
     cleanupFloating = null;
     unlockScroll();
-    // Drop the cross-plugin signal that pins the BlockHandle drag
-    // button (`data-block-context-menu-open`) and clears the block
-    // highlight decoration added on `open()`. Both cleanups are
-    // idempotent if `open()` never ran. The active-block decoration
-    // lives in plugin state - dispatch a meta-only transaction so PM
-    // re-renders the source block without its class. Skip the
-    // dispatch when `editor.view` is not yet wired up (Editor
-    // construction calls `hide()` once during plugin init, before
-    // `editor.view` is assigned).
     editorEl?.removeAttribute('data-block-context-menu-open');
+    // `editor.view` is undefined during the first `hide()` triggered
+    // by plugin init - skip the dispatch in that case.
     const view = editor.view as typeof editor.view | undefined;
     if (view) {
       const tr = view.state.tr.setMeta(pluginKey, { activeBlockPos: null });
@@ -704,24 +681,14 @@ export function createBlockContextMenuPlugin(
     renderItems(detail.blockPos);
     if (menuItemButtons.length === 0) return;
 
-    // Order matters: set the cross-plugin signal BEFORE dispatching
-    // `dm:dismiss-overlays`. BlockHandle's dismiss listener reads the
-    // attribute to skip its own `hide()` when this context menu is
-    // opening - without that guard the drag button vanishes the
-    // moment the menu shows up, and the menu loses its visual anchor.
+    // Must set the cross-plugin signal BEFORE the dismiss dispatch
+    // so BlockHandle's dismiss listener can distinguish "menu opening"
+    // from "another overlay dismissing me" and keep the drag handle
+    // anchored.
     editorEl.setAttribute('data-block-context-menu-open', '');
     editorEl.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
     root.setAttribute('data-show', '');
-    // Notion-style: block page scroll while the menu is open so the
-    // popup stays anchored to the drag handle. Listener allows scroll
-    // inside the menu itself when it has scrollable overflow.
     lockScroll();
-    // Highlight the source block. Use plugin state + PM Decoration
-    // instead of inline classList mutation: any transaction (e.g. the
-    // UniqueID stamp on a fresh paragraph) can trigger PM to rerender
-    // the block's DOM and lose direct mutations. The decoration is
-    // re-applied every render based on the active position. Meta-only
-    // transaction stays out of the undo history.
     {
       const tr = editor.view.state.tr.setMeta(pluginKey, { activeBlockPos: detail.blockPos });
       tr.setMeta('addToHistory', false);

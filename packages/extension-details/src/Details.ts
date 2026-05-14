@@ -1,18 +1,7 @@
 /**
- * Details Node
- *
- * Block-level accordion/collapsible container using HTML <details>/<summary>.
- * Contains exactly one DetailsSummary followed by one DetailsContent.
- *
- * Commands:
- * - setDetails: Wraps selected content in a details structure
- * - unsetDetails: Lifts content out of details (preserves summary as paragraph)
- * - toggleDetails: Toggles between wrapped/unwrapped
- * - openDetails / closeDetails: Programmatic open/close control
- *
- * Renders semantic <details>/<summary> HTML.
- * Parses both native <details> and <div data-type="details"> for compatibility.
- * Summary supports inline marks (bold, italic) via inline* content spec.
+ * Block-level accordion using native <details>/<summary>. Contains exactly
+ * one DetailsSummary followed by one DetailsContent. Parses both native
+ * <details> and `<div data-type="details">` for compatibility.
  */
 
 import { Node, findParentNode, findChildren, defaultBlockAt } from '@domternal/core';

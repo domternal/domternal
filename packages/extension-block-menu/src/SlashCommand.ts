@@ -1,25 +1,9 @@
 /**
- * SlashCommand Extension
- *
- * Notion-style `/` trigger that opens a filtered popup of insertable
- * blocks at the cursor position. Items are the same `FloatingMenuItem`s
- * collected by `addFloatingMenuItems()` in `@domternal/core`, so extensions
- * contribute once and every trigger (FloatingMenu, BlockHandle plus,
- * SlashCommand) shows the same options.
- *
- * Filter algorithm:
- * 1. Match query case-insensitively against item `label` and each entry
- *    in `keywords`.
- * 2. Rank exact label prefix matches highest, then label substring, then
- *    keyword matches (first keyword ranked higher than later ones).
- *
- * Execution:
- * 1. Delete the `/query` range from the document.
- * 2. Call `FloatingMenuController.executeItem(editor, item)` which either
- *    runs the named command (with args) or invokes the item's custom
- *    function. The command acts on the now-empty cursor position in the
- *    same block, so items like "Heading 1" transform the current block,
- *    while items like "Image" open their popover.
+ * `/` trigger that opens a filtered popup of insertable blocks. Items are
+ * shared with FloatingMenu and BlockHandle via `addFloatingMenuItems()`.
+ * On select, the `/query` range is deleted and the item's command runs at
+ * the now-empty cursor (so "Heading 1" transforms the block, "Image" opens
+ * its popover, etc.).
  */
 import {
   Extension,

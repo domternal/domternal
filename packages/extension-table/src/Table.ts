@@ -1,30 +1,6 @@
 /**
- * Table Node
- *
- * Block-level table container using HTML <table>.
- * Built on prosemirror-tables for cell selection, keyboard nav, and table editing.
- *
- * Commands (18):
- * - insertTable: Insert new table with configurable rows/cols/header
- * - deleteTable: Delete entire table
- * - addRowBefore / addRowAfter: Insert row
- * - deleteRow: Delete current row
- * - addColumnBefore / addColumnAfter: Insert column
- * - deleteColumn: Delete current column
- * - mergeCells: Merge selected cells into one
- * - splitCell: Split a merged cell back to individual cells
- * - toggleHeaderRow / toggleHeaderColumn / toggleHeaderCell: Toggle header
- * - setCellAttribute: Set cell attribute
- * - goToNextCell / goToPreviousCell: Cell navigation
- * - fixTables: Repair malformed tables
- * - setCellSelection: Programmatic cell selection
- *
- * Features:
- * - goToNextCell/goToPreviousCell exposed as standalone commands
- * - fixTables exposed as command
- * - setCellSelection for programmatic cell range selection
- * - Fully typed options and command params
- * - Framework-agnostic: TableView isolated for wrapper replacement
+ * Block-level table container built on prosemirror-tables. TableView is
+ * isolated so wrappers can swap it for a custom NodeView.
  */
 
 import { Node } from '@domternal/core';

@@ -37,24 +37,11 @@ export interface InsertAsListItemChildResult {
 }
 
 /**
- * Inserts `blockNode` as the LAST child of a list item ({@link
- * InsertAsListItemChildArgs.targetItemPos} or, when omitted, the
- * wrapper's last item). When `sourceRange` is provided, the source is
- * removed in the same transaction so the operation is a clean MOVE
- * rather than a duplicate.
- *
- * Schema is validated via `canReplaceWith` against the target item's
- * trailing slot. On schema reject, returns `{ ok: false }` WITHOUT
- * mutating `tr` so the caller can fall through to a sibling-mode
- * fallback.
- *
- * Used by:
- *  - `ListIndent` Tab handler (`indentBlockAsListChild`) - wrapperPos =
- *    previous-sibling position, targetItemPos omitted (= last item),
- *    sourceRange = block to indent.
- *  - BlockHandle drop-indent (Plan 3 Phase 5) - wrapperPos = ancestor
- *    list of the resolved drop target, targetItemPos = the resolved
- *    list item under the cursor, sourceRange = dragged block.
+ * Insert `blockNode` as the LAST child of a list item (target item or, when
+ * omitted, the wrapper's last item). When `sourceRange` is set, the source
+ * range is removed in the same transaction so the op is a clean MOVE.
+ * Returns `{ ok: false }` WITHOUT mutating `tr` on schema reject so callers
+ * can fall through to a sibling-mode fallback.
  */
 export function insertAsListItemChild(
   args: InsertAsListItemChildArgs,

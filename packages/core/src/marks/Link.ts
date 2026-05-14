@@ -1,22 +1,5 @@
 /**
- * Link Mark
- *
- * Applies hyperlink formatting to text. Supports href and target attributes.
- *
- * @example
- * ```ts
- * import { Link } from '@domternal/core';
- *
- * const editor = new Editor({
- *   extensions: [Document, Paragraph, Text, Link],
- * });
- *
- * // Set a link
- * editor.commands.setLink({ href: 'https://example.com' });
- *
- * // Remove a link
- * editor.commands.unsetLink();
- * ```
+ * Hyperlink mark with `href` and `target` attributes.
  */
 import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
 import { Mark } from '../Mark.js';
@@ -29,9 +12,6 @@ import { linkExitPlugin } from './helpers/linkExitPlugin.js';
 import type { Editor } from '../Editor.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 
-/**
- * Options for the Link mark
- */
 export interface LinkOptions {
   /**
    * HTML attributes to add to the rendered element

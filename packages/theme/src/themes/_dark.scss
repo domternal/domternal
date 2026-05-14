@@ -130,7 +130,7 @@
   --dm-toc-tick-hover-color: rgba(255, 255, 255, 0.6);
   --dm-toc-tick-active-color: rgba(255, 255, 255, 0.95);
 
-  // Phase 6 card variants - flip light surfaces to dark equivalents.
+  // Card variants - flip light surfaces to dark equivalents.
   --dm-toc-card-bg: rgba(45, 50, 56, 0.98);
   --dm-toc-card-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   --dm-toc-card-border: 1px solid rgba(255, 255, 255, 0.08);
@@ -139,10 +139,8 @@
   --dm-toc-row-active-color: rgba(255, 255, 255, 0.95);
 }
 
-// Phase 7 inline block - dark variant. The block lives INSIDE
-// .dm-editor so it inherits the dark cascade through the editor
-// host (which the existing dark-tokens block above already covers).
-// We only need to flip the block-specific tokens here.
+// Inline /toc block - dark variant. Only flip block-specific tokens; the
+// rest inherits from the dark cascade via the editor host.
 .dm-theme-dark .dm-toc-block,
 .dm-theme-dark.dm-toc-block {
   --dm-toc-block-bg: rgba(255, 255, 255, 0.04);

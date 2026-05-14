@@ -1,70 +1,25 @@
 /**
- * SmartPaste extension
+ * Pasting block-level content at an INLINE position normally goes through PM's
+ * content fitter, which strips the block wrapper and pastes only inline text.
+ * SmartPaste catches the relevant cases and routes each to the right strategy:
  *
- * Pasting block-level content (heading, codeBlock, blockquote, image,
- * horizontalRule, list-wrappers, etc.) at an INLINE position (anywhere
- * inside a textblock) normally goes through PM's content fitter, which
- * strips the block wrapper and pastes only the inline text - losing the
- * original formatting. SmartPaste catches the relevant cases and routes
- * each to the right insertion strategy.
+ *  1. List slice into a list ancestor: items adapted (`convertListItemForParent`)
+ *     and merged as siblings, preserving the surrounding list.
+ *  2. Trailing hardBreak (Shift+Enter scenario): trim the hardBreak and insert
+ *     the slice as a sibling after the parent.
+ *  3. Truly empty parent paragraph (`parentSize === 0`): replace the parent.
+ *  4-6. Caret at start / end / middle: insert as sibling or split-and-insert.
+ *  7. Range selection: delete first, then run through 2-6.
  *
- * Strategies, in priority order:
+ * Skipped (PM default applies) when:
+ *  - Cursor isn't inside a textblock.
+ *  - Slice's top-level blocks are ALL plain paragraphs.
+ *  - Slice is a SINGLE top-level block of the SAME TYPE as the destination
+ *    (heading-into-heading, etc.) - PM's inline merge is the intended behavior.
  *
- *  1. **List-slice into a list ancestor** - the clipboard slice is a
- *     single `bulletList` / `orderedList` / `taskList` and the caret is
- *     inside a list of compatible structure. Items from the slice are
- *     adapted (via `convertListItemForParent`) and merged as siblings of
- *     the current `listItem` / `taskItem`, preserving the surrounding
- *     list. Without this: the default branch would create a NESTED list
- *     inside the current item.
- *
- *  2. **Trailing hardBreak (Shift+Enter scenario)** - the parent
- *     textblock ends with a `hardBreak` and the cursor sits right after
- *     it (`offset === parentSize`). The user pressed Shift+Enter to
- *     create a fresh "logical row" and the paste should fill THAT row.
- *     We trim the trailing `hardBreak` and insert the slice as a
- *     SIBLING after the parent. Result mirrors the user's mental model:
- *     - empty `<p><br></p>` → `<p></p>` + `<heading>` (the empty row
- *       remains, the heading lands in the new row below it),
- *     - `<p>Text<br></p>` → `<p>Text</p>` + `<heading>` (the heading
- *       lands directly after the text - no stray empty row in between).
- *
- *  3. **Truly empty parent paragraph** - `parentSize === 0` (the user
- *     never created a fresh row, the paragraph itself IS the row). The
- *     parent is REPLACED with the slice content. Common path: paste a
- *     heading into a freshly-created blank list item.
- *
- *  4. **Caret at START of parent** - slice inserted BEFORE the parent
- *     textblock (sibling).
- *
- *  5. **Caret at END of parent** - slice inserted AFTER the parent
- *     textblock (sibling).
- *
- *  6. **Caret in MIDDLE of parent text** - parent textblock is split at
- *     the cursor and the slice is inserted between the two halves.
- *
- *  7. **Range selection** - the range is deleted first, then the
- *     resulting caret runs through cases 2-6.
- *
- * Skipped (PM default kicks in) when:
- *  - Cursor isn't inside a textblock (already at a block boundary).
- *  - Slice's top-level blocks are ALL plain paragraphs - PM's default
- *    smoothly merges them with the current textblock, which is the
- *    right behaviour for ordinary text.
- *  - Slice is a SINGLE top-level block of the SAME TYPE as the
- *    destination textblock (heading-in-heading, codeBlock-in-codeBlock,
- *    etc.). The user's intent is "replace this text with that text",
- *    not "split my block in two and nest a new one". PM's default
- *    inline-merges the slice content into the existing parent, which
- *    is the correct behaviour for this same-shape paste.
- *
- * Note: PM's clipboard parser routinely sets `openStart=1` even for
- * closed-looking input like `<h1>x</h1>`. We deliberately do NOT bail on
- * `openStart > 0` because it would silently re-introduce the bug this
- * plugin exists to fix. The slice's TOP-LEVEL children are what matter.
- *
- * After a successful handle, the caret lands at the END of the LAST
- * inserted block (mirroring native browser paste behaviour).
+ * Note: do NOT bail on `openStart > 0` - PM's clipboard parser routinely sets
+ * `openStart=1` even for closed-looking input like `<h1>x</h1>`. Top-level
+ * children of the slice are what matter.
  */
 
 import { Extension } from '@domternal/core';

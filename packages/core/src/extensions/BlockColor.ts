@@ -1,33 +1,8 @@
 /**
- * BlockColor Extension
- *
- * Adds `bgColor` and `textColor` attributes to block-level nodes so the
- * whole block can be tinted (Notion-style), not just the selected text.
- * Colors render as `data-bg-color="<name>"` / `data-text-color="<name>"`
- * attributes on the block's outer DOM node; the `@domternal/theme`
- * stylesheet (`_block-colors.scss`) maps those names to CSS custom
- * properties with light- and dark-mode variants.
- *
- * @example
- * ```ts
- * import { BlockColor } from '@domternal/core';
- *
- * const editor = new Editor({
- *   extensions: [
- *     // ... other extensions
- *     BlockColor,
- *   ],
- * });
- *
- * editor.commands.setBlockBgColor('yellow');
- * editor.commands.setBlockTextColor('gray');
- * editor.commands.unsetBlockColors();
- * ```
- *
- * Contract with `_block-colors.scss`:
- * - Palette names become data-attribute values.
- * - `null` clears the attribute so the block reverts to default styling.
- * - Unknown palette entries are rejected by commands (no-op, returns false).
+ * Tints whole blocks via `bgColor` / `textColor` attributes rendered as
+ * `data-bg-color` / `data-text-color`. Theme's `_block-colors.scss` maps
+ * names to CSS custom properties with light/dark variants. `null` clears
+ * the attribute; unknown palette names are rejected by commands.
  */
 import { Extension } from '../Extension.js';
 import type { Command, CommandSpec } from '../types/Commands.js';

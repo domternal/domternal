@@ -9,8 +9,7 @@
  *
  * The returned tuple shape is intentionally a SUBSET of `HeadingEntry`
  * (omitting `domNode`, `isActive`, `isScrolledOver`). Those fields are
- * filled in later by the active-state tracker (Phase 5) once DOM nodes
- * are resolvable.
+ * filled in later by the active-state tracker once DOM nodes are resolvable.
  *
  * Heading id source: `attrName` (default `'id'`) reads from the heading
  * node's attrs. Domternal's `UniqueID` extension assigns this id; if the

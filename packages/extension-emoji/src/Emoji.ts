@@ -1,28 +1,6 @@
 /**
- * Emoji Node Extension
- *
- * Inline atom node for emoji with shortcode input rules, emoticon support,
- * and a headless suggestion plugin for autocomplete pickers.
- *
- * @example
- * ```ts
- * import { Emoji, emojis } from '@domternal/extension-emoji';
- *
- * const editor = new Editor({
- *   extensions: [
- *     Emoji.configure({
- *       emojis,
- *       enableEmoticons: true,
- *     }),
- *   ],
- * });
- *
- * // Insert emoji by name
- * editor.commands.insertEmoji('smile');
- *
- * // Programmatically open suggestion picker
- * editor.commands.suggestEmoji();
- * ```
+ * Inline atom emoji with shortcode input rules, emoticon support, and a
+ * headless suggestion plugin for autocomplete pickers.
  */
 import { Node } from '@domternal/core';
 import type { CommandSpec, ToolbarItem } from '@domternal/core';
