@@ -55,6 +55,11 @@ export type {
   TurnIntoTarget,
 } from './BlockContextMenu.js';
 
+// Union of editor commands the Turn into menu routes to for wrapper
+// (non-textblock) targets. Consumers customizing `turnIntoTargets` use
+// this to type the `command` field on their own wrapper entries.
+export type { WrapperCommand } from './helpers/turnIntoWrapper.js';
+
 // SlashCommand - type `/` to open filtered insert menu popup
 export {
   SlashCommand,
