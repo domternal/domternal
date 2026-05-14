@@ -49,10 +49,15 @@ export const TextStyle = Mark.create<TextStyleOptions>({
       {
         tag: 'span',
         getAttrs: (element) => {
-          // Only parse spans that have style attributes
           if (typeof element === 'string') return false;
+          // Accept spans carrying styling: either inline CSS, or named color
+          // tokens (data-text-color / data-bg-color) written by token-based
+          // pickers such as NotionColorPicker.
           const hasStyles = element.hasAttribute('style');
-          if (!hasStyles) return false;
+          const hasColorTokens =
+            element.hasAttribute('data-text-color') ||
+            element.hasAttribute('data-bg-color');
+          if (!hasStyles && !hasColorTokens) return false;
           return {};
         },
       },

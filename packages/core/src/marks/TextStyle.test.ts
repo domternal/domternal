@@ -70,6 +70,22 @@ describe('TextStyle', () => {
       expect(getAttrs?.(element)).toBe(false);
     });
 
+    it('parses span with data-text-color attribute (no inline style)', () => {
+      const rules = TextStyle.config.parseHTML?.call(TextStyle);
+      const getAttrs = rules?.[0]?.getAttrs;
+      const element = document.createElement('span');
+      element.setAttribute('data-text-color', 'gray');
+      expect(getAttrs?.(element)).toEqual({});
+    });
+
+    it('parses span with data-bg-color attribute (no inline style)', () => {
+      const rules = TextStyle.config.parseHTML?.call(TextStyle);
+      const getAttrs = rules?.[0]?.getAttrs;
+      const element = document.createElement('span');
+      element.setAttribute('data-bg-color', 'yellow');
+      expect(getAttrs?.(element)).toEqual({});
+    });
+
     it('returns false for string argument', () => {
       const rules = TextStyle.config.parseHTML?.call(TextStyle);
       const getAttrs = rules?.[0]?.getAttrs;
@@ -289,6 +305,20 @@ describe('TextStyle', () => {
       // Should have no textStyle mark since span has no style attribute
       const hasMark = textNode.marks.some((m) => m.type.name === 'textStyle');
       expect(hasMark).toBe(false);
+    });
+
+    it('parses span with data-text-color through Editor', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, TextColor],
+        content: '<p><span data-text-color="gray">Tokenized</span></p>',
+      });
+
+      const p = editor.state.doc.child(0);
+      const textNode = p.child(0);
+      const mark = textNode.marks.find((m) => m.type.name === 'textStyle');
+      expect(mark).toBeDefined();
+      expect(mark!.attrs['colorToken']).toBe('gray');
+      expect(mark!.attrs['color']).toBeNull();
     });
   });
 });
