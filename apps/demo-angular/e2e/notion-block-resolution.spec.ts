@@ -902,10 +902,10 @@ test.describe('Empty-wrapper cleanup on drag', () => {
 
   test('drag the ONLY leaf of a 3-level nested list chain → entire chain collapses, no stub wrappers', async ({ page }) => {
     // Each outer level uses an EXPLICIT empty paragraph as the label slot
-    // followed by the nested UL - mirroring what PM's content fitter will
-    // auto-inject once Notion-strict (`paragraph block*`) takes effect in
-    // Phase 1. The chain therefore walks repeatedly through the new
-    // single-meaningful-child branch (childCount=2 with an empty filler).
+    // followed by the nested UL - mirroring what PM's content fitter
+    // auto-injects under Notion-strict (`paragraph block*`). The chain
+    // therefore walks repeatedly through the single-meaningful-child
+    // branch (childCount=2 with an empty filler).
     await setContent(
       page,
       '<ul><li><p></p>'
@@ -1618,10 +1618,10 @@ test.describe('BlockContextMenu Delete', () => {
 
   test('deleting the leaf of a 3-level nested list chain collapses the entire wrapper chain', async ({ page }) => {
     // Each outer level uses an EXPLICIT empty paragraph as the label slot
-    // followed by the nested UL - mirroring what PM's content fitter will
-    // auto-inject once Notion-strict (`paragraph block*`) takes effect in
-    // Phase 1. The chain therefore walks repeatedly through the new
-    // single-meaningful-child branch (childCount=2 with an empty filler).
+    // followed by the nested UL - mirroring what PM's content fitter
+    // auto-injects under Notion-strict (`paragraph block*`). The chain
+    // therefore walks repeatedly through the single-meaningful-child
+    // branch (childCount=2 with an empty filler).
     await setContent(
       page,
       '<ul><li><p></p>'

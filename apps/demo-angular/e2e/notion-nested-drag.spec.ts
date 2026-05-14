@@ -181,7 +181,7 @@ test.describe('Regression guards: handle resolution stays correct for existing c
 // ────────────────────────────────────────────────────────────────────────
 // Nested handle resolution - inner blocks inside list/task items each
 // surface their own drag handle (was: handle always resolved to the
-// parent item). Originally the Phase 2-3 fix targets of plan 2.
+// parent item).
 // ────────────────────────────────────────────────────────────────────────
 
 test.describe('Nested block handle resolution', () => {
@@ -492,9 +492,9 @@ async function dragFromHandle(
   const dt = await page.evaluateHandle(() => new DataTransfer());
   const handle = page.locator(dragBtnSelector);
   const targetBox = await boxOf(targetLocator);
-  // Drop near the LEFT edge of the target (sibling zone) so these
-  // tests keep their pre-Phase-3 sibling-drop semantics. Phase 3
-  // nested-mode coverage lives in `notion-drop-placement-sibling.spec.ts`.
+  // Drop near the LEFT edge of the target (sibling zone) so these tests
+  // keep their sibling-drop semantics. Nested-mode coverage lives in
+  // `notion-drop-placement-sibling.spec.ts`.
   const clientX = targetBox.x + 4;
   const clientY = dropZone === 'top'
     ? targetBox.y + targetBox.height * 0.2

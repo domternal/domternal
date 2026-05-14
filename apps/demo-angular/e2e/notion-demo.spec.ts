@@ -668,7 +668,7 @@ test.describe('Task-list checkbox tokens', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 6e. Task-list checkbox interactivity - NodeView (Plan 5)
+// 6e. Task-list checkbox interactivity - NodeView
 // (regression guard for the click-to-toggle path; without a NodeView the
 // native checkbox flips visually but PM never sees the change, so
 // data-checked stays the old value and the strikethrough rule
@@ -923,8 +923,8 @@ test.describe('Turn into', () => {
 // 7b. Turn into - wrapper targets (Bullet / Ordered / To-do / Quote)
 //
 // Covers: routing of the 4 new wrapper targets from the drag-handle menu,
-// step-down for non-paragraph textblock sources, Phase 4 wrapper-source
-// path (drag-handle on a list item → in-place list-type swap), schema
+// step-down for non-paragraph textblock sources, wrapper-source path
+// (drag-handle on a list item → in-place list-type swap), schema
 // heuristics that hide Quote on listItem/taskItem, and the UniqueID
 // preservation invariant through a wrap.
 // ────────────────────────────────────────────────────────────────────────
@@ -1023,7 +1023,7 @@ test.describe('Turn into - wrappers', () => {
     expect(html).toMatch(/<blockquote[^>]*>[\s\S]*<h2[^>]*>Heading in quote<\/h2>/);
   });
 
-  // --- Wrapper source via drag-handle (Phase 4): list-type swap ---
+  // --- Wrapper source via drag-handle: list-type swap ---
 
   test('drag-handle on bullet list item hides "Bullet list" option (ancestor filter)', async ({ page }) => {
     await setContent(page, '<ul><li><p>Already in list</p></li></ul>');
@@ -2194,21 +2194,18 @@ test.describe('Cross-feature smoke', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Table of Contents - Phase 1 spike (FloatingTocOutline outlineHost test)
+// Table of Contents - outline mount placement
 // ────────────────────────────────────────────────────────────────────────
-// Validates D11 from `_planning/notion_toc_1.md`: the outline panel must
-// mount OUTSIDE `.dm-editor` (which has `overflow: hidden` and would
-// clip a right-rail child). Phase 4 replaces the spike with real ticks
-// + click navigation; these tests stay as the floor-level placement
-// regression check.
+// The outline panel must mount OUTSIDE `.dm-editor` (which has
+// `overflow: hidden` and would clip a right-rail child).
 
-test.describe('Table of Contents - Phase 1 spike', () => {
+test.describe('Table of Contents - outline mount placement', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('outline mounts in the page (not inside .dm-editor)', async ({ page }) => {
     const outline = page.locator('.dm-toc-outline');
     await expect(outline).toBeVisible();
-    // D11 contract: outline lives outside the editor's overflow:hidden box.
+    // Mount contract: outline lives outside the editor's overflow:hidden box.
     // We verify by counting matches inside .dm-editor (must be 0) and on
     // the page overall (must be 1).
     await expect(page.locator('.dm-editor .dm-toc-outline')).toHaveCount(0);
@@ -2335,7 +2332,7 @@ test.describe('Table of Contents - Phase 1 spike', () => {
     expect(afterY).toBeLessThan(beforeY);
   });
 
-  test('Phase 2: editor.storage.toc.content mirrors the doc heading list', async ({ page }) => {
+  test('editor.storage.toc.content mirrors the doc heading list', async ({ page }) => {
     // Wait for the deferred storage seeding to complete (UniqueID-style
     // setTimeout(0) inside the plugin's view().init).
     await page.waitForFunction(() => {
@@ -2369,13 +2366,10 @@ test.describe('Table of Contents - Phase 1 spike', () => {
   });
 
   test('outline sits in the right portion of the page (right gutter target)', async ({ page }) => {
-    // D11 intent: the outline lives in the page's right gutter. The
-    // Phase 1 spike's hello text is wide enough to overlap the editor
-    // visually, so we don't assert "outline.left > editor.right" - the
-    // real Phase 4 ticks will be ~16-18px wide and won't overlap.
-    // What we DO assert here is the directional contract: the outline's
-    // center is past the editor's center, i.e. it really is anchored to
-    // the right side of the layout, not the left.
+    // Directional contract: the outline's center is past the editor's
+    // center, i.e. it really is anchored to the right side of the layout.
+    // We don't assert "outline.left > editor.right" because the outline's
+    // visual content can overlap the editor's edge depending on width.
     const outlineBox = await page.locator('.dm-toc-outline').boundingBox();
     const editorBox = await page.locator('app-notion-demo .dm-editor').boundingBox();
     expect(outlineBox).not.toBeNull();
@@ -2975,14 +2969,14 @@ test.describe('Table of Contents - expanded card edges', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Table of Contents - Phase 2 data layer
+// Table of Contents - data layer
 // ────────────────────────────────────────────────────────────────────────
 // Real user-flow coverage for the heading discovery + ID assignment
-// system. Phase 2's unit tests cover algorithmic edges; these tests
-// cover the integrated demo path: live keyboard input, slash command
-// insertion, paste collision, HTML output roundtrip.
+// system. Unit tests cover algorithmic edges; these cover the integrated
+// demo path: live keyboard input, slash command insertion, paste
+// collision, HTML output roundtrip.
 
-test.describe('Table of Contents - Phase 2 data layer', () => {
+test.describe('Table of Contents - data layer', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('keyboard level toggle (Mod+Alt+3) preserves the heading id', async ({ page }) => {
@@ -3106,14 +3100,12 @@ test.describe('Table of Contents - Phase 2 data layer', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Table of Contents - Phase 3 scrollToHeading + click navigation
+// Table of Contents - scrollToHeading + click navigation
 // ────────────────────────────────────────────────────────────────────────
 // Behavioral coverage for the editor.commands.scrollToHeading API and
-// the initial-load `window.location.hash` handling. Phase 4 will wire
-// the floating outline ticks to this command; for now it is the
-// programmatic surface only.
+// the initial-load `window.location.hash` handling.
 
-test.describe('Table of Contents - Phase 3 scroll navigation', () => {
+test.describe('Table of Contents - scroll navigation', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('editor.commands.scrollToHeading scrolls the page and updates the URL hash', async ({ page }) => {
@@ -3312,15 +3304,13 @@ test.describe('Table of Contents - Phase 3 scroll navigation', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Table of Contents - Phase 4 floating outline ticks
+// Table of Contents - floating outline ticks
 // ────────────────────────────────────────────────────────────────────────
-// Phase 4 replaces the Phase 1 spike (hello-world pill) with real
-// tick buttons. These tests cover the visual contract of the
-// collapsed-state outline: render count, level-encoded width, click
-// navigation, visibility guards (minHeadings + mobile + 0 headings),
-// and theme-aware coloring.
+// Visual contract of the collapsed-state outline: render count,
+// level-encoded width, click navigation, visibility guards
+// (minHeadings + mobile + 0 headings), and theme-aware coloring.
 
-test.describe('Table of Contents - Phase 4 floating outline ticks', () => {
+test.describe('Table of Contents - floating outline ticks', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('renders one tick button per heading and matches storage count', async ({ page }) => {
@@ -3367,8 +3357,8 @@ test.describe('Table of Contents - Phase 4 floating outline ticks', () => {
     // Dispatch click programmatically (synchronous DOM event) instead
     // of going through Playwright's mouse simulation. Playwright's
     // click() invokes mouseover / mouseenter on its way to the
-    // element, which queues our hoverInDelay timer (Phase 6) before
-    // the click event itself dispatches; by then the outline can
+    // element, which queues our hoverInDelay timer before the click
+    // event itself dispatches; by then the outline can
     // expand, ticks acquire `pointer-events: none`, and the click
     // registers on the card layer instead of the tick. Calling
     // .click() on the element directly fires the delegated handler
@@ -3511,16 +3501,16 @@ test.describe('Table of Contents - Phase 4 floating outline ticks', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Table of Contents - Phase 5 active state highlighting
+// Table of Contents - active state highlighting
 // ────────────────────────────────────────────────────────────────────────
 // As the user scrolls, the tick for the heading currently in the
 // upper 15% of the viewport gets the --active class + aria-current.
 // Clicks prime a manual override window so the IO callback does not
 // fight back during the smooth-scroll animation. storage.activeId
-// mirrors the visual state so other UIs (Phase 7 inline block) can
-// read it without spawning their own observer.
+// mirrors the visual state so other UIs can read it without spawning
+// their own observer.
 
-test.describe('Table of Contents - Phase 5 active state', () => {
+test.describe('Table of Contents - active state', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   /**
@@ -3997,13 +3987,13 @@ test.describe('Table of Contents - Phase 5 active state', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Table of Contents - Phase 6 hover expansion
+// Table of Contents - hover expansion
 // ────────────────────────────────────────────────────────────────────────
 // Hover (or keyboard focus) on the outline reveals an expanded card
 // with the full heading text + per-level indent. Mouse leave / blur
 // fades it back to ticks. State machine: hidden | collapsed | expanded.
 
-test.describe('Table of Contents - Phase 6 hover expansion', () => {
+test.describe('Table of Contents - hover expansion', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('default state is "collapsed"; card exists in DOM but is hidden via opacity', async ({ page }) => {
@@ -4241,14 +4231,14 @@ test.describe('Table of Contents - Phase 6 hover expansion', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Table of Contents - Phase 7 inline /toc block
+// Table of Contents - inline /toc block
 // ────────────────────────────────────────────────────────────────────────
 // User inserts a `tableOfContents` block via the slash menu. The
 // NodeView renders a `<ul>` of heading shortcuts that updates as the
 // document changes; clicking a row navigates the same way the
 // floating outline does.
 
-test.describe('Table of Contents - Phase 7 inline block', () => {
+test.describe('Table of Contents - inline block', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('typing /toc in an empty paragraph and selecting the item inserts the block', async ({ page }) => {
@@ -4633,14 +4623,13 @@ test.describe('Table of Contents - Phase 7 inline block', () => {
 });
 
 // =============================================================================
-// Table of Contents - Phase 8 polish
+// Table of Contents - polish
 // =============================================================================
-// Phase 8 is a polish pass over Phases 4-7: a11y focus rings on ticks,
-// motion polish (card slide offset), print/forced-colors guards, and a
-// cross-cutting dark-mode walkthrough that exercises the outline + the
-// inline block in one flow.
+// A11y focus rings on ticks, motion polish (card slide offset),
+// print/forced-colors guards, and a cross-cutting dark-mode walkthrough
+// that exercises the outline + the inline block in one flow.
 
-test.describe('Table of Contents - Phase 8 polish', () => {
+test.describe('Table of Contents - polish', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('keyboard focus on a tick paints a visible focus ring (a11y)', async ({ page }) => {
@@ -4648,8 +4637,8 @@ test.describe('Table of Contents - Phase 8 polish', () => {
     // triggered by programmatic `.focus()` (which counts as
     // "interaction" depending on the prior input modality stack).
     // Instead, verify the CSS rule itself is authored correctly by
-    // walking stylesheet rules. This is robust across CI and proves
-    // the Phase 8 a11y polish landed in the published CSS.
+    // walking stylesheet rules. Robust across CI and proves the
+    // a11y polish landed in the published CSS.
     const ringRule = await page.evaluate(() => {
       for (const sheet of Array.from(document.styleSheets)) {
         let rules: CSSRuleList;
@@ -4679,9 +4668,8 @@ test.describe('Table of Contents - Phase 8 polish', () => {
 
   test('card slide offset bumped to 8px (more visible motion)', async ({ page }) => {
     // The collapsed state sets `transform: translateY(-50%) translateX(<offset>)`.
-    // Phase 8 changed the default `--dm-toc-card-offset` from 4px to 8px
-    // so the slide-in is clearly intentional motion at 60fps. Read the
-    // resolved CSS variable.
+    // `--dm-toc-card-offset` defaults to 8px so the slide-in is clearly
+    // intentional motion at 60fps. Read the resolved CSS variable.
     const offset = await page.evaluate(() => {
       const root = document.documentElement;
       return window.getComputedStyle(root).getPropertyValue('--dm-toc-card-offset').trim();
@@ -4803,10 +4791,10 @@ test.describe('Table of Contents - Phase 8 polish', () => {
 });
 
 // =============================================================================
-// Table of Contents - Phase 9 robustness
+// Table of Contents - robustness
 // =============================================================================
-// Phase 9 covers the lifecycle / stress / leak corners that the
-// feature-driven Phase 4-8 tests don't reach by construction:
+// Lifecycle / stress / leak corners that the feature-driven tests don't
+// reach by construction:
 //   - multi-cycle HMR (5 toggle rounds) - catches forgotten destroy
 //     hooks and shared module-level DOM/state that survives one
 //     cycle but fails on the second.
@@ -4822,7 +4810,7 @@ test.describe('Table of Contents - Phase 8 polish', () => {
 //   - rapid heading toggling stress: 10 rapid level changes don't
 //     desync the outline from the doc.
 
-test.describe('Table of Contents - Phase 9 robustness', () => {
+test.describe('Table of Contents - robustness', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('5 mode-toggle cycles leave exactly one outline + zero orphan inline blocks + clean subscriber registry', async ({ page }) => {

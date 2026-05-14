@@ -591,7 +591,7 @@ test.describe('Task List — rendering', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// TASK LIST - checkbox interactivity (Plan 5 NodeView)
+// TASK LIST - checkbox interactivity (NodeView)
 // ═══════════════════════════════════════════════════════════════════════
 
 test.describe('Task List — checkbox interactivity', () => {

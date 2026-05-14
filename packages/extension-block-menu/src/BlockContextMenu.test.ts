@@ -1395,8 +1395,8 @@ describe('BlockContextMenu Turn into - wrapper SOURCES (listItem / taskItem / bl
 
   it('hides Turn into entirely when the wrapper source has no inner textblock', () => {
     // bulletList's firstChild is a listItem (wrapper, not textblock).
-    // The Phase 5 wrapper-source path requires firstChild to be a
-    // textblock, so this falls through to "hidden".
+    // The wrapper-source path requires firstChild to be a textblock,
+    // so this falls through to "hidden".
     makeEditor('<ul><li><p>A</p></li></ul>');
     const ulPos = 0; // bulletList at top
     openContextMenu(ulPos);

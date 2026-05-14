@@ -1,10 +1,7 @@
 /**
- * TableOfContentsBlock - Phase 7 unit tests.
- *
- * Tests run against a real `Editor` with the block + TableOfContents
- * loaded. The NodeView's storage subscription only functions in
- * integration, so we don't try to drive the inner render in
- * isolation - we drive it through the editor surface.
+ * TableOfContentsBlock unit tests. Tests run against a real `Editor` with
+ * the block + TableOfContents loaded. The NodeView's storage subscription
+ * only functions in integration, so we drive it through the editor surface.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {

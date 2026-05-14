@@ -1,8 +1,7 @@
 /**
- * FloatingTocOutline - Phase 4 unit tests.
+ * FloatingTocOutline unit tests.
  *
- * Phase 4 replaced the Phase 1 spike (hello-world div) with the real
- * outline: a column of `<button>` ticks that mirror `editor.storage.toc.content`,
+ * Outline is a column of `<button>` ticks that mirror `editor.storage.toc.content`,
  * subscribe to ToC storage updates, click-delegate to `scrollToHeading`,
  * and respect minHeadings + mobile breakpoint guards.
  *
@@ -53,7 +52,7 @@ interface MountedEditorOptions {
   matchesMobile?: boolean;
 }
 
-describe('FloatingTocOutline - Phase 4 ticks', () => {
+describe('FloatingTocOutline - ticks', () => {
   let editor: Editor | undefined;
   let scrollIntoViewSpy: ReturnType<typeof vi.fn>;
   let originalMatchMedia: typeof window.matchMedia | undefined;
@@ -169,9 +168,8 @@ describe('FloatingTocOutline - Phase 4 ticks', () => {
     expect(queryOutline()?.dataset['state']).toBe('hidden');
 
     editor.setContent('<h1>One</h1><h2>Two</h2>');
-    // Phase 6 introduced a 3-state machine (hidden | collapsed |
-    // expanded). 'visible' was the Phase 4-5 name for what is now
-    // 'collapsed' (default visible state with ticks only).
+    // 3-state machine: hidden | collapsed | expanded. Default visible
+    // state with ticks only is `collapsed`.
     expect(queryOutline()?.dataset['state']).toBe('collapsed');
   });
 
@@ -395,7 +393,7 @@ describe('FloatingTocOutline - Phase 4 ticks', () => {
     editor.destroy();
     editor = undefined;
     // After destroy, TableOfContents.destroy() also clears the Set
-    // entirely (Phase 2 contract). The point of THIS assertion is that
+    // entirely. The point of THIS assertion is that
     // we DON'T leave a dangling subscriber inside an already-destroyed
     // editor's storage that future fan-outs could try to invoke.
     expect(storage.subscribers.size).toBe(0);
@@ -949,7 +947,7 @@ describe('FloatingTocOutline - editor anchor mode internals', () => {
   });
 });
 
-describe('FloatingTocOutline - Phase 5 active state', () => {
+describe('FloatingTocOutline - active state', () => {
   let editor: Editor | undefined;
   let originalMatchMedia: typeof window.matchMedia | undefined;
 
@@ -1291,7 +1289,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
   });
 });
 
-describe('FloatingTocOutline - Phase 6 hover expansion', () => {
+describe('FloatingTocOutline - hover expansion', () => {
   let editor: Editor | undefined;
   let originalMatchMedia: typeof window.matchMedia | undefined;
 
@@ -1300,7 +1298,7 @@ describe('FloatingTocOutline - Phase 6 hover expansion', () => {
   const queryRows = (): HTMLButtonElement[] =>
     Array.from(document.querySelectorAll<HTMLButtonElement>('.dm-toc-outline-row'));
 
-  /** Mount with stubbed matchMedia. Phase 6 tests don't need IO. */
+  /** Mount with stubbed matchMedia. Hover-expansion tests don't need IO. */
   const mountForHover = (
     content: string,
     options: { hoverInDelay?: number; hoverOutDelay?: number } = {},

@@ -358,10 +358,9 @@ describe('findDeepestBlockAtY', () => {
   });
 
   // ──────────────────────────────────────────────────────────────────
-  // Rule exclusion - 4th argument introduced in listitems_improvements_2.md
-  // Phase 2. Mirrors the Mode C semantics from `findBestDragTarget`:
-  // a candidate whose rules' deductions sum to >= BASE_SCORE is skipped,
-  // letting walker continue and pick a different match (or fall through).
+  // Rule exclusion via the rules argument. Mirrors `findBestDragTarget`
+  // Mode C: a candidate whose rules' deductions sum to >= BASE_SCORE is
+  // skipped, letting the walker continue and pick a different match.
   // ──────────────────────────────────────────────────────────────────
 
   it('empty rules array - behaves identically to the no-rules signature (regression guard)', () => {
@@ -401,8 +400,8 @@ describe('findDeepestBlockAtY', () => {
   });
 
   it('non-first-child paragraph in a list item still resolves to the paragraph (rule does not over-exclude)', () => {
-    // Phase 2 must NOT exclude every paragraph inside a list item -
-    // only the first-child label slot.
+    // The first-child rule must NOT exclude every paragraph inside a list
+    // item - only the first-child label slot.
     const editor = makeEditor('<ul><li><p>Label</p><p>Second</p></li></ul>');
     const liPos = posOf(editor, (n) => n.type.name === 'listItem');
     const labelPos = posOf(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Label');

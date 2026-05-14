@@ -65,7 +65,7 @@ describe('nodeCommands', () => {
       expect(editor.getHTML()).toContain('<pre><code>code here</code></pre>');
     });
 
-    // Phase 5 - "dissolve to-do" fallback. When the cursor sits in
+    // "dissolve to-do" fallback. When the cursor sits in
     // the LABEL paragraph (first child) of a list/task item and the
     // requested target type is incompatible with the listItem schema
     // (`paragraph block*` requires paragraph as first child), the

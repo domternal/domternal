@@ -733,10 +733,10 @@ describe('TaskItem', () => {
   });
 
   // ────────────────────────────────────────────────────────────────────
-  // Plan 4 children-zone Enter / Backspace handlers (taskItem mirror)
+  // children-zone Enter / Backspace handlers (taskItem mirror)
   // ────────────────────────────────────────────────────────────────────
 
-  describe('children-zone Enter (Plan 4 Phase 5+8)', () => {
+  describe('children-zone Enter', () => {
     let edTest: Editor | undefined;
     afterEach(() => {
       if (edTest && !edTest.isDestroyed) edTest.destroy();
@@ -778,7 +778,7 @@ describe('TaskItem', () => {
       ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, pos + size - 1)));
     }
 
-    it('Phase 5 - empty children-zone p + Enter inserts another empty p as next sibling INSIDE taskItem', () => {
+    it('empty children-zone p + Enter inserts another empty p as next sibling INSIDE taskItem', () => {
       edTest = new Editor({
         extensions: [Document, Text, Paragraph, TaskList, TaskItem],
         content: '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><p></p></li></ul>',
@@ -793,7 +793,7 @@ describe('TaskItem', () => {
       expect(taskItem?.childCount).toBe(3);
     });
 
-    it('Phase 8 - non-empty children-zone p + Enter at end splits in place INSIDE taskItem', () => {
+    it('non-empty children-zone p + Enter at end splits in place INSIDE taskItem', () => {
       edTest = new Editor({
         extensions: [Document, Text, Paragraph, TaskList, TaskItem],
         content: '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><p>Note</p></li></ul>',
@@ -809,7 +809,7 @@ describe('TaskItem', () => {
       expect(taskItem?.child(2).textContent).toBe('');
     });
 
-    it('Phase 8 - non-empty children-zone p + Enter at MID splits text in place', () => {
+    it('non-empty children-zone p + Enter at MID splits text in place', () => {
       edTest = new Editor({
         extensions: [Document, Text, Paragraph, TaskList, TaskItem],
         content: '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><p>HelloWorld</p></li></ul>',
@@ -832,7 +832,7 @@ describe('TaskItem', () => {
     });
   });
 
-  describe('children-zone Backspace (Plan 4 Phase 6)', () => {
+  describe('children-zone Backspace', () => {
     let edTest: Editor | undefined;
     afterEach(() => {
       if (edTest && !edTest.isDestroyed) edTest.destroy();
@@ -896,7 +896,7 @@ describe('TaskItem', () => {
   });
 
   // ────────────────────────────────────────────────────────────────────
-  // Plan 5 - TaskItem NodeView (checkbox interactivity)
+  // TaskItem NodeView (checkbox interactivity)
   // ────────────────────────────────────────────────────────────────────
 
   describe('addNodeView (checkbox interactivity)', () => {
