@@ -459,6 +459,68 @@ describe('SmartPaste', () => {
     ed.destroy();
   });
 
+  // ─── Same-type slice paste: defer to PM default for inline merge ──────
+  //
+  // When the slice contains a single top-level block of the SAME TYPE as
+  // the destination textblock, SmartPaste's "preserve block formatting"
+  // motivation no longer applies (both source and target are headings,
+  // so PM's default inline-merge already preserves the heading-ness).
+  // Without this bail, the middle-split branch would shred the parent
+  // into three blocks - one of the user-visible bugs this branch fixes.
+  //
+  // Tests assert `handled === false` (SmartPaste defers) - the actual
+  // inline-merge happens inside PM's default paste handler, which is
+  // not invoked by the bare prop call in jsdom. End-to-end behavior is
+  // verified by the demo-angular e2e suite.
+
+  function pastedHandledOverRange(html: string, sliceHtml: string, from: number, to: number): boolean {
+    const editor = makeEditor(html);
+    const slice = htmlSlice(editor, sliceHtml);
+    const tr = editor.state.tr.setSelection(TextSelection.create(editor.state.doc, from, to));
+    editor.view.dispatch(tr);
+    const plugin = editor.view.state.plugins.find((p) => p.spec.props?.handlePaste);
+    if (!plugin?.spec.props?.handlePaste) throw new Error('SmartPaste plugin not found');
+    const handled = plugin.spec.props.handlePaste.call(
+      plugin, editor.view, new Event('paste') as ClipboardEvent, slice,
+    );
+    editor.destroy();
+    return handled === true;
+  }
+
+  it('paste <h1> over PARTIAL <h1> text → SmartPaste defers (PM default inline-merges)', () => {
+    // Bugfix: previously the middle-split branch would produce
+    // <h1>1</h1><h1>X</h1><h1>56</h1>. Now we bail so PM merges inline.
+    expect(pastedHandledOverRange('<h1>123456</h1>', '<h1>X</h1>', 2, 5)).toBe(false);
+  });
+
+  it('paste <h1> over FULL <h1> text → SmartPaste defers', () => {
+    expect(pastedHandledOverRange('<h1>123456</h1>', '<h1>NEW</h1>', 1, 7)).toBe(false);
+  });
+
+  it('paste <h1> into PARTIAL <h2> text → SmartPaste defers (level-mismatch, same type)', () => {
+    // Same node type ('heading') but different `level` attr. We still
+    // bail; PM's default keeps the destination's level and adopts the
+    // slice's inline content - which matches Notion-style "replace text".
+    expect(pastedHandledOverRange('<h2>123456</h2>', '<h1>X</h1>', 2, 5)).toBe(false);
+  });
+
+  it('paste <pre><code> into middle of <pre><code> → SmartPaste defers', () => {
+    // Same codeBlock-into-codeBlock case. Without the bail the split
+    // branch would shred the code block.
+    expect(pastedHandledOverRange(
+      '<pre><code>abcdef</code></pre>',
+      '<pre><code>X</code></pre>',
+      2, 5,
+    )).toBe(false);
+  });
+
+  it('paste <h1> into middle of <p> still triggers SmartPaste (different types)', () => {
+    // Regression guard: the new bail only applies when source and slice
+    // share a type. Cross-type paste must continue going through the
+    // smart-split branch so the heading is preserved as its own block.
+    expect(pastedHandledOverRange('<p>123456</p>', '<h1>X</h1>', 2, 5)).toBe(true);
+  });
+
   // ─── List-slice into list ancestor: under-tested branches ────────────────────
   describe('list-slice paste into existing list', () => {
     it('paste list slice at MIDDLE of listItem text splits and inserts items as siblings', () => {

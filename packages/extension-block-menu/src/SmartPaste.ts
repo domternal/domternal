@@ -51,6 +51,12 @@
  *  - Slice's top-level blocks are ALL plain paragraphs - PM's default
  *    smoothly merges them with the current textblock, which is the
  *    right behaviour for ordinary text.
+ *  - Slice is a SINGLE top-level block of the SAME TYPE as the
+ *    destination textblock (heading-in-heading, codeBlock-in-codeBlock,
+ *    etc.). The user's intent is "replace this text with that text",
+ *    not "split my block in two and nest a new one". PM's default
+ *    inline-merges the slice content into the existing parent, which
+ *    is the correct behaviour for this same-shape paste.
  *
  * Note: PM's clipboard parser routinely sets `openStart=1` even for
  * closed-looking input like `<h1>x</h1>`. We deliberately do NOT bail on
@@ -117,6 +123,13 @@ function handleSmartPaste(view: EditorView, slice: Slice): boolean {
   // Bail when slice has no non-paragraph block at its top level - PM's
   // default merges plain inline content cleanly.
   if (!sliceHasNonParagraphBlock(slice)) return false;
+
+  // Bail when the slice is a single block of the SAME TYPE as the
+  // destination textblock (e.g. <h1> pasted inside an <h1>). Splitting
+  // the parent block to "preserve" the same wrapper would visibly
+  // shred the user's heading into three pieces - the inline merge that
+  // PM's default does here is what the user actually wants.
+  if (sliceIsSingleSameTypeAsParent(slice, $from.parent.type.name)) return false;
 
   // Strategy 1: list-slice into list ancestor - merge as siblings.
   if (tryPasteListSliceIntoList(view, slice)) return true;
@@ -197,6 +210,20 @@ function sliceHasNonParagraphBlock(slice: Slice): boolean {
     if (child.isBlock && child.type.name !== 'paragraph') result = true;
   });
   return result;
+}
+
+/**
+ * True when the slice contains exactly one top-level block whose type
+ * name matches the destination textblock's parent. This is the
+ * heading-pasted-inside-heading (and analogous) case where SmartPaste
+ * would otherwise split the parent into pieces around the inserted
+ * block. PM's default does the right thing here: it strips the
+ * matching wrapper and inline-merges the slice content into the
+ * existing parent.
+ */
+function sliceIsSingleSameTypeAsParent(slice: Slice, parentTypeName: string): boolean {
+  if (slice.content.childCount !== 1) return false;
+  return slice.content.firstChild?.type.name === parentTypeName;
 }
 
 /**
