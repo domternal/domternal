@@ -74,6 +74,15 @@ interface SchemaShape {
             (click)="executeCommand(item)"></button>
         }
       }
+      @if (showBlockMenuButton()) {
+        <span class="dm-toolbar-separator" role="separator"></span>
+        <button #blockMenuBtn type="button" class="dm-toolbar-button"
+          title="More options"
+          aria-label="More options"
+          [innerHTML]="getCachedIcon('dotsThree')"
+          (mousedown)="$event.preventDefault()"
+          (click)="openBlockContextMenu(blockMenuBtn)"></button>
+      }
       <ng-content />
     </div>
   `,
@@ -94,6 +103,9 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
   /** Internal — updated on transactions. Not meant to be set from outside. */
   readonly resolvedItems = signal<BubbleMenuItem[]>([]);
+
+  /** Internal — true when the BlockContextMenu extension is loaded; toggles the "..." trailing button. */
+  readonly showBlockMenuButton = signal(false);
 
   private menuEl = viewChild.required<ElementRef<HTMLElement>>('menuEl');
   private pluginKey: PluginKey;
@@ -195,6 +207,29 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
       return;
     }
     ToolbarController.executeItem(this.editor() as never, item);
+  }
+
+  /**
+   * Open the BlockContextMenu against the cursor's containing block. Skips
+   * the textblock for nested cases (cursor in `listItem > paragraph` targets
+   * the listItem, not the paragraph) so Delete / Turn into operate on the
+   * "visual block" the user is editing.
+   */
+  openBlockContextMenu(anchor: HTMLElement): void {
+    const editor = this.editor();
+    const $from = editor.state.selection.$from;
+    if ($from.depth < 1) return;
+    // Walk one level up to use the container when the cursor's textblock
+    // isn't a direct doc child; otherwise use the textblock itself.
+    const depth = $from.depth > 1 && $from.node($from.depth - 1).type.name !== 'doc'
+      ? $from.depth - 1
+      : $from.depth;
+    const blockPos = $from.before(depth);
+    const editorEl = editor.view.dom.closest<HTMLElement>('.dm-editor');
+    editorEl?.dispatchEvent(new CustomEvent('dm:block-context-menu-open', {
+      bubbles: false,
+      detail: { blockPos, anchorElement: anchor },
+    }));
   }
 
   // === Internal ===
@@ -318,6 +353,9 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   private setupItemTracking(editor: Editor): void {
     this.buildItemMap(editor);
     this.buildBubbleDefaults(editor);
+    this.showBlockMenuButton.set(
+      editor.extensionManager.extensions.some((e) => e.name === 'blockContextMenu'),
+    );
 
     const items = this.items();
     if (this.contexts()) {
