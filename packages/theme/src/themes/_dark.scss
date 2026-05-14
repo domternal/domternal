@@ -37,6 +37,10 @@
   --dm-blockquote-border: 3px solid #555555;
   --dm-blockquote-color: #a0a0a0;
 
+  // Subtle highlight tint for the block whose BlockContextMenu is open.
+  // Lighter alpha for dark backgrounds so the cue is visible but not jarring.
+  --dm-block-context-active-bg: rgba(255, 255, 255, 0.05);
+
   // Syntax highlighting
   --dm-syntax-keyword: #ff7b72;
   --dm-syntax-entity: #d2a8ff;

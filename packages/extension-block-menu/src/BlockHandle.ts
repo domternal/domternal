@@ -664,6 +664,12 @@ export function createBlockHandlePlugin(
   let hoverRaf: number | null = null;
   let pendingHoverCoords: { x: number; y: number } | null = null;
   let currentHoveredPos: number | null = null;
+  // DOM element of the block the handle is currently anchored to. Kept
+  // in sync with `currentHoveredPos` so it can be forwarded through
+  // `dm:block-context-menu-open` for the active-block highlight - more
+  // reliable than re-deriving via `view.nodeDOM(pos)` after a docView
+  // rerender (e.g. UniqueID attribute stamping).
+  let currentHoveredDom: HTMLElement | null = null;
   // Set on `mousedown` on the drag button, cleared on `mouseup` / `dragend`.
   // While truthy, hover updates are paused so the handle does NOT jump to
   // a neighbouring block during the browser's drag-initiation window
@@ -724,9 +730,13 @@ export function createBlockHandlePlugin(
   const hide = (): void => {
     root.removeAttribute('data-show');
     currentHoveredPos = null;
+    currentHoveredDom = null;
   };
 
   const scheduleHide = (): void => {
+    // Keep the handle pinned to the source block while the context menu
+    // is open - matches the same gate in `onMouseMove`.
+    if (editorEl?.hasAttribute('data-block-context-menu-open')) return;
     clearHideTimer();
     hideTimer = window.setTimeout(() => {
       hide();
@@ -777,6 +787,12 @@ export function createBlockHandlePlugin(
     // button. Moving it here would slide the button out from under the
     // cursor before the browser decides the interaction is a drag.
     if (dragPressActive) return;
+    // Also freeze while the BlockContextMenu is open. The menu is
+    // anchored to the drag button of the source block; repositioning
+    // the handle to a different block would visually orphan the menu
+    // and break the "which block am I acting on?" cue. The attribute
+    // is set by `BlockContextMenu` (see its `open()` / `hide()`).
+    if (editorEl.hasAttribute('data-block-context-menu-open')) return;
     pendingHoverCoords = { x: event.clientX, y: event.clientY };
     if (hoverRaf !== null) return;
     hoverRaf = requestAnimationFrame(() => {
@@ -784,6 +800,11 @@ export function createBlockHandlePlugin(
       const coords = pendingHoverCoords;
       pendingHoverCoords = null;
       if (!coords || !editorEl) return;
+      // Re-check the context-menu gate inside the rAF: a mousemove
+      // queued before the menu opened can fire after `open()` runs,
+      // which would otherwise repaint the handle on a neighbour
+      // block and visually orphan the open menu.
+      if (editorEl.hasAttribute('data-block-context-menu-open')) return;
       const resolved = resolveBlockAtCoords(editor.view, coords.x, coords.y, nested);
       if (!resolved) {
         scheduleHide();
@@ -805,6 +826,7 @@ export function createBlockHandlePlugin(
         return;
       }
       currentHoveredPos = resolved.pos;
+      currentHoveredDom = resolved.dom;
       const editorRect = editorEl.getBoundingClientRect();
       show(resolved.dom, resolved.rect, editorRect);
     });
@@ -819,6 +841,15 @@ export function createBlockHandlePlugin(
   };
 
   const onDismissOverlays = (): void => {
+    // BlockContextMenu fires `dm:dismiss-overlays` while opening to
+    // close OTHER popups (BubbleMenu, FloatingMenu, SlashCommand,
+    // etc.). The drag handle should NOT vanish in that case - it
+    // serves as the visual anchor for the menu that just opened. The
+    // host editor sets `data-block-context-menu-open` BEFORE firing
+    // the dismiss event so we can distinguish "another overlay
+    // dismissed us" from "the context menu we're anchoring is now
+    // open" and keep the handle visible in the latter.
+    if (editorEl?.hasAttribute('data-block-context-menu-open')) return;
     hide();
     updateHoverState(editor.view, null);
   };
@@ -922,7 +953,7 @@ export function createBlockHandlePlugin(
     // anchor element for positioning.
     editorEl?.dispatchEvent(new CustomEvent('dm:block-context-menu-open', {
       bubbles: false,
-      detail: { blockPos: pos, anchorElement: dragBtn },
+      detail: { blockPos: pos, anchorElement: dragBtn, blockDom: currentHoveredDom ?? undefined },
     }));
   };
 

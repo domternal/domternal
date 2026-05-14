@@ -267,6 +267,36 @@ describe('BlockHandle DOM integration', () => {
     const handle = host?.querySelector('.dm-block-handle');
     expect(handle?.hasAttribute('data-show')).toBe(false);
   });
+
+  it('keeps data-show when dm:dismiss-overlays fires AFTER data-block-context-menu-open is set', () => {
+    // BlockContextMenu's `open()` sets `data-block-context-menu-open`
+    // on the editor host BEFORE dispatching `dm:dismiss-overlays`. The
+    // handle's dismiss listener checks this attribute and skips its
+    // own hide so the drag button stays put as the menu's anchor.
+    makeEditor();
+    const handle = host?.querySelector('.dm-block-handle') as HTMLElement | null;
+    if (!handle) throw new Error('handle missing');
+    // Force the handle visible (would normally happen via hover).
+    handle.setAttribute('data-show', '');
+
+    // Simulate the new open() ordering.
+    host?.setAttribute('data-block-context-menu-open', '');
+    host?.dispatchEvent(new Event('dm:dismiss-overlays'));
+    expect(handle.hasAttribute('data-show')).toBe(true);
+  });
+
+  it('hides on dm:dismiss-overlays when the context-menu signal is NOT set', () => {
+    // Regression guard: without the new attribute, the legacy behaviour
+    // (hide on dismiss) must continue to apply for unrelated dismiss
+    // dispatches (BubbleMenu / SlashCommand etc.).
+    makeEditor();
+    const handle = host?.querySelector('.dm-block-handle') as HTMLElement | null;
+    if (!handle) throw new Error('handle missing');
+    handle.setAttribute('data-show', '');
+
+    host?.dispatchEvent(new Event('dm:dismiss-overlays'));
+    expect(handle.hasAttribute('data-show')).toBe(false);
+  });
 });
 
 /**

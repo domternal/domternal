@@ -960,6 +960,297 @@ describe('BlockContextMenu Turn into - wrapper targets', () => {
   });
 });
 
+describe('BlockContextMenu drag-handle pin + active block highlight', () => {
+  // Two cross-plugin signals applied on open, cleared on hide:
+  //   1. `data-block-context-menu-open` attribute on the editor root,
+  //      which `BlockHandle` reads to keep its drag button pinned on
+  //      the source block while the menu is open.
+  //   2. `dm-block-context-active` class on the targeted block's DOM
+  //      node, used by the theme to render a subtle Notion-style cue.
+
+  it('sets data-block-context-menu-open on the editor host while open', () => {
+    makeEditor('<p>Pin me</p>');
+    expect(host?.hasAttribute('data-block-context-menu-open')).toBe(false);
+    openContextMenu(0);
+    expect(host?.hasAttribute('data-block-context-menu-open')).toBe(true);
+  });
+
+  it('removes data-block-context-menu-open on hide', () => {
+    makeEditor('<p>Pin me</p>');
+    openContextMenu(0);
+    host?.dispatchEvent(new Event('dm:dismiss-overlays'));
+    expect(host?.hasAttribute('data-block-context-menu-open')).toBe(false);
+  });
+
+  it('adds dm-block-context-active class to the targeted block', () => {
+    makeEditor('<p>Highlighted</p>');
+    openContextMenu(0);
+    const para = host?.querySelector('.ProseMirror > p');
+    expect(para?.classList.contains('dm-block-context-active')).toBe(true);
+  });
+
+  it('removes dm-block-context-active class on hide', () => {
+    makeEditor('<p>Highlighted</p>');
+    openContextMenu(0);
+    host?.dispatchEvent(new Event('dm:dismiss-overlays'));
+    const para = host?.querySelector('.ProseMirror > p');
+    expect(para?.classList.contains('dm-block-context-active')).toBe(false);
+  });
+
+  it('targets the correct block in a multi-block doc', () => {
+    makeEditor('<p>First</p><p>Second</p><p>Third</p>');
+    // Open on the second paragraph (positions: 0..7 first, 7..15 second).
+    openContextMenu(7);
+    const paragraphs = host?.querySelectorAll('.ProseMirror > p');
+    if (!paragraphs) throw new Error();
+    expect(paragraphs[0]?.classList.contains('dm-block-context-active')).toBe(false);
+    expect(paragraphs[1]?.classList.contains('dm-block-context-active')).toBe(true);
+    expect(paragraphs[2]?.classList.contains('dm-block-context-active')).toBe(false);
+  });
+
+  it('moves the highlight when the menu reopens on a different block', () => {
+    makeEditor('<p>First</p><p>Second</p>');
+    openContextMenu(0);
+    let paragraphs = host?.querySelectorAll('.ProseMirror > p');
+    expect(paragraphs?.[0]?.classList.contains('dm-block-context-active')).toBe(true);
+    // Reopen on the second paragraph (dispatching open implicitly
+    // dismisses other overlays then calls open() again).
+    openContextMenu(7);
+    paragraphs = host?.querySelectorAll('.ProseMirror > p');
+    expect(paragraphs?.[0]?.classList.contains('dm-block-context-active')).toBe(false);
+    expect(paragraphs?.[1]?.classList.contains('dm-block-context-active')).toBe(true);
+  });
+
+  it('clears both signals when editor is destroyed mid-open', () => {
+    const ed = makeEditor('<p>X</p>');
+    openContextMenu(0);
+    expect(host?.hasAttribute('data-block-context-menu-open')).toBe(true);
+    ed.destroy();
+    editor = undefined;
+    // The destroy hook calls hide() which removes the attribute. host
+    // remains in the DOM until afterEach cleans it.
+    expect(host?.hasAttribute('data-block-context-menu-open')).toBe(false);
+  });
+
+  // ─── Decoration-driven highlight: survives PM rerenders, remaps across
+  //     doc edits, and moves between blocks on reopen ────────────────────
+  //
+  // This is what the original imperative `classList.add` could not do.
+  // The bug surface was: any transaction that touched the block's DOM
+  // (e.g. UniqueID stamping `id` via setNodeMarkup) caused PM to throw
+  // away the inline class. The decoration is re-applied every render,
+  // so the class persists regardless of how often the block is
+  // rerendered.
+
+  it('decoration adds the dm-block-context-active class to the target paragraph DOM', () => {
+    makeEditor('<p>Decorated</p>');
+    openContextMenu(0);
+    const para = host?.querySelector('.ProseMirror > p');
+    expect(para?.classList.contains('dm-block-context-active')).toBe(true);
+  });
+
+  it('decoration survives a no-op meta transaction dispatched while menu is open', () => {
+    // Dispatching a meta-only transaction triggers a PM re-render but
+    // does not change the doc. The decoration must still apply.
+    const ed = makeEditor('<p>Resilient</p>');
+    openContextMenu(0);
+    expect(host?.querySelector('.ProseMirror > p')?.classList.contains('dm-block-context-active')).toBe(true);
+    // Synthetic meta tr - no doc change, just kicks PM into re-running view updates.
+    ed.view.dispatch(ed.view.state.tr.setMeta('test-noop', true));
+    expect(host?.querySelector('.ProseMirror > p')?.classList.contains('dm-block-context-active')).toBe(true);
+  });
+
+  it('decoration moves to a new block when the menu is reopened on it', () => {
+    makeEditor('<p>First</p><p>Second</p>');
+    openContextMenu(0);
+    let paras = host?.querySelectorAll('.ProseMirror > p');
+    expect(paras?.[0]?.classList.contains('dm-block-context-active')).toBe(true);
+    expect(paras?.[1]?.classList.contains('dm-block-context-active')).toBe(false);
+    // Reopen on the second paragraph (positions 0..7 + 7..15).
+    openContextMenu(7);
+    paras = host?.querySelectorAll('.ProseMirror > p');
+    expect(paras?.[0]?.classList.contains('dm-block-context-active')).toBe(false);
+    expect(paras?.[1]?.classList.contains('dm-block-context-active')).toBe(true);
+  });
+
+  it('decoration is removed after the menu closes', () => {
+    makeEditor('<p>X</p>');
+    openContextMenu(0);
+    expect(host?.querySelector('.ProseMirror > p')?.classList.contains('dm-block-context-active')).toBe(true);
+    host?.dispatchEvent(new Event('dm:dismiss-overlays'));
+    expect(host?.querySelector('.ProseMirror > p')?.classList.contains('dm-block-context-active')).toBe(false);
+  });
+
+  it('scroll lock is idempotent across repeated open() calls', () => {
+    // Two consecutive opens (e.g. user clicks drag again without
+    // closing) must not double-register the wheel listener. We assert
+    // the lock state externally by verifying close + reopen leaves
+    // the document in a non-locked state after a single close.
+    makeEditor('<p>X</p><p>Y</p>');
+    openContextMenu(0);
+    openContextMenu(3); // re-open on a different block, no explicit hide between
+
+    host?.dispatchEvent(new Event('dm:dismiss-overlays'));
+    // After a SINGLE close, scroll should be free again - duplicate
+    // listeners would still block.
+    const ev = new Event('wheel', { cancelable: true, bubbles: true });
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    Object.defineProperty(ev, 'target', { value: document.body });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(false);
+  });
+});
+
+describe('BlockContextMenu scroll lock', () => {
+  // Notion-style: when the menu is open, page scroll is blocked so the
+  // popup stays anchored next to the drag handle. The wheel + touchmove
+  // listeners on `document` call preventDefault() unless the event
+  // target sits inside the menu (which preserves internal scroll for
+  // the menu's own overflow).
+
+  it('does not call preventDefault on wheel before menu opens', () => {
+    makeEditor('<p>X</p>');
+    const ev = new Event('wheel', { cancelable: true });
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(false);
+  });
+
+  it('blocks wheel events on document while menu is open', () => {
+    makeEditor('<p>X</p>');
+    openContextMenu(0);
+    const menu = host?.querySelector('.dm-block-context-menu');
+    expect(menu?.hasAttribute('data-show')).toBe(true);
+
+    const ev = new Event('wheel', { cancelable: true, bubbles: true });
+    // Dispatch on body (outside the menu) so the listener's target
+    // check does not exempt it.
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    Object.defineProperty(ev, 'target', { value: document.body });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(true);
+  });
+
+  it('blocks touchmove events on document while menu is open', () => {
+    makeEditor('<p>X</p>');
+    openContextMenu(0);
+    const ev = new Event('touchmove', { cancelable: true, bubbles: true });
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    Object.defineProperty(ev, 'target', { value: document.body });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(true);
+  });
+
+  it('blocks wheel events inside the menu when it has no scrollable overflow', () => {
+    // The default menu fits within `max-height: 20rem`, so its
+    // scrollHeight equals clientHeight - no internal scroll is
+    // possible. Letting the wheel through would chain to the page
+    // and scroll the document underneath the menu, which is the
+    // exact bug we want to prevent.
+    makeEditor('<p>X</p>');
+    openContextMenu(0);
+    const menu = host?.querySelector('.dm-block-context-menu');
+    expect(menu).not.toBeNull();
+
+    const ev = new Event('wheel', { cancelable: true, bubbles: true });
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    Object.defineProperty(ev, 'target', { value: menu });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(true);
+  });
+
+  it('allows wheel events inside the menu when it CAN scroll internally', () => {
+    makeEditor('<p>X</p>');
+    openContextMenu(0);
+    const menu = host?.querySelector('.dm-block-context-menu') as HTMLElement | null;
+    if (!menu) throw new Error('menu missing');
+    // Simulate scrollable overflow by mocking scrollHeight > clientHeight.
+    Object.defineProperty(menu, 'scrollHeight', { configurable: true, value: 500 });
+    Object.defineProperty(menu, 'clientHeight', { configurable: true, value: 200 });
+
+    const ev = new Event('wheel', { cancelable: true, bubbles: true });
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    Object.defineProperty(ev, 'target', { value: menu });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(false);
+  });
+
+  it('releases scroll lock when menu closes', () => {
+    makeEditor('<p>X</p>');
+    openContextMenu(0);
+    // Close via the dismiss event.
+    host?.dispatchEvent(new Event('dm:dismiss-overlays'));
+    const menu = host?.querySelector('.dm-block-context-menu');
+    expect(menu?.hasAttribute('data-show')).toBe(false);
+
+    // Wheel events should no longer be blocked.
+    const ev = new Event('wheel', { cancelable: true, bubbles: true });
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    Object.defineProperty(ev, 'target', { value: document.body });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(false);
+  });
+
+  it('releases scroll lock after a wrapper-target click closes the menu', () => {
+    makeEditor('<p>Toggle</p>');
+    openContextMenu(0);
+    // Click any item that closes the menu (Duplicate fires runAndClose).
+    const items = host?.querySelectorAll<HTMLButtonElement>('.dm-block-context-menu-item');
+    let dupBtn: HTMLButtonElement | null = null;
+    if (items) {
+      for (const b of Array.from(items)) {
+        if (b.getAttribute('aria-label') === 'Duplicate') { dupBtn = b; break; }
+      }
+    }
+    dupBtn?.click();
+    const menu = host?.querySelector('.dm-block-context-menu');
+    expect(menu?.hasAttribute('data-show')).toBe(false);
+
+    const ev = new Event('wheel', { cancelable: true, bubbles: true });
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    Object.defineProperty(ev, 'target', { value: document.body });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(false);
+  });
+
+  it('releases scroll lock after Escape closes the menu', () => {
+    makeEditor('<p>X</p>');
+    openContextMenu(0);
+    const menu = host?.querySelector('.dm-block-context-menu');
+    menu?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(menu?.hasAttribute('data-show')).toBe(false);
+
+    const ev = new Event('wheel', { cancelable: true, bubbles: true });
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    Object.defineProperty(ev, 'target', { value: document.body });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(false);
+  });
+
+  it('releases scroll lock when the editor is destroyed while the menu is open', () => {
+    const ed = makeEditor('<p>X</p>');
+    openContextMenu(0);
+    ed.destroy();
+    editor = undefined; // afterEach already cleans, but make explicit
+
+    const ev = new Event('wheel', { cancelable: true, bubbles: true });
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    Object.defineProperty(ev, 'target', { value: document.body });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(false);
+  });
+});
+
 describe('BlockContextMenu Turn into - wrapper SOURCES (listItem / taskItem / blockquote)', () => {
   // BlockHandle in nested mode targets the listItem (the actual draggable
   // row), not the inner paragraph. These tests exercise that real-usage

@@ -12,6 +12,12 @@
   min-width: 12rem;
   max-height: 20rem;
   overflow-y: auto;
+  // Prevent scroll chaining: once the menu's internal scroll reaches
+  // its top or bottom edge, additional wheel deltas do NOT propagate
+  // to the page. The JS scroll-lock in BlockContextMenu additionally
+  // preventDefaults when the menu has no overflow at all - together
+  // these guarantee the page never moves while the menu is open.
+  overscroll-behavior: contain;
   padding: 0.25rem;
   background: var(--dm-toolbar-bg, var(--dm-bg, #ffffff));
   border: 1px solid var(--dm-border-color, #e5e7eb);
@@ -120,3 +126,21 @@
     text-overflow: ellipsis;
   }
 }
+
+// =============================================================================
+// Active block highlight
+// Applied to the editor block whose BlockContextMenu is currently open. The
+// class is added/removed imperatively by the plugin; this rule provides the
+// Notion-style "you are acting on this block" affordance.
+// =============================================================================
+
+.ProseMirror .dm-block-context-active {
+  background-color: var(--dm-block-context-active-bg, rgba(55, 53, 47, 0.06));
+  border-radius: 0.25rem;
+  // box-shadow with zero spread + same color creates a small "ring"
+  // around the block content without disturbing the block's own layout
+  // (negative margins would cascade onto neighbours).
+  box-shadow: 0 0 0 4px var(--dm-block-context-active-bg, rgba(55, 53, 47, 0.06));
+  transition: background-color 0.12s ease, box-shadow 0.12s ease;
+}
+

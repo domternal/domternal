@@ -1094,6 +1094,191 @@ test.describe('Turn into - wrappers', () => {
 
   // --- Cross-feature: UniqueID preserved through wrap ---
 
+  test('page scroll is blocked while the menu is open (Notion-style)', async ({ page }) => {
+    // Notion locks page scroll while a drag-handle menu is open so the
+    // popup stays anchored. We match that by wheel/touchmove preventDefault.
+    // Seed enough content so the page is actually scrollable.
+    await setContent(page, '<p>Top</p>'.concat('<p>filler line</p>'.repeat(120), '<p>Bottom</p>'));
+    await hoverBlock(page, 'p', 0);
+    await openContextMenu(page);
+
+    const beforeY = await page.evaluate(() => window.scrollY);
+    // Attempt a wheel scroll on the page (outside the menu).
+    await page.mouse.move(10, 100);
+    await page.mouse.wheel(0, 500);
+    // Brief wait so any unblocked scroll would have landed.
+    await page.waitForTimeout(120);
+    const afterY = await page.evaluate(() => window.scrollY);
+    expect(afterY).toBe(beforeY);
+  });
+
+  test('page scroll resumes after the menu closes', async ({ page }) => {
+    await setContent(page, '<p>Top</p>'.concat('<p>filler line</p>'.repeat(120), '<p>Bottom</p>'));
+    await hoverBlock(page, 'p', 0);
+    await openContextMenu(page);
+    // Close via Escape.
+    await page.keyboard.press('Escape');
+    await expect(page.locator(contextMenuSelector)).not.toHaveAttribute('data-show', '');
+
+    const beforeY = await page.evaluate(() => window.scrollY);
+    await page.mouse.move(10, 100);
+    await page.mouse.wheel(0, 500);
+    await page.waitForTimeout(120);
+    const afterY = await page.evaluate(() => window.scrollY);
+    expect(afterY).toBeGreaterThan(beforeY);
+  });
+
+  test('drag handle keeps data-show while menu is open and mouse moves to another block', async ({ page }) => {
+    // The handle must remain visible (data-show) on the SOURCE block
+    // even when the cursor leaves it - it serves as the menu's anchor.
+    // The earlier bug was: dm:dismiss-overlays fired during open()
+    // before the BlockHandle's gate attribute was set, so the handle
+    // hid itself. After the fix, attribute precedes the dispatch.
+    await setContent(page, '<p>First paragraph here</p><p>Second paragraph here</p><p>Third paragraph here</p>');
+    await hoverBlock(page, 'p', 0);
+    await openContextMenu(page);
+
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+
+    const thirdRect = await page.locator(`${editorSelector} p`).nth(2).boundingBox();
+    if (!thirdRect) throw new Error();
+    await page.mouse.move(thirdRect.x + 20, thirdRect.y + thirdRect.height / 2);
+    await page.waitForTimeout(120);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+  });
+
+  test('drag handle resumes hover behavior after the menu closes', async ({ page }) => {
+    // Regression guard for the gate: after the menu closes, hovering
+    // other blocks must reposition the handle normally (i.e. the
+    // pin-during-open lock must release on close).
+    await setContent(page, '<p>First paragraph here</p><p>Second paragraph here</p>');
+    await hoverBlock(page, 'p', 0);
+    await openContextMenu(page);
+    const topPinned = await page.locator(blockHandleSelector).evaluate(
+      (el) => parseFloat((el as HTMLElement).style.top || '0'),
+    );
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator(contextMenuSelector)).not.toHaveAttribute('data-show', '');
+
+    // Hover the second paragraph - handle should reposition now.
+    const secondRect = await page.locator(`${editorSelector} p`).nth(1).boundingBox();
+    if (!secondRect) throw new Error();
+    await page.mouse.move(secondRect.x + 20, secondRect.y + secondRect.height / 2);
+    await page.waitForTimeout(120);
+    const topAfter = await page.locator(blockHandleSelector).evaluate(
+      (el) => parseFloat((el as HTMLElement).style.top || '0'),
+    );
+    expect(topAfter).not.toBe(topPinned);
+  });
+
+  test('reopening the menu on a different block moves the highlight class', async ({ page }) => {
+    // PM Decoration is keyed on plugin state; re-opening updates the
+    // active position and PM rerenders the decoration on the new
+    // block, removing it from the old one. No leftovers.
+    await setContent(page, '<p>First paragraph</p><p>Second paragraph</p>');
+    await hoverBlock(page, 'p', 0);
+    await openContextMenu(page);
+    let paras = page.locator(`${editorSelector} > p`);
+    await expect(paras.nth(0)).toHaveClass(/dm-block-context-active/);
+    await expect(paras.nth(1)).not.toHaveClass(/dm-block-context-active/);
+
+    // Close and reopen on the second paragraph.
+    await page.keyboard.press('Escape');
+    await hoverBlock(page, 'p', 1);
+    await openContextMenu(page);
+    paras = page.locator(`${editorSelector} > p`);
+    await expect(paras.nth(0)).not.toHaveClass(/dm-block-context-active/);
+    await expect(paras.nth(1)).toHaveClass(/dm-block-context-active/);
+  });
+
+  test('only the source block carries the highlight class in a multi-block doc', async ({ page }) => {
+    await setContent(page, '<h1>Heading</h1><p>Para</p><pre><code>code</code></pre><blockquote><p>quoted</p></blockquote>');
+    await hoverBlock(page, 'h1');
+    await openContextMenu(page);
+    const blocks = page.locator(`${editorSelector} > *`);
+    const countWithClass = await blocks.evaluateAll((nodes) =>
+      nodes.filter((n) => (n as HTMLElement).classList.contains('dm-block-context-active')).length,
+    );
+    expect(countWithClass).toBe(1);
+    await expect(page.locator(`${editorSelector} > h1`)).toHaveClass(/dm-block-context-active/);
+  });
+
+  test('scrolling inside a non-overflowing menu does not move the page', async ({ page }) => {
+    // The menu's overflow is `auto` with max-height - for short
+    // content the menu doesn't actually scroll, so a wheel event over
+    // it would propagate to the page. The JS gate now preventDefaults
+    // in this case; this verifies the page stays put.
+    await setContent(page, '<p>Top</p>'.concat('<p>filler</p>'.repeat(80), '<p>Bottom</p>'));
+    await hoverBlock(page, 'p', 0);
+    await openContextMenu(page);
+
+    const beforeY = await page.evaluate(() => window.scrollY);
+    // Wheel over the menu itself.
+    const menuBox = await page.locator(contextMenuSelector).boundingBox();
+    if (!menuBox) throw new Error('menu box missing');
+    await page.mouse.move(menuBox.x + menuBox.width / 2, menuBox.y + menuBox.height / 2);
+    await page.mouse.wheel(0, 400);
+    await page.waitForTimeout(120);
+    const afterY = await page.evaluate(() => window.scrollY);
+    expect(afterY).toBe(beforeY);
+  });
+
+  test('drag handle stays anchored to source block when mouse moves to another block', async ({ page }) => {
+    // While the context menu is open, BlockHandle freezes its hover
+    // updates: moving the cursor onto a different paragraph must not
+    // reposition the drag button. The menu would otherwise visually
+    // orphan from its anchor.
+    await setContent(page, '<p>First paragraph here</p><p>Second paragraph here</p><p>Third paragraph here</p>');
+    await hoverBlock(page, 'p', 0);
+    await openContextMenu(page);
+
+    const topBefore = await page.locator(blockHandleSelector).evaluate(
+      (el) => parseFloat((el as HTMLElement).style.top || '0'),
+    );
+
+    // Hover the third paragraph (well below the first).
+    const thirdRect = await page.locator(`${editorSelector} p`).nth(2).boundingBox();
+    if (!thirdRect) throw new Error('third paragraph not found');
+    await page.mouse.move(thirdRect.x + 20, thirdRect.y + thirdRect.height / 2);
+    // Wait for any pending rAF / hover tick.
+    await page.waitForTimeout(100);
+
+    const topAfter = await page.locator(blockHandleSelector).evaluate(
+      (el) => parseFloat((el as HTMLElement).style.top || '0'),
+    );
+    expect(topAfter).toBe(topBefore);
+  });
+
+  test('source block carries dm-block-context-active class while menu is open', async ({ page }) => {
+    await setContent(page, '<p>First</p><p>Second</p><p>Third</p>');
+    await hoverBlock(page, 'p', 1);
+    await openContextMenu(page);
+
+    // Diagnostic: find every element carrying the class, regardless of
+    // where in the editor it landed. If nodeDOM returns a wrapper or
+    // some other element, this surfaces what actually got the class.
+    const tagged = await page.evaluate(() => {
+      return Array.from(document.querySelectorAll('.dm-block-context-active')).map((el) => ({
+        tag: el.tagName,
+        text: el.textContent?.slice(0, 30) ?? '',
+        parent: el.parentElement?.tagName ?? '',
+      }));
+    });
+    expect(tagged.length).toBeGreaterThanOrEqual(1);
+    // The targeted block must be one of the tagged elements and must
+    // contain "Second".
+    const second = tagged.find((t) => t.text.includes('Second'));
+    expect(second).toBeDefined();
+
+    // Close via Escape.
+    await page.keyboard.press('Escape');
+    const taggedAfter = await page.evaluate(() => {
+      return document.querySelectorAll('.dm-block-context-active').length;
+    });
+    expect(taggedAfter).toBe(0);
+  });
+
   test('Bullet list wrap preserves UniqueID on the inner paragraph', async ({ page }) => {
     // The wrap step nests the original paragraph inside <li><p>; PM's
     // wrapRangeInList preserves child node identity, so UniqueID's id
