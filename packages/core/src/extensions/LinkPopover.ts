@@ -138,9 +138,24 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
       },
     };
 
+    // When the popover was triggered from a bubble-menu / toolbar button
+    // (anchor present), reparent into the editor wrapper so it inherits
+    // `.dm-editor` CSS custom properties and aligns visually with the
+    // anchor button - mirrors NotionColorPicker. Without an anchor (Mod-K
+    // shortcut path) keep the popover in document.body to avoid
+    // overflow-clip from the editor wrapper.
+    if (anchorElement) {
+      const editorEl = anchorElement.closest<HTMLElement>('.dm-editor');
+      if (editorEl && el.parentElement !== editorEl) {
+        editorEl.appendChild(el);
+      }
+    } else if (el.parentElement !== document.body) {
+      document.body.appendChild(el);
+    }
+
     cleanupFloating?.();
     cleanupFloating = positionFloating(reference, el, {
-      placement: 'bottom',
+      placement: anchorElement ? 'bottom-start' : 'bottom',
       offsetValue: 4,
     });
 

@@ -71,7 +71,7 @@ interface SchemaShape {
             [attr.aria-label]="item.label"
             [innerHTML]="getCachedIcon(item.icon)"
             (mousedown)="$event.preventDefault()"
-            (click)="executeCommand(item)"></button>
+            (click)="executeCommand(item, $event)"></button>
         }
       }
       @if (showColorPickerButton() && !isNodeSelection()) {
@@ -233,10 +233,16 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     return cached;
   }
 
-  executeCommand(item: ToolbarButton): void {
+  executeCommand(item: ToolbarButton, event?: Event): void {
     if (item.emitEvent) {
+      // Forward the clicked button as the anchor so listeners (LinkPopover,
+      // image popover, emoji picker) can position their panels against it
+      // - matches `openColorPicker(anchor)` and the toolbar's executeItem.
+      const anchor =
+        (event?.currentTarget as HTMLElement | undefined) ??
+        (event?.target as HTMLElement | undefined) ?? null;
       // emitEvent is a dynamic string; cast needed to bypass strict EventEmitter<EditorEvents> typing
-      (this.editor().emit as (e: string, d: unknown) => void)(item.emitEvent, {});
+      (this.editor().emit as (e: string, d: unknown) => void)(item.emitEvent, { anchorElement: anchor });
       return;
     }
     ToolbarController.executeItem(this.editor() as never, item);

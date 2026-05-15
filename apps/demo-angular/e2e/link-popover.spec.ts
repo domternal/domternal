@@ -403,4 +403,41 @@ test.describe('Link popover — Positioning', () => {
     // Popover should be within the editor vertical area (not way above)
     expect(popBox!.y).toBeGreaterThanOrEqual(editorBox!.y);
   });
+
+  test('popover appears below bubble-menu link button (anchored to button, not selection)', async ({ page }) => {
+    await setContentAndFocus(page, '<p>Hello World</p>');
+    await selectText(page, 0, 5);
+
+    // Wait for the bubble menu to show
+    const bubbleMenu = page.locator('.dm-bubble-menu');
+    await expect(bubbleMenu).toBeVisible();
+
+    const bubbleLinkBtn = page.locator('.dm-bubble-menu button[title="Link"]');
+    const btnBox = await bubbleLinkBtn.boundingBox();
+    await bubbleLinkBtn.click();
+    await expect(page.locator(popover)).toHaveAttribute('data-show', '');
+
+    const popBox = await page.locator(popover).boundingBox();
+    expect(btnBox).toBeTruthy();
+    expect(popBox).toBeTruthy();
+    // Popover top should be near the bottom of the bubble menu's Link button
+    expect(popBox!.y).toBeGreaterThanOrEqual(btnBox!.y + btnBox!.height - 2);
+    expect(popBox!.y).toBeLessThanOrEqual(btnBox!.y + btnBox!.height + 20);
+    // Popover left edge should be near the button left edge (bottom-start placement)
+    expect(Math.abs(popBox!.x - btnBox!.x)).toBeLessThanOrEqual(10);
+  });
+
+  test('popover triggered from bubble menu is reparented into .dm-editor', async ({ page }) => {
+    await setContentAndFocus(page, '<p>Hello World</p>');
+    await selectText(page, 0, 5);
+    await page.locator('.dm-bubble-menu button[title="Link"]').click();
+    await expect(page.locator(popover)).toHaveAttribute('data-show', '');
+    // Verify the popover is a descendant of .dm-editor (matches NotionColorPicker)
+    const isInsideEditor = await page.evaluate(() => {
+      const pop = document.querySelector('.dm-link-popover');
+      const editor = document.querySelector('.dm-editor');
+      return !!(pop && editor && editor.contains(pop));
+    });
+    expect(isInsideEditor).toBe(true);
+  });
 });
