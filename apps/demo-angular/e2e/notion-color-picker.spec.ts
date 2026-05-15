@@ -443,9 +443,11 @@ test.describe('Notion color picker - data layer', () => {
     await expect(textNull).toBeVisible();
     await expect(bgNull).toBeVisible();
 
+    // The slash is painted via the `::after` pseudo so it can overlay the
+    // text swatch's "A" glyph; check the pseudo's computed style.
     const hasSlash = await Promise.all([
-      textNull.evaluate((el) => getComputedStyle(el).backgroundImage),
-      bgNull.evaluate((el) => getComputedStyle(el).backgroundImage),
+      textNull.evaluate((el) => getComputedStyle(el, '::after').backgroundImage),
+      bgNull.evaluate((el) => getComputedStyle(el, '::after').backgroundImage),
     ]);
     expect(hasSlash[0]).toContain('linear-gradient');
     expect(hasSlash[1]).toContain('linear-gradient');
@@ -727,6 +729,39 @@ test.describe('Notion color picker - data layer', () => {
     expect(bg).not.toBe('');
     expect(bg).not.toBe('rgba(0, 0, 0, 0)');
     expect(bg).not.toBe('transparent');
+  });
+
+  test('UI: "More options" button is enabled when selection is within a single block', async ({ page }) => {
+    await selectFirstParagraph(page);
+    const moreBtn = page.locator('.dm-bubble-menu button[aria-label="More options"]');
+    await expect(moreBtn).toBeVisible();
+    await expect(moreBtn).toBeEnabled();
+  });
+
+  test('UI: "More options" button is disabled when selection spans multiple blocks', async ({ page }) => {
+    // Select from inside the first paragraph through the start of the second
+    // paragraph — that crosses two top-level blocks, so the trigger has no
+    // unambiguous block target and must be disabled.
+    await page.click(editorSelector);
+    await page.evaluate(() => {
+      const paras = document.querySelectorAll<HTMLElement>('app-notion-demo .ProseMirror > p');
+      const first = paras[0];
+      const second = paras[1];
+      if (!first?.firstChild || !second?.firstChild) return;
+      const range = document.createRange();
+      range.setStart(first.firstChild, 0);
+      range.setEnd(second.firstChild, Math.min(3, second.firstChild.textContent?.length ?? 0));
+      const s = window.getSelection();
+      s?.removeAllRanges();
+      s?.addRange(range);
+      const editor = document.querySelector('.ProseMirror');
+      if (editor instanceof HTMLElement) editor.focus();
+    });
+    await page.waitForSelector('.dm-bubble-menu[data-show]', { timeout: 5000 });
+
+    const moreBtn = page.locator('.dm-bubble-menu button[aria-label="More options"]');
+    await expect(moreBtn).toBeVisible();
+    await expect(moreBtn).toBeDisabled();
   });
 
   test('clearRecentColors wipes storage and localStorage', async ({ page }) => {

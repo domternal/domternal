@@ -91,7 +91,8 @@ interface SchemaShape {
       @if (showBlockMenuButton()) {
         <span class="dm-toolbar-separator" role="separator"></span>
         <button #blockMenuBtn type="button" class="dm-toolbar-button"
-          title="More options"
+          [disabled]="blockMenuButtonDisabled()"
+          [title]="blockMenuButtonDisabled() ? 'Block actions (select within a single block)' : 'More options'"
           aria-label="More options"
           [innerHTML]="getCachedIcon('dotsThree')"
           (mousedown)="$event.preventDefault()"
@@ -120,6 +121,9 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
   /** Internal — true when the BlockContextMenu extension is loaded; toggles the "..." trailing button. */
   readonly showBlockMenuButton = signal(false);
+
+  /** Internal — true when the selection spans more than one top-level block; the "..." trigger is disabled in that case because block-level commands have no unambiguous target. */
+  readonly blockMenuButtonDisabled = signal(false);
 
   /** Internal — true when the NotionColorPicker extension is loaded; toggles the "A" color trigger. */
   readonly showColorPickerButton = signal(false);
@@ -427,6 +431,9 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
         if (this.showColorPickerButton()) {
           this.syncColorTriggerState(editor);
         }
+        if (this.showBlockMenuButton()) {
+          this.syncBlockMenuButtonState(editor);
+        }
         this.activeVersion.update(v => v + 1);
       });
     };
@@ -435,6 +442,25 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     if (this.showColorPickerButton()) {
       this.syncColorTriggerState(editor);
     }
+    if (this.showBlockMenuButton()) {
+      this.syncBlockMenuButtonState(editor);
+    }
+  }
+
+  /**
+   * Disable the "..." trigger when the selection spans more than one
+   * top-level block. The block context menu targets the block at $from, so
+   * a multi-block selection has no unambiguous target.
+   */
+  private syncBlockMenuButtonState(editor: Editor): void {
+    const { $from, $to } = editor.state.selection;
+    // depth(1) addresses the top-level child of doc; if either end is
+    // shallower we can't compare blocks meaningfully.
+    if ($from.depth < 1 || $to.depth < 1) {
+      this.blockMenuButtonDisabled.set(true);
+      return;
+    }
+    this.blockMenuButtonDisabled.set($from.before(1) !== $to.before(1));
   }
 
   /**

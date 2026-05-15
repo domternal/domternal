@@ -297,6 +297,53 @@ test.describe('BlockContextMenu - structure', () => {
     expect(count).toBe(20);
   });
 
+  test('Colors row marks the currently-applied bg + text color as active', async ({ page }) => {
+    await setContent(page, '<p data-bg-color="yellow" data-text-color="blue">Tinted</p>');
+    await hoverBlock(page, 'p');
+    await openContextMenu(page);
+
+    const activeBg = page.locator('.dm-block-color-swatch--bg[data-color="yellow"][aria-pressed="true"]');
+    const activeText = page.locator('.dm-block-color-swatch--text[data-color="blue"][aria-pressed="true"]');
+    await expect(activeBg).toBeVisible();
+    await expect(activeText).toBeVisible();
+
+    // CSS paints a visible accent outline on the active swatch.
+    const bgOutline = await activeBg.evaluate((el) => getComputedStyle(el).outlineStyle);
+    const textOutline = await activeText.evaluate((el) => getComputedStyle(el).outlineStyle);
+    expect(bgOutline).toBe('solid');
+    expect(textOutline).toBe('solid');
+  });
+
+  test('Colors row marks the Default swatches as active when the block has no color', async ({ page }) => {
+    await setContent(page, '<p>No color</p>');
+    await hoverBlock(page, 'p');
+    await openContextMenu(page);
+
+    await expect(
+      page.locator('.dm-block-color-swatch--bg[data-color="null"][aria-pressed="true"]'),
+    ).toBeVisible();
+    await expect(
+      page.locator('.dm-block-color-swatch--text[data-color="null"][aria-pressed="true"]'),
+    ).toBeVisible();
+  });
+
+  test('block color overrides existing inline color marks ("last action wins")', async ({ page }) => {
+    // Inline-tinted span inside a paragraph (e.g. from a previous text-color
+    // pick via the bubble menu). Then a block-level text color is applied
+    // via the drag menu - the inline span override should be stripped so
+    // the block tint shows through.
+    await setContent(page, '<p><span data-text-color="red">Tinted</span></p>');
+    await hoverBlock(page, 'p');
+    await openContextMenu(page);
+    await page.click('.dm-block-color-swatch--text[data-color="blue"]');
+
+    const html = await getHtml(page);
+    expect(html).toContain('data-text-color="blue"');
+    // Only the paragraph carries data-text-color now; the span's "red" override
+    // has been stripped.
+    expect(html.match(/data-text-color/g)?.length).toBe(1);
+  });
+
   test('Escape closes the menu and refocuses the editor', async ({ page }) => {
     await hoverBlock(page, 'p');
     await openContextMenu(page);

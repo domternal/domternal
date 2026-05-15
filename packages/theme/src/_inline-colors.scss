@@ -140,16 +140,25 @@
   }
 }
 
-// Strike-through "no color" indicator, shared by the first text and first
-// bg swatch.
+// Strike-through "no color" indicator. Painted via `::after` so it overlays
+// the swatch's content - the text-color "Default" swatch keeps its "A" glyph
+// AND gets the diagonal slash on top, mirroring Notion's letterform-plus-slash
+// signal.
 @mixin ncp-default-slash {
-  background-image: linear-gradient(
-    to top right,
-    transparent calc(50% - 1px),
-    var(--dm-muted, #999) calc(50% - 1px),
-    var(--dm-muted, #999) calc(50% + 1px),
-    transparent calc(50% + 1px)
-  );
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image: linear-gradient(
+      to top right,
+      transparent calc(50% - 1px),
+      var(--dm-muted, #999) calc(50% - 1px),
+      var(--dm-muted, #999) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    );
+  }
 }
 
 .dm-ncp-swatch--text {
@@ -161,7 +170,6 @@
 
   &[data-color="null"] {
     @include ncp-default-slash;
-    &::before { content: ''; }
   }
 
   &[data-color="gray"]::before   { color: var(--dm-block-text-gray); }

@@ -15,7 +15,7 @@
  * so theming is consistent: `role="menu"` container, `role="menuitem"`
  * buttons, `data-show` for visibility, positioned via `positionFloatingOnce`.
  */
-import { Extension, defaultIcons, positionFloatingOnce, writeToClipboard } from '@domternal/core';
+import { Extension, defaultIcons, positionFloatingOnce, stripInlineColorConflicts, writeToClipboard } from '@domternal/core';
 import type { Editor } from '@domternal/core';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
@@ -377,7 +377,9 @@ export function createBlockContextMenuPlugin(
   /**
    * Sets `bgColor` or `textColor` directly on the block at `currentBlockPos`
    * via `setNodeMarkup`. Bypasses the BlockColor command's ancestor walk
-   * because the menu already knows which block was targeted.
+   * because the menu already knows which block was targeted. Inline color
+   * marks of the same kind inside the block are stripped so the new block
+   * tint wins ("last action wins"); see `stripInlineColorConflicts`.
    */
   const runSetColor = (attr: 'bgColor' | 'textColor', color: string | null): void => {
     if (currentBlockPos === null) return;
@@ -386,6 +388,13 @@ export function createBlockContextMenuPlugin(
       const n = tr.doc.nodeAt(pos);
       if (!n) return;
       tr.setNodeMarkup(pos, undefined, { ...n.attrs, [attr]: color });
+      stripInlineColorConflicts(
+        tr,
+        editor.view.state,
+        pos,
+        pos + n.nodeSize,
+        attr === 'textColor' ? 'text' : 'bg',
+      );
     });
   };
 

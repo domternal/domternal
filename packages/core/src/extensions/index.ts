@@ -44,6 +44,7 @@ export {
   BlockColor,
   DEFAULT_BLOCK_COLORS,
   DEFAULT_BLOCK_COLOR_TYPES,
+  stripInlineColorConflicts,
   type BlockColorOptions,
 } from './BlockColor.js';
 
