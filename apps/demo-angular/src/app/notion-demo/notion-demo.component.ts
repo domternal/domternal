@@ -25,6 +25,7 @@ import {
   TaskList,
   TextAlign,
   TextColor,
+  NotionColorPicker,
   FontSize,
   FontFamily,
   LineHeight,
@@ -109,6 +110,10 @@ export class NotionDemoComponent implements OnDestroy {
     BulletList, OrderedList, TaskList,
     // Text styling - available via bubble menu
     TextAlign, TextColor, FontSize, FontFamily, LineHeight,
+    // Notion-style token-based color picker. Drives the colorToken /
+    // backgroundColorToken attrs on textStyle (theme-aware named colors).
+    // UI lives in the bubble-menu wrapper and is introduced in Phase 4.
+    NotionColorPicker,
     Table,
     Details,
     Image,

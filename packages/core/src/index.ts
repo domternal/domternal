@@ -368,6 +368,11 @@ export {
   type FontFamilyOptions,
   FontSize,
   type FontSizeOptions,
+  NotionColorPicker,
+  DEFAULT_NOTION_COLOR_PALETTE,
+  type NotionColorPickerOptions,
+  type NotionColorPickerStorage,
+  type RecentEntry,
   // Formatting Utilities
   ClearFormatting,
   // Link UI
