@@ -5079,3 +5079,186 @@ test.describe('Table of Contents - robustness', () => {
     expect(storageCount).toBe(10);
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────
+// Bubble menu text-align dropdown (Notion mode)
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('Bubble menu - text-align dropdown', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  async function selectAllText(page: Page): Promise<void> {
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { commands: { selectAll: () => boolean; focus: () => boolean } }
+        | undefined;
+      ed?.commands.focus();
+      ed?.commands.selectAll();
+    });
+    await page.waitForTimeout(50);
+  }
+
+  test('textAlign dropdown trigger shows in the bubble menu on text selection', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    await selectAllText(page);
+    const trigger = page.locator('.dm-bubble-menu [data-dropdown="textAlign"]');
+    await expect(trigger).toBeVisible();
+  });
+
+  test('clicking the trigger opens the dropdown panel with the four alignment options', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    await selectAllText(page);
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    const panel = page.locator('[data-dropdown-panel="textAlign"]');
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('button[aria-label="Align Left"]')).toBeVisible();
+    await expect(panel.locator('button[aria-label="Align Center"]')).toBeVisible();
+    await expect(panel.locator('button[aria-label="Align Right"]')).toBeVisible();
+    await expect(panel.locator('button[aria-label="Justify"]')).toBeVisible();
+  });
+
+  test('picking Center applies text-align: center to the paragraph and closes the dropdown', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    await selectAllText(page);
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    await page.locator('[data-dropdown-panel="textAlign"] button[aria-label="Align Center"]').click();
+    await page.waitForTimeout(80);
+    // Panel closes
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toHaveCount(0);
+    // Paragraph has textAlign attr
+    const blocks = await getBlocks(page);
+    expect(blocks[0]?.attrs['textAlign']).toBe('center');
+  });
+
+  test('panel lives inside .dm-bubble-menu so it inherits the bubble-menu button tokens', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    await selectAllText(page);
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    await page.waitForTimeout(40);
+    const insideBubble = await page.evaluate(() => {
+      const bubble = document.querySelector('.dm-bubble-menu');
+      const panel = document.querySelector('[data-dropdown-panel="textAlign"]');
+      return !!(bubble && panel && bubble.contains(panel));
+    });
+    expect(insideBubble).toBe(true);
+  });
+
+  test('default state highlights "Align Left" as active (paragraph default textAlign)', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    // Use a within-paragraph selection so isActive('paragraph', ...) sees the node.
+    await page.evaluate(() => {
+      const el = document.querySelector('app-notion-demo .ProseMirror p');
+      if (!el?.firstChild) return;
+      const r = document.createRange();
+      r.setStart(el.firstChild, 0);
+      r.setEnd(el.firstChild, 5);
+      const s = window.getSelection();
+      s?.removeAllRanges();
+      s?.addRange(r);
+      (document.querySelector('app-notion-demo .ProseMirror') as HTMLElement)?.focus();
+    });
+    await page.waitForTimeout(80);
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    await page.waitForTimeout(60);
+    const left = page.locator('[data-dropdown-panel="textAlign"] button[aria-label="Align Left"]');
+    await expect(left).toHaveClass(/dm-toolbar-dropdown-item--active/);
+  });
+
+  test('clicking outside the panel closes it', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p><p>Other paragraph</p>');
+    await selectAllText(page);
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toBeVisible();
+    // Click somewhere clearly outside the bubble menu + panel
+    await page.mouse.click(5, 5);
+    await page.waitForTimeout(80);
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toHaveCount(0);
+  });
+
+  test('clicking the trigger a second time closes the panel (toggle)', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    await selectAllText(page);
+    const trigger = page.locator('.dm-bubble-menu [data-dropdown="textAlign"]');
+    await trigger.click();
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toBeVisible();
+    await trigger.click();
+    await page.waitForTimeout(60);
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toHaveCount(0);
+  });
+
+  test('Escape closes the panel', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    await selectAllText(page);
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(60);
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toHaveCount(0);
+  });
+
+  test('after applying an alignment, reopening the panel marks that option as active', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+
+    // Select a non-empty range WITHIN the paragraph (selectAll resolves at
+    // doc level which makes editor.isActive('paragraph', ...) return false).
+    async function selectInParagraph(): Promise<void> {
+      await page.evaluate(() => {
+        const el = document.querySelector('app-notion-demo .ProseMirror p');
+        if (!el || !el.firstChild) return;
+        const r = document.createRange();
+        r.setStart(el.firstChild, 0);
+        r.setEnd(el.firstChild, 5); // "Hello"
+        const s = window.getSelection();
+        s?.removeAllRanges();
+        s?.addRange(r);
+        const editor = document.querySelector('app-notion-demo .ProseMirror');
+        if (editor instanceof HTMLElement) editor.focus();
+      });
+      await page.waitForTimeout(80);
+    }
+
+    await selectInParagraph();
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    await page.locator('[data-dropdown-panel="textAlign"] button[aria-label="Align Right"]').click();
+    await page.waitForTimeout(100);
+
+    // Sanity: paragraph really has textAlign=right
+    const blocks = await getBlocks(page);
+    expect(blocks[0]?.attrs['textAlign']).toBe('right');
+
+    // Re-open the dropdown with selection still inside the paragraph.
+    await selectInParagraph();
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    await page.waitForTimeout(80);
+    const right = page.locator('[data-dropdown-panel="textAlign"] button[aria-label="Align Right"]');
+    await expect(right).toHaveClass(/dm-toolbar-dropdown-item--active/);
+  });
+
+  test('opening the textAlign dropdown closes an already-open A picker', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    await selectAllText(page);
+    // Open the A picker first
+    await page.locator('.dm-bubble-menu .dm-ncp-trigger').click();
+    await expect(page.locator('.dm-notion-color-picker')).toBeVisible();
+    // Open the textAlign dropdown
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    await page.waitForTimeout(80);
+    // A picker should have closed (cooperative dm:dismiss-overlays event)
+    await expect(page.locator('.dm-notion-color-picker')).toHaveCount(0);
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toBeVisible();
+  });
+
+  test('opening the A picker closes the textAlign dropdown', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    await selectAllText(page);
+    // Open textAlign first
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toBeVisible();
+    // Open A picker
+    await page.locator('.dm-bubble-menu .dm-ncp-trigger').click();
+    await page.waitForTimeout(80);
+    // textAlign dropdown should have closed
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toHaveCount(0);
+    await expect(page.locator('.dm-notion-color-picker')).toBeVisible();
+  });
+});

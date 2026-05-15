@@ -17,12 +17,13 @@ import {
   ToolbarController,
   createBubbleMenuPlugin,
   defaultIcons,
+  positionFloatingOnce,
 } from '@domternal/core';
-import type { BubbleMenuOptions, ToolbarButton ,
+import type { BubbleMenuOptions, ToolbarButton, ToolbarDropdown ,
   Editor} from '@domternal/core';
 
 interface BubbleMenuSeparator { type: 'separator'; name: string }
-type BubbleMenuItem = ToolbarButton | BubbleMenuSeparator;
+type BubbleMenuItem = ToolbarButton | ToolbarDropdown | BubbleMenuSeparator;
 
 /** Minimal ProseMirror Selection shape for duck-typing (avoids instanceof issues across bundles) */
 interface ResolvedPosShape {
@@ -62,16 +63,46 @@ interface SchemaShape {
       @for (item of resolvedItems(); track item.name) {
         @if (item.type === 'separator') {
           <span class="dm-toolbar-separator" role="separator"></span>
+        } @else if (item.type === 'dropdown') {
+          <div class="dm-toolbar-dropdown-wrapper" [attr.data-dropdown-wrapper]="asDropdown(item).name">
+            <button type="button"
+              class="dm-toolbar-button dm-toolbar-dropdown-trigger"
+              [class.dm-toolbar-button--active]="isDropdownActive(asDropdown(item))"
+              [attr.aria-expanded]="openDropdown() === asDropdown(item).name"
+              [attr.aria-haspopup]="'true'"
+              [attr.aria-label]="asDropdown(item).label"
+              [title]="asDropdown(item).label"
+              [attr.data-dropdown]="asDropdown(item).name"
+              [innerHTML]="getDropdownTriggerHtml(asDropdown(item))"
+              (mousedown)="$event.preventDefault()"
+              (click)="onDropdownToggle(asDropdown(item), $event)"></button>
+            @if (openDropdown() === asDropdown(item).name) {
+              <div class="dm-toolbar-dropdown-panel" role="menu"
+                   data-dm-editor-ui
+                   [attr.data-dropdown-panel]="asDropdown(item).name">
+                @for (sub of asDropdown(item).items; track sub.name) {
+                  <button type="button"
+                    class="dm-toolbar-dropdown-item"
+                    [class.dm-toolbar-dropdown-item--active]="isSubItemActive(sub.name)"
+                    role="menuitem"
+                    [attr.aria-label]="sub.label"
+                    [innerHTML]="getCachedItemContent(sub.icon, sub.label)"
+                    (mousedown)="$event.preventDefault()"
+                    (click)="onDropdownItemClick(sub)"></button>
+                }
+              </div>
+            }
+          </div>
         } @else {
           <button type="button" class="dm-toolbar-button"
-            [class.dm-toolbar-button--active]="isItemActive(item)"
-            [attr.aria-pressed]="isItemActive(item)"
-            [disabled]="isItemDisabled(item)"
-            [title]="item.label"
-            [attr.aria-label]="item.label"
-            [innerHTML]="getCachedIcon(item.icon)"
+            [class.dm-toolbar-button--active]="isItemActive(asButton(item))"
+            [attr.aria-pressed]="isItemActive(asButton(item))"
+            [disabled]="isItemDisabled(asButton(item))"
+            [title]="asButton(item).label"
+            [attr.aria-label]="asButton(item).label"
+            [innerHTML]="getCachedIcon(asButton(item).icon)"
             (mousedown)="$event.preventDefault()"
-            (click)="executeCommand(item, $event)"></button>
+            (click)="executeCommand(asButton(item), $event)"></button>
         }
       }
       @if (showColorPickerButton() && !isNodeSelection()) {
@@ -148,11 +179,23 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
   private activeVersion = signal(0);
   private itemMap = new Map<string, ToolbarButton>();
+  private dropdownMap = new Map<string, ToolbarDropdown>();
   private activeMap = new Map<string, boolean>();
   private disabledMap = new Map<string, boolean>();
   private htmlCache = new Map<string, SafeHtml>();
   private bubbleDefaults = new Map<string, BubbleMenuItem[]>();
   private transactionHandler: (() => void) | null = null;
+
+  // Dropdown state for bubble-menu-embedded dropdowns (e.g. text-align).
+  readonly openDropdown = signal<string | null>(null);
+  private dropdownCleanupFloating: (() => void) | null = null;
+  private dropdownOutsideHandler: ((e: MouseEvent) => void) | null = null;
+  private dropdownKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
+  private dropdownDismissHandler: (() => void) | null = null;
+
+  private readonly dropdownCaret =
+    '<svg class="dm-dropdown-caret" width="10" height="10" viewBox="0 0 10 10">' +
+    '<path d="M2 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   constructor() {
     this.pluginKey = new PluginKey(
@@ -287,10 +330,12 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
   private buildItemMap(editor: Editor): void {
     this.itemMap.clear();
+    this.dropdownMap.clear();
     for (const item of editor.toolbarItems) {
       if (item.type === 'button') {
         this.itemMap.set(item.name, item);
       } else if (item.type === 'dropdown') {
+        this.dropdownMap.set(item.name, item);
         for (const sub of item.items) {
           this.itemMap.set(sub.name, sub);
         }
@@ -305,6 +350,8 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
       if (name === '|') {
         result.push({ type: 'separator', name: `sep-${String(sepIdx++)}` });
       } else {
+        const dropdown = this.dropdownMap.get(name);
+        if (dropdown) { result.push(dropdown); continue; }
         const item = this.itemMap.get(name);
         if (item) result.push(item);
       }
@@ -530,16 +577,173 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     let canProxy: Record<string, (...args: unknown[]) => boolean> | null = null;
     try { canProxy = editor.can() as unknown as Record<string, (...args: unknown[]) => boolean>; } catch { /* ignore */ }
 
+    const trackButton = (btn: ToolbarButton): void => {
+      this.activeMap.set(btn.name, ToolbarController.resolveActive(editor as never, btn));
+      try {
+        const canCmd = typeof btn.command === 'string' ? canProxy?.[btn.command] : undefined;
+        this.disabledMap.set(btn.name, canCmd
+          ? !(btn.commandArgs?.length ? canCmd(...btn.commandArgs) : canCmd())
+          : false);
+      } catch { this.disabledMap.set(btn.name, false); }
+    };
+
     for (const item of this.resolvedItems()) {
       if (item.type === 'separator') continue;
-      this.activeMap.set(item.name, ToolbarController.resolveActive(editor as never, item));
-      try {
-        const canCmd = canProxy?.[item.command];
-        this.disabledMap.set(item.name, canCmd
-          ? !(item.commandArgs?.length ? canCmd(...item.commandArgs) : canCmd())
-          : false);
-      } catch { this.disabledMap.set(item.name, false); }
+      if (item.type === 'dropdown') {
+        // Track each child so dynamicIcon + isActive lookups work.
+        for (const sub of item.items) trackButton(sub);
+        continue;
+      }
+      trackButton(item);
     }
+  }
+
+  // === Dropdown helpers (shared shape with toolbar.component.ts) ===
+
+  asButton(item: BubbleMenuItem): ToolbarButton {
+    return item as ToolbarButton;
+  }
+
+  asDropdown(item: BubbleMenuItem): ToolbarDropdown {
+    return item as ToolbarDropdown;
+  }
+
+  isDropdownActive(dropdown: ToolbarDropdown): boolean {
+    this.activeVersion();
+    return dropdown.items.some((sub) => this.activeMap.get(sub.name) ?? false);
+  }
+
+  /** Trigger HTML: swap icon to the active child when `dynamicIcon` is set. */
+  getDropdownTriggerHtml(dropdown: ToolbarDropdown): SafeHtml {
+    this.activeVersion();
+    const activeItem = dropdown.dynamicIcon
+      ? dropdown.items.find((sub) => this.activeMap.get(sub.name))
+      : undefined;
+    const iconName = activeItem?.icon ?? dropdown.icon;
+    const key = `t:${iconName}`;
+    let cached = this.htmlCache.get(key);
+    if (!cached) {
+      const svg = defaultIcons[iconName] ?? '';
+      cached = this.sanitizer.bypassSecurityTrustHtml(svg + this.dropdownCaret);
+      this.htmlCache.set(key, cached);
+    }
+    return cached;
+  }
+
+  getCachedItemContent(iconName: string, label: string): SafeHtml {
+    const key = `dc:${iconName}:${label}`;
+    let cached = this.htmlCache.get(key);
+    if (!cached) {
+      const svg = defaultIcons[iconName] ?? '';
+      cached = this.sanitizer.bypassSecurityTrustHtml(`${svg} ${label}`);
+      this.htmlCache.set(key, cached);
+    }
+    return cached;
+  }
+
+  isSubItemActive(name: string): boolean {
+    this.activeVersion();
+    return this.activeMap.get(name) ?? false;
+  }
+
+  onDropdownToggle(dropdown: ToolbarDropdown, event?: MouseEvent): void {
+    const isOpening = this.openDropdown() !== dropdown.name;
+    this.cleanupDropdown();
+
+    if (!isOpening) return;
+    this.openDropdown.set(dropdown.name);
+
+    // NOTE: we deliberately do NOT broadcast `dm:dismiss-overlays` here.
+    // The bubble menu plugin in core listens for that event and would
+    // hide itself - taking our just-opened dropdown's trigger with it.
+    // Other overlays (color picker, link popover) close themselves via
+    // their own click-outside handlers when the user clicks our trigger,
+    // so cooperative dismissal still works.
+    const editorElBroadcast = this.menuEl().nativeElement.closest<HTMLElement>('.dm-editor');
+
+    // Position the panel against the trigger after Angular renders it.
+    // We deliberately keep the panel INSIDE `.dm-bubble-menu` so it
+    // inherits the bubble-menu-scoped button tokens (--dm-button-active-bg
+    // / --dm-button-active-color). Reparenting into `.dm-editor` was
+    // tempting for consistency with the color picker, but that dropped
+    // the active-state colors because those tokens aren't defined at
+    // editor scope. floating-ui handles cross-element positioning fine
+    // without reparenting.
+    requestAnimationFrame(() => {
+      const trigger = (event?.currentTarget as HTMLElement | null)
+        ?? this.menuEl().nativeElement.querySelector<HTMLElement>(`[data-dropdown="${dropdown.name}"]`);
+      const panel = this.menuEl().nativeElement.querySelector<HTMLElement>(
+        `[data-dropdown-panel="${dropdown.name}"]`,
+      );
+      if (!trigger || !panel) return;
+
+      this.dropdownCleanupFloating?.();
+      this.dropdownCleanupFloating = positionFloatingOnce(trigger, panel, {
+        placement: 'bottom-start',
+        offsetValue: 4,
+      });
+    });
+
+    // Click-outside dismissal. mousedown is used so the dropdown closes
+    // BEFORE the bubble menu's blur handler runs.
+    const onOutside = (e: MouseEvent): void => {
+      const target = e.target as Node | null;
+      if (!target) return;
+      const panel = document.querySelector<HTMLElement>(
+        `[data-dropdown-panel="${dropdown.name}"]`,
+      );
+      const trigger = this.menuEl().nativeElement.querySelector<HTMLElement>(
+        `[data-dropdown="${dropdown.name}"]`,
+      );
+      if (panel?.contains(target)) return;
+      if (trigger?.contains(target)) return;
+      this.cleanupDropdown();
+    };
+    document.addEventListener('mousedown', onOutside);
+    this.dropdownOutsideHandler = onOutside;
+
+    // Escape closes the dropdown.
+    const onKeydown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this.cleanupDropdown();
+      }
+    };
+    document.addEventListener('keydown', onKeydown);
+    this.dropdownKeydownHandler = onKeydown;
+
+    // Listen for cooperative dismissals from other overlays opening.
+    const onDismiss = (): void => { this.cleanupDropdown(); };
+    if (editorElBroadcast) {
+      editorElBroadcast.addEventListener('dm:dismiss-overlays', onDismiss);
+      this.dropdownDismissHandler = (): void => {
+        editorElBroadcast.removeEventListener('dm:dismiss-overlays', onDismiss);
+      };
+    }
+  }
+
+  onDropdownItemClick(item: ToolbarButton): void {
+    this.cleanupDropdown();
+    ToolbarController.executeItem(this.editor() as never, item);
+    requestAnimationFrame(() => { this.editor().view.focus(); });
+  }
+
+  private cleanupDropdown(): void {
+    if (this.dropdownOutsideHandler) {
+      document.removeEventListener('mousedown', this.dropdownOutsideHandler);
+      this.dropdownOutsideHandler = null;
+    }
+    if (this.dropdownKeydownHandler) {
+      document.removeEventListener('keydown', this.dropdownKeydownHandler);
+      this.dropdownKeydownHandler = null;
+    }
+    if (this.dropdownDismissHandler) {
+      this.dropdownDismissHandler();
+      this.dropdownDismissHandler = null;
+    }
+    this.dropdownCleanupFloating?.();
+    this.dropdownCleanupFloating = null;
+    this.openDropdown.set(null);
   }
 
 }

@@ -14,8 +14,11 @@
   --dm-button-active-color: var(--dm-accent, #2563eb);
   --dm-button-disabled-opacity: 0.4;
 
-  // Smaller icons to match compact buttons
-  .dm-toolbar-button svg {
+  // Smaller icons to match compact buttons. `:not(.dm-dropdown-caret)`
+  // preserves the dropdown caret's own 0.625rem sizing from `_toolbar.scss`
+  // - without this exclusion the bubble menu's selector wins on specificity
+  // and the caret renders the same size as a normal toolbar icon.
+  .dm-toolbar-button svg:not(.dm-dropdown-caret) {
     width: 1rem;
     height: 1rem;
   }
