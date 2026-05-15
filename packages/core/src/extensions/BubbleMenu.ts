@@ -286,12 +286,15 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
       };
 
       const onBlur = ({ event }: { event: FocusEvent }): void => {
-        // Don't hide if focus moved to the bubble menu itself
-        if (
-          event.relatedTarget &&
-          element.contains(event.relatedTarget as Node)
-        ) {
-          return;
+        // Don't hide if focus moved to the bubble menu itself or to any
+        // overlay that opts into editor-UI semantics by carrying the
+        // [data-dm-editor-ui] marker (e.g. NotionColorPicker, popovers).
+        // Matches the same whitelist `SelectionDecoration` uses to avoid
+        // collapsing the range selection.
+        const related = event.relatedTarget;
+        if (related instanceof HTMLElement) {
+          if (element.contains(related)) return;
+          if (related.closest('[data-dm-editor-ui]')) return;
         }
         hideMenu();
       };

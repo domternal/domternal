@@ -542,6 +542,111 @@ test.describe('Notion color picker - data layer', () => {
     expect(Math.abs(afterY - beforeY)).toBeGreaterThan(50);
   });
 
+  test('A11y: panel has role=dialog and aria-label', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+
+    await expect(page.locator(panelSelector)).toHaveAttribute('role', 'dialog');
+    await expect(page.locator(panelSelector)).toHaveAttribute(
+      'aria-label',
+      'Text and background color',
+    );
+  });
+
+  test('A11y: focus lands on Default text swatch when picker opens (no active token)', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    // Focus management runs on rAF after Angular paints — wait until focus
+    // actually lands on a swatch instead of sampling activeElement too early.
+    await page.waitForFunction(() => {
+      return document.activeElement?.classList.contains('dm-ncp-swatch') ?? false;
+    });
+
+    const focusedDataColor = await page.evaluate(() => {
+      return document.activeElement?.getAttribute('data-color') ?? null;
+    });
+    expect(focusedDataColor).toBe('null');
+  });
+
+  test('A11y: focus lands on currently active swatch when opening on a colored selection', async ({ page }) => {
+    await setContentAndSelectAll(page, '<p>Hello world</p>');
+    await runCommand(page, 'setTextColorToken', 'purple');
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    await page.waitForFunction(() => {
+      return document.activeElement?.classList.contains('dm-ncp-swatch') ?? false;
+    });
+
+    const focusedDataColor = await page.evaluate(() => {
+      return document.activeElement?.getAttribute('data-color') ?? null;
+    });
+    expect(focusedDataColor).toBe('purple');
+  });
+
+  test('A11y: active swatch carries aria-pressed=true', async ({ page }) => {
+    await setContentAndSelectAll(page, '<p>Hello world</p>');
+    await runCommand(page, 'setTextColorToken', 'red');
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+
+    const pressed = await page
+      .locator(`${panelSelector} .dm-ncp-swatch--text[data-color="red"]`)
+      .getAttribute('aria-pressed');
+    expect(pressed).toBe('true');
+  });
+
+  test('A11y: ArrowRight moves focus to the next swatch', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    await page.waitForFunction(() =>
+      document.activeElement?.classList.contains('dm-ncp-swatch') ?? false,
+    );
+
+    await page.keyboard.press('ArrowRight');
+    const focused = await page.evaluate(
+      () => document.activeElement?.getAttribute('data-color') ?? null,
+    );
+    expect(focused).toBe('gray');
+  });
+
+  test('A11y: ArrowDown moves focus one row down (5 columns)', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    await page.waitForFunction(() =>
+      document.activeElement?.classList.contains('dm-ncp-swatch') ?? false,
+    );
+
+    // From "null" (idx 0 in the text section) → idx 5 = first bg swatch
+    // ("null" in bg section). With no recent row, that's correct.
+    await page.keyboard.press('ArrowDown');
+    const focused = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el) return null;
+      const isBg = el.classList.contains('dm-ncp-swatch--bg');
+      return { color: el.getAttribute('data-color'), isBg };
+    });
+    // 10 text swatches span 2 rows of 5: row 1 = null/gray/brown/orange/yellow,
+    // row 2 = green/blue/purple/pink/red. ArrowDown from idx 0 (null) → idx 5
+    // (green), still in the text section.
+    expect(focused?.isBg).toBe(false);
+    expect(focused?.color).toBe('green');
+  });
+
+  test('A11y: Enter on focused swatch applies the color and closes panel', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    await page.waitForFunction(() =>
+      document.activeElement?.classList.contains('dm-ncp-swatch') ?? false,
+    );
+
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('Enter');
+
+    await expect(page.locator(panelSelector)).not.toBeVisible();
+    const html = await getEditorHtml(page);
+    expect(html).toContain('data-text-color="gray"');
+  });
+
   test('UI: trigger paints the underline with the applied bg-color token', async ({ page }) => {
     await setContentAndSelectAll(page, '<p>Hello world</p>');
     await runCommand(page, 'setBackgroundColorToken', 'green');

@@ -57,7 +57,14 @@ const TOKEN_LABELS: Record<string, string> = {
   encapsulation: ViewEncapsulation.None,
   template: `
     @if (isOpen()) {
-      <div class="dm-notion-color-picker" data-show role="dialog" aria-label="Text and background color">
+      <div
+        class="dm-notion-color-picker"
+        data-show
+        data-dm-editor-ui
+        role="dialog"
+        aria-label="Text and background color"
+        (keydown)="onPanelKeydown($event)"
+      >
         @if (recent().length > 0) {
           <div class="dm-ncp-section">
             <div class="dm-ncp-label">Recently used</div>
@@ -86,6 +93,7 @@ const TOKEN_LABELS: Record<string, string> = {
               type="button"
               class="dm-ncp-swatch dm-ncp-swatch--text"
               [class.dm-ncp-active]="currentTextToken() === null"
+              [attr.aria-pressed]="currentTextToken() === null"
               data-color="null"
               title="Default text color"
               aria-label="Default text color"
@@ -97,6 +105,7 @@ const TOKEN_LABELS: Record<string, string> = {
                 type="button"
                 class="dm-ncp-swatch dm-ncp-swatch--text"
                 [class.dm-ncp-active]="currentTextToken() === t"
+                [attr.aria-pressed]="currentTextToken() === t"
                 [attr.data-color]="t"
                 [title]="tokenLabel(t)"
                 [attr.aria-label]="tokenLabel(t) + ' text'"
@@ -114,6 +123,7 @@ const TOKEN_LABELS: Record<string, string> = {
               type="button"
               class="dm-ncp-swatch dm-ncp-swatch--bg"
               [class.dm-ncp-active]="currentBgToken() === null"
+              [attr.aria-pressed]="currentBgToken() === null"
               data-color="null"
               title="Default background"
               aria-label="Default background"
@@ -125,6 +135,7 @@ const TOKEN_LABELS: Record<string, string> = {
                 type="button"
                 class="dm-ncp-swatch dm-ncp-swatch--bg"
                 [class.dm-ncp-active]="currentBgToken() === t"
+                [attr.aria-pressed]="currentBgToken() === t"
                 [attr.data-color]="t"
                 [title]="tokenLabel(t) + ' background'"
                 [attr.aria-label]="tokenLabel(t) + ' background'"
@@ -213,6 +224,59 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
     else this.applyBg(entry.token);
   }
 
+  /**
+   * Arrow-key navigation across the 5-column swatch grids. Reuses the same
+   * shape as the emoji picker: arrows move within and across rows, Home/End
+   * jump to grid boundaries, Tab leaves the picker (browser default), and
+   * Enter/Space activates the focused swatch.
+   *
+   * The grid layout is row-wise across all three sections — focus moves
+   * sequentially through Recently used → Text color → Background color so
+   * keyboard users can reach any swatch without re-grabbing Tab.
+   */
+  onPanelKeydown(event: KeyboardEvent): void {
+    const cols = 5;
+    const swatches = Array.from(
+      this.elRef.nativeElement.querySelectorAll<HTMLElement>('.dm-ncp-swatch'),
+    );
+    if (!swatches.length) return;
+
+    const active = document.activeElement as HTMLElement | null;
+    const idx = active ? swatches.indexOf(active) : -1;
+    if (idx === -1) return;
+
+    let next = idx;
+    switch (event.key) {
+      case 'ArrowRight':
+        event.preventDefault();
+        next = Math.min(idx + 1, swatches.length - 1);
+        break;
+      case 'ArrowLeft':
+        event.preventDefault();
+        next = Math.max(idx - 1, 0);
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        next = Math.min(idx + cols, swatches.length - 1);
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        next = Math.max(idx - cols, 0);
+        break;
+      case 'Home':
+        event.preventDefault();
+        next = 0;
+        break;
+      case 'End':
+        event.preventDefault();
+        next = swatches.length - 1;
+        break;
+      default:
+        return;
+    }
+    swatches[next]?.focus();
+  }
+
   close(opts: { refocus?: boolean } = {}): void {
     if (!this.isOpen()) return;
     this.cleanupFloating?.();
@@ -255,6 +319,10 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
         this.addGlobalListeners();
 
         // Position panel against the trigger after Angular renders the DOM.
+        // Focus management (move into the first/active swatch) runs on a
+        // second rAF so positioning + paint has flushed; focusing during the
+        // same frame as mount can race with the bubble-menu's blur handler
+        // and momentarily hide the floating layer Playwright observes.
         requestAnimationFrame(() => {
           const panel = this.elRef.nativeElement.querySelector<HTMLElement>(
             '.dm-notion-color-picker',
@@ -266,6 +334,20 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
               offsetValue: 4,
             });
           }
+          requestAnimationFrame(() => {
+            if (!this.isOpen()) return; // bailed out between frames
+            const p = this.elRef.nativeElement.querySelector<HTMLElement>(
+              '.dm-notion-color-picker',
+            );
+            if (!p) return;
+            const active = p.querySelector<HTMLElement>(
+              '.dm-ncp-swatch.dm-ncp-active',
+            );
+            const fallback = p.querySelector<HTMLElement>(
+              '.dm-ncp-swatch--text[data-color="null"]',
+            );
+            (active ?? fallback)?.focus({ preventScroll: true });
+          });
         });
       });
     };
