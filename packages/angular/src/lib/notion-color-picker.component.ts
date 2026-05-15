@@ -1,10 +1,9 @@
 /**
  * Notion-style color picker popover. Listens for the `notionColorOpen` event
- * emitted by the bubble-menu's "A" trigger and renders a 3-section dropdown
- * (Recently used / Text color / Background color).
+ * emitted by the bubble-menu's "A" trigger and renders a two-section dropdown
+ * (Text color / Background color).
  *
- * Drives `setTextColorToken` / `setBackgroundColorToken` on click and pushes
- * each pick into the NotionColorPicker extension's recent list.
+ * Drives `setTextColorToken` / `setBackgroundColorToken` on click.
  */
 import type { OnDestroy } from '@angular/core';
 import {
@@ -23,21 +22,13 @@ import {
 import type { Editor } from '@domternal/core';
 import { positionFloating } from '@domternal/core';
 
-interface RecentEntry {
-  kind: 'text' | 'bg';
-  token: string | null;
-}
-
 interface NotionColorPickerStorage {
-  recent: RecentEntry[];
   isOpen: boolean;
 }
 
 /**
- * The named-token palette must match `DEFAULT_NOTION_COLOR_PALETTE` in
- * `@domternal/core`. The picker reads the actual palette from the loaded
- * extension's options so consumer-configured palettes are respected, but
- * this constant provides the legend (token → display label) used in tooltips.
+ * Display labels for the named-token palette. Used in tooltips / aria labels;
+ * unknown tokens fall back to a title-cased version of the raw key.
  */
 const TOKEN_LABELS: Record<string, string> = {
   gray: 'Gray',
@@ -65,27 +56,6 @@ const TOKEN_LABELS: Record<string, string> = {
         aria-label="Text and background color"
         (keydown)="onPanelKeydown($event)"
       >
-        @if (recent().length > 0) {
-          <div class="dm-ncp-section">
-            <div class="dm-ncp-label">Recently used</div>
-            <div class="dm-ncp-grid">
-              @for (r of recent(); track recentKey(r)) {
-                <button
-                  type="button"
-                  class="dm-ncp-swatch"
-                  [class.dm-ncp-swatch--text]="r.kind === 'text'"
-                  [class.dm-ncp-swatch--bg]="r.kind === 'bg'"
-                  [attr.data-color]="r.token ?? 'null'"
-                  [title]="recentTitle(r)"
-                  [attr.aria-label]="recentTitle(r)"
-                  (mousedown)="$event.preventDefault()"
-                  (click)="applyRecent(r)"
-                ></button>
-              }
-            </div>
-          </div>
-        }
-
         <div class="dm-ncp-section">
           <div class="dm-ncp-label">Text color</div>
           <div class="dm-ncp-grid">
@@ -154,7 +124,6 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
   readonly editor = input.required<Editor>();
 
   readonly isOpen = signal(false);
-  readonly recent = signal<RecentEntry[]>([]);
   readonly currentTextToken = signal<string | null>(null);
   readonly currentBgToken = signal<string | null>(null);
   readonly palette = signal<string[]>([]);
@@ -185,60 +154,29 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
     this.cleanup();
   }
 
-  // ===========================================================================
-  // Template helpers
-  // ===========================================================================
-
-  recentKey(r: RecentEntry): string {
-    return `${r.kind}-${String(r.token)}`;
-  }
-
-  recentTitle(r: RecentEntry): string {
-    const label = r.token === null ? 'Default' : (TOKEN_LABELS[r.token] ?? r.token);
-    return r.kind === 'text' ? `${label} text` : `${label} background`;
-  }
-
   tokenLabel(token: string): string {
     return TOKEN_LABELS[token] ?? token.charAt(0).toUpperCase() + token.slice(1);
   }
 
-  // ===========================================================================
-  // Apply commands (swatch click handlers)
-  // ===========================================================================
-
   applyText(token: string | null): void {
     const editor = this.editor();
     editor.commands.setTextColorToken(token);
-    editor.commands.pushRecentColor({ kind: 'text', token });
-    // Keep the picker open so the user can chain picks; close mirrors the
-    // bubble menu (outside-click / Escape / empty selection). Sync the
-    // active-state indicators against the new mark so the ring jumps to
-    // the just-picked swatch immediately.
-    this.refreshRecent();
+    // Picker stays open so the user can chain picks; close mirrors the bubble
+    // menu (outside-click / Escape / empty selection).
     this.syncFromSelection();
   }
 
   applyBg(token: string | null): void {
     const editor = this.editor();
     editor.commands.setBackgroundColorToken(token);
-    editor.commands.pushRecentColor({ kind: 'bg', token });
-    this.refreshRecent();
     this.syncFromSelection();
   }
 
-  applyRecent(entry: RecentEntry): void {
-    if (entry.kind === 'text') this.applyText(entry.token);
-    else this.applyBg(entry.token);
-  }
-
   /**
-   * Arrow-key navigation across the 5-column swatch grids. Reuses the same
-   * shape as the emoji picker: arrows move within and across rows, Home/End
-   * jump to grid boundaries, Tab leaves the picker (browser default), and
-   * Enter/Space activates the focused swatch.
-   *
-   * The grid layout is row-wise across all three sections — focus moves
-   * sequentially through Recently used → Text color → Background color so
+   * Arrow-key navigation across the 5-column swatch grids. Arrows move
+   * within and across rows, Home/End jump to grid boundaries, Tab leaves
+   * the picker (browser default), Enter/Space activates the focused swatch.
+   * Focus moves sequentially through Text color → Background color so
    * keyboard users can reach any swatch without re-grabbing Tab.
    */
   onPanelKeydown(event: KeyboardEvent): void {
@@ -301,10 +239,6 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
     }
   }
 
-  // ===========================================================================
-  // Internal
-  // ===========================================================================
-
   private setupEventListener(editor: Editor): void {
     this.cleanup();
 
@@ -323,7 +257,6 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
         this.anchorEl = anchor;
         this.palette.set(this.readPalette());
         this.syncFromSelection();
-        this.refreshRecent();
         this.isOpen.set(true);
         this.setStorageOpen(true);
 
@@ -343,8 +276,7 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
             // CSS custom properties (`--dm-block-bg-*`, `--dm-block-text-*`,
             // surface/border tokens). All variables in @domternal/theme are
             // scoped to `.dm-editor`; without reparenting the picker would
-            // sit as a sibling and render with bare fallbacks. Same trick
-            // as BubbleMenu/FloatingMenu in `packages/core`.
+            // sit as a sibling and render with bare fallbacks.
             const editorEl = this.anchorEl.closest<HTMLElement>('.dm-editor');
             if (editorEl && panel.parentElement !== editorEl) {
               editorEl.appendChild(panel);
@@ -470,48 +402,10 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
     this.currentBgToken.set(attrs.backgroundColorToken ?? null);
   }
 
-  private refreshRecent(): void {
-    // Read fresh from localStorage (when available) to pick up writes from
-    // other editor instances or tabs since this editor was constructed; falls
-    // back to the in-memory copy when persistence is disabled or fails.
-    const options = this.readOptions();
-    const fresh = this.readPersistedRecent(options?.storageKey ?? null);
-    if (fresh) {
-      const storage = this.getStorage();
-      if (storage) storage.recent = fresh;
-      this.recent.set(fresh);
-      return;
-    }
-    const storage = this.getStorage();
-    this.recent.set([...(storage?.recent ?? [])]);
-  }
-
-  private readPersistedRecent(storageKey: string | null): RecentEntry[] | null {
-    if (!storageKey || typeof localStorage === 'undefined') return null;
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return null;
-      const parsed: unknown = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return null;
-      return parsed.filter(
-        (v): v is RecentEntry =>
-          typeof v === 'object' && v !== null &&
-          ((v as { kind?: unknown }).kind === 'text' || (v as { kind?: unknown }).kind === 'bg') &&
-          ((v as { token?: unknown }).token === null || typeof (v as { token?: unknown }).token === 'string'),
-      );
-    } catch {
-      return null;
-    }
-  }
-
   private readPalette(): string[] {
-    const options = this.readOptions();
-    return options?.palette ? [...options.palette] : [];
-  }
-
-  private readOptions(): { palette?: readonly string[]; storageKey?: string | null } | null {
     const ext = this.editor().extensionManager.extensions.find((e) => e.name === 'notionColorPicker');
-    return (ext?.options ?? null) as { palette?: readonly string[]; storageKey?: string | null } | null;
+    const options = (ext?.options ?? null) as { palette?: readonly string[] } | null;
+    return options?.palette ? [...options.palette] : [];
   }
 
   private getStorage(): NotionColorPickerStorage | null {

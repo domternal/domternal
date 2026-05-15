@@ -2,6 +2,7 @@
  * Tests for BlockColor extension.
  */
 import { describe, it, expect, afterEach } from 'vitest';
+import { TextSelection } from '@domternal/pm/state';
 import { BlockColor, DEFAULT_BLOCK_COLORS, DEFAULT_BLOCK_COLOR_TYPES } from './BlockColor.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
@@ -253,7 +254,6 @@ describe('BlockColor strips conflicting inline marks', () => {
    */
   function selectParagraphText(ed: Editor): void {
     const para = ed.state.doc.firstChild!;
-    const { TextSelection } = require('@domternal/pm/state');
     const tr = ed.state.tr.setSelection(
       TextSelection.create(ed.state.doc, 1, 1 + para.content.size),
     );

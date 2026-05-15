@@ -6,7 +6,7 @@
  * renderHTML, the `setImage` command, and the input rule (defense in depth).
  */
 
-import { Node, PluginKey, positionFloating, defaultIcons } from '@domternal/core';
+import { Node, PluginKey, positionFloating, defaultIcons, splitListForInsert } from '@domternal/core';
 import type { Editor, CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
 import { Plugin, NodeSelection } from '@domternal/pm/state';
 import { InputRule } from '@domternal/pm/inputrules';
@@ -441,7 +441,7 @@ export const Image = Node.create<ImageOptions>({
     return {
       setImage:
         (attributes: SetImageOptions) =>
-        ({ tr, dispatch }) => {
+        ({ state, tr, dispatch }) => {
           // XSS protection: validate src URL before inserting
           if (!isValidImageSrc(attributes.src, this.options.allowBase64)) {
             return false;
@@ -452,8 +452,28 @@ export const Image = Node.create<ImageOptions>({
           // Refuse insertion inside code blocks
           if (tr.selection.$from.parent.type.spec.code) return false;
 
+          const node = this.nodeType.create(attributes);
+
+          // List-item-aware path: cursor in the LABEL paragraph of a
+          // list/task item. Block-level images belong at TOP LEVEL,
+          // not nested inside the list item. The util splits the
+          // parent list around the current item (empty label consumed).
+          // Only applies when image is block-level (default); inline
+          // images keep the original insert-at-cursor behavior.
+          if (!this.options.inline) {
+            const paragraphType = state.schema.nodes['paragraph'];
+            const trailingParagraph = paragraphType?.create();
+            const nodes = trailingParagraph ? [node, trailingParagraph] : [node];
+            const listRange = splitListForInsert(state, tr);
+            if (listRange) {
+              if (!dispatch) return true;
+              tr.replaceWith(listRange.from, listRange.to, nodes);
+              dispatch(tr);
+              return true;
+            }
+          }
+
           if (dispatch) {
-            const node = this.nodeType.create(attributes);
             tr.replaceSelectionWith(node);
             dispatch(tr);
           }

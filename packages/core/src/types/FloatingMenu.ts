@@ -74,6 +74,15 @@ export interface FloatingMenuItem {
    * command via `editor.can()` (string commands only) to detect availability.
    */
   isDisabled?: (editor: Editor) => boolean;
+
+  /**
+   * Node-type names that, when present as ancestors of the cursor, cause
+   * the slash menu to hide this item. Useful for list/task-list entries:
+   * e.g. `['bulletList']` removes "Bulleted list" from the menu while the
+   * cursor is already inside a bullet list, so picking it doesn't lift
+   * the user out of the list unexpectedly.
+   */
+  hideWhenInside?: string[];
 }
 
 /**

@@ -2,11 +2,9 @@
  * Node commands — setBlockType, toggleBlockType, wrapIn, toggleWrap, lift
  */
 import { findWrapping, liftTarget } from '@domternal/pm/transform';
-import { liftListItem } from '@domternal/pm/schema-list';
 import type { Attrs, Node as PMNode } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
-
-const LIST_ITEM_TYPE_NAMES = new Set(['listItem', 'taskItem']);
+import { liftCurrentListItem } from '../utils/liftCurrentListItem.js';
 
 /**
  * SetBlockType command - changes the block type of the selection
@@ -54,49 +52,15 @@ export const setBlockType: CommandSpec<[nodeName: string, attributes?: Attrs]> =
       // by lifting it out, then retry the convert on the (now
       // top-level) paragraph - the user types `/heading 1` in a
       // to-do label and the to-do becomes a heading.
-      //
-      // Activation conditions (single-cursor case only):
-      //   - selection is empty (single caret)
-      //   - cursor's nearest list-item ancestor exists
-      //   - cursor's containing block is at index 0 of that item
-      //     (the label slot)
-      //   - the chain transaction has NO prior steps (so the lift
-      //     steps captured from PM's `liftListItem` apply against the
-      //     same starting state as `tr`)
-      const { selection } = tr;
-      if (!selection.empty) return false;
-      if (tr.steps.length !== 0) return false;
-      const { $from } = selection;
-      let listItemDepth = -1;
-      for (let d = $from.depth; d >= 1; d--) {
-        if (LIST_ITEM_TYPE_NAMES.has($from.node(d).type.name)) {
-          listItemDepth = d;
-          break;
-        }
-      }
-      if (listItemDepth === -1) return false;
-      // Cursor must be in the FIRST child of the list item (label slot).
-      if ($from.index(listItemDepth) !== 0) return false;
-
-      const listItemType = $from.node(listItemDepth).type;
-      // Capture lift steps onto our chain transaction. PM's
-      // `liftListItem` builds a fresh tr from `state`; replaying its
-      // steps onto `tr` is safe because `tr` has no prior steps (we
-      // checked above) and therefore starts from the same doc.
-      const liftOk = liftListItem(listItemType)(state, (liftTr) => {
-        for (const step of liftTr.steps) tr.step(step);
-        if (liftTr.selectionSet) tr.setSelection(liftTr.selection);
-      });
+      const liftOk = liftCurrentListItem(state, tr);
       if (!liftOk) return false;
 
       // After the lift, the (formerly) label paragraph sits one
-      // wrapper level higher. Verify the new BLOCK PARENT (the
-      // textblock's grandparent - usually `doc` for top-level lifts)
-      // accepts the requested node type at the paragraph's index. We
-      // intentionally check the BLOCK PARENT, not `$reFrom.parent`
-      // (which is the textblock itself), because `canReplaceWith`
-      // applies at the parent's content slot, not inside the
-      // textblock.
+      // wrapper level higher. Verify the new BLOCK PARENT accepts the
+      // requested node type at the paragraph's index. We check the
+      // BLOCK PARENT, not `$reFrom.parent` (which is the textblock
+      // itself), because `canReplaceWith` applies at the parent's
+      // content slot.
       const $reFrom = tr.doc.resolve(tr.selection.from);
       if ($reFrom.depth < 1) return false;
       const blockParent = $reFrom.node($reFrom.depth - 1);
@@ -200,10 +164,32 @@ export const wrapIn: CommandSpec<[nodeName: string, attributes?: Attrs]> =
     if (!range) return false;
 
     const wrapping = findWrapping(range, nodeType, attributes);
-    if (!wrapping) return false;
+    if (wrapping) {
+      if (!dispatch) return true;
+      tr.wrap(range, wrapping).scrollIntoView();
+      dispatch(tr);
+      return true;
+    }
+
+    // Notion-style fallback: `findWrapping` returns null when the cursor
+    // sits in the LABEL paragraph of a list/task item and the wrapper
+    // (e.g. blockquote, details) cannot occupy the schema-required
+    // first-child paragraph slot. Lift the list item out so the now
+    // top-level paragraph can be wrapped instead - the user types
+    // `/quote` in a bullet label and the bullet becomes a top-level
+    // quote.
+    const liftOk = liftCurrentListItem(state, tr);
+    if (!liftOk) return false;
+
+    const $reFrom = tr.doc.resolve(tr.selection.from);
+    const $reTo = tr.doc.resolve(tr.selection.to);
+    const reRange = $reFrom.blockRange($reTo);
+    if (!reRange) return false;
+    const reWrapping = findWrapping(reRange, nodeType, attributes);
+    if (!reWrapping) return false;
     if (!dispatch) return true;
 
-    tr.wrap(range, wrapping).scrollIntoView();
+    tr.wrap(reRange, reWrapping).scrollIntoView();
     dispatch(tr);
     return true;
   };

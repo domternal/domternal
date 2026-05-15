@@ -321,6 +321,60 @@ describe('nodeCommands', () => {
       setSelection(editor, 2);
       expect(editor.commands.wrapIn('nonexistent')).toBe(false);
     });
+
+    describe('dissolve-list-item fallback (Notion-style /quote in label)', () => {
+      it('cursor in BULLET label + wrapIn("blockquote") dissolves the bullet, wraps the resulting paragraph', () => {
+        editor = new Editor({
+          extensions: listExtensions,
+          content: '<ul><li><p>Quote me</p></li></ul>',
+        });
+        // Caret inside the label paragraph
+        setSelection(editor, 5);
+        expect(editor.commands.wrapIn('blockquote')).toBe(true);
+        expect(editor.getHTML()).toBe('<blockquote><p>Quote me</p></blockquote>');
+      });
+
+      it('cursor in TASK label + wrapIn("blockquote") dissolves the task, wraps the resulting paragraph', () => {
+        editor = new Editor({
+          extensions: listExtensions,
+          content: '<ul data-type="taskList"><li data-type="taskItem"><p>Important</p></li></ul>',
+        });
+        setSelection(editor, 5);
+        expect(editor.commands.wrapIn('blockquote')).toBe(true);
+        expect(editor.getHTML()).toBe('<blockquote><p>Important</p></blockquote>');
+      });
+
+      it('MID bullet item splits the list around it, leaves a top-level blockquote between halves', () => {
+        editor = new Editor({
+          extensions: listExtensions,
+          content: '<ul><li><p>A</p></li><li><p>B</p></li><li><p>C</p></li></ul>',
+        });
+        // Walk doc to find caret in B
+        let bPos = -1;
+        editor.state.doc.descendants((n, p) => {
+          if (n.isText && n.text === 'B') { bPos = p + 1; return false; }
+          return true;
+        });
+        setSelection(editor, bPos);
+        expect(editor.commands.wrapIn('blockquote')).toBe(true);
+        const html = editor.getHTML();
+        expect(html).toContain('<ul><li><p>A</p></li></ul>');
+        expect(html).toContain('<blockquote><p>B</p></blockquote>');
+        expect(html).toContain('<ul><li><p>C</p></li></ul>');
+      });
+
+      it('returns false when fallback would still be schema-invalid (e.g. nested-li outer schema rejects)', () => {
+        editor = new Editor({
+          extensions: listExtensions,
+          content: '<p>plain</p>',
+        });
+        setSelection(editor, 2);
+        // Top-level paragraph already wraps fine - this is just to make sure
+        // we didn't regress the non-list path.
+        expect(editor.commands.wrapIn('blockquote')).toBe(true);
+        expect(editor.getHTML()).toBe('<blockquote><p>plain</p></blockquote>');
+      });
+    });
   });
 
   describe('toggleWrap', () => {

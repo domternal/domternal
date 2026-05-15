@@ -101,13 +101,13 @@ export function stripInlineColorConflicts(
     if (!node.isText) return true;
     const existing = node.marks.find((m) => m.type === textStyleType);
     if (!existing) return false;
-    const hasConflict = inlineKeys.some((k) => existing.attrs[k] != null);
+    const hasConflict = inlineKeys.some((k) => existing.attrs[k] !== null && existing.attrs[k] !== undefined);
     if (!hasConflict) return false;
     const start = Math.max(pos, from);
     const end = Math.min(pos + node.nodeSize, to);
     const newAttrs: Record<string, unknown> = { ...existing.attrs };
     for (const k of inlineKeys) newAttrs[k] = null;
-    const stillUsed = Object.values(newAttrs).some((v) => v != null);
+    const stillUsed = Object.values(newAttrs).some((v) => v !== null && v !== undefined);
     tr.removeMark(start, end, existing);
     if (stillUsed) tr.addMark(start, end, textStyleType.create(newAttrs));
     return false;

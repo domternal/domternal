@@ -13,7 +13,6 @@ import { expect, type Page } from '@playwright/test';
 
 const editorSelector = 'app-notion-demo .ProseMirror';
 const modeToggleNotion = '.toolbar-mode-toggle button:has-text("Notion style")';
-const STORAGE_KEY = 'dm-notion-color-recent';
 
 async function goNotion(page: Page): Promise<void> {
   await page.goto('/');
@@ -86,17 +85,6 @@ async function selectFirstParagraph(page: Page): Promise<void> {
 test.describe('Notion color picker - data layer', () => {
   test.beforeEach(async ({ page }) => {
     await goNotion(page);
-    // Clear shared cross-test state. The editor instance has already been
-    // constructed at this point and may have loaded a previous test's
-    // recents; reset both the persisted store and the in-memory copy.
-    await page.evaluate((k) => {
-      localStorage.removeItem(k);
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { commands: { clearRecentColors: () => boolean } }
-        | undefined;
-      ed?.commands.clearRecentColors();
-      localStorage.removeItem(k);
-    }, STORAGE_KEY);
   });
 
   test('setTextColorToken applies data-text-color to selection', async ({ page }) => {
@@ -154,40 +142,6 @@ test.describe('Notion color picker - data layer', () => {
 
     await runCommand(page, 'unsetTextColorToken');
     expect(await getEditorHtml(page)).not.toContain('data-text-color');
-  });
-
-  test('pushRecentColor persists across page reload', async ({ page }) => {
-    await runCommand(page, 'pushRecentColor', { kind: 'text', token: 'gray' });
-    await runCommand(page, 'pushRecentColor', { kind: 'bg', token: 'yellow' });
-
-    // Confirm persisted before reload.
-    const stored = await page.evaluate((k) => localStorage.getItem(k), STORAGE_KEY);
-    expect(JSON.parse(stored!)).toEqual([
-      { kind: 'bg', token: 'yellow' },
-      { kind: 'text', token: 'gray' },
-    ]);
-
-    await page.reload();
-    // The app loads in its default mode (Standard) on reload; flip back to
-    // Notion so app-notion-demo mounts and re-exposes __DEMO_EDITOR__.
-    await page.waitForSelector(modeToggleNotion);
-    await page.click(modeToggleNotion);
-    await page.waitForSelector(editorSelector);
-    await page.waitForFunction(
-      () => Boolean((window as unknown as Record<string, unknown>)['__DEMO_EDITOR__']),
-      { timeout: 3000 },
-    );
-
-    const recentAfterReload = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as {
-        storage: { notionColorPicker: { recent: unknown } };
-      };
-      return ed.storage.notionColorPicker.recent;
-    });
-    expect(recentAfterReload).toEqual([
-      { kind: 'bg', token: 'yellow' },
-      { kind: 'text', token: 'gray' },
-    ]);
   });
 
   test('paste-from-Domternal preserves data-text-color (no inline style needed)', async ({ page }) => {
@@ -365,23 +319,6 @@ test.describe('Notion color picker - data layer', () => {
     ).toBeVisible();
   });
 
-  test('UI: swatch click updates the Recently used row on next open', async ({ page }) => {
-    await setContentAndSelectAll(page, '<p>Hello world</p>');
-
-    await page.click(triggerSelector);
-    await page.click(`${panelSelector} .dm-ncp-swatch--text[data-color="blue"]`);
-    // Close then reopen to inspect Recently used.
-    await page.keyboard.press('Escape');
-    await expect(page.locator(panelSelector)).not.toBeVisible();
-
-    await selectFirstParagraph(page);
-    await page.click(triggerSelector);
-    const recentSwatch = page.locator(
-      `${panelSelector} .dm-ncp-section`,
-    ).first().locator(`.dm-ncp-swatch--text[data-color="blue"]`);
-    await expect(recentSwatch).toBeVisible();
-  });
-
   test('UI: active ring on currently applied token', async ({ page }) => {
     await setContentAndSelectAll(page, '<p>Hello world</p>');
     await runCommand(page, 'setTextColorToken', 'red');
@@ -497,44 +434,6 @@ test.describe('Notion color picker - data layer', () => {
     await expect(
       page.locator(`${panelSelector} .dm-ncp-swatch--bg[data-color="pink"].dm-ncp-active`),
     ).toBeVisible();
-  });
-
-  test('UI: picking the same token twice keeps a single recent entry', async ({ page }) => {
-    await selectFirstParagraph(page);
-    await page.click(triggerSelector);
-    await page.click(`${panelSelector} .dm-ncp-swatch--text[data-color="orange"]`);
-    await selectFirstParagraph(page);
-    await page.click(triggerSelector);
-    await page.click(`${panelSelector} .dm-ncp-swatch--text[data-color="orange"]`);
-
-    const recent = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as {
-        storage: { notionColorPicker: { recent: unknown[] } };
-      };
-      return ed.storage.notionColorPicker.recent;
-    });
-    expect(recent).toHaveLength(1);
-    expect(recent[0]).toEqual({ kind: 'text', token: 'orange' });
-  });
-
-  test('UI: clicking a recent-row entry re-applies that color', async ({ page }) => {
-    await selectFirstParagraph(page);
-    await page.click(triggerSelector);
-    await page.click(`${panelSelector} .dm-ncp-swatch--bg[data-color="blue"]`);
-
-    // Clear so we can verify the recent-row click reapplies, not a leftover state.
-    await runCommand(page, 'unsetBackgroundColorToken');
-
-    await selectFirstParagraph(page);
-    await page.click(triggerSelector);
-    // First section in the panel is "Recently used"; first swatch in it is the
-    // most-recent pick (blue bg).
-    await page.click(
-      `${panelSelector} .dm-ncp-section:first-child .dm-ncp-swatch--bg[data-color="blue"]`,
-    );
-
-    const html = await getEditorHtml(page);
-    expect(html).toContain('data-bg-color="blue"');
   });
 
   test('UI: A trigger gains --active class when any color token is applied', async ({ page }) => {
@@ -702,7 +601,7 @@ test.describe('Notion color picker - data layer', () => {
     );
 
     // From "null" (idx 0 in the text section) → idx 5 = first bg swatch
-    // ("null" in bg section). With no recent row, that's correct.
+    // ("null" in bg section); the grid is fixed at 5 columns.
     await page.keyboard.press('ArrowDown');
     const focused = await page.evaluate(() => {
       const el = document.activeElement as HTMLElement | null;
@@ -782,20 +681,4 @@ test.describe('Notion color picker - data layer', () => {
     await expect(moreBtn).toBeDisabled();
   });
 
-  test('clearRecentColors wipes storage and localStorage', async ({ page }) => {
-    await runCommand(page, 'pushRecentColor', { kind: 'text', token: 'gray' });
-    await runCommand(page, 'pushRecentColor', { kind: 'bg', token: 'red' });
-    await runCommand(page, 'clearRecentColors');
-
-    const recent = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as {
-        storage: { notionColorPicker: { recent: unknown } };
-      };
-      return ed.storage.notionColorPicker.recent;
-    });
-    expect(recent).toEqual([]);
-
-    const stored = await page.evaluate((k) => localStorage.getItem(k), STORAGE_KEY);
-    expect(stored).toBe('[]');
-  });
 });

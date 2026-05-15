@@ -4,9 +4,10 @@
  * heading list and the shared `activeId`. Clicks route to
  * `editor.commands.scrollToHeading`, same code path as the floating outline.
  */
-import { Node } from '@domternal/core';
+import { Node, splitListForInsert } from '@domternal/core';
 import type { Editor, FloatingMenuItem } from '@domternal/core';
 import type { NodeViewConstructor } from '@domternal/pm/view';
+import { TextSelection } from '@domternal/pm/state';
 import { scrollToHeading } from './helpers/scrollToHeading.js';
 import { resolveUniqueIDAttrName } from './helpers/uniqueIDIntegration.js';
 import type { TocStorage, HeadingEntry } from './types.js';
@@ -242,9 +243,27 @@ export const TableOfContentsBlock = Node.create<TableOfContentsBlockOptions>({
         keywords: ['toc', 'outline', 'contents'],
         // Function command: SlashCommand removes the typed `/toc`
         // range BEFORE invoking us (FloatingMenuController.executeItem
-        // does the deleteRange). Here we just need to insert the
-        // node at the current cursor position.
+        // does the deleteRange). Insert the atom node at the cursor,
+        // honoring list-item context (split the parent list and place
+        // the TOC at top level rather than nested inside a list item).
         command: (editor: Editor): void => {
+          const { state, view } = editor;
+          const tocType = state.schema.nodes['tableOfContents'];
+          if (!tocType) return;
+          const tocNode = tocType.create();
+          const paragraphType = state.schema.nodes['paragraph'];
+          const trailingParagraph = paragraphType?.create();
+          const nodes = trailingParagraph ? [tocNode, trailingParagraph] : [tocNode];
+
+          const tr = state.tr;
+          const listRange = splitListForInsert(state, tr);
+          if (listRange) {
+            tr.replaceWith(listRange.from, listRange.to, nodes);
+            tr.setSelection(TextSelection.near(tr.doc.resolve(listRange.from + 1)));
+            view.dispatch(tr.scrollIntoView());
+            view.focus();
+            return;
+          }
           editor.chain().focus().insertContent({ type: 'tableOfContents' }).run();
         },
       },

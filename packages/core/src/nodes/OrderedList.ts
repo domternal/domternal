@@ -101,6 +101,7 @@ export const OrderedList = Node.create<OrderedListOptions>({
         keywords: ['ordered', 'numbered', 'list', 'ol', '1.'],
         shortcut: '1. ',
         command: 'toggleOrderedList',
+        hideWhenInside: ['orderedList'],
       },
     ];
   },

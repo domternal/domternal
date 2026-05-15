@@ -3,7 +3,7 @@
  * isolated so wrappers can swap it for a custom NodeView.
  */
 
-import { Node } from '@domternal/core';
+import { Node, splitListForInsert } from '@domternal/core';
 import type { CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
@@ -176,6 +176,19 @@ export const Table = Node.create<TableOptions>({
           const cols = options?.cols ?? 3;
           const withHeaderRow = options?.withHeaderRow ?? true;
           const table = createTable(state.schema, rows, cols, withHeaderRow);
+
+          // List-item-aware path: cursor in the LABEL paragraph of a
+          // list/task item. The table belongs at TOP LEVEL, not nested
+          // inside the list item. The util splits the parent list around
+          // the current item (empty label is consumed).
+          const listRange = splitListForInsert(state, tr);
+          if (listRange) {
+            if (!dispatch) return true;
+            tr.replaceWith(listRange.from, listRange.to, table);
+            tr.setSelection(TextSelection.near(tr.doc.resolve(listRange.from + 1)));
+            dispatch(tr.scrollIntoView());
+            return true;
+          }
 
           if (!dispatch) {
             return true;

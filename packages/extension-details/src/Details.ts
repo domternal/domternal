@@ -4,7 +4,7 @@
  * <details> and `<div data-type="details">` for compatibility.
  */
 
-import { Node, findParentNode, findChildren, defaultBlockAt } from '@domternal/core';
+import { Node, findParentNode, findChildren, defaultBlockAt, liftCurrentListItem } from '@domternal/core';
 import type { CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
 import { Plugin, PluginKey, Selection, TextSelection } from '@domternal/pm/state';
 import type { ViewMutationRecord } from '@domternal/pm/view';
@@ -378,7 +378,31 @@ export const Details = Node.create<DetailsOptions>({
                 return true;
               }
             }
+            // Notion-style PROACTIVE lift: when the cursor sits in the
+            // LABEL paragraph of a list/task item, `wrapInDetails`'s
+            // raw `tr.replaceWith` lets PM auto-fit details *inside*
+            // the list item (producing an empty label + nested details
+            // - schema-valid but visually wrong). Lift the item out
+            // first so the wrap happens at top level. We perform this
+            // check only in dry-run (`!dispatch`) gate so `editor.can()`
+            // still detects availability correctly.
+            const listItemAncestor = (() => {
+              const { $from } = tr.selection;
+              if (!tr.selection.empty) return false;
+              for (let d = $from.depth; d >= 1; d--) {
+                const t = $from.node(d).type.name;
+                if (t === 'listItem' || t === 'taskItem') {
+                  return $from.index(d) === 0;
+                }
+              }
+              return false;
+            })();
+
             if (!dispatch) return true;
+            if (listItemAncestor) {
+              const liftOk = liftCurrentListItem(state, tr);
+              if (!liftOk) return false;
+            }
             const pos = wrapInDetails(tr, tr.selection.$from, tr.selection.$to);
             if (pos < 0) return false;
             // pos + 1 = inside details, + 1 = inside summary

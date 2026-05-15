@@ -124,6 +124,13 @@ export {
 export {
   insertChildrenZoneSibling,
 } from './utils/insertChildrenZoneSibling.js';
+export {
+  liftCurrentListItem,
+} from './utils/liftCurrentListItem.js';
+export {
+  splitListForInsert,
+  type SplitListForInsertRange,
+} from './utils/splitListForInsert.js';
 
 // === Helpers ===
 export {
@@ -373,7 +380,6 @@ export {
   DEFAULT_NOTION_COLOR_PALETTE,
   type NotionColorPickerOptions,
   type NotionColorPickerStorage,
-  type RecentEntry,
   // Formatting Utilities
   ClearFormatting,
   // Link UI

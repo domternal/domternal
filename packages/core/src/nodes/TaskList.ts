@@ -104,6 +104,7 @@ export const TaskList = Node.create<TaskListOptions>({
         keywords: ['todo', 'task', 'checkbox', 'check'],
         shortcut: '[ ] ',
         command: 'toggleTaskList',
+        hideWhenInside: ['taskList'],
       },
     ];
   },

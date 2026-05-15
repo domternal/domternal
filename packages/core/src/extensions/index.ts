@@ -76,7 +76,6 @@ export {
   DEFAULT_NOTION_COLOR_PALETTE,
   type NotionColorPickerOptions,
   type NotionColorPickerStorage,
-  type RecentEntry,
 } from './NotionColorPicker.js';
 
 // Formatting Utilities

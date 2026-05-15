@@ -171,6 +171,43 @@ function findSlashQuery(
 }
 
 /**
+ * Removes items whose `hideWhenInside` matches the cursor's wrapping
+ * list type WHEN the cursor sits in the LABEL paragraph of a list-item
+ * (the first-child slot). Picking the same list type from a label would
+ * lift the user out of the list (PM `liftListItem` semantics) - that's
+ * surprising, so we hide the option.
+ *
+ * The CHILDREN-ZONE case (cursor in a non-first paragraph of a list
+ * item) is preserved on purpose: picking the same list type there
+ * creates a nested sublist, which is useful and Notion-like.
+ */
+export function filterByCursorAncestors(
+  items: FloatingMenuItem[],
+  editor: Editor,
+): FloatingMenuItem[] {
+  const { $from } = editor.view.state.selection;
+
+  // Find the cursor's nearest list-item ancestor; if cursor is in the
+  // LABEL slot of that item, record its wrapping list's type name.
+  let wrappingListType: string | null = null;
+  for (let d = $from.depth; d >= 1; d--) {
+    const t = $from.node(d).type.name;
+    if (t === 'listItem' || t === 'taskItem') {
+      if ($from.index(d) === 0 && d >= 1) {
+        wrappingListType = $from.node(d - 1).type.name;
+      }
+      break;
+    }
+  }
+
+  return items.filter((item) => {
+    if (!item.hideWhenInside || item.hideWhenInside.length === 0) return true;
+    if (!wrappingListType) return true;
+    return !item.hideWhenInside.includes(wrappingListType);
+  });
+}
+
+/**
  * Filters and ranks FloatingMenuItems against a query. Priority:
  *   1. Exact label prefix (case-insensitive)
  *   2. Label substring match
@@ -379,7 +416,8 @@ export function createSlashCommandPlugin(
 
           if (state.active && state.range) {
             const items = FloatingMenuController.resolveItems(editor, itemsOverride);
-            const filtered = filterSlashItems(items, state.query);
+            const contextual = filterByCursorAncestors(items, editor);
+            const filtered = filterSlashItems(contextual, state.query);
 
             const command = (item: FloatingMenuItem): void => {
               const current = pluginKey.getState(view.state);

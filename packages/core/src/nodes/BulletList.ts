@@ -82,6 +82,9 @@ export const BulletList = Node.create<BulletListOptions>({
         keywords: ['bullet', 'list', 'unordered', 'ul'],
         shortcut: '- ',
         command: 'toggleBulletList',
+        // Don't offer "Bulleted list" while cursor is already inside one,
+        // otherwise picking it lifts the user out of the list.
+        hideWhenInside: ['bulletList'],
       },
     ];
   },
