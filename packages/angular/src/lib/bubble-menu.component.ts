@@ -74,7 +74,7 @@ interface SchemaShape {
             (click)="executeCommand(item)"></button>
         }
       }
-      @if (showColorPickerButton()) {
+      @if (showColorPickerButton() && !isNodeSelection()) {
         <span class="dm-toolbar-separator" role="separator"></span>
         <button #colorBtn type="button" class="dm-toolbar-button dm-ncp-trigger"
           [class.dm-toolbar-button--active]="hasAnyColor()"
@@ -88,7 +88,7 @@ interface SchemaShape {
             [style.background-color]="currentBgColorVar()"></span>
         </button>
       }
-      @if (showBlockMenuButton()) {
+      @if (showBlockMenuButton() && !isNodeSelection()) {
         <span class="dm-toolbar-separator" role="separator"></span>
         <button #blockMenuBtn type="button" class="dm-toolbar-button"
           [disabled]="blockMenuButtonDisabled()"
@@ -124,6 +124,9 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
   /** Internal — true when the selection spans more than one top-level block; the "..." trigger is disabled in that case because block-level commands have no unambiguous target. */
   readonly blockMenuButtonDisabled = signal(false);
+
+  /** Internal — true when the current selection is a NodeSelection (image, HR). The text-color and block-context triggers are hidden in that case: a node has no inline text to color and its bubble menu already exposes node-specific actions. */
+  readonly isNodeSelection = signal(false);
 
   /** Internal — true when the NotionColorPicker extension is loaded; toggles the "A" color trigger. */
   readonly showColorPickerButton = signal(false);
@@ -417,10 +420,11 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
     this.transactionHandler = () => {
       this.ngZone.run(() => {
+        const sel = editor.state.selection as unknown as SelectionShape;
+        this.isNodeSelection.set(!!sel.node);
         if (this.contexts()) {
           this.updateContextItems(editor);
         } else {
-          const sel = editor.state.selection as unknown as SelectionShape;
           if (sel.node && this.bubbleDefaults.has(sel.node.type.name)) {
             this.resolvedItems.set(this.bubbleDefaults.get(sel.node.type.name) ?? []);
           } else {
@@ -439,6 +443,9 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     };
     editor.on('transaction', this.transactionHandler);
     this.updateStates(editor);
+    this.isNodeSelection.set(
+      !!(editor.state.selection as unknown as SelectionShape).node,
+    );
     if (this.showColorPickerButton()) {
       this.syncColorTriggerState(editor);
     }

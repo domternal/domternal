@@ -329,6 +329,59 @@ describe('TaskItem', () => {
       expect(taskItem.attrs['checked']).toBe(true);
     });
 
+    it('Enter on a CHECKED non-empty taskItem creates an UNCHECKED sibling', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content:
+          '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><label contenteditable="false"><input type="checkbox" checked></label><div><p>Done task</p></div></li></ul>',
+      });
+
+      // Place cursor at the END of the existing task's text so Enter splits
+      // (not the start, which would push content into the new item).
+      const para = editor.state.doc.firstChild!.firstChild!.firstChild!;
+      const endOfText = 1 /* taskList open */ + 1 /* taskItem open */ + 1 /* paragraph open */ + para.content.size;
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, endOfText)),
+      );
+
+      const nodeType = editor.state.schema.nodes['taskItem'];
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem, editor, nodeType, options: TaskItem.options,
+      } as any);
+      const result = (shortcuts?.['Enter'] as any)?.();
+      expect(result).toBe(true);
+
+      const list = editor.state.doc.firstChild!;
+      expect(list.childCount).toBe(2);
+      // Original task stays checked, new sibling starts unchecked.
+      expect(list.child(0).attrs['checked']).toBe(true);
+      expect(list.child(1).attrs['checked']).toBe(false);
+    });
+
+    it('Enter on an UNCHECKED taskItem creates another UNCHECKED sibling', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content:
+          '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><label contenteditable="false"><input type="checkbox"></label><div><p>Todo</p></div></li></ul>',
+      });
+
+      const para = editor.state.doc.firstChild!.firstChild!.firstChild!;
+      const endOfText = 1 + 1 + 1 + para.content.size;
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, endOfText)),
+      );
+
+      const nodeType = editor.state.schema.nodes['taskItem'];
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem, editor, nodeType, options: TaskItem.options,
+      } as any);
+      (shortcuts?.['Enter'] as any)?.();
+
+      const list = editor.state.doc.firstChild!;
+      expect(list.childCount).toBe(2);
+      expect(list.child(1).attrs['checked']).toBe(false);
+    });
+
     it('Enter guard: returns false when cursor parent is not taskItem', () => {
       editor = new Editor({
         extensions: [Document, Text, Paragraph, TaskList, TaskItem],

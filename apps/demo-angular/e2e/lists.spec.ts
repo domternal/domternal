@@ -633,6 +633,20 @@ test.describe('Task List — checkbox interactivity', () => {
     await expect(label).toHaveCSS('text-decoration-line', 'none');
   });
 
+  test('Enter on a checked task creates an UNCHECKED sibling', async ({ page }) => {
+    await setContentAndFocus(page, TASK_LIST_CHECKED);
+    // Place the caret at the end of the existing checked task's label.
+    await page.locator(`${editorSelector} li[data-type="taskItem"] > div > p`).first().click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+
+    const items = page.locator(`${editorSelector} li[data-type="taskItem"]`);
+    await expect(items).toHaveCount(2);
+    // Original stays checked, new sibling starts fresh (unchecked).
+    await expect(items.nth(0)).toHaveAttribute('data-checked', 'true');
+    await expect(items.nth(1)).toHaveAttribute('data-checked', 'false');
+  });
+
   test('checking a parent does NOT propagate strikethrough to nested child label', async ({ page }) => {
     // Notion-parity guard: with the strikethrough scoped to the label
     // paragraph (`> div > p:first-child`), checking a parent task must

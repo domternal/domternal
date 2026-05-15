@@ -165,8 +165,13 @@ export const TaskItem = Node.create<TaskItemOptions>({
           }
         }
 
-        // Standard split for non-empty items
-        if (splitListItem(this.nodeType)(state, view.dispatch)) return true;
+        // Standard split for non-empty items. Pass `{ checked: false }` so
+        // a freshly-spawned task item always starts unchecked - splitting
+        // off a checked task otherwise inherits checked: true (Notion
+        // semantics: each new task is fresh work). Other attrs assigned
+        // by sibling extensions (UniqueID's `id`, etc.) are intentionally
+        // NOT forwarded so those extensions can regenerate them.
+        if (splitListItem(this.nodeType, { checked: false })(state, view.dispatch)) return true;
 
         // For empty taskItem nested inside a parent list item (e.g. orderedList > listItem > taskList > taskItem),
         // delete the taskItem, clean up the taskList if empty, and create a new parent listItem.

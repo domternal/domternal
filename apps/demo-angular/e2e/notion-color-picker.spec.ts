@@ -453,6 +453,24 @@ test.describe('Notion color picker - data layer', () => {
     expect(hasSlash[1]).toContain('linear-gradient');
   });
 
+  test('UI: image bubble menu hides "A" color trigger and "..." block-menu trigger', async ({ page }) => {
+    // Insert an image and select it as a NodeSelection. Its bubble menu
+    // exposes its own image actions (float, delete, etc.) - the trailing
+    // text-color and block-context triggers would be redundant or wrong
+    // for a node selection and must not render.
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as {
+        setContent: (h: string, emit: boolean) => void;
+      };
+      ed.setContent('<p>before</p><img src="https://placekitten.com/200/120" alt="x"><p>after</p>', false);
+    });
+    await page.locator(`${editorSelector} .dm-image-resizable`).first().click();
+    await page.waitForSelector('.dm-bubble-menu[data-show]', { timeout: 5000 });
+
+    await expect(page.locator(`${triggerSelector}`)).toHaveCount(0);
+    await expect(page.locator('.dm-bubble-menu button[aria-label="More options"]')).toHaveCount(0);
+  });
+
   test('UI: bubble menu stays open while interacting with the picker', async ({ page }) => {
     await selectFirstParagraph(page);
     await page.click(triggerSelector);
