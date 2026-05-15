@@ -34,6 +34,15 @@ new Editor({
 
 Sharing `UniqueID`'s id system unifies TOC navigation with the `BlockContextMenu` "Copy link to block" feature: the same id powers both, and native browser `<a href="#id">` navigation works without our JavaScript.
 
+## Breaking changes from previous versions
+
+This release removes the `tocId` schema attribute and its `generateId` option in favour of reading heading ids from the `UniqueID` extension.
+
+- **Removed:** the `tocId` attribute on heading nodes (DOM attribute `data-toc-id`). Outline buttons now use their own `data-toc-anchor` marker; the heading itself uses native HTML `id` from UniqueID.
+- **Removed:** `TableOfContents.configure({ generateId: ... })`. Configure id generation on `UniqueID.configure({ generateID: ... })` instead.
+- **Preserved:** `editor.storage.toc.content[N].id` continues to work; the value is now sourced from UniqueID's id attribute rather than tocId.
+- **Migration:** add `UniqueID` to your extensions array (see above). If you were customising the id format via `generateId`, move that option to UniqueID. If you were targeting `[data-toc-id]` in custom CSS, switch to the heading's `[id]`.
+
 ## Links
 
 <u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/extensions/table-of-contents)</u>

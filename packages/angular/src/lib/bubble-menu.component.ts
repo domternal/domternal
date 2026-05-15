@@ -147,19 +147,19 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   /** Context-aware: map context names to item arrays, `true` for all valid items, or `null` to disable */
   readonly contexts = input<Record<string, string[] | true | null>>();
 
-  /** Internal — updated on transactions. Not meant to be set from outside. */
+  /** Internal - updated on transactions. Not meant to be set from outside. */
   readonly resolvedItems = signal<BubbleMenuItem[]>([]);
 
-  /** Internal — true when the BlockContextMenu extension is loaded; toggles the "..." trailing button. */
+  /** Internal - true when the BlockContextMenu extension is loaded; toggles the "..." trailing button. */
   readonly showBlockMenuButton = signal(false);
 
-  /** Internal — true when the selection spans more than one top-level block; the "..." trigger is disabled in that case because block-level commands have no unambiguous target. */
+  /** Internal - true when the selection spans more than one top-level block; the "..." trigger is disabled in that case because block-level commands have no unambiguous target. */
   readonly blockMenuButtonDisabled = signal(false);
 
-  /** Internal — true when the current selection is a NodeSelection (image, HR). The text-color and block-context triggers are hidden in that case: a node has no inline text to color and its bubble menu already exposes node-specific actions. */
+  /** Internal - true when the current selection is a NodeSelection (image, HR). The text-color and block-context triggers are hidden in that case: a node has no inline text to color and its bubble menu already exposes node-specific actions. */
   readonly isNodeSelection = signal(false);
 
-  /** Internal — true when the NotionColorPicker extension is loaded; toggles the "A" color trigger. */
+  /** Internal - true when the NotionColorPicker extension is loaded; toggles the "A" color trigger. */
   readonly showColorPickerButton = signal(false);
 
   /** Current text color CSS variable expression for the trigger glyph (null = default). */
@@ -168,7 +168,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   /** Current background color CSS variable expression for the trigger underline (null = transparent). */
   readonly currentBgColorVar = signal<string | null>(null);
 
-  /** Internal — true when the selection has any token-based text or background color applied. */
+  /** Internal - true when the selection has any token-based text or background color applied. */
   readonly hasAnyColor = signal(false);
 
   private menuEl = viewChild.required<ElementRef<HTMLElement>>('menuEl');
@@ -198,9 +198,15 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     '<path d="M2 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   constructor() {
-    this.pluginKey = new PluginKey(
-      'angularBubbleMenu-' + Math.random().toString(36).slice(2, 8),
-    );
+    // Each component instance needs a unique plugin key so that multiple
+    // bubble-menus mounted in the same editor do not collide. Prefer
+    // crypto.randomUUID over Math.random() for collision-free uniqueness
+    // (Math.random across two simultaneous mounts has a small but real
+    // collision probability, and SSR may share the random seed).
+    const crypto = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+    const suffix =
+      crypto?.randomUUID?.().slice(0, 8) ?? Math.random().toString(36).slice(2, 8);
+    this.pluginKey = new PluginKey('angularBubbleMenu-' + suffix);
 
     afterNextRender(() => {
       const editor = this.editor();
@@ -366,7 +372,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   }
 
   private detectContext(selection: SelectionShape, ctxs: Record<string, string[] | true | null>): string | null {
-    // CellSelection (duck-type: has $anchorCell) — never show bubble menu
+    // CellSelection (duck-type: has $anchorCell) - never show bubble menu
     if ('$anchorCell' in selection) return null;
     if (selection.node) return selection.node.type.name;
     if (selection.empty) return null;
@@ -459,17 +465,13 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     );
 
     const items = this.items();
+    const defaultItems = this.resolveNames(items ?? ['bold', 'italic', 'underline']);
+
     if (this.contexts()) {
       this.updateContextItems(editor);
-    } else if (items) {
-      this.resolvedItems.set(this.resolveNames(items));
     } else {
-      this.resolvedItems.set(this.resolveNames(['bold', 'italic', 'underline']));
+      this.resolvedItems.set(defaultItems);
     }
-
-    const defaultItems = items
-      ? this.resolveNames(items)
-      : this.resolveNames(['bold', 'italic', 'underline']);
 
     this.transactionHandler = () => {
       this.ngZone.run(() => {
@@ -477,34 +479,33 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
         this.isNodeSelection.set(!!sel.node);
         if (this.contexts()) {
           this.updateContextItems(editor);
+        } else if (sel.node && this.bubbleDefaults.has(sel.node.type.name)) {
+          this.resolvedItems.set(this.bubbleDefaults.get(sel.node.type.name) ?? []);
         } else {
-          if (sel.node && this.bubbleDefaults.has(sel.node.type.name)) {
-            this.resolvedItems.set(this.bubbleDefaults.get(sel.node.type.name) ?? []);
-          } else {
-            this.resolvedItems.set(defaultItems);
-          }
+          this.resolvedItems.set(defaultItems);
         }
         this.updateStates(editor);
-        if (this.showColorPickerButton()) {
-          this.syncColorTriggerState(editor);
-        }
-        if (this.showBlockMenuButton()) {
-          this.syncBlockMenuButtonState(editor);
-        }
-        this.activeVersion.update(v => v + 1);
+        this.syncTrailingButtonsState(editor);
+        this.activeVersion.update((v) => v + 1);
       });
     };
     editor.on('transaction', this.transactionHandler);
     this.updateStates(editor);
+    this.syncTrailingButtonsState(editor);
+  }
+
+  /**
+   * Refresh state for the optional trailing buttons (A color trigger,
+   * "..." block menu) and the isNodeSelection flag. Called from both
+   * setupItemTracking init and the per-transaction handler so the two
+   * paths stay in sync.
+   */
+  private syncTrailingButtonsState(editor: Editor): void {
     this.isNodeSelection.set(
       !!(editor.state.selection as unknown as SelectionShape).node,
     );
-    if (this.showColorPickerButton()) {
-      this.syncColorTriggerState(editor);
-    }
-    if (this.showBlockMenuButton()) {
-      this.syncBlockMenuButtonState(editor);
-    }
+    if (this.showColorPickerButton()) this.syncColorTriggerState(editor);
+    if (this.showBlockMenuButton()) this.syncBlockMenuButtonState(editor);
   }
 
   /**

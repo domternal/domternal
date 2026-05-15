@@ -53,7 +53,7 @@ export const HorizontalRule = Node.create<HorizontalRuleOptions>({
           const parent = $from.parent;
 
           // Block insertion when selection is not in a textblock (e.g. CellSelection
-          // resolves $from at the tableRow level — inserting HR there splits the table)
+          // resolves $from at the tableRow level - inserting HR there splits the table)
           if (!parent.isTextblock) return false;
 
           const paragraphType = state.schema.nodes['paragraph'];
@@ -142,7 +142,7 @@ export const HorizontalRule = Node.create<HorizontalRuleOptions>({
 
     return [
       new InputRule(
-        /^(?:---|—-|___|\*\*\*)\s$/,
+        /^(?:---|--|___|\*\*\*)\s$/,
         (state: EditorState, match: RegExpMatchArray, start: number) => {
           const { tr } = state;
 

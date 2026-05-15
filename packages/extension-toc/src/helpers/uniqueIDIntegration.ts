@@ -18,21 +18,34 @@ import type { Editor } from '@domternal/core';
  */
 const DEFAULT_ATTR_NAME = 'id';
 
+/** Extension `name` exposed by the UniqueID extension in core. */
+const UNIQUE_ID_EXTENSION_NAME = 'uniqueID';
+
+/**
+ * True when the UniqueID extension is loaded on the given editor.
+ * Use this when you only need the boolean (e.g. to emit a clear
+ * `console.error` before short-circuiting). Use `resolveUniqueIDAttrName`
+ * when you also need the attribute name.
+ */
+export function isUniqueIDLoaded(editor: Editor): boolean {
+  return editor.extensionManager.extensions.some(
+    (e) => e.name === UNIQUE_ID_EXTENSION_NAME,
+  );
+}
+
 /**
  * Resolve the attribute name (DOM + node.attrs key) under which
- * UniqueID stores per-block stable ids.
- *
- *   - Returns the configured `attributeName` from UniqueID's options
- *     when UniqueID is loaded and the option is a non-empty string.
- *   - Returns the default `'id'` when UniqueID is loaded but the
- *     option is missing/blank (defensive fallback).
- *   - Returns `null` when UniqueID is NOT loaded — callers should
- *     treat this as "TOC peer dep missing" and short-circuit
- *     accordingly (typically: surface a console.error and bail).
+ * UniqueID stores per-block stable ids. Always returns a non-empty
+ * string: the default `'id'` is used both when UniqueID is absent
+ * and when its `attributeName` option is missing or blank. Callers
+ * that need to distinguish "absent" from "default" should also call
+ * `isUniqueIDLoaded`.
  */
-export function resolveUniqueIDAttrName(editor: Editor): string | null {
-  const ext = editor.extensionManager.extensions.find((e) => e.name === 'uniqueID');
-  if (!ext) return null;
+export function resolveUniqueIDAttrName(editor: Editor): string {
+  const ext = editor.extensionManager.extensions.find(
+    (e) => e.name === UNIQUE_ID_EXTENSION_NAME,
+  );
+  if (!ext) return DEFAULT_ATTR_NAME;
   const raw = (ext.options as { attributeName?: unknown }).attributeName;
   return typeof raw === 'string' && raw.length > 0 ? raw : DEFAULT_ATTR_NAME;
 }

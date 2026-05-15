@@ -10,8 +10,10 @@
  * heading wins.
  *
  * Edge case: if the user is above all headings (e.g. first paint at
- * top of doc, no heading has yet crossed the viewport top), no tick
- * is highlighted (`activeId = null`).
+ * top of doc, no heading has yet crossed the viewport top), the
+ * FIRST visible heading is highlighted as a fallback - this avoids a
+ * flash of "no active tick" on initial load. Returns null only when
+ * no headings are visible at all (doc with no headings).
  *
  * The tracker is decoupled from FloatingTocOutline so other consumers
  * (e.g. inline /toc block) can adopt the same logic without spawning

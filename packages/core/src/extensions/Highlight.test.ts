@@ -322,7 +322,7 @@ describe('Highlight', () => {
       editor.commands.setTextColor('#e03131');
       editor.commands.setHighlight({ color: '#fef08a' });
       const html = editor.getHTML();
-      // Both styles on same span — no nesting
+      // Both styles on same span - no nesting
       expect(html).toContain('color: #e03131');
       expect(html).toContain('background-color: #fef08a');
       expect(html).not.toContain('<mark');

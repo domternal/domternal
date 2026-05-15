@@ -141,15 +141,25 @@ function makeNodeViewConstructor(
       // was constructed (e.g. block inserted into an existing doc).
       refresh();
     } else {
-      // No TableOfContents loaded - render the empty state once and
-      // never update. The block stays inert and shows the placeholder.
+      // No TableOfContents loaded. The block stays inert. Loud-fail in
+      // the console so consumers wire it up; otherwise this rendered as
+      // an empty placeholder with no signal of the missing dependency.
+      // Mirrors TableOfContents' own peer-dep error.
+      // eslint-disable-next-line no-console
+      console.error(
+        '[TableOfContentsBlock] TableOfContents extension is not loaded. ' +
+        'The /toc block will render as an empty placeholder.\n' +
+        'Add it to your extensions array:\n' +
+        '  import { TableOfContents } from "@domternal/extension-toc";\n' +
+        '  extensions: [..., TableOfContents]',
+      );
       renderBlockContent(dom, [], options.emptyStateText);
     }
 
     // Resolve UniqueID's attrName once per NodeView mount. Falls back
     // to 'id' when UniqueID is absent (TOC will have errored loudly,
     // and this NodeView only renders the empty-state placeholder).
-    const attrName = resolveUniqueIDAttrName(editor) ?? 'id';
+    const attrName = resolveUniqueIDAttrName(editor);
 
     // Click delegation: clicks anywhere inside the block bubble up
     // to this listener. closest('[data-toc-anchor]') resolves to a

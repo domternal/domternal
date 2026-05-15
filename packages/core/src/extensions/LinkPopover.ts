@@ -2,7 +2,7 @@
  * LinkPopover Extension
  *
  * Provides a floating URL input popover for editing links.
- * This is a UI extension — it creates DOM elements and should only be used
+ * This is a UI extension - it creates DOM elements and should only be used
  * when a visual link-editing UI is desired. In headless (core-only) setups
  * this extension can be omitted; users build their own link UI instead.
  *
@@ -172,7 +172,7 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
     el.style.display = 'none';
     isOpen = false;
     setLinkStorageOpen(false);
-    // Clear pending-link decoration — dispatch AFTER setting storage['isOpen']
+    // Clear pending-link decoration - dispatch AFTER setting storage['isOpen']
     // so the toolbar transaction handler sees the updated value.
     editor.view.dispatch(editor.view.state.tr.setMeta(linkPopoverPluginKey, null));
     input.value = '';
@@ -284,7 +284,7 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
 
   const onClickOutside = (e: MouseEvent): void => {
     if (!isOpen || el.contains(e.target as Node)) return;
-    // Skip if clicking the toolbar button that toggles this popover —
+    // Skip if clicking the toolbar button that toggles this popover -
     // the button's click handler will fire onLinkEdit to toggle.
     if (toggleAnchor && (toggleAnchor === e.target || toggleAnchor.contains(e.target as Node))) return;
     hide();
@@ -323,7 +323,7 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
       // Append to document.body so it's not clipped by .dm-editor overflow:hidden
       document.body.appendChild(el);
 
-      // Register all event listeners here — ProseMirror calls destroy()/view()
+      // Register all event listeners here - ProseMirror calls destroy()/view()
       // on plugin view rebuilds, so listeners must be re-attached each time.
       input.addEventListener('keydown', onInputKeydown);
       applyBtn.addEventListener('mousedown', onPreventBlur);

@@ -58,7 +58,7 @@ describe('TableOfContents - configuration', () => {
     expect(TableOfContents.options.anchorTypes).toEqual(['heading']);
   });
 
-  it('does not expose generateId — id generation lives in UniqueID', () => {
+  it('does not expose generateId - id generation lives in UniqueID', () => {
     expect((TableOfContents.options as { generateId?: unknown }).generateId).toBeUndefined();
   });
 
@@ -182,7 +182,7 @@ describe('TableOfContents - peer config validation', () => {
     const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     try {
       // Default UniqueID.types includes 'heading'; default TOC.anchorTypes
-      // is ['heading']. No mismatch — no warn.
+      // is ['heading']. No mismatch - no warn.
       editor = new Editor({
         extensions: baseExtensions,
         content: '<h1>OK</h1>',

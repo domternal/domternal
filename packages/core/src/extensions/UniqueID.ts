@@ -9,6 +9,14 @@ import type { Node as PMNode } from '@domternal/pm/model';
 import type { Editor } from '../Editor.js';
 
 function generateUUID(): string {
+  // Prefer the browser/Node crypto API: cryptographically random and
+  // standardised. Fall back to Math.random() for hostile or test
+  // environments (jsdom prior to v22, very old shims) where
+  // `crypto.randomUUID` is missing.
+  if (typeof globalThis !== 'undefined') {
+    const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+    if (c && typeof c.randomUUID === 'function') return c.randomUUID();
+  }
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;

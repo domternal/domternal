@@ -345,7 +345,7 @@ describe('ListItem', () => {
       } as any);
 
       const result = (shortcuts?.['Enter'] as any)?.();
-      // splitListItem succeeds for empty item — lifts into paragraph at top level
+      // splitListItem succeeds for empty item - lifts into paragraph at top level
       expect(typeof result).toBe('boolean');
     });
   });

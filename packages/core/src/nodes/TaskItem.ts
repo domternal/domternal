@@ -201,12 +201,12 @@ export const TaskItem = Node.create<TaskItemOptions>({
                 const taskListNode = $from.node(taskListDepth);
 
                 if (taskListNode.childCount <= 1) {
-                  // Only child — delete the entire taskList. Deleting just the taskItem
+                  // Only child - delete the entire taskList. Deleting just the taskItem
                   // would leave an empty taskList, violating its content spec and causing
                   // ProseMirror's replaceStep to silently skip the deletion.
                   tr.delete($from.before(taskListDepth), $from.after(taskListDepth));
                 } else {
-                  // Multiple children — delete just the empty taskItem
+                  // Multiple children - delete just the empty taskItem
                   tr.delete($from.before(taskItemDepth), $from.after(taskItemDepth));
                 }
               }

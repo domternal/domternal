@@ -107,6 +107,11 @@
   // never overlaps surrounding chrome the way a real outline would).
   --dm-block-selected-halo: rgba(112, 207, 248, 0.25);
 
+  // Background tint applied to a block while its context menu is open.
+  // Used by `_context-menu.scss` via a Decoration class. Dark theme
+  // override lives in `themes/_dark.scss`.
+  --dm-block-context-active-bg: rgba(55, 53, 47, 0.06);
+
   // ---------------------------------------------------------------------------
   // Editor
   // ---------------------------------------------------------------------------
@@ -270,6 +275,20 @@
   --dm-toc-padding-inline: 8px;
   --dm-toc-right-offset: 24px;
   --dm-toc-z-index: 10;
+
+  // Editor-anchored outline (anchor: 'editor'): top offset from the
+  // editor's top edge. Used by `_toc.scss` sticky shell.
+  --dm-toc-editor-top: 1rem;
+
+  // Page-anchored outline (anchor: 'page'): right offset from the
+  // viewport (smaller than `--dm-toc-right-offset` when nav is mid-page).
+  --dm-toc-page-offset: 8px;
+
+  // Expanded card vertical margin from the viewport top/bottom.
+  // Used by `_toc.scss` viewport-clamp. The plugin writes
+  // `--dm-toc-card-shift-y` (a JS-computed shift) and reads this margin
+  // as the keep-out distance from the viewport edges.
+  --dm-toc-card-viewport-margin: 16px;
 
   // Expanded card: replaces the tick column on hover/focus, showing the
   // full heading text with per-level indent.

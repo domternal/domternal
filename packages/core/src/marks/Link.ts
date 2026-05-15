@@ -244,11 +244,11 @@ export const Link = Mark.create<LinkOptions>({
             const range = getMarkRange($pos, markType);
 
             if (range && tr.doc.rangeHasMark(range.from, range.to, markType)) {
-              // Has link — remove it from the full range
+              // Has link - remove it from the full range
               if (!dispatch) return true;
               tr.removeMark(range.from, range.to, markType);
             } else {
-              // No link — toggle stored mark for cursor
+              // No link - toggle stored mark for cursor
               if (!dispatch) return true;
               const cursorMarks = tr.storedMarks ?? state.storedMarks ?? $pos.marks();
               if (markType.isInSet(cursorMarks)) {

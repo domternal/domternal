@@ -67,14 +67,19 @@
   --dm-block-bg-pink: #4e2c3c;
   --dm-block-bg-red: #5c1e1e;
 
+  // Tuned for WCAG AA contrast (>= 4.5:1) against the dark editor
+  // background (#1e1e1e). Notion's published palette runs slightly
+  // darker on green/blue/orange/pink; we lift those a touch so text
+  // marks (which use these as the foreground color) remain readable
+  // without a tinted background.
   --dm-block-text-gray: #9b9a97;
   --dm-block-text-brown: #ba856f;
-  --dm-block-text-orange: #c77d48;
+  --dm-block-text-orange: #d68a52;
   --dm-block-text-yellow: #ca9849;
-  --dm-block-text-green: #529e72;
-  --dm-block-text-blue: #5e87c9;
-  --dm-block-text-purple: #9d68d3;
-  --dm-block-text-pink: #d15796;
+  --dm-block-text-green: #6db285;
+  --dm-block-text-blue: #7a9bd6;
+  --dm-block-text-purple: #a877d8;
+  --dm-block-text-pink: #dc6da4;
   --dm-block-text-red: #df5452;
 
   // Selected-block halo - lift opacity for visibility on dark bg.

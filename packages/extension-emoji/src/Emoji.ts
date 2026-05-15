@@ -238,7 +238,7 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
             dispatch(tr);
             this.storage.addFrequentlyUsed(name);
           } else if (!item) {
-            // Dry-run: unknown name but context is valid — report as capable
+            // Dry-run: unknown name but context is valid - report as capable
             return true;
           }
 
@@ -267,7 +267,7 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
     const rules: InputRule[] = [];
     const { emojis: emojiData, plainText, enableEmoticons } = this.options;
 
-    // Build maps eagerly — addInputRules() runs before onCreate(),
+    // Build maps eagerly - addInputRules() runs before onCreate(),
     // so we must build and store maps now for the input rule callbacks.
     this.storage._shortcodeMap ??= buildShortcodeMap(emojiData);
     this.storage._nameMap ??= buildNameMap(emojiData);

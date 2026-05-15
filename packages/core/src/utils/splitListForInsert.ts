@@ -21,8 +21,10 @@
  */
 import { liftListItem } from '@domternal/pm/schema-list';
 import type { EditorState, Transaction } from '@domternal/pm/state';
-
-const LIST_ITEM_TYPE_NAMES = new Set(['listItem', 'taskItem']);
+import {
+  findListItemAncestorDepth,
+  isInsideListItem,
+} from './listItemAncestor.js';
 
 export interface SplitListForInsertRange {
   from: number;
@@ -48,13 +50,7 @@ export function splitListForInsert(
   if (tr.steps.length !== 0) return null;
 
   const { $from } = tr.selection;
-  let listItemDepth = -1;
-  for (let d = $from.depth; d >= 1; d--) {
-    if (LIST_ITEM_TYPE_NAMES.has($from.node(d).type.name)) {
-      listItemDepth = d;
-      break;
-    }
-  }
+  const listItemDepth = findListItemAncestorDepth($from);
   if (listItemDepth === -1) return null;
   if ($from.index(listItemDepth) !== 0) return null;
 
@@ -69,15 +65,27 @@ export function splitListForInsert(
   // item (becomes a top-level empty paragraph). The caller then replaces
   // that paragraph with its content. Replacement (not deletion + insert)
   // avoids PM's auto-fill behavior when the resulting doc would be empty.
+  //
+  // For nested empty items (e.g. ul > li > ul > li(empty) > p) PM's
+  // `liftListItem` only lifts ONE wrapper level. Loop until the cursor
+  // reaches doc top level, otherwise the caller's `tr.replaceWith` would
+  // target a position inside a still-enclosing listItem where a top-level
+  // node (hr, table, image) is schema-invalid.
   if (labelIsEmpty) {
-    const listItemType = $from.node(listItemDepth).type;
-    const liftOk = liftListItem(listItemType)(state, (liftTr) => {
-      for (const step of liftTr.steps) tr.step(step);
-      if (liftTr.selectionSet) tr.setSelection(liftTr.selection);
-    });
-    if (!liftOk) return null;
+    const listItemType = listItemNode.type;
+    let safetyLimit = 10;
+    while (safetyLimit-- > 0) {
+      const stepState = state.apply(tr);
+      const liftOk = liftListItem(listItemType)(stepState, (liftTr) => {
+        for (const step of liftTr.steps) tr.step(step);
+        if (liftTr.selectionSet) tr.setSelection(liftTr.selection);
+      });
+      if (!liftOk) break;
+      if (!isInsideListItem(tr.selection.$from)) break;
+    }
 
     const $afterLift = tr.selection.$from;
+    if (isInsideListItem($afterLift)) return null;
     return { from: $afterLift.before(), to: $afterLift.after() };
   }
 

@@ -244,7 +244,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           // the right thing. Falls back to 'id' if UniqueID is not
           // loaded (TOC will have already errored loudly; the outline
           // would render hidden because storage stays empty).
-          const attrName = editor ? resolveUniqueIDAttrName(editor) ?? 'id' : 'id';
+          const attrName = editor ? resolveUniqueIDAttrName(editor) : 'id';
 
           const hostResolver = options.outlineHost ?? resolveDefaultOutlineHost;
           const host = hostResolver(editorView);
@@ -291,7 +291,8 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             //            `calc(50vh - height/2)` (visually centered).
             //   center - host bottom in viewport from the start:
             //            shell flex-centers the nav at host middle.
-            //   frozen - we entered case A via a B→A scroll transition:
+            //   frozen - host bottom transitioned from NOT visible to
+            //            visible (center -> middle scroll direction):
             //            inline `margin-top` pins the nav's natural at
             //            its captured doc position (avoids the visual
             //            jump that flex-center would cause mid-scroll).
@@ -357,6 +358,15 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
               },
               { threshold: 0 },
             );
+            // Observe synchronously. The initial IO callback fires
+            // immediately after observe() and may run before first paint,
+            // where `nav.offsetHeight` is 0 and the frozen-offset branch
+            // in writeBottomVisible cannot compute a stable offset. The
+            // `navRect.height > 0 && navRect.top > 0` guard inside
+            // writeBottomVisible handles that case by falling back to
+            // 'center' mode (no frozen pin) - the visual result is the
+            // same in practice, and synchronous observe() keeps the
+            // unit-test surface predictable.
             bottomObserver.observe(bottomSentinel);
           }
 

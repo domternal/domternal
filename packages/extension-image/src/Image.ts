@@ -19,7 +19,7 @@ export type ImageFloat = 'none' | 'left' | 'right' | 'center';
 
 /**
  * Typed options for the setImage command.
- * src is required — it makes no sense to insert an image without a source URL.
+ * src is required - it makes no sense to insert an image without a source URL.
  */
 export interface SetImageOptions {
   src: string;
@@ -468,7 +468,7 @@ export const Image = Node.create<ImageOptions>({
             if (listRange) {
               if (!dispatch) return true;
               tr.replaceWith(listRange.from, listRange.to, nodes);
-              dispatch(tr);
+              dispatch(tr.scrollIntoView());
               return true;
             }
           }
@@ -775,7 +775,7 @@ export const Image = Node.create<ImageOptions>({
           browseBtn.addEventListener('keydown', onButtonKeydown);
           document.addEventListener('mousedown', onClickOutside);
 
-          // 'insertImage' is a dynamic event not in EditorEvents — cast once
+          // 'insertImage' is a dynamic event not in EditorEvents - cast once
           interface DynEvents { on(e: string, fn: typeof onInsertImage): void; off(e: string, fn: typeof onInsertImage): void }
           const dynEditor = editor as unknown as DynEvents;
           dynEditor.on('insertImage', onInsertImage);

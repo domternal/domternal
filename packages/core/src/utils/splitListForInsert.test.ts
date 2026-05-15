@@ -180,6 +180,68 @@ describe('splitListForInsert', () => {
         { type: 'paragraph', text: '' },
       ]);
     });
+
+    it('NESTED empty item (ul > li > ul > li(empty)): lifts until top level', () => {
+      // Without the multi-lift loop the lifted paragraph stays inside the
+      // outer listItem; replaceWith then rejects the top-level node.
+      editor = make('<ul><li><p>Outer</p><ul><li><p></p></li></ul></li></ul>');
+      // Caret in the nested empty item label
+      let nestedItemCount = 0;
+      let labelPos = -1;
+      editor.state.doc.descendants((node, p) => {
+        if (node.type.name === 'listItem') {
+          if (nestedItemCount === 1) {
+            labelPos = p + 2;
+            return false;
+          }
+          nestedItemCount++;
+        }
+        return true;
+      });
+      if (labelPos === -1) throw new Error('nested item not found');
+      setCaretAt(editor, labelPos);
+      const tr = editor.state.tr;
+      const range = splitListForInsert(editor.state, tr);
+      editor.view.dispatch(tr);
+      expect(range).not.toBeNull();
+      insertHrAndDispatch(editor, range!);
+      const blocks = topLevelBlocks(editor);
+      // The hr lands at top level; the outer bulletList retains 'Outer'.
+      expect(blocks[0]).toEqual({ type: 'bulletList', text: 'Outer' });
+      expect(blocks[1]).toEqual({ type: 'horizontalRule', text: '' });
+      expect(blocks[2]).toEqual({ type: 'paragraph', text: '' });
+    });
+
+    it('deeply nested empty (3 levels): lifts to top level', () => {
+      editor = make(
+        '<ul><li><p>L1</p><ul><li><p>L2</p><ul><li><p></p></li></ul></li></ul></li></ul>',
+      );
+      let nestedItemCount = 0;
+      let labelPos = -1;
+      editor.state.doc.descendants((node, p) => {
+        if (node.type.name === 'listItem') {
+          if (nestedItemCount === 2) {
+            labelPos = p + 2;
+            return false;
+          }
+          nestedItemCount++;
+        }
+        return true;
+      });
+      if (labelPos === -1) throw new Error('deeply nested item not found');
+      setCaretAt(editor, labelPos);
+      const tr = editor.state.tr;
+      const range = splitListForInsert(editor.state, tr);
+      editor.view.dispatch(tr);
+      expect(range).not.toBeNull();
+      insertHrAndDispatch(editor, range!);
+      const blocks = topLevelBlocks(editor);
+      // hr at top level after the lifted, non-empty outer items
+      const hrIdx = blocks.findIndex((b) => b.type === 'horizontalRule');
+      expect(hrIdx).toBeGreaterThan(-1);
+      // Subsequent block is the trailing paragraph
+      expect(blocks[hrIdx + 1]?.type).toBe('paragraph');
+    });
   });
 
   describe('list type variants', () => {

@@ -131,6 +131,12 @@ export {
   splitListForInsert,
   type SplitListForInsertRange,
 } from './utils/splitListForInsert.js';
+export {
+  findListItemAncestorDepth,
+  isInsideListItem,
+  isInListItemLabel,
+  LIST_ITEM_TYPE_NAMES,
+} from './utils/listItemAncestor.js';
 
 // === Helpers ===
 export {

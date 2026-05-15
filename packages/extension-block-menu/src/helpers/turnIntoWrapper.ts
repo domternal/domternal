@@ -61,6 +61,17 @@ export function turnIntoWrapper(
   tr.setSelection(TextSelection.create(tr.doc, blockPos + 1));
   editor.view.dispatch(tr);
 
-  const chain = editor.chain() as unknown as Record<WrapperCommand, () => { run: () => boolean }>;
-  return chain[command]().run();
+  // Dispatch the wrapper command via the editor's commands map. The
+  // map is typed `Record<string, (...) => boolean>` so switch on the
+  // discriminant to keep type-safety without a wide cast.
+  switch (command) {
+    case 'toggleBulletList':
+      return editor.commands.toggleBulletList();
+    case 'toggleOrderedList':
+      return editor.commands.toggleOrderedList();
+    case 'toggleTaskList':
+      return editor.commands.toggleTaskList();
+    case 'toggleBlockquote':
+      return editor.commands.toggleBlockquote();
+  }
 }

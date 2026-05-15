@@ -88,7 +88,7 @@ export const TextStyle = Mark.create<TextStyleOptions>({
 
           if (!markType) return false;
 
-          // For empty selection, check stored marks — setMark on empty selection
+          // For empty selection, check stored marks - setMark on empty selection
           // only modifies stored marks, so the document still has the old mark.
           // An empty textStyle stored mark (all attrs null) would cause future
           // typed text to get a meaningless <span> wrapper.

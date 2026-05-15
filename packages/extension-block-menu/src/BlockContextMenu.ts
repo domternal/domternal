@@ -847,15 +847,20 @@ export const BlockContextMenu = Extension.create<BlockContextMenuOptions>({
   addProseMirrorPlugins() {
     const editor = this.editor as Editor | null;
     if (!editor) return [];
+    // `addOptions()` provides defaults, but the public option interface
+    // marks each field optional so consumers can pass a partial config.
+    // Re-applying defaults here narrows the types back to non-optional
+    // for the plugin factory.
+    const opts = this.options;
     return [
       createBlockContextMenuPlugin({
         pluginKey: blockContextMenuPluginKey,
         editor,
-        turnIntoEnabled: this.options.turnIntoEnabled ?? true,
-        turnIntoTargets: this.options.turnIntoTargets ?? DEFAULT_TURN_INTO,
-        copyLinkEnabled: this.options.copyLinkEnabled ?? true,
-        onCopyLink: this.options.onCopyLink ?? defaultCopyLinkUrl,
-        blockColorEnabled: this.options.blockColorEnabled ?? true,
+        turnIntoEnabled: opts.turnIntoEnabled ?? true,
+        turnIntoTargets: opts.turnIntoTargets ?? DEFAULT_TURN_INTO,
+        copyLinkEnabled: opts.copyLinkEnabled ?? true,
+        onCopyLink: opts.onCopyLink ?? defaultCopyLinkUrl,
+        blockColorEnabled: opts.blockColorEnabled ?? true,
       }),
     ];
   },

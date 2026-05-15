@@ -4,7 +4,7 @@
  * <details> and `<div data-type="details">` for compatibility.
  */
 
-import { Node, findParentNode, findChildren, defaultBlockAt, liftCurrentListItem } from '@domternal/core';
+import { Node, findParentNode, findChildren, defaultBlockAt, liftCurrentListItem, isInListItemLabel } from '@domternal/core';
 import type { CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
 import { Plugin, PluginKey, Selection, TextSelection } from '@domternal/pm/state';
 import type { ViewMutationRecord } from '@domternal/pm/view';
@@ -383,23 +383,18 @@ export const Details = Node.create<DetailsOptions>({
             // raw `tr.replaceWith` lets PM auto-fit details *inside*
             // the list item (producing an empty label + nested details
             // - schema-valid but visually wrong). Lift the item out
-            // first so the wrap happens at top level. We perform this
-            // check only in dry-run (`!dispatch`) gate so `editor.can()`
-            // still detects availability correctly.
-            const listItemAncestor = (() => {
-              const { $from } = tr.selection;
-              if (!tr.selection.empty) return false;
-              for (let d = $from.depth; d >= 1; d--) {
-                const t = $from.node(d).type.name;
-                if (t === 'listItem' || t === 'taskItem') {
-                  return $from.index(d) === 0;
-                }
-              }
-              return false;
-            })();
+            // first so the wrap happens at top level.
+            //
+            // The lift itself only runs during dispatch (it mutates tr);
+            // dry-run (`!dispatch`) follows Tiptap convention and reports
+            // `true` based on cursor position alone. If a consumer needs
+            // strict can-it-actually-succeed semantics, they should probe
+            // with the full chain.
+            const cursorInListItemLabel =
+              tr.selection.empty && isInListItemLabel(tr.selection.$from);
 
             if (!dispatch) return true;
-            if (listItemAncestor) {
+            if (cursorInListItemLabel) {
               const liftOk = liftCurrentListItem(state, tr);
               if (!liftOk) return false;
             }
@@ -505,7 +500,7 @@ export const Details = Node.create<DetailsOptions>({
           return true;
         }
 
-        // At start of summary — unset details
+        // At start of summary - unset details
         return editor.commands['unsetDetails']?.() ?? false;
       },
 
@@ -554,7 +549,7 @@ export const Details = Node.create<DetailsOptions>({
           }
         }
 
-        // Content is (now) visible — create new block at start of detailsContent
+        // Content is (now) visible - create new block at start of detailsContent
         const above = state.doc.nodeAt($head.after());
 
         if (!above) return false;

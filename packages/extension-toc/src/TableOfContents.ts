@@ -13,7 +13,7 @@ import { Plugin, PluginKey, type EditorState } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import { walkHeadings } from './helpers/headingWalk.js';
 import { scrollToHeading } from './helpers/scrollToHeading.js';
-import { resolveUniqueIDAttrName } from './helpers/uniqueIDIntegration.js';
+import { isUniqueIDLoaded, resolveUniqueIDAttrName } from './helpers/uniqueIDIntegration.js';
 import type { HeadingEntry, TableOfContentsOptions, TocStorage } from './types.js';
 
 declare module '@domternal/core' {
@@ -77,7 +77,7 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
           const view = (editor as { view?: EditorView }).view;
           if (!view) return false;
           const ed = editor as unknown as Editor;
-          const attrName = resolveUniqueIDAttrName(ed) ?? 'id';
+          const attrName = resolveUniqueIDAttrName(ed);
           return scrollToHeading(view, id, { attrName });
         },
     };
@@ -90,10 +90,9 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
 
     if (!editor) return [];
 
-    const attrName = resolveUniqueIDAttrName(editor);
-    if (attrName === null) {
+    if (!isUniqueIDLoaded(editor)) {
       // UniqueID is the source of truth for block ids. Without it,
-      // TOC has nothing to read — emit a loud error and return an
+      // TOC has nothing to read - emit a loud error and return an
       // empty plugin list so the editor still functions cleanly.
       // eslint-disable-next-line no-console
       console.error(
@@ -104,6 +103,7 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
       );
       return [];
     }
+    const attrName = resolveUniqueIDAttrName(editor);
 
     // Surface a misconfiguration where UniqueID is loaded but its
     // `types` list omits anchor types TOC needs to navigate to. The
@@ -118,7 +118,7 @@ export const TableOfContents = Extension.create<TableOfContentsOptions, TocStora
         // eslint-disable-next-line no-console
         console.warn(
           `[TableOfContents] anchorTypes ${JSON.stringify(missing)} are not in ` +
-          `UniqueID.types — outline navigation to those node types will fail. ` +
+          `UniqueID.types - outline navigation to those node types will fail. ` +
           `Either add them to UniqueID.configure({ types: [...] }) or remove ` +
           `them from TableOfContents.configure({ anchorTypes: [...] }).`,
         );

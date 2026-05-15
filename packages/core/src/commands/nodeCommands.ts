@@ -1,5 +1,5 @@
 /**
- * Node commands — setBlockType, toggleBlockType, wrapIn, toggleWrap, lift
+ * Node commands - setBlockType, toggleBlockType, wrapIn, toggleWrap, lift
  */
 import { findWrapping, liftTarget } from '@domternal/pm/transform';
 import type { Attrs, Node as PMNode } from '@domternal/pm/model';

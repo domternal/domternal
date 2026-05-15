@@ -11,8 +11,7 @@
  */
 import { liftListItem } from '@domternal/pm/schema-list';
 import type { EditorState, Transaction } from '@domternal/pm/state';
-
-const LIST_ITEM_TYPE_NAMES = new Set(['listItem', 'taskItem']);
+import { findListItemAncestorDepth } from './listItemAncestor.js';
 
 /**
  * Activation conditions (single-cursor only):
@@ -34,13 +33,7 @@ export function liftCurrentListItem(
   if (tr.steps.length !== 0) return false;
 
   const { $from } = tr.selection;
-  let listItemDepth = -1;
-  for (let d = $from.depth; d >= 1; d--) {
-    if (LIST_ITEM_TYPE_NAMES.has($from.node(d).type.name)) {
-      listItemDepth = d;
-      break;
-    }
-  }
+  const listItemDepth = findListItemAncestorDepth($from);
   if (listItemDepth === -1) return false;
   if ($from.index(listItemDepth) !== 0) return false;
 

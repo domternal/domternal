@@ -409,7 +409,7 @@ describe('nodeCommands', () => {
   });
 
   describe('setBlockType with multi-range selection', () => {
-    // canApply loop iterates across ranges — multi-range exercises the .some() path
+    // canApply loop iterates across ranges - multi-range exercises the .some() path
     it('canApply iterates all ranges (covers found branches)', () => {
       editor = new Editor({ extensions, content: '<p>foo</p><p>bar</p>' });
       const doc = editor.state.doc;
@@ -421,8 +421,8 @@ describe('nodeCommands', () => {
         value: { ranges: [r1, r2], $from: r1.$from, $to: r2.$to, from: r1.$from.pos, to: r2.$to.pos },
         configurable: true,
       });
-      // direct invocation via commands builder — skip since we need setBlockType command
-      // Use editor.commands but override tr via state ranges — fall back to regular test
+      // direct invocation via commands builder - skip since we need setBlockType command
+      // Use editor.commands but override tr via state ranges - fall back to regular test
       const result = editor.commands.setBlockType('heading', { level: 1 });
       expect(typeof result).toBe('boolean');
     });
