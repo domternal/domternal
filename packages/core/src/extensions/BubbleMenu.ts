@@ -179,7 +179,12 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
     if (element.contains(target)) return;
     // Click inside editor — let ProseMirror handle selection change
     if (editor.view.dom.contains(target)) return;
-    // Outside both — hide and suppress until selection changes
+    // Click inside an editor-UI overlay (NotionColorPicker, popovers carrying
+    // [data-dm-editor-ui]) — treat as part of the bubble menu's interaction
+    // surface so the menu doesn't dismiss while the user is operating its
+    // own dropdown. Matches the whitelist `onBlur` already uses below.
+    if (target instanceof HTMLElement && target.closest('[data-dm-editor-ui]')) return;
+    // Outside everything — hide and suppress until selection changes
     hideMenu();
     suppressed = true;
   };

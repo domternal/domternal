@@ -160,6 +160,11 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
   readonly palette = signal<string[]>([]);
 
   private anchorEl: HTMLElement | null = null;
+  // Reference to the picker panel after it has been reparented into
+  // `.dm-editor`. After reparenting `elRef.nativeElement.contains(panel)`
+  // returns false, so any inside-click detection must consult `panelEl`
+  // directly rather than walking up from the component host.
+  private panelEl: HTMLElement | null = null;
   private ngZone = inject(NgZone);
   private elRef = inject<ElementRef<HTMLElement>>(ElementRef);
 
@@ -205,10 +210,12 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
     const editor = this.editor();
     editor.commands.setTextColorToken(token);
     editor.commands.pushRecentColor({ kind: 'text', token });
-    // Refresh local recent signal from storage so the "Recently used" row
-    // updates immediately for the next open.
+    // Keep the picker open so the user can chain picks; close mirrors the
+    // bubble menu (outside-click / Escape / empty selection). Sync the
+    // active-state indicators against the new mark so the ring jumps to
+    // the just-picked swatch immediately.
     this.refreshRecent();
-    this.close({ refocus: true });
+    this.syncFromSelection();
   }
 
   applyBg(token: string | null): void {
@@ -216,7 +223,7 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
     editor.commands.setBackgroundColorToken(token);
     editor.commands.pushRecentColor({ kind: 'bg', token });
     this.refreshRecent();
-    this.close({ refocus: true });
+    this.syncFromSelection();
   }
 
   applyRecent(entry: RecentEntry): void {
@@ -284,6 +291,7 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
     this.isOpen.set(false);
     this.setStorageOpen(false);
     this.anchorEl = null;
+    this.panelEl = null;
     this.removeGlobalListeners();
     if (opts.refocus) {
       this.editor().view.focus();
@@ -328,6 +336,18 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
             '.dm-notion-color-picker',
           );
           if (panel && this.anchorEl) {
+            // Reparent into `.dm-editor` so the panel inherits the editor's
+            // CSS custom properties (`--dm-block-bg-*`, `--dm-block-text-*`,
+            // surface/border tokens). All variables in @domternal/theme are
+            // scoped to `.dm-editor`; without reparenting the picker would
+            // sit as a sibling and render with bare fallbacks. Same trick
+            // as BubbleMenu/FloatingMenu in `packages/core`.
+            const editorEl = this.anchorEl.closest<HTMLElement>('.dm-editor');
+            if (editorEl && panel.parentElement !== editorEl) {
+              editorEl.appendChild(panel);
+            }
+            this.panelEl = panel;
+
             this.cleanupFloating?.();
             this.cleanupFloating = positionFloating(this.anchorEl, panel, {
               placement: 'bottom-start',
@@ -362,8 +382,11 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
     this.clickOutsideHandler = (e: Event) => {
       if (!this.isOpen()) return;
       const target = e.target as Node;
-      // Clicks inside our own panel or on the anchor (which toggles via the
-      // event handler) must not trigger outside-close.
+      // Clicks inside the reparented panel or on the anchor (which toggles
+      // via the event handler) must not trigger outside-close. The panel
+      // has been moved out of `elRef.nativeElement` to inherit editor CSS
+      // vars, so we cannot rely on the host element for containment.
+      if (this.panelEl?.contains(target)) return;
       if (this.elRef.nativeElement.contains(target)) return;
       if (this.anchorEl?.contains(target)) return;
       this.ngZone.run(() => { this.close({ refocus: false }); });
@@ -416,8 +439,25 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
 
   private syncFromSelection(): void {
     const editor = this.editor();
-    const $from = editor.state.selection.$from;
-    const mark = $from.marks().find((m) => m.type.name === 'textStyle');
+    const { selection } = editor.state;
+
+    // For an empty cursor we want the "stored marks" semantics — what marks
+    // newly-typed text would inherit. `$from.marks()` answers that.
+    // For a non-empty selection we want the marks ACTUALLY on the selected
+    // text, not the marks at the boundary before it. `$from.marks()` would
+    // return the left-side marks (often empty, leading to stale active state
+    // after applying a color). Read the first text node inside the range
+    // via `nodeAfter` instead.
+    let mark: { attrs: Record<string, unknown> } | null = null;
+    if (selection.empty) {
+      mark = selection.$from.marks().find((m) => m.type.name === 'textStyle') ?? null;
+    } else {
+      const node = selection.$from.nodeAfter;
+      if (node?.isText) {
+        mark = node.marks.find((m) => m.type.name === 'textStyle') ?? null;
+      }
+    }
+
     const attrs = (mark?.attrs ?? {}) as { colorToken?: string | null; backgroundColorToken?: string | null };
     this.currentTextToken.set(attrs.colorToken ?? null);
     this.currentBgToken.set(attrs.backgroundColorToken ?? null);
