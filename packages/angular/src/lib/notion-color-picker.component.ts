@@ -243,8 +243,11 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
    */
   onPanelKeydown(event: KeyboardEvent): void {
     const cols = 5;
+    // Query off the tracked panel; after reparenting into `.dm-editor` the
+    // swatches are no longer descendants of the component host element.
+    const root = this.panelEl ?? this.elRef.nativeElement;
     const swatches = Array.from(
-      this.elRef.nativeElement.querySelectorAll<HTMLElement>('.dm-ncp-swatch'),
+      root.querySelectorAll<HTMLElement>('.dm-ncp-swatch'),
     );
     if (!swatches.length) return;
 
@@ -356,9 +359,11 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
           }
           requestAnimationFrame(() => {
             if (!this.isOpen()) return; // bailed out between frames
-            const p = this.elRef.nativeElement.querySelector<HTMLElement>(
-              '.dm-notion-color-picker',
-            );
+            // Use the tracked panel reference: after reparenting into
+            // `.dm-editor` the panel is no longer a descendant of the
+            // component host, so `elRef.nativeElement.querySelector` returns
+            // null and focus never lands.
+            const p = this.panelEl;
             if (!p) return;
             const active = p.querySelector<HTMLElement>(
               '.dm-ncp-swatch.dm-ncp-active',
@@ -441,21 +446,23 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
     const editor = this.editor();
     const { selection } = editor.state;
 
-    // For an empty cursor we want the "stored marks" semantics — what marks
-    // newly-typed text would inherit. `$from.marks()` answers that.
-    // For a non-empty selection we want the marks ACTUALLY on the selected
-    // text, not the marks at the boundary before it. `$from.marks()` would
-    // return the left-side marks (often empty, leading to stale active state
-    // after applying a color). Read the first text node inside the range
-    // via `nodeAfter` instead.
+    // Empty cursor: stored-marks semantics (what newly-typed text inherits).
+    // Non-empty: scan the range for the first text node carrying a textStyle
+    // mark. `$from.nodeAfter` can land on a block (paragraph) when the
+    // selection starts at a block boundary (e.g. AllSelection / selectAll),
+    // so walking text nodes is necessary for correct active-state detection.
     let mark: { attrs: Record<string, unknown> } | null = null;
     if (selection.empty) {
       mark = selection.$from.marks().find((m) => m.type.name === 'textStyle') ?? null;
     } else {
-      const node = selection.$from.nodeAfter;
-      if (node?.isText) {
-        mark = node.marks.find((m) => m.type.name === 'textStyle') ?? null;
-      }
+      editor.state.doc.nodesBetween(selection.from, selection.to, (node) => {
+        if (mark) return false;
+        if (node.isText) {
+          const found = node.marks.find((m) => m.type.name === 'textStyle');
+          if (found) mark = found;
+        }
+        return true;
+      });
     }
 
     const attrs = (mark?.attrs ?? {}) as { colorToken?: string | null; backgroundColorToken?: string | null };
