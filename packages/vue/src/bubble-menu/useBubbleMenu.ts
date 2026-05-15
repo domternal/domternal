@@ -4,6 +4,7 @@ import {
   PluginKey,
   ToolbarController,
   createBubbleMenuPlugin,
+  defaultBubbleContexts,
   defaultIcons,
 } from '@domternal/core';
 import type { Editor, ToolbarButton, BubbleMenuOptions } from '@domternal/core';
@@ -71,7 +72,7 @@ export interface UseBubbleMenuResult {
 }
 
 export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResult {
-  const { editor, shouldShow, placement = 'top', offset = 8, updateDelay = 0, items, contexts } = options;
+  const { editor, shouldShow, placement = 'top', offset = 8, updateDelay = 0, items, contexts: explicitContexts } = options;
 
   const menuRef = ref<HTMLDivElement>();
   const pluginKey = new PluginKey('vueBubbleMenu-' + Math.random().toString(36).slice(2, 8));
@@ -95,6 +96,12 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
   const doInit = (ed: Editor): void => {
     if (initialized || ed.isDestroyed || !menuRef.value) return;
     initialized = true;
+
+    // Resolve effective contexts: explicit user prop takes priority,
+    // then items-only mode disables contexts entirely, otherwise fall
+    // back to the standard default (Notion-richer when the editor sits
+    // inside `.dm-notion-mode`).
+    const contexts = explicitContexts ?? (items ? undefined : defaultBubbleContexts(ed));
 
     // Build item map
     itemMap = new Map();

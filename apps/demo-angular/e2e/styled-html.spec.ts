@@ -48,7 +48,7 @@ test.describe('Styled HTML output', () => {
   test('styled HTML contains syntax highlighting colors in code blocks', async ({ page }) => {
     const styledOutput = page.locator('h3:has-text("Styled HTML Output") + pre.output-styled');
     const text = await styledOutput.textContent();
-    // Demo code block has JS — lowlight should produce hljs spans with inline colors
+    // Demo code block has JS - lowlight should produce hljs spans with inline colors
     // keyword color (function, const, return)
     expect(text).toContain('color: #d73a49');
     // function name color (greet)

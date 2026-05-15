@@ -414,7 +414,7 @@ test.describe('Notion color picker - data layer', () => {
     await expect(page.locator(panelSelector)).toBeVisible();
 
     await page.click(`${panelSelector} .dm-ncp-swatch--text[data-color="brown"]`);
-    // Bubble menu must still be visible — its mousedown handler whitelists
+    // Bubble menu must still be visible - its mousedown handler whitelists
     // [data-dm-editor-ui] overlays so picker interactions don't dismiss it.
     await expect(page.locator('.dm-bubble-menu[data-show]')).toBeVisible();
     await expect(page.locator(panelSelector)).toBeVisible();
@@ -540,7 +540,7 @@ test.describe('Notion color picker - data layer', () => {
   test('A11y: focus lands on Default text swatch when picker opens (no active token)', async ({ page }) => {
     await selectFirstParagraph(page);
     await page.click(triggerSelector);
-    // Focus management runs on rAF after Angular paints — wait until focus
+    // Focus management runs on rAF after Angular paints - wait until focus
     // actually lands on a swatch instead of sampling activeElement too early.
     await page.waitForFunction(() => {
       return document.activeElement?.classList.contains('dm-ncp-swatch') ?? false;
@@ -657,7 +657,7 @@ test.describe('Notion color picker - data layer', () => {
 
   test('UI: "More options" button is disabled when selection spans multiple blocks', async ({ page }) => {
     // Select from inside the first paragraph through the start of the second
-    // paragraph — that crosses two top-level blocks, so the trigger has no
+    // paragraph - that crosses two top-level blocks, so the trigger has no
     // unambiguous block target and must be disabled.
     await page.click(editorSelector);
     await page.evaluate(() => {

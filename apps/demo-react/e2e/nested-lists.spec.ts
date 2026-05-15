@@ -119,7 +119,7 @@ const NESTED_EMPTY_TASK_IN_OL = [
 
 // ─── Tests ─────────────────────────────────────────────────────────────
 
-test.describe('Nested lists — Enter key behavior', () => {
+test.describe('Nested lists - Enter key behavior', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -265,14 +265,14 @@ test.describe('Nested lists — Enter key behavior', () => {
     const htmlBefore = await getEditorHTML(page);
     const olCountBefore = countOccurrences(htmlBefore, '<ol>');
 
-    // Press Enter once — should split, not unwrap
+    // Press Enter once - should split, not unwrap
     await page.keyboard.press('Enter');
     const htmlAfter1 = await getEditorHTML(page);
     const olCountAfter1 = countOccurrences(htmlAfter1, '<ol>');
 
     expect(olCountAfter1).toBeGreaterThanOrEqual(olCountBefore);
 
-    // Press Enter again (on empty task item) — may lift out of taskList,
+    // Press Enter again (on empty task item) - may lift out of taskList,
     // but should NOT destroy the parent orderedList
     await page.keyboard.press('Enter');
     const htmlAfter2 = await getEditorHTML(page);
@@ -304,7 +304,7 @@ test.describe('Nested lists — Enter key behavior', () => {
     expect(html).toContain('nested task 1 more text');
   });
 
-  // ── Empty nested taskItem — should create parent listItem ─────────────
+  // ── Empty nested taskItem - should create parent listItem ─────────────
 
   test('Enter on empty nested taskItem (in orderedList) creates new parent listItem', async ({
     page,
@@ -385,7 +385,7 @@ test.describe('Nested lists — Enter key behavior', () => {
     expect(html).toContain('ordered item 1');
     expect(html).toContain('ordered item 2');
 
-    // No more task items — the only one was empty and got lifted
+    // No more task items - the only one was empty and got lifted
     expect(countOccurrences(html, 'data-type="taskItem"')).toBe(0);
 
     // The orderedList should have 3 direct listItems

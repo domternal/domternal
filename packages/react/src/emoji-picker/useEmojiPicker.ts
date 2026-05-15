@@ -166,6 +166,8 @@ export function useEmojiPicker(editor: Editor | null, emojis: EmojiPickerItem[])
       removeGlobalListeners();
       (editor.off as (e: string, h: (...args: unknown[]) => void) => void)('insertEmoji', handler);
     };
+    // Effect re-runs only when the editor instance changes. Picker state
+    // (open/closed, items) is held in refs read by the handler closure.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
 

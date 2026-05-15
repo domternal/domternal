@@ -82,7 +82,7 @@ const BLOCKQUOTE_WITH_CODE =
 
 // ─── Tests ─────────────────────────────────────────────────────────────
 
-test.describe('Blockquote — basic behavior', () => {
+test.describe('Blockquote - basic behavior', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -260,7 +260,7 @@ test.describe('Blockquote — basic behavior', () => {
   });
 });
 
-test.describe('Blockquote — nested blockquotes', () => {
+test.describe('Blockquote - nested blockquotes', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -308,7 +308,7 @@ test.describe('Blockquote — nested blockquotes', () => {
   });
 });
 
-test.describe('Blockquote — with lists', () => {
+test.describe('Blockquote - with lists', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -431,7 +431,7 @@ test.describe('Blockquote — with lists', () => {
   });
 });
 
-test.describe('Blockquote — with headings', () => {
+test.describe('Blockquote - with headings', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -459,7 +459,7 @@ test.describe('Blockquote — with headings', () => {
   });
 });
 
-test.describe('Blockquote — with code block', () => {
+test.describe('Blockquote - with code block', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -494,7 +494,7 @@ test.describe('Blockquote — with code block', () => {
   });
 });
 
-test.describe('Blockquote — context before/after', () => {
+test.describe('Blockquote - context before/after', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

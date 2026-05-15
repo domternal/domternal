@@ -7,7 +7,7 @@ import { Document, Text, Paragraph, Editor, type AnyExtension } from '@domternal
 import { columnResizingPluginKey, TableMap } from '@domternal/pm/tables';
 
 
-// JSDOM doesn't implement elementFromPoint — ProseMirror's posAtCoords calls it
+// JSDOM doesn't implement elementFromPoint - ProseMirror's posAtCoords calls it
 // on mousedown. Mock it to prevent uncaught exceptions during event dispatch.
 beforeAll(() => {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -662,7 +662,7 @@ describe('neighbor mode', () => {
 
 // ─── Last column edge case ───────────────────────────────────────────────────
 
-describe('neighbor mode — last column fallback', () => {
+describe('neighbor mode - last column fallback', () => {
   let editor: InstanceType<typeof Editor> | undefined;
 
   afterEach(() => {

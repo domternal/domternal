@@ -3,6 +3,7 @@ import {
   PluginKey,
   ToolbarController,
   createBubbleMenuPlugin,
+  defaultBubbleContexts,
   defaultIcons,
 } from '@domternal/core';
 import type { Editor, ToolbarButton, BubbleMenuOptions } from '@domternal/core';
@@ -69,7 +70,12 @@ export interface UseBubbleMenuResult {
 }
 
 export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResult {
-  const { editor, shouldShow, placement = 'top', offset = 8, updateDelay = 0, items, contexts } = options;
+  const { editor, shouldShow, placement = 'top', offset = 8, updateDelay = 0, items, contexts: explicitContexts } = options;
+  // Synthesise default contexts when the consumer hasn't supplied either
+  // `contexts` or `items`. The default depends on the `.dm-notion-mode`
+  // ancestor class so Notion-style hosts get a richer toolbar without
+  // having to repeat the same `contexts` object in every <BubbleMenu>.
+  const contexts = explicitContexts ?? (items ? undefined : (editor ? defaultBubbleContexts(editor) : undefined));
 
   const menuRef = useRef<HTMLDivElement>(null);
   const pluginKeyRef = useRef(new PluginKey('reactBubbleMenu-' + Math.random().toString(36).slice(2, 8)));
@@ -281,6 +287,9 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
         editor.unregisterPlugin(pluginKey);
       }
     };
+    // Effect runs only when the editor instance changes. Other deps (items,
+    // options, callbacks) are intentionally captured by closure on each render
+    // through ref updates, not by re-running this effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
 

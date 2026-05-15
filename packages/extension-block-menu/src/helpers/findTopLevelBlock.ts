@@ -1,8 +1,7 @@
 import type { Node } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
 
-import { BASE_SCORE } from './scoring.js';
-import type { DragHandleRule, RuleContext } from './scoring.js';
+import type { BlockCandidate, BlockMatcher } from './blockMatcher.js';
 
 /**
  * Information about a top-level block in the document.
@@ -116,24 +115,21 @@ export interface DeepestBlockMatch {
  * lives sits to the left of `.ProseMirror`, so any X-based resolution
  * (`posAtCoords`, point-in-rect tests) would resolve to whatever happens
  * to be at the editor's left edge, which is the OUTER block when nested
- * lists are indented further right. This is the "Notion behaviour" - the
- * handle anchors on the row the cursor is actually in, regardless of how
- * far left the cursor strayed.
+ * lists are indented further right. This is the deepest-match behaviour:
+ * the handle anchors on the row the cursor is actually in, regardless of
+ * how far left the cursor strayed.
  *
- * Tiptap's drag-handle deliberately does the opposite via "edge promotion"
- * (deduct `strength * depth` near the left edge → shallower wins). That
- * mode is exposed here as Mode C (`promoteOnEdge`) and uses
- * {@link ./findBestDragTarget findBestDragTarget} instead.
+ * The opposite policy - gutter bias (penalise depth near the left edge so
+ * shallower ancestors win) - is exposed here as Mode C (`promoteOnEdge`)
+ * and uses {@link ./resolveDragTarget resolveDragTarget} instead.
  *
- * `rules` (default `[]`) is the same `DragHandleRule[]` Mode C uses for
- * scoring, but here only the **exclusion** subset of the contract applies:
- * a candidate whose rules' deductions sum to `>= BASE_SCORE` is skipped
- * (the walker continues looking for a different match). Partial deductions
- * have no effect in Mode B - we only need exclusion semantics. This keeps
- * the `listItemFirstChild` (and similar) exclusion rules consistent
- * between modes B and C: when a host extends `allowedTypes` to include
- * `paragraph`, the label paragraph of a list item is automatically
- * excluded so the handle still resolves to the list item itself.
+ * `matchers` (default `[]`) shares the same `BlockMatcher[]` contract Mode C
+ * applies; here only the `'reject'` verdict matters (a rejected candidate is
+ * skipped, the walker continues). This keeps exclusion behaviour (e.g.
+ * `firstChildOfListItem`) consistent between modes B and C: when a host
+ * extends `allowedTypes` to include `paragraph`, the label paragraph of a
+ * list item is automatically excluded so the handle still resolves to the
+ * list item itself.
  *
  * Returns `null` when no allowed block contains `clientY` (e.g. cursor is
  * above the first block, below the last, or hovering a top-level node not
@@ -144,7 +140,7 @@ export function findDeepestBlockAtY(
   view: EditorView,
   clientY: number,
   allowedTypes: string[],
-  rules: DragHandleRule[] = [],
+  matchers: readonly BlockMatcher[] = [],
 ): DeepestBlockMatch | null {
   if (allowedTypes.length === 0) return null;
   let best: DeepestBlockMatch | null = null;
@@ -158,37 +154,42 @@ export function findDeepestBlockAtY(
     // O(doc).
     if (clientY < rect.top || clientY > rect.bottom) return false;
     if (allowedTypes.includes(node.type.name)) {
-      let excluded = false;
-      if (rules.length > 0) {
-        const $pos = view.state.doc.resolve(pos);
-        const ctx: RuleContext = {
-          node,
-          pos,
-          // `pos` sits right BEFORE `node` (between siblings of `parent`),
-          // so $pos.depth is the parent's depth and `node` itself lives
-          // one level deeper.
-          depth: $pos.depth + 1,
-          parent: parent ?? null,
-          index,
-          isFirst: index === 0,
-          isLast: parent ? index === parent.childCount - 1 : true,
-          $pos,
-          view,
-        };
-        let score = BASE_SCORE;
-        for (const rule of rules) {
-          score -= rule.evaluate(ctx);
-          if (score <= 0) {
-            excluded = true;
-            break;
-          }
-        }
+      if (matchers.length > 0 && isRejectedByMatchers(view, node, pos, parent, index, matchers)) {
+        return true;
       }
-      if (!excluded && (best === null || rect.height < best.rect.height)) {
+      if (best === null || rect.height < best.rect.height) {
         best = { node, pos, dom, rect };
       }
     }
     return true;
   });
   return best;
+}
+
+function isRejectedByMatchers(
+  view: EditorView,
+  node: Node,
+  pos: number,
+  parent: Node | null,
+  index: number,
+  matchers: readonly BlockMatcher[],
+): boolean {
+  const $pos = view.state.doc.resolve(pos);
+  const candidate: BlockCandidate = {
+    block: node,
+    documentPos: pos,
+    // `pos` sits right BEFORE `node`, so $pos.depth is the parent's depth
+    // and `node` itself lives one level deeper.
+    treeDepth: $pos.depth + 1,
+    container: parent,
+    positionInContainer: index,
+    isFirstChild: index === 0,
+    isLastChild: parent !== null ? index === parent.childCount - 1 : true,
+    resolvedPos: $pos,
+    editorView: view,
+  };
+  for (const matcher of matchers) {
+    if (matcher.test(candidate) === 'reject') return true;
+  }
+  return false;
 }

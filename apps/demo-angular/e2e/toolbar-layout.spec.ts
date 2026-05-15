@@ -97,10 +97,10 @@ async function selectText(page: Page, startOffset: number, endOffset: number, se
 }
 
 // =============================================================================
-// Mode toggle — switching between default and layout modes
+// Mode toggle - switching between default and layout modes
 // =============================================================================
 
-test.describe('Toolbar layout — mode toggle', () => {
+test.describe('Toolbar layout - mode toggle', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -148,10 +148,10 @@ test.describe('Toolbar layout — mode toggle', () => {
 });
 
 // =============================================================================
-// Layout — structure and item order
+// Layout - structure and item order
 // =============================================================================
 
-test.describe('Toolbar layout — structure', () => {
+test.describe('Toolbar layout - structure', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -251,10 +251,10 @@ test.describe('Toolbar layout — structure', () => {
 });
 
 // =============================================================================
-// Custom dropdown — "Formatting"
+// Custom dropdown - "Formatting"
 // =============================================================================
 
-test.describe('Toolbar layout — custom dropdown (Formatting)', () => {
+test.describe('Toolbar layout - custom dropdown (Formatting)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -396,10 +396,10 @@ test.describe('Toolbar layout — custom dropdown (Formatting)', () => {
 });
 
 // =============================================================================
-// Existing dropdowns preserved in layout — heading, textAlign, textColor, highlight
+// Existing dropdowns preserved in layout - heading, textAlign, textColor, highlight
 // =============================================================================
 
-test.describe('Toolbar layout — existing dropdowns preserved', () => {
+test.describe('Toolbar layout - existing dropdowns preserved', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -465,10 +465,10 @@ test.describe('Toolbar layout — existing dropdowns preserved', () => {
 });
 
 // =============================================================================
-// Layout — button functionality (marks, formatting)
+// Layout - button functionality (marks, formatting)
 // =============================================================================
 
-test.describe('Toolbar layout — button functionality', () => {
+test.describe('Toolbar layout - button functionality', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -574,10 +574,10 @@ test.describe('Toolbar layout — button functionality', () => {
 });
 
 // =============================================================================
-// Layout — active state tracking
+// Layout - active state tracking
 // =============================================================================
 
-test.describe('Toolbar layout — active state', () => {
+test.describe('Toolbar layout - active state', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -636,10 +636,10 @@ test.describe('Toolbar layout — active state', () => {
 });
 
 // =============================================================================
-// Layout — disabled state
+// Layout - disabled state
 // =============================================================================
 
-test.describe('Toolbar layout — disabled state', () => {
+test.describe('Toolbar layout - disabled state', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -676,10 +676,10 @@ test.describe('Toolbar layout — disabled state', () => {
 });
 
 // =============================================================================
-// Layout — keyboard navigation
+// Layout - keyboard navigation
 // =============================================================================
 
-test.describe('Toolbar layout — keyboard navigation', () => {
+test.describe('Toolbar layout - keyboard navigation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -765,10 +765,10 @@ test.describe('Toolbar layout — keyboard navigation', () => {
 });
 
 // =============================================================================
-// Layout — emitEvent buttons (link, image, emoji)
+// Layout - emitEvent buttons (link, image, emoji)
 // =============================================================================
 
-test.describe('Toolbar layout — emitEvent buttons', () => {
+test.describe('Toolbar layout - emitEvent buttons', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -829,7 +829,7 @@ test.describe('Toolbar layout — emitEvent buttons', () => {
 // Switching modes preserves editor state
 // =============================================================================
 
-test.describe('Toolbar layout — mode switch preserves state', () => {
+test.describe('Toolbar layout - mode switch preserves state', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -887,16 +887,16 @@ test.describe('Toolbar layout — mode switch preserves state', () => {
     await setContentAndFocus(page, '<p><strong>bold text</strong></p>');
     await page.locator(`${editorSelector} strong`).click();
 
-    // Default mode — bold active
+    // Default mode - bold active
     await expect(page.locator(boldBtn)).toHaveClass(/active/);
 
-    // Switch to layout — bold should still be active
+    // Switch to layout - bold should still be active
     await switchToLayout(page);
     // Re-click in bold to ensure focus is in bold text
     await page.locator(`${editorSelector} strong`).click();
     await expect(page.locator(boldBtn)).toHaveClass(/active/);
 
-    // Switch back — still active
+    // Switch back - still active
     await switchToDefault(page);
     await page.locator(`${editorSelector} strong`).click();
     await expect(page.locator(boldBtn)).toHaveClass(/active/);
@@ -904,10 +904,10 @@ test.describe('Toolbar layout — mode switch preserves state', () => {
 });
 
 // =============================================================================
-// Layout vs default — different grouping
+// Layout vs default - different grouping
 // =============================================================================
 
-test.describe('Toolbar layout — grouping differences', () => {
+test.describe('Toolbar layout - grouping differences', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -945,10 +945,10 @@ test.describe('Toolbar layout — grouping differences', () => {
 });
 
 // =============================================================================
-// Layout — keyboard shortcuts still work
+// Layout - keyboard shortcuts still work
 // =============================================================================
 
-test.describe('Toolbar layout — keyboard shortcuts', () => {
+test.describe('Toolbar layout - keyboard shortcuts', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1010,10 +1010,10 @@ test.describe('Toolbar layout — keyboard shortcuts', () => {
 });
 
 // =============================================================================
-// Layout — combining operations
+// Layout - combining operations
 // =============================================================================
 
-test.describe('Toolbar layout — combining operations', () => {
+test.describe('Toolbar layout - combining operations', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1091,10 +1091,10 @@ test.describe('Toolbar layout — combining operations', () => {
 });
 
 // =============================================================================
-// Layout — tooltips
+// Layout - tooltips
 // =============================================================================
 
-test.describe('Toolbar layout — tooltips', () => {
+test.describe('Toolbar layout - tooltips', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1125,10 +1125,10 @@ test.describe('Toolbar layout — tooltips', () => {
 });
 
 // =============================================================================
-// Layout — cross-dropdown interactions
+// Layout - cross-dropdown interactions
 // =============================================================================
 
-test.describe('Toolbar layout — cross-dropdown interactions', () => {
+test.describe('Toolbar layout - cross-dropdown interactions', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1166,10 +1166,10 @@ test.describe('Toolbar layout — cross-dropdown interactions', () => {
 });
 
 // =============================================================================
-// Layout — edge cases
+// Layout - edge cases
 // =============================================================================
 
-test.describe('Toolbar layout — edge cases', () => {
+test.describe('Toolbar layout - edge cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

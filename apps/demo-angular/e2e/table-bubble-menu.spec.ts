@@ -152,10 +152,10 @@ async function selectTextInParagraph(page: Page) {
 }
 
 // =============================================================================
-// Bubble menu in table cells (demo has no table context — bubble menu hidden)
+// Bubble menu in table cells (demo has no table context - bubble menu hidden)
 // =============================================================================
 
-test.describe('Table + Bubble menu — No table context', () => {
+test.describe('Table + Bubble menu - No table context', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -188,13 +188,13 @@ test.describe('Table + Bubble menu — No table context', () => {
   test('bubble menu shows for paragraph, hides when moving to table', async ({ page }) => {
     await setContentAndFocus(page, TABLE_AFTER_PARAGRAPH);
 
-    // Paragraph — text context (multiple items)
+    // Paragraph - text context (multiple items)
     await selectTextInParagraph(page);
     await expect(page.locator(bubbleMenu)).toHaveAttribute('data-show', '');
     const textCount = await page.locator(`${bubbleMenu} button`).count();
     expect(textCount).toBeGreaterThan(1);
 
-    // Table cell — no table context → hidden
+    // Table cell - no table context → hidden
     await selectTextInCell(page, 3);
     await expect(page.locator(bubbleMenu)).not.toHaveAttribute('data-show');
   });
@@ -204,7 +204,7 @@ test.describe('Table + Bubble menu — No table context', () => {
 // CellSelection hides bubble menu (no text selected → no bubble)
 // =============================================================================
 
-test.describe('Table + Bubble menu — CellSelection hides bubble menu', () => {
+test.describe('Table + Bubble menu - CellSelection hides bubble menu', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -232,7 +232,7 @@ test.describe('Table + Bubble menu — CellSelection hides bubble menu', () => {
 // Drag across cells
 // =============================================================================
 
-test.describe('Table + Bubble menu — Drag across cells', () => {
+test.describe('Table + Bubble menu - Drag across cells', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -259,7 +259,7 @@ test.describe('Table + Bubble menu — Drag across cells', () => {
     await expect(page.locator(bubbleMenu)).not.toHaveAttribute('data-show');
   });
 
-  test('continuous drag upward across multiple cells — bubble menu hidden', async ({ page }) => {
+  test('continuous drag upward across multiple cells - bubble menu hidden', async ({ page }) => {
     await setContentAndFocus(page, TABLE_WITH_TEXT);
 
     const cell8 = await getCellBox(page, 8);
@@ -277,7 +277,7 @@ test.describe('Table + Bubble menu — Drag across cells', () => {
     await expect(page.locator(bubbleMenu)).not.toHaveAttribute('data-show');
   });
 
-  test('continuous drag downward across rows — bubble menu hidden', async ({ page }) => {
+  test('continuous drag downward across rows - bubble menu hidden', async ({ page }) => {
     await setContentAndFocus(page, TABLE_WITH_TEXT);
 
     const cell3 = await getCellBox(page, 3);
@@ -300,7 +300,7 @@ test.describe('Table + Bubble menu — Drag across cells', () => {
 // Cell handle interactions
 // =============================================================================
 
-test.describe('Table + Bubble menu — Cell handle', () => {
+test.describe('Table + Bubble menu - Cell handle', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -323,7 +323,7 @@ test.describe('Table + Bubble menu — Cell handle', () => {
     const cellHandle = page.locator('.dm-table-cell-handle');
     await expect(cellHandle).toHaveCSS('display', 'flex');
 
-    // Select text — cell handle hides (no table context → no bubble menu either)
+    // Select text - cell handle hides (no table context → no bubble menu either)
     await selectTextInCell(page, 3);
     await page.waitForTimeout(200);
     await expect(cellHandle).not.toHaveCSS('display', 'flex');
@@ -351,7 +351,7 @@ test.describe('Table + Bubble menu — Cell handle', () => {
 // Focus/blur transitions with table
 // =============================================================================
 
-test.describe('Table + Bubble menu — Focus transitions', () => {
+test.describe('Table + Bubble menu - Focus transitions', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -375,7 +375,7 @@ test.describe('Table + Bubble menu — Focus transitions', () => {
     await page.waitForTimeout(200);
     await expect(page.locator(bubbleMenu)).not.toHaveAttribute('data-show');
 
-    // Click inside a table cell — cursor only, no bubble menu
+    // Click inside a table cell - cursor only, no bubble menu
     const cell3 = await getCellBox(page, 3);
     if (!cell3) return;
     await page.mouse.click(cell3.x + cell3.width / 2, cell3.y + cell3.height / 2);
@@ -389,7 +389,7 @@ test.describe('Table + Bubble menu — Focus transitions', () => {
 // Cell toolbar vs bubble menu coexistence
 // =============================================================================
 
-test.describe('Table — Cell toolbar vs bubble menu coexistence', () => {
+test.describe('Table - Cell toolbar vs bubble menu coexistence', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -445,7 +445,7 @@ test.describe('Table — Cell toolbar vs bubble menu coexistence', () => {
 // Rapid transitions
 // =============================================================================
 
-test.describe('Table + Bubble menu — Rapid transitions', () => {
+test.describe('Table + Bubble menu - Rapid transitions', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -469,16 +469,16 @@ test.describe('Table + Bubble menu — Rapid transitions', () => {
   test('rapid: paragraph text → table text → paragraph text', async ({ page }) => {
     await setContentAndFocus(page, TABLE_AFTER_PARAGRAPH);
 
-    // Paragraph — text context
+    // Paragraph - text context
     await selectTextInParagraph(page);
     await expect(page.locator(bubbleMenu)).toHaveAttribute('data-show', '');
     const textCount = await page.locator(`${bubbleMenu} button`).count();
 
-    // Table cell — no table context → hidden
+    // Table cell - no table context → hidden
     await selectTextInCell(page, 3);
     await expect(page.locator(bubbleMenu)).not.toHaveAttribute('data-show');
 
-    // Back to paragraph — text context again
+    // Back to paragraph - text context again
     await selectTextInParagraph(page);
     await expect(page.locator(bubbleMenu)).toHaveAttribute('data-show', '');
     const textCount2 = await page.locator(`${bubbleMenu} button`).count();

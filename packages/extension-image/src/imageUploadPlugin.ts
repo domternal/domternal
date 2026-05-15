@@ -2,7 +2,7 @@
  * Image Upload Plugin
  *
  * Handles paste/drop of image files with decoration-based placeholders.
- * The document never contains temporary data — a widget decoration shows
+ * The document never contains temporary data - a widget decoration shows
  * a loading indicator while the upload is in progress.
  *
  * On success: placeholder removed, real image node inserted.
@@ -18,7 +18,7 @@ export const imageUploadPluginKey = new PluginKey('imageUpload');
 export interface ImageUploadPluginOptions {
   /** The image node type from schema */
   nodeType: NodeType;
-  /** Upload handler — must return URL string */
+  /** Upload handler - must return URL string */
   uploadHandler: (file: File) => Promise<string>;
   /** Allowed MIME types */
   allowedMimeTypes: string[];

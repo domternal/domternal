@@ -55,7 +55,7 @@ const IMG_IN_PARA = `<p>text <img src="${BASE64_1PX}" alt="inline"> more</p>`;
 // RENDERING
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Image — rendering', () => {
+test.describe('Image - rendering', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -129,7 +129,7 @@ test.describe('Image — rendering', () => {
 // RESIZE HANDLES
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Image — resize handles', () => {
+test.describe('Image - resize handles', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -226,7 +226,7 @@ test.describe('Image — resize handles', () => {
 // FLOAT ATTRIBUTES
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Image — float', () => {
+test.describe('Image - float', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -297,7 +297,7 @@ test.describe('Image — float', () => {
 // TOOLBAR BUTTON & IMAGE POPOVER
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Image — toolbar button & popover', () => {
+test.describe('Image - toolbar button & popover', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -433,7 +433,7 @@ test.describe('Image — toolbar button & popover', () => {
 // POPOVER KEYBOARD NAVIGATION
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Image — popover keyboard navigation', () => {
+test.describe('Image - popover keyboard navigation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -511,7 +511,7 @@ test.describe('Image — popover keyboard navigation', () => {
 // INPUT RULE (Markdown ![alt](src))
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Image — input rule (markdown syntax)', () => {
+test.describe('Image - input rule (markdown syntax)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -555,7 +555,7 @@ test.describe('Image — input rule (markdown syntax)', () => {
 // BUBBLE MENU (image context)
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Image — bubble menu', () => {
+test.describe('Image - bubble menu', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -698,7 +698,7 @@ test.describe('Image — bubble menu', () => {
     const initialBox = await bubbleMenu.boundingBox();
     expect(initialBox).toBeTruthy();
 
-    // Click "Float right" — image moves to the right side
+    // Click "Float right" - image moves to the right side
     await bubbleMenu.locator('button[title="Float right"]').click();
     await page.waitForTimeout(300);
 
@@ -724,7 +724,7 @@ test.describe('Image — bubble menu', () => {
     const initialBox = await bubbleMenu.boundingBox();
     expect(initialBox).toBeTruthy();
 
-    // Click "Float left" — image moves to the left side
+    // Click "Float left" - image moves to the left side
     await bubbleMenu.locator('button[title="Float left"]').click();
     await page.waitForTimeout(300);
 
@@ -749,7 +749,7 @@ test.describe('Image — bubble menu', () => {
     const initialBox = await bubbleMenu.boundingBox();
     expect(initialBox).toBeTruthy();
 
-    // Click "Center" — image moves to center
+    // Click "Center" - image moves to center
     await bubbleMenu.locator('button[title="Center"]').click();
     await page.waitForTimeout(300);
 
@@ -811,7 +811,7 @@ test.describe('Image — bubble menu', () => {
     await para.click(); // single click to collapse
     await page.waitForTimeout(50);
 
-    // Now click the floated image — should select it
+    // Now click the floated image - should select it
     await wrapper.click();
     await page.waitForTimeout(150);
 
@@ -864,7 +864,7 @@ test.describe('Image — bubble menu', () => {
 // HTML OUTPUT
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Image — HTML output', () => {
+test.describe('Image - HTML output', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -925,7 +925,7 @@ test.describe('Image — HTML output', () => {
 // KEYBOARD: DELETE / BACKSPACE
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Image — keyboard delete', () => {
+test.describe('Image - keyboard delete', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -976,7 +976,7 @@ test.describe('Image — keyboard delete', () => {
 // CSS STYLING
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Image — CSS styling', () => {
+test.describe('Image - CSS styling', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1041,7 +1041,7 @@ test.describe('Image — CSS styling', () => {
 // UNDO / REDO
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Image — undo / redo', () => {
+test.describe('Image - undo / redo', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1092,7 +1092,7 @@ test.describe('Image — undo / redo', () => {
 // EDGE CASES
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Image — edge cases', () => {
+test.describe('Image - edge cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1205,7 +1205,7 @@ test.describe('Image — edge cases', () => {
 // DRAG & DROP OVERLAY
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Image — drag overlay', () => {
+test.describe('Image - drag overlay', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1221,7 +1221,7 @@ test.describe('Image — drag overlay', () => {
 // POPOVER CSS STYLING
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Image — popover styling', () => {
+test.describe('Image - popover styling', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1265,10 +1265,10 @@ test.describe('Image — popover styling', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// DOCS VERIFICATION — additional tests for documented behavior
+// DOCS VERIFICATION - additional tests for documented behavior
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Image — docs verification: parseHTML', () => {
+test.describe('Image - docs verification: parseHTML', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1323,7 +1323,7 @@ test.describe('Image — docs verification: parseHTML', () => {
   });
 });
 
-test.describe('Image — docs verification: commands', () => {
+test.describe('Image - docs verification: commands', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1395,7 +1395,7 @@ test.describe('Image — docs verification: commands', () => {
   });
 });
 
-test.describe('Image — docs verification: input rules', () => {
+test.describe('Image - docs verification: input rules', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1429,7 +1429,7 @@ test.describe('Image — docs verification: input rules', () => {
   });
 });
 
-test.describe('Image — docs verification: leafText', () => {
+test.describe('Image - docs verification: leafText', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1446,7 +1446,7 @@ test.describe('Image — docs verification: leafText', () => {
   });
 });
 
-test.describe('Image — docs verification: float rendering HTML output', () => {
+test.describe('Image - docs verification: float rendering HTML output', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1502,10 +1502,10 @@ test.describe('Image — docs verification: float rendering HTML output', () => 
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// DOCS VERIFICATION 2 — additional edge cases
+// DOCS VERIFICATION 2 - additional edge cases
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Image — docs verification: allowBase64 option', () => {
+test.describe('Image - docs verification: allowBase64 option', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1566,7 +1566,7 @@ test.describe('Image — docs verification: allowBase64 option', () => {
   });
 });
 
-test.describe('Image — docs verification: setImage attributes', () => {
+test.describe('Image - docs verification: setImage attributes', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1643,7 +1643,7 @@ test.describe('Image — docs verification: setImage attributes', () => {
   });
 });
 
-test.describe('Image — docs verification: input rule edge cases', () => {
+test.describe('Image - docs verification: input rule edge cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1691,7 +1691,7 @@ test.describe('Image — docs verification: input rule edge cases', () => {
   });
 });
 
-test.describe('Image — docs verification: bubble menu active state', () => {
+test.describe('Image - docs verification: bubble menu active state', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1738,7 +1738,7 @@ test.describe('Image — docs verification: bubble menu active state', () => {
   });
 });
 
-test.describe('Image — docs verification: JSON representation', () => {
+test.describe('Image - docs verification: JSON representation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

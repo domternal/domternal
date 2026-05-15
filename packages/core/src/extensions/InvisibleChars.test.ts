@@ -467,13 +467,13 @@ describe('InvisibleChars', () => {
 
         const ps1 = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
 
-        // Move cursor — no doc change
+        // Move cursor - no doc change
         editor.view.dispatch(
           editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 3)),
         );
 
         const ps2 = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
-        // Same object reference — cached, not rebuilt
+        // Same object reference - cached, not rebuilt
         expect(ps2).toBe(ps1);
       });
 
@@ -486,7 +486,7 @@ describe('InvisibleChars', () => {
         const ps1 = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
         const count1 = ps1.decorations.find().length;
 
-        // Insert text — doc changes
+        // Insert text - doc changes
         editor.view.dispatch(editor.state.tr.insertText(' there', 3));
 
         const ps2 = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
@@ -524,7 +524,7 @@ describe('InvisibleChars', () => {
         editor.view.dispatch(editor.state.tr);
 
         const ps2 = invisibleCharsPluginKey.getState(editor.state) as InvisibleCharsPluginState;
-        // Same reference — nothing rebuilt
+        // Same reference - nothing rebuilt
         expect(ps2).toBe(ps1);
       });
     });

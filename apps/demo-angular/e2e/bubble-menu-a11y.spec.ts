@@ -56,7 +56,7 @@ async function selectAllViaEditor(page: Page) {
 
 // ─── ARIA attributes ────────────────────────────────────────────────
 
-test.describe('Bubble menu — ARIA attributes', () => {
+test.describe('Bubble menu - ARIA attributes', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -100,7 +100,7 @@ test.describe('Bubble menu — ARIA attributes', () => {
 
 // ─── aria-pressed state sync ────────────────────────────────────────
 
-test.describe('Bubble menu — aria-pressed state sync', () => {
+test.describe('Bubble menu - aria-pressed state sync', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -179,7 +179,7 @@ test.describe('Bubble menu — aria-pressed state sync', () => {
 
 // ─── Active class sync (activeVersion) ──────────────────────────────
 
-test.describe('Bubble menu — active class sync', () => {
+test.describe('Bubble menu - active class sync', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -243,7 +243,7 @@ test.describe('Bubble menu — active class sync', () => {
 
 // ─── Toolbar aria-pressed sync ──────────────────────────────────────
 
-test.describe('Toolbar — aria-pressed state sync', () => {
+test.describe('Toolbar - aria-pressed state sync', () => {
   const toolbarBold = '.dm-toolbar button[aria-label="Bold"]';
   const toolbarItalic = '.dm-toolbar button[aria-label="Italic"]';
   const toolbarUnderline = '.dm-toolbar button[aria-label="Underline"]';

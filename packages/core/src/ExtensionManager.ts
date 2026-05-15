@@ -1,12 +1,12 @@
 /**
- * ExtensionManager - Manages extensions and schema
+ * ExtensionManager - manages extensions and schema.
  *
  * Handles:
  * - Extension lifecycle (flatten, resolve, bind)
  * - Schema building from Node/Mark extensions
  * - Plugin collection from all extensions
  * - Extension storage management
- * - Conflict detection (AD-7)
+ * - Conflict detection (duplicate extension names)
  */
 import { Schema } from '@domternal/pm/model';
 import type { NodeSpec, MarkSpec } from '@domternal/pm/model';
@@ -65,8 +65,7 @@ export interface ExtensionManagerOptions {
   extensions?: AnyExtension[] | undefined;
 
   /**
-   * Direct schema (backward compatibility with Step 1.3)
-   * If provided, extensions are ignored for schema building
+   * Direct schema. If provided, extensions are ignored for schema building.
    */
   schema?: Schema | undefined;
 }
@@ -178,9 +177,9 @@ export class ExtensionManager {
 
     // Process extensions following the pipeline:
     // 1. Flatten (expand addExtensions)
-    // 2. Deduplicate (keep last occurrence — explicit configs override auto-included defaults)
+    // 2. Deduplicate (keep last occurrence - explicit configs override auto-included defaults)
     // 3. Resolve (sort by priority)
-    // 4. Detect conflicts (AD-7)
+    // 4. Detect conflicts
     // 5. Check dependencies
     // 6. Bind editor to extensions
     // 7. Build schema
@@ -329,7 +328,7 @@ export class ExtensionManager {
   }
 
   /**
-   * Detects duplicate extension names (AD-7: Schema Conflict Detection)
+   * Detects duplicate extension names.
    * @throws Error if duplicate names found
    */
   private detectConflicts(): void {
@@ -458,7 +457,7 @@ export class ExtensionManager {
     // 3. Wrap toDOM to inject rendered global HTML attributes
     const originalToDOM = spec.toDOM;
     if (originalToDOM) {
-      // Use a generic wrapper — first arg is always a node or mark with .attrs
+      // Use a generic wrapper - first arg is always a node or mark with .attrs
       const wrappedToDOM = (...args: unknown[]): unknown => {
         const result = (originalToDOM as (...a: unknown[]) => unknown)(...args);
         if (!Array.isArray(result)) return result;
@@ -565,7 +564,7 @@ export class ExtensionManager {
       }
       // Always expose ext.storage via editor.storage[name], even for
       // extensions without addStorage(). The Extension constructor
-      // initialises storage to {} by default — make it accessible.
+      // initialises storage to {} by default - make it accessible.
       if (!(ext.name in this._storage)) {
         this._storage[ext.name] = (ext as Extension).storage;
       }

@@ -122,7 +122,7 @@ async function dragColumnBorder(page: Page, cellIndex: number, deltaX: number) {
 // Column resize handle suppression during cell/text selection drag
 // =============================================================================
 
-test.describe('Table — Column resize handle suppression during drag', () => {
+test.describe('Table - Column resize handle suppression during drag', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -251,7 +251,7 @@ test.describe('Table — Column resize handle suppression during drag', () => {
 // Normal column resize behavior (not suppressed)
 // =============================================================================
 
-test.describe('Table — Column resize works normally', () => {
+test.describe('Table - Column resize works normally', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -263,7 +263,7 @@ test.describe('Table — Column resize works normally', () => {
     const cell3 = await getCellBox(page, 3);
     if (!cell3) return;
 
-    // Move to right edge of cell3 (within 5px — handleWidth default)
+    // Move to right edge of cell3 (within 5px - handleWidth default)
     const borderX = cell3.x + cell3.width;
     await page.mouse.move(borderX - 2, cell3.y + cell3.height / 2);
     await page.waitForTimeout(200);
@@ -335,7 +335,7 @@ test.describe('Table — Column resize works normally', () => {
     // dm-mouse-drag should be removed
     expect(await hasMouseDragClass(page)).toBe(false);
 
-    // Now hover near border — normal behavior should be restored
+    // Now hover near border - normal behavior should be restored
     const borderX = cell3.x + cell3.width;
     await page.mouse.move(borderX - 2, cell3.y + cell3.height / 2);
     await page.waitForTimeout(200);
@@ -349,7 +349,7 @@ test.describe('Table — Column resize works normally', () => {
 // Table width stability (no 1px growth on first resize)
 // =============================================================================
 
-test.describe('Table — No width growth on first resize', () => {
+test.describe('Table - No width growth on first resize', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -404,7 +404,7 @@ test.describe('Table — No width growth on first resize', () => {
 // Column width freezing (colwidth attributes)
 // =============================================================================
 
-test.describe('Table — Column width freezing', () => {
+test.describe('Table - Column width freezing', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -475,7 +475,7 @@ test.describe('Table — Column width freezing', () => {
 // Neighbor mode resize behavior (default)
 // =============================================================================
 
-test.describe('Table — Neighbor mode resize behavior', () => {
+test.describe('Table - Neighbor mode resize behavior', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -605,7 +605,7 @@ test.describe('Table — Neighbor mode resize behavior', () => {
 // Resize clamping (cellMinWidth enforcement)
 // =============================================================================
 
-test.describe('Table — Resize clamping', () => {
+test.describe('Table - Resize clamping', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -666,7 +666,7 @@ async function getColumnCount(page: Page): Promise<number> {
   return page.locator(`${editorSelector} tr`).first().locator('th, td').count();
 }
 
-test.describe('Table — Container constraint (constrainToContainer)', () => {
+test.describe('Table - Container constraint (constrainToContainer)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -766,7 +766,7 @@ test.describe('Table — Container constraint (constrainToContainer)', () => {
     const colwidths = await getColwidths(page);
     expect(colwidths.every((cw) => cw === null)).toBe(true);
 
-    // Add column — should work normally
+    // Add column - should work normally
     await runTableCommand(page, 'addColumnAfter');
     expect(await getColumnCount(page)).toBe(4);
 
@@ -864,7 +864,7 @@ test.describe('Table — Container constraint (constrainToContainer)', () => {
   test('add many columns to fresh table (no freeze) stays within container', async ({ page }) => {
     await setContentAndFocus(page, SIMPLE_TABLE);
 
-    // No resize — columns are NOT frozen. Add 7 columns (3 → 10).
+    // No resize - columns are NOT frozen. Add 7 columns (3 → 10).
     for (let i = 0; i < 7; i++) {
       await runTableCommand(page, 'addColumnAfter');
     }
@@ -883,13 +883,13 @@ test.describe('Table — Container constraint (constrainToContainer)', () => {
     await runTableCommand(page, 'addColumnAfter');
     expect(await getColumnCount(page)).toBe(5);
 
-    // Now resize column 0 — this freezes all 5 columns
+    // Now resize column 0 - this freezes all 5 columns
     await dragColumnBorder(page, 0, 30);
 
     const cw = await getColwidths(page);
     expect(cw.every((c) => c !== null)).toBe(true);
 
-    // Add 2 more columns (5 → 7) — must redistribute
+    // Add 2 more columns (5 → 7) - must redistribute
     await runTableCommand(page, 'addColumnAfter');
     await runTableCommand(page, 'addColumnAfter');
     expect(await getColumnCount(page)).toBe(7);
@@ -979,10 +979,10 @@ test.describe('Table — Container constraint (constrainToContainer)', () => {
 });
 
 // =============================================================================
-// constrainToContainer: false — original unconstrained behavior
+// constrainToContainer: false - original unconstrained behavior
 // =============================================================================
 
-test.describe('Table — Unconstrained (constrainToContainer: false)', () => {
+test.describe('Table - Unconstrained (constrainToContainer: false)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/?constrainTable=false');
     await page.waitForSelector(editorSelector);
@@ -997,7 +997,7 @@ test.describe('Table — Unconstrained (constrainToContainer: false)', () => {
     await dragColumnBorder(page, 2, 150);
 
     const after = await getTableAndWrapperWidths(page);
-    // Table SHOULD exceed wrapper — no constraint
+    // Table SHOULD exceed wrapper - no constraint
     expect(after.tableWidth).toBeGreaterThan(before.wrapperWidth);
   });
 
@@ -1072,7 +1072,7 @@ test.describe('Table — Unconstrained (constrainToContainer: false)', () => {
     expect(preserved.length).toBeGreaterThanOrEqual(2);
   });
 
-  test('add columns then resize then add more — no constraint applied', async ({ page }) => {
+  test('add columns then resize then add more - no constraint applied', async ({ page }) => {
     await setContentAndFocus(page, SIMPLE_TABLE);
 
     // Freeze by resizing
@@ -1090,7 +1090,7 @@ test.describe('Table — Unconstrained (constrainToContainer: false)', () => {
     await runTableCommand(page, 'addColumnBefore');
     expect(await getColumnCount(page)).toBe(6);
 
-    // No constraint — table may or may not exceed container, but should not crash
+    // No constraint - table may or may not exceed container, but should not crash
     // Verify table is rendered and has correct column count
     const cw = await getColwidths(page);
     expect(cw.length).toBe(6);
@@ -1115,7 +1115,7 @@ test.describe('Table — Unconstrained (constrainToContainer: false)', () => {
   test('multiple add columns to fresh table uses minWidth (no constraint)', async ({ page }) => {
     await setContentAndFocus(page, SIMPLE_TABLE);
 
-    // No resize — add 7 columns (3 → 10)
+    // No resize - add 7 columns (3 → 10)
     for (let i = 0; i < 7; i++) {
       await runTableCommand(page, 'addColumnAfter');
     }
@@ -1135,14 +1135,14 @@ test.describe('Table — Unconstrained (constrainToContainer: false)', () => {
     await dragColumnBorder(page, 1, -40);
     await dragColumnBorder(page, 0, -20);
 
-    // Grow last column past container — should be allowed
+    // Grow last column past container - should be allowed
     await dragColumnBorder(page, 2, 200);
 
     const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
     expect(tableWidth).toBeGreaterThan(wrapperWidth);
   });
 
-  test('delete column then add column back — no redistribution', async ({ page }) => {
+  test('delete column then add column back - no redistribution', async ({ page }) => {
     await setContentAndFocus(page, SIMPLE_TABLE);
 
     // Freeze
@@ -1172,7 +1172,7 @@ test.describe('Table — Unconstrained (constrainToContainer: false)', () => {
 // Independent resize behavior (resizeBehavior: 'independent')
 // =============================================================================
 
-test.describe('Table — Independent resize behavior', () => {
+test.describe('Table - Independent resize behavior', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/?resizeBehavior=independent');
     await page.waitForSelector(editorSelector);
@@ -1198,7 +1198,7 @@ test.describe('Table — Independent resize behavior', () => {
 
     const { tableWidth: before } = await getTableAndWrapperWidths(page);
 
-    // Drag column 0 border right — in independent mode, table should GROW
+    // Drag column 0 border right - in independent mode, table should GROW
     await dragColumnBorder(page, 3, 60);
 
     const { tableWidth: after } = await getTableAndWrapperWidths(page);
@@ -1351,7 +1351,7 @@ test.describe('Table — Independent resize behavior', () => {
 // Independent + unconstrained (resizeBehavior: 'independent', constrainToContainer: false)
 // =============================================================================
 
-test.describe('Table — Independent + Unconstrained', () => {
+test.describe('Table - Independent + Unconstrained', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/?resizeBehavior=independent&constrainTable=false');
     await page.waitForSelector(editorSelector);
@@ -1366,7 +1366,7 @@ test.describe('Table — Independent + Unconstrained', () => {
     expect(tableWidth).toBeGreaterThan(wrapperWidth);
   });
 
-  test('multiple grows accumulate — table far exceeds container', async ({ page }) => {
+  test('multiple grows accumulate - table far exceeds container', async ({ page }) => {
     await setContentAndFocus(page, SIMPLE_TABLE);
 
     await dragColumnBorder(page, 3, 100);
@@ -1382,7 +1382,7 @@ test.describe('Table — Independent + Unconstrained', () => {
 // Redistribute resize behavior (resizeBehavior: 'redistribute')
 // =============================================================================
 
-test.describe('Table — Redistribute resize behavior', () => {
+test.describe('Table - Redistribute resize behavior', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/?resizeBehavior=redistribute');
     await page.waitForSelector(editorSelector);

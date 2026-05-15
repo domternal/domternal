@@ -116,7 +116,7 @@ describe('inputRulesPlugin', () => {
     });
     const plugin = inputRulesPlugin({ rules: [rule] });
 
-    // Simulate typing "c" after "ab" — match "abc" fires
+    // Simulate typing "c" after "ab" - match "abc" fires
     const result = (plugin.props.handleTextInput as any)(editor.view, 3, 3, 'c');
     expect(typeof result).toBe('boolean');
   });
@@ -392,7 +392,7 @@ describe('inputRulesPlugin', () => {
       content: '<p><code>ab</code>c</p>',
     });
 
-    // Rule that doesn't match — ensures handleTextInput returns false normally
+    // Rule that doesn't match - ensures handleTextInput returns false normally
     const rule = new InputRule(/xyz/, (state) => state.tr);
     const plugin = inputRulesPlugin({ rules: [rule] });
     const result = (plugin.props.handleTextInput as any)(editor.view, 4, 4, 'c');

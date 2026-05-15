@@ -51,9 +51,8 @@ import {
   KeyboardReorder,
   SlashCommand,
   SmartPaste,
-  BASE_SCORE,
 } from '@domternal/extension-block-menu';
-import type { DragHandleRule, RuleContext } from '@domternal/extension-block-menu';
+import type { BlockMatcher, BlockCandidate } from '@domternal/extension-block-menu';
 import { TableOfContents, FloatingTocOutline, TableOfContentsBlock } from '@domternal/extension-toc';
 import { NOTION_DEMO_CONTENT } from './notion-demo-content.js';
 
@@ -158,9 +157,9 @@ export class NotionDemoComponent implements OnDestroy {
     // `addFloatingMenuItems()` hook items and are opt-in from the
     // `@domternal/extension-block-menu` package.
     //
-    // BlockHandle: Notion-style nested drag handles. The default rules
-    // (`listItemFirstChild`) keep label paragraphs from competing with
-    // their list item; the custom `paragraphInsideContainer` rule keeps
+    // BlockHandle: nested drag handles. The default matchers
+    // (`firstChildOfListItem`) keep label paragraphs from competing with
+    // their list item; the custom `paragraphInsideContainer` matcher keeps
     // blockquote / table cells / details as one drag unit (paragraphs
     // nested in list items remain individually draggable - they were
     // Tab-indented as separate logical blocks).
@@ -170,16 +169,16 @@ export class NotionDemoComponent implements OnDestroy {
           'listItem', 'taskItem',
           'heading', 'paragraph', 'codeBlock', 'blockquote', 'horizontalRule',
         ],
-        rules: [
+        matchers: [
           {
-            id: 'paragraphInsideContainer',
-            evaluate: ({ node, parent }: RuleContext) =>
-              node.type.name === 'paragraph'
-                && parent !== null
-                && PARAGRAPH_EXCLUSION_PARENTS.has(parent.type.name)
-                ? BASE_SCORE
-                : 0,
-          } satisfies DragHandleRule,
+            name: 'paragraphInsideContainer',
+            test: ({ block, container }: BlockCandidate) =>
+              block.type.name === 'paragraph'
+                && container !== null
+                && PARAGRAPH_EXCLUSION_PARENTS.has(container.type.name)
+                ? 'reject'
+                : 'allow',
+          } satisfies BlockMatcher,
         ],
       },
     }),

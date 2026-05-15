@@ -97,8 +97,7 @@ export interface ErrorEventProps {
 }
 
 /**
- * All editor events with their payload types
- * Used by EventEmitter for type-safe event handling
+ * All editor events with their payload types.
  */
 export interface EditorEvents {
   /** Fired before editor is created - can modify options */

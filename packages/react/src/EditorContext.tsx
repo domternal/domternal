@@ -38,9 +38,7 @@ export function EditorProvider({ editor, children }: EditorProviderProps): React
 
 /**
  * Access the editor instance from the nearest EditorProvider.
- *
- * @returns `{ editor }` where editor may be null if the provider has no editor yet.
- * @throws If used outside of an EditorProvider (optional - returns null editor instead).
+ * Returns `{ editor: null }` when used outside a provider, no throw.
  */
 export function useCurrentEditor(): EditorContextValue {
   return useContext(EditorContext);

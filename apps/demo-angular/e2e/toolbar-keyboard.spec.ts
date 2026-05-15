@@ -5,7 +5,7 @@ const editorSelector = 'domternal-editor .ProseMirror';
 const toolbar = 'domternal-toolbar';
 const toolbarButton = `${toolbar} .dm-toolbar-button`;
 
-test.describe('Toolbar — keyboard navigation', () => {
+test.describe('Toolbar - keyboard navigation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -107,7 +107,7 @@ test.describe('Toolbar — keyboard navigation', () => {
   });
 });
 
-test.describe('Toolbar — dropdown keyboard', () => {
+test.describe('Toolbar - dropdown keyboard', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -139,7 +139,7 @@ test.describe('Toolbar — dropdown keyboard', () => {
   });
 });
 
-test.describe('Toolbar — ARIA', () => {
+test.describe('Toolbar - ARIA', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

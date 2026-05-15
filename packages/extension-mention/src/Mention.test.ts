@@ -632,7 +632,7 @@ describe('Mention', () => {
       });
       editor = new Editor({
         extensions: [Document, Text, Paragraph, CustomMention],
-        // No "@" before the mention — just spaces
+        // No "@" before the mention - just spaces
         content: '<p>Hi  <span data-type="mention" data-id="1" data-label="Alice" data-mention-type="user">@Alice</span></p>',
       });
 
@@ -1114,7 +1114,7 @@ describe('Mention', () => {
         content: '<p></p>',
       });
 
-      // Type 'abc@' — trigger not preceded by space
+      // Type 'abc@' - trigger not preceded by space
       editor.view.dispatch(editor.state.tr.insertText('abc@'));
 
       expect(startCalled).toBe(false);
@@ -1168,7 +1168,7 @@ describe('Mention', () => {
         content: '<p></p>',
       });
 
-      // Type '@a!b' — '!' is not in valid chars
+      // Type '@a!b' - '!' is not in valid chars
       editor.view.dispatch(editor.state.tr.insertText('@a!b'));
 
       expect(startCalled).toBe(false);
@@ -1223,7 +1223,7 @@ describe('Mention', () => {
         content: '<p></p>',
       });
 
-      // Type '@a' — only 1 char query, minQueryLength is 2
+      // Type '@a' - only 1 char query, minQueryLength is 2
       editor.view.dispatch(editor.state.tr.insertText('@a'));
       expect(startCalled).toBe(false);
 
@@ -1385,7 +1385,7 @@ describe('Mention', () => {
       // Activate suggestion
       editor.view.dispatch(editor.state.tr.insertText('@'));
 
-      // Dispatch Escape — set dismiss meta
+      // Dispatch Escape - set dismiss meta
       const pluginKeys = editor.state.plugins.map((p) => p);
       const mentionPlugin = pluginKeys.find((p) => (p as any).key.includes('mentionSuggestion'));
       if (mentionPlugin) {
@@ -1431,7 +1431,7 @@ describe('Mention', () => {
         content: '<p></p>',
       });
 
-      // Type '@' — should trigger 'user' plugin
+      // Type '@' - should trigger 'user' plugin
       editor.view.dispatch(editor.state.tr.insertText('@'));
       expect(startCalls).toContain('user');
     });
@@ -1812,7 +1812,7 @@ describe('Mention', () => {
         content: '<p></p>',
       });
 
-      // Paragraph allows inline content — mention should be valid
+      // Paragraph allows inline content - mention should be valid
       const mentionType = editor.state.schema.nodes['mention']!;
       const node = mentionType.create({ id: '1', label: 'Test' });
       expect(node.type.isInline).toBe(true);
@@ -2058,7 +2058,7 @@ describe('Mention', () => {
       // No items() calls yet (each keystroke resets the timer)
       expect(callCount).toBe(0);
 
-      // Advance past debounce — only ONE call
+      // Advance past debounce - only ONE call
       vi.advanceTimersByTime(150);
       expect(callCount).toBe(1);
     });
@@ -2135,11 +2135,11 @@ describe('Mention', () => {
         content: '<p></p>',
       });
 
-      // Type '@a' — get initial command
+      // Type '@a' - get initial command
       editor.view.dispatch(editor.state.tr.insertText('@a'));
       expect(commandFn).not.toBeNull();
 
-      // Type more text — range changes
+      // Type more text - range changes
       editor.view.dispatch(editor.state.tr.insertText('lice'));
 
       // Using command should still work correctly with the updated range
@@ -2156,7 +2156,7 @@ describe('Mention', () => {
       });
       expect(hasMention).toBe(true);
 
-      // No leftover trigger text — the full '@alice' range was replaced
+      // No leftover trigger text - the full '@alice' range was replaced
       const text = editor.state.doc.textContent;
       expect(text).not.toContain('@alice');
       expect(text).toContain('@Alice'); // leafText of the mention node
@@ -2356,7 +2356,7 @@ describe('Mention', () => {
         content: '<p></p>',
       });
 
-      // Trigger suggestion — shouldShow returns true
+      // Trigger suggestion - shouldShow returns true
       editor.view.dispatch(editor.state.tr.insertText('@ali'));
       expect(exitCalled).toBe(false);
 

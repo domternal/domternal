@@ -5,7 +5,7 @@
  * tracks the query, and calls render callbacks so framework wrappers can display
  * a dropdown picker.
  *
- * This is a zero-dependency implementation — no external suggestion library needed.
+ * This is a zero-dependency implementation - no external suggestion library needed.
  */
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { EditorState, Transaction } from '@domternal/pm/state';
@@ -41,7 +41,7 @@ export interface SuggestionRenderer {
   onUpdate: (props: SuggestionProps) => void;
   /** Called when suggestion is deactivated. */
   onExit: () => void;
-  /** Called on keydown — return true to prevent default editor handling. */
+  /** Called on keydown - return true to prevent default editor handling. */
   onKeyDown: (event: KeyboardEvent) => boolean;
 }
 

@@ -386,10 +386,10 @@ export const Details = Node.create<DetailsOptions>({
             // first so the wrap happens at top level.
             //
             // The lift itself only runs during dispatch (it mutates tr);
-            // dry-run (`!dispatch`) follows Tiptap convention and reports
-            // `true` based on cursor position alone. If a consumer needs
-            // strict can-it-actually-succeed semantics, they should probe
-            // with the full chain.
+            // dry-run (`!dispatch`) follows the ProseMirror command
+            // convention and reports `true` based on cursor position alone.
+            // If a consumer needs strict can-it-actually-succeed semantics,
+            // they should probe with the full chain.
             const cursorInListItemLabel =
               tr.selection.empty && isInListItemLabel(tr.selection.$from);
 

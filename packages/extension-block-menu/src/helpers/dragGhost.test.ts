@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { buildDragPreview } from './cloneElement.js';
+import { createDragGhost } from './dragGhost.js';
 
 let createdWrappers: HTMLElement[] = [];
 
@@ -19,7 +19,6 @@ function makeSource(): HTMLElement {
   div.style.color = 'rgb(10, 20, 30)';
   div.style.padding = '8px';
   document.body.appendChild(div);
-  // Ensure getBoundingClientRect returns something deterministic in jsdom.
   Object.defineProperty(div, 'getBoundingClientRect', {
     value: () => ({ top: 0, left: 0, right: 200, bottom: 30, x: 0, y: 0, width: 200, height: 30, toJSON: () => ({}) }),
     configurable: true,
@@ -27,10 +26,10 @@ function makeSource(): HTMLElement {
   return div;
 }
 
-describe('buildDragPreview', () => {
-  it('returns an off-screen wrapper appended to document.body', () => {
+describe('createDragGhost', () => {
+  it('appends the wrapper to document.body off-screen', () => {
     const source = makeSource();
-    const wrapper = track(buildDragPreview(source));
+    const { wrapper } = { wrapper: track(createDragGhost(source).wrapper) };
 
     expect(wrapper.parentElement).toBe(document.body);
     expect(wrapper.style.position).toBe('absolute');
@@ -43,7 +42,8 @@ describe('buildDragPreview', () => {
 
   it('marks the wrapper aria-hidden so AT skips it', () => {
     const source = makeSource();
-    const wrapper = track(buildDragPreview(source));
+    const { wrapper } = createDragGhost(source);
+    track(wrapper);
 
     expect(wrapper.getAttribute('aria-hidden')).toBe('true');
     source.remove();
@@ -51,7 +51,8 @@ describe('buildDragPreview', () => {
 
   it('matches wrapper width to source bounding-rect width', () => {
     const source = makeSource();
-    const wrapper = track(buildDragPreview(source));
+    const { wrapper } = createDragGhost(source);
+    track(wrapper);
 
     expect(wrapper.style.width).toBe('200px');
     source.remove();
@@ -60,7 +61,8 @@ describe('buildDragPreview', () => {
   it('contains a deep clone of the source as its only child', () => {
     const source = makeSource();
     source.appendChild(document.createElement('span')).textContent = 'inner';
-    const wrapper = track(buildDragPreview(source));
+    const { wrapper } = createDragGhost(source);
+    track(wrapper);
 
     expect(wrapper.children.length).toBe(1);
     const clone = wrapper.firstElementChild as HTMLElement;
@@ -72,11 +74,6 @@ describe('buildDragPreview', () => {
   });
 
   it('preserves descendant structure on the clone (deep clone)', () => {
-    // jsdom's getComputedStyle returns empty cssText for elements with no
-    // explicit/cascade styles, so the assertion-on-cssText approach is
-    // fragile. Instead verify the deep-clone traversal: descendants present
-    // means cloneNode(true) ran, and matching child structure means the
-    // recursion in copyComputedStyles aligned src/dst children correctly.
     const source = makeSource();
     const inner = document.createElement('em');
     inner.textContent = 'i';
@@ -85,7 +82,8 @@ describe('buildDragPreview', () => {
     span.textContent = 'x';
     inner.appendChild(span);
 
-    const wrapper = track(buildDragPreview(source));
+    const { wrapper } = createDragGhost(source);
+    track(wrapper);
     const clonedInner = wrapper.querySelector('em');
     const clonedSpan = wrapper.querySelector('span');
 
@@ -96,22 +94,19 @@ describe('buildDragPreview', () => {
     source.remove();
   });
 
-  it('handles non-HTMLElement child nodes without throwing (text nodes etc.)', () => {
-    // copyComputedStyles guards on `instanceof HTMLElement`; this test
-    // exercises that guard via a source whose children mix elements with
-    // text nodes.
+  it('handles non-HTMLElement child nodes (text nodes) without throwing', () => {
     const source = makeSource();
     source.appendChild(document.createTextNode('plain text'));
     source.appendChild(document.createElement('span'));
 
-    expect(() => track(buildDragPreview(source))).not.toThrow();
+    expect(() => track(createDragGhost(source).wrapper)).not.toThrow();
     source.remove();
   });
 
   it('does not mutate the source element', () => {
     const source = makeSource();
     const before = source.outerHTML;
-    track(buildDragPreview(source));
+    track(createDragGhost(source).wrapper);
 
     expect(source.outerHTML).toBe(before);
     source.remove();

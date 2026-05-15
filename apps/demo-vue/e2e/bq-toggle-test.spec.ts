@@ -23,7 +23,7 @@ async function getEditorHTML(page: Page): Promise<string> {
 
 const FIVE_PARAGRAPHS = '<p>Line 1</p><p>Line 2</p><p>Line 3</p><p>Line 4</p><p>Line 5</p>';
 
-test.describe('Blockquote — select all + toggle twice', () => {
+test.describe('Blockquote - select all + toggle twice', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

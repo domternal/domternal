@@ -11,7 +11,7 @@
   width: max-content;
 }
 
-// "Default" reset button — spans the full width of the grid
+// "Default" reset button - spans the full width of the grid
 .dm-color-palette-reset {
   grid-column: 1 / -1;
   display: flex;
@@ -70,7 +70,7 @@
                 0 0 0 3px var(--dm-accent, #2563eb);
   }
 
-  // Active state — checkmark indicator
+  // Active state - checkmark indicator
   &--active {
     box-shadow: 0 0 0 2px var(--dm-toolbar-bg, #f8f9fa),
                 0 0 0 3px var(--dm-accent, #2563eb);
@@ -86,7 +86,7 @@
   }
 }
 
-// Dark theme — adjust swatch border for dark backgrounds
+// Dark theme - adjust swatch border for dark backgrounds
 .dm-theme-dark .dm-color-swatch,
 .dm-theme-auto .dm-color-swatch {
   border-color: rgba(255, 255, 255, 0.15);

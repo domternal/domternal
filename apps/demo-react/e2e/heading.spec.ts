@@ -62,7 +62,7 @@ const PARAGRAPH = '<p>Normal text</p>';
 
 // ─── Tests ─────────────────────────────────────────────────────────────
 
-test.describe('Heading — rendering', () => {
+test.describe('Heading - rendering', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -124,7 +124,7 @@ test.describe('Heading — rendering', () => {
   });
 });
 
-test.describe('Heading — input rules', () => {
+test.describe('Heading - input rules', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -194,7 +194,7 @@ test.describe('Heading — input rules', () => {
   });
 });
 
-test.describe('Heading — keyboard shortcuts', () => {
+test.describe('Heading - keyboard shortcuts', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -247,7 +247,7 @@ test.describe('Heading — keyboard shortcuts', () => {
   });
 });
 
-test.describe('Heading — toolbar dropdown', () => {
+test.describe('Heading - toolbar dropdown', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -337,7 +337,7 @@ test.describe('Heading — toolbar dropdown', () => {
   });
 });
 
-test.describe('Heading — Enter key behavior', () => {
+test.describe('Heading - Enter key behavior', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -401,7 +401,7 @@ test.describe('Heading — Enter key behavior', () => {
   });
 });
 
-test.describe('Heading — Backspace behavior', () => {
+test.describe('Heading - Backspace behavior', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -455,7 +455,7 @@ test.describe('Heading — Backspace behavior', () => {
   });
 });
 
-test.describe('Heading — with surrounding content', () => {
+test.describe('Heading - with surrounding content', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

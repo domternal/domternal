@@ -29,7 +29,7 @@ async function setEditorContent(page: Page, html: string) {
 // Emoji toolbar option (toolbar: false hides button)
 // =============================================================================
 
-test.describe('Emoji — toolbar: true (default)', () => {
+test.describe('Emoji - toolbar: true (default)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -40,7 +40,7 @@ test.describe('Emoji — toolbar: true (default)', () => {
   });
 });
 
-test.describe('Emoji — toolbar: false (hidden)', () => {
+test.describe('Emoji - toolbar: false (hidden)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/?emojiToolbar=false');
     await page.waitForSelector(editorSelector);
@@ -67,7 +67,7 @@ test.describe('Emoji — toolbar: false (hidden)', () => {
 // Bubble menu auto mode (shows on image selection without contexts)
 // =============================================================================
 
-test.describe('Bubble menu — auto mode (no contexts)', () => {
+test.describe('Bubble menu - auto mode (no contexts)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/?bubbleAuto=true');
     await page.waitForSelector(editorSelector);

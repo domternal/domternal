@@ -27,13 +27,13 @@ import type { Slice } from '@domternal/pm/model';
 import { findDeepestBlockAtY } from './helpers/findTopLevelBlock.js';
 import { moveBlock } from './helpers/moveBlock.js';
 import { moveBlockAsNestedChild } from './helpers/moveBlockAsNestedChild.js';
-import { buildDragPreview } from './helpers/cloneElement.js';
+import { createDragGhost } from './helpers/dragGhost.js';
 import { clampToContent } from './helpers/clampCoords.js';
-import { normalizeEdgeDetection } from './helpers/edgeDetection.js';
-import type { EdgeDetectionConfig, EdgePreset } from './helpers/edgeDetection.js';
-import { DEFAULT_DRAG_HANDLE_RULES } from './helpers/defaultRules.js';
-import { findBestDragTarget } from './helpers/findBestDragTarget.js';
-import type { DragHandleRule } from './helpers/scoring.js';
+import { resolveGutterBias } from './helpers/gutterBias.js';
+import type { GutterBiasConfig, GutterBiasPreset } from './helpers/gutterBias.js';
+import { DEFAULT_BLOCK_MATCHERS } from './helpers/defaultMatchers.js';
+import { resolveDragTarget } from './helpers/resolveDragTarget.js';
+import type { BlockMatcher } from './helpers/blockMatcher.js';
 import { showFloatingMenu } from './FloatingMenu.js';
 
 /** Default list of nodes treated as drag-targetable when `nested: true`. */
@@ -170,33 +170,33 @@ export interface NestedConfig {
    */
   allowedContainers?: string[];
   /**
-   * Tiptap-style "promote to parent at the gutter" behaviour. When the
-   * cursor is within `threshold` px of a configured edge, the candidate's
-   * score is reduced by `strength * depth` - deeper nodes are penalised
-   * more, so a shallower ancestor (e.g. the wrapping list) wins near the
-   * boundary.
+   * "Promote to parent at the gutter" behaviour. When the cursor is
+   * within `threshold` px of a configured edge, the candidate's score
+   * is reduced by `strength * depth` - deeper nodes are penalised
+   * more, so a shallower ancestor (e.g. the wrapping list) wins near
+   * the boundary.
    *
-   * - `false` / `undefined` / `'none'` → Notion behaviour (deepest match).
-   * - `true` / `'left'` → Tiptap defaults: edges `['left','top']`, threshold 12, strength 500.
+   * - `false` / `undefined` / `'none'` → deepest match wins.
+   * - `true` / `'left'` → defaults: edges `['left','top']`, threshold 12, strength 500.
    * - `'right'` / `'both'` → preset variants.
    * - object → custom config (any field optional, merged over defaults).
    *
    * @default false
    */
-  promoteOnEdge?: boolean | EdgePreset | Partial<EdgeDetectionConfig>;
+  promoteOnEdge?: boolean | GutterBiasPreset | Partial<GutterBiasConfig>;
   /**
-   * Append custom scoring rules. Default rules still apply unless
-   * `defaultRules: false` is also set.
+   * Append custom block matchers. Default matchers still apply unless
+   * `defaultMatchers: false` is also set.
    */
-  rules?: DragHandleRule[];
+  matchers?: BlockMatcher[];
   /**
-   * Set to `false` to disable the four built-in scoring rules
-   * (listItemFirstChild, listWrapperDeprioritize, tableStructure,
-   * inlineContent). Almost always wanted; opt-out only for testing /
+   * Set to `false` to disable the four built-in matchers
+   * (firstChildOfListItem, listContainerSkip, tableInternals,
+   * inlineNodes). Almost always wanted; opt-out only for testing or
    * specialised host editors.
    * @default true
    */
-  defaultRules?: boolean;
+  defaultMatchers?: boolean;
 }
 
 export interface BlockHandlePluginState {
@@ -221,8 +221,7 @@ export interface BlockHandlePluginState {
  * browser may shift the selection mid-drag (e.g. when the user clicks
  * somewhere else during the drag), which without `node` causes the
  * original block to survive the drop. Setting it explicitly from the
- * `NodeSelection` we created on dragstart is Tiptap's fix for the same
- * family of bugs.
+ * `NodeSelection` we created on dragstart prevents this family of bugs.
  */
 interface PMViewWithDragging {
   dragging: { slice: Slice; move: boolean; node?: NodeSelection } | null;
@@ -243,10 +242,10 @@ export interface NestedResolution {
   allowedNodes: string[];
   /** Optional ancestor whitelist; empty array → no restriction. */
   allowedContainers: string[];
-  /** Edge promotion config; `null` → Notion-style deepest match. */
-  edgeConfig: EdgeDetectionConfig | null;
-  /** Effective rule list (defaults + user, or just user when defaults off). */
-  rules: DragHandleRule[];
+  /** Gutter bias config; `null` → deepest match wins. */
+  gutterBias: GutterBiasConfig | null;
+  /** Effective matcher list (defaults + user, or just user when defaults off). */
+  matchers: BlockMatcher[];
 }
 
 export interface CreateBlockHandlePluginOptions {
@@ -295,14 +294,13 @@ function findScrollableAncestor(el: HTMLElement): HTMLElement | null {
  * the cursor row so users drag individual list items instead of always
  * the whole list.
  *
- * - Mode B (Notion default): spatial Y-walk via `findDeepestBlockAtY`.
+ * - Mode B (deepest-match, default): spatial Y-walk via `findDeepestBlockAtY`.
  *   `posAtCoords` would resolve to whatever sits at the cursor's X,
  *   which in the gutter is OUTER content (the inner items are indented
- *   further right). Notion's actual behaviour is to anchor the handle
- *   on the row the cursor is in, regardless of X - that's what the
- *   spatial walk gives us.
- * - Mode C (Tiptap-style scoring): uses `findBestDragTarget` with
- *   edge promotion. By design, gutter-X promotes to OUTER (different
+ *   further right). The spatial walk anchors the handle on the row the
+ *   cursor is in, regardless of X.
+ * - Mode C (gutter-bias ranking): uses `resolveDragTarget` with
+ *   gutter bias. By design, gutter-X promotes to OUTER (different
  *   UX choice). Opt in via `promoteOnEdge`.
  *
  * When `nestedNodes` is empty, classic behavior: walk doc children and
@@ -328,28 +326,29 @@ function resolveBlockAtCoords(
   const clamped = clampToContent(view, clientX, clientY);
   if (!clamped) return null;
 
-  // Mode C - Tiptap-style scoring with edge promotion.
-  if (nested.edgeConfig) {
-    const target = findBestDragTarget(view, clamped.x, clamped.y, {
-      rules: nested.rules,
-      edgeConfig: nested.edgeConfig,
-      allowedNodeTypes: nested.allowedNodes,
-      allowedContainers: nested.allowedContainers,
+  // Mode C - gutter-bias ranking.
+  if (nested.gutterBias) {
+    const target = resolveDragTarget(view, clamped.x, clamped.y, {
+      matchers: nested.matchers,
+      gutterBias: nested.gutterBias,
+      allowedTypes: nested.allowedNodes,
+      requiredAncestorTypes: nested.allowedContainers,
     });
     if (target) {
       return { pos: target.pos, rect: target.rect, dom: target.dom };
     }
-    // Scoring picked nothing - fall through to top-level so the handle
+    // Ranking picked nothing - fall through to top-level so the handle
     // still surfaces on the doc's outer block.
     return resolveTopLevelByY(view, clamped.y);
   }
 
-  // Mode B - Notion-style: deepest allowed block at the cursor row.
+  // Mode B - deepest allowed block at the cursor row.
   // X is intentionally ignored; see `findDeepestBlockAtY` rationale.
-  // `nested.rules` is forwarded so exclusion rules (e.g. listItemFirstChild)
-  // apply consistently with Mode C - hosts extending allowedNodes to
-  // include `paragraph` get label-paragraph exclusion for free.
-  const found = findDeepestBlockAtY(view, clamped.y, nested.allowedNodes, nested.rules);
+  // `nested.matchers` is forwarded so rejection logic (e.g.
+  // firstChildOfListItem) applies consistently with Mode C - hosts
+  // extending allowedNodes to include `paragraph` get label-paragraph
+  // rejection for free.
+  const found = findDeepestBlockAtY(view, clamped.y, nested.allowedNodes, nested.matchers);
   if (found) {
     return { pos: found.pos, rect: found.rect, dom: found.dom };
   }
@@ -656,7 +655,7 @@ export function createBlockHandlePlugin(
   // fires - feels like "click and hold does nothing".
   let dragPressActive = false;
 
-  // Active drag preview wrapper - built on dragstart via `buildDragPreview`,
+  // Active drag preview wrapper - built on dragstart via `createDragGhost`,
   // removed on drop/dragend.
   let dragPreview: HTMLElement | null = null;
 
@@ -1222,8 +1221,9 @@ export function createBlockHandlePlugin(
         // Build a styled, off-screen clone as the drag preview. Passing
         // the live DOM to setDragImage captures ambient transforms, clip,
         // and scroll offsets from ancestors - the clone is always crisp.
-        dragPreview = buildDragPreview(dom);
-        event.dataTransfer.setDragImage(dragPreview, 10, 10);
+        const ghost = createDragGhost(dom);
+        dragPreview = ghost.wrapper;
+        event.dataTransfer.setDragImage(ghost.wrapper, 10, 10);
       }
     }
 
@@ -1493,25 +1493,25 @@ export function resolveNestedConfig(nested: BlockHandleOptions['nested']): Neste
     return {
       allowedNodes: [...DEFAULT_NESTED_NODES],
       allowedContainers: [],
-      edgeConfig: null,
-      rules: [...DEFAULT_DRAG_HANDLE_RULES],
+      gutterBias: null,
+      matchers: [...DEFAULT_BLOCK_MATCHERS],
     };
   }
   if (nested && typeof nested === 'object') {
     const allowedNodes = nested.allowedNodes ?? DEFAULT_NESTED_NODES;
     if (allowedNodes.length === 0) {
-      return { allowedNodes: [], allowedContainers: [], edgeConfig: null, rules: [] };
+      return { allowedNodes: [], allowedContainers: [], gutterBias: null, matchers: [] };
     }
-    const useDefaults = nested.defaultRules ?? true;
-    const rules: DragHandleRule[] = [];
-    if (useDefaults) rules.push(...DEFAULT_DRAG_HANDLE_RULES);
-    if (nested.rules) rules.push(...nested.rules);
+    const useDefaults = nested.defaultMatchers ?? true;
+    const matchers: BlockMatcher[] = [];
+    if (useDefaults) matchers.push(...DEFAULT_BLOCK_MATCHERS);
+    if (nested.matchers) matchers.push(...nested.matchers);
     return {
       allowedNodes: [...allowedNodes],
       allowedContainers: nested.allowedContainers ? [...nested.allowedContainers] : [],
-      edgeConfig: normalizeEdgeDetection(nested.promoteOnEdge),
-      rules,
+      gutterBias: resolveGutterBias(nested.promoteOnEdge),
+      matchers,
     };
   }
-  return { allowedNodes: [], allowedContainers: [], edgeConfig: null, rules: [] };
+  return { allowedNodes: [], allowedContainers: [], gutterBias: null, matchers: [] };
 }

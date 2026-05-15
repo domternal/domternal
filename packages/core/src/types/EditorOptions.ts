@@ -47,11 +47,9 @@ export type FocusPosition = boolean | 'start' | 'end' | 'all' | number | null;
  */
 export interface EditorOptions {
   /**
-   * ProseMirror Schema for the editor
+   * ProseMirror Schema for the editor.
    *
-   * Step 1.3: Required (no extensions system yet)
-   * Step 2+: Optional if extensions are provided (schema built from extensions)
-   *
+   * Optional when `extensions` is provided (schema is built from them).
    * The schema must contain at least 'doc' and 'text' nodes.
    */
   schema?: Schema;

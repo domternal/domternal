@@ -71,7 +71,7 @@ describe('isActive skips mark-incompatible text', () => {
     const tr = editor.state.tr.setSelection(new AllSelection(editor.state.doc));
     editor.view.dispatch(tr);
 
-    // No applicable text — should return false
+    // No applicable text - should return false
     expect(editor.isActive('textStyle', { fontSize: '18px' })).toBe(false);
   });
 });

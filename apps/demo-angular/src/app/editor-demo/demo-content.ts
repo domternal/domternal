@@ -23,7 +23,7 @@ export const DEMO_CONTENT = `
   <tr><th>Feature</th><th>Free</th><th>Pro</th></tr>
   <tr><td>Basic editing</td><td>Yes</td><td>Yes</td></tr>
   <tr><td>Tables</td><td>Yes</td><td>Yes</td></tr>
-  <tr><td>Merge / Split cells</td><td>—</td><td>Yes</td></tr>
+  <tr><td>Merge / Split cells</td><td>No</td><td>Yes</td></tr>
 </table>
 <details>
   <summary>Click to expand this accordion</summary>

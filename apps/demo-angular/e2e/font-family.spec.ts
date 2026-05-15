@@ -62,7 +62,7 @@ const TWO_PARAGRAPHS = '<p>first paragraph</p><p>second paragraph</p>';
 
 // ─── Toolbar dropdown ─────────────────────────────────────────────────
 
-test.describe('FontFamily — toolbar dropdown', () => {
+test.describe('FontFamily - toolbar dropdown', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -110,7 +110,7 @@ test.describe('FontFamily — toolbar dropdown', () => {
 
 // ─── Font preview in dropdown ─────────────────────────────────────────
 
-test.describe('FontFamily — font preview', () => {
+test.describe('FontFamily - font preview', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -131,7 +131,7 @@ test.describe('FontFamily — font preview', () => {
 
 // ─── Dynamic label trigger ────────────────────────────────────────────
 
-test.describe('FontFamily — dynamicLabel trigger', () => {
+test.describe('FontFamily - dynamicLabel trigger', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -196,7 +196,7 @@ test.describe('FontFamily — dynamicLabel trigger', () => {
     }, editorSelector);
     await page.waitForTimeout(100);
 
-    // Should revert to icon (Aa SVG) — no inline font on plain text
+    // Should revert to icon (Aa SVG) - no inline font on plain text
     const svg = triggerLabel.locator('svg');
     await expect(svg).toBeVisible();
   });
@@ -220,7 +220,7 @@ test.describe('FontFamily — dynamicLabel trigger', () => {
 
 // ─── Set font family via toolbar ──────────────────────────────────────
 
-test.describe('FontFamily — set via toolbar', () => {
+test.describe('FontFamily - set via toolbar', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -311,7 +311,7 @@ test.describe('FontFamily — set via toolbar', () => {
 
 // ─── Unset font (via command) ────────────────────────────────────────
 
-test.describe('FontFamily — unset via command', () => {
+test.describe('FontFamily - unset via command', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -387,7 +387,7 @@ test.describe('FontFamily — unset via command', () => {
 
 // ─── Change between fonts ─────────────────────────────────────────────
 
-test.describe('FontFamily — change between fonts', () => {
+test.describe('FontFamily - change between fonts', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -435,7 +435,7 @@ test.describe('FontFamily — change between fonts', () => {
 
 // ─── Active state in dropdown ─────────────────────────────────────────
 
-test.describe('FontFamily — active state', () => {
+test.describe('FontFamily - active state', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -486,7 +486,7 @@ test.describe('FontFamily — active state', () => {
 
 // ─── parseHTML ────────────────────────────────────────────────────────
 
-test.describe('FontFamily — parseHTML', () => {
+test.describe('FontFamily - parseHTML', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -533,9 +533,9 @@ test.describe('FontFamily — parseHTML', () => {
   });
 });
 
-// ─── Custom HTML — no validation (any font accepted) ─────────────────
+// ─── Custom HTML - no validation (any font accepted) ─────────────────
 
-test.describe('FontFamily — custom HTML (any font accepted)', () => {
+test.describe('FontFamily - custom HTML (any font accepted)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -612,9 +612,9 @@ test.describe('FontFamily — custom HTML (any font accepted)', () => {
   });
 });
 
-// ─── computedStyleProperty — dynamic trigger for custom fonts ─────────
+// ─── computedStyleProperty - dynamic trigger for custom fonts ─────────
 
-test.describe('FontFamily — computedStyleProperty trigger', () => {
+test.describe('FontFamily - computedStyleProperty trigger', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -890,7 +890,7 @@ test.describe('FontFamily — computedStyleProperty trigger', () => {
 
 // ─── Partial selection ────────────────────────────────────────────────
 
-test.describe('FontFamily — partial selection', () => {
+test.describe('FontFamily - partial selection', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -956,7 +956,7 @@ test.describe('FontFamily — partial selection', () => {
 
 // ─── Multiple paragraphs ─────────────────────────────────────────────
 
-test.describe('FontFamily — multiple paragraphs', () => {
+test.describe('FontFamily - multiple paragraphs', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -995,7 +995,7 @@ test.describe('FontFamily — multiple paragraphs', () => {
 
 // ─── Combined with other styles ───────────────────────────────────────
 
-test.describe('FontFamily — combined with other marks', () => {
+test.describe('FontFamily - combined with other marks', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1057,7 +1057,7 @@ test.describe('FontFamily — combined with other marks', () => {
 
 // ─── Persistence ──────────────────────────────────────────────────────
 
-test.describe('FontFamily — persistence', () => {
+test.describe('FontFamily - persistence', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1104,7 +1104,7 @@ test.describe('FontFamily — persistence', () => {
 
 // ─── Edge cases ───────────────────────────────────────────────────────
 
-test.describe('FontFamily — edge cases', () => {
+test.describe('FontFamily - edge cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

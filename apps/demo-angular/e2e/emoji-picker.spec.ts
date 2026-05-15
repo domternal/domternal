@@ -29,7 +29,7 @@ async function clearAndType(page: Page, text: string) {
 // Toolbar Emoji Picker Panel
 // =============================================================================
 
-test.describe('Emoji Picker — panel basics', () => {
+test.describe('Emoji Picker - panel basics', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -100,7 +100,7 @@ test.describe('Emoji Picker — panel basics', () => {
 // Search
 // =============================================================================
 
-test.describe('Emoji Picker — search', () => {
+test.describe('Emoji Picker - search', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -148,7 +148,7 @@ test.describe('Emoji Picker — search', () => {
 // Category tabs
 // =============================================================================
 
-test.describe('Emoji Picker — category tabs', () => {
+test.describe('Emoji Picker - category tabs', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -185,7 +185,7 @@ test.describe('Emoji Picker — category tabs', () => {
 // Emoji insertion
 // =============================================================================
 
-test.describe('Emoji Picker — insertion', () => {
+test.describe('Emoji Picker - insertion', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -247,7 +247,7 @@ test.describe('Emoji Picker — insertion', () => {
 // Inline Suggestion (: autocomplete)
 // =============================================================================
 
-test.describe('Emoji Suggestion — inline autocomplete', () => {
+test.describe('Emoji Suggestion - inline autocomplete', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -372,7 +372,7 @@ test.describe('Emoji Suggestion — inline autocomplete', () => {
 // Category tab layout
 // =============================================================================
 
-test.describe('Emoji Picker — category tab layout', () => {
+test.describe('Emoji Picker - category tab layout', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -460,7 +460,7 @@ test.describe('Emoji Picker — category tab layout', () => {
 // Edge cases
 // =============================================================================
 
-test.describe('Emoji Picker — edge cases', () => {
+test.describe('Emoji Picker - edge cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

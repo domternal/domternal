@@ -16,6 +16,7 @@ import {
   PluginKey,
   ToolbarController,
   createBubbleMenuPlugin,
+  defaultBubbleContexts,
   defaultIcons,
   positionFloatingOnce,
 } from '@domternal/core';
@@ -147,6 +148,20 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   /** Context-aware: map context names to item arrays, `true` for all valid items, or `null` to disable */
   readonly contexts = input<Record<string, string[] | true | null>>();
 
+  /**
+   * Returns the effective contexts map: the explicit `contexts` input
+   * when provided, the standard default when neither `contexts` nor
+   * `items` is set, or `undefined` (items-mode) when only `items` is set.
+   * The standard default is richer when the editor sits inside
+   * `.dm-notion-mode`.
+   */
+  private resolveContexts(editor: Editor): Record<string, string[] | true | null> | undefined {
+    const explicit = this.contexts();
+    if (explicit !== undefined) return explicit;
+    if (this.items() !== undefined) return undefined;
+    return defaultBubbleContexts(editor);
+  }
+
   /** Internal - updated on transactions. Not meant to be set from outside. */
   readonly resolvedItems = signal<BubbleMenuItem[]>([]);
 
@@ -210,7 +225,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
     afterNextRender(() => {
       const editor = this.editor();
-      const ctxs = this.contexts();
+      const ctxs = this.resolveContexts(editor);
       let shouldShowFn = this.shouldShow();
 
       if (!shouldShowFn) {
@@ -298,12 +313,6 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   }
 
   /**
-   * Open the BlockContextMenu against the cursor's containing block. Skips
-   * the textblock for nested cases (cursor in `listItem > paragraph` targets
-   * the listItem, not the paragraph) so Delete / Turn into operate on the
-   * "visual block" the user is editing.
-   */
-  /**
    * Emit the `notionColorOpen` event with the trigger button as the anchor.
    * The framework popover component (DomternalNotionColorPickerComponent)
    * listens for this event and positions itself against the anchor.
@@ -315,6 +324,12 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     );
   }
 
+  /**
+   * Open the BlockContextMenu against the cursor's containing block. Skips
+   * the textblock for nested cases (cursor in `listItem > paragraph` targets
+   * the listItem, not the paragraph) so Delete / Turn into operate on the
+   * "visual block" the user is editing.
+   */
   openBlockContextMenu(anchor: HTMLElement): void {
     const editor = this.editor();
     const $from = editor.state.selection.$from;
@@ -467,7 +482,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     const items = this.items();
     const defaultItems = this.resolveNames(items ?? ['bold', 'italic', 'underline']);
 
-    if (this.contexts()) {
+    if (this.resolveContexts(editor)) {
       this.updateContextItems(editor);
     } else {
       this.resolvedItems.set(defaultItems);
@@ -477,7 +492,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
       this.ngZone.run(() => {
         const sel = editor.state.selection as unknown as SelectionShape;
         this.isNodeSelection.set(!!sel.node);
-        if (this.contexts()) {
+        if (this.resolveContexts(editor)) {
           this.updateContextItems(editor);
         } else if (sel.node && this.bubbleDefaults.has(sel.node.type.name)) {
           this.resolvedItems.set(this.bubbleDefaults.get(sel.node.type.name) ?? []);
@@ -548,7 +563,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   }
 
   private updateContextItems(editor: Editor): void {
-    const ctxs = this.contexts();
+    const ctxs = this.resolveContexts(editor);
     if (!ctxs) return;
     const ctx = this.detectContext(editor.state.selection as unknown as SelectionShape, ctxs);
     if (!ctx) {

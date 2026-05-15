@@ -33,7 +33,7 @@ async function getEditorHTML(page: Page): Promise<string> {
   return page.locator(editorSelector).innerHTML();
 }
 
-/** Select all text, type replacement, select all again — ready to apply a mark. */
+/** Select all text, type replacement, select all again - ready to apply a mark. */
 async function replaceAndSelectAll(page: Page, text: string) {
   const editor = page.locator(editorSelector);
   await editor.click();
@@ -61,7 +61,7 @@ async function selectInsideTag(page: Page, tag: string, index = 0) {
 
 // ─── Bold ─────────────────────────────────────────────────────────────
 
-test.describe('Inline marks — Bold', () => {
+test.describe('Inline marks - Bold', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -149,7 +149,7 @@ test.describe('Inline marks — Bold', () => {
 
 // ─── Italic ───────────────────────────────────────────────────────────
 
-test.describe('Inline marks — Italic', () => {
+test.describe('Inline marks - Italic', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -202,7 +202,7 @@ test.describe('Inline marks — Italic', () => {
 
 // ─── Underline ────────────────────────────────────────────────────────
 
-test.describe('Inline marks — Underline', () => {
+test.describe('Inline marks - Underline', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -237,7 +237,7 @@ test.describe('Inline marks — Underline', () => {
 
 // ─── Strikethrough ────────────────────────────────────────────────────
 
-test.describe('Inline marks — Strikethrough', () => {
+test.describe('Inline marks - Strikethrough', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -273,7 +273,7 @@ test.describe('Inline marks — Strikethrough', () => {
 
 // ─── Inline Code ──────────────────────────────────────────────────────
 
-test.describe('Inline marks — Code', () => {
+test.describe('Inline marks - Code', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -338,7 +338,7 @@ test.describe('Inline marks — Code', () => {
 
 // ─── Highlight ────────────────────────────────────────────────────────
 
-test.describe('Inline marks — Highlight', () => {
+test.describe('Inline marks - Highlight', () => {
   // Highlight is a dropdown (color picker). Click trigger → click swatch.
   const highlightTrigger = btn.highlight;
   const firstSwatch = '.dm-toolbar-dropdown-wrapper:has(button[aria-label="Highlight"]) .dm-color-swatch';
@@ -386,7 +386,7 @@ test.describe('Inline marks — Highlight', () => {
 
 // ─── Subscript ────────────────────────────────────────────────────────
 
-test.describe('Inline marks — Subscript', () => {
+test.describe('Inline marks - Subscript', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -423,7 +423,7 @@ test.describe('Inline marks — Subscript', () => {
 
 // ─── Superscript ──────────────────────────────────────────────────────
 
-test.describe('Inline marks — Superscript', () => {
+test.describe('Inline marks - Superscript', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -460,7 +460,7 @@ test.describe('Inline marks — Superscript', () => {
 
 // ─── Combining marks ─────────────────────────────────────────────────
 
-test.describe('Inline marks — combining marks', () => {
+test.describe('Inline marks - combining marks', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -499,7 +499,7 @@ test.describe('Inline marks — combining marks', () => {
     await page.keyboard.press(`${modifier}+a`);
     await page.locator(btn.strike).click();
     await page.keyboard.press(`${modifier}+a`);
-    // Highlight is a dropdown — open it and click a swatch
+    // Highlight is a dropdown - open it and click a swatch
     await page.locator(btn.highlight).click();
     await page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Highlight"]) .dm-color-swatch').first().click();
 
@@ -530,7 +530,7 @@ test.describe('Inline marks — combining marks', () => {
 
 // ─── Marks in different contexts ──────────────────────────────────────
 
-test.describe('Inline marks — in different contexts', () => {
+test.describe('Inline marks - in different contexts', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -620,7 +620,7 @@ test.describe('Inline marks — in different contexts', () => {
     );
     await page.locator(`${editorSelector} pre code`).click();
 
-    // Highlight is a dropdown trigger — verify it's not showing as active
+    // Highlight is a dropdown trigger - verify it's not showing as active
     const trigger = page.locator(btn.highlight);
     await expect(trigger).not.toHaveClass(/dm-toolbar-button--active/);
   });
@@ -641,7 +641,7 @@ test.describe('Inline marks — in different contexts', () => {
 
 // ─── Marks survive editing operations ─────────────────────────────────
 
-test.describe('Inline marks — editing operations', () => {
+test.describe('Inline marks - editing operations', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

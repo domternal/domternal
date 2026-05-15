@@ -139,7 +139,7 @@ const DETAILS_CONTENT_EMPTY_LAST = '<details><summary>Title</summary><div data-d
 // RENDERING
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Details — rendering', () => {
+test.describe('Details - rendering', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -246,7 +246,7 @@ test.describe('Details — rendering', () => {
 // TOGGLE BUTTON (open/close)
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Details — toggle button', () => {
+test.describe('Details - toggle button', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -337,7 +337,7 @@ test.describe('Details — toggle button', () => {
 // TOOLBAR BUTTON
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Details — toolbar button', () => {
+test.describe('Details - toolbar button', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -458,7 +458,7 @@ test.describe('Details — toolbar button', () => {
 // TYPING IN SUMMARY
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Details — typing in summary', () => {
+test.describe('Details - typing in summary', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -525,7 +525,7 @@ test.describe('Details — typing in summary', () => {
 // TYPING IN CONTENT
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Details — typing in content', () => {
+test.describe('Details - typing in content', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -576,7 +576,7 @@ test.describe('Details — typing in content', () => {
 // ENTER KEY IN SUMMARY (open content + move cursor)
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Details — Enter in summary', () => {
+test.describe('Details - Enter in summary', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -628,7 +628,7 @@ test.describe('Details — Enter in summary', () => {
 // BACKSPACE IN SUMMARY
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Details — Backspace in summary', () => {
+test.describe('Details - Backspace in summary', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -698,7 +698,7 @@ test.describe('Details — Backspace in summary', () => {
 // DOUBLE-ENTER ESCAPE FROM CONTENT
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Details — double-Enter escape from content', () => {
+test.describe('Details - double-Enter escape from content', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -781,7 +781,7 @@ test.describe('Details — double-Enter escape from content', () => {
 // NESTING PREVENTION
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Details — nesting prevention', () => {
+test.describe('Details - nesting prevention', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -815,7 +815,7 @@ test.describe('Details — nesting prevention', () => {
 // SELECTION PLUGIN (cursor in collapsed content)
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Details — selection in collapsed content', () => {
+test.describe('Details - selection in collapsed content', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -856,7 +856,7 @@ test.describe('Details — selection in collapsed content', () => {
 // HTML OUTPUT
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Details — HTML output', () => {
+test.describe('Details - HTML output', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -927,7 +927,7 @@ test.describe('Details — HTML output', () => {
 // MULTIPLE DETAILS BLOCKS
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Details — multiple blocks', () => {
+test.describe('Details - multiple blocks', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -985,7 +985,7 @@ test.describe('Details — multiple blocks', () => {
 // SURROUNDING CONTENT PRESERVATION
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Details — surrounding content', () => {
+test.describe('Details - surrounding content', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1046,7 +1046,7 @@ test.describe('Details — surrounding content', () => {
 // EDGE CASES
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Details — edge cases', () => {
+test.describe('Details - edge cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1178,7 +1178,7 @@ test.describe('Details — edge cases', () => {
 // CSS STYLING
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Details — CSS styling', () => {
+test.describe('Details - CSS styling', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1242,7 +1242,7 @@ test.describe('Details — CSS styling', () => {
 // KEYBOARD NAVIGATION (ArrowRight/ArrowDown on collapsed)
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Details — keyboard navigation around collapsed details', () => {
+test.describe('Details - keyboard navigation around collapsed details', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1282,7 +1282,7 @@ test.describe('Details — keyboard navigation around collapsed details', () => 
 // INITIAL CONTENT IN DEMO
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Details — initial demo content', () => {
+test.describe('Details - initial demo content', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1321,10 +1321,10 @@ test.describe('Details — initial demo content', () => {
 });
 
 // =============================================================================
-// Details — CellSelection (multi-cell toggle)
+// Details - CellSelection (multi-cell toggle)
 // =============================================================================
 
-test.describe('Details — CellSelection toggle', () => {
+test.describe('Details - CellSelection toggle', () => {
   const TABLE = '<table><tr><td><p>A</p></td><td><p>B</p></td></tr><tr><td><p>C</p></td><td><p>D</p></td></tr></table>';
 
   /** Select cells by index and run toggleDetails via editor API. */
@@ -1378,7 +1378,7 @@ test.describe('Details — CellSelection toggle', () => {
     await selectCellsAndToggle(page, 0, 1);
     expect(await page.locator(`${editorSelector} td div[data-type="details"]`).count()).toBe(2);
 
-    // Now select all 4 cells and toggle — should wrap the remaining 2
+    // Now select all 4 cells and toggle - should wrap the remaining 2
     await selectCellsAndToggle(page, 0, 3);
     expect(await page.locator(`${editorSelector} td div[data-type="details"]`).count()).toBe(4);
   });
@@ -1417,7 +1417,7 @@ test.describe('Details — CellSelection toggle', () => {
 // Documentation verification tests
 // =============================================================================
 
-test.describe('Details — documentation verification', () => {
+test.describe('Details - documentation verification', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

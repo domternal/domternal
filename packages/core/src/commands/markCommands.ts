@@ -1,5 +1,5 @@
 /**
- * Mark commands — toggleMark, setMark, unsetMark, unsetAllMarks
+ * Mark commands - toggleMark, setMark, unsetMark, unsetAllMarks
  */
 import type { Attrs, MarkType } from '@domternal/pm/model';
 import type { EditorState, Transaction } from '@domternal/pm/state';
@@ -87,7 +87,7 @@ export const toggleMark: CommandSpec<[markName: string, attributes?: Attrs]> =
     if (!dispatch) return true;
 
     if (empty) {
-      // Cursor mode — toggle stored mark
+      // Cursor mode - toggle stored mark
       const from = firstRange.$from.pos;
       const cursorMarks = tr.storedMarks
         ?? state.storedMarks
@@ -99,7 +99,7 @@ export const toggleMark: CommandSpec<[markName: string, attributes?: Attrs]> =
         tr.addStoredMark(markType.create(attributes ?? null));
       }
     } else {
-      // Range mode — iterate over selection ranges (handles CellSelection)
+      // Range mode - iterate over selection ranges (handles CellSelection)
       const hasMark = ranges.every(range =>
         tr.doc.rangeHasMark(range.$from.pos, range.$to.pos, markType),
       );
@@ -139,7 +139,7 @@ export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
     const firstRange = ranges[0];
     if (!firstRange) return false;
 
-    // Cursor mode — add to stored marks
+    // Cursor mode - add to stored marks
     if (empty) {
       if (!dispatch) return true;
 
@@ -165,9 +165,9 @@ export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
       return true;
     }
 
-    // Merge per-node to preserve each node's own attributes
-    // (e.g., one word has fontFamily: 'Arial', another has 'Georgia' —
-    //  setting fontSize should preserve each node's fontFamily independently)
+    // Merge per-node to preserve each node's own attributes.
+    // E.g., one word has fontFamily: 'Arial', another has 'Georgia';
+    // setting fontSize should preserve each node's fontFamily independently.
     // Iterate over selection ranges to handle CellSelection (multiple ranges)
     const nodeMarks: { from: number; to: number; attrs: Attrs }[] = [];
     for (const range of ranges) {
@@ -192,7 +192,7 @@ export const setMark: CommandSpec<[markName: string, attributes?: Attrs]> =
         tr.addMark(nm.from, nm.to, markType.create(nm.attrs));
       }
     } else {
-      // No text nodes found (e.g., selection across empty blocks) — apply globally
+      // No text nodes found (e.g., selection across empty blocks) - apply globally
       for (const range of ranges) {
         tr.addMark(range.$from.pos, range.$to.pos, markType.create(attributes));
       }

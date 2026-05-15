@@ -173,6 +173,8 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
     return () => {
       destroyCurrentEditor();
     };
+    // Mount-only effect: refs (extensionsRef, depsRef, formatRef) and props are
+    // intentionally omitted - separate effects below sync extensions, deps, content.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -193,6 +195,7 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
     const initialContent = pendingContentRef.current ?? '';
     pendingContentRef.current = null;
     createEditorInstance(element, initialContent, false);
+    // Recreate only when extensions reference changes. Other refs are stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [extensions]);
 
@@ -212,6 +215,8 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
     const initialContent = pendingContentRef.current ?? '';
     pendingContentRef.current = null;
     createEditorInstance(element, initialContent, false);
+    // Effect tracks the user-provided `deps` array directly; identity comparison
+    // and shallow equality are handled above to avoid spurious recreations.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps ?? []);
 

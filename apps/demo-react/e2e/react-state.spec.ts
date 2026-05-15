@@ -41,10 +41,10 @@ async function selectText(page: Page, startOffset: number, endOffset: number, se
 }
 
 // =============================================================================
-// useEditorState — HTML output reactive sync
+// useEditorState - HTML output reactive sync
 // =============================================================================
 
-test.describe('useEditorState — reactive HTML output', () => {
+test.describe('useEditorState - reactive HTML output', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -396,7 +396,7 @@ test.describe('Toolbar layout switch', () => {
 // Bubble menu context-aware filtering
 // =============================================================================
 
-test.describe('Bubble menu — context-aware filtering', () => {
+test.describe('Bubble menu - context-aware filtering', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -541,14 +541,14 @@ test.describe('Bubble menu — context-aware filtering', () => {
     await expect(page.locator('.dm-bubble-menu')).not.toHaveAttribute('data-show');
   });
 
-  test('bubble menu has exactly 6 buttons and 1 separator in text context', async ({ page }) => {
-    // Demo uses: ['bold', 'italic', 'underline', 'strike', 'code', '|', 'link']
+  test('bubble menu has exactly 5 buttons and 0 separators in text context', async ({ page }) => {
+    // Demo uses: ['bold', 'italic', 'underline', 'strike', 'code']
     await setContentAndFocus(page, '<p>Count buttons</p>');
     await selectText(page, 0, 13);
 
     await expect(page.locator('.dm-bubble-menu')).toHaveAttribute('data-show', '');
-    await expect(page.locator('.dm-bubble-menu button')).toHaveCount(6);
-    await expect(page.locator('.dm-bubble-menu [role="separator"]')).toHaveCount(1);
+    await expect(page.locator('.dm-bubble-menu button')).toHaveCount(5);
+    await expect(page.locator('.dm-bubble-menu [role="separator"]')).toHaveCount(0);
   });
 });
 

@@ -24,13 +24,13 @@
     border-radius: 0.375rem;
     margin: 0.75em 0;
 
-    // contentDOM — contains summary (row 1) and content (row 2)
+    // contentDOM - contains summary (row 1) and content (row 2)
     // Use display:contents so its children participate in the grid
     > div {
       display: contents;
     }
 
-    // Toggle button — chevron on the right, round hover highlight
+    // Toggle button - chevron on the right, round hover highlight
     > button[type="button"] {
       grid-column: 2;
       grid-row: 1;
@@ -70,7 +70,7 @@
       }
     }
 
-    // Summary row background — spans both columns so the button area
+    // Summary row background - spans both columns so the button area
     // also gets the surface colour behind the round toggle
     &::before {
       content: '';
@@ -108,12 +108,12 @@
       border-top: var(--dm-details-border);
     }
 
-    // Disable ProseMirror selected-node outline — the border is enough
+    // Disable ProseMirror selected-node outline - the border is enough
     &.ProseMirror-selectednode {
       outline: none;
     }
 
-    // Open state — rotate chevron to point down
+    // Open state - rotate chevron to point down
     &.is-open {
       > button[type="button"]::before {
         transform: rotate(45deg);

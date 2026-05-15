@@ -166,7 +166,7 @@ img.ProseMirror-separator {
   }
 }
 
-// Hide native text selection inside selected cells — the ::after overlay is sufficient
+// Hide native text selection inside selected cells - the ::after overlay is sufficient
 .dm-editor .selectedCell,
 .dm-editor .selectedCell * {
   &::selection {

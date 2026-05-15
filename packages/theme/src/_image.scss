@@ -2,7 +2,7 @@
 // Image Styles
 // =============================================================================
 // Image extension renders as <img> with optional float inline styles.
-// Base img styles are in _content.scss — this file adds float constraints.
+// Base img styles are in _content.scss - this file adds float constraints.
 // =============================================================================
 
 .dm-editor .ProseMirror {
@@ -45,7 +45,7 @@
       z-index: 1; // above inline text so clicks always hit the image, not the paragraph behind
     }
 
-    // Selected state — accent outline + visible handles
+    // Selected state - accent outline + visible handles
     &.ProseMirror-selectednode {
       outline: 2px solid var(--dm-accent, #2563eb);
 
@@ -55,7 +55,7 @@
     }
   }
 
-  // Resize handles — hidden by default, shown on selection
+  // Resize handles - hidden by default, shown on selection
   .dm-image-handle {
     display: none;
     position: absolute;
@@ -74,7 +74,7 @@
 }
 
 // =============================================================================
-// Image Insert Popover (appended to document.body — same pattern as link popover)
+// Image Insert Popover (appended to document.body - same pattern as link popover)
 // =============================================================================
 
 .dm-image-popover {
@@ -182,7 +182,7 @@
   }
 }
 
-// Auto dark mode — follows system preference
+// Auto dark mode - follows system preference
 @media (prefers-color-scheme: dark) {
   .dm-theme-auto .dm-image-popover {
     background: #2a2a2a;
@@ -212,7 +212,7 @@
   }
 }
 
-// Drag-and-drop overlay — shown when dragging image files over the editor
+// Drag-and-drop overlay - shown when dragging image files over the editor
 .dm-editor.dm-dragover {
   outline: 2px dashed var(--dm-accent);
   outline-offset: -2px;

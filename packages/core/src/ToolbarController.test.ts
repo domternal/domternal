@@ -1,5 +1,5 @@
 /**
- * Tests for ToolbarController — headless toolbar state machine
+ * Tests for ToolbarController - headless toolbar state machine
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
@@ -97,7 +97,7 @@ describe('ToolbarController', () => {
       expect(isActive).toHaveBeenCalledWith('heading', { level: 1 });
     });
 
-    it('resolves array isActive — true if any match', () => {
+    it('resolves array isActive - true if any match', () => {
       const isActive = vi.fn()
         .mockReturnValueOnce(false)  // first check
         .mockReturnValueOnce(true);  // second check
@@ -111,7 +111,7 @@ describe('ToolbarController', () => {
       expect(ToolbarController.resolveActive(editor, item)).toBe(true);
     });
 
-    it('resolves array isActive — false if none match', () => {
+    it('resolves array isActive - false if none match', () => {
       const isActive = vi.fn().mockReturnValue(false);
       const editor = createMockEditor([], { isActive });
       const item = btn('alignLeft', {
@@ -612,7 +612,7 @@ describe('ToolbarController', () => {
       controller.subscribe();
       onChange.mockClear();
 
-      // Trigger transaction — active state is still false, but onChange
+      // Trigger transaction - active state is still false, but onChange
       // is still called because cursor position may have changed and
       // dynamic labels (e.g. font-size) read computed styles at cursor.
       transactionHandler!();
@@ -1062,7 +1062,7 @@ describe('ToolbarController', () => {
       controller = new ToolbarController(editor, vi.fn());
       controller.subscribe();
 
-      // Bold has no emitEvent — expanded should not be tracked
+      // Bold has no emitEvent - expanded should not be tracked
       expect(controller.expandedMap.has('bold')).toBe(false);
     });
 
@@ -1112,7 +1112,7 @@ describe('ToolbarController', () => {
       controller.subscribe();
       onChange.mockClear();
 
-      // Trigger transaction — isOpen is still true
+      // Trigger transaction - isOpen is still true
       transactionHandler!();
 
       // onChange is always called because cursor position may have changed,
@@ -1143,7 +1143,7 @@ describe('ToolbarController', () => {
   // Edge cases
   // =========================================================================
   describe('edge cases', () => {
-    it('empty toolbar — no groups, no buttons', () => {
+    it('empty toolbar - no groups, no buttons', () => {
       controller = new ToolbarController(createMockEditor([]), vi.fn());
 
       expect(controller.groups).toHaveLength(0);

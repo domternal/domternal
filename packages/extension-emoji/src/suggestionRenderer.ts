@@ -1,5 +1,5 @@
 /**
- * Default emoji suggestion renderer — vanilla DOM dropdown.
+ * Default emoji suggestion renderer - vanilla DOM dropdown.
  *
  * Framework-agnostic: creates a positioned dropdown near the cursor
  * that displays matching emoji items with keyboard navigation.
@@ -125,7 +125,7 @@ export function createEmojiSuggestionRenderer(): () => SuggestionRenderer {
         container.setAttribute('aria-label', 'Emoji suggestions');
 
         // Append inside .dm-editor (which has position:relative) so the
-        // dropdown scrolls with the editor content via CSS — zero jitter
+        // dropdown scrolls with the editor content via CSS - zero jitter
         // for both page scroll and internal editor scroll scenarios.
         const editorEl = props.element.closest('.dm-editor');
         const appendTarget = editorEl ?? document.body;

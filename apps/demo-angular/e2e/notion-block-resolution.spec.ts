@@ -12,10 +12,10 @@
  *    by deepest depth; `handleDrop` reuses the same resolver so the drop
  *    target equals the hover target.
  *
- * Tiptap-style edge promotion (`promoteOnEdge: 'left'/'right'/...`) is
- * exercised in unit tests (`findBestDragTarget.test.ts`); the demo
- * itself is locked into Notion mode, so e2e here focuses on
- * Notion-style resolution + drop consistency + edge cases.
+ * Edge-promotion mode (`promoteOnEdge: 'left'/'right'/...`) is exercised
+ * in unit tests (`findBestDragTarget.test.ts`); the demo itself is locked
+ * into deepest-match mode, so e2e here focuses on deepest-match resolution
+ * + drop consistency + edge cases.
  */
 import { test } from './fixtures.js';
 import { expect, type Page, type Locator } from '@playwright/test';

@@ -36,7 +36,7 @@ async function selectAll(page: Page) {
 // Editor element ARIA
 // =============================================================================
 
-test.describe('Editor — ARIA attributes', () => {
+test.describe('Editor - ARIA attributes', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -69,7 +69,7 @@ test.describe('Editor — ARIA attributes', () => {
 // Toolbar dropdown ArrowDown/ArrowUp keyboard navigation
 // =============================================================================
 
-test.describe('Toolbar — dropdown ArrowDown/ArrowUp', () => {
+test.describe('Toolbar - dropdown ArrowDown/ArrowUp', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -200,7 +200,7 @@ test.describe('Toolbar — dropdown ArrowDown/ArrowUp', () => {
 // Emoji picker ARIA & keyboard navigation
 // =============================================================================
 
-test.describe('Emoji picker — ARIA attributes', () => {
+test.describe('Emoji picker - ARIA attributes', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -284,7 +284,7 @@ test.describe('Emoji picker — ARIA attributes', () => {
   });
 });
 
-test.describe('Emoji picker — grid keyboard navigation', () => {
+test.describe('Emoji picker - grid keyboard navigation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -411,7 +411,7 @@ test.describe('Emoji picker — grid keyboard navigation', () => {
 // Task item checkbox ARIA
 // =============================================================================
 
-test.describe('Task item — checkbox ARIA', () => {
+test.describe('Task item - checkbox ARIA', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -438,7 +438,7 @@ test.describe('Task item — checkbox ARIA', () => {
 // Link popover ARIA
 // =============================================================================
 
-test.describe('Link popover — ARIA', () => {
+test.describe('Link popover - ARIA', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -467,7 +467,7 @@ test.describe('Link popover — ARIA', () => {
 // Editor aria-readonly
 // =============================================================================
 
-test.describe('Editor — aria-readonly', () => {
+test.describe('Editor - aria-readonly', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -506,7 +506,7 @@ test.describe('Editor — aria-readonly', () => {
 // Image popover ARIA
 // =============================================================================
 
-test.describe('Image popover — ARIA', () => {
+test.describe('Image popover - ARIA', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -536,7 +536,7 @@ test.describe('Image popover — ARIA', () => {
 // Table cell toolbar ARIA
 // =============================================================================
 
-test.describe('Table cell toolbar — ARIA', () => {
+test.describe('Table cell toolbar - ARIA', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -562,7 +562,7 @@ test.describe('Table cell toolbar — ARIA', () => {
 // Emoji suggestion ARIA
 // =============================================================================
 
-test.describe('Emoji suggestion — ARIA', () => {
+test.describe('Emoji suggestion - ARIA', () => {
   const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
   const suggestionSelector = '.dm-emoji-suggestion';
 
@@ -614,7 +614,7 @@ test.describe('Emoji suggestion — ARIA', () => {
 // Mention suggestion ARIA
 // =============================================================================
 
-test.describe('Mention suggestion — ARIA', () => {
+test.describe('Mention suggestion - ARIA', () => {
   const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
   const suggestionSelector = '.dm-mention-suggestion';
 
@@ -641,7 +641,7 @@ test.describe('Mention suggestion — ARIA', () => {
 // Focus-visible (keyboard vs mouse)
 // =============================================================================
 
-test.describe('Focus-visible — keyboard focus indicators', () => {
+test.describe('Focus-visible - keyboard focus indicators', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

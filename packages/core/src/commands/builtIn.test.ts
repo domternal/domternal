@@ -324,10 +324,10 @@ describe('builtIn commands', () => {
       // Place cursor inside the styled text (empty selection)
       setSelection(editor, 3);
 
-      // Set fontSize — should NOT lose fontFamily
+      // Set fontSize - should NOT lose fontFamily
       editor.commands.setMark('textStyle', { fontSize: '20px' });
 
-      // Check stored marks — they should have BOTH fontFamily and fontSize
+      // Check stored marks - they should have BOTH fontFamily and fontSize
       const stored = editor.state.storedMarks;
       expect(stored).not.toBeNull();
       const textStyleMark = stored?.find(m => m.type.name === 'textStyle');

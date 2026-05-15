@@ -1475,7 +1475,7 @@ test.describe('Slash command', () => {
     // (Arrow-key nav within the suggestion popup is covered by unit tests
     //  in packages/extension-block-menu - replicating it here is flaky
     //  because key forwarding depends on Playwright's synthetic focus
-    //  model interacting with tiptap's SuggestionPluginKey.)
+    //  model interacting with the SlashCommand suggestion plugin.)
     const count = await page.locator(`${slashItemSelector}[data-selected]`).count();
     expect(count).toBe(1);
   });
@@ -1747,7 +1747,7 @@ test.describe('Slash command - typing-event activation', () => {
       for (const plugin of ed.state.plugins) {
         const keyAny = (plugin as unknown as { key?: string }).key;
         if (typeof keyAny === 'string' && keyAny.startsWith('slashCommand')) {
-          // Use plugin getState via state.field equivalent — fall back to
+          // Use plugin getState via state.field equivalent - fall back to
           // reading from view state via the indirection PM provides.
           break;
         }
@@ -2328,10 +2328,10 @@ test.describe('Table of Contents - outline mount placement', () => {
     expect(stragglers).toBe(0);
   });
 
-  test('outline buttons carry data-toc-anchor (NOT data-toc-id) — v0.7.0 rename', async ({ page }) => {
+  test('outline buttons carry data-toc-anchor (NOT data-toc-id) - v0.7.0 rename', async ({ page }) => {
     // FloatingTocOutline's tick + row buttons hold the heading id they
     // link to under `data-toc-anchor`. The `data-toc-id` attribute is
-    // NOT used anywhere — see commit history for the unification.
+    // NOT used anywhere - see commit history for the unification.
     const counts = await page.evaluate(() => ({
       anchor: document.querySelectorAll('.dm-toc-outline [data-toc-anchor]').length,
       legacy: document.querySelectorAll('.dm-toc-outline [data-toc-id]').length,
@@ -2344,7 +2344,7 @@ test.describe('Table of Contents - outline mount placement', () => {
     // Native HTML id attribute means `<a href="#id">` links and
     // `window.location.hash = '#id'` both auto-scroll without any JS
     // from our extension. This is the headline benefit of the
-    // unification — the browser does the work that scrollToHeading
+    // unification - the browser does the work that scrollToHeading
     // used to monkey-patch via querySelector.
     const targetId = await page.evaluate(() => {
       // Pick the third heading (well below the fold for the demo's
@@ -2363,7 +2363,7 @@ test.describe('Table of Contents - outline mount placement', () => {
     );
 
     // Navigate via the URL hash. The browser auto-scrolls to the element
-    // whose `id` matches — no JS handler from our side is needed.
+    // whose `id` matches - no JS handler from our side is needed.
     await page.evaluate((id) => { window.location.hash = `#${id}`; }, targetId!);
 
     // Wait one frame for browser scroll to settle, then assert the

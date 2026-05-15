@@ -689,7 +689,7 @@ describe('Editor', () => {
         const tr = state.tr.setSelection(TextSelection.create(state.doc, 7, 7));
         view.dispatch(tr);
 
-        // Empty selection at cursor in empty paragraph — no stored marks
+        // Empty selection at cursor in empty paragraph - no stored marks
         expect(editor.isActive('bold')).toBe(false);
       });
 
@@ -704,7 +704,7 @@ describe('Editor', () => {
         const tr = state.tr.setSelection(TextSelection.create(state.doc, 1, 5));
         view.dispatch(tr);
 
-        // The text "A" has bold, empty paragraph has no text — should still be true
+        // The text "A" has bold, empty paragraph has no text - should still be true
         expect(editor.isActive('bold')).toBe(true);
       });
     });

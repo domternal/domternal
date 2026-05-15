@@ -73,7 +73,7 @@ const EMOJI_END = '<p>Bye <span data-type="emoji" data-name="waving_hand">👋</
 // Click to select
 // =============================================================================
 
-test.describe('Inline Emoji — click to select', () => {
+test.describe('Inline Emoji - click to select', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -138,7 +138,7 @@ test.describe('Inline Emoji — click to select', () => {
 // Keyboard navigation
 // =============================================================================
 
-test.describe('Inline Emoji — keyboard navigation', () => {
+test.describe('Inline Emoji - keyboard navigation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -216,7 +216,7 @@ test.describe('Inline Emoji — keyboard navigation', () => {
 // Delete / Backspace
 // =============================================================================
 
-test.describe('Inline Emoji — delete', () => {
+test.describe('Inline Emoji - delete', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -286,7 +286,7 @@ test.describe('Inline Emoji — delete', () => {
 // Rendering
 // =============================================================================
 
-test.describe('Inline Emoji — rendering', () => {
+test.describe('Inline Emoji - rendering', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -348,7 +348,7 @@ test.describe('Inline Emoji — rendering', () => {
 // HTML output
 // =============================================================================
 
-test.describe('Inline Emoji — HTML output', () => {
+test.describe('Inline Emoji - HTML output', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -382,7 +382,7 @@ test.describe('Inline Emoji — HTML output', () => {
 // Input rule
 // =============================================================================
 
-test.describe('Inline Emoji — input rules', () => {
+test.describe('Inline Emoji - input rules', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -429,7 +429,7 @@ test.describe('Inline Emoji — input rules', () => {
 // Edge cases
 // =============================================================================
 
-test.describe('Inline Emoji — edge cases', () => {
+test.describe('Inline Emoji - edge cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -495,7 +495,7 @@ test.describe('Inline Emoji — edge cases', () => {
 
 const EMOJI_LEGACY_FORMAT = '<p>Hi <span data-emoji-name="waving_hand">👋</span></p>';
 
-test.describe('Docs verification — parseHTML', () => {
+test.describe('Docs verification - parseHTML', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -529,7 +529,7 @@ test.describe('Docs verification — parseHTML', () => {
 // Docs verification: commands
 // =============================================================================
 
-test.describe('Docs verification — commands', () => {
+test.describe('Docs verification - commands', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -608,7 +608,7 @@ test.describe('Docs verification — commands', () => {
 // Docs verification: input rules in code blocks
 // =============================================================================
 
-test.describe('Docs verification — code block exclusion', () => {
+test.describe('Docs verification - code block exclusion', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -640,7 +640,7 @@ test.describe('Docs verification — code block exclusion', () => {
 // Docs verification: storage methods
 // =============================================================================
 
-test.describe('Docs verification — storage', () => {
+test.describe('Docs verification - storage', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -727,7 +727,7 @@ test.describe('Docs verification — storage', () => {
 // Docs verification: leafText
 // =============================================================================
 
-test.describe('Docs verification — leafText', () => {
+test.describe('Docs verification - leafText', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -750,7 +750,7 @@ test.describe('Docs verification — leafText', () => {
 // Docs verification: JSON representation
 // =============================================================================
 
-test.describe('Docs verification — JSON representation', () => {
+test.describe('Docs verification - JSON representation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -799,7 +799,7 @@ test.describe('Docs verification — JSON representation', () => {
 // Docs verification: emoticon input rules
 // =============================================================================
 
-test.describe('Docs verification — emoticon input rules', () => {
+test.describe('Docs verification - emoticon input rules', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -844,7 +844,7 @@ test.describe('Docs verification — emoticon input rules', () => {
 // Docs verification: renderHTML class attribute
 // =============================================================================
 
-test.describe('Docs verification — renderHTML', () => {
+test.describe('Docs verification - renderHTML', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

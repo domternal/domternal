@@ -34,7 +34,7 @@ async function replaceAndSelectAll(page: Page, text: string) {
 
 // ─── Dropdown behavior ──────────────────────────────────────────────
 
-test.describe('Highlight — dropdown', () => {
+test.describe('Highlight - dropdown', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -70,7 +70,7 @@ test.describe('Highlight — dropdown', () => {
 
 // ─── Color indicator bar on trigger ──────────────────────────────────
 
-test.describe('Highlight — color indicator bar', () => {
+test.describe('Highlight - color indicator bar', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -137,7 +137,7 @@ test.describe('Highlight — color indicator bar', () => {
 
 // ─── Applying highlight ──────────────────────────────────────────────
 
-test.describe('Highlight — applying', () => {
+test.describe('Highlight - applying', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -218,7 +218,7 @@ test.describe('Highlight — applying', () => {
 
 // ─── Removing highlight ──────────────────────────────────────────────
 
-test.describe('Highlight — removing', () => {
+test.describe('Highlight - removing', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -269,7 +269,7 @@ test.describe('Highlight — removing', () => {
 
 // ─── Keyboard shortcut ───────────────────────────────────────────────
 
-test.describe('Highlight — keyboard shortcut', () => {
+test.describe('Highlight - keyboard shortcut', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -304,7 +304,7 @@ test.describe('Highlight — keyboard shortcut', () => {
 
 // ─── Input rule ──────────────────────────────────────────────────────
 
-test.describe('Highlight — input rule', () => {
+test.describe('Highlight - input rule', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -335,7 +335,7 @@ test.describe('Highlight — input rule', () => {
 
 // ─── Combined with other formatting ─────────────────────────────────
 
-test.describe('Highlight — combined with other marks', () => {
+test.describe('Highlight - combined with other marks', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

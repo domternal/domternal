@@ -108,6 +108,9 @@ export {
 // === Clipboard ===
 export { writeToClipboard } from './utils/clipboard.js';
 
+// === Bubble menu defaults ===
+export { defaultBubbleContexts } from './utils/defaultBubbleContexts.js';
+
 // === List utilities ===
 export {
   insertAsListItemChild,

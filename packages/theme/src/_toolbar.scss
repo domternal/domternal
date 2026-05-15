@@ -50,7 +50,7 @@
     color: var(--dm-button-active-color);
   }
 
-  // Expanded state — panel/popover is open (same visual as dropdown triggers)
+  // Expanded state - panel/popover is open (same visual as dropdown triggers)
   &[aria-expanded="true"] {
     background: var(--dm-button-hover-bg);
   }
@@ -75,7 +75,7 @@
   }
 }
 
-// Dropdown trigger — wider to fit caret
+// Dropdown trigger - wider to fit caret
 .dm-toolbar-dropdown-trigger {
   position: relative;
   width: auto;
@@ -133,7 +133,7 @@
   position: relative;
 }
 
-// Dropdown panel — positioned by floating-ui (strategy: absolute)
+// Dropdown panel - positioned by floating-ui (strategy: absolute)
 .dm-toolbar-dropdown-panel {
   position: absolute;
   z-index: 50;
@@ -155,7 +155,7 @@
   }
 }
 
-// Display-mode: icon-only — compact grid-like panel
+// Display-mode: icon-only - compact grid-like panel
 .dm-toolbar-dropdown-panel[data-display-mode="icon"] {
   min-width: 0;
 
@@ -166,7 +166,7 @@
   }
 }
 
-// Display-mode: text-only — shrink to text width, no icon gap
+// Display-mode: text-only - shrink to text width, no icon gap
 .dm-toolbar-dropdown-panel[data-display-mode="text"] {
   min-width: 0;
 

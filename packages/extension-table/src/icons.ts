@@ -61,12 +61,12 @@ export const ICON_DELETE_COL =
 
 // Default cell background colors (4 rows × 4 columns)
 export const CELL_COLORS = [
-  // Row 1 — Warm highlights
+  // Row 1 - Warm highlights
   '#fef08a', '#fed7aa', '#fecaca', '#fbcfe8',
-  // Row 2 — Cool highlights
+  // Row 2 - Cool highlights
   '#a7f3d0', '#a5f3fc', '#bfdbfe', '#c4b5fd',
-  // Row 3 — Light pastels
+  // Row 3 - Light pastels
   '#fef9c3', '#ffedd5', '#dbeafe', '#ede9fe',
-  // Row 4 — Neutrals
+  // Row 4 - Neutrals
   '#e5e7eb', '#d1d5db', '#f3f4f6', '#ffffff',
 ];

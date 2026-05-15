@@ -1,7 +1,7 @@
 /**
  * @domternal/extension-emoji
  *
- * Emoji extension for Domternal editor — inline emoji nodes with
+ * Emoji extension for Domternal editor - inline emoji nodes with
  * shortcode input rules, emoticon support, and headless suggestion plugin.
  */
 

@@ -1,5 +1,5 @@
 /**
- * ToolbarController — Headless, framework-agnostic toolbar state machine
+ * ToolbarController - Headless, framework-agnostic toolbar state machine
  *
  * Manages toolbar item collection, grouping, active state tracking,
  * dropdown state, and keyboard navigation. Framework wrappers (Angular,
@@ -7,7 +7,7 @@
  *
  * @example
  * const controller = new ToolbarController(editor, () => {
- *   // Called on every state change — trigger framework re-render
+ *   // Called on every state change - trigger framework re-render
  * });
  * controller.subscribe();
  * // ... use controller.groups, controller.activeMap, etc.
@@ -105,7 +105,7 @@ export class ToolbarController {
   /** Disabled state for each button (keyed by item.name) */
   private _disabledMap = new Map<string, boolean>();
 
-  /** Expanded state for emitEvent buttons — true when their panel is open */
+  /** Expanded state for emitEvent buttons - true when their panel is open */
   private _expandedMap = new Map<string, boolean>();
 
   /** Currently open dropdown name (null = none) */
@@ -380,7 +380,7 @@ export class ToolbarController {
         continue;
       }
 
-      // ToolbarLayoutDropdown — build a custom dropdown from named sub-items
+      // ToolbarLayoutDropdown - build a custom dropdown from named sub-items
       const subItems: ToolbarButton[] = [];
       for (const subName of entry.items) {
         const btn = buttonMap.get(subName);
@@ -426,7 +426,7 @@ export class ToolbarController {
    * Updates active state map by checking editor.isActive() for each button.
    */
   private updateActiveStates(): void {
-    // Cache can() proxy once per cycle — avoids creating a new Proxy per button
+    // Cache can() proxy once per cycle - avoids creating a new Proxy per button
     let canProxy: Record<string, (...args: unknown[]) => boolean> | null = null;
     try {
       canProxy = this.editor.can();
@@ -453,7 +453,7 @@ export class ToolbarController {
       }
     }
 
-    // Always notify — even when no active/disabled states changed, cursor
+    // Always notify - even when no active/disabled states changed, cursor
     // position may have moved, which affects dynamic trigger labels that
     // read computed styles at cursor (e.g. font-size, font-family dropdowns
     // showing values not in the configured list).
@@ -469,7 +469,7 @@ export class ToolbarController {
 
     try {
       if (item.emitEvent) {
-        // emitEvent buttons open a popover — can't do meaningful can() dry-run
+        // emitEvent buttons open a popover - can't do meaningful can() dry-run
         // because the command needs user-provided args (href, src, etc.).
         // Instead, check if cursor is in a code block where marks/inserts are blocked.
         nowDisabled = this.editor.isActive('codeBlock');
@@ -482,7 +482,7 @@ export class ToolbarController {
         }
       }
     } catch {
-      // Command dry-run may throw (e.g. buggy extension) — treat as enabled
+      // Command dry-run may throw (e.g. buggy extension) - treat as enabled
     }
 
     if (wasDisabled !== nowDisabled) {

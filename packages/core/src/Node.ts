@@ -125,25 +125,12 @@ export class Node<Options = unknown, Storage = unknown> extends Extension<
   }
 
   /**
-   * Creates a new node with merged options
-   * Original node is not modified
-   *
-   * **Note:** Options are merged shallowly using object spread (`...`).
-   * Nested objects are replaced entirely, not deeply merged.
-   *
-   * @param options - Options to merge with existing options
-   * @returns New node instance with merged options
+   * Creates a new node with merged options. Original node is not modified.
+   * Options merge shallowly (object spread); see {@link Extension.configure}
+   * for the nested-object gotcha and a workaround.
    *
    * @example
    * const CustomParagraph = Paragraph.configure({ HTMLAttributes: { class: 'custom' } });
-   *
-   * @example
-   * // Shallow merge behavior with nested objects:
-   * // Given: options = { HTMLAttributes: { class: 'a', id: 'b' } }
-   * // configure({ HTMLAttributes: { class: 'c' } })
-   * // Result: { HTMLAttributes: { class: 'c' } } — 'id' is lost!
-   * // To preserve nested values, spread manually:
-   * // configure({ HTMLAttributes: { ...original.options.HTMLAttributes, class: 'c' } })
    */
   override configure(options: Partial<Options>): Node<Options, Storage> {
     const newConfig: NodeConfig<Options, Storage> = {

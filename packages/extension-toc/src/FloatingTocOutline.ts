@@ -499,6 +499,8 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
                 try {
                   fn();
                 } catch (err) {
+                  // A misbehaving subscriber must not break the others. We log
+                  // and continue so app authors see the failure during development.
                   // eslint-disable-next-line no-console
                   console.error('[extension-toc] subscriber threw during active fan-out:', err);
                 }

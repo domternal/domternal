@@ -32,10 +32,6 @@ export interface LinkPopoverOptions {
   protocols: string[];
 }
 
-// =============================================================================
-// Plugin implementation
-// =============================================================================
-
 interface LinkPopoverPluginOptions {
   editor: Editor;
   markType: MarkType;
@@ -353,10 +349,6 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
     },
   });
 }
-
-// =============================================================================
-// Extension
-// =============================================================================
 
 export const LinkPopover = Extension.create<LinkPopoverOptions>({
   name: 'linkPopover',

@@ -273,7 +273,7 @@ describe('emojiSuggestionPlugin', () => {
       await new Promise((r) => setTimeout(r, 50));
 
       expect(capturedClientRect).toBeTruthy();
-      // Call the clientRect fn — should return a DOMRect or null
+      // Call the clientRect fn - should return a DOMRect or null
       const rect = capturedClientRect!();
       // jsdom coordsAtPos may throw or return 0s, either way not throws
       expect(rect === null || rect instanceof DOMRect).toBe(true);

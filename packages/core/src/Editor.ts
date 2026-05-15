@@ -217,16 +217,14 @@ export class Editor extends EventEmitter<EditorEvents> {
   }
 
   /**
-   * Gets toolbar items registered by all extensions.
-   * Used by framework toolbar components to auto-generate UI.
+   * Toolbar items registered by all extensions.
    */
   get toolbarItems(): ToolbarItem[] {
     return this._extensionManager.toolbarItems;
   }
 
   /**
-   * Gets floating-menu items registered by all extensions.
-   * Used by framework floating-menu components to auto-generate the
+   * Floating-menu items registered by all extensions, rendered as the
    * block-insert menu shown on empty paragraphs.
    */
   get floatingMenuItems(): FloatingMenuItem[] {
@@ -310,13 +308,13 @@ export class Editor extends EventEmitter<EditorEvents> {
     // Check if it's a node
     const nodeType = schema.nodes[name];
     if (nodeType) {
-      // NodeSelection — check the selected node directly (atom/leaf nodes like image)
+      // NodeSelection - check the selected node directly (atom/leaf nodes like image)
       const selNode = (selection as { node?: { type: typeof nodeType; attrs: Record<string, unknown> } }).node;
       if (selNode?.type === nodeType) {
         return attrs ? this.matchAttributes(selNode.attrs, attrs) : true;
       }
 
-      // Check both $from and $to paths — the node must be an ancestor
+      // Check both $from and $to paths - the node must be an ancestor
       // of both ends of the selection for it to be considered active.
       const { $to } = selection;
 
@@ -332,7 +330,7 @@ export class Editor extends EventEmitter<EditorEvents> {
           if (isListNode) {
             const inListGroup = node.type.spec.group?.split(' ').includes('list') ?? false;
             if (inListGroup) {
-              // First (innermost) list ancestor — only match if it's the target type
+              // First (innermost) list ancestor - only match if it's the target type
               if (node.type !== nodeType) return false;
               return attrs ? this.matchAttributes(node.attrs, attrs) : true;
             }
@@ -432,7 +430,7 @@ export class Editor extends EventEmitter<EditorEvents> {
     const div = document.createElement('div');
     div.appendChild(fragment);
 
-    // Browser DOM normalizes hex colors to rgb() — convert back to hex within style attrs
+    // Browser DOM normalizes hex colors to rgb() - convert back to hex within style attrs
     const html = div.innerHTML.replace(/style="([^"]*)"/g, (_match, style: string) =>
       'style="' +
         style.replace(
@@ -548,9 +546,8 @@ export class Editor extends EventEmitter<EditorEvents> {
   // === Dynamic Plugin Management ===
 
   /**
-   * Registers a ProseMirror plugin dynamically at runtime.
-   * Used by framework wrappers (e.g. Angular BubbleMenu component) to add
-   * plugins after the editor is created.
+   * Registers a ProseMirror plugin dynamically at runtime, after the editor
+   * has been created. Safe to call repeatedly with the same plugin key.
    */
   registerPlugin(plugin: Plugin): void {
     // Prevent duplicate registration (same plugin key)
@@ -680,7 +677,6 @@ export class Editor extends EventEmitter<EditorEvents> {
       doc = createDocument(null, this._extensionManager.schema);
     }
 
-    // 4. Get plugins from extensions (empty in Step 1.3)
     const plugins = this._extensionManager.plugins;
 
     // 5. Create EditorState
@@ -706,7 +702,7 @@ export class Editor extends EventEmitter<EditorEvents> {
         ...((this.options.editable ?? true) ? {} : { 'aria-readonly': 'true' }),
       }),
       ...(Object.keys(nodeViews).length > 0 ? { nodeViews } : {}),
-      // Clipboard transform — apply user-provided transform (e.g. inlineStyles) on copy/cut
+      // Clipboard transform - apply user-provided transform (e.g. inlineStyles) on copy/cut
       ...(this.options.clipboardHTMLTransform
         ? this.buildClipboardSerializer(this.options.clipboardHTMLTransform, this._extensionManager.schema)
         : {}),

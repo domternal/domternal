@@ -166,7 +166,7 @@ export const CharacterCount = Extension.create<
 
           const newDoc = transaction.doc;
 
-          // Character limit check — use same counting mode as characters()
+          // Character limit check - use same counting mode as characters()
           if (limit !== null) {
             const count = mode === 'nodeSize'
               ? newDoc.nodeSize

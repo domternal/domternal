@@ -46,7 +46,7 @@ const PARA_AND_HEADING = '<p>a paragraph</p><h2>a heading</h2>';
 
 // ─── Toolbar dropdown ─────────────────────────────────────────────────
 
-test.describe('LineHeight — toolbar dropdown', () => {
+test.describe('LineHeight - toolbar dropdown', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -89,7 +89,7 @@ test.describe('LineHeight — toolbar dropdown', () => {
 
 // ─── Set line height via toolbar ──────────────────────────────────────
 
-test.describe('LineHeight — set via toolbar', () => {
+test.describe('LineHeight - set via toolbar', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -156,7 +156,7 @@ test.describe('LineHeight — set via toolbar', () => {
 
 // ─── Unset / Default ──────────────────────────────────────────────────
 
-test.describe('LineHeight — unset (Default)', () => {
+test.describe('LineHeight - unset (Default)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -197,7 +197,7 @@ test.describe('LineHeight — unset (Default)', () => {
 
 // ─── Change between heights ───────────────────────────────────────────
 
-test.describe('LineHeight — change between heights', () => {
+test.describe('LineHeight - change between heights', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -241,7 +241,7 @@ test.describe('LineHeight — change between heights', () => {
 
 // ─── Active state ─────────────────────────────────────────────────────
 
-test.describe('LineHeight — active state', () => {
+test.describe('LineHeight - active state', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -296,7 +296,7 @@ test.describe('LineHeight — active state', () => {
 
 // ─── parseHTML ────────────────────────────────────────────────────────
 
-test.describe('LineHeight — parseHTML', () => {
+test.describe('LineHeight - parseHTML', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -346,7 +346,7 @@ test.describe('LineHeight — parseHTML', () => {
 
 // ─── Multiple nodes ───────────────────────────────────────────────────
 
-test.describe('LineHeight — multiple nodes', () => {
+test.describe('LineHeight - multiple nodes', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -391,7 +391,7 @@ test.describe('LineHeight — multiple nodes', () => {
 
 // ─── Persistence ──────────────────────────────────────────────────────
 
-test.describe('LineHeight — persistence', () => {
+test.describe('LineHeight - persistence', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -431,7 +431,7 @@ test.describe('LineHeight — persistence', () => {
 
 // ─── Edge cases ───────────────────────────────────────────────────────
 
-test.describe('LineHeight — edge cases', () => {
+test.describe('LineHeight - edge cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

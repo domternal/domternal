@@ -72,7 +72,7 @@ async function placeCursorInLink(page: Page) {
 
 // ─── Opening popover ──────────────────────────────────────────────────
 
-test.describe('Link popover — Opening', () => {
+test.describe('Link popover - Opening', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -130,7 +130,7 @@ test.describe('Link popover — Opening', () => {
 
 // ─── Existing link ─────────────────────────────────────────────────────
 
-test.describe('Link popover — Existing link', () => {
+test.describe('Link popover - Existing link', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -181,7 +181,7 @@ test.describe('Link popover — Existing link', () => {
 
 // ─── Applying links ────────────────────────────────────────────────────
 
-test.describe('Link popover — Applying links', () => {
+test.describe('Link popover - Applying links', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -270,7 +270,7 @@ test.describe('Link popover — Applying links', () => {
 
 // ─── Removing links ────────────────────────────────────────────────────
 
-test.describe('Link popover — Removing links', () => {
+test.describe('Link popover - Removing links', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -299,7 +299,7 @@ test.describe('Link popover — Removing links', () => {
 
 // ─── Closing popover ───────────────────────────────────────────────────
 
-test.describe('Link popover — Closing', () => {
+test.describe('Link popover - Closing', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -366,7 +366,7 @@ test.describe('Link popover — Closing', () => {
 
 // ─── Positioning ───────────────────────────────────────────────────────
 
-test.describe('Link popover — Positioning', () => {
+test.describe('Link popover - Positioning', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

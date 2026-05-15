@@ -75,7 +75,7 @@ export class TableView implements NodeView {
   private dropdown: HTMLElement | null = null;
   /** When true, the plugin skips showing the cell toolbar (row/col dropdown is open). */
   suppressCellToolbar = false;
-  /** When true, column resize drag is active — all handles/menus are hidden. */
+  /** When true, column resize drag is active - all handles/menus are hidden. */
   private _resizeDragging = false;
 
   private hoveredCell: HTMLTableCellElement | null = null;
@@ -130,7 +130,7 @@ export class TableView implements NodeView {
     this.cellToolbar = this.buildCellToolbar();
     this.dom.appendChild(this.cellToolbar);
 
-    // Create cell handle (small circle — appears when cursor is in a cell)
+    // Create cell handle (small circle - appears when cursor is in a cell)
     this.cellHandle = document.createElement('button');
     this.cellHandle.type = 'button';
     this.cellHandle.className = 'dm-table-cell-handle';
@@ -636,7 +636,7 @@ export class TableView implements NodeView {
       dropdown.appendChild(btn);
     }
 
-    // Position below the handle — fixed to viewport so it escapes overflow containers
+    // Position below the handle - fixed to viewport so it escapes overflow containers
     const handle = type === 'row' ? this.rowHandle : this.colHandle;
     const handleRect = handle.getBoundingClientRect();
     dropdown.style.position = 'fixed';

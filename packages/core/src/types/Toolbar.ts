@@ -6,10 +6,6 @@
  * read these items and render the toolbar UI.
  */
 
-// =============================================================================
-// Icon Sets
-// =============================================================================
-
 /**
  * Maps icon names to SVG strings.
  *
@@ -20,10 +16,6 @@
  * };
  */
 export type IconSet = Record<string, string>;
-
-// =============================================================================
-// Toolbar Items
-// =============================================================================
 
 /**
  * A toolbar button that executes a command.
@@ -57,7 +49,7 @@ export interface ToolbarButton {
    * How to check if this button is active.
    * - string: extension name passed to `editor.isActive(name)`
    * - object: `{ name, attributes }` passed to `editor.isActive(name, attributes)`
-   * - array: OR-check — active if ANY entry matches (useful for attributes on multiple node types)
+   * - array: OR-check - active if ANY entry matches (useful for attributes on multiple node types)
    * - undefined: button has no active state (e.g. undo/redo)
    */
   isActive?:
@@ -185,10 +177,6 @@ export interface ToolbarSeparator {
 /** Any toolbar item */
 export type ToolbarItem = ToolbarButton | ToolbarDropdown | ToolbarSeparator;
 
-// =============================================================================
-// Layout
-// =============================================================================
-
 /**
  * A custom dropdown defined in a toolbar layout.
  *
@@ -211,7 +199,7 @@ export interface ToolbarLayoutDropdown {
 /**
  * A single entry in a toolbar layout array.
  *
- * - `string` — item name (e.g. `'bold'`) or separator (`'|'`)
- * - `ToolbarLayoutDropdown` — custom dropdown grouping
+ * - `string` - item name (e.g. `'bold'`) or separator (`'|'`)
+ * - `ToolbarLayoutDropdown` - custom dropdown grouping
  */
 export type ToolbarLayoutEntry = string | ToolbarLayoutDropdown;

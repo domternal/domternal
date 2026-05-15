@@ -285,7 +285,7 @@ describe('redistributeColumns', () => {
   it('skips cells that already have target width (branch: colwidth[index] === targetW)', () => {
     editor = new Editor({
       extensions: allExtensions,
-      // Column widths already 150 — targeting 600/4 columns = 150 each
+      // Column widths already 150 - targeting 600/4 columns = 150 each
       content: '<table><tr><td data-colwidth="150"><p>A</p></td><td data-colwidth="150"><p>B</p></td><td data-colwidth="150"><p>C</p></td></tr></table>',
     });
     focusFirstCell(editor);

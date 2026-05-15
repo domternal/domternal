@@ -33,9 +33,17 @@ async function selectAll(page: Page) {
 /** Open the font size dropdown and click a specific size item */
 async function setSizeViaToolbar(page: Page, label: string) {
   await page.locator(dropdownTrigger).click();
-  const panel = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Font Size"]) .dm-toolbar-dropdown-panel');
-  await panel.waitFor({ state: 'visible' });
-  await panel.locator(`button[aria-label="${label}"]`).click();
+  const panelSel = '.dm-toolbar-dropdown-wrapper:has(button[aria-label="Font Size"]) .dm-toolbar-dropdown-panel';
+  await page.locator(panelSel).waitFor({ state: 'visible' });
+  // Dispatch click via DOM directly: with text selection active, the bubble
+  // menu floats over the middle of the dropdown panel and intercepts pointer
+  // events for items in its vertical band. A DOM-level click fires the
+  // button's handler without going through hit-testing.
+  await page.evaluate(({ panelSel, label }) => {
+    const panel = document.querySelector(panelSel);
+    const btn = panel?.querySelector(`button[aria-label="${label}"]`);
+    if (btn instanceof HTMLElement) btn.click();
+  }, { panelSel, label });
 }
 
 // ─── Fixtures ──────────────────────────────────────────────────────────
@@ -48,7 +56,7 @@ const TWO_PARAGRAPHS = '<p>first paragraph</p><p>second paragraph</p>';
 
 // ─── Toolbar dropdown ─────────────────────────────────────────────────
 
-test.describe('FontSize — toolbar dropdown', () => {
+test.describe('FontSize - toolbar dropdown', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -96,7 +104,7 @@ test.describe('FontSize — toolbar dropdown', () => {
 
 // ─── Dynamic label trigger ────────────────────────────────────────────
 
-test.describe('FontSize — dynamicLabel trigger', () => {
+test.describe('FontSize - dynamicLabel trigger', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -182,7 +190,7 @@ test.describe('FontSize — dynamicLabel trigger', () => {
 
 // ─── Set font size via toolbar ────────────────────────────────────────
 
-test.describe('FontSize — set via toolbar', () => {
+test.describe('FontSize - set via toolbar', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -255,7 +263,7 @@ test.describe('FontSize — set via toolbar', () => {
 
 // ─── Unset font size (via command) ───────────────────────────────────
 
-test.describe('FontSize — unset via command', () => {
+test.describe('FontSize - unset via command', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -330,7 +338,7 @@ test.describe('FontSize — unset via command', () => {
 
 // ─── Change between sizes ─────────────────────────────────────────────
 
-test.describe('FontSize — change between sizes', () => {
+test.describe('FontSize - change between sizes', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -378,7 +386,7 @@ test.describe('FontSize — change between sizes', () => {
 
 // ─── Active state in dropdown ─────────────────────────────────────────
 
-test.describe('FontSize — active state', () => {
+test.describe('FontSize - active state', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -429,7 +437,7 @@ test.describe('FontSize — active state', () => {
 
 // ─── parseHTML ────────────────────────────────────────────────────────
 
-test.describe('FontSize — parseHTML', () => {
+test.describe('FontSize - parseHTML', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -484,9 +492,9 @@ test.describe('FontSize — parseHTML', () => {
   });
 });
 
-// ─── Custom HTML — no validation (any size accepted) ─────────────────
+// ─── Custom HTML - no validation (any size accepted) ─────────────────
 
-test.describe('FontSize — custom HTML (any size accepted)', () => {
+test.describe('FontSize - custom HTML (any size accepted)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -572,7 +580,7 @@ test.describe('FontSize — custom HTML (any size accepted)', () => {
 
 // ─── Partial selection ────────────────────────────────────────────────
 
-test.describe('FontSize — partial selection', () => {
+test.describe('FontSize - partial selection', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -638,7 +646,7 @@ test.describe('FontSize — partial selection', () => {
 
 // ─── Multiple paragraphs ─────────────────────────────────────────────
 
-test.describe('FontSize — multiple paragraphs', () => {
+test.describe('FontSize - multiple paragraphs', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -677,7 +685,7 @@ test.describe('FontSize — multiple paragraphs', () => {
 
 // ─── Combined with other styles ───────────────────────────────────────
 
-test.describe('FontSize — combined with other marks', () => {
+test.describe('FontSize - combined with other marks', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -738,7 +746,7 @@ test.describe('FontSize — combined with other marks', () => {
 
 // ─── Persistence ──────────────────────────────────────────────────────
 
-test.describe('FontSize — persistence', () => {
+test.describe('FontSize - persistence', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -785,7 +793,7 @@ test.describe('FontSize — persistence', () => {
 
 // ─── Edge cases ───────────────────────────────────────────────────────
 
-test.describe('FontSize — edge cases', () => {
+test.describe('FontSize - edge cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

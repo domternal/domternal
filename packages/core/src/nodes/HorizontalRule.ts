@@ -142,7 +142,7 @@ export const HorizontalRule = Node.create<HorizontalRuleOptions>({
 
     return [
       new InputRule(
-        /^(?:---|--|___|\*\*\*)\s$/,
+        /^(?:---|—-|___|\*\*\*)\s$/,
         (state: EditorState, match: RegExpMatchArray, start: number) => {
           const { tr } = state;
 

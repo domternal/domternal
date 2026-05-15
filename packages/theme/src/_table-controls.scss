@@ -5,7 +5,7 @@
 // above columns and beside rows. Clicking opens a dropdown with operations.
 // =============================================================================
 
-// Outer container — holds handles + tableWrapper
+// Outer container - holds handles + tableWrapper
 .dm-editor .dm-table-container {
   position: relative;
 }
@@ -54,7 +54,7 @@
   height: 24px;
 }
 
-// Cell handle — small circle at cell corner (appears when cursor is in a cell)
+// Cell handle - small circle at cell corner (appears when cursor is in a cell)
 .dm-table-cell-handle {
   position: absolute;
   z-index: 10;
@@ -277,7 +277,7 @@
   }
 }
 
-// Cell dropdown — color palette
+// Cell dropdown - color palette
 .dm-table-cell-dropdown {
   min-width: auto;
   width: max-content;

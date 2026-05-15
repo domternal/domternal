@@ -1,5 +1,5 @@
 /**
- * Selection commands — focus, blur, selectAll, selectNodeBackward, deleteSelection
+ * Selection commands - focus, blur, selectAll, selectNodeBackward, deleteSelection
  */
 import { TextSelection, AllSelection } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';

@@ -1,5 +1,5 @@
 /**
- * Content commands — setContent, clearContent, insertText, insertContent
+ * Content commands - setContent, clearContent, insertText, insertContent
  */
 import { TextSelection } from '@domternal/pm/state';
 import { Fragment, Slice, DOMParser as ProseMirrorDOMParser } from '@domternal/pm/model';
