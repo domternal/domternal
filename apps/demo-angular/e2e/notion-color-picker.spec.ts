@@ -69,6 +69,20 @@ async function getEditorHtml(page: Page): Promise<string> {
   });
 }
 
+const triggerSelector = '.dm-bubble-menu .dm-ncp-trigger';
+const panelSelector = '.dm-notion-color-picker';
+
+/**
+ * Triple-click the first paragraph to select its text as a real
+ * TextSelection. The bubble menu's defaultShouldShow rejects non-text
+ * selections (e.g. AllSelection from `focus('all')`), so UI-flow tests need
+ * a genuine selection range that ProseMirror sets via native browser events.
+ */
+async function selectFirstParagraph(page: Page): Promise<void> {
+  await page.locator(`${editorSelector} p`).first().click({ clickCount: 3 });
+  await page.waitForSelector('.dm-bubble-menu[data-show]', { timeout: 5000 });
+}
+
 test.describe('Notion color picker - data layer', () => {
   test.beforeEach(async ({ page }) => {
     await goNotion(page);
@@ -248,6 +262,301 @@ test.describe('Notion color picker - data layer', () => {
       return ed.storage.notionColorPicker.isOpen;
     });
     expect(written).toBe(true);
+  });
+
+  test('inline span with data-bg-color uses horizontal padding (no block padding leak)', async ({ page }) => {
+    // The block-level rule in _block-colors.scss applies padding-block to ANY
+    // [data-bg-color]; for inline spans that bleeds the tint into adjacent
+    // lines. _inline-colors.scss overrides with horizontal padding only.
+    await setContentAndSelectAll(page, '<p>Hello world</p>');
+    await runCommand(page, 'setBackgroundColorToken', 'pink');
+
+    const padding = await page.evaluate(() => {
+      const el = document.querySelector('.ProseMirror span[data-bg-color="pink"]') as HTMLElement | null;
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      return {
+        top: cs.paddingTop,
+        bottom: cs.paddingBottom,
+        left: cs.paddingLeft,
+        right: cs.paddingRight,
+      };
+    });
+    expect(padding).not.toBeNull();
+    expect(padding!.top).toBe('0px');
+    expect(padding!.bottom).toBe('0px');
+    // Horizontal padding should be non-zero so the tint visually hugs the text.
+    expect(padding!.left).not.toBe('0px');
+    expect(padding!.right).not.toBe('0px');
+  });
+
+  // ===========================================================================
+  // UI (Phase 4) - bubble menu trigger + popover lifecycle
+  // ===========================================================================
+
+  test('UI: bubble menu shows "A" trigger when NotionColorPicker is loaded', async ({ page }) => {
+    await setContentAndSelectAll(page, '<p>Hello world</p>');
+    await expect(page.locator(triggerSelector)).toBeVisible();
+  });
+
+  test('UI: clicking "A" opens the picker panel', async ({ page }) => {
+    await setContentAndSelectAll(page, '<p>Hello world</p>');
+    await page.click(triggerSelector);
+    await expect(page.locator(panelSelector)).toBeVisible();
+  });
+
+  test('UI: clicking "A" while open toggles the picker closed', async ({ page }) => {
+    await setContentAndSelectAll(page, '<p>Hello world</p>');
+    await page.click(triggerSelector);
+    await expect(page.locator(panelSelector)).toBeVisible();
+    await page.click(triggerSelector);
+    await expect(page.locator(panelSelector)).not.toBeVisible();
+  });
+
+  test('UI: text-color swatch click applies token and closes picker', async ({ page }) => {
+    await setContentAndSelectAll(page, '<p>Hello world</p>');
+    await page.click(triggerSelector);
+    // First swatch is "Default" (data-color="null"); pick the gray one.
+    await page.click(`${panelSelector} .dm-ncp-swatch--text[data-color="gray"]`);
+
+    await expect(page.locator(panelSelector)).not.toBeVisible();
+    const html = await getEditorHtml(page);
+    expect(html).toContain('data-text-color="gray"');
+  });
+
+  test('UI: bg-color swatch click applies token and closes picker', async ({ page }) => {
+    await setContentAndSelectAll(page, '<p>Hello world</p>');
+    await page.click(triggerSelector);
+    await page.click(`${panelSelector} .dm-ncp-swatch--bg[data-color="yellow"]`);
+
+    await expect(page.locator(panelSelector)).not.toBeVisible();
+    const html = await getEditorHtml(page);
+    expect(html).toContain('data-bg-color="yellow"');
+  });
+
+  test('UI: swatch click updates the Recently used row on next open', async ({ page }) => {
+    await setContentAndSelectAll(page, '<p>Hello world</p>');
+
+    await page.click(triggerSelector);
+    await page.click(`${panelSelector} .dm-ncp-swatch--text[data-color="blue"]`);
+    await expect(page.locator(panelSelector)).not.toBeVisible();
+
+    // Reopen to inspect Recently used.
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    const recentSwatch = page.locator(
+      `${panelSelector} .dm-ncp-section`,
+    ).first().locator(`.dm-ncp-swatch--text[data-color="blue"]`);
+    await expect(recentSwatch).toBeVisible();
+  });
+
+  test('UI: active ring on currently applied token', async ({ page }) => {
+    await setContentAndSelectAll(page, '<p>Hello world</p>');
+    await runCommand(page, 'setTextColorToken', 'red');
+
+    // Reselect (setTextColorToken via command path doesn't preserve selection
+    // visualization but selection is still there).
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+
+    // The red text swatch should carry the active class.
+    const active = page.locator(
+      `${panelSelector} .dm-ncp-swatch--text[data-color="red"].dm-ncp-active`,
+    );
+    await expect(active).toBeVisible();
+  });
+
+  test('UI: Escape closes the picker', async ({ page }) => {
+    await setContentAndSelectAll(page, '<p>Hello world</p>');
+    await page.click(triggerSelector);
+    await expect(page.locator(panelSelector)).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator(panelSelector)).not.toBeVisible();
+  });
+
+  test('UI: outside click closes the picker', async ({ page }) => {
+    await setContentAndSelectAll(page, '<p>Hello world</p>');
+    await page.click(triggerSelector);
+    await expect(page.locator(panelSelector)).toBeVisible();
+
+    // Click on the page heading (well outside both panel and trigger).
+    await page.locator('h3').first().click();
+    await expect(page.locator(panelSelector)).not.toBeVisible();
+  });
+
+  test('UI: Default text swatch clears an existing token', async ({ page }) => {
+    await setContentAndSelectAll(page, '<p>Hello world</p>');
+    await runCommand(page, 'setTextColorToken', 'red');
+    expect(await getEditorHtml(page)).toContain('data-text-color="red"');
+
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    await page.click(`${panelSelector} .dm-ncp-swatch--text[data-color="null"]`);
+    await expect(page.locator(panelSelector)).not.toBeVisible();
+
+    const html = await getEditorHtml(page);
+    expect(html).not.toContain('data-text-color');
+  });
+
+  test('UI: text + bg applied simultaneously both render as active', async ({ page }) => {
+    await setContentAndSelectAll(page, '<p>Hello world</p>');
+    await runCommand(page, 'setTextColorToken', 'green');
+    await runCommand(page, 'setBackgroundColorToken', 'pink');
+
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+
+    await expect(
+      page.locator(`${panelSelector} .dm-ncp-swatch--text[data-color="green"].dm-ncp-active`),
+    ).toBeVisible();
+    await expect(
+      page.locator(`${panelSelector} .dm-ncp-swatch--bg[data-color="pink"].dm-ncp-active`),
+    ).toBeVisible();
+  });
+
+  test('UI: picking the same token twice keeps a single recent entry', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    await page.click(`${panelSelector} .dm-ncp-swatch--text[data-color="orange"]`);
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    await page.click(`${panelSelector} .dm-ncp-swatch--text[data-color="orange"]`);
+
+    const recent = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as {
+        storage: { notionColorPicker: { recent: unknown[] } };
+      };
+      return ed.storage.notionColorPicker.recent;
+    });
+    expect(recent).toHaveLength(1);
+    expect(recent[0]).toEqual({ kind: 'text', token: 'orange' });
+  });
+
+  test('UI: clicking a recent-row entry re-applies that color', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    await page.click(`${panelSelector} .dm-ncp-swatch--bg[data-color="blue"]`);
+
+    // Clear so we can verify the recent-row click reapplies, not a leftover state.
+    await runCommand(page, 'unsetBackgroundColorToken');
+
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    // First section in the panel is "Recently used"; first swatch in it is the
+    // most-recent pick (blue bg).
+    await page.click(
+      `${panelSelector} .dm-ncp-section:first-child .dm-ncp-swatch--bg[data-color="blue"]`,
+    );
+
+    const html = await getEditorHtml(page);
+    expect(html).toContain('data-bg-color="blue"');
+  });
+
+  test('UI: A trigger gains --active class when any color token is applied', async ({ page }) => {
+    await setContentAndSelectAll(page, '<p>Hello world</p>');
+
+    let active = await page
+      .locator(triggerSelector)
+      .evaluate((el) => el.classList.contains('dm-toolbar-button--active'));
+    expect(active).toBe(false);
+
+    await runCommand(page, 'setTextColorToken', 'purple');
+    await selectFirstParagraph(page);
+
+    active = await page
+      .locator(triggerSelector)
+      .evaluate((el) => el.classList.contains('dm-toolbar-button--active'));
+    expect(active).toBe(true);
+  });
+
+  test('UI: underline indicator is transparent when no bg-color token is applied', async ({ page }) => {
+    await setContentAndSelectAll(page, '<p>Hello world</p>');
+    await selectFirstParagraph(page);
+
+    // Inline style binding is set to null, which produces empty inline style;
+    // browser falls back to the CSS default (`background-color: transparent`).
+    const bg = await page.evaluate(() => {
+      const el = document.querySelector('.dm-bubble-menu .dm-ncp-trigger-underline') as HTMLElement | null;
+      return el ? getComputedStyle(el).backgroundColor : null;
+    });
+    expect(['rgba(0, 0, 0, 0)', 'transparent', '']).toContain(bg);
+  });
+
+  test('UI: collapsing the selection while open closes the picker', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    await expect(page.locator(panelSelector)).toBeVisible();
+
+    // Clicking inside the editor at a single point collapses to a cursor
+    // (empty selection); the picker's selectionUpdate handler should close it.
+    await page.locator(`${editorSelector} p`).first().click();
+    await expect(page.locator(panelSelector)).not.toBeVisible();
+  });
+
+  test('UI: re-selecting after swatch click keeps the applied mark intact', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    await page.click(`${panelSelector} .dm-ncp-swatch--text[data-color="yellow"]`);
+    await expect(page.locator(panelSelector)).not.toBeVisible();
+
+    // Even after the close-induced refocus, the colored span survives.
+    const html = await getEditorHtml(page);
+    expect(html).toContain('data-text-color="yellow"');
+
+    // Reopen + verify active state still highlights yellow.
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    await expect(
+      page.locator(`${panelSelector} .dm-ncp-swatch--text[data-color="yellow"].dm-ncp-active`),
+    ).toBeVisible();
+  });
+
+  test('UI: picker follows the trigger when the page scrolls', async ({ page }) => {
+    // Need a tall page so there's room to scroll. The notion-demo content is
+    // already long; insert a few line breaks below to ensure overflow.
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as {
+        setContent: (h: string, emit: boolean) => void;
+      };
+      ed.setContent(
+        '<p>First paragraph for selection.</p>' + '<p>filler</p>'.repeat(40),
+        false,
+      );
+    });
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    await expect(page.locator(panelSelector)).toBeVisible();
+
+    const beforeY = await page.locator(panelSelector).evaluate((el) => el.getBoundingClientRect().top);
+
+    // Scroll the page a fixed amount; positionFloating tracks via rAF so the
+    // panel should follow the anchor downwards by roughly the same delta.
+    await page.evaluate(() => window.scrollBy(0, 200));
+    // Wait a couple of frames so the rAF tracker fires.
+    await page.waitForTimeout(100);
+
+    const afterY = await page.locator(panelSelector).evaluate((el) => el.getBoundingClientRect().top);
+    // Panel should move with the anchor. Allow generous tolerance because the
+    // anchor itself sits inside the bubble menu, which has its own positioning.
+    expect(Math.abs(afterY - beforeY)).toBeGreaterThan(50);
+  });
+
+  test('UI: trigger paints the underline with the applied bg-color token', async ({ page }) => {
+    await setContentAndSelectAll(page, '<p>Hello world</p>');
+    await runCommand(page, 'setBackgroundColorToken', 'green');
+    await selectFirstParagraph(page);
+
+    // CSS variable expression is applied as inline style; resolve via
+    // computed style on the actual underline element.
+    const bg = await page.evaluate(() => {
+      const el = document.querySelector('.dm-bubble-menu .dm-ncp-trigger-underline') as HTMLElement | null;
+      return el ? getComputedStyle(el).backgroundColor : null;
+    });
+    expect(bg).not.toBeNull();
+    expect(bg).not.toBe('');
+    expect(bg).not.toBe('rgba(0, 0, 0, 0)');
+    expect(bg).not.toBe('transparent');
   });
 
   test('clearRecentColors wipes storage and localStorage', async ({ page }) => {

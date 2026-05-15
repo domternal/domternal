@@ -1,0 +1,238 @@
+// =============================================================================
+// Inline Colors
+// =============================================================================
+// Companion to `_block-colors.scss`. The block file's `[data-text-color]` and
+// `[data-bg-color]` rules already apply to inline spans (the attribute selector
+// has no element-type constraint), so text colors "just work" on
+// `<span data-text-color="gray">`. This file covers the gaps:
+//
+//   1. Block-level vertical padding on `[data-bg-color]` is wrong for inline
+//      spans - it bleeds into adjacent lines. Override to horizontal padding
+//      only so the tint hugs the glyphs without breaking line rhythm.
+//
+//   2. Styles for the Notion-style picker popover (`.dm-notion-color-picker`)
+//      that consumes the same `--dm-block-text-*` and `--dm-block-bg-*`
+//      tokens for swatch rendering. The picker DOM is mounted by framework
+//      wrappers; rule names match the contract documented in the rollout
+//      plan (Phase 4).
+//
+// Load order: import AFTER `_block-colors.scss` in `index.scss` so the inline
+// override wins on equal specificity (we also bump element selectors for
+// safety).
+// =============================================================================
+
+// -----------------------------------------------------------------------------
+// Inline span bg-color override
+// -----------------------------------------------------------------------------
+// Block rule applies `padding-block: 0.125rem` to any `[data-bg-color]`, which
+// would push a tinted span's background above and below the line box and
+// visually overlap neighbouring lines. Spans need INLINE padding only.
+
+.dm-editor .ProseMirror {
+  span[data-bg-color] {
+    padding-block: 0;
+    padding-inline: 0.2rem;
+    border-radius: 0.25rem;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Bubble menu "A" trigger
+// -----------------------------------------------------------------------------
+// Two-layer trigger: a serif "A" glyph painted in the current text-color
+// token plus a thin underline bar painted in the current bg-color token.
+// Mirrors Notion's preview style so the user can tell at a glance what is
+// currently applied at the selection.
+
+.dm-ncp-trigger {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+}
+
+.dm-ncp-trigger-glyph {
+  font-family: var(--dm-editor-font-family, system-ui, sans-serif);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.dm-ncp-trigger-underline {
+  width: 0.875rem;
+  height: 0.125rem;
+  border-radius: 0.0625rem;
+  background-color: transparent;
+}
+
+// -----------------------------------------------------------------------------
+// Notion color picker popover
+// -----------------------------------------------------------------------------
+// Three sections: Recently used, Text color, Background color. Each section
+// renders a 5-column grid of swatches via `.dm-ncp-grid`. The trigger
+// ("A" button) lives in the bubble menu (Phase 4 markup).
+
+.dm-notion-color-picker {
+  // Absolute, positioned by @floating-ui/dom; sits above the bubble menu
+  // (z-index 50) and at parity with the link popover (60).
+  position: absolute;
+  z-index: 60;
+
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  min-width: 17.5rem;
+  padding: 0.5rem;
+
+  background: var(--dm-surface-elevated, var(--dm-surface, #ffffff));
+  color: var(--dm-editor-text, inherit);
+  border: 1px solid var(--dm-border-color, #e5e7eb);
+  border-radius: 0.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+
+  // Render only when explicitly opened to avoid layout flash on mount.
+  &:not([data-show]) {
+    display: none;
+  }
+}
+
+.dm-ncp-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.dm-ncp-label {
+  // Section heading ("Recently used", "Text color", "Background color"). Small
+  // muted caption that visually groups its swatches without competing with
+  // the swatches themselves.
+  font-size: 0.75rem;
+  line-height: 1;
+  font-weight: 500;
+  color: var(--dm-muted, #6b7280);
+  padding: 0.125rem 0.25rem;
+}
+
+.dm-ncp-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.25rem;
+}
+
+// -----------------------------------------------------------------------------
+// Swatch base
+// -----------------------------------------------------------------------------
+// Square button. Text variants render a centered capital "A" in the named
+// color; bg variants render the named color as the button's fill.
+
+.dm-ncp-swatch {
+  position: relative;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 2.25rem;
+  height: 2.25rem;
+
+  padding: 0;
+  border: 1px solid var(--dm-border-color, #e5e7eb);
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--dm-editor-text, #333);
+
+  font-family: var(--dm-editor-font-family, system-ui, sans-serif);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1;
+
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+
+  &:hover {
+    transform: scale(1.05);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: 1px;
+  }
+
+  // Picked / currently applied swatch. Ring is OUTSET (offset > 0) so it stays
+  // visible against the swatch fill (background or "A" glyph).
+  &.dm-ncp-active {
+    box-shadow: 0 0 0 2px var(--dm-accent, #2563eb);
+    outline: none;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Text-color swatches
+// -----------------------------------------------------------------------------
+// Each swatch shows the literal letter "A" in the named color. The "Default"
+// swatch uses the editor's default text color.
+
+.dm-ncp-swatch--text {
+  &::before {
+    content: 'A';
+  }
+
+  &[data-color="null"]::before  { color: var(--dm-editor-text, #333); }
+  &[data-color="gray"]::before   { color: var(--dm-block-text-gray); }
+  &[data-color="brown"]::before  { color: var(--dm-block-text-brown); }
+  &[data-color="orange"]::before { color: var(--dm-block-text-orange); }
+  &[data-color="yellow"]::before { color: var(--dm-block-text-yellow); }
+  &[data-color="green"]::before  { color: var(--dm-block-text-green); }
+  &[data-color="blue"]::before   { color: var(--dm-block-text-blue); }
+  &[data-color="purple"]::before { color: var(--dm-block-text-purple); }
+  &[data-color="pink"]::before   { color: var(--dm-block-text-pink); }
+  &[data-color="red"]::before    { color: var(--dm-block-text-red); }
+}
+
+// -----------------------------------------------------------------------------
+// Background-color swatches
+// -----------------------------------------------------------------------------
+// Filled rectangle with no glyph (the color IS the indicator). "Default"
+// renders a strike-through to signal "no background".
+
+.dm-ncp-swatch--bg {
+  &[data-color="null"] {
+    // Strike-through slash for "no background" signal. Uses --dm-muted so
+    // contrast works against any theme surface.
+    background-image: linear-gradient(
+      to top right,
+      transparent calc(50% - 1px),
+      var(--dm-muted, #999) calc(50% - 1px),
+      var(--dm-muted, #999) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    );
+  }
+
+  &[data-color="gray"]   { background-color: var(--dm-block-bg-gray); }
+  &[data-color="brown"]  { background-color: var(--dm-block-bg-brown); }
+  &[data-color="orange"] { background-color: var(--dm-block-bg-orange); }
+  &[data-color="yellow"] { background-color: var(--dm-block-bg-yellow); }
+  &[data-color="green"]  { background-color: var(--dm-block-bg-green); }
+  &[data-color="blue"]   { background-color: var(--dm-block-bg-blue); }
+  &[data-color="purple"] { background-color: var(--dm-block-bg-purple); }
+  &[data-color="pink"]   { background-color: var(--dm-block-bg-pink); }
+  &[data-color="red"]    { background-color: var(--dm-block-bg-red); }
+}
+
+// -----------------------------------------------------------------------------
+// Narrow-viewport tweaks
+// -----------------------------------------------------------------------------
+// On phones the 5-column grid + 17.5rem min-width can overflow the viewport.
+// Clamp panel width and let the grid breathe; the swatch tap targets stay
+// the same size so accessibility is preserved.
+
+@media (max-width: 480px) {
+  .dm-notion-color-picker {
+    min-width: 0;
+    width: calc(100vw - 1rem);
+    max-width: 20rem;
+  }
+}

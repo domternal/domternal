@@ -74,6 +74,20 @@ interface SchemaShape {
             (click)="executeCommand(item)"></button>
         }
       }
+      @if (showColorPickerButton()) {
+        <span class="dm-toolbar-separator" role="separator"></span>
+        <button #colorBtn type="button" class="dm-toolbar-button dm-ncp-trigger"
+          [class.dm-toolbar-button--active]="hasAnyColor()"
+          title="Text and background color"
+          aria-label="Text and background color"
+          (mousedown)="$event.preventDefault()"
+          (click)="openColorPicker(colorBtn)">
+          <span class="dm-ncp-trigger-glyph"
+            [style.color]="currentTextColorVar()">A</span>
+          <span class="dm-ncp-trigger-underline"
+            [style.background-color]="currentBgColorVar()"></span>
+        </button>
+      }
       @if (showBlockMenuButton()) {
         <span class="dm-toolbar-separator" role="separator"></span>
         <button #blockMenuBtn type="button" class="dm-toolbar-button"
@@ -106,6 +120,18 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
   /** Internal — true when the BlockContextMenu extension is loaded; toggles the "..." trailing button. */
   readonly showBlockMenuButton = signal(false);
+
+  /** Internal — true when the NotionColorPicker extension is loaded; toggles the "A" color trigger. */
+  readonly showColorPickerButton = signal(false);
+
+  /** Current text color CSS variable expression for the trigger glyph (null = default). */
+  readonly currentTextColorVar = signal<string | null>(null);
+
+  /** Current background color CSS variable expression for the trigger underline (null = transparent). */
+  readonly currentBgColorVar = signal<string | null>(null);
+
+  /** Internal — true when the selection has any token-based text or background color applied. */
+  readonly hasAnyColor = signal(false);
 
   private menuEl = viewChild.required<ElementRef<HTMLElement>>('menuEl');
   private pluginKey: PluginKey;
@@ -215,6 +241,18 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
    * the listItem, not the paragraph) so Delete / Turn into operate on the
    * "visual block" the user is editing.
    */
+  /**
+   * Emit the `notionColorOpen` event with the trigger button as the anchor.
+   * The framework popover component (DomternalNotionColorPickerComponent)
+   * listens for this event and positions itself against the anchor.
+   */
+  openColorPicker(anchor: HTMLElement): void {
+    (this.editor().emit as (e: string, d: unknown) => void)(
+      'notionColorOpen',
+      { anchorElement: anchor },
+    );
+  }
+
   openBlockContextMenu(anchor: HTMLElement): void {
     const editor = this.editor();
     const $from = editor.state.selection.$from;
@@ -356,6 +394,9 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     this.showBlockMenuButton.set(
       editor.extensionManager.extensions.some((e) => e.name === 'blockContextMenu'),
     );
+    this.showColorPickerButton.set(
+      editor.extensionManager.extensions.some((e) => e.name === 'notionColorPicker'),
+    );
 
     const items = this.items();
     if (this.contexts()) {
@@ -383,11 +424,40 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
           }
         }
         this.updateStates(editor);
+        if (this.showColorPickerButton()) {
+          this.syncColorTriggerState(editor);
+        }
         this.activeVersion.update(v => v + 1);
       });
     };
     editor.on('transaction', this.transactionHandler);
     this.updateStates(editor);
+    if (this.showColorPickerButton()) {
+      this.syncColorTriggerState(editor);
+    }
+  }
+
+  /**
+   * Update the trigger's indicator colors to mirror the current selection.
+   * Used by the "A" button so the underline matches whatever the user has
+   * applied at the cursor (Notion-style live preview).
+   */
+  private syncColorTriggerState(editor: Editor): void {
+    const $from = editor.state.selection.$from;
+    const mark = $from.marks().find((m) => m.type.name === 'textStyle');
+    const attrs = (mark?.attrs ?? {}) as {
+      colorToken?: string | null;
+      backgroundColorToken?: string | null;
+    };
+    const textToken = attrs.colorToken ?? null;
+    const bgToken = attrs.backgroundColorToken ?? null;
+    this.currentTextColorVar.set(
+      textToken ? `var(--dm-block-text-${textToken})` : null,
+    );
+    this.currentBgColorVar.set(
+      bgToken ? `var(--dm-block-bg-${bgToken})` : null,
+    );
+    this.hasAnyColor.set(textToken !== null || bgToken !== null);
   }
 
   private updateContextItems(editor: Editor): void {

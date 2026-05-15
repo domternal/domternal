@@ -3,6 +3,7 @@ import {
   DomternalEditorComponent,
   DomternalBubbleMenuComponent,
   DomternalFloatingMenuComponent,
+  DomternalNotionColorPickerComponent,
 } from '@domternal/angular';
 import {
   Bold,
@@ -90,6 +91,7 @@ const mockUsers: MentionItem[] = [
     DomternalEditorComponent,
     DomternalBubbleMenuComponent,
     DomternalFloatingMenuComponent,
+    DomternalNotionColorPickerComponent,
   ],
   templateUrl: './notion-demo.component.html',
   styleUrls: ['./notion-demo.component.scss'],

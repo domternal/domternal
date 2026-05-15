@@ -51,6 +51,9 @@
 @use 'emoji-picker';
 @use 'table-controls';
 @use 'block-colors';
+// MUST follow block-colors: the inline override depends on cascade ordering
+// to win over the block-level [data-bg-color] padding rule.
+@use 'inline-colors';
 @use 'toc';
 
 // 8. Opt-in stylistic presets (apply via host class)
