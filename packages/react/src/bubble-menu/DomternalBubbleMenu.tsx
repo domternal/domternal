@@ -143,7 +143,6 @@ export function DomternalBubbleMenu({
             title="Text and background color"
             aria-label="Text and background color"
             aria-haspopup="dialog"
-            aria-expanded={trailing.colorPickerOpen}
             onMouseDown={(e) => { e.preventDefault(); }}
             onClick={() => { if (colorBtnRef.current) openColorPicker(colorBtnRef.current); }}
           >

@@ -146,14 +146,9 @@ export function useNotionColorPicker(
     if (!isOpenRef.current) return;
     setIsOpen(false);
     setStorageOpen(false);
-    // Notify trigger UIs (the bubble-menu "A" button) so they can flip
-    // aria-expanded back to false. Two-way contract: open emits
-    // `notionColorOpen`, close emits `notionColorClose`.
-    editorRef.current?.emit('notionColorClose', {});
     if (opts.refocus) {
-      // Return focus to the editor view (matching Angular's `close` contract).
-      // Returning to the trigger button would leave the user without a caret
-      // in the document; the editor view is the meaningful resume target.
+      // Focus the editor view, not the trigger button: trigger focus would
+      // leave the user without a caret.
       editorRef.current?.view.focus();
     }
     setAnchorEl(null);

@@ -150,9 +150,6 @@ export interface EditorEvents {
 
   /** Fired when the Notion color picker should open, with the trigger as anchor. */
   notionColorOpen: { anchorElement?: HTMLElement | null };
-
-  /** Fired when the Notion color picker has closed. Lets trigger UIs sync aria-expanded. */
-  notionColorClose: Record<string, never>;
 }
 
 /**
