@@ -22,6 +22,12 @@ export type { DomternalFloatingMenuProps } from './DomternalFloatingMenu.js';
 export { DomternalEmojiPicker } from './emoji-picker/DomternalEmojiPicker.js';
 export type { DomternalEmojiPickerProps } from './emoji-picker/DomternalEmojiPicker.js';
 export type { EmojiPickerItem } from './emoji-picker/useEmojiPicker.js';
+export { DomternalNotionColorPicker, useNotionColorPicker } from './notion-color-picker/index.js';
+export type {
+  DomternalNotionColorPickerProps,
+  UseNotionColorPickerOptions,
+  UseNotionColorPickerResult,
+} from './notion-color-picker/index.js';
 
 // Node Views
 export { VueNodeViewRenderer } from './node-views/VueNodeViewRenderer.js';

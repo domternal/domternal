@@ -4,10 +4,11 @@ import EditorDemo from './EditorDemo.vue';
 import VModelDemo from './VModelDemo.vue';
 import CompoundDemo from './CompoundDemo.vue';
 import NodeViewDemo from './NodeViewDemo.vue';
+import NotionDemo from './NotionDemo.vue';
 
 const isDark = ref(false);
 const useLayout = ref(false);
-const demoMode = ref<'manual' | 'vmodel' | 'compound' | 'nodeview'>('manual');
+const demoMode = ref<'manual' | 'vmodel' | 'compound' | 'nodeview' | 'notion'>('manual');
 
 function toggleTheme() {
   isDark.value = !isDark.value;
@@ -57,26 +58,38 @@ function toggleTheme() {
       >
         NodeView (VueNodeViewRenderer)
       </button>
+      <button
+        type="button"
+        data-testid="mode-notion"
+        :class="{ active: demoMode === 'notion' }"
+        @click="demoMode = 'notion'"
+      >
+        Notion style
+      </button>
     </div>
 
-    <template v-if="demoMode === 'manual'">
-      <div class="toolbar-mode-toggle">
-        <button type="button" :class="{ active: !useLayout }" @click="useLayout = false">
-          Default toolbar
-        </button>
-        <button type="button" :class="{ active: useLayout }" @click="useLayout = true">
-          Custom layout
-        </button>
-      </div>
+    <NotionDemo v-if="demoMode === 'notion'" />
 
-      <EditorDemo :use-layout="useLayout" />
-    </template>
+    <div v-else class="app-editor-demo">
+      <template v-if="demoMode === 'manual'">
+        <div class="toolbar-mode-toggle">
+          <button type="button" :class="{ active: !useLayout }" @click="useLayout = false">
+            Default toolbar
+          </button>
+          <button type="button" :class="{ active: useLayout }" @click="useLayout = true">
+            Custom layout
+          </button>
+        </div>
 
-    <VModelDemo v-else-if="demoMode === 'vmodel'" />
+        <EditorDemo :use-layout="useLayout" />
+      </template>
 
-    <CompoundDemo v-else-if="demoMode === 'compound'" />
+      <VModelDemo v-else-if="demoMode === 'vmodel'" />
 
-    <NodeViewDemo v-else-if="demoMode === 'nodeview'" />
+      <CompoundDemo v-else-if="demoMode === 'compound'" />
+
+      <NodeViewDemo v-else-if="demoMode === 'nodeview'" />
+    </div>
   </div>
 </template>
 

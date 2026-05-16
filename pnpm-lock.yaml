@@ -219,6 +219,9 @@ importers:
       '@domternal/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@domternal/extension-block-menu':
+        specifier: workspace:*
+        version: link:../../packages/extension-block-menu
       '@domternal/extension-code-block-lowlight':
         specifier: workspace:*
         version: link:../../packages/extension-code-block-lowlight
@@ -237,6 +240,9 @@ importers:
       '@domternal/extension-table':
         specifier: workspace:*
         version: link:../../packages/extension-table
+      '@domternal/extension-toc':
+        specifier: workspace:*
+        version: link:../../packages/extension-toc
       '@domternal/theme':
         specifier: workspace:*
         version: link:../../packages/theme

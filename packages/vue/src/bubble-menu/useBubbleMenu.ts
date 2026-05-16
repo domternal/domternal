@@ -7,7 +7,7 @@ import {
   defaultBubbleContexts,
   defaultIcons,
 } from '@domternal/core';
-import type { Editor, ToolbarButton, BubbleMenuOptions } from '@domternal/core';
+import type { Editor, ToolbarButton, ToolbarDropdown, BubbleMenuOptions } from '@domternal/core';
 import { useDebouncedRef } from '../utils.js';
 
 // --- Duck-typed ProseMirror shapes (avoids instanceof across bundles) ---
@@ -31,7 +31,40 @@ interface SchemaShape {
 }
 
 interface BubbleMenuSeparator { type: 'separator'; name: string }
-export type BubbleMenuItem = ToolbarButton | BubbleMenuSeparator;
+export type BubbleMenuItem = ToolbarButton | ToolbarDropdown | BubbleMenuSeparator;
+
+/**
+ * Live state for the bubble-menu trailing buttons. Mirrors Angular's
+ * `syncTrailingButtonsState` output. Computed per editor transaction and
+ * coalesced into a single object so each transaction triggers at most one
+ * re-render.
+ */
+export interface BubbleMenuTrailingState {
+  /** True when current selection is a NodeSelection (image, HR, ...). Trailing buttons hide in that case. */
+  isNodeSelection: boolean;
+  /** True when the `notionColorPicker` extension is loaded on this editor (cached once per editor). */
+  showColorPickerButton: boolean;
+  /** True when the `blockContextMenu` extension is loaded on this editor (cached once per editor). */
+  showBlockMenuButton: boolean;
+  /** True when the selection spans more than one top-level block (multi-block "..." disable). */
+  blockMenuButtonDisabled: boolean;
+  /** CSS color value for the "A" trigger glyph (e.g. `var(--dm-block-text-yellow)`), or null. */
+  currentTextColorVar: string | null;
+  /** CSS color value for the "A" trigger underline, or null. */
+  currentBgColorVar: string | null;
+  /** True when any token-based text or background color is applied at the cursor. */
+  hasAnyColor: boolean;
+}
+
+const INITIAL_TRAILING_STATE: BubbleMenuTrailingState = {
+  isNodeSelection: false,
+  showColorPickerButton: false,
+  showBlockMenuButton: false,
+  blockMenuButtonDisabled: false,
+  currentTextColorVar: null,
+  currentBgColorVar: null,
+  hasAnyColor: false,
+};
 
 function isInsideTableCell($pos: ResolvedPosShape): boolean {
   for (let d = $pos.depth; d > 0; d--) {
@@ -66,9 +99,15 @@ export interface UseBubbleMenuResult {
   resolvedItems: ShallowRef<BubbleMenuItem[]>;
   isItemActive: (item: ToolbarButton) => boolean;
   isItemDisabled: (item: ToolbarButton) => boolean;
-  executeCommand: (item: ToolbarButton) => void;
+  executeCommand: (item: ToolbarButton, event?: Event) => void;
   activeVersion: Ref<number>;
   getCachedIcon: (name: string) => string;
+  /** Live trailing-button state (color preview, node-selection gate, multi-block disable). */
+  trailing: ShallowRef<BubbleMenuTrailingState>;
+  /** Open the Notion color picker by emitting `notionColorOpen` with the trigger as anchor. */
+  openColorPicker: (anchor: HTMLElement) => void;
+  /** Open the block context menu by dispatching `dm:block-context-menu-open` on `.dm-editor`. */
+  openBlockContextMenu: (anchor: HTMLElement) => void;
 }
 
 export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResult {
@@ -77,15 +116,21 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
   const menuRef = ref<HTMLDivElement>();
   const pluginKey = new PluginKey('vueBubbleMenu-' + Math.random().toString(36).slice(2, 8));
   const resolvedItems = shallowRef<BubbleMenuItem[]>([]);
+  // `useDebouncedRef` batches transaction-rate updates via double-rAF, so
+  // each keystroke triggers at most one re-render even though the plugin
+  // fires `transaction` on every keystroke. See utils.ts.
   const activeVersion = useDebouncedRef(0);
+  // Coalesced trailing-button state, updated once per transaction.
+  const trailing = shallowRef<BubbleMenuTrailingState>(INITIAL_TRAILING_STATE);
 
   // Persistent state maps accessed by exposed helpers (isItemActive,
   // isItemDisabled) before doInit runs; must start as empty Maps.
   const activeMapRef = new Map<string, boolean>();
   const disabledMapRef = new Map<string, boolean>();
-  // itemMap and bubbleDefaults are only used inside doInit; declared here so
-  // closures inside doInit can rebind on each run.
+  // itemMap / dropdownMap / bubbleDefaults are only used inside doInit;
+  // declared here so closures inside doInit can rebind on each run.
   let itemMap: Map<string, ToolbarButton>;
+  let dropdownMap: Map<string, ToolbarDropdown>;
   let bubbleDefaults: Map<string, BubbleMenuItem[]>;
   let currentResolvedItems: BubbleMenuItem[] = [];
 
@@ -103,12 +148,21 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
     // inside `.dm-notion-mode`).
     const contexts = explicitContexts ?? (items ? undefined : defaultBubbleContexts(ed));
 
-    // Build item map
+    // Extension presence is immutable after editor construction: cache once
+    // instead of walking the extension list on every transaction.
+    const exts = ed.extensionManager.extensions;
+    const hasNotionColorPicker = exts.some((e) => e.name === 'notionColorPicker');
+    const hasBlockContextMenu = exts.some((e) => e.name === 'blockContextMenu');
+
+    // Build item map. Dropdowns are kept separately so we can resolve them
+    // by name (text-align dropdown in the bubble menu).
     itemMap = new Map();
+    dropdownMap = new Map();
     for (const item of ed.toolbarItems) {
       if (item.type === 'button') {
         itemMap.set(item.name, item);
       } else if (item.type === 'dropdown') {
+        dropdownMap.set(item.name, item);
         for (const sub of item.items) {
           itemMap.set(sub.name, sub);
         }
@@ -146,7 +200,8 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
       bubbleDefaults.set(ctx, result);
     }
 
-    // Resolve names helper
+    // Resolve names helper. Dropdowns take priority over buttons sharing the
+    // same name (mirrors the Angular wrapper). Pipe `|` is a separator marker.
     const resolveNames = (names: string[]): BubbleMenuItem[] => {
       const result: BubbleMenuItem[] = [];
       let sepIdx = 0;
@@ -154,6 +209,8 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
         if (name === '|') {
           result.push({ type: 'separator', name: `sep-${String(sepIdx++)}` });
         } else {
+          const dropdown = dropdownMap.get(name);
+          if (dropdown) { result.push(dropdown); continue; }
           const item = itemMap.get(name);
           if (item) result.push(item);
         }
@@ -258,19 +315,81 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
       let canProxy: Record<string, (...args: unknown[]) => boolean> | null = null;
       try { canProxy = currentEd.can() as unknown as Record<string, (...args: unknown[]) => boolean>; } catch { /* empty */ }
 
+      const trackButton = (btn: ToolbarButton): void => {
+        activeMapRef.set(btn.name, ToolbarController.resolveActive(currentEd as never, btn));
+        try {
+          const canCmd = typeof btn.command === 'string' ? canProxy?.[btn.command] : undefined;
+          disabledMapRef.set(btn.name, canCmd
+            ? !(btn.commandArgs?.length ? canCmd(...btn.commandArgs) : canCmd())
+            : false);
+        } catch { disabledMapRef.set(btn.name, false); }
+      };
+
       for (const item of currentResolvedItems) {
         if (item.type === 'separator') continue;
-        activeMapRef.set(item.name, ToolbarController.resolveActive(currentEd as never, item));
-        try {
-          const canCmd = canProxy?.[item.command];
-          disabledMapRef.set(item.name, canCmd
-            ? !(item.commandArgs?.length ? canCmd(...item.commandArgs) : canCmd())
-            : false);
-        } catch { disabledMapRef.set(item.name, false); }
+        if (item.type === 'dropdown') {
+          // Track each child so dynamicIcon + isActive lookups work.
+          for (const sub of item.items) trackButton(sub);
+          continue;
+        }
+        trackButton(item);
       }
     };
 
     const defaultItems = items ? resolveNames(items) : resolveNames(['bold', 'italic', 'underline']);
+
+    /**
+     * Coalesce all trailing-button derivations into a single shallowRef
+     * update per transaction. New object identity ensures Vue's reactivity
+     * triggers exactly one render per tick.
+     */
+    const syncTrailingState = (currentEd: Editor): void => {
+      const sel = currentEd.state.selection as unknown as SelectionShape;
+      const isNode = !!sel.node;
+
+      // Multi-block disable for the "..." trigger: when $from and $to live
+      // under different top-level blocks the context menu has no unambiguous
+      // target. Cheap O(1) check via $.before(1).
+      let blockMenuDisabled = false;
+      if (hasBlockContextMenu) {
+        const { $from, $to } = currentEd.state.selection;
+        if ($from.depth < 1 || $to.depth < 1) {
+          blockMenuDisabled = true;
+        } else {
+          blockMenuDisabled = $from.before(1) !== $to.before(1);
+        }
+      }
+
+      // Color preview for the "A" trigger glyph + underline. Read the
+      // textStyle mark at $from; null tokens render as transparent.
+      let textVar: string | null = null;
+      let bgVar: string | null = null;
+      let hasAny = false;
+      if (hasNotionColorPicker) {
+        const mark = currentEd.state.selection.$from
+          .marks()
+          .find((m) => m.type.name === 'textStyle');
+        const attrs = (mark?.attrs ?? {}) as {
+          colorToken?: string | null;
+          backgroundColorToken?: string | null;
+        };
+        const tToken = attrs.colorToken ?? null;
+        const bToken = attrs.backgroundColorToken ?? null;
+        textVar = tToken ? `var(--dm-block-text-${tToken})` : null;
+        bgVar = bToken ? `var(--dm-block-bg-${bToken})` : null;
+        hasAny = tToken !== null || bToken !== null;
+      }
+
+      trailing.value = {
+        isNodeSelection: isNode,
+        showColorPickerButton: hasNotionColorPicker,
+        showBlockMenuButton: hasBlockContextMenu,
+        blockMenuButtonDisabled: blockMenuDisabled,
+        currentTextColorVar: textVar,
+        currentBgColorVar: bgVar,
+        hasAnyColor: hasAny,
+      };
+    };
 
     // Transaction handler
     const transactionHandler = (): void => {
@@ -285,10 +404,12 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
         }
       }
       updateStates(ed);
+      syncTrailingState(ed);
       activeVersion.value++;
     };
     ed.on('transaction', transactionHandler);
     updateStates(ed);
+    syncTrailingState(ed);
 
     initializedEditor = ed;
     initializedHandler = transactionHandler;
@@ -361,11 +482,17 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
     return disabledMapRef.get(item.name) ?? false;
   };
 
-  const executeCommand = (item: ToolbarButton): void => {
+  const executeCommand = (item: ToolbarButton, event?: Event): void => {
     const ed = editor.value;
     if (!ed) return;
     if (item.emitEvent) {
-      (ed.emit as (e: string, d: unknown) => void)(item.emitEvent, {});
+      // Forward the clicked button as the anchor so listeners (LinkPopover,
+      // image popover, emoji picker, NotionColorPicker) can position their
+      // panels against it. Matches Angular wrapper behaviour.
+      const anchor =
+        (event?.currentTarget as HTMLElement | undefined) ??
+        (event?.target as HTMLElement | undefined) ?? null;
+      (ed.emit as (e: string, d: unknown) => void)(item.emitEvent, { anchorElement: anchor });
       return;
     }
     ToolbarController.executeItem(ed as never, item);
@@ -373,6 +500,42 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
 
   const getCachedIcon = (name: string): string => {
     return defaultIcons[name] ?? '';
+  };
+
+  /**
+   * Emit `notionColorOpen` with the trigger as anchor. The wrapper
+   * `DomternalNotionColorPicker` listens and positions itself against the
+   * anchor element.
+   */
+  const openColorPicker = (anchor: HTMLElement): void => {
+    const ed = editor.value;
+    if (!ed) return;
+    (ed.emit as (e: string, d: unknown) => void)(
+      'notionColorOpen',
+      { anchorElement: anchor },
+    );
+  };
+
+  /**
+   * Open the BlockContextMenu against the cursor's containing block. Walk one
+   * level up when the cursor's textblock is not a direct doc child (e.g.
+   * cursor in `listItem > paragraph` targets the listItem) so Delete /
+   * Turn into operate on the visual block the user is editing.
+   */
+  const openBlockContextMenu = (anchor: HTMLElement): void => {
+    const ed = editor.value;
+    if (!ed) return;
+    const $from = ed.state.selection.$from;
+    if ($from.depth < 1) return;
+    const depth = $from.depth > 1 && $from.node($from.depth - 1).type.name !== 'doc'
+      ? $from.depth - 1
+      : $from.depth;
+    const blockPos = $from.before(depth);
+    const editorEl = ed.view.dom.closest<HTMLElement>('.dm-editor');
+    editorEl?.dispatchEvent(new CustomEvent('dm:block-context-menu-open', {
+      bubbles: false,
+      detail: { blockPos, anchorElement: anchor },
+    }));
   };
 
   return {
@@ -383,5 +546,8 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
     executeCommand,
     activeVersion,
     getCachedIcon,
+    trailing,
+    openColorPicker,
+    openBlockContextMenu,
   };
 }
