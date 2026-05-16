@@ -87,20 +87,14 @@ const PARAGRAPH_EXCLUSION_PARENTS = new Set([
 const TOAST_MS = { success: 1800, error: 2600 } as const;
 
 const extensions = [
-  // Inline formatting (available via bubble menu on selection)
   Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
-  // Block elements (inserted via floating menu on empty lines)
   Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
   BulletList, OrderedList, TaskList,
-  // Text styling (available via bubble menu)
   TextAlign, TextColor, FontSize, FontFamily, LineHeight,
-  // Notion-style token-based color picker. Drives the colorToken /
-  // backgroundColorToken attrs on textStyle (theme-aware named colors).
   NotionColorPicker,
   Table,
   Details,
   Image,
-  // `toolbar: false` - no toolbar button, but `:` suggestion picker still works
   Emoji.configure({
     emojis,
     enableEmoticons: true,
@@ -118,26 +112,15 @@ const extensions = [
       invalidNodes: ['codeBlock'],
     },
   }),
-  // BlockHandle ships its own custom drop indicator that mirrors EXACTLY
-  // where the drop will land (via the shared `computeDropPlacement`
-  // helper), so we omit `Dropcursor` here.
   LinkPopover, SelectionDecoration, ClearFormatting,
-  // ListIndent: Tab on a top-level block whose previous sibling is a list
-  // moves it INTO the last list item as a nested child; Shift-Tab lifts
-  // it back out. Registered AFTER the list extensions (which carry the
-  // in-item Tab/Shift-Tab keymap) so those keep priority inside list items.
+  // Registered after the list extensions so their in-item Tab/Shift-Tab
+  // keymaps keep priority inside list items.
   ListIndent,
-  // Assigns stable IDs to top-level blocks so BlockContextMenu can offer
-  // "Copy link to block" - the ID becomes the URL hash (e.g. `#abc123`).
   UniqueID,
-  // Block-level text + background colors (Notion palette). Exposed via
-  // the BlockContextMenu's Colors section when this extension is loaded.
   BlockColor,
-  // Block-manipulation UX trio (Notion-style). The custom
-  // `paragraphInsideContainer` matcher keeps blockquote / table cells /
-  // details as one drag unit (paragraphs nested in list items remain
-  // individually draggable since they were Tab-indented as separate
-  // logical blocks).
+  // `paragraphInsideContainer` keeps containers (blockquote / tableCell /
+  // details) as one drag unit. Paragraphs nested in listItem are NOT
+  // covered because they were Tab-indented as separate logical blocks.
   BlockHandle.configure({
     nested: {
       allowedNodes: [
@@ -160,17 +143,12 @@ const extensions = [
   BlockContextMenu,
   KeyboardReorder,
   SlashCommand,
-  // Preserve block formatting when pasting at inline positions (the
-  // classic "copy h1, Shift+Enter, paste -> loses heading" case).
   SmartPaste,
-  // Notion-style Table of Contents: data layer + right-rail outline
-  // + inline /toc block. All three opt-in.
   TableOfContents,
   FloatingTocOutline,
   TableOfContentsBlock,
-  // Notion-style hint on the focused empty paragraph only. Other empty
-  // blocks (heading, codeBlock, blockquote) get an empty string so the
-  // hint stays diskretno - not on every block in the document.
+  // Empty paragraphs get the slash hint; other empty blocks stay quiet so
+  // the hint isn't repeated on every block.
   Placeholder.configure({
     placeholder: ({ node }) =>
       node.type.name === 'paragraph' ? "Press '/' for commands" : '',
@@ -234,8 +212,14 @@ export function NotionDemo(): ReactNode {
 
     return () => {
       controller.abort();
-      w['__DEMO_EDITOR__'] = undefined;
-      w['__DOMTERNAL_LIST_CTX__'] = undefined;
+      // Only clear when our editor is still the one on the window. StrictMode
+      // dev double-mount can land the second mount's assignment BEFORE the
+      // first mount's cleanup; an unconditional clear would leave the window
+      // pointing at undefined while the live editor is fine.
+      if (w['__DEMO_EDITOR__'] === editor) {
+        w['__DEMO_EDITOR__'] = undefined;
+        w['__DOMTERNAL_LIST_CTX__'] = undefined;
+      }
     };
   }, [editor]);
 

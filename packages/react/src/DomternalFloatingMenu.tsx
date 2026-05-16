@@ -75,7 +75,10 @@ export function DomternalFloatingMenu({
 
   const menuRef = useRef<HTMLDivElement>(null);
   const pluginKeyRef = useRef(
-    new PluginKey('reactFloatingMenu-' + Math.random().toString(36).slice(2, 8)),
+    new PluginKey('reactFloatingMenu-' + (
+      (globalThis as { crypto?: { randomUUID?: () => string } }).crypto?.randomUUID?.().slice(0, 8)
+        ?? Math.random().toString(36).slice(2, 8)
+    )),
   );
 
   // Refs so the effect below can read current prop values without re-running.

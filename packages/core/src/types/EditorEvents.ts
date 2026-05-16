@@ -147,6 +147,12 @@ export interface EditorEvents {
 
   /** Fired when link editing UI should open (toolbar link button, Ctrl+K) */
   linkEdit: { anchorElement?: HTMLElement };
+
+  /** Fired when the Notion color picker should open, with the trigger as anchor. */
+  notionColorOpen: { anchorElement?: HTMLElement | null };
+
+  /** Fired when the Notion color picker has closed. Lets trigger UIs sync aria-expanded. */
+  notionColorClose: Record<string, never>;
 }
 
 /**

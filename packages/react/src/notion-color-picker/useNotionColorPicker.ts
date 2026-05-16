@@ -97,8 +97,10 @@ export function useNotionColorPicker(
   // Avoid stale-closure reads of the editor inside long-lived callbacks
   // returned to the consumer. The big `[editor]` effect already handles
   // listener re-attachment; this ref is for the apply/close commands.
+  // The mutation lives in an effect so React concurrent rendering can
+  // discard a render without leaking ref state.
   const editorRef = useRef<Editor | null>(editor);
-  editorRef.current = editor;
+  useEffect(() => { editorRef.current = editor; }, [editor]);
   const anchorRef = useRef<HTMLElement | null>(null);
   anchorRef.current = anchorEl;
 
@@ -144,8 +146,15 @@ export function useNotionColorPicker(
     if (!isOpenRef.current) return;
     setIsOpen(false);
     setStorageOpen(false);
+    // Notify trigger UIs (the bubble-menu "A" button) so they can flip
+    // aria-expanded back to false. Two-way contract: open emits
+    // `notionColorOpen`, close emits `notionColorClose`.
+    editorRef.current?.emit('notionColorClose', {});
     if (opts.refocus) {
-      anchorRef.current?.focus();
+      // Return focus to the editor view (matching Angular's `close` contract).
+      // Returning to the trigger button would leave the user without a caret
+      // in the document; the editor view is the meaningful resume target.
+      editorRef.current?.view.focus();
     }
     setAnchorEl(null);
   }, [setStorageOpen]);
@@ -183,7 +192,7 @@ export function useNotionColorPicker(
     const onSelectionUpdate = (): void => {
       if (!isOpenRef.current) return;
       // Anchor vanished (bubble menu hidden by selection becoming empty,
-      // or by any other reason). Close defensively. (D6 in plan.)
+      // or by any other reason). Close defensively.
       if (!anchorRef.current?.isConnected) {
         close();
         return;
@@ -198,26 +207,30 @@ export function useNotionColorPicker(
     };
 
     // Editor event API is not AbortSignal-aware; explicit off in cleanup.
-    (editor.on as (e: string, h: (...args: unknown[]) => void) => void)('notionColorOpen', onOpen);
-    (editor.on as (e: string, h: () => void) => void)('selectionUpdate', onSelectionUpdate);
+    editor.on('notionColorOpen', onOpen);
+    editor.on('selectionUpdate', onSelectionUpdate);
 
     return () => {
-      (editor.off as (e: string, h: (...args: unknown[]) => void) => void)('notionColorOpen', onOpen);
-      (editor.off as (e: string, h: () => void) => void)('selectionUpdate', onSelectionUpdate);
-      setStorageOpen(false);
+      editor.off('notionColorOpen', onOpen);
+      editor.off('selectionUpdate', onSelectionUpdate);
+      // Only flip storage when the picker was actually open. Unconditional
+      // reset would race a StrictMode double-mount: the first mount's
+      // cleanup would clobber an `isOpen=true` set by the second mount's
+      // open handler that landed between teardown and re-mount.
+      if (isOpenRef.current) setStorageOpen(false);
     };
   }, [editor, close, syncFromSelection, setStorageOpen]);
 
-  // Document-level listeners (outside-click + Escape) are scoped to the open
-  // window. Single AbortController per cycle replaces three matched
-  // add/removeEventListener pairs (D3 in plan).
+  // Document-level listeners (outside-click + Escape) scoped to the open
+  // window via a single AbortController.
   useEffect(() => {
     if (!isOpen) return;
     const controller = new AbortController();
     const { signal } = controller;
 
     document.addEventListener('mousedown', (e: MouseEvent) => {
-      if (!isOpenRef.current) return;
+      // No redundant `isOpen` guard: this effect only runs when `isOpen === true`
+      // and the AbortController detaches the listener as soon as it flips false.
       const target = e.target as Node | null;
       if (!target) return;
       if (panelRef.current?.contains(target)) return;

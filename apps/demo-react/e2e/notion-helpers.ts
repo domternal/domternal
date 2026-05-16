@@ -21,7 +21,6 @@ import { expect, type JSHandle, type Locator, type Page } from '@playwright/test
 /** Platform-aware modifier key ('Meta' on macOS, 'Control' on Linux/Windows). */
 export const MOD = process.platform === 'darwin' ? 'Meta' : 'Control';
 
-/** CSS selector for the Notion-mode editor host (`<div className="app-notion-demo">`). */
 export const NOTION_EDITOR_SELECTOR = '.app-notion-demo .ProseMirror';
 
 /**
@@ -38,7 +37,6 @@ export const STAMPED_TYPES = [
 // Page setup
 // ----------------------------------------------------------------------
 
-/** goto('/'), click the "Notion style" mode toggle, wait for editor + UniqueID stamps. */
 export async function goNotion(page: Page): Promise<void> {
   await page.goto('/');
   await page.waitForSelector('.toolbar-mode-toggle button:has-text("Notion style")');
@@ -47,16 +45,10 @@ export async function goNotion(page: Page): Promise<void> {
   await waitForAllIds(page);
 }
 
-/** Locator pointing at the Notion editor's ProseMirror root. Shorthand for the selector. */
-export function notionEditor(page: Page): Locator {
-  return page.locator(NOTION_EDITOR_SELECTOR);
-}
-
 // ----------------------------------------------------------------------
 // Content management
 // ----------------------------------------------------------------------
 
-/** Replace editor content via `setContent(html, false)` then `commands.focus()` + UniqueID wait. */
 export async function setContent(page: Page, html: string): Promise<void> {
   await page.evaluate((h) => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -105,7 +97,6 @@ export async function selectFirstParagraph(page: Page): Promise<void> {
   await page.waitForSelector('.dm-bubble-menu[data-show]', { timeout: 5000 });
 }
 
-/** Invoke `editor.commands.<name>(...args)` and return whether it succeeded. */
 export async function runCommand(
   page: Page,
   name: string,
@@ -123,7 +114,6 @@ export async function runCommand(
   );
 }
 
-/** Return `editor.getHTML()`. */
 export async function getEditorHtml(page: Page): Promise<string> {
   return page.evaluate(() => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -137,7 +127,6 @@ export async function getEditorHtml(page: Page): Promise<string> {
 // UniqueID stamp waits
 // ----------------------------------------------------------------------
 
-/** Poll until every top-level doc node has `attrs.id` (UniqueID has stamped them). */
 export async function waitForAllIds(page: Page): Promise<void> {
   await page.waitForFunction(() => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -174,7 +163,6 @@ export async function waitForStampedIds(page: Page): Promise<void> {
 // Doc inspection
 // ----------------------------------------------------------------------
 
-/** Flatten top-level doc blocks as `{ type, text, attrs }`. */
 export async function getBlocks(
   page: Page,
 ): Promise<Array<{ type: string; text: string; attrs: Record<string, unknown> }>> {
@@ -188,7 +176,6 @@ export async function getBlocks(
   });
 }
 
-/** Just the type names of top-level doc blocks (e.g. `['bulletList', 'paragraph']`). */
 export async function topLevelTypes(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -200,7 +187,6 @@ export async function topLevelTypes(page: Page): Promise<string[]> {
   });
 }
 
-/** `textContent` of every listItem / taskItem in the doc (flat list, in doc order). */
 export async function listItemTexts(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -221,7 +207,6 @@ export async function listItemTexts(page: Page): Promise<string[]> {
   });
 }
 
-/** Current selection's `from` position + the text content of the parent block. */
 export async function selectionAt(page: Page): Promise<{ from: number; parentText: string }> {
   return page.evaluate(() => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -235,7 +220,6 @@ export async function selectionAt(page: Page): Promise<{ from: number; parentTex
   });
 }
 
-/** Convenience: top-level blocks as `{ type, text }` (drops attrs). */
 export async function topBlocks(page: Page): Promise<Array<{ type: string; text: string }>> {
   return page.evaluate(() => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -247,7 +231,6 @@ export async function topBlocks(page: Page): Promise<Array<{ type: string; text:
   });
 }
 
-/** Return every list-item / task-item with its direct children flattened (one level deep). */
 export async function listItemShapes(
   page: Page,
 ): Promise<Array<{
@@ -301,7 +284,6 @@ export async function listItemShapes(
 // BlockHandle plugin introspection
 // ----------------------------------------------------------------------
 
-/** Return the BlockHandle plugin's `hoveredPos`, or null when no block is hovered. */
 export async function hoveredPos(page: Page): Promise<number | null> {
   return page.evaluate(() => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -332,9 +314,8 @@ export async function hoveredPos(page: Page): Promise<number | null> {
 
 /**
  * Place caret at the END of the first text node whose `text === query`.
- *
- * Uses ProseMirror's `TextSelection.create` via the constructor pulled from
- * the live selection (avoids importing PM directly into the test runtime).
+ * Uses `TextSelection.create` via the live selection's constructor so the
+ * test runtime never imports PM directly.
  */
 export async function caretInText(page: Page, query: string): Promise<void> {
   await page.evaluate((t) => {
@@ -364,7 +345,6 @@ export async function caretInText(page: Page, query: string): Promise<void> {
   }, query);
 }
 
-/** Place caret inside the Nth empty paragraph (default: first one). */
 export async function caretAtEmptyP(page: Page, occurrence: number = 0): Promise<void> {
   await page.evaluate((idx) => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -397,7 +377,6 @@ export async function caretAtEmptyP(page: Page, occurrence: number = 0): Promise
   }, occurrence);
 }
 
-/** Place caret at the START of the first node of `typeName` with `textContent === text`. */
 export async function caretAtStartOfNode(page: Page, typeName: string, text: string): Promise<void> {
   await page.evaluate(({ tn, txt }) => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -430,7 +409,6 @@ export async function caretAtStartOfNode(page: Page, typeName: string, text: str
   }, { tn: typeName, txt: text });
 }
 
-/** Place caret at the END of the first node of `typeName` with `textContent === text`. */
 export async function caretAtEndOfNode(page: Page, typeName: string, text: string): Promise<void> {
   await page.evaluate(({ tn, txt }) => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -530,59 +508,15 @@ export async function startDragOver(
   return { handle, dt };
 }
 
-/** Complete a drag started via `startDragOver` by dispatching dragend. */
 export async function endDrag(handle: Locator, dt: JSHandle<DataTransfer>): Promise<void> {
   await handle.dispatchEvent('dragend', { dataTransfer: dt });
   await dt.dispose();
-}
-
-/**
- * Synchronous drag-cycle dispatch: emit dragstart, dragover, drop, dragend
- * in a single `page.evaluate` so Playwright never yields between the events.
- * This is the worst-case timing used by `notion-fast-drag-race.spec.ts` to
- * reproduce a race where `onDragStart`'s deferred `setTimeout(0)` could
- * commit `draggedFrom` after drop. The async `dragBlock` above is unsuitable
- * for this scenario because its awaits LET the deferred timer fire between
- * steps, masking the bug.
- *
- * The source block must be hovered to surface the handle BEFORE calling
- * this helper - callers do this themselves to keep the synchronous block
- * minimal.
- */
-export async function dragBlockSync(
-  page: Page,
-  targetBlock: Locator,
-  xZone: 'left' | 'center' | 'right' = 'center',
-  dropZone: 'top' | 'bottom' = 'bottom',
-): Promise<void> {
-  const targetBox = await targetBlock.boundingBox();
-  expect(targetBox).not.toBeNull();
-  if (!targetBox) return;
-  const clientX =
-    xZone === 'left' ? targetBox.x + 4
-      : xZone === 'right' ? targetBox.x + targetBox.width - 4
-        : targetBox.x + targetBox.width / 2;
-  const clientY = dropZone === 'top'
-    ? targetBox.y + targetBox.height * 0.2
-    : targetBox.y + targetBox.height * 0.8;
-
-  await page.evaluate(({ cx, cy }) => {
-    const handle = document.querySelector<HTMLElement>('.dm-block-handle-drag');
-    const editor = document.querySelector<HTMLElement>('.ProseMirror');
-    if (!handle || !editor) throw new Error('handle or editor missing');
-    const dt = new DataTransfer();
-    handle.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: dt }));
-    editor.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: cx, clientY: cy }));
-    editor.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt, clientX: cx, clientY: cy }));
-    handle.dispatchEvent(new DragEvent('dragend', { bubbles: true, cancelable: true, dataTransfer: dt }));
-  }, { cx: clientX, cy: clientY });
 }
 
 // ----------------------------------------------------------------------
 // Clipboard / paste
 // ----------------------------------------------------------------------
 
-/** Dispatch a synthetic `ClipboardEvent('paste')` carrying `html` as text/html. */
 export async function pasteHtml(page: Page, html: string): Promise<void> {
   await page.evaluate((h) => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as

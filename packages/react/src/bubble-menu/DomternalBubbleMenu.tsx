@@ -143,6 +143,7 @@ export function DomternalBubbleMenu({
             title="Text and background color"
             aria-label="Text and background color"
             aria-haspopup="dialog"
+            aria-expanded={trailing.colorPickerOpen}
             onMouseDown={(e) => { e.preventDefault(); }}
             onClick={() => { if (colorBtnRef.current) openColorPicker(colorBtnRef.current); }}
           >
@@ -220,9 +221,8 @@ function BubbleDropdown({
   const triggerIcon = activeChild?.icon ?? dropdown.icon;
   const triggerHtml = (defaultIcons[triggerIcon] ?? getCachedHtml(triggerIcon)) + DROPDOWN_CARET;
 
-  // Floating-ui positioning + outside-close / Escape / cooperative dismissal.
-  // AbortController collects all DOM listeners so cleanup is a single
-  // `controller.abort()` call (D3 in _planning/react_notion.md).
+  // Position dropdown + outside-close / Escape / cooperative dismissal via
+  // a single AbortController.
   useLayoutEffect(() => {
     if (!isOpen) return;
     const trigger = triggerRef.current;

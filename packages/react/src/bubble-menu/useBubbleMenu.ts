@@ -52,6 +52,8 @@ export interface BubbleMenuTrailingState {
   currentBgColorVar: string | null;
   /** True when any token-based text or background color is applied at the cursor. */
   hasAnyColor: boolean;
+  /** True while the Notion color picker is open. Drives aria-expanded on the "A" trigger. */
+  colorPickerOpen: boolean;
 }
 
 const INITIAL_TRAILING_STATE: BubbleMenuTrailingState = {
@@ -62,6 +64,7 @@ const INITIAL_TRAILING_STATE: BubbleMenuTrailingState = {
   currentTextColorVar: null,
   currentBgColorVar: null,
   hasAnyColor: false,
+  colorPickerOpen: false,
 };
 
 function isInsideTableCell($pos: ResolvedPosShape): boolean {
@@ -117,7 +120,10 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
   const contexts = explicitContexts ?? (items ? undefined : (editor ? defaultBubbleContexts(editor) : undefined));
 
   const menuRef = useRef<HTMLDivElement>(null);
-  const pluginKeyRef = useRef(new PluginKey('reactBubbleMenu-' + Math.random().toString(36).slice(2, 8)));
+  const pluginKeyRef = useRef(new PluginKey('reactBubbleMenu-' + (
+    (globalThis as { crypto?: { randomUUID?: () => string } }).crypto?.randomUUID?.().slice(0, 8)
+      ?? Math.random().toString(36).slice(2, 8)
+  )));
   const [resolvedItems, setResolvedItems] = useState<BubbleMenuItem[]>([]);
   const [activeVersion, setActiveVersion] = useState(0);
   const [trailing, setTrailing] = useState<BubbleMenuTrailingState>(INITIAL_TRAILING_STATE);
@@ -127,6 +133,11 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
   const itemMapRef = useRef(new Map<string, ToolbarButton>());
   const bubbleDefaultsRef = useRef(new Map<string, BubbleMenuItem[]>());
   const resolvedItemsRef = useRef<BubbleMenuItem[]>([]);
+  // Tracks whether the NotionColorPicker is currently open. Updated by
+  // `notionColorOpen` / `notionColorClose` events (fired outside transactions),
+  // so it lives in a ref and is read by `syncTrailingState` to emit
+  // `aria-expanded` on the trigger button.
+  const colorPickerOpenRef = useRef(false);
   // Cached "live" editor used by the hook's callbacks. The hook only re-runs
   // its big effect on editor changes, but the returned callbacks need to read
   // the current editor on each invocation - stash it in a ref to avoid stale
@@ -383,8 +394,25 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
         currentTextColorVar: textVar,
         currentBgColorVar: bgVar,
         hasAnyColor: hasAny,
+        colorPickerOpen: colorPickerOpenRef.current,
       });
     };
+
+    // Track color-picker open state via the open/close event pair so the
+    // "A" trigger can surface aria-expanded. Storage polling would also
+    // work but the event pair fires synchronously with the state change.
+    const onColorOpen = (): void => {
+      colorPickerOpenRef.current = true;
+      syncTrailingState(editor);
+    };
+    const onColorClose = (): void => {
+      colorPickerOpenRef.current = false;
+      syncTrailingState(editor);
+    };
+    if (hasNotionColorPicker) {
+      editor.on('notionColorOpen', onColorOpen);
+      editor.on('notionColorClose', onColorClose);
+    }
 
     // Transaction handler
     const transactionHandler = (): void => {
@@ -408,6 +436,10 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
 
     return () => {
       editor.off('transaction', transactionHandler);
+      if (hasNotionColorPicker) {
+        editor.off('notionColorOpen', onColorOpen);
+        editor.off('notionColorClose', onColorClose);
+      }
       if (!editor.isDestroyed) {
         editor.unregisterPlugin(pluginKey);
       }

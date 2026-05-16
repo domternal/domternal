@@ -13,9 +13,7 @@
  * `children` to take over rendering while keeping the hook's lifecycle.
  */
 import {
-  useId,
   useLayoutEffect,
-  useRef,
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
@@ -53,12 +51,8 @@ export function DomternalNotionColorPicker({
     onPanelKeydown,
   } = api;
 
-  const panelId = useId();
-
-  // Position panel against anchor and run the two-rAF focus chain. Tracking
-  // rAF ids so cleanup can cancel mid-flight if the picker hides between
-  // frames (D5 in the plan).
-  const rafIdsRef = useRef<number[]>([]);
+  // Position + two-rAF focus chain. `palette` excluded from deps: the swatch
+  // list changing must not steal focus.
   useLayoutEffect(() => {
     if (!isOpen || !anchorEl || !panelRef.current) return;
     const panel = panelRef.current;
@@ -68,34 +62,24 @@ export function DomternalNotionColorPicker({
       offsetValue: 4,
     });
 
-    // First rAF: position has been committed. Second rAF: paint flushed,
-    // safe to focus without racing the bubble menu's blur handler. Guard
-    // against close-between-frames via `panel.isConnected` (cleanup may not
-    // have run yet when an rAF callback fires after `close()`).
+    // Second rAF waits for paint so focus doesn't race the bubble-menu blur.
+    let id2 = 0;
     const id1 = requestAnimationFrame(() => {
-      const id2 = requestAnimationFrame(() => {
+      id2 = requestAnimationFrame(() => {
         if (!panel.isConnected) return;
         const active = panel.querySelector<HTMLElement>('.dm-ncp-swatch.dm-ncp-active');
         const fallback = panel.querySelector<HTMLElement>('.dm-ncp-swatch--text[data-color="null"]');
         (active ?? fallback)?.focus({ preventScroll: true });
       });
-      rafIdsRef.current.push(id2);
     });
-    rafIdsRef.current.push(id1);
 
     return () => {
-      for (const id of rafIdsRef.current) cancelAnimationFrame(id);
-      rafIdsRef.current = [];
+      cancelAnimationFrame(id1);
+      if (id2) cancelAnimationFrame(id2);
       cleanupFloating();
     };
-  }, [isOpen, anchorEl, palette, panelRef]);
+  }, [isOpen, anchorEl, panelRef]);
 
-  // Reposition the panel when the anchor moves (window resize, content shift)
-  // is handled inside `positionFloating`'s autoUpdate; nothing extra needed.
-
-  // Unmount the entire portal subtree when closed - cheaper than hiding.
-  // SSR-safe: hostEl is only populated in the editor `[editor]` effect on
-  // the client.
   if (!isOpen || !hostEl) return null;
 
   const defaultContent = (
@@ -166,12 +150,10 @@ export function DomternalNotionColorPicker({
   return createPortal(
     <div
       ref={panelRef}
-      id={panelId}
       className="dm-notion-color-picker"
       data-show
       data-dm-editor-ui
       role="dialog"
-      aria-modal="false"
       aria-label="Text and background color"
       onKeyDown={onPanelKeydown}
     >
