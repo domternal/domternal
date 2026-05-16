@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { EditorDemo } from './EditorDemo.js';
+import { NotionDemo } from './NotionDemo.js';
+
+type Mode = 'default' | 'custom' | 'notion';
 
 export function App() {
   const [isDark, setIsDark] = useState(false);
-  const [useLayout, setUseLayout] = useState(false);
+  const [mode, setMode] = useState<Mode>('default');
 
   const toggleTheme = () => {
     setIsDark((v) => !v);
@@ -15,20 +18,29 @@ export function App() {
       <h1>
         Domternal React Demo
         <button className="theme-toggle" onClick={toggleTheme} title={isDark ? 'Switch to light' : 'Switch to dark'}>
-          {isDark ? '\u2600\uFE0F' : '\uD83C\uDF19'}
+          {isDark ? '☀️' : '🌙'}
         </button>
       </h1>
 
       <div className="toolbar-mode-toggle">
-        <button className={!useLayout ? 'active' : ''} onClick={() => setUseLayout(false)}>
+        <button className={mode === 'default' ? 'active' : ''} onClick={() => setMode('default')}>
           Default toolbar
         </button>
-        <button className={useLayout ? 'active' : ''} onClick={() => setUseLayout(true)}>
+        <button className={mode === 'custom' ? 'active' : ''} onClick={() => setMode('custom')}>
           Custom layout
+        </button>
+        <button className={mode === 'notion' ? 'active' : ''} onClick={() => setMode('notion')}>
+          Notion style
         </button>
       </div>
 
-      <EditorDemo useLayout={useLayout} />
+      {mode === 'notion' ? (
+        <NotionDemo />
+      ) : (
+        <div className="app-editor-demo">
+          <EditorDemo useLayout={mode === 'custom'} />
+        </div>
+      )}
     </div>
   );
 }

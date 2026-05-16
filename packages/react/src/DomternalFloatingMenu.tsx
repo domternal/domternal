@@ -42,6 +42,13 @@ export interface DomternalFloatingMenuProps {
   /** Custom icon set (falls back to `@domternal/core`'s `defaultIcons`). */
   icons?: IconSet;
   /**
+   * When true, the menu does NOT auto-show on every empty paragraph;
+   * it only opens when the BlockHandle `+` button (or any caller of
+   * `showFloatingMenu`) explicitly triggers it. Notion-style behaviour.
+   * @default false
+   */
+  requireExplicitTrigger?: boolean;
+  /**
    * Optional custom content. When provided, the default grouped-item
    * rendering is skipped and children are rendered inside the menu element.
    */
@@ -60,6 +67,7 @@ export function DomternalFloatingMenu({
   items,
   keymap,
   icons,
+  requireExplicitTrigger = false,
   children,
 }: DomternalFloatingMenuProps): ReactNode {
   const { editor: contextEditor } = useCurrentEditor();
@@ -77,6 +85,8 @@ export function DomternalFloatingMenu({
   offsetRef.current = offset;
   const keymapRef = useRef(keymap);
   keymapRef.current = keymap;
+  const requireExplicitTriggerRef = useRef(requireExplicitTrigger);
+  requireExplicitTriggerRef.current = requireExplicitTrigger;
 
   // Register the ProseMirror plugin (visibility + positioning + dismiss).
   useEffect(() => {
@@ -89,6 +99,7 @@ export function DomternalFloatingMenu({
       ...(shouldShowRef.current && { shouldShow: shouldShowRef.current }),
       offset: offsetRef.current,
       ...(keymapRef.current && { keymap: keymapRef.current }),
+      requireExplicitTrigger: requireExplicitTriggerRef.current,
     });
     editor.registerPlugin(plugin);
     return () => {
