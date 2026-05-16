@@ -4,9 +4,11 @@ import { expect, type Page } from '@playwright/test';
 const editorSelector = '.dm-editor .ProseMirror';
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
-// Toggle selectors
-const toggleDefault = '.toolbar-mode-toggle button:first-child';
-const toggleLayout = '.toolbar-mode-toggle button:last-child';
+// Toggle selectors (text-based so they survive button-order changes;
+// the App shell now exposes a third "Notion style" button that broke
+// positional `:last-child` matchers).
+const toggleDefault = '.toolbar-mode-toggle button:has-text("Default toolbar")';
+const toggleLayout = '.toolbar-mode-toggle button:has-text("Custom layout")';
 
 // Layout-mode toolbar selectors (scoped to .dm-toolbar)
 const toolbar = '.dm-toolbar';
