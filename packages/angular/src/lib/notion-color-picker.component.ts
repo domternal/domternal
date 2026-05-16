@@ -54,6 +54,7 @@ const TOKEN_LABELS: Record<string, string> = {
         data-dm-editor-ui
         role="dialog"
         aria-label="Text and background color"
+        aria-modal="false"
         (keydown)="onPanelKeydown($event)"
       >
         <div class="dm-ncp-section">
@@ -342,6 +343,13 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
     // bubble-menu anchor it sits on is about to vanish anyway.
     this.selectionHandler = () => {
       if (!this.isOpen()) return;
+      // Defensive: bubble menu may have vanished between transactions
+      // (hideout, route change). Positioning against a detached anchor is
+      // a no-op; close instead. Matches React/Vue behaviour.
+      if (this.anchorEl && !this.anchorEl.isConnected) {
+        this.ngZone.run(() => { this.close({ refocus: false }); });
+        return;
+      }
       if (this.editor().state.selection.empty) {
         this.ngZone.run(() => { this.close({ refocus: false }); });
       } else {

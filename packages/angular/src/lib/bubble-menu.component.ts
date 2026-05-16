@@ -112,6 +112,7 @@ interface SchemaShape {
           [class.dm-toolbar-button--active]="hasAnyColor()"
           title="Text and background color"
           aria-label="Text and background color"
+          aria-haspopup="dialog"
           (mousedown)="$event.preventDefault()"
           (click)="openColorPicker(colorBtn)">
           <span class="dm-ncp-trigger-glyph"
@@ -126,6 +127,7 @@ interface SchemaShape {
           [disabled]="blockMenuButtonDisabled()"
           [title]="blockMenuButtonDisabled() ? 'Block actions (select within a single block)' : 'More options'"
           aria-label="More options"
+          aria-haspopup="menu"
           [innerHTML]="getCachedIcon('dotsThree')"
           (mousedown)="$event.preventDefault()"
           (click)="openBlockContextMenu(blockMenuBtn)"></button>

@@ -134,9 +134,13 @@ export class DomternalFloatingMenuComponent implements OnDestroy {
   });
 
   constructor() {
-    this.pluginKey = new PluginKey(
-      'angularFloatingMenu-' + Math.random().toString(36).slice(2, 8),
-    );
+    // Prefer crypto.randomUUID for collision-free uniqueness (Math.random
+    // across simultaneous mounts may collide; SSR can share the seed).
+    // Matches the bubble-menu component's pattern.
+    const cryptoRef = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+    const suffix =
+      cryptoRef?.randomUUID?.().slice(0, 8) ?? Math.random().toString(36).slice(2, 8);
+    this.pluginKey = new PluginKey('angularFloatingMenu-' + suffix);
 
     afterNextRender(() => {
       const editor = this.editor();

@@ -114,7 +114,15 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
   const { editor, shouldShow, placement = 'top', offset = 8, updateDelay = 0, items, contexts: explicitContexts } = options;
 
   const menuRef = ref<HTMLDivElement>();
-  const pluginKey = new PluginKey('vueBubbleMenu-' + Math.random().toString(36).slice(2, 8));
+  // Prefer crypto.randomUUID for collision-free uniqueness when two
+  // bubble-menu instances mount in the same editor (Math.random across
+  // simultaneous mounts has a small but real collision probability, and
+  // SSR may share the random seed). Matches Angular/React wrappers.
+  const cryptoRef = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  const pluginKey = new PluginKey(
+    'vueBubbleMenu-' +
+      (cryptoRef?.randomUUID?.().slice(0, 8) ?? Math.random().toString(36).slice(2, 8)),
+  );
   const resolvedItems = shallowRef<BubbleMenuItem[]>([]);
   // `useDebouncedRef` batches transaction-rate updates via double-rAF, so
   // each keystroke triggers at most one re-render even though the plugin

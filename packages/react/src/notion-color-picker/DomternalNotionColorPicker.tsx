@@ -155,6 +155,7 @@ export function DomternalNotionColorPicker({
       data-dm-editor-ui
       role="dialog"
       aria-label="Text and background color"
+      aria-modal="false"
       onKeyDown={onPanelKeydown}
     >
       {content}
