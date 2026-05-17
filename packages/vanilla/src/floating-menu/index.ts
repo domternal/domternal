@@ -1,2 +1,2 @@
-// DomternalFloatingMenu: implemented in Phase 3.
-export {};
+export { DomternalFloatingMenu } from './DomternalFloatingMenu.js';
+export type { DomternalFloatingMenuOptions } from './DomternalFloatingMenu.js';

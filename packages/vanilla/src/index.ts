@@ -23,3 +23,30 @@ export { getTooltip } from './toolbar/tooltip.js';
 export { createIconCache, DROPDOWN_CARET } from './toolbar/iconCache.js';
 export type { IconCache } from './toolbar/iconCache.js';
 export { getComputedStyleAtCursor, getInlineStyleAtCursor } from './toolbar/computedStyle.js';
+
+// Bubble menu
+export { DomternalBubbleMenu } from './bubble-menu/DomternalBubbleMenu.js';
+export type {
+  DomternalBubbleMenuOptions,
+  BubbleMenuItem,
+  BubbleMenuTrailingState,
+} from './bubble-menu/DomternalBubbleMenu.js';
+export { INITIAL_TRAILING_STATE, computeTrailingState } from './bubble-menu/trailingState.js';
+export {
+  buildItemMaps,
+  resolveNames,
+  getFormatItems,
+  detectContext,
+  filterBySchema,
+  isInsideTableCell,
+} from './bubble-menu/itemResolver.js';
+export type {
+  ItemMaps,
+  BubbleMenuSeparator,
+  SelectionShape,
+  ResolvedPosShape,
+} from './bubble-menu/itemResolver.js';
+
+// Floating menu (block-insert)
+export { DomternalFloatingMenu } from './floating-menu/DomternalFloatingMenu.js';
+export type { DomternalFloatingMenuOptions } from './floating-menu/DomternalFloatingMenu.js';
