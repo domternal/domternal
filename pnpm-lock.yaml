@@ -214,6 +214,58 @@ importers:
         specifier: ^6.3.0
         version: 6.4.2(@types/node@25.2.3)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(yaml@2.8.2)
 
+  apps/demo-vanilla:
+    dependencies:
+      '@domternal/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@domternal/extension-block-menu':
+        specifier: workspace:*
+        version: link:../../packages/extension-block-menu
+      '@domternal/extension-code-block-lowlight':
+        specifier: workspace:*
+        version: link:../../packages/extension-code-block-lowlight
+      '@domternal/extension-details':
+        specifier: workspace:*
+        version: link:../../packages/extension-details
+      '@domternal/extension-emoji':
+        specifier: workspace:*
+        version: link:../../packages/extension-emoji
+      '@domternal/extension-image':
+        specifier: workspace:*
+        version: link:../../packages/extension-image
+      '@domternal/extension-mention':
+        specifier: workspace:*
+        version: link:../../packages/extension-mention
+      '@domternal/extension-table':
+        specifier: workspace:*
+        version: link:../../packages/extension-table
+      '@domternal/extension-toc':
+        specifier: workspace:*
+        version: link:../../packages/extension-toc
+      '@domternal/theme':
+        specifier: workspace:*
+        version: link:../../packages/theme
+      '@domternal/vanilla':
+        specifier: workspace:*
+        version: link:../../packages/vanilla
+      lowlight:
+        specifier: ^3.0.0
+        version: 3.3.0
+    devDependencies:
+      '@playwright/test':
+        specifier: ^1.58.2
+        version: 1.58.2
+      sass:
+        specifier: ^1.89.0
+        version: 1.97.3
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^6.3.0
+        version: 6.4.2(@types/node@25.2.3)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(yaml@2.8.2)
+
   apps/demo-vue:
     dependencies:
       '@domternal/core':
