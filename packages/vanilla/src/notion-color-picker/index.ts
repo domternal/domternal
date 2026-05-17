@@ -1,2 +1,2 @@
-// DomternalNotionColorPicker: implemented in Phase 4.
-export {};
+export { DomternalNotionColorPicker } from './DomternalNotionColorPicker.js';
+export type { DomternalNotionColorPickerOptions } from './DomternalNotionColorPicker.js';

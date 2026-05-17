@@ -50,3 +50,14 @@ export type {
 // Floating menu (block-insert)
 export { DomternalFloatingMenu } from './floating-menu/DomternalFloatingMenu.js';
 export type { DomternalFloatingMenuOptions } from './floating-menu/DomternalFloatingMenu.js';
+
+// Notion color picker
+export { DomternalNotionColorPicker } from './notion-color-picker/DomternalNotionColorPicker.js';
+export type { DomternalNotionColorPickerOptions } from './notion-color-picker/DomternalNotionColorPicker.js';
+
+// Emoji picker
+export { DomternalEmojiPicker } from './emoji-picker/DomternalEmojiPicker.js';
+export type {
+  DomternalEmojiPickerOptions,
+  EmojiPickerItem,
+} from './emoji-picker/DomternalEmojiPicker.js';

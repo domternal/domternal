@@ -1,2 +1,5 @@
-// DomternalEmojiPicker: implemented in Phase 4.
-export {};
+export { DomternalEmojiPicker } from './DomternalEmojiPicker.js';
+export type {
+  DomternalEmojiPickerOptions,
+  EmojiPickerItem,
+} from './DomternalEmojiPicker.js';
