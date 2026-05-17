@@ -3,11 +3,6 @@
  *
  * Polished DOM components for the Domternal rich-text editor.
  * Use in Astro, Svelte, Solid, plain HTML - anywhere without a framework runtime.
- *
- * Phase 1 scaffold: only shared utilities are exported.
- * Components (DomternalEditor, DomternalToolbar, DomternalBubbleMenu,
- * DomternalFloatingMenu, DomternalEmojiPicker, DomternalNotionColorPicker)
- * are added in subsequent phases.
  */
 
 // Shared utilities (public, exposed for power users + framework adapters)
@@ -16,3 +11,15 @@ export { createPluginKey } from './shared/pluginKey.js';
 export { renderIconInto, resolveIcon } from './shared/iconRenderer.js';
 export { subscribe } from './shared/eventTarget.js';
 export type { CustomContentOption } from './shared/types.js';
+
+// Editor
+export { DomternalEditor, DEFAULT_EXTENSIONS } from './editor/DomternalEditor.js';
+export type { DomternalEditorOptions } from './editor/DomternalEditor.js';
+
+// Toolbar
+export { DomternalToolbar } from './toolbar/DomternalToolbar.js';
+export type { DomternalToolbarOptions } from './toolbar/DomternalToolbar.js';
+export { getTooltip } from './toolbar/tooltip.js';
+export { createIconCache, DROPDOWN_CARET } from './toolbar/iconCache.js';
+export type { IconCache } from './toolbar/iconCache.js';
+export { getComputedStyleAtCursor, getInlineStyleAtCursor } from './toolbar/computedStyle.js';
