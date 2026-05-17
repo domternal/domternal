@@ -1,4 +1,5 @@
 import { EditorDemo } from './EditorDemo.js';
+import { NotionDemo } from './NotionDemo.js';
 
 type Mode = 'default' | 'custom' | 'notion';
 
@@ -13,7 +14,7 @@ export class App {
   #isDark = false;
 
   #editorDemo: EditorDemo | null = null;
-  // NotionDemo is added in Phase 6.
+  #notionDemo: NotionDemo | null = null;
 
   #modeButtons = new Map<Mode, HTMLButtonElement>();
   #themeToggleBtn: HTMLButtonElement | null = null;
@@ -98,11 +99,7 @@ export class App {
     this.#demoMount.replaceChildren();
 
     if (this.#mode === 'notion') {
-      // Phase 6 will replace this with the real NotionDemo instance.
-      const placeholder = document.createElement('div');
-      placeholder.className = 'app-notion-demo-placeholder';
-      placeholder.textContent = 'NotionDemo: scaffolded in Phase 6.';
-      this.#demoMount.appendChild(placeholder);
+      this.#notionDemo = new NotionDemo(this.#demoMount);
       return;
     }
 
@@ -117,6 +114,8 @@ export class App {
   #destroyCurrentDemo(): void {
     this.#editorDemo?.destroy();
     this.#editorDemo = null;
+    this.#notionDemo?.destroy();
+    this.#notionDemo = null;
   }
 
   #toggleTheme(): void {
