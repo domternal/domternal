@@ -396,6 +396,19 @@ export class DomternalEmojiPicker extends EventTarget {
     return btn;
   }
 
+  /**
+   * Update `searchQuery` field AND sync the DOM input value. Centralised
+   * so all callers see a consistent state - field is the source of truth
+   * but the input element doesn't track it automatically.
+   */
+  #setSearchQuery(value: string): void {
+    this.#searchQuery = value;
+    const input = this.#panel?.querySelector<HTMLInputElement>(
+      '.dm-emoji-picker-search input',
+    );
+    if (input && input.value !== value) input.value = value;
+  }
+
   /** Replace grid contents only (used when searchQuery changes). */
   #refreshGrid(): void {
     if (!this.#panel) return;
@@ -422,7 +435,7 @@ export class DomternalEmojiPicker extends EventTarget {
 
   #scrollToCategory(cat: string): void {
     // Clear search to ensure category view is rendered (not filtered)
-    this.#searchQuery = cat === this.#activeCategory ? this.#searchQuery : '';
+    if (cat !== this.#activeCategory) this.#setSearchQuery('');
     this.#activeCategory = cat;
     this.#refreshTabs();
     this.#refreshGrid();
