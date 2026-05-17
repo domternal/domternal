@@ -1,0 +1,58 @@
+{
+  "name": "@domternal/vanilla",
+  "version": "0.7.0",
+  "description": "Polished DOM components for the Domternal rich-text editor. Use in Astro, Svelte, Solid, plain HTML.",
+  "author": "https://github.com/ThomasNowHere",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "@domternal/source": "./src/index.ts",
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "@domternal/core": ">=0.7.0",
+    "@domternal/extension-block-menu": ">=0.7.0"
+  },
+  "devDependencies": {
+    "@domternal/core": "workspace:*",
+    "@domternal/extension-block-menu": "workspace:*",
+    "tsup": "^8.5.1",
+    "typescript": "~5.9.3"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm build && node -e \"const p=JSON.parse(require('fs').readFileSync('package.json','utf8'));delete p.devDependencies;if(p.dependencies){for(const[k,v]of Object.entries(p.dependencies)){if(v==='workspace:*')p.dependencies[k]='>=0.7.0'}}require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
+    "postpublish": "git checkout package.json"
+  },
+  "keywords": [
+    "vanilla",
+    "dom",
+    "astro",
+    "svelte",
+    "prosemirror",
+    "editor",
+    "rich-text",
+    "domternal"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/domternal/domternal.git",
+    "directory": "packages/vanilla"
+  },
+  "bugs": {
+    "url": "https://github.com/domternal/domternal/issues"
+  },
+  "homepage": "https://domternal.dev"
+}

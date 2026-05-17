@@ -779,6 +779,21 @@ importers:
         specifier: ^1.89.0
         version: 1.97.3
 
+  packages/vanilla:
+    devDependencies:
+      '@domternal/core':
+        specifier: workspace:*
+        version: link:../core
+      '@domternal/extension-block-menu':
+        specifier: workspace:*
+        version: link:../extension-block-menu
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
   packages/vue:
     devDependencies:
       '@domternal/core':
