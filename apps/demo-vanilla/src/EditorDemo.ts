@@ -190,13 +190,13 @@ export class EditorDemo {
 
     const stateRow = document.createElement('div');
     stateRow.className = 'selector-state';
-    stateRow.dataset['testid'] = 'selector-state';
+    stateRow.dataset.testid = 'selector-state';
     this.#isBoldEl = document.createElement('span');
-    this.#isBoldEl.dataset['testid'] = 'is-bold';
+    this.#isBoldEl.dataset.testid = 'is-bold';
     this.#isItalicEl = document.createElement('span');
-    this.#isItalicEl.dataset['testid'] = 'is-italic';
+    this.#isItalicEl.dataset.testid = 'is-italic';
     this.#isEmptyEl = document.createElement('span');
-    this.#isEmptyEl.dataset['testid'] = 'is-empty';
+    this.#isEmptyEl.dataset.testid = 'is-empty';
     stateRow.append(this.#isBoldEl, this.#isItalicEl, this.#isEmptyEl);
     container.appendChild(stateRow);
 
@@ -227,7 +227,7 @@ export class EditorDemo {
     };
 
     // E2E exposure
-    (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] = editor;
+    (window as unknown as Record<string, unknown>).__DEMO_EDITOR__ = editor;
 
     // Initial paint
     this.#refreshOutputs();
@@ -254,7 +254,7 @@ export class EditorDemo {
     this.#toolbar.destroy();
     this.#editorWrapper.destroy();
 
-    (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] = undefined;
+    (window as unknown as Record<string, unknown>).__DEMO_EDITOR__ = undefined;
 
     this.#container.replaceChildren();
   }

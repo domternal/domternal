@@ -1,60 +1,43 @@
 # @domternal/vanilla
 
-Polished DOM components for the [Domternal](https://domternal.dev) rich-text editor.
+[![Version](https://img.shields.io/npm/v/@domternal/vanilla.svg)](https://www.npmjs.com/package/@domternal/vanilla)
+[![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-Use in **Astro**, **Svelte**, **Solid**, **Lit/Web Components**, or **plain HTML** - any environment without a framework runtime.
+A lightweight, extensible rich text editor toolkit built on <u>[ProseMirror](https://prosemirror.net/)</u>. Framework-agnostic headless core with first-class Angular, React, Vue and **vanilla TS** support.  
+Use it headless with vanilla JS/TS, add the built-in toolbar and theme, or drop in ready-made framework components. Fully tree-shakeable, import only what you use, unused extensions are stripped from your bundle.
 
-> **Status: pre-release (in development for v0.7.0).** Not yet published to npm.
-> Component classes (`DomternalEditor`, `DomternalToolbar`, etc.) are scheduled
-> for v0.7.0 first release. Current scaffold exports shared utilities only.
+## Links
 
-## Currently exported (scaffold phase)
+<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/introduction)</u>  
+<u>[StackBlitz (Angular)](https://stackblitz.com/edit/domternal-angular-full-example)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[StackBlitz (React)](https://stackblitz.com/edit/domternal-react-full-example)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[StackBlitz (Vue)](https://stackblitz.com/edit/domternal-vue-full-example)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[StackBlitz (Vanilla TS)](https://stackblitz.com/edit/domternal-vanilla-full-example)</u> 
 
-```ts
-import {
-  // SSR safety
-  isBrowser,
-  assertBrowser,
-  // Plugin key generation
-  createPluginKey,
-  // Icon rendering
-  renderIconInto,
-  resolveIcon,
-  // Typed event subscription
-  subscribe,
-  // Shared types
-  type CustomContentOption,
-} from '@domternal/vanilla';
-```
+## Features
 
-These low-level helpers are stable and can be used today by power users building
-custom DOM wrappers over `@domternal/core` primitives.
+See <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> for a full breakdown of all packages and what each one includes.
 
-## v0.7.0 release preview
+- **Headless core** - use with any framework or vanilla JS/TS
+- **Vanilla DOM wrappers** - editor, toolbar, bubble menu, floating menu, emoji picker, Notion color picker (no framework runtime)
+- **Angular components** - editor, toolbar, bubble menu, floating menu, emoji picker (signals, OnPush, zoneless-ready)
+- **React components** - composable `Domternal` component, toolbar, bubble menu, floating menu, emoji picker, custom node views (React 18+)
+- **Vue components** - composable `Domternal` component, `useEditor`/`useEditorState` composables, toolbar, bubble menu, floating menu, emoji picker, custom node views (Vue 3.3+)
+- **57 extensions across 12 packages** - 23 nodes, 9 marks, and 25 behavior extensions
+- **140+ chainable commands** - `editor.chain().focus().toggleBold().run()`
+- **Full table support** - cell merging, column resize, row/column controls, cell toolbar, all free and MIT licensed
+- **Tree-shakeable** - import only what you use, your bundler strips the rest
+- **~38 KB gzipped** (own code), <u>[~108 KB total](https://domternal.dev/v1/packages)</u> with ProseMirror
+- **TypeScript first** - 100% typed, zero `any`
+- **8,500+ tests** - 2,677 unit tests and 5,800+ E2E tests across 120+ Playwright specs
+- **Light and dark theme** - 70+ CSS custom properties for full visual control
+- **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
+- **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
 
-When v0.7.0 ships, the full component API will be available:
+## Documentation
 
-```bash
-pnpm add @domternal/vanilla @domternal/core @domternal/extension-block-menu @domternal/theme
-```
-
-```ts
-import { Editor, StarterKit } from '@domternal/core';
-import { DomternalToolbar, DomternalBubbleMenu } from '@domternal/vanilla';
-import '@domternal/theme';
-
-const editor = new Editor({
-  element: document.getElementById('editor')!,
-  extensions: [StarterKit],
-});
-
-new DomternalToolbar(document.getElementById('toolbar')!, { editor });
-new DomternalBubbleMenu(document.getElementById('bubble')!, { editor });
-```
-
-Full API reference and Astro/Svelte/Solid integration guides will live at
-[domternal.dev](https://domternal.dev) when v0.7.0 ships.
+- <u>[Getting Started](https://domternal.dev/v1/getting-started)</u> - install and create your first editor
+- <u>[Introduction](https://domternal.dev/v1/introduction)</u> - core concepts, architecture, and design decisions
+- <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> - what each package includes and bundle size breakdown
+- <u>[Blog](https://domternal.dev/blog)</u>
 
 ## License
 
-MIT
+<u>[MIT](https://github.com/domternal/domternal/blob/main/LICENSE)</u>

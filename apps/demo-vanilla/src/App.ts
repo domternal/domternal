@@ -22,12 +22,13 @@ export class App {
 
   constructor(host: HTMLElement) {
     this.#host = host;
-    this.#renderShell();
-    this.#demoMount = this.#host.querySelector<HTMLElement>('.app-demo-mount')!;
+    // `#renderShell` returns the mount point so we don't need to query for
+    // it via `querySelector` (which would force a non-null assertion).
+    this.#demoMount = this.#renderShell();
     this.#mountCurrentMode();
   }
 
-  #renderShell(): void {
+  #renderShell(): HTMLElement {
     // .demo wrapper
     const demo = document.createElement('div');
     demo.className = 'demo';
@@ -48,7 +49,7 @@ export class App {
     const modeToggle = document.createElement('div');
     modeToggle.className = 'toolbar-mode-toggle';
 
-    const modes: Array<{ id: Mode; label: string }> = [
+    const modes: { id: Mode; label: string }[] = [
       { id: 'default', label: 'Default toolbar' },
       { id: 'custom', label: 'Custom layout' },
       { id: 'notion', label: 'Notion style' },
@@ -57,7 +58,7 @@ export class App {
     for (const m of modes) {
       const btn = document.createElement('button');
       btn.textContent = m.label;
-      btn.dataset['testid'] = `mode-${m.id}`;
+      btn.dataset.testid = `mode-${m.id}`;
       if (this.#mode === m.id) btn.classList.add('active');
       btn.addEventListener('click', () => { this.#setMode(m.id); });
       modeToggle.appendChild(btn);
@@ -71,6 +72,7 @@ export class App {
     demo.appendChild(mount);
 
     this.#host.appendChild(demo);
+    return mount;
   }
 
   #setMode(mode: Mode): void {

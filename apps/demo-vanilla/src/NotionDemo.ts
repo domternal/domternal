@@ -239,8 +239,8 @@ export class NotionDemo {
 
     // E2E exposure
     const w = window as unknown as Record<string, unknown>;
-    w['__DEMO_EDITOR__'] = editor;
-    w['__DOMTERNAL_LIST_CTX__'] = getListItemCursorContext;
+    w.__DEMO_EDITOR__ = editor;
+    w.__DOMTERNAL_LIST_CTX__ = getListItemCursorContext;
 
     // Toast wiring on the editor host
     const editorEl = editor.view.dom.closest<HTMLElement>('.dm-editor');
@@ -280,9 +280,9 @@ export class NotionDemo {
     // Only clear when our editor is still the one on the window. Matches
     // the React StrictMode-safe pattern (cf. demo-react NotionDemo.tsx).
     const w = window as unknown as Record<string, unknown>;
-    if (w['__DEMO_EDITOR__'] === this.#editorWrapper.editor) {
-      w['__DEMO_EDITOR__'] = undefined;
-      w['__DOMTERNAL_LIST_CTX__'] = undefined;
+    if (w.__DEMO_EDITOR__ === this.#editorWrapper.editor) {
+      w.__DEMO_EDITOR__ = undefined;
+      w.__DOMTERNAL_LIST_CTX__ = undefined;
     }
 
     this.#container.replaceChildren();
