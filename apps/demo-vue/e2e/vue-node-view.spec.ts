@@ -29,7 +29,7 @@ async function getEditorHTML(page: Page): Promise<string> {
   return page.evaluate(() => window.__DEMO_EDITOR__?.getHTML() ?? '');
 }
 
-test.describe('VueNodeViewRenderer — rendering', () => {
+test.describe('VueNodeViewRenderer - rendering', () => {
   test.beforeEach(openNodeViewDemo);
 
   test('Vue component renders inside editor as NodeView', async ({ page }) => {
@@ -67,7 +67,7 @@ test.describe('VueNodeViewRenderer — rendering', () => {
   });
 });
 
-test.describe('VueNodeViewRenderer — updateAttributes', () => {
+test.describe('VueNodeViewRenderer - updateAttributes', () => {
   test.beforeEach(openNodeViewDemo);
 
   test('selecting a new variant updates node.attrs via updateAttributes', async ({ page }) => {
@@ -108,7 +108,7 @@ test.describe('VueNodeViewRenderer — updateAttributes', () => {
   });
 });
 
-test.describe('VueNodeViewRenderer — deleteNode', () => {
+test.describe('VueNodeViewRenderer - deleteNode', () => {
   test.beforeEach(openNodeViewDemo);
 
   test('clicking delete button removes the node from document', async ({ page }) => {
@@ -137,7 +137,7 @@ test.describe('VueNodeViewRenderer — deleteNode', () => {
   });
 });
 
-test.describe('VueNodeViewRenderer — editable content', () => {
+test.describe('VueNodeViewRenderer - editable content', () => {
   test.beforeEach(openNodeViewDemo);
 
   test('typing inside NodeViewContent updates document content', async ({ page }) => {
@@ -165,7 +165,7 @@ test.describe('VueNodeViewRenderer — editable content', () => {
   });
 });
 
-test.describe('VueNodeViewRenderer — provide/inject forwarding (appContext)', () => {
+test.describe('VueNodeViewRenderer - provide/inject forwarding (appContext)', () => {
   test.beforeEach(openNodeViewDemo);
 
   test('useCurrentEditor() inside NodeView finds the editor', async ({ page }) => {
@@ -185,7 +185,7 @@ test.describe('VueNodeViewRenderer — provide/inject forwarding (appContext)', 
   });
 });
 
-test.describe('VueNodeViewRenderer — insertCallout command', () => {
+test.describe('VueNodeViewRenderer - insertCallout command', () => {
   test.beforeEach(openNodeViewDemo);
 
   test('insert warning button creates a new callout', async ({ page }) => {
@@ -246,7 +246,7 @@ test.describe('VueNodeViewRenderer — insertCallout command', () => {
   });
 });
 
-test.describe('VueNodeViewRenderer — lifecycle', () => {
+test.describe('VueNodeViewRenderer - lifecycle', () => {
   test.beforeEach(openNodeViewDemo);
 
   test('NodeView re-renders on attribute change without remounting', async ({ page }) => {

@@ -9,13 +9,14 @@ import {
   BulletList,
   OrderedList,
   ListItem,
+  TaskList,
   UniqueID,
   BlockColor,
   Editor,
 } from '@domternal/core';
 import { BlockContextMenu } from './BlockContextMenu.js';
 
-const extensions = [Document, Text, Paragraph, Heading, Blockquote, CodeBlock, BulletList, OrderedList, BlockContextMenu];
+const extensions = [Document, Text, Paragraph, Heading, Blockquote, CodeBlock, BulletList, OrderedList, TaskList, BlockContextMenu];
 
 let editor: Editor | undefined;
 let host: HTMLElement | undefined;
@@ -714,5 +715,709 @@ describe('BlockContextMenu outside click', () => {
     expect(() => {
       document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
     }).not.toThrow();
+  });
+});
+
+describe('BlockContextMenu Turn into - wrapper targets', () => {
+  function findItemByLabel(label: string): HTMLButtonElement | null {
+    const items = host?.querySelectorAll<HTMLButtonElement>('.dm-block-context-menu-item');
+    if (!items) return null;
+    for (const btn of Array.from(items)) {
+      if (btn.getAttribute('aria-label') === label) return btn;
+    }
+    return null;
+  }
+
+  function getLabels(): string[] {
+    const items = host?.querySelectorAll('.dm-block-context-menu-item');
+    return Array.from(items ?? []).map((b) => b.getAttribute('aria-label') ?? '');
+  }
+
+  function findFirstPosOf(typeName: string): number {
+    let found = -1;
+    editor?.state.doc.descendants((node, pos) => {
+      if (found !== -1) return false;
+      if (node.type.name === typeName) { found = pos; return false; }
+      return true;
+    });
+    if (found === -1) throw new Error(`node ${typeName} not found`);
+    return found;
+  }
+
+  // --- Visibility on top-level textblocks ---
+
+  it('shows all 4 wrapper targets on a top-level paragraph', () => {
+    makeEditor('<p>Hello</p>');
+    openContextMenu(0);
+    const labels = getLabels();
+    expect(labels).toContain('Bullet list');
+    expect(labels).toContain('Ordered list');
+    expect(labels).toContain('To-do list');
+    expect(labels).toContain('Quote');
+  });
+
+  it('shows all 4 wrapper targets on a heading source', () => {
+    makeEditor('<h2>Title</h2>');
+    openContextMenu(0);
+    const labels = getLabels();
+    expect(labels).toContain('Bullet list');
+    expect(labels).toContain('Ordered list');
+    expect(labels).toContain('To-do list');
+    expect(labels).toContain('Quote');
+    // Same-type filter still hides H2.
+    expect(labels).not.toContain('Heading 2');
+  });
+
+  it('shows all 4 wrapper targets on a code block source', () => {
+    makeEditor('<pre><code>x=1</code></pre>');
+    openContextMenu(0);
+    const labels = getLabels();
+    expect(labels).toContain('Bullet list');
+    expect(labels).toContain('Quote');
+    // Same-type filter hides Code block.
+    expect(labels).not.toContain('Code block');
+  });
+
+  // --- Ancestor-hide filter ---
+  //
+  // The outer `isTextblock` guard means BlockHandle's natural target
+  // (the wrapping listItem / bulletList) hides Turn into entirely. To
+  // exercise the ancestor-walk filter we open the menu directly on the
+  // inner paragraph's position, simulating a future BlockHandle mode
+  // that targets inner textblocks.
+
+  it('hides Bullet list when the targeted paragraph sits inside a bullet list', () => {
+    makeEditor('<ul><li><p>A</p></li></ul>');
+    const paragraphPos = findFirstPosOf('paragraph');
+    openContextMenu(paragraphPos);
+    const labels = getLabels();
+    expect(labels).not.toContain('Bullet list');
+    // Sibling wrappers still selectable - user can convert the list.
+    expect(labels).toContain('Ordered list');
+    expect(labels).toContain('To-do list');
+    expect(labels).toContain('Quote');
+  });
+
+  it('hides Ordered list when the targeted paragraph sits inside an ordered list', () => {
+    makeEditor('<ol><li><p>A</p></li></ol>');
+    const paragraphPos = findFirstPosOf('paragraph');
+    openContextMenu(paragraphPos);
+    const labels = getLabels();
+    expect(labels).not.toContain('Ordered list');
+    expect(labels).toContain('Bullet list');
+  });
+
+  it('hides To-do list when the targeted paragraph sits inside a task list', () => {
+    makeEditor('<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>A</p></li></ul>');
+    const paragraphPos = findFirstPosOf('paragraph');
+    openContextMenu(paragraphPos);
+    const labels = getLabels();
+    expect(labels).not.toContain('To-do list');
+    expect(labels).toContain('Bullet list');
+  });
+
+  it('hides Quote when the targeted paragraph sits inside a blockquote', () => {
+    makeEditor('<blockquote><p>Quoted</p></blockquote>');
+    const paragraphPos = findFirstPosOf('paragraph');
+    openContextMenu(paragraphPos);
+    const labels = getLabels();
+    expect(labels).not.toContain('Quote');
+    expect(labels).toContain('Bullet list');
+  });
+
+  // --- Click execution: wraps the source into the target wrapper ---
+
+  it('clicking Bullet list wraps the paragraph in <ul><li><p>', () => {
+    makeEditor('<p>Hello</p>');
+    openContextMenu(0);
+    findItemByLabel('Bullet list')?.click();
+    const first = editor?.state.doc.firstChild;
+    expect(first?.type.name).toBe('bulletList');
+    expect(first?.firstChild?.type.name).toBe('listItem');
+    expect(first?.firstChild?.firstChild?.type.name).toBe('paragraph');
+    expect(first?.firstChild?.firstChild?.textContent).toBe('Hello');
+  });
+
+  it('clicking Ordered list wraps the paragraph in <ol><li><p>', () => {
+    makeEditor('<p>Hello</p>');
+    openContextMenu(0);
+    findItemByLabel('Ordered list')?.click();
+    expect(editor?.state.doc.firstChild?.type.name).toBe('orderedList');
+    expect(editor?.state.doc.firstChild?.firstChild?.type.name).toBe('listItem');
+  });
+
+  it('clicking To-do list wraps the paragraph in <taskList><taskItem checked=false>', () => {
+    makeEditor('<p>Hello</p>');
+    openContextMenu(0);
+    findItemByLabel('To-do list')?.click();
+    const list = editor?.state.doc.firstChild;
+    expect(list?.type.name).toBe('taskList');
+    const item = list?.firstChild;
+    expect(item?.type.name).toBe('taskItem');
+    expect((item?.attrs as { checked: boolean }).checked).toBe(false);
+    expect(item?.firstChild?.textContent).toBe('Hello');
+  });
+
+  it('clicking Quote wraps the paragraph in <blockquote>', () => {
+    makeEditor('<p>Hello</p>');
+    openContextMenu(0);
+    findItemByLabel('Quote')?.click();
+    const bq = editor?.state.doc.firstChild;
+    expect(bq?.type.name).toBe('blockquote');
+    expect(bq?.firstChild?.type.name).toBe('paragraph');
+    expect(bq?.firstChild?.textContent).toBe('Hello');
+  });
+
+  // --- Step-down for non-paragraph textblock sources ---
+
+  it('clicking Bullet list on a heading downgrades to paragraph then wraps', () => {
+    makeEditor('<h2>Title</h2>');
+    openContextMenu(0);
+    findItemByLabel('Bullet list')?.click();
+    const first = editor?.state.doc.firstChild;
+    expect(first?.type.name).toBe('bulletList');
+    expect(first?.firstChild?.firstChild?.type.name).toBe('paragraph');
+    expect(first?.firstChild?.firstChild?.textContent).toBe('Title');
+  });
+
+  it('clicking Bullet list on a code block downgrades to paragraph then wraps', () => {
+    makeEditor('<pre><code>x=1</code></pre>');
+    openContextMenu(0);
+    findItemByLabel('Bullet list')?.click();
+    const first = editor?.state.doc.firstChild;
+    expect(first?.type.name).toBe('bulletList');
+    expect(first?.firstChild?.firstChild?.type.name).toBe('paragraph');
+    expect(first?.firstChild?.firstChild?.textContent).toBe('x=1');
+  });
+
+  // --- Quote preserves source node (blockquote.content = block+) ---
+
+  it('clicking Quote on a code block wraps the codeBlock without step-down', () => {
+    makeEditor('<pre><code>const x=1</code></pre>');
+    openContextMenu(0);
+    findItemByLabel('Quote')?.click();
+    const bq = editor?.state.doc.firstChild;
+    expect(bq?.type.name).toBe('blockquote');
+    expect(bq?.firstChild?.type.name).toBe('codeBlock');
+    expect(bq?.firstChild?.textContent).toBe('const x=1');
+  });
+
+  it('clicking Quote on a heading wraps the heading without step-down', () => {
+    makeEditor('<h2>Title</h2>');
+    openContextMenu(0);
+    findItemByLabel('Quote')?.click();
+    const bq = editor?.state.doc.firstChild;
+    expect(bq?.type.name).toBe('blockquote');
+    expect(bq?.firstChild?.type.name).toBe('heading');
+    expect((bq?.firstChild?.attrs as { level: number }).level).toBe(2);
+  });
+
+  // --- Convert in place (paragraph targeted directly inside a list) ---
+
+  it('clicking Ordered list on a paragraph inside a bullet list converts the list type', () => {
+    makeEditor('<ul><li><p>A</p></li><li><p>B</p></li></ul>');
+    const paragraphPos = findFirstPosOf('paragraph');
+    openContextMenu(paragraphPos);
+    findItemByLabel('Ordered list')?.click();
+    const first = editor?.state.doc.firstChild;
+    expect(first?.type.name).toBe('orderedList');
+    expect(first?.childCount).toBe(2);
+    expect(first?.firstChild?.firstChild?.textContent).toBe('A');
+    expect(first?.lastChild?.firstChild?.textContent).toBe('B');
+  });
+
+  // --- Menu close + refocus after wrapper click ---
+
+  it('closes the menu and refocuses editor after a wrapper click', () => {
+    const ed = makeEditor('<p>Hello</p>');
+    const focusSpy = vi.spyOn(ed.view, 'focus');
+    openContextMenu(0);
+    const menu = host?.querySelector('.dm-block-context-menu');
+    expect(menu?.hasAttribute('data-show')).toBe(true);
+    findItemByLabel('Bullet list')?.click();
+    expect(menu?.hasAttribute('data-show')).toBe(false);
+    expect(focusSpy).toHaveBeenCalled();
+  });
+
+  // --- Outer textblock guard: list wrappers don't expose Turn into ---
+  //
+  // BlockHandle resolves a list item (or the bulletList itself) as the
+  // top-level block, so the menu opens with a non-textblock source. The
+  // outer `isTextblock` guard hides the Turn into section. Wrapper
+  // targets are then unreachable from the menu (the user must target
+  // an inner textblock instead). This documents the current scope.
+
+  it('hides the Turn into section when the menu opens on a bullet list wrapper', () => {
+    // bulletList's first child is a listItem (not a textblock), so the
+    // "wrapper-with-inner-textblock" path doesn't kick in either.
+    makeEditor('<ul><li><p>A</p></li></ul>');
+    openContextMenu(0); // pos 0 = bulletList (non-textblock, non-wrapper)
+    const labels = getLabels();
+    expect(labels).toContain('Delete');
+    expect(labels).not.toContain('Bullet list');
+    expect(labels).not.toContain('Quote');
+    expect(labels).not.toContain('Heading 1');
+  });
+});
+
+describe('BlockContextMenu drag-handle pin + active block highlight', () => {
+  // Two cross-plugin signals applied on open, cleared on hide:
+  //   1. `data-block-context-menu-open` attribute on the editor root,
+  //      which `BlockHandle` reads to keep its drag button pinned on
+  //      the source block while the menu is open.
+  //   2. `dm-block-context-active` class on the targeted block's DOM
+  //      node, used by the theme to render a subtle Notion-style cue.
+
+  it('sets data-block-context-menu-open on the editor host while open', () => {
+    makeEditor('<p>Pin me</p>');
+    expect(host?.hasAttribute('data-block-context-menu-open')).toBe(false);
+    openContextMenu(0);
+    expect(host?.hasAttribute('data-block-context-menu-open')).toBe(true);
+  });
+
+  it('removes data-block-context-menu-open on hide', () => {
+    makeEditor('<p>Pin me</p>');
+    openContextMenu(0);
+    host?.dispatchEvent(new Event('dm:dismiss-overlays'));
+    expect(host?.hasAttribute('data-block-context-menu-open')).toBe(false);
+  });
+
+  it('adds dm-block-context-active class to the targeted block', () => {
+    makeEditor('<p>Highlighted</p>');
+    openContextMenu(0);
+    const para = host?.querySelector('.ProseMirror > p');
+    expect(para?.classList.contains('dm-block-context-active')).toBe(true);
+  });
+
+  it('removes dm-block-context-active class on hide', () => {
+    makeEditor('<p>Highlighted</p>');
+    openContextMenu(0);
+    host?.dispatchEvent(new Event('dm:dismiss-overlays'));
+    const para = host?.querySelector('.ProseMirror > p');
+    expect(para?.classList.contains('dm-block-context-active')).toBe(false);
+  });
+
+  it('targets the correct block in a multi-block doc', () => {
+    makeEditor('<p>First</p><p>Second</p><p>Third</p>');
+    // Open on the second paragraph (positions: 0..7 first, 7..15 second).
+    openContextMenu(7);
+    const paragraphs = host?.querySelectorAll('.ProseMirror > p');
+    if (!paragraphs) throw new Error();
+    expect(paragraphs[0]?.classList.contains('dm-block-context-active')).toBe(false);
+    expect(paragraphs[1]?.classList.contains('dm-block-context-active')).toBe(true);
+    expect(paragraphs[2]?.classList.contains('dm-block-context-active')).toBe(false);
+  });
+
+  it('moves the highlight when the menu reopens on a different block', () => {
+    makeEditor('<p>First</p><p>Second</p>');
+    openContextMenu(0);
+    let paragraphs = host?.querySelectorAll('.ProseMirror > p');
+    expect(paragraphs?.[0]?.classList.contains('dm-block-context-active')).toBe(true);
+    // Reopen on the second paragraph (dispatching open implicitly
+    // dismisses other overlays then calls open() again).
+    openContextMenu(7);
+    paragraphs = host?.querySelectorAll('.ProseMirror > p');
+    expect(paragraphs?.[0]?.classList.contains('dm-block-context-active')).toBe(false);
+    expect(paragraphs?.[1]?.classList.contains('dm-block-context-active')).toBe(true);
+  });
+
+  it('clears both signals when editor is destroyed mid-open', () => {
+    const ed = makeEditor('<p>X</p>');
+    openContextMenu(0);
+    expect(host?.hasAttribute('data-block-context-menu-open')).toBe(true);
+    ed.destroy();
+    editor = undefined;
+    // The destroy hook calls hide() which removes the attribute. host
+    // remains in the DOM until afterEach cleans it.
+    expect(host?.hasAttribute('data-block-context-menu-open')).toBe(false);
+  });
+
+  // ─── Decoration-driven highlight: survives PM rerenders, remaps across
+  //     doc edits, and moves between blocks on reopen ────────────────────
+  //
+  // This is what the original imperative `classList.add` could not do.
+  // The bug surface was: any transaction that touched the block's DOM
+  // (e.g. UniqueID stamping `id` via setNodeMarkup) caused PM to throw
+  // away the inline class. The decoration is re-applied every render,
+  // so the class persists regardless of how often the block is
+  // rerendered.
+
+  it('decoration adds the dm-block-context-active class to the target paragraph DOM', () => {
+    makeEditor('<p>Decorated</p>');
+    openContextMenu(0);
+    const para = host?.querySelector('.ProseMirror > p');
+    expect(para?.classList.contains('dm-block-context-active')).toBe(true);
+  });
+
+  it('decoration survives a no-op meta transaction dispatched while menu is open', () => {
+    // Dispatching a meta-only transaction triggers a PM re-render but
+    // does not change the doc. The decoration must still apply.
+    const ed = makeEditor('<p>Resilient</p>');
+    openContextMenu(0);
+    expect(host?.querySelector('.ProseMirror > p')?.classList.contains('dm-block-context-active')).toBe(true);
+    // Synthetic meta tr - no doc change, just kicks PM into re-running view updates.
+    ed.view.dispatch(ed.view.state.tr.setMeta('test-noop', true));
+    expect(host?.querySelector('.ProseMirror > p')?.classList.contains('dm-block-context-active')).toBe(true);
+  });
+
+  it('decoration moves to a new block when the menu is reopened on it', () => {
+    makeEditor('<p>First</p><p>Second</p>');
+    openContextMenu(0);
+    let paras = host?.querySelectorAll('.ProseMirror > p');
+    expect(paras?.[0]?.classList.contains('dm-block-context-active')).toBe(true);
+    expect(paras?.[1]?.classList.contains('dm-block-context-active')).toBe(false);
+    // Reopen on the second paragraph (positions 0..7 + 7..15).
+    openContextMenu(7);
+    paras = host?.querySelectorAll('.ProseMirror > p');
+    expect(paras?.[0]?.classList.contains('dm-block-context-active')).toBe(false);
+    expect(paras?.[1]?.classList.contains('dm-block-context-active')).toBe(true);
+  });
+
+  it('decoration is removed after the menu closes', () => {
+    makeEditor('<p>X</p>');
+    openContextMenu(0);
+    expect(host?.querySelector('.ProseMirror > p')?.classList.contains('dm-block-context-active')).toBe(true);
+    host?.dispatchEvent(new Event('dm:dismiss-overlays'));
+    expect(host?.querySelector('.ProseMirror > p')?.classList.contains('dm-block-context-active')).toBe(false);
+  });
+
+  it('scroll lock is idempotent across repeated open() calls', () => {
+    // Two consecutive opens (e.g. user clicks drag again without
+    // closing) must not double-register the wheel listener. We assert
+    // the lock state externally by verifying close + reopen leaves
+    // the document in a non-locked state after a single close.
+    makeEditor('<p>X</p><p>Y</p>');
+    openContextMenu(0);
+    openContextMenu(3); // re-open on a different block, no explicit hide between
+
+    host?.dispatchEvent(new Event('dm:dismiss-overlays'));
+    // After a SINGLE close, scroll should be free again - duplicate
+    // listeners would still block.
+    const ev = new Event('wheel', { cancelable: true, bubbles: true });
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    Object.defineProperty(ev, 'target', { value: document.body });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(false);
+  });
+});
+
+describe('BlockContextMenu scroll lock', () => {
+  // Notion-style: when the menu is open, page scroll is blocked so the
+  // popup stays anchored next to the drag handle. The wheel + touchmove
+  // listeners on `document` call preventDefault() unless the event
+  // target sits inside the menu (which preserves internal scroll for
+  // the menu's own overflow).
+
+  it('does not call preventDefault on wheel before menu opens', () => {
+    makeEditor('<p>X</p>');
+    const ev = new Event('wheel', { cancelable: true });
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(false);
+  });
+
+  it('blocks wheel events on document while menu is open', () => {
+    makeEditor('<p>X</p>');
+    openContextMenu(0);
+    const menu = host?.querySelector('.dm-block-context-menu');
+    expect(menu?.hasAttribute('data-show')).toBe(true);
+
+    const ev = new Event('wheel', { cancelable: true, bubbles: true });
+    // Dispatch on body (outside the menu) so the listener's target
+    // check does not exempt it.
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    Object.defineProperty(ev, 'target', { value: document.body });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(true);
+  });
+
+  it('blocks touchmove events on document while menu is open', () => {
+    makeEditor('<p>X</p>');
+    openContextMenu(0);
+    const ev = new Event('touchmove', { cancelable: true, bubbles: true });
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    Object.defineProperty(ev, 'target', { value: document.body });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(true);
+  });
+
+  it('blocks wheel events inside the menu when it has no scrollable overflow', () => {
+    // The default menu fits within `max-height: 20rem`, so its
+    // scrollHeight equals clientHeight - no internal scroll is
+    // possible. Letting the wheel through would chain to the page
+    // and scroll the document underneath the menu, which is the
+    // exact bug we want to prevent.
+    makeEditor('<p>X</p>');
+    openContextMenu(0);
+    const menu = host?.querySelector('.dm-block-context-menu');
+    expect(menu).not.toBeNull();
+
+    const ev = new Event('wheel', { cancelable: true, bubbles: true });
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    Object.defineProperty(ev, 'target', { value: menu });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(true);
+  });
+
+  it('allows wheel events inside the menu when it CAN scroll internally', () => {
+    makeEditor('<p>X</p>');
+    openContextMenu(0);
+    const menu = host?.querySelector('.dm-block-context-menu') as HTMLElement | null;
+    if (!menu) throw new Error('menu missing');
+    // Simulate scrollable overflow by mocking scrollHeight > clientHeight.
+    Object.defineProperty(menu, 'scrollHeight', { configurable: true, value: 500 });
+    Object.defineProperty(menu, 'clientHeight', { configurable: true, value: 200 });
+
+    const ev = new Event('wheel', { cancelable: true, bubbles: true });
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    Object.defineProperty(ev, 'target', { value: menu });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(false);
+  });
+
+  it('releases scroll lock when menu closes', () => {
+    makeEditor('<p>X</p>');
+    openContextMenu(0);
+    // Close via the dismiss event.
+    host?.dispatchEvent(new Event('dm:dismiss-overlays'));
+    const menu = host?.querySelector('.dm-block-context-menu');
+    expect(menu?.hasAttribute('data-show')).toBe(false);
+
+    // Wheel events should no longer be blocked.
+    const ev = new Event('wheel', { cancelable: true, bubbles: true });
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    Object.defineProperty(ev, 'target', { value: document.body });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(false);
+  });
+
+  it('releases scroll lock after a wrapper-target click closes the menu', () => {
+    makeEditor('<p>Toggle</p>');
+    openContextMenu(0);
+    // Click any item that closes the menu (Duplicate fires runAndClose).
+    const items = host?.querySelectorAll<HTMLButtonElement>('.dm-block-context-menu-item');
+    let dupBtn: HTMLButtonElement | null = null;
+    if (items) {
+      for (const b of Array.from(items)) {
+        if (b.getAttribute('aria-label') === 'Duplicate') { dupBtn = b; break; }
+      }
+    }
+    dupBtn?.click();
+    const menu = host?.querySelector('.dm-block-context-menu');
+    expect(menu?.hasAttribute('data-show')).toBe(false);
+
+    const ev = new Event('wheel', { cancelable: true, bubbles: true });
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    Object.defineProperty(ev, 'target', { value: document.body });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(false);
+  });
+
+  it('releases scroll lock after Escape closes the menu', () => {
+    makeEditor('<p>X</p>');
+    openContextMenu(0);
+    const menu = host?.querySelector('.dm-block-context-menu');
+    menu?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(menu?.hasAttribute('data-show')).toBe(false);
+
+    const ev = new Event('wheel', { cancelable: true, bubbles: true });
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    Object.defineProperty(ev, 'target', { value: document.body });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(false);
+  });
+
+  it('releases scroll lock when the editor is destroyed while the menu is open', () => {
+    const ed = makeEditor('<p>X</p>');
+    openContextMenu(0);
+    ed.destroy();
+    editor = undefined; // afterEach already cleans, but make explicit
+
+    const ev = new Event('wheel', { cancelable: true, bubbles: true });
+    let prevented = false;
+    Object.defineProperty(ev, 'preventDefault', { value: () => { prevented = true; } });
+    Object.defineProperty(ev, 'target', { value: document.body });
+    document.dispatchEvent(ev);
+    expect(prevented).toBe(false);
+  });
+});
+
+describe('BlockContextMenu Turn into - wrapper SOURCES (listItem / taskItem / blockquote)', () => {
+  // BlockHandle in nested mode targets the listItem (the actual draggable
+  // row), not the inner paragraph. These tests exercise that real-usage
+  // path: open the menu on the listItem position and verify the Turn into
+  // section behaves like Notion's "convert this list item".
+
+  function findItemByLabel(label: string): HTMLButtonElement | null {
+    const items = host?.querySelectorAll<HTMLButtonElement>('.dm-block-context-menu-item');
+    if (!items) return null;
+    for (const btn of Array.from(items)) {
+      if (btn.getAttribute('aria-label') === label) return btn;
+    }
+    return null;
+  }
+
+  function getLabels(): string[] {
+    const items = host?.querySelectorAll('.dm-block-context-menu-item');
+    return Array.from(items ?? []).map((b) => b.getAttribute('aria-label') ?? '');
+  }
+
+  function findFirstPosOf(typeName: string): number {
+    let found = -1;
+    editor?.state.doc.descendants((node, pos) => {
+      if (found !== -1) return false;
+      if (node.type.name === typeName) { found = pos; return false; }
+      return true;
+    });
+    if (found === -1) throw new Error(`node ${typeName} not found`);
+    return found;
+  }
+
+  // --- Visibility on a listItem (the BlockHandle's natural target) ---
+
+  it('shows Turn into on a listItem source via the inner-textblock descent', () => {
+    makeEditor('<ul><li><p>A</p></li></ul>');
+    const liPos = findFirstPosOf('listItem');
+    openContextMenu(liPos);
+    const labels = getLabels();
+    // Wrapper targets eligible (excluding the ancestor type and schema-
+    // rejecting Quote on listItem-family).
+    expect(labels).toContain('Ordered list');
+    expect(labels).toContain('To-do list');
+    // Hidden: own type ancestor.
+    expect(labels).not.toContain('Bullet list');
+    // Hidden: blockquote can't be the first child of a listItem.
+    expect(labels).not.toContain('Quote');
+    // Hidden: textblock targets need a lift-then-convert (out of scope).
+    expect(labels).not.toContain('Paragraph');
+    expect(labels).not.toContain('Heading 1');
+    expect(labels).not.toContain('Code block');
+  });
+
+  it('shows Turn into on an orderedList listItem source with Bullet/Task eligible', () => {
+    makeEditor('<ol><li><p>A</p></li></ol>');
+    const liPos = findFirstPosOf('listItem');
+    openContextMenu(liPos);
+    const labels = getLabels();
+    expect(labels).toContain('Bullet list');
+    expect(labels).toContain('To-do list');
+    expect(labels).not.toContain('Ordered list');
+    expect(labels).not.toContain('Quote');
+  });
+
+  it('shows Turn into on a taskItem source with Bullet/Ordered eligible, To-do hidden', () => {
+    makeEditor('<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>A</p></li></ul>');
+    const tiPos = findFirstPosOf('taskItem');
+    openContextMenu(tiPos);
+    const labels = getLabels();
+    expect(labels).toContain('Bullet list');
+    expect(labels).toContain('Ordered list');
+    expect(labels).not.toContain('To-do list');
+    expect(labels).not.toContain('Quote');
+  });
+
+  // --- Click execution: list-type swap in place ---
+
+  it('clicking Ordered list on a listItem source converts the UL to OL in place', () => {
+    makeEditor('<ul><li><p>A</p></li><li><p>B</p></li></ul>');
+    const liPos = findFirstPosOf('listItem');
+    openContextMenu(liPos);
+    findItemByLabel('Ordered list')?.click();
+    const first = editor?.state.doc.firstChild;
+    expect(first?.type.name).toBe('orderedList');
+    expect(first?.childCount).toBe(2);
+    expect(first?.firstChild?.firstChild?.textContent).toBe('A');
+    expect(first?.lastChild?.firstChild?.textContent).toBe('B');
+  });
+
+  it('clicking To-do list on a listItem source rebuilds items as taskItems (checked=false)', () => {
+    makeEditor('<ul><li><p>A</p></li><li><p>B</p></li></ul>');
+    const liPos = findFirstPosOf('listItem');
+    openContextMenu(liPos);
+    findItemByLabel('To-do list')?.click();
+    const first = editor?.state.doc.firstChild;
+    expect(first?.type.name).toBe('taskList');
+    expect(first?.firstChild?.type.name).toBe('taskItem');
+    expect((first?.firstChild?.attrs as { checked: boolean }).checked).toBe(false);
+    expect(first?.firstChild?.firstChild?.textContent).toBe('A');
+    expect(first?.lastChild?.firstChild?.textContent).toBe('B');
+  });
+
+  it('clicking Bullet list on an orderedList listItem source converts OL to UL', () => {
+    makeEditor('<ol><li><p>X</p></li></ol>');
+    const liPos = findFirstPosOf('listItem');
+    openContextMenu(liPos);
+    findItemByLabel('Bullet list')?.click();
+    expect(editor?.state.doc.firstChild?.type.name).toBe('bulletList');
+    expect(editor?.state.doc.firstChild?.firstChild?.firstChild?.textContent).toBe('X');
+  });
+
+  // --- Blockquote source with paragraph first child ---
+
+  it('shows Turn into on a blockquote source (paragraph inner), Quote hidden via ancestor', () => {
+    makeEditor('<blockquote><p>A</p></blockquote>');
+    const bqPos = findFirstPosOf('blockquote');
+    openContextMenu(bqPos);
+    const labels = getLabels();
+    expect(labels).toContain('Bullet list');
+    expect(labels).toContain('Ordered list');
+    expect(labels).toContain('To-do list');
+    expect(labels).not.toContain('Quote');
+    // Textblock targets still hidden because source is non-textblock.
+    expect(labels).not.toContain('Heading 1');
+  });
+
+  it('clicking Bullet list on a blockquote source nests a list inside the blockquote', () => {
+    // blockquote.content = "block+" accepts list as a child, so the
+    // toggleList wraps the inner paragraph and produces:
+    // <blockquote><ul><li><p>A</p></li></ul></blockquote>.
+    makeEditor('<blockquote><p>A</p></blockquote>');
+    const bqPos = findFirstPosOf('blockquote');
+    openContextMenu(bqPos);
+    findItemByLabel('Bullet list')?.click();
+    const bq = editor?.state.doc.firstChild;
+    expect(bq?.type.name).toBe('blockquote');
+    const ul = bq?.firstChild;
+    expect(ul?.type.name).toBe('bulletList');
+    expect(ul?.firstChild?.firstChild?.firstChild?.textContent).toBe('A');
+  });
+
+  // --- Wrapper-of-wrapper sources still hidden ---
+
+  it('hides Turn into entirely when the wrapper source has no inner textblock', () => {
+    // bulletList's firstChild is a listItem (wrapper, not textblock).
+    // The wrapper-source path requires firstChild to be a textblock,
+    // so this falls through to "hidden".
+    makeEditor('<ul><li><p>A</p></li></ul>');
+    const ulPos = 0; // bulletList at top
+    openContextMenu(ulPos);
+    const labels = getLabels();
+    expect(labels).toContain('Delete');
+    expect(labels).not.toContain('Bullet list');
+    expect(labels).not.toContain('Quote');
+    expect(labels).not.toContain('Heading 1');
+  });
+
+  // --- Menu close after wrapper-source click ---
+
+  it('closes the menu and refocuses editor after a list-type swap', () => {
+    const ed = makeEditor('<ul><li><p>A</p></li></ul>');
+    const focusSpy = vi.spyOn(ed.view, 'focus');
+    const liPos = findFirstPosOf('listItem');
+    openContextMenu(liPos);
+    const menu = host?.querySelector('.dm-block-context-menu');
+    expect(menu?.hasAttribute('data-show')).toBe(true);
+    findItemByLabel('Ordered list')?.click();
+    expect(menu?.hasAttribute('data-show')).toBe(false);
+    expect(focusSpy).toHaveBeenCalled();
   });
 });

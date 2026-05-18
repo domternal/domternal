@@ -28,7 +28,7 @@ export interface LowlightPluginOptions {
   autoDetect: boolean;
 }
 
-/** Internal type after validation — lowlight guaranteed non-null */
+/** Internal type after validation - lowlight guaranteed non-null */
 interface ValidatedOptions extends LowlightPluginOptions {
   lowlight: Lowlight;
 }

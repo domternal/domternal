@@ -4,6 +4,7 @@ export { DomternalBubbleMenuComponent } from './lib/bubble-menu.component';
 export { DomternalFloatingMenuComponent } from './lib/floating-menu.component';
 export { DomternalEmojiPickerComponent } from './lib/emoji-picker.component';
 export type { EmojiPickerItem } from './lib/emoji-picker.component';
+export { DomternalNotionColorPickerComponent } from './lib/notion-color-picker.component';
 
 // Re-export commonly used types from core for convenience
 export { Editor } from '@domternal/core';

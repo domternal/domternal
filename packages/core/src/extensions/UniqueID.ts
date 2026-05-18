@@ -1,23 +1,6 @@
 /**
- * UniqueID Extension
- *
- * Automatically assigns unique IDs to specified node types.
- * Useful for collaborative editing, linking, and history tracking.
- *
- * @example
- * ```ts
- * import { UniqueID } from '@domternal/core';
- *
- * const editor = new Editor({
- *   extensions: [
- *     // ... other extensions
- *     UniqueID.configure({
- *       types: ['paragraph', 'heading'],
- *       attributeName: 'id',
- *     }),
- *   ],
- * });
- * ```
+ * Canonical block-id system. Assigns ids to configured node types and is
+ * read by TableOfContents and BlockContextMenu.
  */
 import { Extension } from '../Extension.js';
 import { Plugin, PluginKey, type Transaction } from '@domternal/pm/state';
@@ -25,10 +8,15 @@ import { Fragment, Slice } from '@domternal/pm/model';
 import type { Node as PMNode } from '@domternal/pm/model';
 import type { Editor } from '../Editor.js';
 
-/**
- * Simple UUID generator (no external dependency)
- */
 function generateUUID(): string {
+  // Prefer the browser/Node crypto API: cryptographically random and
+  // standardised. Fall back to Math.random() for hostile or test
+  // environments (jsdom prior to v22, very old shims) where
+  // `crypto.randomUUID` is missing.
+  if (typeof globalThis !== 'undefined') {
+    const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+    if (c && typeof c.randomUUID === 'function') return c.randomUUID();
+  }
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
@@ -157,18 +145,59 @@ export const UniqueID = Extension.create<UniqueIDOptions>({
       );
     };
 
-    // Helper to assign IDs to nodes that lack them
+    // Helper to assign IDs to nodes that lack them, AND rename
+    // duplicates so the doc stays a unique-id space (which is required
+    // for native browser `#hash` anchors and `getElementById`).
+    //
+    // The duplicate-rename guarantee covers two real scenarios:
+    //   1. setContent with markup that already has colliding ids (e.g.
+    //      a saved snapshot with corrupted ids, or hand-written HTML).
+    //   2. PM transactions that copy a node with its id (some commands
+    //      like duplicateBlock spread attrs and would propagate the id;
+    //      callers can override via transformAttrs, but if they don't,
+    //      this catch-all keeps the doc consistent).
+    //
+    // Paste from outside the editor goes through `transformPasted`
+    // (further down) and is handled there before this runs. This pass
+    // is the safety net.
     const assignMissingIDs = (doc: PMNode, tr: Transaction): void => {
+      const seen = new Set<string>();
       doc.descendants((node, pos) => {
         if (!types.includes(node.type.name)) return;
 
         const existingID = node.attrs[attributeName] as string | undefined;
         if (!existingID) {
-          tr.setNodeMarkup(pos, undefined, {
+          // Missing: assign a fresh one. Track it so subsequent nodes
+          // with the same generated id (astronomically unlikely with
+          // UUIDs) don't pass through.
+          let id = generateID();
+          while (seen.has(id)) id = generateID();
+          seen.add(id);
+          // Map the position through steps already applied to `tr` so
+          // each setNodeMarkup lands at the right place even when the
+          // earlier iteration changed offsets. (`setNodeMarkup` is not
+          // length-changing, but the discipline matches the safer
+          // pattern that other plugins use.)
+          tr.setNodeMarkup(tr.mapping.map(pos), undefined, {
             ...node.attrs,
-            [attributeName]: generateID(),
+            [attributeName]: id,
           });
+          return;
         }
+        if (seen.has(existingID)) {
+          // Collision: rename the second occurrence. The first
+          // occurrence keeps its id - "first wins" is the same rule
+          // most editors use when reconciling duplicate anchors.
+          let id = generateID();
+          while (seen.has(id)) id = generateID();
+          seen.add(id);
+          tr.setNodeMarkup(tr.mapping.map(pos), undefined, {
+            ...node.attrs,
+            [attributeName]: id,
+          });
+          return;
+        }
+        seen.add(existingID);
       });
     };
 

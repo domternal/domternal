@@ -96,7 +96,7 @@ async function selectInCodeBlock(page: Page, startOffset: number, endOffset: num
 
 // ─── Visibility ──────────────────────────────────────────────────────
 
-test.describe('Bubble menu — Visibility', () => {
+test.describe('Bubble menu - Visibility', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -154,9 +154,9 @@ test.describe('Bubble menu — Visibility', () => {
   });
 });
 
-// ─── Buttons (auto mode — bold, italic, underline) ──────────────────
+// ─── Buttons (auto mode - bold, italic, underline) ──────────────────
 
-test.describe('Bubble menu — Buttons', () => {
+test.describe('Bubble menu - Buttons', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -214,7 +214,7 @@ test.describe('Bubble menu — Buttons', () => {
 
 // ─── Active state ────────────────────────────────────────────────────
 
-test.describe('Bubble menu — Active state', () => {
+test.describe('Bubble menu - Active state', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -253,7 +253,7 @@ test.describe('Bubble menu — Active state', () => {
 
 // ─── Selection preservation ──────────────────────────────────────────
 
-test.describe('Bubble menu — Selection preservation', () => {
+test.describe('Bubble menu - Selection preservation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -288,7 +288,7 @@ test.describe('Bubble menu — Selection preservation', () => {
 
 // ─── Icons ───────────────────────────────────────────────────────────
 
-test.describe('Bubble menu — Icons', () => {
+test.describe('Bubble menu - Icons', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -340,7 +340,7 @@ async function selectCrossBlock(
 
 const crossBlockContent = '<p>First paragraph</p><pre><code>const x = 1;</code></pre><p>Second paragraph</p>';
 
-test.describe('Bubble menu — Cross-block selection', () => {
+test.describe('Bubble menu - Cross-block selection', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -385,7 +385,7 @@ test.describe('Bubble menu — Cross-block selection', () => {
     await page.mouse.down();
     await page.waitForTimeout(50);
 
-    // Drag to end of p1 — menu hidden during drag
+    // Drag to end of p1 - menu hidden during drag
     await page.mouse.move(p1Box.x + p1Box.width - 10, p1Box.y + p1Box.height / 2, { steps: 5 });
     await page.waitForTimeout(150);
     await expect(page.locator(bubbleMenu)).not.toHaveAttribute('data-show');
@@ -394,7 +394,7 @@ test.describe('Bubble menu — Cross-block selection', () => {
     await page.mouse.move(codeBox.x + codeBox.width / 2, codeBox.y + codeBox.height / 2, { steps: 5 });
     await page.mouse.move(p2Box.x + p2Box.width / 3, p2Box.y + p2Box.height / 2, { steps: 5 });
 
-    // Release — menu should appear for the cross-block selection
+    // Release - menu should appear for the cross-block selection
     await page.mouse.up();
     await expect(page.locator(bubbleMenu)).toHaveAttribute('data-show', '');
   });
@@ -414,7 +414,7 @@ test.describe('Bubble menu — Cross-block selection', () => {
     await page.mouse.down();
     await page.waitForTimeout(50);
 
-    // Drag to beginning of p2 — menu hidden during drag
+    // Drag to beginning of p2 - menu hidden during drag
     await page.mouse.move(p2Box.x + 10, p2Box.y + p2Box.height / 2, { steps: 5 });
     await page.waitForTimeout(150);
     await expect(page.locator(bubbleMenu)).not.toHaveAttribute('data-show');
@@ -423,7 +423,7 @@ test.describe('Bubble menu — Cross-block selection', () => {
     await page.mouse.move(codeBox.x + codeBox.width / 2, codeBox.y + codeBox.height / 2, { steps: 5 });
     await page.mouse.move(p1Box.x + p1Box.width / 2, p1Box.y + p1Box.height / 2, { steps: 5 });
 
-    // Release — menu should appear for the cross-block selection
+    // Release - menu should appear for the cross-block selection
     await page.mouse.up();
     await expect(page.locator(bubbleMenu)).toHaveAttribute('data-show', '');
   });

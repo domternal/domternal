@@ -94,7 +94,12 @@
     box-shadow: 0 0 0 2px var(--dm-accent-surface, rgba(37, 99, 235, 0.15));
   }
 
-  &:focus-visible {
+  &:focus-visible,
+  // Currently-applied color for the targeted block. BlockContextMenu writes
+  // `aria-pressed="true"` on the swatch whose value matches the block's
+  // current text/bg color (`null` for "Default"); mirror the inline picker's
+  // `.dm-ncp-active` treatment so the active state reads the same in both UIs.
+  &[aria-pressed="true"] {
     // OUTSET ring (offset > 0): swatch dot fills almost the entire button
     // surface, so an inset outline would render UNDER the dot. Pulling the
     // ring outward keeps it visible against any palette tint.
@@ -156,11 +161,10 @@
     color: var(--dm-editor-text, #333);
   }
 
-  &[data-color="null"]::before {
-    // The strike-through "no color" swatch already renders its own glyph;
-    // clear the "A" so the two indicators don't stack.
-    content: '';
-  }
+  // "Default" text swatch keeps its "A" and gets the diagonal slash from the
+  // base `[data-color="null"]::before` rule painted as the dot's background.
+  // The "A" glyph sits on top of the slash so users see "letterform crossed
+  // out" rather than an empty stroke (mirrors the inline-picker treatment).
 
   &[data-color="gray"]::before   { color: var(--dm-block-text-gray); }
   &[data-color="brown"]::before  { color: var(--dm-block-text-brown); }

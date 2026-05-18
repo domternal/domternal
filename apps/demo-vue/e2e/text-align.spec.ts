@@ -51,7 +51,7 @@ const PARA_AND_HEADING = '<p>a paragraph</p><h2>a heading</h2>';
 
 // ─── Toolbar dropdown ─────────────────────────────────────────────────
 
-test.describe('TextAlign — toolbar dropdown', () => {
+test.describe('TextAlign - toolbar dropdown', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -83,7 +83,7 @@ test.describe('TextAlign — toolbar dropdown', () => {
 
 // ─── Set alignment via toolbar ────────────────────────────────────────
 
-test.describe('TextAlign — set via toolbar', () => {
+test.describe('TextAlign - set via toolbar', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -153,7 +153,7 @@ test.describe('TextAlign — set via toolbar', () => {
 // Note: Mod-Shift-E (center) is intercepted by Chromium, so center alignment
 // is tested via toolbar clicks above. Other shortcuts work correctly.
 
-test.describe('TextAlign — keyboard shortcuts', () => {
+test.describe('TextAlign - keyboard shortcuts', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -217,7 +217,7 @@ test.describe('TextAlign — keyboard shortcuts', () => {
 
 // ─── Active state ─────────────────────────────────────────────────────
 
-test.describe('TextAlign — active state', () => {
+test.describe('TextAlign - active state', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -281,7 +281,7 @@ test.describe('TextAlign — active state', () => {
 
 // ─── parseHTML ────────────────────────────────────────────────────────
 
-test.describe('TextAlign — parseHTML', () => {
+test.describe('TextAlign - parseHTML', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -339,7 +339,7 @@ test.describe('TextAlign — parseHTML', () => {
 
 // ─── Multiple nodes ───────────────────────────────────────────────────
 
-test.describe('TextAlign — multiple nodes', () => {
+test.describe('TextAlign - multiple nodes', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -387,7 +387,7 @@ test.describe('TextAlign — multiple nodes', () => {
 
 // ─── Alignment persists ───────────────────────────────────────────────
 
-test.describe('TextAlign — persistence', () => {
+test.describe('TextAlign - persistence', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -440,7 +440,7 @@ test.describe('TextAlign — persistence', () => {
 
 // ─── Edge cases ───────────────────────────────────────────────────────
 
-test.describe('TextAlign — edge cases', () => {
+test.describe('TextAlign - edge cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

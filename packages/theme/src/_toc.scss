@@ -1,27 +1,10 @@
 // =============================================================================
 // Table of Contents - Floating Outline
-// =============================================================================
-// Notion-style right-rail outline rendered by `@domternal/extension-toc`.
-// Lives OUTSIDE `.dm-editor` (which has `overflow: hidden`), so this
-// stylesheet does not nest under `.dm-editor` - tokens are pulled from
-// `:root` (defined in `_variables.scss`).
-//
-// Phase 4 ships the collapsed-state ticks + visibility guards. Phase 5
-// adds the active-state highlight; Phase 6 the hover-expanded card.
+// Right-rail outline rendered by `@domternal/extension-toc`. Lives OUTSIDE
+// `.dm-editor` (which has `overflow: hidden`), so tokens pull from `:root`.
 // =============================================================================
 
 .dm-toc-outline {
-  // D16 (revised in Phase 4): position: fixed gives Notion-like
-  // behavior - the outline stays vertically centered in the viewport
-  // as the user scrolls, regardless of which container it mounted
-  // into. Trade-off: multi-editor on the same page would overlap;
-  // multi-editor support is v2 work.
-  position: fixed;
-  top: 50%;
-  right: var(--dm-toc-right-offset, 24px);
-  transform: translateY(-50%);
-  z-index: var(--dm-toc-z-index, 10);
-
   // Stack ticks vertically with even gaps. flex-end keeps the right
   // edge of every tick aligned even though widths differ per level.
   display: flex;
@@ -29,13 +12,44 @@
   align-items: flex-end;
   gap: var(--dm-toc-tick-gap, 10px);
   padding: var(--dm-toc-padding-block, 12px) var(--dm-toc-padding-inline, 8px);
+  z-index: var(--dm-toc-z-index, 10);
 
-  // No background / no border in collapsed state - it's just a
-  // column of tiny marks. Phase 6's expanded card adds chrome.
+  // No background / no border in collapsed state - just a column of ticks.
+  // The expanded card adds its own chrome.
   background: transparent;
   border: 0;
   margin: 0;
   pointer-events: auto;
+
+  // Positioning by `data-anchor`:
+  //
+  // - editor: nav is `position: sticky`. Plugin toggles
+  //   `data-bottom-visible` via an IntersectionObserver on a sentinel
+  //   at the shell's bottom edge.
+  //   - bottom-visible='false' (editor extends below the viewport):
+  //     nav sticks at `--dm-toc-mid-top` (= `calc(50vh - height/2)`,
+  //     set from the measured nav height). The BOX is centered around
+  //     50vh - no transform - so the visual is fully constrained by
+  //     the containing block and never escapes the editor's bounds.
+  //   - bottom-visible='true' (editor's bottom is on screen): sticky
+  //     offset becomes `1rem`. The nav's natural position is set by
+  //     the shell (flex-center) or by inline margin-top (frozen mode)
+  //     so it stays put until the viewport top scrolls past it.
+  // - viewport: `position: fixed` to the right edge of the viewport,
+  //   vertically centered.
+  &[data-anchor='editor'] {
+    position: sticky;
+    top: var(--dm-toc-mid-top, 50vh);
+  }
+  &[data-anchor='editor'][data-bottom-visible='true'] {
+    top: var(--dm-toc-editor-top, 1rem);
+  }
+  &[data-anchor='viewport'] {
+    position: fixed;
+    top: 50%;
+    right: var(--dm-toc-right-offset, 24px);
+    transform: translateY(-50%);
+  }
 
   // Visibility guards. The plugin sets data-state and data-viewport
   // based on heading count and matchMedia. Hiding via CSS (vs JS
@@ -44,12 +58,40 @@
   //
   // State machine: hidden | collapsed | expanded
   //   hidden    - 0 headings / mobile / < minHeadings
-  //   collapsed - default; ticks visible, card hidden (Phase 4-5)
-  //   expanded  - hover or focus-within; card visible, ticks hidden (Phase 6)
+  //   collapsed - default; ticks visible, card hidden
+  //   expanded  - hover or focus-within; card visible, ticks hidden
   &[data-state='hidden'],
   &[data-viewport='mobile'] {
     display: none;
   }
+}
+
+// Editor-mode shell: out-of-flow column running the host's full
+// vertical extent at its right inside edge. Width shrinks to the nav's
+// intrinsic width; the shell itself is invisible. The nav inside
+// uses the shell's height as its sticky range.
+.dm-toc-outline-shell[data-anchor='editor'] {
+  position: absolute;
+  top: 25px;
+  bottom: 25px;
+  right: var(--dm-toc-page-offset, 8px);
+  z-index: var(--dm-toc-z-index, 10);
+  pointer-events: none;
+
+  &:has(.dm-toc-outline[data-state='hidden']),
+  &:has(.dm-toc-outline[data-viewport='mobile']) {
+    display: none;
+  }
+}
+
+// mode='center': flex-center sets the nav's natural position to host
+// middle (used on mount when the editor fits the viewport). mode='frozen'
+// uses inline margin-top instead (set by the plugin at the B→A
+// transition). mode='middle' uses default block layout.
+.dm-toc-outline-shell[data-anchor='editor'][data-mode='center'] {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .dm-toc-outline-tick {
@@ -85,11 +127,9 @@
     outline-offset: 3px;
   }
 
-  // Active state (Phase 5): the tick for the heading the user is
-  // currently reading. Two selectors so consumers can target either:
-  // the JS-applied class (`--active`, shared with rows) or the a11y
-  // attribute set simultaneously by the plugin (`aria-current="location"`).
-  // Hover state on an active tick keeps the active color - no double-flash.
+  // Active state: the tick for the heading the user is reading. Two
+  // selectors so consumers can target either the JS class (`--active`)
+  // or the a11y attribute (`aria-current="location"`).
   &.dm-toc--active,
   &[aria-current='location'] {
     background: var(--dm-toc-tick-active-color, rgba(55, 53, 47, 0.95));
@@ -106,14 +146,14 @@
   &[data-level='6'] { width: var(--dm-toc-tick-h6-width, 4px); }
 }
 
-// Phase 6: ticks fade out when the card takes over.
+// Ticks fade out when the card takes over.
 .dm-toc-outline[data-state='expanded'] .dm-toc-outline-tick {
   opacity: 0;
   pointer-events: none;
 }
 
 // =============================================================================
-// Expanded card (Phase 6)
+// Expanded card
 // =============================================================================
 // The card is absolutely positioned within the nav (which is fixed at
 // the right gutter). Anchored to the nav's right edge and vertically
@@ -126,9 +166,17 @@
   position: absolute;
   right: 0;
   top: 50%;
-  transform: translateY(-50%) translateX(var(--dm-toc-card-offset, 8px));
+  // `--dm-toc-card-shift-y` is set by the plugin to nudge the card back
+  // into the viewport when the nav sits near the top or bottom edge.
+  transform:
+    translateY(calc(-50% + var(--dm-toc-card-shift-y, 0px)))
+    translateX(var(--dm-toc-card-offset, 8px));
   min-width: var(--dm-toc-card-min-width, 180px);
   max-width: var(--dm-toc-card-max-width, 260px);
+  // Long heading lists scroll internally rather than overflowing the
+  // viewport; the margin keeps the card off the chrome edges.
+  max-height: calc(100vh - 2 * var(--dm-toc-card-viewport-margin, 16px));
+  overflow-y: auto;
   padding: var(--dm-toc-card-padding-block, 6px) 0;
   background: var(--dm-toc-card-bg, rgba(255, 255, 255, 0.98));
   border: var(--dm-toc-card-border, 1px solid rgba(0, 0, 0, 0.06));
@@ -152,7 +200,9 @@
 .dm-toc-outline[data-state='expanded'] .dm-toc-outline-card {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(-50%) translateX(0);
+  transform:
+    translateY(calc(-50% + var(--dm-toc-card-shift-y, 0px)))
+    translateX(0);
 }
 
 .dm-toc-outline-row {
@@ -226,12 +276,10 @@
 }
 
 // =============================================================================
-// Inline /toc block (Phase 7)
+// Inline /toc block
+// Lives INSIDE the editor as a regular content block. NodeView renders
+// the heading list; click on a row routes to scrollToHeading.
 // =============================================================================
-// Lives INSIDE the editor as a regular content block (vs the floating
-// outline which mounts outside .dm-editor). User inserts via slash
-// menu; the NodeView dynamically renders the heading list. Click on a
-// row routes to scrollToHeading - same UX as the outline rows.
 
 .dm-toc-block {
   display: block;
@@ -298,7 +346,7 @@
     outline-offset: -2px;
   }
 
-  // Active row mirrors active tick / row (Phase 5/6 contract).
+  // Active row mirrors the outline's active tick/row contract.
   &.dm-toc-block-link--active,
   &[aria-current='location'] {
     color: var(--dm-toc-block-link-active-color, rgba(55, 53, 47, 0.95));
@@ -333,10 +381,8 @@
   }
 }
 
-// Phase 8 (reduced-motion) - explicit guard so the card transitions
-// fall back to instant flips when the user has reduced motion turned
-// on. Repeated here defensively even though `index.scss` has a
-// global block, in case that block is ever scoped to `.dm-editor`-only.
+// Reduced-motion guard. Repeated here defensively even though `index.scss`
+// has a global block, in case that block is ever scoped to `.dm-editor`-only.
 @media (prefers-reduced-motion: reduce) {
   .dm-toc-outline-tick,
   .dm-toc-outline-card,
@@ -352,15 +398,14 @@
   // expand/collapse cycle (which can briefly leak a 1-frame
   // off-position card).
   .dm-toc-outline-card {
-    transform: translateY(-50%) translateX(0);
+    transform:
+      translateY(calc(-50% + var(--dm-toc-card-shift-y, 0px)))
+      translateX(0);
   }
 }
 
-// Phase 8 (print): the floating outline is a navigation chrome aid -
-// nothing to do with the document content. Hide it from print media
-// so users get a clean printout. Inline `/toc` blocks DO stay (they
-// belong to the document); links inside them lose their hover/active
-// background since print doesn't honor those anyway.
+// Print: hide the floating outline (navigation chrome, not content).
+// Inline `/toc` blocks stay since they belong to the document.
 @media print {
   .dm-toc-outline {
     display: none;
@@ -371,13 +416,9 @@
   }
 }
 
-// Phase 8 (forced-colors / Windows High Contrast): tick + card +
-// inline block backgrounds are stripped in forced-colors mode (the
-// OS replaces them with system colors). Without explicit borders the
-// ticks become invisible. The `Highlight` and `ButtonText` system
-// colors guarantee a visible affordance regardless of theme. The
-// `forced-color-adjust: none` opt-out is intentionally NOT used: we
-// want the OS palette, just with shapes still visible.
+// Forced-colors / Windows High Contrast: backgrounds are stripped, so
+// ticks need explicit borders to stay visible. We use `Highlight` /
+// `ButtonText` (OS palette) rather than `forced-color-adjust: none`.
 @media (forced-colors: active) {
   .dm-toc-outline-tick {
     background: ButtonText;

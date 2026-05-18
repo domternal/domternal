@@ -117,7 +117,7 @@ const LEGACY_MENTION = '<p>Hi <span data-mention data-id="5" data-label="Eve Ada
 // Schema
 // =============================================================================
 
-test.describe('Mention — Schema', () => {
+test.describe('Mention - Schema', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -165,7 +165,7 @@ test.describe('Mention — Schema', () => {
 // HTML Parsing
 // =============================================================================
 
-test.describe('Mention — HTML Parsing', () => {
+test.describe('Mention - HTML Parsing', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -214,7 +214,7 @@ test.describe('Mention — HTML Parsing', () => {
 // HTML Rendering
 // =============================================================================
 
-test.describe('Mention — HTML Rendering', () => {
+test.describe('Mention - HTML Rendering', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -246,7 +246,7 @@ test.describe('Mention — HTML Rendering', () => {
 // Commands
 // =============================================================================
 
-test.describe('Mention — Commands', () => {
+test.describe('Mention - Commands', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -338,7 +338,7 @@ test.describe('Mention — Commands', () => {
 // Storage
 // =============================================================================
 
-test.describe('Mention — Storage', () => {
+test.describe('Mention - Storage', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -383,7 +383,7 @@ test.describe('Mention — Storage', () => {
 // leafText / Plain Text
 // =============================================================================
 
-test.describe('Mention — Plain Text', () => {
+test.describe('Mention - Plain Text', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -407,7 +407,7 @@ test.describe('Mention — Plain Text', () => {
 // JSON Serialization
 // =============================================================================
 
-test.describe('Mention — JSON', () => {
+test.describe('Mention - JSON', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -443,10 +443,10 @@ test.describe('Mention — JSON', () => {
 });
 
 // =============================================================================
-// Keyboard — Backspace
+// Keyboard - Backspace
 // =============================================================================
 
-test.describe('Mention — Backspace', () => {
+test.describe('Mention - Backspace', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -497,10 +497,10 @@ test.describe('Mention — Backspace', () => {
 });
 
 // =============================================================================
-// Suggestion — Activation & Dropdown
+// Suggestion - Activation & Dropdown
 // =============================================================================
 
-test.describe('Mention — Suggestion Dropdown', () => {
+test.describe('Mention - Suggestion Dropdown', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -612,10 +612,10 @@ test.describe('Mention — Suggestion Dropdown', () => {
 });
 
 // =============================================================================
-// Suggestion — Keyboard Navigation
+// Suggestion - Keyboard Navigation
 // =============================================================================
 
-test.describe('Mention — Suggestion Keyboard', () => {
+test.describe('Mention - Suggestion Keyboard', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -785,10 +785,10 @@ test.describe('Mention — Suggestion Keyboard', () => {
 });
 
 // =============================================================================
-// Suggestion — Click Selection
+// Suggestion - Click Selection
 // =============================================================================
 
-test.describe('Mention — Suggestion Click', () => {
+test.describe('Mention - Suggestion Click', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -883,10 +883,10 @@ test.describe('Mention — Suggestion Click', () => {
 });
 
 // =============================================================================
-// Suggestion — Insertion Behavior
+// Suggestion - Insertion Behavior
 // =============================================================================
 
-test.describe('Mention — Insertion Behavior', () => {
+test.describe('Mention - Insertion Behavior', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -945,7 +945,7 @@ test.describe('Mention — Insertion Behavior', () => {
 // Decoration
 // =============================================================================
 
-test.describe('Mention — Decoration', () => {
+test.describe('Mention - Decoration', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -983,7 +983,7 @@ test.describe('Mention — Decoration', () => {
 // Edge Cases
 // =============================================================================
 
-test.describe('Mention — Edge Cases', () => {
+test.describe('Mention - Edge Cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1087,7 +1087,7 @@ test.describe('Mention — Edge Cases', () => {
 // Initial Demo Content
 // =============================================================================
 
-test.describe('Mention — Demo Content', () => {
+test.describe('Mention - Demo Content', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

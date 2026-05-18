@@ -1865,7 +1865,7 @@ describe('Tab/Shift-Tab with lists in table cells', () => {
     }
     expect(inList).toBe(false);
 
-    // Tab should NOT return false — it should try goToNextCell
+    // Tab should NOT return false - it should try goToNextCell
     const shortcuts = Table.config.addKeyboardShortcuts?.call({ ...Table, editor });
     const result = (shortcuts?.['Tab'] as any)?.();
     // goToNextCell may or may not succeed depending on PM-tables internals,

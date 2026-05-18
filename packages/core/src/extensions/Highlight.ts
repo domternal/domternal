@@ -32,6 +32,8 @@ declare module '../types/Commands.js' {
     setHighlight: CommandSpec<[attributes?: { color?: string }]>;
     unsetHighlight: CommandSpec;
     toggleHighlight: CommandSpec<[attributes?: { color?: string }]>;
+    setBackgroundColorToken: CommandSpec<[token: string | null]>;
+    unsetBackgroundColorToken: CommandSpec;
   }
 }
 
@@ -104,8 +106,20 @@ export const Highlight = Extension.create<HighlightOptions>({
             },
             renderHTML: (attributes: Record<string, unknown>) => {
               const bg = attributes['backgroundColor'] as string | null;
-              if (!bg) return null;
+              // Token wins: when a named token is set, render data attribute
+              // only (below) so theme variables control the actual color.
+              const token = attributes['backgroundColorToken'] as string | null;
+              if (!bg || token) return null;
               return { style: `background-color: ${bg}` };
+            },
+          },
+          backgroundColorToken: {
+            default: null,
+            parseHTML: (element: HTMLElement) => element.getAttribute('data-bg-color'),
+            renderHTML: (attributes: Record<string, unknown>) => {
+              const token = attributes['backgroundColorToken'] as string | null;
+              if (!token) return null;
+              return { 'data-bg-color': token };
             },
           },
         },
@@ -116,11 +130,14 @@ export const Highlight = Extension.create<HighlightOptions>({
   addCommands() {
     const defaultColor = this.options.defaultColor;
     return {
+      // Hex-based highlight. Mutual exclusion: clears any named bg token so
+      // the legacy hex picker and the Notion-style picker can't write
+      // conflicting values to the same mark.
       setHighlight:
         (attributes?: { color?: string }) =>
         ({ commands }) => {
           const color = attributes?.color ?? defaultColor;
-          return commands.setMark('textStyle', { backgroundColor: color });
+          return commands.setMark('textStyle', { backgroundColor: color, backgroundColorToken: null });
         },
 
       unsetHighlight:
@@ -144,12 +161,13 @@ export const Highlight = Extension.create<HighlightOptions>({
           if (empty) {
             const marks = state.storedMarks ?? state.doc.resolve(from).marks();
             const mark = markType.isInSet(marks);
-            hasHighlight = !!mark?.attrs['backgroundColor'];
+            hasHighlight =
+              !!mark?.attrs['backgroundColor'] || !!mark?.attrs['backgroundColorToken'];
           } else {
             state.doc.nodesBetween(from, to, (node) => {
               if (hasHighlight) return false;
               const mark = markType.isInSet(node.marks);
-              if (mark?.attrs['backgroundColor']) {
+              if (mark?.attrs['backgroundColor'] || mark?.attrs['backgroundColorToken']) {
                 hasHighlight = true;
                 return false;
               }
@@ -158,12 +176,33 @@ export const Highlight = Extension.create<HighlightOptions>({
           }
 
           if (hasHighlight) {
-            commands.setMark('textStyle', { backgroundColor: null });
+            commands.setMark('textStyle', { backgroundColor: null, backgroundColorToken: null });
             commands.removeEmptyTextStyle();
             return true;
           }
 
-          return commands.setMark('textStyle', { backgroundColor: color });
+          return commands.setMark('textStyle', { backgroundColor: color, backgroundColorToken: null });
+        },
+
+      // Named-token highlight. Mutual exclusion: clears the hex
+      // backgroundColor so the theme-aware data attribute is the sole source
+      // of truth.
+      setBackgroundColorToken:
+        (token: string | null) =>
+        ({ commands }) => {
+          if (!commands.setMark('textStyle', { backgroundColorToken: token, backgroundColor: null })) {
+            return false;
+          }
+          if (token === null) commands.removeEmptyTextStyle();
+          return true;
+        },
+
+      unsetBackgroundColorToken:
+        () =>
+        ({ commands }) => {
+          if (!commands.setMark('textStyle', { backgroundColorToken: null })) return false;
+          commands.removeEmptyTextStyle();
+          return true;
         },
     };
   },

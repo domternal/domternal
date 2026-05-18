@@ -297,6 +297,53 @@ test.describe('BlockContextMenu - structure', () => {
     expect(count).toBe(20);
   });
 
+  test('Colors row marks the currently-applied bg + text color as active', async ({ page }) => {
+    await setContent(page, '<p data-bg-color="yellow" data-text-color="blue">Tinted</p>');
+    await hoverBlock(page, 'p');
+    await openContextMenu(page);
+
+    const activeBg = page.locator('.dm-block-color-swatch--bg[data-color="yellow"][aria-pressed="true"]');
+    const activeText = page.locator('.dm-block-color-swatch--text[data-color="blue"][aria-pressed="true"]');
+    await expect(activeBg).toBeVisible();
+    await expect(activeText).toBeVisible();
+
+    // CSS paints a visible accent outline on the active swatch.
+    const bgOutline = await activeBg.evaluate((el) => getComputedStyle(el).outlineStyle);
+    const textOutline = await activeText.evaluate((el) => getComputedStyle(el).outlineStyle);
+    expect(bgOutline).toBe('solid');
+    expect(textOutline).toBe('solid');
+  });
+
+  test('Colors row marks the Default swatches as active when the block has no color', async ({ page }) => {
+    await setContent(page, '<p>No color</p>');
+    await hoverBlock(page, 'p');
+    await openContextMenu(page);
+
+    await expect(
+      page.locator('.dm-block-color-swatch--bg[data-color="null"][aria-pressed="true"]'),
+    ).toBeVisible();
+    await expect(
+      page.locator('.dm-block-color-swatch--text[data-color="null"][aria-pressed="true"]'),
+    ).toBeVisible();
+  });
+
+  test('block color overrides existing inline color marks ("last action wins")', async ({ page }) => {
+    // Inline-tinted span inside a paragraph (e.g. from a previous text-color
+    // pick via the bubble menu). Then a block-level text color is applied
+    // via the drag menu - the inline span override should be stripped so
+    // the block tint shows through.
+    await setContent(page, '<p><span data-text-color="red">Tinted</span></p>');
+    await hoverBlock(page, 'p');
+    await openContextMenu(page);
+    await page.click('.dm-block-color-swatch--text[data-color="blue"]');
+
+    const html = await getHtml(page);
+    expect(html).toContain('data-text-color="blue"');
+    // Only the paragraph carries data-text-color now; the span's "red" override
+    // has been stripped.
+    expect(html.match(/data-text-color/g)?.length).toBe(1);
+  });
+
   test('Escape closes the menu and refocuses the editor', async ({ page }) => {
     await hoverBlock(page, 'p');
     await openContextMenu(page);
@@ -428,6 +475,49 @@ test.describe('Copy link to block', () => {
     await openContextMenu(page);
     await page.click(`${contextItemSelector}:has-text("Copy link")`);
     await expect(page.locator('.notion-demo-toast:not(.notion-demo-toast--error)')).toBeVisible();
+  });
+
+  test('Copy link on a heading produces a URL whose hash equals the heading id', async ({ page }) => {
+    // After v0.7.0 unification, heading and paragraph share the same
+    // id system (UniqueID). Copy link, BlockContextMenu's UniqueID
+    // detection, and the floating outline all reference the same id.
+    // Verifies the round-trip: open menu on heading → copy link →
+    // pasted URL contains the SAME id that the heading carries in DOM.
+    await page.evaluate(() => {
+      const host = document.querySelector<HTMLElement>('.dm-editor');
+      (window as unknown as Record<string, unknown>)['__COPY_LINK_EVENTS__'] = [];
+      host?.addEventListener('dm:copy-link-success', (e: Event) => {
+        const ce = e as CustomEvent<{ url: string; blockId: string }>;
+        (
+          (window as unknown as Record<string, unknown>)['__COPY_LINK_EVENTS__'] as unknown[]
+        ).push(ce.detail);
+      });
+    });
+
+    // Read the first heading's id BEFORE invoking Copy link.
+    const headingId = await page.evaluate(() =>
+      document.querySelector<HTMLElement>(
+        'app-notion-demo .ProseMirror :is(h1, h2, h3)',
+      )?.getAttribute('id') ?? null,
+    );
+    expect(headingId).toBeTruthy();
+
+    await hoverBlock(page, 'h1');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Copy link")`);
+
+    await expect.poll(async () => page.evaluate(() =>
+      ((window as unknown as Record<string, unknown>)['__COPY_LINK_EVENTS__'] as unknown[]).length
+    )).toBeGreaterThan(0);
+
+    const event = await page.evaluate(() =>
+      ((window as unknown as Record<string, unknown>)['__COPY_LINK_EVENTS__'] as unknown[])[0]
+    ) as { url: string; blockId: string };
+
+    // The unification contract: BlockContextMenu's blockId comes from
+    // the SAME attribute that the heading element carries.
+    expect(event.blockId).toBe(headingId);
+    expect(event.url).toContain(`#${headingId!}`);
   });
 });
 
@@ -625,6 +715,202 @@ test.describe('Task-list checkbox tokens', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
+// 6e. Task-list checkbox interactivity - NodeView
+// (regression guard for the click-to-toggle path; without a NodeView the
+// native checkbox flips visually but PM never sees the change, so
+// data-checked stays the old value and the strikethrough rule
+// `[data-checked="true"] > div { text-decoration: line-through }` in
+// `_task-list.scss` never matches.)
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('Task-list checkbox interactivity (NodeView)', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('clicking the checkbox toggles data-checked + applies strikethrough on the label paragraph', async ({ page }) => {
+    await setContent(page,
+      '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>todo</p></li></ul>',
+    );
+    const li = page.locator(`${editorSelector} li[data-type="taskItem"]`).first();
+    const cb = li.locator('input[type="checkbox"]');
+    const label = li.locator('> div > p').first();
+
+    await expect(li).toHaveAttribute('data-checked', 'false');
+    await expect(cb).not.toBeChecked();
+    await expect(label).toHaveCSS('text-decoration-line', 'none');
+
+    await cb.click();
+
+    await expect(li).toHaveAttribute('data-checked', 'true');
+    await expect(cb).toBeChecked();
+    await expect(label).toHaveCSS('text-decoration-line', 'line-through');
+  });
+
+  test('clicking again unchecks + removes strikethrough', async ({ page }) => {
+    await setContent(page,
+      '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>done</p></li></ul>',
+    );
+    const li = page.locator(`${editorSelector} li[data-type="taskItem"]`).first();
+    const cb = li.locator('input[type="checkbox"]');
+    const label = li.locator('> div > p').first();
+
+    await expect(li).toHaveAttribute('data-checked', 'true');
+    await expect(label).toHaveCSS('text-decoration-line', 'line-through');
+
+    await cb.click();
+
+    await expect(li).toHaveAttribute('data-checked', 'false');
+    await expect(cb).not.toBeChecked();
+    await expect(label).toHaveCSS('text-decoration-line', 'none');
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// 6f. Task-list checked-state isolation (Notion parity)
+// (regression guard against the strikethrough bleeding from the parent's
+// children-zone div into nested taskItems and children-zone notes
+// paragraphs. Notion behavior: only the parent's LABEL paragraph is
+// struck; nested children render at full opacity, no line-through,
+// regardless of the parent's `data-checked` state.)
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('Task-list checked-state isolation', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  // Shape: parent (li#0) checked + nested child taskList containing
+  // unchecked child (li#1) and checked grandchild semantics not needed.
+  const NESTED_CONTENT = `
+    <ul data-type="taskList">
+      <li data-type="taskItem" data-checked="false">
+        <p>parent</p>
+        <ul data-type="taskList">
+          <li data-type="taskItem" data-checked="false">
+            <p>child</p>
+          </li>
+        </ul>
+      </li>
+    </ul>`;
+
+  test('initial render: parent checked, child unchecked - only parent label is struck', async ({ page }) => {
+    await setContent(page,
+      '<ul data-type="taskList">' +
+        '<li data-type="taskItem" data-checked="true">' +
+          '<p>parent</p>' +
+          '<ul data-type="taskList">' +
+            '<li data-type="taskItem" data-checked="false">' +
+              '<p>child</p>' +
+            '</li>' +
+          '</ul>' +
+        '</li>' +
+      '</ul>',
+    );
+    const items = page.locator(`${editorSelector} li[data-type="taskItem"]`);
+    const parentLabel = items.nth(0).locator('> div > p').first();
+    const childLabel = items.nth(1).locator('> div > p').first();
+
+    await expect(parentLabel).toHaveCSS('text-decoration-line', 'line-through');
+    await expect(childLabel).toHaveCSS('text-decoration-line', 'none');
+  });
+
+  test('initial render: parent unchecked, child checked - only child label is struck', async ({ page }) => {
+    await setContent(page,
+      '<ul data-type="taskList">' +
+        '<li data-type="taskItem" data-checked="false">' +
+          '<p>parent</p>' +
+          '<ul data-type="taskList">' +
+            '<li data-type="taskItem" data-checked="true">' +
+              '<p>child</p>' +
+            '</li>' +
+          '</ul>' +
+        '</li>' +
+      '</ul>',
+    );
+    const items = page.locator(`${editorSelector} li[data-type="taskItem"]`);
+    const parentLabel = items.nth(0).locator('> div > p').first();
+    const childLabel = items.nth(1).locator('> div > p').first();
+
+    await expect(parentLabel).toHaveCSS('text-decoration-line', 'none');
+    await expect(childLabel).toHaveCSS('text-decoration-line', 'line-through');
+  });
+
+  test('initial render: both checked - both labels struck (one rule per item)', async ({ page }) => {
+    await setContent(page,
+      '<ul data-type="taskList">' +
+        '<li data-type="taskItem" data-checked="true">' +
+          '<p>parent</p>' +
+          '<ul data-type="taskList">' +
+            '<li data-type="taskItem" data-checked="true">' +
+              '<p>child</p>' +
+            '</li>' +
+          '</ul>' +
+        '</li>' +
+      '</ul>',
+    );
+    const items = page.locator(`${editorSelector} li[data-type="taskItem"]`);
+    const parentLabel = items.nth(0).locator('> div > p').first();
+    const childLabel = items.nth(1).locator('> div > p').first();
+
+    await expect(parentLabel).toHaveCSS('text-decoration-line', 'line-through');
+    await expect(childLabel).toHaveCSS('text-decoration-line', 'line-through');
+  });
+
+  test('clicking parent checkbox does NOT strike the nested child label', async ({ page }) => {
+    await setContent(page, NESTED_CONTENT.trim());
+    const items = page.locator(`${editorSelector} li[data-type="taskItem"]`);
+    const parentItem = items.nth(0);
+    const childLabel = items.nth(1).locator('> div > p').first();
+    const parentCheckbox = parentItem.locator('> label > input[type="checkbox"]').first();
+
+    // Sanity: both unchecked, neither struck.
+    await expect(items.nth(0).locator('> div > p').first()).toHaveCSS('text-decoration-line', 'none');
+    await expect(childLabel).toHaveCSS('text-decoration-line', 'none');
+
+    await parentCheckbox.click();
+
+    // Parent is now checked + struck; child label remains unchanged.
+    await expect(parentItem).toHaveAttribute('data-checked', 'true');
+    await expect(items.nth(0).locator('> div > p').first()).toHaveCSS('text-decoration-line', 'line-through');
+    await expect(items.nth(1)).toHaveAttribute('data-checked', 'false');
+    await expect(childLabel).toHaveCSS('text-decoration-line', 'none');
+  });
+
+  test('clicking parent checkbox does NOT dim the nested child label (opacity isolation)', async ({ page }) => {
+    await setContent(page, NESTED_CONTENT.trim());
+    const items = page.locator(`${editorSelector} li[data-type="taskItem"]`);
+    const parentCheckbox = items.nth(0).locator('> label > input[type="checkbox"]').first();
+    const childLabel = items.nth(1).locator('> div > p').first();
+
+    await parentCheckbox.click();
+
+    // The dim rule is applied alongside line-through on the label
+    // paragraph only, so the nested child label keeps full opacity
+    // (computed style = '1', not the parent's 0.6).
+    await expect(childLabel).toHaveCSS('opacity', '1');
+  });
+
+  test('clicking parent does NOT strike a children-zone notes paragraph', async ({ page }) => {
+    // Children-zone non-label paragraph: in Notion this stays normal
+    // when the parent is checked (only the label line is "done").
+    await setContent(page,
+      '<ul data-type="taskList">' +
+        '<li data-type="taskItem" data-checked="false">' +
+          '<p>label</p>' +
+          '<p>notes paragraph in children-zone</p>' +
+        '</li>' +
+      '</ul>',
+    );
+    const li = page.locator(`${editorSelector} li[data-type="taskItem"]`).first();
+    const cb = li.locator('> label > input[type="checkbox"]').first();
+    const labelP = li.locator('> div > p').nth(0);
+    const notesP = li.locator('> div > p').nth(1);
+
+    await cb.click();
+
+    await expect(labelP).toHaveCSS('text-decoration-line', 'line-through');
+    await expect(notesP).toHaveCSS('text-decoration-line', 'none');
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
 // 7. Turn into - type + attribute preservation
 // ────────────────────────────────────────────────────────────────────────
 
@@ -677,6 +963,394 @@ test.describe('Turn into', () => {
     await page.click(`${contextItemSelector}:has-text("Heading 3")`);
     const blocks = await getBlocks(page);
     expect(blocks[0]?.attrs['id']).toBe(idBefore);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// 7b. Turn into - wrapper targets (Bullet / Ordered / To-do / Quote)
+//
+// Covers: routing of the 4 new wrapper targets from the drag-handle menu,
+// step-down for non-paragraph textblock sources, wrapper-source path
+// (drag-handle on a list item → in-place list-type swap), schema
+// heuristics that hide Quote on listItem/taskItem, and the UniqueID
+// preservation invariant through a wrap.
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('Turn into - wrappers', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  // --- Paragraph source: 4 wrapper targets ---
+
+  test('paragraph → Bullet list wraps in <ul><li><p>', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    await hoverBlock(page, 'p');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Bullet list")`);
+    const blocks = await getBlocks(page);
+    expect(blocks[0]?.type).toBe('bulletList');
+    const html = await getHtml(page);
+    expect(html).toMatch(/<ul[^>]*>[\s\S]*<li[^>]*>[\s\S]*<p[^>]*>Hello world<\/p>/);
+  });
+
+  test('paragraph → Ordered list wraps in <ol><li><p>', async ({ page }) => {
+    await setContent(page, '<p>Item one</p>');
+    await hoverBlock(page, 'p');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Ordered list")`);
+    const blocks = await getBlocks(page);
+    expect(blocks[0]?.type).toBe('orderedList');
+    const html = await getHtml(page);
+    expect(html).toMatch(/<ol[^>]*>[\s\S]*<li[^>]*>[\s\S]*<p[^>]*>Item one<\/p>/);
+  });
+
+  test('paragraph → To-do list creates an unchecked task item', async ({ page }) => {
+    await setContent(page, '<p>Do it</p>');
+    await hoverBlock(page, 'p');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("To-do list")`);
+    const html = await getHtml(page);
+    expect(html).toContain('data-type="taskList"');
+    expect(html).toContain('data-type="taskItem"');
+    expect(html).toContain('data-checked="false"');
+    expect(html).toContain('Do it');
+  });
+
+  test('paragraph → Quote wraps in <blockquote>', async ({ page }) => {
+    await setContent(page, '<p>Quoted</p>');
+    await hoverBlock(page, 'p');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Quote")`);
+    const blocks = await getBlocks(page);
+    expect(blocks[0]?.type).toBe('blockquote');
+    expect(blocks[0]?.text).toBe('Quoted');
+  });
+
+  // --- Step-down: heading / codeBlock → list ---
+
+  test('heading → Bullet list drops level, wraps inner content in <ul><li><p>', async ({ page }) => {
+    // listItem schema requires paragraph as first child, so the heading is
+    // converted to a paragraph BEFORE the wrap step. Level attr is dropped.
+    await setContent(page, '<h2>Was a heading</h2>');
+    await hoverBlock(page, 'h2');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Bullet list")`);
+    const html = await getHtml(page);
+    expect(html).toMatch(/<ul[^>]*>[\s\S]*<li[^>]*>[\s\S]*<p[^>]*>Was a heading<\/p>/);
+    expect(html).not.toMatch(/<h[1-6][^>]*>Was a heading/);
+  });
+
+  test('codeBlock → Bullet list drops code semantics, wraps text in <ul><li><p>', async ({ page }) => {
+    await setContent(page, '<pre><code>const y = 2;</code></pre>');
+    await hoverBlock(page, 'pre');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Bullet list")`);
+    const html = await getHtml(page);
+    expect(html).toMatch(/<ul[^>]*>[\s\S]*<li[^>]*>[\s\S]*<p[^>]*>const y = 2;<\/p>/);
+    expect(html).not.toContain('<pre>');
+  });
+
+  // --- Direct quote wrap: source type preserved (no step-down) ---
+
+  test('codeBlock → Quote preserves the codeBlock inside <blockquote>', async ({ page }) => {
+    // blockquote.content = "block+" accepts codeBlock; no step-down needed.
+    await setContent(page, '<pre><code>let z = 3;</code></pre>');
+    await hoverBlock(page, 'pre');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Quote")`);
+    const html = await getHtml(page);
+    expect(html).toMatch(/<blockquote[^>]*>[\s\S]*<pre[^>]*>[\s\S]*let z = 3;/);
+  });
+
+  test('heading → Quote preserves heading + level inside <blockquote>', async ({ page }) => {
+    await setContent(page, '<h2>Heading in quote</h2>');
+    await hoverBlock(page, 'h2');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Quote")`);
+    const html = await getHtml(page);
+    expect(html).toMatch(/<blockquote[^>]*>[\s\S]*<h2[^>]*>Heading in quote<\/h2>/);
+  });
+
+  // --- Wrapper source via drag-handle: list-type swap ---
+
+  test('drag-handle on bullet list item hides "Bullet list" option (ancestor filter)', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Already in list</p></li></ul>');
+    await hoverBlock(page, 'li');
+    await openContextMenu(page);
+    await expect(page.locator(`${contextItemSelector}[aria-label="Bullet list"]`)).toHaveCount(0);
+    await expect(page.locator(`${contextItemSelector}[aria-label="Ordered list"]`)).toBeVisible();
+    await expect(page.locator(`${contextItemSelector}[aria-label="To-do list"]`)).toBeVisible();
+  });
+
+  test('drag-handle on bullet list item converts UL → OL via Ordered list click', async ({ page }) => {
+    await setContent(page, '<ul><li><p>One</p></li><li><p>Two</p></li></ul>');
+    await hoverBlock(page, 'li');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Ordered list")`);
+    const blocks = await getBlocks(page);
+    expect(blocks[0]?.type).toBe('orderedList');
+    const html = await getHtml(page);
+    // Both items survive intact.
+    expect(html).toMatch(/<ol[^>]*>[\s\S]*<p[^>]*>One<\/p>[\s\S]*<p[^>]*>Two<\/p>/);
+  });
+
+  test('drag-handle on bullet list item hides "Quote" option (schema constraint)', async ({ page }) => {
+    // listItem.content requires paragraph as first child - wrapping the
+    // inner paragraph in blockquote would make blockquote the first
+    // child, which schema rejects. Hidden upfront to avoid no-op clicks.
+    await setContent(page, '<ul><li><p>X</p></li></ul>');
+    await hoverBlock(page, 'li');
+    await openContextMenu(page);
+    await expect(page.locator(`${contextItemSelector}[aria-label="Quote"]`)).toHaveCount(0);
+  });
+
+  test('drag-handle on bullet list item hides textblock targets', async ({ page }) => {
+    // Wrapper source + textblock target would need lift-then-convert,
+    // which is out of scope. The menu hides them entirely.
+    await setContent(page, '<ul><li><p>X</p></li></ul>');
+    await hoverBlock(page, 'li');
+    await openContextMenu(page);
+    await expect(page.locator(`${contextItemSelector}[aria-label="Heading 1"]`)).toHaveCount(0);
+    await expect(page.locator(`${contextItemSelector}[aria-label="Heading 2"]`)).toHaveCount(0);
+    await expect(page.locator(`${contextItemSelector}[aria-label="Paragraph"]`)).toHaveCount(0);
+    await expect(page.locator(`${contextItemSelector}[aria-label="Code block"]`)).toHaveCount(0);
+  });
+
+  test('drag-handle on task item converts taskList → bulletList', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task A</p></li></ul>',
+    );
+    await hoverBlock(page, 'li[data-type="taskItem"]');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Bullet list")`);
+    const blocks = await getBlocks(page);
+    expect(blocks[0]?.type).toBe('bulletList');
+    expect(blocks[0]?.text).toBe('Task A');
+  });
+
+  // --- UX: menu close after wrapper click ---
+
+  test('menu closes after wrapper target click', async ({ page }) => {
+    await setContent(page, '<p>Toggle me</p>');
+    await hoverBlock(page, 'p');
+    await openContextMenu(page);
+    await expect(page.locator(contextMenuSelector)).toHaveAttribute('data-show', '');
+    await page.click(`${contextItemSelector}:has-text("Bullet list")`);
+    await expect(page.locator(contextMenuSelector)).not.toHaveAttribute('data-show', '');
+  });
+
+  // --- Cross-feature: UniqueID preserved through wrap ---
+
+  test('page scroll is blocked while the menu is open (Notion-style)', async ({ page }) => {
+    // Notion locks page scroll while a drag-handle menu is open so the
+    // popup stays anchored. We match that by wheel/touchmove preventDefault.
+    // Seed enough content so the page is actually scrollable.
+    await setContent(page, '<p>Top</p>'.concat('<p>filler line</p>'.repeat(120), '<p>Bottom</p>'));
+    await hoverBlock(page, 'p', 0);
+    await openContextMenu(page);
+
+    const beforeY = await page.evaluate(() => window.scrollY);
+    // Attempt a wheel scroll on the page (outside the menu).
+    await page.mouse.move(10, 100);
+    await page.mouse.wheel(0, 500);
+    // Brief wait so any unblocked scroll would have landed.
+    await page.waitForTimeout(120);
+    const afterY = await page.evaluate(() => window.scrollY);
+    expect(afterY).toBe(beforeY);
+  });
+
+  test('page scroll resumes after the menu closes', async ({ page }) => {
+    await setContent(page, '<p>Top</p>'.concat('<p>filler line</p>'.repeat(120), '<p>Bottom</p>'));
+    await hoverBlock(page, 'p', 0);
+    await openContextMenu(page);
+    // Close via Escape.
+    await page.keyboard.press('Escape');
+    await expect(page.locator(contextMenuSelector)).not.toHaveAttribute('data-show', '');
+
+    const beforeY = await page.evaluate(() => window.scrollY);
+    await page.mouse.move(10, 100);
+    await page.mouse.wheel(0, 500);
+    await page.waitForTimeout(120);
+    const afterY = await page.evaluate(() => window.scrollY);
+    expect(afterY).toBeGreaterThan(beforeY);
+  });
+
+  test('drag handle keeps data-show while menu is open and mouse moves to another block', async ({ page }) => {
+    // The handle must remain visible (data-show) on the SOURCE block
+    // even when the cursor leaves it - it serves as the menu's anchor.
+    // The earlier bug was: dm:dismiss-overlays fired during open()
+    // before the BlockHandle's gate attribute was set, so the handle
+    // hid itself. After the fix, attribute precedes the dispatch.
+    await setContent(page, '<p>First paragraph here</p><p>Second paragraph here</p><p>Third paragraph here</p>');
+    await hoverBlock(page, 'p', 0);
+    await openContextMenu(page);
+
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+
+    const thirdRect = await page.locator(`${editorSelector} p`).nth(2).boundingBox();
+    if (!thirdRect) throw new Error();
+    await page.mouse.move(thirdRect.x + 20, thirdRect.y + thirdRect.height / 2);
+    await page.waitForTimeout(120);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+  });
+
+  test('drag handle resumes hover behavior after the menu closes', async ({ page }) => {
+    // Regression guard for the gate: after the menu closes, hovering
+    // other blocks must reposition the handle normally (i.e. the
+    // pin-during-open lock must release on close).
+    await setContent(page, '<p>First paragraph here</p><p>Second paragraph here</p>');
+    await hoverBlock(page, 'p', 0);
+    await openContextMenu(page);
+    const topPinned = await page.locator(blockHandleSelector).evaluate(
+      (el) => parseFloat((el as HTMLElement).style.top || '0'),
+    );
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator(contextMenuSelector)).not.toHaveAttribute('data-show', '');
+
+    // Hover the second paragraph - handle should reposition now.
+    const secondRect = await page.locator(`${editorSelector} p`).nth(1).boundingBox();
+    if (!secondRect) throw new Error();
+    await page.mouse.move(secondRect.x + 20, secondRect.y + secondRect.height / 2);
+    await page.waitForTimeout(120);
+    const topAfter = await page.locator(blockHandleSelector).evaluate(
+      (el) => parseFloat((el as HTMLElement).style.top || '0'),
+    );
+    expect(topAfter).not.toBe(topPinned);
+  });
+
+  test('reopening the menu on a different block moves the highlight class', async ({ page }) => {
+    // PM Decoration is keyed on plugin state; re-opening updates the
+    // active position and PM rerenders the decoration on the new
+    // block, removing it from the old one. No leftovers.
+    await setContent(page, '<p>First paragraph</p><p>Second paragraph</p>');
+    await hoverBlock(page, 'p', 0);
+    await openContextMenu(page);
+    let paras = page.locator(`${editorSelector} > p`);
+    await expect(paras.nth(0)).toHaveClass(/dm-block-context-active/);
+    await expect(paras.nth(1)).not.toHaveClass(/dm-block-context-active/);
+
+    // Close and reopen on the second paragraph.
+    await page.keyboard.press('Escape');
+    await hoverBlock(page, 'p', 1);
+    await openContextMenu(page);
+    paras = page.locator(`${editorSelector} > p`);
+    await expect(paras.nth(0)).not.toHaveClass(/dm-block-context-active/);
+    await expect(paras.nth(1)).toHaveClass(/dm-block-context-active/);
+  });
+
+  test('only the source block carries the highlight class in a multi-block doc', async ({ page }) => {
+    await setContent(page, '<h1>Heading</h1><p>Para</p><pre><code>code</code></pre><blockquote><p>quoted</p></blockquote>');
+    await hoverBlock(page, 'h1');
+    await openContextMenu(page);
+    const blocks = page.locator(`${editorSelector} > *`);
+    const countWithClass = await blocks.evaluateAll((nodes) =>
+      nodes.filter((n) => (n as HTMLElement).classList.contains('dm-block-context-active')).length,
+    );
+    expect(countWithClass).toBe(1);
+    await expect(page.locator(`${editorSelector} > h1`)).toHaveClass(/dm-block-context-active/);
+  });
+
+  test('scrolling inside a non-overflowing menu does not move the page', async ({ page }) => {
+    // The menu's overflow is `auto` with max-height - for short
+    // content the menu doesn't actually scroll, so a wheel event over
+    // it would propagate to the page. The JS gate now preventDefaults
+    // in this case; this verifies the page stays put.
+    await setContent(page, '<p>Top</p>'.concat('<p>filler</p>'.repeat(80), '<p>Bottom</p>'));
+    await hoverBlock(page, 'p', 0);
+    await openContextMenu(page);
+
+    const beforeY = await page.evaluate(() => window.scrollY);
+    // Wheel over the menu itself.
+    const menuBox = await page.locator(contextMenuSelector).boundingBox();
+    if (!menuBox) throw new Error('menu box missing');
+    await page.mouse.move(menuBox.x + menuBox.width / 2, menuBox.y + menuBox.height / 2);
+    await page.mouse.wheel(0, 400);
+    await page.waitForTimeout(120);
+    const afterY = await page.evaluate(() => window.scrollY);
+    expect(afterY).toBe(beforeY);
+  });
+
+  test('drag handle stays anchored to source block when mouse moves to another block', async ({ page }) => {
+    // While the context menu is open, BlockHandle freezes its hover
+    // updates: moving the cursor onto a different paragraph must not
+    // reposition the drag button. The menu would otherwise visually
+    // orphan from its anchor.
+    await setContent(page, '<p>First paragraph here</p><p>Second paragraph here</p><p>Third paragraph here</p>');
+    await hoverBlock(page, 'p', 0);
+    await openContextMenu(page);
+
+    const topBefore = await page.locator(blockHandleSelector).evaluate(
+      (el) => parseFloat((el as HTMLElement).style.top || '0'),
+    );
+
+    // Hover the third paragraph (well below the first).
+    const thirdRect = await page.locator(`${editorSelector} p`).nth(2).boundingBox();
+    if (!thirdRect) throw new Error('third paragraph not found');
+    await page.mouse.move(thirdRect.x + 20, thirdRect.y + thirdRect.height / 2);
+    // Wait for any pending rAF / hover tick.
+    await page.waitForTimeout(100);
+
+    const topAfter = await page.locator(blockHandleSelector).evaluate(
+      (el) => parseFloat((el as HTMLElement).style.top || '0'),
+    );
+    expect(topAfter).toBe(topBefore);
+  });
+
+  test('source block carries dm-block-context-active class while menu is open', async ({ page }) => {
+    await setContent(page, '<p>First</p><p>Second</p><p>Third</p>');
+    await hoverBlock(page, 'p', 1);
+    await openContextMenu(page);
+
+    // Diagnostic: find every element carrying the class, regardless of
+    // where in the editor it landed. If nodeDOM returns a wrapper or
+    // some other element, this surfaces what actually got the class.
+    const tagged = await page.evaluate(() => {
+      return Array.from(document.querySelectorAll('.dm-block-context-active')).map((el) => ({
+        tag: el.tagName,
+        text: el.textContent?.slice(0, 30) ?? '',
+        parent: el.parentElement?.tagName ?? '',
+      }));
+    });
+    expect(tagged.length).toBeGreaterThanOrEqual(1);
+    // The targeted block must be one of the tagged elements and must
+    // contain "Second".
+    const second = tagged.find((t) => t.text.includes('Second'));
+    expect(second).toBeDefined();
+
+    // Close via Escape.
+    await page.keyboard.press('Escape');
+    const taggedAfter = await page.evaluate(() => {
+      return document.querySelectorAll('.dm-block-context-active').length;
+    });
+    expect(taggedAfter).toBe(0);
+  });
+
+  test('Bullet list wrap preserves UniqueID on the inner paragraph', async ({ page }) => {
+    // The wrap step nests the original paragraph inside <li><p>; PM's
+    // wrapRangeInList preserves child node identity, so UniqueID's id
+    // attribute survives the wrap without re-stamping. Deep-link URLs
+    // that targeted the paragraph keep working after conversion.
+    await setContent(page, '<p>Keep id through wrap</p>');
+    const idBefore = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { attrs: Record<string, unknown> } | null } } }
+        | undefined;
+      return (ed?.state.doc.firstChild?.attrs['id'] as string | undefined) ?? '';
+    });
+    expect(idBefore).not.toBe('');
+    await hoverBlock(page, 'p');
+    await openContextMenu(page);
+    await page.click(`${contextItemSelector}:has-text("Bullet list")`);
+    const idAfter = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: {
+            firstChild: { firstChild: { attrs: Record<string, unknown> } | null } | null;
+          } | null } } }
+        | undefined;
+      return (ed?.state.doc.firstChild?.firstChild?.firstChild?.attrs['id'] as string | undefined) ?? '';
+    });
+    expect(idAfter).toBe(idBefore);
   });
 });
 
@@ -801,7 +1475,7 @@ test.describe('Slash command', () => {
     // (Arrow-key nav within the suggestion popup is covered by unit tests
     //  in packages/extension-block-menu - replicating it here is flaky
     //  because key forwarding depends on Playwright's synthetic focus
-    //  model interacting with tiptap's SuggestionPluginKey.)
+    //  model interacting with the SlashCommand suggestion plugin.)
     const count = await page.locator(`${slashItemSelector}[data-selected]`).count();
     expect(count).toBe(1);
   });
@@ -1073,7 +1747,7 @@ test.describe('Slash command - typing-event activation', () => {
       for (const plugin of ed.state.plugins) {
         const keyAny = (plugin as unknown as { key?: string }).key;
         if (typeof keyAny === 'string' && keyAny.startsWith('slashCommand')) {
-          // Use plugin getState via state.field equivalent — fall back to
+          // Use plugin getState via state.field equivalent - fall back to
           // reading from view state via the indirection PM provides.
           break;
         }
@@ -1567,21 +2241,18 @@ test.describe('Cross-feature smoke', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Table of Contents - Phase 1 spike (FloatingTocOutline outlineHost test)
+// Table of Contents - outline mount placement
 // ────────────────────────────────────────────────────────────────────────
-// Validates D11 from `_planning/notion_toc_1.md`: the outline panel must
-// mount OUTSIDE `.dm-editor` (which has `overflow: hidden` and would
-// clip a right-rail child). Phase 4 replaces the spike with real ticks
-// + click navigation; these tests stay as the floor-level placement
-// regression check.
+// The outline panel must mount OUTSIDE `.dm-editor` (which has
+// `overflow: hidden` and would clip a right-rail child).
 
-test.describe('Table of Contents - Phase 1 spike', () => {
+test.describe('Table of Contents - outline mount placement', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('outline mounts in the page (not inside .dm-editor)', async ({ page }) => {
     const outline = page.locator('.dm-toc-outline');
     await expect(outline).toBeVisible();
-    // D11 contract: outline lives outside the editor's overflow:hidden box.
+    // Mount contract: outline lives outside the editor's overflow:hidden box.
     // We verify by counting matches inside .dm-editor (must be 0) and on
     // the page overall (must be 1).
     await expect(page.locator('.dm-editor .dm-toc-outline')).toHaveCount(0);
@@ -1628,25 +2299,87 @@ test.describe('Table of Contents - Phase 1 spike', () => {
     expect(box!.x + box!.width).toBeLessThanOrEqual(viewportWidth);
   });
 
-  test('Phase 2: every heading gets a data-toc-id in the rendered DOM', async ({ page }) => {
+  test('every heading gets a native id attribute in the rendered DOM (sourced from UniqueID)', async ({ page }) => {
     await page.waitForFunction(() => {
       const headings = document.querySelectorAll('app-notion-demo .ProseMirror :is(h1, h2, h3)');
       return headings.length > 0
-        && Array.from(headings).every((h) => h.getAttribute('data-toc-id'));
+        && Array.from(headings).every((h) => h.getAttribute('id'));
     }, { timeout: 3000 });
     const ids = await page.evaluate(() => {
       const headings = document.querySelectorAll<HTMLElement>('app-notion-demo .ProseMirror :is(h1, h2, h3)');
-      return Array.from(headings).map((h) => h.getAttribute('data-toc-id'));
+      return Array.from(headings).map((h) => h.getAttribute('id'));
     });
     expect(ids.length).toBeGreaterThan(0);
     for (const id of ids) {
-      expect(id).toMatch(/^.{8}$/);
+      expect(id).toBeTruthy();
     }
     // IDs are unique within the document
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  test('Phase 2: editor.storage.toc.content mirrors the doc heading list', async ({ page }) => {
+  test('regression: data-toc-id attribute is absent from DOM (replaced by native id in v0.7.0)', async ({ page }) => {
+    // The v0.7.0 unification dropped TOC's own `data-toc-id` schema
+    // attribute in favor of UniqueID's native `id`. This guard catches
+    // any future regression that re-introduces the dual id system.
+    await page.waitForSelector(`${editorSelector} h1[id], ${editorSelector} h2[id]`);
+    const stragglers = await page.evaluate(() =>
+      document.querySelectorAll('[data-toc-id]').length,
+    );
+    expect(stragglers).toBe(0);
+  });
+
+  test('outline buttons carry data-toc-anchor (NOT data-toc-id) - v0.7.0 rename', async ({ page }) => {
+    // FloatingTocOutline's tick + row buttons hold the heading id they
+    // link to under `data-toc-anchor`. The `data-toc-id` attribute is
+    // NOT used anywhere - see commit history for the unification.
+    const counts = await page.evaluate(() => ({
+      anchor: document.querySelectorAll('.dm-toc-outline [data-toc-anchor]').length,
+      legacy: document.querySelectorAll('.dm-toc-outline [data-toc-id]').length,
+    }));
+    expect(counts.anchor).toBeGreaterThan(0);
+    expect(counts.legacy).toBe(0);
+  });
+
+  test('native browser hash navigation: setting location.hash scrolls to the heading by id', async ({ page }) => {
+    // Native HTML id attribute means `<a href="#id">` links and
+    // `window.location.hash = '#id'` both auto-scroll without any JS
+    // from our extension. This is the headline benefit of the
+    // unification - the browser does the work that scrollToHeading
+    // used to monkey-patch via querySelector.
+    const targetId = await page.evaluate(() => {
+      // Pick the third heading (well below the fold for the demo's
+      // initial doc). Returns null if unavailable, which fails the
+      // expect below loudly with a useful selector.
+      const h = document.querySelectorAll<HTMLElement>(
+        'app-notion-demo .ProseMirror :is(h1, h2, h3)',
+      )[2];
+      return h?.getAttribute('id') ?? null;
+    });
+    expect(targetId).toBeTruthy();
+
+    // Capture the heading's pre-navigation Y position relative to viewport.
+    const beforeY = await page.locator(`${editorSelector} [id="${targetId!}"]`).evaluate(
+      (el) => el.getBoundingClientRect().top,
+    );
+
+    // Navigate via the URL hash. The browser auto-scrolls to the element
+    // whose `id` matches - no JS handler from our side is needed.
+    await page.evaluate((id) => { window.location.hash = `#${id}`; }, targetId!);
+
+    // Wait one frame for browser scroll to settle, then assert the
+    // heading is now near the top of the viewport.
+    await page.waitForTimeout(50);
+    const afterY = await page.locator(`${editorSelector} [id="${targetId!}"]`).evaluate(
+      (el) => el.getBoundingClientRect().top,
+    );
+
+    // The heading should now be much closer to the top (browser scrolls
+    // it into view). Exact offset depends on viewport height; the
+    // contract is "moved meaningfully toward y=0 from where it was".
+    expect(afterY).toBeLessThan(beforeY);
+  });
+
+  test('editor.storage.toc.content mirrors the doc heading list', async ({ page }) => {
     // Wait for the deferred storage seeding to complete (UniqueID-style
     // setTimeout(0) inside the plugin's view().init).
     await page.waitForFunction(() => {
@@ -1668,23 +2401,22 @@ test.describe('Table of Contents - Phase 1 spike', () => {
     });
 
     expect(storage).not.toBeNull();
-    expect(storage!.activeId).toBeNull(); // Phase 5 will populate this
+    // activeId is seeded to the first heading (always-at-least-one-active
+    // fallback). The content list still must mirror the doc.
+    expect(storage!.activeId).toBe(storage!.content[0]?.id);
     expect(storage!.content.length).toBeGreaterThan(0);
     for (const entry of storage!.content) {
-      expect(entry.id).toMatch(/^.{8}$/);
+      expect(entry.id).toBeTruthy();
       expect([1, 2, 3]).toContain(entry.level);
       expect(typeof entry.textContent).toBe('string');
     }
   });
 
   test('outline sits in the right portion of the page (right gutter target)', async ({ page }) => {
-    // D11 intent: the outline lives in the page's right gutter. The
-    // Phase 1 spike's hello text is wide enough to overlap the editor
-    // visually, so we don't assert "outline.left > editor.right" - the
-    // real Phase 4 ticks will be ~16-18px wide and won't overlap.
-    // What we DO assert here is the directional contract: the outline's
-    // center is past the editor's center, i.e. it really is anchored to
-    // the right side of the layout, not the left.
+    // Directional contract: the outline's center is past the editor's
+    // center, i.e. it really is anchored to the right side of the layout.
+    // We don't assert "outline.left > editor.right" because the outline's
+    // visual content can overlap the editor's edge depending on width.
     const outlineBox = await page.locator('.dm-toc-outline').boundingBox();
     const editorBox = await page.locator('app-notion-demo .dm-editor').boundingBox();
     expect(outlineBox).not.toBeNull();
@@ -1693,43 +2425,631 @@ test.describe('Table of Contents - Phase 1 spike', () => {
     const editorCenter = editorBox!.x + editorBox!.width / 2;
     expect(outlineCenter).toBeGreaterThan(editorCenter);
   });
+
+  test('outline uses editor anchor by default (data-anchor="editor", position:sticky, sits inside a shell)', async ({ page }) => {
+    // Default mode anchors the outline to the editor container instead
+    // of the viewport. Observable contracts:
+    //   1. The nav element carries `data-anchor="editor"`.
+    //   2. The nav is wrapped in `.dm-toc-outline-shell` (also marked
+    //      with data-anchor="editor").
+    //   3. The nav's computed `position` is `sticky` (which is what
+    //      keeps it vertically centered while the shell scrolls).
+    //   4. The shell's computed `position` is `absolute` (it spans the
+    //      host's full height at its right edge).
+    const outline = page.locator('.dm-toc-outline');
+    await expect(outline).toBeVisible();
+    await expect(outline).toHaveAttribute('data-anchor', 'editor');
+    const shell = page.locator('.dm-toc-outline-shell');
+    await expect(shell).toHaveAttribute('data-anchor', 'editor');
+    const navPosition = await outline.evaluate((el) => window.getComputedStyle(el).position);
+    expect(navPosition).toBe('sticky');
+    const shellPosition = await shell.evaluate((el) => window.getComputedStyle(el).position);
+    expect(shellPosition).toBe('absolute');
+  });
+
+  test('outline shell mounts inside the page container (.notion-page), not document.body', async ({ page }) => {
+    // The host resolver walks up from `.dm-editor` for the first
+    // non-overflow-hidden ancestor. In notion-demo that ancestor is
+    // `.notion-page`. Confirming the shell is a descendant of
+    // `.notion-page` proves the host was correctly resolved and the
+    // body fallback did NOT trigger.
+    const result = await page.evaluate(() => {
+      const shell = document.querySelector('.dm-toc-outline-shell');
+      const outline = document.querySelector('.dm-toc-outline');
+      const page = document.querySelector('.notion-page');
+      return {
+        shellFound: !!shell,
+        outlineFound: !!outline,
+        pageFound: !!page,
+        shellInsidePage: !!(shell && page && page.contains(shell)),
+        outlineInsideShell: !!(shell && outline && shell.contains(outline)),
+      };
+    });
+    expect(result.shellFound).toBe(true);
+    expect(result.outlineFound).toBe(true);
+    expect(result.pageFound).toBe(true);
+    expect(result.shellInsidePage).toBe(true);
+    expect(result.outlineInsideShell).toBe(true);
+  });
+
+  test('outline left edge sits past the editor right edge (no overlap with editor content)', async ({ page }) => {
+    // Editor-mode positioning places the shell at `left: 100%` of the
+    // host (.notion-page). The editor fills the host's content box. So
+    // the outline's left edge must be strictly past the editor's right
+    // edge (minus a small tolerance for sub-pixel rounding).
+    const outlineBox = await page.locator('.dm-toc-outline').boundingBox();
+    const editorBox = await page.locator('app-notion-demo .dm-editor').boundingBox();
+    expect(outlineBox).not.toBeNull();
+    expect(editorBox).not.toBeNull();
+    const editorRight = editorBox!.x + editorBox!.width;
+    expect(outlineBox!.x).toBeGreaterThanOrEqual(editorRight - 1);
+  });
+
+  test('host (.notion-page) is forced to position:relative so editor-mode anchoring works', async ({ page }) => {
+    // For the shell's `position: absolute` to resolve against
+    // `.notion-page`, the host must have a non-static position. The
+    // plugin mutates the host's inline style on mount; this test pins
+    // the contract from the consumer's perspective.
+    const hostPosition = await page.locator('.notion-page').evaluate(
+      (el) => window.getComputedStyle(el).position,
+    );
+    expect(hostPosition).toBe('relative');
+  });
+
+  test('outline stays vertically centered in viewport after scrolling (sticky behavior)', async ({ page }) => {
+    // Editor mode's whole point: the outline tracks the viewport's
+    // vertical midpoint while the host (.notion-page) is in view. A
+    // `position: absolute` outline at `top: 50%` would scroll AWAY
+    // (it would stick to 50% of the host, not the viewport). The
+    // sticky-in-shell approach pins it to viewport center until the
+    // host bottom approaches the viewport center, then releases.
+    //
+    // Test: read outline.y before scroll, then scroll the page down
+    // by 200px, then read outline.y again. If sticky is working, the
+    // outline's absolute viewport y should remain unchanged (still at
+    // ~50% of viewport height). With the buggy absolute-top:50%
+    // implementation it would have moved up by 200px.
+    const initialBox = await page.locator('.dm-toc-outline').boundingBox();
+    expect(initialBox).not.toBeNull();
+    await page.evaluate(() => { window.scrollBy(0, 200); });
+    // Give the browser a frame to settle the new sticky position.
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => { r(undefined); })));
+    const scrolledBox = await page.locator('.dm-toc-outline').boundingBox();
+    expect(scrolledBox).not.toBeNull();
+    // Allow a couple of px for sub-pixel rounding under sticky.
+    expect(Math.abs((scrolledBox!.y) - (initialBox!.y))).toBeLessThanOrEqual(2);
+  });
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Table of Contents - Phase 2 data layer
+// Table of Contents - editor-anchor mode state machine
 // ────────────────────────────────────────────────────────────────────────
-// Real user-flow coverage for the heading discovery + ID assignment
-// system. Phase 2's unit tests cover algorithmic edges; these tests
-// cover the integrated demo path: live keyboard input, slash command
-// insertion, paste collision, HTML output roundtrip.
+// Covers the three modes (middle / center / frozen), the bottom-sentinel
+// IntersectionObserver, the `--dm-toc-mid-top` measurement loop, and the
+// "no visual escape" guarantee for outlines sitting next to long pages
+// of pre-editor content.
 
-test.describe('Table of Contents - Phase 2 data layer', () => {
+test.describe('Table of Contents - editor anchor modes', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
-  test('keyboard level toggle (Mod+Alt+3) preserves data-toc-id', async ({ page }) => {
+  test('data-mode is present on both the nav and the shell', async ({ page }) => {
+    const navMode = await page.locator('.dm-toc-outline').getAttribute('data-mode');
+    const shellMode = await page.locator('.dm-toc-outline-shell').getAttribute('data-mode');
+    expect(navMode).toBeTruthy();
+    expect(['middle', 'center', 'frozen']).toContain(navMode);
+    expect(shellMode).toBe(navMode);
+  });
+
+  test('data-bottom-visible is mirrored on both the nav and the shell', async ({ page }) => {
+    const navVisible = await page.locator('.dm-toc-outline').getAttribute('data-bottom-visible');
+    const shellVisible = await page.locator('.dm-toc-outline-shell').getAttribute('data-bottom-visible');
+    expect(navVisible).toBeTruthy();
+    expect(['true', 'false']).toContain(navVisible);
+    expect(shellVisible).toBe(navVisible);
+  });
+
+  test('--dm-toc-mid-top is set on the nav (calc form including 50vh)', async ({ page }) => {
+    const midTop = await page.locator('.dm-toc-outline').evaluate(
+      (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-mid-top'),
+    );
+    expect(midTop).toContain('50vh');
+    expect(midTop).toContain('calc');
+  });
+
+  test('--dm-toc-mid-top updates when headings are added/removed', async ({ page }) => {
+    const before = await page.locator('.dm-toc-outline').evaluate(
+      (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-mid-top'),
+    );
+    // Inject a heading via the demo editor so the outline rerenders.
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { chain: () => { focus: () => { setContent: (html: string) => { run: () => void } } } }
+        | undefined;
+      ed?.chain().focus().setContent(
+        '<h1>A</h1><h2>B</h2><h3>C</h3><h2>D</h2><h3>E</h3><h2>F</h2><h2>G</h2>',
+      ).run();
+    });
+    await page.waitForTimeout(50);
+    const after = await page.locator('.dm-toc-outline').evaluate(
+      (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-mid-top'),
+    );
+    expect(after).not.toBe(before);
+    expect(after).toContain('calc');
+  });
+
+  test('--dm-toc-mid-top updates on window resize', async ({ page }) => {
+    // Resize, then poll for the post-resize value (recomputeMidTop reads
+    // the new nav height after layout settles).
+    await page.setViewportSize({ width: 1200, height: 800 });
+    await page.waitForTimeout(50);
+    await page.evaluate(() => { window.dispatchEvent(new Event('resize')); });
+    await page.waitForTimeout(50);
+    const after = await page.locator('.dm-toc-outline').evaluate(
+      (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-mid-top'),
+    );
+    // We can't strictly assert different value (height may be the same),
+    // but we MUST have a valid calc() expression after the resize event.
+    expect(after).toContain('calc');
+    expect(after).toContain('50vh');
+  });
+
+  test('outline NEVER escapes above the notion-page top, at any scroll position', async ({ page }) => {
+    // The "no escape" contract: regardless of scroll, the outline's
+    // visual TOP must be >= notion-page's TOP (within a small tolerance
+    // for sub-pixel rendering). This holds in `middle` mode because the
+    // sticky offset is computed from the nav's height, not a transform.
+    const positions = [0, 100, 300, 600, 1200, 2400];
+    for (const scrollY of positions) {
+      await page.evaluate((y) => { window.scrollTo(0, y); }, scrollY);
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => { r(undefined); })));
+      const outlineBox = await page.locator('.dm-toc-outline').boundingBox();
+      const pageBox = await page.locator('.notion-page').boundingBox();
+      if (!outlineBox || !pageBox) continue;
+      expect(outlineBox.y).toBeGreaterThanOrEqual(pageBox.y - 2);
+    }
+  });
+
+  test('outline NEVER escapes below the notion-page bottom, at any scroll position', async ({ page }) => {
+    const positions = [0, 100, 300, 600, 1200, 2400];
+    for (const scrollY of positions) {
+      await page.evaluate((y) => { window.scrollTo(0, y); }, scrollY);
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => { r(undefined); })));
+      const outlineBox = await page.locator('.dm-toc-outline').boundingBox();
+      const pageBox = await page.locator('.notion-page').boundingBox();
+      if (!outlineBox || !pageBox) continue;
+      const pageBottom = pageBox.y + pageBox.height;
+      const outlineBottom = outlineBox.y + outlineBox.height;
+      expect(outlineBottom).toBeLessThanOrEqual(pageBottom + 2);
+    }
+  });
+
+  /**
+   * Scrolls to a position where `.notion-page`'s BOTTOM edge sits inside
+   * the viewport (not past it). Scrolling past the notion-page would put
+   * the bottom-sentinel ABOVE the viewport, flipping back to mode='middle'.
+   */
+  const scrollNotionBottomIntoView = async (page: import('@playwright/test').Page): Promise<void> => {
+    const target = await page.evaluate(() => {
+      const el = document.querySelector<HTMLElement>('.notion-page');
+      if (!el) return 0;
+      const rect = el.getBoundingClientRect();
+      const docBottom = rect.top + window.scrollY + rect.height;
+      // Place the page-bottom about 80px above the viewport-bottom so
+      // it's clearly inside the viewport with margin to spare.
+      return Math.max(0, docBottom - window.innerHeight + 80);
+    });
+    await page.evaluate((y) => { window.scrollTo(0, y); }, target);
+    await page.waitForTimeout(150);
+  };
+
+  test('mode transitions from "middle" to a case-A mode when bottom edge scrolls into viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 400 });
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => { r(undefined); })));
+    await page.waitForTimeout(100);
+
+    const initialMode = await page.locator('.dm-toc-outline').getAttribute('data-mode');
+    expect(initialMode).toBe('middle');
+
+    await scrollNotionBottomIntoView(page);
+
+    const finalMode = await page.locator('.dm-toc-outline').getAttribute('data-mode');
+    expect(['center', 'frozen']).toContain(finalMode);
+    const finalBottomVisible = await page.locator('.dm-toc-outline').getAttribute('data-bottom-visible');
+    expect(finalBottomVisible).toBe('true');
+  });
+
+  test('mode reverts to "middle" when bottom edge scrolls back out of viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 400 });
+
+    await scrollNotionBottomIntoView(page);
+    let mode = await page.locator('.dm-toc-outline').getAttribute('data-mode');
+    expect(['center', 'frozen']).toContain(mode);
+
+    // Scroll back to top - bottom sentinel exits the viewport.
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.waitForTimeout(150);
+    mode = await page.locator('.dm-toc-outline').getAttribute('data-mode');
+    expect(mode).toBe('middle');
+    const bottomVisible = await page.locator('.dm-toc-outline').getAttribute('data-bottom-visible');
+    expect(bottomVisible).toBe('false');
+  });
+
+  test('in "middle" mode, outline visual y stays roughly at viewport middle while scrolling', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 400 });
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.waitForTimeout(100);
+
+    const viewportH = await page.evaluate(() => window.innerHeight);
+    const expectedCenter = viewportH / 2;
+
+    for (const scrollY of [0, 100, 300, 500]) {
+      await page.evaluate((y) => { window.scrollTo(0, y); }, scrollY);
+      await page.waitForTimeout(50);
+      const mode = await page.locator('.dm-toc-outline').getAttribute('data-mode');
+      if (mode !== 'middle') continue;
+      const box = await page.locator('.dm-toc-outline').boundingBox();
+      if (!box) continue;
+      const visualCenter = box.y + box.height / 2;
+      // Visual center should be within ~5% of viewport height of the
+      // exact middle - flexible enough to absorb sticky boundary clamps
+      // and sub-pixel rounding, strict enough to catch a real regression.
+      expect(Math.abs(visualCenter - expectedCenter)).toBeLessThanOrEqual(viewportH * 0.05);
+    }
+  });
+
+  test('frozen mode (after B→A transition) sets an inline marginTop on the nav', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 400 });
+
+    // Start in middle, then scroll slowly until bottom-sentinel intersects
+    // mid-scroll. The plugin captures the current nav y as marginTop.
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.waitForTimeout(100);
+
+    // Walk down 50px at a time so the transition fires at a real scroll
+    // position (not an immediate-bottom scroll, which would leave a
+    // 0-rect navRect and produce `center` mode instead).
+    const docHeight = await page.evaluate(() => document.body.scrollHeight);
+    let y = 0;
+    while (y < docHeight) {
+      y += 50;
+      await page.evaluate((scrollY) => { window.scrollTo(0, scrollY); }, y);
+      await page.waitForTimeout(20);
+      const mode = await page.locator('.dm-toc-outline').getAttribute('data-mode');
+      if (mode === 'frozen' || mode === 'center') break;
+    }
+
+    const finalMode = await page.locator('.dm-toc-outline').getAttribute('data-mode');
+    // Only assert when we end in frozen mode (center is an acceptable
+    // alternative path if the rect read happened pre-paint).
+    if (finalMode === 'frozen') {
+      const marginTop = await page.locator('.dm-toc-outline').evaluate(
+        (el) => (el as HTMLElement).style.marginTop,
+      );
+      expect(marginTop).not.toBe('');
+      expect(marginTop).toMatch(/^\d+(\.\d+)?px$/);
+    }
+  });
+
+  test('switching back to middle mode clears the inline marginTop', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 400 });
+
+    // Force a B → A → B cycle so we know marginTop was set then cleared.
+    await scrollNotionBottomIntoView(page);
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.waitForTimeout(150);
+
+    const mode = await page.locator('.dm-toc-outline').getAttribute('data-mode');
+    expect(mode).toBe('middle');
+    const marginTop = await page.locator('.dm-toc-outline').evaluate(
+      (el) => (el as HTMLElement).style.marginTop,
+    );
+    expect(marginTop).toBe('');
+  });
+
+  test('outline computed position is sticky in editor mode (always, across mode changes)', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 400 });
+
+    for (const scrollY of [0, 200, 800, 2000]) {
+      await page.evaluate((y) => { window.scrollTo(0, y); }, scrollY);
+      await page.waitForTimeout(50);
+      const position = await page.locator('.dm-toc-outline').evaluate(
+        (el) => window.getComputedStyle(el).position,
+      );
+      expect(position).toBe('sticky');
+    }
+  });
+
+  test('outline computed top differs between "middle" (calc-based) and case A (1rem)', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 400 });
+
+    // Middle mode: scroll to top.
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.waitForTimeout(100);
+    const middleTop = await page.locator('.dm-toc-outline').evaluate(
+      (el) => window.getComputedStyle(el).top,
+    );
+    expect(middleTop).toMatch(/px$/);
+
+    // Case A mode: scroll to bring the notion-page bottom into the
+    // viewport without crossing past it.
+    await scrollNotionBottomIntoView(page);
+    const caseATop = await page.locator('.dm-toc-outline').evaluate(
+      (el) => window.getComputedStyle(el).top,
+    );
+    // Case A uses `top: 1rem` = 16px. Middle uses `calc(50vh - h/2)px`,
+    // which for a 400-tall viewport is well above 16px.
+    expect(caseATop).toMatch(/^16(\.\d+)?px$/);
+    expect(middleTop).not.toBe(caseATop);
+  });
+
+  test('shell is positioned absolute, anchored to host right edge with the configured offset', async ({ page }) => {
+    const shellPosition = await page.locator('.dm-toc-outline-shell').evaluate(
+      (el) => window.getComputedStyle(el).position,
+    );
+    expect(shellPosition).toBe('absolute');
+
+    // Shell must extend the full vertical range of the host (top:0..2%
+    // / bottom:0..2% bracket per stylesheet). Its bottom edge can be no
+    // higher than the host's bottom edge.
+    const shellBox = await page.locator('.dm-toc-outline-shell').boundingBox();
+    const pageBox = await page.locator('.notion-page').boundingBox();
+    if (shellBox && pageBox) {
+      const shellBottom = shellBox.y + shellBox.height;
+      const pageBottom = pageBox.y + pageBox.height;
+      expect(shellBottom).toBeLessThanOrEqual(pageBottom + 2);
+    }
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// Table of Contents - expanded card scroll-close + viewport clamp
+// ────────────────────────────────────────────────────────────────────────
+// The expanded hover card must:
+//   - Close on any window scroll (so it doesn't lag the page or detach
+//     from any anchored tick).
+//   - Stay inside the viewport. When the nav sits near the top or
+//     bottom edge, the plugin sets `--dm-toc-card-shift-y` to nudge the
+//     card back in.
+
+test.describe('Table of Contents - expanded card edges', () => {
+  test.beforeEach(async ({ page }) => {
+    await goNotion(page);
+    // Wider than the default 1024 mobile breakpoint so the outline
+    // stays visible (matchMedia would otherwise hide it).
+    await page.setViewportSize({ width: 1200, height: 700 });
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.waitForTimeout(100);
+  });
+
+  test('scrolling the window collapses the expanded card', async ({ page }) => {
+    const outline = page.locator('.dm-toc-outline');
+    // Focus a tick to force-expand (sidesteps hover-delay timers).
+    await outline.locator('.dm-toc-outline-tick').first().focus();
+    await page.waitForTimeout(50);
+    await expect(outline).toHaveAttribute('data-state', 'expanded');
+
+    await page.evaluate(() => { window.scrollBy(0, 50); });
+    await page.waitForTimeout(50);
+    await expect(outline).toHaveAttribute('data-state', 'collapsed');
+  });
+
+  test('scrolling while collapsed is a no-op (state stays collapsed)', async ({ page }) => {
+    const outline = page.locator('.dm-toc-outline');
+    await expect(outline).toHaveAttribute('data-state', 'collapsed');
+    await page.evaluate(() => { window.scrollBy(0, 100); });
+    await page.waitForTimeout(50);
+    await expect(outline).toHaveAttribute('data-state', 'collapsed');
+  });
+
+  test('card top edge sits within the viewport when nav is near the top of the screen', async ({ page }) => {
+    // Squeeze the viewport vertically so the nav (vertically centered)
+    // ends up close to the top - the unconstrained card would overflow
+    // upward. The clamp must keep card.top >= ~16px.
+    await page.setViewportSize({ width: 1200, height: 320 });
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.waitForTimeout(100);
+
+    await page.locator('.dm-toc-outline').locator('.dm-toc-outline-tick').first().focus();
+    await page.waitForTimeout(120);
+
+    const cardBox = await page.locator('.dm-toc-outline-card').boundingBox();
+    expect(cardBox).not.toBeNull();
+    // Margin is 16; allow 2px slack for sub-pixel rounding.
+    expect(cardBox!.y).toBeGreaterThanOrEqual(14);
+  });
+
+  test('card bottom edge sits within the viewport when nav is near the bottom of the screen', async ({ page }) => {
+    // Squeeze the viewport so the nav ends up near the bottom of the
+    // available area - the unconstrained card would overflow downward.
+    await page.setViewportSize({ width: 1200, height: 320 });
+    // Scroll near (but not past) the end so notion-page bottom is in view
+    // and the nav sits in the lower portion of the viewport.
+    await page.evaluate(() => {
+      const el = document.querySelector<HTMLElement>('.notion-page');
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const docBottom = rect.top + window.scrollY + rect.height;
+      window.scrollTo(0, Math.max(0, docBottom - window.innerHeight + 60));
+    });
+    await page.waitForTimeout(150);
+
+    await page.locator('.dm-toc-outline').locator('.dm-toc-outline-tick').first().focus();
+    await page.waitForTimeout(120);
+
+    const cardBox = await page.locator('.dm-toc-outline-card').boundingBox();
+    expect(cardBox).not.toBeNull();
+    const cardBottom = cardBox!.y + cardBox!.height;
+    const viewportH = await page.evaluate(() => window.innerHeight);
+    // Margin is 16; allow 2px slack for sub-pixel rounding.
+    expect(cardBottom).toBeLessThanOrEqual(viewportH - 14);
+  });
+
+  /**
+   * Puts the nav in case-A sticky-to-top by scrolling well past the
+   * nav's natural position - far enough that the natural in viewport
+   * is above the sticky offset (1rem), so the nav clamps to the top
+   * edge. The card's vertical-center then sits near the top of the
+   * viewport, forcing the shift clamp to engage. We stop ~80px before
+   * the page bottom so the bottom-sentinel stays in the viewport
+   * (otherwise we'd flip back to middle mode).
+   */
+  const stickNavNearViewportTop = async (page: import('@playwright/test').Page): Promise<void> => {
+    await page.setViewportSize({ width: 1200, height: 600 });
+    await page.evaluate(() => {
+      const el = document.querySelector<HTMLElement>('.notion-page');
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const docBottom = rect.top + window.scrollY + rect.height;
+      window.scrollTo(0, Math.max(0, docBottom - 80));
+    });
+    await page.waitForTimeout(200);
+  };
+
+  test('--dm-toc-card-shift-y is set on the card when clamping kicks in', async ({ page }) => {
+    await stickNavNearViewportTop(page);
+    await page.locator('.dm-toc-outline').locator('.dm-toc-outline-tick').first().focus();
+    await page.waitForTimeout(150);
+
+    const shift = await page.locator('.dm-toc-outline-card').evaluate(
+      (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-card-shift-y'),
+    );
+    expect(shift).toMatch(/^-?\d+(\.\d+)?px$/);
+  });
+
+  test('--dm-toc-card-shift-y is PRESERVED across a collapse (so the card does not visually jump during fade-out)', async ({ page }) => {
+    await stickNavNearViewportTop(page);
+    const firstTick = page.locator('.dm-toc-outline').locator('.dm-toc-outline-tick').first();
+    await firstTick.focus();
+    await page.waitForTimeout(150);
+    const shiftWhileExpanded = await page.locator('.dm-toc-outline-card').evaluate(
+      (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-card-shift-y'),
+    );
+    expect(shiftWhileExpanded).not.toBe('');
+
+    await firstTick.evaluate((el) => { (el as HTMLElement).blur(); });
+    await page.waitForTimeout(80);
+    // Shift stays so the transform transition does not animate during
+    // the opacity fade-out (which would look like a "jump back").
+    expect(
+      await page.locator('.dm-toc-outline-card').evaluate(
+        (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-card-shift-y'),
+      ),
+    ).toBe(shiftWhileExpanded);
+  });
+
+  test('clicking a shifted-card row does NOT visually jump the card during fade-out', async ({ page }) => {
+    // Regression guard for the "menu pops back" glitch: with the card
+    // shifted (e.g., card sits at viewport top via `--dm-toc-card-shift-y`),
+    // clicking a row inside it triggers scrollToHeading → page scroll
+    // → my onWindowScroll handler collapses the menu. If we cleared the
+    // shift at that moment, the transform transition would animate the
+    // card BACK to its unshifted position while it fades out, producing
+    // a visible jump. We preserve the shift instead.
+    await stickNavNearViewportTop(page);
+    await page.locator('.dm-toc-outline-tick').first().focus();
+    await page.waitForTimeout(200);
+
+    const initialShift = await page.locator('.dm-toc-outline-card').evaluate(
+      (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-card-shift-y'),
+    );
+    expect(initialShift).toMatch(/-?\d+(\.\d+)?px/);
+
+    // Click a row inside the card.
+    await page.locator('.dm-toc-outline-row').first().click({ force: true });
+
+    // Sample mid-fade-out (~60ms into the 180ms transition).
+    await page.waitForTimeout(60);
+
+    // Shift must still be set so the transform stays put while opacity fades.
+    const shiftMidFade = await page.locator('.dm-toc-outline-card').evaluate(
+      (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-card-shift-y'),
+    );
+    expect(shiftMidFade).toBe(initialShift);
+  });
+
+  test('shift stays stable across repeated hovers (no every-other-time alternation)', async ({ page }) => {
+    // Regression guard: previously, the second/fourth/... expand
+    // measured a stale (still visually-shifted) bounding rect right
+    // after clearing `--dm-toc-card-shift-y`, so it saw "no overflow"
+    // and left the shift empty - the card alternated between shifted
+    // and unshifted every other hover. The fix derives the natural
+    // position from the current shift instead of clearing-then-reading.
+    await stickNavNearViewportTop(page);
+    const tick = page.locator('.dm-toc-outline-tick').first();
+    const card = page.locator('.dm-toc-outline-card');
+
+    const readShift = (): Promise<string> => card.evaluate(
+      (el) => (el as HTMLElement).style.getPropertyValue('--dm-toc-card-shift-y'),
+    );
+
+    const samples: string[] = [];
+    for (let i = 0; i < 4; i++) {
+      await tick.hover();
+      await page.waitForTimeout(250);
+      samples.push(await readShift());
+      // Move cursor off the outline without scrolling the page.
+      await page.mouse.move(100, 100);
+      await page.waitForTimeout(450);
+    }
+
+    // Every sample matches the first - no alternation.
+    expect(samples[0]).toMatch(/-?\d+(\.\d+)?px/);
+    for (const s of samples) expect(s).toBe(samples[0]);
+  });
+
+  test('card has max-height capped at viewport with internal scrolling', async ({ page }) => {
+    await page.setViewportSize({ width: 1200, height: 400 });
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.waitForTimeout(100);
+
+    await page.locator('.dm-toc-outline').locator('.dm-toc-outline-tick').first().focus();
+    await page.waitForTimeout(120);
+
+    const result = await page.locator('.dm-toc-outline-card').evaluate((el) => ({
+      maxHeight: window.getComputedStyle(el).maxHeight,
+      overflowY: window.getComputedStyle(el).overflowY,
+    }));
+    expect(result.maxHeight).toMatch(/px$/);
+    expect(['auto', 'scroll']).toContain(result.overflowY);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// Table of Contents - data layer
+// ────────────────────────────────────────────────────────────────────────
+// Real user-flow coverage for the heading discovery + ID assignment
+// system. Unit tests cover algorithmic edges; these cover the integrated
+// demo path: live keyboard input, slash command insertion, paste
+// collision, HTML output roundtrip.
+
+test.describe('Table of Contents - data layer', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('keyboard level toggle (Mod+Alt+3) preserves the heading id', async ({ page }) => {
     // Click into the first H2 ("Playground") and read its current id.
     await page.click(`${editorSelector} h2 >> nth=0`);
     const before = await page.evaluate(() => {
       const h2 = document.querySelector<HTMLElement>('app-notion-demo .ProseMirror h2');
-      return h2?.getAttribute('data-toc-id') ?? null;
+      return h2?.getAttribute('id') ?? null;
     });
-    expect(before).toMatch(/^.{8}$/);
+    expect(before).toBeTruthy();
 
     // Toggle to H3 via the framework keyboard shortcut. Heading.ts
     // exposes Mod+Alt+<level> for every configured level.
     await page.keyboard.press(`${modifier}+Alt+3`);
 
-    // Same DOM node is now an H3, with the SAME tocId. setBlockType
+    // Same DOM node is now an H3, with the SAME id. setBlockType
     // preserves attrs (per nodeCommands.ts merge), so the framework
-    // keeps the heading's tocId across the level change.
+    // keeps the id across the level change.
     const after = await page.evaluate(() => {
       const h3 = document.querySelector<HTMLElement>('app-notion-demo .ProseMirror h3');
-      return h3?.getAttribute('data-toc-id') ?? null;
+      return h3?.getAttribute('id') ?? null;
     });
     expect(after).toBe(before);
   });
 
-  test('slash command "Heading 2" insertion creates a heading with a fresh data-toc-id', async ({ page }) => {
+  test('slash command "Heading 2" insertion creates a heading with a fresh id', async ({ page }) => {
     // Drop into an empty paragraph at the end of the doc and trigger
     // the slash menu. We start from a fresh doc to control where the
     // new heading lands.
@@ -1740,14 +3060,14 @@ test.describe('Table of Contents - Phase 2 data layer', () => {
     await page.keyboard.press('Enter');
     await page.keyboard.type('Fresh section');
 
-    // The new H2 must have a non-empty 8-char data-toc-id, distinct
+    // The new H2 must have a non-empty UUID-style id (UniqueID format), distinct
     // from any prior heading on the page.
     const id = await page.evaluate(() => {
       const headings = Array.from(document.querySelectorAll<HTMLElement>('app-notion-demo .ProseMirror h2'));
       const fresh = headings.find((h) => h.textContent?.includes('Fresh section'));
-      return fresh?.getAttribute('data-toc-id') ?? null;
+      return fresh?.getAttribute('id') ?? null;
     });
-    expect(id).toMatch(/^.{8}$/);
+    expect(id).toBeTruthy();
   });
 
   test('storage updates immediately when a new heading is typed', async ({ page }) => {
@@ -1780,30 +3100,30 @@ test.describe('Table of Contents - Phase 2 data layer', () => {
     }, { timeout: 2000 });
   });
 
-  test('exported HTML output preserves data-toc-id attributes', async ({ page }) => {
+  test('exported HTML output preserves id attributes', async ({ page }) => {
     // The demo renders `editor.htmlContent()` into a <pre class="output"> block.
     // Its serialized text is what would be saved to a backend or copied
-    // out for export, so it MUST include the data-toc-id markers.
+    // out for export, so it MUST include the id markers.
     const html = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | { getHTML: () => string }
         | undefined;
       return ed?.getHTML() ?? '';
     });
-    // At least one heading must round-trip a data-toc-id attribute.
-    expect(html).toMatch(/<h[1-3][^>]*data-toc-id="[^"]+"/);
+    // At least one heading must round-trip an id attribute.
+    expect(html).toMatch(/<h[1-3][^>]*\bid="[^"]+"/);
   });
 
-  test('pasted content with existing data-toc-id values keeps every ID unique', async ({ page }) => {
+  test('pasted content with existing id values keeps every ID unique', async ({ page }) => {
     // Simulate a cross-document paste by setting content that contains
-    // a tocId already in use. The plugin must rename the duplicate so
+    // an id already in use. The plugin must rename the duplicate so
     // the doc remains a unique-ID space (avoids ambiguous hash anchors).
     await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | { setContent: (h: string, emit: boolean) => void }
         | undefined;
       ed?.setContent(
-        '<h1 data-toc-id="duplicate">First</h1><h2 data-toc-id="duplicate">Second</h2>',
+        '<h1 id="duplicate">First</h1><h2 id="duplicate">Second</h2>',
         false,
       );
     });
@@ -1816,7 +3136,7 @@ test.describe('Table of Contents - Phase 2 data layer', () => {
     }, { timeout: 2000 });
     const ids = await page.evaluate(() => {
       const headings = Array.from(document.querySelectorAll<HTMLElement>('app-notion-demo .ProseMirror :is(h1, h2, h3)'));
-      return headings.map((h) => h.getAttribute('data-toc-id'));
+      return headings.map((h) => h.getAttribute('id'));
     });
     expect(ids).toHaveLength(2);
     expect(new Set(ids).size).toBe(2); // unique
@@ -1827,14 +3147,12 @@ test.describe('Table of Contents - Phase 2 data layer', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Table of Contents - Phase 3 scrollToHeading + click navigation
+// Table of Contents - scrollToHeading + click navigation
 // ────────────────────────────────────────────────────────────────────────
 // Behavioral coverage for the editor.commands.scrollToHeading API and
-// the initial-load `window.location.hash` handling. Phase 4 will wire
-// the floating outline ticks to this command; for now it is the
-// programmatic surface only.
+// the initial-load `window.location.hash` handling.
 
-test.describe('Table of Contents - Phase 3 scroll navigation', () => {
+test.describe('Table of Contents - scroll navigation', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('editor.commands.scrollToHeading scrolls the page and updates the URL hash', async ({ page }) => {
@@ -1849,7 +3167,7 @@ test.describe('Table of Contents - Phase 3 scroll navigation', () => {
       const toc = ed?.storage['toc'] as { content: { id: string }[] } | undefined;
       return toc?.content[toc.content.length - 1]?.id ?? null;
     });
-    expect(targetId).toMatch(/^.{8}$/);
+    expect(targetId).toBeTruthy();
 
     // scrollIntoView's smooth behaviour does not reliably advance
     // window.scrollY in headless chromium - some setups cap smooth
@@ -1892,19 +3210,19 @@ test.describe('Table of Contents - Phase 3 scroll navigation', () => {
 
   test('navigating to a heading nested inside a collapsed <details> opens the details before scrolling', async ({ page }) => {
     // Inject content with a heading inside a collapsed <details>. Use
-    // a deterministic data-toc-id so we can target it by name.
+    // a deterministic id so we can target it by name.
     await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | { setContent: (h: string, emit: boolean) => void }
         | undefined;
       ed?.setContent(
-        '<h1>Top</h1><div data-type="details"><div data-details-content><h2 data-toc-id="hidden">Behind a fold</h2></div></div>',
+        '<h1>Top</h1><div data-type="details"><div data-details-content><h2 id="hidden">Behind a fold</h2></div></div>',
         false,
       );
     });
-    // Wait for the heading to actually be in the DOM with its tocId.
+    // Wait for the heading to actually be in the DOM with its id.
     await page.waitForFunction(() =>
-      document.querySelector('app-notion-demo .ProseMirror [data-toc-id="hidden"]') !== null,
+      document.querySelector('app-notion-demo .ProseMirror [id="hidden"]') !== null,
     );
 
     // Sanity: the wrapping details should be closed (no open class /
@@ -1930,7 +3248,7 @@ test.describe('Table of Contents - Phase 3 scroll navigation', () => {
     // jsdom-style "open" toggling vs native `<details>` is irrelevant
     // here - what matters is that the layout exposes the heading.
     const visible = await page.evaluate(() => {
-      const target = document.querySelector<HTMLElement>('[data-toc-id="hidden"]');
+      const target = document.querySelector<HTMLElement>('[id="hidden"]');
       if (!target) return false;
       const rect = target.getBoundingClientRect();
       return rect.height > 0 && rect.width > 0;
@@ -1946,7 +3264,7 @@ test.describe('Table of Contents - Phase 3 scroll navigation', () => {
       const toc = ed?.storage['toc'] as { content: { id: string }[] } | undefined;
       return toc?.content[toc.content.length - 1]?.id ?? null;
     });
-    expect(targetId).toMatch(/^.{8}$/);
+    expect(targetId).toBeTruthy();
     if (!targetId) throw new Error('no heading id');
 
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -2024,7 +3342,7 @@ test.describe('Table of Contents - Phase 3 scroll navigation', () => {
 
   // NOTE: initial-load `#hash` auto-scroll is verified via the
   // unit/integration suite (TableOfContents.test.ts) rather than e2e.
-  // The demo regenerates random tocIds on every Notion-mode entry, so
+  // The demo regenerates random ids on every Notion-mode entry, so
   // there is no reliable way to land at a fresh page with a hash that
   // matches an existing heading without injecting deterministic
   // content - which would pollute the user-facing demo. The unit test
@@ -2033,15 +3351,13 @@ test.describe('Table of Contents - Phase 3 scroll navigation', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Table of Contents - Phase 4 floating outline ticks
+// Table of Contents - floating outline ticks
 // ────────────────────────────────────────────────────────────────────────
-// Phase 4 replaces the Phase 1 spike (hello-world pill) with real
-// tick buttons. These tests cover the visual contract of the
-// collapsed-state outline: render count, level-encoded width, click
-// navigation, visibility guards (minHeadings + mobile + 0 headings),
-// and theme-aware coloring.
+// Visual contract of the collapsed-state outline: render count,
+// level-encoded width, click navigation, visibility guards
+// (minHeadings + mobile + 0 headings), and theme-aware coloring.
 
-test.describe('Table of Contents - Phase 4 floating outline ticks', () => {
+test.describe('Table of Contents - floating outline ticks', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('renders one tick button per heading and matches storage count', async ({ page }) => {
@@ -2081,15 +3397,15 @@ test.describe('Table of Contents - Phase 4 floating outline ticks', () => {
     // Click the LAST tick so we reliably move the scroll position.
     const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
     const lastIndex = (await ticks.count()) - 1;
-    const targetTocId = await ticks.nth(lastIndex).getAttribute('data-toc-id');
-    expect(targetTocId).toMatch(/^.{8}$/);
+    const targetTocId = await ticks.nth(lastIndex).getAttribute('data-toc-anchor');
+    expect(targetTocId).toBeTruthy();
 
-    if (!targetTocId) throw new Error('expected non-null tocId');
+    if (!targetTocId) throw new Error('expected non-null anchor id');
     // Dispatch click programmatically (synchronous DOM event) instead
     // of going through Playwright's mouse simulation. Playwright's
     // click() invokes mouseover / mouseenter on its way to the
-    // element, which queues our hoverInDelay timer (Phase 6) before
-    // the click event itself dispatches; by then the outline can
+    // element, which queues our hoverInDelay timer before the click
+    // event itself dispatches; by then the outline can
     // expand, ticks acquire `pointer-events: none`, and the click
     // registers on the card layer instead of the tick. Calling
     // .click() on the element directly fires the delegated handler
@@ -2097,7 +3413,7 @@ test.describe('Table of Contents - Phase 4 floating outline ticks', () => {
     // user actually interacts.
     await page.evaluate((id) => {
       document
-        .querySelector<HTMLElement>(`.dm-toc-outline-tick[data-toc-id="${id}"]`)
+        .querySelector<HTMLElement>(`.dm-toc-outline-tick[data-toc-anchor="${id}"]`)
         ?.click();
     }, targetTocId);
 
@@ -2162,7 +3478,7 @@ test.describe('Table of Contents - Phase 4 floating outline ticks', () => {
     // body and the outline). What we care about is that the button is
     // focusable and that Enter activates it.
     const lastIndex = (await ticks.count()) - 1;
-    const targetTocId = await ticks.nth(lastIndex).getAttribute('data-toc-id');
+    const targetTocId = await ticks.nth(lastIndex).getAttribute('data-toc-anchor');
     await ticks.nth(lastIndex).focus();
     const isFocused = await page.evaluate(() => {
       const focused = document.activeElement;
@@ -2232,16 +3548,16 @@ test.describe('Table of Contents - Phase 4 floating outline ticks', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Table of Contents - Phase 5 active state highlighting
+// Table of Contents - active state highlighting
 // ────────────────────────────────────────────────────────────────────────
 // As the user scrolls, the tick for the heading currently in the
 // upper 15% of the viewport gets the --active class + aria-current.
 // Clicks prime a manual override window so the IO callback does not
 // fight back during the smooth-scroll animation. storage.activeId
-// mirrors the visual state so other UIs (Phase 7 inline block) can
-// read it without spawning their own observer.
+// mirrors the visual state so other UIs can read it without spawning
+// their own observer.
 
-test.describe('Table of Contents - Phase 5 active state', () => {
+test.describe('Table of Contents - active state', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   /**
@@ -2279,7 +3595,7 @@ test.describe('Table of Contents - Phase 5 active state', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await setStretchedContent(page);
     const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
-    const targetId = await ticks.nth(1).getAttribute('data-toc-id');
+    const targetId = await ticks.nth(1).getAttribute('data-toc-anchor');
     await ticks.nth(1).dispatchEvent('click');
 
     const storedActiveId = await page.evaluate(() => {
@@ -2323,26 +3639,197 @@ test.describe('Table of Contents - Phase 5 active state', () => {
     await expect(ticks.nth(0)).not.toHaveClass(/dm-toc--active/);
   });
 
-  test('above all headings (scrollY=0 with content above first heading), no tick is active', async ({ page }) => {
-    // Inject a doc whose first heading sits BELOW a thick lead block,
-    // so the page can scroll up far enough that the first heading is
-    // entirely below the viewport - "above all headings" state.
+  test('active tick stays lit while scrolling through a section past the last heading', async ({ page }) => {
+    // Regression guard: the tracker used to observe every element
+    // UniqueID assigned an id to (paragraphs, list items, ...), not
+    // just headings. The IO would then report a non-heading id as
+    // "active", `storage.activeId` would point at something that
+    // doesn't match any tick, and the visual active state would
+    // disappear once the user scrolled past the LAST heading. The fix
+    // restricts collectHeadingDoms to ids that actually appear in
+    // storage.content (= the heading set).
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await setStretchedContent(page);
+
+    // Scroll in increments so the IntersectionObserver fires for each
+    // heading as it crosses the active zone. A single jump to the
+    // bottom would skip the intersection-state transitions entirely
+    // and the tracker would never report any heading as active.
+    const docHeight = await page.evaluate(() => document.body.scrollHeight);
+    const viewportH = await page.evaluate(() => window.innerHeight);
+    const target = Math.max(0, docHeight - viewportH);
+    for (let y = 0; y <= target; y += 150) {
+      await page.evaluate((scrollY) => { window.scrollTo(0, scrollY); }, y);
+      await page.waitForTimeout(40);
+    }
+    await page.evaluate((scrollY) => { window.scrollTo(0, scrollY); }, target);
+    await page.waitForTimeout(120);
+
+    // Exactly one tick remains active (the last passed heading, per
+    // pickActive's case-2 fallback). The visual marker MUST match the
+    // storage's activeId - if not, the tracker is reporting a non-
+    // heading id that doesn't correspond to any tick.
+    const data = await page.evaluate(() => {
+      const active = document.querySelector('.dm-toc-outline-tick.dm-toc--active') as HTMLElement | null;
+      const storage = (window as unknown as { __DEMO_EDITOR__?: { storage: Record<string, unknown> } }).__DEMO_EDITOR__?.storage['toc'] as { activeId: string | null; content: { id: string }[] } | undefined;
+      return {
+        activeTickAnchor: active?.dataset['tocAnchor'] ?? null,
+        storageActiveId: storage?.activeId ?? null,
+        storageContentIds: storage?.content.map((c) => c.id) ?? [],
+      };
+    });
+    expect(data.activeTickAnchor).not.toBeNull();
+    expect(data.storageActiveId).not.toBeNull();
+    expect(data.activeTickAnchor).toBe(data.storageActiveId);
+    expect(data.storageContentIds).toContain(data.storageActiveId);
+  });
+
+  test('active switches exactly when the viewport top touches the next heading (precise crossing)', async ({ page }) => {
+    // Spec: H1 stays lit until viewport_top crosses H2's heading line.
+    // No 60px-style lead-in; the switch fires at the exact touch point.
+    // The scroll listener (rAF-throttled, see activeStateTracker)
+    // keeps the switch tight to actual scroll position - no IO latency.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await setStretchedContent(page);
+
+    const secondDocTop = await page.evaluate(() => {
+      const h = document.querySelectorAll('app-notion-demo .ProseMirror h2')[0];
+      if (!h) return -1;
+      return h.getBoundingClientRect().top + window.scrollY;
+    });
+    expect(secondDocTop).toBeGreaterThan(0);
+
+    const [firstId, secondId] = await page.evaluate(() => {
+      const hs = Array.from(document.querySelectorAll('app-notion-demo .ProseMirror :is(h1, h2)'));
+      return hs.slice(0, 2).map((h) => (h as HTMLElement).id);
+    });
+    expect(firstId).toBeTruthy();
+    expect(secondId).toBeTruthy();
+
+    const probe = async (): Promise<{ secondHeadingTop: number; activeId: string | null }> => {
+      return await page.evaluate(() => {
+        const second = document.querySelectorAll('app-notion-demo .ProseMirror h2')[0] as HTMLElement | undefined;
+        const active = document.querySelector('.dm-toc-outline-tick.dm-toc--active') as HTMLElement | null;
+        return {
+          secondHeadingTop: second ? second.getBoundingClientRect().top : Number.POSITIVE_INFINITY,
+          activeId: active?.dataset['tocAnchor'] ?? null,
+        };
+      });
+    };
+
+    // Park scroll where H2 is still well below the viewport top.
+    await page.evaluate((y) => { window.scrollTo(0, y); }, Math.max(0, secondDocTop - 300));
+    await page.waitForTimeout(80);
+    const before = await probe();
+    expect(before.secondHeadingTop).toBeGreaterThan(50);
+    expect(before.activeId).toBe(firstId);
+
+    // Park scroll exactly at H2's doc top - H2 now touches viewport top.
+    await page.evaluate((y) => { window.scrollTo(0, y); }, secondDocTop);
+    await page.waitForTimeout(80);
+    const at = await probe();
+    expect(Math.abs(at.secondHeadingTop)).toBeLessThanOrEqual(2);
+    expect(at.activeId).toBe(secondId);
+
+    // Park scroll BARELY below the touch point (H2 still positive top).
+    // Active must still be H1 - no premature switch.
+    await page.evaluate((y) => { window.scrollTo(0, y); }, secondDocTop - 20);
+    await page.waitForTimeout(80);
+    const justBefore = await probe();
+    expect(justBefore.secondHeadingTop).toBeGreaterThan(0);
+    expect(justBefore.activeId).toBe(firstId);
+  });
+
+  test('storage.activeId is ALWAYS in storage.content (never a non-heading id) across the entire scroll range', async ({ page }) => {
+    // Tightens the regression guard: at every sample point along a
+    // full doc scroll, storage.activeId must either be null OR appear
+    // in storage.content. Before the fix, mid-scroll positions would
+    // see activeId pointing at a paragraph id (UniqueID assigns ids
+    // to paragraphs too) which would not appear in content.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await setStretchedContent(page);
+    const docHeight = await page.evaluate(() => document.body.scrollHeight);
+    const viewportH = await page.evaluate(() => window.innerHeight);
+    const max = Math.max(0, docHeight - viewportH);
+
+    for (let y = 0; y <= max; y += 100) {
+      await page.evaluate((scrollY) => { window.scrollTo(0, scrollY); }, y);
+      await page.waitForTimeout(50);
+      const probe = await page.evaluate(() => {
+        const storage = (window as unknown as { __DEMO_EDITOR__?: { storage: Record<string, unknown> } })
+          .__DEMO_EDITOR__?.storage['toc'] as { activeId: string | null; content: { id: string }[] } | undefined;
+        return {
+          scrollY: window.scrollY,
+          activeId: storage?.activeId ?? null,
+          contentIds: storage?.content.map((c) => c.id) ?? [],
+        };
+      });
+      if (probe.activeId !== null) {
+        expect(probe.contentIds, `at scrollY=${String(probe.scrollY)}`).toContain(probe.activeId);
+      }
+    }
+  });
+
+  test('exactly one tick has the active class at every scroll position past the first heading', async ({ page }) => {
+    // Once the user has scrolled past the very first heading, AT LEAST
+    // ONE tick should be visually active at all times. The fallback
+    // pickActive (case 2: last-passed heading) is responsible for this.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await setStretchedContent(page);
+    const docHeight = await page.evaluate(() => document.body.scrollHeight);
+    const viewportH = await page.evaluate(() => window.innerHeight);
+    const max = Math.max(0, docHeight - viewportH);
+
+    // Step from the top of the doc downward; once an active tick
+    // appears, it must stay present through the rest of the scroll.
+    let everSawActive = false;
+    for (let y = 0; y <= max; y += 100) {
+      await page.evaluate((scrollY) => { window.scrollTo(0, scrollY); }, y);
+      await page.waitForTimeout(50);
+      const activeCount = await page.evaluate(
+        () => document.querySelectorAll('.dm-toc-outline-tick.dm-toc--active').length,
+      );
+      if (activeCount > 0) {
+        everSawActive = true;
+        // At most one tick should ever be active at a time.
+        expect(activeCount).toBe(1);
+      } else if (everSawActive) {
+        // Once we've seen an active tick, we should not lose it.
+        expect(activeCount).toBeGreaterThanOrEqual(1);
+      }
+    }
+    expect(everSawActive).toBe(true);
+  });
+
+  test('above all headings (scrollY=0 with content above first heading), the FIRST heading is the active fallback', async ({ page }) => {
+    // Inject a doc whose first heading sits BELOW a thick lead block.
+    // No heading has crossed the viewport top yet, so pickActive falls
+    // back to the first heading to keep at least one tick lit.
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await setContent(
       page,
       `<p>${'Lead text '.repeat(30)}</p><h1>First</h1><p>${'Body text '.repeat(30)}</p><h2>Second</h2>`,
     );
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => r())));
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+    await page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => { r(); })));
 
-    const activeCount = await page.evaluate(() => {
-      const ticks = document.querySelectorAll('.dm-toc--active');
-      return ticks.length;
+    const result = await page.evaluate(() => {
+      // Scope to outline ticks; the inline /toc block has its own
+      // `--active` highlight that shares the same heading id but a
+      // different selector path.
+      const active = document.querySelectorAll('.dm-toc-outline-tick.dm-toc--active');
+      const firstHeadingId = document.querySelector(
+        'app-notion-demo .ProseMirror :is(h1, h2, h3)',
+      )?.id;
+      const activeAnchor = (active[0] as HTMLElement | undefined)?.dataset['tocAnchor'];
+      return {
+        activeCount: active.length,
+        firstHeadingId,
+        activeAnchor,
+      };
     });
-    // Either 0 active ticks (the canonical "above all" state) or, in
-    // a tight viewport where the first heading is already in the
-    // upper 15%, exactly 1 - never multiple.
-    expect(activeCount).toBeLessThanOrEqual(1);
+    expect(result.activeCount).toBe(1);
+    expect(result.activeAnchor).toBe(result.firstHeadingId);
   });
 
   test('dark theme uses the active-color token for highlighted tick', async ({ page }) => {
@@ -2422,12 +3909,12 @@ test.describe('Table of Contents - Phase 5 active state', () => {
     // be one of the rendered tick ids.
     expect(storedActiveId).not.toBeNull();
     const allTickIds = await ticks.evaluateAll(
-      (nodes) => nodes.map((n) => n.getAttribute('data-toc-id')),
+      (nodes) => nodes.map((n) => n.getAttribute('data-toc-anchor')),
     );
     expect(allTickIds).toContain(storedActiveId);
     // Specifically: the FIRST heading should not be active anymore -
     // scrolling all the way down clearly passes it.
-    const firstTickId = await ticks.first().getAttribute('data-toc-id');
+    const firstTickId = await ticks.first().getAttribute('data-toc-anchor');
     expect(storedActiveId).not.toBe(firstTickId);
   });
 
@@ -2458,10 +3945,10 @@ test.describe('Table of Contents - Phase 5 active state', () => {
     await setStretchedContent(page);
     const ticks = page.locator('.dm-toc-outline .dm-toc-outline-tick');
     await ticks.nth(1).dispatchEvent('click');
-    const targetId = await ticks.nth(1).getAttribute('data-toc-id');
+    const targetId = await ticks.nth(1).getAttribute('data-toc-anchor');
 
-    // Replace the doc but KEEP the same data-toc-id on the formerly
-    // active heading. parseHTML preserves data-toc-id from the markup,
+    // Replace the doc but KEEP the same id on the formerly
+    // active heading. parseHTML preserves the id from the markup,
     // so the previous activeId still resolves to a real heading. The
     // plugin must reapply the active marker to the corresponding tick.
     await page.evaluate((id) => {
@@ -2469,14 +3956,14 @@ test.describe('Table of Contents - Phase 5 active state', () => {
         | { setContent: (h: string, emit: boolean) => void }
         | undefined;
       ed?.setContent(
-        `<h1>One</h1><h2 data-toc-id="${id}">Preserved</h2><h3>Three</h3>`,
+        `<h1>One</h1><h2 id="${id}">Preserved</h2><h3>Three</h3>`,
         false,
       );
     }, targetId);
 
-    // The tick whose data-toc-id matches the preserved heading must
+    // The tick whose data-toc-anchor matches the preserved heading must
     // be active and storage.activeId must point at it.
-    const matched = page.locator(`.dm-toc-outline-tick[data-toc-id="${targetId}"]`);
+    const matched = page.locator(`.dm-toc-outline-tick[data-toc-anchor="${targetId}"]`);
     await expect(matched).toHaveClass(/dm-toc--active/);
     const storedActiveId = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -2516,7 +4003,7 @@ test.describe('Table of Contents - Phase 5 active state', () => {
 
     // Click the FIRST tick - that becomes active, override window starts.
     await ticks.nth(0).dispatchEvent('click');
-    const firstId = await ticks.nth(0).getAttribute('data-toc-id');
+    const firstId = await ticks.nth(0).getAttribute('data-toc-anchor');
     let stored = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | { storage: Record<string, unknown> }
@@ -2547,13 +4034,13 @@ test.describe('Table of Contents - Phase 5 active state', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Table of Contents - Phase 6 hover expansion
+// Table of Contents - hover expansion
 // ────────────────────────────────────────────────────────────────────────
 // Hover (or keyboard focus) on the outline reveals an expanded card
 // with the full heading text + per-level indent. Mouse leave / blur
 // fades it back to ticks. State machine: hidden | collapsed | expanded.
 
-test.describe('Table of Contents - Phase 6 hover expansion', () => {
+test.describe('Table of Contents - hover expansion', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('default state is "collapsed"; card exists in DOM but is hidden via opacity', async ({ page }) => {
@@ -2610,8 +4097,8 @@ test.describe('Table of Contents - Phase 6 hover expansion', () => {
 
     const rows = page.locator('.dm-toc-outline-row');
     const lastIndex = (await rows.count()) - 1;
-    const targetTocId = await rows.nth(lastIndex).getAttribute('data-toc-id');
-    expect(targetTocId).toMatch(/^.{8}$/);
+    const targetTocId = await rows.nth(lastIndex).getAttribute('data-toc-anchor');
+    expect(targetTocId).toBeTruthy();
 
     const scrollYBefore = await page.evaluate(() => window.scrollY);
     await rows.nth(lastIndex).click();
@@ -2653,13 +4140,13 @@ test.describe('Table of Contents - Phase 6 hover expansion', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const ticks = page.locator('.dm-toc-outline-tick');
     await ticks.nth(1).dispatchEvent('click');
-    const targetId = await ticks.nth(1).getAttribute('data-toc-id');
+    const targetId = await ticks.nth(1).getAttribute('data-toc-anchor');
 
     // Reveal card so getComputedStyle gives a meaningful weight value.
     await page.locator('.dm-toc-outline').hover();
     await expect(page.locator('.dm-toc-outline')).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
 
-    const matchedRow = page.locator(`.dm-toc-outline-row[data-toc-id="${targetId}"]`);
+    const matchedRow = page.locator(`.dm-toc-outline-row[data-toc-anchor="${targetId}"]`);
     await expect(matchedRow).toHaveAttribute('aria-current', 'location');
     const weight = await matchedRow.evaluate((node) => window.getComputedStyle(node).fontWeight);
     // Active row uses the --dm-toc-row-active-weight token (default 600).
@@ -2747,25 +4234,25 @@ test.describe('Table of Contents - Phase 6 hover expansion', () => {
       ed?.setContent(
         '<p>Before</p>'
         + '<div data-type="details">'
-        + '<div data-details-content><h2 data-toc-id="hidden">Inside details</h2></div>'
+        + '<div data-details-content><h2 id="hidden">Inside details</h2></div>'
         + '</div>'
         + '<h2>Sibling</h2>',
         false,
       );
     });
     await page.waitForFunction(() =>
-      document.querySelector('.dm-toc-outline-row[data-toc-id="hidden"]') !== null,
+      document.querySelector('.dm-toc-outline-row[data-toc-anchor="hidden"]') !== null,
     );
 
     // Open expanded card and click the row pointing at the hidden heading.
     await page.locator('.dm-toc-outline').hover();
     await expect(page.locator('.dm-toc-outline')).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
-    await page.locator('.dm-toc-outline-row[data-toc-id="hidden"]').click();
+    await page.locator('.dm-toc-outline-row[data-toc-anchor="hidden"]').click();
 
     // The heading is now visible (details forced open by the
     // scrollToHeading helper).
     const visible = await page.evaluate(() => {
-      const target = document.querySelector<HTMLElement>('[data-toc-id="hidden"]');
+      const target = document.querySelector<HTMLElement>('[id="hidden"]');
       if (!target) return false;
       const rect = target.getBoundingClientRect();
       return rect.height > 0 && rect.width > 0;
@@ -2791,14 +4278,14 @@ test.describe('Table of Contents - Phase 6 hover expansion', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// Table of Contents - Phase 7 inline /toc block
+// Table of Contents - inline /toc block
 // ────────────────────────────────────────────────────────────────────────
 // User inserts a `tableOfContents` block via the slash menu. The
 // NodeView renders a `<ul>` of heading shortcuts that updates as the
 // document changes; clicking a row navigates the same way the
 // floating outline does.
 
-test.describe('Table of Contents - Phase 7 inline block', () => {
+test.describe('Table of Contents - inline block', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('typing /toc in an empty paragraph and selecting the item inserts the block', async ({ page }) => {
@@ -2885,7 +4372,7 @@ test.describe('Table of Contents - Phase 7 inline block', () => {
     );
 
     const links = page.locator('.dm-toc-block-link');
-    const targetTocId = await links.last().getAttribute('data-toc-id');
+    const targetTocId = await links.last().getAttribute('data-toc-anchor');
     const scrollYBefore = await page.evaluate(() => window.scrollY);
     await links.last().click();
     await page.evaluate(
@@ -2931,9 +4418,9 @@ test.describe('Table of Contents - Phase 7 inline block', () => {
     // marker on its matching row.
     const ticks = page.locator('.dm-toc-outline-tick');
     await ticks.nth(1).dispatchEvent('click');
-    const targetId = await ticks.nth(1).getAttribute('data-toc-id');
+    const targetId = await ticks.nth(1).getAttribute('data-toc-anchor');
 
-    const blockRow = page.locator(`.dm-toc-block-link[data-toc-id="${targetId}"]`);
+    const blockRow = page.locator(`.dm-toc-block-link[data-toc-anchor="${targetId}"]`);
     await expect(blockRow).toHaveAttribute('aria-current', 'location');
     await expect(blockRow).toHaveClass(/dm-toc-block-link--active/);
   });
@@ -3040,7 +4527,7 @@ test.describe('Table of Contents - Phase 7 inline block', () => {
     // Programmatic .click() (which Enter/Space synthesize on a
     // focused button) fires the delegated handler and triggers the
     // navigation, just like a real keyboard activation.
-    const targetTocId = await links.nth(0).getAttribute('data-toc-id');
+    const targetTocId = await links.nth(0).getAttribute('data-toc-anchor');
     await page.evaluate(() => {
       const list = document.querySelectorAll<HTMLButtonElement>('.dm-toc-block-link');
       list[0]?.click();
@@ -3125,19 +4612,19 @@ test.describe('Table of Contents - Phase 7 inline block', () => {
       ed?.setContent(
         '<div data-type="table-of-contents"></div>'
         + '<p>Before</p>'
-        + '<div data-type="details"><div data-details-content><h2 data-toc-id="hidden">Inside</h2></div></div>',
+        + '<div data-type="details"><div data-details-content><h2 id="hidden">Inside</h2></div></div>',
         false,
       );
     });
     await page.waitForFunction(() =>
-      document.querySelector('.dm-toc-block-link[data-toc-id="hidden"]') !== null,
+      document.querySelector('.dm-toc-block-link[data-toc-anchor="hidden"]') !== null,
     );
 
-    await page.locator('.dm-toc-block-link[data-toc-id="hidden"]').click();
+    await page.locator('.dm-toc-block-link[data-toc-anchor="hidden"]').click();
     // The scrollToHeading helper opens any closed <details> ancestor
     // before scrolling - the heading must now be measurable.
     const visible = await page.evaluate(() => {
-      const target = document.querySelector<HTMLElement>('[data-toc-id="hidden"]');
+      const target = document.querySelector<HTMLElement>('[id="hidden"]');
       if (!target) return false;
       const rect = target.getBoundingClientRect();
       return rect.height > 0 && rect.width > 0;
@@ -3183,14 +4670,13 @@ test.describe('Table of Contents - Phase 7 inline block', () => {
 });
 
 // =============================================================================
-// Table of Contents - Phase 8 polish
+// Table of Contents - polish
 // =============================================================================
-// Phase 8 is a polish pass over Phases 4-7: a11y focus rings on ticks,
-// motion polish (card slide offset), print/forced-colors guards, and a
-// cross-cutting dark-mode walkthrough that exercises the outline + the
-// inline block in one flow.
+// A11y focus rings on ticks, motion polish (card slide offset),
+// print/forced-colors guards, and a cross-cutting dark-mode walkthrough
+// that exercises the outline + the inline block in one flow.
 
-test.describe('Table of Contents - Phase 8 polish', () => {
+test.describe('Table of Contents - polish', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('keyboard focus on a tick paints a visible focus ring (a11y)', async ({ page }) => {
@@ -3198,8 +4684,8 @@ test.describe('Table of Contents - Phase 8 polish', () => {
     // triggered by programmatic `.focus()` (which counts as
     // "interaction" depending on the prior input modality stack).
     // Instead, verify the CSS rule itself is authored correctly by
-    // walking stylesheet rules. This is robust across CI and proves
-    // the Phase 8 a11y polish landed in the published CSS.
+    // walking stylesheet rules. Robust across CI and proves the
+    // a11y polish landed in the published CSS.
     const ringRule = await page.evaluate(() => {
       for (const sheet of Array.from(document.styleSheets)) {
         let rules: CSSRuleList;
@@ -3229,9 +4715,8 @@ test.describe('Table of Contents - Phase 8 polish', () => {
 
   test('card slide offset bumped to 8px (more visible motion)', async ({ page }) => {
     // The collapsed state sets `transform: translateY(-50%) translateX(<offset>)`.
-    // Phase 8 changed the default `--dm-toc-card-offset` from 4px to 8px
-    // so the slide-in is clearly intentional motion at 60fps. Read the
-    // resolved CSS variable.
+    // `--dm-toc-card-offset` defaults to 8px so the slide-in is clearly
+    // intentional motion at 60fps. Read the resolved CSS variable.
     const offset = await page.evaluate(() => {
       const root = document.documentElement;
       return window.getComputedStyle(root).getPropertyValue('--dm-toc-card-offset').trim();
@@ -3353,10 +4838,10 @@ test.describe('Table of Contents - Phase 8 polish', () => {
 });
 
 // =============================================================================
-// Table of Contents - Phase 9 robustness
+// Table of Contents - robustness
 // =============================================================================
-// Phase 9 covers the lifecycle / stress / leak corners that the
-// feature-driven Phase 4-8 tests don't reach by construction:
+// Lifecycle / stress / leak corners that the feature-driven tests don't
+// reach by construction:
 //   - multi-cycle HMR (5 toggle rounds) - catches forgotten destroy
 //     hooks and shared module-level DOM/state that survives one
 //     cycle but fails on the second.
@@ -3372,7 +4857,7 @@ test.describe('Table of Contents - Phase 8 polish', () => {
 //   - rapid heading toggling stress: 10 rapid level changes don't
 //     desync the outline from the doc.
 
-test.describe('Table of Contents - Phase 9 robustness', () => {
+test.describe('Table of Contents - robustness', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('5 mode-toggle cycles leave exactly one outline + zero orphan inline blocks + clean subscriber registry', async ({ page }) => {
@@ -3514,7 +4999,7 @@ test.describe('Table of Contents - Phase 9 robustness', () => {
     // without flaking on a slow runner.
     expect(elapsed).toBeLessThan(2000);
 
-    // Sanity: every tick has a level + tocId; matches the doc.
+    // Sanity: every tick has a level + anchor id; matches the doc.
     const ticks = await page.locator('.dm-toc-outline-tick').count();
     const links = await page.locator('.dm-toc-block-link').count();
     expect(ticks).toBe(50);
@@ -3592,5 +5077,188 @@ test.describe('Table of Contents - Phase 9 robustness', () => {
       return toc?.content.length ?? -1;
     });
     expect(storageCount).toBe(10);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// Bubble menu text-align dropdown (Notion mode)
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('Bubble menu - text-align dropdown', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  async function selectAllText(page: Page): Promise<void> {
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { commands: { selectAll: () => boolean; focus: () => boolean } }
+        | undefined;
+      ed?.commands.focus();
+      ed?.commands.selectAll();
+    });
+    await page.waitForTimeout(50);
+  }
+
+  test('textAlign dropdown trigger shows in the bubble menu on text selection', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    await selectAllText(page);
+    const trigger = page.locator('.dm-bubble-menu [data-dropdown="textAlign"]');
+    await expect(trigger).toBeVisible();
+  });
+
+  test('clicking the trigger opens the dropdown panel with the four alignment options', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    await selectAllText(page);
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    const panel = page.locator('[data-dropdown-panel="textAlign"]');
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('button[aria-label="Align Left"]')).toBeVisible();
+    await expect(panel.locator('button[aria-label="Align Center"]')).toBeVisible();
+    await expect(panel.locator('button[aria-label="Align Right"]')).toBeVisible();
+    await expect(panel.locator('button[aria-label="Justify"]')).toBeVisible();
+  });
+
+  test('picking Center applies text-align: center to the paragraph and closes the dropdown', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    await selectAllText(page);
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    await page.locator('[data-dropdown-panel="textAlign"] button[aria-label="Align Center"]').click();
+    await page.waitForTimeout(80);
+    // Panel closes
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toHaveCount(0);
+    // Paragraph has textAlign attr
+    const blocks = await getBlocks(page);
+    expect(blocks[0]?.attrs['textAlign']).toBe('center');
+  });
+
+  test('panel lives inside .dm-bubble-menu so it inherits the bubble-menu button tokens', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    await selectAllText(page);
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    await page.waitForTimeout(40);
+    const insideBubble = await page.evaluate(() => {
+      const bubble = document.querySelector('.dm-bubble-menu');
+      const panel = document.querySelector('[data-dropdown-panel="textAlign"]');
+      return !!(bubble && panel && bubble.contains(panel));
+    });
+    expect(insideBubble).toBe(true);
+  });
+
+  test('default state highlights "Align Left" as active (paragraph default textAlign)', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    // Use a within-paragraph selection so isActive('paragraph', ...) sees the node.
+    await page.evaluate(() => {
+      const el = document.querySelector('app-notion-demo .ProseMirror p');
+      if (!el?.firstChild) return;
+      const r = document.createRange();
+      r.setStart(el.firstChild, 0);
+      r.setEnd(el.firstChild, 5);
+      const s = window.getSelection();
+      s?.removeAllRanges();
+      s?.addRange(r);
+      (document.querySelector('app-notion-demo .ProseMirror') as HTMLElement)?.focus();
+    });
+    await page.waitForTimeout(80);
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    await page.waitForTimeout(60);
+    const left = page.locator('[data-dropdown-panel="textAlign"] button[aria-label="Align Left"]');
+    await expect(left).toHaveClass(/dm-toolbar-dropdown-item--active/);
+  });
+
+  test('clicking outside the panel closes it', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p><p>Other paragraph</p>');
+    await selectAllText(page);
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toBeVisible();
+    // Click somewhere clearly outside the bubble menu + panel
+    await page.mouse.click(5, 5);
+    await page.waitForTimeout(80);
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toHaveCount(0);
+  });
+
+  test('clicking the trigger a second time closes the panel (toggle)', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    await selectAllText(page);
+    const trigger = page.locator('.dm-bubble-menu [data-dropdown="textAlign"]');
+    await trigger.click();
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toBeVisible();
+    await trigger.click();
+    await page.waitForTimeout(60);
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toHaveCount(0);
+  });
+
+  test('Escape closes the panel', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    await selectAllText(page);
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(60);
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toHaveCount(0);
+  });
+
+  test('after applying an alignment, reopening the panel marks that option as active', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+
+    // Select a non-empty range WITHIN the paragraph (selectAll resolves at
+    // doc level which makes editor.isActive('paragraph', ...) return false).
+    async function selectInParagraph(): Promise<void> {
+      await page.evaluate(() => {
+        const el = document.querySelector('app-notion-demo .ProseMirror p');
+        if (!el || !el.firstChild) return;
+        const r = document.createRange();
+        r.setStart(el.firstChild, 0);
+        r.setEnd(el.firstChild, 5); // "Hello"
+        const s = window.getSelection();
+        s?.removeAllRanges();
+        s?.addRange(r);
+        const editor = document.querySelector('app-notion-demo .ProseMirror');
+        if (editor instanceof HTMLElement) editor.focus();
+      });
+      await page.waitForTimeout(80);
+    }
+
+    await selectInParagraph();
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    await page.locator('[data-dropdown-panel="textAlign"] button[aria-label="Align Right"]').click();
+    await page.waitForTimeout(100);
+
+    // Sanity: paragraph really has textAlign=right
+    const blocks = await getBlocks(page);
+    expect(blocks[0]?.attrs['textAlign']).toBe('right');
+
+    // Re-open the dropdown with selection still inside the paragraph.
+    await selectInParagraph();
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    await page.waitForTimeout(80);
+    const right = page.locator('[data-dropdown-panel="textAlign"] button[aria-label="Align Right"]');
+    await expect(right).toHaveClass(/dm-toolbar-dropdown-item--active/);
+  });
+
+  test('opening the textAlign dropdown closes an already-open A picker', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    await selectAllText(page);
+    // Open the A picker first
+    await page.locator('.dm-bubble-menu .dm-ncp-trigger').click();
+    await expect(page.locator('.dm-notion-color-picker')).toBeVisible();
+    // Open the textAlign dropdown
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    await page.waitForTimeout(80);
+    // A picker should have closed (cooperative dm:dismiss-overlays event)
+    await expect(page.locator('.dm-notion-color-picker')).toHaveCount(0);
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toBeVisible();
+  });
+
+  test('opening the A picker closes the textAlign dropdown', async ({ page }) => {
+    await setContent(page, '<p>Hello world</p>');
+    await selectAllText(page);
+    // Open textAlign first
+    await page.locator('.dm-bubble-menu [data-dropdown="textAlign"]').click();
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toBeVisible();
+    // Open A picker
+    await page.locator('.dm-bubble-menu .dm-ncp-trigger').click();
+    await page.waitForTimeout(80);
+    // textAlign dropdown should have closed
+    await expect(page.locator('[data-dropdown-panel="textAlign"]')).toHaveCount(0);
+    await expect(page.locator('.dm-notion-color-picker')).toBeVisible();
   });
 });

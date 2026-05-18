@@ -690,6 +690,56 @@ describe('BubbleMenu', () => {
       outside.remove();
     });
 
+    it('mousedown on an [data-dm-editor-ui] overlay does not hide menu', () => {
+      const element = document.createElement('div');
+      element.setAttribute('data-show', '');
+      editor = new Editor({
+        element: host,
+        extensions: [
+          Document, Text, Paragraph,
+          BubbleMenu.configure({ element, shouldShow: () => true }),
+        ],
+        content: '<p>Hello</p>',
+      });
+
+      // Sibling overlay that opts into editor-UI semantics (mirrors how
+      // NotionColorPicker mounts itself when reparented into `.dm-editor`).
+      const overlay = document.createElement('div');
+      overlay.setAttribute('data-dm-editor-ui', '');
+      const inner = document.createElement('button');
+      overlay.appendChild(inner);
+      document.body.appendChild(overlay);
+
+      element.setAttribute('data-show', '');
+      const event = new MouseEvent('mousedown', { bubbles: true });
+      inner.dispatchEvent(event);
+
+      expect(element.hasAttribute('data-show')).toBe(true);
+      overlay.remove();
+    });
+
+    it('mousedown on a non-overlay element outside both surfaces hides menu', () => {
+      const element = document.createElement('div');
+      element.setAttribute('data-show', '');
+      editor = new Editor({
+        element: host,
+        extensions: [
+          Document, Text, Paragraph,
+          BubbleMenu.configure({ element, shouldShow: () => true }),
+        ],
+        content: '<p>Hello</p>',
+      });
+
+      const outside = document.createElement('div');
+      document.body.appendChild(outside);
+
+      element.setAttribute('data-show', '');
+      outside.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+
+      expect(element.hasAttribute('data-show')).toBe(false);
+      outside.remove();
+    });
+
     it('mousedown on editor (primary button) tracks drag', () => {
       const element = document.createElement('div');
       editor = new Editor({

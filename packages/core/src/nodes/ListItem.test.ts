@@ -345,16 +345,16 @@ describe('ListItem', () => {
       } as any);
 
       const result = (shortcuts?.['Enter'] as any)?.();
-      // splitListItem succeeds for empty item — lifts into paragraph at top level
+      // splitListItem succeeds for empty item - lifts into paragraph at top level
       expect(typeof result).toBe('boolean');
     });
   });
 
   // ────────────────────────────────────────────────────────────────────
-  // Plan 4 children-zone Enter / Backspace handlers
+  // children-zone Enter / Backspace handlers
   // ────────────────────────────────────────────────────────────────────
 
-  describe('children-zone Enter (Plan 4 Phase 5+8)', () => {
+  describe('children-zone Enter', () => {
     let editor: Editor | undefined;
     afterEach(() => {
       if (editor && !editor.isDestroyed) editor.destroy();
@@ -395,7 +395,7 @@ describe('ListItem', () => {
       ed.view.dispatch(ed.state.tr.setSelection(TextSelection.create(ed.state.doc, pos + size - 1)));
     }
 
-    it('Phase 5 - empty children-zone p + Enter inserts another empty p as next sibling INSIDE same li', () => {
+    it('empty children-zone p + Enter inserts another empty p as next sibling INSIDE same li', () => {
       editor = new Editor({
         extensions: [Document, Text, Paragraph, BulletList, ListItem],
         content: '<ul><li><p>Label</p><p></p></li></ul>',
@@ -411,7 +411,7 @@ describe('ListItem', () => {
       expect(li?.childCount).toBe(3);
     });
 
-    it('Phase 8 - non-empty children-zone p + Enter at end splits in place INSIDE same li', () => {
+    it('non-empty children-zone p + Enter at end splits in place INSIDE same li', () => {
       editor = new Editor({
         extensions: [Document, Text, Paragraph, BulletList, ListItem],
         content: '<ul><li><p>Label</p><p>Note</p></li></ul>',
@@ -428,7 +428,7 @@ describe('ListItem', () => {
       expect(li?.child(2).textContent).toBe('');
     });
 
-    it('Phase 8 - non-empty children-zone p + Enter at MID splits text in place', () => {
+    it('non-empty children-zone p + Enter at MID splits text in place', () => {
       editor = new Editor({
         extensions: [Document, Text, Paragraph, BulletList, ListItem],
         content: '<ul><li><p>Label</p><p>HelloWorld</p></li></ul>',
@@ -486,7 +486,7 @@ describe('ListItem', () => {
     });
   });
 
-  describe('Backspace exit (Plan 4 Phase 6)', () => {
+  describe('Backspace exit', () => {
     let editor: Editor | undefined;
     afterEach(() => {
       if (editor && !editor.isDestroyed) editor.destroy();

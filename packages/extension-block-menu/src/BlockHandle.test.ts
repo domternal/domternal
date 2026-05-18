@@ -7,7 +7,8 @@ import {
   Editor,
 } from '@domternal/core';
 import { BlockHandle, blockHandlePluginKey, resolveNestedConfig } from './BlockHandle.js';
-import { DEFAULT_DRAG_HANDLE_RULES } from './helpers/defaultRules.js';
+import { DEFAULT_BLOCK_MATCHERS } from './helpers/defaultMatchers.js';
+import type { BlockMatcher } from './helpers/blockMatcher.js';
 
 const extensions = [Document, Text, Paragraph, Heading, BlockHandle];
 
@@ -87,7 +88,7 @@ describe('BlockHandle configuration', () => {
     expect((configured.options.nested as { promoteOnEdge: string }).promoteOnEdge).toBe('both');
   });
 
-  it('nested config accepts custom EdgeDetectionConfig partial', () => {
+  it('nested config accepts custom GutterBiasConfig partial', () => {
     const configured = BlockHandle.configure({
       nested: { promoteOnEdge: { threshold: 24, strength: 250 } },
     });
@@ -95,27 +96,27 @@ describe('BlockHandle configuration', () => {
       .toEqual({ threshold: 24, strength: 250 });
   });
 
-  it('nested config accepts allowedContainers + custom rules + defaultRules toggle', () => {
+  it('nested config accepts allowedContainers + custom matchers + defaultMatchers toggle', () => {
     // (extension stage - `resolveNestedConfig` resolution covered below)
-    const customRule = { id: 'custom', evaluate: (): number => 0 };
+    const customMatcher: BlockMatcher = { name: 'custom', test: () => 'allow' };
     const configured = BlockHandle.configure({
       nested: {
         allowedNodes: ['paragraph'],
         allowedContainers: ['blockquote'],
-        rules: [customRule],
-        defaultRules: false,
+        matchers: [customMatcher],
+        defaultMatchers: false,
       },
     });
     const nested = configured.options.nested as {
       allowedNodes: string[];
       allowedContainers: string[];
-      rules: unknown[];
-      defaultRules: boolean;
+      matchers: unknown[];
+      defaultMatchers: boolean;
     };
     expect(nested.allowedNodes).toEqual(['paragraph']);
     expect(nested.allowedContainers).toEqual(['blockquote']);
-    expect(nested.rules).toHaveLength(1);
-    expect(nested.defaultRules).toBe(false);
+    expect(nested.matchers).toHaveLength(1);
+    expect(nested.defaultMatchers).toBe(false);
   });
 });
 
@@ -125,27 +126,27 @@ describe('resolveNestedConfig', () => {
     expect(resolveNestedConfig(undefined).allowedNodes).toEqual([]);
   });
 
-  it('true → defaults + Notion mode (no edgeConfig)', () => {
+  it('true → defaults + deepest-match mode (no gutterBias)', () => {
     const r = resolveNestedConfig(true);
     expect(r.allowedNodes).toEqual(['listItem', 'taskItem']);
-    expect(r.edgeConfig).toBeNull();
-    expect(r.rules).toHaveLength(DEFAULT_DRAG_HANDLE_RULES.length);
+    expect(r.gutterBias).toBeNull();
+    expect(r.matchers).toHaveLength(DEFAULT_BLOCK_MATCHERS.length);
   });
 
-  it('object with promoteOnEdge → Tiptap mode (edgeConfig populated)', () => {
+  it('object with promoteOnEdge → gutter-bias mode (config populated)', () => {
     const r = resolveNestedConfig({ promoteOnEdge: true });
-    expect(r.edgeConfig).toEqual({ edges: ['left', 'top'], threshold: 12, strength: 500 });
+    expect(r.gutterBias).toEqual({ edges: ['left', 'top'], threshold: 12, strength: 500 });
   });
 
   it('object with promoteOnEdge: "right" → mirrors edges', () => {
     const r = resolveNestedConfig({ promoteOnEdge: 'right' });
-    expect(r.edgeConfig?.edges).toEqual(['right', 'top']);
+    expect(r.gutterBias?.edges).toEqual(['right', 'top']);
   });
 
-  it('object with custom rules + defaultRules:false → only user rules', () => {
-    const customRule = { id: 'custom', evaluate: (): number => 0 };
-    const r = resolveNestedConfig({ rules: [customRule], defaultRules: false });
-    expect(r.rules).toEqual([customRule]);
+  it('object with custom matchers + defaultMatchers:false → only user matchers', () => {
+    const customMatcher: BlockMatcher = { name: 'custom', test: () => 'allow' };
+    const r = resolveNestedConfig({ matchers: [customMatcher], defaultMatchers: false });
+    expect(r.matchers).toEqual([customMatcher]);
   });
 
   it('object with allowedContainers passes through', () => {
@@ -156,8 +157,8 @@ describe('resolveNestedConfig', () => {
   it('explicitly empty allowedNodes → top-level mode', () => {
     const r = resolveNestedConfig({ allowedNodes: [] });
     expect(r.allowedNodes).toEqual([]);
-    expect(r.edgeConfig).toBeNull();
-    expect(r.rules).toEqual([]);
+    expect(r.gutterBias).toBeNull();
+    expect(r.matchers).toEqual([]);
   });
 });
 
@@ -266,6 +267,36 @@ describe('BlockHandle DOM integration', () => {
     makeEditor();
     const handle = host?.querySelector('.dm-block-handle');
     expect(handle?.hasAttribute('data-show')).toBe(false);
+  });
+
+  it('keeps data-show when dm:dismiss-overlays fires AFTER data-block-context-menu-open is set', () => {
+    // BlockContextMenu's `open()` sets `data-block-context-menu-open`
+    // on the editor host BEFORE dispatching `dm:dismiss-overlays`. The
+    // handle's dismiss listener checks this attribute and skips its
+    // own hide so the drag button stays put as the menu's anchor.
+    makeEditor();
+    const handle = host?.querySelector('.dm-block-handle') as HTMLElement | null;
+    if (!handle) throw new Error('handle missing');
+    // Force the handle visible (would normally happen via hover).
+    handle.setAttribute('data-show', '');
+
+    // Simulate the new open() ordering.
+    host?.setAttribute('data-block-context-menu-open', '');
+    host?.dispatchEvent(new Event('dm:dismiss-overlays'));
+    expect(handle.hasAttribute('data-show')).toBe(true);
+  });
+
+  it('hides on dm:dismiss-overlays when the context-menu signal is NOT set', () => {
+    // Regression guard: without the new attribute, the legacy behaviour
+    // (hide on dismiss) must continue to apply for unrelated dismiss
+    // dispatches (BubbleMenu / SlashCommand etc.).
+    makeEditor();
+    const handle = host?.querySelector('.dm-block-handle') as HTMLElement | null;
+    if (!handle) throw new Error('handle missing');
+    handle.setAttribute('data-show', '');
+
+    host?.dispatchEvent(new Event('dm:dismiss-overlays'));
+    expect(handle.hasAttribute('data-show')).toBe(false);
   });
 });
 
@@ -620,7 +651,7 @@ describe('BlockHandle event handlers', () => {
 // These tests stub `nodeDOM` and `posAtCoords` so we can synthesise a
 // mousemove that lands inside a known block's vertical range and verify
 // the plugin state's `hoveredPos` is set. This exercises the bulk of the
-// resolution logic that `findBestDragTarget` tests can't reach (top-level
+// resolution logic that `resolveDragTarget` tests can't reach (top-level
 // fallback walker + closest-by-Y inter-block-gap behaviour).
 
 describe('BlockHandle hover resolution', () => {

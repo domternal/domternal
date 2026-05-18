@@ -388,5 +388,84 @@ describe('UniqueID', () => {
 
       vi.useRealTimers();
     });
+
+    // ────────────────────────────────────────────────────────────────
+    // Collision rename in setContent / appendTransaction path
+    // (covers the path NOT served by transformPasted: when duplicate
+    // ids arrive via initial setContent or via PM transactions that
+    // copy a node with its id - e.g. duplicateBlock helpers that
+    // spread attrs without overriding the id field.)
+    // ────────────────────────────────────────────────────────────────
+
+    it('setContent with duplicate ids: first wins, second is renamed unique', async () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Heading, UniqueID],
+        content: '<h1 id="duplicate">First</h1><h2 id="duplicate">Second</h2>',
+      });
+
+      // Defer past the setTimeout(0) in UniqueID's view().init so the
+      // initial assignMissingIDs pass runs and processes both nodes.
+      await new Promise<void>((r) => setTimeout(r, 0));
+
+      const doc = editor.state.doc;
+      const firstId = doc.child(0).attrs['id'] as string;
+      const secondId = doc.child(1).attrs['id'] as string;
+
+      // First-wins rule: the first occurrence keeps the user-supplied id.
+      expect(firstId).toBe('duplicate');
+      // Second one gets a fresh id, NOT the duplicate.
+      expect(secondId).not.toBe('duplicate');
+      expect(secondId.length).toBeGreaterThan(0);
+      // Both ids are unique inside the doc.
+      expect(firstId).not.toBe(secondId);
+    });
+
+    it('three nodes with the same id: first keeps it, the other two get fresh distinct ids', async () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Heading, UniqueID],
+        content:
+          '<h1 id="x">One</h1><h2 id="x">Two</h2><h3 id="x">Three</h3>',
+      });
+      await new Promise<void>((r) => setTimeout(r, 0));
+
+      const ids = [
+        editor.state.doc.child(0).attrs['id'] as string,
+        editor.state.doc.child(1).attrs['id'] as string,
+        editor.state.doc.child(2).attrs['id'] as string,
+      ];
+
+      expect(ids[0]).toBe('x');
+      expect(ids[1]).not.toBe('x');
+      expect(ids[2]).not.toBe('x');
+      // All three ids end up unique.
+      expect(new Set(ids).size).toBe(3);
+    });
+
+    it('appendTransaction renames duplicate id created mid-doc (not paste path)', async () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Heading, UniqueID],
+        content: '<h1 id="anchor">Original</h1>',
+      });
+      await new Promise<void>((r) => setTimeout(r, 0));
+
+      // Insert a second heading carrying the SAME id at the end of
+      // the doc. This is the path duplicateBlock would take (spread
+      // attrs onto a fresh node). It is NOT a paste; transformPasted
+      // does not run. assignMissingIDs MUST detect the collision and
+      // rename the new one.
+      const headingType = editor.state.schema.nodes['heading']!;
+      const newH = headingType.create({ level: 2, id: 'anchor' }, editor.state.schema.text('Copy'));
+      editor.view.dispatch(editor.state.tr.insert(editor.state.doc.content.size, newH));
+
+      // Wait for appendTransaction to run + schedule its setNodeMarkup.
+      await new Promise<void>((r) => setTimeout(r, 0));
+
+      const idA = editor.state.doc.child(0).attrs['id'] as string;
+      const idB = editor.state.doc.child(1).attrs['id'] as string;
+      expect(idA).toBe('anchor');
+      expect(idB).not.toBe('anchor');
+      expect(idB.length).toBeGreaterThan(0);
+      expect(idA).not.toBe(idB);
+    });
   });
 });

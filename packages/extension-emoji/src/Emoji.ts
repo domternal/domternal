@@ -1,28 +1,6 @@
 /**
- * Emoji Node Extension
- *
- * Inline atom node for emoji with shortcode input rules, emoticon support,
- * and a headless suggestion plugin for autocomplete pickers.
- *
- * @example
- * ```ts
- * import { Emoji, emojis } from '@domternal/extension-emoji';
- *
- * const editor = new Editor({
- *   extensions: [
- *     Emoji.configure({
- *       emojis,
- *       enableEmoticons: true,
- *     }),
- *   ],
- * });
- *
- * // Insert emoji by name
- * editor.commands.insertEmoji('smile');
- *
- * // Programmatically open suggestion picker
- * editor.commands.suggestEmoji();
- * ```
+ * Inline atom emoji with shortcode input rules, emoticon support, and a
+ * headless suggestion plugin for autocomplete pickers.
  */
 import { Node } from '@domternal/core';
 import type { CommandSpec, ToolbarItem } from '@domternal/core';
@@ -260,7 +238,7 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
             dispatch(tr);
             this.storage.addFrequentlyUsed(name);
           } else if (!item) {
-            // Dry-run: unknown name but context is valid — report as capable
+            // Dry-run: unknown name but context is valid - report as capable
             return true;
           }
 
@@ -289,7 +267,7 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
     const rules: InputRule[] = [];
     const { emojis: emojiData, plainText, enableEmoticons } = this.options;
 
-    // Build maps eagerly — addInputRules() runs before onCreate(),
+    // Build maps eagerly - addInputRules() runs before onCreate(),
     // so we must build and store maps now for the input rule callbacks.
     this.storage._shortcodeMap ??= buildShortcodeMap(emojiData);
     this.storage._nameMap ??= buildNameMap(emojiData);

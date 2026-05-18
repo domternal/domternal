@@ -49,10 +49,10 @@ async function selectText(page: Page, startOffset: number, endOffset: number, se
 }
 
 // =============================================================================
-// Link popover — toggle & expanded state
+// Link popover - toggle & expanded state
 // =============================================================================
 
-test.describe('Link popover — toggle & aria-expanded', () => {
+test.describe('Link popover - toggle & aria-expanded', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -144,10 +144,10 @@ test.describe('Link popover — toggle & aria-expanded', () => {
 });
 
 // =============================================================================
-// Image popover — toggle & expanded state
+// Image popover - toggle & expanded state
 // =============================================================================
 
-test.describe('Image popover — toggle & aria-expanded', () => {
+test.describe('Image popover - toggle & aria-expanded', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -228,10 +228,10 @@ test.describe('Image popover — toggle & aria-expanded', () => {
 });
 
 // =============================================================================
-// Emoji picker — toggle
+// Emoji picker - toggle
 // =============================================================================
 
-test.describe('Emoji picker — toggle', () => {
+test.describe('Emoji picker - toggle', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -279,10 +279,10 @@ test.describe('Emoji picker — toggle', () => {
 });
 
 // =============================================================================
-// Highlight dropdown — toggle & expanded state
+// Highlight dropdown - toggle & expanded state
 // =============================================================================
 
-test.describe('Highlight dropdown — toggle & aria-expanded', () => {
+test.describe('Highlight dropdown - toggle & aria-expanded', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

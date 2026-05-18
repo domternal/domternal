@@ -299,8 +299,8 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
     }
 
     // Mixed selection: some blocks in lists, some not.
-    // Flatten existing lists to their child blocks first (like tiptap's clearNodes),
-    // then wrap everything in the target list.
+    // Flatten existing lists to their child blocks first, then wrap
+    // everything in the target list.
     if (!dispatch) return true;
 
     // Collect unique list positions

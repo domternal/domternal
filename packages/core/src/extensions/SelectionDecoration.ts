@@ -6,7 +6,7 @@
  * clicks outside the editor (approach A - same as Google Docs / Notion).
  *
  * Toolbar and bubble-menu buttons call `event.preventDefault()` on
- * `mousedown`, so they never trigger blur — the selection stays intact
+ * `mousedown`, so they never trigger blur - the selection stays intact
  * while the user interacts with editor UI.
  */
 import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';

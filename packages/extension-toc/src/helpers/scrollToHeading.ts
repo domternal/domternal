@@ -1,15 +1,23 @@
 /**
- * scrollToHeading - smooth-scroll to a heading by its tocId.
+ * scrollToHeading - smooth-scroll to a heading by its stable id.
  *
  * Pure DOM operation, no PM transaction. Pulls the heading element
- * out of the editor view's DOM, opens any collapsed `<details>`
- * ancestor along the way, scrolls into view, and updates the URL hash
- * via `history.replaceState`. Used directly by `editor.commands.scrollToHeading`,
- * by Phase 4's floating outline click handler, by Phase 7's inline
- * /toc block links, and by the initial-load hash navigation.
+ * out of the editor view's DOM (via the configured `attrName`, default
+ * `'id'`), opens any collapsed `<details>` ancestor along the way,
+ * scrolls into view, and updates the URL hash via `history.replaceState`.
+ *
+ * Used directly by `editor.commands.scrollToHeading`, by the floating
+ * outline click handler, by the inline /toc block links, and by the
+ * initial-load hash navigation.
+ *
+ * Native browser hash navigation (`<a href="#id">`) handles the same
+ * scroll automatically when the heading uses native HTML `id`. This
+ * helper still exists for: open-collapsed-`<details>` ancestors (browser
+ * doesn't), programmatic API (`editor.commands.scrollToHeading(id)`),
+ * and `prefers-reduced-motion` respect with override.
  *
  * Key contracts:
- *   - DOM lookup is scoped to `view.dom` (multi-editor safe; same tocId
+ *   - DOM lookup is scoped to `view.dom` (multi-editor safe; same id
  *     in two editors does not cross-fire).
  *   - On a missing ID, returns false and DOES NOT touch the URL hash -
  *     a stray fragment in the URL stays as the user wrote it.
@@ -32,6 +40,14 @@ export interface ScrollToHeadingOptions {
    * @default true
    */
   updateHash?: boolean;
+  /**
+   * Attribute name on the target heading element that holds the id we
+   * are scrolling to. Defaults to `'id'`, matching UniqueID's default
+   * `attributeName`. Override only when the consumer customizes
+   * `UniqueID.configure({ attributeName })`.
+   * @default 'id'
+   */
+  attrName?: string;
 }
 
 /**
@@ -65,9 +81,10 @@ function openCollapsedDetailsAncestors(node: HTMLElement, boundary: HTMLElement)
 }
 
 /**
- * Smooth-scroll the view to the heading whose `data-toc-id` matches `id`.
- * Returns `true` if the heading was found (and the scroll/hash side
- * effects ran), `false` if the ID is unknown to this editor.
+ * Smooth-scroll the view to the heading whose `attrName` attribute
+ * matches `id`. Returns `true` if the heading was found (and the
+ * scroll/hash side effects ran), `false` if the ID is unknown to this
+ * editor.
  */
 export function scrollToHeading(
   view: EditorView,
@@ -76,11 +93,14 @@ export function scrollToHeading(
 ): boolean {
   if (!id) return false;
 
+  const attrName = options.attrName ?? 'id';
+
   // CSS.escape protects against IDs containing CSS special characters.
-  // Our default generator never produces them (8-char base36), but a
-  // consumer's `generateId` override might (e.g. slugify producing dots
-  // or colons), so escape unconditionally.
-  const selector = `[data-toc-id="${typeof CSS !== 'undefined' ? CSS.escape(id) : id}"]`;
+  // UUID-style ids (UniqueID's default) are safe, but a consumer-supplied
+  // `generateID` override (e.g. slugify) might produce dots, colons, or
+  // other selector-breaking characters - escape unconditionally.
+  const escaped = typeof CSS !== 'undefined' ? CSS.escape(id) : id;
+  const selector = `[${attrName}="${escaped}"]`;
   const target = view.dom.querySelector<HTMLElement>(selector);
   if (!target) return false;
 
@@ -91,9 +111,10 @@ export function scrollToHeading(
   target.scrollIntoView({ behavior, block: 'start' });
 
   if (options.updateHash !== false && typeof history !== 'undefined') {
-    // Encode the id for the URL fragment. Default IDs are URL-safe base36,
-    // but a consumer-supplied `generateId` (e.g. slugify) may produce
-    // characters that need encoding (`#`, `&`, spaces, non-ASCII).
+    // Encode the id for the URL fragment. Default IDs are URL-safe
+    // (UUID hex segments), but a consumer-supplied `generateID` (e.g.
+    // slugify) may produce characters that need encoding (`#`, `&`,
+    // spaces, non-ASCII).
     history.replaceState(null, '', `#${encodeURIComponent(id)}`);
   }
 

@@ -2,12 +2,21 @@
  * Tests for TextColor extension
  */
 import { describe, it, expect, afterEach } from 'vitest';
+import { TextSelection } from '@domternal/pm/state';
 import { TextColor, DEFAULT_TEXT_COLORS } from './TextColor.js';
 import { TextStyle } from '../marks/TextStyle.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { Editor } from '../Editor.js';
+
+function selectAll(editor: Editor): void {
+  editor.view.dispatch(
+    editor.state.tr.setSelection(
+      TextSelection.create(editor.state.doc, 1, editor.state.doc.content.size - 1),
+    ),
+  );
+}
 
 describe('TextColor', () => {
   describe('configuration', () => {
@@ -87,6 +96,52 @@ describe('TextColor', () => {
       const result = renderHTML?.({ color: '#123456' });
       expect(result).toEqual({ style: 'color: #123456' });
     });
+
+    it('renderHTML for color returns null when colorToken is set (mutual exclusion)', () => {
+      const globalAttrs = TextColor.config.addGlobalAttributes?.call(TextColor);
+      const renderHTML = globalAttrs?.[0]?.attributes['color']?.renderHTML;
+
+      const result = renderHTML?.({ color: '#ff0000', colorToken: 'gray' });
+      expect(result).toBe(null);
+    });
+
+    it('provides colorToken attribute', () => {
+      const globalAttrs = TextColor.config.addGlobalAttributes?.call(TextColor);
+      expect(globalAttrs?.[0]?.attributes).toHaveProperty('colorToken');
+    });
+
+    it('colorToken parseHTML reads data-text-color', () => {
+      const globalAttrs = TextColor.config.addGlobalAttributes?.call(TextColor);
+      const parseHTML = globalAttrs?.[0]?.attributes['colorToken']?.parseHTML;
+
+      const el = document.createElement('span');
+      el.setAttribute('data-text-color', 'gray');
+      expect(parseHTML?.(el)).toBe('gray');
+    });
+
+    it('colorToken parseHTML returns null when attribute absent', () => {
+      const globalAttrs = TextColor.config.addGlobalAttributes?.call(TextColor);
+      const parseHTML = globalAttrs?.[0]?.attributes['colorToken']?.parseHTML;
+
+      const el = document.createElement('span');
+      expect(parseHTML?.(el)).toBe(null);
+    });
+
+    it('colorToken renderHTML emits data-text-color', () => {
+      const globalAttrs = TextColor.config.addGlobalAttributes?.call(TextColor);
+      const renderHTML = globalAttrs?.[0]?.attributes['colorToken']?.renderHTML;
+
+      const result = renderHTML?.({ colorToken: 'gray' });
+      expect(result).toEqual({ 'data-text-color': 'gray' });
+    });
+
+    it('colorToken renderHTML returns null when token is null', () => {
+      const globalAttrs = TextColor.config.addGlobalAttributes?.call(TextColor);
+      const renderHTML = globalAttrs?.[0]?.attributes['colorToken']?.renderHTML;
+
+      const result = renderHTML?.({ colorToken: null });
+      expect(result).toBe(null);
+    });
   });
 
   describe('addCommands', () => {
@@ -102,6 +157,20 @@ describe('TextColor', () => {
 
       expect(commands).toHaveProperty('unsetTextColor');
       expect(typeof commands?.['unsetTextColor']).toBe('function');
+    });
+
+    it('provides setTextColorToken command', () => {
+      const commands = TextColor.config.addCommands?.call(TextColor);
+
+      expect(commands).toHaveProperty('setTextColorToken');
+      expect(typeof commands?.['setTextColorToken']).toBe('function');
+    });
+
+    it('provides unsetTextColorToken command', () => {
+      const commands = TextColor.config.addCommands?.call(TextColor);
+
+      expect(commands).toHaveProperty('unsetTextColorToken');
+      expect(typeof commands?.['unsetTextColorToken']).toBe('function');
     });
   });
 
@@ -209,14 +278,13 @@ describe('TextColor', () => {
         extensions: [Document, Text, Paragraph, TextStyle, TextColor],
         content: '<p>Hello world</p>',
       });
+      selectAll(editor);
 
-      // Select all text
-      editor.focus('all');
-
-      // Apply color
       const result = editor.commands.setTextColor('#ff0000');
-
       expect(result).toBe(true);
+
+      const mark = editor.state.doc.child(0).child(0).marks.find((m) => m.type.name === 'textStyle');
+      expect(mark?.attrs['color']).toBe('#ff0000');
     });
 
     it('unsetTextColor removes text color', () => {
@@ -224,11 +292,81 @@ describe('TextColor', () => {
         extensions: [Document, Text, Paragraph, TextStyle, TextColor],
         content: '<p><span style="color: red">Colored</span></p>',
       });
-
-      editor.focus('all');
+      selectAll(editor);
 
       const result = editor.commands.unsetTextColor();
       expect(result).toBe(true);
+
+      expect(editor.getHTML()).not.toContain('color:');
+    });
+
+    it('setTextColorToken applies token attribute', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, TextColor],
+        content: '<p>Hello world</p>',
+      });
+      selectAll(editor);
+
+      const result = editor.commands.setTextColorToken('gray');
+      expect(result).toBe(true);
+
+      const html = editor.getHTML();
+      expect(html).toContain('data-text-color="gray"');
+      expect(html).not.toContain('style="color');
+    });
+
+    it('setTextColorToken clears hex color (mutual exclusion)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, TextColor],
+        content: '<p><span style="color: rgb(255, 0, 0)">Hello</span></p>',
+      });
+      selectAll(editor);
+
+      editor.commands.setTextColorToken('gray');
+
+      const p = editor.state.doc.child(0);
+      const mark = p.child(0).marks.find((m) => m.type.name === 'textStyle');
+      expect(mark?.attrs['colorToken']).toBe('gray');
+      expect(mark?.attrs['color']).toBeNull();
+    });
+
+    it('setTextColor clears token (mutual exclusion in reverse)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, TextColor],
+        content: '<p><span data-text-color="gray">Hello</span></p>',
+      });
+      selectAll(editor);
+
+      editor.commands.setTextColor('#ff0000');
+
+      const p = editor.state.doc.child(0);
+      const mark = p.child(0).marks.find((m) => m.type.name === 'textStyle');
+      expect(mark?.attrs['color']).toBe('#ff0000');
+      expect(mark?.attrs['colorToken']).toBeNull();
+    });
+
+    it('unsetTextColorToken removes the token attribute', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, TextColor],
+        content: '<p><span data-text-color="gray">Hello</span></p>',
+      });
+      selectAll(editor);
+
+      const result = editor.commands.unsetTextColorToken();
+      expect(result).toBe(true);
+
+      const html = editor.getHTML();
+      expect(html).not.toContain('data-text-color');
+    });
+
+    it('round-trip preserves data-text-color', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, TextColor],
+        content: '<p><span data-text-color="blue">Blue text</span></p>',
+      });
+
+      const html = editor.getHTML();
+      expect(html).toContain('data-text-color="blue"');
     });
   });
 });

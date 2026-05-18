@@ -3,31 +3,16 @@ import { expandToEmptyWrappers } from './expandToEmptyWrappers.js';
 import { convertListItemForParent } from './convertListItemForParent.js';
 
 /**
- * Moves a top-level block from `sourcePos` to `targetPos` in-place on the
- * given transaction. Single source of truth for block reorder position math:
- * used by BlockHandle drag-drop and KeyboardReorder shortcuts.
+ * Move a top-level block from `sourcePos` to `targetPos` in-place. Single
+ * source of truth for block reorder position math, used by BlockHandle
+ * drag-drop and KeyboardReorder.
  *
- * Position math:
- * - Slice the source node first (before delete).
- * - Expand the deletion range outward to swallow any single-child wrapper
- *   ancestors (e.g. a nested `ul` whose only `li` is the source) - leaving
- *   them behind would either violate their `listItem+`-style content rule
- *   (PM's fitter then keeps an empty `<li>` placeholder, which is the bug
- *   we're fixing) or leave a no-op container behind.
- * - Delete the (possibly expanded) range.
- * - Adjust target: if target was after the source, subtract the removed size
- *   because positions after the deletion shift left.
- * - Adapt the slice to the target parent's content rule (auto-convert
- *   listItem ↔ taskItem when dropping across list types - Notion behaviour).
- * - Insert the (possibly converted) slice at the adjusted target.
- *
- * Self-drop safety:
- * - If `targetPos` falls inside the expanded deletion range, return the
- *   transaction unchanged (moving a block into itself or its wrapper is
- *   invalid).
- * - If there's no node at `sourcePos`, return unchanged.
- *
- * Returns the same transaction (chainable), not a new one.
+ * Notable steps: deletion range expands outward to swallow single-child
+ * wrapper ancestors (else PM's fitter leaves an empty `<li>` placeholder);
+ * the slice is adapted to the target parent's content rule (listItem ↔
+ * taskItem auto-conversion when dropping across list types). Self-drops
+ * (target inside the expanded deletion range) return the transaction
+ * unchanged.
  */
 export function moveBlock(
   tr: Transaction,

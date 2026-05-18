@@ -319,17 +319,17 @@ export const InvisibleChars = Extension.create<
               return { visible, decorations: DecorationSet.empty };
             }
 
-            // Visibility just toggled on — full rebuild
+            // Visibility just toggled on - full rebuild
             if (!prev.visible) {
               return { visible, decorations: buildDecorations(newState.doc, options) };
             }
 
-            // Doc changed — rebuild
+            // Doc changed - rebuild
             if (tr.docChanged) {
               return { visible, decorations: buildDecorations(newState.doc, options) };
             }
 
-            // No change — reuse cached
+            // No change - reuse cached
             return prev;
           },
         },

@@ -98,8 +98,8 @@ export class CommandManager {
   }
 
   /**
-   * Single commands that execute immediately
-   * Uses Proxy to dynamically generate command methods (ID-1)
+   * Single commands that execute immediately.
+   * Uses a Proxy to dynamically generate command methods.
    *
    * @example
    * editor.commands.focus('end');

@@ -217,8 +217,7 @@ interface NodeSchemaProperties {
   marks?: string;
 
   /**
-   * Custom text for leaf nodes
-   * Used by getText() and textContent
+   * Custom text for leaf nodes returned by `getText()` / `textContent`.
    *
    * @example '\n' for hard break
    */

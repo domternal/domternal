@@ -1,35 +1,18 @@
 /**
- * ListItem Node
+ * Enter / Backspace state machine for listItem (cursor's parent must be a paragraph):
  *
- * Individual list item that can contain paragraphs and nested blocks.
- * Used by BulletList and OrderedList.
+ *  LABEL paragraph (childIndex 0):
+ *    Enter, empty     -> liftListItem (exit empty bullet)
+ *    Enter, non-empty -> splitListItem (new sibling listItem)
+ *    Backspace, empty -> falls through to ListKeymap (liftListItem)
  *
- * Enter behaviour matrix (cursor's parent must be a paragraph):
- *  - Cursor in LABEL paragraph (childIndex 0):
- *    - Empty + Enter -> liftListItem (lift entire item out, "exit empty bullet")
- *    - Non-empty + Enter -> splitListItem (new sibling listItem)
- *  - Cursor in CHILDREN-ZONE paragraph (childIndex > 0):
- *    - Empty + Enter -> insertChildrenZoneSibling (Notion-style: insert another
- *      empty paragraph as next sibling INSIDE the same list item, accumulating
- *      so the user can build elaborate children-zone content). Exit via the
- *      Backspace handler below or Shift+Tab (ListIndent.outdentBlockFromListItem).
- *    - Non-empty + Enter -> splitBlock (Phase 8: splits the paragraph in place,
- *      both halves stay inside the same list item; cursor at end -> empty p
- *      sibling appended; cursor mid -> text splits in two paragraphs). Mirrors
- *      Notion's "Enter in children-zone always advances by one block at the
- *      same nesting level".
+ *  CHILDREN-ZONE paragraph (childIndex > 0):
+ *    Enter, empty     -> insertChildrenZoneSibling (accumulate inside the item)
+ *    Enter, non-empty -> splitBlock (both halves stay inside the same item)
+ *    Backspace, empty -> liftEmptyChildrenZoneParagraph (exit as top-level)
  *
- * Backspace behaviour:
- *  - At start of EMPTY children-zone paragraph -> liftEmptyChildrenZoneParagraph
- *    (exit list as a top-level paragraph). Discoverable counterpart to Enter
- *    accumulation.
- *
- * Keyboard shortcuts:
- * - Enter: see matrix above
- * - Backspace: see matrix above
- * - Tab/Shift-Tab: Handled by ListKeymap extension (included via addExtensions)
+ * Tab / Shift-Tab handled by the ListKeymap extension.
  */
-
 import { Node } from '../Node.js';
 import { splitListItem, liftListItem } from '@domternal/pm/schema-list';
 import { Selection } from '@domternal/pm/state';
@@ -74,23 +57,13 @@ export const ListItem = Node.create<ListItemOptions>({
         if (!this.editor || !this.nodeType) return false;
         const { state, view } = this.editor;
         const { $from } = state.selection;
-        // Only handle Enter when the cursor's immediate item ancestor is a listItem.
         if ($from.depth < 1 || $from.node(-1).type !== this.nodeType) return false;
-        // Defer when the cursor sits inside a NESTED non-paragraph block
-        // (heading, codeBlock, etc.) - that block's own Enter handler
-        // (e.g. Heading's "Enter at end -> insert paragraph below")
-        // should run instead. Without this, splitListItem would split
-        // the entire list item and the nested-block-specific behaviour
-        // would never get a chance.
+        // Defer if cursor is in a nested non-paragraph block (heading, codeBlock)
+        // so that block's own Enter handler runs instead of splitListItem.
         if ($from.parent.type.name !== 'paragraph') return false;
 
-        // Plan 4 Phase 5+8: children-zone Enter accumulates inside the
-        // list item, never splitting the wrapper into a new sibling
-        // listItem. Cursor in EMPTY children-zone -> insert another
-        // empty paragraph as next sibling. Cursor in NON-EMPTY children-
-        // zone -> splitBlock at cursor (text splits in place / empty
-        // sibling appended at end). Both keep the user in the children-
-        // zone of the same list item. Exit via Backspace or Shift+Tab.
+        // Children-zone Enter accumulates inside the item (Notion semantics),
+        // never splits the wrapper into a sibling listItem.
         const ctx = getListItemCursorContext($from);
         if (ctx?.isInChildrenZone) {
           if (ctx.paragraphIsEmpty) {
@@ -131,22 +104,16 @@ export const ListItem = Node.create<ListItemOptions>({
         if (!this.editor || !this.nodeType) return false;
         const { state, view } = this.editor;
         const { $from, empty } = state.selection;
-        // Only act on collapsed selection at offset 0 of an empty
-        // textblock - the natural "this line is blank, remove it" intent.
         if (!empty || $from.parentOffset !== 0) return false;
         if ($from.parent.content.size !== 0) return false;
 
-        // Plan 4 Phase 6: Notion-style exit. Cursor in an EMPTY
-        // paragraph in the children-zone -> lift it out as a top-level
-        // paragraph (= exit the list one nesting level). Counterpart to
-        // the Enter accumulate path above.
+        // Empty children-zone paragraph: lift it out as a top-level sibling.
+        // Empty-label backspace falls through to ListKeymap (liftListItem).
         const ctx = getListItemCursorContext($from);
         if (ctx && ctx.isInChildrenZone && ctx.paragraphIsEmpty) {
           if (liftEmptyChildrenZoneParagraph(state, view.dispatch, ctx)) return true;
         }
 
-        // Fall through: ListKeymap / BaseKeymap handle the empty-label
-        // backspace cases (joinBackward / liftListItem).
         return false;
       },
     };

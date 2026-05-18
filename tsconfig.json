@@ -38,6 +38,9 @@
     },
     {
       "path": "./packages/extension-toc"
+    },
+    {
+      "path": "./packages/vanilla"
     }
   ]
 }

@@ -178,7 +178,7 @@ export function constrainedAddColumn(
     return pmCommand(state, view.dispatch.bind(view));
   }
 
-  // Would overflow — capture transaction, redistribute, then dispatch
+  // Would overflow - capture transaction, redistribute, then dispatch
   let captured: Transaction | undefined;
   pmCommand(state, (tr) => { captured = tr; });
   if (!captured) return false;

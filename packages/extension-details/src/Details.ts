@@ -1,21 +1,10 @@
 /**
- * Details Node
- *
- * Block-level accordion/collapsible container using HTML <details>/<summary>.
- * Contains exactly one DetailsSummary followed by one DetailsContent.
- *
- * Commands:
- * - setDetails: Wraps selected content in a details structure
- * - unsetDetails: Lifts content out of details (preserves summary as paragraph)
- * - toggleDetails: Toggles between wrapped/unwrapped
- * - openDetails / closeDetails: Programmatic open/close control
- *
- * Renders semantic <details>/<summary> HTML.
- * Parses both native <details> and <div data-type="details"> for compatibility.
- * Summary supports inline marks (bold, italic) via inline* content spec.
+ * Block-level accordion using native <details>/<summary>. Contains exactly
+ * one DetailsSummary followed by one DetailsContent. Parses both native
+ * <details> and `<div data-type="details">` for compatibility.
  */
 
-import { Node, findParentNode, findChildren, defaultBlockAt } from '@domternal/core';
+import { Node, findParentNode, findChildren, defaultBlockAt, liftCurrentListItem, isInListItemLabel } from '@domternal/core';
 import type { CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
 import { Plugin, PluginKey, Selection, TextSelection } from '@domternal/pm/state';
 import type { ViewMutationRecord } from '@domternal/pm/view';
@@ -389,7 +378,26 @@ export const Details = Node.create<DetailsOptions>({
                 return true;
               }
             }
+            // Notion-style PROACTIVE lift: when the cursor sits in the
+            // LABEL paragraph of a list/task item, `wrapInDetails`'s
+            // raw `tr.replaceWith` lets PM auto-fit details *inside*
+            // the list item (producing an empty label + nested details
+            // - schema-valid but visually wrong). Lift the item out
+            // first so the wrap happens at top level.
+            //
+            // The lift itself only runs during dispatch (it mutates tr);
+            // dry-run (`!dispatch`) follows the ProseMirror command
+            // convention and reports `true` based on cursor position alone.
+            // If a consumer needs strict can-it-actually-succeed semantics,
+            // they should probe with the full chain.
+            const cursorInListItemLabel =
+              tr.selection.empty && isInListItemLabel(tr.selection.$from);
+
             if (!dispatch) return true;
+            if (cursorInListItemLabel) {
+              const liftOk = liftCurrentListItem(state, tr);
+              if (!liftOk) return false;
+            }
             const pos = wrapInDetails(tr, tr.selection.$from, tr.selection.$to);
             if (pos < 0) return false;
             // pos + 1 = inside details, + 1 = inside summary
@@ -492,7 +500,7 @@ export const Details = Node.create<DetailsOptions>({
           return true;
         }
 
-        // At start of summary — unset details
+        // At start of summary - unset details
         return editor.commands['unsetDetails']?.() ?? false;
       },
 
@@ -541,7 +549,7 @@ export const Details = Node.create<DetailsOptions>({
           }
         }
 
-        // Content is (now) visible — create new block at start of detailsContent
+        // Content is (now) visible - create new block at start of detailsContent
         const above = state.doc.nodeAt($head.after());
 
         if (!above) return false;

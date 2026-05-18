@@ -8,13 +8,9 @@
   />
 
   @if (editor(); as ed) {
-    <domternal-bubble-menu
-      [editor]="ed"
-      [contexts]="{
-        text: ['bold', 'italic', 'underline', 'strike', 'code', '|', 'link'],
-      }"
-    />
+    <domternal-bubble-menu [editor]="ed" />
     <domternal-floating-menu [editor]="ed" [requireExplicitTrigger]="true" />
+    <domternal-notion-color-picker [editor]="ed" />
   }
 </div>
 

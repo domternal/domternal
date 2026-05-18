@@ -47,7 +47,7 @@ async function placeCursor(page: Page, selector: string, offset: number) {
 
 // ─── Toolbar Button ─────────────────────────────────────────────────────
 
-test.describe('Clear Formatting — toolbar button', () => {
+test.describe('Clear Formatting - toolbar button', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -62,7 +62,7 @@ test.describe('Clear Formatting — toolbar button', () => {
 
   test('button is disabled when no text is selected (collapsed cursor)', async ({ page }) => {
     await clearAndType(page, 'Hello');
-    // Cursor is at end after typing — collapsed selection
+    // Cursor is at end after typing - collapsed selection
     const btn = page.locator(clearBtn);
     await expect(btn).toBeDisabled();
   });
@@ -87,7 +87,7 @@ test.describe('Clear Formatting — toolbar button', () => {
 
 // ─── Individual Marks ───────────────────────────────────────────────────
 
-test.describe('Clear Formatting — removes individual marks', () => {
+test.describe('Clear Formatting - removes individual marks', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -177,7 +177,7 @@ test.describe('Clear Formatting — removes individual marks', () => {
     await clearAndType(page, 'Highlighted');
     await selectAll(page);
 
-    // Highlight is a dropdown — click trigger then pick a color swatch
+    // Highlight is a dropdown - click trigger then pick a color swatch
     await page.locator('domternal-toolbar button[aria-label="Highlight"]').click();
     const swatch = page.locator('.dm-toolbar-dropdown-wrapper:has(button[aria-label="Highlight"]) .dm-color-swatch').first();
     await swatch.click();
@@ -249,7 +249,7 @@ test.describe('Clear Formatting — removes individual marks', () => {
 
 // ─── Multiple Marks ─────────────────────────────────────────────────────
 
-test.describe('Clear Formatting — multiple marks at once', () => {
+test.describe('Clear Formatting - multiple marks at once', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -325,7 +325,7 @@ test.describe('Clear Formatting — multiple marks at once', () => {
 
 // ─── Partial Selection ──────────────────────────────────────────────────
 
-test.describe('Clear Formatting — partial selection', () => {
+test.describe('Clear Formatting - partial selection', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -398,7 +398,7 @@ test.describe('Clear Formatting — partial selection', () => {
 
 // ─── Block-level preservation ───────────────────────────────────────────
 
-test.describe('Clear Formatting — preserves block structure', () => {
+test.describe('Clear Formatting - preserves block structure', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -477,7 +477,7 @@ test.describe('Clear Formatting — preserves block structure', () => {
 
 // ─── Undo interaction ───────────────────────────────────────────────────
 
-test.describe('Clear Formatting — undo', () => {
+test.describe('Clear Formatting - undo', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -509,7 +509,7 @@ test.describe('Clear Formatting — undo', () => {
 
 // ─── Multi-paragraph ────────────────────────────────────────────────────
 
-test.describe('Clear Formatting — across paragraphs', () => {
+test.describe('Clear Formatting - across paragraphs', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -586,7 +586,7 @@ async function setEditorContent(page: Page, html: string) {
   await page.waitForTimeout(100);
 }
 
-test.describe('Clear Formatting — preserves links', () => {
+test.describe('Clear Formatting - preserves links', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -649,7 +649,7 @@ test.describe('Clear Formatting — preserves links', () => {
 
 // ─── Edge cases ─────────────────────────────────────────────────────────
 
-test.describe('Clear Formatting — edge cases', () => {
+test.describe('Clear Formatting - edge cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

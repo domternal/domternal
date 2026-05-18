@@ -165,7 +165,7 @@ export class DomternalToolbarComponent implements OnDestroy {
   private elRef = inject<ElementRef<HTMLElement>>(ElementRef);
   private sanitizer = inject(DomSanitizer);
 
-  /** SafeHtml cache — same reference returned for same key, prevents DOM churn */
+  /** SafeHtml cache - same reference returned for same key, prevents DOM churn */
   private htmlCache = new Map<string, SafeHtml>();
 
   private readonly dropdownCaret = '<svg class="dm-dropdown-caret" width="10" height="10" viewBox="0 0 10 10"><path d="M2 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -220,7 +220,7 @@ export class DomternalToolbarComponent implements OnDestroy {
       return cached;
     }
 
-    // Non-grid dropdown — show active sub-item's label as text
+    // Non-grid dropdown - show active sub-item's label as text
     if (dropdown.dynamicLabel) {
       if (activeItem) return this.getCachedTriggerLabel(activeItem.label);
 
@@ -251,7 +251,7 @@ export class DomternalToolbarComponent implements OnDestroy {
 
   /**
    * Returns 'true' when an emitEvent button's panel is open, null otherwise.
-   * Maps to [attr.aria-expanded] — null removes the attribute entirely.
+   * Maps to [attr.aria-expanded] - null removes the attribute entirely.
    */
   getAriaExpanded(item: ToolbarButton): string | null {
     if (!item.emitEvent) return null;
@@ -594,7 +594,7 @@ export class DomternalToolbarComponent implements OnDestroy {
     }
   }
 
-  /** Read only inline style — no computed fallback (used for font-family). */
+  /** Read only inline style - no computed fallback (used for font-family). */
   private getInlineStyleAtCursor(prop: string): string | null {
     try {
       const { from } = this.editor().state.selection;

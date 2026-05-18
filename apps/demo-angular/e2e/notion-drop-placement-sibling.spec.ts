@@ -1,31 +1,21 @@
 /**
- * E2E coverage locking down the Phase 2 drop-indent contract:
+ * E2E coverage for the drop-indent contract:
  *
- *   "Every existing drag-drop scenario produces a `mode: 'sibling'`
- *    placement; nothing is rendered as a nested-child drop yet."
+ *   "Drags into the sibling zone (left half of the target) produce a
+ *    `mode: 'sibling'` placement; the indicator stays solid + full-width.
+ *    Drags into the nested zone (right of the X-threshold) flip to
+ *    `mode: 'nested'` with a dashed indented indicator and dispatch the
+ *    nested-child insert path."
  *
- * Phase 2 is type-only - the `DropPlacement` interface gained
- * `mode: 'sibling' | 'nested'` plus optional `targetItemPos`/`wrapperPos`
- * fields, with every return path of `computeDropPlacement` committing
- * to `mode: 'sibling'`. Phase 3 will start setting `mode: 'nested'`
- * when X-threshold detection fires; Phase 4 will draw the dashed
- * indented indicator when that happens. Until then, drop behaviour
- * AND the drop-indicator visual must stay identical to pre-Phase-2.
- *
- * What this spec asserts beyond regression coverage:
- *   1. Drop indicator is visible during a real drag-over (existing).
- *   2. Drop indicator carries NO `data-mode="nested"` attribute. The
- *      attribute simply doesn't exist yet in Phase 2; this guard makes
- *      sure we notice if it accidentally appears via a leak from a
- *      future phase.
- *   3. Drop indicator computed `border-top-style` is `solid`, not
- *      `dashed` (the visual reserved for nested mode in Phase 4).
- *   4. Each scenario's resulting doc structure is the EXACT shape we
- *      had before Phase 2 - sibling reorder, cross-list-type adapt,
- *      nested handle lift, hr drag. Forward-compat: when Phase 5 adds
- *      drop-indent, these assertions stay green because they target
- *      sibling-zone clientX (left half of the target), so Phase 3's
- *      X-detection will keep them on the sibling branch.
+ * Assertions cover:
+ *   1. Drop indicator is visible during a real drag-over.
+ *   2. Sibling drops carry no `data-mode="nested"`; computed
+ *      `border-top-style` is `solid`, not `dashed`.
+ *   3. Each scenario's resulting doc structure matches the sibling-mode
+ *      shape (reorder, cross-list-type adapt, nested handle lift, hr drag).
+ *   4. Nested-zone X over a listItem flips `mode` to `'nested'` with the
+ *      expected `targetItemPos` / `wrapperPos` set, and the actual drop
+ *      transaction appends the dragged block as the target's last child.
  */
 import { test } from './fixtures.js';
 import { expect, type Page, type Locator, type JSHandle } from '@playwright/test';
@@ -126,12 +116,10 @@ async function listItemTypes(page: Page): Promise<string[]> {
 
 /**
  * Synthetic drag with explicit clientX so we can target sibling-zone
- * (left side) vs nested-zone (right side, future Phase 3+) deliberately.
+ * (left side) vs nested-zone (right side) deliberately.
  * `dropZone` decides Y bucket on the target (top vs bottom half).
  * `xZone` decides X bucket: 'left' lands on the sibling side; 'center'
- * is the existing default; 'right' targets the nested side (used by
- * forward-compat tests that DON'T expect nested behaviour today but
- * lock the sibling-mode behaviour for the right-zone too).
+ * is the existing default; 'right' targets the nested side.
  */
 async function dragBlock(
   page: Page,
@@ -190,7 +178,7 @@ async function endDrag(handle: Locator, dt: JSHandle<DataTransfer>): Promise<voi
 // 1. Sibling-mode reorder produces same doc state as pre-Phase-2
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Phase 2 drop placement - sibling-mode reorder', () => {
+test.describe('drop placement - sibling-mode reorder', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('top-level paragraph reorder lands at sibling position (insertAfter)', async ({ page }) => {
@@ -297,7 +285,7 @@ test.describe('Phase 2 drop placement - sibling-mode reorder', () => {
 // 2. Drop indicator visual state - solid line, NO data-mode="nested"
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Phase 2 drop placement - indicator visual contract', () => {
+test.describe('drop placement - indicator visual contract', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('indicator becomes visible during a drag-over inside the editor', async ({ page }) => {
@@ -318,7 +306,7 @@ test.describe('Phase 2 drop placement - indicator visual contract', () => {
       page.locator(`${editorSelector} p:has-text("Alpha")`),
       page.locator(`${editorSelector} p:has-text("Bravo")`),
     );
-    // Phase 3 began setting `data-mode` so e2e + theme CSS can read it.
+    // `data-mode` is set so e2e + theme CSS can read placement mode.
     // Top-level paragraph targets always stay sibling because X-threshold
     // detection only fires when the resolved target is a list item.
     const mode = await page.evaluate(
@@ -328,7 +316,7 @@ test.describe('Phase 2 drop placement - indicator visual contract', () => {
     await endDrag(handle, dt);
   });
 
-  test('indicator computed border-top-style is solid (not dashed) - dashed is reserved for Phase 4 nested mode', async ({ page }) => {
+  test('indicator computed border-top-style is solid (not dashed) - dashed is reserved for nested mode', async ({ page }) => {
     await setContent(page, '<p>Alpha</p><p>Bravo</p>');
     const { handle, dt } = await startDragOver(
       page,
@@ -380,9 +368,8 @@ test.describe('Phase 2 drop placement - indicator visual contract', () => {
       if (!(ind instanceof HTMLElement) || !(target instanceof HTMLElement)) return null;
       const indStyle = ind.style;
       return {
-        // Phase 2 indicator left/width come from the resolved block's rect
-        // (full width). Phase 4 will SHRINK width and OFFSET left for nested
-        // mode - those follow-up changes must NOT leak into Phase 2.
+        // Sibling-mode indicator left/width come from the resolved block's
+        // rect (full width). Nested mode shrinks width and offsets left.
         leftPx: parseFloat(indStyle.left),
         widthPx: parseFloat(indStyle.width),
       };
@@ -400,7 +387,7 @@ test.describe('Phase 2 drop placement - indicator visual contract', () => {
 //     which `computeDropPlacement` return path produced the placement.
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Phase 2 drop placement - indicator contract across target types', () => {
+test.describe('drop placement - indicator contract across target types', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('indicator over a LIST ITEM target with X in sibling-zone stays solid + data-mode="sibling"', async ({ page }) => {
@@ -527,16 +514,13 @@ test.describe('Phase 2 drop placement - indicator contract across target types',
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 2c. Phase 3 - X-threshold detection flips mode to "nested"
+// X-threshold detection flips mode to "nested"
 //     The placement carries `mode: 'nested'` (visible on the indicator
 //     via `data-mode='nested'`) when the cursor sits >= 28px from the
-//     left edge of a listItem / taskItem rect. Drop transaction still
-//     uses the existing moveBlock path until Phase 5; Phase 3 only
-//     locks the COMPUTED mode, not the visual styling (Phase 4) nor
-//     the actual nested-child insertion (Phase 5).
+//     left edge of a listItem / taskItem rect.
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Phase 3 X-detection - nested mode flip on list-item targets', () => {
+test.describe('X-detection - nested mode flip on list-item targets', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   /**
@@ -689,8 +673,8 @@ test.describe('Phase 3 X-detection - nested mode flip on list-item targets', () 
     await dt.dispose();
   });
 
-  test('drop with X in nested zone: source becomes a NESTED CHILD of the target list item (Phase 5 wired)', async ({ page }) => {
-    // Phase 5 reads `placement.mode` and dispatches via
+  test('drop with X in nested zone: source becomes a NESTED CHILD of the target list item', async ({ page }) => {
+    // The drop handler reads `placement.mode` and dispatches via
     // `insertAsListItemChild`. Source paragraph is appended as the LAST
     // child of the target listItem - the bulletList still has exactly
     // one listItem, but that listItem now holds [label, source].
@@ -787,9 +771,9 @@ test.describe('Phase 3 X-detection - nested mode flip on list-item targets', () 
     await dt.dispose();
   });
 
-  test('drop with nested-zone X produces same nested-child result regardless of Y-mid (Phase 5 ignores insertAfter for nested mode)', async ({ page }) => {
-    // Phase 3 keeps `insertAfter` mirroring Y-mid in the placement
-    // shape, but Phase 5 ignores it for nested-mode drops because
+  test('drop with nested-zone X produces same nested-child result regardless of Y-mid (nested mode ignores insertAfter)', async ({ page }) => {
+    // `insertAfter` keeps mirroring Y-mid in the placement shape, but
+    // the nested-mode branch of the drop handler ignores it because
     // `insertAsListItemChild` always appends as the LAST child of the
     // target item. Both upper-half and lower-half drops with nested-zone
     // X therefore land at the SAME spot.
@@ -942,14 +926,13 @@ test.describe('Phase 3 X-detection - nested mode flip on list-item targets', () 
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 2d. Phase 4 - Indicator VISUAL contract for nested mode
+// Indicator VISUAL contract for nested mode
 //     `[data-mode='nested']` swaps the solid full-width line for a
 //     dashed indented line so the user sees "drop will land as nested
 //     child" instead of "drop will land as sibling between blocks".
-//     Sibling visual is unchanged.
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Phase 4 indicator visual - dashed indented line in nested mode', () => {
+test.describe('indicator visual - dashed indented line in nested mode', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   /**
@@ -1085,7 +1068,7 @@ test.describe('Phase 4 indicator visual - dashed indented line in nested mode', 
   });
 
   test('nested-mode indicator top sits at the listItem rect BOTTOM (not Y-mid based)', async ({ page }) => {
-    // Phase 4 nested visual always anchors at the listItem's bottom edge
+    // Nested-mode indicator always anchors at the listItem's bottom edge
     // because the actual drop appends as last child. Top stays at
     // rect.bottom regardless of where Y lands within the rect (as long
     // as Y is inside the rect for X-detection to fire).
@@ -1314,10 +1297,10 @@ test.describe('Phase 4 indicator visual - dashed indented line in nested mode', 
   });
 
   test('indicator has CSS transition on position properties (smooth glide on mode flip / target change)', async ({ page }) => {
-    // Phase 7 polish: indicator transitions left/width/top/transform on
-    // every reposition so mode flips and target changes mid-drag glide
-    // smoothly instead of snapping. Style swaps (background, border)
-    // stay instant so the sibling↔nested boundary is readable.
+    // Indicator transitions left/width/top/transform on every reposition
+    // so mode flips and target changes mid-drag glide smoothly. Style
+    // swaps (background, border) stay instant so the sibling↔nested
+    // boundary is readable.
     await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
     const { handle, dt } = await startDragOver(
       page,
@@ -1370,11 +1353,11 @@ test.describe('Phase 4 indicator visual - dashed indented line in nested mode', 
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 2e. Phase 5 - Nested drop transaction matrix. Source types appended
-//     as last child of the target list item via insertAsListItemChild.
+// Nested drop transaction matrix. Source types appended as last child
+// of the target list item via insertAsListItemChild.
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Phase 5 nested drop matrix - source types appended as last child', () => {
+test.describe('nested drop matrix - source types appended as last child', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   /**
@@ -1565,9 +1548,10 @@ test.describe('Phase 5 nested drop matrix - source types appended as last child'
   });
 
   test('drop result has SINGLE listItem in target wrapper (Source paragraph DOES NOT create a sibling listItem)', async ({ page }) => {
-    // Regression guard: pre-Phase-5 behaviour wrapped the source paragraph
-    // in a fresh listItem and inserted as sibling (2 listItems in wrapper).
-    // Phase 5 nested-mode produces 1 listItem with the paragraph as nested child.
+    // Regression guard: the old sibling path wrapped the source paragraph
+    // in a fresh listItem and inserted it as a sibling (2 listItems in
+    // wrapper). Nested-mode produces 1 listItem with the paragraph as
+    // nested child.
     await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
     await dropNested(
       page,
@@ -1745,7 +1729,7 @@ test.describe('Phase 5 nested drop matrix - source types appended as last child'
   });
 
   test('source from NESTED HANDLE (heading inside li-A) drops as NESTED child of li-B', async ({ page }) => {
-    // Plan 2 (nested handle source) + Plan 3 (X-detection) + Plan 5 (nested drop tr) compose.
+    // Nested-handle source + X-detection + nested drop transaction compose.
     await setContent(
       page,
       '<ul><li><p>A label</p><h2>Nested heading</h2></li><li><p>B label</p></li></ul>',
@@ -1859,13 +1843,13 @@ test.describe('Phase 5 nested drop matrix - source types appended as last child'
 //    visual promises.
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Phase 5 drop result - mode branches the actual transaction', () => {
+test.describe('drop result - mode branches the actual transaction', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('drag listItem with X on RIGHT side of another listItem nests as child (fresh sublist)', async ({ page }) => {
-    // Phase 5 path: nested-zone X over listItem dispatches via
-    // `insertAsListItemChild`. Source listItem wraps in a fresh
-    // bulletList and lands as last child of the target listItem.
+    // Nested-zone X over a listItem dispatches via `insertAsListItemChild`.
+    // Source listItem wraps in a fresh bulletList and lands as last child
+    // of the target listItem.
     await setContent(page, '<ul><li><p>One</p></li><li><p>Two</p></li></ul>');
     const second = page.locator(`${editorSelector} li:has-text("Two")`);
     const first = page.locator(`${editorSelector} li:has-text("One")`);

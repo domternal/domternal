@@ -42,6 +42,13 @@ export interface DomternalFloatingMenuProps {
   /** Custom icon set (falls back to `@domternal/core`'s `defaultIcons`). */
   icons?: IconSet;
   /**
+   * When true, the menu does NOT auto-show on every empty paragraph;
+   * it only opens when the BlockHandle `+` button (or any caller of
+   * `showFloatingMenu`) explicitly triggers it. Notion-style behaviour.
+   * @default false
+   */
+  requireExplicitTrigger?: boolean;
+  /**
    * Optional custom content. When provided, the default grouped-item
    * rendering is skipped and children are rendered inside the menu element.
    */
@@ -60,6 +67,7 @@ export function DomternalFloatingMenu({
   items,
   keymap,
   icons,
+  requireExplicitTrigger = false,
   children,
 }: DomternalFloatingMenuProps): ReactNode {
   const { editor: contextEditor } = useCurrentEditor();
@@ -67,7 +75,10 @@ export function DomternalFloatingMenu({
 
   const menuRef = useRef<HTMLDivElement>(null);
   const pluginKeyRef = useRef(
-    new PluginKey('reactFloatingMenu-' + Math.random().toString(36).slice(2, 8)),
+    new PluginKey('reactFloatingMenu-' + (
+      (globalThis as { crypto?: { randomUUID?: () => string } }).crypto?.randomUUID?.().slice(0, 8)
+        ?? Math.random().toString(36).slice(2, 8)
+    )),
   );
 
   // Refs so the effect below can read current prop values without re-running.
@@ -77,6 +88,8 @@ export function DomternalFloatingMenu({
   offsetRef.current = offset;
   const keymapRef = useRef(keymap);
   keymapRef.current = keymap;
+  const requireExplicitTriggerRef = useRef(requireExplicitTrigger);
+  requireExplicitTriggerRef.current = requireExplicitTrigger;
 
   // Register the ProseMirror plugin (visibility + positioning + dismiss).
   useEffect(() => {
@@ -89,6 +102,7 @@ export function DomternalFloatingMenu({
       ...(shouldShowRef.current && { shouldShow: shouldShowRef.current }),
       offset: offsetRef.current,
       ...(keymapRef.current && { keymap: keymapRef.current }),
+      requireExplicitTrigger: requireExplicitTriggerRef.current,
     });
     editor.registerPlugin(plugin);
     return () => {
@@ -118,7 +132,7 @@ export function DomternalFloatingMenu({
     const controller = new FloatingMenuController(editor, forceRender, items);
     controller.subscribe();
     controllerRef.current = controller;
-    // Controller is stored on a ref (not state) — React won't re-render on
+    // Controller is stored on a ref (not state) - React won't re-render on
     // that assignment, so trigger a bump so the next render reads the newly
     // available groups/focusedIndex.
     forceRender();

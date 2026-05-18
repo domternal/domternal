@@ -1,31 +1,17 @@
 /**
- * E2E coverage for Enter + Backspace behaviour inside the children-zone
- * of a list/task item (`paragraph block*` schema).
+ * E2E coverage for Enter + Backspace inside the children-zone of a
+ * list/task item (`paragraph block*` schema).
  *
- * Verifies the Notion-style "accumulate-on-Enter, exit-on-Backspace"
- * model from Plan 4 Phase 5 + Phase 6:
+ * Notion-style "accumulate-on-Enter, exit-on-Backspace" model:
  *
  *  - Empty children-zone paragraph + Enter -> insert another empty
  *    paragraph as next sibling INSIDE the same list item (accumulate).
  *  - Empty children-zone paragraph + Backspace at offset 0 -> lift it
  *    out as a top-level paragraph (exit list one nesting level).
- *  - Empty LABEL paragraph + Enter -> existing liftListItem flow ("exit
- *    empty bullet" - regression preserved).
+ *  - Empty LABEL paragraph + Enter -> liftListItem flow ("exit empty
+ *    bullet").
  *  - Heading.Enter at end of nested heading -> empty paragraph in
- *    children-zone (Plan 1 Phase 3 behaviour, regression preserved).
- *
- * Test groups:
- *  - Group A (~20): bullet listItem Enter accumulate
- *  - Group B (~5):  ordered listItem Enter accumulate
- *  - Group C (~13): taskItem Enter accumulate
- *  - Group D (~5):  nested-list Enter accumulate
- *  - Group E (~7):  Enter regression guards
- *  - Group F (~3):  user-flow scenarios
- *  - Group G (~4):  modifier key + best-practice
- *  - Group H (~13): Backspace exit
- *  - Group I (~5):  multi-Enter accumulate verification
- *
- * Plan: `_planning/listitems_improvements_4.md`
+ *    children-zone (regression preserved).
  */
 import { test } from './fixtures.js';
 import { expect, type Page } from '@playwright/test';
@@ -330,7 +316,7 @@ test.describe('Enter accumulate - bullet listItem', () => {
     expect(items[0]?.children?.[3]?.text).toBe('Below');
   });
 
-  // A8 - Phase 8: non-empty trailing p, end + Enter splits in place,
+  // A8 - non-empty trailing p, end + Enter splits in place,
   // empty p appended INSIDE same li (no new sibling listItem).
   test('A8 [label, h1, "Tail"] - end of "Tail", Enter appends empty p inside same li', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p>Tail</p></li></ul>');
@@ -346,7 +332,7 @@ test.describe('Enter accumulate - bullet listItem', () => {
     expect(await topLevelBlocks(page)).toEqual([{ type: 'bulletList', text: 'LabelTitleTail' }]);
   });
 
-  // A9 - Phase 8: mid of non-empty trailing splits paragraph in place.
+  // A9 - mid of non-empty trailing splits paragraph in place.
   test('A9 [label, h1, "Tail"] - mid of "HelloWorld", Enter splits paragraph in place inside same li', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>Title</h1><p>HelloWorld</p></li></ul>');
     await caretAtOffsetInNode(page, 'paragraph', 'HelloWorld', 'Hello'.length);
@@ -566,7 +552,7 @@ test.describe('Enter accumulate - ordered listItem', () => {
     expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'codeBlock', 'paragraph', 'paragraph']);
   });
 
-  test('B3 ol [label, h1, "Tail"] - end of "Tail", Enter appends empty p inside same li (Phase 8)', async ({ page }) => {
+  test('B3 ol [label, h1, "Tail"] - end of "Tail", Enter appends empty p inside same li', async ({ page }) => {
     await setContent(page, '<ol><li><p>Label</p><h1>Title</h1><p>Tail</p></li></ol>');
     await caretAtEndOfNode(page, 'paragraph', 'Tail');
     await page.keyboard.press('Enter');
@@ -660,7 +646,7 @@ test.describe('Enter accumulate - taskItem', () => {
     expect(items[0]?.children?.map((c) => c.type)).toEqual(['paragraph', 'blockquote', 'paragraph', 'paragraph']);
   });
 
-  test('C4 taskItem [label, h1, "Tail"] - end of "Tail", Enter appends empty p inside same taskItem (Phase 8)', async ({ page }) => {
+  test('C4 taskItem [label, h1, "Tail"] - end of "Tail", Enter appends empty p inside same taskItem', async ({ page }) => {
     await setContent(
       page,
       '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><h1>Title</h1><p>Tail</p></li></ul>',
@@ -676,7 +662,7 @@ test.describe('Enter accumulate - taskItem', () => {
     expect(await topLevelBlocks(page)).toEqual([{ type: 'taskList', text: 'LabelTitleTail' }]);
   });
 
-  test('C5 taskItem [label, h1, "HelloWorld"] - mid of paragraph, Enter splits in place inside same taskItem (Phase 8)', async ({ page }) => {
+  test('C5 taskItem [label, h1, "HelloWorld"] - mid of paragraph, Enter splits in place inside same taskItem', async ({ page }) => {
     await setContent(
       page,
       '<ul data-type="taskList"><li data-type="taskItem"><p>Label</p><h1>Title</h1><p>HelloWorld</p></li></ul>',
@@ -1377,7 +1363,7 @@ test.describe('Multi-Enter accumulate verification', () => {
     expect(await topLevelBlocks(page)).toEqual([{ type: 'bulletList', text: 'LabelTitle' }]);
   });
 
-  test('I3 Enter, type content, Enter - second Enter appends empty p INSIDE li (Phase 8: splitBlock at end of non-empty children-zone p)', async ({ page }) => {
+  test('I3 Enter, type content, Enter - second Enter appends empty p INSIDE li (splitBlock at end of non-empty children-zone p)', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
     await caretAtEndOfNode(page, 'heading', 'Title');
     await page.keyboard.press('Enter');
@@ -1415,7 +1401,7 @@ test.describe('Multi-Enter accumulate verification', () => {
     expect(items[0]?.children?.[4]?.text).toBe('Final note');
   });
 
-  test('I5 alternating Enter and type - builds children-zone with mixed paragraphs (Phase 8: stays inside same li)', async ({ page }) => {
+  test('I5 alternating Enter and type - builds children-zone with mixed paragraphs (stays inside same li)', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h1>Title</h1></li></ul>');
     await caretAtEndOfNode(page, 'heading', 'Title');
     await page.keyboard.press('Enter');
@@ -1635,10 +1621,10 @@ test.describe('Selection / context edge cases', () => {
 });
 
 // ════════════════════════════════════════════════════════════════════════
-// Group K - Phase 8: non-empty children-zone Enter (splitBlock in place)
+// Group K - non-empty children-zone Enter (splitBlock in place)
 // ════════════════════════════════════════════════════════════════════════
 
-test.describe('Phase 8 - non-empty children-zone Enter splits in place', () => {
+test.describe('non-empty children-zone Enter splits in place', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   test('K1 cursor at END of non-empty children-zone p - empty p sibling appended INSIDE same li', async ({ page }) => {
@@ -1711,7 +1697,7 @@ test.describe('Phase 8 - non-empty children-zone Enter splits in place', () => {
     expect(items[1]?.children?.[0]?.text).toBe('');
   });
 
-  test('K7 mid-list Phase 8 - middle li children-zone Enter accumulates inside that li, list intact', async ({ page }) => {
+  test('K7 mid-list - middle li children-zone Enter accumulates inside that li, list intact', async ({ page }) => {
     await setContent(
       page,
       '<ul><li><p>A</p></li><li><p>B-label</p><h1>B-title</h1><p>B-note</p></li><li><p>C</p></li></ul>',

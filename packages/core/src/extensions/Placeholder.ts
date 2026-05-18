@@ -104,7 +104,7 @@ export const Placeholder = Extension.create<PlaceholderOptions>({
                 'data-placeholder': getPlaceholderText(node, pos),
               });
 
-            // Fast path: showOnlyCurrent (default) — O(1), check only the anchor node
+            // Fast path: showOnlyCurrent (default) - O(1), check only the anchor node
             if (showOnlyCurrent) {
               const { $anchor } = selection;
               if ($anchor.depth === 0) return DecorationSet.empty;

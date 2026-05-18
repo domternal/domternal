@@ -1,5 +1,5 @@
 /**
- * Attribute commands — updateAttributes, resetAttributes
+ * Attribute commands - updateAttributes, resetAttributes
  */
 import type { CommandSpec } from '../types/Commands.js';
 

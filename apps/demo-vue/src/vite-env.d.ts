@@ -12,4 +12,11 @@ declare module '*.vue' {
  */
 interface Window {
   __DEMO_EDITOR__?: import('@domternal/core').Editor;
+  /**
+   * Notion demo exposes the `getListItemCursorContext` util so the
+   * `notion-list-cursor-context.spec.ts` e2e suite can verify the
+   * pure utility resolves correctly against the built dist (not just
+   * the unit-test source path).
+   */
+  __DOMTERNAL_LIST_CTX__?: typeof import('@domternal/core').getListItemCursorContext;
 }

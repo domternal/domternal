@@ -1,14 +1,8 @@
 /**
- * FloatingMenu Extension
- *
- * Shows a block-insert menu when the cursor is at the start of an empty
- * paragraph. Items are collected from all extensions via the
- * `addFloatingMenuItems()` hook; the menu exposes a WAI-ARIA `role="menu"`
- * with `role="group"` sections and `role="menuitem"` entries. Framework
- * wrappers (`@domternal/react`, `/vue`, `/angular`) render the UI; this
- * file owns visibility, positioning, dismiss, and keyboard entry.
- *
- * Styles ship via `@domternal/theme` (`_floating-menu.scss`).
+ * Block-insert menu shown when the cursor sits at the start of an empty
+ * paragraph. Items collected via `addFloatingMenuItems()`. This file owns
+ * visibility, positioning, dismiss, and keyboard entry; framework wrappers
+ * render the UI.
  */
 import { Extension, positionFloatingOnce } from '@domternal/core';
 import type { Editor, FloatingMenuItemsOverride } from '@domternal/core';

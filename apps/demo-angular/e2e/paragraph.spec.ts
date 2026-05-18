@@ -55,7 +55,7 @@ const EMPTY_PARA = '<p></p>';
 
 // ─── Tests ─────────────────────────────────────────────────────────────
 
-test.describe('Paragraph — basic rendering', () => {
+test.describe('Paragraph - basic rendering', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -101,7 +101,7 @@ test.describe('Paragraph — basic rendering', () => {
   });
 });
 
-test.describe('Paragraph — Enter key behavior', () => {
+test.describe('Paragraph - Enter key behavior', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -190,7 +190,7 @@ test.describe('Paragraph — Enter key behavior', () => {
   });
 });
 
-test.describe('Paragraph — Backspace and Delete', () => {
+test.describe('Paragraph - Backspace and Delete', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -258,7 +258,7 @@ test.describe('Paragraph — Backspace and Delete', () => {
   });
 });
 
-test.describe('Paragraph — text selection and replacement', () => {
+test.describe('Paragraph - text selection and replacement', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

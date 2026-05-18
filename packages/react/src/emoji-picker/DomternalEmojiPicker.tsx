@@ -57,7 +57,7 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
     const current = document.activeElement as HTMLElement;
     const idx = swatches.indexOf(current);
     if (idx === -1) {
-      // Focus is on grid container, not a swatch — enter the grid
+      // Focus is on grid container, not a swatch - enter the grid
       if (['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(event.key)) {
         event.preventDefault();
         swatches[0]?.focus();

@@ -9,8 +9,12 @@
  *
  * The returned tuple shape is intentionally a SUBSET of `HeadingEntry`
  * (omitting `domNode`, `isActive`, `isScrolledOver`). Those fields are
- * filled in later by the active-state tracker (Phase 5) once DOM nodes
- * are resolvable.
+ * filled in later by the active-state tracker once DOM nodes are resolvable.
+ *
+ * Heading id source: `attrName` (default `'id'`) reads from the heading
+ * node's attrs. Domternal's `UniqueID` extension assigns this id; if the
+ * id is missing (UniqueID not loaded, or the node was created without
+ * passing through the id-assigning plugin), the entry reports `id: ''`.
  */
 import type { Node as PMNode } from '@domternal/pm/model';
 import type { HeadingEntry } from '../types.js';
@@ -22,16 +26,23 @@ export interface HeadingWalkOptions {
   levels: number[];
   /** Node names treated as anchors. */
   anchorTypes: string[];
+  /**
+   * Attribute name on heading nodes that holds the stable id. Defaults
+   * to `'id'`, matching `UniqueID`'s default `attributeName`. Override
+   * only when the consumer customizes `UniqueID.configure({ attributeName })`.
+   * @default 'id'
+   */
+  attrName?: string;
 }
 
 /**
  * Walk the document and collect heading-like nodes. Output is in
- * document order; entries without a `tocId` attribute report `id: ''`
- * (the caller is expected to backfill IDs in a follow-up transaction
- * before relying on `id` for navigation).
+ * document order; entries without a stored id (under `attrName`) report
+ * `id: ''` so the caller can decide whether to filter or surface them
+ * as "unanchored".
  */
 export function walkHeadings(doc: PMNode, options: HeadingWalkOptions): HeadingWalkEntry[] {
-  const { levels, anchorTypes } = options;
+  const { levels, anchorTypes, attrName = 'id' } = options;
   const result: HeadingWalkEntry[] = [];
 
   doc.descendants((node, pos) => {
@@ -40,7 +51,7 @@ export function walkHeadings(doc: PMNode, options: HeadingWalkOptions): HeadingW
     const level = typeof rawLevel === 'number' ? rawLevel : 1;
     if (!levels.includes(level)) return;
 
-    const rawId: unknown = node.attrs['tocId'];
+    const rawId: unknown = node.attrs[attrName];
     result.push({
       id: typeof rawId === 'string' ? rawId : '',
       level,

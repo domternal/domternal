@@ -30,7 +30,7 @@ async function replaceContent(page: Page, text: string) {
 
 // ─── Toolbar buttons ──────────────────────────────────────────────────
 
-test.describe('Undo/Redo — toolbar buttons', () => {
+test.describe('Undo/Redo - toolbar buttons', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -73,7 +73,7 @@ test.describe('Undo/Redo — toolbar buttons', () => {
 
 // ─── Undo typing ──────────────────────────────────────────────────────
 
-test.describe('Undo/Redo — typing', () => {
+test.describe('Undo/Redo - typing', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -146,7 +146,7 @@ test.describe('Undo/Redo — typing', () => {
 
 // ─── Undo mark operations ────────────────────────────────────────────
 
-test.describe('Undo/Redo — mark operations', () => {
+test.describe('Undo/Redo - mark operations', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -194,7 +194,7 @@ test.describe('Undo/Redo — mark operations', () => {
 
 // ─── Undo block operations ───────────────────────────────────────────
 
-test.describe('Undo/Redo — block operations', () => {
+test.describe('Undo/Redo - block operations', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -244,14 +244,14 @@ test.describe('Undo/Redo — block operations', () => {
 
 // ─── Multiple undo steps ─────────────────────────────────────────────
 
-test.describe('Undo/Redo — multiple steps', () => {
+test.describe('Undo/Redo - multiple steps', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
   });
 
   test('multiple undos revert multiple changes', async ({ page }) => {
-    // Use the initial demo content — first paragraph ends with text
+    // Use the initial demo content - first paragraph ends with text
     const firstP = page.locator(`${editorSelector} p`).first();
     await firstP.click();
     await page.keyboard.press('End');
@@ -329,7 +329,7 @@ test.describe('Undo/Redo — multiple steps', () => {
 
 // ─── Edge cases ───────────────────────────────────────────────────────
 
-test.describe('Undo/Redo — edge cases', () => {
+test.describe('Undo/Redo - edge cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

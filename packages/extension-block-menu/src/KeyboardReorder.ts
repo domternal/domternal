@@ -1,21 +1,7 @@
 /**
- * KeyboardReorder Extension
- *
- * Keyboard shortcuts to move the top-level block containing the selection
- * up or down - accessibility companion to BlockHandle's drag UX:
- *
- * - `Mod-Shift-ArrowUp`   → move current block above the previous sibling
- * - `Mod-Shift-ArrowDown` → move current block below the next sibling
- *
- * Uses the same `moveBlock` helper as BlockHandle drop, so position math
- * and self-move rejection behave identically.
- *
- * Edge cases:
- * - Selection inside a nested block (list item, details content) walks up
- *   to the top-level block and moves the whole container.
- * - At the first block, `ArrowUp` is a no-op.
- * - At the last block, `ArrowDown` is a no-op.
- * - Selection inside the moved block is preserved at the same inline offset.
+ * `Mod-Shift-ArrowUp` / `Mod-Shift-ArrowDown` move the top-level block
+ * containing the selection. Accessibility companion to BlockHandle drag.
+ * Shares `moveBlock` so position math and self-move rejection match.
  */
 import { Extension } from '@domternal/core';
 import type { Editor } from '@domternal/core';

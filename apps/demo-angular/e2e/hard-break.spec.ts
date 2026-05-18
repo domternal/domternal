@@ -23,7 +23,7 @@ async function getEditorHTML(page: Page): Promise<string> {
 
 // ─── Keyboard shortcuts ──────────────────────────────────────────────
 
-test.describe('HardBreak — keyboard shortcuts', () => {
+test.describe('HardBreak - keyboard shortcuts', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -93,7 +93,7 @@ test.describe('HardBreak — keyboard shortcuts', () => {
 
 // ─── parseHTML ────────────────────────────────────────────────────────
 
-test.describe('HardBreak — parseHTML', () => {
+test.describe('HardBreak - parseHTML', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -119,7 +119,7 @@ test.describe('HardBreak — parseHTML', () => {
 
 // ─── Behavior within different block types ───────────────────────────
 
-test.describe('HardBreak — in block contexts', () => {
+test.describe('HardBreak - in block contexts', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -168,7 +168,7 @@ test.describe('HardBreak — in block contexts', () => {
 
 // ─── Non-breaking space ──────────────────────────────────────────────
 
-test.describe('HardBreak — non-breaking space', () => {
+test.describe('HardBreak - non-breaking space', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

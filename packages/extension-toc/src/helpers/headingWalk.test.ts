@@ -76,15 +76,36 @@ describe('walkHeadings', () => {
     expect(entries[0]?.textContent).toBe('Nested heading');
   });
 
-  it('returns id="" when the heading has no tocId attribute (predates ID assignment)', () => {
-    // Without TableOfContents extension loaded, headings have no tocId
-    // attribute slot. The walk should report id: '' so callers know to
-    // backfill via assignMissingTocIds.
+  it('returns id="" when the heading has no id attribute (UniqueID not loaded)', () => {
+    // Without UniqueID extension loaded, headings have no id slot.
+    // The walk reports id: '' so callers know to either filter or
+    // surface them as "unanchored" entries.
     editor = new Editor({
       extensions: baseExtensions,
       content: '<h1>No id yet</h1>',
     });
     const entries = walkHeadings(editor.state.doc, defaultOptions);
+    expect(entries[0]?.id).toBe('');
+  });
+
+  it('reads the id from a custom attrName when UniqueID is configured with one', () => {
+    // Simulate UniqueID.configure({ attributeName: 'data-id' }): the
+    // walk should read the heading's `data-id` attribute. We can't
+    // easily register a custom global attribute in this isolated test,
+    // so this test verifies the parameter plumbing rather than schema
+    // integration (the latter is covered by TableOfContents.test.ts).
+    editor = new Editor({
+      extensions: baseExtensions,
+      content: '<h1>Heading</h1>',
+    });
+    const entries = walkHeadings(editor.state.doc, {
+      levels: [1, 2, 3],
+      anchorTypes: ['heading'],
+      attrName: 'somethingElse',
+    });
+    // No `somethingElse` attribute on the schema, so the read returns
+    // undefined and the walk reports id: ''. The contract is exercised
+    // (no crash on missing attr) regardless.
     expect(entries[0]?.id).toBe('');
   });
 

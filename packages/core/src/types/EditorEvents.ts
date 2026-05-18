@@ -97,8 +97,7 @@ export interface ErrorEventProps {
 }
 
 /**
- * All editor events with their payload types
- * Used by EventEmitter for type-safe event handling
+ * All editor events with their payload types.
  */
 export interface EditorEvents {
   /** Fired before editor is created - can modify options */
@@ -148,6 +147,9 @@ export interface EditorEvents {
 
   /** Fired when link editing UI should open (toolbar link button, Ctrl+K) */
   linkEdit: { anchorElement?: HTMLElement };
+
+  /** Fired when the Notion color picker should open, with the trigger as anchor. */
+  notionColorOpen: { anchorElement?: HTMLElement | null };
 }
 
 /**

@@ -2,8 +2,8 @@
  * Built-in emoji datasets for @domternal/extension-emoji.
  *
  * Two exports:
- * - `emojis` — ~200 most popular emoji (~8KB gzipped)
- * - `allEmojis` — Full ~1,800 emoji Unicode 15.1 set (~40KB gzipped)
+ * - `emojis` - ~200 most popular emoji (~8KB gzipped)
+ * - `allEmojis` - Full ~1,800 emoji Unicode 15.1 set (~40KB gzipped)
  *
  * Users can import either or provide their own custom data.
  */

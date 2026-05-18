@@ -5,10 +5,10 @@
  * Specifically targets behaviour added by these recent commits:
  *
  *   2e96a4e  feat(demo-angular): match content width to default toolbar (38rem)
- *   c68ade4  feat: scoring infra (BASE_SCORE + edge detection)
- *   e2a073c  feat: default scoring rules (table / inline exclusions)
+ *   c68ade4  feat: scoring infra + edge detection
+ *   e2a073c  feat: default matchers (table / inline exclusions)
  *   e3ee853  feat: clampCoords (above/below + side gutter)
- *   d15b700  feat: findBestDragTarget + 3-mode dispatch + vertical first-line centering
+ *   d15b700  feat: resolveDragTarget + 3-mode dispatch + vertical first-line centering
  *
  * Categories covered here:
  *   1. First-line vertical centering of the handle for tall blocks (h1-h3,

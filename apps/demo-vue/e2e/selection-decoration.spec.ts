@@ -12,7 +12,7 @@ test.describe('SelectionDecoration', () => {
   });
 
   test.describe('selection collapse on blur', () => {
-    test('blur collapses selection — typing after refocus appends instead of replacing', async ({ page }) => {
+    test('blur collapses selection - typing after refocus appends instead of replacing', async ({ page }) => {
       const editor = page.locator(editorSelector);
       await editor.click();
 
@@ -24,7 +24,7 @@ test.describe('SelectionDecoration', () => {
       // Blur → selection collapses to cursor
       await page.locator('h1').click();
 
-      // Focus again and type — if selection was collapsed, text appends
+      // Focus again and type - if selection was collapsed, text appends
       await editor.click();
       await page.keyboard.press('End');
       await page.keyboard.type(' added');
@@ -60,7 +60,7 @@ test.describe('SelectionDecoration', () => {
   });
 
   test.describe('data-dm-editor-ui exception', () => {
-    test('link popover preserves selection — link applies to full text', async ({ page }) => {
+    test('link popover preserves selection - link applies to full text', async ({ page }) => {
       const editor = page.locator(editorSelector);
       const output = page.locator('pre.output');
       await editor.click();
@@ -78,7 +78,7 @@ test.describe('SelectionDecoration', () => {
       await page.locator('.dm-link-popover-input').fill('https://example.com');
       await page.keyboard.press('Enter');
 
-      // Link should wrap the entire selected text — proves selection was NOT collapsed
+      // Link should wrap the entire selected text - proves selection was NOT collapsed
       await expect(output).toContainText('href="https://example.com"');
       await expect(output).toContainText('>link text</a>');
     });
@@ -111,7 +111,7 @@ test.describe('SelectionDecoration', () => {
       await page.waitForSelector('.dm-link-popover[data-show]');
       await page.waitForTimeout(100);
 
-      // Close with Escape — verify popover closes first
+      // Close with Escape - verify popover closes first
       await page.locator('.dm-link-popover-input').press('Escape');
       await expect(page.locator('.dm-link-popover[data-show]')).toHaveCount(0);
       await expect(editor.locator('.dm-link-pending')).toHaveCount(0);

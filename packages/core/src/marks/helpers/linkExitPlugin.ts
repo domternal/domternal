@@ -74,11 +74,11 @@ export function linkExitPlugin(options: LinkExitPluginOptions): Plugin {
         const afterHasLink = after?.marks.some((m) => m.type === type) ?? false;
 
         if (!afterHasLink) {
-          // We're at the boundary — strip link from storedMarks
+          // We're at the boundary - strip link from storedMarks
           const marksWithoutLink = marksOnNode.filter((m) => m.type !== type);
           const tr = state.tr.setStoredMarks(marksWithoutLink);
           view.dispatch(tr);
-          // Don't prevent default — let ArrowRight move cursor normally
+          // Don't prevent default - let ArrowRight move cursor normally
           return false;
         }
 

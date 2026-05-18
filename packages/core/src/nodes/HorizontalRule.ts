@@ -12,6 +12,7 @@ import { TextSelection } from '@domternal/pm/state';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 import type { FloatingMenuItem } from '../types/FloatingMenu.js';
+import { splitListForInsert } from '../utils/splitListForInsert.js';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -48,38 +49,48 @@ export const HorizontalRule = Node.create<HorizontalRuleOptions>({
         ({ state, tr, dispatch }) => {
           if (!this.nodeType) return false;
 
-          // Use tr.selection for chain compatibility - prior commands may have changed selection
           const { $from } = tr.selection;
           const parent = $from.parent;
 
           // Block insertion when selection is not in a textblock (e.g. CellSelection
-          // resolves $from at the tableRow level — inserting HR there splits the table)
+          // resolves $from at the tableRow level - inserting HR there splits the table)
           if (!parent.isTextblock) return false;
+
+          const paragraphType = state.schema.nodes['paragraph'];
+          const hrNode = this.nodeType.create();
+          const trailingParagraph = paragraphType?.create();
+          const nodes = trailingParagraph ? [hrNode, trailingParagraph] : [hrNode];
+
+          // List-item-aware path: cursor in the LABEL paragraph of a
+          // list/task item. The divider belongs at TOP LEVEL, not nested
+          // inside the list item. The util splits the parent list around
+          // the current item (empty label is consumed) so the existing
+          // bullet/number/check stays intact above the divider.
+          const listRange = splitListForInsert(state, tr);
+          if (listRange) {
+            if (!dispatch) return true;
+            tr.replaceWith(listRange.from, listRange.to, nodes);
+            const sel = TextSelection.findFrom(
+              tr.doc.resolve(listRange.from + 1),
+              1,
+            );
+            if (sel) tr.setSelection(sel);
+            dispatch(tr.scrollIntoView());
+            return true;
+          }
 
           if (dispatch) {
             // If cursor is in an empty block, replace it with HR + new paragraph
             if (parent.content.size === 0 && parent.type.name === 'paragraph') {
               const from = $from.before();
               const to = $from.after();
-              const paragraph = state.schema.nodes['paragraph']?.create();
-              const nodes = paragraph
-                ? [this.nodeType.create(), paragraph]
-                : [this.nodeType.create()];
               tr.replaceWith(from, to, nodes);
-
-              // Move cursor into the new paragraph
               const sel = TextSelection.findFrom(tr.doc.resolve(from + 1), 1);
               if (sel) tr.setSelection(sel);
             } else {
               // Insert HR after current position
               const end = $from.after();
-              const paragraph = state.schema.nodes['paragraph']?.create();
-              const nodes = paragraph
-                ? [this.nodeType.create(), paragraph]
-                : [this.nodeType.create()];
               tr.insert(end, nodes);
-
-              // Move cursor into the new paragraph
               const sel = TextSelection.findFrom(tr.doc.resolve(end + 1), 1);
               if (sel) tr.setSelection(sel);
             }

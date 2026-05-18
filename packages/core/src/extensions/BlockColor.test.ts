@@ -2,6 +2,7 @@
  * Tests for BlockColor extension.
  */
 import { describe, it, expect, afterEach } from 'vitest';
+import { TextSelection } from '@domternal/pm/state';
 import { BlockColor, DEFAULT_BLOCK_COLORS, DEFAULT_BLOCK_COLOR_TYPES } from './BlockColor.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
@@ -10,6 +11,10 @@ import { Heading } from '../nodes/Heading.js';
 import { Blockquote } from '../nodes/Blockquote.js';
 import { BulletList } from '../nodes/BulletList.js';
 import { ListItem } from '../nodes/ListItem.js';
+import { TextStyle } from '../marks/TextStyle.js';
+import { TextColor } from './TextColor.js';
+import { Highlight } from './Highlight.js';
+import { FontSize } from './FontSize.js';
 import { Editor } from '../Editor.js';
 
 const extensions = [Document, Text, Paragraph, Heading, Blockquote, BulletList, ListItem, BlockColor];
@@ -215,5 +220,106 @@ describe('BlockColor HTML serialization', () => {
     const html = ed.getHTML();
     expect(html).not.toContain('data-bg-color');
     expect(html).not.toContain('data-text-color');
+  });
+});
+
+// --- Block color overrides inline conflicts ("last action wins") ----------
+// When the user applies an inline text/bg color via TextColor/Highlight and
+// THEN applies a block-level color of the same kind, the new block-level
+// color should win visually. We strip the conflicting inline attributes from
+// any textStyle marks inside the block so the block tint actually shows.
+describe('BlockColor strips conflicting inline marks', () => {
+  function makeColoredEditor(html = '<p>Tinted</p>'): Editor {
+    host = document.createElement('div');
+    host.className = 'dm-editor';
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: [
+        Document, Text, Paragraph,
+        TextStyle, TextColor, Highlight, FontSize,
+        BlockColor,
+      ],
+      content: html,
+    });
+    return editor;
+  }
+
+  /**
+   * Select the paragraph's full text content as a real TextSelection. We
+   * can't use `focus('all')` here because that yields an AllSelection
+   * whose $from sits at depth 0 (the doc), and BlockColor's `findTargetPos`
+   * walks up from the cursor's depth looking for a paragraph/heading - it
+   * never sees one at depth 0.
+   */
+  function selectParagraphText(ed: Editor): void {
+    const para = ed.state.doc.firstChild!;
+    const tr = ed.state.tr.setSelection(
+      TextSelection.create(ed.state.doc, 1, 1 + para.content.size),
+    );
+    ed.view.dispatch(tr);
+  }
+
+  it('setBlockTextColor clears inline colorToken on text in that block', () => {
+    const ed = makeColoredEditor();
+    selectParagraphText(ed);
+    ed.commands.setTextColorToken('red');
+    expect(ed.getHTML()).toContain('data-text-color="red"');
+
+    ed.commands.setBlockTextColor('blue');
+    const html = ed.getHTML();
+    expect(html).toContain('data-text-color="blue"');
+    // Block attribute is the ONLY data-text-color in the output - the inline
+    // span's override has been stripped.
+    expect(html.match(/data-text-color/g)?.length).toBe(1);
+  });
+
+  it('setBlockBgColor clears inline backgroundColorToken on text in that block', () => {
+    const ed = makeColoredEditor();
+    selectParagraphText(ed);
+    ed.commands.setBackgroundColorToken('red');
+    expect(ed.getHTML()).toContain('data-bg-color="red"');
+
+    ed.commands.setBlockBgColor('blue');
+    const html = ed.getHTML();
+    expect(html).toContain('data-bg-color="blue"');
+    expect(html.match(/data-bg-color/g)?.length).toBe(1);
+  });
+
+  it('setBlockTextColor preserves unrelated inline attrs (fontSize stays)', () => {
+    const ed = makeColoredEditor();
+    selectParagraphText(ed);
+    ed.commands.setTextColorToken('red');
+    ed.commands.setFontSize('24px');
+
+    ed.commands.setBlockTextColor('green');
+    const html = ed.getHTML();
+    expect(html).toContain('data-text-color="green"');
+    expect(html).toContain('font-size: 24px');
+    expect(html.match(/data-text-color/g)?.length).toBe(1);
+  });
+
+  it('setBlockTextColor(null) still strips inline conflicts', () => {
+    const ed = makeColoredEditor();
+    selectParagraphText(ed);
+    ed.commands.setTextColorToken('red');
+    ed.commands.setBlockTextColor(null);
+
+    const html = ed.getHTML();
+    expect(html).not.toContain('data-text-color');
+  });
+
+  it('unsetBlockColors strips both inline text and bg conflicts', () => {
+    const ed = makeColoredEditor();
+    selectParagraphText(ed);
+    ed.commands.setTextColorToken('purple');
+    ed.commands.setBackgroundColorToken('pink');
+    ed.commands.setBlockTextColor('blue');
+    ed.commands.setBlockBgColor('green');
+
+    ed.commands.unsetBlockColors();
+    const html = ed.getHTML();
+    expect(html).not.toContain('data-text-color');
+    expect(html).not.toContain('data-bg-color');
   });
 });

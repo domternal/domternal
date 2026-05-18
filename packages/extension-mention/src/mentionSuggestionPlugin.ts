@@ -86,7 +86,7 @@ export interface MentionSuggestionRenderer {
   onUpdate: (props: MentionSuggestionProps) => void;
   /** Called when suggestion is deactivated. */
   onExit: () => void;
-  /** Called on keydown — return true to prevent default editor handling. */
+  /** Called on keydown - return true to prevent default editor handling. */
   onKeyDown: (event: KeyboardEvent) => boolean;
 }
 
@@ -273,7 +273,7 @@ export function createMentionSuggestionPlugin(
           if (!pluginState) return;
 
           if (pluginState.active && pluginState.range) {
-            // Check shouldShow — if it returns false, treat as inactive
+            // Check shouldShow - if it returns false, treat as inactive
             if (shouldShow && !shouldShow({ state: view.state, view })) {
               if (renderer) {
                 cleanup();
@@ -327,7 +327,7 @@ export function createMentionSuggestionPlugin(
                   if (!latest?.active || !latest.range) return;
                   notifyRenderer({ query: latest.query, range: latest.range, items, command, clientRect, element: view.dom });
                 }).catch(() => {
-                  // Swallow — suggestion stays active with no items
+                  // Swallow - suggestion stays active with no items
                 });
               } else {
                 notifyRenderer({ query: cur.query, range: cur.range, items: result, command, clientRect, element: view.dom });

@@ -32,12 +32,11 @@ export type {
   NestedConfig,
 } from './BlockHandle.js';
 
-// Rule scoring primitives - hosts can write custom DragHandleRule
-// implementations to extend the default exclusion / scoring set passed
-// through `BlockHandle.configure({ nested: { rules: [...] } })`.
-export { BASE_SCORE } from './helpers/scoring.js';
-export type { DragHandleRule, RuleContext } from './helpers/scoring.js';
-export { DEFAULT_DRAG_HANDLE_RULES } from './helpers/defaultRules.js';
+// Block-matcher primitives. Hosts can write custom matchers to extend
+// the default exclusion set passed through
+// `BlockHandle.configure({ nested: { matchers: [...] } })`.
+export type { BlockMatcher, BlockCandidate, MatchVerdict } from './helpers/blockMatcher.js';
+export { DEFAULT_BLOCK_MATCHERS } from './helpers/defaultMatchers.js';
 
 // KeyboardReorder - Mod-Shift-ArrowUp/Down moves top-level block
 export { KeyboardReorder } from './KeyboardReorder.js';
@@ -54,6 +53,11 @@ export type {
   CreateBlockContextMenuPluginOptions,
   TurnIntoTarget,
 } from './BlockContextMenu.js';
+
+// Union of editor commands the Turn into menu routes to for wrapper
+// (non-textblock) targets. Consumers customizing `turnIntoTargets` use
+// this to type the `command` field on their own wrapper entries.
+export type { WrapperCommand } from './helpers/turnIntoWrapper.js';
 
 // SlashCommand - type `/` to open filtered insert menu popup
 export {

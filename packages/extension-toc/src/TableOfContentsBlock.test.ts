@@ -1,10 +1,7 @@
 /**
- * TableOfContentsBlock - Phase 7 unit tests.
- *
- * Tests run against a real `Editor` with the block + TableOfContents
- * loaded. The NodeView's storage subscription only functions in
- * integration, so we don't try to drive the inner render in
- * isolation - we drive it through the editor surface.
+ * TableOfContentsBlock unit tests. Tests run against a real `Editor` with
+ * the block + TableOfContents loaded. The NodeView's storage subscription
+ * only functions in integration, so we drive it through the editor surface.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -16,6 +13,7 @@ import {
   Blockquote,
   BaseKeymap,
   History,
+  UniqueID,
 } from '@domternal/core';
 import { TableOfContents } from './TableOfContents.js';
 import { TableOfContentsBlock } from './TableOfContentsBlock.js';
@@ -27,6 +25,7 @@ const baseExtensions = [
   Heading,
   BaseKeymap,
   History,
+  UniqueID,
   TableOfContents,
   TableOfContentsBlock,
 ];
@@ -102,8 +101,12 @@ describe('TableOfContentsBlock - integration with Editor', () => {
     expect(links).toHaveLength(3);
     expect(links.map((l) => l.textContent)).toEqual(['Alpha', 'Beta', 'Gamma']);
     expect(links.map((l) => l.dataset['level'])).toEqual(['1', '2', '3']);
-    // Each link has a non-empty stable tocId.
-    for (const link of links) expect(link.dataset['tocId']).toMatch(/^.{8}$/);
+    // Each link has a non-empty stable anchor id (sourced from
+    // UniqueID; format is UniqueID's concern, we just assert non-empty).
+    for (const link of links) {
+      expect(link.dataset['tocAnchor']).toBeTruthy();
+      expect(link.dataset['tocAnchor']?.length).toBeGreaterThan(0);
+    }
   });
 
   it('shows the empty-state placeholder when the document has no headings', async () => {
@@ -164,7 +167,7 @@ describe('TableOfContentsBlock - integration with Editor', () => {
     storage.activeId = target.id;
     storage.subscribers.forEach((fn) => { fn(); });
 
-    const activeLink = queryBlockLinks().find((l) => l.dataset['tocId'] === target.id);
+    const activeLink = queryBlockLinks().find((l) => l.dataset['tocAnchor'] === target.id);
     expect(activeLink?.classList.contains('dm-toc-block-link--active')).toBe(true);
     expect(activeLink?.getAttribute('aria-current')).toBe('location');
   });
@@ -180,7 +183,7 @@ describe('TableOfContentsBlock - integration with Editor', () => {
     // shared - both NodeViews render from the same source).
     const idsPerBlock = Array.from(blocks).map((b) =>
       Array.from(b.querySelectorAll<HTMLButtonElement>('.dm-toc-block-link'))
-        .map((l) => l.dataset['tocId']),
+        .map((l) => l.dataset['tocAnchor']),
     );
     expect(idsPerBlock[0]).toEqual(idsPerBlock[1]);
     expect(idsPerBlock[0]).toHaveLength(2);
@@ -212,6 +215,84 @@ describe('TableOfContentsBlock - integration with Editor', () => {
     // NodeView. The subscriber it added to storage must go with it.
     editor.setContent('<p>No block</p>');
     expect(storage.subscribers.size).toBeLessThan(sizeWithBlock);
+  });
+
+  it('renders empty-state placeholder when UniqueID is missing (TOC inert)', async () => {
+    // TableOfContents loaded but UniqueID not. TOC's plugin returns
+    // [] with a console.error. Storage is defined but never populated.
+    // The block NodeView observes empty storage and shows the
+    // empty-state placeholder forever.
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-block').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    let ed: Editor | undefined;
+    try {
+      ed = new Editor({
+        element: host,
+        // NOTE: UniqueID intentionally omitted here.
+        extensions: [
+          Document, Text, Paragraph, Heading, BaseKeymap, History,
+          TableOfContents, TableOfContentsBlock,
+        ],
+        content: '<h1>One</h1><h2>Two</h2><div data-type="table-of-contents"></div>',
+      });
+      await flushDeferred();
+
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      expect(queryBlockEmpty()).not.toBeNull();
+      expect(queryBlockLinks()).toHaveLength(0);
+    } finally {
+      consoleErrorSpy.mockRestore();
+      ed?.destroy();
+    }
+  });
+
+  it('block links carry data-toc-anchor (NOT data-toc-id)', async () => {
+    // Regression guard for the v0.7.0 attribute rename. Block link
+    // buttons use `data-toc-anchor` to hold the heading id they link
+    // to; the heading itself uses native `id` (set by UniqueID).
+    // Legacy `data-toc-id` must NOT appear anywhere on links.
+    editor = mount({
+      content: '<h1>Alpha</h1><h2>Beta</h2><div data-type="table-of-contents"></div>',
+    });
+    await flushDeferred();
+    const block = queryBlock();
+    expect(block).not.toBeNull();
+    expect(block?.querySelectorAll('[data-toc-anchor]').length).toBeGreaterThan(0);
+    expect(block?.querySelectorAll('[data-toc-id]')).toHaveLength(0);
+  });
+
+  it('honors a custom UniqueID.attributeName when scrolling on click', async () => {
+    // When UniqueID is configured with a non-default attributeName,
+    // the block's click delegation must still resolve the heading via
+    // the same attribute. We scroll-spy and assert one scroll fires.
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-block').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const scrollSpy = vi.fn();
+    Element.prototype.scrollIntoView = scrollSpy as unknown as typeof Element.prototype.scrollIntoView;
+    const CustomUniqueID = UniqueID.configure({ attributeName: 'data-id' });
+    let ed: Editor | undefined;
+    try {
+      ed = new Editor({
+        element: host,
+        extensions: [
+          Document, Text, Paragraph, Heading, BaseKeymap, History,
+          CustomUniqueID, TableOfContents, TableOfContentsBlock,
+        ],
+        content: '<h1>One</h1><h2>Two</h2><div data-type="table-of-contents"></div>',
+      });
+      await flushDeferred();
+      const links = queryBlockLinks();
+      expect(links).toHaveLength(2);
+      links[0]?.click();
+      expect(scrollSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      ed?.destroy();
+    }
   });
 });
 

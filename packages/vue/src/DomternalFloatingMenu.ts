@@ -34,6 +34,15 @@ export interface DomternalFloatingMenuProps {
   items?: FloatingMenuItemsOverride;
   keymap?: FloatingMenuKeymap;
   icons?: IconSet;
+  /**
+   * When true, the menu does NOT auto-show on every empty paragraph;
+   * it only opens when the BlockHandle `+` button (or any caller of
+   * `showFloatingMenu`) explicitly triggers it. Notion-style behaviour
+   * - empty rows show a placeholder, the slash menu is the keyboard
+   * trigger, the `+` button is the gutter trigger.
+   * @default false
+   */
+  requireExplicitTrigger?: boolean;
 }
 
 export const DomternalFloatingMenu = defineComponent({
@@ -48,12 +57,17 @@ export const DomternalFloatingMenu = defineComponent({
     },
     keymap: { type: Object as PropType<FloatingMenuKeymap>, default: undefined },
     icons: { type: Object as PropType<IconSet>, default: undefined },
+    requireExplicitTrigger: { type: Boolean, default: false },
   },
   setup(props, { slots }) {
     const { editor: contextEditor } = useCurrentEditor();
     const menuRef = ref<HTMLDivElement>();
+    // Prefer crypto.randomUUID for collision-free uniqueness (Math.random
+    // across simultaneous mounts may collide; SSR can share the seed).
+    const cryptoRef = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
     const pluginKey = new PluginKey(
-      'vueFloatingMenu-' + Math.random().toString(36).slice(2, 8),
+      'vueFloatingMenu-' +
+        (cryptoRef?.randomUUID?.().slice(0, 8) ?? Math.random().toString(36).slice(2, 8)),
     );
 
     // Reactive controller state exposed to the render function.
@@ -83,6 +97,7 @@ export const DomternalFloatingMenu = defineComponent({
         ...(props.shouldShow && { shouldShow: props.shouldShow }),
         offset: props.offset,
         ...(props.keymap && { keymap: props.keymap }),
+        requireExplicitTrigger: props.requireExplicitTrigger,
       });
       editor.registerPlugin(plugin);
 

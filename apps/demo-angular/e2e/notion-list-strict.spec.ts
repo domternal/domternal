@@ -1,6 +1,6 @@
 /**
  * E2E coverage for the Notion-strict listItem / taskItem schema
- * (`paragraph block*`) introduced in Phase 1 of the block-ux work.
+ * (`paragraph block*`).
  *
  * Old schema (`block+`) let any block be the FIRST child of a list/task
  * item. That broke the original UX bug observed in the Notion demo:
@@ -551,7 +551,7 @@ test.describe('Notion-strict list schema - cross-type conversion', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 8. Children-zone indent (Phase 2 visual styling)
+// 8. Children-zone indent (visual styling)
 // ────────────────────────────────────────────────────────────────────────
 //
 // Notion-strict semantics: the FIRST paragraph of a list/task item is the
@@ -848,10 +848,10 @@ test.describe('Notion-strict list schema - children-zone indent', () => {
     expect(ml).toBe(0);
   });
 
-  // ── Phase 1 ↔ Phase 2 interaction (autofix scenarios) ─────────────
+  // ── Schema-autofix ↔ children-indent interaction ──────────────────
 
   test('autofix-injected empty label paragraph + heading NOT inside the same li (legacy `<li><h1>...</h1></li>`)', async ({ page }) => {
-    // Phase 1's parser HOISTS the heading out of the li when it cannot
+    // The parser HOISTS the heading out of the li when it cannot
     // satisfy the first-child slot, leaving the li with just an empty
     // label paragraph. The heading lands at TOP level - NOT inside
     // the li - so the children-zone indent does not (and should not)
@@ -1221,9 +1221,9 @@ test.describe('Notion-strict list schema - drag handle over indented children', 
     await page.waitForTimeout(80);
     await dt.dispose();
 
-    // ONLY the indented heading moved (mirrors keyboard Shift-Tab from
-    // Phase 4 of listitems_improvement.md). The first list item retains
-    // its label paragraph; the heading is now a top-level sibling.
+    // ONLY the indented heading moved (mirrors keyboard Shift-Tab).
+    // The first list item retains its label paragraph; the heading is
+    // now a top-level sibling.
     const items = await listItemShapes(page);
     // The first list item should now contain ONLY the label paragraph.
     const firstLi = items.find((i) => i.children?.some((c) => c.text === 'First label'));
@@ -1272,13 +1272,13 @@ test.describe('Notion-strict list schema - drag handle over indented children', 
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 11. Heading Enter (Phase 3) interactions with strict list schema
+// 11. Heading Enter interactions with strict list schema
 // ────────────────────────────────────────────────────────────────────────
 //
-// Phase 3 adds a Notion-style Enter handler on heading: at end of a
-// non-empty heading, insert a paragraph as the next sibling; on an
-// EMPTY heading, convert in place to a paragraph; mid-heading falls
-// through to default splitBlock. The handler lives in Heading's
+// Notion-style Enter handler on heading: at end of a non-empty heading,
+// insert a paragraph as the next sibling; on an EMPTY heading, convert
+// in place to a paragraph; mid-heading falls through to default
+// splitBlock. The handler lives in Heading's
 // `addProseMirrorPlugins` keymap so it fires BEFORE the ListItem /
 // TaskItem Enter handlers in the addKeyboardShortcuts chain - that
 // ordering is what lets headings nested INSIDE a list item still
@@ -1433,10 +1433,10 @@ test.describe('Notion-strict list schema - Heading Enter inside a list item', ()
     ]);
   });
 
-  test('the new paragraph from Enter inherits the children-zone indent (Phase 1+2+3 interaction)', async ({ page }) => {
+  test('the new paragraph from Enter inherits the children-zone indent', async ({ page }) => {
     // After Enter at end of nested heading, the new paragraph sits in
-    // the children zone of the list item. Phase 2's selector
-    // (`> :not(p:first-child)...`) therefore targets it and applies
+    // the children zone of the list item. The children-zone selector
+    // (`> :not(p:first-child)...`) targets it and applies
     // the children-zone margin-inline-start.
     await setContent(page, '<ul><li><p>Label</p><h2>Heading</h2></li></ul>');
     await caretAtEndOfNode(page, 'heading', 'Heading');
@@ -1623,10 +1623,10 @@ test.describe('Notion-strict list schema - Heading Enter inside a list item', ()
     expect(bqText).toContain('Quoted');
   });
 
-  test('heading is NOT the first child of li (Phase-1 strict shape preserved): Enter does not violate schema', async ({ page }) => {
+  test('heading is NOT the first child of li (strict shape preserved): Enter does not violate schema', async ({ page }) => {
     // Defensive: ensure the post-Enter listItem still has a paragraph
-    // as the first child (Phase 1 invariant). Enter's `canReplaceWith`
-    // schema check guarantees this even if the structure shifts.
+    // as the first child (strict schema invariant). Enter's
+    // `canReplaceWith` check guarantees this even if the structure shifts.
     await setContent(page, '<ul><li><p>Label</p><h2>Heading</h2></li></ul>');
     await caretAtEndOfNode(page, 'heading', 'Heading');
     await page.keyboard.press('Enter');
@@ -1644,7 +1644,7 @@ test.describe('Notion-strict list schema - Heading Enter inside a list item', ()
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 12. ListIndent (Phase 4) - Tab/Shift-Tab outside list items
+// 12. ListIndent - Tab/Shift-Tab outside list items
 // ────────────────────────────────────────────────────────────────────────
 //
 // Tab on a TOP-LEVEL block whose previous sibling is a list (bullet,
@@ -1936,14 +1936,13 @@ test.describe('Notion-strict list schema - ListIndent (Tab/Shift-Tab across list
     expect(after.map((b) => b.text)).toEqual(before.map((b) => b.text));
   });
 
-  test('Phase 1+2+4 interaction: indented heading picks up the children-zone CSS indent', async ({ page }) => {
+  test('indented heading picks up the children-zone CSS indent', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p></li></ul><h2>Indented</h2>');
     await caretAtEndOfNode(page, 'heading', 'Indented');
     await page.keyboard.press('Tab');
     await page.waitForTimeout(40);
 
-    // Heading is now `li > h2` and Phase 2's children-zone rule
-    // applies.
+    // Heading is now `li > h2` and the children-zone CSS rule applies.
     const ml = await page.evaluate((sel) => {
       const h = document.querySelector(`${sel} li > h2`);
       if (!h) return -1;
@@ -1952,7 +1951,7 @@ test.describe('Notion-strict list schema - ListIndent (Tab/Shift-Tab across list
     expect(ml).toBeGreaterThanOrEqual(20);
   });
 
-  test('Phase 1+3+4 interaction: post-indent Enter at end of heading inserts paragraph as next sibling INSIDE the li', async ({ page }) => {
+  test('post-indent Enter at end of heading inserts paragraph as next sibling INSIDE the li', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p></li></ul><h2>Indented</h2>');
     await caretAtEndOfNode(page, 'heading', 'Indented');
     await page.keyboard.press('Tab');
@@ -2027,7 +2026,7 @@ test.describe('Notion-strict list schema - ListIndent (Tab/Shift-Tab across list
 
   // ── Cross-feature: empty / autofix list items ────────────────────
 
-  test('Tab on heading after a list whose last item has [empty-p, content] (Phase 1 autofix shape) still indents correctly', async ({ page }) => {
+  test('Tab on heading after a list whose last item has [empty-p, content] (autofix shape) still indents correctly', async ({ page }) => {
     // Mimics post-Phase-1 listItem where the only "real" content is a
     // nested block; the label paragraph is empty (autofix-injected).
     // Indent appends the heading as a new last child without
@@ -2078,7 +2077,7 @@ test.describe('Notion-strict list schema - ListIndent (Tab/Shift-Tab across list
 
   // ── Outdent: structural invariants ────────────────────────────────
 
-  test('Outdent leaves the source list item with its label paragraph intact (Phase 1 invariant: paragraph stays first child)', async ({ page }) => {
+  test('Outdent leaves the source list item with its label paragraph intact (strict schema: paragraph stays first child)', async ({ page }) => {
     await setContent(page, '<ul><li><p>Label</p><h2>Will leave</h2></li></ul>');
     await caretAtEndOfNode(page, 'heading', 'Will leave');
     await page.keyboard.press('Shift+Tab');
@@ -2614,7 +2613,7 @@ test.describe('Notion-strict list schema - ListIndent (Tab/Shift-Tab across list
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// 13. Phase 5 - dissolve list-item label on type-convert
+// 13. dissolve list-item label on type-convert
 // ────────────────────────────────────────────────────────────────────────
 //
 // `setBlockType` (which underlies `toggleHeading`, `setHeading`, the
@@ -2626,13 +2625,12 @@ test.describe('Notion-strict list schema - ListIndent (Tab/Shift-Tab across list
 // `paragraph block*` content rule for list items requires a paragraph
 // as the first child.
 //
-// Phase 5 adds a "dissolve to-do" fallback: detect the label-of-li
-// case, lift the list item out, then retry the convert on the now
-// top-level paragraph. The user typing `/heading 1` inside a to-do
-// label transforms the to-do into a top-level heading - exactly what
-// Notion does.
+// The "dissolve to-do" fallback detects the label-of-li case, lifts
+// the list item out, then retries the convert on the now top-level
+// paragraph. The user typing `/heading 1` inside a to-do label
+// transforms the to-do into a top-level heading - exactly what Notion does.
 
-test.describe('Notion-strict list schema - Phase 5 dissolve-on-convert (slash /h1 in label)', () => {
+test.describe('Notion-strict list schema - dissolve-on-convert (slash /h1 in label)', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
   /** Place the PM caret at end of the first node of `typeName` matching `text`. */
@@ -3050,12 +3048,11 @@ test.describe('Notion-strict list schema - Phase 5 dissolve-on-convert (slash /h
     expect(top[0]?.text).toBe('RoundTrip');
   });
 
-  test('Phase 4+5 interaction: dissolve a bullet to heading, then Tab the heading INTO an adjacent following list', async ({ page }) => {
+  test('dissolve + ListIndent interaction: dissolve a bullet to heading, then Tab the heading INTO an adjacent following list', async ({ page }) => {
     // Two bullets initially. Dissolve the FIRST -> heading sits at
     // top, followed by a bullet list. Now Tab should NOT indent the
-    // heading (no PREVIOUS list before it). Then we set up the
-    // reverse: heading then list. Hmm easier setup: heading -> list,
-    // then verify Phase 4 still works.
+    // heading (no PREVIOUS list before it). Then verify ListIndent
+    // still works.
     await setContent(page, '<ul><li><p>First</p></li></ul><ul><li><p>Second</p></li></ul>');
     // Dissolve First -> [heading "First", bulletList(Second)].
     await caretAtEndOfNode(page, 'paragraph', 'First');
@@ -3066,7 +3063,7 @@ test.describe('Notion-strict list schema - Phase 5 dissolve-on-convert (slash /h
     let top = await topBlocks(page);
     expect(top.map((b) => b.type)).toEqual(['heading', 'bulletList']);
 
-    // Phase 4 Tab on the heading - no PREVIOUS list, so no-op.
+    // ListIndent Tab on the heading - no PREVIOUS list, so no-op.
     await caretAtEndOfNode(page, 'heading', 'First');
     await page.keyboard.press('Tab');
     await page.waitForTimeout(40);
@@ -3074,7 +3071,7 @@ test.describe('Notion-strict list schema - Phase 5 dissolve-on-convert (slash /h
     expect(top.map((b) => b.type)).toEqual(['heading', 'bulletList']);
   });
 
-  test('Phase 3+5 interaction: after dissolve, Enter at end of resulting heading creates a paragraph below it', async ({ page }) => {
+  test('after dissolve, Enter at end of resulting heading creates a paragraph below it', async ({ page }) => {
     await setContent(page, '<ul><li><p>Section</p></li></ul>');
     await caretAtEndOfNode(page, 'paragraph', 'Section');
     const modKey = process.platform === 'darwin' ? 'Meta' : 'Control';
@@ -3084,7 +3081,7 @@ test.describe('Notion-strict list schema - Phase 5 dissolve-on-convert (slash /h
     // Confirm dissolve.
     expect((await topBlocks(page)).map((b) => b.type)).toEqual(['heading']);
 
-    // Phase 3 Enter at end of heading.
+    // Enter at end of heading.
     await caretAtEndOfNode(page, 'heading', 'Section');
     await page.keyboard.press('Enter');
     await page.keyboard.type('body');

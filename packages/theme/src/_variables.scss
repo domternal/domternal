@@ -107,6 +107,11 @@
   // never overlaps surrounding chrome the way a real outline would).
   --dm-block-selected-halo: rgba(112, 207, 248, 0.25);
 
+  // Background tint applied to a block while its context menu is open.
+  // Used by `_context-menu.scss` via a Decoration class. Dark theme
+  // override lives in `themes/_dark.scss`.
+  --dm-block-context-active-bg: rgba(55, 53, 47, 0.06);
+
   // ---------------------------------------------------------------------------
   // Editor
   // ---------------------------------------------------------------------------
@@ -259,8 +264,7 @@
   --dm-toc-tick-radius: 1px;
   --dm-toc-tick-gap: 10px;
 
-  // Default tick color is the same low-contrast neutral Notion uses;
-  // the active variant (Phase 5) is full text color.
+  // Tick color: low-contrast neutral; active variant is full text color.
   --dm-toc-tick-color: rgba(55, 53, 47, 0.4);
   --dm-toc-tick-hover-color: rgba(55, 53, 47, 0.7);
   --dm-toc-tick-active-color: rgba(55, 53, 47, 0.95);
@@ -272,8 +276,22 @@
   --dm-toc-right-offset: 24px;
   --dm-toc-z-index: 10;
 
-  // Expanded card (Phase 6). The card replaces the tick column on
-  // hover/focus, showing the full heading text with per-level indent.
+  // Editor-anchored outline (anchor: 'editor'): top offset from the
+  // editor's top edge. Used by `_toc.scss` sticky shell.
+  --dm-toc-editor-top: 1rem;
+
+  // Page-anchored outline (anchor: 'page'): right offset from the
+  // viewport (smaller than `--dm-toc-right-offset` when nav is mid-page).
+  --dm-toc-page-offset: 8px;
+
+  // Expanded card vertical margin from the viewport top/bottom.
+  // Used by `_toc.scss` viewport-clamp. The plugin writes
+  // `--dm-toc-card-shift-y` (a JS-computed shift) and reads this margin
+  // as the keep-out distance from the viewport edges.
+  --dm-toc-card-viewport-margin: 16px;
+
+  // Expanded card: replaces the tick column on hover/focus, showing the
+  // full heading text with per-level indent.
   --dm-toc-card-bg: rgba(255, 255, 255, 0.98);
   --dm-toc-card-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
   --dm-toc-card-radius: 6px;
@@ -298,10 +316,8 @@
   --dm-toc-row-font-size: 13px;
   --dm-toc-row-line-height: 1.4;
 
-  // Inline /toc block (Phase 7). Lives INSIDE the editor as a
-  // first-class document block (vs the floating outline which lives
-  // outside .dm-editor). Styled like a Notion-ish callout: subtle
-  // surface tint, soft border, padded list of heading shortcuts.
+  // Inline /toc block: lives INSIDE the editor as a first-class document
+  // block. Notion-style callout (subtle surface tint, soft border).
   --dm-toc-block-bg: rgba(0, 0, 0, 0.02);
   --dm-toc-block-border: 1px solid rgba(0, 0, 0, 0.08);
   --dm-toc-block-radius: 6px;

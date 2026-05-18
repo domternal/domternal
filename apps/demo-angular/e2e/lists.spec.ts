@@ -76,7 +76,7 @@ const TASK_LIST_CHECKED = [
 // BULLET LIST
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Bullet List — rendering', () => {
+test.describe('Bullet List - rendering', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -104,7 +104,7 @@ test.describe('Bullet List — rendering', () => {
   });
 });
 
-test.describe('Bullet List — toolbar', () => {
+test.describe('Bullet List - toolbar', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -151,7 +151,7 @@ test.describe('Bullet List — toolbar', () => {
   });
 });
 
-test.describe('Bullet List — input rules', () => {
+test.describe('Bullet List - input rules', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -195,7 +195,7 @@ test.describe('Bullet List — input rules', () => {
   });
 });
 
-test.describe('Bullet List — Enter key', () => {
+test.describe('Bullet List - Enter key', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -251,7 +251,7 @@ test.describe('Bullet List — Enter key', () => {
     await page.locator(`${editorSelector} li`).click();
     await page.keyboard.press('End');
     await page.keyboard.press('Enter');
-    // Now on a new empty item — Enter again exits list
+    // Now on a new empty item - Enter again exits list
     await page.keyboard.press('Enter');
 
     const html = await getEditorHTML(page);
@@ -261,7 +261,7 @@ test.describe('Bullet List — Enter key', () => {
   });
 });
 
-test.describe('Bullet List — Tab / Shift-Tab', () => {
+test.describe('Bullet List - Tab / Shift-Tab', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -297,7 +297,7 @@ test.describe('Bullet List — Tab / Shift-Tab', () => {
   });
 });
 
-test.describe('Bullet List — Shift-Tab', () => {
+test.describe('Bullet List - Shift-Tab', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -322,7 +322,7 @@ test.describe('Bullet List — Shift-Tab', () => {
 // ORDERED LIST
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Ordered List — rendering', () => {
+test.describe('Ordered List - rendering', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -347,7 +347,7 @@ test.describe('Ordered List — rendering', () => {
   });
 });
 
-test.describe('Ordered List — toolbar', () => {
+test.describe('Ordered List - toolbar', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -389,7 +389,7 @@ test.describe('Ordered List — toolbar', () => {
   });
 });
 
-test.describe('Ordered List — input rules', () => {
+test.describe('Ordered List - input rules', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -425,7 +425,7 @@ test.describe('Ordered List — input rules', () => {
   });
 });
 
-test.describe('Ordered List — Enter key', () => {
+test.describe('Ordered List - Enter key', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -458,7 +458,7 @@ test.describe('Ordered List — Enter key', () => {
   });
 });
 
-test.describe('Ordered List — Tab / Shift-Tab', () => {
+test.describe('Ordered List - Tab / Shift-Tab', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -488,7 +488,7 @@ test.describe('Ordered List — Tab / Shift-Tab', () => {
 
 // ─── Switching between bullet and ordered ─────────────────────────────
 
-test.describe('Lists — switching types', () => {
+test.describe('Lists - switching types', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -550,7 +550,7 @@ test.describe('Lists — switching types', () => {
 // TASK LIST
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Task List — rendering', () => {
+test.describe('Task List - rendering', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -590,7 +590,100 @@ test.describe('Task List — rendering', () => {
   });
 });
 
-test.describe('Task List — toolbar', () => {
+// ═══════════════════════════════════════════════════════════════════════
+// TASK LIST - checkbox interactivity (NodeView)
+// ═══════════════════════════════════════════════════════════════════════
+
+test.describe('Task List - checkbox interactivity', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('clicking the checkbox toggles data-checked + applies strikethrough on the label paragraph', async ({ page }) => {
+    await setContentAndFocus(page, TASK_LIST);
+    const li = page.locator(`${editorSelector} li[data-type="taskItem"]`).first();
+    const cb = li.locator('input[type="checkbox"]');
+    const label = li.locator('> div > p').first();
+
+    await expect(li).toHaveAttribute('data-checked', 'false');
+    await expect(cb).not.toBeChecked();
+    await expect(label).toHaveCSS('text-decoration-line', 'none');
+
+    await cb.click();
+
+    await expect(li).toHaveAttribute('data-checked', 'true');
+    await expect(cb).toBeChecked();
+    await expect(label).toHaveCSS('text-decoration-line', 'line-through');
+  });
+
+  test('clicking a checked task unchecks it + removes strikethrough', async ({ page }) => {
+    await setContentAndFocus(page, TASK_LIST_CHECKED);
+    const li = page.locator(`${editorSelector} li[data-type="taskItem"]`).first();
+    const cb = li.locator('input[type="checkbox"]');
+    const label = li.locator('> div > p').first();
+
+    await expect(li).toHaveAttribute('data-checked', 'true');
+    await expect(label).toHaveCSS('text-decoration-line', 'line-through');
+
+    await cb.click();
+
+    await expect(li).toHaveAttribute('data-checked', 'false');
+    await expect(cb).not.toBeChecked();
+    await expect(label).toHaveCSS('text-decoration-line', 'none');
+  });
+
+  test('Enter on a checked task creates an UNCHECKED sibling', async ({ page }) => {
+    await setContentAndFocus(page, TASK_LIST_CHECKED);
+    // Place the caret at the end of the existing checked task's label.
+    await page.locator(`${editorSelector} li[data-type="taskItem"] > div > p`).first().click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+
+    const items = page.locator(`${editorSelector} li[data-type="taskItem"]`);
+    await expect(items).toHaveCount(2);
+    // Original stays checked, new sibling starts fresh (unchecked).
+    await expect(items.nth(0)).toHaveAttribute('data-checked', 'true');
+    await expect(items.nth(1)).toHaveAttribute('data-checked', 'false');
+  });
+
+  test('checking a parent does NOT propagate strikethrough to nested child label', async ({ page }) => {
+    // Notion-parity guard: with the strikethrough scoped to the label
+    // paragraph (`> div > p:first-child`), checking a parent task must
+    // not bleed into nested child labels via descendant inheritance.
+    const NESTED = [
+      '<ul data-type="taskList">',
+      '<li data-type="taskItem" data-checked="false">',
+      '<label contenteditable="false"><input type="checkbox"></label>',
+      '<div><p>parent</p>',
+      '<ul data-type="taskList">',
+      '<li data-type="taskItem" data-checked="false">',
+      '<label contenteditable="false"><input type="checkbox"></label>',
+      '<div><p>child</p></div>',
+      '</li>',
+      '</ul>',
+      '</div>',
+      '</li>',
+      '</ul>',
+    ].join('');
+    await setContentAndFocus(page, NESTED);
+
+    const items = page.locator(`${editorSelector} li[data-type="taskItem"]`);
+    const parentCheckbox = items.nth(0).locator('> label > input[type="checkbox"]').first();
+    const parentLabel = items.nth(0).locator('> div > p').first();
+    const childLabel = items.nth(1).locator('> div > p').first();
+
+    await parentCheckbox.click();
+
+    await expect(items.nth(0)).toHaveAttribute('data-checked', 'true');
+    await expect(parentLabel).toHaveCSS('text-decoration-line', 'line-through');
+    await expect(items.nth(1)).toHaveAttribute('data-checked', 'false');
+    await expect(childLabel).toHaveCSS('text-decoration-line', 'none');
+    await expect(childLabel).toHaveCSS('opacity', '1');
+  });
+});
+
+test.describe('Task List - toolbar', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -638,7 +731,7 @@ test.describe('Task List — toolbar', () => {
   });
 });
 
-test.describe('Task List — input rules', () => {
+test.describe('Task List - input rules', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -673,7 +766,7 @@ test.describe('Task List — input rules', () => {
   });
 });
 
-test.describe('Task List — checkbox interaction', () => {
+test.describe('Task List - checkbox interaction', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -731,7 +824,7 @@ test.describe('Task List — checkbox interaction', () => {
   });
 });
 
-test.describe('Task List — Enter key', () => {
+test.describe('Task List - Enter key', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -764,7 +857,7 @@ test.describe('Task List — Enter key', () => {
       .click();
     await page.keyboard.press('End');
     await page.keyboard.press('Enter');
-    // Now on new empty task item — Enter exits
+    // Now on new empty task item - Enter exits
     await page.keyboard.press('Enter');
 
     const html = await getEditorHTML(page);
@@ -806,7 +899,7 @@ test.describe('Task List — Enter key', () => {
   });
 });
 
-test.describe('Task List — Tab / Shift-Tab', () => {
+test.describe('Task List - Tab / Shift-Tab', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -846,7 +939,7 @@ test.describe('Task List — Tab / Shift-Tab', () => {
 
 // ─── Marks inside lists ───────────────────────────────────────────────
 
-test.describe('Lists — marks inside list items', () => {
+test.describe('Lists - marks inside list items', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -911,7 +1004,7 @@ test.describe('Lists — marks inside list items', () => {
 
 // ─── Lists with surrounding content ──────────────────────────────────
 
-test.describe('Lists — with surrounding content', () => {
+test.describe('Lists - with surrounding content', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -955,10 +1048,10 @@ test.describe('Lists — with surrounding content', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// NESTED LIST — TYPE CONVERSION CURSOR BUG
+// NESTED LIST - TYPE CONVERSION CURSOR BUG
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Nested list — convert type keeps cursor position', () => {
+test.describe('Nested list - convert type keeps cursor position', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1136,10 +1229,10 @@ test.describe('Nested list — convert type keeps cursor position', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// NESTED LIST — ENTER ESCAPE LEVEL BY LEVEL
+// NESTED LIST - ENTER ESCAPE LEVEL BY LEVEL
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Nested list — Enter escape level by level', () => {
+test.describe('Nested list - Enter escape level by level', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1416,10 +1509,10 @@ test.describe('Nested list — Enter escape level by level', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// NESTED LIST — BACKSPACE AT DIFFERENT LEVELS
+// NESTED LIST - BACKSPACE AT DIFFERENT LEVELS
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Nested list — Backspace behavior', () => {
+test.describe('Nested list - Backspace behavior', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1550,10 +1643,10 @@ test.describe('Nested list — Backspace behavior', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// KNOWN EDGE CASES — ENTER SPLITTING BEHAVIOR
+// KNOWN EDGE CASES - ENTER SPLITTING BEHAVIOR
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Edge cases — Enter splitting', () => {
+test.describe('Edge cases - Enter splitting', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1706,10 +1799,10 @@ test.describe('Edge cases — Enter splitting', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// KNOWN EDGE CASES — TAB / SHIFT-TAB NESTING
+// KNOWN EDGE CASES - TAB / SHIFT-TAB NESTING
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Edge cases — Tab / Shift-Tab nesting', () => {
+test.describe('Edge cases - Tab / Shift-Tab nesting', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1727,7 +1820,7 @@ test.describe('Edge cases — Tab / Shift-Tab nesting', () => {
     await page.waitForTimeout(150);
 
     const htmlAfter = await getEditorHTML(page);
-    // Structure should be unchanged — first item cannot be indented
+    // Structure should be unchanged - first item cannot be indented
     expect(htmlAfter).toBe(htmlBefore);
   });
 
@@ -1842,10 +1935,10 @@ test.describe('Edge cases — Tab / Shift-Tab nesting', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// KNOWN EDGE CASES — LIST TYPE TOGGLING AND UNDO
+// KNOWN EDGE CASES - LIST TYPE TOGGLING AND UNDO
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Edge cases — list type toggling and undo', () => {
+test.describe('Edge cases - list type toggling and undo', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1984,10 +2077,10 @@ test.describe('Edge cases — list type toggling and undo', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// KNOWN EDGE CASES — TASK ITEM SPECIFIC
+// KNOWN EDGE CASES - TASK ITEM SPECIFIC
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Edge cases — task item specific', () => {
+test.describe('Edge cases - task item specific', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -2110,10 +2203,10 @@ test.describe('Edge cases — task item specific', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// KNOWN EDGE CASES — CROSS-ITEM SELECTION AND DELETE
+// KNOWN EDGE CASES - CROSS-ITEM SELECTION AND DELETE
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Edge cases — selection and delete across list items', () => {
+test.describe('Edge cases - selection and delete across list items', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -2171,10 +2264,10 @@ test.describe('Edge cases — selection and delete across list items', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// KNOWN EDGE CASES — INPUT RULES
+// KNOWN EDGE CASES - INPUT RULES
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Edge cases — input rules for list creation', () => {
+test.describe('Edge cases - input rules for list creation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -2244,17 +2337,17 @@ test.describe('Edge cases — input rules for list creation', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// KNOWN EDGE CASES — MIXED NESTING STRESS TESTS
+// KNOWN EDGE CASES - MIXED NESTING STRESS TESTS
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Edge cases — mixed nesting stress tests', () => {
+test.describe('Edge cases - mixed nesting stress tests', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
   });
 
   // Regression: ordered list inside task item, split the ordered item,
-  // then press Enter on empty — should escape to task level, not break
+  // then press Enter on empty - should escape to task level, not break
   test('split ordered item inside task, then Enter on empty escapes to task level', async ({ page }) => {
     const fixture = [
       '<ul data-type="taskList">',
@@ -2273,7 +2366,7 @@ test.describe('Edge cases — mixed nesting stress tests', () => {
     await page.keyboard.press('Enter');
     await page.waitForTimeout(100);
 
-    // Now in empty ordered item — Enter should escape to taskList
+    // Now in empty ordered item - Enter should escape to taskList
     await page.keyboard.press('Enter');
     await page.waitForTimeout(150);
 
@@ -2361,7 +2454,7 @@ test.describe('Edge cases — mixed nesting stress tests', () => {
     // Now unwind: Enter on empty deep item
     await page.keyboard.press('Enter');
     await page.waitForTimeout(100);
-    // Empty item at deepest level — Enter escapes
+    // Empty item at deepest level - Enter escapes
     await page.keyboard.press('Enter');
     await page.waitForTimeout(150);
 
@@ -2375,7 +2468,7 @@ test.describe('Edge cases — mixed nesting stress tests', () => {
   });
 
   // Edge case: task item with only a checked checkbox, nested bullet,
-  // and trailing empty paragraph — Enter on the empty paragraph should
+  // and trailing empty paragraph - Enter on the empty paragraph should
   // NOT destroy the bullet content
   test('task item with nested content + trailing empty paragraph: Enter preserves nested content', async ({ page }) => {
     const fixture = [
@@ -2404,7 +2497,7 @@ test.describe('Edge cases — mixed nesting stress tests', () => {
     expect(html).toContain('Sub note B');
   });
 
-  // Edge case: single item in each nesting level — operations should still work
+  // Edge case: single item in each nesting level - operations should still work
   test('single-item lists at each level: Tab and Enter work correctly', async ({ page }) => {
     await setContentAndFocus(page, '<ul><li><p>Only</p></li></ul>');
 
@@ -2436,10 +2529,10 @@ test.describe('Edge cases — mixed nesting stress tests', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// EDGE CASES — BACKSPACE AT START OF FIRST LIST ITEM
+// EDGE CASES - BACKSPACE AT START OF FIRST LIST ITEM
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Edge cases — Backspace at start of first list item', () => {
+test.describe('Edge cases - Backspace at start of first list item', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -2523,10 +2616,10 @@ test.describe('Edge cases — Backspace at start of first list item', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// EDGE CASES — ENTER WITH NESTED SUB-LIST BELOW
+// EDGE CASES - ENTER WITH NESTED SUB-LIST BELOW
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Edge cases — Enter on item with nested sub-list', () => {
+test.describe('Edge cases - Enter on item with nested sub-list', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -2606,10 +2699,10 @@ test.describe('Edge cases — Enter on item with nested sub-list', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// EDGE CASES — PASTE LIST INTO LIST
+// EDGE CASES - PASTE LIST INTO LIST
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Edge cases — paste into lists', () => {
+test.describe('Edge cases - paste into lists', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -2688,10 +2781,10 @@ test.describe('Edge cases — paste into lists', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// EDGE CASES — MULTI-LEVEL TYPE CONVERSION
+// EDGE CASES - MULTI-LEVEL TYPE CONVERSION
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Edge cases — multi-level type conversion', () => {
+test.describe('Edge cases - multi-level type conversion', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -2760,7 +2853,7 @@ test.describe('Edge cases — multi-level type conversion', () => {
     await nested.click();
     await page.waitForTimeout(50);
 
-    // Toggle bullet on a bullet — should toggle off (lift)
+    // Toggle bullet on a bullet - should toggle off (lift)
     await page.locator(btn.bullet).click();
     await page.waitForTimeout(150);
 
@@ -2803,10 +2896,10 @@ test.describe('Edge cases — multi-level type conversion', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// EDGE CASES — LIST ITEMS WITH BLOCK CONTENT (blockquote, code block)
+// EDGE CASES - LIST ITEMS WITH BLOCK CONTENT (blockquote, code block)
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Edge cases — list items with block content', () => {
+test.describe('Edge cases - list items with block content', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -2880,10 +2973,10 @@ test.describe('Edge cases — list items with block content', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════
-// EDGE CASES — TOOLBAR BUTTON CREATION FROM PARAGRAPHS
+// EDGE CASES - TOOLBAR BUTTON CREATION FROM PARAGRAPHS
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Edge cases — toolbar button list creation from paragraph', () => {
+test.describe('Edge cases - toolbar button list creation from paragraph', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -2950,7 +3043,7 @@ test.describe('Edge cases — toolbar button list creation from paragraph', () =
 // INPUT RULES INSIDE EXISTING LIST ITEMS
 // ═══════════════════════════════════════════════════════════════════════
 
-test.describe('Edge cases — input rules inside existing list items', () => {
+test.describe('Edge cases - input rules inside existing list items', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

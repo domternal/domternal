@@ -32,7 +32,7 @@ export interface PositionFloatingOptions {
  * Uses `autoUpdate` from floating-ui with `animationFrame` polling for
  * jitter-free scroll tracking (rAF syncs with browser paint).
  *
- * Includes `hide` middleware — when the reference element is scrolled out of
+ * Includes `hide` middleware - when the reference element is scrolled out of
  * view, the floating element is hidden via `visibility: hidden`.
  *
  * The floating element must have `position: fixed`.
@@ -47,7 +47,7 @@ export interface PositionFloatingOptions {
  *   placement: 'bottom-start',
  * });
  *
- * // Virtual reference (e.g. cursor position — must return fresh coords)
+ * // Virtual reference (e.g. cursor position - must return fresh coords)
  * const virtualEl = {
  *   getBoundingClientRect: () => {
  *     const coords = view.coordsAtPos(pos);
@@ -84,7 +84,7 @@ export function positionFloating(
         middleware,
       },
     ).then(({ x, y, middlewareData }) => {
-      // Use transform instead of left/top — GPU-accelerated, no layout reflow,
+      // Use transform instead of left/top - GPU-accelerated, no layout reflow,
       // eliminates visible jitter during scroll tracking.
       Object.assign(floating.style, {
         left: '0',
@@ -100,8 +100,8 @@ export function positionFloating(
 
   // When scroll tracking is enabled, use requestAnimationFrame polling
   // instead of scroll event listeners. rAF runs in the same frame as the
-  // browser paint, so the position update is synchronous with the scroll —
-  // no 1-frame lag / jitter. Slightly more CPU than event-based, but
+  // browser paint, so the position update is synchronous with the scroll,
+  // with no 1-frame lag or jitter. Slightly more CPU than event-based, but
   // imperceptible on modern devices and only active while the element is shown.
   //
   // ancestorScroll is always off: when rAF is enabled it's redundant,
@@ -115,17 +115,17 @@ export function positionFloating(
 
 /**
  * Positions a floating element using `strategy: 'absolute'` so it scrolls
- * together with its offsetParent — zero jitter by design.
+ * together with its offsetParent - zero jitter by design.
  *
  * Ideal for dropdowns inside scroll containers (e.g. emoji suggestion inside
  * `.dm-editor`) and toolbar dropdowns. The absolute coordinates are stable
- * across scrolls — only `flip`/`shift` decisions change on scroll, producing
+ * across scrolls - only `flip`/`shift` decisions change on scroll, producing
  * a discrete jump rather than continuous jitter.
  *
  * The floating element must have `position: absolute` and its offsetParent
  * must have `position: relative`.
  *
- * Returns a cleanup function — call it when hiding or destroying the
+ * Returns a cleanup function - call it when hiding or destroying the
  * floating element.
  */
 export function positionFloatingOnce(
@@ -160,7 +160,7 @@ export function positionFloatingOnce(
   };
 
   // Track scroll + resize. With strategy:'absolute' the base coordinates
-  // are stable across scrolls — only flip/shift decisions change (discrete
+  // are stable across scrolls - only flip/shift decisions change (discrete
   // jump, not continuous jitter).
   const trackScroll = options?.trackScroll ?? true;
   return autoUpdate(reference as Element, floating, update, {

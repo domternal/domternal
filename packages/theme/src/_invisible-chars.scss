@@ -14,7 +14,7 @@
     user-select: none;
   }
 
-  // Inline space decorations — overlay · on the invisible space character
+  // Inline space decorations - overlay · on the invisible space character
   [data-char="space"] {
     position: relative;
 
@@ -28,7 +28,7 @@
     }
   }
 
-  // Inline non-breaking space decorations — overlay ° on the nbsp character
+  // Inline non-breaking space decorations - overlay ° on the nbsp character
   [data-char="nbsp"] {
     position: relative;
 

@@ -11,7 +11,7 @@ async function openVModelDemo({ page }: { page: Page }) {
   await expect(page.locator(EDITOR_SELECTOR)).toBeVisible();
 }
 
-test.describe('v-model — parent to editor sync', () => {
+test.describe('v-model - parent to editor sync', () => {
   test.beforeEach(openVModelDemo);
 
   test('editor renders initial v-model value', async ({ page }) => {
@@ -50,7 +50,7 @@ test.describe('v-model — parent to editor sync', () => {
   });
 });
 
-test.describe('v-model — editor to parent sync', () => {
+test.describe('v-model - editor to parent sync', () => {
   test.beforeEach(openVModelDemo);
 
   test('typing in editor updates parent v-model state', async ({ page }) => {
@@ -111,7 +111,7 @@ test.describe('v-model — editor to parent sync', () => {
   });
 });
 
-test.describe('v-model — round-trip', () => {
+test.describe('v-model - round-trip', () => {
   test.beforeEach(openVModelDemo);
 
   test('parent sets bold, user edits - both changes visible', async ({ page }) => {

@@ -77,7 +77,7 @@ const TWO_PARAGRAPHS = '<p>first paragraph</p><p>second paragraph</p>';
 
 // ─── Toolbar dropdown ─────────────────────────────────────────────────
 
-test.describe('TextColor — toolbar dropdown', () => {
+test.describe('TextColor - toolbar dropdown', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -134,7 +134,7 @@ test.describe('TextColor — toolbar dropdown', () => {
 
 // ─── Color indicator bar on trigger ──────────────────────────────────
 
-test.describe('TextColor — color indicator bar', () => {
+test.describe('TextColor - color indicator bar', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -206,7 +206,7 @@ test.describe('TextColor — color indicator bar', () => {
 
 // ─── Set color via toolbar ────────────────────────────────────────────
 
-test.describe('TextColor — set via toolbar', () => {
+test.describe('TextColor - set via toolbar', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -261,7 +261,7 @@ test.describe('TextColor — set via toolbar', () => {
 
 // ─── Unset / Default ──────────────────────────────────────────────────
 
-test.describe('TextColor — unset (Default)', () => {
+test.describe('TextColor - unset (Default)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -314,7 +314,7 @@ test.describe('TextColor — unset (Default)', () => {
 
 // ─── Change between colors ────────────────────────────────────────────
 
-test.describe('TextColor — change between colors', () => {
+test.describe('TextColor - change between colors', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -364,7 +364,7 @@ test.describe('TextColor — change between colors', () => {
 
 // ─── Active state ─────────────────────────────────────────────────────
 
-test.describe('TextColor — active state', () => {
+test.describe('TextColor - active state', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -415,7 +415,7 @@ test.describe('TextColor — active state', () => {
 
 // ─── parseHTML / color normalization ──────────────────────────────────
 
-test.describe('TextColor — parseHTML', () => {
+test.describe('TextColor - parseHTML', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -473,7 +473,7 @@ test.describe('TextColor — parseHTML', () => {
 
 // ─── Partial selection ────────────────────────────────────────────────
 
-test.describe('TextColor — partial selection', () => {
+test.describe('TextColor - partial selection', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -539,7 +539,7 @@ test.describe('TextColor — partial selection', () => {
 
 // ─── Multiple paragraphs ─────────────────────────────────────────────
 
-test.describe('TextColor — multiple paragraphs', () => {
+test.describe('TextColor - multiple paragraphs', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -578,7 +578,7 @@ test.describe('TextColor — multiple paragraphs', () => {
 
 // ─── Combined with other styles ───────────────────────────────────────
 
-test.describe('TextColor — combined with other marks', () => {
+test.describe('TextColor - combined with other marks', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -642,7 +642,7 @@ test.describe('TextColor — combined with other marks', () => {
 
 // ─── Persistence ──────────────────────────────────────────────────────
 
-test.describe('TextColor — persistence', () => {
+test.describe('TextColor - persistence', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -689,7 +689,7 @@ test.describe('TextColor — persistence', () => {
 
 // ─── Edge cases ───────────────────────────────────────────────────────
 
-test.describe('TextColor — edge cases', () => {
+test.describe('TextColor - edge cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

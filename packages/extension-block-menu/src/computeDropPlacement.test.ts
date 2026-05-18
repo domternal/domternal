@@ -1,16 +1,14 @@
 /**
- * Unit coverage for `computeDropPlacement` after the DropPlacement type
- * extension. Phase 2 of plan 3 added `mode: 'sibling' | 'nested'` plus
- * optional `targetItemPos` / `wrapperPos` to the returned shape; every
- * existing return path commits to `mode: 'sibling'` until X-threshold
- * detection ships in a follow-up phase. These tests lock that contract
- * across all branches of the resolver:
+ * Unit coverage for `computeDropPlacement`. The DropPlacement shape carries
+ * `mode: 'sibling' | 'nested'` plus optional `targetItemPos` / `wrapperPos`.
+ * These tests lock the contract across all resolver branches:
  *
  *  1. Empty doc → null
  *  2. Mode A (top-level only) - cursor inside / at top / below last
- *  3. Inter-block gap canonicalisation - mode kept 'sibling'
- *  4. Mode B (nested deepest-Y match) - mode kept 'sibling'
- *  5. Type-narrowing - 'sibling' branch never carries targetItemPos
+ *  3. Inter-block gap canonicalisation
+ *  4. Mode B (nested deepest-Y match)
+ *  5. X-threshold detection (nested mode)
+ *  6. Type-narrowing - 'sibling' branch never carries targetItemPos
  *
  * jsdom doesn't perform layout, so DOM rects are hand-built via the
  * `viewStub` helper (mirrors the pattern in
@@ -223,10 +221,9 @@ describe('computeDropPlacement - DropPlacement.mode contract', () => {
         [liBanana, elWithRect({ top: 150, bottom: 200 })],
       ]);
 
-      // Pass nestThreshold=0 to exercise the legacy sibling-only path
-      // (Phase 3 X-detection disabled). Default threshold of 28 would
-      // otherwise flip clientX=100 over a list item rect into nested mode,
-      // which is covered by the dedicated Phase-3 nested-mode tests below.
+      // nestThreshold=0 disables X-detection so the sibling-only path runs.
+      // Default threshold of 28 would otherwise flip clientX=100 over a list
+      // item rect into nested mode (covered by the nested-mode tests below).
       const result = computeDropPlacement(viewStub(editor, rects), 100, 125, NESTED_LIST, 0);
       expect(result?.mode).toBe('sibling');
       expect(result?.targetItemPos).toBeUndefined();
@@ -278,7 +275,7 @@ describe('computeDropPlacement - DropPlacement.mode contract', () => {
     });
   });
 
-  describe('Phase 3 - X-threshold detection (nested mode)', () => {
+  describe('X-threshold detection (nested mode)', () => {
     // Default threshold is 28px from the LEFT edge of the target rect.
     // All tests here use a target rect with `left: 0` so `clientX` maps
     // 1:1 to "px from left edge".
@@ -489,8 +486,8 @@ describe('computeDropPlacement - DropPlacement.mode contract', () => {
       //      └─ bulletList (inner)
       //         └─ listItem (inner) "Inner"
       // Drop with nested-zone X on the INNER listItem must surface the
-      // INNER ul as wrapperPos so the Phase 5 tr math inserts the dragged
-      // block as a child of the INNER listItem, not the outer one.
+      // INNER ul as wrapperPos so the tr math inserts the dragged block
+      // as a child of the INNER listItem, not the outer one.
       const editor = makeEditor(
         '<ul><li><p>Outer label</p><ul><li><p>Inner</p></li></ul></li></ul>',
       );
@@ -514,10 +511,10 @@ describe('computeDropPlacement - DropPlacement.mode contract', () => {
     });
 
     it('nested mode keeps Y-mid based insertAfter so the existing pipeline produces an unchanged sibling-style move', () => {
-      // Phase 3 sets `mode='nested'` but does NOT change `insertAfter` -
-      // the field continues to mirror the cursor's Y position relative
-      // to the rect's mid-line. Phase 5 will ignore insertAfter when
-      // mode is nested and dispatch via `insertAsListItemChild` instead.
+      // Nested mode sets `mode='nested'` but does NOT change `insertAfter`:
+      // the field continues to mirror cursor Y vs rect mid-line. The drop
+      // pipeline's nested branch ignores insertAfter and dispatches via
+      // `insertAsListItemChild` instead.
       const editor = makeEditor('<ul><li><p>Apple</p></li></ul>');
       const ulPos = posOf(editor, (n) => n.type.name === 'bulletList');
       const liApple = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Apple');
@@ -561,7 +558,7 @@ describe('computeDropPlacement - DropPlacement.mode contract', () => {
           expect(result.wrapperPos).toBeUndefined();
           break;
         case 'nested':
-          throw new Error('Phase 2 invariant broken: nested mode produced before X-detection ships');
+          throw new Error('sibling-mode invariant broken: nested mode produced on a non-nested resolver branch');
         default: {
           const _exhaustive: never = result.mode;
           throw new Error(`unexpected mode: ${String(_exhaustive)}`);
@@ -571,9 +568,8 @@ describe('computeDropPlacement - DropPlacement.mode contract', () => {
     });
 
     it('exported DropPlacement interface accepts a "nested" placement shape (forward-compat type test)', () => {
-      // Ensures the type allows both modes once Phase 3 wires up the
-      // detection. Constructed shape is for type-checking only - not
-      // produced by the runtime yet.
+      // Ensures the type allows both placement modes. Constructed shape
+      // is for type-checking only.
       const nestedShape: DropPlacement = {
         pos: 100,
         rect: new DOMRect(0, 0, 0, 0),

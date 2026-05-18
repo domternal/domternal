@@ -1,0 +1,204 @@
+// =============================================================================
+// Inline Colors
+// =============================================================================
+// Companion to `_block-colors.scss`. The block file's `[data-text-color]`
+// and `[data-bg-color]` rules already apply to inline spans (attribute
+// selectors have no element-type constraint). This file adds the inline
+// span bg-padding override and styles for the Notion color picker popover.
+//
+// Load AFTER `_block-colors.scss` in `index.scss` so the inline override
+// wins on equal specificity.
+// =============================================================================
+
+// Block rule applies `padding-block: 0.125rem` to any `[data-bg-color]`,
+// which would push a tinted span's background above/below the line box
+// and overlap neighbouring lines. Spans need INLINE padding only.
+.dm-editor .ProseMirror {
+  span[data-bg-color] {
+    padding-block: 0;
+    padding-inline: 0.2rem;
+    border-radius: 0.25rem;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Bubble menu "A" trigger
+// -----------------------------------------------------------------------------
+
+.dm-ncp-trigger {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+}
+
+.dm-ncp-trigger-glyph {
+  font-family: var(--dm-editor-font-family, system-ui, sans-serif);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1;
+  transform: translateY(2px);
+}
+
+.dm-ncp-trigger-underline {
+  width: 0.875rem;
+  height: 0.125rem;
+  border-radius: 0.0625rem;
+  background-color: transparent;
+}
+
+// -----------------------------------------------------------------------------
+// Picker popover
+// -----------------------------------------------------------------------------
+
+.dm-notion-color-picker {
+  // z-index parity with link popover (60), above bubble menu (50).
+  position: absolute;
+  z-index: 60;
+
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.25rem;
+
+  background: var(--dm-surface-elevated, var(--dm-surface, #ffffff));
+  color: var(--dm-editor-text, inherit);
+  border: 1px solid var(--dm-border-color, #e5e7eb);
+  border-radius: 0.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+
+  &:not([data-show]) {
+    display: none;
+  }
+}
+
+.dm-ncp-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.dm-ncp-label {
+  font-size: 0.75rem;
+  line-height: 1;
+  font-weight: 500;
+  color: var(--dm-muted, #6b7280);
+  padding: 0.125rem 0.25rem;
+}
+
+.dm-ncp-grid {
+  // Fixed 5 columns so every section reads as a 5x2 grid regardless of how
+  // many recent entries exist or how wide the popover ends up.
+  display: grid;
+  grid-template-columns: repeat(5, 1.5rem);
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  justify-content: start;
+}
+
+// -----------------------------------------------------------------------------
+// Swatch
+// -----------------------------------------------------------------------------
+
+.dm-ncp-swatch {
+  position: relative;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 1.5rem;
+  height: 1.5rem;
+
+  padding: 0;
+  border: 1px solid var(--dm-border-color, #e5e7eb);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--dm-editor-text, #333);
+
+  font-family: var(--dm-editor-font-family, system-ui, sans-serif);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+
+  &:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 2px var(--dm-accent-surface, rgba(37, 99, 235, 0.15));
+  }
+
+  // OUTSET outline (offset > 0): swatch fill takes the full button surface,
+  // so an inset outline would render under the fill.
+  &:focus-visible,
+  &.dm-ncp-active {
+    outline: 2px solid var(--dm-accent, #2563eb);
+    outline-offset: 1px;
+  }
+}
+
+// Strike-through "no color" indicator. Painted via `::after` so it overlays
+// the swatch's content - the text-color "Default" swatch keeps its "A" glyph
+// AND gets the diagonal slash on top, mirroring Notion's letterform-plus-slash
+// signal.
+@mixin ncp-default-slash {
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image: linear-gradient(
+      to top right,
+      transparent calc(50% - 1px),
+      var(--dm-muted, #999) calc(50% - 1px),
+      var(--dm-muted, #999) calc(50% + 1px),
+      transparent calc(50% + 1px)
+    );
+  }
+}
+
+.dm-ncp-swatch--text {
+  background-color: var(--dm-surface, #f8f9fa);
+
+  &::before {
+    content: 'A';
+  }
+
+  &[data-color="null"] {
+    @include ncp-default-slash;
+  }
+
+  &[data-color="gray"]::before   { color: var(--dm-block-text-gray); }
+  &[data-color="brown"]::before  { color: var(--dm-block-text-brown); }
+  &[data-color="orange"]::before { color: var(--dm-block-text-orange); }
+  &[data-color="yellow"]::before { color: var(--dm-block-text-yellow); }
+  &[data-color="green"]::before  { color: var(--dm-block-text-green); }
+  &[data-color="blue"]::before   { color: var(--dm-block-text-blue); }
+  &[data-color="purple"]::before { color: var(--dm-block-text-purple); }
+  &[data-color="pink"]::before   { color: var(--dm-block-text-pink); }
+  &[data-color="red"]::before    { color: var(--dm-block-text-red); }
+}
+
+.dm-ncp-swatch--bg {
+  &[data-color="null"] { @include ncp-default-slash; }
+
+  &[data-color="gray"]    { background-color: var(--dm-block-bg-gray); }
+  &[data-color="brown"]   { background-color: var(--dm-block-bg-brown); }
+  &[data-color="orange"]  { background-color: var(--dm-block-bg-orange); }
+  &[data-color="yellow"]  { background-color: var(--dm-block-bg-yellow); }
+  &[data-color="green"]   { background-color: var(--dm-block-bg-green); }
+  &[data-color="blue"]    { background-color: var(--dm-block-bg-blue); }
+  &[data-color="purple"]  { background-color: var(--dm-block-bg-purple); }
+  &[data-color="pink"]    { background-color: var(--dm-block-bg-pink); }
+  &[data-color="red"]     { background-color: var(--dm-block-bg-red); }
+}
+
+@media (max-width: 480px) {
+  .dm-notion-color-picker {
+    max-width: calc(100vw - 1rem);
+  }
+}

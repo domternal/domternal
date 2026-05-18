@@ -2,13 +2,13 @@
  * Cell-selection UI plugin.
  *
  * Responsibilities:
- * 1. Focused-cell decoration — adds `dm-cell-focused` class on the cell
+ * 1. Focused-cell decoration - adds `dm-cell-focused` class on the cell
  *    containing the cursor (not during CellSelection).
- * 2. Cell toolbar visibility — shows/hides the floating cell toolbar strip
+ * 2. Cell toolbar visibility - shows/hides the floating cell toolbar strip
  *    when CellSelection is active.
- * 3. Cell handle visibility — shows/hides the small circle handle when the
+ * 3. Cell handle visibility - shows/hides the small circle handle when the
  *    cursor rests inside a single table cell.
- * 4. Column-resize coordination — hides all handles/menus during active
+ * 4. Column-resize coordination - hides all handles/menus during active
  *    column resize drag.
  */
 

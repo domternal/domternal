@@ -1,33 +1,15 @@
 /**
- * TableOfContentsBlock - inline `/toc` block (Phase 7).
- *
- * An atom block-level PM node the user inserts via the slash menu.
- * The node itself is empty in the document (just `<div data-type=
- * "table-of-contents">`); a NodeView dynamically renders a list of
- * the document's headings on top of it.
- *
- * Architecture:
- *   - Node spec (`atom: true`, no editable content). PM treats it as
- *     a single unit for selection / drag / delete.
- *   - NodeView fully owns the inner DOM. We subscribe to
- *     `editor.storage.toc.subscribers` (Phase 2 contract) so the
- *     block re-renders whenever the heading list changes - typing a
- *     new heading anywhere in the doc flows through to every block
- *     instance. Active state mirrors `storage.activeId` so the
- *     currently-read heading is bolded inside the block too.
- *   - Click delegation routes any tap on a row to
- *     `editor.commands.scrollToHeading` (Phase 3) - same code path
- *     as the floating outline (Phase 4-6) and same UX (smooth scroll
- *     + URL hash + open-collapsed-details).
- *   - The slash menu item lives on `addFloatingMenuItems()` - the
- *     single hook fed by every insert affordance (slash, floating
- *     menu, BlockHandle plus button) so the block is discoverable
- *     from all of them at once.
+ * Inline `/toc` block. Atom PM node whose NodeView re-renders from
+ * `editor.storage.toc.subscribers` so every instance reflects the latest
+ * heading list and the shared `activeId`. Clicks route to
+ * `editor.commands.scrollToHeading`, same code path as the floating outline.
  */
-import { Node } from '@domternal/core';
+import { Node, splitListForInsert } from '@domternal/core';
 import type { Editor, FloatingMenuItem } from '@domternal/core';
 import type { NodeViewConstructor } from '@domternal/pm/view';
+import { TextSelection } from '@domternal/pm/state';
 import { scrollToHeading } from './helpers/scrollToHeading.js';
+import { resolveUniqueIDAttrName } from './helpers/uniqueIDIntegration.js';
 import type { TocStorage, HeadingEntry } from './types.js';
 
 export interface TableOfContentsBlockOptions {
@@ -50,6 +32,13 @@ const ITEM_CLASS = 'dm-toc-block-item';
 const LINK_CLASS = 'dm-toc-block-link';
 const EMPTY_CLASS = 'dm-toc-block-empty';
 const ACTIVE_LINK_CLASS = 'dm-toc-block-link--active';
+// Data attribute on link buttons that points at the heading id we
+// scroll to. Distinct from the heading element's own id attribute
+// (set by `UniqueID`): this lives on OUR buttons inside the block,
+// the heading id lives on the heading element in the editor's DOM.
+// Symmetric with FloatingTocOutline's anchor scheme.
+const ANCHOR_ATTR = 'data-toc-anchor';
+const ANCHOR_DATASET_KEY = 'tocAnchor';
 
 /**
  * Render the block's inner DOM (children of the wrapper) for the
@@ -84,7 +73,7 @@ function renderBlockContent(
     link.type = 'button';
     link.className = LINK_CLASS;
     link.dataset['level'] = String(entry.level);
-    link.dataset['tocId'] = entry.id;
+    link.dataset[ANCHOR_DATASET_KEY] = entry.id;
     link.textContent = entry.textContent.trim() || `Heading level ${String(entry.level)}`;
 
     item.appendChild(link);
@@ -94,15 +83,16 @@ function renderBlockContent(
 }
 
 /**
- * Toggle the active marker on every link with a `data-toc-id`. At
- * most one link gets `aria-current="location"` + the active class.
- * Mirrors `applyActiveMarker` in FloatingTocOutline so the inline
- * block and the floating outline reflect the same active heading.
+ * Toggle the active marker on every link button (carrying a
+ * `data-toc-anchor` attribute). At most one link gets
+ * `aria-current="location"` + the active class. Mirrors
+ * `applyActiveMarker` in FloatingTocOutline so the inline block and
+ * the floating outline reflect the same active heading.
  */
 function applyActiveLink(wrapper: HTMLElement, activeId: string | null): void {
   const links = wrapper.querySelectorAll<HTMLElement>(`.${LINK_CLASS}`);
   for (const link of Array.from(links)) {
-    const isActive = activeId !== null && link.dataset['tocId'] === activeId;
+    const isActive = activeId !== null && link.dataset[ANCHOR_DATASET_KEY] === activeId;
     link.classList.toggle(ACTIVE_LINK_CLASS, isActive);
     if (isActive) link.setAttribute('aria-current', 'location');
     else link.removeAttribute('aria-current');
@@ -151,27 +141,42 @@ function makeNodeViewConstructor(
       // was constructed (e.g. block inserted into an existing doc).
       refresh();
     } else {
-      // No TableOfContents loaded - render the empty state once and
-      // never update. The block stays inert and shows the placeholder.
+      // No TableOfContents loaded. The block stays inert. Loud-fail in
+      // the console so consumers wire it up; otherwise this rendered as
+      // an empty placeholder with no signal of the missing dependency.
+      // Mirrors TableOfContents' own peer-dep error.
+      // eslint-disable-next-line no-console
+      console.error(
+        '[TableOfContentsBlock] TableOfContents extension is not loaded. ' +
+        'The /toc block will render as an empty placeholder.\n' +
+        'Add it to your extensions array:\n' +
+        '  import { TableOfContents } from "@domternal/extension-toc";\n' +
+        '  extensions: [..., TableOfContents]',
+      );
       renderBlockContent(dom, [], options.emptyStateText);
     }
 
+    // Resolve UniqueID's attrName once per NodeView mount. Falls back
+    // to 'id' when UniqueID is absent (TOC will have errored loudly,
+    // and this NodeView only renders the empty-state placeholder).
+    const attrName = resolveUniqueIDAttrName(editor);
+
     // Click delegation: clicks anywhere inside the block bubble up
-    // to this listener. closest('[data-toc-id]') resolves to a link
-    // (or null if the click landed on the block chrome / empty
-    // placeholder); on a hit, we delegate to the shared
+    // to this listener. closest('[data-toc-anchor]') resolves to a
+    // link button (or null if the click landed on the block chrome /
+    // empty placeholder); on a hit, we delegate to the shared
     // scrollToHeading helper used by the floating outline as well.
     const onClick = (event: MouseEvent): void => {
       const target = (event.target as HTMLElement | null)?.closest<HTMLElement>(
-        '[data-toc-id]',
+        `[${ANCHOR_ATTR}]`,
       );
-      const id = target?.dataset['tocId'];
+      const id = target?.dataset[ANCHOR_DATASET_KEY];
       if (!id) return;
       // Prevent the click from bubbling to the editor and changing
       // selection - the NodeView is `contenteditable="false"` but
       // PM still tracks clicks on atoms for selection.
       event.preventDefault();
-      scrollToHeading(editor.view, id);
+      scrollToHeading(editor.view, id, { attrName });
     };
     dom.addEventListener('click', onClick);
 
@@ -248,9 +253,27 @@ export const TableOfContentsBlock = Node.create<TableOfContentsBlockOptions>({
         keywords: ['toc', 'outline', 'contents'],
         // Function command: SlashCommand removes the typed `/toc`
         // range BEFORE invoking us (FloatingMenuController.executeItem
-        // does the deleteRange). Here we just need to insert the
-        // node at the current cursor position.
+        // does the deleteRange). Insert the atom node at the cursor,
+        // honoring list-item context (split the parent list and place
+        // the TOC at top level rather than nested inside a list item).
         command: (editor: Editor): void => {
+          const { state, view } = editor;
+          const tocType = state.schema.nodes['tableOfContents'];
+          if (!tocType) return;
+          const tocNode = tocType.create();
+          const paragraphType = state.schema.nodes['paragraph'];
+          const trailingParagraph = paragraphType?.create();
+          const nodes = trailingParagraph ? [tocNode, trailingParagraph] : [tocNode];
+
+          const tr = state.tr;
+          const listRange = splitListForInsert(state, tr);
+          if (listRange) {
+            tr.replaceWith(listRange.from, listRange.to, nodes);
+            tr.setSelection(TextSelection.near(tr.doc.resolve(listRange.from + 1)));
+            view.dispatch(tr.scrollIntoView());
+            view.focus();
+            return;
+          }
           editor.chain().focus().insertContent({ type: 'tableOfContents' }).run();
         },
       },

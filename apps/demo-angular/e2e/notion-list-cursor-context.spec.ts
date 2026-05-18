@@ -6,8 +6,6 @@
  * adds a thin integration check that the util resolves correctly
  * against the BUILT dist running in the angular wrapper, plus a few
  * key branches a user might hit live.
- *
- * Plan: `_planning/listitems_improvements_4.md` (Phase 2)
  */
 import { test } from './fixtures.js';
 import { expect, type Page } from '@playwright/test';

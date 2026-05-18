@@ -421,7 +421,7 @@ describe('inlineStyles', () => {
   it('percent mode: table without data-colwidth is unchanged', () => {
     const html = '<table><tbody><tr><th>A</th><th>B</th></tr></tbody></table>';
     const result = inlineStyles(html);
-    // No percentage or pixel widths on cells — only table has width: 100%
+    // No percentage or pixel widths on cells - only table has width: 100%
     expect(result).not.toContain('width: 16');
     expect(result).not.toContain('width: 33');
     expect(result).not.toContain('width: 50');

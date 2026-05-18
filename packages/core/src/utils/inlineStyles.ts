@@ -8,12 +8,12 @@
  * TinyMCE). Optionally accepts overrides for custom styling.
  *
  * Only structural styles are inlined (borders, padding, margins, fonts).
- * Colors are NOT inlined — explicit colors (TextColor, Highlight, cell bg)
+ * Colors are NOT inlined - explicit colors (TextColor, Highlight, cell bg)
  * are already inline from renderHTML, and default text color is browser default.
  */
 
 // ---------------------------------------------------------------------------
-// Override keys — users can override any of these
+// Override keys - users can override any of these
 // ---------------------------------------------------------------------------
 
 export interface InlineStyleOverrides {
@@ -63,7 +63,7 @@ export interface InlineStyleOverrides {
 
 // ---------------------------------------------------------------------------
 // Syntax highlighting colors (from packages/theme/src/_syntax.scss)
-// GitHub-style light theme — hardcoded for consistent export.
+// GitHub-style light theme - hardcoded for consistent export.
 // ---------------------------------------------------------------------------
 
 const SYNTAX_COLORS: Record<string, string> = {
@@ -211,7 +211,7 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
       case 'CODE': {
         const parent = el.parentElement;
         if (parent?.tagName === 'PRE') {
-          // Code inside pre — reset inline code styles
+          // Code inside pre - reset inline code styles
           styles = 'background: none; padding: 0; border: none; border-radius: 0; font-size: inherit;';
         } else {
           // Inline code
@@ -266,7 +266,7 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
       case 'LI':
         if (el.getAttribute('data-type') === 'taskItem') {
           styles = 'display: flex; align-items: flex-start; gap: 0.5em; margin: 0.25em 0;';
-          // Checked task item — style the content div
+          // Checked task item - style the content div
           if (el.getAttribute('data-checked') === 'true') {
             const contentDiv = el.querySelector(':scope > div');
             if (contentDiv) {
@@ -298,7 +298,7 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
 
       case 'SPAN': {
         if (!el.className) break;
-        // Syntax highlighting — apply inline color for hljs-* classes
+        // Syntax highlighting - apply inline color for hljs-* classes
         const classList = el.className.split(' ');
         for (const cls of classList) {
           const color = SYNTAX_COLORS[cls];

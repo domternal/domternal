@@ -44,6 +44,7 @@ export {
   BlockColor,
   DEFAULT_BLOCK_COLORS,
   DEFAULT_BLOCK_COLOR_TYPES,
+  stripInlineColorConflicts,
   type BlockColorOptions,
 } from './BlockColor.js';
 
@@ -70,6 +71,12 @@ export { TextColor, DEFAULT_TEXT_COLORS, type TextColorOptions } from './TextCol
 export { Highlight, DEFAULT_HIGHLIGHT_COLORS, type HighlightOptions } from './Highlight.js';
 export { FontFamily, type FontFamilyOptions } from './FontFamily.js';
 export { FontSize, type FontSizeOptions } from './FontSize.js';
+export {
+  NotionColorPicker,
+  DEFAULT_NOTION_COLOR_PALETTE,
+  type NotionColorPickerOptions,
+  type NotionColorPickerStorage,
+} from './NotionColorPicker.js';
 
 // Formatting Utilities
 export { ClearFormatting } from './ClearFormatting.js';

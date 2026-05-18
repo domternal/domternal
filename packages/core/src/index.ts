@@ -108,6 +108,9 @@ export {
 // === Clipboard ===
 export { writeToClipboard } from './utils/clipboard.js';
 
+// === Bubble menu defaults ===
+export { defaultBubbleContexts } from './utils/defaultBubbleContexts.js';
+
 // === List utilities ===
 export {
   insertAsListItemChild,
@@ -124,6 +127,19 @@ export {
 export {
   insertChildrenZoneSibling,
 } from './utils/insertChildrenZoneSibling.js';
+export {
+  liftCurrentListItem,
+} from './utils/liftCurrentListItem.js';
+export {
+  splitListForInsert,
+  type SplitListForInsertRange,
+} from './utils/splitListForInsert.js';
+export {
+  findListItemAncestorDepth,
+  isInsideListItem,
+  isInListItemLabel,
+  LIST_ITEM_TYPE_NAMES,
+} from './utils/listItemAncestor.js';
 
 // === Helpers ===
 export {
@@ -345,6 +361,7 @@ export {
   BlockColor,
   DEFAULT_BLOCK_COLORS,
   DEFAULT_BLOCK_COLOR_TYPES,
+  stripInlineColorConflicts,
   type BlockColorOptions,
   // Selection & Editor Utilities
   Selection,
@@ -368,6 +385,10 @@ export {
   type FontFamilyOptions,
   FontSize,
   type FontSizeOptions,
+  NotionColorPicker,
+  DEFAULT_NOTION_COLOR_PALETTE,
+  type NotionColorPickerOptions,
+  type NotionColorPickerStorage,
   // Formatting Utilities
   ClearFormatting,
   // Link UI

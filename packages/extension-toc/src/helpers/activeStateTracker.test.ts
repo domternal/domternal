@@ -47,7 +47,9 @@ class MockIntersectionObserver {
 
 const mountHeading = (id: string, top: number): HTMLElement => {
   const el = document.createElement('h2');
-  el.setAttribute('data-toc-id', id);
+  // Use native HTML id attribute (UniqueID's default), matching the
+  // tracker's default attrName.
+  el.setAttribute('id', id);
   el.textContent = `Heading ${id}`;
   document.body.appendChild(el);
   // Stub getBoundingClientRect so the tracker's geometry math is
@@ -77,37 +79,55 @@ describe('activeStateTracker', () => {
     document.body.innerHTML = '';
   });
 
-  it('reports the only intersecting heading as active', () => {
+  it('reports a heading as active once its top has crossed the viewport top (top <= 0)', () => {
     const onChange = vi.fn();
     const tracker = createActiveStateTracker({ onChange });
-    const a = mountHeading('a', 50);
+    const a = mountHeading('a', -10);
     tracker.observe([a]);
-    onChange.mockClear(); // ignore the initial empty-state callback
-
-    const io = MockIntersectionObserver.instances[0];
-    expect(io).toBeDefined();
-    io?.fire([{ target: a, isIntersecting: true }]);
-    expect(onChange).toHaveBeenCalledWith('a');
+    expect(onChange).toHaveBeenLastCalledWith('a');
     tracker.destroy();
   });
 
-  it('picks the topmost heading when multiple are intersecting', () => {
+  it('picks the LAST-PASSED heading (largest top <= 0) when multiple have crossed the viewport top', () => {
     const onChange = vi.fn();
     const tracker = createActiveStateTracker({ onChange });
-    const a = mountHeading('a', 30);
-    const b = mountHeading('b', 100);
-    const c = mountHeading('c', 10);
+    const a = mountHeading('a', -300);
+    const b = mountHeading('b', -50);
+    const c = mountHeading('c', 200); // not yet passed
     tracker.observe([a, b, c]);
-    onChange.mockClear();
+    // a (-300) and b (-50) have both passed; b is more recent (closer
+    // to 0 from below). c has not yet reached the viewport top.
+    expect(onChange).toHaveBeenLastCalledWith('b');
+    tracker.destroy();
+  });
 
+  it('does NOT switch active to the next heading until its top reaches the viewport top', () => {
+    // Active switches exactly when the viewport top line touches the
+    // next heading - top <= 0. While the next heading is still below
+    // the viewport top (positive top), the current heading stays lit.
+    const onChange = vi.fn();
+    const tracker = createActiveStateTracker({ onChange });
+    const current = mountHeading('current', -100);
+    const next = mountHeading('next', 200);
+    tracker.observe([current, next]);
+    expect(onChange).toHaveBeenLastCalledWith('current');
+
+    // Still below the viewport top (top=50, positive).
+    next.getBoundingClientRect = (): DOMRect => ({
+      top: 50, bottom: 74, left: 0, right: 200, height: 24, width: 200,
+      x: 0, y: 50, toJSON: (): unknown => undefined,
+    } as unknown as DOMRect);
     const io = MockIntersectionObserver.instances[0];
-    io?.fire([
-      { target: a, isIntersecting: true },
-      { target: b, isIntersecting: true },
-      { target: c, isIntersecting: true },
-    ]);
-    // c has the smallest top (10) - smallest top wins.
-    expect(onChange).toHaveBeenLastCalledWith('c');
+    io?.fire([{ target: next, isIntersecting: false }]);
+    expect(onChange).toHaveBeenLastCalledWith('current');
+
+    // Heading top exactly touches the viewport top (top = 0). Switch fires.
+    next.getBoundingClientRect = (): DOMRect => ({
+      top: 0, bottom: 24, left: 0, right: 200, height: 24, width: 200,
+      x: 0, y: 0, toJSON: (): unknown => undefined,
+    } as unknown as DOMRect);
+    io?.fire([{ target: next, isIntersecting: false }]);
+    expect(onChange).toHaveBeenLastCalledWith('next');
     tracker.destroy();
   });
 
@@ -127,14 +147,23 @@ describe('activeStateTracker', () => {
     tracker.destroy();
   });
 
-  it('reports null when above all headings (none passed, none intersecting)', () => {
+  it('falls back to the FIRST heading when no heading has yet crossed the viewport top', () => {
+    // "Above all headings" state (e.g. top of doc on initial paint).
+    // The tracker keeps at least one tick lit by defaulting to the
+    // first upcoming heading so the outline never visibly empties.
     const onChange = vi.fn();
     const tracker = createActiveStateTracker({ onChange });
-    const a = mountHeading('a', 500); // below viewport
+    const a = mountHeading('a', 500);
     const b = mountHeading('b', 800);
     tracker.observe([a, b]);
-    // observe() runs pickActive immediately - no intersections, no
-    // headings above viewport, so fallback returns null.
+    expect(onChange).toHaveBeenLastCalledWith('a');
+    tracker.destroy();
+  });
+
+  it('returns null when there are no laid-out headings to track', () => {
+    const onChange = vi.fn();
+    const tracker = createActiveStateTracker({ onChange });
+    tracker.observe([]);
     expect(onChange).toHaveBeenLastCalledWith(null);
     tracker.destroy();
   });
@@ -142,18 +171,16 @@ describe('activeStateTracker', () => {
   it('does not refire onChange when the active id is unchanged', () => {
     const onChange = vi.fn();
     const tracker = createActiveStateTracker({ onChange });
-    const a = mountHeading('a', 50);
+    const a = mountHeading('a', -10);
     tracker.observe([a]);
     const initialCalls = onChange.mock.calls.length;
+    expect(onChange).toHaveBeenLastCalledWith('a');
 
+    // Fire IO again with no rect change - active stays 'a', onChange
+    // must not duplicate.
     const io = MockIntersectionObserver.instances[0];
-    io?.fire([{ target: a, isIntersecting: true }]);
-    const afterFirstFire = onChange.mock.calls.length;
-    expect(afterFirstFire).toBeGreaterThan(initialCalls);
-
-    // Fire again with the same intersecting state - must not duplicate.
-    io?.fire([{ target: a, isIntersecting: true }]);
-    expect(onChange.mock.calls.length).toBe(afterFirstFire);
+    io?.fire([{ target: a, isIntersecting: false }]);
+    expect(onChange.mock.calls.length).toBe(initialCalls);
     tracker.destroy();
   });
 

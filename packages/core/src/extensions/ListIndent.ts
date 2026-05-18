@@ -1,40 +1,25 @@
 /**
- * ListIndent extension - Notion-inspired keyboard indent across list
- * boundaries.
+ * Keyboard indent across list boundaries. `Tab` on a top-level block whose
+ * previous sibling is a list moves the block INTO the last item as a nested
+ * child; `Shift-Tab` reverses for a block sitting as the last child of the
+ * last item.
  *
- * `Tab` on a top-level block whose IMMEDIATE previous sibling is a
- * list (bullet, ordered, or task) moves the block INTO the last item
- * of that list as a nested child. `Shift-Tab` reverses the operation
- * for a block that sits as the LAST child of the LAST item of its
- * wrapper, lifting it out as a top-level sibling after the list.
+ * Trigger is intentionally narrow so ListKeymap retains in-list Tab/Shift-Tab
+ * (`sinkListItem` / `liftListItem`). Schema is validated via `canReplaceWith`;
+ * invalid placements are a clean no-op so the keymap chain falls through.
  *
- * The trigger is intentionally narrow: cursor must be OUTSIDE any
- * list item for `Tab`, and INSIDE a non-label nested block at the
- * very end of the very last item for `Shift-Tab`. ListKeymap retains
- * full ownership of in-list-item Tab/Shift-Tab (`sinkListItem` /
- * `liftListItem`), and Table cells, link popover, etc. continue to
- * own their own Tab semantics. Schema rules for the destination
- * parent are validated through `canReplaceWith` so an indent that
- * would violate the listItem's `paragraph block*` content rule, or
- * an outdent that would put the block in an invalid sibling slot,
- * is a clean no-op (return false) and the keymap chain falls through.
+ * Intentional design restrictions (NOT bugs to "fix"):
+ *  - Tab indents into the IMMEDIATE last item only, not recursively into a
+ *    deeper "deepest last item". Users get deeper nesting via repeated Tab
+ *    inside the now-nested context (then ListKeymap takes over).
+ *  - Tab only fires for cursors in TOP-LEVEL blocks (depth === 1). Cursors
+ *    inside other containers (blockquote, table cell) fall through.
+ *  - Shift-Tab only fires when the block is BOTH the last child of its
+ *    item AND the item is the last in its wrapper. Mid-position outdent
+ *    would require splitting the list item, which is deferred.
  *
- * MVP scope (intentional restrictions to keep behaviour predictable):
- *  - Tab indents into the IMMEDIATE last item, not recursively into
- *    a deeper nested-list "deepest last item". A single Tab moves
- *    one level; users wanting deeper nesting drag-drop or Tab again
- *    inside the now-nested context (handled by ListKeymap).
- *  - Tab only fires for cursors in TOP-LEVEL blocks (depth === 1).
- *    Cursors in blocks nested inside other containers (e.g. blockquote
- *    inside the doc) fall through.
- *  - Shift-Tab only fires when the block is BOTH the last child of
- *    its list item AND the list item is the last in its wrapper.
- *    Outdent from middle positions would require splitting the list
- *    item, which is deferred.
- *
- * Registration order: ListIndent must come AFTER ListKeymap so its
- * keymap runs FIRST and can defer to ListKeymap for in-list flows.
- * StarterKit handles this; see the registration comment there.
+ * Registration order: must come AFTER ListKeymap so this extension's keymap
+ * runs FIRST and can defer to ListKeymap for in-list flows.
  */
 import { Extension } from '../Extension.js';
 import { NodeSelection, Selection } from '@domternal/pm/state';

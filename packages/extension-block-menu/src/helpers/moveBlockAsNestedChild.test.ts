@@ -1,7 +1,6 @@
 /**
- * Unit coverage for `moveBlockAsNestedChild`. The Phase 5 helper that
- * moves a dragged block into the trailing slot of a target list item
- * (instead of as a sibling). Covers:
+ * Unit coverage for `moveBlockAsNestedChild`. Moves a dragged block into
+ * the trailing slot of a target list item (instead of as a sibling). Covers:
  *
  *  - non-list source types (paragraph, heading, codeBlock, blockquote, hr)
  *  - list-item source wrapped in a fresh list wrapper

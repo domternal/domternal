@@ -1,8 +1,7 @@
 /**
- * FloatingTocOutline - Phase 4 unit tests.
+ * FloatingTocOutline unit tests.
  *
- * Phase 4 replaced the Phase 1 spike (hello-world div) with the real
- * outline: a column of `<button>` ticks that mirror `editor.storage.toc.content`,
+ * Outline is a column of `<button>` ticks that mirror `editor.storage.toc.content`,
  * subscribe to ToC storage updates, click-delegate to `scrollToHeading`,
  * and respect minHeadings + mobile breakpoint guards.
  *
@@ -21,6 +20,7 @@ import {
   Heading,
   BaseKeymap,
   History,
+  UniqueID,
 } from '@domternal/core';
 import { TableOfContents } from './TableOfContents.js';
 import { FloatingTocOutline } from './FloatingTocOutline.js';
@@ -32,6 +32,7 @@ const baseExtensions = [
   Heading,
   BaseKeymap,
   History,
+  UniqueID,
   TableOfContents,
   FloatingTocOutline,
 ];
@@ -51,7 +52,7 @@ interface MountedEditorOptions {
   matchesMobile?: boolean;
 }
 
-describe('FloatingTocOutline - Phase 4 ticks', () => {
+describe('FloatingTocOutline - ticks', () => {
   let editor: Editor | undefined;
   let scrollIntoViewSpy: ReturnType<typeof vi.fn>;
   let originalMatchMedia: typeof window.matchMedia | undefined;
@@ -121,15 +122,19 @@ describe('FloatingTocOutline - Phase 4 ticks', () => {
     expect(outline?.getAttribute('aria-label')).toBe('Document outline');
   });
 
-  it('renders one tick per heading with correct level + tocId attrs', async () => {
+  it('renders one tick per heading with correct level + anchor attrs', async () => {
     editor = mount({ content: '<h1>Alpha</h1><h2>Beta</h2><h3>Gamma</h3>' });
     await flushDeferred();
     const ticks = queryTicks();
     expect(ticks).toHaveLength(3);
     expect(ticks.map((t) => t.dataset['level'])).toEqual(['1', '2', '3']);
-    // Each tick has a non-empty tocId matching the heading's data-toc-id.
+    // Each tick has a non-empty data-toc-anchor matching a heading id
+    // assigned by UniqueID. UniqueID's default format is UUID-style
+    // (~36 chars); we just assert non-empty since the format is
+    // UniqueID's concern, not the outline's.
     for (const tick of ticks) {
-      expect(tick.dataset['tocId']).toMatch(/^.{8}$/);
+      expect(tick.dataset['tocAnchor']).toBeTruthy();
+      expect(tick.dataset['tocAnchor']?.length).toBeGreaterThan(0);
     }
   });
 
@@ -163,9 +168,8 @@ describe('FloatingTocOutline - Phase 4 ticks', () => {
     expect(queryOutline()?.dataset['state']).toBe('hidden');
 
     editor.setContent('<h1>One</h1><h2>Two</h2>');
-    // Phase 6 introduced a 3-state machine (hidden | collapsed |
-    // expanded). 'visible' was the Phase 4-5 name for what is now
-    // 'collapsed' (default visible state with ticks only).
+    // 3-state machine: hidden | collapsed | expanded. Default visible
+    // state with ticks only is `collapsed`.
     expect(queryOutline()?.dataset['state']).toBe('collapsed');
   });
 
@@ -229,6 +233,61 @@ describe('FloatingTocOutline - Phase 4 ticks', () => {
     expect(queryTicks()).toHaveLength(0);
   });
 
+  it('is a graceful no-op when UniqueID is missing (TOC inert, outline hidden)', async () => {
+    // Setup: TableOfContents loaded but UniqueID NOT loaded. TOC's
+    // plugin emits console.error and returns []; storage.content
+    // stays empty; outline observes empty storage and renders hidden.
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    originalMatchMedia = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: false, media: query, onchange: null,
+      addEventListener: (): void => undefined,
+      removeEventListener: (): void => undefined,
+      addListener: (): void => undefined, removeListener: (): void => undefined,
+      dispatchEvent: (): boolean => false,
+    })) as typeof window.matchMedia;
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      editor = new Editor({
+        element: host,
+        // NOTE: UniqueID intentionally omitted - TOC's peer dep is missing.
+        extensions: [
+          Document, Text, Paragraph, Heading, BaseKeymap, History,
+          TableOfContents, FloatingTocOutline,
+        ],
+        content: '<h1>One</h1><h2>Two</h2>',
+      });
+      await flushDeferred();
+
+      // TOC's error message reaches the console.
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      // Outline DOM exists but is hidden (storage.content stayed empty).
+      const outline = queryOutline();
+      expect(outline).not.toBeNull();
+      expect(outline?.dataset['state']).toBe('hidden');
+      expect(queryTicks()).toHaveLength(0);
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it('outline buttons carry data-toc-anchor (NOT data-toc-id)', async () => {
+    // Regression guard for the v0.7.0 attribute rename. The outline's
+    // own buttons use `data-toc-anchor` to identify which heading they
+    // link to; the heading element itself uses native `id` (set by
+    // UniqueID). The legacy `data-toc-id` must NOT appear anywhere.
+    editor = mount({ content: '<h1>Alpha</h1><h2>Beta</h2>' });
+    await flushDeferred();
+    const outline = queryOutline();
+    expect(outline).not.toBeNull();
+    // Every tick has `data-toc-anchor`, no tick has `data-toc-id`.
+    expect(outline?.querySelectorAll('[data-toc-anchor]').length).toBeGreaterThan(0);
+    expect(outline?.querySelectorAll('[data-toc-id]')).toHaveLength(0);
+  });
+
   it('honors a custom outlineHost option', async () => {
     document.body.innerHTML = '';
     document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
@@ -251,9 +310,13 @@ describe('FloatingTocOutline - Phase 4 ticks', () => {
     editor = new Editor({
       element: editorHost,
       extensions: [
-        Document, Text, Paragraph, Heading, BaseKeymap, History,
+        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
         TableOfContents,
-        FloatingTocOutline.configure({ outlineHost: () => customHost }),
+        // Pin viewport mode here so the assertion targets the bare
+        // outline (editor mode wraps it in a `.dm-toc-outline-shell`,
+        // changing the parentage; that wrapping is exercised by the
+        // dedicated `anchor option` describe block below).
+        FloatingTocOutline.configure({ outlineHost: () => customHost, anchor: 'viewport' }),
       ],
       content: '<h1>One</h1><h2>Two</h2>',
     });
@@ -330,14 +393,561 @@ describe('FloatingTocOutline - Phase 4 ticks', () => {
     editor.destroy();
     editor = undefined;
     // After destroy, TableOfContents.destroy() also clears the Set
-    // entirely (Phase 2 contract). The point of THIS assertion is that
+    // entirely. The point of THIS assertion is that
     // we DON'T leave a dangling subscriber inside an already-destroyed
     // editor's storage that future fan-outs could try to invoke.
     expect(storage.subscribers.size).toBe(0);
   });
 });
 
-describe('FloatingTocOutline - Phase 5 active state', () => {
+/**
+ * The `anchor` option (added when the outline moved out of "fixed to
+ * viewport edge" exclusivity) drives both DOM-state (`data-anchor` on
+ * the nav) and side-effects (in `editor` mode the plugin sets
+ * `position: relative` on the host so the outline's `position: absolute`
+ * resolves against it). These tests cover both modes plus the cleanup
+ * symmetry (we restore the host's inline `position` only if we set it).
+ */
+describe('FloatingTocOutline - anchor option', () => {
+  let editor: Editor | undefined;
+  let originalMatchMedia: typeof window.matchMedia | undefined;
+
+  const stubMatchMedia = (): void => {
+    originalMatchMedia = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: false, media: query, onchange: null,
+      addEventListener: (): void => undefined,
+      removeEventListener: (): void => undefined,
+      addListener: (): void => undefined, removeListener: (): void => undefined,
+      dispatchEvent: (): boolean => false,
+    })) as typeof window.matchMedia;
+  };
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) editor.destroy();
+    editor = undefined;
+    document.body.innerHTML = '';
+    if (originalMatchMedia) {
+      window.matchMedia = originalMatchMedia;
+    } else {
+      // @ts-expect-error - clean up polyfill
+      delete window.matchMedia;
+    }
+  });
+
+  it('defaults to anchor="editor" (data-anchor reflects the default option)', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+
+    editor = new Editor({
+      element: host,
+      extensions: baseExtensions,
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+
+    const outline = queryOutline();
+    expect(outline?.dataset['anchor']).toBe('editor');
+  });
+
+  it('honors anchor="viewport" override', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+
+    editor = new Editor({
+      element: host,
+      extensions: [
+        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+        TableOfContents,
+        FloatingTocOutline.configure({ anchor: 'viewport' }),
+      ],
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+
+    expect(queryOutline()?.dataset['anchor']).toBe('viewport');
+  });
+
+  it('editor mode sets host inline position to "relative" when host is static', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    // Default computed position for a fresh <div> in jsdom is "static".
+    document.body.appendChild(host);
+    stubMatchMedia();
+
+    editor = new Editor({
+      element: host,
+      extensions: baseExtensions,
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+
+    // The plugin's mount host is the first non-overflow-hidden
+    // ancestor of `.dm-editor`. With our test setup that's the outer
+    // `host` div. It should now have inline `position: relative`.
+    expect(host.style.position).toBe('relative');
+  });
+
+  it('editor mode does NOT mutate host position when host already has non-static positioning', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    host.style.position = 'absolute';
+    document.body.appendChild(host);
+    stubMatchMedia();
+
+    editor = new Editor({
+      element: host,
+      extensions: baseExtensions,
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+
+    // Host kept its original inline position, no override.
+    expect(host.style.position).toBe('absolute');
+  });
+
+  it('viewport mode does NOT touch host position even when host is static', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+
+    editor = new Editor({
+      element: host,
+      extensions: [
+        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+        TableOfContents,
+        FloatingTocOutline.configure({ anchor: 'viewport' }),
+      ],
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+
+    // Viewport mode uses position: fixed which ignores ancestor context,
+    // so we never touch the host's position.
+    expect(host.style.position).toBe('');
+  });
+
+  it('editor mode wraps the nav in a .dm-toc-outline-shell with matching data-anchor', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+
+    editor = new Editor({
+      element: host,
+      extensions: baseExtensions,
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+
+    // Exactly one shell wraps the nav; nav's parent is the shell, not
+    // the host. The shell carries the same data-anchor for CSS to
+    // target. In viewport mode this test would fail (no shell created).
+    const shells = document.querySelectorAll('.dm-toc-outline-shell');
+    expect(shells).toHaveLength(1);
+    expect(shells[0]?.getAttribute('data-anchor')).toBe('editor');
+    const outline = queryOutline();
+    expect(outline?.parentElement).toBe(shells[0]);
+    // Shell sits inside the host.
+    expect(shells[0]?.parentElement).toBe(host);
+  });
+
+  it('viewport mode does NOT create a shell wrapper (nav lives directly under the host)', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+
+    editor = new Editor({
+      element: host,
+      extensions: [
+        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+        TableOfContents,
+        FloatingTocOutline.configure({ anchor: 'viewport' }),
+      ],
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+
+    expect(document.querySelectorAll('.dm-toc-outline-shell')).toHaveLength(0);
+    const outline = queryOutline();
+    expect(outline?.parentElement).toBe(host);
+  });
+
+  it('editor mode shell is removed on destroy (no orphan after teardown)', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+
+    editor = new Editor({
+      element: host,
+      extensions: baseExtensions,
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+    expect(document.querySelectorAll('.dm-toc-outline-shell')).toHaveLength(1);
+
+    editor.destroy();
+    editor = undefined;
+    expect(document.querySelectorAll('.dm-toc-outline-shell')).toHaveLength(0);
+    expect(document.querySelectorAll('.dm-toc-outline')).toHaveLength(0);
+  });
+
+  it('editor mode restores host inline position to original on destroy', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+
+    editor = new Editor({
+      element: host,
+      extensions: baseExtensions,
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+    expect(host.style.position).toBe('relative');
+
+    editor.destroy();
+    editor = undefined;
+    // After destroy, the previous inline value (empty string => host
+    // falls back to its stylesheet-computed `static`) is restored.
+    expect(host.style.position).toBe('');
+  });
+});
+
+/**
+ * Editor-anchor internals: the mode state machine, the
+ * `--dm-toc-mid-top` measurement loop, the bottom-sentinel
+ * IntersectionObserver, frozen-mode B→A capture, and IO/resize cleanup.
+ * Every test stubs `matchMedia` and the IO so callbacks can be fired
+ * manually (jsdom's IO never fires on its own).
+ */
+describe('FloatingTocOutline - editor anchor mode internals', () => {
+  let editor: Editor | undefined;
+  let originalMatchMedia: typeof window.matchMedia | undefined;
+  let originalIO: typeof IntersectionObserver | undefined;
+
+  /** Minimal IO mock that records constructor args + lets tests fire entries. */
+  class MockIO {
+    callback: IntersectionObserverCallback;
+    rootMargin: string;
+    observed = new Set<Element>();
+    static instances: MockIO[] = [];
+    constructor(cb: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+      this.callback = cb;
+      this.rootMargin = options?.rootMargin ?? '';
+      MockIO.instances.push(this);
+    }
+    observe(el: Element): void { this.observed.add(el); }
+    unobserve(el: Element): void { this.observed.delete(el); }
+    disconnect(): void { this.observed.clear(); }
+    takeRecords(): IntersectionObserverEntry[] { return []; }
+    root: Element | Document | null = null;
+    thresholds: number[] = [];
+    fire(entries: { target: Element; isIntersecting: boolean }[]): void {
+      const full = entries.map((e) => ({
+        target: e.target,
+        isIntersecting: e.isIntersecting,
+        boundingClientRect: e.target.getBoundingClientRect(),
+        intersectionRatio: e.isIntersecting ? 1 : 0,
+        intersectionRect: e.target.getBoundingClientRect(),
+        rootBounds: null,
+        time: Date.now(),
+      } as IntersectionObserverEntry));
+      this.callback(full, this as unknown as IntersectionObserver);
+    }
+  }
+
+  const stubMatchMedia = (): void => {
+    originalMatchMedia = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: false, media: query, onchange: null,
+      addEventListener: (): void => undefined,
+      removeEventListener: (): void => undefined,
+      addListener: (): void => undefined, removeListener: (): void => undefined,
+      dispatchEvent: (): boolean => false,
+    })) as typeof window.matchMedia;
+  };
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline, .dm-toc-outline-shell').forEach((n) => { n.remove(); });
+    originalIO = window.IntersectionObserver;
+    MockIO.instances = [];
+    (window as unknown as { IntersectionObserver: unknown }).IntersectionObserver =
+      MockIO as unknown as typeof IntersectionObserver;
+    stubMatchMedia();
+  });
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) editor.destroy();
+    editor = undefined;
+    document.body.innerHTML = '';
+    if (originalMatchMedia) window.matchMedia = originalMatchMedia;
+    if (originalIO) {
+      (window as unknown as { IntersectionObserver: typeof IntersectionObserver }).IntersectionObserver = originalIO;
+    } else {
+      // @ts-expect-error - clean up polyfill
+      delete window.IntersectionObserver;
+    }
+  });
+
+  /** The bottom-sentinel IO has empty rootMargin; the active tracker has '-85%'. */
+  const findSentinelIO = (): MockIO | undefined =>
+    MockIO.instances.find((o) => o.rootMargin === '');
+
+  const mount = async (content = '<h1>One</h1><h2>Two</h2>'): Promise<Editor> => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    return new Promise((resolve) => {
+      const ed = new Editor({ element: host, extensions: baseExtensions, content });
+      setTimeout(() => { resolve(ed); }, 0);
+    });
+  };
+
+  // ─── Mode state machine ────────────────────────────────────────────
+
+  it('initial mode is "middle" by default (jsdom rects are 0, sentinel reads as not visible)', async () => {
+    editor = await mount();
+    expect(queryOutline()?.dataset['mode']).toBe('middle');
+    expect(queryOutline()?.dataset['bottomVisible']).toBe('false');
+  });
+
+  it('shell mirrors the mode + bottom-visible data attributes set on the nav', async () => {
+    editor = await mount();
+    const nav = queryOutline();
+    const shell = document.querySelector<HTMLElement>('.dm-toc-outline-shell');
+    expect(shell?.dataset['mode']).toBe(nav?.dataset['mode']);
+    expect(shell?.dataset['bottomVisible']).toBe(nav?.dataset['bottomVisible']);
+  });
+
+  it('IO firing isIntersecting=true (B→A transition) flips mode to "center" (no frozen capture in jsdom)', async () => {
+    editor = await mount();
+    const io = findSentinelIO();
+    expect(io).toBeDefined();
+    const sentinel = [...io!.observed][0];
+    io!.fire([{ target: sentinel!, isIntersecting: true }]);
+    expect(queryOutline()?.dataset['mode']).toBe('center');
+    expect(queryOutline()?.dataset['bottomVisible']).toBe('true');
+  });
+
+  it('IO firing isIntersecting=true with a non-zero navRect.top transitions to "frozen" with marginTop pinned', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    const shell = document.querySelector<HTMLElement>('.dm-toc-outline-shell')!;
+    // Mock the rects so writeBottomVisible captures a frozen offset.
+    vi.spyOn(nav, 'getBoundingClientRect').mockReturnValue({
+      top: 400, bottom: 500, left: 0, right: 30, width: 30, height: 100,
+      x: 0, y: 400, toJSON: () => ({}),
+    } as DOMRect);
+    vi.spyOn(shell, 'getBoundingClientRect').mockReturnValue({
+      top: 80, bottom: 2000, left: 0, right: 30, width: 30, height: 1920,
+      x: 0, y: 80, toJSON: () => ({}),
+    } as DOMRect);
+
+    const io = findSentinelIO()!;
+    const sentinel = [...io.observed][0]!;
+    io.fire([{ target: sentinel, isIntersecting: true }]);
+
+    expect(nav.dataset['mode']).toBe('frozen');
+    // marginTop = navRect.top - shellRect.top = 400 - 80 = 320
+    expect(nav.style.marginTop).toBe('320px');
+  });
+
+  it('IO firing isIntersecting=false (A→B transition) reverts to "middle" and clears marginTop', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    const io = findSentinelIO()!;
+    const sentinel = [...io.observed][0]!;
+
+    // First go to 'center' via a true fire, then back to 'middle'.
+    io.fire([{ target: sentinel, isIntersecting: true }]);
+    nav.style.marginTop = '99px'; // pretend we had frozen state with margin
+    io.fire([{ target: sentinel, isIntersecting: false }]);
+
+    expect(nav.dataset['mode']).toBe('middle');
+    expect(nav.dataset['bottomVisible']).toBe('false');
+    expect(nav.style.marginTop).toBe('');
+  });
+
+  it('IO firing isIntersecting=true while ALREADY visible is a no-op (mode stays)', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    const io = findSentinelIO()!;
+    const sentinel = [...io.observed][0]!;
+    io.fire([{ target: sentinel, isIntersecting: true }]);
+    expect(nav.dataset['mode']).toBe('center');
+    // Fire again - no state change.
+    io.fire([{ target: sentinel, isIntersecting: true }]);
+    expect(nav.dataset['mode']).toBe('center');
+  });
+
+  // ─── --dm-toc-mid-top CSS variable ─────────────────────────────────
+
+  it('sets --dm-toc-mid-top on mount based on the nav offsetHeight', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    Object.defineProperty(nav, 'offsetHeight', { configurable: true, get: () => 200 });
+    // Trigger a re-render so recomputeMidTop runs on the new height.
+    editor.setContent('<h1>A</h1><h2>B</h2><h3>C</h3>');
+    await flushDeferred();
+    expect(nav.style.getPropertyValue('--dm-toc-mid-top')).toBe('calc(50vh - 100.00px)');
+  });
+
+  it('--dm-toc-mid-top is recomputed when headings change (storage update fires)', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    let h = 100;
+    Object.defineProperty(nav, 'offsetHeight', { configurable: true, get: () => h });
+    editor.setContent('<h1>One</h1><h2>Two</h2>');
+    await flushDeferred();
+    expect(nav.style.getPropertyValue('--dm-toc-mid-top')).toBe('calc(50vh - 50.00px)');
+
+    h = 300;
+    editor.setContent('<h1>A</h1><h2>B</h2><h3>C</h3><h2>D</h2>');
+    await flushDeferred();
+    expect(nav.style.getPropertyValue('--dm-toc-mid-top')).toBe('calc(50vh - 150.00px)');
+  });
+
+  it('--dm-toc-mid-top is recomputed when window resizes', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    Object.defineProperty(nav, 'offsetHeight', { configurable: true, get: () => 250 });
+    window.dispatchEvent(new Event('resize'));
+    expect(nav.style.getPropertyValue('--dm-toc-mid-top')).toBe('calc(50vh - 125.00px)');
+  });
+
+  it('recomputeMidTop is a no-op when nav offsetHeight is 0 (does NOT clear an existing value)', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    nav.style.setProperty('--dm-toc-mid-top', 'sentinel');
+    Object.defineProperty(nav, 'offsetHeight', { configurable: true, get: () => 0 });
+    window.dispatchEvent(new Event('resize'));
+    expect(nav.style.getPropertyValue('--dm-toc-mid-top')).toBe('sentinel');
+  });
+
+  it('viewport anchor mode does NOT set --dm-toc-mid-top (no shell, no measurement loop)', async () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: [
+        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+        TableOfContents,
+        FloatingTocOutline.configure({ anchor: 'viewport' }),
+      ],
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+    const nav = queryOutline()!;
+    Object.defineProperty(nav, 'offsetHeight', { configurable: true, get: () => 500 });
+    window.dispatchEvent(new Event('resize'));
+    expect(nav.style.getPropertyValue('--dm-toc-mid-top')).toBe('');
+  });
+
+  // ─── Bottom sentinel ───────────────────────────────────────────────
+
+  it('creates a 1px sentinel as direct child of the shell', async () => {
+    editor = await mount();
+    const shell = document.querySelector('.dm-toc-outline-shell')!;
+    const sentinels = Array.from(shell.children).filter(
+      (c) => c.tagName === 'DIV' && (c as HTMLElement).style.width === '1px',
+    );
+    expect(sentinels).toHaveLength(1);
+    const sentinel = sentinels[0] as HTMLElement;
+    expect(sentinel.style.position).toBe('absolute');
+    expect(sentinel.style.bottom).toBe('0px');
+    expect(sentinel.style.left).toBe('0px');
+    expect(sentinel.style.height).toBe('1px');
+    expect(sentinel.style.pointerEvents).toBe('none');
+  });
+
+  it('sentinel is observed by the bottom-visible IntersectionObserver', async () => {
+    editor = await mount();
+    const io = findSentinelIO();
+    expect(io).toBeDefined();
+    expect(io!.observed.size).toBe(1);
+  });
+
+  it('removes the sentinel + disconnects its IO on destroy', async () => {
+    editor = await mount();
+    const io = findSentinelIO()!;
+    const disconnectSpy = vi.spyOn(io, 'disconnect');
+    editor.destroy();
+    editor = undefined;
+    expect(document.querySelectorAll('.dm-toc-outline-shell')).toHaveLength(0);
+    expect(disconnectSpy).toHaveBeenCalled();
+  });
+
+  it('viewport anchor mode does NOT create a bottom sentinel or sentinel IO', async () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: [
+        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+        TableOfContents,
+        FloatingTocOutline.configure({ anchor: 'viewport' }),
+      ],
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+    // No shell - no place for a sentinel.
+    expect(document.querySelectorAll('.dm-toc-outline-shell')).toHaveLength(0);
+    // The only IO present (if any) is the active-state tracker (non-empty rootMargin).
+    expect(findSentinelIO()).toBeUndefined();
+  });
+
+  // ─── IntersectionObserver fallback ─────────────────────────────────
+
+  it('plugin still mounts (shell + nav) when IntersectionObserver is undefined', async () => {
+    // Tear down the IO polyfill installed in beforeEach.
+    (window as unknown as { IntersectionObserver: unknown }).IntersectionObserver = undefined;
+    editor = await mount();
+    expect(document.querySelectorAll('.dm-toc-outline-shell')).toHaveLength(1);
+    expect(queryOutline()).not.toBeNull();
+  });
+
+  it('without IntersectionObserver, no sentinel is created (no IO to observe it)', async () => {
+    (window as unknown as { IntersectionObserver: unknown }).IntersectionObserver = undefined;
+    editor = await mount();
+    const shell = document.querySelector('.dm-toc-outline-shell')!;
+    const sentinels = Array.from(shell.children).filter(
+      (c) => c.tagName === 'DIV' && (c as HTMLElement).style.width === '1px',
+    );
+    expect(sentinels).toHaveLength(0);
+  });
+
+  // ─── Cleanup ───────────────────────────────────────────────────────
+
+  it('removes the window resize listener on destroy (no leak)', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    Object.defineProperty(nav, 'offsetHeight', { configurable: true, get: () => 100 });
+    editor.destroy();
+    editor = undefined;
+    // Detach the nav from any references so a stray resize handler would
+    // throw on a dead node. We verify silence by firing resize: no error.
+    expect(() => { window.dispatchEvent(new Event('resize')); }).not.toThrow();
+  });
+});
+
+describe('FloatingTocOutline - active state', () => {
   let editor: Editor | undefined;
   let originalMatchMedia: typeof window.matchMedia | undefined;
 
@@ -396,6 +1006,22 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     }
   });
 
+  /**
+   * Mock each heading's bounding-rect top so pickActive's "last passed"
+   * logic can see a deterministic scroll position in jsdom (where every
+   * real rect is 0,0,0,0). Width/height are set non-zero so the
+   * hidden-element guard does not skip them.
+   */
+  const mockHeadingTops = (headings: readonly HTMLElement[], tops: readonly number[]): void => {
+    headings.forEach((h, i) => {
+      const top = tops[i] ?? 100;
+      h.getBoundingClientRect = (): DOMRect => ({
+        top, bottom: top + 24, left: 0, right: 200, height: 24, width: 200,
+        x: 0, y: top, toJSON: (): unknown => undefined,
+      } as DOMRect);
+    });
+  };
+
   /** Build a mounted editor for active-state assertions. */
   const mountForActive = async (content: string): Promise<Editor> => {
     document.body.innerHTML = '';
@@ -415,26 +1041,23 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     return ed;
   };
 
-  it('marks the intersecting heading as active and writes storage.activeId', async () => {
+  it('marks the last-passed heading (top <= 0) as active and writes storage.activeId', async () => {
     editor = await mountForActive('<h1>One</h1><h2>Two</h2><h3>Three</h3>');
     const ticks = queryTicks();
-    const headingDoms = Array.from(
-      editor.view.dom.querySelectorAll<HTMLElement>('[data-toc-id]'),
-    );
+    const headingDoms = Array.from(editor.view.dom.querySelectorAll<HTMLElement>('h1, h2, h3'));
     const targetDom = headingDoms[1];
     if (!targetDom) throw new Error('expected at least 2 headings');
-    const targetId = targetDom.getAttribute('data-toc-id');
+    const targetId = targetDom.getAttribute('id');
 
-    // Find the IO instance the tracker created and fire an
-    // intersection event for the second heading.
-    const io = MockIntersectionObserver.instances[0];
+    // Simulate scroll: heading 0 + 1 have crossed the viewport top
+    // (top < 0); heading 2 is still below. Active should be heading 1
+    // (the most-recently-passed, i.e. max top among `top <= 0`).
+    mockHeadingTops(headingDoms, [-100, -20, 200]);
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== '');
     expect(io).toBeDefined();
-    io?.fire([{ target: targetDom, isIntersecting: true }]);
+    io?.fire([{ target: targetDom, isIntersecting: false }]);
 
-    // The tick mirroring that heading must now carry both visual
-    // markers (CSS class + aria-current). Storage's activeId tracks
-    // the same id so other UIs (Phase 7 inline block) can read it.
-    const activeTick = ticks.find((t) => t.dataset['tocId'] === targetId);
+    const activeTick = ticks.find((t) => t.dataset['tocAnchor'] === targetId);
     expect(activeTick?.classList.contains('dm-toc--active')).toBe(true);
     expect(activeTick?.getAttribute('aria-current')).toBe('location');
     const storage = editor.storage['toc'] as { activeId: string | null };
@@ -445,12 +1068,12 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     editor = await mountForActive('<h1>One</h1><h2>Two</h2><h3>Three</h3>');
     const ticks = queryTicks();
     const headingDoms = Array.from(
-      editor.view.dom.querySelectorAll<HTMLElement>('[data-toc-id]'),
+      editor.view.dom.querySelectorAll<HTMLElement>('[id]'),
     );
     const clickedTick = ticks[0];
     const otherDom = headingDoms[2];
     if (!clickedTick || !otherDom) throw new Error('setup mismatch');
-    const clickedId = clickedTick.dataset['tocId'];
+    const clickedId = clickedTick.dataset['tocAnchor'];
 
     clickedTick.click();
     expect(clickedTick.classList.contains('dm-toc--active')).toBe(true);
@@ -459,7 +1082,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     // heading must NOT change the active visual. The plugin
     // intentionally suppresses scroll-derived updates while the
     // smooth-scroll initiated by the click is still landing.
-    const io = MockIntersectionObserver.instances[0];
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
     io?.fire([{ target: otherDom, isIntersecting: true }]);
     expect(clickedTick.classList.contains('dm-toc--active')).toBe(true);
     const storage = editor.storage['toc'] as { activeId: string | null };
@@ -469,24 +1092,22 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
   it('only one tick at a time has the active class', async () => {
     editor = await mountForActive('<h1>One</h1><h2>Two</h2><h3>Three</h3>');
     const ticks = queryTicks();
-    const headingDoms = Array.from(
-      editor.view.dom.querySelectorAll<HTMLElement>('[data-toc-id]'),
-    );
+    const headingDoms = Array.from(editor.view.dom.querySelectorAll<HTMLElement>('h1, h2, h3'));
 
-    // Fire active for first heading, then for the third. The middle
-    // tick should never end up active, and only the latest reported
-    // heading should carry the marker after each fire.
-    const io = MockIntersectionObserver.instances[0];
-    io?.fire([{ target: headingDoms[0]!, isIntersecting: true }]);
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== '');
+
+    // First scroll position: only heading 0 has crossed the viewport top.
+    mockHeadingTops(headingDoms, [-10, 200, 400]);
+    io?.fire([{ target: headingDoms[0]!, isIntersecting: false }]);
     expect(ticks.filter((t) => t.classList.contains('dm-toc--active'))).toHaveLength(1);
 
-    io?.fire([
-      { target: headingDoms[0]!, isIntersecting: false },
-      { target: headingDoms[2]!, isIntersecting: true },
-    ]);
+    // Scroll further: heading 2 has just crossed the top. Active
+    // should now be heading 2 (max top among top <= 0).
+    mockHeadingTops(headingDoms, [-400, -200, -10]);
+    io?.fire([{ target: headingDoms[2]!, isIntersecting: false }]);
     const active = ticks.filter((t) => t.classList.contains('dm-toc--active'));
     expect(active).toHaveLength(1);
-    expect(active[0]?.dataset['tocId']).toBe(headingDoms[2]?.getAttribute('data-toc-id'));
+    expect(active[0]?.dataset['tocAnchor']).toBe(headingDoms[2]?.getAttribute('id'));
   });
 
   it('re-applies the current active marker after a content rebuild', async () => {
@@ -495,11 +1116,11 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     // tracked active id to the new tick DOM so the visual highlight
     // does not flash off.
     editor = await mountForActive('<h1>One</h1><h2>Two</h2>');
-    const headingDoms = Array.from(
-      editor.view.dom.querySelectorAll<HTMLElement>('[data-toc-id]'),
-    );
-    const io = MockIntersectionObserver.instances[0];
-    io?.fire([{ target: headingDoms[1]!, isIntersecting: true }]);
+    const headingDoms = Array.from(editor.view.dom.querySelectorAll<HTMLElement>('h1, h2, h3'));
+    // Simulate scroll: second heading just crossed the viewport top.
+    mockHeadingTops(headingDoms, [-100, -10]);
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== '');
+    io?.fire([{ target: headingDoms[1]!, isIntersecting: false }]);
     const activeIdBefore = (editor.storage['toc'] as { activeId: string | null }).activeId;
     expect(activeIdBefore).not.toBeNull();
 
@@ -512,20 +1133,20 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     const ticks = queryTicks();
     expect(ticks).toHaveLength(3);
     const stillActive = ticks.find((t) => t.classList.contains('dm-toc--active'));
-    // The first H2 is the one that was active, but its tocId has
+    // The first H2 is the one that was active, but its id has
     // been regenerated by the setContent (no parseable ID in input).
     // Asserting that SOME tick is active or none-but-marker-cleared.
     // The contract under test: storage.activeId is in sync with the
     // visual class set, never stale.
     const storage = editor.storage['toc'] as { activeId: string | null };
     if (storage.activeId) {
-      expect(stillActive?.dataset['tocId']).toBe(storage.activeId);
+      expect(stillActive?.dataset['tocAnchor']).toBe(storage.activeId);
     }
   });
 
   it('destroying the editor disconnects the IO observer', async () => {
     editor = await mountForActive('<h1>One</h1><h2>Two</h2>');
-    const io = MockIntersectionObserver.instances[0];
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
     expect(io?.observed.size).toBeGreaterThan(0);
     editor.destroy();
     editor = undefined;
@@ -535,34 +1156,28 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
   it('manual override expires after the configured window so IO updates resume', async () => {
     editor = await mountForActive('<h1>One</h1><h2>Two</h2><h3>Three</h3>');
     const ticks = queryTicks();
-    const headingDoms = Array.from(
-      editor.view.dom.querySelectorAll<HTMLElement>('[data-toc-id]'),
-    );
+    const headingDoms = Array.from(editor.view.dom.querySelectorAll<HTMLElement>('h1, h2, h3'));
     const clickedTick = ticks[0];
     const otherDom = headingDoms[2];
     if (!clickedTick || !otherDom) throw new Error('setup mismatch');
 
-    // We can't use vi.useFakeTimers() here - the Editor mount path
-    // uses real `setTimeout(0)` for deferred ID assignment, and
-    // faking timers would deadlock that. Instead we spy on
-    // `Date.now()` so the plugin's `manualOverrideUntil` check sees
-    // a clock that "advances" past the 500ms window without us
-    // having to actually sleep.
     const realNow = Date.now;
     let virtualNow = realNow();
     const spy = vi.spyOn(Date, 'now').mockImplementation(() => virtualNow);
     try {
       clickedTick.click();
-      const clickedId = clickedTick.dataset['tocId'];
+      const clickedId = clickedTick.dataset['tocAnchor'];
       expect((editor.storage['toc'] as { activeId: string | null }).activeId).toBe(clickedId);
 
-      // Advance the virtual clock past the 500ms override window.
       virtualNow += 600;
 
-      const io = MockIntersectionObserver.instances[0];
-      io?.fire([{ target: otherDom, isIntersecting: true }]);
+      // After the override expires, an IO fire should re-pick based on
+      // current rects: heading 2 is now most recently passed.
+      mockHeadingTops(headingDoms, [-400, -200, -10]);
+      const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== '');
+      io?.fire([{ target: otherDom, isIntersecting: false }]);
       const newActive = (editor.storage['toc'] as { activeId: string | null }).activeId;
-      expect(newActive).toBe(otherDom.getAttribute('data-toc-id'));
+      expect(newActive).toBe(otherDom.getAttribute('id'));
       expect(newActive).not.toBe(clickedId);
     } finally {
       spy.mockRestore();
@@ -594,14 +1209,14 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
       content: '<h1>One</h1><h2>Two</h2>',
     });
     await flushDeferred();
-    const io = MockIntersectionObserver.instances[0];
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
     expect(io?.options?.rootMargin).toBe(customMargin);
   });
 
   it('ignores headings hidden by an ancestor (display:none) when picking active', async () => {
     editor = await mountForActive('<h1>Visible</h1><h2>InsideDetails</h2>');
     const headingDoms = Array.from(
-      editor.view.dom.querySelectorAll<HTMLElement>('[data-toc-id]'),
+      editor.view.dom.querySelectorAll<HTMLElement>('[id]'),
     );
     const visible = headingDoms[0];
     const hidden = headingDoms[1];
@@ -616,7 +1231,7 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
       toJSON: (): unknown => undefined,
     } as unknown as DOMRect);
 
-    const io = MockIntersectionObserver.instances[0];
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
     // Fire a non-intersecting state for both. With visible heading
     // already passed (negative top in the first observe call) the
     // tracker keeps reporting it as active; the hidden one cannot
@@ -631,12 +1246,50 @@ describe('FloatingTocOutline - Phase 5 active state', () => {
     ]);
 
     expect((editor.storage['toc'] as { activeId: string | null }).activeId).toBe(
-      visible.getAttribute('data-toc-id'),
+      visible.getAttribute('id'),
     );
+  });
+
+  it('observes ONLY heading elements, not paragraphs (regression: tracker used to pick up any id-bearing element)', async () => {
+    // Reproduction: a doc with a paragraph + headings. UniqueID assigns
+    // ids to BOTH paragraph and headings by default. Before the fix,
+    // `collectHeadingDoms` used a bare `[id]` selector and fed the
+    // tracker every id-bearing element. The tracker would then report
+    // paragraph ids as "active", but `storage.activeId` would point at
+    // something that doesn't match any tick, so the visual active state
+    // disappeared.
+    editor = await mountForActive('<h1>One</h1><p>Body paragraph</p><h2>Two</h2>');
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== '');
+    expect(io).toBeDefined();
+    // The observed set must contain ONLY heading tags - never paragraphs.
+    const observedTags = Array.from(io!.observed).map((el) => el.tagName);
+    expect(observedTags.length).toBeGreaterThan(0);
+    for (const tag of observedTags) {
+      expect(tag).toMatch(/^H[1-6]$/);
+    }
+  });
+
+  it('only writes heading ids to storage.activeId (never a paragraph id)', async () => {
+    // Direct contract: every id the tracker reports must be one of the
+    // heading ids tracked by storage.content. A paragraph id slipping
+    // through would leave the outline unable to highlight a tick.
+    editor = await mountForActive('<h1>One</h1><p>Body paragraph</p><h2>Two</h2>');
+    const storage = editor.storage['toc'] as { activeId: string | null; content: { id: string }[] };
+    const headingIds = new Set(storage.content.map((c) => c.id));
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== '')!;
+
+    // Fire IO with every observed element as intersecting - whichever
+    // the tracker picks must be a heading id (per the observed-set
+    // contract above; this is the runtime-flow equivalent).
+    const observed = Array.from(io.observed);
+    io.fire(observed.map((target) => ({ target, isIntersecting: true })));
+    if (storage.activeId !== null) {
+      expect(headingIds).toContain(storage.activeId);
+    }
   });
 });
 
-describe('FloatingTocOutline - Phase 6 hover expansion', () => {
+describe('FloatingTocOutline - hover expansion', () => {
   let editor: Editor | undefined;
   let originalMatchMedia: typeof window.matchMedia | undefined;
 
@@ -645,7 +1298,7 @@ describe('FloatingTocOutline - Phase 6 hover expansion', () => {
   const queryRows = (): HTMLButtonElement[] =>
     Array.from(document.querySelectorAll<HTMLButtonElement>('.dm-toc-outline-row'));
 
-  /** Mount with stubbed matchMedia. Phase 6 tests don't need IO. */
+  /** Mount with stubbed matchMedia. Hover-expansion tests don't need IO. */
   const mountForHover = (
     content: string,
     options: { hoverInDelay?: number; hoverOutDelay?: number } = {},
@@ -666,6 +1319,7 @@ describe('FloatingTocOutline - Phase 6 hover expansion', () => {
       element: host,
       extensions: [
         Document, Text, Paragraph, Heading, BaseKeymap, History,
+        UniqueID,
         TableOfContents,
         FloatingTocOutline.configure(options),
       ],
@@ -822,7 +1476,7 @@ describe('FloatingTocOutline - Phase 6 hover expansion', () => {
     await flushDeferred();
     const rows = queryRows();
     const target = rows[1]!;
-    const targetId = target.dataset['tocId'];
+    const targetId = target.dataset['tocAnchor'];
 
     target.click();
     expect(scrollSpy).toHaveBeenCalledTimes(1);
@@ -835,13 +1489,13 @@ describe('FloatingTocOutline - Phase 6 hover expansion', () => {
     const rows = queryRows();
     const ticks = queryTicks();
     rows[1]?.click();
-    const targetId = rows[1]?.dataset['tocId'];
+    const targetId = rows[1]?.dataset['tocAnchor'];
 
     // Both the tick AND the row at the same index share the active
     // marker - they're the same logical entry, just two visual
     // affordances.
-    const matchedTick = ticks.find((t) => t.dataset['tocId'] === targetId);
-    const matchedRow = rows.find((r) => r.dataset['tocId'] === targetId);
+    const matchedTick = ticks.find((t) => t.dataset['tocAnchor'] === targetId);
+    const matchedRow = rows.find((r) => r.dataset['tocAnchor'] === targetId);
     expect(matchedTick?.getAttribute('aria-current')).toBe('location');
     expect(matchedRow?.getAttribute('aria-current')).toBe('location');
   });
@@ -945,5 +1599,208 @@ describe('FloatingTocOutline - Phase 6 hover expansion', () => {
     // the user sees something rather than a blank row.
     expect(rows[0]?.textContent).toBe('Heading level 1');
     expect(rows[1]?.textContent).toBe('Has Text');
+  });
+});
+
+/**
+ * Expanded-card edge behavior: closes on window scroll (so it doesn't
+ * lag the page or appear detached from any tick), and shifts vertically
+ * via `--dm-toc-card-shift-y` when the nav sits near a viewport edge.
+ */
+describe('FloatingTocOutline - expanded card scroll-close + viewport clamp', () => {
+  let editor: Editor | undefined;
+  let originalMatchMedia: typeof window.matchMedia | undefined;
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    originalMatchMedia = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: false, media: query, onchange: null,
+      addEventListener: (): void => undefined,
+      removeEventListener: (): void => undefined,
+      addListener: (): void => undefined, removeListener: (): void => undefined,
+      dispatchEvent: (): boolean => false,
+    })) as typeof window.matchMedia;
+  });
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) editor.destroy();
+    editor = undefined;
+    document.body.innerHTML = '';
+    if (originalMatchMedia) window.matchMedia = originalMatchMedia;
+  });
+
+  const mount = async (content = '<h1>A</h1><h2>B</h2>'): Promise<Editor> => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const ed = new Editor({ element: host, extensions: baseExtensions, content });
+    await flushDeferred();
+    return ed;
+  };
+
+  const expandViaFocus = (nav: HTMLElement): void => {
+    const firstTick = nav.querySelector<HTMLButtonElement>('.dm-toc-outline-tick');
+    firstTick?.focus();
+    nav.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+  };
+
+  it('window scroll while expanded collapses the menu back to "collapsed"', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    expandViaFocus(nav);
+    expect(nav.dataset['state']).toBe('expanded');
+
+    window.dispatchEvent(new Event('scroll'));
+    expect(nav.dataset['state']).toBe('collapsed');
+  });
+
+  it('window scroll while collapsed is a no-op (does not flip state)', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    expect(nav.dataset['state']).toBe('collapsed');
+    window.dispatchEvent(new Event('scroll'));
+    expect(nav.dataset['state']).toBe('collapsed');
+  });
+
+  it('removes the window scroll listener on destroy (no leak after editor teardown)', async () => {
+    editor = await mount();
+    editor.destroy();
+    editor = undefined;
+    // After destroy, scrolling should not throw or touch any orphan refs.
+    expect(() => { window.dispatchEvent(new Event('scroll')); }).not.toThrow();
+  });
+
+  it('sets --dm-toc-card-shift-y on expansion when card overflows top of viewport', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card')!;
+    // Force a layout the plugin's clamp will treat as an overflow:
+    // card.top = -100 means the card would sit 100px above the viewport.
+    vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
+      top: -100, bottom: 200, left: 0, right: 200, width: 200, height: 300,
+      x: 0, y: -100, toJSON: () => ({}),
+    } as DOMRect);
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
+
+    expandViaFocus(nav);
+    // adjustCardPosition runs in requestAnimationFrame; flush it.
+    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+
+    const shift = card.style.getPropertyValue('--dm-toc-card-shift-y');
+    // Margin = 16. Needed shift = 16 - (-100) = 116.
+    expect(shift).toBe('116px');
+  });
+
+  it('sets a NEGATIVE --dm-toc-card-shift-y when card overflows bottom of viewport', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card')!;
+    // viewport=800, margin=16, maxBottom=784. card.bottom=900 => shift = 784-900 = -116.
+    vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
+      top: 600, bottom: 900, left: 0, right: 200, width: 200, height: 300,
+      x: 0, y: 600, toJSON: () => ({}),
+    } as DOMRect);
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
+
+    expandViaFocus(nav);
+    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+
+    expect(card.style.getPropertyValue('--dm-toc-card-shift-y')).toBe('-116px');
+  });
+
+  it('does NOT set --dm-toc-card-shift-y when the card fits entirely in the viewport', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card')!;
+    vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
+      top: 200, bottom: 500, left: 0, right: 200, width: 200, height: 300,
+      x: 0, y: 200, toJSON: () => ({}),
+    } as DOMRect);
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
+
+    expandViaFocus(nav);
+    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+
+    expect(card.style.getPropertyValue('--dm-toc-card-shift-y')).toBe('');
+  });
+
+  it('PRESERVES --dm-toc-card-shift-y across a collapse so the card does not visually jump during fade-out', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card')!;
+    vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
+      top: -50, bottom: 250, left: 0, right: 200, width: 200, height: 300,
+      x: 0, y: -50, toJSON: () => ({}),
+    } as DOMRect);
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
+
+    expandViaFocus(nav);
+    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+    const shiftWhileExpanded = card.style.getPropertyValue('--dm-toc-card-shift-y');
+    expect(shiftWhileExpanded).not.toBe('');
+
+    // Collapse by firing focusout with no related target inside nav.
+    // The shift stays so the card fades out at its shifted position
+    // (without re-triggering the transform transition mid-fade).
+    nav.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+    expect(nav.dataset['state']).toBe('collapsed');
+    expect(card.style.getPropertyValue('--dm-toc-card-shift-y')).toBe(shiftWhileExpanded);
+  });
+
+  it('does NOT recompute the shift while already expanded (a re-focus during a click would otherwise clobber it)', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card')!;
+    vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
+      top: -50, bottom: 250, left: 0, right: 200, width: 200, height: 300,
+      x: 0, y: -50, toJSON: () => ({}),
+    } as DOMRect);
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
+
+    expandViaFocus(nav);
+    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+    const firstShift = card.style.getPropertyValue('--dm-toc-card-shift-y');
+    expect(firstShift).toBe('66px');
+
+    // Re-fire focusin (as happens when a row inside the card receives
+    // focus on click). State stays expanded - the shift must be left
+    // alone, NOT recomputed against a card that may have moved
+    // mid-flow.
+    vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
+      top: 300, bottom: 600, left: 0, right: 200, width: 200, height: 300,
+      x: 0, y: 300, toJSON: () => ({}),
+    } as DOMRect);
+    nav.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+    expect(card.style.getPropertyValue('--dm-toc-card-shift-y')).toBe(firstShift);
+  });
+
+  it('recomputes --dm-toc-card-shift-y on the next expand (stale value cleared then re-set as needed)', async () => {
+    editor = await mount();
+    const nav = queryOutline()!;
+    const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card')!;
+    const rectSpy = vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
+      top: -50, bottom: 250, left: 0, right: 200, width: 200, height: 300,
+      x: 0, y: -50, toJSON: () => ({}),
+    } as DOMRect);
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
+
+    expandViaFocus(nav);
+    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+    expect(card.style.getPropertyValue('--dm-toc-card-shift-y')).toBe('66px');
+
+    nav.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
+    // Stale shift persists through collapse.
+    expect(card.style.getPropertyValue('--dm-toc-card-shift-y')).toBe('66px');
+
+    // Next expand at a different layout - shift recomputes to the new value.
+    rectSpy.mockReturnValue({
+      top: 200, bottom: 500, left: 0, right: 200, width: 200, height: 300,
+      x: 0, y: 200, toJSON: () => ({}),
+    } as DOMRect);
+    expandViaFocus(nav);
+    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+    expect(card.style.getPropertyValue('--dm-toc-card-shift-y')).toBe('');
   });
 });

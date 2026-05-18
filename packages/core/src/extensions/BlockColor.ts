@@ -1,37 +1,12 @@
 /**
- * BlockColor Extension
- *
- * Adds `bgColor` and `textColor` attributes to block-level nodes so the
- * whole block can be tinted (Notion-style), not just the selected text.
- * Colors render as `data-bg-color="<name>"` / `data-text-color="<name>"`
- * attributes on the block's outer DOM node; the `@domternal/theme`
- * stylesheet (`_block-colors.scss`) maps those names to CSS custom
- * properties with light- and dark-mode variants.
- *
- * @example
- * ```ts
- * import { BlockColor } from '@domternal/core';
- *
- * const editor = new Editor({
- *   extensions: [
- *     // ... other extensions
- *     BlockColor,
- *   ],
- * });
- *
- * editor.commands.setBlockBgColor('yellow');
- * editor.commands.setBlockTextColor('gray');
- * editor.commands.unsetBlockColors();
- * ```
- *
- * Contract with `_block-colors.scss`:
- * - Palette names become data-attribute values.
- * - `null` clears the attribute so the block reverts to default styling.
- * - Unknown palette entries are rejected by commands (no-op, returns false).
+ * Tints whole blocks via `bgColor` / `textColor` attributes rendered as
+ * `data-bg-color` / `data-text-color`. Theme's `_block-colors.scss` maps
+ * names to CSS custom properties with light/dark variants. `null` clears
+ * the attribute; unknown palette names are rejected by commands.
  */
 import { Extension } from '../Extension.js';
 import type { Command, CommandSpec } from '../types/Commands.js';
-import type { EditorState } from '@domternal/pm/state';
+import type { EditorState, Transaction } from '@domternal/pm/state';
 
 declare module '../types/Commands.js' {
   interface RawCommands {
@@ -93,6 +68,50 @@ export interface BlockColorOptions {
    * @default DEFAULT_BLOCK_COLORS
    */
   textColors: string[];
+}
+
+/**
+ * Strip any inline `textStyle` marks inside [from, to] that carry the inline
+ * counterpart of a block-level color attribute. Mutates the transaction in
+ * place. This makes "last action wins": applying a block color erases
+ * conflicting inline colors so the new block tint isn't visually hidden by
+ * old span overrides.
+ *
+ * `which` may be 'text', 'bg', or 'both' - 'both' handles the unset case
+ * in a single pass so the two strip operations don't step on each other's
+ * replaced mark instances.
+ *
+ * Exported so `BlockContextMenu` (which writes node attrs directly via
+ * `setNodeMarkup` instead of going through `setBlockBgColor` /
+ * `setBlockTextColor`) shares the same conflict-stripping behavior.
+ */
+export function stripInlineColorConflicts(
+  tr: Transaction,
+  state: EditorState,
+  from: number,
+  to: number,
+  which: 'text' | 'bg' | 'both',
+): void {
+  const textStyleType = state.schema.marks['textStyle'];
+  if (!textStyleType) return;
+  const inlineKeys: string[] = [];
+  if (which === 'text' || which === 'both') inlineKeys.push('color', 'colorToken');
+  if (which === 'bg' || which === 'both') inlineKeys.push('backgroundColor', 'backgroundColorToken');
+  state.doc.nodesBetween(from, to, (node, pos) => {
+    if (!node.isText) return true;
+    const existing = node.marks.find((m) => m.type === textStyleType);
+    if (!existing) return false;
+    const hasConflict = inlineKeys.some((k) => existing.attrs[k] !== null && existing.attrs[k] !== undefined);
+    if (!hasConflict) return false;
+    const start = Math.max(pos, from);
+    const end = Math.min(pos + node.nodeSize, to);
+    const newAttrs: Record<string, unknown> = { ...existing.attrs };
+    for (const k of inlineKeys) newAttrs[k] = null;
+    const stillUsed = Object.values(newAttrs).some((v) => v !== null && v !== undefined);
+    tr.removeMark(start, end, existing);
+    if (stillUsed) tr.addMark(start, end, textStyleType.create(newAttrs));
+    return false;
+  });
 }
 
 export const BlockColor = Extension.create<BlockColorOptions>({
@@ -177,6 +196,7 @@ export const BlockColor = Extension.create<BlockColorOptions>({
           if (!node) return false;
           if (dispatch) {
             const tr = state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, [attr]: color });
+            stripInlineColorConflicts(tr, state, pos, pos + node.nodeSize, attr === 'textColor' ? 'text' : 'bg');
             dispatch(tr);
           }
           return true;
@@ -199,6 +219,7 @@ export const BlockColor = Extension.create<BlockColorOptions>({
               bgColor: null,
               textColor: null,
             });
+            stripInlineColorConflicts(tr, state, pos, pos + node.nodeSize, 'both');
             dispatch(tr);
           }
           return true;

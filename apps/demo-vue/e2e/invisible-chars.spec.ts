@@ -92,7 +92,7 @@ const BLOCKQUOTE_PARA = '<blockquote><p>quoted text</p></blockquote><p>normal te
 
 // ─── Toolbar button ──────────────────────────────────────────────────
 
-test.describe('InvisibleChars — toolbar button', () => {
+test.describe('InvisibleChars - toolbar button', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -187,7 +187,7 @@ test.describe('InvisibleChars — toolbar button', () => {
 
 // ─── Toggle on/off ───────────────────────────────────────────────────
 
-test.describe('InvisibleChars — toggle behavior', () => {
+test.describe('InvisibleChars - toggle behavior', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -247,7 +247,7 @@ test.describe('InvisibleChars — toggle behavior', () => {
 
 // ─── Paragraph markers (¶) ──────────────────────────────────────────
 
-test.describe('InvisibleChars — paragraph markers', () => {
+test.describe('InvisibleChars - paragraph markers', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -336,7 +336,7 @@ test.describe('InvisibleChars — paragraph markers', () => {
 
 // ─── Space markers (·) ──────────────────────────────────────────────
 
-test.describe('InvisibleChars — space markers', () => {
+test.describe('InvisibleChars - space markers', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -404,7 +404,7 @@ test.describe('InvisibleChars — space markers', () => {
 
 // ─── Content integrity ───────────────────────────────────────────────
 
-test.describe('InvisibleChars — content integrity', () => {
+test.describe('InvisibleChars - content integrity', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -459,7 +459,7 @@ test.describe('InvisibleChars — content integrity', () => {
 
 // ─── Typing with invisible chars on ─────────────────────────────────
 
-test.describe('InvisibleChars — typing interaction', () => {
+test.describe('InvisibleChars - typing interaction', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -544,7 +544,7 @@ test.describe('InvisibleChars — typing interaction', () => {
 
 // ─── Undo/redo interaction ───────────────────────────────────────────
 
-test.describe('InvisibleChars — undo/redo', () => {
+test.describe('InvisibleChars - undo/redo', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -562,7 +562,7 @@ test.describe('InvisibleChars — undo/redo', () => {
     await page.waitForTimeout(100);
 
     count = await countInvisibleCharElements(page);
-    // Toggle state should persist — it's meta, not a doc modification
+    // Toggle state should persist - it's meta, not a doc modification
     // But the transaction may be undoable; the key point is app doesn't break
     // and decorations are consistent with toggle state
     await expect(page.locator(icButton)).toBeVisible();
@@ -610,7 +610,7 @@ test.describe('InvisibleChars — undo/redo', () => {
 
 // ─── Interaction with formatting ─────────────────────────────────────
 
-test.describe('InvisibleChars — with formatting', () => {
+test.describe('InvisibleChars - with formatting', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -684,7 +684,7 @@ test.describe('InvisibleChars — with formatting', () => {
 
 // ─── Hard break markers (↵) ─────────────────────────────────────────
 
-test.describe('InvisibleChars — hard break markers', () => {
+test.describe('InvisibleChars - hard break markers', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -762,7 +762,7 @@ test.describe('InvisibleChars — hard break markers', () => {
     expect(count).toBe(0);
   });
 
-  test('hard break vs Enter — different markers', async ({ page }) => {
+  test('hard break vs Enter - different markers', async ({ page }) => {
     await setContentAndFocus(page, '<p>Start</p>');
     await toggleInvisibleChars(page);
     await focusEnd(page);
@@ -783,7 +783,7 @@ test.describe('InvisibleChars — hard break markers', () => {
 
 // ─── Non-breaking space markers (°) ─────────────────────────────────
 
-test.describe('InvisibleChars — nbsp markers', () => {
+test.describe('InvisibleChars - nbsp markers', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -920,7 +920,7 @@ test.describe('InvisibleChars — nbsp markers', () => {
     let nbspCount = await countInlineDecorations(page, 'nbsp');
     expect(nbspCount).toBe(0);
 
-    // Toggle on — should reveal the nbsp
+    // Toggle on - should reveal the nbsp
     await toggleInvisibleChars(page);
 
     nbspCount = await countInlineDecorations(page, 'nbsp');
@@ -930,7 +930,7 @@ test.describe('InvisibleChars — nbsp markers', () => {
 
 // ─── Code block interaction ──────────────────────────────────────────
 
-test.describe('InvisibleChars — code blocks', () => {
+test.describe('InvisibleChars - code blocks', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -948,7 +948,7 @@ test.describe('InvisibleChars — code blocks', () => {
 
 // ─── Edge cases ──────────────────────────────────────────────────────
 
-test.describe('InvisibleChars — edge cases', () => {
+test.describe('InvisibleChars - edge cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1042,7 +1042,7 @@ test.describe('InvisibleChars — edge cases', () => {
 
 // ─── Persistence across content changes ──────────────────────────────
 
-test.describe('InvisibleChars — persistence', () => {
+test.describe('InvisibleChars - persistence', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

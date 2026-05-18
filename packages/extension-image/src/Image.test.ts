@@ -578,7 +578,7 @@ describe('Image', () => {
       expect(rules).toHaveLength(1);
     });
 
-    // Regex pattern tests — verify the markdown image syntax pattern
+    // Regex pattern tests - verify the markdown image syntax pattern
     const imageInputRegex = /(?:^|\s)(!\[(.+|:?)]\((\S+)(?:(?:\s+)["']([^"']+)["'])?\))$/;
 
     it('regex matches ![alt](src)', () => {

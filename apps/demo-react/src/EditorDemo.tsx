@@ -151,7 +151,7 @@ export function EditorDemo({ useLayout }: EditorDemoProps) {
           ) : (
             <DomternalBubbleMenu
               editor={editor}
-              contexts={{ text: ['bold', 'italic', 'underline', 'strike', 'code', '|', 'link'] }}
+              contexts={{ text: ['bold', 'italic', 'underline', 'strike', 'code'] }}
             />
           )}
           <DomternalFloatingMenu editor={editor} />

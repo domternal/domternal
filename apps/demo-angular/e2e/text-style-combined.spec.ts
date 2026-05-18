@@ -1,5 +1,5 @@
 /**
- * Combined TextStyle E2E tests — font family, font size, text color, highlight
+ * Combined TextStyle E2E tests - font family, font size, text color, highlight
  * working together on the same text. Tests interactions between all textStyle
  * sub-properties and their toolbar UX.
  */
@@ -84,7 +84,7 @@ const FULLY_STYLED = `<p><span style="font-family: Georgia; font-size: 24px; col
 
 // ─── All textStyle properties together ────────────────────────────────
 
-test.describe('TextStyle — combined properties', () => {
+test.describe('TextStyle - combined properties', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -182,7 +182,7 @@ test.describe('TextStyle — combined properties', () => {
 
 // ─── Unset individual properties ──────────────────────────────────────
 
-test.describe('TextStyle — unset individual properties', () => {
+test.describe('TextStyle - unset individual properties', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -292,7 +292,7 @@ test.describe('TextStyle — unset individual properties', () => {
 
 // ─── Toolbar trigger states for combined styles ───────────────────────
 
-test.describe('TextStyle — toolbar triggers reflect combined state', () => {
+test.describe('TextStyle - toolbar triggers reflect combined state', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -326,7 +326,7 @@ test.describe('TextStyle — toolbar triggers reflect combined state', () => {
 
 // ─── Custom HTML with multiple textStyle properties ───────────────────
 
-test.describe('TextStyle — custom HTML parsing', () => {
+test.describe('TextStyle - custom HTML parsing', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -382,7 +382,7 @@ test.describe('TextStyle — custom HTML parsing', () => {
 
 // ─── Changing one property doesn't affect others ──────────────────────
 
-test.describe('TextStyle — property isolation', () => {
+test.describe('TextStyle - property isolation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

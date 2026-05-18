@@ -220,8 +220,8 @@ describe('getListItemCursorContext', () => {
   // Innermost-resolution regression guard. When a listItem is nested
   // inside a taskItem, a cursor inside the inner listItem's children
   // must report the INNER context, not the outer taskItem - otherwise
-  // the Phase 3+4 fix would target the wrong list item and could lift
-  // the outer item by mistake.
+  // we would target the wrong list item and could lift the outer item
+  // by mistake.
   it('cursor in inner listItem (nested in taskItem) - resolves to INNER list item, not outer', () => {
     editor = makeEditor(
       '<ul data-type="taskList"><li data-type="taskItem"><p>OuterLabel</p>'

@@ -1,25 +1,9 @@
 /**
- * SlashCommand Extension
- *
- * Notion-style `/` trigger that opens a filtered popup of insertable
- * blocks at the cursor position. Items are the same `FloatingMenuItem`s
- * collected by `addFloatingMenuItems()` in `@domternal/core`, so extensions
- * contribute once and every trigger (FloatingMenu, BlockHandle plus,
- * SlashCommand) shows the same options.
- *
- * Filter algorithm:
- * 1. Match query case-insensitively against item `label` and each entry
- *    in `keywords`.
- * 2. Rank exact label prefix matches highest, then label substring, then
- *    keyword matches (first keyword ranked higher than later ones).
- *
- * Execution:
- * 1. Delete the `/query` range from the document.
- * 2. Call `FloatingMenuController.executeItem(editor, item)` which either
- *    runs the named command (with args) or invokes the item's custom
- *    function. The command acts on the now-empty cursor position in the
- *    same block, so items like "Heading 1" transform the current block,
- *    while items like "Image" open their popover.
+ * `/` trigger that opens a filtered popup of insertable blocks. Items are
+ * shared with FloatingMenu and BlockHandle via `addFloatingMenuItems()`.
+ * On select, the `/query` range is deleted and the item's command runs at
+ * the now-empty cursor (so "Heading 1" transforms the block, "Image" opens
+ * its popover, etc.).
  */
 import {
   Extension,
@@ -184,6 +168,43 @@ function findSlashQuery(
   const from = $from.start() + triggerIndex;
   const to = $from.pos;
   return { query: queryText, range: { from, to } };
+}
+
+/**
+ * Removes items whose `hideWhenInside` matches the cursor's wrapping
+ * list type WHEN the cursor sits in the LABEL paragraph of a list-item
+ * (the first-child slot). Picking the same list type from a label would
+ * lift the user out of the list (PM `liftListItem` semantics) - that's
+ * surprising, so we hide the option.
+ *
+ * The CHILDREN-ZONE case (cursor in a non-first paragraph of a list
+ * item) is preserved on purpose: picking the same list type there
+ * creates a nested sublist, which is useful and Notion-like.
+ */
+export function filterByCursorAncestors(
+  items: FloatingMenuItem[],
+  editor: Editor,
+): FloatingMenuItem[] {
+  const { $from } = editor.view.state.selection;
+
+  // Find the cursor's nearest list-item ancestor; if cursor is in the
+  // LABEL slot of that item, record its wrapping list's type name.
+  let wrappingListType: string | null = null;
+  for (let d = $from.depth; d >= 1; d--) {
+    const t = $from.node(d).type.name;
+    if (t === 'listItem' || t === 'taskItem') {
+      if ($from.index(d) === 0 && d >= 1) {
+        wrappingListType = $from.node(d - 1).type.name;
+      }
+      break;
+    }
+  }
+
+  return items.filter((item) => {
+    if (!item.hideWhenInside || item.hideWhenInside.length === 0) return true;
+    if (!wrappingListType) return true;
+    return !item.hideWhenInside.includes(wrappingListType);
+  });
 }
 
 /**
@@ -395,7 +416,8 @@ export function createSlashCommandPlugin(
 
           if (state.active && state.range) {
             const items = FloatingMenuController.resolveItems(editor, itemsOverride);
-            const filtered = filterSlashItems(items, state.query);
+            const contextual = filterByCursorAncestors(items, editor);
+            const filtered = filterSlashItems(contextual, state.query);
 
             const command = (item: FloatingMenuItem): void => {
               const current = pluginKey.getState(view.state);

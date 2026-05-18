@@ -1,31 +1,5 @@
 /**
- * BubbleMenu Extension
- *
- * Shows a floating menu when text is selected in the editor.
- * Useful for formatting toolbars that appear contextually.
- *
- * Styles are included automatically via `@domternal/theme` (`_bubble-menu.scss`).
- *
- * @example
- * ```ts
- * import { BubbleMenu } from '@domternal/core';
- *
- * // Create menu element
- * const menuElement = document.getElementById('bubble-menu');
- *
- * const editor = new Editor({
- *   extensions: [
- *     // ... other extensions
- *     BubbleMenu.configure({
- *       element: menuElement,
- *       shouldShow: ({ editor, state, from, to }) => {
- *         // Only show for text selections
- *         return !state.selection.empty;
- *       },
- *     }),
- *   ],
- * });
- * ```
+ * Floating menu shown when text is selected. Contextual formatting toolbar.
  */
 import { Extension } from '../Extension.js';
 import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
@@ -63,7 +37,7 @@ function defaultShouldShow({
   // Don't show if editor is not editable
   if (!editor.isEditable) return false;
 
-  // Don't show inside table cells — the cell toolbar handles table formatting.
+  // Don't show inside table cells - the cell toolbar handles table formatting.
   // Extensions can opt-in via a custom shouldShow if needed.
   const $from = state.doc.resolve(from);
   for (let d = $from.depth; d > 0; d--) {
@@ -195,17 +169,22 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
   // Suppress bubble menu during active mouse drag inside the editor.
   // Without this, the bubble menu appears mid-drag, and its DOM element
   // blocks prosemirror-tables' posAtCoords() from resolving the cell
-  // under the cursor — preventing TextSelection → CellSelection conversion.
+  // under the cursor - preventing TextSelection → CellSelection conversion.
   let mouseDown = false;
 
   const onDocumentMousedown = (e: MouseEvent): void => {
     const target = e.target as Node | null;
     if (!target) return;
-    // Click inside bubble menu — ignore (handled by onMenuMousedown)
+    // Click inside bubble menu - ignore (handled by onMenuMousedown)
     if (element.contains(target)) return;
-    // Click inside editor — let ProseMirror handle selection change
+    // Click inside editor - let ProseMirror handle selection change
     if (editor.view.dom.contains(target)) return;
-    // Outside both — hide and suppress until selection changes
+    // Click inside an editor-UI overlay (NotionColorPicker, popovers carrying
+    // [data-dm-editor-ui]) - treat as part of the bubble menu's interaction
+    // surface so the menu doesn't dismiss while the user is operating its
+    // own dropdown. Matches the whitelist `onBlur` already uses below.
+    if (target instanceof HTMLElement && target.closest('[data-dm-editor-ui]')) return;
+    // Outside everything - hide and suppress until selection changes
     hideMenu();
     suppressed = true;
   };
@@ -254,7 +233,7 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
 
     view: (editorView) => {
       // Move element inside .dm-editor (position:relative) so it uses
-      // position:absolute — CSS compositor handles scroll, zero jitter.
+      // position:absolute - CSS compositor handles scroll, zero jitter.
       const editorEl = editorView.dom.closest('.dm-editor');
       if (editorEl && element.parentElement !== editorEl) {
         editorEl.appendChild(element);
@@ -283,7 +262,7 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
 
       const onFocus = (): void => {
         // Re-evaluate after focus (selection may have settled).
-        // Must re-check shouldShow with current state — plugin state may be stale
+        // Must re-check shouldShow with current state - plugin state may be stale
         // if blur/focus happened without a transaction (e.g. cell handle click,
         // browser extension, or external focus change).
         focusTimeout = setTimeout(() => {
@@ -312,12 +291,15 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
       };
 
       const onBlur = ({ event }: { event: FocusEvent }): void => {
-        // Don't hide if focus moved to the bubble menu itself
-        if (
-          event.relatedTarget &&
-          element.contains(event.relatedTarget as Node)
-        ) {
-          return;
+        // Don't hide if focus moved to the bubble menu itself or to any
+        // overlay that opts into editor-UI semantics by carrying the
+        // [data-dm-editor-ui] marker (e.g. NotionColorPicker, popovers).
+        // Matches the same whitelist `SelectionDecoration` uses to avoid
+        // collapsing the range selection.
+        const related = event.relatedTarget;
+        if (related instanceof HTMLElement) {
+          if (element.contains(related)) return;
+          if (related.closest('[data-dm-editor-ui]')) return;
         }
         hideMenu();
       };
@@ -348,7 +330,7 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
             | BubbleMenuPluginState
             | undefined;
 
-          // Skip if nothing changed — but reposition when the doc changed
+          // Skip if nothing changed - but reposition when the doc changed
           // while the menu is visible (e.g. image float attribute changed,
           // the DOM element moved but the selection stayed at the same pos)
           if (

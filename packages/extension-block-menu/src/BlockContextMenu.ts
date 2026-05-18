@@ -15,16 +15,18 @@
  * so theming is consistent: `role="menu"` container, `role="menuitem"`
  * buttons, `data-show` for visibility, positioned via `positionFloatingOnce`.
  */
-import { Extension, defaultIcons, positionFloatingOnce, writeToClipboard } from '@domternal/core';
+import { Extension, defaultIcons, positionFloatingOnce, stripInlineColorConflicts, writeToClipboard } from '@domternal/core';
 import type { Editor } from '@domternal/core';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
 import type { Attrs } from '@domternal/pm/model';
+import { Decoration, DecorationSet } from '@domternal/pm/view';
 import {
   deleteBlock,
   duplicateBlock,
   turnIntoBlock,
 } from './helpers/blockOperations.js';
+import { turnIntoWrapper, type WrapperCommand } from './helpers/turnIntoWrapper.js';
 
 /**
  * Shape of the `uniqueID` extension's options. We only read the two fields
@@ -47,7 +49,18 @@ interface BlockColorOptionsShape {
   textColors?: string[];
 }
 
-export const blockContextMenuPluginKey = new PluginKey('blockContextMenu');
+/**
+ * `props.decorations` reads `activeBlockPos` and applies the
+ * `dm-block-context-active` class via a PM Decoration. Decoration
+ * survives view rerenders that other transactions trigger (e.g.
+ * UniqueID stamping `id` via setNodeMarkup); inline classList
+ * mutation does not.
+ */
+export interface BlockContextMenuPluginState {
+  activeBlockPos: number | null;
+}
+
+export const blockContextMenuPluginKey = new PluginKey<BlockContextMenuPluginState>('blockContextMenu');
 
 /**
  * A target type the user can convert the current block into via the
@@ -62,6 +75,14 @@ export interface TurnIntoTarget {
   nodeType: string;
   /** Optional node attributes (e.g. `{ level: 1 }` for Heading 1). */
   attrs?: Attrs;
+  /**
+   * Editor command to invoke for non-textblock (wrapper) targets like
+   * lists and blockquote. When set, runTurnInto routes through
+   * `turnIntoWrapper` which sets selection then dispatches the
+   * command, instead of calling `setBlockType`. Leave undefined for
+   * textblock targets (paragraph, heading, codeBlock).
+   */
+  command?: WrapperCommand;
 }
 
 const DEFAULT_TURN_INTO: TurnIntoTarget[] = [
@@ -69,11 +90,11 @@ const DEFAULT_TURN_INTO: TurnIntoTarget[] = [
   { label: 'Heading 1', icon: 'textHOne', nodeType: 'heading', attrs: { level: 1 } },
   { label: 'Heading 2', icon: 'textHTwo', nodeType: 'heading', attrs: { level: 2 } },
   { label: 'Heading 3', icon: 'textHThree', nodeType: 'heading', attrs: { level: 3 } },
-  { label: 'Quote', icon: 'quotes', nodeType: 'blockquote' },
+  { label: 'Bullet list', icon: 'listBullets', nodeType: 'bulletList', command: 'toggleBulletList' },
+  { label: 'Ordered list', icon: 'listNumbers', nodeType: 'orderedList', command: 'toggleOrderedList' },
+  { label: 'To-do list', icon: 'listChecks', nodeType: 'taskList', command: 'toggleTaskList' },
+  { label: 'Quote', icon: 'quotes', nodeType: 'blockquote', command: 'toggleBlockquote' },
   { label: 'Code block', icon: 'codeBlock', nodeType: 'codeBlock' },
-  { label: 'Bullet list', icon: 'listBullets', nodeType: 'bulletList' },
-  { label: 'Ordered list', icon: 'listNumbers', nodeType: 'orderedList' },
-  { label: 'To-do list', icon: 'listChecks', nodeType: 'taskList' },
 ];
 
 export interface BlockContextMenuOptions {
@@ -114,7 +135,7 @@ export interface BlockContextMenuOptions {
 }
 
 export interface CreateBlockContextMenuPluginOptions {
-  pluginKey: PluginKey;
+  pluginKey: PluginKey<BlockContextMenuPluginState>;
   editor: Editor;
   turnIntoEnabled: boolean;
   turnIntoTargets: TurnIntoTarget[];
@@ -141,6 +162,22 @@ function defaultCopyLinkUrl(blockId: string): string {
 interface BlockContextMenuOpenDetail {
   blockPos: number;
   anchorElement: HTMLElement;
+}
+
+/**
+ * Derive a selector that can re-locate an anchor button if its DOM identity
+ * changes (e.g. the vanilla bubble menu rebuilding its trailing buttons via
+ * `replaceChildren`). Returns `null` for anchors we cannot reliably re-resolve
+ * (e.g. the BlockHandle drag button, which lives outside any bubble menu and
+ * is keyed by absolute position, not class).
+ */
+function matchingSelectorFor(anchor: HTMLElement): string | null {
+  const ariaLabel = anchor.getAttribute('aria-label');
+  if (ariaLabel) {
+    const escaped = ariaLabel.replace(/"/g, '\\"');
+    return `button[aria-label="${escaped}"]`;
+  }
+  return null;
 }
 
 /**
@@ -199,8 +236,44 @@ export function createBlockContextMenuPlugin(
   // can cancel it if the menu closes before the frame fires (otherwise the
   // callback races with teardown and may focus a stale button).
   let initialFocusRaf: number | null = null;
+  // Idempotency guard for the document-level wheel/touchmove listeners
+  // that block page scroll while the menu is open.
+  let scrollLocked = false;
 
   const isOpen = (): boolean => root.hasAttribute('data-show');
+
+  /**
+   * Suppresses page scroll while the menu is open. Native scroll
+   * INSIDE the menu is allowed only when the menu actually has
+   * scrollable overflow; without that check a short menu would let
+   * wheel events bubble through and scroll the page.
+   * `overscroll-behavior: contain` in the theme stops chaining at
+   * the menu's scroll edges.
+   */
+  const onBlockScroll = (event: Event): void => {
+    const target = event.target;
+    if (target instanceof Node && root.contains(target)) {
+      const hasOverflow = root.scrollHeight > root.clientHeight;
+      if (hasOverflow) return;
+    }
+    event.preventDefault();
+  };
+
+  const lockScroll = (): void => {
+    if (scrollLocked) return;
+    scrollLocked = true;
+    // `passive: false` is required so preventDefault() takes effect:
+    // browsers default wheel/touchmove to passive for scroll perf.
+    document.addEventListener('wheel', onBlockScroll, { passive: false });
+    document.addEventListener('touchmove', onBlockScroll, { passive: false });
+  };
+
+  const unlockScroll = (): void => {
+    if (!scrollLocked) return;
+    scrollLocked = false;
+    document.removeEventListener('wheel', onBlockScroll);
+    document.removeEventListener('touchmove', onBlockScroll);
+  };
 
   const hide = (): void => {
     if (initialFocusRaf !== null) {
@@ -209,6 +282,16 @@ export function createBlockContextMenuPlugin(
     }
     cleanupFloating?.();
     cleanupFloating = null;
+    unlockScroll();
+    editorEl?.removeAttribute('data-block-context-menu-open');
+    // `editor.view` is undefined during the first `hide()` triggered
+    // by plugin init - skip the dispatch in that case.
+    const view = editor.view as typeof editor.view | undefined;
+    if (view) {
+      const tr = view.state.tr.setMeta(pluginKey, { activeBlockPos: null });
+      tr.setMeta('addToHistory', false);
+      view.dispatch(tr);
+    }
     root.removeAttribute('data-show');
     currentBlockPos = null;
     menuItemButtons = [];
@@ -279,7 +362,29 @@ export function createBlockContextMenuPlugin(
 
   const runTurnInto = (target: TurnIntoTarget): void => {
     if (currentBlockPos === null) return;
-    const pos = currentBlockPos;
+    const sourceNode = editor.view.state.doc.nodeAt(currentBlockPos);
+    if (!sourceNode) return;
+
+    // When the targeted block is a wrapper (listItem / taskItem /
+    // blockquote), descend to its inner first textblock so the wrapper
+    // command operates on a valid textblock source. The filter in
+    // renderItems guarantees we only reach here for wrapper targets
+    // when source is a wrapper - textblock targets on wrapper sources
+    // are filtered out upstream.
+    const pos = sourceNode.type.isTextblock ? currentBlockPos : currentBlockPos + 1;
+
+    // Wrapper targets (lists, blockquote) use the helper which routes
+    // through the corresponding editor command. The command dispatches
+    // its own transaction (with scrollIntoView), so we only need to
+    // close the menu and restore focus afterwards.
+    if (target.command) {
+      turnIntoWrapper(editor, pos, target.command);
+      hide();
+      editor.view.focus();
+      return;
+    }
+    // Textblock targets: position-precise setBlockType via the existing
+    // pure helper. runAndClose handles dispatch + scrollIntoView + hide.
     const targetType = editor.view.state.schema.nodes[target.nodeType];
     if (!targetType) return;
     runAndClose((tr) => { turnIntoBlock(tr, pos, targetType, target.attrs); });
@@ -288,7 +393,9 @@ export function createBlockContextMenuPlugin(
   /**
    * Sets `bgColor` or `textColor` directly on the block at `currentBlockPos`
    * via `setNodeMarkup`. Bypasses the BlockColor command's ancestor walk
-   * because the menu already knows which block was targeted.
+   * because the menu already knows which block was targeted. Inline color
+   * marks of the same kind inside the block are stripped so the new block
+   * tint wins ("last action wins"); see `stripInlineColorConflicts`.
    */
   const runSetColor = (attr: 'bgColor' | 'textColor', color: string | null): void => {
     if (currentBlockPos === null) return;
@@ -297,6 +404,13 @@ export function createBlockContextMenuPlugin(
       const n = tr.doc.nodeAt(pos);
       if (!n) return;
       tr.setNodeMarkup(pos, undefined, { ...n.attrs, [attr]: color });
+      stripInlineColorConflicts(
+        tr,
+        editor.view.state,
+        pos,
+        pos + n.nodeSize,
+        attr === 'textColor' ? 'text' : 'bg',
+      );
     });
   };
 
@@ -371,11 +485,57 @@ export function createBlockContextMenuPlugin(
       );
     }
 
-    // --- Turn into section (textblocks only, different from current type)
-    if (turnIntoEnabled && node.type.isTextblock) {
+    // --- Turn into section. Two source modes:
+    //
+    //   A. Textblock source (paragraph, heading, codeBlock): both
+    //      textblock and wrapper targets are eligible (subject to filter).
+    //   B. Wrapper source (listItem, taskItem, blockquote whose first
+    //      child is a textblock): only wrapper targets are eligible,
+    //      and we descend to the inner textblock for the ancestor walk.
+    //      Textblock targets would need a lift-then-convert step that
+    //      is out of scope - they're filtered out.
+    //
+    // Pure non-textblock atoms (HR) and wrapper-of-wrapper (bulletList
+    // whose first child is listItem, not a textblock) hide Turn into
+    // entirely - Notion matches this.
+    const sourceIsTextblock = node.type.isTextblock;
+    const sourceIsWrapper = !sourceIsTextblock && node.firstChild?.isTextblock === true;
+    if (turnIntoEnabled && (sourceIsTextblock || sourceIsWrapper)) {
+      // For wrapper sources, the ancestor walk starts at the inner
+      // textblock (blockPos + 1 = past the wrapper opening token) so
+      // it picks up listItem / taskList / blockquote correctly.
+      const ancestorPos = sourceIsTextblock ? blockPos : blockPos + 1;
+      const $pos = editor.view.state.doc.resolve(ancestorPos);
+      const ancestorTypeNames = new Set<string>();
+      for (let d = 0; d <= $pos.depth; d++) {
+        ancestorTypeNames.add($pos.node(d).type.name);
+      }
+
+      // listItem / taskItem schema requires their FIRST child to be a
+      // paragraph. Calling toggleBlockquote on that inner paragraph
+      // would try to make blockquote the first child, which the schema
+      // rejects. Hide the Quote target upfront to avoid a clickable-
+      // but-no-op item.
+      const isListItemFamilySource =
+        node.type.name === 'listItem' || node.type.name === 'taskItem';
+
       const eligible = turnIntoTargets.filter((target) => {
         const type = editor.view.state.schema.nodes[target.nodeType];
-        if (!type?.isTextblock) return false;
+        if (!type) return false;
+
+        // Wrapper target (toggleList / toggleBlockquote). Hide when an
+        // ancestor of the same type already wraps the block - Notion-
+        // style "you're already there, no point offering".
+        if (target.command) {
+          if (ancestorTypeNames.has(target.nodeType)) return false;
+          if (target.command === 'toggleBlockquote' && isListItemFamilySource) return false;
+          return true;
+        }
+
+        // Textblock target. Only valid when source is itself a textblock.
+        // Wrapper sources need lift-then-convert (out of scope).
+        if (!sourceIsTextblock) return false;
+        if (!type.isTextblock) return false;
         // Skip targets identical to the current block (same node type AND
         // matching attrs - e.g. hide "Heading 1" when already on H1).
         if (type.name !== node.type.name) return true;
@@ -546,11 +706,51 @@ export function createBlockContextMenuPlugin(
     renderItems(detail.blockPos);
     if (menuItemButtons.length === 0) return;
 
+    // Must set the cross-plugin signal BEFORE the dismiss dispatch
+    // so BlockHandle's dismiss listener can distinguish "menu opening"
+    // from "another overlay dismissing me" and keep the drag handle
+    // anchored.
+    editorEl.setAttribute('data-block-context-menu-open', '');
     editorEl.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
     root.setAttribute('data-show', '');
+    lockScroll();
+    {
+      const tr = editor.view.state.tr.setMeta(pluginKey, { activeBlockPos: detail.blockPos });
+      tr.setMeta('addToHistory', false);
+      editor.view.dispatch(tr);
+    }
 
     cleanupFloating?.();
-    cleanupFloating = positionFloatingOnce(detail.anchorElement, root, {
+    // Virtual reference: caches the last valid rect and returns it when the
+    // anchor element later becomes disconnected. Vanilla bubble menus rebuild
+    // their DOM via `replaceChildren()` on every editor transaction, which
+    // orphans the anchor we were given; without this caching, `autoUpdate`
+    // re-computes against a zero rect and the menu flies to the corner.
+    let anchorEl: HTMLElement = detail.anchorElement;
+    const bubbleMenuRef = anchorEl.closest<HTMLElement>('.dm-bubble-menu');
+    const matchingSelector = matchingSelectorFor(anchorEl);
+    let lastRect = anchorEl.getBoundingClientRect();
+    const virtualRef: { getBoundingClientRect: () => DOMRect } = {
+      getBoundingClientRect: () => {
+        if (anchorEl.isConnected) {
+          lastRect = anchorEl.getBoundingClientRect();
+          return lastRect;
+        }
+        // Anchor disconnected. Try to find an equivalent in the same bubble
+        // menu (where applicable) so the menu tracks live DOM rather than
+        // pinning to the now-stale rect.
+        if (matchingSelector && bubbleMenuRef?.isConnected) {
+          const fresh = bubbleMenuRef.querySelector<HTMLElement>(matchingSelector);
+          if (fresh) {
+            anchorEl = fresh;
+            lastRect = fresh.getBoundingClientRect();
+            return lastRect;
+          }
+        }
+        return lastRect;
+      },
+    };
+    cleanupFloating = positionFloatingOnce(virtualRef, root, {
       placement: 'right-start',
       offsetValue: 4,
     });
@@ -619,8 +819,35 @@ export function createBlockContextMenuPlugin(
     }
   };
 
-  return new Plugin({
+  return new Plugin<BlockContextMenuPluginState>({
     key: pluginKey,
+    state: {
+      init: () => ({ activeBlockPos: null }),
+      apply(tr, value) {
+        const meta = tr.getMeta(pluginKey) as { activeBlockPos?: number | null } | undefined;
+        if (meta && 'activeBlockPos' in meta) {
+          return { activeBlockPos: meta.activeBlockPos ?? null };
+        }
+        // Re-map across doc changes so the highlight tracks structural edits.
+        if (value.activeBlockPos !== null && tr.docChanged) {
+          const mapped = tr.mapping.mapResult(value.activeBlockPos, 1);
+          return { activeBlockPos: mapped.deleted ? null : mapped.pos };
+        }
+        return value;
+      },
+    },
+    props: {
+      decorations(state) {
+        const plugin = pluginKey.getState(state);
+        const activePos = plugin?.activeBlockPos ?? null;
+        if (activePos === null) return null;
+        const node = state.doc.nodeAt(activePos);
+        if (!node) return null;
+        return DecorationSet.create(state.doc, [
+          Decoration.node(activePos, activePos + node.nodeSize, { class: 'dm-block-context-active' }),
+        ]);
+      },
+    },
 
     view: (editorView) => {
       editorEl = editorView.dom.closest('.dm-editor');
@@ -665,15 +892,20 @@ export const BlockContextMenu = Extension.create<BlockContextMenuOptions>({
   addProseMirrorPlugins() {
     const editor = this.editor as Editor | null;
     if (!editor) return [];
+    // `addOptions()` provides defaults, but the public option interface
+    // marks each field optional so consumers can pass a partial config.
+    // Re-applying defaults here narrows the types back to non-optional
+    // for the plugin factory.
+    const opts = this.options;
     return [
       createBlockContextMenuPlugin({
         pluginKey: blockContextMenuPluginKey,
         editor,
-        turnIntoEnabled: this.options.turnIntoEnabled ?? true,
-        turnIntoTargets: this.options.turnIntoTargets ?? DEFAULT_TURN_INTO,
-        copyLinkEnabled: this.options.copyLinkEnabled ?? true,
-        onCopyLink: this.options.onCopyLink ?? defaultCopyLinkUrl,
-        blockColorEnabled: this.options.blockColorEnabled ?? true,
+        turnIntoEnabled: opts.turnIntoEnabled ?? true,
+        turnIntoTargets: opts.turnIntoTargets ?? DEFAULT_TURN_INTO,
+        copyLinkEnabled: opts.copyLinkEnabled ?? true,
+        onCopyLink: opts.onCopyLink ?? defaultCopyLinkUrl,
+        blockColorEnabled: opts.blockColorEnabled ?? true,
       }),
     ];
   },

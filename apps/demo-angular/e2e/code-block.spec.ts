@@ -52,7 +52,7 @@ const MULTILINE_CODE = '<pre><code>line 1\nline 2\nline 3</code></pre>';
 
 // ─── Tests ─────────────────────────────────────────────────────────────
 
-test.describe('Code block — keyboard behavior', () => {
+test.describe('Code block - keyboard behavior', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -100,7 +100,7 @@ test.describe('Code block — keyboard behavior', () => {
     expect(text).toContain('line 2');
     expect(text).toContain('line 3');
 
-    // No paragraph should have been created — still all in code block
+    // No paragraph should have been created - still all in code block
     const paragraphs = await page.locator(`${editorSelector} p`).count();
     expect(paragraphs).toBe(0);
   });
@@ -238,7 +238,7 @@ test.describe('Code block — keyboard behavior', () => {
 
 // ─── Toolbar disabled state in code block ─────────────────────────────
 
-test.describe('Code block — toolbar disabled state', () => {
+test.describe('Code block - toolbar disabled state', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

@@ -194,7 +194,7 @@ export class Extension<Options = unknown, Storage = unknown> {
    * // Shallow merge behavior with nested objects:
    * // Given: options = { nested: { a: 1, b: 2 } }
    * // configure({ nested: { b: 3 } })
-   * // Result: { nested: { b: 3 } } — 'a' is lost!
+   * // Result: { nested: { b: 3 } } - 'a' is lost!
    * // To preserve nested values, spread manually:
    * // configure({ nested: { ...original.options.nested, b: 3 } })
    */

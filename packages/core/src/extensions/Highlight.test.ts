@@ -99,6 +99,52 @@ describe('Highlight', () => {
       const el = document.createElement('mark');
       expect(parseHTML?.(el)).toBe('#fef08a');
     });
+
+    it('renderHTML for backgroundColor returns null when token is set (mutual exclusion)', () => {
+      const globalAttrs = Highlight.config.addGlobalAttributes?.call(Highlight);
+      const renderHTML = globalAttrs?.[0]?.attributes['backgroundColor']?.renderHTML;
+
+      const result = renderHTML?.({ backgroundColor: '#fef08a', backgroundColorToken: 'yellow' });
+      expect(result).toBe(null);
+    });
+
+    it('provides backgroundColorToken attribute', () => {
+      const globalAttrs = Highlight.config.addGlobalAttributes?.call(Highlight);
+      expect(globalAttrs?.[0]?.attributes).toHaveProperty('backgroundColorToken');
+    });
+
+    it('backgroundColorToken parseHTML reads data-bg-color', () => {
+      const globalAttrs = Highlight.config.addGlobalAttributes?.call(Highlight);
+      const parseHTML = globalAttrs?.[0]?.attributes['backgroundColorToken']?.parseHTML;
+
+      const el = document.createElement('span');
+      el.setAttribute('data-bg-color', 'yellow');
+      expect(parseHTML?.(el)).toBe('yellow');
+    });
+
+    it('backgroundColorToken parseHTML returns null when attribute absent', () => {
+      const globalAttrs = Highlight.config.addGlobalAttributes?.call(Highlight);
+      const parseHTML = globalAttrs?.[0]?.attributes['backgroundColorToken']?.parseHTML;
+
+      const el = document.createElement('span');
+      expect(parseHTML?.(el)).toBe(null);
+    });
+
+    it('backgroundColorToken renderHTML emits data-bg-color', () => {
+      const globalAttrs = Highlight.config.addGlobalAttributes?.call(Highlight);
+      const renderHTML = globalAttrs?.[0]?.attributes['backgroundColorToken']?.renderHTML;
+
+      const result = renderHTML?.({ backgroundColorToken: 'yellow' });
+      expect(result).toEqual({ 'data-bg-color': 'yellow' });
+    });
+
+    it('backgroundColorToken renderHTML returns null when token is null', () => {
+      const globalAttrs = Highlight.config.addGlobalAttributes?.call(Highlight);
+      const renderHTML = globalAttrs?.[0]?.attributes['backgroundColorToken']?.renderHTML;
+
+      const result = renderHTML?.({ backgroundColorToken: null });
+      expect(result).toBe(null);
+    });
   });
 
   describe('addCommands', () => {
@@ -107,6 +153,12 @@ describe('Highlight', () => {
       expect(commands).toHaveProperty('setHighlight');
       expect(commands).toHaveProperty('unsetHighlight');
       expect(commands).toHaveProperty('toggleHighlight');
+    });
+
+    it('provides setBackgroundColorToken and unsetBackgroundColorToken', () => {
+      const commands = Highlight.config.addCommands?.call(Highlight);
+      expect(commands).toHaveProperty('setBackgroundColorToken');
+      expect(commands).toHaveProperty('unsetBackgroundColorToken');
     });
   });
 
@@ -270,7 +322,7 @@ describe('Highlight', () => {
       editor.commands.setTextColor('#e03131');
       editor.commands.setHighlight({ color: '#fef08a' });
       const html = editor.getHTML();
-      // Both styles on same span — no nesting
+      // Both styles on same span - no nesting
       expect(html).toContain('color: #e03131');
       expect(html).toContain('background-color: #fef08a');
       expect(html).not.toContain('<mark');
@@ -286,6 +338,78 @@ describe('Highlight', () => {
       editor.commands.setHighlight({ color: '#fef08a' });
       expect(editor.isActive('textStyle', { backgroundColor: '#fef08a' })).toBe(true);
       expect(editor.isActive('textStyle', { backgroundColor: '#ff0000' })).toBe(false);
+    });
+
+    it('setBackgroundColorToken applies data-bg-color', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, Highlight],
+        content: '<p>Hello world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands.setBackgroundColorToken('yellow');
+      const html = editor.getHTML();
+      expect(html).toContain('data-bg-color="yellow"');
+      expect(html).not.toContain('background-color:');
+    });
+
+    it('setBackgroundColorToken clears hex (mutual exclusion)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, Highlight],
+        content: '<p><span style="background-color: #fef08a">Hello</span></p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands.setBackgroundColorToken('yellow');
+      const mark = editor.state.doc.child(0).child(0).marks.find((m) => m.type.name === 'textStyle');
+      expect(mark?.attrs['backgroundColorToken']).toBe('yellow');
+      expect(mark?.attrs['backgroundColor']).toBeNull();
+    });
+
+    it('setHighlight clears the bg token (reverse mutual exclusion)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, Highlight],
+        content: '<p><span data-bg-color="yellow">Hello</span></p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands.setHighlight({ color: '#fef08a' });
+      const mark = editor.state.doc.child(0).child(0).marks.find((m) => m.type.name === 'textStyle');
+      expect(mark?.attrs['backgroundColor']).toBe('#fef08a');
+      expect(mark?.attrs['backgroundColorToken']).toBeNull();
+    });
+
+    it('unsetBackgroundColorToken removes data-bg-color', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, Highlight],
+        content: '<p><span data-bg-color="yellow">Hello</span></p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands.unsetBackgroundColorToken();
+      expect(editor.getHTML()).not.toContain('data-bg-color');
+    });
+
+    it('round-trip preserves data-bg-color', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, Highlight],
+        content: '<p><span data-bg-color="blue">Blue bg</span></p>',
+      });
+      expect(editor.getHTML()).toContain('data-bg-color="blue"');
+    });
+
+    it('toggleHighlight detects existing token-based highlight and removes it', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, Highlight],
+        content: '<p><span data-bg-color="yellow">Hello</span></p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands.toggleHighlight();
+      // removeEmptyTextStyle strips the mark once both attrs are null
+      const html = editor.getHTML();
+      expect(html).not.toContain('data-bg-color');
+      expect(html).not.toContain('background-color');
     });
   });
 

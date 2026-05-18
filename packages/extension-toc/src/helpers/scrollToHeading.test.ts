@@ -58,7 +58,7 @@ describe('scrollToHeading', () => {
   });
 
   it('scrolls to the heading and updates the URL hash on a hit', () => {
-    const view = buildView('<h2 data-toc-id="abc12345">Section</h2>');
+    const view = buildView('<h2 id="abc12345">Section</h2>');
     const result = callScroll(view, 'abc12345');
 
     expect(result).toBe(true);
@@ -69,7 +69,7 @@ describe('scrollToHeading', () => {
   });
 
   it('returns false and leaves URL hash alone when the id is unknown', () => {
-    const view = buildView('<h2 data-toc-id="other">Section</h2>');
+    const view = buildView('<h2 id="other">Section</h2>');
     const result = callScroll(view, 'missing');
 
     expect(result).toBe(false);
@@ -78,7 +78,7 @@ describe('scrollToHeading', () => {
   });
 
   it('returns false on an empty id without touching anything', () => {
-    const view = buildView('<h2 data-toc-id="abc">Section</h2>');
+    const view = buildView('<h2 id="abc">Section</h2>');
     expect(callScroll(view, '')).toBe(false);
     expect(scrollIntoViewSpy).not.toHaveBeenCalled();
     expect(replaceStateSpy).not.toHaveBeenCalled();
@@ -88,7 +88,7 @@ describe('scrollToHeading', () => {
     const view = buildView(`
       <details>
         <details>
-          <h2 data-toc-id="nested">Deep</h2>
+          <h2 id="nested">Deep</h2>
         </details>
       </details>
     `);
@@ -114,7 +114,7 @@ describe('scrollToHeading', () => {
       dispatchEvent: (): boolean => false,
     })) as typeof window.matchMedia;
 
-    const view = buildView('<h2 data-toc-id="abc">Section</h2>');
+    const view = buildView('<h2 id="abc">Section</h2>');
     callScroll(view, 'abc');
     expect(scrollIntoViewSpy).toHaveBeenCalledWith({ behavior: 'auto', block: 'start' });
   });
@@ -134,28 +134,39 @@ describe('scrollToHeading', () => {
       dispatchEvent: (): boolean => false,
     })) as typeof window.matchMedia;
 
-    const view = buildView('<h2 data-toc-id="abc">Section</h2>');
+    const view = buildView('<h2 id="abc">Section</h2>');
     callScroll(view, 'abc', { behavior: 'smooth' });
     expect(scrollIntoViewSpy).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
   });
 
   it('honors options.updateHash: false (scrolls but skips history)', () => {
-    const view = buildView('<h2 data-toc-id="abc">Section</h2>');
+    const view = buildView('<h2 id="abc">Section</h2>');
     const result = callScroll(view, 'abc', { updateHash: false });
     expect(result).toBe(true);
     expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1);
     expect(replaceStateSpy).not.toHaveBeenCalled();
   });
 
-  it('scopes the lookup to view.dom (does not match data-toc-id outside the editor)', () => {
-    // Plant an unrelated heading with the same tocId outside the view.
+  it('scopes the lookup to view.dom (does not match id outside the editor)', () => {
+    // Plant an unrelated heading with a matching id outside the view.
     const stray = document.createElement('h1');
-    stray.setAttribute('data-toc-id', 'outside-the-editor');
+    stray.setAttribute('id', 'outside-the-editor');
     stray.textContent = 'Unrelated';
     document.body.appendChild(stray);
 
-    const view = buildView('<h2 data-toc-id="inside">Section</h2>');
+    const view = buildView('<h2 id="inside">Section</h2>');
     expect(callScroll(view, 'outside-the-editor')).toBe(false);
     expect(scrollIntoViewSpy).not.toHaveBeenCalled();
+  });
+
+  it('uses options.attrName when provided (custom UniqueID.attributeName)', () => {
+    // When the consumer customizes UniqueID's attributeName (e.g. to
+    // 'data-id'), TOC plumbs that name through and scrollToHeading
+    // queries via the configured attribute instead of native `id`.
+    const view = buildView('<h2 data-id="abc12345">Section</h2>');
+    const result = callScroll(view, 'abc12345', { attrName: 'data-id' });
+
+    expect(result).toBe(true);
+    expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1);
   });
 });

@@ -3,6 +3,7 @@ import {
   DomternalEditorComponent,
   DomternalBubbleMenuComponent,
   DomternalFloatingMenuComponent,
+  DomternalNotionColorPickerComponent,
 } from '@domternal/angular';
 import {
   Bold,
@@ -25,6 +26,7 @@ import {
   TaskList,
   TextAlign,
   TextColor,
+  NotionColorPicker,
   FontSize,
   FontFamily,
   LineHeight,
@@ -49,9 +51,8 @@ import {
   KeyboardReorder,
   SlashCommand,
   SmartPaste,
-  BASE_SCORE,
 } from '@domternal/extension-block-menu';
-import type { DragHandleRule, RuleContext } from '@domternal/extension-block-menu';
+import type { BlockMatcher, BlockCandidate } from '@domternal/extension-block-menu';
 import { TableOfContents, FloatingTocOutline, TableOfContentsBlock } from '@domternal/extension-toc';
 import { NOTION_DEMO_CONTENT } from './notion-demo-content.js';
 
@@ -89,6 +90,7 @@ const mockUsers: MentionItem[] = [
     DomternalEditorComponent,
     DomternalBubbleMenuComponent,
     DomternalFloatingMenuComponent,
+    DomternalNotionColorPickerComponent,
   ],
   templateUrl: './notion-demo.component.html',
   styleUrls: ['./notion-demo.component.scss'],
@@ -102,17 +104,14 @@ export class NotionDemoComponent implements OnDestroy {
   private static readonly TOAST_MS = { success: 1800, error: 2600 };
 
   extensions = [
-    // Inline formatting (available via bubble menu on selection)
     Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
-    // Block elements (inserted via floating menu on empty lines)
     Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
     BulletList, OrderedList, TaskList,
-    // Text styling - available via bubble menu
     TextAlign, TextColor, FontSize, FontFamily, LineHeight,
+    NotionColorPicker,
     Table,
     Details,
     Image,
-    // `toolbar: false` - no toolbar button, but `:` suggestion picker still works
     Emoji.configure({
       emojis,
       enableEmoticons: true,
@@ -130,66 +129,43 @@ export class NotionDemoComponent implements OnDestroy {
         invalidNodes: ['codeBlock'],
       },
     }),
-    // BlockHandle ships its own custom drop indicator that mirrors EXACTLY
-    // where the drop will land (via the shared `computeDropPlacement`
-    // helper), so we omit `Dropcursor` here. See `dropIndicator` option.
     LinkPopover, SelectionDecoration, ClearFormatting,
-    // ListIndent: Notion-inspired keyboard ergonomics across list
-    // boundaries. Tab on a top-level block whose previous sibling is a
-    // list moves it INTO the last list item as a nested child;
-    // Shift-Tab lifts it back out. Registered AFTER ListKeymap (which
-    // here lives implicitly inside BulletList/OrderedList/TaskList
-    // node extensions) so in-list-item Tab/Shift-Tab keep priority.
+    // Registered after the list extensions so their in-item Tab/Shift-Tab
+    // keymaps keep priority inside list items.
     ListIndent,
-    // Assigns stable IDs to top-level blocks so BlockContextMenu can offer
-    // "Copy link to block" - the ID becomes the URL hash (e.g. `#abc123`).
     UniqueID,
-    // Block-level text + background colors (Notion palette). Exposed via
-    // the BlockContextMenu's Colors section when this extension is loaded.
     BlockColor,
-    // Block-manipulation UX trio (Notion-style). All three share the
-    // `addFloatingMenuItems()` hook items and are opt-in from the
-    // `@domternal/extension-block-menu` package.
-    //
-    // BlockHandle: Notion-style nested drag handles. The default rules
-    // (`listItemFirstChild`) keep label paragraphs from competing with
-    // their list item; the custom `paragraphInsideContainer` rule keeps
-    // blockquote / table cells / details as one drag unit (paragraphs
-    // nested in list items remain individually draggable - they were
-    // Tab-indented as separate logical blocks).
+    // `paragraphInsideContainer` keeps containers (blockquote / tableCell /
+    // details) as one drag unit. Paragraphs nested in listItem are NOT
+    // covered because they were Tab-indented as separate logical blocks.
     BlockHandle.configure({
       nested: {
         allowedNodes: [
           'listItem', 'taskItem',
           'heading', 'paragraph', 'codeBlock', 'blockquote', 'horizontalRule',
         ],
-        rules: [
+        matchers: [
           {
-            id: 'paragraphInsideContainer',
-            evaluate: ({ node, parent }: RuleContext) =>
-              node.type.name === 'paragraph'
-                && parent !== null
-                && PARAGRAPH_EXCLUSION_PARENTS.has(parent.type.name)
-                ? BASE_SCORE
-                : 0,
-          } satisfies DragHandleRule,
+            name: 'paragraphInsideContainer',
+            test: ({ block, container }: BlockCandidate) =>
+              block.type.name === 'paragraph'
+                && container !== null
+                && PARAGRAPH_EXCLUSION_PARENTS.has(container.type.name)
+                ? 'reject'
+                : 'allow',
+          } satisfies BlockMatcher,
         ],
       },
     }),
     BlockContextMenu,
     KeyboardReorder,
     SlashCommand,
-    // Preserve block formatting when pasting at inline positions
-    // (the classic "copy h1, Shift+Enter, paste → loses heading" case).
     SmartPaste,
-    // Notion-style Table of Contents: data layer + right-rail outline
-    // + inline /toc block. All three opt-in.
     TableOfContents,
     FloatingTocOutline,
     TableOfContentsBlock,
-    // Notion-style hint on the focused empty paragraph only. Other empty
-    // blocks (heading, codeBlock, blockquote) get an empty string so the
-    // hint stays diskretno - not on every block in the document.
+    // Empty paragraphs get the slash hint; other empty blocks stay quiet so
+    // the hint isn't repeated on every block.
     Placeholder.configure({
       placeholder: ({ node }) =>
         node.type.name === 'paragraph' ? "Press '/' for commands" : '',

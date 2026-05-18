@@ -7,11 +7,9 @@ import type { Editor } from '@domternal/core';
  *
  * The value is updated synchronously (get() always returns the latest value),
  * but the reactive trigger is deferred via double requestAnimationFrame.
- * This prevents multiple re-renders during a single frame when rapid
- * ProseMirror transactions fire (e.g. during typing).
- *
- * Improved over Tiptap's implementation: cancels previous rAFs on rapid
- * updates, ensuring only one trigger per double-frame window.
+ * Previous rAFs are cancelled on each update so only one trigger fires per
+ * double-frame window, preventing re-render storms during rapid
+ * ProseMirror transactions (e.g. while typing).
  */
 export function useDebouncedRef<T>(initialValue: T): Ref<T> {
   let value = initialValue;
@@ -40,9 +38,8 @@ export function useDebouncedRef<T>(initialValue: T): Ref<T> {
 /**
  * Module-level store for Vue appContext per editor instance.
  *
- * Since we cannot modify the core Editor class (unlike Tiptap which
- * subclasses it), we use a WeakMap to associate each Editor with its
- * Vue appContext. This allows VueNodeViewRenderer to forward the
+ * The core Editor is framework-agnostic, so a WeakMap associates each Editor
+ * with its Vue appContext. This allows VueNodeViewRenderer to forward the
  * provide/inject chain from the parent component tree.
  *
  * The `provides` property MUST be a direct reference (not spread/copied)

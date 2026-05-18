@@ -1,25 +1,7 @@
 /**
- * FloatingTocOutline - Notion-style right-rail outline.
- *
- * Architecture:
- *   - Plugin lives in `addProseMirrorPlugins` so PM owns its lifecycle
- *     (auto destroy on editor teardown / HMR).
- *   - Subscribes to `TableOfContents` storage's `subscribers` Set so
- *     re-renders only fire on heading-affecting changes (selection
- *     moves, mark toggles, etc. do not trigger).
- *   - Mounts the outline DOM in the closest non-overflow-hidden
- *     ancestor of the editor (D11). Falls back to `document.body`.
- *   - Position: fixed (D16, revised in Phase 4 from sticky which
- *     does not honor `right` as an absolute position).
- *
- * Phase progression:
- *   - Phase 4: collapsed-state tick column, click navigation.
- *   - Phase 5: active-state highlighting via IntersectionObserver.
- *   - Phase 6: hover/focus reveals an expanded card with full-text
- *     rows and per-level indent. State machine has THREE values:
- *       hidden    - 0 headings / mobile / < minHeadings
- *       collapsed - shown, ticks only (default)
- *       expanded  - shown, card visible (hover OR focus-within)
+ * Right-rail outline. Subscribes to `TableOfContents` storage so re-renders
+ * fire only on heading-affecting changes. State machine: hidden / collapsed
+ * (ticks only) / expanded (hover or focus-within reveals the full card).
  */
 import { Extension } from '@domternal/core';
 import type { Editor } from '@domternal/core';
@@ -27,11 +9,28 @@ import type { EditorView } from '@domternal/pm/view';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import { scrollToHeading } from './helpers/scrollToHeading.js';
 import { createActiveStateTracker } from './helpers/activeStateTracker.js';
+import { resolveUniqueIDAttrName } from './helpers/uniqueIDIntegration.js';
 import type { TocStorage, HeadingEntry } from './types.js';
 
 export const floatingTocOutlinePluginKey = new PluginKey('floatingTocOutline');
 
 export interface FloatingTocOutlineOptions {
+  /**
+   * Where the outline anchors visually.
+   *
+   * - `'editor'` (default): outline sits at the editor container's
+   *   right gutter (inside the host's padding). Sticky positioning
+   *   keeps it visible while the editor is on screen; switches to
+   *   ride-along behavior near the editor's bottom edge.
+   * - `'viewport'`: outline is `position: fixed` to the right edge of
+   *   the viewport, vertically centered. Best for full-page editors.
+   *
+   * Editor mode mutates the host's `position` to `relative` if it's
+   * static (restores on teardown). Viewport mode does not touch the host.
+   *
+   * @default 'editor'
+   */
+  anchor: 'editor' | 'viewport';
   /**
    * Hide the outline when the document has fewer than this many
    * headings - on a doc with one heading, the outline is just clutter.
@@ -92,26 +91,35 @@ export interface FloatingTocOutlineOptions {
 }
 
 const OUTLINE_CLASS = 'dm-toc-outline';
+// Editor-mode wrapper spanning the host's full height; provides the
+// sticky containing block for the nav inside.
+const SHELL_CLASS = 'dm-toc-outline-shell';
 const TICK_CLASS = 'dm-toc-outline-tick';
 const CARD_CLASS = 'dm-toc-outline-card';
 const ROW_CLASS = 'dm-toc-outline-row';
 // Applied to BOTH tick buttons and row buttons (anything carrying
-// `data-toc-id` inside the outline), so the name is intentionally
+// `data-toc-anchor` inside the outline), so the name is intentionally
 // neutral instead of "tick--active". Theme rules in `_toc.scss`
 // match this single class for ticks AND rows.
 const ACTIVE_CLASS = 'dm-toc--active';
+// Data attribute on tick / row buttons that holds the heading id we
+// link to. Distinct from the heading element's own id attribute (set
+// by `UniqueID`): this attribute lives on OUR buttons inside the
+// outline DOM, the heading id lives on the heading element in the
+// editor's DOM. Click delegation reads this; active-state matching
+// reads this; the heading-element selector uses UniqueID's attrName.
+const ANCHOR_ATTR = 'data-toc-anchor';
+// Dataset key matching ANCHOR_ATTR (camelCase per DOMStringMap rules).
+const ANCHOR_DATASET_KEY = 'tocAnchor';
 
 type OutlineState = 'hidden' | 'collapsed' | 'expanded';
 
 /**
- * Resolve the host element where the outline DOM mounts (D11).
- * `.dm-editor` has `overflow: hidden` and would clip a right-rail
- * child, so we always mount OUTSIDE it. In the Angular wrapper,
- * `view.dom` (`.ProseMirror`) lives inside an unstyled template
- * `<div>` inside `<domternal-editor.dm-editor>`. Starting the walk
- * from `view.dom.parentElement` would land on that inner div
- * (overflow: visible), still inside the editor. The
- * `closest('.dm-editor')` jump skips past the editor host first.
+ * Resolve the host element where the outline DOM mounts. `.dm-editor` has
+ * `overflow: hidden` and would clip a right-rail child, so we always mount
+ * OUTSIDE it - `closest('.dm-editor')` skips past the editor host before
+ * walking up (in wrappers, `view.dom.parentElement` would land on an inner
+ * template div still inside the editor).
  */
 function resolveDefaultOutlineHost(view: EditorView): HTMLElement {
   const editorHost = view.dom.closest<HTMLElement>('.dm-editor');
@@ -139,7 +147,7 @@ function renderOutlineContent(nav: HTMLElement, content: HeadingEntry[]): void {
     tick.type = 'button';
     tick.className = TICK_CLASS;
     tick.dataset['level'] = String(entry.level);
-    tick.dataset['tocId'] = entry.id;
+    tick.dataset[ANCHOR_DATASET_KEY] = entry.id;
     const label = entry.textContent.trim() || `Heading level ${String(entry.level)}`;
     tick.setAttribute('aria-label', `${label} (heading ${String(entry.level)})`);
     nav.appendChild(tick);
@@ -154,7 +162,7 @@ function renderOutlineContent(nav: HTMLElement, content: HeadingEntry[]): void {
     row.type = 'button';
     row.className = ROW_CLASS;
     row.dataset['level'] = String(entry.level);
-    row.dataset['tocId'] = entry.id;
+    row.dataset[ANCHOR_DATASET_KEY] = entry.id;
     row.textContent = entry.textContent.trim() || `Heading level ${String(entry.level)}`;
     card.appendChild(row);
   }
@@ -162,14 +170,15 @@ function renderOutlineContent(nav: HTMLElement, content: HeadingEntry[]): void {
 }
 
 /**
- * Toggle the active-state visual on every element with a `data-toc-id`
- * attribute (both ticks AND rows). At most one item gets the active
- * class + `aria-current="location"`, all others have those cleared.
+ * Toggle the active-state visual on every element with a `data-toc-anchor`
+ * attribute (both ticks AND rows in the outline DOM). At most one item
+ * gets the active class + `aria-current="location"`, all others have
+ * those cleared.
  */
 function applyActiveMarker(nav: HTMLElement, activeId: string | null): void {
-  const items = nav.querySelectorAll<HTMLElement>('[data-toc-id]');
+  const items = nav.querySelectorAll<HTMLElement>(`[${ANCHOR_ATTR}]`);
   for (const item of Array.from(items)) {
-    const isActive = activeId !== null && item.dataset['tocId'] === activeId;
+    const isActive = activeId !== null && item.dataset[ANCHOR_DATASET_KEY] === activeId;
     item.classList.toggle(ACTIVE_CLASS, isActive);
     if (isActive) item.setAttribute('aria-current', 'location');
     else item.removeAttribute('aria-current');
@@ -177,13 +186,29 @@ function applyActiveMarker(nav: HTMLElement, activeId: string | null): void {
 }
 
 /**
- * Resolve every heading DOM node in the editor view that has a
- * `data-toc-id` attribute. Returns elements in document order so the
- * tracker's IntersectionObserver and pickActive logic see headings
- * in the same order they appear visually.
+ * Resolve the DOM node for each entry in `storage.content`. Looking up
+ * by entry id (instead of a bare `[id]` selector) restricts the
+ * tracker to actual heading elements - UniqueID assigns ids to many
+ * other node types (paragraphs, list items, etc.) and a bare query
+ * would feed the IntersectionObserver paragraph ids that never match
+ * any tick, leaving `storage.activeId` pointing at non-headings.
  */
-function collectHeadingDoms(view: EditorView): HTMLElement[] {
-  return Array.from(view.dom.querySelectorAll<HTMLElement>('[data-toc-id]'));
+function collectHeadingDoms(
+  view: EditorView,
+  attrName: string,
+  content: readonly { id: string }[],
+): HTMLElement[] {
+  const root = view.dom;
+  const out: HTMLElement[] = [];
+  const escape = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+    ? CSS.escape
+    : (s: string): string => s;
+  for (const entry of content) {
+    if (!entry.id) continue;
+    const el = root.querySelector<HTMLElement>(`[${attrName}="${escape(entry.id)}"]`);
+    if (el) out.push(el);
+  }
+  return out;
 }
 
 export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
@@ -191,6 +216,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
 
   addOptions() {
     return {
+      anchor: 'editor',
       minHeadings: 2,
       mobileBreakpoint: 1024,
       activeRootMargin: '0px 0px -85% 0px',
@@ -213,12 +239,156 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             return { destroy(): void { /* no-op */ } };
           }
 
+          // UniqueID is the source of truth for heading ids in the DOM.
+          // Resolve its attribute name now so our IO selector targets
+          // the right thing. Falls back to 'id' if UniqueID is not
+          // loaded (TOC will have already errored loudly; the outline
+          // would render hidden because storage stays empty).
+          const attrName = editor ? resolveUniqueIDAttrName(editor) : 'id';
+
           const hostResolver = options.outlineHost ?? resolveDefaultOutlineHost;
           const host = hostResolver(editorView);
           const nav = document.createElement('nav');
           nav.className = OUTLINE_CLASS;
           nav.setAttribute('aria-label', 'Document outline');
-          host.appendChild(nav);
+          nav.dataset['anchor'] = options.anchor;
+
+          // Editor mode wraps the nav in a shell spanning the host's
+          // full height. Viewport mode mounts the nav directly.
+          let shell: HTMLElement | null = null;
+          if (options.anchor === 'editor') {
+            shell = document.createElement('div');
+            shell.className = SHELL_CLASS;
+            shell.dataset['anchor'] = options.anchor;
+            shell.appendChild(nav);
+            host.appendChild(shell);
+          } else {
+            host.appendChild(nav);
+          }
+
+          let bottomObserver: IntersectionObserver | null = null;
+          let bottomSentinel: HTMLElement | null = null;
+          let recomputeMidTop: () => void = () => { /* no-op outside editor mode */ };
+          if (
+            options.anchor === 'editor'
+            && shell
+            && typeof IntersectionObserver !== 'undefined'
+          ) {
+            const shellEl = shell;
+            bottomSentinel = document.createElement('div');
+            Object.assign(bottomSentinel.style, {
+              position: 'absolute',
+              bottom: '0',
+              left: '0',
+              width: '1px',
+              height: '1px',
+              pointerEvents: 'none',
+            });
+            shellEl.appendChild(bottomSentinel);
+
+            // Three modes drive the nav's vertical position:
+            //   middle - host bottom NOT in viewport: nav sticks at
+            //            `calc(50vh - height/2)` (visually centered).
+            //   center - host bottom in viewport from the start:
+            //            shell flex-centers the nav at host middle.
+            //   frozen - host bottom transitioned from NOT visible to
+            //            visible (center -> middle scroll direction):
+            //            inline `margin-top` pins the nav's natural at
+            //            its captured doc position (avoids the visual
+            //            jump that flex-center would cause mid-scroll).
+            const setMode = (mode: 'middle' | 'center' | 'frozen'): void => {
+              nav.dataset['mode'] = mode;
+              shellEl.dataset['mode'] = mode;
+              if (mode !== 'frozen') nav.style.marginTop = '';
+            };
+
+            // `top: calc(50vh - height/2)` (vs `50vh + translateY(-50%)`)
+            // keeps the nav's BOX centered around 50vh, not just its
+            // visual. The visual then matches the box exactly and is
+            // fully constrained by the containing block - the outline
+            // can never escape past the editor's bounds.
+            recomputeMidTop = (): void => {
+              const h = nav.offsetHeight;
+              if (h <= 0) return;
+              nav.style.setProperty('--dm-toc-mid-top', `calc(50vh - ${(h / 2).toFixed(2)}px)`);
+            };
+            recomputeMidTop();
+
+            const writeBottomVisible = (visible: boolean): void => {
+              const wasVisible = nav.dataset['bottomVisible'] === 'true';
+
+              // Capture the pre-transition rect BEFORE flipping
+              // attributes - updating `data-bottom-visible` reflows
+              // the sticky offset, so a later `getBoundingClientRect`
+              // would read the post-jump position.
+              let frozenOffset: number | null = null;
+              if (visible && !wasVisible) {
+                const navRect = nav.getBoundingClientRect();
+                if (navRect.height > 0 && navRect.top > 0) {
+                  frozenOffset = navRect.top - shellEl.getBoundingClientRect().top;
+                }
+              }
+
+              const value = visible ? 'true' : 'false';
+              nav.dataset['bottomVisible'] = value;
+              shellEl.dataset['bottomVisible'] = value;
+
+              if (!visible) { setMode('middle'); return; }
+              if (wasVisible) return;
+              if (frozenOffset !== null) {
+                nav.style.marginTop = `${String(frozenOffset)}px`;
+                setMode('frozen');
+              } else {
+                setMode('center');
+              }
+            };
+
+            // Seed initial state synchronously so the first paint
+            // already reflects the right mode (no IO-callback flicker).
+            const initialRect = bottomSentinel.getBoundingClientRect();
+            const initialVisible =
+              initialRect.bottom <= window.innerHeight && initialRect.bottom > 0;
+            nav.dataset['bottomVisible'] = initialVisible ? 'true' : 'false';
+            shellEl.dataset['bottomVisible'] = initialVisible ? 'true' : 'false';
+            setMode(initialVisible ? 'center' : 'middle');
+
+            bottomObserver = new IntersectionObserver(
+              (entries) => {
+                for (const entry of entries) writeBottomVisible(entry.isIntersecting);
+              },
+              { threshold: 0 },
+            );
+            // Observe synchronously. The initial IO callback fires
+            // immediately after observe() and may run before first paint,
+            // where `nav.offsetHeight` is 0 and the frozen-offset branch
+            // in writeBottomVisible cannot compute a stable offset. The
+            // `navRect.height > 0 && navRect.top > 0` guard inside
+            // writeBottomVisible handles that case by falling back to
+            // 'center' mode (no frozen pin) - the visual result is the
+            // same in practice, and synchronous observe() keeps the
+            // unit-test surface predictable.
+            bottomObserver.observe(bottomSentinel);
+          }
+
+          // Editor-mode shell is `position: absolute` and needs a
+          // non-static positioned ancestor. Force `relative` on the
+          // host if it has no explicit positioning, restore on destroy.
+          let hostPositionRestore: (() => void) | null = null;
+          if (options.anchor === 'editor') {
+            // jsdom returns '' instead of 'static' for unstyled elements,
+            // so test against the positioned values instead.
+            const computed = window.getComputedStyle(host).position;
+            const isPositioned =
+              computed === 'relative' ||
+              computed === 'absolute' ||
+              computed === 'fixed' ||
+              computed === 'sticky';
+            if (!isPositioned) {
+              const prev = host.style.position;
+              host.style.position = 'relative';
+              hostPositionRestore = (): void => { host.style.position = prev; };
+            }
+          }
 
           // Mobile breakpoint via matchMedia. Falls back to "always
           // desktop" if the option is set to 0 (consumer opt-out).
@@ -242,26 +412,95 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             if (isHoverActive || isFocusWithin) return 'expanded';
             return 'collapsed';
           };
+          let prevState: OutlineState | null = null;
           const applyState = (): void => {
-            nav.dataset['state'] = computeState();
+            const state = computeState();
+            nav.dataset['state'] = state;
             nav.dataset['viewport'] = isMobile() ? 'mobile' : 'desktop';
+            // Recompute the card's viewport clamp ONLY on the transition
+            // INTO expanded - not on every applyState call while already
+            // expanded. Calling it again mid-click (a row receiving
+            // focus re-fires focusin → applyState with state still
+            // 'expanded') would re-measure a card already mid-fade-out
+            // and clobber the existing shift, leaving the card visually
+            // snapped back to its unshifted position.
+            //
+            // We also DO NOT clear the shift on collapse - doing so
+            // triggers the transform transition (180ms) and the card
+            // visibly slides back to its unshifted position during the
+            // fade-out. The next expand calls `adjustCardPosition`,
+            // which self-clears any stale value before recomputing.
+            if (state === 'expanded' && prevState !== 'expanded') {
+              requestAnimationFrame(adjustCardPosition);
+            }
+            prevState = state;
           };
 
-          // ── Active-state tracker (Phase 5) ───────────────────────
+          // Clamp the expanded card inside the viewport. When the nav
+          // is near the top or bottom edge, the default
+          // `top:50%; translateY(-50%)` would put the card off-screen;
+          // we add a `--dm-toc-card-shift-y` to nudge it back in.
+          //
+          // Subtle: do NOT remove the existing shift before measuring -
+          // `getBoundingClientRect` returns the visually-stale rect
+          // during a transform transition (the browser hasn't repainted
+          // the unshifted layout yet), which would falsely report "no
+          // overflow" and leave the card unshifted on every other
+          // expand. Instead, derive the natural (unshifted) position
+          // by subtracting the current shift from the measured rect,
+          // then write the new shift only when it actually changes.
+          const CARD_VIEWPORT_MARGIN = 16;
+          const adjustCardPosition = (): void => {
+            const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card');
+            if (!card) return;
+            const currentShift = parseFloat(
+              card.style.getPropertyValue('--dm-toc-card-shift-y'),
+            ) || 0;
+            const rect = card.getBoundingClientRect();
+            const naturalTop = rect.top - currentShift;
+            const naturalBottom = rect.bottom - currentShift;
+            const maxBottom = window.innerHeight - CARD_VIEWPORT_MARGIN;
+            let shift = 0;
+            if (naturalTop < CARD_VIEWPORT_MARGIN) {
+              shift = CARD_VIEWPORT_MARGIN - naturalTop;
+            } else if (naturalBottom > maxBottom) {
+              shift = maxBottom - naturalBottom;
+            }
+            if (shift === currentShift) return;
+            if (shift === 0) {
+              card.style.removeProperty('--dm-toc-card-shift-y');
+            } else {
+              card.style.setProperty('--dm-toc-card-shift-y', `${String(shift)}px`);
+            }
+          };
+
+          // Window scroll while expanded collapses the menu. The card
+          // would otherwise lag the page or appear detached from any
+          // anchored tick once the user starts reading.
+          const onWindowScroll = (): void => {
+            if (!isHoverActive && !isFocusWithin) return;
+            cancelTimers();
+            isHoverActive = false;
+            isFocusWithin = false;
+            applyState();
+          };
+          window.addEventListener('scroll', onWindowScroll, { passive: true });
+
+          // ── Active-state tracker ─────────────────────────────────
           let manualOverrideUntil = 0;
           const writeActive = (id: string | null): void => {
             applyActiveMarker(nav, id);
             if (storage && storage.activeId !== id) {
               storage.activeId = id;
-              // Fan out to OTHER subscribers (Phase 7 inline block,
-              // potential consumer panels) so they re-render with
-              // the new active marker. Skip our own subscriber to
-              // avoid a redundant re-render of the outline DOM.
+              // Fan out to other subscribers, skipping our own to avoid
+              // a redundant re-render of the outline DOM.
               [...storage.subscribers].forEach((fn) => {
                 if (fn === onStorageUpdate) return;
                 try {
                   fn();
                 } catch (err) {
+                  // A misbehaving subscriber must not break the others. We log
+                  // and continue so app authors see the failure during development.
                   // eslint-disable-next-line no-console
                   console.error('[extension-toc] subscriber threw during active fan-out:', err);
                 }
@@ -271,6 +510,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           const tracker = createActiveStateTracker({
             scrollParent: options.activeScrollParent,
             rootMargin: options.activeRootMargin,
+            attrName,
             onChange: (id) => {
               if (Date.now() < manualOverrideUntil) return;
               writeActive(id);
@@ -280,22 +520,19 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           // ── Click delegation ─────────────────────────────────────
           const onClick = (event: MouseEvent): void => {
             const target = (event.target as HTMLElement | null)?.closest<HTMLElement>(
-              `[data-toc-id]`,
+              `[${ANCHOR_ATTR}]`,
             );
-            const id = target?.dataset['tocId'];
+            const id = target?.dataset[ANCHOR_DATASET_KEY];
             if (!id) return;
             manualOverrideUntil = Date.now() + options.clickOverrideMs;
             writeActive(id);
-            scrollToHeading(editorView, id);
+            scrollToHeading(editorView, id, { attrName });
           };
           nav.addEventListener('click', onClick);
 
-          // ── Hover timers (Phase 6) ───────────────────────────────
+          // ── Hover timers ─────────────────────────────────────────
           // Asymmetric: short in-delay (don't expand on stray cursor
           // sweeps), longer out-delay (don't disappear under cursor).
-          // Each transition cancels the opposite pending timer so
-          // bounce gestures (enter→leave fast, or leave→enter during
-          // out-delay) end up with the user-intended state.
           let showTimer: ReturnType<typeof setTimeout> | null = null;
           let hideTimer: ReturnType<typeof setTimeout> | null = null;
           const cancelTimers = (): void => {
@@ -323,11 +560,10 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           nav.addEventListener('mouseenter', onMouseEnter);
           nav.addEventListener('mouseleave', onMouseLeave);
 
-          // ── Focus a11y (Phase 6) ─────────────────────────────────
-          // Keyboard users get instant expansion when focus moves
-          // into the outline (no hover delay). Focusout uses a
-          // microtask check on relatedTarget to avoid a flash when
-          // focus moves between rows inside the same outline.
+          // ── Focus a11y ───────────────────────────────────────────
+          // Keyboard users expand instantly on focus-in (no delay).
+          // Focusout checks relatedTarget to avoid a flash when focus
+          // moves between rows inside the same outline.
           const onFocusIn = (): void => {
             if (isFocusWithin) return;
             isFocusWithin = true;
@@ -348,8 +584,10 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             if (!storage) return;
             renderOutlineContent(nav, storage.content);
             applyState();
-            tracker.observe(collectHeadingDoms(editorView));
+            tracker.observe(collectHeadingDoms(editorView, attrName, storage.content));
             applyActiveMarker(nav, storage.activeId);
+            // Headings changed - nav height changed - re-center.
+            recomputeMidTop();
           };
 
           if (storage) {
@@ -365,6 +603,10 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           const onMqChange = (): void => { applyState(); };
           mq?.addEventListener('change', onMqChange);
 
+          // 50vh changes with viewport height - re-center on resize.
+          const onResize = (): void => { recomputeMidTop(); };
+          window.addEventListener('resize', onResize);
+
           return {
             destroy(): void {
               cancelTimers();
@@ -374,9 +616,14 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
               nav.removeEventListener('focusin', onFocusIn);
               nav.removeEventListener('focusout', onFocusOut);
               mq?.removeEventListener('change', onMqChange);
+              window.removeEventListener('resize', onResize);
+              window.removeEventListener('scroll', onWindowScroll);
               tracker.destroy();
               unsubscribe?.();
-              nav.remove();
+              bottomObserver?.disconnect();
+              bottomSentinel?.remove();
+              (shell ?? nav).remove();
+              hostPositionRestore?.();
             },
           };
         },

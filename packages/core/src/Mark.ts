@@ -137,25 +137,12 @@ export class Mark<Options = unknown, Storage = unknown> extends Extension<
   }
 
   /**
-   * Creates a new mark with merged options
-   * Original mark is not modified
-   *
-   * **Note:** Options are merged shallowly using object spread (`...`).
-   * Nested objects are replaced entirely, not deeply merged.
-   *
-   * @param options - Options to merge with existing options
-   * @returns New mark instance with merged options
+   * Creates a new mark with merged options. Original mark is not modified.
+   * Options merge shallowly (object spread); see {@link Extension.configure}
+   * for the nested-object gotcha and a workaround.
    *
    * @example
    * const CustomBold = Bold.configure({ HTMLAttributes: { class: 'custom-bold' } });
-   *
-   * @example
-   * // Shallow merge behavior with nested objects:
-   * // Given: options = { HTMLAttributes: { class: 'a', id: 'b' } }
-   * // configure({ HTMLAttributes: { class: 'c' } })
-   * // Result: { HTMLAttributes: { class: 'c' } } — 'id' is lost!
-   * // To preserve nested values, spread manually:
-   * // configure({ HTMLAttributes: { ...original.options.HTMLAttributes, class: 'c' } })
    */
   override configure(options: Partial<Options> & { isFormatting?: boolean }): Mark<Options, Storage> {
     const { isFormatting, ...restOptions } = options as Record<string, unknown> & { isFormatting?: boolean };

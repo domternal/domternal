@@ -1518,7 +1518,7 @@ describe('TableView', () => {
 
       // @ts-expect-error - private field
       const triggerBtn = view.colorBtn!;
-      // Mock getBoundingClientRect — btnRect.left > innerWidth forces leftPos > innerWidth,
+      // Mock getBoundingClientRect - btnRect.left > innerWidth forces leftPos > innerWidth,
       // so leftPos + dropdownWidth > innerWidth branch fires.
       triggerBtn.getBoundingClientRect = () => ({
         left: 200,

@@ -65,7 +65,7 @@ describe('nodeCommands', () => {
       expect(editor.getHTML()).toContain('<pre><code>code here</code></pre>');
     });
 
-    // Phase 5 - "dissolve to-do" fallback. When the cursor sits in
+    // "dissolve to-do" fallback. When the cursor sits in
     // the LABEL paragraph (first child) of a list/task item and the
     // requested target type is incompatible with the listItem schema
     // (`paragraph block*` requires paragraph as first child), the
@@ -321,6 +321,60 @@ describe('nodeCommands', () => {
       setSelection(editor, 2);
       expect(editor.commands.wrapIn('nonexistent')).toBe(false);
     });
+
+    describe('dissolve-list-item fallback (Notion-style /quote in label)', () => {
+      it('cursor in BULLET label + wrapIn("blockquote") dissolves the bullet, wraps the resulting paragraph', () => {
+        editor = new Editor({
+          extensions: listExtensions,
+          content: '<ul><li><p>Quote me</p></li></ul>',
+        });
+        // Caret inside the label paragraph
+        setSelection(editor, 5);
+        expect(editor.commands.wrapIn('blockquote')).toBe(true);
+        expect(editor.getHTML()).toBe('<blockquote><p>Quote me</p></blockquote>');
+      });
+
+      it('cursor in TASK label + wrapIn("blockquote") dissolves the task, wraps the resulting paragraph', () => {
+        editor = new Editor({
+          extensions: listExtensions,
+          content: '<ul data-type="taskList"><li data-type="taskItem"><p>Important</p></li></ul>',
+        });
+        setSelection(editor, 5);
+        expect(editor.commands.wrapIn('blockquote')).toBe(true);
+        expect(editor.getHTML()).toBe('<blockquote><p>Important</p></blockquote>');
+      });
+
+      it('MID bullet item splits the list around it, leaves a top-level blockquote between halves', () => {
+        editor = new Editor({
+          extensions: listExtensions,
+          content: '<ul><li><p>A</p></li><li><p>B</p></li><li><p>C</p></li></ul>',
+        });
+        // Walk doc to find caret in B
+        let bPos = -1;
+        editor.state.doc.descendants((n, p) => {
+          if (n.isText && n.text === 'B') { bPos = p + 1; return false; }
+          return true;
+        });
+        setSelection(editor, bPos);
+        expect(editor.commands.wrapIn('blockquote')).toBe(true);
+        const html = editor.getHTML();
+        expect(html).toContain('<ul><li><p>A</p></li></ul>');
+        expect(html).toContain('<blockquote><p>B</p></blockquote>');
+        expect(html).toContain('<ul><li><p>C</p></li></ul>');
+      });
+
+      it('returns false when fallback would still be schema-invalid (e.g. nested-li outer schema rejects)', () => {
+        editor = new Editor({
+          extensions: listExtensions,
+          content: '<p>plain</p>',
+        });
+        setSelection(editor, 2);
+        // Top-level paragraph already wraps fine - this is just to make sure
+        // we didn't regress the non-list path.
+        expect(editor.commands.wrapIn('blockquote')).toBe(true);
+        expect(editor.getHTML()).toBe('<blockquote><p>plain</p></blockquote>');
+      });
+    });
   });
 
   describe('toggleWrap', () => {
@@ -355,7 +409,7 @@ describe('nodeCommands', () => {
   });
 
   describe('setBlockType with multi-range selection', () => {
-    // canApply loop iterates across ranges — multi-range exercises the .some() path
+    // canApply loop iterates across ranges - multi-range exercises the .some() path
     it('canApply iterates all ranges (covers found branches)', () => {
       editor = new Editor({ extensions, content: '<p>foo</p><p>bar</p>' });
       const doc = editor.state.doc;
@@ -367,8 +421,8 @@ describe('nodeCommands', () => {
         value: { ranges: [r1, r2], $from: r1.$from, $to: r2.$to, from: r1.$from.pos, to: r2.$to.pos },
         configurable: true,
       });
-      // direct invocation via commands builder — skip since we need setBlockType command
-      // Use editor.commands but override tr via state ranges — fall back to regular test
+      // direct invocation via commands builder - skip since we need setBlockType command
+      // Use editor.commands but override tr via state ranges - fall back to regular test
       const result = editor.commands.setBlockType('heading', { level: 1 });
       expect(typeof result).toBe('boolean');
     });

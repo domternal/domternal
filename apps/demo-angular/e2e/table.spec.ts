@@ -93,10 +93,10 @@ const TABLE_NO_HEADER = '<table><tr><td>A</td><td>B</td></tr><tr><td>C</td><td>D
 const TABLE_WITH_PARAGRAPH = '<p>Before table</p><table><tr><th>X</th><th>Y</th></tr><tr><td>1</td><td>2</td></tr></table><p>After table</p>';
 
 // =============================================================================
-// Table — Insertion
+// Table - Insertion
 // =============================================================================
 
-test.describe('Table — Insertion', () => {
+test.describe('Table - Insertion', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -141,7 +141,7 @@ test.describe('Table — Insertion', () => {
     await page.locator(insertTableBtn).click();
     await page.waitForTimeout(200);
 
-    // Type text — it should appear in a th cell
+    // Type text - it should appear in a th cell
     await page.keyboard.type('Test');
     const firstTh = page.locator(`${editorSelector} th`).first();
     await expect(firstTh).toContainText('Test');
@@ -162,10 +162,10 @@ test.describe('Table — Insertion', () => {
 });
 
 // =============================================================================
-// Table — Rendering
+// Table - Rendering
 // =============================================================================
 
-test.describe('Table — Rendering', () => {
+test.describe('Table - Rendering', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -221,10 +221,10 @@ test.describe('Table — Rendering', () => {
 // Table operations are now available via row/column handle dropdowns and cell toolbar.
 
 // =============================================================================
-// Table — Row operations
+// Table - Row operations
 // =============================================================================
 
-test.describe('Table — Row operations', () => {
+test.describe('Table - Row operations', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -283,10 +283,10 @@ test.describe('Table — Row operations', () => {
 });
 
 // =============================================================================
-// Table — Column operations
+// Table - Column operations
 // =============================================================================
 
-test.describe('Table — Column operations', () => {
+test.describe('Table - Column operations', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -341,10 +341,10 @@ test.describe('Table — Column operations', () => {
 });
 
 // =============================================================================
-// Table — Header toggles
+// Table - Header toggles
 // =============================================================================
 
-test.describe('Table — Header toggles', () => {
+test.describe('Table - Header toggles', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -401,10 +401,10 @@ test.describe('Table — Header toggles', () => {
 });
 
 // =============================================================================
-// Table — Navigation
+// Table - Navigation
 // =============================================================================
 
-test.describe('Table — Navigation', () => {
+test.describe('Table - Navigation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -505,10 +505,10 @@ test.describe('Table — Navigation', () => {
 });
 
 // =============================================================================
-// Table — Deletion
+// Table - Deletion
 // =============================================================================
 
-test.describe('Table — Deletion', () => {
+test.describe('Table - Deletion', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -612,7 +612,7 @@ test.describe('Table — Deletion', () => {
     let tableCount = await page.locator(`${editorSelector} table`).count();
     expect(tableCount).toBe(1);
 
-    // Delete the last column — should remove entire table
+    // Delete the last column - should remove entire table
     await placeCursorInCell(page, 0);
     await clickTableOp(page, 'Delete Column');
     await page.waitForTimeout(100);
@@ -632,7 +632,7 @@ test.describe('Table — Deletion', () => {
     let tableCount = await page.locator(`${editorSelector} table`).count();
     expect(tableCount).toBe(1);
 
-    // Delete the last row — should remove entire table
+    // Delete the last row - should remove entire table
     await placeCursorInCell(page, 0);
     await clickTableOp(page, 'Delete Row');
     await page.waitForTimeout(100);
@@ -643,10 +643,10 @@ test.describe('Table — Deletion', () => {
 });
 
 // =============================================================================
-// Table — Cell content
+// Table - Cell content
 // =============================================================================
 
-test.describe('Table — Cell content', () => {
+test.describe('Table - Cell content', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -704,10 +704,10 @@ test.describe('Table — Cell content', () => {
 });
 
 // =============================================================================
-// Table — HTML output
+// Table - HTML output
 // =============================================================================
 
-test.describe('Table — HTML output', () => {
+test.describe('Table - HTML output', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -757,10 +757,10 @@ test.describe('Table — HTML output', () => {
 });
 
 // =============================================================================
-// Table — Edge cases
+// Table - Edge cases
 // =============================================================================
 
-test.describe('Table — Edge cases', () => {
+test.describe('Table - Edge cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -842,10 +842,10 @@ test.describe('Table — Edge cases', () => {
 });
 
 // =============================================================================
-// Table — Merge / Split (commands via API)
+// Table - Merge / Split (commands via API)
 // =============================================================================
 
-test.describe('Table — Merge / Split', () => {
+test.describe('Table - Merge / Split', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -969,10 +969,10 @@ test.describe('Table — Merge / Split', () => {
 });
 
 // =============================================================================
-// Table — Cell background color (via API)
+// Table - Cell background color (via API)
 // =============================================================================
 
-test.describe('Table — Cell background color', () => {
+test.describe('Table - Cell background color', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1027,10 +1027,10 @@ test.describe('Table — Cell background color', () => {
 });
 
 // =============================================================================
-// Table — Cell text alignment (via API)
+// Table - Cell text alignment (via API)
 // =============================================================================
 
-test.describe('Table — Cell text alignment', () => {
+test.describe('Table - Cell text alignment', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1123,10 +1123,10 @@ test.describe('Table — Cell text alignment', () => {
 });
 
 // =============================================================================
-// Table — Cell toolbar (floating strip on CellSelection)
+// Table - Cell toolbar (floating strip on CellSelection)
 // =============================================================================
 
-test.describe('Table — Cell toolbar', () => {
+test.describe('Table - Cell toolbar', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1290,7 +1290,7 @@ test.describe('Table — Cell toolbar', () => {
     await alignBtn.click();
     await page.waitForTimeout(100);
 
-    // Click "Align middle" (5th item, after separator — index 4)
+    // Click "Align middle" (5th item, after separator - index 4)
     const middleItem = page.locator('.dm-table-cell-align-dropdown .dm-table-align-item').nth(4);
     await middleItem.click();
     await page.waitForTimeout(100);
@@ -1306,7 +1306,7 @@ test.describe('Table — Cell toolbar', () => {
     const toolbar = page.locator('.dm-table-cell-toolbar');
     const alignBtn = toolbar.locator('.dm-table-cell-toolbar-btn').nth(1);
 
-    // Open alignment dropdown — default should be "Align left" active
+    // Open alignment dropdown - default should be "Align left" active
     await alignBtn.click();
     await page.waitForTimeout(100);
 
@@ -1337,7 +1337,7 @@ test.describe('Table — Cell toolbar', () => {
     const toolbar = page.locator('.dm-table-cell-toolbar');
     const alignBtn = toolbar.locator('.dm-table-cell-toolbar-btn').nth(1);
 
-    // Default alignment — trigger should NOT be active
+    // Default alignment - trigger should NOT be active
     await expect(alignBtn).not.toHaveClass(/dm-table-cell-toolbar-btn--active/);
 
     // Set center alignment
@@ -1434,10 +1434,10 @@ test.describe('Table — Cell toolbar', () => {
 });
 
 // =============================================================================
-// Table — Cell handle & focused cell
+// Table - Cell handle & focused cell
 // =============================================================================
 
-test.describe('Table — Cell handle', () => {
+test.describe('Table - Cell handle', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1557,10 +1557,10 @@ test.describe('Table — Cell handle', () => {
 });
 
 // =============================================================================
-// Table — Focused cell decoration
+// Table - Focused cell decoration
 // =============================================================================
 
-test.describe('Table — Focused cell decoration', () => {
+test.describe('Table - Focused cell decoration', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1666,10 +1666,10 @@ test.describe('Table — Focused cell decoration', () => {
 });
 
 // =============================================================================
-// Table — Cell toolbar positioning
+// Table - Cell toolbar positioning
 // =============================================================================
 
-test.describe('Table — Cell toolbar positioning', () => {
+test.describe('Table - Cell toolbar positioning', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1838,10 +1838,10 @@ test.describe('Table — Cell toolbar positioning', () => {
 });
 
 // =============================================================================
-// Table — Row/col handle suppresses cell toolbar
+// Table - Row/col handle suppresses cell toolbar
 // =============================================================================
 
-test.describe('Table — Row/col handle suppresses cell toolbar', () => {
+test.describe('Table - Row/col handle suppresses cell toolbar', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1917,7 +1917,7 @@ test.describe('Table — Row/col handle suppresses cell toolbar', () => {
 });
 
 // =============================================================================
-// Table — Column resize
+// Table - Column resize
 // =============================================================================
 
 /** Get col widths from the DOM colgroup (returns array of style.width strings). */
@@ -1978,7 +1978,7 @@ async function dragColumnBorder(page: Page, cellIndex: number, deltaX: number) {
 
 // ─── Colgroup structure ─────────────────────────────────────────────────────
 
-test.describe('Table — Column resize: colgroup', () => {
+test.describe('Table - Column resize: colgroup', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -2061,7 +2061,7 @@ test.describe('Table — Column resize: colgroup', () => {
 
 // ─── Table width / minWidth ─────────────────────────────────────────────────
 
-test.describe('Table — Column resize: table width', () => {
+test.describe('Table - Column resize: table width', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/?constrainTable=false');
     await page.waitForSelector(editorSelector);
@@ -2108,7 +2108,7 @@ test.describe('Table — Column resize: table width', () => {
 
 // ─── Resize handle interaction ──────────────────────────────────────────────
 
-test.describe('Table — Column resize: handle', () => {
+test.describe('Table - Column resize: handle', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -2149,7 +2149,7 @@ test.describe('Table — Column resize: handle', () => {
     await page.mouse.move(box.x + box.width - 2, box.y + box.height / 2);
     await page.waitForTimeout(150);
 
-    // Move to center of cell — away from border
+    // Move to center of cell - away from border
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
     await page.waitForTimeout(150);
 
@@ -2163,7 +2163,7 @@ test.describe('Table — Column resize: handle', () => {
 
 // ─── Handle hiding during column resize ─────────────────────────────────────
 
-test.describe('Table — Column resize: handle hiding', () => {
+test.describe('Table - Column resize: handle hiding', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -2183,7 +2183,7 @@ test.describe('Table — Column resize: handle hiding', () => {
     await page.mouse.move(box.x + box.width - 2, box.y + box.height / 2);
     await page.waitForTimeout(200);
 
-    // Cell handle should still be visible — only actual drag hides it
+    // Cell handle should still be visible - only actual drag hides it
     await expect(cellHandle).toBeVisible();
   });
 
@@ -2290,7 +2290,7 @@ test.describe('Table — Column resize: handle hiding', () => {
     await page.waitForTimeout(100);
     await page.mouse.down();
 
-    // Drag in multiple steps — check hidden at each step
+    // Drag in multiple steps - check hidden at each step
     for (let i = 1; i <= 4; i++) {
       await page.mouse.move(startX + i * 15, startY);
       await page.waitForTimeout(50);
@@ -2303,7 +2303,7 @@ test.describe('Table — Column resize: handle hiding', () => {
 
 // ─── Drag-to-resize behavior ────────────────────────────────────────────────
 
-test.describe('Table — Column resize: drag', () => {
+test.describe('Table - Column resize: drag', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -2454,7 +2454,7 @@ test.describe('Table — Column resize: drag', () => {
     }, editorSelector);
 
     // The table should NOT jump: widthDuring and widthAfter should be close
-    // This is the key regression test — previously widthAfter would drop
+    // This is the key regression test - previously widthAfter would drop
     // because updateColumns used cellMinWidth=25 instead of defaultCellMinWidth=100
     expect(Math.abs(widthAfter - widthDuring)).toBeLessThan(15);
 
@@ -2465,7 +2465,7 @@ test.describe('Table — Column resize: drag', () => {
 
 // ─── Colwidth persistence ───────────────────────────────────────────────────
 
-test.describe('Table — Column resize: colwidth persistence', () => {
+test.describe('Table - Column resize: colwidth persistence', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -2559,7 +2559,7 @@ test.describe('Table — Column resize: colwidth persistence', () => {
 
 // ─── Column resize with colspan ─────────────────────────────────────────────
 
-test.describe('Table — Column resize: colspan', () => {
+test.describe('Table - Column resize: colspan', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -2588,10 +2588,10 @@ test.describe('Table — Column resize: colspan', () => {
 });
 
 // =============================================================================
-// Table — Nested Tables Blocked
+// Table - Nested Tables Blocked
 // =============================================================================
 
-test.describe('Table — Nested Tables Blocked', () => {
+test.describe('Table - Nested Tables Blocked', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -2654,10 +2654,10 @@ test.describe('Table — Nested Tables Blocked', () => {
 });
 
 // =============================================================================
-// Table — Multi-cell link set/unset
+// Table - Multi-cell link set/unset
 // =============================================================================
 
-test.describe('Table — Multi-cell link operations', () => {
+test.describe('Table - Multi-cell link operations', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -2824,10 +2824,10 @@ test.describe('Table — Multi-cell link operations', () => {
 });
 
 // =============================================================================
-// Table — Block commands with CellSelection (horizontal rule, etc.)
+// Table - Block commands with CellSelection (horizontal rule, etc.)
 // =============================================================================
 
-test.describe('Table — Block commands with CellSelection', () => {
+test.describe('Table - Block commands with CellSelection', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -2889,7 +2889,7 @@ test.describe('Table — Block commands with CellSelection', () => {
 
     // Command should return false (blocked)
     expect(result).toBe(false);
-    // Table should be untouched — still 1 table, 4 cells, no HR
+    // Table should be untouched - still 1 table, 4 cells, no HR
     const tableCount = await page.locator(`${editorSelector} table`).count();
     expect(tableCount).toBe(1);
     const cellCount = await page.locator(`${editorSelector} td`).count();
@@ -2918,10 +2918,10 @@ test.describe('Table — Block commands with CellSelection', () => {
 });
 
 // =============================================================================
-// Table — List toggle with CellSelection
+// Table - List toggle with CellSelection
 // =============================================================================
 
-test.describe('Table — List toggle with CellSelection', () => {
+test.describe('Table - List toggle with CellSelection', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -3332,7 +3332,7 @@ test.describe('Table — List toggle with CellSelection', () => {
 
   test('reverse CellSelection (anchor after head) wraps correctly', async ({ page }) => {
     await setContentAndFocus(page, LIST_TABLE);
-    // Anchor = cell 3 (bottom-right), head = cell 0 (top-left) — reverse order
+    // Anchor = cell 3 (bottom-right), head = cell 0 (top-left) - reverse order
     await selectCells(page, 3, 0);
     await toggleList(page, 'bulletList', 'listItem');
     await page.waitForTimeout(100);
@@ -3377,10 +3377,10 @@ test.describe('Table — List toggle with CellSelection', () => {
 });
 
 // =============================================================================
-// Table — Tab/Shift-Tab with lists in cells
+// Table - Tab/Shift-Tab with lists in cells
 // =============================================================================
 
-test.describe('Table — Tab/Shift-Tab with lists in cells', () => {
+test.describe('Table - Tab/Shift-Tab with lists in cells', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -3443,7 +3443,7 @@ test.describe('Table — Tab/Shift-Tab with lists in cells', () => {
     // B should now be nested inside a sub-list under A
     const html = await getEditorHTML(page);
     expect(html).toContain('<ul><li><p>A</p><ul><li><p>B</p>');
-    // Cursor should still be in first cell — type marker to verify
+    // Cursor should still be in first cell - type marker to verify
     const cellIdx = await typeThenFindCell(page, '§');
     expect(cellIdx).toBe(0);
   });
@@ -3473,7 +3473,7 @@ test.describe('Table — Tab/Shift-Tab with lists in cells', () => {
     await page.keyboard.press('Shift+Tab');
     await page.waitForTimeout(100);
 
-    // A1 should no longer be nested — should be a top-level list item
+    // A1 should no longer be nested - should be a top-level list item
     const firstCell = page.locator(`${editorSelector} td`).nth(0);
     const nestedUl = firstCell.locator('ul ul');
     expect(await nestedUl.count()).toBe(0);
@@ -3483,11 +3483,11 @@ test.describe('Table — Tab/Shift-Tab with lists in cells', () => {
   });
 
   // ─── Tab navigates cells when NOT in a list ────────────────────────
-  // (Basic Tab/Shift-Tab cell navigation is covered by "Table — Navigation" suite.
+  // (Basic Tab/Shift-Tab cell navigation is covered by "Table - Navigation" suite.
   //  Here we test that plain cells next to list cells still navigate correctly.)
 
   test('Tab in plain cell (next to list cell) navigates to next cell', async ({ page }) => {
-    // Cell 0 has a list, cell 1 is plain text — cursor in cell 1 should Tab-navigate
+    // Cell 0 has a list, cell 1 is plain text - cursor in cell 1 should Tab-navigate
     await setContentAndFocus(page, '<table><tr><td><ul><li><p>A</p></li></ul></td><td><p>M</p></td></tr><tr><td><p>N</p></td><td><p>O</p></td></tr></table>');
     await placeCursorAtText(page, 'M');
 
@@ -3523,7 +3523,7 @@ test.describe('Table — Tab/Shift-Tab with lists in cells', () => {
     await page.keyboard.press('Shift+Tab');
     await page.waitForTimeout(100);
 
-    // A should be lifted out of the list — first cell should contain <p>A</p> outside <ul>
+    // A should be lifted out of the list - first cell should contain <p>A</p> outside <ul>
     const firstCell = page.locator(`${editorSelector} td`).nth(0);
     const html = await firstCell.innerHTML();
     expect(html).toContain('<p>A</p>');
@@ -3581,10 +3581,10 @@ test.describe('Table — Tab/Shift-Tab with lists in cells', () => {
 });
 
 // =============================================================================
-// Table — Row handle centering on merged cells (rowspan)
+// Table - Row handle centering on merged cells (rowspan)
 // =============================================================================
 
-test.describe('Table — Row handle centering on merged cells', () => {
+test.describe('Table - Row handle centering on merged cells', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector, { state: 'visible' });
@@ -3696,10 +3696,10 @@ test.describe('Table — Row handle centering on merged cells', () => {
 });
 
 // =============================================================================
-// Table — Toolbar mark active state with empty cells
+// Table - Toolbar mark active state with empty cells
 // =============================================================================
 
-test.describe('Table — Toolbar marks inactive for empty cell selection', () => {
+test.describe('Table - Toolbar marks inactive for empty cell selection', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -3804,7 +3804,7 @@ test.describe('Table — Toolbar marks inactive for empty cell selection', () =>
 
 // ─── Sub-pixel overflow on resize click ─────────────────────────────────────
 
-test.describe('Table — Column resize: no overflow on click', () => {
+test.describe('Table - Column resize: no overflow on click', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -3828,7 +3828,7 @@ test.describe('Table — Column resize: no overflow on click', () => {
       const wrapper = document.querySelector(sel + ' .tableWrapper') as HTMLElement;
       const table = document.querySelector(sel + ' table') as HTMLElement;
       if (!wrapper || !table) return null;
-      // Try to scroll — most reliable overflow detection
+      // Try to scroll - most reliable overflow detection
       wrapper.scrollLeft = 999;
       const canScrollBefore = wrapper.scrollLeft > 0;
       wrapper.scrollLeft = 0;

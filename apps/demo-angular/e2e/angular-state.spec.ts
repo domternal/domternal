@@ -41,10 +41,10 @@ async function selectText(page: Page, startOffset: number, endOffset: number, se
 }
 
 // =============================================================================
-// htmlContent signal — HTML output reactive sync
+// htmlContent signal - HTML output reactive sync
 // =============================================================================
 
-test.describe('htmlContent signal — reactive HTML output', () => {
+test.describe('htmlContent signal - reactive HTML output', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -397,7 +397,7 @@ test.describe('Toolbar layout switch', () => {
 // Bubble menu context-aware filtering
 // =============================================================================
 
-test.describe('Bubble menu — context-aware filtering', () => {
+test.describe('Bubble menu - context-aware filtering', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -557,7 +557,7 @@ test.describe('Bubble menu — context-aware filtering', () => {
 // Selector state (Angular computed() over signal tick)
 // =============================================================================
 
-test.describe('Selector state — computed signals', () => {
+test.describe('Selector state - computed signals', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

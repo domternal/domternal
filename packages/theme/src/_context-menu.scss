@@ -12,6 +12,10 @@
   min-width: 12rem;
   max-height: 20rem;
   overflow-y: auto;
+  // Stop wheel-delta chaining to the page once the menu hits its
+  // own scroll edges. The plugin's JS gate handles the no-overflow
+  // case where this property doesn't apply.
+  overscroll-behavior: contain;
   padding: 0.25rem;
   background: var(--dm-toolbar-bg, var(--dm-bg, #ffffff));
   border: 1px solid var(--dm-border-color, #e5e7eb);
@@ -120,3 +124,18 @@
     text-overflow: ellipsis;
   }
 }
+
+// =============================================================================
+// Active block highlight
+// Class applied via PM Decoration on the block whose BlockContextMenu is open.
+// =============================================================================
+
+.ProseMirror .dm-block-context-active {
+  background-color: var(--dm-block-context-active-bg, rgba(55, 53, 47, 0.06));
+  border-radius: 0.25rem;
+  // box-shadow expands the tint past the block's content box without
+  // affecting layout (negative margins would shift neighbours).
+  box-shadow: 0 0 0 4px var(--dm-block-context-active-bg, rgba(55, 53, 47, 0.06));
+  transition: background-color 0.12s ease, box-shadow 0.12s ease;
+}
+

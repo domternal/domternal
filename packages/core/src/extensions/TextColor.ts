@@ -30,6 +30,8 @@ declare module '../types/Commands.js' {
   interface RawCommands {
     setTextColor: CommandSpec<[color: string]>;
     unsetTextColor: CommandSpec;
+    setTextColorToken: CommandSpec<[token: string | null]>;
+    unsetTextColorToken: CommandSpec;
   }
 }
 
@@ -96,9 +98,21 @@ export const TextColor = Extension.create<TextColorOptions>({
             },
             renderHTML: (attributes: Record<string, unknown>) => {
               const color = attributes['color'] as string | null;
-              if (!color) return null;
-
+              // Token wins: when a named token is set we render the data
+              // attribute (below) and skip the inline style to avoid mixed
+              // sources of truth for the same visual color.
+              const token = attributes['colorToken'] as string | null;
+              if (!color || token) return null;
               return { style: `color: ${color}` };
+            },
+          },
+          colorToken: {
+            default: null,
+            parseHTML: (element: HTMLElement) => element.getAttribute('data-text-color'),
+            renderHTML: (attributes: Record<string, unknown>) => {
+              const token = attributes['colorToken'] as string | null;
+              if (!token) return null;
+              return { 'data-text-color': token };
             },
           },
         },
@@ -108,16 +122,37 @@ export const TextColor = Extension.create<TextColorOptions>({
 
   addCommands() {
     return {
+      // Hex-based color. Mutual exclusion: clears the named token so the
+      // legacy hex picker and Notion-style picker can't write conflicting
+      // values to the same mark.
       setTextColor:
         (color: string) =>
         ({ commands }) => {
-          return commands.setMark('textStyle', { color });
+          return commands.setMark('textStyle', { color, colorToken: null });
         },
 
       unsetTextColor:
         () =>
         ({ commands }) => {
           if (!commands.setMark('textStyle', { color: null })) return false;
+          commands.removeEmptyTextStyle();
+          return true;
+        },
+
+      // Named-token color. Mutual exclusion: clears the hex `color` so the
+      // theme-aware data attribute is the only source of truth.
+      setTextColorToken:
+        (token: string | null) =>
+        ({ commands }) => {
+          if (!commands.setMark('textStyle', { colorToken: token, color: null })) return false;
+          if (token === null) commands.removeEmptyTextStyle();
+          return true;
+        },
+
+      unsetTextColorToken:
+        () =>
+        ({ commands }) => {
+          if (!commands.setMark('textStyle', { colorToken: null })) return false;
           commands.removeEmptyTextStyle();
           return true;
         },

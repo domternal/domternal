@@ -3,7 +3,7 @@
  * implement configurable column resize behavior.
  *
  * The columnResizing plugin detects cell borders on every mousemove and
- * shows a blue resize line — confusing when the user is dragging to
+ * shows a blue resize line - confusing when the user is dragging to
  * select cells or text, not to resize a column. This plugin adds a
  * `dm-mouse-drag` CSS class during non-resize drags and blocks
  * columnResizing's mousemove handler from detecting borders.
@@ -40,7 +40,7 @@ export function createResizeSuppressionPlugin(options: ResizeSuppressionOptions)
             | { activeHandle: number; dragging: unknown } | undefined;
 
           if (!resizeState || resizeState.activeHandle === -1) {
-            // Non-resize drag — suppress columnResizing border detection
+            // Non-resize drag - suppress columnResizing border detection
             view.dom.classList.add('dm-mouse-drag');
             document.addEventListener('mouseup', () => {
               view.dom.classList.remove('dm-mouse-drag');
@@ -48,7 +48,7 @@ export function createResizeSuppressionPlugin(options: ResizeSuppressionOptions)
             return false;
           }
 
-          // Resize handle mousedown — branch by behavior
+          // Resize handle mousedown - branch by behavior
           if (resizeBehavior === 'redistribute' || resizeBehavior === 'independent') {
             if (resizeBehavior === 'independent') {
               freezeColumnWidths(view, resizeState.activeHandle, cellMinWidth, defaultCellMinWidth);
@@ -67,7 +67,7 @@ export function createResizeSuppressionPlugin(options: ResizeSuppressionOptions)
             return false;
           }
 
-          // 'neighbor' mode — intercept and handle the drag ourselves
+          // 'neighbor' mode - intercept and handle the drag ourselves
           return handleNeighborResize(view, event, resizeState.activeHandle, cellMinWidth, defaultCellMinWidth, constrainToContainer);
         },
         mousemove: (view, event) => {
@@ -98,10 +98,10 @@ function handleNeighborResize(
   defaultCellMinWidth: number,
   constrainToContainer: boolean,
 ): boolean {
-  // Step 1 — freeze all columns so every col has an explicit width
+  // Step 1 - freeze all columns so every col has an explicit width
   freezeColumnWidths(view, activeHandle, cellMinWidth, defaultCellMinWidth);
 
-  // Step 2 — re-read state after freeze dispatch
+  // Step 2 - re-read state after freeze dispatch
   const state = view.state;
   const resizeState = columnResizingPluginKey.getState(state) as
     | { activeHandle: number; dragging: unknown } | undefined;
@@ -117,23 +117,23 @@ function handleNeighborResize(
   const draggedCol = map.colCount($cell.pos - tableStart) + ((nodeAfter.attrs['colspan'] as number) || 1) - 1;
   const neighborCol = draggedCol + 1;
 
-  // Step 3 — last column: no neighbor
+  // Step 3 - last column: no neighbor
   if (neighborCol >= map.width) {
     if (!constrainToContainer) return false; // old behavior: independent resize
     return handleLastColumnResize(view, event, table, map, tableStart, draggedCol, cellMinWidth, defaultCellMinWidth);
   }
 
-  // Step 4 — read starting widths from frozen attrs
+  // Step 4 - read starting widths from frozen attrs
   const startWidth = readColWidth(table, map, draggedCol, defaultCellMinWidth);
   const neighborStartWidth = readColWidth(table, map, neighborCol, defaultCellMinWidth);
   const startX = event.clientX;
 
-  // Step 5 — set dragging meta (triggers decorations + cellSelectionPlugin hideForResize)
+  // Step 5 - set dragging meta (triggers decorations + cellSelectionPlugin hideForResize)
   view.dispatch(state.tr.setMeta(columnResizingPluginKey, {
     setDragging: { startX, startWidth },
   }));
 
-  // Step 6 — find table DOM for direct col manipulation
+  // Step 6 - find table DOM for direct col manipulation
   const tableDom = findTableDom(view, tableStart);
   const colgroup = tableDom?.querySelector('colgroup')?.children;
   if (!colgroup) return false;
@@ -452,7 +452,7 @@ function freezeColumnWidths(view: EditorView, handlePos: number, cellMinWidth: n
         }
       }
     }
-  } catch { /* DOM lookup failed — continue with unadjusted widths */ }
+  } catch { /* DOM lookup failed - continue with unadjusted widths */ }
 
   // Accumulate colwidth arrays per cell (handles colspan cells visited multiple times)
   const cellColwidths = new Map<number, number[]>();

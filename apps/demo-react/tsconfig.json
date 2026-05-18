@@ -12,6 +12,9 @@
   "include": ["src"],
   "references": [
     {
+      "path": "../../packages/extension-toc"
+    },
+    {
       "path": "../../packages/extension-table"
     },
     {
@@ -28,6 +31,9 @@
     },
     {
       "path": "../../packages/extension-code-block-lowlight"
+    },
+    {
+      "path": "../../packages/extension-block-menu"
     },
     {
       "path": "../../packages/core"

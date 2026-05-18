@@ -10,7 +10,6 @@ const btn = {
   underline: `${bubbleMenu} button[title="Underline"]`,
   strike: `${bubbleMenu} button[title="Strikethrough"]`,
   code: `${bubbleMenu} button[title="Code"]`,
-  link: `${bubbleMenu} button[title="Link"]`,
 } as const;
 
 async function setContentAndFocus(page: Page, html: string) {
@@ -56,7 +55,7 @@ async function selectAllViaEditor(page: Page) {
 
 // ─── ARIA attributes ────────────────────────────────────────────────
 
-test.describe('Bubble menu — ARIA attributes', () => {
+test.describe('Bubble menu - ARIA attributes', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -73,9 +72,9 @@ test.describe('Bubble menu — ARIA attributes', () => {
     await expect(page.locator(bubbleMenu)).toHaveAttribute('aria-label', 'Text formatting');
   });
 
-  test('separators have role="separator"', async ({ page }) => {
-    // Demo uses contexts with '|' separator: ['bold', 'italic', 'underline', 'strike', 'code', '|', 'link']
-    await expect(page.locator(`${bubbleMenu} [role="separator"]`)).toHaveCount(1);
+  test('default contexts produce no separators', async ({ page }) => {
+    // Standard mode default: ['bold', 'italic', 'underline', 'strike', 'code'] (no '|').
+    await expect(page.locator(`${bubbleMenu} [role="separator"]`)).toHaveCount(0);
   });
 
   test('all buttons have aria-label', async ({ page }) => {
@@ -100,7 +99,7 @@ test.describe('Bubble menu — ARIA attributes', () => {
 
 // ─── aria-pressed state sync ────────────────────────────────────────
 
-test.describe('Bubble menu — aria-pressed state sync', () => {
+test.describe('Bubble menu - aria-pressed state sync', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -179,7 +178,7 @@ test.describe('Bubble menu — aria-pressed state sync', () => {
 
 // ─── Active class sync (activeVersion) ──────────────────────────────
 
-test.describe('Bubble menu — active class sync', () => {
+test.describe('Bubble menu - active class sync', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -243,7 +242,7 @@ test.describe('Bubble menu — active class sync', () => {
 
 // ─── Toolbar aria-pressed sync ──────────────────────────────────────
 
-test.describe('Toolbar — aria-pressed state sync', () => {
+test.describe('Toolbar - aria-pressed state sync', () => {
   const toolbarBold = '.dm-toolbar button[aria-label="Bold"]';
   const toolbarItalic = '.dm-toolbar button[aria-label="Italic"]';
   const toolbarUnderline = '.dm-toolbar button[aria-label="Underline"]';

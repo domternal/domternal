@@ -1,21 +1,12 @@
 /**
- * Image Node
+ * Block (default) or inline image element.
  *
- * Block-level (default) or inline image element.
- * Supports src, alt, title, width, height, loading, crossorigin, float attributes.
- *
- * Options:
- * - inline: false (default) — block-level image | true — inline image within paragraphs
- * - allowBase64: true (default) — allow data:image/ URLs | false — only http/https URLs
- *
- * XSS Protection (blocklist approach):
- * - Blocks javascript:, vbscript:, file: protocols
- * - Blocks data: URLs unless allowBase64 AND specifically data:image/
- * - Allows http(s), relative paths, protocol-relative URLs
- * - Defense in depth: validated in parseHTML, renderHTML, setImage command, and input rule
+ * XSS protection (blocklist): javascript:, vbscript:, file: are blocked;
+ * data: URLs require `allowBase64` AND data:image/. Validated in parseHTML,
+ * renderHTML, the `setImage` command, and the input rule (defense in depth).
  */
 
-import { Node, PluginKey, positionFloating, defaultIcons } from '@domternal/core';
+import { Node, PluginKey, positionFloating, defaultIcons, splitListForInsert } from '@domternal/core';
 import type { Editor, CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
 import { Plugin, NodeSelection } from '@domternal/pm/state';
 import { InputRule } from '@domternal/pm/inputrules';
@@ -28,7 +19,7 @@ export type ImageFloat = 'none' | 'left' | 'right' | 'center';
 
 /**
  * Typed options for the setImage command.
- * src is required — it makes no sense to insert an image without a source URL.
+ * src is required - it makes no sense to insert an image without a source URL.
  */
 export interface SetImageOptions {
   src: string;
@@ -450,7 +441,7 @@ export const Image = Node.create<ImageOptions>({
     return {
       setImage:
         (attributes: SetImageOptions) =>
-        ({ tr, dispatch }) => {
+        ({ state, tr, dispatch }) => {
           // XSS protection: validate src URL before inserting
           if (!isValidImageSrc(attributes.src, this.options.allowBase64)) {
             return false;
@@ -461,8 +452,28 @@ export const Image = Node.create<ImageOptions>({
           // Refuse insertion inside code blocks
           if (tr.selection.$from.parent.type.spec.code) return false;
 
+          const node = this.nodeType.create(attributes);
+
+          // List-item-aware path: cursor in the LABEL paragraph of a
+          // list/task item. Block-level images belong at TOP LEVEL,
+          // not nested inside the list item. The util splits the
+          // parent list around the current item (empty label consumed).
+          // Only applies when image is block-level (default); inline
+          // images keep the original insert-at-cursor behavior.
+          if (!this.options.inline) {
+            const paragraphType = state.schema.nodes['paragraph'];
+            const trailingParagraph = paragraphType?.create();
+            const nodes = trailingParagraph ? [node, trailingParagraph] : [node];
+            const listRange = splitListForInsert(state, tr);
+            if (listRange) {
+              if (!dispatch) return true;
+              tr.replaceWith(listRange.from, listRange.to, nodes);
+              dispatch(tr.scrollIntoView());
+              return true;
+            }
+          }
+
           if (dispatch) {
-            const node = this.nodeType.create(attributes);
             tr.replaceSelectionWith(node);
             dispatch(tr);
           }
@@ -764,7 +775,7 @@ export const Image = Node.create<ImageOptions>({
           browseBtn.addEventListener('keydown', onButtonKeydown);
           document.addEventListener('mousedown', onClickOutside);
 
-          // 'insertImage' is a dynamic event not in EditorEvents — cast once
+          // 'insertImage' is a dynamic event not in EditorEvents - cast once
           interface DynEvents { on(e: string, fn: typeof onInsertImage): void; off(e: string, fn: typeof onInsertImage): void }
           const dynEditor = editor as unknown as DynEvents;
           dynEditor.on('insertImage', onInsertImage);
