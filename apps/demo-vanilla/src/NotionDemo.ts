@@ -56,6 +56,11 @@ import type { BlockMatcher, BlockCandidate } from '@domternal/extension-block-me
 import { TableOfContents, FloatingTocOutline, TableOfContentsBlock } from '@domternal/extension-toc';
 import { createLowlight, common } from 'lowlight';
 import { NOTION_DEMO_CONTENT } from './notion-demo-content.js';
+import {
+  parseBubbleIconsParam,
+  resolveBubbleIcons,
+  type BubbleIconsParam,
+} from './bubble-icons-fixtures.js';
 
 const lowlight = createLowlight(common);
 const codeHighlighter = createCodeHighlighter(lowlight);
@@ -206,7 +211,15 @@ export class NotionDemo {
     });
     const editor = this.#editorWrapper.editor;
 
-    this.#bubbleMenu = new DomternalBubbleMenu(bubbleHost, { editor });
+    const initialIcons = resolveBubbleIcons(parseBubbleIconsParam());
+    this.#bubbleMenu = new DomternalBubbleMenu(bubbleHost, {
+      editor,
+      ...(initialIcons ? { icons: initialIcons } : {}),
+    });
+    (window as unknown as Record<string, unknown>).__DEMO_SET_BUBBLE_ICONS__ =
+      (key: BubbleIconsParam | null): void => {
+        this.#bubbleMenu.setIcons(resolveBubbleIcons(key));
+      };
     this.#floatingMenu = new DomternalFloatingMenu(floatingHost, {
       editor,
       requireExplicitTrigger: true,
@@ -284,6 +297,7 @@ export class NotionDemo {
       w.__DEMO_EDITOR__ = undefined;
       w.__DOMTERNAL_LIST_CTX__ = undefined;
     }
+    w.__DEMO_SET_BUBBLE_ICONS__ = undefined;
 
     this.#container.replaceChildren();
   }

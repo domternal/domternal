@@ -20,7 +20,7 @@ import {
   defaultIcons,
   positionFloatingOnce,
 } from '@domternal/core';
-import type { BubbleMenuOptions, ToolbarButton, ToolbarDropdown ,
+import type { BubbleMenuOptions, IconSet, ToolbarButton, ToolbarDropdown ,
   Editor} from '@domternal/core';
 
 interface BubbleMenuSeparator { type: 'separator'; name: string }
@@ -145,10 +145,13 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   readonly updateDelay = input(0);
 
   /** Fixed item names (e.g. ['bold', 'italic', 'code']). Omit for auto mode (all format items). */
-  readonly items = input<string[]>();
+  readonly items = input<string[] | undefined>(undefined);
 
   /** Context-aware: map context names to item arrays, `true` for all valid items, or `null` to disable */
-  readonly contexts = input<Record<string, string[] | true | null>>();
+  readonly contexts = input<Record<string, string[] | true | null> | undefined>(undefined);
+
+  /** Custom icon overrides. Falls back to default Phosphor icons for unmapped keys. */
+  readonly icons = input<IconSet | undefined>(undefined);
 
   /**
    * Returns the effective contexts map: the explicit `contexts` input

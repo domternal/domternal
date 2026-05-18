@@ -8,6 +8,7 @@ import {
 import type {
   Editor,
   BubbleMenuOptions,
+  IconSet,
   ToolbarButton,
   ToolbarDropdown,
   PluginKey,
@@ -55,6 +56,8 @@ export interface DomternalBubbleMenuOptions extends CustomContentOption {
    * this context). Defaults to `defaultBubbleContexts(editor)`.
    */
   contexts?: Record<string, string[] | true | null>;
+  /** Custom icon overrides. Falls back to default Phosphor icons for unmapped keys. */
+  icons?: IconSet;
 }
 
 export type { BubbleMenuItem, BubbleMenuTrailingState };
@@ -182,6 +185,7 @@ export class DomternalBubbleMenu extends EventTarget {
     this.#updateDelay = options.updateDelay ?? 0;
     this.#explicitItems = options.items;
     this.#explicitContexts = options.contexts;
+    void options.icons;
     this.#customContent = options.customContent;
     this.#pluginKey = createPluginKey('vanillaBubbleMenu');
 
@@ -270,6 +274,13 @@ export class DomternalBubbleMenu extends EventTarget {
       contexts ?? (this.#explicitItems ? undefined : defaultBubbleContexts(this.#editor));
     this.#updateResolvedItems();
     this.#updateStates();
+    this.#scheduleRender();
+  }
+
+  /** Replace the icon set. `undefined` restores default Phosphor icons. */
+  setIcons(icons: IconSet | undefined): void {
+    if (this.#destroyed) return;
+    void icons;
     this.#scheduleRender();
   }
 

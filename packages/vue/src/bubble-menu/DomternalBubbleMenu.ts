@@ -5,7 +5,7 @@ import {
   defaultIcons,
   positionFloatingOnce,
 } from '@domternal/core';
-import type { Editor, ToolbarButton, ToolbarDropdown, BubbleMenuOptions } from '@domternal/core';
+import type { Editor, IconSet, ToolbarButton, ToolbarDropdown, BubbleMenuOptions } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useBubbleMenu } from './useBubbleMenu.js';
 
@@ -21,6 +21,8 @@ export interface DomternalBubbleMenuProps {
   updateDelay?: number;
   items?: string[];
   contexts?: Record<string, string[] | true | null>;
+  /** Custom icon overrides. Falls back to default Phosphor icons for unmapped keys. */
+  icons?: IconSet;
 }
 
 export const DomternalBubbleMenu = defineComponent({
@@ -33,6 +35,7 @@ export const DomternalBubbleMenu = defineComponent({
     updateDelay: { type: Number, default: 0 },
     items: { type: Array as PropType<string[]>, default: undefined },
     contexts: { type: Object as PropType<Record<string, string[] | true | null>>, default: undefined },
+    icons: { type: Object as PropType<IconSet>, default: undefined },
   },
   setup(props, { slots }) {
     const { editor: contextEditor } = useCurrentEditor();

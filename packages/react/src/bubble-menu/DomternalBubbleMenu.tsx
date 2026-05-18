@@ -5,7 +5,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { Editor, BubbleMenuOptions, ToolbarButton, ToolbarDropdown } from '@domternal/core';
+import type { Editor, BubbleMenuOptions, IconSet, ToolbarButton, ToolbarDropdown } from '@domternal/core';
 import { defaultIcons, positionFloatingOnce } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useBubbleMenu } from './useBubbleMenu.js';
@@ -25,6 +25,8 @@ export interface DomternalBubbleMenuProps {
   items?: string[];
   /** Context-aware: map context names to item arrays, true for all, or null to disable. */
   contexts?: Record<string, string[] | true | null>;
+  /** Custom icon overrides. Falls back to default Phosphor icons for unmapped keys. */
+  icons?: IconSet;
   /** Additional content rendered after buttons. */
   children?: React.ReactNode;
 }

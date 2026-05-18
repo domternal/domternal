@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import {
   useEditor,
   useEditorState,
@@ -45,9 +45,16 @@ import { Table } from '@domternal/extension-table';
 import { Emoji, emojis, createEmojiSuggestionRenderer } from '@domternal/extension-emoji';
 import { Mention, createMentionSuggestionRenderer } from '@domternal/extension-mention';
 import type { MentionItem } from '@domternal/extension-mention';
+import type { IconSet } from '@domternal/core';
 import { createLowlight, common } from 'lowlight';
 import { DEMO_CONTENT } from './demo-content.js';
 import { useExposeEditorForE2E } from './useExposeEditorForE2E.js';
+import {
+  parseBubbleIconsParam,
+  parseBubbleItemsParam,
+  resolveBubbleIcons,
+  type BubbleIconsParam,
+} from './bubble-icons-fixtures.js';
 
 const { useLayout } = defineProps<{ useLayout: boolean }>();
 
@@ -119,6 +126,21 @@ const isEmpty = useEditorState(editor, (ed) => ed.isEmpty);
 
 useExposeEditorForE2E(editor);
 
+// E2E fixture: ?bubble-icons= URL param + window.__DEMO_SET_BUBBLE_ICONS__ runtime hook.
+const bubbleIcons = ref<IconSet | undefined>(resolveBubbleIcons(parseBubbleIconsParam()));
+const bubbleItems = ref<string[] | undefined>(parseBubbleItemsParam());
+
+onMounted(() => {
+  const w = window as unknown as Record<string, unknown>;
+  w['__DEMO_SET_BUBBLE_ICONS__'] = (key: BubbleIconsParam | null): void => {
+    bubbleIcons.value = resolveBubbleIcons(key);
+  };
+});
+onUnmounted(() => {
+  const w = window as unknown as Record<string, unknown>;
+  w['__DEMO_SET_BUBBLE_ICONS__'] = undefined;
+});
+
 const styledHtml = computed(() =>
   htmlContent.value ? inlineStyles(htmlContent.value, { codeHighlighter, tableColumnWidths: 'pixel' }) : '',
 );
@@ -142,11 +164,15 @@ defineExpose({ editor, editorRef });
     <DomternalBubbleMenu
       v-if="bubbleAuto"
       :editor="editor"
+      :icons="bubbleIcons"
+      :items="bubbleItems"
     />
     <DomternalBubbleMenu
       v-else
       :editor="editor"
-      :contexts="{ text: ['bold', 'italic', 'underline', 'strike', 'code'] }"
+      :contexts="bubbleItems ? undefined : { text: ['bold', 'italic', 'underline', 'strike', 'code'] }"
+      :items="bubbleItems"
+      :icons="bubbleIcons"
     />
     <DomternalFloatingMenu :editor="editor" />
     <DomternalEmojiPicker :editor="editor" :emojis="emojis" />

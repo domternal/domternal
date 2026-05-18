@@ -17,11 +17,16 @@
 
 @if (editor(); as ed) {
   @if (bubbleAuto) {
-    <domternal-bubble-menu [editor]="ed" />
+    <domternal-bubble-menu
+      [editor]="ed"
+      [icons]="$any(bubbleIcons())"
+      [items]="$any(bubbleItems())" />
   } @else {
-    <domternal-bubble-menu [editor]="ed" [contexts]="{
-      text: ['bold', 'italic', 'underline', 'strike', 'code', '|', 'link'],
-    }" />
+    <domternal-bubble-menu
+      [editor]="ed"
+      [contexts]="$any(bubbleContexts())"
+      [items]="$any(bubbleItems())"
+      [icons]="$any(bubbleIcons())" />
   }
   <domternal-emoji-picker [editor]="ed" [emojis]="emojiData" />
 }

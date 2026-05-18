@@ -56,8 +56,14 @@ import {
 } from '@domternal/extension-block-menu';
 import type { BlockMatcher, BlockCandidate } from '@domternal/extension-block-menu';
 import { TableOfContents, FloatingTocOutline, TableOfContentsBlock } from '@domternal/extension-toc';
+import type { IconSet } from '@domternal/core';
 import { createLowlight, common } from 'lowlight';
 import { NOTION_DEMO_CONTENT } from './notion-demo-content.js';
+import {
+  parseBubbleIconsParam,
+  resolveBubbleIcons,
+  type BubbleIconsParam,
+} from './bubble-icons-fixtures.js';
 
 const lowlight = createLowlight(common);
 const codeHighlighter = createCodeHighlighter(lowlight);
@@ -180,6 +186,19 @@ export function NotionDemo(): ReactNode {
 
   const [toasts, setToasts] = useState<Toast[]>([]);
 
+  // E2E fixture for bubble menu icons override.
+  const [bubbleIcons, setBubbleIcons] = useState<IconSet | undefined>(() =>
+    resolveBubbleIcons(parseBubbleIconsParam()),
+  );
+
+  useEffect(() => {
+    const w = window as unknown as Record<string, unknown>;
+    w['__DEMO_SET_BUBBLE_ICONS__'] = (key: BubbleIconsParam | null): void => {
+      setBubbleIcons(resolveBubbleIcons(key));
+    };
+    return () => { w['__DEMO_SET_BUBBLE_ICONS__'] = undefined; };
+  }, []);
+
   // Expose editor + cursor-context util on window for e2e, and wire the
   // copy-link toast listeners. Cleanup detaches everything; StrictMode dev
   // double-mount is benign because the second mount re-sets the same editor.
@@ -233,7 +252,7 @@ export function NotionDemo(): ReactNode {
 
           {editor && (
             <>
-              <DomternalBubbleMenu editor={editor} />
+              <DomternalBubbleMenu editor={editor} icons={bubbleIcons} />
               <DomternalFloatingMenu editor={editor} requireExplicitTrigger />
               <DomternalNotionColorPicker editor={editor} />
             </>
