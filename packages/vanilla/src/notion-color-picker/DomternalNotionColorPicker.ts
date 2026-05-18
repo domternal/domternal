@@ -1,4 +1,4 @@
-import { positionFloating } from '@domternal/core';
+import { positionFloatingOnce } from '@domternal/core';
 import type { Editor } from '@domternal/core';
 import { assertBrowser } from '../shared/isBrowser.js';
 
@@ -185,8 +185,11 @@ export class DomternalNotionColorPicker extends EventTarget {
   open(anchor: HTMLElement): void {
     if (this.#destroyed) return;
     // Toggle: same-anchor click while open closes (mirrors bubble menu "A"
-    // button click-to-close behaviour).
-    if (this.#isOpen && this.#anchor === anchor) {
+    // button click-to-close behaviour). We accept BOTH exact DOM identity
+    // OR class-based identity (`.dm-ncp-trigger`) because the bubble menu
+    // rebuilds its trigger button on every transaction - the new instance
+    // is a different DOM node but logically the same trigger.
+    if (this.#isOpen && this.#isSameTrigger(anchor)) {
       this.close({ refocus: true });
       return;
     }
@@ -282,6 +285,26 @@ export class DomternalNotionColorPicker extends EventTarget {
   }
 
   // === Internal ===
+
+  /**
+   * Test whether the incoming anchor is functionally the same trigger as
+   * the currently stored anchor.
+   *
+   * - Exact DOM identity is preferred (cheap + unambiguous).
+   * - Fallback: both anchors are `.dm-ncp-trigger` buttons inside the SAME
+   *   `.dm-bubble-menu` host. The bubble menu rebuilds its trigger button
+   *   on every transaction (new DOM node, same logical trigger), so the
+   *   ancestor check lets toggle-on-second-click work across rebuilds
+   *   without conflating with custom triggers in other host elements.
+   */
+  #isSameTrigger(incoming: HTMLElement): boolean {
+    if (this.#anchor === incoming) return true;
+    if (!incoming.classList.contains('dm-ncp-trigger')) return false;
+    if (!(this.#anchor?.classList.contains('dm-ncp-trigger') ?? false)) return false;
+    const currentBubble = this.#anchor?.closest('.dm-bubble-menu') ?? null;
+    const incomingBubble = incoming.closest('.dm-bubble-menu');
+    return currentBubble !== null && currentBubble === incomingBubble;
+  }
 
   /**
    * Inspect the current selection and update the active text/bg tokens.
@@ -466,7 +489,12 @@ export class DomternalNotionColorPicker extends EventTarget {
   #positionAndFocus(): void {
     if (!this.#anchor || !this.#panel) return;
     this.#cleanupFloating?.();
-    this.#cleanupFloating = positionFloating(this.#anchor, this.#panel, {
+    // Use `positionFloatingOnce` (no auto-track + no hide middleware) instead
+    // of `positionFloating`: the bubble menu rebuilds its A button on every
+    // transaction, which orphans our anchor reference. `positionFloating`'s
+    // `hide` middleware reacts to the orphan by setting `visibility: hidden`
+    // on the panel, which propagates to swatches and breaks `focus()`.
+    this.#cleanupFloating = positionFloatingOnce(this.#anchor, this.#panel, {
       placement: 'bottom-start',
       offsetValue: 4,
     });

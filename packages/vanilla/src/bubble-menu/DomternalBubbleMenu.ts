@@ -72,6 +72,15 @@ export type { BubbleMenuItem, BubbleMenuTrailingState };
  * transaction because the item list changes with context (selection moves
  * between text and code-block, for example).
  *
+ * **Stable identity convention.** Trigger buttons (including the "A" and "..."
+ * trailing triggers and dropdown triggers) are DESTROYED and RECREATED on
+ * every transaction. Consumers that store a reference to a trigger element
+ * (e.g. as a popover anchor) should:
+ * - Either listen for `selectionUpdate` / `transaction` and re-resolve the
+ *   anchor via `host.querySelector('.dm-ncp-trigger')` on demand
+ * - Or match the trigger by class + container (`closest('.dm-bubble-menu')`)
+ *   rather than DOM identity for purposes like toggle-on-second-click.
+ *
  * @example
  * ```ts
  * import { DomternalBubbleMenu } from '@domternal/vanilla';
@@ -489,11 +498,26 @@ export class DomternalBubbleMenu extends EventTarget {
     // every render. The cost is small (typically <10 buttons) and keeps
     // the logic straightforward vs incremental diff.
     this.host.replaceChildren();
-    // If dropdown was open and its trigger is being rebuilt, close it.
-    // The new trigger button has no listeners attached; old panel is orphaned.
+
+    // The dropdown panel was a child of host - replaceChildren() removed it.
+    // Detach our floating + AbortController state but KEEP `#openDropdown`
+    // name so `#createDropdownTrigger` re-creates the panel when it encounters
+    // the matching item below. Without this preservation, clicking a dropdown
+    // trigger (which sets openDropdown then calls #render) would immediately
+    // see the panel orphaned and close.
+    this.#cleanupDropdownFloating?.();
+    this.#cleanupDropdownFloating = null;
+    this.#dropdownAbortCtl?.abort();
+    this.#dropdownAbortCtl = null;
+    this.#dropdownPanelEl = null;
+
+    // If the open dropdown is no longer in resolvedItems (e.g. selection
+    // moved to a context that doesn't show it), clear the flag.
     if (this.#openDropdown !== null) {
-      this.#detachDropdown();
-      this.#openDropdown = null;
+      const stillExists = this.#resolvedItems.some(
+        (item) => item.type === 'dropdown' && item.name === this.#openDropdown,
+      );
+      if (!stillExists) this.#openDropdown = null;
     }
 
     for (const item of this.#resolvedItems) {
