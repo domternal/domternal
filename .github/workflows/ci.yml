@@ -56,15 +56,21 @@ jobs:
 
       - name: Validate packages
         run: |
+          # Use `pnpm exec` so the workspace's pinned versions of publint and
+          # @arethetypeswrong/cli are used. The root `pnpm.overrides` pins
+          # `@arethetypeswrong/core>fflate` to 0.7.4 to work around a bug where
+          # fflate 0.8.x Gunzip fires its callback multiple times (last chunk
+          # empty), which makes attw 0.14.0+ crash with
+          # "Cannot read properties of undefined (reading 'filename')".
           for pkg in packages/pm packages/core packages/theme packages/angular packages/react packages/vue packages/vanilla packages/extension-block-menu packages/extension-table packages/extension-image packages/extension-emoji packages/extension-mention packages/extension-details packages/extension-code-block-lowlight packages/extension-toc; do
             echo "--- Validating $pkg ---"
             cd "$pkg"
-            npx publint
+            pnpm exec publint
             if [ "$pkg" != "packages/theme" ] && [ "$pkg" != "packages/angular" ]; then
               if [ "$pkg" = "packages/react" ] || [ "$pkg" = "packages/vue" ] || [ "$pkg" = "packages/vanilla" ]; then
-                npx @arethetypeswrong/cli --pack --profile esm-only
+                pnpm exec attw --pack --profile esm-only
               else
-                npx @arethetypeswrong/cli --pack
+                pnpm exec attw --pack
               fi
             fi
             cd "$GITHUB_WORKSPACE"
