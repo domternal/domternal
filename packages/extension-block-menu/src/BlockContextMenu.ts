@@ -165,6 +165,22 @@ interface BlockContextMenuOpenDetail {
 }
 
 /**
+ * Derive a selector that can re-locate an anchor button if its DOM identity
+ * changes (e.g. the vanilla bubble menu rebuilding its trailing buttons via
+ * `replaceChildren`). Returns `null` for anchors we cannot reliably re-resolve
+ * (e.g. the BlockHandle drag button, which lives outside any bubble menu and
+ * is keyed by absolute position, not class).
+ */
+function matchingSelectorFor(anchor: HTMLElement): string | null {
+  const ariaLabel = anchor.getAttribute('aria-label');
+  if (ariaLabel) {
+    const escaped = ariaLabel.replace(/"/g, '\\"');
+    return `button[aria-label="${escaped}"]`;
+  }
+  return null;
+}
+
+/**
  * Creates the BlockContextMenu ProseMirror plugin. Builds an absolutely
  * positioned popup DOM, listens for `dm:block-context-menu-open` on the
  * `.dm-editor` container, and executes block operations via the shared
@@ -705,7 +721,36 @@ export function createBlockContextMenuPlugin(
     }
 
     cleanupFloating?.();
-    cleanupFloating = positionFloatingOnce(detail.anchorElement, root, {
+    // Virtual reference: caches the last valid rect and returns it when the
+    // anchor element later becomes disconnected. Vanilla bubble menus rebuild
+    // their DOM via `replaceChildren()` on every editor transaction, which
+    // orphans the anchor we were given; without this caching, `autoUpdate`
+    // re-computes against a zero rect and the menu flies to the corner.
+    let anchorEl: HTMLElement = detail.anchorElement;
+    const bubbleMenuRef = anchorEl.closest<HTMLElement>('.dm-bubble-menu');
+    const matchingSelector = matchingSelectorFor(anchorEl);
+    let lastRect = anchorEl.getBoundingClientRect();
+    const virtualRef: { getBoundingClientRect: () => DOMRect } = {
+      getBoundingClientRect: () => {
+        if (anchorEl.isConnected) {
+          lastRect = anchorEl.getBoundingClientRect();
+          return lastRect;
+        }
+        // Anchor disconnected. Try to find an equivalent in the same bubble
+        // menu (where applicable) so the menu tracks live DOM rather than
+        // pinning to the now-stale rect.
+        if (matchingSelector && bubbleMenuRef?.isConnected) {
+          const fresh = bubbleMenuRef.querySelector<HTMLElement>(matchingSelector);
+          if (fresh) {
+            anchorEl = fresh;
+            lastRect = fresh.getBoundingClientRect();
+            return lastRect;
+          }
+        }
+        return lastRect;
+      },
+    };
+    cleanupFloating = positionFloatingOnce(virtualRef, root, {
       placement: 'right-start',
       offsetValue: 4,
     });

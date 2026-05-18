@@ -682,3 +682,283 @@ test.describe('Notion color picker - data layer', () => {
   });
 
 });
+
+/**
+ * Positioning regression: when the bubble menu rebuilds its DOM on a
+ * subsequent transaction the original anchor element becomes disconnected.
+ * Without the virtual-reference fix, floating-ui re-computes against a zero
+ * rect and the panel flies to the top-left corner of the editor host.
+ *
+ * The vanilla bubble menu replaces its children on every transaction; React,
+ * Vue, and Angular reconcile incrementally but the same risk applies any time
+ * the trailing button is removed and re-rendered (e.g. selection becoming
+ * empty then non-empty).
+ */
+test.describe('Notion color picker - positioning regression', () => {
+  test.beforeEach(async ({ page }) => {
+    await goNotion(page);
+  });
+
+  /** Force an editor transaction so the bubble menu rebuilds its DOM. */
+  async function forceTransaction(page: Page): Promise<void> {
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as {
+        state: { tr: unknown };
+        view: { dispatch: (tr: unknown) => void };
+      };
+      // Empty transaction with a meta marker - fires transaction listeners
+      // (including the bubble menu's rebuild handler) without changing state.
+      const tr = (ed.state.tr as { setMeta: (k: string, v: unknown) => unknown })
+        .setMeta('positioningRegressionPing', true);
+      ed.view.dispatch(tr);
+    });
+    // Bubble menu rebuild is rAF-batched - one rAF + microtask is sufficient.
+    await page.waitForTimeout(50);
+  }
+
+  /** Returns the panel's viewport-space top-left corner. */
+  async function getPanelRect(page: Page): Promise<{ x: number; y: number; w: number; h: number }> {
+    return page.locator(panelSelector).evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) };
+    });
+  }
+
+  /** Returns the A trigger button's viewport-space rect. */
+  async function getTriggerRect(page: Page): Promise<{ x: number; y: number; w: number; h: number; bottom: number }> {
+    return page.locator(triggerSelector).evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return {
+        x: Math.round(r.left), y: Math.round(r.top),
+        w: Math.round(r.width), h: Math.round(r.height),
+        bottom: Math.round(r.bottom),
+      };
+    });
+  }
+
+  test('panel is positioned near the A trigger after opening', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    await expect(page.locator(panelSelector)).toBeVisible();
+
+    const trigger = await getTriggerRect(page);
+    const panel = await getPanelRect(page);
+
+    // Panel placement is `bottom-start` with 4px offset: x aligned to trigger
+    // start, y just below trigger bottom. Allow modest horizontal slack for
+    // floating-ui `shift` middleware adjustments near viewport edges.
+    expect(panel.x).toBeGreaterThanOrEqual(trigger.x - 20);
+    expect(panel.x).toBeLessThanOrEqual(trigger.x + 20);
+    expect(panel.y).toBeGreaterThanOrEqual(trigger.bottom);
+    expect(panel.y).toBeLessThanOrEqual(trigger.bottom + 12);
+  });
+
+  test('panel does NOT land in the top-left corner on open', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    await expect(page.locator(panelSelector)).toBeVisible();
+
+    const panel = await getPanelRect(page);
+    // Top-left "flies to corner" regression: panel ended up at ~(10, 4)
+    // before the fix. Anchor sits well to the right + below the viewport
+    // top, so a correctly positioned panel must also be substantially away
+    // from the top-left.
+    expect(panel.x).toBeGreaterThan(100);
+    expect(panel.y).toBeGreaterThan(60);
+  });
+
+  test('panel position survives a single forced bubble menu rebuild', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    await expect(page.locator(panelSelector)).toBeVisible();
+
+    const before = await getPanelRect(page);
+    await forceTransaction(page);
+    const after = await getPanelRect(page);
+
+    // Tolerance is intentionally tight: the anchor did not actually move,
+    // so the panel must not move either. A few pixels of slack covers
+    // subpixel rounding in `Math.round(x)` inside `positionFloating`.
+    expect(Math.abs(after.x - before.x)).toBeLessThanOrEqual(3);
+    expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(3);
+  });
+
+  test('panel position survives many forced bubble menu rebuilds in a row', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    await expect(page.locator(panelSelector)).toBeVisible();
+
+    const before = await getPanelRect(page);
+    for (let i = 0; i < 8; i++) {
+      await forceTransaction(page);
+    }
+    const after = await getPanelRect(page);
+
+    expect(Math.abs(after.x - before.x)).toBeLessThanOrEqual(3);
+    expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(3);
+  });
+
+  test('panel position survives a swatch application (which writes a mark)', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    await expect(page.locator(panelSelector)).toBeVisible();
+
+    const before = await getPanelRect(page);
+    // Applying a swatch dispatches a real transaction with mark changes,
+    // exercising the same rebuild path the bug surfaces.
+    await page.click(`${panelSelector} .dm-ncp-swatch--text[data-color="brown"]`);
+    await page.waitForTimeout(60);
+    const after = await getPanelRect(page);
+
+    expect(Math.abs(after.x - before.x)).toBeLessThanOrEqual(3);
+    expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(3);
+  });
+
+  test('panel position stays correct when the active token changes from outside', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    await expect(page.locator(panelSelector)).toBeVisible();
+
+    const before = await getPanelRect(page);
+
+    // Apply a token via the editor command (NOT via swatch click) so the
+    // panel is not the source of the transaction.
+    await runCommand(page, 'setTextColorToken', 'red');
+    await page.waitForTimeout(80);
+
+    const after = await getPanelRect(page);
+    expect(Math.abs(after.x - before.x)).toBeLessThanOrEqual(3);
+    expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(3);
+  });
+
+  test('panel position survives the bubble menu cycling visibility off and on', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(triggerSelector);
+    await expect(page.locator(panelSelector)).toBeVisible();
+    const before = await getPanelRect(page);
+
+    // Force bubble menu to hide by clearing selection (defensive: NCP's
+    // `selectionUpdate` handler closes on empty selection, so we shift to
+    // the start without collapsing - using setTextSelection with a small
+    // non-empty range against the existing selection's start).
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as {
+        state: { selection: { from: number; to: number } };
+        commands: { setTextSelection: (range: { from: number; to: number }) => boolean };
+      };
+      const { from, to } = ed.state.selection;
+      // Shrink by one char on each end - keeps selection non-empty.
+      if (to - from > 2) {
+        ed.commands.setTextSelection({ from: from + 1, to: to - 1 });
+      }
+    });
+    await page.waitForTimeout(60);
+
+    // Panel should still be open and positioned near the A button.
+    await expect(page.locator(panelSelector)).toBeVisible();
+    const after = await getPanelRect(page);
+    expect(Math.abs(after.x - before.x)).toBeLessThanOrEqual(20);
+    expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(20);
+    expect(after.x).toBeGreaterThan(100);
+    expect(after.y).toBeGreaterThan(60);
+  });
+});
+
+/**
+ * Same positioning regression coverage for the block context menu, which
+ * shares the same anchor-disconnect risk: bubble menu's "..." trigger gets
+ * rebuilt on every transaction, and the BlockContextMenu plugin must
+ * preserve its position rather than re-compute against a zero rect.
+ */
+test.describe('Block context menu - positioning regression', () => {
+  test.beforeEach(async ({ page }) => {
+    await goNotion(page);
+  });
+
+  const blockMenuSelector = '.dm-block-context-menu';
+  const moreOptionsSelector = '.dm-bubble-menu button[aria-label="More options"]';
+
+  async function forceTransaction(page: Page): Promise<void> {
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as {
+        state: { tr: unknown };
+        view: { dispatch: (tr: unknown) => void };
+      };
+      const tr = (ed.state.tr as { setMeta: (k: string, v: unknown) => unknown })
+        .setMeta('positioningRegressionPing', true);
+      ed.view.dispatch(tr);
+    });
+    await page.waitForTimeout(50);
+  }
+
+  async function getMenuRect(page: Page): Promise<{ x: number; y: number; w: number; h: number }> {
+    return page.locator(blockMenuSelector).evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) };
+    });
+  }
+
+  async function getMoreRect(page: Page): Promise<{ x: number; y: number; right: number; bottom: number }> {
+    return page.locator(moreOptionsSelector).evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return {
+        x: Math.round(r.left), y: Math.round(r.top),
+        right: Math.round(r.right), bottom: Math.round(r.bottom),
+      };
+    });
+  }
+
+  test('menu is positioned near the "..." trigger after opening', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(moreOptionsSelector);
+    await expect(page.locator(blockMenuSelector)).toBeVisible();
+
+    const trigger = await getMoreRect(page);
+    const menu = await getMenuRect(page);
+
+    // Placement is `right-start` with 4px offset: menu's left near
+    // trigger's right edge, menu's top near trigger's top.
+    expect(menu.x).toBeGreaterThanOrEqual(trigger.right);
+    expect(menu.x).toBeLessThanOrEqual(trigger.right + 12);
+    expect(menu.y).toBeGreaterThanOrEqual(trigger.y - 8);
+    expect(menu.y).toBeLessThanOrEqual(trigger.y + 12);
+  });
+
+  test('menu does NOT land in the top-left corner on open', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(moreOptionsSelector);
+    await expect(page.locator(blockMenuSelector)).toBeVisible();
+
+    const menu = await getMenuRect(page);
+    expect(menu.x).toBeGreaterThan(100);
+    expect(menu.y).toBeGreaterThan(60);
+  });
+
+  test('menu position survives a single forced bubble menu rebuild', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(moreOptionsSelector);
+    await expect(page.locator(blockMenuSelector)).toBeVisible();
+
+    const before = await getMenuRect(page);
+    await forceTransaction(page);
+    const after = await getMenuRect(page);
+
+    expect(Math.abs(after.x - before.x)).toBeLessThanOrEqual(3);
+    expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(3);
+  });
+
+  test('menu position survives many forced bubble menu rebuilds in a row', async ({ page }) => {
+    await selectFirstParagraph(page);
+    await page.click(moreOptionsSelector);
+    await expect(page.locator(blockMenuSelector)).toBeVisible();
+
+    const before = await getMenuRect(page);
+    for (let i = 0; i < 8; i++) {
+      await forceTransaction(page);
+    }
+    const after = await getMenuRect(page);
+
+    expect(Math.abs(after.x - before.x)).toBeLessThanOrEqual(3);
+    expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(3);
+  });
+});

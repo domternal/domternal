@@ -1,4 +1,4 @@
-import { positionFloatingOnce } from '@domternal/core';
+import { positionFloating } from '@domternal/core';
 import type { Editor } from '@domternal/core';
 import { assertBrowser } from '../shared/isBrowser.js';
 
@@ -110,6 +110,16 @@ export class DomternalNotionColorPicker extends EventTarget {
 
   #isOpen = false;
   #anchor: HTMLElement | null = null;
+  /**
+   * Bubble menu container captured when the picker was opened against an
+   * anchor inside the bubble menu. Used by the virtual reference to re-resolve
+   * `.dm-ncp-trigger` when the bubble menu rebuilds its DOM on transactions
+   * and the original anchor element becomes disconnected. Null when the
+   * picker was opened from a custom UI outside the bubble menu.
+   */
+  #anchorBubbleMenu: HTMLElement | null = null;
+  /** Last computed anchor rect; used as a fallback when no live anchor can be resolved. */
+  #lastAnchorRect: DOMRect | null = null;
   #host: HTMLElement | null = null;
   #panel: HTMLDivElement | null = null;
   #currentTextToken: string | null = null;
@@ -196,6 +206,11 @@ export class DomternalNotionColorPicker extends EventTarget {
     // Lazy host resolution - in case editor view wasn't in DOM at construction.
     this.#host ??= this.#editor.view.dom.closest<HTMLElement>('.dm-editor');
     this.#anchor = anchor;
+    // Capture bubble menu container if anchor lives inside one. Stored
+    // separately because the anchor element itself may get disconnected when
+    // the bubble menu rebuilds; the container element is stable.
+    this.#anchorBubbleMenu = anchor.closest<HTMLElement>('.dm-bubble-menu');
+    this.#lastAnchorRect = anchor.getBoundingClientRect();
     this.#syncFromSelection();
     this.#isOpen = true;
     this.#setStorageOpen(true);
@@ -223,6 +238,8 @@ export class DomternalNotionColorPicker extends EventTarget {
       // Keep `#panel` for reuse on next open; just detach from DOM.
     }
     this.#anchor = null;
+    this.#anchorBubbleMenu = null;
+    this.#lastAnchorRect = null;
     if (opts.refocus && !this.#editor.isDestroyed) {
       this.#editor.view.focus();
     }
@@ -282,6 +299,8 @@ export class DomternalNotionColorPicker extends EventTarget {
     this.#panel = null;
     this.#isOpen = false;
     this.#anchor = null;
+    this.#anchorBubbleMenu = null;
+    this.#lastAnchorRect = null;
   }
 
   // === Internal ===
@@ -489,12 +508,36 @@ export class DomternalNotionColorPicker extends EventTarget {
   #positionAndFocus(): void {
     if (!this.#anchor || !this.#panel) return;
     this.#cleanupFloating?.();
-    // Use `positionFloatingOnce` (no auto-track + no hide middleware) instead
-    // of `positionFloating`: the bubble menu rebuilds its A button on every
-    // transaction, which orphans our anchor reference. `positionFloating`'s
-    // `hide` middleware reacts to the orphan by setting `visibility: hidden`
-    // on the panel, which propagates to swatches and breaks `focus()`.
-    this.#cleanupFloating = positionFloatingOnce(this.#anchor, this.#panel, {
+    // Virtual reference: re-resolves the live `.dm-ncp-trigger` inside the
+    // captured bubble menu container on every position update. The vanilla
+    // bubble menu rebuilds its DOM with `replaceChildren` on every editor
+    // transaction, which disconnects the original anchor element; without
+    // re-resolution `getBoundingClientRect` returns a zero rect and the panel
+    // flies to the top-left corner. When opened from a custom UI (no bubble
+    // menu container), we fall back to the stored anchor or its last known
+    // rect.
+    const virtualRef = {
+      getBoundingClientRect: (): DOMRect => {
+        if (this.#anchor?.isConnected) {
+          const rect = this.#anchor.getBoundingClientRect();
+          this.#lastAnchorRect = rect;
+          return rect;
+        }
+        if (this.#anchorBubbleMenu?.isConnected) {
+          const fresh = this.#anchorBubbleMenu.querySelector<HTMLElement>(
+            '.dm-ncp-trigger',
+          );
+          if (fresh) {
+            this.#anchor = fresh;
+            const rect = fresh.getBoundingClientRect();
+            this.#lastAnchorRect = rect;
+            return rect;
+          }
+        }
+        return this.#lastAnchorRect ?? new DOMRect(0, 0, 0, 0);
+      },
+    };
+    this.#cleanupFloating = positionFloating(virtualRef, this.#panel, {
       placement: 'bottom-start',
       offsetValue: 4,
     });
