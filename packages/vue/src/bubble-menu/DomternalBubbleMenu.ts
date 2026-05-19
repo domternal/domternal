@@ -2,7 +2,6 @@ import { computed, defineComponent, h, ref, watch } from 'vue';
 import type { PropType, ShallowRef, VNode } from 'vue';
 import {
   ToolbarController,
-  defaultIcons,
   positionFloatingOnce,
 } from '@domternal/core';
 import type { Editor, IconSet, ToolbarButton, ToolbarDropdown, BubbleMenuOptions } from '@domternal/core';
@@ -43,6 +42,7 @@ export const DomternalBubbleMenu = defineComponent({
     // is safe (both share the same .value interface and watch subscribes to either)
     // and matches the wrapper convention (see useEmojiPicker).
     const editorRef = computed(() => props.editor ?? contextEditor.value) as ShallowRef<Editor | null>;
+    const iconsRef = computed(() => props.icons) as ShallowRef<IconSet | undefined>;
 
     const {
       menuRef,
@@ -63,6 +63,7 @@ export const DomternalBubbleMenu = defineComponent({
       updateDelay: props.updateDelay,
       items: props.items,
       contexts: props.contexts,
+      icons: iconsRef,
     });
 
     // Only one dropdown is open at a time across the entire bubble menu - the
@@ -267,7 +268,7 @@ const BubbleDropdown = defineComponent({
         ? dropdown.items.find((sub) => props.isItemActive(sub))
         : undefined;
       const triggerIcon = activeChild?.icon ?? dropdown.icon;
-      const triggerHtml = (defaultIcons[triggerIcon] ?? props.getCachedIcon(triggerIcon)) + DROPDOWN_CARET;
+      const triggerHtml = props.getCachedIcon(triggerIcon) + DROPDOWN_CARET;
 
       return h('div', {
         class: 'dm-toolbar-dropdown-wrapper',
@@ -295,7 +296,7 @@ const BubbleDropdown = defineComponent({
             'data-dropdown-panel': dropdown.name,
           }, dropdown.items.map((sub) => {
             const subActive = props.isItemActive(sub);
-            const subHtml = `${defaultIcons[sub.icon] ?? props.getCachedIcon(sub.icon)} ${sub.label}`;
+            const subHtml = `${props.getCachedIcon(sub.icon)} ${sub.label}`;
             return h('button', {
               key: sub.name,
               type: 'button',

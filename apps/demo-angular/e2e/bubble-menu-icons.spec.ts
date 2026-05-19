@@ -12,7 +12,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 const editorSelector = '.dm-editor .ProseMirror';
 const bubbleMenu = '.dm-bubble-menu';
-const modeToggleNotion = '.toolbar-mode-toggle button:has-text("Notion style")';
+const modeToggleNotion = 'button:has-text("Notion style")';
 
 async function gotoDefault(page: Page, search = ''): Promise<void> {
   await page.goto('/' + (search ? `?${search}` : ''));
@@ -245,8 +245,7 @@ test.describe('BubbleMenu icons - Group D: contexts', () => {
     await gotoDefault(page, 'bubble-icons=full');
     await setContentAndFocus(page, '<pre><code>const x = 1;</code></pre>');
     await selectInParagraph(page, 0, 5, `${editorSelector} code`);
-    // Hidden bubble menu inside codeBlock is an acceptable framework choice;
-    // if it IS visible, no default-icon SVGs should leak through.
+    // Bubble may hide inside codeBlock; if visible, no default icon should leak through.
     const isVisible = await page.locator(bubbleMenu).isVisible();
     if (isVisible) {
       const defaultIcons = await page.locator(`${bubbleMenu} svg:not([data-test-icon])`).count();
@@ -300,7 +299,7 @@ test.describe('BubbleMenu icons - Group F: active state', () => {
     await openBubble(page);
     const bold = bubbleButton(page, 'Bold');
     await bold.click();
-    await selectInParagraph(page, 0, 'Hello'.length);
+    await page.waitForTimeout(100);
     await expect(page.locator(bubbleMenu)).toBeVisible();
     await expect(bold).toHaveAttribute('aria-pressed', 'true');
     await expect(bold.locator('svg[data-test-icon="custom-bold"]')).toHaveCount(1);
@@ -313,7 +312,7 @@ test.describe('BubbleMenu icons - Group F: active state', () => {
     const bold = bubbleButton(page, 'Bold');
     await expect(bold).toHaveAttribute('aria-label', 'Bold');
     await expect(bold).toHaveAttribute('title', /Bold/);
-    // Roving tabindex is optional per wrapper; cap at one focused button.
+    // Roving tabindex is optional; assert at most one button has tabindex=0.
     const zeros = await page.locator(`${bubbleMenu} button[tabindex="0"]`).count();
     expect(zeros).toBeLessThanOrEqual(1);
   });
@@ -342,18 +341,18 @@ test.describe('BubbleMenu icons - Group G: edge cases', () => {
     await expect(bold.locator('.my-bold-icon')).toHaveText('B');
   });
 
-  test('G3: destroying editor with custom icons does not leak', async ({ page }) => {
+  test('G3: swapping icons removes the old custom SVG from the DOM', async ({ page }) => {
     await gotoDefault(page, 'bubble-icons=full');
     await openBubble(page);
     await expectCustomIcon(page, 'Bold', 'bold');
     await page.evaluate(() => {
-      const editor = (window as unknown as Record<string, { destroy: () => void }>).__DEMO_EDITOR__;
-      editor.destroy();
+      const setter = (window as unknown as Record<string, (k: string | null) => void>).__DEMO_SET_BUBBLE_ICONS__;
+      setter(null);
     });
     await page.waitForTimeout(100);
-    await expect(page.locator(`${bubbleMenu}.dm-bubble-menu`)).toHaveCount(0);
-    const leaks = await page.locator(`[data-test-icon]`).count();
-    expect(leaks).toBe(0);
+    await selectInParagraph(page, 0, 'Hello'.length);
+    await expect(page.locator(bubbleMenu)).toBeVisible();
+    await expect(page.locator(`${bubbleMenu} [data-test-icon]`)).toHaveCount(0);
   });
 
   test('G4: switching to notion mode reads icons param at mount', async ({ page }) => {

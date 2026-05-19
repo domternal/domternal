@@ -2,9 +2,9 @@ import {
   ToolbarController,
   createBubbleMenuPlugin,
   defaultBubbleContexts,
-  defaultIcons,
   positionFloatingOnce,
 } from '@domternal/core';
+import { resolveIcon } from '../shared/iconRenderer.js';
 import type {
   Editor,
   BubbleMenuOptions,
@@ -138,6 +138,7 @@ export class DomternalBubbleMenu extends EventTarget {
   #updateDelay: number;
   #explicitItems: string[] | undefined;
   #explicitContexts: Record<string, string[] | true | null> | undefined;
+  #icons: IconSet | undefined;
 
   // Editor-derived caches (set once in #init)
   #maps: ItemMaps | null = null;
@@ -185,7 +186,7 @@ export class DomternalBubbleMenu extends EventTarget {
     this.#updateDelay = options.updateDelay ?? 0;
     this.#explicitItems = options.items;
     this.#explicitContexts = options.contexts;
-    void options.icons;
+    this.#icons = options.icons;
     this.#customContent = options.customContent;
     this.#pluginKey = createPluginKey('vanillaBubbleMenu');
 
@@ -280,7 +281,7 @@ export class DomternalBubbleMenu extends EventTarget {
   /** Replace the icon set. `undefined` restores default Phosphor icons. */
   setIcons(icons: IconSet | undefined): void {
     if (this.#destroyed) return;
-    void icons;
+    this.#icons = icons;
     this.#scheduleRender();
   }
 
@@ -581,7 +582,7 @@ export class DomternalBubbleMenu extends EventTarget {
     btn.setAttribute('aria-label', item.label);
     btn.setAttribute('aria-pressed', String(isActive));
     btn.title = item.label;
-    btn.innerHTML = defaultIcons[item.icon] ?? '';
+    btn.innerHTML = resolveIcon(item.icon, this.#icons);
 
     btn.addEventListener('mousedown', (e) => { e.preventDefault(); });
     btn.addEventListener('click', (e) => { this.#onButtonClick(item, e); });
@@ -598,7 +599,7 @@ export class DomternalBubbleMenu extends EventTarget {
       ? dd.items.find((sub) => this.#activeMap.get(sub.name) ?? false)
       : undefined;
     const triggerIcon = activeChild?.icon ?? dd.icon;
-    const triggerHtml = (defaultIcons[triggerIcon] ?? '') + DROPDOWN_CARET;
+    const triggerHtml = resolveIcon(triggerIcon, this.#icons) + DROPDOWN_CARET;
 
     const trigger = document.createElement('button');
     trigger.type = 'button';
@@ -636,7 +637,7 @@ export class DomternalBubbleMenu extends EventTarget {
 
     for (const sub of dd.items) {
       const subActive = this.#activeMap.get(sub.name) ?? false;
-      const subHtml = `${defaultIcons[sub.icon] ?? ''} ${sub.label}`;
+      const subHtml = `${resolveIcon(sub.icon, this.#icons)} ${sub.label}`;
       const subBtn = document.createElement('button');
       subBtn.type = 'button';
       subBtn.className = 'dm-toolbar-dropdown-item';
@@ -688,7 +689,7 @@ export class DomternalBubbleMenu extends EventTarget {
       : 'More options';
     btn.setAttribute('aria-label', 'More options');
     btn.setAttribute('aria-haspopup', 'menu');
-    btn.innerHTML = defaultIcons['dotsThree'] ?? '';
+    btn.innerHTML = resolveIcon('dotsThree', this.#icons);
     btn.addEventListener('mousedown', (e) => { e.preventDefault(); });
     btn.addEventListener('click', () => { this.openBlockContextMenu(btn); });
     return btn;

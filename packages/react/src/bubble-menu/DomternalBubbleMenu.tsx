@@ -1,12 +1,13 @@
 import {
   useCallback,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
 } from 'react';
 import type { Editor, BubbleMenuOptions, IconSet, ToolbarButton, ToolbarDropdown } from '@domternal/core';
-import { defaultIcons, positionFloatingOnce } from '@domternal/core';
+import { positionFloatingOnce } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useBubbleMenu } from './useBubbleMenu.js';
 
@@ -43,12 +44,11 @@ export function DomternalBubbleMenu({
   updateDelay,
   items,
   contexts,
+  icons,
   children,
 }: DomternalBubbleMenuProps): ReactNode {
   const { editor: contextEditor } = useCurrentEditor();
   const editor = editorProp ?? contextEditor;
-
-  const htmlCacheRef = useRef(new Map<string, string>());
 
   const {
     menuRef,
@@ -69,18 +69,22 @@ export function DomternalBubbleMenu({
     updateDelay,
     items,
     contexts,
+    icons,
   });
 
   // Force re-read of activeVersion in render to subscribe to state changes.
   void activeVersion;
 
-  const getCachedHtml = useCallback((name: string): string => {
-    const cache = htmlCacheRef.current;
-    const cached = cache.get(name);
-    if (cached) return cached;
-    const html = getCachedIcon(name);
-    cache.set(name, html);
-    return html;
+  // Fresh cache on getCachedIcon identity change, so an icons prop swap evicts old SVGs.
+  const getCachedHtml = useMemo(() => {
+    const cache = new Map<string, string>();
+    return (name: string): string => {
+      const cached = cache.get(name);
+      if (cached !== undefined) return cached;
+      const html = getCachedIcon(name);
+      cache.set(name, html);
+      return html;
+    };
   }, [getCachedIcon]);
 
   // Only one dropdown is open at a time across the entire bubble menu - the
@@ -220,7 +224,7 @@ function BubbleDropdown({
     ? dropdown.items.find((sub) => isItemActive(sub))
     : undefined;
   const triggerIcon = activeChild?.icon ?? dropdown.icon;
-  const triggerHtml = (defaultIcons[triggerIcon] ?? getCachedHtml(triggerIcon)) + DROPDOWN_CARET;
+  const triggerHtml = getCachedHtml(triggerIcon) + DROPDOWN_CARET;
 
   // Position dropdown + outside-close / Escape / cooperative dismissal via
   // a single AbortController.
@@ -291,7 +295,7 @@ function BubbleDropdown({
         >
           {dropdown.items.map((sub) => {
             const subActive = isItemActive(sub);
-            const subHtml = `${defaultIcons[sub.icon] ?? getCachedHtml(sub.icon)} ${sub.label}`;
+            const subHtml = `${getCachedHtml(sub.icon)} ${sub.label}`;
             return (
               <button
                 key={sub.name}
