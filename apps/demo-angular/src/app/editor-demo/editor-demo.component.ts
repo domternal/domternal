@@ -1,4 +1,5 @@
-import { Component, ChangeDetectionStrategy, signal, input, effect, untracked, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, OnDestroy, signal, input, effect, untracked, computed } from '@angular/core';
+import type { IconSet } from '@domternal/core';
 import {
   DomternalEditorComponent,
   DomternalToolbarComponent,
@@ -46,6 +47,12 @@ import { SmartPaste } from '@domternal/extension-block-menu';
 import type { MentionItem } from '@domternal/extension-mention';
 import { createLowlight, common } from 'lowlight';
 import { DEMO_CONTENT } from './demo-content.js';
+import {
+  parseBubbleIconsParam,
+  parseBubbleItemsParam,
+  resolveBubbleIcons,
+  type BubbleIconsParam,
+} from '../bubble-icons-fixtures.js';
 
 const lowlight = createLowlight(common);
 const codeHighlighter = createCodeHighlighter(lowlight);
@@ -67,7 +74,7 @@ const mockUsers: MentionItem[] = [
   imports: [DomternalEditorComponent, DomternalToolbarComponent, DomternalBubbleMenuComponent, DomternalEmojiPickerComponent],
   templateUrl: './editor-demo.component.html',
 })
-export class EditorDemoComponent {
+export class EditorDemoComponent implements OnDestroy {
   private readonly params = new URLSearchParams(window.location.search);
   private readonly constrainTable = !this.params.has('constrainTable', 'false');
   private readonly resizeBehavior = (this.params.get('resizeBehavior') ?? 'neighbor') as 'neighbor' | 'independent' | 'redistribute';
@@ -127,6 +134,13 @@ export class EditorDemoComponent {
     return untracked(() => this.editor()?.isEmpty ?? true);
   });
   readonly useLayout = input(false);
+
+  // E2E fixture: ?bubble-icons= URL param + window.__DEMO_SET_BUBBLE_ICONS__ runtime hook.
+  readonly bubbleIcons = signal<IconSet | undefined>(resolveBubbleIcons(parseBubbleIconsParam()));
+  readonly bubbleItems = signal<string[] | undefined>(parseBubbleItemsParam());
+  readonly bubbleContexts = computed(() =>
+    this.bubbleItems() ? undefined : { text: ['bold', 'italic', 'underline', 'strike', 'code', '|', 'link'] },
+  );
   toolbarLayout: ToolbarLayoutEntry[] = [
     'bold', 'italic', 'underline', 'heading1',
     '|',
@@ -151,6 +165,16 @@ export class EditorDemoComponent {
         requestAnimationFrame(() => editor.commands.focus());
       }
     });
+
+    const w = window as unknown as Record<string, unknown>;
+    w['__DEMO_SET_BUBBLE_ICONS__'] = (key: BubbleIconsParam | null): void => {
+      this.bubbleIcons.set(resolveBubbleIcons(key));
+    };
+  }
+
+  ngOnDestroy(): void {
+    const w = window as unknown as Record<string, unknown>;
+    w['__DEMO_SET_BUBBLE_ICONS__'] = undefined;
   }
 
   getStyledHtml(html: string): string {

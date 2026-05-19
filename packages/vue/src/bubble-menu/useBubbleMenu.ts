@@ -7,7 +7,7 @@ import {
   defaultBubbleContexts,
   defaultIcons,
 } from '@domternal/core';
-import type { Editor, ToolbarButton, ToolbarDropdown, BubbleMenuOptions } from '@domternal/core';
+import type { Editor, IconSet, ToolbarButton, ToolbarDropdown, BubbleMenuOptions } from '@domternal/core';
 import { useDebouncedRef } from '../utils.js';
 
 // --- Duck-typed ProseMirror shapes (avoids instanceof across bundles) ---
@@ -92,6 +92,7 @@ export interface UseBubbleMenuOptions {
   updateDelay?: number | undefined;
   items?: string[] | undefined;
   contexts?: Record<string, string[] | true | null> | undefined;
+  icons?: ShallowRef<IconSet | undefined> | undefined;
 }
 
 export interface UseBubbleMenuResult {
@@ -111,7 +112,7 @@ export interface UseBubbleMenuResult {
 }
 
 export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResult {
-  const { editor, shouldShow, placement = 'top', offset = 8, updateDelay = 0, items, contexts: explicitContexts } = options;
+  const { editor, shouldShow, placement = 'top', offset = 8, updateDelay = 0, items, contexts: explicitContexts, icons: iconsRef } = options;
 
   const menuRef = ref<HTMLDivElement>();
   // Prefer crypto.randomUUID for collision-free uniqueness when two
@@ -507,7 +508,7 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
   };
 
   const getCachedIcon = (name: string): string => {
-    return defaultIcons[name] ?? '';
+    return iconsRef?.value?.[name] ?? defaultIcons[name] ?? '';
   };
 
   /**

@@ -5,6 +5,7 @@ import {
   ViewEncapsulation,
   input,
   signal,
+  effect,
   inject,
   NgZone,
   viewChild,
@@ -20,7 +21,7 @@ import {
   defaultIcons,
   positionFloatingOnce,
 } from '@domternal/core';
-import type { BubbleMenuOptions, ToolbarButton, ToolbarDropdown ,
+import type { BubbleMenuOptions, IconSet, ToolbarButton, ToolbarDropdown ,
   Editor} from '@domternal/core';
 
 interface BubbleMenuSeparator { type: 'separator'; name: string }
@@ -145,10 +146,16 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   readonly updateDelay = input(0);
 
   /** Fixed item names (e.g. ['bold', 'italic', 'code']). Omit for auto mode (all format items). */
-  readonly items = input<string[]>();
+  readonly items = input<string[] | undefined>(undefined);
 
   /** Context-aware: map context names to item arrays, `true` for all valid items, or `null` to disable */
-  readonly contexts = input<Record<string, string[] | true | null>>();
+  readonly contexts = input<Record<string, string[] | true | null> | undefined>(undefined);
+
+  /**
+   * Custom icon overrides. Falls back to default Phosphor icons for unmapped keys.
+   * For nullable bindings, use `iconsSignal() ?? {}` to satisfy strict template checks.
+   */
+  readonly icons = input<IconSet | undefined>(undefined);
 
   /**
    * Returns the effective contexts map: the explicit `contexts` input
@@ -225,6 +232,12 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
       crypto?.randomUUID?.().slice(0, 8) ?? Math.random().toString(36).slice(2, 8);
     this.pluginKey = new PluginKey('angularBubbleMenu-' + suffix);
 
+    // Cache keys do not include icon-set identity, so flush on swap.
+    effect(() => {
+      this.icons();
+      this.htmlCache.clear();
+    });
+
     afterNextRender(() => {
       const editor = this.editor();
       const ctxs = this.resolveContexts(editor);
@@ -293,7 +306,8 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   getCachedIcon(name: string): SafeHtml {
     let cached = this.htmlCache.get(name);
     if (!cached) {
-      cached = this.sanitizer.bypassSecurityTrustHtml(defaultIcons[name] ?? '');
+      const custom = this.icons();
+      cached = this.sanitizer.bypassSecurityTrustHtml(custom?.[name] ?? defaultIcons[name] ?? '');
       this.htmlCache.set(name, cached);
     }
     return cached;
@@ -641,7 +655,8 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     const key = `t:${iconName}`;
     let cached = this.htmlCache.get(key);
     if (!cached) {
-      const svg = defaultIcons[iconName] ?? '';
+      const custom = this.icons();
+      const svg = custom?.[iconName] ?? defaultIcons[iconName] ?? '';
       cached = this.sanitizer.bypassSecurityTrustHtml(svg + this.dropdownCaret);
       this.htmlCache.set(key, cached);
     }
@@ -652,7 +667,8 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     const key = `dc:${iconName}:${label}`;
     let cached = this.htmlCache.get(key);
     if (!cached) {
-      const svg = defaultIcons[iconName] ?? '';
+      const custom = this.icons();
+      const svg = custom?.[iconName] ?? defaultIcons[iconName] ?? '';
       cached = this.sanitizer.bypassSecurityTrustHtml(`${svg} ${label}`);
       this.htmlCache.set(key, cached);
     }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import {
   useEditor,
   useEditorState,
@@ -40,6 +40,7 @@ import {
   inlineStyles,
   getListItemCursorContext,
 } from '@domternal/core';
+import type { IconSet } from '@domternal/core';
 import { CodeBlockLowlight, createCodeHighlighter } from '@domternal/extension-code-block-lowlight';
 import { Image } from '@domternal/extension-image';
 import { Details } from '@domternal/extension-details';
@@ -58,6 +59,11 @@ import type { BlockMatcher, BlockCandidate } from '@domternal/extension-block-me
 import { TableOfContents, FloatingTocOutline, TableOfContentsBlock } from '@domternal/extension-toc';
 import { createLowlight, common } from 'lowlight';
 import { NOTION_DEMO_CONTENT } from './notion-demo-content.js';
+import {
+  parseBubbleIconsParam,
+  resolveBubbleIcons,
+  type BubbleIconsParam,
+} from './bubble-icons-fixtures.js';
 
 const lowlight = createLowlight(common);
 const codeHighlighter = createCodeHighlighter(lowlight);
@@ -173,6 +179,19 @@ const styledHtml = computed(() =>
 );
 
 const toasts = ref<Toast[]>([]);
+
+// E2E fixture for bubble menu icons override.
+const bubbleIcons = ref<IconSet | undefined>(resolveBubbleIcons(parseBubbleIconsParam()));
+onMounted(() => {
+  const w = window as unknown as Record<string, unknown>;
+  w['__DEMO_SET_BUBBLE_ICONS__'] = (key: BubbleIconsParam | null): void => {
+    bubbleIcons.value = resolveBubbleIcons(key);
+  };
+});
+onUnmounted(() => {
+  const w = window as unknown as Record<string, unknown>;
+  w['__DEMO_SET_BUBBLE_ICONS__'] = undefined;
+});
 let toastCounter = 0;
 const pushToast = (message: string, kind: Toast['kind']): void => {
   const id = ++toastCounter;
@@ -222,7 +241,7 @@ watch(editor, (ed, _old, onCleanup) => {
       </div>
 
       <template v-if="editor">
-        <DomternalBubbleMenu :editor="editor" />
+        <DomternalBubbleMenu :editor="editor" :icons="bubbleIcons" />
         <DomternalFloatingMenu :editor="editor" :require-explicit-trigger="true" />
         <DomternalNotionColorPicker :editor="editor" />
       </template>

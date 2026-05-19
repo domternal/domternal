@@ -6,7 +6,7 @@ import {
   defaultBubbleContexts,
   defaultIcons,
 } from '@domternal/core';
-import type { Editor, ToolbarButton, ToolbarDropdown, BubbleMenuOptions } from '@domternal/core';
+import type { Editor, IconSet, ToolbarButton, ToolbarDropdown, BubbleMenuOptions } from '@domternal/core';
 
 // --- Duck-typed ProseMirror shapes (avoids instanceof across bundles) ---
 
@@ -90,6 +90,7 @@ export interface UseBubbleMenuOptions {
   updateDelay?: number | undefined;
   items?: string[] | undefined;
   contexts?: Record<string, string[] | true | null> | undefined;
+  icons?: IconSet | undefined;
 }
 
 export interface UseBubbleMenuResult {
@@ -109,7 +110,7 @@ export interface UseBubbleMenuResult {
 }
 
 export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResult {
-  const { editor, shouldShow, placement = 'top', offset = 8, updateDelay = 0, items, contexts: explicitContexts } = options;
+  const { editor, shouldShow, placement = 'top', offset = 8, updateDelay = 0, items, contexts: explicitContexts, icons } = options;
   // Synthesise default contexts when the consumer hasn't supplied either
   // `contexts` or `items`. The default depends on the `.dm-notion-mode`
   // ancestor class so Notion-style hosts get a richer toolbar without
@@ -519,7 +520,7 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
     isItemDisabled,
     executeCommand,
     activeVersion,
-    getCachedIcon: (name: string) => defaultIcons[name] ?? '',
+    getCachedIcon: (name: string) => icons?.[name] ?? defaultIcons[name] ?? '',
     trailing,
     openColorPicker,
     openBlockContextMenu,

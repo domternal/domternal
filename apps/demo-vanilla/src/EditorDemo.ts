@@ -45,6 +45,12 @@ import { Mention, createMentionSuggestionRenderer } from '@domternal/extension-m
 import type { MentionItem } from '@domternal/extension-mention';
 import { createLowlight, common } from 'lowlight';
 import { DEMO_CONTENT } from './demo-content.js';
+import {
+  parseBubbleIconsParam,
+  parseBubbleItemsParam,
+  resolveBubbleIcons,
+  type BubbleIconsParam,
+} from './bubble-icons-fixtures.js';
 
 const lowlight = createLowlight(common);
 const codeHighlighter = createCodeHighlighter(lowlight);
@@ -172,12 +178,22 @@ export class EditorDemo {
       ...(options.useLayout && { layout: TOOLBAR_LAYOUT }),
     });
 
+    // E2E fixture: ?bubble-icons= URL param + window.__DEMO_SET_BUBBLE_ICONS__ runtime hook.
+    const initialIcons = resolveBubbleIcons(parseBubbleIconsParam());
+    const initialItems = parseBubbleItemsParam();
     this.#bubbleMenu = new DomternalBubbleMenu(bubbleHost, {
       editor,
-      ...(bubbleAuto
+      ...(bubbleAuto || initialItems
         ? {}
         : { contexts: { text: ['bold', 'italic', 'underline', 'strike', 'code'] } }),
+      ...(initialItems ? { items: initialItems } : {}),
+      ...(initialIcons ? { icons: initialIcons } : {}),
     });
+
+    (window as unknown as Record<string, unknown>).__DEMO_SET_BUBBLE_ICONS__ =
+      (key: BubbleIconsParam | null): void => {
+        this.#bubbleMenu.setIcons(resolveBubbleIcons(key));
+      };
 
     this.#floatingMenu = new DomternalFloatingMenu(floatingHost, { editor });
 
@@ -255,6 +271,7 @@ export class EditorDemo {
     this.#editorWrapper.destroy();
 
     (window as unknown as Record<string, unknown>).__DEMO_EDITOR__ = undefined;
+    (window as unknown as Record<string, unknown>).__DEMO_SET_BUBBLE_ICONS__ = undefined;
 
     this.#container.replaceChildren();
   }

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   useEditor,
   useEditorState,
@@ -44,8 +44,15 @@ import { Table } from '@domternal/extension-table';
 import { Emoji, emojis, createEmojiSuggestionRenderer } from '@domternal/extension-emoji';
 import { Mention, createMentionSuggestionRenderer } from '@domternal/extension-mention';
 import type { MentionItem } from '@domternal/extension-mention';
+import type { IconSet } from '@domternal/core';
 import { createLowlight, common } from 'lowlight';
 import { DEMO_CONTENT } from './demo-content.js';
+import {
+  parseBubbleIconsParam,
+  parseBubbleItemsParam,
+  resolveBubbleIcons,
+  type BubbleIconsParam,
+} from './bubble-icons-fixtures.js';
 
 const lowlight = createLowlight(common);
 const codeHighlighter = createCodeHighlighter(lowlight);
@@ -115,6 +122,20 @@ export function EditorDemo({ useLayout }: EditorDemoProps) {
     content: DEMO_CONTENT,
   });
 
+  // E2E fixture: ?bubble-icons= URL param + window.__DEMO_SET_BUBBLE_ICONS__ runtime hook.
+  const [bubbleIcons, setBubbleIcons] = useState<IconSet | undefined>(() =>
+    resolveBubbleIcons(parseBubbleIconsParam()),
+  );
+  const [bubbleItems] = useState<string[] | undefined>(() => parseBubbleItemsParam());
+
+  useEffect(() => {
+    const w = window as unknown as Record<string, unknown>;
+    w['__DEMO_SET_BUBBLE_ICONS__'] = (key: BubbleIconsParam | null): void => {
+      setBubbleIcons(resolveBubbleIcons(key));
+    };
+    return () => { w['__DEMO_SET_BUBBLE_ICONS__'] = undefined; };
+  }, []);
+
   const { htmlContent } = useEditorState(editor);
 
   // Selector mode (React-specific: memoized via useSyncExternalStore)
@@ -147,11 +168,13 @@ export function EditorDemo({ useLayout }: EditorDemoProps) {
       {editor && (
         <>
           {bubbleAuto ? (
-            <DomternalBubbleMenu editor={editor} />
+            <DomternalBubbleMenu editor={editor} icons={bubbleIcons} items={bubbleItems} />
           ) : (
             <DomternalBubbleMenu
               editor={editor}
-              contexts={{ text: ['bold', 'italic', 'underline', 'strike', 'code'] }}
+              contexts={bubbleItems ? undefined : { text: ['bold', 'italic', 'underline', 'strike', 'code'] }}
+              items={bubbleItems}
+              icons={bubbleIcons}
             />
           )}
           <DomternalFloatingMenu editor={editor} />

@@ -66,7 +66,13 @@ const PARAGRAPH_EXCLUSION_PARENTS = new Set([
   'blockquote', 'tableCell', 'tableHeader', 'tableRow', 'details', 'detailsContent',
 ]);
 import type { MentionItem } from '@domternal/extension-mention';
+import type { IconSet } from '@domternal/core';
 import { createLowlight, common } from 'lowlight';
+import {
+  parseBubbleIconsParam,
+  resolveBubbleIcons,
+  type BubbleIconsParam,
+} from '../bubble-icons-fixtures.js';
 
 const lowlight = createLowlight(common);
 const codeHighlighter = createCodeHighlighter(lowlight);
@@ -175,6 +181,16 @@ export class NotionDemoComponent implements OnDestroy {
   editorContent = NOTION_DEMO_CONTENT;
   editor = signal<Editor | null>(null);
 
+  // E2E fixture for bubble menu icons override.
+  readonly bubbleIcons = signal<IconSet | undefined>(resolveBubbleIcons(parseBubbleIconsParam()));
+
+  constructor() {
+    const w = window as unknown as Record<string, unknown>;
+    w['__DEMO_SET_BUBBLE_ICONS__'] = (key: BubbleIconsParam | null): void => {
+      this.bubbleIcons.set(resolveBubbleIcons(key));
+    };
+  }
+
   // Tracked so `ngOnDestroy` and subsequent `onEditorCreated` calls can
   // remove listeners before adding new ones. Without this, repeatedly
   // mounting the component (HMR / route re-entry) would accumulate
@@ -222,6 +238,8 @@ export class NotionDemoComponent implements OnDestroy {
   ngOnDestroy(): void {
     this.removeCopyLinkListeners();
     this.copyLinkHost = null;
+    const w = window as unknown as Record<string, unknown>;
+    w['__DEMO_SET_BUBBLE_ICONS__'] = undefined;
   }
 
   private removeCopyLinkListeners(): void {
