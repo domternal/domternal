@@ -1,5 +1,80 @@
 # Changelog
 
+## 0.7.0 (2026-05-19)
+
+### Breaking changes
+
+- `listItem`/`taskItem` schema is now Notion-strict (`paragraph block*`). Existing content where the first child is not a paragraph may need migration.
+
+### Packages
+
+- New: `@domternal/vanilla` - framework-free DOM wrapper for Astro, Svelte, Solid, plain HTML, and Web Components. Class-based API (`new DomternalEditor(host, opts)` + `.destroy()` + setters), ESM-only with subpath exports, SSR-safe. Ships `DomternalEditor`, `DomternalToolbar`, `DomternalBubbleMenu`, `DomternalFloatingMenu`, `DomternalEmojiPicker`, `DomternalNotionColorPicker`.
+- New: `@domternal/extension-block-menu` - Notion-style block UX: `BlockHandle` (hover gutter with drag and plus button), `BlockContextMenu` (Delete / Duplicate / Turn into / Colors / Copy link), `KeyboardReorder` (Mod-Shift-Up/Down), `SlashCommand`, `SmartPaste`.
+- New: `@domternal/extension-toc` - Notion-style Table of Contents. Ships `TableOfContents` (heading observer + `scrollToHeading` command), `FloatingTocOutline` (sticky outline with IntersectionObserver active tracking and hover-expanded card), `TableOfContentsBlock` (inline `/toc` atom node).
+
+### Features
+
+- feat(core): `FloatingMenu` items API with controller (role=menu, Alt-F10 / Mod-/ keymap, click-outside, roving tabindex). Default items contributed by Heading, Lists, Blockquote, CodeBlock, HorizontalRule, Image, Table, Details via `addFloatingMenuItems` hook. (#75)
+- feat(angular,react,vue): render `FloatingMenu` via controller with role=menu, groups, roving-tabindex keyboard nav. (#75)
+- feat(core): `NotionColorPicker` extension with named-token color attrs (`colorToken`, `backgroundColorToken`) on `textStyle` mark, hex/token mutual exclusion, last-action-wins for inline color conflicts. (#80)
+- feat(angular,react,vue,vanilla): `DomternalNotionColorPicker` component - circular 5x2 grid, dark palette, persistent picker, A trigger glyph with slash. (#80)
+- feat(core): Notion-style list/task UX. Strict `paragraph block*` schema with children-zone indent, `ListIndent` extension (`Tab`/`Shift-Tab` outside list items indents as nested child), Enter on empty children-zone paragraph inserts sibling inside the li, non-empty Enter splits in place, Backspace at offset 0 lifts as top-level paragraph. (#77)
+- feat(core): Notion-style Enter on heading - end-of-heading inserts paragraph below, empty heading converts in place. (#77)
+- feat(core): Notion-style `/h1` in a list-item label dissolves the item (setBlockType lift fallback). (#77)
+- feat(core): `TaskItem` checkbox click toggles checked state via NodeView and applies strikethrough; Enter on a checked task spawns an unchecked sibling. (#80)
+- feat(extension-block-menu): drag-to-reorder with custom drop indicator (sibling/nested modes via X-threshold over list items), auto-scroll near viewport edges, cross-list-type drop auto-conversion, wrap dropped block into listItem when target is a list. (#76, #77)
+- feat(extension-block-menu): nested drag handle for inner blocks of list/task items via `BlockHandle.nested` (configurable allowed nodes, deepest-block-at-Y resolution). (#77)
+- feat(extension-block-menu): `BlockContextMenu` Colors picker, Copy link via new `writeToClipboard` utility (async Clipboard API + execCommand fallback) with split success/error events. Turn into routes wrapper commands and accepts wrapper sources (list-type swap from list-item drag handle). (#76, #80)
+- feat(extension-block-menu): `SlashCommand` works in a list-item label and cooperates with other overlays via `dm:dismiss-overlays`. (#76, #77, #78)
+- feat(extension-toc): `FloatingTocOutline` editor anchor mode with middle/center/frozen state machine, expanded card scroll-closes and viewport-clamps, level-encoded width buttons, hover-expanded card with text labels and per-level indent. (#78, #80)
+- feat(extension-toc): inline `/toc` atom node with reactive heading list, initial-load `#hash` auto-scroll opens collapsed details ancestors. (#78)
+- feat(angular,react,vue,vanilla): `icons` prop / input on `DomternalBubbleMenu` (parity with `DomternalToolbar`). (#81)
+- feat(extension-block-menu,angular,theme): Notion-style empty-paragraph placeholder and `requireExplicitTrigger` on FloatingMenu (opens only on the `+` button). (#76, #80)
+- feat(theme): `.dm-notion-mode` opt-in class with task checkbox token overrides, Notion-style centered content + side gutter for block handle (no text shift on color toggle), task list aligns with bullet list. (#78, #80)
+- feat(demos): Notion mode in all four demo apps (default/custom/notion toggle) with the full extension stack. (#75, #76, #77, #80)
+- feat(angular,theme): text-align dropdown in Notion bubble menu with dynamic icon, Escape close, cross-overlay dismissal, scoped active highlight. (#80)
+- feat(core): `BlockColor` extension - global `bgColor` and `textColor` block attrs preserved across `turnIntoBlock`. (#76)
+- feat(core): `UniqueID` extension renames duplicate ids on `setContent`. (#80)
+- feat(emoji): toolbar option to hide the emoji button from the toolbar (default: `true`). (#71)
+
+### Fixes
+
+- fix(angular,react,vue): show image bubble menu by default when the `Image` extension is loaded. (#71)
+- fix(core): Backspace on an empty paragraph after a list deletes it and places the caret at the end of the last item, instead of wrapping it back as a list item. (#78)
+- fix(core): `toggleList` in a children-zone paragraph wraps that paragraph in a fresh list, instead of converting the ancestor. (#78)
+- fix(core): Backspace on an empty paragraph between two lists of the same type joins them back into one. (#78)
+- fix(extension-block-menu): slash menu activates only on a real typing event of the trigger char (not pure selection changes or bulk inserts); query tracks only typed chars. (#78)
+- fix(extension-block-menu): `SmartPaste` handles same-type slice paste (fixes heading-into-heading shred bug) and trailing hard-break (Shift+Enter). (#76, #80)
+- fix(extension-block-menu): Delete on a list item no longer kills the whole list. (#76)
+- fix(extension-block-menu): `turnIntoBlock` preserves global attrs (`bgColor`, `textColor`, `id`) across block type change. (#76)
+- fix(extension-block-menu): drag and drop edge cases - PM dispatch deferred out of `dragstart` tick, drop works in handle gutter and side margins, fast-drag race between `dragstart` and `drop` handled, dragging the only nested list item collapses its wrapper. (#76, #77)
+- fix(extension-block-menu): `SlashCommand` misposition and page scroll on open. (#76)
+- fix(extension-block-menu): hover detection on the editor parent so the block handle surfaces in the side gutter (Notion centered layout). (#76)
+- fix(extension-block-menu): virtual-ref preserves color picker and context-menu position when the bubble menu rebuilds its anchor. (#80)
+- fix(extension-toc): active heading tracks viewport-top crossing and always keeps one tick lit. (#80)
+- fix(angular,core): `LinkPopover` triggered from the bubble menu anchors to the Link button (bottom-start) and reparents into `.dm-editor`. (#80)
+- fix(core): bubble menu hides A and `...` triggers on node selection (image); `...` disabled on multi-block selection. (#80)
+- fix(theme): notion-demo page background and border follow the dark theme. (#78)
+- fix(theme): scope task-item checked strikethrough to the label paragraph so nested children stay unstruck. (#80)
+- fix(react): migrate to React 19 `RefObject`; runtime guard for `useEditorState` mode. (#74)
+- fix(angular): resolve ESLint errors in wrapper components; raise bundle size budgets for demo and example apps. (#74)
+- fix(extension-block-menu): security + correctness review fixes (XSS, empty-doc guard, position mapping, `duplicateBlock` marks). (#76)
+
+### Accessibility
+
+- `role="menu"` + `aria-label="Floating menu"` on FloatingMenu with roving tabindex. (#75)
+- `BlockContextMenu`: `aria-activedescendant`, arrow nav, Esc close, focus return on outside-click. (#76)
+- `DomternalNotionColorPicker`: `aria-haspopup`, `aria-modal="false"`, disconnected-anchor defense, keyboard arrow nav across the swatch grid. (#80)
+- `prefers-reduced-motion` guards on TOC tick highlight, card slide, drop-indicator transition. (#78, #80)
+- Forced-colors mode guard on TOC outline. (#78)
+
+### Tests / CI
+
+- Codecov integration with per-package flags and coverage badge. `publint` + `arethetypeswrong` validation extended to React, Vue, Vanilla, extension-block-menu, and extension-toc. (#72, #80)
+- E2E retries set to `2` in all demo Playwright configs. (#74)
+- Demo-vanilla: 56 e2e spec files (41 shared + 15 Notion). Demo-angular full Notion mode e2e coverage. Demo-react / demo-vue Notion-specific specs.
+- Coverage raised across packages: `extension-table` 95.56% statements, `extension-block-menu` ~89% lines, `core` 94.42% (all files ≥80%). `FloatingMenuController` 100%. (#73, #75)
+
 ## 0.6.2 (2026-04-16)
 
 ### Fixes

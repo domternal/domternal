@@ -2,7 +2,7 @@
 
 [![Domternal Editor](https://domternal.dev/readme/readme-banner.png?v=2)](https://domternal.dev)
 
-A lightweight, extensible rich text editor toolkit built on [ProseMirror](https://prosemirror.net/). Framework-agnostic headless core with first-class **Angular**, **React**, and **Vue** support. Use it headless with vanilla JS/TS, add the built-in toolbar and theme, or drop in ready-made framework components. Fully tree-shakeable, import only what you use, unused extensions are stripped from your bundle.
+A lightweight, extensible rich text editor toolkit built on [ProseMirror](https://prosemirror.net/). Framework-agnostic headless core with first-class **Angular**, **React**, **Vue**, and **Vanilla** wrappers. Use it headless with vanilla JS/TS, add the built-in toolbar and theme, or drop in ready-made framework components. Fully tree-shakeable, import only what you use, unused extensions are stripped from your bundle.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/domternal/domternal/actions/workflows/ci.yml/badge.svg)](https://github.com/domternal/domternal/actions/workflows/ci.yml)
@@ -16,16 +16,18 @@ A lightweight, extensible rich text editor toolkit built on [ProseMirror](https:
 ## Features
 
 - **Headless core** - use with any framework or vanilla JS/TS
-- **Angular components** - editor, toolbar, bubble menu, floating menu, emoji picker (signals, OnPush, zoneless-ready)
-- **React components** - composable `Domternal` component, toolbar, bubble menu, floating menu, emoji picker, custom node views (React 18+)
-- **Vue components** - composable `Domternal` component, `useEditor`/`useEditorState` composables, toolbar, bubble menu, floating menu, emoji picker, custom node views (Vue 3.3+)
-- **57 extensions across 12 packages** - 23 nodes, 9 marks, and 25 behavior extensions
-- **140+ chainable commands** - `editor.chain().focus().toggleBold().run()`
+- **Angular components** - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker (signals, OnPush, zoneless-ready)
+- **React components** - composable `Domternal` component, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (React 18+)
+- **Vue components** - composable `Domternal` component, `useEditor`/`useEditorState` composables, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (Vue 3.3+)
+- **Vanilla wrapper** - framework-free class-based API for Astro, Svelte, Solid, plain HTML, and Web Components - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker
+- **Notion-style block UX** - drag-to-reorder, block context menu, slash command, smart paste, keyboard reorder, floating Table of Contents
+- **65+ extensions across 15 packages** - nodes, marks, and behavior extensions
+- **120+ chainable commands** - `editor.chain().focus().toggleBold().run()`
 - **Full table support** - cell merging, column resize, row/column controls, cell toolbar, all free and MIT licensed
 - **Tree-shakeable** - import only what you use, your bundler strips the rest
-- **~38 KB gzipped** (own code), [~108 KB total](https://domternal.dev/v1/packages) with ProseMirror
+- **~44 KB gzipped** (own code), [~117 KB total](https://domternal.dev/v1/packages) with ProseMirror - see Packages for full bundle breakdown
 - **TypeScript first** - 100% typed, zero `any`
-- **8,500+ tests** - 2,677 unit tests and 5,800+ E2E tests across 120+ Playwright specs
+- **15,000+ tests** - 4,000+ unit and 11,000+ E2E across 230+ Playwright specs and 4 demo apps
 - **Light and dark theme** - 70+ CSS custom properties for full visual control
 - **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
 - **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
@@ -64,12 +66,15 @@ Import only what you need for full control and zero bloat. Use `StarterKit` for 
 
 | Package | Description |
 |---|---|
-| [`@domternal/core`](https://www.npmjs.com/package/@domternal/core) | Editor engine with 13 nodes, 9 marks, 25 extensions, toolbar controller, and 45 built-in icons |
+| [`@domternal/core`](https://www.npmjs.com/package/@domternal/core) | Editor engine with 13 nodes, 9 marks, 27 extensions, toolbar controller, and 49 built-in icons |
 | [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme) | Light and dark themes with 70+ CSS custom properties |
-| [`@domternal/angular`](https://www.npmjs.com/package/@domternal/angular) | 5 Angular components: editor, toolbar, bubble menu, floating menu, emoji picker |
-| [`@domternal/react`](https://www.npmjs.com/package/@domternal/react) | React 18+ wrapper: composable component, toolbar, bubble menu, floating menu, emoji picker, node views |
-| [`@domternal/vue`](https://www.npmjs.com/package/@domternal/vue) | Vue 3.3+ wrapper: composable component, composables, toolbar, bubble menu, floating menu, emoji picker, node views |
+| [`@domternal/angular`](https://www.npmjs.com/package/@domternal/angular) | 6 Angular components: editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker |
+| [`@domternal/react`](https://www.npmjs.com/package/@domternal/react) | React 18+ wrapper: composable component, toolbar, bubble menu, floating menu, emoji picker, notion color picker, node views |
+| [`@domternal/vue`](https://www.npmjs.com/package/@domternal/vue) | Vue 3.3+ wrapper: composable component, composables, toolbar, bubble menu, floating menu, emoji picker, notion color picker, node views |
+| [`@domternal/vanilla`](https://www.npmjs.com/package/@domternal/vanilla) | Framework-free class-based wrapper for Astro, Svelte, Solid, plain HTML, and Web Components |
 | [`@domternal/pm`](https://www.npmjs.com/package/@domternal/pm) | ProseMirror re-exports (state, view, model, transform, commands, keymap, history, tables, and more) |
+| [`@domternal/extension-block-menu`](https://www.npmjs.com/package/@domternal/extension-block-menu) | Notion-style block UX: block handle, context menu, drag-to-reorder, keyboard reorder, slash command, smart paste |
+| [`@domternal/extension-toc`](https://www.npmjs.com/package/@domternal/extension-toc) | Notion-style Table of Contents: floating outline, inline `/toc` block, `scrollToHeading` command |
 | [`@domternal/extension-table`](https://www.npmjs.com/package/@domternal/extension-table) | Tables with 18 commands: merge, split, resize, cell styling, row/column controls |
 | [`@domternal/extension-image`](https://www.npmjs.com/package/@domternal/extension-image) | Image with paste/drop upload, URL input, XSS protection, bubble menu |
 | [`@domternal/extension-emoji`](https://www.npmjs.com/package/@domternal/extension-emoji) | Emoji picker panel and `:shortcode:` autocomplete |
