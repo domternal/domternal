@@ -74,13 +74,13 @@ pnpm typecheck  # Run type checker
 ## Release
 
 1. Branch: `git checkout -b release/X.Y.Z` from main
-2. Bump `"version"` in all 12 `packages/*/package.json` + `domternal.dev/package.json`
+2. Bump `"version"` in all 15 `packages/*/package.json` + `domternal.dev/package.json`
 3. Bump `peerDependencies` and `prepublishOnly` hook versions. For patch releases, keep the existing minimum compatible version. For minor/major releases, bump to `>=X.Y.0`.
 4. Update `CHANGELOG.md` and `domternal.dev` changelog
-5. Update all 13 READMEs (root + 12 packages)
+5. Update all 16 READMEs (root + 15 packages)
 6. Verify: `pnpm test && pnpm build && pnpm typecheck && pnpm lint`
 7. Merge to main, tag `vX.Y.Z`, push with tags
-8. Publish in order: pm, core, theme, angular, react, vue, then extensions
+8. Publish in order: pm, core, theme, angular, react, vue, vanilla, then extensions
 9. Create GitHub release from tag with title `vX.Y.Z` and changelog entry as body
 
 ### Publish notes
