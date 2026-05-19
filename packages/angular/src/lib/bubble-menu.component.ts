@@ -151,7 +151,10 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   /** Context-aware: map context names to item arrays, `true` for all valid items, or `null` to disable */
   readonly contexts = input<Record<string, string[] | true | null> | undefined>(undefined);
 
-  /** Custom icon overrides. Falls back to default Phosphor icons for unmapped keys. */
+  /**
+   * Custom icon overrides. Falls back to default Phosphor icons for unmapped keys.
+   * For nullable bindings, use `iconsSignal() ?? {}` to satisfy strict template checks.
+   */
   readonly icons = input<IconSet | undefined>(undefined);
 
   /**
