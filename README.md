@@ -27,7 +27,7 @@ A lightweight, extensible rich text editor toolkit built on [ProseMirror](https:
 - **Tree-shakeable** - import only what you use, your bundler strips the rest
 - **~44 KB gzipped** (own code), [~117 KB total](https://domternal.dev/v1/packages) with ProseMirror - see Packages for full bundle breakdown
 - **TypeScript first** - 100% typed, zero `any`
-- **11,000+ tests** - unit and E2E tests across 230+ Playwright specs and 4 demo apps
+- **15,000+ tests** - 4,000+ unit and 11,000+ E2E across 230+ Playwright specs and 4 demo apps
 - **Light and dark theme** - 70+ CSS custom properties for full visual control
 - **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
 - **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering

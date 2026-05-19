@@ -3,55 +3,41 @@
 [![Version](https://img.shields.io/npm/v/@domternal/extension-toc.svg)](https://www.npmjs.com/package/@domternal/extension-toc)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-Notion-style Table of Contents for the Domternal editor.
-
-This package ships three opt-in pieces that all share a common heading-discovery data layer:
-
-- **TableOfContents** - data layer: walks the doc, tracks the heading list and active state. Reads heading ids from the `UniqueID` extension (in `@domternal/core`). Exposes `editor.storage.toc` and `editor.commands.scrollToHeading`.
-- **FloatingTocOutline** - right-rail outline mounted outside `.dm-editor`. Three-state machine: `hidden` (when below `minHeadings` or on mobile), `collapsed` (compact ticks), `expanded` (hover or focus reveals a card with full heading text and per-level indent). Active tick + active row mirror the heading the user is currently reading.
-- **TableOfContentsBlock** - inline `/toc` PM atom node. NodeView reactively renders the heading list inside the document. Slash-menu item registered via the standard `addFloatingMenuItems()` hook. Active state stays in sync with the floating outline.
-
-All three pieces are opt-in - add any subset to your editor's `extensions` list. The data layer is the only required piece for the UI ones to work.
-
-## Required peer extension: UniqueID
-
-`TableOfContents` reads `UniqueID`'s native `id` attribute on every heading - it does not write its own. Add `UniqueID` from `@domternal/core` to your extensions array. Without it, `TableOfContents` logs an error at init and renders inert (no storage updates, no outline), but the editor itself still works.
-
-```ts
-import { UniqueID } from '@domternal/core';
-import { TableOfContents, FloatingTocOutline, TableOfContentsBlock } from '@domternal/extension-toc';
-
-new Editor({
-  extensions: [
-    /* ...your other extensions */
-    UniqueID,             // required peer dep
-    TableOfContents,
-    FloatingTocOutline,
-    TableOfContentsBlock,
-  ],
-});
-```
-
-Sharing `UniqueID`'s id system unifies TOC navigation with the `BlockContextMenu` "Copy link to block" feature: the same id powers both, and native browser `<a href="#id">` navigation works without our JavaScript.
-
-## Breaking changes from previous versions
-
-This release removes the `tocId` schema attribute and its `generateId` option in favour of reading heading ids from the `UniqueID` extension.
-
-- **Removed:** the `tocId` attribute on heading nodes (DOM attribute `data-toc-id`). Outline buttons now use their own `data-toc-anchor` marker; the heading itself uses native HTML `id` from UniqueID.
-- **Removed:** `TableOfContents.configure({ generateId: ... })`. Configure id generation on `UniqueID.configure({ generateID: ... })` instead.
-- **Preserved:** `editor.storage.toc.content[N].id` continues to work; the value is now sourced from UniqueID's id attribute rather than tocId.
-- **Migration:** add `UniqueID` to your extensions array (see above). If you were customising the id format via `generateId`, move that option to UniqueID. If you were targeting `[data-toc-id]` in custom CSS, switch to the heading's `[id]`.
+A lightweight, extensible rich text editor toolkit built on <u>[ProseMirror](https://prosemirror.net/)</u>. Framework-agnostic headless core with first-class Angular, React, Vue, and Vanilla wrappers.
+Use it headless with vanilla JS/TS, add the built-in toolbar and theme, or drop in ready-made framework components. Fully tree-shakeable, import only what you use, unused extensions are stripped from your bundle.
 
 ## Links
 
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/extensions/table-of-contents)</u>
+<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/introduction)</u>
+<u>[StackBlitz (Angular)](https://stackblitz.com/edit/domternal-angular-full-example)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[StackBlitz (React)](https://stackblitz.com/edit/domternal-react-full-example)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[StackBlitz (Vue)](https://stackblitz.com/edit/domternal-vue-full-example)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[StackBlitz (Vanilla TS)](https://stackblitz.com/edit/domternal-vanilla-full-example)</u>
+
+## Features
+
+See <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> for a full breakdown of all packages and what each one includes.
+
+- **Headless core** - use with any framework or vanilla JS/TS
+- **Angular components** - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker (signals, OnPush, zoneless-ready)
+- **React components** - composable `Domternal` component, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (React 18+)
+- **Vue components** - composable `Domternal` component, `useEditor`/`useEditorState` composables, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (Vue 3.3+)
+- **Vanilla wrapper** - framework-free class-based API for Astro, Svelte, Solid, plain HTML, and Web Components - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker
+- **Notion-style block UX** - drag-to-reorder, block context menu, slash command, smart paste, keyboard reorder, floating Table of Contents
+- **65+ extensions across 15 packages** - nodes, marks, and behavior extensions
+- **120+ chainable commands** - `editor.chain().focus().toggleBold().run()`
+- **Full table support** - cell merging, column resize, row/column controls, cell toolbar, all free and MIT licensed
+- **Tree-shakeable** - import only what you use, your bundler strips the rest
+- **~44 KB gzipped** (own code), <u>[see Packages](https://domternal.dev/v1/packages)</u> for full bundle breakdown with ProseMirror
+- **TypeScript first** - 100% typed, zero `any`
+- **15,000+ tests** - 4,000+ unit and 11,000+ E2E across 230+ Playwright specs and 4 demo apps
+- **Light and dark theme** - 70+ CSS custom properties for full visual control
+- **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
+- **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
 
 ## Documentation
 
 - <u>[Getting Started](https://domternal.dev/v1/getting-started)</u> - install and create your first editor
 - <u>[Introduction](https://domternal.dev/v1/introduction)</u> - core concepts, architecture, and design decisions
 - <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> - what each package includes and bundle size breakdown
+- <u>[Blog](https://domternal.dev/blog)</u>
 
 ## License
 
