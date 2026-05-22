@@ -64,6 +64,14 @@
     p {
       margin: 0.25rem 0;
     }
+
+    // Paragraphs inside table cells stay flush; otherwise the higher
+    // specificity of the rule above adds 4px top/bottom and visibly puffs
+    // up cells compared to classic mode.
+    td > p,
+    th > p {
+      margin: 0;
+    }
   }
 
   // Slash-command placeholders wrap in narrow table cells; the cell is the editable unit.
