@@ -1,0 +1,14 @@
+allEmojis
+createEmojiSuggestionRenderer
+createSuggestionPlugin
+default(Emoji)
+Emoji
+EmojiItem
+EmojiOptions
+emojis
+EmojiStorage
+emojiSuggestionPluginKey
+emoticons
+SuggestionOptions
+SuggestionProps
+SuggestionRenderer

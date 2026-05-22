@@ -26,7 +26,7 @@ import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 import { TextStyle } from '../marks/TextStyle.js';
 
-declare module '../types/Commands.js' {
+declare module '@domternal/core' {
   interface RawCommands {
     setTextColor: CommandSpec<[color: string]>;
     unsetTextColor: CommandSpec;

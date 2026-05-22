@@ -3,6 +3,7 @@
  */
 import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
 import { Mark } from '../Mark.js';
+import type { CommandSpec } from '../types/Commands.js';
 import { isValidUrl } from '../helpers/isValidUrl.js';
 import { getMarkRange } from '../helpers/getMarkRange.js';
 import { linkClickPlugin } from './helpers/linkClickPlugin.js';
@@ -379,7 +380,7 @@ export const Link = Mark.create<LinkOptions>({
   },
 });
 
-declare module '../types/Commands.js' {
+declare module '@domternal/core' {
   interface RawCommands {
     setLink: CommandSpec<[attributes: LinkAttributes]>;
     unsetLink: CommandSpec;

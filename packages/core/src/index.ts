@@ -108,6 +108,9 @@ export {
 // === Clipboard ===
 export { writeToClipboard } from './utils/clipboard.js';
 
+// === Theme cascade for portaled elements ===
+export { copyThemeClass } from './utils/copyThemeClass.js';
+
 // === Bubble menu defaults ===
 export { defaultBubbleContexts } from './utils/defaultBubbleContexts.js';
 

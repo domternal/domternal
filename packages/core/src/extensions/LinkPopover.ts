@@ -22,6 +22,7 @@ import { isValidUrl } from '../helpers/isValidUrl.js';
 import { getMarkRange } from '../helpers/getMarkRange.js';
 import { defaultIcons } from '../icons/index.js';
 import { positionFloating } from '../utils/positionFloating.js';
+import { copyThemeClass } from '../utils/copyThemeClass.js';
 import type { Editor } from '../Editor.js';
 
 export interface LinkPopoverOptions {
@@ -148,6 +149,11 @@ function linkPopoverPlugin({ editor, markType, protocols }: LinkPopoverPluginOpt
     } else if (el.parentElement !== document.body) {
       document.body.appendChild(el);
     }
+    // Refresh on every show so runtime theme toggles propagate. Reparenting
+    // back into .dm-editor (anchor path) does not need this since the editor's
+    // own classes cascade, but the body-portaled path otherwise misses
+    // the `dm-theme-dark` token cascade.
+    copyThemeClass(editor.view, el);
 
     cleanupFloating?.();
     cleanupFloating = positionFloating(reference, el, {

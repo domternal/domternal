@@ -1,0 +1,15 @@
+{
+  "$comment": "Gzipped byte budget for each package's dist/index.js. Bumping a number requires intent. Current sizes captured 2026-05-22 with ~15% headroom above measured.",
+  "core": 80000,
+  "extension-block-menu": 24000,
+  "extension-code-block-lowlight": 3000,
+  "extension-details": 6000,
+  "extension-emoji": 19000,
+  "extension-image": 7500,
+  "extension-mention": 5500,
+  "extension-table": 17000,
+  "extension-toc": 9000,
+  "react": 21000,
+  "vanilla": 23000,
+  "vue": 23000
+}

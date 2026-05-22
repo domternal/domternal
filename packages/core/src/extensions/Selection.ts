@@ -36,7 +36,7 @@ import type { Node as PMNode } from '@domternal/pm/model';
 import type { Editor } from '../Editor.js';
 import type { CommandSpec } from '../types/Commands.js';
 
-declare module '../types/Commands.js' {
+declare module '@domternal/core' {
   interface RawCommands {
     setSelection: CommandSpec<[from: number, to?: number]>;
     selectNode: CommandSpec<[pos: number]>;

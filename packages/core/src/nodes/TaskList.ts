@@ -12,7 +12,7 @@ import type { ToolbarItem } from '../types/Toolbar.js';
 import type { FloatingMenuItem } from '../types/FloatingMenu.js';
 import { TaskItem } from './TaskItem.js';
 
-declare module '../types/Commands.js' {
+declare module '@domternal/core' {
   interface RawCommands {
     toggleTaskList: CommandSpec;
   }

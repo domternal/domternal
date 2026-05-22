@@ -29,11 +29,56 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Forbid relative-path module augmentations
+        # Tsup dts bundling does not preserve `declare module '../...'`
+        # paths, so any relative-path augmentation silently disappears
+        # from the published surface. Always augment by package name.
+        run: |
+          matches=$(grep -rn "declare module '\." packages/*/src 2>/dev/null || true)
+          if [ -n "$matches" ]; then
+            echo "$matches"
+            echo ""
+            echo "Use a package name (e.g. '@domternal/core') instead of a relative path."
+            exit 1
+          fi
+
       - name: Type check
         run: pnpm typecheck
 
       - name: Build
         run: pnpm build
+
+      - name: Consumer type-surface test
+        # Type-checks against the built dist (no @domternal/source
+        # condition) so every RawCommands augmentation must stay visible
+        # to external npm consumers.
+        run: pnpm test:types-consumer
+
+      - name: API surface snapshot
+        # Fails if any package's public export list drifts from the
+        # committed snapshot. Forces intentional review of add/remove/
+        # rename to public API.
+        run: pnpm test:api-surface
+
+      - name: CSS variable references
+        # Fails if a `var(--dm-X)` reference without a fallback has no
+        # matching definition.
+        run: pnpm test:css-vars
+
+      - name: Bundle size budgets
+        # Gzipped dist sizes must stay under the committed budgets.
+        run: pnpm test:bundle-size
+
+      - name: Type check demo apps
+        # Demos don't extend the base tsconfig, so they resolve
+        # @domternal/* via the standard import condition into the built
+        # dist. This catches consumer-facing dist regressions the
+        # source-condition typecheck above can't see. Explicit calls
+        # bypass nx cache.
+        run: |
+          pnpm --filter demo-angular typecheck
+          pnpm --filter demo-react typecheck
+          pnpm --filter demo-vue typecheck
 
       - name: Test with coverage
         run: pnpm test:coverage
@@ -65,7 +110,7 @@ jobs:
           for pkg in packages/pm packages/core packages/theme packages/angular packages/react packages/vue packages/vanilla packages/extension-block-menu packages/extension-table packages/extension-image packages/extension-emoji packages/extension-mention packages/extension-details packages/extension-code-block-lowlight packages/extension-toc; do
             echo "--- Validating $pkg ---"
             cd "$pkg"
-            pnpm exec publint
+            pnpm exec publint --strict
             if [ "$pkg" != "packages/theme" ] && [ "$pkg" != "packages/angular" ]; then
               if [ "$pkg" = "packages/react" ] || [ "$pkg" = "packages/vue" ] || [ "$pkg" = "packages/vanilla" ]; then
                 pnpm exec attw --pack --profile esm-only

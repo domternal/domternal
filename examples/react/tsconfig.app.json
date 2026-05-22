@@ -25,9 +25,6 @@
   "references": [
     {
       "path": "../../packages/react"
-    },
-    {
-      "path": "../../packages/core"
     }
   ]
 }

@@ -187,3 +187,10 @@
     transform: translateY(-2px);
   }
 }
+
+// Hide the native dropcursor during a handle drag so it doesn't double up
+// with `.dm-block-drop-indicator`. Class is set by BlockHandle on dragstart
+// and cleared on dragend.
+.dm-block-handle-dragging .ProseMirror-dropcursor {
+  display: none;
+}

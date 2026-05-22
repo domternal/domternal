@@ -2,6 +2,7 @@ packages:
   - "packages/*"
   - "apps/*"
   - "examples/*"
+  - "tests/*"
   - "domternal.dev"
 
 autoInstallPeers: true

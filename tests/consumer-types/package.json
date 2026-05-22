@@ -1,0 +1,22 @@
+{
+  "name": "@domternal/tests-consumer-types",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Type-level regression guard: verifies built dist d.ts files expose the full RawCommands augmentation surface to external consumers.",
+  "type": "module",
+  "scripts": {
+    "test:types": "node run.mjs"
+  },
+  "dependencies": {
+    "@domternal/core": "workspace:*",
+    "@domternal/extension-details": "workspace:*",
+    "@domternal/extension-emoji": "workspace:*",
+    "@domternal/extension-image": "workspace:*",
+    "@domternal/extension-mention": "workspace:*",
+    "@domternal/extension-table": "workspace:*",
+    "@domternal/extension-toc": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "*"
+  }
+}

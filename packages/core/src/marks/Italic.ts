@@ -17,6 +17,7 @@
  * ```
  */
 import { Mark } from '../Mark.js';
+import type { CommandSpec } from '../types/Commands.js';
 import { markInputRule } from '../helpers/markInputRule.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 
@@ -128,7 +129,7 @@ export const Italic = Mark.create<ItalicOptions>({
   },
 });
 
-declare module '../types/Commands.js' {
+declare module '@domternal/core' {
   interface RawCommands {
     setItalic: CommandSpec;
     unsetItalic: CommandSpec;

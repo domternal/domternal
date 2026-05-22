@@ -20,10 +20,9 @@
   max-width: 38rem;
   margin: 0 auto;
 
-  // Generous reading line-height and slightly larger text, similar to
-  // Notion. Padding is zeroed because the page wrapper already supplies
-  // the white space around the column.
-  --dm-editor-font-size: 1.0625rem;
+  // Generous reading line-height; padding zeroed because the page wrapper
+  // supplies the white space around the column. Body font-size inherits
+  // classic 1rem so toggling between modes doesn't shift text size.
   --dm-editor-line-height: 1.7;
   --dm-editor-padding: 0;
 
@@ -44,23 +43,20 @@
     min-height: 60vh;
     outline: none;
 
-    // Tighter heading rhythm than the default content stylesheet, more
-    // Notion-like. Sizes are intentionally smaller than the toolbar
-    // demo's defaults so headings sit closer to body text.
+    // Tighter heading rhythm than the default content stylesheet.
+    // Sizes inherit classic (browser defaults / `_content.scss`) so the
+    // mode toggle shifts layout, not text scale.
     h1 {
-      font-size: 2.25rem;
       font-weight: 700;
       margin-top: 1.5rem;
       margin-bottom: 0.75rem;
     }
     h2 {
-      font-size: 1.625rem;
       font-weight: 600;
       margin-top: 1.5rem;
       margin-bottom: 0.5rem;
     }
     h3 {
-      font-size: 1.25rem;
       font-weight: 600;
       margin-top: 1.25rem;
       margin-bottom: 0.375rem;
@@ -68,5 +64,19 @@
     p {
       margin: 0.25rem 0;
     }
+
+    // Paragraphs inside table cells stay flush; otherwise the higher
+    // specificity of the rule above adds 4px top/bottom and visibly puffs
+    // up cells compared to classic mode.
+    td > p,
+    th > p {
+      margin: 0;
+    }
+  }
+
+  // Slash-command placeholders wrap in narrow table cells; the cell is the editable unit.
+  .ProseMirror td .is-empty::before,
+  .ProseMirror th .is-empty::before {
+    content: none;
   }
 }

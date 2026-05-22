@@ -14,7 +14,7 @@ import type { ToolbarItem } from '../types/Toolbar.js';
 import type { FloatingMenuItem } from '../types/FloatingMenu.js';
 import { splitListForInsert } from '../utils/splitListForInsert.js';
 
-declare module '../types/Commands.js' {
+declare module '@domternal/core' {
   interface RawCommands {
     setHorizontalRule: CommandSpec;
   }

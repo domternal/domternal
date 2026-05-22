@@ -1,0 +1,5 @@
+Image
+ImageFloat
+ImageOptions
+imageUploadPluginKey
+SetImageOptions

@@ -100,7 +100,9 @@
 .dm-theme-dark .dm-mention-suggestion,
 .dm-theme-dark .dm-table-controls-dropdown,
 .dm-theme-dark .dm-slash-command-menu,
-.dm-theme-dark .dm-block-context-menu {
+.dm-theme-dark .dm-block-context-menu,
+.dm-theme-dark .dm-link-popover,
+.dm-theme-dark .dm-image-popover {
   @include dark-tokens;
 }
 
@@ -116,7 +118,9 @@
   .dm-theme-auto .dm-mention-suggestion,
   .dm-theme-auto .dm-table-controls-dropdown,
   .dm-theme-auto .dm-slash-command-menu,
-  .dm-theme-auto .dm-block-context-menu {
+  .dm-theme-auto .dm-block-context-menu,
+  .dm-theme-auto .dm-link-popover,
+  .dm-theme-auto .dm-image-popover {
     @include dark-tokens;
   }
 }

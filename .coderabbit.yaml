@@ -1,12 +1,16 @@
 early_access: false
 
+# CodeRabbit auto-activity disabled. Flip the four `false` flags below
+# (high_level_summary, review_status, commit_status, auto_review.enabled)
+# and the two `enabled: false` blocks under chat/finishing_touches to
+# turn it back on without redoing the rest of the config.
 reviews:
   profile: chill
   request_changes_workflow: false
-  high_level_summary: true
+  high_level_summary: false
   poem: false
-  review_status: true
-  commit_status: true
+  review_status: false
+  commit_status: false
   fail_commit_status: false
   collapse_walkthrough: true
   changed_files_summary: true
@@ -73,7 +77,7 @@ reviews:
 
   auto_review:
     enabled: false
-    auto_incremental_review: true
+    auto_incremental_review: false
     drafts: false
     base_branches:
       - main
@@ -91,12 +95,12 @@ reviews:
 
   finishing_touches:
     docstrings:
-      enabled: true
+      enabled: false
     unit_tests:
       enabled: false
 
 chat:
-  auto_reply: true
+  auto_reply: false
 
 knowledge_base:
   opt_out: false
