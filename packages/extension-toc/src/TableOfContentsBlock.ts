@@ -248,8 +248,8 @@ export const TableOfContentsBlock = Node.create<TableOfContentsBlockOptions>({
         label: 'Table of contents',
         description: 'List of headings on this page',
         icon: 'listBullets',
-        group: 'Basic',
-        priority: 600,
+        group: 'Advanced',
+        priority: 90,
         keywords: ['toc', 'outline', 'contents'],
         // Function command: SlashCommand removes the typed `/toc`
         // range BEFORE invoking us (FloatingMenuController.executeItem
