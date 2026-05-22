@@ -768,3 +768,39 @@ describe('BlockHandle hover resolution', () => {
     expect(blockHandlePluginKey.getState(editor!.state)?.hoveredPos).toBe(0);
   });
 });
+
+describe('BlockHandle drop indicator class', () => {
+  function dispatchDrag(type: 'dragstart' | 'dragend'): void {
+    const dragBtn = host?.querySelector<HTMLElement>('.dm-block-handle-drag');
+    if (!dragBtn) throw new Error('drag button missing');
+    if (type === 'dragstart') {
+      editor?.view.dispatch(editor.state.tr.setMeta(blockHandlePluginKey, { hoveredPos: 0 }));
+    }
+    dragBtn.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+  }
+
+  it('adds dm-block-handle-dragging to .dm-editor on dragstart and removes on dragend', () => {
+    makeEditor();
+    expect(host?.classList.contains('dm-block-handle-dragging')).toBe(false);
+
+    dispatchDrag('dragstart');
+    expect(host?.classList.contains('dm-block-handle-dragging')).toBe(true);
+
+    dispatchDrag('dragend');
+    expect(host?.classList.contains('dm-block-handle-dragging')).toBe(false);
+  });
+
+  it('does not add the class when dropIndicator is disabled', () => {
+    host = document.createElement('div');
+    host.className = 'dm-editor';
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, BlockHandle.configure({ dropIndicator: false })],
+      content: '<p>Hello</p>',
+    });
+
+    dispatchDrag('dragstart');
+    expect(host.classList.contains('dm-block-handle-dragging')).toBe(false);
+  });
+});
