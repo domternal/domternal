@@ -1,11 +1,11 @@
-value createMentionSuggestionPlugin
-value createMentionSuggestionRenderer
-value default(Mention)
-value dismissMentionSuggestion
-value Mention
-type MentionItem
-type MentionOptions
-type MentionStorage
-type MentionSuggestionProps
-type MentionSuggestionRenderer
-type MentionTrigger
+createMentionSuggestionPlugin
+createMentionSuggestionRenderer
+default(Mention)
+dismissMentionSuggestion
+Mention
+MentionItem
+MentionOptions
+MentionStorage
+MentionSuggestionProps
+MentionSuggestionRenderer
+MentionTrigger

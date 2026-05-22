@@ -1,6 +1,6 @@
-value Details
-value DetailsContent
-type DetailsContentOptions
-type DetailsOptions
-value DetailsSummary
-type DetailsSummaryOptions
+Details
+DetailsContent
+DetailsContentOptions
+DetailsOptions
+DetailsSummary
+DetailsSummaryOptions

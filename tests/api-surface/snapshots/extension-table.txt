@@ -1,13 +1,13 @@
-value CellSelection
-value createTable
-value deleteTableWhenAllCellsSelected
-value Table
-value TableCell
-type TableCellOptions
-value TableHeader
-type TableHeaderOptions
-value TableMap
-type TableOptions
-value TableRow
-type TableRowOptions
-value TableView
+CellSelection
+createTable
+deleteTableWhenAllCellsSelected
+Table
+TableCell
+TableCellOptions
+TableHeader
+TableHeaderOptions
+TableMap
+TableOptions
+TableRow
+TableRowOptions
+TableView

@@ -34,22 +34,19 @@ const targets = readdirSync(packagesDir)
 // default export we record `default(Source)` so rebinding the default
 // to a different underlying symbol shows up as drift.
 function extractExports(content) {
-  const exports = new Map();
-  // Tsup emits two block shapes depending on version: inline `export {
-  // type Foo, Bar }` or a separate `export type { Foo } / export { Bar }`
-  // pair. Capture either; the optional `type` after `export` flags the
-  // whole block as type-only.
-  const blockPattern = /^export\s+(?:(type)\s+)?\{([^}]*)\}\s*(?:from\s*['"][^'"]+['"])?\s*;?$/gm;
+  const names = new Set();
+  // Capture `export { ... }` and `export type { ... }` blocks (single or
+  // multi-line). Tsup / rollup-plugin-dts emit either shape depending on
+  // version, so we accept both and only record the export NAME - that's
+  // enough to flag add/remove/rename drift without depending on whether
+  // a given entry rendered as `type Foo` inline, `export type { Foo }`
+  // block, or a merged `export { Foo }` re-export.
+  const blockPattern = /export\s+(?:type\s+)?\{([^}]*)\}\s*(?:from\s*['"][^'"]+['"])?\s*;/g;
   for (const m of content.matchAll(blockPattern)) {
-    const blockIsType = m[1] === 'type';
-    for (let raw of m[2].split(',')) {
+    for (let raw of m[1].split(',')) {
       raw = raw.trim();
       if (!raw) continue;
-      let isType = blockIsType;
-      if (raw.startsWith('type ')) {
-        isType = true;
-        raw = raw.slice(5).trim();
-      }
+      if (raw.startsWith('type ')) raw = raw.slice(5).trim();
       const asMatch = raw.match(/^(\S+)\s+as\s+(\S+)$/);
       let name;
       if (asMatch) {
@@ -57,10 +54,19 @@ function extractExports(content) {
       } else {
         name = raw;
       }
-      exports.set(name, isType ? 'type' : 'value');
+      names.add(name);
     }
   }
-  return exports;
+  // Direct declarations: `export declare const Foo`, `export const Foo`,
+  // `export function Foo`, `export class Foo`, `export interface Foo`,
+  // `export type Foo`, `export enum Foo`. Some tsup versions emit a
+  // standalone runtime const this way instead of merging it into the
+  // re-export block.
+  const declPattern = /^export\s+(?:declare\s+)?(?:abstract\s+)?(?:const|let|var|function|class|interface|type|enum)\s+(\w+)/gm;
+  for (const m of content.matchAll(declPattern)) {
+    names.add(m[1]);
+  }
+  return names;
 }
 
 const drift = [];
@@ -68,9 +74,7 @@ for (const { name, dts } of targets) {
   const exports = extractExports(readFileSync(dts, 'utf8'));
   if (exports.size === 0) continue;
 
-  const lines = [...exports.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([n, kind]) => `${kind} ${n}`);
+  const lines = [...exports].sort((a, b) => a.localeCompare(b));
   const out = lines.join('\n') + '\n';
   const snapshot = join(snapshotsDir, `${name}.txt`);
 
