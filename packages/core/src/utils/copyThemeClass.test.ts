@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { copyThemeClass } from './copyThemeClass.js';
 
-function makeView(dom: Element) {
+function makeView(dom: Element): { dom: Element } {
   return { dom };
 }
 
