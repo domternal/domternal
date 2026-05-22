@@ -35,13 +35,21 @@ const targets = readdirSync(packagesDir)
 // to a different underlying symbol shows up as drift.
 function extractExports(content) {
   const exports = new Map();
-  const blockPattern = /^export\s*\{([^}]*)\}\s*(?:from\s*['"][^'"]+['"])?\s*;?$/gm;
+  // Tsup emits two block shapes depending on version: inline `export {
+  // type Foo, Bar }` or a separate `export type { Foo } / export { Bar }`
+  // pair. Capture either; the optional `type` after `export` flags the
+  // whole block as type-only.
+  const blockPattern = /^export\s+(?:(type)\s+)?\{([^}]*)\}\s*(?:from\s*['"][^'"]+['"])?\s*;?$/gm;
   for (const m of content.matchAll(blockPattern)) {
-    for (let raw of m[1].split(',')) {
+    const blockIsType = m[1] === 'type';
+    for (let raw of m[2].split(',')) {
       raw = raw.trim();
       if (!raw) continue;
-      const isType = raw.startsWith('type ');
-      if (isType) raw = raw.slice(5).trim();
+      let isType = blockIsType;
+      if (raw.startsWith('type ')) {
+        isType = true;
+        raw = raw.slice(5).trim();
+      }
       const asMatch = raw.match(/^(\S+)\s+as\s+(\S+)$/);
       let name;
       if (asMatch) {
