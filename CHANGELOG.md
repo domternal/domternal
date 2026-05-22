@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.7.1 (2026-05-23)
+
+### Features
+
+- feat(ci): layered safety nets to prevent silent surface regressions. Consumer type-surface test exercises every `RawCommands` augmentation through the dist; per-package API surface snapshots; CSS variable references validated against theme definitions; gzipped bundle size budgets per package; grep guard forbidding relative-path module augmentations; `publint --strict`. (#84)
+- feat(theme): tables render as a "data view" globally - 15px font, 1.5 line-height, tight cell padding. Easier to scan than body-scale tables. Override on `.dm-editor .ProseMirror table` for body-scale. (#84)
+- feat(theme): Notion mode suppresses the slash-command placeholder inside narrow `<td>` / `<th>` cells so long hints like `Press '/' for commands` don't wrap onto two lines. (#84)
+- feat(core): new `copyThemeClass(view, target)` utility - copies the editor's `dm-theme-*` class onto a floating element portaled to `document.body` so the dark/light cascade reaches it. (#84)
+
+### Fixes
+
+- fix(core): `RawCommands` module augmentations now reach external consumers. 30+ source files switched from `declare module '../types/Commands.js'` to `declare module '@domternal/core'`; tsup + rollup-plugin-dts dropped relative-path augmentations during bundling, silently breaking `editor.commands.focus()` and the rest of the command surface in any consumer of `@domternal/core@0.7.0`. (#84)
+- fix(theme): table dropdown text rendered dark-on-dark in dark mode because portaled popovers couldn't read `--dm-button-color`. Added fallback to `--dm-text`. (#84)
+- fix(core,extension-image,theme): `LinkPopover` and image popover rewritten to read theme tokens instead of hardcoded hex values; removed their dark-theme override blocks. Both popovers now adapt automatically to light/dark via the standard cascade. (#84)
+- fix(extension-block-menu,theme): native `prosemirror-dropcursor` no longer doubles up with BlockHandle's own `.dm-block-drop-indicator` during a handle drag. BlockHandle adds a `dm-block-handle-dragging` class for the drag's duration; the theme hides the native cursor only while that class is present. Non-handle drags (text selection, external file drops) keep the native cursor. (#84)
+- fix(extension-toc): `Table of contents` slash menu item moved from `Basic` group (priority 600, first slot) to `Advanced` (priority 90, last slot). Sits next to `Toggle block` at the end of the menu instead of dominating the first position. (#84)
+- fix(theme): Notion mode body and h1 / h2 / h3 `font-size` overrides removed. Both modes now share the base text scale, so toggling between classic and Notion shifts layout (narrow column, gutter, tight rhythm) without a text-size jump. (#84)
+- fix(theme): Notion mode table cells match classic-mode cell height. Higher-specificity rule keeps `td > p` / `th > p` margin at 0 against the Notion paragraph-margin rule that was puffing cells. (#84)
+
 ## 0.7.0 (2026-05-19)
 
 ### Breaking changes
