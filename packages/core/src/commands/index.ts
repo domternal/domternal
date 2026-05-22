@@ -89,7 +89,7 @@ import type { CommandSpec } from '../types/Commands.js';
 import type { FocusPosition, Content } from '../types/index.js';
 import type { SetContentOptions, ClearContentOptions } from './contentCommands.js';
 
-declare module '../types/Commands.js' {
+declare module '@domternal/core' {
   interface RawCommands {
     focus: CommandSpec<[position?: FocusPosition]>;
     blur: CommandSpec;

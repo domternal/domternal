@@ -15,7 +15,8 @@
     "coverage:index": "pnpm test:coverage && node scripts/generate-coverage-index.mjs",
     "test:e2e": "nx run-many --target=test:e2e --all",
     "lint": "nx run-many --target=lint --all",
-    "typecheck": "nx run-many --target=typecheck --all"
+    "typecheck": "nx run-many --target=typecheck --all",
+    "test:types-consumer": "pnpm --filter @domternal/tests-consumer-types test:types"
   },
   "repository": {
     "type": "git",

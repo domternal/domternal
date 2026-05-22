@@ -15,6 +15,7 @@
  * ```
  */
 import { Mark } from '../Mark.js';
+import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 
 /**
@@ -94,7 +95,7 @@ export const Underline = Mark.create<UnderlineOptions>({
   },
 });
 
-declare module '../types/Commands.js' {
+declare module '@domternal/core' {
   interface RawCommands {
     setUnderline: CommandSpec;
     unsetUnderline: CommandSpec;

@@ -23,6 +23,7 @@
  * ```
  */
 import { Mark } from '../Mark.js';
+import type { CommandSpec } from '../types/Commands.js';
 
 export interface TextStyleOptions {
   /**
@@ -158,7 +159,7 @@ export const TextStyle = Mark.create<TextStyleOptions>({
   },
 });
 
-declare module '../types/Commands.js' {
+declare module '@domternal/core' {
   interface RawCommands {
     setTextStyle: CommandSpec<[attributes: Record<string, unknown>]>;
     removeTextStyle: CommandSpec;

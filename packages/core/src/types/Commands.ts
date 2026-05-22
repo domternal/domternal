@@ -69,7 +69,7 @@ export type CommandMap = Record<string, CommandSpec<unknown[]>>;
  *
  * @example
  * ```ts
- * declare module '../types/Commands.js' {
+ * declare module '@domternal/core' {
  *   interface RawCommands {
  *     toggleBold: CommandSpec;
  *     setHeading: CommandSpec<[attributes?: { level?: number }]>;

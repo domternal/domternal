@@ -35,6 +35,23 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Consumer type-surface test
+        # Type-checks against the built dist (no @domternal/source
+        # condition) so every RawCommands augmentation must stay visible
+        # to external npm consumers.
+        run: pnpm test:types-consumer
+
+      - name: Type check demo apps
+        # Demos don't extend the base tsconfig, so they resolve
+        # @domternal/* via the standard import condition into the built
+        # dist. This catches consumer-facing dist regressions the
+        # source-condition typecheck above can't see. Explicit calls
+        # bypass nx cache.
+        run: |
+          pnpm --filter demo-angular typecheck
+          pnpm --filter demo-react typecheck
+          pnpm --filter demo-vue typecheck
+
       - name: Test with coverage
         run: pnpm test:coverage
 

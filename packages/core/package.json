@@ -29,7 +29,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup --clean && node scripts/fix-dts.mjs",
+    "build": "tsup --clean",
     "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",

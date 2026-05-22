@@ -25,7 +25,7 @@ import { insertChildrenZoneSibling } from '../utils/insertChildrenZoneSibling.js
 import { liftEmptyChildrenZoneParagraph } from '../utils/liftEmptyChildrenZoneParagraph.js';
 import { TaskItemNodeView } from './TaskItemNodeView.js';
 
-declare module '../types/Commands.js' {
+declare module '@domternal/core' {
   interface RawCommands {
     toggleTask: CommandSpec;
   }

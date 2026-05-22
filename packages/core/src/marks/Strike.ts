@@ -16,6 +16,7 @@
  * ```
  */
 import { Mark } from '../Mark.js';
+import type { CommandSpec } from '../types/Commands.js';
 import { markInputRule, markInputRulePatterns } from '../helpers/markInputRule.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 
@@ -110,7 +111,7 @@ export const Strike = Mark.create<StrikeOptions>({
   },
 });
 
-declare module '../types/Commands.js' {
+declare module '@domternal/core' {
   interface RawCommands {
     setStrike: CommandSpec;
     unsetStrike: CommandSpec;

@@ -38,7 +38,7 @@ import type { Editor } from '../Editor.js';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 
-declare module '../types/Commands.js' {
+declare module '@domternal/core' {
   interface RawCommands {
     toggleInvisibleChars: CommandSpec;
     showInvisibleChars: CommandSpec;

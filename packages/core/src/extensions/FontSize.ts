@@ -27,7 +27,7 @@ import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarButton, ToolbarItem } from '../types/Toolbar.js';
 import { TextStyle } from '../marks/TextStyle.js';
 
-declare module '../types/Commands.js' {
+declare module '@domternal/core' {
   interface RawCommands {
     setFontSize: CommandSpec<[fontSize: string]>;
     unsetFontSize: CommandSpec;

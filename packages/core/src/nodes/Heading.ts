@@ -14,7 +14,7 @@ import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem, ToolbarButton } from '../types/Toolbar.js';
 import type { FloatingMenuItem } from '../types/FloatingMenu.js';
 
-declare module '../types/Commands.js' {
+declare module '@domternal/core' {
   interface RawCommands {
     setHeading: CommandSpec<[attributes?: { level?: number }]>;
     toggleHeading: CommandSpec<[attributes?: { level?: number }]>;

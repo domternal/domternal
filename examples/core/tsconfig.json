@@ -23,9 +23,5 @@
     "noUncheckedSideEffectImports": true
   },
   "include": ["src"],
-  "references": [
-    {
-      "path": "../../packages/core"
-    }
-  ]
+  "references": []
 }

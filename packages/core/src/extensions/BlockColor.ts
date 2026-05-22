@@ -8,7 +8,7 @@ import { Extension } from '../Extension.js';
 import type { Command, CommandSpec } from '../types/Commands.js';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 
-declare module '../types/Commands.js' {
+declare module '@domternal/core' {
   interface RawCommands {
     setBlockBgColor: CommandSpec<[color: string | null]>;
     setBlockTextColor: CommandSpec<[color: string | null]>;
