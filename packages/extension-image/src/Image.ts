@@ -6,7 +6,7 @@
  * renderHTML, the `setImage` command, and the input rule (defense in depth).
  */
 
-import { Node, PluginKey, positionFloating, defaultIcons, splitListForInsert } from '@domternal/core';
+import { Node, PluginKey, positionFloating, defaultIcons, splitListForInsert, copyThemeClass } from '@domternal/core';
 import type { Editor, CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
 import { Plugin, NodeSelection } from '@domternal/pm/state';
 import { InputRule } from '@domternal/pm/inputrules';
@@ -560,6 +560,9 @@ export const Image = Node.create<ImageOptions>({
         el.setAttribute('data-show', '');
         isOpen = true;
         storage['isOpen'] = true;
+        // The popover is appended to document.body. Refresh the theme
+        // cascade on every show so runtime toggles propagate.
+        copyThemeClass(editor.view, el);
         // Dispatch to trigger toolbar expanded state refresh
         editor.view.dispatch(editor.view.state.tr);
 

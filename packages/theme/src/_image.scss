@@ -76,6 +76,9 @@
 // =============================================================================
 // Image Insert Popover (appended to document.body - same pattern as link popover)
 // =============================================================================
+// The popover JS copies the editor's `dm-theme-*` class onto the
+// popover so the dark-tokens cascade applies on the element itself.
+// All colours read from `--dm-*` tokens; no hardcoded theme values.
 
 .dm-image-popover {
   position: fixed;
@@ -83,10 +86,10 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0.25rem;
-  background: #f8f9fa;
-  border: 1px solid #e0e0e0;
+  background: var(--dm-surface);
+  border: 1px solid var(--dm-border-color);
   border-radius: 0.25rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--dm-popover-shadow, 0 4px 12px rgba(0, 0, 0, 0.12));
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
   visibility: hidden;
@@ -101,18 +104,18 @@
 }
 
 .dm-image-popover-input {
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--dm-border-color);
   border-radius: 0.25rem;
   padding: 0.25rem 0.5rem;
   font-size: 0.8125rem;
   font-family: inherit;
   min-width: 14rem;
   outline: none;
-  background: #fff;
-  color: #1a1a1a;
+  background: var(--dm-bg);
+  color: var(--dm-text);
 
   &:focus {
-    border-color: #2563eb;
+    border-color: var(--dm-accent);
   }
 }
 
@@ -126,16 +129,16 @@
   border: none;
   border-radius: 0.25rem;
   background: transparent;
-  color: #1a1a1a;
+  color: var(--dm-text);
   cursor: pointer;
   transition: background-color 0.15s, color 0.15s;
 
   &:hover {
-    background: rgba(0, 0, 0, 0.06);
+    background: var(--dm-hover);
   }
 
   &:focus-visible {
-    outline: 2px solid var(--dm-accent, #2563eb);
+    outline: 2px solid var(--dm-accent);
     outline-offset: 1px;
   }
 
@@ -145,71 +148,9 @@
   }
 }
 
-.dm-image-popover-apply:hover {
-  color: #2563eb;
-}
-
+.dm-image-popover-apply:hover,
 .dm-image-popover-browse:hover {
-  color: #2563eb;
-}
-
-// Dark theme override
-[data-theme="dark"] .dm-image-popover,
-.dm-theme-dark .dm-image-popover {
-  background: #2a2a2a;
-  border-color: #404040;
-
-  .dm-image-popover-input {
-    background: #1a1a1a;
-    border-color: #404040;
-    color: #e0e0e0;
-
-    &:focus {
-      border-color: #3b82f6;
-    }
-  }
-
-  .dm-image-popover-btn {
-    color: #e0e0e0;
-
-    &:hover {
-      background: rgba(255, 255, 255, 0.1);
-    }
-  }
-
-  .dm-image-popover-apply:hover {
-    color: #3b82f6;
-  }
-}
-
-// Auto dark mode - follows system preference
-@media (prefers-color-scheme: dark) {
-  .dm-theme-auto .dm-image-popover {
-    background: #2a2a2a;
-    border-color: #404040;
-
-    .dm-image-popover-input {
-      background: #1a1a1a;
-      border-color: #404040;
-      color: #e0e0e0;
-
-      &:focus {
-        border-color: #3b82f6;
-      }
-    }
-
-    .dm-image-popover-btn {
-      color: #e0e0e0;
-
-      &:hover {
-        background: rgba(255, 255, 255, 0.1);
-      }
-    }
-
-    .dm-image-popover-apply:hover {
-      color: #3b82f6;
-    }
-  }
+  color: var(--dm-accent);
 }
 
 // Drag-and-drop overlay - shown when dragging image files over the editor

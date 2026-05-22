@@ -55,6 +55,7 @@ type CommandPropsEditor
 type CommandSpec
 type Content
 type ContentErrorProps
+value copyThemeClass
 value createAccumulatingDispatch
 value createBubbleMenuPlugin
 type CreateBubbleMenuPluginOptions
