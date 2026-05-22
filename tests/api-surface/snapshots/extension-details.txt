@@ -1,0 +1,6 @@
+value Details
+value DetailsContent
+type DetailsContentOptions
+type DetailsOptions
+value DetailsSummary
+type DetailsSummaryOptions

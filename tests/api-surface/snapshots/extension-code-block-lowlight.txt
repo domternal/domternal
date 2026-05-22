@@ -1,0 +1,9 @@
+value CodeBlockLowlight
+type CodeBlockLowlightOptions
+type CodeBlockLowlightStorage
+value createCodeHighlighter
+type CreateCodeHighlighterOptions
+value generateHighlightedHTML
+type GenerateHighlightedHTMLOptions
+type Lowlight
+value lowlightPluginKey

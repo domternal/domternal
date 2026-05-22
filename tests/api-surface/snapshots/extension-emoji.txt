@@ -1,0 +1,14 @@
+value allEmojis
+value createEmojiSuggestionRenderer
+value createSuggestionPlugin
+value default(Emoji)
+value Emoji
+type EmojiItem
+type EmojiOptions
+value emojis
+type EmojiStorage
+value emojiSuggestionPluginKey
+value emoticons
+type SuggestionOptions
+type SuggestionProps
+type SuggestionRenderer

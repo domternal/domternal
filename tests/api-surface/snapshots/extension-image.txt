@@ -1,0 +1,5 @@
+value Image
+type ImageFloat
+type ImageOptions
+value imageUploadPluginKey
+type SetImageOptions
