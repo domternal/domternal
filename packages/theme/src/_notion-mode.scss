@@ -69,4 +69,10 @@
       margin: 0.25rem 0;
     }
   }
+
+  // Slash-command placeholders wrap in narrow table cells; the cell is the editable unit.
+  .ProseMirror td .is-empty::before,
+  .ProseMirror th .is-empty::before {
+    content: none;
+  }
 }

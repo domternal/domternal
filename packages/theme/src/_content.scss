@@ -197,14 +197,17 @@
   // Tables
   // ---------------------------------------------------------------------------
 
+  // Data view: smaller than body, tight padding.
   table {
     border: var(--dm-table-border);
     margin: 0.75em 0;
+    font-size: 0.9375rem;
+    line-height: 1.5;
 
     td,
     th {
       border: var(--dm-table-border);
-      padding: 0.5em 0.75em;
+      padding: 0.375em 0.625em;
       min-width: 100px;
     }
 
