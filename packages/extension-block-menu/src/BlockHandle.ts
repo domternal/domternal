@@ -140,14 +140,14 @@ export interface BlockHandleOptions {
    */
   nestThreshold?: number;
   /**
-   * Show a custom drop indicator line during drag-from-handle that
-   * mirrors EXACTLY where the drop will land. Replaces the need for
-   * `prosemirror-dropcursor` for our drag flow - `dropcursor` uses
-   * PM's default `posAtCoords` which can disagree with our resolver
-   * (especially in side-gutter / inter-block-gap drops).
-   *
-   * Set to `false` if you want the standard `prosemirror-dropcursor`
-   * behaviour or are providing your own indicator.
+   * Custom drop indicator that mirrors exactly where a handle-drag will
+   * land. Replaces `prosemirror-dropcursor` for handle drags (PM's
+   * `posAtCoords` can disagree with our resolver in the side gutter /
+   * inter-block gap). While dragging, the editor gets a
+   * `dm-block-handle-dragging` class so the theme can hide the native
+   * `.ProseMirror-dropcursor` for this drag only; non-handle drags
+   * (text selection, external file drops) keep the native cursor.
+   * Set to `false` to use the native dropcursor instead.
    * @default true
    */
   dropIndicator?: boolean;
@@ -1285,6 +1285,9 @@ export function createBlockHandlePlugin(
     // The shared document-level dragover listener powers BOTH auto-scroll
     // and the drop-indicator. Attached once per drag, removed in dragend.
     startDragListeners();
+
+    // Theme hides native `.ProseMirror-dropcursor` while this class is set.
+    if (dropIndicator) editorEl?.classList.add('dm-block-handle-dragging');
   };
 
   const teardownDragPreview = (): void => {
@@ -1303,6 +1306,7 @@ export function createBlockHandlePlugin(
     hideDropIndicator();
     teardownDragPreview();
     releaseDragPress();
+    editorEl?.classList.remove('dm-block-handle-dragging');
   };
 
   return new Plugin<BlockHandlePluginState>({
@@ -1435,6 +1439,7 @@ export function createBlockHandlePlugin(
           dragBtn.removeEventListener('dragstart', onDragStart);
           dragBtn.removeEventListener('dragend', onDragEnd);
           editorEl?.classList.remove('dm-editor--has-block-handle');
+          editorEl?.classList.remove('dm-block-handle-dragging');
           root.remove();
           editorEl = null;
           hoverEl = null;
