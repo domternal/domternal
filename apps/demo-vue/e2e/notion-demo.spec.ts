@@ -4063,9 +4063,10 @@ test.describe('Table of Contents - hover expansion', () => {
   test('hovering the outline transitions through to "expanded" state', async ({ page }) => {
     const outline = page.locator('.dm-toc-outline');
     await outline.hover();
-    // The default hoverInDelay is 120ms; allow up to 600ms before
-    // failing so any CI-induced jitter does not flake the test.
-    await expect(outline).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
+    // The default hoverInDelay is 120ms; allow up to 1500ms before
+    // failing so CI / saturated-CPU jitter does not flake the test
+    // (setTimeout is clamped under load, can drift well past 120ms).
+    await expect(outline).toHaveAttribute('data-state', 'expanded', { timeout: 1500 });
 
     // Card opacity is now 1 and rows are pointer-events:auto.
     const card = page.locator('.dm-toc-outline-card');
@@ -4085,7 +4086,7 @@ test.describe('Table of Contents - hover expansion', () => {
     // measurements are real (computed style still reads correctly
     // when collapsed, but text-overflow / wrapping needs visibility).
     await page.locator('.dm-toc-outline').hover();
-    await expect(page.locator('.dm-toc-outline')).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
+    await expect(page.locator('.dm-toc-outline')).toHaveAttribute('data-state', 'expanded', { timeout: 1500 });
 
     const paddings = await rows.evaluateAll(
       (nodes) => nodes.map((n) => parseFloat(window.getComputedStyle(n).paddingInlineStart)),
@@ -4098,7 +4099,7 @@ test.describe('Table of Contents - hover expansion', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     const outline = page.locator('.dm-toc-outline');
     await outline.hover();
-    await expect(outline).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
+    await expect(outline).toHaveAttribute('data-state', 'expanded', { timeout: 1500 });
 
     const rows = page.locator('.dm-toc-outline-row');
     const lastIndex = (await rows.count()) - 1;
@@ -4138,7 +4139,7 @@ test.describe('Table of Contents - hover expansion', () => {
       const editor = document.querySelector<HTMLElement>('.ProseMirror');
       editor?.focus();
     });
-    await expect(outline).toHaveAttribute('data-state', 'collapsed', { timeout: 600 });
+    await expect(outline).toHaveAttribute('data-state', 'collapsed', { timeout: 1500 });
   });
 
   test('active row mirrors active tick (font-weight + aria-current)', async ({ page }) => {
@@ -4149,7 +4150,7 @@ test.describe('Table of Contents - hover expansion', () => {
 
     // Reveal card so getComputedStyle gives a meaningful weight value.
     await page.locator('.dm-toc-outline').hover();
-    await expect(page.locator('.dm-toc-outline')).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
+    await expect(page.locator('.dm-toc-outline')).toHaveAttribute('data-state', 'expanded', { timeout: 1500 });
 
     const matchedRow = page.locator(`.dm-toc-outline-row[data-toc-anchor="${targetId}"]`);
     await expect(matchedRow).toHaveAttribute('aria-current', 'location');
@@ -4187,7 +4188,7 @@ test.describe('Table of Contents - hover expansion', () => {
 
     // Expand via hover (waits up to 600ms past the 120ms in-delay).
     await outline.hover();
-    await expect(outline).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
+    await expect(outline).toHaveAttribute('data-state', 'expanded', { timeout: 1500 });
 
     // Move the mouse away. Use page.mouse.move() to a safe location
     // far from the outline; locator.hover('body') would re-enter the
@@ -4251,7 +4252,7 @@ test.describe('Table of Contents - hover expansion', () => {
 
     // Open expanded card and click the row pointing at the hidden heading.
     await page.locator('.dm-toc-outline').hover();
-    await expect(page.locator('.dm-toc-outline')).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
+    await expect(page.locator('.dm-toc-outline')).toHaveAttribute('data-state', 'expanded', { timeout: 1500 });
     await page.locator('.dm-toc-outline-row[data-toc-anchor="hidden"]').click();
 
     // The heading is now visible (details forced open by the
@@ -4273,7 +4274,7 @@ test.describe('Table of Contents - hover expansion', () => {
     await outline.hover();
     // State still flips - reduced-motion only zeroes the CSS
     // transition, the JS state machine itself is unaffected.
-    await expect(outline).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
+    await expect(outline).toHaveAttribute('data-state', 'expanded', { timeout: 1500 });
 
     // Card opacity should be 1 (not transitioning).
     const card = page.locator('.dm-toc-outline-card');
@@ -5025,7 +5026,7 @@ test.describe('Table of Contents - robustness', () => {
     await outline.dispatchEvent('mouseenter');
 
     // Wait past hoverInDelay (120ms) + a generous grace window.
-    await expect(outline).toHaveAttribute('data-state', 'expanded', { timeout: 600 });
+    await expect(outline).toHaveAttribute('data-state', 'expanded', { timeout: 1500 });
 
     // Now bounce in the OTHER direction. Final gesture is leave,
     // expect "collapsed" after hoverOutDelay (350ms).

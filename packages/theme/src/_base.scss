@@ -19,6 +19,7 @@
 
   .ProseMirror {
     padding: var(--dm-editor-padding);
+    padding-top: calc(var(--dm-editor-padding) + var(--dm-editor-padding-top-extra, 0px));
     min-height: 6rem;
 
     &:focus-visible {
