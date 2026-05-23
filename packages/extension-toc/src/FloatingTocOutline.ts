@@ -314,7 +314,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             }
             if (shell) {
               shell.style.minHeight = '';
-              shell.style.minHeight = `${sp.scrollHeight}px`;
+              shell.style.minHeight = `${String(sp.scrollHeight)}px`;
             }
           };
           if (isScrollContainer && typeof ResizeObserver !== 'undefined') {

@@ -505,7 +505,7 @@ describe('FloatingTocOutline - anchor option', () => {
     const outline = queryOutline();
     expect(outline?.dataset['scrollMode']).toBe('container');
     // Page-scroll machinery is skipped in container mode.
-    expect((outline as HTMLElement).style.getPropertyValue('--dm-toc-mid-top')).toBe('');
+    expect(outline!.style.getPropertyValue('--dm-toc-mid-top')).toBe('');
     expect(outline?.dataset['bottomVisible']).toBeUndefined();
     expect(outline?.dataset['mode']).toBeUndefined();
   });
@@ -536,7 +536,7 @@ describe('FloatingTocOutline - anchor option', () => {
         content: '<h1>One</h1><h2>Two</h2>',
       });
       await flushDeferred();
-      const outline = queryOutline() as HTMLElement;
+      const outline = queryOutline()!;
       expect(outline.style.getPropertyValue('--dm-toc-mid-half-height')).toBe('100.00px');
     } finally {
       if (origGetter) {
