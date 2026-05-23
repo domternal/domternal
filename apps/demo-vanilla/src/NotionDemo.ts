@@ -31,6 +31,7 @@ import {
   LineHeight,
   SelectionDecoration,
   ClearFormatting,
+  Dropcursor,
   UniqueID,
   BlockColor,
   Placeholder,
@@ -115,6 +116,10 @@ const buildExtensions = (scrollParent: Element | null): AnyExtension[] => [
     },
   }),
   LinkPopover, SelectionDecoration, ClearFormatting,
+  // Native PM dropcursor; BlockHandle hides it during a handle drag so
+  // only the custom `.dm-block-drop-indicator` shows. Kept loaded for
+  // non-handle drops (text selection, external file drops).
+  Dropcursor,
   // Registered after the list extensions so their in-item Tab/Shift-Tab
   // keymaps keep priority inside list items.
   ListIndent,
