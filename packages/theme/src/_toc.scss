@@ -44,6 +44,14 @@
   &[data-anchor='editor'][data-bottom-visible='true'] {
     top: var(--dm-toc-editor-top, 1rem);
   }
+  // `scroll-mode='container'`: host is its own scroll viewport. Plugin
+  // sets `top` inline on scroll/resize; `right: 0` keeps the nav inside
+  // the host (without it, the absolute nav's static position pokes past
+  // the host's right edge and triggers a horizontal scrollbar).
+  &[data-anchor='editor'][data-scroll-mode='container'] {
+    position: absolute;
+    right: 0;
+  }
   &[data-anchor='viewport'] {
     position: fixed;
     top: 50%;

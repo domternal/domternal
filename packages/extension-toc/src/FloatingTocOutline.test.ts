@@ -453,6 +453,45 @@ describe('FloatingTocOutline - anchor option', () => {
     expect(outline?.dataset['anchor']).toBe('editor');
   });
 
+  it('marks the outline as scroll-mode="page" when activeScrollParent is null', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+    editor = new Editor({
+      element: host,
+      extensions: baseExtensions,
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+    expect(queryOutline()?.dataset['scrollMode']).toBe('page');
+  });
+
+  it('marks the outline as scroll-mode="container" when activeScrollParent is an Element', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+    editor = new Editor({
+      element: host,
+      extensions: [
+        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+        TableOfContents,
+        FloatingTocOutline.configure({ activeScrollParent: host }),
+      ],
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+    const outline = queryOutline();
+    expect(outline?.dataset['scrollMode']).toBe('container');
+    // Page-scroll machinery is skipped in container mode.
+    expect((outline as HTMLElement).style.getPropertyValue('--dm-toc-mid-top')).toBe('');
+    expect(outline?.dataset['bottomVisible']).toBeUndefined();
+    expect(outline?.dataset['mode']).toBeUndefined();
+  });
+
   it('honors anchor="viewport" override', async () => {
     document.body.innerHTML = '';
     document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });

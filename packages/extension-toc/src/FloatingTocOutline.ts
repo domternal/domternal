@@ -266,11 +266,57 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             host.appendChild(nav);
           }
 
+          // Wiring a scrollable Element as `activeScrollParent` swaps the
+          // page-scroll sticky model for a container-scroll absolute model.
+          // Theme CSS keys off `data-scroll-mode`.
+          const isScrollContainer = options.activeScrollParent instanceof Element;
+          const scrollMode = isScrollContainer ? 'container' : 'page';
+          nav.dataset['scrollMode'] = scrollMode;
+          if (shell) shell.dataset['scrollMode'] = scrollMode;
+
+          // Container mode: absolute children of an overflow:auto element
+          // scroll WITH content, so we add scrollTop back into `top` to
+          // hold the nav at the host's visible middle. SHELL_TOP_OFFSET
+          // mirrors the `top: 25px` shell inset.
+          const SHELL_TOP_OFFSET = 25;
+          let containerScrollHandler: (() => void) | null = null;
+          let containerResizeObserver: ResizeObserver | null = null;
+          let containerRaf: number | null = null;
+          const recomputeContainerCenter = (): void => {
+            if (!isScrollContainer) return;
+            const sp = options.activeScrollParent as Element;
+            const h = nav.offsetHeight;
+            if (h <= 0) return;
+            const top = sp.scrollTop + sp.clientHeight / 2 - h / 2 - SHELL_TOP_OFFSET;
+            nav.style.top = `${top.toFixed(2)}px`;
+          };
+          if (isScrollContainer) {
+            const sp = options.activeScrollParent as Element;
+            const onScroll = (): void => {
+              if (containerRaf !== null) return;
+              containerRaf = requestAnimationFrame(() => {
+                containerRaf = null;
+                recomputeContainerCenter();
+              });
+            };
+            sp.addEventListener('scroll', onScroll, { passive: true });
+            containerScrollHandler = onScroll;
+            if (typeof ResizeObserver !== 'undefined') {
+              // Host drives the viewport; nav drives the offset (grows as
+              // ticks/headings are added).
+              containerResizeObserver = new ResizeObserver(() => { recomputeContainerCenter(); });
+              containerResizeObserver.observe(sp);
+              containerResizeObserver.observe(nav);
+            }
+            recomputeContainerCenter();
+          }
+
           let bottomObserver: IntersectionObserver | null = null;
           let bottomSentinel: HTMLElement | null = null;
           let recomputeMidTop: () => void = () => { /* no-op outside editor mode */ };
           if (
             options.anchor === 'editor'
+            && !isScrollContainer
             && shell
             && typeof IntersectionObserver !== 'undefined'
           ) {
@@ -618,6 +664,11 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
               mq?.removeEventListener('change', onMqChange);
               window.removeEventListener('resize', onResize);
               window.removeEventListener('scroll', onWindowScroll);
+              if (containerScrollHandler && options.activeScrollParent instanceof Element) {
+                options.activeScrollParent.removeEventListener('scroll', containerScrollHandler);
+              }
+              containerResizeObserver?.disconnect();
+              if (containerRaf !== null) cancelAnimationFrame(containerRaf);
               tracker.destroy();
               unsubscribe?.();
               bottomObserver?.disconnect();
