@@ -120,6 +120,37 @@ test.describe('Notion scrollable - outline stays centered on container scroll', 
   });
 });
 
+test.describe('Notion scrollable - clicking a tick scrolls the host only', () => {
+  test.beforeEach(async ({ page }) => { await goScrollable(page); });
+
+  test('clicking a tick moves the host scrollTop, not window.scrollY', async ({ page }) => {
+    // Push the page so window.scrollY > 0; the click must NOT reset it.
+    await page.evaluate(() => { window.scrollTo(0, 200); });
+    await page.waitForTimeout(50);
+
+    const before = await page.evaluate(() => ({
+      windowY: window.scrollY,
+      hostTop: (document.querySelector('.notion-page--scrollable') as HTMLElement).scrollTop,
+    }));
+
+    // DOM click bypasses Playwright actionability so the tick column's
+    // pointer-events gating doesn't get in the way.
+    await page.evaluate(() => {
+      const ticks = document.querySelectorAll<HTMLElement>('.dm-toc-outline-tick');
+      ticks[ticks.length - 1]?.click();
+    });
+    await page.waitForTimeout(600);
+
+    const after = await page.evaluate(() => ({
+      windowY: window.scrollY,
+      hostTop: (document.querySelector('.notion-page--scrollable') as HTMLElement).scrollTop,
+    }));
+
+    expect(after.hostTop).toBeGreaterThan(before.hostTop);
+    expect(Math.abs(after.windowY - before.windowY)).toBeLessThanOrEqual(2);
+  });
+});
+
 test.describe('Notion scrollable - scroll-spy follows host scroll', () => {
   test.beforeEach(async ({ page }) => { await goScrollable(page); });
 

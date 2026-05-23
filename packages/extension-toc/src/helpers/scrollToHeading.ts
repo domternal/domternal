@@ -48,6 +48,11 @@ export interface ScrollToHeadingOptions {
    * @default 'id'
    */
   attrName?: string;
+  /**
+   * Scope the scroll to a specific container instead of bubbling up to
+   * the window. Pair with `FloatingTocOutline.activeScrollParent`.
+   */
+  scrollParent?: Element | null;
 }
 
 /**
@@ -108,7 +113,16 @@ export function scrollToHeading(
 
   const behavior: ScrollBehavior =
     options.behavior ?? (prefersReducedMotion() ? 'auto' : 'smooth');
-  target.scrollIntoView({ behavior, block: 'start' });
+  const scrollParent = options.scrollParent ?? null;
+  if (scrollParent instanceof Element) {
+    // Scoped scroll: only move `scrollParent`, do not bubble to window.
+    const targetRect = target.getBoundingClientRect();
+    const parentRect = scrollParent.getBoundingClientRect();
+    const top = scrollParent.scrollTop + (targetRect.top - parentRect.top);
+    scrollParent.scrollTo({ top, behavior });
+  } else {
+    target.scrollIntoView({ behavior, block: 'start' });
+  }
 
   if (options.updateHash !== false && typeof history !== 'undefined') {
     // Encode the id for the URL fragment. Default IDs are URL-safe

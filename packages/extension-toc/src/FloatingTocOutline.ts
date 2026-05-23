@@ -567,7 +567,12 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             if (!id) return;
             manualOverrideUntil = Date.now() + options.clickOverrideMs;
             writeActive(id);
-            scrollToHeading(editorView, id, { attrName });
+            scrollToHeading(editorView, id, {
+              attrName,
+              scrollParent: options.activeScrollParent instanceof Element
+                ? options.activeScrollParent
+                : null,
+            });
           };
           nav.addEventListener('click', onClick);
 
