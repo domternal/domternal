@@ -187,15 +187,11 @@ const props = withDefaults(defineProps<{
 // before `onMounted` fires.
 const pageEl = ref<HTMLDivElement | null>(null);
 
-// Single extensions array reference - we mutate it in-place after the
-// wrapper mounts so useEditor reads the wired value at creation time
-// without firing its recreation watcher (which compares the array
-// reference, not contents).
+// `extensions` keeps a single array reference. This onMounted is
+// registered BEFORE useEditor's own, so we mutate the array in-place
+// before useEditor reads it; the watcher stays quiet because it
+// compares the reference, not contents.
 const extensions: AnyExtension[] = buildExtensions(null);
-
-// Register BEFORE useEditor so this onMounted fires first; useEditor's
-// onMounted then reads the (mutated) array when it builds the editor,
-// and its watcher stays quiet because the reference never changes.
 onMounted(() => {
   if (props.scrollable && pageEl.value) {
     const wired = buildExtensions(pageEl.value);
@@ -233,10 +229,9 @@ let toastCounter = 0;
 const pushToast = (message: string, kind: Toast['kind']): void => {
   const id = ++toastCounter;
   toasts.value = [...toasts.value, { id, message, kind }];
-  const ms = kind === 'success' ? TOAST_MS.success : TOAST_MS.error;
   setTimeout(() => {
     toasts.value = toasts.value.filter((t) => t.id !== id);
-  }, ms);
+  }, TOAST_MS[kind]);
 };
 
 // Expose editor + cursor-context util on window for e2e, and wire the

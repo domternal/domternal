@@ -17,7 +17,6 @@ const editorSelector = '.app-notion-demo .ProseMirror';
 const modeToggleNotion = '[data-testid="mode-notion"]';
 const blockHandleSelector = '.dm-block-handle';
 const dragBtnSelector = '.dm-block-handle-drag';
-const editorWrapperSelector = '.app-notion-demo .dm-editor';
 
 async function goNotion(page: Page): Promise<void> {
   await page.goto('/');

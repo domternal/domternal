@@ -10,6 +10,7 @@ import type { NodeViewConstructor } from '@domternal/pm/view';
 import { TextSelection } from '@domternal/pm/state';
 import { scrollToHeading } from './helpers/scrollToHeading.js';
 import { resolveUniqueIDAttrName } from './helpers/uniqueIDIntegration.js';
+import { getHeadingLabel, setActiveMarker } from './helpers/outlineDom.js';
 import type { TocStorage, HeadingEntry } from './types.js';
 
 export interface TableOfContentsBlockOptions {
@@ -74,7 +75,7 @@ function renderBlockContent(
     link.className = LINK_CLASS;
     link.dataset['level'] = String(entry.level);
     link.dataset[ANCHOR_DATASET_KEY] = entry.id;
-    link.textContent = entry.textContent.trim() || `Heading level ${String(entry.level)}`;
+    link.textContent = getHeadingLabel(entry);
 
     item.appendChild(link);
     list.appendChild(item);
@@ -83,20 +84,15 @@ function renderBlockContent(
 }
 
 /**
- * Toggle the active marker on every link button (carrying a
- * `data-toc-anchor` attribute). At most one link gets
- * `aria-current="location"` + the active class. Mirrors
- * `applyActiveMarker` in FloatingTocOutline so the inline block and
- * the floating outline reflect the same active heading.
+ * Apply the active marker to every link button (carrying a
+ * `data-toc-anchor` attribute). Thin wrapper over the shared
+ * `setActiveMarker` helper: queries every `.LINK_CLASS` and forwards
+ * the toggle work so this block stays in lockstep with the floating
+ * outline.
  */
 function applyActiveLink(wrapper: HTMLElement, activeId: string | null): void {
-  const links = wrapper.querySelectorAll<HTMLElement>(`.${LINK_CLASS}`);
-  for (const link of Array.from(links)) {
-    const isActive = activeId !== null && link.dataset[ANCHOR_DATASET_KEY] === activeId;
-    link.classList.toggle(ACTIVE_LINK_CLASS, isActive);
-    if (isActive) link.setAttribute('aria-current', 'location');
-    else link.removeAttribute('aria-current');
-  }
+  const links = Array.from(wrapper.querySelectorAll<HTMLElement>(`.${LINK_CLASS}`));
+  setActiveMarker(links, activeId, ACTIVE_LINK_CLASS);
 }
 
 /**

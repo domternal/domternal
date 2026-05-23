@@ -267,6 +267,14 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
     element.removeAttribute('data-show');
   };
 
+  // Clear the explicit-trigger flag if it's set. No-op when
+  // `requireExplicitTrigger` is off (no flag exists to clear).
+  const clearTriggeredFlag = (view: EditorView): void => {
+    if (!requireExplicitTrigger) return;
+    const triggered = (pluginKey.getState(view.state) as FloatingMenuPluginState | undefined)?.triggered ?? false;
+    if (triggered) view.dispatch(view.state.tr.setMeta(FLOATING_MENU_META, 'hide'));
+  };
+
   // Focus first menuitem. Wrappers mark each item with
   // `data-floating-menu-item`; falls back to any focusable descendant.
   const focusFirstItem = (): boolean => {
@@ -335,12 +343,7 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
       // `triggered=true` doesn't survive across an unrelated dismissal.
       const dismiss = (): void => {
         hideMenu();
-        if (requireExplicitTrigger) {
-          const triggered = (pluginKey.getState(editor.view.state) as FloatingMenuPluginState | undefined)?.triggered ?? false;
-          if (triggered) {
-            editor.view.dispatch(editor.view.state.tr.setMeta(FLOATING_MENU_META, 'hide'));
-          }
-        }
+        clearTriggeredFlag(editor.view);
       };
 
       const onFocus = (): void => {
@@ -391,12 +394,7 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
             // away from the empty paragraph (e.g. types a character or
             // moves the cursor) - otherwise the next empty paragraph
             // they enter would silently re-show the menu.
-            if (requireExplicitTrigger) {
-              const triggered = (pluginKey.getState(view.state) as FloatingMenuPluginState | undefined)?.triggered ?? false;
-              if (triggered) {
-                view.dispatch(view.state.tr.setMeta(FLOATING_MENU_META, 'hide'));
-              }
-            }
+            clearTriggeredFlag(view);
           }
         },
 

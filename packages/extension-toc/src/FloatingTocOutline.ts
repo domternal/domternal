@@ -10,6 +10,7 @@ import { Plugin, PluginKey } from '@domternal/pm/state';
 import { scrollToHeading } from './helpers/scrollToHeading.js';
 import { createActiveStateTracker } from './helpers/activeStateTracker.js';
 import { resolveUniqueIDAttrName } from './helpers/uniqueIDIntegration.js';
+import { getHeadingLabel, setActiveMarker } from './helpers/outlineDom.js';
 import type { TocStorage, HeadingEntry } from './types.js';
 
 export const floatingTocOutlinePluginKey = new PluginKey('floatingTocOutline');
@@ -162,14 +163,13 @@ function renderOutlineContent(nav: HTMLElement, content: HeadingEntry[]): void {
     tick.className = TICK_CLASS;
     tick.dataset['level'] = String(entry.level);
     tick.dataset[ANCHOR_DATASET_KEY] = entry.id;
-    const label = entry.textContent.trim() || `Heading level ${String(entry.level)}`;
+    const label = getHeadingLabel(entry);
     tick.setAttribute('aria-label', `${label} (heading ${String(entry.level)})`);
     ticks.appendChild(tick);
   }
 
   // Expanded-view card. Always rendered; CSS opacity flips it in/out
-  // via the nav's data-state. Sibling of the ticks wrapper so the
-  // wrapper's `overflow: hidden` never clips it.
+  // via the nav's data-state.
   let card = nav.querySelector<HTMLElement>(`.${CARD_CLASS}`);
   if (!card) {
     card = document.createElement('div');
@@ -184,25 +184,19 @@ function renderOutlineContent(nav: HTMLElement, content: HeadingEntry[]): void {
     row.className = ROW_CLASS;
     row.dataset['level'] = String(entry.level);
     row.dataset[ANCHOR_DATASET_KEY] = entry.id;
-    row.textContent = entry.textContent.trim() || `Heading level ${String(entry.level)}`;
+    row.textContent = getHeadingLabel(entry);
     card.appendChild(row);
   }
 }
 
 /**
- * Toggle the active-state visual on every element with a `data-toc-anchor`
- * attribute (both ticks AND rows in the outline DOM). At most one item
- * gets the active class + `aria-current="location"`, all others have
- * those cleared.
+ * Apply the active marker to ticks AND rows in the outline DOM. Thin
+ * wrapper over the shared `setActiveMarker` helper: queries every
+ * element with `data-toc-anchor` and forwards the toggle work.
  */
 function applyActiveMarker(nav: HTMLElement, activeId: string | null): void {
-  const items = nav.querySelectorAll<HTMLElement>(`[${ANCHOR_ATTR}]`);
-  for (const item of Array.from(items)) {
-    const isActive = activeId !== null && item.dataset[ANCHOR_DATASET_KEY] === activeId;
-    item.classList.toggle(ACTIVE_CLASS, isActive);
-    if (isActive) item.setAttribute('aria-current', 'location');
-    else item.removeAttribute('aria-current');
-  }
+  const items = Array.from(nav.querySelectorAll<HTMLElement>(`[${ANCHOR_ATTR}]`));
+  setActiveMarker(items, activeId, ACTIVE_CLASS);
 }
 
 /**
@@ -300,18 +294,16 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           nav.dataset['scrollMode'] = scrollMode;
           if (shell) shell.dataset['scrollMode'] = scrollMode;
 
-          // Container mode: CSS `position: sticky` does the work; JS only
-          // publishes `--dm-toc-mid-half-height` (for the theme's
-          // `calc(50% - var(...))`) and stretches the shell to host
-          // scrollHeight so sticky containment spans the full scroll
-          // range. Reset minHeight before measuring so the read isn't
-          // self-inflated by the shell's previous height.
+          // Container mode: CSS `position: sticky` does the work. JS
+          // publishes the variables the theme reads (`--dm-toc-ticks-max-h`,
+          // `--dm-toc-mid-half-height`) and stretches the shell to
+          // host.scrollHeight so sticky containment spans the full
+          // scroll range. Clearing minHeight first avoids reading a
+          // self-inflated scrollHeight.
           let containerResizeObserver: ResizeObserver | null = null;
           const recomputeContainerLayout = (): void => {
             if (!isScrollContainer) return;
             const sp = options.activeScrollParent as Element;
-            // Cap the ticks column at 50% of the host viewport - the
-            // wrapper's CSS reads this var.
             nav.style.setProperty(
               '--dm-toc-ticks-max-h',
               `${(sp.clientHeight * 0.5).toFixed(2)}px`,
@@ -521,7 +513,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           // then write the new shift only when it actually changes.
           const CARD_VIEWPORT_MARGIN = 16;
           const adjustCardPosition = (): void => {
-            const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card');
+            const card = nav.querySelector<HTMLElement>(`.${CARD_CLASS}`);
             if (!card) return;
             const currentShift = parseFloat(
               card.style.getPropertyValue('--dm-toc-card-shift-y'),

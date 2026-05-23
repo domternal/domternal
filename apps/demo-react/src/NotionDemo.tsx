@@ -240,10 +240,9 @@ export function NotionDemo({ scrollable = false }: NotionDemoProps): ReactNode {
     const pushToast = (message: string, kind: Toast['kind']): void => {
       const id = Date.now() + Math.random();
       setToasts((current) => [...current, { id, message, kind }]);
-      const ms = kind === 'success' ? TOAST_MS.success : TOAST_MS.error;
       setTimeout(() => {
         setToasts((current) => current.filter((t) => t.id !== id));
-      }, ms);
+      }, TOAST_MS[kind]);
     };
 
     host?.addEventListener('dm:copy-link-success', () => {

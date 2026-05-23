@@ -218,13 +218,10 @@ export class NotionDemoComponent implements OnDestroy {
     };
   }
 
-  // Tracked so `ngOnDestroy` and subsequent `onEditorCreated` calls can
-  // remove listeners before adding new ones. Without this, repeatedly
-  // mounting the component (HMR / route re-entry) would accumulate
-  // listeners on the same `.dm-editor` DOM node.
-  private copyLinkHost: HTMLElement | null = null;
-  private copyLinkSuccessListener: ((event: Event) => void) | null = null;
-  private copyLinkErrorListener: ((event: Event) => void) | null = null;
+  // AbortController scoped to one editor lifetime: `abort()` removes all
+  // listeners attached with its signal. Recreated per `onEditorCreated`
+  // so HMR / route re-entry can't leak listeners onto a stale host.
+  private toastsAbortCtl = new AbortController();
 
   onEditorCreated(editor: Editor): void {
     this.editor.set(editor);
@@ -238,23 +235,17 @@ export class NotionDemoComponent implements OnDestroy {
     // Tear down any previously-attached listeners before wiring new ones -
     // protects against leaking listeners when the editor is recreated
     // (HMR, re-entering the route, etc.).
-    this.removeCopyLinkListeners();
+    this.toastsAbortCtl.abort();
+    this.toastsAbortCtl = new AbortController();
+    const { signal } = this.toastsAbortCtl;
 
     // Surface toasts when "Copy link to block" succeeds or fails. Host apps
     // own this UX: BlockContextMenu only emits `dm:copy-link-success` (on
     // actual success) and `dm:copy-link-error` (on clipboard failure).
     const host = editor.view.dom.closest<HTMLElement>('.dm-editor');
     if (!host) return;
-    this.copyLinkHost = host;
-
-    this.copyLinkSuccessListener = (): void => {
-      this.showToast('Link copied', 'status', 'notion-demo-toast', NotionDemoComponent.TOAST_MS.success);
-    };
-    this.copyLinkErrorListener = (): void => {
-      this.showToast('Failed to copy link', 'alert', 'notion-demo-toast notion-demo-toast--error', NotionDemoComponent.TOAST_MS.error);
-    };
-    host.addEventListener('dm:copy-link-success', this.copyLinkSuccessListener);
-    host.addEventListener('dm:copy-link-error', this.copyLinkErrorListener);
+    host.addEventListener('dm:copy-link-success', () => this.pushToast('Link copied', 'success'), { signal });
+    host.addEventListener('dm:copy-link-error', () => this.pushToast('Failed to copy link', 'error'), { signal });
   }
 
   /** Inline-style the live HTML output for the "Styled HTML" pane. */
@@ -263,30 +254,19 @@ export class NotionDemoComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.removeCopyLinkListeners();
-    this.copyLinkHost = null;
+    this.toastsAbortCtl.abort();
     const w = window as unknown as Record<string, unknown>;
     w['__DEMO_SET_BUBBLE_ICONS__'] = undefined;
   }
 
-  private removeCopyLinkListeners(): void {
-    if (!this.copyLinkHost) return;
-    if (this.copyLinkSuccessListener) {
-      this.copyLinkHost.removeEventListener('dm:copy-link-success', this.copyLinkSuccessListener);
-      this.copyLinkSuccessListener = null;
-    }
-    if (this.copyLinkErrorListener) {
-      this.copyLinkHost.removeEventListener('dm:copy-link-error', this.copyLinkErrorListener);
-      this.copyLinkErrorListener = null;
-    }
-  }
-
-  private showToast(message: string, role: 'status' | 'alert', className: string, durationMs: number): void {
+  private pushToast(message: string, kind: 'success' | 'error'): void {
     const toast = document.createElement('div');
-    toast.className = className;
+    toast.className = kind === 'success'
+      ? 'notion-demo-toast'
+      : 'notion-demo-toast notion-demo-toast--error';
     toast.textContent = message;
-    toast.setAttribute('role', role);
+    toast.setAttribute('role', kind === 'success' ? 'status' : 'alert');
     document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), durationMs);
+    setTimeout(() => toast.remove(), NotionDemoComponent.TOAST_MS[kind]);
   }
 }

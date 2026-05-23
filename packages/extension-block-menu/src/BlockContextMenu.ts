@@ -714,11 +714,9 @@ export function createBlockContextMenuPlugin(
     editorEl.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
     root.setAttribute('data-show', '');
     lockScroll();
-    {
-      const tr = editor.view.state.tr.setMeta(pluginKey, { activeBlockPos: detail.blockPos });
-      tr.setMeta('addToHistory', false);
-      editor.view.dispatch(tr);
-    }
+    const openTr = editor.view.state.tr.setMeta(pluginKey, { activeBlockPos: detail.blockPos });
+    openTr.setMeta('addToHistory', false);
+    editor.view.dispatch(openTr);
 
     cleanupFloating?.();
     // Virtual reference: caches the last valid rect and returns it when the
