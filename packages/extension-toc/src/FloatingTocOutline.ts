@@ -33,8 +33,10 @@ export interface FloatingTocOutlineOptions {
   anchor: 'editor' | 'viewport';
   /**
    * Hide the outline when the document has fewer than this many
-   * headings - on a doc with one heading, the outline is just clutter.
-   * @default 2
+   * headings. Default `1` shows the outline as soon as any heading
+   * exists (matches Notion). Raise to `2` to suppress single-tick
+   * outlines on title-only documents.
+   * @default 1
    */
   minHeadings: number;
   /**
@@ -217,7 +219,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
   addOptions() {
     return {
       anchor: 'editor',
-      minHeadings: 2,
+      minHeadings: 1,
       mobileBreakpoint: 1024,
       activeRootMargin: '0px 0px -85% 0px',
       activeScrollParent: null,
