@@ -246,7 +246,15 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           // would render hidden because storage stays empty).
           const attrName = editor ? resolveUniqueIDAttrName(editor) : 'id';
 
-          const hostResolver = options.outlineHost ?? resolveDefaultOutlineHost;
+          // Container mode anchors the shell to the scroll parent itself
+          // so the sticky's scroll context and positioned containing
+          // block match. Default walk would land on the editor's
+          // unsized parent and size the shell to scrollHeight.
+          const isScrollContainer = options.activeScrollParent instanceof Element;
+          const hostResolver = options.outlineHost
+            ?? (isScrollContainer
+              ? (): HTMLElement => options.activeScrollParent as HTMLElement
+              : resolveDefaultOutlineHost);
           const host = hostResolver(editorView);
           const nav = document.createElement('nav');
           nav.className = OUTLINE_CLASS;
@@ -266,50 +274,37 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             host.appendChild(nav);
           }
 
-          // Wiring a scrollable Element as `activeScrollParent` swaps the
-          // page-scroll sticky model for a container-scroll absolute model.
-          // Theme CSS keys off `data-scroll-mode`.
-          const isScrollContainer = options.activeScrollParent instanceof Element;
+          // Theme CSS keys off `data-scroll-mode` to switch between page-
+          // scroll sticky and container-scroll sticky models.
           const scrollMode = isScrollContainer ? 'container' : 'page';
           nav.dataset['scrollMode'] = scrollMode;
           if (shell) shell.dataset['scrollMode'] = scrollMode;
 
-          // Container mode: absolute children of an overflow:auto element
-          // scroll WITH content, so we add scrollTop back into `top` to
-          // hold the nav at the host's visible middle. SHELL_TOP_OFFSET
-          // mirrors the `top: 25px` shell inset.
-          const SHELL_TOP_OFFSET = 25;
-          let containerScrollHandler: (() => void) | null = null;
+          // Container mode: CSS `position: sticky` does the work; JS only
+          // publishes `--dm-toc-mid-half-height` (for the theme's
+          // `calc(50% - var(...))`) and stretches the shell to host
+          // scrollHeight so sticky containment spans the full scroll
+          // range. Reset minHeight before measuring so the read isn't
+          // self-inflated by the shell's previous height.
           let containerResizeObserver: ResizeObserver | null = null;
-          let containerRaf: number | null = null;
-          const recomputeContainerCenter = (): void => {
+          const recomputeContainerLayout = (): void => {
             if (!isScrollContainer) return;
-            const sp = options.activeScrollParent as Element;
             const h = nav.offsetHeight;
-            if (h <= 0) return;
-            const top = sp.scrollTop + sp.clientHeight / 2 - h / 2 - SHELL_TOP_OFFSET;
-            nav.style.top = `${top.toFixed(2)}px`;
-          };
-          if (isScrollContainer) {
-            const sp = options.activeScrollParent as Element;
-            const onScroll = (): void => {
-              if (containerRaf !== null) return;
-              containerRaf = requestAnimationFrame(() => {
-                containerRaf = null;
-                recomputeContainerCenter();
-              });
-            };
-            sp.addEventListener('scroll', onScroll, { passive: true });
-            containerScrollHandler = onScroll;
-            if (typeof ResizeObserver !== 'undefined') {
-              // Host drives the viewport; nav drives the offset (grows as
-              // ticks/headings are added).
-              containerResizeObserver = new ResizeObserver(() => { recomputeContainerCenter(); });
-              containerResizeObserver.observe(sp);
-              containerResizeObserver.observe(nav);
+            if (h > 0) {
+              nav.style.setProperty('--dm-toc-mid-half-height', `${(h / 2).toFixed(2)}px`);
             }
-            recomputeContainerCenter();
+            if (shell) {
+              const sp = options.activeScrollParent as Element;
+              shell.style.minHeight = '';
+              shell.style.minHeight = `${sp.scrollHeight}px`;
+            }
+          };
+          if (isScrollContainer && typeof ResizeObserver !== 'undefined') {
+            containerResizeObserver = new ResizeObserver(recomputeContainerLayout);
+            containerResizeObserver.observe(nav);
+            containerResizeObserver.observe(editorView.dom);
           }
+          if (isScrollContainer) recomputeContainerLayout();
 
           let bottomObserver: IntersectionObserver | null = null;
           let bottomSentinel: HTMLElement | null = null;
@@ -664,11 +659,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
               mq?.removeEventListener('change', onMqChange);
               window.removeEventListener('resize', onResize);
               window.removeEventListener('scroll', onWindowScroll);
-              if (containerScrollHandler && options.activeScrollParent instanceof Element) {
-                options.activeScrollParent.removeEventListener('scroll', containerScrollHandler);
-              }
               containerResizeObserver?.disconnect();
-              if (containerRaf !== null) cancelAnimationFrame(containerRaf);
               tracker.destroy();
               unsubscribe?.();
               bottomObserver?.disconnect();

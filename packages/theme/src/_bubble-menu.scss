@@ -32,6 +32,10 @@
   }
 
   position: absolute;
+  // Pin static position to parent top-left so the hidden box doesn't
+  // inflate parent scrollHeight. JS overrides on show.
+  top: 0;
+  left: 0;
   display: flex;
   align-items: center;
   gap: var(--dm-toolbar-gap);

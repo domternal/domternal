@@ -50,6 +50,9 @@
 
 .dm-block-handle {
   position: absolute;
+  // Pin static position to parent top so the hidden box doesn't
+  // inflate parent scrollHeight. JS sets `top` inline on show.
+  top: 0;
   // Tokenised so demos with a centered narrower content column can move
   // the handle further out (e.g., `--dm-block-handle-left: -3.5rem`) to
   // place it fully in the surrounding whitespace. Default `-0.5rem` keeps

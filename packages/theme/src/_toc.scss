@@ -44,12 +44,12 @@
   &[data-anchor='editor'][data-bottom-visible='true'] {
     top: var(--dm-toc-editor-top, 1rem);
   }
-  // `scroll-mode='container'`: host is its own scroll viewport. Plugin
-  // sets `top` inline on scroll/resize; `right: 0` keeps the nav inside
-  // the host (without it, the absolute nav's static position pokes past
-  // the host's right edge and triggers a horizontal scrollbar).
+  // `scroll-mode='container'`: sticky pins the nav at the host's
+  // visible middle, zero JS during scroll. Plugin publishes
+  // `--dm-toc-mid-half-height` (= nav.offsetHeight / 2).
   &[data-anchor='editor'][data-scroll-mode='container'] {
-    position: absolute;
+    position: sticky;
+    top: calc(50% - var(--dm-toc-mid-half-height, 0px));
     right: 0;
   }
   &[data-anchor='viewport'] {
@@ -100,6 +100,14 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+}
+
+// `scroll-mode='container'`: shell spans the host (no top/bottom
+// inset) and is JS-stretched to host.scrollHeight so the sticky's
+// containing block covers the full scroll range.
+.dm-toc-outline-shell[data-anchor='editor'][data-scroll-mode='container'] {
+  top: 0;
+  bottom: 0;
 }
 
 .dm-toc-outline-tick {

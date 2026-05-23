@@ -17,12 +17,11 @@ async function goScrollable(page: Page): Promise<void> {
   await page.waitForSelector(editorSelector);
   // Outline mounts as soon as TableOfContents storage has >= minHeadings.
   await page.waitForSelector('.dm-toc-outline');
-  // Wait for the plugin's first `recomputeContainerCenter()` to set an
-  // inline top - otherwise the initial boundingBox() may snapshot the
-  // pre-positioned state.
+  // Sticky positioning needs `--dm-toc-mid-half-height` resolved before
+  // the layout settles - wait for the plugin to publish it.
   await page.waitForFunction(() => {
     const o = document.querySelector('.dm-toc-outline') as HTMLElement | null;
-    return o !== null && o.style.top !== '';
+    return o !== null && o.style.getPropertyValue('--dm-toc-mid-half-height') !== '';
   });
 }
 
@@ -55,17 +54,19 @@ test.describe('Notion scrollable - container layout', () => {
     expect(dims.scrollWidth).toBeLessThanOrEqual(dims.clientWidth + 1);
   });
 
-  test('outline uses absolute positioning (no sticky 50vh)', async ({ page }) => {
+  test('outline uses sticky positioning (no 50vh page-scroll model)', async ({ page }) => {
     const data = await page.locator('.dm-toc-outline').evaluate((el) => {
       const cs = window.getComputedStyle(el);
       return {
         position: cs.position,
         midTopVar: (el as HTMLElement).style.getPropertyValue('--dm-toc-mid-top'),
+        halfHeightVar: (el as HTMLElement).style.getPropertyValue('--dm-toc-mid-half-height'),
         bottomVisible: (el as HTMLElement).dataset['bottomVisible'] ?? null,
         mode: (el as HTMLElement).dataset['mode'] ?? null,
       };
     });
-    expect(data.position).toBe('absolute');
+    expect(data.position).toBe('sticky');
+    expect(data.halfHeightVar).not.toBe('');
     // Page-scroll model is fully skipped in container mode.
     expect(data.midTopVar).toBe('');
     expect(data.bottomVisible).toBeNull();

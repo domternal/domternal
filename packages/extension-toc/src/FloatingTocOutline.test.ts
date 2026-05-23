@@ -492,6 +492,43 @@ describe('FloatingTocOutline - anchor option', () => {
     expect(outline?.dataset['mode']).toBeUndefined();
   });
 
+  it('sets --dm-toc-mid-half-height in container mode based on nav offsetHeight', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+    // Pre-stub the nav offsetHeight before any are constructed: the
+    // plugin reads it on mount and on every storage update.
+    const origGetter = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      configurable: true,
+      get(): number {
+        return this.classList?.contains('dm-toc-outline') ? 200 : 0;
+      },
+    });
+    try {
+      editor = new Editor({
+        element: host,
+        extensions: [
+          Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+          TableOfContents,
+          FloatingTocOutline.configure({ activeScrollParent: host }),
+        ],
+        content: '<h1>One</h1><h2>Two</h2>',
+      });
+      await flushDeferred();
+      const outline = queryOutline() as HTMLElement;
+      expect(outline.style.getPropertyValue('--dm-toc-mid-half-height')).toBe('100.00px');
+    } finally {
+      if (origGetter) {
+        Object.defineProperty(HTMLElement.prototype, 'offsetHeight', origGetter);
+      } else {
+        delete (HTMLElement.prototype as unknown as { offsetHeight?: unknown }).offsetHeight;
+      }
+    }
+  });
+
   it('honors anchor="viewport" override', async () => {
     document.body.innerHTML = '';
     document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
