@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, OnDestroy, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, ElementRef, OnDestroy, computed, input, signal, viewChild } from '@angular/core';
 import {
   DomternalEditorComponent,
   DomternalBubbleMenuComponent,
@@ -38,6 +38,7 @@ import {
   Editor,
   inlineStyles,
   getListItemCursorContext,
+  type AnyExtension,
 } from '@domternal/core';
 import { CodeBlockLowlight, createCodeHighlighter } from '@domternal/extension-code-block-lowlight';
 import { Image } from '@domternal/extension-image';
@@ -109,74 +110,95 @@ export class NotionDemoComponent implements OnDestroy {
    */
   private static readonly TOAST_MS = { success: 1800, error: 2600 };
 
-  extensions = [
-    Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
-    Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
-    BulletList, OrderedList, TaskList,
-    TextAlign, TextColor, FontSize, FontFamily, LineHeight,
-    NotionColorPicker,
-    Table,
-    Details,
-    Image,
-    Emoji.configure({
-      emojis,
-      enableEmoticons: true,
-      toolbar: false,
-      suggestion: { render: createEmojiSuggestionRenderer() },
-    }),
-    Mention.configure({
-      suggestion: {
-        char: '@',
-        name: 'user',
-        items: ({ query }: { query: string }) =>
-          mockUsers.filter((u) => u.label.toLowerCase().includes(query.toLowerCase())),
-        render: createMentionSuggestionRenderer(),
-        minQueryLength: 0,
-        invalidNodes: ['codeBlock'],
-      },
-    }),
-    LinkPopover, SelectionDecoration, ClearFormatting,
-    // Registered after the list extensions so their in-item Tab/Shift-Tab
-    // keymaps keep priority inside list items.
-    ListIndent,
-    UniqueID,
-    BlockColor,
-    // `paragraphInsideContainer` keeps containers (blockquote / tableCell /
-    // details) as one drag unit. Paragraphs nested in listItem are NOT
-    // covered because they were Tab-indented as separate logical blocks.
-    BlockHandle.configure({
-      nested: {
-        allowedNodes: [
-          'listItem', 'taskItem',
-          'heading', 'paragraph', 'codeBlock', 'blockquote', 'horizontalRule',
-        ],
-        matchers: [
-          {
-            name: 'paragraphInsideContainer',
-            test: ({ block, container }: BlockCandidate) =>
-              block.type.name === 'paragraph'
-                && container !== null
-                && PARAGRAPH_EXCLUSION_PARENTS.has(container.type.name)
-                ? 'reject'
-                : 'allow',
-          } satisfies BlockMatcher,
-        ],
-      },
-    }),
-    BlockContextMenu,
-    KeyboardReorder,
-    SlashCommand,
-    SmartPaste,
-    TableOfContents,
-    FloatingTocOutline,
-    TableOfContentsBlock,
-    // Empty paragraphs get the slash hint; other empty blocks stay quiet so
-    // the hint isn't repeated on every block.
-    Placeholder.configure({
-      placeholder: ({ node }) =>
-        node.type.name === 'paragraph' ? "Press '/' for commands" : '',
-    }),
-  ];
+  /**
+   * Cap the page wrapper height and scroll its content internally. Adds
+   * `notion-page--scrollable` and wires `activeScrollParent` so the TOC
+   * scroll-spy follows the host scroll instead of the window.
+   */
+  readonly scrollable = input(false);
+
+  /**
+   * Reference to the `.notion-page` wrapper. Resolved after first render;
+   * the `extensions` computed below picks it up so the editor recreates
+   * with the wired `activeScrollParent` when this signal resolves.
+   */
+  readonly pageElRef = viewChild<ElementRef<HTMLDivElement>>('pageEl');
+
+  readonly extensions = computed<AnyExtension[]>(() => {
+    const sp = this.scrollable() ? this.pageElRef()?.nativeElement ?? null : null;
+    return NotionDemoComponent.buildExtensions(sp);
+  });
+
+  private static buildExtensions(scrollParent: Element | null): AnyExtension[] {
+    return [
+      Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
+      Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
+      BulletList, OrderedList, TaskList,
+      TextAlign, TextColor, FontSize, FontFamily, LineHeight,
+      NotionColorPicker,
+      Table,
+      Details,
+      Image,
+      Emoji.configure({
+        emojis,
+        enableEmoticons: true,
+        toolbar: false,
+        suggestion: { render: createEmojiSuggestionRenderer() },
+      }),
+      Mention.configure({
+        suggestion: {
+          char: '@',
+          name: 'user',
+          items: ({ query }: { query: string }) =>
+            mockUsers.filter((u) => u.label.toLowerCase().includes(query.toLowerCase())),
+          render: createMentionSuggestionRenderer(),
+          minQueryLength: 0,
+          invalidNodes: ['codeBlock'],
+        },
+      }),
+      LinkPopover, SelectionDecoration, ClearFormatting,
+      // Registered after the list extensions so their in-item Tab/Shift-Tab
+      // keymaps keep priority inside list items.
+      ListIndent,
+      UniqueID,
+      BlockColor,
+      // `paragraphInsideContainer` keeps containers (blockquote / tableCell /
+      // details) as one drag unit. Paragraphs nested in listItem are NOT
+      // covered because they were Tab-indented as separate logical blocks.
+      BlockHandle.configure({
+        nested: {
+          allowedNodes: [
+            'listItem', 'taskItem',
+            'heading', 'paragraph', 'codeBlock', 'blockquote', 'horizontalRule',
+          ],
+          matchers: [
+            {
+              name: 'paragraphInsideContainer',
+              test: ({ block, container }: BlockCandidate) =>
+                block.type.name === 'paragraph'
+                  && container !== null
+                  && PARAGRAPH_EXCLUSION_PARENTS.has(container.type.name)
+                  ? 'reject'
+                  : 'allow',
+            } satisfies BlockMatcher,
+          ],
+        },
+      }),
+      BlockContextMenu,
+      KeyboardReorder,
+      SlashCommand,
+      SmartPaste,
+      TableOfContents,
+      FloatingTocOutline.configure({ activeScrollParent: scrollParent }),
+      TableOfContentsBlock,
+      // Empty paragraphs get the slash hint; other empty blocks stay quiet so
+      // the hint isn't repeated on every block.
+      Placeholder.configure({
+        placeholder: ({ node }) =>
+          node.type.name === 'paragraph' ? "Press '/' for commands" : '',
+      }),
+    ];
+  }
 
   editorContent = NOTION_DEMO_CONTENT;
   editor = signal<Editor | null>(null);

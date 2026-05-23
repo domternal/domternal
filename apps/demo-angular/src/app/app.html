@@ -10,10 +10,21 @@
     <button [class.active]="mode() === 'default'" (click)="mode.set('default')">Default toolbar</button>
     <button [class.active]="mode() === 'custom'" (click)="mode.set('custom')">Custom layout</button>
     <button [class.active]="mode() === 'notion'" (click)="mode.set('notion')">Notion style</button>
+    <button [class.active]="mode() === 'notion-scrollable'" (click)="mode.set('notion-scrollable')">Notion scrollable</button>
   </div>
 
-  @if (mode() === 'notion') {
-    <app-notion-demo />
+  @if (isNotion()) {
+    <!-- @switch with mode as discriminator forces a fresh component instance
+         when switching between the two Notion variants - matches the vanilla
+         demo's destroy + recreate behaviour on mode change. -->
+    @switch (mode()) {
+      @case ('notion') {
+        <app-notion-demo />
+      }
+      @case ('notion-scrollable') {
+        <app-notion-demo [scrollable]="true" />
+      }
+    }
   } @else {
     <app-editor-demo [useLayout]="useLayout()" />
   }

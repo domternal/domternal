@@ -1,8 +1,12 @@
-<div class="notion-page">
+<div
+  #pageEl
+  class="notion-page"
+  [class.notion-page--scrollable]="scrollable()"
+>
   <domternal-editor
     #ec
     class="dm-notion-mode"
-    [extensions]="extensions"
+    [extensions]="extensions()"
     [content]="editorContent"
     (editorCreated)="onEditorCreated($event)"
   />

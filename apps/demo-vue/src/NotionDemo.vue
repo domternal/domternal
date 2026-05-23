@@ -39,6 +39,7 @@ import {
   Placeholder,
   inlineStyles,
   getListItemCursorContext,
+  type AnyExtension,
 } from '@domternal/core';
 import type { IconSet } from '@domternal/core';
 import { CodeBlockLowlight, createCodeHighlighter } from '@domternal/extension-code-block-lowlight';
@@ -92,7 +93,7 @@ const PARAGRAPH_EXCLUSION_PARENTS = new Set([
  */
 const TOAST_MS = { success: 1800, error: 2600 } as const;
 
-const extensions = [
+const buildExtensions = (scrollParent: Element | null): AnyExtension[] => [
   Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
   Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
   BulletList, OrderedList, TaskList,
@@ -151,7 +152,7 @@ const extensions = [
   SlashCommand,
   SmartPaste,
   TableOfContents,
-  FloatingTocOutline,
+  FloatingTocOutline.configure({ activeScrollParent: scrollParent }),
   TableOfContentsBlock,
   // Empty paragraphs get the slash hint; other empty blocks stay quiet so
   // the hint isn't repeated on every block.
@@ -166,6 +167,37 @@ interface Toast {
   message: string;
   kind: 'success' | 'error';
 }
+
+const props = withDefaults(defineProps<{
+  /** Cap the page wrapper height and scroll its content internally. Adds
+   * `notion-page--scrollable` and wires `activeScrollParent` so the TOC
+   * scroll-spy follows the host scroll instead of the window. */
+  scrollable?: boolean;
+}>(), {
+  scrollable: false,
+});
+
+// Captures the page wrapper element so we can wire it as the TOC's
+// `activeScrollParent` in scrollable mode. Template refs are resolved
+// before `onMounted` fires.
+const pageEl = ref<HTMLDivElement | null>(null);
+
+// Single extensions array reference - we mutate it in-place after the
+// wrapper mounts so useEditor reads the wired value at creation time
+// without firing its recreation watcher (which compares the array
+// reference, not contents).
+const extensions: AnyExtension[] = buildExtensions(null);
+
+// Register BEFORE useEditor so this onMounted fires first; useEditor's
+// onMounted then reads the (mutated) array when it builds the editor,
+// and its watcher stays quiet because the reference never changes.
+onMounted(() => {
+  if (props.scrollable && pageEl.value) {
+    const wired = buildExtensions(pageEl.value);
+    extensions.length = 0;
+    extensions.push(...wired);
+  }
+});
 
 const { editor, editorRef } = useEditor({
   extensions,
@@ -235,7 +267,10 @@ watch(editor, (ed, _old, onCleanup) => {
 
 <template>
   <div class="app-notion-demo">
-    <div class="notion-page">
+    <div
+      ref="pageEl"
+      :class="['notion-page', { 'notion-page--scrollable': props.scrollable }]"
+    >
       <div class="dm-editor dm-notion-mode">
         <div ref="editorRef" />
       </div>

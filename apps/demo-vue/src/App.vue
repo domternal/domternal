@@ -8,7 +8,7 @@ import NotionDemo from './NotionDemo.vue';
 
 const isDark = ref(false);
 const useLayout = ref(false);
-const demoMode = ref<'manual' | 'vmodel' | 'compound' | 'nodeview' | 'notion'>('manual');
+const demoMode = ref<'manual' | 'vmodel' | 'compound' | 'nodeview' | 'notion' | 'notion-scrollable'>('manual');
 
 function toggleTheme() {
   isDark.value = !isDark.value;
@@ -66,9 +66,24 @@ function toggleTheme() {
       >
         Notion style
       </button>
+      <button
+        type="button"
+        data-testid="mode-notion-scrollable"
+        :class="{ active: demoMode === 'notion-scrollable' }"
+        @click="demoMode = 'notion-scrollable'"
+      >
+        Notion scrollable
+      </button>
     </div>
 
-    <NotionDemo v-if="demoMode === 'notion'" />
+    <!-- `:key` forces a fresh mount when switching between the two Notion
+         variants - mirrors the vanilla demo which destroys + recreates
+         the NotionDemo on mode change. -->
+    <NotionDemo
+      v-if="demoMode === 'notion' || demoMode === 'notion-scrollable'"
+      :key="demoMode"
+      :scrollable="demoMode === 'notion-scrollable'"
+    />
 
     <div v-else class="app-editor-demo">
       <template v-if="demoMode === 'manual'">

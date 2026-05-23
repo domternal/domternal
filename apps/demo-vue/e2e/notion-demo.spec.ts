@@ -3436,12 +3436,11 @@ test.describe('Table of Contents - floating outline ticks', () => {
     expect(scrollYAfter).toBeGreaterThan(scrollYBefore);
   });
 
-  test('outline hides itself when fewer headings than minHeadings (default 2)', async ({ page }) => {
+  test('outline shows itself with a single heading at the default minHeadings (1)', async ({ page }) => {
     await setContent(page, '<h1>Only one heading</h1><p>body</p>');
     const outline = page.locator('.dm-toc-outline');
-    await expect(outline).toHaveAttribute('data-state', 'hidden');
-    // CSS rule turns data-state="hidden" into display: none.
-    await expect(outline).not.toBeVisible();
+    await expect(outline).toHaveAttribute('data-state', 'collapsed');
+    await expect(outline).toBeVisible();
   });
 
   test('outline hides itself on viewports at or below the mobile breakpoint', async ({ page }) => {
