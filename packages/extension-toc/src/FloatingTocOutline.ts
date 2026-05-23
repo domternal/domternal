@@ -10,6 +10,7 @@ import { Plugin, PluginKey } from '@domternal/pm/state';
 import { scrollToHeading } from './helpers/scrollToHeading.js';
 import { createActiveStateTracker } from './helpers/activeStateTracker.js';
 import { resolveUniqueIDAttrName } from './helpers/uniqueIDIntegration.js';
+import { getHeadingLabel, setActiveMarker } from './helpers/outlineDom.js';
 import type { TocStorage, HeadingEntry } from './types.js';
 
 export const floatingTocOutlinePluginKey = new PluginKey('floatingTocOutline');
@@ -33,8 +34,10 @@ export interface FloatingTocOutlineOptions {
   anchor: 'editor' | 'viewport';
   /**
    * Hide the outline when the document has fewer than this many
-   * headings - on a doc with one heading, the outline is just clutter.
-   * @default 2
+   * headings. Default `1` shows the outline as soon as any heading
+   * exists (matches Notion). Raise to `2` to suppress single-tick
+   * outlines on title-only documents.
+   * @default 1
    */
   minHeadings: number;
   /**
@@ -94,6 +97,10 @@ const OUTLINE_CLASS = 'dm-toc-outline';
 // Editor-mode wrapper spanning the host's full height; provides the
 // sticky containing block for the nav inside.
 const SHELL_CLASS = 'dm-toc-outline-shell';
+// Tick column wrapper. Caps at ~50% of the container with
+// `overflow: hidden`; the card is a SIBLING (not a child) so the
+// clip never touches the hover panel.
+const TICKS_CLASS = 'dm-toc-outline-ticks';
 const TICK_CLASS = 'dm-toc-outline-tick';
 const CARD_CLASS = 'dm-toc-outline-card';
 const ROW_CLASS = 'dm-toc-outline-row';
@@ -133,14 +140,22 @@ function resolveDefaultOutlineHost(view: EditorView): HTMLElement {
 }
 
 /**
- * Build the inner DOM for the outline: a column of tick buttons (the
- * always-visible compact view) plus an absolutely-positioned card
- * containing one row button per heading (revealed on hover/focus).
- * Naive full-rebuild render: doc heading counts are typically <50;
- * the inner DOM cost is microseconds.
+ * Build the inner DOM for the outline: a bounded ticks column (always-
+ * visible compact view) plus an absolutely-positioned card containing
+ * one row button per heading (revealed on hover/focus). The ticks
+ * wrapper isolates `overflow: hidden` from the card so a long heading
+ * list never clips the expanded panel. Wrapper + card are reused
+ * across re-renders.
  */
 function renderOutlineContent(nav: HTMLElement, content: HeadingEntry[]): void {
-  nav.replaceChildren();
+  let ticks = nav.querySelector<HTMLElement>(`.${TICKS_CLASS}`);
+  if (!ticks) {
+    ticks = document.createElement('div');
+    ticks.className = TICKS_CLASS;
+    nav.appendChild(ticks);
+  } else {
+    ticks.replaceChildren();
+  }
 
   for (const entry of content) {
     const tick = document.createElement('button');
@@ -148,41 +163,40 @@ function renderOutlineContent(nav: HTMLElement, content: HeadingEntry[]): void {
     tick.className = TICK_CLASS;
     tick.dataset['level'] = String(entry.level);
     tick.dataset[ANCHOR_DATASET_KEY] = entry.id;
-    const label = entry.textContent.trim() || `Heading level ${String(entry.level)}`;
+    const label = getHeadingLabel(entry);
     tick.setAttribute('aria-label', `${label} (heading ${String(entry.level)})`);
-    nav.appendChild(tick);
+    ticks.appendChild(tick);
   }
 
   // Expanded-view card. Always rendered; CSS opacity flips it in/out
-  // based on the parent nav's data-state attribute.
-  const card = document.createElement('div');
-  card.className = CARD_CLASS;
+  // via the nav's data-state.
+  let card = nav.querySelector<HTMLElement>(`.${CARD_CLASS}`);
+  if (!card) {
+    card = document.createElement('div');
+    card.className = CARD_CLASS;
+    nav.appendChild(card);
+  } else {
+    card.replaceChildren();
+  }
   for (const entry of content) {
     const row = document.createElement('button');
     row.type = 'button';
     row.className = ROW_CLASS;
     row.dataset['level'] = String(entry.level);
     row.dataset[ANCHOR_DATASET_KEY] = entry.id;
-    row.textContent = entry.textContent.trim() || `Heading level ${String(entry.level)}`;
+    row.textContent = getHeadingLabel(entry);
     card.appendChild(row);
   }
-  nav.appendChild(card);
 }
 
 /**
- * Toggle the active-state visual on every element with a `data-toc-anchor`
- * attribute (both ticks AND rows in the outline DOM). At most one item
- * gets the active class + `aria-current="location"`, all others have
- * those cleared.
+ * Apply the active marker to ticks AND rows in the outline DOM. Thin
+ * wrapper over the shared `setActiveMarker` helper: queries every
+ * element with `data-toc-anchor` and forwards the toggle work.
  */
 function applyActiveMarker(nav: HTMLElement, activeId: string | null): void {
-  const items = nav.querySelectorAll<HTMLElement>(`[${ANCHOR_ATTR}]`);
-  for (const item of Array.from(items)) {
-    const isActive = activeId !== null && item.dataset[ANCHOR_DATASET_KEY] === activeId;
-    item.classList.toggle(ACTIVE_CLASS, isActive);
-    if (isActive) item.setAttribute('aria-current', 'location');
-    else item.removeAttribute('aria-current');
-  }
+  const items = Array.from(nav.querySelectorAll<HTMLElement>(`[${ANCHOR_ATTR}]`));
+  setActiveMarker(items, activeId, ACTIVE_CLASS);
 }
 
 /**
@@ -217,7 +231,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
   addOptions() {
     return {
       anchor: 'editor',
-      minHeadings: 2,
+      minHeadings: 1,
       mobileBreakpoint: 1024,
       activeRootMargin: '0px 0px -85% 0px',
       activeScrollParent: null,
@@ -246,7 +260,15 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           // would render hidden because storage stays empty).
           const attrName = editor ? resolveUniqueIDAttrName(editor) : 'id';
 
-          const hostResolver = options.outlineHost ?? resolveDefaultOutlineHost;
+          // Container mode anchors the shell to the scroll parent itself
+          // so the sticky's scroll context and positioned containing
+          // block match. Default walk would land on the editor's
+          // unsized parent and size the shell to scrollHeight.
+          const isScrollContainer = options.activeScrollParent instanceof Element;
+          const hostResolver = options.outlineHost
+            ?? (isScrollContainer
+              ? (): HTMLElement => options.activeScrollParent as HTMLElement
+              : resolveDefaultOutlineHost);
           const host = hostResolver(editorView);
           const nav = document.createElement('nav');
           nav.className = OUTLINE_CLASS;
@@ -266,11 +288,48 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             host.appendChild(nav);
           }
 
+          // Theme CSS keys off `data-scroll-mode` to switch between page-
+          // scroll sticky and container-scroll sticky models.
+          const scrollMode = isScrollContainer ? 'container' : 'page';
+          nav.dataset['scrollMode'] = scrollMode;
+          if (shell) shell.dataset['scrollMode'] = scrollMode;
+
+          // Container mode: CSS `position: sticky` does the work. JS
+          // publishes the variables the theme reads (`--dm-toc-ticks-max-h`,
+          // `--dm-toc-mid-half-height`) and stretches the shell to
+          // host.scrollHeight so sticky containment spans the full
+          // scroll range. Clearing minHeight first avoids reading a
+          // self-inflated scrollHeight.
+          let containerResizeObserver: ResizeObserver | null = null;
+          const recomputeContainerLayout = (): void => {
+            if (!isScrollContainer) return;
+            const sp = options.activeScrollParent as Element;
+            nav.style.setProperty(
+              '--dm-toc-ticks-max-h',
+              `${(sp.clientHeight * 0.5).toFixed(2)}px`,
+            );
+            const h = nav.offsetHeight;
+            if (h > 0) {
+              nav.style.setProperty('--dm-toc-mid-half-height', `${(h / 2).toFixed(2)}px`);
+            }
+            if (shell) {
+              shell.style.minHeight = '';
+              shell.style.minHeight = `${String(sp.scrollHeight)}px`;
+            }
+          };
+          if (isScrollContainer && typeof ResizeObserver !== 'undefined') {
+            containerResizeObserver = new ResizeObserver(recomputeContainerLayout);
+            containerResizeObserver.observe(nav);
+            containerResizeObserver.observe(editorView.dom);
+          }
+          if (isScrollContainer) recomputeContainerLayout();
+
           let bottomObserver: IntersectionObserver | null = null;
           let bottomSentinel: HTMLElement | null = null;
           let recomputeMidTop: () => void = () => { /* no-op outside editor mode */ };
           if (
             options.anchor === 'editor'
+            && !isScrollContainer
             && shell
             && typeof IntersectionObserver !== 'undefined'
           ) {
@@ -432,6 +491,9 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             // which self-clears any stale value before recomputing.
             if (state === 'expanded' && prevState !== 'expanded') {
               requestAnimationFrame(adjustCardPosition);
+              // Open the card at the first row; user scrolls for the rest.
+              const card = nav.querySelector<HTMLElement>(`.${CARD_CLASS}`);
+              if (card) card.scrollTop = 0;
             }
             prevState = state;
           };
@@ -451,7 +513,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           // then write the new shift only when it actually changes.
           const CARD_VIEWPORT_MARGIN = 16;
           const adjustCardPosition = (): void => {
-            const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card');
+            const card = nav.querySelector<HTMLElement>(`.${CARD_CLASS}`);
             if (!card) return;
             const currentShift = parseFloat(
               card.style.getPropertyValue('--dm-toc-card-shift-y'),
@@ -526,7 +588,12 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             if (!id) return;
             manualOverrideUntil = Date.now() + options.clickOverrideMs;
             writeActive(id);
-            scrollToHeading(editorView, id, { attrName });
+            scrollToHeading(editorView, id, {
+              attrName,
+              scrollParent: options.activeScrollParent instanceof Element
+                ? options.activeScrollParent
+                : null,
+            });
           };
           nav.addEventListener('click', onClick);
 
@@ -618,6 +685,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
               mq?.removeEventListener('change', onMqChange);
               window.removeEventListener('resize', onResize);
               window.removeEventListener('scroll', onWindowScroll);
+              containerResizeObserver?.disconnect();
               tracker.destroy();
               unsubscribe?.();
               bottomObserver?.disconnect();

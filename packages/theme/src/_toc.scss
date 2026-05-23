@@ -5,13 +5,11 @@
 // =============================================================================
 
 .dm-toc-outline {
-  // Stack ticks vertically with even gaps. flex-end keeps the right
-  // edge of every tick aligned even though widths differ per level.
+  // Positioning wrapper. Inner `.dm-toc-outline-ticks` stacks + clips
+  // ticks; card is an absolute sibling, untouched by the clip.
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: var(--dm-toc-tick-gap, 10px);
-  padding: var(--dm-toc-padding-block, 12px) var(--dm-toc-padding-inline, 8px);
   z-index: var(--dm-toc-z-index, 10);
 
   // No background / no border in collapsed state - just a column of ticks.
@@ -43,6 +41,14 @@
   }
   &[data-anchor='editor'][data-bottom-visible='true'] {
     top: var(--dm-toc-editor-top, 1rem);
+  }
+  // `scroll-mode='container'`: sticky pins the nav at the host's
+  // visible middle, zero JS during scroll. Plugin publishes
+  // `--dm-toc-mid-half-height` (= nav.offsetHeight / 2).
+  &[data-anchor='editor'][data-scroll-mode='container'] {
+    position: sticky;
+    top: calc(50% - var(--dm-toc-mid-half-height, 0px));
+    right: 0;
   }
   &[data-anchor='viewport'] {
     position: fixed;
@@ -94,6 +100,27 @@
   justify-content: flex-end;
 }
 
+// `scroll-mode='container'`: shell spans the host (no top/bottom
+// inset) and is JS-stretched to host.scrollHeight so the sticky's
+// containing block covers the full scroll range.
+.dm-toc-outline-shell[data-anchor='editor'][data-scroll-mode='container'] {
+  top: 0;
+  bottom: 0;
+}
+
+// Ticks column - capped at ~50% (Notion behavior): overflow simply
+// clips, gap stays constant, column doesn't scroll. Defaults to
+// `50vh` (page mode); container mode plugin overrides the var.
+.dm-toc-outline-ticks {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--dm-toc-tick-gap, 10px);
+  padding: var(--dm-toc-padding-block, 12px) var(--dm-toc-padding-inline, 8px);
+  max-height: var(--dm-toc-ticks-max-h, 50vh);
+  overflow: hidden;
+}
+
 .dm-toc-outline-tick {
   // Reset button defaults - we draw a solid filled rectangle.
   appearance: none;
@@ -103,6 +130,9 @@
   font: inherit;
   cursor: pointer;
   background: var(--dm-toc-tick-color, rgba(55, 53, 47, 0.4));
+  // Lock tick height so the gap stays constant; overflow is clipped
+  // by the wrapper instead of squeezed.
+  flex-shrink: 0;
   height: var(--dm-toc-tick-height, 2px);
   border-radius: var(--dm-toc-tick-radius, 1px);
   // Width per heading level - h1 widest, deeper levels narrower.
@@ -173,15 +203,35 @@
     translateX(var(--dm-toc-card-offset, 8px));
   min-width: var(--dm-toc-card-min-width, 180px);
   max-width: var(--dm-toc-card-max-width, 260px);
-  // Long heading lists scroll internally rather than overflowing the
-  // viewport; the margin keeps the card off the chrome edges.
-  max-height: calc(100vh - 2 * var(--dm-toc-card-viewport-margin, 16px));
+  // Card matches the ticks wrapper height; the rest of the rows
+  // are reachable by scrolling the card itself.
+  max-height: var(--dm-toc-ticks-max-h, 50vh);
   overflow-y: auto;
   padding: var(--dm-toc-card-padding-block, 6px) 0;
   background: var(--dm-toc-card-bg, rgba(255, 255, 255, 0.98));
   border: var(--dm-toc-card-border, 1px solid rgba(0, 0, 0, 0.06));
   border-radius: var(--dm-toc-card-radius, 6px);
   box-shadow: var(--dm-toc-card-shadow, 0 8px 24px rgba(0, 0, 0, 0.08));
+
+  // Tokenised slim scrollbar so dark theme overrides keep contrast.
+  scrollbar-width: thin;
+  scrollbar-color: var(--dm-scrollbar-thumb, rgba(0, 0, 0, 0.18)) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 0.375rem 0;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--dm-scrollbar-thumb, rgba(0, 0, 0, 0.18));
+    border-radius: 3px;
+    transition: background-color 0.15s;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--dm-scrollbar-thumb-hover, rgba(0, 0, 0, 0.28));
+  }
 
   display: flex;
   flex-direction: column;
@@ -216,6 +266,8 @@
   font-size: var(--dm-toc-row-font-size, 13px);
   line-height: var(--dm-toc-row-line-height, 1.4);
   color: var(--dm-toc-row-color, rgba(55, 53, 47, 0.7));
+  // Constant row height; long lists scroll the card, no squeeze.
+  flex-shrink: 0;
   padding:
     var(--dm-toc-row-padding-block, 4px)
     var(--dm-toc-row-padding-inline-end, 16px)

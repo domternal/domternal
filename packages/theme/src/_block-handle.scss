@@ -48,8 +48,19 @@
   }
 }
 
+// `_prosemirror.scss` draws a sharp 2px accent border on selected list
+// items via `li.ProseMirror-selectednode::after`. With BlockHandle the
+// translucent halo above is the canonical selection visual, so suppress
+// the list-item-specific border to avoid a doubled frame.
+.dm-editor--has-block-handle li.ProseMirror-selectednode::after {
+  display: none;
+}
+
 .dm-block-handle {
   position: absolute;
+  // Pin static position to parent top so the hidden box doesn't
+  // inflate parent scrollHeight. JS sets `top` inline on show.
+  top: 0;
   // Tokenised so demos with a centered narrower content column can move
   // the handle further out (e.g., `--dm-block-handle-left: -3.5rem`) to
   // place it fully in the surrounding whitespace. Default `-0.5rem` keeps
@@ -189,8 +200,10 @@
 }
 
 // Hide the native dropcursor during a handle drag so it doesn't double up
-// with `.dm-block-drop-indicator`. Class is set by BlockHandle on dragstart
-// and cleared on dragend.
-.dm-block-handle-dragging .ProseMirror-dropcursor {
+// with `.dm-block-drop-indicator`. `prosemirror-dropcursor` emits one of
+// two classes depending on the drop target ('-block' between blocks,
+// '-inline' within inline content); both must be hidden.
+.dm-block-handle-dragging .prosemirror-dropcursor-block,
+.dm-block-handle-dragging .prosemirror-dropcursor-inline {
   display: none;
 }

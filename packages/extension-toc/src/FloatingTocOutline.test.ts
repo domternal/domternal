@@ -50,6 +50,12 @@ interface MountedEditorOptions {
    * a viewport at or below the mobile breakpoint.
    */
   matchesMobile?: boolean;
+  /**
+   * Optional overrides forwarded to `FloatingTocOutline.configure(...)`.
+   * When set, the plugin is reconfigured with these options instead of
+   * its defaults; everything else stays the same as `baseExtensions`.
+   */
+  floatingOptions?: Partial<Parameters<typeof FloatingTocOutline.configure>[0]>;
 }
 
 describe('FloatingTocOutline - ticks', () => {
@@ -63,7 +69,7 @@ describe('FloatingTocOutline - ticks', () => {
    * past `.dm-editor` looking for a non-overflow-hidden parent, so we
    * use a plain test container as that ancestor.
    */
-  const mount = ({ content, matchesMobile = false }: MountedEditorOptions): Editor => {
+  const mount = ({ content, matchesMobile = false, floatingOptions }: MountedEditorOptions): Editor => {
     document.body.innerHTML = '';
     // Reset any leftover outline from prior tests.
     document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
@@ -86,9 +92,13 @@ describe('FloatingTocOutline - ticks', () => {
       dispatchEvent: (): boolean => false,
     })) as typeof window.matchMedia;
 
+    const extensions = floatingOptions
+      ? [...baseExtensions.slice(0, -1), FloatingTocOutline.configure(floatingOptions)]
+      : baseExtensions;
+
     return new Editor({
       element: host,
-      extensions: baseExtensions,
+      extensions,
       content,
     });
   };
@@ -155,15 +165,23 @@ describe('FloatingTocOutline - ticks', () => {
     expect(scrollIntoViewSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('hides itself when fewer headings than minHeadings (default 2)', async () => {
+  it('shows itself with a single heading at the default minHeadings (1)', async () => {
     editor = mount({ content: '<h1>Only One</h1>' });
     await flushDeferred();
-    const outline = queryOutline();
-    expect(outline?.dataset['state']).toBe('hidden');
+    expect(queryOutline()?.dataset['state']).toBe('collapsed');
   });
 
-  it('shows itself when heading count crosses the minHeadings threshold', async () => {
-    editor = mount({ content: '<h1>One</h1>' });
+  it('hides itself with zero headings at the default minHeadings (1)', async () => {
+    editor = mount({ content: '<p>No headings here</p>' });
+    await flushDeferred();
+    expect(queryOutline()?.dataset['state']).toBe('hidden');
+  });
+
+  it('honors a custom minHeadings: hides until the threshold is crossed', async () => {
+    editor = mount({
+      content: '<h1>One</h1>',
+      floatingOptions: { minHeadings: 2 },
+    });
     await flushDeferred();
     expect(queryOutline()?.dataset['state']).toBe('hidden');
 
@@ -451,6 +469,82 @@ describe('FloatingTocOutline - anchor option', () => {
 
     const outline = queryOutline();
     expect(outline?.dataset['anchor']).toBe('editor');
+  });
+
+  it('marks the outline as scroll-mode="page" when activeScrollParent is null', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+    editor = new Editor({
+      element: host,
+      extensions: baseExtensions,
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+    expect(queryOutline()?.dataset['scrollMode']).toBe('page');
+  });
+
+  it('marks the outline as scroll-mode="container" when activeScrollParent is an Element', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+    editor = new Editor({
+      element: host,
+      extensions: [
+        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+        TableOfContents,
+        FloatingTocOutline.configure({ activeScrollParent: host }),
+      ],
+      content: '<h1>One</h1><h2>Two</h2>',
+    });
+    await flushDeferred();
+    const outline = queryOutline();
+    expect(outline?.dataset['scrollMode']).toBe('container');
+    // Page-scroll machinery is skipped in container mode.
+    expect(outline!.style.getPropertyValue('--dm-toc-mid-top')).toBe('');
+    expect(outline?.dataset['bottomVisible']).toBeUndefined();
+    expect(outline?.dataset['mode']).toBeUndefined();
+  });
+
+  it('sets --dm-toc-mid-half-height in container mode based on nav offsetHeight', async () => {
+    document.body.innerHTML = '';
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    stubMatchMedia();
+    // Pre-stub the nav offsetHeight before any are constructed: the
+    // plugin reads it on mount and on every storage update.
+    const origGetter = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      configurable: true,
+      get(): number {
+        return this.classList?.contains('dm-toc-outline') ? 200 : 0;
+      },
+    });
+    try {
+      editor = new Editor({
+        element: host,
+        extensions: [
+          Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+          TableOfContents,
+          FloatingTocOutline.configure({ activeScrollParent: host }),
+        ],
+        content: '<h1>One</h1><h2>Two</h2>',
+      });
+      await flushDeferred();
+      const outline = queryOutline()!;
+      expect(outline.style.getPropertyValue('--dm-toc-mid-half-height')).toBe('100.00px');
+    } finally {
+      if (origGetter) {
+        Object.defineProperty(HTMLElement.prototype, 'offsetHeight', origGetter);
+      } else {
+        delete (HTMLElement.prototype as unknown as { offsetHeight?: unknown }).offsetHeight;
+      }
+    }
   });
 
   it('honors anchor="viewport" override', async () => {

@@ -34,11 +34,13 @@ import {
   LineHeight,
   SelectionDecoration,
   ClearFormatting,
+  Dropcursor,
   UniqueID,
   BlockColor,
   Placeholder,
   inlineStyles,
   getListItemCursorContext,
+  type AnyExtension,
 } from '@domternal/core';
 import type { IconSet } from '@domternal/core';
 import { CodeBlockLowlight, createCodeHighlighter } from '@domternal/extension-code-block-lowlight';
@@ -92,7 +94,7 @@ const PARAGRAPH_EXCLUSION_PARENTS = new Set([
  */
 const TOAST_MS = { success: 1800, error: 2600 } as const;
 
-const extensions = [
+const buildExtensions = (scrollParent: Element | null): AnyExtension[] => [
   Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
   Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
   BulletList, OrderedList, TaskList,
@@ -119,6 +121,10 @@ const extensions = [
     },
   }),
   LinkPopover, SelectionDecoration, ClearFormatting,
+  // Native PM dropcursor; BlockHandle hides it during a handle drag so
+  // only the custom `.dm-block-drop-indicator` shows. Kept loaded for
+  // non-handle drops (text selection, external file drops).
+  Dropcursor,
   // Registered after the list extensions so their in-item Tab/Shift-Tab
   // keymaps keep priority inside list items.
   ListIndent,
@@ -151,7 +157,7 @@ const extensions = [
   SlashCommand,
   SmartPaste,
   TableOfContents,
-  FloatingTocOutline,
+  FloatingTocOutline.configure({ activeScrollParent: scrollParent }),
   TableOfContentsBlock,
   // Empty paragraphs get the slash hint; other empty blocks stay quiet so
   // the hint isn't repeated on every block.
@@ -166,6 +172,33 @@ interface Toast {
   message: string;
   kind: 'success' | 'error';
 }
+
+const props = withDefaults(defineProps<{
+  /** Cap the page wrapper height and scroll its content internally. Adds
+   * `notion-page--scrollable` and wires `activeScrollParent` so the TOC
+   * scroll-spy follows the host scroll instead of the window. */
+  scrollable?: boolean;
+}>(), {
+  scrollable: false,
+});
+
+// Captures the page wrapper element so we can wire it as the TOC's
+// `activeScrollParent` in scrollable mode. Template refs are resolved
+// before `onMounted` fires.
+const pageEl = ref<HTMLDivElement | null>(null);
+
+// `extensions` keeps a single array reference. This onMounted is
+// registered BEFORE useEditor's own, so we mutate the array in-place
+// before useEditor reads it; the watcher stays quiet because it
+// compares the reference, not contents.
+const extensions: AnyExtension[] = buildExtensions(null);
+onMounted(() => {
+  if (props.scrollable && pageEl.value) {
+    const wired = buildExtensions(pageEl.value);
+    extensions.length = 0;
+    extensions.push(...wired);
+  }
+});
 
 const { editor, editorRef } = useEditor({
   extensions,
@@ -196,10 +229,9 @@ let toastCounter = 0;
 const pushToast = (message: string, kind: Toast['kind']): void => {
   const id = ++toastCounter;
   toasts.value = [...toasts.value, { id, message, kind }];
-  const ms = kind === 'success' ? TOAST_MS.success : TOAST_MS.error;
   setTimeout(() => {
     toasts.value = toasts.value.filter((t) => t.id !== id);
-  }, ms);
+  }, TOAST_MS[kind]);
 };
 
 // Expose editor + cursor-context util on window for e2e, and wire the
@@ -235,7 +267,10 @@ watch(editor, (ed, _old, onCleanup) => {
 
 <template>
   <div class="app-notion-demo">
-    <div class="notion-page">
+    <div
+      ref="pageEl"
+      :class="['notion-page', { 'notion-page--scrollable': props.scrollable }]"
+    >
       <div class="dm-editor dm-notion-mode">
         <div ref="editorRef" />
       </div>

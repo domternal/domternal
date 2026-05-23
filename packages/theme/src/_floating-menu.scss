@@ -6,6 +6,11 @@
 
 .dm-floating-menu {
   position: absolute;
+  // Pin static position to parent top-left; otherwise the hidden box
+  // inherits an end-of-content static position and inflates parent
+  // scrollHeight. `positionFloating` overrides via transform on show.
+  top: 0;
+  left: 0;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;

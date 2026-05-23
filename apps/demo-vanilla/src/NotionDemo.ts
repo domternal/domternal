@@ -31,6 +31,7 @@ import {
   LineHeight,
   SelectionDecoration,
   ClearFormatting,
+  Dropcursor,
   UniqueID,
   BlockColor,
   Placeholder,
@@ -88,7 +89,7 @@ const PARAGRAPH_EXCLUSION_PARENTS = new Set([
  */
 const TOAST_MS = { success: 1800, error: 2600 } as const;
 
-const buildExtensions = (): AnyExtension[] => [
+const buildExtensions = (scrollParent: Element | null): AnyExtension[] => [
   Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
   Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
   BulletList, OrderedList, TaskList,
@@ -115,6 +116,10 @@ const buildExtensions = (): AnyExtension[] => [
     },
   }),
   LinkPopover, SelectionDecoration, ClearFormatting,
+  // Native PM dropcursor; BlockHandle hides it during a handle drag so
+  // only the custom `.dm-block-drop-indicator` shows. Kept loaded for
+  // non-handle drops (text selection, external file drops).
+  Dropcursor,
   // Registered after the list extensions so their in-item Tab/Shift-Tab
   // keymaps keep priority inside list items.
   ListIndent,
@@ -144,7 +149,7 @@ const buildExtensions = (): AnyExtension[] => [
   SlashCommand,
   SmartPaste,
   TableOfContents,
-  FloatingTocOutline,
+  FloatingTocOutline.configure({ activeScrollParent: scrollParent }),
   TableOfContentsBlock,
   Placeholder.configure({
     placeholder: ({ node }: { node: { type: { name: string } } }) =>
@@ -165,6 +170,12 @@ const buildExtensions = (): AnyExtension[] => [
  *
  * E2E exposure: `window.__DEMO_EDITOR__` + `window.__DOMTERNAL_LIST_CTX__`.
  */
+export interface NotionDemoOptions {
+  /** Cap the page wrapper height and scroll its content internally. Adds
+   * `notion-page--scrollable` and wires `activeScrollParent`. */
+  scrollable?: boolean;
+}
+
 export class NotionDemo {
   #container: HTMLElement;
   #editorWrapper: DomternalEditor;
@@ -182,14 +193,15 @@ export class NotionDemo {
   #updateOff: () => void;
   #destroyed = false;
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, options: NotionDemoOptions = {}) {
     this.#container = container;
+    const scrollable = options.scrollable === true;
 
     // DOM chain: .app-notion-demo > .notion-page > .dm-editor.dm-notion-mode > [editorHost]
     const notionDemo = document.createElement('div');
     notionDemo.className = 'app-notion-demo';
     const notionPage = document.createElement('div');
-    notionPage.className = 'notion-page';
+    notionPage.className = scrollable ? 'notion-page notion-page--scrollable' : 'notion-page';
     const editorShell = document.createElement('div');
     editorShell.className = 'dm-editor dm-notion-mode';
     const editorHost = document.createElement('div');
@@ -206,7 +218,8 @@ export class NotionDemo {
     container.appendChild(notionDemo);
 
     this.#editorWrapper = new DomternalEditor(editorHost, {
-      extensions: buildExtensions(),
+      // Scrollable mode tracks the host; full-height mode tracks window.
+      extensions: buildExtensions(scrollable ? notionPage : null),
       content: NOTION_DEMO_CONTENT,
     });
     const editor = this.#editorWrapper.editor;

@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, OnDestroy, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, ElementRef, OnDestroy, computed, input, signal, viewChild } from '@angular/core';
 import {
   DomternalEditorComponent,
   DomternalBubbleMenuComponent,
@@ -32,12 +32,14 @@ import {
   LineHeight,
   SelectionDecoration,
   ClearFormatting,
+  Dropcursor,
   UniqueID,
   BlockColor,
   Placeholder,
   Editor,
   inlineStyles,
   getListItemCursorContext,
+  type AnyExtension,
 } from '@domternal/core';
 import { CodeBlockLowlight, createCodeHighlighter } from '@domternal/extension-code-block-lowlight';
 import { Image } from '@domternal/extension-image';
@@ -109,74 +111,99 @@ export class NotionDemoComponent implements OnDestroy {
    */
   private static readonly TOAST_MS = { success: 1800, error: 2600 };
 
-  extensions = [
-    Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
-    Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
-    BulletList, OrderedList, TaskList,
-    TextAlign, TextColor, FontSize, FontFamily, LineHeight,
-    NotionColorPicker,
-    Table,
-    Details,
-    Image,
-    Emoji.configure({
-      emojis,
-      enableEmoticons: true,
-      toolbar: false,
-      suggestion: { render: createEmojiSuggestionRenderer() },
-    }),
-    Mention.configure({
-      suggestion: {
-        char: '@',
-        name: 'user',
-        items: ({ query }: { query: string }) =>
-          mockUsers.filter((u) => u.label.toLowerCase().includes(query.toLowerCase())),
-        render: createMentionSuggestionRenderer(),
-        minQueryLength: 0,
-        invalidNodes: ['codeBlock'],
-      },
-    }),
-    LinkPopover, SelectionDecoration, ClearFormatting,
-    // Registered after the list extensions so their in-item Tab/Shift-Tab
-    // keymaps keep priority inside list items.
-    ListIndent,
-    UniqueID,
-    BlockColor,
-    // `paragraphInsideContainer` keeps containers (blockquote / tableCell /
-    // details) as one drag unit. Paragraphs nested in listItem are NOT
-    // covered because they were Tab-indented as separate logical blocks.
-    BlockHandle.configure({
-      nested: {
-        allowedNodes: [
-          'listItem', 'taskItem',
-          'heading', 'paragraph', 'codeBlock', 'blockquote', 'horizontalRule',
-        ],
-        matchers: [
-          {
-            name: 'paragraphInsideContainer',
-            test: ({ block, container }: BlockCandidate) =>
-              block.type.name === 'paragraph'
-                && container !== null
-                && PARAGRAPH_EXCLUSION_PARENTS.has(container.type.name)
-                ? 'reject'
-                : 'allow',
-          } satisfies BlockMatcher,
-        ],
-      },
-    }),
-    BlockContextMenu,
-    KeyboardReorder,
-    SlashCommand,
-    SmartPaste,
-    TableOfContents,
-    FloatingTocOutline,
-    TableOfContentsBlock,
-    // Empty paragraphs get the slash hint; other empty blocks stay quiet so
-    // the hint isn't repeated on every block.
-    Placeholder.configure({
-      placeholder: ({ node }) =>
-        node.type.name === 'paragraph' ? "Press '/' for commands" : '',
-    }),
-  ];
+  /**
+   * Cap the page wrapper height and scroll its content internally. Adds
+   * `notion-page--scrollable` and wires `activeScrollParent` so the TOC
+   * scroll-spy follows the host scroll instead of the window.
+   */
+  readonly scrollable = input(false);
+
+  /**
+   * Reference to the `.notion-page` wrapper. Resolved after first render;
+   * the `extensions` computed below picks it up so the editor recreates
+   * with the wired `activeScrollParent` when this signal resolves.
+   */
+  readonly pageElRef = viewChild<ElementRef<HTMLDivElement>>('pageEl');
+
+  readonly extensions = computed<AnyExtension[]>(() => {
+    const sp = this.scrollable() ? this.pageElRef()?.nativeElement ?? null : null;
+    return NotionDemoComponent.buildExtensions(sp);
+  });
+
+  private static buildExtensions(scrollParent: Element | null): AnyExtension[] {
+    return [
+      Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
+      Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
+      BulletList, OrderedList, TaskList,
+      TextAlign, TextColor, FontSize, FontFamily, LineHeight,
+      NotionColorPicker,
+      Table,
+      Details,
+      Image,
+      Emoji.configure({
+        emojis,
+        enableEmoticons: true,
+        toolbar: false,
+        suggestion: { render: createEmojiSuggestionRenderer() },
+      }),
+      Mention.configure({
+        suggestion: {
+          char: '@',
+          name: 'user',
+          items: ({ query }: { query: string }) =>
+            mockUsers.filter((u) => u.label.toLowerCase().includes(query.toLowerCase())),
+          render: createMentionSuggestionRenderer(),
+          minQueryLength: 0,
+          invalidNodes: ['codeBlock'],
+        },
+      }),
+      LinkPopover, SelectionDecoration, ClearFormatting,
+      // Native PM dropcursor; BlockHandle hides it during a handle drag so
+      // only the custom `.dm-block-drop-indicator` shows. Kept loaded for
+      // non-handle drops (text selection, external file drops).
+      Dropcursor,
+      // Registered after the list extensions so their in-item Tab/Shift-Tab
+      // keymaps keep priority inside list items.
+      ListIndent,
+      UniqueID,
+      BlockColor,
+      // `paragraphInsideContainer` keeps containers (blockquote / tableCell /
+      // details) as one drag unit. Paragraphs nested in listItem are NOT
+      // covered because they were Tab-indented as separate logical blocks.
+      BlockHandle.configure({
+        nested: {
+          allowedNodes: [
+            'listItem', 'taskItem',
+            'heading', 'paragraph', 'codeBlock', 'blockquote', 'horizontalRule',
+          ],
+          matchers: [
+            {
+              name: 'paragraphInsideContainer',
+              test: ({ block, container }: BlockCandidate) =>
+                block.type.name === 'paragraph'
+                  && container !== null
+                  && PARAGRAPH_EXCLUSION_PARENTS.has(container.type.name)
+                  ? 'reject'
+                  : 'allow',
+            } satisfies BlockMatcher,
+          ],
+        },
+      }),
+      BlockContextMenu,
+      KeyboardReorder,
+      SlashCommand,
+      SmartPaste,
+      TableOfContents,
+      FloatingTocOutline.configure({ activeScrollParent: scrollParent }),
+      TableOfContentsBlock,
+      // Empty paragraphs get the slash hint; other empty blocks stay quiet so
+      // the hint isn't repeated on every block.
+      Placeholder.configure({
+        placeholder: ({ node }) =>
+          node.type.name === 'paragraph' ? "Press '/' for commands" : '',
+      }),
+    ];
+  }
 
   editorContent = NOTION_DEMO_CONTENT;
   editor = signal<Editor | null>(null);
@@ -191,13 +218,10 @@ export class NotionDemoComponent implements OnDestroy {
     };
   }
 
-  // Tracked so `ngOnDestroy` and subsequent `onEditorCreated` calls can
-  // remove listeners before adding new ones. Without this, repeatedly
-  // mounting the component (HMR / route re-entry) would accumulate
-  // listeners on the same `.dm-editor` DOM node.
-  private copyLinkHost: HTMLElement | null = null;
-  private copyLinkSuccessListener: ((event: Event) => void) | null = null;
-  private copyLinkErrorListener: ((event: Event) => void) | null = null;
+  // AbortController scoped to one editor lifetime: `abort()` removes all
+  // listeners attached with its signal. Recreated per `onEditorCreated`
+  // so HMR / route re-entry can't leak listeners onto a stale host.
+  private toastsAbortCtl = new AbortController();
 
   onEditorCreated(editor: Editor): void {
     this.editor.set(editor);
@@ -211,23 +235,17 @@ export class NotionDemoComponent implements OnDestroy {
     // Tear down any previously-attached listeners before wiring new ones -
     // protects against leaking listeners when the editor is recreated
     // (HMR, re-entering the route, etc.).
-    this.removeCopyLinkListeners();
+    this.toastsAbortCtl.abort();
+    this.toastsAbortCtl = new AbortController();
+    const { signal } = this.toastsAbortCtl;
 
     // Surface toasts when "Copy link to block" succeeds or fails. Host apps
     // own this UX: BlockContextMenu only emits `dm:copy-link-success` (on
     // actual success) and `dm:copy-link-error` (on clipboard failure).
     const host = editor.view.dom.closest<HTMLElement>('.dm-editor');
     if (!host) return;
-    this.copyLinkHost = host;
-
-    this.copyLinkSuccessListener = (): void => {
-      this.showToast('Link copied', 'status', 'notion-demo-toast', NotionDemoComponent.TOAST_MS.success);
-    };
-    this.copyLinkErrorListener = (): void => {
-      this.showToast('Failed to copy link', 'alert', 'notion-demo-toast notion-demo-toast--error', NotionDemoComponent.TOAST_MS.error);
-    };
-    host.addEventListener('dm:copy-link-success', this.copyLinkSuccessListener);
-    host.addEventListener('dm:copy-link-error', this.copyLinkErrorListener);
+    host.addEventListener('dm:copy-link-success', () => this.pushToast('Link copied', 'success'), { signal });
+    host.addEventListener('dm:copy-link-error', () => this.pushToast('Failed to copy link', 'error'), { signal });
   }
 
   /** Inline-style the live HTML output for the "Styled HTML" pane. */
@@ -236,30 +254,19 @@ export class NotionDemoComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.removeCopyLinkListeners();
-    this.copyLinkHost = null;
+    this.toastsAbortCtl.abort();
     const w = window as unknown as Record<string, unknown>;
     w['__DEMO_SET_BUBBLE_ICONS__'] = undefined;
   }
 
-  private removeCopyLinkListeners(): void {
-    if (!this.copyLinkHost) return;
-    if (this.copyLinkSuccessListener) {
-      this.copyLinkHost.removeEventListener('dm:copy-link-success', this.copyLinkSuccessListener);
-      this.copyLinkSuccessListener = null;
-    }
-    if (this.copyLinkErrorListener) {
-      this.copyLinkHost.removeEventListener('dm:copy-link-error', this.copyLinkErrorListener);
-      this.copyLinkErrorListener = null;
-    }
-  }
-
-  private showToast(message: string, role: 'status' | 'alert', className: string, durationMs: number): void {
+  private pushToast(message: string, kind: 'success' | 'error'): void {
     const toast = document.createElement('div');
-    toast.className = className;
+    toast.className = kind === 'success'
+      ? 'notion-demo-toast'
+      : 'notion-demo-toast notion-demo-toast--error';
     toast.textContent = message;
-    toast.setAttribute('role', role);
+    toast.setAttribute('role', kind === 'success' ? 'status' : 'alert');
     document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), durationMs);
+    setTimeout(() => toast.remove(), NotionDemoComponent.TOAST_MS[kind]);
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
   useEditor,
@@ -34,11 +34,13 @@ import {
   LineHeight,
   SelectionDecoration,
   ClearFormatting,
+  Dropcursor,
   UniqueID,
   BlockColor,
   Placeholder,
   inlineStyles,
   getListItemCursorContext,
+  type AnyExtension,
 } from '@domternal/core';
 import { CodeBlockLowlight, createCodeHighlighter } from '@domternal/extension-code-block-lowlight';
 import { Image } from '@domternal/extension-image';
@@ -92,7 +94,7 @@ const PARAGRAPH_EXCLUSION_PARENTS = new Set([
  */
 const TOAST_MS = { success: 1800, error: 2600 } as const;
 
-const extensions = [
+const buildExtensions = (scrollParent: Element | null): AnyExtension[] => [
   Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
   Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
   BulletList, OrderedList, TaskList,
@@ -119,6 +121,10 @@ const extensions = [
     },
   }),
   LinkPopover, SelectionDecoration, ClearFormatting,
+  // Native PM dropcursor; BlockHandle hides it during a handle drag so
+  // only the custom `.dm-block-drop-indicator` shows. Kept loaded for
+  // non-handle drops (text selection, external file drops).
+  Dropcursor,
   // Registered after the list extensions so their in-item Tab/Shift-Tab
   // keymaps keep priority inside list items.
   ListIndent,
@@ -151,7 +157,7 @@ const extensions = [
   SlashCommand,
   SmartPaste,
   TableOfContents,
-  FloatingTocOutline,
+  FloatingTocOutline.configure({ activeScrollParent: scrollParent }),
   TableOfContentsBlock,
   // Empty paragraphs get the slash hint; other empty blocks stay quiet so
   // the hint isn't repeated on every block.
@@ -171,12 +177,30 @@ const getStyledHtml = (html: string): string => {
   return inlineStyles(html, { codeHighlighter, tableColumnWidths: 'pixel' });
 };
 
+export interface NotionDemoProps {
+  /** Cap the page wrapper height and scroll its content internally. Adds
+   * `notion-page--scrollable` and wires `activeScrollParent` so the TOC
+   * scroll-spy follows the host scroll instead of the window. */
+  scrollable?: boolean;
+}
+
 /**
  * Notion-style demo: no toolbar, floating menu on empty lines is the primary
  * block-insert UI, bubble menu for text formatting on selection. Mirrors
  * `apps/demo-angular/src/app/notion-demo/notion-demo.component.ts`.
  */
-export function NotionDemo(): ReactNode {
+export function NotionDemo({ scrollable = false }: NotionDemoProps): ReactNode {
+  // Capture the page wrapper element via a state-based ref. In scrollable
+  // mode the TOC needs this element to wire `activeScrollParent`; React
+  // can only hand it to us after first paint, so the editor recreates
+  // once when the ref resolves. Non-scrollable mode never reads it.
+  const [pageEl, setPageEl] = useState<HTMLDivElement | null>(null);
+
+  const extensions = useMemo<AnyExtension[]>(
+    () => buildExtensions(scrollable ? pageEl : null),
+    [scrollable, pageEl],
+  );
+
   const { editor, editorRef } = useEditor({
     extensions,
     content: NOTION_DEMO_CONTENT,
@@ -216,10 +240,9 @@ export function NotionDemo(): ReactNode {
     const pushToast = (message: string, kind: Toast['kind']): void => {
       const id = Date.now() + Math.random();
       setToasts((current) => [...current, { id, message, kind }]);
-      const ms = kind === 'success' ? TOAST_MS.success : TOAST_MS.error;
       setTimeout(() => {
         setToasts((current) => current.filter((t) => t.id !== id));
-      }, ms);
+      }, TOAST_MS[kind]);
     };
 
     host?.addEventListener('dm:copy-link-success', () => {
@@ -245,7 +268,10 @@ export function NotionDemo(): ReactNode {
   return (
     <>
       <div className="app-notion-demo">
-        <div className="notion-page">
+        <div
+          ref={setPageEl}
+          className={scrollable ? 'notion-page notion-page--scrollable' : 'notion-page'}
+        >
           <div className="dm-editor dm-notion-mode">
             <div ref={editorRef} />
           </div>

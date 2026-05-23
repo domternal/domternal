@@ -145,9 +145,9 @@ export interface BlockHandleOptions {
    * `posAtCoords` can disagree with our resolver in the side gutter /
    * inter-block gap). While dragging, the editor gets a
    * `dm-block-handle-dragging` class so the theme can hide the native
-   * `.ProseMirror-dropcursor` for this drag only; non-handle drags
-   * (text selection, external file drops) keep the native cursor.
-   * Set to `false` to use the native dropcursor instead.
+   * `.prosemirror-dropcursor-block`/`-inline` for this drag only;
+   * non-handle drags (text selection, external file drops) keep the
+   * native cursor. Set to `false` to use the native dropcursor instead.
    * @default true
    */
   dropIndicator?: boolean;
@@ -1286,7 +1286,7 @@ export function createBlockHandlePlugin(
     // and the drop-indicator. Attached once per drag, removed in dragend.
     startDragListeners();
 
-    // Theme hides native `.ProseMirror-dropcursor` while this class is set.
+    // Theme hides native `.prosemirror-dropcursor-*` while this class is set.
     if (dropIndicator) editorEl?.classList.add('dm-block-handle-dragging');
   };
 
