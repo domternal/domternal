@@ -96,6 +96,10 @@ const OUTLINE_CLASS = 'dm-toc-outline';
 // Editor-mode wrapper spanning the host's full height; provides the
 // sticky containing block for the nav inside.
 const SHELL_CLASS = 'dm-toc-outline-shell';
+// Tick column wrapper. Caps at ~50% of the container with
+// `overflow: hidden`; the card is a SIBLING (not a child) so the
+// clip never touches the hover panel.
+const TICKS_CLASS = 'dm-toc-outline-ticks';
 const TICK_CLASS = 'dm-toc-outline-tick';
 const CARD_CLASS = 'dm-toc-outline-card';
 const ROW_CLASS = 'dm-toc-outline-row';
@@ -135,14 +139,22 @@ function resolveDefaultOutlineHost(view: EditorView): HTMLElement {
 }
 
 /**
- * Build the inner DOM for the outline: a column of tick buttons (the
- * always-visible compact view) plus an absolutely-positioned card
- * containing one row button per heading (revealed on hover/focus).
- * Naive full-rebuild render: doc heading counts are typically <50;
- * the inner DOM cost is microseconds.
+ * Build the inner DOM for the outline: a bounded ticks column (always-
+ * visible compact view) plus an absolutely-positioned card containing
+ * one row button per heading (revealed on hover/focus). The ticks
+ * wrapper isolates `overflow: hidden` from the card so a long heading
+ * list never clips the expanded panel. Wrapper + card are reused
+ * across re-renders.
  */
 function renderOutlineContent(nav: HTMLElement, content: HeadingEntry[]): void {
-  nav.replaceChildren();
+  let ticks = nav.querySelector<HTMLElement>(`.${TICKS_CLASS}`);
+  if (!ticks) {
+    ticks = document.createElement('div');
+    ticks.className = TICKS_CLASS;
+    nav.appendChild(ticks);
+  } else {
+    ticks.replaceChildren();
+  }
 
   for (const entry of content) {
     const tick = document.createElement('button');
@@ -152,13 +164,20 @@ function renderOutlineContent(nav: HTMLElement, content: HeadingEntry[]): void {
     tick.dataset[ANCHOR_DATASET_KEY] = entry.id;
     const label = entry.textContent.trim() || `Heading level ${String(entry.level)}`;
     tick.setAttribute('aria-label', `${label} (heading ${String(entry.level)})`);
-    nav.appendChild(tick);
+    ticks.appendChild(tick);
   }
 
   // Expanded-view card. Always rendered; CSS opacity flips it in/out
-  // based on the parent nav's data-state attribute.
-  const card = document.createElement('div');
-  card.className = CARD_CLASS;
+  // via the nav's data-state. Sibling of the ticks wrapper so the
+  // wrapper's `overflow: hidden` never clips it.
+  let card = nav.querySelector<HTMLElement>(`.${CARD_CLASS}`);
+  if (!card) {
+    card = document.createElement('div');
+    card.className = CARD_CLASS;
+    nav.appendChild(card);
+  } else {
+    card.replaceChildren();
+  }
   for (const entry of content) {
     const row = document.createElement('button');
     row.type = 'button';
@@ -168,7 +187,6 @@ function renderOutlineContent(nav: HTMLElement, content: HeadingEntry[]): void {
     row.textContent = entry.textContent.trim() || `Heading level ${String(entry.level)}`;
     card.appendChild(row);
   }
-  nav.appendChild(card);
 }
 
 /**
@@ -291,12 +309,18 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
           let containerResizeObserver: ResizeObserver | null = null;
           const recomputeContainerLayout = (): void => {
             if (!isScrollContainer) return;
+            const sp = options.activeScrollParent as Element;
+            // Cap the ticks column at 50% of the host viewport - the
+            // wrapper's CSS reads this var.
+            nav.style.setProperty(
+              '--dm-toc-ticks-max-h',
+              `${(sp.clientHeight * 0.5).toFixed(2)}px`,
+            );
             const h = nav.offsetHeight;
             if (h > 0) {
               nav.style.setProperty('--dm-toc-mid-half-height', `${(h / 2).toFixed(2)}px`);
             }
             if (shell) {
-              const sp = options.activeScrollParent as Element;
               shell.style.minHeight = '';
               shell.style.minHeight = `${sp.scrollHeight}px`;
             }
@@ -475,6 +499,9 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             // which self-clears any stale value before recomputing.
             if (state === 'expanded' && prevState !== 'expanded') {
               requestAnimationFrame(adjustCardPosition);
+              // Open the card at the first row; user scrolls for the rest.
+              const card = nav.querySelector<HTMLElement>(`.${CARD_CLASS}`);
+              if (card) card.scrollTop = 0;
             }
             prevState = state;
           };

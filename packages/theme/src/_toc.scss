@@ -5,13 +5,11 @@
 // =============================================================================
 
 .dm-toc-outline {
-  // Stack ticks vertically with even gaps. flex-end keeps the right
-  // edge of every tick aligned even though widths differ per level.
+  // Positioning wrapper. Inner `.dm-toc-outline-ticks` stacks + clips
+  // ticks; card is an absolute sibling, untouched by the clip.
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: var(--dm-toc-tick-gap, 10px);
-  padding: var(--dm-toc-padding-block, 12px) var(--dm-toc-padding-inline, 8px);
   z-index: var(--dm-toc-z-index, 10);
 
   // No background / no border in collapsed state - just a column of ticks.
@@ -110,6 +108,19 @@
   bottom: 0;
 }
 
+// Ticks column - capped at ~50% (Notion behavior): overflow simply
+// clips, gap stays constant, column doesn't scroll. Defaults to
+// `50vh` (page mode); container mode plugin overrides the var.
+.dm-toc-outline-ticks {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--dm-toc-tick-gap, 10px);
+  padding: var(--dm-toc-padding-block, 12px) var(--dm-toc-padding-inline, 8px);
+  max-height: var(--dm-toc-ticks-max-h, 50vh);
+  overflow: hidden;
+}
+
 .dm-toc-outline-tick {
   // Reset button defaults - we draw a solid filled rectangle.
   appearance: none;
@@ -119,6 +130,9 @@
   font: inherit;
   cursor: pointer;
   background: var(--dm-toc-tick-color, rgba(55, 53, 47, 0.4));
+  // Lock tick height so the gap stays constant; overflow is clipped
+  // by the wrapper instead of squeezed.
+  flex-shrink: 0;
   height: var(--dm-toc-tick-height, 2px);
   border-radius: var(--dm-toc-tick-radius, 1px);
   // Width per heading level - h1 widest, deeper levels narrower.
@@ -189,9 +203,9 @@
     translateX(var(--dm-toc-card-offset, 8px));
   min-width: var(--dm-toc-card-min-width, 180px);
   max-width: var(--dm-toc-card-max-width, 260px);
-  // Long heading lists scroll internally rather than overflowing the
-  // viewport; the margin keeps the card off the chrome edges.
-  max-height: calc(100vh - 2 * var(--dm-toc-card-viewport-margin, 16px));
+  // Card matches the ticks wrapper height; the rest of the rows
+  // are reachable by scrolling the card itself.
+  max-height: var(--dm-toc-ticks-max-h, 50vh);
   overflow-y: auto;
   padding: var(--dm-toc-card-padding-block, 6px) 0;
   background: var(--dm-toc-card-bg, rgba(255, 255, 255, 0.98));
@@ -232,6 +246,8 @@
   font-size: var(--dm-toc-row-font-size, 13px);
   line-height: var(--dm-toc-row-line-height, 1.4);
   color: var(--dm-toc-row-color, rgba(55, 53, 47, 0.7));
+  // Constant row height; long lists scroll the card, no squeeze.
+  flex-shrink: 0;
   padding:
     var(--dm-toc-row-padding-block, 4px)
     var(--dm-toc-row-padding-inline-end, 16px)
