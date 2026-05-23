@@ -29,6 +29,14 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
+// Scrollable variant: caps height and scrolls content internally instead
+// of growing. Pair with `FloatingTocOutline.activeScrollParent` so the
+// outline's scroll-spy follows the host scroll.
+.notion-page--scrollable {
+  max-height: 700px;
+  overflow-y: auto;
+}
+
 // Toast surfaced by the Notion demo when a block link is copied (or fails
 // to copy). Positioned fixed above the viewport bottom. The success
 // variant is neutral dark; the `--error` modifier uses a warning red.

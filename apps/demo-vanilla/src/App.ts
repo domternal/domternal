@@ -1,7 +1,7 @@
 import { EditorDemo } from './EditorDemo.js';
 import { NotionDemo } from './NotionDemo.js';
 
-type Mode = 'default' | 'custom' | 'notion';
+type Mode = 'default' | 'custom' | 'notion' | 'notion-scrollable';
 
 /**
  * Top-level demo router. Manages mode state (default / custom / notion),
@@ -53,6 +53,7 @@ export class App {
       { id: 'default', label: 'Default toolbar' },
       { id: 'custom', label: 'Custom layout' },
       { id: 'notion', label: 'Notion style' },
+      { id: 'notion-scrollable', label: 'Notion scrollable' },
     ];
 
     for (const m of modes) {
@@ -77,8 +78,8 @@ export class App {
 
   #setMode(mode: Mode): void {
     if (mode === this.#mode) return;
-    const wasNotion = this.#mode === 'notion';
-    const goingNotion = mode === 'notion';
+    const wasNotion = this.#mode === 'notion' || this.#mode === 'notion-scrollable';
+    const goingNotion = mode === 'notion' || mode === 'notion-scrollable';
     this.#mode = mode;
 
     // Preserve editor state on default ↔ custom toggle: only swap the
@@ -100,8 +101,10 @@ export class App {
   #mountCurrentMode(): void {
     this.#demoMount.replaceChildren();
 
-    if (this.#mode === 'notion') {
-      this.#notionDemo = new NotionDemo(this.#demoMount);
+    if (this.#mode === 'notion' || this.#mode === 'notion-scrollable') {
+      this.#notionDemo = new NotionDemo(this.#demoMount, {
+        scrollable: this.#mode === 'notion-scrollable',
+      });
       return;
     }
 
