@@ -48,6 +48,14 @@
   }
 }
 
+// `_prosemirror.scss` draws a sharp 2px accent border on selected list
+// items via `li.ProseMirror-selectednode::after`. With BlockHandle the
+// translucent halo above is the canonical selection visual, so suppress
+// the list-item-specific border to avoid a doubled frame.
+.dm-editor--has-block-handle li.ProseMirror-selectednode::after {
+  display: none;
+}
+
 .dm-block-handle {
   position: absolute;
   // Pin static position to parent top so the hidden box doesn't
