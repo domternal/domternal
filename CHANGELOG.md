@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.7.2 (2026-05-24)
+
+### Features
+
+- feat(extension-toc): `FloatingTocOutline.activeScrollParent` option enables `scroll-mode='container'`. The outline pins to the host viewport's vertical middle via CSS sticky (zero JS during scroll) and the scroll-spy follows the host scroll instead of the window. Pair with a fixed-height wrapper for Notion-style scrollable editors. (#86)
+- feat(extension-toc,theme): tick column caps at ~50% of the host viewport with `overflow: hidden` (matches Notion behaviour); the hover card matches that height and scrolls its rows internally. New `--dm-toc-ticks-max-h` token controls the cap. (#86)
+- feat(theme): new `--dm-editor-padding-top-extra` token adds a comfortable gap between the editor's top edge and the first row. Defaults to `1rem` and bumps automatically in Notion mode where there is no toolbar above the column. (#86)
+- feat(demo-vanilla,demo-react,demo-vue,demo-angular): "Notion scrollable" demo mode. Editor sits inside a fixed-height wrapper that scrolls internally; the TOC scroll-spy follows the host scroll, not the window. Full e2e parity across all four demos. (#86)
+
+### Fixes
+
+- fix(theme,extension-block-menu): BlockHandle `dragstart` now hides the native dropcursor element correctly. The previous selector targeted `.ProseMirror-dropcursor`, a class `prosemirror-dropcursor` v1.8+ does not emit, so both the custom and native indicators rendered at once during a handle drag. The hide rule now targets `prosemirror-dropcursor-block` and `prosemirror-dropcursor-inline`. E2E regression coverage added across all four demos. (#86)
+- fix(extension-toc): `FloatingTocOutline` default `minHeadings` lowered from 2 to 1 so the outline appears on a single-heading document (matches Notion). Click-to-scroll no longer bubbles to the window when `activeScrollParent` is set. (#86)
+- fix(extension-toc,theme): zero-jitter container scroll. Absolute UI children (BlockHandle, BubbleMenu, FloatingMenu) are pinned at `top: 0` so the hidden box doesn't inflate the host's `scrollHeight` and create a ghost scroll. (#86)
+- fix(theme): tokenised slim scrollbar on the TOC card and Notion scrollable container so contrast holds in dark mode. (#86)
+- fix(theme): suppressed the sharp 2px accent border on `li.ProseMirror-selectednode::after` when BlockHandle is active. The translucent halo is now the single source of truth for selection feedback so dragging a list item no longer shows a doubled frame. (#86)
+
+### Internal
+
+- refactor(extension-toc): extracted shared `getHeadingLabel` and `setActiveMarker` helpers used by both `FloatingTocOutline` and `TableOfContentsBlock`. (#86)
+- refactor(extension-block-menu): extracted `clearTriggeredFlag` helper in `FloatingMenu` (deduplicates the dismiss and update branches). (#86)
+- refactor(demos): standardised `TOAST_MS[kind]` access pattern across all four demos; Angular's copy-link listeners switched to `AbortController` for parity with the other three. (#86)
+
 ## 0.7.1 (2026-05-23)
 
 ### Features
