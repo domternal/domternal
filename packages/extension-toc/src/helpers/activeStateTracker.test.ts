@@ -101,6 +101,19 @@ describe('activeStateTracker', () => {
     tracker.destroy();
   });
 
+  it('treats a small positive subpixel top as "passed"', () => {
+    // `scrollTo(rect.top + scrollY)` can leave rect.top at ~0.25 due to
+    // CSS-pixel/device-pixel rounding; strict `<= 0` would miss it.
+    const onChange = vi.fn();
+    const tracker = createActiveStateTracker({ onChange });
+    const passed = mountHeading('passed', -300);
+    const justArrived = mountHeading('justArrived', 0.25);
+    const upcoming = mountHeading('upcoming', 200);
+    tracker.observe([passed, justArrived, upcoming]);
+    expect(onChange).toHaveBeenLastCalledWith('justArrived');
+    tracker.destroy();
+  });
+
   it('does NOT switch active to the next heading until its top reaches the viewport top', () => {
     // Active switches exactly when the viewport top line touches the
     // next heading - top <= 0. While the next heading is still below

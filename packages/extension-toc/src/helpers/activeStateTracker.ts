@@ -84,6 +84,10 @@ function makeReadId(attrName: string): (el: HTMLElement) => string | null {
  * driven recompute (rAF-throttled, see below), the switch tracks the
  * scroll position frame-by-frame instead of waiting on IO callbacks.
  */
+// `scrollTo(rect.top + scrollY)` leaves rect.top at a subpixel like 0.25.
+// 1px tolerance absorbs the rounding without catching far-below headings.
+const SUBPIXEL_TOLERANCE = 1;
+
 function pickActive(
   elements: readonly HTMLElement[],
   _intersecting: ReadonlySet<HTMLElement>,
@@ -97,7 +101,7 @@ function pickActive(
     // Skip elements with no visual extent (display:none ancestor,
     // detached, zero-sized).
     if (rect.width === 0 && rect.height === 0) continue;
-    if (rect.top <= 0 && rect.top > lastPassedTop) {
+    if (rect.top <= SUBPIXEL_TOLERANCE && rect.top > lastPassedTop) {
       lastPassedTop = rect.top;
       lastPassed = el;
     }

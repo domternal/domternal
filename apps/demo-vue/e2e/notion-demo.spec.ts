@@ -637,7 +637,8 @@ test.describe('Notion-mode library class', () => {
     expect(styles.blockHandleGutter).toBe('0');
     expect(styles.blockHandleLeft).toBe('-3.5rem');
     expect(styles.editorLineHeight).toBe('1.7');
-    expect(styles.editorFontSize).toBe('1.0625rem');
+    // Notion mode inherits classic body size; toggle shifts layout, not scale.
+    expect(styles.editorFontSize).toBe('1rem');
   });
 
   test('class composes with .dm-theme-dark: chrome stripped + dark surface tokens active', async ({ page }) => {
