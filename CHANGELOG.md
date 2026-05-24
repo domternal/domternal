@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.3 (2026-05-24)
+
+### Fixes
+
+- fix(theme): link and image popovers were invisible on light theme. Popovers mount to `document.body` so the `--dm-*` design tokens defined inside `.dm-editor` never cascade to them; `background: var(--dm-bg)` resolved to the CSS initial value (transparent) and the popover blended into the toolbar. Hoisted token fallbacks to SCSS variables in `_link-popover.scss` and `_image.scss`, each carrying both the cascade lookup and a literal fallback. Also strengthened the default `--dm-popover-shadow` so popovers lift visibly off the toolbar. (#88)
+
 ## 0.7.2 (2026-05-24)
 
 ### Features
