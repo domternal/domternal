@@ -72,7 +72,7 @@
 
   // Shared drop shadow for popover surfaces (floating menu, slash command,
   // context menu). Override in dark theme for visibility on dark bg.
-  --dm-popover-shadow: 0 10px 25px rgba(0, 0, 0, 0.08), 0 4px 10px rgba(0, 0, 0, 0.04);
+  --dm-popover-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.22), 0 4px 10px -2px rgba(0, 0, 0, 0.12);
   --dm-code-surface: #f0f0f0;
   --dm-code-color: inherit;
 
