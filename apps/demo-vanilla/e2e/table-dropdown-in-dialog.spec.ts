@@ -186,3 +186,121 @@ test.describe('Table dropdown - editor on normal page', () => {
     expect(await dropdown.evaluate((el) => el.parentElement?.tagName !== 'BODY')).toBe(true);
   });
 });
+
+// Functional behavior inside the dialog: the dropdown must not only render in
+// the right place but stay usable (insert/delete row, apply color, close on
+// Escape/outside-click). Run in every framework demo to confirm the wrapper's
+// event and re-render integration, not just the framework-agnostic core.
+test.describe('Table dropdown - functional behavior inside <dialog>', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('Escape closes the row dropdown inside the dialog', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+    await moveEditorIntoDialog(page);
+
+    await page.locator('.dm-editor td').first().hover();
+    await page.waitForTimeout(150);
+    await page.locator('.dm-table-row-handle').click();
+    await page.waitForTimeout(150);
+    await expect(page.locator('.dm-table-controls-dropdown')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(100);
+    await expect(page.locator('.dm-table-controls-dropdown')).toHaveCount(0);
+  });
+
+  test('outside click closes the row dropdown inside the dialog', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+    await moveEditorIntoDialog(page);
+
+    await page.locator('.dm-editor td').first().hover();
+    await page.waitForTimeout(150);
+    await page.locator('.dm-table-row-handle').click();
+    await page.waitForTimeout(150);
+    await expect(page.locator('.dm-table-controls-dropdown')).toBeVisible();
+
+    // Click a neutral spot on the editor surface, away from the dropdown.
+    await page.locator(editorSelector).click({ position: { x: 4, y: 4 } });
+    await page.waitForTimeout(100);
+    await expect(page.locator('.dm-table-controls-dropdown')).toHaveCount(0);
+  });
+
+  test('Insert Row Above actually inserts a row inside the dialog', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+    await moveEditorIntoDialog(page);
+
+    const before = await page.locator('.dm-editor tr').count();
+    await page.locator('.dm-editor td').first().hover();
+    await page.waitForTimeout(150);
+    await page.locator('.dm-table-row-handle').click();
+    await page.waitForTimeout(150);
+
+    // First menu item is "Insert Row Above".
+    await page.locator('.dm-table-controls-dropdown button').first().click();
+    await page.waitForTimeout(150);
+
+    const after = await page.locator('.dm-editor tr').count();
+    expect(after).toBe(before + 1);
+  });
+
+  test('color swatch applies a background to the cell inside the dialog', async ({ page }) => {
+    await setContentAndFocus(page, SIMPLE_TABLE);
+    await moveEditorIntoDialog(page);
+    await selectCells(page, 0, 1);
+
+    const colorBtn = page.locator('.dm-table-cell-toolbar .dm-table-cell-toolbar-btn').first();
+    await colorBtn.click();
+    await page.waitForTimeout(150);
+
+    await page.locator('.dm-table-cell-dropdown .dm-color-swatch').first().click();
+    await page.waitForTimeout(150);
+
+    const bg = await page.locator('.dm-editor th, .dm-editor td').first().getAttribute('data-background');
+    expect(bg).toBeTruthy();
+  });
+});
+
+// The fix mounts the dropdown inside `.dm-editor` (which has `overflow: hidden`)
+// but positions it with `fixed`, so it escapes the editor's clip and stays
+// fully visible and clickable even when the row sits at the editor's edge.
+// Guards against the dropdown being cut off by the editor's overflow.
+test.describe('Table dropdown - not clipped by editor overflow', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('row dropdown stays on-screen and clickable for a bottom-edge row', async ({ page }) => {
+    // The table is the only content, so the last row's handle sits near the
+    // editor's bottom edge; an absolutely-positioned dropdown would be clipped
+    // by `overflow: hidden`. With `fixed` it must remain on-screen and usable.
+    await setContentAndFocus(page, SIMPLE_TABLE);
+
+    const before = await page.locator('.dm-editor tr').count();
+    await page.locator('.dm-editor td').last().hover();
+    await page.waitForTimeout(150);
+    await page.locator('.dm-table-row-handle').click();
+    await page.waitForTimeout(150);
+
+    const dropdown = page.locator('.dm-table-controls-dropdown');
+    await expect(dropdown).toBeVisible();
+
+    // Fully inside the viewport (flip/shift keeps it on-screen, not clipped).
+    const inViewport = await dropdown.evaluate((el) => {
+      const d = el.getBoundingClientRect();
+      return d.top >= -1 && d.left >= -1 && d.bottom <= window.innerHeight + 1 && d.right <= window.innerWidth + 1;
+    });
+    expect(inViewport).toBe(true);
+
+    // A menu item must be genuinely clickable - this is what failed when the
+    // dropdown was clipped by the editor's overflow. "Insert Row Above" adds a row.
+    await dropdown.locator('button').first().click();
+    await page.waitForTimeout(150);
+    const after = await page.locator('.dm-editor tr').count();
+    expect(after).toBe(before + 1);
+  });
+});
+

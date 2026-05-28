@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, beforeEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { Document, Text, Paragraph, Editor } from '@domternal/core';
 import {
   CellSelection,
@@ -543,6 +543,84 @@ describe('TableView', () => {
         // @ts-expect-error - private method
         view.closeDropdown();
       }).not.toThrow();
+    });
+
+    it('falls back to document.body when no .dm-editor ancestor exists', () => {
+      // host has no `dm-editor` class, so closest('.dm-editor') is null.
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td></tr></table>',
+      });
+      const view = getTableView(editor)!;
+      // @ts-expect-error - private method
+      view.showDropdown('row');
+
+      const dropdown = document.querySelector('.dm-table-controls-dropdown');
+      expect(dropdown?.parentElement).toBe(document.body);
+    });
+
+    it('dropdown is a descendant of the theme-classed editor so tokens cascade', () => {
+      // copyThemeClass() was removed: theme custom properties now reach the
+      // dropdown purely because it is a DOM descendant of the themed editor.
+      host.className = 'dm-editor dm-theme-dark';
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td></tr></table>',
+      });
+      const view = getTableView(editor)!;
+      // @ts-expect-error - private method
+      view.showDropdown('row');
+
+      const dropdown = document.querySelector('.dm-table-controls-dropdown');
+      expect(dropdown?.closest('.dm-theme-dark')).toBe(host);
+    });
+  });
+
+  describe('floating cleanup (autoUpdate teardown)', () => {
+    it('closeDropdown invokes the floating-ui cleanup and clears the ref', () => {
+      host.className = 'dm-editor';
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td></tr></table>',
+      });
+      const view = getTableView(editor)!;
+      // @ts-expect-error - private method
+      view.showDropdown('row');
+
+      const cleanup = vi.fn();
+      // @ts-expect-error - private field: swap the real autoUpdate cleanup for a spy
+      view.dropdownCleanup = cleanup;
+
+      // @ts-expect-error - private method
+      view.closeDropdown();
+
+      expect(cleanup).toHaveBeenCalledTimes(1);
+      // @ts-expect-error - private field
+      expect(view.dropdownCleanup).toBeNull();
+    });
+
+    it('NodeView destroy tears down an open dropdown and its floating cleanup', () => {
+      host.className = 'dm-editor';
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td></tr></table>',
+      });
+      const view = getTableView(editor)!;
+      // @ts-expect-error - private method
+      view.showDropdown('row');
+
+      const cleanup = vi.fn();
+      // @ts-expect-error - private field
+      view.dropdownCleanup = cleanup;
+
+      editor.destroy();
+
+      expect(cleanup).toHaveBeenCalledTimes(1);
+      expect(document.querySelector('.dm-table-controls-dropdown')).toBeNull();
     });
   });
 
