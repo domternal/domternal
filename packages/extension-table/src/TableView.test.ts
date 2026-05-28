@@ -442,7 +442,7 @@ describe('TableView', () => {
   });
 
   describe('showDropdown / closeDropdown', () => {
-    it('showDropdown creates a row dropdown appended to body', () => {
+    it('showDropdown creates a row dropdown', () => {
       editor = new Editor({
         element: host,
         extensions: allExtensions,
@@ -511,6 +511,24 @@ describe('TableView', () => {
       const dropdowns = document.querySelectorAll('.dm-table-controls-dropdown');
       expect(dropdowns.length).toBe(1);
       expect(dropdowns[0]?.getAttribute('aria-label')).toBe('Column options');
+    });
+
+    it('showDropdown mounts the dropdown inside .dm-editor when present', () => {
+      host.className = 'dm-editor';
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td></tr></table>',
+      });
+      const view = getTableView(editor)!;
+      // @ts-expect-error - private method
+      view.hoveredRow = 0;
+      // @ts-expect-error - private method
+      view.showDropdown('row');
+
+      const dropdown = host.querySelector('.dm-table-controls-dropdown');
+      expect(dropdown).not.toBeNull();
+      expect(dropdown?.parentElement).toBe(host);
     });
 
     it('closeDropdown does nothing if no dropdown exists', () => {
@@ -1301,43 +1319,6 @@ describe('TableView', () => {
       // Cell should now be tableHeader
       const cell = editor.state.doc.firstChild?.firstChild?.firstChild;
       expect(cell?.type.name).toBe('tableHeader');
-    });
-  });
-
-  describe('copyThemeClass', () => {
-    it('copies dm-theme-* classes from ancestor to dropdown', () => {
-      // The editor wrapper must have dm-editor class, and an ancestor with dm-theme-*
-      host.className = 'dm-theme-light dm-editor';
-
-      editor = new Editor({
-        element: host,
-        extensions: allExtensions,
-        content: '<table><tr><td><p>A</p></td></tr></table>',
-      });
-      const view = getTableView(editor)!;
-
-      const testDropdown = document.createElement('div');
-      // @ts-expect-error - private method
-      view.copyThemeClass(testDropdown);
-
-      expect(testDropdown.classList.contains('dm-theme-light')).toBe(true);
-    });
-
-    it('does nothing when no .dm-editor ancestor exists', () => {
-      editor = new Editor({
-        element: host,
-        extensions: allExtensions,
-        content: '<table><tr><td><p>A</p></td></tr></table>',
-      });
-      const view = getTableView(editor)!;
-
-      const testDropdown = document.createElement('div');
-      const priorClassCount = testDropdown.classList.length;
-      // @ts-expect-error - private method
-      view.copyThemeClass(testDropdown);
-
-      // No theme class → no change
-      expect(testDropdown.classList.length).toBe(priorClassCount);
     });
   });
 

@@ -28,6 +28,7 @@ import {
   isInTable,
   selectedRect,
 } from '@domternal/pm/tables';
+import { positionFloatingOnce } from '@domternal/core';
 
 import { constrainedAddColumn } from './helpers/constrainedColumn.js';
 
@@ -73,6 +74,7 @@ export class TableView implements NodeView {
   private cellHandle: HTMLButtonElement;
   private cellHandleCell: HTMLTableCellElement | null = null;
   private dropdown: HTMLElement | null = null;
+  private dropdownCleanup: (() => void) | null = null;
   /** When true, the plugin skips showing the cell toolbar (row/col dropdown is open). */
   suppressCellToolbar = false;
   /** When true, column resize drag is active - all handles/menus are hidden. */
@@ -89,7 +91,6 @@ export class TableView implements NodeView {
   private boundCancelHide: () => void;
   private boundDocMouseDown: (e: MouseEvent) => void;
   private boundDocKeyDown: (e: KeyboardEvent) => void;
-  private boundScroll: () => void;
 
   constructor(node: PMNode, cellMinWidth: number, view: EditorView, defaultCellMinWidth = 100, constrainToContainer = true) {
     this.node = node;
@@ -104,7 +105,6 @@ export class TableView implements NodeView {
     this.boundCancelHide = this.cancelHide.bind(this);
     this.boundDocMouseDown = this.onDocMouseDown.bind(this);
     this.boundDocKeyDown = this.onDocKeyDown.bind(this);
-    this.boundScroll = () => { this.closeDropdown(); };
     // Create outer container (position: relative, overflow: visible)
     this.dom = document.createElement('div');
     this.dom.className = 'dm-table-container';
@@ -636,17 +636,8 @@ export class TableView implements NodeView {
       dropdown.appendChild(btn);
     }
 
-    // Position below the handle - fixed to viewport so it escapes overflow containers
     const handle = type === 'row' ? this.rowHandle : this.colHandle;
-    const handleRect = handle.getBoundingClientRect();
-    dropdown.style.position = 'fixed';
-    dropdown.style.left = String(handleRect.left) + 'px';
-    dropdown.style.top = String(handleRect.bottom + 4) + 'px';
-
-    this.copyThemeClass(dropdown);
-    document.body.appendChild(dropdown);
-    this.dropdown = dropdown;
-    this.addDropdownListeners();
+    this.mountDropdown(dropdown, handle, 'bottom-start');
   }
 
   // ─── Cell toolbar dropdowns ──────────────────────────────────────────
@@ -768,59 +759,45 @@ export class TableView implements NodeView {
   }
 
   private positionToolbarDropdown(dropdown: HTMLElement, triggerBtn: HTMLButtonElement): void {
-    const btnRect = triggerBtn.getBoundingClientRect();
-
-    // Fixed position so dropdown escapes overflow containers
-    dropdown.style.position = 'fixed';
-    dropdown.style.top = String(btnRect.bottom + 4) + 'px';
-
-    // Append to body first to measure
-    this.copyThemeClass(dropdown);
-    document.body.appendChild(dropdown);
-    this.dropdown = dropdown;
-
-    // Try left-aligned to button; if overflows viewport, shift left
-    const dropdownWidth = dropdown.offsetWidth;
-    let leftPos = btnRect.left;
-    if (leftPos + dropdownWidth > window.innerWidth) {
-      leftPos = window.innerWidth - dropdownWidth - 4;
-    }
-    dropdown.style.left = String(Math.max(0, leftPos)) + 'px';
-
-    this.addDropdownListeners();
+    this.mountDropdown(dropdown, triggerBtn, 'bottom-start');
   }
 
-  /** Copy dm-theme-* class from the editor to the dropdown so CSS variables apply when appended to body. */
-  private copyThemeClass(dropdown: HTMLElement): void {
-    const editorEl = this.view.dom.closest('.dm-editor');
-    const themeEl = editorEl?.closest('[class*="dm-theme-"]') ?? editorEl;
-    if (!themeEl) return;
-    themeEl.classList.forEach((cls) => {
-      if (cls.startsWith('dm-theme-')) {
-        dropdown.classList.add(cls);
-      }
-    });
+  /**
+   * Mount the dropdown inside `.dm-editor` (matching BubbleMenu pattern).
+   * Rendering inside the editor keeps the dropdown inside the modal/dialog
+   * stacking context when the editor is portaled to one - appending to
+   * document.body would hide it beneath a top-layer <dialog>.
+   */
+  private mountDropdown(dropdown: HTMLElement, anchor: HTMLElement, placement: 'bottom-start' | 'bottom'): void {
+    dropdown.style.position = 'absolute';
+    dropdown.style.left = '0';
+    dropdown.style.top = '0';
+
+    const editorEl = this.view.dom.closest<HTMLElement>('.dm-editor');
+    (editorEl ?? document.body).appendChild(dropdown);
+    this.dropdown = dropdown;
+
+    this.dropdownCleanup = positionFloatingOnce(anchor, dropdown, { placement, offsetValue: 4 });
+    this.addDropdownListeners();
   }
 
   private addDropdownListeners(): void {
     document.addEventListener('mousedown', this.boundDocMouseDown, true);
     document.addEventListener('keydown', this.boundDocKeyDown);
-    // Close on any scroll (editor or page) so fixed dropdown doesn't drift
-    window.addEventListener('scroll', this.boundScroll, true);
   }
 
   private removeDropdownListeners(): void {
     document.removeEventListener('mousedown', this.boundDocMouseDown, true);
     document.removeEventListener('keydown', this.boundDocKeyDown);
-    window.removeEventListener('scroll', this.boundScroll, true);
   }
 
   private closeDropdown(): void {
     if (!this.dropdown) return;
+    this.dropdownCleanup?.();
+    this.dropdownCleanup = null;
     this.dropdown.remove();
     this.dropdown = null;
     this.suppressCellToolbar = false;
-    // Clear open state from toolbar buttons
     this.cellToolbar.querySelectorAll('.dm-table-cell-toolbar-btn--open').forEach(
       (el) => { el.classList.remove('dm-table-cell-toolbar-btn--open'); },
     );
