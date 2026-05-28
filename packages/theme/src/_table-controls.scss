@@ -246,10 +246,6 @@
     width: 100%;
     padding: 0.375rem 0.5rem;
     border: none;
-    // Component tokens (--dm-button-*) are defined on .dm-editor. This
-    // dropdown is portaled to document.body, so those tokens may be
-    // undefined here. Fall back to base tokens (which the theme sets via
-    // the .dm-theme-dark/.dm-theme-auto class copied onto the dropdown).
     border-radius: var(--dm-button-border-radius, 0.375rem);
     background: transparent;
     color: var(--dm-button-color, var(--dm-text));
