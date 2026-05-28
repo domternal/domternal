@@ -28,7 +28,7 @@ import {
   isInTable,
   selectedRect,
 } from '@domternal/pm/tables';
-import { positionFloatingOnce } from '@domternal/core';
+import { positionFloating } from '@domternal/core';
 
 import { constrainedAddColumn } from './helpers/constrainedColumn.js';
 
@@ -763,13 +763,20 @@ export class TableView implements NodeView {
   }
 
   /**
-   * Mount the dropdown inside `.dm-editor` (matching BubbleMenu pattern).
-   * Rendering inside the editor keeps the dropdown inside the modal/dialog
-   * stacking context when the editor is portaled to one - appending to
-   * document.body would hide it beneath a top-layer <dialog>.
+   * Mount the dropdown inside `.dm-editor` and position it with `fixed`.
+   *
+   * Two constraints have to hold at once:
+   * - The dropdown must be a DOM descendant of the editor so that, when the
+   *   editor is portaled into a modal `<dialog>` (top layer), the dropdown
+   *   paints in the same top layer rather than beneath the dialog. Appending
+   *   to document.body would hide it under the dialog.
+   * - `.dm-editor` has `overflow: hidden`, which would clip an absolutely
+   *   positioned child that extends past the editor box. `position: fixed`
+   *   uses the viewport as its containing block, so it escapes that clip
+   *   while still living inside the dialog subtree.
    */
   private mountDropdown(dropdown: HTMLElement, anchor: HTMLElement, placement: 'bottom-start' | 'bottom'): void {
-    dropdown.style.position = 'absolute';
+    dropdown.style.position = 'fixed';
     dropdown.style.left = '0';
     dropdown.style.top = '0';
 
@@ -777,7 +784,7 @@ export class TableView implements NodeView {
     (editorEl ?? document.body).appendChild(dropdown);
     this.dropdown = dropdown;
 
-    this.dropdownCleanup = positionFloatingOnce(anchor, dropdown, { placement, offsetValue: 4 });
+    this.dropdownCleanup = positionFloating(anchor, dropdown, { placement, offsetValue: 4 });
     this.addDropdownListeners();
   }
 
