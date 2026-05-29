@@ -178,4 +178,65 @@ describe('liftCurrentListItem', () => {
     const ok = liftCurrentListItem(editor.state, tr);
     expect(ok).toBe(false);
   });
+
+  // ── Nested lists: keep the block at its current indentation (Notion's
+  //    "Turn into" semantics). A nested item is lifted ONE level into its
+  //    parent's children zone, NOT out to the top level. ──
+
+  /** Direct children {type,text} of the first list item whose label === labelText. */
+  function listItemChildren(editor: Editor, labelText: string): BlockShape[] {
+    const out: BlockShape[] = [];
+    editor.state.doc.descendants((node) => {
+      if (out.length > 0) return false;
+      if ((node.type.name === 'listItem' || node.type.name === 'taskItem')
+        && node.firstChild?.textContent === labelText) {
+        node.forEach((c) => out.push({ type: c.type.name, text: c.textContent }));
+        return false;
+      }
+      return true;
+    });
+    return out;
+  }
+
+  it('lifts a NESTED item into the parent children zone (stays indented)', () => {
+    editor = make('<ul><li><p>First</p><ul><li><p>Inner</p></li></ul></li></ul>');
+    caretAtItemLabel(editor, 1); // the inner item
+    const tr = editor.state.tr;
+    const ok = liftCurrentListItem(editor.state, tr);
+    editor.view.dispatch(tr);
+    expect(ok).toBe(true);
+    // "Inner" is now a children-zone paragraph of "First" (inner list dissolved),
+    // not lifted out to the top level.
+    expect(listItemChildren(editor, 'First')).toEqual([
+      { type: 'paragraph', text: 'First' },
+      { type: 'paragraph', text: 'Inner' },
+    ]);
+    expect(topLevelBlocks(editor).map((b) => b.type)).toEqual(['bulletList']);
+  });
+
+  it('DEEPLY (3-level) nested item lifts one level, staying under its parent', () => {
+    editor = make('<ul><li><p>A</p><ul><li><p>B</p><ul><li><p>C</p></li></ul></li></ul></li></ul>');
+    caretAtItemLabel(editor, 2); // the deepest item "C"
+    const tr = editor.state.tr;
+    const ok = liftCurrentListItem(editor.state, tr);
+    editor.view.dispatch(tr);
+    expect(ok).toBe(true);
+    // "C" moved into "B"'s children zone (stays nested under B), not to top level.
+    expect(listItemChildren(editor, 'B')).toEqual([
+      { type: 'paragraph', text: 'B' },
+      { type: 'paragraph', text: 'C' },
+    ]);
+    expect(topLevelBlocks(editor).map((b) => b.type)).toEqual(['bulletList']);
+  });
+
+  it('CONVERT: toggleHeading on a nested item produces an indented (children-zone) heading', () => {
+    editor = make('<ul><li><p>First</p><ul><li><p>Inner</p></li></ul></li></ul>');
+    caretAtItemLabel(editor, 1);
+    const ok = editor.commands.toggleHeading({ level: 2 });
+    expect(ok).toBe(true);
+    expect(listItemChildren(editor, 'First')).toEqual([
+      { type: 'paragraph', text: 'First' },
+      { type: 'heading', text: 'Inner' },
+    ]);
+  });
 });

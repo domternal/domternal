@@ -7,7 +7,7 @@ import { TableHeader } from './TableHeader.js';
 import { TableView } from './TableView.js';
 import { createTable } from './helpers/createTable.js';
 import { cellAttributes } from './helpers/cellAttributes.js';
-import { Document, Text, Paragraph, Editor, BulletList, ListItem, TaskList, TaskItem } from '@domternal/core';
+import { Document, Text, Paragraph, Editor, BulletList, ListItem, TaskList, TaskItem, Gapcursor } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
 import { CellSelection } from '@domternal/pm/tables';
 
@@ -82,6 +82,29 @@ describe('Table', () => {
     it('can disable View', () => {
       const Custom = Table.configure({ View: null });
       expect(Custom.options.View).toBeNull();
+    });
+  });
+
+  describe('addExtensions', () => {
+    it('pulls in the table sub-nodes plus Gapcursor', () => {
+      const ext = Table.config.addExtensions?.call(Table) ?? [];
+      const names = ext.map((e) => e.name);
+      expect(names).toContain('tableRow');
+      expect(names).toContain('tableCell');
+      expect(names).toContain('tableHeader');
+      // Gapcursor lets the caret escape a table that is the doc's last block.
+      expect(names).toContain('gapcursor');
+    });
+
+    it('does not error when the host ALSO registers Gapcursor (dedupe by name)', () => {
+      // StarterKit (and many hosts) already include Gapcursor; the
+      // Table-provided one must not trigger a duplicate-name conflict.
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, Gapcursor, Table, TableRow, TableCell, TableHeader],
+        content: '<p>x</p>',
+      });
+      expect(editor.state.schema.nodes['table']).toBeTruthy();
+      editor.destroy();
     });
   });
 

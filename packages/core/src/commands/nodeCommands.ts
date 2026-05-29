@@ -55,12 +55,12 @@ export const setBlockType: CommandSpec<[nodeName: string, attributes?: Attrs]> =
       const liftOk = liftCurrentListItem(state, tr);
       if (!liftOk) return false;
 
-      // After the lift, the (formerly) label paragraph sits one
-      // wrapper level higher. Verify the new BLOCK PARENT accepts the
-      // requested node type at the paragraph's index. We check the
-      // BLOCK PARENT, not `$reFrom.parent` (which is the textblock
-      // itself), because `canReplaceWith` applies at the parent's
-      // content slot.
+      // After the lift, the (formerly) label paragraph has been lifted
+      // out of all list nesting to a top-level block. Verify the new
+      // BLOCK PARENT accepts the requested node type at the paragraph's
+      // index. We check the BLOCK PARENT, not `$reFrom.parent` (which is
+      // the textblock itself), because `canReplaceWith` applies at the
+      // parent's content slot.
       const $reFrom = tr.doc.resolve(tr.selection.from);
       if ($reFrom.depth < 1) return false;
       const blockParent = $reFrom.node($reFrom.depth - 1);
