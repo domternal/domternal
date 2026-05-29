@@ -1,6 +1,6 @@
 {
   "name": "@domternal/extension-mention",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "Mention extension for Domternal editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
