@@ -1804,8 +1804,10 @@ test.describe('Table - Cell toolbar positioning', () => {
   });
 
   test('toolbar is centered above selected cells', async ({ page }) => {
-    await setContentAndFocus(page, TABLE_NO_HEADER);
-    await selectCells(page, 0, 1);
+    // Use a table with room above (a paragraph + header row) so the toolbar
+    // keeps its default placement above the selection.
+    await setContentAndFocus(page, TABLE_WITH_PARAGRAPH);
+    await selectCells(page, 2, 3);
 
     const toolbar = page.locator('.dm-table-cell-toolbar');
     await expect(toolbar).toBeVisible();
@@ -1834,6 +1836,40 @@ test.describe('Table - Cell toolbar positioning', () => {
 
     // Toolbar should be above the selection
     expect(toolbarBox!.y + toolbarBox!.height).toBeLessThan(selectionBounds.top + 5);
+  });
+
+  test('toolbar flips below the selection when the table is at the top (no room above)', async ({ page }) => {
+    await setContentAndFocus(page, TABLE_NO_HEADER);
+    await selectCells(page, 0, 1);
+
+    const toolbar = page.locator('.dm-table-cell-toolbar');
+    await expect(toolbar).toBeVisible();
+
+    const toolbarBox = await toolbar.boundingBox();
+    expect(toolbarBox).toBeTruthy();
+
+    const selectionBounds = await page.evaluate((sel) => {
+      const cells = document.querySelectorAll(sel + ' .selectedCell');
+      let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
+      cells.forEach(c => {
+        const r = c.getBoundingClientRect();
+        if (r.left < left) left = r.left;
+        if (r.right > right) right = r.right;
+        if (r.top < top) top = r.top;
+        if (r.bottom > bottom) bottom = r.bottom;
+      });
+      return { left, right, top, bottom };
+    }, editorSelector);
+
+    const selectionCenter = (selectionBounds.left + selectionBounds.right) / 2;
+    const toolbarCenter = toolbarBox!.x + toolbarBox!.width / 2;
+
+    // Still horizontally centered over the selection
+    expect(Math.abs(toolbarCenter - selectionCenter)).toBeLessThan(10);
+
+    // Flipped below: toolbar top sits below the selection bottom (otherwise it
+    // would render up inside the main editor toolbar's band and be unclickable).
+    expect(toolbarBox!.y).toBeGreaterThan(selectionBounds.bottom - 5);
   });
 });
 
@@ -3667,6 +3703,14 @@ test.describe('Table - Row handle centering on merged cells', () => {
   test('row handle repositions when moving from merged to normal cell', async ({ page }) => {
     const TABLE_3ROWS = '<table><tr><td>A</td><td>B</td></tr><tr><td>C</td><td>D</td></tr><tr><td>E</td><td>F</td></tr></table>';
     await mergeFirstColumnCells(page, TABLE_3ROWS);
+
+    // Collapse the cell selection left by the merge so the cell toolbar hides
+    // (its flipped-below position would otherwise overlay the rows hovered below).
+    await page.evaluate(() => {
+      const editor = (window as any).__DEMO_EDITOR__;
+      editor?.commands.focus('end');
+    });
+    await page.waitForTimeout(100);
 
     const mergedCell = page.locator(`${editorSelector} td[rowspan]`).first();
     await expect(mergedCell).toBeVisible();

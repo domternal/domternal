@@ -28,7 +28,7 @@ import {
   isInTable,
   selectedRect,
 } from '@domternal/pm/tables';
-import { positionFloating } from '@domternal/core';
+import { positionFloating, positionFloatingOnce } from '@domternal/core';
 
 import { constrainedAddColumn } from './helpers/constrainedColumn.js';
 
@@ -75,6 +75,7 @@ export class TableView implements NodeView {
   private cellHandleCell: HTMLTableCellElement | null = null;
   private dropdown: HTMLElement | null = null;
   private dropdownCleanup: (() => void) | null = null;
+  private cellToolbarCleanup: (() => void) | null = null;
   /** When true, the plugin skips showing the cell toolbar (row/col dropdown is open). */
   suppressCellToolbar = false;
   /** When true, column resize drag is active - all handles/menus are hidden. */
@@ -200,6 +201,7 @@ export class TableView implements NodeView {
     this.rowHandle.removeEventListener('mouseenter', this.boundCancelHide);
     this.cellHandle.removeEventListener('mouseenter', this.boundCancelHide);
     this.closeDropdown();
+    this.cellToolbarCleanup?.();
     if (this.hideTimeout) clearTimeout(this.hideTimeout);
     tableViewMap.delete(this.dom);
   }
@@ -403,41 +405,45 @@ export class TableView implements NodeView {
   /** Called by the cellHandlePlugin when CellSelection changes. */
   updateCellHandle(active: boolean): void {
     if (!active || this._resizeDragging) {
-      this.cellToolbar.style.display = '';
+      this.hideCellToolbar();
       this.closeDropdown();
       return;
     }
 
-    // Compute bounding box of ALL selected cells → position toolbar centered above
     const selectedCells = this.table.querySelectorAll('.selectedCell');
     if (selectedCells.length === 0) {
-      this.cellToolbar.style.display = '';
+      this.hideCellToolbar();
       return;
     }
 
-    let top = Infinity;
-    let left = Infinity;
-    let right = -Infinity;
-    selectedCells.forEach((c) => {
-      const r = c.getBoundingClientRect();
-      if (r.top < top) top = r.top;
-      if (r.left < left) left = r.left;
-      if (r.right > right) right = r.right;
-    });
+    // Position with floating-ui against a virtual reference spanning the
+    // selected cells. `placement: 'top'` puts the toolbar above the selection
+    // and flips it below when there isn't room above (e.g. the table is the
+    // first block and the top row is selected - otherwise the toolbar would
+    // render up inside the main editor toolbar's band and become unclickable).
+    const reference = {
+      getBoundingClientRect: (): DOMRect => {
+        let top = Infinity;
+        let left = Infinity;
+        let right = -Infinity;
+        let bottom = -Infinity;
+        this.table.querySelectorAll('.selectedCell').forEach((c) => {
+          const r = c.getBoundingClientRect();
+          if (r.top < top) top = r.top;
+          if (r.left < left) left = r.left;
+          if (r.right > right) right = r.right;
+          if (r.bottom > bottom) bottom = r.bottom;
+        });
+        return new DOMRect(left, top, right - left, bottom - top);
+      },
+    };
 
-    const containerRect = this.dom.getBoundingClientRect();
-
-    // Show toolbar first so offsetWidth is accurate (avoids jump on subsequent updates)
+    this.cellToolbarCleanup?.();
     this.cellToolbar.style.display = 'flex';
-    const toolbarWidth = this.cellToolbar.offsetWidth;
-    const selectionCenter = (left + right) / 2;
-    let toolbarLeft = selectionCenter - containerRect.left - toolbarWidth / 2;
-
-    // Clamp to container bounds
-    toolbarLeft = Math.max(0, Math.min(toolbarLeft, containerRect.width - toolbarWidth));
-
-    this.cellToolbar.style.left = String(toolbarLeft) + 'px';
-    this.cellToolbar.style.top = String(top - containerRect.top - 36) + 'px';
+    this.cellToolbarCleanup = positionFloatingOnce(reference, this.cellToolbar, {
+      placement: 'top',
+      offsetValue: 6,
+    });
 
     // Disable merge/split based on whether command can execute (dry-run without dispatch)
     const canMerge = mergeCells(this.view.state);
@@ -462,6 +468,13 @@ export class TableView implements NodeView {
     }
   }
 
+  /** Hide the cell toolbar and stop its floating-ui auto-update. */
+  private hideCellToolbar(): void {
+    this.cellToolbarCleanup?.();
+    this.cellToolbarCleanup = null;
+    this.cellToolbar.style.display = '';
+  }
+
   // ─── Cell handle (small circle for single-cell operations) ──────────
 
   /** Hide all controls during column resize drag. Called by the plugin. */
@@ -470,7 +483,7 @@ export class TableView implements NodeView {
     this.cellHandle.style.display = '';
     this.colHandle.style.display = '';
     this.rowHandle.style.display = '';
-    this.cellToolbar.style.display = '';
+    this.hideCellToolbar();
     this.closeDropdown();
   }
 
@@ -524,7 +537,7 @@ export class TableView implements NodeView {
 
   private onColClick(): void {
     this.suppressCellToolbar = true;
-    this.cellToolbar.style.display = '';
+    this.hideCellToolbar();
     this.dismissOverlays();
     this.selectColumn(this.hoveredCol);
     this.showDropdown('column');
@@ -532,7 +545,7 @@ export class TableView implements NodeView {
 
   private onRowClick(): void {
     this.suppressCellToolbar = true;
-    this.cellToolbar.style.display = '';
+    this.hideCellToolbar();
     this.dismissOverlays();
     this.selectRow(this.hoveredRow);
     this.showDropdown('row');
