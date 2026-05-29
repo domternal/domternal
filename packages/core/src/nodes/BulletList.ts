@@ -111,11 +111,11 @@ export const BulletList = Node.create<BulletListOptions>({
 
     return [
       // - item
-      wrappingInputRule({ find: /^\s*[-]\s$/, type: nodeType, guard: notInsideList }),
+      wrappingInputRule({ find: /^\s*[-]\s$/, type: nodeType, guard: notInsideList, joinForward: true }),
       // * item
-      wrappingInputRule({ find: /^\s*[*]\s$/, type: nodeType, guard: notInsideList }),
+      wrappingInputRule({ find: /^\s*[*]\s$/, type: nodeType, guard: notInsideList, joinForward: true }),
       // + item
-      wrappingInputRule({ find: /^\s*[+]\s$/, type: nodeType, guard: notInsideList }),
+      wrappingInputRule({ find: /^\s*[+]\s$/, type: nodeType, guard: notInsideList, joinForward: true }),
     ];
   },
 });
