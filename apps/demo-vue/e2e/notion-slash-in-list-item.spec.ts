@@ -333,3 +333,69 @@ test.describe('slash menu: hide same-type list option when already inside that l
     await page.keyboard.press('Escape');
   });
 });
+
+// ════════════════════════════════════════════════════════════════════════
+// CONVERT from a nested list-item label (Notion "Turn into": stays indented)
+//
+// Converting a nested item keeps it at its current indentation: the block is
+// lifted ONE level into its parent item's children zone, NOT out to the top
+// level. Regression for the prior silent no-op inside nested lists.
+// ════════════════════════════════════════════════════════════════════════
+
+async function runHeading(page: Page, level: number): Promise<void> {
+  await page.evaluate((lvl) => {
+    const ed = (window as unknown as Record<string, unknown>).__DEMO_EDITOR__ as
+      | { commands: { toggleHeading?: (a: { level: number }) => boolean } }
+      | undefined;
+    ed?.commands.toggleHeading?.({ level: lvl });
+  }, level);
+}
+
+async function blockNestedInListItem(page: Page, blockType: string, text: string): Promise<boolean> {
+  return page.evaluate(({ bt, t }) => {
+    const ed = (window as unknown as Record<string, unknown>).__DEMO_EDITOR__ as
+      | { state: { doc: { descendants: (cb: (n: { type: { name: string }; textContent: string }, p: number, parent: { type: { name: string } } | null) => boolean | undefined) => void } } }
+      | undefined;
+    if (!ed) return false;
+    let found = false;
+    ed.state.doc.descendants((n, _p, parent) => {
+      if (n.type.name === bt && n.textContent === t && parent
+        && (parent.type.name === 'listItem' || parent.type.name === 'taskItem')) {
+        found = true;
+      }
+      return true;
+    });
+    return found;
+  }, { bt: blockType, t: text });
+}
+
+test.describe('CONVERT from nested list-item label (Notion: stays indented)', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('nested bullet + heading: stays indented as a children-zone heading', async ({ page }) => {
+    await setContent(page, '<ul><li><p>First</p><ul><li><p>Inner</p></li></ul></li></ul>');
+    await caretInText(page, 'Inner');
+    await runHeading(page, 2);
+    await page.waitForTimeout(50);
+    expect(await topLevelTypes(page)).toEqual(['bulletList']);
+    expect(await blockNestedInListItem(page, 'heading', 'Inner')).toBe(true);
+  });
+
+  test('nested bullet + quote: stays indented as a children-zone blockquote', async ({ page }) => {
+    await setContent(page, '<ul><li><p>First</p><ul><li><p>Inner</p></li></ul></li></ul>');
+    await caretInText(page, 'Inner');
+    await runCommand(page, 'toggleBlockquote');
+    await page.waitForTimeout(50);
+    expect(await topLevelTypes(page)).toEqual(['bulletList']);
+    expect(await blockNestedInListItem(page, 'blockquote', 'Inner')).toBe(true);
+  });
+
+  test('deeply (3-level) nested + heading stays under its parent item', async ({ page }) => {
+    await setContent(page, '<ul><li><p>A</p><ul><li><p>B</p><ul><li><p>C</p></li></ul></li></ul></li></ul>');
+    await caretInText(page, 'C');
+    await runHeading(page, 1);
+    await page.waitForTimeout(50);
+    expect(await topLevelTypes(page)).toEqual(['bulletList']);
+    expect(await blockNestedInListItem(page, 'heading', 'C')).toBe(true);
+  });
+});
