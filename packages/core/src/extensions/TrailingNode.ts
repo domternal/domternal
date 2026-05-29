@@ -22,19 +22,6 @@ export interface TrailingNodeOptions {
    * @default ['paragraph']
    */
   notAfter: string[];
-
-  /**
-   * Node GROUPS after which a trailing node should NOT be added. Lists are
-   * excluded by default: a trailing paragraph after a list is unnecessary
-   * (you exit a list by pressing Enter on an empty item) and pollutes the
-   * output with an empty `<p>` that reappears when deleted. The trailing
-   * node is still added after groups NOT listed here (e.g. a trailing table,
-   * which otherwise traps the caret with no way to type below it).
-   *
-   * Set to `[]` to restore the legacy behaviour (trailing node after lists too).
-   * @default ['list']
-   */
-  notAfterGroups: string[];
 }
 
 const trailingNodeKey = new PluginKey('trailingNode');
@@ -46,14 +33,12 @@ export const TrailingNode = Extension.create<TrailingNodeOptions>({
     return {
       node: 'paragraph',
       notAfter: ['paragraph'],
-      notAfterGroups: ['list'],
     };
   },
 
   addProseMirrorPlugins(): Plugin[] {
-    const { node: nodeName, notAfter, notAfterGroups } = this.options;
+    const { node: nodeName, notAfter } = this.options;
     const ignoredNames = new Set([...notAfter, nodeName]);
-    const ignoredGroups = new Set(notAfterGroups);
     let type: NodeType;
     let triggerTypes: NodeType[];
 
@@ -71,11 +56,8 @@ export const TrailingNode = Extension.create<TrailingNodeOptions>({
               throw new Error(`TrailingNode: invalid node type '${nodeName}'`);
             }
             type = nodeType;
-            triggerTypes = Object.values(schema.nodes).filter((n) => {
-              if (ignoredNames.has(n.name)) return false;
-              const groups = (n.spec.group ?? '').split(/\s+/).filter(Boolean);
-              return !groups.some((g) => ignoredGroups.has(g));
-            });
+            triggerTypes = Object.values(schema.nodes)
+              .filter((n) => !ignoredNames.has(n.name));
             const lastType = doc.lastChild?.type;
             return !!lastType && triggerTypes.includes(lastType);
           },
