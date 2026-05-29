@@ -139,10 +139,10 @@ describe('forward join (lists merge in both directions; others do not)', () => {
   function fireInputRule(editor: Editor, caret: number, lastChar: string): void {
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, caret)));
     for (const pl of editor.view.state.plugins) {
-      const handle = pl.props?.handleTextInput as
+      const handle = pl.props.handleTextInput as
         | ((view: unknown, from: number, to: number, text: string) => boolean)
         | undefined;
-      if (handle && handle(editor.view, caret, caret, lastChar)) break;
+      if (handle?.(editor.view, caret, caret, lastChar)) break;
     }
   }
 
