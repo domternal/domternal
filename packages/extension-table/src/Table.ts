@@ -3,7 +3,7 @@
  * isolated so wrappers can swap it for a custom NodeView.
  */
 
-import { Node, splitListForInsert } from '@domternal/core';
+import { Node, splitListForInsert, Gapcursor } from '@domternal/core';
 import type { CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
@@ -142,7 +142,13 @@ export const Table = Node.create<TableOptions>({
   },
 
   addExtensions() {
-    return [TableRow, TableCell, TableHeader];
+    // Gapcursor is required to escape a table that is the document's last
+    // block: the table is `isolating`, so without a gap cursor the caret is
+    // trapped inside the last cell with no way to type below it. Pulling it
+    // in here means tables are never a dead end regardless of the host's
+    // extension list. ExtensionManager dedupes by name, so a host that also
+    // registers Gapcursor (e.g. via StarterKit) is unaffected.
+    return [TableRow, TableCell, TableHeader, Gapcursor];
   },
 
   addNodeView() {
