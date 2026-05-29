@@ -122,9 +122,9 @@ export const TaskList = Node.create<TaskListOptions>({
 
     return [
       // [ ] at start of line creates unchecked task
-      wrappingInputRule({ find: /^\s*\[\s?\]\s$/, type: nodeType, guard: notInsideList }),
+      wrappingInputRule({ find: /^\s*\[\s?\]\s$/, type: nodeType, guard: notInsideList, joinForward: true }),
       // [x] or [X] at start of line creates checked task
-      wrappingInputRule({ find: /^\s*\[[xX]\]\s$/, type: nodeType, guard: notInsideList }),
+      wrappingInputRule({ find: /^\s*\[[xX]\]\s$/, type: nodeType, guard: notInsideList, joinForward: true }),
     ];
   },
 });

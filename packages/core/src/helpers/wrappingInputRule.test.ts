@@ -134,6 +134,63 @@ describe('wrappingInputRule', () => {
   });
 });
 
+describe('forward join (lists merge in both directions; others do not)', () => {
+  /** Fire input rules for typing `lastChar` at the caret (after `before` text). */
+  function fireInputRule(editor: Editor, caret: number, lastChar: string): void {
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, caret)));
+    for (const pl of editor.view.state.plugins) {
+      const handle = pl.props?.handleTextInput as
+        | ((view: unknown, from: number, to: number, text: string) => boolean)
+        | undefined;
+      if (handle && handle(editor.view, caret, caret, lastChar)) break;
+    }
+  }
+
+  function caretAfterText(editor: Editor, text: string): number {
+    let pos = -1;
+    editor.state.doc.descendants((n, p) => {
+      if (pos !== -1) return false;
+      if (n.isText && n.text === text) { pos = p + text.length; return false; }
+      return true;
+    });
+    if (pos === -1) throw new Error(`text "${text}" not found`);
+    return pos;
+  }
+
+  function topTypes(editor: Editor): string[] {
+    const out: string[] = [];
+    editor.state.doc.forEach((n) => out.push(n.type.name));
+    return out;
+  }
+
+  it('bullet "- " between two bullet lists merges all into ONE list', () => {
+    // The middle paragraph holds the trigger marker "-"; typing the trailing
+    // space fires the bullet input rule on it.
+    const editor = new Editor({
+      extensions: [Document, Text, Paragraph, BulletList, ListItem],
+      content: '<ul><li><p>A</p></li></ul><p>-</p><ul><li><p>C</p></li></ul>',
+    });
+    fireInputRule(editor, caretAfterText(editor, '-'), ' ');
+    // One list with three items (A, the wrapped marker line, C) - the trailing
+    // list is no longer orphaned.
+    expect(topTypes(editor)).toEqual(['bulletList']);
+    expect(editor.state.doc.firstChild?.childCount).toBe(3);
+    editor.destroy();
+  });
+
+  it('blockquote "> " does NOT forward-join (adjacent quotes stay separate)', () => {
+    const editor = new Editor({
+      extensions: [Document, Text, Paragraph, Blockquote],
+      content: '<blockquote><p>A</p></blockquote><p>&gt;</p><blockquote><p>C</p></blockquote>',
+    });
+    fireInputRule(editor, caretAfterText(editor, '>'), ' ');
+    // Backward join still merges the marker line into the first quote (existing
+    // behaviour), but the trailing quote is left separate (no forward join).
+    expect(topTypes(editor)).toEqual(['blockquote', 'blockquote']);
+    editor.destroy();
+  });
+});
+
 describe('notInsideList', () => {
   it('returns true when cursor is not in a list', () => {
     const editor = new Editor({

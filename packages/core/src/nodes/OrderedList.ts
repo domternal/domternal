@@ -132,6 +132,7 @@ export const OrderedList = Node.create<OrderedListOptions>({
         find: /^(\d+)\.\s$/,
         type: nodeType,
         guard: notInsideList,
+        joinForward: true,
         getAttributes: (match) => {
           const num = match[1];
           return { start: num ? parseInt(num, 10) : 1 };
