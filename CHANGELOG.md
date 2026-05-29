@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.4 (2026-05-29)
+
+### Fixes
+
+- fix(extension-table): table control dropdowns (row/column handles, cell color and alignment menus) now render inside the editor container instead of `document.body`, so they display correctly when the editor lives inside a modal or `<dialog>`. They are positioned with `fixed` so the editor's `overflow: hidden` can no longer clip them. (#93)
+- fix(core): converting a nested list item via a slash or menu command (Heading, Code block, Quote, Details) now keeps it indented as a children-zone block of its parent (Notion-style "Turn into") instead of silently doing nothing. Top-level items still dissolve to a top-level block. (#94)
+- fix(extension-table): the Table extension now pulls in Gapcursor, so a table at the end of the document is no longer a caret trap. ArrowDown or a click below the table drops a gap cursor and lets you type a new paragraph. (#94)
+
 ## 0.7.3 (2026-05-24)
 
 ### Fixes
