@@ -5,10 +5,12 @@ import VModelDemo from './VModelDemo.vue';
 import CompoundDemo from './CompoundDemo.vue';
 import NodeViewDemo from './NodeViewDemo.vue';
 import NotionDemo from './NotionDemo.vue';
+import MultiEditorDemo from './MultiEditorDemo.vue';
+import TabIndentDemo from './TabIndentDemo.vue';
 
 const isDark = ref(false);
 const useLayout = ref(false);
-const demoMode = ref<'manual' | 'vmodel' | 'compound' | 'nodeview' | 'notion' | 'notion-scrollable'>('manual');
+const demoMode = ref<'manual' | 'vmodel' | 'compound' | 'nodeview' | 'notion' | 'notion-scrollable' | 'multi' | 'tab'>('manual');
 
 function toggleTheme() {
   isDark.value = !isDark.value;
@@ -74,6 +76,22 @@ function toggleTheme() {
       >
         Notion scrollable
       </button>
+      <button
+        type="button"
+        data-testid="mode-multi"
+        :class="{ active: demoMode === 'multi' }"
+        @click="demoMode = 'multi'"
+      >
+        Multiple editors
+      </button>
+      <button
+        type="button"
+        data-testid="mode-tab"
+        :class="{ active: demoMode === 'tab' }"
+        @click="demoMode = 'tab'"
+      >
+        Tab + lists
+      </button>
     </div>
 
     <!-- `:key` forces a fresh mount when switching between the two Notion
@@ -84,6 +102,10 @@ function toggleTheme() {
       :key="demoMode"
       :scrollable="demoMode === 'notion-scrollable'"
     />
+
+    <MultiEditorDemo v-else-if="demoMode === 'multi'" />
+
+    <TabIndentDemo v-else-if="demoMode === 'tab'" />
 
     <div v-else class="app-editor-demo">
       <template v-if="demoMode === 'manual'">
