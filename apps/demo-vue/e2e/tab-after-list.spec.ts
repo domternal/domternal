@@ -73,7 +73,7 @@ async function focusInEditor(page: Page, i: number): Promise<boolean> {
   }, i);
 }
 
-test.describe('issue #98: Tab on a paragraph below a list', () => {
+test.describe('Tab on a paragraph after a list (ListIndent capture)', () => {
   test('Tab on the paragraph after a list is SWALLOWED and pulls it into the list (focus stays)', async ({ page }) => {
     await goMulti(page);
     await setContent(page, 0, '<ul><li><p>Bullet</p></li></ul><p>Para</p>');
