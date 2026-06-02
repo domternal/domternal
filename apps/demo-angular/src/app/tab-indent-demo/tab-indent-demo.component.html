@@ -1,0 +1,31 @@
+<div class="app-tab-indent-demo">
+  <p style="color: var(--dm-text-muted, #9a9aa2); margin: 0 0 16px;">
+    Two StarterKit editors embedded between form fields. Put the caret in "Para after list" and press Tab. Left
+    (default): focus jumps to the next field. Right (listIndent: true): the paragraph is pulled into the list and
+    focus stays.
+  </p>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start;">
+    <div
+      class="tab-indent-panel"
+      [attr.data-editor-index]="0"
+      style="border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 8px; padding: 12px;"
+    >
+      <strong style="display: block; margin: 0 0 8px;">StarterKit (default - listIndent OFF)</strong>
+      <input type="text" data-testid="tab-prev-0" placeholder="Field before editor 0" style="display: block; width: 100%; box-sizing: border-box; margin: 0 0 8px;" />
+      <domternal-editor [extensions]="defaultExt" [content]="content" (editorCreated)="onCreated(0, $event)" />
+      <input type="text" data-testid="tab-next-0" placeholder="Field after editor 0" style="display: block; width: 100%; box-sizing: border-box; margin: 8px 0 0;" />
+    </div>
+
+    <div
+      class="tab-indent-panel"
+      [attr.data-editor-index]="1"
+      style="border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 8px; padding: 12px;"
+    >
+      <strong style="display: block; margin: 0 0 8px;">StarterKit with listIndent: true (opt-in)</strong>
+      <input type="text" data-testid="tab-prev-1" placeholder="Field before editor 1" style="display: block; width: 100%; box-sizing: border-box; margin: 0 0 8px;" />
+      <domternal-editor [extensions]="optInExt" [content]="content" (editorCreated)="onCreated(1, $event)" />
+      <input type="text" data-testid="tab-next-1" placeholder="Field after editor 1" style="display: block; width: 100%; box-sizing: border-box; margin: 8px 0 0;" />
+    </div>
+  </div>
+</div>
