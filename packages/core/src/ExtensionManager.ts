@@ -178,16 +178,18 @@ export class ExtensionManager {
     // Process extensions following the pipeline:
     // 1. Flatten (expand addExtensions)
     // 2. Deduplicate (keep last occurrence - explicit configs override auto-included defaults)
-    // 3. Resolve (sort by priority)
-    // 4. Detect conflicts
-    // 5. Check dependencies
-    // 6. Bind editor to extensions
-    // 7. Build schema
-    // 8. Initialize storage
+    // 3. Clone (per-editor instances; see cloneExtensions)
+    // 4. Resolve (sort by priority)
+    // 5. Detect conflicts
+    // 6. Check dependencies
+    // 7. Bind editor to extensions
+    // 8. Build schema
+    // 9. Initialize storage
 
     const flattened = this.flattenExtensions(options.extensions);
     const deduped = this.deduplicateExtensions(flattened);
-    this._extensions = this.resolveExtensions(deduped);
+    const cloned = this.cloneExtensions(deduped);
+    this._extensions = this.resolveExtensions(cloned);
     this.detectConflicts();
     this.checkDependencies();
     this.bindEditorToExtensions();
@@ -313,6 +315,18 @@ export class ExtensionManager {
       if (ext) seen.set(ext.name, i);
     }
     return extensions.filter((ext, i) => seen.get(ext.name) === i);
+  }
+
+  /**
+   * Clone every extension so this editor owns its instances. Extensions hold
+   * per-editor mutable state (`editor`, plus the `nodeType`/`markType` getters
+   * derived from it), and the same extension object is commonly reused across
+   * editors (one shared `extensions` array). Without cloning, binding a later
+   * editor clobbers an earlier one: its list `Enter` then falls back to a plain
+   * block split, dropping an indented "child" paragraph instead of a new `<li>`.
+   */
+  private cloneExtensions(extensions: AnyExtension[]): AnyExtension[] {
+    return extensions.map((ext) => (ext as Extension).clone() as AnyExtension);
   }
 
   /**

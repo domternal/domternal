@@ -213,6 +213,22 @@ export class Extension<Options = unknown, Storage = unknown> {
   }
 
   /**
+   * Returns a fresh, unbound copy built from the same `config`: `editor` reset to
+   * null and `options`/`storage` re-derived, while `configure()`/`extend()`
+   * results are preserved (they live in `config`). Polymorphic: a `Node`/`Mark`
+   * clones to its own subclass.
+   *
+   * `ExtensionManager` clones every extension so each editor owns its instances
+   * and binding one editor can't mutate extensions shared with another.
+   */
+  clone(): Extension<Options, Storage> {
+    const Ctor = this.constructor as new (
+      config: ExtensionConfig<Options, Storage>,
+    ) => Extension<Options, Storage>;
+    return new Ctor(this.config);
+  }
+
+  /**
    * Creates a new extension with extended configuration
    * Original extension is not modified
    *
