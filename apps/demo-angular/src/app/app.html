@@ -7,10 +7,12 @@
   </h1>
 
   <div class="toolbar-mode-toggle">
-    <button [class.active]="mode() === 'default'" (click)="mode.set('default')">Default toolbar</button>
-    <button [class.active]="mode() === 'custom'" (click)="mode.set('custom')">Custom layout</button>
-    <button [class.active]="mode() === 'notion'" (click)="mode.set('notion')">Notion style</button>
-    <button [class.active]="mode() === 'notion-scrollable'" (click)="mode.set('notion-scrollable')">Notion scrollable</button>
+    <button data-testid="mode-default" [class.active]="mode() === 'default'" (click)="mode.set('default')">Default toolbar</button>
+    <button data-testid="mode-custom" [class.active]="mode() === 'custom'" (click)="mode.set('custom')">Custom layout</button>
+    <button data-testid="mode-notion" [class.active]="mode() === 'notion'" (click)="mode.set('notion')">Notion style</button>
+    <button data-testid="mode-notion-scrollable" [class.active]="mode() === 'notion-scrollable'" (click)="mode.set('notion-scrollable')">Notion scrollable</button>
+    <button data-testid="mode-multi" [class.active]="mode() === 'multi'" (click)="mode.set('multi')">Multiple editors</button>
+    <button data-testid="mode-tab" [class.active]="mode() === 'tab'" (click)="mode.set('tab')">Tab + lists</button>
   </div>
 
   @if (isNotion()) {
@@ -25,6 +27,10 @@
         <app-notion-demo [scrollable]="true" />
       }
     }
+  } @else if (mode() === 'multi') {
+    <app-multi-editor-demo />
+  } @else if (mode() === 'tab') {
+    <app-tab-indent-demo />
   } @else {
     <app-editor-demo [useLayout]="useLayout()" />
   }

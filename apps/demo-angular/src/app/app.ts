@@ -1,13 +1,15 @@
 import { Component, ChangeDetectionStrategy, computed, signal } from '@angular/core';
 import { EditorDemoComponent } from './editor-demo/editor-demo.component.js';
 import { NotionDemoComponent } from './notion-demo/notion-demo.component.js';
+import { MultiEditorDemoComponent } from './multi-editor-demo/multi-editor-demo.component.js';
+import { TabIndentDemoComponent } from './tab-indent-demo/tab-indent-demo.component.js';
 
-export type DemoMode = 'default' | 'custom' | 'notion' | 'notion-scrollable';
+export type DemoMode = 'default' | 'custom' | 'notion' | 'notion-scrollable' | 'multi' | 'tab';
 
 @Component({
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [EditorDemoComponent, NotionDemoComponent],
+  imports: [EditorDemoComponent, NotionDemoComponent, MultiEditorDemoComponent, TabIndentDemoComponent],
   templateUrl: './app.html',
 })
 export class App {

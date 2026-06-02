@@ -34,13 +34,26 @@ export const SelectionDecoration = Extension.create<SelectionDecorationOptions>(
                 // Elements marked with [data-dm-editor-ui] or inside
                 // .dm-toolbar / .dm-bubble-menu are treated as part of the editor.
                 const related = event.relatedTarget;
-                if (
-                  related instanceof HTMLElement &&
-                  (related.closest('[data-dm-editor-ui]') ||
-                   related.closest('.dm-toolbar') ||
-                   related.closest('.dm-bubble-menu'))
-                ) {
-                  return false;
+                if (related instanceof HTMLElement) {
+                  // Scope the "editor UI" check to THIS editor. On a page with
+                  // several editors, each editor container can carry
+                  // [data-dm-editor-ui] (e.g. the Angular editor host), so a
+                  // bare closest() match would treat a click into ANOTHER editor
+                  // as our own UI and wrongly keep this editor's ghost selection.
+                  const ownContainer = view.dom.closest('.dm-editor');
+                  const relatedContainer = related.closest('.dm-editor');
+                  const movedToAnotherEditor =
+                    ownContainer !== null &&
+                    relatedContainer !== null &&
+                    relatedContainer !== ownContainer;
+                  if (
+                    !movedToAnotherEditor &&
+                    (related.closest('[data-dm-editor-ui]') ||
+                     related.closest('.dm-toolbar') ||
+                     related.closest('.dm-bubble-menu'))
+                  ) {
+                    return false;
+                  }
                 }
 
                 const { from, to } = view.state.selection;

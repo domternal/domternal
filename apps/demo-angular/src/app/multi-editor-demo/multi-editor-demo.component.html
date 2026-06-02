@@ -1,0 +1,44 @@
+<div class="app-multi-editor-demo">
+  <p style="color: var(--dm-text-muted, #9a9aa2); margin: 0 0 12px;">
+    Several independent editors, all built from one shared extension config. Lists keep working in every editor,
+    including ones mounted before later editors. Add or remove editors at runtime to confirm nothing else breaks.
+  </p>
+
+  <div style="display: flex; gap: 8px; margin: 0 0 16px;">
+    <button data-testid="multi-add-bubble" (click)="addEditor(false)">+ Add editor (bubble menu)</button>
+    <button data-testid="multi-add-toolbar" (click)="addEditor(true)">+ Add editor (toolbar)</button>
+  </div>
+
+  <div
+    class="multi-editor-grid"
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start;"
+  >
+    @for (spec of panels(); track spec.id; let i = $index) {
+      <div
+        class="multi-editor-panel"
+        [attr.data-editor-index]="i"
+        style="border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 8px; padding: 12px;"
+      >
+        <div style="display: flex; justify-content: space-between; align-items: center; margin: 0 0 8px;">
+          <strong>Editor {{ spec.id }} ({{ spec.withToolbar ? 'toolbar' : 'bubble menu' }})</strong>
+          <button data-testid="multi-remove-editor" (click)="removeEditor(spec.id)">Remove</button>
+        </div>
+
+        @if (spec.withToolbar && editors().get(spec.id); as ed) {
+          <domternal-toolbar [editor]="ed" />
+        }
+
+        <domternal-editor
+          [extensions]="extensions"
+          [content]="contentFor(spec.id)"
+          (editorCreated)="onEditorCreated(spec.id, $event)"
+          (editorDestroyed)="onEditorDestroyed(spec.id)"
+        />
+
+        @if (!spec.withToolbar && editors().get(spec.id); as ed) {
+          <domternal-bubble-menu [editor]="ed" [contexts]="$any(bubbleContexts)" />
+        }
+      </div>
+    }
+  </div>
+</div>

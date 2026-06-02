@@ -151,12 +151,15 @@ export interface StarterKitOptions {
    */
   listKeymap?: false | Partial<ListKeymapOptions>;
   /**
-   * Set to false to disable the ListIndent extension. ListIndent adds
-   * Tab / Shift-Tab keymap that indents a top-level block under the
-   * previous list (and outdents back). Registered AFTER ListKeymap so
-   * the in-list-item Tab/Shift-Tab keep priority.
+   * Off by default. Set to `true` to enable the ListIndent extension, which
+   * adds a Tab / Shift-Tab keymap that indents a top-level block under the
+   * previous list (and outdents back). Kept off by default because it captures
+   * Tab on a paragraph that merely follows a list, so Tab no longer moves focus
+   * to the next field in embedded / form usage, and the same nesting is
+   * reachable via the block-menu drag. Registered AFTER ListKeymap so the
+   * in-list-item Tab/Shift-Tab keep priority.
    */
-  listIndent?: false;
+  listIndent?: boolean;
   /**
    * Set to false to disable the LinkPopover extension, or pass options to configure it.
    */
@@ -222,12 +225,13 @@ export const StarterKit = Extension.create<StarterKitOptions>({
     maybeAdd(Gapcursor as never, this.options.gapcursor as never);
     maybeAdd(TrailingNode, this.options.trailingNode);
     maybeAdd(ListKeymap, this.options.listKeymap);
-    // ListIndent MUST be registered AFTER ListKeymap. Collected keymaps run
-    // in `LATER || EARLIER` order, so a later `addKeyboardShortcuts` runs
-    // FIRST. ListIndent fires first, bails when the cursor is inside a
-    // list item, and ListKeymap then handles the in-list Tab/Shift-Tab
-    // (sinkListItem / liftListItem). Reordering breaks that delegation.
-    maybeAdd(ListIndent as never, this.options.listIndent as never);
+    // ListIndent is opt-in (off by default): only added on `listIndent: true`.
+    // MUST be registered AFTER ListKeymap: collected keymaps run in
+    // `LATER || EARLIER` order, so a later `addKeyboardShortcuts` runs FIRST.
+    // ListIndent fires first, bails when the cursor is inside a list item, and
+    // ListKeymap then handles the in-list Tab/Shift-Tab (sinkListItem /
+    // liftListItem). Reordering breaks that delegation.
+    if (this.options.listIndent === true) extensions.push(ListIndent as never);
     maybeAdd(LinkPopover, this.options.linkPopover);
     maybeAdd(SelectionDecoration as never, this.options.selectionDecoration as never);
 

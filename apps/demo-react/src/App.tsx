@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { EditorDemo } from './EditorDemo.js';
 import { NotionDemo } from './NotionDemo.js';
+import { MultiEditorDemo } from './MultiEditorDemo.js';
+import { TabIndentDemo } from './TabIndentDemo.js';
 
-type Mode = 'default' | 'custom' | 'notion' | 'notion-scrollable';
+type Mode = 'default' | 'custom' | 'notion' | 'notion-scrollable' | 'multi' | 'tab';
 
 export function App() {
   const [isDark, setIsDark] = useState(false);
@@ -25,17 +27,23 @@ export function App() {
       </h1>
 
       <div className="toolbar-mode-toggle">
-        <button className={mode === 'default' ? 'active' : ''} onClick={() => setMode('default')}>
+        <button data-testid="mode-default" className={mode === 'default' ? 'active' : ''} onClick={() => setMode('default')}>
           Default toolbar
         </button>
-        <button className={mode === 'custom' ? 'active' : ''} onClick={() => setMode('custom')}>
+        <button data-testid="mode-custom" className={mode === 'custom' ? 'active' : ''} onClick={() => setMode('custom')}>
           Custom layout
         </button>
-        <button className={mode === 'notion' ? 'active' : ''} onClick={() => setMode('notion')}>
+        <button data-testid="mode-notion" className={mode === 'notion' ? 'active' : ''} onClick={() => setMode('notion')}>
           Notion style
         </button>
-        <button className={mode === 'notion-scrollable' ? 'active' : ''} onClick={() => setMode('notion-scrollable')}>
+        <button data-testid="mode-notion-scrollable" className={mode === 'notion-scrollable' ? 'active' : ''} onClick={() => setMode('notion-scrollable')}>
           Notion scrollable
+        </button>
+        <button data-testid="mode-multi" className={mode === 'multi' ? 'active' : ''} onClick={() => setMode('multi')}>
+          Multiple editors
+        </button>
+        <button data-testid="mode-tab" className={mode === 'tab' ? 'active' : ''} onClick={() => setMode('tab')}>
+          Tab + lists
         </button>
       </div>
 
@@ -44,6 +52,10 @@ export function App() {
         // the two Notion variants - matches the vanilla demo which
         // destroys + recreates the NotionDemo on mode change.
         <NotionDemo key={mode} scrollable={mode === 'notion-scrollable'} />
+      ) : mode === 'multi' ? (
+        <MultiEditorDemo />
+      ) : mode === 'tab' ? (
+        <TabIndentDemo />
       ) : (
         <div className="app-editor-demo">
           <EditorDemo useLayout={mode === 'custom'} />

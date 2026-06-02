@@ -1,7 +1,14 @@
 import { EditorDemo } from './EditorDemo.js';
 import { NotionDemo } from './NotionDemo.js';
+import { MultiEditorDemo } from './MultiEditorDemo.js';
+import { TabIndentDemo } from './TabIndentDemo.js';
 
-type Mode = 'default' | 'custom' | 'notion' | 'notion-scrollable';
+type Mode = 'default' | 'custom' | 'notion' | 'notion-scrollable' | 'multi' | 'tab';
+
+/** Modes that share a single persistent EditorDemo (toolbar layout swap only). */
+function isPlainMode(mode: Mode): boolean {
+  return mode === 'default' || mode === 'custom';
+}
 
 /**
  * Top-level demo router. Manages mode state (default / custom / notion),
@@ -15,6 +22,8 @@ export class App {
 
   #editorDemo: EditorDemo | null = null;
   #notionDemo: NotionDemo | null = null;
+  #multiDemo: MultiEditorDemo | null = null;
+  #tabDemo: TabIndentDemo | null = null;
 
   #modeButtons = new Map<Mode, HTMLButtonElement>();
   #themeToggleBtn: HTMLButtonElement | null = null;
@@ -54,6 +63,8 @@ export class App {
       { id: 'custom', label: 'Custom layout' },
       { id: 'notion', label: 'Notion style' },
       { id: 'notion-scrollable', label: 'Notion scrollable' },
+      { id: 'multi', label: 'Multiple editors' },
+      { id: 'tab', label: 'Tab + lists' },
     ];
 
     for (const m of modes) {
@@ -78,15 +89,15 @@ export class App {
 
   #setMode(mode: Mode): void {
     if (mode === this.#mode) return;
-    const wasNotion = this.#mode === 'notion' || this.#mode === 'notion-scrollable';
-    const goingNotion = mode === 'notion' || mode === 'notion-scrollable';
+    const prev = this.#mode;
     this.#mode = mode;
 
     // Preserve editor state on default ↔ custom toggle: only swap the
     // toolbar's layout, do NOT destroy + recreate the editor. Matches
     // the React demo's conditional render behaviour (same component
-    // instance, prop change).
-    if (!wasNotion && !goingNotion && this.#editorDemo) {
+    // instance, prop change). Every other transition (notion, multi)
+    // tears down the active demo and mounts the new one.
+    if (isPlainMode(prev) && isPlainMode(mode) && this.#editorDemo) {
       this.#editorDemo.setUseLayout(mode === 'custom');
     } else {
       this.#destroyCurrentDemo();
@@ -108,6 +119,22 @@ export class App {
       return;
     }
 
+    if (this.#mode === 'multi') {
+      const multiWrapper = document.createElement('div');
+      multiWrapper.className = 'app-multi-editor-demo-mount';
+      this.#demoMount.appendChild(multiWrapper);
+      this.#multiDemo = new MultiEditorDemo(multiWrapper);
+      return;
+    }
+
+    if (this.#mode === 'tab') {
+      const tabWrapper = document.createElement('div');
+      tabWrapper.className = 'app-tab-indent-demo-mount';
+      this.#demoMount.appendChild(tabWrapper);
+      this.#tabDemo = new TabIndentDemo(tabWrapper);
+      return;
+    }
+
     const wrapper = document.createElement('div');
     wrapper.className = 'app-editor-demo';
     this.#demoMount.appendChild(wrapper);
@@ -121,6 +148,10 @@ export class App {
     this.#editorDemo = null;
     this.#notionDemo?.destroy();
     this.#notionDemo = null;
+    this.#multiDemo?.destroy();
+    this.#multiDemo = null;
+    this.#tabDemo?.destroy();
+    this.#tabDemo = null;
   }
 
   #toggleTheme(): void {
