@@ -1,6 +1,6 @@
 {
   "name": "@domternal/vanilla",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "description": "Polished DOM components for the Domternal rich-text editor. Use in Astro, Svelte, Solid, plain HTML.",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",

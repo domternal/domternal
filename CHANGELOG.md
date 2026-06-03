@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.5 (2026-06-03)
+
+### Changes
+
+- fix(core): `StarterKit` makes `ListIndent` opt-in (off by default). Tab on a paragraph that merely follows a list used to capture focus and pull the paragraph into the list; now Tab moves focus to the next field, which suits embedded / form usage. Opt back in with `StarterKit.configure({ listIndent: true })`. In-list Tab/Shift-Tab and block-menu drag-to-nest are unchanged. (#98)
+
+### Fixes
+
+- fix(core): extension instances are now cloned per editor, so several editors on one page no longer clobber each other. Previously creating a second editor repointed the first editor's node types at its own schema, and list `Enter` on the earlier editors dropped an indented child paragraph instead of a new list item. (#91)
+- fix(core): `SelectionDecoration` no longer keeps a ghost range when focus moves from one editor to another on the same page. The "editor UI" blur check is now scoped to the editor that lost focus, so a click into a different editor collapses its selection.
+
 ## 0.7.4 (2026-05-29)
 
 ### Fixes
