@@ -57,6 +57,23 @@ const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
 export const DEFAULT_NEST_THRESHOLD = 28;
 
 /**
+ * Sticky dead-band (px) for the drag drop-target resolution. The block
+ * resolved on the previous dragover keeps a margin this wide around its
+ * rect, so a sub-band cursor wobble near a nested-list boundary can't flip
+ * the resolved target outer<->inner. Tuned small enough to stay responsive
+ * when the cursor decisively enters a new row. See `findDeepestBlockAtY`.
+ */
+export const DROP_HYSTERESIS_Y_PX = 6;
+
+/**
+ * Sticky dead-band (px) around `nestThreshold` for the sibling<->nested
+ * mode latch. Once nested mode is entered the cursor must fall back below
+ * `nestThreshold - band` to leave it (and exceed `nestThreshold + band`
+ * to enter), removing the solid<->dashed flicker right at the threshold.
+ */
+export const DROP_HYSTERESIS_X_PX = 8;
+
+/**
  * Pixel inset of the nested-mode drop indicator from the resolved
  * block's left edge. Mirrors `--dm-block-children-indent` (1.5rem ≈
  * 24px) so the dashed line lands exactly where a nested child block
@@ -312,6 +329,7 @@ function resolveBlockAtCoords(
   clientX: number,
   clientY: number,
   nested: NestedResolution,
+  incumbentPos: number | null = null,
 ): { pos: number; rect: DOMRect; dom: HTMLElement } | null {
   // Mode A - top-level only (classic). Walk doc children by Y range; X
   // is intentionally ignored so the handle still surfaces when the
@@ -348,7 +366,10 @@ function resolveBlockAtCoords(
   // firstChildOfListItem) applies consistently with Mode C - hosts
   // extending allowedNodes to include `paragraph` get label-paragraph
   // rejection for free.
-  const found = findDeepestBlockAtY(view, clamped.y, nested.allowedNodes, nested.matchers);
+  const found = findDeepestBlockAtY(view, clamped.y, nested.allowedNodes, nested.matchers, {
+    incumbentPos,
+    hysteresisBand: DROP_HYSTERESIS_Y_PX,
+  });
   if (found) {
     return { pos: found.pos, rect: found.rect, dom: found.dom };
   }
@@ -480,6 +501,32 @@ export interface DropPlacement {
   targetItemPos?: number;
   /** Position of the containing list wrapper when `mode === 'nested'`. */
   wrapperPos?: number;
+  /**
+   * Position of the block the spatial resolver actually landed on (the
+   * deepest-match item BEFORE gap-normalization rewrites `pos` to a previous
+   * sibling). The drag pipeline feeds this back as `incumbentPos` on the
+   * next dragover so the Y-hysteresis can keep the same target sticky.
+   * `undefined` for callers that don't track an incumbent (e.g. tests).
+   */
+  resolvedBlockPos?: number;
+}
+
+/**
+ * Per-drag hysteresis state threaded into {@link computeDropPlacement} by
+ * the drag pipeline. Omitted by pure callers (tests) so the resolver keeps
+ * its hard, stateless thresholds.
+ */
+export interface DropPlacementOptions {
+  /** Block resolved on the previous dragover, for Y-hysteresis stickiness. */
+  incumbentPos?: number | null;
+  /** Whether nested mode was latched on the previous dragover, for X-hysteresis. */
+  nestLatched?: boolean;
+  /**
+   * Enable the hysteresis dead-bands. Off by default so unit callers get
+   * the exact-threshold behaviour the contract tests assert; the live
+   * plugin passes `true`.
+   */
+  hysteresis?: boolean;
 }
 
 /**
@@ -513,10 +560,14 @@ export function computeDropPlacement(
   clientY: number,
   nested: NestedResolution,
   nestThreshold: number = DEFAULT_NEST_THRESHOLD,
+  options: DropPlacementOptions = {},
 ): DropPlacement | null {
-  const initial = resolveBlockAtCoords(view, clientX, clientY, nested);
+  const incumbentPos = options.incumbentPos ?? null;
+  const initial = resolveBlockAtCoords(view, clientX, clientY, nested, incumbentPos);
   if (!initial) return null;
   const resolved = adjustDropTargetForListWrapper(view, initial, clientY);
+  // The deepest-match item, fed back as the next dragover's incumbent.
+  const resolvedBlockPos = resolved.pos;
 
   // X-threshold detection: when the resolved target is a list item and
   // the cursor sits >= nestThreshold px from its left edge (inside the
@@ -528,7 +579,17 @@ export function computeDropPlacement(
       const targetRect = resolved.rect;
       const xInTarget = clientX - targetRect.left;
       const isInsideX = xInTarget >= 0 && xInTarget <= targetRect.width;
-      const isInNestZone = xInTarget >= nestThreshold;
+      // X-hysteresis: with the latch off, enter nested only past
+      // `nestThreshold + band`; once latched, stay nested until the cursor
+      // falls back below `nestThreshold - band`. The band is 0 unless the
+      // live plugin opts in, so the stateless contract (enter at exactly
+      // `nestThreshold`) is preserved for unit callers.
+      const xBand = options.hysteresis ? DROP_HYSTERESIS_X_PX : 0;
+      const enterZone = nestThreshold + xBand;
+      const leaveZone = nestThreshold - xBand;
+      const isInNestZone = options.nestLatched
+        ? xInTarget >= leaveZone
+        : xInTarget >= enterZone;
       const isInsideY = clientY >= targetRect.top && clientY <= targetRect.bottom;
       if (isInsideX && isInNestZone && isInsideY) {
         // Walk up to the wrapping list. `$resolved.before()` is the
@@ -547,6 +608,7 @@ export function computeDropPlacement(
           mode: 'nested',
           targetItemPos: resolved.pos,
           wrapperPos,
+          resolvedBlockPos,
         };
       }
     }
@@ -559,10 +621,10 @@ export function computeDropPlacement(
   if (!insertAfter) {
     const prev = findPreviousSiblingAtSameDepth(view, resolved.pos);
     if (prev) {
-      return { pos: prev.pos, rect: prev.rect, insertAfter: true, mode: 'sibling' };
+      return { pos: prev.pos, rect: prev.rect, insertAfter: true, mode: 'sibling', resolvedBlockPos };
     }
   }
-  return { pos: resolved.pos, rect, insertAfter, mode: 'sibling' };
+  return { pos: resolved.pos, rect, insertAfter, mode: 'sibling', resolvedBlockPos };
 }
 
 /**
@@ -667,6 +729,33 @@ export function createBlockHandlePlugin(
   // independent of both, so reading from here is reliable. Cleared on
   // dragend, so it never lingers across drags.
   let pendingDraggedFrom: number | null = null;
+
+  // --- Drop-indicator drag-session state.
+  //
+  // The dragover->indicator path mirrors the hover path's rAF coalescing +
+  // identity gate so the indicator repaints at most once per frame and ONLY
+  // when the line it would draw actually moves. `dragIncumbentPos` and
+  // `dragNestLatched` carry the previous resolution forward so the resolver
+  // and the sibling<->nested flip stay sticky (Y- and X-hysteresis). All
+  // four reset together via `resetDropState` on every drag-teardown path so
+  // a stale incumbent can never glue the indicator to a phantom target on
+  // the next drag.
+  let dropRaf: number | null = null;
+  let pendingDropCoords: { x: number; y: number } | null = null;
+  let currentDropKey: string | null = null;
+  let dragIncumbentPos: number | null = null;
+  let dragNestLatched = false;
+
+  const resetDropState = (): void => {
+    if (dropRaf !== null) {
+      cancelAnimationFrame(dropRaf);
+      dropRaf = null;
+    }
+    pendingDropCoords = null;
+    currentDropKey = null;
+    dragIncumbentPos = null;
+    dragNestLatched = false;
+  };
 
   // Auto-scroll state machine (populated during an active drag, reset by
   // `resetAutoScroll`). Grouped into one object so every reset clears every
@@ -944,13 +1033,32 @@ export function createBlockHandlePlugin(
     // whatever element is under the cursor; bubbles up to our document
     // drop listener, which performs the move.
     if (inZone) event.preventDefault();
-    if (dropIndicator) {
-      if (!inZone) {
-        indicator.removeAttribute('data-show');
-        return;
+    if (!dropIndicator) return;
+    if (!inZone) {
+      // Left the zone: drop the indicator and any queued repaint, and clear
+      // the identity gate so re-entry repaints from scratch.
+      if (dropRaf !== null) {
+        cancelAnimationFrame(dropRaf);
+        dropRaf = null;
       }
-      updateDropIndicator(event.clientX, event.clientY);
+      pendingDropCoords = null;
+      currentDropKey = null;
+      indicator.removeAttribute('data-show');
+      return;
     }
+    // Coalesce indicator updates to one rAF per frame (mirrors the hover
+    // path). dragover fires far faster than 60Hz on high-refresh pointers;
+    // recomputing + repainting per event renders every micro-instability
+    // raw. preventDefault and the auto-scroll Y bookkeeping above MUST stay
+    // synchronous on the event tick - only the indicator repaint defers.
+    pendingDropCoords = { x: event.clientX, y: event.clientY };
+    if (dropRaf !== null) return;
+    dropRaf = requestAnimationFrame(() => {
+      dropRaf = null;
+      const coords = pendingDropCoords;
+      pendingDropCoords = null;
+      if (coords) updateDropIndicator(coords.x, coords.y);
+    });
   };
 
   /**
@@ -1006,7 +1114,13 @@ export function createBlockHandlePlugin(
     if (draggedFrom === null) return false;
     const sourceNode = view.state.doc.nodeAt(draggedFrom);
     if (!sourceNode) return false;
-    const placement = computeDropPlacement(view, clientX, clientY, nested, nestThreshold);
+    // Resolve with the SAME hysteresis state the indicator last used, so the
+    // drop lands exactly where the (stabilized) line was drawn.
+    const placement = computeDropPlacement(view, clientX, clientY, nested, nestThreshold, {
+      incumbentPos: dragIncumbentPos,
+      nestLatched: dragNestLatched,
+      hysteresis: true,
+    });
     if (!placement) return false;
     const tr = view.state.tr;
 
@@ -1074,11 +1188,22 @@ export function createBlockHandlePlugin(
    */
   const updateDropIndicator = (clientX: number, clientY: number): void => {
     if (!editorEl) return;
-    const placement = computeDropPlacement(editor.view, clientX, clientY, nested, nestThreshold);
+    const placement = computeDropPlacement(editor.view, clientX, clientY, nested, nestThreshold, {
+      incumbentPos: dragIncumbentPos,
+      nestLatched: dragNestLatched,
+      hysteresis: true,
+    });
     if (!placement) {
       indicator.removeAttribute('data-show');
+      currentDropKey = null;
       return;
     }
+    // Carry the resolution forward so the NEXT dragover stays sticky to the
+    // same target (Y-hysteresis) and the same mode (X-hysteresis). Always
+    // updated, even when the repaint is gated below.
+    dragIncumbentPos = placement.resolvedBlockPos ?? null;
+    dragNestLatched = placement.mode === 'nested';
+
     const editorRect = editorEl.getBoundingClientRect();
 
     let lineY: number;
@@ -1101,6 +1226,16 @@ export function createBlockHandlePlugin(
       left = placement.rect.left - editorRect.left;
       width = placement.rect.width;
     }
+    // Identity gate: skip the DOM writes when the line would land in the
+    // same pixel spot it already occupies (rounded geometry + mode). This
+    // is the drag-path equivalent of the hover path's `currentHoveredPos`
+    // gate. Gating on the DRAWN geometry (not just placement.pos) keeps the
+    // indicator correct during auto-scroll, where the same logical slot
+    // moves on screen and SHOULD repaint.
+    const key = `${placement.mode}|${String(Math.round(lineY))}|${String(Math.round(left))}|${String(Math.round(width))}`;
+    if (key === currentDropKey && indicator.hasAttribute('data-show')) return;
+    currentDropKey = key;
+
     indicator.style.top = `${String(lineY)}px`;
     indicator.style.left = `${String(left)}px`;
     indicator.style.width = `${String(width)}px`;
@@ -1114,6 +1249,8 @@ export function createBlockHandlePlugin(
 
   const hideDropIndicator = (): void => {
     indicator.removeAttribute('data-show');
+    // Drop the identity gate so the next show repaints from scratch.
+    currentDropKey = null;
   };
 
   let dragoverAttached = false;
@@ -1132,6 +1269,10 @@ export function createBlockHandlePlugin(
     document.removeEventListener('dragover', onDocumentDragover);
     document.removeEventListener('drop', onDocumentDrop);
     dragoverAttached = false;
+    // Every drag-teardown path (dragend, dead-man switch, editor destroy)
+    // funnels through here, so clearing the drop-session state here means a
+    // stale incumbent / latch can never leak into the next drag.
+    resetDropState();
   };
 
   const autoScrollTick = (): void => {
@@ -1278,6 +1419,10 @@ export function createBlockHandlePlugin(
       editorEl?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
       hide();
     }, 0);
+
+    // Start this drag with clean hysteresis state - no incumbent yet, no
+    // latched nested mode - so the first dragover resolves freely.
+    resetDropState();
 
     // Begin tracking dragover Y and ramping scroll as the cursor nears
     // viewport edges. No-op when `autoScroll: false` or no scroll ancestor.

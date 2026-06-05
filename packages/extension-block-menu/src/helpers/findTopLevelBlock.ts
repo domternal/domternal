@@ -105,6 +105,33 @@ export interface DeepestBlockMatch {
 }
 
 /**
+ * Hysteresis options for {@link findDeepestBlockAtY}. Used by the drag
+ * pipeline to keep the resolved target STABLE across the per-event
+ * re-resolution that would otherwise flip-flop near a nested-list boundary.
+ */
+export interface FindDeepestBlockOptions {
+  /**
+   * Position of the block resolved on the PREVIOUS dragover (the drag
+   * "incumbent"), or `null` for the first resolution of a drag.
+   *
+   * The problem this solves: an outer list item that contains a sublist has
+   * a TALL rect (it spans its own label plus every nested child), while the
+   * inner items have SHORT rects. Both vertically contain the cursor in the
+   * band just above the sublist, so the "smallest height wins" rule flips
+   * the winner outer<->inner on a 1-2px Y move - the drop indicator jumps.
+   *
+   * When set, the incumbent's vertical containment test is widened by
+   * `hysteresisBand` px on each edge, so the cursor must move DECISIVELY
+   * (more than the band) out of the current target before a different block
+   * can take over. The band never changes the height-based ranking, only
+   * which blocks are eligible to win.
+   */
+  incumbentPos?: number | null;
+  /** Sticky margin (px) applied to the incumbent's containment test. `0` disables. */
+  hysteresisBand?: number;
+}
+
+/**
  * Finds the **deepest (innermost)** block at a given client Y coordinate
  * by walking the doc tree and comparing each node's DOM rect against
  * `clientY`. Among all blocks whose vertical rect contains `clientY`
@@ -141,23 +168,35 @@ export function findDeepestBlockAtY(
   clientY: number,
   allowedTypes: string[],
   matchers: readonly BlockMatcher[] = [],
+  options: FindDeepestBlockOptions = {},
 ): DeepestBlockMatch | null {
   if (allowedTypes.length === 0) return null;
+  const incumbentPos = options.incumbentPos ?? null;
+  // Band only engages when there's an incumbent to be sticky about.
+  const band = incumbentPos !== null ? Math.max(0, options.hysteresisBand ?? 0) : 0;
   let best: DeepestBlockMatch | null = null;
   view.state.doc.descendants((node, pos, parent, index) => {
     const dom = view.nodeDOM(pos);
     if (!(dom instanceof HTMLElement)) return true;
     const rect = dom.getBoundingClientRect();
-    // Skip the entire subtree when the cursor isn't vertically inside this
-    // node - children of a non-containing parent can't contain the cursor
-    // either, so pruning here is what keeps the walk O(depth) instead of
-    // O(doc).
-    if (clientY < rect.top || clientY > rect.bottom) return false;
+    // Prune the subtree when the cursor isn't vertically inside this node -
+    // children of a non-containing parent can't contain the cursor either,
+    // so pruning keeps the walk O(depth) instead of O(doc). The prune test
+    // is widened by `band` so the incumbent's ancestor chain stays walkable
+    // when the cursor sits within the sticky margin just outside it.
+    if (clientY < rect.top - band || clientY > rect.bottom + band) return false;
     if (allowedTypes.includes(node.type.name)) {
       if (matchers.length > 0 && isRejectedByMatchers(view, node, pos, parent, index, matchers)) {
         return true;
       }
-      if (best === null || rect.height < best.rect.height) {
+      // Eligibility: a normal candidate must STRICTLY contain the cursor; the
+      // incumbent wins eligibility within the wider banded extent so a
+      // sub-band wobble can't promote a different block. Ranking still uses
+      // the REAL height, so the band never distorts which block is smallest.
+      const strictlyContains = clientY >= rect.top && clientY <= rect.bottom;
+      const incumbentContains =
+        pos === incumbentPos && clientY >= rect.top - band && clientY <= rect.bottom + band;
+      if ((strictlyContains || incumbentContains) && (best === null || rect.height < best.rect.height)) {
         best = { node, pos, dom, rect };
       }
     }

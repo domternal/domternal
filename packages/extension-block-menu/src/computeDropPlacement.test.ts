@@ -596,3 +596,113 @@ describe('computeDropPlacement - DropPlacement.mode contract', () => {
     });
   });
 });
+
+describe('computeDropPlacement - hysteresis (drag-session stickiness)', () => {
+  // li-inside-li fixture: the outer item rect (100-300) spans its label PLUS
+  // a nested sublist; the inner item is short (150-200). The boundary at
+  // inner.top=150 is where "smallest height wins" flips the resolver. Tests
+  // use nestThreshold=0 to stay on the sibling path so the assertion can
+  // target which ITEM the resolver locked onto (exposed via resolvedBlockPos).
+  function nestedView(editor: Editor, outerLi: number, innerLi: number): EditorView {
+    const rects = new Map<number, HTMLElement>([
+      [outerLi, elWithRect({ top: 100, bottom: 300 })],
+      [innerLi, elWithRect({ top: 150, bottom: 200 })],
+    ]);
+    return viewStub(editor, rects);
+  }
+
+  function listItemView(editor: Editor): EditorView {
+    const ulPos = posOf(editor, (n) => n.type.name === 'bulletList');
+    const liApple = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Apple');
+    const rects = new Map<number, HTMLElement>([
+      [ulPos, elWithRect({ top: 100, bottom: 150 })],
+      [liApple, elWithRect({ top: 100, bottom: 150 })],
+    ]);
+    return viewStub(editor, rects);
+  }
+
+  it('exposes resolvedBlockPos for incumbent tracking', () => {
+    const editor = makeEditor('<ul><li><p>Apple</p></li></ul>');
+    const liApple = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Apple');
+    const result = computeDropPlacement(listItemView(editor), 100, 125, NESTED_LIST, 0);
+    expect(result?.resolvedBlockPos).toBe(liApple);
+    editor.destroy();
+  });
+
+  it('Y-hysteresis: incumbent=inner keeps the resolver on the inner item through a sub-band wobble', () => {
+    const editor = makeEditor('<ul><li><p>Outer label</p><ul><li><p>Inner</p></li></ul></li></ul>');
+    const outerLi = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent.startsWith('Outer'));
+    const innerLi = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Inner');
+    const view = nestedView(editor, outerLi, innerLi);
+
+    // Baseline: Y=147 (3px above inner.top=150) with no incumbent -> outer.
+    const baseline = computeDropPlacement(view, 100, 147, NESTED_LIST, 0);
+    expect(baseline?.resolvedBlockPos).toBe(outerLi);
+
+    // Same cursor, inner as incumbent + hysteresis on -> stays on inner.
+    const sticky = computeDropPlacement(view, 100, 147, NESTED_LIST, 0, {
+      incumbentPos: innerLi,
+      hysteresis: true,
+    });
+    expect(sticky?.resolvedBlockPos).toBe(innerLi);
+    editor.destroy();
+  });
+
+  it('Y-hysteresis: incumbent yields once the cursor crosses decisively (beyond the band)', () => {
+    const editor = makeEditor('<ul><li><p>Outer label</p><ul><li><p>Inner</p></li></ul></li></ul>');
+    const outerLi = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent.startsWith('Outer'));
+    const innerLi = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Inner');
+    const view = nestedView(editor, outerLi, innerLi);
+
+    // Y=142 is 8px above inner.top, past the 6px band -> back to outer.
+    const result = computeDropPlacement(view, 100, 142, NESTED_LIST, 0, {
+      incumbentPos: innerLi,
+      hysteresis: true,
+    });
+    expect(result?.resolvedBlockPos).toBe(outerLi);
+    editor.destroy();
+  });
+
+  it('X-hysteresis: a latched nested mode stays nested in the band where an unlatched cursor would not enter', () => {
+    // Default threshold 28, band 8 -> enter at >=36, leave at <20. X=30 sits
+    // between, so the result depends purely on the latch.
+    const editor = makeEditor('<ul><li><p>Apple</p></li></ul>');
+    const view = listItemView(editor);
+
+    const fromSibling = computeDropPlacement(view, 30, 125, NESTED_LIST, 28, {
+      nestLatched: false,
+      hysteresis: true,
+    });
+    expect(fromSibling?.mode).toBe('sibling');
+
+    const fromNested = computeDropPlacement(view, 30, 125, NESTED_LIST, 28, {
+      nestLatched: true,
+      hysteresis: true,
+    });
+    expect(fromNested?.mode).toBe('nested');
+    editor.destroy();
+  });
+
+  it('X-hysteresis: a latched nested mode leaves only once X drops below threshold-band', () => {
+    const editor = makeEditor('<ul><li><p>Apple</p></li></ul>');
+    const view = listItemView(editor);
+
+    // X=18 (<20 leave threshold) drops nested even when latched.
+    const result = computeDropPlacement(view, 18, 125, NESTED_LIST, 28, {
+      nestLatched: true,
+      hysteresis: true,
+    });
+    expect(result?.mode).toBe('sibling');
+    editor.destroy();
+  });
+
+  it('without the hysteresis flag the nestThreshold stays a hard step regardless of latch', () => {
+    const editor = makeEditor('<ul><li><p>Apple</p></li></ul>');
+    const view = listItemView(editor);
+
+    // X=30 >= 28 and no hysteresis flag -> nested even though nestLatched is false.
+    const result = computeDropPlacement(view, 30, 125, NESTED_LIST, 28, { nestLatched: false });
+    expect(result?.mode).toBe('nested');
+    editor.destroy();
+  });
+});
