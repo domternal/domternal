@@ -119,3 +119,14 @@ export function resolveDropDepth(args: ResolveDropDepthArgs): DropDepthRung | nu
   if (!rung) return null;
   return { level: rung.level, kind: 'sibling', itemPos: rung.itemPos, afterPos: rung.afterPos };
 }
+
+/** True when the item at `itemPos` has a shallower list-item ancestor (i.e. it can outdent). */
+export function hasShallowerListAncestor(doc: Node, itemPos: number): boolean {
+  const $inside = doc.resolve(itemPos + 1);
+  let count = 0;
+  for (let d = 1; d <= $inside.depth; d++) {
+    if (LIST_ITEM_TYPES.has($inside.node(d).type.name)) count += 1;
+    if (count >= 2) return true;
+  }
+  return false;
+}

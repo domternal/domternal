@@ -27,6 +27,7 @@ import type { Node, Slice } from '@domternal/pm/model';
 import { findDeepestBlockAtY } from './helpers/findTopLevelBlock.js';
 import { moveBlock } from './helpers/moveBlock.js';
 import { moveBlockAsNestedChild } from './helpers/moveBlockAsNestedChild.js';
+import { resolveDropDepth, hasShallowerListAncestor } from './helpers/resolveDropDepth.js';
 import { createDragGhost } from './helpers/dragGhost.js';
 import { clampToContent } from './helpers/clampCoords.js';
 import { resolveGutterBias } from './helpers/gutterBias.js';
@@ -591,6 +592,44 @@ export function computeDropPlacement(
           nestedGapRect: slot.gapRect,
           resolvedBlockPos,
         };
+      }
+    }
+  }
+
+  // Outdent ladder: when the cursor sits to the LEFT of a NESTED list item's
+  // content (and inside its row), X picks a shallower ancestor level, so the
+  // drop becomes a sibling AFTER that ancestor (drag left to outdent, Notion-
+  // style). This resolves to a plain sibling placement pointing at the
+  // ancestor: the existing sibling drop computes `ancestorPos + nodeSize`
+  // (== the position after the ancestor) and the indicator draws at the
+  // ancestor's bottom edge indented to its left, so indicator == drop.
+  if (nestThreshold > 0) {
+    const targetNode = view.state.doc.nodeAt(resolved.pos);
+    const inRowY = clientY >= resolved.rect.top && clientY <= resolved.rect.bottom;
+    if (
+      targetNode
+      && LIST_ITEM_TYPES.has(targetNode.type.name)
+      && inRowY
+      && clientX < resolved.rect.left
+      && hasShallowerListAncestor(view.state.doc, resolved.pos)
+    ) {
+      const rung = resolveDropDepth({
+        view,
+        itemPos: resolved.pos,
+        clientX,
+        indentStep: nestThreshold,
+      });
+      if (rung?.kind === 'sibling' && rung.itemPos !== resolved.pos) {
+        const ancDom = view.nodeDOM(rung.itemPos);
+        if (ancDom instanceof HTMLElement) {
+          return {
+            pos: rung.itemPos,
+            rect: ancDom.getBoundingClientRect(),
+            insertAfter: true,
+            mode: 'sibling',
+            resolvedBlockPos,
+          };
+        }
       }
     }
   }

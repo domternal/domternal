@@ -1927,3 +1927,51 @@ test.describe('drop result - mode branches the actual transaction', () => {
     expect(texts).toEqual(['Two', 'One']);
   });
 });
+
+test.describe('multi-level outdent - drag a nested item left to a shallower level', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('dragging a 2-level-deep item to the left of its indent outdents it to the top-level list', async ({ page }) => {
+    await setContent(page, '<ul><li><p>Outer</p><ul><li><p>Inner</p></li></ul></li></ul>');
+    const innerLabel = page.locator(`${editorSelector} li li > p:has-text("Inner")`);
+    const outer = page.locator(`${editorSelector} > ul > li`).first();
+
+    // Surface the handle on the Inner item.
+    await innerLabel.hover();
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    const handle = page.locator(dragBtnSelector);
+    const innerBox = await innerLabel.boundingBox();
+    const outerBox = await outer.boundingBox();
+    if (!innerBox || !outerBox) throw new Error('no box');
+    // Drop at the OUTER item's left indent (left of Inner's content) at the
+    // Inner row -> outdent one level to the top-level list.
+    const clientX = outerBox.x + 2;
+    const clientY = innerBox.y + innerBox.height / 2;
+
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    await page.waitForTimeout(20);
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX, clientY });
+    await page.locator(editorSelector).dispatchEvent('drop', { dataTransfer: dt, clientX, clientY });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    await dt.dispose();
+
+    // The top-level bulletList now holds Outer and Inner as siblings; Outer's
+    // nested sublist collapsed (it had only Inner).
+    const topItems = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { textContent: string; childCount: number } | null } | null } } }
+        | undefined;
+      const list = ed?.state.doc.firstChild;
+      const out: string[] = [];
+      for (let i = 0; i < (list?.childCount ?? 0); i++) {
+        const li = list?.child(i);
+        if (li) out.push(li.textContent);
+      }
+      return out;
+    });
+    expect(topItems).toEqual(['Outer', 'Inner']);
+  });
+});

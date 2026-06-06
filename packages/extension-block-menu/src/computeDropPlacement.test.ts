@@ -902,3 +902,82 @@ describe('computeDropPlacement - position-aware nested child slot', () => {
     editor.destroy();
   });
 });
+
+describe('computeDropPlacement - multi-level outdent (X left of a nested item)', () => {
+  // Groceries (L1, left 10) > Fruit (L2, left 30) > Apples (L3, left 50).
+  // Hovering the Apples row resolves to Apples; X left of Apples picks a
+  // shallower ancestor -> sibling AFTER that ancestor.
+  function outdentView(editor: Editor): { view: EditorView; groceries: number; fruit: number; apples: number } {
+    const groceries = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent.startsWith('Groceries'));
+    const fruit = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent.startsWith('Fruit'));
+    const apples = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Apples');
+    const rects = new Map<number, HTMLElement>([
+      [groceries, elWithRect({ top: 100, bottom: 200, left: 10, right: 510 })],
+      [fruit, elWithRect({ top: 100, bottom: 160, left: 30, right: 510 })],
+      [apples, elWithRect({ top: 100, bottom: 130, left: 50, right: 510 })],
+    ]);
+    return { view: viewStub(editor, rects), groceries, fruit, apples };
+  }
+
+  const HTML = '<ul><li><p>Groceries</p><ul><li><p>Fruit</p><ul><li><p>Apples</p></li></ul></li></ul></li></ul>';
+
+  function afterOf(editor: Editor, pos: number): number {
+    const n = editor.state.doc.nodeAt(pos);
+    if (!n) throw new Error('no node');
+    return pos + n.nodeSize;
+  }
+
+  it('X between the middle and deepest ancestor outdents one level (sibling after the middle ancestor)', () => {
+    const editor = makeEditor(HTML);
+    const { view, fruit } = outdentView(editor);
+    const r = computeDropPlacement(view, 35, 115, NESTED_LIST); // 30 <= X < 50, Y in Apples row
+    expect(r?.mode).toBe('sibling');
+    expect(r?.insertAfter).toBe(true);
+    expect(r?.pos).toBe(fruit);
+    editor.destroy();
+  });
+
+  it('X at the top-level indent outdents all the way (sibling after the outermost item)', () => {
+    const editor = makeEditor(HTML);
+    const { view, groceries } = outdentView(editor);
+    const r = computeDropPlacement(view, 20, 115, NESTED_LIST); // 10 <= X < 30
+    expect(r?.mode).toBe('sibling');
+    expect(r?.pos).toBe(groceries);
+    editor.destroy();
+  });
+
+  it('the outdent drop position is AFTER the chosen ancestor subtree', () => {
+    const editor = makeEditor(HTML);
+    const { view, fruit } = outdentView(editor);
+    const r = computeDropPlacement(view, 35, 115, NESTED_LIST);
+    // sibling + insertAfter => the live drop targets pos + nodeSize.
+    const targetNode = editor.state.doc.nodeAt(r?.pos ?? -1);
+    const dropPos = (r?.pos ?? 0) + (targetNode?.nodeSize ?? 0);
+    expect(dropPos).toBe(afterOf(editor, fruit));
+    editor.destroy();
+  });
+
+  it('X at/inside the resolved item is NOT outdent (falls through to the normal paths)', () => {
+    const editor = makeEditor(HTML);
+    const { view, apples } = outdentView(editor);
+    // X=55 >= Apples.left(50): not the outdent zone. nestThreshold default 28,
+    // 55 - 50 = 5 < 28 so not nested either -> a normal sibling at Apples level.
+    const r = computeDropPlacement(view, 55, 115, NESTED_LIST);
+    expect(r?.mode).toBe('sibling');
+    expect(r?.pos).not.toBe(apples + 99999); // sanity: resolved, not an ancestor outdent
+    editor.destroy();
+  });
+
+  it('a top-level item has no shallower ancestor, so X far left does NOT outdent', () => {
+    const editor = makeEditor('<ul><li><p>Solo</p></li></ul>');
+    const solo = posOf(editor, (n) => n.type.name === 'listItem');
+    const ul = posOf(editor, (n) => n.type.name === 'bulletList');
+    const rects = new Map<number, HTMLElement>([
+      [ul, elWithRect({ top: 100, bottom: 130, left: 10, right: 510 })],
+      [solo, elWithRect({ top: 100, bottom: 130, left: 10, right: 510 })],
+    ]);
+    const r = computeDropPlacement(viewStub(editor, rects), 2, 115, NESTED_LIST);
+    expect(r?.pos).toBe(solo); // resolved item itself, no ancestor outdent
+    editor.destroy();
+  });
+});
