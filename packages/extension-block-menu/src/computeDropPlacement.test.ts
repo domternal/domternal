@@ -858,4 +858,47 @@ describe('computeDropPlacement - position-aware nested child slot', () => {
       editor.destroy();
     });
   });
+
+  it('the nested gap takes left/width from the ITEM, not the (indented) child', () => {
+    // Item rect left=10/width=500; child A is indented to left=40. The first-
+    // child gap must align to the item's content column (10), not A's 40, so
+    // the indented indicator lands where a child block actually renders.
+    const editor = makeEditor('<ul><li><p>L</p><p>A</p></li></ul>');
+    const ulPos = posOf(editor, (n) => n.type.name === 'bulletList');
+    const liPos = posOf(editor, (n) => n.type.name === 'listItem');
+    const pL = posOf(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'L');
+    const pA = posOf(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'A');
+    const rects = new Map<number, HTMLElement>([
+      [ulPos, elWithRect({ top: 100, bottom: 200, left: 10, right: 510 })],
+      [liPos, elWithRect({ top: 100, bottom: 200, left: 10, right: 510 })],
+      [pL, elWithRect({ top: 100, bottom: 150, left: 10, right: 510 })],
+      [pA, elWithRect({ top: 150, bottom: 200, left: 40, right: 510 })],
+    ]);
+    const r = computeDropPlacement(viewStub(editor, rects), 50, 130, NESTED_LIST); // first-child zone
+    expect(r?.childIndex).toBe(1);
+    expect(r?.nestedGapRect?.left).toBe(10);
+    expect(r?.nestedGapRect?.width).toBe(500);
+    editor.destroy();
+  });
+
+  it('the X-latch is scoped to the latched item: a different incumbentPos drops the latch', () => {
+    const editor = makeEditor('<ul><li><p>Apple</p></li></ul>');
+    const liApple = posOf(editor, (n) => n.type.name === 'listItem');
+    const ulPos = posOf(editor, (n) => n.type.name === 'bulletList');
+    const rects = new Map<number, HTMLElement>([
+      [ulPos, elWithRect({ top: 100, bottom: 150 })],
+      [liApple, elWithRect({ top: 100, bottom: 150 })],
+    ]);
+    const view = viewStub(editor, rects);
+    // X=30 sits in the band [20, 36): latched only when the incumbent matches.
+    const sameItem = computeDropPlacement(view, 30, 125, NESTED_LIST, 28, {
+      incumbentPos: liApple, nestLatched: true, hysteresis: true,
+    });
+    expect(sameItem?.mode).toBe('nested');
+    const otherItem = computeDropPlacement(view, 30, 125, NESTED_LIST, 28, {
+      incumbentPos: liApple + 9999, nestLatched: true, hysteresis: true,
+    });
+    expect(otherItem?.mode).toBe('sibling');
+    editor.destroy();
+  });
 });

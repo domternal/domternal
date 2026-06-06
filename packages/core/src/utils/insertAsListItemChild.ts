@@ -86,11 +86,10 @@ export function insertAsListItemChild(
     return { ok: false };
   }
 
-  // Position right before child[insertIndex] in the pre-mutation doc.
-  let insertPos = targetItemStart + 1;
-  for (let i = 0; i < insertIndex; i++) {
-    insertPos += targetItem.child(i).nodeSize;
-  }
+  // Position right before child[insertIndex] in the pre-mutation doc
+  // (`posAtIndex(childCount)` is the end-of-content append slot).
+  const $item = tr.doc.resolve(targetItemStart + 1);
+  const insertPos = $item.posAtIndex(insertIndex, $item.depth);
 
   if (sourceRange) {
     const { from, to } = sourceRange;
