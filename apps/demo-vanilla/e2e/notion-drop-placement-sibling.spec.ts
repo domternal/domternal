@@ -35,6 +35,20 @@ async function goNotion(page: Page): Promise<void> {
 }
 
 /**
+ * The dragover -> drop-indicator repaint is rAF-coalesced, so the indicator
+ * DOM updates on the NEXT animation frame, not synchronously after the
+ * `dragover` event. Tests that read the indicator immediately must flush two
+ * frames first (one for the coalescer's rAF to run, one to settle the write).
+ */
+async function flushIndicatorRaf(page: Page): Promise<void> {
+  await page.evaluate(
+    () => new Promise<void>((res) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => { res(); }));
+    }),
+  );
+}
+
+/**
  * Wait until every STAMPED top-level node has a UniqueID. UniqueID
  * doesn't stamp every node type (table, details), so we only block on
  * the well-known stamped ones.
@@ -166,6 +180,7 @@ async function startDragOver(page: Page, sourceBlock: Locator, targetBlock: Loca
   const clientX = targetBox.x + 4;
   const clientY = targetBox.y + targetBox.height * 0.8;
   await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX, clientY });
+  await flushIndicatorRaf(page);
   return { handle, dt };
 }
 
@@ -542,6 +557,7 @@ test.describe('X-detection - nested mode flip on list-item targets', () => {
     const clientX = targetBox.x + xOffsetFromLeft;
     const clientY = targetBox.y + targetBox.height * 0.5;
     await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX, clientY });
+    await flushIndicatorRaf(page);
     const result = await page.evaluate(() => {
       const el = document.querySelector('.dm-block-drop-indicator');
       if (!(el instanceof HTMLElement)) return { mode: null, show: false };
@@ -659,6 +675,7 @@ test.describe('X-detection - nested mode flip on list-item targets', () => {
         clientX: targetBox!.x + xOffset,
         clientY: targetBox!.y + targetBox!.height * 0.5,
       });
+      await flushIndicatorRaf(page);
       return page.evaluate(
         () => document.querySelector('.dm-block-drop-indicator')?.getAttribute('data-mode') ?? null,
       );
@@ -761,6 +778,7 @@ test.describe('X-detection - nested mode flip on list-item targets', () => {
     const clientX = targetBox.x + 40;
     const clientY = targetBox.y + targetBox.height * 0.15;
     await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX, clientY });
+    await flushIndicatorRaf(page);
 
     const mode = await page.evaluate(
       () => document.querySelector('.dm-block-drop-indicator')?.getAttribute('data-mode'),
@@ -839,6 +857,7 @@ test.describe('X-detection - nested mode flip on list-item targets', () => {
     const clientX = targetBox.x + 40; // nested zone
     const clientY = targetBox.y + targetBox.height * 0.5;
     await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX, clientY });
+    await flushIndicatorRaf(page);
     // Indicator carries data-mode='nested' even though the drop will be a no-op.
     const mode = await page.evaluate(
       () => document.querySelector('.dm-block-drop-indicator')?.getAttribute('data-mode'),
@@ -877,6 +896,7 @@ test.describe('X-detection - nested mode flip on list-item targets', () => {
     const clientX = targetBox.x + 40;
     const clientY = targetBox.y + targetBox.height * 0.5;
     await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX, clientY });
+    await flushIndicatorRaf(page);
     const mode = await page.evaluate(
       () => document.querySelector('.dm-block-drop-indicator')?.getAttribute('data-mode'),
     );
@@ -904,6 +924,7 @@ test.describe('X-detection - nested mode flip on list-item targets', () => {
       clientX: targetBox.x + 40,
       clientY: targetBox.y + targetBox.height * 0.5,
     });
+    await flushIndicatorRaf(page);
     const insideMode = await page.evaluate(
       () => document.querySelector('.dm-block-drop-indicator')?.getAttribute('data-mode'),
     );
@@ -978,6 +999,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
       clientX: targetBox.x + 40, // nested zone
       clientY: targetBox.y + targetBox.height * 0.5,
     });
+    await flushIndicatorRaf(page);
     const info = await indicatorInfo(page);
     expect(info?.mode).toBe('nested');
     expect(info?.borderTopStyle).toBe('dashed');
@@ -1002,6 +1024,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
       clientX: targetBox.x + 4, // sibling zone (before bullet marker)
       clientY: targetBox.y + targetBox.height * 0.5,
     });
+    await flushIndicatorRaf(page);
     const info = await indicatorInfo(page);
     expect(info?.mode).toBe('sibling');
     expect(info?.borderTopStyle).not.toBe('dashed');
@@ -1024,6 +1047,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
       clientX: targetBox.x + 40,
       clientY: targetBox.y + targetBox.height * 0.5,
     });
+    await flushIndicatorRaf(page);
 
     // Compare nested left vs sibling left for the same target. Use a
     // separate dragover with sibling-zone X to capture the sibling left.
@@ -1033,6 +1057,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
       clientX: targetBox.x + 4,
       clientY: targetBox.y + targetBox.height * 0.5,
     });
+    await flushIndicatorRaf(page);
     const siblingLeft = (await indicatorInfo(page))?.leftPx ?? 0;
     // Nested indents by 24px (matches --dm-block-children-indent).
     expect(nestedLeft - siblingLeft).toBeCloseTo(24, 0);
@@ -1055,12 +1080,14 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
       clientX: targetBox.x + 40,
       clientY: targetBox.y + targetBox.height * 0.5,
     });
+    await flushIndicatorRaf(page);
     const nestedWidth = (await indicatorInfo(page))?.widthPx ?? 0;
     await page.locator(editorSelector).dispatchEvent('dragover', {
       dataTransfer: dt,
       clientX: targetBox.x + 4,
       clientY: targetBox.y + targetBox.height * 0.5,
     });
+    await flushIndicatorRaf(page);
     const siblingWidth = (await indicatorInfo(page))?.widthPx ?? 0;
     expect(siblingWidth - nestedWidth).toBeCloseTo(24, 0);
     await handle.dispatchEvent('dragend', { dataTransfer: dt });
@@ -1088,6 +1115,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
       clientX: targetBox.x + 40,
       clientY: targetBox.y + targetBox.height * 0.2,
     });
+    await flushIndicatorRaf(page);
     const upperInfo = await indicatorInfo(page);
     // Lower half Y - same rect.bottom anchor.
     await page.locator(editorSelector).dispatchEvent('dragover', {
@@ -1095,6 +1123,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
       clientX: targetBox.x + 40,
       clientY: targetBox.y + targetBox.height * 0.8,
     });
+    await flushIndicatorRaf(page);
     const lowerInfo = await indicatorInfo(page);
     expect(upperInfo?.mode).toBe('nested');
     expect(lowerInfo?.mode).toBe('nested');
@@ -1121,6 +1150,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
         clientX: targetBox!.x + xOffset,
         clientY: targetBox!.y + targetBox!.height * 0.5,
       });
+      await flushIndicatorRaf(page);
       return page.evaluate(() => {
         const el = document.querySelector('.dm-block-drop-indicator');
         if (!(el instanceof HTMLElement)) return '';
@@ -1154,6 +1184,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
       clientX: targetBox.x + 40,
       clientY: targetBox.y + targetBox.height * 0.5,
     });
+    await flushIndicatorRaf(page);
     const info = await indicatorInfo(page);
     expect(info?.mode).toBe('nested');
     expect(info?.borderTopStyle).toBe('dashed');
@@ -1183,6 +1214,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
       clientX: targetBox.x + 4,
       clientY: targetBox.y + targetBox.height * 0.5,
     });
+    await flushIndicatorRaf(page);
     const siblingShadow = await page.evaluate(() => {
       const el = document.querySelector('.dm-block-drop-indicator');
       return el instanceof HTMLElement ? getComputedStyle(el).boxShadow : '';
@@ -1196,6 +1228,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
       clientX: targetBox.x + 40,
       clientY: targetBox.y + targetBox.height * 0.5,
     });
+    await flushIndicatorRaf(page);
     const nestedShadow = await page.evaluate(() => {
       const el = document.querySelector('.dm-block-drop-indicator');
       return el instanceof HTMLElement ? getComputedStyle(el).boxShadow : '';
@@ -1220,6 +1253,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
       clientX: targetBox.x + 40,
       clientY: targetBox.y + targetBox.height * 0.5,
     });
+    await flushIndicatorRaf(page);
     const radius = await page.evaluate(() => {
       const el = document.querySelector('.dm-block-drop-indicator');
       return el instanceof HTMLElement ? getComputedStyle(el).borderTopLeftRadius : '';
@@ -1248,6 +1282,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
       clientX: targetBox.x + 40,
       clientY: targetBox.y + targetBox.height * 0.5,
     });
+    await flushIndicatorRaf(page);
     const info = await indicatorInfo(page);
     expect(info?.mode).toBe('nested');
     expect(info?.borderTopStyle).toBe('dashed');
@@ -1255,13 +1290,13 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
     await dt.dispose();
   });
 
-  test('nested-mode indicator over a listItem WITH existing nested children anchors at the FULL listItem rect bottom (not the label paragraph)', async ({ page }) => {
-    // listItem with [label paragraph, nested h2] - the listItem's
-    // bounding rect spans BOTH. The dashed line must anchor at the
-    // listItem's overall bottom, not at the label's bottom; otherwise
-    // the indicator would sit visually between the label and the
-    // existing nested heading instead of below the heading where a
-    // new nested child would actually render.
+  test('nested-mode indicator over a listItem WITH existing nested children anchors at the FIRST-CHILD gap when hovering the label band (position-aware)', async ({ page }) => {
+    // listItem with [label paragraph, nested h2]. Hovering the LABEL band
+    // picks the first-child slot (insert BEFORE the existing h2), so the
+    // dashed line anchors at the label's bottom edge (the top of the gap
+    // between the label and the existing nested heading), NOT at the item's
+    // overall bottom. (Position-aware nested drop; the old append-only
+    // behaviour always drew at the item bottom.)
     await setContent(page, '<p>Source</p><ul><li><p>Label</p><h2>Existing</h2></li></ul>');
     const source = page.locator(`${editorSelector} p:has-text("Source")`);
     const liTarget = page.locator(`${editorSelector} li`);
@@ -1272,26 +1307,27 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
     const liBox = await liTarget.boundingBox();
     if (!liBox) throw new Error('no li box');
 
-    // Aim Y at the LABEL portion (top of li rect) so the resolver
-    // lands on the listItem (label first-child excluded by rule).
+    // Aim Y at the LABEL portion so the resolver lands on the listItem and
+    // the child-slot resolves to childIndex 1 (above the existing heading).
     await page.locator(editorSelector).dispatchEvent('dragover', {
       dataTransfer: dt,
       clientX: liBox.x + 40,
       clientY: liBox.y + liBox.height * 0.15,
     });
+    await flushIndicatorRaf(page);
     const info = await indicatorInfo(page);
     expect(info?.mode).toBe('nested');
 
-    // Indicator top should equal the listItem's bottom edge in the
-    // editor-relative coordinate space. Read editor rect to convert.
+    // Indicator top should equal the LABEL paragraph's bottom edge (the
+    // first-child gap), in editor-relative coordinates.
     const expectedTop = await page.evaluate(() => {
-      const li = document.querySelector('.ProseMirror li');
+      const label = document.querySelector('.ProseMirror li > p');
       const editor = document.querySelector('.dm-editor');
-      if (!(li instanceof HTMLElement) || !(editor instanceof HTMLElement)) return -1;
-      return li.getBoundingClientRect().bottom - editor.getBoundingClientRect().top;
+      if (!(label instanceof HTMLElement) || !(editor instanceof HTMLElement)) return -1;
+      return label.getBoundingClientRect().bottom - editor.getBoundingClientRect().top;
     });
     expect(expectedTop).toBeGreaterThan(0);
-    expect(Math.abs((info?.topPx ?? 0) - expectedTop)).toBeLessThanOrEqual(1);
+    expect(Math.abs((info?.topPx ?? 0) - expectedTop)).toBeLessThanOrEqual(2);
     await handle.dispatchEvent('dragend', { dataTransfer: dt });
     await dt.dispose();
   });
@@ -1344,6 +1380,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
       clientX: targetBox.x + 40,
       clientY: targetBox.y + targetBox.height * 0.5,
     });
+    await flushIndicatorRaf(page);
     const info = await indicatorInfo(page);
     expect(info?.mode).toBe('nested');
     expect(info?.borderTopStyle).toBe('dashed');
@@ -1699,31 +1736,22 @@ test.describe('nested drop matrix - source types appended as last child', () => 
     });
   });
 
-  test('multi-step nesting: drop A into B, then drop C into A produces 3-level deep structure', async ({ page }) => {
+  test('multi-step nesting: dropping A, B, C onto a Target item at the label band stacks them as first-child (newest on top)', async ({ page }) => {
     await setContent(page, '<p>A</p><p>B</p><p>C</p><ul><li><p>Target</p></li></ul>');
-    // Drop A onto Target → Target now has nested A.
-    await dropNested(
-      page,
-      page.locator(`${editorSelector} > p:has-text("A")`),
-      page.locator(`${editorSelector} li`),
-    );
-    // Drop B onto Target → B becomes second nested child of Target.
-    await dropNested(
-      page,
-      page.locator(`${editorSelector} > p:has-text("B")`),
-      page.locator(`${editorSelector} li`),
-    );
-    // Drop C onto Target → C becomes third nested child of Target.
-    await dropNested(
-      page,
-      page.locator(`${editorSelector} > p:has-text("C")`),
-      page.locator(`${editorSelector} li`),
-    );
+    // Each drop aims Y at the label band -> childIndex 1 (first child), so a
+    // later drop lands ABOVE the earlier ones: the order reverses to C, B, A.
+    for (const t of ['A', 'B', 'C']) {
+      await dropNested(
+        page,
+        page.locator(`${editorSelector} > p:has-text("${t}")`),
+        page.locator(`${editorSelector} li`),
+      );
+    }
     expect(await firstListItemChildren(page)).toEqual([
       { type: 'paragraph', text: 'Target' },
-      { type: 'paragraph', text: 'A' },
-      { type: 'paragraph', text: 'B' },
       { type: 'paragraph', text: 'C' },
+      { type: 'paragraph', text: 'B' },
+      { type: 'paragraph', text: 'A' },
     ]);
     expect((await getBlocks(page)).length).toBe(1); // Just the bulletList; A/B/C all moved.
   });
@@ -1822,7 +1850,10 @@ test.describe('nested drop matrix - source types appended as last child', () => 
     ]);
   });
 
-  test('drop on listItem WITH existing nested children appends the new block AFTER the existing nested heading', async ({ page }) => {
+  test('drop on listItem WITH existing nested children at the LABEL band inserts the new block as the FIRST child (before the existing heading)', async ({ page }) => {
+    // Position-aware: `dropNested` aims Y at the label band, which resolves to
+    // childIndex 1, so Source lands BEFORE the existing heading. (The old
+    // append-only behaviour put it last.)
     await setContent(page, '<p>Source</p><ul><li><p>Label</p><h2>Existing</h2></li></ul>');
     await dropNested(
       page,
@@ -1831,8 +1862,8 @@ test.describe('nested drop matrix - source types appended as last child', () => 
     );
     expect(await firstListItemChildren(page)).toEqual([
       { type: 'paragraph', text: 'Label' },
-      { type: 'heading', text: 'Existing', level: 2 },
       { type: 'paragraph', text: 'Source' },
+      { type: 'heading', text: 'Existing', level: 2 },
     ]);
   });
 });

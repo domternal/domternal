@@ -348,4 +348,66 @@ describe('moveBlockAsNestedChild', () => {
       );
     });
   });
+
+  describe('merge with adjacent same-type sublist', () => {
+    it('first-child slot merges into the existing sublist (one list, not two)', () => {
+      editor = makeEditor(
+        '<ul><li><p>AI</p><ul><li><p>Wire</p></li></ul></li></ul>' +
+        '<ul><li><p>Drag</p></li></ul>',
+      );
+      const aiItem = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent.startsWith('AI'));
+      const dragItem = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Drag');
+      const wrapperPos = editor.state.doc.resolve(aiItem).before();
+
+      const tr = editor.state.tr;
+      // childIndex 1 = first-child slot, before AI's existing nested sublist.
+      expect(moveBlockAsNestedChild(tr, dragItem, wrapperPos, aiItem, 1)).toBe(true);
+      editor.view.dispatch(tr);
+
+      // Dragged item joins the sublist as its first item; ONE bulletList.
+      expect(dump(editor)).toContain(
+        'listItem(paragraph("AI"), bulletList(listItem(paragraph("Drag")), listItem(paragraph("Wire"))))',
+      );
+    });
+
+    it('append slot merges into a trailing sublist as its last item', () => {
+      editor = makeEditor(
+        '<ul><li><p>AI</p><ul><li><p>Wire</p></li></ul></li></ul>' +
+        '<ul><li><p>Drag</p></li></ul>',
+      );
+      const aiItem = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent.startsWith('AI'));
+      const dragItem = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Drag');
+      const wrapperPos = editor.state.doc.resolve(aiItem).before();
+
+      const tr = editor.state.tr;
+      // No childIndex = append after the existing sublist, then join upward.
+      expect(moveBlockAsNestedChild(tr, dragItem, wrapperPos, aiItem)).toBe(true);
+      editor.view.dispatch(tr);
+
+      expect(dump(editor)).toContain(
+        'listItem(paragraph("AI"), bulletList(listItem(paragraph("Wire")), listItem(paragraph("Drag"))))',
+      );
+    });
+
+    it('does NOT merge across incompatible list types (canJoin gate)', () => {
+      // AI item lives in a bulletList but its sublist is a taskList. The
+      // dragged bullet item wraps as a bulletList, which cannot join the
+      // adjacent taskList, so two sibling sublists remain (schema-valid).
+      editor = makeEditor(
+        '<ul><li><p>AI</p><ul data-type="taskList"><li data-type="taskItem"><p>Wire</p></li></ul></li></ul>' +
+        '<ul><li><p>Drag</p></li></ul>',
+      );
+      const aiItem = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent.startsWith('AI'));
+      const dragItem = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Drag');
+      const wrapperPos = editor.state.doc.resolve(aiItem).before();
+
+      const tr = editor.state.tr;
+      expect(moveBlockAsNestedChild(tr, dragItem, wrapperPos, aiItem, 1)).toBe(true);
+      editor.view.dispatch(tr);
+
+      const out = dump(editor);
+      expect(out).toContain('bulletList(listItem(paragraph("Drag")))');
+      expect(out).toContain('taskList(taskItem(paragraph("Wire")))');
+    });
+  });
 });

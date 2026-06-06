@@ -664,18 +664,18 @@ describe('computeDropPlacement - hysteresis (drag-session stickiness)', () => {
   });
 
   it('X-hysteresis: a latched nested mode stays nested in the band where an unlatched cursor would not enter', () => {
-    // Default threshold 28, band 8 -> enter at >=36, leave at <20. X=30 sits
-    // between, so the result depends purely on the latch.
+    // Asymmetric: enter at threshold 28, sticky-exit at 28-8=20. X=24 sits in
+    // [20, 28), so the result depends purely on the latch.
     const editor = makeEditor('<ul><li><p>Apple</p></li></ul>');
     const view = listItemView(editor);
 
-    const fromSibling = computeDropPlacement(view, 30, 125, NESTED_LIST, 28, {
+    const fromSibling = computeDropPlacement(view, 24, 125, NESTED_LIST, 28, {
       nestLatched: false,
       hysteresis: true,
     });
     expect(fromSibling?.mode).toBe('sibling');
 
-    const fromNested = computeDropPlacement(view, 30, 125, NESTED_LIST, 28, {
+    const fromNested = computeDropPlacement(view, 24, 125, NESTED_LIST, 28, {
       nestLatched: true,
       hysteresis: true,
     });
@@ -890,12 +890,12 @@ describe('computeDropPlacement - position-aware nested child slot', () => {
       [liApple, elWithRect({ top: 100, bottom: 150 })],
     ]);
     const view = viewStub(editor, rects);
-    // X=30 sits in the band [20, 36): latched only when the incumbent matches.
-    const sameItem = computeDropPlacement(view, 30, 125, NESTED_LIST, 28, {
+    // X=24 sits in the sticky band [20, 28): latched only when the incumbent matches.
+    const sameItem = computeDropPlacement(view, 24, 125, NESTED_LIST, 28, {
       incumbentPos: liApple, nestLatched: true, hysteresis: true,
     });
     expect(sameItem?.mode).toBe('nested');
-    const otherItem = computeDropPlacement(view, 30, 125, NESTED_LIST, 28, {
+    const otherItem = computeDropPlacement(view, 24, 125, NESTED_LIST, 28, {
       incumbentPos: liApple + 9999, nestLatched: true, hysteresis: true,
     });
     expect(otherItem?.mode).toBe('sibling');

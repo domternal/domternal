@@ -550,17 +550,16 @@ export function computeDropPlacement(
       // (stateless unit callers) counts as "same item" to keep their contract.
       const inc = options.incumbentPos ?? null;
       const sameItem = inc === null || inc === resolved.pos;
-      // X-hysteresis: with the latch off, enter nested only past
-      // `nestThreshold + band`; once latched, stay nested until the cursor
-      // falls back below `nestThreshold - band`. The band is 0 unless the
-      // live plugin opts in, so the stateless contract (enter at exactly
-      // `nestThreshold`) is preserved for unit callers.
+      // X-hysteresis (asymmetric / sticky-exit): enter nested at the natural
+      // `nestThreshold` (so the entry point stays predictable), but once
+      // latched stay nested until the cursor falls back below
+      // `nestThreshold - band`. This kills sibling<->nested flicker around the
+      // threshold without moving where nesting begins. Band is 0 unless the
+      // live plugin opts in, so unit callers keep the exact-threshold contract.
       const xBand = options.hysteresis ? DROP_HYSTERESIS_X_PX : 0;
-      const enterZone = nestThreshold + xBand;
-      const leaveZone = nestThreshold - xBand;
       const isInNestZone = sameItem && options.nestLatched
-        ? xInTarget >= leaveZone
-        : xInTarget >= enterZone;
+        ? xInTarget >= nestThreshold - xBand
+        : xInTarget >= nestThreshold;
       const isInsideY = clientY >= targetRect.top && clientY <= targetRect.bottom;
       if (isInsideX && isInNestZone && isInsideY) {
         // Walk up to the wrapping list. `$resolved.before()` is the
