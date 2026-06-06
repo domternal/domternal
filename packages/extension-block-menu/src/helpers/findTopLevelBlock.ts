@@ -105,63 +105,29 @@ export interface DeepestBlockMatch {
 }
 
 /**
- * Hysteresis options for {@link findDeepestBlockAtY}. Used by the drag
- * pipeline to keep the resolved target STABLE across the per-event
- * re-resolution that would otherwise flip-flop near a nested-list boundary.
+ * Hysteresis options for {@link findDeepestBlockAtY}, keeping the resolved
+ * target stable so it doesn't flip-flop near a nested-list boundary.
  */
 export interface FindDeepestBlockOptions {
   /**
-   * Position of the block resolved on the PREVIOUS dragover (the drag
-   * "incumbent"), or `null` for the first resolution of a drag.
-   *
-   * The problem this solves: an outer list item that contains a sublist has
-   * a TALL rect (it spans its own label plus every nested child), while the
-   * inner items have SHORT rects. Both vertically contain the cursor in the
-   * band just above the sublist, so the "smallest height wins" rule flips
-   * the winner outer<->inner on a 1-2px Y move - the drop indicator jumps.
-   *
-   * When set, the incumbent's vertical containment test is widened by
-   * `hysteresisBand` px on each edge, so the cursor must move DECISIVELY
-   * (more than the band) out of the current target before a different block
-   * can take over. The band never changes the height-based ranking, only
-   * which blocks are eligible to win.
+   * The previous dragover's resolved block. Its containment test is widened
+   * by `hysteresisBand`, so the cursor must move decisively out before a
+   * different block (e.g. outer<->inner list item) can take over. Ranking is
+   * unchanged; only eligibility widens.
    */
   incumbentPos?: number | null;
-  /** Sticky margin (px) applied to the incumbent's containment test. `0` disables. */
+  /** Sticky margin (px) for the incumbent's containment test. `0` disables. */
   hysteresisBand?: number;
 }
 
 /**
- * Finds the **deepest (innermost)** block at a given client Y coordinate
- * by walking the doc tree and comparing each node's DOM rect against
- * `clientY`. Among all blocks whose vertical rect contains `clientY`
- * AND whose type appears in `allowedTypes`, the one with the **smallest
- * height** wins (innermost in a vertical block layout).
- *
- * X is intentionally ignored - the gutter where the BlockHandle visually
- * lives sits to the left of `.ProseMirror`, so any X-based resolution
- * (`posAtCoords`, point-in-rect tests) would resolve to whatever happens
- * to be at the editor's left edge, which is the OUTER block when nested
- * lists are indented further right. This is the deepest-match behaviour:
- * the handle anchors on the row the cursor is actually in, regardless of
- * how far left the cursor strayed.
- *
- * The opposite policy - gutter bias (penalise depth near the left edge so
- * shallower ancestors win) - is exposed here as Mode C (`promoteOnEdge`)
- * and uses {@link ./resolveDragTarget resolveDragTarget} instead.
- *
- * `matchers` (default `[]`) shares the same `BlockMatcher[]` contract Mode C
- * applies; here only the `'reject'` verdict matters (a rejected candidate is
- * skipped, the walker continues). This keeps exclusion behaviour (e.g.
- * `firstChildOfListItem`) consistent between modes B and C: when a host
- * extends `allowedTypes` to include `paragraph`, the label paragraph of a
- * list item is automatically excluded so the handle still resolves to the
- * list item itself.
- *
- * Returns `null` when no allowed block contains `clientY` (e.g. cursor is
- * above the first block, below the last, or hovering a top-level node not
- * in `allowedTypes`). Callers should treat `null` as "fall through to
- * top-level resolution".
+ * Finds the deepest (smallest-height) `allowedTypes` block whose vertical
+ * rect contains `clientY`. X is ignored on purpose: the handle sits in the
+ * left gutter, so X-based resolution would pick the outer block; matching by
+ * Y anchors on the row the cursor is actually in. `matchers` can `'reject'`
+ * candidates (e.g. a list item's label paragraph). The gutter-bias
+ * alternative is Mode C ({@link ./resolveDragTarget resolveDragTarget}).
+ * Returns `null` (caller falls through to top-level) when nothing matches.
  */
 export function findDeepestBlockAtY(
   view: EditorView,
@@ -179,20 +145,15 @@ export function findDeepestBlockAtY(
     const dom = view.nodeDOM(pos);
     if (!(dom instanceof HTMLElement)) return true;
     const rect = dom.getBoundingClientRect();
-    // Prune the subtree when the cursor isn't vertically inside this node -
-    // children of a non-containing parent can't contain the cursor either,
-    // so pruning keeps the walk O(depth) instead of O(doc). The prune test
-    // is widened by `band` so the incumbent's ancestor chain stays walkable
-    // when the cursor sits within the sticky margin just outside it.
+    // Prune the subtree when the cursor is outside this node (keeps the walk
+    // O(depth)). Widened by `band` so the incumbent's ancestors stay walkable.
     if (clientY < rect.top - band || clientY > rect.bottom + band) return false;
     if (allowedTypes.includes(node.type.name)) {
       if (matchers.length > 0 && isRejectedByMatchers(view, node, pos, parent, index, matchers)) {
         return true;
       }
-      // Eligibility: a normal candidate must STRICTLY contain the cursor; the
-      // incumbent wins eligibility within the wider banded extent so a
-      // sub-band wobble can't promote a different block. Ranking still uses
-      // the REAL height, so the band never distorts which block is smallest.
+      // A normal candidate must strictly contain the cursor; the incumbent
+      // wins within the banded extent. Ranking still uses the real height.
       const strictlyContains = clientY >= rect.top && clientY <= rect.bottom;
       const incumbentContains =
         pos === incumbentPos && clientY >= rect.top - band && clientY <= rect.bottom + band;

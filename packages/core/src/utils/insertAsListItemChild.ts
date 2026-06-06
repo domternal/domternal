@@ -15,20 +15,13 @@ export interface InsertAsListItemChildArgs {
    * matching the Tab keyboard behaviour ("indent into last item").
    */
   targetItemPos?: number;
-  /** Block node to append as the LAST child of the target item. */
+  /** Block node to insert. */
   blockNode: PMNode;
-  /**
-   * Optional source range to delete in the SAME transaction (when
-   * MOVING an existing block instead of creating a new one). Position
-   * math handles source-before-vs-after-target ordering automatically.
-   */
+  /** Optional source range to delete in the same tr (turns insert into a MOVE). */
   sourceRange?: { from: number; to: number };
   /**
-   * Child-array index inside the target item where `blockNode` lands.
-   * Index 0 is the immutable label paragraph (schema `paragraph block*`),
-   * so values are clamped to `>= 1`. When omitted OR `>= the item's
-   * childCount`, `blockNode` is appended as the LAST child (legacy default,
-   * byte-identical to the previous behaviour).
+   * Child index to insert at. Clamped to `>= 1` (index 0 is the label
+   * paragraph). Omitted or `>= childCount` appends as the last child.
    */
   childIndex?: number;
 }
@@ -45,15 +38,10 @@ export interface InsertAsListItemChildResult {
 }
 
 /**
- * Insert `blockNode` into a list item's children. By default (no
- * `childIndex`) it appends as the LAST child of the target item (or, when
- * `targetItemPos` is omitted, the wrapper's last item). Pass `childIndex`
- * (clamped to `>= 1`, since index 0 is the label paragraph) to land the
- * block at a specific position among the item's children: `1` = first child
- * after the label, `childCount` = append. When `sourceRange` is set, the
- * source range is removed in the same transaction so the op is a clean MOVE.
- * Returns `{ ok: false }` WITHOUT mutating `tr` on schema reject or self-drop
- * so callers can fall through to a sibling-mode fallback.
+ * Insert `blockNode` into a list item's children at `childIndex` (default:
+ * append last; target item defaults to the wrapper's last item). `sourceRange`
+ * makes it a MOVE. Returns `{ ok: false }` without mutating `tr` on schema
+ * reject or self-drop so callers can fall back to a sibling move.
  */
 export function insertAsListItemChild(
   args: InsertAsListItemChildArgs,
@@ -71,9 +59,7 @@ export function insertAsListItemChild(
     if (targetItemPos < 0 || targetItemPos >= tr.doc.content.size) return { ok: false };
     const candidate = tr.doc.nodeAt(targetItemPos);
     if (!candidate || !LIST_ITEM_TYPES.has(candidate.type.name)) return { ok: false };
-    // Verify the candidate item really sits inside the given wrapper -
-    // a mismatched (wrapperPos, targetItemPos) pair would otherwise
-    // produce silently-wrong position math.
+    // Guard against a mismatched (wrapperPos, targetItemPos) pair.
     if (targetItemPos < wrapperPos + 1 || targetItemPos >= wrapperPos + wrapper.nodeSize) {
       return { ok: false };
     }
@@ -90,23 +76,17 @@ export function insertAsListItemChild(
     targetItemStart = pos;
   }
 
-  // Resolve the child-array index. Index 0 is the immutable label
-  // paragraph, so the floor is 1. Omitted or past the last child means
-  // append-last (legacy). `insertIndex === childCount` yields the exact
-  // legacy append position, so the default path is unchanged.
+  // Floor the index at 1 (index 0 is the label); omitted/overflow appends.
+  // `insertIndex === childCount` reproduces the legacy append position.
   const childCount = targetItem.childCount;
   const insertIndex =
     childIndex === undefined || childIndex >= childCount ? childCount : Math.max(1, childIndex);
 
-  // Validate the insertion at the ACTUAL index (for append this is the
-  // same (childCount, childCount) check as before).
   if (!targetItem.canReplaceWith(insertIndex, insertIndex, blockNode.type)) {
     return { ok: false };
   }
 
-  // Position right BEFORE child[insertIndex], computed from the PRE-mutation
-  // doc. For `insertIndex === childCount` this equals
-  // `targetItemStart + targetItem.nodeSize - 1` (the legacy append slot).
+  // Position right before child[insertIndex] in the pre-mutation doc.
   let insertPos = targetItemStart + 1;
   for (let i = 0; i < insertIndex; i++) {
     insertPos += targetItem.child(i).nodeSize;
@@ -114,11 +94,8 @@ export function insertAsListItemChild(
 
   if (sourceRange) {
     const { from, to } = sourceRange;
-    // Self-drop guard: the insertion point sits inside the deletion range
-    // (e.g. moving a child to a slot within its own removed span). Caller's
-    // guard is primary, but defending here avoids a silent "insert into
-    // removed range" that would corrupt the document. `sourceRange` is the
-    // EXPANDED range when called from `moveBlockAsNestedChild`.
+    // Self-drop guard: insertion point lands inside the (expanded) deletion
+    // range, so the move is a no-op; bail without corrupting the doc.
     if (insertPos >= from && insertPos <= to) {
       return { ok: false };
     }

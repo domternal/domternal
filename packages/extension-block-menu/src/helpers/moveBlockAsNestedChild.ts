@@ -8,37 +8,16 @@ import { convertListItemForParent } from './convertListItemForParent.js';
 const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
 
 /**
- * Moves a block from `sourcePos` and inserts it as a child of the list
- * item at `targetItemPos` inside the wrapper at `wrapperPos`. Without
- * `childIndex` it appends as the LAST child (legacy); pass `childIndex`
- * (>= 1) to land it at a specific slot among the item's children, e.g.
- * `1` for the first child after the label. Shared drop-indent path used by
- * `BlockHandle.performBlockDrop` when `computeDropPlacement` returns
- * `mode: 'nested'`.
+ * Moves the block at `sourcePos` into the list item at `targetItemPos`
+ * (wrapper `wrapperPos`) at `childIndex` (default: append last). Drop-indent
+ * path used by `performBlockDrop` for `mode: 'nested'`.
  *
- * Behaviour matrix:
- *
- *  - **Non-list source** (paragraph, heading, codeBlock, blockquote,
- *    horizontalRule, image, etc.) - inserted directly as last child of
- *    the target item. Schema (`paragraph block*`) accepts any block in
- *    the trailing slot.
- *  - **List item source** (listItem / taskItem) - wrapped in a fresh
- *    list wrapper of the SAME TYPE as the target's wrapper, with the
- *    source's item type adapted (via `convertListItemForParent`) so a
- *    bulletList listItem dropped into a taskList nested zone becomes a
- *    fresh taskList with a taskItem inside. Result: the dragged item
- *    appears as a nested sublist below the target item's label.
- *
- * Position math is delegated to `insertAsListItemChild` which handles
- * source-before-vs-after-target ordering automatically. Source range
- * is widened via `expandToEmptyWrappers` so single-child containers
- * don't leave empty placeholders behind (matches `moveBlock` semantics).
- *
- * Returns `false` (no mutation) when:
- *   - source position is invalid / no node
- *   - target position falls inside the source range (self-drop)
- *   - schema rejects the resulting structure (caller falls through to
- *     a sibling-style fallback or no-op)
+ * By source type: a non-list block goes in directly; a listItem/taskItem is
+ * wrapped in a fresh target-type list (adapted via `convertListItemForParent`)
+ * so it reads as a nested sublist. Position math + ordering is delegated to
+ * `insertAsListItemChild`; the deletion range is widened via
+ * `expandToEmptyWrappers`. Returns `false` (no mutation) on invalid source,
+ * self-drop, or schema reject.
  */
 export function moveBlockAsNestedChild(
   tr: Transaction,
@@ -52,21 +31,16 @@ export function moveBlockAsNestedChild(
   if (!sourceNode) return false;
   const sourceEnd = sourcePos + sourceNode.nodeSize;
 
-  // Self-drop guard: target item or its wrapper sits inside the source
-  // range. Prevents "move A into A's own subtree" - an invalid op that
-  // would otherwise corrupt the document.
+  // Self-drop guard: don't move A into its own subtree.
   if (targetItemPos >= sourcePos && targetItemPos < sourceEnd) return false;
   if (wrapperPos >= sourcePos && wrapperPos < sourceEnd) return false;
 
-  // Widen the deletion range so a single-child wrapper around the
-  // source (e.g., a nested ul whose only li is the source) collapses
-  // along with the source, instead of being left as an empty placeholder.
+  // Widen the deletion so a single-child wrapper around the source collapses
+  // with it instead of leaving an empty placeholder.
   const { from: expandedFrom, to: expandedTo } = expandToEmptyWrappers(tr.doc, sourcePos, sourceEnd);
 
-  // Pick the block to insert. For a list-item source we wrap it in a
-  // fresh list wrapper so the trailing block-slot of the target item
-  // (which expects a block, not a bare listItem) accepts the insertion
-  // and the result reads as a nested sublist below the target's label.
+  // A list-item source is wrapped in a fresh list (the item slot expects a
+  // block, not a bare listItem); other blocks insert as-is.
   let blockNode: PMNode;
   if (LIST_ITEM_TYPES.has(sourceNode.type.name)) {
     const wrapperNode = tr.doc.nodeAt(wrapperPos);
@@ -88,8 +62,7 @@ export function moveBlockAsNestedChild(
     targetItemPos,
     blockNode,
     sourceRange: { from: expandedFrom, to: expandedTo },
-    // Conditional spread: `exactOptionalPropertyTypes` forbids passing an
-    // explicit `undefined` to the optional `childIndex` prop.
+    // Spread: exactOptionalPropertyTypes forbids passing `childIndex: undefined`.
     ...(childIndex !== undefined ? { childIndex } : {}),
   });
   return result.ok;
