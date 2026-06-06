@@ -8,10 +8,13 @@ import { convertListItemForParent } from './convertListItemForParent.js';
 const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
 
 /**
- * Moves a block from `sourcePos` and inserts it as the LAST child of
- * the list item at `targetItemPos` inside the wrapper at `wrapperPos`.
- * Shared drop-indent path used by `BlockHandle.performBlockDrop` when
- * `computeDropPlacement` returns `mode: 'nested'`.
+ * Moves a block from `sourcePos` and inserts it as a child of the list
+ * item at `targetItemPos` inside the wrapper at `wrapperPos`. Without
+ * `childIndex` it appends as the LAST child (legacy); pass `childIndex`
+ * (>= 1) to land it at a specific slot among the item's children, e.g.
+ * `1` for the first child after the label. Shared drop-indent path used by
+ * `BlockHandle.performBlockDrop` when `computeDropPlacement` returns
+ * `mode: 'nested'`.
  *
  * Behaviour matrix:
  *
@@ -42,6 +45,7 @@ export function moveBlockAsNestedChild(
   sourcePos: number,
   wrapperPos: number,
   targetItemPos: number,
+  childIndex?: number,
 ): boolean {
   if (sourcePos < 0 || sourcePos >= tr.doc.content.size) return false;
   const sourceNode = tr.doc.nodeAt(sourcePos);
@@ -84,6 +88,9 @@ export function moveBlockAsNestedChild(
     targetItemPos,
     blockNode,
     sourceRange: { from: expandedFrom, to: expandedTo },
+    // Conditional spread: `exactOptionalPropertyTypes` forbids passing an
+    // explicit `undefined` to the optional `childIndex` prop.
+    ...(childIndex !== undefined ? { childIndex } : {}),
   });
   return result.ok;
 }

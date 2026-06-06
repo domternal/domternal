@@ -23,7 +23,7 @@ import { Extension, defaultIcons } from '@domternal/core';
 import type { Editor } from '@domternal/core';
 import { NodeSelection, Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
-import type { Slice } from '@domternal/pm/model';
+import type { Node, Slice } from '@domternal/pm/model';
 import { findDeepestBlockAtY } from './helpers/findTopLevelBlock.js';
 import { moveBlock } from './helpers/moveBlock.js';
 import { moveBlockAsNestedChild } from './helpers/moveBlockAsNestedChild.js';
@@ -502,6 +502,21 @@ export interface DropPlacement {
   /** Position of the containing list wrapper when `mode === 'nested'`. */
   wrapperPos?: number;
   /**
+   * Child-array index inside `targetItemPos` where a nested drop lands.
+   * Always `>= 1` (index 0 is the immutable label paragraph) and `<=` the
+   * item's `childCount` (where `=== childCount` means append-last, the
+   * legacy behaviour). Present only when `mode === 'nested'`; lets the drop
+   * land at the FIRST / between / LAST child slot the cursor picked.
+   */
+  childIndex?: number;
+  /**
+   * Client-coord gap rect the nested indicator draws into (the gap the
+   * chosen `childIndex` slot occupies). Lets `updateDropIndicator` place the
+   * line at the exact child gap instead of the item's bottom edge. Present
+   * only when `mode === 'nested'`.
+   */
+  nestedGapRect?: { top: number; bottom: number; left: number; width: number };
+  /**
    * Position of the block the spatial resolver actually landed on (the
    * deepest-match item BEFORE gap-normalization rewrites `pos` to a previous
    * sibling). The drag pipeline feeds this back as `incumbentPos` on the
@@ -521,6 +536,13 @@ export interface DropPlacementOptions {
   incumbentPos?: number | null;
   /** Whether nested mode was latched on the previous dragover, for X-hysteresis. */
   nestLatched?: boolean;
+  /**
+   * Child slot index resolved on the previous dragover, for the nested
+   * child-slot dead-band so a tiny Y wobble near a gap boundary doesn't flip
+   * `childIndex`. Only meaningful while `nestLatched` stays true on the same
+   * target item.
+   */
+  incumbentChildIndex?: number | null;
   /**
    * Enable the hysteresis dead-bands. Off by default so unit callers get
    * the exact-threshold behaviour the contract tests assert; the live
@@ -597,6 +619,19 @@ export function computeDropPlacement(
         // a position between siblings is the wrapper itself.
         const $resolved = view.state.doc.resolve(resolved.pos);
         const wrapperPos = $resolved.before();
+        // Position-aware nested drop: pick WHICH child slot of the target
+        // item the cursor's Y lands in (first / between / last), so the
+        // block can land under the label instead of always appending last.
+        const childBand = options.hysteresis ? DROP_HYSTERESIS_Y_PX : 0;
+        const slot = resolveChildSlot(
+          view,
+          targetNode,
+          resolved.pos,
+          targetRect,
+          clientY,
+          options.incumbentChildIndex ?? null,
+          childBand,
+        );
         // `insertAfter` mirrors the sibling-mode Y-mid calculation so the
         // field stays semantically meaningful when consumers (the nested
         // branch ignores it).
@@ -608,6 +643,8 @@ export function computeDropPlacement(
           mode: 'nested',
           targetItemPos: resolved.pos,
           wrapperPos,
+          childIndex: slot.childIndex,
+          nestedGapRect: slot.gapRect,
           resolvedBlockPos,
         };
       }
@@ -652,6 +689,123 @@ function findPreviousSiblingAtSameDepth(
   const prevDom = view.nodeDOM(prevPos);
   if (!(prevDom instanceof HTMLElement)) return null;
   return { pos: prevPos, rect: prevDom.getBoundingClientRect() };
+}
+
+interface ChildGapRect {
+  top: number;
+  bottom: number;
+  left: number;
+  width: number;
+}
+
+interface ChildSlot {
+  /** Child-array index to insert at, in `[1, childCount]`. */
+  childIndex: number;
+  /** Client-coord gap the chosen slot occupies (drives the indicator line). */
+  gapRect: ChildGapRect;
+}
+
+/**
+ * Picks WHICH child slot of a list item the cursor's Y lands in, so a
+ * nested drop can land as the FIRST child (just below the label), BETWEEN
+ * children, or as the LAST child (append) instead of always appending.
+ *
+ * The item's child 0 is the immutable label paragraph (schema
+ * `paragraph block*`), so `childIndex` is always `>= 1`. The slot is chosen
+ * by which block child's vertical MID-LINE band the cursor sits in (mid-line,
+ * not gap edge, so flush/zero-gap children don't make the choice ambiguous):
+ * `childIndex = 1 + (count of block children whose mid-line is at/above the
+ * cursor)`, clamped to `[1, childCount]` (`=== childCount` means append).
+ *
+ * `band > 0` enables a child-slot dead-band: when the freshly chosen index
+ * is one off `incumbentChildIndex` and the cursor is within `band` px of the
+ * boundary (the adjacent child's mid-line), the incumbent is kept (mirrors
+ * the Y/X hysteresis one level up). An out-of-range incumbent is ignored.
+ *
+ * Falls back to append-last with a thin gap at `itemRect.bottom` when any
+ * child DOM rect is unavailable (mid-edit / virtualized), so resolution
+ * degrades to the legacy behaviour rather than throwing.
+ */
+function resolveChildSlot(
+  view: EditorView,
+  item: Node,
+  itemStart: number,
+  itemRect: DOMRect,
+  clientY: number,
+  incumbentChildIndex: number | null,
+  band: number,
+): ChildSlot {
+  const childCount = item.childCount;
+  const appendGap: ChildGapRect = {
+    top: itemRect.bottom,
+    bottom: itemRect.bottom,
+    left: itemRect.left,
+    width: itemRect.width,
+  };
+
+  const rects: DOMRect[] = [];
+  let allPresent = true;
+  let childPos = itemStart + 1; // one past the item's open token (label start)
+  for (let i = 0; i < childCount; i++) {
+    const dom = view.nodeDOM(childPos);
+    if (dom instanceof HTMLElement) {
+      rects.push(dom.getBoundingClientRect());
+    } else {
+      allPresent = false;
+      rects.push(itemRect);
+    }
+    childPos += item.child(i).nodeSize;
+  }
+
+  // Degrade to append-last if a rect is missing: legacy behaviour, anchored
+  // at the item's bottom edge.
+  const label = rects[0];
+  if (!allPresent || !label) return { childIndex: childCount, gapRect: appendGap };
+
+  // Empty children-zone (label only): first child is also the last, so the
+  // single reachable slot is index 1 == append, drawn at the label's bottom.
+  if (childCount === 1) {
+    return {
+      childIndex: 1,
+      gapRect: { top: label.bottom, bottom: label.bottom, left: label.left, width: label.width },
+    };
+  }
+
+  // Slot = 1 + number of block children whose mid-line is at/above the cursor.
+  let index = 1;
+  for (let i = 1; i < childCount; i++) {
+    const r = rects[i];
+    if (r && clientY >= (r.top + r.bottom) / 2) index = i + 1;
+  }
+  index = Math.min(Math.max(index, 1), childCount);
+
+  // Child-slot dead-band: keep the incumbent when the cursor is within `band`
+  // px of the boundary (the mid-line of the child shared by the two adjacent
+  // slots) between the incumbent and the freshly chosen index.
+  if (
+    band > 0 &&
+    incumbentChildIndex !== null &&
+    incumbentChildIndex >= 1 &&
+    incumbentChildIndex <= childCount &&
+    Math.abs(index - incumbentChildIndex) === 1
+  ) {
+    const r = rects[Math.min(index, incumbentChildIndex)];
+    if (r && Math.abs(clientY - (r.top + r.bottom) / 2) <= band) index = incumbentChildIndex;
+  }
+
+  const above = rects[index - 1];
+  const below = index < childCount ? rects[index] : undefined;
+  if (!above) return { childIndex: index, gapRect: appendGap };
+  if (!below) {
+    return {
+      childIndex: index,
+      gapRect: { top: above.bottom, bottom: above.bottom, left: above.left, width: above.width },
+    };
+  }
+  return {
+    childIndex: index,
+    gapRect: { top: above.bottom, bottom: below.top, left: below.left, width: below.width },
+  };
 }
 
 /**
@@ -745,6 +899,10 @@ export function createBlockHandlePlugin(
   let currentDropKey: string | null = null;
   let dragIncumbentPos: number | null = null;
   let dragNestLatched = false;
+  // Child slot latched on the previous nested dragover, so a tiny Y wobble
+  // near a child-gap boundary doesn't flip first/between/last. Reset whenever
+  // nested mode flips off (handled at the indicator resolve site).
+  let dragIncumbentChildIndex: number | null = null;
 
   const resetDropState = (): void => {
     if (dropRaf !== null) {
@@ -755,6 +913,7 @@ export function createBlockHandlePlugin(
     currentDropKey = null;
     dragIncumbentPos = null;
     dragNestLatched = false;
+    dragIncumbentChildIndex = null;
   };
 
   // Auto-scroll state machine (populated during an active drag, reset by
@@ -1119,6 +1278,7 @@ export function createBlockHandlePlugin(
     const placement = computeDropPlacement(view, clientX, clientY, nested, nestThreshold, {
       incumbentPos: dragIncumbentPos,
       nestLatched: dragNestLatched,
+      incumbentChildIndex: dragIncumbentChildIndex,
       hysteresis: true,
     });
     if (!placement) return false;
@@ -1129,14 +1289,31 @@ export function createBlockHandlePlugin(
       && placement.targetItemPos !== undefined
       && placement.wrapperPos !== undefined
     ) {
-      // Drop-indent path: append source as the last child of the target
-      // list item via `insertAsListItemChild`. On schema reject the
-      // helper leaves `tr` untouched and returns false; we fall back to
-      // the sibling-style move so the user's drag still produces a
-      // sensible result.
-      const ok = moveBlockAsNestedChild(tr, draggedFrom, placement.wrapperPos, placement.targetItemPos);
+      // Drop-indent path: insert the source at the resolved child slot of the
+      // target list item (first / between / last) via `insertAsListItemChild`.
+      // `placement.childIndex` is read off the SAME placement the indicator
+      // drew, so the block lands exactly where the line sat.
+      const ok = moveBlockAsNestedChild(
+        tr,
+        draggedFrom,
+        placement.wrapperPos,
+        placement.targetItemPos,
+        placement.childIndex,
+      );
       if (ok) {
         view.dispatch(tr.scrollIntoView());
+        return true;
+      }
+      // The helper returned false. Distinguish a self-drop no-op (the source
+      // is inside the target item, e.g. reordering a child to its own slot)
+      // from a genuine schema reject. For the no-op, do nothing and consume
+      // the event; only a true reject falls through to the sibling move so we
+      // don't surprise the user by ejecting the block out to a list sibling.
+      const targetItem = view.state.doc.nodeAt(placement.targetItemPos);
+      const targetItemEnd = targetItem
+        ? placement.targetItemPos + targetItem.nodeSize
+        : placement.targetItemPos;
+      if (draggedFrom >= placement.targetItemPos && draggedFrom < targetItemEnd) {
         return true;
       }
     }
@@ -1191,6 +1368,7 @@ export function createBlockHandlePlugin(
     const placement = computeDropPlacement(editor.view, clientX, clientY, nested, nestThreshold, {
       incumbentPos: dragIncumbentPos,
       nestLatched: dragNestLatched,
+      incumbentChildIndex: dragIncumbentChildIndex,
       hysteresis: true,
     });
     if (!placement) {
@@ -1203,6 +1381,9 @@ export function createBlockHandlePlugin(
     // updated, even when the repaint is gated below.
     dragIncumbentPos = placement.resolvedBlockPos ?? null;
     dragNestLatched = placement.mode === 'nested';
+    // Carry the child slot forward only while nested; reset when nest mode
+    // flips off so a stale slot from a prior nest episode can't glue the line.
+    dragIncumbentChildIndex = placement.mode === 'nested' ? placement.childIndex ?? null : null;
 
     const editorRect = editorEl.getBoundingClientRect();
 
@@ -1210,15 +1391,28 @@ export function createBlockHandlePlugin(
     let left: number;
     let width: number;
     if (placement.mode === 'nested') {
-      // Indicator sits AT the bottom of the target list item, indented
-      // to the children-zone start. `NESTED_INDICATOR_INDENT_PX` mirrors
-      // the default `--dm-block-children-indent` CSS variable (1.5rem ≈
-      // 24px); custom themes that override the variable can override
-      // the indicator indent through the same CSS hook (see theme).
+      // Indicator sits in the chosen child gap, indented to the children-zone
+      // start. `NESTED_INDICATOR_INDENT_PX` mirrors the default
+      // `--dm-block-children-indent` CSS variable (1.5rem ≈ 24px); custom
+      // themes that override the variable can override the indicator indent
+      // through the same CSS hook (see theme). `nestedGapRect` carries the
+      // first/between/last gap the cursor picked; fall back to the item's
+      // bottom edge (legacy append look) when it's absent.
       const indent = NESTED_INDICATOR_INDENT_PX;
-      lineY = placement.rect.bottom - editorRect.top;
-      left = placement.rect.left - editorRect.left + indent;
-      width = Math.max(0, placement.rect.width - indent);
+      const gap = placement.nestedGapRect ?? {
+        top: placement.rect.bottom,
+        bottom: placement.rect.bottom,
+        left: placement.rect.left,
+        width: placement.rect.width,
+      };
+      // The nested CSS applies `transform: translateY(-2px)`. For a REAL gap
+      // (top !== bottom) add 2px so the visible dashed line lands at the gap
+      // CENTER; for a thin edge band (append / flush children) keep the
+      // legacy -2px nudge that tucks the line just inside the edge.
+      const cssNudgeComp = gap.top === gap.bottom ? 0 : 2;
+      lineY = (gap.top + gap.bottom) / 2 + cssNudgeComp - editorRect.top;
+      left = gap.left - editorRect.left + indent;
+      width = Math.max(0, gap.width - indent);
     } else {
       // Sibling line: ABOVE rect when inserting before, BELOW when
       // inserting after. Spans the full resolved block width.
@@ -1232,7 +1426,10 @@ export function createBlockHandlePlugin(
     // gate. Gating on the DRAWN geometry (not just placement.pos) keeps the
     // indicator correct during auto-scroll, where the same logical slot
     // moves on screen and SHOULD repaint.
-    const key = `${placement.mode}|${String(Math.round(lineY))}|${String(Math.round(left))}|${String(Math.round(width))}`;
+    // Include the nested child slot in the key so two child gaps that round
+    // to the same pixel row still repaint when the slot changes.
+    const slotPart = placement.mode === 'nested' ? String(placement.childIndex ?? -1) : 's';
+    const key = `${placement.mode}|${slotPart}|${String(Math.round(lineY))}|${String(Math.round(left))}|${String(Math.round(width))}`;
     if (key === currentDropKey && indicator.hasAttribute('data-show')) return;
     currentDropKey = key;
 

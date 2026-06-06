@@ -296,4 +296,56 @@ describe('moveBlockAsNestedChild', () => {
       expect(li?.lastChild?.textContent).toBe('Solo');
     });
   });
+
+  describe('childIndex (position-aware nested drop)', () => {
+    it('non-list source forwarded with childIndex=1 lands as the FIRST child (before existing block children)', () => {
+      editor = makeEditor('<p>Source</p><ul><li><p>Target</p><p>Existing</p></li></ul>');
+      const sourcePos = posOf(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Source');
+      const wrapperPos = posOf(editor, (n) => n.type.name === 'bulletList');
+      const targetItemPos = posOf(editor, (n) => n.type.name === 'listItem');
+
+      const tr = editor.state.tr;
+      expect(moveBlockAsNestedChild(tr, sourcePos, wrapperPos, targetItemPos, 1)).toBe(true);
+      editor.view.dispatch(tr);
+
+      // Target item is now [Target(label), Source, Existing].
+      expect(dump(editor)).toContain(
+        'listItem(paragraph("Target"), paragraph("Source"), paragraph("Existing"))',
+      );
+    });
+
+    it('list-item source with childIndex=1 wraps in a fresh sublist placed BEFORE the existing block child', () => {
+      editor = makeEditor(
+        '<ul><li><p>Drag</p></li></ul><ul><li><p>Target</p><p>X</p></li></ul>',
+      );
+      const sourcePos = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Drag');
+      const targetItemPos = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent.startsWith('Target'));
+      const wrapperPos = editor.state.doc.resolve(targetItemPos).before();
+
+      const tr = editor.state.tr;
+      expect(moveBlockAsNestedChild(tr, sourcePos, wrapperPos, targetItemPos, 1)).toBe(true);
+      editor.view.dispatch(tr);
+
+      // Target item: [label, nested bulletList(Drag), X]. The fresh sublist
+      // sits at index 1 (before X), not appended last.
+      const out = dump(editor);
+      expect(out).toContain('paragraph("Target"), bulletList(listItem(paragraph("Drag")))');
+      expect(out).toContain('bulletList(listItem(paragraph("Drag"))), paragraph("X")');
+    });
+
+    it('childIndex omitted still appends as last child (backward-compat)', () => {
+      editor = makeEditor('<p>Source</p><ul><li><p>Target</p><p>Existing</p></li></ul>');
+      const sourcePos = posOf(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Source');
+      const wrapperPos = posOf(editor, (n) => n.type.name === 'bulletList');
+      const targetItemPos = posOf(editor, (n) => n.type.name === 'listItem');
+
+      const tr = editor.state.tr;
+      expect(moveBlockAsNestedChild(tr, sourcePos, wrapperPos, targetItemPos)).toBe(true);
+      editor.view.dispatch(tr);
+
+      expect(dump(editor)).toContain(
+        'listItem(paragraph("Target"), paragraph("Existing"), paragraph("Source"))',
+      );
+    });
+  });
 });

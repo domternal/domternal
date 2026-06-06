@@ -706,3 +706,156 @@ describe('computeDropPlacement - hysteresis (drag-session stickiness)', () => {
     editor.destroy();
   });
 });
+
+describe('computeDropPlacement - position-aware nested child slot', () => {
+  // A single list item with a label + two block children: [L, A, B]. The
+  // item rect spans all three (100-220); each child gets its own band.
+  function multiChildView(editor: Editor): {
+    view: EditorView;
+    liPos: number;
+  } {
+    const ulPos = posOf(editor, (n) => n.type.name === 'bulletList');
+    const liPos = posOf(editor, (n) => n.type.name === 'listItem');
+    const pL = posOf(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'L');
+    const pA = posOf(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'A');
+    const pB = posOf(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'B');
+    const rects = new Map<number, HTMLElement>([
+      [ulPos, elWithRect({ top: 100, bottom: 220 })],
+      [liPos, elWithRect({ top: 100, bottom: 220 })],
+      [pL, elWithRect({ top: 100, bottom: 140 })],
+      [pA, elWithRect({ top: 140, bottom: 180 })], // mid = 160
+      [pB, elWithRect({ top: 180, bottom: 220 })], // mid = 200
+    ]);
+    return { view: viewStub(editor, rects), liPos };
+  }
+
+  it('cursor in the FIRST-child zone (below label, above first child mid) resolves childIndex 1', () => {
+    const editor = makeEditor('<ul><li><p>L</p><p>A</p><p>B</p></li></ul>');
+    const { view } = multiChildView(editor);
+    const r = computeDropPlacement(view, 50, 145, NESTED_LIST); // 145 < A.mid(160)
+    expect(r?.mode).toBe('nested');
+    expect(r?.childIndex).toBe(1);
+    expect(r?.nestedGapRect).toBeDefined();
+    editor.destroy();
+  });
+
+  it('cursor in a BETWEEN zone (past first child mid) resolves childIndex 2', () => {
+    const editor = makeEditor('<ul><li><p>L</p><p>A</p><p>B</p></li></ul>');
+    const { view } = multiChildView(editor);
+    const r = computeDropPlacement(view, 50, 170, NESTED_LIST); // A.mid(160) <= 170 < B.mid(200)
+    expect(r?.mode).toBe('nested');
+    expect(r?.childIndex).toBe(2);
+    editor.destroy();
+  });
+
+  it('cursor in the LAST zone (past last child mid) resolves childIndex === childCount (append)', () => {
+    const editor = makeEditor('<ul><li><p>L</p><p>A</p><p>B</p></li></ul>');
+    const { view } = multiChildView(editor);
+    const r = computeDropPlacement(view, 50, 210, NESTED_LIST); // >= B.mid(200)
+    expect(r?.mode).toBe('nested');
+    expect(r?.childIndex).toBe(3); // childCount of [L,A,B]
+    editor.destroy();
+  });
+
+  it('an empty-children item (label only) resolves childIndex 1', () => {
+    const editor = makeEditor('<ul><li><p>Solo</p></li></ul>');
+    const ulPos = posOf(editor, (n) => n.type.name === 'bulletList');
+    const liPos = posOf(editor, (n) => n.type.name === 'listItem');
+    const pSolo = posOf(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Solo');
+    const rects = new Map<number, HTMLElement>([
+      [ulPos, elWithRect({ top: 100, bottom: 140 })],
+      [liPos, elWithRect({ top: 100, bottom: 140 })],
+      [pSolo, elWithRect({ top: 100, bottom: 140 })],
+    ]);
+    const r = computeDropPlacement(viewStub(editor, rects), 50, 120, NESTED_LIST);
+    expect(r?.mode).toBe('nested');
+    expect(r?.childIndex).toBe(1);
+    editor.destroy();
+  });
+
+  it('child-slot hysteresis: incumbentChildIndex sticks within the band, flips past it', () => {
+    const editor = makeEditor('<ul><li><p>L</p><p>A</p><p>B</p></li></ul>');
+    const { view } = multiChildView(editor);
+
+    // Y=163 is 3px past A.mid(160). Stateless -> index 2.
+    const stateless = computeDropPlacement(view, 50, 163, NESTED_LIST);
+    expect(stateless?.childIndex).toBe(2);
+
+    // With incumbent=1 + hysteresis, 3px (< 6px band) keeps index 1.
+    const sticky = computeDropPlacement(view, 50, 163, NESTED_LIST, 28, {
+      incumbentChildIndex: 1,
+      hysteresis: true,
+    });
+    expect(sticky?.childIndex).toBe(1);
+
+    // 10px past the boundary (> band) flips to 2 even with incumbent=1.
+    const flipped = computeDropPlacement(view, 50, 170, NESTED_LIST, 28, {
+      incumbentChildIndex: 1,
+      hysteresis: true,
+    });
+    expect(flipped?.childIndex).toBe(2);
+    editor.destroy();
+  });
+
+  it('sibling placements never carry childIndex / nestedGapRect', () => {
+    const editor = makeEditor('<ul><li><p>L</p><p>A</p><p>B</p></li></ul>');
+    const { view } = multiChildView(editor);
+    // nestThreshold=0 forces sibling mode.
+    const r = computeDropPlacement(view, 50, 145, NESTED_LIST, 0);
+    expect(r?.mode).toBe('sibling');
+    expect(r?.childIndex).toBeUndefined();
+    expect(r?.nestedGapRect).toBeUndefined();
+    editor.destroy();
+  });
+
+  describe('flagship: outer item with a nested sublist', () => {
+    // taskItem "AI" whose children are [label, nested taskList]. The outer
+    // item is the deepest match ONLY in the label band (Y 100-145); the
+    // nested list rows resolve to the INNER item (deepest-match).
+    function flagshipView(editor: Editor): {
+      view: EditorView;
+      outerTI: number;
+      innerTI: number;
+    } {
+      const outerTL = posOf(editor, (n) => n.type.name === 'taskList');
+      const outerTI = posOf(editor, (n) => n.type.name === 'taskItem');
+      const pAI = posOf(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'AI');
+      const innerTI = posOf(editor, (n) => n.type.name === 'taskItem' && n.textContent === 'Wire');
+      const innerTL = editor.state.doc.resolve(innerTI).before();
+      const pWire = posOf(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Wire');
+      const rects = new Map<number, HTMLElement>([
+        [outerTL, elWithRect({ top: 100, bottom: 300 })],
+        [outerTI, elWithRect({ top: 100, bottom: 300 })],
+        [pAI, elWithRect({ top: 100, bottom: 145 })],
+        [innerTL, elWithRect({ top: 150, bottom: 300 })],
+        [innerTI, elWithRect({ top: 150, bottom: 200 })],
+        [pWire, elWithRect({ top: 150, bottom: 200 })],
+      ]);
+      return { view: viewStub(editor, rects), outerTI, innerTI };
+    }
+
+    const FLAGSHIP_HTML =
+      '<ul data-type="taskList"><li data-type="taskItem"><p>AI</p>' +
+      '<ul data-type="taskList"><li data-type="taskItem"><p>Wire</p></li></ul>' +
+      '</li></ul>';
+
+    it('cursor in the outer label band resolves to the OUTER item at childIndex 1 (before the sublist)', () => {
+      const editor = makeEditor(FLAGSHIP_HTML);
+      const { view, outerTI } = flagshipView(editor);
+      const r = computeDropPlacement(view, 50, 130, NESTED_LIST); // label band
+      expect(r?.mode).toBe('nested');
+      expect(r?.targetItemPos).toBe(outerTI);
+      expect(r?.childIndex).toBe(1);
+      editor.destroy();
+    });
+
+    it('cursor on a nested-list row resolves to the INNER item (documented reachability limit)', () => {
+      const editor = makeEditor(FLAGSHIP_HTML);
+      const { view, innerTI } = flagshipView(editor);
+      const r = computeDropPlacement(view, 50, 170, NESTED_LIST); // inner row
+      expect(r?.mode).toBe('nested');
+      expect(r?.targetItemPos).toBe(innerTI);
+      editor.destroy();
+    });
+  });
+});
