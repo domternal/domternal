@@ -1101,7 +1101,7 @@ test.describe('Drop in inter-block gaps', () => {
     expect(liTexts).toEqual(['Item B', 'Item C', 'Item A']);
   });
 
-  test('drop in gap 1px ABOVE next block → resolver picks next block (cursor closer to it)', async ({ page }) => {
+  test('drop in gap 1px ABOVE next block with X at the list indent appends to the end of the list', async ({ page }) => {
     await setContent(
       page,
       '<ul>'
@@ -1117,15 +1117,15 @@ test.describe('Drop in inter-block gaps', () => {
     await hoverAt(page, await sideGutterX(page), aBox.y + aBox.height / 2);
 
     const bounds = await listAndNextBlockBounds(page);
-    // 1px above the next block's top - closer to H2 than to UL.
-    // Resolver returns H2 (not a list wrapper). Drop processes H2:
-    // top-half of H2 → insert before H2. moveBlock inserts the
-    // listItem at top level → PM auto-wraps it in a sibling UL.
+    // 1px above the next block, but X sits at the LIST item indent: the slot
+    // model keeps the drop at the list level, so A lands after C (the list's
+    // end), not as a separate top-level list before H2. (X further left would
+    // outdent to a top-level sibling.)
     const dropX = bounds.lastLi.x + 5;
     const dropY = bounds.nextTop - 1;
     await dragHandleTo(page, dropX, dropY);
 
-    // Top-level layout: original UL[B, C], new UL[A], H2.
+    // Top-level layout: single UL[B, C, A], H2.
     const topLevel = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | { state: { doc: { forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } }
@@ -1135,8 +1135,7 @@ test.describe('Drop in inter-block gaps', () => {
       return out;
     });
     expect(topLevel).toEqual([
-      { type: 'bulletList', text: 'Item BItem C' },
-      { type: 'bulletList', text: 'Item A' },
+      { type: 'bulletList', text: 'Item BItem CItem A' },
       { type: 'heading', text: 'Next section' },
     ]);
   });
