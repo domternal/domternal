@@ -554,12 +554,13 @@ export interface DropPlacementOptions {
   /** Enable the dead-bands (off for unit callers, `true` from the plugin). */
   hysteresis?: boolean;
   /**
-   * Whether the dragged block is itself a list item. When `false`, a sibling
-   * drop inside a list draws the indicator at the list's parent column (the
-   * block lifts out, splitting the list, and keeps its type). Defaults to
-   * `true`. See {@link resolveDropSlot}.
+   * The dragged source's list-item type (`'listItem'`/`'taskItem'`), or `null`
+   * for a non-list block. Drives the sibling indicator column: a drop that
+   * splits the list (a non-list block, or a list item of the other kind) draws
+   * at the list's parent column; one that joins (matching item type) keeps the
+   * item column. Omit for stateless callers. See {@link resolveDropSlot}.
    */
-  sourceIsListItem?: boolean;
+  sourceItemType?: string | null;
 }
 
 /**
@@ -593,7 +594,7 @@ export function computeDropPlacement(
     incumbent,
     bandY: options.hysteresis ? DROP_HYSTERESIS_Y_PX : 0,
     bandX: options.hysteresis ? DROP_HYSTERESIS_X_PX : 0,
-    sourceIsListItem: options.sourceIsListItem ?? true,
+    ...(options.sourceItemType !== undefined ? { sourceItemType: options.sourceItemType } : {}),
   });
   if (!slot) return null;
   const opt = slot.option;
@@ -1186,7 +1187,7 @@ export function createBlockHandlePlugin(
       incumbentLevel: dragHyst.level,
       incumbentChildIndex: dragHyst.childIndex,
       hysteresis: true,
-      sourceIsListItem: LIST_ITEM_TYPES.has(sourceNode.type.name),
+      sourceItemType: LIST_ITEM_TYPES.has(sourceNode.type.name) ? sourceNode.type.name : null,
     });
     if (!placement) return false;
     const tr = view.state.tr;
@@ -1252,17 +1253,18 @@ export function createBlockHandlePlugin(
   };
 
   /**
-   * Whether the block currently being dragged is a list item. Drives the
-   * source-aware drop geometry: a non-list source lifts OUT of a list (the list
-   * splits and the block keeps its type) instead of becoming a new item, so its
-   * indicator sits at the list's parent column. Reads the same tiered source
-   * `performBlockDrop` does, so the indicator and the drop always agree.
+   * The list-item type of the block currently being dragged (`'listItem'` /
+   * `'taskItem'`), or `null` for a non-list block. Drives the source-aware drop
+   * geometry: a drop that splits the list (a non-list block, or a list item of
+   * the other kind) sits at the list's parent column; one that joins keeps the
+   * item column. Reads the same tiered source `performBlockDrop` does, so the
+   * indicator and the drop always agree.
    */
-  const draggedSourceIsListItem = (): boolean => {
+  const draggedSourceItemType = (): string | null => {
     const from = pluginKey.getState(editor.view.state)?.draggedFrom ?? pendingDraggedFrom;
-    if (from === null) return true;
+    if (from === null) return null;
     const node = editor.view.state.doc.nodeAt(from);
-    return node ? LIST_ITEM_TYPES.has(node.type.name) : true;
+    return node && LIST_ITEM_TYPES.has(node.type.name) ? node.type.name : null;
   };
 
   /**
@@ -1278,7 +1280,7 @@ export function createBlockHandlePlugin(
       incumbentLevel: dragHyst.level,
       incumbentChildIndex: dragHyst.childIndex,
       hysteresis: true,
-      sourceIsListItem: draggedSourceIsListItem(),
+      sourceItemType: draggedSourceItemType(),
     });
     if (!placement) {
       indicator.removeAttribute('data-show');

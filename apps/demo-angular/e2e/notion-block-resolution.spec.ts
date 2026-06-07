@@ -1785,9 +1785,9 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     });
   }
 
-  // ── Bullet → Task ──
+  // ── Bullet → Task (different item type: stays a bullet, splits the list) ──
 
-  test('drag a bullet item into a task list → converts to taskItem (unchecked)', async ({ page }) => {
+  test('drag a bullet item into a task list → stays a bullet, splitting the task list', async ({ page }) => {
     await setContent(
       page,
       '<ul><li><p>Bullet source</p></li></ul>'
@@ -1797,17 +1797,16 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     );
     await dragFromTo(page, 'Bullet source', 'Existing task');
 
-    const items = await itemTypes(page);
-    // Only `Existing task` and the converted `Bullet source` (now a taskItem).
-    // `Bullet source` is below `Existing task` because we dropped on the
-    // bottom half.
-    expect(items).toEqual([
-      { type: 'taskItem', text: 'Existing task', checked: false },
-      { type: 'taskItem', text: 'Bullet source', checked: false },
+    // The bullet can't join a task list (different item type), so it keeps its
+    // type as its own bulletList after the task list, rather than converting.
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'taskList', text: 'Existing task' },
+      { type: 'bulletList', text: 'Bullet source' },
     ]);
+    expect((await itemTypes(page)).map((i) => i.type)).toEqual(['taskItem', 'listItem']);
   });
 
-  test('drag a bullet item into the MIDDLE of a task list → still converts to taskItem', async ({ page }) => {
+  test('drag a bullet item into the MIDDLE of a task list → stays a bullet, splitting the list in two', async ({ page }) => {
     await setContent(
       page,
       '<ul><li><p>Bullet source</p></li></ul>'
@@ -1816,20 +1815,23 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
       + '<li data-type="taskItem"><p>Task B</p></li>'
       + '</ul>',
     );
-    // Drop on Task A's bottom-half → lands between A and B (still inside taskList).
+    // Drop on Task A's bottom-half → between A and B: the task list splits.
     await dragFromTo(page, 'Bullet source', 'Task A');
 
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'taskList', text: 'Task A' },
+      { type: 'bulletList', text: 'Bullet source' },
+      { type: 'taskList', text: 'Task B' },
+    ]);
     const items = await itemTypes(page);
-    expect(items.map((i) => i.type)).toEqual(['taskItem', 'taskItem', 'taskItem']);
-    expect(items.map((i) => i.text)).toEqual(['Task A', 'Bullet source', 'Task B']);
-    // Existing checked state preserved on Task A; new converted item is unchecked.
+    expect(items.map((i) => i.type)).toEqual(['taskItem', 'listItem', 'taskItem']);
+    // Task A keeps its checked state; the bullet stays a bullet.
     expect(items[0]?.checked).toBe(true);
-    expect(items[1]?.checked).toBe(false);
   });
 
-  // ── Task → Bullet/Ordered ──
+  // ── Task → Bullet/Ordered (different item type: stays a to-do, splits) ──
 
-  test('drag a task item into a bullet list → converts to listItem (drops checked)', async ({ page }) => {
+  test('drag a task item into a bullet list → stays a to-do (checked state preserved), splitting the list', async ({ page }) => {
     await setContent(
       page,
       '<ul data-type="taskList">'
@@ -1839,15 +1841,17 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     );
     await dragFromTo(page, 'Task source', 'Existing bullet');
 
-    const items = await itemTypes(page);
-    // listItem schema doesn't carry `checked`, so attr is stripped.
-    expect(items).toEqual([
-      { type: 'listItem', text: 'Existing bullet', checked: undefined },
-      { type: 'listItem', text: 'Task source', checked: undefined },
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'bulletList', text: 'Existing bullet' },
+      { type: 'taskList', text: 'Task source' },
     ]);
+    const items = await itemTypes(page);
+    expect(items.map((i) => i.type)).toEqual(['listItem', 'taskItem']);
+    // The to-do stays a to-do and KEEPS its checked state (no data loss).
+    expect(items[1]?.checked).toBe(true);
   });
 
-  test('drag a task item into an ordered list → converts to listItem', async ({ page }) => {
+  test('drag a task item into an ordered list → stays a to-do, splitting the ordered list', async ({ page }) => {
     await setContent(
       page,
       '<ul data-type="taskList">'
@@ -1857,9 +1861,11 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     );
     await dragFromTo(page, 'Task source', 'Existing numbered');
 
-    const items = await itemTypes(page);
-    expect(items.map((i) => i.type)).toEqual(['listItem', 'listItem']);
-    expect(items.map((i) => i.text)).toEqual(['Existing numbered', 'Task source']);
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'orderedList', text: 'Existing numbered' },
+      { type: 'taskList', text: 'Task source' },
+    ]);
+    expect((await itemTypes(page)).map((i) => i.type)).toEqual(['listItem', 'taskItem']);
   });
 
   // ── No-op cases ──
@@ -2080,12 +2086,12 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     expect(inner).toEqual({ wrapper: 'blockquote', inner: 'paragraph' });
   });
 
-  // ── Inner content preserved during conversion ──
+  // ── Inner content preserved when a mismatched item splits the list ──
 
-  test('converted item retains its inner paragraph + nested lists', async ({ page }) => {
-    // Source: a bullet item that itself contains a nested task list.
-    // Drop into a task list. Outer wrapper: listItem → taskItem.
-    // Inner nested taskList: stays a taskList (already correct type).
+  test('a mismatched item dropped into a list keeps its type AND its inner paragraph + nested lists', async ({ page }) => {
+    // Source: a bullet item that itself contains a nested task list. Dropped
+    // into a task list, it can't join (different item type), so it stays a
+    // listItem (in its own bulletList) with the nested taskList intact.
     await setContent(
       page,
       '<ul><li>'
@@ -2096,15 +2102,15 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     );
     await dragFromTo(page, 'Outer source', 'Existing task');
 
-    // Outer item is now a taskItem, and its first child is the paragraph,
-    // its second child is the (still) nested taskList.
+    // Outer item stays a listItem; first child is the paragraph, second is the
+    // (still) nested taskList - nothing converted.
     const structure = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | { state: { doc: { descendants: (cb: (n: { type: { name: string }; textContent: string; childCount: number; firstChild: { type: { name: string } } | null; lastChild: { type: { name: string } } | null }) => boolean | void) => void } } }
         | undefined;
       const out: Array<{ type: string; text: string; childCount: number; firstChildType: string | undefined; lastChildType: string | undefined }> = [];
       ed?.state.doc.descendants((node) => {
-        if (node.type.name === 'taskItem' && node.textContent.includes('Outer source')) {
+        if (node.type.name === 'listItem' && node.textContent.includes('Outer source')) {
           out.push({
             type: node.type.name,
             text: node.textContent,
@@ -2119,7 +2125,7 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     });
     expect(structure).toHaveLength(1);
     expect(structure[0]).toMatchObject({
-      type: 'taskItem',
+      type: 'listItem',
       childCount: 2,
       firstChildType: 'paragraph',
       lastChildType: 'taskList',

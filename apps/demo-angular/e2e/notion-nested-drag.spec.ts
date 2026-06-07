@@ -1154,7 +1154,7 @@ test.describe('Source × container matrix and drag-flow regression', () => {
     ]);
   });
 
-  test('drag bullet listItem INTO task list converts it to taskItem (cross-list-type, regression guard)', async ({ page }) => {
+  test('drag bullet listItem INTO task list keeps it a bullet (splits the task list, no conversion)', async ({ page }) => {
     await setContent(
       page,
       '<ul><li><p>Bullet to convert</p></li></ul>'
@@ -1172,23 +1172,15 @@ test.describe('Source × container matrix and drag-flow regression', () => {
       'bottom',
     );
 
-    // After the drag, the task list contains 2 items - the existing one
-    // and the converted bullet (now a taskItem with the original text).
-    const taskTexts = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; forEach: (cb2: (m: { textContent: string }) => void) => void }) => void) => void } } }
-        | undefined;
-      const out: string[] = [];
-      ed?.state.doc.forEach((n) => {
-        if (n.type.name === 'taskList') n.forEach((m) => out.push(m.textContent));
-      });
-      return out;
-    });
-    expect(taskTexts).toContain('Bullet to convert');
-    expect(taskTexts).toContain('Existing task');
+    // The bullet can't join a task list, so it keeps its type and lands as its
+    // own bulletList after the task list; the task list keeps only its item.
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'taskList', text: 'Existing task' },
+      { type: 'bulletList', text: 'Bullet to convert' },
+    ]);
   });
 
-  test('drag taskItem INTO bullet list converts it to listItem (reverse cross-list-type, regression guard)', async ({ page }) => {
+  test('drag taskItem INTO bullet list keeps it a to-do (splits the bullet list, no conversion)', async ({ page }) => {
     await setContent(
       page,
       '<ul data-type="taskList"><li data-type="taskItem"><p>Task to convert</p></li></ul>'
@@ -1200,18 +1192,10 @@ test.describe('Source × container matrix and drag-flow regression', () => {
       page.locator(`${editorSelector} ul:not([data-type="taskList"]) li > p`),
       'bottom',
     );
-    const bulletTexts = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; forEach: (cb2: (m: { textContent: string }) => void) => void }) => void) => void } } }
-        | undefined;
-      const out: string[] = [];
-      ed?.state.doc.forEach((n) => {
-        if (n.type.name === 'bulletList') n.forEach((m) => out.push(m.textContent));
-      });
-      return out;
-    });
-    expect(bulletTexts).toContain('Task to convert');
-    expect(bulletTexts).toContain('Existing bullet');
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'bulletList', text: 'Existing bullet' },
+      { type: 'taskList', text: 'Task to convert' },
+    ]);
   });
 
   test('paragraphInsideContainer rule is paragraph-SELECTIVE: heading inside blockquote still resolves to HEADING (not blockquote)', async ({ page }) => {

@@ -232,7 +232,7 @@ test.describe('drop placement - sibling-mode reorder', () => {
     expect(texts).toEqual(['Two', 'One', 'Three']);
   });
 
-  test('cross-list-type drag (bullet item into task list) auto-converts to taskItem', async ({ page }) => {
+  test('cross-list-type drag (bullet into task list) keeps the bullet (no conversion, lists stay separate)', async ({ page }) => {
     await setContent(page,
       '<ul><li><p>Bullet</p></li></ul>'
       + '<ul data-type="taskList"><li data-type="taskItem"><p>Task</p></li></ul>',
@@ -241,26 +241,21 @@ test.describe('drop placement - sibling-mode reorder', () => {
     const task = page.locator(`${editorSelector} ul[data-type="taskList"] li`);
     await dragBlock(page, bullet, task, 'top', 'left');
 
-    // Two top-level lists, but the bullet item migrated into the task list as taskItem.
-    const blocks = await getBlocks(page);
-    const taskList = blocks.find((b) => b.type === 'taskList');
-    expect(taskList).toBeDefined();
-    // Confirm task list now holds two taskItems (Bullet adapted, Task stays).
-    const taskListItems = await page.evaluate(() => {
+    // No conversion: the bullet stays a listItem and the task stays a taskItem,
+    // each in its own list (the task list is never merged into).
+    const items = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void }) => void) => void } } }
+        | { state: { doc: { descendants: (cb: (n: { type: { name: string }; textContent: string }) => boolean | void) => void } } }
         | undefined;
       const out: { type: string; text: string }[] = [];
-      ed?.state.doc.forEach((n) => {
-        if (n.type.name === 'taskList') {
-          n.forEach((li) => out.push({ type: li.type.name, text: li.textContent }));
-        }
+      ed?.state.doc.descendants((n) => {
+        if (n.type.name === 'listItem' || n.type.name === 'taskItem') out.push({ type: n.type.name, text: n.textContent });
+        return true;
       });
       return out;
     });
-    expect(taskListItems.every((x) => x.type === 'taskItem')).toBe(true);
-    expect(taskListItems.map((x) => x.text)).toContain('Bullet');
-    expect(taskListItems.map((x) => x.text)).toContain('Task');
+    expect(items).toContainEqual({ type: 'listItem', text: 'Bullet' });
+    expect(items).toContainEqual({ type: 'taskItem', text: 'Task' });
   });
 
   test('horizontalRule (atom) drags to sibling slot', async ({ page }) => {

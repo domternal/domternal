@@ -1,4 +1,5 @@
-import type { Fragment, ResolvedPos } from '@domternal/pm/model';
+import { Fragment } from '@domternal/pm/model';
+import type { ResolvedPos } from '@domternal/pm/model';
 import type { Transaction } from '@domternal/pm/state';
 import { canJoin } from '@domternal/pm/transform';
 import { expandToEmptyWrappers } from './expandToEmptyWrappers.js';
@@ -6,6 +7,11 @@ import { convertListItemForParent } from './convertListItemForParent.js';
 
 const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
 const LIST_WRAPPER_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
+
+/** The list-item node type a given list wrapper accepts as its child. */
+function expectedItemFor(wrapperName: string): string {
+  return wrapperName === 'taskList' ? 'taskItem' : 'listItem';
+}
 
 /**
  * Move a top-level block from `sourcePos` to `targetPos` in-place. Single
@@ -32,6 +38,10 @@ export function moveBlock(
   const sourceNode = tr.doc.nodeAt(sourcePos);
   if (!sourceNode) return tr;
   const sourceEnd = sourcePos + sourceNode.nodeSize;
+  // The list wrapper the source item currently lives in (its OWN list type),
+  // captured before the delete so a mismatched drop can re-wrap it in a fresh
+  // list of the same type instead of converting the item.
+  const sourceWrapperType = tr.doc.resolve(sourcePos).parent.type;
 
   const { from, to } = expandToEmptyWrappers(tr.doc, sourcePos, sourceEnd);
   if (targetPos >= from && targetPos <= to) return tr;
@@ -48,22 +58,28 @@ export function moveBlock(
   const $target = tr.doc.resolve(adjustedTarget);
   const targetParent = $target.parent;
 
-  // Non-list block dropped at a sibling gap INSIDE a list wrapper: preserve
-  // the block's own type and split the list around it (Notion), rather than
-  // wrapping it in a bullet. A heading stays a heading, a paragraph stays a
-  // paragraph; the list breaks and the block lands at the wrapper's parent
-  // level. List-item sources keep joining the list (and cross-convert
-  // listItem ↔ taskItem) via `convertListItemForParent` below.
-  if (
-    !LIST_ITEM_TYPES.has(sourceNode.type.name)
-    && LIST_WRAPPER_TYPES.has(targetParent.type.name)
-  ) {
-    insertBlockSplittingList(tr, $target, slice.content);
+  // A block that can't legally JOIN this list as a sibling item keeps its own
+  // type and splits the list around it (Notion), instead of being converted.
+  // Two cases land here:
+  //   - a non-list block (heading, paragraph, …): inserted directly.
+  //   - a list item of the OTHER kind (e.g. a to-do dropped into a bullet
+  //     list): re-wrapped in a fresh list of ITS OWN type so it stays a
+  //     to-do, not converted to a bullet.
+  // A list item that DOES match (listItem into bullet/ordered, taskItem into
+  // task) falls through and joins the list as a sibling below.
+  const targetWrapperName = LIST_WRAPPER_TYPES.has(targetParent.type.name) ? targetParent.type.name : null;
+  const sourceIsListItem = LIST_ITEM_TYPES.has(sourceNode.type.name);
+  const splitsList = targetWrapperName !== null
+    && (!sourceIsListItem || sourceNode.type.name !== expectedItemFor(targetWrapperName));
+  if (splitsList) {
+    const content = sourceIsListItem
+      ? Fragment.from(sourceWrapperType.create(null, slice.content))
+      : slice.content;
+    insertBlockSplittingList(tr, $target, content);
   } else {
-    // Auto-convert listItem ↔ taskItem when crossing list types, matching
-    // Notion's "drop adapts to context" UX. When the target's parent isn't
-    // a list wrapper (top-level drops, paragraph parents, etc.) the helper
-    // returns the slice content unchanged.
+    // Same-type list item joins the list as a sibling; for a non-list-wrapper
+    // target (top-level drops, paragraph parents) the helper returns the slice
+    // content unchanged. `convertListItemForParent` is a no-op in both cases.
     const adaptedContent = convertListItemForParent(
       tr.doc.type.schema,
       slice.content,

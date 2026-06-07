@@ -221,20 +221,25 @@ function lastChildIndex(view: EditorView, item: DropRow): number {
   return node ? node.childCount : 1;
 }
 
+/** The list-item node type a given list wrapper accepts as its child. */
+function expectedItemFor(wrapperName: string): string {
+  return wrapperName === 'taskList' ? 'taskItem' : 'listItem';
+}
+
 /**
- * Client-X column of the list WRAPPER that `insertPos` falls inside. For a
- * non-list block dropped at a sibling gap the block lifts OUT of the list
- * (splitting it) and renders at the wrapper's parent content column; since a
+ * Client-X column + type of the list WRAPPER that `insertPos` falls inside.
+ * For a block that SPLITS the list (a non-list block, or a list item of the
+ * other kind) the block lands at the wrapper's parent content column; since a
  * list wrapper's box starts at its container's content-left, the wrapper's own
  * rect is that column. Null when `insertPos` isn't directly inside a wrapper.
  */
-function wrapperColumn(view: EditorView, insertPos: number): { left: number; width: number } | null {
+function wrapperColumn(view: EditorView, insertPos: number): { left: number; width: number; type: string } | null {
   const $p = view.state.doc.resolve(insertPos);
   if (!LIST_WRAPPER_TYPES.has($p.parent.type.name)) return null;
   const dom = view.nodeDOM($p.before());
   if (!(dom instanceof HTMLElement)) return null;
   const r = dom.getBoundingClientRect();
-  return { left: r.left, width: Math.max(0, r.right - r.left) };
+  return { left: r.left, width: Math.max(0, r.right - r.left), type: $p.parent.type.name };
 }
 
 /** Dedup options sharing the same resolved insertion target; keep the shallowest. */
@@ -266,12 +271,16 @@ export interface ResolveDropSlotArgs {
   /** Whether the deepest "nest into the item" option is offered (nestThreshold > 0). */
   offerNest?: boolean;
   /**
-   * Whether the dragged source is itself a list item. When `false`, sibling
-   * options that land inside a list draw at the list's PARENT column: the block
-   * lifts out (splitting the list) and keeps its own type, instead of becoming a
-   * new list item. Defaults to `true` (preserves the list-item geometry).
+   * The dragged source's list-item type, driving the sibling-column geometry:
+   *   - `undefined` (omitted): keep the list-item column for every sibling
+   *     option (legacy/stateless callers).
+   *   - `null` (a non-list block): every in-list sibling draws at the list's
+   *     PARENT column, since the block splits the list and lifts out.
+   *   - `'listItem'` / `'taskItem'`: a sibling whose list accepts this item
+   *     type JOINS (keeps the list-item column); a mismatch (e.g. a to-do over
+   *     a bullet list) SPLITS and draws at the parent column.
    */
-  sourceIsListItem?: boolean;
+  sourceItemType?: string | null;
   /** Previous dragover's gap + depth, for the stickiness dead-bands. */
   incumbent?: DropSlotIncumbent | null;
   /** Y dead-band (px) around a row's mid so the gap doesn't flip on a wobble; 0 disables. */
@@ -296,7 +305,7 @@ export function resolveDropSlot(args: ResolveDropSlotArgs): DropSlot | null {
   const incumbent = args.incumbent ?? null;
   const bandY = args.bandY ?? 0;
   const bandX = args.bandX ?? 0;
-  const sourceIsListItem = args.sourceIsListItem ?? true;
+  const sourceItemType = args.sourceItemType;
   const rows = args.rows ?? collectRows(view, nestedEnabled);
   if (rows.length === 0) return null;
 
@@ -336,15 +345,18 @@ export function resolveDropSlot(args: ResolveDropSlotArgs): DropSlot | null {
   }
   if (options.length === 0) return null;
 
-  // Non-list source: a sibling drop INSIDE a list lifts the block out (the list
-  // splits around it), so its line + X guide sit at the wrapper's parent column,
-  // not the bullet-indented item column. The insert position is unchanged;
-  // `moveBlock` performs the split. The nest-into-item option is untouched.
-  if (!sourceIsListItem) {
+  // A sibling drop that SPLITS the list (a non-list block, or a list item of
+  // the other kind) lifts the block out, so its line + X guide sit at the
+  // wrapper's PARENT column, not the bullet-indented item column. A sibling
+  // that JOINS (matching item type) keeps the item column. The insert position
+  // is unchanged; `moveBlock` performs the split. Nest-into-item is untouched.
+  if (sourceItemType !== undefined) {
     options = options.map((o) => {
       if (o.insert.kind !== 'sibling') return o;
       const col = wrapperColumn(view, o.insert.pos);
-      return col ? { ...o, lineLeft: col.left, lineWidth: col.width } : o;
+      if (!col) return o;
+      const joins = sourceItemType !== null && sourceItemType === expectedItemFor(col.type);
+      return joins ? o : { ...o, lineLeft: col.left, lineWidth: col.width };
     });
   }
 

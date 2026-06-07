@@ -222,7 +222,7 @@ describe('resolveDropSlot', () => {
     // Y bottom half of A1 -> "after A1" gap; gutter X.
     const listItemSrc = resolveDropSlot({ view, clientX: 0, clientY: 18 });
     expect(listItemSrc?.option.lineLeft).toBe(10); // default: bullet-indented item column
-    const blockSrc = resolveDropSlot({ view, clientX: 0, clientY: 18, sourceIsListItem: false });
+    const blockSrc = resolveDropSlot({ view, clientX: 0, clientY: 18, sourceItemType: null });
     expect(blockSrc?.option.insert.kind).toBe('sibling');
     expect(sibPos(blockSrc)).toBe(pos.A2); // insert position unchanged (moveBlock splits)
     expect(blockSrc?.option.lineLeft).toBe(2); // lifted to the outer list (doc) column
@@ -235,14 +235,26 @@ describe('resolveDropSlot', () => {
     const afterB2 = pos.B2 + (view.state.doc.nodeAt(pos.B2)?.nodeSize ?? 0);
     // Gutter X at the after-B2 gap -> shallowest = lift fully out to the doc
     // column (full width), landing after A2 (== before A3).
-    const docLift = resolveDropSlot({ view, clientX: 0, clientY: 78, sourceIsListItem: false });
+    const docLift = resolveDropSlot({ view, clientX: 0, clientY: 78, sourceItemType: null });
     expect(docLift?.option.lineLeft).toBe(2);
     expect(sibPos(docLift)).toBe(pos.A3);
     // Mid X past the nested-list column -> lift one level out, into A2 as a
     // child after the (split) sublist; line sits at the nested-list column.
-    const itemLift = resolveDropSlot({ view, clientX: 24, clientY: 78, sourceIsListItem: false });
+    const itemLift = resolveDropSlot({ view, clientX: 24, clientY: 78, sourceItemType: null });
     expect(itemLift?.option.lineLeft).toBe(22);
     expect(sibPos(itemLift)).toBe(afterB2);
+    editor.destroy();
+  });
+
+  it('list-item source: matching item type JOINS (item column); a mismatched item SPLITS (wrapper column)', () => {
+    const { editor, view, pos } = fixture();
+    // Flat top-level gap (after A1) inside a bulletList (expects listItem).
+    const joins = resolveDropSlot({ view, clientX: 0, clientY: 18, sourceItemType: 'listItem' });
+    expect(joins?.option.lineLeft).toBe(10); // same item type -> joins, bullet column
+    expect(sibPos(joins)).toBe(pos.A2);
+    const splits = resolveDropSlot({ view, clientX: 0, clientY: 18, sourceItemType: 'taskItem' });
+    expect(splits?.option.lineLeft).toBe(2); // a to-do can't join a bullet list -> splits, parent column
+    expect(sibPos(splits)).toBe(pos.A2); // insert position unchanged (moveBlock splits + wraps)
     editor.destroy();
   });
 
