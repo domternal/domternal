@@ -5,6 +5,7 @@ import {
   Paragraph,
   Heading,
   BulletList,
+  OrderedList,
   ListItem,
   Editor,
 } from '@domternal/core';
@@ -12,7 +13,7 @@ import { moveBlock } from './moveBlock.js';
 import { findTopLevelBlock } from './findTopLevelBlock.js';
 
 const extensions = [Document, Text, Paragraph, Heading];
-const listExtensions = [Document, Text, Paragraph, Heading, BulletList, ListItem];
+const listExtensions = [Document, Text, Paragraph, Heading, BulletList, OrderedList, ListItem];
 
 function makeEditor(html: string): Editor {
   return new Editor({ extensions, content: html });
@@ -210,6 +211,145 @@ describe('moveBlock', () => {
     expect(outerNode?.lastChild?.type.name).toBe('bulletList');
     expect(outerNode?.lastChild?.childCount).toBe(1);
     expect(outerNode?.lastChild?.firstChild?.textContent).toBe('Second inner');
+    editor.destroy();
+  });
+
+  // ── Non-list block dropped into a list: split, keep type (Notion) ──
+
+  /** Top-level child node type names, in document order. */
+  function topTypes(editor: Editor): string[] {
+    const types: string[] = [];
+    editor.state.doc.forEach((n) => { types.push(n.type.name); });
+    return types;
+  }
+
+  it('paragraph dropped between two bullets splits the list and stays a paragraph', () => {
+    const editor = makeListEditor(
+      '<ul><li><p>A</p></li><li><p>B</p></li><li><p>C</p></li></ul><p>DRAG</p>',
+    );
+    const drag = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'DRAG');
+    const beforeB = findPos(editor, (n) => n.type.name === 'listItem' && n.textContent === 'B');
+    const tr = editor.state.tr;
+    moveBlock(tr, drag, beforeB);
+    editor.view.dispatch(tr);
+
+    expect(topTypes(editor)).toEqual(['bulletList', 'paragraph', 'bulletList']);
+    expect(editor.state.doc.child(0).childCount).toBe(1); // [A]
+    expect(editor.state.doc.child(0).textContent).toBe('A');
+    expect(editor.state.doc.child(1).textContent).toBe('DRAG');
+    expect(editor.state.doc.child(2).childCount).toBe(2); // [B, C]
+    expect(editor.state.doc.child(2).textContent).toBe('BC');
+    editor.destroy();
+  });
+
+  it('heading dropped between two bullets splits the list and keeps its level', () => {
+    const editor = makeListEditor(
+      '<ul><li><p>A</p></li><li><p>B</p></li></ul><h2>Title</h2>',
+    );
+    const heading = findPos(editor, (n) => n.type.name === 'heading');
+    const beforeB = findPos(editor, (n) => n.type.name === 'listItem' && n.textContent === 'B');
+    const tr = editor.state.tr;
+    moveBlock(tr, heading, beforeB);
+    editor.view.dispatch(tr);
+
+    expect(topTypes(editor)).toEqual(['bulletList', 'heading', 'bulletList']);
+    expect(editor.state.doc.child(1).type.name).toBe('heading');
+    expect(editor.state.doc.child(1).attrs['level']).toBe(2);
+    expect(editor.state.doc.child(1).textContent).toBe('Title');
+    editor.destroy();
+  });
+
+  it('block dropped before the first item lands above the whole list (no empty leading list)', () => {
+    const editor = makeListEditor(
+      '<ul><li><p>A</p></li><li><p>B</p></li></ul><p>DRAG</p>',
+    );
+    const drag = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'DRAG');
+    const beforeA = findPos(editor, (n) => n.type.name === 'listItem' && n.textContent === 'A');
+    const tr = editor.state.tr;
+    moveBlock(tr, drag, beforeA);
+    editor.view.dispatch(tr);
+
+    expect(topTypes(editor)).toEqual(['paragraph', 'bulletList']);
+    expect(editor.state.doc.child(0).textContent).toBe('DRAG');
+    expect(editor.state.doc.child(1).childCount).toBe(2); // [A, B] intact
+    editor.destroy();
+  });
+
+  it('block dropped after the last item lands below the whole list (no empty trailing list)', () => {
+    const editor = makeListEditor(
+      '<p>DRAG</p><ul><li><p>A</p></li><li><p>B</p></li></ul>',
+    );
+    const drag = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'DRAG');
+    const liB = findPos(editor, (n) => n.type.name === 'listItem' && n.textContent === 'B');
+    const afterB = liB + (editor.state.doc.nodeAt(liB)?.nodeSize ?? 0);
+    const tr = editor.state.tr;
+    moveBlock(tr, drag, afterB);
+    editor.view.dispatch(tr);
+
+    expect(topTypes(editor)).toEqual(['bulletList', 'paragraph']);
+    expect(editor.state.doc.child(0).childCount).toBe(2); // [A, B] intact
+    expect(editor.state.doc.child(1).textContent).toBe('DRAG');
+    editor.destroy();
+  });
+
+  it('paragraph dropped between two NESTED bullets becomes a child of the parent item, splitting the sublist', () => {
+    const editor = makeListEditor(
+      '<ul><li><p>Parent</p>'
+      + '<ul><li><p>X</p></li><li><p>Y</p></li></ul>'
+      + '</li></ul><p>DRAG</p>',
+    );
+    const drag = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'DRAG');
+    const beforeY = findPos(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Y');
+    const tr = editor.state.tr;
+    moveBlock(tr, drag, beforeY);
+    editor.view.dispatch(tr);
+
+    // Single top-level list; the parent item now holds the split sublist with
+    // the paragraph wedged between the two halves.
+    expect(topTypes(editor)).toEqual(['bulletList']);
+    const parentPos = findPos(editor, (n) => n.type.name === 'listItem' && n.textContent.startsWith('Parent'));
+    const parent = editor.state.doc.nodeAt(parentPos);
+    expect(parent?.childCount).toBe(4);
+    expect(Array.from({ length: parent?.childCount ?? 0 }, (_, i) => parent?.child(i).type.name))
+      .toEqual(['paragraph', 'bulletList', 'paragraph', 'bulletList']);
+    expect(parent?.child(2).textContent).toBe('DRAG');
+    expect(parent?.child(1).textContent).toBe('X');
+    expect(parent?.child(3).textContent).toBe('Y');
+    editor.destroy();
+  });
+
+  it('splitting an ordered list keeps the numbering continuous (start bumped on the trailing half)', () => {
+    const editor = makeListEditor(
+      '<ol><li><p>A</p></li><li><p>B</p></li><li><p>C</p></li></ol><p>DRAG</p>',
+    );
+    const drag = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'DRAG');
+    const beforeB = findPos(editor, (n) => n.type.name === 'listItem' && n.textContent === 'B');
+    const tr = editor.state.tr;
+    moveBlock(tr, drag, beforeB);
+    editor.view.dispatch(tr);
+
+    expect(topTypes(editor)).toEqual(['orderedList', 'paragraph', 'orderedList']);
+    // First half keeps the default start (1); the trailing [B, C] continues at 2.
+    expect(editor.state.doc.child(0).attrs['start']).toBe(1);
+    expect(editor.state.doc.child(2).attrs['start']).toBe(2);
+    editor.destroy();
+  });
+
+  it('a list-item source still JOINS the target list (no split, stays a listItem)', () => {
+    const editor = makeListEditor(
+      '<ul><li><p>A</p></li><li><p>B</p></li></ul><ul><li><p>C</p></li></ul>',
+    );
+    const liC = findPos(editor, (n) => n.type.name === 'listItem' && n.textContent === 'C');
+    const beforeB = findPos(editor, (n) => n.type.name === 'listItem' && n.textContent === 'B');
+    const tr = editor.state.tr;
+    moveBlock(tr, liC, beforeB);
+    editor.view.dispatch(tr);
+
+    // C migrates into the first list between A and B; no list split.
+    expect(topTypes(editor)).toEqual(['bulletList']);
+    const list = editor.state.doc.child(0);
+    expect(list.childCount).toBe(3);
+    expect(Array.from({ length: list.childCount }, (_, i) => list.child(i).textContent)).toEqual(['A', 'C', 'B']);
     editor.destroy();
   });
 

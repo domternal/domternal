@@ -1,6 +1,10 @@
+import type { Fragment, ResolvedPos } from '@domternal/pm/model';
 import type { Transaction } from '@domternal/pm/state';
 import { expandToEmptyWrappers } from './expandToEmptyWrappers.js';
 import { convertListItemForParent } from './convertListItemForParent.js';
+
+const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
+const LIST_WRAPPER_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
 
 /**
  * Move a top-level block from `sourcePos` to `targetPos` in-place. Single
@@ -10,9 +14,11 @@ import { convertListItemForParent } from './convertListItemForParent.js';
  * Notable steps: deletion range expands outward to swallow single-child
  * wrapper ancestors (else PM's fitter leaves an empty `<li>` placeholder);
  * the slice is adapted to the target parent's content rule (listItem ↔
- * taskItem auto-conversion when dropping across list types). Self-drops
- * (target inside the expanded deletion range) return the transaction
- * unchanged.
+ * taskItem auto-conversion when dropping across list types). A non-list
+ * block dropped at a sibling gap inside a list splits the list and keeps
+ * its own type (see `insertBlockSplittingList`) instead of being wrapped in
+ * a bullet. Self-drops (target inside the expanded deletion range) return
+ * the transaction unchanged.
  */
 export function moveBlock(
   tr: Transaction,
@@ -36,11 +42,27 @@ export function moveBlock(
     ? targetPos - (to - from)
     : targetPos;
 
+  const $target = tr.doc.resolve(adjustedTarget);
+  const targetParent = $target.parent;
+
+  // Non-list block dropped at a sibling gap INSIDE a list wrapper: preserve
+  // the block's own type and split the list around it (Notion), rather than
+  // wrapping it in a bullet. A heading stays a heading, a paragraph stays a
+  // paragraph; the list breaks and the block lands at the wrapper's parent
+  // level. List-item sources keep joining the list (and cross-convert
+  // listItem ↔ taskItem) via `convertListItemForParent` below.
+  if (
+    !LIST_ITEM_TYPES.has(sourceNode.type.name)
+    && LIST_WRAPPER_TYPES.has(targetParent.type.name)
+  ) {
+    insertBlockSplittingList(tr, $target, slice.content);
+    return tr;
+  }
+
   // Auto-convert listItem ↔ taskItem when crossing list types, matching
   // Notion's "drop adapts to context" UX. When the target's parent isn't
   // a list wrapper (top-level drops, paragraph parents, etc.) the helper
   // returns the slice content unchanged.
-  const targetParent = tr.doc.resolve(adjustedTarget).parent;
   const adaptedContent = convertListItemForParent(
     tr.doc.type.schema,
     slice.content,
@@ -49,5 +71,44 @@ export function moveBlock(
 
   tr.insert(adjustedTarget, adaptedContent);
   return tr;
+}
+
+/**
+ * Inserts `content` (the dragged block, type preserved) at the sibling gap
+ * `$gap` points at inside a list wrapper, splitting the wrapper so the block
+ * lands at the wrapper's PARENT level (the document, or the enclosing list
+ * item). The list breaks around the block, mirroring Notion's "a dropped
+ * heading/paragraph stays itself and the list reflows around it".
+ *
+ *   - gap before the first item -> insert before the whole wrapper
+ *   - gap after the last item   -> insert after the whole wrapper
+ *   - gap between two items      -> split the wrapper, insert in between
+ *
+ * For an ordered list the trailing half would restart at 1 after the break,
+ * so its `start` attr is bumped to keep the numbering continuous.
+ */
+function insertBlockSplittingList(tr: Transaction, $gap: ResolvedPos, content: Fragment): void {
+  const wrapper = $gap.parent;
+  const index = $gap.index();
+  if (index === 0) {
+    tr.insert($gap.before(), content);
+    return;
+  }
+  if (index === wrapper.childCount) {
+    tr.insert($gap.after(), content);
+    return;
+  }
+  const splitPos = $gap.pos;
+  tr.split(splitPos, 1);
+  const insertAt = splitPos + 1;
+  tr.insert(insertAt, content);
+  if (wrapper.type.name === 'orderedList') {
+    const origStart = typeof wrapper.attrs['start'] === 'number' ? wrapper.attrs['start'] : 1;
+    const secondWrapperPos = insertAt + content.size;
+    const second = tr.doc.nodeAt(secondWrapperPos);
+    if (second?.type.name === 'orderedList') {
+      tr.setNodeMarkup(secondWrapperPos, undefined, { ...second.attrs, start: origStart + index });
+    }
+  }
 }
 
