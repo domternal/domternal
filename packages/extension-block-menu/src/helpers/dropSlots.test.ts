@@ -94,6 +94,17 @@ function fixture(): { editor: Editor; view: EditorView; pos: PosMap } {
   item(pos.B2, 30, 60, 80);
   item(pos.A3, 10, 80, 100);
   rects.set(pos.Para, elWithRect({ left: 10, top: 100, bottom: 120 }));
+  // List-wrapper rects: the lift-target column for a non-list source. The
+  // outer list box starts at the doc content-left (full width); the nested
+  // list box starts at A2's content-left (one indent in).
+  const wrapperPositions: number[] = [];
+  editor.state.doc.descendants((node, p) => {
+    if (node.type.name === 'bulletList') wrapperPositions.push(p);
+    return true;
+  });
+  const [outerUl, nestedUl] = wrapperPositions;
+  if (outerUl !== undefined) rects.set(outerUl, elWithRect({ left: 2, top: 0, bottom: 100, right: 480 }));
+  if (nestedUl !== undefined) rects.set(nestedUl, elWithRect({ left: 22, top: 40, bottom: 80, right: 480 }));
   return { editor, view: viewStub(editor, rects), pos };
 }
 
@@ -203,6 +214,35 @@ describe('resolveDropSlot', () => {
       incumbent: { upperPos: pos.A1, lowerPos: pos.A2, level: 1 },
     });
     expect(sibPos(sticky)).toBe(pos.A2); // after A1 == before A2
+    editor.destroy();
+  });
+
+  it('non-list source: gutter sibling at a flat top-level gap draws at the WRAPPER column (full width), not the item marker', () => {
+    const { editor, view, pos } = fixture();
+    // Y bottom half of A1 -> "after A1" gap; gutter X.
+    const listItemSrc = resolveDropSlot({ view, clientX: 0, clientY: 18 });
+    expect(listItemSrc?.option.lineLeft).toBe(10); // default: bullet-indented item column
+    const blockSrc = resolveDropSlot({ view, clientX: 0, clientY: 18, sourceIsListItem: false });
+    expect(blockSrc?.option.insert.kind).toBe('sibling');
+    expect(sibPos(blockSrc)).toBe(pos.A2); // insert position unchanged (moveBlock splits)
+    expect(blockSrc?.option.lineLeft).toBe(2); // lifted to the outer list (doc) column
+    expect(blockSrc?.option.lineWidth).toBe(478);
+    editor.destroy();
+  });
+
+  it('non-list source: outdent ladder lifts to the right wrapper column per level', () => {
+    const { editor, view, pos } = fixture();
+    const afterB2 = pos.B2 + (view.state.doc.nodeAt(pos.B2)?.nodeSize ?? 0);
+    // Gutter X at the after-B2 gap -> shallowest = lift fully out to the doc
+    // column (full width), landing after A2 (== before A3).
+    const docLift = resolveDropSlot({ view, clientX: 0, clientY: 78, sourceIsListItem: false });
+    expect(docLift?.option.lineLeft).toBe(2);
+    expect(sibPos(docLift)).toBe(pos.A3);
+    // Mid X past the nested-list column -> lift one level out, into A2 as a
+    // child after the (split) sublist; line sits at the nested-list column.
+    const itemLift = resolveDropSlot({ view, clientX: 24, clientY: 78, sourceIsListItem: false });
+    expect(itemLift?.option.lineLeft).toBe(22);
+    expect(sibPos(itemLift)).toBe(afterB2);
     editor.destroy();
   });
 

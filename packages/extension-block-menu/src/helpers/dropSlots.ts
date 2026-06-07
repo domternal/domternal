@@ -221,6 +221,22 @@ function lastChildIndex(view: EditorView, item: DropRow): number {
   return node ? node.childCount : 1;
 }
 
+/**
+ * Client-X column of the list WRAPPER that `insertPos` falls inside. For a
+ * non-list block dropped at a sibling gap the block lifts OUT of the list
+ * (splitting it) and renders at the wrapper's parent content column; since a
+ * list wrapper's box starts at its container's content-left, the wrapper's own
+ * rect is that column. Null when `insertPos` isn't directly inside a wrapper.
+ */
+function wrapperColumn(view: EditorView, insertPos: number): { left: number; width: number } | null {
+  const $p = view.state.doc.resolve(insertPos);
+  if (!LIST_WRAPPER_TYPES.has($p.parent.type.name)) return null;
+  const dom = view.nodeDOM($p.before());
+  if (!(dom instanceof HTMLElement)) return null;
+  const r = dom.getBoundingClientRect();
+  return { left: r.left, width: Math.max(0, r.right - r.left) };
+}
+
 /** Dedup options sharing the same resolved insertion target; keep the shallowest. */
 function dedupeOptions(options: (DropSlotOption | null)[]): DropSlotOption[] {
   const seen = new Set<string>();
@@ -249,6 +265,13 @@ export interface ResolveDropSlotArgs {
   nestedEnabled?: boolean;
   /** Whether the deepest "nest into the item" option is offered (nestThreshold > 0). */
   offerNest?: boolean;
+  /**
+   * Whether the dragged source is itself a list item. When `false`, sibling
+   * options that land inside a list draw at the list's PARENT column: the block
+   * lifts out (splitting the list) and keeps its own type, instead of becoming a
+   * new list item. Defaults to `true` (preserves the list-item geometry).
+   */
+  sourceIsListItem?: boolean;
   /** Previous dragover's gap + depth, for the stickiness dead-bands. */
   incumbent?: DropSlotIncumbent | null;
   /** Y dead-band (px) around a row's mid so the gap doesn't flip on a wobble; 0 disables. */
@@ -273,6 +296,7 @@ export function resolveDropSlot(args: ResolveDropSlotArgs): DropSlot | null {
   const incumbent = args.incumbent ?? null;
   const bandY = args.bandY ?? 0;
   const bandX = args.bandX ?? 0;
+  const sourceIsListItem = args.sourceIsListItem ?? true;
   const rows = args.rows ?? collectRows(view, nestedEnabled);
   if (rows.length === 0) return null;
 
@@ -311,6 +335,18 @@ export function resolveDropSlot(args: ResolveDropSlotArgs): DropSlot | null {
     ]);
   }
   if (options.length === 0) return null;
+
+  // Non-list source: a sibling drop INSIDE a list lifts the block out (the list
+  // splits around it), so its line + X guide sit at the wrapper's parent column,
+  // not the bullet-indented item column. The insert position is unchanged;
+  // `moveBlock` performs the split. The nest-into-item option is untouched.
+  if (!sourceIsListItem) {
+    options = options.map((o) => {
+      if (o.insert.kind !== 'sibling') return o;
+      const col = wrapperColumn(view, o.insert.pos);
+      return col ? { ...o, lineLeft: col.left, lineWidth: col.width } : o;
+    });
+  }
 
   // Pick the deepest option whose indent guide the cursor X has reached; floor
   // at the shallowest when X is left of every guide (the common gutter drag).

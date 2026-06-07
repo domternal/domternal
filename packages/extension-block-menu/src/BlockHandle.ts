@@ -553,6 +553,13 @@ export interface DropPlacementOptions {
   incumbentChildIndex?: number | null;
   /** Enable the dead-bands (off for unit callers, `true` from the plugin). */
   hysteresis?: boolean;
+  /**
+   * Whether the dragged block is itself a list item. When `false`, a sibling
+   * drop inside a list draws the indicator at the list's parent column (the
+   * block lifts out, splitting the list, and keeps its type). Defaults to
+   * `true`. See {@link resolveDropSlot}.
+   */
+  sourceIsListItem?: boolean;
 }
 
 /**
@@ -586,6 +593,7 @@ export function computeDropPlacement(
     incumbent,
     bandY: options.hysteresis ? DROP_HYSTERESIS_Y_PX : 0,
     bandX: options.hysteresis ? DROP_HYSTERESIS_X_PX : 0,
+    sourceIsListItem: options.sourceIsListItem ?? true,
   });
   if (!slot) return null;
   const opt = slot.option;
@@ -1178,6 +1186,7 @@ export function createBlockHandlePlugin(
       incumbentLevel: dragHyst.level,
       incumbentChildIndex: dragHyst.childIndex,
       hysteresis: true,
+      sourceIsListItem: LIST_ITEM_TYPES.has(sourceNode.type.name),
     });
     if (!placement) return false;
     const tr = view.state.tr;
@@ -1243,6 +1252,20 @@ export function createBlockHandlePlugin(
   };
 
   /**
+   * Whether the block currently being dragged is a list item. Drives the
+   * source-aware drop geometry: a non-list source lifts OUT of a list (the list
+   * splits and the block keeps its type) instead of becoming a new item, so its
+   * indicator sits at the list's parent column. Reads the same tiered source
+   * `performBlockDrop` does, so the indicator and the drop always agree.
+   */
+  const draggedSourceIsListItem = (): boolean => {
+    const from = pluginKey.getState(editor.view.state)?.draggedFrom ?? pendingDraggedFrom;
+    if (from === null) return true;
+    const node = editor.view.state.doc.nodeAt(from);
+    return node ? LIST_ITEM_TYPES.has(node.type.name) : true;
+  };
+
+  /**
    * Reposition the drop-indicator line where `handleDrop` would land for
    * these coords; hide it when nothing resolves. `data-mode` lets theme CSS
    * draw a solid sibling line vs a dashed indented nested line.
@@ -1255,6 +1278,7 @@ export function createBlockHandlePlugin(
       incumbentLevel: dragHyst.level,
       incumbentChildIndex: dragHyst.childIndex,
       hysteresis: true,
+      sourceIsListItem: draggedSourceIsListItem(),
     });
     if (!placement) {
       indicator.removeAttribute('data-show');
