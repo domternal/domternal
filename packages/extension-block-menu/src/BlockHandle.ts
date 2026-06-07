@@ -533,11 +533,6 @@ export interface DropPlacement {
    * deriving geometry from `rect`/`mode`.
    */
   indicatorLine?: { top: number; left: number; width: number };
-  /**
-   * The deepest-match item the resolver landed on, BEFORE gap-normalization
-   * rewrites `pos`. Fed back as `incumbentPos` next dragover for Y-hysteresis.
-   */
-  resolvedBlockPos?: number;
   /** Resolved gap bounds + depth, fed back next dragover for the dead-bands. */
   gapUpperPos?: number | null;
   gapLowerPos?: number | null;
@@ -579,7 +574,7 @@ export function computeDropPlacement(
   options: DropPlacementOptions = {},
 ): DropPlacement | null {
   const incumbent = options.hysteresis
-    ? { upperPos: options.incumbentUpperPos ?? null, lowerPos: options.incumbentLowerPos ?? null, level: options.incumbentLevel ?? Number.NaN }
+    ? { upperPos: options.incumbentUpperPos ?? null, lowerPos: options.incumbentLowerPos ?? null, level: options.incumbentLevel ?? null }
     : null;
   const slot = resolveDropSlot({
     view,
@@ -594,22 +589,20 @@ export function computeDropPlacement(
   });
   if (!slot) return null;
   const opt = slot.option;
-  const rbp = slot.upperPos ?? slot.lowerPos;
   const feedback = {
-    ...(rbp !== null ? { resolvedBlockPos: rbp } : {}),
     gapUpperPos: slot.upperPos,
     gapLowerPos: slot.lowerPos,
     depthLevel: opt.level,
   };
 
-  if (opt.insert.kind === 'nested' && opt.insert.targetItemPos !== undefined && opt.insert.wrapperPos !== undefined) {
+  if (opt.insert.kind === 'nested') {
     const itemPos = opt.insert.targetItemPos;
     const itemNode = view.state.doc.nodeAt(itemPos);
     const itemDom = view.nodeDOM(itemPos);
     const itemRect = itemDom instanceof HTMLElement ? itemDom.getBoundingClientRect() : null;
     // Refine the child slot (first/between/last) by cursor Y among the item's
     // own children; falls back to the slot's own childIndex when no rect.
-    let childIndex = opt.insert.childIndex ?? 1;
+    let childIndex = opt.insert.childIndex;
     let gapRect: ChildGapRect = { top: slot.gapY, bottom: slot.gapY, left: opt.lineLeft - NESTED_INDICATOR_INDENT_PX, width: opt.lineWidth + NESTED_INDICATOR_INDENT_PX };
     if (itemNode && itemRect) {
       const childBand = options.hysteresis ? DROP_HYSTERESIS_Y_PX : 0;
@@ -631,7 +624,7 @@ export function computeDropPlacement(
     };
   }
 
-  const insertPos = opt.insert.pos ?? 0;
+  const insertPos = opt.insert.pos;
   return {
     pos: insertPos,
     rect: new DOMRect(opt.lineLeft, slot.gapY, opt.lineWidth, 0),

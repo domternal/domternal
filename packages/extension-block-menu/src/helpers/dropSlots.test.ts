@@ -3,7 +3,12 @@ import {
   Document, Text, Paragraph, BulletList, OrderedList, ListItem, TaskList, TaskItem, Editor,
 } from '@domternal/core';
 import type { EditorView } from '@domternal/pm/view';
-import { collectRows, resolveDropSlot } from './dropSlots.js';
+import { collectRows, resolveDropSlot, type DropSlot } from './dropSlots.js';
+
+/** Typed accessors for the discriminated `insert` union. */
+const sibPos = (s: DropSlot | null): number | undefined => (s?.option.insert.kind === 'sibling' ? s.option.insert.pos : undefined);
+const nestTarget = (s: DropSlot | null): number | undefined => (s?.option.insert.kind === 'nested' ? s.option.insert.targetItemPos : undefined);
+const nestChildIndex = (s: DropSlot | null): number | undefined => (s?.option.insert.kind === 'nested' ? s.option.insert.childIndex : undefined);
 
 const extensions = [Document, Text, Paragraph, BulletList, OrderedList, ListItem, TaskList, TaskItem];
 
@@ -112,7 +117,7 @@ describe('resolveDropSlot', () => {
     const slot = resolveDropSlot({ view, clientX: 0, clientY: 42 });
     expect(slot?.gapY).toBe(40);
     expect(slot?.option.insert.kind).toBe('sibling');
-    expect(slot?.option.insert.pos).toBe(pos.B1);
+    expect(sibPos(slot)).toBe(pos.B1);
     expect(slot?.option.level).toBe(2);
     editor.destroy();
   });
@@ -121,8 +126,8 @@ describe('resolveDropSlot', () => {
     const { editor, view, pos } = fixture();
     const slot = resolveDropSlot({ view, clientX: 60, clientY: 42 }); // past B1.left(30)+24=54
     expect(slot?.option.insert.kind).toBe('nested');
-    expect(slot?.option.insert.targetItemPos).toBe(pos.B1);
-    expect(slot?.option.insert.childIndex).toBe(1);
+    expect(nestTarget(slot)).toBe(pos.B1);
+    expect(nestChildIndex(slot)).toBe(1);
     expect(slot?.option.level).toBe(3);
     editor.destroy();
   });
@@ -133,7 +138,7 @@ describe('resolveDropSlot', () => {
     const slot = resolveDropSlot({ view, clientX: 0, clientY: 78 });
     expect(slot?.gapY).toBe(80); // near the cursor, not jumping elsewhere
     expect(slot?.option.insert.kind).toBe('sibling');
-    expect(slot?.option.insert.pos).toBe(pos.A3); // after A2 == before A3 (top level)
+    expect(sibPos(slot)).toBe(pos.A3); // after A2 == before A3 (top level)
     expect(slot?.option.level).toBe(1);
     editor.destroy();
   });
@@ -142,7 +147,7 @@ describe('resolveDropSlot', () => {
     const { editor, view, pos } = fixture();
     const slot = resolveDropSlot({ view, clientX: 35, clientY: 78 }); // >= B2.left(30), < nest guide(54)
     expect(slot?.option.insert.kind).toBe('sibling');
-    expect(slot?.option.insert.pos).toBe(pos.B2 + (view.state.doc.nodeAt(pos.B2)?.nodeSize ?? 0)); // after B2
+    expect(sibPos(slot)).toBe(pos.B2 + (view.state.doc.nodeAt(pos.B2)?.nodeSize ?? 0)); // after B2
     expect(slot?.option.level).toBe(2);
     editor.destroy();
   });
@@ -152,12 +157,12 @@ describe('resolveDropSlot', () => {
     const sib = resolveDropSlot({ view, clientX: 0, clientY: 18 }); // after A1
     expect(sib?.gapY).toBe(20);
     expect(sib?.option.insert.kind).toBe('sibling');
-    expect(sib?.option.insert.pos).toBe(pos.A2); // after A1 == before A2
+    expect(sibPos(sib)).toBe(pos.A2); // after A1 == before A2
     expect(sib?.option.level).toBe(1);
 
     const nest = resolveDropSlot({ view, clientX: 40, clientY: 18 }); // past A1.left(10)+24=34
     expect(nest?.option.insert.kind).toBe('nested');
-    expect(nest?.option.insert.targetItemPos).toBe(pos.A1);
+    expect(nestTarget(nest)).toBe(pos.A1);
     editor.destroy();
   });
 
@@ -165,7 +170,7 @@ describe('resolveDropSlot', () => {
     const { editor, view, pos } = fixture();
     const slot = resolveDropSlot({ view, clientX: 0, clientY: -5 });
     expect(slot?.gapY).toBe(0);
-    expect(slot?.option.insert.pos).toBe(pos.A1);
+    expect(sibPos(slot)).toBe(pos.A1);
     expect(slot?.option.level).toBe(1);
     editor.destroy();
   });
@@ -176,7 +181,7 @@ describe('resolveDropSlot', () => {
     const slot = resolveDropSlot({ view, clientX: 0, clientY: 130 });
     expect(slot?.gapY).toBe(120);
     expect(slot?.option.insert.kind).toBe('sibling');
-    expect(slot?.option.insert.pos).toBe(pos.Para + (para?.nodeSize ?? 0));
+    expect(sibPos(slot)).toBe(pos.Para + (para?.nodeSize ?? 0));
     expect(slot?.option.level).toBe(0);
     editor.destroy();
   });
@@ -191,13 +196,13 @@ describe('resolveDropSlot', () => {
     const { editor, view, pos } = fixture();
     // A1 spans 0-20 (mid 10). Y=8 is just above mid -> stateless picks "before A1".
     const stateless = resolveDropSlot({ view, clientX: 0, clientY: 8 });
-    expect(stateless?.option.insert.pos).toBe(pos.A1); // before A1
+    expect(sibPos(stateless)).toBe(pos.A1); // before A1
     // Incumbent was the "after A1" gap; within band it stays there.
     const sticky = resolveDropSlot({
       view, clientX: 0, clientY: 8, bandY: 6,
       incumbent: { upperPos: pos.A1, lowerPos: pos.A2, level: 1 },
     });
-    expect(sticky?.option.insert.pos).toBe(pos.A2); // after A1 == before A2
+    expect(sibPos(sticky)).toBe(pos.A2); // after A1 == before A2
     editor.destroy();
   });
 
@@ -212,7 +217,7 @@ describe('resolveDropSlot', () => {
       incumbent: { upperPos: pos.B2, lowerPos: pos.A3, level: 2 },
     });
     expect(sticky?.option.level).toBe(2); // held at the nested sibling level
-    expect(sticky?.option.insert.pos).toBe(afterB2);
+    expect(sibPos(sticky)).toBe(afterB2);
     editor.destroy();
   });
 });

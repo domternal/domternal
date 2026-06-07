@@ -97,24 +97,19 @@ export function collectRows(view: EditorView, nestedEnabled = true): DropRow[] {
 }
 
 /** How to perform the insertion for a chosen slot option. */
-export interface DropSlotInsert {
-  kind: 'sibling' | 'nested';
-  /** sibling: absolute position to insert AT (between siblings / top-level). */
-  pos?: number;
-  /** nested: list wrapper containing the target item. */
-  wrapperPos?: number;
-  /** nested: the list item to insert a child into. */
-  targetItemPos?: number;
-  /** nested: child index to insert at (>= 1; index 0 is the label). */
-  childIndex?: number;
-}
+export type DropSlotInsert =
+  /** Insert AT an absolute position (between siblings / top-level). */
+  | { kind: 'sibling'; pos: number }
+  /** Insert as a child of `targetItemPos` (in `wrapperPos`) at `childIndex` (>= 1; 0 is the label). */
+  | { kind: 'nested'; wrapperPos: number; targetItemPos: number; childIndex: number };
 
 /** One depth option available at a gap, shallow (small level) to deep (large level). */
 export interface DropSlotOption {
   level: number;
-  /** Client-X indent guide: the cursor must reach this X to select this (deeper) option. */
-  guideLeft: number;
-  /** Indicator line left edge (client X) when this option is chosen. */
+  /**
+   * Client-X where the indicator line starts AND the threshold the cursor must
+   * reach to select this (deeper) option - the two always coincide.
+   */
   lineLeft: number;
   /** Indicator line width (px). */
   lineWidth: number;
@@ -137,7 +132,7 @@ export interface DropSlot {
 export interface DropSlotIncumbent {
   upperPos: number | null;
   lowerPos: number | null;
-  level: number;
+  level: number | null;
 }
 
 /** Find the row whose rect contains `clientY`, else the nearest by vertical distance. */
@@ -160,7 +155,6 @@ function nearestRow(rows: DropRow[], clientY: number): number {
 function siblingOption(row: DropRow, insertPos: number, level: number): DropSlotOption {
   return {
     level,
-    guideLeft: row.left,
     lineLeft: row.left,
     lineWidth: Math.max(0, row.right - row.left),
     insert: { kind: 'sibling', pos: insertPos },
@@ -192,7 +186,6 @@ function closeChain(view: EditorView, upper: DropRow): DropSlotOption[] {
     const right = rect ? rect.right : upper.right;
     opts.push({
       level,
-      guideLeft: left,
       lineLeft: left,
       lineWidth: Math.max(0, right - left),
       insert: { kind: 'sibling', pos: itemPos + item.nodeSize },
@@ -216,7 +209,6 @@ function nestOption(view: EditorView, item: DropRow, childIndex: number, indentS
   const lineLeft = item.left + indentStep;
   return {
     level: item.level + 1,
-    guideLeft: item.left + indentStep,
     lineLeft,
     lineWidth: Math.max(0, item.right - lineLeft),
     insert: { kind: 'nested', wrapperPos, targetItemPos: item.pos, childIndex },
@@ -322,20 +314,20 @@ export function resolveDropSlot(args: ResolveDropSlotArgs): DropSlot | null {
 
   // Pick the deepest option whose indent guide the cursor X has reached; floor
   // at the shallowest when X is left of every guide (the common gutter drag).
-  const byGuide = [...options].sort((a, b) => a.guideLeft - b.guideLeft);
+  const byGuide = [...options].sort((a, b) => a.lineLeft - b.lineLeft);
   let chosen = byGuide[0];
   if (!chosen) return null;
   for (const o of byGuide) {
-    if (clientX >= o.guideLeft) chosen = o;
+    if (clientX >= o.lineLeft) chosen = o;
   }
 
   // X dead-band: hold the incumbent level within `bandX` of the guide boundary
   // between it and the freshly chosen level, so depth doesn't flicker.
-  if (bandX > 0 && incumbent) {
+  if (bandX > 0 && incumbent && incumbent.level !== null) {
     const inc = byGuide.find((o) => o.level === incumbent.level);
     if (inc && inc !== chosen && Math.abs(chosen.level - inc.level) === 1) {
-      const deeper = chosen.guideLeft >= inc.guideLeft ? chosen : inc;
-      if (Math.abs(clientX - deeper.guideLeft) <= bandX) chosen = inc;
+      const deeper = chosen.lineLeft >= inc.lineLeft ? chosen : inc;
+      if (Math.abs(clientX - deeper.lineLeft) <= bandX) chosen = inc;
     }
   }
 
