@@ -33,6 +33,28 @@ async function goNotion(page: Page): Promise<void> {
   await waitForAllIds(page);
 }
 
+/**
+ * The dragover -> drop-indicator repaint is rAF-coalesced, so a SHOW lands on
+ * the next animation frame (hide is synchronous). Flush two frames before
+ * reading the indicator state after a synthesised dragover.
+ */
+async function flushIndicatorRaf(page: Page): Promise<void> {
+  await page.evaluate(
+    () => new Promise<void>((res) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => { res(); }));
+    }),
+  );
+}
+
+/** Dispatch a document-level dragover at (x,y), flush the rAF, read `data-show`. */
+async function probeIndicatorShown(page: Page, x: number, y: number): Promise<boolean> {
+  await page.evaluate(({ cx, cy }) => {
+    document.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, clientX: cx, clientY: cy }));
+  }, { cx: x, cy: y });
+  await flushIndicatorRaf(page);
+  return page.evaluate(() => document.querySelector('.dm-block-drop-indicator')?.hasAttribute('data-show') ?? false);
+}
+
 async function waitForAllIds(page: Page): Promise<void> {
   await page.waitForFunction(() => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -386,18 +408,10 @@ test.describe('Drag & drop - safety rails', () => {
     if (!editorBox) return;
 
     // Just inside top → shows
-    const innerTop = await page.evaluate(({ x, y }) => {
-      document.dispatchEvent(new DragEvent('dragover', { bubbles: true, clientX: x, clientY: y }));
-      return document.querySelector('.dm-block-drop-indicator')?.hasAttribute('data-show');
-    }, { x: editorBox.x + editorBox.width / 2, y: editorBox.y + 5 });
-    expect(innerTop).toBe(true);
+    expect(await probeIndicatorShown(page, editorBox.x + editorBox.width / 2, editorBox.y + 5)).toBe(true);
 
     // Far above editor → hides
-    const aboveEditor = await page.evaluate(({ x, y }) => {
-      document.dispatchEvent(new DragEvent('dragover', { bubbles: true, clientX: x, clientY: y }));
-      return document.querySelector('.dm-block-drop-indicator')?.hasAttribute('data-show');
-    }, { x: editorBox.x + editorBox.width / 2, y: editorBox.y - 100 });
-    expect(aboveEditor).toBe(false);
+    expect(await probeIndicatorShown(page, editorBox.x + editorBox.width / 2, editorBox.y - 100)).toBe(false);
 
     await handle.dispatchEvent('dragend', { dataTransfer: dt });
     await dt.dispose();
@@ -466,18 +480,10 @@ test.describe('Drag & drop - safety rails', () => {
     if (!editorBox) return;
 
     // 40px left of editor (within handle gutter, ≤ 80px tolerance) → shows
-    const inGutter = await page.evaluate(({ x, y }) => {
-      document.dispatchEvent(new DragEvent('dragover', { bubbles: true, clientX: x, clientY: y }));
-      return document.querySelector('.dm-block-drop-indicator')?.hasAttribute('data-show');
-    }, { x: editorBox.x - 40, y: editorBox.y + editorBox.height / 2 });
-    expect(inGutter).toBe(true);
+    expect(await probeIndicatorShown(page, editorBox.x - 40, editorBox.y + editorBox.height / 2)).toBe(true);
 
     // 200px left of editor (way past the gutter) → hides
-    const farLeft = await page.evaluate(({ x, y }) => {
-      document.dispatchEvent(new DragEvent('dragover', { bubbles: true, clientX: x, clientY: y }));
-      return document.querySelector('.dm-block-drop-indicator')?.hasAttribute('data-show');
-    }, { x: editorBox.x - 200, y: editorBox.y + editorBox.height / 2 });
-    expect(farLeft).toBe(false);
+    expect(await probeIndicatorShown(page, editorBox.x - 200, editorBox.y + editorBox.height / 2)).toBe(false);
 
     await handle.dispatchEvent('dragend', { dataTransfer: dt });
     await dt.dispose();
@@ -495,11 +501,7 @@ test.describe('Drag & drop - safety rails', () => {
     expect(insideBox).not.toBeNull();
     if (!insideBox) return;
 
-    const probe = async (x: number, y: number): Promise<boolean | undefined> =>
-      page.evaluate(({ cx, cy }) => {
-        document.dispatchEvent(new DragEvent('dragover', { bubbles: true, clientX: cx, clientY: cy }));
-        return document.querySelector('.dm-block-drop-indicator')?.hasAttribute('data-show');
-      }, { cx: x, cy: y });
+    const probe = (x: number, y: number): Promise<boolean> => probeIndicatorShown(page, x, y);
 
     // Show
     expect(await probe(insideBox.x + insideBox.width / 2, insideBox.y + insideBox.height * 0.8)).toBe(true);
@@ -553,11 +555,11 @@ test.describe('Drag & drop - safety rails', () => {
     expect(afterOutside).toBe(false);
 
     // 3. Cursor BACK inside editor → indicator restored.
-    const afterInside = await page.evaluate(({ x, y }) => {
-      const evt = new DragEvent('dragover', { bubbles: true, cancelable: true, clientX: x, clientY: y });
-      document.dispatchEvent(evt);
-      return document.querySelector('.dm-block-drop-indicator')?.hasAttribute('data-show');
-    }, { x: insideBox.x + insideBox.width / 2, y: insideBox.y + insideBox.height * 0.8 });
+    const afterInside = await probeIndicatorShown(
+      page,
+      insideBox.x + insideBox.width / 2,
+      insideBox.y + insideBox.height * 0.8,
+    );
     expect(afterInside).toBe(true);
 
     await handle.dispatchEvent('dragend', { dataTransfer: dt });

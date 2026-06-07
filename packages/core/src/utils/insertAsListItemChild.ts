@@ -15,14 +15,15 @@ export interface InsertAsListItemChildArgs {
    * matching the Tab keyboard behaviour ("indent into last item").
    */
   targetItemPos?: number;
-  /** Block node to append as the LAST child of the target item. */
+  /** Block node to insert. */
   blockNode: PMNode;
-  /**
-   * Optional source range to delete in the SAME transaction (when
-   * MOVING an existing block instead of creating a new one). Position
-   * math handles source-before-vs-after-target ordering automatically.
-   */
+  /** Optional source range to delete in the same tr (turns insert into a MOVE). */
   sourceRange?: { from: number; to: number };
+  /**
+   * Child index to insert at. Clamped to `>= 1` (index 0 is the label
+   * paragraph). Omitted or `>= childCount` appends as the last child.
+   */
+  childIndex?: number;
 }
 
 export interface InsertAsListItemChildResult {
@@ -37,16 +38,15 @@ export interface InsertAsListItemChildResult {
 }
 
 /**
- * Insert `blockNode` as the LAST child of a list item (target item or, when
- * omitted, the wrapper's last item). When `sourceRange` is set, the source
- * range is removed in the same transaction so the op is a clean MOVE.
- * Returns `{ ok: false }` WITHOUT mutating `tr` on schema reject so callers
- * can fall through to a sibling-mode fallback.
+ * Insert `blockNode` into a list item's children at `childIndex` (default:
+ * append last; target item defaults to the wrapper's last item). `sourceRange`
+ * makes it a MOVE. Returns `{ ok: false }` without mutating `tr` on schema
+ * reject or self-drop so callers can fall back to a sibling move.
  */
 export function insertAsListItemChild(
   args: InsertAsListItemChildArgs,
 ): InsertAsListItemChildResult {
-  const { tr, wrapperPos, targetItemPos, blockNode, sourceRange } = args;
+  const { tr, wrapperPos, targetItemPos, blockNode, sourceRange, childIndex } = args;
 
   if (wrapperPos < 0 || wrapperPos >= tr.doc.content.size) return { ok: false };
   const wrapper = tr.doc.nodeAt(wrapperPos);
@@ -59,9 +59,7 @@ export function insertAsListItemChild(
     if (targetItemPos < 0 || targetItemPos >= tr.doc.content.size) return { ok: false };
     const candidate = tr.doc.nodeAt(targetItemPos);
     if (!candidate || !LIST_ITEM_TYPES.has(candidate.type.name)) return { ok: false };
-    // Verify the candidate item really sits inside the given wrapper -
-    // a mismatched (wrapperPos, targetItemPos) pair would otherwise
-    // produce silently-wrong position math.
+    // Guard against a mismatched (wrapperPos, targetItemPos) pair.
     if (targetItemPos < wrapperPos + 1 || targetItemPos >= wrapperPos + wrapper.nodeSize) {
       return { ok: false };
     }
@@ -78,30 +76,32 @@ export function insertAsListItemChild(
     targetItemStart = pos;
   }
 
-  if (!targetItem.canReplaceWith(targetItem.childCount, targetItem.childCount, blockNode.type)) {
+  // Floor at 1 (index 0 is the label); omitted/overflow appends last.
+  const childCount = targetItem.childCount;
+  const insertIndex =
+    childIndex === undefined || childIndex >= childCount ? childCount : Math.max(1, childIndex);
+
+  if (!targetItem.canReplaceWith(insertIndex, insertIndex, blockNode.type)) {
     return { ok: false };
   }
 
-  // Position right BEFORE the item's close token = end of its content,
-  // where a new last-child is appended. Computed from the PRE-mutation
-  // doc so the offset reflects the layout the caller can reason about.
-  const targetItemContentEnd = targetItemStart + targetItem.nodeSize - 1;
+  // Position right before child[insertIndex] in the pre-mutation doc
+  // (`posAtIndex(childCount)` is the end-of-content append slot).
+  const $item = tr.doc.resolve(targetItemStart + 1);
+  const insertPos = $item.posAtIndex(insertIndex, $item.depth);
 
   if (sourceRange) {
     const { from, to } = sourceRange;
-    // Self-drop guard: target sits inside the deletion range. Caller's
-    // responsibility is primary, but defending here avoids a silent
-    // "insert into removed range" that would corrupt the document.
-    if (targetItemContentEnd >= from && targetItemContentEnd <= to) {
+    // Self-drop guard: insert point inside the deletion range is a no-op.
+    if (insertPos >= from && insertPos <= to) {
       return { ok: false };
     }
     tr.delete(from, to);
-    const adjustedInsertPos =
-      targetItemContentEnd > from ? targetItemContentEnd - (to - from) : targetItemContentEnd;
+    const adjustedInsertPos = insertPos > from ? insertPos - (to - from) : insertPos;
     tr.insert(adjustedInsertPos, blockNode);
     return { ok: true, insertedAt: adjustedInsertPos };
   }
 
-  tr.insert(targetItemContentEnd, blockNode);
-  return { ok: true, insertedAt: targetItemContentEnd };
+  tr.insert(insertPos, blockNode);
+  return { ok: true, insertedAt: insertPos };
 }

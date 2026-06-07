@@ -97,6 +97,15 @@ describe('findTopLevelBlock', () => {
     editor.destroy();
   });
 
+  it('returns null at the very end of the document (depth-0 boundary with no node starting there)', () => {
+    const editor = makeEditor('<p>Hi</p>');
+    // `content.size` resolves to depth 0 but `nodeAt` is null (nothing starts
+    // at the doc's end), so there is no top-level block to anchor on.
+    const result = findTopLevelBlock(editor.state.doc, editor.state.doc.content.size);
+    expect(result).toBeNull();
+    editor.destroy();
+  });
+
   it('provides `end` = pos + nodeSize for the resolved block', () => {
     const editor = makeEditor('<p>Hi</p><p>There</p>');
     const result = findTopLevelBlock(editor.state.doc, 5);
@@ -499,6 +508,99 @@ describe('findDeepestBlockAtY', () => {
     const result = findDeepestBlockAtY(viewStub(editor, rects), 180, ['listItem']);
     expect(result?.pos).toBe(outerLi);
     expect(result?.node.type.name).toBe('listItem');
+    editor.destroy();
+  });
+});
+
+describe('findDeepestBlockAtY - Y-hysteresis (incumbent stickiness)', () => {
+  // Shared nested fixture: an outer list item whose rect (100-300) spans its
+  // own label PLUS a nested sublist, and an inner item with a short rect
+  // (150-200). The boundary at inner.top=150 is exactly where the
+  // "smallest-height wins" rule flips outer<->inner on a 1-2px wobble.
+  function nestedFixture(): {
+    editor: Editor;
+    view: EditorView;
+    outerPos: number;
+    innerPos: number;
+  } {
+    const editor = makeEditor('<ul><li><p>Outer</p><ul><li><p>Inner</p></li></ul></li></ul>');
+    const outerPos = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent.startsWith('Outer'));
+    const innerPos = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Inner');
+    const rects = new Map<number, HTMLElement>([
+      [outerPos, elWithRect({ top: 100, bottom: 300 })],
+      [innerPos, elWithRect({ top: 150, bottom: 200 })],
+    ]);
+    return { editor, view: viewStub(editor, rects), outerPos, innerPos };
+  }
+
+  it('baseline (no incumbent): the winner flips outer<->inner across the boundary', () => {
+    // This is the bistability the hysteresis exists to tame: a 6px Y move
+    // across inner.top=150 swaps the resolved target with no stickiness.
+    const { editor, view, outerPos, innerPos } = nestedFixture();
+    expect(findDeepestBlockAtY(view, 147, ['listItem'])?.pos).toBe(outerPos); // just above inner
+    expect(findDeepestBlockAtY(view, 153, ['listItem'])?.pos).toBe(innerPos); // just inside inner
+    editor.destroy();
+  });
+
+  it('incumbent=inner keeps inner through a sub-band wobble above the boundary', () => {
+    // Cursor at 147 (3px above inner.top=150, within the 6px band). Without
+    // an incumbent this resolves to outer (baseline test above); with inner
+    // as the incumbent the sticky margin holds it on inner.
+    const { editor, view, innerPos } = nestedFixture();
+    const result = findDeepestBlockAtY(view, 147, ['listItem'], [], {
+      incumbentPos: innerPos,
+      hysteresisBand: 6,
+    });
+    expect(result?.pos).toBe(innerPos);
+    editor.destroy();
+  });
+
+  it('incumbent=inner yields to outer once the cursor crosses decisively (beyond the band)', () => {
+    // Cursor at 142 (8px above inner.top, past the 6px band) - the sticky
+    // margin no longer reaches, so the outer item takes over.
+    const { editor, view, outerPos, innerPos } = nestedFixture();
+    const result = findDeepestBlockAtY(view, 142, ['listItem'], [], {
+      incumbentPos: innerPos,
+      hysteresisBand: 6,
+    });
+    expect(result?.pos).toBe(outerPos);
+    editor.destroy();
+  });
+
+  it('incumbent=outer still lets the cursor enter the inner item (no margin on entry)', () => {
+    // Stickiness must not trap the cursor on the outer item: moving clearly
+    // into the inner row (152, inside 150-200) resolves to inner.
+    const { editor, view, outerPos, innerPos } = nestedFixture();
+    const result = findDeepestBlockAtY(view, 152, ['listItem'], [], {
+      incumbentPos: outerPos,
+      hysteresisBand: 6,
+    });
+    expect(result?.pos).toBe(innerPos);
+    editor.destroy();
+  });
+
+  it('hysteresisBand=0 disables stickiness even with an incumbent set', () => {
+    // Same 147 cursor + inner incumbent as the sticky test, but band 0 means
+    // the strict containment test runs and the result falls back to outer.
+    const { editor, view, outerPos, innerPos } = nestedFixture();
+    const result = findDeepestBlockAtY(view, 147, ['listItem'], [], {
+      incumbentPos: innerPos,
+      hysteresisBand: 0,
+    });
+    expect(result?.pos).toBe(outerPos);
+    editor.destroy();
+  });
+
+  it('a stale incumbent pos that no longer contains the cursor does not stick', () => {
+    // Incumbent points at inner, but the cursor is far below everything; the
+    // banded test still fails so resolution proceeds normally (here: null,
+    // nothing contains Y=500).
+    const { editor, view, innerPos } = nestedFixture();
+    const result = findDeepestBlockAtY(view, 500, ['listItem'], [], {
+      incumbentPos: innerPos,
+      hysteresisBand: 6,
+    });
+    expect(result).toBeNull();
     editor.destroy();
   });
 });

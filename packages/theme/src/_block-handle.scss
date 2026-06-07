@@ -76,7 +76,10 @@
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.12s ease, visibility 0.12s;
+  // Soft fade in/out so the handle eases on/off a block instead of
+  // popping. Position stays instant (no transform) so it never lags the
+  // cursor between rows, and boundingBox reads in tests stay stable.
+  transition: opacity 0.15s ease, visibility 0.15s;
   z-index: var(--dm-z-handle, 25);
 
   &[data-show] {

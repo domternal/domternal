@@ -23,10 +23,11 @@ import { Extension, defaultIcons } from '@domternal/core';
 import type { Editor } from '@domternal/core';
 import { NodeSelection, Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
-import type { Slice } from '@domternal/pm/model';
+import type { Node, Slice } from '@domternal/pm/model';
 import { findDeepestBlockAtY } from './helpers/findTopLevelBlock.js';
 import { moveBlock } from './helpers/moveBlock.js';
 import { moveBlockAsNestedChild } from './helpers/moveBlockAsNestedChild.js';
+import { resolveDropDepth, hasShallowerListAncestor } from './helpers/resolveDropDepth.js';
 import { createDragGhost } from './helpers/dragGhost.js';
 import { clampToContent } from './helpers/clampCoords.js';
 import { resolveGutterBias } from './helpers/gutterBias.js';
@@ -56,12 +57,13 @@ const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
  */
 export const DEFAULT_NEST_THRESHOLD = 28;
 
-/**
- * Pixel inset of the nested-mode drop indicator from the resolved
- * block's left edge. Mirrors `--dm-block-children-indent` (1.5rem ≈
- * 24px) so the dashed line lands exactly where a nested child block
- * would render inside the list item.
- */
+/** Sticky Y dead-band (px) so a wobble near a nested-list boundary can't flip the resolved target. */
+export const DROP_HYSTERESIS_Y_PX = 6;
+
+/** Sticky X dead-band (px) around `nestThreshold` so the sibling<->nested mode doesn't flicker. */
+export const DROP_HYSTERESIS_X_PX = 8;
+
+/** Nested-indicator inset from the block's left edge; mirrors `--dm-block-children-indent` (≈24px). */
 const NESTED_INDICATOR_INDENT_PX = 24;
 
 /**
@@ -312,6 +314,7 @@ function resolveBlockAtCoords(
   clientX: number,
   clientY: number,
   nested: NestedResolution,
+  incumbentPos: number | null = null,
 ): { pos: number; rect: DOMRect; dom: HTMLElement } | null {
   // Mode A - top-level only (classic). Walk doc children by Y range; X
   // is intentionally ignored so the handle still surfaces when the
@@ -348,7 +351,10 @@ function resolveBlockAtCoords(
   // firstChildOfListItem) applies consistently with Mode C - hosts
   // extending allowedNodes to include `paragraph` get label-paragraph
   // rejection for free.
-  const found = findDeepestBlockAtY(view, clamped.y, nested.allowedNodes, nested.matchers);
+  const found = findDeepestBlockAtY(view, clamped.y, nested.allowedNodes, nested.matchers, {
+    incumbentPos,
+    hysteresisBand: DROP_HYSTERESIS_Y_PX,
+  });
   if (found) {
     return { pos: found.pos, rect: found.rect, dom: found.dom };
   }
@@ -422,7 +428,7 @@ const LIST_WRAPPER_TYPE_NAMES = new Set(['bulletList', 'orderedList', 'taskList'
  *   that case; if we got the wrapper despite being inside, the caller's
  *   default targeting is already correct).
  */
-function adjustDropTargetForListWrapper(
+export function adjustDropTargetForListWrapper(
   view: EditorView,
   resolved: { pos: number; rect: DOMRect; dom: HTMLElement },
   clientY: number,
@@ -449,63 +455,152 @@ function adjustDropTargetForListWrapper(
   return { pos: childPos, rect: childDom.getBoundingClientRect(), dom: childDom };
 }
 
+interface ResolvedBlock { pos: number; rect: DOMRect; dom: HTMLElement }
+
 /**
- * Resolved drop target shared by `handleDrop` and `updateDropIndicator`
- * so the indicator draws exactly where the drop lands (no
- * "indicator says X, item drops Y" mismatch).
- *
- * `mode` distinguishes the two ways a block can be dropped over a list
- * item: `'sibling'` (the existing behaviour, drop position becomes a
- * new sibling of the target via the standard `moveBlock` flow) and
- * `'nested'` (drop becomes a nested child of `targetItemPos` inside
- * `wrapperPos`, applied via `insertAsListItemChild`). Today every
- * placement is `'sibling'`; the `'nested'` branch activates in a
- * follow-up that adds X-threshold detection.
+ * Among the direct list-item children of the wrapper at `wrapperPos`, pick the
+ * one whose row the cursor is nearest (distance 0 when strictly contained).
+ */
+function nearestChildItem(
+  view: EditorView,
+  wrapperPos: number,
+  wrapper: Node,
+  clientY: number,
+): ResolvedBlock | null {
+  let childPos = wrapperPos + 1;
+  let best: { block: ResolvedBlock; dist: number } | null = null;
+  for (let i = 0; i < wrapper.childCount; i++) {
+    const child = wrapper.child(i);
+    if (LIST_ITEM_TYPES.has(child.type.name)) {
+      const dom = view.nodeDOM(childPos);
+      if (dom instanceof HTMLElement) {
+        const rect = dom.getBoundingClientRect();
+        const dist = clientY < rect.top ? rect.top - clientY : clientY > rect.bottom ? clientY - rect.bottom : 0;
+        if (best === null || dist < best.dist) best = { block: { pos: childPos, rect, dom }, dist };
+      }
+    }
+    childPos += child.nodeSize;
+  }
+  return best?.block ?? null;
+}
+
+/** The direct nested list-wrapper child of the item at `itemPos`, if any. */
+function findNestedListChild(
+  view: EditorView,
+  itemPos: number,
+  item: Node,
+): { pos: number; node: Node; rect: DOMRect } | null {
+  let childPos = itemPos + 1;
+  for (let i = 0; i < item.childCount; i++) {
+    const child = item.child(i);
+    if (LIST_WRAPPER_TYPE_NAMES.has(child.type.name)) {
+      const dom = view.nodeDOM(childPos);
+      if (dom instanceof HTMLElement) return { pos: childPos, node: child, rect: dom.getBoundingClientRect() };
+      return null;
+    }
+    childPos += child.nodeSize;
+  }
+  return null;
+}
+
+/**
+ * Anchor the handle on the list/task ITEM whose row the cursor is nearest,
+ * descending through nesting. `findDeepestBlockAtY` resolves to the containing
+ * ANCESTOR when the cursor sits in a gap between sibling items (no leaf
+ * strictly contains Y), parking the handle far above the cursor; this walks
+ * down to the nearest child so it tracks the actual row. Stays put when the
+ * cursor is on an item's own label row.
+ */
+export function descendToNearestHoverItem(view: EditorView, resolved: ResolvedBlock, clientY: number): ResolvedBlock {
+  let current = resolved;
+  for (let guard = 0; guard < 20; guard++) {
+    const node = view.state.doc.nodeAt(current.pos);
+    if (!node) return current;
+    if (LIST_WRAPPER_TYPE_NAMES.has(node.type.name)) {
+      const next = nearestChildItem(view, current.pos, node, clientY);
+      if (!next || next.pos === current.pos) return current;
+      current = next;
+      continue;
+    }
+    if (LIST_ITEM_TYPES.has(node.type.name)) {
+      const nested = findNestedListChild(view, current.pos, node);
+      // No nested list, or the cursor is on this item's own label row (above
+      // the nested list): the item itself is the right anchor.
+      if (!nested || clientY < nested.rect.top) return current;
+      const next = nearestChildItem(view, nested.pos, nested.node, clientY);
+      if (!next || next.pos === current.pos) return current;
+      current = next;
+      continue;
+    }
+    return current;
+  }
+  return current;
+}
+
+/** Client-coord gap rect an indicator line draws into. */
+interface ChildGapRect {
+  top: number;
+  bottom: number;
+  left: number;
+  width: number;
+}
+
+/**
+ * Resolved drop target, shared by `handleDrop` and `updateDropIndicator` so
+ * the indicator draws exactly where the drop lands. `mode` is `'sibling'`
+ * (drop as a sibling via `moveBlock`) or `'nested'` (drop as a child of
+ * `targetItemPos` inside `wrapperPos` via `insertAsListItemChild`).
  */
 export interface DropPlacement {
   /** Position right BEFORE the resolved block (same convention as `nodeAt`). */
   pos: number;
   /** Bounding rect of the resolved block, used to draw the indicator line. */
   rect: DOMRect;
-  /**
-   * `true` -> drop lands AFTER the resolved block; `false` -> BEFORE.
-   * Computed from cursor Y vs the resolved block's mid-line. Read by the
-   * sibling-style drop pipeline; ignored when `mode === 'nested'` (the
-   * nested branch dispatches via `insertAsListItemChild`).
-   */
+  /** `true` -> drop AFTER the block, `false` -> BEFORE (Y-mid). Ignored when nested. */
   insertAfter: boolean;
-  /** Sibling drop (current behaviour) vs nested-child drop (drop-indent). */
+  /** Sibling drop vs nested-child drop. */
   mode: 'sibling' | 'nested';
-  /** Position of the target list item when `mode === 'nested'`. */
+  /** Target list item (nested only). */
   targetItemPos?: number;
-  /** Position of the containing list wrapper when `mode === 'nested'`. */
+  /** Containing list wrapper (nested only). */
   wrapperPos?: number;
+  /**
+   * Child index a nested drop lands at, in `[1, childCount]` (index 0 is the
+   * label; `=== childCount` means append). Picks first/between/last slot.
+   */
+  childIndex?: number;
+  /** Client-coord gap the chosen `childIndex` slot occupies (drives the line). */
+  nestedGapRect?: ChildGapRect;
+  /**
+   * The deepest-match item the resolver landed on, BEFORE gap-normalization
+   * rewrites `pos`. Fed back as `incumbentPos` next dragover for Y-hysteresis.
+   */
+  resolvedBlockPos?: number;
 }
 
 /**
- * Computes the FINAL drop placement using the same logic `handleDrop`
- * uses. Returned by both the actual drop handler AND the visual drop
- * indicator so the line draws exactly where the drop will land - no
- * "indicator says one place, item drops elsewhere" mismatch (the classic
- * dropcursor pain point with custom drop handlers).
+ * Per-drag hysteresis state threaded into {@link computeDropPlacement}.
+ * Omitted by pure callers (tests) so the resolver stays stateless.
+ */
+export interface DropPlacementOptions {
+  /** Previous dragover's resolved block, for Y-hysteresis. */
+  incumbentPos?: number | null;
+  /** Whether nested was latched last dragover, for X-hysteresis. */
+  nestLatched?: boolean;
+  /** Previous dragover's child slot, for the nested child-slot dead-band. */
+  incumbentChildIndex?: number | null;
+  /** Enable the dead-bands (off for unit callers, `true` from the plugin). */
+  hysteresis?: boolean;
+}
+
+/**
+ * Computes the final drop placement; returned by BOTH the drop handler and
+ * the indicator so the line draws exactly where the drop lands. Returns
+ * `null` when no candidate is found (e.g. empty doc).
  *
- * - `rect` is the resolved target block's rect (for drawing the line)
- * - `insertAfter` decides whether the line sits above or below the rect
- *   AND whether the drop pos becomes `pos + nodeSize` or `pos`
- *
- * Returns `null` when the resolver finds no candidate (e.g. empty doc).
- *
- * **Inter-block gap normalization.** When the cursor sits in the gap
- * between two siblings, `resolveBlockAtCoords` flips between them based
- * on Y proximity. Without normalization the indicator would draw at two
- * different rect edges (upper.bottom vs lower.top) - visually two lines
- * for what is the SAME logical drop slot (PM treats `endOf(upper)` and
- * `startOf(lower)` as one position in the parent's content array). To
- * unify the visual we canonicalise `insertAfter=false` to "after the
- * previous sibling" whenever a previous sibling exists at the same depth.
- * Net effect: one gap → one line, anchored at the bottom edge of the
- * upper block, with the upper block's width (which equals the lower's
- * for prose at the same depth, so the line spans the content column).
+ * Gap normalization: for `insertAfter=false` with a previous sibling at the
+ * same depth, the slot is canonicalised to "after the previous sibling" so
+ * one inter-block gap maps to one indicator line.
  */
 export function computeDropPlacement(
   view: EditorView,
@@ -513,10 +608,14 @@ export function computeDropPlacement(
   clientY: number,
   nested: NestedResolution,
   nestThreshold: number = DEFAULT_NEST_THRESHOLD,
+  options: DropPlacementOptions = {},
 ): DropPlacement | null {
-  const initial = resolveBlockAtCoords(view, clientX, clientY, nested);
+  const incumbentPos = options.incumbentPos ?? null;
+  const initial = resolveBlockAtCoords(view, clientX, clientY, nested, incumbentPos);
   if (!initial) return null;
   const resolved = adjustDropTargetForListWrapper(view, initial, clientY);
+  // The deepest-match item, fed back as the next dragover's incumbent.
+  const resolvedBlockPos = resolved.pos;
 
   // X-threshold detection: when the resolved target is a list item and
   // the cursor sits >= nestThreshold px from its left edge (inside the
@@ -528,17 +627,34 @@ export function computeDropPlacement(
       const targetRect = resolved.rect;
       const xInTarget = clientX - targetRect.left;
       const isInsideX = xInTarget >= 0 && xInTarget <= targetRect.width;
-      const isInNestZone = xInTarget >= nestThreshold;
+      // The X-latch and child-slot incumbent only apply while the cursor stays
+      // on the same item; a null incumbentPos (stateless unit callers) counts
+      // as "same item" to keep their contract.
+      const inc = options.incumbentPos ?? null;
+      const sameItem = inc === null || inc === resolved.pos;
+      // X-hysteresis (sticky-exit): enter nested at `nestThreshold`, but once
+      // latched stay nested until X falls below `nestThreshold - band`, killing
+      // sibling<->nested flicker. Band is 0 for unit callers (exact threshold).
+      const xBand = options.hysteresis ? DROP_HYSTERESIS_X_PX : 0;
+      const isInNestZone = sameItem && options.nestLatched
+        ? xInTarget >= nestThreshold - xBand
+        : xInTarget >= nestThreshold;
       const isInsideY = clientY >= targetRect.top && clientY <= targetRect.bottom;
       if (isInsideX && isInNestZone && isInsideY) {
-        // Walk up to the wrapping list. `$resolved.before()` is the
-        // position right before the parent at $resolved.depth, which for
-        // a position between siblings is the wrapper itself.
+        // Walk up to the wrapping list (`$resolved.before()` is the position
+        // before the parent, i.e. the wrapper itself).
         const $resolved = view.state.doc.resolve(resolved.pos);
         const wrapperPos = $resolved.before();
-        // `insertAfter` mirrors the sibling-mode Y-mid calculation so the
-        // field stays semantically meaningful when consumers (the nested
-        // branch ignores it).
+        const childBand = options.hysteresis ? DROP_HYSTERESIS_Y_PX : 0;
+        const slot = resolveChildSlot(
+          view,
+          targetNode,
+          resolved.pos,
+          targetRect,
+          clientY,
+          sameItem ? options.incumbentChildIndex ?? null : null,
+          childBand,
+        );
         const midY = targetRect.top + targetRect.height / 2;
         return {
           pos: resolved.pos,
@@ -547,7 +663,45 @@ export function computeDropPlacement(
           mode: 'nested',
           targetItemPos: resolved.pos,
           wrapperPos,
+          childIndex: slot.childIndex,
+          nestedGapRect: slot.gapRect,
+          resolvedBlockPos,
         };
+      }
+    }
+  }
+
+  // Outdent ladder: cursor LEFT of a nested item's content (inside its row)
+  // picks a shallower ancestor, so the drop becomes a sibling AFTER that
+  // ancestor (drag left to outdent, Notion-style). Resolves to a plain sibling
+  // placement at the ancestor, where the sibling drop already lands.
+  if (nestThreshold > 0) {
+    const targetNode = view.state.doc.nodeAt(resolved.pos);
+    const inRowY = clientY >= resolved.rect.top && clientY <= resolved.rect.bottom;
+    if (
+      targetNode
+      && LIST_ITEM_TYPES.has(targetNode.type.name)
+      && inRowY
+      && clientX < resolved.rect.left
+      && hasShallowerListAncestor(view.state.doc, resolved.pos)
+    ) {
+      const rung = resolveDropDepth({
+        view,
+        itemPos: resolved.pos,
+        clientX,
+        indentStep: nestThreshold,
+      });
+      if (rung?.kind === 'sibling' && rung.itemPos !== resolved.pos) {
+        const ancDom = view.nodeDOM(rung.itemPos);
+        if (ancDom instanceof HTMLElement) {
+          return {
+            pos: rung.itemPos,
+            rect: ancDom.getBoundingClientRect(),
+            insertAfter: true,
+            mode: 'sibling',
+            resolvedBlockPos,
+          };
+        }
       }
     }
   }
@@ -559,23 +713,16 @@ export function computeDropPlacement(
   if (!insertAfter) {
     const prev = findPreviousSiblingAtSameDepth(view, resolved.pos);
     if (prev) {
-      return { pos: prev.pos, rect: prev.rect, insertAfter: true, mode: 'sibling' };
+      return { pos: prev.pos, rect: prev.rect, insertAfter: true, mode: 'sibling', resolvedBlockPos };
     }
   }
-  return { pos: resolved.pos, rect, insertAfter, mode: 'sibling' };
+  return { pos: resolved.pos, rect, insertAfter, mode: 'sibling', resolvedBlockPos };
 }
 
 /**
- * Returns the previous sibling at the same parent depth as `pos` (which
- * must be the position immediately BEFORE a node - same convention as
- * `nodeAt`). Returns `null` when the node has no previous sibling (it's
- * the first child of its parent) or when the previous sibling has no DOM
- * representation.
- *
- * Works for any depth: top-level blocks resolve against `doc`; nested
- * blocks (list items, table cells) resolve against their immediate
- * container - so the canonical "between" position is always the upper
- * sibling within the SAME container, never crossing container boundaries.
+ * Previous sibling of the node at `pos` (a position right BEFORE a node),
+ * within the same container. Returns `null` when `pos` is the first child or
+ * the previous sibling has no DOM. Never crosses container boundaries.
  */
 function findPreviousSiblingAtSameDepth(
   view: EditorView,
@@ -590,6 +737,77 @@ function findPreviousSiblingAtSameDepth(
   const prevDom = view.nodeDOM(prevPos);
   if (!(prevDom instanceof HTMLElement)) return null;
   return { pos: prevPos, rect: prevDom.getBoundingClientRect() };
+}
+
+interface ChildSlot {
+  /** Child-array index to insert at, in `[1, childCount]`. */
+  childIndex: number;
+  /** Client-coord gap the chosen slot occupies (drives the indicator line). */
+  gapRect: ChildGapRect;
+}
+
+/**
+ * Picks which child slot (first/between/last) of a list item the cursor's Y
+ * lands in. `childIndex` is `1 + (children whose mid-line is at/above the
+ * cursor)`, clamped to `[1, childCount]` (index 0 is the label). `band > 0`
+ * keeps `incumbentChildIndex` sticky within `band` px of a boundary. Degrades
+ * to append-last when a child rect is missing. All gaps share the item's
+ * content column so the indented line lands at a consistent depth.
+ */
+function resolveChildSlot(
+  view: EditorView,
+  item: Node,
+  itemStart: number,
+  itemRect: DOMRect,
+  clientY: number,
+  incumbentChildIndex: number | null,
+  band: number,
+): ChildSlot {
+  const childCount = item.childCount;
+  const gap = (top: number, bottom: number): ChildGapRect => ({
+    top,
+    bottom,
+    left: itemRect.left,
+    width: itemRect.width,
+  });
+  const append: ChildSlot = { childIndex: childCount, gapRect: gap(itemRect.bottom, itemRect.bottom) };
+
+  // Measure each child's rect; `posAtIndex` gives the position before child i.
+  const $item = view.state.doc.resolve(itemStart + 1);
+  const rects: DOMRect[] = [];
+  for (let i = 0; i < childCount; i++) {
+    const dom = view.nodeDOM($item.posAtIndex(i, $item.depth));
+    if (!(dom instanceof HTMLElement)) return append; // degrade on first missing rect
+    rects.push(dom.getBoundingClientRect());
+  }
+
+  const label = rects[0];
+  if (!label) return append;
+  if (childCount === 1) return { childIndex: 1, gapRect: gap(label.bottom, label.bottom) };
+
+  let index = 1;
+  for (let i = 1; i < childCount; i++) {
+    const r = rects[i];
+    if (r && clientY >= (r.top + r.bottom) / 2) index = i + 1;
+  }
+  index = Math.min(Math.max(index, 1), childCount);
+
+  // Dead-band: keep the incumbent within `band` px of the shared boundary.
+  if (
+    band > 0 &&
+    incumbentChildIndex !== null &&
+    incumbentChildIndex >= 1 &&
+    incumbentChildIndex <= childCount &&
+    Math.abs(index - incumbentChildIndex) === 1
+  ) {
+    const r = rects[Math.min(index, incumbentChildIndex)];
+    if (r && Math.abs(clientY - (r.top + r.bottom) / 2) <= band) index = incumbentChildIndex;
+  }
+
+  const above = rects[index - 1];
+  const below = index < childCount ? rects[index] : undefined;
+  if (!above) return append;
+  return { childIndex: index, gapRect: gap(above.bottom, below ? below.top : above.bottom) };
 }
 
 /**
@@ -667,6 +885,35 @@ export function createBlockHandlePlugin(
   // independent of both, so reading from here is reliable. Cleared on
   // dragend, so it never lingers across drags.
   let pendingDraggedFrom: number | null = null;
+
+  // Drop-indicator drag-session state. Like the hover path: rAF-coalesced,
+  // repainted only when the line moves (`currentDropKey`). `dragHyst` carries
+  // the previous resolution forward for Y/X/child-slot hysteresis, bundled so
+  // every reset is atomic.
+  let dropRaf: number | null = null;
+  let pendingDropCoords: { x: number; y: number } | null = null;
+  let currentDropKey: string | null = null;
+  const dragHyst: { incumbentPos: number | null; nestLatched: boolean; childIndex: number | null } = {
+    incumbentPos: null,
+    nestLatched: false,
+    childIndex: null,
+  };
+
+  const resetDragHyst = (): void => {
+    dragHyst.incumbentPos = null;
+    dragHyst.nestLatched = false;
+    dragHyst.childIndex = null;
+  };
+
+  const resetDropState = (): void => {
+    if (dropRaf !== null) {
+      cancelAnimationFrame(dropRaf);
+      dropRaf = null;
+    }
+    pendingDropCoords = null;
+    currentDropKey = null;
+    resetDragHyst();
+  };
 
   // Auto-scroll state machine (populated during an active drag, reset by
   // `resetAutoScroll`). Grouped into one object so every reset clears every
@@ -774,11 +1021,13 @@ export function createBlockHandlePlugin(
       // Re-check the pin gate: a mousemove queued pre-open can fire
       // after `open()` and otherwise reposition the handle.
       if (editorEl.hasAttribute('data-block-context-menu-open')) return;
-      const resolved = resolveBlockAtCoords(editor.view, coords.x, coords.y, nested);
-      if (!resolved) {
+      const initial = resolveBlockAtCoords(editor.view, coords.x, coords.y, nested);
+      if (!initial) {
         scheduleHide();
         return;
       }
+      // Gap hovers resolve to an ancestor; descend to the nearest leaf row.
+      const resolved = descendToNearestHoverItem(editor.view, initial, coords.y);
       clearHideTimer();
       // `updateHoverState` is a no-op when PM plugin state already matches
       // - keep it unconditional so that if a prior docChanged transaction
@@ -944,13 +1193,30 @@ export function createBlockHandlePlugin(
     // whatever element is under the cursor; bubbles up to our document
     // drop listener, which performs the move.
     if (inZone) event.preventDefault();
-    if (dropIndicator) {
-      if (!inZone) {
-        indicator.removeAttribute('data-show');
-        return;
+    if (!dropIndicator) return;
+    if (!inZone) {
+      // Left the zone: hide and drop the hysteresis incumbents so re-entry
+      // resolves fresh (no stale nest-latch across a round-trip out).
+      if (dropRaf !== null) {
+        cancelAnimationFrame(dropRaf);
+        dropRaf = null;
       }
-      updateDropIndicator(event.clientX, event.clientY);
+      pendingDropCoords = null;
+      currentDropKey = null;
+      resetDragHyst();
+      indicator.removeAttribute('data-show');
+      return;
     }
+    // Coalesce the repaint to one rAF/frame; preventDefault + auto-scroll above
+    // stay synchronous.
+    pendingDropCoords = { x: event.clientX, y: event.clientY };
+    if (dropRaf !== null) return;
+    dropRaf = requestAnimationFrame(() => {
+      dropRaf = null;
+      const coords = pendingDropCoords;
+      pendingDropCoords = null;
+      if (coords) updateDropIndicator(coords.x, coords.y);
+    });
   };
 
   /**
@@ -1006,7 +1272,13 @@ export function createBlockHandlePlugin(
     if (draggedFrom === null) return false;
     const sourceNode = view.state.doc.nodeAt(draggedFrom);
     if (!sourceNode) return false;
-    const placement = computeDropPlacement(view, clientX, clientY, nested, nestThreshold);
+    // Same hysteresis state the indicator last used, so the drop lands on the line.
+    const placement = computeDropPlacement(view, clientX, clientY, nested, nestThreshold, {
+      incumbentPos: dragHyst.incumbentPos,
+      nestLatched: dragHyst.nestLatched,
+      incumbentChildIndex: dragHyst.childIndex,
+      hysteresis: true,
+    });
     if (!placement) return false;
     const tr = view.state.tr;
 
@@ -1015,14 +1287,29 @@ export function createBlockHandlePlugin(
       && placement.targetItemPos !== undefined
       && placement.wrapperPos !== undefined
     ) {
-      // Drop-indent path: append source as the last child of the target
-      // list item via `insertAsListItemChild`. On schema reject the
-      // helper leaves `tr` untouched and returns false; we fall back to
-      // the sibling-style move so the user's drag still produces a
-      // sensible result.
-      const ok = moveBlockAsNestedChild(tr, draggedFrom, placement.wrapperPos, placement.targetItemPos);
+      // Drop-indent into the slot the indicator drew.
+      const ok = moveBlockAsNestedChild(
+        tr,
+        draggedFrom,
+        placement.wrapperPos,
+        placement.targetItemPos,
+        placement.childIndex,
+      );
       if (ok) {
         view.dispatch(tr.scrollIntoView());
+        return true;
+      }
+      // Helper bailed. A SELF-drop (source and target overlap either way) is a
+      // no-op: consume the event instead of ejecting the block to a sibling. A
+      // true schema reject (no overlap) falls through to the sibling move below.
+      const targetItem = view.state.doc.nodeAt(placement.targetItemPos);
+      const targetItemEnd = targetItem
+        ? placement.targetItemPos + targetItem.nodeSize
+        : placement.targetItemPos;
+      const sourceEnd = draggedFrom + sourceNode.nodeSize;
+      const sourceInTarget = draggedFrom >= placement.targetItemPos && draggedFrom < targetItemEnd;
+      const targetInSource = placement.targetItemPos >= draggedFrom && placement.targetItemPos < sourceEnd;
+      if (sourceInTarget || targetInSource) {
         return true;
       }
     }
@@ -1052,55 +1339,60 @@ export function createBlockHandlePlugin(
   };
 
   /**
-   * Reposition the drop-indicator line at the same target `handleDrop`
-   * would land at for these coordinates. Called from the document-level
-   * `dragover` listener while a drag is in progress.
-   *
-   * Hides the indicator when the resolver finds nothing (e.g. cursor
-   * outside the editor's content range during a no-op drag-out).
-   *
-   * Two visual modes:
-   *
-   *  - **Sibling** - solid line at the rect's top OR bottom edge
-   *    (decided by `insertAfter`), spanning the full block width. The
-   *    line lives in the gap BETWEEN sibling blocks.
-   *  - **Nested** - dashed line at the rect's BOTTOM edge, indented to
-   *    where children render (matching `--dm-block-children-indent`,
-   *    nominally 24px). Communicates "this drop becomes a nested child
-   *    appended at the end" via `insertAsListItemChild`.
-   *
-   * The `data-mode` attribute carries the placement mode so theme CSS
-   * can swap solid for dashed via `&[data-mode='nested']`.
+   * Reposition the drop-indicator line where `handleDrop` would land for
+   * these coords; hide it when nothing resolves. `data-mode` lets theme CSS
+   * draw a solid sibling line vs a dashed indented nested line.
    */
   const updateDropIndicator = (clientX: number, clientY: number): void => {
     if (!editorEl) return;
-    const placement = computeDropPlacement(editor.view, clientX, clientY, nested, nestThreshold);
+    const placement = computeDropPlacement(editor.view, clientX, clientY, nested, nestThreshold, {
+      incumbentPos: dragHyst.incumbentPos,
+      nestLatched: dragHyst.nestLatched,
+      incumbentChildIndex: dragHyst.childIndex,
+      hysteresis: true,
+    });
     if (!placement) {
       indicator.removeAttribute('data-show');
+      currentDropKey = null;
       return;
     }
+    // Carry forward for the next dragover's hysteresis, even if the repaint is
+    // gated below.
+    dragHyst.incumbentPos = placement.resolvedBlockPos ?? null;
+    dragHyst.nestLatched = placement.mode === 'nested';
+    dragHyst.childIndex = placement.mode === 'nested' ? placement.childIndex ?? null : null;
+
     const editorRect = editorEl.getBoundingClientRect();
 
     let lineY: number;
     let left: number;
     let width: number;
     if (placement.mode === 'nested') {
-      // Indicator sits AT the bottom of the target list item, indented
-      // to the children-zone start. `NESTED_INDICATOR_INDENT_PX` mirrors
-      // the default `--dm-block-children-indent` CSS variable (1.5rem ≈
-      // 24px); custom themes that override the variable can override
-      // the indicator indent through the same CSS hook (see theme).
+      // Anchor on the gap's TOP edge, indented to the children zone (the
+      // theme's `translateY` tuck applies uniformly, so JS owns no CSS-coupled
+      // offset). Fall back to the item bottom when `nestedGapRect` is absent.
       const indent = NESTED_INDICATOR_INDENT_PX;
-      lineY = placement.rect.bottom - editorRect.top;
-      left = placement.rect.left - editorRect.left + indent;
-      width = Math.max(0, placement.rect.width - indent);
+      const gap = placement.nestedGapRect ?? {
+        top: placement.rect.bottom,
+        left: placement.rect.left,
+        width: placement.rect.width,
+      };
+      lineY = gap.top - editorRect.top;
+      left = gap.left - editorRect.left + indent;
+      width = Math.max(0, gap.width - indent);
     } else {
-      // Sibling line: ABOVE rect when inserting before, BELOW when
-      // inserting after. Spans the full resolved block width.
+      // Sibling line at the rect's top/bottom edge, full width.
       lineY = (placement.insertAfter ? placement.rect.bottom : placement.rect.top) - editorRect.top;
       left = placement.rect.left - editorRect.left;
       width = placement.rect.width;
     }
+    // Identity gate: skip DOM writes when the drawn line is unchanged. Keyed on
+    // geometry + child slot (so a slot change at the same row still repaints).
+    const slotPart = placement.mode === 'nested' ? String(placement.childIndex ?? -1) : 's';
+    const key = `${placement.mode}|${slotPart}|${String(Math.round(lineY))}|${String(Math.round(left))}|${String(Math.round(width))}`;
+    if (key === currentDropKey && indicator.hasAttribute('data-show')) return;
+    currentDropKey = key;
+
     indicator.style.top = `${String(lineY)}px`;
     indicator.style.left = `${String(left)}px`;
     indicator.style.width = `${String(width)}px`;
@@ -1114,6 +1406,8 @@ export function createBlockHandlePlugin(
 
   const hideDropIndicator = (): void => {
     indicator.removeAttribute('data-show');
+    // Drop the identity gate so the next show repaints from scratch.
+    currentDropKey = null;
   };
 
   let dragoverAttached = false;
@@ -1132,6 +1426,8 @@ export function createBlockHandlePlugin(
     document.removeEventListener('dragover', onDocumentDragover);
     document.removeEventListener('drop', onDocumentDrop);
     dragoverAttached = false;
+    // Every teardown path funnels through here, so no stale state leaks.
+    resetDropState();
   };
 
   const autoScrollTick = (): void => {
@@ -1279,8 +1575,10 @@ export function createBlockHandlePlugin(
       hide();
     }, 0);
 
-    // Begin tracking dragover Y and ramping scroll as the cursor nears
-    // viewport edges. No-op when `autoScroll: false` or no scroll ancestor.
+    // Start with clean hysteresis state so the first dragover resolves freely.
+    resetDropState();
+
+    // Track dragover Y and ramp scroll near viewport edges (no-op when off).
     startAutoScroll();
     // The shared document-level dragover listener powers BOTH auto-scroll
     // and the drop-indicator. Attached once per drag, removed in dragend.

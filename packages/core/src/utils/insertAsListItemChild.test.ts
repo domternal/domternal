@@ -368,4 +368,148 @@ describe('insertAsListItemChild', () => {
       expect(dump(editor)).toBe(before);
     });
   });
+
+  describe('childIndex (position-aware insert)', () => {
+    // Item [label "L", para "A", para "B"] (childCount 3). The label is the
+    // immutable child 0; valid insert indices are 1..3.
+    function setup3(): { wrapperPos: number; itemPos: number } {
+      editor = makeEditor('<ul><li><p>L</p><p>A</p><p>B</p></li></ul>');
+      return {
+        wrapperPos: findPos(editor, (n) => n.type.name === 'bulletList'),
+        itemPos: findPos(editor, (n) => n.type.name === 'listItem'),
+      };
+    }
+
+    it('childIndex=1 inserts as the FIRST child after the label: [L, NEW, A, B]', () => {
+      const { wrapperPos, itemPos } = setup3();
+      const tr = editor!.state.tr;
+      const r = insertAsListItemChild({
+        tr, wrapperPos, targetItemPos: itemPos, blockNode: makeParagraph(editor!, 'NEW'), childIndex: 1,
+      });
+      expect(r.ok).toBe(true);
+      editor!.view.dispatch(tr);
+      expect(dump(editor!)).toContain('listItem(paragraph("L"), paragraph("NEW"), paragraph("A"), paragraph("B"))');
+    });
+
+    it('childIndex=2 inserts BETWEEN: [L, A, NEW, B]', () => {
+      const { wrapperPos, itemPos } = setup3();
+      const tr = editor!.state.tr;
+      const r = insertAsListItemChild({
+        tr, wrapperPos, targetItemPos: itemPos, blockNode: makeParagraph(editor!, 'NEW'), childIndex: 2,
+      });
+      expect(r.ok).toBe(true);
+      editor!.view.dispatch(tr);
+      expect(dump(editor!)).toContain('listItem(paragraph("L"), paragraph("A"), paragraph("NEW"), paragraph("B"))');
+    });
+
+    it('childIndex=childCount appends, identical to omitting childIndex: [L, A, B, NEW]', () => {
+      const { wrapperPos, itemPos } = setup3();
+      const tr = editor!.state.tr;
+      const r = insertAsListItemChild({
+        tr, wrapperPos, targetItemPos: itemPos, blockNode: makeParagraph(editor!, 'NEW'), childIndex: 3,
+      });
+      expect(r.ok).toBe(true);
+      editor!.view.dispatch(tr);
+      expect(dump(editor!)).toContain('listItem(paragraph("L"), paragraph("A"), paragraph("B"), paragraph("NEW"))');
+    });
+
+    it('childIndex past childCount clamps to append-last', () => {
+      const { wrapperPos, itemPos } = setup3();
+      const tr = editor!.state.tr;
+      const r = insertAsListItemChild({
+        tr, wrapperPos, targetItemPos: itemPos, blockNode: makeParagraph(editor!, 'NEW'), childIndex: 99,
+      });
+      expect(r.ok).toBe(true);
+      editor!.view.dispatch(tr);
+      expect(dump(editor!)).toContain('listItem(paragraph("L"), paragraph("A"), paragraph("B"), paragraph("NEW"))');
+    });
+
+    it('childIndex=0 is clamped to 1 (never inserts before the label)', () => {
+      const { wrapperPos, itemPos } = setup3();
+      const tr = editor!.state.tr;
+      const r = insertAsListItemChild({
+        tr, wrapperPos, targetItemPos: itemPos, blockNode: makeParagraph(editor!, 'NEW'), childIndex: 0,
+      });
+      expect(r.ok).toBe(true);
+      editor!.view.dispatch(tr);
+      expect(dump(editor!)).toContain('listItem(paragraph("L"), paragraph("NEW"), paragraph("A"), paragraph("B"))');
+    });
+
+    it('childIndex=1 on an empty-children item [L] lands as the only extra child', () => {
+      editor = makeEditor('<ul><li><p>L</p></li></ul>');
+      const wrapperPos = findPos(editor, (n) => n.type.name === 'bulletList');
+      const itemPos = findPos(editor, (n) => n.type.name === 'listItem');
+      const tr = editor.state.tr;
+      const r = insertAsListItemChild({
+        tr, wrapperPos, targetItemPos: itemPos, blockNode: makeParagraph(editor, 'NEW'), childIndex: 1,
+      });
+      expect(r.ok).toBe(true);
+      editor.view.dispatch(tr);
+      expect(dump(editor)).toContain('listItem(paragraph("L"), paragraph("NEW"))');
+    });
+
+    it('move with childIndex: source BEFORE target lands at the index (not appended)', () => {
+      editor = makeEditor('<h2>Before</h2><ul><li><p>L</p><p>A</p></li></ul>');
+      const wrapperPos = findPos(editor, (n) => n.type.name === 'bulletList');
+      const itemPos = findPos(editor, (n) => n.type.name === 'listItem');
+      const headingPos = findPos(editor, (n) => n.type.name === 'heading');
+      const heading = editor.state.doc.nodeAt(headingPos)!;
+      const tr = editor.state.tr;
+      const r = insertAsListItemChild({
+        tr, wrapperPos, targetItemPos: itemPos, blockNode: heading, childIndex: 1,
+        sourceRange: { from: headingPos, to: headingPos + heading.nodeSize },
+      });
+      expect(r.ok).toBe(true);
+      editor.view.dispatch(tr);
+      expect(editor.state.doc.childCount).toBe(1); // heading moved off top level
+      expect(dump(editor)).toContain('listItem(paragraph("L"), heading("Before"), paragraph("A"))');
+    });
+
+    it('self-drop guard: moving a child to its own boundary index returns ok=false', () => {
+      editor = makeEditor('<ul><li><p>L</p><p>A</p><p>B</p></li></ul>');
+      const wrapperPos = findPos(editor, (n) => n.type.name === 'bulletList');
+      const itemPos = findPos(editor, (n) => n.type.name === 'listItem');
+      const posA = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'A');
+      const a = editor.state.doc.nodeAt(posA)!;
+      const tr = editor.state.tr;
+      const before = dump(editor);
+      // childIndex=1 -> insertPos == posA (before A) == from -> self-drop.
+      const r = insertAsListItemChild({
+        tr, wrapperPos, targetItemPos: itemPos, blockNode: a, childIndex: 1,
+        sourceRange: { from: posA, to: posA + a.nodeSize },
+      });
+      expect(r.ok).toBe(false);
+      expect(dump(editor)).toBe(before);
+    });
+
+    it('self-drop: moving a child PAST itself (childIndex=childCount) reorders cleanly', () => {
+      editor = makeEditor('<ul><li><p>L</p><p>A</p><p>B</p></li></ul>');
+      const wrapperPos = findPos(editor, (n) => n.type.name === 'bulletList');
+      const itemPos = findPos(editor, (n) => n.type.name === 'listItem');
+      const posA = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'A');
+      const a = editor.state.doc.nodeAt(posA)!;
+      const tr = editor.state.tr;
+      const r = insertAsListItemChild({
+        tr, wrapperPos, targetItemPos: itemPos, blockNode: a, childIndex: 3,
+        sourceRange: { from: posA, to: posA + a.nodeSize },
+      });
+      expect(r.ok).toBe(true);
+      editor.view.dispatch(tr);
+      expect(dump(editor)).toContain('listItem(paragraph("L"), paragraph("B"), paragraph("A"))');
+    });
+
+    it('canReplaceWith reject at a BETWEEN index leaves tr untouched', () => {
+      const { wrapperPos, itemPos } = setup3();
+      const docNode = editor!.state.schema.nodes['doc']!.create(
+        null, editor!.state.schema.nodes['paragraph']!.create(),
+      );
+      const tr = editor!.state.tr;
+      const before = tr.doc.toString();
+      const r = insertAsListItemChild({
+        tr, wrapperPos, targetItemPos: itemPos, blockNode: docNode, childIndex: 1,
+      });
+      expect(r.ok).toBe(false);
+      expect(tr.doc.toString()).toBe(before);
+    });
+  });
 });
