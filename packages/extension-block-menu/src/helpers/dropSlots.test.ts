@@ -186,4 +186,33 @@ describe('resolveDropSlot', () => {
     expect(resolveDropSlot({ view, clientX: 0, clientY: 0, rows: [] })).toBeNull();
     editor.destroy();
   });
+
+  it('Y dead-band holds the incumbent gap near a row mid (no flip on a wobble)', () => {
+    const { editor, view, pos } = fixture();
+    // A1 spans 0-20 (mid 10). Y=8 is just above mid -> stateless picks "before A1".
+    const stateless = resolveDropSlot({ view, clientX: 0, clientY: 8 });
+    expect(stateless?.option.insert.pos).toBe(pos.A1); // before A1
+    // Incumbent was the "after A1" gap; within band it stays there.
+    const sticky = resolveDropSlot({
+      view, clientX: 0, clientY: 8, bandY: 6,
+      incumbent: { upperPos: pos.A1, lowerPos: pos.A2, level: 1 },
+    });
+    expect(sticky?.option.insert.pos).toBe(pos.A2); // after A1 == before A2
+    editor.destroy();
+  });
+
+  it('X dead-band holds the incumbent depth near a guide boundary (no flicker)', () => {
+    const { editor, view, pos } = fixture();
+    const afterB2 = pos.B2 + (view.state.doc.nodeAt(pos.B2)?.nodeSize ?? 0);
+    // At the after-B2 gap, X=28 is just below the L2 guide (B2.left=30).
+    const stateless = resolveDropSlot({ view, clientX: 28, clientY: 78 });
+    expect(stateless?.option.level).toBe(1); // outdented to top level
+    const sticky = resolveDropSlot({
+      view, clientX: 28, clientY: 78, bandX: 8,
+      incumbent: { upperPos: pos.B2, lowerPos: pos.A3, level: 2 },
+    });
+    expect(sticky?.option.level).toBe(2); // held at the nested sibling level
+    expect(sticky?.option.insert.pos).toBe(afterB2);
+    editor.destroy();
+  });
 });

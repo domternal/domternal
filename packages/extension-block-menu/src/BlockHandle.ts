@@ -587,6 +587,10 @@ export interface DropPlacement {
    * rewrites `pos`. Fed back as `incumbentPos` next dragover for Y-hysteresis.
    */
   resolvedBlockPos?: number;
+  /** Resolved gap bounds + depth, fed back next dragover for the dead-bands. */
+  gapUpperPos?: number | null;
+  gapLowerPos?: number | null;
+  depthLevel?: number;
 }
 
 /**
@@ -594,10 +598,11 @@ export interface DropPlacement {
  * Omitted by pure callers (tests) so the resolver stays stateless.
  */
 export interface DropPlacementOptions {
-  /** Previous dragover's resolved block, for Y-hysteresis. */
-  incumbentPos?: number | null;
-  /** Whether nested was latched last dragover, for X-hysteresis. */
-  nestLatched?: boolean;
+  /** Previous dragover's gap upper/lower row, for the Y-gap dead-band. */
+  incumbentUpperPos?: number | null;
+  incumbentLowerPos?: number | null;
+  /** Previous dragover's depth level, for the X-depth dead-band. */
+  incumbentLevel?: number | null;
   /** Previous dragover's child slot, for the nested child-slot dead-band. */
   incumbentChildIndex?: number | null;
   /** Enable the dead-bands (off for unit callers, `true` from the plugin). */
@@ -622,6 +627,9 @@ export function computeDropPlacement(
   nestThreshold: number = DEFAULT_NEST_THRESHOLD,
   options: DropPlacementOptions = {},
 ): DropPlacement | null {
+  const incumbent = options.hysteresis
+    ? { upperPos: options.incumbentUpperPos ?? null, lowerPos: options.incumbentLowerPos ?? null, level: options.incumbentLevel ?? Number.NaN }
+    : null;
   const slot = resolveDropSlot({
     view,
     clientX,
@@ -629,11 +637,19 @@ export function computeDropPlacement(
     indentStep: nestThreshold > 0 ? nestThreshold : DROP_SLOT_INDENT_PX,
     nestedEnabled: nested.allowedNodes.length > 0,
     offerNest: nestThreshold > 0,
+    incumbent,
+    bandY: options.hysteresis ? DROP_HYSTERESIS_Y_PX : 0,
+    bandX: options.hysteresis ? DROP_HYSTERESIS_X_PX : 0,
   });
   if (!slot) return null;
   const opt = slot.option;
   const rbp = slot.upperPos ?? slot.lowerPos;
-  const resolvedBlockPos = rbp !== null ? { resolvedBlockPos: rbp } : {};
+  const feedback = {
+    ...(rbp !== null ? { resolvedBlockPos: rbp } : {}),
+    gapUpperPos: slot.upperPos,
+    gapLowerPos: slot.lowerPos,
+    depthLevel: opt.level,
+  };
 
   if (opt.insert.kind === 'nested' && opt.insert.targetItemPos !== undefined && opt.insert.wrapperPos !== undefined) {
     const itemPos = opt.insert.targetItemPos;
@@ -660,7 +676,7 @@ export function computeDropPlacement(
       childIndex,
       nestedGapRect: gapRect,
       indicatorLine: { top: gapRect.top, left: gapRect.left + NESTED_INDICATOR_INDENT_PX, width: Math.max(0, gapRect.width - NESTED_INDICATOR_INDENT_PX) },
-      ...resolvedBlockPos,
+      ...feedback,
     };
   }
 
@@ -672,7 +688,7 @@ export function computeDropPlacement(
     mode: 'sibling',
     insertPos,
     indicatorLine: { top: slot.gapY, left: opt.lineLeft, width: opt.lineWidth },
-    ...resolvedBlockPos,
+    ...feedback,
   };
 }
 
@@ -830,15 +846,17 @@ export function createBlockHandlePlugin(
   let dropRaf: number | null = null;
   let pendingDropCoords: { x: number; y: number } | null = null;
   let currentDropKey: string | null = null;
-  const dragHyst: { incumbentPos: number | null; nestLatched: boolean; childIndex: number | null } = {
-    incumbentPos: null,
-    nestLatched: false,
+  const dragHyst: { upperPos: number | null; lowerPos: number | null; level: number | null; childIndex: number | null } = {
+    upperPos: null,
+    lowerPos: null,
+    level: null,
     childIndex: null,
   };
 
   const resetDragHyst = (): void => {
-    dragHyst.incumbentPos = null;
-    dragHyst.nestLatched = false;
+    dragHyst.upperPos = null;
+    dragHyst.lowerPos = null;
+    dragHyst.level = null;
     dragHyst.childIndex = null;
   };
 
@@ -1211,8 +1229,9 @@ export function createBlockHandlePlugin(
     if (!sourceNode) return false;
     // Same hysteresis state the indicator last used, so the drop lands on the line.
     const placement = computeDropPlacement(view, clientX, clientY, nested, nestThreshold, {
-      incumbentPos: dragHyst.incumbentPos,
-      nestLatched: dragHyst.nestLatched,
+      incumbentUpperPos: dragHyst.upperPos,
+      incumbentLowerPos: dragHyst.lowerPos,
+      incumbentLevel: dragHyst.level,
       incumbentChildIndex: dragHyst.childIndex,
       hysteresis: true,
     });
@@ -1287,8 +1306,9 @@ export function createBlockHandlePlugin(
   const updateDropIndicator = (clientX: number, clientY: number): void => {
     if (!editorEl) return;
     const placement = computeDropPlacement(editor.view, clientX, clientY, nested, nestThreshold, {
-      incumbentPos: dragHyst.incumbentPos,
-      nestLatched: dragHyst.nestLatched,
+      incumbentUpperPos: dragHyst.upperPos,
+      incumbentLowerPos: dragHyst.lowerPos,
+      incumbentLevel: dragHyst.level,
       incumbentChildIndex: dragHyst.childIndex,
       hysteresis: true,
     });
@@ -1299,8 +1319,9 @@ export function createBlockHandlePlugin(
     }
     // Carry forward for the next dragover's hysteresis, even if the repaint is
     // gated below.
-    dragHyst.incumbentPos = placement.resolvedBlockPos ?? null;
-    dragHyst.nestLatched = placement.mode === 'nested';
+    dragHyst.upperPos = placement.gapUpperPos ?? null;
+    dragHyst.lowerPos = placement.gapLowerPos ?? null;
+    dragHyst.level = placement.depthLevel ?? null;
     dragHyst.childIndex = placement.mode === 'nested' ? placement.childIndex ?? null : null;
 
     const editorRect = editorEl.getBoundingClientRect();

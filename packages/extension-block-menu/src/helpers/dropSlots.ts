@@ -133,6 +133,13 @@ export interface DropSlot {
   lowerPos: number | null;
 }
 
+/** Last dragover's resolved gap + depth, for the stickiness dead-bands. */
+export interface DropSlotIncumbent {
+  upperPos: number | null;
+  lowerPos: number | null;
+  level: number;
+}
+
 /** Find the row whose rect contains `clientY`, else the nearest by vertical distance. */
 function nearestRow(rows: DropRow[], clientY: number): number {
   let best = -1;
@@ -250,6 +257,12 @@ export interface ResolveDropSlotArgs {
   nestedEnabled?: boolean;
   /** Whether the deepest "nest into the item" option is offered (nestThreshold > 0). */
   offerNest?: boolean;
+  /** Previous dragover's gap + depth, for the stickiness dead-bands. */
+  incumbent?: DropSlotIncumbent | null;
+  /** Y dead-band (px) around a row's mid so the gap doesn't flip on a wobble; 0 disables. */
+  bandY?: number;
+  /** X dead-band (px) around a depth guide so the level doesn't flicker; 0 disables. */
+  bandX?: number;
 }
 
 /**
@@ -265,6 +278,9 @@ export function resolveDropSlot(args: ResolveDropSlotArgs): DropSlot | null {
   const indentStep = args.indentStep ?? DROP_SLOT_INDENT_PX;
   const nestedEnabled = args.nestedEnabled ?? true;
   const offerNest = (args.offerNest ?? true) && nestedEnabled;
+  const incumbent = args.incumbent ?? null;
+  const bandY = args.bandY ?? 0;
+  const bandX = args.bandX ?? 0;
   const rows = args.rows ?? collectRows(view, nestedEnabled);
   if (rows.length === 0) return null;
 
@@ -273,7 +289,14 @@ export function resolveDropSlot(args: ResolveDropSlotArgs): DropSlot | null {
   const row = rows[idx];
   if (!row) return null;
 
-  const after = clientY >= (row.top + row.bottom) / 2;
+  // Y dead-band: near the row's mid (the before/after flip point) hold the
+  // incumbent side so a small wobble can't swap the resolved gap.
+  const rowMid = (row.top + row.bottom) / 2;
+  let after = clientY >= rowMid;
+  if (bandY > 0 && incumbent && Math.abs(clientY - rowMid) <= bandY) {
+    if (incumbent.upperPos === row.pos) after = true;
+    else if (incumbent.lowerPos === row.pos) after = false;
+  }
   const upper = after ? row : rows[idx - 1] ?? null;
   const lower = after ? rows[idx + 1] ?? null : row;
   const gapY = upper?.bottom ?? lower?.top ?? row.bottom;
@@ -304,6 +327,16 @@ export function resolveDropSlot(args: ResolveDropSlotArgs): DropSlot | null {
   if (!chosen) return null;
   for (const o of byGuide) {
     if (clientX >= o.guideLeft) chosen = o;
+  }
+
+  // X dead-band: hold the incumbent level within `bandX` of the guide boundary
+  // between it and the freshly chosen level, so depth doesn't flicker.
+  if (bandX > 0 && incumbent) {
+    const inc = byGuide.find((o) => o.level === incumbent.level);
+    if (inc && inc !== chosen && Math.abs(chosen.level - inc.level) === 1) {
+      const deeper = chosen.guideLeft >= inc.guideLeft ? chosen : inc;
+      if (Math.abs(clientX - deeper.guideLeft) <= bandX) chosen = inc;
+    }
   }
 
   return { gapY, option: chosen, options: byGuide, upperPos: upper?.pos ?? null, lowerPos: lower?.pos ?? null };
