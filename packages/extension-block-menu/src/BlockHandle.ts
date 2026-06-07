@@ -405,55 +405,6 @@ function resolveTopLevelByY(
 
 const LIST_WRAPPER_TYPE_NAMES = new Set(['bulletList', 'orderedList', 'taskList']);
 
-/**
- * Notion-style "drop sticks to the list" semantics. When the resolved
- * drop target is a list-wrapper container (bulletList / orderedList /
- * taskList) and the cursor sits ABOVE its top edge or BELOW its bottom
- * edge, descend into the wrapper and pick the FIRST or LAST listItem
- * (respectively) so the drop lands inside the list rather than creating
- * a sibling list of one item.
- *
- * Without this, a drop in the small gap between a list bottom and the
- * next block would be processed against the wrapper UL - and PM's
- * subsequent insert at the wrapper's end position would auto-wrap the
- * dragged listItem in a brand-new bulletList sibling, which is rarely
- * what users intend (most lists were the user's grouping; they want the
- * drag to keep things in the same list).
- *
- * Returns `resolved` unchanged when:
- * - The resolved node isn't a list wrapper.
- * - The wrapper has no children (e.g. mid-edit transient state).
- * - The cursor is INSIDE the wrapper's vertical extent (the resolver
- *   would have already returned a child via `findDeepestBlockAtY` in
- *   that case; if we got the wrapper despite being inside, the caller's
- *   default targeting is already correct).
- */
-export function adjustDropTargetForListWrapper(
-  view: EditorView,
-  resolved: { pos: number; rect: DOMRect; dom: HTMLElement },
-  clientY: number,
-): { pos: number; rect: DOMRect; dom: HTMLElement } {
-  const node = view.state.doc.nodeAt(resolved.pos);
-  if (!node) return resolved;
-  if (!LIST_WRAPPER_TYPE_NAMES.has(node.type.name)) return resolved;
-  if (node.childCount === 0) return resolved;
-
-  const isAbove = clientY < resolved.rect.top;
-  const isBelow = clientY > resolved.rect.bottom;
-  if (!isAbove && !isBelow) return resolved;
-
-  // Find absolute pos of the first or last child relative to the wrapper.
-  // Wrapper opens at `resolved.pos`, so its first child starts at
-  // `resolved.pos + 1` (one past the open token).
-  const targetIndex = isBelow ? node.childCount - 1 : 0;
-  let childPos = resolved.pos + 1;
-  for (let i = 0; i < targetIndex; i++) {
-    childPos += node.child(i).nodeSize;
-  }
-  const childDom = view.nodeDOM(childPos);
-  if (!(childDom instanceof HTMLElement)) return resolved;
-  return { pos: childPos, rect: childDom.getBoundingClientRect(), dom: childDom };
-}
 
 interface ResolvedBlock { pos: number; rect: DOMRect; dom: HTMLElement }
 

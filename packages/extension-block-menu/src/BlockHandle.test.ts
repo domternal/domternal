@@ -15,7 +15,6 @@ import {
   BlockHandle,
   blockHandlePluginKey,
   resolveNestedConfig,
-  adjustDropTargetForListWrapper,
   descendToNearestHoverItem,
 } from './BlockHandle.js';
 import type { EditorView } from '@domternal/pm/view';
@@ -851,80 +850,6 @@ describe('BlockHandle spatial resolution helpers', () => {
     if (found === -1) throw new Error('node not found');
     return found;
   }
-
-  describe('adjustDropTargetForListWrapper', () => {
-    it('returns the target unchanged when the resolved node is not a list wrapper', () => {
-      const ed = makeListEditor('<p>Plain</p>');
-      const pPos = posOf(ed, (n) => n.type.name === 'paragraph');
-      const dom = elWithRect(new DOMRect(0, 100, 400, 30));
-      const resolved = { pos: pPos, rect: dom.getBoundingClientRect(), dom };
-      const out = adjustDropTargetForListWrapper(viewStub(ed, new Map()), resolved, 50);
-      expect(out.pos).toBe(pPos);
-      ed.destroy();
-    });
-
-    it('returns the target unchanged when nodeAt resolves to no node (doc end)', () => {
-      const ed = makeListEditor('<p>Plain</p>');
-      const dom = elWithRect(new DOMRect(0, 100, 400, 30));
-      // `content.size` is past the last node, so doc.nodeAt(end) === null.
-      const end = ed.state.doc.content.size;
-      const resolved = { pos: end, rect: dom.getBoundingClientRect(), dom };
-      const out = adjustDropTargetForListWrapper(viewStub(ed, new Map()), resolved, 50);
-      expect(out.pos).toBe(end);
-      ed.destroy();
-    });
-
-    it('cursor ABOVE a list wrapper descends to its FIRST child item', () => {
-      const ed = makeListEditor('<ul><li><p>A</p></li><li><p>B</p></li></ul>');
-      const ulPos = posOf(ed, (n) => n.type.name === 'bulletList');
-      const liA = posOf(ed, (n) => n.type.name === 'listItem' && n.textContent === 'A');
-      const ulDom = elWithRect(new DOMRect(0, 100, 400, 100));
-      const aDom = elWithRect(new DOMRect(0, 100, 400, 50));
-      const rects = new Map<number, HTMLElement>([[ulPos, ulDom], [liA, aDom]]);
-      const resolved = { pos: ulPos, rect: ulDom.getBoundingClientRect(), dom: ulDom };
-      // clientY=80 is above the wrapper top (100).
-      const out = adjustDropTargetForListWrapper(viewStub(ed, rects), resolved, 80);
-      expect(out.pos).toBe(liA);
-      ed.destroy();
-    });
-
-    it('cursor BELOW a list wrapper descends to its LAST child item', () => {
-      const ed = makeListEditor('<ul><li><p>A</p></li><li><p>B</p></li></ul>');
-      const ulPos = posOf(ed, (n) => n.type.name === 'bulletList');
-      const liB = posOf(ed, (n) => n.type.name === 'listItem' && n.textContent === 'B');
-      const ulDom = elWithRect(new DOMRect(0, 100, 400, 100));
-      const bDom = elWithRect(new DOMRect(0, 150, 400, 50));
-      const rects = new Map<number, HTMLElement>([[ulPos, ulDom], [liB, bDom]]);
-      const resolved = { pos: ulPos, rect: ulDom.getBoundingClientRect(), dom: ulDom };
-      // clientY=400 is below the wrapper bottom (200); last-child loop runs.
-      const out = adjustDropTargetForListWrapper(viewStub(ed, rects), resolved, 400);
-      expect(out.pos).toBe(liB);
-      ed.destroy();
-    });
-
-    it('cursor INSIDE a list wrapper extent leaves the target on the wrapper', () => {
-      const ed = makeListEditor('<ul><li><p>A</p></li></ul>');
-      const ulPos = posOf(ed, (n) => n.type.name === 'bulletList');
-      const ulDom = elWithRect(new DOMRect(0, 100, 400, 100));
-      const rects = new Map<number, HTMLElement>([[ulPos, ulDom]]);
-      const resolved = { pos: ulPos, rect: ulDom.getBoundingClientRect(), dom: ulDom };
-      const out = adjustDropTargetForListWrapper(viewStub(ed, rects), resolved, 150); // inside 100..200
-      expect(out.pos).toBe(ulPos);
-      ed.destroy();
-    });
-
-    it('returns the wrapper unchanged when the resolved child item has no DOM', () => {
-      const ed = makeListEditor('<ul><li><p>A</p></li></ul>');
-      const ulPos = posOf(ed, (n) => n.type.name === 'bulletList');
-      const ulDom = elWithRect(new DOMRect(0, 100, 400, 100));
-      // Child item rect intentionally omitted -> childDom is null.
-      const rects = new Map<number, HTMLElement>([[ulPos, ulDom]]);
-      const resolved = { pos: ulPos, rect: ulDom.getBoundingClientRect(), dom: ulDom };
-      const out = adjustDropTargetForListWrapper(viewStub(ed, rects), resolved, 80);
-      expect(out.pos).toBe(ulPos);
-      ed.destroy();
-    });
-  });
 
   describe('descendToNearestHoverItem', () => {
     it('returns the target unchanged when nodeAt resolves to no node (doc end)', () => {
