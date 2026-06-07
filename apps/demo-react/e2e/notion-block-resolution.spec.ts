@@ -67,6 +67,22 @@ async function getBlocks(page: Page): Promise<Array<{ type: string; text: string
   });
 }
 
+/** Top-level blocks as `{ type, text }`, plus `level` for headings. */
+async function topLevelBlocks(page: Page): Promise<Array<{ type: string; text: string; level?: number }>> {
+  return page.evaluate(() => {
+    const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+      | { state: { doc: { forEach: (cb: (n: { type: { name: string }; textContent: string; attrs: Record<string, unknown> }) => void) => void } } }
+      | undefined;
+    const out: Array<{ type: string; text: string; level?: number }> = [];
+    ed?.state.doc.forEach((n) => {
+      const rec: { type: string; text: string; level?: number } = { type: n.type.name, text: n.textContent };
+      if (n.type.name === 'heading') rec.level = n.attrs['level'] as number;
+      out.push(rec);
+    });
+    return out;
+  });
+}
+
 /**
  * Move the mouse to (x, y) in the viewport AND fire `mousemove` on the
  * page so our hover listener (on `.dm-editor`'s parent) catches it.
@@ -1101,7 +1117,7 @@ test.describe('Drop in inter-block gaps', () => {
     expect(liTexts).toEqual(['Item B', 'Item C', 'Item A']);
   });
 
-  test('drop in gap 1px ABOVE next block → resolver picks next block (cursor closer to it)', async ({ page }) => {
+  test('drop in gap 1px ABOVE next block with X at the list indent appends to the end of the list', async ({ page }) => {
     await setContent(
       page,
       '<ul>'
@@ -1117,15 +1133,15 @@ test.describe('Drop in inter-block gaps', () => {
     await hoverAt(page, await sideGutterX(page), aBox.y + aBox.height / 2);
 
     const bounds = await listAndNextBlockBounds(page);
-    // 1px above the next block's top - closer to H2 than to UL.
-    // Resolver returns H2 (not a list wrapper). Drop processes H2:
-    // top-half of H2 → insert before H2. moveBlock inserts the
-    // listItem at top level → PM auto-wraps it in a sibling UL.
+    // 1px above the next block, but X sits at the LIST item indent: the slot
+    // model keeps the drop at the list level, so A lands after C (the list's
+    // end), not as a separate top-level list before H2. (X further left would
+    // outdent to a top-level sibling.)
     const dropX = bounds.lastLi.x + 5;
     const dropY = bounds.nextTop - 1;
     await dragHandleTo(page, dropX, dropY);
 
-    // Top-level layout: original UL[B, C], new UL[A], H2.
+    // Top-level layout: single UL[B, C, A], H2.
     const topLevel = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | { state: { doc: { forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } }
@@ -1135,8 +1151,7 @@ test.describe('Drop in inter-block gaps', () => {
       return out;
     });
     expect(topLevel).toEqual([
-      { type: 'bulletList', text: 'Item BItem C' },
-      { type: 'bulletList', text: 'Item A' },
+      { type: 'bulletList', text: 'Item BItem CItem A' },
       { type: 'heading', text: 'Next section' },
     ]);
   });
@@ -1903,9 +1918,11 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
 
   // ── Inner content preserved during conversion ──
 
-  // ── Arbitrary-block wrap (heading, paragraph, codeBlock, blockquote, hr) ──
+  // ── Non-list block split: a heading/paragraph/codeBlock/blockquote/hr
+  //    dropped at a sibling gap inside a list keeps its type and the list
+  //    splits around it (Notion), rather than being wrapped in a bullet. ──
 
-  test('drag a top-level H1 into a bulletList → heading is wrapped in a fresh listItem inside the list', async ({ page }) => {
+  test('drag a top-level H1 into a bulletList → heading keeps its type and lifts out, the list closes around it', async ({ page }) => {
     await setContent(page, '<h1>Big title</h1><ul><li><p>Existing</p></li></ul>');
 
     const h1 = page.locator(`${editorSelector} h1`, { hasText: 'Big title' });
@@ -1925,49 +1942,16 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     await page.waitForTimeout(80);
     await dt.dispose();
 
-    // Expect: bulletList with TWO listItems - first the original paragraph
-    // "Existing", second a wrapped heading "Big title". Notion-strict
-    // listItem schema requires paragraph as first child, so the heading-
-    // wrapping listItem has [empty-label-p, heading] (childCount=2); the
-    // existing item still has just [p "Existing"] (childCount=1).
-    const tree = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild: { type: { name: string }; childCount: number; child: (i: number) => { type: { name: string }; childCount: number; firstChild: { type: { name: string }; textContent: string } | null; lastChild: { type: { name: string }; textContent: string; attrs: Record<string, unknown> } | null } | null } | null; childCount: number } } }
-        | undefined;
-      const ul = ed?.state.doc.firstChild;
-      const second = ul?.child(1);
-      return {
-        topCount: ed?.state.doc.childCount,
-        ulType: ul?.type.name,
-        ulChildCount: ul?.childCount,
-        firstItemChildCount: ul?.child(0)?.childCount,
-        firstItemFirstType: ul?.child(0)?.firstChild?.type.name,
-        firstItemFirstText: ul?.child(0)?.firstChild?.textContent,
-        secondItemChildCount: second?.childCount,
-        secondItemLabelType: second?.firstChild?.type.name,
-        secondItemLabelText: second?.firstChild?.textContent,
-        secondItemContentType: second?.lastChild?.type.name,
-        secondItemContentText: second?.lastChild?.textContent,
-        secondItemContentLevel: second?.lastChild?.attrs['level'],
-      };
-    });
-    expect(tree).toEqual({
-      topCount: 1,
-      ulType: 'bulletList',
-      ulChildCount: 2,
-      firstItemChildCount: 1,
-      firstItemFirstType: 'paragraph',
-      firstItemFirstText: 'Existing',
-      secondItemChildCount: 2,
-      secondItemLabelType: 'paragraph',
-      secondItemLabelText: '',
-      secondItemContentType: 'heading',
-      secondItemContentText: 'Big title',
-      secondItemContentLevel: 1,
-    });
+    // The single-item list keeps its item; the heading lands after it as a
+    // top-level sibling, its type and level intact (no empty-label bullet).
+    const top = await topLevelBlocks(page);
+    expect(top).toEqual([
+      { type: 'bulletList', text: 'Existing' },
+      { type: 'heading', text: 'Big title', level: 1 },
+    ]);
   });
 
-  test('drag a top-level H2 into a taskList → heading wrapped in a fresh taskItem (checked=false)', async ({ page }) => {
+  test('drag a top-level H2 into a taskList → heading keeps its type and lifts out below the task list', async ({ page }) => {
     await setContent(
       page,
       '<h2>Section heading</h2>'
@@ -1990,40 +1974,15 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     await page.waitForTimeout(80);
     await dt.dispose();
 
-    // Notion-strict: taskItem requires paragraph as first child, so the
-    // heading-wrapping taskItem has [empty-label-p, heading].
-    const tree = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild: { type: { name: string }; childCount: number; child: (i: number) => { type: { name: string }; childCount: number; attrs: Record<string, unknown>; firstChild: { type: { name: string }; textContent: string } | null; lastChild: { type: { name: string }; textContent: string } | null } | null } | null } } }
-        | undefined;
-      const tl = ed?.state.doc.firstChild;
-      const second = tl?.child(1);
-      return {
-        ulType: tl?.type.name,
-        ulChildCount: tl?.childCount,
-        secondType: second?.type.name,
-        secondChecked: second?.attrs['checked'],
-        secondChildCount: second?.childCount,
-        secondLabelType: second?.firstChild?.type.name,
-        secondLabelText: second?.firstChild?.textContent,
-        secondContentType: second?.lastChild?.type.name,
-        secondContentText: second?.lastChild?.textContent,
-      };
-    });
-    expect(tree).toEqual({
-      ulType: 'taskList',
-      ulChildCount: 2,
-      secondType: 'taskItem',
-      secondChecked: false,
-      secondChildCount: 2,
-      secondLabelType: 'paragraph',
-      secondLabelText: '',
-      secondContentType: 'heading',
-      secondContentText: 'Section heading',
-    });
+    // The task list keeps its single task; the heading lifts out after it as
+    // a top-level sibling, type and level preserved (no empty-label taskItem).
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'taskList', text: 'Task' },
+      { type: 'heading', text: 'Section heading', level: 2 },
+    ]);
   });
 
-  test('drag a top-level paragraph into a bulletList → wrapped in listItem (most common case)', async ({ page }) => {
+  test('drag a top-level paragraph into a bulletList → paragraph keeps its type and lifts out (most common case)', async ({ page }) => {
     await setContent(page, '<p>Standalone para</p><ul><li><p>Existing</p></li></ul>');
 
     const para = page.locator(`${editorSelector} > p`, { hasText: 'Standalone para' });
@@ -2042,19 +2001,17 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     await page.waitForTimeout(80);
     await dt.dispose();
 
-    const liTexts = (await page.locator(`${editorSelector} li p`).allTextContents()).map((t) => t.trim());
-    expect(liTexts).toEqual(['Existing', 'Standalone para']);
-
-    const top = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { childCount: number; firstChild: { type: { name: string } } | null } } }
-        | undefined;
-      return { count: ed?.state.doc.childCount, firstType: ed?.state.doc.firstChild?.type.name };
-    });
-    expect(top).toEqual({ count: 1, firstType: 'bulletList' });
+    // The paragraph stays a paragraph (no bullet conversion) and lands after
+    // the single-item list, which keeps its one item.
+    const onlyListItem = (await page.locator(`${editorSelector} li p`).allTextContents()).map((t) => t.trim());
+    expect(onlyListItem).toEqual(['Existing']);
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'bulletList', text: 'Existing' },
+      { type: 'paragraph', text: 'Standalone para' },
+    ]);
   });
 
-  test('drag a top-level codeBlock into a bulletList → wrapped in listItem (preserves code text)', async ({ page }) => {
+  test('drag a top-level codeBlock into a bulletList → codeBlock keeps its type and lifts out (preserves code text)', async ({ page }) => {
     await setContent(
       page,
       '<pre><code>console.log("hi")</code></pre>'
@@ -2077,36 +2034,14 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     await page.waitForTimeout(80);
     await dt.dispose();
 
-    // Notion-strict: listItem requires paragraph as first child, so the
-    // codeBlock-wrapping listItem has [empty-label-p, codeBlock].
-    const tree = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { childCount: number; firstChild: { type: { name: string }; textContent: string } | null; lastChild: { type: { name: string }; textContent: string } | null } | null } | null; childCount: number } } }
-        | undefined;
-      const ul = ed?.state.doc.firstChild;
-      const second = ul?.child(1);
-      return {
-        topCount: ed?.state.doc.childCount,
-        ulChildCount: ul?.childCount,
-        secondChildCount: second?.childCount,
-        secondLabelType: second?.firstChild?.type.name,
-        secondLabelText: second?.firstChild?.textContent,
-        secondContentType: second?.lastChild?.type.name,
-        secondContentText: second?.lastChild?.textContent,
-      };
-    });
-    expect(tree).toEqual({
-      topCount: 1,
-      ulChildCount: 2,
-      secondChildCount: 2,
-      secondLabelType: 'paragraph',
-      secondLabelText: '',
-      secondContentType: 'codeBlock',
-      secondContentText: 'console.log("hi")',
-    });
+    // The codeBlock stays a codeBlock and lands after the list, code intact.
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'bulletList', text: 'Existing' },
+      { type: 'codeBlock', text: 'console.log("hi")' },
+    ]);
   });
 
-  test('drag a top-level blockquote into a bulletList → wrapped in listItem (blockquote keeps its inner paragraph)', async ({ page }) => {
+  test('drag a top-level blockquote into a bulletList → blockquote keeps its type and lifts out', async ({ page }) => {
     await setContent(
       page,
       '<blockquote><p>Quoted text</p></blockquote>'
@@ -2129,35 +2064,20 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     await page.waitForTimeout(80);
     await dt.dispose();
 
-    // Notion-strict: listItem requires paragraph as first child, so the
-    // blockquote-wrapping listItem has [empty-label-p, blockquote(p)].
-    const tree = await page.evaluate(() => {
+    // The blockquote stays a blockquote (its inner paragraph intact) and
+    // lands after the list as a top-level sibling.
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'bulletList', text: 'Existing' },
+      { type: 'blockquote', text: 'Quoted text' },
+    ]);
+    const inner = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { childCount: number; firstChild: { type: { name: string }; textContent: string } | null; lastChild: { type: { name: string }; firstChild: { type: { name: string }; textContent: string } | null } | null } | null } | null; childCount: number } } }
+        | { state: { doc: { lastChild: { type: { name: string }; firstChild: { type: { name: string } } | null } | null } } }
         | undefined;
-      const ul = ed?.state.doc.firstChild;
-      const second = ul?.child(1);
-      return {
-        topCount: ed?.state.doc.childCount,
-        ulChildCount: ul?.childCount,
-        secondChildCount: second?.childCount,
-        secondLabelType: second?.firstChild?.type.name,
-        secondLabelText: second?.firstChild?.textContent,
-        secondContentWrapper: second?.lastChild?.type.name,
-        secondContentInner: second?.lastChild?.firstChild?.type.name,
-        secondContentInnerText: second?.lastChild?.firstChild?.textContent,
-      };
+      const bq = ed?.state.doc.lastChild;
+      return { wrapper: bq?.type.name, inner: bq?.firstChild?.type.name };
     });
-    expect(tree).toEqual({
-      topCount: 1,
-      ulChildCount: 2,
-      secondChildCount: 2,
-      secondLabelType: 'paragraph',
-      secondLabelText: '',
-      secondContentWrapper: 'blockquote',
-      secondContentInner: 'paragraph',
-      secondContentInnerText: 'Quoted text',
-    });
+    expect(inner).toEqual({ wrapper: 'blockquote', inner: 'paragraph' });
   });
 
   // ── Inner content preserved during conversion ──
@@ -2282,89 +2202,48 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
 
   // ── Drop position variants ──
 
-  test('drag H1 onto TOP-half of an existing list item → wrapped heading inserted BEFORE that item', async ({ page }) => {
+  test('drag H1 onto TOP-half of an existing list item → heading lifts out ABOVE the list', async ({ page }) => {
     await setContent(page, '<h1>Title</h1><ul><li><p>Existing</p></li></ul>');
     await dragSourceToTarget(page, 'Title', 'Existing', 0.2);
 
-    // Inspect each li's "primary content" via lastChild - for the heading-
-    // wrapping li that is the heading (firstChild is the empty Notion-
-    // strict label paragraph); for the existing item it is the same
-    // paragraph as firstChild (single-child li).
-    const ulChildren = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { lastChild: { type: { name: string }; textContent: string } | null } | null } | null } } }
-        | undefined;
-      const ul = ed?.state.doc.firstChild;
-      const out: { type: string; text: string }[] = [];
-      for (let i = 0; i < (ul?.childCount ?? 0); i++) {
-        const li = ul?.child(i);
-        const lc = li?.lastChild;
-        if (lc) out.push({ type: lc.type.name, text: lc.textContent });
-      }
-      return out;
-    });
-    expect(ulChildren).toEqual([
-      { type: 'heading', text: 'Title' },
-      { type: 'paragraph', text: 'Existing' },
+    // Top-half drop lands the heading before the (single-item) list: it lifts
+    // out above the list, keeping its type, and the list keeps its item.
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'heading', text: 'Title', level: 1 },
+      { type: 'bulletList', text: 'Existing' },
     ]);
   });
 
-  test('drag H1 onto BOTTOM-half of an existing list item → wrapped heading inserted AFTER that item', async ({ page }) => {
+  test('drag H1 onto BOTTOM-half of an existing list item → heading lifts out BELOW the list', async ({ page }) => {
     await setContent(page, '<h1>Title</h1><ul><li><p>Existing</p></li></ul>');
     await dragSourceToTarget(page, 'Title', 'Existing', 0.8);
 
-    const ulChildren = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { lastChild: { type: { name: string }; textContent: string } | null } | null } | null } } }
-        | undefined;
-      const ul = ed?.state.doc.firstChild;
-      const out: { type: string; text: string }[] = [];
-      for (let i = 0; i < (ul?.childCount ?? 0); i++) {
-        const li = ul?.child(i);
-        const lc = li?.lastChild;
-        if (lc) out.push({ type: lc.type.name, text: lc.textContent });
-      }
-      return out;
-    });
-    expect(ulChildren).toEqual([
-      { type: 'paragraph', text: 'Existing' },
-      { type: 'heading', text: 'Title' },
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'bulletList', text: 'Existing' },
+      { type: 'heading', text: 'Title', level: 1 },
     ]);
   });
 
-  test('drag H1 to MIDDLE of a multi-item list → heading wrapped in listItem at that position', async ({ page }) => {
+  test('drag H1 to MIDDLE of a multi-item list → heading splits the list at that position', async ({ page }) => {
     await setContent(
       page,
       '<h1>Heading</h1>'
       + '<ul><li><p>Alpha</p></li><li><p>Beta</p></li><li><p>Gamma</p></li></ul>',
     );
-    // Drop on Beta bottom-half → between Beta and Gamma.
+    // Drop on Beta bottom-half → between Beta and Gamma: the list splits and
+    // the heading lands at top level between the two halves, type preserved.
     await dragSourceToTarget(page, 'Heading', 'Beta', 0.8);
 
-    const items = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild: { childCount: number; child: (i: number) => { lastChild: { type: { name: string }; textContent: string } | null } | null } | null } } }
-        | undefined;
-      const ul = ed?.state.doc.firstChild;
-      const out: { type: string; text: string }[] = [];
-      for (let i = 0; i < (ul?.childCount ?? 0); i++) {
-        const li = ul?.child(i);
-        const lc = li?.lastChild;
-        if (lc) out.push({ type: lc.type.name, text: lc.textContent });
-      }
-      return out;
-    });
-    expect(items).toEqual([
-      { type: 'paragraph', text: 'Alpha' },
-      { type: 'paragraph', text: 'Beta' },
-      { type: 'heading', text: 'Heading' },
-      { type: 'paragraph', text: 'Gamma' },
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'bulletList', text: 'AlphaBeta' },
+      { type: 'heading', text: 'Heading', level: 1 },
+      { type: 'bulletList', text: 'Gamma' },
     ]);
   });
 
   // ── Atom block wrap ──
 
-  test('drag a horizontalRule into bulletList → wrapped in listItem (atom-block wrap)', async ({ page }) => {
+  test('drag a horizontalRule into bulletList → hr keeps its type and lifts out below the list', async ({ page }) => {
     // Source HR is between two paragraphs to make hovering it feasible
     // (an HR rendered alone is 1px tall - putting paragraphs around helps
     // the gutter hover Y land on the HR row).
@@ -2389,31 +2268,13 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     await page.waitForTimeout(80);
     await dt.dispose();
 
-    // The bulletList now contains TWO listItems: the original "Existing"
-    // and a wrapper around the hr. The hr-wrapping listItem follows the
-    // Notion-strict shape `[empty-label-p, hr]`; we inspect lastChild to
-    // get the meaningful content of each li.
-    const ulChildren = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { descendants: (cb: (n: { type: { name: string }; childCount: number; lastChild: { type: { name: string } } | null }) => boolean | void) => void } } }
-        | undefined;
-      const out: { liChildType: string }[] = [];
-      ed?.state.doc.descendants((node) => {
-        if (node.type.name === 'bulletList') {
-          for (let i = 0; i < node.childCount; i++) {
-            const li = (node as unknown as { child: (i: number) => { lastChild: { type: { name: string } } | null } }).child(i);
-            out.push({ liChildType: li.lastChild?.type.name ?? 'unknown' });
-          }
-          return false;
-        }
-        return true;
-      });
-      return out;
-    });
-    // Order: original "Existing" first (paragraph), then hr-wrapping listItem.
-    expect(ulChildren).toEqual([
-      { liChildType: 'paragraph' },
-      { liChildType: 'horizontalRule' },
+    // The hr stays a horizontalRule and lifts out after the (single-item)
+    // list; the two source paragraphs stay put above the list.
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'paragraph', text: 'Above HR' },
+      { type: 'paragraph', text: 'Below HR' },
+      { type: 'bulletList', text: 'Existing' },
+      { type: 'horizontalRule', text: '' },
     ]);
   });
 
@@ -2512,11 +2373,11 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
 
   // ── Round-trip + undo ──
 
-  test('drag H1 into list, then drag back out of list → heading still has level=1', async ({ page }) => {
-    // Round-trip: heading goes IN (wrapped in listItem) and back OUT
-    // (still level=1 after a second drag onto a top-level paragraph).
-    // Set up the doc with a tail paragraph upfront so we don't have to
-    // synthesise it mid-test (which proved flaky in CI).
+  test('drag H1 next to a list, then drag onto a paragraph → heading still has level=1', async ({ page }) => {
+    // Round-trip: heading drops at a list (lifting out beside it, level kept)
+    // and then onto a top-level paragraph (still level=1). Set up the doc
+    // with a tail paragraph upfront so we don't have to synthesise it
+    // mid-test (which proved flaky in CI).
     await setContent(
       page,
       '<h1>Roundtrip</h1>'
@@ -2525,13 +2386,13 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     );
     await dragSourceToTarget(page, 'Roundtrip', 'Existing');
 
-    // Sanity: heading is now wrapped in a listItem inside the UL.
+    // Sanity: heading kept its type/level (it lifted out beside the list).
     let h = await findHeadingInside(page, 'Roundtrip');
     expect(h?.level).toBe(1);
 
-    // Drag the heading (now inside the list) back out onto the tail
-    // paragraph. Source locator chain accepts both `li p` and top-level
-    // `p`, so we use the heading's own selector instead.
+    // Drag the heading back onto the tail paragraph. Source locator chain
+    // accepts both `li p` and top-level `p`, so we use the heading's own
+    // selector instead.
     const sourceLoc = page.locator(`${editorSelector} h1`, { hasText: 'Roundtrip' }).first();
     const sBox = await boxOf(sourceLoc);
     await hoverAt(page, await sideGutterX(page), sBox.y + sBox.height / 2);
@@ -2554,9 +2415,7 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     await page.waitForTimeout(80);
     await dt.dispose();
 
-    // Final: heading still has level=1. Structure has the heading
-    // promoted out of the list (PM auto-wraps in fresh bulletList when
-    // a listItem is dropped at top-level).
+    // Final: heading still has level=1 after landing next to the paragraph.
     h = await findHeadingInside(page, 'Roundtrip');
     expect(h?.level).toBe(1);
   });
@@ -2577,14 +2436,19 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
 
     await dragSourceToTarget(page, 'Reversible', 'Existing');
 
-    // Sanity: heading now nested inside list.
+    // Sanity: heading lifted out below the list (type preserved), so the doc
+    // is now [bulletList, heading] - the inverse order of the start.
     const after = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { childCount: number; firstChild: { type: { name: string } } | null } } }
+        | { state: { doc: { childCount: number; firstChild: { type: { name: string } } | null; lastChild: { type: { name: string } } | null } } }
         | undefined;
-      return { count: ed?.state.doc.childCount, firstType: ed?.state.doc.firstChild?.type.name };
+      return {
+        count: ed?.state.doc.childCount,
+        firstType: ed?.state.doc.firstChild?.type.name,
+        lastType: ed?.state.doc.lastChild?.type.name,
+      };
     });
-    expect(after).toEqual({ count: 1, firstType: 'bulletList' });
+    expect(after).toEqual({ count: 2, firstType: 'bulletList', lastType: 'heading' });
 
     // Undo (Mod+Z) should restore the original two-block doc.
     await page.locator(editorSelector).click();
