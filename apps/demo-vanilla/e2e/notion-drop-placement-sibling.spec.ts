@@ -1024,8 +1024,12 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
   });
 
   test('nested-mode indicator is INDENTED 24px from the resolved block left edge', async ({ page }) => {
-    await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
-    const source = page.locator(`${editorSelector} p:has-text("Source")`);
+    // List-item source: its sibling drop stays at the item column, so the
+    // nested line's 24px indent is measurable against that reference. (A
+    // non-list source lifts its sibling line out to the list's parent column
+    // by design, so it isn't the right yardstick for the nested indent.)
+    await setContent(page, '<ul><li><p>Source</p></li><li><p>Target</p></li></ul>');
+    const source = page.locator(`${editorSelector} li:has-text("Source")`);
     const target = page.locator(`${editorSelector} li:has-text("Target")`);
     await source.hover();
     const dt = await page.evaluateHandle(() => new DataTransfer());
@@ -1057,8 +1061,10 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
   });
 
   test('nested-mode indicator width is 24px NARROWER than sibling-mode width over same target', async ({ page }) => {
-    await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
-    const source = page.locator(`${editorSelector} p:has-text("Source")`);
+    // List-item source so the sibling reference stays at the item column (see
+    // the indent test above for why a non-list source isn't comparable here).
+    await setContent(page, '<ul><li><p>Source</p></li><li><p>Target</p></li></ul>');
+    const source = page.locator(`${editorSelector} li:has-text("Source")`);
     const target = page.locator(`${editorSelector} li:has-text("Target")`);
     await source.hover();
     const dt = await page.evaluateHandle(() => new DataTransfer());

@@ -645,11 +645,11 @@ test.describe('Drag flow with nested handles', () => {
     expect(liTexts[liTexts.length - 1]).toBe('First');
   });
 
-  test('drag nested heading from li A to li B (sibling drop) → wraps in new listItem (convertListItemForParent flow)', async ({ page }) => {
-    // Cross-list-item drag of a non-list block. The drop target is INSIDE
-    // the bullet list (between li A and li B), so `convertListItemForParent`
-    // wraps the heading in a fresh listItem with an empty label paragraph.
-    // The "drag into list" path, distinct from "drag out".
+  test('drag nested heading from li A to li B (sibling drop) → lifts out of the list, stays a heading', async ({ page }) => {
+    // Cross-list-item drag of a non-list block. The sibling-zone drop target
+    // is INSIDE the bullet list (after li B), so the heading keeps its type
+    // and the list splits/closes around it: it lands as a top-level sibling
+    // after the list. The "drag into list" path, distinct from "drag out".
     await setContent(
       page,
       '<ul>'
@@ -663,9 +663,8 @@ test.describe('Drag flow with nested handles', () => {
       page.locator(`${editorSelector} li:has-text("B label") > p`),
       'bottom',
     );
-    // Expect: bulletList still has multiple list items, A's heading is no
-    // longer inside li A, and a new listItem wrapping the heading exists
-    // somewhere in the list.
+    // li A keeps only its label (heading travelled out); both items stay
+    // bullets, and the heading lifts out below the list as its own block.
     const liShapes = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | { state: { doc: { firstChild?: { forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } } }
@@ -674,12 +673,11 @@ test.describe('Drag flow with nested handles', () => {
       ed?.state.doc.firstChild?.forEach((n) => { items.push({ type: n.type.name, text: n.textContent }); });
       return items;
     });
-    // First li should now contain ONLY the label (heading travelled out).
-    const firstLi = liShapes[0];
-    expect(firstLi?.text).toBe('A label');
-    // The heading is now in some li down the list (wrapped in new li).
-    const headingLi = liShapes.find((li) => li.text.includes('A heading'));
-    expect(headingLi).toBeDefined();
+    expect(liShapes.map((li) => li.text)).toEqual(['A label', 'B label']);
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'bulletList', text: 'A labelB label' },
+      { type: 'heading', text: 'A heading' },
+    ]);
   });
 });
 
@@ -1131,11 +1129,11 @@ test.describe('Source × container matrix and drag-flow regression', () => {
     expect((await blockAt(page, pos ?? 0))?.type).toBe('codeBlock');
   });
 
-  test('drag TOP-LEVEL heading INTO a bullet list (sibling drop on a list item) wraps the heading in a new listItem', async ({ page }) => {
-    // `convertListItemForParent` flow regression: when the drop target's
-    // parent is a list, the dragged non-list block must be wrapped in a
-    // fresh listItem with an empty label paragraph (Notion-strict
-    // `paragraph block*` content rule).
+  test('drag TOP-LEVEL heading INTO a bullet list (sibling drop on a list item) lifts it out, keeping the heading', async ({ page }) => {
+    // Type-preserving split: when a non-list block is dropped at a sibling gap
+    // whose parent is a list, the block keeps its type and the list splits
+    // around it (Notion) rather than being wrapped in a fresh listItem. Here
+    // the single-item list closes and the heading lands right after it.
     await setContent(
       page,
       '<h2>Standalone heading</h2>'
@@ -1148,27 +1146,12 @@ test.describe('Source × container matrix and drag-flow regression', () => {
       'bottom',
     );
 
-    // The bulletList should now contain TWO items (existing + new wrapper),
-    // and somewhere among them a listItem holds the heading as a child.
-    const blocks = await topLevelBlocks(page);
-    const bulletList = blocks.find((b) => b.type === 'bulletList');
-    expect(bulletList).toBeDefined();
-    // Inspect inner shape: at least one listItem in the list must contain
-    // the heading text.
-    const liShapes = await page.evaluate(() => {
-      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild?: { type: { name: string }; forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } } }
-        | undefined;
-      const out: Array<{ type: string; text: string }> = [];
-      const first = ed?.state.doc.firstChild;
-      if (first?.type.name === 'bulletList') {
-        first.forEach((n) => out.push({ type: n.type.name, text: n.textContent }));
-      }
-      return out;
-    });
-    expect(liShapes.length).toBeGreaterThanOrEqual(2);
-    const liWithHeading = liShapes.find((li) => li.text.includes('Standalone heading'));
-    expect(liWithHeading).toBeDefined();
+    // The list keeps its one item; the heading lifts out as a top-level
+    // sibling after it, with its type intact.
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'bulletList', text: 'Existing item' },
+      { type: 'heading', text: 'Standalone heading' },
+    ]);
   });
 
   test('drag bullet listItem INTO task list converts it to taskItem (cross-list-type, regression guard)', async ({ page }) => {
