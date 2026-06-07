@@ -10,17 +10,13 @@ const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
 
 /**
  * Moves the block at `sourcePos` into the list item at `targetItemPos`
- * (wrapper `wrapperPos`) at `childIndex` (default: append last). Drop-indent
- * path used by `performBlockDrop` for `mode: 'nested'`.
+ * (wrapper `wrapperPos`) at `childIndex` (default: append last). Used by
+ * `performBlockDrop` for `mode: 'nested'`.
  *
- * By source type: a non-list block goes in directly; a listItem/taskItem is
- * wrapped in a fresh target-type list (adapted via `convertListItemForParent`)
- * so it reads as a nested sublist, then joined with an adjacent same-type
- * sublist on either side so the dragged item MERGES into the existing list
- * instead of creating a second one. Position math + ordering is delegated to
- * `insertAsListItemChild`; the deletion range is widened via
- * `expandToEmptyWrappers`. Returns `false` (no mutation) on invalid source,
- * self-drop, or schema reject.
+ * A non-list block inserts directly; a listItem/taskItem is wrapped in a fresh
+ * target-type list (via `convertListItemForParent`) and joined with an adjacent
+ * same-type sublist so it MERGES rather than forming a second list. Returns
+ * `false` (no mutation) on invalid source, self-drop, or schema reject.
  */
 export function moveBlockAsNestedChild(
   tr: Transaction,
@@ -38,11 +34,10 @@ export function moveBlockAsNestedChild(
   if (targetItemPos >= sourcePos && targetItemPos < sourceEnd) return false;
   if (wrapperPos >= sourcePos && wrapperPos < sourceEnd) return false;
 
-  // Widen the deletion so a single-child wrapper around the source collapses
-  // with it instead of leaving an empty placeholder.
+  // Widen the deletion so a single-child wrapper collapses with the source.
   const { from: expandedFrom, to: expandedTo } = expandToEmptyWrappers(tr.doc, sourcePos, sourceEnd);
 
-  // A list-item source is wrapped in a fresh list (the item slot expects a
+  // A list-item source needs wrapping in a fresh list (the item slot expects a
   // block, not a bare listItem); other blocks insert as-is.
   let blockNode: PMNode;
   const wrapped = LIST_ITEM_TYPES.has(sourceNode.type.name);
@@ -71,10 +66,9 @@ export function moveBlockAsNestedChild(
   });
   if (!result.ok || result.insertedAt === undefined) return result.ok;
 
-  // Merge the freshly inserted list with an adjacent same-type sublist so the
-  // dragged item joins the existing list instead of forming a second one.
-  // Join the trailing boundary first (higher pos) so the leading one stays
-  // valid; `canJoin` no-ops across incompatible types (e.g. bullet vs task).
+  // Merge with an adjacent same-type sublist so the item joins it rather than
+  // forming a second list. Trailing boundary first (higher pos) so the leading
+  // one stays valid; `canJoin` no-ops across incompatible types.
   if (wrapped) {
     const after = result.insertedAt + blockNode.nodeSize;
     if (after < tr.doc.content.size && canJoin(tr.doc, after)) tr.join(after);

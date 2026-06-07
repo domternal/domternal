@@ -144,4 +144,28 @@ describe('resolveDropDepth', () => {
     expect(resolveDropDepth({ view, itemPos: p, clientX: 50, indentStep: 24 })).toBeNull();
     editor.destroy();
   });
+
+  it('returns null when a list-item ancestor lacks a DOM rect', () => {
+    // List ancestors exist, but `nodeDOM` yields nothing for them, so the
+    // ladder cannot be measured and resolution degrades to null.
+    const editor = makeEditor('<ul><li><p>Solo</p></li></ul>');
+    const solo = posOf(editor, (n) => n.type.name === 'listItem');
+    const view = viewStub(editor, new Map()); // nodeDOM -> null for every pos
+    expect(resolveDropDepth({ view, itemPos: solo, clientX: 40, indentStep: 24 })).toBeNull();
+    editor.destroy();
+  });
+
+  it('level dead-band holds the incumbent across a SIBLING-level boundary', () => {
+    // Boundary between L1 (Groceries, left 10) and L2 (Fruit, left 30) sits at
+    // X=30. Stateless X=32 picks L2; with incumbent L1 + band it stays L1,
+    // exercising the ancestor-boundary branch (upper level is not the child).
+    const { editor, view, apples, groceries } = fixture();
+    const stateless = resolveDropDepth({ view, itemPos: apples, clientX: 32, indentStep: 24 });
+    expect(stateless?.level).toBe(2);
+    const sticky = resolveDropDepth({ view, itemPos: apples, clientX: 32, indentStep: 24, incumbentLevel: 1, band: 6 });
+    expect(sticky?.level).toBe(1);
+    expect(sticky?.kind).toBe('sibling');
+    expect(sticky?.itemPos).toBe(groceries);
+    editor.destroy();
+  });
 });

@@ -65,14 +65,12 @@ function listItemAncestors(view: EditorView, itemPos: number): AncestorRung[] | 
 }
 
 /**
- * Resolve which depth rung the cursor's X picks for a drop in the gap at the
- * resolved item. Levels span `1 .. L+1` where `L` is the resolved item's list
- * level: `L+1` = child of the resolved item (drag fully right), descending
- * levels = sibling at progressively shallower ancestors (drag left), floored
- * at the top-level list. The mapping uses each ancestor's rendered left edge
- * as its indent guide, so it tracks the real layout. `band > 0` keeps the
- * `incumbentLevel` sticky within `band` px of a level boundary. Returns `null`
- * when the chain has no list-item ancestor or a rect is missing.
+ * Resolve which depth rung the cursor's X picks for a drop at the resolved
+ * item. Levels span `1 .. L+1` (`L` = the item's list level): `L+1` nests as a
+ * child (drag right); shallower levels are siblings at shallower ancestors
+ * (drag left), floored at the top-level list, using each ancestor's rendered
+ * left edge as its indent guide. `band > 0` keeps `incumbentLevel` sticky
+ * within `band` px of a boundary. Returns `null` with no ancestor or rect.
  */
 export function resolveDropDepth(args: ResolveDropDepthArgs): DropDepthRung | null {
   const { view, itemPos, clientX, indentStep, incumbentLevel = null, band = 0 } = args;
@@ -83,10 +81,9 @@ export function resolveDropDepth(args: ResolveDropDepthArgs): DropDepthRung | nu
   const childLevel = innermost.level + 1;
   const childBoundary = innermost.left + indentStep; // X at/after which we nest as a child
 
-  // Pick the level: child when X is at least one indent past the resolved
-  // item's left; otherwise the deepest ancestor whose indent guide the cursor
-  // has reached (ancestors are innermost-first => left edges decrease), floored
-  // at the top-level list.
+  // Child when X is one indent past the item's left; otherwise the deepest
+  // ancestor whose indent guide the cursor has reached (innermost-first, so
+  // left edges decrease), floored at the top-level list.
   let level: number;
   if (clientX >= childBoundary) {
     level = childLevel;

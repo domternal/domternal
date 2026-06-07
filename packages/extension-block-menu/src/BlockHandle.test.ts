@@ -4,9 +4,21 @@ import {
   Text,
   Paragraph,
   Heading,
+  BulletList,
+  OrderedList,
+  ListItem,
+  TaskList,
+  TaskItem,
   Editor,
 } from '@domternal/core';
-import { BlockHandle, blockHandlePluginKey, resolveNestedConfig } from './BlockHandle.js';
+import {
+  BlockHandle,
+  blockHandlePluginKey,
+  resolveNestedConfig,
+  adjustDropTargetForListWrapper,
+  descendToNearestHoverItem,
+} from './BlockHandle.js';
+import type { EditorView } from '@domternal/pm/view';
 import { DEFAULT_BLOCK_MATCHERS } from './helpers/defaultMatchers.js';
 import type { BlockMatcher } from './helpers/blockMatcher.js';
 
@@ -802,5 +814,485 @@ describe('BlockHandle drop indicator class', () => {
 
     dispatchDrag('dragstart');
     expect(host.classList.contains('dm-block-handle-dragging')).toBe(false);
+  });
+});
+
+// Spatial resolution helpers: pure functions over a stubbed `EditorView`
+// (jsdom has no layout, so rects are hand-built and fed through `nodeDOM`).
+describe('BlockHandle spatial resolution helpers', () => {
+  const listExtensions = [
+    Document, Text, Paragraph, BulletList, OrderedList, ListItem, TaskList, TaskItem,
+  ];
+
+  function makeListEditor(html: string): Editor {
+    return new Editor({ extensions: listExtensions, content: html });
+  }
+
+  function elWithRect(rect: DOMRect): HTMLElement {
+    const el = document.createElement('div');
+    el.getBoundingClientRect = () => rect;
+    return el;
+  }
+
+  function viewStub(ed: Editor, rects: Map<number, HTMLElement>): EditorView {
+    return {
+      state: ed.state,
+      nodeDOM: (pos: number) => rects.get(pos) ?? null,
+    } as unknown as EditorView;
+  }
+
+  function posOf(ed: Editor, predicate: (n: { type: { name: string }; textContent: string }) => boolean): number {
+    let found = -1;
+    ed.state.doc.descendants((node, pos) => {
+      if (found !== -1) return false;
+      if (predicate(node)) { found = pos; return false; }
+      return true;
+    });
+    if (found === -1) throw new Error('node not found');
+    return found;
+  }
+
+  describe('adjustDropTargetForListWrapper', () => {
+    it('returns the target unchanged when the resolved node is not a list wrapper', () => {
+      const ed = makeListEditor('<p>Plain</p>');
+      const pPos = posOf(ed, (n) => n.type.name === 'paragraph');
+      const dom = elWithRect(new DOMRect(0, 100, 400, 30));
+      const resolved = { pos: pPos, rect: dom.getBoundingClientRect(), dom };
+      const out = adjustDropTargetForListWrapper(viewStub(ed, new Map()), resolved, 50);
+      expect(out.pos).toBe(pPos);
+      ed.destroy();
+    });
+
+    it('returns the target unchanged when nodeAt resolves to no node (doc end)', () => {
+      const ed = makeListEditor('<p>Plain</p>');
+      const dom = elWithRect(new DOMRect(0, 100, 400, 30));
+      // `content.size` is past the last node, so doc.nodeAt(end) === null.
+      const end = ed.state.doc.content.size;
+      const resolved = { pos: end, rect: dom.getBoundingClientRect(), dom };
+      const out = adjustDropTargetForListWrapper(viewStub(ed, new Map()), resolved, 50);
+      expect(out.pos).toBe(end);
+      ed.destroy();
+    });
+
+    it('cursor ABOVE a list wrapper descends to its FIRST child item', () => {
+      const ed = makeListEditor('<ul><li><p>A</p></li><li><p>B</p></li></ul>');
+      const ulPos = posOf(ed, (n) => n.type.name === 'bulletList');
+      const liA = posOf(ed, (n) => n.type.name === 'listItem' && n.textContent === 'A');
+      const ulDom = elWithRect(new DOMRect(0, 100, 400, 100));
+      const aDom = elWithRect(new DOMRect(0, 100, 400, 50));
+      const rects = new Map<number, HTMLElement>([[ulPos, ulDom], [liA, aDom]]);
+      const resolved = { pos: ulPos, rect: ulDom.getBoundingClientRect(), dom: ulDom };
+      // clientY=80 is above the wrapper top (100).
+      const out = adjustDropTargetForListWrapper(viewStub(ed, rects), resolved, 80);
+      expect(out.pos).toBe(liA);
+      ed.destroy();
+    });
+
+    it('cursor BELOW a list wrapper descends to its LAST child item', () => {
+      const ed = makeListEditor('<ul><li><p>A</p></li><li><p>B</p></li></ul>');
+      const ulPos = posOf(ed, (n) => n.type.name === 'bulletList');
+      const liB = posOf(ed, (n) => n.type.name === 'listItem' && n.textContent === 'B');
+      const ulDom = elWithRect(new DOMRect(0, 100, 400, 100));
+      const bDom = elWithRect(new DOMRect(0, 150, 400, 50));
+      const rects = new Map<number, HTMLElement>([[ulPos, ulDom], [liB, bDom]]);
+      const resolved = { pos: ulPos, rect: ulDom.getBoundingClientRect(), dom: ulDom };
+      // clientY=400 is below the wrapper bottom (200); last-child loop runs.
+      const out = adjustDropTargetForListWrapper(viewStub(ed, rects), resolved, 400);
+      expect(out.pos).toBe(liB);
+      ed.destroy();
+    });
+
+    it('cursor INSIDE a list wrapper extent leaves the target on the wrapper', () => {
+      const ed = makeListEditor('<ul><li><p>A</p></li></ul>');
+      const ulPos = posOf(ed, (n) => n.type.name === 'bulletList');
+      const ulDom = elWithRect(new DOMRect(0, 100, 400, 100));
+      const rects = new Map<number, HTMLElement>([[ulPos, ulDom]]);
+      const resolved = { pos: ulPos, rect: ulDom.getBoundingClientRect(), dom: ulDom };
+      const out = adjustDropTargetForListWrapper(viewStub(ed, rects), resolved, 150); // inside 100..200
+      expect(out.pos).toBe(ulPos);
+      ed.destroy();
+    });
+
+    it('returns the wrapper unchanged when the resolved child item has no DOM', () => {
+      const ed = makeListEditor('<ul><li><p>A</p></li></ul>');
+      const ulPos = posOf(ed, (n) => n.type.name === 'bulletList');
+      const ulDom = elWithRect(new DOMRect(0, 100, 400, 100));
+      // Child item rect intentionally omitted -> childDom is null.
+      const rects = new Map<number, HTMLElement>([[ulPos, ulDom]]);
+      const resolved = { pos: ulPos, rect: ulDom.getBoundingClientRect(), dom: ulDom };
+      const out = adjustDropTargetForListWrapper(viewStub(ed, rects), resolved, 80);
+      expect(out.pos).toBe(ulPos);
+      ed.destroy();
+    });
+  });
+
+  describe('descendToNearestHoverItem', () => {
+    it('returns the target unchanged when nodeAt resolves to no node (doc end)', () => {
+      const ed = makeListEditor('<p>Plain</p>');
+      const dom = elWithRect(new DOMRect(0, 100, 400, 30));
+      const end = ed.state.doc.content.size; // doc.nodeAt(end) === null
+      const resolved = { pos: end, rect: dom.getBoundingClientRect(), dom };
+      const out = descendToNearestHoverItem(viewStub(ed, new Map()), resolved, 110);
+      expect(out.pos).toBe(end);
+      ed.destroy();
+    });
+
+    it('returns a non-list block (paragraph) unchanged', () => {
+      const ed = makeListEditor('<p>Plain</p>');
+      const pPos = posOf(ed, (n) => n.type.name === 'paragraph');
+      const dom = elWithRect(new DOMRect(0, 100, 400, 30));
+      const resolved = { pos: pPos, rect: dom.getBoundingClientRect(), dom };
+      const out = descendToNearestHoverItem(viewStub(ed, new Map()), resolved, 110);
+      expect(out.pos).toBe(pPos);
+      ed.destroy();
+    });
+
+    it('descends a list WRAPPER to the child item nearest the cursor row', () => {
+      const ed = makeListEditor('<ul><li><p>A</p></li><li><p>B</p></li></ul>');
+      const ulPos = posOf(ed, (n) => n.type.name === 'bulletList');
+      const liA = posOf(ed, (n) => n.type.name === 'listItem' && n.textContent === 'A');
+      const liB = posOf(ed, (n) => n.type.name === 'listItem' && n.textContent === 'B');
+      const ulDom = elWithRect(new DOMRect(0, 100, 400, 100));
+      const rects = new Map<number, HTMLElement>([
+        [ulPos, ulDom],
+        [liA, elWithRect(new DOMRect(0, 100, 400, 50))],   // 100..150
+        [liB, elWithRect(new DOMRect(0, 150, 400, 50))],   // 150..200
+      ]);
+      const resolved = { pos: ulPos, rect: ulDom.getBoundingClientRect(), dom: ulDom };
+      const out = descendToNearestHoverItem(viewStub(ed, rects), resolved, 180); // inside B
+      expect(out.pos).toBe(liB);
+      ed.destroy();
+    });
+
+    it('descends a list ITEM into its nested sublist when the cursor is in the nested area', () => {
+      const ed = makeListEditor(
+        '<ul><li><p>Outer</p><ul><li><p>I1</p></li><li><p>I2</p></li></ul></li></ul>',
+      );
+      const outerLi = posOf(ed, (n) => n.type.name === 'listItem' && n.textContent.startsWith('Outer'));
+      const innerUl = posOf(ed, (n) => n.type.name === 'bulletList' && n.textContent === 'I1I2');
+      const i1 = posOf(ed, (n) => n.type.name === 'listItem' && n.textContent === 'I1');
+      const i2 = posOf(ed, (n) => n.type.name === 'listItem' && n.textContent === 'I2');
+      const outerDom = elWithRect(new DOMRect(0, 100, 400, 200)); // 100..300
+      const rects = new Map<number, HTMLElement>([
+        [outerLi, outerDom],
+        [innerUl, elWithRect(new DOMRect(20, 150, 380, 150))],  // nested list 150..300
+        [i1, elWithRect(new DOMRect(20, 150, 380, 50))],        // 150..200
+        [i2, elWithRect(new DOMRect(20, 250, 380, 50))],        // 250..300
+      ]);
+      const resolved = { pos: outerLi, rect: outerDom.getBoundingClientRect(), dom: outerDom };
+      // clientY=270 is below the outer label and inside I2's row.
+      const out = descendToNearestHoverItem(viewStub(ed, rects), resolved, 270);
+      expect(out.pos).toBe(i2);
+      ed.destroy();
+    });
+
+    it('stays on a list ITEM when the cursor is on its own label row (above the nested list)', () => {
+      const ed = makeListEditor(
+        '<ul><li><p>Outer</p><ul><li><p>Inner</p></li></ul></li></ul>',
+      );
+      const outerLi = posOf(ed, (n) => n.type.name === 'listItem' && n.textContent.startsWith('Outer'));
+      const innerUl = posOf(ed, (n) => n.type.name === 'bulletList' && n.textContent === 'Inner');
+      const outerDom = elWithRect(new DOMRect(0, 100, 400, 200));
+      const rects = new Map<number, HTMLElement>([
+        [outerLi, outerDom],
+        [innerUl, elWithRect(new DOMRect(20, 160, 380, 140))], // nested list starts at 160
+      ]);
+      const resolved = { pos: outerLi, rect: outerDom.getBoundingClientRect(), dom: outerDom };
+      // clientY=120 is above the nested list's top (160) -> stay on outer.
+      const out = descendToNearestHoverItem(viewStub(ed, rects), resolved, 120);
+      expect(out.pos).toBe(outerLi);
+      ed.destroy();
+    });
+
+    it('stays on a leaf list ITEM that has no nested sublist', () => {
+      const ed = makeListEditor('<ul><li><p>Solo</p></li></ul>');
+      const li = posOf(ed, (n) => n.type.name === 'listItem');
+      const liDom = elWithRect(new DOMRect(0, 100, 400, 50));
+      const rects = new Map<number, HTMLElement>([[li, liDom]]);
+      const resolved = { pos: li, rect: liDom.getBoundingClientRect(), dom: liDom };
+      const out = descendToNearestHoverItem(viewStub(ed, rects), resolved, 120);
+      expect(out.pos).toBe(li);
+      ed.destroy();
+    });
+  });
+});
+
+// Drag/drop simulation against a mounted editor with hand-stubbed geometry.
+// `dragstart` attaches the document dragover/drop listeners and captures the
+// source, then `dragover`/`drop` on `document` drive the indicator and move.
+describe('BlockHandle nested drag-and-drop (DOM simulation)', () => {
+  const nestedExtensions = [
+    Document, Text, Paragraph, BulletList, OrderedList, ListItem, TaskList, TaskItem,
+    BlockHandle.configure({ nested: true }),
+  ];
+
+  let rafCallbacks: FrameRequestCallback[] = [];
+  function installRafStub(): void {
+    rafCallbacks = [];
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      rafCallbacks.push(cb);
+      return rafCallbacks.length;
+    });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => { /* drained manually */ });
+  }
+  function tickAllRaf(): void {
+    while (rafCallbacks.length > 0) rafCallbacks.shift()?.(performance.now());
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    rafCallbacks = [];
+  });
+
+  function mountNested(content: string): Editor {
+    host = document.createElement('div');
+    host.className = 'dm-editor';
+    document.body.appendChild(host);
+    editor = new Editor({ element: host, extensions: nestedExtensions, content });
+    return editor;
+  }
+
+  // Stub the geometry the resolver reads: content element (for
+  // `clampToContent`), the `.dm-editor` host, and per-node rects via `nodeDOM`.
+  // `contentRect` doubles as the top-level list's rect (the `<ul>` IS
+  // `view.dom.firstElementChild`).
+  function stubGeometry(ed: Editor, contentRect: DOMRect, hostRect: DOMRect, rectsByPos: Map<number, DOMRect>): void {
+    const first = ed.view.dom.firstElementChild;
+    if (first instanceof HTMLElement) {
+      Object.defineProperty(first, 'getBoundingClientRect', { value: () => contentRect, configurable: true });
+    }
+    host!.getBoundingClientRect = () => hostRect;
+    const origNodeDOM = ed.view.nodeDOM.bind(ed.view);
+    const view = ed.view as unknown as { nodeDOM: (p: number) => HTMLElement | null };
+    view.nodeDOM = (p: number): HTMLElement | null => {
+      const dom = origNodeDOM(p);
+      const rect = rectsByPos.get(p);
+      if (dom instanceof HTMLElement && rect) {
+        Object.defineProperty(dom, 'getBoundingClientRect', { value: () => rect, configurable: true });
+      }
+      return dom as HTMLElement | null;
+    };
+  }
+
+  function posOf(ed: Editor, predicate: (n: { type: { name: string }; textContent: string }) => boolean): number {
+    let found = -1;
+    ed.state.doc.descendants((node, pos) => {
+      if (found !== -1) return false;
+      if (predicate(node)) { found = pos; return false; }
+      return true;
+    });
+    if (found === -1) throw new Error('node not found');
+    return found;
+  }
+
+  function dragEvent(type: string, clientX: number, clientY: number): Event {
+    const ev = new Event(type, { bubbles: true, cancelable: true });
+    Object.defineProperty(ev, 'clientX', { value: clientX, configurable: true });
+    Object.defineProperty(ev, 'clientY', { value: clientY, configurable: true });
+    return ev;
+  }
+
+  /** Fire dragstart from the drag button with `sourcePos` pre-hovered, so
+   * `onDragStart` captures the source and attaches the document listeners. */
+  function startDrag(ed: Editor, sourcePos: number): void {
+    ed.view.dispatch(ed.state.tr.setMeta(blockHandlePluginKey, { hoveredPos: sourcePos }));
+    const btn = host!.querySelector<HTMLElement>('.dm-block-handle-drag');
+    btn?.dispatchEvent(dragEvent('dragstart', 0, 0));
+  }
+
+  /** Fire dragend so the deferred dragstart commit bails (it guards on a
+   * non-null `pendingDraggedFrom`) and the document listeners detach. */
+  function endDrag(): void {
+    const btn = host!.querySelector<HTMLElement>('.dm-block-handle-drag');
+    btn?.dispatchEvent(dragEvent('dragend', 0, 0));
+  }
+
+  function topListItemTexts(ed: Editor): string[] {
+    const out: string[] = [];
+    ed.state.doc.child(0).forEach((li) => out.push(li.child(0).textContent));
+    return out;
+  }
+  function countType(ed: Editor, name: string): number {
+    let n = 0;
+    ed.state.doc.descendants((node) => { if (node.type.name === name) n += 1; });
+    return n;
+  }
+
+  // Two stacked top-level list items. The wrapper rect (== contentRect)
+  // spans both rows so the Y-walk isn't pruned at the list boundary.
+  function twoItemFixture(): { ed: Editor; target: number; source: number } {
+    const ed = mountNested('<ul><li><p>Target</p></li><li><p>Source</p></li></ul>');
+    const target = posOf(ed, (n) => n.type.name === 'listItem' && n.textContent === 'Target');
+    const targetP = posOf(ed, (n) => n.type.name === 'paragraph' && n.textContent === 'Target');
+    const source = posOf(ed, (n) => n.type.name === 'listItem' && n.textContent === 'Source');
+    const sourceP = posOf(ed, (n) => n.type.name === 'paragraph' && n.textContent === 'Source');
+    const contentRect = new DOMRect(40, 100, 960, 200); // left 40, top 100, bottom 300
+    const hostRect = new DOMRect(0, 90, 1000, 230);      // contains all drop coords
+    stubGeometry(ed, contentRect, hostRect, new Map<number, DOMRect>([
+      [target, new DOMRect(50, 100, 900, 55)],   // 100..155
+      [targetP, new DOMRect(50, 100, 900, 55)],
+      [source, new DOMRect(50, 200, 900, 55)],   // 200..255
+      [sourceP, new DOMRect(50, 200, 900, 55)],
+    ]));
+    return { ed, target, source };
+  }
+
+  it('document drop with nest-zone X nests the source as a child of the target item', () => {
+    const { ed, source } = twoItemFixture();
+    expect(ed.state.doc.child(0).childCount).toBe(2);
+
+    startDrag(ed, source);
+    // X far past the target's left edge (nest zone), Y inside the target row.
+    document.dispatchEvent(dragEvent('drop', 300, 125));
+    endDrag();
+
+    // Source absorbed into Target: one top-level item, both items still exist.
+    expect(ed.state.doc.child(0).childCount).toBe(1);
+    expect(topListItemTexts(ed)).toEqual(['Target']);
+    expect(countType(ed, 'listItem')).toBe(2);
+  });
+
+  it('document drop with sibling X (above mid) reorders the source before the target', () => {
+    const { ed, source } = twoItemFixture();
+
+    startDrag(ed, source);
+    // X just past the left edge but BELOW nestThreshold -> sibling; upper half
+    // of the target row -> insert before it.
+    document.dispatchEvent(dragEvent('drop', 60, 110));
+    endDrag();
+
+    expect(ed.state.doc.child(0).childCount).toBe(2);
+    expect(topListItemTexts(ed)).toEqual(['Source', 'Target']);
+  });
+
+  it('a self-drop (nesting an item onto itself) is consumed as a no-op', () => {
+    const { ed, source } = twoItemFixture();
+    const before = ed.getHTML();
+
+    startDrag(ed, source);
+    // Nest-zone X but the cursor is over the SOURCE's own row.
+    document.dispatchEvent(dragEvent('drop', 300, 225));
+    endDrag();
+
+    expect(ed.getHTML()).toBe(before);
+    expect(ed.state.doc.child(0).childCount).toBe(2);
+  });
+
+  it('PM handleDrop prop runs the same move logic when the drop lands on .ProseMirror', () => {
+    const { ed, source } = twoItemFixture();
+    startDrag(ed, source);
+    // Invoke the registered handleDrop directly (PM would call it for a drop
+    // over the editable). `moved=true` mirrors a same-doc block drag.
+    const slice = ed.state.doc.slice(0, 0);
+    const handled = ed.view.someProp('handleDrop', (fn) =>
+      fn(ed.view, dragEvent('drop', 300, 125) as DragEvent, slice, true),
+    );
+    endDrag();
+
+    expect(handled).toBe(true);
+    expect(ed.state.doc.child(0).childCount).toBe(1);
+  });
+
+  it('handleDrop with moved=false defers to PM (returns false)', () => {
+    const { ed, source } = twoItemFixture();
+    startDrag(ed, source);
+    const slice = ed.state.doc.slice(0, 0);
+    const handled = ed.view.someProp('handleDrop', (fn) =>
+      fn(ed.view, dragEvent('drop', 300, 125) as DragEvent, slice, false),
+    );
+    endDrag();
+    expect(handled).toBeFalsy();
+  });
+
+  it('dragover in the nest zone shows the drop indicator in nested mode', () => {
+    installRafStub();
+    const { ed, source } = twoItemFixture();
+    startDrag(ed, source);
+    document.dispatchEvent(dragEvent('dragover', 300, 125));
+    tickAllRaf();
+
+    const indicator = host!.querySelector<HTMLElement>('.dm-block-drop-indicator');
+    expect(indicator?.getAttribute('data-mode')).toBe('nested');
+    expect(indicator?.hasAttribute('data-show')).toBe(true);
+
+    // A second identical dragover hits the identity gate (same geometry key)
+    // and short-circuits without rewriting the DOM, staying shown afterwards.
+    document.dispatchEvent(dragEvent('dragover', 300, 125));
+    tickAllRaf();
+    expect(indicator?.getAttribute('data-mode')).toBe('nested');
+    expect(indicator?.hasAttribute('data-show')).toBe(true);
+    endDrag();
+  });
+
+  it('mousemove over a list row resolves the hovered item through the nested resolver', () => {
+    installRafStub();
+    const { ed, target } = twoItemFixture();
+    const pm = host!.querySelector<HTMLElement>('.ProseMirror');
+    pm?.dispatchEvent(new MouseEvent('mousemove', { clientX: 300, clientY: 125, bubbles: true }));
+    tickAllRaf();
+    expect(blockHandlePluginKey.getState(ed.state)?.hoveredPos).toBe(target);
+  });
+
+  it('dragstart with no hovered block is cancelled and captures no source', () => {
+    const { ed } = twoItemFixture();
+    const btn = host!.querySelector<HTMLElement>('.dm-block-handle-drag');
+    const ev = dragEvent('dragstart', 0, 0); // hoveredPos still null
+    btn?.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+    // No document drop listener was attached, so a drop moves nothing.
+    document.dispatchEvent(dragEvent('drop', 300, 125));
+    expect(ed.state.doc.child(0).childCount).toBe(2);
+  });
+
+  it('dragstart on a hovered pos with no node is cancelled', () => {
+    const { ed } = twoItemFixture();
+    ed.view.dispatch(ed.state.tr.setMeta(blockHandlePluginKey, { hoveredPos: ed.state.doc.content.size }));
+    const btn = host!.querySelector<HTMLElement>('.dm-block-handle-drag');
+    const ev = dragEvent('dragstart', 0, 0);
+    btn?.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+  });
+
+  it('handleDrop with moved=true but no active drag consumes the event without moving', () => {
+    const { ed } = twoItemFixture();
+    const slice = ed.state.doc.slice(0, 0);
+    // No startDrag -> draggedFrom is null; performBlockDrop bails but handleDrop
+    // still consumes the event so PM does not run its default drop logic.
+    const handled = ed.view.someProp('handleDrop', (fn) =>
+      fn(ed.view, dragEvent('drop', 300, 125) as DragEvent, slice, true),
+    );
+    expect(handled).toBe(true);
+    expect(ed.state.doc.child(0).childCount).toBe(2);
+  });
+
+  it('dragover with sibling X shows the drop indicator in sibling mode', () => {
+    installRafStub();
+    const { ed, source } = twoItemFixture();
+    startDrag(ed, source);
+    document.dispatchEvent(dragEvent('dragover', 60, 110));
+    tickAllRaf();
+
+    const indicator = host!.querySelector<HTMLElement>('.dm-block-drop-indicator');
+    expect(indicator?.getAttribute('data-mode')).toBe('sibling');
+    expect(indicator?.hasAttribute('data-show')).toBe(true);
+    endDrag();
+  });
+
+  it('dragover outside the drop zone cancels a pending repaint and hides the indicator', () => {
+    installRafStub();
+    const { ed, source } = twoItemFixture();
+    startDrag(ed, source);
+    // First a valid in-zone dragover to show it.
+    document.dispatchEvent(dragEvent('dragover', 300, 125));
+    tickAllRaf();
+    const indicator = host!.querySelector<HTMLElement>('.dm-block-drop-indicator');
+    expect(indicator?.hasAttribute('data-show')).toBe(true);
+
+    // Queue another repaint WITHOUT ticking, so a coalescing rAF is pending,
+    // then leave the zone: the pending rAF is cancelled and it hides.
+    document.dispatchEvent(dragEvent('dragover', 300, 130));
+    document.dispatchEvent(dragEvent('dragover', 5000, 5000));
+    expect(indicator?.hasAttribute('data-show')).toBe(false);
+    endDrag();
   });
 });

@@ -76,8 +76,7 @@ export function insertAsListItemChild(
     targetItemStart = pos;
   }
 
-  // Floor the index at 1 (index 0 is the label); omitted/overflow appends.
-  // `insertIndex === childCount` reproduces the legacy append position.
+  // Floor at 1 (index 0 is the label); omitted/overflow appends last.
   const childCount = targetItem.childCount;
   const insertIndex =
     childIndex === undefined || childIndex >= childCount ? childCount : Math.max(1, childIndex);
@@ -93,8 +92,7 @@ export function insertAsListItemChild(
 
   if (sourceRange) {
     const { from, to } = sourceRange;
-    // Self-drop guard: insertion point lands inside the (expanded) deletion
-    // range, so the move is a no-op; bail without corrupting the doc.
+    // Self-drop guard: insert point inside the deletion range is a no-op.
     if (insertPos >= from && insertPos <= to) {
       return { ok: false };
     }

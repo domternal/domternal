@@ -159,6 +159,24 @@ describe('computeDropPlacement - DropPlacement.mode contract', () => {
       editor.destroy();
     });
 
+    it('upper-half cursor whose previous sibling has no DOM keeps the resolved block (no canonicalisation)', () => {
+      // Same inter-block setup, but the FIRST paragraph has no rect, so the
+      // prev-sibling lookup bails and the placement stays on the lower block
+      // with insertAfter=false instead of canonicalising to the gap.
+      const editor = makeEditor('<p>First</p><p>Second</p>');
+      const secondPos = posOf(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Second');
+      const rects = new Map<number, HTMLElement>([
+        // firstPos intentionally omitted -> nodeDOM(0) === null.
+        [secondPos, elWithRect({ top: 130, bottom: 160 })],
+      ]);
+
+      const result = computeDropPlacement(viewStub(editor, rects), 50, 135, NESTED_DISABLED); // upper half of "Second"
+      expect(result?.mode).toBe('sibling');
+      expect(result?.insertAfter).toBe(false);
+      expect(result?.pos).toBe(secondPos);
+      editor.destroy();
+    });
+
     it('cursor BELOW the last block falls back to closest-by-Y - mode kept "sibling"', () => {
       const editor = makeEditor('<p>Top</p><p>Bottom</p>');
       const firstPos = 0;

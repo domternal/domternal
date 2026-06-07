@@ -97,6 +97,15 @@ describe('findTopLevelBlock', () => {
     editor.destroy();
   });
 
+  it('returns null at the very end of the document (depth-0 boundary with no node starting there)', () => {
+    const editor = makeEditor('<p>Hi</p>');
+    // `content.size` resolves to depth 0 but `nodeAt` is null (nothing starts
+    // at the doc's end), so there is no top-level block to anchor on.
+    const result = findTopLevelBlock(editor.state.doc, editor.state.doc.content.size);
+    expect(result).toBeNull();
+    editor.destroy();
+  });
+
   it('provides `end` = pos + nodeSize for the resolved block', () => {
     const editor = makeEditor('<p>Hi</p><p>There</p>');
     const result = findTopLevelBlock(editor.state.doc, 5);
