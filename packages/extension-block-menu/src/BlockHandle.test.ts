@@ -1142,8 +1142,9 @@ describe('BlockHandle nested drag-and-drop (DOM simulation)', () => {
     expect(ed.state.doc.child(0).childCount).toBe(2);
 
     startDrag(ed, source);
-    // X far past the target's left edge (nest zone), Y inside the target row.
-    document.dispatchEvent(dragEvent('drop', 300, 125));
+    // X far past the target's left edge (nest zone) at the after-Target gap
+    // (lower half of the row) where the slot model offers "nest into Target".
+    document.dispatchEvent(dragEvent('drop', 300, 145));
     endDrag();
 
     // Source absorbed into Target: one top-level item, both items still exist.
@@ -1170,8 +1171,9 @@ describe('BlockHandle nested drag-and-drop (DOM simulation)', () => {
     const before = ed.getHTML();
 
     startDrag(ed, source);
-    // Nest-zone X but the cursor is over the SOURCE's own row.
-    document.dispatchEvent(dragEvent('drop', 300, 225));
+    // Nest-zone X at the after-Source gap (lower half of its own row) -> the
+    // slot offers "nest into Source", which is a self-drop and a no-op.
+    document.dispatchEvent(dragEvent('drop', 300, 245));
     endDrag();
 
     expect(ed.getHTML()).toBe(before);
@@ -1185,7 +1187,7 @@ describe('BlockHandle nested drag-and-drop (DOM simulation)', () => {
     // over the editable). `moved=true` mirrors a same-doc block drag.
     const slice = ed.state.doc.slice(0, 0);
     const handled = ed.view.someProp('handleDrop', (fn) =>
-      fn(ed.view, dragEvent('drop', 300, 125) as DragEvent, slice, true),
+      fn(ed.view, dragEvent('drop', 300, 145) as DragEvent, slice, true),
     );
     endDrag();
 
@@ -1208,7 +1210,7 @@ describe('BlockHandle nested drag-and-drop (DOM simulation)', () => {
     installRafStub();
     const { ed, source } = twoItemFixture();
     startDrag(ed, source);
-    document.dispatchEvent(dragEvent('dragover', 300, 125));
+    document.dispatchEvent(dragEvent('dragover', 300, 145));
     tickAllRaf();
 
     const indicator = host!.querySelector<HTMLElement>('.dm-block-drop-indicator');
@@ -1217,7 +1219,7 @@ describe('BlockHandle nested drag-and-drop (DOM simulation)', () => {
 
     // A second identical dragover hits the identity gate (same geometry key)
     // and short-circuits without rewriting the DOM, staying shown afterwards.
-    document.dispatchEvent(dragEvent('dragover', 300, 125));
+    document.dispatchEvent(dragEvent('dragover', 300, 145));
     tickAllRaf();
     expect(indicator?.getAttribute('data-mode')).toBe('nested');
     expect(indicator?.hasAttribute('data-show')).toBe(true);

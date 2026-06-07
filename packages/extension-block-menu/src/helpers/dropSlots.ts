@@ -36,8 +36,10 @@ export interface DropRow {
  * Walk the document and collect every drop row in order. List items contribute
  * their LABEL row (so a parent item and its nested children are distinct rows);
  * nested list wrappers are recursed into. Rows whose DOM is missing are skipped.
+ * With `nestedEnabled = false` (handle in top-level-only mode) list wrappers
+ * stay a single row and are not descended into.
  */
-export function collectRows(view: EditorView): DropRow[] {
+export function collectRows(view: EditorView, nestedEnabled = true): DropRow[] {
   const rows: DropRow[] = [];
   const doc = view.state.doc;
 
@@ -80,7 +82,7 @@ export function collectRows(view: EditorView): DropRow[] {
   let pos = 0;
   for (let i = 0; i < doc.childCount; i++) {
     const node = doc.child(i);
-    if (LIST_WRAPPER_TYPES.has(node.type.name)) {
+    if (nestedEnabled && LIST_WRAPPER_TYPES.has(node.type.name)) {
       walkWrapper(pos, node, 1);
     } else {
       const dom = view.nodeDOM(pos);
@@ -199,15 +201,15 @@ function closeChain(view: EditorView, upper: DropRow): DropSlotOption[] {
 }
 
 /** The deepest option: nest the dragged block INTO `item` at `childIndex`. */
-function nestOption(view: EditorView, item: DropRow, childIndex: number): DropSlotOption | null {
+function nestOption(view: EditorView, item: DropRow, childIndex: number, indentStep: number): DropSlotOption | null {
   const doc = view.state.doc;
   const $item = doc.resolve(item.pos);
   if (!LIST_WRAPPER_TYPES.has($item.parent.type.name)) return null;
   const wrapperPos = $item.before();
-  const lineLeft = item.left + DROP_SLOT_INDENT_PX;
+  const lineLeft = item.left + indentStep;
   return {
     level: item.level + 1,
-    guideLeft: item.left + DROP_SLOT_INDENT_PX,
+    guideLeft: item.left + indentStep,
     lineLeft,
     lineWidth: Math.max(0, item.right - lineLeft),
     insert: { kind: 'nested', wrapperPos, targetItemPos: item.pos, childIndex },
@@ -242,6 +244,12 @@ export interface ResolveDropSlotArgs {
   clientY: number;
   /** Precomputed rows (collected once per dragover); falls back to `collectRows`. */
   rows?: DropRow[];
+  /** Pixels of indent for the deepest (nest-into-item) option. */
+  indentStep?: number;
+  /** Whether to descend into lists (resolve individual items vs whole lists). */
+  nestedEnabled?: boolean;
+  /** Whether the deepest "nest into the item" option is offered (nestThreshold > 0). */
+  offerNest?: boolean;
 }
 
 /**
@@ -254,7 +262,10 @@ export interface ResolveDropSlotArgs {
  */
 export function resolveDropSlot(args: ResolveDropSlotArgs): DropSlot | null {
   const { view, clientX, clientY } = args;
-  const rows = args.rows ?? collectRows(view);
+  const indentStep = args.indentStep ?? DROP_SLOT_INDENT_PX;
+  const nestedEnabled = args.nestedEnabled ?? true;
+  const offerNest = (args.offerNest ?? true) && nestedEnabled;
+  const rows = args.rows ?? collectRows(view, nestedEnabled);
   if (rows.length === 0) return null;
 
   const idx = nearestRow(rows, clientY);
@@ -275,13 +286,13 @@ export function resolveDropSlot(args: ResolveDropSlotArgs): DropSlot | null {
     // nested list); deeper nests into `lower`. No outdent is offered here.
     options = dedupeOptions([
       siblingOption(lower, lower.pos, lower.level),
-      lower.isItem ? nestOption(view, lower, 1) : null,
+      lower.isItem && offerNest ? nestOption(view, lower, 1, indentStep) : null,
     ]);
   } else {
     options = dedupeOptions([
       ...(upper ? closeChain(view, upper) : []),
       lower ? siblingOption(lower, lower.pos, lower.level) : null,
-      upper?.isItem ? nestOption(view, upper, lastChildIndex(view, upper)) : null,
+      upper?.isItem && offerNest ? nestOption(view, upper, lastChildIndex(view, upper), indentStep) : null,
     ]);
   }
   if (options.length === 0) return null;
