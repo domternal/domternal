@@ -1015,6 +1015,92 @@ test.describe('Handle alignment: X stays at editor gutter regardless of resolved
 });
 
 // ────────────────────────────────────────────────────────────────────────
+// Gap resolution: hovering the empty gutter gap BELOW a list (and above
+// the next block) must anchor the handle on the nearest list ITEM, not
+// jump to the list wrapper's top edge (its first item). Mirrors the drag
+// path's `adjustDropTargetForListWrapper` descent.
+// ────────────────────────────────────────────────────────────────────────
+
+test.describe('Handle resolution in the gap below a list (wrapper descent)', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  test('hovering the gap just below a multi-item list resolves to the LAST item, not the list wrapper (no jump to the first item)', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul><li><p>Item one</p></li><li><p>Item two</p></li></ul>'
+      + '<h2>Heading between</h2>'
+      + '<ul><li><p>Item three</p></li></ul>',
+    );
+
+    const firstList = page.locator(`${editorSelector} > ul`).first();
+    const heading = page.locator(`${editorSelector} > h2`);
+    const itemOne = page.locator(`${editorSelector} li:has-text("Item one")`);
+    const itemTwo = page.locator(`${editorSelector} li:has-text("Item two")`);
+
+    const listBox = await boxOf(firstList);
+    const headingBox = await boxOf(heading);
+    const gapTop = listBox.y + listBox.height;
+    const gapBottom = headingBox.y;
+    // A real gap (the heading's top margin) must exist for this scenario.
+    expect(gapBottom).toBeGreaterThan(gapTop);
+
+    // Hover just inside the gap, close to the list bottom - the spot where
+    // the bug made the handle jump up to the first item.
+    const y = gapTop + Math.min(4, (gapBottom - gapTop) * 0.4);
+    await hoverAt(page, await sideGutterX(page), y);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+
+    // Resolves to the LAST list item ("Item two"), not the wrapper.
+    const pos = await hoveredPos(page);
+    const block = pos !== null ? await blockAt(page, pos) : null;
+    expect(block?.type).toBe('listItem');
+    expect(block?.text).toBe('Item two');
+
+    // And the handle sits on the "Item two" row, never the "Item one" row.
+    const itemOneBox = await boxOf(itemOne);
+    const itemTwoBox = await boxOf(itemTwo);
+    const handle = await handleBox(page);
+    const handleCenter = handle.y + handle.height / 2;
+    expect(Math.abs(handleCenter - (itemTwoBox.y + itemTwoBox.height / 2))).toBeLessThan(itemTwoBox.height);
+    expect(handleCenter).toBeGreaterThan(itemOneBox.y + itemOneBox.height);
+  });
+
+  test('hovering the gap between two NESTED task items resolves to the nearest child, not the parent item', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Parent task</p>'
+      + '<ul data-type="taskList">'
+      + '<li data-type="taskItem" data-checked="false"><p>Child one</p></li>'
+      + '<li data-type="taskItem" data-checked="false"><p>Child two</p></li>'
+      + '</ul></li></ul>',
+    );
+
+    const childOne = page.locator(`${editorSelector} li:has-text("Child one")`).last();
+    const childTwo = page.locator(`${editorSelector} li:has-text("Child two")`).last();
+    const c1 = await boxOf(childOne);
+    const c2 = await boxOf(childTwo);
+    expect(c2.y).toBeGreaterThan(c1.y + c1.height); // a real gap between the nested rows
+
+    // Hover the gap between the two nested children.
+    const y = (c1.y + c1.height + c2.y) / 2;
+    await hoverAt(page, await sideGutterX(page), y);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+
+    // Resolves to one of the CHILDREN, never the parent (whose text would
+    // include all nested labels).
+    const pos = await hoveredPos(page);
+    const block = pos !== null ? await blockAt(page, pos) : null;
+    expect(block?.type).toBe('taskItem');
+    expect(['Child one', 'Child two']).toContain(block?.text);
+
+    // Handle anchors in the nested region, never on the parent's label row.
+    const handle = await handleBox(page);
+    const handleCenter = handle.y + handle.height / 2;
+    expect(handleCenter).toBeGreaterThanOrEqual(c1.y - 2);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
 // Source × container matrix sweep + drag-flow regression: the cases that
 // weren't already covered by the per-feature sections above. Completes
 // the full handle-resolution matrix and the drag-flow regression suite.

@@ -455,6 +455,89 @@ function adjustDropTargetForListWrapper(
   return { pos: childPos, rect: childDom.getBoundingClientRect(), dom: childDom };
 }
 
+interface ResolvedBlock { pos: number; rect: DOMRect; dom: HTMLElement }
+
+/**
+ * Among the direct list-item children of the wrapper at `wrapperPos`, pick the
+ * one whose row the cursor is nearest (distance 0 when strictly contained).
+ */
+function nearestChildItem(
+  view: EditorView,
+  wrapperPos: number,
+  wrapper: Node,
+  clientY: number,
+): ResolvedBlock | null {
+  let childPos = wrapperPos + 1;
+  let best: { block: ResolvedBlock; dist: number } | null = null;
+  for (let i = 0; i < wrapper.childCount; i++) {
+    const child = wrapper.child(i);
+    if (LIST_ITEM_TYPES.has(child.type.name)) {
+      const dom = view.nodeDOM(childPos);
+      if (dom instanceof HTMLElement) {
+        const rect = dom.getBoundingClientRect();
+        const dist = clientY < rect.top ? rect.top - clientY : clientY > rect.bottom ? clientY - rect.bottom : 0;
+        if (best === null || dist < best.dist) best = { block: { pos: childPos, rect, dom }, dist };
+      }
+    }
+    childPos += child.nodeSize;
+  }
+  return best?.block ?? null;
+}
+
+/** The direct nested list-wrapper child of the item at `itemPos`, if any. */
+function findNestedListChild(
+  view: EditorView,
+  itemPos: number,
+  item: Node,
+): { pos: number; node: Node; rect: DOMRect } | null {
+  let childPos = itemPos + 1;
+  for (let i = 0; i < item.childCount; i++) {
+    const child = item.child(i);
+    if (LIST_WRAPPER_TYPE_NAMES.has(child.type.name)) {
+      const dom = view.nodeDOM(childPos);
+      if (dom instanceof HTMLElement) return { pos: childPos, node: child, rect: dom.getBoundingClientRect() };
+      return null;
+    }
+    childPos += child.nodeSize;
+  }
+  return null;
+}
+
+/**
+ * Hover-path refinement: anchor the handle on the list/task ITEM whose row the
+ * cursor is nearest, descending through nesting. `findDeepestBlockAtY` resolves
+ * to the containing ANCESTOR when the cursor sits in a gap between sibling items
+ * (no leaf strictly contains Y) - e.g. the gap between two nested task items, or
+ * the gap below a list - which parks the handle on the ancestor's top row far
+ * above the cursor. Walks down into the nearest child item so the handle tracks
+ * the actual row. Stays put when the cursor is on an item's own label row.
+ */
+function descendToNearestHoverItem(view: EditorView, resolved: ResolvedBlock, clientY: number): ResolvedBlock {
+  let current = resolved;
+  for (let guard = 0; guard < 20; guard++) {
+    const node = view.state.doc.nodeAt(current.pos);
+    if (!node) return current;
+    if (LIST_WRAPPER_TYPE_NAMES.has(node.type.name)) {
+      const next = nearestChildItem(view, current.pos, node, clientY);
+      if (!next || next.pos === current.pos) return current;
+      current = next;
+      continue;
+    }
+    if (LIST_ITEM_TYPES.has(node.type.name)) {
+      const nested = findNestedListChild(view, current.pos, node);
+      // No nested list, or the cursor is on this item's own label row (above
+      // the nested list): the item itself is the right anchor.
+      if (!nested || clientY < nested.rect.top) return current;
+      const next = nearestChildItem(view, nested.pos, nested.node, clientY);
+      if (!next || next.pos === current.pos) return current;
+      current = next;
+      continue;
+    }
+    return current;
+  }
+  return current;
+}
+
 /** Client-coord gap rect an indicator line draws into. */
 interface ChildGapRect {
   top: number;
@@ -952,11 +1035,16 @@ export function createBlockHandlePlugin(
       // Re-check the pin gate: a mousemove queued pre-open can fire
       // after `open()` and otherwise reposition the handle.
       if (editorEl.hasAttribute('data-block-context-menu-open')) return;
-      const resolved = resolveBlockAtCoords(editor.view, coords.x, coords.y, nested);
-      if (!resolved) {
+      const initial = resolveBlockAtCoords(editor.view, coords.x, coords.y, nested);
+      if (!initial) {
         scheduleHide();
         return;
       }
+      // When the cursor sits in a gap (below a list, or between nested items),
+      // resolution falls back to the containing wrapper/ancestor item. Descend
+      // to the nearest leaf item so the handle anchors on that row instead of
+      // jumping to the ancestor's top edge.
+      const resolved = descendToNearestHoverItem(editor.view, initial, coords.y);
       clearHideTimer();
       // `updateHoverState` is a no-op when PM plugin state already matches
       // - keep it unconditional so that if a prior docChanged transaction
