@@ -1,5 +1,6 @@
 import type { Fragment, ResolvedPos } from '@domternal/pm/model';
 import type { Transaction } from '@domternal/pm/state';
+import { canJoin } from '@domternal/pm/transform';
 import { expandToEmptyWrappers } from './expandToEmptyWrappers.js';
 import { convertListItemForParent } from './convertListItemForParent.js';
 
@@ -17,8 +18,10 @@ const LIST_WRAPPER_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
  * taskItem auto-conversion when dropping across list types). A non-list
  * block dropped at a sibling gap inside a list splits the list and keeps
  * its own type (see `insertBlockSplittingList`) instead of being wrapped in
- * a bullet. Self-drops (target inside the expanded deletion range) return
- * the transaction unchanged.
+ * a bullet; conversely, removing the source can leave two same-type lists
+ * touching, which `rejoinAtSeam` heals so the list stays continuous.
+ * Self-drops (target inside the expanded deletion range) return the
+ * transaction unchanged.
  */
 export function moveBlock(
   tr: Transaction,
@@ -56,21 +59,45 @@ export function moveBlock(
     && LIST_WRAPPER_TYPES.has(targetParent.type.name)
   ) {
     insertBlockSplittingList(tr, $target, slice.content);
-    return tr;
+  } else {
+    // Auto-convert listItem ↔ taskItem when crossing list types, matching
+    // Notion's "drop adapts to context" UX. When the target's parent isn't
+    // a list wrapper (top-level drops, paragraph parents, etc.) the helper
+    // returns the slice content unchanged.
+    const adaptedContent = convertListItemForParent(
+      tr.doc.type.schema,
+      slice.content,
+      targetParent.type,
+    );
+    tr.insert(adjustedTarget, adaptedContent);
   }
 
-  // Auto-convert listItem ↔ taskItem when crossing list types, matching
-  // Notion's "drop adapts to context" UX. When the target's parent isn't
-  // a list wrapper (top-level drops, paragraph parents, etc.) the helper
-  // returns the slice content unchanged.
-  const adaptedContent = convertListItemForParent(
-    tr.doc.type.schema,
-    slice.content,
-    targetParent.type,
-  );
-
-  tr.insert(adjustedTarget, adaptedContent);
+  // Removing the source may have left two same-type lists touching where it
+  // used to sit (e.g. the source was a heading splitting a list in two).
+  // Heal the seam so the list becomes continuous again, matching Notion and
+  // clearing any stale ordered-list `start` offset on the second half.
+  rejoinAtSeam(tr, from);
   return tr;
+}
+
+/**
+ * Joins two list wrappers that became adjacent at the source-removal seam.
+ * `originalFrom` is the deleted range's left edge in the pre-mutation doc; it
+ * is mapped through every step so the check lands at the seam in the final
+ * doc. Restricted to same-type list wrappers (NOT plain blocks: two adjacent
+ * paragraphs are joinable too, but merging them on a reorder would be wrong),
+ * so unrelated adjacencies elsewhere in the doc are left untouched.
+ */
+function rejoinAtSeam(tr: Transaction, originalFrom: number): void {
+  const seam = tr.mapping.map(originalFrom);
+  if (seam <= 0 || seam >= tr.doc.content.size) return;
+  const $seam = tr.doc.resolve(seam);
+  const before = $seam.nodeBefore;
+  const after = $seam.nodeAfter;
+  if (!before || !after) return;
+  if (before.type !== after.type) return;
+  if (!LIST_WRAPPER_TYPES.has(before.type.name)) return;
+  if (canJoin(tr.doc, seam)) tr.join(seam);
 }
 
 /**

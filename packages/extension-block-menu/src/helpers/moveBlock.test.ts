@@ -372,4 +372,52 @@ describe('moveBlock', () => {
     expect(tr.steps.length).toBe(0);
     editor.destroy();
   });
+
+  // ── Seam heal: dragging the interrupter out rejoins the split list ──
+
+  it('dragging a heading out from between two bullet lists rejoins them into one', () => {
+    const editor = makeListEditor(
+      '<ul><li><p>A</p></li></ul><h2>Mid</h2><ul><li><p>B</p></li></ul>',
+    );
+    const heading = findPos(editor, (n) => n.type.name === 'heading');
+    const tr = editor.state.tr;
+    moveBlock(tr, heading, editor.state.doc.content.size); // drag to end
+    editor.view.dispatch(tr);
+
+    // The two lists heal into one continuous list; the heading lands after it.
+    expect(topTypes(editor)).toEqual(['bulletList', 'heading']);
+    expect(editor.state.doc.child(0).childCount).toBe(2);
+    expect(editor.state.doc.child(0).textContent).toBe('AB');
+    editor.destroy();
+  });
+
+  it('rejoining ordered lists clears the trailing half stale start (numbering continuous)', () => {
+    const editor = makeListEditor(
+      '<ol><li><p>A</p></li></ol><p>Mid</p><ol start="5"><li><p>B</p></li></ol>',
+    );
+    const mid = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Mid');
+    const tr = editor.state.tr;
+    moveBlock(tr, mid, editor.state.doc.content.size);
+    editor.view.dispatch(tr);
+
+    expect(topTypes(editor)).toEqual(['orderedList', 'paragraph']);
+    const list = editor.state.doc.child(0);
+    expect(list.childCount).toBe(2); // [A, B] merged
+    expect(list.attrs['start']).toBe(1); // first half's start wins; B becomes 2
+    editor.destroy();
+  });
+
+  it('does NOT rejoin lists of different types at the seam', () => {
+    const editor = makeListEditor(
+      '<ul><li><p>A</p></li></ul><h2>Mid</h2><ol><li><p>B</p></li></ol>',
+    );
+    const heading = findPos(editor, (n) => n.type.name === 'heading');
+    const tr = editor.state.tr;
+    moveBlock(tr, heading, editor.state.doc.content.size);
+    editor.view.dispatch(tr);
+
+    // Bullet + ordered can't join: both lists stay, heading moves to the end.
+    expect(topTypes(editor)).toEqual(['bulletList', 'orderedList', 'heading']);
+    editor.destroy();
+  });
 });
