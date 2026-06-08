@@ -1,18 +1,13 @@
 /**
- * Build an off-screen "ghost" of a block suitable for HTML5
- * `dataTransfer.setDragImage`.
+ * Build an off-screen "ghost" of a block for HTML5 `dataTransfer.setDragImage`.
  *
- * The browser snapshots whatever element you pass to `setDragImage` at
- * call time, with ambient transforms, scroll offsets, and ancestor
- * clipping applied. Pseudo-class styles and effects inherited from
- * ancestors that don't survive in a detached clone are also lost.
- *
- * The workaround: deep-clone the node, then walk both trees in parallel
- * and copy the resolved `cssText` from `getComputedStyle` onto each
- * cloned element's inline `style`. The result paints identically to the
- * original even when detached. The clone goes into an absolutely
- * positioned wrapper far above the viewport so it is invisible during
- * the snapshot, and the wrapper is removed on dragend/drop.
+ * The browser snapshots the passed element at call time with ambient transforms,
+ * scroll offsets, and ancestor clipping; inherited styles that don't survive a
+ * detached clone are lost. Workaround: deep-clone the node, then copy each
+ * element's resolved `getComputedStyle().cssText` onto its clone's inline style,
+ * so it paints identically when detached. The clone sits in an absolutely
+ * positioned wrapper far above the viewport (invisible during the snapshot),
+ * removed on dragend/drop.
  */
 
 export interface DragGhost {

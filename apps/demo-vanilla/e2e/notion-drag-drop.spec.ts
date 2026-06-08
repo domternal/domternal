@@ -974,6 +974,7 @@ test.describe('Drag & drop - safety rails', () => {
         clientX,
         clientY,
       });
+      await flushIndicatorRaf(page);
       const top = await page.locator('.dm-block-drop-indicator').evaluate((el) => (el as HTMLElement).style.top);
       observedTops.push(top);
     }

@@ -1,24 +1,18 @@
 /**
- * Clamp a (clientX, clientY) pair into the editor's content rectangle
- * so position resolution still works when the cursor is in the side
- * gutter (where the block handle visually lives) or above/below the
- * first/last block.
+ * Clamp a (clientX, clientY) pair into the editor's content rect so position
+ * resolution still works when the cursor is in the side gutter (where the handle
+ * lives) or above/below the first/last block.
  *
- * The clamp targets `view.dom.firstElementChild`'s left/right edges
- * (the actual content rect) rather than `view.dom`'s padded box, so
- * a wide editor with `padding-left: 4rem` still anchors X clamps to
- * where text actually lives.
+ * X clamps to `view.dom.firstElementChild`'s edges (the actual content rect),
+ * not `view.dom`'s padded box, so a wide editor with `padding-left: 4rem` still
+ * anchors to where text lives.
  *
- * Y is only clamped when the cursor is OUTSIDE the editor's vertical
- * span (above the first block or below the last block). When the cursor
- * is INSIDE the editor's span, Y passes through unchanged - clipping the
- * edges (e.g. 5px off the bottom) would otherwise hide thin nested blocks
- * like a 2px-tall horizontal rule that sits at the very bottom of the
- * last top-level container. The `inset` only applies when the cursor is
- * out-of-bounds, snapping it just-inside the content edge.
+ * Y is clamped only when the cursor is OUTSIDE the editor's vertical span; inside
+ * it passes through unchanged, else clipping the edges would hide thin nested
+ * blocks like a 2px-tall hr at the very bottom. The `inset` snaps an
+ * out-of-bounds cursor just inside the content edge.
  *
- * Returns `null` for an empty document - caller should bail out and
- * keep the handle hidden.
+ * Returns `null` for an empty document (caller bails and hides the handle).
  */
 import type { EditorView } from '@domternal/pm/view';
 
@@ -37,16 +31,14 @@ export function clampToContent(
   const topRect = first.getBoundingClientRect();
   const bottomRect = last.getBoundingClientRect();
 
-  // Out-of-bounds clamp ONLY: cursor inside the editor's vertical span
-  // keeps its exact Y so nested elements at the very edge are reachable.
+  // Out-of-bounds clamp ONLY: a cursor inside the vertical span keeps its exact
+  // Y so nested elements at the very edge stay reachable.
   let clampedY = clientY;
   if (clientY < topRect.top) clampedY = topRect.top + inset;
   else if (clientY > bottomRect.bottom) clampedY = bottomRect.bottom - inset;
 
-  // Use the first block's horizontal extent as the "content row" to clamp
-  // X into. Multi-column layouts where blocks have wildly different widths
-  // are not supported here; for our schema (linear blocks of uniform width)
-  // this is sufficient.
+  // Clamp X into the first block's horizontal extent. Multi-column layouts with
+  // varied widths aren't supported; fine for our linear, uniform-width schema.
   const minX = topRect.left + inset;
   const maxX = topRect.right - inset;
   const clampedX = Math.max(minX, Math.min(clientX, maxX));

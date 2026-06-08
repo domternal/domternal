@@ -232,7 +232,7 @@ test.describe('drop placement - sibling-mode reorder', () => {
     expect(texts).toEqual(['Two', 'One', 'Three']);
   });
 
-  test('cross-list-type drag (bullet item into task list) auto-converts to taskItem', async ({ page }) => {
+  test('cross-list-type drag (bullet into task list) keeps the bullet (no conversion, lists stay separate)', async ({ page }) => {
     await setContent(page,
       '<ul><li><p>Bullet</p></li></ul>'
       + '<ul data-type="taskList"><li data-type="taskItem"><p>Task</p></li></ul>',
@@ -241,26 +241,21 @@ test.describe('drop placement - sibling-mode reorder', () => {
     const task = page.locator(`${editorSelector} ul[data-type="taskList"] li`);
     await dragBlock(page, bullet, task, 'top', 'left');
 
-    // Two top-level lists, but the bullet item migrated into the task list as taskItem.
-    const blocks = await getBlocks(page);
-    const taskList = blocks.find((b) => b.type === 'taskList');
-    expect(taskList).toBeDefined();
-    // Confirm task list now holds two taskItems (Bullet adapted, Task stays).
-    const taskListItems = await page.evaluate(() => {
+    // No conversion: the bullet stays a listItem and the task stays a taskItem,
+    // each in its own list (the task list is never merged into).
+    const items = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void }) => void) => void } } }
+        | { state: { doc: { descendants: (cb: (n: { type: { name: string }; textContent: string }) => boolean | void) => void } } }
         | undefined;
       const out: { type: string; text: string }[] = [];
-      ed?.state.doc.forEach((n) => {
-        if (n.type.name === 'taskList') {
-          n.forEach((li) => out.push({ type: li.type.name, text: li.textContent }));
-        }
+      ed?.state.doc.descendants((n) => {
+        if (n.type.name === 'listItem' || n.type.name === 'taskItem') out.push({ type: n.type.name, text: n.textContent });
+        return true;
       });
       return out;
     });
-    expect(taskListItems.every((x) => x.type === 'taskItem')).toBe(true);
-    expect(taskListItems.map((x) => x.text)).toContain('Bullet');
-    expect(taskListItems.map((x) => x.text)).toContain('Task');
+    expect(items).toContainEqual({ type: 'listItem', text: 'Bullet' });
+    expect(items).toContainEqual({ type: 'taskItem', text: 'Task' });
   });
 
   test('horizontalRule (atom) drags to sibling slot', async ({ page }) => {
@@ -429,9 +424,12 @@ test.describe('drop placement - indicator contract across target types', () => {
     await endDrag(handle, dt);
   });
 
-  test('indicator over a NESTED HEADING (inside list item) stays solid + data-mode="sibling" (heading not in LIST_ITEM_TYPES)', async ({ page }) => {
-    // List item with [label paragraph, nested h2]. Drag from a top-level
-    // paragraph onto the nested heading - placement must still be sibling-mode.
+  test('indicator over a NESTED HEADING (inside list item) resolves to nesting into the parent item', async ({ page }) => {
+    // List item with [label paragraph, nested h2]. The slot model does not
+    // make the nested heading an independent row, so its region belongs to the
+    // parent list item: a drop there nests into the item (dashed) at the child
+    // slot next to the heading. startDragOver lands X at the heading's own
+    // indent, which is already past the nest threshold relative to the item.
     await setContent(page, '<p>Top</p><ul><li><p>Label</p><h2>Nested</h2></li></ul>');
     const { handle, dt } = await startDragOver(
       page,
@@ -448,10 +446,7 @@ test.describe('drop placement - indicator contract across target types', () => {
       };
     });
     expect(info?.show).toBe(true);
-    // startDragOver lands clientX at targetBox.x + 4 (left of bullet marker),
-    // well below the default 28px nestThreshold - placement stays sibling.
-    expect(info?.mode).toBe('sibling');
-    expect(info?.borderTopStyle).not.toBe('dashed');
+    expect(info?.mode).toBe('nested');
     await endDrag(handle, dt);
   });
 
@@ -555,7 +550,9 @@ test.describe('X-detection - nested mode flip on list-item targets', () => {
     const targetBox = await targetLocator.boundingBox();
     if (!targetBox) throw new Error('target has no bounding box');
     const clientX = targetBox.x + xOffsetFromLeft;
-    const clientY = targetBox.y + targetBox.height * 0.5;
+    // Lower half = the "after" gap, where the slot model offers nesting into
+    // the target item (the gap-first model nests at an item's bottom edge).
+    const clientY = targetBox.y + targetBox.height * 0.8;
     await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX, clientY });
     await flushIndicatorRaf(page);
     const result = await page.evaluate(() => {
@@ -673,7 +670,7 @@ test.describe('X-detection - nested mode flip on list-item targets', () => {
       await page.locator(editorSelector).dispatchEvent('dragover', {
         dataTransfer: dt,
         clientX: targetBox!.x + xOffset,
-        clientY: targetBox!.y + targetBox!.height * 0.5,
+        clientY: targetBox!.y + targetBox!.height * 0.8,
       });
       await flushIndicatorRaf(page);
       return page.evaluate(
@@ -705,7 +702,7 @@ test.describe('X-detection - nested mode flip on list-item targets', () => {
     const targetBox = await target.boundingBox();
     if (!targetBox) throw new Error('no target box');
     const clientX = targetBox.x + 50; // nested zone
-    const clientY = targetBox.y + targetBox.height * 0.5;
+    const clientY = targetBox.y + targetBox.height * 0.8;
     await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX, clientY });
     await page.locator(editorSelector).dispatchEvent('drop', { dataTransfer: dt, clientX, clientY });
     await handle.dispatchEvent('dragend', { dataTransfer: dt });
@@ -773,10 +770,10 @@ test.describe('X-detection - nested mode flip on list-item targets', () => {
 
     const targetBox = await target.boundingBox();
     if (!targetBox) throw new Error('no target box');
-    // Aim Y at the label paragraph (top quarter of the listItem rect),
-    // X past threshold so X-detection can fire.
+    // Aim Y at the item's lower band (its "after" gap), X past threshold, so
+    // the slot model nests into the item.
     const clientX = targetBox.x + 40;
-    const clientY = targetBox.y + targetBox.height * 0.15;
+    const clientY = targetBox.y + targetBox.height * 0.8;
     await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX, clientY });
     await flushIndicatorRaf(page);
 
@@ -789,17 +786,15 @@ test.describe('X-detection - nested mode flip on list-item targets', () => {
     await dt.dispose();
   });
 
-  test('drop with nested-zone X produces same nested-child result regardless of Y-mid (nested mode ignores insertAfter)', async ({ page }) => {
-    // `insertAfter` keeps mirroring Y-mid in the placement shape, but
-    // the nested-mode branch of the drop handler ignores it because
-    // `insertAsListItemChild` always appends as the LAST child of the
-    // target item. Both upper-half and lower-half drops with nested-zone
-    // X therefore land at the SAME spot.
+  test('gap-aware nesting: lower-half + right-zone X nests into the target; upper-half is a sibling before it', async ({ page }) => {
+    // The slot model is position-aware: nesting into an item is offered at its
+    // AFTER gap (lower half). The upper half is the "before" gap, a plain
+    // sibling. So Y-mid is NOT ignored (unlike the old append-last model).
     await setContent(page, '<ul><li><p>One</p></li><li><p>Two</p></li><li><p>Three</p></li></ul>');
     const third = page.locator(`${editorSelector} li:has-text("Three")`);
     const first = page.locator(`${editorSelector} li:has-text("One")`);
 
-    // Lower-half drop with right-zone X: Three becomes nested child of One.
+    // Lower-half + right-zone X: Three nests into One (One gains a nested list).
     await dragBlock(page, third, first, 'bottom', 'right');
     const lowerHalfResult = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -809,35 +804,26 @@ test.describe('X-detection - nested mode flip on list-item targets', () => {
       const firstLi = ul?.firstChild;
       return {
         ulItems: ul?.childCount,
-        firstLiChildren: firstLi?.childCount,
         firstLiLastChildType: firstLi?.lastChild?.type.name,
       };
     });
-    // After nested-child insertion: outer ul has 2 listItems left
-    // (One with nested ul, Two). First listItem has [paragraph "One",
-    // nested bulletList].
-    expect(lowerHalfResult.ulItems).toBe(2);
-    expect(lowerHalfResult.firstLiChildren).toBe(2);
+    expect(lowerHalfResult.ulItems).toBe(2); // One (now with sublist), Two
     expect(lowerHalfResult.firstLiLastChildType).toBe('bulletList');
 
-    // Reset and repeat with upper-half drop - identical nested result.
+    // Upper-half + right-zone X: Three lands as a sibling BEFORE One, not nested.
     await setContent(page, '<ul><li><p>One</p></li><li><p>Two</p></li><li><p>Three</p></li></ul>');
     const thirdAgain = page.locator(`${editorSelector} li:has-text("Three")`);
     const firstAgain = page.locator(`${editorSelector} li:has-text("One")`);
     await dragBlock(page, thirdAgain, firstAgain, 'top', 'right');
-    const upperHalfResult = await page.evaluate(() => {
+    const upperTexts = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { firstChild: { childCount: number; firstChild: { childCount: number; lastChild: { type: { name: string } } | null } | null } | null } } }
+        | { state: { doc: { firstChild: { forEach: (cb: (n: { textContent: string }) => void) => void } | null } } }
         | undefined;
-      const ul = ed?.state.doc.firstChild;
-      const firstLi = ul?.firstChild;
-      return {
-        ulItems: ul?.childCount,
-        firstLiChildren: firstLi?.childCount,
-        firstLiLastChildType: firstLi?.lastChild?.type.name,
-      };
+      const out: string[] = [];
+      ed?.state.doc.firstChild?.forEach((n) => out.push(n.textContent));
+      return out;
     });
-    expect(upperHalfResult).toEqual(lowerHalfResult);
+    expect(upperTexts).toEqual(['Three', 'One', 'Two']); // sibling before One, flat
   });
 
   test('SELF-DROP: drag listItem onto ITSELF with nested-zone X - moveBlockAsNestedChild guard returns false, doc unchanged', async ({ page }) => {
@@ -855,7 +841,7 @@ test.describe('X-detection - nested mode flip on list-item targets', () => {
     const targetBox = await solo.boundingBox();
     if (!targetBox) throw new Error('no target box');
     const clientX = targetBox.x + 40; // nested zone
-    const clientY = targetBox.y + targetBox.height * 0.5;
+    const clientY = targetBox.y + targetBox.height * 0.8;
     await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX, clientY });
     await flushIndicatorRaf(page);
     // Indicator carries data-mode='nested' even though the drop will be a no-op.
@@ -894,7 +880,7 @@ test.describe('X-detection - nested mode flip on list-item targets', () => {
     const targetBox = await empty.boundingBox();
     if (!targetBox) throw new Error('no target box');
     const clientX = targetBox.x + 40;
-    const clientY = targetBox.y + targetBox.height * 0.5;
+    const clientY = targetBox.y + targetBox.height * 0.8;
     await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX, clientY });
     await flushIndicatorRaf(page);
     const mode = await page.evaluate(
@@ -922,7 +908,7 @@ test.describe('X-detection - nested mode flip on list-item targets', () => {
     await page.locator(editorSelector).dispatchEvent('dragover', {
       dataTransfer: dt,
       clientX: targetBox.x + 40,
-      clientY: targetBox.y + targetBox.height * 0.5,
+      clientY: targetBox.y + targetBox.height * 0.8,
     });
     await flushIndicatorRaf(page);
     const insideMode = await page.evaluate(
@@ -997,7 +983,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
     await page.locator(editorSelector).dispatchEvent('dragover', {
       dataTransfer: dt,
       clientX: targetBox.x + 40, // nested zone
-      clientY: targetBox.y + targetBox.height * 0.5,
+      clientY: targetBox.y + targetBox.height * 0.8,
     });
     await flushIndicatorRaf(page);
     const info = await indicatorInfo(page);
@@ -1022,7 +1008,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
     await page.locator(editorSelector).dispatchEvent('dragover', {
       dataTransfer: dt,
       clientX: targetBox.x + 4, // sibling zone (before bullet marker)
-      clientY: targetBox.y + targetBox.height * 0.5,
+      clientY: targetBox.y + targetBox.height * 0.8,
     });
     await flushIndicatorRaf(page);
     const info = await indicatorInfo(page);
@@ -1033,8 +1019,12 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
   });
 
   test('nested-mode indicator is INDENTED 24px from the resolved block left edge', async ({ page }) => {
-    await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
-    const source = page.locator(`${editorSelector} p:has-text("Source")`);
+    // List-item source: its sibling drop stays at the item column, so the
+    // nested line's 24px indent is measurable against that reference. (A
+    // non-list source lifts its sibling line out to the list's parent column
+    // by design, so it isn't the right yardstick for the nested indent.)
+    await setContent(page, '<ul><li><p>Source</p></li><li><p>Target</p></li></ul>');
+    const source = page.locator(`${editorSelector} li:has-text("Source")`);
     const target = page.locator(`${editorSelector} li:has-text("Target")`);
     await source.hover();
     const dt = await page.evaluateHandle(() => new DataTransfer());
@@ -1045,7 +1035,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
     await page.locator(editorSelector).dispatchEvent('dragover', {
       dataTransfer: dt,
       clientX: targetBox.x + 40,
-      clientY: targetBox.y + targetBox.height * 0.5,
+      clientY: targetBox.y + targetBox.height * 0.8,
     });
     await flushIndicatorRaf(page);
 
@@ -1055,7 +1045,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
     await page.locator(editorSelector).dispatchEvent('dragover', {
       dataTransfer: dt,
       clientX: targetBox.x + 4,
-      clientY: targetBox.y + targetBox.height * 0.5,
+      clientY: targetBox.y + targetBox.height * 0.8,
     });
     await flushIndicatorRaf(page);
     const siblingLeft = (await indicatorInfo(page))?.leftPx ?? 0;
@@ -1066,8 +1056,10 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
   });
 
   test('nested-mode indicator width is 24px NARROWER than sibling-mode width over same target', async ({ page }) => {
-    await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
-    const source = page.locator(`${editorSelector} p:has-text("Source")`);
+    // List-item source so the sibling reference stays at the item column (see
+    // the indent test above for why a non-list source isn't comparable here).
+    await setContent(page, '<ul><li><p>Source</p></li><li><p>Target</p></li></ul>');
+    const source = page.locator(`${editorSelector} li:has-text("Source")`);
     const target = page.locator(`${editorSelector} li:has-text("Target")`);
     await source.hover();
     const dt = await page.evaluateHandle(() => new DataTransfer());
@@ -1078,14 +1070,14 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
     await page.locator(editorSelector).dispatchEvent('dragover', {
       dataTransfer: dt,
       clientX: targetBox.x + 40,
-      clientY: targetBox.y + targetBox.height * 0.5,
+      clientY: targetBox.y + targetBox.height * 0.8,
     });
     await flushIndicatorRaf(page);
     const nestedWidth = (await indicatorInfo(page))?.widthPx ?? 0;
     await page.locator(editorSelector).dispatchEvent('dragover', {
       dataTransfer: dt,
       clientX: targetBox.x + 4,
-      clientY: targetBox.y + targetBox.height * 0.5,
+      clientY: targetBox.y + targetBox.height * 0.8,
     });
     await flushIndicatorRaf(page);
     const siblingWidth = (await indicatorInfo(page))?.widthPx ?? 0;
@@ -1094,11 +1086,9 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
     await dt.dispose();
   });
 
-  test('nested-mode indicator top sits at the listItem rect BOTTOM (not Y-mid based)', async ({ page }) => {
-    // Nested-mode indicator always anchors at the listItem's bottom edge
-    // because the actual drop appends as last child. Top stays at
-    // rect.bottom regardless of where Y lands within the rect (as long
-    // as Y is inside the rect for X-detection to fire).
+  test('nested-mode indicator over a single-child item anchors at the item bottom (append slot)', async ({ page }) => {
+    // A childless item has only the label, so nesting appends as its single
+    // extra child and the dashed line sits at the item's bottom edge.
     await setContent(page, '<p>Source</p><ul><li><p>Target</p></li></ul>');
     const source = page.locator(`${editorSelector} p:has-text("Source")`);
     const target = page.locator(`${editorSelector} li:has-text("Target")`);
@@ -1109,26 +1099,24 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
     const targetBox = await target.boundingBox();
     if (!targetBox) throw new Error('no target box');
 
-    // Upper half Y - nested-mode indicator still anchors at rect.bottom.
-    await page.locator(editorSelector).dispatchEvent('dragover', {
-      dataTransfer: dt,
-      clientX: targetBox.x + 40,
-      clientY: targetBox.y + targetBox.height * 0.2,
-    });
-    await flushIndicatorRaf(page);
-    const upperInfo = await indicatorInfo(page);
-    // Lower half Y - same rect.bottom anchor.
+    // Lower half + nested-zone X -> nest into the item at its "after" gap.
     await page.locator(editorSelector).dispatchEvent('dragover', {
       dataTransfer: dt,
       clientX: targetBox.x + 40,
       clientY: targetBox.y + targetBox.height * 0.8,
     });
     await flushIndicatorRaf(page);
-    const lowerInfo = await indicatorInfo(page);
-    expect(upperInfo?.mode).toBe('nested');
-    expect(lowerInfo?.mode).toBe('nested');
-    // Both anchor at the same rect.bottom Y position (within 1px tolerance).
-    expect(Math.abs((upperInfo?.topPx ?? 0) - (lowerInfo?.topPx ?? 0))).toBeLessThanOrEqual(1);
+    const info = await indicatorInfo(page);
+    expect(info?.mode).toBe('nested');
+
+    // Line sits at the item's bottom edge (editor-relative), within 2px.
+    const itemBottom = await page.evaluate(() => {
+      const li = document.querySelector('.ProseMirror li');
+      const editor = document.querySelector('.dm-editor');
+      if (!(li instanceof HTMLElement) || !(editor instanceof HTMLElement)) return -1;
+      return li.getBoundingClientRect().bottom - editor.getBoundingClientRect().top;
+    });
+    expect(Math.abs((info?.topPx ?? 0) - itemBottom)).toBeLessThanOrEqual(2);
     await handle.dispatchEvent('dragend', { dataTransfer: dt });
     await dt.dispose();
   });
@@ -1148,7 +1136,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
       await page.locator(editorSelector).dispatchEvent('dragover', {
         dataTransfer: dt,
         clientX: targetBox!.x + xOffset,
-        clientY: targetBox!.y + targetBox!.height * 0.5,
+        clientY: targetBox!.y + targetBox!.height * 0.8,
       });
       await flushIndicatorRaf(page);
       return page.evaluate(() => {
@@ -1182,7 +1170,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
     await page.locator(editorSelector).dispatchEvent('dragover', {
       dataTransfer: dt,
       clientX: targetBox.x + 40,
-      clientY: targetBox.y + targetBox.height * 0.5,
+      clientY: targetBox.y + targetBox.height * 0.8,
     });
     await flushIndicatorRaf(page);
     const info = await indicatorInfo(page);
@@ -1212,7 +1200,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
     await page.locator(editorSelector).dispatchEvent('dragover', {
       dataTransfer: dt,
       clientX: targetBox.x + 4,
-      clientY: targetBox.y + targetBox.height * 0.5,
+      clientY: targetBox.y + targetBox.height * 0.8,
     });
     await flushIndicatorRaf(page);
     const siblingShadow = await page.evaluate(() => {
@@ -1226,7 +1214,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
     await page.locator(editorSelector).dispatchEvent('dragover', {
       dataTransfer: dt,
       clientX: targetBox.x + 40,
-      clientY: targetBox.y + targetBox.height * 0.5,
+      clientY: targetBox.y + targetBox.height * 0.8,
     });
     await flushIndicatorRaf(page);
     const nestedShadow = await page.evaluate(() => {
@@ -1251,7 +1239,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
     await page.locator(editorSelector).dispatchEvent('dragover', {
       dataTransfer: dt,
       clientX: targetBox.x + 40,
-      clientY: targetBox.y + targetBox.height * 0.5,
+      clientY: targetBox.y + targetBox.height * 0.8,
     });
     await flushIndicatorRaf(page);
     const radius = await page.evaluate(() => {
@@ -1280,7 +1268,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
     await page.locator(editorSelector).dispatchEvent('dragover', {
       dataTransfer: dt,
       clientX: targetBox.x + 40,
-      clientY: targetBox.y + targetBox.height * 0.5,
+      clientY: targetBox.y + targetBox.height * 0.8,
     });
     await flushIndicatorRaf(page);
     const info = await indicatorInfo(page);
@@ -1307,12 +1295,17 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
     const liBox = await liTarget.boundingBox();
     if (!liBox) throw new Error('no li box');
 
-    // Aim Y at the LABEL portion so the resolver lands on the listItem and
-    // the child-slot resolves to childIndex 1 (above the existing heading).
+    // Aim Y just below the label's bottom (the first-child gap, before the
+    // existing heading): past the label mid so the item's "after" gap engages,
+    // and below the heading mid so resolveChildSlot picks childIndex 1.
+    const labelBottom = await page.evaluate(() => {
+      const label = document.querySelector('.ProseMirror li > p');
+      return label instanceof HTMLElement ? label.getBoundingClientRect().bottom : 0;
+    });
     await page.locator(editorSelector).dispatchEvent('dragover', {
       dataTransfer: dt,
       clientX: liBox.x + 40,
-      clientY: liBox.y + liBox.height * 0.15,
+      clientY: labelBottom + 3,
     });
     await flushIndicatorRaf(page);
     const info = await indicatorInfo(page);
@@ -1378,7 +1371,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
     await page.locator(editorSelector).dispatchEvent('dragover', {
       dataTransfer: dt,
       clientX: targetBox.x + 40,
-      clientY: targetBox.y + targetBox.height * 0.5,
+      clientY: targetBox.y + targetBox.height * 0.8,
     });
     await flushIndicatorRaf(page);
     const info = await indicatorInfo(page);
@@ -1386,6 +1379,68 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
     expect(info?.borderTopStyle).toBe('dashed');
     await handle.dispatchEvent('dragend', { dataTransfer: dt });
     await dt.dispose();
+  });
+
+  // ── Split-indicator geometry: a drop that SPLITS the list draws full-width
+  //    at the parent column, not the bullet-indented item column. ──
+
+  test('split indicator: a non-list source over a list is wider + further left than a joining list item', async ({ page }) => {
+    // Paragraph source → splits the list → indicator lifts to the parent column.
+    await setContent(page, '<p>Para</p><ul><li><p>Item</p></li></ul>');
+    const a = await startDragOver(page, page.locator(`${editorSelector} p:has-text("Para")`), page.locator(`${editorSelector} li:has-text("Item")`));
+    const split = await indicatorInfo(page);
+    await endDrag(a.handle, a.dt);
+    // List-item source over a bullet target → joins → bullet-indented column.
+    await setContent(page, '<ul><li><p>Src</p></li><li><p>Item</p></li></ul>');
+    const b = await startDragOver(page, page.locator(`${editorSelector} li:has-text("Src")`), page.locator(`${editorSelector} li:has-text("Item")`));
+    const join = await indicatorInfo(page);
+    await endDrag(b.handle, b.dt);
+
+    expect(split?.mode).toBe('sibling');
+    expect(split!.leftPx).toBeLessThan(join!.leftPx);     // lifted out to the parent column
+    expect(split!.widthPx).toBeGreaterThan(join!.widthPx); // full content width, not item width
+  });
+
+  test('split indicator: a to-do source over a bullet list splits (wider + further left than a bullet source that joins)', async ({ page }) => {
+    await setContent(page, '<ul data-type="taskList"><li data-type="taskItem"><p>Todo</p></li></ul><ul><li><p>Item</p></li></ul>');
+    const a = await startDragOver(page, page.locator(`${editorSelector} li[data-type="taskItem"]`), page.locator(`${editorSelector} ul:not([data-type]) li:has-text("Item")`));
+    const split = await indicatorInfo(page);
+    await endDrag(a.handle, a.dt);
+    await setContent(page, '<ul><li><p>Bull</p></li><li><p>Item</p></li></ul>');
+    const b = await startDragOver(page, page.locator(`${editorSelector} li:has-text("Bull")`), page.locator(`${editorSelector} li:has-text("Item")`));
+    const join = await indicatorInfo(page);
+    await endDrag(b.handle, b.dt);
+
+    expect(split!.leftPx).toBeLessThan(join!.leftPx);
+    expect(split!.widthPx).toBeGreaterThan(join!.widthPx);
+  });
+
+  // ── Hysteresis: a small wobble must not flip the resolved gap. ──
+
+  test('Y dead-band: a small wobble across a row mid holds the indicator gap, a larger move flips it', async ({ page }) => {
+    await setContent(page, '<p>Top</p><ul><li><p>A</p></li><li><p>B</p></li></ul>');
+    await page.locator(`${editorSelector} p:has-text("Top")`).hover();
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    const handle = page.locator(dragBtnSelector);
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    const box = await page.locator(`${editorSelector} li:has-text("A")`).boundingBox();
+    if (!box) throw new Error('no box');
+    const mid = box.y + box.height / 2;
+    const x = box.x + 4;
+
+    // Establish the "after A" gap just below the row mid.
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX: x, clientY: mid + 4 });
+    await flushIndicatorRaf(page);
+    const after = (await indicatorInfo(page))?.topPx;
+    // Wobble just ABOVE mid, within the 6px dead-band → holds "after A".
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX: x, clientY: mid - 4 });
+    await flushIndicatorRaf(page);
+    expect((await indicatorInfo(page))?.topPx).toBe(after);
+    // A larger move near A's top edge (outside the band) flips to "before A".
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX: x, clientY: box.y + 1 });
+    await flushIndicatorRaf(page);
+    expect((await indicatorInfo(page))?.topPx).not.toBe(after);
+    await endDrag(handle, dt);
   });
 });
 
@@ -1413,12 +1468,10 @@ test.describe('nested drop matrix - source types appended as last child', () => 
     const targetBox = await targetLocator.boundingBox();
     if (!targetBox) throw new Error('no target box');
     const clientX = targetBox.x + 50; // nested zone
-    // Aim Y at the LABEL portion (top 15%) so the resolver lands on the
-    // listItem itself, not on a deeper draggable block (e.g. an existing
-    // nested paragraph or heading whose vertical extent occupies the
-    // mid-area). The label paragraph is excluded by `listItemFirstChild`,
-    // so resolution lifts back up to the listItem.
-    const clientY = targetBox.y + targetBox.height * 0.15;
+    // Aim Y just above the item's bottom edge (its "after" gap, below every
+    // existing child mid) so the slot model nests and resolveChildSlot appends
+    // the dragged block as the item's last child even as the item grows.
+    const clientY = targetBox.y + targetBox.height - 3;
     await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX, clientY });
     await page.locator(editorSelector).dispatchEvent('drop', { dataTransfer: dt, clientX, clientY });
     await handle.dispatchEvent('dragend', { dataTransfer: dt });
@@ -1736,10 +1789,10 @@ test.describe('nested drop matrix - source types appended as last child', () => 
     });
   });
 
-  test('multi-step nesting: dropping A, B, C onto a Target item at the label band stacks them as first-child (newest on top)', async ({ page }) => {
+  test('multi-step nesting: dropping A, B, C onto a Target item at its after gap appends them in order', async ({ page }) => {
     await setContent(page, '<p>A</p><p>B</p><p>C</p><ul><li><p>Target</p></li></ul>');
-    // Each drop aims Y at the label band -> childIndex 1 (first child), so a
-    // later drop lands ABOVE the earlier ones: the order reverses to C, B, A.
+    // dropNested aims Y at the item's after gap -> append as last child, so a
+    // later drop lands BELOW the earlier ones: the order stays A, B, C.
     for (const t of ['A', 'B', 'C']) {
       await dropNested(
         page,
@@ -1749,9 +1802,9 @@ test.describe('nested drop matrix - source types appended as last child', () => 
     }
     expect(await firstListItemChildren(page)).toEqual([
       { type: 'paragraph', text: 'Target' },
-      { type: 'paragraph', text: 'C' },
-      { type: 'paragraph', text: 'B' },
       { type: 'paragraph', text: 'A' },
+      { type: 'paragraph', text: 'B' },
+      { type: 'paragraph', text: 'C' },
     ]);
     expect((await getBlocks(page)).length).toBe(1); // Just the bulletList; A/B/C all moved.
   });
@@ -1850,16 +1903,28 @@ test.describe('nested drop matrix - source types appended as last child', () => 
     ]);
   });
 
-  test('drop on listItem WITH existing nested children at the LABEL band inserts the new block as the FIRST child (before the existing heading)', async ({ page }) => {
-    // Position-aware: `dropNested` aims Y at the label band, which resolves to
-    // childIndex 1, so Source lands BEFORE the existing heading. (The old
-    // append-only behaviour put it last.)
+  test('drop just below the label of an item with content inserts the new block as the FIRST child (before the existing heading)', async ({ page }) => {
+    // Position-aware: aiming Y just below the label (the first-child gap)
+    // resolves to childIndex 1, so Source lands BEFORE the existing heading.
     await setContent(page, '<p>Source</p><ul><li><p>Label</p><h2>Existing</h2></li></ul>');
-    await dropNested(
-      page,
-      page.locator(`${editorSelector} p:has-text("Source")`),
-      page.locator(`${editorSelector} li`),
-    );
+    await page.locator(`${editorSelector} p:has-text("Source")`).hover();
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    const handle = page.locator(dragBtnSelector);
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    const li = page.locator(`${editorSelector} li`);
+    const liBox = await li.boundingBox();
+    if (!liBox) throw new Error('no li box');
+    const labelBottom = await page.evaluate(() => {
+      const label = document.querySelector('.ProseMirror li > p');
+      return label instanceof HTMLElement ? label.getBoundingClientRect().bottom : 0;
+    });
+    const clientX = liBox.x + 50;
+    const clientY = labelBottom + 3; // first-child gap, before the heading
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX, clientY });
+    await page.locator(editorSelector).dispatchEvent('drop', { dataTransfer: dt, clientX, clientY });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    await dt.dispose();
     expect(await firstListItemChildren(page)).toEqual([
       { type: 'paragraph', text: 'Label' },
       { type: 'paragraph', text: 'Source' },
@@ -1946,9 +2011,9 @@ test.describe('multi-level outdent - drag a nested item left to a shallower leve
     const outerBox = await outer.boundingBox();
     if (!innerBox || !outerBox) throw new Error('no box');
     // Drop at the OUTER item's left indent (left of Inner's content) at the
-    // Inner row -> outdent one level to the top-level list.
+    // Inner row's AFTER gap (lower half) -> outdent one level to the top list.
     const clientX = outerBox.x + 2;
-    const clientY = innerBox.y + innerBox.height / 2;
+    const clientY = innerBox.y + innerBox.height * 0.8;
 
     await handle.dispatchEvent('dragstart', { dataTransfer: dt });
     await page.waitForTimeout(20);

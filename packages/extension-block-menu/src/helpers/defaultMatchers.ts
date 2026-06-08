@@ -1,12 +1,9 @@
 /**
- * Built-in eligibility matchers. Together they constrain the drag
- * resolver to "user-visible block units" (paragraphs, headings, list
- * items, task items, images, etc.) and exclude structural plumbing
- * (table cells, inline text, list containers whose items are draggable
- * individually).
- *
- * Hosts can disable the bundled set with `defaultMatchers: false` and
- * supply their own matcher list via `matchers`.
+ * Built-in eligibility matchers. They constrain the drag resolver to
+ * user-visible block units (paragraphs, headings, list/task items, images) and
+ * exclude structural plumbing (table cells, inline text, list containers whose
+ * items are draggable individually). Hosts can disable them with
+ * `defaultMatchers: false` and supply their own via `matchers`.
  */
 import type { BlockMatcher } from './blockMatcher.js';
 
@@ -14,9 +11,8 @@ const LIST_ITEM_NODE_TYPES = new Set(['listItem', 'taskItem']);
 const TABLE_PLUMBING_TYPES = new Set(['tableRow', 'tableCell', 'tableHeader']);
 
 /**
- * Reject a paragraph that is the first child of a list/task item.
- * Dragging that paragraph alone would split the item; promoting the
- * matcher to "reject" sends the resolver up to the list item itself.
+ * Reject a paragraph that is the first child of a list/task item. Dragging it
+ * alone would split the item; rejecting sends the resolver up to the item itself.
  */
 const firstChildOfListItem: BlockMatcher = {
   name: 'firstChildOfListItem',
@@ -29,9 +25,8 @@ const firstChildOfListItem: BlockMatcher = {
 };
 
 /**
- * Reject a list/task container when its direct children are list items.
- * Without this the resolver would lock onto the wrapping list near the
- * top edge of the first item.
+ * Reject a list/task container whose direct children are list items, else the
+ * resolver locks onto the wrapping list near the first item's top edge.
  */
 const listContainerSkip: BlockMatcher = {
   name: 'listContainerSkip',
@@ -43,9 +38,8 @@ const listContainerSkip: BlockMatcher = {
 };
 
 /**
- * Reject table-internal nodes. Table rows, cells, and headers are
- * managed by the Table extension's own UI - the block handle is for
- * top-level blocks only.
+ * Reject table-internal nodes (rows, cells, headers): the Table extension
+ * manages those via its own UI; the block handle is for top-level blocks only.
  */
 const tableInternals: BlockMatcher = {
   name: 'tableInternals',
@@ -56,10 +50,7 @@ const tableInternals: BlockMatcher = {
   },
 };
 
-/**
- * Reject inline-level nodes (text, marks-bearing inline). The handle
- * targets block-level content only.
- */
+/** Reject inline-level nodes; the handle targets block-level content only. */
 const inlineNodes: BlockMatcher = {
   name: 'inlineNodes',
   test(candidate) {

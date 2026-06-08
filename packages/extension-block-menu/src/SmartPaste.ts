@@ -5,19 +5,17 @@
  *
  *  1. List slice into a list ancestor: items adapted (`convertListItemForParent`)
  *     and merged as siblings, preserving the surrounding list.
- *  2. Trailing hardBreak (Shift+Enter scenario): trim the hardBreak and insert
- *     the slice as a sibling after the parent.
+ *  2. Trailing hardBreak (Shift+Enter): trim the hardBreak, insert as sibling.
  *  3. Truly empty parent paragraph (`parentSize === 0`): replace the parent.
  *  4-6. Caret at start / end / middle: insert as sibling or split-and-insert.
  *  7. Range selection: delete first, then run through 2-6.
  *
- * Skipped (PM default applies) when:
- *  - Cursor isn't inside a textblock.
- *  - Slice's top-level blocks are ALL plain paragraphs.
- *  - Slice is a SINGLE top-level block of the SAME TYPE as the destination
- *    (heading-into-heading, etc.) - PM's inline merge is the intended behavior.
+ * Skipped (PM default applies) when: cursor isn't in a textblock; the slice's
+ * top-level blocks are ALL plain paragraphs; or the slice is a SINGLE top-level
+ * block of the SAME TYPE as the destination (heading-into-heading, etc.) where
+ * PM's inline merge is what the user wants.
  *
- * Note: do NOT bail on `openStart > 0` - PM's clipboard parser routinely sets
+ * Do NOT bail on `openStart > 0`: PM's clipboard parser routinely sets
  * `openStart=1` even for closed-looking input like `<h1>x</h1>`. Top-level
  * children of the slice are what matter.
  */
@@ -34,8 +32,8 @@ const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
 
 export interface SmartPasteOptions {
   /**
-   * Disable the plugin without removing the extension. Useful for tests
-   * or to fall back to PM's default paste handling temporarily.
+   * Disable the plugin without removing the extension (falls back to PM's
+   * default paste handling).
    * @default true
    */
   enabled?: boolean;
@@ -62,31 +60,24 @@ export const SmartPaste = Extension.create<SmartPasteOptions>({
   },
 });
 
-/**
- * Returns `true` when this plugin handled the paste (PM should skip its
- * default), `false` otherwise.
- */
+/** Returns `true` when this plugin handled the paste (PM skips its default). */
 function handleSmartPaste(view: EditorView, slice: Slice): boolean {
   const { state } = view;
   const { selection } = state;
   const $from = selection.$from;
 
-  // Cursor must be at an inline position (inside a textblock). Otherwise
-  // PM's default block-paste already does the right thing.
+  // Cursor must be inline (inside a textblock); else PM's default is correct.
   if (!$from.parent.isTextblock) return false;
 
-  // Bail when slice has no non-paragraph block at its top level - PM's
-  // default merges plain inline content cleanly.
+  // No non-paragraph block at top level: PM merges plain inline content cleanly.
   if (!sliceHasNonParagraphBlock(slice)) return false;
 
-  // Bail when the slice is a single block of the SAME TYPE as the
-  // destination textblock (e.g. <h1> pasted inside an <h1>). Splitting
-  // the parent block to "preserve" the same wrapper would visibly
-  // shred the user's heading into three pieces - the inline merge that
-  // PM's default does here is what the user actually wants.
+  // Single block of the SAME TYPE as the destination (e.g. <h1> into <h1>):
+  // splitting the parent to "preserve" the wrapper would shred the heading
+  // into three pieces. PM's default inline merge is what the user wants.
   if (sliceIsSingleSameTypeAsParent(slice, $from.parent.type.name)) return false;
 
-  // Strategy 1: list-slice into list ancestor - merge as siblings.
+  // Strategy 1: list-slice into list ancestor, merge as siblings.
   if (tryPasteListSliceIntoList(view, slice)) return true;
 
   // Strategies 2-7: collapse range, then route by parent state + offset.
@@ -101,12 +92,10 @@ function handleSmartPaste(view: EditorView, slice: Slice): boolean {
   const parentSize = parent.content.size;
 
   if (hasTrailingHardBreakAtCursor(parent, offset, parentSize)) {
-    // Shift+Enter case: trim the trailing hardBreak and insert the
-    // slice AS A SIBLING after the parent textblock. Preserves any
-    // text that came before the break (e.g. "Existing<br>|" stays as
-    // a paragraph "Existing", the heading lands as the next sibling).
-    // Empty-shift+enter case: "<p><br></p>" becomes "<p></p>" + slice,
-    // i.e. one empty row + the heading below it.
+    // Shift+Enter: trim the trailing hardBreak, insert the slice as a SIBLING
+    // after the parent. Text before the break is preserved ("Existing<br>|"
+    // keeps "Existing" as a paragraph, heading lands next). Empty case
+    // "<p><br></p>" becomes "<p></p>" + slice.
     const hbStart = parentEnd - 2; // hardBreak occupies 1 position before parent close
     const hbEnd = parentEnd - 1;
     tr.delete(hbStart, hbEnd);
@@ -114,15 +103,13 @@ function handleSmartPaste(view: EditorView, slice: Slice): boolean {
     tr.insert(adjustedParentEnd, slice.content);
     setCaretAtEndOfInserted(tr, adjustedParentEnd, slice.content);
   } else if (parentSize === 0) {
-    // Truly-empty parent (no Shift+Enter break either). Default: replace
-    // the parent with the slice content so we don't leave a stray empty
-    // p before/after the inserted block.
+    // Truly-empty parent: replace it with the slice so we don't leave a stray
+    // empty paragraph beside the inserted block.
     //
-    // Notion-strict carve-out: when the empty paragraph is the LABEL
-    // slot of a listItem/taskItem (the schema-required first child of
-    // `paragraph block*`), replacing it would either be schema-invalid
-    // or trigger PM's content fitter to inject a fresh empty paragraph.
-    // Insert the slice AFTER the label instead so the new content
+    // Carve-out: when the empty paragraph is the LABEL slot of a
+    // listItem/taskItem (schema-required first child of `paragraph block*`),
+    // replacing it would be schema-invalid or make PM's content fitter inject
+    // a fresh empty paragraph. Insert AFTER the label instead, so the content
     // attaches as a nested child below the (still empty) label.
     const isListItemLabel = $pos.depth >= 2
       && LIST_ITEM_TYPES.has($pos.node($pos.depth - 1).type.name)
@@ -141,12 +128,9 @@ function handleSmartPaste(view: EditorView, slice: Slice): boolean {
     tr.insert(parentEnd, slice.content);
     setCaretAtEndOfInserted(tr, parentEnd, slice.content);
   } else {
-    // Caret in the middle. Split the textblock at the cursor, then
-    // insert the slice content at the BOUNDARY between the two new
-    // halves. After split, the cursor's original pos sits at the END
-    // of the first half (just before its close marker); the boundary
-    // we want is one past that - `cursorPos + 1` (between the close
-    // of the first half and the open of the second).
+    // Caret in the middle: split the textblock, insert at the boundary between
+    // the two halves. After split the cursor's pos sits at the END of the first
+    // half (before its close marker); the boundary is one past that, cursorPos+1.
     const cursorPos = $pos.pos;
     tr.split(cursorPos);
     const insertAt = cursorPos + 1;
@@ -168,33 +152,25 @@ function sliceHasNonParagraphBlock(slice: Slice): boolean {
 }
 
 /**
- * True when the slice contains exactly one top-level block whose type
- * name matches the destination textblock's parent. This is the
- * heading-pasted-inside-heading (and analogous) case where SmartPaste
- * would otherwise split the parent into pieces around the inserted
- * block. PM's default does the right thing here: it strips the
- * matching wrapper and inline-merges the slice content into the
- * existing parent.
+ * True when the slice is exactly one top-level block whose type matches the
+ * destination parent (heading-into-heading, etc.). Here PM's default strips the
+ * matching wrapper and inline-merges, which is better than splitting the parent.
  */
 function sliceIsSingleSameTypeAsParent(slice: Slice, parentTypeName: string): boolean {
   if (slice.content.childCount !== 1) return false;
   return slice.content.firstChild?.type.name === parentTypeName;
 }
 
-/**
- * Cursor sits at the very end of the parent textblock AND the parent's
- * last child is a `hardBreak`. The Shift+Enter row trigger.
- */
+/** Cursor at the very end of the parent AND parent's last child is a hardBreak (Shift+Enter trigger). */
 function hasTrailingHardBreakAtCursor(parent: PMNode, offset: number, parentSize: number): boolean {
   if (offset !== parentSize) return false;
   return parent.lastChild?.type.name === 'hardBreak';
 }
 
 /**
- * Slice top-level is a single list (bulletList / orderedList / taskList)
- * AND the caret has a list ancestor. Adapts the slice's items to the
- * ancestor list's expected item type (via `convertListItemForParent`)
- * and merges them as siblings of the current `listItem` / `taskItem`.
+ * When the slice top-level is a single list AND the caret has a list ancestor,
+ * adapt the slice's items to the ancestor list's item type
+ * (`convertListItemForParent`) and merge them as siblings of the current item.
  * Returns false (caller falls through) when this case doesn't apply.
  */
 function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
@@ -225,8 +201,8 @@ function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
   const tr = state.tr;
   if (!selection.empty) tr.deleteSelection();
 
-  // Re-resolve after potential range delete. Bail if we lost the list
-  // ancestor (selection straddled out - let the fallback paths run).
+  // Re-resolve after potential range delete. Bail if the list ancestor was
+  // lost (selection straddled out), letting the fallback paths run.
   const $pos = tr.selection.$from;
   if ($pos.depth < listItemDepth) return false;
   if (!LIST_TYPES.has($pos.node(listDepth).type.name)) return false;
@@ -241,10 +217,8 @@ function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
 
   let insertAt: number;
   if (hasTrailingHardBreakAtCursor(parent, offset, parentSize)) {
-    // Shift+Enter inside a listItem with a list-slice paste. Trim the
-    // trailing hardBreak and insert the (adapted) items as siblings
-    // AFTER the current listItem. Empty-row stays where the break was;
-    // pasted items appear in subsequent rows.
+    // Shift+Enter inside a listItem: trim the trailing hardBreak, insert the
+    // adapted items as siblings AFTER the current listItem (empty row stays).
     const hbStart = parentEnd - 2;
     const hbEnd = parentEnd - 1;
     tr.delete(hbStart, hbEnd);
@@ -252,8 +226,7 @@ function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
     tr.insert(adjustedLiEnd, adapted);
     insertAt = adjustedLiEnd;
   } else if (parentSize === 0 && itemHasOnlyOneChild) {
-    // Truly-empty listItem: replace it with the slice's items so we
-    // don't leave a leading / trailing empty item next to the merge.
+    // Truly-empty listItem: replace it so we don't leave a stray empty item.
     tr.replaceWith(liStart, liEnd, adapted);
     insertAt = liStart;
   } else if (offset === 0) {
@@ -263,11 +236,9 @@ function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
     tr.insert(liEnd, adapted);
     insertAt = liEnd;
   } else {
-    // Caret in middle of the textblock inside the listItem. Split the
-    // listItem at the cursor, then insert items between the two halves.
-    // `tr.split(pos, depth)` doubles close+open at each level. For
-    // depth=2 (textblock + listItem) the boundary "between the two new
-    // listItems" is at pos + 2 (after both close tokens).
+    // Caret in middle: split the listItem, insert items between the halves.
+    // `tr.split(pos, depth)` doubles close+open at each level; for depth=2
+    // (textblock + listItem) the boundary is pos + 2 (after both close tokens).
     const cursorPos = $pos.pos;
     tr.split(cursorPos, 2);
     insertAt = cursorPos + 2;
@@ -280,15 +251,12 @@ function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
 }
 
 /**
- * Place the cursor at the END of the LAST inserted block. For text-bearing
- * blocks (paragraph, heading, list-item-with-p), this lands at the end of
- * the deepest textblock. For atom blocks (hr, image), Selection.near picks
- * the closest valid selection.
+ * Place the cursor at the END of the last inserted block. Text-bearing blocks
+ * land at the end of the deepest textblock; atom blocks (hr, image) use
+ * Selection.near for the closest valid selection.
  *
- * Position math: the fragment occupies `[insertAt, insertAt + content.size)`
- * in the new doc. `insertAt + content.size - 1` is the position right
- * before the outermost close-token of the last inserted top-level child -
- * i.e., the END of its content.
+ * The fragment occupies `[insertAt, insertAt + content.size)`; subtracting 1
+ * lands just before the outermost close-token, i.e. the end of its content.
  */
 function setCaretAtEndOfInserted(tr: Transaction, insertAt: number, content: Fragment): void {
   if (content.childCount === 0) return;

@@ -23,9 +23,8 @@ import { createSlashSuggestionRenderer } from './createSlashSuggestionRenderer.j
 
 export const slashCommandPluginKey = new PluginKey<SlashCommandPluginState>('slashCommand');
 
-// Object Replacement Character. ProseMirror uses U+FFFC as a placeholder
-// for non-text leaf nodes when flattening a range to a string, so we never
-// want a real query char to collide with it.
+// Object Replacement Character (U+FFFC). ProseMirror uses it as the placeholder
+// for leaf nodes when flattening a range to a string.
 const PM_LEAF_PLACEHOLDER = '￼';
 
 // ─── Public renderer contract ─────────────────────────────────────────────
@@ -104,23 +103,14 @@ const INITIAL_STATE: SlashCommandPluginState = {
 };
 
 /**
- * Returns `true` only when the transaction's effect was inserting EXACTLY
- * the trigger character as a single ReplaceStep with a single-char text
- * slice (no opening/closing depth, no surrounding inserted content).
+ * "Did the user just type the trigger char?" heuristic that gates popup
+ * activation. True only for a single ReplaceStep inserting exactly the trigger
+ * char (single-char slice, no depth). Rejects paste / programmatic insert
+ * (slice.size > 1), selection-only changes (no steps), and undo/redo.
  *
- * This is the "did the user just type `/`" heuristic that gates popup
- * activation. It distinguishes:
- *   - real typing (`/`)                      ✓
- *   - typing `/` while a range was selected  ✓ (one ReplaceStep, slice "/")
- *   - paste of `/text...`                    ✗ (slice.size > 1)
- *   - programmatic `insertContent('/foo')`   ✗ (slice.size > 1)
- *   - selection-only changes (click/arrow)   ✗ (no steps)
- *   - undo/redo creating a `/`               ✗ (multi-step / non-Replace)
- *
- * Rationale: tying activation to the typing event - not to the static
- * presence of `/` before the cursor - matches Notion. Once a slash session
- * is dismissed, the same `/` becomes plain text and doesn't reopen the
- * popup if the user later clicks back next to it.
+ * Tying activation to the typing event, not the static presence of `/`,
+ * matches Notion: a dismissed `/` becomes plain text and won't reopen the
+ * popup when the user later clicks next to it.
  */
 function justTypedTrigger(tr: Transaction, char: string): boolean {
   if (tr.steps.length !== 1) return false;
@@ -132,10 +122,7 @@ function justTypedTrigger(tr: Transaction, char: string): boolean {
   return !!(node && node.isText && node.text === char);
 }
 
-/**
- * Resolves the current `/query` at the cursor, if any. Returns null if the
- * cursor isn't after a `/` on a qualifying line.
- */
+/** Resolves the current `/query` at the cursor, or null if not on a qualifying line. */
 function findSlashQuery(
   state: EditorState,
   triggerChar: string,
@@ -171,15 +158,13 @@ function findSlashQuery(
 }
 
 /**
- * Removes items whose `hideWhenInside` matches the cursor's wrapping
- * list type WHEN the cursor sits in the LABEL paragraph of a list-item
- * (the first-child slot). Picking the same list type from a label would
- * lift the user out of the list (PM `liftListItem` semantics) - that's
- * surprising, so we hide the option.
+ * Removes items whose `hideWhenInside` matches the cursor's wrapping list type,
+ * but ONLY when the cursor is in the label paragraph (first-child slot) of a
+ * list item: picking the same list type there would lift the user out of the
+ * list (`liftListItem` semantics), which is surprising.
  *
- * The CHILDREN-ZONE case (cursor in a non-first paragraph of a list
- * item) is preserved on purpose: picking the same list type there
- * creates a nested sublist, which is useful and Notion-like.
+ * In the children zone (non-first paragraph) it's kept on purpose: picking the
+ * same list type creates a nested sublist, which is useful and Notion-like.
  */
 export function filterByCursorAncestors(
   items: FloatingMenuItem[],
@@ -187,8 +172,8 @@ export function filterByCursorAncestors(
 ): FloatingMenuItem[] {
   const { $from } = editor.view.state.selection;
 
-  // Find the cursor's nearest list-item ancestor; if cursor is in the
-  // LABEL slot of that item, record its wrapping list's type name.
+  // Find the nearest list-item ancestor; if the cursor is in its label slot,
+  // record the wrapping list's type name.
   let wrappingListType: string | null = null;
   for (let d = $from.depth; d >= 1; d--) {
     const t = $from.node(d).type.name;
@@ -255,48 +240,29 @@ export function createSlashCommandPlugin(
       apply(tr: Transaction, prev, _oldState, newState): SlashCommandPluginState {
         if (tr.getMeta(pluginKey) === 'dismiss') return { ...INITIAL_STATE };
 
-        // Neither doc nor selection changed - nothing to do (popup stays as-is).
+        // Neither doc nor selection changed: popup stays as-is.
         if (!tr.docChanged && !tr.selectionSet) return prev;
 
-        // ── Branch 1: popup was ALREADY active ─────────────────────────
-        //
-        // The query is the text between the trigger position (`range.from`)
-        // and the typed-end position (`range.to`). Crucially, `range.to`
-        // tracks WHAT THE USER TYPED, not the current cursor. That way
-        // navigating the cursor with arrow keys past existing text does
-        // not "swallow" surrounding chars into the query.
-        //
-        // Rules per transaction kind:
-        //   - docChange (typing / backspace / paste / collab):
-        //       * map both range bounds forward through tr.mapping
-        //       * if the trigger position itself was deleted, dismiss
-        //       * if the char at `range.from` is no longer the trigger,
-        //         dismiss (the `/` got replaced or pushed away)
-        //       * if the cursor moved PAST the mapped `to`, the user
-        //         typed more chars at the end - extend `to` to cursor
-        //   - selection-only (mouse click / arrow key without typing):
-        //       * cursor must remain in the typed query span
-        //         [from + 1, to]. Stepping out either end dismisses.
-        //         Mid-query navigation keeps the popup open with the
-        //         same query.
-        //   - non-empty selection (shift+arrow drag): dismiss.
+        // Branch 1: popup already active.
+        // The query is the text between the trigger (`range.from`) and the
+        // typed-end (`range.to`). `range.to` tracks WHAT THE USER TYPED, not
+        // the cursor, so arrowing past existing text doesn't swallow chars
+        // into the query.
         if (prev.active && prev.range) {
           let { from, to } = prev.range;
 
           if (tr.docChanged) {
-            // bias = 1 (default, right): an insertion AT the trigger
-            // position pushes the `/` forward; we want our `from` to
-            // follow it. Same bias for `to` so a typed char inserted
-            // exactly at the end of the query extends the range.
+            // Default bias (right): an insertion at the trigger position
+            // pushes `/` forward and `from` follows; same for `to` so a char
+            // typed at the query end extends the range.
             const fromResult = tr.mapping.mapResult(from);
             const toResult = tr.mapping.mapResult(to);
             if (fromResult.deleted) return { ...INITIAL_STATE };
             from = fromResult.pos;
             to = toResult.pos;
 
-            // The char that was the trigger may have been replaced
-            // (e.g. autocomplete inserting AT `from`, or the user
-            // pasting over it). If so, the session is gone.
+            // If the trigger char was replaced (autocomplete inserting at
+            // `from`, paste over it), the session is gone.
             if (
               newState.doc.textBetween(from, from + 1, undefined, PM_LEAF_PLACEHOLDER) !== char
             ) {
@@ -304,27 +270,22 @@ export function createSlashCommandPlugin(
             }
           }
 
-          // Range selections (shift+arrow, click-drag) make no sense for
-          // a single-cursor suggestion popup.
+          // Range selections make no sense for a single-cursor popup.
           if (!newState.selection.empty) return { ...INITIAL_STATE };
           const cursor = newState.selection.from;
 
-          // Cursor must remain at or after the first char of the query
-          // (i.e. at-or-past the position immediately after `/`).
+          // Cursor must stay at or after the first query char (just past `/`).
           if (cursor < from + 1) return { ...INITIAL_STATE };
 
           if (cursor > to) {
-            // Past the typed end: only legal as the natural side-effect
-            // of typing more chars (cursor moves forward by the inserted
-            // length). A pure selection move past `to` (arrow-right past
-            // existing text) means the user left the typing session.
+            // Past the typed end is only legal as a side-effect of typing more
+            // chars; a pure selection move past `to` means the user left the session.
             if (!tr.docChanged) return { ...INITIAL_STATE };
             to = cursor;
           }
 
-          // Defensive: a collab edit could have flipped the surrounding
-          // block into a code block / other invalidNodes type, in which
-          // case the slash session should not survive.
+          // Defensive: a collab edit may have turned the block into a code
+          // block / invalidNodes type, where the session shouldn't survive.
           const $cursor = newState.doc.resolve(cursor);
           if ($cursor.parent.type.spec.code) return { ...INITIAL_STATE };
           if (invalidNodes.includes($cursor.parent.type.name)) {
@@ -342,15 +303,10 @@ export function createSlashCommandPlugin(
           return { active: true, query, range: { from, to } };
         }
 
-        // ── Branch 2: popup was INACTIVE ───────────────────────────────
-        // Activation is gated to a real typing event of the trigger char.
-        // Selection-only changes (mouse click into existing `/text`,
-        // arrow-key navigation) and bulk doc changes (paste, programmatic
-        // `insertContent` of >1 char) MUST NOT open the popup, even if
-        // the cursor lands right after a `/` already in the document.
-        // This keeps the slash menu tied to a typing session - matching
-        // Notion: once the session is dismissed, the same `/` becomes
-        // plain text and clicking back next to it doesn't reopen anything.
+        // Branch 2: popup inactive. Activation is gated to a real typing event
+        // of the trigger char. Selection-only changes and bulk doc changes
+        // (paste, programmatic insert) must NOT open the popup even when the
+        // cursor lands right after an existing `/` (see justTypedTrigger).
         if (!tr.docChanged) return prev;
         if (!justTypedTrigger(tr, char)) return prev;
 
@@ -361,12 +317,10 @@ export function createSlashCommandPlugin(
     },
 
     view(editorView) {
-      // Cooperative dismissal: other overlays broadcast `dm:dismiss-overlays`
-      // when they open; listen and close the slash popup so two floating
-      // menus never appear at once. We suppress the handler while WE are
-      // the one dispatching - otherwise the slash popup would dismiss
-      // itself the moment it opens (the dispatch is synchronous and reaches
-      // our own listener before `update` reaches `renderer.onStart`).
+      // Cooperative dismissal: overlays broadcast `dm:dismiss-overlays` when
+      // they open, so two floating menus never coexist. Suppress the handler
+      // while WE dispatch, else the synchronous event would self-dismiss the
+      // popup before `update` reaches `renderer.onStart`.
       const editorEl = editorView.dom.closest<HTMLElement>('.dm-editor');
       let suppressDismissHandler = false;
       const dismissHandler = (): void => {
@@ -376,8 +330,7 @@ export function createSlashCommandPlugin(
       };
       editorEl?.addEventListener('dm:dismiss-overlays', dismissHandler);
 
-      // Track whether we've already fired the open-time dismiss so we only
-      // do it on transition false→true.
+      // Fire the open-time dismiss only on the false->true transition.
       let wasActive = false;
 
       return {
@@ -385,24 +338,16 @@ export function createSlashCommandPlugin(
           const state = pluginKey.getState(view.state);
           if (!state) return;
 
-          // On activation (first true after being false), broadcast dismiss
-          // to close any other overlays that might be open. The local
-          // suppression flag prevents our own dismissHandler from firing
-          // back at us (the dispatch is synchronous and would otherwise
-          // self-dismiss the popup the instant it opens).
+          // On activation, broadcast dismiss to close other overlays;
+          // `suppressDismissHandler` keeps our own listener from self-dismissing.
           //
-          // We MUST flip `wasActive = true` BEFORE dispatching, not after.
-          // The dispatch synchronously triggers other listeners (e.g.
-          // BlockHandle's `onDismissOverlays` which itself dispatches a
-          // ProseMirror transaction to clear `hoveredPos`); that re-enters
-          // this same `update` callback. Without flipping `wasActive` first
-          // the re-entry would think the popup is still opening and dispatch
-          // a *second* `dm:dismiss-overlays` whose nested `finally` would
-          // reset `suppressDismissHandler` to false - letting our own
-          // dismiss listener fire on the way out and tear down the popup
-          // we just created. (`clientRect()` then returns null because the
-          // plugin state was just cleared, so the second `onStart` paints
-          // an unpositioned popup at the bottom of `.dm-editor`.)
+          // Flip `wasActive = true` BEFORE dispatching: the synchronous
+          // dispatch re-enters this `update` (e.g. BlockHandle's
+          // `onDismissOverlays` dispatches its own transaction). If `wasActive`
+          // were still false the re-entry would fire a second
+          // `dm:dismiss-overlays` whose nested `finally` clears
+          // `suppressDismissHandler`, letting our listener tear down the popup
+          // we just created (and a null `clientRect()` then paints it unpositioned).
           const becameActive = state.active && !wasActive;
           wasActive = state.active;
           if (becameActive) {
@@ -423,20 +368,16 @@ export function createSlashCommandPlugin(
               const current = pluginKey.getState(view.state);
               if (!current?.range) return;
 
-              // Delete the `/query` range first so item's command runs on
-              // the now-clean cursor position. Close popup state in the
-              // same transaction to avoid a stale-render flash.
+              // Delete the `/query` range first so the item's command runs on
+              // a clean cursor. Close popup state in the same tr to avoid a flash.
               const tr = view.state.tr;
               tr.delete(current.range.from, current.range.to);
               tr.setMeta(pluginKey, 'dismiss');
               view.dispatch(tr);
 
-              // Execute the item on a fresh transaction (its command will
-              // read the latest state). Items that open a popover (Image
-              // URL, Link, etc.) need the popover to claim focus - don't
-              // force focus back to the editor here. Simple insert items
-              // already leave focus in the editor, so no focus() call is
-              // needed in either case.
+              // Execute on a fresh transaction (reads latest state). No focus()
+              // call: items that open a popover need it to claim focus, and
+              // simple inserts already leave focus in the editor.
               FloatingMenuController.executeItem(editor, item);
             };
 
@@ -492,8 +433,8 @@ export function createSlashCommandPlugin(
     },
 
     props: {
-      // Use handleDOMEvents.keydown (not handleKeyDown) so we intercept
-      // keys BEFORE other keymap plugins claim them (same trick as Mention).
+      // handleDOMEvents.keydown (not handleKeyDown) so we intercept keys before
+      // other keymap plugins claim them (same trick as Mention).
       handleDOMEvents: {
         keydown(view, event): boolean {
           const state = pluginKey.getState(view.state);
@@ -556,9 +497,7 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
   },
 });
 
-/**
- * Programmatically dismisses the slash suggestion.
- */
+/** Programmatically dismisses the slash suggestion. */
 export function dismissSlashCommand(view: EditorView): void {
   view.dispatch(view.state.tr.setMeta(slashCommandPluginKey, 'dismiss'));
 }

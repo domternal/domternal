@@ -1,0 +1,28 @@
+<div class="vmodel-demo" data-demo="ngmodel">
+  <h2>ngModel Two-Way Binding Demo</h2>
+
+  <div class="vmodel-controls">
+    <button type="button" data-testid="set-initial" (click)="setContent('<p>Initial from parent</p>')">Set initial</button>
+    <button type="button" data-testid="set-bold" (click)="setContent('<p><strong>Bold from parent</strong></p>')">Set bold from parent</button>
+    <button type="button" data-testid="clear" (click)="clearContent()">Clear</button>
+    <span data-testid="update-count">Updates: {{ updateCount }}</span>
+  </div>
+
+  <domternal-editor
+    [ngModel]="content"
+    (ngModelChange)="onModelChange($event)"
+    [extensions]="extensions"
+    outputFormat="html"
+  />
+
+  <h3>Parent state (bound via ngModel)</h3>
+  <pre class="output" data-testid="vmodel-output">{{ content }}</pre>
+
+  <h3>Hidden textarea synced with ngModel (for test assertions)</h3>
+  <textarea
+    data-testid="vmodel-textarea"
+    [value]="content"
+    readonly
+    style="width: 100%; min-height: 60px; font-family: monospace;"
+  ></textarea>
+</div>

@@ -1,15 +1,11 @@
 /**
- * Default DOM renderer factory for SlashCommand.
+ * Default DOM renderer factory for SlashCommand. Returns suggestion callbacks
+ * that build and manage a grouped popup anchored at the cursor, mirroring the
+ * Mention/Emoji renderer pattern.
  *
- * Returns `{ onStart, onUpdate, onExit, onKeyDown }` callbacks that build
- * and manage a grouped popup anchored at the cursor. Mirrors the
- * Mention/Emoji suggestion renderer pattern so consumers already familiar
- * with those APIs have zero learning curve.
- *
- * The popup DOM reuses the same visual vocabulary as FloatingMenu:
- * `role="menu"` container, `role="group"` sections, `role="menuitem"`
- * buttons with `icon + label + shortcut chip` layout. A dedicated
- * `dm-slash-command-menu` root class scopes SCSS overrides.
+ * The popup reuses FloatingMenu's accessibility vocabulary: `role="menu"`
+ * container, `role="group"` sections, `role="menuitem"` buttons with
+ * icon + label + shortcut layout. The `dm-slash-command-menu` root scopes SCSS.
  */
 import {
   defaultIcons,
@@ -19,9 +15,8 @@ import {
 import type { FloatingMenuItem } from '@domternal/core';
 import type { SlashCommandProps, SlashCommandRenderer } from './SlashCommand.js';
 
-// Module-level counter for unique id suffixes - lets us set
-// `aria-activedescendant` on the menu root so screen readers announce the
-// selection as the user arrow-keys through items.
+// Unique id suffixes so `aria-activedescendant` on the menu root can announce
+// the selection to screen readers as the user arrow-keys through items.
 let idCounter = 0;
 
 export function createSlashSuggestionRenderer(): SlashCommandRenderer {
@@ -32,9 +27,8 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
   let flatItems: FloatingMenuItem[] = [];
   let selectedIndex = 0;
   let currentCommand: SlashCommandProps['command'] | null = null;
-  // Flag set during onExit so any pending event that was already queued
-  // (e.g. a trailing mousedown+click after the teardown starts) can bail
-  // instead of dispatching into a now-destroyed editor.
+  // Set during onExit so a pending queued event (e.g. trailing mousedown+click
+  // mid-teardown) can bail instead of dispatching into a destroyed editor.
   let destroyed = false;
   const rendererId = `dm-slash-${String(++idCounter)}`;
 
@@ -47,8 +41,7 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
     if (props.items.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'dm-slash-command-empty';
-      // `role="status"` + `aria-live="polite"` makes screen readers
-      // announce the filter result change without stealing focus.
+      // status + aria-live=polite announces the filter result without stealing focus.
       empty.setAttribute('role', 'status');
       empty.setAttribute('aria-live', 'polite');
       empty.textContent = 'No matches';
@@ -76,14 +69,12 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
         btn.setAttribute('role', 'menuitem');
         btn.setAttribute('aria-label', item.label);
         btn.tabIndex = -1;
-        // Stable id per-button so the root element can set
-        // `aria-activedescendant` to announce the current selection.
+        // Stable per-button id for the root's `aria-activedescendant`.
         btn.id = `${rendererId}-item-${String(flatItems.length)}`;
 
-        // Build DOM safely: only the icon SVG (from our trusted phosphor
-        // set) is interpolated as HTML. label / description / shortcut use
-        // textContent since FloatingMenuItem fields may come from arbitrary
-        // extension authors and could carry unescaped HTML/scripts.
+        // Only the icon SVG (from our trusted phosphor set) is interpolated as
+        // HTML. label/description/shortcut use textContent since FloatingMenuItem
+        // fields may come from arbitrary extension authors (XSS).
         const iconHTML = item.icon ? (defaultIcons[item.icon] ?? '') : '';
         if (iconHTML) {
           const iconSpan = document.createElement('span');
@@ -123,9 +114,8 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
         btn.addEventListener('mouseenter', () => { selectItem(indexForItem); });
         btn.addEventListener('click', (e: MouseEvent) => {
           e.preventDefault();
-          // Guard against post-teardown clicks: a mousedown-to-click pair
-          // can span `onExit` if the user was holding the mouse button
-          // when the popup was dismissed by an outside event.
+          // A mousedown-to-click pair can span `onExit` if the popup was
+          // dismissed by an outside event while the button was held.
           if (destroyed) return;
           currentCommand?.(item);
         });
@@ -150,11 +140,10 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
       }
     }
     const selected = itemButtons[index];
-    // Scroll the selected item into view WITHIN the popup only - never via
-    // `scrollIntoView`, which walks ancestors and would yank the page when
-    // called during `renderPopup` (runs before `positionFloatingOnce`
-    // resolves, so the popup is still at its natural flow position at the
-    // bottom of `.dm-editor`).
+    // Scroll within the popup only, never via `scrollIntoView`: that walks
+    // ancestors and would yank the page during `renderPopup`, which runs before
+    // `positionFloatingOnce` while the popup is still at its natural flow
+    // position at the bottom of `.dm-editor`.
     if (root && selected) {
       const btnTop = selected.offsetTop;
       const btnBottom = btnTop + selected.offsetHeight;
@@ -177,10 +166,9 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
   const reposition = (props: SlashCommandProps): void => {
     if (!root) return;
     cleanupFloating?.();
-    // Pass a callable virtualRef so floating-ui's autoUpdate reads fresh
-    // cursor coords on every tick (scroll, resize). Capturing a single rect
-    // at call time would freeze the anchor and the popup would drift on
-    // scroll. Mirrors the emoji suggestion renderer's pattern.
+    // Callable virtualRef so floating-ui's autoUpdate reads fresh cursor coords
+    // every tick. Capturing a single rect would freeze the anchor and drift on
+    // scroll. Mirrors the emoji suggestion renderer.
     const virtualRef = {
       getBoundingClientRect: (): DOMRect => props.clientRect() ?? new DOMRect(),
     };

@@ -104,3 +104,66 @@ body.dm-theme-dark .toolbar-mode-toggle button {
     color: #c7d2fe;
   }
 }
+
+/* Callout NodeView demo + compound/nodeview controls (mirrors the Vue demo). */
+.nodeview-controls,
+.compound-demo h3 {
+  margin-bottom: 0.75rem;
+}
+.nodeview-controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.nodeview-controls button {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 0.375rem;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  font-size: 0.875rem;
+}
+.nodeview-controls button:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.callout {
+  border-left: 4px solid var(--callout-accent, #6366f1);
+  background: var(--callout-bg, #f4f4f5);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  margin: 0.5rem 0;
+  position: relative;
+}
+.callout--info    { --callout-accent: #3b82f6; --callout-bg: #eff6ff; }
+.callout--warning { --callout-accent: #f59e0b; --callout-bg: #fffbeb; }
+.callout--success { --callout-accent: #10b981; --callout-bg: #ecfdf5; }
+.callout--danger  { --callout-accent: #ef4444; --callout-bg: #fef2f2; }
+.callout--selected {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+.callout-header {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.25rem;
+  user-select: none;
+  font-size: 0.875rem;
+}
+.callout-icon { font-size: 1.1rem; }
+.callout-variant { padding: 0.125rem 0.375rem; font-size: 0.8125rem; }
+.callout-delete-btn,
+.callout-focus-btn {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.8125rem;
+}
+.callout-focus-btn { margin-left: auto; }
+.callout-delete-btn:hover { background: rgba(239, 68, 68, 0.1); border-color: #ef4444; }
+.callout-focus-btn:hover  { background: rgba(99, 102, 241, 0.1); border-color: #6366f1; }
+.callout-content p { margin: 0.25rem 0; }

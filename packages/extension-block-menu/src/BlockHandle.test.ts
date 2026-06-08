@@ -15,7 +15,6 @@ import {
   BlockHandle,
   blockHandlePluginKey,
   resolveNestedConfig,
-  adjustDropTargetForListWrapper,
   descendToNearestHoverItem,
 } from './BlockHandle.js';
 import type { EditorView } from '@domternal/pm/view';
@@ -852,80 +851,6 @@ describe('BlockHandle spatial resolution helpers', () => {
     return found;
   }
 
-  describe('adjustDropTargetForListWrapper', () => {
-    it('returns the target unchanged when the resolved node is not a list wrapper', () => {
-      const ed = makeListEditor('<p>Plain</p>');
-      const pPos = posOf(ed, (n) => n.type.name === 'paragraph');
-      const dom = elWithRect(new DOMRect(0, 100, 400, 30));
-      const resolved = { pos: pPos, rect: dom.getBoundingClientRect(), dom };
-      const out = adjustDropTargetForListWrapper(viewStub(ed, new Map()), resolved, 50);
-      expect(out.pos).toBe(pPos);
-      ed.destroy();
-    });
-
-    it('returns the target unchanged when nodeAt resolves to no node (doc end)', () => {
-      const ed = makeListEditor('<p>Plain</p>');
-      const dom = elWithRect(new DOMRect(0, 100, 400, 30));
-      // `content.size` is past the last node, so doc.nodeAt(end) === null.
-      const end = ed.state.doc.content.size;
-      const resolved = { pos: end, rect: dom.getBoundingClientRect(), dom };
-      const out = adjustDropTargetForListWrapper(viewStub(ed, new Map()), resolved, 50);
-      expect(out.pos).toBe(end);
-      ed.destroy();
-    });
-
-    it('cursor ABOVE a list wrapper descends to its FIRST child item', () => {
-      const ed = makeListEditor('<ul><li><p>A</p></li><li><p>B</p></li></ul>');
-      const ulPos = posOf(ed, (n) => n.type.name === 'bulletList');
-      const liA = posOf(ed, (n) => n.type.name === 'listItem' && n.textContent === 'A');
-      const ulDom = elWithRect(new DOMRect(0, 100, 400, 100));
-      const aDom = elWithRect(new DOMRect(0, 100, 400, 50));
-      const rects = new Map<number, HTMLElement>([[ulPos, ulDom], [liA, aDom]]);
-      const resolved = { pos: ulPos, rect: ulDom.getBoundingClientRect(), dom: ulDom };
-      // clientY=80 is above the wrapper top (100).
-      const out = adjustDropTargetForListWrapper(viewStub(ed, rects), resolved, 80);
-      expect(out.pos).toBe(liA);
-      ed.destroy();
-    });
-
-    it('cursor BELOW a list wrapper descends to its LAST child item', () => {
-      const ed = makeListEditor('<ul><li><p>A</p></li><li><p>B</p></li></ul>');
-      const ulPos = posOf(ed, (n) => n.type.name === 'bulletList');
-      const liB = posOf(ed, (n) => n.type.name === 'listItem' && n.textContent === 'B');
-      const ulDom = elWithRect(new DOMRect(0, 100, 400, 100));
-      const bDom = elWithRect(new DOMRect(0, 150, 400, 50));
-      const rects = new Map<number, HTMLElement>([[ulPos, ulDom], [liB, bDom]]);
-      const resolved = { pos: ulPos, rect: ulDom.getBoundingClientRect(), dom: ulDom };
-      // clientY=400 is below the wrapper bottom (200); last-child loop runs.
-      const out = adjustDropTargetForListWrapper(viewStub(ed, rects), resolved, 400);
-      expect(out.pos).toBe(liB);
-      ed.destroy();
-    });
-
-    it('cursor INSIDE a list wrapper extent leaves the target on the wrapper', () => {
-      const ed = makeListEditor('<ul><li><p>A</p></li></ul>');
-      const ulPos = posOf(ed, (n) => n.type.name === 'bulletList');
-      const ulDom = elWithRect(new DOMRect(0, 100, 400, 100));
-      const rects = new Map<number, HTMLElement>([[ulPos, ulDom]]);
-      const resolved = { pos: ulPos, rect: ulDom.getBoundingClientRect(), dom: ulDom };
-      const out = adjustDropTargetForListWrapper(viewStub(ed, rects), resolved, 150); // inside 100..200
-      expect(out.pos).toBe(ulPos);
-      ed.destroy();
-    });
-
-    it('returns the wrapper unchanged when the resolved child item has no DOM', () => {
-      const ed = makeListEditor('<ul><li><p>A</p></li></ul>');
-      const ulPos = posOf(ed, (n) => n.type.name === 'bulletList');
-      const ulDom = elWithRect(new DOMRect(0, 100, 400, 100));
-      // Child item rect intentionally omitted -> childDom is null.
-      const rects = new Map<number, HTMLElement>([[ulPos, ulDom]]);
-      const resolved = { pos: ulPos, rect: ulDom.getBoundingClientRect(), dom: ulDom };
-      const out = adjustDropTargetForListWrapper(viewStub(ed, rects), resolved, 80);
-      expect(out.pos).toBe(ulPos);
-      ed.destroy();
-    });
-  });
-
   describe('descendToNearestHoverItem', () => {
     it('returns the target unchanged when nodeAt resolves to no node (doc end)', () => {
       const ed = makeListEditor('<p>Plain</p>');
@@ -1142,8 +1067,9 @@ describe('BlockHandle nested drag-and-drop (DOM simulation)', () => {
     expect(ed.state.doc.child(0).childCount).toBe(2);
 
     startDrag(ed, source);
-    // X far past the target's left edge (nest zone), Y inside the target row.
-    document.dispatchEvent(dragEvent('drop', 300, 125));
+    // X far past the target's left edge (nest zone) at the after-Target gap
+    // (lower half of the row) where the slot model offers "nest into Target".
+    document.dispatchEvent(dragEvent('drop', 300, 145));
     endDrag();
 
     // Source absorbed into Target: one top-level item, both items still exist.
@@ -1170,8 +1096,9 @@ describe('BlockHandle nested drag-and-drop (DOM simulation)', () => {
     const before = ed.getHTML();
 
     startDrag(ed, source);
-    // Nest-zone X but the cursor is over the SOURCE's own row.
-    document.dispatchEvent(dragEvent('drop', 300, 225));
+    // Nest-zone X at the after-Source gap (lower half of its own row) -> the
+    // slot offers "nest into Source", which is a self-drop and a no-op.
+    document.dispatchEvent(dragEvent('drop', 300, 245));
     endDrag();
 
     expect(ed.getHTML()).toBe(before);
@@ -1185,7 +1112,7 @@ describe('BlockHandle nested drag-and-drop (DOM simulation)', () => {
     // over the editable). `moved=true` mirrors a same-doc block drag.
     const slice = ed.state.doc.slice(0, 0);
     const handled = ed.view.someProp('handleDrop', (fn) =>
-      fn(ed.view, dragEvent('drop', 300, 125) as DragEvent, slice, true),
+      fn(ed.view, dragEvent('drop', 300, 145) as DragEvent, slice, true),
     );
     endDrag();
 
@@ -1208,7 +1135,7 @@ describe('BlockHandle nested drag-and-drop (DOM simulation)', () => {
     installRafStub();
     const { ed, source } = twoItemFixture();
     startDrag(ed, source);
-    document.dispatchEvent(dragEvent('dragover', 300, 125));
+    document.dispatchEvent(dragEvent('dragover', 300, 145));
     tickAllRaf();
 
     const indicator = host!.querySelector<HTMLElement>('.dm-block-drop-indicator');
@@ -1217,7 +1144,7 @@ describe('BlockHandle nested drag-and-drop (DOM simulation)', () => {
 
     // A second identical dragover hits the identity gate (same geometry key)
     // and short-circuits without rewriting the DOM, staying shown afterwards.
-    document.dispatchEvent(dragEvent('dragover', 300, 125));
+    document.dispatchEvent(dragEvent('dragover', 300, 145));
     tickAllRaf();
     expect(indicator?.getAttribute('data-mode')).toBe('nested');
     expect(indicator?.hasAttribute('data-show')).toBe(true);

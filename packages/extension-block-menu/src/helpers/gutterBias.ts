@@ -1,13 +1,11 @@
 /**
  * Gutter-bias resolution for nested drag-target selection.
  *
- * When the cursor sits near a configured edge of a candidate's rect, the
- * candidate is treated as "in the gutter" and its rank weight is reduced
- * proportionally to its tree depth. Shallower (outer) ancestors therefore
- * win against deeply-nested descendants in the gutter zone.
- *
- * The "deepest-match" mode skips this bias entirely and always returns the
- * innermost allowed block under the cursor.
+ * When the cursor sits near a configured edge of a candidate's rect, that
+ * candidate counts as "in the gutter" and its rank is reduced proportionally to
+ * its depth, so shallower ancestors win against deeper descendants in the gutter
+ * zone. "Deepest-match" mode skips this bias and returns the innermost allowed
+ * block under the cursor.
  */
 
 /** Cardinal edge of a candidate's bounding rect. */
@@ -41,10 +39,8 @@ const PRESET_RIGHT: GutterBiasConfig = { ...PRESET_DEFAULT, edges: ['right', 'to
 const PRESET_BOTH: GutterBiasConfig = { ...PRESET_DEFAULT, edges: ['left', 'right', 'top'] };
 
 /**
- * Resolve the user-facing `promoteOnEdge` input into a concrete bias
- * configuration, or `null` when bias is disabled.
- *
- * Returns `null` for `undefined`, `false`, or `'none'` (deepest-match wins).
+ * Resolve the user-facing `promoteOnEdge` input into a bias config, or `null`
+ * when disabled (`undefined`, `false`, or `'none'`: deepest-match wins).
  */
 export function resolveGutterBias(
   input: boolean | GutterBiasPreset | Partial<GutterBiasConfig> | undefined,
@@ -71,9 +67,8 @@ export function resolveGutterBias(
 }
 
 /**
- * True when `(x, y)` falls inside the gutter zone defined by `config`.
- * The zone is the union of strips `threshold` px wide along each
- * configured edge of `rect`.
+ * True when `(x, y)` falls in the gutter zone: the union of strips `threshold`
+ * px wide along each configured edge of `rect`.
  */
 export function isInGutter(
   x: number,
@@ -92,9 +87,8 @@ export function isInGutter(
 }
 
 /**
- * Compute the rank-weight penalty for a candidate at `depth` whose rect
- * is in the gutter zone. Returns 0 when the candidate is outside the
- * gutter (no penalty applied).
+ * Rank-weight penalty for a candidate at `depth` in the gutter zone; 0 when
+ * outside the gutter.
  */
 export function gutterBiasWeight(
   x: number,
