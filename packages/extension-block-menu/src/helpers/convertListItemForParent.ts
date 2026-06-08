@@ -8,45 +8,31 @@ const TASK_ITEM_TYPE = 'taskItem';
 const LIST_ITEM_TYPE = 'listItem';
 
 /**
- * Adapts the IMMEDIATE children of a slice so they satisfy the target
- * parent's content rule when dropping into a list-wrapper container
- * (`bulletList` / `orderedList` / `taskList`).
+ * Adapts the IMMEDIATE children of a slice to satisfy the target parent's
+ * content rule when dropping into a list wrapper (`bulletList` / `orderedList` /
+ * `taskList`). Three behaviours:
  *
- * Three behaviours:
+ * 1. Item already matches the target list: no-op.
  *
- * 1. **Item already matches the target list.** No-op (e.g. dragging a
- *    `listItem` into another `bulletList` keeps it a `listItem`).
+ * 2. Cross-list-type conversion: source is a list item of the OTHER type (e.g.
+ *    `taskItem` -> bulletList parent). Wrapper type swaps, inner content kept.
+ *    listItem->taskItem sets `checked: false`; taskItem->listItem drops `checked`
+ *    (PM ignores attrs the target schema doesn't declare).
  *
- * 2. **Cross-list-type conversion.** Source is a list item of the OTHER
- *    type (e.g. `taskItem` → bulletList parent). Wrapper type swaps
- *    while preserving inner content. For listItem→taskItem we set
- *    `checked: false`; for taskItem→listItem the `checked` attr is
- *    dropped (PM ignores attrs not declared by the target schema).
+ * 3. Arbitrary-block wrap: source is anything else (heading, codeBlock, hr, ...).
+ *    Wrap it in a fresh `listItem`/`taskItem` so the drop lands INSIDE the list
+ *    (Notion behaviour). Notion-strict listItem content (`paragraph block*`)
+ *    requires a paragraph first child (the bullet/checkbox-aligned label), so
+ *    for non-paragraph blocks we prepend an empty label paragraph and attach the
+ *    block below it; paragraphs become the label directly. Without this wrap PM's
+ *    fitter would silently promote the block to a sibling AFTER the list,
+ *    contradicting the drop indicator.
  *
- * 3. **Arbitrary-block wrap.** Source is something else (heading,
- *    paragraph, codeBlock, blockquote, hr, image, etc.). We wrap the
- *    dragged block in a fresh `listItem` (or `taskItem`) so the drop
- *    lands INSIDE the list, mirroring Notion's behaviour.
+ * Scope: only IMMEDIATE children are adapted. Nested lists inside the dragged
+ * content keep their original type.
  *
- *    Notion-strict listItem content (`paragraph block*`) requires the
- *    first child to be a paragraph (the "label" line aligned with the
- *    bullet/checkbox). For non-paragraph blocks we prepend an empty
- *    label paragraph so the block attaches as a nested child below
- *    it; for paragraphs we use them directly as the label.
- *
- *    Without this wrap, PM's content fitter would silently promote
- *    the dragged block to the next valid position (a sibling AFTER
- *    the list), which contradicts the visual drop indicator and
- *    surprises the user.
- *
- * Scope: only IMMEDIATE children of the slice are adapted. Nested
- * lists inside the dragged content keep their original type - drag a
- * bullet item that contains a nested task list, and the outer wrapper
- * adapts to the new parent while the nested task list is preserved.
- *
- * Returns the original Fragment unchanged when target parent isn't a
- * list wrapper, or when every child already matches the target item
- * type.
+ * Returns the Fragment unchanged when the target isn't a list wrapper, or when
+ * every child already matches the target item type.
  */
 export function convertListItemForParent(
   schema: Schema,
@@ -62,18 +48,17 @@ export function convertListItemForParent(
   const targetItemType = schema.nodes[targetTypeName];
   if (!targetItemType) return content;
 
-  // Snapshot children so we can short-circuit when nothing needs
-  // adapting - every direct child is already the matching item type.
+  // Snapshot children to short-circuit when every direct child already matches.
   const children: Node[] = [];
   content.forEach((child) => { children.push(child); });
   const allMatch = children.every((c) => c.type.name === targetTypeName);
   if (allMatch) return content;
 
   const replaced = children.map((child) => {
-    // (1) Already the right type - keep as-is.
+    // (1) Already the right type.
     if (child.type.name === targetTypeName) return child;
 
-    // (2) Opposite list-item type - convert by reusing inner content.
+    // (2) Opposite list-item type: convert by reusing inner content.
     if (child.type.name === oppositeTypeName) {
       const newAttrs = expectsTaskItem
         ? { ...child.attrs, checked: false }
@@ -81,11 +66,9 @@ export function convertListItemForParent(
       return targetItemType.create(newAttrs, child.content, child.marks);
     }
 
-    // (3) Arbitrary block (heading, paragraph, codeBlock, …) - wrap it
-    // in a fresh item. Notion-strict listItem requires `paragraph
-    // block*` content, so for non-paragraph children we prepend an
-    // empty label paragraph (the bullet/checkbox-aligned line) and
-    // attach the dragged block below it as a nested child.
+    // (3) Arbitrary block: wrap in a fresh item. Notion-strict listItem requires
+    // `paragraph block*`, so for non-paragraph children prepend an empty label
+    // paragraph (the bullet/checkbox-aligned line) and nest the block below it.
     const wrapperAttrs: Record<string, unknown> = expectsTaskItem
       ? { checked: false }
       : {};

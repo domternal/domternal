@@ -1,21 +1,16 @@
 /**
- * Two-stage drag target resolver: filter eligible candidates by matcher
- * verdicts, then rank survivors by depth (and optional gutter bias).
+ * Two-stage drag target resolver: filter candidates by matcher verdicts, then
+ * rank survivors by depth (and optional gutter bias).
  *
  * Algorithm:
  *   1. Resolve cursor to a doc position via `posAtCoords`.
- *   2. Walk ancestors from the deepest (innermost) outward.
- *   3. Each ancestor is checked against type/container constraints, then
- *      against every matcher's `test()`. Any 'reject' verdict drops it.
- *   4. Atom leaves (image, horizontal rule, etc.) are not ancestors of
- *      the resolved position - they live at `$pos.nodeAfter`. A separate
- *      pass adds them as candidates at depth + 1.
- *   5. The survivor list is ranked: when no gutter bias is configured,
- *      depth alone decides (deepest wins). When bias is configured, each
- *      candidate's effective rank is `treeDepth - gutterPenalty`, where
- *      `gutterPenalty = strength * depth` for in-gutter rects and 0
- *      otherwise.
- *   6. Highest effective rank wins; ties break by deeper depth.
+ *   2. Walk ancestors deepest (innermost) outward, checking type/container
+ *      constraints then every matcher's `test()`; any 'reject' drops it.
+ *   3. Atom leaves (image, hr) aren't ancestors of the resolved position; they
+ *      live at `$pos.nodeAfter`. A separate pass adds them at depth + 1.
+ *   4. Rank survivors: no gutter bias means deepest wins; with bias each rank is
+ *      `treeDepth - gutterPenalty` (`strength * depth` for in-gutter rects, else
+ *      0). Highest rank wins; ties break by deeper depth.
  */
 import type { Node, ResolvedPos } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
@@ -29,14 +24,11 @@ export interface ResolveDragTargetOptions {
   matchers: readonly BlockMatcher[];
   /** Active gutter-bias config, or `null` to disable. */
   gutterBias: GutterBiasConfig | null;
-  /**
-   * Allow-list of PM node type names. When non-empty, only nodes whose
-   * type name appears here can become the drag target.
-   */
+  /** Allow-list of node type names; when non-empty, only these can be targets. */
   allowedTypes?: readonly string[];
   /**
-   * Required ancestor types. When non-empty, the candidate's chain must
-   * contain at least one ancestor whose type name appears here.
+   * Required ancestor types. When non-empty, the candidate's chain must contain
+   * at least one ancestor whose type name appears here.
    */
   requiredAncestorTypes?: readonly string[];
 }
@@ -56,8 +48,8 @@ export interface DragTarget {
 interface RankedCandidate extends DragTarget {}
 
 /**
- * Find the best drag target for cursor `(x, y)`, or `null` when no
- * candidate survives the matcher pass.
+ * Find the best drag target for cursor `(x, y)`, or `null` when no candidate
+ * survives the matcher pass.
  */
 export function resolveDragTarget(
   view: EditorView,
@@ -222,8 +214,8 @@ function applyGutterBias(
 }
 
 function chooseWinner(candidates: readonly RankedCandidate[]): DragTarget {
-  // Caller guarantees `candidates.length > 0`; the `reduce` keeps the
-  // type narrowing happy without non-null assertions on indexed access.
+  // Caller guarantees `candidates.length > 0`; `reduce` keeps type narrowing
+  // happy without non-null assertions on indexed access.
   return candidates.reduce((best, c) => {
     if (c.rank > best.rank) return c;
     if (c.rank === best.rank && c.depth > best.depth) return c;

@@ -9,9 +9,9 @@ import { convertListItemForParent } from './convertListItemForParent.js';
 const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
 
 /**
- * Moves the block at `sourcePos` into the list item at `targetItemPos`
- * (wrapper `wrapperPos`) at `childIndex` (default: append last). Used by
- * `performBlockDrop` for `mode: 'nested'`.
+ * Moves the block at `sourcePos` into the list item at `targetItemPos` (wrapper
+ * `wrapperPos`) at `childIndex` (default: append last). Used by `performBlockDrop`
+ * for `mode: 'nested'`.
  *
  * A non-list block inserts directly; a listItem/taskItem is wrapped in a fresh
  * target-type list (via `convertListItemForParent`) and joined with an adjacent
@@ -38,7 +38,7 @@ export function moveBlockAsNestedChild(
   const { from: expandedFrom, to: expandedTo } = expandToEmptyWrappers(tr.doc, sourcePos, sourceEnd);
 
   // A list-item source needs wrapping in a fresh list (the item slot expects a
-  // block, not a bare listItem); other blocks insert as-is.
+  // block, not a bare listItem); other blocks go in as-is.
   let blockNode: PMNode;
   const wrapped = LIST_ITEM_TYPES.has(sourceNode.type.name);
   if (wrapped) {
@@ -66,9 +66,9 @@ export function moveBlockAsNestedChild(
   });
   if (!result.ok || result.insertedAt === undefined) return result.ok;
 
-  // Merge with an adjacent same-type sublist so the item joins it rather than
-  // forming a second list. Trailing boundary first (higher pos) so the leading
-  // one stays valid; `canJoin` no-ops across incompatible types.
+  // Merge with an adjacent same-type sublist instead of forming a second list.
+  // Trailing boundary first (higher pos) so the leading one stays valid;
+  // `canJoin` no-ops across incompatible types.
   if (wrapped) {
     const after = result.insertedAt + blockNode.nodeSize;
     if (after < tr.doc.content.size && canJoin(tr.doc, after)) tr.join(after);

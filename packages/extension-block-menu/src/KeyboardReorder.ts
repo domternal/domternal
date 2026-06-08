@@ -22,9 +22,8 @@ export const KeyboardReorder = Extension.create({
 });
 
 /**
- * Moves the top-level block containing the current selection up or down.
- * Returns `true` when a move happened, `false` otherwise (lets the browser
- * handle the shortcut if we don't consume it).
+ * Moves the top-level block containing the selection up or down. Returns `true`
+ * when a move happened, else `false` (so the browser handles the shortcut).
  */
 function moveCurrentBlock(editor: Editor | null, direction: 'up' | 'down'): boolean {
   if (!editor || editor.isDestroyed) return false;
@@ -38,9 +37,8 @@ function moveCurrentBlock(editor: Editor | null, direction: 'up' | 'down'): bool
   if (direction === 'up' && topLevel.index === 0) return false;
   if (direction === 'down' && topLevel.index >= state.doc.childCount - 1) return false;
 
-  // Relative offset of the selection WITHIN the source block (survives
-  // nested containers like list-item/details-content because we work with
-  // absolute positions inside the block, not depth-based math).
+  // Selection offset within the source block. Absolute-position math (not
+  // depth-based) so it survives nested containers like list-item/details-content.
   const selectionOffsetInBlock = Math.max(
     0,
     Math.min($from.pos - topLevel.pos, topLevel.node.nodeSize - 1),
@@ -58,10 +56,8 @@ function moveCurrentBlock(editor: Editor | null, direction: 'up' | 'down'): bool
   const tr = state.tr;
   moveBlock(tr, topLevel.pos, targetPos);
 
-  // Restore selection inside the moved block. `moveBlock` deletes then
-  // inserts; the block's new start position is `adjustedTarget`, which
-  // equals `targetPos` when moving up and `targetPos - source.nodeSize`
-  // when moving down.
+  // Restore selection inside the moved block. `moveBlock` deletes then inserts,
+  // so the new start is `targetPos` moving up, `targetPos - source.nodeSize` down.
   const newBlockPos = direction === 'up'
     ? targetPos
     : targetPos - topLevel.node.nodeSize;

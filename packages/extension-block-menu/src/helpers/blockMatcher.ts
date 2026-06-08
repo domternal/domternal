@@ -1,13 +1,9 @@
 /**
- * Predicate-based block matching for nested drag-target resolution.
- *
- * A matcher answers one question for a candidate node: "should this be
- * eligible to become the drag target?" Predicates return a verdict (allow
- * or reject), and the resolver filters the candidate list before ranking.
- *
- * This replaces the score-deduction approach with explicit verdicts so
- * the contract is binary: a candidate is either eligible or it isn't,
- * with rank decided separately by depth + optional gutter bias.
+ * Predicate-based block matching for nested drag-target resolution. A matcher
+ * answers "is this candidate eligible to become the drag target?" with an
+ * allow/reject verdict; the resolver filters before ranking. The contract is
+ * binary (eligible or not), with rank decided separately by depth + optional
+ * gutter bias.
  */
 import type { Node, ResolvedPos } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
@@ -16,9 +12,8 @@ import type { EditorView } from '@domternal/pm/view';
 export type MatchVerdict = 'allow' | 'reject';
 
 /**
- * Information passed to a matcher about the node being considered.
- * Bundles the node itself, its position metadata, its parent context,
- * and the live editor view (in case a matcher needs DOM lookups).
+ * Information passed to a matcher: the node, its position metadata, parent
+ * context, and the live editor view (for DOM lookups).
  */
 export interface BlockCandidate {
   /** The PM node being considered as a drag target. */
@@ -41,10 +36,7 @@ export interface BlockCandidate {
   editorView: EditorView;
 }
 
-/**
- * A single matcher with a stable name (for debugging / opt-out) and a
- * pure-function predicate.
- */
+/** A matcher: a stable name (for debugging / opt-out) and a pure predicate. */
 export interface BlockMatcher {
   name: string;
   test(candidate: BlockCandidate): MatchVerdict;

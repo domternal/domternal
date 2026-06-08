@@ -4,14 +4,13 @@ import type { EditorView } from '@domternal/pm/view';
 const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
 const LIST_WRAPPER_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
 
-/** Pixels of indent per nesting level used as the X guide for the deepest (nest) option. */
+/** Indent per nesting level (px), used as the X guide for the deepest nest option. */
 export const DROP_SLOT_INDENT_PX = 24;
 
 /**
- * One visible row in the document for drop purposes: a top-level block, or the
- * LABEL row of a list/task item (its own content row, excluding any nested
- * children, which are their own rows). Rows are emitted in document order,
- * which equals visual top-to-bottom order for normal flow content.
+ * One visible drop row: a top-level block, or the LABEL row of a list/task item
+ * (its content row, excluding nested children which are their own rows). Emitted
+ * in document order, which equals visual top-to-bottom for normal flow content.
  */
 export interface DropRow {
   /** Position right BEFORE the block/item node (nodeAt convention). */
@@ -33,11 +32,10 @@ export interface DropRow {
 }
 
 /**
- * Walk the document and collect every drop row in order. List items contribute
- * their LABEL row (so a parent item and its nested children are distinct rows);
- * nested list wrappers are recursed into. Rows whose DOM is missing are skipped.
- * With `nestedEnabled = false` (handle in top-level-only mode) list wrappers
- * stay a single row and are not descended into.
+ * Collect every drop row in document order. List items contribute their LABEL
+ * row (parent item and nested children are distinct rows); nested wrappers are
+ * recursed into. Rows whose DOM is missing are skipped. With `nestedEnabled =
+ * false` (top-level-only mode) list wrappers stay one row and aren't descended.
  */
 export function collectRows(view: EditorView, nestedEnabled = true): DropRow[] {
   const rows: DropRow[] = [];
@@ -103,13 +101,10 @@ export type DropSlotInsert =
   /** Insert as a child of `targetItemPos` (in `wrapperPos`) at `childIndex` (>= 1; 0 is the label). */
   | { kind: 'nested'; wrapperPos: number; targetItemPos: number; childIndex: number };
 
-/** One depth option available at a gap, shallow (small level) to deep (large level). */
+/** One depth option at a gap, shallow (small level) to deep (large level). */
 export interface DropSlotOption {
   level: number;
-  /**
-   * Client-X where the indicator line starts AND the threshold the cursor must
-   * reach to select this (deeper) option - the two always coincide.
-   */
+  /** Client-X where the line starts AND the X threshold to select this option (they coincide). */
   lineLeft: number;
   /** Indicator line width (px). */
   lineWidth: number;
@@ -162,11 +157,11 @@ function siblingOption(row: DropRow, insertPos: number, level: number): DropSlot
 }
 
 /**
- * Options for inserting AFTER `upper`, which actually ends at this gap: a
- * sibling after it at its level, then one option per ancestor that is a LAST
- * child (drag-left outdent), each sharing the gap's Y because a last-child's
- * bottom edge coincides with its ancestor's. Stops at the top-level list item
- * (no full escape out of lists). Plain top-level blocks yield a single option.
+ * Options for inserting AFTER `upper` (which ends at this gap): a sibling after
+ * it at its level, then one per ancestor that is a LAST child (drag-left
+ * outdent), all sharing the gap's Y since a last-child's bottom edge coincides
+ * with its ancestor's. Stops at the top-level list item (no full escape out of
+ * lists). Plain top-level blocks yield a single option.
  */
 function closeChain(view: EditorView, upper: DropRow): DropSlotOption[] {
   const doc = view.state.doc;
@@ -228,10 +223,9 @@ function expectedItemFor(wrapperName: string): string {
 
 /**
  * Client-X column + type of the list WRAPPER that `insertPos` falls inside.
- * For a block that SPLITS the list (a non-list block, or a list item of the
- * other kind) the block lands at the wrapper's parent content column; since a
- * list wrapper's box starts at its container's content-left, the wrapper's own
- * rect is that column. Null when `insertPos` isn't directly inside a wrapper.
+ * A block that SPLITS the list lands at the wrapper's parent content column;
+ * since a wrapper's box starts at its container's content-left, the wrapper's
+ * own rect IS that column. Null when `insertPos` isn't directly in a wrapper.
  */
 function wrapperColumn(view: EditorView, insertPos: number): { left: number; width: number; type: string } | null {
   const $p = view.state.doc.resolve(insertPos);
@@ -271,14 +265,13 @@ export interface ResolveDropSlotArgs {
   /** Whether the deepest "nest into the item" option is offered (nestThreshold > 0). */
   offerNest?: boolean;
   /**
-   * The dragged source's list-item type, driving the sibling-column geometry:
-   *   - `undefined` (omitted): keep the list-item column for every sibling
-   *     option (legacy/stateless callers).
-   *   - `null` (a non-list block): every in-list sibling draws at the list's
-   *     PARENT column, since the block splits the list and lifts out.
-   *   - `'listItem'` / `'taskItem'`: a sibling whose list accepts this item
-   *     type JOINS (keeps the list-item column); a mismatch (e.g. a to-do over
-   *     a bullet list) SPLITS and draws at the parent column.
+   * The dragged source's list-item type, driving sibling-column geometry:
+   *   - `undefined`: keep the list-item column for every sibling (stateless callers).
+   *   - `null` (non-list block): every in-list sibling draws at the list's PARENT
+   *     column, since the block splits the list and lifts out.
+   *   - `'listItem'` / `'taskItem'`: a sibling whose list accepts this type JOINS
+   *     (keeps the item column); a mismatch (e.g. to-do over a bullet list) SPLITS
+   *     and draws at the parent column.
    */
   sourceItemType?: string | null;
   /** Previous dragover's gap + depth, for the stickiness dead-bands. */
@@ -290,12 +283,11 @@ export interface ResolveDropSlotArgs {
 }
 
 /**
- * Gap-first drop resolver. The cursor's Y picks the nearest gap between rows;
- * the cursor's X picks the depth among the options actually available at that
- * gap (nest deeper as X moves right, outdent as it moves left, but only where a
- * shallower boundary really coincides). The indicator line always sits at the
- * gap near the cursor, never jumping to a distant list edge. Returns `null`
- * for an empty document.
+ * Gap-first drop resolver. Cursor Y picks the nearest gap between rows; cursor X
+ * picks the depth among the options available at that gap (nest deeper rightward,
+ * outdent leftward, but only where a shallower boundary really coincides). The
+ * indicator always sits at the gap near the cursor, never jumping to a distant
+ * list edge. Returns `null` for an empty document.
  */
 export function resolveDropSlot(args: ResolveDropSlotArgs): DropSlot | null {
   const { view, clientX, clientY } = args;
@@ -314,8 +306,8 @@ export function resolveDropSlot(args: ResolveDropSlotArgs): DropSlot | null {
   const row = rows[idx];
   if (!row) return null;
 
-  // Y dead-band: near the row's mid (the before/after flip point) hold the
-  // incumbent side so a small wobble can't swap the resolved gap.
+  // Y dead-band: near the row's mid (before/after flip point) hold the
+  // incumbent side so a wobble can't swap the resolved gap.
   const rowMid = (row.top + row.bottom) / 2;
   let after = clientY >= rowMid;
   if (bandY > 0 && incumbent && Math.abs(clientY - rowMid) <= bandY) {
@@ -328,10 +320,10 @@ export function resolveDropSlot(args: ResolveDropSlotArgs): DropSlot | null {
 
   let options: DropSlotOption[];
   if (upper && lower && lower.pos < upper.end) {
-    // `lower` is inside `upper`'s subtree: this gap sits between the upper
-    // item's label and its first nested child. The upper item does not close
-    // here, so the shallowest option is a sibling before `lower` (stays in the
-    // nested list); deeper nests into `lower`. No outdent is offered here.
+    // `lower` is inside `upper`'s subtree: the gap sits between the upper item's
+    // label and its first nested child. `upper` doesn't close here, so the
+    // shallowest option is a sibling before `lower` (stays nested); deeper nests
+    // into `lower`. No outdent offered here.
     options = dedupeOptions([
       siblingOption(lower, lower.pos, lower.level),
       lower.isItem && offerNest ? nestOption(view, lower, 1, indentStep) : null,
@@ -345,11 +337,10 @@ export function resolveDropSlot(args: ResolveDropSlotArgs): DropSlot | null {
   }
   if (options.length === 0) return null;
 
-  // A sibling drop that SPLITS the list (a non-list block, or a list item of
-  // the other kind) lifts the block out, so its line + X guide sit at the
-  // wrapper's PARENT column, not the bullet-indented item column. A sibling
-  // that JOINS (matching item type) keeps the item column. The insert position
-  // is unchanged; `moveBlock` performs the split. Nest-into-item is untouched.
+  // A sibling drop that SPLITS the list lifts the block out, so its line + X
+  // guide sit at the wrapper's PARENT column, not the bullet-indented item
+  // column. A sibling that JOINS (matching item type) keeps the item column.
+  // Insert position is unchanged (`moveBlock` does the split); nest is untouched.
   if (sourceItemType !== undefined) {
     options = options.map((o) => {
       if (o.insert.kind !== 'sibling') return o;
@@ -360,8 +351,8 @@ export function resolveDropSlot(args: ResolveDropSlotArgs): DropSlot | null {
     });
   }
 
-  // Pick the deepest option whose indent guide the cursor X has reached; floor
-  // at the shallowest when X is left of every guide (the common gutter drag).
+  // Pick the deepest option whose indent guide X has reached; floor at the
+  // shallowest when X is left of every guide (the common gutter drag).
   const byGuide = [...options].sort((a, b) => a.lineLeft - b.lineLeft);
   let chosen = byGuide[0];
   if (!chosen) return null;
@@ -370,7 +361,7 @@ export function resolveDropSlot(args: ResolveDropSlotArgs): DropSlot | null {
   }
 
   // X dead-band: hold the incumbent level within `bandX` of the guide boundary
-  // between it and the freshly chosen level, so depth doesn't flicker.
+  // to the freshly chosen level, so depth doesn't flicker.
   if (bandX > 0 && incumbent && incumbent.level !== null) {
     const inc = byGuide.find((o) => o.level === incumbent.level);
     if (inc && inc !== chosen && Math.abs(chosen.level - inc.level) === 1) {

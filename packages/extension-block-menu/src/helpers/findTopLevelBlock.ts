@@ -3,9 +3,7 @@ import type { EditorView } from '@domternal/pm/view';
 
 import type { BlockCandidate, BlockMatcher } from './blockMatcher.js';
 
-/**
- * Information about a top-level block in the document.
- */
+/** Information about a top-level block in the document. */
 export interface TopLevelBlock {
   /** The block node. */
   node: Node;
@@ -26,8 +24,8 @@ export function findTopLevelBlock(doc: Node, pos: number): TopLevelBlock | null 
   if (pos < 0 || pos > doc.content.size) return null;
   const $pos = doc.resolve(pos);
 
-  // Position exactly at a top-level boundary (between blocks, or at doc
-  // start). `doc.nodeAt(pos)` returns the node that starts at this position.
+  // Position exactly at a top-level boundary; `doc.nodeAt(pos)` returns the
+  // node starting here.
   if ($pos.depth === 0) {
     const node = doc.nodeAt(pos);
     if (!node) return null;
@@ -51,16 +49,11 @@ export function findTopLevelBlock(doc: Node, pos: number): TopLevelBlock | null 
 }
 
 /**
- * Resolves the deepest ancestor whose node type name appears in
- * `draggableTypes`. Falls back to `findTopLevelBlock` (depth-1 walk) if no
- * ancestor in the list matches.
- *
- * Used by `BlockHandle` when the `nested` option is active: the plugin
- * hovers over list items / task items individually instead of always
- * anchoring on the whole list.
- *
- * Walking is deepest-first so nested lists resolve to the innermost
- * matching item (the one the cursor is actually inside).
+ * Resolves the deepest ancestor whose type name appears in `draggableTypes`,
+ * falling back to `findTopLevelBlock` if none match. Used by `BlockHandle` in
+ * `nested` mode, where the handle targets individual list/task items rather than
+ * the whole list. Walks deepest-first so nested lists resolve to the innermost
+ * matching item.
  */
 export function findDraggableBlock(
   doc: Node,
@@ -71,14 +64,12 @@ export function findDraggableBlock(
   if (draggableTypes.length === 0) return findTopLevelBlock(doc, pos);
   const $pos = doc.resolve(pos);
 
-  // Walk ancestors from deepest to shallowest (skip depth 0 = doc itself).
+  // Walk ancestors deepest to shallowest (skip depth 0 = doc).
   for (let depth = $pos.depth; depth >= 1; depth--) {
     const node = $pos.node(depth);
     if (draggableTypes.includes(node.type.name)) {
       const blockPos = $pos.before(depth);
-      // The "index" for a nested draggable is its index within its direct
-      // parent - consistent with what the block's drag logic expects when
-      // reordering siblings.
+      // Index within the direct parent, as the sibling-reorder logic expects.
       const index = $pos.index(depth - 1);
       return {
         node,
@@ -89,14 +80,12 @@ export function findDraggableBlock(
     }
   }
 
-  // No allowed-node ancestor found - fall back to the top-level block so
-  // hover/drag still works for plain paragraphs outside any container.
+  // No matching ancestor: fall back to the top-level block so hover/drag still
+  // works for plain paragraphs outside any container.
   return findTopLevelBlock(doc, pos);
 }
 
-/**
- * Spatial result returned by {@link findDeepestBlockAtY}.
- */
+/** Spatial result returned by {@link findDeepestBlockAtY}. */
 export interface DeepestBlockMatch {
   node: Node;
   pos: number;
@@ -105,15 +94,15 @@ export interface DeepestBlockMatch {
 }
 
 /**
- * Hysteresis options for {@link findDeepestBlockAtY}, keeping the resolved
- * target stable so it doesn't flip-flop near a nested-list boundary.
+ * Hysteresis options for {@link findDeepestBlockAtY}, keeping the target stable
+ * so it doesn't flip-flop near a nested-list boundary.
  */
 export interface FindDeepestBlockOptions {
   /**
-   * The previous dragover's resolved block. Its containment test is widened
-   * by `hysteresisBand`, so the cursor must move decisively out before a
-   * different block (e.g. outer<->inner list item) can take over. Ranking is
-   * unchanged; only eligibility widens.
+   * The previous dragover's resolved block. Its containment test is widened by
+   * `hysteresisBand` so the cursor must move decisively out before a different
+   * block (outer<->inner list item) takes over. Ranking unchanged; only
+   * eligibility widens.
    */
   incumbentPos?: number | null;
   /** Sticky margin (px) for the incumbent's containment test. `0` disables. */
@@ -121,13 +110,13 @@ export interface FindDeepestBlockOptions {
 }
 
 /**
- * Finds the deepest (smallest-height) `allowedTypes` block whose vertical
- * rect contains `clientY`. X is ignored on purpose: the handle sits in the
- * left gutter, so X-based resolution would pick the outer block; matching by
- * Y anchors on the row the cursor is actually in. `matchers` can `'reject'`
- * candidates (e.g. a list item's label paragraph). The gutter-bias
- * alternative is Mode C ({@link ./resolveDragTarget resolveDragTarget}).
- * Returns `null` (caller falls through to top-level) when nothing matches.
+ * Finds the deepest (smallest-height) `allowedTypes` block whose vertical rect
+ * contains `clientY`. X is ignored on purpose: the handle sits in the left
+ * gutter, so X-based resolution would pick the outer block; Y anchors on the row
+ * the cursor is actually in. `matchers` can `'reject'` candidates (e.g. a list
+ * item's label paragraph). The gutter-bias alternative is Mode C
+ * ({@link ./resolveDragTarget resolveDragTarget}). Returns `null` when nothing
+ * matches (caller falls through to top-level).
  */
 export function findDeepestBlockAtY(
   view: EditorView,
@@ -145,15 +134,15 @@ export function findDeepestBlockAtY(
     const dom = view.nodeDOM(pos);
     if (!(dom instanceof HTMLElement)) return true;
     const rect = dom.getBoundingClientRect();
-    // Prune the subtree when the cursor is outside this node (keeps the walk
+    // Prune the subtree when the cursor is outside this node (walk stays
     // O(depth)). Widened by `band` so the incumbent's ancestors stay walkable.
     if (clientY < rect.top - band || clientY > rect.bottom + band) return false;
     if (allowedTypes.includes(node.type.name)) {
       if (matchers.length > 0 && isRejectedByMatchers(view, node, pos, parent, index, matchers)) {
         return true;
       }
-      // A normal candidate must strictly contain the cursor; the incumbent
-      // wins within the banded extent. Ranking still uses the real height.
+      // Normal candidates must strictly contain the cursor; the incumbent wins
+      // within the banded extent. Ranking still uses the real height.
       const strictlyContains = clientY >= rect.top && clientY <= rect.bottom;
       const incumbentContains =
         pos === incumbentPos && clientY >= rect.top - band && clientY <= rect.bottom + band;
@@ -178,8 +167,8 @@ function isRejectedByMatchers(
   const candidate: BlockCandidate = {
     block: node,
     documentPos: pos,
-    // `pos` sits right BEFORE `node`, so $pos.depth is the parent's depth
-    // and `node` itself lives one level deeper.
+    // `pos` sits right BEFORE `node`, so $pos.depth is the parent's depth and
+    // `node` lives one level deeper.
     treeDepth: $pos.depth + 1,
     container: parent,
     positionInContainer: index,

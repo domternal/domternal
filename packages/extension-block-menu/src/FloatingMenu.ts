@@ -12,10 +12,7 @@ import type { EditorState } from '@domternal/pm/state';
 
 export const floatingMenuPluginKey = new PluginKey('floatingMenu');
 
-/**
- * Default visibility predicate. Shows the menu when the cursor is at the
- * very start of an empty `paragraph` in an editable editor.
- */
+/** Default visibility: cursor at the start of an empty `paragraph` in an editable editor. */
 function defaultShouldShow({
   editor,
   state,
@@ -35,10 +32,8 @@ function defaultShouldShow({
 }
 
 /**
- * Keyboard shortcuts that move focus from the editor into the menu.
- * Defaults combine the WAI-ARIA recommendation (`Alt-F10`) with a
- * modern slash-command-friendly shortcut (`Mod-/`). Set to an empty
- * array to disable keyboard entry entirely.
+ * Keyboard shortcuts to move focus from the editor into the menu. Defaults
+ * pair the WAI-ARIA `Alt-F10` with `Mod-/`; empty array disables keyboard entry.
  */
 export interface FloatingMenuKeymap {
   /** Shortcuts that focus the first menu item when the menu is visible. */
@@ -70,10 +65,9 @@ export interface FloatingMenuOptions {
   offset: number;
 
   /**
-   * Items override. Array replaces defaults entirely; function receives
-   * the collected defaults and returns a new list (filter/reorder/extend).
-   * Consumed by the controller; the plugin itself only reads it when the
-   * wrapper does not construct its own controller.
+   * Items override. Array replaces defaults entirely; function receives the
+   * collected defaults and returns a new list. Consumed by the controller;
+   * the plugin reads it only when the wrapper doesn't build its own controller.
    */
   items?: FloatingMenuItemsOverride;
 
@@ -81,14 +75,11 @@ export interface FloatingMenuOptions {
   keymap?: FloatingMenuKeymap;
 
   /**
-   * When `true`, the menu only appears when EXPLICITLY triggered via
-   * `showFloatingMenu(view)` (typically from BlockHandle's `+` button).
-   * Pressing `Enter` to create a new empty paragraph no longer auto-shows
-   * the menu. Mirrors Notion's behaviour: empty rows display a placeholder
-   * hint, the slash command (`/`) is the keyboard trigger, and the menu
-   * opens via the gutter `+` button only.
+   * When `true`, the menu only opens via `showFloatingMenu(view)` (the gutter
+   * `+` button); pressing Enter into an empty paragraph no longer auto-shows
+   * it. Mirrors Notion: empty rows show a placeholder, `/` is the keyboard trigger.
    *
-   * @default false (auto-shows on every empty paragraph - backward compat)
+   * @default false (auto-shows on every empty paragraph, backward compat)
    */
   requireExplicitTrigger?: boolean;
 }
@@ -103,27 +94,23 @@ export interface CreateFloatingMenuPluginOptions {
   requireExplicitTrigger?: boolean;
 }
 
-/** Internal plugin state - tracks whether `+` button explicitly triggered the menu. */
+/** Internal state: whether the `+` button explicitly triggered the menu. */
 interface FloatingMenuPluginState {
   triggered: boolean;
 }
 
 /**
- * String meta key used by `showFloatingMenu` / `hideFloatingMenu`. We
- * use a STRING (not a PluginKey) so callers don't need a reference to
- * the specific plugin instance - framework wrappers (angular, react,
- * vue) create their own per-instance PluginKey via random suffix to
- * disambiguate menus across editors, but they all read this shared
- * string meta. The plugin's `state.apply` listens for it.
+ * Meta key for `showFloatingMenu` / `hideFloatingMenu`. A STRING (not a
+ * PluginKey) so callers don't need a plugin-instance reference: framework
+ * wrappers create per-instance PluginKeys but all read this shared meta.
  */
 export const FLOATING_MENU_META = 'dm:floatingMenuTrigger';
 
 /**
- * Programmatically show the FloatingMenu - used by BlockHandle's `+`
- * button after it inserts a fresh empty paragraph. When the plugin is
- * configured with `requireExplicitTrigger: true`, this is the ONLY way
- * the menu opens (besides the existing `Mod-/` keyboard shortcut, which
- * is unaffected and continues to focus an already-visible menu).
+ * Programmatically show the FloatingMenu, used by BlockHandle's `+` button
+ * after inserting a fresh empty paragraph. With `requireExplicitTrigger: true`
+ * this is the only way the menu opens (the `Mod-/` shortcut still focuses an
+ * already-visible menu).
  */
 export function showFloatingMenu(view: EditorView): void {
   view.dispatch(view.state.tr.setMeta(FLOATING_MENU_META, 'show'));
@@ -139,26 +126,20 @@ const IS_MAC = typeof navigator !== 'undefined'
   && /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 /**
- * Parses a shortcut string (e.g. `Alt-F10`, `Mod-/`, `Shift-Ctrl-Enter`)
- * against a KeyboardEvent. Matches prosemirror-keymap's grammar:
+ * Matches a shortcut string (e.g. `Alt-F10`, `Mod-/`) against a KeyboardEvent,
+ * following prosemirror-keymap's grammar:
+ * - Modifiers in any order, `-`-separated; `Mod` = Cmd on macOS else Ctrl.
+ * - Aliases: `Cmd`/`m`/`Meta`, `Ctrl`/`c`/`Control`, `Alt`/`a`, `Shift`/`s`.
+ * - Named keys use `KeyEvent.key` (`F10`, `Enter`, ...); letters are
+ *   case-insensitive and `Shift-` is implied for shifted-character keys.
  *
- * - Modifiers can appear in any order and separated by `-`.
- * - `Mod` maps to Cmd on macOS, Ctrl elsewhere.
- * - Aliases: `Cmd` / `m` / `Meta`, `Ctrl` / `c` / `Control`, `Alt` / `a`,
- *   `Shift` / `s`.
- * - Named keys use `KeyEvent.key` values directly (e.g. `F10`, `Enter`,
- *   `ArrowUp`). Letters are case-insensitive; `Shift-` prefix is implied
- *   for shifted-character keys.
- *
- * @returns true if the event matches the shortcut exactly (all and only
- * the listed modifiers, same key).
+ * @returns true only if all and only the listed modifiers plus the key match.
  */
 function matchShortcut(event: KeyboardEvent, shortcut: string): boolean {
   const parts = shortcut.split('-');
   let keyPart = parts.pop();
   if (!keyPart) return false;
-  // prosemirror-keymap convention: `Space` is an alias for ' ' since the
-  // literal character is awkward to type in a shortcut string.
+  // prosemirror-keymap convention: `Space` aliases ' ' (awkward to type literally).
   if (keyPart === 'Space') keyPart = ' ';
 
   let needCtrl = false;
@@ -205,17 +186,16 @@ function matchShortcut(event: KeyboardEvent, shortcut: string): boolean {
   if (event.altKey !== needAlt) return false;
   if (event.ctrlKey !== needCtrl) return false;
   if (event.metaKey !== needMeta) return false;
-  // For single-character keys, ignore Shift (since Shift is part of the
-  // character itself, e.g. Shift+/ produces `?`). For named keys (F10,
-  // ArrowUp, Enter, etc.), require Shift match exactly.
+  // Single-char keys ignore Shift (it's part of the char, e.g. Shift+/ = `?`);
+  // named keys (F10, Enter, ...) require an exact Shift match.
   if (keyPart.length > 1 && event.shiftKey !== needShift) return false;
 
   return event.key === keyPart || event.key.toLowerCase() === keyPart.toLowerCase();
 }
 
 /**
- * Creates a standalone FloatingMenu ProseMirror plugin. Framework wrappers
- * call this directly so they can own element creation and rendering.
+ * Creates the FloatingMenu plugin. Framework wrappers call this directly so
+ * they own element creation and rendering.
  */
 export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOptions): Plugin {
   const {
@@ -230,9 +210,8 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
 
   const enterShortcuts = keymap?.enterMenu ?? DEFAULT_ENTER_MENU_SHORTCUTS;
 
-  // Semantic defaults: `menu` is the right WAI-ARIA role for a transient
-  // list of single-action choices (unlike `toolbar` which implies a
-  // persistent set of controls).
+  // `menu` is the right WAI-ARIA role for a transient list of single-action
+  // choices, unlike `toolbar` (a persistent set of controls).
   if (!element.getAttribute('role')) {
     element.setAttribute('role', 'menu');
     element.setAttribute('aria-label', 'Insert block');
@@ -267,8 +246,7 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
     element.removeAttribute('data-show');
   };
 
-  // Clear the explicit-trigger flag if it's set. No-op when
-  // `requireExplicitTrigger` is off (no flag exists to clear).
+  // Clear the explicit-trigger flag if set. No-op when requireExplicitTrigger is off.
   const clearTriggeredFlag = (view: EditorView): void => {
     if (!requireExplicitTrigger) return;
     const triggered = (pluginKey.getState(view.state) as FloatingMenuPluginState | undefined)?.triggered ?? false;
@@ -289,9 +267,8 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
   // Hide initially (wrappers may render the element before the plugin runs).
   hideMenu();
 
-  // Compute final visibility: when `requireExplicitTrigger` is on, both
-  // the explicit-trigger flag AND the user-supplied shouldShow predicate
-  // must be true. Otherwise (default), only shouldShow gates visibility.
+  // Final visibility: with requireExplicitTrigger on, both the trigger flag
+  // AND shouldShow must be true; otherwise only shouldShow gates it.
   const isVisibleNow = (view: EditorView): boolean => {
     const wantsShow = shouldShow({ editor, view, state: view.state });
     if (!requireExplicitTrigger) return wantsShow;
@@ -313,9 +290,8 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
     },
 
     props: {
-      // Keyboard entry from the editor. ProseMirror's handleKeyDown fires
-      // before browser defaults, so we can intercept without risking
-      // interference with typing. We only act while the menu is visible.
+      // Keyboard entry. handleKeyDown fires before browser defaults; we only
+      // act while the menu is visible.
       handleKeyDown(_view, event): boolean {
         if (!isVisible()) return false;
         for (const shortcut of enterShortcuts) {
@@ -332,15 +308,15 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
     },
 
     view: (editorView) => {
-      // Move the menu into `.dm-editor` so `position:absolute` resolves
-      // against the scrollable editor container - zero jitter on scroll.
+      // Move the menu into `.dm-editor` so `position:absolute` resolves against
+      // the scrollable editor container (zero jitter on scroll).
       editorEl = editorView.dom.closest('.dm-editor');
       if (editorEl && element.parentElement !== editorEl) {
         editorEl.appendChild(element);
       }
 
-      // Hide the menu AND clear the explicit-trigger flag so a stale
-      // `triggered=true` doesn't survive across an unrelated dismissal.
+      // Hide and clear the trigger flag so a stale `triggered=true` doesn't
+      // survive an unrelated dismissal.
       const dismiss = (): void => {
         hideMenu();
         clearTriggeredFlag(editor.view);
@@ -352,19 +328,15 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
       };
 
       const onBlur = ({ event }: { event: FocusEvent }): void => {
-        // Keep the menu visible if focus moved into it - users can
-        // interact with menu items without the menu vanishing.
-        // `relatedTarget` is `EventTarget | null`, not `Node` - guard with
-        // an `instanceof Node` check so `.contains()` receives a valid arg
-        // even for exotic focus targets (e.g. AbortSignal-based targets
-        // never raise a focus event in practice, but the cast is unsound).
+        // Keep the menu visible if focus moved into it. `relatedTarget` is
+        // `EventTarget | null`, so guard with `instanceof Node` before `.contains()`.
         const related = event.relatedTarget;
         if (related instanceof Node && element.contains(related)) return;
         dismiss();
       };
 
-      // Click-outside dismissal. Capture phase ensures we fire before
-      // other UI (dropdowns, popovers) handles the same click.
+      // Click-outside dismissal. Capture phase so we fire before other UI
+      // (dropdowns, popovers) handles the same click.
       clickOutsideHandler = (e: Event): void => {
         if (!isVisible()) return;
         const target = e.target;
@@ -390,10 +362,8 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
           if (isVisibleNow(view)) updatePosition(view);
           else {
             hideMenu();
-            // Auto-clear stale `triggered` state when the user navigates
-            // away from the empty paragraph (e.g. types a character or
-            // moves the cursor) - otherwise the next empty paragraph
-            // they enter would silently re-show the menu.
+            // Clear stale `triggered` when the user leaves the empty paragraph,
+            // else the next empty paragraph they enter would silently re-show the menu.
             clearTriggeredFlag(view);
           }
         },
