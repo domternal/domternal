@@ -100,7 +100,7 @@ const LIST_CONTENT = '<ul><li><p>item one</p></li><li><p>item two</p></li></ul>'
 
 // ─── Toolbar button ──────────────────────────────────────────────────
 
-test.describe('HorizontalRule — toolbar button', () => {
+test.describe('HorizontalRule - toolbar button', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -123,7 +123,7 @@ test.describe('HorizontalRule — toolbar button', () => {
 
 // ─── Insert via toolbar ──────────────────────────────────────────────
 
-test.describe('HorizontalRule — insert via toolbar', () => {
+test.describe('HorizontalRule - insert via toolbar', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -189,7 +189,7 @@ test.describe('HorizontalRule — insert via toolbar', () => {
     await page.locator(`${editorSelector} p`).click();
     await page.locator(hrButton).click();
 
-    // Type text — should appear in a paragraph (cursor lands in a paragraph)
+    // Type text - should appear in a paragraph (cursor lands in a paragraph)
     await page.keyboard.type('after hr');
     const html = await getEditorHTML(page);
     expectHR(html);
@@ -214,7 +214,7 @@ test.describe('HorizontalRule — insert via toolbar', () => {
 
 // ─── Input rules (markdown shortcuts) ────────────────────────────────
 
-test.describe('HorizontalRule — input rules', () => {
+test.describe('HorizontalRule - input rules', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -314,7 +314,7 @@ test.describe('HorizontalRule — input rules', () => {
 
 // ─── parseHTML ────────────────────────────────────────────────────────
 
-test.describe('HorizontalRule — parseHTML', () => {
+test.describe('HorizontalRule - parseHTML', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -368,7 +368,7 @@ test.describe('HorizontalRule — parseHTML', () => {
 
 // ─── Rendering ────────────────────────────────────────────────────────
 
-test.describe('HorizontalRule — rendering', () => {
+test.describe('HorizontalRule - rendering', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -391,7 +391,7 @@ test.describe('HorizontalRule — rendering', () => {
   test('HR is not editable (cannot type inside it)', async ({ page }) => {
     await setContentAndFocus(page, HR_BETWEEN);
 
-    // Click on the HR — selects it as a node
+    // Click on the HR - selects it as a node
     await page.locator(`${editorSelector} hr`).click();
     // Typing replaces node selection; text goes into a paragraph
     await page.keyboard.type('should not appear inside hr');
@@ -421,7 +421,7 @@ test.describe('HorizontalRule — rendering', () => {
 
 // ─── Cursor behavior around HR ───────────────────────────────────────
 
-test.describe('HorizontalRule — cursor behavior', () => {
+test.describe('HorizontalRule - cursor behavior', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -497,7 +497,7 @@ test.describe('HorizontalRule — cursor behavior', () => {
 
 // ─── Undo / Redo ─────────────────────────────────────────────────────
 
-test.describe('HorizontalRule — undo/redo', () => {
+test.describe('HorizontalRule - undo/redo', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -566,7 +566,7 @@ test.describe('HorizontalRule — undo/redo', () => {
 
 // ─── Interaction with other blocks ────────────────────────────────────
 
-test.describe('HorizontalRule — interaction with other blocks', () => {
+test.describe('HorizontalRule - interaction with other blocks', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -655,7 +655,7 @@ test.describe('HorizontalRule — interaction with other blocks', () => {
 
 // ─── Multiple HRs ────────────────────────────────────────────────────
 
-test.describe('HorizontalRule — multiple HRs', () => {
+test.describe('HorizontalRule - multiple HRs', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -695,7 +695,7 @@ test.describe('HorizontalRule — multiple HRs', () => {
 
 // ─── Edge cases ──────────────────────────────────────────────────────
 
-test.describe('HorizontalRule — edge cases', () => {
+test.describe('HorizontalRule - edge cases', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -815,7 +815,7 @@ test.describe('HorizontalRule — edge cases', () => {
 
 // ─── Select all with HR ──────────────────────────────────────────────
 
-test.describe('HorizontalRule — select all', () => {
+test.describe('HorizontalRule - select all', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -847,7 +847,7 @@ test.describe('HorizontalRule — select all', () => {
 
 // ─── Copy/paste with HR ──────────────────────────────────────────────
 
-test.describe('HorizontalRule — copy/paste', () => {
+test.describe('HorizontalRule - copy/paste', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -876,7 +876,7 @@ test.describe('HorizontalRule — copy/paste', () => {
 
 // ─── Input rule: Backspace undo ─────────────────────────────────────
 
-test.describe('HorizontalRule — input rule Backspace undo', () => {
+test.describe('HorizontalRule - input rule Backspace undo', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1045,7 +1045,7 @@ test.describe('HorizontalRule — input rule Backspace undo', () => {
 
 // ─── Input rule: partial typing and editing trigger chars ───────────
 
-test.describe('HorizontalRule — partial trigger typing and editing', () => {
+test.describe('HorizontalRule - partial trigger typing and editing', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1197,7 +1197,7 @@ test.describe('HorizontalRule — partial trigger typing and editing', () => {
 
 // ─── Input rule in different block contexts ─────────────────────────
 
-test.describe('HorizontalRule — input rule in block contexts', () => {
+test.describe('HorizontalRule - input rule in block contexts', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1279,7 +1279,7 @@ test.describe('HorizontalRule — input rule in block contexts', () => {
 
 // ─── Consecutive HR creation ────────────────────────────────────────
 
-test.describe('HorizontalRule — consecutive input rule triggers', () => {
+test.describe('HorizontalRule - consecutive input rule triggers', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1332,7 +1332,7 @@ test.describe('HorizontalRule — consecutive input rule triggers', () => {
 
 // ─── Backspace and Delete near HR (non-node-selection) ──────────────
 
-test.describe('HorizontalRule — Backspace/Delete from adjacent paragraphs', () => {
+test.describe('HorizontalRule - Backspace/Delete from adjacent paragraphs', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1416,7 +1416,7 @@ test.describe('HorizontalRule — Backspace/Delete from adjacent paragraphs', ()
 
 // ─── Arrow key navigation ───────────────────────────────────────────
 
-test.describe('HorizontalRule — arrow key navigation', () => {
+test.describe('HorizontalRule - arrow key navigation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1504,7 +1504,7 @@ test.describe('HorizontalRule — arrow key navigation', () => {
 
 // ─── Typing on selected HR ──────────────────────────────────────────
 
-test.describe('HorizontalRule — typing replaces selected HR', () => {
+test.describe('HorizontalRule - typing replaces selected HR', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1538,7 +1538,7 @@ test.describe('HorizontalRule — typing replaces selected HR', () => {
 
 // ─── HR at document boundaries ──────────────────────────────────────
 
-test.describe('HorizontalRule — document boundaries', () => {
+test.describe('HorizontalRule - document boundaries', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1625,7 +1625,7 @@ test.describe('HorizontalRule — document boundaries', () => {
 
 // ─── HR with setContent and commands API ────────────────────────────
 
-test.describe('HorizontalRule — commands API', () => {
+test.describe('HorizontalRule - commands API', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1667,7 +1667,7 @@ test.describe('HorizontalRule — commands API', () => {
 
 // ─── HR interaction with other input rules ──────────────────────────
 
-test.describe('HorizontalRule — interaction with other input rules', () => {
+test.describe('HorizontalRule - interaction with other input rules', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);
@@ -1709,7 +1709,7 @@ test.describe('HorizontalRule — interaction with other input rules', () => {
 
 // ─── Rapid input ────────────────────────────────────────────────────
 
-test.describe('HorizontalRule — rapid input', () => {
+test.describe('HorizontalRule - rapid input', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector(editorSelector);

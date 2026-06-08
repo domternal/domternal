@@ -9,6 +9,7 @@
   <div class="toolbar-mode-toggle">
     <button data-testid="mode-default" [class.active]="mode() === 'default'" (click)="mode.set('default')">Default toolbar</button>
     <button data-testid="mode-custom" [class.active]="mode() === 'custom'" (click)="mode.set('custom')">Custom layout</button>
+    <button data-testid="mode-ngmodel" [class.active]="mode() === 'ngmodel'" (click)="mode.set('ngmodel')">ngModel</button>
     <button data-testid="mode-notion" [class.active]="mode() === 'notion'" (click)="mode.set('notion')">Notion style</button>
     <button data-testid="mode-notion-scrollable" [class.active]="mode() === 'notion-scrollable'" (click)="mode.set('notion-scrollable')">Notion scrollable</button>
     <button data-testid="mode-multi" [class.active]="mode() === 'multi'" (click)="mode.set('multi')">Multiple editors</button>
@@ -31,6 +32,8 @@
     <app-multi-editor-demo />
   } @else if (mode() === 'tab') {
     <app-tab-indent-demo />
+  } @else if (mode() === 'ngmodel') {
+    <app-ngmodel-demo />
   } @else {
     <app-editor-demo [useLayout]="useLayout()" />
   }

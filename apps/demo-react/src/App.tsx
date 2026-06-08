@@ -3,8 +3,10 @@ import { EditorDemo } from './EditorDemo.js';
 import { NotionDemo } from './NotionDemo.js';
 import { MultiEditorDemo } from './MultiEditorDemo.js';
 import { TabIndentDemo } from './TabIndentDemo.js';
+import { NodeViewDemo } from './NodeViewDemo.js';
+import { CompoundDemo } from './CompoundDemo.js';
 
-type Mode = 'default' | 'custom' | 'notion' | 'notion-scrollable' | 'multi' | 'tab';
+type Mode = 'default' | 'custom' | 'nodeview' | 'compound' | 'notion' | 'notion-scrollable' | 'multi' | 'tab';
 
 export function App() {
   const [isDark, setIsDark] = useState(false);
@@ -33,6 +35,12 @@ export function App() {
         <button data-testid="mode-custom" className={mode === 'custom' ? 'active' : ''} onClick={() => setMode('custom')}>
           Custom layout
         </button>
+        <button data-testid="mode-nodeview" className={mode === 'nodeview' ? 'active' : ''} onClick={() => setMode('nodeview')}>
+          NodeView
+        </button>
+        <button data-testid="mode-compound" className={mode === 'compound' ? 'active' : ''} onClick={() => setMode('compound')}>
+          Compound
+        </button>
         <button data-testid="mode-notion" className={mode === 'notion' ? 'active' : ''} onClick={() => setMode('notion')}>
           Notion style
         </button>
@@ -56,6 +64,10 @@ export function App() {
         <MultiEditorDemo />
       ) : mode === 'tab' ? (
         <TabIndentDemo />
+      ) : mode === 'nodeview' ? (
+        <NodeViewDemo />
+      ) : mode === 'compound' ? (
+        <CompoundDemo />
       ) : (
         <div className="app-editor-demo">
           <EditorDemo useLayout={mode === 'custom'} />
