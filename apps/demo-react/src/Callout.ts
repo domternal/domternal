@@ -11,11 +11,6 @@ import type { CommandSpec } from '@domternal/core';
 import { ReactNodeViewRenderer } from '@domternal/react';
 import { CalloutView, type CalloutVariant } from './CalloutView.js';
 
-/** The node-view constructor type core's `addNodeView` expects, derived from
- * @domternal/core itself so it uses the same prosemirror-view types core
- * bundles (importing @domternal/pm separately resolves a duplicate copy). */
-type CoreNodeViewConstructor = ReturnType<NonNullable<Parameters<typeof Node.create>[0]['addNodeView']>>;
-
 declare module '@domternal/core' {
   interface RawCommands {
     insertCallout: CommandSpec<[variant?: CalloutVariant]>;
@@ -49,12 +44,7 @@ export const Callout = Node.create({
   },
 
   addNodeView() {
-    // ReactNodeViewRenderer types getPos as `() => number`, while core's
-    // NodeViewConstructor expects `() => number | undefined`. The values are
-    // runtime-compatible; the cast bridges that variance. (The @domternal/vue
-    // VueNodeViewRenderer already widens getPos, so its addNodeView needs no
-    // cast - the react package signature could be aligned the same way.)
-    return ReactNodeViewRenderer(CalloutView) as unknown as CoreNodeViewConstructor;
+    return ReactNodeViewRenderer(CalloutView);
   },
 
   addCommands() {

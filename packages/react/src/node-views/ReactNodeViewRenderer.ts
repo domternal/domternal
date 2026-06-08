@@ -21,8 +21,8 @@ export interface ReactNodeViewProps {
   node: PMNode;
   /** Whether this node is selected via NodeSelection. */
   selected: boolean;
-  /** Get the document position of this node. */
-  getPos: () => number;
+  /** Get the document position of this node. Returns `undefined` once the node is no longer in the document. */
+  getPos: () => number | undefined;
   /** Update the node's attributes. */
   updateAttributes: (attrs: Record<string, unknown>) => void;
   /** Delete this node from the document. */
@@ -30,7 +30,7 @@ export interface ReactNodeViewProps {
   /** The extension that created this node view (name, options). Injected by core. */
   extension: { name: string; options: Record<string, unknown> };
   /** ProseMirror decorations applied to this node. */
-  decorations: unknown[];
+  decorations: readonly unknown[];
 }
 
 export interface ReactNodeViewRendererOptions {
@@ -68,9 +68,9 @@ export interface ReactNodeViewRendererOptions {
 export function ReactNodeViewRenderer(
   component: React.ComponentType<ReactNodeViewProps>,
   options: ReactNodeViewRendererOptions = {},
-): (node: PMNode, view: unknown, getPos: () => number, decorations: unknown[]) => ReactNodeView {
+): (node: PMNode, view: unknown, getPos: () => number | undefined, decorations: readonly unknown[]) => ReactNodeView {
   // Return ProseMirror-compatible NodeViewConstructor: (node, view, getPos, decorations) => NodeView
-  const constructor = (node: PMNode, _view: unknown, getPos: () => number, decorations: unknown[]): ReactNodeView => {
+  const constructor = (node: PMNode, _view: unknown, getPos: () => number | undefined, decorations: readonly unknown[]): ReactNodeView => {
     // Read context injected by core's ExtensionManager.collectNodeViews()
     const ctx = (constructor as unknown as { __domternalContext?: NodeViewContext }).__domternalContext;
     const editor = ctx?.editor as Editor;
@@ -91,8 +91,8 @@ export function ReactNodeViewRenderer(
 interface ReactNodeViewInit {
   editor: Editor;
   node: PMNode;
-  getPos: () => number;
-  decorations: unknown[];
+  getPos: () => number | undefined;
+  decorations: readonly unknown[];
   extension: { name: string; options: Record<string, unknown> };
 }
 
@@ -103,8 +103,8 @@ class ReactNodeView {
   private component: React.ComponentType<ReactNodeViewProps>;
   private editor: Editor;
   private node: PMNode;
-  private getPos: () => number;
-  private decorations: unknown[];
+  private getPos: () => number | undefined;
+  private decorations: readonly unknown[];
   private extension: { name: string; options: Record<string, unknown> };
   private selected = false;
 
@@ -164,12 +164,14 @@ class ReactNodeView {
       decorations: this.decorations,
       updateAttributes: (attrs) => {
         const pos = this.getPos();
+        if (pos === undefined) return;
         const { tr } = this.editor.view.state;
         tr.setNodeMarkup(pos, undefined, { ...this.node.attrs, ...attrs });
         this.editor.view.dispatch(tr);
       },
       deleteNode: () => {
         const pos = this.getPos();
+        if (pos === undefined) return;
         const { tr } = this.editor.view.state;
         tr.delete(pos, pos + this.node.nodeSize);
         this.editor.view.dispatch(tr);
@@ -183,7 +185,7 @@ class ReactNodeView {
     );
   }
 
-  update(node: PMNode, decorations: unknown[]): boolean {
+  update(node: PMNode, decorations: readonly unknown[]): boolean {
     if (node.type.name !== this.node.type.name) return false;
     this.node = node;
     this.decorations = decorations;
@@ -207,7 +209,7 @@ class ReactNodeView {
     setTimeout(() => { root.unmount(); }, 0);
   }
 
-  ignoreMutation(mutation: MutationRecord): boolean {
+  ignoreMutation(mutation: MutationRecord | { type: 'selection'; target: Node }): boolean {
     if (!this.contentDOM) return true;
     return !this.contentDOM.contains(mutation.target);
   }
