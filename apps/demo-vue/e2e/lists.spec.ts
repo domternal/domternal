@@ -3296,3 +3296,93 @@ test.describe('Mixed selection: task list item + free paragraphs', () => {
     expect(html).not.toContain('data-type="taskList"');
   });
 });
+
+test.describe('Task List - checkbox interactivity', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+    await page.waitForFunction(() => !!(window as any).__DEMO_EDITOR__);
+  });
+
+  test('clicking the checkbox toggles data-checked + applies strikethrough on the label paragraph', async ({ page }) => {
+    await setContentAndFocus(page, TASK_LIST);
+    const li = page.locator(`${editorSelector} li[data-type="taskItem"]`).first();
+    const cb = li.locator('input[type="checkbox"]');
+    const label = li.locator('> div > p').first();
+
+    await expect(li).toHaveAttribute('data-checked', 'false');
+    await expect(cb).not.toBeChecked();
+    await expect(label).toHaveCSS('text-decoration-line', 'none');
+
+    await cb.click();
+
+    await expect(li).toHaveAttribute('data-checked', 'true');
+    await expect(cb).toBeChecked();
+    await expect(label).toHaveCSS('text-decoration-line', 'line-through');
+  });
+
+  test('clicking a checked task unchecks it + removes strikethrough', async ({ page }) => {
+    await setContentAndFocus(page, TASK_LIST_CHECKED);
+    const li = page.locator(`${editorSelector} li[data-type="taskItem"]`).first();
+    const cb = li.locator('input[type="checkbox"]');
+    const label = li.locator('> div > p').first();
+
+    await expect(li).toHaveAttribute('data-checked', 'true');
+    await expect(label).toHaveCSS('text-decoration-line', 'line-through');
+
+    await cb.click();
+
+    await expect(li).toHaveAttribute('data-checked', 'false');
+    await expect(cb).not.toBeChecked();
+    await expect(label).toHaveCSS('text-decoration-line', 'none');
+  });
+
+  test('Enter on a checked task creates an UNCHECKED sibling', async ({ page }) => {
+    await setContentAndFocus(page, TASK_LIST_CHECKED);
+    // Place the caret at the end of the existing checked task's label.
+    await page.locator(`${editorSelector} li[data-type="taskItem"] > div > p`).first().click();
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+
+    const items = page.locator(`${editorSelector} li[data-type="taskItem"]`);
+    await expect(items).toHaveCount(2);
+    // Original stays checked, new sibling starts fresh (unchecked).
+    await expect(items.nth(0)).toHaveAttribute('data-checked', 'true');
+    await expect(items.nth(1)).toHaveAttribute('data-checked', 'false');
+  });
+
+  test('checking a parent does NOT propagate strikethrough to nested child label', async ({ page }) => {
+    // Notion-parity guard: with the strikethrough scoped to the label
+    // paragraph (`> div > p:first-child`), checking a parent task must
+    // not bleed into nested child labels via descendant inheritance.
+    const NESTED = [
+      '<ul data-type="taskList">',
+      '<li data-type="taskItem" data-checked="false">',
+      '<label contenteditable="false"><input type="checkbox"></label>',
+      '<div><p>parent</p>',
+      '<ul data-type="taskList">',
+      '<li data-type="taskItem" data-checked="false">',
+      '<label contenteditable="false"><input type="checkbox"></label>',
+      '<div><p>child</p></div>',
+      '</li>',
+      '</ul>',
+      '</div>',
+      '</li>',
+      '</ul>',
+    ].join('');
+    await setContentAndFocus(page, NESTED);
+
+    const items = page.locator(`${editorSelector} li[data-type="taskItem"]`);
+    const parentCheckbox = items.nth(0).locator('> label > input[type="checkbox"]').first();
+    const parentLabel = items.nth(0).locator('> div > p').first();
+    const childLabel = items.nth(1).locator('> div > p').first();
+
+    await parentCheckbox.click();
+
+    await expect(items.nth(0)).toHaveAttribute('data-checked', 'true');
+    await expect(parentLabel).toHaveCSS('text-decoration-line', 'line-through');
+    await expect(items.nth(1)).toHaveAttribute('data-checked', 'false');
+    await expect(childLabel).toHaveCSS('text-decoration-line', 'none');
+    await expect(childLabel).toHaveCSS('opacity', '1');
+  });
+});
