@@ -2503,4 +2503,78 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     });
     expect(empties).toBe(0);
   });
+
+  // ── List maintenance: rejoin on drag-out + ordered renumber on split ──
+
+  /** Drag `source` (the interrupter) out onto the trailing top-level paragraph `tailText`. */
+  async function dragBlockToTail(page: Page, source: Locator, tailText: string): Promise<void> {
+    const sBox = await boxOf(source);
+    await hoverAt(page, await sideGutterX(page), sBox.y + sBox.height / 2);
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    await page.waitForTimeout(20);
+    const tail = page.locator(`${editorSelector} > p`, { hasText: tailText });
+    const tBox = await boxOf(tail);
+    const x = tBox.x + 5;
+    const y = tBox.y + tBox.height * 0.8;
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX: x, clientY: y });
+    await page.locator(editorSelector).dispatchEvent('drop', { dataTransfer: dt, clientX: x, clientY: y });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    await dt.dispose();
+  }
+
+  test('dragging the interrupter out from between two bullet lists rejoins them into one', async ({ page }) => {
+    await setContent(page, '<ul><li><p>A</p></li></ul><h2>Mid</h2><ul><li><p>B</p></li></ul><p>Tail</p>');
+    await dragBlockToTail(page, page.locator(`${editorSelector} h2`, { hasText: 'Mid' }), 'Tail');
+
+    // The two bullet lists heal into one continuous list; the heading lands last.
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'bulletList', text: 'AB' },
+      { type: 'paragraph', text: 'Tail' },
+      { type: 'heading', text: 'Mid', level: 2 },
+    ]);
+  });
+
+  test('dragging the interrupter out from between two ordered lists rejoins them and heals the numbering', async ({ page }) => {
+    await setContent(page, '<ol><li><p>A</p></li></ol><h2>Mid</h2><ol start="5"><li><p>B</p></li></ol><p>Tail</p>');
+    await dragBlockToTail(page, page.locator(`${editorSelector} h2`, { hasText: 'Mid' }), 'Tail');
+
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'orderedList', text: 'AB' },
+      { type: 'paragraph', text: 'Tail' },
+      { type: 'heading', text: 'Mid', level: 2 },
+    ]);
+    // The merged list uses the first half's start (1), so the stale start="5"
+    // is gone and B is item 2 - numbering is continuous, not a fresh "5" run.
+    const merged = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { firstChild: { attrs: Record<string, unknown>; childCount: number } | null } } }
+        | undefined;
+      return { start: ed?.state.doc.firstChild?.attrs['start'], count: ed?.state.doc.firstChild?.childCount };
+    });
+    expect(merged).toEqual({ start: 1, count: 2 });
+  });
+
+  test('dropping a block into the middle of an ordered list splits it and the second half keeps counting', async ({ page }) => {
+    await setContent(page, '<h2>Heading</h2><ol><li><p>One</p></li><li><p>Two</p></li><li><p>Three</p></li></ol>');
+    // Drop on Two's bottom-half → between Two and Three: the ordered list splits.
+    await dragSourceToTarget(page, 'Heading', 'Two', 0.8);
+
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'orderedList', text: 'OneTwo' },
+      { type: 'heading', text: 'Heading', level: 2 },
+      { type: 'orderedList', text: 'Three' },
+    ]);
+    // The trailing half's `start` is bumped to 3 so numbering reads 1,2,[heading],3.
+    const secondStart = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { child: (i: number) => { attrs: Record<string, unknown> } | null } } }
+        | undefined;
+      return ed?.state.doc.child(2)?.attrs['start'];
+    });
+    expect(secondStart).toBe(3);
+  });
 });

@@ -1380,6 +1380,68 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
     await handle.dispatchEvent('dragend', { dataTransfer: dt });
     await dt.dispose();
   });
+
+  // ── Split-indicator geometry: a drop that SPLITS the list draws full-width
+  //    at the parent column, not the bullet-indented item column. ──
+
+  test('split indicator: a non-list source over a list is wider + further left than a joining list item', async ({ page }) => {
+    // Paragraph source → splits the list → indicator lifts to the parent column.
+    await setContent(page, '<p>Para</p><ul><li><p>Item</p></li></ul>');
+    const a = await startDragOver(page, page.locator(`${editorSelector} p:has-text("Para")`), page.locator(`${editorSelector} li:has-text("Item")`));
+    const split = await indicatorInfo(page);
+    await endDrag(a.handle, a.dt);
+    // List-item source over a bullet target → joins → bullet-indented column.
+    await setContent(page, '<ul><li><p>Src</p></li><li><p>Item</p></li></ul>');
+    const b = await startDragOver(page, page.locator(`${editorSelector} li:has-text("Src")`), page.locator(`${editorSelector} li:has-text("Item")`));
+    const join = await indicatorInfo(page);
+    await endDrag(b.handle, b.dt);
+
+    expect(split?.mode).toBe('sibling');
+    expect(split!.leftPx).toBeLessThan(join!.leftPx);     // lifted out to the parent column
+    expect(split!.widthPx).toBeGreaterThan(join!.widthPx); // full content width, not item width
+  });
+
+  test('split indicator: a to-do source over a bullet list splits (wider + further left than a bullet source that joins)', async ({ page }) => {
+    await setContent(page, '<ul data-type="taskList"><li data-type="taskItem"><p>Todo</p></li></ul><ul><li><p>Item</p></li></ul>');
+    const a = await startDragOver(page, page.locator(`${editorSelector} li[data-type="taskItem"]`), page.locator(`${editorSelector} ul:not([data-type]) li:has-text("Item")`));
+    const split = await indicatorInfo(page);
+    await endDrag(a.handle, a.dt);
+    await setContent(page, '<ul><li><p>Bull</p></li><li><p>Item</p></li></ul>');
+    const b = await startDragOver(page, page.locator(`${editorSelector} li:has-text("Bull")`), page.locator(`${editorSelector} li:has-text("Item")`));
+    const join = await indicatorInfo(page);
+    await endDrag(b.handle, b.dt);
+
+    expect(split!.leftPx).toBeLessThan(join!.leftPx);
+    expect(split!.widthPx).toBeGreaterThan(join!.widthPx);
+  });
+
+  // ── Hysteresis: a small wobble must not flip the resolved gap. ──
+
+  test('Y dead-band: a small wobble across a row mid holds the indicator gap, a larger move flips it', async ({ page }) => {
+    await setContent(page, '<p>Top</p><ul><li><p>A</p></li><li><p>B</p></li></ul>');
+    await page.locator(`${editorSelector} p:has-text("Top")`).hover();
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    const handle = page.locator(dragBtnSelector);
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+    const box = await page.locator(`${editorSelector} li:has-text("A")`).boundingBox();
+    if (!box) throw new Error('no box');
+    const mid = box.y + box.height / 2;
+    const x = box.x + 4;
+
+    // Establish the "after A" gap just below the row mid.
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX: x, clientY: mid + 4 });
+    await flushIndicatorRaf(page);
+    const after = (await indicatorInfo(page))?.topPx;
+    // Wobble just ABOVE mid, within the 6px dead-band → holds "after A".
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX: x, clientY: mid - 4 });
+    await flushIndicatorRaf(page);
+    expect((await indicatorInfo(page))?.topPx).toBe(after);
+    // A larger move near A's top edge (outside the band) flips to "before A".
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX: x, clientY: box.y + 1 });
+    await flushIndicatorRaf(page);
+    expect((await indicatorInfo(page))?.topPx).not.toBe(after);
+    await endDrag(handle, dt);
+  });
 });
 
 // ────────────────────────────────────────────────────────────────────────
