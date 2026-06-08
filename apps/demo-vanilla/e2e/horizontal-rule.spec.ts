@@ -138,7 +138,7 @@ test.describe('HorizontalRule — insert via toolbar', () => {
     expectHR(html);
   });
 
-  test('insert HR from paragraph with text — cursor at end', async ({ page }) => {
+  test('insert HR from paragraph with text - cursor at end', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH);
     await focusEnd(page);
     await page.locator(hrButton).click();
@@ -148,7 +148,7 @@ test.describe('HorizontalRule — insert via toolbar', () => {
     expect(html).toContain('Hello world');
   });
 
-  test('insert HR from paragraph with text — cursor at start', async ({ page }) => {
+  test('insert HR from paragraph with text - cursor at start', async ({ page }) => {
     await setContentAndFocus(page, PARAGRAPH);
     await focusStart(page);
     await page.locator(hrButton).click();
