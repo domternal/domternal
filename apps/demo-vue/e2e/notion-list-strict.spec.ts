@@ -471,10 +471,10 @@ test.describe('Notion-strict list schema - typing behaviour', () => {
 // 6. Drag arbitrary block into list - wrap creates `[empty label, block]`
 // ────────────────────────────────────────────────────────────────────────
 
-test.describe('Notion-strict list schema - drag wrap shape', () => {
+test.describe('Notion-strict list schema - drag lift-out shape', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
-  test('after drag a top-level H1 into bulletList, the new item has structure [empty paragraph, heading]', async ({ page }) => {
+  test('after drag a top-level H1 into a bulletList, the heading lifts out and the list keeps its single item', async ({ page }) => {
     // Smoke-level coverage. The full end-to-end drag mechanics + per-
     // case shape assertions live in `notion-block-resolution.spec.ts`;
     // here we stand by the concrete Notion-strict shape.
@@ -504,20 +504,30 @@ test.describe('Notion-strict list schema - drag wrap shape', () => {
     await page.waitForTimeout(80);
     await dt.dispose();
 
+    // The bulletList keeps its single "Existing" item; the heading is NOT
+    // wrapped into a new empty-label bullet.
     const items = await listItemShapes(page);
-    // Expect ul with two items: existing paragraph li, then heading-wrapped li.
-    expect(items).toHaveLength(2);
+    expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
+      type: 'listItem',
       childCount: 1,
       children: [{ type: 'paragraph', text: 'Existing' }],
     });
-    expect(items[1]).toMatchObject({
-      childCount: 2,
-      children: [
-        { type: 'paragraph', text: '' },
-        { type: 'heading', text: 'Big title' },
-      ],
+
+    // The heading lifted out as a top-level sibling after the list (its type
+    // and level intact, no empty-label bullet wrap).
+    const top = await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } }
+        | undefined;
+      const out: { type: string; text: string }[] = [];
+      ed?.state.doc.forEach((n) => out.push({ type: n.type.name, text: n.textContent }));
+      return out;
     });
+    expect(top).toEqual([
+      { type: 'bulletList', text: 'Existing' },
+      { type: 'heading', text: 'Big title' },
+    ]);
   });
 });
 
