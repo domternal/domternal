@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.0 (2026-06-09)
+
+### Features
+
+- feat(extension-block-menu): reworked block drag-and-drop onto a unified gap-first drop model. The drop indicator now snaps to the nearest gap between blocks and the pointer's horizontal position chooses the nesting depth, with Y and X dead-bands so the line no longer flickers between gaps or levels. Drag right to nest a block deeper, left to outdent it across ancestor levels. (#101, #102)
+- feat(extension-block-menu): position-aware nested drop. A dragged block can now land as the first, in-between, or last child of a list item, not just as a sibling. (#101)
+- feat(extension-block-menu): dropping a non-list block into a list keeps the block's own type and splits the list around it, instead of wrapping it in a bullet. A list item dropped into a list of the other kind keeps its kind too (a to-do dropped among bullets stays a to-do). (#102)
+- feat(extension-block-menu): two same-type lists rejoin into one when the block separating them is dragged out from between them, healing the ordered-list numbering. (#102)
+- feat(react): `ReactNodeViewRenderer` node-view types now match ProseMirror's `NodeViewConstructor` (`getPos`, `decorations`, `ignoreMutation`), so `addNodeView` no longer needs a cast. (#102)
+
+### Internal
+
+- test(demos): cross-wrapper functional parity for drag-and-drop, node views, and form integration. Added Angular `ngModel`, React node-view, and React compound demos with their e2e, and backported heading Notion-Enter and task-checkbox coverage to vanilla/react/vue. (#102)
+
 ## 0.7.5 (2026-06-03)
 
 ### Changes
