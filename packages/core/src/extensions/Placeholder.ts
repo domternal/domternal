@@ -70,10 +70,12 @@ export const Placeholder = Extension.create<PlaceholderOptions>({
         props: {
           decorations: ({ doc, selection }) => {
             const editor = this.editor;
-            if (!editor?.view) return DecorationSet.empty;
-            const isEditable = editor.view.editable;
+            if (!editor) return DecorationSet.empty;
 
-            if (!isEditable && this.options.showOnlyWhenEditable) {
+            // Editor.isEditable works before the view exists, so the
+            // placeholder also renders on the very first draw of an empty
+            // editor (the view is assigned only after its constructor runs).
+            if (!editor.isEditable && this.options.showOnlyWhenEditable) {
               return DecorationSet.empty;
             }
 

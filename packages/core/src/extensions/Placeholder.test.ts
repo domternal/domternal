@@ -92,6 +92,19 @@ describe('Placeholder', () => {
       expect(found.length).toBe(1);
     });
 
+    it('renders the placeholder in the DOM on the initial draw, before any transaction', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        extensions: [...baseExtensions, Placeholder],
+        content: '',
+        element,
+      });
+
+      const node = element.querySelector('[data-placeholder]');
+      expect(node).not.toBeNull();
+      expect(node?.classList.contains('is-empty')).toBe(true);
+    });
+
     it('shows placeholder with data-placeholder attribute', () => {
       editor = new Editor({
         extensions: [
