@@ -440,9 +440,15 @@ export class TableView implements NodeView {
 
     this.cellToolbarCleanup?.();
     this.cellToolbar.style.display = 'flex';
+    // The editor wrapper is passed as the flip boundary so the toolbar flips
+    // below the selection at the editor's top edge. The theme no longer clips
+    // `.dm-editor`, so without it the toolbar would render above the editor
+    // and cover app chrome (the main toolbar band).
+    const editorEl = this.view.dom.closest('.dm-editor');
     this.cellToolbarCleanup = positionFloatingOnce(reference, this.cellToolbar, {
       placement: 'top',
       offsetValue: 6,
+      ...(editorEl ? { boundary: editorEl } : {}),
     });
 
     // Disable merge/split based on whether command can execute (dry-run without dispatch)

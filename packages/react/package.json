@@ -21,12 +21,10 @@
   "peerDependencies": {
     "react": ">=18",
     "react-dom": ">=18",
-    "@domternal/core": ">=0.8.0",
-    "@domternal/extension-block-menu": ">=0.8.0"
+    "@domternal/core": ">=0.8.0"
   },
   "devDependencies": {
     "@domternal/core": "workspace:*",
-    "@domternal/extension-block-menu": "workspace:*",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "react": "^19.1.0",

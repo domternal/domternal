@@ -23,6 +23,14 @@ export interface PositionFloatingOptions {
   padding?: number;
   /** Track ancestor scroll events. Disable for static anchors (e.g. toolbar buttons). @default true */
   trackScroll?: boolean;
+  /**
+   * Clipping boundary for flip/shift overflow detection. Defaults to the
+   * floating-ui clipping ancestors (overflow containers plus viewport).
+   * Since the theme stopped clipping `.dm-editor` itself, floats that must
+   * stay inside the editor box (e.g. the table cell toolbar, which would
+   * otherwise cover app chrome above the editor) pass the wrapper here.
+   */
+  boundary?: Element;
 }
 
 /**
@@ -67,10 +75,13 @@ export function positionFloating(
 ): () => void {
   const placementOpt = options?.placement ?? 'bottom';
   const paddingOpt = options?.padding ?? 10;
+  const overflowOpts = options?.boundary
+    ? { padding: paddingOpt, boundary: options.boundary }
+    : { padding: paddingOpt };
   const middleware = [
     offset(options?.offsetValue ?? 4),
-    flip({ padding: paddingOpt }),
-    shift({ padding: paddingOpt }),
+    flip(overflowOpts),
+    shift(overflowOpts),
     hide(),
   ];
 
@@ -135,10 +146,13 @@ export function positionFloatingOnce(
 ): () => void {
   const placementOpt = options?.placement ?? 'bottom';
   const paddingOpt = options?.padding ?? 10;
+  const overflowOpts = options?.boundary
+    ? { padding: paddingOpt, boundary: options.boundary }
+    : { padding: paddingOpt };
   const middleware = [
     offset(options?.offsetValue ?? 4),
-    flip({ padding: paddingOpt }),
-    shift({ padding: paddingOpt }),
+    flip(overflowOpts),
+    shift(overflowOpts),
   ];
 
   const update = (): void => {

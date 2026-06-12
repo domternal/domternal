@@ -16,19 +16,17 @@ import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 import {
   PluginKey,
   FloatingMenuController,
+  createFloatingMenuPlugin,
   defaultIcons,
 } from '@domternal/core';
 import type {
   Editor,
   FloatingMenuItem,
   FloatingMenuItemsOverride,
-  IconSet,
-} from '@domternal/core';
-import { createFloatingMenuPlugin } from '@domternal/extension-block-menu';
-import type {
   FloatingMenuKeymap,
   FloatingMenuOptions,
-} from '@domternal/extension-block-menu';
+  IconSet,
+} from '@domternal/core';
 
 /**
  * Block-insert floating menu for Angular.

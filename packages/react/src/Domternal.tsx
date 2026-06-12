@@ -28,10 +28,18 @@ export interface DomternalProps extends UseEditorOptions {
  * </Domternal>
  * ```
  *
- * @example SSR-safe with loading state
+ * @example Loading state (shown during SSR and until the editor exists)
  * ```tsx
- * <Domternal extensions={extensions} immediatelyRender={false}>
+ * <Domternal extensions={extensions}>
  *   <Domternal.Loading>Loading editor...</Domternal.Loading>
+ *   <Domternal.Toolbar />
+ *   <Domternal.Content />
+ * </Domternal>
+ * ```
+ *
+ * @example Editor on the very first render (client-only apps)
+ * ```tsx
+ * <Domternal extensions={extensions} immediatelyRender>
  *   <Domternal.Toolbar />
  *   <Domternal.Content />
  * </Domternal>

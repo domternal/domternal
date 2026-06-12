@@ -198,6 +198,22 @@ export {
   type FloatingMenuGroup,
 } from './FloatingMenuController.js';
 
+// === Floating Menu plugin ===
+// Used directly by the framework wrappers; the FloatingMenu extension in
+// @domternal/extension-block-menu wraps the same factory and re-exports
+// these for backward compatibility.
+export {
+  createFloatingMenuPlugin,
+  floatingMenuPluginKey,
+  showFloatingMenu,
+  hideFloatingMenu,
+  defaultFloatingMenuShouldShow,
+  FLOATING_MENU_META,
+  type FloatingMenuOptions,
+  type CreateFloatingMenuPluginOptions,
+  type FloatingMenuKeymap,
+} from './FloatingMenuPlugin.js';
+
 // === Shared helpers ===
 export { groupFloatingMenuItems } from './utils/groupFloatingMenuItems.js';
 

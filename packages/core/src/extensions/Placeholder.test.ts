@@ -92,6 +92,19 @@ describe('Placeholder', () => {
       expect(found.length).toBe(1);
     });
 
+    it('renders the placeholder in the DOM on the initial draw, before any transaction', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        extensions: [...baseExtensions, Placeholder],
+        content: '',
+        element,
+      });
+
+      const node = element.querySelector('[data-placeholder]');
+      expect(node).not.toBeNull();
+      expect(node?.classList.contains('is-empty')).toBe(true);
+    });
+
     it('shows placeholder with data-placeholder attribute', () => {
       editor = new Editor({
         extensions: [
@@ -239,10 +252,49 @@ describe('Placeholder', () => {
       const decos = getPlaceholderDecorations(editor);
       const found = decos.find();
       if (found.length > 0) {
-         
+
         const spec = (found[0] as any).type?.attrs;
         expect(spec?.class).not.toContain('is-editor-empty');
       }
+    });
+  });
+
+  describe('non-editable editor', () => {
+    it('shows no placeholder when the editor is not editable (default showOnlyWhenEditable)', () => {
+      editor = new Editor({
+        extensions: [...baseExtensions, Placeholder],
+        content: '',
+        editable: false,
+      });
+
+      const decos = getPlaceholderDecorations(editor);
+      const found = decos.find();
+      expect(found.length).toBe(0);
+    });
+
+    it('shows placeholder in a non-editable editor when showOnlyWhenEditable is false', () => {
+      editor = new Editor({
+        extensions: [
+          ...baseExtensions,
+          Placeholder.configure({ showOnlyWhenEditable: false }),
+        ],
+        content: '',
+        editable: false,
+      });
+
+      const decos = getPlaceholderDecorations(editor);
+      const found = decos.find();
+      expect(found.length).toBe(1);
+    });
+
+    it('returns empty decorations when the extension has no bound editor', () => {
+      const unbound = Placeholder.configure({});
+      const plugins = unbound.config.addProseMirrorPlugins?.call(unbound) ?? [];
+      expect(plugins.length).toBe(1);
+
+      const decosFn = plugins[0]?.props.decorations as any;
+      const result = decosFn.call(plugins[0], {} as never);
+      expect(result).toBe(DecorationSet.empty);
     });
   });
 });

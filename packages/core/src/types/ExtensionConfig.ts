@@ -20,6 +20,9 @@ export interface ExtensionEditor {
   readonly view: EditorView;
   readonly schema: unknown;
   readonly commands: SingleCommands;
+  // Safe to read before the view exists (falls back to the editable option),
+  // unlike view.editable; see Editor.isEditable.
+  readonly isEditable: boolean;
 }
 
 /**

@@ -24,6 +24,7 @@ body.dm-theme-dark {
   // apply the A4-page-style padding to non-Notion editors.
   .dm-editor:not(.dm-notion-mode) {
     --dm-editor-padding: 4rem 4.8rem;
+    --dm-editor-padding-top: 4rem;
   }
 }
 

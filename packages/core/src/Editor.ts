@@ -160,7 +160,11 @@ export class Editor extends EventEmitter<EditorEvents> {
    * Checks if the editor is editable
    */
   get isEditable(): boolean {
-    return this.view.editable;
+    // The view is unset while EditorView's constructor runs the initial draw
+    // (plugin decoration props may call this), so fall back to the option.
+    // The declared type says `view` is always set; mid-construction it is not.
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    return this.view ? this.view.editable : (this.options.editable ?? true);
   }
 
   /**
