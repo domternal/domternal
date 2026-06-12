@@ -1,7 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Schema } from '@domternal/pm/model';
-import { TextSelection } from '@domternal/pm/state';
+import { Plugin, TextSelection } from '@domternal/pm/state';
 import { Editor } from './Editor.js';
+import { Extension } from './Extension.js';
+import { Document } from './nodes/Document.js';
+import { Text } from './nodes/Text.js';
+import { Paragraph } from './nodes/Paragraph.js';
 import type { EditorOptions } from './types/index.js';
 
 // Test schema
@@ -101,6 +105,78 @@ describe('Editor', () => {
       });
 
       expect(editor.isEditable).toBe(false);
+    });
+  });
+
+  describe('isEditable before the view exists', () => {
+    interface ProbeSample {
+      hasView: boolean;
+      isEditable: boolean;
+    }
+
+    // Records what `editor.isEditable` returns from a decoration prop, which
+    // EditorView's constructor invokes for the initial draw before `editor.view`
+    // is assigned (the same pre-view window the Placeholder extension hits).
+    function createProbe(samples: ProbeSample[]): Extension {
+      return Extension.create({
+        name: 'probe',
+        addProseMirrorPlugins() {
+          return [
+            new Plugin({
+              props: {
+                decorations: () => {
+                  const probeEditor = this.editor;
+                  if (probeEditor) {
+                    samples.push({
+                      // The declared type says `view` is always set; mid-construction it is not.
+                      hasView: (probeEditor as { view?: unknown }).view !== undefined,
+                      isEditable: probeEditor.isEditable,
+                    });
+                  }
+                  return null;
+                },
+              },
+            }),
+          ];
+        },
+      });
+    }
+
+    it('falls back to the editable option during the initial draw', () => {
+      const samples: ProbeSample[] = [];
+      const element = document.createElement('div');
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, createProbe(samples)],
+        element,
+        content: '',
+        editable: false,
+      });
+
+      const preView = samples.filter((sample) => !sample.hasView);
+      expect(preView.length).toBeGreaterThan(0);
+      expect(preView[0]?.isEditable).toBe(false);
+      element.remove();
+    });
+
+    it('treats an explicitly undefined editable option as editable during the initial draw', () => {
+      const samples: ProbeSample[] = [];
+      const element = document.createElement('div');
+
+      // Plain-JS consumers (and wrappers passing through optional props) can
+      // hand the constructor `editable: undefined`; exactOptionalPropertyTypes
+      // forbids that in TS, hence the cast.
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, createProbe(samples)],
+        element,
+        content: '',
+        editable: undefined,
+      } as unknown as EditorOptions);
+
+      const preView = samples.filter((sample) => !sample.hasView);
+      expect(preView.length).toBeGreaterThan(0);
+      expect(preView[0]?.isEditable).toBe(true);
+      element.remove();
     });
   });
 
