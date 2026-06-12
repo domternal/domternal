@@ -327,12 +327,12 @@ describe('createEmojiSuggestionRenderer', () => {
       renderer.onExit();
     });
 
-    it('mouseenter on item updates selection', () => {
+    it('mousemove on item updates selection', () => {
       const renderer = createEmojiSuggestionRenderer()();
       renderer.onStart(makeProps());
 
       const items = document.querySelectorAll('.dm-emoji-suggestion-item');
-      const event = new MouseEvent('mouseenter', { bubbles: true });
+      const event = new MouseEvent('mousemove', { bubbles: true });
       items[2]!.dispatchEvent(event);
 
       expect(items[2]?.classList.contains('dm-emoji-suggestion-item--selected')).toBe(true);
@@ -340,16 +340,32 @@ describe('createEmojiSuggestionRenderer', () => {
       renderer.onExit();
     });
 
-    it('mouseenter on already-selected item does nothing extra', () => {
+    it('mousemove on already-selected item does nothing extra', () => {
       const renderer = createEmojiSuggestionRenderer()();
       renderer.onStart(makeProps());
 
       const items = document.querySelectorAll('.dm-emoji-suggestion-item');
-      const event = new MouseEvent('mouseenter', { bubbles: true });
+      const event = new MouseEvent('mousemove', { bubbles: true });
       items[0]!.dispatchEvent(event);
 
       const selected = document.querySelectorAll('.dm-emoji-suggestion-item--selected');
       expect(selected.length).toBe(1);
+
+      renderer.onExit();
+    });
+
+    it('mouseenter alone does not move the selection (keyboard keeps priority over a resting pointer)', () => {
+      const renderer = createEmojiSuggestionRenderer()();
+      renderer.onStart(makeProps());
+
+      const items = document.querySelectorAll('.dm-emoji-suggestion-item');
+      // A synthetic mouseenter (e.g. fired by re-rendering the list under a
+      // stationary cursor) must not steal the selection.
+      const event = new MouseEvent('mouseenter', { bubbles: true });
+      items[2]!.dispatchEvent(event);
+
+      expect(items[0]?.classList.contains('dm-emoji-suggestion-item--selected')).toBe(true);
+      expect(items[2]?.classList.contains('dm-emoji-suggestion-item--selected')).toBe(false);
 
       renderer.onExit();
     });

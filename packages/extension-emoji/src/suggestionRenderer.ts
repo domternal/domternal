@@ -80,7 +80,11 @@ export function createEmojiSuggestionRenderer(): () => SuggestionRenderer {
         btn.addEventListener('click', () => {
           command(item);
         });
-        btn.addEventListener('mouseenter', () => {
+        // mousemove, not mouseenter: re-rendering the list under a resting
+        // pointer fires a synthetic mouseenter that would steal the selection
+        // back from keyboard navigation. Real hovering always produces
+        // mousemove, so hover-to-select still works.
+        btn.addEventListener('mousemove', () => {
           if (selectedIndex === i) return;
           const prev = container?.querySelector('.dm-emoji-suggestion-item--selected');
           if (prev) {
