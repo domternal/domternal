@@ -1840,6 +1840,13 @@ test.describe('Table - Cell toolbar positioning', () => {
 
   test('toolbar flips below the selection when the table is at the top (no room above)', async ({ page }) => {
     await setContentAndFocus(page, TABLE_NO_HEADER);
+    // Zero out the editor's top padding so the table truly sits at the top
+    // edge. The demo styles give the editor a 4rem padding-top, which leaves
+    // enough room to place the toolbar above the table without flipping.
+    await page.evaluate((sel) => {
+      const editor = document.querySelector<HTMLElement>(sel);
+      editor?.style.setProperty('--dm-editor-padding-top', '0rem');
+    }, '.dm-editor');
     await selectCells(page, 0, 1);
 
     const toolbar = page.locator('.dm-table-cell-toolbar');
