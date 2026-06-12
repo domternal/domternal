@@ -64,6 +64,8 @@ createChainBuilder
 createDocument
 CreateDocumentOptions
 CreateEventProps
+createFloatingMenuPlugin
+CreateFloatingMenuPluginOptions
 DEFAULT_BLOCK_COLOR_TYPES
 DEFAULT_BLOCK_COLORS
 DEFAULT_HIGHLIGHT_COLORS
@@ -71,6 +73,7 @@ DEFAULT_NOTION_COLOR_PALETTE
 DEFAULT_TEXT_COLORS
 defaultBlockAt
 defaultBubbleContexts
+defaultFloatingMenuShouldShow
 defaultIcons
 DeleteEventProps
 deleteSelection
@@ -95,11 +98,15 @@ FindChildResult
 findListItemAncestorDepth
 findParentNode
 FindParentNodeResult
+FLOATING_MENU_META
 FLOATING_MENU_NO_FOCUS
 FloatingMenuController
 FloatingMenuGroup
 FloatingMenuItem
 FloatingMenuItemsOverride
+FloatingMenuKeymap
+FloatingMenuOptions
+floatingMenuPluginKey
 focus
 Focus
 FocusEventProps
@@ -126,6 +133,7 @@ HardBreak
 HardBreakOptions
 Heading
 HeadingOptions
+hideFloatingMenu
 Highlight
 HighlightOptions
 History
@@ -232,6 +240,7 @@ setBlockType
 setContent
 SetContentOptions
 setMark
+showFloatingMenu
 SingleCommands
 splitListForInsert
 SplitListForInsertRange
