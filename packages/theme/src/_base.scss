@@ -14,12 +14,23 @@
   border: var(--dm-editor-border);
   border-radius: var(--dm-editor-border-radius);
   box-shadow: var(--dm-editor-shadow, none);
-  overflow: hidden;
   color-scheme: var(--dm-color-scheme, light);
+
+  // Content clips at the rounded corners on the view's mount wrapper rather
+  // than on `.dm-editor` itself: floating UI (suggestion popups, menus) is
+  // positioned inside `.dm-editor` and must be able to escape editors that
+  // are shorter than the popup (e.g. one-line comment composers).
+  > div:has(> .ProseMirror) {
+    overflow: hidden;
+    border-radius: inherit;
+  }
 
   .ProseMirror {
     padding: var(--dm-editor-padding);
-    padding-top: calc(var(--dm-editor-padding) + var(--dm-editor-padding-top-extra, 0px));
+    // `--dm-editor-padding-top` exists because this calc() needs a single
+    // length: a two-value `--dm-editor-padding` shorthand would make the
+    // whole expression invalid and collapse padding-top to 0.
+    padding-top: calc(var(--dm-editor-padding-top, var(--dm-editor-padding)) + var(--dm-editor-padding-top-extra, 0px));
     min-height: 6rem;
 
     &:focus-visible {

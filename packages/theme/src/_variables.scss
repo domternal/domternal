@@ -122,6 +122,9 @@
   --dm-editor-font-size: 1rem;
   --dm-editor-line-height: 1.6;
   --dm-editor-padding: 1rem;
+  // When `--dm-editor-padding` is a multi-value shorthand (e.g. 4rem 4.8rem),
+  // also set `--dm-editor-padding-top` to a single length: the top padding is
+  // computed as calc(top + extra) and a shorthand cannot participate in calc().
   --dm-editor-padding-top-extra: 0.5rem;
   --dm-editor-border: 1px solid var(--dm-border-color);
   --dm-editor-border-radius: 0.75rem;
