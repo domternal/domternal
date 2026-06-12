@@ -23,10 +23,12 @@ export interface UseEditorOptions {
   /** Output format for content comparison. @default 'html' */
   outputFormat?: 'html' | 'json';
   /**
-   * Set to false to delay editor creation to useEffect (SSR-safe).
-   * When false, the editor will be null during server-side rendering
-   * and created only after the component mounts in the browser.
-   * @default true
+   * Create the editor synchronously during the first render so `editor`
+   * is available immediately, with no null flash on first paint. The view
+   * starts in a detached element and is adopted into the mount point by
+   * the mount effect. Client-only: the default defers creation to a mount
+   * effect, which never runs during server-side rendering.
+   * @default false
    */
   immediatelyRender?: boolean;
   /** Called when the editor instance is created. */
@@ -57,12 +59,12 @@ export interface UseEditorOptions {
  * return <div className="dm-editor"><div ref={editorRef} /></div>;
  * ```
  *
- * @example SSR-safe usage (Next.js)
+ * @example Editor available on the very first render (client-only apps)
  * ```tsx
  * const { editor, editorRef } = useEditor({
  *   extensions,
  *   content,
- *   immediatelyRender: false,
+ *   immediatelyRender: true,
  * });
  * ```
  *
@@ -84,9 +86,9 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
     editable = true,
     autofocus = false,
     outputFormat = 'html',
+    immediatelyRender = false,
   } = options;
 
-  const [editor, setEditor] = useState<Editor | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const instanceRef = useRef<Editor | null>(null);
   const pendingContentRef = useRef<Content | null>(null);
@@ -128,8 +130,8 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
     });
   }
 
-  /** Create editor and wire events. Returns the new instance. */
-  function createEditorInstance(element: HTMLElement, initialContent: Content, focus: FocusPosition): Editor {
+  /** Construct an editor, wire events, and register it in refs. */
+  function buildEditorInstance(element: HTMLElement, initialContent: Content, focus: FocusPosition): Editor {
     const ed = new Editor({
       element,
       extensions: [...DEFAULT_EXTENSIONS, ...extensions],
@@ -142,6 +144,12 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
     instanceRef.current = ed;
     extensionsRef.current = extensions;
     depsRef.current = deps;
+    return ed;
+  }
+
+  /** Create editor, publish it to state, and announce creation. */
+  function createEditorInstance(element: HTMLElement, initialContent: Content, focus: FocusPosition): Editor {
+    const ed = buildEditorInstance(element, initialContent, focus);
     setEditor(ed);
     callbacksRef.current.onCreate?.(ed);
     return ed;
@@ -159,8 +167,47 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
     setEditor(null);
   }
 
-  // Create editor on mount
+  // With immediatelyRender, the editor is constructed during the first
+  // render so consumers never see a null editor. The ref mount point is not
+  // attached yet at that moment, so the view starts in a detached element;
+  // the mount effect adopts it. Core schedules autofocus on a macrotask,
+  // which fires after that adoption, so autofocus still lands in the DOM.
+  const [editor, setEditor] = useState<Editor | null>(() => {
+    if (!immediatelyRender) return null;
+    if (typeof window === 'undefined') {
+      throw new Error(
+        '[@domternal/react] immediatelyRender: true creates the editor during render, '
+        + 'which cannot work during server-side rendering. Remove the option for SSR; '
+        + 'the editor is then created after mount.',
+      );
+    }
+    // StrictMode double-invokes this initializer on mount; the ref object is
+    // shared between the two render passes, so reuse the first instance
+    // instead of building (and leaking) a second one.
+    if (instanceRef.current && !instanceRef.current.isDestroyed) {
+      return instanceRef.current;
+    }
+    return buildEditorInstance(document.createElement('div'), content, autofocus);
+  });
+
+  // Create editor on mount (or adopt the render-created one)
   useEffect(() => {
+    const existing = instanceRef.current;
+    if (existing && !existing.isDestroyed) {
+      // immediatelyRender path: the editor already exists from the first
+      // render. Adopt its DOM into the ref mount point if the consumer
+      // attached one (composable consumers adopt via Domternal.Content or
+      // EditorContent instead), then announce creation.
+      const mount = editorRef.current;
+      if (mount && existing.view.dom.parentElement !== mount) {
+        mount.appendChild(existing.view.dom);
+      }
+      callbacksRef.current.onCreate?.(existing);
+      return () => {
+        destroyCurrentEditor();
+      };
+    }
+
     // Use the ref element if available, otherwise create a detached div
     // (composable pattern: Domternal.Content will adopt the DOM later)
     const element = editorRef.current ?? document.createElement('div');
