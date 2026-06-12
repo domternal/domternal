@@ -1,16 +1,13 @@
-import { FloatingMenuController } from '@domternal/core';
+import { FloatingMenuController, createFloatingMenuPlugin } from '@domternal/core';
 import type {
   Editor,
   FloatingMenuItem,
   FloatingMenuItemsOverride,
+  FloatingMenuKeymap,
+  FloatingMenuOptions,
   IconSet,
   PluginKey,
 } from '@domternal/core';
-import {
-  createFloatingMenuPlugin,
-  type FloatingMenuKeymap,
-  type FloatingMenuOptions,
-} from '@domternal/extension-block-menu';
 import { assertBrowser } from '../shared/isBrowser.js';
 import { createPluginKey } from '../shared/pluginKey.js';
 import { resolveIcon } from '../shared/iconRenderer.js';
@@ -45,7 +42,7 @@ export interface DomternalFloatingMenuOptions extends CustomContentOption {
  * `addFloatingMenuItems()` hook) in groups, with roving-tabindex keyboard
  * navigation and `requireExplicitTrigger` support for Notion-style flow.
  *
- * Mounts `createFloatingMenuPlugin` from `@domternal/extension-block-menu`
+ * Mounts `createFloatingMenuPlugin` from `@domternal/core`
  * for visibility + positioning. The plugin moves the host element inside
  * `.dm-editor` automatically so it scrolls with the editor.
  *
