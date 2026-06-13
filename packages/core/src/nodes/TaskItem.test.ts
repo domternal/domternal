@@ -358,6 +358,36 @@ describe('TaskItem', () => {
       expect(list.child(1).attrs['checked']).toBe(false);
     });
 
+    it('Enter MID-label of a CHECKED taskItem leaves the new tail UNCHECKED', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TaskList, TaskItem],
+        content:
+          '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><label contenteditable="false"><input type="checkbox" checked></label><div><p>HelloWorld</p></div></li></ul>',
+      });
+
+      // Cursor between "Hello" and "World" (splitListItem alone would otherwise
+      // copy checked: true onto the tail mid-label).
+      const midOfText = 1 /* taskList */ + 1 /* taskItem */ + 1 /* paragraph */ + 5;
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, midOfText)),
+      );
+
+      const nodeType = editor.state.schema.nodes['taskItem'];
+      const shortcuts = TaskItem.config.addKeyboardShortcuts?.call({
+        ...TaskItem, editor, nodeType, options: TaskItem.options,
+      } as any);
+      const result = (shortcuts?.['Enter'] as any)?.();
+      expect(result).toBe(true);
+
+      const list = editor.state.doc.firstChild!;
+      expect(list.childCount).toBe(2);
+      // Head keeps "Hello" + checked; the new tail "World" is fresh work.
+      expect(list.child(0).textContent).toBe('Hello');
+      expect(list.child(0).attrs['checked']).toBe(true);
+      expect(list.child(1).textContent).toBe('World');
+      expect(list.child(1).attrs['checked']).toBe(false);
+    });
+
     it('Enter on an UNCHECKED taskItem creates another UNCHECKED sibling', () => {
       editor = new Editor({
         extensions: [Document, Text, Paragraph, TaskList, TaskItem],

@@ -1,10 +1,9 @@
 import { Fragment } from '@domternal/pm/model';
 import type { Node as PMNode } from '@domternal/pm/model';
 import type { Transaction } from '@domternal/pm/state';
-import { canJoin } from '@domternal/pm/transform';
 import { insertAsListItemChild } from '@domternal/core';
 import { expandToEmptyWrappers } from './expandToEmptyWrappers.js';
-import { convertListItemForParent } from './convertListItemForParent.js';
+import { rejoinAtSeam } from './rejoinAtSeam.js';
 
 const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
 
@@ -13,10 +12,11 @@ const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
  * `wrapperPos`) at `childIndex` (default: append last). Used by `performBlockDrop`
  * for `mode: 'nested'`.
  *
- * A non-list block inserts directly; a listItem/taskItem is wrapped in a fresh
- * target-type list (via `convertListItemForParent`) and joined with an adjacent
- * same-type sublist so it MERGES rather than forming a second list. Returns
- * `false` (no mutation) on invalid source, self-drop, or schema reject.
+ * A non-list block inserts directly; a listItem/taskItem keeps its OWN list kind
+ * (Notion: nesting never changes type, and a to-do keeps its checked state) by
+ * being wrapped in a fresh same-kind list, then merged with an adjacent
+ * same-kind sublist so it doesn't form a redundant second list. Returns `false`
+ * (no mutation) on invalid source, self-drop, or schema reject.
  */
 export function moveBlockAsNestedChild(
   tr: Transaction,
@@ -34,23 +34,20 @@ export function moveBlockAsNestedChild(
   if (targetItemPos >= sourcePos && targetItemPos < sourceEnd) return false;
   if (wrapperPos >= sourcePos && wrapperPos < sourceEnd) return false;
 
+  // The source item's OWN list wrapper type: a list item keeps its kind (and a
+  // to-do keeps its checked state) when nested, instead of adopting the target's.
+  const sourceWrapperType = tr.doc.resolve(sourcePos).parent.type;
+
+  const stepsBefore = tr.steps.length;
   // Widen the deletion so a single-child wrapper collapses with the source.
   const { from: expandedFrom, to: expandedTo } = expandToEmptyWrappers(tr.doc, sourcePos, sourceEnd);
 
-  // A list-item source needs wrapping in a fresh list (the item slot expects a
-  // block, not a bare listItem); other blocks go in as-is.
+  // A list-item source is wrapped in a fresh list of its OWN kind (the item slot
+  // expects a block, not a bare listItem); other blocks go in as-is.
   let blockNode: PMNode;
   const wrapped = LIST_ITEM_TYPES.has(sourceNode.type.name);
   if (wrapped) {
-    const wrapperNode = tr.doc.nodeAt(wrapperPos);
-    if (!wrapperNode) return false;
-    const adaptedFragment = convertListItemForParent(
-      tr.doc.type.schema,
-      Fragment.from(sourceNode),
-      wrapperNode.type,
-    );
-    if (adaptedFragment.childCount === 0) return false;
-    blockNode = wrapperNode.type.create(null, adaptedFragment);
+    blockNode = sourceWrapperType.create(null, Fragment.from(sourceNode));
   } else {
     blockNode = sourceNode;
   }
@@ -66,14 +63,18 @@ export function moveBlockAsNestedChild(
   });
   if (!result.ok || result.insertedAt === undefined) return result.ok;
 
-  // Merge with an adjacent same-type sublist instead of forming a second list.
-  // Trailing boundary first (higher pos) so the leading one stays valid;
-  // `canJoin` no-ops across incompatible types.
+  // Merge with an adjacent same-KIND sublist instead of forming a second list.
+  // `rejoinAtSeam` gates on equal wrapper types, so an ordered sublist nested
+  // beside a bullet one is NOT silently re-converted (both share `listItem`
+  // content, so a bare `canJoin` would merge them). Trailing boundary first
+  // (higher pos) so the leading one stays valid.
   if (wrapped) {
-    const after = result.insertedAt + blockNode.nodeSize;
-    if (after < tr.doc.content.size && canJoin(tr.doc, after)) tr.join(after);
-    const before = result.insertedAt;
-    if (before > 0 && canJoin(tr.doc, before)) tr.join(before);
+    rejoinAtSeam(tr, result.insertedAt + blockNode.nodeSize);
+    rejoinAtSeam(tr, result.insertedAt);
   }
+
+  // Source-seam heal: removing the source may leave two same-type lists touching
+  // where it sat (matches moveBlock; e.g. a to-do lifted out of a bullet run).
+  rejoinAtSeam(tr, tr.mapping.slice(stepsBefore).map(expandedFrom));
   return true;
 }

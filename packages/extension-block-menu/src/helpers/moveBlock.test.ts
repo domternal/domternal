@@ -153,10 +153,29 @@ describe('moveBlock', () => {
     expect(outerLiNode?.firstChild?.type.name).toBe('paragraph');
     expect(outerLiNode?.firstChild?.textContent).toBe('Outer');
 
-    // The moved item lives wherever PM's schema fitter chose to place it
-    // (a sliced LI inserted at top level may get rewrapped). Either way,
-    // the doc still contains the text "Inner solo".
-    expect(editor.state.doc.textContent).toContain('Inner solo');
+    // The moved item keeps its own list kind: a fresh one-item bulletList at the
+    // top level (Notion: kind travels with the block, not the destination), not a
+    // wrapper picked by PM's schema fitter.
+    const last = editor.state.doc.lastChild;
+    expect(last?.type.name).toBe('bulletList');
+    expect(last?.textContent).toBe('Inner solo');
+    editor.destroy();
+  });
+
+  it('an ordered item dragged out to the top level keeps its kind as a fresh ordered list', () => {
+    const editor = makeListEditor(
+      '<ol><li><p>One</p></li><li><p>Two</p></li></ol><p>After</p>',
+    );
+    const one = findPos(editor, (n) => n.type.name === 'listItem' && n.textContent === 'One');
+    const tr = editor.state.tr;
+    moveBlock(tr, one, editor.state.doc.content.size);
+    editor.view.dispatch(tr);
+
+    // "One" lands at the top level as its own one-item orderedList (not a bullet
+    // chosen by PM's fitter by registration order); the source list keeps "Two".
+    const last = editor.state.doc.lastChild;
+    expect(last?.type.name).toBe('orderedList');
+    expect(last?.textContent).toBe('One');
     editor.destroy();
   });
 
@@ -320,7 +339,7 @@ describe('moveBlock', () => {
     editor.destroy();
   });
 
-  it('splitting an ordered list keeps the numbering continuous (start bumped on the trailing half)', () => {
+  it('splitting an ordered list restarts the trailing half at 1 (Notion breaks the run)', () => {
     const editor = makeListEditor(
       '<ol><li><p>A</p></li><li><p>B</p></li><li><p>C</p></li></ol><p>DRAG</p>',
     );
@@ -331,9 +350,10 @@ describe('moveBlock', () => {
     editor.view.dispatch(tr);
 
     expect(topTypes(editor)).toEqual(['orderedList', 'paragraph', 'orderedList']);
-    // First half keeps the default start (1); the trailing [B, C] continues at 2.
+    // Notion restarts numbering after an interrupter: both halves are independent
+    // runs starting at 1 (no frozen `start` to go stale later).
     expect(editor.state.doc.child(0).attrs['start']).toBe(1);
-    expect(editor.state.doc.child(2).attrs['start']).toBe(2);
+    expect(editor.state.doc.child(2).attrs['start']).toBe(1);
     editor.destroy();
   });
 
@@ -449,7 +469,7 @@ describe('moveBlock', () => {
     editor.destroy();
   });
 
-  it('a bullet item dropped into an ordered list JOINS as a numbered item (same item type, no split)', () => {
+  it('a bullet item dropped into an ordered list keeps its kind, splitting the ordered list', () => {
     const editor = makeListEditor(
       '<ol><li><p>One</p></li><li><p>Two</p></li></ol>'
       + '<ul><li><p>Bullet</p></li></ul>',
@@ -460,12 +480,35 @@ describe('moveBlock', () => {
     moveBlock(tr, bullet, beforeTwo);
     editor.view.dispatch(tr);
 
-    // bulletList and orderedList both hold `listItem`, so it just joins (and
-    // renders numbered); no split, no second list.
-    expect(topTypes(editor)).toEqual(['orderedList']);
-    const list = editor.state.doc.child(0);
-    expect(list.childCount).toBe(3);
-    expect(Array.from({ length: list.childCount }, (_, i) => list.child(i).textContent)).toEqual(['One', 'Bullet', 'Two']);
+    // bulletList and orderedList share the `listItem` node, but kind travels with
+    // the block (Notion): the bullet stays a bullet in its own bulletList and
+    // splits the ordered list around it, rather than joining as a numbered item.
+    expect(topTypes(editor)).toEqual(['orderedList', 'bulletList', 'orderedList']);
+    expect(editor.state.doc.child(0).textContent).toBe('One');
+    expect(editor.state.doc.child(1).firstChild?.type.name).toBe('listItem');
+    expect(editor.state.doc.child(1).textContent).toBe('Bullet');
+    expect(editor.state.doc.child(2).textContent).toBe('Two');
+    editor.destroy();
+  });
+
+  it('an ordered item dropped into a bullet list keeps its kind, splitting the bullet list', () => {
+    const editor = makeListEditor(
+      '<ul><li><p>A</p></li><li><p>B</p></li></ul>'
+      + '<ol><li><p>Num</p></li></ol>',
+    );
+    const num = findPos(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Num');
+    const beforeB = findPos(editor, (n) => n.type.name === 'listItem' && n.textContent === 'B');
+    const tr = editor.state.tr;
+    moveBlock(tr, num, beforeB);
+    editor.view.dispatch(tr);
+
+    // The ordered item stays a numbered item (its own orderedList) and splits the
+    // bullet list, the mirror of the bullet-into-ordered case.
+    expect(topTypes(editor)).toEqual(['bulletList', 'orderedList', 'bulletList']);
+    expect(editor.state.doc.child(0).textContent).toBe('A');
+    expect(editor.state.doc.child(1).firstChild?.type.name).toBe('listItem');
+    expect(editor.state.doc.child(1).textContent).toBe('Num');
+    expect(editor.state.doc.child(2).textContent).toBe('B');
     editor.destroy();
   });
 
@@ -480,6 +523,27 @@ describe('moveBlock', () => {
 
     // Bullet + ordered can't join: both lists stay, heading moves to the end.
     expect(topTypes(editor)).toEqual(['bulletList', 'orderedList', 'heading']);
+    editor.destroy();
+  });
+
+  it('moving a whole list flush against a same-type list merges them (destination heal)', () => {
+    const editor = makeListEditor(
+      '<ol><li><p>One</p></li></ol><p>Mid</p><ol><li><p>Two</p></li></ol>',
+    );
+    // Source: the second orderedList ("Two"); target: right after the first one.
+    let secondOlPos = -1;
+    editor.state.doc.forEach((node, offset) => {
+      if (node.type.name === 'orderedList' && node.textContent === 'Two') secondOlPos = offset;
+    });
+    const afterFirstOl = editor.state.doc.child(0).nodeSize; // first ol starts at 0
+    const tr = editor.state.tr;
+    moveBlock(tr, secondOlPos, afterFirstOl);
+    editor.view.dispatch(tr);
+
+    // The two ordered lists land flush and merge into one continuous list.
+    expect(topTypes(editor)).toEqual(['orderedList', 'paragraph']);
+    expect(editor.state.doc.child(0).childCount).toBe(2);
+    expect(editor.state.doc.child(0).textContent).toBe('OneTwo');
     editor.destroy();
   });
 });

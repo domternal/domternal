@@ -6,9 +6,9 @@
  * payload `{ blockPos, anchorElement }`. Mirrors FloatingMenu / SlashCommand
  * styling: `role="menu"`, `role="menuitem"`, `data-show`, positionFloatingOnce.
  */
-import { Extension, defaultIcons, positionFloatingOnce, stripInlineColorConflicts, writeToClipboard } from '@domternal/core';
+import { Extension, defaultIcons, liftCurrentListItem, positionFloatingOnce, stripInlineColorConflicts, writeToClipboard } from '@domternal/core';
 import type { Editor } from '@domternal/core';
-import { Plugin, PluginKey } from '@domternal/pm/state';
+import { Plugin, PluginKey, TextSelection, EditorState } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
 import type { Attrs } from '@domternal/pm/model';
 import { Decoration, DecorationSet } from '@domternal/pm/view';
@@ -45,6 +45,8 @@ export interface BlockContextMenuPluginState {
 }
 
 export const blockContextMenuPluginKey = new PluginKey<BlockContextMenuPluginState>('blockContextMenu');
+
+const LIST_WRAPPER_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
 
 /** A block type offered by the "Turn into" submenu. */
 export interface TurnIntoTarget {
@@ -312,12 +314,14 @@ export function createBlockContextMenuPlugin(
 
   const runTurnInto = (target: TurnIntoTarget): void => {
     if (currentBlockPos === null) return;
-    const sourceNode = editor.view.state.doc.nodeAt(currentBlockPos);
+    const blockPos = currentBlockPos;
+    const sourceNode = editor.view.state.doc.nodeAt(blockPos);
     if (!sourceNode) return;
+    const sourceIsTextblock = sourceNode.type.isTextblock;
 
     // For a wrapper source (listItem / taskItem / blockquote), descend to its
     // inner first textblock so the wrapper command gets a valid textblock source.
-    const pos = sourceNode.type.isTextblock ? currentBlockPos : currentBlockPos + 1;
+    const pos = sourceIsTextblock ? blockPos : blockPos + 1;
 
     // Wrapper targets route through the helper / editor command, which
     // dispatches its own transaction (with scrollIntoView), so we just
@@ -328,10 +332,34 @@ export function createBlockContextMenuPlugin(
       editor.view.focus();
       return;
     }
-    // Textblock targets: position-precise setBlockType via the pure helper.
     const targetType = editor.view.state.schema.nodes[target.nodeType];
     if (!targetType) return;
-    runAndClose((tr) => { turnIntoBlock(tr, pos, targetType, target.attrs); });
+
+    // Textblock source: position-precise setBlockType (preserves bg/text/id).
+    if (sourceIsTextblock) {
+      runAndClose((tr) => { turnIntoBlock(tr, pos, targetType, target.attrs); });
+      return;
+    }
+
+    // Wrapper source (list item) + textblock target: a raw setBlockType is a
+    // no-op inside a list item (its label must stay a paragraph), so lift the
+    // item out of its list first (Notion turn-into: splits the run, unindents),
+    // then set the block type. For the Paragraph target the lift IS the
+    // conversion, so the setBlockType step is skipped.
+    runAndClose((tr) => {
+      const labelInner = Math.min(blockPos + 2, tr.doc.content.size);
+      tr.setSelection(TextSelection.create(tr.doc, labelInner));
+      const liftState = EditorState.create({ doc: tr.doc, selection: tr.selection });
+      if (!liftCurrentListItem(liftState, tr)) return;
+      if (targetType.name !== 'paragraph') {
+        tr.setBlockType(
+          tr.selection.from,
+          tr.selection.to,
+          targetType,
+          (node) => ({ ...node.attrs, ...(target.attrs ?? {}) }),
+        );
+      }
+    });
   };
 
   /**
@@ -429,12 +457,16 @@ export function createBlockContextMenuPlugin(
     //   A. Textblock source (paragraph, heading, codeBlock): textblock AND
     //      wrapper targets eligible.
     //   B. Wrapper source (listItem/taskItem/blockquote whose first child is a
-    //      textblock): only wrapper targets eligible (textblock targets would
-    //      need an out-of-scope lift-then-convert), descending to the inner
-    //      textblock for the ancestor walk.
+    //      textblock): wrapper targets AND textblock targets eligible (a list
+    //      item is lifted out then converted; see runTurnInto), descending to
+    //      the inner textblock for the ancestor walk.
     // Atoms (HR) and wrapper-of-wrapper (e.g. bulletList) hide it entirely, like Notion.
     const sourceIsTextblock = node.type.isTextblock;
     const sourceIsWrapper = !sourceIsTextblock && node.firstChild?.isTextblock === true;
+    // A list-item source can also offer textblock targets (Heading, Code, ...):
+    // it gets lifted out then converted (runTurnInto). A blockquote wrapper can't,
+    // so textblock targets stay hidden there.
+    const sourceIsListItem = node.type.name === 'listItem' || node.type.name === 'taskItem';
     if (turnIntoEnabled && (sourceIsTextblock || sourceIsWrapper)) {
       // For wrapper sources, walk from the inner textblock (blockPos + 1, past
       // the wrapper opening token) so it picks up listItem / taskList / blockquote.
@@ -445,30 +477,43 @@ export function createBlockContextMenuPlugin(
         ancestorTypeNames.add($pos.node(d).type.name);
       }
 
-      // listItem / taskItem require their first child to be a paragraph, so
-      // toggleBlockquote on that inner paragraph is a schema-rejected no-op.
-      // Hide the Quote target to avoid a clickable-but-no-op item.
-      const isListItemFamilySource =
-        node.type.name === 'listItem' || node.type.name === 'taskItem';
+      // The list kind directly wrapping the block's LABEL (the nearest list item
+      // whose label slot the block sits in). A LIST target matching this is
+      // hidden ("you're already a bullet"); a different kind stays available and
+      // converts just this item / innermost sublist. Mirrors the slash menu, so
+      // a bullet nested in an ordered list still offers "Ordered list".
+      let labelWrapperType: string | null = null;
+      for (let d = $pos.depth; d >= 1; d--) {
+        const t = $pos.node(d).type.name;
+        if (t === 'listItem' || t === 'taskItem') {
+          if ($pos.index(d) === 0) labelWrapperType = $pos.node(d - 1).type.name;
+          break;
+        }
+      }
 
       const eligible = turnIntoTargets.filter((target) => {
         const type = editor.view.state.schema.nodes[target.nodeType];
         if (!type) return false;
 
-        // Wrapper target: hide when an ancestor of the same type already
-        // wraps the block ("you're already there").
         if (target.command) {
-          if (ancestorTypeNames.has(target.nodeType)) return false;
-          if (target.command === 'toggleBlockquote' && isListItemFamilySource) return false;
-          return true;
+          // A LIST target is hidden only when it is the innermost label wrapper
+          // (converting to it would just lift the item out). Non-list wrapper
+          // targets (Quote) keep the ancestor check: hidden only when already
+          // inside that wrapper.
+          if (LIST_WRAPPER_TYPES.has(target.nodeType)) {
+            return target.nodeType !== labelWrapperType;
+          }
+          return !ancestorTypeNames.has(target.nodeType);
         }
 
-        // Textblock target: only valid for a textblock source (wrapper sources
-        // need out-of-scope lift-then-convert).
-        if (!sourceIsTextblock) return false;
+        // Textblock target: eligible for a textblock source or a list-item
+        // source (which is lifted out then converted in runTurnInto). A
+        // blockquote wrapper source can't be, so it's excluded.
+        if (!sourceIsTextblock && !sourceIsListItem) return false;
         if (!type.isTextblock) return false;
         // Skip targets identical to the current block (same type AND attrs,
-        // e.g. hide "Heading 1" when already on H1).
+        // e.g. hide "Heading 1" when already on H1). A wrapper source's type
+        // (listItem) never equals a textblock target, so all are offered.
         if (type.name !== node.type.name) return true;
         const targetAttrs = target.attrs;
         if (!targetAttrs) return false;

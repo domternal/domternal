@@ -8,6 +8,7 @@ import { canJoin } from '@domternal/pm/transform';
 import type { Attrs, NodeType, Node as PMNode } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
 import { getListItemCursorContext } from '../utils/listItemCursorContext.js';
+import { liftCurrentListItem } from '../utils/liftCurrentListItem.js';
 
 /**
  * Find the innermost list of the given type around the selection,
@@ -236,6 +237,26 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
 
     const allInTargetList = contentBlocks.length > 0 && contentBlocks.every((b) => b.inTargetList);
     const allInSomeList = contentBlocks.length > 0 && contentBlocks.every((b) => b.inSomeList);
+
+    // Per-item convert: a COLLAPSED cursor in a list-item LABEL, converting to a
+    // DIFFERENT list kind, changes ONLY that item and splits the run (Notion),
+    // instead of retyping the whole wrapper as Case 2 does. Lift the single item
+    // out of its current list (which splits it), wrap just that block in the
+    // target list, and merge with same-kind neighbours. Non-collapsed (range /
+    // multi-block) selections keep the whole-wrapper Case 2 (toolbar semantics).
+    if (from === to && allInSomeList && !allInTargetList) {
+      if (!dispatch) return true;
+      if (liftCurrentListItem(state, tr)) {
+        const blockRange = tr.selection.$from.blockRange();
+        if (blockRange) wrapRangeInList(tr, blockRange, listType, attributes);
+        joinListBackwards(tr, listType);
+        joinListForwards(tr, listType);
+        dispatch(tr.scrollIntoView());
+        return true;
+      }
+      // Lift didn't apply (cursor not in a label slot, or the item owns its own
+      // sub-blocks): fall through to the whole-wrapper Case 2 below.
+    }
 
     // Case 1: All non-empty textblocks are in the target list type → lift items out
     if (allInTargetList) {

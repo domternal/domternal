@@ -9,7 +9,10 @@ import {
   HardBreak,
   HorizontalRule,
   BulletList,
+  OrderedList,
   ListItem,
+  TaskList,
+  TaskItem,
   Editor,
 } from '@domternal/core';
 import { Fragment } from '@domternal/pm/model';
@@ -19,7 +22,7 @@ import { SmartPaste } from './SmartPaste.js';
 
 const extensions = [
   Document, Text, Paragraph, Heading, Blockquote, CodeBlock, HardBreak,
-  HorizontalRule, BulletList, ListItem, SmartPaste,
+  HorizontalRule, BulletList, OrderedList, ListItem, TaskList, TaskItem, SmartPaste,
 ];
 
 function makeEditor(html: string): Editor {
@@ -93,7 +96,7 @@ describe('SmartPaste', () => {
     editor.destroy();
   });
 
-  it('paste H1 at START of paragraph → heading inserted between (auto-injected) label and original paragraph', () => {
+  it('paste H1 at START of a list-item label → heading splits the list out, item text intact', () => {
     const editor = makeEditor('<ul><li><p>Existing</p></li></ul>');
     const slice = htmlSlice(editor, '<h1>Inserted</h1>');
     const pPos = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Existing');
@@ -101,19 +104,18 @@ describe('SmartPaste', () => {
     const caret = pPos + 1;
     pasteAtPos(editor, caret, slice);
 
-    // Notion-strict listItem schema (`paragraph block*`) requires the FIRST
-    // child to be a paragraph. SmartPaste's offset=0 branch inserts the
-    // heading BEFORE the existing paragraph; PM's content fitter then
-    // prepends an empty paragraph as the schema-required label slot. Result
-    // has THREE children: empty label, heading, original paragraph.
-    const li = editor.state.doc.firstChild?.firstChild;
-    expect(li?.childCount).toBe(3);
-    expect(li?.child(0).type.name).toBe('paragraph');
-    expect(li?.child(0).textContent).toBe('');
-    expect(li?.child(1).type.name).toBe('heading');
-    expect(li?.child(1).textContent).toBe('Inserted');
-    expect(li?.child(2).type.name).toBe('paragraph');
-    expect(li?.child(2).textContent).toBe('Existing');
+    // The heading keeps its type and lands at LIST level (the item is the first,
+    // so it goes above the whole list), instead of being wedged inside the item
+    // with a fabricated empty label and the item's text demoted. No empty bullet;
+    // "Existing" stays the item's own label. Matches the cross-kind drag rules.
+    expect(editor.state.doc.childCount).toBe(2);
+    expect(editor.state.doc.child(0).type.name).toBe('heading');
+    expect(editor.state.doc.child(0).textContent).toBe('Inserted');
+    expect(editor.state.doc.child(1).type.name).toBe('bulletList');
+    const li = editor.state.doc.child(1).firstChild;
+    expect(li?.childCount).toBe(1);
+    expect(li?.firstChild?.type.name).toBe('paragraph');
+    expect(li?.firstChild?.textContent).toBe('Existing');
     editor.destroy();
   });
 
@@ -589,6 +591,81 @@ describe('SmartPaste', () => {
         if (node.type.name === 'listItem') items.push(node.textContent);
       });
       expect(items).toEqual(['Item']);
+      editor.destroy();
+    });
+
+    it('paste a TASK list slice into a bullet list keeps the to-dos (split, checked preserved)', () => {
+      const editor = makeEditor('<ul><li><p>A</p></li><li><p>B</p></li></ul>');
+      const slice = htmlSlice(editor, '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>Done</p></li></ul>');
+      const aPos = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'A');
+      const a = editor.state.doc.nodeAt(aPos);
+      if (!a) throw new Error('a not found');
+      pasteAtPos(editor, aPos + a.nodeSize - 1, slice); // caret at end of "A"
+
+      // The pasted to-do keeps its kind + checked state and splits the bullet list.
+      const types: string[] = [];
+      editor.state.doc.forEach((n) => types.push(n.type.name));
+      expect(types).toEqual(['bulletList', 'taskList', 'bulletList']);
+      const taskItem = editor.state.doc.child(1).firstChild;
+      expect(taskItem?.type.name).toBe('taskItem');
+      expect(taskItem?.attrs['checked']).toBe(true);
+      expect(taskItem?.textContent).toBe('Done');
+      editor.destroy();
+    });
+
+    it('paste an ORDERED list slice into a bullet list keeps it ordered (split)', () => {
+      const editor = makeEditor('<ul><li><p>A</p></li><li><p>B</p></li></ul>');
+      const slice = htmlSlice(editor, '<ol><li><p>Num</p></li></ol>');
+      const aPos = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'A');
+      const a = editor.state.doc.nodeAt(aPos);
+      if (!a) throw new Error('a not found');
+      pasteAtPos(editor, aPos + a.nodeSize - 1, slice);
+
+      const types: string[] = [];
+      editor.state.doc.forEach((n) => types.push(n.type.name));
+      expect(types).toEqual(['bulletList', 'orderedList', 'bulletList']);
+      expect(editor.state.doc.child(1).firstChild?.type.name).toBe('listItem');
+      expect(editor.state.doc.child(1).textContent).toBe('Num');
+      editor.destroy();
+    });
+
+    it('paste a BULLET list slice into a task list keeps it bullets (split)', () => {
+      const editor = makeEditor(
+        '<ul data-type="taskList"><li data-type="taskItem"><p>T1</p></li><li data-type="taskItem"><p>T2</p></li></ul>',
+      );
+      const slice = htmlSlice(editor, '<ul><li><p>Bul</p></li></ul>');
+      const t1 = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'T1');
+      const t1n = editor.state.doc.nodeAt(t1);
+      if (!t1n) throw new Error('t1 not found');
+      pasteAtPos(editor, t1 + t1n.nodeSize - 1, slice); // end of T1
+
+      const types: string[] = [];
+      editor.state.doc.forEach((n) => types.push(n.type.name));
+      expect(types).toEqual(['taskList', 'bulletList', 'taskList']);
+      expect(editor.state.doc.child(1).firstChild?.type.name).toBe('listItem');
+      expect(editor.state.doc.child(1).textContent).toBe('Bul');
+      editor.destroy();
+    });
+
+    it('paste a task-list slice MID-label of a checked to-do leaves the split tail unchecked', () => {
+      const editor = makeEditor(
+        '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>HelloWorld</p></li></ul>',
+      );
+      const slice = htmlSlice(editor, '<ul data-type="taskList"><li data-type="taskItem"><p>Mid</p></li></ul>');
+      const pPos = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'HelloWorld');
+      pasteAtPos(editor, pPos + 1 + 5, slice); // between "Hello" and "World"
+
+      // Same-kind merge splits the label: head "Hello" keeps checked, the tail
+      // "World" is a NEW item so it must be unchecked (Notion; matches Enter).
+      const items: { text: string; checked: unknown }[] = [];
+      editor.state.doc.descendants((n) => {
+        if (n.type.name === 'taskItem') items.push({ text: n.textContent, checked: n.attrs['checked'] });
+      });
+      expect(items).toEqual([
+        { text: 'Hello', checked: true },
+        { text: 'Mid', checked: false },
+        { text: 'World', checked: false },
+      ]);
       editor.destroy();
     });
   });

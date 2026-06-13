@@ -759,7 +759,7 @@ describe('builtIn commands', () => {
       expect(editor.state.doc.child(0).type.name).toBe('paragraph');
     });
 
-    it('toggleList converts task → ordered with cursor restoration', () => {
+    it('toggleList converts ONLY the cursor item task → ordered, splitting the run', () => {
       editor = new Editor({
         extensions: [Document, Text, Paragraph, BulletList, OrderedList, ListItem, TaskList, TaskItem],
         content: `
@@ -785,10 +785,14 @@ describe('builtIn commands', () => {
 
       const result = editor.commands.toggleList('orderedList', 'listItem');
       expect(result).toBe(true);
-      expect(editor.state.doc.child(0).type.name).toBe('orderedList');
-      // Both items should be preserved
-      expect(editor.getText()).toContain('Alpha');
-      expect(editor.getText()).toContain('Beta');
+      // Per-item (Notion): only "Beta" (the cursor's item) converts; "Alpha"
+      // stays a to-do with its checked state intact. The task list splits.
+      const types: string[] = [];
+      editor.state.doc.forEach((n) => types.push(n.type.name));
+      expect(types).toEqual(['taskList', 'orderedList']);
+      expect(editor.state.doc.child(0).textContent).toContain('Alpha');
+      expect((editor.state.doc.child(0).firstChild?.attrs as { checked: boolean }).checked).toBe(true);
+      expect(editor.state.doc.child(1).textContent).toContain('Beta');
       // Cursor should still resolve to a paragraph
       const { from } = editor.state.selection;
       const $from = editor.state.doc.resolve(from);

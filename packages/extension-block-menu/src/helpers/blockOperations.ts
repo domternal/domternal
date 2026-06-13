@@ -2,6 +2,7 @@ import type { Attrs, NodeType } from '@domternal/pm/model';
 import type { Transaction } from '@domternal/pm/state';
 import { TextSelection } from '@domternal/pm/state';
 import { expandToEmptyWrappers } from './expandToEmptyWrappers.js';
+import { rejoinAtSeam } from './rejoinAtSeam.js';
 
 /**
  * Block-level transaction helpers for BlockContextMenu commands (Delete,
@@ -22,6 +23,10 @@ import { expandToEmptyWrappers } from './expandToEmptyWrappers.js';
  * 2. Doc-empty fallback: if the expanded range covers the whole doc, deleting
  *    would violate `block+` on the doc. We replace with a fresh paragraph so the
  *    editor stays usable (Notion behaviour).
+ *
+ * 3. Seam heal: deleting a block that sat between two same-type lists leaves them
+ *    touching; `rejoinAtSeam` merges them (clearing a stale ordered `start`) so
+ *    numbering stays continuous, matching `moveBlock`.
  */
 export function deleteBlock(tr: Transaction, blockPos: number): Transaction {
   if (blockPos < 0 || blockPos >= tr.doc.content.size) return tr;
@@ -48,6 +53,8 @@ export function deleteBlock(tr: Transaction, blockPos: number): Transaction {
   }
 
   tr.delete(from, to);
+  // The block's removal may bring two same-type lists flush together.
+  rejoinAtSeam(tr, from);
   return tr;
 }
 

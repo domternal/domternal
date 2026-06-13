@@ -19,6 +19,7 @@ import { Node } from '../Node.js';
 import { splitListItem, liftListItem, sinkListItem } from '@domternal/pm/schema-list';
 import { Selection } from '@domternal/pm/state';
 import { splitBlock } from '@domternal/pm/commands';
+import { canSplit } from '@domternal/pm/transform';
 import type { CommandSpec } from '../types/Commands.js';
 import { getListItemCursorContext } from '../utils/listItemCursorContext.js';
 import { insertChildrenZoneSibling } from '../utils/insertChildrenZoneSibling.js';
@@ -162,6 +163,27 @@ export const TaskItem = Node.create<TaskItemOptions>({
             if (insertChildrenZoneSibling(state, view.dispatch, ctx)) return true;
           } else {
             if (splitBlock(state, view.dispatch)) return true;
+          }
+        }
+
+        // splitListItem only resets the new item's attrs when the caret is at
+        // the END of the label, so a checked to-do split MID-label would copy
+        // checked: true onto the tail. Force an unchecked tail to match the
+        // end-of-item case (and Notion: each new task is fresh work).
+        if (
+          !ctx?.isInChildrenZone
+          && $from.node(-1).attrs['checked']
+          && $from.parentOffset > 0
+          && $from.parentOffset < $from.parent.content.size
+        ) {
+          const tr = state.tr;
+          const types = [
+            { type: this.nodeType, attrs: { ...$from.node(-1).attrs, checked: false } },
+            { type: $from.parent.type },
+          ];
+          if (canSplit(tr.doc, $from.pos, 2, types)) {
+            view.dispatch(tr.split($from.pos, 2, types).scrollIntoView());
+            return true;
           }
         }
 

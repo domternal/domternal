@@ -1599,7 +1599,7 @@ test.describe('nested drop matrix - source types appended as last child', () => 
     });
   });
 
-  test('cross-list-type: bullet listItem dropped onto taskItem with nested-zone X wraps in fresh nested taskList with adapted taskItem', async ({ page }) => {
+  test('cross-list-type: bullet listItem dropped onto taskItem keeps its bullet kind (own nested bulletList)', async ({ page }) => {
     await setContent(
       page,
       '<ul><li><p>Bullet</p></li></ul>'
@@ -1631,8 +1631,8 @@ test.describe('nested drop matrix - source types appended as last child', () => 
       topType: 'taskList',
       taskItemChildren: 2,
       taskItemLabel: 'Task',
-      nestedListType: 'taskList', // wrapper matches target's type
-      nestedFirstItemType: 'taskItem', // bullet item adapted to taskItem
+      nestedListType: 'bulletList', // kind travels with the block (Notion)
+      nestedFirstItemType: 'listItem', // bullet item stays a bullet
       nestedFirstItemText: 'Bullet',
     });
   });
@@ -1850,7 +1850,7 @@ test.describe('nested drop matrix - source types appended as last child', () => 
     });
   });
 
-  test('reverse cross-list-type: taskItem source dropped onto bullet listItem wraps in fresh nested bulletList', async ({ page }) => {
+  test('reverse cross-list-type: taskItem source dropped onto bullet listItem keeps its to-do kind (own nested taskList)', async ({ page }) => {
     await setContent(
       page,
       '<ul data-type="taskList"><li data-type="taskItem"><p>Task source</p></li></ul>'
@@ -1881,10 +1881,10 @@ test.describe('nested drop matrix - source types appended as last child', () => 
     expect(tree).toEqual({
       topCount: 1, // taskList collapsed
       topType: 'bulletList', // outer is now just the bullet list
-      liChildren: 2, // [Bullet target, nested ul]
+      liChildren: 2, // [Bullet target, nested taskList]
       liLabel: 'Bullet target',
-      nestedType: 'bulletList', // wrapper matches target's type
-      nestedFirstItemType: 'listItem', // task item adapted to listItem
+      nestedType: 'taskList', // kind travels with the block (Notion)
+      nestedFirstItemType: 'taskItem', // task item stays a to-do
       nestedFirstItemText: 'Task source',
     });
   });

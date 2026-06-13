@@ -1097,26 +1097,24 @@ test.describe('Turn into - wrappers', () => {
     expect(html).toMatch(/<ol[^>]*>[\s\S]*<p[^>]*>One<\/p>[\s\S]*<p[^>]*>Two<\/p>/);
   });
 
-  test('drag-handle on bullet list item hides "Quote" option (schema constraint)', async ({ page }) => {
-    // listItem.content requires paragraph as first child - wrapping the
-    // inner paragraph in blockquote would make blockquote the first
-    // child, which schema rejects. Hidden upfront to avoid no-op clicks.
+  test('drag-handle on bullet list item shows "Quote" (works via lift-then-wrap)', async ({ page }) => {
+    // toggleBlockquote on a list item works through wrapIn's lift-then-wrap
+    // fallback (the item is lifted out, then wrapped), so Quote is offered.
     await setContent(page, '<ul><li><p>X</p></li></ul>');
     await hoverBlock(page, 'li');
     await openContextMenu(page);
-    await expect(page.locator(`${contextItemSelector}[aria-label="Quote"]`)).toHaveCount(0);
+    await expect(page.locator(`${contextItemSelector}[aria-label="Quote"]`)).toBeVisible();
   });
 
-  test('drag-handle on bullet list item hides textblock targets', async ({ page }) => {
-    // Wrapper source + textblock target would need lift-then-convert,
-    // which is out of scope. The menu hides them entirely.
+  test('drag-handle on bullet list item shows textblock targets (lift-then-convert)', async ({ page }) => {
+    // Wrapper source + textblock target lifts the item out then converts it
+    // (Notion turn-into), so Heading / Paragraph / Code block are all offered.
     await setContent(page, '<ul><li><p>X</p></li></ul>');
     await hoverBlock(page, 'li');
     await openContextMenu(page);
-    await expect(page.locator(`${contextItemSelector}[aria-label="Heading 1"]`)).toHaveCount(0);
-    await expect(page.locator(`${contextItemSelector}[aria-label="Heading 2"]`)).toHaveCount(0);
-    await expect(page.locator(`${contextItemSelector}[aria-label="Paragraph"]`)).toHaveCount(0);
-    await expect(page.locator(`${contextItemSelector}[aria-label="Code block"]`)).toHaveCount(0);
+    await expect(page.locator(`${contextItemSelector}[aria-label="Heading 1"]`)).toBeVisible();
+    await expect(page.locator(`${contextItemSelector}[aria-label="Paragraph"]`)).toBeVisible();
+    await expect(page.locator(`${contextItemSelector}[aria-label="Code block"]`)).toBeVisible();
   });
 
   test('drag-handle on task item converts taskList → bulletList', async ({ page }) => {

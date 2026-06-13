@@ -512,13 +512,14 @@ export interface DropPlacementOptions {
   /** Enable the dead-bands (off for unit callers, `true` from the plugin). */
   hysteresis?: boolean;
   /**
-   * The dragged source's list-item type (`'listItem'`/`'taskItem'`), or `null`
-   * for a non-list block. Drives the sibling indicator column: a drop that
-   * splits the list (a non-list block, or a list item of the other kind) draws
-   * at the list's parent column; one that joins (matching item type) keeps the
-   * item column. Omit for stateless callers. See {@link resolveDropSlot}.
+   * The dragged source's list WRAPPER type (`'bulletList'`/`'orderedList'`/
+   * `'taskList'`), or `null` for a non-list block. Drives the sibling indicator
+   * column: a drop that splits the list (a non-list block, or a list item of a
+   * different kind) draws at the list's parent column; one that joins (same list
+   * kind) keeps the item column. Omit for stateless callers. See
+   * {@link resolveDropSlot}.
    */
-  sourceItemType?: string | null;
+  sourceWrapperName?: string | null;
 }
 
 /**
@@ -551,7 +552,7 @@ export function computeDropPlacement(
     incumbent,
     bandY: options.hysteresis ? DROP_HYSTERESIS_Y_PX : 0,
     bandX: options.hysteresis ? DROP_HYSTERESIS_X_PX : 0,
-    ...(options.sourceItemType !== undefined ? { sourceItemType: options.sourceItemType } : {}),
+    ...(options.sourceWrapperName !== undefined ? { sourceWrapperName: options.sourceWrapperName } : {}),
   });
   if (!slot) return null;
   const opt = slot.option;
@@ -1087,7 +1088,9 @@ export function createBlockHandlePlugin(
       incumbentLevel: dragHyst.level,
       incumbentChildIndex: dragHyst.childIndex,
       hysteresis: true,
-      sourceItemType: LIST_ITEM_TYPES.has(sourceNode.type.name) ? sourceNode.type.name : null,
+      sourceWrapperName: LIST_ITEM_TYPES.has(sourceNode.type.name)
+        ? view.state.doc.resolve(draggedFrom).parent.type.name
+        : null,
     });
     if (!placement) return false;
     const tr = view.state.tr;
@@ -1151,17 +1154,18 @@ export function createBlockHandlePlugin(
   };
 
   /**
-   * List-item type of the dragged block (`'listItem'`/`'taskItem'`), or `null`
-   * for a non-list block. Drives source-aware drop geometry: a splitting drop
-   * (non-list block, or the other item kind) sits at the list's parent column,
-   * a joining one keeps the item column. Reads the same tiered source as
-   * `performBlockDrop` so indicator and drop agree.
+   * List WRAPPER type of the dragged block (`'bulletList'`/`'orderedList'`/
+   * `'taskList'`), or `null` for a non-list block. Drives source-aware drop
+   * geometry: a splitting drop (non-list block, or a different list kind) sits at
+   * the list's parent column, a joining one keeps the item column. Reads the same
+   * tiered source as `performBlockDrop` so indicator and drop agree.
    */
-  const draggedSourceItemType = (): string | null => {
+  const draggedSourceWrapperName = (): string | null => {
     const from = pluginKey.getState(editor.view.state)?.draggedFrom ?? pendingDraggedFrom;
     if (from === null) return null;
     const node = editor.view.state.doc.nodeAt(from);
-    return node && LIST_ITEM_TYPES.has(node.type.name) ? node.type.name : null;
+    if (!node || !LIST_ITEM_TYPES.has(node.type.name)) return null;
+    return editor.view.state.doc.resolve(from).parent.type.name;
   };
 
   /**
@@ -1177,7 +1181,7 @@ export function createBlockHandlePlugin(
       incumbentLevel: dragHyst.level,
       incumbentChildIndex: dragHyst.childIndex,
       hysteresis: true,
-      sourceItemType: draggedSourceItemType(),
+      sourceWrapperName: draggedSourceWrapperName(),
     });
     if (!placement) {
       indicator.removeAttribute('data-show');

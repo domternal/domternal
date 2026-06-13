@@ -343,7 +343,7 @@ describe('turnIntoWrapper', () => {
   // without rebuilding items (or rebuilds items only when the listItem
   // type differs). The helper should route through the same path.
 
-  it('converts a paragraph inside a bullet list to an ordered list in-place', () => {
+  it('converts ONLY the targeted item to an ordered list, splitting the bullet run (Notion per-item)', () => {
     const editor = makeEditor('<ul><li><p>A</p></li><li><p>B</p></li></ul>');
     // Target the paragraph inside the first listItem.
     let paragraphPos = -1;
@@ -358,18 +358,17 @@ describe('turnIntoWrapper', () => {
     expect(paragraphPos).toBeGreaterThan(0);
     const ok = turnIntoWrapper(editor, paragraphPos, 'toggleOrderedList');
     expect(ok).toBe(true);
-    const first = editor.state.doc.firstChild;
-    expect(first?.type.name).toBe('orderedList');
-    // Both items should survive intact.
-    expect(first?.childCount).toBe(2);
-    expect(first?.firstChild?.firstChild?.textContent).toBe('A');
-    expect(first?.lastChild?.firstChild?.textContent).toBe('B');
+    // Only "A" becomes ordered; "B" stays a bullet (the run splits around it).
+    const types: string[] = [];
+    editor.state.doc.forEach((n) => types.push(n.type.name));
+    expect(types).toEqual(['orderedList', 'bulletList']);
+    expect(editor.state.doc.child(0).childCount).toBe(1);
+    expect(editor.state.doc.child(0).textContent).toBe('A');
+    expect(editor.state.doc.child(1).textContent).toBe('B');
     editor.destroy();
   });
 
-  it('converts a paragraph inside a bullet list to a task list (cross-item-type rebuild)', () => {
-    // listItem and taskItem differ in type, so toggleList's Case 2
-    // rebuilds items with the new type. checked defaults to false.
+  it('converts ONLY the targeted item to a to-do, splitting the bullet run (checked=false)', () => {
     const editor = makeEditor('<ul><li><p>A</p></li><li><p>B</p></li></ul>');
     let paragraphPos = -1;
     editor.state.doc.descendants((node, pos) => {
@@ -382,13 +381,15 @@ describe('turnIntoWrapper', () => {
     });
     const ok = turnIntoWrapper(editor, paragraphPos, 'toggleTaskList');
     expect(ok).toBe(true);
-    const first = editor.state.doc.firstChild;
-    expect(first?.type.name).toBe('taskList');
-    expect(first?.childCount).toBe(2);
-    expect(first?.firstChild?.type.name).toBe('taskItem');
-    expect((first?.firstChild?.attrs as { checked: boolean }).checked).toBe(false);
-    expect(first?.firstChild?.firstChild?.textContent).toBe('A');
-    expect(first?.lastChild?.firstChild?.textContent).toBe('B');
+    const types: string[] = [];
+    editor.state.doc.forEach((n) => types.push(n.type.name));
+    expect(types).toEqual(['taskList', 'bulletList']);
+    const taskList = editor.state.doc.child(0);
+    expect(taskList.childCount).toBe(1);
+    expect(taskList.firstChild?.type.name).toBe('taskItem');
+    expect((taskList.firstChild?.attrs as { checked: boolean }).checked).toBe(false);
+    expect(taskList.textContent).toBe('A');
+    expect(editor.state.doc.child(1).textContent).toBe('B');
     editor.destroy();
   });
 
