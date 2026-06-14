@@ -668,5 +668,107 @@ describe('SmartPaste', () => {
       ]);
       editor.destroy();
     });
+
+    it('paste an ORDERED list slice at the START of a bullet item splits it out before, item text intact', () => {
+      const editor = makeEditor('<ul><li><p>A</p></li><li><p>B</p></li></ul>');
+      const slice = htmlSlice(editor, '<ol><li><p>Num</p></li></ol>');
+      const aPos = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'A');
+      pasteAtPos(editor, aPos + 1, slice); // caret at offset 0 of "A"
+
+      const types: string[] = [];
+      editor.state.doc.forEach((n) => types.push(n.type.name));
+      // Ordered slice lands BEFORE "A" at list level; bullet items stay bullets.
+      expect(types).toEqual(['orderedList', 'bulletList']);
+      expect(editor.state.doc.child(0).textContent).toBe('Num');
+      const bulletTexts: string[] = [];
+      editor.state.doc.child(1).forEach((li) => bulletTexts.push(li.textContent));
+      expect(bulletTexts).toEqual(['A', 'B']);
+      editor.destroy();
+    });
+
+    it('paste an ORDERED list slice in the MIDDLE of a bullet item splits the item, slice stays ordered', () => {
+      const editor = makeEditor('<ul><li><p>HelloWorld</p></li></ul>');
+      const slice = htmlSlice(editor, '<ol><li><p>Num</p></li></ol>');
+      const pPos = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'HelloWorld');
+      pasteAtPos(editor, pPos + 1 + 5, slice); // between "Hello" and "World"
+
+      const types: string[] = [];
+      editor.state.doc.forEach((n) => types.push(n.type.name));
+      expect(types).toEqual(['bulletList', 'orderedList', 'bulletList']);
+      expect(editor.state.doc.child(0).textContent).toBe('Hello');
+      expect(editor.state.doc.child(1).textContent).toBe('Num');
+      expect(editor.state.doc.child(2).textContent).toBe('World');
+      editor.destroy();
+    });
+
+    it('paste an ORDERED list slice after a trailing hardBreak in a bullet item keeps ordered, lands as sibling', () => {
+      const editor = makeEditor('<ul><li><p>Existing</p></li></ul>');
+      const pPos = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Existing');
+      const p = editor.state.doc.nodeAt(pPos);
+      if (!p) throw new Error('p not found');
+      const hardBreakType = editor.schema.nodes['hardBreak'];
+      if (!hardBreakType) throw new Error('hardBreak not in schema');
+      const tr = editor.state.tr.insert(pPos + p.nodeSize - 1, hardBreakType.create());
+      editor.view.dispatch(tr);
+
+      const slice = htmlSlice(editor, '<ol><li><p>Num</p></li></ol>');
+      const pPos2 = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Existing');
+      const p2 = editor.state.doc.nodeAt(pPos2);
+      if (!p2) throw new Error('p2 not found');
+      pasteAtPos(editor, pPos2 + p2.nodeSize - 1, slice); // caret right after the hardBreak
+
+      const types: string[] = [];
+      editor.state.doc.forEach((n) => types.push(n.type.name));
+      expect(types).toEqual(['bulletList', 'orderedList']);
+      expect(editor.state.doc.child(0).textContent).toBe('Existing');
+      expect(editor.state.doc.child(1).textContent).toBe('Num');
+      editor.destroy();
+    });
+
+    it('paste an ORDERED list slice into an EMPTY bullet item (the only item) replaces the whole list', () => {
+      const editor = makeEditor('<ul><li><p></p></li></ul>');
+      const slice = htmlSlice(editor, '<ol><li><p>Num</p></li></ol>');
+      const liPos = findPos(editor, (n) => n.type.name === 'listItem');
+      pasteAtPos(editor, liPos + 2, slice); // caret inside the empty label
+
+      const types: string[] = [];
+      editor.state.doc.forEach((n) => types.push(n.type.name));
+      expect(types).toEqual(['orderedList']);
+      expect(editor.state.doc.child(0).textContent).toBe('Num');
+      editor.destroy();
+    });
+
+    it('paste an ORDERED list slice into an EMPTY bullet item among siblings splits and replaces just that item', () => {
+      const editor = makeEditor('<ul><li><p>A</p></li><li><p></p></li><li><p>C</p></li></ul>');
+      const slice = htmlSlice(editor, '<ol><li><p>Num</p></li></ol>');
+      // The empty middle item is the listItem with no text content.
+      const emptyLi = findPos(
+        editor,
+        (n) => n.type.name === 'listItem' && n.textContent === '',
+      );
+      pasteAtPos(editor, emptyLi + 2, slice); // caret inside the empty label
+
+      const types: string[] = [];
+      editor.state.doc.forEach((n) => types.push(n.type.name));
+      expect(types).toEqual(['bulletList', 'orderedList', 'bulletList']);
+      expect(editor.state.doc.child(0).textContent).toBe('A');
+      expect(editor.state.doc.child(1).textContent).toBe('Num');
+      expect(editor.state.doc.child(2).textContent).toBe('C');
+      editor.destroy();
+    });
+  });
+
+  it('paste H1 at the START of a non-empty plain paragraph → heading inserted before the text', () => {
+    const editor = makeEditor('<p>Hello</p>');
+    const slice = htmlSlice(editor, '<h1>Title</h1>');
+    const pPos = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Hello');
+    pasteAtPos(editor, pPos + 1, slice); // caret at offset 0 of "Hello"
+
+    const types: string[] = [];
+    editor.state.doc.forEach((n) => types.push(n.type.name));
+    expect(types).toEqual(['heading', 'paragraph']);
+    expect(editor.state.doc.child(0).textContent).toBe('Title');
+    expect(editor.state.doc.child(1).textContent).toBe('Hello');
+    editor.destroy();
   });
 });

@@ -435,4 +435,31 @@ describe('moveBlockAsNestedChild', () => {
       expect(out).toContain('taskList(taskItem(paragraph("Wire")))');
     });
   });
+
+  describe('source-seam heal', () => {
+    it('removing the nested-dropped source rejoins two same-type lists left touching', () => {
+      // "Drag" sits between two bullet lists. Nesting it into "A" removes it
+      // from the top level, leaving the two bullet lists flush; rejoinAtSeam
+      // merges them into one (matches moveBlock's source-seam heal).
+      editor = makeEditor(
+        '<ul><li><p>A</p></li></ul><p>Drag</p><ul><li><p>B</p></li></ul>',
+      );
+      const aItem = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'A');
+      const dragP = posOf(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Drag');
+      const wrapperPos = editor.state.doc.resolve(aItem).before();
+
+      const tr = editor.state.tr;
+      expect(moveBlockAsNestedChild(tr, dragP, wrapperPos, aItem)).toBe(true);
+      editor.view.dispatch(tr);
+
+      // One bullet list survives: A (now holding the nested "Drag") + B.
+      const types: string[] = [];
+      editor.state.doc.forEach((n) => types.push(n.type.name));
+      expect(types).toEqual(['bulletList']);
+      const list = editor.state.doc.firstChild;
+      expect(list?.childCount).toBe(2);
+      expect(list?.firstChild?.textContent).toContain('Drag');
+      expect(list?.lastChild?.textContent).toBe('B');
+    });
+  });
 });
