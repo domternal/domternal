@@ -1,18 +1,9 @@
 /**
- * Notion-mode adjacent-list spacing.
- *
- * Notion chunks consecutive list items together regardless of list subtype:
- * a bullet -> numbered -> to-do run reads as one continuous block, with the
- * same tight gap at a type boundary as between two items of the same type.
- * Domternal uses a container-per-type model (<ul>/<ol>/<ul data-type=taskList>),
- * so by default a type change leaves the 0.75em (~12px) list-container gap.
- * Notion mode tightens that boundary to the within-list item gap (0.25em ~= 4px)
- * via `_notion-mode.scss`; classic mode is deliberately left at the wide gap.
- *
- * The test measures the real rendered vertical gap (collapsed margin) between
- * the two top-level list containers, then removes the `dm-notion-mode` class
- * (reverting to classic styling) and re-measures to prove the override is
- * scoped to notion mode only.
+ * Notion-mode list spacing. Adjacent lists of different type chunk at the
+ * within-item gap (~4px) in notion mode but keep the wide container gap
+ * (~12px) in classic; a nested list chunks tightly under its label in both.
+ * Each test measures the real rendered gap and toggles `dm-notion-mode` to
+ * prove the notion-only scope.
  */
 import { test, expect, type Page } from '@playwright/test';
 import { goNotion, setContent } from './notion-helpers';

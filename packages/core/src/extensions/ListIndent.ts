@@ -1,8 +1,8 @@
 /**
  * Keyboard indent across list boundaries. `Tab` on a top-level block whose
  * previous sibling is a list moves the block INTO the last item as a nested
- * child; `Shift-Tab` reverses for a block sitting as the last child of the
- * last item.
+ * child; `Shift-Tab` lifts the last child of a list item back out to a
+ * top-level sibling, splitting the list when that item is not the last one.
  *
  * Trigger is intentionally narrow so ListKeymap retains in-list Tab/Shift-Tab
  * (`sinkListItem` / `liftListItem`). Schema is validated via `canReplaceWith`;
@@ -14,9 +14,9 @@
  *    inside the now-nested context (then ListKeymap takes over).
  *  - Tab only fires for cursors in TOP-LEVEL blocks (depth === 1). Cursors
  *    inside other containers (blockquote, table cell) fall through.
- *  - Shift-Tab only fires when the block is BOTH the last child of its
- *    item AND the item is the last in its wrapper. Mid-position outdent
- *    would require splitting the list item, which is deferred.
+ *  - Shift-Tab fires for the LAST child of a list item; a non-last item is
+ *    split so the parent survives (Notion parity). Mid children-zone blocks
+ *    are still deferred.
  *
  * Registration order: must come AFTER ListKeymap so this extension's keymap
  * runs FIRST and can defer to ListKeymap for in-list flows.
@@ -121,10 +121,9 @@ export function indentBlockAsListChild(
 }
 
 /**
- * `Shift-Tab` handler: lift a non-label nested block out of its list
- * item to become a top-level sibling AFTER the list wrapper. Only
- * fires for the strict end-of-end case (last child of last item) so
- * the lift is deterministic and never needs to split a list item.
+ * `Shift-Tab` handler: lift the last child of a list item out to a
+ * top-level sibling. Lands after the whole list when the item is last
+ * in its wrapper, else splits the wrapper and lands between the halves.
  *
  * Precondition table:
  *   - cursor empty
@@ -137,7 +136,6 @@ export function indentBlockAsListChild(
  *     immediate li children rather than reaching deeper into nested
  *     containers
  *   - the block is the LAST child of the list item
- *   - the list item is the LAST child of its wrapper
  *   - the wrapper's parent accepts the block as a sibling (schema)
  */
 export function outdentBlockFromListItem(

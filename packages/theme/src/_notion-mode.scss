@@ -73,20 +73,11 @@
       margin: 0;
     }
 
-    // Notion chunks consecutive list items together regardless of list
-    // subtype: a bullet -> numbered -> to-do run reads as one continuous
-    // block, with no extra breathing room at the type boundary. Classic
-    // mode keeps the conventional 0.75em gap between distinct list
-    // containers; this override is scoped to notion mode only.
-    //
-    // The default `ul, ol { margin: 0.75em 0 }` (in `_content.scss`)
-    // produces a ~12px gap where two top-level lists meet. We bring that
-    // down to the within-list item gap (0.25em ~= 4px). Both sides of the
-    // boundary must be tightened: vertical margins collapse to the LARGER
-    // of the two, so reducing only one side would leave the 0.75em from
-    // the other. `+` tightens the following list's top; `:has(+ ...)`
-    // tightens the preceding list's bottom. Scoped to direct children of
-    // `.ProseMirror` so nested list nesting is untouched.
+    // Notion-mode only: adjacent top-level lists of any type chunk together at
+    // the within-item gap (~4px) instead of the 0.75em container gap. Both
+    // sides must be tightened because vertical margins collapse to the LARGER
+    // of the two (`+` for the following list's top, `:has(+ ...)` for the
+    // preceding list's bottom). Direct children only, so nesting is untouched.
     > :is(ul, ol) + :is(ul, ol) {
       margin-top: 0.25em;
     }

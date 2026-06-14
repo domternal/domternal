@@ -111,15 +111,10 @@
     padding-right: var(--dm-block-inline-padding);
   }
 
-  // A list nested in a list item's children zone chunks tightly under its
-  // parent label instead of carrying the full 0.75em (~12px) container margin.
-  // This matches the 0.25rem (~4px) gap the sibling NON-list children already
-  // get from the children-zone rule below (which excludes ul/ol), so a nested
-  // list and a nested heading/paragraph sit at the same vertical rhythm under
-  // one item, and mirrors Notion where nesting adds no extra breathing room.
-  // `li :is(ul, ol)` matches every nesting depth and both the bullet/ordered
-  // (`li > ul`) and task (`li > div > ul`) structures. Horizontal indent is
-  // unaffected (it comes from each list's own `padding-left: 1.5em`).
+  // A nested list chunks tightly under its parent label (the within-item gap)
+  // instead of the 0.75em container margin, matching the sibling non-list
+  // children. `li :is(ul, ol)` covers every depth and both the bullet
+  // (`li > ul`) and task (`li > div > ul`) shapes.
   li :is(ul, ol) {
     margin-block: 0.25em;
   }
