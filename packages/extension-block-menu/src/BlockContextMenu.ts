@@ -72,9 +72,9 @@ const DEFAULT_TURN_INTO: TurnIntoTarget[] = [
   { label: 'Heading 1', icon: 'textHOne', nodeType: 'heading', attrs: { level: 1 } },
   { label: 'Heading 2', icon: 'textHTwo', nodeType: 'heading', attrs: { level: 2 } },
   { label: 'Heading 3', icon: 'textHThree', nodeType: 'heading', attrs: { level: 3 } },
-  { label: 'Bullet list', icon: 'listBullets', nodeType: 'bulletList', command: 'toggleBulletList' },
-  { label: 'Ordered list', icon: 'listNumbers', nodeType: 'orderedList', command: 'toggleOrderedList' },
-  { label: 'To-do list', icon: 'listChecks', nodeType: 'taskList', command: 'toggleTaskList' },
+  { label: 'Bullet list', icon: 'listBullets', nodeType: 'bulletList', command: 'turnIntoBulletList' },
+  { label: 'Ordered list', icon: 'listNumbers', nodeType: 'orderedList', command: 'turnIntoOrderedList' },
+  { label: 'To-do list', icon: 'listChecks', nodeType: 'taskList', command: 'turnIntoTaskList' },
   { label: 'Quote', icon: 'quotes', nodeType: 'blockquote', command: 'toggleBlockquote' },
   { label: 'Code block', icon: 'codeBlock', nodeType: 'codeBlock' },
 ];

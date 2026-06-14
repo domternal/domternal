@@ -1,11 +1,14 @@
 import { TextSelection } from '@domternal/pm/state';
 import type { Editor } from '@domternal/core';
 
-/** Wrapper-style "Turn into" commands, each from the matching node extension. */
+/** Wrapper-style "Turn into" commands, each from the matching node extension.
+ *  Lists use the per-item `turnInto*` commands (Notion turn-into: convert only
+ *  the targeted block and split the run); the whole-list `toggle*List` commands
+ *  stay reserved for the toolbar button and Mod-Shift shortcut. */
 export type WrapperCommand =
-  | 'toggleBulletList'
-  | 'toggleOrderedList'
-  | 'toggleTaskList'
+  | 'turnIntoBulletList'
+  | 'turnIntoOrderedList'
+  | 'turnIntoTaskList'
   | 'toggleBlockquote';
 
 /**
@@ -52,12 +55,12 @@ export function turnIntoWrapper(
   // Dispatch via the commands map. It's typed `Record<string, (...) => boolean>`,
   // so switch on the discriminant to keep type-safety without a wide cast.
   switch (command) {
-    case 'toggleBulletList':
-      return editor.commands.toggleBulletList();
-    case 'toggleOrderedList':
-      return editor.commands.toggleOrderedList();
-    case 'toggleTaskList':
-      return editor.commands.toggleTaskList();
+    case 'turnIntoBulletList':
+      return editor.commands.turnIntoBulletList();
+    case 'turnIntoOrderedList':
+      return editor.commands.turnIntoOrderedList();
+    case 'turnIntoTaskList':
+      return editor.commands.turnIntoTaskList();
     case 'toggleBlockquote':
       return editor.commands.toggleBlockquote();
   }

@@ -759,7 +759,7 @@ describe('builtIn commands', () => {
       expect(editor.state.doc.child(0).type.name).toBe('paragraph');
     });
 
-    it('toggleList converts ONLY the cursor item task → ordered, splitting the run', () => {
+    it('toggleList with perItem converts ONLY the cursor item task → ordered, splitting the run', () => {
       editor = new Editor({
         extensions: [Document, Text, Paragraph, BulletList, OrderedList, ListItem, TaskList, TaskItem],
         content: `
@@ -783,7 +783,8 @@ describe('builtIn commands', () => {
       });
       setSelection(editor, betaPos);
 
-      const result = editor.commands.toggleList('orderedList', 'listItem');
+      // `perItem` is the Notion turn-into path (slash menu / block menu).
+      const result = editor.commands.toggleList('orderedList', 'listItem', undefined, { perItem: true });
       expect(result).toBe(true);
       // Per-item (Notion): only "Beta" (the cursor's item) converts; "Alpha"
       // stays a to-do with its checked state intact. The task list splits.
@@ -797,6 +798,36 @@ describe('builtIn commands', () => {
       const { from } = editor.state.selection;
       const $from = editor.state.doc.resolve(from);
       expect($from.parent.type.name).toBe('paragraph');
+    });
+
+    it('toggleList without perItem converts the WHOLE list (toolbar/Mod-Shift semantics)', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BulletList, OrderedList, ListItem, TaskList, TaskItem],
+        content: `
+          <ul>
+            <li><p>Alpha</p></li>
+            <li><p>Beta</p></li>
+          </ul>
+        `,
+      });
+
+      // Cursor in "Alpha" (first item) with a collapsed selection.
+      let alphaPos = 0;
+      editor.state.doc.descendants((node, pos) => {
+        if (node.isText && node.text === 'Alpha') alphaPos = pos;
+      });
+      setSelection(editor, alphaPos);
+
+      // Default toggleList (no perItem): the toolbar button / Mod-Shift path.
+      const result = editor.commands.toggleList('orderedList', 'listItem');
+      expect(result).toBe(true);
+      // Whole list converts: a single orderedList holding BOTH items, no bulletList left.
+      const types: string[] = [];
+      editor.state.doc.forEach((n) => types.push(n.type.name));
+      expect(types).toEqual(['orderedList']);
+      expect(editor.state.doc.child(0).childCount).toBe(2);
+      expect(editor.state.doc.child(0).textContent).toContain('Alpha');
+      expect(editor.state.doc.child(0).textContent).toContain('Beta');
     });
   });
 

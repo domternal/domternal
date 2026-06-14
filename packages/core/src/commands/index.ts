@@ -107,7 +107,9 @@ declare module '@domternal/core' {
     wrapIn: CommandSpec<[nodeName: string, attributes?: Attrs]>;
     toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]>;
     lift: CommandSpec;
-    toggleList: CommandSpec<[listNodeName: string, listItemNodeName: string, attributes?: Attrs]>;
+    toggleList: CommandSpec<
+      [listNodeName: string, listItemNodeName: string, attributes?: Attrs, options?: { perItem?: boolean }]
+    >;
     insertContent: CommandSpec<[content: Content]>;
     selectNodeBackward: CommandSpec;
     updateAttributes: CommandSpec<[typeOrName: string, attributes: Record<string, unknown>]>;

@@ -55,7 +55,7 @@ describe('turnIntoWrapper', () => {
   it('wraps a paragraph in <ul><li><p>', () => {
     const editor = makeEditor('<p>Hello</p>');
     const pos = findTopLevelPos(editor, (t) => t === 'paragraph');
-    const ok = turnIntoWrapper(editor, pos, 'toggleBulletList');
+    const ok = turnIntoWrapper(editor, pos, 'turnIntoBulletList');
     expect(ok).toBe(true);
     const first = editor.state.doc.firstChild;
     expect(first?.type.name).toBe('bulletList');
@@ -68,7 +68,7 @@ describe('turnIntoWrapper', () => {
   it('wraps a paragraph in <ol><li><p>', () => {
     const editor = makeEditor('<p>Hello</p>');
     const pos = findTopLevelPos(editor, (t) => t === 'paragraph');
-    const ok = turnIntoWrapper(editor, pos, 'toggleOrderedList');
+    const ok = turnIntoWrapper(editor, pos, 'turnIntoOrderedList');
     expect(ok).toBe(true);
     expect(editor.state.doc.firstChild?.type.name).toBe('orderedList');
     expect(editor.state.doc.firstChild?.firstChild?.type.name).toBe('listItem');
@@ -78,7 +78,7 @@ describe('turnIntoWrapper', () => {
   it('wraps a paragraph in <taskList><taskItem checked=false>', () => {
     const editor = makeEditor('<p>Hello</p>');
     const pos = findTopLevelPos(editor, (t) => t === 'paragraph');
-    const ok = turnIntoWrapper(editor, pos, 'toggleTaskList');
+    const ok = turnIntoWrapper(editor, pos, 'turnIntoTaskList');
     expect(ok).toBe(true);
     const list = editor.state.doc.firstChild;
     expect(list?.type.name).toBe('taskList');
@@ -106,7 +106,7 @@ describe('turnIntoWrapper', () => {
     // before the wrap so the schema accepts the result.
     const editor = makeEditor('<h2>Title</h2>');
     const pos = findTopLevelPos(editor, (t) => t === 'heading');
-    const ok = turnIntoWrapper(editor, pos, 'toggleBulletList');
+    const ok = turnIntoWrapper(editor, pos, 'turnIntoBulletList');
     expect(ok).toBe(true);
     const first = editor.state.doc.firstChild;
     expect(first?.type.name).toBe('bulletList');
@@ -120,7 +120,7 @@ describe('turnIntoWrapper', () => {
     // drops code semantics but preserves the text content.
     const editor = makeEditor('<pre><code>console.log("x")</code></pre>');
     const pos = findTopLevelPos(editor, (t) => t === 'codeBlock');
-    const ok = turnIntoWrapper(editor, pos, 'toggleBulletList');
+    const ok = turnIntoWrapper(editor, pos, 'turnIntoBulletList');
     expect(ok).toBe(true);
     const first = editor.state.doc.firstChild;
     expect(first?.type.name).toBe('bulletList');
@@ -159,7 +159,7 @@ describe('turnIntoWrapper', () => {
   it('returns false on a negative blockPos and does not dispatch', () => {
     const editor = makeEditor('<p>A</p>');
     const before = editor.state.doc.toJSON();
-    const ok = turnIntoWrapper(editor, -1, 'toggleBulletList');
+    const ok = turnIntoWrapper(editor, -1, 'turnIntoBulletList');
     expect(ok).toBe(false);
     expect(editor.state.doc.toJSON()).toEqual(before);
     editor.destroy();
@@ -168,7 +168,7 @@ describe('turnIntoWrapper', () => {
   it('returns false when blockPos is out of bounds', () => {
     const editor = makeEditor('<p>A</p>');
     const before = editor.state.doc.toJSON();
-    const ok = turnIntoWrapper(editor, 9999, 'toggleBulletList');
+    const ok = turnIntoWrapper(editor, 9999, 'turnIntoBulletList');
     expect(ok).toBe(false);
     expect(editor.state.doc.toJSON()).toEqual(before);
     editor.destroy();
@@ -192,7 +192,7 @@ describe('turnIntoWrapper', () => {
   it('downgrades a heading to paragraph then wraps in an ordered list', () => {
     const editor = makeEditor('<h2>Title</h2>');
     const pos = findTopLevelPos(editor, (t) => t === 'heading');
-    const ok = turnIntoWrapper(editor, pos, 'toggleOrderedList');
+    const ok = turnIntoWrapper(editor, pos, 'turnIntoOrderedList');
     expect(ok).toBe(true);
     const first = editor.state.doc.firstChild;
     expect(first?.type.name).toBe('orderedList');
@@ -204,7 +204,7 @@ describe('turnIntoWrapper', () => {
   it('downgrades a heading to paragraph then wraps in a task list with checked=false', () => {
     const editor = makeEditor('<h2>Title</h2>');
     const pos = findTopLevelPos(editor, (t) => t === 'heading');
-    const ok = turnIntoWrapper(editor, pos, 'toggleTaskList');
+    const ok = turnIntoWrapper(editor, pos, 'turnIntoTaskList');
     expect(ok).toBe(true);
     const list = editor.state.doc.firstChild;
     expect(list?.type.name).toBe('taskList');
@@ -218,7 +218,7 @@ describe('turnIntoWrapper', () => {
   it('downgrades a code block to paragraph then wraps in an ordered list', () => {
     const editor = makeEditor('<pre><code>x=1</code></pre>');
     const pos = findTopLevelPos(editor, (t) => t === 'codeBlock');
-    const ok = turnIntoWrapper(editor, pos, 'toggleOrderedList');
+    const ok = turnIntoWrapper(editor, pos, 'turnIntoOrderedList');
     expect(ok).toBe(true);
     const first = editor.state.doc.firstChild;
     expect(first?.type.name).toBe('orderedList');
@@ -230,7 +230,7 @@ describe('turnIntoWrapper', () => {
   it('downgrades a code block to paragraph then wraps in a task list', () => {
     const editor = makeEditor('<pre><code>x=1</code></pre>');
     const pos = findTopLevelPos(editor, (t) => t === 'codeBlock');
-    const ok = turnIntoWrapper(editor, pos, 'toggleTaskList');
+    const ok = turnIntoWrapper(editor, pos, 'turnIntoTaskList');
     expect(ok).toBe(true);
     const first = editor.state.doc.firstChild;
     expect(first?.type.name).toBe('taskList');
@@ -248,7 +248,7 @@ describe('turnIntoWrapper', () => {
   it('places the selection inside the new list item paragraph after wrap', () => {
     const editor = makeEditor('<p>Hello</p>');
     const pos = findTopLevelPos(editor, (t) => t === 'paragraph');
-    turnIntoWrapper(editor, pos, 'toggleBulletList');
+    turnIntoWrapper(editor, pos, 'turnIntoBulletList');
     const sel = editor.state.selection;
     expect(sel.empty).toBe(true);
     const $cursor = editor.state.doc.resolve(sel.from);
@@ -282,7 +282,7 @@ describe('turnIntoWrapper', () => {
   it('preserves inline marks (bold) through paragraph → bullet list', () => {
     const editor = makeEditor('<p>Hello <strong>world</strong></p>');
     const pos = findTopLevelPos(editor, (t) => t === 'paragraph');
-    const ok = turnIntoWrapper(editor, pos, 'toggleBulletList');
+    const ok = turnIntoWrapper(editor, pos, 'turnIntoBulletList');
     expect(ok).toBe(true);
     const innerParagraph = editor.state.doc.firstChild?.firstChild?.firstChild;
     expect(innerParagraph?.type.name).toBe('paragraph');
@@ -300,7 +300,7 @@ describe('turnIntoWrapper', () => {
   it('preserves inline marks (italic) through heading → bullet list step-down', () => {
     const editor = makeEditor('<h2>Hello <em>world</em></h2>');
     const pos = findTopLevelPos(editor, (t) => t === 'heading');
-    const ok = turnIntoWrapper(editor, pos, 'toggleBulletList');
+    const ok = turnIntoWrapper(editor, pos, 'turnIntoBulletList');
     expect(ok).toBe(true);
     const innerParagraph = editor.state.doc.firstChild?.firstChild?.firstChild;
     expect(innerParagraph?.type.name).toBe('paragraph');
@@ -329,7 +329,7 @@ describe('turnIntoWrapper', () => {
       if (node.type.name === 'paragraph' && node.content.size === 0) emptyPos = offset;
     });
     expect(emptyPos).toBeGreaterThan(pos);
-    const ok = turnIntoWrapper(editor, emptyPos, 'toggleBulletList');
+    const ok = turnIntoWrapper(editor, emptyPos, 'turnIntoBulletList');
     expect(ok).toBe(true);
     // Doc should now be: paragraph(A), bulletList(li(p(""))), paragraph(B)
     const second = editor.state.doc.child(1);
@@ -356,7 +356,7 @@ describe('turnIntoWrapper', () => {
       return true;
     });
     expect(paragraphPos).toBeGreaterThan(0);
-    const ok = turnIntoWrapper(editor, paragraphPos, 'toggleOrderedList');
+    const ok = turnIntoWrapper(editor, paragraphPos, 'turnIntoOrderedList');
     expect(ok).toBe(true);
     // Only "A" becomes ordered; "B" stays a bullet (the run splits around it).
     const types: string[] = [];
@@ -379,7 +379,7 @@ describe('turnIntoWrapper', () => {
       }
       return true;
     });
-    const ok = turnIntoWrapper(editor, paragraphPos, 'toggleTaskList');
+    const ok = turnIntoWrapper(editor, paragraphPos, 'turnIntoTaskList');
     expect(ok).toBe(true);
     const types: string[] = [];
     editor.state.doc.forEach((n) => types.push(n.type.name));

@@ -15,6 +15,7 @@ import { ListItem } from './ListItem.js';
 declare module '@domternal/core' {
   interface RawCommands {
     toggleBulletList: CommandSpec;
+    turnIntoBulletList: CommandSpec;
   }
 }
 
@@ -51,6 +52,13 @@ export const BulletList = Node.create<BulletListOptions>({
         ({ commands }) => {
           return commands.toggleList(name, options.itemTypeName);
         },
+      // Notion "turn into" (slash menu / block menu): convert only the cursor's
+      // item and split the run, instead of retyping the whole list.
+      turnIntoBulletList:
+        () =>
+        ({ commands }) => {
+          return commands.toggleList(name, options.itemTypeName, undefined, { perItem: true });
+        },
     };
   },
 
@@ -81,7 +89,7 @@ export const BulletList = Node.create<BulletListOptions>({
         priority: 200,
         keywords: ['bullet', 'list', 'unordered', 'ul'],
         shortcut: '- ',
-        command: 'toggleBulletList',
+        command: 'turnIntoBulletList',
         // Don't offer "Bulleted list" while cursor is already inside one,
         // otherwise picking it lifts the user out of the list.
         hideWhenInside: ['bulletList'],
