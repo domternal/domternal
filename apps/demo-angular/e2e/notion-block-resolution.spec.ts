@@ -2558,7 +2558,7 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
     expect(merged).toEqual({ start: 1, count: 2 });
   });
 
-  test('dropping a block into the middle of an ordered list splits it and the second half keeps counting', async ({ page }) => {
+  test('dropping a block into the middle of an ordered list splits it and the second half restarts at 1', async ({ page }) => {
     await setContent(page, '<h2>Heading</h2><ol><li><p>One</p></li><li><p>Two</p></li><li><p>Three</p></li></ol>');
     // Drop on Two's bottom-half → between Two and Three: the ordered list splits.
     await dragSourceToTarget(page, 'Heading', 'Two', 0.8);
@@ -2568,13 +2568,14 @@ test.describe('Cross-list-type drop auto-converts wrapper', () => {
       { type: 'heading', text: 'Heading', level: 2 },
       { type: 'orderedList', text: 'Three' },
     ]);
-    // The trailing half's `start` is bumped to 3 so numbering reads 1,2,[heading],3.
+    // Notion breaks the run at the interrupter: the trailing half is its own
+    // run starting at 1 (no frozen `start` to go stale later).
     const secondStart = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | { state: { doc: { child: (i: number) => { attrs: Record<string, unknown> } | null } } }
         | undefined;
       return ed?.state.doc.child(2)?.attrs['start'];
     });
-    expect(secondStart).toBe(3);
+    expect(secondStart).toBe(1);
   });
 });

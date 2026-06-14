@@ -15,6 +15,7 @@ import { ListItem } from './ListItem.js';
 declare module '@domternal/core' {
   interface RawCommands {
     toggleOrderedList: CommandSpec;
+    turnIntoOrderedList: CommandSpec;
   }
 }
 
@@ -70,6 +71,13 @@ export const OrderedList = Node.create<OrderedListOptions>({
         ({ commands }) => {
           return commands.toggleList(name, options.itemTypeName);
         },
+      // Notion "turn into" (slash menu / block menu): convert only the cursor's
+      // item and split the run, instead of retyping the whole list.
+      turnIntoOrderedList:
+        () =>
+        ({ commands }) => {
+          return commands.toggleList(name, options.itemTypeName, undefined, { perItem: true });
+        },
     };
   },
 
@@ -100,7 +108,7 @@ export const OrderedList = Node.create<OrderedListOptions>({
         priority: 190,
         keywords: ['ordered', 'numbered', 'list', 'ol', '1.'],
         shortcut: '1. ',
-        command: 'toggleOrderedList',
+        command: 'turnIntoOrderedList',
         hideWhenInside: ['orderedList'],
       },
     ];

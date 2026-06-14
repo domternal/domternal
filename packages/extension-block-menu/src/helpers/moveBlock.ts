@@ -1,30 +1,27 @@
 import { Fragment } from '@domternal/pm/model';
 import type { ResolvedPos } from '@domternal/pm/model';
 import type { Transaction } from '@domternal/pm/state';
-import { canJoin } from '@domternal/pm/transform';
 import { expandToEmptyWrappers } from './expandToEmptyWrappers.js';
-import { convertListItemForParent } from './convertListItemForParent.js';
+import { rejoinAtSeam } from './rejoinAtSeam.js';
 
 const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
 const LIST_WRAPPER_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
-
-/** The list-item node type a given list wrapper accepts as its child. */
-function expectedItemFor(wrapperName: string): string {
-  return wrapperName === 'taskList' ? 'taskItem' : 'listItem';
-}
 
 /**
  * Move a top-level block from `sourcePos` to `targetPos` in-place. Single source
  * of truth for block reorder position math (BlockHandle drag-drop, KeyboardReorder).
  *
- * Notable steps: the deletion range expands outward to swallow single-child
- * wrapper ancestors (else PM's fitter leaves an empty `<li>` placeholder); the
- * slice is adapted to the target's content rule (listItem <-> taskItem across
- * list types). A non-list block dropped at a sibling gap inside a list splits
- * the list and keeps its own type (see `insertBlockSplittingList`) instead of
- * being bulleted; conversely, removing the source can leave two same-type lists
- * touching, which `rejoinAtSeam` heals. Self-drops (target inside the expanded
- * deletion range) return the transaction unchanged.
+ * A list item keeps its OWN list kind everywhere (Notion: kind travels with the
+ * block, never with the destination). It JOINS only a list of the same kind;
+ * dropped into a list of a different kind, or at a non-list gap, it is re-wrapped
+ * in a fresh same-kind list (so a numbered item among bullets stays its own
+ * one-item ordered list). A non-list block dropped at a sibling gap inside a list
+ * splits the list around it (see `insertBlockSplittingList`). The deletion range
+ * first expands outward to swallow single-child wrapper ancestors (else PM's
+ * fitter leaves an empty `<li>` placeholder). Same-type lists left touching after
+ * the move are healed by `rejoinAtSeam` at both the source seam and the
+ * destination. Self-drops (target inside the expanded deletion range) return the
+ * transaction unchanged.
  */
 export function moveBlock(
   tr: Transaction,
@@ -35,13 +32,15 @@ export function moveBlock(
   const sourceNode = tr.doc.nodeAt(sourcePos);
   if (!sourceNode) return tr;
   const sourceEnd = sourcePos + sourceNode.nodeSize;
-  // The source item's OWN list type, captured before the delete so a mismatched
-  // drop can re-wrap it in a fresh same-type list instead of converting it.
+  // The source item's OWN list wrapper type, captured before the delete: a list
+  // item keeps this kind when dropped into a different-kind list or at a non-list
+  // gap, instead of adopting the destination's kind.
   const sourceWrapperType = tr.doc.resolve(sourcePos).parent.type;
 
   const { from, to } = expandToEmptyWrappers(tr.doc, sourcePos, sourceEnd);
   if (targetPos >= from && targetPos <= to) return tr;
 
+  const stepsBefore = tr.steps.length;
   // Slice ONLY the source node, not the redundant single-child wrappers we're
   // about to remove (they shouldn't travel with the source to its new location).
   const slice = tr.doc.slice(sourcePos, sourceEnd);
@@ -53,57 +52,40 @@ export function moveBlock(
   const $target = tr.doc.resolve(adjustedTarget);
   const targetParent = $target.parent;
 
-  // A block that can't legally JOIN this list as a sibling keeps its own type
-  // and splits the list around it (Notion) instead of converting. Two cases:
-  //   - a non-list block (heading, paragraph, ...): inserted directly.
-  //   - a list item of the OTHER kind (to-do into a bullet list): re-wrapped in
-  //     a fresh same-type list so it stays a to-do, not a bullet.
-  // A matching list item (listItem into bullet/ordered, taskItem into task)
-  // falls through and joins the list as a sibling below.
+  // A list item JOINS only a list of its OWN kind (same wrapper type). Every
+  // other case keeps the item's kind: a different-kind list splits around a fresh
+  // same-kind wrapper, a non-list block splits the list directly. A matching-kind
+  // item (and any non-list-gap target) falls through to the join/insert branch.
   const targetWrapperName = LIST_WRAPPER_TYPES.has(targetParent.type.name) ? targetParent.type.name : null;
   const sourceIsListItem = LIST_ITEM_TYPES.has(sourceNode.type.name);
   const splitsList = targetWrapperName !== null
-    && (!sourceIsListItem || sourceNode.type.name !== expectedItemFor(targetWrapperName));
+    && (!sourceIsListItem || sourceWrapperType.name !== targetWrapperName);
   if (splitsList) {
     const content = sourceIsListItem
       ? Fragment.from(sourceWrapperType.create(null, slice.content))
       : slice.content;
     insertBlockSplittingList(tr, $target, content);
   } else {
-    // Same-type list item joins as a sibling; for a non-list-wrapper target
-    // (top-level, paragraph parents) `convertListItemForParent` is a no-op.
-    const adaptedContent = convertListItemForParent(
-      tr.doc.type.schema,
-      slice.content,
-      targetParent.type,
-    );
+    // Same-kind list item joins as a sibling. A list item dropped at a NON-list
+    // gap (top-level, blockquote, children zone) keeps its kind as a fresh
+    // one-item list instead of letting PM's fitter pick a wrapper by schema
+    // registration order. Other blocks insert as-is.
+    const adaptedContent = sourceIsListItem && targetWrapperName === null
+      ? Fragment.from(sourceWrapperType.create(null, slice.content))
+      : slice.content;
     tr.insert(adjustedTarget, adaptedContent);
+    // Destination heal: a same-kind list dropped flush against another merges
+    // into one run (whole-list reorder, or a re-wrapped item beside its old
+    // list). Trailing edge first so the leading edge position stays valid.
+    rejoinAtSeam(tr, adjustedTarget + adaptedContent.size);
+    rejoinAtSeam(tr, adjustedTarget);
   }
 
-  // Removing the source may leave two same-type lists touching where it sat
-  // (e.g. a heading that split a list in two). Heal the seam so the list is
-  // continuous again, clearing any stale ordered-list `start` on the second half.
-  rejoinAtSeam(tr, from);
+  // Source-seam heal: removing the block may leave two same-type lists touching
+  // where it sat (e.g. a heading that split a list in two, dragged back out),
+  // clearing any stale ordered-list `start` on the second half.
+  rejoinAtSeam(tr, tr.mapping.slice(stepsBefore).map(from));
   return tr;
-}
-
-/**
- * Joins two list wrappers that became adjacent at the source-removal seam.
- * `originalFrom` is the deleted range's left edge in the pre-mutation doc,
- * mapped through every step so the check lands at the final seam. Restricted to
- * same-type list wrappers: adjacent paragraphs are also joinable, but merging
- * them on a reorder would be wrong.
- */
-function rejoinAtSeam(tr: Transaction, originalFrom: number): void {
-  const seam = tr.mapping.map(originalFrom);
-  if (seam <= 0 || seam >= tr.doc.content.size) return;
-  const $seam = tr.doc.resolve(seam);
-  const before = $seam.nodeBefore;
-  const after = $seam.nodeAfter;
-  if (!before || !after) return;
-  if (before.type !== after.type) return;
-  if (!LIST_WRAPPER_TYPES.has(before.type.name)) return;
-  if (canJoin(tr.doc, seam)) tr.join(seam);
 }
 
 /**
@@ -116,31 +98,28 @@ function rejoinAtSeam(tr: Transaction, originalFrom: number): void {
  *   - gap after the last item   -> insert after the whole wrapper
  *   - gap between two items      -> split the wrapper, insert in between
  *
- * For an ordered list the trailing half would restart at 1, so its `start` attr
- * is bumped to keep numbering continuous.
+ * The trailing half of a split ordered list restarts at 1 (Notion breaks a
+ * numbered run at any interrupter), which is just the default `start` PM's split
+ * copies; no renumbering is applied. Exported for SmartPaste, which splits the
+ * host list the same way when a pasted block can't join it. Returns the position
+ * right before the inserted content (for caret placement).
  */
-function insertBlockSplittingList(tr: Transaction, $gap: ResolvedPos, content: Fragment): void {
+export function insertBlockSplittingList(tr: Transaction, $gap: ResolvedPos, content: Fragment): number {
   const wrapper = $gap.parent;
   const index = $gap.index();
   if (index === 0) {
-    tr.insert($gap.before(), content);
-    return;
+    const at = $gap.before();
+    tr.insert(at, content);
+    return at;
   }
   if (index === wrapper.childCount) {
-    tr.insert($gap.after(), content);
-    return;
+    const at = $gap.after();
+    tr.insert(at, content);
+    return at;
   }
   const splitPos = $gap.pos;
   tr.split(splitPos, 1);
-  const insertAt = splitPos + 1;
-  tr.insert(insertAt, content);
-  if (wrapper.type.name === 'orderedList') {
-    const origStart = typeof wrapper.attrs['start'] === 'number' ? wrapper.attrs['start'] : 1;
-    const secondWrapperPos = insertAt + content.size;
-    const second = tr.doc.nodeAt(secondWrapperPos);
-    if (second?.type.name === 'orderedList') {
-      tr.setNodeMarkup(secondWrapperPos, undefined, { ...second.attrs, start: origStart + index });
-    }
-  }
+  const at = splitPos + 1;
+  tr.insert(at, content);
+  return at;
 }
-

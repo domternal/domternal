@@ -184,6 +184,41 @@ describe('blockOperations', () => {
       expect(editor.state.doc.firstChild?.textContent).toBe('');
       editor.destroy();
     });
+
+    it('deleting a block between two same-type lists heals the seam into one list', () => {
+      // The interrupter's removal brings two bullet lists flush together;
+      // rejoinAtSeam merges them so the list is continuous (matches moveBlock).
+      const editor = makeListEditor(
+        '<ul><li><p>A</p></li></ul><h2>Mid</h2><ul><li><p>B</p></li></ul>',
+      );
+      const heading = findPos(editor, (n) => n.type.name === 'heading');
+      const tr = editor.state.tr;
+      deleteBlock(tr, heading);
+      editor.view.dispatch(tr);
+
+      const types: string[] = [];
+      editor.state.doc.forEach((n) => types.push(n.type.name));
+      expect(types).toEqual(['bulletList']);
+      expect(editor.state.doc.child(0).childCount).toBe(2);
+      expect(editor.state.doc.child(0).textContent).toBe('AB');
+      editor.destroy();
+    });
+
+    it('does NOT merge lists of different types when the interrupter is deleted', () => {
+      const editor = makeListEditor(
+        '<ul><li><p>A</p></li></ul><h2>Mid</h2><blockquote><p>Q</p></blockquote><ul><li><p>B</p></li></ul>',
+      );
+      // Delete only the heading; the blockquote still separates the two lists.
+      const heading = findPos(editor, (n) => n.type.name === 'heading');
+      const tr = editor.state.tr;
+      deleteBlock(tr, heading);
+      editor.view.dispatch(tr);
+
+      const types: string[] = [];
+      editor.state.doc.forEach((n) => types.push(n.type.name));
+      expect(types).toEqual(['bulletList', 'blockquote', 'bulletList']);
+      editor.destroy();
+    });
   });
 
   describe('duplicateBlock', () => {

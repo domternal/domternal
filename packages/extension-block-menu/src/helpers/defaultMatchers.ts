@@ -9,6 +9,7 @@ import type { BlockMatcher } from './blockMatcher.js';
 
 const LIST_ITEM_NODE_TYPES = new Set(['listItem', 'taskItem']);
 const TABLE_PLUMBING_TYPES = new Set(['tableRow', 'tableCell', 'tableHeader']);
+const OPAQUE_CONTAINER_TYPES = new Set(['details', 'detailsContent', 'blockquote']);
 
 /**
  * Reject a paragraph that is the first child of a list/task item. Dragging it
@@ -59,9 +60,29 @@ const inlineNodes: BlockMatcher = {
   },
 };
 
+/**
+ * Reject any block nested inside an opaque container (details / blockquote).
+ * The drop resolver offers no slots INSIDE those containers (they stay
+ * sibling-only), so letting their children be drag SOURCES would be a one-way
+ * door: a block could be dragged OUT but never back in, silently ejecting it.
+ * Rejecting both directions keeps moves reversible. The container itself (at any
+ * level) stays draggable - only its contents are excluded.
+ */
+const insideOpaqueContainer: BlockMatcher = {
+  name: 'insideOpaqueContainer',
+  test(candidate) {
+    const $pos = candidate.editorView.state.doc.resolve(candidate.documentPos);
+    for (let d = $pos.depth; d >= 1; d--) {
+      if (OPAQUE_CONTAINER_TYPES.has($pos.node(d).type.name)) return 'reject';
+    }
+    return 'allow';
+  },
+};
+
 export const DEFAULT_BLOCK_MATCHERS: readonly BlockMatcher[] = Object.freeze([
   firstChildOfListItem,
   listContainerSkip,
   tableInternals,
   inlineNodes,
+  insideOpaqueContainer,
 ]);

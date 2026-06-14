@@ -111,6 +111,14 @@
     padding-right: var(--dm-block-inline-padding);
   }
 
+  // A nested list chunks tightly under its parent label (the within-item gap)
+  // instead of the 0.75em container margin, matching the sibling non-list
+  // children. `li :is(ul, ol)` covers every depth and both the bullet
+  // (`li > ul`) and task (`li > div > ul`) shapes.
+  li :is(ul, ol) {
+    margin-block: 0.25em;
+  }
+
   // Notion-style "children zone" indent for plain bullet/ordered lists ONLY.
   // Scoped to `ul:not([data-type="taskList"]), ol` so it does NOT match the
   // taskList wrapper - taskItems render via `<li><label/><div/></li>` and the

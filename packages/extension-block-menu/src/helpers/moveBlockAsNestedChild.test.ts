@@ -192,7 +192,7 @@ describe('moveBlockAsNestedChild', () => {
       expect(targetLi?.lastChild?.firstChild?.textContent).toBe('Two');
     });
 
-    it('cross-list-type: bullet listItem source dropped into a TASK list target wraps in fresh taskList with taskItem', () => {
+    it('cross-list-type: bullet listItem source dropped into a TASK list target keeps its bullet kind (own sublist)', () => {
       editor = makeEditor(
         '<ul><li><p>BulletItem</p></li></ul>'
         + '<ul data-type="taskList"><li data-type="taskItem"><p>Task</p></li></ul>',
@@ -212,13 +212,38 @@ describe('moveBlockAsNestedChild', () => {
       expect(taskList?.childCount).toBe(1);
       const taskItem = taskList?.firstChild;
       expect(taskItem?.type.name).toBe('taskItem');
-      expect(taskItem?.childCount).toBe(2); // [label, nested taskList]
+      expect(taskItem?.childCount).toBe(2); // [label, nested bulletList]
       expect(taskItem?.firstChild?.textContent).toBe('Task');
       const nestedList = taskItem?.lastChild;
-      expect(nestedList?.type.name).toBe('taskList');
-      // Source was a bullet listItem - convertListItemForParent adapted it.
-      expect(nestedList?.firstChild?.type.name).toBe('taskItem');
+      // Kind travels with the block (Notion): the source stays a bulletList/
+      // listItem, NOT converted to a to-do just because its parent item is one.
+      expect(nestedList?.type.name).toBe('bulletList');
+      expect(nestedList?.firstChild?.type.name).toBe('listItem');
       expect(nestedList?.firstChild?.textContent).toBe('BulletItem');
+    });
+
+    it('cross-list-type: a checked to-do dropped into a bullet item keeps its to-do kind AND checked state', () => {
+      editor = makeEditor(
+        '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>Done</p></li></ul>'
+        + '<ul><li><p>Bullet</p></li></ul>',
+      );
+      const sourcePos = posOf(editor, (n) => n.type.name === 'taskItem' && n.textContent === 'Done');
+      const wrapperPos = posOf(editor, (n) => n.type.name === 'bulletList');
+      const targetItemPos = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'Bullet');
+
+      const tr = editor.state.tr;
+      expect(moveBlockAsNestedChild(tr, sourcePos, wrapperPos, targetItemPos)).toBe(true);
+      editor.view.dispatch(tr);
+
+      // Doc: [bulletList(listItem(p"Bullet", taskList(taskItem"Done")))].
+      const bulletItem = editor.state.doc.firstChild?.firstChild;
+      const nestedList = bulletItem?.lastChild;
+      expect(nestedList?.type.name).toBe('taskList');
+      const nestedTask = nestedList?.firstChild;
+      expect(nestedTask?.type.name).toBe('taskItem');
+      // The checkbox AND its checked state survive the nest (no silent data loss).
+      expect(nestedTask?.attrs['checked']).toBe(true);
+      expect(nestedTask?.textContent).toBe('Done');
     });
   });
 
@@ -408,6 +433,33 @@ describe('moveBlockAsNestedChild', () => {
       const out = dump(editor);
       expect(out).toContain('bulletList(listItem(paragraph("Drag")))');
       expect(out).toContain('taskList(taskItem(paragraph("Wire")))');
+    });
+  });
+
+  describe('source-seam heal', () => {
+    it('removing the nested-dropped source rejoins two same-type lists left touching', () => {
+      // "Drag" sits between two bullet lists. Nesting it into "A" removes it
+      // from the top level, leaving the two bullet lists flush; rejoinAtSeam
+      // merges them into one (matches moveBlock's source-seam heal).
+      editor = makeEditor(
+        '<ul><li><p>A</p></li></ul><p>Drag</p><ul><li><p>B</p></li></ul>',
+      );
+      const aItem = posOf(editor, (n) => n.type.name === 'listItem' && n.textContent === 'A');
+      const dragP = posOf(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Drag');
+      const wrapperPos = editor.state.doc.resolve(aItem).before();
+
+      const tr = editor.state.tr;
+      expect(moveBlockAsNestedChild(tr, dragP, wrapperPos, aItem)).toBe(true);
+      editor.view.dispatch(tr);
+
+      // One bullet list survives: A (now holding the nested "Drag") + B.
+      const types: string[] = [];
+      editor.state.doc.forEach((n) => types.push(n.type.name));
+      expect(types).toEqual(['bulletList']);
+      const list = editor.state.doc.firstChild;
+      expect(list?.childCount).toBe(2);
+      expect(list?.firstChild?.textContent).toContain('Drag');
+      expect(list?.lastChild?.textContent).toBe('B');
     });
   });
 });

@@ -1,8 +1,8 @@
 /**
  * Keyboard indent across list boundaries. `Tab` on a top-level block whose
  * previous sibling is a list moves the block INTO the last item as a nested
- * child; `Shift-Tab` reverses for a block sitting as the last child of the
- * last item.
+ * child; `Shift-Tab` lifts the last child of a list item back out to a
+ * top-level sibling, splitting the list when that item is not the last one.
  *
  * Trigger is intentionally narrow so ListKeymap retains in-list Tab/Shift-Tab
  * (`sinkListItem` / `liftListItem`). Schema is validated via `canReplaceWith`;
@@ -14,9 +14,9 @@
  *    inside the now-nested context (then ListKeymap takes over).
  *  - Tab only fires for cursors in TOP-LEVEL blocks (depth === 1). Cursors
  *    inside other containers (blockquote, table cell) fall through.
- *  - Shift-Tab only fires when the block is BOTH the last child of its
- *    item AND the item is the last in its wrapper. Mid-position outdent
- *    would require splitting the list item, which is deferred.
+ *  - Shift-Tab fires for the LAST child of a list item; a non-last item is
+ *    split so the parent survives (Notion parity). Mid children-zone blocks
+ *    are still deferred.
  *
  * Registration order: must come AFTER ListKeymap so this extension's keymap
  * runs FIRST and can defer to ListKeymap for in-list flows.
@@ -121,10 +121,9 @@ export function indentBlockAsListChild(
 }
 
 /**
- * `Shift-Tab` handler: lift a non-label nested block out of its list
- * item to become a top-level sibling AFTER the list wrapper. Only
- * fires for the strict end-of-end case (last child of last item) so
- * the lift is deterministic and never needs to split a list item.
+ * `Shift-Tab` handler: lift the last child of a list item out to a
+ * top-level sibling. Lands after the whole list when the item is last
+ * in its wrapper, else splits the wrapper and lands between the halves.
  *
  * Precondition table:
  *   - cursor empty
@@ -137,7 +136,6 @@ export function indentBlockAsListChild(
  *     immediate li children rather than reaching deeper into nested
  *     containers
  *   - the block is the LAST child of the list item
- *   - the list item is the LAST child of its wrapper
  *   - the wrapper's parent accepts the block as a sibling (schema)
  */
 export function outdentBlockFromListItem(
@@ -172,25 +170,31 @@ export function outdentBlockFromListItem(
   // Skip first-child (the label paragraph slot). Defers the in-label
   // case to ListKeymap.Shift-Tab (`liftListItem`).
   if (blockIndexInItem === 0) return false;
-  // MVP: only outdent when the block is the LAST child of the item.
+  // Only outdent when the block is the LAST child of the item. A block in the
+  // MIDDLE of the children zone is deferred (rare; would need to re-home the
+  // trailing siblings), so it falls through to the default keymap.
   if (blockIndexInItem !== listItem.childCount - 1) return false;
 
-  // List item must be the LAST in its wrapper. (Wrapper is the parent
-  // of the list item, which sits at depth = listItemDepth - 1.)
+  // The wrapper is the list item's parent, at depth = listItemDepth - 1.
   const wrapperDepth = listItemDepth - 1;
   if (wrapperDepth < 0) return false;
-  // Use $from.index(wrapperDepth) - the list item's index inside the
-  // wrapper. (A previous attempt used `wrapperDepth - 1` here, which
-  // returns the wrapper's index in ITS parent - the wrong number.)
+  // `$from.index(wrapperDepth)` is the list item's index inside its wrapper.
+  // (A previous attempt used `wrapperDepth - 1`, the wrapper's own index in ITS
+  // parent - the wrong number.)
   const liIndexInWrapper = $from.index(wrapperDepth);
   const wrapper = $from.node(wrapperDepth);
-  if (liIndexInWrapper !== wrapper.childCount - 1) return false;
+  // Whether the list item is the LAST in its wrapper decides the strategy:
+  //   - last item  → the block just lands after the whole wrapper (no split).
+  //   - mid/first  → split the wrapper AFTER this item so the block lands right
+  //                  after it at the wrapper's parent level, KEEPING the parent
+  //                  item (and the rest of the list) intact. Mirrors Notion's
+  //                  "Shift+Tab outdents only the targeted block".
+  const isLastItem = liIndexInWrapper === wrapper.childCount - 1;
 
-  // Schema check: can the wrapper's parent accept the block as a
-  // sibling right AFTER the wrapper?
-  // `wrapperDepth - 1` may equal -1 only when the wrapper sits at
-  // depth 0 - i.e. the wrapper IS the doc itself. The schema disallows
-  // this, but we guard defensively below.
+  // Schema check: the wrapper's parent must accept the block as a sibling right
+  // after the wrapper's position (same target index for the no-split and the
+  // split-between-halves cases). `wrapperDepth - 1` is -1 only when the wrapper
+  // sits at depth 0 (the wrapper IS the doc); guarded defensively.
   if (wrapperDepth - 1 < 0) return false;
   const wrapperParent = $from.node(wrapperDepth - 1);
   const wrapperIndexInParent = $from.index(wrapperDepth - 1);
@@ -209,18 +213,27 @@ export function outdentBlockFromListItem(
 
   const blockStart = $from.before(blockDepth);
   const blockEnd = $from.after(blockDepth);
-  const wrapperEnd = $from.after(wrapperDepth);
-
-  const tr = state.tr;
-  // Delete the block from inside the list item; positions AFTER the
-  // delete shift left by `blockEnd - blockStart`. The wrapper end
-  // sits AFTER the deleted range so we adjust it.
   const blockSize = blockEnd - blockStart;
+  const tr = state.tr;
+  // Remove the block from inside the list item; positions after it shift left
+  // by `blockSize`, so the wrapper/item ends below are adjusted accordingly.
   tr.delete(blockStart, blockEnd);
-  const insertAt = wrapperEnd - blockSize;
-  tr.insert(insertAt, blockNode);
-  // Caret at offset 0 of the lifted block's content.
-  tr.setSelection(Selection.near(tr.doc.resolve(insertAt + 1)));
+
+  if (isLastItem) {
+    // No split: the block lands right after the whole wrapper at parent level.
+    const insertAt = $from.after(wrapperDepth) - blockSize;
+    tr.insert(insertAt, blockNode);
+    tr.setSelection(Selection.near(tr.doc.resolve(insertAt + 1)));
+  } else {
+    // Split the wrapper after this item: items below it move to a fresh wrapper
+    // of the same kind, and the block is inserted at parent level BETWEEN the
+    // two halves (right after the item it was nested under). `tr.split(pos, 1)`
+    // inserts a wrapper close+open at `pos`, so the parent-level gap is `pos+1`.
+    const splitPos = $from.after(listItemDepth) - blockSize;
+    tr.split(splitPos, 1);
+    tr.insert(splitPos + 1, blockNode);
+    tr.setSelection(Selection.near(tr.doc.resolve(splitPos + 2)));
+  }
   dispatch(tr.scrollIntoView());
   return true;
 }

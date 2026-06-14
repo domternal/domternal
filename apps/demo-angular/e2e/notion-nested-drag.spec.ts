@@ -1198,22 +1198,22 @@ test.describe('Source × container matrix and drag-flow regression', () => {
     ]);
   });
 
-  test('paragraphInsideContainer rule is paragraph-SELECTIVE: heading inside blockquote still resolves to HEADING (not blockquote)', async ({ page }) => {
-    // The custom demo rule excludes ONLY paragraphs from being a drag
-    // target inside structural containers. Other block types (heading,
-    // codeBlock, hr) inside the same containers must remain individually
-    // draggable - they are the meaningful drag units.
+  test('opaque containers are sibling-only: a heading inside a blockquote resolves to the BLOCKQUOTE, not the heading', async ({ page }) => {
+    // The drop resolver offers no slots INSIDE blockquote/details, so their
+    // children can't be drag sources either (no one-way door): the container
+    // itself is the meaningful drag unit. Hovering a heading inside a blockquote
+    // resolves to the blockquote.
     await setContent(page, '<blockquote><h2>Quoted heading</h2></blockquote>');
     await hoverInGutterAt(page, page.locator(`${editorSelector} blockquote h2`));
     const pos = await hoveredPos(page);
-    expect((await blockAt(page, pos ?? 0))?.type).toBe('heading');
+    expect((await blockAt(page, pos ?? 0))?.type).toBe('blockquote');
   });
 
-  test('paragraphInsideContainer rule is paragraph-SELECTIVE: codeBlock inside blockquote still resolves to codeBlock', async ({ page }) => {
+  test('opaque containers are sibling-only: a codeBlock inside a blockquote resolves to the BLOCKQUOTE', async ({ page }) => {
     await setContent(page, '<blockquote><pre><code>fn();</code></pre></blockquote>');
     await hoverInGutterAt(page, page.locator(`${editorSelector} blockquote pre`));
     const pos = await hoveredPos(page);
-    expect((await blockAt(page, pos ?? 0))?.type).toBe('codeBlock');
+    expect((await blockAt(page, pos ?? 0))?.type).toBe('blockquote');
   });
 
   test('hover in Y-gap BETWEEN nested heading and next sibling block (CSS margin gap inside li) resolves to listItem (no inner candidate)', async ({ page }) => {

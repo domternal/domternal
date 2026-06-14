@@ -15,6 +15,7 @@ import { TaskItem } from './TaskItem.js';
 declare module '@domternal/core' {
   interface RawCommands {
     toggleTaskList: CommandSpec;
+    turnIntoTaskList: CommandSpec;
   }
 }
 
@@ -64,6 +65,13 @@ export const TaskList = Node.create<TaskListOptions>({
         ({ commands }) => {
           return commands.toggleList(name, options.itemTypeName);
         },
+      // Notion "turn into" (slash menu / block menu): convert only the cursor's
+      // item and split the run, instead of retyping the whole list.
+      turnIntoTaskList:
+        () =>
+        ({ commands }) => {
+          return commands.toggleList(name, options.itemTypeName, undefined, { perItem: true });
+        },
     };
   },
 
@@ -103,7 +111,7 @@ export const TaskList = Node.create<TaskListOptions>({
         priority: 180,
         keywords: ['todo', 'task', 'checkbox', 'check'],
         shortcut: '[ ] ',
-        command: 'toggleTaskList',
+        command: 'turnIntoTaskList',
         hideWhenInside: ['taskList'],
       },
     ];

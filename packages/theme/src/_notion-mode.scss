@@ -72,6 +72,18 @@
     th > p {
       margin: 0;
     }
+
+    // Notion-mode only: adjacent top-level lists of any type chunk together at
+    // the within-item gap (~4px) instead of the 0.75em container gap. Both
+    // sides must be tightened because vertical margins collapse to the LARGER
+    // of the two (`+` for the following list's top, `:has(+ ...)` for the
+    // preceding list's bottom). Direct children only, so nesting is untouched.
+    > :is(ul, ol) + :is(ul, ol) {
+      margin-top: 0.25em;
+    }
+    > :is(ul, ol):has(+ :is(ul, ol)) {
+      margin-bottom: 0.25em;
+    }
   }
 
   // Slash-command placeholders wrap in narrow table cells; the cell is the editable unit.

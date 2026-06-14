@@ -914,16 +914,17 @@ describe('BlockContextMenu Turn into - wrapper targets', () => {
 
   // --- Convert in place (paragraph targeted directly inside a list) ---
 
-  it('clicking Ordered list on a paragraph inside a bullet list converts the list type', () => {
+  it('clicking Ordered list on a list-item paragraph converts only that item, splitting the list', () => {
     makeEditor('<ul><li><p>A</p></li><li><p>B</p></li></ul>');
     const paragraphPos = findFirstPosOf('paragraph');
     openContextMenu(paragraphPos);
     findItemByLabel('Ordered list')?.click();
-    const first = editor?.state.doc.firstChild;
-    expect(first?.type.name).toBe('orderedList');
-    expect(first?.childCount).toBe(2);
-    expect(first?.firstChild?.firstChild?.textContent).toBe('A');
-    expect(first?.lastChild?.firstChild?.textContent).toBe('B');
+    // Per-item (Notion): only "A" becomes ordered; "B" stays a bullet.
+    const types: string[] = [];
+    editor?.state.doc.forEach((n) => types.push(n.type.name));
+    expect(types).toEqual(['orderedList', 'bulletList']);
+    expect(editor?.state.doc.child(0).textContent).toBe('A');
+    expect(editor?.state.doc.child(1).textContent).toBe('B');
   });
 
   // --- Menu close + refocus after wrapper click ---
@@ -1289,21 +1290,19 @@ describe('BlockContextMenu Turn into - wrapper SOURCES (listItem / taskItem / bl
     const liPos = findFirstPosOf('listItem');
     openContextMenu(liPos);
     const labels = getLabels();
-    // Wrapper targets eligible (excluding the ancestor type and schema-
-    // rejecting Quote on listItem-family).
+    // Other list kinds eligible; the own kind is hidden.
     expect(labels).toContain('Ordered list');
     expect(labels).toContain('To-do list');
-    // Hidden: own type ancestor.
     expect(labels).not.toContain('Bullet list');
-    // Hidden: blockquote can't be the first child of a listItem.
-    expect(labels).not.toContain('Quote');
-    // Hidden: textblock targets need a lift-then-convert (out of scope).
-    expect(labels).not.toContain('Paragraph');
-    expect(labels).not.toContain('Heading 1');
-    expect(labels).not.toContain('Code block');
+    // Quote works on a list item via the wrapIn lift-then-wrap fallback.
+    expect(labels).toContain('Quote');
+    // Textblock targets work via lift-then-convert (the item is lifted out).
+    expect(labels).toContain('Paragraph');
+    expect(labels).toContain('Heading 1');
+    expect(labels).toContain('Code block');
   });
 
-  it('shows Turn into on an orderedList listItem source with Bullet/Task eligible', () => {
+  it('shows Turn into on an orderedList listItem source with Bullet/Task/Quote eligible', () => {
     makeEditor('<ol><li><p>A</p></li></ol>');
     const liPos = findFirstPosOf('listItem');
     openContextMenu(liPos);
@@ -1311,10 +1310,10 @@ describe('BlockContextMenu Turn into - wrapper SOURCES (listItem / taskItem / bl
     expect(labels).toContain('Bullet list');
     expect(labels).toContain('To-do list');
     expect(labels).not.toContain('Ordered list');
-    expect(labels).not.toContain('Quote');
+    expect(labels).toContain('Quote');
   });
 
-  it('shows Turn into on a taskItem source with Bullet/Ordered eligible, To-do hidden', () => {
+  it('shows Turn into on a taskItem source with Bullet/Ordered/Quote eligible, To-do hidden', () => {
     makeEditor('<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>A</p></li></ul>');
     const tiPos = findFirstPosOf('taskItem');
     openContextMenu(tiPos);
@@ -1322,34 +1321,36 @@ describe('BlockContextMenu Turn into - wrapper SOURCES (listItem / taskItem / bl
     expect(labels).toContain('Bullet list');
     expect(labels).toContain('Ordered list');
     expect(labels).not.toContain('To-do list');
-    expect(labels).not.toContain('Quote');
+    expect(labels).toContain('Quote');
   });
 
-  // --- Click execution: list-type swap in place ---
+  // --- Click execution: per-item convert splits the list (Notion) ---
 
-  it('clicking Ordered list on a listItem source converts the UL to OL in place', () => {
+  it('clicking Ordered list on a listItem source converts only that item, splitting the list', () => {
     makeEditor('<ul><li><p>A</p></li><li><p>B</p></li></ul>');
     const liPos = findFirstPosOf('listItem');
     openContextMenu(liPos);
     findItemByLabel('Ordered list')?.click();
-    const first = editor?.state.doc.firstChild;
-    expect(first?.type.name).toBe('orderedList');
-    expect(first?.childCount).toBe(2);
-    expect(first?.firstChild?.firstChild?.textContent).toBe('A');
-    expect(first?.lastChild?.firstChild?.textContent).toBe('B');
+    const types: string[] = [];
+    editor?.state.doc.forEach((n) => types.push(n.type.name));
+    expect(types).toEqual(['orderedList', 'bulletList']);
+    expect(editor?.state.doc.child(0).textContent).toBe('A');
+    expect(editor?.state.doc.child(1).textContent).toBe('B');
   });
 
-  it('clicking To-do list on a listItem source rebuilds items as taskItems (checked=false)', () => {
+  it('clicking To-do list on a listItem source converts only that item to a to-do (checked=false)', () => {
     makeEditor('<ul><li><p>A</p></li><li><p>B</p></li></ul>');
     const liPos = findFirstPosOf('listItem');
     openContextMenu(liPos);
     findItemByLabel('To-do list')?.click();
-    const first = editor?.state.doc.firstChild;
-    expect(first?.type.name).toBe('taskList');
-    expect(first?.firstChild?.type.name).toBe('taskItem');
-    expect((first?.firstChild?.attrs as { checked: boolean }).checked).toBe(false);
-    expect(first?.firstChild?.firstChild?.textContent).toBe('A');
-    expect(first?.lastChild?.firstChild?.textContent).toBe('B');
+    const types: string[] = [];
+    editor?.state.doc.forEach((n) => types.push(n.type.name));
+    expect(types).toEqual(['taskList', 'bulletList']);
+    const taskList = editor?.state.doc.child(0);
+    expect(taskList?.firstChild?.type.name).toBe('taskItem');
+    expect((taskList?.firstChild?.attrs as { checked: boolean }).checked).toBe(false);
+    expect(taskList?.textContent).toBe('A');
+    expect(editor?.state.doc.child(1).textContent).toBe('B');
   });
 
   it('clicking Bullet list on an orderedList listItem source converts OL to UL', () => {

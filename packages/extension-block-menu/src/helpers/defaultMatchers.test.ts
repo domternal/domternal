@@ -160,3 +160,54 @@ describe('inlineNodes matcher', () => {
     expect(matcher.test(fakeCandidate({ block }))).toBe<MatchVerdict>('allow');
   });
 });
+
+describe('insideOpaqueContainer matcher', () => {
+  const matcher = matcherByName('insideOpaqueContainer');
+
+  /** Position immediately before the first paragraph with `text`. */
+  function paraPos(editor: Editor, text: string): number {
+    let p = -1;
+    editor.state.doc.descendants((node, pos) => {
+      if (p !== -1) return false;
+      if (node.type.name === 'paragraph' && node.textContent === text) { p = pos; return false; }
+      return true;
+    });
+    if (p === -1) throw new Error(`paragraph "${text}" not found`);
+    return p;
+  }
+
+  function withView(editor: Editor, documentPos: number): BlockCandidate {
+    return fakeCandidate({ documentPos, editorView: editor.view });
+  }
+
+  it('rejects a block nested inside a blockquote (no drop slot exists there)', () => {
+    const editor = makeEditor('<blockquote><p>Inside</p></blockquote>');
+    expect(matcher.test(withView(editor, paraPos(editor, 'Inside')))).toBe<MatchVerdict>('reject');
+    editor.destroy();
+  });
+
+  it('allows a top-level block with no opaque-container ancestor', () => {
+    const editor = makeEditor('<p>Top</p><blockquote><p>Inside</p></blockquote>');
+    expect(matcher.test(withView(editor, paraPos(editor, 'Top')))).toBe<MatchVerdict>('allow');
+    editor.destroy();
+  });
+
+  it('allows the blockquote container itself (only its contents are excluded)', () => {
+    const editor = makeEditor('<blockquote><p>Inside</p></blockquote>');
+    // Position 0 is right before the top-level blockquote.
+    expect(matcher.test(withView(editor, 0))).toBe<MatchVerdict>('allow');
+    editor.destroy();
+  });
+
+  it('rejects a list item nested inside a blockquote (closes the one-way door both ways)', () => {
+    const editor = makeEditor('<blockquote><ul><li><p>Item</p></li></ul></blockquote>');
+    let liPos = -1;
+    editor.state.doc.descendants((node, pos) => {
+      if (liPos !== -1) return false;
+      if (node.type.name === 'listItem') { liPos = pos; return false; }
+      return true;
+    });
+    expect(matcher.test(withView(editor, liPos))).toBe<MatchVerdict>('reject');
+    editor.destroy();
+  });
+});

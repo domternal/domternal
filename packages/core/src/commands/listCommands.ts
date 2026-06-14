@@ -8,6 +8,7 @@ import { canJoin } from '@domternal/pm/transform';
 import type { Attrs, NodeType, Node as PMNode } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
 import { getListItemCursorContext } from '../utils/listItemCursorContext.js';
+import { liftCurrentListItem } from '../utils/liftCurrentListItem.js';
 
 /**
  * Find the innermost list of the given type around the selection,
@@ -55,9 +56,14 @@ function joinListForwards(tr: Transaction, listType: NodeType): void {
  * @param listNodeName - The name of the list node type (e.g., 'bulletList', 'orderedList')
  * @param listItemNodeName - The name of the list item node type (usually 'listItem')
  * @param attributes - Optional attributes for the list node
+ * @param options - `perItem: true` converts ONLY the cursor's item (Notion
+ *   turn-into via slash / block menu); the default whole-list toggle is what the
+ *   toolbar button and Mod-Shift shortcut use.
  */
-export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: string, attributes?: Attrs]> =
-  (listNodeName: string, listItemNodeName: string, attributes?: Attrs) =>
+export const toggleList: CommandSpec<
+  [listNodeName: string, listItemNodeName: string, attributes?: Attrs, options?: { perItem?: boolean }]
+> =
+  (listNodeName: string, listItemNodeName: string, attributes?: Attrs, options?: { perItem?: boolean }) =>
   ({ state, tr, dispatch }) => {
     const listType = state.schema.nodes[listNodeName];
     const listItemType = state.schema.nodes[listItemNodeName];
@@ -236,6 +242,29 @@ export const toggleList: CommandSpec<[listNodeName: string, listItemNodeName: st
 
     const allInTargetList = contentBlocks.length > 0 && contentBlocks.every((b) => b.inTargetList);
     const allInSomeList = contentBlocks.length > 0 && contentBlocks.every((b) => b.inSomeList);
+
+    // Per-item convert (opt-in via `perItem`, used by the Notion turn-into
+    // surfaces: slash menu + block "..." menu). A COLLAPSED cursor in a
+    // list-item LABEL, converting to a DIFFERENT list kind, changes ONLY that
+    // item and splits the run (Notion), instead of retyping the whole wrapper
+    // as Case 2 does. Lift the single item out of its current list (which
+    // splits it), wrap just that block in the target list, and merge with
+    // same-kind neighbours. Without `perItem` (toolbar button / Mod-Shift
+    // shortcut) the whole-wrapper Case 2 runs, so the toolbar keeps the
+    // classic-editor "toggle the whole list" semantics.
+    if (options?.perItem && from === to && allInSomeList && !allInTargetList) {
+      if (!dispatch) return true;
+      if (liftCurrentListItem(state, tr)) {
+        const blockRange = tr.selection.$from.blockRange();
+        if (blockRange) wrapRangeInList(tr, blockRange, listType, attributes);
+        joinListBackwards(tr, listType);
+        joinListForwards(tr, listType);
+        dispatch(tr.scrollIntoView());
+        return true;
+      }
+      // Lift didn't apply (cursor not in a label slot, or the item owns its own
+      // sub-blocks): fall through to the whole-wrapper Case 2 below.
+    }
 
     // Case 1: All non-empty textblocks are in the target list type → lift items out
     if (allInTargetList) {

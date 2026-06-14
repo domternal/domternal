@@ -1053,7 +1053,7 @@ test.describe('SmartPaste', () => {
     ]);
   });
 
-  test('paste bulletList slice into a TASK list item → items converted to taskItem siblings', async ({ page }) => {
+  test('paste bulletList slice into a TASK list item → stays a bullet list, splitting the task list', async ({ page }) => {
     await setContent(page, '<ul data-type="taskList"><li data-type="taskItem"><p>Task</p></li></ul>');
     await page.locator(`${editorSelector} li p`, { hasText: 'Task' }).click();
     await page.keyboard.press('End');
@@ -1061,21 +1061,18 @@ test.describe('SmartPaste', () => {
 
     const tree = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-        | { state: { doc: { childCount: number; firstChild: { type: { name: string }; childCount: number; child: (i: number) => { type: { name: string }; firstChild: { textContent: string } | null } } | null } } }
+        | { state: { doc: { childCount: number; forEach: (cb: (n: { type: { name: string }; textContent: string }) => void) => void } } }
         | undefined;
-      const ul = ed?.state.doc.firstChild;
-      const items: { type: string; text: string }[] = [];
-      for (let i = 0; i < (ul?.childCount ?? 0); i++) {
-        const li = ul?.child(i);
-        if (li) items.push({ type: li.type.name, text: li.firstChild?.textContent ?? '' });
-      }
-      return { topLevelCount: ed?.state.doc.childCount, topLevelType: ul?.type.name, items };
+      const types: { type: string; text: string }[] = [];
+      ed?.state.doc.forEach((n) => types.push({ type: n.type.name, text: n.textContent }));
+      return { topLevelCount: ed?.state.doc.childCount, types };
     });
-    expect(tree.topLevelCount).toBe(1);
-    expect(tree.topLevelType).toBe('taskList');
-    expect(tree.items).toEqual([
-      { type: 'taskItem', text: 'Task' },
-      { type: 'taskItem', text: 'Pasted' },
+    // Kind travels with the block (Notion): the pasted bullets keep their kind
+    // and split the task list around them rather than converting to to-dos.
+    expect(tree.topLevelCount).toBe(2);
+    expect(tree.types).toEqual([
+      { type: 'taskList', text: 'Task' },
+      { type: 'bulletList', text: 'Pasted' },
     ]);
   });
 

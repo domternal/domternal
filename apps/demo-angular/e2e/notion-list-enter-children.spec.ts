@@ -1834,3 +1834,71 @@ test.describe('non-empty children-zone Enter splits in place', () => {
     expect(await topLevelBlocks(page)).toEqual([{ type: 'bulletList', text: 'LabelTitleNote' }]);
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────
+// Shift+Tab outdent of a children-zone block (split-aware, Notion parity).
+// Outdenting a nested block from a NON-LAST list item splits the list so the
+// block lands at the parent level right after the item it was nested under,
+// while the parent item (and its checkbox, for to-dos) stays intact. Mirrors
+// Notion's "Shift+Tab outdents ONLY the targeted block". Regression for the
+// old lossy fallback that dissolved the whole parent to-do into a paragraph.
+// ────────────────────────────────────────────────────────────────────────
+test.describe('Shift+Tab outdent - children-zone block (split-aware)', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  async function firstChild(page: Page): Promise<{ type: string; checked: unknown }> {
+    return page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { state: { doc: { child: (i: number) => { firstChild: { type: { name: string }; attrs: Record<string, unknown> } } } } }
+        | undefined;
+      const first = ed?.state.doc.child(0).firstChild;
+      return { type: first?.type.name ?? '', checked: first?.attrs['checked'] };
+    });
+  }
+
+  test('NON-LAST to-do: splits the list, parent KEEPS its checkbox', async ({ page }) => {
+    await setContent(
+      page,
+      '<ul data-type="taskList">'
+      + '<li data-type="taskItem" data-checked="true"><p>Buy milk</p><h2>Details</h2></li>'
+      + '<li data-type="taskItem" data-checked="false"><p>Buy 2</p></li>'
+      + '<li data-type="taskItem" data-checked="false"><p>Buy 3</p></li>'
+      + '</ul>',
+    );
+    await caretAtEndOfNode(page, 'heading', 'Details');
+    await page.keyboard.press('Shift+Tab');
+    await page.waitForTimeout(60);
+
+    // List splits: [Buy milk] + heading + [Buy 2, Buy 3]; heading at top level.
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'taskList', text: 'Buy milk' },
+      { type: 'heading', text: 'Details' },
+      { type: 'taskList', text: 'Buy 2Buy 3' },
+    ]);
+    // The parent stays a to-do with its checked state (used to dissolve to a paragraph).
+    expect(await firstChild(page)).toEqual({ type: 'taskItem', checked: true });
+  });
+
+  test('MIDDLE bullet item: splits around the block', async ({ page }) => {
+    await setContent(page, '<ul><li><p>A</p></li><li><p>B</p><h2>Mid</h2></li><li><p>C</p></li></ul>');
+    await caretAtEndOfNode(page, 'heading', 'Mid');
+    await page.keyboard.press('Shift+Tab');
+    await page.waitForTimeout(60);
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'bulletList', text: 'AB' },
+      { type: 'heading', text: 'Mid' },
+      { type: 'bulletList', text: 'C' },
+    ]);
+  });
+
+  test('LAST item: outdents after the list without splitting', async ({ page }) => {
+    await setContent(page, '<ul><li><p>A</p></li><li><p>B</p><h2>Last</h2></li></ul>');
+    await caretAtEndOfNode(page, 'heading', 'Last');
+    await page.keyboard.press('Shift+Tab');
+    await page.waitForTimeout(60);
+    expect(await topLevelBlocks(page)).toEqual([
+      { type: 'bulletList', text: 'AB' },
+      { type: 'heading', text: 'Last' },
+    ]);
+  });
+});
