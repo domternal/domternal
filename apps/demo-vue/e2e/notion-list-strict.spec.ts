@@ -1915,22 +1915,18 @@ test.describe('Notion-strict list schema - ListIndent (Tab/Shift-Tab across list
     expect(headingAtTop).toBeUndefined();
   });
 
-  test('ListIndent does NOT outdent when the list item is NOT the last in its wrapper (MVP)', async ({ page }) => {
+  test('ListIndent outdents a block from a NON-LAST list item by splitting the list (Notion parity)', async ({ page }) => {
     await setContent(page, '<ul><li><p>L1</p><h2>H</h2></li><li><p>L2</p></li></ul>');
     await caretAtEndOfNode(page, 'heading', 'H');
-    // Pressing Shift-Tab: ListIndent bails (li is not last) and the
-    // chain falls through to ListKeymap. Our specific assertion: the
-    // ListIndent helper itself returned false, i.e. the heading is
-    // NOT lifted to a top-level sibling slot AFTER the bulletList.
+    // Shift-Tab on a block nested under a NON-LAST list item splits the list
+    // and lifts the block to a top-level sibling BETWEEN the two halves,
+    // keeping the parent item intact (Notion parity, since ed05536).
     await page.keyboard.press('Shift+Tab');
     await page.waitForTimeout(40);
 
     const top = await topBlocks(page);
-    // No top-level heading "H" - that's the structural pattern that
-    // ListIndent's outdent would have produced. (ListKeymap's
-    // liftListItem may have shifted things otherwise; we don't pin
-    // its behaviour here, just our negative invariant.)
-    expect(top.some((b) => b.type === 'heading' && b.text === 'H' && top.indexOf(b) === top.findIndex((x) => x.type === 'bulletList') + 1)).toBe(false);
+    expect(top.map((b) => b.type)).toEqual(['bulletList', 'heading', 'bulletList']);
+    expect(top.map((b) => b.text)).toEqual(['L1', 'H', 'L2']);
   });
 
   // ── Round-trip ─────────────────────────────────────────────────────

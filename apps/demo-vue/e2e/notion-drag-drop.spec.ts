@@ -397,8 +397,11 @@ test.describe('Drag & drop - safety rails', () => {
 
   test('drop indicator hides when cursor leaves the editor drop zone (top edge)', async ({ page }) => {
     await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
-    const first = page.locator(`${editorSelector} p:has-text("Alpha")`);
-    await first.hover();
+    // Drag a DIFFERENT block (Charlie) than the slot we probe (the editor top /
+    // Alpha), so the probed slot is a REAL move target rather than the dragged
+    // block's own adjacent slot, which a16ff00 correctly suppresses as a no-op.
+    const dragSrc = page.locator(`${editorSelector} p:has-text("Charlie")`);
+    await dragSrc.hover();
     const handle = page.locator(dragBtnSelector);
     const dt = await page.evaluateHandle(() => new DataTransfer());
     await handle.dispatchEvent('dragstart', { dataTransfer: dt });
@@ -492,7 +495,10 @@ test.describe('Drag & drop - safety rails', () => {
   test('drop indicator round-trips: inside → outside → inside restores it', async ({ page }) => {
     await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
     const first = page.locator(`${editorSelector} p:has-text("Alpha")`);
-    await first.hover();
+    // Drag Charlie so the probe over Alpha's box is a REAL move target, not the
+    // dragged block's own no-op slot (a16ff00 suppresses the indicator there).
+    const dragSrc = page.locator(`${editorSelector} p:has-text("Charlie")`);
+    await dragSrc.hover();
     const handle = page.locator(dragBtnSelector);
     const dt = await page.evaluateHandle(() => new DataTransfer());
     await handle.dispatchEvent('dragstart', { dataTransfer: dt });
@@ -526,7 +532,10 @@ test.describe('Drag & drop - safety rails', () => {
     // happens. We must NOT promise a drop when one cannot succeed.
     await setContent(page, '<p>Alpha</p><p>Bravo</p><p>Charlie</p>');
     const first = page.locator(`${editorSelector} p:has-text("Alpha")`);
-    await first.hover();
+    // Drag Charlie so the probe over Alpha's box is a REAL move target, not the
+    // dragged block's own no-op slot (a16ff00 suppresses the indicator there).
+    const dragSrc = page.locator(`${editorSelector} p:has-text("Charlie")`);
+    await dragSrc.hover();
     await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
     const handle = page.locator(dragBtnSelector);
     const dt = await page.evaluateHandle(() => new DataTransfer());

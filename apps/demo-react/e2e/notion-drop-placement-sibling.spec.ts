@@ -827,11 +827,10 @@ test.describe('X-detection - nested mode flip on list-item targets', () => {
   });
 
   test('SELF-DROP: drag listItem onto ITSELF with nested-zone X - moveBlockAsNestedChild guard returns false, doc unchanged', async ({ page }) => {
-    // The placement still reports mode='nested' because the resolver
-    // doesn't know "source == target". `moveBlockAsNestedChild`
-    // catches the self-drop (target inside source range) and returns
-    // false; performBlockDrop falls through to the sibling path which
-    // ALSO no-ops (moveBlock has its own self-drop guard). Doc intact.
+    // A self-drop is a no-op: `moveBlockAsNestedChild` catches it (target
+    // inside source range) and the sibling path no-ops too. Since a16ff00 the
+    // indicator is also suppressed for no-op drops, so data-mode is cleared
+    // and the indicator stays hidden. Doc intact.
     await setContent(page, '<ul><li><p>Solo</p></li></ul>');
     const solo = page.locator(`${editorSelector} li:has-text("Solo")`);
     await solo.hover();
@@ -844,11 +843,15 @@ test.describe('X-detection - nested mode flip on list-item targets', () => {
     const clientY = targetBox.y + targetBox.height * 0.8;
     await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX, clientY });
     await flushIndicatorRaf(page);
-    // Indicator carries data-mode='nested' even though the drop will be a no-op.
+    // No-op drop: the indicator is suppressed (data-mode cleared, not shown).
     const mode = await page.evaluate(
       () => document.querySelector('.dm-block-drop-indicator')?.getAttribute('data-mode'),
     );
-    expect(mode).toBe('nested');
+    expect(mode).toBeNull();
+    const shown = await page.evaluate(
+      () => document.querySelector('.dm-block-drop-indicator')?.hasAttribute('data-show'),
+    );
+    expect(shown).toBe(false);
 
     await page.locator(editorSelector).dispatchEvent('drop', { dataTransfer: dt, clientX, clientY });
     await handle.dispatchEvent('dragend', { dataTransfer: dt });
@@ -892,7 +895,7 @@ test.describe('X-detection - nested mode flip on list-item targets', () => {
   });
 
   test('hidden indicator state: drop OUTSIDE editor (cursor far above) keeps placement null and clears data-mode', async ({ page }) => {
-    await setContent(page, '<ul><li><p>Item</p></li></ul>');
+    await setContent(page, '<ul><li><p>Item</p></li><li><p>Other</p></li></ul>');
     const source = page.locator(`${editorSelector} li:has-text("Item")`);
     await source.hover();
     const dt = await page.evaluateHandle(() => new DataTransfer());
@@ -902,8 +905,10 @@ test.describe('X-detection - nested mode flip on list-item targets', () => {
     const editorBox = await page.locator('.dm-editor').boundingBox();
     if (!editorBox) throw new Error('no editor box');
 
-    // First dragover INSIDE editor sets data-mode.
-    const targetBox = await source.boundingBox();
+    // First dragover over a DIFFERENT item's nested zone (a REAL nested move,
+    // not a self-drop no-op) sets data-mode='nested'.
+    const other = page.locator(`${editorSelector} li:has-text("Other")`);
+    const targetBox = await other.boundingBox();
     if (!targetBox) throw new Error('no target box');
     await page.locator(editorSelector).dispatchEvent('dragover', {
       dataTransfer: dt,
@@ -1418,7 +1423,7 @@ test.describe('indicator visual - dashed indented line in nested mode', () => {
   // ── Hysteresis: a small wobble must not flip the resolved gap. ──
 
   test('Y dead-band: a small wobble across a row mid holds the indicator gap, a larger move flips it', async ({ page }) => {
-    await setContent(page, '<p>Top</p><ul><li><p>A</p></li><li><p>B</p></li></ul>');
+    await setContent(page, '<p>Top</p><p>Mid</p><ul><li><p>A</p></li><li><p>B</p></li></ul>');
     await page.locator(`${editorSelector} p:has-text("Top")`).hover();
     const dt = await page.evaluateHandle(() => new DataTransfer());
     const handle = page.locator(dragBtnSelector);

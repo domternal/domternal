@@ -1222,7 +1222,7 @@ export function createBlockHandlePlugin(
     // its current position), or a self-drop. Drawing a line the drop then
     // silently ignores is misleading; hide it so only real targets light up.
     const indicatorDraggedFrom = pluginKey.getState(editor.view.state)?.draggedFrom ?? pendingDraggedFrom;
-    if (indicatorDraggedFrom !== null && indicatorDraggedFrom !== undefined) {
+    if (indicatorDraggedFrom !== null) {
       const indicatorSource = editor.view.state.doc.nodeAt(indicatorDraggedFrom);
       if (
         indicatorSource
