@@ -242,10 +242,59 @@ describe('ListIndent extension', () => {
       expect(outdentBlockFromListItem(editor.state, editor.view.dispatch)).toBe(false);
     });
 
-    it('returns false when the list item is NOT the last in its wrapper (MVP)', () => {
-      editor = makeEditor('<ul><li><p>L1</p><h2>H</h2></li><li><p>L2</p></li></ul>');
+    it('outdents a heading from a NON-LAST bullet item by SPLITTING the list (block lands between the halves)', () => {
+      editor = makeEditor('<ul><li><p>A</p></li><li><p>B</p><h2>Mid</h2></li><li><p>C</p></li></ul>');
+      caretInside(editor, (n) => n.type.name === 'heading' && n.textContent === 'Mid');
+      expect(outdentBlockFromListItem(editor.state, editor.view.dispatch)).toBe(true);
+      // The list splits into [A, B] + heading + [C]; the heading sits at top
+      // level right after the item it was nested under (Notion semantics).
+      const top: string[] = [];
+      editor.state.doc.forEach((n) => top.push(n.type.name));
+      expect(top).toEqual(['bulletList', 'heading', 'bulletList']);
+      expect(editor.state.doc.child(0).childCount).toBe(2); // A, B
+      expect(editor.state.doc.child(1).textContent).toBe('Mid');
+      expect(editor.state.doc.child(2).childCount).toBe(1); // C
+      expect(editor.state.doc.child(2).textContent).toBe('C');
+    });
+
+    it('outdents a heading from the FIRST task item and KEEPS the parent to-do (checkbox preserved)', () => {
+      editor = makeEditor(
+        '<ul data-type="taskList">'
+        + '<li data-type="taskItem" data-checked="true"><p>Buy milk</p><h2>Details</h2></li>'
+        + '<li data-type="taskItem" data-checked="false"><p>Buy 2</p></li>'
+        + '</ul>',
+      );
+      caretInside(editor, (n) => n.type.name === 'heading' && n.textContent === 'Details');
+      expect(outdentBlockFromListItem(editor.state, editor.view.dispatch)).toBe(true);
+      const top: string[] = [];
+      editor.state.doc.forEach((n) => top.push(n.type.name));
+      expect(top).toEqual(['taskList', 'heading', 'taskList']);
+      // The parent item STAYS a to-do and KEEPS its checked state. (The lossy
+      // liftListItem fallback used to dissolve it into a plain paragraph.)
+      const firstItem = editor.state.doc.child(0).firstChild;
+      expect(firstItem?.type.name).toBe('taskItem');
+      expect(firstItem?.attrs['checked']).toBe(true);
+      expect(firstItem?.textContent).toBe('Buy milk');
+      expect(editor.state.doc.child(1).textContent).toBe('Details');
+      expect(editor.state.doc.child(2).firstChild?.type.name).toBe('taskItem');
+    });
+
+    it('outdents a heading from a non-last ORDERED item, splitting the list', () => {
+      editor = makeEditor('<ol><li><p>One</p><h2>H</h2></li><li><p>Two</p></li></ol>');
       caretInside(editor, (n) => n.type.name === 'heading');
-      expect(outdentBlockFromListItem(editor.state, editor.view.dispatch)).toBe(false);
+      expect(outdentBlockFromListItem(editor.state, editor.view.dispatch)).toBe(true);
+      const top: string[] = [];
+      editor.state.doc.forEach((n) => top.push(n.type.name));
+      expect(top).toEqual(['orderedList', 'heading', 'orderedList']);
+    });
+
+    it('places the caret inside the outdented block after a split', () => {
+      editor = makeEditor('<ul><li><p>A</p><h2>Mid</h2></li><li><p>B</p></li></ul>');
+      caretInside(editor, (n) => n.type.name === 'heading');
+      expect(outdentBlockFromListItem(editor.state, editor.view.dispatch)).toBe(true);
+      const { $from } = editor.state.selection;
+      expect($from.parent.type.name).toBe('heading');
+      expect($from.parent.textContent).toBe('Mid');
     });
 
     it('returns false when the cursor is OUTSIDE any list item', () => {
