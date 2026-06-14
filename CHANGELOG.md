@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.9.0 (2026-06-15)
+
+### Features
+
+- feat(core): the floating menu plugin now lives in `@domternal/core`, and `@domternal/extension-block-menu` is no longer a peer dependency of the framework wrappers. The Angular/React/Vue/Vanilla wrappers need only `@domternal/core` + `@domternal/theme`; add `@domternal/extension-block-menu` explicitly when you want the block handle, slash menu, or drag-and-drop. (#104)
+- feat(react): `immediatelyRender` creates the editor synchronously on the first render instead of after mount. (#104)
+- feat(extension-block-menu): per-item "Turn into" for lists. The slash command and block menu convert one list item at a time via the new `turnIntoBulletList` / `turnIntoOrderedList` / `turnIntoTaskList` commands, while the toolbar and keyboard shortcut still convert the whole list. (#105)
+- feat(theme): Notion-style list spacing. In notion mode, adjacent lists of different type chunk together at the within-item gap instead of the wider container gap; in both modes a nested list sits tightly under its parent label. (#105)
+
+### Fixes
+
+- fix(core): the placeholder paints on the initial draw of an empty editor instead of waiting for the first transaction. (#104)
+- fix(extension-mention, extension-emoji): suggestion items select on `mousemove`, so a resting pointer no longer overrides arrow-key navigation. (#104)
+- fix(theme): content clips on the editor's inner wrapper so popups can escape short editors; added the `--dm-editor-padding-top` variable for two-value padding shorthands. (#104)
+- fix(core, extension-table): `positionFloating` gained a flip-boundary option so the table cell toolbar stays inside the editor. (#104)
+- fix(core, extension-block-menu): a list item keeps its kind (bullet / ordered / to-do) across drag, paste, and turn-into; split numbering restarts and container drags close both ways. (#105)
+- fix(extension-block-menu): no-op block drops are suppressed. The drop indicator hides and the drop is ignored when the release target is the block's own slot. (#105)
+- fix(core): Shift+Tab outdents only the targeted children-zone block, splitting the list and keeping the parent item intact (Notion parity). (#105)
+
 ## 0.8.0 (2026-06-09)
 
 ### Features
