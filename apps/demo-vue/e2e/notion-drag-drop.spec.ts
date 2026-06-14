@@ -1024,3 +1024,112 @@ test.describe('Drag & drop - safety rails', () => {
     await dt.dispose();
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────
+// N. No-op drop suppression
+//    When the dragged block is the one IMMEDIATELY after a list, the gap below
+//    the list's deepest last item offers an outdent ladder whose shallow
+//    options all resolve to the block's OWN current slot. Those are no-op
+//    moves. The indicator must HIDE there (no misleading line, no silent
+//    no-op drop), while a real target one column to the right still works.
+//    Regression for the "drop below the deeply-nested item did nothing" bug.
+// ────────────────────────────────────────────────────────────────────────
+test.describe('Drag & drop - no-op drop suppression', () => {
+  test.beforeEach(async ({ page }) => { await goNotion(page); });
+
+  const SCENARIO =
+    '<ul><li><p>Item one</p><p>Item one detail</p><ul><li><p>Nested last</p></li></ul></li></ul>'
+    + '<h2>Dragged heading</h2>'
+    + '<p>Tail</p>';
+
+  test('indicator hides at the no-op gap (block own slot), shows for a real nested target', async ({ page }) => {
+    await setContent(page, SCENARIO);
+    const before = await getBlocks(page);
+
+    // Surface the heading's handle and start dragging it.
+    const heading = page.locator(`${editorSelector} h2:has-text("Dragged heading")`);
+    await heading.hover();
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+
+    const editorBox = await page.locator('.dm-editor').boundingBox();
+    const nestedBox = await page.locator(`${editorSelector} li p:has-text("Nested last")`).first().boundingBox();
+    expect(editorBox).not.toBeNull();
+    expect(nestedBox).not.toBeNull();
+    if (!editorBox || !nestedBox) return;
+    // Gap just below the deepest nested item ("Nested last").
+    const gapY = nestedBox.y + nestedBox.height - 2;
+
+    // Far-left/gutter column at this gap == the heading's own slot (the outdent
+    // ladder collapses onto where it already sits) → indicator HIDDEN (the fix).
+    expect(await probeIndicatorShown(page, editorBox.x + 4, gapY)).toBe(false);
+
+    // Deep-right column at the SAME gap = nest INTO "Nested last" → a real move
+    // → indicator SHOWN. (Proves the gap is a live drop zone and the
+    // suppression is column-specific, not a dead gap.)
+    expect(await probeIndicatorShown(page, nestedBox.x + 48, gapY)).toBe(true);
+
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await dt.dispose();
+
+    // Nothing was dispatched during the drag, so the doc is untouched.
+    expect(await getBlocks(page)).toEqual(before);
+  });
+
+  test('dropping at the no-op gap leaves the document unchanged (no silent no-op move)', async ({ page }) => {
+    await setContent(page, SCENARIO);
+    const before = await getBlocks(page);
+
+    const heading = page.locator(`${editorSelector} h2:has-text("Dragged heading")`);
+    await heading.hover();
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+
+    const editorBox = await page.locator('.dm-editor').boundingBox();
+    const nestedBox = await page.locator(`${editorSelector} li p:has-text("Nested last")`).first().boundingBox();
+    if (!editorBox || !nestedBox) return;
+    const gapY = nestedBox.y + nestedBox.height - 2;
+    const noopX = editorBox.x + 4;
+
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX: noopX, clientY: gapY });
+    await page.locator(editorSelector).dispatchEvent('drop', { dataTransfer: dt, clientX: noopX, clientY: gapY });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    await dt.dispose();
+
+    expect(await getBlocks(page)).toEqual(before);
+  });
+
+  test('the deep-right column at the same gap performs a real nested move', async ({ page }) => {
+    await setContent(page, SCENARIO);
+    const before = await getBlocks(page);
+    expect(before.some((b) => b.type === 'heading')).toBe(true);
+
+    const heading = page.locator(`${editorSelector} h2:has-text("Dragged heading")`);
+    await heading.hover();
+    await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
+    const handle = page.locator(dragBtnSelector);
+    const dt = await page.evaluateHandle(() => new DataTransfer());
+    await handle.dispatchEvent('dragstart', { dataTransfer: dt });
+
+    const nestedBox = await page.locator(`${editorSelector} li p:has-text("Nested last")`).first().boundingBox();
+    if (!nestedBox) return;
+    const gapY = nestedBox.y + nestedBox.height - 2;
+    const nestX = nestedBox.x + 48;
+
+    await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX: nestX, clientY: gapY });
+    await page.locator(editorSelector).dispatchEvent('drop', { dataTransfer: dt, clientX: nestX, clientY: gapY });
+    await handle.dispatchEvent('dragend', { dataTransfer: dt });
+    await page.waitForTimeout(80);
+    await dt.dispose();
+
+    // The heading nested into the list, so it is no longer a TOP-LEVEL block.
+    const after = await getBlocks(page);
+    expect(after.length).toBeLessThan(before.length);
+    expect(after.some((b) => b.type === 'heading')).toBe(false);
+  });
+});

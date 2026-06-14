@@ -16,7 +16,9 @@ import {
   blockHandlePluginKey,
   resolveNestedConfig,
   descendToNearestHoverItem,
+  buildDropTr,
 } from './BlockHandle.js';
+import type { DropPlacement } from './BlockHandle.js';
 import type { EditorView } from '@domternal/pm/view';
 import { DEFAULT_BLOCK_MATCHERS } from './helpers/defaultMatchers.js';
 import type { BlockMatcher } from './helpers/blockMatcher.js';
@@ -1221,5 +1223,110 @@ describe('BlockHandle nested drag-and-drop (DOM simulation)', () => {
     document.dispatchEvent(dragEvent('dragover', 5000, 5000));
     expect(indicator?.hasAttribute('data-show')).toBe(false);
     endDrag();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// No-op drop suppression: a block dragged onto the gap right after its OWN list
+// collapses several outdent options onto its current position. `buildDropTr` is
+// the single source of truth both the live drop AND the indicator use to detect
+// "this release would move nothing", so the indicator hides and the drop is not
+// dispatched (no silent no-op, no empty undo entry). See the screenshot bug:
+// dropping a heading just below a deeply-nested last list item did nothing.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('BlockHandle - no-op drop detection (buildDropTr)', () => {
+  const listExtensions = [
+    Document, Text, Paragraph, Heading, BulletList, OrderedList, ListItem, TaskList, TaskItem, BlockHandle,
+  ];
+  // The screenshot doc: an outer list item with two paragraphs + a nested list
+  // whose single item is "Type slash"; then the dragged heading sits IMMEDIATELY
+  // after the outer list; then a trailing list.
+  const SCENARIO =
+    '<ul><li><p>Drag this</p><p>You can also</p><ul><li><p>Type slash</p></li></ul></li></ul>'
+    + '<h2>Things to try</h2>'
+    + '<ul><li><p>Click</p></li></ul>';
+
+  function makeListEditor(html: string): Editor {
+    host = document.createElement('div');
+    host.className = 'dm-editor';
+    document.body.appendChild(host);
+    editor = new Editor({ element: host, extensions: listExtensions, content: html });
+    return editor;
+  }
+
+  function sibling(insertPos: number): DropPlacement {
+    return { pos: insertPos, rect: new DOMRect(), insertAfter: false, mode: 'sibling', insertPos };
+  }
+
+  it('NO-OP: heading targeting the gap right after its OWN list leaves the doc unchanged', () => {
+    const ed = makeListEditor(SCENARIO);
+    const doc = ed.state.doc;
+    expect(doc.child(0).type.name).toBe('bulletList');
+    // The heading starts right after the outer bulletList; that gap == its own slot.
+    const headingPos = doc.child(0).nodeSize;
+    const source = doc.nodeAt(headingPos);
+    expect(source?.type.name).toBe('heading');
+    const tr = buildDropTr(ed.view, headingPos, source!, sibling(headingPos));
+    expect(tr.doc.eq(ed.state.doc)).toBe(true);
+  });
+
+  it('NO-OP: the split-lift slot inside the list end (heading lifts back to its own place)', () => {
+    const ed = makeListEditor(SCENARIO);
+    const doc = ed.state.doc;
+    const headingPos = doc.child(0).nodeSize;
+    const source = doc.nodeAt(headingPos);
+    // One position left = inside the bulletList just before its close; a non-list
+    // block inserted there splits the list and lifts out to right after it == S.
+    const tr = buildDropTr(ed.view, headingPos, source!, sibling(headingPos - 1));
+    expect(tr.doc.eq(ed.state.doc)).toBe(true);
+  });
+
+  it('REAL MOVE: a genuine sibling target (heading to the top of the doc) changes the doc', () => {
+    const ed = makeListEditor(SCENARIO);
+    const doc = ed.state.doc;
+    const headingPos = doc.child(0).nodeSize;
+    const source = doc.nodeAt(headingPos);
+    const tr = buildDropTr(ed.view, headingPos, source!, sibling(0));
+    expect(tr.doc.eq(ed.state.doc)).toBe(false);
+    expect(tr.doc.child(0).type.name).toBe('heading');
+  });
+
+  it('REAL MOVE: nesting the heading INTO the "Type slash" item changes the doc', () => {
+    const ed = makeListEditor(SCENARIO);
+    const doc = ed.state.doc;
+    const headingPos = doc.child(0).nodeSize;
+    const source = doc.nodeAt(headingPos);
+    let typePos = -1;
+    doc.descendants((n, pos) => {
+      if (n.type.name === 'listItem' && n.textContent === 'Type slash') typePos = pos;
+    });
+    expect(typePos).toBeGreaterThan(0);
+    const wrapperPos = doc.resolve(typePos).before();
+    const childIndex = doc.nodeAt(typePos)!.childCount; // append as last child of the item
+    const placement: DropPlacement = {
+      pos: typePos, rect: new DOMRect(), insertAfter: false,
+      mode: 'nested', targetItemPos: typePos, wrapperPos, childIndex,
+    };
+    const tr = buildDropTr(ed.view, headingPos, source!, placement);
+    expect(tr.doc.eq(ed.state.doc)).toBe(false);
+  });
+
+  it('NO-OP: nesting a block INTO itself (self-drop) leaves the doc unchanged', () => {
+    const ed = makeListEditor(SCENARIO);
+    const doc = ed.state.doc;
+    // The OUTER list item dragged onto a nested slot of itself is a self-drop.
+    let outerItemPos = -1;
+    doc.descendants((n, pos) => {
+      if (outerItemPos === -1 && n.type.name === 'listItem') outerItemPos = pos;
+    });
+    expect(outerItemPos).toBeGreaterThanOrEqual(0);
+    const source = doc.nodeAt(outerItemPos);
+    const wrapperPos = doc.resolve(outerItemPos).before();
+    const placement: DropPlacement = {
+      pos: outerItemPos, rect: new DOMRect(), insertAfter: false,
+      mode: 'nested', targetItemPos: outerItemPos, wrapperPos, childIndex: 1,
+    };
+    const tr = buildDropTr(ed.view, outerItemPos, source!, placement);
+    expect(tr.doc.eq(ed.state.doc)).toBe(true);
   });
 });

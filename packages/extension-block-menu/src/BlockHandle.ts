@@ -19,6 +19,7 @@
 import { Extension, defaultIcons } from '@domternal/core';
 import type { Editor } from '@domternal/core';
 import { NodeSelection, Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
+import type { Transaction } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import type { Node, Slice } from '@domternal/pm/model';
 import { findDeepestBlockAtY } from './helpers/findTopLevelBlock.js';
@@ -603,6 +604,59 @@ export function computeDropPlacement(
   };
 }
 
+/**
+ * Build the transaction a drop at `placement` would dispatch, given the dragged
+ * block at `draggedFrom`. Mirrors `performBlockDrop`'s move logic (nested-child,
+ * self-drop bail, sibling fallback, sibling) so both the live drop AND the
+ * "would this actually move anything?" probe share ONE source of truth. The
+ * returned transaction is left UNCHANGED when the move is a no-op (e.g. the
+ * block already sits in this exact slot, or a self-drop), so callers can detect
+ * it with `tr.doc.eq(view.state.doc)`.
+ */
+export function buildDropTr(
+  view: EditorView,
+  draggedFrom: number,
+  sourceNode: Node,
+  placement: DropPlacement,
+): Transaction {
+  const tr = view.state.tr;
+  if (
+    placement.mode === 'nested'
+    && placement.targetItemPos !== undefined
+    && placement.wrapperPos !== undefined
+  ) {
+    const ok = moveBlockAsNestedChild(
+      tr,
+      draggedFrom,
+      placement.wrapperPos,
+      placement.targetItemPos,
+      placement.childIndex,
+    );
+    if (ok) return tr;
+    // Helper bailed. A SELF-drop (source/target overlap) is a no-op: leave the
+    // transaction unchanged. A true schema reject (no overlap) falls through to
+    // the sibling move below.
+    const targetItem = view.state.doc.nodeAt(placement.targetItemPos);
+    const targetItemEnd = targetItem
+      ? placement.targetItemPos + targetItem.nodeSize
+      : placement.targetItemPos;
+    const sourceEnd = draggedFrom + sourceNode.nodeSize;
+    const sourceInTarget = draggedFrom >= placement.targetItemPos && draggedFrom < targetItemEnd;
+    const targetInSource = placement.targetItemPos >= draggedFrom && placement.targetItemPos < sourceEnd;
+    if (sourceInTarget || targetInSource) return tr;
+  }
+
+  // Slot model supplies an absolute `insertPos`; legacy callers derive it.
+  let targetPos = placement.insertPos;
+  if (targetPos === undefined) {
+    const targetNode = view.state.doc.nodeAt(placement.pos);
+    const targetEnd = targetNode ? placement.pos + targetNode.nodeSize : placement.pos;
+    targetPos = placement.insertAfter ? targetEnd : placement.pos;
+  }
+  moveBlock(tr, draggedFrom, targetPos);
+  return tr;
+}
+
 interface ChildSlot {
   /** Child-array index to insert at, in `[1, childCount]`. */
   childIndex: number;
@@ -1053,9 +1107,11 @@ export function createBlockHandlePlugin(
     const dragging = asDragView(view).dragging;
     if (!dragging) return;
     if (!isCursorOverDropZone(event.clientX, event.clientY)) return;
-    if (performBlockDrop(event.clientX, event.clientY)) {
-      event.preventDefault();
-    }
+    performBlockDrop(event.clientX, event.clientY);
+    // Consume our own drag within the drop zone even when the drop was a no-op,
+    // so the browser doesn't run a native default drop for a gutter/margin
+    // release. (`performBlockDrop` returns false for a no-op now.)
+    event.preventDefault();
   };
 
   /**
@@ -1093,48 +1149,13 @@ export function createBlockHandlePlugin(
         : null,
     });
     if (!placement) return false;
-    const tr = view.state.tr;
-
-    if (
-      placement.mode === 'nested'
-      && placement.targetItemPos !== undefined
-      && placement.wrapperPos !== undefined
-    ) {
-      // Drop-indent into the slot the indicator drew.
-      const ok = moveBlockAsNestedChild(
-        tr,
-        draggedFrom,
-        placement.wrapperPos,
-        placement.targetItemPos,
-        placement.childIndex,
-      );
-      if (ok) {
-        view.dispatch(tr.scrollIntoView());
-        return true;
-      }
-      // Helper bailed. A SELF-drop (source/target overlap) is a no-op: consume
-      // the event instead of ejecting the block to a sibling. A true schema
-      // reject (no overlap) falls through to the sibling move below.
-      const targetItem = view.state.doc.nodeAt(placement.targetItemPos);
-      const targetItemEnd = targetItem
-        ? placement.targetItemPos + targetItem.nodeSize
-        : placement.targetItemPos;
-      const sourceEnd = draggedFrom + sourceNode.nodeSize;
-      const sourceInTarget = draggedFrom >= placement.targetItemPos && draggedFrom < targetItemEnd;
-      const targetInSource = placement.targetItemPos >= draggedFrom && placement.targetItemPos < sourceEnd;
-      if (sourceInTarget || targetInSource) {
-        return true;
-      }
-    }
-
-    // Slot model supplies an absolute `insertPos`; legacy callers derive it.
-    let targetPos = placement.insertPos;
-    if (targetPos === undefined) {
-      const targetNode = view.state.doc.nodeAt(placement.pos);
-      const targetEnd = targetNode ? placement.pos + targetNode.nodeSize : placement.pos;
-      targetPos = placement.insertAfter ? targetEnd : placement.pos;
-    }
-    moveBlock(tr, draggedFrom, targetPos);
+    const tr = buildDropTr(view, draggedFrom, sourceNode, placement);
+    // No-op drop (self-drop, or the block already sits in exactly this slot):
+    // nothing to dispatch. `handleDrop` still consumes the event, so PM's
+    // default drop never runs and the undo stack isn't polluted with a
+    // do-nothing entry. The indicator is also suppressed for these slots (see
+    // `updateDropIndicator`), so a release here should be rare.
+    if (tr.doc.eq(view.state.doc)) return false;
     view.dispatch(tr.scrollIntoView());
     return true;
   };
@@ -1194,6 +1215,24 @@ export function createBlockHandlePlugin(
     dragHyst.lowerPos = placement.gapLowerPos ?? null;
     dragHyst.level = placement.depthLevel ?? null;
     dragHyst.childIndex = placement.mode === 'nested' ? placement.childIndex ?? null : null;
+
+    // Suppress the indicator when a release here would NOT move anything: the
+    // block already occupies exactly this slot (e.g. a block dragged onto the
+    // gap right after its own list, where several outdent options collapse onto
+    // its current position), or a self-drop. Drawing a line the drop then
+    // silently ignores is misleading; hide it so only real targets light up.
+    const indicatorDraggedFrom = pluginKey.getState(editor.view.state)?.draggedFrom ?? pendingDraggedFrom;
+    if (indicatorDraggedFrom !== null && indicatorDraggedFrom !== undefined) {
+      const indicatorSource = editor.view.state.doc.nodeAt(indicatorDraggedFrom);
+      if (
+        indicatorSource
+        && buildDropTr(editor.view, indicatorDraggedFrom, indicatorSource, placement).doc.eq(editor.view.state.doc)
+      ) {
+        indicator.removeAttribute('data-show');
+        currentDropKey = null;
+        return;
+      }
+    }
 
     const editorRect = editorEl.getBoundingClientRect();
 
