@@ -818,21 +818,31 @@ test.describe('Notion-strict list schema - children-zone indent', () => {
     expect(mt).toBeLessThanOrEqual(8);
   });
 
-  test('bullet list: nested taskList does NOT pick up children-zone margin-top (excluded from rule, same as nested plain ul)', async ({ page }) => {
-    // The nested taskList still inherits the generic `ul, ol { margin: 0.75em 0 }`
-    // rule from _content.scss, so margin-top is the natural list spacing (~12px),
-    // NOT the children-zone increment (0.25em ~= 4px) which is excluded for
-    // ul/ol now that taskList has its own marker padding.
+  test('bullet list: nested taskList chunks tightly under its label (~4px), like a nested plain ul', async ({ page }) => {
+    // Nested lists chunk under their parent label at the within-item gap
+    // (0.25em ~= 4px) via `li :is(ul, ol) { margin-block: 0.25em }` in
+    // _content.scss, instead of the 0.75em (~12px) list-container margin. The
+    // rule matches both the bullet (`li > ul`) and task (`li > div > ul`)
+    // structures, so nested taskList and nested plain ul behave identically -
+    // matching Notion, where nesting adds no extra breathing room.
     await setContent(
       page,
       '<ul><li><p>Outer</p>'
       + '<ul data-type="taskList"><li data-type="taskItem"><p>Inner</p></li></ul>'
       + '</li></ul>',
     );
-    const mt = await marginTop(page, `${editorSelector} li > ul[data-type="taskList"]`);
-    // Strictly bigger than the children-zone increment (≤8px) to prove the
-    // exclusion is in effect.
-    expect(mt).toBeGreaterThan(8);
+    const taskMt = await marginTop(page, `${editorSelector} li > ul[data-type="taskList"]`);
+    // Tight ~4px (0.25em), not the old ~12px container margin.
+    expect(taskMt).toBeGreaterThan(2);
+    expect(taskMt).toBeLessThanOrEqual(8);
+
+    await setContent(
+      page,
+      '<ul><li><p>Outer</p><ul><li><p>Inner</p></li></ul></li></ul>',
+    );
+    const plainMt = await marginTop(page, `${editorSelector} li > ul`);
+    // Plain nested ul gets the same tight gap.
+    expect(Math.abs(taskMt - plainMt)).toBeLessThan(2);
   });
 
   // ── Token override (`--dm-block-children-indent`) ──────────────────
