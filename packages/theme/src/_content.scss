@@ -129,7 +129,9 @@
   // inner `<div>` instead.
   ul:not([data-type="taskList"]),
   ol {
-    li {
+    // `> li` (child, not descendant): a descendant `li` would match taskItems
+    // nested inside this list and shift them right via the rule below.
+    > li {
       margin: 0.25em 0;
 
       > p {
