@@ -105,10 +105,10 @@
   ul,
   ol {
     margin: 0.75em 0;
-    padding-left: 1.5em;
-    // Right padding so colored lists get breathing room on the right edge,
-    // matching the inline padding paragraphs and headings get above.
-    padding-right: var(--dm-block-inline-padding);
+    // Logical inline padding so the marker gutter sits on the reading-start
+    // side and mirrors under `dir="rtl"`. End padding gives colored lists
+    // breathing room on the reading-end edge, matching paragraphs/headings.
+    padding-inline: 1.5em var(--dm-block-inline-padding);
   }
 
   // A nested list chunks tightly under its parent label (the within-item gap)
