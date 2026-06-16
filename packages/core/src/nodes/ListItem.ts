@@ -73,7 +73,34 @@ export const ListItem = Node.create<ListItemOptions>({
           }
         }
 
-        if (splitListItem(this.nodeType)(state, view.dispatch)) return true;
+        // Label slot of an item that already has nested children. PM's
+        // splitListItem assigns everything after the caret (the whole nested
+        // sub-list) to the new sibling, emptying the original item. Notion
+        // keeps children under the original parent, so handle these here:
+        const item = $from.node(-1);
+        const hasChildren = item.childCount > 1;
+        const atEnd = $from.parentOffset === $from.parent.content.size;
+        const labelEmpty = $from.parent.content.size === 0;
+        if (!ctx?.isInChildrenZone && hasChildren && atEnd && !labelEmpty) {
+          // Non-empty label, caret at end: a fresh empty sibling drops below,
+          // children stay nested under the original item.
+          const newItem = this.nodeType.createAndFill();
+          if (newItem) {
+            const insertAt = $from.after($from.depth - 1);
+            const tr = state.tr.insert(insertAt, newItem);
+            tr.setSelection(Selection.near(tr.doc.resolve(insertAt + 2)));
+            view.dispatch(tr.scrollIntoView());
+            return true;
+          }
+        }
+
+        // Empty label with children: skip splitListItem (it would migrate the
+        // children to a stray sibling) and fall through to the lift below,
+        // which outdents the whole item one level (Notion: empty Enter
+        // outdents). Childless empty labels still split (splitListItem no-ops
+        // on them, then liftListItem runs).
+        const skipSplit = !ctx?.isInChildrenZone && labelEmpty && hasChildren;
+        if (!skipSplit && splitListItem(this.nodeType)(state, view.dispatch)) return true;
 
         // Empty listItem inside a list that's inside a taskItem: liftListItem would
         // place a bare paragraph in the taskItem (loses bullet marker). Instead,

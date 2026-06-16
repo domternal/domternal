@@ -110,6 +110,10 @@ describe('TaskItem', () => {
           tag: 'li[data-type="taskItem"]',
           priority: 51,
         },
+        {
+          tag: 'li.task-list-item',
+          priority: 51,
+        },
       ]);
     });
   });

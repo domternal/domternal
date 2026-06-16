@@ -42,6 +42,13 @@ export const TaskList = Node.create<TaskListOptions>({
         tag: `ul[data-type="${this.name}"]`,
         priority: 51, // Higher priority than regular bulletList
       },
+      // GFM / markdown task lists: `<ul class="contains-task-list">`. Priority
+      // 51 keeps it ahead of the generic `ul` (bulletList, 50); class-scoped so
+      // it only matches real GFM task-list containers, not ordinary bullets.
+      {
+        tag: 'ul.contains-task-list',
+        priority: 51,
+      },
     ];
   },
 

@@ -49,6 +49,10 @@ describe('TaskList', () => {
           tag: 'ul[data-type="taskList"]',
           priority: 51,
         },
+        {
+          tag: 'ul.contains-task-list',
+          priority: 51,
+        },
       ]);
     });
   });

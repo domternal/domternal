@@ -5,8 +5,56 @@
  * Plain text is NOT supported - use HTML or JSON explicitly.
  */
 import type { Schema} from '@domternal/pm/model';
-import { Node as PMNode, DOMParser } from '@domternal/pm/model';
+import { Node as PMNode, DOMParser, Fragment } from '@domternal/pm/model';
 import type { Content, JSONContent } from '../types/index.js';
+
+const LIST_WRAPPER_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
+
+/**
+ * True for the content-fitter artifact: a list whose only content is one item
+ * holding a single empty paragraph. When HTML mixes item types in one `<ul>`
+ * (e.g. a `data-type="taskItem"` first), the parser opens a bulletList, finds
+ * it cannot hold the taskItem, and closes the bulletList - filling its required
+ * `listItem > paragraph` with an empty placeholder the author never wrote.
+ */
+function isEmptyPlaceholderList(node: PMNode): boolean {
+  if (!LIST_WRAPPER_TYPES.has(node.type.name) || node.childCount !== 1) return false;
+  const item = node.child(0);
+  return item.childCount === 1
+    && item.child(0).type.name === 'paragraph'
+    && item.child(0).content.size === 0;
+}
+
+/**
+ * Drops the fitter artifact above: an empty single-item placeholder list that
+ * sits immediately before a DIFFERENT-type list (the list it was split from).
+ * Scoped tightly to that signature so authored empty lists are left alone.
+ * Recurses so the artifact is removed at whatever depth the mixed list parsed.
+ */
+function stripFitterArtifacts(node: PMNode): PMNode {
+  if (!node.isBlock || node.isLeaf) return node;
+
+  const children: PMNode[] = [];
+  node.forEach((child) => children.push(stripFitterArtifacts(child)));
+
+  const kept: PMNode[] = [];
+  children.forEach((cur, i) => {
+    const next: PMNode | undefined = children[i + 1];
+    if (
+      isEmptyPlaceholderList(cur)
+      && next
+      && LIST_WRAPPER_TYPES.has(next.type.name)
+      && next.type !== cur.type
+    ) {
+      return; // drop the content-fitter artifact
+    }
+    kept.push(cur);
+  });
+
+  // Reconstruct only when filtering dropped a node or recursion replaced one.
+  const unchanged = kept.length === node.childCount && kept.every((c, i) => c === node.child(i));
+  return unchanged ? node : node.copy(Fragment.fromArray(kept));
+}
 
 /**
  * Options for createDocument
@@ -76,7 +124,7 @@ function parseHTMLContent(
   element.innerHTML = html;
 
   const parser = DOMParser.fromSchema(schema);
-  return parser.parse(element, options?.parseOptions);
+  return stripFitterArtifacts(parser.parse(element, options?.parseOptions));
 }
 
 /**
