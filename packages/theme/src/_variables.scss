@@ -62,13 +62,18 @@
   // (heading, codeBlock, blockquote, etc.) render indented one level
   // below it.
   //
-  // `rem` (not `em`): we want every children-zone block to land in the
-  // SAME visual column regardless of its own font-size, so the indent
-  // stays decoupled from the child element's typography (a heading's
-  // larger font would otherwise produce a wider em-based indent than
-  // a sibling paragraph). Override per-editor for tighter/looser
-  // hierarchy.
-  --dm-block-children-indent: 1.5rem;
+  // `calc(1.5 * --dm-editor-font-size)` rather than a bare `1.5rem` or `1.5em`,
+  // to satisfy two competing constraints at once:
+  //  - it must match the marker gutter (`padding-inline-start: 1.5em` on the
+  //    list, whose `em` resolves against the editor font), so the indent
+  //    tracks `--dm-editor-font-size` instead of drifting from a fixed `rem`
+  //    when a consumer scales the editor font;
+  //  - it must stay decoupled from the CHILD block's own typography (a bare
+  //    `1.5em` on a heading note resolves against the heading's larger font
+  //    and over-indents it past a sibling paragraph note).
+  // Multiplying the editor-font token gives both. At the 1rem default this is
+  // 1.5rem (unchanged). Override per-editor for tighter/looser hierarchy.
+  --dm-block-children-indent: calc(1.5 * var(--dm-editor-font-size, 1rem));
 
   // Shared drop shadow for popover surfaces (floating menu, slash command,
   // context menu). Override in dark theme for visibility on dark bg.

@@ -14,7 +14,9 @@
 .dm-editor .ProseMirror {
   ul[data-type="taskList"] {
     list-style: none;
-    padding-left: 1.5em;
+    // Logical so the checkbox gutter mirrors under `dir="rtl"`, matching
+    // the bullet/ordered marker gutter in `_content.scss`.
+    padding-inline-start: 1.5em;
 
     li[data-type="taskItem"] {
       position: relative;
@@ -23,15 +25,16 @@
       > label {
         position: absolute;
         // Position is driven by tokens (defined in `_variables.scss`):
-        //  - `left` hangs the checkbox in the bullet column (paired with
-        //    the wrapper's `padding-left: 1.5em` and the checkbox's
-        //    1em width, the right edge of the checkbox sits at
-        //    `li.left - 0.25em` and text starts at `li.left`).
+        //  - `inset-inline-start` hangs the checkbox in the marker column on
+        //    the reading-start side (so it mirrors under `dir="rtl"`). Paired
+        //    with the wrapper's `padding-inline-start: 1.5em` and the
+        //    checkbox's 1em width, its reading-end edge sits ~0.25em before
+        //    the text column and text starts at the item's content edge.
         //  - `top` aligns with the first text line's x-height, so the
         //    checkbox visually rests next to lower-case glyphs the way
         //    a bullet glyph does. Override the token alongside
         //    `--dm-editor-line-height` to keep alignment.
-        left: var(--dm-task-checkbox-left, -1.15em);
+        inset-inline-start: var(--dm-task-checkbox-left, -1.15em);
         top: var(--dm-task-checkbox-top, 0.45em);
         display: flex;
         align-items: center;

@@ -24,6 +24,7 @@ import type { CommandSpec } from '../types/Commands.js';
 import { getListItemCursorContext } from '../utils/listItemCursorContext.js';
 import { insertChildrenZoneSibling } from '../utils/insertChildrenZoneSibling.js';
 import { liftEmptyChildrenZoneParagraph } from '../utils/liftEmptyChildrenZoneParagraph.js';
+import { liftCrossTypeListItem } from '../utils/liftCrossTypeListItem.js';
 import { TaskItemNodeView } from './TaskItemNodeView.js';
 
 declare module '@domternal/core' {
@@ -60,7 +61,13 @@ export const TaskItem = Node.create<TaskItemOptions>({
         keepOnSplit: false,
         parseHTML: (element: HTMLElement) => {
           const dataChecked = element.getAttribute('data-checked');
-          return dataChecked === 'true' || dataChecked === '';
+          if (dataChecked !== null) {
+            // Case-insensitive ("TRUE"/"True") + the empty-string form.
+            return dataChecked.toLowerCase() === 'true' || dataChecked === '';
+          }
+          // No data-checked (GFM / markdown task lists): derive from the
+          // rendered checkbox input so imported checked state survives.
+          return element.querySelector('input[type="checkbox"]')?.hasAttribute('checked') ?? false;
         },
         renderHTML: (attributes: Record<string, unknown>) => ({
           'data-checked': attributes['checked'] ? 'true' : 'false',
@@ -73,6 +80,14 @@ export const TaskItem = Node.create<TaskItemOptions>({
     return [
       {
         tag: `li[data-type="${this.name}"]`,
+        priority: 51,
+      },
+      // GFM / markdown task lists: `<li class="task-list-item">` carries no
+      // data-type. Priority 51 keeps it ahead of the generic `li` (listItem,
+      // 50); class-scoped so it never swallows ordinary bullet items. The
+      // `checked` attribute is derived from the descendant `<input>` above.
+      {
+        tag: 'li.task-list-item',
         priority: 51,
       },
     ];
@@ -187,13 +202,39 @@ export const TaskItem = Node.create<TaskItemOptions>({
           }
         }
 
+        // Label slot of a taskItem that already has nested children. PM's
+        // splitListItem assigns everything after the caret (the whole nested
+        // sub-list) to the new sibling, emptying the original item. Notion
+        // keeps children under the original parent, so handle these here.
+        const item = $from.node(-1);
+        const hasChildren = item.childCount > 1;
+        const labelEmpty = $from.parent.content.size === 0;
+        const atEnd = $from.parentOffset === $from.parent.content.size;
+        if (!ctx?.isInChildrenZone && hasChildren && atEnd && !labelEmpty) {
+          // Non-empty label, caret at end: a fresh unchecked sibling drops
+          // below; children stay nested under the original item.
+          const newItem = this.nodeType.createAndFill({ checked: false });
+          if (newItem) {
+            const insertAt = $from.after($from.depth - 1);
+            const tr = state.tr.insert(insertAt, newItem);
+            tr.setSelection(Selection.near(tr.doc.resolve(insertAt + 2)));
+            view.dispatch(tr.scrollIntoView());
+            return true;
+          }
+        }
+
         // Standard split for non-empty items. Pass `{ checked: false }` so
         // a freshly-spawned task item always starts unchecked - splitting
         // off a checked task otherwise inherits checked: true (Notion
         // semantics: each new task is fresh work). Other attrs assigned
         // by sibling extensions (UniqueID's `id`, etc.) are intentionally
         // NOT forwarded so those extensions can regenerate them.
-        if (splitListItem(this.nodeType, { checked: false })(state, view.dispatch)) return true;
+        //
+        // Skip the split for an empty label that has children: splitting would
+        // migrate the children to a stray sibling. Fall through to the
+        // empty-item lift/promotion below (Notion: empty Enter outdents).
+        const skipSplit = !ctx?.isInChildrenZone && labelEmpty && hasChildren;
+        if (!skipSplit && splitListItem(this.nodeType, { checked: false })(state, view.dispatch)) return true;
 
         // For empty taskItem nested inside a parent list item (e.g. orderedList > listItem > taskList > taskItem),
         // delete the taskItem, clean up the taskList if empty, and create a new parent listItem.
@@ -257,9 +298,14 @@ export const TaskItem = Node.create<TaskItemOptions>({
       },
       'Shift-Tab': () => {
         if (!this.editor || !this.nodeType) return false;
-        const { $from } = this.editor.state.selection;
+        const { state, view } = this.editor;
+        const { $from } = state.selection;
         if ($from.depth < 1 || $from.node(-1).type !== this.nodeType) return false;
-        return liftListItem(this.nodeType)(this.editor.state, this.editor.view.dispatch);
+        // Cross-type nesting (taskItem inside a bullet/ordered list item):
+        // liftListItem would dissolve the task into a bare paragraph, dropping
+        // the checkbox + checked state. Preserve it instead.
+        if (liftCrossTypeListItem(state, view.dispatch)) return true;
+        return liftListItem(this.nodeType)(state, view.dispatch);
       },
       Backspace: () => {
         if (!this.editor || !this.nodeType) return false;
@@ -290,6 +336,9 @@ export const TaskItem = Node.create<TaskItemOptions>({
         // Only lift when cursor is in the first child of the taskItem
         if ($from.index(taskItemDepth) !== 0) return false;
 
+        // Cross-type nesting: preserve the task (type + checked) instead of
+        // dissolving it to a paragraph.
+        if (liftCrossTypeListItem(state, view.dispatch)) return true;
         return liftListItem(this.nodeType)(state, view.dispatch);
       },
       'Mod-Enter': () => {

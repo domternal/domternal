@@ -34,11 +34,6 @@
   --dm-block-handle-gutter: 0;
   --dm-block-handle-left: -3.5rem;
 
-  // The `top` checkbox tuning in `_task-list.scss` is for the default
-  // 1.6 line-height. Notion mode lifts line-height to 1.7, so nudge the
-  // checkbox down to keep it on the x-height of the first label line.
-  --dm-task-checkbox-top: 0.45em;
-
   .ProseMirror {
     min-height: 60vh;
     outline: none;

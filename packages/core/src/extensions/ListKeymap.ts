@@ -22,6 +22,7 @@ import type { EditorState } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import { Extension } from '../Extension.js';
 import type { ExtensionEditorInterface } from '../Extension.js';
+import { liftCrossTypeListItem } from '../utils/liftCrossTypeListItem.js';
 
 const LIST_GROUP_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
 
@@ -86,6 +87,10 @@ export const ListKeymap = Extension.create<ListKeymapOptions>({
         if (!this.editor) return false;
         const ctx = getListItemContext(this.editor, this.options.listItem);
         if (!ctx) return false;
+        // Cross-type nesting (e.g. a bullet item inside a task item):
+        // liftListItem would dissolve the item into a bare paragraph; preserve
+        // its type instead.
+        if (liftCrossTypeListItem(ctx.state, ctx.view.dispatch)) return true;
         return liftListItem(ctx.listItemType)(ctx.state, ctx.view.dispatch);
       },
 
@@ -180,6 +185,9 @@ export const ListKeymap = Extension.create<ListKeymapOptions>({
           // Check if the textblock is empty or cursor is at its start
           const posInListItem = $from.pos - $from.start(listItemDepth);
           if (posInListItem <= 1) {
+            // Cross-type nesting: preserve the item's type instead of
+            // dissolving it to a paragraph.
+            if (liftCrossTypeListItem(state, view.dispatch)) return true;
             return liftListItem(listItemType)(state, view.dispatch);
           }
         }

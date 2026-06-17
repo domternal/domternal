@@ -35,6 +35,15 @@
     border-radius: 0.25rem;
   }
 
+  // Task items keep zero vertical padding when colored: their checkbox is
+  // absolutely positioned against the li's padding box, so growing the box
+  // would shift the label text down while the checkbox stays put (~2px
+  // misalignment). Bullet/ordered markers ride the line box and are unaffected,
+  // so this restores symmetry. The tint still reads as a band around the label.
+  li[data-type="taskItem"][data-bg-color] {
+    padding-block: 0;
+  }
+
   [data-text-color="gray"]   { color: var(--dm-block-text-gray); }
   [data-text-color="brown"]  { color: var(--dm-block-text-brown); }
   [data-text-color="orange"] { color: var(--dm-block-text-orange); }
