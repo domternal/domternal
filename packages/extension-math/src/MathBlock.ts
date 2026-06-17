@@ -7,6 +7,7 @@ import { Node } from '@domternal/core';
 import { MATH_BLOCK_NAME } from './shared.js';
 import type { MathOptions } from './shared.js';
 import { createMathNodeView } from './createMathNodeView.js';
+import { MathEditing, mathEditPluginKey } from './MathEditing.js';
 
 export type MathBlockOptions = MathOptions;
 
@@ -57,7 +58,15 @@ export const MathBlock = Node.create<MathOptions>({
     return latex ? `$$${latex}$$` : '';
   },
 
+  addExtensions() {
+    return [MathEditing.configure({ renderer: this.options.renderer })];
+  },
+
   addNodeView() {
-    return createMathNodeView({ renderer: this.options.renderer, displayMode: true });
+    return createMathNodeView({
+      renderer: this.options.renderer,
+      displayMode: true,
+      editKey: mathEditPluginKey,
+    });
   },
 });

@@ -7,6 +7,7 @@ import { Node } from '@domternal/core';
 import { MATH_INLINE_NAME } from './shared.js';
 import type { MathOptions } from './shared.js';
 import { createMathNodeView } from './createMathNodeView.js';
+import { MathEditing, mathEditPluginKey } from './MathEditing.js';
 
 export type MathInlineOptions = MathOptions;
 
@@ -58,7 +59,15 @@ export const MathInline = Node.create<MathOptions>({
     return latex ? `$${latex}$` : '';
   },
 
+  addExtensions() {
+    return [MathEditing.configure({ renderer: this.options.renderer })];
+  },
+
   addNodeView() {
-    return createMathNodeView({ renderer: this.options.renderer, displayMode: false });
+    return createMathNodeView({
+      renderer: this.options.renderer,
+      displayMode: false,
+      editKey: mathEditPluginKey,
+    });
   },
 });

@@ -13,5 +13,8 @@ export type { MathBlockOptions } from './MathBlock.js';
 export type { MathOptions } from './shared.js';
 export { MATH_INLINE_NAME, MATH_BLOCK_NAME } from './shared.js';
 
+export { MathEditing, mathEditPluginKey } from './MathEditing.js';
+export type { MathEditingOptions, MathEditEvent } from './MathEditing.js';
+
 export { createKatexRenderer } from './renderer.js';
 export type { MathRenderer, KatexLike, KatexRendererOptions } from './renderer.js';

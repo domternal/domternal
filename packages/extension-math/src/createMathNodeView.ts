@@ -1,10 +1,12 @@
 /**
  * Node view factory for the math nodes. Renders the `latex` attribute to HTML via
  * the injected renderer. The node view owns its DOM (the renderer writes innerHTML),
- * so all mutations are ignored by ProseMirror. Editing (click to open a popover) is
- * wired in a later step.
+ * so all mutations are ignored by ProseMirror. Clicking the node dispatches an edit
+ * signal (via `editKey` meta) that opens the editing popover (see MathEditing).
  */
 import type { Node as PmNode } from '@domternal/pm/model';
+import type { PluginKey } from '@domternal/pm/state';
+import type { EditorView } from '@domternal/pm/view';
 import type { MathRenderer } from './renderer.js';
 
 export interface MathNodeViewConfig {
@@ -12,6 +14,8 @@ export interface MathNodeViewConfig {
   renderer: MathRenderer | null;
   /** Block (display) math when true, inline when false. */
   displayMode: boolean;
+  /** Plugin key used to dispatch the "edit this node" signal on click. */
+  editKey?: PluginKey;
 }
 
 /** Placeholder shown for an empty (no latex) math node. */
@@ -27,13 +31,15 @@ interface MathNodeViewInstance {
 
 export function createMathNodeView(
   config: MathNodeViewConfig,
-): (node: PmNode) => MathNodeViewInstance {
-  const { renderer, displayMode } = config;
+): (node: PmNode, view: EditorView, getPos: () => number | undefined) => MathNodeViewInstance {
+  const { renderer, displayMode, editKey } = config;
 
-  return (node: PmNode): MathNodeViewInstance => {
+  return (node: PmNode, view: EditorView, getPos: () => number | undefined): MathNodeViewInstance => {
     const typeName = node.type.name;
     const dom = document.createElement(displayMode ? 'div' : 'span');
     dom.className = displayMode ? 'dm-math dm-math-block' : 'dm-math dm-math-inline';
+
+    let currentLatex = (node.attrs['latex'] as string | undefined) ?? '';
 
     const render = (latex: string): void => {
       dom.classList.remove('dm-math-empty', 'dm-math-error');
@@ -54,13 +60,24 @@ export function createMathNodeView(
       }
     };
 
-    render((node.attrs['latex'] as string | undefined) ?? '');
+    render(currentLatex);
+
+    if (editKey) {
+      dom.addEventListener('click', () => {
+        const pos = getPos();
+        if (pos === undefined) return;
+        view.dispatch(
+          view.state.tr.setMeta(editKey, { pos, latex: currentLatex, displayMode }),
+        );
+      });
+    }
 
     return {
       dom,
       update(updatedNode: PmNode): boolean {
         if (updatedNode.type.name !== typeName) return false;
-        render((updatedNode.attrs['latex'] as string | undefined) ?? '');
+        currentLatex = (updatedNode.attrs['latex'] as string | undefined) ?? '';
+        render(currentLatex);
         return true;
       },
       selectNode(): void {
