@@ -6,6 +6,7 @@
 import { Node } from '@domternal/core';
 import { MATH_BLOCK_NAME } from './shared.js';
 import type { MathOptions } from './shared.js';
+import { createMathNodeView } from './createMathNodeView.js';
 
 export type MathBlockOptions = MathOptions;
 
@@ -54,5 +55,9 @@ export const MathBlock = Node.create<MathOptions>({
   leafText(node) {
     const latex = (node.attrs['latex'] as string | undefined) ?? '';
     return latex ? `$$${latex}$$` : '';
+  },
+
+  addNodeView() {
+    return createMathNodeView({ renderer: this.options.renderer, displayMode: true });
   },
 });

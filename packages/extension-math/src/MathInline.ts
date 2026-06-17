@@ -6,6 +6,7 @@
 import { Node } from '@domternal/core';
 import { MATH_INLINE_NAME } from './shared.js';
 import type { MathOptions } from './shared.js';
+import { createMathNodeView } from './createMathNodeView.js';
 
 export type MathInlineOptions = MathOptions;
 
@@ -55,5 +56,9 @@ export const MathInline = Node.create<MathOptions>({
   leafText(node) {
     const latex = (node.attrs['latex'] as string | undefined) ?? '';
     return latex ? `$${latex}$` : '';
+  },
+
+  addNodeView() {
+    return createMathNodeView({ renderer: this.options.renderer, displayMode: false });
   },
 });
