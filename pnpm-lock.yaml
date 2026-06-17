@@ -343,50 +343,50 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0(@astrojs/starlight@0.38.1(astro@6.0.4(@types/node@25.2.3)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.32.0)(rollup@4.55.1)(sass@1.97.3)(typescript@5.9.3)(yaml@2.8.2)))(tailwindcss@4.2.1)
       '@domternal/angular':
-        specifier: 0.8.0
-        version: 0.8.0(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/forms@21.2.5(@angular/common@21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/platform-browser@21.2.5(@angular/common@21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1)))(rxjs@7.8.2))(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/extension-block-menu@0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0))
+        specifier: 0.9.1
+        version: 0.9.1(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/forms@21.2.5(@angular/common@21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/platform-browser@21.2.5(@angular/common@21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1)))(rxjs@7.8.2))(@domternal/core@0.9.1(linkedom@0.18.12))
       '@domternal/core':
-        specifier: 0.8.0
-        version: 0.8.0(linkedom@0.18.12)
+        specifier: 0.9.1
+        version: 0.9.1(linkedom@0.18.12)
       '@domternal/extension-block-menu':
-        specifier: 0.8.0
-        version: 0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)
+        specifier: 0.9.1
+        version: 0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(@domternal/pm@0.9.1)
       '@domternal/extension-code-block-lowlight':
-        specifier: 0.8.0
-        version: 0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)(lowlight@3.3.0)
+        specifier: 0.9.1
+        version: 0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(@domternal/pm@0.9.1)(lowlight@3.3.0)
       '@domternal/extension-details':
-        specifier: 0.8.0
-        version: 0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)
+        specifier: 0.9.1
+        version: 0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(@domternal/pm@0.9.1)
       '@domternal/extension-emoji':
-        specifier: 0.8.0
-        version: 0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)
+        specifier: 0.9.1
+        version: 0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(@domternal/pm@0.9.1)
       '@domternal/extension-image':
-        specifier: 0.8.0
-        version: 0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)
+        specifier: 0.9.1
+        version: 0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(@domternal/pm@0.9.1)
       '@domternal/extension-mention':
-        specifier: 0.8.0
-        version: 0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)
+        specifier: 0.9.1
+        version: 0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(@domternal/pm@0.9.1)
       '@domternal/extension-table':
-        specifier: 0.8.0
-        version: 0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)
+        specifier: 0.9.1
+        version: 0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(@domternal/pm@0.9.1)
       '@domternal/extension-toc':
-        specifier: 0.8.0
-        version: 0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)
+        specifier: 0.9.1
+        version: 0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(@domternal/pm@0.9.1)
       '@domternal/pm':
-        specifier: 0.8.0
-        version: 0.8.0
+        specifier: 0.9.1
+        version: 0.9.1
       '@domternal/react':
-        specifier: 0.8.0
-        version: 0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/extension-block-menu@0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        specifier: 0.9.1
+        version: 0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@domternal/theme':
-        specifier: 0.8.0
-        version: 0.8.0
+        specifier: 0.9.1
+        version: 0.9.1
       '@domternal/vanilla':
-        specifier: 0.8.0
-        version: 0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/extension-block-menu@0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0))
+        specifier: 0.9.1
+        version: 0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))
       '@domternal/vue':
-        specifier: 0.8.0
-        version: 0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/extension-block-menu@0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0))(vue@3.5.32(typescript@5.9.3))
+        specifier: 0.9.1
+        version: 0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(vue@3.5.32(typescript@5.9.3))
       '@fontsource-variable/inter':
         specifier: ^5.2.8
         version: 5.2.8
@@ -723,6 +723,27 @@ importers:
       jsdom:
         specifier: ^27.4.0
         version: 27.4.0
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
+  packages/extension-math:
+    devDependencies:
+      '@domternal/core':
+        specifier: workspace:*
+        version: link:../core
+      '@domternal/pm':
+        specifier: workspace:*
+        version: link:../pm
+      jsdom:
+        specifier: ^27.4.0
+        version: 27.4.0
+      katex:
+        specifier: ^0.17.0
+        version: 0.17.0
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.2)
@@ -1854,13 +1875,12 @@ packages:
       '@angular/forms': ^21.2.5
       '@domternal/core': '>=0.6.1'
 
-  '@domternal/angular@0.8.0':
-    resolution: {integrity: sha512-7gyjkXSuRRwO5gZYC9IEKlX1CkMgiuitc/ANkE+Lf7r+gxCenO8NUoiqC3PPgACdbr4n8l2Un3r6Fvi1EoF6SA==}
+  '@domternal/angular@0.9.1':
+    resolution: {integrity: sha512-0y+lcCohWg1A+wJ52FvlnulG07cwXAauuNm2ksV7PyCkozeICvwW1V34I3DCB1mnJuEfJVke2niLI8Nwzj10sQ==}
     peerDependencies:
       '@angular/core': ^21.2.5
       '@angular/forms': ^21.2.5
-      '@domternal/core': '>=0.8.0'
-      '@domternal/extension-block-menu': '>=0.8.0'
+      '@domternal/core': '>=0.9.0'
 
   '@domternal/core@0.6.2':
     resolution: {integrity: sha512-64KqeNBupxrPWuUsOa3eOGYVrJ+vhObKRyMXx79+6vtT1pwstRnxlG9Q+xnj6m6L4kdpM2+FARQuxjgB7m48SA==}
@@ -1871,8 +1891,8 @@ packages:
       linkedom:
         optional: true
 
-  '@domternal/core@0.8.0':
-    resolution: {integrity: sha512-MMMneP8O8ej4mHwrIms58lDcUUOYhTM2U6W/1iC8Hx7MbIp4nOqvCJUYb0HQrR357cAGzHWBFtejufco2INXgA==}
+  '@domternal/core@0.9.1':
+    resolution: {integrity: sha512-eZdHS+UlE7Aah1ZFUbhVAZNnvb6OnIuUZ+Y8X14E09n4x5C1y6CM1VCzaUnF4501CdJrUPrauUgp3JB06Q+lAw==}
     engines: {node: '>=20'}
     peerDependencies:
       linkedom: ^0.18.0
@@ -1880,65 +1900,65 @@ packages:
       linkedom:
         optional: true
 
-  '@domternal/extension-block-menu@0.8.0':
-    resolution: {integrity: sha512-F6nntiyiM/c5lQck5ogn7W7zGtDe3nsQyYaGqU+avAOh9/5JE5iveovlSLyn+OI6Gn+QJ34M7t9HaT3XujKqLg==}
+  '@domternal/extension-block-menu@0.9.1':
+    resolution: {integrity: sha512-tmQgoWhKgR92uPEUtvTSSLhiEwWGQPcdHV5b9bk0h8KF9WFlzWI7Gq1PVnpLBuDbdNZLuegf/PKvkIVOAJf6MQ==}
     engines: {node: '>=20'}
     peerDependencies:
-      '@domternal/core': '>=0.8.0'
-      '@domternal/pm': '>=0.8.0'
+      '@domternal/core': '>=0.9.0'
+      '@domternal/pm': '>=0.9.0'
 
-  '@domternal/extension-code-block-lowlight@0.8.0':
-    resolution: {integrity: sha512-uSHcpfMLv/S+3NnRjSkEElqQXHBP17iEvhzB3fWlVfK3GVXb7IZ3mD8aTXLA6AXwl7drGp/hjkJoyOXy1ldQLA==}
+  '@domternal/extension-code-block-lowlight@0.9.1':
+    resolution: {integrity: sha512-KBNfRha8e7PWQNVUfJLzwqi/g/5SJNydKXZsq+1IfDChPlvV8Upynh1OLlMwXi45/3EJauNroppT/pqjZmyw0w==}
     engines: {node: '>=20'}
     peerDependencies:
-      '@domternal/core': '>=0.8.0'
-      '@domternal/pm': '>=0.8.0'
+      '@domternal/core': '>=0.9.0'
+      '@domternal/pm': '>=0.9.0'
       lowlight: ^3.0.0
 
-  '@domternal/extension-details@0.8.0':
-    resolution: {integrity: sha512-IuCToq9aI2hl7itohoESshEc8w3kMQgWbXb/SpXG3r/hjWlEHO3RIzXwVNp66FuSMd8x1OoF1mGWxyE6V2qlHA==}
+  '@domternal/extension-details@0.9.1':
+    resolution: {integrity: sha512-rK+3RyVzJhNYACznWMlKVYNj7BCxA/KcPDBttDBtIPPRkG+Nb7ZtemiwAwEQuzJRwTFCBDvQ87KzSKFhuZc9hg==}
     engines: {node: '>=20'}
     peerDependencies:
-      '@domternal/core': '>=0.8.0'
-      '@domternal/pm': '>=0.8.0'
+      '@domternal/core': '>=0.9.0'
+      '@domternal/pm': '>=0.9.0'
 
-  '@domternal/extension-emoji@0.8.0':
-    resolution: {integrity: sha512-Ks+YE1upcUsRAEPKc1zDmLcgbYExkOs2tSvt72u90LXH37XNiDDfArQWECclFMSKY/LsQFF0o+Z9pvm2Jh1/0Q==}
+  '@domternal/extension-emoji@0.9.1':
+    resolution: {integrity: sha512-sAWfoHAwntxVdGzhtjLxYLPRCp2k2b2LZEGwnK9V6aoeO21u9D9DcLswBjGIh6AzdZMRBixZJfROjKJ+EoPNZg==}
     engines: {node: '>=20'}
     peerDependencies:
-      '@domternal/core': '>=0.8.0'
-      '@domternal/pm': '>=0.8.0'
+      '@domternal/core': '>=0.9.0'
+      '@domternal/pm': '>=0.9.0'
 
-  '@domternal/extension-image@0.8.0':
-    resolution: {integrity: sha512-UlYcZZzS0jiHawoWMzzBXvX5QqWNtWDqoUpfoe9PBL3OyyM60FxK2RLZFRU1LQR5sPSmDGNZ6Mad6jcrFu8sng==}
+  '@domternal/extension-image@0.9.1':
+    resolution: {integrity: sha512-fuoT0Z1TREifej5mdlGESNlSTzWDPGEKmbzmjXJu+OGUmsBY3bqKxc8QnzGFI+7FTitSFIP+cRDlYa3gIs0A2Q==}
     engines: {node: '>=20'}
     peerDependencies:
-      '@domternal/core': '>=0.8.0'
-      '@domternal/pm': '>=0.8.0'
+      '@domternal/core': '>=0.9.0'
+      '@domternal/pm': '>=0.9.0'
 
-  '@domternal/extension-mention@0.8.0':
-    resolution: {integrity: sha512-zrewpQU749rrFN2qwsSgHVdNifheLI/oMmssFu3Nmy5+lgM9ylTk4KYS0ZLh5SMOyTSUHoUG4fjU/PXXLwB0sQ==}
+  '@domternal/extension-mention@0.9.1':
+    resolution: {integrity: sha512-V/nPtK+p7I29J4xF3FygZ1Sg+1+v8vSXynNg1E0bk1rzEGXziTk4Q1GGiJe61u2TrAHe0JxXgXVTlxtUXNCGVA==}
     engines: {node: '>=20'}
     peerDependencies:
-      '@domternal/core': '>=0.8.0'
-      '@domternal/pm': '>=0.8.0'
+      '@domternal/core': '>=0.9.0'
+      '@domternal/pm': '>=0.9.0'
 
-  '@domternal/extension-table@0.8.0':
-    resolution: {integrity: sha512-tdww0oNKsVTTGD3g+hL4Fnrb6hLFglrQV7v6uN5IhxZxo+uOW91Di++LlOu7YY9wCr4ZPjIXQsrA1dGnN/SNXA==}
+  '@domternal/extension-table@0.9.1':
+    resolution: {integrity: sha512-LPfG5R4RM1qDJ6AWQs7Wey/uueFqNR4MKS9WX6xRLNehlbPOJ2G1/dLxJKEK1VuIzJXgLTuSWPAtcE/R5xglRw==}
     engines: {node: '>=20'}
     peerDependencies:
-      '@domternal/core': '>=0.8.0'
-      '@domternal/pm': '>=0.8.0'
+      '@domternal/core': '>=0.9.0'
+      '@domternal/pm': '>=0.9.0'
 
-  '@domternal/extension-toc@0.8.0':
-    resolution: {integrity: sha512-IxTknVEaMeYTiBEH+5fpdQVZUXBOLiCr69kOP3ZI6wYa0+B53ezSumjyxDeSLOvGfTI15QORZ2nFhTdOSOl2sw==}
+  '@domternal/extension-toc@0.9.1':
+    resolution: {integrity: sha512-ZgTFh6hx4D3FxXLjcfG3T/Vy0qivdBT+OjG9ZEZS2gTX6GLvImyFbuXwlAkNYgkb55vb9nA+/U71lnAex3xydQ==}
     engines: {node: '>=20'}
     peerDependencies:
-      '@domternal/core': '>=0.8.0'
-      '@domternal/pm': '>=0.8.0'
+      '@domternal/core': '>=0.9.0'
+      '@domternal/pm': '>=0.9.0'
 
-  '@domternal/pm@0.8.0':
-    resolution: {integrity: sha512-0a7Bvcch9gMIA0gGf7sI9c+dGjj7oEcE/YwubnZIM7DU9RHoZRhQiPViEtgRlAZN+/NwEuX+aZBTHOHgf5cd6Q==}
+  '@domternal/pm@0.9.1':
+    resolution: {integrity: sha512-n4255vlF0TfFWsoLiDvQvlYaIxwO6aMMPFc1L4EJxTYZJajRNPXs9K/L0pxHmEQhvd+Kvr41NI3FOwgJ9AZnBQ==}
 
   '@domternal/react@0.6.2':
     resolution: {integrity: sha512-GizlpiGzqvb7cGKEzVdUNH3kJoV8DT++xDDwToD8BLMjFf+jPdrY8DwJL+GoXdMPrrYUdsgFjWXTsZ/NLy8cfQ==}
@@ -1947,25 +1967,23 @@ packages:
       react: '>=18'
       react-dom: '>=18'
 
-  '@domternal/react@0.8.0':
-    resolution: {integrity: sha512-ed2fHRG+wwHiwbxnG/1fzsb/29zq24GZxGrEYXMlcoAB9DLEs9L9UuLy/Mkt7GgXJI8YVDNmTiSnllWAey7Fiw==}
+  '@domternal/react@0.9.1':
+    resolution: {integrity: sha512-uV8vwaGAUSQOQFTmmN0Ti5J1rQat0HGadUush9PHCaUN0r6Z/YiyM/afGkQFRzZeSE43FGzRF3bTEDimPyB1QQ==}
     peerDependencies:
-      '@domternal/core': '>=0.8.0'
-      '@domternal/extension-block-menu': '>=0.8.0'
+      '@domternal/core': '>=0.9.0'
       react: '>=18'
       react-dom: '>=18'
 
   '@domternal/theme@0.6.2':
     resolution: {integrity: sha512-dOezxQwmakDBpx6sgwr6tGL/DP55Pu+NNDVsgUa5guTsYaWi7NS5LI0ymCdoSWnLI40oqKYClOo33ZPF4JB/Og==}
 
-  '@domternal/theme@0.8.0':
-    resolution: {integrity: sha512-QrVaK8DUa4oMXxVas9MTymamTCTALqZaANSTLrm1c7tgUdt3OH2UaffBV61j9ww62ZcZyMTzYuFPoQZjynAVHg==}
+  '@domternal/theme@0.9.1':
+    resolution: {integrity: sha512-jIzuEnY5qKhJtQqfDzGgjGIuuxiBR1q12L1+QtGN1yQivt5FUJM5zfJ2MDJqnJglbdDeT4U1r7MWrvERNNvGLw==}
 
-  '@domternal/vanilla@0.8.0':
-    resolution: {integrity: sha512-7Eg7P0cpeH6+NSvo5xo0bbQhYr29GTFuj+AEHpsFOXCwC2o8bGtvWSVwTMrHI1uHOJQTIdJn0G8MmGUIQPQWYA==}
+  '@domternal/vanilla@0.9.1':
+    resolution: {integrity: sha512-aBTJxKCSCEwclOfVyGUSrjHEZmFF+XU3POUuy86sSPaf5BR0SSc+xW8kq3gHn/Xpfrq0xTPzSU+o8GuFanMCtg==}
     peerDependencies:
-      '@domternal/core': '>=0.8.0'
-      '@domternal/extension-block-menu': '>=0.8.0'
+      '@domternal/core': '>=0.9.0'
 
   '@domternal/vue@0.6.2':
     resolution: {integrity: sha512-JeCCOaiorlFx29+ya7O+MN9mP/T5abnl03foCVAOrxMA/U7GhORgr3RtIRtgTDj8UkelLflR2qjcWq9fOdCCnA==}
@@ -1973,11 +1991,10 @@ packages:
       '@domternal/core': '>=0.6.0'
       vue: '>=3.3'
 
-  '@domternal/vue@0.8.0':
-    resolution: {integrity: sha512-xYil07bd6S32TxxqZ3p6Z6qYVZsOayC/b5NwE/absOOK4zrrpCgGHD0OxMthIFZC8mKMwCVf5NYOEbVgfCFg2g==}
+  '@domternal/vue@0.9.1':
+    resolution: {integrity: sha512-IxFY95ICsNUOQ1scqRkiWxbFyi8WI0yNnwD9WTazeIrG56yA5GsvbZ+bN3/vXH80SGyY0cB1pSJKdjkWmq8tLw==}
     peerDependencies:
-      '@domternal/core': '>=0.8.0'
-      '@domternal/extension-block-menu': '>=0.8.0'
+      '@domternal/core': '>=0.9.0'
       vue: '>=3.3'
 
   '@emnapi/core@1.8.1':
@@ -5018,6 +5035,10 @@ packages:
     resolution: {integrity: sha512-NOKm8xhkzAjzFx8B2v5OAHT+u5pRQc2UCa2Vq9jYL/31o2wi9mxBA7LIFs3sV5VSC49z6pEhfbMULvShKj26WA==}
     engines: {node: '>= 6'}
 
+  commander@8.3.0:
+    resolution: {integrity: sha512-OkTL9umf+He2DZkUq8f8J9of7yL6RJKI24dVITBmNfZBmri9zYZQrKkuXiKhyfPSu8tUhnVBB1iKXevvnlR4Ww==}
+    engines: {node: '>= 12'}
+
   common-ancestor-path@2.0.0:
     resolution: {integrity: sha512-dnN3ibLeoRf2HNC+OlCiNc5d2zxbLJXOtiZUudNFSXZrNSydxcCsSpRzXwfu7BBWCIfHPw+xTayeBvJCP/D8Ng==}
     engines: {node: '>= 18'}
@@ -6106,6 +6127,10 @@ packages:
   jsonparse@1.3.1:
     resolution: {integrity: sha512-POQXvpdL69+CluYsillJ7SUhKvytYjW9vG/GKpnf+xP8UWgYEM/RaMzHHofbALDiKbbP1W8UEYmgGl39WkPZsg==}
     engines: {'0': node >= 0.2.0}
+
+  katex@0.17.0:
+    resolution: {integrity: sha512-Vdw0ATsQ9V+LuegM/BTwQqV/6cTl5lbGcIrU+BCgLxyf6bo38ybOr372tuSIxir3CN720flu1meYR6XzNMwQnw==}
+    hasBin: true
 
   keyv@4.5.4:
     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}
@@ -9906,73 +9931,72 @@ snapshots:
       '@domternal/core': 0.6.2(linkedom@0.18.12)
       tslib: 2.8.1
 
-  '@domternal/angular@0.8.0(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/forms@21.2.5(@angular/common@21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/platform-browser@21.2.5(@angular/common@21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1)))(rxjs@7.8.2))(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/extension-block-menu@0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0))':
+  '@domternal/angular@0.9.1(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/forms@21.2.5(@angular/common@21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/platform-browser@21.2.5(@angular/common@21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1)))(rxjs@7.8.2))(@domternal/core@0.9.1(linkedom@0.18.12))':
     dependencies:
       '@angular/core': 21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1)
       '@angular/forms': 21.2.5(@angular/common@21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(@angular/platform-browser@21.2.5(@angular/common@21.2.5(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1))(rxjs@7.8.2))(@angular/core@21.2.5(@angular/compiler@21.2.5)(rxjs@7.8.2)(zone.js@0.15.1)))(rxjs@7.8.2)
-      '@domternal/core': 0.8.0(linkedom@0.18.12)
-      '@domternal/extension-block-menu': 0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)
+      '@domternal/core': 0.9.1(linkedom@0.18.12)
       tslib: 2.8.1
 
   '@domternal/core@0.6.2(linkedom@0.18.12)':
     dependencies:
-      '@domternal/pm': 0.8.0
+      '@domternal/pm': 0.9.1
       '@floating-ui/dom': 1.7.5
       linkifyjs: 4.3.2
     optionalDependencies:
       linkedom: 0.18.12
 
-  '@domternal/core@0.8.0(linkedom@0.18.12)':
+  '@domternal/core@0.9.1(linkedom@0.18.12)':
     dependencies:
-      '@domternal/pm': 0.8.0
+      '@domternal/pm': 0.9.1
       '@floating-ui/dom': 1.7.5
       linkifyjs: 4.3.2
     optionalDependencies:
       linkedom: 0.18.12
 
-  '@domternal/extension-block-menu@0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)':
+  '@domternal/extension-block-menu@0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(@domternal/pm@0.9.1)':
     dependencies:
-      '@domternal/core': 0.8.0(linkedom@0.18.12)
-      '@domternal/pm': 0.8.0
+      '@domternal/core': 0.9.1(linkedom@0.18.12)
+      '@domternal/pm': 0.9.1
 
-  '@domternal/extension-code-block-lowlight@0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)(lowlight@3.3.0)':
+  '@domternal/extension-code-block-lowlight@0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(@domternal/pm@0.9.1)(lowlight@3.3.0)':
     dependencies:
-      '@domternal/core': 0.8.0(linkedom@0.18.12)
-      '@domternal/pm': 0.8.0
+      '@domternal/core': 0.9.1(linkedom@0.18.12)
+      '@domternal/pm': 0.9.1
       hast-util-to-html: 9.0.5
       lowlight: 3.3.0
 
-  '@domternal/extension-details@0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)':
+  '@domternal/extension-details@0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(@domternal/pm@0.9.1)':
     dependencies:
-      '@domternal/core': 0.8.0(linkedom@0.18.12)
-      '@domternal/pm': 0.8.0
+      '@domternal/core': 0.9.1(linkedom@0.18.12)
+      '@domternal/pm': 0.9.1
 
-  '@domternal/extension-emoji@0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)':
+  '@domternal/extension-emoji@0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(@domternal/pm@0.9.1)':
     dependencies:
-      '@domternal/core': 0.8.0(linkedom@0.18.12)
-      '@domternal/pm': 0.8.0
+      '@domternal/core': 0.9.1(linkedom@0.18.12)
+      '@domternal/pm': 0.9.1
 
-  '@domternal/extension-image@0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)':
+  '@domternal/extension-image@0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(@domternal/pm@0.9.1)':
     dependencies:
-      '@domternal/core': 0.8.0(linkedom@0.18.12)
-      '@domternal/pm': 0.8.0
+      '@domternal/core': 0.9.1(linkedom@0.18.12)
+      '@domternal/pm': 0.9.1
 
-  '@domternal/extension-mention@0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)':
+  '@domternal/extension-mention@0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(@domternal/pm@0.9.1)':
     dependencies:
-      '@domternal/core': 0.8.0(linkedom@0.18.12)
-      '@domternal/pm': 0.8.0
+      '@domternal/core': 0.9.1(linkedom@0.18.12)
+      '@domternal/pm': 0.9.1
 
-  '@domternal/extension-table@0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)':
+  '@domternal/extension-table@0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(@domternal/pm@0.9.1)':
     dependencies:
-      '@domternal/core': 0.8.0(linkedom@0.18.12)
-      '@domternal/pm': 0.8.0
+      '@domternal/core': 0.9.1(linkedom@0.18.12)
+      '@domternal/pm': 0.9.1
 
-  '@domternal/extension-toc@0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)':
+  '@domternal/extension-toc@0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(@domternal/pm@0.9.1)':
     dependencies:
-      '@domternal/core': 0.8.0(linkedom@0.18.12)
-      '@domternal/pm': 0.8.0
+      '@domternal/core': 0.9.1(linkedom@0.18.12)
+      '@domternal/pm': 0.9.1
 
-  '@domternal/pm@0.8.0':
+  '@domternal/pm@0.9.1':
     dependencies:
       prosemirror-commands: 1.7.1
       prosemirror-dropcursor: 1.8.2
@@ -9993,31 +10017,28 @@ snapshots:
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
 
-  '@domternal/react@0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/extension-block-menu@0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+  '@domternal/react@0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
-      '@domternal/core': 0.8.0(linkedom@0.18.12)
-      '@domternal/extension-block-menu': 0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)
+      '@domternal/core': 0.9.1(linkedom@0.18.12)
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
 
   '@domternal/theme@0.6.2': {}
 
-  '@domternal/theme@0.8.0': {}
+  '@domternal/theme@0.9.1': {}
 
-  '@domternal/vanilla@0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/extension-block-menu@0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0))':
+  '@domternal/vanilla@0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))':
     dependencies:
-      '@domternal/core': 0.8.0(linkedom@0.18.12)
-      '@domternal/extension-block-menu': 0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)
+      '@domternal/core': 0.9.1(linkedom@0.18.12)
 
   '@domternal/vue@0.6.2(@domternal/core@0.6.2(linkedom@0.18.12))(vue@3.5.32(typescript@6.0.2))':
     dependencies:
       '@domternal/core': 0.6.2(linkedom@0.18.12)
       vue: 3.5.32(typescript@6.0.2)
 
-  '@domternal/vue@0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/extension-block-menu@0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0))(vue@3.5.32(typescript@5.9.3))':
+  '@domternal/vue@0.9.1(@domternal/core@0.9.1(linkedom@0.18.12))(vue@3.5.32(typescript@5.9.3))':
     dependencies:
-      '@domternal/core': 0.8.0(linkedom@0.18.12)
-      '@domternal/extension-block-menu': 0.8.0(@domternal/core@0.8.0(linkedom@0.18.12))(@domternal/pm@0.8.0)
+      '@domternal/core': 0.9.1(linkedom@0.18.12)
       vue: 3.5.32(typescript@5.9.3)
 
   '@emnapi/core@1.8.1':
@@ -12681,6 +12702,8 @@ snapshots:
 
   commander@4.1.1: {}
 
+  commander@8.3.0: {}
+
   common-ancestor-path@2.0.0: {}
 
   common-path-prefix@3.0.0: {}
@@ -13998,6 +14021,10 @@ snapshots:
   jsonc-parser@3.3.1: {}
 
   jsonparse@1.3.1: {}
+
+  katex@0.17.0:
+    dependencies:
+      commander: 8.3.0
 
   keyv@4.5.4:
     dependencies:
