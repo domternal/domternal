@@ -1,6 +1,6 @@
 {
   "name": "@domternal/extension-block-menu",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Block-menu UX extensions for Domternal editor - FloatingMenu, BlockHandle (hover gutter + drag), SlashCommand, ContextMenu, and keyboard reorder",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",

@@ -79,9 +79,9 @@ pnpm typecheck  # Run type checker
 4. Update `CHANGELOG.md` and `domternal.dev` changelog
 5. Update all 16 READMEs (root + 15 packages)
 6. (skip) Verify: `pnpm test && pnpm build && pnpm typecheck && pnpm lint`
-7. Merge to main, tag `vX.Y.Z`, push with tags
+7. Open the release PR and merge to main (manual), then tag `vX.Y.Z` on main and push with tags
 8. Publish in order: pm, core, theme, angular, react, vue, vanilla, then extensions
-9. Create GitHub release from tag with title `vX.Y.Z` and changelog entry as body
+9. Create GitHub release from tag with title `vX.Y.Z` and changelog entry as body (manual)
 
 ### Publish notes
 

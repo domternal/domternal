@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.1 (2026-06-17)
+
+### Fixes
+
+- fix(core): outdenting a list item into a list of a different kind keeps its own kind and checked state (a to-do outdented next to bullets stays a to-do), instead of taking on the surrounding list's type. (#108)
+- fix(core): pressing Enter at the end of a list item that has nested children adds a new sibling and leaves the children under the original item; Enter on an empty item with children no longer spawns a stray empty item. (#108)
+- fix(core): the ordered-list `start` attribute is clamped to a valid positive integer, so malformed markup no longer writes `NaN` / `null` into the document. (#108)
+- fix(core): GitHub-style (`contains-task-list`) markdown task lists import as real to-do lists with their checked state preserved, and a single `<ul>` that mixes to-do and plain items no longer fabricates a leading empty placeholder item. (#108)
+- fix(theme): list indentation now scales with the editor font size, a colored task item keeps its checkbox aligned with its label, and list markers / checkboxes mirror correctly in RTL; a task list nested inside a bullet or ordered list no longer inherits an extra children-zone indent. (#108)
+
 ## 0.9.0 (2026-06-15)
 
 ### Features
