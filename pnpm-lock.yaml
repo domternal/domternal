@@ -110,6 +110,9 @@ importers:
       '@domternal/extension-image':
         specifier: workspace:*
         version: link:../../packages/extension-image
+      '@domternal/extension-math':
+        specifier: workspace:*
+        version: link:../../packages/extension-math
       '@domternal/extension-mention':
         specifier: workspace:*
         version: link:../../packages/extension-mention
@@ -122,6 +125,9 @@ importers:
       '@domternal/theme':
         specifier: workspace:*
         version: link:../../packages/theme
+      katex:
+        specifier: ^0.17.0
+        version: 0.17.0
       lowlight:
         specifier: ^3.0.0
         version: 3.3.0
@@ -174,6 +180,9 @@ importers:
       '@domternal/extension-image':
         specifier: workspace:*
         version: link:../../packages/extension-image
+      '@domternal/extension-math':
+        specifier: workspace:*
+        version: link:../../packages/extension-math
       '@domternal/extension-mention':
         specifier: workspace:*
         version: link:../../packages/extension-mention
@@ -189,6 +198,9 @@ importers:
       '@domternal/theme':
         specifier: workspace:*
         version: link:../../packages/theme
+      katex:
+        specifier: ^0.17.0
+        version: 0.17.0
       lowlight:
         specifier: ^3.0.0
         version: 3.3.0
@@ -241,6 +253,9 @@ importers:
       '@domternal/extension-image':
         specifier: workspace:*
         version: link:../../packages/extension-image
+      '@domternal/extension-math':
+        specifier: workspace:*
+        version: link:../../packages/extension-math
       '@domternal/extension-mention':
         specifier: workspace:*
         version: link:../../packages/extension-mention
@@ -256,6 +271,9 @@ importers:
       '@domternal/vanilla':
         specifier: workspace:*
         version: link:../../packages/vanilla
+      katex:
+        specifier: ^0.17.0
+        version: 0.17.0
       lowlight:
         specifier: ^3.0.0
         version: 3.3.0
@@ -293,6 +311,9 @@ importers:
       '@domternal/extension-image':
         specifier: workspace:*
         version: link:../../packages/extension-image
+      '@domternal/extension-math':
+        specifier: workspace:*
+        version: link:../../packages/extension-math
       '@domternal/extension-mention':
         specifier: workspace:*
         version: link:../../packages/extension-mention
@@ -308,6 +329,9 @@ importers:
       '@domternal/vue':
         specifier: workspace:*
         version: link:../../packages/vue
+      katex:
+        specifier: ^0.17.0
+        version: 0.17.0
       lowlight:
         specifier: ^3.0.0
         version: 3.3.0
