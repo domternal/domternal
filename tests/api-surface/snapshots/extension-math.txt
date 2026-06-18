@@ -1,0 +1,15 @@
+createKatexRenderer
+KatexLike
+KatexRendererOptions
+MATH_BLOCK_NAME
+MATH_INLINE_NAME
+MathBlock
+MathBlockOptions
+MathEditEvent
+MathEditing
+MathEditingOptions
+mathEditPluginKey
+MathInline
+MathInlineOptions
+MathOptions
+MathRenderer
