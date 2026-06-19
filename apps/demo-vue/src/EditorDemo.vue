@@ -40,6 +40,7 @@ import {
 } from '@domternal/core';
 import { CodeBlockLowlight, createCodeHighlighter } from '@domternal/extension-code-block-lowlight';
 import { Image } from '@domternal/extension-image';
+import { MathInline, MathBlock, createKatexRenderer } from '@domternal/extension-math';
 import { Details } from '@domternal/extension-details';
 import { Table } from '@domternal/extension-table';
 import { Emoji, emojis, createEmojiSuggestionRenderer } from '@domternal/extension-emoji';
@@ -47,6 +48,8 @@ import { Mention, createMentionSuggestionRenderer } from '@domternal/extension-m
 import type { MentionItem } from '@domternal/extension-mention';
 import type { IconSet } from '@domternal/core';
 import { createLowlight, common } from 'lowlight';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 import { DEMO_CONTENT } from './demo-content.js';
 import { useExposeEditorForE2E } from './useExposeEditorForE2E.js';
 import {
@@ -60,6 +63,7 @@ const { useLayout } = defineProps<{ useLayout: boolean }>();
 
 const lowlight = createLowlight(common);
 const codeHighlighter = createCodeHighlighter(lowlight);
+const mathRenderer = createKatexRenderer(katex);
 
 const mockUsers: MentionItem[] = [
   { id: '1', label: 'Alice Johnson' },
@@ -86,6 +90,8 @@ const extensions = [
   Table.configure({ constrainToContainer: constrainTable, resizeBehavior }),
   Details,
   Image,
+  MathInline.configure({ renderer: mathRenderer }),
+  MathBlock.configure({ renderer: mathRenderer }),
   Emoji.configure({ emojis, enableEmoticons: true, toolbar: emojiToolbar, suggestion: { render: createEmojiSuggestionRenderer() } }),
   Mention.configure({
     suggestion: {

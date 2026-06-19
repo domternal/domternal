@@ -39,6 +39,7 @@ import {
 } from '@domternal/core';
 import { CodeBlockLowlight, createCodeHighlighter } from '@domternal/extension-code-block-lowlight';
 import { Image } from '@domternal/extension-image';
+import { MathInline, MathBlock, createKatexRenderer } from '@domternal/extension-math';
 import { Details } from '@domternal/extension-details';
 import { Table } from '@domternal/extension-table';
 import { Emoji, emojis, createEmojiSuggestionRenderer } from '@domternal/extension-emoji';
@@ -46,6 +47,7 @@ import { Mention, createMentionSuggestionRenderer } from '@domternal/extension-m
 import { SmartPaste } from '@domternal/extension-block-menu';
 import type { MentionItem } from '@domternal/extension-mention';
 import { createLowlight, common } from 'lowlight';
+import katex from 'katex';
 import { DEMO_CONTENT } from './demo-content.js';
 import {
   parseBubbleIconsParam,
@@ -56,6 +58,7 @@ import {
 
 const lowlight = createLowlight(common);
 const codeHighlighter = createCodeHighlighter(lowlight);
+const mathRenderer = createKatexRenderer(katex);
 
 const mockUsers: MentionItem[] = [
   { id: '1', label: 'Alice Johnson' },
@@ -96,6 +99,8 @@ export class EditorDemoComponent implements OnDestroy {
     Details,
     // Media & Emoji
     Image,
+    MathInline.configure({ renderer: mathRenderer }),
+    MathBlock.configure({ renderer: mathRenderer }),
     Emoji.configure({ emojis, enableEmoticons: true, toolbar: this.emojiToolbar, suggestion: { render: createEmojiSuggestionRenderer() } }),
     // Mentions
     Mention.configure({
