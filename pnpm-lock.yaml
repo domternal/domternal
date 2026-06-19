@@ -939,6 +939,9 @@ importers:
       '@domternal/extension-image':
         specifier: workspace:*
         version: link:../../packages/extension-image
+      '@domternal/extension-math':
+        specifier: workspace:*
+        version: link:../../packages/extension-math
       '@domternal/extension-mention':
         specifier: workspace:*
         version: link:../../packages/extension-mention
