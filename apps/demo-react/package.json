@@ -21,10 +21,12 @@
     "@domternal/extension-details": "workspace:*",
     "@domternal/extension-emoji": "workspace:*",
     "@domternal/extension-image": "workspace:*",
+    "@domternal/extension-math": "workspace:*",
     "@domternal/extension-mention": "workspace:*",
     "@domternal/extension-table": "workspace:*",
     "@domternal/extension-toc": "workspace:*",
     "@domternal/theme": "workspace:*",
+    "katex": "^0.17.0",
     "lowlight": "^3.0.0"
   },
   "devDependencies": {

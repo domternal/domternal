@@ -19,6 +19,9 @@
       "path": "./packages/extension-image"
     },
     {
+      "path": "./packages/extension-math"
+    },
+    {
       "path": "./packages/extension-table"
     },
     {

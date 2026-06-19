@@ -36,6 +36,8 @@
     "@domternal/extension-details": "workspace:*",
     "@domternal/extension-emoji": "workspace:*",
     "@domternal/extension-image": "workspace:*",
+    "@domternal/extension-math": "workspace:*",
+    "katex": "^0.17.0",
     "@domternal/extension-mention": "workspace:*",
     "@domternal/extension-table": "workspace:*",
     "@domternal/extension-toc": "workspace:*",

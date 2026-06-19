@@ -45,6 +45,7 @@ import {
 import type { IconSet } from '@domternal/core';
 import { CodeBlockLowlight, createCodeHighlighter } from '@domternal/extension-code-block-lowlight';
 import { Image } from '@domternal/extension-image';
+import { MathInline, MathBlock, createKatexRenderer } from '@domternal/extension-math';
 import { Details } from '@domternal/extension-details';
 import { Table } from '@domternal/extension-table';
 import { Emoji, emojis, createEmojiSuggestionRenderer } from '@domternal/extension-emoji';
@@ -60,6 +61,8 @@ import {
 import type { BlockMatcher, BlockCandidate } from '@domternal/extension-block-menu';
 import { TableOfContents, FloatingTocOutline, TableOfContentsBlock } from '@domternal/extension-toc';
 import { createLowlight, common } from 'lowlight';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 import { NOTION_DEMO_CONTENT } from './notion-demo-content.js';
 import {
   parseBubbleIconsParam,
@@ -69,6 +72,7 @@ import {
 
 const lowlight = createLowlight(common);
 const codeHighlighter = createCodeHighlighter(lowlight);
+const mathRenderer = createKatexRenderer(katex);
 
 const mockUsers: MentionItem[] = [
   { id: '1', label: 'Alice Johnson' },
@@ -103,6 +107,8 @@ const buildExtensions = (scrollParent: Element | null): AnyExtension[] => [
   Table,
   Details,
   Image,
+  MathInline.configure({ renderer: mathRenderer }),
+  MathBlock.configure({ renderer: mathRenderer }),
   Emoji.configure({
     emojis,
     enableEmoticons: true,

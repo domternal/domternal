@@ -43,6 +43,7 @@ import {
 } from '@domternal/core';
 import { CodeBlockLowlight, createCodeHighlighter } from '@domternal/extension-code-block-lowlight';
 import { Image } from '@domternal/extension-image';
+import { MathInline, MathBlock, createKatexRenderer } from '@domternal/extension-math';
 import { Details } from '@domternal/extension-details';
 import { Table } from '@domternal/extension-table';
 import { Emoji, emojis, createEmojiSuggestionRenderer } from '@domternal/extension-emoji';
@@ -70,6 +71,7 @@ const PARAGRAPH_EXCLUSION_PARENTS = new Set([
 import type { MentionItem } from '@domternal/extension-mention';
 import type { IconSet } from '@domternal/core';
 import { createLowlight, common } from 'lowlight';
+import katex from 'katex';
 import {
   parseBubbleIconsParam,
   resolveBubbleIcons,
@@ -78,6 +80,7 @@ import {
 
 const lowlight = createLowlight(common);
 const codeHighlighter = createCodeHighlighter(lowlight);
+const mathRenderer = createKatexRenderer(katex);
 
 const mockUsers: MentionItem[] = [
   { id: '1', label: 'Alice Johnson' },
@@ -140,6 +143,8 @@ export class NotionDemoComponent implements OnDestroy {
       Table,
       Details,
       Image,
+      MathInline.configure({ renderer: mathRenderer }),
+      MathBlock.configure({ renderer: mathRenderer }),
       Emoji.configure({
         emojis,
         enableEmoticons: true,

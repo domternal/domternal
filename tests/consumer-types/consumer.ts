@@ -10,6 +10,7 @@ import type { Editor } from '@domternal/core';
 import '@domternal/extension-details';
 import '@domternal/extension-emoji';
 import '@domternal/extension-image';
+import '@domternal/extension-math';
 import '@domternal/extension-mention';
 import '@domternal/extension-table';
 import '@domternal/extension-toc';
@@ -129,6 +130,8 @@ editor.commands.suggestEmoji();
 editor.commands.setImage({ src: 'x' });
 editor.commands.setImageFloat('left');
 editor.commands.deleteImage();
+editor.commands.insertMathInline('a^2');
+editor.commands.insertMathBlock('a^2');
 
 editor.commands.insertMention({} as never);
 editor.commands.deleteMention();
