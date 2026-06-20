@@ -22,5 +22,9 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
-  "references": []
+  "references": [
+    {
+      "path": "../../packages/react"
+    }
+  ]
 }

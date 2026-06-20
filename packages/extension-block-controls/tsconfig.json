@@ -5,13 +5,12 @@
     "rootDir": "./src",
     "declaration": true,
     "declarationMap": true,
-    "lib": ["es2022", "dom"]
+    "lib": ["es2022", "dom"],
+    "types": ["vitest/globals"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"],
   "references": [
-    {
-      "path": "../core"
-    }
+    { "path": "../core" }
   ]
 }

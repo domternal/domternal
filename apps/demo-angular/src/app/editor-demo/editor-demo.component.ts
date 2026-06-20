@@ -44,7 +44,7 @@ import { Details } from '@domternal/extension-details';
 import { Table } from '@domternal/extension-table';
 import { Emoji, emojis, createEmojiSuggestionRenderer } from '@domternal/extension-emoji';
 import { Mention, createMentionSuggestionRenderer } from '@domternal/extension-mention';
-import { SmartPaste } from '@domternal/extension-block-menu';
+import { SmartPaste } from '@domternal/extension-block-controls';
 import type { MentionItem } from '@domternal/extension-mention';
 import { createLowlight, common } from 'lowlight';
 import katex from 'katex';

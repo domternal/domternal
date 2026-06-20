@@ -2,7 +2,7 @@
  * Plugin machinery for the block-insert floating menu: visibility,
  * positioning, dismiss, and keyboard entry. Framework wrappers call
  * `createFloatingMenuPlugin` directly and render the UI themselves; the
- * `FloatingMenu` extension in `@domternal/extension-block-menu` wraps the
+ * `FloatingMenu` extension in `@domternal/extension-block-controls` wraps the
  * same factory for extension-based setups. Lives in core so the wrappers
  * need no dependency on the block-menu package.
  */

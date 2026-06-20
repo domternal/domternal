@@ -1,7 +1,7 @@
 /**
  * E2E coverage for the Notion-style demo (`<.app-notion-demo>`).
  *
- * Targets the full `@domternal/extension-block-menu` feature set wired
+ * Targets the full `@domternal/extension-block-controls` feature set wired
  * there: BlockHandle (hover gutter + drag + plus), BlockContextMenu
  * (Delete / Duplicate / Copy link / Colors / Turn into), SlashCommand
  * (`/` popup), FloatingMenu (empty-line insert), KeyboardReorder
@@ -1475,7 +1475,7 @@ test.describe('Slash command', () => {
     // The renderer marks the active item with `data-selected` (present
     // as a bare attribute). Exactly one at a time is the invariant.
     // (Arrow-key nav within the suggestion popup is covered by unit tests
-    //  in packages/extension-block-menu - replicating it here is flaky
+    //  in packages/extension-block-controls - replicating it here is flaky
     //  because key forwarding depends on Playwright's synthetic focus
     //  model interacting with the SlashCommand suggestion plugin.)
     const count = await page.locator(`${slashItemSelector}[data-selected]`).count();
@@ -4570,7 +4570,7 @@ test.describe('Table of Contents - inline block', () => {
   test('block has data-drag-handle attribute for BlockHandle integration', async ({ page }) => {
     // The BlockHandle extension reads `data-drag-handle` to anchor
     // its drag UX. We assert the attribute is present (real drag
-    // is exercised by extension-block-menu's own e2e suite).
+    // is exercised by extension-block-controls's own e2e suite).
     await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | { setContent: (h: string, emit: boolean) => void }

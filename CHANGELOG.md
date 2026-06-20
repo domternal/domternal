@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changes
+
+- `@domternal/extension-block-menu` is renamed to `@domternal/extension-block-controls`. The old package becomes a thin shim that re-exports the new one, so existing imports keep working unchanged; it is deprecated and will be removed in v1.0.0. Switch your imports to `@domternal/extension-block-controls`.
+
 ## 0.9.1 (2026-06-17)
 
 ### Fixes

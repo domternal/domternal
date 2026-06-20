@@ -13,7 +13,6 @@ export default defineConfig({
   splitting: false,
   treeshake: true,
   external: [
-    '@domternal/extension-block-controls',
     '@domternal/core',
     '@domternal/pm',
     '@domternal/pm/model',

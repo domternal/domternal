@@ -54,8 +54,8 @@ import {
   KeyboardReorder,
   SlashCommand,
   SmartPaste,
-} from '@domternal/extension-block-menu';
-import type { BlockMatcher, BlockCandidate } from '@domternal/extension-block-menu';
+} from '@domternal/extension-block-controls';
+import type { BlockMatcher, BlockCandidate } from '@domternal/extension-block-controls';
 import { TableOfContents, FloatingTocOutline, TableOfContentsBlock } from '@domternal/extension-toc';
 import { NOTION_DEMO_CONTENT } from './notion-demo-content.js';
 
