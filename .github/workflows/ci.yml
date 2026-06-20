@@ -95,6 +95,7 @@ jobs:
             ./packages/extension-details/coverage/lcov.info,
             ./packages/extension-emoji/coverage/lcov.info,
             ./packages/extension-image/coverage/lcov.info,
+            ./packages/extension-math/coverage/lcov.info,
             ./packages/extension-mention/coverage/lcov.info,
             ./packages/extension-table/coverage/lcov.info,
             ./packages/extension-toc/coverage/lcov.info
@@ -107,7 +108,7 @@ jobs:
           # fflate 0.8.x Gunzip fires its callback multiple times (last chunk
           # empty), which makes attw 0.14.0+ crash with
           # "Cannot read properties of undefined (reading 'filename')".
-          for pkg in packages/pm packages/core packages/theme packages/angular packages/react packages/vue packages/vanilla packages/extension-block-controls packages/extension-block-menu packages/extension-table packages/extension-image packages/extension-emoji packages/extension-mention packages/extension-details packages/extension-code-block-lowlight packages/extension-toc; do
+          for pkg in packages/pm packages/core packages/theme packages/angular packages/react packages/vue packages/vanilla packages/extension-block-controls packages/extension-block-menu packages/extension-table packages/extension-image packages/extension-math packages/extension-emoji packages/extension-mention packages/extension-details packages/extension-code-block-lowlight packages/extension-toc; do
             echo "--- Validating $pkg ---"
             cd "$pkg"
             pnpm exec publint --strict
