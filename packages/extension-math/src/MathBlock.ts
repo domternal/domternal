@@ -7,6 +7,7 @@
 import { Node } from '@domternal/core';
 import type { CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
 import { InputRule } from '@domternal/pm/inputrules';
+import { NodeSelection } from '@domternal/pm/state';
 import type { EditorState } from '@domternal/pm/state';
 import { MATH_BLOCK_NAME } from './shared.js';
 import type { MathOptions } from './shared.js';
@@ -87,6 +88,7 @@ export const MathBlock = Node.create<MathOptions>({
         ({ state, tr, dispatch }) => {
           const type = this.nodeType;
           if (!type) return false;
+          if (state.selection.$from.parent.type.spec.code) return false;
           if (dispatch) {
             const { $from } = state.selection;
             const insertPos = $from.depth > 0 ? $from.after($from.depth) : state.selection.to;
@@ -98,6 +100,25 @@ export const MathBlock = Node.create<MathOptions>({
           }
           return true;
         },
+    };
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      // Keyboard path to edit a selected equation (WCAG 2.1.1): when the block
+      // math atom is node-selected, Enter opens the same edit popover as a click.
+      Enter: () => {
+        const editor = this.editor;
+        const type = this.nodeType;
+        if (!editor || !type) return false;
+        const { selection } = editor.state;
+        if (!(selection instanceof NodeSelection) || selection.node.type !== type) return false;
+        const latex = (selection.node.attrs['latex'] as string | undefined) ?? '';
+        editor.view.dispatch(
+          editor.state.tr.setMeta(mathEditPluginKey, { pos: selection.from, latex, displayMode: true }),
+        );
+        return true;
+      },
     };
   },
 

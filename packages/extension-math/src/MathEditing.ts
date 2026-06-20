@@ -9,6 +9,7 @@ import { Extension, positionFloating, copyThemeClass } from '@domternal/core';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 import type { MathRenderer } from './renderer.js';
+import { MATH_INLINE_NAME, MATH_BLOCK_NAME } from './shared.js';
 
 /** Payload carried by the edit signal (a transaction meta). */
 export interface MathEditEvent {
@@ -62,6 +63,7 @@ export const MathEditing = Extension.create<MathEditingOptions>({
     let currentPos: number | null = null;
     let currentDisplayMode = false;
     let isOpen = false;
+    let openedEmpty = false;
     let cleanupFloating: (() => void) | null = null;
 
     const renderPreview = (latex: string): void => {
@@ -86,20 +88,25 @@ export const MathEditing = Extension.create<MathEditingOptions>({
       if (!isOpen) return;
       isOpen = false;
       currentPos = null;
+      openedEmpty = false;
       cleanupFloating?.();
       cleanupFloating = null;
       el.removeAttribute('data-show');
     };
 
-    const apply = (): void => {
+    const apply = (opts?: { refocus?: boolean }): void => {
       const view = currentView;
       const pos = currentPos;
       const latex = textarea.value.trim();
+      const refocus = opts?.refocus !== false;
       close();
       if (!view || pos === null) return;
-      const node = view.state.doc.nodeAt(pos);
-      if (!node) {
-        view.focus();
+      // The position can be stale after intervening edits, so confirm it still
+      // points at a math node before mutating; otherwise we would write a bogus
+      // latex attr onto, or delete, an unrelated node.
+      const node = pos <= view.state.doc.content.size ? view.state.doc.nodeAt(pos) : null;
+      if (!node || (node.type.name !== MATH_INLINE_NAME && node.type.name !== MATH_BLOCK_NAME)) {
+        if (refocus) view.focus();
         return;
       }
       if (!latex) {
@@ -107,12 +114,26 @@ export const MathEditing = Extension.create<MathEditingOptions>({
       } else if (latex !== (node.attrs['latex'] as string | undefined)) {
         view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, latex }));
       }
-      view.focus();
+      if (refocus) view.focus();
     };
 
     const cancel = (): void => {
       const view = currentView;
+      const pos = currentPos;
+      const wasEmpty = openedEmpty;
       close();
+      // A freshly inserted, still-empty equation that the user cancels out of
+      // should not be left behind as a dangling "New equation" atom.
+      if (view && pos !== null && wasEmpty && pos <= view.state.doc.content.size) {
+        const node = view.state.doc.nodeAt(pos);
+        if (
+          node &&
+          (node.type.name === MATH_INLINE_NAME || node.type.name === MATH_BLOCK_NAME) &&
+          !(node.attrs['latex'] as string | undefined)?.trim()
+        ) {
+          view.dispatch(view.state.tr.delete(pos, pos + node.nodeSize));
+        }
+      }
       view?.focus();
     };
 
@@ -121,6 +142,7 @@ export const MathEditing = Extension.create<MathEditingOptions>({
       if (!view) return;
       currentPos = edit.pos;
       currentDisplayMode = edit.displayMode;
+      openedEmpty = edit.latex.trim() === '';
       textarea.value = edit.latex;
       renderPreview(edit.latex);
       el.setAttribute('data-show', '');
@@ -161,8 +183,21 @@ export const MathEditing = Extension.create<MathEditingOptions>({
 
     const onClickOutside = (e: MouseEvent): void => {
       if (!isOpen) return;
-      if (el.contains(e.target as globalThis.Node)) return;
-      apply();
+      const target = e.target as globalThis.Node;
+      if (el.contains(target)) return;
+      // Only pull focus back into the editor when the click landed inside it; a
+      // click on an element outside the editor keeps its own focus.
+      const insideEditor = currentView ? currentView.dom.contains(target) : false;
+      apply({ refocus: insideEditor });
+    };
+
+    const onFocusOut = (e: FocusEvent): void => {
+      if (!isOpen) return;
+      const next = e.relatedTarget as globalThis.Node | null;
+      if (next && el.contains(next)) return; // focus stayed within the popover
+      // Focus left the popover (e.g. Tab out): apply, honoring the "blur applies"
+      // contract, without yanking focus back into the editor.
+      apply({ refocus: false });
     };
 
     let lastEdit: MathEditEvent | null = null;
@@ -182,6 +217,7 @@ export const MathEditing = Extension.create<MathEditingOptions>({
           document.body.appendChild(el);
           textarea.addEventListener('input', onInput);
           textarea.addEventListener('keydown', onKeydown);
+          el.addEventListener('focusout', onFocusOut);
           document.addEventListener('mousedown', onClickOutside);
 
           return {
@@ -199,6 +235,7 @@ export const MathEditing = Extension.create<MathEditingOptions>({
               close();
               textarea.removeEventListener('input', onInput);
               textarea.removeEventListener('keydown', onKeydown);
+              el.removeEventListener('focusout', onFocusOut);
               document.removeEventListener('mousedown', onClickOutside);
               el.remove();
               currentView = null;

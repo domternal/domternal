@@ -14,6 +14,10 @@ $shadow: var(--dm-popover-shadow, 0 12px 28px -8px rgba(0, 0, 0, 0.22), 0 4px 10
   .dm-math {
     cursor: pointer;
     border-radius: 0.25rem;
+    // LaTeX source is inherently LTR; isolate so the text-fallback states
+    // (placeholder, no-renderer raw source, render error) stay readable in RTL.
+    direction: ltr;
+    unicode-bidi: isolate;
 
     &.dm-math-inline {
       display: inline-block;
@@ -83,6 +87,8 @@ $shadow: var(--dm-popover-shadow, 0 12px 28px -8px rgba(0, 0, 0, 0.22), 0 4px 10
   line-height: 1.4;
   resize: vertical;
   outline: none;
+  direction: ltr;
+  unicode-bidi: isolate;
 
   &:focus {
     border-color: $accent;
@@ -96,6 +102,8 @@ $shadow: var(--dm-popover-shadow, 0 12px 28px -8px rgba(0, 0, 0, 0.22), 0 4px 10
   background: var(--dm-surface, rgba(0, 0, 0, 0.03));
   text-align: center;
   overflow-x: auto;
+  direction: ltr;
+  unicode-bidi: isolate;
 
   &:empty::before {
     content: "Preview";

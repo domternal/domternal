@@ -7,7 +7,7 @@
 import { Node } from '@domternal/core';
 import type { CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
 import { InputRule } from '@domternal/pm/inputrules';
-import { TextSelection } from '@domternal/pm/state';
+import { NodeSelection, TextSelection } from '@domternal/pm/state';
 import type { EditorState } from '@domternal/pm/state';
 import { MATH_INLINE_NAME } from './shared.js';
 import type { MathOptions } from './shared.js';
@@ -102,6 +102,25 @@ export const MathInline = Node.create<MathOptions>({
           }
           return true;
         },
+    };
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      // Keyboard path to edit a selected equation (WCAG 2.1.1): when the inline
+      // math atom is node-selected, Enter opens the same edit popover as a click.
+      Enter: () => {
+        const editor = this.editor;
+        const type = this.nodeType;
+        if (!editor || !type) return false;
+        const { selection } = editor.state;
+        if (!(selection instanceof NodeSelection) || selection.node.type !== type) return false;
+        const latex = (selection.node.attrs['latex'] as string | undefined) ?? '';
+        editor.view.dispatch(
+          editor.state.tr.setMeta(mathEditPluginKey, { pos: selection.from, latex, displayMode: false }),
+        );
+        return true;
+      },
     };
   },
 
