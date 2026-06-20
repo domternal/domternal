@@ -1,7 +1,7 @@
 {
-  "name": "@domternal/extension-block-menu",
+  "name": "@domternal/extension-block-controls",
   "version": "0.9.1",
-  "description": "DEPRECATED: renamed to @domternal/extension-block-controls. This package is now a thin shim that re-exports it; removed in v1.0.0.",
+  "description": "Notion-style block controls for the Domternal editor: BlockHandle (hover gutter + drag), SlashCommand, FloatingMenu, ContextMenu, keyboard reorder, and SmartPaste",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
   "type": "module",
@@ -37,9 +37,6 @@
     "prepublishOnly": "pnpm build && node -e \"const p=JSON.parse(require('fs').readFileSync('package.json','utf8'));delete p.devDependencies;if(p.dependencies){for(const[k,v]of Object.entries(p.dependencies)){if(v==='workspace:*')p.dependencies[k]='>=0.9.0'}}require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
     "postpublish": "git checkout package.json"
   },
-  "dependencies": {
-    "@domternal/extension-block-controls": "workspace:*"
-  },
   "peerDependencies": {
     "@domternal/core": ">=0.9.0",
     "@domternal/pm": ">=0.9.0"
@@ -54,15 +51,19 @@
   "keywords": [
     "prosemirror",
     "editor",
-    "block-menu",
     "block-controls",
-    "deprecated",
+    "block-menu",
+    "floating-menu",
+    "slash-command",
+    "block-handle",
+    "drag-handle",
+    "notion",
     "domternal"
   ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/domternal/domternal.git",
-    "directory": "packages/extension-block-menu"
+    "directory": "packages/extension-block-controls"
   },
   "bugs": {
     "url": "https://github.com/domternal/domternal/issues"

@@ -37,6 +37,9 @@
       "path": "./packages/angular"
     },
     {
+      "path": "./packages/extension-block-controls"
+    },
+    {
       "path": "./packages/extension-block-menu"
     },
     {

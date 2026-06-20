@@ -73,7 +73,7 @@ Import only what you need for full control and zero bloat. Use `StarterKit` for 
 | [`@domternal/vue`](https://www.npmjs.com/package/@domternal/vue) | Vue 3.3+ wrapper: composable component, composables, toolbar, bubble menu, floating menu, emoji picker, notion color picker, node views |
 | [`@domternal/vanilla`](https://www.npmjs.com/package/@domternal/vanilla) | Framework-free class-based wrapper for Astro, Svelte, Solid, plain HTML, and Web Components |
 | [`@domternal/pm`](https://www.npmjs.com/package/@domternal/pm) | ProseMirror re-exports (state, view, model, transform, commands, keymap, history, tables, and more) |
-| [`@domternal/extension-block-menu`](https://www.npmjs.com/package/@domternal/extension-block-menu) | Notion-style block UX: block handle, context menu, drag-to-reorder, keyboard reorder, slash command, smart paste |
+| [`@domternal/extension-block-controls`](https://www.npmjs.com/package/@domternal/extension-block-controls) | Notion-style block UX: block handle, context menu, drag-to-reorder, keyboard reorder, slash command, smart paste (formerly `@domternal/extension-block-menu`) |
 | [`@domternal/extension-toc`](https://www.npmjs.com/package/@domternal/extension-toc) | Notion-style Table of Contents: floating outline, inline `/toc` block, `scrollToHeading` command |
 | [`@domternal/extension-table`](https://www.npmjs.com/package/@domternal/extension-table) | Tables with 18 commands: merge, split, resize, cell styling, row/column controls |
 | [`@domternal/extension-image`](https://www.npmjs.com/package/@domternal/extension-image) | Image with paste/drop upload, URL input, XSS protection, bubble menu |

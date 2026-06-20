@@ -200,7 +200,7 @@ export {
 
 // === Floating Menu plugin ===
 // Used directly by the framework wrappers; the FloatingMenu extension in
-// @domternal/extension-block-menu wraps the same factory and re-exports
+// @domternal/extension-block-controls wraps the same factory and re-exports
 // these for backward compatibility.
 export {
   createFloatingMenuPlugin,

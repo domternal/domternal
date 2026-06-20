@@ -95,9 +95,9 @@ importers:
       '@domternal/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@domternal/extension-block-menu':
+      '@domternal/extension-block-controls':
         specifier: workspace:*
-        version: link:../../packages/extension-block-menu
+        version: link:../../packages/extension-block-controls
       '@domternal/extension-code-block-lowlight':
         specifier: workspace:*
         version: link:../../packages/extension-code-block-lowlight
@@ -165,9 +165,9 @@ importers:
       '@domternal/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@domternal/extension-block-menu':
+      '@domternal/extension-block-controls':
         specifier: workspace:*
-        version: link:../../packages/extension-block-menu
+        version: link:../../packages/extension-block-controls
       '@domternal/extension-code-block-lowlight':
         specifier: workspace:*
         version: link:../../packages/extension-code-block-lowlight
@@ -238,9 +238,9 @@ importers:
       '@domternal/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@domternal/extension-block-menu':
+      '@domternal/extension-block-controls':
         specifier: workspace:*
-        version: link:../../packages/extension-block-menu
+        version: link:../../packages/extension-block-controls
       '@domternal/extension-code-block-lowlight':
         specifier: workspace:*
         version: link:../../packages/extension-code-block-lowlight
@@ -296,9 +296,9 @@ importers:
       '@domternal/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@domternal/extension-block-menu':
+      '@domternal/extension-block-controls':
         specifier: workspace:*
-        version: link:../../packages/extension-block-menu
+        version: link:../../packages/extension-block-controls
       '@domternal/extension-code-block-lowlight':
         specifier: workspace:*
         version: link:../../packages/extension-code-block-lowlight
@@ -657,7 +657,29 @@ importers:
         specifier: ~5.9.3
         version: 5.9.3
 
+  packages/extension-block-controls:
+    devDependencies:
+      '@domternal/core':
+        specifier: workspace:*
+        version: link:../core
+      '@domternal/pm':
+        specifier: workspace:*
+        version: link:../pm
+      jsdom:
+        specifier: ^27.4.0
+        version: 27.4.0
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(jiti@2.6.1)(postcss@8.5.8)(typescript@5.9.3)(yaml@2.8.2)
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
   packages/extension-block-menu:
+    dependencies:
+      '@domternal/extension-block-controls':
+        specifier: workspace:*
+        version: link:../extension-block-controls
     devDependencies:
       '@domternal/core':
         specifier: workspace:*

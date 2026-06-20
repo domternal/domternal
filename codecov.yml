@@ -22,9 +22,9 @@ flag_management:
     - name: core
       paths:
         - packages/core/src/
-    - name: extension-block-menu
+    - name: extension-block-controls
       paths:
-        - packages/extension-block-menu/src/
+        - packages/extension-block-controls/src/
     - name: extension-code-block-lowlight
       paths:
         - packages/extension-code-block-lowlight/src/

@@ -17,6 +17,9 @@
       "path": "../../packages/extension-mention"
     },
     {
+      "path": "../../packages/extension-math"
+    },
+    {
       "path": "../../packages/extension-image"
     },
     {
@@ -29,7 +32,7 @@
       "path": "../../packages/extension-code-block-lowlight"
     },
     {
-      "path": "../../packages/extension-block-menu"
+      "path": "../../packages/extension-block-controls"
     },
     {
       "path": "../../packages/core"

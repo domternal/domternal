@@ -15,7 +15,7 @@
  * list-item reorder, and attribute preservation (UniqueID / BlockColor)
  * across the move. It does NOT cover the real-OS pieces (drag image,
  * auto-scroll ramp, browser drag cancel) - those stay unit-tested in
- * `packages/extension-block-menu/src/BlockHandle.test.ts`.
+ * `packages/extension-block-controls/src/BlockHandle.test.ts`.
  */
 import { test } from './fixtures.js';
 import { expect, type Page, type Locator, type JSHandle } from '@playwright/test';

@@ -22,7 +22,7 @@ import { PluginKey, TextSelection } from '@domternal/pm/state';
 
 /**
  * Local test harness mirroring the `FloatingMenu` extension in
- * `@domternal/extension-block-menu`: an `Extension.create` wrapper that
+ * `@domternal/extension-block-controls`: an `Extension.create` wrapper that
  * registers the plugin under the shared `floatingMenuPluginKey`.
  */
 const FloatingMenu = Extension.create<FloatingMenuOptions>({

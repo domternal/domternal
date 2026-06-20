@@ -1,7 +1,8 @@
 {
-  "$comment": "Gzipped byte budget for each package's dist/index.js. Bumping a number requires intent. Current sizes captured 2026-05-22 with ~15% headroom above measured; extension-block-menu bumped 2026-06-08 for the unified drop-slot model, to be lowered once dist is minified.",
+  "$comment": "Gzipped byte budget for each package's dist/index.js. Bumping a number requires intent. Current sizes captured 2026-05-22 with ~15% headroom above measured; extension-block-controls (formerly extension-block-menu) bumped 2026-06-08 for the unified drop-slot model, to be lowered once dist is minified; extension-block-menu is now a thin deprecation shim that re-exports extension-block-controls.",
   "core": 80000,
-  "extension-block-menu": 26000,
+  "extension-block-controls": 26000,
+  "extension-block-menu": 2000,
   "extension-code-block-lowlight": 3000,
   "extension-details": 6000,
   "extension-emoji": 19000,
