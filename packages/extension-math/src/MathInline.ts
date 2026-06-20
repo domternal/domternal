@@ -90,12 +90,16 @@ export const MathInline = Node.create<MathOptions>({
           const type = this.nodeType;
           if (!type) return false;
           if (state.selection.$from.parent.type.spec.code) return false;
+          const sel = state.selection;
+          // Notion behavior: with text selected and no explicit latex, the
+          // selected text becomes the equation source (select "x^2" -> inline math).
+          const effectiveLatex = latex || (sel.empty ? '' : state.doc.textBetween(sel.from, sel.to, ''));
           if (dispatch) {
             if (!tr.selection.empty) tr.deleteSelection();
             const pos = tr.selection.from;
-            tr.insert(pos, type.create({ latex }));
+            tr.insert(pos, type.create({ latex: effectiveLatex }));
             tr.setSelection(TextSelection.create(tr.doc, pos + 1));
-            if (!latex) {
+            if (!effectiveLatex) {
               tr.setMeta(mathEditPluginKey, { pos, latex: '', displayMode: false });
             }
             dispatch(tr);
@@ -148,10 +152,14 @@ export const MathInline = Node.create<MathOptions>({
         type: 'button',
         name: 'mathInline',
         command: 'insertMathInline',
-        icon: 'sigma',
+        icon: 'radical',
         label: 'Inline equation',
         group: 'insert',
         priority: 45,
+        // Also surfaced as a selection action in the bubble menu (Notion-style:
+        // turn selected text into an equation); see defaultBubbleContexts. Stays
+        // in the main toolbar too, so the classic editor keeps an explicit button.
+        bubbleMenu: 'text',
       },
     ];
   },
@@ -162,7 +170,7 @@ export const MathInline = Node.create<MathOptions>({
         name: 'mathInline',
         label: 'Inline equation',
         description: 'Insert an inline LaTeX formula',
-        icon: 'sigma',
+        icon: 'radical',
         group: 'Advanced',
         priority: 80,
         keywords: ['math', 'latex', 'equation', 'formula', 'inline'],

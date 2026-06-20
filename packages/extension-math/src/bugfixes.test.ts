@@ -10,6 +10,7 @@ import { MathBlock } from './MathBlock.js';
 import { mathEditPluginKey } from './MathEditing.js';
 import type { MathRenderer } from './renderer.js';
 import { Document, Text, Paragraph, CodeBlock, Editor } from '@domternal/core';
+import type { ToolbarButton } from '@domternal/core';
 import { NodeSelection, TextSelection } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
 
@@ -195,6 +196,32 @@ describe('apply on focus loss', () => {
     ta.value = 'blurred';
     ta.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: document.body }));
     expect(nodeLatex(editor, 'mathInline')).toBe('blurred');
+    editor.destroy();
+  });
+});
+
+describe('inline equation as a selection action (Notion-style)', () => {
+  it('wraps the selected text as the equation source', () => {
+    const editor = mk('<p>x^2</p>');
+    editor.view.dispatch(editor.view.state.tr.setSelection(TextSelection.create(editor.view.state.doc, 1, 4)));
+    editor.commands.insertMathInline();
+    expect(nodeLatex(editor, 'mathInline')).toBe('x^2');
+    editor.destroy();
+  });
+
+  it('keeps the radical toolbar button and is flagged for the text bubble menu; block keeps sigma', () => {
+    const editor = mk('<p></p>');
+    const buttons = editor.toolbarItems.filter((i): i is ToolbarButton => i.type === 'button');
+    const inline = buttons.find((i) => i.name === 'mathInline');
+    // Inline stays in the main toolbar (classic editor) with a distinct radical
+    // icon, and is also offered as a selection action in the text bubble menu.
+    expect(inline?.toolbar).not.toBe(false);
+    expect(inline?.bubbleMenu).toBe('text');
+    expect(inline?.icon).toBe('radical');
+    // Block equation is a separate toolbar insert button with the sigma icon.
+    const block = buttons.find((i) => i.name === 'mathBlock');
+    expect(block?.toolbar).not.toBe(false);
+    expect(block?.icon).toBe('sigma');
     editor.destroy();
   });
 });

@@ -2,14 +2,18 @@ import type { Editor } from '../Editor.js';
 
 const NOTION_MODE_CLASS = 'dm-notion-mode';
 
+// `mathInline` is the inline-equation button from @domternal/extension-math.
+// It is listed here so a text selection can be turned into inline math (Notion's
+// selection-context equation), and is silently skipped when the extension is not
+// loaded (the bubble menu resolves names against the editor's actual items).
 const NOTION_TEXT_CONTEXT: readonly string[] = Object.freeze([
-  'bold', 'italic', 'underline', 'strike', 'code',
+  'bold', 'italic', 'underline', 'strike', 'code', 'mathInline',
   '|', 'link',
   '|', 'textAlign',
 ]);
 
 const STANDARD_TEXT_CONTEXT: readonly string[] = Object.freeze([
-  'bold', 'italic', 'underline', 'strike', 'code',
+  'bold', 'italic', 'underline', 'strike', 'code', 'mathInline',
   '|', 'link',
 ]);
 
