@@ -111,6 +111,9 @@ export { writeToClipboard } from './utils/clipboard.js';
 // === Theme cascade for portaled elements ===
 export { copyThemeClass } from './utils/copyThemeClass.js';
 
+// === Post-command editor refocus (yields to popover inputs) ===
+export { refocusEditorAfterCommand } from './utils/refocusEditorAfterCommand.js';
+
 // === Bubble menu defaults ===
 export { defaultBubbleContexts } from './utils/defaultBubbleContexts.js';
 

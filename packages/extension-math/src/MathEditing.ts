@@ -164,7 +164,15 @@ export const MathEditing = Extension.create<MathEditingOptions>({
         placement: 'bottom-start',
         offsetValue: 6,
       });
+      // `data-show` flips the popover from visibility:hidden to visible, but a
+      // focus() before the browser recalculates style no-ops (the field is still
+      // computed-hidden), leaving the caret in the document. Reading offsetHeight
+      // forces the style/layout flush now so the field is focusable synchronously;
+      // the wrappers' post-command refocus (refocusEditorAfterCommand) then sees
+      // focus is already in this popover and yields instead of stealing it back.
+      void el.offsetHeight;
       textarea.focus();
+      textarea.select();
     };
 
     const onInput = (): void => {

@@ -77,4 +77,19 @@ test.describe('Math extension', () => {
     await expect(popover).toBeHidden();
     await expect(inline.locator('.katex')).toContainText('b');
   });
+
+  test('inserting an empty equation focuses the LaTeX field, not the document', async ({ page }) => {
+    await setContent(page, '<p></p>');
+    await page.locator(editorSelector).click();
+    await page.keyboard.type('/inline equation');
+    await page.waitForSelector('.dm-slash-command-menu');
+    await page.keyboard.press('Enter');
+
+    const input = page.locator('.dm-math-popover textarea');
+    await expect(input).toBeFocused();
+
+    await page.keyboard.type('a^2');
+    await expect(input).toHaveValue('a^2');
+    await expect(page.locator(editorSelector)).not.toContainText('a^2');
+  });
 });

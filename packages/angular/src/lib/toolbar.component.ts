@@ -17,6 +17,7 @@ import {
   ToolbarController,
   defaultIcons,
   positionFloatingOnce,
+  refocusEditorAfterCommand,
 } from '@domternal/core';
 import type {
   ToolbarItem,
@@ -368,7 +369,7 @@ export class DomternalToolbarComponent implements OnDestroy {
     // Always refocus editor after executing a command via toolbar button.
     // Mouse clicks already keep focus via mousedown.preventDefault();
     // keyboard activations (Enter/Space) need explicit refocus.
-    requestAnimationFrame(() => { this.editor().view.focus(); });
+    refocusEditorAfterCommand(this.editor().view);
   }
 
   onDropdownToggle(dropdown: ToolbarDropdown): void {
@@ -415,7 +416,7 @@ export class DomternalToolbarComponent implements OnDestroy {
     }
 
     // Refocus editor so ::selection highlight stays visible
-    requestAnimationFrame(() => { this.editor().view.focus(); });
+    refocusEditorAfterCommand(this.editor().view);
   }
 
   onButtonFocus(name: string): void {

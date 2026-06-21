@@ -3,6 +3,7 @@ import {
   createBubbleMenuPlugin,
   defaultBubbleContexts,
   positionFloatingOnce,
+  refocusEditorAfterCommand,
 } from '@domternal/core';
 import { resolveIcon } from '../shared/iconRenderer.js';
 import type {
@@ -735,7 +736,7 @@ export class DomternalBubbleMenu extends EventTarget {
   #onDropdownItemClick(sub: ToolbarButton): void {
     this.closeDropdown();
     ToolbarController.executeItem(this.#editor as never, sub);
-    requestAnimationFrame(() => { this.#editor.view.focus(); });
+    refocusEditorAfterCommand(this.#editor.view);
   }
 
   // === Dropdown lifecycle ===

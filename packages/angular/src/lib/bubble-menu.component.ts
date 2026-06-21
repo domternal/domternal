@@ -20,6 +20,7 @@ import {
   defaultBubbleContexts,
   defaultIcons,
   positionFloatingOnce,
+  refocusEditorAfterCommand,
 } from '@domternal/core';
 import type { BubbleMenuOptions, IconSet, ToolbarButton, ToolbarDropdown ,
   Editor} from '@domternal/core';
@@ -759,7 +760,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   onDropdownItemClick(item: ToolbarButton): void {
     this.cleanupDropdown();
     ToolbarController.executeItem(this.editor() as never, item);
-    requestAnimationFrame(() => { this.editor().view.focus(); });
+    refocusEditorAfterCommand(this.editor().view);
   }
 
   private cleanupDropdown(): void {

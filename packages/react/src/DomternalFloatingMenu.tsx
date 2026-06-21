@@ -15,6 +15,7 @@ import {
   FloatingMenuController,
   createFloatingMenuPlugin,
   defaultIcons,
+  refocusEditorAfterCommand,
 } from '@domternal/core';
 import type {
   Editor,
@@ -165,7 +166,7 @@ export function DomternalFloatingMenu({
     if (!editor || !controllerRef.current) return;
     controllerRef.current.execute(item);
     // Return focus to the editor so selection/cursor remain where expected.
-    requestAnimationFrame(() => { editor.view.focus(); });
+    refocusEditorAfterCommand(editor.view);
   }, [editor]);
 
   const onMenuKeyDown = useCallback((e: ReactKeyboardEvent<HTMLDivElement>): void => {

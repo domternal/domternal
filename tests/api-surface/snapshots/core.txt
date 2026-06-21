@@ -227,6 +227,7 @@ positionFloatingOnce
 PositionFloatingOptions
 Range
 RawCommands
+refocusEditorAfterCommand
 resetAttributes
 selectAll
 Selection

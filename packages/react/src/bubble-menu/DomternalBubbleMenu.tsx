@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { Editor, BubbleMenuOptions, IconSet, ToolbarButton, ToolbarDropdown } from '@domternal/core';
-import { positionFloatingOnce } from '@domternal/core';
+import { positionFloatingOnce, refocusEditorAfterCommand } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useBubbleMenu } from './useBubbleMenu.js';
 
@@ -117,7 +117,7 @@ export function DomternalBubbleMenu({
               executeSubItem={(sub) => {
                 closeDropdown();
                 executeCommand(sub);
-                requestAnimationFrame(() => { editor?.view.focus(); });
+                if (editor) refocusEditorAfterCommand(editor.view);
               }}
             />
           );
