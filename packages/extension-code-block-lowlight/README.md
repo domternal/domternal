@@ -21,14 +21,14 @@ See <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> for a ful
 - **Vue components** - composable `Domternal` component, `useEditor`/`useEditorState` composables, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (Vue 3.3+)
 - **Vanilla wrapper** - framework-free class-based API for Astro, Svelte, Solid, plain HTML, and Web Components - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker
 - **Notion-style block UX** - drag-to-reorder, block context menu, slash command, smart paste, keyboard reorder, floating Table of Contents
-- **65+ extensions across 15 packages** - nodes, marks, and behavior extensions
-- **120+ chainable commands** - `editor.chain().focus().toggleBold().run()`
+- **70+ extensions across 16 packages** - nodes, marks, and behavior extensions
+- **125+ chainable commands** - `editor.chain().focus().toggleBold().run()`
 - **Full table support** - cell merging, column resize, row/column controls, cell toolbar, all free and MIT licensed
 - **Tree-shakeable** - import only what you use, your bundler strips the rest
 - **~44 KB gzipped** (own code), <u>[see Packages](https://domternal.dev/v1/packages)</u> for full bundle breakdown with ProseMirror
 - **TypeScript first** - 100% typed, zero `any`
 - **15,000+ tests** - 4,000+ unit and 11,000+ E2E across 230+ Playwright specs and 4 demo apps
-- **Light and dark theme** - 70+ CSS custom properties for full visual control
+- **Light and dark theme** - 120+ CSS custom properties for full visual control
 - **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
 - **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
 
