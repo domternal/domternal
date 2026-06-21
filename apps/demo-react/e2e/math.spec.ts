@@ -44,6 +44,17 @@ async function insertInline(page: Page, latex: string): Promise<void> {
   }, latex);
 }
 
+async function topLevelTypes(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+      | { state: { doc: { forEach: (f: (n: { type: { name: string } }) => void) => void } } }
+      | undefined;
+    const names: string[] = [];
+    ed?.state.doc.forEach((n) => names.push(n.type.name));
+    return names;
+  });
+}
+
 test.describe('Math extension', () => {
   test.beforeEach(async ({ page }) => {
     await goNotion(page);
@@ -92,5 +103,85 @@ test.describe('Math extension', () => {
     await page.keyboard.type('a^2');
     await expect(input).toHaveValue('a^2');
     await expect(page.locator(editorSelector)).not.toContainText('a^2');
+  });
+
+  test('inserting a block equation on an empty line replaces it (no dangling paragraph)', async ({
+    page,
+  }) => {
+    await setContent(page, '<p></p>');
+    await insertBlock(page, 'x^2');
+    await expect(page.locator('.app-notion-demo .dm-math-block')).toBeVisible();
+    // The empty paragraph is replaced by the block, not left dangling beside it.
+    expect(await topLevelTypes(page)).toEqual(['mathBlock']);
+  });
+
+  test('the block equation edit popover is centered under the block', async ({ page }) => {
+    await setContent(page, '<p>x</p>');
+    await insertBlock(page, '');
+
+    const block = page.locator('.app-notion-demo .dm-math-block');
+    const popover = page.locator('.dm-math-popover');
+    await expect(popover).toBeVisible();
+    await expect(block).toBeVisible();
+
+    const bb = await block.boundingBox();
+    const pb = await popover.boundingBox();
+    expect(bb).not.toBeNull();
+    expect(pb).not.toBeNull();
+    const blockCenter = bb!.x + bb!.width / 2;
+    const popCenter = pb!.x + pb!.width / 2;
+    // The popover hugs the block's center (Notion-style), not its far-left edge.
+    expect(Math.abs(blockCenter - popCenter)).toBeLessThan(16);
+  });
+
+  test('Escape on a freshly inserted empty equation removes it', async ({ page }) => {
+    await setContent(page, '<p>x</p>');
+    await insertBlock(page, '');
+
+    const popover = page.locator('.dm-math-popover');
+    await expect(popover).toBeVisible();
+    await expect(page.locator('.app-notion-demo .dm-math-block')).toHaveCount(1);
+
+    await page.locator('.dm-math-popover textarea').press('Escape');
+    await expect(popover).toBeHidden();
+    await expect(page.locator('.app-notion-demo .dm-math-block')).toHaveCount(0);
+  });
+
+  test('a node-selected block equation opens the edit popover on Enter (keyboard a11y)', async ({
+    page,
+  }) => {
+    await setContent(page, '<p>x</p>');
+    await insertBlock(page, 'a^2');
+    await page.locator(editorSelector).click();
+    await page.evaluate(() => {
+      const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { commands: { focus: (pos?: string) => boolean } }
+        | undefined;
+      ed?.commands.focus('start');
+    });
+    // Arrow down out of the paragraph to node-select the block atom, then Enter
+    // opens the same popover a click would (WCAG 2.1.1 keyboard access).
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+
+    const popover = page.locator('.dm-math-popover');
+    await expect(popover).toBeVisible();
+    await expect(popover.locator('textarea')).toHaveValue('a^2');
+  });
+
+  test('the text bubble menu turns a selection into inline math', async ({ page }) => {
+    await setContent(page, '<p>x^2</p>');
+    await page.locator(`${editorSelector} p`).first().click({ clickCount: 3 });
+    await page.waitForSelector('.dm-bubble-menu[data-show]');
+
+    const inlineBtn = page.locator('.dm-bubble-menu button[title="Inline equation"]');
+    await expect(inlineBtn).toBeVisible();
+    await inlineBtn.click();
+
+    const inline = page.locator('.app-notion-demo .dm-math-inline');
+    await expect(inline).toBeVisible();
+    // The selected text became the equation source.
+    await inline.click();
+    await expect(page.locator('.dm-math-popover textarea')).toHaveValue('x^2');
   });
 });
