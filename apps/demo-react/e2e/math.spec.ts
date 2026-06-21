@@ -14,6 +14,10 @@ async function goNotion(page: Page): Promise<void> {
   await page.waitForSelector(modeToggleNotion);
   await page.click(modeToggleNotion);
   await page.waitForSelector(editorSelector);
+  await page.waitForFunction(
+    () => Boolean((window as unknown as Record<string, unknown>)['__DEMO_EDITOR__']),
+    { timeout: 3000 },
+  );
 }
 
 async function setContent(page: Page, html: string): Promise<void> {

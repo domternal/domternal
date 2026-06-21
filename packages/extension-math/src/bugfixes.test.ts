@@ -9,7 +9,7 @@ import { MathInline } from './MathInline.js';
 import { MathBlock } from './MathBlock.js';
 import { mathEditPluginKey } from './MathEditing.js';
 import type { MathRenderer } from './renderer.js';
-import { Document, Text, Paragraph, CodeBlock, Editor } from '@domternal/core';
+import { Document, Text, Paragraph, CodeBlock, BulletList, ListItem, Editor } from '@domternal/core';
 import type { ToolbarButton } from '@domternal/core';
 import { NodeSelection, TextSelection } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
@@ -159,6 +159,7 @@ describe('keyboard edit path', () => {
     const pos = findPos(editor, 'mathBlock');
     editor.view.dispatch(editor.view.state.tr.setSelection(NodeSelection.create(editor.view.state.doc, pos)));
     expect(pressEnter(editor.view)).toBe(true);
+    expect(mathEditPluginKey.getState(editor.view.state)?.edit?.pos).toBe(pos);
     expect(mathEditPluginKey.getState(editor.view.state)?.edit?.displayMode).toBe(true);
     editor.destroy();
   });
@@ -258,6 +259,37 @@ describe('insertMathBlock replaces an empty line (no dangling paragraph)', () =>
     expect(count(editor, 'paragraph')).toBe(2);
     expect(editor.getText()).toContain('a');
     expect(editor.getText()).toContain('b');
+    editor.destroy();
+  });
+
+  it('inside a list item, inserts after the empty line (the leading paragraph is schema-required)', () => {
+    const editor = new Editor({
+      element: document.createElement('div'),
+      extensions: [
+        Document,
+        Text,
+        Paragraph,
+        BulletList,
+        ListItem,
+        MathBlock.configure({ renderer: stub }),
+      ],
+      content: '<ul><li><p></p></li></ul>',
+    });
+    editor.view.dispatch(
+      editor.view.state.tr.setSelection(TextSelection.atStart(editor.view.state.doc)),
+    );
+    editor.commands.insertMathBlock('x^2');
+    expect(count(editor, 'mathBlock')).toBe(1);
+    // A list item is `paragraph block*`, so its leading paragraph cannot be dropped;
+    // the equation lands after it inside the same item rather than replacing it.
+    let children: string[] = [];
+    editor.view.state.doc.descendants((n) => {
+      if (n.type.name === 'listItem') {
+        children = [];
+        n.forEach((c) => children.push(c.type.name));
+      }
+    });
+    expect(children).toEqual(['paragraph', 'mathBlock']);
     editor.destroy();
   });
 });

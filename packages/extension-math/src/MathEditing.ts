@@ -166,12 +166,10 @@ export const MathEditing = Extension.create<MathEditingOptions>({
         placement: currentDisplayMode ? 'bottom' : 'bottom-start',
         offsetValue: 6,
       });
-      // `data-show` flips the popover from visibility:hidden to visible, but a
-      // focus() before the browser recalculates style no-ops (the field is still
-      // computed-hidden), leaving the caret in the document. Reading offsetHeight
-      // forces the style/layout flush now so the field is focusable synchronously;
-      // the wrappers' post-command refocus (refocusEditorAfterCommand) then sees
-      // focus is already in this popover and yields instead of stealing it back.
+      // `data-show` flips the field from visibility:hidden to visible, but focus()
+      // before a style flush no-ops (still computed-hidden). Read offsetHeight to
+      // flush layout so the synchronous focus() lands; refocusEditorAfterCommand
+      // then sees focus is already here and yields instead of stealing it back.
       void el.offsetHeight;
       textarea.focus();
       textarea.select();
@@ -236,6 +234,9 @@ export const MathEditing = Extension.create<MathEditingOptions>({
               const edit = mathEditPluginKey.getState(view.state)?.edit ?? null;
               if (edit && edit !== lastEdit) {
                 lastEdit = edit;
+                // Commit any in-flight edit before re-anchoring to a new node, so a
+                // second signal can't silently discard unsaved LaTeX.
+                if (isOpen) apply({ refocus: false });
                 openPopover(edit);
               } else if (!edit) {
                 lastEdit = null;

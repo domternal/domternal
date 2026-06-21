@@ -92,17 +92,23 @@ export const MathBlock = Node.create<MathOptions>({
           if ($from.parent.type.spec.code) return false;
           if (dispatch) {
             const node = type.create({ latex });
-            // On an empty line, replace it with the equation (Notion parity) rather
-            // than inserting after it, which would leave a dangling empty paragraph.
-            // On a non-empty line, insert the block after the current block.
+            // On an empty line, replace it with the equation (Notion parity) so no
+            // empty paragraph is left behind. Skip the replace when the container
+            // requires a leading textblock (a list item is `paragraph block*`): the
+            // schema would refit the paragraph back, so insert after it instead.
+            const depth = $from.depth;
+            const idx = depth > 0 ? $from.index(depth - 1) : 0;
             const onEmptyLine =
-              $from.depth > 0 && $from.parent.isTextblock && $from.parent.content.size === 0;
+              depth > 0 &&
+              $from.parent.isTextblock &&
+              $from.parent.content.size === 0 &&
+              $from.node(depth - 1).canReplaceWith(idx, idx + 1, type);
             let pos: number;
             if (onEmptyLine) {
-              pos = $from.before($from.depth);
-              tr.replaceWith(pos, $from.after($from.depth), node);
+              pos = $from.before(depth);
+              tr.replaceWith(pos, $from.after(depth), node);
             } else {
-              pos = $from.depth > 0 ? $from.after($from.depth) : state.selection.to;
+              pos = depth > 0 ? $from.after(depth) : state.selection.to;
               tr.insert(pos, node);
             }
             if (!latex) {

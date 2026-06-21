@@ -65,11 +65,11 @@ $shadow: var(--dm-popover-shadow, 0 12px 28px -8px rgba(0, 0, 0, 0.22), 0 4px 10
     Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
   visibility: hidden;
   opacity: 0;
-  // Hide: keep it visible until the opacity fade finishes (visibility flips after
-  // the 0.2s delay). Show: the [data-show] rule below flips visibility to visible
-  // immediately (no transition on it), so the focused field is actually visible -
-  // a transition on visibility would keep it computed-hidden at t=0 and make the
-  // synchronous focus() in openPopover a no-op, leaving the caret in the document.
+  // Show: the [data-show] rule below flips visibility instantly (no transition on
+  // it) so the field is focusable at t=0. A transition on visibility would keep it
+  // computed-hidden when openPopover's synchronous focus() runs, leaving the caret
+  // in the document. Hide: delay the visibility flip 0.2s so the box stays through
+  // the opacity fade.
   transition: opacity 0.2s ease, visibility 0s linear 0.2s;
   z-index: var(--dm-z-popover, 60);
 
