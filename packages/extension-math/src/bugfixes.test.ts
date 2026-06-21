@@ -292,4 +292,70 @@ describe('insertMathBlock replaces an empty line (no dangling paragraph)', () =>
     expect(children).toEqual(['paragraph', 'mathBlock']);
     editor.destroy();
   });
+
+  it('inserts after a node-selected top-level block (depth-0 selection)', () => {
+    const editor = mk('<div data-type="math-block" data-latex="a"></div>');
+    const pos = findPos(editor, 'mathBlock');
+    editor.view.dispatch(
+      editor.view.state.tr.setSelection(NodeSelection.create(editor.view.state.doc, pos)),
+    );
+    editor.commands.insertMathBlock('b');
+    expect(count(editor, 'mathBlock')).toBe(2);
+    editor.destroy();
+  });
+});
+
+describe('popover event paths', () => {
+  it('a mousedown inside the popover does not close it', () => {
+    const editor = mk('<p><span data-type="math-inline" data-latex="a"></span></p>');
+    openEdit(editor, findPos(editor, 'mathInline'), 'a');
+    const el = document.querySelector<HTMLElement>('.dm-math-popover[data-show]')!;
+    el.querySelector('textarea')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(document.querySelector('.dm-math-popover[data-show]')).not.toBeNull();
+    expect(count(editor, 'mathInline')).toBe(1);
+    editor.destroy();
+  });
+
+  it('focusout is ignored when the popover is closed', () => {
+    const editor = mk('<p>x</p>');
+    const el = document.querySelector<HTMLElement>('.dm-math-popover')!;
+    el.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    expect(count(editor, 'mathInline')).toBe(0);
+    editor.destroy();
+  });
+
+  it('focusout within the popover does not apply the edit', () => {
+    const editor = mk('<p><span data-type="math-inline" data-latex="a"></span></p>');
+    openEdit(editor, findPos(editor, 'mathInline'), 'a');
+    const el = document.querySelector<HTMLElement>('.dm-math-popover[data-show]')!;
+    shownTextarea().value = 'zz';
+    el.dispatchEvent(
+      new FocusEvent('focusout', {
+        bubbles: true,
+        relatedTarget: el.querySelector('.dm-math-popover-preview'),
+      }),
+    );
+    expect(nodeLatex(editor, 'mathInline')).toBe('a');
+    editor.destroy();
+  });
+
+  it('a second edit signal commits the in-flight edit before re-anchoring', () => {
+    const editor = mk(
+      '<p><span data-type="math-inline" data-latex="a"></span><span data-type="math-inline" data-latex="b"></span></p>',
+    );
+    const positions: number[] = [];
+    editor.view.state.doc.descendants((n, p) => {
+      if (n.type.name === 'mathInline') positions.push(p);
+    });
+    openEdit(editor, positions[0]!, 'a');
+    shownTextarea().value = 'AA';
+    // A second signal arrives while the first popover is still open.
+    openEdit(editor, positions[1]!, 'b');
+    let first: string | null = null;
+    editor.view.state.doc.descendants((n, p) => {
+      if (n.type.name === 'mathInline' && p === positions[0]) first = n.attrs['latex'] as string;
+    });
+    expect(first).toBe('AA');
+    editor.destroy();
+  });
 });

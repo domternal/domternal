@@ -73,4 +73,11 @@ describe('refocusEditorAfterCommand', () => {
     refocusEditorAfterCommand(view);
     expect(focusCount).toBe(1);
   });
+
+  it('refocuses when there is no active element', () => {
+    const spy = vi.spyOn(document, 'activeElement', 'get').mockReturnValue(null);
+    refocusEditorAfterCommand(view);
+    expect(focusCount).toBe(1);
+    spy.mockRestore();
+  });
 });

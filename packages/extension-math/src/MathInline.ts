@@ -119,7 +119,7 @@ export const MathInline = Node.create<MathOptions>({
         if (!editor || !type) return false;
         const { selection } = editor.state;
         if (!(selection instanceof NodeSelection) || selection.node.type !== type) return false;
-        const latex = (selection.node.attrs['latex'] as string | undefined) ?? '';
+        const latex = selection.node.attrs['latex'] as string;
         editor.view.dispatch(
           editor.state.tr.setMeta(mathEditPluginKey, { pos: selection.from, latex, displayMode: false }),
         );
