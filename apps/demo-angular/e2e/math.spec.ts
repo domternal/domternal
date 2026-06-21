@@ -189,4 +189,30 @@ test.describe('Math extension', () => {
     await inline.click();
     await expect(page.locator('.dm-math-popover textarea')).toHaveValue('x^2');
   });
+
+  test('typing $$ inserts a block equation and opens the editor', async ({ page }) => {
+    await setContent(page, '<p></p>');
+    await page.locator(editorSelector).click();
+    await page.keyboard.type('$$');
+
+    await expect(page.locator('app-notion-demo .dm-math-block')).toBeVisible();
+    const input = page.locator('.dm-math-popover textarea');
+    await expect(input).toBeFocused();
+
+    // Finishing the equation in the popover renders it.
+    await input.fill('a^2');
+    await input.press('Enter');
+    await expect(page.locator('.dm-math-popover')).toBeHidden();
+    await expect(page.locator('app-notion-demo .dm-math-block .katex')).toBeVisible();
+  });
+
+  test('typing $x^2$ inserts an inline equation', async ({ page }) => {
+    await setContent(page, '<p></p>');
+    await page.locator(editorSelector).click();
+    await page.keyboard.type('$x^2$');
+
+    const inline = page.locator('app-notion-demo .dm-math-inline');
+    await expect(inline).toBeVisible();
+    await expect(inline.locator('.katex')).toBeVisible();
+  });
 });
