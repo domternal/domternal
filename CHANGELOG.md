@@ -1,10 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.10.0 (2026-06-21)
+
+### Features
+
+- feat(extension-math): new `@domternal/extension-math` package: inline (`$...$`) and block (`$$`) LaTeX math with a pluggable renderer (KaTeX). Authoring via slash menu, toolbar, input rules, and the text bubble menu, with a distinct radical icon for inline equations and turning a text selection into an equation. The shared edit popover has a live preview and is keyboard accessible (Enter on a selected equation opens it, WCAG 2.1.1), and rendered math is RTL-isolated. (#110, #112)
 
 ### Changes
 
-- `@domternal/extension-block-menu` is renamed to `@domternal/extension-block-controls`. The old package becomes a thin shim that re-exports the new one, so existing imports keep working unchanged; it is deprecated and will be removed in v1.0.0. Switch your imports to `@domternal/extension-block-controls`.
+- `@domternal/extension-block-menu` is renamed to `@domternal/extension-block-controls`. The old package becomes a thin shim that re-exports the new one, so existing imports keep working unchanged; it is deprecated and will be removed in v1.0.0. Switch your imports to `@domternal/extension-block-controls`. (#111)
+- feat(core): a command run from a toolbar or menu now returns focus to the editor on the next frame, yielding when the command opened a popover input (such as the math editor) so that field keeps focus. This keeps the selection highlight after keyboard activation of a toolbar button. (#112)
 
 ## 0.9.1 (2026-06-17)
 
