@@ -225,3 +225,39 @@ describe('inline equation as a selection action (Notion-style)', () => {
     editor.destroy();
   });
 });
+
+describe('insertMathBlock replaces an empty line (no dangling paragraph)', () => {
+  it('replaces an empty line with the block', () => {
+    const editor = mk('<p></p>');
+    editor.commands.insertMathBlock('x^2');
+    expect(count(editor, 'mathBlock')).toBe(1);
+    expect(count(editor, 'paragraph')).toBe(0);
+    editor.destroy();
+  });
+
+  it('inserts after a non-empty line and keeps the paragraph', () => {
+    const editor = mk('<p>abc</p>');
+    editor.commands.insertMathBlock('x^2');
+    expect(count(editor, 'mathBlock')).toBe(1);
+    expect(count(editor, 'paragraph')).toBe(1);
+    expect(editor.getText()).toContain('abc');
+    editor.destroy();
+  });
+
+  it('replaces only the empty line between content, keeping its neighbors', () => {
+    const editor = mk('<p>a</p><p></p><p>b</p>');
+    let emptyPos = -1;
+    editor.view.state.doc.descendants((n, p) => {
+      if (n.type.name === 'paragraph' && n.content.size === 0) emptyPos = p;
+    });
+    editor.view.dispatch(
+      editor.view.state.tr.setSelection(TextSelection.create(editor.view.state.doc, emptyPos + 1)),
+    );
+    editor.commands.insertMathBlock('x^2');
+    expect(count(editor, 'mathBlock')).toBe(1);
+    expect(count(editor, 'paragraph')).toBe(2);
+    expect(editor.getText()).toContain('a');
+    expect(editor.getText()).toContain('b');
+    editor.destroy();
+  });
+});

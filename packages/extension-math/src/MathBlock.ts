@@ -88,13 +88,25 @@ export const MathBlock = Node.create<MathOptions>({
         ({ state, tr, dispatch }) => {
           const type = this.nodeType;
           if (!type) return false;
-          if (state.selection.$from.parent.type.spec.code) return false;
+          const { $from } = state.selection;
+          if ($from.parent.type.spec.code) return false;
           if (dispatch) {
-            const { $from } = state.selection;
-            const insertPos = $from.depth > 0 ? $from.after($from.depth) : state.selection.to;
-            tr.insert(insertPos, type.create({ latex }));
+            const node = type.create({ latex });
+            // On an empty line, replace it with the equation (Notion parity) rather
+            // than inserting after it, which would leave a dangling empty paragraph.
+            // On a non-empty line, insert the block after the current block.
+            const onEmptyLine =
+              $from.depth > 0 && $from.parent.isTextblock && $from.parent.content.size === 0;
+            let pos: number;
+            if (onEmptyLine) {
+              pos = $from.before($from.depth);
+              tr.replaceWith(pos, $from.after($from.depth), node);
+            } else {
+              pos = $from.depth > 0 ? $from.after($from.depth) : state.selection.to;
+              tr.insert(pos, node);
+            }
             if (!latex) {
-              tr.setMeta(mathEditPluginKey, { pos: insertPos, latex: '', displayMode: true });
+              tr.setMeta(mathEditPluginKey, { pos, latex: '', displayMode: true });
             }
             dispatch(tr);
           }
