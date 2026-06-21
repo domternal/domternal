@@ -13,5 +13,5 @@ export default defineConfig({
   sourcemap: true,
   splitting: false,
   treeshake: true,
-  external: ['@domternal/core', '@domternal/extension-block-controls'],
+  external: ['@domternal/core'],
 });

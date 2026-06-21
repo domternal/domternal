@@ -1,4 +1,4 @@
-import { FloatingMenuController, createFloatingMenuPlugin } from '@domternal/core';
+import { FloatingMenuController, createFloatingMenuPlugin, refocusEditorAfterCommand } from '@domternal/core';
 import type {
   Editor,
   FloatingMenuItem,
@@ -293,7 +293,7 @@ export class DomternalFloatingMenu extends EventTarget {
   #onItemClick(item: FloatingMenuItem): void {
     if (this.#destroyed || !this.#controller) return;
     this.#controller.execute(item);
-    requestAnimationFrame(() => { this.#editor.view.focus(); });
+    refocusEditorAfterCommand(this.#editor.view);
   }
 
   #onKeyDown(event: KeyboardEvent): void {

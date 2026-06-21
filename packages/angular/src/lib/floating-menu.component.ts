@@ -18,6 +18,7 @@ import {
   FloatingMenuController,
   createFloatingMenuPlugin,
   defaultIcons,
+  refocusEditorAfterCommand,
 } from '@domternal/core';
 import type {
   Editor,
@@ -231,7 +232,7 @@ export class DomternalFloatingMenuComponent implements OnDestroy {
     const ctl = this.controller;
     if (!ctl) return;
     ctl.execute(item);
-    requestAnimationFrame(() => { editor.view.focus(); });
+    refocusEditorAfterCommand(editor.view);
   }
 
   onKeyDown(e: KeyboardEvent): void {

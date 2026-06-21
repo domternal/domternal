@@ -37,6 +37,9 @@ flag_management:
     - name: extension-image
       paths:
         - packages/extension-image/src/
+    - name: extension-math
+      paths:
+        - packages/extension-math/src/
     - name: extension-mention
       paths:
         - packages/extension-mention/src/

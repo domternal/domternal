@@ -3,6 +3,7 @@ import type { PropType, ShallowRef, VNode } from 'vue';
 import {
   ToolbarController,
   positionFloatingOnce,
+  refocusEditorAfterCommand,
 } from '@domternal/core';
 import type { Editor, IconSet, ToolbarButton, ToolbarDropdown, BubbleMenuOptions } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
@@ -76,7 +77,7 @@ export const DomternalBubbleMenu = defineComponent({
       const ed = editorRef.value;
       if (!ed) return;
       ToolbarController.executeItem(ed as never, sub);
-      requestAnimationFrame(() => { ed.view.focus(); });
+      refocusEditorAfterCommand(ed.view);
     };
 
     // Refs to the trailing trigger buttons so we can pass the element as anchor

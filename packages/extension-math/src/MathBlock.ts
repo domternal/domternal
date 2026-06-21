@@ -7,6 +7,7 @@
 import { Node } from '@domternal/core';
 import type { CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
 import { InputRule } from '@domternal/pm/inputrules';
+import { NodeSelection } from '@domternal/pm/state';
 import type { EditorState } from '@domternal/pm/state';
 import { MATH_BLOCK_NAME } from './shared.js';
 import type { MathOptions } from './shared.js';
@@ -87,17 +88,55 @@ export const MathBlock = Node.create<MathOptions>({
         ({ state, tr, dispatch }) => {
           const type = this.nodeType;
           if (!type) return false;
+          const { $from } = state.selection;
+          if ($from.parent.type.spec.code) return false;
           if (dispatch) {
-            const { $from } = state.selection;
-            const insertPos = $from.depth > 0 ? $from.after($from.depth) : state.selection.to;
-            tr.insert(insertPos, type.create({ latex }));
+            const node = type.create({ latex });
+            // On an empty line, replace it with the equation (Notion parity) so no
+            // empty paragraph is left behind. Skip the replace when the container
+            // requires a leading textblock (a list item is `paragraph block*`): the
+            // schema would refit the paragraph back, so insert after it instead.
+            const depth = $from.depth;
+            const idx = depth > 0 ? $from.index(depth - 1) : 0;
+            const onEmptyLine =
+              depth > 0 &&
+              $from.parent.isTextblock &&
+              $from.parent.content.size === 0 &&
+              $from.node(depth - 1).canReplaceWith(idx, idx + 1, type);
+            let pos: number;
+            if (onEmptyLine) {
+              pos = $from.before(depth);
+              tr.replaceWith(pos, $from.after(depth), node);
+            } else {
+              pos = depth > 0 ? $from.after(depth) : state.selection.to;
+              tr.insert(pos, node);
+            }
             if (!latex) {
-              tr.setMeta(mathEditPluginKey, { pos: insertPos, latex: '', displayMode: true });
+              tr.setMeta(mathEditPluginKey, { pos, latex: '', displayMode: true });
             }
             dispatch(tr);
           }
           return true;
         },
+    };
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      // Keyboard path to edit a selected equation (WCAG 2.1.1): when the block
+      // math atom is node-selected, Enter opens the same edit popover as a click.
+      Enter: () => {
+        const editor = this.editor;
+        const type = this.nodeType;
+        if (!editor || !type) return false;
+        const { selection } = editor.state;
+        if (!(selection instanceof NodeSelection) || selection.node.type !== type) return false;
+        const latex = selection.node.attrs['latex'] as string;
+        editor.view.dispatch(
+          editor.state.tr.setMeta(mathEditPluginKey, { pos: selection.from, latex, displayMode: true }),
+        );
+        return true;
+      },
     };
   },
 

@@ -7,7 +7,7 @@
 import { Node } from '@domternal/core';
 import type { CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
 import { InputRule } from '@domternal/pm/inputrules';
-import { TextSelection } from '@domternal/pm/state';
+import { NodeSelection, TextSelection } from '@domternal/pm/state';
 import type { EditorState } from '@domternal/pm/state';
 import { MATH_INLINE_NAME } from './shared.js';
 import type { MathOptions } from './shared.js';
@@ -90,18 +90,41 @@ export const MathInline = Node.create<MathOptions>({
           const type = this.nodeType;
           if (!type) return false;
           if (state.selection.$from.parent.type.spec.code) return false;
+          const sel = state.selection;
+          // Notion behavior: with text selected and no explicit latex, the
+          // selected text becomes the equation source (select "x^2" -> inline math).
+          const effectiveLatex = latex || (sel.empty ? '' : state.doc.textBetween(sel.from, sel.to, ''));
           if (dispatch) {
             if (!tr.selection.empty) tr.deleteSelection();
             const pos = tr.selection.from;
-            tr.insert(pos, type.create({ latex }));
+            tr.insert(pos, type.create({ latex: effectiveLatex }));
             tr.setSelection(TextSelection.create(tr.doc, pos + 1));
-            if (!latex) {
+            if (!effectiveLatex) {
               tr.setMeta(mathEditPluginKey, { pos, latex: '', displayMode: false });
             }
             dispatch(tr);
           }
           return true;
         },
+    };
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      // Keyboard path to edit a selected equation (WCAG 2.1.1): when the inline
+      // math atom is node-selected, Enter opens the same edit popover as a click.
+      Enter: () => {
+        const editor = this.editor;
+        const type = this.nodeType;
+        if (!editor || !type) return false;
+        const { selection } = editor.state;
+        if (!(selection instanceof NodeSelection) || selection.node.type !== type) return false;
+        const latex = selection.node.attrs['latex'] as string;
+        editor.view.dispatch(
+          editor.state.tr.setMeta(mathEditPluginKey, { pos: selection.from, latex, displayMode: false }),
+        );
+        return true;
+      },
     };
   },
 
@@ -129,10 +152,14 @@ export const MathInline = Node.create<MathOptions>({
         type: 'button',
         name: 'mathInline',
         command: 'insertMathInline',
-        icon: 'sigma',
+        icon: 'radical',
         label: 'Inline equation',
         group: 'insert',
         priority: 45,
+        // Also surfaced as a selection action in the bubble menu (Notion-style:
+        // turn selected text into an equation); see defaultBubbleContexts. Stays
+        // in the main toolbar too, so the classic editor keeps an explicit button.
+        bubbleMenu: 'text',
       },
     ];
   },
@@ -143,7 +170,7 @@ export const MathInline = Node.create<MathOptions>({
         name: 'mathInline',
         label: 'Inline equation',
         description: 'Insert an inline LaTeX formula',
-        icon: 'sigma',
+        icon: 'radical',
         group: 'Advanced',
         priority: 80,
         keywords: ['math', 'latex', 'equation', 'formula', 'inline'],

@@ -64,6 +64,7 @@ export function createMathNodeView(
 
     if (editKey) {
       dom.addEventListener('click', () => {
+        if (!view.editable) return;
         const pos = getPos();
         if (pos === undefined) return;
         view.dispatch(

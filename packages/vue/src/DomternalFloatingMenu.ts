@@ -14,6 +14,7 @@ import {
   FloatingMenuController,
   createFloatingMenuPlugin,
   defaultIcons,
+  refocusEditorAfterCommand,
 } from '@domternal/core';
 import type {
   Editor,
@@ -157,7 +158,7 @@ export const DomternalFloatingMenu = defineComponent({
       const ed = currentEditor;
       if (!ctl || !ed) return;
       ctl.execute(item);
-      requestAnimationFrame(() => { ed.view.focus(); });
+      refocusEditorAfterCommand(ed.view);
     };
 
     const onMenuKeyDown = (e: KeyboardEvent): void => {

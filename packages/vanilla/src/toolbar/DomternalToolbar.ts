@@ -1,6 +1,7 @@
 import {
   ToolbarController,
   positionFloatingOnce,
+  refocusEditorAfterCommand,
 } from '@domternal/core';
 import type {
   Editor,
@@ -574,7 +575,7 @@ export class DomternalToolbar extends EventTarget {
 
     // Refocus editor so caret stays visible (mousedown.preventDefault holds
     // focus on mouse path; keyboard activations need explicit refocus).
-    requestAnimationFrame(() => { this.#editor.view.focus(); });
+    refocusEditorAfterCommand(this.#editor.view);
   }
 
   #onDropdownToggle(dd: ToolbarDropdown): void {
@@ -615,7 +616,7 @@ export class DomternalToolbar extends EventTarget {
       this.#controller.executeCommand(item);
     }
 
-    requestAnimationFrame(() => { this.#editor.view.focus(); });
+    refocusEditorAfterCommand(this.#editor.view);
   }
 
   #onButtonFocus(name: string): void {
