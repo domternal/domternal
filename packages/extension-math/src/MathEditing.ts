@@ -161,7 +161,9 @@ export const MathEditing = Extension.create<MathEditingOptions>({
             };
       cleanupFloating?.();
       cleanupFloating = positionFloating(reference, el, {
-        placement: 'bottom-start',
+        // Block math renders full-width and centered, so anchor the popover to the
+        // block's center; inline math wraps its node tightly, so anchor to its start.
+        placement: currentDisplayMode ? 'bottom' : 'bottom-start',
         offsetValue: 6,
       });
       // `data-show` flips the popover from visibility:hidden to visible, but a
