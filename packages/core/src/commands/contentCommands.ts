@@ -147,34 +147,41 @@ export const insertContent: CommandSpec<[content: Content]> =
     const { from, to } = tr.selection;
 
     // Parse content based on type
-    let fragment: Fragment;
+    let fragment: Fragment | undefined;
 
-    if (typeof content === 'string') {
-      // HTML string - parse using DOMParser
-      if (typeof window === 'undefined') {
-        return false; // Can't parse HTML in SSR without DOM
-      }
+    try {
+      if (typeof content === 'string') {
+        // HTML string - parse using DOMParser
+        if (typeof window === 'undefined') {
+          return false; // Can't parse HTML in SSR without DOM
+        }
 
-      const parser = ProseMirrorDOMParser.fromSchema(schema);
-      const wrapper = document.createElement('div');
-      wrapper.innerHTML = content;
-      const parsed = parser.parse(wrapper);
-      fragment = parsed.content;
-    } else if (content && typeof content === 'object') {
-      // JSON content
-      if (Array.isArray(content)) {
-        // Array of nodes
-        const nodes = content.map(item => schema.nodeFromJSON(item));
-        fragment = Fragment.from(nodes);
-      } else if ('type' in content) {
-        // Single node or document
-        const node = schema.nodeFromJSON(content);
-        // If it's a doc, use its content; otherwise wrap in fragment
-        fragment = node.type.name === 'doc' ? node.content : Fragment.from(node);
+        const parser = ProseMirrorDOMParser.fromSchema(schema);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = content;
+        const parsed = parser.parse(wrapper);
+        fragment = parsed.content;
+      } else if (content && typeof content === 'object') {
+        // JSON content
+        if (Array.isArray(content)) {
+          // An empty array would replace the selection with nothing, silently
+          // deleting it; treat it as a no-op failure instead.
+          if (content.length === 0) return false;
+          const nodes = content.map(item => schema.nodeFromJSON(item));
+          fragment = Fragment.from(nodes);
+        } else if ('type' in content) {
+          // Single node or document
+          const node = schema.nodeFromJSON(content);
+          // If it's a doc, use its content; otherwise wrap in fragment
+          fragment = node.type.name === 'doc' ? node.content : Fragment.from(node);
+        } else {
+          return false;
+        }
       } else {
         return false;
       }
-    } else {
+    } catch {
+      // Malformed JSON / HTML must not throw out of a command - report failure.
       return false;
     }
 

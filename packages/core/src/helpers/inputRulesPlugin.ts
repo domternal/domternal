@@ -160,6 +160,9 @@ export function inputRulesPlugin({ rules }: { rules: InputRule[] }): Plugin {
       handleDOMEvents: {
         compositionend: (view: EditorView) => {
           setTimeout(() => {
+            // The view can be destroyed before this macrotask runs (destroy
+            // during IME composition); touching its state would then throw.
+            if (view.isDestroyed) return;
             const { $cursor } = view.state.selection as { $cursor?: { pos: number } };
             if ($cursor) { run(view, $cursor.pos, $cursor.pos, '', rules, plugin); }
           });
