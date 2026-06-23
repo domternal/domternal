@@ -75,12 +75,10 @@ defaultBlockAt
 defaultBubbleContexts
 defaultFloatingMenuShouldShow
 defaultIcons
-DeleteEventProps
 deleteSelection
 Document
 Dropcursor
 DropcursorOptions
-DropEventProps
 Editor
 EditorEventName
 EditorEvents
@@ -217,7 +215,6 @@ OrderedListOptions
 outdentBlockFromListItem
 Paragraph
 ParagraphOptions
-PasteEventProps
 Placeholder
 PlaceholderOptions
 placeholderPluginKey

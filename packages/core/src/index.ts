@@ -23,10 +23,7 @@ export type {
   FocusEventProps,
   CreateEventProps,
   ContentErrorProps,
-  PasteEventProps,
-  DropEventProps,
   MountEventProps,
-  DeleteEventProps,
   EditorEvents,
   EditorEventName,
   // Command types
