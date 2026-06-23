@@ -143,7 +143,9 @@ export const Highlight = Extension.create<HighlightOptions>({
       unsetHighlight:
         () =>
         ({ commands }) => {
-          if (!commands.setMark('textStyle', { backgroundColor: null })) return false;
+          // Clear both the hex background and the named token so the "Default"
+          // swatch also resets token-based highlights.
+          if (!commands.setMark('textStyle', { backgroundColor: null, backgroundColorToken: null })) return false;
           commands.removeEmptyTextStyle();
           return true;
         },

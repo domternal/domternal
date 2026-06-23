@@ -134,7 +134,9 @@ export const TextColor = Extension.create<TextColorOptions>({
       unsetTextColor:
         () =>
         ({ commands }) => {
-          if (!commands.setMark('textStyle', { color: null })) return false;
+          // Clear both the hex color and the named token so the "Default" swatch
+          // also resets token-based colors.
+          if (!commands.setMark('textStyle', { color: null, colorToken: null })) return false;
           commands.removeEmptyTextStyle();
           return true;
         },

@@ -66,7 +66,7 @@ export const Heading = Node.create<HeadingOptions>({
   renderHTML({ node, HTMLAttributes }) {
     const level = node.attrs['level'] as number;
     // Ensure level is within allowed range
-    const validLevel = this.options.levels.includes(level) ? level : this.options.levels[0];
+    const validLevel = this.options.levels.includes(level) ? level : (this.options.levels[0] ?? 1);
     return [`h${String(validLevel)}`, { ...this.options.HTMLAttributes, ...HTMLAttributes }, 0];
   },
 
