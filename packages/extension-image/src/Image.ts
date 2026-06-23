@@ -416,8 +416,9 @@ export const Image = Node.create<ImageOptions>({
         update(updatedNode: PmNode) {
           if (updatedNode.type.name !== 'image') return false;
           img.src = updatedNode.attrs['src'] as string;
-          img.alt = updatedNode.attrs['alt'] as string;
-          img.title = updatedNode.attrs['title'] as string;
+          // A null alt/title would be written as the literal string "null".
+          img.alt = (updatedNode.attrs['alt'] as string | null) ?? '';
+          img.title = (updatedNode.attrs['title'] as string | null) ?? '';
           if (updatedNode.attrs['width']) {
             img.style.width = `${String(updatedNode.attrs['width'] as number)}px`;
           } else {

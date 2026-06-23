@@ -681,8 +681,10 @@ export class DomternalToolbar extends EventTarget {
 
   #focusCurrentButton(): void {
     const buttons = this.host.querySelectorAll<HTMLElement>('.dm-toolbar-button');
-    const btn = buttons.item(this.#controller.focusedIndex);
-    btn.focus();
+    // item() returns null when focusedIndex is out of range, but the DOM lib
+    // mistypes it as non-null; widen and optional-chain to avoid a TypeError.
+    const btn = buttons.item(this.#controller.focusedIndex) as HTMLElement | null;
+    btn?.focus();
   }
 
   #focusDropdownItem(direction: number, first?: boolean): void {
