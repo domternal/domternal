@@ -546,7 +546,13 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
             isFocusWithin = false;
             applyState();
           };
-          window.addEventListener('scroll', onWindowScroll, { passive: true });
+          // In container mode the page scrolls inside activeScrollParent, not the
+          // window, so listen there; otherwise (page/Document/null) fall back to
+          // window. instanceof Element keeps Document and null on window.
+          const scrollCloseTarget: EventTarget = options.activeScrollParent instanceof Element
+            ? options.activeScrollParent
+            : window;
+          scrollCloseTarget.addEventListener('scroll', onWindowScroll, { passive: true });
 
           // ── Active-state tracker ─────────────────────────────────
           let manualOverrideUntil = 0;
@@ -684,7 +690,7 @@ export const FloatingTocOutline = Extension.create<FloatingTocOutlineOptions>({
               nav.removeEventListener('focusout', onFocusOut);
               mq?.removeEventListener('change', onMqChange);
               window.removeEventListener('resize', onResize);
-              window.removeEventListener('scroll', onWindowScroll);
+              scrollCloseTarget.removeEventListener('scroll', onWindowScroll);
               containerResizeObserver?.disconnect();
               tracker.destroy();
               unsubscribe?.();

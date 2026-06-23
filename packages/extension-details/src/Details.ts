@@ -14,6 +14,10 @@ import { setGapCursor } from './helpers/setGapCursor.js';
 import { DetailsSummary } from './DetailsSummary.js';
 import { DetailsContent } from './DetailsContent.js';
 
+// Monotonic source of unique ids so each toggle button can point aria-controls
+// at its own content region.
+let detailsContentIdCounter = 0;
+
 declare module '@domternal/core' {
   interface RawCommands {
     setDetails: CommandSpec;
@@ -108,13 +112,18 @@ export const Details = Node.create<DetailsOptions>({
         }
       }
 
+      const contentId = `dm-details-content-${String((detailsContentIdCounter += 1))}`;
+
       const toggle = document.createElement('button');
       toggle.type = 'button';
       toggle.setAttribute('aria-label', 'Toggle details');
+      toggle.setAttribute('aria-expanded', String(Boolean(node.attrs['open'])));
+      toggle.setAttribute('aria-controls', contentId);
       toggle.addEventListener('mousedown', (e) => { e.preventDefault(); });
       dom.append(toggle);
 
       const content = document.createElement('div');
+      content.id = contentId;
       dom.append(content);
 
       const toggleDetailsContent = (setToValue?: boolean): void => {
@@ -122,6 +131,7 @@ export const Details = Node.create<DetailsOptions>({
         if (setToValue !== undefined && setToValue === isOpen) return;
 
         dom.classList.toggle(options.openClassName, setToValue);
+        toggle.setAttribute('aria-expanded', String(dom.classList.contains(options.openClassName)));
         content
           .querySelector(':scope > div[data-details-content]')
           ?.dispatchEvent(new Event('toggleDetailsContent'));
