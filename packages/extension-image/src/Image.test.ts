@@ -2552,6 +2552,29 @@ describe('Image popover', () => {
     expect(hasImage).toBe(true);
   });
 
+  it('inserts an image with the alt text from the alt field', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    (editor as any).emit('insertImage', {});
+    const popover = document.querySelector('.dm-image-popover')!;
+    const urlInput = popover.querySelector<HTMLInputElement>('input[aria-label="Image URL"]')!;
+    const altInput = popover.querySelector<HTMLInputElement>('input[aria-label="Image alt text"]')!;
+
+    urlInput.value = 'https://example.com/cat.png';
+    altInput.value = 'A grey cat';
+    altInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+
+    let alt: unknown;
+    editor.state.doc.descendants((n) => {
+      if (n.type.name === 'image') alt = n.attrs['alt'];
+    });
+    expect(alt).toBe('A grey cat');
+  });
+
   it('Tab from input focuses apply button', () => {
     editor = new Editor({
       element: host,
