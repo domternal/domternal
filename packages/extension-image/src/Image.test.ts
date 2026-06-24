@@ -2575,6 +2575,40 @@ describe('Image popover', () => {
     expect(alt).toBe('A grey cat');
   });
 
+  it('edits an existing image alt in place via the editImage event', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    editor.commands.setImage({ src: 'https://example.com/dog.png', alt: 'old alt' });
+
+    // Select the image node so editImage can target it.
+    let imagePos = -1;
+    editor.state.doc.descendants((n, pos) => {
+      if (n.type.name === 'image') imagePos = pos;
+    });
+    editor.view.dispatch(
+      editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, imagePos)),
+    );
+
+    (editor as any).emit('editImage', {});
+    const popover = document.querySelector('.dm-image-popover')!;
+    const altInput = popover.querySelector<HTMLInputElement>('input[aria-label="Image alt text"]')!;
+    // Popover pre-fills with the image's current alt.
+    expect(altInput.value).toBe('old alt');
+
+    altInput.value = 'new alt';
+    altInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+
+    let alt: unknown;
+    editor.state.doc.descendants((n) => {
+      if (n.type.name === 'image') alt = n.attrs['alt'];
+    });
+    expect(alt).toBe('new alt');
+  });
+
   it('Tab from input focuses apply button', () => {
     editor = new Editor({
       element: host,
