@@ -1386,9 +1386,9 @@ describe('imageUploadPlugin', () => {
 });
 
 describe('Image addToolbarItems', () => {
-  it('returns toolbar items (insert + float controls + delete)', () => {
+  it('returns toolbar items (insert + float controls + edit + delete)', () => {
     const items = Image.config.addToolbarItems?.call(Image);
-    expect(items).toHaveLength(6);
+    expect(items).toHaveLength(7);
     expect(items?.[0]?.type).toBe('button');
     // First item is the insert button
     if (items?.[0]?.type === 'button') {
@@ -1400,6 +1400,7 @@ describe('Image addToolbarItems', () => {
     expect(names).toContain('imageFloatLeft');
     expect(names).toContain('imageFloatCenter');
     expect(names).toContain('imageFloatRight');
+    expect(names).toContain('editImage');
     expect(names).toContain('deleteImage');
   });
 
