@@ -1778,3 +1778,90 @@ test.describe('Image - docs verification: JSON representation', () => {
     expect(imageNode.attrs.width).toBe('200');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════
+// ALT TEXT EDITING
+// ═══════════════════════════════════════════════════════════════════════
+
+test.describe('Image - alt text editing', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('insert popover shows the URL field, not the alt field', async ({ page }) => {
+    await setEditorContent(page, PARA_ONLY);
+    await page.locator(imageBtn).click();
+    await expect(page.locator('.dm-image-popover[data-show]')).toBeVisible();
+
+    await expect(page.locator('.dm-image-popover-input')).toBeVisible();
+    await expect(page.locator('.dm-image-popover-alt-input')).toBeHidden();
+  });
+
+  test('selecting an image shows the "Edit alt text" bubble button', async ({ page }) => {
+    await setEditorContent(page, IMG_BASIC);
+
+    const wrapper = page.locator(`${editorSelector} .dm-image-resizable`).first();
+    await wrapper.click();
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('.dm-bubble-menu button[title="Edit alt text"]')).toBeVisible();
+  });
+
+  test('Edit alt text opens an alt-only menu pre-filled with the current alt', async ({ page }) => {
+    await setEditorContent(page, IMG_ALT);
+
+    const wrapper = page.locator(`${editorSelector} .dm-image-resizable`).first();
+    await wrapper.click();
+    await page.waitForTimeout(300);
+
+    await page.locator('.dm-bubble-menu button[title="Edit alt text"]').click();
+    await expect(page.locator('.dm-image-popover[data-show]')).toBeVisible();
+
+    const altInput = page.locator('.dm-image-popover-alt-input');
+    await expect(altInput).toBeVisible();
+    await expect(altInput).toHaveValue('Red pixel');
+    await expect(page.locator('.dm-image-popover-input')).toBeHidden();
+    await expect(page.locator('.dm-image-popover-browse')).toBeHidden();
+  });
+
+  test('editing alt text updates the image alt in place', async ({ page }) => {
+    await setEditorContent(page, IMG_BASIC);
+
+    const wrapper = page.locator(`${editorSelector} .dm-image-resizable`).first();
+    await wrapper.click();
+    await page.waitForTimeout(300);
+
+    await page.locator('.dm-bubble-menu button[title="Edit alt text"]').click();
+    const altInput = page.locator('.dm-image-popover-alt-input');
+    await altInput.click();
+    await altInput.fill('A single red pixel');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(200);
+
+    const img = page.locator(`${editorSelector} .dm-image-resizable img`).first();
+    await expect(img).toHaveAttribute('alt', 'A single red pixel');
+  });
+
+  test('Edit alt button is active when the image already has alt text', async ({ page }) => {
+    await setEditorContent(page, IMG_ALT);
+
+    const wrapper = page.locator(`${editorSelector} .dm-image-resizable`).first();
+    await wrapper.click();
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('.dm-bubble-menu button[title="Edit alt text"]'))
+      .toHaveClass(/dm-toolbar-button--active/);
+  });
+
+  test('Edit alt button is inactive when the image has no alt text', async ({ page }) => {
+    await setEditorContent(page, IMG_BASIC);
+
+    const wrapper = page.locator(`${editorSelector} .dm-image-resizable`).first();
+    await wrapper.click();
+    await page.waitForTimeout(300);
+
+    await expect(page.locator('.dm-bubble-menu button[title="Edit alt text"]'))
+      .not.toHaveClass(/dm-toolbar-button--active/);
+  });
+});

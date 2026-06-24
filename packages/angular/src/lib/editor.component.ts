@@ -219,10 +219,15 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
           this._htmlContent.set(html);
           this._jsonContent.set(ed.getJSON());
           this._isEmpty.set(ed.isEmpty);
-          this.contentUpdated.emit({ editor: ed });
 
-          const value: Content = this.outputFormat() === 'html' ? html : ed.getJSON();
-          this.onChange(value);
+          // Programmatic writes (writeValue, [content]) set skipUpdate: keep local
+          // state in sync but do not emit change or mark the reactive form dirty.
+          if (!transaction.getMeta('skipUpdate')) {
+            this.contentUpdated.emit({ editor: ed });
+
+            const value: Content = this.outputFormat() === 'html' ? html : ed.getJSON();
+            this.onChange(value);
+          }
         }
 
         if (!transaction.docChanged && transaction.selectionSet) {

@@ -303,6 +303,22 @@ export const Image = Node.create<ImageOptions>({
       { type: 'button', name: 'imageFloatLeft', command: 'setImageFloat', commandArgs: ['left'], icon: 'textAlignLeft', label: 'Float left', group: 'image-float', priority: 90, isActive: { name: 'image', attributes: { float: 'left' } }, toolbar: false, bubbleMenu: 'image' },
       { type: 'button', name: 'imageFloatCenter', command: 'setImageFloat', commandArgs: ['center'], icon: 'textAlignCenter', label: 'Center', group: 'image-float', priority: 80, isActive: { name: 'image', attributes: { float: 'center' } }, toolbar: false, bubbleMenu: 'image' },
       { type: 'button', name: 'imageFloatRight', command: 'setImageFloat', commandArgs: ['right'], icon: 'textAlignRight', label: 'Float right', group: 'image-float', priority: 70, isActive: { name: 'image', attributes: { float: 'right' } }, toolbar: false, bubbleMenu: 'image' },
+      // Bubble menu only: edit alt text. Highlights as active when the selected
+      // image already has a non-empty alt (resolveActive passes the real editor).
+      {
+        type: 'button', name: 'editImage', command: 'setImage', commandArgs: [{ src: '' }],
+        icon: 'textAa', label: 'Edit alt text', group: 'image-actions', priority: 60,
+        toolbar: false, bubbleMenu: 'image', emitEvent: 'editImage',
+        isActiveFn: (editor) => {
+          // A selected image is a NodeSelection, so read its node directly. The
+          // editor here is the real instance; getAttributes walks $from's
+          // ancestors and would miss the selected atom.
+          const sel = (editor as unknown as {
+            state: { selection: { node?: { type: { name: string }; attrs: Record<string, unknown> } } };
+          }).state.selection;
+          return Boolean(sel.node?.type.name === 'image' && sel.node.attrs['alt']);
+        },
+      },
       // Bubble menu only: delete
       { type: 'button', name: 'deleteImage', command: 'deleteImage', icon: 'trash', label: 'Delete', group: 'image-actions', priority: 50, toolbar: false, bubbleMenu: 'image' },
     ];
@@ -416,8 +432,9 @@ export const Image = Node.create<ImageOptions>({
         update(updatedNode: PmNode) {
           if (updatedNode.type.name !== 'image') return false;
           img.src = updatedNode.attrs['src'] as string;
-          img.alt = updatedNode.attrs['alt'] as string;
-          img.title = updatedNode.attrs['title'] as string;
+          // A null alt/title would be written as the literal string "null".
+          img.alt = (updatedNode.attrs['alt'] as string | null) ?? '';
+          img.title = (updatedNode.attrs['title'] as string | null) ?? '';
           if (updatedNode.attrs['width']) {
             img.style.width = `${String(updatedNode.attrs['width'] as number)}px`;
           } else {
@@ -532,6 +549,16 @@ export const Image = Node.create<ImageOptions>({
       urlInput.className = 'dm-image-popover-input';
       urlInput.setAttribute('aria-label', 'Image URL');
 
+      const altInput = document.createElement('input');
+      altInput.type = 'text';
+      altInput.placeholder = 'Alt text (optional)...';
+      // Own class (shares styling with the URL input via the theme) so selectors
+      // targeting `.dm-image-popover-input` stay unambiguous to the URL field.
+      altInput.className = 'dm-image-popover-alt-input';
+      altInput.setAttribute('aria-label', 'Image alt text');
+      // Shown only in the edit menu (clicking an existing image), not on insert.
+      altInput.hidden = true;
+
       const applyBtn = document.createElement('button');
       applyBtn.type = 'button';
       applyBtn.className = 'dm-image-popover-btn dm-image-popover-apply';
@@ -546,17 +573,33 @@ export const Image = Node.create<ImageOptions>({
       browseBtn.setAttribute('aria-label', 'Browse files');
       browseBtn.innerHTML = defaultIcons['image'] ?? '';
 
-      el.appendChild(urlInput);
+      const fields = document.createElement('div');
+      fields.className = 'dm-image-popover-fields';
+      fields.appendChild(urlInput);
+      fields.appendChild(altInput);
+      el.appendChild(fields);
       el.appendChild(applyBtn);
       el.appendChild(browseBtn);
 
       let isOpen = false;
       let cleanupFloating: (() => void) | null = null;
       let toggleAnchor: HTMLElement | null = null;
+      // When set, the popover edits the image at this position in place
+      // (e.g. its alt text) instead of inserting a new image.
+      let editingPos: number | null = null;
 
-      const showPopover = (anchorElement?: HTMLElement): void => {
+      const showPopover = (anchorElement?: HTMLElement, prefill?: { alt: string }): void => {
         toggleAnchor = anchorElement ?? null;
+        const editing = prefill !== undefined;
+        // Insert mode shows only the URL field (+ browse); the edit menu shows
+        // only the alt field.
         urlInput.value = '';
+        altInput.value = prefill?.alt ?? '';
+        urlInput.hidden = editing;
+        browseBtn.hidden = editing;
+        altInput.hidden = !editing;
+        applyBtn.title = editing ? 'Save alt text' : 'Insert image';
+        applyBtn.setAttribute('aria-label', editing ? 'Save alt text' : 'Insert image');
         el.setAttribute('data-show', '');
         isOpen = true;
         storage['isOpen'] = true;
@@ -579,7 +622,8 @@ export const Image = Node.create<ImageOptions>({
           offsetValue: 4,
         });
 
-        urlInput.focus();
+        // In edit mode the alt field is the point, so focus it directly.
+        (prefill ? altInput : urlInput).focus();
       };
 
       const hidePopover = (): void => {
@@ -589,6 +633,7 @@ export const Image = Node.create<ImageOptions>({
         cleanupFloating = null;
         el.removeAttribute('data-show');
         isOpen = false;
+        editingPos = null;
         storage['isOpen'] = false;
         // Dispatch to trigger toolbar expanded state refresh
         editor.view.dispatch(editor.view.state.tr);
@@ -623,9 +668,20 @@ export const Image = Node.create<ImageOptions>({
       };
 
       const applyUrl = (): void => {
-        const src = urlInput.value.trim();
-        if (src && isValidImageSrc(src, options.allowBase64)) {
-          editor.commands.setImage({ src });
+        if (editingPos !== null) {
+          // Edit menu: only the alt text changes; the existing src is kept.
+          const alt = altInput.value.trim() || null;
+          const { state } = editor.view;
+          const node = state.doc.nodeAt(editingPos);
+          if (node?.type === nodeType) {
+            const tr = state.tr.setNodeMarkup(editingPos, undefined, { ...node.attrs, alt });
+            editor.view.dispatch(tr);
+          }
+        } else {
+          const src = urlInput.value.trim();
+          if (src && isValidImageSrc(src, options.allowBase64)) {
+            editor.commands.setImage({ src });
+          }
         }
         closePopover();
       };
@@ -648,31 +704,47 @@ export const Image = Node.create<ImageOptions>({
         if (isOpen) {
           closePopover();
         } else {
+          editingPos = null;
           showPopover(data.anchorElement);
         }
       };
 
-      // Popover event listeners
+      // Event: 'Edit alt text' bubble action. Open an alt-only menu pre-filled
+      // with the selected image's current alt text. Anchor to the image element
+      // (stable), not the bubble button, which is detached when the popover
+      // opens - floating-ui would then hide the popover via referenceHidden.
+      const onEditImage = (): void => {
+        if (isOpen) { closePopover(); return; }
+        const { selection } = editor.view.state;
+        if (!(selection instanceof NodeSelection) || selection.node.type !== nodeType) return;
+        editingPos = selection.from;
+        const dom = editor.view.nodeDOM(editingPos);
+        const anchor = dom instanceof HTMLElement ? dom : undefined;
+        const attrs = selection.node.attrs as { alt?: string | null };
+        showPopover(anchor, { alt: attrs.alt ?? '' });
+      };
+
+      // Popover event listeners. The focusable order depends on the mode:
+      // insert shows [url, apply, browse], the edit menu shows [alt, apply].
+      const focusables = (): HTMLElement[] =>
+        editingPos !== null ? [altInput, applyBtn] : [urlInput, applyBtn, browseBtn];
+      const moveFocus = (current: HTMLElement, dir: 1 | -1): void => {
+        const list = focusables();
+        const i = list.indexOf(current);
+        if (i === -1) { list[0]?.focus(); return; }
+        list[(i + dir + list.length) % list.length]?.focus();
+      };
+
       const onInputKeydown = (e: KeyboardEvent): void => {
         if (e.key === 'Enter') { e.preventDefault(); applyUrl(); }
         else if (e.key === 'Escape') { e.preventDefault(); closePopover(); }
-        else if (e.key === 'Tab') { e.preventDefault(); applyBtn.focus(); }
+        else if (e.key === 'Tab') { e.preventDefault(); moveFocus(e.target as HTMLElement, e.shiftKey ? -1 : 1); }
       };
 
       const onButtonKeydown = (e: KeyboardEvent): void => {
         if (e.key === 'Escape') { e.preventDefault(); closePopover(); }
         else if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLElement).click(); }
-        else if (e.key === 'Tab') {
-          e.preventDefault();
-          const target = e.target as HTMLElement;
-          if (e.shiftKey) {
-            if (target === applyBtn) urlInput.focus();
-            else applyBtn.focus();
-          } else {
-            if (target === applyBtn) browseBtn.focus();
-            else urlInput.focus();
-          }
-        }
+        else if (e.key === 'Tab') { e.preventDefault(); moveFocus(e.target as HTMLElement, e.shiftKey ? -1 : 1); }
       };
 
       const onClickOutside = (e: MouseEvent): void => {
@@ -770,6 +842,7 @@ export const Image = Node.create<ImageOptions>({
 
           // Register popover event listeners
           urlInput.addEventListener('keydown', onInputKeydown);
+          altInput.addEventListener('keydown', onInputKeydown);
           applyBtn.addEventListener('mousedown', onPreventBlur);
           applyBtn.addEventListener('click', applyUrl);
           applyBtn.addEventListener('keydown', onButtonKeydown);
@@ -778,15 +851,17 @@ export const Image = Node.create<ImageOptions>({
           browseBtn.addEventListener('keydown', onButtonKeydown);
           document.addEventListener('mousedown', onClickOutside);
 
-          // 'insertImage' is a dynamic event not in EditorEvents - cast once
+          // 'insertImage'/'editImage' are dynamic events not in EditorEvents - cast once
           interface DynEvents { on(e: string, fn: typeof onInsertImage): void; off(e: string, fn: typeof onInsertImage): void }
           const dynEditor = editor as unknown as DynEvents;
           dynEditor.on('insertImage', onInsertImage);
+          dynEditor.on('editImage', onEditImage);
 
           return {
             destroy() {
               hidePopover();
               urlInput.removeEventListener('keydown', onInputKeydown);
+              altInput.removeEventListener('keydown', onInputKeydown);
               applyBtn.removeEventListener('mousedown', onPreventBlur);
               applyBtn.removeEventListener('click', applyUrl);
               applyBtn.removeEventListener('keydown', onButtonKeydown);
@@ -795,6 +870,7 @@ export const Image = Node.create<ImageOptions>({
               browseBtn.removeEventListener('keydown', onButtonKeydown);
               document.removeEventListener('mousedown', onClickOutside);
               dynEditor.off('insertImage', onInsertImage);
+              dynEditor.off('editImage', onEditImage);
               el.remove();
             },
           };

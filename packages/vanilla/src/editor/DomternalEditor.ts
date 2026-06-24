@@ -232,7 +232,9 @@ export class DomternalEditor extends EventTarget {
 
   #wireEditorEvents(): void {
     this.#transactionHandler = ({ transaction }: TransactionEventProps): void => {
-      if (transaction.docChanged) {
+      // skipUpdate marks programmatic content writes (setContent(content, false))
+      // that must not emit update to consumers.
+      if (transaction.docChanged && !transaction.getMeta('skipUpdate')) {
         this.#onUpdate?.({ editor: this.editor });
         this.dispatchEvent(
           new CustomEvent('update', { detail: { editor: this.editor } }),

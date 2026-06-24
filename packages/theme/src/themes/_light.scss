@@ -5,7 +5,12 @@
 // values. This class exists for explicit light override in a dark context.
 // =============================================================================
 
+// Explicit inverse of `dark-tokens`: every token the dark mixin overrides must
+// be reset here too, otherwise a `.dm-theme-light` island nested in a dark
+// context leaks the dark values. Light defaults live in _variables.scss; these
+// duplicate them so the override is self-contained.
 @mixin light-tokens {
+  --dm-color-scheme: light;
   --dm-bg: #ffffff;
   --dm-text: #1a1a1a;
   --dm-muted: #999999;
@@ -22,6 +27,16 @@
   --dm-code-color: #d63384;
   --dm-highlight-bg: #fff3cd;
 
+  // Scrollbar thumb + popover shadow.
+  --dm-scrollbar-thumb: rgba(0, 0, 0, 0.18);
+  --dm-scrollbar-thumb-hover: rgba(0, 0, 0, 0.28);
+  --dm-popover-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.22), 0 4px 10px -2px rgba(0, 0, 0, 0.12);
+  --dm-blockquote-border: 3px solid #6a6a6a;
+  --dm-blockquote-color: #6a6a6a;
+
+  // Subtle highlight tint for the block whose BlockContextMenu is open.
+  --dm-block-context-active-bg: rgba(55, 53, 47, 0.06);
+
   // Syntax highlighting
   --dm-syntax-keyword: #c72031;
   --dm-syntax-entity: #6f42c1;
@@ -34,11 +49,44 @@
   --dm-syntax-addition-bg: #f0fff4;
   --dm-syntax-deletion: #b31d28;
   --dm-syntax-deletion-bg: #ffeef0;
+
+  // Block colors (Notion-style light palette).
+  --dm-block-bg-gray: #f1f1ef;
+  --dm-block-bg-brown: #f3eeee;
+  --dm-block-bg-orange: #f8ecdf;
+  --dm-block-bg-yellow: #faf3dd;
+  --dm-block-bg-green: #eef3ed;
+  --dm-block-bg-blue: #e9f3f7;
+  --dm-block-bg-purple: #f6f3f8;
+  --dm-block-bg-pink: #f9f2f5;
+  --dm-block-bg-red: #faecec;
+
+  --dm-block-text-gray: #787774;
+  --dm-block-text-brown: #976d57;
+  --dm-block-text-orange: #cc782f;
+  --dm-block-text-yellow: #c29343;
+  --dm-block-text-green: #548164;
+  --dm-block-text-blue: #487ca5;
+  --dm-block-text-purple: #8a67ab;
+  --dm-block-text-pink: #b35488;
+  --dm-block-text-red: #c4554d;
+
+  // Selected-block halo.
+  --dm-block-selected-halo: rgba(112, 207, 248, 0.25);
 }
 
 .dm-theme-light,
 .dm-theme-light .dm-editor,
 .dm-theme-light .dm-toolbar,
-.dm-theme-light .dm-table-controls-dropdown {
+.dm-theme-light .dm-bubble-menu,
+.dm-theme-light .dm-floating-menu,
+.dm-theme-light .dm-emoji-picker,
+.dm-theme-light .dm-emoji-suggestion,
+.dm-theme-light .dm-mention-suggestion,
+.dm-theme-light .dm-table-controls-dropdown,
+.dm-theme-light .dm-slash-command-menu,
+.dm-theme-light .dm-block-context-menu,
+.dm-theme-light .dm-link-popover,
+.dm-theme-light .dm-image-popover {
   @include light-tokens;
 }

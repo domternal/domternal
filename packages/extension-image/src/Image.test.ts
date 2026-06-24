@@ -1386,9 +1386,9 @@ describe('imageUploadPlugin', () => {
 });
 
 describe('Image addToolbarItems', () => {
-  it('returns toolbar items (insert + float controls + delete)', () => {
+  it('returns toolbar items (insert + float controls + edit + delete)', () => {
     const items = Image.config.addToolbarItems?.call(Image);
-    expect(items).toHaveLength(6);
+    expect(items).toHaveLength(7);
     expect(items?.[0]?.type).toBe('button');
     // First item is the insert button
     if (items?.[0]?.type === 'button') {
@@ -1400,6 +1400,7 @@ describe('Image addToolbarItems', () => {
     expect(names).toContain('imageFloatLeft');
     expect(names).toContain('imageFloatCenter');
     expect(names).toContain('imageFloatRight');
+    expect(names).toContain('editImage');
     expect(names).toContain('deleteImage');
   });
 
@@ -1422,6 +1423,25 @@ describe('Image addToolbarItems', () => {
     const button = items?.[0];
     if (button?.type === 'button') {
       expect(button.emitEvent).toBe('insertImage');
+    }
+  });
+
+  it('editImage button is active only when the selected image has alt text', () => {
+    const items = Image.config.addToolbarItems?.call(Image);
+    const editImage = items?.find((i) => i.type === 'button' && i.name === 'editImage');
+    expect(editImage?.type === 'button' && editImage.isActiveFn).toBeTruthy();
+    if (editImage?.type === 'button' && editImage.isActiveFn) {
+      const fn = editImage.isActiveFn as unknown as (e: {
+        state: { selection: { node?: { type: { name: string }; attrs: Record<string, unknown> } } };
+      }) => boolean;
+      const sel = (alt: unknown): { node: { type: { name: string }; attrs: { alt: unknown } } } => ({
+        node: { type: { name: 'image' }, attrs: { alt } },
+      });
+      expect(fn({ state: { selection: sel('a cat') } })).toBe(true);
+      expect(fn({ state: { selection: sel('') } })).toBe(false);
+      expect(fn({ state: { selection: sel(null) } })).toBe(false);
+      // No selected node (e.g. a text selection) is never active.
+      expect(fn({ state: { selection: {} } })).toBe(false);
     }
   });
 
@@ -2549,6 +2569,56 @@ describe('Image popover', () => {
       if (n.type.name === 'image') hasImage = true;
     });
     expect(hasImage).toBe(true);
+  });
+
+  it('the insert popover does not show the alt field', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    (editor as any).emit('insertImage', {});
+    const popover = document.querySelector('.dm-image-popover')!;
+    const urlInput = popover.querySelector<HTMLInputElement>('input[aria-label="Image URL"]')!;
+    const altInput = popover.querySelector<HTMLInputElement>('input[aria-label="Image alt text"]')!;
+
+    expect(urlInput.hidden).toBe(false);
+    expect(altInput.hidden).toBe(true);
+  });
+
+  it('edits an existing image alt in place via the editImage event', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<p></p>',
+    });
+
+    editor.commands.setImage({ src: 'https://example.com/dog.png', alt: 'old alt' });
+
+    // Select the image node so editImage can target it.
+    let imagePos = -1;
+    editor.state.doc.descendants((n, pos) => {
+      if (n.type.name === 'image') imagePos = pos;
+    });
+    editor.view.dispatch(
+      editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, imagePos)),
+    );
+
+    (editor as any).emit('editImage', {});
+    const popover = document.querySelector('.dm-image-popover')!;
+    const altInput = popover.querySelector<HTMLInputElement>('input[aria-label="Image alt text"]')!;
+    // Popover pre-fills with the image's current alt.
+    expect(altInput.value).toBe('old alt');
+
+    altInput.value = 'new alt';
+    altInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+
+    let alt: unknown;
+    editor.state.doc.descendants((n) => {
+      if (n.type.name === 'image') alt = n.attrs['alt'];
+    });
+    expect(alt).toBe('new alt');
   });
 
   it('Tab from input focuses apply button', () => {

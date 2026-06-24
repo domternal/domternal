@@ -67,7 +67,9 @@ export function useEditor(options: UseEditorOptions = {}): {
 
   function wireEvents(ed: Editor): void {
     ed.on('transaction', ({ transaction }: TransactionEventProps) => {
-      if (transaction.docChanged) {
+      // Mirror core's `update` event: skip programmatic writes (setContent(content, false))
+      // that set skipUpdate, so onUpdate never echoes a silent content sync.
+      if (transaction.docChanged && !transaction.getMeta('skipUpdate')) {
         options.onUpdate?.({ editor: ed });
       }
       if (!transaction.docChanged && transaction.selectionSet) {
@@ -103,20 +105,24 @@ export function useEditor(options: UseEditorOptions = {}): {
     return ed;
   }
 
-  function destroyCurrentEditor(): void {
+  function destroyCurrentEditor(insertClone = true): void {
     const current = editor.value;
     if (current && !current.isDestroyed) {
       pendingContent = current.getJSON();
       options.onDestroy?.();
 
-      // Clone editor DOM before destroy to prevent content flash during
-      // unmount transitions. Insert clone before original, then destroy.
-      const dom = current.view.dom;
-      const parent = dom.parentNode;
-      if (parent) {
-        const clone = dom.cloneNode(true) as HTMLElement;
-        clone.style.pointerEvents = 'none';
-        parent.insertBefore(clone, dom);
+      // Clone editor DOM before destroy to prevent content flash during unmount
+      // transitions. The recreate path (insertClone=false) immediately mounts a
+      // new editor in the same place, so it must skip the clone to avoid leaving
+      // an orphan copy in the live container.
+      if (insertClone) {
+        const dom = current.view.dom;
+        const parent = dom.parentNode;
+        if (parent) {
+          const clone = dom.cloneNode(true) as HTMLElement;
+          clone.style.pointerEvents = 'none';
+          parent.insertBefore(clone, dom);
+        }
       }
 
       current.destroy();
@@ -130,7 +136,16 @@ export function useEditor(options: UseEditorOptions = {}): {
   }
 
   onMounted(() => {
-    if (editor.value) return; // Already created via immediatelyRender
+    const ed = editor.value;
+    if (ed) {
+      // immediatelyRender path: the editor was created detached during setup.
+      // Adopt its DOM into the mount node so it is not left blank.
+      const mount = editorRef.value;
+      if (mount && ed.view.dom.parentElement !== mount) {
+        mount.appendChild(ed.view.dom);
+      }
+      return;
+    }
 
     const element = editorRef.value ?? document.createElement('div');
     const initialContent = pendingContent ?? options.content ?? '';
@@ -161,7 +176,7 @@ export function useEditor(options: UseEditorOptions = {}): {
       if (newExtensions === oldExtensions) return;
 
       const element = editor.value.view.dom.parentElement ?? document.createElement('div');
-      destroyCurrentEditor();
+      destroyCurrentEditor(false);
       const initialContent = pendingContent ?? '';
       pendingContent = null;
       createEditorInstance(element, initialContent, false);

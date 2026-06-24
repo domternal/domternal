@@ -113,7 +113,9 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
   function wireEvents(ed: Editor): void {
     ed.on('transaction', ({ transaction }: TransactionEventProps) => {
       const cbs = callbacksRef.current;
-      if (transaction.docChanged) {
+      // Mirror core's `update` event: skip programmatic writes (setContent(content, false))
+      // that set skipUpdate, so onUpdate never echoes a silent content sync.
+      if (transaction.docChanged && !transaction.getMeta('skipUpdate')) {
         cbs.onUpdate?.({ editor: ed });
       }
       if (!transaction.docChanged && transaction.selectionSet) {
