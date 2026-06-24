@@ -1432,11 +1432,16 @@ describe('Image addToolbarItems', () => {
     expect(editImage?.type === 'button' && editImage.isActiveFn).toBeTruthy();
     if (editImage?.type === 'button' && editImage.isActiveFn) {
       const fn = editImage.isActiveFn as unknown as (e: {
-        getAttributes: (n: string) => Record<string, unknown>;
+        state: { selection: { node?: { type: { name: string }; attrs: Record<string, unknown> } } };
       }) => boolean;
-      expect(fn({ getAttributes: () => ({ alt: 'a cat' }) })).toBe(true);
-      expect(fn({ getAttributes: () => ({ alt: '' }) })).toBe(false);
-      expect(fn({ getAttributes: () => ({}) })).toBe(false);
+      const sel = (alt: unknown): { node: { type: { name: string }; attrs: { alt: unknown } } } => ({
+        node: { type: { name: 'image' }, attrs: { alt } },
+      });
+      expect(fn({ state: { selection: sel('a cat') } })).toBe(true);
+      expect(fn({ state: { selection: sel('') } })).toBe(false);
+      expect(fn({ state: { selection: sel(null) } })).toBe(false);
+      // No selected node (e.g. a text selection) is never active.
+      expect(fn({ state: { selection: {} } })).toBe(false);
     }
   });
 

@@ -309,11 +309,15 @@ export const Image = Node.create<ImageOptions>({
         type: 'button', name: 'editImage', command: 'setImage', commandArgs: [{ src: '' }],
         icon: 'textAa', label: 'Edit alt text', group: 'image-actions', priority: 60,
         toolbar: false, bubbleMenu: 'image', emitEvent: 'editImage',
-        isActiveFn: (editor) =>
-          Boolean(
-            (editor as unknown as { getAttributes(name: string): Record<string, unknown> })
-              .getAttributes('image')['alt'],
-          ),
+        isActiveFn: (editor) => {
+          // A selected image is a NodeSelection, so read its node directly. The
+          // editor here is the real instance; getAttributes walks $from's
+          // ancestors and would miss the selected atom.
+          const sel = (editor as unknown as {
+            state: { selection: { node?: { type: { name: string }; attrs: Record<string, unknown> } } };
+          }).state.selection;
+          return Boolean(sel.node?.type.name === 'image' && sel.node.attrs['alt']);
+        },
       },
       // Bubble menu only: delete
       { type: 'button', name: 'deleteImage', command: 'deleteImage', icon: 'trash', label: 'Delete', group: 'image-actions', priority: 50, toolbar: false, bubbleMenu: 'image' },
@@ -548,7 +552,9 @@ export const Image = Node.create<ImageOptions>({
       const altInput = document.createElement('input');
       altInput.type = 'text';
       altInput.placeholder = 'Alt text (optional)...';
-      altInput.className = 'dm-image-popover-input';
+      // Own class (shares styling with the URL input via the theme) so selectors
+      // targeting `.dm-image-popover-input` stay unambiguous to the URL field.
+      altInput.className = 'dm-image-popover-alt-input';
       altInput.setAttribute('aria-label', 'Image alt text');
       // Shown only in the edit menu (clicking an existing image), not on insert.
       altInput.hidden = true;
@@ -704,14 +710,18 @@ export const Image = Node.create<ImageOptions>({
       };
 
       // Event: 'Edit alt text' bubble action. Open an alt-only menu pre-filled
-      // with the selected image's current alt text.
-      const onEditImage = (data: { anchorElement?: HTMLElement }): void => {
+      // with the selected image's current alt text. Anchor to the image element
+      // (stable), not the bubble button, which is detached when the popover
+      // opens - floating-ui would then hide the popover via referenceHidden.
+      const onEditImage = (): void => {
         if (isOpen) { closePopover(); return; }
         const { selection } = editor.view.state;
         if (!(selection instanceof NodeSelection) || selection.node.type !== nodeType) return;
         editingPos = selection.from;
+        const dom = editor.view.nodeDOM(editingPos);
+        const anchor = dom instanceof HTMLElement ? dom : undefined;
         const attrs = selection.node.attrs as { alt?: string | null };
-        showPopover(data.anchorElement, { alt: attrs.alt ?? '' });
+        showPopover(anchor, { alt: attrs.alt ?? '' });
       };
 
       // Popover event listeners. The focusable order depends on the mode:

@@ -1650,3 +1650,31 @@ test.describe('Details - documentation verification', () => {
     await expect(btn).toHaveAttribute('aria-pressed', 'false');
   });
 });
+
+
+test.describe('Details - aria-expanded / aria-controls', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.waitForSelector(editorSelector);
+  });
+
+  test('toggle button exposes aria-expanded reflecting open state, plus aria-controls', async ({ page }) => {
+    await setContentAndFocus(page, DETAILS_BASIC);
+    const toggle = page.locator(`${editorSelector} div[data-type="details"] > button[type="button"]`).first();
+
+    // Closed by default (non-persist): aria-expanded is false and aria-controls
+    // points at the existing content region.
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    const controls = await toggle.getAttribute('aria-controls');
+    expect(controls).toBeTruthy();
+    await expect(page.locator(`#${controls}`)).toHaveCount(1);
+
+    // Open: aria-expanded flips to true.
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+
+    // Close: back to false.
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+});

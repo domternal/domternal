@@ -118,7 +118,8 @@ $shadow: var(--dm-popover-shadow, 0 12px 28px -8px rgba(0, 0, 0, 0.22), 0 4px 10
   gap: 0.25rem;
 }
 
-.dm-image-popover-input {
+.dm-image-popover-input,
+.dm-image-popover-alt-input {
   min-width: 14rem;
   padding: 0.25rem 0.5rem;
   border: 1px solid $border;
