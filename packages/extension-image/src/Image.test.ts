@@ -1426,6 +1426,20 @@ describe('Image addToolbarItems', () => {
     }
   });
 
+  it('editImage button is active only when the selected image has alt text', () => {
+    const items = Image.config.addToolbarItems?.call(Image);
+    const editImage = items?.find((i) => i.type === 'button' && i.name === 'editImage');
+    expect(editImage?.type === 'button' && editImage.isActiveFn).toBeTruthy();
+    if (editImage?.type === 'button' && editImage.isActiveFn) {
+      const fn = editImage.isActiveFn as unknown as (e: {
+        getAttributes: (n: string) => Record<string, unknown>;
+      }) => boolean;
+      expect(fn({ getAttributes: () => ({ alt: 'a cat' }) })).toBe(true);
+      expect(fn({ getAttributes: () => ({ alt: '' }) })).toBe(false);
+      expect(fn({ getAttributes: () => ({}) })).toBe(false);
+    }
+  });
+
   describe('toolbar: false flag', () => {
     it('insert button does NOT have toolbar: false', () => {
       const items = Image.config.addToolbarItems?.call(Image);
@@ -2552,7 +2566,7 @@ describe('Image popover', () => {
     expect(hasImage).toBe(true);
   });
 
-  it('inserts an image with the alt text from the alt field', () => {
+  it('the insert popover does not show the alt field', () => {
     editor = new Editor({
       element: host,
       extensions: [Document, Text, Paragraph, Image],
@@ -2564,15 +2578,8 @@ describe('Image popover', () => {
     const urlInput = popover.querySelector<HTMLInputElement>('input[aria-label="Image URL"]')!;
     const altInput = popover.querySelector<HTMLInputElement>('input[aria-label="Image alt text"]')!;
 
-    urlInput.value = 'https://example.com/cat.png';
-    altInput.value = 'A grey cat';
-    altInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
-
-    let alt: unknown;
-    editor.state.doc.descendants((n) => {
-      if (n.type.name === 'image') alt = n.attrs['alt'];
-    });
-    expect(alt).toBe('A grey cat');
+    expect(urlInput.hidden).toBe(false);
+    expect(altInput.hidden).toBe(true);
   });
 
   it('edits an existing image alt in place via the editImage event', () => {
