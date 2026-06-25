@@ -190,6 +190,10 @@ export class EditorDemoComponent implements OnDestroy {
     this.editor.set(editor);
     // Demo-only: expose editor on window for Playwright E2E tests
     (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] = editor;
+    // Refresh the derived selectors on every transaction. contentUpdated now
+    // fires only for user-facing changes (it honors skipUpdate), so programmatic
+    // setContent(html, false) would otherwise leave isEmpty/isActive stale.
+    editor.on('transaction', () => this.bumpState());
   }
 
   bumpState(): void {

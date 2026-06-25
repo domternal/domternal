@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.11.0 (2026-06-25)
+
+### Breaking
+
+- Removed the never-emitted `paste`, `drop`, `delete`, and `unmount` editor events and their prop types (`PasteEventProps`, `DropEventProps`, `DeleteEventProps`). They were exported but never fired, so `editor.on('paste', ...)` and imports of those types will no longer compile. `mount` / `MountEventProps` are unchanged. (#115)
+
+### Features
+
+- feat(extension-image): edit alt text on existing images. Selecting an image adds an "Edit alt text" bubble action that opens an alt-only menu pre-filled with the current alt, and the action shows active when the image already has alt text. (#115)
+
+### Fixes
+
+- fix(angular, react, vue, vanilla): the editor honors the `skipUpdate` meta, so a programmatic `setContent(content, false)` no longer echoes through `onUpdate` / the Angular control-value accessor (it no longer marks reactive forms dirty on `writeValue`). (#115)
+- fix(vue): `immediatelyRender: true` no longer renders a blank editor (the editor DOM is re-parented on mount), and changing the extensions array no longer leaks an orphan clone into the container. (#115)
+- fix(vanilla): the toolbar no longer throws when keyboard navigation lands on an out-of-range button index. (#115)
+- fix(core): a heading configured with an empty `levels` option falls back to level 1 instead of rendering `<hundefined>`; `unsetTextColor` / `unsetHighlight` also clear the named color/highlight token so the "Default" swatch resets token-based colors; `insertContent([])` returns false instead of deleting the selection, and malformed JSON/HTML returns false instead of throwing; the input-rule `compositionend` handler guards against a destroyed view. (#115)
+- fix(theme): the light theme resets every dark-only token, so a `.dm-theme-light` region nested inside a dark context no longer leaks dark block colors, scrollbars, and shadows. (#115)
+- fix(extension-toc): the floating table-of-contents card collapses on scroll inside a container (`activeScrollParent`), not only on window scroll. (#115)
+- fix(extension-details): the disclosure toggle exposes `aria-expanded` and `aria-controls` so assistive technology can announce its open / closed state. (#115)
+- fix(extension-image): the node view no longer writes the literal string `"null"` to an image's `alt` / `title` when those attributes are absent. (#115)
+
 ## 0.10.0 (2026-06-21)
 
 ### Packages
