@@ -1,6 +1,6 @@
 {
   "name": "@domternal/extension-toc",
-  "version": "0.11.1",
+  "version": "0.11.2",
   "description": "Notion-style Table of Contents for Domternal: floating right-rail outline with collapsed/expanded states + insertable inline /toc block, both fed by a shared heading-discovery data layer",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",

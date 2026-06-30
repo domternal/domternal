@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.11.2 (2026-07-01)
+
+### Fixes
+
+- fix(theme): the muted and placeholder text color now meets WCAG AA contrast on both themes. The light muted token moves from `#999999` (2.85:1) to `#6b7280`, and the dark token from `#777777` (3.72:1) to `#9ca3af`, so placeholder text, disclosure toggles, and menu hints stay legible. (#119, #120)
+
+### Docs
+
+- Every package now ships a package-specific README with a real description, install, and usage section, replacing the previous shared boilerplate. The four per-framework StackBlitz links are consolidated into a single "Live examples" link to https://domternal.dev/examples. (#119, #120)
+
 ## 0.11.1 (2026-06-30)
 
 ### Fixes
