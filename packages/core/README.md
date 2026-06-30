@@ -53,6 +53,8 @@ const json = editor.getJSON();
 editor.destroy();
 ```
 
+The engine ships no styles. Import [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme) for ready-made light/dark editor styling, or supply your own CSS.
+
 `StarterKit` bundles the common nodes, marks, and behaviors; each entry can be
 configured or disabled individually.
 
@@ -89,3 +91,5 @@ const html = generateHTML(
   [StarterKit],
 );
 ```
+
+`generateJSON(html, extensions)` does the reverse (HTML to doc JSON) and `generateText` extracts plain text.

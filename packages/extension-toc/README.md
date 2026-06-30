@@ -4,13 +4,15 @@
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
 Notion-style Table of Contents for the [Domternal](https://domternal.dev) editor.
+
 A shared heading-discovery data layer feeds three pieces that work together:
-`TableOfContents` (the headless heading observer that maintains a reactive
-heading list in `editor.storage.toc` and exposes the `scrollToHeading` command),
-`FloatingTocOutline` (a sticky right-rail outline with a hover-expanded card,
-anchored to the editor or the viewport), and `TableOfContentsBlock` (an inline
-`/toc` atom node). Active-heading tracking, smooth click-to-jump scrolling, and
-initial-load `#hash` navigation are built in.
+
+- `TableOfContents` - the headless heading observer that maintains a reactive heading list in `editor.storage.toc` and exposes the `scrollToHeading` command.
+- `FloatingTocOutline` - a sticky right-rail outline with a hover-expanded card, anchored to the editor or the viewport.
+- `TableOfContentsBlock` - an inline `/toc` atom node.
+
+Active-heading tracking, smooth click-to-jump scrolling, and initial-load
+`#hash` navigation are built in.
 
 ## Links
 
@@ -42,7 +44,9 @@ const editor = new Editor({
   element: document.getElementById('editor')!,
   extensions: [
     StarterKit,
-    UniqueID.configure({ types: ['heading'] }),
+    // UniqueID's default `types` already stamps headings; pass `types` only
+    // when TableOfContents' `anchorTypes` point at custom node types.
+    UniqueID,
     TableOfContents.configure({ levels: [1, 2, 3] }),
     FloatingTocOutline.configure({ anchor: 'editor' }),
     TableOfContentsBlock,

@@ -4,12 +4,10 @@
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
 Vue 3 bindings for the [Domternal](https://domternal.dev) editor. Provides the composable
-`Domternal` component (with namespaced `Domternal.Toolbar`, `Domternal.Content`,
-`Domternal.BubbleMenu`, `Domternal.FloatingMenu`, and `Domternal.EmojiPicker` subcomponents),
-the `useEditor` and `useEditorState` composables for full control, provide/inject helpers for
-sharing one editor across descendants, and `VueNodeViewRenderer` for writing custom node views as
-Vue SFCs. SSR-safe by default: the editor is created in `onMounted`. Requires Vue 3.3+ and the
-Composition API.
+`Domternal` component with namespaced subcomponents, the `useEditor` and `useEditorState`
+composables for full control, provide/inject helpers for sharing one editor across descendants,
+and `VueNodeViewRenderer` for writing custom node views as Vue SFCs. SSR-safe by default: the
+editor is created in `onMounted`. Requires Vue 3.3+ and the Composition API.
 
 ## Links
 
@@ -59,7 +57,7 @@ import { StarterKit } from '@domternal/core';
 
 const { editor, editorRef } = useEditor({
   extensions: [StarterKit],
-  content: '<p>Start typing…</p>',
+  content: '<p>Start typing...</p>',
   onUpdate: ({ editor }) => console.log(editor.getHTML()),
 });
 

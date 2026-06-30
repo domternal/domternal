@@ -32,7 +32,7 @@ import { Editor, Document, Paragraph, Text } from '@domternal/core';
 import { CodeBlockLowlight } from '@domternal/extension-code-block-lowlight';
 import { createLowlight, common } from 'lowlight';
 
-const lowlight = createLowlight(common); // ~40 common languages; use `all` for ~190
+const lowlight = createLowlight(common); // ~37 common languages; use `all` for ~190
 
 const editor = new Editor({
   element: document.getElementById('editor')!,
@@ -75,7 +75,10 @@ editor.storage.codeBlock.listLanguages();
 
 `generateHighlightedHTML` renders JSON content to HTML with highlighted code blocks, and
 `createCodeHighlighter` produces a `codeHighlighter` callback for `inlineStyles()` (email,
-CMS, and Google Docs output):
+CMS, and Google Docs output). These are two independent paths: use whichever fits your
+pipeline. For `generateHighlightedHTML(json, extensions, lowlight)`, `extensions` must be
+the same array you used to build the editor and `json` is its document JSON (e.g.
+`editor.getJSON()`). The example below shows both helpers running over the same `html`:
 
 ```ts
 import {
@@ -89,7 +92,12 @@ const lowlight = createLowlight(common);
 
 const html = generateHighlightedHTML(json, extensions, lowlight);
 
-const styled = inlineStyles(plainHtml, {
+const styled = inlineStyles(html, {
   codeHighlighter: createCodeHighlighter(lowlight),
 });
 ```
+
+Both SSR helpers accept an optional `{ defaultLanguage?, autoDetect? }` as their last
+argument. For SSR, `autoDetect` defaults to `false` (the opposite of the editor
+extension's `true`), so pass `{ autoDetect: true }` if you want detection during
+server rendering.

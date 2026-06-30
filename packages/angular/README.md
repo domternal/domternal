@@ -20,9 +20,10 @@ pnpm add @domternal/angular @domternal/core @domternal/theme
 ```
 
 `@angular/core` (>=17.1), `@angular/forms` (>=17.1), and `@domternal/core` (>=0.11.0)
-are peer dependencies. Add the theme to your global stylesheet:
+are peer dependencies. Add the theme ([`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme))
+to your global stylesheet (e.g. `styles.scss`):
 
-```scss title="styles.scss"
+```scss
 @use '@domternal/theme';
 ```
 

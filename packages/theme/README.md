@@ -5,7 +5,7 @@
 
 Ready-made light and dark styles for the [Domternal](https://domternal.dev) editor,
 toolbar, bubble menu, floating menu, popovers, and every UI component. It is a
-CSS-only package (no JavaScript), built from Sass into a single stylesheet. Every
+CSS-only package (no JavaScript), built from Sass and shipped as a single compiled stylesheet. Every
 visual property is exposed as a CSS custom property, so you can rebrand colors,
 fonts, spacing, and borders by overriding a variable instead of touching the source.
 
@@ -57,6 +57,10 @@ ancestor element:
 <div class="dm-theme-light">...</div>
 ```
 
+For a Notion-style look (borderless surface, centered narrow column), add the
+`dm-notion-mode` class to the `.dm-editor` host element. See the theming guide
+for details.
+
 Override any CSS custom property on `.dm-editor`, `.dm-toolbar`, or a parent to
 customize the look:
 
@@ -68,7 +72,7 @@ customize the look:
 }
 
 .my-editor .dm-editor {
-  --dm-bg: #fefce8;
+  --dm-editor-bg: #fefce8;
 }
 ```
 

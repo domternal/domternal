@@ -7,7 +7,7 @@ Framework-free DOM components for the [Domternal](https://domternal.dev) editor.
 Each component is a class you instantiate against a host element:
 `DomternalEditor`, `DomternalToolbar`, `DomternalBubbleMenu`, `DomternalFloatingMenu`,
 `DomternalEmojiPicker`, and `DomternalNotionColorPicker`. Every class extends
-`EventTarget`, exposes plain getters and setters, dispatches `CustomEvent`s for state
+`EventTarget`, exposes plain getters and mutator methods, dispatches `CustomEvent`s for state
 changes, and tears down with an idempotent `destroy()`. Use it in Astro, Svelte, Solid,
 Lit, Web Components, or plain HTML - anywhere without a framework runtime.
 
@@ -27,7 +27,7 @@ pnpm add @domternal/core @domternal/theme @domternal/vanilla
 ## Usage
 
 ```ts
-import { StarterKit, BubbleMenu } from '@domternal/core';
+import { StarterKit } from '@domternal/core';
 import {
   DomternalEditor,
   DomternalToolbar,
@@ -40,7 +40,7 @@ const editorEl = document.getElementById('editor')!;
 const bubbleEl = document.getElementById('bubble')!;
 
 const dm = new DomternalEditor(editorEl, {
-  extensions: [StarterKit, BubbleMenu.configure({ element: bubbleEl })],
+  extensions: [StarterKit],
   content: '<p>Hello world</p>',
   onUpdate: ({ editor }) => console.log(editor.getHTML()),
 });

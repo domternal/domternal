@@ -48,11 +48,15 @@ Typing `:smile:` converts to an emoji node; with `enableEmoticons: true`,
 emoticons like `:)` and `<3` convert too. Typing `:` followed by a name opens the
 suggestion dropdown (when a `render` factory is provided).
 
+> The default suggestion dropdown is styled by `@domternal/theme`
+> (`_emoji-picker.scss`, via the `dm-emoji-suggestion` classes). Import the theme,
+> or supply your own `render` factory if you want fully custom markup.
+
 ## Commands
 
 ```ts
-editor.commands.insertEmoji('fire'); // insert by name
-editor.commands.suggestEmoji();        // type the trigger char to open the picker
+editor.commands.insertEmoji('fire'); // insert by EmojiItem name (not shortcode)
+editor.commands.suggestEmoji();        // inserts the ':' trigger to open the picker (requires suggestion configured)
 ```
 
 ## Options
