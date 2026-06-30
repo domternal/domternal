@@ -11,7 +11,7 @@ A lightweight, extensible rich text editor toolkit built on [ProseMirror](https:
 
 **[Website](https://domternal.dev)** · **[Getting Started](https://domternal.dev/v1/getting-started)** · **[Packages & Bundle Size](https://domternal.dev/v1/packages)**
 
-**[StackBlitz (Angular)](https://stackblitz.com/edit/domternal-angular-full-example)** · **[StackBlitz (React)](https://stackblitz.com/edit/domternal-react-full-example)** · **[StackBlitz (Vue)](https://stackblitz.com/edit/domternal-vue-full-example)** · **[StackBlitz (Vanilla TS)](https://stackblitz.com/edit/domternal-vanilla-full-example)**
+**[Live examples](https://domternal.dev/examples)** - full editors for Angular, React, Vue, and Vanilla, editable in the browser
 
 ## Features
 
@@ -28,7 +28,7 @@ A lightweight, extensible rich text editor toolkit built on [ProseMirror](https:
 - **~44 KB gzipped** (own code), [~117 KB total](https://domternal.dev/v1/packages) with ProseMirror - see Packages for full bundle breakdown
 - **TypeScript first** - 100% typed, zero `any`
 - **15,000+ tests** - 4,000+ unit and 11,000+ E2E across 230+ Playwright specs and 4 demo apps
-- **Light and dark theme** - 120+ CSS custom properties for full visual control
+- **Light and dark theme** - 160+ CSS custom properties for full visual control
 - **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
 - **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
 
@@ -54,20 +54,14 @@ Import only what you need for full control and zero bloat. Use `StarterKit` for 
 
 > **[Getting Started Guide](https://domternal.dev/v1/getting-started)** - headless core, themed UI with toolbar, and Angular/React/Vue component setup
 >
-> **[StackBlitz (Angular)](https://stackblitz.com/edit/domternal-angular-full-example)** - full Angular example with all extensions, toolbar, and bubble menu
->
-> **[StackBlitz (React)](https://stackblitz.com/edit/domternal-react-full-example)** - full React example with composable components, toolbar, and bubble menu
->
-> **[StackBlitz (Vue)](https://stackblitz.com/edit/domternal-vue-full-example)** - full Vue example with composable components, toolbar, and bubble menu
->
-> **[StackBlitz (Vanilla TS)](https://stackblitz.com/edit/domternal-vanilla-full-example)** - full vanilla example with toolbar, bubble menu, and all extensions
+> **[Live examples](https://domternal.dev/examples)** - full, editable editors for Angular, React, Vue, and Vanilla with all extensions, toolbar, and bubble menu
 
 ## Packages
 
 | Package | Description |
 |---|---|
 | [`@domternal/core`](https://www.npmjs.com/package/@domternal/core) | Editor engine with 13 nodes, 9 marks, 27 extensions, toolbar controller, and 51 built-in icons |
-| [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme) | Light and dark themes with 120+ CSS custom properties |
+| [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme) | Light and dark themes with 160+ CSS custom properties |
 | [`@domternal/angular`](https://www.npmjs.com/package/@domternal/angular) | 6 Angular components: editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker |
 | [`@domternal/react`](https://www.npmjs.com/package/@domternal/react) | React 18+ wrapper: composable component, toolbar, bubble menu, floating menu, emoji picker, notion color picker, node views |
 | [`@domternal/vue`](https://www.npmjs.com/package/@domternal/vue) | Vue 3.3+ wrapper: composable component, composables, toolbar, bubble menu, floating menu, emoji picker, notion color picker, node views |

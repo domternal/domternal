@@ -3,42 +3,117 @@
 [![Version](https://img.shields.io/npm/v/@domternal/angular.svg)](https://www.npmjs.com/package/@domternal/angular)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-A lightweight, extensible rich text editor toolkit built on <u>[ProseMirror](https://prosemirror.net/)</u>. Framework-agnostic headless core with first-class Angular, React, Vue, and Vanilla wrappers.
-Use it headless with vanilla JS/TS, add the built-in toolbar and theme, or drop in ready-made framework components. Fully tree-shakeable, import only what you use, unused extensions are stripped from your bundle.
+Angular components for the [Domternal](https://domternal.dev) editor: six standalone,
+signals-driven, OnPush, zoneless-ready components that wrap the headless core with
+Angular-native APIs. `DomternalEditorComponent` implements `ControlValueAccessor`, so
+it drops into `ngModel` and reactive forms. The toolbar, bubble menu, floating menu,
+emoji picker, and Notion color picker auto-render from the extensions you load.
 
 ## Links
 
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/introduction)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;
-<u>[StackBlitz (Angular)](https://stackblitz.com/edit/domternal-angular-full-example)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[StackBlitz (React)](https://stackblitz.com/edit/domternal-react-full-example)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[StackBlitz (Vue)](https://stackblitz.com/edit/domternal-vue-full-example)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[StackBlitz (Vanilla TS)](https://stackblitz.com/edit/domternal-vanilla-full-example)</u>
+<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/guides/angular)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
 
-## Features
+## Install
 
-See <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> for a full breakdown of all packages and what each one includes.
+```bash
+pnpm add @domternal/angular @domternal/core @domternal/theme
+```
 
-- **Headless core** - use with any framework or vanilla JS/TS
-- **Angular components** - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker (signals, OnPush, zoneless-ready)
-- **React components** - composable `Domternal` component, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (React 18+)
-- **Vue components** - composable `Domternal` component, `useEditor`/`useEditorState` composables, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (Vue 3.3+)
-- **Vanilla wrapper** - framework-free class-based API for Astro, Svelte, Solid, plain HTML, and Web Components - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker
-- **Notion-style block UX** - drag-to-reorder, block context menu, slash command, smart paste, keyboard reorder, floating Table of Contents
-- **70+ extensions across 16 packages** - nodes, marks, and behavior extensions
-- **125+ chainable commands** - `editor.chain().focus().toggleBold().run()`
-- **Full table support** - cell merging, column resize, row/column controls, cell toolbar, all free and MIT licensed
-- **Tree-shakeable** - import only what you use, your bundler strips the rest
-- **~44 KB gzipped** (own code), <u>[see Packages](https://domternal.dev/v1/packages)</u> for full bundle breakdown with ProseMirror
-- **TypeScript first** - 100% typed, zero `any`
-- **15,000+ tests** - 4,000+ unit and 11,000+ E2E across 230+ Playwright specs and 4 demo apps
-- **Light and dark theme** - 120+ CSS custom properties for full visual control
-- **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
-- **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
+`@angular/core` (>=17.1), `@angular/forms` (>=17.1), and `@domternal/core` (>=0.11.0)
+are peer dependencies. Add the theme to your global stylesheet:
 
-## Documentation
+```scss title="styles.scss"
+@use '@domternal/theme';
+```
 
-- <u>[Getting Started](https://domternal.dev/v1/getting-started)</u> - install and create your first editor
-- <u>[Introduction](https://domternal.dev/v1/introduction)</u> - core concepts, architecture, and design decisions
-- <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> - what each package includes and bundle size breakdown
-- <u>[Blog](https://domternal.dev/blog)</u>
+## Usage
 
-## License
+```ts
+import { Component, signal } from '@angular/core';
+import {
+  DomternalEditorComponent,
+  DomternalToolbarComponent,
+  DomternalBubbleMenuComponent,
+} from '@domternal/angular';
+import { Editor, StarterKit, BubbleMenu } from '@domternal/core';
 
-<u>[MIT](https://github.com/domternal/domternal/blob/main/LICENSE)</u>
+@Component({
+  selector: 'app-editor',
+  imports: [
+    DomternalEditorComponent,
+    DomternalToolbarComponent,
+    DomternalBubbleMenuComponent,
+  ],
+  template: `
+    @if (editor(); as ed) {
+      <domternal-toolbar [editor]="ed" />
+    }
+    <domternal-editor
+      [extensions]="extensions"
+      [content]="content"
+      (editorCreated)="editor.set($event)"
+    />
+    @if (editor(); as ed) {
+      <domternal-bubble-menu [editor]="ed" />
+    }
+  `,
+})
+export class EditorComponent {
+  editor = signal<Editor | null>(null);
+  extensions = [StarterKit, BubbleMenu];
+  content = '<p>Hello from Angular!</p>';
+}
+```
+
+The toolbar and bubble menu render their buttons from the loaded extensions, so no
+manual button wiring is needed.
+
+### Reactive forms
+
+`DomternalEditorComponent` is a `ControlValueAccessor`, so it binds directly to
+`ngModel` or a `FormControl`. Set `outputFormat="json"` to emit JSON instead of HTML;
+calling `disable()`/`enable()` on the bound `FormControl` toggles the editor's editable
+state.
+
+```ts
+import { Component } from '@angular/core';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { DomternalEditorComponent } from '@domternal/angular';
+import { StarterKit } from '@domternal/core';
+
+@Component({
+  selector: 'app-form-editor',
+  imports: [ReactiveFormsModule, DomternalEditorComponent],
+  template: `
+    <domternal-editor [extensions]="extensions" [formControl]="editorControl" />
+  `,
+})
+export class FormEditorComponent {
+  extensions = [StarterKit];
+  editorControl = new FormControl('<p>Initial content</p>');
+}
+```
+
+## Components
+
+All components are standalone (no NgModule). Import them directly from
+`@domternal/angular`:
+
+- `DomternalEditorComponent` (`<domternal-editor>`): the editor, with reactive
+  `extensions` / `content` / `editable` / `autofocus` / `outputFormat` inputs,
+  `editorCreated` and content/selection/focus outputs, and read-only `htmlContent`,
+  `jsonContent`, `isEmpty`, `isFocused`, `isEditable` signals.
+- `DomternalToolbarComponent` (`<domternal-toolbar>`): auto-rendered formatting
+  toolbar with keyboard navigation, custom `icons`, and `layout` overrides.
+- `DomternalBubbleMenuComponent` (`<domternal-bubble-menu>`): inline selection menu
+  with `items` / `contexts` / `shouldShow` controls and content projection.
+- `DomternalFloatingMenuComponent` (`<domternal-floating-menu>`): insert menu shown
+  on empty lines.
+- `DomternalEmojiPickerComponent` (`<domternal-emoji-picker>`): searchable emoji
+  panel, driven by an `emojis: EmojiPickerItem[]` input.
+- `DomternalNotionColorPickerComponent` (`<domternal-notion-color-picker>`):
+  Notion-style text and background color palette.
+
+`DEFAULT_EXTENSIONS` (`[Document, Paragraph, Text, BaseKeymap, History]`) and the core
+`Editor` class plus `Content`, `AnyExtension`, `FocusPosition`, and `JSONContent` types
+are re-exported for convenience.
