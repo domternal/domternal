@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.1 (2026-06-30)
+
+### Fixes
+
+- fix(extension-details): the disclosure toggle stays open on click. A DOMObserver flush triggered right after the pointer click (for example moving the selection out of the details) no longer redraws the node view and discards the DOM-only open state. (#117)
+
 ## 0.11.0 (2026-06-25)
 
 ### Breaking
