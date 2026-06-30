@@ -1527,6 +1527,27 @@ describe('Details NodeView DOM structure', () => {
     expect(detailsDom.classList.contains('expanded')).toBe(true);
     expect(detailsDom.classList.contains('is-open')).toBe(false);
   });
+
+  it('ignoreMutation ignores toggle-button chrome but not content edits', () => {
+    // Regression: chrome mutations must be ignored, else a DOMObserver flush
+    // redraws the node view and discards the open state on pointer click.
+    editor = new Editor({
+      extensions: allExtensions,
+      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+    });
+
+    const detailsDom = editor.view.dom.querySelector<HTMLElement>('[data-type="details"]')!;
+    const button = detailsDom.querySelector('button')!;
+    const desc = (detailsDom as unknown as { pmViewDesc: { ignoreMutation(m: unknown): boolean } }).pmViewDesc;
+    expect(desc).toBeTruthy();
+
+    const chromeMutation = { type: 'attributes', target: button, attributeName: 'aria-expanded' };
+    expect(desc.ignoreMutation(chromeMutation)).toBe(true);
+
+    const contentPara = detailsDom.querySelector('[data-details-content] p')!;
+    const contentMutation = { type: 'characterData', target: contentPara.firstChild ?? contentPara };
+    expect(desc.ignoreMutation(contentMutation)).toBe(false);
+  });
 });
 
 describe('DetailsContent NodeView DOM structure', () => {

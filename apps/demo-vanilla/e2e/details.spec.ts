@@ -331,6 +331,19 @@ test.describe('Details - toggle button', () => {
 
     expect(closedTransform).not.toBe(openTransform);
   });
+
+  test('open state survives a selection change elsewhere (DOMObserver flush)', async ({ page }) => {
+    // Regression: opening then moving the selection out of the details flushes
+    // the DOMObserver; the node view must not be redrawn back to closed.
+    await setContentAndFocus(page, DETAILS_BETWEEN_PARAS);
+    await clickDetailsToggle(page);
+    expect(await isDetailsOpen(page)).toBe(true);
+
+    await page.locator(`${editorSelector} > p`).first().click();
+    await page.waitForTimeout(100);
+
+    expect(await isDetailsOpen(page)).toBe(true);
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════

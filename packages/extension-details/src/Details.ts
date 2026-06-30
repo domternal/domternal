@@ -177,7 +177,10 @@ export const Details = Node.create<DetailsOptions>({
           if (mutation.type === 'selection') {
             return false;
           }
-          return !dom.contains(mutation.target) || dom === mutation.target;
+          // Ignore our own chrome (toggle button, class / aria toggles); a
+          // DOMObserver flush reconciling them would redraw the node view and
+          // discard the DOM-only open state after a pointer click.
+          return !content.contains(mutation.target) || content === mutation.target;
         },
         update: (updatedNode) => {
           if (updatedNode.type !== nodeType) {
