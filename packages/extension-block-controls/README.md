@@ -3,42 +3,76 @@
 [![Version](https://img.shields.io/npm/v/@domternal/extension-block-controls.svg)](https://www.npmjs.com/package/@domternal/extension-block-controls)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-A lightweight, extensible rich text editor toolkit built on <u>[ProseMirror](https://prosemirror.net/)</u>. Framework-agnostic headless core with first-class Angular, React, Vue, and Vanilla wrappers.
-Use it headless with vanilla JS/TS, add the built-in toolbar and theme, or drop in ready-made framework components. Fully tree-shakeable, import only what you use, unused extensions are stripped from your bundle.
+Notion-style block controls for the [Domternal](https://domternal.dev) editor. Ships
+six coordinated extensions: `BlockHandle` (hover gutter with a drag handle and `+`
+button), `BlockContextMenu` (Delete / Duplicate / Turn into), `SlashCommand` (type `/`
+for a filtered insert popup), `SmartPaste` (preserves block formatting when pasting at
+inline positions), `KeyboardReorder` (`Mod-Shift-ArrowUp/Down` moves the current block),
+and `FloatingMenu` (the empty-line insert menu). They cooperate through DOM events, so
+opening one overlay closes the others.
 
 ## Links
 
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/introduction)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;
-<u>[Live examples](https://domternal.dev/examples)</u>
+<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/extensions/block-controls)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
 
-## Features
+## Install
 
-See <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> for a full breakdown of all packages and what each one includes.
+```bash
+pnpm add @domternal/extension-block-controls
+```
 
-- **Headless core** - use with any framework or vanilla JS/TS
-- **Angular components** - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker (signals, OnPush, zoneless-ready)
-- **React components** - composable `Domternal` component, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (React 18+)
-- **Vue components** - composable `Domternal` component, `useEditor`/`useEditorState` composables, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (Vue 3.3+)
-- **Vanilla wrapper** - framework-free class-based API for Astro, Svelte, Solid, plain HTML, and Web Components - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker
-- **Notion-style block UX** - drag-to-reorder, block context menu, slash command, smart paste, keyboard reorder, floating Table of Contents
-- **70+ extensions across 16 packages** - nodes, marks, and behavior extensions
-- **125+ chainable commands** - `editor.chain().focus().toggleBold().run()`
-- **Full table support** - cell merging, column resize, row/column controls, cell toolbar, all free and MIT licensed
-- **Tree-shakeable** - import only what you use, your bundler strips the rest
-- **~44 KB gzipped** (own code), <u>[see Packages](https://domternal.dev/v1/packages)</u> for full bundle breakdown with ProseMirror
-- **TypeScript first** - 100% typed, zero `any`
-- **15,000+ tests** - 4,000+ unit and 11,000+ E2E across 230+ Playwright specs and 4 demo apps
-- **Light and dark theme** - 120+ CSS custom properties for full visual control
-- **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
-- **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
+`@domternal/core` and `@domternal/pm` are peer dependencies and are pulled in by any
+Domternal editor setup.
 
-## Documentation
+## Usage
 
-- <u>[Getting Started](https://domternal.dev/v1/getting-started)</u> - install and create your first editor
-- <u>[Introduction](https://domternal.dev/v1/introduction)</u> - core concepts, architecture, and design decisions
-- <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> - what each package includes and bundle size breakdown
-- <u>[Blog](https://domternal.dev/blog)</u>
+Add the extensions you want to your editor's extension list. Most apps use the full set
+together for the Notion experience:
 
-## License
+```ts
+import { Editor, StarterKit } from '@domternal/core';
+import {
+  BlockHandle,
+  BlockContextMenu,
+  SlashCommand,
+  SmartPaste,
+  KeyboardReorder,
+  FloatingMenu,
+} from '@domternal/extension-block-controls';
+import '@domternal/theme';
 
-<u>[MIT](https://github.com/domternal/domternal/blob/main/LICENSE)</u>
+const editor = new Editor({
+  element: document.getElementById('editor')!,
+  extensions: [
+    StarterKit,
+    BlockHandle.configure({ nested: true }),
+    BlockContextMenu,
+    SlashCommand,
+    SmartPaste,
+    KeyboardReorder,
+    FloatingMenu.configure({
+      element: document.getElementById('floating-menu')!,
+      requireExplicitTrigger: true,
+    }),
+  ],
+});
+```
+
+The `SlashCommand` and `FloatingMenu` popups draw their items from
+`editor.floatingMenuItems` (collected from every extension's `addFloatingMenuItems()`
+hook), so installed extensions register their own insert actions automatically.
+
+## Extensions
+
+- **`BlockHandle`** - hover gutter with a drag handle (click to open the context menu,
+  drag to reorder with a nesting-aware drop indicator) and a `+` button that inserts an
+  empty paragraph and opens the `FloatingMenu`.
+- **`BlockContextMenu`** - Delete / Duplicate / Turn into actions, opened from the drag
+  handle.
+- **`SlashCommand`** - typing `/` opens a filtered, ranked popup of insertable blocks;
+  selecting one replaces the `/query` range and runs the item's command.
+- **`SmartPaste`** - keeps block-level formatting intact when pasting at an inline cursor.
+- **`KeyboardReorder`** - `Mod-Shift-ArrowUp` / `Mod-Shift-ArrowDown` move the current
+  top-level block.
+- **`FloatingMenu`** - the empty-line insert menu; `requireExplicitTrigger` gates it
+  behind the `+` button for Notion mode.

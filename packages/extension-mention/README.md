@@ -3,42 +3,92 @@
 [![Version](https://img.shields.io/npm/v/@domternal/extension-mention.svg)](https://www.npmjs.com/package/@domternal/extension-mention)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-A lightweight, extensible rich text editor toolkit built on <u>[ProseMirror](https://prosemirror.net/)</u>. Framework-agnostic headless core with first-class Angular, React, Vue, and Vanilla wrappers.
-Use it headless with vanilla JS/TS, add the built-in toolbar and theme, or drop in ready-made framework components. Fully tree-shakeable, import only what you use, unused extensions are stripped from your bundle.
+Inline `@`-mention nodes for the [Domternal](https://domternal.dev) editor. Adds an
+atomic `mention` node that carries an `id` and `label`, plus a headless suggestion
+plugin that watches one or more trigger characters (`@`, `#`, ...), tracks the query,
+and fetches matching items from your own data source (sync or async). You supply the
+data and, optionally, the dropdown UI; a framework-free default renderer is included.
 
 ## Links
 
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/introduction)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;
-<u>[Live examples](https://domternal.dev/examples)</u>
+<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/nodes/mention)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
 
-## Features
+## Install
 
-See <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> for a full breakdown of all packages and what each one includes.
+```bash
+pnpm add @domternal/extension-mention
+```
 
-- **Headless core** - use with any framework or vanilla JS/TS
-- **Angular components** - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker (signals, OnPush, zoneless-ready)
-- **React components** - composable `Domternal` component, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (React 18+)
-- **Vue components** - composable `Domternal` component, `useEditor`/`useEditorState` composables, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (Vue 3.3+)
-- **Vanilla wrapper** - framework-free class-based API for Astro, Svelte, Solid, plain HTML, and Web Components - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker
-- **Notion-style block UX** - drag-to-reorder, block context menu, slash command, smart paste, keyboard reorder, floating Table of Contents
-- **70+ extensions across 16 packages** - nodes, marks, and behavior extensions
-- **125+ chainable commands** - `editor.chain().focus().toggleBold().run()`
-- **Full table support** - cell merging, column resize, row/column controls, cell toolbar, all free and MIT licensed
-- **Tree-shakeable** - import only what you use, your bundler strips the rest
-- **~44 KB gzipped** (own code), <u>[see Packages](https://domternal.dev/v1/packages)</u> for full bundle breakdown with ProseMirror
-- **TypeScript first** - 100% typed, zero `any`
-- **15,000+ tests** - 4,000+ unit and 11,000+ E2E across 230+ Playwright specs and 4 demo apps
-- **Light and dark theme** - 120+ CSS custom properties for full visual control
-- **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
-- **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
+`@domternal/core` and `@domternal/pm` are peer dependencies (you already have them
+when using the editor).
 
-## Documentation
+## Usage
 
-- <u>[Getting Started](https://domternal.dev/v1/getting-started)</u> - install and create your first editor
-- <u>[Introduction](https://domternal.dev/v1/introduction)</u> - core concepts, architecture, and design decisions
-- <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> - what each package includes and bundle size breakdown
-- <u>[Blog](https://domternal.dev/blog)</u>
+```ts
+import { Editor, Document, Paragraph, Text } from '@domternal/core';
+import { Mention, createMentionSuggestionRenderer } from '@domternal/extension-mention';
 
-## License
+const users = [
+  { id: '1', label: 'Alice Johnson' },
+  { id: '2', label: 'Bob Smith' },
+  { id: '3', label: 'Charlie Brown' },
+];
 
-<u>[MIT](https://github.com/domternal/domternal/blob/main/LICENSE)</u>
+const editor = new Editor({
+  extensions: [
+    Document,
+    Paragraph,
+    Text,
+    Mention.configure({
+      suggestion: {
+        char: '@',
+        name: 'user',
+        items: ({ query }) =>
+          users.filter((u) =>
+            u.label.toLowerCase().includes(query.toLowerCase()),
+          ),
+        render: createMentionSuggestionRenderer(),
+      },
+    }),
+  ],
+  content: '<p>Type @ to mention someone!</p>',
+});
+```
+
+Type `@` to open the dropdown, navigate with arrow keys, and press `Enter` to insert.
+`items` may also return a `Promise`, so suggestions can come from a remote API; pair
+that with `debounce` on the trigger to rate-limit calls.
+
+## Commands
+
+The extension registers two chainable commands:
+
+```ts
+// Insert a mention at the current selection
+editor.commands.insertMention({ id: '1', label: 'Alice', type: 'user' });
+
+// Delete by id, or the mention immediately before the cursor when no id is passed
+editor.commands.deleteMention('1');
+editor.commands.deleteMention();
+```
+
+It also exposes `editor.storage.mention.findMentions()`, which returns every mention
+in the document as `{ id, label, type, pos }`.
+
+## Multiple triggers
+
+Pass a `triggers` array to mix, for example, `@` users and `#` tags. Each trigger has
+its own `name`, `items` source, and renderer:
+
+```ts
+Mention.configure({
+  triggers: [
+    { char: '@', name: 'user', items: fetchUsers, render: createMentionSuggestionRenderer() },
+    { char: '#', name: 'tag', items: fetchTags, render: createMentionSuggestionRenderer() },
+  ],
+});
+```
+
+For full options (`minQueryLength`, `allowSpaces`, `appendText`, `invalidNodes`,
+`shouldShow`, custom `renderHTML`/`renderText`) and framework wrapper examples, see the
+[documentation](https://domternal.dev/v1/nodes/mention).

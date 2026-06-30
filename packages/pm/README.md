@@ -3,42 +3,61 @@
 [![Version](https://img.shields.io/npm/v/@domternal/pm.svg)](https://www.npmjs.com/package/@domternal/pm)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-A lightweight, extensible rich text editor toolkit built on <u>[ProseMirror](https://prosemirror.net/)</u>. Framework-agnostic headless core with first-class Angular, React, Vue, and Vanilla wrappers.
-Use it headless with vanilla JS/TS, add the built-in toolbar and theme, or drop in ready-made framework components. Fully tree-shakeable, import only what you use, unused extensions are stripped from your bundle.
+The ProseMirror dependency layer for the [Domternal](https://domternal.dev) editor. It
+re-exports the underlying `prosemirror-*` libraries under stable `@domternal/pm/*`
+subpaths so every Domternal package imports ProseMirror from one place. Because the
+`prosemirror-*` packages are pinned here as direct dependencies, your package manager
+dedupes them to a single copy across `@domternal/core` and every extension. You rarely
+install it yourself: it ships transitively with `@domternal/core`.
 
 ## Links
 
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/introduction)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;
-<u>[Live examples](https://domternal.dev/examples)</u>
+<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/packages)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
 
-## Features
+## Install
 
-See <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> for a full breakdown of all packages and what each one includes.
+Already a dependency of `@domternal/core`, so most apps never add it directly. Install
+it explicitly only when you import ProseMirror primitives in your own code:
 
-- **Headless core** - use with any framework or vanilla JS/TS
-- **Angular components** - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker (signals, OnPush, zoneless-ready)
-- **React components** - composable `Domternal` component, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (React 18+)
-- **Vue components** - composable `Domternal` component, `useEditor`/`useEditorState` composables, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (Vue 3.3+)
-- **Vanilla wrapper** - framework-free class-based API for Astro, Svelte, Solid, plain HTML, and Web Components - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker
-- **Notion-style block UX** - drag-to-reorder, block context menu, slash command, smart paste, keyboard reorder, floating Table of Contents
-- **70+ extensions across 16 packages** - nodes, marks, and behavior extensions
-- **125+ chainable commands** - `editor.chain().focus().toggleBold().run()`
-- **Full table support** - cell merging, column resize, row/column controls, cell toolbar, all free and MIT licensed
-- **Tree-shakeable** - import only what you use, your bundler strips the rest
-- **~44 KB gzipped** (own code), <u>[see Packages](https://domternal.dev/v1/packages)</u> for full bundle breakdown with ProseMirror
-- **TypeScript first** - 100% typed, zero `any`
-- **15,000+ tests** - 4,000+ unit and 11,000+ E2E across 230+ Playwright specs and 4 demo apps
-- **Light and dark theme** - 120+ CSS custom properties for full visual control
-- **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
-- **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
+```bash
+pnpm add @domternal/pm
+```
 
-## Documentation
+There are no peer dependencies: the `prosemirror-*` libraries are bundled as
+dependencies of this package.
 
-- <u>[Getting Started](https://domternal.dev/v1/getting-started)</u> - install and create your first editor
-- <u>[Introduction](https://domternal.dev/v1/introduction)</u> - core concepts, architecture, and design decisions
-- <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> - what each package includes and bundle size breakdown
-- <u>[Blog](https://domternal.dev/blog)</u>
+## Usage
 
-## License
+Import from a subpath matching the ProseMirror package you need. Each subpath
+re-exports the full API of its `prosemirror-*` counterpart.
 
-<u>[MIT](https://github.com/domternal/domternal/blob/main/LICENSE)</u>
+```ts
+import { Schema } from '@domternal/pm/model';
+import { EditorState, Plugin, PluginKey } from '@domternal/pm/state';
+import { EditorView } from '@domternal/pm/view';
+
+const myPlugin = new Plugin({
+  key: new PluginKey('my-plugin'),
+  view: (view: EditorView) => ({ destroy: () => {} }),
+});
+
+// `state` and `view` are the same APIs you would get from
+// 'prosemirror-state' and 'prosemirror-view' directly.
+```
+
+## Subpaths
+
+| Subpath | Re-exports |
+| --- | --- |
+| `@domternal/pm/commands` | `prosemirror-commands` |
+| `@domternal/pm/dropcursor` | `prosemirror-dropcursor` |
+| `@domternal/pm/gapcursor` | `prosemirror-gapcursor` |
+| `@domternal/pm/history` | `prosemirror-history` |
+| `@domternal/pm/inputrules` | `prosemirror-inputrules` |
+| `@domternal/pm/keymap` | `prosemirror-keymap` |
+| `@domternal/pm/model` | `prosemirror-model` |
+| `@domternal/pm/schema-list` | `prosemirror-schema-list` |
+| `@domternal/pm/state` | `prosemirror-state` |
+| `@domternal/pm/tables` | `prosemirror-tables` |
+| `@domternal/pm/transform` | `prosemirror-transform` |
+| `@domternal/pm/view` | `prosemirror-view` |

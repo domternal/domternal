@@ -3,42 +3,89 @@
 [![Version](https://img.shields.io/npm/v/@domternal/core.svg)](https://www.npmjs.com/package/@domternal/core)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-A lightweight, extensible rich text editor toolkit built on <u>[ProseMirror](https://prosemirror.net/)</u>. Framework-agnostic headless core with first-class Angular, React, Vue, and Vanilla wrappers.
-Use it headless with vanilla JS/TS, add the built-in toolbar and theme, or drop in ready-made framework components. Fully tree-shakeable, import only what you use, unused extensions are stripped from your bundle.
+The framework-agnostic editor engine of [Domternal](https://domternal.dev), built on
+[ProseMirror](https://prosemirror.net/). It provides the headless `Editor` class, the
+extension system (`Extension`, `Node`, `Mark`), a chainable command API, and the
+built-in nodes, marks, and behaviors (paragraph, heading, lists, tasks, links,
+inline formatting, history, keymaps) bundled as `StarterKit`. Use it directly with
+vanilla JS/TS, or as the runtime under the Angular, React, Vue, and Vanilla wrappers.
+Every export is tree-shakeable, so unused extensions are stripped from your bundle.
 
 ## Links
 
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/introduction)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;
-<u>[Live examples](https://domternal.dev/examples)</u>
+<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/getting-started)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
 
-## Features
+## Install
 
-See <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> for a full breakdown of all packages and what each one includes.
+```bash
+pnpm add @domternal/core
+```
 
-- **Headless core** - use with any framework or vanilla JS/TS
-- **Angular components** - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker (signals, OnPush, zoneless-ready)
-- **React components** - composable `Domternal` component, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (React 18+)
-- **Vue components** - composable `Domternal` component, `useEditor`/`useEditorState` composables, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (Vue 3.3+)
-- **Vanilla wrapper** - framework-free class-based API for Astro, Svelte, Solid, plain HTML, and Web Components - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker
-- **Notion-style block UX** - drag-to-reorder, block context menu, slash command, smart paste, keyboard reorder, floating Table of Contents
-- **70+ extensions across 16 packages** - nodes, marks, and behavior extensions
-- **125+ chainable commands** - `editor.chain().focus().toggleBold().run()`
-- **Full table support** - cell merging, column resize, row/column controls, cell toolbar, all free and MIT licensed
-- **Tree-shakeable** - import only what you use, your bundler strips the rest
-- **~44 KB gzipped** (own code), <u>[see Packages](https://domternal.dev/v1/packages)</u> for full bundle breakdown with ProseMirror
-- **TypeScript first** - 100% typed, zero `any`
-- **15,000+ tests** - 4,000+ unit and 11,000+ E2E across 230+ Playwright specs and 4 demo apps
-- **Light and dark theme** - 120+ CSS custom properties for full visual control
-- **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
-- **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
+`linkedom` is an optional peer dependency: install it only if you call the SSR
+helpers (`generateHTML`, `generateJSON`, `generateText`) outside a browser.
 
-## Documentation
+```bash
+pnpm add linkedom
+```
 
-- <u>[Getting Started](https://domternal.dev/v1/getting-started)</u> - install and create your first editor
-- <u>[Introduction](https://domternal.dev/v1/introduction)</u> - core concepts, architecture, and design decisions
-- <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> - what each package includes and bundle size breakdown
-- <u>[Blog](https://domternal.dev/blog)</u>
+## Usage
 
-## License
+```ts
+import { Editor, StarterKit } from '@domternal/core';
 
-<u>[MIT](https://github.com/domternal/domternal/blob/main/LICENSE)</u>
+const editor = new Editor({
+  element: document.getElementById('editor')!,
+  extensions: [StarterKit],
+  content: '<p>Hello <strong>world</strong></p>',
+  onUpdate: ({ editor }) => {
+    console.log(editor.getJSON());
+  },
+});
+
+// Chainable command API
+editor.chain().focus().toggleBold().run();
+
+// Read content
+const html = editor.getHTML();
+const json = editor.getJSON();
+
+// Tear down
+editor.destroy();
+```
+
+`StarterKit` bundles the common nodes, marks, and behaviors; each entry can be
+configured or disabled individually.
+
+```ts
+StarterKit.configure({
+  codeBlock: false,                  // disable an extension
+  heading: { levels: [1, 2, 3] },    // configure an extension
+  link: { openOnClick: false },
+});
+```
+
+To trim the bundle further, skip `StarterKit` and compose only the extensions you
+need:
+
+```ts
+import { Editor, Document, Paragraph, Text, Bold, History } from '@domternal/core';
+
+const editor = new Editor({
+  element: document.getElementById('editor')!,
+  extensions: [Document, Paragraph, Text, Bold, History],
+});
+```
+
+## SSR
+
+The `generateHTML`, `generateJSON`, and `generateText` helpers render content
+without an editor instance, for example on the server.
+
+```ts
+import { generateHTML, StarterKit } from '@domternal/core';
+
+const html = generateHTML(
+  { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hi' }] }] },
+  [StarterKit],
+);
+```

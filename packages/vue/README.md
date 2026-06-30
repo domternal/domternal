@@ -3,42 +3,81 @@
 [![Version](https://img.shields.io/npm/v/@domternal/vue.svg)](https://www.npmjs.com/package/@domternal/vue)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
-A lightweight, extensible rich text editor toolkit built on <u>[ProseMirror](https://prosemirror.net/)</u>. Framework-agnostic headless core with first-class Angular, React, Vue, and Vanilla wrappers.
-Use it headless with vanilla JS/TS, add the built-in toolbar and theme, or drop in ready-made framework components. Fully tree-shakeable, import only what you use, unused extensions are stripped from your bundle.
+Vue 3 bindings for the [Domternal](https://domternal.dev) editor. Provides the composable
+`Domternal` component (with namespaced `Domternal.Toolbar`, `Domternal.Content`,
+`Domternal.BubbleMenu`, `Domternal.FloatingMenu`, and `Domternal.EmojiPicker` subcomponents),
+the `useEditor` and `useEditorState` composables for full control, provide/inject helpers for
+sharing one editor across descendants, and `VueNodeViewRenderer` for writing custom node views as
+Vue SFCs. SSR-safe by default: the editor is created in `onMounted`. Requires Vue 3.3+ and the
+Composition API.
 
 ## Links
 
-<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/introduction)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp;
-<u>[Live examples](https://domternal.dev/examples)</u>
+<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/guides/vue)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
 
-## Features
+## Install
 
-See <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> for a full breakdown of all packages and what each one includes.
+```bash
+pnpm add @domternal/vue @domternal/core @domternal/theme vue
+```
 
-- **Headless core** - use with any framework or vanilla JS/TS
-- **Angular components** - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker (signals, OnPush, zoneless-ready)
-- **React components** - composable `Domternal` component, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (React 18+)
-- **Vue components** - composable `Domternal` component, `useEditor`/`useEditorState` composables, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (Vue 3.3+)
-- **Vanilla wrapper** - framework-free class-based API for Astro, Svelte, Solid, plain HTML, and Web Components - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker
-- **Notion-style block UX** - drag-to-reorder, block context menu, slash command, smart paste, keyboard reorder, floating Table of Contents
-- **70+ extensions across 16 packages** - nodes, marks, and behavior extensions
-- **125+ chainable commands** - `editor.chain().focus().toggleBold().run()`
-- **Full table support** - cell merging, column resize, row/column controls, cell toolbar, all free and MIT licensed
-- **Tree-shakeable** - import only what you use, your bundler strips the rest
-- **~44 KB gzipped** (own code), <u>[see Packages](https://domternal.dev/v1/packages)</u> for full bundle breakdown with ProseMirror
-- **TypeScript first** - 100% typed, zero `any`
-- **15,000+ tests** - 4,000+ unit and 11,000+ E2E across 230+ Playwright specs and 4 demo apps
-- **Light and dark theme** - 120+ CSS custom properties for full visual control
-- **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
-- **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
+`vue` (>=3.3) and `@domternal/core` are peer dependencies. `@domternal/theme` supplies the
+editor styles.
 
-## Documentation
+## Usage
 
-- <u>[Getting Started](https://domternal.dev/v1/getting-started)</u> - install and create your first editor
-- <u>[Introduction](https://domternal.dev/v1/introduction)</u> - core concepts, architecture, and design decisions
-- <u>[Packages & Bundle Size](https://domternal.dev/v1/packages)</u> - what each package includes and bundle size breakdown
-- <u>[Blog](https://domternal.dev/blog)</u>
+Composable component pattern (recommended): `Domternal` creates the editor and provides it to all
+subcomponents via inject, so children need no `editor` prop.
 
-## License
+```vue
+<script setup lang="ts">
+import { Domternal } from '@domternal/vue';
+import { StarterKit, BubbleMenu } from '@domternal/core';
+import '@domternal/theme';
 
-<u>[MIT](https://github.com/domternal/domternal/blob/main/LICENSE)</u>
+const extensions = [StarterKit, BubbleMenu];
+</script>
+
+<template>
+  <Domternal :extensions="extensions" content="<p>Hello from Vue!</p>">
+    <Domternal.Toolbar />
+    <Domternal.Content />
+    <Domternal.BubbleMenu :contexts="{ text: ['bold', 'italic', 'underline'] }" />
+  </Domternal>
+</template>
+```
+
+### Composable hook
+
+Use `useEditor` directly when you need the editor instance, then read reactive state with
+`useEditorState`:
+
+```vue
+<script setup lang="ts">
+import { useEditor, useEditorState, provideEditor, DomternalToolbar } from '@domternal/vue';
+import { StarterKit } from '@domternal/core';
+
+const { editor, editorRef } = useEditor({
+  extensions: [StarterKit],
+  content: '<p>Start typing…</p>',
+  onUpdate: ({ editor }) => console.log(editor.getHTML()),
+});
+
+provideEditor(editor);
+
+const { htmlContent, isEmpty } = useEditorState(editor);
+</script>
+
+<template>
+  <DomternalToolbar />
+  <div ref="editorRef" class="dm-editor" />
+</template>
+```
+
+`useEditor` returns `editor` (a `ShallowRef<Editor | null>`, null until mounted) and `editorRef`
+(bind to the mount element). `useEditorState` returns `htmlContent`, `jsonContent`, `isEmpty`,
+`isFocused`, and `isEditable`, or pass a selector for a granular `ComputedRef`:
+
+```ts
+const isBold = useEditorState(editor, (ed) => ed.isActive('bold'));
+```

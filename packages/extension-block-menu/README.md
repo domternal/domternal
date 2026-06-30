@@ -16,4 +16,8 @@
 [![Version](https://img.shields.io/npm/v/@domternal/extension-block-menu.svg)](https://www.npmjs.com/package/@domternal/extension-block-menu)
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
+## Links
+
+<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/extensions/block-controls)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
+
 See [`@domternal/extension-block-controls`](https://www.npmjs.com/package/@domternal/extension-block-controls) for the full documentation and API.

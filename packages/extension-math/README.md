@@ -8,6 +8,10 @@ block (`$$`) equation nodes. The rendering engine is **pluggable** and supplied 
 you, so the package itself stays light and you ship only the engine you choose.
 [KaTeX](https://katex.org/) is the recommended default.
 
+## Links
+
+<u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/nodes/math)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
+
 ## Install
 
 ```bash
