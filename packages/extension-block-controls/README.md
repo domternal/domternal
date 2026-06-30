@@ -4,12 +4,10 @@
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
 Notion-style block controls for the [Domternal](https://domternal.dev) editor. Ships
-six coordinated extensions: `BlockHandle` (hover gutter with a drag handle and `+`
-button), `BlockContextMenu` (Delete / Duplicate / Turn into), `SlashCommand` (type `/`
-for a filtered insert popup), `SmartPaste` (preserves block formatting when pasting at
-inline positions), `KeyboardReorder` (`Mod-Shift-ArrowUp/Down` moves the current block),
-and `FloatingMenu` (the empty-line insert menu). They cooperate through DOM events, so
-opening one overlay closes the others.
+six coordinated extensions: `BlockHandle`, `BlockContextMenu`, `SlashCommand`,
+`SmartPaste`, `KeyboardReorder`, and `FloatingMenu` (each described under
+[Extensions](#extensions) below). They cooperate through DOM events, so opening one
+overlay closes the others.
 
 ## Links
 
@@ -64,11 +62,13 @@ hook), so installed extensions register their own insert actions automatically.
 
 ## Extensions
 
-- **`BlockHandle`** - hover gutter with a drag handle (click to open the context menu,
-  drag to reorder with a nesting-aware drop indicator) and a `+` button that inserts an
-  empty paragraph and opens the `FloatingMenu`.
+- **`BlockHandle`** - hover gutter with a `+` insert button and a drag handle. The `+`
+  button inserts an empty paragraph and opens the `FloatingMenu`; the drag handle opens
+  the context menu on click and reorders with a nesting-aware drop indicator on drag.
 - **`BlockContextMenu`** - Delete / Duplicate / Turn into actions, opened from the drag
-  handle.
+  handle. Also shows a "Copy link" item when the block has an id (and `UniqueID` is
+  loaded), and a "Colors" section when the `BlockColor` extension is loaded; each is
+  toggleable via `turnIntoEnabled` / `copyLinkEnabled` / `blockColorEnabled`.
 - **`SlashCommand`** - typing `/` opens a filtered, ranked popup of insertable blocks;
   selecting one replaces the `/query` range and runs the item's command.
 - **`SmartPaste`** - keeps block-level formatting intact when pasting at an inline cursor.

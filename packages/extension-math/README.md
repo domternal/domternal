@@ -18,14 +18,15 @@ you, so the package itself stays light and you ship only the engine you choose.
 pnpm add @domternal/extension-math katex
 ```
 
-`katex` is a peer dependency. You may swap it for any engine implementing the
-`MathRenderer` interface.
+`katex` is a peer dependency (alongside `@domternal/core` and `@domternal/pm`). You
+may swap it for any engine implementing the `MathRenderer` interface.
 
 ## Usage
 
 ```ts
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
+import '@domternal/theme';
 import { Editor, Document, Text, Paragraph } from '@domternal/core';
 import { MathInline, MathBlock, createKatexRenderer } from '@domternal/extension-math';
 
@@ -46,7 +47,12 @@ const editor = new Editor({
 > package styles only the editor wrapper, edit popover, selected and error states
 > via `@domternal/theme` (`_math.scss`), never the math glyphs themselves.
 
-## Links
+## Commands
 
-- [Website](https://domternal.dev)
-- [Documentation](https://domternal.dev/v1/introduction)
+- `insertMathInline(latex?)` - insert an inline equation (`latex` optional; opens the edit popover when empty).
+- `insertMathBlock(latex?)` - insert a block (display) equation (`latex` optional; opens the edit popover when empty).
+
+Type `$x^2$` for inline or `$$` for a block; click or press Enter on an equation to edit it.
+
+`createKatexRenderer(katex, options?)` takes an options object as its second argument:
+`{ throwOnError = false, output = 'htmlAndMathml' }`.

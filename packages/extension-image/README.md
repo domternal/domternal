@@ -4,7 +4,7 @@
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
 An image node for the [Domternal](https://domternal.dev) editor: corner-handle
-resizing, float/text-wrapping controls (`left`, `center`, `right`), paste and
+resizing, float/text-wrapping controls (`none`, `left`, `center`, `right`), paste and
 drag-and-drop file upload through your own `uploadHandler`, a markdown
 `![alt](src "title")` input rule, and defense-in-depth XSS validation on `src`
 (blocks `javascript:`, `vbscript:`, `file:`, and non-image `data:` URLs across
@@ -51,7 +51,7 @@ const editor = new Editor({
 // Insert an image
 editor.commands.setImage({ src: 'https://example.com/photo.jpg', alt: 'A photo' });
 
-// Wrap text around it
+// Wrap text around the selected image
 editor.commands.setImageFloat('left');
 
 // Remove the selected image
@@ -65,7 +65,7 @@ editor.commands.deleteImage();
 - `inline` (`boolean`, default `false`) - render images inline within paragraphs instead of as block nodes.
 - `allowBase64` (`boolean`, default `true`) - permit `data:image/` URLs; when `false`, only non-data sources are allowed.
 - `uploadHandler` (`(file: File) => Promise<string>` or `null`, default `null`) - when set, enables image upload on paste and drop.
-- `allowedMimeTypes` (`string[]`) - MIME types accepted for upload (defaults to common image types).
+- `allowedMimeTypes` (`string[]`) - MIME types accepted for upload (defaults to `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `image/svg+xml`, `image/avif`).
 - `maxFileSize` (`number`, default `0`) - max upload size in bytes; `0` means unlimited.
 - `onUploadStart` / `onUploadError` - callbacks fired when an upload begins or fails.
 - `HTMLAttributes` (`Record<string, unknown>`) - attributes merged onto the rendered `<img>`.
@@ -75,3 +75,11 @@ editor.commands.deleteImage();
 - `setImage(attributes: SetImageOptions)` - insert an image (`src` required; optional `alt`, `title`, `width`, `height`, `loading`, `crossorigin`, `float`).
 - `setImageFloat(float: ImageFloat)` - set wrapping on the selected image (`'none' | 'left' | 'right' | 'center'`).
 - `deleteImage()` - delete the selected image.
+
+## Editing UI
+
+The user-facing counterpart to the commands above:
+
+- Selecting an image opens a bubble menu with wrapping controls (Inline / Left / Center / Right), an "Edit alt text" action, and Delete.
+- The main toolbar and the slash (floating) menu both expose an "Image" action that opens a popover with a URL field and an alt-text field, plus a button to browse for a local file.
+- When `uploadHandler` is set, pasting or dropping an image file uploads it through the handler and inserts the returned URL. Without an `uploadHandler`, pasted and dropped images are inlined as base64 `data:` URLs.

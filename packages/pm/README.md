@@ -16,8 +16,7 @@ install it yourself: it ships transitively with `@domternal/core`.
 
 ## Install
 
-Already a dependency of `@domternal/core`, so most apps never add it directly. Install
-it explicitly only when you import ProseMirror primitives in your own code:
+Install it explicitly only when you import ProseMirror primitives in your own code:
 
 ```bash
 pnpm add @domternal/pm
@@ -32,17 +31,16 @@ Import from a subpath matching the ProseMirror package you need. Each subpath
 re-exports the full API of its `prosemirror-*` counterpart.
 
 ```ts
-import { Schema } from '@domternal/pm/model';
-import { EditorState, Plugin, PluginKey } from '@domternal/pm/state';
-import { EditorView } from '@domternal/pm/view';
+import { Plugin, PluginKey } from '@domternal/pm/state';
+import type { EditorView } from '@domternal/pm/view';
 
 const myPlugin = new Plugin({
   key: new PluginKey('my-plugin'),
   view: (view: EditorView) => ({ destroy: () => {} }),
 });
 
-// `state` and `view` are the same APIs you would get from
-// 'prosemirror-state' and 'prosemirror-view' directly.
+// Every `@domternal/pm/*` subpath re-exports its `prosemirror-*`
+// counterpart unchanged.
 ```
 
 ## Subpaths

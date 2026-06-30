@@ -5,9 +5,9 @@
 
 React components and hooks for the [Domternal](https://domternal.dev) editor. Wraps the headless
 [`@domternal/core`](https://www.npmjs.com/package/@domternal/core) editor with React-native APIs: a composable
-`Domternal` component with namespaced subcomponents (`Toolbar`, `Content`, `BubbleMenu`, `FloatingMenu`,
-`EmojiPicker`), a `useEditor` hook for full control, an `EditorProvider` context, and `ReactNodeViewRenderer`
-for writing custom node views as React components. Works with React 18 and React 19.
+`Domternal` component with namespaced subcomponents, a `useEditor` hook for full control, an `EditorProvider`
+context, and `ReactNodeViewRenderer` for writing custom node views as React components. Works with React 18
+and React 19.
 
 ## Links
 
@@ -19,7 +19,7 @@ for writing custom node views as React components. Works with React 18 and React
 pnpm add @domternal/react @domternal/core react react-dom
 ```
 
-`react` (>=18), `react-dom` (>=18), and `@domternal/core` are peer dependencies. Import the theme
+`react` (>=18), `react-dom` (>=18), and `@domternal/core` (>=0.11) are peer dependencies. Import the theme
 ([`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme)) in your entry CSS for default styling:
 
 ```css
@@ -75,7 +75,7 @@ export default function Editor() {
 
 ## Exports
 
-- **Hooks**: `useEditor`, `useEditorState`, `useCurrentEditor`
+- **Hooks**: `useEditor`, `useEditorState` (full state or a granular selector), `useCurrentEditor`
 - **Constants**: `DEFAULT_EXTENSIONS`
 - **Composable component**: `Domternal` with `Domternal.Toolbar`, `Domternal.Content`, `Domternal.BubbleMenu`,
   `Domternal.FloatingMenu`, `Domternal.EmojiPicker`, `Domternal.Loading`

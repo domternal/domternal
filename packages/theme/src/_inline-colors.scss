@@ -154,8 +154,8 @@
     background-image: linear-gradient(
       to top right,
       transparent calc(50% - 1px),
-      var(--dm-muted, #999) calc(50% - 1px),
-      var(--dm-muted, #999) calc(50% + 1px),
+      var(--dm-muted, #6b7280) calc(50% - 1px),
+      var(--dm-muted, #6b7280) calc(50% + 1px),
       transparent calc(50% + 1px)
     );
   }

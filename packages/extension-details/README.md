@@ -51,8 +51,14 @@ editor.chain().focus().setDetails().openDetails().run();
 - `setDetails()` - wrap the selected block(s) in a new details accordion
 - `unsetDetails()` - unwrap the surrounding details back into plain blocks
 - `toggleDetails()` - wrap if outside a details, unwrap if inside one
-- `openDetails()` / `closeDetails()` - expand or collapse the current details
-- `setDetailsOpen(open: boolean)` - set the open state explicitly
+- `openDetails()` / `closeDetails()` - expand or collapse the current details (requires `persist: true`)
+- `setDetailsOpen(open: boolean)` - set the open state explicitly (requires `persist: true`)
+
+`openDetails()`, `closeDetails()`, and `setDetailsOpen()` only change a saved
+attribute, so they no-op unless `persist: true` is set.
+
+Adding `Details` also registers a toolbar button and a slash-menu entry
+("Toggle block") that run `toggleDetails`.
 
 ## Options
 

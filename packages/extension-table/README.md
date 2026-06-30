@@ -4,12 +4,13 @@
 [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/domternal/domternal/blob/main/LICENSE)
 
 Full-featured tables for the [Domternal](https://domternal.dev) editor, built on
-`prosemirror-tables`. Provides the `Table`, `TableRow`, `TableCell`, and
-`TableHeader` nodes with cell merge/split, three column-resize modes, header
-row/column toggles, cell selection, and `Tab`/arrow keyboard navigation. The
-built-in `TableView` adds row/column handles, a cell toolbar, and drag-to-resize,
-or you can disable it (`View: null`) and drive everything through commands. All
-free, no paid tier.
+`prosemirror-tables`.
+
+Provides the `Table`, `TableRow`, `TableCell`, and `TableHeader` nodes with cell
+merge/split, three column-resize modes, header row/column toggles, cell selection,
+and `Tab`/arrow keyboard navigation. The built-in `TableView` adds row/column
+handles, a cell toolbar, and drag-to-resize, or you can disable it (`View: null`)
+and drive everything through commands.
 
 ## Links
 
@@ -52,6 +53,8 @@ Table.configure({
   constrainToContainer: true,
   cellMinWidth: 25,
   defaultCellMinWidth: 100,
+  allowTableNodeSelection: false, // allow selecting the whole table as a node
+  HTMLAttributes: {}, // custom attributes on the rendered <table>
   View: null, // disable the built-in TableView and use your own UI
 });
 ```
@@ -70,4 +73,5 @@ Registered on the editor when the extension is active:
 
 The package also exports the `TableView` node view, the `createTable` and
 `deleteTableWhenAllCellsSelected` helpers, and re-exports `CellSelection` and
-`TableMap` from `prosemirror-tables`.
+`TableMap` (which originate in `prosemirror-tables`) from `@domternal/pm/tables`,
+so you do not need a bare `prosemirror-tables` import.

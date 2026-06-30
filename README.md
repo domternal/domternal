@@ -23,11 +23,11 @@ A lightweight, extensible rich text editor toolkit built on [ProseMirror](https:
 - **Notion-style block UX** - drag-to-reorder, block context menu, slash command, smart paste, keyboard reorder, floating Table of Contents
 - **70+ extensions across 16 packages** - nodes, marks, and behavior extensions
 - **125+ chainable commands** - `editor.chain().focus().toggleBold().run()`
-- **Full table support** - cell merging, column resize, row/column controls, cell toolbar, all free and MIT licensed
+- **Full table support** - cell merging, column resize, row/column controls, cell toolbar
 - **Tree-shakeable** - import only what you use, your bundler strips the rest
 - **~44 KB gzipped** (own code), [~117 KB total](https://domternal.dev/v1/packages) with ProseMirror - see Packages for full bundle breakdown
 - **TypeScript first** - 100% typed, zero `any`
-- **15,000+ tests** - 4,000+ unit and 11,000+ E2E across 230+ Playwright specs and 4 demo apps
+- **18,000+ tests** - 4,000+ unit and 14,000+ E2E across 320+ Playwright specs and 4 demo apps
 - **Light and dark theme** - 160+ CSS custom properties for full visual control
 - **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
 - **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
@@ -50,11 +50,9 @@ const editor = new Editor({
 });
 ```
 
-Import only what you need for full control and zero bloat. Use `StarterKit` for a batteries-included setup with headings, lists, code blocks, history, and more.
+The example above wires the minimum schema by hand to show the headless model; in practice use `StarterKit` for a batteries-included setup with headings, lists, code blocks, history, and more.
 
 > **[Getting Started Guide](https://domternal.dev/v1/getting-started)** - headless core, themed UI with toolbar, and Angular/React/Vue component setup
->
-> **[Live examples](https://domternal.dev/examples)** - full, editable editors for Angular, React, Vue, and Vanilla with all extensions, toolbar, and bubble menu
 
 ## Packages
 

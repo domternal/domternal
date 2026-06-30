@@ -19,8 +19,8 @@ data and, optionally, the dropdown UI; a framework-free default renderer is incl
 pnpm add @domternal/extension-mention
 ```
 
-`@domternal/core` and `@domternal/pm` are peer dependencies (you already have them
-when using the editor).
+`@domternal/core` and `@domternal/pm` are peer dependencies and are already installed
+with the editor.
 
 ## Usage
 
@@ -55,11 +55,12 @@ const editor = new Editor({
 });
 ```
 
-Type `@` to open the dropdown, navigate with arrow keys, and press `Enter` to insert.
+Type `@` to open the dropdown, navigate with arrow keys, press `Enter` to insert, and
+`Escape` to dismiss.
 `items` may also return a `Promise`, so suggestions can come from a remote API; pair
 that with `debounce` on the trigger to rate-limit calls.
 
-## Commands
+## Commands and storage
 
 The extension registers two chainable commands:
 
@@ -90,5 +91,6 @@ Mention.configure({
 ```
 
 For full options (`minQueryLength`, `allowSpaces`, `appendText`, `invalidNodes`,
-`shouldShow`, custom `renderHTML`/`renderText`) and framework wrapper examples, see the
+`debounce`, `shouldShow`, `deleteTriggerWithBackspace`, custom `renderHTML`/`renderText`)
+and framework wrapper examples, see the
 [documentation](https://domternal.dev/v1/nodes/mention).

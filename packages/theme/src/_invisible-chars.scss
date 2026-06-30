@@ -9,7 +9,7 @@
 .dm-editor .ProseMirror {
   // Widget decorations (paragraph marks, hard breaks)
   .invisible-char {
-    color: var(--dm-invisible-char-color, var(--dm-muted, #999));
+    color: var(--dm-invisible-char-color, var(--dm-muted, #6b7280));
     pointer-events: none;
     user-select: none;
   }
@@ -23,7 +23,7 @@
       position: absolute;
       inset: 0;
       text-align: center;
-      color: var(--dm-invisible-char-color, var(--dm-muted, #999));
+      color: var(--dm-invisible-char-color, var(--dm-muted, #6b7280));
       pointer-events: none;
     }
   }
@@ -37,7 +37,7 @@
       position: absolute;
       inset: 0;
       text-align: center;
-      color: var(--dm-invisible-char-color, var(--dm-muted, #999));
+      color: var(--dm-invisible-char-color, var(--dm-muted, #6b7280));
       pointer-events: none;
     }
   }
