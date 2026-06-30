@@ -28,7 +28,7 @@ A lightweight, extensible rich text editor toolkit built on [ProseMirror](https:
 - **~44 KB gzipped** (own code), [~117 KB total](https://domternal.dev/v1/packages) with ProseMirror - see Packages for full bundle breakdown
 - **TypeScript first** - 100% typed, zero `any`
 - **15,000+ tests** - 4,000+ unit and 11,000+ E2E across 230+ Playwright specs and 4 demo apps
-- **Light and dark theme** - 120+ CSS custom properties for full visual control
+- **Light and dark theme** - 160+ CSS custom properties for full visual control
 - **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
 - **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
 
@@ -67,7 +67,7 @@ Import only what you need for full control and zero bloat. Use `StarterKit` for 
 | Package | Description |
 |---|---|
 | [`@domternal/core`](https://www.npmjs.com/package/@domternal/core) | Editor engine with 13 nodes, 9 marks, 27 extensions, toolbar controller, and 51 built-in icons |
-| [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme) | Light and dark themes with 120+ CSS custom properties |
+| [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme) | Light and dark themes with 160+ CSS custom properties |
 | [`@domternal/angular`](https://www.npmjs.com/package/@domternal/angular) | 6 Angular components: editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker |
 | [`@domternal/react`](https://www.npmjs.com/package/@domternal/react) | React 18+ wrapper: composable component, toolbar, bubble menu, floating menu, emoji picker, notion color picker, node views |
 | [`@domternal/vue`](https://www.npmjs.com/package/@domternal/vue) | Vue 3.3+ wrapper: composable component, composables, toolbar, bubble menu, floating menu, emoji picker, notion color picker, node views |
