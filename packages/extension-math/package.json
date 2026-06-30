@@ -1,6 +1,6 @@
 {
   "name": "@domternal/extension-math",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "description": "LaTeX math (inline + block) for Domternal editor with a pluggable renderer (KaTeX by default)",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
