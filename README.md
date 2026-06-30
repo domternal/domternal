@@ -11,7 +11,7 @@ A lightweight, extensible rich text editor toolkit built on [ProseMirror](https:
 
 **[Website](https://domternal.dev)** · **[Getting Started](https://domternal.dev/v1/getting-started)** · **[Packages & Bundle Size](https://domternal.dev/v1/packages)**
 
-**[StackBlitz (Angular)](https://stackblitz.com/edit/domternal-angular-full-example)** · **[StackBlitz (React)](https://stackblitz.com/edit/domternal-react-full-example)** · **[StackBlitz (Vue)](https://stackblitz.com/edit/domternal-vue-full-example)** · **[StackBlitz (Vanilla TS)](https://stackblitz.com/edit/domternal-vanilla-full-example)**
+**[Live examples](https://domternal.dev/examples)** - full editors for Angular, React, Vue, and Vanilla, editable in the browser
 
 ## Features
 
@@ -54,13 +54,7 @@ Import only what you need for full control and zero bloat. Use `StarterKit` for 
 
 > **[Getting Started Guide](https://domternal.dev/v1/getting-started)** - headless core, themed UI with toolbar, and Angular/React/Vue component setup
 >
-> **[StackBlitz (Angular)](https://stackblitz.com/edit/domternal-angular-full-example)** - full Angular example with all extensions, toolbar, and bubble menu
->
-> **[StackBlitz (React)](https://stackblitz.com/edit/domternal-react-full-example)** - full React example with composable components, toolbar, and bubble menu
->
-> **[StackBlitz (Vue)](https://stackblitz.com/edit/domternal-vue-full-example)** - full Vue example with composable components, toolbar, and bubble menu
->
-> **[StackBlitz (Vanilla TS)](https://stackblitz.com/edit/domternal-vanilla-full-example)** - full vanilla example with toolbar, bubble menu, and all extensions
+> **[Live examples](https://domternal.dev/examples)** - full, editable editors for Angular, React, Vue, and Vanilla with all extensions, toolbar, and bubble menu
 
 ## Packages
 
