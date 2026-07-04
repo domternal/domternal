@@ -55,11 +55,14 @@ We use **Squash and Merge**. The PR title becomes the final commit message.
 ### PR Description
 
 Include:
-- **Summary** - Brief summary of changes (required)
-- **Features** - Key capabilities added (for `feat` PRs)
-- **Changes** - What was modified (for `fix`/`refactor` PRs)
-- **What** - Problem/issue being solved (optional)
+- **Summary** - Short summary of all the changes (required)
+- **Features** - Which features were added (if any)
+- **Fix** - What was fixed, which bugs (if any)
+- **Changes** - Which changes were made (if any)
 - **Verified** - What was tested and how (e.g. "built all packages, ran unit tests, tested in demo app")
+
+A PR can have just one of Features/Fix/Changes, or all of them. The
+[PR template](.github/PULL_REQUEST_TEMPLATE.md) pre-fills these sections.
 
 ## Development
 

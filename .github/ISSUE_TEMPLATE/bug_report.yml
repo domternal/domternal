@@ -1,0 +1,71 @@
+name: Bug report
+description: Something in Domternal does not work as expected
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Before submitting, please search
+        [existing issues](https://github.com/domternal/domternal/issues) to avoid duplicates.
+
+  - type: dropdown
+    id: framework
+    attributes:
+      label: Framework
+      description: Which wrapper are you using?
+      options:
+        - React (@domternal/react)
+        - Vue (@domternal/vue)
+        - Angular (@domternal/angular)
+        - Vanilla JS (@domternal/vanilla)
+        - Core / not framework-specific
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Domternal version
+      description: The version of the @domternal packages you are using.
+      placeholder: "0.11.2"
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you do, what happened, and what did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create an editor with StarterKit
+        2. Type "..."
+        3. Press Enter
+        4. See the error
+    validations:
+      required: true
+
+  - type: input
+    id: repro
+    attributes:
+      label: Minimal reproduction (optional but very helpful)
+      description: |
+        Fork the starter for your framework, reproduce the bug, and paste the link:
+        [React](https://stackblitz.com/edit/domternal-react-full-example) ·
+        [Vue](https://stackblitz.com/edit/domternal-vue-full-example) ·
+        [Angular](https://stackblitz.com/edit/domternal-angular-full-example) ·
+        [Vanilla JS](https://stackblitz.com/edit/domternal-vanilla-full-example)
+      placeholder: "https://stackblitz.com/edit/..."
+
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and OS
+      placeholder: "Chrome 138, macOS 15"

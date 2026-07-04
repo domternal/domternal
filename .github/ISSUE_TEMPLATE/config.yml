@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://domternal.dev/v1/introduction
+    about: Guides, extension docs, and API reference.
+  - name: Live examples
+    url: https://domternal.dev/examples
+    about: Try Domternal in the browser and open framework starters on StackBlitz.
