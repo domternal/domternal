@@ -3,6 +3,7 @@ import { Schema } from '@domternal/pm/model';
 import { Plugin, TextSelection } from '@domternal/pm/state';
 import { Editor } from './Editor.js';
 import { Extension } from './Extension.js';
+import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
 import { Document } from './nodes/Document.js';
 import { Text } from './nodes/Text.js';
 import { Paragraph } from './nodes/Paragraph.js';
@@ -226,6 +227,40 @@ describe('Editor', () => {
       expect(onUpdate).toHaveBeenCalledTimes(1);
       expect(editor.getText()).toBe('from plugin view init and more');
       element.remove();
+    });
+  });
+
+  describe('ExtensionConfigurationError', () => {
+    it('fails editor construction instead of being isolated', () => {
+      const Fatal = Extension.create({
+        name: 'fatal',
+        addProseMirrorPlugins() {
+          throw new ExtensionConfigurationError('fatal is misconfigured');
+        },
+      });
+
+      expect(
+        () =>
+          new Editor({
+            extensions: [Document, Text, Paragraph, Fatal],
+          })
+      ).toThrow('fatal is misconfigured');
+    });
+
+    it('keeps isolating plain errors from the same hook', () => {
+      const Broken = Extension.create({
+        name: 'broken',
+        addProseMirrorPlugins() {
+          throw new Error('broken but not fatal');
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Broken],
+      });
+
+      expect(editor.isDestroyed).toBe(false);
+      expect(editor.getText()).toBe('');
     });
   });
 

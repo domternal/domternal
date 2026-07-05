@@ -8,6 +8,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { Schema } from '@domternal/pm/model';
 import type { Plugin } from '@domternal/pm/state';
 import { ExtensionManager } from './ExtensionManager.js';
+import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
 import { Extension } from './Extension.js';
 import { Node } from './Node.js';
 import { Mark } from './Mark.js';
@@ -449,6 +450,23 @@ describe('ExtensionManager', () => {
         error: expect.objectContaining({ message: 'string error' }),
         context: 'test.context',
       });
+    });
+
+    it('rethrows ExtensionConfigurationError instead of isolating it', () => {
+      const emit = vi.fn();
+      const editorWithEmit = {
+        schema: validSchema,
+        emit,
+      };
+
+      const manager = new ExtensionManager({ schema: validSchema }, editorWithEmit);
+
+      expect(() =>
+        manager.safeCall(() => {
+          throw new ExtensionConfigurationError('fatal setup problem');
+        }, 'TestExt.addProseMirrorPlugins')
+      ).toThrow('fatal setup problem');
+      expect(emit).not.toHaveBeenCalled();
     });
   });
 
