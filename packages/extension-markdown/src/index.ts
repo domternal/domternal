@@ -1,5 +1,9 @@
 // @domternal/extension-markdown - public API.
-// M-A1 ships the serializer; the parser, extension, and commands land next.
+// M-A2 ships serializer + parser; the extension and commands land next.
+
+export { createMarkdownParser, parseMarkdown } from './parser/parser.js';
+export type { MarkdownParser } from './parser/parser.js';
+export { MarkdownParseState } from './parser/state.js';
 
 export {
   createMarkdownSerializer,
