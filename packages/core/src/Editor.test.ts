@@ -180,6 +180,55 @@ describe('Editor', () => {
     });
   });
 
+  describe('plugin view dispatch during EditorView construction', () => {
+    // EditorView's constructor initializes plugin views, and a plugin view may
+    // dispatch synchronously before `editor.view` is assigned. y-prosemirror's
+    // ySyncPlugin does exactly this to render remote content on first bind.
+    const InitDispatcher = Extension.create({
+      name: 'initDispatcher',
+      addProseMirrorPlugins() {
+        return [
+          new Plugin({
+            view(view) {
+              view.dispatch(view.state.tr.insertText('from plugin view init', 1));
+              return {};
+            },
+          }),
+        ];
+      },
+    });
+
+    it('applies a transaction dispatched while the view is constructed', () => {
+      const element = document.createElement('div');
+      const onTransaction = vi.fn();
+      const onUpdate = vi.fn();
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, InitDispatcher],
+        element,
+        content: '',
+        onTransaction,
+        onUpdate,
+      });
+
+      expect(editor.view).toBeDefined();
+      expect(editor.getText()).toBe('from plugin view init');
+
+      // Construction-time transactions are initial state, not updates.
+      expect(onTransaction).not.toHaveBeenCalled();
+      expect(onUpdate).not.toHaveBeenCalled();
+
+      // Dispatch flows through the editor normally once construction is done.
+      editor.view.dispatch(
+        editor.state.tr.insertText(' and more', editor.state.doc.content.size - 1)
+      );
+      expect(onTransaction).toHaveBeenCalledTimes(1);
+      expect(onUpdate).toHaveBeenCalledTimes(1);
+      expect(editor.getText()).toBe('from plugin view init and more');
+      element.remove();
+    });
+  });
+
   describe('getters', () => {
     beforeEach(() => {
       editor = new Editor({

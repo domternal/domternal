@@ -697,7 +697,7 @@ export class Editor extends EventEmitter<EditorEvents> {
     const nodeViews = this._extensionManager.nodeViews;
     this.view = new EditorView(element, {
       state,
-      dispatchTransaction: this.dispatchTransaction.bind(this),
+      dispatchTransaction: Editor.buildViewDispatch(this),
       editable: () => this.options.editable ?? true,
       attributes: () => ({
         role: 'textbox',
@@ -755,6 +755,29 @@ export class Editor extends EventEmitter<EditorEvents> {
     this.emit('create', { editor: this });
     this.options.onCreate?.({ editor: this });
     this._extensionManager.callOnCreate();
+  }
+
+  /**
+   * Builds the dispatchTransaction prop for the EditorView. ProseMirror calls
+   * the prop with the view as `this`, which matters mid-construction: plugin
+   * views can dispatch synchronously inside EditorView's constructor (e.g. a
+   * collaborative binding rendering remote content) before `editor.view` is
+   * assigned. Those early transactions are applied straight to the view, like
+   * ProseMirror's default dispatch, and skip event emission because the
+   * editor is still assembling its initial state.
+   */
+  private static buildViewDispatch(
+    editor: Editor
+  ): (transaction: Transaction) => void {
+    return function (this: EditorView, transaction: Transaction): void {
+      // The declared type says `view` is always set; mid-construction it is not.
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+      if (!editor.view) {
+        this.updateState(this.state.apply(transaction));
+        return;
+      }
+      editor.dispatchTransaction(transaction);
+    };
   }
 
   /**
