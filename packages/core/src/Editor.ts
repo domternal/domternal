@@ -758,13 +758,10 @@ export class Editor extends EventEmitter<EditorEvents> {
   }
 
   /**
-   * Builds the dispatchTransaction prop for the EditorView. ProseMirror calls
-   * the prop with the view as `this`, which matters mid-construction: plugin
-   * views can dispatch synchronously inside EditorView's constructor (e.g. a
-   * collaborative binding rendering remote content) before `editor.view` is
-   * assigned. Those early transactions are applied straight to the view, like
-   * ProseMirror's default dispatch, and skip event emission because the
-   * editor is still assembling its initial state.
+   * Builds the dispatchTransaction prop. Plugin views can dispatch synchronously
+   * inside EditorView's constructor, before `editor.view` is assigned; ProseMirror
+   * binds the prop to the view, so those transactions are applied directly (like
+   * the default dispatch) and skip events: they are initial state, not updates.
    */
   private static buildViewDispatch(
     editor: Editor
