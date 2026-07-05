@@ -248,6 +248,7 @@ describe('Editor', () => {
     });
 
     it('keeps isolating plain errors from the same hook', () => {
+      const onError = vi.fn();
       const Broken = Extension.create({
         name: 'broken',
         addProseMirrorPlugins() {
@@ -257,10 +258,37 @@ describe('Editor', () => {
 
       editor = new Editor({
         extensions: [Document, Text, Paragraph, Broken],
+        onError,
       });
 
       expect(editor.isDestroyed).toBe(false);
       expect(editor.getText()).toBe('');
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({ context: 'broken.addProseMirrorPlugins' })
+      );
+    });
+
+    it('delivers construction-time hook errors to onError', () => {
+      const onError = vi.fn();
+      const BrokenBeforeCreate = Extension.create({
+        name: 'brokenBeforeCreate',
+        onBeforeCreate() {
+          throw new Error('setup failed');
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BrokenBeforeCreate],
+        onError,
+      });
+
+      expect(editor.isDestroyed).toBe(false);
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: 'brokenBeforeCreate.onBeforeCreate',
+          error: expect.objectContaining({ message: 'setup failed' }),
+        })
+      );
     });
   });
 

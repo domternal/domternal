@@ -637,6 +637,13 @@ export class Editor extends EventEmitter<EditorEvents> {
    * Creates the editor instance
    */
   private createEditor(): void {
+    // Wire the onError callback before extension setup: extension hook errors
+    // are isolated into 'error' events from step 2 onward (safeCall), and a
+    // listener registered any later misses construction-time errors.
+    this.on('error', (props) => {
+      this.options.onError?.(props);
+    });
+
     // 1. Emit beforeCreate - extensions can modify options in Step 2
     this.emit('beforeCreate', { editor: this });
     this.options.onBeforeCreate?.({ editor: this });
@@ -746,12 +753,7 @@ export class Editor extends EventEmitter<EditorEvents> {
       }, 0);
     }
 
-    // 11. Set up error event handler for onError callback
-    this.on('error', (props) => {
-      this.options.onError?.(props);
-    });
-
-    // 12. Emit create event and call extension onCreate hooks
+    // 11. Emit create event and call extension onCreate hooks
     this.emit('create', { editor: this });
     this.options.onCreate?.({ editor: this });
     this._extensionManager.callOnCreate();
