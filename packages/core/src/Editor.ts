@@ -107,6 +107,11 @@ export class Editor extends EventEmitter<EditorEvents> {
   private _autofocusTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
+   * True while EditorView's constructor runs; see buildViewDispatch.
+   */
+  private _isViewConstructing = false;
+
+  /**
    * Creates a new Editor instance
    *
    * @param options - Editor configuration
@@ -702,6 +707,7 @@ export class Editor extends EventEmitter<EditorEvents> {
 
     // 7. Create EditorView
     const nodeViews = this._extensionManager.nodeViews;
+    this._isViewConstructing = true;
     this.view = new EditorView(element, {
       state,
       dispatchTransaction: Editor.buildViewDispatch(this),
@@ -733,6 +739,7 @@ export class Editor extends EventEmitter<EditorEvents> {
         },
       },
     });
+    this._isViewConstructing = false;
 
     // 8. Emit mount event - view is now attached to DOM element
     this.emit('mount', { editor: this, view: this.view });
@@ -762,16 +769,19 @@ export class Editor extends EventEmitter<EditorEvents> {
   /**
    * Builds the dispatchTransaction prop. Plugin views can dispatch synchronously
    * inside EditorView's constructor, before `editor.view` is assigned; ProseMirror
-   * binds the prop to the view, so those transactions are applied directly (like
-   * the default dispatch) and skip events: they are initial state, not updates.
+   * binds the prop to the view, so the instance is captured early (plugin code
+   * such as appendTransaction may read `editor.view` during the apply) and the
+   * transaction is applied directly, like the default dispatch, skipping events:
+   * it is initial state, not an update.
    */
   private static buildViewDispatch(
     editor: Editor
   ): (transaction: Transaction) => void {
     return function (this: EditorView, transaction: Transaction): void {
-      // The declared type says `view` is always set; mid-construction it is not.
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-      if (!editor.view) {
+      if (editor._isViewConstructing) {
+        // The declared type says `view` is always set; mid-construction it is not.
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        editor.view ??= this;
         this.updateState(this.state.apply(transaction));
         return;
       }

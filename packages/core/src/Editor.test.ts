@@ -199,6 +199,39 @@ describe('Editor', () => {
       },
     });
 
+    it('exposes editor.view to plugin code during construction-time dispatch', () => {
+      // extension-details reads editor.view.composing in appendTransaction,
+      // which runs inside the state.apply of a construction-time dispatch.
+      let sawComposing: boolean | null = null;
+      const ViewReader = Extension.create({
+        name: 'viewReader',
+        addProseMirrorPlugins() {
+          const editor = this.editor as Editor;
+          return [
+            new Plugin({
+              appendTransaction: () => {
+                sawComposing = editor.view.composing;
+                return null;
+              },
+            }),
+            new Plugin({
+              view(view) {
+                view.dispatch(view.state.tr.insertText('boot', 1));
+                return {};
+              },
+            }),
+          ];
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, ViewReader],
+      });
+
+      expect(sawComposing).toBe(false);
+      expect(editor.getText()).toBe('boot');
+    });
+
     it('applies a transaction dispatched while the view is constructed', () => {
       const element = document.createElement('div');
       const onTransaction = vi.fn();
