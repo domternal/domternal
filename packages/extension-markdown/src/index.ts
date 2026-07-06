@@ -1,5 +1,11 @@
 // @domternal/extension-markdown - public API.
-// M-A2 ships serializer + parser; the extension and commands land next.
+
+export { Markdown, getMarkdown } from './Markdown.js';
+export type { MarkdownOptions, MarkdownStorage } from './Markdown.js';
+export { Markdown as default } from './Markdown.js';
+
+export { downloadMarkdown } from './download.js';
+export { looksLikeMarkdown, markdownPastePlugin, markdownPastePluginKey } from './pastePlugin.js';
 
 export { createMarkdownParser, parseMarkdown } from './parser/parser.js';
 export type { MarkdownParser } from './parser/parser.js';
