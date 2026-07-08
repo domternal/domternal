@@ -37,6 +37,10 @@ yarn-error.log
 testem.log
 /typings
 
+# Playwright artifacts (root matrix e2e + per-app suites)
+test-results/
+playwright-report/
+
 # System Files
 .DS_Store
 Thumbs.db

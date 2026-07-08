@@ -74,6 +74,10 @@ pnpm lint       # Run linter
 pnpm typecheck  # Run type checker
 ```
 
+### E2E tests
+
+NEW cross-framework behavior specs go into the root `e2e/` matrix suite (`pnpm test:e2e:matrix`): one spec runs against all four demo apps via `e2e/targets.ts`. The per-app suites under each demo app's `e2e/` directory are the legacy layout and remain for existing specs and for behavior specific to one framework wrapper.
+
 ## Release
 
 1. Branch: `git checkout -b release/X.Y.Z` from main
