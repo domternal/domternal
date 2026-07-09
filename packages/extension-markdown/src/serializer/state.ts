@@ -90,8 +90,10 @@ export class MarkdownSerializerState {
     if (!this.atBlank()) this.out += '\n';
     if (size > 1) {
       let delimMin = this.delim;
-      const trim = /\s+$/.exec(delimMin);
-      if (trim) delimMin = delimMin.slice(0, delimMin.length - trim[0].length);
+      // Manual trim: `\s+$` is quadratic on long whitespace runs (CodeQL).
+      let end = delimMin.length;
+      while (end > 0 && /\s/.test(delimMin.charAt(end - 1))) end -= 1;
+      delimMin = delimMin.slice(0, end);
       for (let i = 1; i < size; i++) this.out += delimMin + '\n';
     }
     this.closed = null;
@@ -214,20 +216,24 @@ export class MarkdownSerializerState {
         })
       ) {
         const text = node.text ?? '';
-        const match = /^(\s*)(.*?)(\s*)$/s.exec(text);
-        if (match) {
-          const [, lead = '', inner = '', trail = ''] = match;
-          if (lead !== '' || trail !== '') {
-            leading += lead;
-            trailing = trail;
-            if (inner === '') {
-              // Whitespace-only node: keep the active marks open across it
-              // instead of closing and reopening the delimiters.
-              marks = active.slice();
-              node = null;
-            } else {
-              node = (node as PMNode & { withText: (t: string) => PMNode }).withText(inner);
-            }
+        // Manual split: a `(\s*)(.*?)(\s*)` regex is quadratic on long runs (CodeQL).
+        let coreStart = 0;
+        while (coreStart < text.length && /\s/.test(text.charAt(coreStart))) coreStart += 1;
+        let coreEnd = text.length;
+        while (coreEnd > coreStart && /\s/.test(text.charAt(coreEnd - 1))) coreEnd -= 1;
+        const lead = text.slice(0, coreStart);
+        const core = text.slice(coreStart, coreEnd);
+        const trail = text.slice(coreEnd);
+        if (lead !== '' || trail !== '') {
+          leading += lead;
+          trailing = trail;
+          if (core === '') {
+            // Whitespace-only node: keep the active marks open across it
+            // instead of closing and reopening the delimiters.
+            marks = active.slice();
+            node = null;
+          } else {
+            node = (node as PMNode & { withText: (t: string) => PMNode }).withText(core);
           }
         }
       }
@@ -342,18 +348,25 @@ export class MarkdownSerializerState {
    * renderers): all render as the literal character everywhere.
    */
   esc(str: string, startOfLine = false): string {
-    let escaped = str.replace(/[`*\\~[\]_<$]/g, (m, i: number) =>
-      m === '_' && i > 0 && i + 1 < str.length && /\w/.test(str[i - 1] ?? '') && /\w/.test(str[i + 1] ?? '')
-        ? m
-        : '\\' + m
-    );
+    // Single pass: each char is escaped exactly once, so a literal `\`
+    // can never neutralize a later escape (CodeQL).
+    let escaped = str.replace(/[`*\\~[\]_<$|&]/g, (m, i: number) => {
+      if (m === '_') {
+        return i > 0 && i + 1 < str.length && /\w/.test(str[i - 1] ?? '') && /\w/.test(str[i + 1] ?? '')
+          ? m
+          : '\\' + m;
+      }
+      // `&` only forms an entity when followed by a letter or `#`.
+      if (m === '&') return /[a-z#]/i.test(str[i + 1] ?? '') ? '\\&' : m;
+      return '\\' + m;
+    });
     if (startOfLine) {
       escaped = escaped
         .replace(/^([-*>]|\+ )/, '\\$&')
         .replace(/^(\s*)(#{1,6})(\s|$)/, '$1\\$2$3')
         .replace(/^(\s*\d+)\.(\s|$)/, '$1\\.$2');
     }
-    return escaped.replace(/\|/g, '\\|').replace(/&(?=[a-z#])/gi, '\\&');
+    return escaped;
   }
 
   markString(mark: Mark, open: boolean, parent: PMNode, index: number): string {

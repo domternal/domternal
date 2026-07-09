@@ -219,6 +219,14 @@ describe('looksLikeMarkdown', () => {
     }
   });
 
+  it('stays linear on pathological bracket floods', () => {
+    // Quadratic scanning here froze the paste path on adversarial clipboards.
+    const started = Date.now();
+    expect(looksLikeMarkdown('['.repeat(50_000))).toBe(false);
+    expect(looksLikeMarkdown('!['.repeat(25_000))).toBe(false);
+    expect(Date.now() - started).toBeLessThan(500);
+  });
+
   it('rejects plain prose and bare URLs', () => {
     for (const sample of ['just words here.', 'see https://x.com/ for more', 'a*b', 'x _y_z']) {
       expect(looksLikeMarkdown(sample), sample).toBe(false);

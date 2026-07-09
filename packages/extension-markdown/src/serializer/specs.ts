@@ -39,7 +39,12 @@ function warnLossyBlockAttrs(state: MarkdownSerializerState, node: PMNode): void
 }
 
 function escapeLinkDestination(url: string): string {
-  return url.replace(/[()"]/g, '\\$&');
+  // Backslash included: a literal `\` must not neutralize the next escape.
+  return url.replace(/[\\()"]/g, '\\$&');
+}
+
+function escapeLinkTitle(title: string): string {
+  return title.replace(/[\\"]/g, '\\$&');
 }
 
 /** Autolink form is only valid for a bare, title-less URL that is its own text. */
@@ -249,7 +254,7 @@ export const defaultNodeSerializers: Record<string, MarkdownNodeSerializer> = {
     const title = attrString(node, 'title');
     state.write(
       `![${state.esc(typeof alt === 'string' ? alt : '')}](${escapeLinkDestination(src)}${
-        title !== null ? ` "${title.replace(/"/g, '\\"')}"` : ''
+        title !== null ? ` "${escapeLinkTitle(title)}"` : ''
       })`
     );
     if (!node.isInline) state.closeBlock(node);
@@ -326,7 +331,7 @@ export const defaultMarkSpecs: Record<string, MarkdownMarkSpec> = {
       const href: unknown = mark.attrs['href'];
       const title = attrTitle(mark);
       return `](${escapeLinkDestination(typeof href === 'string' ? href : '')}${
-        title !== null ? ` "${title.replace(/"/g, '\\"')}"` : ''
+        title !== null ? ` "${escapeLinkTitle(title)}"` : ''
       })`;
     },
   },

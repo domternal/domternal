@@ -171,6 +171,14 @@ describe('serializeMarkdown - inline marks', () => {
     );
   });
 
+  it('escapes backslashes in link titles and destinations', () => {
+    // `\` before `"` must double-escape so re-parse cannot un-escape the quote.
+    expect(md('<p><a href="https://x.com/" title=\'a\\"b\'>t</a></p>')).toBe(
+      '[t](https://x.com/ "a\\\\\\"b")'
+    );
+    expect(md('<p><a href="https://x.com/a\\b">t</a></p>')).toBe('[t](https://x.com/a\\\\b)');
+  });
+
   it('closes marks before a trailing hard break', () => {
     expect(md('<p><strong>a<br></strong>b</p>')).toBe('**a**\\\nb');
   });

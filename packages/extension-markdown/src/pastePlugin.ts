@@ -9,10 +9,12 @@ import type { MarkdownParser } from './parser/parser.js';
 
 export const markdownPastePluginKey = new PluginKey('markdownPaste');
 
+// Bounded quantifiers: unbounded `+` goes quadratic on pathological pastes
+// like thousands of `[` (CodeQL); 999 covers any real span or row.
 const BLOCK_SYNTAX =
-  /^(#{1,6} |> |[-*+] |\d+\. |```|\$\$|\[( |x|X)\] |\|.+\||(---|\*\*\*|___)\s*$)/m;
+  /^(#{1,6} |> |[-*+] |\d+\. |```|\$\$|\[( |x|X)\] |\|.{1,999}\||(---|\*\*\*|___)\s*$)/m;
 const INLINE_SYNTAX =
-  /(\*\*[^*\n]+\*\*|__[^_\n]+__|\[[^\]\n]+\]\([^)\n]+\)|`[^`\n]+`|~~[^~\n]+~~|!\[[^\]\n]*\]\([^)\n]+\))/;
+  /(\*\*[^*\n]{1,999}\*\*|__[^_\n]{1,999}__|\[[^\]\n]{1,999}\]\([^)\n]{1,999}\)|`[^`\n]{1,999}`|~~[^~\n]{1,999}~~|!\[[^\]\n]{0,999}\]\([^)\n]{1,999}\))/;
 
 export function looksLikeMarkdown(text: string): boolean {
   return BLOCK_SYNTAX.test(text) || INLINE_SYNTAX.test(text);
