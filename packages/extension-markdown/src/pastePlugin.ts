@@ -10,7 +10,7 @@ import type { MarkdownParser } from './parser/parser.js';
 export const markdownPastePluginKey = new PluginKey('markdownPaste');
 
 const BLOCK_SYNTAX =
-  /^(#{1,6} |> |[-*+] |\d+\. |```|\[( |x|X)\] |\|.+\||(---|\*\*\*|___)\s*$)/m;
+  /^(#{1,6} |> |[-*+] |\d+\. |```|\$\$|\[( |x|X)\] |\|.+\||(---|\*\*\*|___)\s*$)/m;
 const INLINE_SYNTAX =
   /(\*\*[^*\n]+\*\*|__[^_\n]+__|\[[^\]\n]+\]\([^)\n]+\)|`[^`\n]+`|~~[^~\n]+~~|!\[[^\]\n]*\]\([^)\n]+\))/;
 

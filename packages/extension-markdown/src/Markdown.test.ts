@@ -209,6 +209,7 @@ describe('looksLikeMarkdown', () => {
       '1. item',
       '> quote',
       '```\ncode\n```',
+      '$$\nx = 1\n$$',
       '| a | b |',
       'plain with **bold**',
       'a [link](https://x.com/)',
