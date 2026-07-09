@@ -1,7 +1,8 @@
 export type MarkdownWarningCode =
   | 'unsupported-node'
   | 'unsupported-mark'
-  | 'lossy-attribute';
+  | 'lossy-attribute'
+  | 'lossy-structure';
 
 /** A non-fatal fidelity loss that happened during conversion. */
 export interface MarkdownWarning {

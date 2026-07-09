@@ -30,7 +30,9 @@ export function createMarkdownSerializer(
     serialize(node: PMNode): SerializeMarkdownResult {
       const state = new MarkdownSerializerState({ nodes, marks }, options);
       if (node.isTextblock) {
-        state.render(node, node, 0);
+        // A lone textblock serializes as its inline content; there is no
+        // real parent to hand to a node serializer.
+        state.renderInline(node);
       } else {
         state.renderContent(node);
       }

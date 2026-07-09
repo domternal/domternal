@@ -98,7 +98,14 @@ export const Markdown = Extension.create<MarkdownOptions, MarkdownStorage>({
         (markdown: string) =>
         ({ state, commands }) => {
           const doc = parserFor(state.schema).parse(markdown);
-          return commands.insertContent(doc.content.toJSON() as JSONContent[]);
+          const first = doc.content.firstChild;
+          // A single paragraph inserts as inline content so it merges into
+          // the text at the cursor, matching the paste plugin's behavior.
+          const content: unknown =
+            doc.content.childCount === 1 && first !== null && first.type.name === 'paragraph'
+              ? first.content.toJSON()
+              : doc.content.toJSON();
+          return commands.insertContent((content ?? []) as JSONContent[]);
         },
 
       setMarkdownContent:

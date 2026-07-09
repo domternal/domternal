@@ -78,10 +78,22 @@ function serializeCell(state: MarkdownSerializerState, cell: PMNode): string {
   );
   sub.renderContent(cell);
   for (const warning of sub.warnings) state.warn(warning.code, warning.message, warning.nodeType);
-  if (cell.childCount > 1) {
-    state.warn('lossy-attribute', 'Table cell with multiple blocks flattened to one line', cell.type.name);
+  const raw = sub.finish();
+  // Anything that rendered across lines (extra blocks, code fences, lists,
+  // hard breaks) collapses to one line inside a pipe table.
+  if (cell.childCount > 1 || raw.includes('\n')) {
+    state.warn('lossy-structure', 'Table cell content flattened to one line', cell.type.name);
   }
-  return sub.finish().replace(/\n+/g, ' ').trim();
+  return (
+    raw
+      // Hard breaks serialize as backslash plus newline; drop the marker
+      // before newlines collapse, or a literal backslash survives.
+      .replace(/\\\n/g, ' ')
+      .replace(/\n+/g, ' ')
+      .trim()
+      // Pipes inside code spans bypass esc(); unescaped they split the cell.
+      .replace(/(?<!\\)\|/g, '\\|')
+  );
 }
 
 function separatorFor(alignment: string | null): string {
@@ -98,12 +110,27 @@ const table: MarkdownNodeSerializer = (state, node) => {
 
   node.forEach((row, _rowOffset, rowIndex) => {
     const cells: string[] = [];
-    row.forEach((cell) => {
+    row.forEach((cell, _cellOffset, cellIndex) => {
+      // warn() dedupes, so flagging per cell emits a single warning each.
       if ((attrNumber(cell, 'colspan') ?? 1) > 1 || (attrNumber(cell, 'rowspan') ?? 1) > 1) {
-        // warn() dedupes, so flagging per cell emits a single warning.
-        state.warn('lossy-attribute', 'Merged table cells are not representable in Markdown', node.type.name);
+        state.warn('lossy-structure', 'Merged table cells are not representable in Markdown', node.type.name);
       }
-      if (rowIndex === 0) alignments.push(attrString(cell, 'textAlign'));
+      if (attrString(cell, 'background') !== null) {
+        state.warn('lossy-attribute', 'Table cell background is not representable in Markdown', cell.type.name);
+      }
+      if (attrString(cell, 'verticalAlign') !== null) {
+        state.warn('lossy-attribute', 'Table cell vertical alignment is not representable in Markdown', cell.type.name);
+      }
+      if (rowIndex === 0) {
+        alignments.push(attrString(cell, 'textAlign'));
+      } else {
+        // Column alignment lives in the separator row; a body cell only
+        // loses its alignment when it differs from the column's.
+        const align = attrString(cell, 'textAlign');
+        if (align !== null && align !== (alignments[cellIndex] ?? null)) {
+          state.warn('lossy-attribute', 'Cell text alignment differing from its column is not representable in Markdown', cell.type.name);
+        }
+      }
       cells.push(serializeCell(state, cell));
     });
     rows.push(cells);
@@ -143,7 +170,7 @@ export const defaultNodeSerializers: Record<string, MarkdownNodeSerializer> = {
     warnLossyBlockAttrs(state, node);
     const level = attrNumber(node, 'level') ?? 1;
     state.write('#'.repeat(Math.min(Math.max(level, 1), 6)) + ' ');
-    state.renderInline(node);
+    state.renderInline(node, false);
     state.closeBlock(node);
   },
 
@@ -156,7 +183,9 @@ export const defaultNodeSerializers: Record<string, MarkdownNodeSerializer> = {
   codeBlock: (state, node) => {
     const runs = node.textContent.match(/`{3,}/g);
     const fence = '`'.repeat(Math.max(3, ...(runs ?? ['']).map((run) => run.length + 1)));
-    state.write(fence + (attrString(node, 'language') ?? '') + '\n');
+    // The info string ends at whitespace and must not contain backticks.
+    const language = (attrString(node, 'language') ?? '').split(/\s+/)[0]?.replace(/`/g, '') ?? '';
+    state.write(fence + language + '\n');
     state.text(node.textContent, false);
     state.ensureNewLine();
     state.write(fence);
@@ -210,14 +239,17 @@ export const defaultNodeSerializers: Record<string, MarkdownNodeSerializer> = {
       state.warn('unsupported-node', 'Image without src omitted', node.type.name);
       return;
     }
-    if (attrString(node, 'width') !== null || attrString(node, 'height') !== null) {
+    // Resize writes NUMERIC width/height attrs; check presence, not strings.
+    const width: unknown = node.attrs['width'];
+    const height: unknown = node.attrs['height'];
+    if ((width !== null && width !== undefined) || (height !== null && height !== undefined)) {
       state.warn('lossy-attribute', 'Image dimensions are not representable in Markdown', node.type.name);
     }
     const alt: unknown = node.attrs['alt'];
     const title = attrString(node, 'title');
     state.write(
       `![${state.esc(typeof alt === 'string' ? alt : '')}](${escapeLinkDestination(src)}${
-        title !== null ? ' ' + state.quote(title) : ''
+        title !== null ? ` "${title.replace(/"/g, '\\"')}"` : ''
       })`
     );
     if (!node.isInline) state.closeBlock(node);
@@ -229,7 +261,7 @@ export const defaultNodeSerializers: Record<string, MarkdownNodeSerializer> = {
   },
 
   details: (state, node) => {
-    state.warn('lossy-attribute', 'Toggle block flattened: summary becomes a bold paragraph', node.type.name);
+    state.warn('lossy-structure', 'Toggle block flattened: summary becomes a bold paragraph', node.type.name);
     state.renderContent(node);
   },
 
@@ -239,7 +271,7 @@ export const defaultNodeSerializers: Record<string, MarkdownNodeSerializer> = {
       return;
     }
     state.write('**');
-    state.renderInline(node);
+    state.renderInline(node, false);
     state.write('**');
     state.closeBlock(node);
   },
@@ -258,7 +290,7 @@ export const defaultNodeSerializers: Record<string, MarkdownNodeSerializer> = {
     const label = attrString(node, 'label');
     const text = leafText(node);
     state.text(text !== null && text !== '' ? text : label !== null ? `@${label}` : '');
-    state.warn('lossy-attribute', 'Mentions serialize as plain text', node.type.name);
+    state.warn('lossy-structure', 'Mentions serialize as plain text', node.type.name);
   },
 
   mathInline: (state, node) => {
@@ -289,12 +321,12 @@ export const defaultMarkSpecs: Record<string, MarkdownMarkSpec> = {
   },
   link: {
     open: (_state, mark, parent, index) => (isPlainUrl(mark, parent, index) ? '<' : '['),
-    close: (state, mark, parent, index) => {
+    close: (_state, mark, parent, index) => {
       if (isPlainUrl(mark, parent, index - 1)) return '>';
       const href: unknown = mark.attrs['href'];
       const title = attrTitle(mark);
       return `](${escapeLinkDestination(typeof href === 'string' ? href : '')}${
-        title !== null ? ' ' + state.quote(title) : ''
+        title !== null ? ` "${title.replace(/"/g, '\\"')}"` : ''
       })`;
     },
   },

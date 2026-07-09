@@ -33,7 +33,14 @@ export function markdownPastePlugin(getParser: () => MarkdownParser): Plugin {
         // Inside code blocks, pasted text stays literal.
         if (view.state.selection.$from.parent.type.spec.code === true) return false;
 
-        const doc = getParser().parse(text);
+        let doc;
+        try {
+          doc = getParser().parse(text);
+        } catch {
+          // A parser failure must fall back to the default plain-text paste,
+          // never escape the paste event handler.
+          return false;
+        }
         const first = doc.content.firstChild;
         const slice =
           doc.content.childCount === 1 && first !== null && first.type.name === 'paragraph'

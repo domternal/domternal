@@ -22,7 +22,7 @@ import { TextSelection } from '@domternal/pm/state';
 import { downloadMarkdown } from './download.js';
 import { getMarkdown, Markdown } from './Markdown.js';
 import type { MarkdownStorage } from './Markdown.js';
-import { looksLikeMarkdown, markdownPastePluginKey } from './pastePlugin.js';
+import { looksLikeMarkdown, markdownPastePlugin, markdownPastePluginKey } from './pastePlugin.js';
 
 const baseExtensions = [
   Document,
@@ -100,6 +100,20 @@ describe('Markdown extension', () => {
     expect(instance.state.doc.textContent).toBe('Hello world');
   });
 
+  it('insertMarkdown merges a single paragraph inline, matching paste', () => {
+    const instance = mount({ content: '<p>keep:</p>' });
+    instance.commands.focus();
+    instance.view.dispatch(
+      instance.state.tr.setSelection(
+        TextSelection.near(instance.state.doc.resolve(instance.state.doc.content.size - 1))
+      )
+    );
+    const ok = instance.commands.insertMarkdown('has **bold** inline');
+    expect(ok).toBe(true);
+    expect(instance.state.doc.childCount).toBe(1);
+    expect(instance.state.doc.textContent).toBe('keep:has bold inline');
+  });
+
   it('setMarkdownContent replaces the whole document', () => {
     const instance = mount({ content: '<p>old</p>' });
     const ok = instance.commands.setMarkdownContent('- a\n- b');
@@ -166,6 +180,24 @@ describe('markdown paste', () => {
     const instance = mount({ markdownOptions: { paste: false } });
     const plugin = instance.state.plugins.find((p) => p.spec.key === markdownPastePluginKey);
     expect(plugin).toBeUndefined();
+  });
+
+  it('falls back to default paste handling when the parser throws', () => {
+    const instance = mount();
+    const plugin = markdownPastePlugin(() => {
+      throw new Error('boom');
+    });
+    const handler = plugin.props.handlePaste;
+    if (handler === undefined) throw new Error('handlePaste missing');
+    const before = instance.state.doc;
+    const handled = handler.call(
+      plugin,
+      instance.view,
+      pasteEvent({ text: '# would convert' }),
+      instance.state.doc.slice(0)
+    );
+    expect(handled).toBe(false);
+    expect(instance.state.doc.eq(before)).toBe(true);
   });
 });
 

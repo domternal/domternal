@@ -11,7 +11,7 @@ export function downloadMarkdown(
   fileName = 'document.md'
 ): SerializeMarkdownResult {
   const result = getMarkdown(editor);
-  const blob = new Blob([result.markdown], { type: 'text/markdown' });
+  const blob = new Blob([result.markdown], { type: 'text/markdown;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;

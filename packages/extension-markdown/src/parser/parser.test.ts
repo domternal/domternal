@@ -136,6 +136,19 @@ describe('parseMarkdown - lists', () => {
     expect(parsed.textContent).toContain('[x] done');
   });
 
+  it('converts a bare checkbox marker without trailing text', () => {
+    const parsed = parseMarkdown('- [x]\n- [ ] open', schema);
+    expect(parsed.firstChild?.type.name).toBe('taskList');
+    expect(parsed.firstChild?.firstChild?.attrs['checked']).toBe(true);
+    expect(parsed.firstChild?.firstChild?.textContent).toBe('');
+  });
+
+  it('does not convert markers wrapped in marks', () => {
+    const parsed = parseMarkdown('- **[x] done**', schema);
+    expect(parsed.firstChild?.type.name).toBe('bulletList');
+    expect(parsed.textContent).toBe('[x] done');
+  });
+
   it('converts nested task lists', () => {
     const parsed = parseMarkdown('- [ ] outer\n  - [x] inner', schema);
     const outer = parsed.firstChild;
@@ -207,19 +220,38 @@ describe('parseMarkdown - images', () => {
 });
 
 describe('parseMarkdown - math', () => {
-  it('parses inline math', () => {
-    const parsed = parseMarkdown('Euler: $e^{i\\pi}+1=0$ wow', schema);
+  function inlineLatex(parsed: PMNode): string | null {
     let latex: string | null = null;
     parsed.descendants((node) => {
       if (node.type.name === 'mathInline') latex = String(node.attrs['latex']);
       return true;
     });
-    expect(latex).toBe('e^{i\\pi}+1=0');
+    return latex;
+  }
+
+  it('parses inline math', () => {
+    expect(inlineLatex(parseMarkdown('Euler: $e^{i\\pi}+1=0$ wow', schema))).toBe('e^{i\\pi}+1=0');
   });
 
   it('does not treat currency as math', () => {
     const parsed = parseMarkdown('costs $5 and $10 total', schema);
     expect(parsed.textContent).toBe('costs $5 and $10 total');
+  });
+
+  it('does not let a currency dollar swallow later math', () => {
+    const parsed = parseMarkdown('price $5 and math $x$ here', schema);
+    expect(inlineLatex(parsed)).toBe('x');
+    expect(parsed.textContent.startsWith('price $5 and math ')).toBe(true);
+  });
+
+  it('rejects whitespace-delimited dollars', () => {
+    const parsed = parseMarkdown('a $ b $ c', schema);
+    expect(inlineLatex(parsed)).toBeNull();
+    expect(parsed.textContent).toBe('a $ b $ c');
+  });
+
+  it('keeps escaped dollars inside a formula', () => {
+    expect(inlineLatex(parseMarkdown('$a\\$b$ tail', schema))).toBe('a\\$b');
   });
 
   it('parses block math in both forms', () => {
@@ -229,17 +261,45 @@ describe('parseMarkdown - math', () => {
       expect(parsed.firstChild?.attrs['latex']).toBe('x = 1');
     }
   });
+
+  it('lets block math interrupt a paragraph', () => {
+    const parsed = parseMarkdown('text\n$$\nx = 1\n$$', schema);
+    expect(parsed.childCount).toBe(2);
+    expect(parsed.child(0).textContent).toBe('text');
+    expect(parsed.child(1).type.name).toBe('mathBlock');
+  });
 });
 
 describe('parseMarkdown - graceful degradation', () => {
   const minimal = [Document, Text, Paragraph, Bold, Italic];
 
-  function minimalSchema(): Schema {
-    const scoped = new Editor({ extensions: minimal });
+  function schemaFor(list: typeof minimal): Schema {
+    const scoped = new Editor({ extensions: list });
     const result = scoped.state.schema;
     scoped.destroy();
     return result;
   }
+
+  function minimalSchema(): Schema {
+    return schemaFor(minimal);
+  }
+
+  it('does not crash with only one of the two math nodes', () => {
+    const inlineOnly = schemaFor([...minimal, MathInline]);
+    const blockMd = '$$\nx = 1\n$$';
+    expect(parseMarkdown(blockMd, inlineOnly).textContent).toContain('x = 1');
+
+    const blockOnly = schemaFor([...minimal, MathBlock]);
+    const parsed = parseMarkdown('inline $x$ here', blockOnly);
+    expect(parsed.textContent).toBe('inline $x$ here');
+  });
+
+  it('degrades tables to text when the cell types are incomplete', () => {
+    const partial = schemaFor([...minimal, Table, TableRow, TableCell]);
+    const parsed = parseMarkdown('| A |\n| --- |\n| 1 |', partial);
+    expect(parsed.textContent).toContain('A');
+    expect(parsed.textContent).toContain('1');
+  });
 
   it('keeps unsupported syntax as readable text', () => {
     const scopedSchema = minimalSchema();

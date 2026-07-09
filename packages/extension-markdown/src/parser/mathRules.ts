@@ -15,12 +15,21 @@ const mathInlineRule: RuleInline = (state, silent) => {
   let pos = start + 1;
   while (pos < state.posMax) {
     const code = state.src.charCodeAt(pos);
+    if (code === 0x5c /* \ */) {
+      // Skip escaped characters so \$ inside the formula does not terminate.
+      pos += 2;
+      continue;
+    }
     if (code === 0x24) break;
     if (code === 0x0a /* \n */) return false;
     pos += 1;
   }
   if (pos >= state.posMax || pos === start + 1) return false;
-  // A trailing digit after the closing dollar reads as currency, not math.
+  // Currency guards, matching the usual $-math conventions: no whitespace
+  // right after the opening or before the closing dollar, and no digit
+  // right after the closing one ("$5 and $10").
+  if (/\s/.test(state.src.charAt(start + 1))) return false;
+  if (/\s/.test(state.src.charAt(pos - 1))) return false;
   if (/\d/.test(state.src.charAt(pos + 1))) return false;
 
   if (!silent) {
@@ -69,7 +78,13 @@ const mathBlockRule: RuleBlock = (state, startLine, endLine, silent) => {
   return true;
 };
 
-export function addMathRules(md: MarkdownIt): void {
+export function addMathInlineRule(md: MarkdownIt): void {
   md.inline.ruler.after('escape', 'math_inline', mathInlineRule);
-  md.block.ruler.after('fence', 'math_block', mathBlockRule);
+}
+
+export function addMathBlockRule(md: MarkdownIt): void {
+  // The alt list lets $$ interrupt a paragraph, the same way fences do.
+  md.block.ruler.after('fence', 'math_block', mathBlockRule, {
+    alt: ['paragraph', 'reference', 'blockquote', 'list'],
+  });
 }

@@ -164,12 +164,42 @@ describe('serializeMarkdown - inline marks', () => {
     expect(md('<p><a href="https://x.com/" title="T">t</a></p>')).toBe('[t](https://x.com/ "T")');
     expect(md('<p><a href="https://x.com/">https://x.com/</a></p>')).toBe('<https://x.com/>');
   });
+
+  it('escapes double quotes in link titles', () => {
+    expect(md('<p><a href="https://x.com/" title=\'a"b\'>t</a></p>')).toBe(
+      '[t](https://x.com/ "a\\"b")'
+    );
+  });
+
+  it('closes marks before a trailing hard break', () => {
+    expect(md('<p><strong>a<br></strong>b</p>')).toBe('**a**\\\nb');
+  });
+
+  it('keeps marks open across whitespace-only nodes', () => {
+    expect(md('<p><strong>a<em> </em>b</strong></p>')).toBe('**a b**');
+  });
 });
 
 describe('serializeMarkdown - escaping', () => {
   it('escapes markdown syntax in plain text', () => {
     expect(md('<p>*not bold*</p>')).toBe('\\*not bold\\*');
     expect(md('<p>a[b]c</p>')).toBe('a\\[b\\]c');
+  });
+
+  it('start-of-line escapes the first line of list items', () => {
+    expect(md('<ul><li><p>2. fake</p></li></ul>')).toBe('- 2\\. fake');
+    expect(md('<ol><li><p># fake</p></li></ol>')).toBe('1. \\# fake');
+  });
+
+  it('escapes an exclamation mark directly before a link', () => {
+    expect(md('<p>Wow!<a href="https://x.com/">link</a></p>')).toBe(
+      'Wow\\![link](https://x.com/)'
+    );
+  });
+
+  it('escapes dollars, angle brackets, and entity-like ampersands', () => {
+    expect(md('<p>5 &lt; 6 and $7</p>')).toBe('5 \\< 6 and \\$7');
+    expect(md('<p>AT&amp;T</p>')).toBe('AT\\&T');
   });
 
   it('escapes block markers at line start only', () => {
@@ -209,5 +239,32 @@ describe('serializeMarkdown - fidelity warnings', () => {
   it('reports no warnings for fully representable content', () => {
     const result = serializeMarkdown(docFrom('<h2>Hi</h2><p><strong>bold</strong></p>'));
     expect(result.warnings).toEqual([]);
+  });
+});
+
+describe('serializeMarkdown - hardening', () => {
+  it('sanitizes hostile code block language attrs', () => {
+    const editor = new Editor({
+      extensions,
+      content: {
+        type: 'doc',
+        content: [
+          {
+            type: 'codeBlock',
+            attrs: { language: 'js `evil' },
+            content: [{ type: 'text', text: 'x' }],
+          },
+        ],
+      },
+    });
+    const doc = editor.state.doc;
+    editor.destroy();
+    expect(serializeMarkdown(doc).markdown).toBe('```js\nx\n```');
+  });
+
+  it('serializes a lone textblock node as its inline content', () => {
+    const paragraph = docFrom('<p><strong>x</strong> y</p>').firstChild;
+    if (paragraph === null) throw new Error('paragraph missing');
+    expect(serializeMarkdown(paragraph).markdown).toBe('**x** y');
   });
 });

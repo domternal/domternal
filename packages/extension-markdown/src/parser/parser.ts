@@ -8,7 +8,7 @@
 import MarkdownIt from 'markdown-it';
 import { Fragment } from '@domternal/pm/model';
 import type { Node as PMNode, NodeType, Schema } from '@domternal/pm/model';
-import { addMathRules } from './mathRules.js';
+import { addMathBlockRule, addMathInlineRule } from './mathRules.js';
 import { MarkdownParseState } from './state.js';
 
 type Token = ReturnType<MarkdownIt['parse']>[number];
@@ -39,7 +39,7 @@ function altText(token: Token): string {
     .join('');
 }
 
-const TASK_PREFIX = /^\[( |x|X)\] /;
+const TASK_PREFIX = /^\[( |x|X)\](?: |$)/;
 
 /**
  * GFM task lists arrive as bullet lists whose items start with a checkbox
@@ -66,6 +66,10 @@ function transformTaskLists(doc: PMNode, schema: Schema): PMNode {
     if (paragraph?.isTextblock !== true) return null;
     const first = paragraph.firstChild;
     if (first?.isText !== true) return null;
+    // A marked marker (e.g. bold) is styled text, not a GFM checkbox.
+    // Escaped brackets are indistinguishable after inline parsing and
+    // convert too; that divergence from cmark-gfm is accepted.
+    if (first.marks.length > 0) return null;
     const match = TASK_PREFIX.exec(first.text ?? '');
     return match === null ? null : (match[1] ?? ' ');
   };
@@ -117,16 +121,22 @@ function transformTaskLists(doc: PMNode, schema: Schema): PMNode {
 
 function buildMarkdownIt(schema: Schema): MarkdownIt {
   const md = new MarkdownIt('default', { html: false, linkify: true });
-  if (schema.nodes['table'] === undefined) md.disable('table');
+  const hasTableSchema =
+    schema.nodes['table'] !== undefined &&
+    schema.nodes['tableRow'] !== undefined &&
+    schema.nodes['tableCell'] !== undefined &&
+    schema.nodes['tableHeader'] !== undefined;
+  if (!hasTableSchema) md.disable('table');
   if (schema.nodes['image'] === undefined) md.disable('image');
   if (schema.marks['strike'] === undefined) md.disable('strikethrough');
   if (schema.marks['link'] === undefined) {
     md.disable(['link', 'linkify', 'autolink']);
     md.set({ linkify: false });
   }
-  if (schema.nodes['mathInline'] !== undefined || schema.nodes['mathBlock'] !== undefined) {
-    addMathRules(md);
-  }
+  // Each rule registers only when its node exists: an inline-math-only
+  // schema must not produce math_block tokens nobody handles.
+  if (schema.nodes['mathInline'] !== undefined) addMathInlineRule(md);
+  if (schema.nodes['mathBlock'] !== undefined) addMathBlockRule(md);
   return md;
 }
 

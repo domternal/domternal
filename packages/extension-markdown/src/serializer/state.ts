@@ -66,6 +66,10 @@ export class MarkdownSerializerState {
   private out = '';
   private closed: PMNode | null = null;
   private inTightList = false;
+  // True until the first content of a textblock is written; drives
+  // start-of-line escaping (a list item's first line starts after `- `,
+  // which the output buffer alone cannot reveal).
+  private atBlockStart = false;
 
   constructor(specs: MarkdownSerializerSpecs, options: MarkdownSerializerOptions = {}) {
     this.nodes = specs.nodes;
@@ -130,15 +134,13 @@ export class MarkdownSerializerState {
     for (let i = 0; i < lines.length; i++) {
       this.write();
       const line = lines[i] ?? '';
-      this.out += escape ? this.esc(line, this.atLineStart()) : line;
+      // A `!` before a link open delimiter would turn the link into an image.
+      if (!escape && line.startsWith('[') && /(^|[^\\])!$/.test(this.out)) {
+        this.out = this.out.slice(0, this.out.length - 1) + '\\!';
+      }
+      this.out += escape ? this.esc(line, this.atBlockStart) : line;
       if (i !== lines.length - 1) this.out += '\n';
     }
-  }
-
-  /** True when nothing but the block delimiter has been written on this line. */
-  private atLineStart(): boolean {
-    const tail = this.out.slice(this.out.lastIndexOf('\n') + 1);
-    return tail === '' || tail === this.delim;
   }
 
   render(node: PMNode, parent: PMNode, index: number): void {
@@ -146,21 +148,19 @@ export class MarkdownSerializerState {
     if (serializer === undefined) {
       this.warn(
         'unsupported-node',
-        `Node type "${node.type.name}" has no Markdown mapping; content flattened`,
+        node.type.isLeaf
+          ? `Node type "${node.type.name}" has no Markdown mapping; node omitted`
+          : `Node type "${node.type.name}" has no Markdown mapping; content flattened`,
         node.type.name
       );
-      if (node.isTextblock || node.isBlock) {
-        if (node.content.size > 0) {
-          if (node.isTextblock) {
-            this.renderInline(node);
-            this.closeBlock(node);
-          } else {
-            this.renderContent(node);
-          }
+      if (!node.type.isLeaf) {
+        if (node.type.inlineContent) {
+          this.renderInline(node);
         } else {
-          this.closeBlock(node);
+          this.renderContent(node);
         }
       }
+      if (node.isBlock) this.closeBlock(node);
       return;
     }
     serializer(this, node, parent, index);
@@ -172,7 +172,8 @@ export class MarkdownSerializerState {
     });
   }
 
-  renderInline(parent: PMNode): void {
+  renderInline(parent: PMNode, fromBlockStart = true): void {
+    this.atBlockStart = fromBlockStart;
     const active: Mark[] = [];
     let trailing = '';
 
@@ -189,6 +190,17 @@ export class MarkdownSerializerState {
         );
         return false;
       });
+
+      // A mark ending exactly at a hard break would close right after the
+      // trailing backslash, where the delimiter cannot close. Keep only
+      // marks that continue past the break.
+      if (node !== null && node.type.name === 'hardBreak') {
+        marks = marks.filter((mark) => {
+          if (index + 1 === parent.childCount) return false;
+          const next = parent.child(index + 1);
+          return mark.isInSet(next.marks) && (!next.isText || /\S/.test(next.text ?? ''));
+        });
+      }
 
       let leading = trailing;
       trailing = '';
@@ -209,7 +221,9 @@ export class MarkdownSerializerState {
             leading += lead;
             trailing = trail;
             if (inner === '') {
-              marks = [];
+              // Whitespace-only node: keep the active marks open across it
+              // instead of closing and reopening the delimiters.
+              marks = active.slice();
               node = null;
             } else {
               node = (node as PMNode & { withText: (t: string) => PMNode }).withText(inner);
@@ -278,6 +292,7 @@ export class MarkdownSerializerState {
           if (mark === undefined) break;
           active.push(mark);
           this.text(this.markString(mark, true, parent, index), false);
+          this.atBlockStart = false;
         }
 
         if (inner !== undefined && noEsc && node.isText) {
@@ -290,6 +305,7 @@ export class MarkdownSerializerState {
         } else {
           this.render(node, parent, index);
         }
+        this.atBlockStart = false;
       }
     };
 
@@ -297,7 +313,7 @@ export class MarkdownSerializerState {
       progress(node, index);
     });
     progress(null, parent.childCount);
-    if (trailing !== '') this.text(trailing);
+    this.atBlockStart = false;
   }
 
   renderList(node: PMNode, delim: string, firstDelim: (index: number) => string): void {
@@ -319,24 +335,25 @@ export class MarkdownSerializerState {
     this.inTightList = prevTight;
   }
 
+  /**
+   * Escape Markdown syntax in plain text. Beyond the CommonMark set this
+   * also escapes `|` (table cells), `$` (this package's own math rules), and
+   * `<` plus entity-like `&` (raw-HTML/autolink/entity ambiguity on external
+   * renderers): all render as the literal character everywhere.
+   */
   esc(str: string, startOfLine = false): string {
-    let escaped = str.replace(/[`*\\~[\]_]/g, (m, i: number) =>
+    let escaped = str.replace(/[`*\\~[\]_<$]/g, (m, i: number) =>
       m === '_' && i > 0 && i + 1 < str.length && /\w/.test(str[i - 1] ?? '') && /\w/.test(str[i + 1] ?? '')
         ? m
         : '\\' + m
     );
     if (startOfLine) {
       escaped = escaped
-        .replace(/^[#\-*+>]/, '\\$&')
+        .replace(/^([-*>]|\+ )/, '\\$&')
         .replace(/^(\s*)(#{1,6})(\s|$)/, '$1\\$2$3')
         .replace(/^(\s*\d+)\.(\s|$)/, '$1\\.$2');
     }
-    return escaped.replace(/\|/g, '\\|');
-  }
-
-  quote(str: string): string {
-    const wrap = !str.includes('"') ? '""' : !str.includes("'") ? "''" : '()';
-    return wrap.charAt(0) + str + wrap.charAt(1);
+    return escaped.replace(/\|/g, '\\|').replace(/&(?=[a-z#])/gi, '\\&');
   }
 
   markString(mark: Mark, open: boolean, parent: PMNode, index: number): string {

@@ -1,4 +1,4 @@
-// @domternal/extension-markdown - public API.
+// @domternal/extension-markdown: public API.
 
 export { Markdown, getMarkdown } from './Markdown.js';
 export type { MarkdownOptions, MarkdownStorage } from './Markdown.js';
@@ -9,7 +9,7 @@ export { looksLikeMarkdown, markdownPastePlugin, markdownPastePluginKey } from '
 
 export { createMarkdownParser, parseMarkdown } from './parser/parser.js';
 export type { MarkdownParser } from './parser/parser.js';
-export { MarkdownParseState } from './parser/state.js';
+export type { MarkdownParseState } from './parser/state.js';
 
 export {
   createMarkdownSerializer,
@@ -22,7 +22,8 @@ export type {
 } from './serializer/serializer.js';
 
 export { defaultMarkSpecs, defaultNodeSerializers } from './serializer/specs.js';
-export { MarkdownSerializerState, backticksFor } from './serializer/state.js';
+export { backticksFor } from './serializer/state.js';
+export type { MarkdownSerializerState } from './serializer/state.js';
 export type {
   MarkdownMarkSpec,
   MarkdownNodeSerializer,

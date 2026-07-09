@@ -5,6 +5,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   Bold,
+  Code,
+  CodeBlock,
   Document,
   Editor,
   Italic,
@@ -27,6 +29,8 @@ const extensions = [
   Paragraph,
   Bold,
   Italic,
+  Code,
+  CodeBlock,
   Table,
   TableRow,
   TableCell,
@@ -96,7 +100,41 @@ describe('serializeMarkdown - tables', () => {
       '<table><tr><th>H</th></tr><tr><td><p>x</p><p>y</p></td></tr></table>'
     );
     expect(markdown).toBe('| H |\n| --- |\n| x y |');
-    expect(warnings.some((w) => w.code === 'lossy-attribute')).toBe(true);
+    expect(warnings.some((w) => w.code === 'lossy-structure')).toBe(true);
+  });
+
+  it('escapes pipes inside code spans in cells', () => {
+    const { markdown } = serialize(
+      '<table><tr><th>H</th></tr><tr><td><code>a|b</code></td></tr></table>'
+    );
+    expect(markdown).toBe('| H |\n| --- |\n| `a\\|b` |');
+  });
+
+  it('flattens hard breaks in cells without a stray backslash', () => {
+    const { markdown } = serialize(
+      '<table><tr><th>H</th></tr><tr><td><p>a<br>b</p></td></tr></table>'
+    );
+    expect(markdown).toBe('| H |\n| --- |\n| a b |');
+  });
+
+  it('warns when a cell holds a single non-textblock child', () => {
+    const { warnings } = serialize(
+      '<table><tr><th>H</th></tr><tr><td><pre><code>x</code></pre></td></tr></table>'
+    );
+    expect(
+      warnings.some((w) => w.code === 'lossy-structure' && w.message.includes('flattened'))
+    ).toBe(true);
+  });
+
+  it('warns for cell backgrounds and body alignment differing from the column', () => {
+    const { warnings } = serialize(
+      '<table>' +
+        '<tr><th>H</th></tr>' +
+        '<tr><td data-background="#fee" data-text-align="right">x</td></tr>' +
+        '</table>'
+    );
+    expect(warnings.some((w) => w.message.includes('background'))).toBe(true);
+    expect(warnings.some((w) => w.message.includes('differing from its column'))).toBe(true);
   });
 
   it('warns when merged cells lose their spans', () => {
@@ -104,7 +142,7 @@ describe('serializeMarkdown - tables', () => {
       '<table><tr><th colspan="2">wide</th></tr><tr><td>a</td><td>b</td></tr></table>'
     );
     expect(
-      warnings.some((w) => w.code === 'lossy-attribute' && w.message.includes('Merged'))
+      warnings.some((w) => w.code === 'lossy-structure' && w.message.includes('Merged'))
     ).toBe(true);
   });
 });
@@ -119,8 +157,26 @@ describe('serializeMarkdown - images', () => {
     );
   });
 
+  it('escapes double quotes in image titles', () => {
+    expect(serialize('<img src="https://e.com/i.png" title=\'a"b\'>').markdown).toBe(
+      '![](https://e.com/i.png "a\\"b")'
+    );
+  });
+
   it('warns when resize dimensions are lost', () => {
     const { warnings } = serialize('<img src="https://e.com/i.png" width="200">');
+    expect(warnings.some((w) => w.code === 'lossy-attribute' && w.nodeType === 'image')).toBe(true);
+  });
+
+  it('warns for NUMERIC resize dimensions too', () => {
+    const editor = new Editor({ extensions });
+    const image = editor.state.schema.nodes['image'];
+    if (image === undefined) throw new Error('image type missing');
+    const doc = editor.state.schema.topNodeType.create(null, [
+      image.create({ src: 'https://e.com/i.png', width: 200 }),
+    ]);
+    editor.destroy();
+    const { warnings } = serializeMarkdown(doc);
     expect(warnings.some((w) => w.code === 'lossy-attribute' && w.nodeType === 'image')).toBe(true);
   });
 
@@ -137,7 +193,7 @@ describe('serializeMarkdown - details', () => {
       '<details><summary>More</summary><div data-details-content><p>Hidden</p></div></details>'
     );
     expect(markdown).toBe('**More**\n\nHidden');
-    expect(warnings.some((w) => w.code === 'lossy-attribute' && w.nodeType === 'details')).toBe(
+    expect(warnings.some((w) => w.code === 'lossy-structure' && w.nodeType === 'details')).toBe(
       true
     );
   });
