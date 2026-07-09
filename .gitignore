@@ -47,3 +47,6 @@ Thumbs.db
 
 .nx/cache
 .nx/workspace-data
+
+# Angular CLI build cache (library and demo app builds)
+.angular/

@@ -87,6 +87,7 @@ EditorOptions
 EventEmitter
 Extension
 ExtensionConfig
+ExtensionConfigurationError
 ExtensionEditor
 ExtensionManager
 ExtensionManagerEditor

@@ -27,6 +27,12 @@ export const DEFAULT_EXTENSIONS: AnyExtension[] = [
 export interface DomternalEditorOptions {
   /** Custom extensions to add. Merged on top of `DEFAULT_EXTENSIONS`. */
   extensions?: AnyExtension[];
+  /**
+   * Whether the built-in History extension is included. Disable it when an
+   * extension brings its own undo/redo, such as collaborative editing.
+   * @default true
+   */
+  history?: boolean;
   /** Initial editor content (HTML string or JSON). */
   content?: Content;
   /** Whether the editor is editable. @default true */
@@ -136,9 +142,12 @@ export class DomternalEditor extends EventTarget {
     this.#onBlur = options.onBlur;
     this.#onDestroy = options.onDestroy;
 
+    const defaults = (options.history ?? true)
+      ? DEFAULT_EXTENSIONS
+      : DEFAULT_EXTENSIONS.filter((extension) => extension.name !== 'history');
     this.editor = new Editor({
       element: host,
-      extensions: [...DEFAULT_EXTENSIONS, ...(options.extensions ?? [])],
+      extensions: [...defaults, ...(options.extensions ?? [])],
       content: options.content ?? '',
       editable: options.editable ?? true,
       autofocus: options.autofocus ?? false,

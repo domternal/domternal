@@ -15,6 +15,7 @@ import type { NodeViewConstructor } from '@domternal/pm/view';
 import { keymap } from '@domternal/pm/keymap';
 import type { InputRule } from '@domternal/pm/inputrules';
 import { inputRulesPlugin as createInputRulesPlugin } from './helpers/inputRulesPlugin.js';
+import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
 
 import type { Command as PMCommand } from '@domternal/pm/state';
 
@@ -871,6 +872,11 @@ export class ExtensionManager {
 
       return result;
     } catch (error) {
+      // Fatal misconfiguration opts out of isolation, see ExtensionConfigurationError.
+      if (error instanceof ExtensionConfigurationError) {
+        throw error;
+      }
+
       const errorObj = error instanceof Error ? error : new Error(String(error));
 
       // Emit error event (Editor will call onError callback via event listener)

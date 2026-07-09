@@ -75,6 +75,7 @@ export { PluginKey } from '@domternal/pm/state';
 // === Core classes ===
 export { EventEmitter } from './EventEmitter.js';
 export { Editor } from './Editor.js';
+export { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
 export {
   ExtensionManager,
   type ExtensionManagerOptions,
