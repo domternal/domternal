@@ -1022,6 +1022,9 @@ importers:
       '@domternal/extension-image':
         specifier: workspace:*
         version: link:../../packages/extension-image
+      '@domternal/extension-markdown':
+        specifier: workspace:*
+        version: link:../../packages/extension-markdown
       '@domternal/extension-math':
         specifier: workspace:*
         version: link:../../packages/extension-math
