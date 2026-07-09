@@ -107,6 +107,11 @@ export class Editor extends EventEmitter<EditorEvents> {
   private _autofocusTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
+   * True while EditorView's constructor runs; see buildViewDispatch.
+   */
+  private _isViewConstructing = false;
+
+  /**
    * Creates a new Editor instance
    *
    * @param options - Editor configuration
@@ -637,6 +642,13 @@ export class Editor extends EventEmitter<EditorEvents> {
    * Creates the editor instance
    */
   private createEditor(): void {
+    // Wire the onError callback before extension setup: extension hook errors
+    // are isolated into 'error' events from step 2 onward (safeCall), and a
+    // listener registered any later misses construction-time errors.
+    this.on('error', (props) => {
+      this.options.onError?.(props);
+    });
+
     // 1. Emit beforeCreate - extensions can modify options in Step 2
     this.emit('beforeCreate', { editor: this });
     this.options.onBeforeCreate?.({ editor: this });
@@ -695,9 +707,10 @@ export class Editor extends EventEmitter<EditorEvents> {
 
     // 7. Create EditorView
     const nodeViews = this._extensionManager.nodeViews;
+    this._isViewConstructing = true;
     this.view = new EditorView(element, {
       state,
-      dispatchTransaction: this.dispatchTransaction.bind(this),
+      dispatchTransaction: Editor.buildViewDispatch(this),
       editable: () => this.options.editable ?? true,
       attributes: () => ({
         role: 'textbox',
@@ -726,6 +739,7 @@ export class Editor extends EventEmitter<EditorEvents> {
         },
       },
     });
+    this._isViewConstructing = false;
 
     // 8. Emit mount event - view is now attached to DOM element
     this.emit('mount', { editor: this, view: this.view });
@@ -746,15 +760,33 @@ export class Editor extends EventEmitter<EditorEvents> {
       }, 0);
     }
 
-    // 11. Set up error event handler for onError callback
-    this.on('error', (props) => {
-      this.options.onError?.(props);
-    });
-
-    // 12. Emit create event and call extension onCreate hooks
+    // 11. Emit create event and call extension onCreate hooks
     this.emit('create', { editor: this });
     this.options.onCreate?.({ editor: this });
     this._extensionManager.callOnCreate();
+  }
+
+  /**
+   * Builds the dispatchTransaction prop. Plugin views can dispatch synchronously
+   * inside EditorView's constructor, before `editor.view` is assigned; ProseMirror
+   * binds the prop to the view, so the instance is captured early (plugin code
+   * such as appendTransaction may read `editor.view` during the apply) and the
+   * transaction is applied directly, like the default dispatch, skipping events:
+   * it is initial state, not an update.
+   */
+  private static buildViewDispatch(
+    editor: Editor
+  ): (transaction: Transaction) => void {
+    return function (this: EditorView, transaction: Transaction): void {
+      if (editor._isViewConstructing) {
+        // The declared type says `view` is always set; mid-construction it is not.
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        editor.view ??= this;
+        this.updateState(this.state.apply(transaction));
+        return;
+      }
+      editor.dispatchTransaction(transaction);
+    };
   }
 
   /**

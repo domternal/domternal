@@ -3,6 +3,7 @@ import { Schema } from '@domternal/pm/model';
 import { Plugin, TextSelection } from '@domternal/pm/state';
 import { Editor } from './Editor.js';
 import { Extension } from './Extension.js';
+import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
 import { Document } from './nodes/Document.js';
 import { Text } from './nodes/Text.js';
 import { Paragraph } from './nodes/Paragraph.js';
@@ -177,6 +178,150 @@ describe('Editor', () => {
       expect(preView.length).toBeGreaterThan(0);
       expect(preView[0]?.isEditable).toBe(true);
       element.remove();
+    });
+  });
+
+  describe('plugin view dispatch during EditorView construction', () => {
+    // EditorView's constructor initializes plugin views, and a plugin view may
+    // dispatch synchronously before `editor.view` is assigned. y-prosemirror's
+    // ySyncPlugin does exactly this to render remote content on first bind.
+    const InitDispatcher = Extension.create({
+      name: 'initDispatcher',
+      addProseMirrorPlugins() {
+        return [
+          new Plugin({
+            view(view) {
+              view.dispatch(view.state.tr.insertText('from plugin view init', 1));
+              return {};
+            },
+          }),
+        ];
+      },
+    });
+
+    it('exposes editor.view to plugin code during construction-time dispatch', () => {
+      // extension-details reads editor.view.composing in appendTransaction,
+      // which runs inside the state.apply of a construction-time dispatch.
+      let sawComposing: boolean | null = null;
+      const ViewReader = Extension.create({
+        name: 'viewReader',
+        addProseMirrorPlugins() {
+          const editor = this.editor as Editor;
+          return [
+            new Plugin({
+              appendTransaction: () => {
+                sawComposing = editor.view.composing;
+                return null;
+              },
+            }),
+            new Plugin({
+              view(view) {
+                view.dispatch(view.state.tr.insertText('boot', 1));
+                return {};
+              },
+            }),
+          ];
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, ViewReader],
+      });
+
+      expect(sawComposing).toBe(false);
+      expect(editor.getText()).toBe('boot');
+    });
+
+    it('applies a transaction dispatched while the view is constructed', () => {
+      const element = document.createElement('div');
+      const onTransaction = vi.fn();
+      const onUpdate = vi.fn();
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, InitDispatcher],
+        element,
+        content: '',
+        onTransaction,
+        onUpdate,
+      });
+
+      expect(editor.view).toBeDefined();
+      expect(editor.getText()).toBe('from plugin view init');
+
+      // Construction-time transactions are initial state, not updates.
+      expect(onTransaction).not.toHaveBeenCalled();
+      expect(onUpdate).not.toHaveBeenCalled();
+
+      // Dispatch flows through the editor normally once construction is done.
+      editor.view.dispatch(
+        editor.state.tr.insertText(' and more', editor.state.doc.content.size - 1)
+      );
+      expect(onTransaction).toHaveBeenCalledTimes(1);
+      expect(onUpdate).toHaveBeenCalledTimes(1);
+      expect(editor.getText()).toBe('from plugin view init and more');
+      element.remove();
+    });
+  });
+
+  describe('ExtensionConfigurationError', () => {
+    it('fails editor construction instead of being isolated', () => {
+      const Fatal = Extension.create({
+        name: 'fatal',
+        addProseMirrorPlugins() {
+          throw new ExtensionConfigurationError('fatal is misconfigured');
+        },
+      });
+
+      expect(
+        () =>
+          new Editor({
+            extensions: [Document, Text, Paragraph, Fatal],
+          })
+      ).toThrow('fatal is misconfigured');
+    });
+
+    it('keeps isolating plain errors from the same hook', () => {
+      const onError = vi.fn();
+      const Broken = Extension.create({
+        name: 'broken',
+        addProseMirrorPlugins() {
+          throw new Error('broken but not fatal');
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Broken],
+        onError,
+      });
+
+      expect(editor.isDestroyed).toBe(false);
+      expect(editor.getText()).toBe('');
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({ context: 'broken.addProseMirrorPlugins' })
+      );
+    });
+
+    it('delivers construction-time hook errors to onError', () => {
+      const onError = vi.fn();
+      const BrokenBeforeCreate = Extension.create({
+        name: 'brokenBeforeCreate',
+        onBeforeCreate() {
+          throw new Error('setup failed');
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, BrokenBeforeCreate],
+        onError,
+      });
+
+      expect(editor.isDestroyed).toBe(false);
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: 'brokenBeforeCreate.onBeforeCreate',
+          error: expect.objectContaining({ message: 'setup failed' }),
+        })
+      );
     });
   });
 

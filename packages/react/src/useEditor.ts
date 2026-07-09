@@ -14,6 +14,12 @@ export const DEFAULT_EXTENSIONS: AnyExtension[] = [Document, Paragraph, Text, Ba
 export interface UseEditorOptions {
   /** Custom extensions to add to the editor. */
   extensions?: AnyExtension[];
+  /**
+   * Whether the built-in History extension is included. Disable it when an
+   * extension brings its own undo/redo, such as collaborative editing.
+   * @default true
+   */
+  history?: boolean;
   /** Initial editor content (HTML string or JSON). */
   content?: Content;
   /** Whether the editor is editable. @default true */
@@ -82,6 +88,7 @@ export interface UseEditorResult {
 export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList): UseEditorResult {
   const {
     extensions = [],
+    history = true,
     content = '',
     editable = true,
     autofocus = false,
@@ -134,9 +141,12 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
 
   /** Construct an editor, wire events, and register it in refs. */
   function buildEditorInstance(element: HTMLElement, initialContent: Content, focus: FocusPosition): Editor {
+    const defaults = history
+      ? DEFAULT_EXTENSIONS
+      : DEFAULT_EXTENSIONS.filter((extension) => extension.name !== 'history');
     const ed = new Editor({
       element,
-      extensions: [...DEFAULT_EXTENSIONS, ...extensions],
+      extensions: [...defaults, ...extensions],
       content: initialContent,
       editable,
       autofocus: focus,

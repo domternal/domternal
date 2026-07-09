@@ -50,6 +50,11 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
 
   // === Inputs ===
   readonly extensions = input<AnyExtension[]>([]);
+  /**
+   * Whether the built-in History extension is included. Disable it when an
+   * extension brings its own undo/redo, such as collaborative editing.
+   */
+  readonly history = input(true);
   readonly content = input<Content>('');
   readonly editable = input(true);
   readonly autofocus = input<FocusPosition>(false);
@@ -194,9 +199,12 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
     const initialContent = this._pendingContent ?? this.content();
     this._pendingContent = null;
 
+    const defaults = this.history()
+      ? DEFAULT_EXTENSIONS
+      : DEFAULT_EXTENSIONS.filter((extension) => extension.name !== 'history');
     this._editor = new Editor({
       element: this.editorRef().nativeElement,
-      extensions: [...DEFAULT_EXTENSIONS, ...this.extensions()],
+      extensions: [...defaults, ...this.extensions()],
       content: initialContent,
       editable: this.editable(),
       autofocus: this.autofocus(),
