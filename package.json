@@ -14,6 +14,7 @@
     "test:coverage": "nx run-many --target=test --all -- --coverage",
     "coverage:index": "pnpm test:coverage && node scripts/generate-coverage-index.mjs",
     "test:e2e": "nx run-many --target=test:e2e --all",
+    "test:e2e:matrix": "playwright test --config e2e/playwright.config.ts",
     "lint": "nx run-many --target=lint --all",
     "typecheck": "nx run-many --target=typecheck --all",
     "test:types-consumer": "pnpm --filter @domternal/tests-consumer-types test:types",
@@ -44,6 +45,7 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
+    "@playwright/test": "^1.58.2",
     "@eslint/js": "^9.39.2",
     "@nx/js": "22.3.3",
     "@swc-node/register": "~1.11.1",

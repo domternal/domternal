@@ -59,6 +59,7 @@ import {
 } from '@domternal/extension-block-controls';
 import type { BlockMatcher, BlockCandidate } from '@domternal/extension-block-controls';
 import { TableOfContents, FloatingTocOutline, TableOfContentsBlock } from '@domternal/extension-toc';
+import { Markdown } from '@domternal/extension-markdown';
 import type { IconSet } from '@domternal/core';
 import { createLowlight, common } from 'lowlight';
 import katex from 'katex';
@@ -162,6 +163,7 @@ const buildExtensions = (scrollParent: Element | null): AnyExtension[] => [
   KeyboardReorder,
   SlashCommand,
   SmartPaste,
+  Markdown,
   TableOfContents,
   FloatingTocOutline.configure({ activeScrollParent: scrollParent }),
   TableOfContentsBlock,

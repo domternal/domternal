@@ -57,6 +57,7 @@ import {
 } from '@domternal/extension-block-controls';
 import type { BlockMatcher, BlockCandidate } from '@domternal/extension-block-controls';
 import { TableOfContents, FloatingTocOutline, TableOfContentsBlock } from '@domternal/extension-toc';
+import { Markdown } from '@domternal/extension-markdown';
 import { NOTION_DEMO_CONTENT } from './notion-demo-content.js';
 
 /**
@@ -198,6 +199,7 @@ export class NotionDemoComponent implements OnDestroy {
       KeyboardReorder,
       SlashCommand,
       SmartPaste,
+      Markdown,
       TableOfContents,
       FloatingTocOutline.configure({ activeScrollParent: scrollParent }),
       TableOfContentsBlock,
