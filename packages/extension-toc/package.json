@@ -1,6 +1,6 @@
 {
   "name": "@domternal/extension-toc",
-  "version": "0.11.2",
+  "version": "0.12.0",
   "description": "Notion-style Table of Contents for Domternal: floating right-rail outline with collapsed/expanded states + insertable inline /toc block, both fed by a shared heading-discovery data layer",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
@@ -34,12 +34,12 @@
     "test:watch": "vitest",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "pnpm build && node -e \"const p=JSON.parse(require('fs').readFileSync('package.json','utf8'));delete p.devDependencies;if(p.dependencies){for(const[k,v]of Object.entries(p.dependencies)){if(v==='workspace:*')p.dependencies[k]='>=0.11.0'}}require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
+    "prepublishOnly": "pnpm build && node -e \"const p=JSON.parse(require('fs').readFileSync('package.json','utf8'));delete p.devDependencies;if(p.dependencies){for(const[k,v]of Object.entries(p.dependencies)){if(v==='workspace:*')p.dependencies[k]='>=0.12.0'}}require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
     "postpublish": "git checkout package.json"
   },
   "peerDependencies": {
-    "@domternal/core": ">=0.11.0",
-    "@domternal/pm": ">=0.11.0"
+    "@domternal/core": ">=0.12.0",
+    "@domternal/pm": ">=0.12.0"
   },
   "devDependencies": {
     "@domternal/core": "workspace:*",

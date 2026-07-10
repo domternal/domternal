@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.12.0 (2026-07-10)
+
+### Features
+
+- feat(extension-markdown): new `@domternal/extension-markdown` package: GitHub-flavored Markdown import and export for the full schema. Markdown-looking plain-text pastes convert to rich content (opt-out), `insertMarkdown` and `setMarkdownContent` commands plus a headless parser/serializer API cover programmatic use, and serialization reports fidelity losses through a warnings channel. Tables, task lists, math, and fenced code round-trip; a currency guard keeps `$5 and $10` from parsing as math. (#125)
+- feat(core): plugin views can dispatch transactions while the editor is constructed, so collaborative bindings apply their initial sync immediately. The framework wrappers gain a `history: false` option for editors that bring their own undo, `onError` is wired before extension setup so construction-time errors reach it, and the new `ExtensionConfigurationError` escapes extension error isolation for fatal misconfiguration. (#124)
+
+### Chores
+
+- All packages now ship a LICENSE file in the npm tarball, and the repository gains issue forms, a pull request template, a code of conduct, and a security policy. (#123)
+
 ## 0.11.2 (2026-07-01)
 
 ### Fixes
