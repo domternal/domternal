@@ -1,6 +1,6 @@
 # Domternal
 
-[![Domternal Editor](https://domternal.dev/readme/readme-banner.png?v=2)](https://domternal.dev)
+[![Domternal Editor](https://domternal.dev/readme/readme-banner.png?v=3)](https://domternal.dev)
 
 A lightweight, extensible rich text editor toolkit built on [ProseMirror](https://prosemirror.net/). Framework-agnostic headless core with first-class **Angular**, **React**, **Vue**, and **Vanilla** wrappers. Use it headless with vanilla JS/TS, add the built-in toolbar and theme, or drop in ready-made framework components. Fully tree-shakeable, import only what you use, unused extensions are stripped from your bundle.
 
