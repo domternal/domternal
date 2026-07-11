@@ -1,6 +1,6 @@
 {
   "name": "@domternal/extension-markdown",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "description": "Bidirectional Markdown for Domternal: parse Markdown into the editor (paste, insert, setContent) and serialize documents back to GitHub-flavored Markdown, covering the full Notion-style schema",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
