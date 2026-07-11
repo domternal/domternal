@@ -214,54 +214,208 @@ test.describe('Math extension', () => {
     await expect(inline.locator('.katex')).toBeVisible();
   });
 
-  const longLatex = Array.from({ length: 60 }, (_, i) => `x_{${i + 1}}`).join(' + ') + ' = 0';
+  // ---------------------------------------------------------------------------
+  // Long / oversized equations. KaTeX never line-breaks display math and only
+  // soft-wraps breakable inline math, so the theme is responsible for scrolling
+  // or bounding the rest. These cover every layout edge: block scroll, centering,
+  // vertical clipping, the edit popover, and inline wrap vs overflow.
+  // ---------------------------------------------------------------------------
+  test.describe('long and oversized equations', () => {
+    const longBlock = Array.from({ length: 60 }, (_, i) => `x_{${i + 1}}`).join(' + ') + ' = 0';
+    const shortBlock = 'E = mc^2';
+    const tallMatrix = '\\begin{pmatrix} a & b & c \\\\ d & e & f \\\\ g & h & i \\end{pmatrix}';
+    const wideWithDescenders = Array.from({ length: 30 }, (_, i) => `\\sum_{k=1}^{${i + 1}} a_k`).join(
+      ' + ',
+    );
+    const longInlineBreakable = Array.from({ length: 60 }, (_, i) => `\\alpha_{${i + 1}}`).join(' + ');
 
-  test('a long block equation scrolls horizontally instead of overflowing the editor', async ({
-    page,
-  }) => {
-    await setContent(page, '<p></p>');
-    await insertBlock(page, longLatex);
+    const blockSelector = '.app-notion-demo .dm-math-block';
+    const inlineSelector = '.app-notion-demo .dm-math-inline';
 
-    const block = page.locator('.app-notion-demo .dm-math-block');
-    await expect(block.locator('.katex')).toBeVisible();
+    // Layout metrics for the single block node vs its editor clip box.
+    const blockLayout = (page: Page) =>
+      page.locator(blockSelector).evaluate((el) => {
+        const editor = el.closest('.dm-editor') as HTMLElement;
+        const er = editor.getBoundingClientRect();
+        const br = el.getBoundingClientRect();
+        const k = (el.querySelector('.katex-display') ?? el.querySelector('.katex')) as HTMLElement;
+        const katexHeight = Math.round(k.getBoundingClientRect().height);
+        el.scrollLeft = 1_000_000;
+        const maxScrollLeft = el.scrollLeft; // >0 means the far end is reachable
+        el.scrollLeft = 0;
+        return {
+          overflowX: getComputedStyle(el).overflowX,
+          // A real overflow is hundreds of px; the >8 floor ignores KaTeX's few-px
+          // strut spill so a formula that fits is not counted as scrollable.
+          scrollableX: el.scrollWidth - el.clientWidth > 8,
+          maxScrollLeft,
+          withinEditor: br.right <= er.right + 1 && br.left >= er.left - 1,
+          // The block grows to fit the formula's height, so overflow-y:hidden
+          // never clips tall display math (matrices, big operators).
+          fitsHeight: el.clientHeight >= katexHeight - 2,
+        };
+      });
 
-    const m = await block.evaluate((el) => {
-      const editor = el.closest('.dm-editor') as HTMLElement;
-      const er = editor.getBoundingClientRect();
-      const br = el.getBoundingClientRect();
-      return {
-        overflowX: getComputedStyle(el).overflowX,
-        scrollable: el.scrollWidth > el.clientWidth,
-        // The block's own box stays inside the editor's clipped content area
-        // rather than spilling the formula past the right edge.
-        withinEditor: br.right <= er.right + 1 && br.left >= er.left - 1,
-      };
+    const openPopoverOnBlock = async (page: Page): Promise<void> => {
+      await page.locator(blockSelector).click();
+      await expect(page.locator('.dm-math-popover')).toBeVisible();
+    };
+
+    test('long block: establishes its own horizontal scroll (overflow-x: auto)', async ({ page }) => {
+      await setContent(page, '<p></p>');
+      await insertBlock(page, longBlock);
+      await expect(page.locator(`${blockSelector} .katex`)).toBeVisible();
+
+      const m = await blockLayout(page);
+      expect(m.overflowX).toBe('auto');
+      expect(m.scrollableX).toBe(true);
     });
-    expect(m.overflowX).toBe('auto');
-    expect(m.scrollable).toBe(true);
-    expect(m.withinEditor).toBe(true);
-  });
 
-  test('editing a long block equation keeps the popover within the viewport', async ({ page }) => {
-    await setContent(page, '<p></p>');
-    await insertBlock(page, longLatex);
+    test('long block: stays inside the editor content box (no spill past the edge)', async ({
+      page,
+    }) => {
+      await setContent(page, '<p></p>');
+      await insertBlock(page, longBlock);
+      await expect(page.locator(`${blockSelector} .katex`)).toBeVisible();
 
-    await page.locator('.app-notion-demo .dm-math-block').click();
-    const popover = page.locator('.dm-math-popover');
-    await expect(popover).toBeVisible();
+      expect((await blockLayout(page)).withinEditor).toBe(true);
+    });
 
-    const pb = await popover.boundingBox();
-    const viewport = page.viewportSize();
-    expect(pb).not.toBeNull();
-    expect(viewport).not.toBeNull();
-    // The popover stays on-screen instead of stretching to the formula's width.
-    expect(pb!.x).toBeGreaterThanOrEqual(0);
-    expect(pb!.x + pb!.width).toBeLessThanOrEqual(viewport!.width + 1);
+    test('long block: both ends of the formula are reachable by scrolling', async ({ page }) => {
+      await setContent(page, '<p></p>');
+      await insertBlock(page, longBlock);
+      await expect(page.locator(`${blockSelector} .katex`)).toBeVisible();
 
-    // The wide render scrolls inside the bounded preview.
-    const previewScrolls = await popover
-      .locator('.dm-math-popover-preview')
-      .evaluate((el) => el.scrollWidth > el.clientWidth);
-    expect(previewScrolls).toBe(true);
+      // Start is at scrollLeft 0; a positive scroll range means the end is
+      // reachable too (safe center pins the start rather than hiding it).
+      expect((await blockLayout(page)).maxScrollLeft).toBeGreaterThan(0);
+    });
+
+    test('short block: stays centered with no scrollbar', async ({ page }) => {
+      await setContent(page, '<p></p>');
+      await insertBlock(page, shortBlock);
+      await expect(page.locator(`${blockSelector} .katex`)).toBeVisible();
+
+      const c = await page.locator(blockSelector).evaluate((el) => {
+        const k = (el.querySelector('.katex-display') ?? el.querySelector('.katex')) as HTMLElement;
+        const eb = el.getBoundingClientRect();
+        const kb = k.getBoundingClientRect();
+        return {
+          leftGap: Math.round(kb.left - eb.left),
+          rightGap: Math.round(eb.right - kb.right),
+        };
+      });
+      expect(Math.abs(c.leftGap - c.rightGap)).toBeLessThanOrEqual(2);
+      expect((await blockLayout(page)).scrollableX).toBe(false);
+    });
+
+    test('tall block (3x3 matrix): renders full height, not vertically clipped', async ({ page }) => {
+      await setContent(page, '<p></p>');
+      await insertBlock(page, tallMatrix);
+      await expect(page.locator(`${blockSelector} .katex`)).toBeVisible();
+
+      const m = await blockLayout(page);
+      expect(m.fitsHeight).toBe(true);
+      expect(m.scrollableX).toBe(false); // a matrix fits horizontally
+    });
+
+    test('wide block with descenders: scrolls horizontally without clipping the bottom', async ({
+      page,
+    }) => {
+      await setContent(page, '<p></p>');
+      await insertBlock(page, wideWithDescenders);
+      await expect(page.locator(`${blockSelector} .katex`)).toBeVisible();
+
+      const m = await blockLayout(page);
+      expect(m.scrollableX).toBe(true);
+      expect(m.fitsHeight).toBe(true);
+    });
+
+    test('editing a long block: the popover stays within the viewport', async ({ page }) => {
+      await setContent(page, '<p></p>');
+      await insertBlock(page, longBlock);
+      await openPopoverOnBlock(page);
+
+      const pb = await page.locator('.dm-math-popover').boundingBox();
+      const vp = page.viewportSize();
+      expect(pb).not.toBeNull();
+      expect(vp).not.toBeNull();
+      expect(pb!.x).toBeGreaterThanOrEqual(0);
+      expect(pb!.x + pb!.width).toBeLessThanOrEqual(vp!.width + 1);
+    });
+
+    test('editing a long block: the preview scrolls the wide render (both ends reachable)', async ({
+      page,
+    }) => {
+      await setContent(page, '<p></p>');
+      await insertBlock(page, longBlock);
+      await openPopoverOnBlock(page);
+
+      const p = await page.locator('.dm-math-popover-preview').evaluate((el) => {
+        el.scrollLeft = 1_000_000;
+        const maxScrollLeft = el.scrollLeft;
+        el.scrollLeft = 0;
+        return { scrolls: el.scrollWidth > el.clientWidth, maxScrollLeft };
+      });
+      expect(p.scrolls).toBe(true);
+      expect(p.maxScrollLeft).toBeGreaterThan(0);
+    });
+
+    test('editing a long block: the textarea is not stretched to the formula width', async ({
+      page,
+    }) => {
+      await setContent(page, '<p></p>');
+      await insertBlock(page, longBlock);
+      await openPopoverOnBlock(page);
+
+      const taWidth = await page
+        .locator('.dm-math-popover textarea')
+        .evaluate((el) => el.getBoundingClientRect().width);
+      // Bounded by the 32rem popover cap, nowhere near the formula's intrinsic width.
+      expect(taWidth).toBeLessThan(560);
+    });
+
+    test('narrow viewport: the popover still fits (respects 90vw)', async ({ page }) => {
+      await page.setViewportSize({ width: 380, height: 720 });
+      await setContent(page, '<p></p>');
+      await insertBlock(page, longBlock);
+      await openPopoverOnBlock(page);
+
+      const pb = await page.locator('.dm-math-popover').boundingBox();
+      expect(pb).not.toBeNull();
+      expect(pb!.x).toBeGreaterThanOrEqual(0);
+      expect(pb!.x + pb!.width).toBeLessThanOrEqual(381);
+      expect(pb!.width).toBeLessThanOrEqual(380 * 0.9 + 1);
+    });
+
+    test('long breakable inline: wraps across lines and stays within the editor', async ({ page }) => {
+      await setContent(page, '<p>Start </p>');
+      await insertInline(page, longInlineBreakable);
+      await expect(page.locator(`${inlineSelector} .katex`)).toBeVisible();
+
+      const m = await page.locator(inlineSelector).evaluate((el) => {
+        const editor = el.closest('.dm-editor') as HTMLElement;
+        const er = editor.getBoundingClientRect();
+        const br = el.getBoundingClientRect();
+        return { height: Math.round(br.height), withinEditor: br.right <= er.right + 1 };
+      });
+      expect(m.height).toBeGreaterThan(40); // taller than one line => wrapped
+      expect(m.withinEditor).toBe(true);
+    });
+
+    test('inline fraction: overflow stays visible so tall glyphs are not clipped', async ({ page }) => {
+      await setContent(page, '<p>x </p>');
+      await insertInline(page, '\\frac{a}{b}');
+      await expect(page.locator(`${inlineSelector} .katex`)).toBeVisible();
+
+      const cs = await page.locator(inlineSelector).evaluate((el) => {
+        const s = getComputedStyle(el);
+        return { overflowX: s.overflowX, overflowY: s.overflowY };
+      });
+      // Inline math must not clip either axis, or fractions/integrals lose their
+      // ascenders/descenders. This guards the deliberate no-overflow choice.
+      expect(cs.overflowX).toBe('visible');
+      expect(cs.overflowY).toBe('visible');
+    });
   });
 });
