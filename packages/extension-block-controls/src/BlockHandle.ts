@@ -74,6 +74,32 @@ const DROP_ZONE_TOL = 16;
 
 export const blockHandlePluginKey = new PluginKey<BlockHandlePluginState>('blockHandle');
 
+/** Pointer sample handed to a `DropZoneProvider` during a handle drag. */
+export interface DropZoneQuery {
+  view: EditorView;
+  /** Pointer position in client coordinates. */
+  clientX: number;
+  clientY: number;
+  /** Source position of the dragged block (tiered resolution; never null here). */
+  draggedFrom: number;
+}
+
+/**
+ * Claims pointer positions during a handle drag. Return `true` when the
+ * position belongs to your zone: BlockHandle then hides its own drop
+ * indicator for that frame and treats a release there as a no-op, leaving
+ * both the visual and the drop transaction to you. Draw your own indicator
+ * and handle the drop in a higher-priority plugin's `handleDrop` (drops on
+ * `.ProseMirror`) or a capture-phase document `drop` listener (gutter
+ * drops); an unclaimed-by-you release inside a claimed zone does nothing.
+ *
+ * Called from `dragover` at pointer-sample rate: keep it cheap and pure
+ * (geometry math only, no DOM writes, no dispatch).
+ *
+ * @experimental The shape may still change in a minor release.
+ */
+export type DropZoneProvider = (query: DropZoneQuery) => boolean;
+
 export interface BlockHandleOptions {
   /**
    * Ms to wait before hiding the handle after the mouse leaves the editor, so
@@ -138,6 +164,18 @@ export interface BlockHandleOptions {
    * @default true
    */
   dropIndicator?: boolean;
+  /**
+   * Extension point for foreign drop zones (e.g. side-of-block zones that
+   * create column layouts). Providers are consulted on every handle-drag
+   * pointer sample; the first one returning `true` claims that position:
+   * the built-in gap indicator hides and a release there is ignored by
+   * BlockHandle, so the claiming plugin fully owns indicator and drop.
+   * With no providers (default) behavior is unchanged.
+   *
+   * @experimental
+   * @default []
+   */
+  dropZoneProviders?: DropZoneProvider[];
 }
 
 /**
@@ -242,6 +280,8 @@ export interface CreateBlockHandlePluginOptions {
    * `0` disables nested-drop.
    */
   nestThreshold: number;
+  /** Foreign drop zones (see `BlockHandleOptions.dropZoneProviders`). */
+  dropZoneProviders: DropZoneProvider[];
 }
 
 /**
@@ -734,7 +774,7 @@ function resolveChildSlot(
 export function createBlockHandlePlugin(
   options: CreateBlockHandlePluginOptions,
 ): Plugin<BlockHandlePluginState> {
-  const { pluginKey, editor, hideDelay, disableDrag, autoScroll, autoScrollThreshold, autoScrollMaxSpeed, nested, dropIndicator, nestThreshold } = options;
+  const { pluginKey, editor, hideDelay, disableDrag, autoScroll, autoScrollThreshold, autoScrollMaxSpeed, nested, dropIndicator, nestThreshold, dropZoneProviders } = options;
 
   // --- Build DOM once. Buttons use the shared Phosphor icons.
   const root = document.createElement('div');
@@ -1115,11 +1155,33 @@ export function createBlockHandlePlugin(
   };
 
   /**
+   * `true` when a `dropZoneProviders` entry claims this pointer position.
+   * Claimed positions belong entirely to the claiming plugin: the built-in
+   * indicator hides and a release is a no-op for BlockHandle. Reads the same
+   * tiered drag source as `performBlockDrop` so both sides always agree on
+   * whether a handle drag is in flight.
+   */
+  const zoneClaimed = (clientX: number, clientY: number): boolean => {
+    if (dropZoneProviders.length === 0) return false;
+    const view = editor.view;
+    const draggedFrom = pluginKey.getState(view.state)?.draggedFrom
+      ?? pendingDraggedFrom
+      ?? asDragView(view).dragging?.node?.from
+      ?? null;
+    if (draggedFrom === null) return false;
+    return dropZoneProviders.some((provider) => provider({ view, clientX, clientY, draggedFrom }));
+  };
+
+  /**
    * Shared drop logic, run by both PM's `handleDrop` (cursor over `.ProseMirror`)
    * and our document-level drop listener (cursor in gutter/margin but inside the
    * indicator zone). Returns `true` when a move was dispatched.
    */
   const performBlockDrop = (clientX: number, clientY: number): boolean => {
+    // A claimed position is the claiming plugin's responsibility; treat the
+    // release as a no-op here (the event still gets consumed by our callers,
+    // so PM's default drop cannot corrupt the doc if the claimer declined it).
+    if (zoneClaimed(clientX, clientY)) return false;
     const view = editor.view;
     const state = pluginKey.getState(view.state);
     // Tiered source-position fallback:
@@ -1196,6 +1258,11 @@ export function createBlockHandlePlugin(
    */
   const updateDropIndicator = (clientX: number, clientY: number): void => {
     if (!editorEl) return;
+    // Foreign zone: the claiming plugin draws its own indicator there.
+    if (zoneClaimed(clientX, clientY)) {
+      hideDropIndicator();
+      return;
+    }
     const placement = computeDropPlacement(editor.view, clientX, clientY, nested, nestThreshold, {
       incumbentUpperPos: dragHyst.upperPos,
       incumbentLowerPos: dragHyst.lowerPos,
@@ -1603,6 +1670,7 @@ export const BlockHandle = Extension.create<BlockHandleOptions>({
       nested: false,
       dropIndicator: true,
       nestThreshold: DEFAULT_NEST_THRESHOLD,
+      dropZoneProviders: [],
     };
   },
 
@@ -1621,6 +1689,7 @@ export const BlockHandle = Extension.create<BlockHandleOptions>({
         nested: resolveNestedConfig(this.options.nested),
         dropIndicator: this.options.dropIndicator ?? true,
         nestThreshold: this.options.nestThreshold ?? DEFAULT_NEST_THRESHOLD,
+        dropZoneProviders: this.options.dropZoneProviders ?? [],
       }),
     ];
   },

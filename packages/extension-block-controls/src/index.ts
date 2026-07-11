@@ -28,6 +28,8 @@ export type {
   BlockHandleOptions,
   BlockHandlePluginState,
   CreateBlockHandlePluginOptions,
+  DropZoneProvider,
+  DropZoneQuery,
   NestedConfig,
 } from './BlockHandle.js';
 

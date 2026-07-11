@@ -18,7 +18,7 @@ import {
   descendToNearestHoverItem,
   buildDropTr,
 } from './BlockHandle.js';
-import type { DropPlacement } from './BlockHandle.js';
+import type { DropPlacement, DropZoneProvider, DropZoneQuery } from './BlockHandle.js';
 import type { EditorView } from '@domternal/pm/view';
 import { DEFAULT_BLOCK_MATCHERS } from './helpers/defaultMatchers.js';
 import type { BlockMatcher } from './helpers/blockMatcher.js';
@@ -54,6 +54,7 @@ describe('BlockHandle configuration', () => {
     expect(BlockHandle.options.autoScroll).toBe(true);
     expect(BlockHandle.options.autoScrollThreshold).toBe(48);
     expect(BlockHandle.options.autoScrollMaxSpeed).toBe(18);
+    expect(BlockHandle.options.dropZoneProviders).toEqual([]);
   });
 
   it('can configure hideDelay', () => {
@@ -1223,6 +1224,98 @@ describe('BlockHandle nested drag-and-drop (DOM simulation)', () => {
     document.dispatchEvent(dragEvent('dragover', 5000, 5000));
     expect(indicator?.hasAttribute('data-show')).toBe(false);
     endDrag();
+  });
+
+  // --- dropZoneProviders: foreign zones claim positions; BlockHandle yields.
+
+  /** Two top-level paragraphs with a provider-configured BlockHandle. */
+  function providerFixture(providers: DropZoneProvider[]): { ed: Editor; source: number; target: number } {
+    host = document.createElement('div');
+    host.className = 'dm-editor';
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, BlockHandle.configure({ dropZoneProviders: providers })],
+      content: '<p>Target</p><p>Source</p>',
+    });
+    const ed = editor;
+    const target = posOf(ed, (n) => n.type.name === 'paragraph' && n.textContent === 'Target');
+    const source = posOf(ed, (n) => n.type.name === 'paragraph' && n.textContent === 'Source');
+    const contentRect = new DOMRect(40, 100, 960, 200);
+    const hostRect = new DOMRect(0, 90, 1000, 230);
+    stubGeometry(ed, contentRect, hostRect, new Map<number, DOMRect>([
+      [target, new DOMRect(50, 100, 900, 55)],   // 100..155
+      [source, new DOMRect(50, 200, 900, 55)],   // 200..255
+    ]));
+    return { ed, source, target };
+  }
+
+  function topTexts(ed: Editor): string[] {
+    const out: string[] = [];
+    ed.state.doc.forEach((child) => out.push(child.textContent));
+    return out;
+  }
+
+  it('a claimed dragover hides the built-in drop indicator; unclaimed shows it again', () => {
+    installRafStub();
+    // Claim the right-edge strip only.
+    const { ed, source } = providerFixture([({ clientX }) => clientX >= 800]);
+    startDrag(ed, source);
+    const indicator = host!.querySelector<HTMLElement>('.dm-block-drop-indicator');
+
+    document.dispatchEvent(dragEvent('dragover', 850, 105));
+    tickAllRaf();
+    expect(indicator?.hasAttribute('data-show')).toBe(false);
+
+    document.dispatchEvent(dragEvent('dragover', 300, 105));
+    tickAllRaf();
+    expect(indicator?.hasAttribute('data-show')).toBe(true);
+    endDrag();
+  });
+
+  it('a drop on a claimed position is a no-op for BlockHandle but stays consumed', () => {
+    const { ed, source } = providerFixture([({ clientX }) => clientX >= 800]);
+    const before = topTexts(ed);
+    startDrag(ed, source);
+    const drop = dragEvent('drop', 850, 105);
+    document.dispatchEvent(drop);
+    endDrag();
+
+    expect(topTexts(ed)).toEqual(before);
+    // Consumed so PM's default drop cannot corrupt the doc if the claimer declined.
+    expect(drop.defaultPrevented).toBe(true);
+  });
+
+  it('the same drop on an unclaimed position still moves the block', () => {
+    const { ed, source } = providerFixture([({ clientX }) => clientX >= 800]);
+    startDrag(ed, source);
+    // Upper half of the Target row: insert before it.
+    document.dispatchEvent(dragEvent('drop', 300, 105));
+    endDrag();
+
+    expect(topTexts(ed)).toEqual(['Source', 'Target']);
+  });
+
+  it('providers receive the view, pointer coords and the dragged source position', () => {
+    const seen: DropZoneQuery[] = [];
+    const { ed, source } = providerFixture([(query) => { seen.push(query); return false; }]);
+    startDrag(ed, source);
+    document.dispatchEvent(dragEvent('drop', 300, 105));
+    endDrag();
+
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen[0]!.view).toBe(ed.view);
+    expect(seen[0]!.clientX).toBe(300);
+    expect(seen[0]!.clientY).toBe(105);
+    expect(seen[0]!.draggedFrom).toBe(source);
+  });
+
+  it('providers are not consulted outside a handle drag', () => {
+    const provider = vi.fn(() => true);
+    providerFixture([provider]);
+    // No startDrag: a bare document drop must not reach providers.
+    document.dispatchEvent(dragEvent('drop', 850, 105));
+    expect(provider).not.toHaveBeenCalled();
   });
 });
 

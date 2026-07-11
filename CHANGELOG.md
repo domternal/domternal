@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- feat(extension-block-controls): experimental `dropZoneProviders` option on BlockHandle. Providers claim pointer positions during a handle drag; a claimed position hides the built-in drop indicator and turns the release into a no-op for BlockHandle, so a higher-priority plugin can own its own drop zones (custom indicators and transactions). With no providers registered, behavior is unchanged.
+
 ## 0.12.1 (2026-07-11)
 
 ### Fixes
