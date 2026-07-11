@@ -22,13 +22,20 @@ $shadow: var(--dm-popover-shadow, 0 12px 28px -8px rgba(0, 0, 0, 0.22), 0 4px 10
     &.dm-math-inline {
       display: inline-block;
       padding: 0 0.1em;
+      // No overflow: keep it visible so tall fractions/integrals/roots aren't
+      // clipped (clipping one axis forces the other off visible too). KaTeX
+      // already wraps breakable inline math; non-breakable stays a KaTeX limit.
     }
 
     &.dm-math-block {
-      display: block;
+      // Center when it fits; scroll horizontally when it overflows instead of
+      // being clipped. `safe center` keeps the formula's start reachable.
+      display: flex;
+      justify-content: safe center;
       margin: 0.5rem 0;
       padding: 0.5rem;
-      text-align: center;
+      overflow-x: auto;
+      overflow-y: hidden;
     }
 
     &.dm-math-empty {
@@ -55,6 +62,10 @@ $shadow: var(--dm-popover-shadow, 0 12px 28px -8px rgba(0, 0, 0, 0.22), 0 4px 10
   flex-direction: column;
   gap: 0.375rem;
   min-width: 16rem;
+  // Cap the width so a wide formula scrolls inside the preview instead of
+  // stretching the whole popover (and its textarea) to the formula's width.
+  max-width: min(90vw, 32rem);
+  box-sizing: border-box;
   padding: 0.5rem;
   background: $bg;
   color: $text;
@@ -103,11 +114,18 @@ $shadow: var(--dm-popover-shadow, 0 12px 28px -8px rgba(0, 0, 0, 0.22), 0 4px 10
 
 .dm-math-popover-preview {
   min-height: 1.5rem;
+  // Cap so a tall/wide formula scrolls within the popover instead of growing it.
+  max-width: 100%;
+  max-height: 40vh;
   padding: 0.375rem 0.5rem;
   border-radius: 0.375rem;
   background: var(--dm-surface, rgba(0, 0, 0, 0.03));
-  text-align: center;
-  overflow-x: auto;
+  // Center when it fits, pin to the start when it overflows so the beginning
+  // stays reachable while scrolling.
+  display: flex;
+  justify-content: safe center;
+  align-items: center;
+  overflow: auto;
   direction: ltr;
   unicode-bidi: isolate;
 
@@ -119,6 +137,9 @@ $shadow: var(--dm-popover-shadow, 0 12px 28px -8px rgba(0, 0, 0, 0.22), 0 4px 10
   }
 
   &.dm-math-error {
+    // Error text reads top-left and wraps; undo the flex centering.
+    justify-content: flex-start;
+    align-items: flex-start;
     color: #dc2626;
     font-family: var(--dm-code-font, monospace);
     text-align: left;

@@ -213,4 +213,55 @@ test.describe('Math extension', () => {
     await expect(inline).toBeVisible();
     await expect(inline.locator('.katex')).toBeVisible();
   });
+
+  const longLatex = Array.from({ length: 60 }, (_, i) => `x_{${i + 1}}`).join(' + ') + ' = 0';
+
+  test('a long block equation scrolls horizontally instead of overflowing the editor', async ({
+    page,
+  }) => {
+    await setContent(page, '<p></p>');
+    await insertBlock(page, longLatex);
+
+    const block = page.locator('.app-notion-demo .dm-math-block');
+    await expect(block.locator('.katex')).toBeVisible();
+
+    const m = await block.evaluate((el) => {
+      const editor = el.closest('.dm-editor') as HTMLElement;
+      const er = editor.getBoundingClientRect();
+      const br = el.getBoundingClientRect();
+      return {
+        overflowX: getComputedStyle(el).overflowX,
+        scrollable: el.scrollWidth > el.clientWidth,
+        // The block's own box stays inside the editor's clipped content area
+        // rather than spilling the formula past the right edge.
+        withinEditor: br.right <= er.right + 1 && br.left >= er.left - 1,
+      };
+    });
+    expect(m.overflowX).toBe('auto');
+    expect(m.scrollable).toBe(true);
+    expect(m.withinEditor).toBe(true);
+  });
+
+  test('editing a long block equation keeps the popover within the viewport', async ({ page }) => {
+    await setContent(page, '<p></p>');
+    await insertBlock(page, longLatex);
+
+    await page.locator('.app-notion-demo .dm-math-block').click();
+    const popover = page.locator('.dm-math-popover');
+    await expect(popover).toBeVisible();
+
+    const pb = await popover.boundingBox();
+    const viewport = page.viewportSize();
+    expect(pb).not.toBeNull();
+    expect(viewport).not.toBeNull();
+    // The popover stays on-screen instead of stretching to the formula's width.
+    expect(pb!.x).toBeGreaterThanOrEqual(0);
+    expect(pb!.x + pb!.width).toBeLessThanOrEqual(viewport!.width + 1);
+
+    // The wide render scrolls inside the bounded preview.
+    const previewScrolls = await popover
+      .locator('.dm-math-popover-preview')
+      .evaluate((el) => el.scrollWidth > el.clientWidth);
+    expect(previewScrolls).toBe(true);
+  });
 });
