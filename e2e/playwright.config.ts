@@ -42,7 +42,7 @@ export default defineConfig({
       cwd: '..',
     },
     {
-      command: 'pnpm --filter demo-angular start --port 5399',
+      command: 'rm -rf apps/demo-angular/.angular && pnpm --filter demo-angular start --port 5399',
       url: 'http://localhost:5399',
       reuseExistingServer: !process.env['CI'],
       timeout: 180000,
