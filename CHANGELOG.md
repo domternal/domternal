@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.1 (2026-07-11)
+
+### Fixes
+
+- fix(theme): long block (display) equations now scroll horizontally instead of being clipped by the editor, and the LaTeX edit popover is bounded to the viewport with a scrolling preview instead of stretching to the formula's width. Inline math keeps its overflow visible so fractions, integrals, and roots are never vertically clipped. (#128)
+
 ## 0.12.0 (2026-07-10)
 
 ### Features
