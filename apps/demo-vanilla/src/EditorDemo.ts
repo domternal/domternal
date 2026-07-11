@@ -239,13 +239,14 @@ export class EditorDemo {
 
     // Update handler - refresh outputs + selector state per transaction
     const onUpdate = (): void => { this.#refreshOutputs(); };
-    this.#editorWrapper.addEventListener('update', onUpdate);
-    this.#editorWrapper.addEventListener('selectionchange', onUpdate);
-    this.#editorWrapper.addEventListener('create', onUpdate);
+    // Refresh on every core transaction rather than the wrapper's filtered
+    // 'update'/'selectionchange' events: those skip quiet programmatic writes
+    // (setContent(content, false) sets skipUpdate), which would leave the
+    // output and selector panes stale. One handler covers edits, selection,
+    // and programmatic writes alike.
+    editor.on('transaction', onUpdate);
     this.#updateOff = (): void => {
-      this.#editorWrapper.removeEventListener('update', onUpdate);
-      this.#editorWrapper.removeEventListener('selectionchange', onUpdate);
-      this.#editorWrapper.removeEventListener('create', onUpdate);
+      editor.off('transaction', onUpdate);
     };
 
     // E2E exposure
