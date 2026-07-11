@@ -35,4 +35,10 @@ export const DEMO_CONTENT = `
 <h3>Mentions</h3>
 <p>Type <code>@</code> followed by a name to mention someone: <span data-type="mention" data-id="1" data-label="Alice Johnson" data-mention-type="user" class="mention">@Alice Johnson</span> and <span data-type="mention" data-id="7" data-label="Grace Hopper" data-mention-type="user" class="mention">@Grace Hopper</span> are already mentioned here.</p>
 <p>Try typing <code>:wave</code> anywhere to insert an emoji via the suggestion dropdown.</p>
-<p><span style="font-size: 17px; font-family: Georgia">This paragraph uses a custom font size and family to test text style rendering.</span></p>`;
+<p><span style="font-size: 17px; font-family: Georgia">This paragraph uses a custom font size and family to test text style rendering.</span></p>
+<h3>Math (KaTeX)</h3>
+<p>Inline math like <span data-type="math-inline" data-latex="E = mc^2"></span> and <span data-type="math-inline" data-latex="\\frac{a}{b}"></span> flow with the text, and a long inline sum <span data-type="math-inline" data-latex="\\alpha_1 + \\alpha_2 + \\alpha_3 + \\cdots + \\alpha_n"></span> wraps across lines.</p>
+<p>Block equations center when they fit:</p>
+<div data-type="math-block" data-latex="\\int_0^\\infty e^{-x^2}\\,dx = \\frac{\\sqrt{\\pi}}{2}"></div>
+<p>and scroll horizontally when they are too wide, instead of being clipped:</p>
+<div data-type="math-block" data-latex="P(x) = c_0 + c_1 x + c_2 x^2 + c_3 x^3 + c_4 x^4 + c_5 x^5 + c_6 x^6 + c_7 x^7 + c_8 x^8 + c_9 x^9 + c_{10} x^{10} + c_{11} x^{11} + c_{12} x^{12} + c_{13} x^{13} + c_{14} x^{14}"></div>`;
