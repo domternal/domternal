@@ -107,6 +107,12 @@ export interface FindDeepestBlockOptions {
   incumbentPos?: number | null;
   /** Sticky margin (px) for the incumbent's containment test. `0` disables. */
   hysteresisBand?: number;
+  /**
+   * Restrict the walk to blocks inside `[from, to]` (absolute positions).
+   * Used by anchor-container resolution to scope the search to one container's
+   * subtree; nodes outside the range are never candidates.
+   */
+  range?: { from: number; to: number };
 }
 
 /**
@@ -130,7 +136,7 @@ export function findDeepestBlockAtY(
   // Band only engages when there's an incumbent to be sticky about.
   const band = incumbentPos !== null ? Math.max(0, options.hysteresisBand ?? 0) : 0;
   let best: DeepestBlockMatch | null = null;
-  view.state.doc.descendants((node, pos, parent, index) => {
+  const visit = (node: Node, pos: number, parent: Node | null, index: number): boolean => {
     const dom = view.nodeDOM(pos);
     if (!(dom instanceof HTMLElement)) return true;
     const rect = dom.getBoundingClientRect();
@@ -151,11 +157,27 @@ export function findDeepestBlockAtY(
       }
     }
     return true;
-  });
+  };
+  if (options.range) {
+    // Scoped walk. `nodesBetween` also visits ancestors overlapping the range
+    // (doc, the container itself); they fail the `allowedTypes` check, and the
+    // range keeps sibling containers' subtrees out entirely.
+    const from = Math.max(0, options.range.from);
+    const to = Math.min(view.state.doc.content.size, options.range.to);
+    if (from >= to) return null;
+    view.state.doc.nodesBetween(from, to, visit);
+  } else {
+    view.state.doc.descendants(visit);
+  }
   return best;
 }
 
-function isRejectedByMatchers(
+/**
+ * Runs the matcher chain against one candidate node. Exported for the
+ * anchor-container resolver so its direct-child fallback applies the same
+ * eligibility rules (e.g. `insideOpaqueContainer`) as the deep walk.
+ */
+export function isRejectedByMatchers(
   view: EditorView,
   node: Node,
   pos: number,

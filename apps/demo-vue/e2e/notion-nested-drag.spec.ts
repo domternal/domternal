@@ -814,6 +814,10 @@ test.describe('Extended coverage: atoms, parity, boundaries', () => {
 // resolved block is. Only Y tracks the resolved block; X is CSS-fixed
 // at `left: -0.5rem` relative to .dm-editor. Pinned here so future
 // refactors that try to follow block X are caught as regressions.
+// ONE deliberate exception exists: blocks inside a container listed in
+// the experimental `nested.anchorContainers` option (side-by-side
+// layouts) get an inline `left` anchored to their container's edge.
+// These demos do not configure it, so the gutter contract holds here.
 // ────────────────────────────────────────────────────────────────────────
 
 async function handleBox(page: Page): Promise<{ x: number; y: number; width: number; height: number }> {

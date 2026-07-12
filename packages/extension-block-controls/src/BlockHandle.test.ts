@@ -4,12 +4,14 @@ import {
   Text,
   Paragraph,
   Heading,
+  Blockquote,
   BulletList,
   OrderedList,
   ListItem,
   TaskList,
   TaskItem,
   Editor,
+  Node,
 } from '@domternal/core';
 import {
   BlockHandle,
@@ -173,6 +175,21 @@ describe('resolveNestedConfig', () => {
     expect(r.allowedNodes).toEqual([]);
     expect(r.gutterBias).toBeNull();
     expect(r.matchers).toEqual([]);
+  });
+
+  it('anchorContainers passes through in default (Mode B) resolution', () => {
+    const r = resolveNestedConfig({ allowedNodes: ['paragraph'], anchorContainers: ['column'] });
+    expect(r.anchorContainers).toEqual(['column']);
+  });
+
+  it('anchorContainers is dropped when promoteOnEdge (Mode C) is set', () => {
+    const r = resolveNestedConfig({ allowedNodes: ['paragraph'], anchorContainers: ['column'], promoteOnEdge: true });
+    expect(r.anchorContainers).toEqual([]);
+  });
+
+  it('anchorContainers is dropped with empty allowedNodes and absent for `true`', () => {
+    expect(resolveNestedConfig({ allowedNodes: [], anchorContainers: ['column'] }).anchorContainers).toEqual([]);
+    expect(resolveNestedConfig(true).anchorContainers).toEqual([]);
   });
 });
 
@@ -780,6 +797,278 @@ describe('BlockHandle hover resolution', () => {
     // The hide is delayed; just verify the listener was called without throwing.
     // Real timing tested via e2e.
     expect(blockHandlePluginKey.getState(editor!.state)?.hoveredPos).toBe(0);
+  });
+});
+
+describe('BlockHandle anchor containers (hover)', () => {
+  // Stand-in for the pro columns schema: a side-by-side `block+` container.
+  const TestColumn = Node.create({
+    name: 'column',
+    content: 'block+',
+    isolating: true,
+    parseHTML() {
+      return [{ tag: 'div[data-type="column"]' }];
+    },
+    renderHTML() {
+      return ['div', { 'data-type': 'column' }, 0];
+    },
+  });
+  const TestColumnList = Node.create({
+    name: 'columnList',
+    group: 'block',
+    content: 'column+',
+    parseHTML() {
+      return [{ tag: 'div[data-type="column-list"]' }];
+    },
+    renderHTML() {
+      return ['div', { 'data-type': 'column-list' }, 0];
+    },
+  });
+
+  const anchorExtensions = [
+    Document, Text, Paragraph, Blockquote, TestColumnList, TestColumn,
+    BlockHandle.configure({ nested: { allowedNodes: ['paragraph'], anchorContainers: ['column'] } }),
+  ];
+
+  let rafCallbacks: FrameRequestCallback[] = [];
+  function installRafStub(): void {
+    rafCallbacks = [];
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      rafCallbacks.push(cb);
+      return rafCallbacks.length;
+    });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => { /* drained manually */ });
+  }
+  function tickAllRaf(): void {
+    while (rafCallbacks.length > 0) rafCallbacks.shift()?.(performance.now());
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    rafCallbacks = [];
+  });
+
+  function mountAnchored(content: string): Editor {
+    host = document.createElement('div');
+    host.className = 'dm-editor';
+    document.body.appendChild(host);
+    editor = new Editor({ element: host, extensions: anchorExtensions, content });
+    return editor;
+  }
+
+  function stubGeometry(ed: Editor, contentRect: DOMRect, hostRect: DOMRect, rectsByPos: Map<number, DOMRect>): void {
+    const first = ed.view.dom.firstElementChild;
+    if (first instanceof HTMLElement) {
+      Object.defineProperty(first, 'getBoundingClientRect', { value: () => contentRect, configurable: true });
+    }
+    host!.getBoundingClientRect = () => hostRect;
+    const origNodeDOM = ed.view.nodeDOM.bind(ed.view);
+    const view = ed.view as unknown as { nodeDOM: (p: number) => HTMLElement | null };
+    view.nodeDOM = (p: number): HTMLElement | null => {
+      const dom = origNodeDOM(p);
+      const rect = rectsByPos.get(p);
+      if (dom instanceof HTMLElement && rect) {
+        Object.defineProperty(dom, 'getBoundingClientRect', { value: () => rect, configurable: true });
+      }
+      return dom as HTMLElement | null;
+    };
+  }
+
+  function moveMouse(clientX: number, clientY: number): void {
+    const pm = host?.querySelector<HTMLElement>('.ProseMirror');
+    pm?.dispatchEvent(new MouseEvent('mousemove', { clientX, clientY, bubbles: true, cancelable: true }));
+    tickAllRaf();
+  }
+
+  function hoveredPos(): number | null {
+    return blockHandlePluginKey.getState(editor!.state)?.hoveredPos ?? null;
+  }
+
+  function handleRoot(): HTMLElement {
+    const el = host?.querySelector<HTMLElement>('.dm-block-handle');
+    if (!el) throw new Error('handle root missing');
+    return el;
+  }
+
+  /**
+   * Two columns with PARALLEL-Y first rows (the geometry the X-blind walk
+   * cannot disambiguate). Positions: columnList 0, column A 1, pA1 2, pA2 6,
+   * column B 11, pB1 12. Column A spans x 100..386, column B 414..700
+   * (28px gap), both stretched to the layout's full 100px height.
+   */
+  function twoColumnFixture(): Editor {
+    const ed = mountAnchored(
+      '<div data-type="column-list">'
+      + '<div data-type="column"><p>A1</p><p>A2</p></div>'
+      + '<div data-type="column"><p>B1</p></div>'
+      + '</div>',
+    );
+    const contentRect = new DOMRect(100, 100, 600, 100);
+    const hostRect = new DOMRect(0, 90, 1000, 230);
+    stubGeometry(ed, contentRect, hostRect, new Map<number, DOMRect>([
+      [0, new DOMRect(100, 100, 600, 100)],
+      [1, new DOMRect(100, 100, 286, 100)],
+      [2, new DOMRect(100, 100, 286, 30)],
+      [6, new DOMRect(100, 140, 286, 30)],
+      [11, new DOMRect(414, 100, 286, 100)],
+      [12, new DOMRect(414, 100, 286, 30)],
+    ]));
+    return ed;
+  }
+
+  it('cursor X picks the column: parallel-Y rows resolve per column, not by height', () => {
+    installRafStub();
+    twoColumnFixture();
+
+    moveMouse(500, 115);
+    expect(hoveredPos()).toBe(12); // B1, not the X-blind arbitrary winner
+
+    moveMouse(200, 115);
+    expect(hoveredPos()).toBe(2); // A1
+  });
+
+  it('anchors the handle left of a non-flush column and keeps the CSS token for a flush one', () => {
+    installRafStub();
+    twoColumnFixture();
+
+    moveMouse(500, 115);
+    // jsdom offsetWidth is 0 -> width fallback 46; editor left 0, column B
+    // left 414: 414 - 46 - 6 = 362.
+    expect(handleRoot().style.left).toBe('362px');
+
+    moveMouse(200, 115);
+    // Column A is flush with the content column: theme token applies.
+    expect(handleRoot().style.left).toBe('');
+  });
+
+  it('inter-column gap keeps the current handle instead of re-targeting', () => {
+    installRafStub();
+    twoColumnFixture();
+
+    moveMouse(500, 115);
+    expect(hoveredPos()).toBe(12);
+
+    // Gap midpoint (386..414) and the tolerance band just inside column B.
+    moveMouse(400, 115);
+    expect(hoveredPos()).toBe(12);
+    moveMouse(416, 115);
+    expect(hoveredPos()).toBe(12);
+    expect(handleRoot().hasAttribute('data-show')).toBe(true);
+  });
+
+  it('page margin resolves into the nearest column', () => {
+    installRafStub();
+    twoColumnFixture();
+
+    moveMouse(50, 150); // left margin at the A2 row
+    expect(hoveredPos()).toBe(6);
+  });
+
+  it('gaps between blocks and a short column\'s empty area snap to the nearest block IN that column', () => {
+    installRafStub();
+    twoColumnFixture();
+
+    moveMouse(200, 133); // between A1 (ends 130) and A2 (starts 140), nearer A1
+    expect(hoveredPos()).toBe(2);
+
+    moveMouse(500, 170); // column B's empty lower area (B1 ended at 130)
+    expect(hoveredPos()).toBe(12);
+  });
+
+  it('pointer on the visible handle freezes resolution until it leaves', () => {
+    installRafStub();
+    twoColumnFixture();
+
+    moveMouse(500, 115);
+    expect(hoveredPos()).toBe(12);
+
+    handleRoot().dispatchEvent(new MouseEvent('mouseenter', { bubbles: false }));
+    // The anchored handle overlaps column A's edge; without the freeze this
+    // mousemove would flip the target while the user reaches for the buttons.
+    moveMouse(200, 115);
+    expect(hoveredPos()).toBe(12);
+
+    handleRoot().dispatchEvent(new MouseEvent('mouseleave', { bubbles: false }));
+    moveMouse(200, 115);
+    expect(hoveredPos()).toBe(2);
+  });
+
+  it('hide restores the CSS-token position (no stale anchored left)', () => {
+    installRafStub();
+    twoColumnFixture();
+
+    moveMouse(500, 115);
+    expect(handleRoot().style.left).toBe('362px');
+
+    host?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
+    expect(handleRoot().hasAttribute('data-show')).toBe(false);
+    expect(handleRoot().style.left).toBe('');
+  });
+
+  it('columns inside an opaque container never anchor: classic resolution wins', () => {
+    installRafStub();
+    const ed = mountAnchored(
+      '<blockquote>'
+      + '<div data-type="column-list">'
+      + '<div data-type="column"><p>A</p></div>'
+      + '<div data-type="column"><p>B</p></div>'
+      + '</div>'
+      + '</blockquote>',
+    );
+    // blockquote 0, columnList 1, column A 2, pA 3, column B 8, pB 9.
+    const contentRect = new DOMRect(100, 100, 600, 100);
+    const hostRect = new DOMRect(0, 90, 1000, 230);
+    stubGeometry(ed, contentRect, hostRect, new Map<number, DOMRect>([
+      [0, new DOMRect(100, 100, 600, 100)],
+      [1, new DOMRect(100, 100, 600, 100)],
+      [2, new DOMRect(100, 100, 286, 100)],
+      [3, new DOMRect(100, 100, 286, 30)],
+      [8, new DOMRect(414, 100, 286, 100)],
+      [9, new DOMRect(414, 100, 286, 30)],
+    ]));
+
+    moveMouse(500, 115);
+    // Every block inside is matcher-rejected (insideOpaqueContainer), so the
+    // whole blockquote resolves, exactly as without anchorContainers.
+    expect(hoveredPos()).toBe(0);
+    expect(handleRoot().style.left).toBe('');
+  });
+
+  it('nested layouts recurse: inner column wins, inner gap keeps', () => {
+    installRafStub();
+    const ed = mountAnchored(
+      '<div data-type="column-list">'
+      + '<div data-type="column">'
+      + '<div data-type="column-list">'
+      + '<div data-type="column"><p>IA</p></div>'
+      + '<div data-type="column"><p>IB</p></div>'
+      + '</div>'
+      + '</div>'
+      + '<div data-type="column"><p>R</p></div>'
+      + '</div>',
+    );
+    // outerList 0, outerA 1, innerList 2, innerA 3, pIA 4, innerB 9, pIB 10,
+    // outerB 17, pR 18.
+    const contentRect = new DOMRect(100, 100, 600, 100);
+    const hostRect = new DOMRect(0, 90, 1000, 230);
+    stubGeometry(ed, contentRect, hostRect, new Map<number, DOMRect>([
+      [0, new DOMRect(100, 100, 600, 100)],
+      [1, new DOMRect(100, 100, 286, 100)],
+      [2, new DOMRect(100, 100, 286, 100)],
+      [3, new DOMRect(100, 100, 129, 100)],
+      [4, new DOMRect(100, 100, 129, 30)],
+      [9, new DOMRect(257, 100, 129, 100)],
+      [10, new DOMRect(257, 100, 129, 30)],
+      [17, new DOMRect(414, 100, 286, 100)],
+      [18, new DOMRect(414, 100, 286, 30)],
+    ]));
+
+    moveMouse(300, 115); // inside the INNER second column
+    expect(hoveredPos()).toBe(10);
+    expect(handleRoot().style.left).toBe('205px'); // 257 - 46 - 6
+
+    moveMouse(243, 115); // the INNER gap (229..257): keep, no re-target
+    expect(hoveredPos()).toBe(10);
   });
 });
 

@@ -13,10 +13,14 @@
 //    with a negative `left` - can render in the page margin rather than
 //    eating into the content column.
 //
-// Gutter default is 4rem (64px). Handle is 8px OUTSIDE the editor's
+// Gutter token is 3rem (48px; the `var()` fallback below stays 4rem for
+// hosts without the theme variables). Handle is 8px OUTSIDE the editor's
 // left edge (see `.dm-block-handle { left: -0.5rem }`) and ~46px wide,
-// so it ends ~38px inside the editor; the remaining ~26px of gutter is
-// breathing room before text, matching Notion's feel.
+// so it ends ~38px inside the editor; the remaining ~10px of gutter is
+// breathing room before text, matching Notion's feel. Blocks inside an
+// `anchorContainers` container (experimental) get an inline `left` from JS
+// instead, anchored to the container's edge; the token still positions
+// every gutter (non-anchored) show.
 .dm-editor--has-block-handle {
   overflow: visible;
 

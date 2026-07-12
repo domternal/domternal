@@ -1013,6 +1013,9 @@ importers:
       '@domternal/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@domternal/extension-block-controls':
+        specifier: workspace:*
+        version: link:../../packages/extension-block-controls
       '@domternal/extension-details':
         specifier: workspace:*
         version: link:../../packages/extension-details

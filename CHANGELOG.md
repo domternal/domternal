@@ -5,6 +5,12 @@
 ### Features
 
 - feat(extension-block-controls): experimental `dropZoneProviders` option on BlockHandle. Providers claim pointer positions during a handle drag; a claimed position hides the built-in drop indicator and turns the release into a no-op for BlockHandle, so a higher-priority plugin can own its own drop zones (custom indicators and transactions). With no providers registered, behavior is unchanged.
+- feat(extension-block-controls): experimental `nested.anchorContainers` option on BlockHandle. Blocks inside listed side-by-side containers (e.g. a `column` node) get Notion-style per-block handles: the cursor's horizontal position picks the container, hover resolution is scoped to that container's subtree, and the handle anchors to the container's left edge instead of the editor gutter. Gaps between containers are left to divider affordances (column resize), and margins resolve into the nearest container. Pair it with a `dropZoneProviders` entry that claims drops back into the container; without one, moves out of it are irreversible. Default off; behavior is unchanged without the option.
+
+### Fixes
+
+- fix(extension-block-controls): a collaborator deleting the dragged block mid-drag no longer makes the drop move whichever block now occupies the stale source position; once the drag source is committed to plugin state, its mapped (or deleted) position is the only truth and the drop aborts cleanly.
+- fix(extension-block-controls): dragging the last real block out of a generic `block+` container that also holds an empty placeholder paragraph no longer swallows the container and the placeholder with it; the filler-paragraph collapse rule is scoped to list items, its documented purpose.
 
 ## 0.12.1 (2026-07-11)
 

@@ -65,6 +65,11 @@ hook), so installed extensions register their own insert actions automatically.
 - **`BlockHandle`** - hover gutter with a `+` insert button and a drag handle. The `+`
   button inserts an empty paragraph and opens the `FloatingMenu`; the drag handle opens
   the context menu on click and reorders with a nesting-aware drop indicator on drag.
+  Two experimental extension points serve side-by-side layout extensions:
+  `dropZoneProviders` (claim pointer positions during a handle drag and own the drop)
+  and `nested.anchorContainers` (per-block handles inside listed containers, anchored
+  to the container's edge). They are two halves of one containment model: always ship
+  both together, or moves out of the container become irreversible.
 - **`BlockContextMenu`** - Delete / Duplicate / Turn into actions, opened from the drag
   handle. Also shows a "Copy link" item when the block has an id (and `UniqueID` is
   loaded), and a "Colors" section when the `BlockColor` extension is loaded; each is
