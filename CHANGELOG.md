@@ -15,6 +15,8 @@
 - fix(extension-block-controls): dragging the last real block out of a generic `block+` container that also holds an empty placeholder paragraph no longer swallows the container and the placeholder with it; the filler-paragraph collapse rule is scoped to list items, its documented purpose.
 - fix(extension-block-controls): the drop zone now extends 80px past the editor's right edge, mirroring the left gutter, so a release in the page's right margin drops instead of dying at the content edge. This also gives `dropZoneProviders` symmetric room for right-edge side zones.
 - fix(core): the caret-follow placeholder (`showOnlyCurrent`) renders only while the editor is focused; after a load or tab switch the preserved selection no longer shows a misplaced hint on an unfocused editor. The empty-document placeholder still renders without focus.
+- fix(extension-block-controls): dragging a native text selection is no longer swallowed by the block drop handler; drops that do not come from a handle drag fall through to ProseMirror's default move.
+- fix(extension-block-controls): the drop indicator hides as soon as the dragged block is deleted mid-drag (e.g. by a collaborator), instead of advertising a landing line for a guaranteed no-op release.
 
 ## 0.12.1 (2026-07-11)
 

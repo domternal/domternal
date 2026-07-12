@@ -1472,15 +1472,15 @@ describe('BlockHandle nested drag-and-drop (DOM simulation)', () => {
     expect(ev.defaultPrevented).toBe(true);
   });
 
-  it('handleDrop with moved=true but no active drag consumes the event without moving', () => {
+  it('handleDrop with moved=true but no active drag falls through to PM (native text drags)', () => {
     const { ed } = twoItemFixture();
     const slice = ed.state.doc.slice(0, 0);
-    // No startDrag -> draggedFrom is null; performBlockDrop bails but handleDrop
-    // still consumes the event so PM does not run its default drop logic.
+    // No startDrag -> draggedFrom is null: this is a native text-selection
+    // move, not ours; PM's default drop logic must keep handling it.
     const handled = ed.view.someProp('handleDrop', (fn) =>
       fn(ed.view, dragEvent('drop', 300, 125) as DragEvent, slice, true),
     );
-    expect(handled).toBe(true);
+    expect(handled).toBeFalsy();
     expect(ed.state.doc.child(0).childCount).toBe(2);
   });
 

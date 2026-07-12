@@ -1434,6 +1434,12 @@ export function createBlockHandlePlugin(
    */
   const updateDropIndicator = (clientX: number, clientY: number): void => {
     if (!editorEl) return;
+    // Source gone mid-drag (remote delete): the release is guaranteed a
+    // no-op, so advertising a landing line would lie.
+    if (resolveDraggedFrom() === null) {
+      hideDropIndicator();
+      return;
+    }
     // Foreign zone: the claiming plugin draws its own indicator there.
     if (zoneClaimed(clientX, clientY)) {
       hideDropIndicator();
@@ -1752,14 +1758,18 @@ export function createBlockHandlePlugin(
       // attrs (UniqueID, colors).
       handleDrop(_view, event, _slice, moved): boolean {
         if (!moved) return false;
+        // Not our drag (native text-selection move): PM's default drop
+        // logic must keep handling those, or dragging selected text
+        // becomes a silent no-op.
+        if (resolveDraggedFrom() === null) return false;
         // Shared with the document-level drop listener, so the same logic runs
         // whether drop fired on `.ProseMirror` (here) or surrounding chrome.
         if (performBlockDrop(event.clientX, event.clientY)) {
           event.preventDefault();
           return true;
         }
-        // No source/placement: still consume the event so PM doesn't fall back
-        // to its default drop logic.
+        // No placement: still consume the event so PM doesn't run a second,
+        // competing default drop for our own drag.
         event.preventDefault();
         return true;
       },
