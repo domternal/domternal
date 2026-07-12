@@ -13,6 +13,7 @@
 - fix(core): `setContent` now ends with the caret at the LAST TEXT position of the new document instead of leaving the mapped selection wherever the replace strands it; with a document ending in an atom (e.g. block math) that stranded selection was a NodeSelection on the trailing atom, which disabled every mark command until the user clicked into the editor.
 - fix(react): `useEditor` no longer echoes a full-document `setContent` on every mount; the content-sync effect reacts only to a `content` prop value the current editor does not already carry.
 - fix(extension-block-controls): dragging the last real block out of a generic `block+` container that also holds an empty placeholder paragraph no longer swallows the container and the placeholder with it; the filler-paragraph collapse rule is scoped to list items, its documented purpose.
+- fix(extension-block-controls): the drop zone now extends 80px past the editor's right edge, mirroring the left gutter, so a release in the page's right margin drops instead of dying at the content edge. This also gives `dropZoneProviders` symmetric room for right-edge side zones.
 
 ## 0.12.1 (2026-07-11)
 

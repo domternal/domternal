@@ -65,13 +65,15 @@ export const DROP_HYSTERESIS_X_PX = 8;
 const NESTED_INDICATOR_INDENT_PX = 24;
 
 /**
- * Drop-zone tolerance in CSS px. The zone extends `DROP_ZONE_TOL_LEFT` past the
- * left edge (so the gutter where the handle sits counts as droppable) and
- * `DROP_ZONE_TOL` on every other edge (subpixel jitter + margins outside
- * `.dm-editor`). Hardcoded so the gate is predictable regardless of wrapper
+ * Drop-zone tolerance in CSS px. The zone extends `DROP_ZONE_TOL_LEFT` past
+ * the left edge (the gutter where the handle sits), `DROP_ZONE_TOL_RIGHT`
+ * past the right edge (page margin: Notion accepts releases there, and
+ * side-drop `dropZoneProviders` need the room), and `DROP_ZONE_TOL`
+ * above/below. Hardcoded so the gate is predictable regardless of wrapper
  * styling; override via `dropIndicator: false` + your own visual.
  */
 const DROP_ZONE_TOL_LEFT = 80;
+const DROP_ZONE_TOL_RIGHT = 80;
 const DROP_ZONE_TOL = 16;
 
 export const blockHandlePluginKey = new PluginKey<BlockHandlePluginState>('blockHandle');
@@ -1398,15 +1400,14 @@ export function createBlockHandlePlugin(
   };
 
   /**
-   * Rectangle in which a drop succeeds: `.dm-editor`'s box extended by
-   * `DROP_ZONE_TOL_LEFT` on the left (gutter) and `DROP_ZONE_TOL` elsewhere.
-   * See the constant declarations at the top of the file.
+   * Rectangle in which a drop succeeds: `.dm-editor`'s box extended by the
+   * `DROP_ZONE_TOL_*` constants declared at the top of the file.
    */
   const isCursorOverDropZone = (clientX: number, clientY: number): boolean => {
     if (!editorEl) return false;
     const rect = editorEl.getBoundingClientRect();
     return clientX >= rect.left - DROP_ZONE_TOL_LEFT
-      && clientX <= rect.right + DROP_ZONE_TOL
+      && clientX <= rect.right + DROP_ZONE_TOL_RIGHT
       && clientY >= rect.top - DROP_ZONE_TOL
       && clientY <= rect.bottom + DROP_ZONE_TOL;
   };
