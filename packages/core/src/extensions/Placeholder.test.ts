@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { Placeholder, placeholderPluginKey } from './Placeholder.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
@@ -212,6 +212,9 @@ describe('Placeholder', () => {
         ],
         content: '<p>text</p><p></p>',
       });
+
+      // The caret-follow placeholder renders only for a focused editor.
+      vi.spyOn(editor.view, 'hasFocus').mockReturnValue(true);
 
       // Place cursor in the second (empty) paragraph
       const secondParaPos = editor.state.doc.child(0).nodeSize;
