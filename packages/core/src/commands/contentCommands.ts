@@ -64,6 +64,18 @@ export const setContent: CommandSpec<[content: Content, options?: SetContentOpti
     // Use tr.doc for chain compatibility - prior commands may have modified the document
     tr.replaceWith(0, tr.doc.content.size, doc.content);
 
+    // A full-document replace otherwise leaves the selection wherever the
+    // mapping strands it: with a document ENDING in an atom (e.g. block
+    // math) that is a NodeSelection on the trailing atom, which disables
+    // every mark command until the user clicks. Normalize to the LAST text
+    // position instead: the same place the mapping produced for text-final
+    // documents (the de-facto contract e2e seeding relies on), but atoms
+    // are skipped instead of node-selected. Degenerate atom-only documents
+    // fall back to whatever `TextSelection.between` resolves (a
+    // NodeSelection there is correct: nothing else is selectable).
+    const $end = tr.doc.resolve(tr.doc.content.size);
+    tr.setSelection(TextSelection.between($end, $end, -1));
+
     // Mark transaction to potentially skip update event
     if (!emitUpdate) {
       tr.setMeta('addToHistory', false);

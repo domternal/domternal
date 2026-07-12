@@ -110,6 +110,16 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
   const formatRef = useRef(outputFormat);
   formatRef.current = outputFormat;
 
+  // The `content` prop value the current editor already carries, so the
+  // content-sync effect only reacts to REAL prop changes. Without it, the
+  // effect's mount run compares the source string against the round-trip
+  // `getHTML()` (they practically never match: attribute order, entities)
+  // and echoes a full-document `setContent` on every mount; the mapped-
+  // through selection then lands at the document END, which is a
+  // NodeSelection when the document ends in an atom (e.g. block math),
+  // disabling every mark button until the user clicks into the editor.
+  const syncedContentRef = useRef<Content | null>(null);
+
   // Track extensions reference for recreation
   const extensionsRef = useRef(extensions);
 
@@ -156,6 +166,10 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
     instanceRef.current = ed;
     extensionsRef.current = extensions;
     depsRef.current = deps;
+    // The new editor carries the current prop value (directly, or as the
+    // preserved snapshot of it on recreation): the content-sync effect must
+    // not echo it back as a full-document replace.
+    syncedContentRef.current = contentRef.current;
     return ed;
   }
 
@@ -279,10 +293,15 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps ?? []);
 
-  // Sync content from outside
+  // Sync content from outside. Reacts only to a `content` value the current
+  // editor does not already carry (see `syncedContentRef`); the value
+  // comparison below still guards against a re-render handing us a NEW
+  // string with identical content.
   useEffect(() => {
     const ed = instanceRef.current;
     if (!ed || ed.isDestroyed) return;
+    if (syncedContentRef.current === content) return;
+    syncedContentRef.current = content;
 
     const format = formatRef.current;
     if (format === 'html') {
