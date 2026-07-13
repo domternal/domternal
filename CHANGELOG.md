@@ -4,6 +4,9 @@
 
 ### Features
 
+- feat(core): new `announce(view, message)` utility: a shared polite `aria-live` status region inside the editor for screen-reader feedback on actions with no other non-visual signal (WCAG 4.1.3). Used by the Pro columns keyboard commands; reusable by any extension.
+- feat(extension-block-controls): `DropZoneQuery` passed to `dropZoneProviders` now carries `draggedTo` (the dragged range's exclusive end) alongside `draggedFrom`, so providers read a range instead of assuming a single block; groundwork for multi-block drags while the API is still experimental.
+- feat(theme): the block drop indicator stays visible under Windows High Contrast (forced colors) by repainting with the OS `Highlight` color.
 - feat(extension-block-controls): experimental `dropZoneProviders` option on BlockHandle. Providers claim pointer positions during a handle drag; a claimed position hides the built-in drop indicator and turns the release into a no-op for BlockHandle, so a higher-priority plugin can own its own drop zones (custom indicators and transactions). With no providers registered, behavior is unchanged.
 - feat(extension-block-controls): experimental `nested.anchorContainers` option on BlockHandle. Blocks inside listed side-by-side containers (e.g. a `column` node) get Notion-style per-block handles: the cursor's horizontal position picks the container, hover resolution is scoped to that container's subtree, and the handle anchors to the container's left edge instead of the editor gutter. Gaps between containers are left to divider affordances (column resize), and margins resolve into the nearest container. Pair it with a `dropZoneProviders` entry that claims drops back into the container; without one, moves out of it are irreversible. Default off; behavior is unchanged without the option.
 

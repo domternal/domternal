@@ -109,6 +109,9 @@ export { writeToClipboard } from './utils/clipboard.js';
 // === Theme cascade for portaled elements ===
 export { copyThemeClass } from './utils/copyThemeClass.js';
 
+// === Screen-reader status announcements ===
+export { announce } from './utils/announce.js';
+
 // === Post-command editor refocus (yields to popover inputs) ===
 export { refocusEditorAfterCommand } from './utils/refocusEditorAfterCommand.js';
 

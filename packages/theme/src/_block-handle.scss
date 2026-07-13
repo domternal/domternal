@@ -214,3 +214,18 @@
 .dm-block-handle-dragging .prosemirror-dropcursor-inline {
   display: none;
 }
+
+// Forced-colors / Windows High Contrast strips background colors, which
+// is all the drop indicator is made of; repaint it with the OS highlight
+// palette (same pattern as `_toc.scss`) so drags keep a visible target.
+@media (forced-colors: active) {
+  .dm-block-drop-indicator {
+    background: Highlight;
+    box-shadow: none;
+
+    &[data-mode='nested'] {
+      background: transparent;
+      border-top-color: Highlight;
+    }
+  }
+}

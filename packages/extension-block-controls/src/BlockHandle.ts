@@ -86,6 +86,13 @@ export interface DropZoneQuery {
   clientY: number;
   /** Source position of the dragged block (tiered resolution; never null here). */
   draggedFrom: number;
+  /**
+   * End of the dragged range, exclusive (`draggedFrom + node.nodeSize` for
+   * today's single-block drags). Providers should read the range instead of
+   * assuming one block, so a future multi-block drag extends this contract
+   * without breaking claims.
+   */
+  draggedTo: number;
 }
 
 /**
@@ -1354,7 +1361,8 @@ export function createBlockHandlePlugin(
     const view = editor.view;
     const draggedFrom = resolveDraggedFrom();
     if (draggedFrom === null) return false;
-    return dropZoneProviders.some((provider) => provider({ view, clientX, clientY, draggedFrom }));
+    const draggedTo = draggedFrom + (view.state.doc.nodeAt(draggedFrom)?.nodeSize ?? 1);
+    return dropZoneProviders.some((provider) => provider({ view, clientX, clientY, draggedFrom, draggedTo }));
   };
 
   /**
