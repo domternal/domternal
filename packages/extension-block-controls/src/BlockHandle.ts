@@ -363,9 +363,9 @@ function findScrollableAncestor(el: HTMLElement): HTMLElement | null {
  *
  * With `anchorContainers` (experimental), Mode B gets a container-first
  * pre-step: the RAW clientX picks the side-by-side container under the
- * cursor, resolution is scoped to its subtree, and the result carries the
- * container's left edge for handle anchoring. `'keep'` = cursor in a
- * between-containers band; the caller leaves the handle untouched.
+ * cursor (a between-containers gap belongs to the container whose handle
+ * floats in it, Notion-style), resolution is scoped to its subtree, and
+ * the result carries the container's left edge for handle anchoring.
  */
 function resolveBlockAtCoords(
   view: EditorView,
@@ -373,7 +373,7 @@ function resolveBlockAtCoords(
   clientY: number,
   nested: NestedResolution,
   incumbentPos: number | null = null,
-): ResolvedHover | 'keep' | null {
+): ResolvedHover | null {
   // Mode A - top-level only. Walk doc children by Y; X is ignored so the handle
   // still surfaces in the side gutter.
   if (nested.allowedNodes.length === 0) {
@@ -1129,12 +1129,6 @@ export function createBlockHandlePlugin(
       // `open()` and otherwise reposition the handle.
       if (editorEl.hasAttribute('data-block-context-menu-open')) return;
       const initial = resolveBlockAtCoords(editor.view, coords.x, coords.y, nested);
-      // Between-anchor-containers band (column gap): that X belongs to divider
-      // affordances; leave the handle exactly where it is.
-      if (initial === 'keep') {
-        clearHideTimer();
-        return;
-      }
       if (!initial) {
         scheduleHide();
         return;

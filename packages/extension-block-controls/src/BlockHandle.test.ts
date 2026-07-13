@@ -941,17 +941,29 @@ describe('BlockHandle anchor containers (hover)', () => {
     expect(handleRoot().style.left).toBe('');
   });
 
-  it('inter-column gap keeps the current handle instead of re-targeting', () => {
+  it('the inter-column gap summons the handle of the column that OWNS it (Notion model)', () => {
     installRafStub();
     twoColumnFixture();
 
+    // Coming from column A's block, the gap re-targets to column B: the
+    // gap hosts B's handle (handles anchor at a container's left edge).
+    moveMouse(200, 115);
+    expect(hoveredPos()).toBe(2);
+    moveMouse(400, 115); // gap midpoint (386..414)
+    expect(hoveredPos()).toBe(12);
+    expect(handleRoot().hasAttribute('data-show')).toBe(true);
+
+    // Traveling from a B block to its own handle never re-targets either.
     moveMouse(500, 115);
     expect(hoveredPos()).toBe(12);
-
-    // Gap midpoint (386..414) and the tolerance band just inside column B.
     moveMouse(400, 115);
     expect(hoveredPos()).toBe(12);
-    moveMouse(416, 115);
+
+    // Entering the gap directly (nothing hovered before) also summons it,
+    // snapping to B's nearest block when the row has none.
+    host?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
+    expect(handleRoot().hasAttribute('data-show')).toBe(false);
+    moveMouse(400, 150); // A2's row; B's only block ended at y 130
     expect(hoveredPos()).toBe(12);
     expect(handleRoot().hasAttribute('data-show')).toBe(true);
   });
@@ -1067,7 +1079,14 @@ describe('BlockHandle anchor containers (hover)', () => {
     expect(hoveredPos()).toBe(10);
     expect(handleRoot().style.left).toBe('213px'); // 257 - 40 - 4
 
-    moveMouse(243, 115); // the INNER gap (229..257): keep, no re-target
+    moveMouse(243, 115); // the INNER gap (229..257): owned by inner B
+    expect(hoveredPos()).toBe(10);
+
+    // From inner A, the inner gap re-targets to its owner (inner B), not
+    // back up the outer container's X-blind walk.
+    moveMouse(150, 115);
+    expect(hoveredPos()).toBe(4);
+    moveMouse(243, 115);
     expect(hoveredPos()).toBe(10);
   });
 });

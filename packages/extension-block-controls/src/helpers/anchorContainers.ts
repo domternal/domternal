@@ -11,13 +11,13 @@
  *   `clampToContent` produces: the clamp snaps gutter/margin X into the first
  *   top-level block's rect, which would collapse every side-by-side layout
  *   onto its left container.
- * - Containment shrinks by `ANCHOR_EDGE_TOLERANCE_PX` per edge so the few px
- *   around a container boundary resolve as `'keep'`: that band belongs to
- *   divider affordances (e.g. a column-resize strip), and the handle must not
- *   be summoned into it.
- * - The gap BETWEEN two containers resolves `'keep'`: the caller leaves the
- *   handle exactly where it was, so traveling from a block to its own handle
- *   (which floats in that gap) never re-targets a neighbour.
+ * - The gap BETWEEN two containers is the band of the container whose handle
+ *   floats in it: handles always anchor at a container's LEFT edge, so the
+ *   nearest container to the RIGHT owns the gap. Hovering the gap summons
+ *   that neighbour's handle instantly, exactly like Notion; traveling from a
+ *   block in that container to its own handle therefore never re-targets.
+ *   (Divider affordances, e.g. a column-resize strip, appear on a dwell
+ *   delay and partition the shared pixels on their side.)
  * - Page margins left/right of ALL containers resolve to the nearest one, so
  *   the classic "hover the left margin" gesture keeps working next to a
  *   layout row.
@@ -31,12 +31,6 @@ import type { EditorView } from '@domternal/pm/view';
 
 import type { BlockMatcher } from './blockMatcher.js';
 import { findDeepestBlockAtY, isRejectedByMatchers } from './findTopLevelBlock.js';
-
-/**
- * Containment shrink per container edge, in CSS px. Matches the activation
- * tolerance divider affordances typically use around a container boundary.
- */
-export const ANCHOR_EDGE_TOLERANCE_PX = 4;
 
 /** Loop guard for nested anchor containers (one nesting level is typical). */
 const MAX_ANCHOR_DEPTH = 6;
@@ -55,11 +49,10 @@ export interface AnchorResolution {
 }
 
 /**
- * `'keep'` = the cursor sits in a between-containers band; the caller should
- * leave the handle untouched. `null` = no anchor container applies here; fall
- * through to the classic resolution.
+ * `null` = no anchor container applies here; the caller falls through to the
+ * classic resolution.
  */
-export type AnchorOutcome = AnchorResolution | 'keep' | null;
+export type AnchorOutcome = AnchorResolution | null;
 
 interface ContainerCandidate {
   node: Node;
@@ -86,7 +79,7 @@ export function resolveWithinAnchorContainer(
   if (candidates.length === 0) return null;
 
   const picked = pickContainer(candidates, rawClientX);
-  if (picked === 'keep' || picked === null) return picked;
+  if (picked === null) return null;
 
   return resolveInsideContainer(view, picked, clientY, allowedNodes, matchers);
 }
@@ -117,44 +110,51 @@ function collectContainersAtY(
  * Picks the container the cursor belongs to. Document order puts a nested
  * container AFTER its ancestor, and side-by-side siblings are horizontally
  * disjoint, so "last candidate containing X" is the deepest one. When no
- * candidate contains X the cursor is in a margin (nearest wins) or in the
- * gap between siblings (`'keep'`). The same rules re-apply per nesting level
- * so a cursor in a NESTED layout's gap keeps rather than re-inheriting the
- * outer container's X-blind walk.
+ * candidate contains X, the gap between siblings belongs to the container
+ * it hosts the handle OF: handles anchor at a container's LEFT edge and
+ * float in the gap left of it, so the nearest container to the RIGHT owns
+ * the band (Notion summons the neighbour's handle from the gap the same
+ * way; a left-margin X resolves identically since the leftmost container
+ * is also the right-owner there). Right of the whole row nothing is left
+ * to own the band, so the nearest container wins: the classic page-margin
+ * gesture. The same rules re-apply per nesting level, so a cursor in a
+ * NESTED layout's gap targets the inner neighbour rather than re-entering
+ * the outer container's X-blind walk.
  */
 function pickContainer(
   candidates: ContainerCandidate[],
   rawClientX: number,
-): ContainerCandidate | 'keep' | null {
+): ContainerCandidate | null {
   let pool = rootsOf(candidates);
   let scope: ContainerCandidate | null = null;
 
   for (let depth = 0; depth < MAX_ANCHOR_DEPTH; depth++) {
     if (pool.length === 0) return scope;
     const containing = pool.filter(
-      (c) =>
-        rawClientX >= c.rect.left + ANCHOR_EDGE_TOLERANCE_PX
-        && rawClientX <= c.rect.right - ANCHOR_EDGE_TOLERANCE_PX,
+      (c) => rawClientX >= c.rect.left && rawClientX <= c.rect.right,
     );
     let next: ContainerCandidate | null = null;
     if (containing.length > 0) {
       next = containing[containing.length - 1] ?? null;
     } else {
-      const minLeft = Math.min(...pool.map((c) => c.rect.left));
-      const maxRight = Math.max(...pool.map((c) => c.rect.right));
-      if (rawClientX > minLeft && rawClientX < maxRight) {
-        // Between siblings (or hugging a boundary within the tolerance): the
-        // divider band owns this X.
-        return 'keep';
-      }
-      // Margin left/right of the whole row: nearest container.
-      next = nearestByX(pool, rawClientX);
+      next = nearestRightOwner(pool, rawClientX) ?? nearestByX(pool, rawClientX);
     }
     if (!next) return scope;
     scope = next;
     pool = childrenOf(candidates, next);
   }
   return scope;
+}
+
+/** The container whose left edge is nearest to the RIGHT of `x` (gap owner). */
+function nearestRightOwner(pool: ContainerCandidate[], x: number): ContainerCandidate | null {
+  let best: ContainerCandidate | null = null;
+  for (const c of pool) {
+    if (c.rect.left > x && (best === null || c.rect.left < best.rect.left)) {
+      best = c;
+    }
+  }
+  return best;
 }
 
 /** Candidates not contained inside another candidate (outermost layer). */
