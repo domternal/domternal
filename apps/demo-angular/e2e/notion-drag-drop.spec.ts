@@ -577,7 +577,7 @@ test.describe('Drag & drop - safety rails', () => {
 
   test('drop in the handle gutter (outside .ProseMirror, inside drop zone) reorders the block', async ({ page }) => {
     // The user's bug: cursor was in the left gutter (where the BlockHandle
-    // visually sits at `left: -3.5rem`), the indicator showed a "drop will
+    // visually sits at `left: -2.75rem`), the indicator showed a "drop will
     // land here" line, but releasing the mouse did nothing. Browser's
     // `drop` event fires on the element under the cursor - in the gutter,
     // that's `.notion-page` or `body`, NOT `.ProseMirror`, so PM's

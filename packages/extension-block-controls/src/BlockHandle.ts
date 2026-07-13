@@ -866,8 +866,10 @@ export function createBlockHandlePlugin(
   plusBtn.setAttribute('aria-label', 'Add block below');
   plusBtn.innerHTML = defaultIcons['plus'] ?? '';
 
-  root.appendChild(dragBtn);
+  // Notion's order: [+][⋮⋮] with the drag grip adjacent to the block it
+  // moves; the plus is the outer, peripheral action.
   root.appendChild(plusBtn);
+  root.appendChild(dragBtn);
 
   // --- Drop indicator: thin horizontal line at the resolved drop target during
   // a drag. Built once, hidden by default, appended into `.dm-editor`.
@@ -909,7 +911,7 @@ export function createBlockHandlePlugin(
   // Handle box width cache. `offsetWidth` reads 0 in jsdom, on a first paint
   // before the theme stylesheet, and while a host hides the handle with
   // `display:none` (e.g. during a column resize); the cache keeps the last
-  // real measurement and 46 matches the theme's two-button box as the cold
+  // real measurement and 40 matches the theme's two-button box as the cold
   // fallback.
   let cachedHandleWidth: number | null = null;
   const handleWidth = (): number => {
@@ -918,7 +920,7 @@ export function createBlockHandlePlugin(
       cachedHandleWidth = w;
       return w;
     }
-    return cachedHandleWidth ?? 46;
+    return cachedHandleWidth ?? 40;
   };
 
   // Active drag preview wrapper, built on dragstart, removed on drop/dragend.
@@ -1036,8 +1038,12 @@ export function createBlockHandlePlugin(
     }, hideDelay);
   };
 
-  /** Gap between an anchored handle's right edge and its container's left edge. */
-  const ANCHOR_HANDLE_GAP_PX = 6;
+  /**
+   * Gap between an anchored handle's right edge and its container's left
+   * edge. With the 40px cluster this keeps the whole anchored handle
+   * (40 + 4 = 44px) inside a Notion-parity 46px column gutter.
+   */
+  const ANCHOR_HANDLE_GAP_PX = 4;
 
   const show = (
     blockEl: HTMLElement,

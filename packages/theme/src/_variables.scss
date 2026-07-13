@@ -43,11 +43,12 @@
   --dm-block-handle-gutter: 3rem;
 
   // Horizontal offset of the BlockHandle from the editor's left edge.
-  // Negative values place the handle in the surrounding whitespace
-  // (requires `.dm-editor--has-block-handle { overflow: visible }`).
-  // Override to move the handle fully outside a centered content column
-  // - see the Notion demo for an example.
-  --dm-block-handle-left: -0.5rem;
+  // The default keeps the 40px two-button cluster inside the reserved
+  // gutter, ending 4px before the text (48 - 4 - 40 = 4px). Negative
+  // values place the handle in the surrounding whitespace instead
+  // (requires `.dm-editor--has-block-handle { overflow: visible }`)
+  // - see the Notion mode override for an example.
+  --dm-block-handle-left: 0.25rem;
 
   // Inline padding pre-applied to every colorable block (paragraph, heading,
   // blockquote, list item, task item). Pre-applying it here means that the

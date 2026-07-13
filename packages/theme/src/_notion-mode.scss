@@ -29,10 +29,11 @@
   // Handle lives fully OUTSIDE the centered content column. Zeroing the
   // ProseMirror gutter token reclaims the reserved column (the handle no
   // longer overlaps content - there is nothing to reserve). The negative
-  // `left` token pulls the handle left of the column with a few px of
-  // breathing room before the content's left edge.
+  // `left` token pulls the 40px handle cluster left of the column so its
+  // right edge ends 4px before the content's left edge (Notion hugs its
+  // controls to the text the same way): -44px + 40px = -4px.
   --dm-block-handle-gutter: 0;
-  --dm-block-handle-left: -3.5rem;
+  --dm-block-handle-left: -2.75rem;
 
   .ProseMirror {
     min-height: 60vh;

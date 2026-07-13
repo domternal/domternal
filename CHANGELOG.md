@@ -9,6 +9,7 @@
 
 ### Fixes
 
+- fix(extension-block-controls,theme): the block handle now matches Notion's control layout: the + button sits left of the drag grip (the grip is adjacent to the block it moves), the two buttons sit flush instead of 2px apart, and the 40px cluster ends 4px before the text instead of 10px. Anchored handles inside side-by-side containers now fit a 46px gutter without overhanging the left neighbor.
 - fix(extension-block-controls): a collaborator deleting the dragged block mid-drag no longer makes the drop move whichever block now occupies the stale source position; once the drag source is committed to plugin state, its mapped (or deleted) position is the only truth and the drop aborts cleanly.
 - fix(core): `setContent` now ends with the caret at the LAST TEXT position of the new document instead of leaving the mapped selection wherever the replace strands it; with a document ending in an atom (e.g. block math) that stranded selection was a NodeSelection on the trailing atom, which disabled every mark command until the user clicked into the editor.
 - fix(react): `useEditor` no longer echoes a full-document `setContent` on every mount; the content-sync effect reacts only to a `content` prop value the current editor does not already carry.

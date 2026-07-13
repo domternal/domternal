@@ -932,9 +932,9 @@ describe('BlockHandle anchor containers (hover)', () => {
     twoColumnFixture();
 
     moveMouse(500, 115);
-    // jsdom offsetWidth is 0 -> width fallback 46; editor left 0, column B
-    // left 414: 414 - 46 - 6 = 362.
-    expect(handleRoot().style.left).toBe('362px');
+    // jsdom offsetWidth is 0 -> width fallback 40; editor left 0, column B
+    // left 414: 414 - 40 - 4 = 370.
+    expect(handleRoot().style.left).toBe('370px');
 
     moveMouse(200, 115);
     // Column A is flush with the content column: theme token applies.
@@ -998,7 +998,7 @@ describe('BlockHandle anchor containers (hover)', () => {
     twoColumnFixture();
 
     moveMouse(500, 115);
-    expect(handleRoot().style.left).toBe('362px');
+    expect(handleRoot().style.left).toBe('370px');
 
     host?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: false }));
     expect(handleRoot().hasAttribute('data-show')).toBe(false);
@@ -1065,7 +1065,7 @@ describe('BlockHandle anchor containers (hover)', () => {
 
     moveMouse(300, 115); // inside the INNER second column
     expect(hoveredPos()).toBe(10);
-    expect(handleRoot().style.left).toBe('205px'); // 257 - 46 - 6
+    expect(handleRoot().style.left).toBe('213px'); // 257 - 40 - 4
 
     moveMouse(243, 115); // the INNER gap (229..257): keep, no re-target
     expect(hoveredPos()).toBe(10);
