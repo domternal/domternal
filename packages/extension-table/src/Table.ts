@@ -97,6 +97,10 @@ export interface TableOptions {
    * Prevent the table from exceeding its container (.tableWrapper) width.
    * When true: last-column resize is capped, add-column redistributes if needed.
    * When false: original behavior (table can grow beyond container).
+   * Either way a table without explicit column widths is floored at
+   * defaultCellMinWidth per column: in a container narrower than that
+   * (e.g. a layout column), it keeps readable cells and the wrapper
+   * scrolls horizontally instead of crushing them.
    * @default true
    */
   constrainToContainer: boolean;
