@@ -38,10 +38,12 @@ async function setContent(page: Page, html: string): Promise<void> {
 interface MarginGeometry {
   /** `.dm-editor`'s right edge: the margin starts here, the zone ends 80px later. */
   editorRight: number;
+  /** `.dm-editor`'s left edge: the left gutter zone reaches 80px past it. */
+  editorLeft: number;
   rows: Array<{ text: string; top: number; bottom: number }>;
 }
 
-/** Client rects of the top-level paragraphs plus the editor's right edge. */
+/** Client rects of the top-level paragraphs plus the editor's left/right edges. */
 async function marginGeometry(page: Page, target: DemoTarget): Promise<MarginGeometry> {
   return page.evaluate((sel) => {
     const pm = document.querySelector(sel);
@@ -51,7 +53,8 @@ async function marginGeometry(page: Page, target: DemoTarget): Promise<MarginGeo
       const r = p.getBoundingClientRect();
       return { text: p.textContent ?? '', top: r.top, bottom: r.bottom };
     });
-    return { editorRight: editor.getBoundingClientRect().right, rows };
+    const box = editor.getBoundingClientRect();
+    return { editorRight: box.right, editorLeft: box.left, rows };
   }, target.editorSelector);
 }
 
@@ -123,6 +126,27 @@ for (const target of demoTargets) {
     test('release in the right page margin below the last block appends', async ({ page }) => {
       const geo = await marginGeometry(page, target);
       const x = geo.editorRight + 50;
+      const y = rowOf(geo, 'Ccc').bottom + 30;
+
+      await dragToMarginPoint(page, target, 'Aaa', x, y);
+
+      await expect(paragraphs(page)).toHaveText(['Bbb', 'Ccc', 'Aaa']);
+    });
+
+    test('release in the left gutter margin drops between rows', async ({ page }) => {
+      const geo = await marginGeometry(page, target);
+      // 50px into the left gutter: inside the 80px DROP_ZONE_TOL_LEFT envelope.
+      const x = geo.editorLeft - 50;
+      const y = (rowOf(geo, 'Aaa').bottom + rowOf(geo, 'Bbb').top) / 2;
+
+      await dragToMarginPoint(page, target, 'Ccc', x, y);
+
+      await expect(paragraphs(page)).toHaveText(['Aaa', 'Ccc', 'Bbb']);
+    });
+
+    test('release in the left gutter margin below the last block appends', async ({ page }) => {
+      const geo = await marginGeometry(page, target);
+      const x = geo.editorLeft - 50;
       const y = rowOf(geo, 'Ccc').bottom + 30;
 
       await dragToMarginPoint(page, target, 'Aaa', x, y);
