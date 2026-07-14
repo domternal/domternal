@@ -4,6 +4,7 @@ import {
   Text,
   Paragraph,
   Heading,
+  Blockquote,
   BulletList,
   OrderedList,
   ListItem,
@@ -208,6 +209,29 @@ describe('moveBlock', () => {
 
     // Source's text preserved.
     expect(editor.state.doc.textContent).toContain('Solo deeply nested');
+    editor.destroy();
+  });
+
+  it('filler-paragraph collapse is scoped to list items: a generic block+ container keeps its placeholder', () => {
+    // A blockquote holding [real paragraph, empty paragraph]. The empty
+    // paragraph is USER content (a placeholder), not a Notion-strict list
+    // filler: moving the real block out must keep the blockquote alive with
+    // its placeholder instead of swallowing both (which would dissolve any
+    // generic container, e.g. a layout column, out from under the user).
+    const editor = new Editor({
+      extensions: [Document, Text, Paragraph, Heading, Blockquote],
+      content: '<blockquote><p>Real</p><p></p></blockquote><p>After</p>',
+    });
+    const source = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === 'Real');
+    const tr = editor.state.tr;
+    moveBlock(tr, source, editor.state.doc.content.size);
+    editor.view.dispatch(tr);
+
+    const quote = editor.state.doc.child(0);
+    expect(quote.type.name).toBe('blockquote');
+    expect(quote.childCount).toBe(1);
+    expect(quote.child(0).textContent).toBe('');
+    expect(editor.state.doc.lastChild?.textContent).toBe('Real');
     editor.destroy();
   });
 

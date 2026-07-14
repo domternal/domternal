@@ -758,6 +758,32 @@ describe('TableView', () => {
       });
       const view = getTableView(editor)!;
       expect(view.table.style.width).toBe('350px');
+      expect(view.table.style.minWidth).toBe('');
+    });
+
+    it('floors a table WITHOUT explicit widths at defaultCellMinWidth per column', () => {
+      // Without the floor, `width: 100%` in a narrow container (a layout
+      // column) crushed the cells to slivers; the min-width makes the
+      // wrapper's overflow-x scroll instead.
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<table><tr><td><p>A</p></td><td><p>B</p></td><td><p>C</p></td></tr></table>',
+      });
+      const view = getTableView(editor)!;
+      expect(view.table.style.minWidth).toBe('300px'); // 3 x defaultCellMinWidth 100
+      expect(view.table.style.width).toBe('');
+    });
+
+    it('mixed columns floor at colwidth + default for the rest', () => {
+      editor = new Editor({
+        element: host,
+        extensions: allExtensions,
+        content: '<table><tr><td data-colwidth="200"><p>A</p></td><td><p>B</p></td></tr></table>',
+      });
+      const view = getTableView(editor)!;
+      expect(view.table.style.minWidth).toBe('300px'); // 200 + default 100
+      expect(view.table.style.width).toBe('');
     });
   });
 

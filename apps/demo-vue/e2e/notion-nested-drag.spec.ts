@@ -812,8 +812,12 @@ test.describe('Extended coverage: atoms, parity, boundaries', () => {
 // Handle position contract. Notion-style: the drag handle always lives
 // at the editor's LEFT GUTTER regardless of how deeply indented the
 // resolved block is. Only Y tracks the resolved block; X is CSS-fixed
-// at `left: -0.5rem` relative to .dm-editor. Pinned here so future
+// by the `--dm-block-handle-left` token relative to .dm-editor. Pinned here so future
 // refactors that try to follow block X are caught as regressions.
+// ONE deliberate exception exists: blocks inside a container listed in
+// the experimental `nested.anchorContainers` option (side-by-side
+// layouts) get an inline `left` anchored to their container's edge.
+// These demos do not configure it, so the gutter contract holds here.
 // ────────────────────────────────────────────────────────────────────────
 
 async function handleBox(page: Page): Promise<{ x: number; y: number; width: number; height: number }> {
@@ -878,9 +882,10 @@ test.describe('Handle alignment: X stays at editor gutter regardless of resolved
   });
 
   test('handle X is OUTSIDE the editor content column (left of where text actually starts)', async ({ page }) => {
-    // CSS contract: `.dm-block-handle { left: -0.5rem }` puts the handle
-    // 8px outside `.dm-editor`'s left edge. It must visually sit in the
-    // gutter, never overlap text content.
+    // CSS contract: Notion mode's `--dm-block-handle-left: -2.75rem`
+    // puts the 40px handle cluster left of `.dm-editor`, ending 4px
+    // before its left edge. It must visually sit in the gutter, never
+    // overlap text content.
     await setContent(page, '<p>Some paragraph</p>');
     await hoverInGutterAt(page, page.locator(`${editorSelector} p`));
     const handle = await handleBox(page);

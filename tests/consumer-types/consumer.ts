@@ -164,3 +164,14 @@ editor.commands.scrollToHeading('heading-id');
 
 editor.chain().focus().toggleBold().toggleItalic().run();
 editor.can().toggleBold();
+
+// Experimental BlockHandle extension points, type-checked against the built
+// dist so option-shape drift breaks here before it breaks external plugins.
+import { BlockHandle } from '@domternal/extension-block-controls';
+import type { DropZoneProvider } from '@domternal/extension-block-controls';
+
+declare const provider: DropZoneProvider;
+BlockHandle.configure({
+  dropZoneProviders: [provider],
+  nested: { allowedNodes: ['paragraph'], anchorContainers: ['column'] },
+});

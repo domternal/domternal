@@ -19,6 +19,8 @@ createSlashSuggestionRenderer
 DEFAULT_BLOCK_MATCHERS
 DEFAULT_NESTED_NODES
 dismissSlashCommand
+DropZoneProvider
+DropZoneQuery
 filterSlashItems
 FloatingMenu
 FloatingMenuKeymap

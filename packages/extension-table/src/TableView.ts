@@ -886,7 +886,9 @@ export class TableView implements NodeView {
    * Matches prosemirror-tables' updateColumnsOnResize behavior:
    * - Reuses existing col elements (avoids DOM churn during resize)
    * - Uses defaultCellMinWidth for totalWidth calc (matches columnResizing plugin)
-   * - Columns without explicit widths get empty style.width (table-layout: fixed distributes)
+   * - Columns without explicit widths get empty style.width (table-layout:
+   *   fixed distributes), with the table floored at defaultCellMinWidth per
+   *   column so a narrow container scrolls instead of crushing the cells
    */
   private updateColumns(node: PMNode): void {
     let totalWidth = 0;
@@ -930,8 +932,14 @@ export class TableView implements NodeView {
       this.table.style.width = String(totalWidth) + 'px';
       this.table.style.minWidth = '';
     } else {
+      // Floor at defaultCellMinWidth per column even when constrained to
+      // the container: without it a table inside a narrow flex column
+      // compressed to unreadable slivers (width: 100% never exceeds the
+      // wrapper, so its overflow-x: auto had nothing to scroll). With the
+      // floor the cells stay readable and the wrapper scrolls, like
+      // Notion's tables in columns.
       this.table.style.width = '';
-      this.table.style.minWidth = this.constrainToContainer ? '' : String(totalWidth) + 'px';
+      this.table.style.minWidth = String(totalWidth) + 'px';
     }
   }
 }

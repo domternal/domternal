@@ -36,14 +36,22 @@ export function expandToEmptyWrappers(
   return { from: curFrom, to: curTo };
 }
 
+/** Parents whose auto-injected empty filler paragraph counts as discardable (case 2). */
+const FILLER_PARAGRAPH_PARENTS = new Set(['listItem', 'taskItem']);
+
 /**
  * Parent collapses if removing the source leaves no meaningful content.
  * `sourceIndex` locates the source among the parent's children so we can find
- * the OTHER child when checking for a filler paragraph.
+ * the OTHER child when checking for a filler paragraph. The filler case is
+ * scoped to list items (its documented purpose): in a generic `block+`
+ * container (e.g. a layout column) an empty paragraph next to the source is
+ * USER content: a placeholder the user still sees and owns, and swallowing it
+ * would dissolve the container out from under them.
  */
 function isCollapsibleParent(parent: Node, sourceIndex: number): boolean {
   if (parent.childCount === 1) return true;
   if (parent.childCount !== 2) return false;
+  if (!FILLER_PARAGRAPH_PARENTS.has(parent.type.name)) return false;
   const otherIndex = sourceIndex === 0 ? 1 : 0;
   const other = parent.child(otherIndex);
   return other.type.name === 'paragraph' && other.content.size === 0;

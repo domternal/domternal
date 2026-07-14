@@ -861,7 +861,7 @@ test.describe('Table - Container constraint (constrainToContainer)', () => {
     expect(await hasHorizontalScrollbar(page)).toBe(false);
   });
 
-  test('add many columns to fresh table (no freeze) stays within container', async ({ page }) => {
+  test('add many columns to a fresh table floors at the default width and scrolls', async ({ page }) => {
     await setContentAndFocus(page, SIMPLE_TABLE);
 
     // No resize - columns are NOT frozen. Add 7 columns (3 → 10).
@@ -870,9 +870,13 @@ test.describe('Table - Container constraint (constrainToContainer)', () => {
     }
     expect(await getColumnCount(page)).toBe(10);
 
+    // Fresh columns are floored at defaultCellMinWidth (100px each), so
+    // the table overflows and the wrapper scrolls instead of crushing the
+    // cells (Notion behavior).
     const { tableWidth, wrapperWidth } = await getTableAndWrapperWidths(page);
-    expect(tableWidth).toBeLessThanOrEqual(wrapperWidth);
-    expect(await hasHorizontalScrollbar(page)).toBe(false);
+    expect(tableWidth).toBeGreaterThan(wrapperWidth);
+    expect(tableWidth).toBeGreaterThanOrEqual(1000);
+    expect(await hasHorizontalScrollbar(page)).toBe(true);
   });
 
   test('resize after adding columns to fresh table keeps constraint', async ({ page }) => {

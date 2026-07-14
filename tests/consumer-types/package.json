@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@domternal/core": "workspace:*",
+    "@domternal/extension-block-controls": "workspace:*",
     "@domternal/extension-details": "workspace:*",
     "@domternal/extension-emoji": "workspace:*",
     "@domternal/extension-image": "workspace:*",

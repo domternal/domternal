@@ -635,7 +635,7 @@ test.describe('Notion-mode library class', () => {
     expect(styles.maxWidth).toBe('608px'); // 38rem at 16px base
     expect(styles.editorPadding).toBe('0');
     expect(styles.blockHandleGutter).toBe('0');
-    expect(styles.blockHandleLeft).toBe('-3.5rem');
+    expect(styles.blockHandleLeft).toBe('-2.75rem');
     expect(styles.editorLineHeight).toBe('1.7');
     // Notion mode inherits classic body size; toggle shifts layout, not scale.
     expect(styles.editorFontSize).toBe('1rem');

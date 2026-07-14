@@ -37,8 +37,12 @@ export function clampToContent(
   if (clientY < topRect.top) clampedY = topRect.top + inset;
   else if (clientY > bottomRect.bottom) clampedY = bottomRect.bottom - inset;
 
-  // Clamp X into the first block's horizontal extent. Multi-column layouts with
-  // varied widths aren't supported; fine for our linear, uniform-width schema.
+  // Clamp X into the first block's horizontal extent: right for the linear,
+  // uniform-width document flow this feeds (deepest-block Y-walks, gutter
+  // hovers). Side-by-side layouts must NOT consume this X: anchor-container
+  // resolution reads the RAW clientX instead, because snapping a margin/gap X
+  // into the first block's rect collapses every layout onto its left
+  // container (see `resolveWithinAnchorContainer`).
   const minX = topRect.left + inset;
   const maxX = topRect.right - inset;
   const clampedX = Math.max(minX, Math.min(clientX, maxX));

@@ -6,6 +6,7 @@
  */
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import { Decoration, DecorationSet } from '@domternal/pm/view';
+import type { EditorView } from '@domternal/pm/view';
 import type { Node as PMNode } from '@domternal/pm/model';
 import { Extension } from '../Extension.js';
 
@@ -68,6 +69,18 @@ export const Placeholder = Extension.create<PlaceholderOptions>({
       new Plugin({
         key: placeholderPluginKey,
         props: {
+          // Focus and blur repaint the decorations: PM only recomputes
+          // them when a transaction dispatches.
+          handleDOMEvents: {
+            focus: (view) => {
+              view.dispatch(view.state.tr.setMeta(placeholderPluginKey, true));
+              return false;
+            },
+            blur: (view) => {
+              view.dispatch(view.state.tr.setMeta(placeholderPluginKey, false));
+              return false;
+            },
+          },
           decorations: ({ doc, selection }) => {
             const editor = this.editor;
             if (!editor) return DecorationSet.empty;
@@ -108,6 +121,14 @@ export const Placeholder = Extension.create<PlaceholderOptions>({
 
             // Fast path: showOnlyCurrent (default) - O(1), check only the anchor node
             if (showOnlyCurrent) {
+              // Only a focused editor shows the caret-follow hint: a fresh
+              // load leaves the selection somewhere arbitrary and a hint
+              // there reads as misplaced. The empty-document invitation
+              // still renders unfocused; a missing view counts as blurred.
+              const view = editor.view as EditorView | undefined;
+              if (!isDocEmpty && view?.hasFocus() !== true) {
+                return DecorationSet.empty;
+              }
               const { $anchor } = selection;
               if ($anchor.depth === 0) return DecorationSet.empty;
               const node = $anchor.parent;
