@@ -7,7 +7,10 @@ const NOTION_MODE_CLASS = 'dm-notion-mode';
 // selection-context equation), and is silently skipped when the extension is not
 // loaded (the bubble menu resolves names against the editor's actual items).
 const NOTION_TEXT_CONTEXT: readonly string[] = Object.freeze([
-  'bold', 'italic', 'underline', 'strike', 'code', 'mathInline',
+  // `ai` leads (Notion's "Ask AI"); skipped with its leading separator when
+  // the pro extension is absent, exactly like `mathInline`.
+  'ai',
+  '|', 'bold', 'italic', 'underline', 'strike', 'code', 'mathInline',
   '|', 'link',
   '|', 'textAlign',
 ]);
@@ -22,7 +25,8 @@ const STANDARD_TEXT_CONTEXT: readonly string[] = Object.freeze([
  * supplied one. Returns a richer item set when the editor (or any
  * ancestor) carries the `.dm-notion-mode` class - that class is the
  * project-wide signal that the host is rendering Notion-style UX, so
- * the bubble menu mirrors it by including `link` and `textAlign`.
+ * the bubble menu mirrors it by leading with `ai` and including `link`
+ * and `textAlign`.
  *
  * Consumers can always override by passing their own `contexts` prop.
  */
