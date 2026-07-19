@@ -344,3 +344,18 @@ describe('createSlashSuggestionRenderer - mouse interaction', () => {
     renderer.onExit();
   });
 });
+
+describe('createSlashSuggestionRenderer - height constraint', () => {
+  it('opts into height constraining via --dm-available-height', async () => {
+    makeEditor();
+    const renderer = createSlashSuggestionRenderer();
+    renderer.onStart(makeProps([itemA, itemB]));
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    const root = host?.querySelector<HTMLElement>('.dm-slash-command-menu');
+    const value = root?.style.getPropertyValue('--dm-available-height') ?? '';
+    expect(value).toMatch(/^\d+px$/);
+    expect(parseInt(value, 10)).toBeGreaterThanOrEqual(160);
+    renderer.onExit();
+  });
+});
