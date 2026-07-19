@@ -1,6 +1,6 @@
 {
   "name": "@domternal/extension-markdown",
-  "version": "0.12.1",
+  "version": "0.13.0",
   "description": "Bidirectional Markdown for Domternal: parse Markdown into the editor (paste, insert, setContent) and serialize documents back to GitHub-flavored Markdown, covering the full Notion-style schema",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
@@ -34,15 +34,15 @@
     "test:watch": "vitest",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "pnpm build && node -e \"const p=JSON.parse(require('fs').readFileSync('package.json','utf8'));delete p.devDependencies;if(p.dependencies){for(const[k,v]of Object.entries(p.dependencies)){if(v==='workspace:*')p.dependencies[k]='>=0.12.0'}}require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
+    "prepublishOnly": "pnpm build && node -e \"const p=JSON.parse(require('fs').readFileSync('package.json','utf8'));delete p.devDependencies;if(p.dependencies){for(const[k,v]of Object.entries(p.dependencies)){if(v==='workspace:*')p.dependencies[k]='>=0.13.0'}}require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"",
     "postpublish": "git checkout package.json"
   },
   "dependencies": {
     "markdown-it": "^14.3.0"
   },
   "peerDependencies": {
-    "@domternal/core": ">=0.12.0",
-    "@domternal/pm": ">=0.12.0"
+    "@domternal/core": ">=0.13.0",
+    "@domternal/pm": ">=0.13.0"
   },
   "devDependencies": {
     "@domternal/core": "workspace:*",
