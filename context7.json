@@ -1,29 +1,4 @@
 {
-  "projectTitle": "Domternal",
-  "description": "Framework-agnostic headless rich text editor toolkit built on ProseMirror, with native Angular, React, Vue, and Vanilla components, Notion-style block UX, and a tree-shakeable extension model. MIT licensed. Full guides and API reference at https://domternal.dev/v1.",
-  "excludeFolders": [
-    "apps",
-    "examples",
-    "tests",
-    "e2e",
-    "scripts",
-    ".github"
-  ],
-  "excludeFiles": [
-    "CHANGELOG.md",
-    "CODE_OF_CONDUCT.md",
-    "SECURITY.md"
-  ],
-  "rules": [
-    "The editor is framework-agnostic and headless. The core is @domternal/core; framework wrappers are @domternal/angular, @domternal/react, @domternal/vue, and @domternal/vanilla.",
-    "Import editor primitives and built-in extensions from @domternal/core. Optional features live in separate @domternal/extension-* packages (table, image, math, emoji, mention, markdown, block-controls, toc, details, code-block-lowlight).",
-    "Use StarterKit for a batteries-included schema; wire Document/Text/Paragraph and marks by hand only for a minimal headless setup.",
-    "Commands are chainable: editor.chain().focus().toggleBold().run().",
-    "Notion-style block UX (slash menu, drag-to-reorder, block context menu, smart paste) comes from @domternal/extension-block-controls.",
-    "Styling is opt-in via @domternal/theme (CSS custom properties) and is separate from the headless core.",
-    "Extensions are tree-shakeable: register only what you use; the bundler strips the rest.",
-    "Full guides, per-extension API, and the changelog live at https://domternal.dev/v1."
-  ],
   "url": "https://context7.com/domternal/domternal",
   "public_key": "pk_qcFQ33vRUsKAajRBwhDgx"
 }
