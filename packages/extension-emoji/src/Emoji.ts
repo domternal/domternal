@@ -321,8 +321,12 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
         const item = nameMap.get(emojiName);
         if (!item) continue;
 
-        // Match emoticon preceded by space or start of text, followed by space
-        const pattern = new RegExp(`(?:^|\\s)(${escapeRegex(emoticon)})\\s$`);
+        // Match an emoticon that ends the input (the trailing space triggers it)
+        // preceded by start-of-text, whitespace, or an atom node. The atom case
+        // matters because inputRulesPlugin renders leaf/atom nodes as the
+        // object-replacement char ￼ in textBefore; without it an emoticon
+        // typed right after an emoji (or mention/image) would never convert.
+        const pattern = new RegExp(`(?:^|[\\s\\ufffc])(${escapeRegex(emoticon)})\\s$`);
 
         rules.push(
           new InputRule(
@@ -336,7 +340,8 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
 
               const { tr } = state;
 
-              // Calculate the actual emoticon position (after the optional leading space)
+              // Locate the emoticon glyphs, skipping the optional leading
+              // boundary char (space or atom placeholder) the pattern matched.
               const fullMatch = match[0];
               const emoticonText = match[1];
               if (!emoticonText) return null;
@@ -344,11 +349,15 @@ export const Emoji = Node.create<EmojiOptions, EmojiStorage>({
               const emoticonStart = start + fullMatch.indexOf(emoticonText);
               const emoticonEnd = emoticonStart + emoticonText.length;
 
+              // Replace the emoticon with the emoji AND re-add the trailing space
+              // that triggered the rule. handleTextInput suppresses the default
+              // space insertion, so without this the next emoticon would sit
+              // flush against this emoji atom and fail to convert.
               if (plainText) {
-                tr.replaceWith(emoticonStart, emoticonEnd, state.schema.text(item.emoji));
+                tr.replaceWith(emoticonStart, emoticonEnd, state.schema.text(`${item.emoji} `));
               } else if (nodeType) {
                 const node = nodeType.create({ name: item.name });
-                tr.replaceWith(emoticonStart, emoticonEnd, node);
+                tr.replaceWith(emoticonStart, emoticonEnd, [node, state.schema.text(' ')]);
               } else {
                 return null;
               }
