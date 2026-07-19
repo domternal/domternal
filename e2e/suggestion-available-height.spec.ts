@@ -5,16 +5,8 @@
  * Regression coverage for a reported bug: with less than its full CSS
  * max-height free below the caret, a menu flipped fully above the caret even
  * when there was plenty of room for a scrollable menu, covering the content
- * above (on the docs site it escaped the demo box over the page chrome).
- *
- * The fix (packages/core positionFloating.ts + theme): an opt-in `size`
- * middleware runs BEFORE `flip` and writes the available space to the
- * `--dm-available-height` CSS custom property, which the theme consumes via
- * `max-height: min(22rem, var(--dm-available-height, 100vh))`. The menu now
- * stays below the caret and scrolls internally while at least 160px fit
- * there; only under that minimum does it flip above, capped to the space
- * above. The emoji and mention dropdowns additionally became scrollable
- * (they previously had no max-height at all) with keyboard scroll-follow.
+ * above. Menus must shrink and scroll below the caret while at least 160px
+ * fit there, and flip above only under that minimum.
  *
  * Geometry used by the tests (viewport 800px tall, offset 4, padding 10):
  *   caret ~200  -> ~580px below: full-height menu below, internal scroll

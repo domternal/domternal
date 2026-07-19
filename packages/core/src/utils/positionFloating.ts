@@ -34,16 +34,12 @@ export interface PositionFloatingOptions {
    */
   boundary?: Element;
   /**
-   * Shrink-to-fit for vertical placements. When set, the vertical space
-   * available to the floating element (in px) is written to the
-   * `--dm-available-height` CSS custom property on the element, and the
+   * Shrink-to-fit for vertical placements: writes the available space (px)
+   * to the `--dm-available-height` custom property on the element; the
    * stylesheet opts in with e.g.
-   * `max-height: min(22rem, var(--dm-available-height, 100vh))`.
-   * The element then stays on the preferred side and scrolls internally
-   * while at least `minHeight` px fit there; only below that threshold does
-   * it flip to the opposite side, where the same cap applies. Give the
-   * element `box-sizing: border-box` so the written value maps 1:1 to
-   * `max-height`.
+   * `max-height: min(22rem, var(--dm-available-height, 100vh))` plus
+   * `box-sizing: border-box`. The element stays on the preferred side while
+   * at least `minHeight` px fit there, then flips to the opposite side.
    */
   constrainHeight?: {
     /** Smallest useful height in px before flipping to the opposite side. */
@@ -76,14 +72,10 @@ function buildMiddleware(
   const constrain = options?.constrainHeight;
   const middleware: Middleware[] = [offset(options?.offsetValue ?? 4)];
   if (constrain) {
-    // `size` runs BEFORE `flip`: it shrinks the element to the space available
-    // on the current side, and since a dimension change re-runs the whole
-    // middleware chain, `flip` then measures the shrunken element. The element
-    // therefore stays on the preferred side (scrolling internally) while at
-    // least `minHeight` fits, and flips only below that threshold, where the
-    // re-run caps it to the opposite side's space. With `flip` first it would
-    // flip as soon as the full CSS max-height no longer fits, even when there
-    // is plenty of room for a scrollable menu.
+    // `size` runs BEFORE `flip`: a dimension change re-runs the middleware
+    // chain, so `flip` measures the shrunken element and fires only when even
+    // `minHeight` no longer fits on the preferred side. After a flip the
+    // re-run caps the element to the opposite side's space.
     middleware.push(
       size({
         ...overflowOpts,

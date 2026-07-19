@@ -28,16 +28,13 @@
 
 .dm-mention-suggestion {
   position: absolute;
-  // border-box so the border-box space the renderer measures maps 1:1 to
-  // max-height below.
+  // border-box so the measured available space maps 1:1 to max-height below.
   box-sizing: border-box;
   z-index: 100;
   min-width: 12rem;
   max-width: 20rem;
-  // Height contract with `positionFloatingOnce({ constrainHeight })`: the
-  // renderer writes the space available below (or, flipped, above) the caret
-  // to `--dm-available-height`, so the list shrinks and scrolls instead of
-  // flipping over nearby content. Plain 22rem cap when the property is unset.
+  // `positionFloatingOnce({ constrainHeight })` writes the space around the
+  // caret to `--dm-available-height`; plain 22rem cap when unset.
   max-height: min(22rem, var(--dm-available-height, 100vh));
   overflow-y: auto;
   padding: 0.25rem;
@@ -47,7 +44,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   animation: dm-fade-in 0.2s ease;
 
-  // Slim custom scrollbar - matches the slash-command menu styling.
+  // Slim custom scrollbar, matches the slash-command menu styling.
   scrollbar-width: thin;
   scrollbar-color: var(--dm-scrollbar-thumb, rgba(0, 0, 0, 0.18)) transparent;
 
