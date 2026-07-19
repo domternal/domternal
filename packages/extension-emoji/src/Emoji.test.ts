@@ -844,6 +844,114 @@ describe('input rules', () => {
   });
 });
 
+describe('emoticon input rule behavior (integration)', () => {
+  let editor: Editor | undefined;
+
+  afterEach(() => {
+    if (editor && !editor.isDestroyed) editor.destroy();
+  });
+
+  const EmoticonEmoji = Emoji.configure({ enableEmoticons: true });
+
+  /** Type text char-by-char through the real handleTextInput / input-rule pipeline. */
+  function typeText(ed: Editor, text: string): void {
+    for (const ch of text) {
+      const { from, to } = ed.state.selection;
+      const handled = ed.view.someProp('handleTextInput', (f) =>
+        (f as (v: unknown, a: number, b: number, t: string) => boolean)(ed.view, from, to, ch),
+      );
+      if (!handled) {
+        ed.view.dispatch(ed.state.tr.insertText(ch, from, to));
+      }
+    }
+  }
+
+  /** Names of emoji nodes in document order. */
+  function emojiNames(ed: Editor): string[] {
+    const names: string[] = [];
+    ed.state.doc.descendants((node) => {
+      if (node.type.name === 'emoji') names.push(node.attrs['name'] as string);
+    });
+    return names;
+  }
+
+  function makeEditor(content: string): Editor {
+    const ed = new Editor({
+      extensions: [Document, Text, Paragraph, EmoticonEmoji],
+      content,
+    });
+    ed.view.dispatch(ed.state.tr.setSelection(TextSelection.atEnd(ed.state.doc)));
+    return ed;
+  }
+
+  // Defect 1: the converted emoticon must keep the space that triggered it.
+  it('a converted emoticon keeps its trailing space', () => {
+    editor = makeEditor('<p></p>');
+    typeText(editor, 'xD ');
+    const para = editor.state.doc.child(0);
+    expect(para.childCount).toBe(2);
+    expect(para.child(0).type.name).toBe('emoji');
+    expect(para.child(0).attrs['name']).toBe('face_with_tears_of_joy');
+    expect(para.child(1).isText).toBe(true);
+    expect(para.child(1).text).toBe(' ');
+  });
+
+  // The reported bug: consecutive emoticons must all convert, none left as text.
+  it('two emoticons in a row both convert', () => {
+    editor = makeEditor('<p></p>');
+    typeText(editor, 'xD xD ');
+    expect(emojiNames(editor)).toEqual([
+      'face_with_tears_of_joy',
+      'face_with_tears_of_joy',
+    ]);
+    expect(editor.getText()).not.toContain('xD');
+  });
+
+  it('three emoticons in a row all convert', () => {
+    editor = makeEditor('<p></p>');
+    typeText(editor, ':) :) :) ');
+    expect(emojiNames(editor)).toEqual([
+      'slightly_smiling_face',
+      'slightly_smiling_face',
+      'slightly_smiling_face',
+    ]);
+    expect(editor.getText()).not.toContain(':)');
+  });
+
+  // Defect 2: an emoticon typed right after an atom (no space) must convert.
+  it('an emoticon typed right after an emoji atom converts', () => {
+    editor = makeEditor('<p><span data-type="emoji" data-name="red_heart">❤️</span></p>');
+    typeText(editor, 'xD ');
+    expect(emojiNames(editor)).toEqual(['red_heart', 'face_with_tears_of_joy']);
+    expect(editor.getText()).not.toContain('xD');
+  });
+
+  it('a non-emoticon word between emoticons stays as text', () => {
+    editor = makeEditor('<p></p>');
+    typeText(editor, 'xD lol :) ');
+    expect(emojiNames(editor)).toEqual([
+      'face_with_tears_of_joy',
+      'slightly_smiling_face',
+    ]);
+    expect(editor.getText()).toContain('lol');
+  });
+
+  // Controls: behavior that must NOT change.
+  it('an emoticon without a trailing space does not convert', () => {
+    editor = makeEditor('<p></p>');
+    typeText(editor, ':)');
+    expect(emojiNames(editor)).toEqual([]);
+    expect(editor.getText()).toContain(':)');
+  });
+
+  it('an emoticon glued to a letter (mid-word) does not convert', () => {
+    editor = makeEditor('<p></p>');
+    typeText(editor, 'haxD ');
+    expect(emojiNames(editor)).toEqual([]);
+    expect(editor.getText()).toContain('xD');
+  });
+});
+
 describe('default storage stubs (addStorage)', () => {
   it('default getFrequentlyUsed returns empty array before onCreate', () => {
     const storage = Emoji.config.addStorage?.call(Emoji) as any;
