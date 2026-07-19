@@ -9,8 +9,10 @@ import {
   flip,
   shift,
   offset,
+  size,
   hide,
   autoUpdate,
+  type Middleware,
   type Placement,
 } from '@floating-ui/dom';
 
@@ -31,6 +33,83 @@ export interface PositionFloatingOptions {
    * otherwise cover app chrome above the editor) pass the wrapper here.
    */
   boundary?: Element;
+  /**
+   * Shrink-to-fit for vertical placements. When set, the vertical space
+   * available to the floating element (in px) is written to the
+   * `--dm-available-height` CSS custom property on the element, and the
+   * stylesheet opts in with e.g.
+   * `max-height: min(22rem, var(--dm-available-height, 100vh))`.
+   * The element then stays on the preferred side and scrolls internally
+   * while at least `minHeight` px fit there; only below that threshold does
+   * it flip to the opposite side, where the same cap applies. Give the
+   * element `box-sizing: border-box` so the written value maps 1:1 to
+   * `max-height`.
+   */
+  constrainHeight?: {
+    /** Smallest useful height in px before flipping to the opposite side. */
+    minHeight: number;
+  };
+}
+
+const OPPOSITE_SIDE: Record<string, string> = {
+  top: 'bottom',
+  bottom: 'top',
+  left: 'right',
+  right: 'left',
+};
+
+function oppositePlacement(placement: Placement): Placement {
+  const [side = '', alignment] = placement.split('-');
+  const opposite = OPPOSITE_SIDE[side] ?? side;
+  return (alignment ? `${opposite}-${alignment}` : opposite) as Placement;
+}
+
+/** Builds the middleware chain shared by both positioning strategies. */
+function buildMiddleware(
+  options: PositionFloatingOptions | undefined,
+  placementOpt: Placement,
+): Middleware[] {
+  const paddingOpt = options?.padding ?? 10;
+  const overflowOpts = options?.boundary
+    ? { padding: paddingOpt, boundary: options.boundary }
+    : { padding: paddingOpt };
+  const constrain = options?.constrainHeight;
+  const middleware: Middleware[] = [offset(options?.offsetValue ?? 4)];
+  if (constrain) {
+    // `size` runs BEFORE `flip`: it shrinks the element to the space available
+    // on the current side, and since a dimension change re-runs the whole
+    // middleware chain, `flip` then measures the shrunken element. The element
+    // therefore stays on the preferred side (scrolling internally) while at
+    // least `minHeight` fits, and flips only below that threshold, where the
+    // re-run caps it to the opposite side's space. With `flip` first it would
+    // flip as soon as the full CSS max-height no longer fits, even when there
+    // is plenty of room for a scrollable menu.
+    middleware.push(
+      size({
+        ...overflowOpts,
+        apply({ availableHeight, elements }) {
+          elements.floating.style.setProperty(
+            '--dm-available-height',
+            `${String(Math.max(constrain.minHeight, Math.floor(availableHeight)))}px`,
+          );
+        },
+      }),
+    );
+    // Restrict flip to the vertical axis: the default placement scan also
+    // treats a purely horizontal overflow as a reason to flip, which `shift`
+    // below already resolves by sliding the element.
+    middleware.push(
+      flip({
+        ...overflowOpts,
+        crossAxis: false,
+        fallbackPlacements: [oppositePlacement(placementOpt)],
+      }),
+    );
+  } else {
+    middleware.push(flip(overflowOpts));
+  }
+  middleware.push(shift(overflowOpts));
+  return middleware;
 }
 
 /**
@@ -74,16 +153,7 @@ export function positionFloating(
   options?: PositionFloatingOptions,
 ): () => void {
   const placementOpt = options?.placement ?? 'bottom';
-  const paddingOpt = options?.padding ?? 10;
-  const overflowOpts = options?.boundary
-    ? { padding: paddingOpt, boundary: options.boundary }
-    : { padding: paddingOpt };
-  const middleware = [
-    offset(options?.offsetValue ?? 4),
-    flip(overflowOpts),
-    shift(overflowOpts),
-    hide(),
-  ];
+  const middleware = [...buildMiddleware(options, placementOpt), hide()];
 
   const update = (): void => {
     void computePosition(
@@ -145,15 +215,7 @@ export function positionFloatingOnce(
   options?: PositionFloatingOptions,
 ): () => void {
   const placementOpt = options?.placement ?? 'bottom';
-  const paddingOpt = options?.padding ?? 10;
-  const overflowOpts = options?.boundary
-    ? { padding: paddingOpt, boundary: options.boundary }
-    : { padding: paddingOpt };
-  const middleware = [
-    offset(options?.offsetValue ?? 4),
-    flip(overflowOpts),
-    shift(overflowOpts),
-  ];
+  const middleware = buildMiddleware(options, placementOpt);
 
   const update = (): void => {
     void computePosition(
