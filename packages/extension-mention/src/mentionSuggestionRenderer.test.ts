@@ -404,4 +404,56 @@ describe('createMentionSuggestionRenderer', () => {
       renderer.onExit();
     });
   });
+
+  describe('shrink-to-fit and scroll-follow', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('opts into height constraining via --dm-available-height', async () => {
+      const renderer = createMentionSuggestionRenderer()();
+      renderer.onStart(makeProps());
+      await new Promise((resolve) => setTimeout(resolve, 25));
+
+      const container = document.querySelector<HTMLElement>('.dm-mention-suggestion')!;
+      const value = container.style.getPropertyValue('--dm-available-height');
+      expect(value).toMatch(/^\d+px$/);
+      expect(parseInt(value, 10)).toBeGreaterThanOrEqual(160);
+
+      renderer.onExit();
+    });
+
+    it('scrolls down to keep the keyboard selection visible', () => {
+      vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockReturnValue(300);
+      vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(30);
+      vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(100);
+
+      const renderer = createMentionSuggestionRenderer()();
+      renderer.onStart(makeProps());
+      const container = document.querySelector<HTMLElement>('.dm-mention-suggestion')!;
+      container.scrollTop = 0;
+
+      renderer.onKeyDown(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+
+      // selected bottom (300 + 30) minus the 100px viewport
+      expect(container.scrollTop).toBe(230);
+      renderer.onExit();
+    });
+
+    it('scrolls up when the selection sits above the view', () => {
+      vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockReturnValue(300);
+      vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(30);
+      vi.spyOn(Element.prototype, 'clientHeight', 'get').mockReturnValue(100);
+
+      const renderer = createMentionSuggestionRenderer()();
+      renderer.onStart(makeProps());
+      const container = document.querySelector<HTMLElement>('.dm-mention-suggestion')!;
+      container.scrollTop = 400;
+
+      renderer.onKeyDown(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+
+      expect(container.scrollTop).toBe(300);
+      renderer.onExit();
+    });
+  });
 });

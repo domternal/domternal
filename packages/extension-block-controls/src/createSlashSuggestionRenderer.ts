@@ -19,6 +19,10 @@ import type { SlashCommandProps, SlashCommandRenderer } from './SlashCommand.js'
 // the selection to screen readers as the user arrow-keys through items.
 let idCounter = 0;
 
+// Below this the menu flips above the caret instead of shrinking further:
+// three two-line rows plus the menu chrome.
+const MIN_MENU_HEIGHT = 160;
+
 export function createSlashSuggestionRenderer(): SlashCommandRenderer {
   let root: HTMLDivElement | null = null;
   let cleanupFloating: (() => void) | null = null;
@@ -175,7 +179,11 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
     cleanupFloating = positionFloatingOnce(
       virtualRef,
       root,
-      { placement: 'bottom-start', offsetValue: 4 },
+      {
+        placement: 'bottom-start',
+        offsetValue: 4,
+        constrainHeight: { minHeight: MIN_MENU_HEIGHT },
+      },
     );
   };
 

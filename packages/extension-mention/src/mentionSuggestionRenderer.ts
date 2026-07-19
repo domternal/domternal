@@ -27,6 +27,10 @@ import { positionFloatingOnce } from '@domternal/core';
 
 const MAX_ITEMS = 8;
 
+// Below this the dropdown flips above the caret instead of shrinking further:
+// about five rows plus the dropdown chrome.
+const MIN_MENU_HEIGHT = 160;
+
 /**
  * Creates a render factory for the mention suggestion plugin.
  * Returns a function that produces a `MentionSuggestionRenderer` instance.
@@ -93,6 +97,22 @@ export function createMentionSuggestionRenderer(): () => MentionSuggestionRender
 
         container?.appendChild(btn);
       });
+
+      // Keep the keyboard selection visible in the scrollable list. Manual
+      // scrollTop math instead of `scrollIntoView`: that walks ancestors and
+      // would yank the page while the dropdown still sits at its natural flow
+      // position, before positioning runs.
+      const selected = container.querySelector<HTMLButtonElement>(
+        '.dm-mention-suggestion-item--selected',
+      );
+      if (selected) {
+        const btnTop = selected.offsetTop;
+        const btnBottom = btnTop + selected.offsetHeight;
+        const viewTop = container.scrollTop;
+        const viewBottom = viewTop + container.clientHeight;
+        if (btnTop < viewTop) container.scrollTop = btnTop;
+        else if (btnBottom > viewBottom) container.scrollTop = btnBottom - container.clientHeight;
+      }
     }
 
     function updatePosition(): void {
@@ -110,6 +130,7 @@ export function createMentionSuggestionRenderer(): () => MentionSuggestionRender
       cleanupFloating = positionFloatingOnce(virtualEl, container, {
         placement: 'bottom-start',
         offsetValue: 4,
+        constrainHeight: { minHeight: MIN_MENU_HEIGHT },
       });
     }
 

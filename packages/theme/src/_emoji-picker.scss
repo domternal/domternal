@@ -162,15 +162,41 @@
 
 .dm-emoji-suggestion {
   position: absolute;
+  // border-box so the measured available space maps 1:1 to max-height below.
+  box-sizing: border-box;
   z-index: 100;
   min-width: 12rem;
   max-width: 18rem;
+  // `positionFloatingOnce({ constrainHeight })` writes the space around the
+  // caret to `--dm-available-height`; plain 22rem cap when unset.
+  max-height: min(22rem, var(--dm-available-height, 100vh));
+  overflow-y: auto;
   padding: 0.25rem;
   background: var(--dm-surface, #f8f9fa);
   border: 1px solid var(--dm-border-color, #e0e0e0);
   border-radius: 0.25rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   animation: dm-fade-in 0.2s ease;
+
+  // Slim custom scrollbar, matches the slash-command menu styling.
+  scrollbar-width: thin;
+  scrollbar-color: var(--dm-scrollbar-thumb, rgba(0, 0, 0, 0.18)) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 0.25rem 0;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--dm-scrollbar-thumb, rgba(0, 0, 0, 0.18));
+    border-radius: 3px;
+    transition: background-color 0.15s;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--dm-scrollbar-thumb-hover, rgba(0, 0, 0, 0.28));
+  }
 }
 
 .dm-emoji-suggestion-item {

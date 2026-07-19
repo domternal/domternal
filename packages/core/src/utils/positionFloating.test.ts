@@ -124,3 +124,89 @@ describe('positionFloatingOnce', () => {
     expect(cleanup).toBeDefined();
   });
 });
+
+describe('constrainHeight', () => {
+  let reference: HTMLElement;
+  let floating: HTMLElement;
+  let cleanup: (() => void) | null = null;
+
+  // computePosition resolves through microtasks; one macrotask settles it.
+  const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 25));
+
+  beforeEach(() => {
+    reference = document.createElement('div');
+    reference.getBoundingClientRect = () => new DOMRect(100, 100, 50, 30);
+    document.body.appendChild(reference);
+
+    floating = document.createElement('div');
+    floating.style.position = 'absolute';
+    document.body.appendChild(floating);
+  });
+
+  afterEach(() => {
+    cleanup?.();
+    cleanup = null;
+    reference.remove();
+    floating.remove();
+  });
+
+  it('leaves --dm-available-height unset without the option', async () => {
+    cleanup = positionFloatingOnce(reference, floating);
+    await settle();
+    expect(floating.style.getPropertyValue('--dm-available-height')).toBe('');
+  });
+
+  it('writes --dm-available-height honoring the minHeight floor', async () => {
+    cleanup = positionFloatingOnce(reference, floating, {
+      placement: 'bottom-start',
+      constrainHeight: { minHeight: 160 },
+    });
+    await settle();
+    const value = floating.style.getPropertyValue('--dm-available-height');
+    expect(value).toMatch(/^\d+px$/);
+    expect(parseInt(value, 10)).toBeGreaterThanOrEqual(160);
+  });
+
+  it('supports placements without an alignment', async () => {
+    cleanup = positionFloatingOnce(reference, floating, {
+      placement: 'bottom',
+      constrainHeight: { minHeight: 120 },
+    });
+    await settle();
+    const value = floating.style.getPropertyValue('--dm-available-height');
+    expect(parseInt(value, 10)).toBeGreaterThanOrEqual(120);
+  });
+
+  it('supports top placements', async () => {
+    cleanup = positionFloatingOnce(reference, floating, {
+      placement: 'top-start',
+      constrainHeight: { minHeight: 100 },
+    });
+    await settle();
+    const value = floating.style.getPropertyValue('--dm-available-height');
+    expect(parseInt(value, 10)).toBeGreaterThanOrEqual(100);
+  });
+
+  it('works with the fixed-strategy positionFloating as well', async () => {
+    floating.style.position = 'fixed';
+    cleanup = positionFloating(reference, floating, {
+      constrainHeight: { minHeight: 160 },
+    });
+    await settle();
+    const value = floating.style.getPropertyValue('--dm-available-height');
+    expect(parseInt(value, 10)).toBeGreaterThanOrEqual(160);
+  });
+
+  it('respects a custom boundary element', async () => {
+    const boundary = document.createElement('div');
+    document.body.appendChild(boundary);
+    cleanup = positionFloatingOnce(reference, floating, {
+      boundary,
+      constrainHeight: { minHeight: 140 },
+    });
+    await settle();
+    const value = floating.style.getPropertyValue('--dm-available-height');
+    expect(parseInt(value, 10)).toBeGreaterThanOrEqual(140);
+    boundary.remove();
+  });
+});
