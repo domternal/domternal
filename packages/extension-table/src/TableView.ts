@@ -317,6 +317,12 @@ export class TableView implements NodeView {
 
   private onMouseMove(e: MouseEvent): void {
     if (this._resizeDragging) return;
+    // Read-only shows no table chrome: every handle action edits the table.
+    if (!this.view.editable) {
+      this.hideHandles();
+      this.hoveredCell = null;
+      return;
+    }
 
     const target = e.target;
     if (!(target instanceof HTMLElement)) return;

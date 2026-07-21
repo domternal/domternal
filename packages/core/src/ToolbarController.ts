@@ -23,6 +23,8 @@ import type { ToolbarItem, ToolbarButton, ToolbarDropdown, ToolbarLayoutEntry } 
 export interface ToolbarControllerEditor {
   readonly toolbarItems: ToolbarItem[];
   readonly storage: Record<string, unknown>;
+  /** Read-only editors disable every button without allowReadOnly. */
+  readonly isEditable: boolean;
   isActive(
     nameOrAttributes: string | { name: string; attributes?: Record<string, unknown> },
     attributes?: Record<string, unknown>
@@ -466,6 +468,16 @@ export class ToolbarController {
   ): boolean {
     const wasDisabled = this._disabledMap.get(item.name) ?? false;
     let nowDisabled = false;
+
+    // Read-only disables every button without allowReadOnly: PM's editable
+    // prop only blocks typing, a dispatched command would still edit.
+    if (!this.editor.isEditable && item.allowReadOnly !== true) {
+      if (!wasDisabled) {
+        this._disabledMap.set(item.name, true);
+        return true;
+      }
+      return false;
+    }
 
     try {
       if (item.emitEvent) {
