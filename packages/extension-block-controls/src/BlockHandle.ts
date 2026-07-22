@@ -1106,6 +1106,19 @@ export function createBlockHandlePlugin(
     // Freeze the handle while the drag button is pressed; moving it would slide
     // the button out from under the cursor before the browser commits to a drag.
     if (dragPressActive) return;
+    // A handle still shown after its block was deleted is stale (hoveredPos was
+    // cleared, but the DOM stayed up). This catches the case `update` cannot:
+    // the context menu deletes the pinned block and then closes WITHOUT a
+    // transaction, so no plugin update runs to retract it. Drop it before the
+    // freeze gate below (hide() clears pointerOnHandle too) so this move
+    // re-resolves onto the block now under the cursor instead of locking on.
+    if (
+      root.hasAttribute('data-show') &&
+      !editorEl.hasAttribute('data-block-context-menu-open') &&
+      (pluginKey.getState(editor.view.state)?.hoveredPos ?? null) === null
+    ) {
+      hide();
+    }
     // Edge-triggered freeze while the pointer is ON the visible handle: an
     // anchored handle overlaps the neighbouring container's edge, so
     // re-resolving would flip the target and yank the buttons away mid-reach.
@@ -1831,6 +1844,21 @@ export function createBlockHandlePlugin(
           if (view.state.doc !== prevState.doc) currentAnchorKey = null;
           // Retract a visible handle the moment the editor turns read-only.
           if (!view.editable && root.hasAttribute('data-show')) hide();
+          // A doc change that deleted the hovered block clears `hoveredPos` (see
+          // the apply reducer) but leaves the handle shown at a now-stale spot.
+          // If the next pointer move lands on that stale handle it hits the
+          // freeze gate, which returns before re-resolving, so the handle never
+          // recovers and a handle click bails on the null pos. Retract it so the
+          // next hover resolves fresh; hide() also clears pointerOnHandle. Not
+          // while the context menu is open, which legitimately pins the handle.
+          if (
+            view.state.doc !== prevState.doc &&
+            root.hasAttribute('data-show') &&
+            (pluginKey.getState(view.state)?.hoveredPos ?? null) === null &&
+            !editorEl?.hasAttribute('data-block-context-menu-open')
+          ) {
+            hide();
+          }
         },
         destroy: () => {
           clearHideTimer();

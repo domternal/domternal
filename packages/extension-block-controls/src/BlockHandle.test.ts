@@ -329,6 +329,39 @@ describe('BlockHandle DOM integration', () => {
     host?.dispatchEvent(new Event('dm:dismiss-overlays'));
     expect(handle.hasAttribute('data-show')).toBe(false);
   });
+
+  it('retracts a shown handle when its hovered block is deleted', () => {
+    // The apply reducer clears hoveredPos when the hovered block is deleted, but
+    // the handle DOM stays shown at a now-stale spot. The plugin view.update
+    // must retract it, else the next pointer move locks onto the dead handle via
+    // the freeze gate and a handle click bails on the null pos.
+    const ed = makeEditor('<p>A</p><p>B</p>');
+    const handle = host?.querySelector('.dm-block-handle') as HTMLElement | null;
+    if (!handle) throw new Error('handle missing');
+
+    // Simulate hovering the second paragraph (pos 3): plugin state + visible DOM.
+    ed.view.dispatch(ed.state.tr.setMeta(blockHandlePluginKey, { hoveredPos: 3 }));
+    handle.setAttribute('data-show', '');
+
+    // Delete that paragraph (positions 3..6): hoveredPos clears, handle retracts.
+    ed.view.dispatch(ed.state.tr.delete(3, 6));
+    expect(blockHandlePluginKey.getState(ed.state)?.hoveredPos).toBe(null);
+    expect(handle.hasAttribute('data-show')).toBe(false);
+  });
+
+  it('keeps a shown handle while the context menu is open even if its block is deleted', () => {
+    // The retract must NOT fire while the menu pins the handle as its anchor;
+    // the onMouseMove backstop drops the stale handle on the next move instead.
+    const ed = makeEditor('<p>A</p><p>B</p>');
+    const handle = host?.querySelector('.dm-block-handle') as HTMLElement | null;
+    if (!handle) throw new Error('handle missing');
+    ed.view.dispatch(ed.state.tr.setMeta(blockHandlePluginKey, { hoveredPos: 3 }));
+    handle.setAttribute('data-show', '');
+    host?.setAttribute('data-block-context-menu-open', '');
+
+    ed.view.dispatch(ed.state.tr.delete(3, 6));
+    expect(handle.hasAttribute('data-show')).toBe(true);
+  });
 });
 
 /**
