@@ -294,3 +294,15 @@
   background: var(--dm-border-color, #e0e0e0);
   margin: 0.25rem 0;
 }
+
+// Read-only editors show no table chrome; !important outranks the inline
+// display the show logic writes on the handles and toolbar.
+.ProseMirror[contenteditable='false'] {
+  .dm-table-col-handle,
+  .dm-table-row-handle,
+  .dm-table-cell-handle,
+  .dm-table-cell-toolbar,
+  .dm-table-controls-dropdown {
+    display: none !important;
+  }
+}

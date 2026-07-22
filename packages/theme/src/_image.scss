@@ -184,3 +184,8 @@ $shadow: var(--dm-popover-shadow, 0 12px 28px -8px rgba(0, 0, 0, 0.22), 0 4px 10
     z-index: 10;
   }
 }
+
+// Read-only allows no resize: handles stay hidden even on a selected image.
+.ProseMirror[contenteditable='false'] .dm-image-handle {
+  display: none !important;
+}

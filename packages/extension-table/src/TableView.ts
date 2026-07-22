@@ -250,6 +250,18 @@ export class TableView implements NodeView {
       e.preventDefault();
       e.stopPropagation();
     });
+    // Read-only: swallow every toolbar action in one place (capture runs
+    // before the buttons' own click handlers).
+    toolbar.addEventListener(
+      'click',
+      (e) => {
+        if (!this.view.editable) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      },
+      { capture: true }
+    );
 
     // Color button (with dropdown)
     this.colorBtn = this.createToolbarButton(ICON_COLOR, 'Cell color', CHEVRON_DOWN);
@@ -523,6 +535,8 @@ export class TableView implements NodeView {
 
   /** Click on cell handle → create CellSelection for that cell. */
   private onCellHandleClick(): void {
+    // Read-only: cell selection chrome only leads to editing actions.
+    if (!this.view.editable) return;
     if (!this.cellHandleCell) return;
     this.dismissOverlays();
     const pos = this.view.posAtDOM(this.cellHandleCell, 0);
@@ -548,6 +562,7 @@ export class TableView implements NodeView {
   }
 
   private onColClick(): void {
+    if (!this.view.editable) return;
     this.suppressCellToolbar = true;
     this.hideCellToolbar();
     this.dismissOverlays();
@@ -556,6 +571,7 @@ export class TableView implements NodeView {
   }
 
   private onRowClick(): void {
+    if (!this.view.editable) return;
     this.suppressCellToolbar = true;
     this.hideCellToolbar();
     this.dismissOverlays();
