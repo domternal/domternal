@@ -18,6 +18,7 @@ function createMockEditor(
     toolbarItems: items,
     storage: {},
     isActive: () => false,
+    isEditable: true,
     commands: {},
     can: () => ({}),
     on: () => { /* stub */ },
@@ -719,6 +720,82 @@ describe('ToolbarController', () => {
       expect(() => { controller!.subscribe(); }).not.toThrow();
       // Treated as enabled when can() throws
       expect(controller.isDisabled(items[0] as ToolbarButton)).toBe(false);
+    });
+  });
+
+  // =========================================================================
+  // Read-only editors
+  // =========================================================================
+  describe('read-only editors', () => {
+    it('disables every button when the editor is not editable', () => {
+      const items: ToolbarItem[] = [
+        btn('bold', { command: 'toggleBold' }),
+        btn('italic', { command: 'toggleItalic' }),
+      ];
+      const editor = createMockEditor(items, {
+        isEditable: false,
+        // Commands would report themselves runnable; read-only must win anyway,
+        // since PM's editable prop blocks only typing, not dispatched commands.
+        can: () => ({ toggleBold: () => true, toggleItalic: () => true }),
+      });
+
+      controller = new ToolbarController(editor, vi.fn());
+      controller.subscribe();
+
+      expect(controller.disabledMap.get('bold')).toBe(true);
+      expect(controller.disabledMap.get('italic')).toBe(true);
+    });
+
+    it('keeps allowReadOnly buttons enabled in a read-only editor', () => {
+      const items: ToolbarItem[] = [
+        btn('bold', { command: 'toggleBold' }),
+        btn('versionHistory', { command: 'toggleVersionPanel', allowReadOnly: true }),
+      ];
+      const editor = createMockEditor(items, {
+        isEditable: false,
+        can: () => ({ toggleBold: () => true, toggleVersionPanel: () => true }),
+      });
+
+      controller = new ToolbarController(editor, vi.fn());
+      controller.subscribe();
+
+      expect(controller.disabledMap.get('bold')).toBe(true);
+      expect(controller.isDisabled(items[1] as ToolbarButton)).toBe(false);
+    });
+
+    it('disables emitEvent buttons in a read-only editor even outside a code block', () => {
+      // emitEvent buttons take the code-block path when editable; read-only
+      // must short-circuit to disabled before that.
+      const items: ToolbarItem[] = [
+        btn('link', { command: 'setLink', emitEvent: 'openLinkPopover' }),
+      ];
+      const editor = createMockEditor(items, {
+        isEditable: false,
+        isActive: () => false,
+      });
+
+      controller = new ToolbarController(editor, vi.fn());
+      controller.subscribe();
+
+      expect(controller.isDisabled(items[0] as ToolbarButton)).toBe(true);
+    });
+
+    it('re-enables buttons once the editor becomes editable again', () => {
+      const items: ToolbarItem[] = [btn('bold', { command: 'toggleBold' })];
+      const editor = createMockEditor(items, {
+        isEditable: false,
+        can: () => ({ toggleBold: () => true }),
+      });
+
+      controller = new ToolbarController(editor, vi.fn());
+      controller.subscribe();
+      expect(controller.disabledMap.get('bold')).toBe(true);
+
+      // isEditable is read fresh on every pass, so flipping it and re-running
+      // updateStates flips the disabled state back.
+      (editor as { isEditable: boolean }).isEditable = true;
+      controller.subscribe();
+      expect(controller.disabledMap.get('bold')).toBe(false);
     });
   });
 
