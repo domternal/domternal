@@ -273,6 +273,9 @@ export function createFloatingMenuPlugin(options: CreateFloatingMenuPluginOption
   // Final visibility: with requireExplicitTrigger on, both the trigger flag
   // AND shouldShow must be true; otherwise only shouldShow gates it.
   const isVisibleNow = (view: EditorView): boolean => {
+    // Read-only shows no insert menu; unconditional so a wrapper-supplied
+    // shouldShow cannot opt back in (matches the bubble menu gate).
+    if (!editor.isEditable) return false;
     const wantsShow = shouldShow({ editor, view, state: view.state });
     if (!requireExplicitTrigger) return wantsShow;
     const triggered = (pluginKey.getState(view.state) as FloatingMenuPluginState | undefined)?.triggered ?? false;

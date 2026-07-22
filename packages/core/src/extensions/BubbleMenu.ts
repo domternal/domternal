@@ -327,6 +327,14 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
           // Skip during IME composition
           if (view.composing) return;
 
+          // Read-only retracts an already-visible menu. The plugin `apply`
+          // reads editability one tick before updateState refreshes it, so the
+          // view side is the fresh-value backstop (like the block handle's).
+          if (!view.editable) {
+            hideMenu();
+            return;
+          }
+
           const state = pluginKey.getState(view.state) as
             | BubbleMenuPluginState
             | undefined;

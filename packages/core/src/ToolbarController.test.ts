@@ -797,6 +797,25 @@ describe('ToolbarController', () => {
       controller.subscribe();
       expect(controller.disabledMap.get('bold')).toBe(false);
     });
+
+    it('disables a dropdown trigger and its sub-items in a read-only editor', () => {
+      const dd = dropdown('fontFamily', [
+        btn('fontFamily-Arial', { command: 'setFontFamily', commandArgs: ['Arial'] }),
+        btn('fontFamily-Georgia', { command: 'setFontFamily', commandArgs: ['Georgia'] }),
+      ]);
+      const editor = createMockEditor([dd], {
+        isEditable: false,
+        can: () => ({ setFontFamily: () => true }),
+      });
+
+      controller = new ToolbarController(editor, vi.fn());
+      controller.subscribe();
+
+      // can() reports the command runnable, so read-only is the only thing
+      // disabling the sub-items and (all sub-items disabled) the trigger.
+      expect(controller.disabledMap.get('fontFamily-Arial')).toBe(true);
+      expect(controller.disabledMap.get('fontFamily')).toBe(true);
+    });
   });
 
   // =========================================================================

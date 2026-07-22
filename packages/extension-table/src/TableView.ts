@@ -717,7 +717,8 @@ export class TableView implements NodeView {
         ' Default';
       resetBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        setCellAttr('background', null)(this.view.state, this.view.dispatch);
+        // Refuse the edit if the editor went read-only while this was open.
+        if (this.view.editable) setCellAttr('background', null)(this.view.state, this.view.dispatch);
         this.closeDropdown();
       });
       palette.appendChild(resetBtn);
@@ -731,7 +732,7 @@ export class TableView implements NodeView {
         swatch.setAttribute('aria-label', color);
         swatch.addEventListener('click', (e) => {
           e.stopPropagation();
-          setCellAttr('background', color)(this.view.state, this.view.dispatch);
+          if (this.view.editable) setCellAttr('background', color)(this.view.state, this.view.dispatch);
           this.closeDropdown();
         });
         palette.appendChild(swatch);
@@ -765,7 +766,7 @@ export class TableView implements NodeView {
       for (const a of hAligns) {
         const isActive = curTextAlign === a.value || (!curTextAlign && a.value === 'left');
         dropdown.appendChild(this.createAlignItem(a.icon, a.label, isActive, () => {
-          setCellAttr('textAlign', a.value === 'left' ? null : a.value)(this.view.state, this.view.dispatch);
+          if (this.view.editable) setCellAttr('textAlign', a.value === 'left' ? null : a.value)(this.view.state, this.view.dispatch);
           this.closeDropdown();
         }));
       }
@@ -778,7 +779,7 @@ export class TableView implements NodeView {
       for (const a of vAligns) {
         const isActive = curVerticalAlign === a.value || (!curVerticalAlign && a.value === 'top');
         dropdown.appendChild(this.createAlignItem(a.icon, a.label, isActive, () => {
-          setCellAttr('verticalAlign', a.value === 'top' ? null : a.value)(this.view.state, this.view.dispatch);
+          if (this.view.editable) setCellAttr('verticalAlign', a.value === 'top' ? null : a.value)(this.view.state, this.view.dispatch);
           this.closeDropdown();
         }));
       }
@@ -872,6 +873,9 @@ export class TableView implements NodeView {
   }
 
   private execRowCmd(cmd: PMCommand): void {
+    // A dropdown left open across a switch to read-only must not still mutate
+    // (onRowClick already blocks opening a fresh one).
+    if (!this.view.editable) return;
     this.setCursorInCell(this.hoveredRow, 0);
     const state = this.view.state;
     if (cmd === deleteRow && isInTable(state)) {
@@ -885,6 +889,7 @@ export class TableView implements NodeView {
   }
 
   private execColCmd(cmd: PMCommand): void {
+    if (!this.view.editable) return;
     this.setCursorInCell(0, this.hoveredCol);
     if (this.constrainToContainer && (cmd === addColumnBefore || cmd === addColumnAfter)) {
       constrainedAddColumn(cmd, this.view, this.cellMinWidth, this.defaultCellMinWidth);

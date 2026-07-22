@@ -144,6 +144,10 @@ export const Details = Node.create<DetailsOptions>({
       toggle.addEventListener('click', () => {
         toggleDetailsContent();
 
+        // Read-only keeps the visual toggle (open a section to read it) but
+        // must not persist the open attribute, which is a document edit.
+        if (editor && !editor.view.editable) return;
+
         if (!options.persist) {
           if (editor) {
             editor.commands['focus']?.();
