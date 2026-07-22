@@ -23,6 +23,8 @@ import type { ToolbarItem, ToolbarButton, ToolbarDropdown, ToolbarLayoutEntry } 
 export interface ToolbarControllerEditor {
   readonly toolbarItems: ToolbarItem[];
   readonly storage: Record<string, unknown>;
+  /** Read-only editors disable every button without allowReadOnly. */
+  readonly isEditable: boolean;
   isActive(
     nameOrAttributes: string | { name: string; attributes?: Record<string, unknown> },
     attributes?: Record<string, unknown>
@@ -174,6 +176,9 @@ export class ToolbarController {
    * Executes a toolbar button's command.
    */
   executeCommand(item: ToolbarButton): void {
+    // Refuse the dispatch itself in a read-only editor: a wrapper that only
+    // visually dims, or a programmatic call, must not slip an edit through.
+    if (!this.editor.isEditable && item.allowReadOnly !== true) return;
     ToolbarController.executeItem(this.editor, item);
     this.updateActiveStates();
   }
@@ -467,22 +472,29 @@ export class ToolbarController {
     const wasDisabled = this._disabledMap.get(item.name) ?? false;
     let nowDisabled = false;
 
-    try {
-      if (item.emitEvent) {
-        // emitEvent buttons open a popover - can't do meaningful can() dry-run
-        // because the command needs user-provided args (href, src, etc.).
-        // Instead, check if cursor is in a code block where marks/inserts are blocked.
-        nowDisabled = this.editor.isActive('codeBlock');
-      } else if (canProxy) {
-        const canCmd = canProxy[item.command];
-        if (canCmd) {
-          nowDisabled = item.commandArgs?.length
-            ? !canCmd(...item.commandArgs)
-            : !canCmd();
+    // Read-only disables every button without allowReadOnly: PM's editable
+    // prop only blocks typing, a dispatched command would still edit. Fall
+    // through to the shared change-detection tail instead of re-implementing it.
+    if (!this.editor.isEditable && item.allowReadOnly !== true) {
+      nowDisabled = true;
+    } else {
+      try {
+        if (item.emitEvent) {
+          // emitEvent buttons open a popover - can't do meaningful can() dry-run
+          // because the command needs user-provided args (href, src, etc.).
+          // Instead, check if cursor is in a code block where marks/inserts are blocked.
+          nowDisabled = this.editor.isActive('codeBlock');
+        } else if (canProxy) {
+          const canCmd = canProxy[item.command];
+          if (canCmd) {
+            nowDisabled = item.commandArgs?.length
+              ? !canCmd(...item.commandArgs)
+              : !canCmd();
+          }
         }
+      } catch {
+        // Command dry-run may throw (e.g. buggy extension) - treat as enabled
       }
-    } catch {
-      // Command dry-run may throw (e.g. buggy extension) - treat as enabled
     }
 
     if (wasDisabled !== nowDisabled) {

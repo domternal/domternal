@@ -1128,6 +1128,11 @@ export function createBlockHandlePlugin(
       // Re-check the pin gate: a mousemove queued pre-open can fire after
       // `open()` and otherwise reposition the handle.
       if (editorEl.hasAttribute('data-block-context-menu-open')) return;
+      // Read-only shows no handle: every handle action edits the document.
+      if (!editor.isEditable) {
+        scheduleHide();
+        return;
+      }
       const initial = resolveBlockAtCoords(editor.view, coords.x, coords.y, nested);
       if (!initial) {
         scheduleHide();
@@ -1135,10 +1140,7 @@ export function createBlockHandlePlugin(
       }
       // Gap hovers resolve to an ancestor; descend to the nearest leaf row.
       const resolved = descendToNearestHoverItem(editor.view, initial, coords.y);
-      // Readonly editors keep the gutter position: an anchored handle
-      // overlaps the neighbouring container's text, unacceptable for a
-      // purely inert affordance (every button no-ops when not editable).
-      const anchorLeft = editor.isEditable ? initial.anchorLeft ?? null : null;
+      const anchorLeft = initial.anchorLeft ?? null;
       clearHideTimer();
       // Keep `updateHoverState` unconditional (it's a no-op when state already
       // matches): if a prior docChanged cleared `hoveredPos`, the next tick
@@ -1827,6 +1829,8 @@ export function createBlockHandlePlugin(
         // anchor key forces the next hover tick to repaint at fresh rects.
         update: (view, prevState) => {
           if (view.state.doc !== prevState.doc) currentAnchorKey = null;
+          // Retract a visible handle the moment the editor turns read-only.
+          if (!view.editable && root.hasAttribute('data-show')) hide();
         },
         destroy: () => {
           clearHideTimer();

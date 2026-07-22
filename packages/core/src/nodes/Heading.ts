@@ -258,7 +258,10 @@ export const Heading = Node.create<HeadingOptions>({
         key: new PluginKey('headingKeydownFix'),
         props: {
           handleDOMEvents: {
-            keydown(_view, event) {
+            keydown(view, event) {
+              // A handleDOMEvents keydown runs before PM's editable gate (unlike
+              // a keymap), so without this a read-only editor still changes level.
+              if (!view.editable) return false;
               if (!event.altKey || !(event.metaKey || event.ctrlKey)) return false;
               const level = codeToLevel[event.code];
               if (level === undefined) return false;

@@ -455,6 +455,37 @@ describe('BubbleMenu', () => {
       expect(ps.to).toBe(12);
     });
 
+    it('read-only overrides a permissive shouldShow so the plugin stays hidden', () => {
+      menuElement = document.createElement('div');
+      document.body.appendChild(menuElement);
+
+      editor = new Editor({
+        extensions: [
+          Document,
+          Text,
+          Paragraph,
+          BubbleMenu.configure({ element: menuElement, shouldShow: () => true }),
+        ],
+        content: '<p>Hello world</p>',
+      });
+      editor.view.coordsAtPos = () => ({ left: 10, right: 50, top: 10, bottom: 30 });
+
+      // Editable: the permissive shouldShow shows the menu on a selection.
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)));
+      expect((bubbleMenuPluginKey.getState(editor.state) as BubbleMenuPluginState).visible).toBe(true);
+
+      // Read-only: the plugin gate wins though shouldShow still returns true, so a
+      // wrapper's custom shouldShow cannot opt the menu back in.
+      editor.setEditable(false);
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)));
+      expect((bubbleMenuPluginKey.getState(editor.state) as BubbleMenuPluginState).visible).toBe(false);
+
+      // Editable again: the gate lifts and the selection shows it once more.
+      editor.setEditable(true);
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)));
+      expect((bubbleMenuPluginKey.getState(editor.state) as BubbleMenuPluginState).visible).toBe(true);
+    });
+
     it('returns empty plugins when no editor', () => {
       const element = document.createElement('div');
       const CustomBubbleMenu = BubbleMenu.configure({ element });

@@ -389,6 +389,8 @@ export const Image = Node.create<ImageOptions>({
         const handle = document.createElement('div');
         handle.className = `dm-image-handle dm-image-handle-${corner}`;
         handle.addEventListener('mousedown', (e) => {
+          // Read-only allows no resize (the drag dispatches a setNodeMarkup).
+          if (!view.editable) return;
           e.preventDefault();
           e.stopPropagation();
 

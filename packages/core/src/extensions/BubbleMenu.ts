@@ -215,10 +215,12 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
           suppressed = false;
         }
 
-        // Determine visibility
+        // Determine visibility. The read-only gate applies before any custom
+        // shouldShow (the wrappers build their own), which must not opt back in.
         const visible =
           !suppressed &&
           !selection.empty &&
+          editor.isEditable &&
           shouldShow({
             editor,
             view: editor.view,
@@ -273,8 +275,10 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
           if (mouseDown) return; // don't show during drag
           const { selection } = editor.view.state;
           const { from, to } = selection;
+          // Same unconditional read-only gate as the plugin state above.
           const show =
             !selection.empty &&
+            editor.isEditable &&
             shouldShow({
               editor,
               view: editor.view,
@@ -322,6 +326,14 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
         update: (view, prevState) => {
           // Skip during IME composition
           if (view.composing) return;
+
+          // Read-only retracts an already-visible menu. The plugin `apply`
+          // reads editability one tick before updateState refreshes it, so the
+          // view side is the fresh-value backstop (like the block handle's).
+          if (!view.editable) {
+            hideMenu();
+            return;
+          }
 
           const state = pluginKey.getState(view.state) as
             | BubbleMenuPluginState

@@ -93,6 +93,13 @@ export interface ToolbarButton {
 
   /** Bubble menu context name. When set, this item is included in the default bubble menu for this context. */
   bubbleMenu?: string;
+
+  /**
+   * Keep this button enabled in a read-only editor (view-only actions such
+   * as a history panel toggle); by default every button is disabled there.
+   * @default false
+   */
+  allowReadOnly?: boolean;
 }
 
 /**
