@@ -331,10 +331,8 @@ describe('BlockHandle DOM integration', () => {
   });
 
   it('retracts a shown handle when its hovered block is deleted', () => {
-    // The apply reducer clears hoveredPos when the hovered block is deleted, but
-    // the handle DOM stays shown at a now-stale spot. The plugin view.update
-    // must retract it, else the next pointer move locks onto the dead handle via
-    // the freeze gate and a handle click bails on the null pos.
+    // A shown handle whose hovered block is deleted is stale; view.update must
+    // retract it, else the next hover's freeze gate locks onto the dead handle.
     const ed = makeEditor('<p>A</p><p>B</p>');
     const handle = host?.querySelector('.dm-block-handle') as HTMLElement | null;
     if (!handle) throw new Error('handle missing');
@@ -784,6 +782,40 @@ describe('BlockHandle hover resolution', () => {
 
     const state = blockHandlePluginKey.getState(editor!.state);
     expect(state?.hoveredPos).toBe(5);
+  });
+
+  it('the mousemove backstop drops a handle left shown with no hovered block', () => {
+    // The context-menu path deletes the pinned block then closes without a
+    // transaction (no view.update), so the next move must drop the stale handle
+    // before the freeze gate. rAF stubbed and never ticked: the backstop is sync.
+    installRafStub();
+    makeEditor('<p>One</p><p>Two</p>');
+    const handle = host?.querySelector('.dm-block-handle') as HTMLElement | null;
+    if (!handle) throw new Error('handle missing');
+    // Stale: shown handle, hovered block gone (a meta-only null, so update()'s
+    // doc-change guard cannot be what retracts it here).
+    handle.setAttribute('data-show', '');
+    editor!.view.dispatch(editor!.state.tr.setMeta(blockHandlePluginKey, { hoveredPos: null }));
+    expect(handle.hasAttribute('data-show')).toBe(true);
+
+    const hoverEl = host?.querySelector<HTMLElement>('.ProseMirror');
+    hoverEl?.dispatchEvent(new MouseEvent('mousemove', { clientX: 250, clientY: 155, bubbles: true, cancelable: true }));
+    expect(handle.hasAttribute('data-show')).toBe(false);
+  });
+
+  it('the mousemove backstop leaves the handle alone while the context menu is open', () => {
+    // The menu pins the handle as its anchor; the backstop must respect that.
+    installRafStub();
+    makeEditor('<p>One</p><p>Two</p>');
+    const handle = host?.querySelector('.dm-block-handle') as HTMLElement | null;
+    if (!handle) throw new Error('handle missing');
+    handle.setAttribute('data-show', '');
+    host?.setAttribute('data-block-context-menu-open', '');
+    editor!.view.dispatch(editor!.state.tr.setMeta(blockHandlePluginKey, { hoveredPos: null }));
+
+    const hoverEl = host?.querySelector<HTMLElement>('.ProseMirror');
+    hoverEl?.dispatchEvent(new MouseEvent('mousemove', { clientX: 250, clientY: 155, bubbles: true, cancelable: true }));
+    expect(handle.hasAttribute('data-show')).toBe(true);
   });
 
   it('mode A: cursor in inter-block gap snaps to the closest block (closest-by-Y fallback)', () => {
