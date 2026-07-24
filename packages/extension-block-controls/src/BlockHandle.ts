@@ -1106,6 +1106,17 @@ export function createBlockHandlePlugin(
     // Freeze the handle while the drag button is pressed; moving it would slide
     // the button out from under the cursor before the browser commits to a drag.
     if (dragPressActive) return;
+    // Drop a handle left shown after its block was deleted (hoveredPos cleared)
+    // before the freeze gate can lock onto it, so this move re-resolves. Catches
+    // what `update` cannot: the context menu deletes the pinned block then closes
+    // without a transaction, so no plugin update runs. hide() clears pointerOnHandle.
+    if (
+      root.hasAttribute('data-show') &&
+      !editorEl.hasAttribute('data-block-context-menu-open') &&
+      (pluginKey.getState(editor.view.state)?.hoveredPos ?? null) === null
+    ) {
+      hide();
+    }
     // Edge-triggered freeze while the pointer is ON the visible handle: an
     // anchored handle overlaps the neighbouring container's edge, so
     // re-resolving would flip the target and yank the buttons away mid-reach.
@@ -1831,6 +1842,18 @@ export function createBlockHandlePlugin(
           if (view.state.doc !== prevState.doc) currentAnchorKey = null;
           // Retract a visible handle the moment the editor turns read-only.
           if (!view.editable && root.hasAttribute('data-show')) hide();
+          // A doc change that deletes the hovered block clears `hoveredPos` but
+          // leaves the handle shown at a stale spot, where the next hover's freeze
+          // gate would lock onto it. Retract it so the next hover resolves fresh
+          // (hide() clears pointerOnHandle). Not while the context menu pins it.
+          if (
+            view.state.doc !== prevState.doc &&
+            root.hasAttribute('data-show') &&
+            (pluginKey.getState(view.state)?.hoveredPos ?? null) === null &&
+            !editorEl?.hasAttribute('data-block-context-menu-open')
+          ) {
+            hide();
+          }
         },
         destroy: () => {
           clearHideTimer();
