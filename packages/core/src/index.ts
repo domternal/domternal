@@ -45,6 +45,11 @@ export type {
   GlobalAttributeSpec,
   GlobalAttributes,
   ExtensionConfig,
+  // Exported so a package that OWNS a new extension hook can declare it here
+  // by module augmentation, keeping the hook's types in the package that
+  // renders them instead of in core. `ExtensionConfig`, `NodeConfig` and
+  // `MarkConfig` are type aliases over this interface, so they all pick it up.
+  ExtensionConfigBase,
   // Attribute types
   AttributeSpec,
   AttributeSpecs,

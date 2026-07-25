@@ -52,6 +52,9 @@ export type {
   BlockContextMenuOptions,
   CreateBlockContextMenuPluginOptions,
   TurnIntoTarget,
+  BlockMenuItem,
+  BlockMenuItemContext,
+  BlockMenuItemGroup,
 } from './BlockContextMenu.js';
 
 // Editor commands the Turn into menu routes to for wrapper (non-textblock)
