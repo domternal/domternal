@@ -107,19 +107,12 @@ export const UniqueID = Extension.create<UniqueIDOptions>({
     const editor = this.editor as Editor | null;
 
     /**
-     * ProseMirror hands this the DRAGGED slice on an internal drag as well as
-     * pasted content, and it does so BEFORE the source is deleted, so a plain
-     * block move looks exactly like a duplicate: the original is still in the
-     * document, its id collides, and the moved block would land with a fresh
-     * one. That silently breaks every reference to the block (a `#hash` anchor,
-     * a table-of-contents deep link, a copied block link) for a gesture that
-     * changed no content at all.
+     * ProseMirror runs this on the DRAGGED slice too, before the source is
+     * deleted, so a plain block move looks like a duplicate and the moved block
+     * would land with a fresh id, breaking every reference to it.
      *
-     * `view.dragging.move` is set at dragstart and distinguishes a move from a
-     * copy: a move deletes the source, so the collision is transient and the id
-     * must be kept. A copy drag (alt-drag) leaves `move` false and still
-     * regenerates, which is what we want. If a move somehow does not complete,
-     * `assignMissingIDs` is still the safety net and renames the duplicate.
+     * `move` is false for a copy drag, which should still regenerate. If a move
+     * never completes, `assignMissingIDs` catches the duplicate.
      */
     const transformPastedSlice = (slice: Slice, view?: { dragging?: { move?: boolean } | null }): Slice => {
       if (view?.dragging?.move === true) return slice;
@@ -184,17 +177,11 @@ export const UniqueID = Extension.create<UniqueIDOptions>({
     // (further down) and is handled there before this runs. This pass
     // is the safety net.
     /**
-     * Which node currently holds each id by right of having held it BEFORE this
-     * change, keyed by its position in the new document. Built by walking the
-     * old document and mapping each id-bearing node's position forward through
-     * the transactions that produced the new one.
-     *
-     * Without this, a collision is resolved by document order, so a copy that
-     * lands ABOVE its original keeps the id and the ORIGINAL is renamed. Every
-     * reference then silently points at the copy: a table-of-contents link
-     * jumps to the duplicate, and a block-anchored comment appears on prose it
-     * was never about. Position in the document is not evidence of ownership;
-     * having held the id already is.
+     * Where each id sat BEFORE this change, mapped forward into the new
+     * document. Resolving a collision by document order instead lets a copy
+     * pasted ABOVE its original keep the id and renames the original, so every
+     * reference silently follows the copy. Having held the id is ownership;
+     * position is not.
      */
     const incumbentPositions = (
       oldDoc: PMNode,
@@ -217,12 +204,10 @@ export const UniqueID = Extension.create<UniqueIDOptions>({
       incumbents?: Map<string, number>
     ): void => {
       /**
-       * Which position keeps each CONTESTED id. Only ids carried by more than
-       * one node are contested, so an id that simply moved (a full setContent
-       * remaps every position) is never disturbed. The incumbent wins when its
-       * mapped position really is one of the occurrences; otherwise the mapping
-       * did not survive the change and document order decides, which is the
-       * old behaviour and still better than renaming every copy.
+       * Which position keeps each CONTESTED id. Only ids held by more than one
+       * node are contested, so an id that merely moved (setContent remaps every
+       * position) is untouched. When the mapped position is not one of the
+       * occurrences the mapping did not survive, and document order decides.
        */
       const winners = new Map<string, number>();
       if (incumbents && incumbents.size > 0) {
