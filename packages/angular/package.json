@@ -16,6 +16,7 @@
   "peerDependencies": {
     "@angular/core": ">=17.1.0",
     "@angular/forms": ">=17.1.0",
+    "@angular/platform-browser": ">=17.1.0",
     "@domternal/core": ">=0.13.0"
   },
   "files": [
