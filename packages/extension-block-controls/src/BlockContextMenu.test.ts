@@ -13,8 +13,10 @@ import {
   UniqueID,
   BlockColor,
   Editor,
+  Extension,
 } from '@domternal/core';
 import { BlockContextMenu } from './BlockContextMenu.js';
+import type { BlockMenuItem } from './BlockContextMenu.js';
 
 const extensions = [Document, Text, Paragraph, Heading, Blockquote, CodeBlock, BulletList, OrderedList, TaskList, BlockContextMenu];
 
@@ -1420,5 +1422,134 @@ describe('BlockContextMenu Turn into - wrapper SOURCES (listItem / taskItem / bl
     findItemByLabel('Ordered list')?.click();
     expect(menu?.hasAttribute('data-show')).toBe(false);
     expect(focusSpy).toHaveBeenCalled();
+  });
+});
+
+describe('BlockContextMenu addBlockMenuItems hook', () => {
+  /**
+   * Declaring the hook on a plain Extension is itself the assertion that the
+   * module augmentation merged: if it had shadowed the core interface instead,
+   * this object literal would be an excess property and the file would not
+   * compile.
+   */
+  function contributor(items: BlockMenuItem[]): ReturnType<typeof Extension.create> {
+    return Extension.create({
+      name: 'menuContributor',
+      addBlockMenuItems: () => items,
+    });
+  }
+
+  function openWith(items: BlockMenuItem[], html = '<p>Target</p>'): Element | null {
+    host = document.createElement('div');
+    host.className = 'dm-editor';
+    document.body.appendChild(host);
+    editor = new Editor({
+      element: host,
+      extensions: [...extensions, contributor(items)],
+      content: html,
+    });
+    openContextMenu(0);
+    return host.querySelector('.dm-block-context-menu');
+  }
+
+  const base: BlockMenuItem = {
+    id: 'comment',
+    label: 'Comment',
+    icon: 'chatCircleText',
+    group: 'collaboration',
+    run: () => undefined,
+  };
+
+  it('renders a contributed item and passes it the target block', () => {
+    const seen: { blockPos: number; type: string; blockId: string | null }[] = [];
+    const menu = openWith([
+      {
+        ...base,
+        run: (ctx) => {
+          seen.push({ blockPos: ctx.blockPos, type: ctx.node.type.name, blockId: ctx.blockId });
+        },
+      },
+    ]);
+
+    const btn = menu?.querySelector<HTMLButtonElement>('[data-block-menu-item="comment"]');
+    expect(btn).not.toBeNull();
+    expect(btn?.getAttribute('aria-label')).toBe('Comment');
+
+    btn?.click();
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.type).toBe('paragraph');
+    // UniqueID is not loaded in this setup, so the id resolves to null rather
+    // than throwing or inventing one.
+    expect(seen[0]?.blockId).toBeNull();
+  });
+
+  it('the collaboration group renders last, after Turn into', () => {
+    const menu = openWith([base]);
+    const buttons = Array.from(
+      menu?.querySelectorAll('.dm-block-context-menu-item') ?? []
+    );
+    const labels = buttons.map((b) => b.getAttribute('aria-label'));
+    expect(labels).toContain('Comment');
+    // A contributor may place an item inside the menu but never reorder it.
+    expect(labels[labels.length - 1]).toBe('Comment');
+  });
+
+  it('isAvailable false hides the item entirely', () => {
+    const menu = openWith([{ ...base, isAvailable: () => false }]);
+    expect(menu?.querySelector('[data-block-menu-item="comment"]')).toBeNull();
+  });
+
+  it('isEnabled with a reason renders the item inert and explains why', () => {
+    let ran = 0;
+    const menu = openWith([
+      {
+        ...base,
+        isEnabled: () => ({ disabled: true, reason: 'This block is empty' }),
+        run: () => { ran += 1; },
+      },
+    ]);
+
+    const btn = menu?.querySelector<HTMLButtonElement>('[data-block-menu-item="comment"]');
+    // Rendered, not hidden: a vanished item teaches the user nothing.
+    expect(btn).not.toBeNull();
+    expect(btn?.getAttribute('aria-disabled')).toBe('true');
+    expect(btn?.title).toBe('This block is empty');
+
+    btn?.click();
+    expect(ran).toBe(0);
+  });
+
+  it('orders within a group by order, then by registration', () => {
+    const menu = openWith([
+      { ...base, id: 'third', label: 'Third', order: 30 },
+      { ...base, id: 'first', label: 'First', order: 10 },
+      { ...base, id: 'second', label: 'Second', order: 10 },
+    ]);
+    const labels = Array.from(menu?.querySelectorAll('.dm-block-context-menu-item') ?? [])
+      .map((b) => b.getAttribute('aria-label'))
+      .filter((l) => l === 'First' || l === 'Second' || l === 'Third');
+    // Equal orders keep registration order rather than depending on collection.
+    expect(labels).toEqual(['First', 'Second', 'Third']);
+  });
+
+  it('a contributor that throws does not take the menu down', () => {
+    host = document.createElement('div');
+    host.className = 'dm-editor';
+    document.body.appendChild(host);
+    const Exploding = Extension.create({
+      name: 'explodingContributor',
+      addBlockMenuItems: () => { throw new Error('boom'); },
+    });
+    editor = new Editor({
+      element: host,
+      extensions: [...extensions, Exploding],
+      content: '<p>Target</p>',
+    });
+    openContextMenu(0);
+
+    const menu = host.querySelector('.dm-block-context-menu');
+    const labels = Array.from(menu?.querySelectorAll('.dm-block-context-menu-item') ?? [])
+      .map((b) => b.getAttribute('aria-label'));
+    expect(labels).toContain('Delete');
   });
 });

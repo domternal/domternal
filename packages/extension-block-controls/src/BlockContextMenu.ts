@@ -10,7 +10,7 @@ import { Extension, defaultIcons, liftCurrentListItem, positionFloatingOnce, str
 import type { Editor } from '@domternal/core';
 import { Plugin, PluginKey, TextSelection, EditorState } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
-import type { Attrs } from '@domternal/pm/model';
+import type { Attrs, Node as PMNode } from '@domternal/pm/model';
 import { Decoration, DecorationSet } from '@domternal/pm/view';
 import {
   deleteBlock,
@@ -33,6 +33,76 @@ interface BlockColorOptionsShape {
   types?: string[];
   bgColors?: string[];
   textColors?: string[];
+}
+
+/**
+ * Where a contributed item lands. A CLOSED set owned by this package and
+ * rendered in this order, so a contributor can place an item inside the menu
+ * but can never reorder the menu itself. `collaboration` is the trailing group,
+ * matching Notion, which keeps commenting apart from both the structural
+ * actions and the destructive ones.
+ */
+export type BlockMenuItemGroup = 'primary' | 'colors' | 'turnInto' | 'collaboration';
+
+const GROUP_ORDER: BlockMenuItemGroup[] = ['primary', 'colors', 'turnInto', 'collaboration'];
+
+/** What a contributed item is told about the block the menu was opened on. */
+export interface BlockMenuItemContext {
+  editor: Editor;
+  /** Position of the target block in the document. */
+  blockPos: number;
+  node: PMNode;
+  /**
+   * The block's `uniqueID` value, or null when UniqueID is not loaded or has
+   * not stamped this block. Resolved here so a contributor never has to know
+   * how the id is configured.
+   */
+  blockId: string | null;
+}
+
+/**
+ * A menu entry contributed by another extension through `addBlockMenuItems()`.
+ *
+ * Declarative on purpose: contributors describe an item and this package builds
+ * the button, so every entry keeps `role="menuitem"`, the roving tabindex, the
+ * arrow-key navigation and the mousedown-preventDefault that holds editor
+ * focus. Injecting DOM into the open menu would get all four wrong.
+ */
+export interface BlockMenuItem {
+  /** Stable across renders; used for dedupe and as a test handle. */
+  id: string;
+  label: string;
+  /** Key into the shared icon set, resolved the same way built-in items are. */
+  icon: string;
+  group: BlockMenuItemGroup;
+  /** Within the group, ascending. Defaults to 100; step by 10 to leave room. */
+  order?: number;
+  /** Hide the item entirely. Use for "this block can never take this action". */
+  isAvailable?: (context: BlockMenuItemContext) => boolean;
+  /**
+   * Show the item but refuse it, with a reason surfaced to the user. Prefer
+   * this over hiding when the action is normally possible here: an item that
+   * vanishes teaches nothing, while "Comment (this block is empty)" does.
+   */
+  isEnabled?: (context: BlockMenuItemContext) => true | { disabled: true; reason: string };
+  run: (context: BlockMenuItemContext) => void;
+}
+
+declare module '@domternal/core' {
+  // Type parameters must mirror the original declaration exactly for the
+  // augmentation to merge rather than shadow.
+  // The type parameters exist only to mirror the original declaration: an
+  // augmentation that omits them shadows the interface instead of merging.
+  /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+  interface ExtensionConfigBase<Options = unknown, Storage = unknown> {
+    /**
+     * Contribute entries to the block context menu, the same shape as
+     * `addToolbarItems()`. Declared here rather than in core because this
+     * package is the only thing that renders them, so core never learns a type
+     * it does not use.
+     */
+    addBlockMenuItems?: () => BlockMenuItem[];
+  }
 }
 
 /**
@@ -172,6 +242,36 @@ export function createBlockContextMenuPlugin(
   const uniqueIDGenerate: (() => string) | null = uniqueIDExt
     ? ((uniqueIDExt.options as UniqueIDOptionsShape).generateID ?? null)
     : null;
+
+  /**
+   * Items contributed by other extensions, collected once for the same reason
+   * the optional-extension reads above are: extensions are immutable for the
+   * editor's lifetime. Sorted by (group, order, registration) so equal orders
+   * stay in a deterministic sequence rather than depending on collection order.
+   * `isAvailable` and `isEnabled` are evaluated per OPEN, not here, because
+   * they depend on the block the menu was opened on.
+   */
+  const contributedItems: BlockMenuItem[] = editor.extensionManager.extensions
+    .flatMap((ext) => {
+      const add = (ext as unknown as { config: { addBlockMenuItems?: () => BlockMenuItem[] } })
+        .config.addBlockMenuItems;
+      if (typeof add !== 'function') return [];
+      try {
+        return add.call(ext);
+      } catch {
+        // One misbehaving contributor must not take the whole menu down.
+        return [];
+      }
+    })
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const groupDelta =
+        GROUP_ORDER.indexOf(a.item.group) - GROUP_ORDER.indexOf(b.item.group);
+      if (groupDelta !== 0) return groupDelta;
+      const orderDelta = (a.item.order ?? 100) - (b.item.order ?? 100);
+      return orderDelta !== 0 ? orderDelta : a.index - b.index;
+    })
+    .map(({ item }) => item);
 
   const blockColorExt = editor.extensionManager.extensions.find((ext) => ext.name === 'blockColor');
   const blockColorOpts = blockColorExt
@@ -397,6 +497,15 @@ export function createBlockContextMenuPlugin(
     const node = editor.view.state.doc.nodeAt(blockPos);
     if (!node) return;
 
+    const contributedContext: BlockMenuItemContext = {
+      editor,
+      blockPos,
+      node,
+      blockId: uniqueIDAttrName
+        ? (((node.attrs as Record<string, unknown>)[uniqueIDAttrName] as string | undefined) ?? null)
+        : null,
+    };
+
     // Primary actions section.
     const primaryGroup = document.createElement('div');
     primaryGroup.className = 'dm-block-context-menu-group';
@@ -421,6 +530,7 @@ export function createBlockContextMenuPlugin(
       }
     }
     root.appendChild(primaryGroup);
+    appendContributedGroup('primary', contributedContext);
 
     // Colors section: shown only when BlockColor is loaded and the block type
     // is in its `types` list. Renders bg + text swatch rows, each led by a "clear" swatch.
@@ -452,6 +562,7 @@ export function createBlockContextMenuPlugin(
         ),
       );
     }
+    appendContributedGroup('colors', contributedContext);
 
     // Turn into section. Two source modes:
     //   A. Textblock source (paragraph, heading, codeBlock): textblock AND
@@ -543,6 +654,11 @@ export function createBlockContextMenuPlugin(
         root.appendChild(group);
       }
     }
+    appendContributedGroup('turnInto', contributedContext);
+
+    // Trailing group, matching Notion, which keeps collaboration apart from
+    // both the structural actions and the destructive ones.
+    appendContributedGroup('collaboration', contributedContext);
   };
 
   /**
@@ -576,16 +692,64 @@ export function createBlockContextMenuPlugin(
     return btn;
   };
 
+  /**
+   * Renders the contributed items for one group, or nothing when none of them
+   * apply to this block. Disabled items are RENDERED, greyed and inert, with
+   * the reason on the button: an item that silently vanishes teaches the user
+   * nothing, while "Comment (this block is empty)" does. They stay in the
+   * roving tabindex so a keyboard user can reach the explanation.
+   */
+  const appendContributedGroup = (
+    group: BlockMenuItemGroup,
+    context: BlockMenuItemContext
+  ): void => {
+    const items = contributedItems.filter(
+      (item) => item.group === group && (item.isAvailable?.(context) ?? true)
+    );
+    if (items.length === 0) return;
+
+    const container = document.createElement('div');
+    container.className = 'dm-block-context-menu-group';
+    container.setAttribute('role', 'group');
+
+    for (const item of items) {
+      const enabled = item.isEnabled?.(context) ?? true;
+      const disabledReason = enabled === true ? null : enabled.reason;
+      const btn = makeItem(
+        item.label,
+        item.icon,
+        () => {
+          if (disabledReason !== null) return;
+          hide();
+          // Deliberately NOT refocusing the editor the way runAndClose does:
+          // a contributed item commonly opens a surface of its own (a comment
+          // composer) that wants the focus for itself.
+          item.run(context);
+        },
+        { 'data-block-menu-item': item.id }
+      );
+      if (disabledReason !== null) {
+        btn.setAttribute('aria-disabled', 'true');
+        btn.classList.add('dm-block-context-menu-item--disabled');
+        btn.title = disabledReason;
+      }
+      container.appendChild(btn);
+    }
+    root.appendChild(container);
+  };
+
   /** Builds a menuitem button (icon + label) and registers it for nav. */
   const makeItem = (
     label: string,
     iconKey: string,
     onClick: () => void,
+    attributes?: Record<string, string>,
   ): HTMLButtonElement => {
     const btn = createMenuButton({
       className: 'dm-block-context-menu-item',
       ariaLabel: label,
       onClick,
+      ...(attributes ? { attributes } : {}),
     });
 
     // Icon SVG is trusted (our phosphor set), but `label` may come from

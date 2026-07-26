@@ -7,6 +7,9 @@ BlockHandleOptions
 blockHandlePluginKey
 BlockHandlePluginState
 BlockMatcher
+BlockMenuItem
+BlockMenuItemContext
+BlockMenuItemGroup
 createBlockContextMenuPlugin
 CreateBlockContextMenuPluginOptions
 createBlockHandlePlugin

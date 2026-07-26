@@ -54,6 +54,7 @@ export type {
   GlobalAttributeSpec,
   GlobalAttributes,
   ExtensionConfig,
+  ExtensionConfigBase,
 } from './ExtensionConfig.js';
 
 // Attribute types

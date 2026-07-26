@@ -3,11 +3,14 @@
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { Fragment, Slice } from '@domternal/pm/model';
+import { Plugin } from '@domternal/pm/state';
+import { Extension } from '../Extension.js';
 import { UniqueID } from './UniqueID.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { Heading } from '../nodes/Heading.js';
+import { History } from './History.js';
 import { Editor } from '../Editor.js';
 
 describe('UniqueID', () => {
@@ -142,20 +145,19 @@ describe('UniqueID', () => {
       expect(editor.getText()).toContain('Test content');
     });
 
-    // Note: This test requires addGlobalAttributes to be implemented in ExtensionManager
-    // Currently skipped as the attribute isn't being added to the schema
-    it.skip('assigns ID to new paragraphs', () => {
+    // The assignment sweep runs from the plugin view on a macrotask, so the
+    // attribute is present but still null on the tick the editor is built.
+    // Every consumer that resolves a block by id depends on this landing.
+    it('assigns ID to new paragraphs', async () => {
       editor = new Editor({
         extensions: [Document, Text, Paragraph, UniqueID],
         content: '<p>Test</p>',
       });
 
-      const doc = editor.state.doc;
-      const paragraph = doc.child(0);
+      expect('id' in editor.state.doc.child(0).attrs).toBe(true);
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
-      // ID should be assigned after initial transaction
-      expect(paragraph.attrs['id']).toBeDefined();
-      expect(typeof paragraph.attrs['id']).toBe('string');
+      expect(typeof editor.state.doc.child(0).attrs['id']).toBe('string');
     });
 
     it('preserves existing IDs', () => {
@@ -170,9 +172,7 @@ describe('UniqueID', () => {
       expect(paragraph.attrs['id']).toBe('existing-id');
     });
 
-    // Note: This test requires addGlobalAttributes to be implemented in ExtensionManager
-    // Currently skipped as the attribute isn't being added to the schema
-    it.skip('uses custom ID generator', () => {
+    it('uses custom ID generator', async () => {
       let counter = 0;
       const CustomUniqueID = UniqueID.configure({
         generateID: (): string => `custom-${String(++counter)}`,
@@ -182,6 +182,7 @@ describe('UniqueID', () => {
         extensions: [Document, Text, Paragraph, CustomUniqueID],
         content: '<p>First</p><p>Second</p>',
       });
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
       const doc = editor.state.doc;
       expect(doc.child(0).attrs['id']).toMatch(/^custom-/);
@@ -466,6 +467,143 @@ describe('UniqueID', () => {
       expect(idB).not.toBe('anchor');
       expect(idB.length).toBeGreaterThan(0);
       expect(idA).not.toBe(idB);
+    });
+  });
+  describe('id stability (the guarantees every id consumer relies on)', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    it('the startup id sweep is not on the undo stack', async () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, History, UniqueID],
+        content: '<p>First</p><p>Second</p>',
+      });
+      // The sweep that stamps ids onto content that arrived without them runs
+      // from the plugin view on its own macrotask, so it is a transaction of
+      // its own rather than part of any user edit.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const stamped = editor.state.doc.child(0).attrs['id'] as string;
+      expect(typeof stamped).toBe('string');
+
+      // Undo with nothing to undo must be a no-op. If the sweep were on the
+      // stack, the user's first undo would silently strip the ids instead, the
+      // next sweep would mint DIFFERENT ones, and every reference to the old
+      // ids (a `#hash` anchor, a table-of-contents deep link, a copied block
+      // link) would break with no visible cause.
+      editor.commands.undo();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(editor.state.doc.child(0).attrs['id']).toBe(stamped);
+      expect(editor.state.doc.childCount).toBe(2);
+    });
+
+    it('the id sweep opts out of history ONLY when it rides along with nothing', async () => {
+      // Asserts the flag, not the result of an undo: prosemirror-history takes
+      // it per transaction and behaves either way, so an undo here cannot see
+      // the bug. Only y-prosemirror smears the last transaction's flag across
+      // the batch, and only collaborative undo loses the edit with the id.
+      const batches: (unknown[])[] = [];
+      const probe = Extension.create({
+        name: 'addToHistoryProbe',
+        addProseMirrorPlugins() {
+          return [
+            new Plugin({
+              appendTransaction(transactions) {
+                batches.push(transactions.map((tr) => tr.getMeta('addToHistory')));
+                return null;
+              },
+            }),
+          ];
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, History, UniqueID, probe],
+        content: '<p>First</p>',
+      });
+      // The startup sweep rides along with nothing, so it opts out.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(batches.at(-1)).toContain(false);
+
+      batches.length = 0;
+      const paragraph = editor.state.schema.nodes['paragraph']!.create(
+        null,
+        editor.state.schema.text('Second')
+      );
+      editor.view.dispatch(editor.state.tr.insert(editor.state.doc.content.size, paragraph));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(editor.state.doc.childCount).toBe(2);
+      expect(typeof editor.state.doc.child(1).attrs['id']).toBe('string');
+      // A batch carrying a real edit must not be marked.
+      expect(batches.at(-1)).not.toContain(false);
+    });
+
+    it('an internal MOVE drag keeps the block id, a copy drag does not', () => {
+      const CustomUniqueID = UniqueID.configure({
+        types: ['paragraph'],
+        generateID: () => 'regenerated',
+      });
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomUniqueID],
+        content: '<p id="keep-me">Dragged</p>',
+      });
+
+      const plugin = editor.state.plugins.find((p) => p.props.transformPasted !== undefined);
+      const transformPasted = plugin!.props.transformPasted!;
+      const dragged = editor.state.schema.nodes['paragraph']!.create(
+        { id: 'keep-me' },
+        editor.state.schema.text('Dragged')
+      );
+      const slice = new Slice(Fragment.from(dragged), 0, 0);
+
+      // ProseMirror runs transformPasted on the dragged slice BEFORE deleting
+      // the source, so a plain move looks exactly like a duplicate. Keeping the
+      // id is what makes a move a move rather than a delete plus a re-create.
+      const view = editor.view as unknown as { dragging: { move: boolean } | null };
+      view.dragging = { move: true };
+      const moved = transformPasted.call(plugin!, slice, editor.view, false);
+      expect(moved.content.firstChild?.attrs['id']).toBe('keep-me');
+
+      // An alt-drag copy leaves `move` false and must still regenerate, or the
+      // document would carry the same id twice.
+      view.dragging = { move: false };
+      const copied = transformPasted.call(plugin!, slice, editor.view, false);
+      expect(copied.content.firstChild?.attrs['id']).toBe('regenerated');
+      view.dragging = null;
+    });
+
+    it('a duplicate landing ABOVE the original renames the copy, not the original', async () => {
+      let counter = 0;
+      const CustomUniqueID = UniqueID.configure({
+        types: ['paragraph'],
+        generateID: () => `fresh-${String(++counter)}`,
+      });
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, CustomUniqueID],
+        content: '<p id="anchor">Original</p>',
+      });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      // Insert a copy carrying the same id at the very TOP, the case the old
+      // "first in document order wins" rule got backwards.
+      const copy = editor.state.schema.nodes['paragraph']!.create(
+        { id: 'anchor' },
+        editor.state.schema.text('Copy')
+      );
+      editor.view.dispatch(editor.state.tr.insert(0, copy));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      const first = editor.state.doc.child(0);
+      const second = editor.state.doc.child(1);
+      expect(first.textContent).toBe('Copy');
+      expect(second.textContent).toBe('Original');
+      // The node that already held the id keeps it wherever it now sits.
+      expect(second.attrs['id']).toBe('anchor');
+      expect(first.attrs['id']).not.toBe('anchor');
     });
   });
 });
