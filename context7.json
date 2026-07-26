@@ -6,11 +6,13 @@
     "tests",
     "e2e",
     "scripts",
-    ".github"
+    ".github",
+    ".vscode"
   ],
   "excludeFiles": [
     "CHANGELOG.md",
     "CODE_OF_CONDUCT.md",
+    "CONTRIBUTING.md",
     "SECURITY.md"
   ],
   "rules": [
