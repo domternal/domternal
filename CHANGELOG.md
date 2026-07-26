@@ -52,7 +52,7 @@
 - feat(extension-markdown): new `@domternal/extension-markdown` package: GitHub-flavored Markdown import and export for the full schema. Markdown-looking plain-text pastes convert to rich content (opt-out), `insertMarkdown` and `setMarkdownContent` commands plus a headless parser/serializer API cover programmatic use, and serialization reports fidelity losses through a warnings channel. Tables, task lists, math, and fenced code round-trip; a currency guard keeps `$5 and $10` from parsing as math. (#125)
 - feat(core): plugin views can dispatch transactions while the editor is constructed, so collaborative bindings apply their initial sync immediately. The framework wrappers gain a `history: false` option for editors that bring their own undo, `onError` is wired before extension setup so construction-time errors reach it, and the new `ExtensionConfigurationError` escapes extension error isolation for fatal misconfiguration. (#124)
 
-### Chores
+### Fixes
 
 - All packages now ship a LICENSE file in the npm tarball, and the repository gains issue forms, a pull request template, a code of conduct, and a security policy. (#123)
 
@@ -150,12 +150,9 @@
 
 ## 0.7.5 (2026-06-03)
 
-### Changes
-
-- fix(core): `StarterKit` makes `ListIndent` opt-in (off by default). Tab on a paragraph that merely follows a list used to capture focus and pull the paragraph into the list; now Tab moves focus to the next field, which suits embedded / form usage. Opt back in with `StarterKit.configure({ listIndent: true })`. In-list Tab/Shift-Tab and block-menu drag-to-nest are unchanged. (#98)
-
 ### Fixes
 
+- fix(core): `StarterKit` makes `ListIndent` opt-in (off by default). Tab on a paragraph that merely follows a list used to capture focus and pull the paragraph into the list; now Tab moves focus to the next field, which suits embedded / form usage. Opt back in with `StarterKit.configure({ listIndent: true })`. In-list Tab/Shift-Tab and block-menu drag-to-nest are unchanged. (#98)
 - fix(core): extension instances are now cloned per editor, so several editors on one page no longer clobber each other. Previously creating a second editor repointed the first editor's node types at its own schema, and list `Enter` on the earlier editors dropped an indented child paragraph instead of a new list item. (#91)
 - fix(core): `SelectionDecoration` no longer keeps a ghost range when focus moves from one editor to another on the same page. The "editor UI" blur check is now scoped to the editor that lost focus, so a click into a different editor collapses its selection.
 
@@ -218,7 +215,7 @@
 
 ## 0.7.0 (2026-05-19)
 
-### Breaking changes
+### Breaking
 
 - `listItem`/`taskItem` schema is now Notion-strict (`paragraph block*`). Existing content where the first child is not a paragraph may need migration.
 
@@ -284,7 +281,7 @@
 - `prefers-reduced-motion` guards on TOC tick highlight, card slide, drop-indicator transition. (#78, #80)
 - Forced-colors mode guard on TOC outline. (#78)
 
-### Tests / CI
+### Internal
 
 - Codecov integration with per-package flags and coverage badge. `publint` + `arethetypeswrong` validation extended to React, Vue, Vanilla, extension-block-menu, and extension-toc. (#72, #80)
 - E2E retries set to `2` in all demo Playwright configs. (#74)
@@ -304,9 +301,6 @@
 ### Fixes
 
 - fix(angular): `@domternal/angular@0.6.0` was published without compiled output (#66)
-
-### Improvements
-
 - chore: add automatic `pnpm build` to `prepublishOnly` hook in all packages to prevent publishing without dist
 
 ## 0.6.0 (2026-04-15)
@@ -321,7 +315,7 @@
 
 - fix(core): add `Backspace` handler to `TaskItem` - pressing Backspace at start of first task item now lifts it out of the task list (parity with `BulletList`/`OrderedList`)
 
-### Tests
+### Internal
 
 - 2014 E2E tests for Vue demo app: 1923 ported from demo-react (41 spec files across all extensions) + 91 Vue-specific tests covering v-model two-way binding, `<Domternal>` compound component, `useCurrentEditor()` provide/inject chain, `useEditorState` selector mode, and `VueNodeViewRenderer` lifecycle/reactivity/inject forwarding (22 tests via Callout demo extension)
 
@@ -340,7 +334,7 @@
 - fix(angular,react): selecting emoji category tab via keyboard focuses first emoji in that category
 - fix(theme): table dropdown hover fallback for dark mode
 
-### Tests
+### Internal
 
 - 26 new E2E tests (13 Angular + 13 React) for toolbar dropdown keyboard navigation, text color, font size, heading, ARIA attributes, and Enter on color swatch
 
@@ -376,7 +370,7 @@
 - Table dropdowns: `role="menu"` with `aria-label`, `role="menuitem"` on items, `role="separator"` on dividers
 - Dropdown menu items: `tabindex="-1"` for keyboard focusability (Angular + React)
 
-### Tests
+### Internal
 
 - 105 new E2E accessibility tests (56 Angular + 49 React) covering editor ARIA, bubble menu, dropdown keyboard nav, emoji picker, task checkbox, link/image popover, emoji/mention suggestions, focus-visible, and prefers-reduced-motion
 - 10 new E2E tests for SelectionDecoration blur behavior (5 Angular + 5 React)
@@ -410,7 +404,7 @@
 - `displayName` on all `Domternal` compound subcomponents for React DevTools
 - `DomternalEditorRef` exposes `isEditable`
 
-### Tests
+### Internal
 
 - 1856 E2E tests for React demo app (38 spec files covering all extensions, toolbar, bubble menu, emoji picker, tables, mentions, and more)
 - 60 React-specific E2E tests: bubble menu a11y, `aria-pressed` sync, active class updates, `useEditorState` reactive output, dark theme toggle, toolbar layout switch, context-aware bubble menu filtering
@@ -440,7 +434,7 @@
 - fix(theme): adjust blockquote spacing, remove link cursor override (#51)
 - fix(theme): add dark mode styles for mention dropdown (#52)
 
-### Tests
+### Internal
 
 - 195 new E2E tests: mention (81), horizontal rule, image (38), emoji (27), details (11), blockquote input rule, heading shortcuts, lists (#51, #52)
 
@@ -474,7 +468,7 @@ Initial public release.
 - `@domternal/extension-details` - Collapsible details/accordion blocks
 - `@domternal/extension-code-block-lowlight` - Syntax-highlighted code blocks powered by lowlight
 
-### Highlights
+### Features
 
 - Built on ProseMirror with clean extension API
 - Headless core works with any framework or vanilla JS/TS

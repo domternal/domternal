@@ -90,6 +90,26 @@ NEW cross-framework behavior specs go into the root `e2e/` matrix suite (`pnpm t
 8. Publish in order: pm, core, theme, angular, react, vue, vanilla, then extensions
 9. Create GitHub release from tag with title `vX.Y.Z` and changelog entry as body (manual)
 
+### Changelog sections
+
+`CHANGELOG.md` uses a fixed set of sections, in this order. Do not invent new
+ones: fourteen different names accumulated over thirty releases before this was
+written down, and a reader scanning for breaking changes under one name missed
+the release that used the other.
+
+| Section | What belongs in it |
+|---|---|
+| `Breaking` | Anything a consumer must change code for |
+| `Features` | New capability or new public API |
+| `Fixes` | Wrong behaviour that is now right, including packaging fixes |
+| `Packages` | A package published for the first time, or renamed |
+| `Accessibility` | Keyboard, screen reader, contrast, reduced motion |
+| `Docs` | README changes, which ship in the npm tarball |
+| `Internal` | Refactors, tests and CI. Visible to nobody who installs the package, so it goes last |
+
+Omit a section rather than writing "none". Chore commits that change no shipped
+artefact (repo config, workflows, planning) do not go in the changelog at all.
+
 ### Publish notes
 
 - **Order matters**: pm first, core second, then the rest. Other packages depend on them.
