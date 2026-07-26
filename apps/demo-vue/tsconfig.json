@@ -12,6 +12,9 @@
   "include": ["src"],
   "references": [
     {
+      "path": "../../packages/vue"
+    },
+    {
       "path": "../../packages/extension-toc"
     },
     {
@@ -22,6 +25,9 @@
     },
     {
       "path": "../../packages/extension-math"
+    },
+    {
+      "path": "../../packages/extension-markdown"
     },
     {
       "path": "../../packages/extension-image"
@@ -40,9 +46,6 @@
     },
     {
       "path": "../../packages/core"
-    },
-    {
-      "path": "../../packages/vue"
     }
   ]
 }

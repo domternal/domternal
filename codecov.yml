@@ -65,5 +65,4 @@ ignore:
   - "packages/vue/"
   - "packages/angular/"
   - "apps/"
-  - "examples/"
   - "domternal.dev/"

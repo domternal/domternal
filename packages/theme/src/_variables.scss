@@ -206,7 +206,6 @@
   // ---------------------------------------------------------------------------
   // Highlight / mark
   // ---------------------------------------------------------------------------
-  --dm-highlight-bg: #fff3cd;
 
   // ---------------------------------------------------------------------------
   // Details / accordion
@@ -293,12 +292,6 @@
   // Page-anchored outline (anchor: 'page'): right offset from the
   // viewport (smaller than `--dm-toc-right-offset` when nav is mid-page).
   --dm-toc-page-offset: 8px;
-
-  // Expanded card vertical margin from the viewport top/bottom.
-  // Used by `_toc.scss` viewport-clamp. The plugin writes
-  // `--dm-toc-card-shift-y` (a JS-computed shift) and reads this margin
-  // as the keep-out distance from the viewport edges.
-  --dm-toc-card-viewport-margin: 16px;
 
   // Expanded card: replaces the tick column on hover/focus, showing the
   // full heading text with per-level indent.

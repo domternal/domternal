@@ -1,7 +1,6 @@
 packages:
   - "packages/*"
   - "apps/*"
-  - "examples/*"
   - "tests/*"
   - "domternal.dev"
 

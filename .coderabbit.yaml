@@ -84,11 +84,6 @@ reviews:
       instructions: >-
         Test files. Don't flag non-null assertions or unsafe type patterns that
         are explicitly allowed via eslint.config.mjs test-file overrides.
-    - path: 'examples/**'
-      instructions: >-
-        Starter templates for library consumers. Prefer minimal, idiomatic code
-        over cleverness. Don't impose strict lint rules; these are not
-        CI-gated.
     - path: '.github/workflows/**'
       instructions: >-
         GitHub Actions CI. Check for secret leaks, permission bloat, and
