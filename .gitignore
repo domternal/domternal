@@ -11,12 +11,6 @@ node_modules
 
 # IDEs and editors
 /.idea
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
 .history
 
 # IDE - VSCode
@@ -27,15 +21,10 @@ node_modules
 !.vscode/extensions.json
 
 # misc
-/.sass-cache
-/connect.lock
 coverage
 coverage-index.html
-/libpeerconnection.log
 npm-debug.log
 yarn-error.log
-testem.log
-/typings
 
 # Playwright artifacts (root matrix e2e + per-app suites)
 test-results/
