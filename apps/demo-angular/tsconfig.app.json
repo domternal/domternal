@@ -20,6 +20,9 @@
       "path": "../../packages/extension-math"
     },
     {
+      "path": "../../packages/extension-markdown"
+    },
+    {
       "path": "../../packages/extension-image"
     },
     {

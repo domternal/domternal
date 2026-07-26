@@ -11,6 +11,26 @@
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"],
   "references": [
-    { "path": "../core" }
+    {
+      "path": "../extension-table"
+    },
+    {
+      "path": "../extension-mention"
+    },
+    {
+      "path": "../extension-math"
+    },
+    {
+      "path": "../extension-image"
+    },
+    {
+      "path": "../extension-emoji"
+    },
+    {
+      "path": "../extension-details"
+    },
+    {
+      "path": "../core"
+    }
   ]
 }
