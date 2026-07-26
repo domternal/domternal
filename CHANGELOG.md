@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.14.0 (2026-07-26)
+
+### Features
+
+- feat(extension-block-controls): new `addBlockMenuItems()` hook. Any extension can contribute entries to the block handle menu the same way `addToolbarItems()` already works: an item declares a group (`primary`, `colors`, `turnInto`, `collaboration`), an optional order, and may report itself unavailable or disabled with a reason. Contributed entries keep the menu's `role="menuitem"`, roving tabindex and arrow-key navigation, a disabled item renders inert with `aria-disabled` and its reason as the title rather than disappearing, and a contributor that throws is skipped instead of taking the menu down. `ExtensionConfigBase` is exported from `@domternal/core` so the declaration merge resolves in a consuming package. (#140)
+- feat(core): read-only editors now refuse every editing affordance and command entry point. The toolbar hides behind a new `allowReadOnly` flag on toolbar items, block handles and table chrome are hidden, and the bubble menu, floating menu, heading shortcut, table dropdowns, details toggle and image resizing are all gated, closing the holes where a read-only document could still be edited. (#138)
+- feat(core): `table` joins the default `UniqueID` types, so a table is addressable by id like every other block. Naming the type is inert when the table extension is absent, exactly as `image` already was; without it a table was the one block the block menu could not Copy link and no id-anchored feature could name. (#140)
+
+### Fixes
+
+- fix(core): block ids now survive undo, moves and duplicates. The startup id sweep stays out of the undo stack, so the first undo no longer strips every id and lets the next sweep mint different ones; a block dragged within the document keeps its id, because `transformPasted` runs on the dragged slice before the source is deleted and made a plain move look like a paste; and when two nodes momentarily hold the same id the node that already had it keeps it, instead of the first in document order winning and renaming the original in favour of a copy pasted above it. Every id consumer benefits: `#hash` anchors, table-of-contents deep links and the block menu's Copy link all break silently when an id changes underneath them. (#140)
+- fix(core): the slash, emoji and mention menus shrink to the available viewport space instead of flipping over the content they were triggered from. (#134)
+- fix(extension-block-controls): a block handle whose hovered block is deleted now retracts, instead of freezing the next hover and handle click on a block that is gone. (#139)
+
 ## 0.13.0 (2026-07-19)
 
 ### Features

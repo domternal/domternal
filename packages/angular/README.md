@@ -19,7 +19,7 @@ emoji picker, and Notion color picker auto-render from the extensions you load.
 pnpm add @domternal/angular @domternal/core @domternal/theme
 ```
 
-`@angular/core` (>=17.1), `@angular/forms` (>=17.1), `@angular/platform-browser` (>=17.1), and `@domternal/core` (>=0.13.0)
+`@angular/core` (>=17.1), `@angular/forms` (>=17.1), `@angular/platform-browser` (>=17.1), and `@domternal/core` (>=0.14.0)
 are peer dependencies. Add the theme ([`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme))
 to your global stylesheet (e.g. `styles.scss`):
 

@@ -19,7 +19,7 @@ and React 19.
 pnpm add @domternal/react @domternal/core react react-dom
 ```
 
-`react` (>=18), `react-dom` (>=18), and `@domternal/core` (>=0.13.0) are peer dependencies. Import the theme
+`react` (>=18), `react-dom` (>=18), and `@domternal/core` (>=0.14.0) are peer dependencies. Import the theme
 ([`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme)) in your entry CSS for default styling:
 
 ```css

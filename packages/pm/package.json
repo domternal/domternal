@@ -1,6 +1,6 @@
 {
   "name": "@domternal/pm",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "description": "ProseMirror package re-exports for Domternal",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
@@ -130,18 +130,42 @@
   },
   "typesVersions": {
     "*": {
-      "commands": ["src/commands.d.ts"],
-      "dropcursor": ["src/dropcursor.d.ts"],
-      "gapcursor": ["src/gapcursor.d.ts"],
-      "history": ["src/history.d.ts"],
-      "inputrules": ["src/inputrules.d.ts"],
-      "keymap": ["src/keymap.d.ts"],
-      "model": ["src/model.d.ts"],
-      "schema-list": ["src/schema-list.d.ts"],
-      "state": ["src/state.d.ts"],
-      "tables": ["src/tables.d.ts"],
-      "transform": ["src/transform.d.ts"],
-      "view": ["src/view.d.ts"]
+      "commands": [
+        "src/commands.d.ts"
+      ],
+      "dropcursor": [
+        "src/dropcursor.d.ts"
+      ],
+      "gapcursor": [
+        "src/gapcursor.d.ts"
+      ],
+      "history": [
+        "src/history.d.ts"
+      ],
+      "inputrules": [
+        "src/inputrules.d.ts"
+      ],
+      "keymap": [
+        "src/keymap.d.ts"
+      ],
+      "model": [
+        "src/model.d.ts"
+      ],
+      "schema-list": [
+        "src/schema-list.d.ts"
+      ],
+      "state": [
+        "src/state.d.ts"
+      ],
+      "tables": [
+        "src/tables.d.ts"
+      ],
+      "transform": [
+        "src/transform.d.ts"
+      ],
+      "view": [
+        "src/view.d.ts"
+      ]
     }
   },
   "files": [
