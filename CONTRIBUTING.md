@@ -81,7 +81,7 @@ NEW cross-framework behavior specs go into the root `e2e/` matrix suite (`pnpm t
 ## Release
 
 1. Branch: `git checkout -b release/X.Y.Z` from main
-2. Bump `"version"` in all 18 `packages/*/package.json` + `domternal.dev/package.json`
+2. Bump `"version"` in all 18 `packages/*/package.json` + `domternal.dev/package.json`, and `VERSION` in `packages/core/src/index.ts` (a test enforces they match)
 3. Bump `peerDependencies` and `prepublishOnly` hook versions. For patch releases, keep the existing minimum compatible version. For minor/major releases, bump to `>=X.Y.0`.
 4. Update `CHANGELOG.md` and `domternal.dev` changelog
 5. Update all 19 READMEs (root + 18 packages)
