@@ -3,6 +3,8 @@
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { Fragment, Slice } from '@domternal/pm/model';
+import { Plugin } from '@domternal/pm/state';
+import { Extension } from '../Extension.js';
 import { UniqueID } from './UniqueID.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
@@ -496,6 +498,48 @@ describe('UniqueID', () => {
 
       expect(editor.state.doc.child(0).attrs['id']).toBe(stamped);
       expect(editor.state.doc.childCount).toBe(2);
+    });
+
+    it('the id sweep opts out of history ONLY when it rides along with nothing', async () => {
+      // Asserts the flag, not the result of an undo: prosemirror-history takes
+      // it per transaction and behaves either way, so an undo here cannot see
+      // the bug. Only y-prosemirror smears the last transaction's flag across
+      // the batch, and only collaborative undo loses the edit with the id.
+      const batches: (unknown[])[] = [];
+      const probe = Extension.create({
+        name: 'addToHistoryProbe',
+        addProseMirrorPlugins() {
+          return [
+            new Plugin({
+              appendTransaction(transactions) {
+                batches.push(transactions.map((tr) => tr.getMeta('addToHistory')));
+                return null;
+              },
+            }),
+          ];
+        },
+      });
+
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, History, UniqueID, probe],
+        content: '<p>First</p>',
+      });
+      // The startup sweep rides along with nothing, so it opts out.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(batches.at(-1)).toContain(false);
+
+      batches.length = 0;
+      const paragraph = editor.state.schema.nodes['paragraph']!.create(
+        null,
+        editor.state.schema.text('Second')
+      );
+      editor.view.dispatch(editor.state.tr.insert(editor.state.doc.content.size, paragraph));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(editor.state.doc.childCount).toBe(2);
+      expect(typeof editor.state.doc.child(1).attrs['id']).toBe('string');
+      // A batch carrying a real edit must not be marked.
+      expect(batches.at(-1)).not.toContain(false);
     });
 
     it('an internal MOVE drag keeps the block id, a copy drag does not', () => {

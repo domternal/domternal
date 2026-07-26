@@ -319,15 +319,21 @@ export const UniqueID = Extension.create<UniqueIDOptions>({
           assignMissingIDs(newState.doc, tr, incumbentPositions(oldState.doc, mapForward));
           if (!tr.docChanged) return null;
 
-          // Assigning an id is bookkeeping the editor does for itself, never an
-          // edit the user made, so it must not join the undo stack. Without
-          // this, an id stamped as a side effect of typing rides along in that
-          // undo event: undo reverts the block to no id, the next sweep mints a
-          // DIFFERENT one, and every reference to the old id (a `#hash` anchor,
-          // a table-of-contents deep link, a copied block link) breaks with no
-          // visible cause. prosemirror-history captures appended transactions
-          // unless the appending plugin opts out, which is what this does.
-          tr.setMeta('addToHistory', false);
+          // A sweep with nothing to ride along on stays out of the undo stack,
+          // or undo strips the ids, the next sweep mints different ones, and
+          // every reference to the old id breaks with no visible cause.
+          //
+          // ONLY then, though. A blanket opt-out reads correctly under
+          // prosemirror-history, which takes the flag per transaction, and is
+          // destructive under y-prosemirror, which takes it from the LAST
+          // transaction and stamps the batch's single Yjs transaction with it.
+          // This sweep is always last, so that drops the user's own edit out of
+          // collaborative undo: the block stays and Ctrl+Z does nothing.
+          const ridesAlongWithAnEdit = transactions.some(
+            (transaction) =>
+              transaction.docChanged && transaction.getMeta('addToHistory') !== false
+          );
+          if (!ridesAlongWithAnEdit) tr.setMeta('addToHistory', false);
           return tr;
         },
 
