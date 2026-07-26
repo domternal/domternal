@@ -3,7 +3,6 @@
   "description": "Framework-agnostic headless rich text editor toolkit built on ProseMirror, with native Angular, React, Vue, and Vanilla components, Notion-style block UX, and a tree-shakeable extension model. MIT licensed. Full guides and API reference at https://domternal.dev/v1.",
   "excludeFolders": [
     "apps",
-    "examples",
     "tests",
     "e2e",
     "scripts",
