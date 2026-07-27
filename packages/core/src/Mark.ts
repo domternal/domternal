@@ -214,6 +214,8 @@ export class Mark<Options = unknown, Storage = unknown> extends Extension<
     if (this.config.group !== undefined) spec.group = this.config.group;
     if (this.config.spanning !== undefined)
       spec.spanning = this.config.spanning;
+    if (this.config.keepOnDuplicate !== undefined)
+      spec['keepOnDuplicate'] = this.config.keepOnDuplicate;
 
     // Attributes - convert AttributeSpecs to ProseMirror attrs
     const attributeSpecs = callOrReturn(this.config.addAttributes, this);

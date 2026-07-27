@@ -6,6 +6,7 @@ import { TextSelection } from '@domternal/pm/state';
 import { Highlight, DEFAULT_HIGHLIGHT_COLORS } from './Highlight.js';
 import { TextColor } from './TextColor.js';
 import { TextStyle } from '../marks/TextStyle.js';
+import { Bold } from '../marks/Bold.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
@@ -525,6 +526,29 @@ describe('Highlight', () => {
       const match = ['====', ''] as RegExpMatchArray;
       const result = (rule.handler)(editor.state, match, 1, 5);
       expect(result).toBeNull();
+    });
+
+    it('keeps the marks of the matched text', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, TextStyle, Bold, Highlight],
+        content: '<p><strong>==word==</strong></p>',
+      });
+
+      const highlightExt = editor.extensionManager.extensions.find((e) => e.name === 'highlight')!;
+      const rules = (highlightExt as any).config.addInputRules!.call({
+        ...highlightExt,
+        options: highlightExt.options,
+      } as any)!;
+
+      const rule = rules[0]!;
+      const match = ['==word==', 'word'] as RegExpMatchArray;
+      const result = (rule.handler)(editor.state, match, 1, 9);
+      expect(result).not.toBeNull();
+      const textNode = result.doc.firstChild?.firstChild;
+      const names = textNode?.marks
+        .map((mark: { type: { name: string } }) => mark.type.name)
+        .sort();
+      expect(names).toEqual(['bold', 'textStyle']);
     });
   });
 });

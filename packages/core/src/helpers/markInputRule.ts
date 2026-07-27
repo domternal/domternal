@@ -87,8 +87,14 @@ export function markInputRule(options: MarkInputRuleOptions): InputRule {
 
       const { tr } = state;
 
-      // Replace the matched text (including delimiters) with just the content
-      tr.replaceWith(start, end, state.schema.text(textContent));
+      // Replace the matched text (including delimiters) with just the content.
+      // The replacement carries the marks the matched text already had
+      // (stored marks first, like Transaction.insertText), so firing a rule
+      // inside commented or colored text does not strip those marks. Schema
+      // exclusion still applies when the new mark is added below: addToSet
+      // drops any preserved mark the new mark excludes.
+      const marks = tr.storedMarks ?? tr.doc.resolve(start).marksAcross(tr.doc.resolve(end));
+      tr.replaceWith(start, end, state.schema.text(textContent, marks));
 
       // Apply the mark to the inserted text
       tr.addMark(start, start + textContent.length, type.create(attributes ?? undefined));

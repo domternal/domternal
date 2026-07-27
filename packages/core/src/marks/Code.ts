@@ -43,9 +43,14 @@ export const Code = Mark.create<CodeOptions>({
     };
   },
 
-  // Code mark is exclusive - it cannot be combined with other marks
-  // ProseMirror uses '_' to mean "exclude all marks"
-  excludes: '_',
+  // Code cannot be combined with other FORMATTING marks (bold, italic,
+  // color...), but semantic marks outside the group (link, a comment
+  // thread anchor) survive: code excludes the 'formatting' group instead
+  // of '_' (everything). Third-party formatting marks opt into the same
+  // exclusion by declaring group: 'formatting'. Code is in the group
+  // itself, which also keeps it self-exclusive.
+  group: 'formatting',
+  excludes: 'formatting',
 
   // Code should not span across multiple nodes
   spanning: false,

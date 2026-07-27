@@ -37,6 +37,8 @@ export interface ItalicOptions {
 export const Italic = Mark.create<ItalicOptions>({
   name: 'italic',
 
+  group: 'formatting',
+
   addOptions() {
     return {
       HTMLAttributes: {},

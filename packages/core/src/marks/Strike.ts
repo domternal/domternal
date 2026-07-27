@@ -36,6 +36,8 @@ export interface StrikeOptions {
 export const Strike = Mark.create<StrikeOptions>({
   name: 'strike',
 
+  group: 'formatting',
+
   addOptions() {
     return {
       HTMLAttributes: {},

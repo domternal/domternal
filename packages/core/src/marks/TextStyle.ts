@@ -36,6 +36,8 @@ export interface TextStyleOptions {
 export const TextStyle = Mark.create<TextStyleOptions>({
   name: 'textStyle',
 
+  group: 'formatting',
+
   // Lower priority so it renders after other marks
   priority: 101,
 

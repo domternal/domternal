@@ -39,7 +39,10 @@ export function textInputRule(options: TextInputRuleOptions): InputRule {
 
   return new InputRule(
     find,
-    (state, _match, start, end) => state.tr.replaceWith(start, end, state.schema.text(replace)),
+    // insertText inherits the replaced range's marks (stored marks first,
+    // then marksAcross), so a replacement inside marked text keeps the
+    // marks instead of punching an unmarked hole into them.
+    (state, _match, start, end) => state.tr.insertText(replace, start, end),
     undoable !== undefined ? { undoable } : {},
   );
 }

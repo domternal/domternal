@@ -34,6 +34,8 @@ export interface UnderlineOptions {
 export const Underline = Mark.create<UnderlineOptions>({
   name: 'underline',
 
+  group: 'formatting',
+
   addOptions() {
     return {
       HTMLAttributes: {},
