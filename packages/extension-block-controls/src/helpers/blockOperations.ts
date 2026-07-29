@@ -1,4 +1,4 @@
-import type { Attrs, NodeType } from '@domternal/pm/model';
+import type { Attrs, Fragment, Mark, Node as PMNode, NodeType } from '@domternal/pm/model';
 import type { Transaction } from '@domternal/pm/state';
 import { TextSelection } from '@domternal/pm/state';
 import { expandToEmptyWrappers } from './expandToEmptyWrappers.js';
@@ -59,9 +59,40 @@ export function deleteBlock(tr: Transaction, blockPos: number): Transaction {
 }
 
 /**
+ * Marks whose spec declares `keepOnDuplicate: false` reference identity
+ * outside the document (a comment thread anchor, a suggestion id); copying
+ * them along would make one identity point at two unrelated places, so
+ * `duplicateBlock` strips them from the copy.
+ */
+function stripDropOnDuplicateMarks(marks: readonly Mark[]): readonly Mark[] {
+  return marks.filter((mark) => mark.type.spec['keepOnDuplicate'] !== false);
+}
+
+function stripDropOnDuplicateNode(node: PMNode): PMNode {
+  const marks = stripDropOnDuplicateMarks(node.marks);
+  if (node.isText) {
+    return marks.length === node.marks.length ? node : node.mark(marks as Mark[]);
+  }
+  const content = stripDropOnDuplicateFragment(node.content);
+  if (marks.length === node.marks.length && content === node.content) return node;
+  return node.type.create(node.attrs, content, marks as Mark[]);
+}
+
+function stripDropOnDuplicateFragment(fragment: Fragment): Fragment {
+  // replaceChild returns the same fragment for an identical child, so an
+  // unchanged fragment keeps its identity (callers compare by reference).
+  let result = fragment;
+  fragment.forEach((child, _offset, index) => {
+    result = result.replaceChild(index, stripDropOnDuplicateNode(child));
+  });
+  return result;
+}
+
+/**
  * Duplicates the block at `blockPos`, inserting a copy immediately after it.
  * The copy preserves content, attrs, AND node-level marks (needed for
- * annotation / comment extensions that attach marks to blocks).
+ * annotation / comment extensions that attach marks to blocks), except marks
+ * declaring `keepOnDuplicate: false`, which are stripped throughout the copy.
  *
  * @param transformAttrs Optional mapper on the source attrs to produce the
  *   copy's attrs. Use it to regenerate unique IDs so the duplicate doesn't
@@ -79,7 +110,11 @@ export function duplicateBlock(
   const attrs = transformAttrs ? transformAttrs(node.attrs) : node.attrs;
   // `type.create(attrs, content, marks)` preserves all three; `node.copy(content)`
   // drops node marks, breaking block-level annotations.
-  const copy = node.type.create(attrs, node.content, node.marks);
+  const copy = node.type.create(
+    attrs,
+    stripDropOnDuplicateFragment(node.content),
+    stripDropOnDuplicateMarks(node.marks) as Mark[],
+  );
   tr.insert(blockEnd, copy);
   return tr;
 }

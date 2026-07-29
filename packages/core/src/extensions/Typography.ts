@@ -153,15 +153,16 @@ export const Typography = Extension.create<TypographyOptions>({
     if (this.options.smartQuotes) {
       const { openDoubleQuote, closeDoubleQuote, openSingleQuote, closeSingleQuote } = this.options;
 
+      // insertText (instead of replaceWith with a bare text node) inherits
+      // the replaced range's marks, so quoting inside marked text keeps the
+      // marks. The re-inserted prefix character carries the range's leading
+      // marks, which is what it had.
+
       // "text" → "text" (double quotes)
       rules.push(
         new InputRule(/"([^"]+)"$/, (state, match, start, end) => {
           const text = match[1] ?? '';
-          return state.tr.replaceWith(
-            start,
-            end,
-            state.schema.text(openDoubleQuote + text + closeDoubleQuote)
-          );
+          return state.tr.insertText(openDoubleQuote + text + closeDoubleQuote, start, end);
         })
       );
 
@@ -173,14 +174,12 @@ export const Typography = Extension.create<TypographyOptions>({
           const prefix = match[0].charAt(0);
           // If there's a prefix character (space, bracket, etc.), keep it
           const hasPrefix = prefix !== "'";
-          return state.tr.replaceWith(
+          return state.tr.insertText(
+            hasPrefix
+              ? prefix + openSingleQuote + text + closeSingleQuote
+              : openSingleQuote + text + closeSingleQuote,
             start,
-            end,
-            state.schema.text(
-              hasPrefix
-                ? prefix + openSingleQuote + text + closeSingleQuote
-                : openSingleQuote + text + closeSingleQuote
-            )
+            end
           );
         })
       );

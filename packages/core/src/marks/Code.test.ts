@@ -2,10 +2,12 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { TextSelection } from '@domternal/pm/state';
 import { Code } from './Code.js';
 import { Bold } from './Bold.js';
+import { Link } from './Link.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
 import { Editor } from '../Editor.js';
+import { Mark } from '../Mark.js';
 
 describe('Code', () => {
   describe('configuration', () => {
@@ -21,8 +23,9 @@ describe('Code', () => {
       expect(Code.options).toEqual({ HTMLAttributes: {} });
     });
 
-    it('excludes all other marks', () => {
-      expect(Code.config.excludes).toBe('_');
+    it('excludes the formatting mark group', () => {
+      expect(Code.config.excludes).toBe('formatting');
+      expect(Code.config.group).toBe('formatting');
     });
 
     it('does not span across nodes', () => {
@@ -108,10 +111,85 @@ describe('Code', () => {
         content: '<p><code><strong>bold code</strong></code></p>',
       });
       const textNode = editor.state.doc.child(0).child(0);
-      // Code excludes all, so bold should be stripped
+      // Code excludes the formatting group, so bold should be stripped
       const markNames = textNode.marks.map((m) => m.type.name);
       expect(markNames).toContain('code');
       expect(markNames).not.toContain('bold');
+    });
+
+    it('constructs with a minimal schema (group excludes resolve safely)', () => {
+      // A name-list excludes would throw 'Unknown mark type' here; the
+      // group form must resolve to just [code] in a Code-only schema.
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Code],
+        content: '<p>hello</p>',
+      });
+      const codeType = editor.state.schema.marks['code'];
+      expect(codeType).toBeDefined();
+      expect(codeType?.excludes(codeType)).toBe(true);
+    });
+
+    it('semantic marks outside the formatting group survive setCode', () => {
+      const Note = Mark.create({
+        name: 'note',
+        isFormatting: false,
+        addAttributes() {
+          return { ids: { default: [] } };
+        },
+        parseHTML() {
+          return [{ tag: 'span[data-note]' }];
+        },
+        renderHTML() {
+          return ['span', { 'data-note': 'true' }, 0];
+        },
+      });
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Code, Bold, Note],
+        content: '<p><span data-note="true">Hello</span> world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands.setCode();
+      const textNode = editor.state.doc.child(0).child(0);
+      const markNames = textNode.marks.map((m) => m.type.name).sort();
+      expect(markNames).toEqual(['code', 'note']);
+    });
+
+    it('links survive setCode', () => {
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Code, Link],
+        content: '<p><a href="https://example.com">Hello</a> world</p>',
+      });
+      const { state } = editor;
+      editor.view.dispatch(state.tr.setSelection(TextSelection.create(state.doc, 1, 6)));
+      editor.commands.setCode();
+      const textNode = editor.state.doc.child(0).child(0);
+      const markNames = textNode.marks.map((m) => m.type.name).sort();
+      expect(markNames).toEqual(['code', 'link']);
+    });
+
+    it('compiled schema excludes formatting marks but not semantic ones', () => {
+      const Note = Mark.create({
+        name: 'note',
+        isFormatting: false,
+        parseHTML() {
+          return [{ tag: 'span[data-note]' }];
+        },
+        renderHTML() {
+          return ['span', { 'data-note': 'true' }, 0];
+        },
+      });
+      editor = new Editor({
+        extensions: [Document, Text, Paragraph, Code, Bold, Note],
+        content: '<p>hello</p>',
+      });
+      const { marks } = editor.state.schema;
+      const codeType = marks['code'];
+      const boldType = marks['bold'];
+      const noteType = marks['note'];
+      if (!codeType || !boldType || !noteType) throw new Error('Schema is missing marks');
+      expect(codeType.excludes(boldType)).toBe(true);
+      expect(codeType.excludes(noteType)).toBe(false);
     });
 
     it('setCode applies code to selected text', () => {

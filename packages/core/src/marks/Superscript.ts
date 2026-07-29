@@ -34,6 +34,8 @@ export interface SuperscriptOptions {
 export const Superscript = Mark.create<SuperscriptOptions>({
   name: 'superscript',
 
+  group: 'formatting',
+
   // Mutual exclusion handled in toggle commands (not schema)
   // so can() dry-run works correctly for toolbar disabled state
   excludes: '',

@@ -9,6 +9,7 @@ import { Typography } from './Typography.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
+import { Bold } from '../marks/Bold.js';
 import { Editor } from '../Editor.js';
 
 describe('Typography', () => {
@@ -395,6 +396,46 @@ describe('Typography', () => {
       const tr = callHandler(rules[21], ed.state, ["'hello'", 'hello'], 1, 8);
       expect(tr).toBeTruthy();
       expect(tr.doc.textContent).toContain('\u2018');
+    });
+
+    describe('mark preservation', () => {
+      function createBoldEditor(content: string): Editor {
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, Bold, Typography],
+          content,
+        });
+        return editor;
+      }
+
+      it('ellipsis replacement keeps the marks of the replaced text', () => {
+        const ed = createBoldEditor('<p><strong>xx rest</strong></p>');
+        const rules = getRules();
+        const tr = callHandler(rules[1], ed.state, ['xx'], 1, 3);
+        expect(tr).toBeTruthy();
+        const textNode = tr.doc.firstChild?.firstChild;
+        expect(textNode?.text?.startsWith('\u2026')).toBe(true);
+        expect(textNode?.marks.some((mark: { type: { name: string } }) => mark.type.name === 'bold')).toBe(true);
+      });
+
+      it('smart double quotes keep the marks of the replaced text', () => {
+        const ed = createBoldEditor('<p><strong>"hello" rest</strong></p>');
+        const rules = getRules();
+        const tr = callHandler(rules[20], ed.state, ['"hello"', 'hello'], 1, 8);
+        expect(tr).toBeTruthy();
+        const textNode = tr.doc.firstChild?.firstChild;
+        expect(tr.doc.textContent).toContain('\u201c');
+        expect(textNode?.marks.some((mark: { type: { name: string } }) => mark.type.name === 'bold')).toBe(true);
+      });
+
+      it('smart single quotes with prefix keep the marks of the replaced text', () => {
+        const ed = createBoldEditor('<p><strong>a \'hello\' rest</strong></p>');
+        const rules = getRules();
+        const tr = callHandler(rules[21], ed.state, [" 'hello'", 'hello'], 2, 10);
+        expect(tr).toBeTruthy();
+        const textNode = tr.doc.firstChild?.firstChild;
+        expect(tr.doc.textContent).toContain('\u2018');
+        expect(textNode?.marks.some((mark: { type: { name: string } }) => mark.type.name === 'bold')).toBe(true);
+      });
     });
   });
 

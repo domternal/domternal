@@ -4064,10 +4064,15 @@ test.describe('Table of Contents - hover expansion', () => {
     // (setTimeout is clamped under load, can drift well past 120ms).
     await expect(outline).toHaveAttribute('data-state', 'expanded', { timeout: 2500 });
 
-    // Card opacity is now 1 and rows are pointer-events:auto.
+    // Card opacity is now 1 and rows are pointer-events:auto. Polled, not
+    // read once: the state flips when the card STARTS fading in, so a single
+    // read lands mid-transition and sees whatever fraction it caught.
     const card = page.locator('.dm-toc-outline-card');
-    const opacity = await card.evaluate((node) => window.getComputedStyle(node).opacity);
-    expect(parseFloat(opacity)).toBeGreaterThan(0.9);
+    await expect
+      .poll(async () =>
+        parseFloat(await card.evaluate((node) => window.getComputedStyle(node).opacity))
+      )
+      .toBeGreaterThan(0.9);
   });
 
   test('rows render full heading text with per-level indent (h1 < h2 < h3)', async ({ page }) => {

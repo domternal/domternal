@@ -37,6 +37,8 @@ export interface BoldOptions {
 export const Bold = Mark.create<BoldOptions>({
   name: 'bold',
 
+  group: 'formatting',
+
   addOptions() {
     return {
       HTMLAttributes: {},

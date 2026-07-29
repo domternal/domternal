@@ -96,6 +96,7 @@ export function DomternalBubbleMenu({
   // to the color picker and block context menu (positioning targets).
   const colorBtnRef = useRef<HTMLButtonElement>(null);
   const blockMenuBtnRef = useRef<HTMLButtonElement>(null);
+  const innerHtml = useInnerHtml();
 
   return (
     <div ref={menuRef} className="dm-bubble-menu" role="toolbar" aria-label="Text formatting">
@@ -133,7 +134,7 @@ export function DomternalBubbleMenu({
             title={btn.label}
             aria-label={btn.label}
             aria-pressed={active}
-            dangerouslySetInnerHTML={{ __html: getCachedHtml(btn.icon) }}
+            dangerouslySetInnerHTML={innerHtml(getCachedHtml(btn.icon))}
             onMouseDown={(e) => { e.preventDefault(); }}
             onClick={(e) => { executeCommand(btn, e); }}
           />
@@ -176,7 +177,7 @@ export function DomternalBubbleMenu({
               : 'More options'}
             aria-label="More options"
             aria-haspopup="menu"
-            dangerouslySetInnerHTML={{ __html: getCachedHtml('dotsThree') }}
+            dangerouslySetInnerHTML={innerHtml(getCachedHtml('dotsThree'))}
             onMouseDown={(e) => { e.preventDefault(); }}
             onClick={() => { if (blockMenuBtnRef.current) openBlockContextMenu(blockMenuBtnRef.current); }}
           />
@@ -185,6 +186,27 @@ export function DomternalBubbleMenu({
       {children}
     </div>
   );
+}
+
+/**
+ * Stable `dangerouslySetInnerHTML` payloads, keyed by the markup itself.
+ *
+ * React compares that prop by identity, so a fresh literal per render rewrites
+ * `innerHTML` and destroys the icon nodes. The menu re-renders on every
+ * transaction, so an overlay closing on pointerdown swaps the icon out
+ * mid-gesture, leaving mousedown and mouseup with no element in common and no
+ * click fired at all.
+ */
+function useInnerHtml(): (html: string) => { __html: string } {
+  const cache = useRef(new Map<string, { __html: string }>());
+  return (html: string): { __html: string } => {
+    let prop = cache.current.get(html);
+    if (prop === undefined) {
+      prop = { __html: html };
+      cache.current.set(html, prop);
+    }
+    return prop;
+  };
 }
 
 // ===== Bubble-menu-embedded dropdown =====
@@ -218,6 +240,7 @@ function BubbleDropdown({
   void activeVersion;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const innerHtml = useInnerHtml();
 
   const dropdownActive = dropdown.items.some((sub) => isItemActive(sub));
   const activeChild = dropdown.dynamicIcon
@@ -281,7 +304,7 @@ function BubbleDropdown({
         aria-label={dropdown.label}
         title={dropdown.label}
         data-dropdown={dropdown.name}
-        dangerouslySetInnerHTML={{ __html: triggerHtml }}
+        dangerouslySetInnerHTML={innerHtml(triggerHtml)}
         onMouseDown={(e) => { e.preventDefault(); }}
         onClick={onToggle}
       />
@@ -303,7 +326,7 @@ function BubbleDropdown({
                 className={`dm-toolbar-dropdown-item${subActive ? ' dm-toolbar-dropdown-item--active' : ''}`}
                 role="menuitem"
                 aria-label={sub.label}
-                dangerouslySetInnerHTML={{ __html: subHtml }}
+                dangerouslySetInnerHTML={innerHtml(subHtml)}
                 onMouseDown={(e) => { e.preventDefault(); }}
                 onClick={() => { executeSubItem(sub); }}
               />

@@ -9,7 +9,9 @@ import {
   BlockColor,
   BulletList,
   ListItem,
+  Bold,
   Editor,
+  Mark,
 } from '@domternal/core';
 import {
   deleteBlock,
@@ -259,6 +261,51 @@ describe('blockOperations', () => {
       const tr = editor.state.tr;
       duplicateBlock(tr, 999);
       expect(tr.steps.length).toBe(0);
+      editor.destroy();
+    });
+
+    it('strips marks flagged keepOnDuplicate: false from the copy', () => {
+      const Anchor = Mark.create({
+        name: 'anchor',
+        keepOnDuplicate: false,
+        addAttributes() {
+          return { ids: { default: [] } };
+        },
+        parseHTML() {
+          return [{ tag: 'span[data-anchor]' }];
+        },
+        renderHTML() {
+          return ['span', { 'data-anchor': 'true' }, 0];
+        },
+      });
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, Bold, Anchor],
+        content: '<p><strong><span data-anchor="true">Hello</span></strong></p>',
+      });
+      const first = findTopLevelBlock(editor.state.doc, 1);
+      const tr = editor.state.tr;
+      duplicateBlock(tr, first?.pos ?? 0);
+      editor.view.dispatch(tr);
+
+      const names = (index: number): string[] =>
+        editor.state.doc.child(index).child(0).marks.map((m) => m.type.name).sort();
+      expect(names(0)).toEqual(['anchor', 'bold']);
+      expect(names(1)).toEqual(['bold']);
+      editor.destroy();
+    });
+
+    it('keeps unflagged marks on the copy', () => {
+      const editor = new Editor({
+        extensions: [Document, Text, Paragraph, Bold],
+        content: '<p><strong>Hello</strong></p>',
+      });
+      const first = findTopLevelBlock(editor.state.doc, 1);
+      const tr = editor.state.tr;
+      duplicateBlock(tr, first?.pos ?? 0);
+      editor.view.dispatch(tr);
+
+      const copyMarks = editor.state.doc.child(1).child(0).marks.map((m) => m.type.name);
+      expect(copyMarks).toEqual(['bold']);
       editor.destroy();
     });
   });

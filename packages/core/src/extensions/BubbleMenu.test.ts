@@ -749,6 +749,57 @@ describe('BubbleMenu', () => {
       overlay.remove();
     });
 
+    it('mousedown on an svg icon inside an overlay does not hide menu', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [
+          Document, Text, Paragraph,
+          BubbleMenu.configure({ element, shouldShow: () => true }),
+        ],
+        content: '<p>Hello</p>',
+      });
+
+      // An icon is an SVG node, not an HTMLElement.
+      const overlay = document.createElement('div');
+      overlay.setAttribute('data-dm-editor-ui', '');
+      const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      overlay.appendChild(icon);
+      document.body.appendChild(overlay);
+
+      element.setAttribute('data-show', '');
+      icon.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+
+      expect(element.hasAttribute('data-show')).toBe(true);
+      overlay.remove();
+    });
+
+    it('mousedown whose target was detached mid-gesture leaves the menu alone', () => {
+      const element = document.createElement('div');
+      editor = new Editor({
+        element: host,
+        extensions: [
+          Document, Text, Paragraph,
+          BubbleMenu.configure({ element, shouldShow: () => true }),
+        ],
+        content: '<p>Hello</p>',
+      });
+
+      // A wrapper re-rendering on the pointerdown transaction replaces the
+      // icon before mousedown arrives, so the browser reports a node that is
+      // inside nothing at all.
+      const icon = document.createElement('span');
+      element.appendChild(icon);
+      const detach = (): void => { icon.remove(); };
+      document.addEventListener('mousedown', detach, { capture: true });
+
+      element.setAttribute('data-show', '');
+      icon.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+      document.removeEventListener('mousedown', detach, { capture: true });
+
+      expect(element.hasAttribute('data-show')).toBe(true);
+    });
+
     it('mousedown on a non-overlay element outside both surfaces hides menu', () => {
       const element = document.createElement('div');
       element.setAttribute('data-show', '');

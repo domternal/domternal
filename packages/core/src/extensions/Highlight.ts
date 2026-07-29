@@ -229,7 +229,11 @@ export const Highlight = Extension.create<HighlightOptions>({
           if (!content) return null;
 
           const { tr } = state;
-          tr.replaceWith(start, end, state.schema.text(content));
+          // Preserve the marks the matched text already had (stored marks
+          // first, like Transaction.insertText) so highlighting inside
+          // commented or formatted text does not strip those marks.
+          const marks = tr.storedMarks ?? tr.doc.resolve(start).marksAcross(tr.doc.resolve(end));
+          tr.replaceWith(start, end, state.schema.text(content, marks));
           tr.addMark(
             start,
             start + content.length,

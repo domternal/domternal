@@ -228,6 +228,143 @@ describe('markInputRule', () => {
     });
   });
 
+  describe('mark preservation', () => {
+    // Dedicated schema: a non-inclusive attributed mark (like a comment
+    // thread anchor) and a mark that excludes everything (like inline code).
+    const pschema = new Schema({
+      nodes: {
+        doc: { content: 'block+' },
+        paragraph: {
+          group: 'block',
+          content: 'inline*',
+          toDOM: () => ['p', 0],
+          parseDOM: [{ tag: 'p' }],
+        },
+        text: { group: 'inline' },
+      },
+      marks: {
+        bold: {
+          parseDOM: [{ tag: 'strong' }],
+          toDOM: () => ['strong', 0],
+        },
+        italic: {
+          parseDOM: [{ tag: 'em' }],
+          toDOM: () => ['em', 0],
+        },
+        exclusiveCode: {
+          excludes: '_',
+          parseDOM: [{ tag: 'code' }],
+          toDOM: () => ['code', 0],
+        },
+        note: {
+          attrs: { ids: { default: [] } },
+          inclusive: false,
+          parseDOM: [{ tag: 'span' }],
+          toDOM: () => ['span', 0],
+        },
+      },
+    });
+
+    function markNames(marks: readonly { type: { name: string } }[]): string[] {
+      return marks.map((mark) => mark.type.name).sort();
+    }
+
+    it('keeps the marks of the matched text when the rule fires', () => {
+      const italic = pschema.marks.italic.create();
+      const doc = pschema.node('doc', null, [
+        pschema.node('paragraph', null, [pschema.text('**test**', [italic])]),
+      ]);
+      const state = EditorState.create({ schema: pschema, doc });
+
+      const rule = markInputRule({ find: markInputRulePatterns.bold, type: pschema.marks.bold });
+      const match = markInputRulePatterns.bold.exec('**test**');
+      if (!match) throw new Error('Pattern should match');
+
+      const result = getHandler(rule)(state, match, 1, 9);
+      expect(result).not.toBeNull();
+      const textNode = result?.doc.firstChild?.firstChild;
+      expect(textNode?.text).toBe('test');
+      expect(markNames(textNode?.marks ?? [])).toEqual(['bold', 'italic']);
+    });
+
+    it('keeps a non-inclusive mark strictly inside its range', () => {
+      const note = pschema.marks.note.create({ ids: ['t1'] });
+      const doc = pschema.node('doc', null, [
+        pschema.node('paragraph', null, [
+          pschema.text('**test**', [note]),
+          pschema.text(' after', [note]),
+        ]),
+      ]);
+      const state = EditorState.create({ schema: pschema, doc });
+
+      const rule = markInputRule({ find: markInputRulePatterns.bold, type: pschema.marks.bold });
+      const match = markInputRulePatterns.bold.exec('**test**');
+      if (!match) throw new Error('Pattern should match');
+
+      const result = getHandler(rule)(state, match, 1, 9);
+      const textNode = result?.doc.firstChild?.firstChild;
+      expect(markNames(textNode?.marks ?? [])).toEqual(['bold', 'note']);
+      const noteMark = textNode?.marks.find((mark) => mark.type.name === 'note');
+      expect(noteMark?.attrs['ids']).toEqual(['t1']);
+    });
+
+    it('drops a non-inclusive mark at the exact end of its range', () => {
+      // No note-marked text follows the match, so this is the range end and
+      // the replacement behaves like typing there: the mark does not extend.
+      const note = pschema.marks.note.create({ ids: ['t1'] });
+      const doc = pschema.node('doc', null, [
+        pschema.node('paragraph', null, [
+          pschema.text('**test**', [note]),
+          pschema.text(' after'),
+        ]),
+      ]);
+      const state = EditorState.create({ schema: pschema, doc });
+
+      const rule = markInputRule({ find: markInputRulePatterns.bold, type: pschema.marks.bold });
+      const match = markInputRulePatterns.bold.exec('**test**');
+      if (!match) throw new Error('Pattern should match');
+
+      const result = getHandler(rule)(state, match, 1, 9);
+      const textNode = result?.doc.firstChild?.firstChild;
+      expect(markNames(textNode?.marks ?? [])).toEqual(['bold']);
+    });
+
+    it('still strips marks the new mark excludes', () => {
+      const bold = pschema.marks.bold.create();
+      const doc = pschema.node('doc', null, [
+        pschema.node('paragraph', null, [pschema.text('`x`', [bold])]),
+      ]);
+      const state = EditorState.create({ schema: pschema, doc });
+
+      const rule = markInputRule({
+        find: markInputRulePatterns.code,
+        type: pschema.marks.exclusiveCode,
+      });
+      const match = markInputRulePatterns.code.exec('`x`');
+      if (!match) throw new Error('Pattern should match');
+
+      const result = getHandler(rule)(state, match, 1, 4);
+      const textNode = result?.doc.firstChild?.firstChild;
+      expect(markNames(textNode?.marks ?? [])).toEqual(['exclusiveCode']);
+    });
+
+    it('prefers stored marks over the marks of the replaced range', () => {
+      const italic = pschema.marks.italic.create();
+      const doc = pschema.node('doc', null, [
+        pschema.node('paragraph', null, [pschema.text('**test**')]),
+      ]);
+      const state = EditorState.create({ schema: pschema, doc, storedMarks: [italic] });
+
+      const rule = markInputRule({ find: markInputRulePatterns.bold, type: pschema.marks.bold });
+      const match = markInputRulePatterns.bold.exec('**test**');
+      if (!match) throw new Error('Pattern should match');
+
+      const result = getHandler(rule)(state, match, 1, 9);
+      const textNode = result?.doc.firstChild?.firstChild;
+      expect(markNames(textNode?.marks ?? [])).toEqual(['bold', 'italic']);
+    });
+  });
+
   describe('markInputRulePatterns', () => {
     it('exports pre-built patterns', () => {
       expect(markInputRulePatterns.bold).toBeInstanceOf(RegExp);

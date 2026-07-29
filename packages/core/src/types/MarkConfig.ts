@@ -120,11 +120,21 @@ interface MarkSchemaProperties {
    * Marks that this mark excludes (cannot coexist with)
    *
    * - '_' excludes all marks
-   * - Space-separated mark names exclude specific marks
+   * - Space-separated mark names or group names exclude those marks
    * - Empty string or undefined means no exclusions
+   *
+   * Note: mark NAMES listed here must exist in the schema or schema
+   * compilation throws, so extensions meant to work in minimal setups
+   * should exclude by group. The core formatting marks (bold, italic,
+   * underline, strike, code, sub/superscript, textStyle) all declare
+   * group 'formatting', and Code excludes that group: a third-party
+   * formatting mark joins the exclusion by declaring the same group,
+   * while semantic marks (link, comment anchors) stay combinable with
+   * code by staying out of it.
    *
    * @example 'code' - excludes code mark
    * @example 'bold italic' - excludes bold and italic
+   * @example 'formatting' - excludes the formatting group
    * @example '_' - excludes all other marks
    */
   excludes?: string;
@@ -136,6 +146,18 @@ interface MarkSchemaProperties {
    * @example 'formatting', 'inline'
    */
   group?: string;
+
+  /**
+   * Whether block duplication keeps this mark on the copied content
+   *
+   * Set false for marks that reference identity-bearing external state
+   * (a comment thread anchor, a suggestion id): duplicating such a mark
+   * would make one identity point at two unrelated places, so block
+   * duplicate strips it from the copy instead.
+   *
+   * @default true
+   */
+  keepOnDuplicate?: boolean;
 
   /**
    * Whether this mark can span multiple nodes

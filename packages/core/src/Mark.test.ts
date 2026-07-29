@@ -357,6 +357,16 @@ describe('Mark', () => {
         expect(spec.spanning).toBe(false);
       });
 
+      it('includes keepOnDuplicate in spec', () => {
+        const mark = Mark.create({
+          name: 'anchor',
+          keepOnDuplicate: false,
+        });
+        const spec = mark.createMarkSpec();
+
+        expect(spec['keepOnDuplicate']).toBe(false);
+      });
+
       it('excludes undefined properties from spec', () => {
         const mark = Mark.create({ name: 'bold' });
         const spec = mark.createMarkSpec();
@@ -365,6 +375,7 @@ describe('Mark', () => {
         expect(spec.excludes).toBeUndefined();
         expect(spec.group).toBeUndefined();
         expect(spec.spanning).toBeUndefined();
+        expect(spec['keepOnDuplicate']).toBeUndefined();
       });
     });
 
