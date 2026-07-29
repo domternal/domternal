@@ -175,6 +175,10 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
   const onDocumentMousedown = (e: MouseEvent): void => {
     const target = e.target as Node | null;
     if (!target) return;
+    // A target that left the document between pointerdown and mousedown says
+    // nothing about where the click landed, and every check below reads it as
+    // "outside". Hiding on that guess swallows the click that follows.
+    if (!target.isConnected) return;
     // Click inside bubble menu - ignore (handled by onMenuMousedown)
     if (element.contains(target)) return;
     // Click inside editor - let ProseMirror handle selection change
@@ -183,7 +187,8 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
     // [data-dm-editor-ui]) - treat as part of the bubble menu's interaction
     // surface so the menu doesn't dismiss while the user is operating its
     // own dropdown. Matches the whitelist `onBlur` already uses below.
-    if (target instanceof HTMLElement && target.closest('[data-dm-editor-ui]')) return;
+    // `Element`, not `HTMLElement`: icons are SVG nodes.
+    if (target instanceof Element && target.closest('[data-dm-editor-ui]')) return;
     // Outside everything - hide and suppress until selection changes
     hideMenu();
     suppressed = true;
