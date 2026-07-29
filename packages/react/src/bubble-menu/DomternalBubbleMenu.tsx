@@ -9,6 +9,7 @@ import {
 import type { Editor, BubbleMenuOptions, IconSet, ToolbarButton, ToolbarDropdown } from '@domternal/core';
 import { positionFloatingOnce, refocusEditorAfterCommand } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
+import { useInnerHtml } from '../useInnerHtml.js';
 import { useBubbleMenu } from './useBubbleMenu.js';
 
 export interface DomternalBubbleMenuProps {
@@ -186,27 +187,6 @@ export function DomternalBubbleMenu({
       {children}
     </div>
   );
-}
-
-/**
- * Stable `dangerouslySetInnerHTML` payloads, keyed by the markup itself.
- *
- * React compares that prop by identity, so a fresh literal per render rewrites
- * `innerHTML` and destroys the icon nodes. The menu re-renders on every
- * transaction, so an overlay closing on pointerdown swaps the icon out
- * mid-gesture, leaving mousedown and mouseup with no element in common and no
- * click fired at all.
- */
-function useInnerHtml(): (html: string) => { __html: string } {
-  const cache = useRef(new Map<string, { __html: string }>());
-  return (html: string): { __html: string } => {
-    let prop = cache.current.get(html);
-    if (prop === undefined) {
-      prop = { __html: html };
-      cache.current.set(html, prop);
-    }
-    return prop;
-  };
 }
 
 // ===== Bubble-menu-embedded dropdown =====
