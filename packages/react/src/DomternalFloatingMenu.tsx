@@ -26,6 +26,7 @@ import type {
   IconSet,
 } from '@domternal/core';
 import { useCurrentEditor } from './EditorContext.js';
+import { useInnerHtml } from './useInnerHtml.js';
 
 export interface DomternalFloatingMenuProps {
   /** The editor instance. If omitted, uses EditorProvider context. */
@@ -280,6 +281,7 @@ function FloatingMenuItemButton({
   iconHtml,
   onClick,
 }: ItemButtonProps): ReactNode {
+  const innerHtml = useInnerHtml();
   const handleClick = useCallback((): void => { onClick(item); }, [item, onClick]);
   // Prevent mousedown from stealing editor focus before we run the command.
   const onMouseDown = useCallback((e: ReactMouseEvent): void => {
@@ -304,7 +306,7 @@ function FloatingMenuItemButton({
         <span
           className="dm-floating-menu-item-icon"
           aria-hidden="true"
-          dangerouslySetInnerHTML={{ __html: iconHtml }}
+          dangerouslySetInnerHTML={innerHtml(iconHtml)}
         />
       )}
       <span className="dm-floating-menu-item-label">{item.label}</span>

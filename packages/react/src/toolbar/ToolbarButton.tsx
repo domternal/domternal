@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { ToolbarButton as ToolbarButtonType } from '@domternal/core';
+import { useInnerHtml } from '../useInnerHtml.js';
 
 export interface ToolbarButtonProps {
   item: ToolbarButtonType;
@@ -24,6 +25,7 @@ export function ToolbarButton({
   onClick,
   onFocus,
 }: ToolbarButtonProps): ReactNode {
+  const innerHtml = useInnerHtml();
   return (
     <button
       type="button"
@@ -34,7 +36,7 @@ export function ToolbarButton({
       title={tooltip}
       tabIndex={tabIndex}
       disabled={isDisabled}
-      dangerouslySetInnerHTML={{ __html: iconHtml }}
+      dangerouslySetInnerHTML={innerHtml(iconHtml)}
       onMouseDown={(e) => { e.preventDefault(); }}
       onClick={(e) => { onClick(item, e); }}
       onFocus={() => { onFocus(item.name); }}

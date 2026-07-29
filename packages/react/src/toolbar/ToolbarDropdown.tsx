@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { ToolbarButton, ToolbarDropdown as ToolbarDropdownType } from '@domternal/core';
+import { useInnerHtml } from '../useInnerHtml.js';
 import { ToolbarDropdownPanel } from './ToolbarDropdownPanel.js';
 
 export interface ToolbarDropdownProps {
@@ -29,6 +30,7 @@ export function ToolbarDropdown({
   onItemClick,
   onFocus,
 }: ToolbarDropdownProps): ReactNode {
+  const innerHtml = useInnerHtml();
   return (
     <div className="dm-toolbar-dropdown-wrapper">
       <button
@@ -41,7 +43,7 @@ export function ToolbarDropdown({
         tabIndex={tabIndex}
         disabled={isDisabled}
         data-dropdown={dropdown.name}
-        dangerouslySetInnerHTML={{ __html: triggerHtml }}
+        dangerouslySetInnerHTML={innerHtml(triggerHtml)}
         onMouseDown={(e) => { e.preventDefault(); }}
         onClick={() => { onToggle(dropdown); }}
         onFocus={() => { onFocus(dropdown.name); }}
