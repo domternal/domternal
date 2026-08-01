@@ -42,6 +42,7 @@ export function useToolbarController(
   const toolbarRef = useRef<HTMLDivElement>(null);
   const cleanupFloatingRef = useRef<(() => void) | null>(null);
   const clickOutsideRef = useRef<((e: Event) => void) | null>(null);
+  const escapeKeydownRef = useRef<((e: KeyboardEvent) => void) | null>(null);
   const dismissOverlayRef = useRef<(() => void) | null>(null);
   const editorElRef = useRef<HTMLElement | null>(null);
 
@@ -88,6 +89,27 @@ export function useToolbarController(
     clickOutsideRef.current = clickOutside;
     document.addEventListener('mousedown', clickOutside);
 
+    // Escape from anywhere: opening a dropdown with the mouse leaves focus
+    // outside the toolbar, so its own keydown handler never sees the key.
+    const escapeKeydown = (e: KeyboardEvent): void => {
+      if (!controller.openDropdown) return;
+      if (e.key !== 'Escape') return;
+      // Focus inside the toolbar belongs to the host handler, which also
+      // restores focus. Not defaultPrevented: ProseMirror prevents Escape
+      // first whenever the caret is in the editor.
+      if (toolbarRef.current?.contains(document.activeElement)) return;
+
+      cleanupFloatingRef.current?.();
+      cleanupFloatingRef.current = null;
+      controller.closeDropdown();
+      syncState();
+      // Focus stays put: pulling it out of the editor mid-typing would be
+      // more disruptive than closing the panel in place.
+      e.preventDefault();
+    };
+    escapeKeydownRef.current = escapeKeydown;
+    document.addEventListener('keydown', escapeKeydown);
+
     // Dismiss overlays (e.g. table handle clicks)
     const editorEl = editor.view.dom.closest<HTMLElement>('.dm-editor');
     editorElRef.current = editorEl;
@@ -112,6 +134,11 @@ export function useToolbarController(
       if (clickOutsideRef.current) {
         document.removeEventListener('mousedown', clickOutsideRef.current);
         clickOutsideRef.current = null;
+      }
+
+      if (escapeKeydownRef.current) {
+        document.removeEventListener('keydown', escapeKeydownRef.current);
+        escapeKeydownRef.current = null;
       }
 
       if (dismissOverlayRef.current && editorElRef.current) {

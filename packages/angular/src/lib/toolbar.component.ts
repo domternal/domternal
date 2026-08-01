@@ -159,6 +159,7 @@ export class DomternalToolbarComponent implements OnDestroy {
 
   private controller: ToolbarController | null = null;
   private clickOutsideHandler: ((e: Event) => void) | null = null;
+  private escapeKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
   private dismissOverlayHandler: (() => void) | null = null;
   private editorEl: HTMLElement | null = null;
   private cleanupFloating: (() => void) | null = null;
@@ -529,6 +530,24 @@ export class DomternalToolbarComponent implements OnDestroy {
     };
     document.addEventListener('mousedown', this.clickOutsideHandler);
 
+    // Escape from anywhere: opening a dropdown with the mouse leaves focus
+    // outside the toolbar, so the host keydown handler never sees the key.
+    // Focus stays put, since the caret is usually still in the editor.
+    this.escapeKeydownHandler = (e: KeyboardEvent) => {
+      if (!this.openDropdown()) return;
+      if (e.key !== 'Escape') return;
+      // Focus inside the toolbar belongs to the host handler, which also
+      // restores focus. Not defaultPrevented: ProseMirror prevents Escape
+      // first whenever the caret is in the editor.
+      if (this.elRef.nativeElement.contains(document.activeElement)) return;
+      this.cleanupFloating?.();
+      this.cleanupFloating = null;
+      this.controller?.closeDropdown();
+      this.ngZone.run(() => { this.syncState(); });
+      e.preventDefault();
+    };
+    document.addEventListener('keydown', this.escapeKeydownHandler);
+
     // Listen for dismiss-overlays (e.g. table handle clicks that stopPropagation on mousedown)
     this.editorEl = editor.view.dom.closest('.dm-editor');
     if (this.editorEl) {
@@ -550,6 +569,10 @@ export class DomternalToolbarComponent implements OnDestroy {
     if (this.clickOutsideHandler) {
       document.removeEventListener('mousedown', this.clickOutsideHandler);
       this.clickOutsideHandler = null;
+    }
+    if (this.escapeKeydownHandler) {
+      document.removeEventListener('keydown', this.escapeKeydownHandler);
+      this.escapeKeydownHandler = null;
     }
     if (this.dismissOverlayHandler && this.editorEl) {
       this.editorEl.removeEventListener('dm:dismiss-overlays', this.dismissOverlayHandler);

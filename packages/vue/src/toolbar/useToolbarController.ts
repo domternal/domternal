@@ -45,6 +45,7 @@ export function useToolbarController(
   const toolbarRef = ref<HTMLDivElement>();
   let cleanupFloating: (() => void) | null = null;
   let clickOutsideHandler: ((e: Event) => void) | null = null;
+  let escapeHandler: ((e: KeyboardEvent) => void) | null = null;
   let dismissOverlayHandler: (() => void) | null = null;
   let editorEl: HTMLElement | null = null;
   let syncStateRaf = 0;
@@ -91,6 +92,24 @@ export function useToolbarController(
       };
       document.addEventListener('mousedown', clickOutsideHandler);
 
+      // Escape from anywhere: opening a dropdown with the mouse leaves focus
+      // outside the toolbar, so its own keydown handler never sees the key.
+      // Focus stays put, since the caret is usually still in the editor.
+      escapeHandler = (e: KeyboardEvent) => {
+        if (!controller?.openDropdown) return;
+        if (e.key !== 'Escape') return;
+        // Focus inside the toolbar belongs to the host handler, which also
+        // restores focus. Not defaultPrevented: ProseMirror prevents Escape
+        // first whenever the caret is in the editor.
+        if (toolbarRef.value?.contains(document.activeElement)) return;
+        cleanupFloating?.();
+        cleanupFloating = null;
+        controller.closeDropdown();
+        syncState();
+        e.preventDefault();
+      };
+      document.addEventListener('keydown', escapeHandler);
+
       editorEl = ed.view.dom.closest('.dm-editor');
       if (editorEl) {
         dismissOverlayHandler = () => {
@@ -115,6 +134,10 @@ export function useToolbarController(
     if (clickOutsideHandler) {
       document.removeEventListener('mousedown', clickOutsideHandler);
       clickOutsideHandler = null;
+    }
+    if (escapeHandler) {
+      document.removeEventListener('keydown', escapeHandler);
+      escapeHandler = null;
     }
     if (dismissOverlayHandler && editorEl) {
       editorEl.removeEventListener('dm:dismiss-overlays', dismissOverlayHandler);

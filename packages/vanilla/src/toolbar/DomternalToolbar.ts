@@ -224,6 +224,23 @@ export class DomternalToolbar extends EventTarget {
       { signal },
     );
 
+    // Escape from anywhere: opening a dropdown with the mouse leaves focus
+    // outside the toolbar, so the host handler below never sees the key.
+    document.addEventListener(
+      'keydown',
+      (e) => {
+        if (!this.#controller.openDropdown) return;
+        if (e.key !== 'Escape') return;
+        // Focus inside the toolbar belongs to the host handler, which also
+        // restores focus. Not defaultPrevented: ProseMirror prevents Escape
+        // first whenever the caret is in the editor.
+        if (this.host.contains(document.activeElement)) return;
+        this.closeDropdown();
+        e.preventDefault();
+      },
+      { signal },
+    );
+
     // Keyboard navigation on toolbar host
     this.host.addEventListener(
       'keydown',
