@@ -225,6 +225,9 @@ PluginKey
 positionFloating
 positionFloatingOnce
 PositionFloatingOptions
+Print
+PrintOptions
+PrintStorage
 Range
 RawCommands
 refocusEditorAfterCommand

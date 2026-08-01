@@ -105,6 +105,16 @@ export interface EditorEvents {
 
   /** Fired when the Notion color picker should open, with the trigger as anchor. */
   notionColorOpen: { anchorElement?: HTMLElement | null };
+
+  /**
+   * Fired after the document has been marked for printing and before the
+   * browser's print dialog opens. Listeners run synchronously: this is the
+   * last moment to add page rules or set `document.title`.
+   */
+  beforePrint: { root: HTMLElement };
+
+  /** Fired once the print dialog is done and the print marks are removed. */
+  afterPrint: undefined;
 }
 
 /**
