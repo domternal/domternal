@@ -33,6 +33,7 @@ import {
   InvisibleChars,
   SelectionDecoration,
   ClearFormatting,
+  Print,
   Dropcursor,
   inlineStyles,
   type ToolbarLayoutEntry,
@@ -99,7 +100,7 @@ const extensions = [
       invalidNodes: ['codeBlock'],
     },
   }),
-  LinkPopover, InvisibleChars, SelectionDecoration, ClearFormatting, Dropcursor,
+  LinkPopover, InvisibleChars, SelectionDecoration, ClearFormatting, Dropcursor, Print,
 ];
 
 const toolbarLayout: ToolbarLayoutEntry[] = [
