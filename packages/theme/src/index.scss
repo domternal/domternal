@@ -64,7 +64,11 @@
 @use 'themes/light';
 @use 'themes/dark';
 
-// 9. Reduced motion - must come last to override all animation/transition rules
+// 10. Paper. Last, so it can override anything above it: `@media print` adds
+// no specificity of its own, only source order.
+@use 'print';
+
+// 11. Reduced motion - must come last to override all animation/transition rules
 // =============================================================================
 @media (prefers-reduced-motion: reduce) {
   .dm-emoji-picker,

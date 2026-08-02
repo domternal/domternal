@@ -456,17 +456,8 @@
   }
 }
 
-// Print: hide the floating outline (navigation chrome, not content).
-// Inline `/toc` blocks stay since they belong to the document.
-@media print {
-  .dm-toc-outline {
-    display: none;
-  }
-  .dm-toc-block {
-    background: transparent;
-    border-color: rgba(0, 0, 0, 0.2);
-  }
-}
+// Print rules for the outline and the inline `/toc` block live in
+// `_print.scss` with the rest of the paper layer.
 
 // Forced-colors / Windows High Contrast: backgrounds are stripped, so
 // ticks need explicit borders to stay visible. We use `Highlight` /
