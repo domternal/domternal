@@ -419,6 +419,10 @@ export {
   type NotionColorPickerStorage,
   // Formatting Utilities
   ClearFormatting,
+  // Output
+  Print,
+  type PrintOptions,
+  type PrintStorage,
   // Link UI
   LinkPopover,
   type LinkPopoverOptions,

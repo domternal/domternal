@@ -81,6 +81,9 @@ export {
 // Formatting Utilities
 export { ClearFormatting } from './ClearFormatting.js';
 
+// Output
+export { Print, type PrintOptions, type PrintStorage } from './Print.js';
+
 // Link UI
 export { LinkPopover, type LinkPopoverOptions } from './LinkPopover.js';
 

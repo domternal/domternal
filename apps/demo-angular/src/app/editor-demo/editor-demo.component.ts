@@ -33,6 +33,7 @@ import {
   SelectionDecoration,
   ClearFormatting,
   Dropcursor,
+  Print,
   Editor,
   inlineStyles,
   type ToolbarLayoutEntry,
@@ -114,7 +115,7 @@ export class EditorDemoComponent implements OnDestroy {
       },
     }),
     // Editor utilities
-    LinkPopover, InvisibleChars, SelectionDecoration, ClearFormatting, Dropcursor,
+    LinkPopover, InvisibleChars, SelectionDecoration, ClearFormatting, Dropcursor, Print,
     // Preserve block formatting when pasting block content (heading,
     // codeBlock, blockquote, list, hr) at inline positions - without it
     // PM's content fitter strips the block wrapper and reduces to plain text.

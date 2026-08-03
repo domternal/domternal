@@ -31,6 +31,7 @@ import {
   InvisibleChars,
   SelectionDecoration,
   ClearFormatting,
+  Print,
   Dropcursor,
   inlineStyles,
   type AnyExtension,
@@ -98,7 +99,7 @@ const buildExtensions = (): AnyExtension[] => [
       invalidNodes: ['codeBlock'],
     },
   }),
-  LinkPopover, InvisibleChars, SelectionDecoration, ClearFormatting, Dropcursor,
+  LinkPopover, InvisibleChars, SelectionDecoration, ClearFormatting, Dropcursor, Print,
 ];
 
 /** Custom toolbar layout used when `useLayout: true`. Matches demo-react. */

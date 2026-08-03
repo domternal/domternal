@@ -111,4 +111,59 @@ describe('createDragGhost', () => {
     expect(source.outerHTML).toBe(before);
     source.remove();
   });
+
+  /**
+   * The reason this helper exists, and the case the rest of the suite missed:
+   * every assertion above passes on a clone that carries no styles at all. The
+   * original implementation assigned `getComputedStyle(src).cssText`, which is
+   * specified to be the empty string on a computed declaration, so the preview
+   * inherited <body> and lost the editor's own colour and type.
+   */
+  it('freezes resolved paint properties onto the clone', () => {
+    const source = makeSource();
+    const { wrapper } = createDragGhost(source);
+    track(wrapper);
+    const clone = wrapper.firstElementChild as HTMLElement;
+
+    expect(clone.style.color).toBe('rgb(10, 20, 30)');
+    expect(clone.style.paddingTop).toBe('8px');
+    source.remove();
+  });
+
+  it('freezes descendants too, so nested marks keep their own styling', () => {
+    const source = makeSource();
+    const em = document.createElement('em');
+    em.textContent = 'emphasis';
+    em.style.color = 'rgb(200, 0, 0)';
+    em.style.fontWeight = '700';
+    source.appendChild(em);
+
+    const { wrapper } = createDragGhost(source);
+    track(wrapper);
+    const clonedEm = wrapper.querySelector('em');
+
+    expect(clonedEm?.style.color).toBe('rgb(200, 0, 0)');
+    expect(clonedEm?.style.fontWeight).toBe('700');
+    source.remove();
+  });
+
+  it('leaves the root clone without margins, and keeps them on descendants', () => {
+    const source = makeSource();
+    source.style.marginTop = '24px';
+    const inner = document.createElement('p');
+    inner.textContent = 'inner';
+    inner.style.marginTop = '12px';
+    source.appendChild(inner);
+
+    const { wrapper } = createDragGhost(source);
+    track(wrapper);
+    const clone = wrapper.firstElementChild as HTMLElement;
+
+    // A margin on the root would offset the preview from the cursor inside the
+    // wrapper the browser snapshots, and cloneNode carries the source's own
+    // inline style over, so it has to be zeroed rather than just not copied.
+    expect(clone.style.marginTop).toBe('0px');
+    expect(wrapper.querySelector('p')?.style.marginTop).toBe('12px');
+    source.remove();
+  });
 });

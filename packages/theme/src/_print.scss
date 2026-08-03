@@ -1,0 +1,338 @@
+// =============================================================================
+// Print Styles
+// =============================================================================
+// Everything here answers one question: what does the document look like on
+// paper. Two layers, and they are deliberately independent.
+//
+// 1. Always on. Chrome disappears, clipped content opens up, blocks break at
+//    sane places. This applies to the reader's own Ctrl/Cmd+P with no code
+//    involved, which is the point: an editor that prints its own toolbar and
+//    silently drops the body of a closed accordion is broken, not missing a
+//    premium feature.
+// 2. Gated behind `body.dm-printing`, set by the `printDocument` command.
+//    That layer also hides the HOST application's chrome (its sidebar, its
+//    header), which we may not touch uninvited: an editor embedded in an
+//    article has no business erasing the article when the reader prints it.
+//
+// `@media print` carries no specificity of its own, so anything written
+// inline by JS (table widths, the table handles, popovers) needs `!important`
+// to be overridden here.
+// =============================================================================
+
+@media print {
+  // ===========================================================================
+  // 1. Editor chrome
+  // ===========================================================================
+  // Toolbar, every floating menu and popover, every hover affordance. The
+  // popovers mount on `document.body`, the menus inside `.dm-editor`, and the
+  // TOC outline outside both, so this list is flat rather than scoped.
+  .dm-toolbar,
+  // A descendant of `.dm-toolbar` today, so the line above already hides it.
+  // Listed anyway because floating UI is one refactor away from portaling
+  // the panel to `body`, the way the link and image popovers already are.
+  .dm-toolbar-dropdown-panel,
+  .dm-bubble-menu,
+  .dm-floating-menu,
+  .dm-block-handle,
+  .dm-block-drop-indicator,
+  .dm-block-context-menu,
+  .dm-slash-command-menu,
+  .dm-emoji-picker,
+  .dm-emoji-picker-host,
+  .dm-emoji-suggestion,
+  .dm-mention-suggestion,
+  .dm-link-popover,
+  .dm-image-popover,
+  .dm-math-popover,
+  .dm-color-palette,
+  .dm-notion-color-picker,
+  .dm-toc-outline,
+  .dm-toc-outline-shell,
+  .dm-live-region,
+  .prosemirror-dropcursor-block,
+  .prosemirror-dropcursor-inline,
+  .dm-editor .ProseMirror-gapcursor {
+    display: none !important;
+  }
+
+  // Table and image affordances get their `display` written inline by their
+  // node views, so a plain rule loses to the element's own style attribute.
+  .dm-table-col-handle,
+  .dm-table-row-handle,
+  .dm-table-cell-handle,
+  .dm-table-cell-toolbar,
+  .dm-table-controls-dropdown,
+  .dm-table-cell-dropdown,
+  .dm-table-cell-align-dropdown,
+  .dm-image-handle,
+  .dm-editor .column-resize-handle {
+    display: none !important;
+  }
+
+  // Decorations that live INSIDE the document but describe editing state, not
+  // content: the caret's selection halo, the pending-link underline, the live
+  // `/slash` query, the typing `@mention`, pilcrows and dots.
+  .dm-editor .ProseMirror-selectednode,
+  .dm-editor .ProseMirror-selectednoderange {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  .dm-editor .ProseMirror-selectednode::before,
+  .dm-editor .ProseMirror-selectednoderange::before,
+  .dm-editor li.ProseMirror-selectednode::after,
+  .dm-editor .selectedCell::after {
+    display: none !important;
+  }
+
+  .dm-editor .ProseMirror .invisible-char,
+  .dm-editor .ProseMirror [data-char]::after,
+  .dm-editor .ProseMirror .is-empty::before {
+    display: none !important;
+  }
+
+  .dm-editor .ProseMirror .dm-slash-command-query,
+  .dm-editor .ProseMirror .mention-suggestion,
+  .dm-editor .ProseMirror .dm-link-pending,
+  .dm-editor .ProseMirror .dm-block-context-active {
+    // The transition first: a running transition outranks `!important`, and
+    // the context tint animates over 0.12s. Without this, a print taken just
+    // after the menu opened carries a fading grey block behind the text.
+    transition: none !important;
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    text-decoration: none !important;
+  }
+
+  .dm-editor td.dm-cell-focused,
+  .dm-editor th.dm-cell-focused {
+    outline: none !important;
+  }
+
+  // The inline `/toc` block is document content and stays, but its panel
+  // tint is screen furniture; the border alone keeps it readable as a unit.
+  .dm-editor .ProseMirror .dm-toc-block {
+    background: transparent;
+    border-color: rgba(0, 0, 0, 0.2);
+  }
+
+  // ===========================================================================
+  // 2. Content that is hidden or cut off on screen
+  // ===========================================================================
+  // This is the part that matters most. Anything below stays invisible on
+  // paper unless it is opened up, and invisible here means the reader never
+  // learns it existed.
+
+  // Closed accordion. The node view sets `hidden` on the body div, so the UA
+  // rule wins over the theme's own declarations; the parent is a grid whose
+  // content wrapper is `display: contents`, hence `block` rather than
+  // `revert`. The chevron button goes with it: a toggle is meaningless on
+  // paper, and it would leave a hole in the grid.
+  .dm-editor .ProseMirror div[data-type="details"] div[data-details-content][hidden] {
+    display: block !important;
+  }
+
+  .dm-editor .ProseMirror div[data-type="details"] > button[type="button"] {
+    display: none !important;
+  }
+
+  // Code blocks. `overflow-x: auto` prints only the visible scroll window, so
+  // a long line is cut mid-word. Wrapping is already the on-screen behaviour
+  // for ordinary code; the break-word is for unbreakable tokens such as
+  // minified lines and long URLs.
+  .dm-editor .ProseMirror pre {
+    overflow: visible !important;
+    white-space: pre-wrap !important;
+    word-break: break-word;
+  }
+
+  // Wide tables. Three independent clips: the scroll wrapper, `overflow`
+  // on the table itself, and the inline width/min-width the table node view
+  // writes from the stored column widths. The last one is why these carry
+  // `!important`: an inline style beats any rule without it.
+  .dm-editor .tableWrapper {
+    overflow: visible !important;
+  }
+
+  .dm-editor .ProseMirror table {
+    overflow: visible !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    table-layout: auto !important;
+  }
+
+  // The 100px floor exists so a column stays grabbable with the mouse. On
+  // paper there is no mouse, and the floor is what pushes a wide table off
+  // the sheet.
+  .dm-editor .ProseMirror td,
+  .dm-editor .ProseMirror th {
+    min-width: 0 !important;
+  }
+
+  .dm-editor .ProseMirror colgroup col {
+    width: auto !important;
+  }
+
+  // Wide formulae are clipped on both axes on screen.
+  .dm-editor .ProseMirror .dm-math-block {
+    overflow: visible !important;
+  }
+
+  // The mount wrapper clips to the editor's rounded corners. On paper there
+  // are no corners, and the clip would cut a document taller than its frame.
+  .dm-editor > div:has(> .ProseMirror) {
+    overflow: visible !important;
+  }
+
+  // ===========================================================================
+  // 3. The editor frame itself
+  // ===========================================================================
+  // A border, a shadow and a tinted panel are screen furniture: the paper is
+  // already the page. The gutter is the expensive one, it is reserved for the
+  // drag handle and costs ~48px on every printed page.
+  .dm-editor {
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: none !important;
+    max-width: none !important;
+    // The text colour has to come with the background. A dark theme sets
+    // `--dm-editor-text` to a near-white, and dropping only the dark panel
+    // behind it leaves light grey on white paper: legible on screen,
+    // invisible in print. Explicit colours the author applied are inline on
+    // their own spans and still win.
+    color: #000 !important;
+  }
+
+  .dm-editor .ProseMirror {
+    padding: 0 !important;
+    min-height: 0 !important;
+    max-width: none !important;
+  }
+
+  .dm-editor.dm-notion-mode .ProseMirror {
+    // 60vh of deliberate breathing room on screen is 60% of a blank first
+    // page here.
+    min-height: 0 !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+
+  // ===========================================================================
+  // 4. Page breaks
+  // ===========================================================================
+  .dm-editor .ProseMirror h1,
+  .dm-editor .ProseMirror h2,
+  .dm-editor .ProseMirror h3,
+  .dm-editor .ProseMirror h4,
+  .dm-editor .ProseMirror h5,
+  .dm-editor .ProseMirror h6,
+  .dm-editor .ProseMirror div[data-type="details"] summary {
+    break-after: avoid;
+    break-inside: avoid;
+  }
+
+  .dm-editor .ProseMirror pre,
+  .dm-editor .ProseMirror blockquote,
+  .dm-editor .ProseMirror figure,
+  .dm-editor .ProseMirror img,
+  .dm-editor .ProseMirror .dm-image-resizable,
+  .dm-editor .ProseMirror .dm-math-block,
+  .dm-editor .ProseMirror .dm-toc-block,
+  .dm-editor .ProseMirror tr,
+  .dm-editor .ProseMirror th,
+  .dm-editor .ProseMirror td,
+  .dm-editor .ProseMirror li {
+    break-inside: avoid;
+  }
+
+  // Widows and orphans are a paragraph-level concern; two lines is the
+  // typographic minimum and what word processors default to.
+  .dm-editor .ProseMirror p,
+  .dm-editor .ProseMirror li {
+    orphans: 2;
+    widows: 2;
+  }
+
+  // A floated picture must not straddle a page break, or the text that wraps
+  // around it ends up on the sheet the picture left behind. `.dm-image-resizable`
+  // above already carries `break-inside: avoid`; this adds the clearance so
+  // the float does not escape into the next page's content either.
+  .dm-editor .ProseMirror .dm-image-resizable[data-float="left"],
+  .dm-editor .ProseMirror .dm-image-resizable[data-float="right"] {
+    break-after: auto;
+    break-before: auto;
+  }
+
+  // ===========================================================================
+  // 5. Colour fidelity
+  // ===========================================================================
+  // Browsers strip backgrounds when printing unless the page asks for them.
+  // For a code block or a coloured callout the background IS the meaning, so
+  // losing it changes what the document says.
+  .dm-editor .ProseMirror pre,
+  .dm-editor .ProseMirror code,
+  .dm-editor .ProseMirror mark,
+  .dm-editor .ProseMirror th,
+  .dm-editor .ProseMirror td,
+  .dm-editor .ProseMirror .mention,
+  .dm-editor .ProseMirror [data-bg-color],
+  .dm-editor .ProseMirror [data-text-color],
+  .dm-editor .ProseMirror div[data-type="details"] {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  // Insurance rather than a fix: Chromium already computes `exact` for form
+  // controls on its own, so this changes nothing there and cannot be tested
+  // there either. It is kept for engines that strip the tick along with
+  // every other background, where a printed task list would otherwise read
+  // as entirely undone.
+  .dm-editor .ProseMirror input[type="checkbox"] {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  // ===========================================================================
+  // 6. Isolation, only for `printDocument`
+  // ===========================================================================
+  // The command marks the editor, every one of its ancestors up to <html>,
+  // and the body. Hiding each ancestor's other children collapses the host
+  // application away at every level without this stylesheet ever knowing a
+  // single one of the host's class names.
+  //
+  // The body needs its own selector. It is marked as an ancestor like all the
+  // others, but no element is a descendant of itself, so the descendant rule
+  // never reaches its children: a sidebar or header sitting directly under
+  // <body>, which is the commonest shape of all, would keep printing.
+  body.dm-printing .dm-print-ancestor > *:not(.dm-print-ancestor):not(.dm-print-root),
+  body.dm-printing > *:not(.dm-print-ancestor):not(.dm-print-root) {
+    display: none !important;
+  }
+
+  // The ancestors themselves survive but stop imposing layout: a sidebar
+  // grid, a centred max-width column or a scroll container would otherwise
+  // keep shaping a page that no longer has anything beside the document.
+  body.dm-printing .dm-print-ancestor {
+    display: block !important;
+    position: static !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    overflow: visible !important;
+    background: none !important;
+    transform: none !important;
+    columns: auto !important;
+  }
+
+  body.dm-printing .dm-print-root {
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+}
