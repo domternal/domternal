@@ -162,6 +162,8 @@ editor.commands.setCellSelection({} as never);
 
 editor.commands.scrollToHeading('heading-id');
 
+editor.commands.printDocument();
+
 editor.chain().focus().toggleBold().toggleItalic().run();
 editor.can().toggleBold();
 
