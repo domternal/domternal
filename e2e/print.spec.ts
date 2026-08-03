@@ -662,6 +662,222 @@ for (const target of demoTargets) {
     await page.keyboard.press('Escape');
   });
 
+  test(`${target.name}: an open toolbar dropdown and its colour palette do not print`, async ({
+    page,
+  }) => {
+    // The panel is the one piece of chrome the reader is most likely to have
+    // open at the moment they reach for print, since opening it is what they
+    // were doing a second earlier.
+    //
+    // What delivers this today is the toolbar's own rule, since the panel is
+    // a descendant: removing the panel's line from the sheet does not break
+    // this test, and it is not meant to. The claim under test is the user's,
+    // that an open dropdown is not on the paper, and it fails the moment
+    // either rule stops covering it.
+    await openDemo(page, target);
+    await setContent(page, '<p>Colour me.</p>');
+    await page.locator('.dm-toolbar [aria-label="Text Color"]').click();
+    const panel = page.locator('.dm-toolbar-dropdown-panel');
+    await expect(panel).toBeVisible();
+    // The same panel carries the palette class, so both rules are in play.
+    await expect(page.locator('.dm-toolbar-dropdown-panel.dm-color-palette')).toHaveCount(1);
+
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, '.dm-toolbar-dropdown-panel', 'display')).toBe('none');
+    expect(await styleOf(page, '.dm-color-palette', 'display')).toBe('none');
+    await page.emulateMedia({ media: null });
+  });
+
+  test(`${target.name}: the block context menu and its tint do not print`, async ({ page }) => {
+    // Opened from the drag handle, and it tints the block it belongs to, so
+    // two rules land at once: the menu itself and the decoration it leaves on
+    // the document.
+    await openDemo(page, target);
+    await page.click(target.notionToggle);
+    await page.waitForSelector(target.editorSelector);
+    const block = page.locator(`${target.editorSelector} p`).first();
+    await block.hover();
+    const handle = page.locator('.dm-block-handle');
+    await expect(handle).toHaveAttribute('data-show', '');
+    await page.locator('.dm-block-handle-drag').click();
+    await expect(page.locator('.dm-block-context-menu')).toBeVisible();
+    await expect(page.locator('.dm-block-context-active')).toHaveCount(1);
+
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, '.dm-block-context-menu', 'display')).toBe('none');
+    // The tint is a decoration INSIDE the document, so it is stripped rather
+    // than hidden: the block keeps its text.
+    const tinted = await page.evaluate(() => {
+      const el = document.querySelector('.dm-block-context-active');
+      if (!el) return null;
+      const style = getComputedStyle(el);
+      return { display: style.display, background: style.backgroundColor };
+    });
+    await page.emulateMedia({ media: null });
+    await page.keyboard.press('Escape');
+
+    expect(tinted?.display).not.toBe('none');
+    expect(tinted?.background).toBe('rgba(0, 0, 0, 0)');
+  });
+
+  test(`${target.name}: mention and emoji suggestions do not print, nor does the query behind them`, async ({
+    page,
+  }) => {
+    // Both are caret-anchored popups, and the slash one also underlines the
+    // text still being typed. That decoration is inside the document, so if
+    // it survived it would print as an underline under a half-typed word.
+    await openDemo(page, target);
+    await page.click(target.notionToggle);
+    await page.waitForSelector(target.editorSelector);
+    await page.locator(target.editorSelector).click();
+    await page.keyboard.press('End');
+
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('@');
+    await expect(page.locator('.dm-mention-suggestion')).toBeVisible();
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, '.dm-mention-suggestion', 'display')).toBe('none');
+    await page.emulateMedia({ media: null });
+    await page.keyboard.press('Escape');
+
+    await page.keyboard.press('Enter');
+    await page.keyboard.type(':sm');
+    await expect(page.locator('.dm-emoji-suggestion')).toBeVisible();
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, '.dm-emoji-suggestion', 'display')).toBe('none');
+    await page.emulateMedia({ media: null });
+    await page.keyboard.press('Escape');
+
+    // The slash menu's own inline decoration on the live query.
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('/head');
+    await expect(page.locator('.dm-slash-command-query')).toHaveCount(1);
+    await page.emulateMedia({ media: 'print' });
+    const query = await page.evaluate(() => {
+      const el = document.querySelector('.dm-slash-command-query');
+      if (!el) return null;
+      const style = getComputedStyle(el);
+      return { background: style.backgroundColor, decoration: style.textDecorationLine };
+    });
+    await page.emulateMedia({ media: null });
+    await page.keyboard.press('Escape');
+
+    expect(query?.background).toBe('rgba(0, 0, 0, 0)');
+    expect(query?.decoration).toBe('none');
+  });
+
+  test(`${target.name}: table cell focus and its dropdowns do not print`, async ({ page }) => {
+    await openDemo(page, target);
+    await setContent(
+      page,
+      '<table><tbody><tr><th><p>Head</p></th><th><p>Two</p></th></tr><tr><td><p>Cell</p></td><td><p>Other</p></td></tr></tbody></table>',
+    );
+    await page.locator(`${EDITOR} td p`).first().click();
+    const focused = page.locator(`${EDITOR} .dm-cell-focused`);
+    await expect(focused).toHaveCount(1);
+
+    await page.emulateMedia({ media: 'print' });
+    // The focus ring is an editing affordance on a real cell: the cell keeps
+    // its border, it just stops being the selected one.
+    const outline = await focused.evaluate((el) => getComputedStyle(el).outlineStyle);
+    expect(outline).toBe('none');
+
+    // The cell toolbar's dropdowns are written into the DOM by the node view
+    // and carry inline display, the same fight as the handles.
+    for (const selector of [
+      '.dm-table-controls-dropdown',
+      '.dm-table-cell-dropdown',
+      '.dm-table-cell-align-dropdown',
+    ]) {
+      const display = await styleOf(page, selector, 'display');
+      if (display !== null) expect(display).toBe('none');
+    }
+    await page.emulateMedia({ media: null });
+  });
+
+  test(`${target.name}: an image's resize handles do not print`, async ({ page }) => {
+    await openDemo(page, target);
+    await setContent(
+      page,
+      '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAA8CAIAAAAiz+n/AAAAhklEQVR4nO3QQQkAIADAQHvZztC+baEwDxZg3Jhr60Lj+cEngQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K1Ag24FGnQr0KBbgQbdCjToVqBBtwINuhVo0K0OrqfNIotgRa0AAAAASUVORK5CYII=" width="120" />',
+    );
+    await page.locator(`${EDITOR} img`).first().click();
+    await page.waitForTimeout(200);
+
+    await page.emulateMedia({ media: 'print' });
+    const handles = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('.dm-image-handle')).map(
+        (el) => getComputedStyle(el).display,
+      ),
+    );
+    await page.emulateMedia({ media: null });
+
+    // Absent is as good as hidden, but if they exist they must be gone.
+    for (const display of handles) expect(display).toBe('none');
+  });
+
+  test(`${target.name}: chrome that only exists mid-gesture is hidden too`, async ({ page }) => {
+    // A drop indicator lives for the length of a drag, a live region for the
+    // length of an announcement, a pending link for the length of a popover.
+    // None can be held open while the media switches, so each is measured on
+    // a stand-in carrying the production class.
+    await openDemo(page, target);
+    const chrome = [
+      'dm-block-drop-indicator',
+      'dm-live-region',
+      'dm-notion-color-picker',
+      'dm-emoji-picker-host',
+    ];
+    await page.evaluate((classes) => {
+      for (const name of classes) {
+        const el = document.createElement('div');
+        el.className = name;
+        el.id = `gesture-${name}`;
+        el.setAttribute('data-show', '');
+        el.textContent = 'x';
+        document.body.appendChild(el);
+      }
+      // The pending-link decoration lives INSIDE the document, so it needs
+      // the editor's scoping. It goes in a stand-in shell rather than the
+      // live editor: ProseMirror's DOM observer reverts foreign nodes put
+      // into its contenteditable before they can be measured.
+      const shell = document.createElement('div');
+      shell.className = 'dm-editor';
+      shell.id = 'gesture-shell';
+      const content = document.createElement('div');
+      content.className = 'ProseMirror';
+      content.innerHTML = '<span class="dm-link-pending" id="gesture-pending">linking</span>';
+      shell.appendChild(content);
+      document.body.appendChild(shell);
+    }, chrome);
+
+    await page.emulateMedia({ media: 'print' });
+    const hidden = await page.evaluate(
+      (classes) =>
+        classes.map((name) => {
+          const el = document.getElementById(`gesture-${name}`);
+          return el ? getComputedStyle(el).display : 'missing';
+        }),
+      chrome,
+    );
+    const pending = await page.evaluate(() => {
+      const el = document.getElementById('gesture-pending');
+      if (!el) return null;
+      const style = getComputedStyle(el);
+      return { display: style.display, decoration: style.textDecorationLine };
+    });
+    await page.emulateMedia({ media: null });
+    await page.evaluate((classes) => {
+      for (const name of classes) document.getElementById(`gesture-${name}`)?.remove();
+      document.getElementById('gesture-shell')?.remove();
+    }, chrome);
+
+    expect(hidden).toEqual(chrome.map(() => 'none'));
+    // The words being linked stay; only the in-progress underline goes.
+    expect(pending?.display).not.toBe('none');
+    expect(pending?.decoration).toBe('none');
+  });
+
   test(`${target.name}: body-mounted popovers are hidden on paper`, async ({ page }) => {
     // The link, image and math popovers mount on `document.body`, outside the
     // editor entirely, so the isolation rules would not reach them: they need

@@ -27,6 +27,9 @@
   // popovers mount on `document.body`, the menus inside `.dm-editor`, and the
   // TOC outline outside both, so this list is flat rather than scoped.
   .dm-toolbar,
+  // A descendant of `.dm-toolbar` today, so the line above already hides it.
+  // Listed anyway because floating UI is one refactor away from portaling
+  // the panel to `body`, the way the link and image popovers already are.
   .dm-toolbar-dropdown-panel,
   .dm-bubble-menu,
   .dm-floating-menu,
@@ -92,6 +95,10 @@
   .dm-editor .ProseMirror .mention-suggestion,
   .dm-editor .ProseMirror .dm-link-pending,
   .dm-editor .ProseMirror .dm-block-context-active {
+    // The transition first: a running transition outranks `!important`, and
+    // the context tint animates over 0.12s. Without this, a print taken just
+    // after the menu opened carries a fading grey block behind the text.
+    transition: none !important;
     background: none !important;
     border: none !important;
     box-shadow: none !important;
