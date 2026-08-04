@@ -212,6 +212,9 @@ export function NotionDemo({ scrollable = false }: NotionDemoProps): ReactNode {
   const { editor, editorRef } = useEditor({
     extensions,
     content: NOTION_DEMO_CONTENT,
+    // Paints dm-notion-mode on the wrapper and switches preset-aware
+    // extensions (bubble contexts, image placement) to their Notion behavior.
+    preset: 'notion',
   });
 
   const { htmlContent } = useEditorState(editor);
@@ -280,7 +283,7 @@ export function NotionDemo({ scrollable = false }: NotionDemoProps): ReactNode {
           ref={setPageEl}
           className={scrollable ? 'notion-page notion-page--scrollable' : 'notion-page'}
         >
-          <div className="dm-editor dm-notion-mode">
+          <div className="dm-editor">
             <div ref={editorRef} />
           </div>
 

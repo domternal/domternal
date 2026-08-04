@@ -18,6 +18,25 @@ import { imageUploadPlugin } from './imageUploadPlugin.js';
 export type ImageFloat = 'none' | 'left' | 'right' | 'center';
 
 /**
+ * Where a picture sits in the measure, WITHOUT text beside it: the Notion
+ * behaviour, and the one that survives a page format unchanged, since
+ * alignment is a paragraph property in both Word and the PDF while wrapping
+ * is a layout the two formats support to different depths.
+ */
+export type ImageAlign = 'none' | 'left' | 'center' | 'right';
+
+/**
+ * Which placement control the image bubble menu offers.
+ *
+ * The two are mutually exclusive on a node, and deliberately separate
+ * attributes rather than one attribute rendered differently per preset: the
+ * document has to record which of the two the author actually saw, or an
+ * export (which reads attributes, not presets) cannot tell a wrapped picture
+ * from an aligned one.
+ */
+export type ImagePlacement = 'float' | 'align';
+
+/**
  * Typed options for the setImage command.
  * src is required - it makes no sense to insert an image without a source URL.
  */
@@ -30,12 +49,14 @@ export interface SetImageOptions {
   loading?: 'lazy' | 'eager';
   crossorigin?: 'anonymous' | 'use-credentials';
   float?: ImageFloat;
+  align?: ImageAlign;
 }
 
 declare module '@domternal/core' {
   interface RawCommands {
     setImage: CommandSpec<[attributes: SetImageOptions]>;
     setImageFloat: CommandSpec<[float: ImageFloat]>;
+    setImageAlign: CommandSpec<[align: ImageAlign]>;
     deleteImage: CommandSpec;
   }
 }
@@ -130,7 +151,34 @@ export interface ImageOptions {
    * Called when upload fails. Receives the error and the file.
    */
   onUploadError: ((error: Error, file: File) => void) | null;
+  /**
+   * Which placement control the image bubble menu offers: `float`, where text
+   * wraps around the picture, or `align`, where the picture only moves within
+   * the measure and the text stays below it (the Notion behaviour).
+   *
+   * `null` (the default) follows the editor: the Notion preset offers align,
+   * everything else offers float. Set explicitly to pin one regardless of
+   * preset. Both attributes exist on the node either way, so a document
+   * written under one setting keeps its layout when opened under the other.
+   *
+   * @default null
+   */
+  placement: ImagePlacement | null;
 }
+
+/** Bubble-menu placement controls; exactly one set is offered, see `placement`. */
+const IMAGE_FLOAT_ITEMS: ToolbarItem[] = [
+  { type: 'button', name: 'imageFloatNone', command: 'setImageFloat', commandArgs: ['none'], icon: 'textIndent', label: 'Inline', group: 'image-float', priority: 100, isActive: { name: 'image', attributes: { float: 'none' } }, toolbar: false, bubbleMenu: 'image' },
+  { type: 'button', name: 'imageFloatLeft', command: 'setImageFloat', commandArgs: ['left'], icon: 'textAlignLeft', label: 'Float left', group: 'image-float', priority: 90, isActive: { name: 'image', attributes: { float: 'left' } }, toolbar: false, bubbleMenu: 'image' },
+  { type: 'button', name: 'imageFloatCenter', command: 'setImageFloat', commandArgs: ['center'], icon: 'textAlignCenter', label: 'Center', group: 'image-float', priority: 80, isActive: { name: 'image', attributes: { float: 'center' } }, toolbar: false, bubbleMenu: 'image' },
+  { type: 'button', name: 'imageFloatRight', command: 'setImageFloat', commandArgs: ['right'], icon: 'textAlignRight', label: 'Float right', group: 'image-float', priority: 70, isActive: { name: 'image', attributes: { float: 'right' } }, toolbar: false, bubbleMenu: 'image' },
+];
+
+const IMAGE_ALIGN_ITEMS: ToolbarItem[] = [
+  { type: 'button', name: 'imageAlignLeft', command: 'setImageAlign', commandArgs: ['left'], icon: 'textAlignLeft', label: 'Align left', group: 'image-align', priority: 90, isActive: { name: 'image', attributes: { align: 'left' } }, toolbar: false, bubbleMenu: 'image' },
+  { type: 'button', name: 'imageAlignCenter', command: 'setImageAlign', commandArgs: ['center'], icon: 'textAlignCenter', label: 'Align center', group: 'image-align', priority: 80, isActive: { name: 'image', attributes: { align: 'center' } }, toolbar: false, bubbleMenu: 'image' },
+  { type: 'button', name: 'imageAlignRight', command: 'setImageAlign', commandArgs: ['right'], icon: 'textAlignRight', label: 'Align right', group: 'image-align', priority: 70, isActive: { name: 'image', attributes: { align: 'right' } }, toolbar: false, bubbleMenu: 'image' },
+];
 
 export const Image = Node.create<ImageOptions>({
   name: 'image',
@@ -160,6 +208,7 @@ export const Image = Node.create<ImageOptions>({
       maxFileSize: 0,
       onUploadStart: null,
       onUploadError: null,
+      placement: null,
     };
   },
 
@@ -251,6 +300,31 @@ export const Image = Node.create<ImageOptions>({
           return {};
         },
       },
+      align: {
+        default: 'none',
+        // Read from the data attribute alone, never from the style: the
+        // centered form of the two is written with the same auto margins, and
+        // a document that already carries `float: center` must keep meaning
+        // that rather than acquire an alignment as well.
+        parseHTML: (element: HTMLElement) => {
+          const value = element.getAttribute('data-align');
+          return value === 'left' || value === 'center' || value === 'right' ? value : 'none';
+        },
+        renderHTML: (attributes: Record<string, unknown>) => {
+          const align = attributes['align'] as string;
+          if (!align || align === 'none') return {};
+          // The attribute is what parses back; the style is what makes the
+          // same HTML land in the right place in a plain browser, with no
+          // theme loaded. Never `float`, so no text comes up beside it.
+          const margins =
+            align === 'left'
+              ? 'margin-right: auto;'
+              : align === 'right'
+                ? 'margin-left: auto;'
+                : 'margin-left: auto; margin-right: auto;';
+          return { 'data-align': align, style: `display: block; width: fit-content; ${margins}` };
+        },
+      },
     };
   },
 
@@ -320,11 +394,14 @@ export const Image = Node.create<ImageOptions>({
         priority: 150,
         emitEvent: 'insertImage',
       },
-      // Bubble menu only: float controls
-      { type: 'button', name: 'imageFloatNone', command: 'setImageFloat', commandArgs: ['none'], icon: 'textIndent', label: 'Inline', group: 'image-float', priority: 100, isActive: { name: 'image', attributes: { float: 'none' } }, toolbar: false, bubbleMenu: 'image' },
-      { type: 'button', name: 'imageFloatLeft', command: 'setImageFloat', commandArgs: ['left'], icon: 'textAlignLeft', label: 'Float left', group: 'image-float', priority: 90, isActive: { name: 'image', attributes: { float: 'left' } }, toolbar: false, bubbleMenu: 'image' },
-      { type: 'button', name: 'imageFloatCenter', command: 'setImageFloat', commandArgs: ['center'], icon: 'textAlignCenter', label: 'Center', group: 'image-float', priority: 80, isActive: { name: 'image', attributes: { float: 'center' } }, toolbar: false, bubbleMenu: 'image' },
-      { type: 'button', name: 'imageFloatRight', command: 'setImageFloat', commandArgs: ['right'], icon: 'textAlignRight', label: 'Float right', group: 'image-float', priority: 70, isActive: { name: 'image', attributes: { float: 'right' } }, toolbar: false, bubbleMenu: 'image' },
+      // Bubble menu only: ONE placement control. The explicit `placement`
+      // option wins; otherwise the editor preset decides (Notion places a
+      // picture, classic wraps text around it). Offering both would ask the
+      // author to choose between two things that look the same until the
+      // text beside the picture is long enough to tell them apart.
+      ...((this.options.placement ?? (this.editor?.preset === 'notion' ? 'align' : 'float')) === 'align'
+        ? IMAGE_ALIGN_ITEMS
+        : IMAGE_FLOAT_ITEMS),
       // Bubble menu only: edit alt text. Highlights as active when the selected
       // image already has a non-empty alt (resolveActive passes the real editor).
       {
@@ -374,14 +451,19 @@ export const Image = Node.create<ImageOptions>({
       dom.className = 'dm-image-resizable';
       dom.draggable = true;
 
-      const applyFloat = (float: string): void => {
-        if (float && float !== 'none') {
+      const applyPlacement = (float: unknown, align: unknown): void => {
+        if (typeof float === 'string' && float !== '' && float !== 'none') {
           dom.setAttribute('data-float', float);
         } else {
           dom.removeAttribute('data-float');
         }
+        if (typeof align === 'string' && align !== '' && align !== 'none') {
+          dom.setAttribute('data-align', align);
+        } else {
+          dom.removeAttribute('data-align');
+        }
       };
-      applyFloat(node.attrs['float'] as string);
+      applyPlacement(node.attrs['float'], node.attrs['align']);
 
       const img = document.createElement('img');
       img.src = node.attrs['src'] as string;
@@ -458,7 +540,7 @@ export const Image = Node.create<ImageOptions>({
           img.alt = (updatedNode.attrs['alt'] as string | null) ?? '';
           img.title = (updatedNode.attrs['title'] as string | null) ?? '';
           applyWidth(img, updatedNode.attrs['width']);
-          applyFloat(updatedNode.attrs['float'] as string);
+          applyPlacement(updatedNode.attrs['float'], updatedNode.attrs['align']);
           node = updatedNode;
           return true;
         },
@@ -539,6 +621,31 @@ export const Image = Node.create<ImageOptions>({
             tr.setNodeMarkup(selection.from, undefined, {
               ...node.attrs,
               float,
+              // The two placements are one choice, so the other is cleared
+              // here rather than left behind: a node carrying both would look
+              // like whichever the stylesheet happens to apply last, and
+              // would export as whichever the serializer reads first.
+              align: 'none',
+            });
+            dispatch(tr);
+          }
+          return true;
+        },
+
+      setImageAlign:
+        (align: ImageAlign) =>
+        ({ tr, state, dispatch }) => {
+          if (!['none', 'left', 'center', 'right'].includes(align)) return false;
+
+          const { selection } = state;
+          const node = state.doc.nodeAt(selection.from);
+          if (node?.type.name !== 'image') return false;
+
+          if (dispatch) {
+            tr.setNodeMarkup(selection.from, undefined, {
+              ...node.attrs,
+              align,
+              float: 'none',
             });
             dispatch(tr);
           }

@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { Image } from './Image.js';
+import { Image, type ImageAlign } from './Image.js';
 import { Document, Text, Paragraph, Editor, type Extension } from '@domternal/core';
 import {
   imageUploadPlugin,
@@ -52,6 +52,7 @@ describe('Image', () => {
         maxFileSize: 0,
         onUploadStart: null,
         onUploadError: null,
+        placement: null,
       });
     });
 
@@ -970,6 +971,106 @@ describe('Image', () => {
       editor.commands.setContent(html);
       const image = editor.state.doc.child(0);
       expect(image.attrs['float']).toBe('left');
+    });
+  });
+
+  describe('align attribute', () => {
+    let editor: Editor | undefined;
+
+    afterEach(() => {
+      if (editor && !editor.isDestroyed) editor.destroy();
+    });
+
+    const withImage = (content: string): Editor => {
+      const instance = new Editor({
+        extensions: [Document, Text, Paragraph, Image],
+        content,
+      });
+      const { tr } = instance.state;
+      tr.setSelection(NodeSelection.create(instance.state.doc, 0));
+      instance.view.dispatch(tr);
+      return instance;
+    };
+
+    it('defaults to none and round-trips through the data attribute', () => {
+      editor = withImage('<img src="https://example.com/img.png">');
+      expect(editor.state.doc.child(0).attrs['align']).toBe('none');
+
+      editor.commands.setImageAlign('right');
+      const html = editor.getHTML();
+      expect(html).toContain('data-align="right"');
+      // The style is what positions the same HTML outside the editor, where
+      // no theme is loaded; it must never be a float.
+      expect(html).toContain('margin-left: auto');
+      expect(html).not.toContain('float:');
+
+      editor.commands.setContent(html);
+      expect(editor.state.doc.child(0).attrs['align']).toBe('right');
+    });
+
+    it('does not read an alignment out of a floated image', () => {
+      // `float: center` is written with the same auto margins an alignment
+      // uses; parsing align from the style would give that node both.
+      editor = withImage(
+        '<img src="https://example.com/img.png" style="margin-left: auto; margin-right: auto;">'
+      );
+      const image = editor.state.doc.child(0);
+      expect(image.attrs['float']).toBe('center');
+      expect(image.attrs['align']).toBe('none');
+    });
+
+    it('align and float are one choice: setting either clears the other', () => {
+      editor = withImage('<img src="https://example.com/img.png" style="float: left;">');
+      expect(editor.state.doc.child(0).attrs['float']).toBe('left');
+
+      editor.commands.setImageAlign('center');
+      expect(editor.state.doc.child(0).attrs['float']).toBe('none');
+      expect(editor.state.doc.child(0).attrs['align']).toBe('center');
+
+      editor.commands.setImageFloat('right');
+      expect(editor.state.doc.child(0).attrs['align']).toBe('none');
+      expect(editor.state.doc.child(0).attrs['float']).toBe('right');
+    });
+
+    it('refuses a value outside the three positions', () => {
+      editor = withImage('<img src="https://example.com/img.png">');
+      expect(editor.commands.setImageAlign('sideways' as ImageAlign)).toBe(false);
+    });
+  });
+
+  describe('placement control', () => {
+    const toolbarNames = (image: typeof Image, preset?: 'classic' | 'notion'): string[] => {
+      const instance = new Editor({
+        extensions: [Document, Text, Paragraph, image],
+        content: '<p>x</p>',
+        ...(preset ? { preset } : {}),
+      });
+      const collected = instance.toolbarItems.map((item) => item.name ?? '');
+      instance.destroy();
+      return collected;
+    };
+
+    it('follows the editor preset by default', () => {
+      const classicNames = toolbarNames(Image);
+      expect(classicNames).toContain('imageFloatLeft');
+      expect(classicNames).not.toContain('imageAlignLeft');
+
+      const notionNames = toolbarNames(Image, 'notion');
+      expect(notionNames).toContain('imageAlignLeft');
+      expect(notionNames).toContain('imageAlignCenter');
+      expect(notionNames).toContain('imageAlignRight');
+      expect(notionNames).not.toContain('imageFloatLeft');
+      expect(notionNames).not.toContain('imageFloatNone');
+    });
+
+    it('an explicit placement option overrides the preset', () => {
+      const floatInNotion = toolbarNames(Image.configure({ placement: 'float' }), 'notion');
+      expect(floatInNotion).toContain('imageFloatLeft');
+      expect(floatInNotion).not.toContain('imageAlignLeft');
+
+      const alignInClassic = toolbarNames(Image.configure({ placement: 'align' }));
+      expect(alignInClassic).toContain('imageAlignLeft');
+      expect(alignInClassic).not.toContain('imageFloatLeft');
     });
   });
 });

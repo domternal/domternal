@@ -42,6 +42,9 @@ export const EditorContent = defineComponent({
       const editorDom = editor.view.dom;
       if (editorDom.parentElement !== container) {
         container.appendChild(editorDom);
+        // The detached-construction window is over; let a preset: 'notion'
+        // editor paint dm-notion-mode on the host it can now reach.
+        editor.adoptPresetClass();
       }
     });
 

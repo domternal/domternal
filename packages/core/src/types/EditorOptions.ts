@@ -43,6 +43,20 @@ export interface AnyExtension {
 export type FocusPosition = boolean | 'start' | 'end' | 'all' | number | null;
 
 /**
+ * The editing experience the editor is assembled for.
+ *
+ * - 'classic': the default toolbar-driven experience
+ * - 'notion': the block-based Notion-style experience; the editor paints
+ *   `dm-notion-mode` on its `.dm-editor` host, and preset-aware extensions
+ *   (the bubble menu contexts, the image placement controls) adapt
+ *
+ * Read the resolved value via `editor.preset`, never this option directly:
+ * consumers that predate the option declare Notion mode with the theme
+ * class alone, and the getter honors that.
+ */
+export type EditorPreset = 'classic' | 'notion';
+
+/**
  * Configuration options for creating an Editor instance
  */
 export interface EditorOptions {
@@ -77,6 +91,16 @@ export interface EditorOptions {
    * @default true
    */
   editable?: boolean;
+
+  /**
+   * Editing experience preset. `'notion'` paints `dm-notion-mode` on the
+   * `.dm-editor` host and switches preset-aware extensions to their Notion
+   * behavior, so one option replaces setting the class by hand. When omitted,
+   * a `dm-notion-mode` class already on the host still counts as Notion;
+   * an explicit `'classic'` overrides even that.
+   * @default undefined (resolved from the host class, else 'classic')
+   */
+  preset?: EditorPreset;
 
   /**
    * Accessible label for the editor.

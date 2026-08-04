@@ -9,6 +9,7 @@ import type { Plugin, Transaction, EditorState } from '@domternal/pm/state';
 import type { InputRule } from '@domternal/pm/inputrules';
 import type { EditorView } from '@domternal/pm/view';
 import type { Command, KeyboardShortcutCommand, SingleCommands } from './Commands.js';
+import type { EditorPreset } from './EditorOptions.js';
 import type { ToolbarItem } from './Toolbar.js';
 import type { FloatingMenuItem } from './FloatingMenu.js';
 
@@ -23,6 +24,11 @@ export interface ExtensionEditor {
   // Safe to read before the view exists (falls back to the editable option),
   // unlike view.editable; see Editor.isEditable.
   readonly isEditable: boolean;
+  /**
+   * Resolved editing-experience preset; see Editor.preset. Optional so
+   * minimal editor mocks keep compiling; treat undefined as 'classic'.
+   */
+  readonly preset?: EditorPreset;
 }
 
 /**

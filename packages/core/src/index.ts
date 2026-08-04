@@ -17,6 +17,7 @@ export type {
   AnyExtension,
   FocusPosition,
   EditorOptions,
+  EditorPreset,
   // Editor events
   EditorInstance,
   TransactionEventProps,

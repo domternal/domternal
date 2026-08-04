@@ -8,7 +8,7 @@ import {
   BaseKeymap,
   History,
 } from '@domternal/core';
-import type { Content, AnyExtension, FocusPosition, TransactionEventProps, FocusEventProps } from '@domternal/core';
+import type { Content, AnyExtension, FocusPosition, EditorPreset, TransactionEventProps, FocusEventProps } from '@domternal/core';
 
 export const DEFAULT_EXTENSIONS: AnyExtension[] = [Document, Paragraph, Text, BaseKeymap, History];
 
@@ -25,6 +25,12 @@ export interface UseEditorOptions {
   content?: Content;
   /** Whether the editor is editable. @default true */
   editable?: boolean;
+  /**
+   * Editing experience preset. `'notion'` paints `dm-notion-mode` on the
+   * `.dm-editor` wrapper and switches preset-aware extensions to their
+   * Notion behavior, replacing the hand-written class. Create-time only.
+   */
+  preset?: EditorPreset;
   /** Where to autofocus on mount. @default false */
   autofocus?: FocusPosition;
   /** Output format for content comparison. @default 'html' */
@@ -105,6 +111,7 @@ export function useEditor(options: UseEditorOptions = {}): {
       content: initialContent,
       editable,
       autofocus: focus,
+      ...(options.preset ? { preset: options.preset } : {}),
     });
 
     markRaw(ed);
@@ -152,6 +159,9 @@ export function useEditor(options: UseEditorOptions = {}): {
       const mount = editorRef.value;
       if (mount && ed.view.dom.parentElement !== mount) {
         mount.appendChild(ed.view.dom);
+        // The detached-construction window is over; let a preset: 'notion'
+        // editor paint dm-notion-mode on the host it can now reach.
+        ed.adoptPresetClass();
       }
       return;
     }
