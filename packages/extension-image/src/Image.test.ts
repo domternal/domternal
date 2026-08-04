@@ -2403,6 +2403,31 @@ describe('Image NodeView (DOM)', () => {
     expect(img?.style.width).toBe('300px');
   });
 
+  it('applies a px-suffixed width, which the export has always honoured', () => {
+    // `setImage({ width: '300px' })` is legal (the option type is
+    // string | number) and pasted markup carries the same spelling, but
+    // interpolating it produced "300pxpx", which CSSOM rejects outright: the
+    // picture fell back to its intrinsic size on screen while both export
+    // backends sized it at 300. Same document, half the width on paper.
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<img src="https://example.com/img.png" width="300px">',
+    });
+
+    expect(host.querySelector('img')?.style.width).toBe('300px');
+  });
+
+  it('ignores a width that is not a length', () => {
+    editor = new Editor({
+      element: host,
+      extensions: [Document, Text, Paragraph, Image],
+      content: '<img src="https://example.com/img.png" width="auto">',
+    });
+
+    expect(host.querySelector('img')?.style.width).toBe('');
+  });
+
   it('mousedown on wrapper selects the image', () => {
     editor = new Editor({
       element: host,

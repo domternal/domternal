@@ -62,6 +62,28 @@ function isValidImageSrc(value: unknown, allowBase64: boolean): boolean {
   return true;
 }
 
+/**
+ * Writes the stored width onto the element, accepting every spelling the
+ * `width` attribute legally carries: a number from a fresh resize, a numeric
+ * string after a getHTML/setContent round trip, and a px-suffixed string
+ * from `setImage({ width: '300px' })` or pasted markup (the option type is
+ * `string | number`).
+ *
+ * Interpolating the raw value produced "300pxpx" for that last spelling,
+ * which CSSOM rejects outright, so the picture silently fell back to its
+ * intrinsic size on screen while both export backends sized it at 300. Same
+ * document, half the width on paper.
+ */
+function applyWidth(img: HTMLImageElement, value: unknown): void {
+  const px =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number.parseFloat(/^\s*(\d+(?:\.\d+)?)(?:px)?\s*$/.exec(value)?.[1] ?? '')
+        : Number.NaN;
+  img.style.width = Number.isFinite(px) && px > 0 ? `${String(px)}px` : '';
+}
+
 /** Reads a File as a base64 data URL. */
 function readFileAsDataURL(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -365,9 +387,7 @@ export const Image = Node.create<ImageOptions>({
       img.src = node.attrs['src'] as string;
       if (node.attrs['alt']) img.alt = node.attrs['alt'] as string;
       if (node.attrs['title']) img.title = node.attrs['title'] as string;
-      if (node.attrs['width']) {
-        img.style.width = `${String(node.attrs['width'] as number)}px`;
-      }
+      applyWidth(img, node.attrs['width']);
       dom.appendChild(img);
 
       // Click-to-select: floated images confuse ProseMirror's posAtCoords,
@@ -437,11 +457,7 @@ export const Image = Node.create<ImageOptions>({
           // A null alt/title would be written as the literal string "null".
           img.alt = (updatedNode.attrs['alt'] as string | null) ?? '';
           img.title = (updatedNode.attrs['title'] as string | null) ?? '';
-          if (updatedNode.attrs['width']) {
-            img.style.width = `${String(updatedNode.attrs['width'] as number)}px`;
-          } else {
-            img.style.width = '';
-          }
+          applyWidth(img, updatedNode.attrs['width']);
           applyFloat(updatedNode.attrs['float'] as string);
           node = updatedNode;
           return true;
