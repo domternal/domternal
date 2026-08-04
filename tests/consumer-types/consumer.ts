@@ -130,6 +130,7 @@ editor.commands.suggestEmoji();
 
 editor.commands.setImage({ src: 'x' });
 editor.commands.setImageFloat('left');
+editor.commands.setImageAlign('center');
 editor.commands.deleteImage();
 editor.commands.insertMarkdown('# hi');
 editor.commands.setMarkdownContent('# hi');

@@ -85,6 +85,7 @@ EditorEventName
 EditorEvents
 EditorInstance
 EditorOptions
+EditorPreset
 EventEmitter
 Extension
 ExtensionConfig

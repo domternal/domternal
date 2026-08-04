@@ -10,6 +10,7 @@ import type {
   Content,
   AnyExtension,
   FocusPosition,
+  EditorPreset,
   JSONContent,
   TransactionEventProps,
   FocusEventProps,
@@ -37,6 +38,12 @@ export interface DomternalEditorOptions {
   content?: Content;
   /** Whether the editor is editable. @default true */
   editable?: boolean;
+  /**
+   * Editing experience preset. `'notion'` paints `dm-notion-mode` on the
+   * `.dm-editor` host and switches preset-aware extensions to their Notion
+   * behavior, replacing the hand-written class. Create-time only.
+   */
+  preset?: EditorPreset;
   /** Where to autofocus on mount. @default false */
   autofocus?: FocusPosition;
   /**
@@ -151,6 +158,7 @@ export class DomternalEditor extends EventTarget {
       content: options.content ?? '',
       editable: options.editable ?? true,
       autofocus: options.autofocus ?? false,
+      ...(options.preset ? { preset: options.preset } : {}),
     });
 
     this.#wireEditorEvents();

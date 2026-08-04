@@ -211,6 +211,9 @@ onMounted(() => {
 const { editor, editorRef } = useEditor({
   extensions,
   content: NOTION_DEMO_CONTENT,
+  // Paints dm-notion-mode on the wrapper and switches preset-aware
+  // extensions (bubble contexts, image placement) to their Notion behavior.
+  preset: 'notion',
 });
 
 const { htmlContent } = useEditorState(editor);
@@ -279,7 +282,7 @@ watch(editor, (ed, _old, onCleanup) => {
       ref="pageEl"
       :class="['notion-page', { 'notion-page--scrollable': props.scrollable }]"
     >
-      <div class="dm-editor dm-notion-mode">
+      <div class="dm-editor">
         <div ref="editorRef" />
       </div>
 

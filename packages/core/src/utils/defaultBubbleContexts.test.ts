@@ -40,6 +40,17 @@ describe('defaultBubbleContexts', () => {
     expect(text).toContain('textAlign');
   });
 
+  it('the preset option declares Notion mode without any class', () => {
+    editor = new Editor({
+      extensions: [Document, Text, Paragraph],
+      content: '<p>hi</p>',
+      preset: 'notion',
+    });
+    const text = defaultBubbleContexts(editor)['text'] ?? [];
+    expect(text[0]).toBe('ai');
+    expect(text).toContain('textAlign');
+  });
+
   it('returns a fresh array each call (safe to mutate)', () => {
     editor = makeEditor();
     const a = defaultBubbleContexts(editor)['text'];

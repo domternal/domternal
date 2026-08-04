@@ -16,6 +16,7 @@ export type {
   AnyExtension,
   FocusPosition,
   EditorOptions,
+  EditorPreset,
 } from './EditorOptions.js';
 
 // Editor events

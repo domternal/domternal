@@ -9,6 +9,7 @@ import type { Node as PMNode, DOMOutputSpec, NodeType } from '@domternal/pm/mode
 import type { EditorState, Plugin } from '@domternal/pm/state';
 import type { EditorView, NodeViewConstructor } from '@domternal/pm/view';
 import type { ExtensionConfigBase, ExtensionContext } from './ExtensionConfig.js';
+import type { EditorPreset } from './EditorOptions.js';
 import type { AttributeSpecs } from './AttributeSpec.js';
 
 /**
@@ -22,6 +23,11 @@ export interface NodeEditorContext {
     nodes: Record<string, NodeType>;
   };
   readonly commands: Record<string, (...args: unknown[]) => boolean>;
+  /**
+   * Resolved editing-experience preset; see Editor.preset. Optional so
+   * minimal editor mocks keep compiling; treat undefined as 'classic'.
+   */
+  readonly preset?: EditorPreset;
 }
 
 /**

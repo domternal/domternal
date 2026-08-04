@@ -170,7 +170,8 @@ const buildExtensions = (scrollParent: Element | null): AnyExtension[] => [
  * block-insert UI, bubble menu for text formatting on selection. Mirrors
  * `apps/demo-react/src/NotionDemo.tsx` and `apps/demo-angular/src/app/notion-demo/notion-demo.component.ts`.
  *
- * DOM chain: `.app-notion-demo > .notion-page > .dm-editor.dm-notion-mode > [editorRef]`
+ * DOM chain: `.app-notion-demo > .notion-page > .dm-editor > [editorRef]`
+ * (the editor's preset: 'notion' paints dm-notion-mode on the .dm-editor shell)
  *
  * Toast system: listens for `dm:copy-link-success` / `dm:copy-link-error`
  * dispatched by `BlockContextMenu`'s "Copy link" action; renders fixed-position
@@ -205,13 +206,14 @@ export class NotionDemo {
     this.#container = container;
     const scrollable = options.scrollable === true;
 
-    // DOM chain: .app-notion-demo > .notion-page > .dm-editor.dm-notion-mode > [editorHost]
+    // DOM chain: .app-notion-demo > .notion-page > .dm-editor > [editorHost]
     const notionDemo = document.createElement('div');
     notionDemo.className = 'app-notion-demo';
     const notionPage = document.createElement('div');
     notionPage.className = scrollable ? 'notion-page notion-page--scrollable' : 'notion-page';
     const editorShell = document.createElement('div');
-    editorShell.className = 'dm-editor dm-notion-mode';
+    // The Notion class comes from the editor's preset: 'notion', not from here.
+    editorShell.className = 'dm-editor';
     const editorHost = document.createElement('div');
     editorShell.appendChild(editorHost);
     notionPage.appendChild(editorShell);
@@ -229,6 +231,9 @@ export class NotionDemo {
       // Scrollable mode tracks the host; full-height mode tracks window.
       extensions: buildExtensions(scrollable ? notionPage : null),
       content: NOTION_DEMO_CONTENT,
+      // Paints dm-notion-mode on the shell and switches preset-aware
+      // extensions (bubble contexts, image placement) to their Notion behavior.
+      preset: 'notion',
     });
     const editor = this.#editorWrapper.editor;
 

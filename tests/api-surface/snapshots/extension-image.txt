@@ -1,5 +1,7 @@
 Image
+ImageAlign
 ImageFloat
 ImageOptions
+ImagePlacement
 imageUploadPluginKey
 SetImageOptions

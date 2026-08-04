@@ -40,6 +40,14 @@
     font-size: 1.1em;
   }
 
+  // Continues the ladder h3 1.25 / h4 1.1 rather than leaving h5 on the UA
+  // 0.83em, which sits BELOW h6 and below body text: an omission rather than
+  // a design, and invisible until a consumer enables levels 5 and 6 (the
+  // Heading extension ships with [1, 2, 3, 4]).
+  h5 {
+    font-size: 1em;
+  }
+
   h6 {
     font-size: 0.9em;
     color: var(--dm-muted, #6b7280);

@@ -1,6 +1,6 @@
 import { defineComponent, h, ref, watch, watchEffect } from 'vue';
 import type { Component, PropType } from 'vue';
-import type { AnyExtension, Content, FocusPosition } from '@domternal/core';
+import type { AnyExtension, Content, FocusPosition, EditorPreset } from '@domternal/core';
 import { useEditor, type UseEditorOptions } from './useEditor.js';
 import { provideEditor, useCurrentEditor } from './EditorContext.js';
 import { DomternalToolbar } from './toolbar/DomternalToolbar.js';
@@ -39,6 +39,7 @@ export const Domternal = defineComponent({
     extensions: { type: Array as PropType<AnyExtension[]>, default: undefined },
     content: { type: [String, Object] as PropType<Content>, default: '' },
     editable: { type: Boolean, default: true },
+    preset: { type: String as PropType<EditorPreset>, default: undefined },
     autofocus: { type: [Boolean, String, Number] as PropType<FocusPosition>, default: false },
     outputFormat: { type: String as PropType<'html' | 'json'>, default: 'html' },
     immediatelyRender: { type: Boolean, default: false },
@@ -54,6 +55,7 @@ export const Domternal = defineComponent({
       ...(props.extensions && { extensions: props.extensions }),
       content: props.content,
       editable: props.editable,
+      ...(props.preset && { preset: props.preset }),
       autofocus: props.autofocus,
       outputFormat: props.outputFormat,
       immediatelyRender: props.immediatelyRender,
@@ -106,6 +108,9 @@ const DomternalContent = defineComponent({
       const editorDom = ed.view.dom;
       if (editorDom.parentElement !== container) {
         container.appendChild(editorDom);
+        // The detached-construction window is over; let a preset: 'notion'
+        // editor paint dm-notion-mode on the host it can now reach.
+        ed.adoptPresetClass();
       }
     });
 

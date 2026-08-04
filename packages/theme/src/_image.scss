@@ -45,6 +45,21 @@
       z-index: 1; // above inline text so clicks always hit the image, not the paragraph behind
     }
 
+    // Align variants: the picture moves within the measure and the text stays
+    // BELOW it, which is the Notion behaviour and the one that survives a page
+    // format unchanged. No `float`, so no 60% cap either: nothing has to fit
+    // beside it.
+    &[data-align] {
+      display: block;
+      width: fit-content;
+    }
+    &[data-align="left"] { margin-right: auto; }
+    &[data-align="center"] {
+      margin-left: auto;
+      margin-right: auto;
+    }
+    &[data-align="right"] { margin-left: auto; }
+
     // Selected state - accent outline + visible handles
     &.ProseMirror-selectednode {
       outline: 2px solid var(--dm-accent, #2563eb);
@@ -71,6 +86,21 @@
     &-sw { bottom: -4px; left: -4px; cursor: sw-resize; }
     &-se { bottom: -4px; right: -4px; cursor: se-resize; }
   }
+}
+
+// Notion mode never wraps text beside a picture: the controls on offer there
+// are the align set, so a float left over from a classic document renders as
+// its aligned equivalent instead of a layout the author can no longer reach.
+.dm-editor.dm-notion-mode .ProseMirror .dm-image-resizable {
+  &[data-float="left"],
+  &[data-float="right"] {
+    float: none;
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0.75em 0;
+  }
+  &[data-float="right"] { margin-left: auto; }
 }
 
 // Popover mounts to `document.body`, outside the `.dm-editor` cascade where

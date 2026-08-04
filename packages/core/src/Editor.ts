@@ -23,6 +23,7 @@ import {
 } from './commands/index.js';
 import type {
   EditorOptions,
+  EditorPreset,
   EditorEvents,
   Content,
   JSONContent,
@@ -112,6 +113,13 @@ export class Editor extends EventEmitter<EditorEvents> {
   private _isViewConstructing = false;
 
   /**
+   * The `.dm-editor` host this editor painted `dm-notion-mode` onto because
+   * of `preset: 'notion'`. Tracked so destroy() removes only a class the
+   * editor itself added, never one the consumer wrote.
+   */
+  private _presetClassHost: Element | null = null;
+
+  /**
    * Creates a new Editor instance
    *
    * @param options - Editor configuration
@@ -170,6 +178,47 @@ export class Editor extends EventEmitter<EditorEvents> {
     // The declared type says `view` is always set; mid-construction it is not.
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     return this.view ? this.view.editable : (this.options.editable ?? true);
+  }
+
+  /**
+   * The resolved editing-experience preset.
+   *
+   * The `preset` option wins when provided (so an explicit 'classic' can
+   * opt out of everything). Otherwise a `dm-notion-mode` class on or above
+   * the view counts as 'notion': consumers that predate the option declare
+   * Notion mode with the theme class alone, and behavior must follow what
+   * the user actually sees. Resolved on every read, not cached, so a class
+   * toggled at runtime is picked up.
+   */
+  get preset(): EditorPreset {
+    if (this.options.preset) {
+      return this.options.preset;
+    }
+    // The view is unset while EditorView's constructor runs (see isEditable).
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (this.view?.dom.closest('.dm-notion-mode')) {
+      return 'notion';
+    }
+    return 'classic';
+  }
+
+  /**
+   * Paints `dm-notion-mode` on the `.dm-editor` host when the editor was
+   * created with `preset: 'notion'`. Runs during creation, and framework
+   * wrappers call it again after adopting the view's DOM: they construct
+   * the editor in a detached element, so the creation-time run cannot see
+   * the host yet. Idempotent; a no-op for any other preset. Only a class
+   * added here is removed again on destroy.
+   */
+  adoptPresetClass(): void {
+    if (this.options.preset !== 'notion' || this._presetClassHost) {
+      return;
+    }
+    const host = this.view.dom.closest('.dm-editor');
+    if (host && !host.classList.contains('dm-notion-mode')) {
+      host.classList.add('dm-notion-mode');
+      this._presetClassHost = host;
+    }
   }
 
   /**
@@ -601,6 +650,12 @@ export class Editor extends EventEmitter<EditorEvents> {
     this.emit('destroy');
     this.options.onDestroy?.();
 
+    // Remove the preset class only if this editor painted it (see step 7.5)
+    if (this._presetClassHost) {
+      this._presetClassHost.classList.remove('dm-notion-mode');
+      this._presetClassHost = null;
+    }
+
     // Destroy ProseMirror view
     this.view.destroy();
 
@@ -740,6 +795,11 @@ export class Editor extends EventEmitter<EditorEvents> {
       },
     });
     this._isViewConstructing = false;
+
+    // 7.5. preset: 'notion' paints the theme class on the `.dm-editor` host,
+    // so one option covers styling and behavior; consumers stop writing the
+    // class by hand. Only a class this editor added is removed on destroy.
+    this.adoptPresetClass();
 
     // 8. Emit mount event - view is now attached to DOM element
     this.emit('mount', { editor: this, view: this.view });

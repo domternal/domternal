@@ -25,7 +25,7 @@ import {
   BaseKeymap,
   History,
 } from '@domternal/core';
-import type { Content, AnyExtension, FocusPosition, JSONContent, TransactionEventProps, FocusEventProps } from '@domternal/core';
+import type { Content, AnyExtension, FocusPosition, EditorPreset, JSONContent, TransactionEventProps, FocusEventProps } from '@domternal/core';
 
 export const DEFAULT_EXTENSIONS: AnyExtension[] = [Document, Paragraph, Text, BaseKeymap, History];
 
@@ -57,6 +57,12 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
   readonly history = input(true);
   readonly content = input<Content>('');
   readonly editable = input(true);
+  /**
+   * Editing experience preset. `'notion'` paints `dm-notion-mode` on this
+   * component's host and switches preset-aware extensions to their Notion
+   * behavior, replacing the hand-written class. Create-time only.
+   */
+  readonly preset = input<EditorPreset | undefined>(undefined);
   readonly autofocus = input<FocusPosition>(false);
   readonly outputFormat = input<'html' | 'json'>('html');
 
@@ -202,12 +208,14 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
     const defaults = this.history()
       ? DEFAULT_EXTENSIONS
       : DEFAULT_EXTENSIONS.filter((extension) => extension.name !== 'history');
+    const preset = this.preset();
     this._editor = new Editor({
       element: this.editorRef().nativeElement,
       extensions: [...defaults, ...this.extensions()],
       content: initialContent,
       editable: this.editable(),
       autofocus: this.autofocus(),
+      ...(preset ? { preset } : {}),
     });
 
     this._isEditable.set(this.editable());
