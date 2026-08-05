@@ -381,7 +381,9 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
 
       setTrailing({
         isNodeSelection: isNode,
-        showColorPickerButton: hasNotionColorPicker,
+        // Hidden without a live notionColorOpen listener: the trigger would be dead.
+        showColorPickerButton:
+          hasNotionColorPicker && ed.listenerCount('notionColorOpen') > 0,
         showBlockMenuButton: hasBlockContextMenu,
         blockMenuButtonDisabled: blockMenuDisabled,
         currentTextColorVar: textVar,

@@ -88,7 +88,9 @@ export function computeTrailingState(
 
   return {
     isNodeSelection: isNode,
-    showColorPickerButton: opts.hasNotionColorPicker,
+    // Hidden without a live notionColorOpen listener: the trigger would be dead.
+    showColorPickerButton:
+      opts.hasNotionColorPicker && editor.listenerCount('notionColorOpen') > 0,
     showBlockMenuButton: opts.hasBlockContextMenu,
     blockMenuButtonDisabled: blockMenuDisabled,
     currentTextColorVar: textVar,

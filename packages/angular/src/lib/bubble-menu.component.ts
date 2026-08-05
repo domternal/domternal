@@ -186,6 +186,8 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
   /** Internal - true when the NotionColorPicker extension is loaded; toggles the "A" color trigger. */
   readonly showColorPickerButton = signal(false);
+  /** notionColorPicker extension loaded (immutable per editor). */
+  private hasNotionColorPicker = false;
 
   /** Current text color CSS variable expression for the trigger glyph (null = default). */
   readonly currentTextColorVar = signal<string | null>(null);
@@ -492,9 +494,9 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     this.showBlockMenuButton.set(
       editor.extensionManager.extensions.some((e) => e.name === 'blockContextMenu'),
     );
-    this.showColorPickerButton.set(
-      editor.extensionManager.extensions.some((e) => e.name === 'notionColorPicker'),
-    );
+    // Presence cached; the show decision needs a live listener (per sync below).
+    this.hasNotionColorPicker =
+      editor.extensionManager.extensions.some((e) => e.name === 'notionColorPicker');
 
     const items = this.items();
     const defaultItems = this.resolveNames(items ?? ['bold', 'italic', 'underline']);
@@ -535,6 +537,10 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   private syncTrailingButtonsState(editor: Editor): void {
     this.isNodeSelection.set(
       !!(editor.state.selection as unknown as SelectionShape).node,
+    );
+    // Hidden without a live notionColorOpen listener: the trigger would be dead.
+    this.showColorPickerButton.set(
+      this.hasNotionColorPicker && editor.listenerCount('notionColorOpen') > 0,
     );
     if (this.showColorPickerButton()) this.syncColorTriggerState(editor);
     if (this.showBlockMenuButton()) this.syncBlockMenuButtonState(editor);
