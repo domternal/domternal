@@ -6,3 +6,6 @@ contact_links:
   - name: Live examples
     url: https://domternal.dev/examples
     about: Try Domternal in the browser and open framework starters on StackBlitz.
+  - name: Domternal Pro support
+    url: https://domternal.dev/v1/pro/support/
+    about: Email support for subscribers, and where to send anything involving your own data or a security vulnerability.
