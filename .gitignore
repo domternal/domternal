@@ -39,3 +39,6 @@ Thumbs.db
 
 # Angular CLI build cache (library and demo app builds)
 .angular/
+
+# pnpm content-addressable store, when it lands inside the repo
+.pnpm-store/
