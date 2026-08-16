@@ -987,4 +987,99 @@ for (const target of demoTargets) {
     expect(await styleOf(page, '#host-chrome', 'display')).not.toBe('none');
     await page.emulateMedia({ media: null });
   });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Dark theme
+  //
+  // The theme forces the document's text black, and the rule that clears
+  // ancestor backgrounds cannot reach `body`, which is not a descendant of
+  // itself. Black on near-black. Both halves are pinned together, because
+  // either assertion alone passes in the broken state.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /** The dark theme, applied the way every demo applies it. */
+  async function goDark(page: Page): Promise<void> {
+    await page.evaluate(() => {
+      document.body.classList.add('dm-theme-dark');
+      document.querySelectorAll('.dm-editor').forEach((el) => {
+        el.classList.add('dm-theme-dark');
+      });
+    });
+    // Past the theme-toggle transition, so this proves the rule not the timing.
+    await page.waitForTimeout(300);
+  }
+
+  /** What printDocument stamps, held so it can be measured. */
+  async function markAsPrinting(page: Page): Promise<void> {
+    await page.evaluate(() => {
+      const root = document.querySelector('.dm-editor');
+      if (!root) throw new Error('no editor to mark');
+      root.classList.add('dm-print-root');
+      let el = root.parentElement;
+      while (el) {
+        el.classList.add('dm-print-ancestor');
+        el = el.parentElement;
+      }
+      document.body.classList.add('dm-printing');
+    });
+  }
+
+  test(`${target.name}: a dark theme does not print the page canvas dark`, async ({ page }) => {
+    await openDemo(page, target);
+    await goDark(page);
+    await page.emulateMedia({ media: 'print' });
+
+    // Transparent, not merely "not dark": html has none, so this propagates.
+    expect(await styleOf(page, 'body', 'background-color')).toBe('rgba(0, 0, 0, 0)');
+    await page.emulateMedia({ media: null });
+  });
+
+  test(`${target.name}: dark-theme text and canvas agree on the printed sheet`, async ({
+    page,
+  }) => {
+    await openDemo(page, target);
+    await goDark(page);
+    await page.emulateMedia({ media: 'print' });
+
+    // The pairing that broke, asserted together.
+    expect(await styleOf(page, '.dm-editor', 'color')).toBe('rgb(0, 0, 0)');
+    expect(await styleOf(page, '.dm-editor', 'background-color')).toBe('rgba(0, 0, 0, 0)');
+    expect(await styleOf(page, `${EDITOR}`, 'color')).toBe('rgb(0, 0, 0)');
+    expect(await styleOf(page, 'body', 'background-color')).toBe('rgba(0, 0, 0, 0)');
+    await page.emulateMedia({ media: null });
+  });
+
+  test(`${target.name}: the marked print path clears the canvas body included`, async ({
+    page,
+  }) => {
+    await openDemo(page, target);
+    await goDark(page);
+    await markAsPrinting(page);
+    await page.emulateMedia({ media: 'print' });
+
+    // body carries the ancestor class but the ancestor rule cannot reach it.
+    expect(await styleOf(page, 'body', 'background-color')).toBe('rgba(0, 0, 0, 0)');
+    expect(await styleOf(page, 'body', 'color')).toBe('rgb(0, 0, 0)');
+    // And the ancestors the rule does reach, caught separately.
+    expect(await styleOf(page, '.dm-print-ancestor', 'background-color')).toBe('rgba(0, 0, 0, 0)');
+    await page.emulateMedia({ media: null });
+  });
+
+  test(`${target.name}: dark-theme block backgrounds that carry meaning still print`, async ({
+    page,
+  }) => {
+    await openDemo(page, target);
+    await goDark(page);
+    await setContent(
+      page,
+      '<p>Before</p><pre><code>const answer = 42;</code></pre><p>After</p>',
+    );
+    await page.emulateMedia({ media: 'print' });
+
+    // Clearing the canvas must not become "clear every background": a code
+    // block's tint is content.
+    const codeBg = await styleOf(page, `${EDITOR} pre`, 'background-color');
+    expect(codeBg).not.toBe('rgba(0, 0, 0, 0)');
+    await page.emulateMedia({ media: null });
+  });
 }
