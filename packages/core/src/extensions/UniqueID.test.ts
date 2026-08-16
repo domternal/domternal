@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { Fragment, Slice } from '@domternal/pm/model';
-import { Plugin } from '@domternal/pm/state';
+import { AllSelection, Plugin, TextSelection } from '@domternal/pm/state';
 import { Extension } from '../Extension.js';
 import { UniqueID } from './UniqueID.js';
 import { Document } from '../nodes/Document.js';
@@ -574,6 +574,112 @@ describe('UniqueID', () => {
       const copied = transformPasted.call(plugin!, slice, editor.view, false);
       expect(copied.content.firstChild?.attrs['id']).toBe('regenerated');
       view.dragging = null;
+    });
+
+    /**
+     * A block inside the replaced selection is about to be deleted, so its id
+     * is about to be free. Counting it renames the content replacing it.
+     */
+    describe('a paste that replaces its own source', () => {
+      const pasteOnce = (): Slice => {
+        const plugin = editor!.state.plugins.find((p) => p.props.transformPasted !== undefined);
+        const slice = editor!.state.doc.slice(0, editor!.state.doc.content.size);
+        editor!.view.dispatch(editor!.state.tr.setSelection(new AllSelection(editor!.state.doc)));
+        const transformed = plugin!.props.transformPasted!.call(
+          plugin!,
+          slice,
+          editor!.view,
+          false
+        );
+        editor!.view.dispatch(editor!.state.tr.replaceSelection(transformed));
+        return transformed;
+      };
+
+      const idsOf = (): string[] => {
+        const ids: string[] = [];
+        editor!.state.doc.descendants((node) => {
+          const id = node.attrs['id'] as string | undefined;
+          if (id) ids.push(id);
+          return true;
+        });
+        return ids;
+      };
+
+      it('keeps every id, and keeps them on the paste after that', () => {
+        // Counted, not constant: unfixed, this regenerates three ids at once,
+        // and one repeated string sends the renaming sweep round forever.
+        let fresh = 0;
+        const CustomUniqueID = UniqueID.configure({
+          types: ['paragraph', 'heading'],
+          generateID: () => `regenerated-${String(++fresh)}`,
+        });
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, Heading, CustomUniqueID],
+          content: '<h1 id="b1">Title</h1><p id="b2">First</p><p id="b3">Second</p>',
+        });
+
+        // Twice: the failure alternated, the first paste freeing the ids the
+        // second then kept.
+        pasteOnce();
+        expect(idsOf()).toEqual(['b1', 'b2', 'b3']);
+        pasteOnce();
+        expect(idsOf()).toEqual(['b1', 'b2', 'b3']);
+      });
+
+      it('still regenerates when the source survives the paste', () => {
+        const CustomUniqueID = UniqueID.configure({
+          types: ['paragraph'],
+          generateID: () => 'regenerated',
+        });
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, CustomUniqueID],
+          content: '<p id="source">Source</p><p id="target">Target</p>',
+        });
+        const plugin = editor.state.plugins.find((p) => p.props.transformPasted !== undefined);
+        const copied = editor.state.schema.nodes['paragraph']!.create(
+          { id: 'source' },
+          editor.state.schema.text('Source')
+        );
+        const slice = new Slice(Fragment.from(copied), 0, 0);
+
+        // The second paragraph selected; the first, which owns the pasted id,
+        // survives.
+        const target = editor.state.doc.child(0).nodeSize;
+        editor.view.dispatch(
+          editor.state.tr.setSelection(
+            TextSelection.create(editor.state.doc, target + 1, target + 7)
+          )
+        );
+        const result = plugin!.props.transformPasted!.call(plugin!, slice, editor.view, false);
+        expect(result.content.firstChild?.attrs['id']).toBe('regenerated');
+      });
+
+      it('regenerates when the selection only clips the block holding the id', () => {
+        const CustomUniqueID = UniqueID.configure({
+          types: ['paragraph'],
+          generateID: () => 'regenerated',
+        });
+        editor = new Editor({
+          extensions: [Document, Text, Paragraph, CustomUniqueID],
+          content: '<p id="first">First block</p><p id="second">Second block</p>',
+        });
+        const plugin = editor.state.plugins.find((p) => p.props.transformPasted !== undefined);
+        const copied = editor.state.schema.nodes['paragraph']!.create(
+          { id: 'first' },
+          editor.state.schema.text('First block')
+        );
+        const slice = new Slice(Fragment.from(copied), 0, 0);
+
+        // Trims both blocks and deletes neither, so both keep their ids.
+        const secondStart = editor.state.doc.child(0).nodeSize + 1;
+        editor.view.dispatch(
+          editor.state.tr.setSelection(
+            TextSelection.create(editor.state.doc, 4, secondStart + 4)
+          )
+        );
+        const result = plugin!.props.transformPasted!.call(plugin!, slice, editor.view, false);
+        expect(result.content.firstChild?.attrs['id']).toBe('regenerated');
+      });
     });
 
     it('a duplicate landing ABOVE the original renames the copy, not the original', async () => {

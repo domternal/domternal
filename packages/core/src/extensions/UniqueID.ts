@@ -26,6 +26,25 @@ function generateUUID(): string {
 
 export const uniqueIDPluginKey = new PluginKey('uniqueID');
 
+/** What a paste transform reads off the view; structural so a stub works. */
+interface PasteView {
+  dragging?: { move?: boolean } | null;
+  state?: {
+    selection?: {
+      ranges?: readonly { $from: { pos: number }; $to: { pos: number } }[];
+    };
+  };
+}
+
+/** Whether `[from, to)` lies entirely inside one of the given ranges. */
+function isWithin(
+  from: number,
+  to: number,
+  ranges: readonly { from: number; to: number }[]
+): boolean {
+  return ranges.some((range) => from >= range.from && to <= range.to);
+}
+
 export interface UniqueIDOptions {
   /**
    * Node types that should receive unique IDs.
@@ -106,6 +125,22 @@ export const UniqueID = Extension.create<UniqueIDOptions>({
     const { types, attributeName, generateID, filterDuplicates } = this.options;
     const editor = this.editor as Editor | null;
 
+    /** The ranges a paste is about to delete. */
+    const replacedRanges = (view?: PasteView): { from: number; to: number }[] => {
+      // A drop inserts at the drop point and leaves the selection alone, so
+      // there the selection names content that SURVIVES.
+      if (view?.dragging) return [];
+      const ranges = view?.state?.selection?.ranges;
+      if (ranges === undefined) return [];
+      const replaced: { from: number; to: number }[] = [];
+      for (const range of ranges) {
+        if (range.$to.pos > range.$from.pos) {
+          replaced.push({ from: range.$from.pos, to: range.$to.pos });
+        }
+      }
+      return replaced;
+    };
+
     /**
      * ProseMirror runs this on the DRAGGED slice too, before the source is
      * deleted, so a plain block move looks like a duplicate and the moved block
@@ -114,15 +149,23 @@ export const UniqueID = Extension.create<UniqueIDOptions>({
      * `move` is false for a copy drag, which should still regenerate. If a move
      * never completes, `assignMissingIDs` catches the duplicate.
      */
-    const transformPastedSlice = (slice: Slice, view?: { dragging?: { move?: boolean } | null }): Slice => {
+    const transformPastedSlice = (slice: Slice, view?: PasteView): Slice => {
       if (view?.dragging?.move === true) return slice;
 
       const existingIDs = new Set<string>();
+      const replaced = replacedRanges(view);
 
-      // Collect existing IDs in document
-      editor?.state.doc.descendants((node: PMNode) => {
+      // Existing ids, minus the ones the paste is about to delete: a block
+      // being replaced is not an incumbent, and counting it renamed the very
+      // content replacing it (Ctrl+A then paste), orphaning every reference.
+      // A `handlePaste` that inserts elsewhere can defeat this; the cost is a
+      // duplicate `assignMissingIDs` renames on the next transaction.
+      editor?.state.doc.descendants((node: PMNode, pos: number) => {
+        // Whole subtree: everything inside a replaced node is replaced too.
+        if (isWithin(pos, pos + node.nodeSize, replaced)) return false;
         const id = node.attrs[attributeName] as string | undefined;
         if (id) existingIDs.add(id);
+        return true;
       });
 
       // Transform pasted content
