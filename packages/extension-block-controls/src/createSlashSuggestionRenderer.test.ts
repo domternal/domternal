@@ -147,9 +147,12 @@ describe('createSlashSuggestionRenderer - rendered DOM', () => {
     const renderer = createSlashSuggestionRenderer();
     renderer.onStart(makeProps([itemA, itemC])); // C has no icon
 
+    // By label, not index: C declines a group, and an ungrouped item leads.
     const buttons = Array.from(host?.querySelectorAll<HTMLButtonElement>('.dm-slash-command-item') ?? []);
-    expect(buttons[0]?.querySelector('.dm-slash-command-item-icon')).not.toBeNull();
-    expect(buttons[1]?.querySelector('.dm-slash-command-item-icon')).toBeNull();
+    const byLabel = (label: string): HTMLButtonElement | undefined =>
+      buttons.find((button) => button.textContent?.includes(label));
+    expect(byLabel('Heading 1')?.querySelector('.dm-slash-command-item-icon')).not.toBeNull();
+    expect(byLabel('Code block')?.querySelector('.dm-slash-command-item-icon')).toBeNull();
     renderer.onExit();
   });
 
