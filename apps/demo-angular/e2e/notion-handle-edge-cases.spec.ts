@@ -312,20 +312,24 @@ test.describe('Default scoring rules - exclusions', () => {
 test.describe('Notion demo layout invariants', () => {
   test.beforeEach(async ({ page }) => { await goNotion(page); });
 
-  test('.dm-editor max-width matches the configured 38rem (608px)', async ({ page }) => {
-    const editorBox = await boxOf(page.locator('app-notion-demo .dm-editor'));
-    // 38rem at default 16px/rem = 608px. Allow a few px of slop for sub-
+  test('the reading column is capped at 44rem while the frame fills the page card', async ({ page }) => {
+    const columnBox = await boxOf(page.locator('app-notion-demo .ProseMirror'));
+    // 44rem at default 16px/rem = 704px. Allow a few px of slop for sub-
     // pixel rounding and scroll-bar inclusion in the bbox.
-    expect(editorBox.width).toBeLessThanOrEqual(608 + 4);
-    expect(editorBox.width).toBeGreaterThanOrEqual(608 - 4);
+    expect(columnBox.width).toBeLessThanOrEqual(704 + 4);
+    expect(columnBox.width).toBeGreaterThanOrEqual(704 - 4);
+
+    // The gap is the room a docked panel slides the column into.
+    const frameBox = await boxOf(page.locator('app-notion-demo .dm-editor'));
+    expect(frameBox.width).toBeGreaterThan(columnBox.width);
   });
 
-  test('.dm-editor is horizontally centered inside <app-notion-demo>', async ({ page }) => {
+  test('the reading column is horizontally centered inside <app-notion-demo>', async ({ page }) => {
     const host = await boxOf(page.locator('app-notion-demo'));
-    const editorBox = await boxOf(page.locator('app-notion-demo .dm-editor'));
+    const columnBox = await boxOf(page.locator('app-notion-demo .ProseMirror'));
 
-    const leftMargin = editorBox.x - host.x;
-    const rightMargin = (host.x + host.width) - (editorBox.x + editorBox.width);
+    const leftMargin = columnBox.x - host.x;
+    const rightMargin = (host.x + host.width) - (columnBox.x + columnBox.width);
     // Margins should be symmetric within a few px (centered).
     expect(Math.abs(leftMargin - rightMargin)).toBeLessThan(4);
     // And both should be > 0 (actually centered narrower).
@@ -333,20 +337,21 @@ test.describe('Notion demo layout invariants', () => {
     expect(rightMargin).toBeGreaterThan(0);
   });
 
-  test('block handle, when shown, sits in the LEFT margin (negative left vs editor)', async ({ page }) => {
+  test('block handle, when shown, hugs the reading column from the left gutter', async ({ page }) => {
     await setContent(page, '<p>Centered</p>');
     const para = page.locator(`${editorSelector} p`);
     const pBox = await boxOf(para);
     await para.hover();
     await expect(page.locator(blockHandleSelector)).toHaveAttribute('data-show', '');
 
-    const editorBox = await boxOf(page.locator('app-notion-demo .dm-editor'));
+    const columnBox = await boxOf(page.locator('app-notion-demo .ProseMirror'));
     const handle = await boxOf(page.locator(blockHandleSelector));
-    // Handle's right edge should be ≤ editor's left edge (handle lives
-    // entirely in the left side gutter, not overlapping the content).
-    expect(handle.x + handle.width).toBeLessThanOrEqual(editorBox.x + 4);
+    // 4px before the column, the same gap BlockHandle uses for anchored
+    // blocks, so both paths agree.
+    expect(handle.x + handle.width).toBeGreaterThanOrEqual(columnBox.x - 6);
+    expect(handle.x + handle.width).toBeLessThanOrEqual(columnBox.x - 2);
     // And block content position is unchanged regardless.
-    expect(pBox.x).toBeGreaterThanOrEqual(editorBox.x);
+    expect(pBox.x).toBeGreaterThanOrEqual(columnBox.x);
   });
 });
 

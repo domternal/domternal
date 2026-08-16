@@ -12,30 +12,37 @@
   box-shadow: none;
   background: transparent;
 
-  // Centered, comfortably narrow reading column. The surrounding margin
-  // is where the BlockHandle sits (see token overrides below). Consumers
-  // are expected to control the surrounding container width; on viewports
-  // narrower than 38rem the column overflows by design (Notion mode is
-  // opt-in).
-  max-width: 38rem;
+  // The measure. Read twice: as the column's width, and halved in the handle
+  // offset below, so overriding it moves both.
+  --dm-notion-column-width: 44rem;
+
+  // Do NOT cap the frame here. A docked sidebar makes room by sliding the
+  // column, and only within the frame; capped to the column's own width there
+  // is no whitespace to slide into and the sidebar lands on the prose.
+  max-width: none;
   margin: 0 auto;
 
-  // Generous reading line-height; padding zeroed because the page wrapper
-  // supplies the white space around the column. Body font-size inherits
-  // classic 1rem so toggling between modes doesn't shift text size.
+  // Zero padding is a precondition of the handle offset, not tidiness: it
+  // assumes the text starts at the column's left edge.
   --dm-editor-line-height: 1.7;
   --dm-editor-padding: 0;
 
-  // Handle lives fully OUTSIDE the centered content column. Zeroing the
-  // ProseMirror gutter token reclaims the reserved column (the handle no
-  // longer overlaps content - there is nothing to reserve). The negative
-  // `left` token pulls the 40px handle cluster left of the column so its
-  // right edge ends 4px before the content's left edge (Notion hugs its
-  // controls to the text the same way): -44px + 40px = -4px.
+  // Walk in to the centred column's edge, then back off the 40px cluster plus
+  // the 4px gap `BlockHandle` uses for container-anchored blocks, so both
+  // paths agree. The shift term follows a panel that slides the column.
   --dm-block-handle-gutter: 0;
-  --dm-block-handle-left: -2.75rem;
+  --dm-block-handle-left: calc(
+    max(50% - var(--dm-notion-column-width) * 0.5, 0px) - 2.75rem +
+      var(--dm-panel-column-shift, 0px)
+  );
 
   .ProseMirror {
+    // `border-box` because `.ProseMirror` has no box-sizing of its own, so
+    // padding would otherwise widen the box past the measure.
+    box-sizing: border-box;
+    max-width: var(--dm-notion-column-width);
+    margin-inline: auto;
+
     min-height: 60vh;
     outline: none;
 

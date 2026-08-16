@@ -20,6 +20,13 @@ body.dm-theme-dark {
   margin: 2rem auto;
   padding: 0 1rem;
 
+  // Notion mode is a page, not a sheet of A4: its 44rem column plus the 48px
+  // the block handle needs does not fit a 210mm shell.
+  &:has(.notion-page) {
+    width: auto;
+    max-width: 72rem;
+  }
+
   // Notion mode owns its own padding via `.dm-notion-mode` preset; only
   // apply the A4-page-style padding to non-Notion editors.
   .dm-editor:not(.dm-notion-mode) {

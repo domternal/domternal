@@ -66,12 +66,11 @@
   // Pin static position to parent top so the hidden box doesn't
   // inflate parent scrollHeight. JS sets `top` inline on show.
   top: 0;
-  // Tokenised so demos with a centered narrower content column can move
-  // the handle further out (e.g., `--dm-block-handle-left: -2.75rem`) to
-  // place it fully in the surrounding whitespace (that needs the
-  // `overflow: visible` set above on `.dm-editor--has-block-handle`).
-  // Default `0.25rem` keeps the 40px cluster inside the standard
-  // `--dm-block-handle-gutter` reservation, 4px before the text.
+  // Resolved against `.dm-editor`, so a layout whose column is narrower than
+  // the editor must derive this from the column (see `_notion-mode.scss`) or
+  // the handle stays pinned to the editor's edge. A negative value needs the
+  // `overflow: visible` set above. Default `0.25rem` keeps the 40px cluster
+  // inside the `--dm-block-handle-gutter` reservation, 4px before the text.
   left: var(--dm-block-handle-left, 0.25rem);
   display: flex;
   align-items: center;

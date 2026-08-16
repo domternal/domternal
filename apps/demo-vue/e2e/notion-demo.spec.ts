@@ -622,6 +622,11 @@ test.describe('Notion-mode library class', () => {
         editorPadding: cs.getPropertyValue('--dm-editor-padding').trim(),
         blockHandleGutter: cs.getPropertyValue('--dm-block-handle-gutter').trim(),
         blockHandleLeft: cs.getPropertyValue('--dm-block-handle-left').trim(),
+        notionColumnWidth: cs.getPropertyValue('--dm-notion-column-width').trim(),
+        columnMaxWidth: (() => {
+          const pm = el.querySelector('.ProseMirror');
+          return pm ? getComputedStyle(pm).maxWidth : null;
+        })(),
         editorLineHeight: cs.getPropertyValue('--dm-editor-line-height').trim(),
         editorFontSize: cs.getPropertyValue('--dm-editor-font-size').trim(),
       };
@@ -632,11 +637,24 @@ test.describe('Notion-mode library class', () => {
     expect(styles.borderLeft).toBe('none');
     expect(styles.borderRadius).toBe('0px');
     expect(styles.boxShadow).toBe('none');
-    expect(styles.maxWidth).toBe('608px'); // 38rem at 16px base
+    // Uncapped on purpose; the measure moved onto the column, asserted below.
+    expect(styles.maxWidth).toBe('none');
+    expect(styles.notionColumnWidth).toBe('44rem');
     expect(styles.editorPadding).toBe('0');
     expect(styles.blockHandleGutter).toBe('0');
-    expect(styles.blockHandleLeft).toBe('-2.75rem');
+    // Not pinned as a string: the token is an unregistered custom property, so
+    // getPropertyValue returns the calc unevaluated and the exact spelling is
+    // browser-dependent. What the contract actually promises is that it is
+    // derived from the column and follows a panel push, so assert the shape
+    // and let the resolved 4px gap be proven by the layout specs.
+    // Not pinned as a literal: getPropertyValue substitutes var() first and
+    // the spelling is browser-dependent. The contract is that it is derived,
+    // not constant; the resolved 4px gap belongs to the layout specs.
+    expect(styles.blockHandleLeft).toContain('calc(');
+    expect(styles.blockHandleLeft).toContain('2.75rem');
     expect(styles.editorLineHeight).toBe('1.7');
+    // The measure now lives on the column, one level down.
+    expect(styles.columnMaxWidth).toBe('704px'); // 44rem at 16px base
     // Notion mode inherits classic body size; toggle shifts layout, not scale.
     expect(styles.editorFontSize).toBe('1rem');
   });
