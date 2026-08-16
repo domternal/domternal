@@ -8,6 +8,9 @@ toolbar, bubble menu, floating menu, popovers, and every UI component. It is a
 CSS-only package (no JavaScript), built from Sass and shipped as a single compiled stylesheet. Every
 visual property is exposed as a CSS custom property, so you can rebrand colors,
 fonts, spacing, and borders by overriding a variable instead of touching the source.
+It also carries the paper layer: printing an editor produces the document rather than
+the screen, chrome and all hidden, and that applies to the reader's own Ctrl/Cmd+P
+without any JavaScript.
 
 ## Links
 
@@ -57,9 +60,11 @@ ancestor element:
 <div class="dm-theme-light">...</div>
 ```
 
-For a Notion-style look (borderless surface, centered narrow column), add the
-`dm-notion-mode` class to the `.dm-editor` host element. See the theming guide
-for details.
+For a Notion-style look (borderless surface, centered narrow column), create the editor
+with `preset: 'notion'`, which paints the `dm-notion-mode` class on the `.dm-editor` host
+for you; adding the class by hand still works and is what the preset does. The reading
+measure is `--dm-notion-column-width` (default `44rem`) and sits on the content column, so
+the host itself stays full width. See the theming guide for details.
 
 Override any CSS custom property on `.dm-editor`, `.dm-toolbar`, or a parent to
 customize the look:

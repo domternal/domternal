@@ -20,7 +20,8 @@ A lightweight, extensible rich text editor toolkit built on [ProseMirror](https:
 - **React components** - composable `Domternal` component, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (React 18+)
 - **Vue components** - composable `Domternal` component, `useEditor`/`useEditorState` composables, toolbar, bubble menu, floating menu, emoji picker, notion color picker, custom node views (Vue 3.3+)
 - **Vanilla wrapper** - framework-free class-based API for Astro, Svelte, Solid, plain HTML, and Web Components - editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker
-- **Notion-style block UX** - drag-to-reorder, block context menu, slash command, smart paste, keyboard reorder, floating Table of Contents
+- **Notion-style block UX** - drag-to-reorder, block context menu, slash command, smart paste, keyboard reorder, floating Table of Contents, all behind one `preset: 'notion'` option
+- **Print to paper or PDF** - `printDocument()` leaves your app's chrome off the page, and the theme's paper layer applies to the reader's own Ctrl/Cmd+P with no code involved
 - **70+ extensions across 17 packages** - nodes, marks, and behavior extensions
 - **130+ chainable commands** - `editor.chain().focus().toggleBold().run()`
 - **Full table support** - cell merging, column resize, row/column controls, cell toolbar
@@ -58,7 +59,7 @@ The example above wires the minimum schema by hand to show the headless model; i
 
 | Package | Description |
 |---|---|
-| [`@domternal/core`](https://www.npmjs.com/package/@domternal/core) | Editor engine with 13 nodes, 9 marks, 27 extensions, toolbar controller, and 51 built-in icons |
+| [`@domternal/core`](https://www.npmjs.com/package/@domternal/core) | Editor engine with 13 nodes, 9 marks, 28 extensions, toolbar controller, and 52 built-in icons |
 | [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme) | Light and dark themes with 160+ CSS custom properties |
 | [`@domternal/angular`](https://www.npmjs.com/package/@domternal/angular) | 6 Angular components: editor, toolbar, bubble menu, floating menu, emoji picker, notion color picker |
 | [`@domternal/react`](https://www.npmjs.com/package/@domternal/react) | React 18+ wrapper: composable component, toolbar, bubble menu, floating menu, emoji picker, notion color picker, node views |
