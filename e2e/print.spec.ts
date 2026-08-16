@@ -989,12 +989,9 @@ for (const target of demoTargets) {
   });
 
   // ──────────────────────────────────────────────────────────────────────────
-  // Dark theme
-  //
-  // The theme forces the document's text black, and the rule that clears
-  // ancestor backgrounds cannot reach `body`, which is not a descendant of
-  // itself. Black on near-black. Both halves are pinned together, because
-  // either assertion alone passes in the broken state.
+  // Dark theme. The print layer forces the text black, and the rule clearing
+  // ancestor backgrounds cannot reach `body`, which is not its own descendant:
+  // black on near-black. Pinned together, since either half alone passes.
   // ──────────────────────────────────────────────────────────────────────────
 
   /** The dark theme, applied the way every demo applies it. */
@@ -1029,7 +1026,7 @@ for (const target of demoTargets) {
     await goDark(page);
     await page.emulateMedia({ media: 'print' });
 
-    // Transparent, not merely "not dark": html has none, so this propagates.
+    // Transparent, not merely "not dark": html has none, so it propagates.
     expect(await styleOf(page, 'body', 'background-color')).toBe('rgba(0, 0, 0, 0)');
     await page.emulateMedia({ media: null });
   });
@@ -1044,7 +1041,7 @@ for (const target of demoTargets) {
     // The pairing that broke, asserted together.
     expect(await styleOf(page, '.dm-editor', 'color')).toBe('rgb(0, 0, 0)');
     expect(await styleOf(page, '.dm-editor', 'background-color')).toBe('rgba(0, 0, 0, 0)');
-    expect(await styleOf(page, `${EDITOR}`, 'color')).toBe('rgb(0, 0, 0)');
+    expect(await styleOf(page, EDITOR, 'color')).toBe('rgb(0, 0, 0)');
     expect(await styleOf(page, 'body', 'background-color')).toBe('rgba(0, 0, 0, 0)');
     await page.emulateMedia({ media: null });
   });
@@ -1076,8 +1073,8 @@ for (const target of demoTargets) {
     );
     await page.emulateMedia({ media: 'print' });
 
-    // Clearing the canvas must not become "clear every background": a code
-    // block's tint is content.
+    // Clearing the canvas must not clear every background: a code block's
+    // tint is content.
     const codeBg = await styleOf(page, `${EDITOR} pre`, 'background-color');
     expect(codeBg).not.toBe('rgba(0, 0, 0, 0)');
     await page.emulateMedia({ media: null });
