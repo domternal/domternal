@@ -150,7 +150,7 @@ describe('createSlashSuggestionRenderer - rendered DOM', () => {
     // By label, not index: C declines a group, and an ungrouped item leads.
     const buttons = Array.from(host?.querySelectorAll<HTMLButtonElement>('.dm-slash-command-item') ?? []);
     const byLabel = (label: string): HTMLButtonElement | undefined =>
-      buttons.find((button) => button.textContent?.includes(label));
+      buttons.find((button) => button.textContent.includes(label));
     expect(byLabel('Heading 1')?.querySelector('.dm-slash-command-item-icon')).not.toBeNull();
     expect(byLabel('Code block')?.querySelector('.dm-slash-command-item-icon')).toBeNull();
     renderer.onExit();
