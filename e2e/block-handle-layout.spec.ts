@@ -9,12 +9,11 @@
  *
  * Geometry contract (theme/_block-handle.scss + _notion-mode.scss): each button
  * is `1.25rem` (20px) wide and the two sit flush (no `gap`), so the cluster is
- * ~40px. In Notion mode `--dm-block-handle-gutter: 0` and
- * `--dm-block-handle-left: -2.75rem` (-44px) pull the 40px cluster left of the
- * `.dm-editor` column so its right edge ends 4px before the content's left edge
- * (-44 + 40 = -4). These tests pin the ORDER and the flush ADJACENCY so a
- * refactor that swaps the buttons or strands the grip out in the margin is
- * caught as a regression.
+ * ~40px. In Notion mode `--dm-block-handle-left` is a calc derived from
+ * `--dm-notion-column-width`, so the cluster ends 4px before the text at any
+ * frame width (pinned by `notion-column-token.spec.ts`). These tests pin the
+ * ORDER and the flush ADJACENCY so a refactor that swaps the buttons or
+ * strands the grip out in the margin is caught as a regression.
  */
 import { test } from './fixtures.js';
 import { expect, type Page } from '@playwright/test';

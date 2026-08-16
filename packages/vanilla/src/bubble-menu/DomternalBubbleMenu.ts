@@ -72,14 +72,13 @@ export type { BubbleMenuItem, BubbleMenuTrailingState };
  * "..." for block context menu) are rendered automatically when the
  * corresponding extensions are loaded.
  *
- * Re-renders are batched via `requestAnimationFrame`. DOM is rebuilt on every
- * transaction because the item list changes with context (selection moves
- * between text and code-block, for example).
+ * Re-renders are batched via `requestAnimationFrame`. The structure is rebuilt
+ * only when the item list changes; a state-only render updates the nodes on
+ * screen, so a press that outlives a transaction still produces a click.
  *
- * **Stable identity convention.** Trigger buttons (including the "A" and "..."
- * trailing triggers and dropdown triggers) are DESTROYED and RECREATED on
- * every transaction. Consumers that store a reference to a trigger element
- * (e.g. as a popover anchor) should:
+ * **Stable identity convention.** A trigger survives a state-only render but
+ * NOT an item-list change, so consumers holding a reference to one (e.g. as a
+ * popover anchor) should still:
  * - Either listen for `selectionUpdate` / `transaction` and re-resolve the
  *   anchor via `host.querySelector('.dm-ncp-trigger')` on demand
  * - Or match the trigger by class + container (`closest('.dm-bubble-menu')`)
@@ -154,6 +153,16 @@ export class DomternalBubbleMenu extends EventTarget {
   #activeMap = new Map<string, boolean>();
   #disabledMap = new Map<string, boolean>();
   #trailing: BubbleMenuTrailingState = { ...INITIAL_TRAILING_STATE };
+
+  // Structure rebuilt only on an item-list change, so a pressed button lives.
+  #structureKey: string | null = null;
+  #buttonEls = new Map<string, HTMLButtonElement>();
+  // Icon markup last WRITTEN. `btn.innerHTML` returns the browser's
+  // re-serialisation, so comparing against it rewrites every render and
+  // replaces the glyph under the pointer. Keyed by element: names repeat.
+  #iconHtml = new WeakMap<Element, string>();
+  #colorTriggerEl: HTMLButtonElement | null = null;
+  #blockMenuTriggerEl: HTMLButtonElement | null = null;
 
   // Dropdown state (text-align dropdown inside bubble menu)
   #openDropdown: string | null = null;
@@ -283,6 +292,10 @@ export class DomternalBubbleMenu extends EventTarget {
   setIcons(icons: IconSet | undefined): void {
     if (this.#destroyed) return;
     this.#icons = icons;
+    // Icons live in innerHTML where the state-only render never looks: the
+    // "..." trigger and an open panel. Rebuild, as the toolbar does; a
+    // consumer call catches no press.
+    this.#structureKey = null;
     this.#scheduleRender();
   }
 
@@ -506,32 +519,61 @@ export class DomternalBubbleMenu extends EventTarget {
     });
   }
 
+  /** Signature of what decides which nodes exist; equal keys reuse the DOM. */
+  #computeStructureKey(): string {
+    const items = this.#resolvedItems
+      .map((item) =>
+        item.type === 'dropdown'
+          ? `${item.type}:${item.name}:${item.items.map((sub) => sub.name).join(',')}`
+          : `${item.type}:${item.name}`,
+      )
+      .join('|');
+    const t = this.#trailing;
+    return [
+      items,
+      t.showColorPickerButton && !t.isNodeSelection ? 'color' : '',
+      t.showBlockMenuButton && !t.isNodeSelection ? 'block' : '',
+      this.#customContent ? 'custom' : '',
+    ].join('#');
+  }
+
+  /**
+   * Runs on every transaction, and pointer motion alone dispatches those. A
+   * render lands a frame late, so rebuilding wholesale can replace a button
+   * between mousedown and mouseup: the two events share no element and the
+   * browser fires no click at all. Structure only on an item-list change,
+   * state in place otherwise, as the toolbar does.
+   */
   #render(): void {
-    // Bubble menu items change with selection context, so we rebuild DOM
-    // every render. The cost is small (typically <10 buttons) and keeps
-    // the logic straightforward vs incremental diff.
-    this.host.replaceChildren();
-
-    // The dropdown panel was a child of host - replaceChildren() removed it.
-    // Detach our floating + AbortController state but KEEP `#openDropdown`
-    // name so `#createDropdownTrigger` re-creates the panel when it encounters
-    // the matching item below. Without this preservation, clicking a dropdown
-    // trigger (which sets openDropdown then calls #render) would immediately
-    // see the panel orphaned and close.
-    this.#cleanupDropdownFloating?.();
-    this.#cleanupDropdownFloating = null;
-    this.#dropdownAbortCtl?.abort();
-    this.#dropdownAbortCtl = null;
-    this.#dropdownPanelEl = null;
-
-    // If the open dropdown is no longer in resolvedItems (e.g. selection
-    // moved to a context that doesn't show it), clear the flag.
+    // A dropdown whose trigger left the item list cannot stay open.
     if (this.#openDropdown !== null) {
       const stillExists = this.#resolvedItems.some(
         (item) => item.type === 'dropdown' && item.name === this.#openDropdown,
       );
-      if (!stillExists) this.#openDropdown = null;
+      if (!stillExists) {
+        this.#openDropdown = null;
+        this.#detachDropdown();
+      }
     }
+
+    const key = this.#computeStructureKey();
+    if (key === this.#structureKey) {
+      this.#updateButtons();
+    } else {
+      this.#renderStructure();
+      this.#structureKey = key;
+    }
+    this.#syncDropdownPanel();
+  }
+
+  #renderStructure(): void {
+    this.host.replaceChildren();
+    this.#buttonEls.clear();
+    this.#colorTriggerEl = null;
+    this.#blockMenuTriggerEl = null;
+    // replaceChildren() took the panel; `#openDropdown` survives and
+    // `#syncDropdownPanel` rebuilds it under the new trigger.
+    this.#detachDropdown();
 
     for (const item of this.#resolvedItems) {
       if (item.type === 'separator') {
@@ -583,10 +625,11 @@ export class DomternalBubbleMenu extends EventTarget {
     btn.setAttribute('aria-label', item.label);
     btn.setAttribute('aria-pressed', String(isActive));
     btn.title = item.label;
-    btn.innerHTML = resolveIcon(item.icon, this.#icons);
+    this.#setIconHtml(btn, resolveIcon(item.icon, this.#icons));
 
     btn.addEventListener('mousedown', (e) => { e.preventDefault(); });
     btn.addEventListener('click', (e) => { this.#onButtonClick(item, e); });
+    this.#buttonEls.set(item.name, btn);
     return btn;
   }
 
@@ -611,21 +654,13 @@ export class DomternalBubbleMenu extends EventTarget {
     trigger.setAttribute('aria-label', dd.label);
     trigger.title = dd.label;
     trigger.dataset['dropdown'] = dd.name;
-    trigger.innerHTML = triggerHtml;
+    this.#setIconHtml(trigger, triggerHtml);
     trigger.addEventListener('mousedown', (e) => { e.preventDefault(); });
     trigger.addEventListener('click', () => { this.#onDropdownToggle(dd); });
 
     wrapper.appendChild(trigger);
-
-    // If this dropdown was already open (e.g. re-render preserving open state)
-    // append its panel too. In practice #render closes open dropdowns first,
-    // so this branch is reached only from explicit re-opens.
-    if (this.#openDropdown === dd.name) {
-      const panel = this.#createDropdownPanel(dd);
-      wrapper.appendChild(panel);
-      this.#dropdownPanelEl = panel;
-      this.#attachDropdownListeners(trigger, panel);
-    }
+    this.#buttonEls.set(dd.name, trigger);
+    // `#syncDropdownPanel` owns the panel, so opening one rebuilds nothing.
     return wrapper;
   }
 
@@ -645,6 +680,7 @@ export class DomternalBubbleMenu extends EventTarget {
       if (subActive) subBtn.classList.add('dm-toolbar-dropdown-item--active');
       subBtn.setAttribute('role', 'menuitem');
       subBtn.setAttribute('aria-label', sub.label);
+      subBtn.dataset['dropdownItem'] = sub.name;
       subBtn.innerHTML = subHtml;
       subBtn.addEventListener('mousedown', (e) => { e.preventDefault(); });
       subBtn.addEventListener('click', () => { this.#onDropdownItemClick(sub); });
@@ -676,6 +712,7 @@ export class DomternalBubbleMenu extends EventTarget {
 
     btn.addEventListener('mousedown', (e) => { e.preventDefault(); });
     btn.addEventListener('click', () => { this.openColorPicker(btn); });
+    this.#colorTriggerEl = btn;
     return btn;
   }
 
@@ -693,7 +730,96 @@ export class DomternalBubbleMenu extends EventTarget {
     btn.innerHTML = resolveIcon('dotsThree', this.#icons);
     btn.addEventListener('mousedown', (e) => { e.preventDefault(); });
     btn.addEventListener('click', () => { this.openBlockContextMenu(btn); });
+    this.#blockMenuTriggerEl = btn;
     return btn;
+  }
+
+  // === In-place updates (the common render) ===
+
+  #updateButtons(): void {
+    for (const item of this.#resolvedItems) {
+      if (item.type === 'separator') continue;
+      const el = this.#buttonEls.get(item.name);
+      if (!el) continue;
+      if (item.type === 'dropdown') this.#updateDropdownTrigger(item, el);
+      else this.#updateButton(item, el);
+    }
+
+    const t = this.#trailing;
+    if (this.#colorTriggerEl) {
+      this.#colorTriggerEl.classList.toggle('dm-toolbar-button--active', t.hasAnyColor);
+      const glyph = this.#colorTriggerEl.querySelector<HTMLElement>('.dm-ncp-trigger-glyph');
+      if (glyph) glyph.style.color = t.currentTextColorVar ?? '';
+      const underline = this.#colorTriggerEl.querySelector<HTMLElement>('.dm-ncp-trigger-underline');
+      if (underline) underline.style.backgroundColor = t.currentBgColorVar ?? '';
+    }
+    if (this.#blockMenuTriggerEl) {
+      this.#blockMenuTriggerEl.disabled = t.blockMenuButtonDisabled;
+      this.#blockMenuTriggerEl.title = t.blockMenuButtonDisabled
+        ? 'Block actions (select within a single block)'
+        : 'More options';
+    }
+  }
+
+  #updateButton(item: ToolbarButton, btn: HTMLButtonElement): void {
+    const isActive = this.#activeMap.get(item.name) ?? false;
+    const isDisabled = this.#disabledMap.get(item.name) ?? false;
+    btn.classList.toggle('dm-toolbar-button--active', isActive);
+    btn.disabled = isDisabled;
+    btn.setAttribute('aria-pressed', String(isActive));
+    this.#setIconHtml(btn, resolveIcon(item.icon, this.#icons));
+  }
+
+  /** Writes icon markup only when it differs from what was written last. */
+  #setIconHtml(el: HTMLElement, html: string): void {
+    if (this.#iconHtml.get(el) === html) return;
+    this.#iconHtml.set(el, html);
+    el.innerHTML = html;
+  }
+
+  #updateDropdownTrigger(dd: ToolbarDropdown, trigger: HTMLButtonElement): void {
+    const dropdownActive = dd.items.some((sub) => this.#activeMap.get(sub.name) ?? false);
+    const activeChild = dd.dynamicIcon
+      ? dd.items.find((sub) => this.#activeMap.get(sub.name) ?? false)
+      : undefined;
+    const html = resolveIcon(activeChild?.icon ?? dd.icon, this.#icons) + DROPDOWN_CARET;
+    trigger.classList.toggle('dm-toolbar-button--active', dropdownActive);
+    trigger.setAttribute('aria-expanded', String(this.#openDropdown === dd.name));
+    this.#setIconHtml(trigger, html);
+  }
+
+  /** Builds the open dropdown's panel, or refreshes the marks on an open one. */
+  #syncDropdownPanel(): void {
+    const open = this.#openDropdown;
+    if (open === null) {
+      if (this.#dropdownPanelEl) this.#detachDropdown();
+      return;
+    }
+
+    const dd = this.#resolvedItems.find(
+      (item): item is ToolbarDropdown => item.type === 'dropdown' && item.name === open,
+    );
+    if (!dd) return;
+
+    const panel = this.#dropdownPanelEl;
+    if (panel?.isConnected === true) {
+      for (const sub of dd.items) {
+        const subBtn = panel.querySelector<HTMLElement>(`[data-dropdown-item="${sub.name}"]`);
+        subBtn?.classList.toggle(
+          'dm-toolbar-dropdown-item--active',
+          this.#activeMap.get(sub.name) ?? false,
+        );
+      }
+      return;
+    }
+
+    const trigger = this.#buttonEls.get(open);
+    const wrapper = trigger?.parentElement;
+    if (!trigger || !wrapper) return;
+    const fresh = this.#createDropdownPanel(dd);
+    wrapper.appendChild(fresh);
+    this.#dropdownPanelEl = fresh;
+    this.#attachDropdownListeners(trigger, fresh);
   }
 
   // === Event handlers ===

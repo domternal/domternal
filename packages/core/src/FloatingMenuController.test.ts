@@ -151,7 +151,7 @@ describe('FloatingMenuController', () => {
       expect(controller.itemCount).toBe(0);
     });
 
-    it('groups items by group name, preserving first-seen order', () => {
+    it('groups items by group name, preserving first-seen order, ungrouped first', () => {
       const items = [
         item('a', { group: 'Basic' }),
         item('b', { group: 'Media' }),
@@ -161,7 +161,9 @@ describe('FloatingMenuController', () => {
       const { editor } = createMockEditor({ items });
       controller = new FloatingMenuController(editor, () => undefined);
       const groupNames = controller.groups.map((g) => g.name);
-      expect(groupNames).toEqual(['Basic', 'Media', '']);
+      // Ungrouped leads however late it arrives; ordering itself is tested in
+      // groupFloatingMenuItems.test.ts.
+      expect(groupNames).toEqual(['', 'Basic', 'Media']);
       const basic = controller.groups.find((g) => g.name === 'Basic')!;
       expect(basic.items.map((i) => i.name)).toEqual(['a', 'c']);
     });

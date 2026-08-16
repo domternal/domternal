@@ -191,6 +191,15 @@
   // A border, a shadow and a tinted panel are screen furniture: the paper is
   // already the page. The gutter is the expensive one, it is reserved for the
   // drag handle and costs ~48px on every printed page.
+  // The canvas, to match the black text forced below. Named here because the
+  // ancestor rule further down cannot reach `body`, which is not a descendant
+  // of itself. Transition first: a running one outranks `!important`, and a
+  // theme toggle animates this.
+  body {
+    transition: none !important;
+    background: none !important;
+  }
+
   .dm-editor {
     border: none !important;
     border-radius: 0 !important;
@@ -314,6 +323,12 @@
   // The ancestors themselves survive but stop imposing layout: a sidebar
   // grid, a centred max-width column or a scroll container would otherwise
   // keep shaping a page that no longer has anything beside the document.
+  // Only under the command path, where everything but the document is hidden,
+  // so this can reach nothing the host owns.
+  body.dm-printing {
+    color: #000 !important;
+  }
+
   body.dm-printing .dm-print-ancestor {
     display: block !important;
     position: static !important;

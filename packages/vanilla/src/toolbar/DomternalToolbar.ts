@@ -103,6 +103,8 @@ export class DomternalToolbar extends EventTarget {
 
   /** Maps top-level button/dropdown name -> rendered trigger element. */
   #buttonEls = new Map<string, HTMLButtonElement>();
+  /** Trigger markup last written, so a re-render does not rewrite it blindly. */
+  #triggerHtml = new WeakMap<Element, string>();
 
   /** Rendered dropdown panel elements (created lazily when opened). */
   #dropdownPanelEl: HTMLElement | null = null;
@@ -350,7 +352,9 @@ export class DomternalToolbar extends EventTarget {
     btn.setAttribute('aria-label', dd.label);
     btn.title = dd.label;
     btn.setAttribute('data-dropdown', dd.name);
-    btn.innerHTML = this.#resolveDropdownTriggerHtml(dd);
+    const triggerHtml = this.#resolveDropdownTriggerHtml(dd);
+    this.#triggerHtml.set(btn, triggerHtml);
+    btn.innerHTML = triggerHtml;
 
     btn.addEventListener('mousedown', (e) => { e.preventDefault(); });
     btn.addEventListener('click', () => { this.#onDropdownToggle(dd); });
@@ -439,10 +443,13 @@ export class DomternalToolbar extends EventTarget {
     btn.setAttribute('aria-expanded', String(isOpen));
     btn.tabIndex = flat === focusedIndex ? 0 : -1;
 
-    // Trigger HTML may change with cursor (dynamicLabel/dynamicIcon).
-    // Recompute and only swap if different (avoids needless DOM writes).
+    // Trigger HTML follows the cursor (dynamicLabel/dynamicIcon). Compared
+    // against what was last WRITTEN: `btn.innerHTML` returns the browser's
+    // re-serialisation, so the old guard never held and every render replaced
+    // the glyph under the pointer, killing the press.
     const newHtml = this.#resolveDropdownTriggerHtml(dd);
-    if (btn.innerHTML !== newHtml) {
+    if (this.#triggerHtml.get(btn) !== newHtml) {
+      this.#triggerHtml.set(btn, newHtml);
       btn.innerHTML = newHtml;
     }
   }

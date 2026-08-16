@@ -13,6 +13,10 @@ export interface FloatingMenuGroup {
  * order of groups. Within each group, items are sorted by `priority`
  * descending (higher first, default 100).
  *
+ * An item with NO group leads: declining a category marks a primary action,
+ * and insertion order would file it last, since whatever adds one loads after
+ * the extensions defining the categories. Renderers give it no heading.
+ *
  * Shared between `FloatingMenuController` (which renders grouped item lists
  * for FloatingMenu + framework wrappers) and `createSlashSuggestionRenderer`
  * (the popup shown by SlashCommand). Having one implementation keeps visual
@@ -28,7 +32,8 @@ export function groupFloatingMenuItems(items: FloatingMenuItem[]): FloatingMenuG
     if (!list) {
       list = [];
       map.set(name, list);
-      order.push(name);
+      if (name === '') order.unshift(name);
+      else order.push(name);
     }
     list.push(item);
   }
