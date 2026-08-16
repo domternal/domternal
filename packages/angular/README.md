@@ -19,7 +19,7 @@ emoji picker, and Notion color picker auto-render from the extensions you load.
 pnpm add @domternal/angular @domternal/core @domternal/theme
 ```
 
-`@angular/core` (>=17.1), `@angular/forms` (>=17.1), `@angular/platform-browser` (>=17.1), and `@domternal/core` (>=0.14.0)
+`@angular/core` (>=17.1), `@angular/forms` (>=17.1), `@angular/platform-browser` (>=17.1), and `@domternal/core` (>=0.15.0)
 are peer dependencies. Add the theme ([`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme))
 to your global stylesheet (e.g. `styles.scss`):
 
@@ -101,7 +101,7 @@ All components are standalone (no NgModule). Import them directly from
 `@domternal/angular`:
 
 - `DomternalEditorComponent` (`<domternal-editor>`): the editor, with reactive
-  `extensions` / `content` / `editable` / `autofocus` / `outputFormat` inputs,
+  `extensions` / `content` / `editable` / `autofocus` / `outputFormat` / `preset` inputs,
   `editorCreated` and content/selection/focus outputs, and read-only `htmlContent`,
   `jsonContent`, `isEmpty`, `isFocused`, `isEditable` signals.
 - `DomternalToolbarComponent` (`<domternal-toolbar>`): auto-rendered formatting

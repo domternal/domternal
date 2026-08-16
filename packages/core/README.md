@@ -78,6 +78,47 @@ const editor = new Editor({
 });
 ```
 
+## Presets
+
+`preset: 'notion'` switches the editor to the Notion-style experience in one option. It paints
+the `dm-notion-mode` class on the `.dm-editor` host for you, and preset-aware code follows it:
+the bubble menu serves the Notion text context, and images offer align controls instead of
+float. `'classic'` is the default.
+
+```ts
+const editor = new Editor({
+  element: document.getElementById('editor')!,
+  extensions: [StarterKit],
+  preset: 'notion',
+});
+```
+
+`editor.preset` reports the resolved value, and still reports `'notion'` for a host that carries
+the theme class alone, so setups that predate the option are unaffected.
+
+## Printing
+
+`Print` is not part of `StarterKit`, so add it explicitly. `printDocument()` isolates the
+document from the host page before the browser's dialog opens, leaving your application's
+sidebar, header, and everything else beside the document off the page, and it emits
+`beforePrint` and `afterPrint` so you can set `document.title` or add page rules first.
+
+```ts
+import { Editor, StarterKit, Print } from '@domternal/core';
+
+const editor = new Editor({
+  element: document.getElementById('editor')!,
+  extensions: [StarterKit, Print],
+});
+
+editor.commands.printDocument();
+```
+
+The hiding itself is CSS, and it lives in
+[`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme), whose paper layer also
+applies to the reader's own Ctrl/Cmd+P with no code involved. Set `isolateNativePrint: true` to
+give that shortcut the same isolation as the command.
+
 ## SSR
 
 The `generateHTML`, `generateJSON`, and `generateText` helpers render content
