@@ -15,7 +15,7 @@ directly, or go to the repository's Security tab and click
 **Report a vulnerability**. This opens a private advisory that only you and
 the maintainer can see.
 
-Alternatively, email [info@domternal.dev](mailto:info@domternal.dev).
+Alternatively, email [security@domternal.dev](mailto:security@domternal.dev).
 
 Please include:
 
