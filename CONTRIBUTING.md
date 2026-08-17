@@ -82,3 +82,8 @@ NEW cross-framework behavior specs go into the root `e2e/` matrix suite (`pnpm t
 
 Releases are handled by the maintainer, along with the `CHANGELOG.md` entry and
 every version bump.
+
+## License of contributions
+
+By submitting a contribution you agree that it is licensed under the MIT
+license of this repository.
