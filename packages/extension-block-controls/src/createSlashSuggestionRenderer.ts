@@ -34,10 +34,42 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
   // Set during onExit so a pending queued event (e.g. trailing mousedown+click
   // mid-teardown) can bail instead of dispatching into a destroyed editor.
   let destroyed = false;
+  // What the buttons on screen were built from; see `renderPopup`.
+  let renderedRows: string | null = null;
   const rendererId = `dm-slash-${String(++idCounter)}`;
+
+  // Everything a row's DOM is built from, group names included: two lists that
+  // render the same buttons compare equal.
+  const rowsOf = (groups: ReturnType<typeof groupFloatingMenuItems>): string =>
+    groups
+      .map((group) =>
+        [
+          group.name,
+          ...group.items.map((item) =>
+            [item.name, item.label, item.description ?? '', item.shortcut ?? '', item.icon ?? ''].join(
+              '\u0000',
+            ),
+          ),
+        ].join('\u0001'),
+      )
+      .join('\u0002');
 
   const renderPopup = (props: SlashCommandProps): void => {
     if (!root) return;
+
+    const groups = groupFloatingMenuItems(props.items);
+
+    // `onUpdate` runs on every transaction, and replacing the pressed button
+    // loses the press: `click` fires on the nearest common ancestor of the
+    // mousedown and mouseup targets, and a detached one leaves none.
+    const rows = rowsOf(groups);
+    if (rows === renderedRows) {
+      // Same buttons, fresh item objects; handlers read them by index.
+      flatItems = groups.flatMap((group) => group.items);
+      return;
+    }
+    renderedRows = rows;
+
     root.innerHTML = '';
     itemButtons = [];
     flatItems = [];
@@ -53,7 +85,6 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
       return;
     }
 
-    const groups = groupFloatingMenuItems(props.items);
     for (const group of groups) {
       if (group.name) {
         const label = document.createElement('div');
@@ -121,7 +152,8 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
           // A mousedown-to-click pair can span `onExit` if the popup was
           // dismissed by an outside event while the button was held.
           if (destroyed) return;
-          currentCommand?.(item);
+          // By index: the button outlives updates, so `flatItems` is fresher.
+          currentCommand?.(flatItems[indexForItem] ?? item);
         });
 
         itemButtons.push(btn);
@@ -192,6 +224,7 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
       currentCommand = props.command;
       selectedIndex = 0;
       destroyed = false;
+      renderedRows = null; // A fresh root holds no buttons.
 
       root = document.createElement('div');
       root.className = 'dm-slash-command-menu';
@@ -224,6 +257,7 @@ export function createSlashSuggestionRenderer(): SlashCommandRenderer {
       flatItems = [];
       selectedIndex = 0;
       currentCommand = null;
+      renderedRows = null;
     },
 
     onKeyDown(event): boolean {
