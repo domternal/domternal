@@ -21,8 +21,9 @@ Every export is tree-shakeable, so unused extensions are stripped from your bund
 pnpm add @domternal/core
 ```
 
-`linkedom` is an optional peer dependency: install it only if you call the SSR
-helpers (`generateHTML`, `generateJSON`, `generateText`) outside a browser.
+`linkedom` is an optional peer dependency: install it only if you call `generateHTML` or
+`generateJSON` outside a browser. `generateText` reads the document model and never touches
+the DOM, so it runs anywhere without it.
 
 ```bash
 pnpm add linkedom
@@ -56,13 +57,16 @@ editor.destroy();
 The engine ships no styles. Import [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme) for ready-made light/dark editor styling, or supply your own CSS.
 
 `StarterKit` bundles the common nodes, marks, and behaviors; each entry can be
-configured or disabled individually.
+configured or disabled individually. Every entry is on by default except `listIndent`,
+which ships off because its Tab keymap also captures Tab on a paragraph that merely
+follows a list. Pass `true` to switch it on.
 
 ```ts
 StarterKit.configure({
   codeBlock: false,                  // disable an extension
   heading: { levels: [1, 2, 3] },    // configure an extension
   link: { openOnClick: false },
+  listIndent: true,                  // opt in: Tab indents a block under the previous list
 });
 ```
 
@@ -116,8 +120,18 @@ editor.commands.printDocument();
 
 The hiding itself is CSS, and it lives in
 [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme), whose paper layer also
-applies to the reader's own Ctrl/Cmd+P with no code involved. Set `isolateNativePrint: true` to
-give that shortcut the same isolation as the command.
+applies to the reader's own Ctrl/Cmd+P with no code involved.
+
+Adding `Print` also registers a printer toolbar button, which stays live in a read-only
+editor, and binds `Mod-P` to `printDocument` while the caret is in the editor.
+
+`Print.configure({ ... })` accepts:
+
+- `toolbar` (default `true`) - show the toolbar button
+- `root` (default `null`) - `(editor) => HTMLElement | null` choosing what to print; unset
+  prints the editor's `.dm-editor` wrapper, falling back to the ProseMirror element
+- `isolateNativePrint` (default `false`) - give the reader's own Ctrl/Cmd+P the same
+  isolation as the command
 
 ## SSR
 
@@ -133,4 +147,17 @@ const html = generateHTML(
 );
 ```
 
-`generateJSON(html, extensions)` does the reverse (HTML to doc JSON) and `generateText` extracts plain text.
+`generateJSON(html, extensions)` does the reverse (HTML to doc JSON), and
+`generateText(content, extensions, options)` extracts plain text, separating blocks with a
+blank line unless `blockSeparator` overrides it.
+
+Outside a browser, `generateHTML` and `generateJSON` need a DOM and load `linkedom` through
+`require`, which only resolves under CommonJS. From an ES module server, installing
+`linkedom` is not enough: pass the document yourself.
+
+```ts
+import { parseHTML } from 'linkedom';
+
+const { document } = parseHTML('<!DOCTYPE html><html><body></body></html>');
+const html = generateHTML(content, [StarterKit], { document });
+```

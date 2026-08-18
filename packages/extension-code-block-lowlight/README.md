@@ -23,7 +23,9 @@ pnpm add @domternal/extension-code-block-lowlight lowlight
 ```
 
 `lowlight` is a peer dependency (alongside `@domternal/core` and `@domternal/pm`). Install
-it yourself and pass a configured instance via the required `lowlight` option.
+it yourself and pass a configured instance via the required `lowlight` option. For a
+smaller bundle, start from an empty `createLowlight()` and register only the languages you
+need with `lowlight.register(name, syntax)`.
 
 ## Usage
 
@@ -65,11 +67,19 @@ editor.storage.codeBlock.listLanguages();
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `lowlight` | `Lowlight` | `null` (required) | The instance from `createLowlight()`. Throws at init if missing. |
+| `lowlight` | `Lowlight` | `null` (required) | The instance from `createLowlight()`. Without it the editor still builds, highlighting is skipped, and the failure surfaces as an `error` event (`onError`). |
 | `defaultLanguage` | `string \| null` | `null` | Language used when a block has none set. |
 | `autoDetect` | `boolean` | `true` | Detect the language via `highlightAuto()` when none is set. |
 | `tabIndentation` | `boolean` | `true` | Tab inserts spaces inside code blocks; Shift-Tab outdents. |
 | `tabSize` | `number` | `2` | Number of spaces per tab. |
+| `languageClassPrefix` | `string` | `'language-'` | Inherited from `CodeBlock`: class prefix for the language on the `<code>` element. |
+| `exitOnTripleEnter` | `boolean` | `true` | Inherited from `CodeBlock`: three consecutive Enter presses leave the block. |
+| `HTMLAttributes` | `Record<string, unknown>` | `{}` | Inherited from `CodeBlock`: attributes merged onto the rendered `<pre>`. |
+
+> The plugin adds highlight.js token classes (`hljs-keyword`, `hljs-string`, and the
+> rest) but ships no CSS. `@domternal/theme` (`_syntax.scss`) colors them, each token
+> reading a `--dm-syntax-*` variable you can override; without the theme, import any
+> highlight.js stylesheet instead.
 
 ## Server-side highlighting
 
@@ -97,7 +107,12 @@ const styled = inlineStyles(html, {
 });
 ```
 
-Both SSR helpers accept an optional `{ defaultLanguage?, autoDetect? }` as their last
-argument. For SSR, `autoDetect` defaults to `false` (the opposite of the editor
-extension's `true`), so pass `{ autoDetect: true }` if you want detection during
-server rendering.
+Both SSR helpers accept an optional options object as their last argument:
+`{ defaultLanguage?, autoDetect? }`, and for `generateHighlightedHTML` also `document`,
+forwarded to `generateHTML` for environments that supply their own DOM implementation. For SSR,
+`autoDetect` defaults to `false` (the opposite of the editor extension's `true`), so pass
+`{ autoDetect: true }` if you want detection during server rendering.
+
+## License
+
+MIT

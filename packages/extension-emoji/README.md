@@ -6,9 +6,10 @@
 Inline emoji for the [Domternal](https://domternal.dev) editor. Adds an atom
 `emoji` node with `:shortcode:` input rules, optional emoticon shortcuts (`:)`,
 `<3`), and a **headless** suggestion plugin that powers autocomplete dropdowns on
-a `:` trigger. Ships a curated ~200-emoji dataset (`emojis`) plus the full
-Unicode set (`allEmojis`), built-in frequency tracking, and a framework-free
-vanilla DOM renderer. No external suggestion library required.
+a `:` trigger. Ships a curated ~200-emoji dataset (`emojis`) plus an extended
+~500-emoji set (`allEmojis`), the `emoticons` mapping table, built-in frequency
+tracking, and a framework-free vanilla DOM renderer. No external suggestion library
+required.
 
 ## Links
 
@@ -44,9 +45,11 @@ const editor = new Editor({
 });
 ```
 
-Typing `:smile:` converts to an emoji node; with `enableEmoticons: true`,
-emoticons like `:)` and `<3` convert too. Typing `:` followed by a name opens the
-suggestion dropdown (when a `render` factory is provided).
+Typing `:smile:` converts to an emoji node as soon as the closing colon lands. With
+`enableEmoticons: true`, emoticons like `:)` and `<3` convert on the space typed after
+them, and that space is kept. Neither rule fires inside a code block or inline code.
+Typing `:` followed by a name opens the suggestion dropdown (when a `render` factory is
+provided).
 
 > The default suggestion dropdown is styled by `@domternal/theme`
 > (`_emoji-picker.scss`, via the `dm-emoji-suggestion` classes). Import the theme,
@@ -62,7 +65,7 @@ editor.commands.suggestEmoji();        // inserts the ':' trigger to open the pi
 ## Options
 
 - `emojis` - dataset to use. Defaults to the built-in ~200 popular emoji; pass
-  `allEmojis` for the full Unicode set, or your own `EmojiItem[]`.
+  `allEmojis` for the extended ~500-emoji set, or your own `EmojiItem[]`.
 - `enableEmoticons` - convert text emoticons like `:)` and `<3`. Default `false`.
 - `plainText` - insert the raw emoji character instead of an atom node. Default `false`.
 - `suggestion` - `SuggestionOptions` for the autocomplete picker, or `null` to disable. Default `null`.

@@ -60,6 +60,11 @@ Type `@` to open the dropdown, navigate with arrow keys, press `Enter` to insert
 `items` may also return a `Promise`, so suggestions can come from a remote API; pair
 that with `debounce` on the trigger to rate-limit calls.
 
+> The inserted `span.mention`, the underline on the `@query` range still being typed,
+> and the default dropdown (the `dm-mention-suggestion` classes) are all styled by
+> `@domternal/theme` (`_mention.scss`). Import the theme, or supply your own `render`
+> factory if you want fully custom markup.
+
 ## Commands and storage
 
 The extension registers two chainable commands:
@@ -90,7 +95,16 @@ Mention.configure({
 });
 ```
 
-For full options (`minQueryLength`, `allowSpaces`, `appendText`, `invalidNodes`,
-`debounce`, `shouldShow`, `deleteTriggerWithBackspace`, custom `renderHTML`/`renderText`)
-and framework wrapper examples, see the
-[documentation](https://domternal.dev/v1/nodes/mention).
+## Options
+
+Per-trigger options are `char`, `name`, `items`, `render`, `minQueryLength`,
+`allowSpaces`, `appendText` (default `' '`), `invalidNodes`, `debounce`,
+`decorationClass`, `decorationTag`, and `shouldShow`. Extension-level options, set
+alongside `suggestion` or `triggers`, are `deleteTriggerWithBackspace` (Backspace on a
+mention removes the trigger char with it, default `false`), `renderHTML`, `renderText`,
+and `HTMLAttributes`.
+
+For a custom picker, drive the headless plugin directly with
+`createMentionSuggestionPlugin` and close it with
+`dismissMentionSuggestion(view, triggerName)`. For full details and framework wrapper
+examples, see the [documentation](https://domternal.dev/v1/nodes/mention).

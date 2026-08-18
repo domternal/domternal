@@ -35,13 +35,16 @@ const editor = new Editor({
 // Import
 editor.commands.insertMarkdown('## Hello\n\n- [x] done\n- [ ] open');
 editor.commands.setMarkdownContent('# Fresh document');
+// A second argument takes SetContentOptions, e.g. to replace without firing `update`
+editor.commands.setMarkdownContent('# Silent replace', { emitUpdate: false });
 
 // Export
 const { markdown, warnings } = getMarkdown(editor);
-downloadMarkdown(editor, 'notes.md');
+// downloadMarkdown saves the file and returns the same result, warnings included
+const saved = downloadMarkdown(editor, 'notes.md');
 ```
 
-Markdown-looking plain-text pastes convert automatically. Pastes that carry an HTML flavor, plain prose, and pastes into code blocks are never touched. Disable with `Markdown.configure({ paste: false })`.
+Markdown-looking plain-text pastes convert automatically. Pastes that carry an HTML flavor, plain prose, and pastes into code blocks are never touched. Disable with `Markdown.configure({ paste: false })`. The test the plugin applies is exported as `looksLikeMarkdown(text)`, so a handler that takes over the paste path can reuse the same heuristic.
 
 ## Options
 
@@ -54,17 +57,32 @@ Markdown-looking plain-text pastes convert automatically. Pastes that carry an H
 ## Headless usage
 
 ```ts
-import { parseMarkdown, serializeMarkdown } from '@domternal/extension-markdown';
+import {
+  parseMarkdown,
+  serializeMarkdown,
+  createMarkdownParser,
+  createMarkdownSerializer,
+} from '@domternal/extension-markdown';
 
 const doc = parseMarkdown('# Title', schema);
 const { markdown, warnings } = serializeMarkdown(doc);
+
+// Both one-shot helpers rebuild their machinery on every call. Build the
+// instances once when converting repeatedly.
+const parser = createMarkdownParser(schema);
+const serializer = createMarkdownSerializer();
+const result = serializer.serialize(parser.parse('# Title'));
 ```
+
+With the extension loaded the editor already holds one of each at
+`editor.storage.markdown.parser` and `editor.storage.markdown.serializer`, so a
+companion package can reuse them instead of building its own.
 
 Custom nodes without a mapping degrade gracefully: content is preserved as plain text and a warning is reported instead of failing. Custom mappings plug in via `Markdown.configure({ specs })` or the `specs` option of `serializeMarkdown`.
 
 ## Fidelity notes
 
-Markdown cannot express everything the editor can. The serializer keeps the content and reports a warning for: text alignment and line height, text and background colors, underline, merged table cells, multi-block table cells, image resize dimensions, toggle (details) structure, and mentions. Round trips of the supported subset are exact and covered by tests.
+Markdown cannot express everything the editor can. The serializer keeps the content and reports a warning for: text alignment and line height, text and background colors, underline, merged table cells, multi-block table cells, table cell background and vertical alignment, image resize dimensions, toggle (details) structure, and mentions. Two cases drop the content instead of keeping it, each with its own warning: an image without a `src`, and a table of contents block (generated content). Round trips of the supported subset are exact and covered by tests.
 
 ## License
 

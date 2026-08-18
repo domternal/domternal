@@ -6,9 +6,9 @@
 The ProseMirror dependency layer for the [Domternal](https://domternal.dev) editor. It
 re-exports the underlying `prosemirror-*` libraries under stable `@domternal/pm/*`
 subpaths so every Domternal package imports ProseMirror from one place. Because the
-`prosemirror-*` packages are pinned here as direct dependencies, your package manager
-dedupes them to a single copy across `@domternal/core` and every extension. You rarely
-install it yourself: it ships transitively with `@domternal/core`.
+`prosemirror-*` packages are declared here once, as ordinary dependencies of this package,
+your package manager dedupes them to a single copy across `@domternal/core` and every
+extension. You rarely install it yourself: it ships transitively with `@domternal/core`.
 
 ## Links
 
@@ -16,19 +16,22 @@ install it yourself: it ships transitively with `@domternal/core`.
 
 ## Install
 
-Install it explicitly only when you import ProseMirror primitives in your own code:
+Install it explicitly when you import ProseMirror primitives in your own code, or when a
+strict peer resolver asks for it: every `@domternal/extension-*` package declares
+`@domternal/pm` as a peer dependency at the same minor floor as `@domternal/core`.
 
 ```bash
 pnpm add @domternal/pm
 ```
 
-There are no peer dependencies: the `prosemirror-*` libraries are bundled as
-dependencies of this package.
+`@domternal/pm` itself has no peer dependencies: the `prosemirror-*` libraries are its own
+dependencies.
 
 ## Usage
 
 Import from a subpath matching the ProseMirror package you need. Each subpath
-re-exports the full API of its `prosemirror-*` counterpart.
+re-exports the full API of its `prosemirror-*` counterpart. There is no root export, so
+`import { Plugin } from '@domternal/pm'` does not resolve.
 
 ```ts
 import { Plugin, PluginKey } from '@domternal/pm/state';

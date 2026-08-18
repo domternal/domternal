@@ -74,6 +74,9 @@ hook), so installed extensions register their own insert actions automatically.
   handle. Also shows a "Copy link" item when the block has an id (and `UniqueID` is
   loaded), and a "Colors" section when the `BlockColor` extension is loaded; each is
   toggleable via `turnIntoEnabled` / `copyLinkEnabled` / `blockColorEnabled`.
+  `turnIntoTargets` curates the block types offered by "Turn into", and `onCopyLink`
+  builds the URL written to the clipboard. Other extensions add their own entries
+  through `addBlockMenuItems()` (see [Extension points](#extension-points)).
 - **`SlashCommand`** - typing `/` opens a filtered, ranked popup of insertable blocks;
   selecting one replaces the `/query` range and runs the item's command.
 - **`SmartPaste`** - keeps block-level formatting intact when pasting at an inline cursor.
@@ -81,3 +84,19 @@ hook), so installed extensions register their own insert actions automatically.
   top-level block.
 - **`FloatingMenu`** - the empty-line insert menu; `requireExplicitTrigger` gates it
   behind the `+` button for Notion mode.
+
+## Extension points
+
+- `addBlockMenuItems()` - any extension contributes entries to the block handle menu,
+  the same shape `addToolbarItems()` uses. An item declares `id`, `label`, `icon`,
+  `group` (`primary`, `colors`, `turnInto`, `collaboration`), an optional `order`, and
+  `run`; `isAvailable` hides it, `isEnabled` renders it inert with a reason. This
+  package builds the button, so a contributed entry keeps the menu's `role="menuitem"`,
+  roving tabindex, and arrow-key navigation. `BlockMenuItem`, `BlockMenuItemContext`,
+  and `BlockMenuItemGroup` are exported for the declaration; the full contract is in
+  the [documentation](https://domternal.dev/v1/extensions/block-controls/#contributed-items-addblockmenuitems).
+- `keepOnDuplicate: false` on a mark (`Mark.create()` in `@domternal/core`) drops that
+  mark from the copy Duplicate inserts, throughout the subtree. Set it on marks that
+  reference identity living outside the document, such as a comment thread anchor.
+- `dropZoneProviders` and `nested.anchorContainers` on `BlockHandle` are two more, both
+  experimental and described under [Extensions](#extensions).
