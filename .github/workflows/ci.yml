@@ -42,6 +42,20 @@ jobs:
             exit 1
           fi
 
+      - name: Forbid direct prosemirror-* imports
+        # Everything must go through @domternal/pm, which is the single
+        # place a consumer can pin. A direct import resolves against the
+        # importing package's own node_modules, which is how a second copy
+        # of an identity-compared module gets into a bundle.
+        run: |
+          matches=$(grep -rnE "from '(prosemirror-[a-z-]+)'" packages/*/src --include=*.ts --include=*.js 2>/dev/null | grep -v '^packages/pm/' || true)
+          if [ -n "$matches" ]; then
+            echo "$matches"
+            echo ""
+            echo "Import from '@domternal/pm/<subpath>' instead."
+            exit 1
+          fi
+
       - name: Type check
         run: pnpm typecheck
 
@@ -73,6 +87,16 @@ jobs:
       - name: Bundle size budgets
         # Gzipped dist sizes must stay under the committed budgets.
         run: pnpm test:bundle-size
+
+      - name: Single ProseMirror copy
+        # ProseMirror and Yjs compare by identity, so a second locked copy
+        # of any of them is a runtime crash rather than extra bytes.
+        run: pnpm test:single-prosemirror
+
+      - name: Externalised shared modules
+        # tsup inlines anything it is not told to externalise, and an inlined
+        # copy of an identity-compared module ships that crash to a consumer.
+        run: pnpm test:externals
 
       - name: Type check demo apps
         # Demos don't extend the base tsconfig, so they resolve

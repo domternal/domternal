@@ -124,6 +124,14 @@ export { refocusEditorAfterCommand } from './utils/refocusEditorAfterCommand.js'
 // === Bubble menu defaults ===
 export { defaultBubbleContexts } from './utils/defaultBubbleContexts.js';
 
+// === Single-copy enforcement for the identity-sensitive ProseMirror modules ===
+export {
+  registerProseMirrorCopy,
+  assertSingleProseMirrorCopy,
+  warnOnDuplicateProseMirrorCopy,
+} from './utils/prosemirrorSingleton.js';
+export type { ProseMirrorCopyConflict } from './utils/prosemirrorSingleton.js';
+
 // === List utilities ===
 export {
   insertAsListItemChild,

@@ -2,6 +2,7 @@ announce
 AnyExtension
 AnyExtensionConfig
 applyInlineStyles
+assertSingleProseMirrorCopy
 AttributeSpec
 AttributeSpecs
 autolinkPlugin
@@ -229,9 +230,11 @@ PositionFloatingOptions
 Print
 PrintOptions
 PrintStorage
+ProseMirrorCopyConflict
 Range
 RawCommands
 refocusEditorAfterCommand
+registerProseMirrorCopy
 resetAttributes
 selectAll
 Selection
@@ -300,6 +303,7 @@ unsetAllMarks
 unsetMark
 updateAttributes
 VERSION
+warnOnDuplicateProseMirrorCopy
 wrapIn
 wrappingInputRule
 WrappingInputRuleOptions
