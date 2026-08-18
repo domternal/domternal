@@ -1,6 +1,6 @@
 # Domternal
 
-[![Domternal Editor](https://domternal.dev/readme/readme-banner.png?v=3)](https://domternal.dev)
+[![Domternal Editor](https://domternal.dev/readme/readme-banner.png?v=4)](https://domternal.dev)
 
 A rich text editor toolkit built on [ProseMirror](https://prosemirror.net/), with a headless core and first-class **Angular**, **React**, **Vue**, and **Vanilla** components. Take the core alone and drive the DOM yourself, add the toolbar and theme for a finished editor, or mount the components for your framework. Notion-style block editing, drag handle, slash menu and floating outline included, and every package is tree-shakeable.
 
