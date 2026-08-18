@@ -19,6 +19,7 @@
     "typecheck": "nx run-many --target=typecheck --all",
     "test:types-consumer": "pnpm --filter @domternal/tests-consumer-types test:types",
     "test:api-surface": "node tests/api-surface/dump.mjs --check",
+    "test:third-party-notices": "node tests/third-party-notices/check.mjs",
     "test:api-surface:update": "node tests/api-surface/dump.mjs",
     "test:css-vars": "node tests/css-vars/check.mjs",
     "test:bundle-size": "node tests/bundle-size/check.mjs"

@@ -22,7 +22,8 @@
   "files": [
     "dist",
     "src",
-    "index.d.ts"
+    "index.d.ts",
+    "THIRD-PARTY-LICENSES.md"
   ],
   "scripts": {
     "build": "sass src/index.scss dist/domternal-theme.css --style=compressed --no-source-map && sass src/index.scss dist/domternal-theme.expanded.css --style=expanded --no-source-map",
