@@ -22,7 +22,8 @@
   "files": [
     "dist",
     "src",
-    "index.d.ts"
+    "index.d.ts",
+    "THIRD-PARTY-LICENSES.md"
   ],
   "scripts": {
     "build": "sass src/index.scss dist/domternal-theme.css --style=compressed --no-source-map && sass src/index.scss dist/domternal-theme.expanded.css --style=expanded --no-source-map",
@@ -30,7 +31,7 @@
     "postpublish": "git checkout package.json"
   },
   "devDependencies": {
-    "sass": "^1.89.0"
+    "sass": "^1.102.0"
   },
   "keywords": [
     "domternal",

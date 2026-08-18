@@ -348,6 +348,72 @@ describe('createSlashSuggestionRenderer - mouse interaction', () => {
   });
 });
 
+// A press spanning an update used to be swallowed: `click` fires on the nearest
+// common ancestor of the mousedown and mouseup targets, and a rebuilt button
+// leaves none. Rows must survive an update that does not change them.
+describe('createSlashSuggestionRenderer - rows across updates', () => {
+  it('an update with the same rows keeps the very same button elements', () => {
+    makeEditor();
+    const renderer = createSlashSuggestionRenderer();
+    renderer.onStart(makeProps([itemA, itemB]));
+
+    const before = Array.from(host?.querySelectorAll<HTMLButtonElement>('.dm-slash-command-item') ?? []);
+    // Fresh objects, identical content: a re-filtered list on any transaction.
+    renderer.onUpdate(makeProps([{ ...itemA }, { ...itemB }]));
+    const after = Array.from(host?.querySelectorAll<HTMLButtonElement>('.dm-slash-command-item') ?? []);
+
+    expect(after[0]).toBe(before[0]);
+    expect(after[1]).toBe(before[1]);
+    renderer.onExit();
+  });
+
+  it('a button that outlived an update still runs its command, with the fresh item', () => {
+    makeEditor();
+    const command = vi.fn();
+    const renderer = createSlashSuggestionRenderer();
+    renderer.onStart(makeProps([itemA, itemB], command));
+
+    const btn = Array.from(host?.querySelectorAll<HTMLButtonElement>('.dm-slash-command-item') ?? [])[1];
+    const freshB = { ...itemB };
+    renderer.onUpdate(makeProps([{ ...itemA }, freshB], command));
+    btn?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+    expect(command).toHaveBeenCalledWith(freshB);
+    renderer.onExit();
+  });
+
+  it('an update that really changes the rows rebuilds them', () => {
+    makeEditor();
+    const command = vi.fn();
+    const renderer = createSlashSuggestionRenderer();
+    renderer.onStart(makeProps([itemA, itemB], command));
+
+    const before = host?.querySelector<HTMLButtonElement>('.dm-slash-command-item');
+    renderer.onUpdate(makeProps([itemC], command));
+
+    const buttons = Array.from(host?.querySelectorAll<HTMLButtonElement>('.dm-slash-command-item') ?? []);
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0]).not.toBe(before);
+    expect(buttons[0]?.querySelector('.dm-slash-command-item-label')?.textContent).toBe('Code block');
+
+    buttons[0]?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    expect(command).toHaveBeenCalledWith(itemC);
+    renderer.onExit();
+  });
+
+  it('a second popup rebuilds even when it opens on the rows the last one closed with', () => {
+    makeEditor();
+    const renderer = createSlashSuggestionRenderer();
+    renderer.onStart(makeProps([itemA]));
+    renderer.onExit();
+
+    renderer.onStart(makeProps([itemA]));
+    const buttons = host?.querySelectorAll('.dm-slash-command-item') ?? [];
+    expect(buttons).toHaveLength(1);
+    renderer.onExit();
+  });
+});
+
 describe('createSlashSuggestionRenderer - height constraint', () => {
   it('opts into height constraining via --dm-available-height', async () => {
     makeEditor();

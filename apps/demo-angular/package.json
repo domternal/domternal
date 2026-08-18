@@ -24,11 +24,11 @@
   "private": true,
   "packageManager": "pnpm@10.17.0",
   "dependencies": {
-    "@angular/common": "^21.2.4",
-    "@angular/compiler": "^21.2.4",
-    "@angular/core": "^21.2.4",
-    "@angular/forms": "^21.2.4",
-    "@angular/platform-browser": "^21.2.4",
+    "@angular/common": "^21.2.20",
+    "@angular/compiler": "^21.2.20",
+    "@angular/core": "^21.2.20",
+    "@angular/forms": "^21.2.20",
+    "@angular/platform-browser": "^21.2.20",
     "@domternal/angular": "workspace:*",
     "@domternal/core": "workspace:*",
     "@domternal/extension-block-controls": "workspace:*",
@@ -48,9 +48,9 @@
     "tslib": "^2.3.0"
   },
   "devDependencies": {
-    "@angular/build": "^21.2.4",
-    "@angular/cli": "^21.2.4",
-    "@angular/compiler-cli": "^21.2.4",
+    "@angular/build": "^21.2.21",
+    "@angular/cli": "^21.2.21",
+    "@angular/compiler-cli": "^21.2.20",
     "@playwright/test": "^1.58.2",
     "typescript": "~5.9.2"
   }

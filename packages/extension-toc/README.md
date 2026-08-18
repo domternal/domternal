@@ -9,7 +9,7 @@ A shared heading-discovery data layer feeds three pieces that work together:
 
 - `TableOfContents` - the headless heading observer that maintains a reactive heading list in `editor.storage.toc` and exposes the `scrollToHeading` command.
 - `FloatingTocOutline` - a sticky right-rail outline with a hover-expanded card, anchored to the editor or the viewport.
-- `TableOfContentsBlock` - an inline `/toc` atom node.
+- `TableOfContentsBlock` - a block-level atom node, inserted from the slash menu by typing `/toc`.
 
 Active-heading tracking, smooth click-to-jump scrolling, and initial-load
 `#hash` navigation are built in.
@@ -62,8 +62,46 @@ console.log(editor.storage.toc.content); // HeadingEntry[]
 
 `UniqueID` stamps ids on headings; `TableOfContents` watches the document and
 keeps `editor.storage.toc` in sync; `FloatingTocOutline` renders the sticky
-outline; `TableOfContentsBlock` adds the `/toc` atom so users can insert an
-inline contents list.
+outline; `TableOfContentsBlock` adds the `/toc` atom so users can drop a contents
+list into the document.
+
+## Options
+
+`TableOfContents.configure({ ... })`:
+
+- `levels` (default `[1, 2, 3]`) - heading levels to track
+- `anchorTypes` (default `['heading']`) - node names treated as anchors. Every
+  type listed here must also be in `UniqueID.options.types`
+- `onUpdate` - called with the storage object whenever the heading list or the
+  active heading changes
+
+`FloatingTocOutline.configure({ ... })`:
+
+- `anchor` (default `'editor'`) - `'editor'` pins the outline to the editor
+  container's right gutter, `'viewport'` fixes it to the right edge of the
+  viewport
+- `minHeadings` (default `1`) - hide the outline while the document has fewer
+  headings than this
+- `mobileBreakpoint` (default `1024`) - viewport width in px at or below which
+  the outline is hidden; `0` never hides it
+- `activeScrollParent` (default `null`, meaning the window) - scroll container
+  for the active-heading tracker. Set it when the editor lives in its own
+  scrolling region
+- `activeRootMargin` (default `'0px 0px -85% 0px'`) - `IntersectionObserver`
+  rootMargin defining the active zone
+- `clickOverrideMs` (default `500`) - how long scroll-derived updates are ignored
+  after a tick is clicked, so the click target stays active until the scroll lands
+- `hoverInDelay` / `hoverOutDelay` (defaults `120` / `350`) - ms before the
+  expanded card appears and before it collapses back to ticks
+- `outlineHost` - `(view: EditorView) => HTMLElement` overriding where the outline
+  DOM mounts. The default walks up from the editor's DOM to the first ancestor
+  whose computed `overflow` is not `hidden`
+
+`TableOfContentsBlock.configure({ ... })`:
+
+- `emptyStateText` (default `'Add headings to create a table of contents.'`) -
+  placeholder shown while the document has no headings
+- `HTMLAttributes` - extra attributes for the block wrapper
 
 ## Exports
 

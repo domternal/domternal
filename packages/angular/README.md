@@ -69,6 +69,17 @@ export class EditorComponent {
 The toolbar and bubble menu render their buttons from the loaded extensions, so no
 manual button wiring is needed.
 
+### Presets
+
+`preset="notion"` switches the editor to the Notion-style experience in one input. It paints
+the `dm-notion-mode` class on the component host for you, and preset-aware code follows it:
+the bubble menu serves the Notion text context, and images offer align controls instead of
+float. `'classic'` is the default, and the input is read once, when the editor is created.
+
+```html
+<domternal-editor [extensions]="extensions" preset="notion" />
+```
+
 ### Reactive forms
 
 `DomternalEditorComponent` is a `ControlValueAccessor`, so it binds directly to
@@ -100,10 +111,12 @@ export class FormEditorComponent {
 All components are standalone (no NgModule). Import them directly from
 `@domternal/angular`:
 
-- `DomternalEditorComponent` (`<domternal-editor>`): the editor, with reactive
-  `extensions` / `content` / `editable` / `autofocus` / `outputFormat` / `preset` inputs,
-  `editorCreated` and content/selection/focus outputs, and read-only `htmlContent`,
-  `jsonContent`, `isEmpty`, `isFocused`, `isEditable` signals.
+- `DomternalEditorComponent` (`<domternal-editor>`): the editor, with
+  `extensions` / `history` / `content` / `editable` / `preset` / `autofocus` /
+  `outputFormat` inputs (`extensions`, `content`, `editable`, and `outputFormat` are
+  reactive; the rest are read once at creation), `editorCreated`, `contentUpdated`,
+  `selectionChanged`, `focusChanged`, `blurChanged`, and `editorDestroyed` outputs, and
+  read-only `htmlContent`, `jsonContent`, `isEmpty`, `isFocused`, `isEditable` signals.
 - `DomternalToolbarComponent` (`<domternal-toolbar>`): auto-rendered formatting
   toolbar with keyboard navigation, custom `icons`, and `layout` overrides.
 - `DomternalBubbleMenuComponent` (`<domternal-bubble-menu>`): inline selection menu

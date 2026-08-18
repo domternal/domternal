@@ -26,11 +26,17 @@ pnpm add @domternal/extension-image
 `@domternal/core` and `@domternal/pm` are peer dependencies (you already have
 them if you are building a Domternal editor).
 
+The node view only writes `data-float` / `data-align` attributes and bare corner
+handles, so [`@domternal/theme`](https://www.npmjs.com/package/@domternal/theme), or
+equivalent CSS of your own, is what makes placement and resizing visible in the editor.
+Exported HTML carries its own inline styles either way.
+
 ## Usage
 
 ```ts
 import { Editor, Document, Paragraph, Text } from '@domternal/core';
 import { Image } from '@domternal/extension-image';
+import '@domternal/theme';
 
 const editor = new Editor({
   extensions: [
@@ -84,13 +90,15 @@ editor.commands.deleteImage();
 - `deleteImage()` - delete the selected image.
 
 Float and align are one choice on a node, so setting either clears the other. Alignment
-serialises as `data-align` plus block margins, never a float, so exported HTML lands
-correctly with no theme loaded. `ImageFloat`, `ImageAlign`, and `ImagePlacement` are exported.
+serializes as `data-align` plus block margins, never a float, so exported HTML lands
+correctly with no theme loaded. `ImageFloat`, `ImageAlign`, `ImagePlacement`,
+`SetImageOptions`, and `ImageOptions` are exported, along with `imageUploadPluginKey`,
+whose plugin state is the `DecorationSet` of in-flight upload placeholders.
 
 ## Editing UI
 
 The user-facing counterpart to the commands above:
 
-- Selecting an image opens a bubble menu with placement controls, an "Edit alt text" action, and Delete. The menu offers exactly one placement set: wrapping (Inline / Left / Center / Right) under the classic preset, alignment (Align left / Align center / Align right) under `preset: 'notion'`, or whichever the `placement` option pins.
-- The main toolbar and the slash (floating) menu both expose an "Image" action that opens a popover with a URL field and an alt-text field, plus a button to browse for a local file.
+- Selecting an image opens a bubble menu with placement controls, an "Edit alt text" action, and Delete. The menu offers exactly one placement set: wrapping (Inline / Float left / Center / Float right) under the classic preset, alignment (Align left / Align center / Align right) under `preset: 'notion'`, or whichever the `placement` option pins.
+- The main toolbar and the slash (floating) menu both expose an "Image" action that opens a popover with a URL field and a button to browse for a local file. Alt text is set afterward: the bubble menu's "Edit alt text" action reopens the same popover with a single alt field, pre-filled from the image.
 - When `uploadHandler` is set, pasting or dropping an image file uploads it through the handler and inserts the returned URL. Without an `uploadHandler`, pasted and dropped images are inlined as base64 `data:` URLs.

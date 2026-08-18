@@ -6,15 +6,16 @@ body:
   - type: markdown
     attributes:
       value: |
-        The Pro packages are distributed privately, but their defects are tracked here so
-        there is one place to search. Before submitting, please search
+        The Pro packages are published on the public npm registry under a commercial
+        license; their defects are tracked here so there is one place to search.
+        Before submitting, please search
         [existing issues](https://github.com/domternal/domternal/issues?q=is%3Aissue+%5BPRO%5D).
 
         **Do not paste confidential content.** Reduce the reproduction to synthetic content
         first. If it only reproduces with a real document, with your data, or with a
-        collaboration update, email info@domternal.dev instead of filing here.
+        collaboration update, email support@domternal.dev instead of filing here.
 
-        **Security vulnerabilities do not belong here.** Email info@domternal.dev. See
+        **Security vulnerabilities do not belong here.** Email security@domternal.dev. See
         [Support](https://domternal.dev/v1/pro/support/).
 
   - type: dropdown

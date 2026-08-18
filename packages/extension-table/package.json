@@ -25,7 +25,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "THIRD-PARTY-LICENSES.md"
   ],
   "scripts": {
     "build": "tsup --clean",

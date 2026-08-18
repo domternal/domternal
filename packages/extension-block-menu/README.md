@@ -20,4 +20,20 @@
 
 <u>[Website](https://domternal.dev)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Documentation](https://domternal.dev/v1/extensions/block-controls)</u> &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; <u>[Live examples](https://domternal.dev/examples)</u>
 
+## Migrate
+
+There is nothing to install here. Replace this package with the one it was
+renamed to:
+
+```bash
+pnpm remove @domternal/extension-block-menu
+pnpm add @domternal/extension-block-controls
+```
+
+`@domternal/core` and `@domternal/pm` remain peer dependencies of the new
+package. The floating menu plugin itself now lives in `@domternal/core`, so the
+Angular, React, Vue, and Vanilla wrappers need only `@domternal/core` and
+`@domternal/theme`; add `@domternal/extension-block-controls` when you want the
+block handle, slash menu, or drag-and-drop.
+
 See [`@domternal/extension-block-controls`](https://www.npmjs.com/package/@domternal/extension-block-controls) for the full documentation and API.

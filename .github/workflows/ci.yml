@@ -60,6 +60,11 @@ jobs:
         # rename to public API.
         run: pnpm test:api-surface
 
+      # Embedded third-party material (Phosphor icons, adapted ProseMirror
+      # styles) must keep its upstream notices in the published tarballs.
+      - name: Third-party notices
+        run: pnpm test:third-party-notices
+
       - name: CSS variable references
         # Fails if a `var(--dm-X)` reference without a fallback has no
         # matching definition.

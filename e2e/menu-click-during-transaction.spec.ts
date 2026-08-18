@@ -223,6 +223,53 @@ for (const target of demoTargets) {
     ).toBe(true);
   });
 
+  test(`${target.name}: a slash menu item fires when the press outlives a transaction`, async ({
+    page,
+  }) => {
+    // The third shape: the slash menu rebuilt every row on every update, and
+    // `onUpdate` runs on every transaction. The transaction goes between the
+    // press and the release rather than through the outside-press probe, since
+    // this popup renders synchronously and a pointerdown probe would land
+    // before mousedown. An overlay listening on mousedown lands right here.
+    await page.goto(target.baseURL + '/');
+    await page.waitForSelector(target.notionToggle);
+    await page.click(target.notionToggle);
+    await page.waitForSelector(target.editorSelector);
+    await page.evaluate(() => {
+      const editor = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { setContent: (h: string, emit: boolean) => void }
+        | undefined;
+      editor?.setContent('<p>The sentence under the pointer.</p>', false);
+    });
+    await expect(page.locator(`${target.editorSelector} h1`)).toHaveCount(0);
+
+    await page.click(`${target.editorSelector} > *:first-child`);
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('/');
+
+    const item = page.locator('.dm-slash-command-item', { hasText: 'Heading 1' }).first();
+    await expect(item).toBeVisible();
+    // Raw coordinates do not scroll the way `click()` does.
+    await item.scrollIntoViewIfNeeded();
+    const box = await item.boundingBox();
+    if (!box) throw new Error('no box');
+
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.evaluate(() => {
+      const editor = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
+        | { view: { state: { tr: unknown }; dispatch: (tr: unknown) => void } }
+        | undefined;
+      if (!editor) throw new Error('no editor');
+      editor.view.dispatch(editor.view.state.tr);
+    });
+    await page.mouse.up();
+
+    await expect(page.locator(`${target.editorSelector} h1`)).toHaveCount(1);
+    await expect(page.locator(target.editorSelector)).not.toContainText('/');
+  });
+
   test(`${target.name}: a toolbar dropdown trigger fires when the press outlives a frame`, async ({
     page,
   }) => {
