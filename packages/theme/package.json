@@ -31,7 +31,7 @@
     "postpublish": "git checkout package.json"
   },
   "devDependencies": {
-    "sass": "^1.89.0"
+    "sass": "^1.102.0"
   },
   "keywords": [
     "domternal",
