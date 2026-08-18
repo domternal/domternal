@@ -42,11 +42,15 @@
   position: relative;
   outline: none;
 
+  // Bleed drawn as a spread shadow, not a negative `inset`: an inset joins the
+  // halo to the nearest scroll container's overflow, which gave any block
+  // filling one (a code block, a Pro column) a scrollbar for the whole drag.
   &::before {
     content: '';
     position: absolute;
-    inset: -0.25rem;
+    inset: 0;
     background-color: var(--dm-block-selected-halo, rgba(112, 207, 248, 0.25));
+    box-shadow: 0 0 0 0.25rem var(--dm-block-selected-halo, rgba(112, 207, 248, 0.25));
     border-radius: 0.25rem;
     pointer-events: none;
     z-index: -1;
