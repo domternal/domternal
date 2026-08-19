@@ -60,6 +60,7 @@ import {
 import type { BlockMatcher, BlockCandidate } from '@domternal/extension-block-controls';
 import { TableOfContents, FloatingTocOutline, TableOfContentsBlock } from '@domternal/extension-toc';
 import { Markdown } from '@domternal/extension-markdown';
+import { defaultBubbleContexts } from '@domternal/core';
 import type { IconSet } from '@domternal/core';
 import { createLowlight, common } from 'lowlight';
 import katex from 'katex';
@@ -226,6 +227,22 @@ export function NotionDemo({ scrollable = false }: NotionDemoProps): ReactNode {
     resolveBubbleIcons(parseBubbleIconsParam()),
   );
 
+  /* The Notion default plus text alignment.
+     Alignment is not in the default context: it needs `TextAlign`, which
+     StarterKit does not ship, and Notion has no alignment control in its own
+     selection menu. This demo registers the extension, so it names the item
+     and gets the dropdown back. The documented way to extend the default
+     rather than replace it, which is why it starts from the default rather
+     than restating it. Memoized on the editor: a fresh object every render
+     would rebuild the menu on every render. */
+  const bubbleContexts = useMemo(
+    () =>
+      editor
+        ? { text: [...(defaultBubbleContexts(editor)['text'] ?? []), '|', 'textAlign'] }
+        : undefined,
+    [editor],
+  );
+
   useEffect(() => {
     const w = window as unknown as Record<string, unknown>;
     w['__DEMO_SET_BUBBLE_ICONS__'] = (key: BubbleIconsParam | null): void => {
@@ -289,7 +306,7 @@ export function NotionDemo({ scrollable = false }: NotionDemoProps): ReactNode {
 
           {editor && (
             <>
-              <DomternalBubbleMenu editor={editor} icons={bubbleIcons} />
+              <DomternalBubbleMenu editor={editor} icons={bubbleIcons} contexts={bubbleContexts} />
               <DomternalFloatingMenu editor={editor} requireExplicitTrigger />
               <DomternalNotionColorPicker editor={editor} />
             </>

@@ -39,6 +39,8 @@ import {
   Editor,
   inlineStyles,
   getListItemCursorContext,
+  defaultBubbleContexts,
+  type BubbleContexts,
   type AnyExtension,
 } from '@domternal/core';
 import { CodeBlockLowlight, createCodeHighlighter } from '@domternal/extension-code-block-lowlight';
@@ -217,6 +219,29 @@ export class NotionDemoComponent implements OnDestroy {
 
   // E2E fixture for bubble menu icons override.
   readonly bubbleIcons = signal<IconSet | undefined>(resolveBubbleIcons(parseBubbleIconsParam()));
+
+  /* The Notion default plus text alignment.
+     Alignment is not in the default context: it needs `TextAlign`, which
+     StarterKit does not ship, and Notion has no alignment control in its own
+     selection menu. This demo registers the extension, so it names the item
+     and gets the dropdown back. The documented way to extend the default
+     rather than replace it, which is why it starts from the default rather
+     than restating it. A computed and not a template call: a method in the
+     template returns a fresh object on every change-detection pass and would
+     rebuild the menu with it. */
+  readonly bubbleContexts = computed<BubbleContexts>(() => {
+    /* Typed as `BubbleContexts` and not as the narrower shape this actually
+       returns, so the binding below exercises the whole published type: the
+       Angular input lost the `null` that disables a context once, and a demo
+       that only ever passes arrays would not have noticed.
+
+       One return rather than a guard clause, because the input's published
+       type has no `undefined` in it and the editor is never actually absent
+       here: the binding lives inside the template's `@if (editor())`. */
+    const ed = this.editor();
+    const base = ed ? defaultBubbleContexts(ed)['text'] ?? [] : [];
+    return { text: [...base, '|', 'textAlign'] };
+  });
 
   constructor() {
     const w = window as unknown as Record<string, unknown>;

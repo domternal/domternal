@@ -5,6 +5,7 @@ import {
   DomternalNotionColorPicker,
 } from '@domternal/vanilla';
 import {
+  defaultBubbleContexts,
   Bold,
   Italic,
   Underline,
@@ -238,8 +239,15 @@ export class NotionDemo {
     const editor = this.#editorWrapper.editor;
 
     const initialIcons = resolveBubbleIcons(parseBubbleIconsParam());
+    /* The Notion default plus text alignment.
+       Alignment is not in the default context: it needs `TextAlign`, which
+       StarterKit does not ship, and Notion has no alignment control in its own
+       selection menu. This demo registers the extension, so it names the item and
+       gets the trailing dropdown back. Exactly the documented way to extend the
+       default rather than replace it. */
     this.#bubbleMenu = new DomternalBubbleMenu(bubbleHost, {
       editor,
+      contexts: { text: [...(defaultBubbleContexts(editor)['text'] ?? []), '|', 'textAlign'] },
       ...(initialIcons ? { icons: initialIcons } : {}),
     });
     (window as unknown as Record<string, unknown>).__DEMO_SET_BUBBLE_ICONS__ =
