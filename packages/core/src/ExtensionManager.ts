@@ -224,8 +224,9 @@ export class ExtensionManager {
     // 8. Build schema
     // 9. Initialize storage
 
-    const flattened = this.flattenExtensions(options.extensions);
-    const deduped = this.deduplicateExtensions(flattened);
+    const autoIncluded = new Set<AnyExtension>();
+    const flattened = this.flattenExtensions(options.extensions, autoIncluded);
+    const deduped = this.deduplicateExtensions(flattened, autoIncluded);
     const cloned = this.cloneExtensions(deduped);
     this._extensions = this.resolveExtensions(cloned);
     this.detectConflicts();
@@ -320,12 +321,21 @@ export class ExtensionManager {
   /**
    * Recursively flattens extensions by expanding addExtensions()
    * This allows extension bundles like StarterKit to work
+   *
+   * `autoIncluded` collects everything that arrived through an
+   * `addExtensions()` rather than from the caller's own list, which is what
+   * lets deduplication tell a default apart from a choice.
    */
-  private flattenExtensions(extensions: AnyExtension[]): AnyExtension[] {
+  private flattenExtensions(
+    extensions: AnyExtension[],
+    autoIncluded: Set<AnyExtension>,
+    fromBundle = false
+  ): AnyExtension[] {
     const result: AnyExtension[] = [];
 
     for (const ext of extensions) {
       assertOwnExtension(ext);
+      if (fromBundle) autoIncluded.add(ext);
       result.push(ext);
 
       // Check for nested extensions (bundles like StarterKit)
@@ -335,7 +345,7 @@ export class ExtensionManager {
       ) as AnyExtension[] | undefined;
 
       if (nested && nested.length > 0) {
-        result.push(...this.flattenExtensions(nested));
+        result.push(...this.flattenExtensions(nested, autoIncluded, true));
       }
     }
 
@@ -343,17 +353,38 @@ export class ExtensionManager {
   }
 
   /**
-   * Removes duplicate extensions by name, keeping the last occurrence.
-   * This allows parent extensions to auto-include children via addExtensions()
-   * while letting users override with explicitly configured versions.
+   * Removes duplicate extensions by name.
+   *
+   * A version the caller listed themselves always wins over one a bundle
+   * included on their behalf, and position does not enter into it. Keeping
+   * the last occurrence alone said the same thing only while every bundle was
+   * listed first, which is the habit for StarterKit and no rule at all: an
+   * extension that includes a default and is written LOWER in the list, as
+   * `Export` and its `Print` are, silently replaced the configured copy
+   * above it and the caller's options went missing with it.
+   *
+   * Between two of the same kind the later one still wins, so two bundles
+   * offering the same default resolve as they always have.
    */
-  private deduplicateExtensions(extensions: AnyExtension[]): AnyExtension[] {
-    const seen = new Map<string, number>();
+  private deduplicateExtensions(
+    extensions: AnyExtension[],
+    autoIncluded: Set<AnyExtension>
+  ): AnyExtension[] {
+    const winners = new Map<string, number>();
     for (let i = 0; i < extensions.length; i++) {
       const ext = extensions[i];
-      if (ext) seen.set(ext.name, i);
+      if (!ext) continue;
+      const held = winners.get(ext.name);
+      if (held === undefined) {
+        winners.set(ext.name, i);
+        continue;
+      }
+      const heldIsAuto = autoIncluded.has(extensions[held] as AnyExtension);
+      const nextIsAuto = autoIncluded.has(ext);
+      if (nextIsAuto && !heldIsAuto) continue;
+      winners.set(ext.name, i);
     }
-    return extensions.filter((ext, i) => seen.get(ext.name) === i);
+    return extensions.filter((ext, i) => winners.get(ext.name) === i);
   }
 
   /**

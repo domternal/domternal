@@ -206,6 +206,59 @@ describe('ExtensionManager', () => {
       expect(dupes).toHaveLength(1);
       expect((dupes[0] as Extension).config.priority).toBe(200);
     });
+
+    /** Which copy of `shared` survived, read through its priority. */
+    const survivorPriority = (manager: ExtensionManager): number | undefined => {
+      const shared = manager.extensions.filter((e) => e.name === 'shared');
+      expect(shared).toHaveLength(1);
+      return (shared[0] as Extension).config.priority;
+    };
+
+    const Listed = Extension.create({ name: 'shared', priority: 123 });
+    const Bundle = Extension.create({
+      name: 'bundle',
+      addExtensions() {
+        return [Extension.create({ name: 'shared', priority: 456 })];
+      },
+    });
+
+    it('a listed extension beats a bundle default written above it', () => {
+      const manager = new ExtensionManager(
+        { extensions: [DocumentNode, ParagraphNode, TextNode, Bundle, Listed] },
+        mockEditor
+      );
+      expect(survivorPriority(manager)).toBe(123);
+    });
+
+    it('and beats one written below it, which is where it used to lose', () => {
+      /* The failure this rule exists for. Keeping the last occurrence alone
+         said "explicit wins" only while every bundle was listed first, which
+         is the habit for StarterKit and no rule at all. An extension that
+         carries a default and sits LOWER in the list, as the export package
+         and its Print do, replaced the configured copy above it, and the
+         caller's options went missing with it. */
+      const manager = new ExtensionManager(
+        { extensions: [DocumentNode, ParagraphNode, TextNode, Listed, Bundle] },
+        mockEditor
+      );
+      expect(survivorPriority(manager)).toBe(123);
+    });
+
+    it('between two bundle defaults the later one still wins', () => {
+      // Unchanged, and deliberately: with no choice to respect there is
+      // nothing to prefer, so position decides as it always has.
+      const Other = Extension.create({
+        name: 'otherBundle',
+        addExtensions() {
+          return [Extension.create({ name: 'shared', priority: 789 })];
+        },
+      });
+      const manager = new ExtensionManager(
+        { extensions: [DocumentNode, ParagraphNode, TextNode, Bundle, Other] },
+        mockEditor
+      );
+      expect(survivorPriority(manager)).toBe(789);
+    });
   });
 
   describe('checkDependencies', () => {
