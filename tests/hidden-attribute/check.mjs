@@ -26,9 +26,11 @@
  *
  * In the free repo it checks the theme it owns. In the Pro repo it checks the
  * six stylesheets the Pro packages ship, against the theme they are installed
- * beside: the restoring rule lives in `@domternal/theme`, which every Pro
- * package declares as a peer, so a Pro surface is covered only while two things
- * hold. Both are checked here rather than assumed:
+ * beside: the restoring rule lives in `@domternal/theme`, which no package
+ * declares as a dependency, because the theme is a stylesheet a consumer
+ * chooses to load rather than something the code imports. That makes the
+ * coupling a convention, so a Pro surface is covered only while two things
+ * hold, and both are checked here rather than assumed:
  *
  *   - the installed theme really does carry the rule, and
  *   - every Pro selector stays inside the scope that rule covers, which in

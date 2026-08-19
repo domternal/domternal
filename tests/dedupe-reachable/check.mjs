@@ -139,6 +139,16 @@ function main() {
     process.exit(1);
   }
 
+  if (checked === 0) {
+    // The only dedupe list here lives in domternal.dev, which is a nested
+    // repository excluded from this one, so a CI checkout has nothing to read.
+    // Saying OK there would report a green line for work that did not happen,
+    // which is the same overstatement tests/ci-wiring exists to catch, so it
+    // says SKIPPED instead and ci-wiring counts it apart.
+    console.log('[dedupe-reachable] SKIPPED - no config with a dedupe list is present here');
+    return;
+  }
+
   console.log(
     `[dedupe-reachable] OK - ${checked} config(s), ${entries} dedupe entries, all reachable`
   );

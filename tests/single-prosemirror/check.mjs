@@ -15,8 +15,11 @@
  * and the gate would keep failing on copies nothing resolves any more. The
  * lockfile is also what CI installs from, so it is the state that ships.
  *
- * Every lockfile in the repo is checked: the site deploys from its own, and a
- * duplicate there would reach production without the root ever noticing.
+ * Every lockfile PRESENT is checked, and on a development machine that is three.
+ * The site deploys from its own, so a duplicate there would reach production
+ * without the root ever noticing. In CI only the root exists, because the other
+ * two are nested repositories this one excludes: the run there is real but
+ * narrower, and the printed count says which it was.
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';

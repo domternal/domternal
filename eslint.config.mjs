@@ -65,12 +65,30 @@ export default defineConfig(
     },
   },
   {
+    // The gate scripts, this config, and the coverage index generator are plain
+    // JS with no tsconfig, so they take the non-type-checked ruleset rather
+    // than being ignored outright. Ignoring them left every check under tests/,
+    // each of which can fail a build, as the only unlinted code in the
+    // repository.
+    files: ['**/*.mjs'],
+    extends: [tseslint.configs.disableTypeChecked],
+    rules: {
+      'no-console': 'off',
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+    },
+  },
+  {
     ignores: [
       '**/dist/**',
       '**/node_modules/**',
       '**/*.js',
       '**/*.cjs',
-      '**/*.mjs',
+      // Type fixtures, not code. They are deliberately compiled against the
+      // built dists by tests/consumer-types/run.mjs under configs of their own,
+      // so the project service here has no tsconfig that covers them.
+      'tests/consumer-types/consumer.ts',
+      'tests/consumer-types/consumer-cjs.cts',
     ],
   }
 );

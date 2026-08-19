@@ -1,0 +1,131 @@
+{
+  "$comment": [
+    "What each package is allowed to publish, and how large it may be.",
+    "requiredFiles must be present. Every other file must match one of the anchored",
+    "allowedPatterns, so a stray file in dist (a leftover spec, a .env, a scratch",
+    "build) fails rather than shipping. The exports targets are NOT listed here:",
+    "the gate reads them from the packed manifest and checks them against the",
+    "tarball itself, which is stronger than a list that can go stale.",
+    "maxPackedBytes carries roughly a tenth of headroom over the measured size, the",
+    "same convention as tests/bundle-size. Refresh with --update after an",
+    "intentional change and commit the diff.",
+    "Sourcemaps are shipped deliberately, and they are most of these bytes."
+  ],
+  "@domternal/angular": {
+    "maxPackedBytes": 77000,
+    "requiredFiles": ["LICENSE", "README.md", "package.json"],
+    "allowedPatterns": [
+      "^dist/(LICENSE|README\\.md)$",
+      "^dist/fesm2022/domternal-angular\\.mjs(\\.map)?$",
+      "^dist/types/domternal-angular\\.d\\.ts$"
+    ]
+  },
+  "@domternal/core": {
+    "maxPackedBytes": 767000,
+    "requiredFiles": ["LICENSE", "README.md", "THIRD-PARTY-LICENSES.md", "package.json"],
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+  },
+  "@domternal/extension-block-controls": {
+    "maxPackedBytes": 297000,
+    "requiredFiles": ["LICENSE", "README.md", "package.json"],
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+  },
+  "@domternal/extension-block-menu": {
+    "maxPackedBytes": 4000,
+    "requiredFiles": ["LICENSE", "README.md", "package.json"],
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+  },
+  "@domternal/extension-code-block-lowlight": {
+    "maxPackedBytes": 14000,
+    "requiredFiles": ["LICENSE", "README.md", "package.json"],
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+  },
+  "@domternal/extension-details": {
+    "maxPackedBytes": 39000,
+    "requiredFiles": ["LICENSE", "README.md", "package.json"],
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+  },
+  "@domternal/extension-emoji": {
+    "maxPackedBytes": 110000,
+    "requiredFiles": ["LICENSE", "README.md", "package.json"],
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+  },
+  "@domternal/extension-image": {
+    "maxPackedBytes": 66000,
+    "requiredFiles": ["LICENSE", "README.md", "package.json"],
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+  },
+  "@domternal/extension-markdown": {
+    "maxPackedBytes": 85000,
+    "requiredFiles": ["LICENSE", "README.md", "package.json"],
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+  },
+  "@domternal/extension-math": {
+    "maxPackedBytes": 34000,
+    "requiredFiles": ["LICENSE", "README.md", "package.json"],
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+  },
+  "@domternal/extension-mention": {
+    "maxPackedBytes": 42000,
+    "requiredFiles": ["LICENSE", "README.md", "package.json"],
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+  },
+  "@domternal/extension-table": {
+    "maxPackedBytes": 122000,
+    "requiredFiles": ["LICENSE", "README.md", "THIRD-PARTY-LICENSES.md", "package.json"],
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+  },
+  "@domternal/extension-toc": {
+    "maxPackedBytes": 95000,
+    "requiredFiles": ["LICENSE", "README.md", "package.json"],
+    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
+  },
+  "@domternal/pm": {
+    "maxPackedBytes": 6000,
+    "requiredFiles": ["LICENSE", "README.md", "package.json"],
+    "allowedPatterns": [
+      "^src/(commands|dropcursor|gapcursor|history|inputrules|keymap|model|schema-list|state|tables|transform|view)\\.(js|cjs)$",
+      "^src/(commands|dropcursor|gapcursor|history|inputrules|keymap|model|schema-list|state|tables|transform|view)\\.d\\.(ts|cts)$"
+    ]
+  },
+  "@domternal/react": {
+    "maxPackedBytes": 104000,
+    "requiredFiles": ["LICENSE", "README.md", "package.json"],
+    "allowedPatterns": [
+      "^dist/index\\.js(\\.map)?$",
+      "^dist/([A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+\\.d\\.ts(\\.map)?$"
+    ]
+  },
+  "@domternal/theme": {
+    "maxPackedBytes": 83000,
+    "requiredFiles": [
+      "LICENSE",
+      "README.md",
+      "THIRD-PARTY-LICENSES.md",
+      "index.d.ts",
+      "package.json",
+      "dist/domternal-theme.css",
+      "dist/domternal-theme.expanded.css"
+    ],
+    "allowedPatterns": [
+      "^dist/domternal-theme(\\.expanded)?\\.css$",
+      "^src/([A-Za-z0-9._-]+/)*_?[A-Za-z0-9-]+\\.scss$"
+    ]
+  },
+  "@domternal/vanilla": {
+    "maxPackedBytes": 96000,
+    "requiredFiles": ["LICENSE", "README.md", "package.json"],
+    "allowedPatterns": [
+      "^dist/index\\.js(\\.map)?$",
+      "^dist/([A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+\\.d\\.ts(\\.map)?$"
+    ]
+  },
+  "@domternal/vue": {
+    "maxPackedBytes": 93000,
+    "requiredFiles": ["LICENSE", "README.md", "package.json"],
+    "allowedPatterns": [
+      "^dist/index\\.js(\\.map)?$",
+      "^dist/([A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+\\.d\\.ts(\\.map)?$"
+    ]
+  }
+}
