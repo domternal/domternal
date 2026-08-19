@@ -9,13 +9,21 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   OUTSIDE_SCOPE_ALLOWED,
+  THEME_CANDIDATES,
+  WORKSPACE_DIRS,
   checkHiddenRule,
+  discoverStylesheets,
   displayOf,
+  findTheme,
   findUnscopedDisplays,
   isScoped,
   parseRules,
+  stripComments,
 } from './check.mjs';
 
 /** The rule the theme actually ships, as the gate must see it. */
@@ -119,4 +127,89 @@ test('covering only descendants, and not our elements themselves, is caught', ()
 `;
   const problems = checkHiddenRule(onlyInside);
   assert.ok(problems.some((problem) => problem.includes('carrying a dm- class')));
+});
+
+test('a comment before a selector does not become part of it', () => {
+  /* The failure mirroring into the Pro repo exposed. A comment sits between one
+     rule's closing brace and the next selector, so an un-stripped one reads as a
+     selector naming no `dm-` class, and every commented rule is reported as
+     escaping the scope. Sass strips the theme's `//` comments, which is why the
+     theme alone never showed it; the Pro stylesheets are hand-written CSS. */
+  const css = '/* Docked at the frame edge. */ .dm-panel { display: flex; }';
+  assert.deepEqual(findUnscopedDisplays(css, []), []);
+  assert.equal(parseRules(css)[0].selector, '.dm-panel');
+});
+
+test('stripComments leaves the rules themselves alone', () => {
+  assert.equal(stripComments('.a { display: flex; }'), '.a { display: flex; }');
+  assert.equal(stripComments('/* x */.a{}').trim(), '.a{}');
+});
+
+test('a multi-line comment between rules is stripped', () => {
+  const css = ['.dm-a { display: flex; }', '/* one', '   two */', '.dm-b { display: grid; }'].join('\n');
+  assert.deepEqual(findUnscopedDisplays(css, []), []);
+});
+
+test('the theme is looked for beside a workspace member, not only at the root', () => {
+  /* pnpm links a peer next to the package that declared it rather than hoisting
+     it, so in the Pro repo there is no copy at the root at all and a root-only
+     search would report the theme missing. */
+  const root = mkdtempSync(join(tmpdir(), 'hidden-theme-'));
+  try {
+    const nested = join(root, 'apps', 'playground', 'node_modules', '@domternal', 'theme', 'dist');
+    mkdirSync(nested, { recursive: true });
+    writeFileSync(join(nested, 'domternal-theme.css'), '[hidden] { display: none !important }');
+    assert.equal(findTheme(root), join(nested, 'domternal-theme.css'));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a missing theme is reported as absent rather than guessed at', () => {
+  const root = mkdtempSync(join(tmpdir(), 'hidden-theme-'));
+  try {
+    assert.equal(findTheme(root), null);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('every shipped stylesheet is discovered, expanded twins preferred', () => {
+  /* Discovery rather than a list, so a new package's stylesheet is covered the
+     day it exists. The minified twin is skipped so a failure is reported once,
+     with a selector a person can read. */
+  const root = mkdtempSync(join(tmpdir(), 'hidden-sheets-'));
+  try {
+    const dist = join(root, 'packages', 'theme', 'dist');
+    mkdirSync(dist, { recursive: true });
+    writeFileSync(join(dist, 'domternal-theme.css'), '');
+    writeFileSync(join(dist, 'domternal-theme.expanded.css'), '');
+    const other = join(root, 'packages', 'extension-comments', 'dist');
+    mkdirSync(other, { recursive: true });
+    writeFileSync(join(other, 'comments.css'), '');
+
+    const found = discoverStylesheets(root).map((path) => path.replace(root, ''));
+    assert.equal(found.length, 2);
+    assert.ok(found.some((path) => path.endsWith('domternal-theme.expanded.css')));
+    assert.ok(found.some((path) => path.endsWith('comments.css')));
+    assert.ok(!found.some((path) => path.endsWith('/domternal-theme.css')));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('both workspace directories are searched', () => {
+  // Packages ship the stylesheets; apps are where a peer gets linked.
+  assert.ok(WORKSPACE_DIRS.includes('packages'));
+  assert.ok(WORKSPACE_DIRS.includes('apps'));
+  assert.ok(THEME_CANDIDATES.some((path) => path.startsWith('node_modules/')));
+});
+
+test('a Pro-shaped selector keeps the prefix the rule keys on', () => {
+  /* The convention this gate replaces: every Pro element carries `dm-`, so the
+     theme's rule reaches it. A Pro package that invented its own prefix would
+     be invisible to the rule and is caught here. */
+  assert.equal(isScoped('.dm-panel-header'), true);
+  assert.equal(isScoped('.dm-editor-pill-clip'), true);
+  assert.equal(isScoped('.dmp-panel'), false);
 });
