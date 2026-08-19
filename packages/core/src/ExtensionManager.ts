@@ -379,7 +379,7 @@ export class ExtensionManager {
         winners.set(ext.name, i);
         continue;
       }
-      const heldIsAuto = autoIncluded.has(extensions[held] as AnyExtension);
+      const heldIsAuto = autoIncluded.has(extensions[held]!);
       const nextIsAuto = autoIncluded.has(ext);
       if (nextIsAuto && !heldIsAuto) continue;
       winners.set(ext.name, i);
