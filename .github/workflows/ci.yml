@@ -100,6 +100,13 @@ jobs:
         # keeps it honest.
         run: pnpm test:dedupe-reachable
 
+      - name: ProseMirror ranges still agree
+        # `@domternal/pm` ships the prosemirror packages as dependencies while
+        # y-prosemirror takes them as peers. They unify only while their ranges
+        # can be satisfied together; a major bump on either side would end that
+        # for every consumer, with nothing warning at install time.
+        run: pnpm test:pm-ranges
+
       - name: Frozen single-copy contract
         # Every caller registering a module must pass the SAME export, or two
         # packages that agree report a conflict that does not exist. Nothing in

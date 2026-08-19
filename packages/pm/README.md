@@ -44,6 +44,18 @@ Domternal detects it at runtime and names both packages and the fix. The dedupe 
 package manager and bundler:
 https://domternal.dev/v1/guides/single-prosemirror-copy/
 
+### Why these are dependencies and not peers
+
+Declaring them as peer dependencies would make a second copy impossible, since there would be
+nothing here to bring. It is not worth what it costs: peers are installed automatically by npm 7
+and later, by pnpm and by Bun, but by neither version of Yarn, so every Yarn user would have to
+install twelve ProseMirror packages by hand. An install that fails outright is a worse first day
+than a duplicate that is rare, loud when it happens, and fixed by one block of JSON.
+
+What is done instead: the ranges declared here are checked in CI against those of every library
+that shares ProseMirror with this one, so a release cannot make the two impossible to reconcile,
+and a duplicate that does form is reported by name at runtime.
+
 ## Usage
 
 Import from a subpath matching the ProseMirror package you need. Each subpath
