@@ -131,16 +131,16 @@ test.describe('BubbleMenu icons - Group B: sub-components', () => {
   test('B1: text-align dropdown trigger renders custom icon', async ({ page }) => {
     await gotoNotion(page, 'bubble-icons=full');
     await openBubble(page);
-    const dropdownTrigger = page.locator(`${bubbleMenu} button.dm-toolbar-dropdown-trigger`).first();
+    const dropdownTrigger = page.locator(`${bubbleMenu} button[data-dropdown="textAlign"]`);
     await expect(dropdownTrigger.locator('svg[data-test-icon^="custom-textAlign"]')).toHaveCount(1);
   });
 
   test('B2: text-align dropdown sub-items use custom icons', async ({ page }) => {
     await gotoNotion(page, 'bubble-icons=full');
     await openBubble(page);
-    const dropdownTrigger = page.locator(`${bubbleMenu} button.dm-toolbar-dropdown-trigger`).first();
+    const dropdownTrigger = page.locator(`${bubbleMenu} button[data-dropdown="textAlign"]`);
     await dropdownTrigger.click();
-    const panel = page.locator(`${bubbleMenu} .dm-toolbar-dropdown-panel`).first();
+    const panel = page.locator(`${bubbleMenu} [data-dropdown-panel="textAlign"]`);
     await expect(panel).toBeVisible();
     await expect(panel.locator('svg[data-test-icon="custom-textAlignLeft"]')).toHaveCount(1);
     await expect(panel.locator('svg[data-test-icon="custom-textAlignCenter"]')).toHaveCount(1);
@@ -151,9 +151,9 @@ test.describe('BubbleMenu icons - Group B: sub-components', () => {
   test('B3: dropdown trigger reflects active sub-item icon after alignment change', async ({ page }) => {
     await gotoNotion(page, 'bubble-icons=full');
     await openBubble(page);
-    const dropdownTrigger = page.locator(`${bubbleMenu} button.dm-toolbar-dropdown-trigger`).first();
+    const dropdownTrigger = page.locator(`${bubbleMenu} button[data-dropdown="textAlign"]`);
     await dropdownTrigger.click();
-    const panel = page.locator(`${bubbleMenu} .dm-toolbar-dropdown-panel`).first();
+    const panel = page.locator(`${bubbleMenu} [data-dropdown-panel="textAlign"]`);
     await panel.locator('svg[data-test-icon="custom-textAlignCenter"]').first().click();
     // Click typically closes the bubble: reopen via re-select.
     await selectInParagraph(page, 0, 'Hello'.length);
