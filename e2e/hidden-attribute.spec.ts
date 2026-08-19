@@ -36,10 +36,10 @@ async function openDemo(page: Page, target: DemoTarget): Promise<void> {
 async function setHidden(page: Page, selector: string, value: boolean | string): Promise<void> {
   await page.evaluate(
     ([sel, val]) => {
-      const el = document.querySelector(sel as string);
-      if (!el) throw new Error(`no element for ${String(sel)}`);
+      const el = document.querySelector(sel);
+      if (!el) throw new Error(`no element for ${sel}`);
       if (val === false) el.removeAttribute('hidden');
-      else el.setAttribute('hidden', val === true ? '' : (val as string));
+      else el.setAttribute('hidden', val === true ? '' : val);
     },
     [selector, value] as const
   );
@@ -68,10 +68,10 @@ async function probe(
   const id = `probe-${Math.random().toString(36).slice(2, 9)}`;
   await page.evaluate(
     ([probeId, className, parentSelector, hidden]) => {
-      const parent = document.querySelector(parentSelector as string) ?? document.body;
+      const parent = document.querySelector(parentSelector) ?? document.body;
       const el = document.createElement('div');
-      el.id = probeId as string;
-      el.className = className as string;
+      el.id = probeId;
+      el.className = className;
       el.textContent = 'probe';
       if (hidden === true) el.setAttribute('hidden', '');
       else if (typeof hidden === 'string') el.setAttribute('hidden', hidden);
@@ -211,7 +211,7 @@ for (const target of demoTargets) {
        code uses; `setAttribute` with a value is what a template renders, and
        both must reach the same place. */
     await page.evaluate(() => {
-      (document.querySelector('.dm-toolbar') as HTMLElement).hidden = true;
+      document.querySelector<HTMLElement>('.dm-toolbar')!.hidden = true;
     });
     expect(await displayOf(page, '.dm-toolbar')).toBe('none');
 

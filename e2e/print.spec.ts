@@ -70,9 +70,9 @@ async function styleOf(
 ): Promise<string | null> {
   return page.evaluate(
     ([sel, prop]) => {
-      const el = document.querySelector(sel as string);
+      const el = document.querySelector(sel!);
       if (!el) return null;
-      return getComputedStyle(el).getPropertyValue(prop as string);
+      return getComputedStyle(el).getPropertyValue(prop!);
     },
     [selector, property],
   );
@@ -547,7 +547,7 @@ for (const target of demoTargets) {
     // white paper. The page is not wrong, it is BLANK.
     await openDemo(page, target);
     await setContent(page, '<p>Legible on paper.</p>');
-    await page.evaluate(() => document.body.classList.add('dm-theme-dark'));
+    await page.evaluate(() => { document.body.classList.add('dm-theme-dark'); });
     await page.waitForTimeout(150);
 
     const onScreen = await page.evaluate(() => {
@@ -570,7 +570,7 @@ for (const target of demoTargets) {
       };
     });
     await page.emulateMedia({ media: null });
-    await page.evaluate(() => document.body.classList.remove('dm-theme-dark'));
+    await page.evaluate(() => { document.body.classList.remove('dm-theme-dark'); });
 
     // Dark ink, and no panel behind it to pay for.
     expect(Math.max(...channels(onPaper?.color ?? null))).toBeLessThan(80);

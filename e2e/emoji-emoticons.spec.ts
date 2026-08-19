@@ -70,10 +70,10 @@ async function typeFresh(page: Page, target: DemoTarget, text: string): Promise<
 }
 
 /** Flatten the first paragraph into a token stream of emoji names and raw text runs. */
-async function firstParaTokens(page: Page): Promise<Array<{ type: string; value: string }>> {
+async function firstParaTokens(page: Page): Promise<{ type: string; value: string }[]> {
   return page.evaluate(() => {
     const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
-      | { getJSON: () => { content?: Array<{ type: string; content?: Array<Record<string, unknown>> }> } }
+      | { getJSON: () => { content?: { type: string; content?: Record<string, unknown>[] }[] } }
       | undefined;
     const json = ed?.getJSON();
     const para = json?.content?.find((n) => n.type === 'paragraph');
@@ -154,7 +154,7 @@ for (const target of demoTargets) {
     });
 
     test('multi-character emoticons convert', async ({ page }) => {
-      const cases: Array<[string, string]> = [
+      const cases: [string, string][] = [
         ['>:( ', 'angry_face'],
         [":'( ", 'crying_face'],
         [':-) ', 'slightly_smiling_face'],

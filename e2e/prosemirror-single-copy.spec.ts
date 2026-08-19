@@ -312,9 +312,10 @@ for (const target of demoTargets) {
        core twice for real; this pins that the refusal reaches the browser, in
        every framework, through whatever wrapper builds the editor. */
     const message = await page.evaluate(() => {
-      const live = (window as unknown as Record<string, { constructor: unknown }>)[
+      const live = (window as unknown as Record<string, { constructor: unknown } | undefined>)[
         '__DEMO_EDITOR__'
       ];
+      if (live === undefined) throw new Error('the demo never exposed __DEMO_EDITOR__');
       const EditorClass = live.constructor as new (options: unknown) => { destroy(): void };
       const host = document.createElement('div');
       document.body.appendChild(host);
@@ -353,9 +354,10 @@ for (const target of demoTargets) {
        duplicate-core accusation would be both wrong and a breaking change for
        anyone hand-rolling an extension. */
     const message = await page.evaluate(() => {
-      const live = (window as unknown as Record<string, { constructor: unknown }>)[
+      const live = (window as unknown as Record<string, { constructor: unknown } | undefined>)[
         '__DEMO_EDITOR__'
       ];
+      if (live === undefined) throw new Error('the demo never exposed __DEMO_EDITOR__');
       const EditorClass = live.constructor as new (options: unknown) => { destroy(): void };
       const host = document.createElement('div');
       document.body.appendChild(host);

@@ -18,7 +18,7 @@
  * core default 'Write something …'.
  */
 import { test } from './fixtures.js';
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { demoTargets, type DemoTarget } from './targets.js';
 
 /** Placeholder text the Notion demos return for an empty paragraph. */
@@ -71,7 +71,7 @@ async function blurEditor(page: Page, target: DemoTarget): Promise<void> {
 for (const target of demoTargets) {
   test.describe(`${target.name} - placeholder focus gating`, () => {
     /** The caret-follow / invitation decoration lives on an empty `<p>` in the editor. */
-    const hint = (page: Page) => page.locator(`${target.editorSelector} [data-placeholder]`);
+    const hint = (page: Page): Locator => page.locator(`${target.editorSelector} [data-placeholder]`);
 
     test.beforeEach(async ({ page }) => {
       await goNotion(page, target);

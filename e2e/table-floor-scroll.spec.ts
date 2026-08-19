@@ -160,7 +160,7 @@ for (const target of demoTargets) {
       const geo = await tableGeometry(page, target);
       expect(geo.colCount).toBe(targetCols);
       // Floor: no explicit colwidths, so table.style.minWidth === cols * 100 px.
-      expect(geo.minWidth).toBe(`${targetCols * DEFAULT_CELL_MIN_WIDTH}px`);
+      expect(geo.minWidth).toBe(`${String(targetCols * DEFAULT_CELL_MIN_WIDTH)}px`);
       // Rendered near the floor (border-collapse adds ~1px), well over cols*95.
       expect(geo.tableWidth).toBeGreaterThanOrEqual(targetCols * 95);
       // Table is wider than its wrapper: it overflows.

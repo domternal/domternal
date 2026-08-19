@@ -16,7 +16,7 @@
  * strands the grip out in the margin is caught as a regression.
  */
 import { test } from './fixtures.js';
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { demoTargets, type DemoTarget } from './targets.js';
 
 const handleSelector = '.dm-block-handle';
@@ -80,7 +80,7 @@ async function readLayout(page: Page, target: DemoTarget, text: string): Promise
       const drag = handle.querySelector('.dm-block-handle-drag');
       if (!plus || !drag) throw new Error('handle buttons not found');
       const block = Array.from(pm.querySelectorAll(':scope > p')).find(
-        (p) => (p.textContent ?? '') === blockText,
+        (p) => p.textContent === blockText,
       );
       if (!block) throw new Error(`paragraph "${blockText}" not found`);
       return { handle: rect(handle), plus: rect(plus), drag: rect(drag), block: rect(block) };
@@ -101,7 +101,7 @@ async function readChildOrder(page: Page): Promise<{ count: number; classes: str
 
 for (const target of demoTargets) {
   test.describe(`${target.name} - notion block-handle layout`, () => {
-    const paragraphs = (page: Page) => page.locator(`${target.editorSelector} > p`);
+    const paragraphs = (page: Page): Locator => page.locator(`${target.editorSelector} > p`);
 
     test.beforeEach(async ({ page }) => {
       await goNotion(page, target);

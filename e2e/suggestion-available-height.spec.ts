@@ -59,7 +59,7 @@ async function placeCaretAt(page: Page, targetTop: number): Promise<number | nul
   const top = await page.evaluate((t) => {
     function caretTop(): number | null {
       const sel = window.getSelection();
-      if (!sel || !sel.rangeCount) return null;
+      if (!sel?.rangeCount) return null;
       let r: DOMRect | undefined = sel.getRangeAt(0).getClientRects()[0];
       if (!r) {
         const n = sel.focusNode;
@@ -69,10 +69,10 @@ async function placeCaretAt(page: Page, targetTop: number): Promise<number | nul
       return r ? r.top : null;
     }
     let top = caretTop();
-    if (top == null) return null;
+    if (top === null) return null;
     window.scrollBy(0, top - t);
     top = caretTop();
-    if (top != null && Math.abs(top - t) > 8) {
+    if (top !== null && Math.abs(top - t) > 8) {
       const sel = window.getSelection();
       const n = sel?.focusNode;
       let el: Element | null = n instanceof Element ? n : n?.parentElement ?? null;
@@ -108,7 +108,7 @@ async function menuBox(page: Page, menuSelector: string): Promise<MenuBox | null
     const menu = document.querySelector(sel);
     if (!menu) return null;
     const s = window.getSelection();
-    let cr: DOMRect | undefined = s && s.rangeCount ? s.getRangeAt(0).getClientRects()[0] : undefined;
+    let cr: DOMRect | undefined = s?.rangeCount ? s.getRangeAt(0).getClientRects()[0] : undefined;
     if (!cr) {
       const n = s?.focusNode;
       const el = n instanceof Element ? n : n?.parentElement;
@@ -122,10 +122,7 @@ async function menuBox(page: Page, menuSelector: string): Promise<MenuBox | null
       height: Math.round(r.height),
       caretTop: Math.round(cr.top),
       caretBottom: Math.round(cr.bottom),
-      side: (r.top >= cr.bottom ? 'below' : r.bottom <= cr.top + 1 ? 'above' : 'overlap') as
-        | 'below'
-        | 'above'
-        | 'overlap',
+      side: (r.top >= cr.bottom ? 'below' : r.bottom <= cr.top + 1 ? 'above' : 'overlap'),
       scrollable: menu.scrollHeight > menu.clientHeight,
       scrollTop: menu.scrollTop,
       availVar: (menu as HTMLElement).style.getPropertyValue('--dm-available-height'),

@@ -52,7 +52,7 @@ async function setContent(page: Page, html: string): Promise<void> {
 interface Geometry {
   editorLeft: number;
   editorRight: number;
-  rows: Array<{ text: string; top: number; bottom: number }>;
+  rows: { text: string; top: number; bottom: number }[];
 }
 
 /** `.dm-editor`'s horizontal edges plus the client rects of its top-level paragraphs. */
@@ -64,7 +64,7 @@ async function geometry(page: Page, target: DemoTarget): Promise<Geometry> {
     const er = editor.getBoundingClientRect();
     const rows = Array.from(pm.querySelectorAll(':scope > p')).map((p) => {
       const r = p.getBoundingClientRect();
-      return { text: p.textContent ?? '', top: r.top, bottom: r.bottom };
+      return { text: p.textContent, top: r.top, bottom: r.bottom };
     });
     return { editorLeft: er.left, editorRight: er.right, rows };
   }, target.editorSelector);
