@@ -16,6 +16,19 @@
   // offset below, so overriding it moves both.
   --dm-notion-column-width: 44rem;
 
+  // How tall an empty page is. A Notion page owns the window, so the default is
+  // a share of the window: a document one line long still offers a page's worth
+  // of surface to click into.
+  //
+  // It is a variable because that assumption is not always true. Mounted in a
+  // box with a height of its own, a card, a split pane, a panel, the editor
+  // never sees the viewport this measures, and 60vh is then a number from
+  // somewhere else: too tall and the box scrolls with nothing in it, too short
+  // and the click target stops halfway down. Such a host sets this to the
+  // height it is actually giving the editor, or to 0 and sizes the column
+  // itself.
+  --dm-notion-min-height: 60vh;
+
   // Do NOT cap the frame here. A docked sidebar makes room by sliding the
   // column, and only within the frame; capped to the column's own width there
   // is no whitespace to slide into and the sidebar lands on the prose.
@@ -43,7 +56,7 @@
     max-width: var(--dm-notion-column-width);
     margin-inline: auto;
 
-    min-height: 60vh;
+    min-height: var(--dm-notion-min-height, 60vh);
     outline: none;
 
     // Tighter heading rhythm than the default content stylesheet.
