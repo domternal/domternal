@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+Recorded as it lands, so a branch build can be read against the last release. Dates and version numbers arrive with the release itself.
+
+### Breaking
+
+- An extension built by a SECOND copy of `@domternal/core` is now refused at construction instead of being mounted. Two copies of the core give two `Extension` base classes, two schemas and colliding plugin keys, and until now nothing said so: what followed was a `Gapcursor` from each copy under one plugin key, or an `instanceof` that is false for a node the schema itself produced. If your build has been carrying a duplicate core, an editor that previously half-worked now throws an `ExtensionConfigurationError` naming the extension and the fix. A plain object passed as an extension is unaffected. See [One copy of ProseMirror](https://domternal.dev/v1/guides/single-prosemirror-copy/).
+
+### Features
+
+- `@domternal/core` records which copy of `prosemirror-model`, `prosemirror-state`, `prosemirror-view`, `prosemirror-transform` and of itself an editor is built from, and warns on the console when a second one is already there. `@domternal/extension-table` does the same for `prosemirror-tables`, which core cannot check because core never imports it. A warning rather than an error, because two copies only break once an object crosses between them. The message names both packages, which is what the ProseMirror error cannot do, and carries the fix for pnpm, npm, yarn, Vite and webpack.
+- `registerProseMirrorCopy`, `assertSingleProseMirrorCopy` and `warnOnDuplicateProseMirrorCopy` are exported so an extension can register its own identity-compared module and its users get the same message, naming that package. See [Registering your own copy](https://domternal.dev/v1/guides/single-prosemirror-copy/#registering-your-own-copy).
+
+### Fixes
+
+- `@domternal/theme` restores the `hidden` attribute for every element it styles, and for anything hidden inside one. `[hidden] { display: none }` comes from the user agent stylesheet, and author styles beat it whatever their specificity, so any component rule setting `display` disabled the attribute for that element: `.dm-toolbar` sets `display: flex`, and a hidden toolbar was left as an empty strip with the toolbar's background, border and padding, with nothing in the console. The theme sets `display` on roughly ninety selectors, so this was a property of the whole theme rather than a fault in one component. `hidden="until-found"` is deliberately left alone. See [Hiding an element](https://domternal.dev/v1/guides/theming/#hiding-an-element).
+
 ## 0.15.0 (2026-08-16)
 
 ### Breaking
