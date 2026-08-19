@@ -1,0 +1,48 @@
+// =============================================================================
+// The hidden attribute
+// =============================================================================
+// `[hidden]` is a platform guarantee: the user agent stylesheet carries
+// `[hidden] { display: none }`, and that is how every developer expects to hide
+// an element without inventing a class for it.
+//
+// Author styles beat the user agent stylesheet whatever their specificity, so a
+// single `display` declaration anywhere in this theme silently disables the
+// attribute for that element. `.dm-toolbar` sets `display: flex`, so a consumer
+// who writes `toolbar.hidden = true` gets an empty strip, background, border
+// and padding intact, with nothing in the console to explain it. The theme
+// declares `display` on roughly ninety selectors, so this is a property of the
+// whole theme rather than a fault in any one component.
+//
+// So the attribute is restored here, once, for everything this theme styles:
+//
+//   - any element carrying a `dm-` class, which is every component root the
+//     editor renders or a consumer can reach;
+//   - anything inside one, which covers the node views and popover fields that
+//     hide their own parts, and any content a consumer hides inside the editor.
+//
+// Scoped rather than global on purpose. A component theme has no business
+// applying `[hidden] { display: none !important }` to a page it does not own,
+// and the two attribute-plus-class selectors keep it to elements that are ours.
+//
+// `!important` is deliberate and is the narrow, correct use of it: the rule is
+// not competing for a design decision, it is restoring a platform behaviour
+// that ordinary declarations took away. Without it, every future rule with a
+// longer selector than this one would take it away again, and the failure would
+// be silent each time.
+//
+// `hidden="until-found"` is excluded, exactly as the user agent stylesheet
+// excludes it. That value does not mean `display: none`; it means the element
+// is skipped for rendering but stays findable, and the browser reveals it when
+// find-in-page or a fragment link lands inside. Forcing `display: none` on it
+// would take that away and there would be no way to get it back, since this
+// rule is `!important`. The user agent's `content-visibility: hidden` for that
+// value needs no help from us: nothing in this theme sets that property, so
+// nothing here was overriding it in the first place.
+// =============================================================================
+
+[class^='dm-'][hidden]:not([hidden='until-found' i]),
+[class*=' dm-'][hidden]:not([hidden='until-found' i]),
+[class^='dm-'] [hidden]:not([hidden='until-found' i]),
+[class*=' dm-'] [hidden]:not([hidden='until-found' i]) {
+  display: none !important;
+}

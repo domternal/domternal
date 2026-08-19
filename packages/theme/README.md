@@ -88,6 +88,23 @@ inherited from an ancestor, so target those elements rather than a wrapper alone
 }
 ```
 
+## The hidden attribute
+
+`hidden` works on every element this theme styles, and on anything inside one:
+
+```js
+toolbar.hidden = true;   // the toolbar is gone, not merely emptied
+```
+
+Worth stating because it is not free. `[hidden] { display: none }` comes from the user agent
+stylesheet, and author styles beat the user agent stylesheet whatever their specificity, so any
+component rule that sets `display` disables the attribute for that element. `.dm-toolbar` sets
+`display: flex`, so a hidden toolbar used to leave an empty strip with the toolbar's background,
+border and padding, and nothing in the console. One scoped rule restores it for the whole theme.
+
+`hidden="until-found"` is deliberately left alone: it does not mean `display: none`, it means the
+element stays findable and the browser reveals it when find-in-page lands inside.
+
 ## Entry points
 
 | Import | Resolves to | Description |

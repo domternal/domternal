@@ -79,6 +79,12 @@ jobs:
       - name: Third-party notices
         run: pnpm test:third-party-notices
 
+      - name: The hidden attribute survives the theme
+        # Author styles beat the user agent stylesheet, so every `display` in
+        # the theme is a chance to disable `[hidden]` silently. One scoped rule
+        # restores it; this keeps that rule, and keeps new components inside it.
+        run: pnpm test:hidden-attribute
+
       - name: CSS variable references
         # Fails if a `var(--dm-X)` reference without a fallback has no
         # matching definition.

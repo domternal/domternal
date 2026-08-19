@@ -136,12 +136,6 @@ $shadow: var(--dm-popover-shadow, 0 12px 28px -8px rgba(0, 0, 0, 0.22), 0 4px 10
   }
 }
 
-// The hidden attribute must win over the button/input display rules so the
-// insert popover and the alt-edit menu can each show only their own fields.
-.dm-image-popover [hidden] {
-  display: none;
-}
-
 .dm-image-popover-fields {
   display: flex;
   flex-direction: column;

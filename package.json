@@ -21,6 +21,7 @@
     "test:api-surface": "node tests/api-surface/dump.mjs --check",
     "test:third-party-notices": "node tests/third-party-notices/check.mjs",
     "test:api-surface:update": "node tests/api-surface/dump.mjs",
+    "test:hidden-attribute": "node --test tests/hidden-attribute/check.test.mjs && node tests/hidden-attribute/check.mjs",
     "test:css-vars": "node tests/css-vars/check.mjs",
     "test:bundle-size": "node tests/bundle-size/check.mjs",
     "test:single-prosemirror": "node --test tests/single-prosemirror/check.test.mjs && node tests/single-prosemirror/check.mjs",

@@ -23,6 +23,11 @@
 // 3. Editor wrapper
 @use 'base';
 
+// 3b. The hidden attribute, restored for everything this theme styles. Ordering
+// does not matter (the rule is !important) but it sits beside the wrapper it
+// most often applies to.
+@use 'hidden';
+
 // 4. Content typography
 @use 'content';
 
