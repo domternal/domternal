@@ -31,13 +31,33 @@ describe('defaultBubbleContexts', () => {
     ]);
   });
 
-  it('leads the Notion-mode selection menu with ai, then link and textAlign', () => {
+  it('orders the Notion-mode selection menu the way Notion does', () => {
     editor = makeEditor();
     editor.view.dom.classList.add('dm-notion-mode');
-    const text = defaultBubbleContexts(editor)['text'] ?? [];
-    expect(text[0]).toBe('ai'); // "Ask AI" first
-    expect(text[1]).toBe('|'); // leading separator, collapses when ai is absent
-    expect(text).toContain('textAlign');
+    expect(defaultBubbleContexts(editor)['text']).toEqual([
+      'ai',
+      '|',
+      'heading',
+      '|',
+      'link',
+      'comment',
+      '|',
+      'bold',
+      'italic',
+      'underline',
+      'strike',
+      'code',
+      'mathInline',
+    ]);
+  });
+
+  it('no longer names textAlign, which StarterKit does not ship', () => {
+    // It resolved to nothing in a default install and left its separator
+    // hanging off the end of the menu; Notion keeps alignment in the block
+    // menu rather than the selection menu anyway.
+    editor = makeEditor();
+    editor.view.dom.classList.add('dm-notion-mode');
+    expect(defaultBubbleContexts(editor)['text']).not.toContain('textAlign');
   });
 
   it('the preset option declares Notion mode without any class', () => {
@@ -48,7 +68,7 @@ describe('defaultBubbleContexts', () => {
     });
     const text = defaultBubbleContexts(editor)['text'] ?? [];
     expect(text[0]).toBe('ai');
-    expect(text).toContain('textAlign');
+    expect(text).toContain('heading');
   });
 
   it('returns a fresh array each call (safe to mutate)', () => {
