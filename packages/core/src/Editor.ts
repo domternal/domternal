@@ -16,6 +16,7 @@ import { CommandManager } from './CommandManager.js';
 import { createDocument, isDocumentEmpty } from './helpers/index.js';
 import { inlineStyles, type InlineStyleOverrides } from './utils/inlineStyles.js';
 import { warnOnDuplicateProseMirrorCopy } from './utils/prosemirrorSingleton.js';
+import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
 import { normalizeColor } from './helpers/normalizeColor.js';
 import {
   focus as focusCommand,
@@ -157,6 +158,17 @@ export class Editor extends EventEmitter<EditorEvents> {
     warnOnDuplicateProseMirrorCopy('prosemirror-state', Plugin, '@domternal/core');
     warnOnDuplicateProseMirrorCopy('prosemirror-view', EditorView, '@domternal/core');
     warnOnDuplicateProseMirrorCopy('prosemirror-transform', Transform, '@domternal/core');
+    /* And the core itself. Two copies of the editor core are as fatal as two
+       copies of prosemirror-state, and for the same reason: `Gapcursor` from
+       one copy and `Gapcursor` from the other are different classes under one
+       plugin key. This catches the case where both copies build an editor;
+       `ExtensionManager` catches the sharper one, where a single editor is
+       handed an extension the other copy built. */
+    warnOnDuplicateProseMirrorCopy(
+      '@domternal/core',
+      ExtensionConfigurationError,
+      '@domternal/core'
+    );
 
     this.options = {
       editable: true,

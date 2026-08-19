@@ -101,6 +101,29 @@ describe('prosemirrorSingleton', () => {
       expect(message).not.toContain('<module>');
     });
 
+    it('tells the reader to depend on the module before configuring the bundler', () => {
+      /* Both bundler fixes resolve from the project root. Under pnpm a module
+         that arrives transitively is not linked there, so the config alone does
+         nothing, and on Vite 8 it does nothing SILENTLY: no warning, no error,
+         and the duplicate survives. The dependency step is what makes the rest
+         true, so it belongs in the message and not only in the guide.
+
+         The count matters too: each bundler line names the module twice, and
+         `String.replace` with a string pattern fills only the first, which would
+         leave a literal `<module>` in the snippet a reader is meant to paste. */
+      registerProseMirrorCopy('y-prosemirror', copyA, 'a');
+      const message = registerProseMirrorCopy('y-prosemirror', copyB, 'b')?.message ?? '';
+      const lines = message.split('\n');
+      const vite = lines.find((line) => line.includes('Vite:')) ?? '';
+      const webpack = lines.find((line) => line.includes('webpack:')) ?? '';
+      expect(vite).toContain("depend on 'y-prosemirror' in the app");
+      expect(webpack).toContain("depend on 'y-prosemirror' in the app");
+      // The Vite line names it twice, in the dependency step and in the
+      // snippet, which is exactly where a single-shot replace goes wrong.
+      expect(vite.match(/y-prosemirror/g)?.length).toBe(2);
+      expect(message).not.toContain('<module>');
+    });
+
     it('shares one registry across module instances via the global symbol', () => {
       registerProseMirrorCopy('prosemirror-model', copyA, '@domternal/core');
       const store = (globalThis as Record<symbol, Map<string, { consumer: string }> | undefined>)[

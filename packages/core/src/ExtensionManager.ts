@@ -16,6 +16,7 @@ import { keymap } from '@domternal/pm/keymap';
 import type { InputRule } from '@domternal/pm/inputrules';
 import { inputRulesPlugin as createInputRulesPlugin } from './helpers/inputRulesPlugin.js';
 import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
+import { describeForeignExtension } from './utils/prosemirrorSingleton.js';
 
 import type { Command as PMCommand } from '@domternal/pm/state';
 
@@ -24,7 +25,11 @@ import type { CommandMap } from './types/Commands.js';
 import type { GlobalAttributes, GlobalAttributeSpec } from './types/ExtensionConfig.js';
 import type { ToolbarItem } from './types/Toolbar.js';
 import type { FloatingMenuItem } from './types/FloatingMenu.js';
-import type { Extension } from './Extension.js';
+/* A value import, not a type one: `instanceof` is what tells an extension this
+   copy of the core built from one another copy did, and that is the sharpest
+   duplicate-core signal there is. Acyclic, because Extension.js imports only
+   types and one helper. */
+import { Extension, EXTENSION_BRAND } from './Extension.js';
 import type { Node } from './Node.js';
 import type { Mark } from './Mark.js';
 import { callOrReturn } from './helpers/callOrReturn.js';
@@ -99,6 +104,38 @@ function mergeHTMLAttrs(
   }
 
   return result;
+}
+
+/**
+ * Fails when an extension was built by a SECOND copy of `@domternal/core`.
+ *
+ * The sharpest form of the duplicate-core problem, and the one a registry
+ * warning cannot catch: only ONE copy builds the editor, while the other
+ * merely supplies extensions, so nothing else on the page ever disagrees out
+ * loud. What follows instead is a `Gapcursor` from each copy under one plugin
+ * key, an `instanceof` that is false for a node the schema itself produced, or
+ * a command that silently does nothing.
+ *
+ * Checked here rather than in `Editor`, because `flattenExtensions` is the one
+ * place every extension passes through, nested bundle members included: an
+ * extension reaching the editor through `StarterKit.addExtensions()` is exactly
+ * as foreign as one passed by hand.
+ *
+ * Three outcomes, and the third is the reason for the brand:
+ * - an instance of THIS copy's `Extension`: fine, the overwhelming case
+ * - branded but not an instance: another copy built it, which cannot work
+ * - unbranded: a plain object, or an extension from a core too old to carry
+ *   the brand. Left alone, because it has always been accepted and rejecting
+ *   it here would turn a diagnostic into a breaking change.
+ */
+function assertOwnExtension(ext: AnyExtension): void {
+  if (ext instanceof Extension) return;
+  const foreign = (ext as unknown as Partial<Record<symbol, unknown>> | null | undefined)?.[
+    EXTENSION_BRAND
+  ];
+  if (foreign !== true) return;
+  const name = typeof ext.name === 'string' ? ext.name : 'unknown';
+  throw new ExtensionConfigurationError(describeForeignExtension(name));
 }
 
 export class ExtensionManager {
@@ -288,6 +325,7 @@ export class ExtensionManager {
     const result: AnyExtension[] = [];
 
     for (const ext of extensions) {
+      assertOwnExtension(ext);
       result.push(ext);
 
       // Check for nested extensions (bundles like StarterKit)

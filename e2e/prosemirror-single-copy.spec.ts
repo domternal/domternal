@@ -21,12 +21,20 @@ import { expect, type Page } from '@playwright/test';
 import { demoTargets, type DemoTarget } from './targets.js';
 
 const REGISTRY_KEY = 'domternal.prosemirror.copies';
-/** What `@domternal/core` registers from its own constructor. */
+/**
+ * What `@domternal/core` registers from its own constructor.
+ *
+ * `@domternal/core` is in the list because the core is compared by identity
+ * exactly like the modules it is built on: two copies give two `Extension` base
+ * classes, two schemas and two `Gapcursor`s under one plugin key. Registering
+ * itself is what makes a page holding two of them say so.
+ */
 const CORE_MODULES = [
   'prosemirror-model',
   'prosemirror-state',
   'prosemirror-view',
   'prosemirror-transform',
+  '@domternal/core',
 ];
 
 interface RegistrySnapshot {
@@ -250,5 +258,117 @@ for (const target of demoTargets) {
     expect(warnings.filter((text) => text.includes('Two different copies'))).toHaveLength(0);
     const registry = await readRegistry(page);
     expect(registry.consumers['prosemirror-model']).toBe('@domternal/core');
+  });
+
+  test(`${target.name}: a second copy of the core itself is reported, not only its dependencies`, async ({
+    page,
+  }) => {
+    const warnings = collectWarnings(page);
+    await poisonBeforeLoad(page, '@domternal/core', 'a-nested-copy');
+    await openDemo(page, target);
+
+    const conflicts = warnings.filter((text) => text.includes('Two different copies'));
+    expect(conflicts).toHaveLength(1);
+    const message = conflicts[0] ?? '';
+    expect(message).toContain('"@domternal/core"');
+    expect(message).toContain('a-nested-copy');
+    // The fix for a duplicated core is the fix for a duplicated ProseMirror
+    // module, so the message must carry the same recipes.
+    expect(message).toContain("resolve.dedupe: ['@domternal/core']");
+    expect(message).toContain('https://domternal.dev/v1/guides/single-prosemirror-copy/');
+  });
+
+  test(`${target.name}: a duplicated core is a warning here too, so the app keeps running`, async ({
+    page,
+  }) => {
+    await poisonBeforeLoad(page, '@domternal/core', 'a-nested-copy');
+    await openDemo(page, target);
+
+    /* Two cores are only fatal once one hands the other an extension, and
+       `ExtensionManager` refuses THAT precisely. Refusing merely because a
+       second copy exists would break an app deliberately running isolated
+       editors in separate bundles. */
+    const editor = page.locator('.ProseMirror').first();
+    await editor.click();
+    await page.keyboard.type('two cores, still typing');
+    await expect(editor).toContainText('two cores, still typing');
+  });
+
+  test(`${target.name}: an extension from another copy of the core is refused, not silently mounted`, async ({
+    page,
+  }) => {
+    await openDemo(page, target);
+
+    /* The one duplicate-core failure a registry warning cannot catch: only ONE
+       copy builds the editor, the other merely supplies an extension, so no two
+       registrations ever disagree. What follows instead is a `Gapcursor` from
+       each copy under one plugin key, or an `instanceof` that is false for a
+       node the schema itself produced.
+
+       The foreign extension is built by hand here, carrying the brand a real
+       one carries, because a browser page cannot hold a second copy of the core
+       without a second bundle. That the brand is what a REAL second copy
+       produces is pinned by `prosemirrorDuplicateCopy.test.ts`, which loads the
+       core twice for real; this pins that the refusal reaches the browser, in
+       every framework, through whatever wrapper builds the editor. */
+    const message = await page.evaluate(() => {
+      const live = (window as unknown as Record<string, { constructor: unknown }>)[
+        '__DEMO_EDITOR__'
+      ];
+      const EditorClass = live.constructor as new (options: unknown) => { destroy(): void };
+      const host = document.createElement('div');
+      document.body.appendChild(host);
+      const foreign: Record<string | symbol, unknown> = {
+        name: 'paragraphFromAnotherCore',
+        type: 'extension',
+      };
+      foreign[Symbol.for('domternal.core.extension')] = true;
+      try {
+        new EditorClass({ element: host, extensions: [foreign] }).destroy();
+        return null;
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+      } finally {
+        host.remove();
+      }
+    });
+
+    expect(message).toContain('was built by a different copy of "@domternal/core"');
+    // Named, so the reader knows which import to chase.
+    expect(message).toContain('paragraphFromAnotherCore');
+    // And actionable, like every other message in this feature.
+    for (const manager of ['pnpm', 'npm', 'yarn', 'Vite', 'webpack']) {
+      expect(message).toContain(manager);
+    }
+    expect(message).toContain('https://domternal.dev/v1/guides/single-prosemirror-copy/');
+  });
+
+  test(`${target.name}: an ordinary object is still accepted or rejected on its own merits`, async ({
+    page,
+  }) => {
+    await openDemo(page, target);
+
+    /* The other half of the rule. An unbranded object has always been passed
+       through and failed, or not, for its own reasons; turning that into a
+       duplicate-core accusation would be both wrong and a breaking change for
+       anyone hand-rolling an extension. */
+    const message = await page.evaluate(() => {
+      const live = (window as unknown as Record<string, { constructor: unknown }>)[
+        '__DEMO_EDITOR__'
+      ];
+      const EditorClass = live.constructor as new (options: unknown) => { destroy(): void };
+      const host = document.createElement('div');
+      document.body.appendChild(host);
+      try {
+        new EditorClass({ element: host, extensions: [{ name: 'plain' }] }).destroy();
+        return null;
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+      } finally {
+        host.remove();
+      }
+    });
+
+    expect(message ?? '').not.toContain('was built by a different copy');
   });
 }

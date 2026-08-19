@@ -84,12 +84,33 @@ export interface ExtensionEditorInterface {
 }
 
 /**
+ * Marks an object as a Domternal extension, recognisably across copies.
+ *
+ * `Symbol.for` rather than `Symbol()`: the whole point is that an extension
+ * built by a SECOND physical copy of this module still carries a mark the
+ * first copy can read. A copy-local symbol would be a different key and every
+ * foreign extension would look like a hand-written object instead.
+ *
+ * The value is deliberately `true` rather than a per-copy token. Which copy an
+ * extension came from is answered by `instanceof Extension`, and that answer is
+ * exact; this only separates "a Domternal extension from somewhere" from "a
+ * plain object somebody passed in", which must keep working as it always has.
+ */
+export const EXTENSION_BRAND: unique symbol = Symbol.for('domternal.core.extension');
+
+/**
  * Base class for all extensions
  *
  * @typeParam Options - Extension options type
  * @typeParam Storage - Extension storage type
  */
 export class Extension<Options = unknown, Storage = unknown> {
+  /**
+   * Brand read by `ExtensionManager` to tell an extension built by another
+   * copy of `@domternal/core` from a plain object. See `EXTENSION_BRAND`.
+   */
+  readonly [EXTENSION_BRAND] = true;
+
   /**
    * Extension type identifier
    * Used to distinguish between Extension, Node, and Mark

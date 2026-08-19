@@ -24,14 +24,22 @@
  * FROZEN across `@domternal/core`, `@domternal-pro/core` and every package
  * that registers through either:
  *
- * | module                | export           |
- * | --------------------- | ---------------- |
- * | `prosemirror-model`   | `Fragment`       |
- * | `prosemirror-state`   | `Plugin`         |
- * | `prosemirror-view`    | `EditorView`     |
- * | `prosemirror-transform` | `Transform`    |
- * | `prosemirror-tables`  | `CellSelection`  |
- * | `y-prosemirror`       | `ySyncPluginKey` |
+ * | module                  | export                      |
+ * | ----------------------- | --------------------------- |
+ * | `prosemirror-model`     | `Fragment`                  |
+ * | `prosemirror-state`     | `Plugin`                    |
+ * | `prosemirror-view`      | `EditorView`                |
+ * | `prosemirror-transform` | `Transform`                 |
+ * | `prosemirror-tables`    | `CellSelection`             |
+ * | `yjs`                   | `Doc`                       |
+ * | `y-prosemirror`         | `ySyncPluginKey`            |
+ * | `@domternal/core`       | `ExtensionConfigurationError` |
+ *
+ * `@domternal/core` registers itself so that two copies of the editor core are
+ * reported the same way as two copies of a ProseMirror module. The chosen
+ * export is a leaf class that every package already imports and that has
+ * existed for as long as the package has, so a mixed-version install still
+ * compares the same thing on both sides.
  */
 import { ExtensionConfigurationError } from '../ExtensionConfigurationError.js';
 
@@ -90,13 +98,22 @@ function reported(): Set<string> {
   return fresh;
 }
 
-/** Per-manager fix lines, in the order a reader is most likely to need them. */
+/**
+ * Per-manager fix lines, in the order a reader is most likely to need them.
+ *
+ * The bundler lines carry a condition rather than a bare recipe, because both
+ * of them resolve from the project root: under pnpm a module that arrives
+ * transitively is not linked there, and then the fix does nothing. Vite 8 makes
+ * that worse by ignoring an unreachable id silently, so the reader would see no
+ * change and no error and conclude the duplicate was elsewhere. Naming the
+ * dependency step first is what makes the rest true.
+ */
 const FIXES = [
   'pnpm:    add the package to "pnpm.overrides" in package.json, then run `pnpm dedupe`',
   'npm:     add the package to "overrides" in package.json, then reinstall',
   'yarn:    add the package to "resolutions" in package.json, then reinstall',
-  "Vite:    resolve.dedupe: ['<module>']",
-  'webpack: resolve.alias with an absolute path to the single copy',
+  "Vite:    depend on '<module>' in the app, then resolve.dedupe: ['<module>']",
+  "webpack: depend on '<module>' in the app, then resolve.alias it to that one copy",
 ];
 
 const DOCS_URL = 'https://domternal.dev/v1/guides/single-prosemirror-copy/';
@@ -113,7 +130,32 @@ function describeConflict(module: string, first: string, second: string): string
     'rejected by the other and the editor fails as soon as the two meet.',
     '',
     'Force a single copy:',
-    ...FIXES.map((line) => `  ${line.replace('<module>', module)}`),
+    ...FIXES.map((line) => `  ${line.replaceAll('<module>', module)}`),
+    '',
+    DOCS_URL,
+  ].join('\n');
+}
+
+/**
+ * The message for an extension that a SECOND copy of `@domternal/core` built.
+ *
+ * A distinct wording rather than `describeConflict`, because the two sides are
+ * not two registering packages: they are one editor and one extension handed
+ * to it, and naming them that way is what makes the sentence actionable. The
+ * fix list and the guide link are the same, because the fix is the same.
+ *
+ * @param name Extension name, so the reader can find the import that split.
+ */
+export function describeForeignExtension(name: string): string {
+  return [
+    `The extension "${name}" was built by a different copy of "@domternal/core"`,
+    'than the one building this editor.',
+    'Extensions are bound to the core that created them: their base class, schema',
+    'and plugin keys all belong to that copy, so an editor cannot use one built',
+    'elsewhere. Two copies usually mean a linked or nested install.',
+    '',
+    'Force a single copy:',
+    ...FIXES.map((line) => `  ${line.replaceAll('<module>', '@domternal/core')}`),
     '',
     DOCS_URL,
   ].join('\n');

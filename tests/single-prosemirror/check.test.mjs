@@ -8,6 +8,9 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   parsePackageKey,
   collectVersions,
@@ -195,7 +198,24 @@ test('the watch list covers every module the stack compares by identity', () => 
   }
 });
 
-test('both lockfiles are checked, including the one the site deploys from', () => {
+test('every lockfile in the tree is checked, not just this project\'s', () => {
+  /* One per project that installs, because each resolves independently. The
+     site deploys from its own, and the Pro repo is checked out inside this one
+     during development: locally this is the run that sees all three, and a
+     duplicate in any of them is the same crash. */
   assert.ok(LOCKFILES.includes('pnpm-lock.yaml'));
   assert.ok(LOCKFILES.includes('domternal.dev/pnpm-lock.yaml'));
+  assert.ok(LOCKFILES.includes('domternal-pro/pnpm-lock.yaml'));
+});
+
+test('a lockfile that is not there is skipped rather than failing the gate', () => {
+  /* A public clone has no `domternal-pro/`, and a fresh checkout may not have
+     installed the site yet. Neither is a duplicate, so neither may fail. */
+  const root = mkdtempSync(join(tmpdir(), 'single-pm-'));
+  try {
+    const present = LOCKFILES.map((name) => join(root, name)).filter((path) => existsSync(path));
+    assert.deepEqual(present, []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

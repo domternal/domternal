@@ -24,6 +24,8 @@
     "test:css-vars": "node tests/css-vars/check.mjs",
     "test:bundle-size": "node tests/bundle-size/check.mjs",
     "test:single-prosemirror": "node --test tests/single-prosemirror/check.test.mjs && node tests/single-prosemirror/check.mjs",
+    "test:dedupe-reachable": "node --test tests/dedupe-reachable/check.test.mjs && node tests/dedupe-reachable/check.mjs",
+    "test:frozen-contract": "node --test tests/frozen-contract/check.test.mjs && node tests/frozen-contract/check.mjs",
     "test:externals": "node --test tests/externals/check.test.mjs && node tests/externals/check.mjs"
   },
   "repository": {

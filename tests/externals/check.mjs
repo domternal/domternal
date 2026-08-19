@@ -23,7 +23,7 @@
  * type import until a guard needed `Fragment` from it.
  */
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -119,17 +119,39 @@ export function splitBySurvival(imports) {
   return { value, typeOnly };
 }
 
-/** Resolves a relative import to a real file, trying the usual suffixes. */
-function resolveRelative(fromFile, specifier) {
+/**
+ * Source suffixes a relative import can land on.
+ *
+ * `.ts` alone was the original list, and that quietly narrowed the gate rather
+ * than the walk: `@domternal/react` is written in `.tsx`, so an import reachable
+ * only through a component file was skipped, and a `prosemirror-model` value
+ * import inside one passed CI. Order matters. A TypeScript source imports its
+ * sibling as `./foo.js`, so the `.ts` candidate must be tried before the literal
+ * `.js` file of the same name.
+ */
+export const SOURCE_SUFFIXES = ['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'];
+
+/**
+ * Relative imports that are not code. A stylesheet cannot carry a second copy
+ * of an identity-compared module, so the walk steps over these rather than
+ * reporting them as a gap it could not follow.
+ */
+export const ASSET_SUFFIXES = ['.css', '.scss', '.sass', '.less', '.json', '.svg', '.png', '.woff', '.woff2'];
+
+/** True when a relative specifier points at an asset rather than at source. */
+export function isAssetImport(specifier) {
+  return ASSET_SUFFIXES.some((suffix) => specifier.endsWith(suffix));
+}
+
+/** Resolves a relative import to a real source file, or null. */
+export function resolveRelative(fromFile, specifier) {
   const base = resolve(dirname(fromFile), specifier);
+  const stem = base.replace(/\.[cm]?js$/, '');
   const candidates = [
-    base.replace(/\.js$/, '.ts'),
-    base,
-    `${base}.ts`,
-    join(base, 'index.ts'),
-    join(base.replace(/\.js$/, ''), 'index.ts'),
+    ...SOURCE_SUFFIXES.map((suffix) => `${stem}${suffix}`),
+    ...SOURCE_SUFFIXES.map((suffix) => join(stem, `index${suffix}`)),
   ];
-  return candidates.find((path) => existsSync(path) && path.endsWith('.ts')) ?? null;
+  return candidates.find((path) => existsSync(path)) ?? null;
 }
 
 /**
@@ -139,6 +161,11 @@ function resolveRelative(fromFile, specifier) {
 export function walkEntryGraph(pkgDir, entries) {
   const seen = new Set();
   const shared = [];
+  /* A relative import the resolver cannot follow is reported, not skipped.
+     Silently stepping over one shrinks the walk and the gate still prints OK,
+     which is how the `.tsx` blind spot survived: less coverage read exactly
+     like more safety. */
+  const unresolved = [];
   const queue = entries.map((entry) => resolve(pkgDir, entry)).filter((path) => existsSync(path));
 
   while (queue.length > 0) {
@@ -147,14 +174,16 @@ export function walkEntryGraph(pkgDir, entries) {
     seen.add(file);
     for (const found of collectImports(readFileSync(file, 'utf8'))) {
       if (found.specifier.startsWith('.')) {
+        if (isAssetImport(found.specifier)) continue;
         const next = resolveRelative(file, found.specifier);
         if (next) queue.push(next);
+        else unresolved.push({ from: file, specifier: found.specifier });
         continue;
       }
       shared.push(found);
     }
   }
-  return { ...splitBySurvival(shared), files: seen.size };
+  return { ...splitBySurvival(shared), files: seen.size, unresolved };
 }
 
 function main() {
@@ -179,8 +208,12 @@ function main() {
       ...parseExternals(config),
     ]);
 
-    const { value, typeOnly } = walkEntryGraph(pkgDir, parseEntries(config));
+    const { value, typeOnly, unresolved } = walkEntryGraph(pkgDir, parseEntries(config));
     checked += 1;
+
+    for (const { from, specifier } of unresolved) {
+      problems.push({ pkg: name, kind: 'unwalked', specifier: `${specifier} in ${relative(repoRoot, from)}` });
+    }
 
     for (const specifier of [...value].sort()) {
       if (!isExternal(specifier, externals)) {
@@ -195,11 +228,15 @@ function main() {
   }
 
   if (problems.length > 0) {
-    console.error('[externals] FAILED: shared modules a dist could inline:');
+    console.error('[externals] FAILED: shared modules a dist could inline, or graph it could not walk:');
     console.error('');
     for (const { pkg, kind, specifier } of problems) {
       const label =
-        kind === 'bundled' ? 'INLINED into the dist' : 'type-only today, one value import away';
+        kind === 'bundled'
+          ? 'INLINED into the dist'
+          : kind === 'unwalked'
+            ? 'relative import the walk could not follow, so its graph went unchecked'
+            : 'type-only today, one value import away';
       console.error(`  - ${pkg}: ${specifier}  (${label})`);
     }
     console.error('');

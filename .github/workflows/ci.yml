@@ -48,7 +48,7 @@ jobs:
         # importing package's own node_modules, which is how a second copy
         # of an identity-compared module gets into a bundle.
         run: |
-          matches=$(grep -rnE "from '(prosemirror-[a-z-]+)'" packages/*/src --include=*.ts --include=*.js 2>/dev/null | grep -v '^packages/pm/' || true)
+          matches=$(grep -rnE "from '(prosemirror-[a-z-]+)'" packages/*/src --include=*.ts --include=*.tsx --include=*.mts --include=*.cts --include=*.js --include=*.jsx --include=*.mjs --include=*.cjs 2>/dev/null | grep -v '^packages/pm/' || true)
           if [ -n "$matches" ]; then
             echo "$matches"
             echo ""
@@ -92,6 +92,19 @@ jobs:
         # ProseMirror and Yjs compare by identity, so a second locked copy
         # of any of them is a runtime crash rather than extra bytes.
         run: pnpm test:single-prosemirror
+
+      - name: Dedupe entries reach the project root
+        # Vite resolves a deduped id from the project root. On Vite 8 an id it
+        # cannot reach there is ignored silently, so an app that looks protected
+        # is not. No app declares a dedupe list today; this keeps it that way or
+        # keeps it honest.
+        run: pnpm test:dedupe-reachable
+
+      - name: Frozen single-copy contract
+        # Every caller registering a module must pass the SAME export, or two
+        # packages that agree report a conflict that does not exist. Nothing in
+        # the type system can say that, so it is checked here.
+        run: pnpm test:frozen-contract
 
       - name: Externalised shared modules
         # tsup inlines anything it is not told to externalise, and an inlined

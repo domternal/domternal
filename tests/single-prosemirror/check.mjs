@@ -49,8 +49,20 @@ export const IDENTITY_SENSITIVE = [
   '@domternal/pm',
 ];
 
-/** Lockfiles to check, relative to the repo root. Missing ones are skipped. */
-export const LOCKFILES = ['pnpm-lock.yaml', 'domternal.dev/pnpm-lock.yaml'];
+/**
+ * Lockfiles to check, relative to the repo root. Missing ones are skipped.
+ *
+ * Every nested project, not just this one. `domternal.dev` deploys from its own
+ * lockfile, so a duplicate there reaches production without the root ever
+ * noticing. `domternal-pro` is checked out inside this repo during development
+ * and is absent from a public clone, which is exactly why it is listed here
+ * rather than only in its own gate: locally this is the run that sees both.
+ */
+export const LOCKFILES = [
+  'pnpm-lock.yaml',
+  'domternal.dev/pnpm-lock.yaml',
+  'domternal-pro/pnpm-lock.yaml',
+];
 
 /**
  * Splits a `packages:` key into package and version.

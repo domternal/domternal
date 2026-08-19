@@ -27,6 +27,23 @@ pnpm add @domternal/pm
 `@domternal/pm` itself has no peer dependencies: the `prosemirror-*` libraries are its own
 dependencies.
 
+## One copy, always
+
+ProseMirror compares by identity, not by shape. Two copies of `prosemirror-model` make
+`Fragment.from` reject a fragment the editor itself produced ("Can not convert <> to a
+Fragment"), two copies of `prosemirror-state` collide on a keyed plugin. That is a crash,
+not a few extra kilobytes, and nothing warns at install time.
+
+Declaring the libraries here once is what normally prevents it. It stops being enough when
+another library in your app declares the same packages as **peer dependencies** and takes
+whatever your application root offers: `y-prosemirror` is the common case, and the one
+that reaches Domternal Pro's collaboration. The two resolutions can then differ with
+nothing warning at install or build time.
+
+Domternal detects it at runtime and names both packages and the fix. The dedupe recipe per
+package manager and bundler:
+https://domternal.dev/v1/guides/single-prosemirror-copy/
+
 ## Usage
 
 Import from a subpath matching the ProseMirror package you need. Each subpath
