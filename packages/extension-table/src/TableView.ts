@@ -162,6 +162,14 @@ export class TableView implements NodeView {
     this.table.appendChild(this.colgroup);
 
     // Create tbody (contentDOM)
+    //
+    // A node view gets one contentDOM and prosemirror-view renders every child
+    // into it, so there is no `<thead>` here and there cannot be one. The print
+    // stylesheet synthesises a header group out of this exact shape instead
+    // (`table:has(> tbody > tr > td) > tbody > tr:first-child`), which is what
+    // makes a table split across sheets repeat its column labels the way
+    // `w:tblHeader` and pdfmake's `headerRows` do for the two file exports.
+    // Reshaping the table here silently stops that happening.
     this.contentDOM = document.createElement('tbody');
     this.table.appendChild(this.contentDOM);
 
