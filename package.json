@@ -24,6 +24,7 @@
     "test:api-surface:update": "node tests/api-surface/dump.mjs",
     "test:hidden-attribute": "node --test tests/hidden-attribute/check.test.mjs && node tests/hidden-attribute/check.mjs",
     "test:css-vars": "node --test tests/css-vars/check.test.mjs && node tests/css-vars/check.mjs",
+    "test:theme-tokens": "node --test tests/theme-tokens/check.test.mjs && node tests/theme-tokens/check.mjs",
     "test:bundle-size": "node --test tests/bundle-size/check.test.mjs && node tests/bundle-size/check.mjs",
     "test:package-policy": "node --test tests/package-policy/check.test.mjs && node tests/package-policy/check.mjs",
     "test:package-artifacts": "node --test tests/package-artifacts/check.test.mjs && node tests/package-artifacts/check.mjs",

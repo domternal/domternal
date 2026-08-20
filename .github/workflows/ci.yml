@@ -116,6 +116,13 @@ jobs:
         # matching definition.
         run: pnpm test:css-vars
 
+      - name: Light and dark palettes agree
+        # The two theme mixins are a matched pair, and the print layer re-emits
+        # the light one over a dark document. A token added to one mixin alone
+        # is caught by nothing else: Sass compiles both halves happily, and the
+        # gate above asks only whether a name is defined somewhere.
+        run: pnpm test:theme-tokens
+
       - name: Bundle size budgets
         # Gzipped dist sizes must stay under the committed budgets.
         run: pnpm test:bundle-size

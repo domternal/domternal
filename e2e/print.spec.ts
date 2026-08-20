@@ -22,6 +22,7 @@
  */
 import { test } from './fixtures.js';
 import { expect, type Page } from '@playwright/test';
+import { inflateSync } from 'node:zlib';
 import { demoTargets, type DemoTarget } from './targets.js';
 
 const EDITOR = '.dm-editor .ProseMirror';
@@ -61,6 +62,79 @@ async function printedPageCount(page: Page): Promise<number> {
   const counts = [...raw.matchAll(/\/Count\s+(\d+)/g)].map((match) => Number(match[1]));
   expect(counts.length).toBeGreaterThan(0);
   return Math.max(...counts);
+}
+
+/**
+ * Every text-showing operand on every printed sheet, sheet by sheet.
+ *
+ * `/Count` answers "did this content occupy paper" and nothing finer, and one
+ * of the claims here is finer than that: a table that repeats its header row
+ * adds a LINE to each sheet after the first, never a sheet, so the page tree
+ * reads exactly the same whether the repeat happened or not. The content
+ * stream is the only place the answer is written down.
+ *
+ * Chromium flate-compresses each page's stream and subsets the fonts it
+ * embeds, so the operands that come back are glyph indices into a subset
+ * rather than letters: they cannot be read as words. They do not need to be.
+ * Two runs drawn from the same string are byte-identical, so comparing sheet
+ * one's opening run against the opening run of every later sheet says whether
+ * the same line was drawn again, which is the whole question.
+ *
+ * Streams that are not Flate (a font program, an image, the metadata) throw on
+ * inflate and are skipped, and an inflated stream with no text operator in it
+ * is a sheet that drew no text rather than a sheet at all.
+ */
+async function printedPageGlyphRuns(page: Page): Promise<string[][]> {
+  const raw = (await page.pdf({ printBackground: true })).toString('latin1');
+  const sheets: string[][] = [];
+  const streams = /stream\r?\n/g;
+  let match: RegExpExecArray | null = streams.exec(raw);
+  while (match !== null) {
+    const start = match.index + match[0].length;
+    const end = raw.indexOf('endstream', start);
+    if (end >= 0) {
+      let inflated: string | null = null;
+      try {
+        inflated = inflateSync(Buffer.from(raw.slice(start, end), 'latin1')).toString('latin1');
+      } catch {
+        inflated = null;
+      }
+      if (inflated !== null && /T[jJ]/.test(inflated)) {
+        sheets.push(
+          [...inflated.matchAll(/(\[[^\]]*\]|[<(][^>)]*[>)])\s*T[jJ]/g)].map((run) => run[1] ?? ''),
+        );
+      }
+    }
+    match = streams.exec(raw);
+  }
+  return sheets;
+}
+
+/** The opening run of a sheet, long enough to be a line rather than a letter. */
+function openingRun(sheet: string[] | undefined): string {
+  return (sheet ?? []).slice(0, 11).join(' ');
+}
+
+/** The three channels of an `rgb()` or `rgba()` computed colour. */
+function channelsOf(value: string | null): [number, number, number] {
+  const parts = (value ?? '').match(/[\d.]+/g)?.slice(0, 3).map(Number) ?? [0, 0, 0];
+  return [parts[0] ?? 0, parts[1] ?? 0, parts[2] ?? 0];
+}
+
+/** WCAG relative luminance, which is what "is this a light tint" means. */
+function luminanceOf(value: string | null): number {
+  const [r, g, b] = channelsOf(value).map((channel) => {
+    const ratio = channel / 255;
+    return ratio <= 0.03928 ? ratio / 12.92 : Math.pow((ratio + 0.055) / 1.055, 2.4);
+  }) as [number, number, number];
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** WCAG contrast, the only honest way to ask "can a reader read this". */
+function contrastOf(foreground: string | null, background: string | null): number {
+  const a = luminanceOf(foreground);
+  const b = luminanceOf(background);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 }
 
 async function styleOf(
@@ -1054,10 +1128,18 @@ for (const target of demoTargets) {
     await markAsPrinting(page);
     await page.emulateMedia({ media: 'print' });
 
-    // body carries the ancestor class but the ancestor rule cannot reach it.
+    // The body carries the ancestor class and is not its own descendant, so
+    // the rule that clears each marked ancestor's background never reaches it.
+    // Two rules name it directly instead: the canvas rule, which names the
+    // root element beside it because the printed canvas is taken from the root
+    // and a body background reaches it only while the root has none, and the
+    // layout release, which names both for the same reason. Both elements are
+    // asserted here, since either one left tinted floods the page area of
+    // every sheet underneath text this same layer has forced to black.
+    expect(await styleOf(page, 'html', 'background-color')).toBe('rgba(0, 0, 0, 0)');
     expect(await styleOf(page, 'body', 'background-color')).toBe('rgba(0, 0, 0, 0)');
     expect(await styleOf(page, 'body', 'color')).toBe('rgb(0, 0, 0)');
-    // And the ancestors the rule does reach, caught separately.
+    // And the ancestors the descendant rule does reach, caught separately.
     expect(await styleOf(page, '.dm-print-ancestor', 'background-color')).toBe('rgba(0, 0, 0, 0)');
     await page.emulateMedia({ media: null });
   });
@@ -1078,5 +1160,1375 @@ for (const target of demoTargets) {
     const codeBg = await styleOf(page, `${EDITOR} pre`, 'background-color');
     expect(codeBg).not.toBe('rgba(0, 0, 0, 0)');
     await page.emulateMedia({ media: null });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Page breaks. `break-inside: avoid` is a request the engine may refuse, and
+  // it refuses expensively: the box is pushed to a fresh sheet FIRST and only
+  // then fragmented anyway, so a box that can outgrow a page costs an almost
+  // empty one every time. These tests pin which boxes still ask for it, and
+  // pin the line-level rules that hold the rest together in its place.
+  //
+  // The sheet counts below are read with the document isolated. Without the
+  // marks the demo's own heading and mode switcher sit at the top of sheet
+  // one, which is enough to defer a tall block on its own, and then a test of
+  // the deferral measures the demo shell rather than the stylesheet.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /** Paragraphs, in the quantity a list item legitimately holds. */
+  function clauses(count: number): string {
+    return Array.from(
+      { length: count },
+      (_, i) =>
+        `<p>Clause ${String(i + 1)} of an item that carries a document rather than a line.</p>`,
+    ).join('');
+  }
+
+  test(`${target.name}: a list item that holds a document does not cost a sheet`, async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
+    // A list item is `paragraph block*` in the schema: it can hold a whole
+    // document, so it cannot be an unbreakable box. Under the old blanket
+    // avoid it was one, and the price was a sheet: the item does not fit
+    // beside the paragraph above it, so it defers to a fresh sheet, discovers
+    // it does not fit there either, and fragments from there on. The leading
+    // paragraph is the entire experiment. Without it the item starts at the
+    // top of sheet one and has nowhere to defer to, so both readings agree
+    // and the test proves nothing.
+    await openDemo(page, target);
+    await markAsPrinting(page);
+
+    const item = `<ul><li>${clauses(60)}</li></ul>`;
+    await setContent(page, item);
+    const alone = await printedPageCount(page);
+    await setContent(page, `<p>One line before the list.</p>${item}`);
+    const afterALine = await printedPageCount(page);
+
+    // One line of prose costs one line of paper, not a sheet.
+    expect(afterALine).toBe(alone);
+
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, `${EDITOR} li`, 'break-inside')).not.toBe('avoid');
+    await page.emulateMedia({ media: null });
+  });
+
+  test(`${target.name}: a flat list still paginates`, async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
+    // The other side of the same rule. The keep-with-next that holds an item's
+    // label to the blocks it introduces must not reach an item whose paragraph
+    // is its only child: there the break after the paragraph IS the break
+    // after the item, so the avoid propagates outward and an ordinary flat
+    // list becomes one unbreakable box again, at every position in it.
+    await openDemo(page, target);
+    await markAsPrinting(page);
+
+    const flat = `<ul>${Array.from(
+      { length: 200 },
+      (_, i) => `<li><p>Item ${String(i + 1)}</p></li>`,
+    ).join('')}</ul>`;
+    await setContent(page, flat);
+    const alone = await printedPageCount(page);
+    await setContent(page, `<p>One line before the list.</p>${flat}`);
+    const afterALine = await printedPageCount(page);
+
+    // A list this long spans sheets whatever happens; what it may not do is
+    // gain a blank one at the front because the line above pushed it off.
+    expect(alone).toBeGreaterThan(1);
+    expect(afterALine).toBe(alone);
+  });
+
+  test(`${target.name}: a list item's label stays with the blocks it introduces`, async ({
+    page,
+  }) => {
+    // What the item gives up by staying breakable is that its first block can
+    // be stranded at the foot of a sheet while everything it introduces starts
+    // the next one. A keep-with-next on that first block buys it back, and the
+    // `:not(:last-child)` guard is what stops the same declaration turning the
+    // flat list of the test above back into a monolith.
+    //
+    // The task item needs the rule one level deeper: its checkbox is a
+    // `<label>` sibling and its blocks live in a wrapper div, so `li > *` lands
+    // on the label rather than on the paragraph.
+    await openDemo(page, target);
+    await setContent(
+      page,
+      '<ul><li><p>Label with children</p><ul><li><p>Child</p></li></ul></li>' +
+        '<li><p>Only child</p></li></ul>' +
+        '<ul data-type="taskList">' +
+        '<li data-type="taskItem" data-checked="false"><p>Task label</p>' +
+        '<ul><li><p>Task child</p></li></ul></li>' +
+        '<li data-type="taskItem" data-checked="false"><p>Task only child</p></li></ul>',
+    );
+
+    await page.emulateMedia({ media: 'print' });
+    const keeps = await page.evaluate((editor) => {
+      const breakAfter = (selector: string): string => {
+        const el = document.querySelector(`${editor} ${selector}`);
+        return el ? getComputedStyle(el).breakAfter : 'missing';
+      };
+      return {
+        withChildren: breakAfter('ul:not([data-type]) > li:nth-child(1) > p:first-child'),
+        onlyChild: breakAfter('ul:not([data-type]) > li:nth-child(2) > p:first-child'),
+        taskWithChildren: breakAfter('li[data-type="taskItem"]:nth-child(1) > div > p:first-child'),
+        taskOnlyChild: breakAfter('li[data-type="taskItem"]:nth-child(2) > div > p:first-child'),
+      };
+    }, EDITOR);
+    await page.emulateMedia({ media: null });
+
+    expect(keeps.withChildren).toBe('avoid');
+    expect(keeps.taskWithChildren).toBe('avoid');
+    // `missing` would pass a `not.toBe('avoid')` while measuring nothing, so
+    // both of these say what the value has to be instead.
+    expect(keeps.onlyChild).toBe('auto');
+    expect(keeps.taskOnlyChild).toBe('auto');
+  });
+
+  test(`${target.name}: a table row keeps its lines together unless it holds a document`, async ({
+    page,
+  }) => {
+    // A row of one-line cells split down the middle reads as two rows, so the
+    // common case keeps its avoid. A row whose cell holds two paragraphs, a
+    // list or a column layout can outgrow the sheet, and those are excluded by
+    // name. The cells themselves have to stay out of it entirely: an avoid on
+    // `th` or `td` makes the row monolithic whatever the row says, which turns
+    // the whole guard into dead code with its own assertion still green.
+    await openDemo(page, target);
+    await setContent(
+      page,
+      '<table><tbody>' +
+        '<tr><td><p>Short</p></td><td><p>Row</p></td></tr>' +
+        '<tr><td><p>One</p><p>Two</p></td><td><p>Tall</p></td></tr>' +
+        '<tr><td><ul><li><p>Nested</p></li></ul></td><td><p>List</p></td></tr>' +
+        '</tbody></table>',
+    );
+
+    await page.emulateMedia({ media: 'print' });
+    const rows = await page.evaluate((editor) => ({
+      breaks: Array.from(document.querySelectorAll(`${editor} tr`)).map(
+        (row) => getComputedStyle(row).breakInside,
+      ),
+      cells: Array.from(document.querySelectorAll(`${editor} td`)).map(
+        (cell) => getComputedStyle(cell).breakInside,
+      ),
+    }), EDITOR);
+
+    // A column layout is a Pro node, so the free schema strips it out of a
+    // document. The guard still has to match it, and a stand-in shell carrying
+    // the production markup is the only way to put that shape under the same
+    // cascade: `:has()` reads the DOM, not the schema.
+    const columns = await page.evaluate(() => {
+      const shell = document.createElement('div');
+      shell.className = 'dm-editor';
+      const content = document.createElement('div');
+      content.className = 'ProseMirror';
+      content.innerHTML =
+        '<table><tbody>' +
+        '<tr id="plain-row"><td><p>plain</p></td></tr>' +
+        '<tr id="column-row"><td><div data-type="column-list">' +
+        '<div data-type="column"><p>side</p></div></div></td></tr>' +
+        '</tbody></table>';
+      shell.appendChild(content);
+      document.body.appendChild(shell);
+      const read = (id: string): string => {
+        const el = content.querySelector(`#${id}`);
+        return el ? getComputedStyle(el).breakInside : 'missing';
+      };
+      const result = { plain: read('plain-row'), columns: read('column-row') };
+      shell.remove();
+      return result;
+    });
+    await page.emulateMedia({ media: null });
+
+    expect(rows.breaks).toEqual(['avoid', 'auto', 'auto']);
+    expect(rows.cells.length).toBeGreaterThan(0);
+    expect(rows.cells.every((value) => value === 'auto')).toBe(true);
+    // The stand-in has to reproduce the passing case too, or the failing one
+    // says nothing about the guard.
+    expect(columns.plain).toBe('avoid');
+    expect(columns.columns).toBe('auto');
+  });
+
+  /** A picture several page-heights tall, as an SVG with intrinsic dimensions. */
+  function pictureSrc(width: number, height: number): string {
+    const svg =
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${String(width)}" ` +
+      `height="${String(height)}"><rect width="100%" height="100%" fill="#446688"/></svg>`;
+    return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+  }
+
+  test(`${target.name}: a picture taller than the sheet prints whole and in proportion`, async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
+    // A picture has no line boxes to fragment at, so it keeps its avoid. Which
+    // leaves the case where one sheet is not enough either: the avoid cannot
+    // be honoured, the picture is deferred to a fresh sheet and then sliced
+    // across that sheet and the ones after it, one page-high window per sheet.
+    // Scaling it to the page is the only reading of it that survives.
+    //
+    // The 6em subtracted from the page area is the wrapper's own margin plus
+    // the chrome of whatever holds it, so a picture inside a quote lands on
+    // the sheet it started on rather than deferring whole to the next one.
+    // That is why the quote is measured against the top-level case and not
+    // against a constant.
+    await openDemo(page, target);
+    await markAsPrinting(page);
+    const tall = pictureSrc(200, 4000);
+    const short = pictureSrc(200, 100);
+
+    await setContent(page, `<img src="${short}">`);
+    const withShort = await printedPageCount(page);
+    await setContent(page, `<img src="${tall}">`);
+    const withTall = await printedPageCount(page);
+    await setContent(page, `<blockquote><img src="${tall}"></blockquote>`);
+    const inQuote = await printedPageCount(page);
+    await setContent(page, `<img src="${tall}" width="600">`);
+    const resized = await printedPageCount(page);
+
+    // A picture that fits the page area costs exactly what a picture that
+    // always fitted costs, wherever it sits and whatever width it was given.
+    expect(withTall).toBe(withShort);
+    expect(inQuote).toBe(withTall);
+    expect(resized).toBe(withShort);
+
+    await setContent(page, `<img src="${tall}"><img src="${tall}" width="600">`);
+    await page.emulateMedia({ media: 'print' });
+    const drawn = await page.evaluate((editor) => {
+      return Array.from(document.querySelectorAll<HTMLImageElement>(`${editor} img`)).map((img) => {
+        const rect = img.getBoundingClientRect();
+        const style = getComputedStyle(img);
+        return {
+          height: rect.height,
+          clamp: parseFloat(style.maxHeight),
+          ratio: rect.width / rect.height,
+          natural: img.naturalWidth / img.naturalHeight,
+          fit: style.objectFit,
+          inlineWidth: img.style.width,
+        };
+      });
+    }, EDITOR);
+    await page.emulateMedia({ media: null });
+
+    expect(drawn.length).toBe(2);
+    const [natural, byHand] = drawn as [(typeof drawn)[0], (typeof drawn)[0]];
+
+    // At its natural width the clamp recomputes the used width from the aspect
+    // ratio, so the box itself stays in proportion and the box is the picture.
+    expect(natural.height).toBeLessThanOrEqual(natural.clamp + 1);
+    expect(Math.abs(natural.ratio - natural.natural)).toBeLessThan(0.01);
+
+    // A picture the author resized by hand is the case `object-fit` exists
+    // for: the node view writes that width onto the `img`, the width survives
+    // the clamp, and the box comes out of it with an aspect ratio of its own.
+    // The picture inside that box is what stays in proportion, and no geometry
+    // API reports where a replaced element painted inside its own box, so
+    // `contain` is asserted as the declaration that decides it. Squeezed to
+    // the box instead, this picture would print twenty times too wide.
+    expect(byHand.inlineWidth).toBe('600px');
+    expect(Math.abs(byHand.ratio - byHand.natural)).toBeGreaterThan(0.5);
+    expect(byHand.fit).toBe('contain');
+    expect(byHand.height).toBeLessThanOrEqual(byHand.clamp + 1);
+  });
+
+  test(`${target.name}: an aligned picture prints at the alignment it was drawn at`, async ({
+    page,
+  }) => {
+    // `object-fit: contain` centres its letterbox by default, so the clamp
+    // above would move a left-aligned picture into the middle of the measure
+    // and a right-aligned one back off its own edge. `object-position` is what
+    // puts each of them back, and it is spelled physically because the
+    // property has no logical form, which is why an RTL document needs its own
+    // arm rather than following the same keyword.
+    await openDemo(page, target);
+    const tall = pictureSrc(200, 4000);
+    await setContent(
+      page,
+      '<p>The text column this picture sits in.</p>' +
+        ['', 'left', 'center', 'right']
+          .map(
+            (align) =>
+              `<img src="${tall}" width="600"${align ? ` data-align="${align}"` : ''}>`,
+          )
+          .join(''),
+    );
+
+    await page.emulateMedia({ media: 'print' });
+    const drawn = await page.evaluate((editor) => {
+      const column = document.querySelector(`${editor} p`)?.getBoundingClientRect();
+      return {
+        column: column ? { left: column.left, right: column.right } : null,
+        pictures: Array.from(document.querySelectorAll<HTMLImageElement>(`${editor} img`)).map(
+          (img) => {
+            const rect = img.getBoundingClientRect();
+            return {
+              align: img.closest('.dm-image-resizable')?.getAttribute('data-align') ?? 'none',
+              left: rect.left,
+              right: rect.right,
+              position: getComputedStyle(img).objectPosition,
+            };
+          },
+        ),
+      };
+    }, EDITOR);
+
+    const rtl = await page.evaluate((editor) => {
+      document.documentElement.setAttribute('dir', 'rtl');
+      const img = document.querySelector(`${editor} img`);
+      const position = img ? getComputedStyle(img).objectPosition : 'missing';
+      document.documentElement.removeAttribute('dir');
+      return position;
+    }, EDITOR);
+    await page.emulateMedia({ media: null });
+
+    expect(drawn.column).not.toBeNull();
+    expect(drawn.pictures.map((picture) => picture.align)).toEqual([
+      'none',
+      'left',
+      'center',
+      'right',
+    ]);
+    const [unaligned, left, centre, right] = drawn.pictures as [
+      (typeof drawn.pictures)[0],
+      (typeof drawn.pictures)[0],
+      (typeof drawn.pictures)[0],
+      (typeof drawn.pictures)[0],
+    ];
+    const column = drawn.column as { left: number; right: number };
+
+    // The box, which the alignment rules place.
+    expect(Math.abs(unaligned.left - column.left)).toBeLessThanOrEqual(1);
+    expect(Math.abs(left.left - column.left)).toBeLessThanOrEqual(1);
+    expect(Math.abs(right.right - column.right)).toBeLessThanOrEqual(1);
+
+    // And the picture inside it, which only the property reports.
+    expect(unaligned.position).toBe('0% 50%');
+    expect(left.position).toBe('0% 50%');
+    expect(centre.position).toBe('50% 50%');
+    expect(right.position).toBe('100% 50%');
+    // Right to left, an unaligned picture starts at the reader's own margin.
+    expect(rtl).toBe('100% 50%');
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // The repeating header row. The node view makes the `tbody` the contentDOM,
+  // because ProseMirror renders every row into one element, so the table has
+  // no `<thead>` for a browser to repeat and cannot be given one without
+  // fighting the view's DOM sync. Dropping the row group's box instead puts
+  // the rows in the table's own formatting context, which is the one place a
+  // row is allowed to BE a header group.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /** A long table, with the leading row made of the cell type asked for. */
+  function longTable(head: 'th' | 'td', rows: number): string {
+    const body = Array.from(
+      { length: rows },
+      (_, i) =>
+        `<tr><td><p>Row ${String(i + 1)} alpha</p></td>` +
+        `<td><p>Row ${String(i + 1)} beta</p></td></tr>`,
+    ).join('');
+    return (
+      '<table><tbody>' +
+      `<tr><${head}><p>Widget name</p></${head}><${head}><p>Ships from</p></${head}></tr>` +
+      `${body}</tbody></table>`
+    );
+  }
+
+  test(`${target.name}: a table split across sheets repeats its header row on every one`, async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
+    // The claim the two file exports already make with `w:tblHeader` and
+    // pdfmake's `headerRows`, made on paper. It cannot be read off the page
+    // tree: a repeated header adds a line to a sheet, never a sheet to the
+    // document, so the content streams are the only witness.
+    await openDemo(page, target);
+    await markAsPrinting(page);
+    await setContent(page, longTable('th', 70));
+
+    const sheets = await printedPageGlyphRuns(page);
+    expect(sheets.length).toBeGreaterThanOrEqual(3);
+    const label = openingRun(sheets[0]);
+    // A sheet that drew nothing would make every comparison below trivially
+    // true, so the run has to be a real one first.
+    expect(label.length).toBeGreaterThan(0);
+    for (const sheet of sheets) expect(openingRun(sheet)).toBe(label);
+  });
+
+  test(`${target.name}: a table with no leading header row repeats nothing`, async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
+    // The same document to the byte apart from the cell type of row one, which
+    // is the whole predicate. Without this case the rule above passes just as
+    // well when it promotes every first row it can reach, and a table whose
+    // first row is data would repeat that data as a column label.
+    await openDemo(page, target);
+    await markAsPrinting(page);
+    await setContent(page, longTable('td', 70));
+
+    const sheets = await printedPageGlyphRuns(page);
+    expect(sheets.length).toBeGreaterThanOrEqual(3);
+    const opening = openingRun(sheets[0]);
+    expect(opening.length).toBeGreaterThan(0);
+    for (const sheet of sheets.slice(1)) expect(openingRun(sheet)).not.toBe(opening);
+    // And nothing from that first line reaches a later sheet at all, which is
+    // stronger than the sheets merely starting differently.
+    const firstGlyph = sheets[0]?.[0] ?? '';
+    expect(sheets.slice(1).some((sheet) => sheet.includes(firstGlyph))).toBe(false);
+  });
+
+  test(`${target.name}: only a leading all-header row becomes a repeating header`, async ({
+    page,
+  }) => {
+    // The predicate the exporters count with, shape by shape. `:has(> th)` on
+    // its own promotes the first row of a header-COLUMN table, where
+    // `toggleHeaderColumn` puts a `th` in every row, and hoists it above rows
+    // it does not label. The table also has to own a data cell somewhere: a
+    // header column on a single-column table makes every cell a `th`, so its
+    // first row passes the all-header test on a technicality and would repeat
+    // as a label for itself. A `rowspan` in the leading row is excluded
+    // because a spanned cell cannot reach out of a header group into the body,
+    // so promoting it would silently drop the span.
+    await openDemo(page, target);
+    const shapes: [string, string, string, string][] = [
+      [
+        'a leading all-header row',
+        '<table><tbody><tr><th><p>A</p></th><th><p>B</p></th></tr>' +
+          '<tr><td><p>1</p></td><td><p>2</p></td></tr></tbody></table>',
+        'contents',
+        'table-header-group',
+      ],
+      [
+        'no header row at all',
+        '<table><tbody><tr><td><p>A</p></td><td><p>B</p></td></tr>' +
+          '<tr><td><p>1</p></td><td><p>2</p></td></tr></tbody></table>',
+        'table-row-group',
+        'table-row',
+      ],
+      [
+        'a header column',
+        '<table><tbody><tr><th><p>A</p></th><td><p>1</p></td></tr>' +
+          '<tr><th><p>B</p></th><td><p>2</p></td></tr></tbody></table>',
+        'contents',
+        'table-row',
+      ],
+      [
+        'a rowspan in the leading row',
+        '<table><tbody><tr><th rowspan="2"><p>A</p></th><th><p>B</p></th></tr>' +
+          '<tr><th><p>C</p></th></tr><tr><td><p>1</p></td><td><p>2</p></td></tr></tbody></table>',
+        'contents',
+        'table-row',
+      ],
+      [
+        'a single column of header cells',
+        '<table><tbody><tr><th><p>A</p></th></tr><tr><th><p>B</p></th></tr></tbody></table>',
+        'table-row-group',
+        'table-row',
+      ],
+    ];
+
+    for (const [name, html, tbody, row] of shapes) {
+      await setContent(page, html);
+      await page.emulateMedia({ media: 'print' });
+      const shown = await page.evaluate((editor) => {
+        const group = document.querySelector(`${editor} tbody`);
+        const first = document.querySelector(`${editor} tbody > tr`);
+        return {
+          tbody: group ? getComputedStyle(group).display : 'missing',
+          row: first ? getComputedStyle(first).display : 'missing',
+        };
+      }, EDITOR);
+      await page.emulateMedia({ media: null });
+      expect(shown, name).toEqual({ tbody, row });
+    }
+  });
+
+  test(`${target.name}: the repeated header keeps the data rows' column register`, async ({
+    page,
+  }) => {
+    // Promoting the row without dropping the row group's box is worse than
+    // not promoting it: the header becomes a table of its own beside the body
+    // and its columns stop lining up with the data underneath them.
+    await openDemo(page, target);
+    await setContent(
+      page,
+      '<table><tbody>' +
+        '<tr><th><p>Alpha</p></th><th><p>Beta</p></th><th><p>Gamma</p></th></tr>' +
+        '<tr><td><p>1</p></td><td><p>2</p></td><td><p>3</p></td></tr>' +
+        '</tbody></table>',
+    );
+
+    await page.emulateMedia({ media: 'print' });
+    const register = await page.evaluate((editor) => {
+      return Array.from(document.querySelectorAll(`${editor} tbody > tr`)).map((row) =>
+        Array.from(row.children)
+          .map((cell) => {
+            const box = cell.getBoundingClientRect();
+            return `${String(Math.round(box.left))}-${String(Math.round(box.right))}`;
+          })
+          .join('|'),
+      );
+    }, EDITOR);
+    await page.emulateMedia({ media: null });
+
+    expect(register.length).toBe(2);
+    expect(register[0]).toBe(register[1]);
+    // Three real columns, not one collapsed one.
+    expect(register[0]?.split('|').length).toBe(3);
+  });
+
+  test(`${target.name}: the header promotion stays off the screen`, async ({ page }) => {
+    // A header group in the editor would take the row out of the flow the
+    // author is editing. The promotion is a paper decision and belongs inside
+    // the print media block, where nothing else can see it.
+    await openDemo(page, target);
+    await setContent(
+      page,
+      '<table><tbody><tr><th><p>A</p></th><th><p>B</p></th></tr>' +
+        '<tr><td><p>1</p></td><td><p>2</p></td></tr></tbody></table>',
+    );
+
+    expect(await styleOf(page, `${EDITOR} tbody`, 'display')).toBe('table-row-group');
+    expect(await styleOf(page, `${EDITOR} tbody > tr`, 'display')).toBe('table-row');
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // How wide a table is on paper. Two failures live here and they pull in
+  // opposite directions: throwing the author's drawn layout away, and letting
+  // a table that cannot get under the page width take the whole document down
+  // with it. Chromium's answer to a document wider than the sheet is to scale
+  // ALL of it, as far as two thirds, and then clip whatever still does not
+  // fit, so one bad table costs every paragraph on every page its type size.
+  //
+  // The stored widths ride on `data-colwidth`, which is what the cell
+  // attribute parses; a plain `colwidth` never reaches the node and the table
+  // falls back to the min-width floor instead.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  test(`${target.name}: a printed table keeps the proportions the author dragged`, async ({
+    page,
+  }) => {
+    // Resetting the colgroup to `auto` threw the drawn layout away: under auto
+    // layout Chromium reads a `col` width as a preferred width and hands the
+    // available space out in proportion, so the stored widths fit the page by
+    // themselves, while the reset re-sized every column from its content and
+    // made the column the author dragged widest come out narrowest. The
+    // longest text is deliberately in the narrow column so the two readings
+    // cannot agree.
+    await openDemo(page, target);
+    await setContent(
+      page,
+      '<table><tbody><tr>' +
+        '<td data-colwidth="200"><p>A</p></td>' +
+        '<td data-colwidth="120"><p>This is by far the longest text in the whole table and it ' +
+        'belongs to the narrow column</p></td>' +
+        '<td data-colwidth="200"><p>C</p></td>' +
+        '</tr></tbody></table>',
+    );
+
+    await page.emulateMedia({ media: 'print' });
+    const widths = await page.evaluate((editor) => {
+      return Array.from(document.querySelectorAll(`${editor} tr:first-child > *`)).map(
+        (cell) => cell.getBoundingClientRect().width,
+      );
+    }, EDITOR);
+    await page.emulateMedia({ media: null });
+
+    expect(widths.length).toBe(3);
+    const [first, middle, last] = widths as [number, number, number];
+    // The ratio the author drew, not the pixel count, which depends on the
+    // measure the reader's paper gives them.
+    expect(Math.abs(first / middle - 200 / 120)).toBeLessThan(0.08);
+    expect(Math.abs(last / middle - 200 / 120)).toBeLessThan(0.08);
+    expect(middle).toBeLessThan(first);
+    expect(middle).toBeLessThan(last);
+  });
+
+  test(`${target.name}: a printed table keeps the width it was drawn at`, async ({ page }) => {
+    // The node view writes an absolute width on the table when EVERY column
+    // carries a stored width, and that number is the author's own answer to
+    // how wide the table should be. `width: 100%` deliberately carries no
+    // `!important` so the inline width wins while it fits, and `max-width`
+    // scales it down when it does not.
+    await openDemo(page, target);
+    await setContent(
+      page,
+      '<table><tbody><tr>' +
+        '<td data-colwidth="120"><p>One</p></td>' +
+        '<td data-colwidth="120"><p>Two</p></td>' +
+        '</tr></tbody></table>',
+    );
+
+    await page.emulateMedia({ media: 'print' });
+    const drawn = await page.evaluate((editor) => {
+      const table = document.querySelector<HTMLElement>(`${editor} table`);
+      if (!table) return null;
+      return { width: table.getBoundingClientRect().width, inline: table.style.width };
+    }, EDITOR);
+    await page.emulateMedia({ media: null });
+
+    // The precondition: the node view really did write a width to fight over.
+    expect(drawn?.inline).toBe('240px');
+    expect(Math.abs((drawn?.width ?? 0) - 240)).toBeLessThanOrEqual(2);
+  });
+
+  test(`${target.name}: a table of many long-worded columns is laid out inside the sheet`, async ({
+    page,
+  }) => {
+    // The 100px grab floor is what pushes a table like this off the sheet, and
+    // `overflow-wrap: anywhere` is the other half of getting it back on:
+    // `anywhere` is the only value that counts the break opportunities it
+    // introduces when a cell's min-content width is measured, and min-content
+    // is the floor auto table layout will not go below. The inherited
+    // `break-word` these cells already carry does not, which is exactly why it
+    // is not enough.
+    await openDemo(page, target);
+    const words = [
+      'Interoperability',
+      'Standardisation',
+      'Configurations',
+      'Implementation',
+      'Documentation',
+      'Serialisation',
+      'Normalisation',
+      'Accessibility',
+    ];
+    await setContent(
+      page,
+      `<table><tbody><tr>${words
+        .map((word) => `<td><p>${word}</p></td>`)
+        .join('')}</tr></tbody></table>`,
+    );
+
+    await page.emulateMedia({ media: 'print' });
+    const fit = await page.evaluate((editor) => {
+      const wrapper = document.querySelector('.dm-editor .tableWrapper');
+      const table = document.querySelector(`${editor} table`);
+      const last = document.querySelector(`${editor} tr > *:last-child`);
+      if (!wrapper || !table || !last) return null;
+      return {
+        overhang: table.getBoundingClientRect().right - wrapper.getBoundingClientRect().right,
+        lastWidth: last.getBoundingClientRect().width,
+      };
+    }, EDITOR);
+    await page.emulateMedia({ media: null });
+
+    expect(fit).not.toBeNull();
+    expect(fit?.overhang ?? 999).toBeLessThanOrEqual(3);
+    expect(fit?.lastWidth ?? 0).toBeGreaterThan(0);
+  });
+
+  test(`${target.name}: an unbreakable URL does not push the rest of the table off the sheet`, async ({
+    page,
+  }) => {
+    // The same rule under the case it was written for. A long URL has no break
+    // opportunity in it at all, so its cell's min-content width is the whole
+    // string, and the columns beside it are pushed off the paper rather than
+    // merely squeezed: in the file they are not painted at all.
+    await openDemo(page, target);
+    const url = `https://example.com/${'a'.repeat(130)}`;
+    await setContent(
+      page,
+      '<table><tbody><tr>' +
+        `<td><p>${url}</p></td>` +
+        '<td><p>Second</p></td>' +
+        '<td><p>Third</p></td>' +
+        '</tr></tbody></table>',
+    );
+
+    await page.emulateMedia({ media: 'print' });
+    const fit = await page.evaluate((editor) => {
+      const wrapper = document.querySelector('.dm-editor .tableWrapper');
+      const table = document.querySelector(`${editor} table`);
+      if (!wrapper || !table) return null;
+      const edge = wrapper.getBoundingClientRect().right;
+      return {
+        overhang: table.getBoundingClientRect().right - edge,
+        cells: Array.from(document.querySelectorAll(`${editor} tr > *`)).map((cell) => {
+          const box = cell.getBoundingClientRect();
+          return { width: box.width, inside: edge - box.right };
+        }),
+      };
+    }, EDITOR);
+    await page.emulateMedia({ media: null });
+
+    expect(fit?.overhang ?? 999).toBeLessThanOrEqual(3);
+    expect(fit?.cells.length).toBe(3);
+    for (const cell of fit?.cells ?? []) {
+      expect(cell.width).toBeGreaterThan(0);
+      expect(cell.inside).toBeGreaterThanOrEqual(-3);
+    }
+  });
+
+  test(`${target.name}: a table inside a cell does not drag the document off the sheet`, async ({
+    page,
+  }) => {
+    // The one place the percentage `max-width` above cannot fit by itself: a
+    // percentage needs a definite containing block, and a cell under auto
+    // layout has none while its own width is still being decided, so the
+    // percentage drops out and the inner table keeps the absolute width its
+    // node view wrote. Spending the nested table's drawn width is the smaller
+    // loss, because without it the outer table goes past the sheet and takes
+    // the neighbouring column out of the file rather than merely off the edge
+    // of it.
+    await openDemo(page, target);
+    const inner =
+      '<table><tbody><tr>' +
+      '<td data-colwidth="300"><p>Inner one</p></td>' +
+      '<td data-colwidth="300"><p>Inner two</p></td>' +
+      '<td data-colwidth="300"><p>Inner three</p></td>' +
+      '</tr></tbody></table>';
+    await setContent(
+      page,
+      `<table><tbody><tr><td><p>Holder</p>${inner}</td>` +
+        '<td><p>Neighbouring column text</p></td></tr></tbody></table>',
+    );
+
+    await page.emulateMedia({ media: 'print' });
+    const fit = await page.evaluate(() => {
+      const wrapper = document.querySelector('.dm-editor .tableWrapper');
+      const outer = wrapper?.querySelector(':scope > table');
+      const nested = document.querySelector<HTMLTableElement>('.dm-editor .ProseMirror td table');
+      if (!wrapper || !outer || !nested) return null;
+      const edge = wrapper.getBoundingClientRect().right;
+      const cells = Array.from(outer.querySelectorAll(':scope > tbody > tr > td'));
+      const neighbour = cells[1]?.getBoundingClientRect();
+      return {
+        overhang: outer.getBoundingClientRect().right - edge,
+        nestedInline: nested.style.width,
+        neighbourWidth: neighbour ? neighbour.width : 0,
+        neighbourInside: neighbour ? edge - neighbour.right : -999,
+      };
+    });
+    await page.emulateMedia({ media: null });
+
+    // The precondition: the inner table really does carry a width wider than
+    // the cell that has to hold it.
+    expect(fit?.nestedInline).toBe('900px');
+    expect(fit?.overhang ?? 999).toBeLessThanOrEqual(3);
+    // The column beside it is the one that goes missing, so it is the one
+    // measured: on the paper, and with a width worth printing.
+    expect(fit?.neighbourWidth ?? 0).toBeGreaterThan(0);
+    expect(fit?.neighbourInside ?? -999).toBeGreaterThanOrEqual(-3);
+  });
+
+  test(`${target.name}: one wide table never costs the whole document its type size`, async ({
+    page,
+    browserName,
+  }) => {
+    // The collateral nobody looks for, because it happens to the pages the
+    // table is not on. A table that cannot get under the page width makes
+    // Chromium scale the ENTIRE printed document to fit it, as far as two
+    // thirds, so the same prose comes out at 8pt instead of 12pt and the
+    // document paradoxically gets SHORTER. Fewer sheets with the table than
+    // without it is the signature.
+    test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
+    await openDemo(page, target);
+    await markAsPrinting(page);
+
+    const prose = (count: number): string =>
+      Array.from(
+        { length: count },
+        (_, i) =>
+          `<p>Paragraph ${String(i + 1)} carrying an ordinary amount of prose so the sheet ` +
+          'fills at a normal rate.</p>',
+      ).join('');
+    const words = [
+      'Interoperability',
+      'Standardisation',
+      'Configurations',
+      'Implementation',
+      'Documentation',
+      'Serialisation',
+      'Normalisation',
+      'Accessibility',
+    ];
+    const wide = `<table><tbody><tr>${words
+      .map((word) => `<td><p>${word}</p></td>`)
+      .join('')}</tr></tbody></table>`;
+
+    await setContent(page, prose(56));
+    const withoutTable = await printedPageCount(page);
+    await setContent(page, `${prose(28)}${wide}${prose(28)}`);
+    const withTable = await printedPageCount(page);
+
+    expect(withoutTable).toBeGreaterThan(1);
+    // Adding content may cost a sheet. It may never save one.
+    expect(withTable).toBeGreaterThanOrEqual(withoutTable);
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // The printed palette. Dark is a screen decision; on paper it is black ink
+  // on a black table header, a code chip nobody can read, and an unticked task
+  // box the reader sees as ticked. The paper layer re-emits the light token
+  // set on the editor, plus the tokens the variables file derives from it,
+  // because ink and surface have to move together or neither may move.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  test(`${target.name}: a dark table header prints ink on paper, not ink on ink`, async ({
+    page,
+  }) => {
+    // The visible half of the defect: the header keeps the dark theme's fill
+    // while the text on it has already been forced black, so the label prints
+    // as a black band with nothing legible inside it.
+    await openDemo(page, target);
+    await setContent(
+      page,
+      '<table><tbody><tr><th><p>Widget</p></th></tr><tr><td><p>Cell</p></td></tr></tbody></table>',
+    );
+    await goDark(page);
+
+    await page.emulateMedia({ media: 'print' });
+    const header = await page.evaluate((editor) => {
+      const cell = document.querySelector(`${editor} th`);
+      if (!cell) return null;
+      const style = getComputedStyle(cell);
+      return { color: style.color, background: style.backgroundColor };
+    }, EDITOR);
+    await page.emulateMedia({ media: null });
+
+    expect(header).not.toBeNull();
+    expect(contrastOf(header?.color ?? null, header?.background ?? null)).toBeGreaterThanOrEqual(7);
+  });
+
+  test(`${target.name}: the palette wins when the theme class sits on an ancestor only`, async ({
+    page,
+  }) => {
+    // Why the re-emitted palette carries `!important` rather than house style.
+    // The dark sheet names `.dm-editor` in its own selector list, so with the
+    // theme class on an ancestor the dark values are declared ON this element
+    // and a plain redeclaration loses to them, which leaves the header black.
+    // Every other palette test here passes without the importance, so without
+    // this one a tidy-up removes it and nothing says a word.
+    await openDemo(page, target);
+    await setContent(page, '<p>Themed from above.</p>');
+    await page.evaluate(() => {
+      document.body.classList.add('dm-theme-dark');
+      document.querySelectorAll('.dm-editor').forEach((el) => {
+        el.classList.remove('dm-theme-dark');
+      });
+    });
+    await page.waitForTimeout(300);
+
+    // The precondition: the class really is on an ancestor and not here.
+    expect(
+      await page.evaluate(() => document.querySelector('.dm-editor')?.classList.contains('dm-theme-dark')),
+    ).toBe(false);
+
+    await page.emulateMedia({ media: 'print' });
+    const surface = await styleOf(page, '.dm-editor', '--dm-surface');
+    await page.emulateMedia({ media: null });
+    await page.evaluate(() => { document.body.classList.remove('dm-theme-dark'); });
+
+    expect(surface?.trim()).toBe('#f8f9fa');
+  });
+
+  test(`${target.name}: a consumer's dark component token does not print ink on ink`, async ({
+    page,
+  }) => {
+    // A consumer who dark-themed through a COMPONENT token rather than through
+    // the palette. Re-emitting the palette alone leaves this package's light
+    // ink sitting on their own dark surface: a code block that was readable in
+    // the browser comes out black on black, which is worse than the dark sheet
+    // the palette exists to prevent. This is why the derived tokens are listed
+    // out beside it.
+    await openDemo(page, target);
+    await setContent(page, '<pre><code>const answer = 42;</code></pre>');
+    await page.addStyleTag({ content: '.dm-editor { --dm-code-block-bg: #0d1117; }' });
+    await goDark(page);
+
+    // The precondition: their token really is in force on screen.
+    expect(await styleOf(page, `${EDITOR} pre`, 'background-color')).toBe('rgb(13, 17, 23)');
+
+    await page.emulateMedia({ media: 'print' });
+    const block = await page.evaluate((editor) => {
+      const pre = document.querySelector(`${editor} pre`);
+      if (!pre) return null;
+      const style = getComputedStyle(pre);
+      return { color: style.color, background: style.backgroundColor };
+    }, EDITOR);
+    await page.emulateMedia({ media: null });
+
+    expect(contrastOf(block?.color ?? null, block?.background ?? null)).toBeGreaterThanOrEqual(7);
+  });
+
+  test(`${target.name}: every block colour prints a light tint under a dark theme`, async ({
+    page,
+  }) => {
+    // Nine colours, and every one of them is a separate token. The palette
+    // covers all nine in one decision, which is the point of re-emitting the
+    // set rather than naming the tokens a document happens to use.
+    //
+    // The BlockColor extension is registered in the Notion preset rather than
+    // the default one, so the tinted blocks are stand-ins carrying the
+    // attribute the extension writes. They sit inside the live document, which
+    // is where the tint rules are scoped, and are read and removed in one
+    // synchronous pass so ProseMirror's observer never sees them.
+    await openDemo(page, target);
+    await setContent(page, '<p>A coloured document.</p>');
+    await goDark(page);
+
+    await page.emulateMedia({ media: 'print' });
+    const tints = await page.evaluate((editor) => {
+      const host = document.querySelector(editor);
+      if (!host) return [];
+      const names = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'];
+      const read = names.map((name) => {
+        const block = document.createElement('p');
+        block.setAttribute('data-bg-color', name);
+        block.textContent = name;
+        host.appendChild(block);
+        return getComputedStyle(block).backgroundColor;
+      });
+      host.querySelectorAll('[data-bg-color]').forEach((el) => { el.remove(); });
+      return read;
+    }, EDITOR);
+    await page.emulateMedia({ media: null });
+
+    expect(tints.length).toBe(9);
+    for (const tint of tints) expect(luminanceOf(tint)).toBeGreaterThan(0.7);
+  });
+
+  test(`${target.name}: a dark /toc block prints its rows in ink`, async ({ page }) => {
+    // The one place in the sheet where dropping a token is the fix rather than
+    // setting one. The dark theme declares the row colours on the BLOCK, out
+    // of reach of anything set on `.dm-editor`, so the palette cannot correct
+    // them: a dark document would print white rows on white paper. Dropping
+    // the token restores the light value without repeating it, because every
+    // use site carries that value as its own `var()` fallback.
+    await openDemo(page, target);
+    await setContent(page, '<p>A document with an outline.</p>');
+    await goDark(page);
+
+    await page.emulateMedia({ media: 'print' });
+    const rows = await page.evaluate((editor) => {
+      const host = document.querySelector(editor);
+      if (!host) return null;
+      const block = document.createElement('div');
+      block.className = 'dm-toc-block';
+      const list = document.createElement('ul');
+      list.className = 'dm-toc-block-list';
+      const item = document.createElement('li');
+      const link = document.createElement('button');
+      link.className = 'dm-toc-block-link';
+      link.textContent = 'A heading';
+      item.appendChild(link);
+      list.appendChild(item);
+      block.appendChild(list);
+      host.appendChild(block);
+      const result = { link: getComputedStyle(link).color, block: getComputedStyle(block).backgroundColor };
+      block.remove();
+      return result;
+    }, EDITOR);
+    await page.emulateMedia({ media: null });
+
+    // The light value the use site falls back to, not merely "something dark".
+    expect(rows?.link).toBe('rgba(55, 53, 47, 0.8)');
+    // And the panel tint is screen furniture, so the paper keeps only the rule.
+    expect(rows?.block).toBe('rgba(0, 0, 0, 0)');
+  });
+
+  test(`${target.name}: an unchecked task box prints empty`, async ({ page }) => {
+    // Left on a dark colour scheme, the user agent paints an unticked checkbox
+    // as a filled dark square, which on paper reads as a ticked one: the
+    // document says the opposite of what it says on screen. The editor
+    // declares the scheme from its own token, so the reset on the root does
+    // not reach this subtree, and a host that writes the PROPERTY rather than
+    // the token is not reached by the palette either. Both arms are here.
+    await openDemo(page, target);
+    await setContent(
+      page,
+      '<ul data-type="taskList"><li data-type="taskItem" data-checked="false">' +
+        '<p>Not done yet</p></li></ul>',
+    );
+    await page.addStyleTag({ content: '.dm-editor { color-scheme: dark; }' });
+    await goDark(page);
+
+    // The precondition: the host's own declaration really is in force.
+    expect(await styleOf(page, '.dm-editor', 'color-scheme')).toBe('dark');
+
+    await page.emulateMedia({ media: 'print' });
+    const scheme = await page.evaluate(() => {
+      const editor = document.querySelector('.dm-editor');
+      if (!editor) return null;
+      const style = getComputedStyle(editor);
+      return { used: style.colorScheme, token: style.getPropertyValue('--dm-color-scheme').trim() };
+    });
+    await page.emulateMedia({ media: null });
+
+    expect(scheme?.used).toBe('light');
+    expect(scheme?.token).toBe('light');
+  });
+
+  test(`${target.name}: a light document prints exactly as it did`, async ({ page }) => {
+    // The palette must not change a document that was already light. Inline
+    // code is the one token where the light palette and the untouched default
+    // disagree visibly, and `currentColor` is the answer that says what the
+    // chip should do rather than what colour it should be: it takes the colour
+    // of the text around it, so a plain document keeps printing black and an
+    // author's own colour on the block still carries into the chip.
+    await openDemo(page, target);
+    await setContent(
+      page,
+      '<p>Some <code>inline</code> text.</p>' +
+        '<table><tbody><tr><th><p>Head</p></th></tr>' +
+        '<tr><td><p>Cell</p></td></tr></tbody></table>',
+    );
+
+    await page.emulateMedia({ media: 'print' });
+    const light = await page.evaluate((editor) => {
+      const chip = document.querySelector(`${editor} p code`);
+      const paragraph = document.querySelector(`${editor} p`);
+      const header = document.querySelector(`${editor} th`);
+      if (!chip || !paragraph || !header) return null;
+      return {
+        chip: getComputedStyle(chip).color,
+        paragraph: getComputedStyle(paragraph).color,
+        header: getComputedStyle(header).backgroundColor,
+      };
+    }, EDITOR);
+    await page.emulateMedia({ media: null });
+
+    expect(light).not.toBeNull();
+    // The chip takes the colour of the text it sits in, whatever that is.
+    expect(light?.chip).toBe(light?.paragraph);
+    expect(Math.max(...channelsOf(light?.chip ?? null))).toBeLessThan(80);
+    expect(light?.header).toBe('rgb(248, 249, 250)');
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // The canvas and the layout release. The printed canvas is taken from the
+  // ROOT element and a body background reaches it only while the root has
+  // none, so a host that tints `<html>`, which is what every dark theme with a
+  // pre-paint bootstrap writes, floods the page area of every sheet. Neither
+  // element is a descendant of the body, so the rule that clears each marked
+  // ancestor cannot reach either of them: both are named twice, once always on
+  // and once behind the print command.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  test(`${target.name}: the marked print path clears the canvas, root included`, async ({
+    page,
+  }) => {
+    // The unmarked half comes first on purpose: with the marks in place the
+    // layout release covers the root as well, so a canvas rule that had lost
+    // the root element would still read transparent and the test would pass
+    // over the defect. Unmarked, only the canvas rule is in play.
+    await openDemo(page, target);
+    await setContent(page, '<p>A document on a tinted page.</p>');
+    await goDark(page);
+    await page.addStyleTag({ content: 'html { background: rgb(244, 245, 247); }' });
+
+    // The precondition: the host tint really is painting the page.
+    expect(await styleOf(page, 'html', 'background-color')).toBe('rgb(244, 245, 247)');
+
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, 'html', 'background-color')).toBe('rgba(0, 0, 0, 0)');
+    await page.emulateMedia({ media: null });
+
+    await markAsPrinting(page);
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, 'html', 'background-color')).toBe('rgba(0, 0, 0, 0)');
+    expect(await styleOf(page, 'body', 'background-color')).toBe('rgba(0, 0, 0, 0)');
+    await page.emulateMedia({ media: null });
+  });
+
+  test(`${target.name}: a host tint declared with !important still loses to the print command`, async ({
+    page,
+  }) => {
+    // The escape hatch, and its limit. A host who wants a deliberate paper
+    // tint declares it `!important`, because specificity alone is not enough
+    // against a rule that is `!important` too, and `:root` outweighs the bare
+    // `html` the canvas rule names. The command path is the one place that has
+    // to win anyway: it is erasing the host application, and a tint left
+    // behind is the one piece of it still on the paper. This is the only
+    // assertion in the file that isolates the command arm from the always-on
+    // one, since with the tint gone both arms read the same.
+    await openDemo(page, target);
+    await setContent(page, '<p>A document under a deliberate tint.</p>');
+    await page.addStyleTag({ content: ':root { background: rgb(244, 245, 247) !important; }' });
+
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, 'html', 'background-color')).toBe('rgb(244, 245, 247)');
+    await page.emulateMedia({ media: null });
+
+    await markAsPrinting(page);
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, 'html', 'background-color')).toBe('rgba(0, 0, 0, 0)');
+    await page.emulateMedia({ media: null });
+  });
+
+  /** A document long enough that losing it is unmistakable in the page tree. */
+  function longDocument(count: number, why: string): string {
+    return Array.from(
+      { length: count },
+      (_, i) => `<p>Paragraph ${String(i + 1)} ${why}</p>`,
+    ).join('');
+  }
+
+  test(`${target.name}: a host shell that clips at the root still prints the whole document`, async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
+    // `html, body { height: 100%; overflow: hidden }` is the commonest
+    // full-height application shell there is, and under a print it truncates
+    // the document to a single sheet. Nothing in the always-on layer may touch
+    // it, because the host owns those elements; the command path may, because
+    // by then the host application is already hidden.
+    await openDemo(page, target);
+    await setContent(page, longDocument(120, 'in a shell that clips at the root element.'));
+    await page.addStyleTag({ content: 'html, body { height: 100%; overflow: hidden; }' });
+
+    const clipped = await printedPageCount(page);
+    await markAsPrinting(page);
+    const released = await printedPageCount(page);
+
+    // The precondition and the fix in one line: the shell really did lose the
+    // document, and the marks really did give it back.
+    expect(clipped).toBe(1);
+    expect(released).toBeGreaterThanOrEqual(clipped * 4);
+
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, 'html', 'overflow-y')).toBe('visible');
+    expect(await styleOf(page, 'body', 'overflow-y')).toBe('visible');
+    await page.emulateMedia({ media: null });
+  });
+
+  test(`${target.name}: a fixed body is put back in flow for a print`, async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
+    // A different shape of the same loss, and one that height and overflow
+    // alone do not fix: a body taken out of flow is laid out against the page
+    // area and prints exactly one page of itself.
+    await openDemo(page, target);
+    await setContent(page, longDocument(120, 'under a body taken out of flow.'));
+    await page.addStyleTag({ content: 'body { position: fixed; inset: 0; }' });
+
+    const fixed = await printedPageCount(page);
+    await markAsPrinting(page);
+    const released = await printedPageCount(page);
+
+    expect(fixed).toBe(1);
+    expect(released).toBeGreaterThan(fixed);
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, 'body', 'position')).toBe('static');
+    await page.emulateMedia({ media: null });
+  });
+
+  test(`${target.name}: the user agent's body margin is off the printed page`, async ({ page }) => {
+    // The smallest of these and the one every page has: the user agent's own
+    // 8px body margin insets every sheet, in from a margin the reader's print
+    // dialog already set.
+    await openDemo(page, target);
+    await page.addStyleTag({ content: 'body { margin: 8px; }' });
+
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, 'body', 'margin-left')).toBe('8px');
+    await page.emulateMedia({ media: null });
+
+    await markAsPrinting(page);
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, 'body', 'margin-left')).toBe('0px');
+    await page.emulateMedia({ media: null });
+  });
+
+  test(`${target.name}: an ancestor effect does not rasterise or truncate the printed page`, async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
+    test.setTimeout(180000);
+    // Two families of host declaration, each measured on the element the print
+    // command marks. Everything down to `will-change` makes a containing block
+    // for fixed descendants, which is how an ancestor turns the repeating
+    // footer of a paged document into one box at the end of the flow; the rest
+    // make the engine rasterise every sheet, so the file the reader saves has
+    // no selectable text left in it at all.
+    //
+    // Each has its own reset because the shorthands do not cover each other:
+    // `transform: none` does not reset the three individual transform
+    // properties, which are separate properties rather than its longhands, and
+    // `contain: none` does not reset `content-visibility`, which re-applies
+    // the same containment by itself.
+    await openDemo(page, target);
+    await setContent(page, longDocument(120, 'under a host effect that used to eat the print.'));
+    await markAsPrinting(page);
+    const plain = await printedPageCount(page);
+    expect(plain).toBeGreaterThan(2);
+
+    const effects: [string, string, string][] = [
+      ['filter', 'blur(2px)', 'none'],
+      ['backdrop-filter', 'blur(2px)', 'none'],
+      ['contain', 'paint', 'none'],
+      ['will-change', 'transform', 'auto'],
+      ['transform', 'translateY(10px)', 'none'],
+      ['translate', '0 40px', 'none'],
+      ['rotate', '2deg', 'none'],
+      ['scale', '0.9', 'none'],
+      ['transform-style', 'preserve-3d', 'flat'],
+      ['container-type', 'size', 'normal'],
+      ['content-visibility', 'auto', 'visible'],
+      ['opacity', '0.5', '1'],
+      ['mask-image', 'linear-gradient(rgb(0, 0, 0), rgb(0, 0, 0))', 'none'],
+      ['mix-blend-mode', 'multiply', 'normal'],
+    ];
+
+    for (const [property, value, reset] of effects) {
+      await page.evaluate(
+        ([name, applied]) => { document.body.style.setProperty(name!, applied!); },
+        [property, value],
+      );
+      // The precondition, read on screen: a property name the browser did not
+      // accept would otherwise make every assertion below pass while nothing
+      // was ever applied.
+      expect(await styleOf(page, 'body', property), `${property} on screen`).not.toBe(reset);
+
+      await page.emulateMedia({ media: 'print' });
+      expect(await styleOf(page, 'body', property), `${property} on paper`).toBe(reset);
+      await page.emulateMedia({ media: null });
+
+      expect(await printedPageCount(page), `${property} page count`).toBe(plain);
+      await page.evaluate((name) => { document.body.style.removeProperty(name); }, property);
+    }
+  });
+
+  test(`${target.name}: a running animation cannot outlive the print release`, async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
+    // An animation outranks a plain declaration in the cascade, so a host
+    // animating a property this sheet does not name keeps it through the whole
+    // print. Letter spacing is the clearest case because it inherits into the
+    // document and is measurable in sheets: forty pixels between the letters
+    // of every word is a document three times as long as the one the reader
+    // asked for.
+    await openDemo(page, target);
+    await setContent(page, longDocument(60, 'a host animation must not reshape.'));
+    await markAsPrinting(page);
+    const still = await printedPageCount(page);
+
+    await page.addStyleTag({
+      content:
+        '@keyframes dm-print-spread { from { letter-spacing: 40px; } to { letter-spacing: 40px; } }',
+    });
+    await page.evaluate(() => {
+      document.body.style.animation = 'dm-print-spread 100s linear infinite';
+    });
+
+    // The precondition: the animation really is running and really is winning.
+    expect(await styleOf(page, 'body', 'letter-spacing')).toBe('40px');
+
+    expect(await printedPageCount(page)).toBe(still);
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, 'body', 'animation-name')).toBe('none');
+    expect(await styleOf(page, 'body', 'letter-spacing')).toBe('normal');
+    await page.emulateMedia({ media: null });
+  });
+
+  test(`${target.name}: a plain Ctrl/Cmd+P does not gain the isolation`, async ({ page }) => {
+    // The most important test in the set. Everything the release does is a
+    // thing this package has no business doing to a page it does not own, and
+    // the only thing keeping it off a reader's own print of an article with an
+    // editor in it is the gate. A declaration that escaped the gate would pass
+    // every other test here.
+    await openDemo(page, target);
+    await setContent(page, '<p>An editor embedded in a page this package does not own.</p>');
+    await page.addStyleTag({
+      content: 'html, body { height: 100%; overflow: hidden; } body { padding: 40px; }',
+    });
+
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, 'html', 'overflow-y')).toBe('hidden');
+    expect(await styleOf(page, 'body', 'overflow-y')).toBe('hidden');
+    expect(await styleOf(page, 'body', 'padding-left')).toBe('40px');
+    await page.emulateMedia({ media: null });
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // The band a page footer needs. A footer that repeats on every sheet has to
+  // be a `position: fixed` box, because that is the only construct browsers
+  // repeat across printed pages. A fixed box is laid out against the page area
+  // and is out of flow, so it takes no height from the content flowing into
+  // that same area, and a sheet filled to its last line prints that line
+  // underneath the footer. This is the hook that makes room for one.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  test(`${target.name}: the footer band is off until something asks for it`, async ({ page }) => {
+    // Unset, it costs nothing: the fallback is zero, so the document paginates
+    // exactly as it did. A length in the custom property is the whole opt-in.
+    await openDemo(page, target);
+    await page.emulateMedia({ media: 'print' });
+
+    expect(await styleOf(page, 'html', 'padding-bottom')).toBe('0px');
+    // The half that decides whether the band lands on every sheet or on one.
+    expect(await styleOf(page, 'html', 'box-decoration-break')).toBe('clone');
+
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty('--dm-print-reserve-block-end', '21.2pt');
+    });
+    // 21.2pt of paper, in the pixels a computed style reports it in.
+    expect(await styleOf(page, 'html', 'padding-bottom')).toBe('28.2667px');
+    await page.emulateMedia({ media: null });
+  });
+
+  test(`${target.name}: the band survives the ancestor layout reset`, async ({ page }) => {
+    // The release zeroes padding on every marked ancestor, and once it can
+    // reach the root it lands on this exact longhand. The reservation has to
+    // outweigh it, which is why the rule spells out both states of the marking
+    // class rather than naming a bare `html`.
+    await openDemo(page, target);
+    await markAsPrinting(page);
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty('--dm-print-reserve-block-end', '21.2pt');
+    });
+
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, 'html', 'padding-bottom')).toBe('28.2667px');
+    await page.emulateMedia({ media: null });
+  });
+
+  test(`${target.name}: the band is reserved on every sheet, not just the last`, async ({
+    page,
+    browserName,
+  }) => {
+    test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
+    // The load-bearing half of the rule. By default a fragmented box carries
+    // its block-end padding only on its LAST fragment, which is the one sheet
+    // that never needed the room, so a footer would still print over the last
+    // line of every sheet before it. Sliced, a five-sheet document gains one
+    // sheet at the end; cloned, it gains one for every three it had, which is
+    // why the threshold here is two and not one.
+    await openDemo(page, target);
+    await setContent(page, longDocument(220, 'that has to leave room for a footer.'));
+    await markAsPrinting(page);
+
+    const unreserved = await printedPageCount(page);
+    expect(unreserved).toBeGreaterThanOrEqual(6);
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty('--dm-print-reserve-block-end', '200pt');
+    });
+    const reserved = await printedPageCount(page);
+
+    expect(reserved).toBeGreaterThanOrEqual(unreserved + 2);
+  });
+
+  test(`${target.name}: the hook does not exist on screen`, async ({ page }) => {
+    // It reserves paper, so it belongs to paper. On screen the same property
+    // would put a band of blank space under the whole application.
+    await openDemo(page, target);
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty('--dm-print-reserve-block-end', '200pt');
+    });
+
+    expect(await styleOf(page, 'html', 'padding-bottom')).toBe('0px');
+    expect(await styleOf(page, 'html', 'box-decoration-break')).toBe('slice');
   });
 }
