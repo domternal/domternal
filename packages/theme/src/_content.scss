@@ -168,6 +168,95 @@
   }
 
   // ---------------------------------------------------------------------------
+  // Marker cycle
+  // ---------------------------------------------------------------------------
+  // Both Pro exporters pick their marker from the same three-step cycle, keyed
+  // on the list's nesting depth: bullets run disc, circle, square and numbers
+  // run 1., a., i. (`docx/numbering.ts` and `pdf/PdfSerializer.ts`, both
+  // `depth % 3`). Nothing here ever declared `list-style-type`, so the browser's
+  // own sheet answered for the editor instead, and it answers differently: it
+  // plateaus at square from the fourth bullet level down and numbers every
+  // ordered level `1.`. One document therefore carried three marker schemes at
+  // once. A level-4 bullet was a disc in the .docx and the .pdf and a square in
+  // the editor and on paper, and a level-2 ordered item was `a.` in the files
+  // and `1.` on screen. These rules put the editor on the exporters' cycle, so
+  // what the writer sees is what the two files carry.
+  //
+  // The level travels down by inheritance in `--dm-list-level` rather than
+  // being counted by a chain of descendant selectors. A chain has to stop at
+  // some depth and then plateaus one level below wherever it stopped, which is
+  // the defect this block exists to remove, and it cannot express the one place
+  // the exporters restart the count.
+  --dm-list-level: 0;
+
+  // A table cell restarts it, matching `DocxSerializer.tableCell`, which builds
+  // its cell context from scratch by design. The cell's own content edge
+  // restarts the indentation here as well, so a list inside one reads as a
+  // top-level list in every output instead of carrying a marker down from a
+  // list it no longer sits under.
+  :is(td, th) {
+    --dm-list-level: 0;
+  }
+
+  // Every list spends a level, task lists included: the exporters count one
+  // even though it draws a checkbox rather than a marker, so a bullet list
+  // nested under a task item is a circle, not a disc. Only the elements that
+  // PAINT a marker are excluded below, never the ancestors that count.
+  :is(ul, ol) {
+    @container style(--dm-list-level: 0) {
+      --dm-list-level: 1;
+    }
+
+    @container style(--dm-list-level: 1) {
+      --dm-list-level: 2;
+    }
+
+    @container style(--dm-list-level: 2) {
+      --dm-list-level: 0;
+    }
+  }
+
+  // Excluded, for the two reasons a list inside the editor can carry no marker
+  // of its own: `[data-type="taskList"]` draws a checkbox in the marker column
+  // (`_task-list.scss`), and `.dm-toc-block-list` is the table-of-contents
+  // block's own chrome rather than a list the writer typed (`_toc.scss`).
+  // A custom node view that renders its own `<ul>` in the editor needs the same
+  // opt-out, and needs an editor-scoped selector to outrank this one.
+  //
+  // The exclusions sit inside `:where()` so this selector weighs the same as
+  // the ordered one below it, (0,2,1) either way. Unwrapped the bullet half
+  // would weigh (0,4,1), and a host pinning both halves the documented way
+  // would win the numbers and lose the bullets: a fourth marker scheme, which
+  // is the thing this block exists to remove.
+  ul:where(:not([data-type="taskList"]):not(.dm-toc-block-list)) {
+    @container style(--dm-list-level: 0) {
+      list-style-type: disc;
+    }
+
+    @container style(--dm-list-level: 1) {
+      list-style-type: circle;
+    }
+
+    @container style(--dm-list-level: 2) {
+      list-style-type: square;
+    }
+  }
+
+  ol {
+    @container style(--dm-list-level: 0) {
+      list-style-type: decimal;
+    }
+
+    @container style(--dm-list-level: 1) {
+      list-style-type: lower-alpha;
+    }
+
+    @container style(--dm-list-level: 2) {
+      list-style-type: lower-roman;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Horizontal rule
   // ---------------------------------------------------------------------------
 
