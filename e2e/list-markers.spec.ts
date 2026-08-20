@@ -66,6 +66,43 @@ async function markersOf(page: Page): Promise<string[]> {
   }, EDITOR);
 }
 
+/**
+ * Whether this engine implements style queries at all.
+ *
+ * The cycle is carried by `@container style(--dm-list-level: N)`, and an
+ * engine without them applies none of the rules and falls back to its own
+ * list defaults. That is not a bug in the theme and it is not something the
+ * theme can work around: a chain of descendant selectors, the only other way
+ * to express depth, has to stop somewhere and then plateaus, which is the
+ * defect the cycle exists to remove.
+ *
+ * Measured rather than assumed from a version table. At the time of writing
+ * Chromium and WebKit apply them and Firefox 146 does not, and a table in the
+ * documentation was already wrong about that once.
+ */
+async function supportsStyleQueries(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent =
+      '.dm-sq-probe { --dm-sq: 1; }' +
+      '@container style(--dm-sq: 1) { .dm-sq-probe > i { color: rgb(0, 128, 0); } }';
+    const host = document.createElement('div');
+    host.className = 'dm-sq-probe';
+    const child = document.createElement('i');
+    host.appendChild(child);
+    document.head.appendChild(style);
+    document.body.appendChild(host);
+    const applies = getComputedStyle(child).color === 'rgb(0, 128, 0)';
+    host.remove();
+    style.remove();
+    return applies;
+  });
+}
+
+/** The user agent's own cycle, which is what an engine without them draws. */
+const UA_BULLETS = ['disc', 'circle', 'square', 'square', 'square'];
+const UA_NUMBERS = ['decimal', 'decimal', 'decimal', 'decimal'];
+
 /** `depth` lists of one item each, nested one inside the other. */
 function nested(tag: 'ul' | 'ol', depth: number): string {
   if (depth === 0) return '<p>Leaf</p>';
@@ -80,7 +117,10 @@ for (const target of demoTargets) {
     // this.
     await openDemo(page, target);
     await setContent(page, nested('ul', 5));
-    expect(await markersOf(page)).toEqual(['disc', 'circle', 'square', 'disc', 'circle']);
+    const cycles = await supportsStyleQueries(page);
+    expect(await markersOf(page)).toEqual(
+      cycles ? ['disc', 'circle', 'square', 'disc', 'circle'] : UA_BULLETS,
+    );
   });
 
   test(`${target.name}: numbers cycle 1., a., i. and start again`, async ({ page }) => {
@@ -89,7 +129,10 @@ for (const target of demoTargets) {
     // that all start at one.
     await openDemo(page, target);
     await setContent(page, nested('ol', 4));
-    expect(await markersOf(page)).toEqual(['decimal', 'lower-alpha', 'lower-roman', 'decimal']);
+    const cycles = await supportsStyleQueries(page);
+    expect(await markersOf(page)).toEqual(
+      cycles ? ['decimal', 'lower-alpha', 'lower-roman', 'decimal'] : UA_NUMBERS,
+    );
   });
 
   test(`${target.name}: the level follows the nesting, not the list type`, async ({ page }) => {
@@ -103,7 +146,10 @@ for (const target of demoTargets) {
       page,
       '<ul><li><p>One</p><ol><li><p>Two</p><ul><li><p>Three</p></li></ul></li></ol></li></ul>',
     );
-    expect(await markersOf(page)).toEqual(['disc', 'lower-alpha', 'square']);
+    const cycles = await supportsStyleQueries(page);
+    expect(await markersOf(page)).toEqual(
+      cycles ? ['disc', 'lower-alpha', 'square'] : ['disc', 'decimal', 'square'],
+    );
   });
 
   test(`${target.name}: a task list spends a level without painting a marker of its own`, async ({
@@ -119,6 +165,9 @@ for (const target of demoTargets) {
       '<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Task</p>' +
         '<ul><li><p>Under it</p></li></ul></li></ul>',
     );
+    // The task list paints no marker either way: that is `list-style: none` in
+    // `_task-list.scss`, not a style query, so it is the one assertion here
+    // that does not move with engine support.
     expect(await markersOf(page)).toEqual(['none', 'circle']);
   });
 
@@ -139,7 +188,13 @@ for (const target of demoTargets) {
     // there really are two lists to compare.
     expect(markers.length).toBe(2);
     // The inner list is one level further in and still starts the cycle over.
-    expect(markers).toEqual(['disc', 'disc']);
+    // The cell restart is this cycle's own rule, not something a browser does
+    // by itself: measured, Firefox draws the inner list a circle because its
+    // own sheet counts `ul ul` through the table and never restarts. So this
+    // is one of the places where an engine without style queries does not
+    // merely fall back to a plateau, it disagrees outright.
+    const cycles = await supportsStyleQueries(page);
+    expect(markers).toEqual(cycles ? ['disc', 'disc'] : ['disc', 'circle']);
   });
 
   test(`${target.name}: the table of contents block keeps its own list chrome`, async ({
@@ -203,8 +258,12 @@ for (const target of demoTargets) {
 
     // The precondition: a document with enough lists in it for the comparison
     // to mean anything, and a cycle really running inside it.
-    expect(onScreen).toEqual(['disc', 'circle', 'square', 'disc', 'decimal', 'lower-alpha',
-      'lower-roman', 'none', 'circle']);
+    const cycles = await supportsStyleQueries(page);
+    expect(onScreen).toEqual(
+      cycles
+        ? ['disc', 'circle', 'square', 'disc', 'decimal', 'lower-alpha', 'lower-roman', 'none', 'circle']
+        : ['disc', 'circle', 'square', 'square', 'decimal', 'decimal', 'decimal', 'none', 'circle'],
+    );
     expect(onPaper).toEqual(onScreen);
   });
 
@@ -220,11 +279,15 @@ for (const target of demoTargets) {
     // rather than the one they asked for.
     await openDemo(page, target);
     await setContent(page, nested('ul', 4) + nested('ol', 4));
-    // The precondition: without the override, both halves cycle.
-    expect(await markersOf(page)).toEqual([
-      'disc', 'circle', 'square', 'disc',
-      'decimal', 'lower-alpha', 'lower-roman', 'decimal',
-    ]);
+    // The precondition: without the override, both halves cycle. On an engine
+    // without style queries there is no cycle to lose, so the override cannot
+    // be tested there and the assertion below is about the fallback instead.
+    const cycles = await supportsStyleQueries(page);
+    expect(await markersOf(page)).toEqual(
+      cycles
+        ? ['disc', 'circle', 'square', 'disc', 'decimal', 'lower-alpha', 'lower-roman', 'decimal']
+        : [...UA_BULLETS.slice(0, 4), ...UA_NUMBERS],
+    );
 
     await page.addStyleTag({
       content:
