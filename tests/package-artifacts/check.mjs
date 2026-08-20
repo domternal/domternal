@@ -1,31 +1,6 @@
 #!/usr/bin/env node
-// What actually ends up in the tarball.
-//
-// Everything else in this repository judges the working tree. npm ships a
-// tarball, and the two are not the same thing: `files` decides what crosses
-// over, and a mistake there is invisible locally and permanent once published.
-// It has already happened. 0.15.0 shipped `@domternal/core` with Phosphor icon
-// path data and no notice at all: npm carries LICENSE by itself but never
-// THIRD-PARTY-LICENSES.md, and nothing failed because nothing looked inside a
-// tarball.
-//
-// The strongest assertion here is the last one. It applies the publish
-// transform (scripts/prepare-publish-manifest.mjs) to the PACKED manifest and
-// then resolves every exports target against the tarball's own file list. That
-// is the check that would have caught the `@domternal/source` condition, which
-// four published packages carry today pointing at `./src/index.ts` while
-// shipping only `dist`: Node dies with ERR_MODULE_NOT_FOUND, Vite 6 and 7
-// report "Failed to resolve entry for package", and Vite 8 falls back to the
-// next condition without a word, which is its own kind of trouble. publint and
-// attw both pass throughout, because both skip conditions they do not
-// recognise.
-//
-// One thing this gate does NOT claim. `pnpm pack` runs `prepack`, not
-// `prepublishOnly`, so the tarball it produces still carries devDependencies
-// and the unresolved dev-source condition, while the published one does not.
-// The FILE set is identical in both, which is what most of this checks, and the
-// manifest difference is handled by running the transform here rather than
-// pretending pack and publish are the same command.
+// What actually ends up in the tarball. Everything else in this repository
+// judges the working tree.
 import { spawnSync } from 'node:child_process';
 import {
   mkdirSync,
@@ -229,10 +204,7 @@ function main() {
           ...manifestFailures(manifest, packed, files),
         ];
         // The size is reported ALONGSIDE the content failures, never instead of
-        // them. A tarball that grew because something polluted dist reads as a
-        // budget problem, the obvious response is --update, and the real fault
-        // would then be baked into the budget and only surface afterwards. So a
-        // measurement is kept for --update only when nothing else was wrong.
+        // them.
         if (bytes > entry.maxPackedBytes) {
           found.push(
             `packed size ${String(bytes)} exceeds the budget of ${String(entry.maxPackedBytes)}`

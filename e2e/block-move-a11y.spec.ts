@@ -218,11 +218,8 @@ for (const target of demoTargets) {
     });
 
     // A completed handle-drag reorder is exactly the action the pro columns
-    // extension announces. In the FREE build that path stays silent: no
-    // `.dm-live-region` is created. This pins the current contract and would
-    // catch either an unexpected region leak or an un-mirrored wiring of
-    // `announce()` into the free drag path. The positive population contract
-    // (role/aria-live/text) is covered by the core unit test announce.test.ts.
+    // extension announces. In the FREE build that path stays silent: no `.dm-
+    // live-region` is created.
     test('a free handle-drag reorder surfaces no aria-live region', async ({ page }) => {
       const geo = await geometry(page, target);
       const x = geo.editorRight + 50;
@@ -285,8 +282,7 @@ for (const target of demoTargets) {
 
   // Forced colours strip the accent background; the theme repaints the sibling
   // line with the `Highlight` system colour (and drops the shadow) so the drop
-  // target stays visible. Grounded in theme/src/_block-handle.scss:
-  //   @media (forced-colors: active) { .dm-block-drop-indicator { background: Highlight; box-shadow: none; } }
+  // target stays visible.
   test.describe(`${target.name} - drop indicator (forced colors)`, () => {
     // `forcedColors` is not a top-level test-use option in this Playwright
     // version; it lives on the browser context, so set it via `contextOptions`.

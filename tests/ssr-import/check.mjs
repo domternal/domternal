@@ -1,100 +1,5 @@
 #!/usr/bin/env node
 // Every published entry must import cleanly in plain Node.
-//
-// An SSR framework evaluates module scope on the server even when the editor
-// only ever mounts in a browser, so a single top-level `document`, `window` or
-// `navigator` in a shipped bundle breaks Next.js, Remix, Nuxt and Astro
-// consumers before their first render. Nothing else in this repository ever
-// executes a built bundle: test:types-consumer runs tsc, api-surface parses
-// d.ts as text, publint and attw resolve without loading, and every other gate
-// is static analysis. This is the only check that runs the code a consumer runs.
-//
-// It also catches the plainer failures that reach the same people: an entry
-// whose dist file was never emitted, a lost `noExternal` for an ESM-only
-// dependency, a top-level await in the CJS half, a broken interop shim.
-//
-// Two things it deliberately does NOT do. It does not follow the
-// `@domternal/source` condition, which points at TypeScript that is not in the
-// tarball. And it does not treat a subpath it cannot resolve as "nothing to
-// check": an entry that yields no runtime target fails, because a filter that
-// silently skips is how a gate reports OK on a package it never looked at.
-//
-// WHICH MAP IS READ. There is only one here, which is worth saying because the
-// Pro copy of this gate reads two. A package in this repository carries the
-// dev-source condition in `exports` itself and scripts/prepare-publish-manifest.mjs
-// strips it during `prepublishOnly`, so the published map is the workspace map
-// minus one condition this gate already refuses to follow. Pro instead ships a
-// whole second map in `publishConfig.exports` that pnpm swaps in at pack time,
-// so its copy has to prefer that map and report the two drifting apart. Porting
-// either piece here would be checking a map that does not exist.
-//
-// The `exports` field is read through every shape it is allowed to take, the
-// way the sibling gates read it (`subpathMap` in tests/bundle-size/check.mjs,
-// `exportEntriesOf` in tests/api-surface/dump.mjs): a map of subpaths, the
-// string shorthand `"exports": "./dist/index.js"`, and a bare condition map,
-// which is the root entry written without a subpath key. Iterating the raw
-// field instead walks the string one character at a time and reads the
-// condition map as subpaths called `import` and `require`, which is how this
-// gate once printed a green line for a package it named `@domternal/cmport`.
-//
-// A publishable package with no `exports` field at all is evaluated through
-// `main` and `module` rather than failed. Node resolves a bare import of such
-// a package through `main`, and a bundler prefers `module`, so those files are
-// the module scope a consumer really evaluates and running them is the promise
-// this gate makes. Refusing the package instead would be a manifest-policy
-// opinion, which tests/package-policy owns, and it would leave exactly the code
-// this gate exists to run unrun. A package with neither an exports map nor a
-// main or module entry is a different thing and does fail: nothing it publishes
-// resolves to anything, so there is no consumer entry to defend.
-//
-// WHY THE HALVES ARE LOADED IN SEPARATE PROCESSES. A package that guards its
-// own identity through globalThis cannot tell a page holding two copies from a
-// process that was asked to load both halves of one package.
-// packages/core/src/utils/prosemirrorSingleton.ts keeps its registry on
-// globalThis under a `Symbol.for` key for exactly that reachability, and prints
-// `Two different copies of "<module>" are loaded on this page.` when two callers
-// register different ones. Importing `dist/index.js` and then requiring
-// `dist/index.cjs` in one process pulls prosemirror-model's ESM build and its
-// CJS build: two module records of one installed version, which is what that
-// warning describes and which no consumer ever does.
-//
-// So the loads are split: one child imports every ESM target, another requires
-// every CJS target. Inside one module system a duplicate warning has no innocent
-// explanation left, so it is a failure there: it means either two versions in
-// the lockfile (pnpm test:single-prosemirror) or a bundle that inlined its own
-// copy (pnpm test:externals). Grouping by kind rather than isolating every entry
-// is deliberate, because it keeps that detection: every ESM entry shares one
-// process, so a second copy reachable from any of them still fires.
-//
-// On the tree as it stands no such warning can appear, and that is not a reason
-// to leave it undetected. Core registers its copies from the Editor constructor
-// rather than from module scope, and this gate never constructs an editor. The
-// detection is here so that the day a registration moves to module scope, or a
-// dependency starts guarding itself the way yjs already does in the Pro
-// repository, the gate fails on it. Without the split it could only ever be
-// noise: a warning printed on every clean run, exited 0 through, and learned to
-// be ignored.
-//
-// THE ANGULAR COMPILER. Angular libraries ship partial-compiled: the class
-// metadata is declarative and a consumer's build runs the Angular linker over
-// it. Plain Node has no linker, so importing @angular/common alone throws
-// "needs to be compiled using the JIT compiler" with no Domternal code
-// involved. Loading the compiler first is what the error message itself
-// prescribes, and it is stronger than skipping the package: JIT compiles all
-// six component templates during the import, so a top-level DOM touch still
-// surfaces as the ReferenceError it is. Signature matching was tried and
-// rejected, because ESM hoists imports: the Angular error fires before the
-// module body runs, so a regression would produce a byte-identical message.
-//
-// The split moves that preload into the import child, where load.mjs runs it
-// lazily, immediately before the one entry that asked for it. @domternal/angular
-// is sorted last so everything else is evaluated in a realm that has never seen
-// the compiler, which is the property the single-process gate had and this one
-// keeps. Giving the package a child of its own would guarantee the same thing
-// through structure rather than through sort order, and it was rejected: an
-// isolated entry drops out of the group that makes a cross-package duplicate
-// warning detectable, and that group is the whole reason the plan is grouped by
-// kind instead of one process per entry.
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -124,8 +29,6 @@ export const ANGULAR_COMPILER = '@angular/compiler';
 // Warnings a package prints when it finds a second copy of a module in one
 // realm. There is no exception path for these: within a single module system
 // they mean the identity comparisons the editor depends on are already broken.
-// The module at stake is in the message rather than in the detector, because
-// one warning covers every module core registers.
 export const DUPLICATE_INSTANCE_WARNINGS = [
   {
     // packages/core/src/utils/prosemirrorSingleton.ts

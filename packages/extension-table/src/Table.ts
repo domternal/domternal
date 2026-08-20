@@ -159,12 +159,9 @@ export const Table = Node.create<TableOptions>({
   },
 
   addExtensions() {
-    // Gapcursor is required to escape a table that is the document's last
-    // block: the table is `isolating`, so without a gap cursor the caret is
-    // trapped inside the last cell with no way to type below it. Pulling it
-    // in here means tables are never a dead end regardless of the host's
-    // extension list. ExtensionManager dedupes by name, so a host that also
-    // registers Gapcursor (e.g. via StarterKit) is unaffected.
+    // Gapcursor is required to escape a table that is the document's last block:
+    // the table is `isolating`, so without a gap cursor the caret is trapped
+    // inside the last cell with no way to type below it.
     return [TableRow, TableCell, TableHeader, Gapcursor];
   },
 

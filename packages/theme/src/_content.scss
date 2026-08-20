@@ -1,20 +1,11 @@
 // =============================================================================
 // Content Typography
-// =============================================================================
-// Styles for rendered content inside the editor. Scoped to .dm-editor .ProseMirror
-// so styles don't leak outside.
-// =============================================================================
+// =============================================================================.
 
 .dm-editor .ProseMirror {
   // ---------------------------------------------------------------------------
   // Block inline padding
   // ---------------------------------------------------------------------------
-  // Pre-applied so that toggling `data-bg-color` on a block does NOT shift
-  // text - the colored background paints into existing padding instead of
-  // adding new padding (`_block-colors.scss` only sets `background-color`
-  // + `border-radius`, no padding). Mirrors Notion's layout. Wrapped in
-  // `:where()` so specificity stays at 0 and host apps can override per
-  // tag without selector wars.
   :where(p, h1, h2, h3, h4, h5, h6) {
     padding-inline: var(--dm-block-inline-padding);
   }
@@ -128,13 +119,6 @@
   }
 
   // Notion-style "children zone" indent for plain bullet/ordered lists ONLY.
-  // Scoped to `ul:not([data-type="taskList"]), ol` so it does NOT match the
-  // taskList wrapper - taskItems render via `<li><label/><div/></li>` and the
-  // generic rule would mistakenly apply margin-inline-start to that wrapper
-  // div, pushing the entire taskItem content (and the absolutely-positioned
-  // checkbox's containing block) one indent step to the right. Task list
-  // children-zone styling lives in `_task-list.scss` and is rooted on the
-  // inner `<div>` instead.
   ul:not([data-type="taskList"]),
   ol {
     // `> li` (child, not descendant): a descendant `li` would match taskItems
@@ -143,23 +127,15 @@
       margin: 0.25em 0;
 
       > p {
-        // List item paragraphs reset inline-end padding (bullet indentation
-        // is owned by the list container; doubling up shifts text under the
-        // bullet's hanging indent), and add a small inline-start padding
-        // (~5px at the editor's default font size) so the text breathes
-        // away from the bullet glyph instead of butting against it.
+        // List item paragraphs reset inline-end padding (bullet indentation is
+        // owned by the list container; doubling up shifts text under the
+        // bullet's hanging indent), and add a small inline-start padding (~5px.
         margin: 0.1em 0;
         padding-inline: 0.3em 0;
       }
 
-      // Post-label blocks (heading, codeBlock, blockquote, etc.) sit
-      // indented one level below the label paragraph aligned with the
-      // bullet. ALL nested `<ul>` and `<ol>` (plain and taskList) are
-      // excluded because each already gains the same visual indent
-      // through its own `padding-left: 1.5em`, so adding this margin
-      // would push nested taskLists further right than nested plain
-      // bullet lists. `margin-inline-start` flips the indent to the
-      // right edge in RTL.
+      // Post-label blocks (heading, codeBlock, blockquote, etc.) sit indented
+      // one level below the label paragraph aligned with the bullet.
       > :not(p:first-child):not(ul):not(ol) {
         margin-inline-start: var(--dm-block-children-indent, 1.5rem);
         margin-top: 0.25rem;
@@ -170,30 +146,11 @@
   // ---------------------------------------------------------------------------
   // Marker cycle
   // ---------------------------------------------------------------------------
-  // Both Pro exporters pick their marker from the same three-step cycle, keyed
-  // on the list's nesting depth: bullets run disc, circle, square and numbers
-  // run 1., a., i. (`docx/numbering.ts` and `pdf/PdfSerializer.ts`, both
-  // `depth % 3`). Nothing here ever declared `list-style-type`, so the browser's
-  // own sheet answered for the editor instead, and it answers differently: it
-  // plateaus at square from the fourth bullet level down and numbers every
-  // ordered level `1.`. One document therefore carried three marker schemes at
-  // once. A level-4 bullet was a disc in the .docx and the .pdf and a square in
-  // the editor and on paper, and a level-2 ordered item was `a.` in the files
-  // and `1.` on screen. These rules put the editor on the exporters' cycle, so
-  // what the writer sees is what the two files carry.
-  //
-  // The level travels down by inheritance in `--dm-list-level` rather than
-  // being counted by a chain of descendant selectors. A chain has to stop at
-  // some depth and then plateaus one level below wherever it stopped, which is
-  // the defect this block exists to remove, and it cannot express the one place
-  // the exporters restart the count.
   --dm-list-level: 0;
 
   // A table cell restarts it, matching `DocxSerializer.tableCell`, which builds
   // its cell context from scratch by design. The cell's own content edge
-  // restarts the indentation here as well, so a list inside one reads as a
-  // top-level list in every output instead of carrying a marker down from a
-  // list it no longer sits under.
+  // restarts the indentation here as well, so a list inside one reads as a top-
   :is(td, th) {
     --dm-list-level: 0;
   }
@@ -218,16 +175,7 @@
 
   // Excluded, for the two reasons a list inside the editor can carry no marker
   // of its own: `[data-type="taskList"]` draws a checkbox in the marker column
-  // (`_task-list.scss`), and `.dm-toc-block-list` is the table-of-contents
-  // block's own chrome rather than a list the writer typed (`_toc.scss`).
-  // A custom node view that renders its own `<ul>` in the editor needs the same
-  // opt-out, and needs an editor-scoped selector to outrank this one.
-  //
-  // The exclusions sit inside `:where()` so this selector weighs the same as
-  // the ordered one below it, (0,2,1) either way. Unwrapped the bullet half
-  // would weigh (0,4,1), and a host pinning both halves the documented way
-  // would win the numbers and lose the bullets: a fourth marker scheme, which
-  // is the thing this block exists to remove.
+  // (`_task-list.scss`), and `.dm-toc-block-list` is the table-of-contents.
   ul:where(:not([data-type="taskList"]):not(.dm-toc-block-list)) {
     @container style(--dm-list-level: 0) {
       list-style-type: disc;

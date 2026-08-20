@@ -213,16 +213,8 @@ export class ExtensionManager {
       );
     }
 
-    // Process extensions following the pipeline:
-    // 1. Flatten (expand addExtensions)
-    // 2. Deduplicate (keep last occurrence - explicit configs override auto-included defaults)
-    // 3. Clone (per-editor instances; see cloneExtensions)
-    // 4. Resolve (sort by priority)
-    // 5. Detect conflicts
-    // 6. Check dependencies
-    // 7. Bind editor to extensions
-    // 8. Build schema
-    // 9. Initialize storage
+    // Process extensions following the pipeline: 1. Flatten (expand
+    // addExtensions) 2.
 
     const autoIncluded = new Set<AnyExtension>();
     const flattened = this.flattenExtensions(options.extensions, autoIncluded);

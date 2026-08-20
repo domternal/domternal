@@ -1,32 +1,13 @@
 #!/usr/bin/env node
 // The manifest a package publishes is not the manifest it develops with, and
-// this is the single place that turns one into the other. Every publishable
-// package calls it from `prepublishOnly`, and `postpublish` restores the file
-// with `git checkout package.json`.
-//
-// It used to be a `node -e` one-liner duplicated into sixteen package.json
-// files, which made three things impossible: testing it, changing it in one
-// place, and reading it. It also carried the release version as a literal in
-// every copy, so a MINOR release meant hand-editing sixteen more strings that
-// nothing checked. The floor is derived from the package's own version here,
-// so those strings are gone.
-//
-// Three transforms, then three refusals. The refusals matter more than the
-// transforms: a wrong manifest cannot be taken back once it is on npm, and a
-// failing `prepublishOnly` aborts the publish before that happens.
+// this is the single place that turns one into the other.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // The dev-source condition. It resolves to TypeScript that only exists in this
 // repository: `files` ships `dist`, so publishing the condition points a
-// consumer at a file that is not in the tarball. Node throws
-// ERR_MODULE_NOT_FOUND, Vite 6 and 7 report "Failed to resolve entry for
-// package" and blame our manifest for the reader's setting, and Vite 8 falls
-// back to the next condition silently. Neither publint nor attw sees any of it,
-// because both skip conditions they do not recognise. It is stripped here rather than moved to
-// `publishConfig.exports`, because that swap is a pnpm feature and this repo
-// publishes with npm.
+// consumer at a file that is not in the tarball.
 const SOURCE_CONDITION = '@domternal/source';
 
 /**

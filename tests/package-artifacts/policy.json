@@ -9,7 +9,12 @@
     "maxPackedBytes carries roughly a tenth of headroom over the measured size, the",
     "same convention as tests/bundle-size. Refresh with --update after an",
     "intentional change and commit the diff.",
-    "Sourcemaps are shipped deliberately, and they are most of these bytes."
+    "Sourcemaps are shipped deliberately, and they are most of these bytes.",
+    "--update refuses to raise a budget a package has already breached, so a",
+    "breach is always a deliberate edit. @domternal/theme went 83000 to 95000 on",
+    "2026-08-20, measured at 86185 packed: the paper layer gained the palette",
+    "re-emission, the header-group promotion, the image clamp and the reservation",
+    "hook, and _content.scss gained the list marker cycle."
   ],
   "@domternal/angular": {
     "maxPackedBytes": 77000,
@@ -97,7 +102,7 @@
     ]
   },
   "@domternal/theme": {
-    "maxPackedBytes": 83000,
+    "maxPackedBytes": 95000,
     "requiredFiles": [
       "LICENSE",
       "README.md",

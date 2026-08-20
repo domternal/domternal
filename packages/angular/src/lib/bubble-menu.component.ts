@@ -248,11 +248,8 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     '<path d="M2 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   constructor() {
-    // Each component instance needs a unique plugin key so that multiple
-    // bubble-menus mounted in the same editor do not collide. Prefer
-    // crypto.randomUUID over Math.random() for collision-free uniqueness
-    // (Math.random across two simultaneous mounts has a small but real
-    // collision probability, and SSR may share the random seed).
+    // Each component instance needs a unique plugin key so that multiple bubble-
+    // menus mounted in the same editor do not collide.
     const crypto = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
     const suffix =
       crypto?.randomUUID?.().slice(0, 8) ?? Math.random().toString(36).slice(2, 8);
@@ -559,22 +556,14 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     if (!isOpening) return;
     this.openDropdown.set(dropdown.name);
 
-    // NOTE: we deliberately do NOT broadcast `dm:dismiss-overlays` here.
-    // The bubble menu plugin in core listens for that event and would
-    // hide itself - taking our just-opened dropdown's trigger with it.
-    // Other overlays (color picker, link popover) close themselves via
-    // their own click-outside handlers when the user clicks our trigger,
-    // so cooperative dismissal still works.
+    // NOTE: we deliberately do NOT broadcast `dm:dismiss-overlays` here. The
+    // bubble menu plugin in core listens for that event and would hide itself -
+    // taking our just-opened dropdown's trigger with it.
     const editorElBroadcast = this.menuEl().nativeElement.closest<HTMLElement>('.dm-editor');
 
-    // Position the panel against the trigger after Angular renders it.
-    // We deliberately keep the panel INSIDE `.dm-bubble-menu` so it
-    // inherits the bubble-menu-scoped button tokens (--dm-button-active-bg
-    // / --dm-button-active-color). Reparenting into `.dm-editor` was
-    // tempting for consistency with the color picker, but that dropped
-    // the active-state colors because those tokens aren't defined at
-    // editor scope. floating-ui handles cross-element positioning fine
-    // without reparenting.
+    // Position the panel against the trigger after Angular renders it. We
+    // deliberately keep the panel INSIDE `.dm-bubble-menu` so it inherits the
+    // bubble-menu-scoped button tokens (--dm-button-active-bg / --dm-button-
     requestAnimationFrame(() => {
       const trigger = (event?.currentTarget as HTMLElement | null)
         ?? this.menuEl().nativeElement.querySelector<HTMLElement>(`[data-dropdown="${dropdown.name}"]`);

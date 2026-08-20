@@ -1,24 +1,7 @@
 #!/usr/bin/env node
-// Loads one module system's worth of entries for tests/ssr-import/check.mjs.
-//
-// It exists as a separate process so the ESM and CJS halves of a package are
-// never evaluated in the same realm. Anything that guards its own identity
-// through globalThis, which is what packages/core/src/utils/prosemirrorSingleton.ts
-// does, treats `prosemirror-model`'s ESM build plus its CJS build as two copies
-// and says so. A gate that printed that warning on every clean run and exited 0
-// would be teaching the reader to ignore it. Split like this, the warning has no
-// innocent cause left, so check.mjs can fail on it.
-//
-// The parent learns what happened from a JSONL record file rather than from
-// stdout, because a loaded bundle is free to print whatever it likes and a
-// crash can truncate the stream. Each attempt writes `start` before anything is
-// touched and `ok` or `fail` after, so a load that ends the process is still
-// attributable to the entry that ended it, and the entries after it are visibly
-// unreached rather than silently missing.
-//
-// Being an ES module says nothing about what it loads: a `require` run reaches
-// its targets through createRequire and never imports their ESM half, which is
-// the whole point of the split.
+// Loads one module system's worth of entries for tests/ssr-import/check.mjs. It
+// exists as a separate process so the ESM and CJS halves of a package are never
+// evaluated in the same realm.
 import { appendFileSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';

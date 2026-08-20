@@ -1,30 +1,6 @@
 #!/usr/bin/env node
-// A gate nobody runs is not a gate.
-//
-// Every check in this repository is a root script plus a step in ci.yml, and
-// the two are joined by nothing but memory. Adding the script and forgetting
-// the step produces a check that passes locally, is never run on a pull
-// request, and reads on the branch as coverage that does not exist. The same
-// applies to the package list ci.yml hardcodes for publint and attw: a
-// nineteenth package would be validated by nobody, silently.
-//
-// It is deliberately small, and deliberately early: it reads manifests and one
-// YAML file, so it needs nothing built and a forgotten step is reported in
-// seconds rather than after a full build.
-//
-// It reads the workflow as text, which means it has to be careful about what
-// text counts. Three ways of not running a step look identical to a naive
-// match, and an adversarial review defeated the first version of this gate with
-// all three:
-//
-//   - a step commented out with `#`, which the workflow still contains
-//   - a step carrying `if: false`, which GitHub skips
-//   - a package name that appears somewhere else entirely. The Codecov `files:`
-//     list happens to name eleven of the eighteen packages, so those eleven
-//     satisfied "is validated" without appearing in the validation loop at all
-//
-// So comments are stripped first, a falsey `if:` fails the run outright, and
-// the package list is read from the validation step rather than from the file.
+// A gate nobody runs is not a gate. Every check in this repository is a root
+// script plus a step in ci.yml, and the two are joined by nothing but memory.
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,11 +10,6 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const workflowPath = join(repoRoot, '.github', 'workflows', 'ci.yml');
 
 // Scripts that are not gates, listed one by one rather than matched by shape.
-// An updater rewrites the snapshot its gate compares against, and the
-// end-to-end suites need four dev servers and four browsers, so they stay a
-// local command by design. `test` and `dev` are covered by `test:coverage` and
-// are not checks. The list is pinned by check.test.mjs, because otherwise one
-// word added here would silence a gate and every check would still pass.
 export const NOT_GATES = new Set([
   'test',
   'test:api-surface:update',
@@ -52,14 +23,7 @@ export const NOT_GATES = new Set([
 export const REQUIRED_SCRIPTS = ['build', 'lint', 'typecheck', 'typecheck:e2e'];
 
 // Gates that CI runs but that exit 0 there without checking anything, because
-// what they read is not in a CI checkout. Both look at `domternal.dev`, a
-// nested repository this one excludes: it holds the only `resolve.dedupe` list,
-// and it is the only importer that pulls y-prosemirror into the lockfile. Their
-// steps still belong in ci.yml, so that they are already in place wherever the
-// checkout does exist, but counting them as enforced CI coverage would
-// overstate the wall by two. So they are reported apart, and the annotation is
-// pinned to each gate's own source: if one stops printing SKIPPED, the note
-// describing it fails here rather than outliving the behaviour.
+// what they read is not in a CI checkout.
 export const SKIPS_IN_CI = new Set(['test:dedupe-reachable', 'test:pm-ranges']);
 
 // The step whose inline loop decides which packages publint and attw see.
@@ -100,10 +64,8 @@ export function gateScripts(manifest) {
 export function unwiredScripts(scripts, workflow) {
   const live = stripComments(workflow);
   // Two invocation forms, because a step may run a script directly or across a
-  // filtered set of workspaces: `pnpm build` and
-  // `pnpm --filter './packages/*' run build` both do the work. The word
-  // boundary on the right is what keeps `test:api-surface` from being satisfied
-  // by a step that only runs `test:api-surface:update`.
+  // filtered set of workspaces: `pnpm build` and `pnpm --filter './packages/*'
+  // run build` both do the work.
   return scripts.filter((name) => !new RegExp(`(?:pnpm|run) ${name}(?![\\w:-])`).test(live));
 }
 

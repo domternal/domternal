@@ -658,11 +658,9 @@ for (const target of demoTargets) {
   test(`${target.name}: table handles lose to the print sheet even though JS writes their display`, async ({
     page,
   }) => {
-    // The one place in the sheet where a rule fights an INLINE style: the
-    // table node view writes `display: flex` on its handles as the pointer
-    // moves, so a plain rule loses and the handles print as grey bars down
-    // the side of the table. This is why those selectors carry `!important`,
-    // and nothing else checks that they still win.
+    // The table node view writes `display: flex` on its handles as the pointer
+    // moves, so a plain rule loses and the handles print as grey bars down the
+    // side of the table. This is why those selectors carry `!important`.
     await openDemo(page, target);
     await setContent(
       page,
@@ -746,12 +744,6 @@ for (const target of demoTargets) {
     // The panel is the one piece of chrome the reader is most likely to have
     // open at the moment they reach for print, since opening it is what they
     // were doing a second earlier.
-    //
-    // What delivers this today is the toolbar's own rule, since the panel is
-    // a descendant: removing the panel's line from the sheet does not break
-    // this test, and it is not meant to. The claim under test is the user's,
-    // that an open dropdown is not on the paper, and it fails the moment
-    // either rule stops covering it.
     await openDemo(page, target);
     await setContent(page, '<p>Colour me.</p>');
     await page.locator('.dm-toolbar [aria-label="Text Color"]').click();
@@ -784,15 +776,9 @@ for (const target of demoTargets) {
     await page.emulateMedia({ media: 'print' });
     expect(await styleOf(page, '.dm-block-context-menu', 'display')).toBe('none');
     // The tint is a decoration INSIDE the document, so it is stripped rather
-    // than hidden: the block keeps its text.
-    //
-    // Read once the value has stopped moving rather than on the first frame
-    // after the media switch. `transition: none` cancels the tint's 0.12s
-    // fade, but an engine is entitled to finish the frame it is already
-    // painting: Chromium settles at once and Firefox answers a mid-fade alpha
-    // for a frame or two. Polling for a settled value asserts the same thing
-    // in both without inventing a timeout that is right for neither, and a
-    // tint that never settles still fails, on its settled-looking value.
+    // than hidden: the block keeps its text. Read once the value stops moving:
+    // `transition: none` cancels the fade, but Firefox answers a mid-fade alpha
+    // for a frame or two where Chromium settles at once.
     const tinted = await page.evaluate(
       () =>
         new Promise<{ display: string; background: string } | null>((resolve) => {
@@ -993,9 +979,7 @@ for (const target of demoTargets) {
   test(`${target.name}: body-mounted popovers are hidden on paper`, async ({ page }) => {
     // The link, image and math popovers mount on `document.body`, outside the
     // editor entirely, so the isolation rules would not reach them: they need
-    // their own line in the sheet. Measured on stand-ins, since raising all
-    // three for real means driving three unrelated flows to read one computed
-    // value each.
+    // their own line in the sheet.
     await openDemo(page, target);
     const selectors = ['dm-link-popover', 'dm-image-popover', 'dm-math-popover', 'dm-emoji-picker'];
     await page.evaluate((classes) => {
@@ -1055,13 +1039,8 @@ for (const target of demoTargets) {
     page,
   }) => {
     // A rule that keeps something rather than hiding it, and the only rule in
-    // the sheet that MOVED here from another partial, which makes it the
-    // easiest one to lose by accident.
-    //
-    // A ticked task item deliberately has no assertion beside it: Chromium
-    // computes `print-color-adjust: exact` for form controls on its own, so
-    // the sheet's checkbox rule changes nothing that can be measured here.
-    // The rule stays as insurance for other engines and says so.
+    // the sheet that MOVED here from another partial, which makes it the easiest
+    // one to lose by accident.
     await openDemo(page, target);
     await setContent(page, '<p>A document with an outline.</p>');
 
@@ -1104,11 +1083,9 @@ for (const target of demoTargets) {
     await page.emulateMedia({ media: null });
   });
 
-  // ──────────────────────────────────────────────────────────────────────────
   // Dark theme. The print layer forces the text black, and the rule clearing
   // ancestor backgrounds cannot reach `body`, which is not its own descendant:
   // black on near-black. Pinned together, since either half alone passes.
-  // ──────────────────────────────────────────────────────────────────────────
 
   /** The dark theme, applied the way every demo applies it. */
   async function goDark(page: Page): Promise<void> {
@@ -1170,14 +1147,8 @@ for (const target of demoTargets) {
     await markAsPrinting(page);
     await page.emulateMedia({ media: 'print' });
 
-    // The body carries the ancestor class and is not its own descendant, so
-    // the rule that clears each marked ancestor's background never reaches it.
-    // Two rules name it directly instead: the canvas rule, which names the
-    // root element beside it because the printed canvas is taken from the root
-    // and a body background reaches it only while the root has none, and the
-    // layout release, which names both for the same reason. Both elements are
-    // asserted here, since either one left tinted floods the page area of
-    // every sheet underneath text this same layer has forced to black.
+    // The body carries the ancestor class and is not its own descendant, so the
+    // rule that clears each marked ancestor's background never reaches it.
     expect(await styleOf(page, 'html', 'background-color')).toBe('rgba(0, 0, 0, 0)');
     expect(await styleOf(page, 'body', 'background-color')).toBe('rgba(0, 0, 0, 0)');
     expect(await styleOf(page, 'body', 'color')).toBe('rgb(0, 0, 0)');
@@ -1204,18 +1175,10 @@ for (const target of demoTargets) {
     await page.emulateMedia({ media: null });
   });
 
-  // ──────────────────────────────────────────────────────────────────────────
   // Page breaks. `break-inside: avoid` is a request the engine may refuse, and
   // it refuses expensively: the box is pushed to a fresh sheet FIRST and only
   // then fragmented anyway, so a box that can outgrow a page costs an almost
-  // empty one every time. These tests pin which boxes still ask for it, and
-  // pin the line-level rules that hold the rest together in its place.
-  //
-  // The sheet counts below are read with the document isolated. Without the
-  // marks the demo's own heading and mode switcher sit at the top of sheet
-  // one, which is enough to defer a tall block on its own, and then a test of
-  // the deferral measures the demo shell rather than the stylesheet.
-  // ──────────────────────────────────────────────────────────────────────────
+  // empty one every time.
 
   /** Paragraphs, in the quantity a list item legitimately holds. */
   function clauses(count: number): string {
@@ -1232,13 +1195,7 @@ for (const target of demoTargets) {
   }) => {
     test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
     // A list item is `paragraph block*` in the schema: it can hold a whole
-    // document, so it cannot be an unbreakable box. Under the old blanket
-    // avoid it was one, and the price was a sheet: the item does not fit
-    // beside the paragraph above it, so it defers to a fresh sheet, discovers
-    // it does not fit there either, and fragments from there on. The leading
-    // paragraph is the entire experiment. Without it the item starts at the
-    // top of sheet one and has nowhere to defer to, so both readings agree
-    // and the test proves nothing.
+    // document, so it cannot be an unbreakable box.
     await openDemo(page, target);
     await markAsPrinting(page);
 
@@ -1258,11 +1215,7 @@ for (const target of demoTargets) {
 
   test(`${target.name}: a flat list still paginates`, async ({ page, browserName }) => {
     test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
-    // The other side of the same rule. The keep-with-next that holds an item's
-    // label to the blocks it introduces must not reach an item whose paragraph
-    // is its only child: there the break after the paragraph IS the break
-    // after the item, so the avoid propagates outward and an ordinary flat
-    // list becomes one unbreakable box again, at every position in it.
+    // The other side of the same rule.
     await openDemo(page, target);
     await markAsPrinting(page);
 
@@ -1284,22 +1237,10 @@ for (const target of demoTargets) {
   test(`${target.name}: a long code line wraps onto paper instead of being cut`, async ({
     page,
   }) => {
-    // `overflow-x: auto` prints the visible scroll window and nothing past it,
-    // so a minified line or a long URL in a code block is simply cut at the
-    // edge and the reader never learns there was more. This is content loss
-    // rather than decoration, and it had nothing watching it.
-    //
-    // The declaration is `!important` rather than plain because it is not
-    // introducing the value: the editor already wraps code on screen. It is
-    // there to beat an inline style, which is what a node view writes and what
-    // no ordinary rule can outrank. So the wrapping is turned off inline here.
-    // A host rule marked `!important` and loaded after the theme is a
-    // different case and deliberately still wins; that is the documented way
-    // to override any of this.
-    //
-    // The style is written inside the same evaluate that reads it, because the
-    // code block is a node view and a redraw drops an inline style set in an
-    // earlier round trip.
+    // `overflow-x: auto` prints the scroll window and nothing past it, so a long
+    // line is cut at the edge and the reader never learns there was more. The
+    // print rule is `!important` to beat an inline style, which is what a node
+    // view writes, so the wrapping is turned off inline here.
     await openDemo(page, target);
     const line = 'const url = "https://example.com/' + 'a'.repeat(300) + '";';
     await setContent(page, `<pre><code>${line}</code></pre>`);
@@ -1312,11 +1253,7 @@ for (const target of demoTargets) {
       page.evaluate((editor) => {
         const pre = document.querySelector(`${editor} pre`);
         if (!(pre instanceof HTMLElement)) return null;
-        // Only `white-space` is forced inline. That is the one of the two the
-        // print rule carries `!important` on, so it is the one that can prove
-        // anything against an inline style; `word-break` is a plain
-        // declaration and an inline value would simply beat it, which is
-        // correct and not what this test is about.
+        // Only `white-space` is forced inline.
         pre.style.whiteSpace = 'nowrap';
         const style = getComputedStyle(pre);
         return {
@@ -1346,11 +1283,10 @@ for (const target of demoTargets) {
   });
 
   test(`${target.name}: a heading is never left at the foot of a sheet`, async ({ page }) => {
-    // The oldest rule in the section and the one nothing was watching. A
-    // heading alone at the bottom of a sheet, with the text it introduces
-    // starting the next one, is the most visible typographic failure a
-    // printed document has, and it is what `break-after: avoid` is for.
-    // `break-inside` covers the heading that wraps to two lines.
+    // The oldest rule in the section and the one nothing was watching. A heading
+    // alone at the bottom of a sheet, with the text it introduces starting the
+    // next one, is the most visible typographic failure a printed document has,
+    // and it is what `break-after: avoid` is for.
     await openDemo(page, target);
     await setContent(page, '<h2>A section heading</h2><p>The text it introduces.</p>');
 
@@ -1366,15 +1302,9 @@ for (const target of demoTargets) {
   test(`${target.name}: a list item's label stays with the blocks it introduces`, async ({
     page,
   }) => {
-    // What the item gives up by staying breakable is that its first block can
-    // be stranded at the foot of a sheet while everything it introduces starts
-    // the next one. A keep-with-next on that first block buys it back, and the
-    // `:not(:last-child)` guard is what stops the same declaration turning the
-    // flat list of the test above back into a monolith.
-    //
-    // The task item needs the rule one level deeper: its checkbox is a
-    // `<label>` sibling and its blocks live in a wrapper div, so `li > *` lands
-    // on the label rather than on the paragraph.
+    // What the item gives up by staying breakable is that its first block can be
+    // stranded at the foot of a sheet while everything it introduces starts the
+    // next one.
     await openDemo(page, target);
     await setContent(
       page,
@@ -1413,11 +1343,8 @@ for (const target of demoTargets) {
     page,
   }) => {
     // A row of one-line cells split down the middle reads as two rows, so the
-    // common case keeps its avoid. A row whose cell holds two paragraphs, a
-    // list or a column layout can outgrow the sheet, and those are excluded by
-    // name. The cells themselves have to stay out of it entirely: an avoid on
-    // `th` or `td` makes the row monolithic whatever the row says, which turns
-    // the whole guard into dead code with its own assertion still green.
+    // common case keeps its avoid. A row whose cell holds two paragraphs, a list
+    // or a column layout can outgrow the sheet, and those are excluded by name.
     await openDemo(page, target);
     await setContent(
       page,
@@ -1487,17 +1414,9 @@ for (const target of demoTargets) {
     browserName,
   }) => {
     test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
-    // A picture has no line boxes to fragment at, so it keeps its avoid. Which
-    // leaves the case where one sheet is not enough either: the avoid cannot
-    // be honoured, the picture is deferred to a fresh sheet and then sliced
-    // across that sheet and the ones after it, one page-high window per sheet.
-    // Scaling it to the page is the only reading of it that survives.
-    //
-    // The 6em subtracted from the page area is the wrapper's own margin plus
-    // the chrome of whatever holds it, so a picture inside a quote lands on
-    // the sheet it started on rather than deferring whole to the next one.
-    // That is why the quote is measured against the top-level case and not
-    // against a constant.
+    // A picture has no line boxes, so it keeps its avoid. Taller than the page
+    // it cannot honour one: it is deferred, then sliced one page-high window per
+    // sheet.
     await openDemo(page, target);
     await markAsPrinting(page);
     const tall = pictureSrc(200, 4000);
@@ -1544,13 +1463,9 @@ for (const target of demoTargets) {
     expect(natural.height).toBeLessThanOrEqual(natural.clamp + 1);
     expect(Math.abs(natural.ratio - natural.natural)).toBeLessThan(0.01);
 
-    // A picture the author resized by hand is the case `object-fit` exists
-    // for: the node view writes that width onto the `img`, the width survives
-    // the clamp, and the box comes out of it with an aspect ratio of its own.
-    // The picture inside that box is what stays in proportion, and no geometry
-    // API reports where a replaced element painted inside its own box, so
-    // `contain` is asserted as the declaration that decides it. Squeezed to
-    // the box instead, this picture would print twenty times too wide.
+    // A picture the author resized by hand is the case `object-fit` exists for:
+    // the node view writes that width onto the `img`, the width survives the
+    // clamp, and the box comes out of it with an aspect ratio of its own.
     expect(byHand.inlineWidth).toBe('600px');
     expect(Math.abs(byHand.ratio - byHand.natural)).toBeGreaterThan(0.5);
     expect(byHand.fit).toBe('contain');
@@ -1560,12 +1475,9 @@ for (const target of demoTargets) {
   test(`${target.name}: an aligned picture prints at the alignment it was drawn at`, async ({
     page,
   }) => {
-    // `object-fit: contain` centres its letterbox by default, so the clamp
-    // above would move a left-aligned picture into the middle of the measure
-    // and a right-aligned one back off its own edge. `object-position` is what
-    // puts each of them back, and it is spelled physically because the
-    // property has no logical form, which is why an RTL document needs its own
-    // arm rather than following the same keyword.
+    // `object-fit: contain` centres its letterbox by default, so the clamp above
+    // would move a left-aligned picture into the middle of the measure and a
+    // right-aligned one back off its own edge.
     await openDemo(page, target);
     const tall = pictureSrc(200, 4000);
     await setContent(
@@ -1636,14 +1548,10 @@ for (const target of demoTargets) {
     expect(rtl).toBe('100% 50%');
   });
 
-  // ──────────────────────────────────────────────────────────────────────────
   // The repeating header row. The node view makes the `tbody` the contentDOM,
-  // because ProseMirror renders every row into one element, so the table has
-  // no `<thead>` for a browser to repeat and cannot be given one without
-  // fighting the view's DOM sync. Dropping the row group's box instead puts
-  // the rows in the table's own formatting context, which is the one place a
-  // row is allowed to BE a header group.
-  // ──────────────────────────────────────────────────────────────────────────
+  // because ProseMirror renders every row into one element, so the table has no
+  // `<thead>` for a browser to repeat and cannot be given one without fighting
+  // the view's DOM sync.
 
   /** A long table, with the leading row made of the cell type asked for. */
   function longTable(head: 'th' | 'td', rows: number): string {
@@ -1711,13 +1619,8 @@ for (const target of demoTargets) {
   }) => {
     // The predicate the exporters count with, shape by shape. `:has(> th)` on
     // its own promotes the first row of a header-COLUMN table, where
-    // `toggleHeaderColumn` puts a `th` in every row, and hoists it above rows
-    // it does not label. The table also has to own a data cell somewhere: a
-    // header column on a single-column table makes every cell a `th`, so its
-    // first row passes the all-header test on a technicality and would repeat
-    // as a label for itself. A `rowspan` in the leading row is excluded
-    // because a spanned cell cannot reach out of a header group into the body,
-    // so promoting it would silently drop the span.
+    // `toggleHeaderColumn` puts a `th` in every row, and hoists it above rows it
+    // does not label.
     await openDemo(page, target);
     const shapes: [string, string, string, string][] = [
       [
@@ -1821,27 +1724,18 @@ for (const target of demoTargets) {
     expect(await styleOf(page, `${EDITOR} tbody > tr`, 'display')).toBe('table-row');
   });
 
-  // ──────────────────────────────────────────────────────────────────────────
   // How wide a table is on paper. Two failures live here and they pull in
-  // opposite directions: throwing the author's drawn layout away, and letting
-  // a table that cannot get under the page width take the whole document down
-  // with it. Chromium's answer to a document wider than the sheet is to scale
-  // ALL of it, as far as two thirds, and then clip whatever still does not
-  // fit, so one bad table costs every paragraph on every page its type size.
-  //
-  // The stored widths ride on `data-colwidth`, which is what the cell
-  // attribute parses; a plain `colwidth` never reaches the node and the table
-  // falls back to the min-width floor instead.
-  // ──────────────────────────────────────────────────────────────────────────
+  // opposite directions: throwing the author's drawn layout away, and letting a
+  // table that cannot get under the page width take the whole document down with
+  // it.
 
   test(`${target.name}: a table that stores no widths fills the printed measure`, async ({
     page,
   }) => {
     // The other half of dropping `!important` from the table's `width: 100%`.
     // The test below proves a table with stored widths keeps them; this one
-    // proves the table WITHOUT them still fills the column, because there is
-    // no inline width to fill it and the declaration is all there is. Deleting
-    // the line leaves such a table shrink-wrapped around two words.
+    // proves the table WITHOUT them still fills the column, because there is no
+    // inline width to fill it and the declaration is all there is.
     await openDemo(page, target);
     await setContent(
       page,
@@ -1869,10 +1763,7 @@ for (const target of demoTargets) {
   }) => {
     // The clamp, which is a different declaration from the fit. Stored widths
     // are honoured where they fit and scaled where they do not, and 1300px of
-    // drawn table does not fit any sheet. Without the clamp the table keeps the
-    // absolute width its node view wrote and hangs off the paper; without the
-    // auto layout the screen's `fixed` is still in force and the columns
-    // cannot be re-proportioned at all.
+    // drawn table does not fit any sheet.
     await openDemo(page, target);
     await setContent(
       page,
@@ -1903,12 +1794,7 @@ for (const target of demoTargets) {
     // WebKit does not apply a percentage `max-width` to a table carrying an
     // inline width, so the drawn table stays its full size there and hangs off
     // the sheet exactly as it did before this fix. Measured: 1300px against a
-    // 700px column, unchanged by clamping the wrapper or the colgroup. The one
-    // declaration WebKit does honour is `width: 100% !important`, and that is
-    // the declaration this change deliberately removed, because it throws away
-    // the widths the author dragged on every table that DOES fit. Asserting
-    // the engine's own answer keeps the limitation on the record instead of
-    // turning it into a red suite nobody can act on.
+    // 700px column, unchanged by clamping the wrapper or the colgroup.
     const clamps = measured!.table <= measured!.host + 1;
     if (clamps) {
       // And scaled rather than re-measured from content: the drawn 900 against
@@ -1926,13 +1812,10 @@ for (const target of demoTargets) {
   test(`${target.name}: a printed table keeps the proportions the author dragged`, async ({
     page,
   }) => {
-    // Resetting the colgroup to `auto` threw the drawn layout away: under auto
-    // layout Chromium reads a `col` width as a preferred width and hands the
-    // available space out in proportion, so the stored widths fit the page by
-    // themselves, while the reset re-sized every column from its content and
-    // made the column the author dragged widest come out narrowest. The
-    // longest text is deliberately in the narrow column so the two readings
-    // cannot agree.
+    // Under auto layout Chromium reads a `col` width as preferred and shares
+    // the space out in proportion, so stored widths fit the page by themselves.
+    // Resetting the colgroup re-sized every column from its content instead,
+    // making the widest column come out narrowest.
     await openDemo(page, target);
     await setContent(
       page,
@@ -1964,10 +1847,8 @@ for (const target of demoTargets) {
 
   test(`${target.name}: a printed table keeps the width it was drawn at`, async ({ page }) => {
     // The node view writes an absolute width on the table when EVERY column
-    // carries a stored width, and that number is the author's own answer to
-    // how wide the table should be. `width: 100%` deliberately carries no
-    // `!important` so the inline width wins while it fits, and `max-width`
-    // scales it down when it does not.
+    // carries a stored width, and that number is the author's own answer to how
+    // wide the table should be.
     await openDemo(page, target);
     await setContent(
       page,
@@ -1993,13 +1874,10 @@ for (const target of demoTargets) {
   test(`${target.name}: a table of many long-worded columns is laid out inside the sheet`, async ({
     page,
   }) => {
-    // The 100px grab floor is what pushes a table like this off the sheet, and
-    // `overflow-wrap: anywhere` is the other half of getting it back on:
-    // `anywhere` is the only value that counts the break opportunities it
-    // introduces when a cell's min-content width is measured, and min-content
-    // is the floor auto table layout will not go below. The inherited
-    // `break-word` these cells already carry does not, which is exactly why it
-    // is not enough.
+    // The 100px grab floor pushes a table like this off the sheet.
+    // `overflow-wrap: anywhere` is the other half: only `anywhere` counts its
+    // break opportunities toward min-content, which is the floor auto table
+    // layout will not go below. The inherited `break-word` does not.
     await openDemo(page, target);
     const words = [
       'Interoperability',
@@ -2082,13 +1960,8 @@ for (const target of demoTargets) {
     page,
   }) => {
     // The one place the percentage `max-width` above cannot fit by itself: a
-    // percentage needs a definite containing block, and a cell under auto
-    // layout has none while its own width is still being decided, so the
-    // percentage drops out and the inner table keeps the absolute width its
-    // node view wrote. Spending the nested table's drawn width is the smaller
-    // loss, because without it the outer table goes past the sheet and takes
-    // the neighbouring column out of the file rather than merely off the edge
-    // of it.
+    // percentage needs a definite containing block, and a cell under auto layout
+    // has none while its own width is still being decided, so the percentage.
     await openDemo(page, target);
     const inner =
       '<table><tbody><tr>' +
@@ -2134,12 +2007,8 @@ for (const target of demoTargets) {
     page,
     browserName,
   }) => {
-    // The collateral nobody looks for, because it happens to the pages the
-    // table is not on. A table that cannot get under the page width makes
-    // Chromium scale the ENTIRE printed document to fit it, as far as two
-    // thirds, so the same prose comes out at 8pt instead of 12pt and the
-    // document paradoxically gets SHORTER. Fewer sheets with the table than
-    // without it is the signature.
+    // The collateral nobody looks for, because it happens to the pages the table
+    // is not on.
     test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
     await openDemo(page, target);
     await markAsPrinting(page);
@@ -2175,13 +2044,9 @@ for (const target of demoTargets) {
     expect(withTable).toBeGreaterThanOrEqual(withoutTable);
   });
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // The printed palette. Dark is a screen decision; on paper it is black ink
-  // on a black table header, a code chip nobody can read, and an unticked task
-  // box the reader sees as ticked. The paper layer re-emits the light token
-  // set on the editor, plus the tokens the variables file derives from it,
-  // because ink and surface have to move together or neither may move.
-  // ──────────────────────────────────────────────────────────────────────────
+  // The printed palette. Dark is a screen decision; on paper it is black ink on
+  // a black table header, a code chip nobody can read, and an unticked task box
+  // the reader sees as ticked.
 
   test(`${target.name}: a dark table header prints ink on paper, not ink on ink`, async ({
     page,
@@ -2216,8 +2081,6 @@ for (const target of demoTargets) {
     // The dark sheet names `.dm-editor` in its own selector list, so with the
     // theme class on an ancestor the dark values are declared ON this element
     // and a plain redeclaration loses to them, which leaves the header black.
-    // Every other palette test here passes without the importance, so without
-    // this one a tidy-up removes it and nothing says a word.
     await openDemo(page, target);
     await setContent(page, '<p>Themed from above.</p>');
     await page.evaluate(() => {
@@ -2245,11 +2108,7 @@ for (const target of demoTargets) {
     page,
   }) => {
     // A consumer who dark-themed through a COMPONENT token rather than through
-    // the palette. Re-emitting the palette alone leaves this package's light
-    // ink sitting on their own dark surface: a code block that was readable in
-    // the browser comes out black on black, which is worse than the dark sheet
-    // the palette exists to prevent. This is why the derived tokens are listed
-    // out beside it.
+    // the palette.
     await openDemo(page, target);
     await setContent(page, '<pre><code>const answer = 42;</code></pre>');
     await page.addStyleTag({ content: '.dm-editor { --dm-code-block-bg: #0d1117; }' });
@@ -2275,10 +2134,8 @@ for (const target of demoTargets) {
   }) => {
     // The test above proves the mechanism on one token. This proves the LIST,
     // which is the part a tidy-up would shorten: deleting any single line from
-    // it changes nothing in a default document, because the token falls back
-    // to a palette value that is already light. It only matters for a consumer
-    // who overrode that exact token, so each line needs its own consumer to be
-    // worth anything, and seven of the eight had none.
+    // it changes nothing in a default document, because the token falls back to
+    // a palette value that is already light.
     await openDemo(page, target);
     await setContent(
       page,
@@ -2305,7 +2162,7 @@ for (const target of demoTargets) {
       const host = document.querySelector(editor);
       if (!host) return null;
       const read = (name: string): string =>
-        getComputedStyle(host as Element).getPropertyValue(name).trim();
+        getComputedStyle(host).getPropertyValue(name).trim();
       return {
         link: read('--dm-link-color'),
         mentionColor: read('--dm-mention-color'),
@@ -2333,15 +2190,9 @@ for (const target of demoTargets) {
   test(`${target.name}: every block colour prints a light tint under a dark theme`, async ({
     page,
   }) => {
-    // Nine colours, and every one of them is a separate token. The palette
-    // covers all nine in one decision, which is the point of re-emitting the
-    // set rather than naming the tokens a document happens to use.
-    //
-    // The BlockColor extension is registered in the Notion preset rather than
-    // the default one, so the tinted blocks are stand-ins carrying the
-    // attribute the extension writes. They sit inside the live document, which
-    // is where the tint rules are scoped, and are read and removed in one
-    // synchronous pass so ProseMirror's observer never sees them.
+    // Nine colours, nine tokens, all covered by one palette re-emission, which
+    // is the point of re-emitting the set rather than naming the tokens a
+    // document happens to use.
     await openDemo(page, target);
     await setContent(page, '<p>A coloured document.</p>');
     await goDark(page);
@@ -2369,11 +2220,9 @@ for (const target of demoTargets) {
 
   test(`${target.name}: a dark /toc block prints its rows in ink`, async ({ page }) => {
     // The one place in the sheet where dropping a token is the fix rather than
-    // setting one. The dark theme declares the row colours on the BLOCK, out
-    // of reach of anything set on `.dm-editor`, so the palette cannot correct
-    // them: a dark document would print white rows on white paper. Dropping
-    // the token restores the light value without repeating it, because every
-    // use site carries that value as its own `var()` fallback.
+    // setting one. The dark theme declares the row colours on the BLOCK, out of
+    // reach of anything set on `.dm-editor`, so the palette cannot correct them:
+    // a dark document would print white rows on white paper.
     await openDemo(page, target);
     await setContent(page, '<p>A document with an outline.</p>');
     await goDark(page);
@@ -2430,10 +2279,7 @@ for (const target of demoTargets) {
   test(`${target.name}: an unchecked task box prints empty`, async ({ page }) => {
     // Left on a dark colour scheme, the user agent paints an unticked checkbox
     // as a filled dark square, which on paper reads as a ticked one: the
-    // document says the opposite of what it says on screen. The editor
-    // declares the scheme from its own token, so the reset on the root does
-    // not reach this subtree, and a host that writes the PROPERTY rather than
-    // the token is not reached by the palette either. Both arms are here.
+    // document says the opposite of what it says on screen.
     await openDemo(page, target);
     await setContent(
       page,
@@ -2460,12 +2306,7 @@ for (const target of demoTargets) {
   });
 
   test(`${target.name}: a light document prints exactly as it did`, async ({ page }) => {
-    // The palette must not change a document that was already light. Inline
-    // code is the one token where the light palette and the untouched default
-    // disagree visibly, and `currentColor` is the answer that says what the
-    // chip should do rather than what colour it should be: it takes the colour
-    // of the text around it, so a plain document keeps printing black and an
-    // author's own colour on the block still carries into the chip.
+    // The palette must not change a document that was already light.
     await openDemo(page, target);
     await setContent(
       page,
@@ -2495,15 +2336,10 @@ for (const target of demoTargets) {
     expect(light?.header).toBe('rgb(248, 249, 250)');
   });
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // The canvas and the layout release. The printed canvas is taken from the
-  // ROOT element and a body background reaches it only while the root has
-  // none, so a host that tints `<html>`, which is what every dark theme with a
-  // pre-paint bootstrap writes, floods the page area of every sheet. Neither
-  // element is a descendant of the body, so the rule that clears each marked
-  // ancestor cannot reach either of them: both are named twice, once always on
-  // and once behind the print command.
-  // ──────────────────────────────────────────────────────────────────────────
+  // The canvas and the layout release. The printed canvas is taken from the ROOT
+  // element and a body background reaches it only while the root has none, so a
+  // host that tints `<html>`, which is what every dark theme with a pre-paint
+  // bootstrap writes, floods the page area of every sheet.
 
   test(`${target.name}: a dark colour scheme on the root prints a light sheet`, async ({
     page,
@@ -2511,9 +2347,7 @@ for (const target of demoTargets) {
     // `color-scheme` is not a background and the background reset cannot reach
     // it. It is also worse than one: where a background stops at the page area,
     // a dark scheme paints the WHOLE sheet, margins included, under text this
-    // same layer has already forced to black. The editor declares the property
-    // from its own token and is reset separately; this is the root, which is
-    // where a pre-paint theme bootstrap writes it.
+    // same layer has already forced to black.
     await openDemo(page, target);
     await setContent(page, '<p>A document under a dark colour scheme.</p>');
     await page.addStyleTag({ content: 'html { color-scheme: dark; }' });
@@ -2555,14 +2389,10 @@ for (const target of demoTargets) {
   test(`${target.name}: a host tint declared with !important still loses to the print command`, async ({
     page,
   }) => {
-    // The escape hatch, and its limit. A host who wants a deliberate paper
-    // tint declares it `!important`, because specificity alone is not enough
-    // against a rule that is `!important` too, and `:root` outweighs the bare
-    // `html` the canvas rule names. The command path is the one place that has
-    // to win anyway: it is erasing the host application, and a tint left
-    // behind is the one piece of it still on the paper. This is the only
-    // assertion in the file that isolates the command arm from the always-on
-    // one, since with the tint gone both arms read the same.
+    // The escape hatch, and its limit. A host who wants a deliberate paper tint
+    // declares it `!important`, because specificity alone is not enough against
+    // a rule that is `!important` too, and `:root` outweighs the bare `html` the
+    // canvas rule names.
     await openDemo(page, target);
     await setContent(page, '<p>A document under a deliberate tint.</p>');
     await page.addStyleTag({ content: ':root { background: rgb(244, 245, 247) !important; }' });
@@ -2590,11 +2420,9 @@ for (const target of demoTargets) {
     browserName,
   }) => {
     test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
-    // `html, body { height: 100%; overflow: hidden }` is the commonest
-    // full-height application shell there is, and under a print it truncates
-    // the document to a single sheet. Nothing in the always-on layer may touch
-    // it, because the host owns those elements; the command path may, because
-    // by then the host application is already hidden.
+    // `html, body { height: 100%; overflow: hidden }` is the commonest full-
+    // height application shell there is, and under a print it truncates the
+    // document to a single sheet.
     await openDemo(page, target);
     await setContent(page, longDocument(120, 'in a shell that clips at the root element.'));
     await page.addStyleTag({ content: 'html, body { height: 100%; overflow: hidden; }' });
@@ -2660,18 +2488,10 @@ for (const target of demoTargets) {
   }) => {
     test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
     test.setTimeout(180000);
-    // Two families of host declaration, each measured on the element the print
-    // command marks. Everything down to `will-change` makes a containing block
-    // for fixed descendants, which is how an ancestor turns the repeating
-    // footer of a paged document into one box at the end of the flow; the rest
-    // make the engine rasterise every sheet, so the file the reader saves has
-    // no selectable text left in it at all.
-    //
-    // Each has its own reset because the shorthands do not cover each other:
-    // `transform: none` does not reset the three individual transform
-    // properties, which are separate properties rather than its longhands, and
-    // `contain: none` does not reset `content-visibility`, which re-applies
-    // the same containment by itself.
+    // Two families. Down to `will-change`, each makes a containing block for
+    // fixed descendants, turning a repeating footer into one box at the end of
+    // the flow; the rest rasterise every sheet, so the saved PDF has no
+    // selectable text.
     await openDemo(page, target);
     await setContent(page, longDocument(120, 'under a host effect that used to eat the print.'));
     await markAsPrinting(page);
@@ -2729,10 +2549,7 @@ for (const target of demoTargets) {
     test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
     // An animation outranks a plain declaration in the cascade, so a host
     // animating a property this sheet does not name keeps it through the whole
-    // print. Letter spacing is the clearest case because it inherits into the
-    // document and is measurable in sheets: forty pixels between the letters
-    // of every word is a document three times as long as the one the reader
-    // asked for.
+    // print.
     await openDemo(page, target);
     await setContent(page, longDocument(60, 'a host animation must not reshape.'));
     await markAsPrinting(page);
@@ -2757,11 +2574,10 @@ for (const target of demoTargets) {
   });
 
   test(`${target.name}: a plain Ctrl/Cmd+P does not gain the isolation`, async ({ page }) => {
-    // The most important test in the set. Everything the release does is a
-    // thing this package has no business doing to a page it does not own, and
-    // the only thing keeping it off a reader's own print of an article with an
-    // editor in it is the gate. A declaration that escaped the gate would pass
-    // every other test here.
+    // The most important test in the set. Everything the release does is a thing
+    // this package has no business doing to a page it does not own, and the only
+    // thing keeping it off a reader's own print of an article with an editor in
+    // it is the gate.
     await openDemo(page, target);
     await setContent(page, '<p>An editor embedded in a page this package does not own.</p>');
     await page.addStyleTag({
@@ -2775,14 +2591,9 @@ for (const target of demoTargets) {
     await page.emulateMedia({ media: null });
   });
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // The band a page footer needs. A footer that repeats on every sheet has to
-  // be a `position: fixed` box, because that is the only construct browsers
-  // repeat across printed pages. A fixed box is laid out against the page area
-  // and is out of flow, so it takes no height from the content flowing into
-  // that same area, and a sheet filled to its last line prints that line
-  // underneath the footer. This is the hook that makes room for one.
-  // ──────────────────────────────────────────────────────────────────────────
+  // The band a page footer needs. A footer that repeats on every sheet has to be
+  // a `position: fixed` box, because that is the only construct browsers repeat
+  // across printed pages.
 
   test(`${target.name}: the footer band is off until something asks for it`, async ({ page }) => {
     // Unset, it costs nothing: the fallback is zero, so the document paginates
@@ -2793,10 +2604,8 @@ for (const target of demoTargets) {
     expect(await styleOf(page, 'html', 'padding-bottom')).toBe('0px');
     // The half that decides whether the band lands on every sheet or on one.
     // WebKit implements neither spelling of it for block-end padding under
-    // fragmentation and reads the property back as an empty string, so there
-    // the band is reserved on the last sheet alone. That is a documented
-    // limitation rather than a defect this suite can fix, and asserting the
-    // engine's own answer is what keeps it from being mistaken for one.
+    // fragmentation and reads the property back as an empty string, so there the
+    // band is reserved on the last sheet alone.
     const bdb = await styleOf(page, 'html', 'box-decoration-break');
     expect(bdb === '' ? 'clone' : bdb).toBe('clone');
 
@@ -2837,12 +2646,10 @@ for (const target of demoTargets) {
     browserName,
   }) => {
     test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
-    // The load-bearing half of the rule. By default a fragmented box carries
-    // its block-end padding only on its LAST fragment, which is the one sheet
-    // that never needed the room, so a footer would still print over the last
-    // line of every sheet before it. Sliced, a five-sheet document gains one
-    // sheet at the end; cloned, it gains one for every three it had, which is
-    // why the threshold here is two and not one.
+    // The load-bearing half of the rule. By default a fragmented box carries its
+    // block-end padding only on its LAST fragment, which is the one sheet that
+    // never needed the room, so a footer would still print over the last line of
+    // every sheet before it.
     await openDemo(page, target);
     await setContent(page, longDocument(220, 'that has to leave room for a footer.'));
     await markAsPrinting(page);
@@ -2876,18 +2683,12 @@ for (const target of demoTargets) {
     page,
   }) => {
     // The repeat survives only while the header group itself cannot be split,
-    // and the blanket row rule no longer says that for every row: a row that
-    // can outgrow a sheet is deliberately excluded from it. So the promoted
-    // row carries the declaration itself rather than inheriting a decision
-    // made for other rows, and this is what stops that being tidied away as a
-    // duplicate.
+    // and the blanket row rule no longer says that for every row: a row that can
+    // outgrow a sheet is deliberately excluded from it.
     await openDemo(page, target);
-    //
     // The header cells hold two paragraphs each, which is what makes this
-    // measurable at all: the blanket row rule excludes a row that can outgrow
-    // a sheet, and two adjacent paragraphs is exactly the shape it excludes.
-    // A one-line header row takes `avoid` from that blanket rule whether or
-    // not the promotion declares it, so a test written on one proves nothing.
+    // measurable at all: the blanket row rule excludes a row that can outgrow a
+    // sheet, and two adjacent paragraphs is exactly the shape it excludes.
     await setContent(
       page,
       '<table><tbody>' +
@@ -2937,10 +2738,7 @@ for (const target of demoTargets) {
     page,
   }) => {
     // Two is the CSS initial value, so the rule changes nothing on its own and
-    // reads as dead weight. It is not: these properties inherit, and section 6
-    // deliberately leaves the host's ancestors in the tree rather than
-    // removing them, so a host writing `orphans: 1` on the body reaches the
-    // document through them and strands single lines on paper.
+    // reads as dead weight.
     await openDemo(page, target);
     await setContent(page, '<p>A paragraph long enough to have lines to strand.</p>');
     await page.addStyleTag({
@@ -2967,11 +2765,7 @@ for (const target of demoTargets) {
     page,
   }) => {
     // Four declarations of the release that nothing else in this file reaches.
-    // Two of them change the page rather than decorating it. A `min-width` on
-    // a shell holds the document at a width the sheet does not have, and the
-    // engine scales the whole print down to fit it. A `min-height: 100vh`, the
-    // commonest shell floor there is, is a whole page area of blank paper
-    // under a document shorter than one.
+    // Two of them change the page rather than decorating it.
     await openDemo(page, target);
     await setContent(page, '<p>A document inside a shell the host application owns.</p>');
     await page.evaluate(() => {
@@ -3009,9 +2803,7 @@ for (const target of demoTargets) {
   }) => {
     // What the `min-height` reset above is actually worth, in sheets. The
     // computed read proves the declaration lands; this proves the declaration
-    // was worth writing. A one-paragraph document under a `min-height: 100vh`
-    // shell prints one sheet of paper and one of nothing, and above 100vh a
-    // multiple of that.
+    // was worth writing.
     test.skip(browserName !== 'chromium', 'page.pdf() exists for headless Chromium alone');
     await openDemo(page, target);
     await setContent(page, '<p>A short document under a full-height shell.</p>');
@@ -3032,11 +2824,8 @@ for (const target of demoTargets) {
   test(`${target.name}: a host's own print zoom is deliberately left alone`, async ({ page }) => {
     // Every other transform-adjacent property on a marked ancestor is reset,
     // because each of them loses content: a containing block for fixed
-    // descendants turns a repeating footer into one box, and a filter
-    // rasterises the text away. `zoom` loses nothing. It scales the print, and
-    // a host who wrote `@media print { body { zoom: 0.8 } }` meant it, so
-    // completing the list would take their decision away: measured at five
-    // sheets becoming seven. This pins the omission so it reads as a choice.
+    // descendants turns a repeating footer into one box, and a filter rasterises
+    // the text away. `zoom` loses nothing.
     await openDemo(page, target);
     await setContent(page, '<p>A document under a host print zoom.</p>');
     await page.evaluate(() => {

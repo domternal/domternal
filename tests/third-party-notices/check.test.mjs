@@ -140,11 +140,8 @@ test('readArrayLiteral returns null when the list never closes', () => {
 --------------------------------------------------------------------------- */
 
 test('a config built on a shared base is reported, not read as bundling nothing', () => {
-  // The escape hatch left by reading `noExternal` alone: the declaration is
-  // not unreadable, it is in another file. This text contains no `noExternal`,
-  // which to a scan of this file alone is indistinguishable from a package
-  // that bundles nothing, so the base could inline anything and no notice
-  // would ever be demanded for it.
+  // The escape hatch left by reading `noExternal` alone: the declaration is not
+  // unreadable, it is in another file.
   const config = `
 import base from '../../tsup.base.ts';
 

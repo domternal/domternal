@@ -1,22 +1,10 @@
 // =============================================================================
 // Light Theme
-// =============================================================================
-// Light is the default - CSS variables in _variables.scss already use light
-// values. This class exists for explicit light override in a dark context.
-// =============================================================================
+// =============================================================================.
 
 // Explicit inverse of `dark-tokens`: every token the dark mixin overrides must
 // be reset here too, otherwise a `.dm-theme-light` island nested in a dark
-// context leaks the dark values. Light defaults live in _variables.scss; these
-// duplicate them so the override is self-contained.
-//
-// `$important` exists for the paper layer, which re-emits this palette on
-// `.dm-editor` so a dark document prints as a light one. It has to outrank
-// `_dark.scss`, whose own selector list names `.dm-editor` as well, so with the
-// theme class on an ancestor the dark values are declared ON the same element
-// and a plain redeclaration loses to them. Pass `'!important'` there. The
-// default appends nothing, so the `.dm-theme-light` rule below is emitted
-// exactly as it always was.
+// context leaks the dark values.
 @mixin light-tokens($important: '') {
   --dm-color-scheme: light#{$important};
   --dm-bg: #ffffff#{$important};

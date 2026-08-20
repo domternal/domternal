@@ -138,9 +138,7 @@ for (const target of demoTargets) {
   test(`${target.name}: the level follows the nesting, not the list type`, async ({ page }) => {
     // A bullet list three levels down is a square whether the lists above it
     // were bullets or numbers, which is what "keyed on depth" means and what a
-    // per-type counter could not express. The middle list is ordered on
-    // purpose: if it did not spend a level, the innermost list would come out
-    // a circle.
+    // per-type counter could not express. The middle list is ordered on purpose:
     await openDemo(page, target);
     await setContent(
       page,
@@ -173,10 +171,7 @@ for (const target of demoTargets) {
 
   test(`${target.name}: a table cell restarts the cycle`, async ({ page }) => {
     // The one place the exporters restart their count, because the DOCX
-    // serialiser builds a cell's context from scratch by design. The cell's
-    // own content edge restarts the indentation too, so a list inside one
-    // reads as a top-level list in every output instead of carrying a marker
-    // down from a list it no longer sits under.
+    // serialiser builds a cell's context from scratch by design.
     await openDemo(page, target);
     await setContent(
       page,
@@ -188,11 +183,6 @@ for (const target of demoTargets) {
     // there really are two lists to compare.
     expect(markers.length).toBe(2);
     // The inner list is one level further in and still starts the cycle over.
-    // The cell restart is this cycle's own rule, not something a browser does
-    // by itself: measured, Firefox draws the inner list a circle because its
-    // own sheet counts `ul ul` through the table and never restarts. So this
-    // is one of the places where an engine without style queries does not
-    // merely fall back to a plateau, it disagrees outright.
     const cycles = await supportsStyleQueries(page);
     expect(markers).toEqual(cycles ? ['disc', 'disc'] : ['disc', 'circle']);
   });
@@ -201,12 +191,8 @@ for (const target of demoTargets) {
     page,
   }) => {
     // The block's list is chrome the extension draws, not a list the writer
-    // typed, and its own rule sits at a single class of specificity: without
-    // the exclusion the cycle outweighs it and the table of contents grows
-    // bullets. A stand-in carries the production markup, since the extension
-    // is registered in the Notion preset rather than the default one, and it
-    // is read and removed in one synchronous pass so ProseMirror's observer
-    // never sees it.
+    // typed, and its own rule sits at a single class of specificity: without the
+    // exclusion the cycle outweighs it and the table of contents grows bullets.
     await openDemo(page, target);
     await setContent(page, '<p>A document with an outline.</p>');
 
@@ -270,13 +256,8 @@ for (const target of demoTargets) {
   test(`${target.name}: a host override replaces both halves of the cycle together`, async ({
     page,
   }) => {
-    // An application that pins its own markers has to be able to pin both
-    // halves the same way. The two exclusions the bullet rule carries sit
-    // inside `:where()` for exactly this reason: unwrapped, the bullet
-    // selector weighs two classes more than the ordered one, so a host writing
-    // the documented selector for each would win the numbers and lose the
-    // bullets, and the document would end up carrying a fourth marker scheme
-    // rather than the one they asked for.
+    // An application that pins its own markers has to be able to pin both halves
+    // the same way.
     await openDemo(page, target);
     await setContent(page, nested('ul', 4) + nested('ol', 4));
     // The precondition: without the override, both halves cycle. On an engine

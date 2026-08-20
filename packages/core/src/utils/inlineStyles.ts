@@ -285,10 +285,7 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
         break;
 
       // `type` is not a schema attribute on either list node, so no document
-      // this editor produced carries one. It is honoured anyway because
-      // `applyInlineStyles` takes arbitrary HTML, and writing a marker over a
-      // caller's `<ol type="A">` would change their document rather than
-      // describe it.
+      // this editor produced carries one.
       case 'UL':
         if (el.getAttribute('data-type') === 'taskList') {
           styles = 'list-style: none; padding-left: 0; margin: 0.75em 0;';

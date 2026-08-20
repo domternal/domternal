@@ -37,9 +37,7 @@ if (!existsSync(tscBin)) {
 
 // The unit tests for both coverage readers and the comment stripper they share.
 // Other gates run theirs from the root script next to the gate itself; these are
-// reached through a package script, so their entry point is here. They run
-// before the checks: a reader that has stopped behaving as specified is how
-// both coverage numbers below became believable and wrong.
+// reached through a package script, so their entry point is here.
 log('coverage unit tests');
 const units = spawnSync(
   'node',

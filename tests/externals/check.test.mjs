@@ -116,8 +116,8 @@ test('a commented-out import is not a real import', () => {
 test('stripComments leaves a URL inside a string intact', () => {
   // Line comments are only stripped when `//` opens the line, so an https://
   // inside a docs link does not eat the rest of that line.
-  const kept = stripComments("const url = 'https://domternal.dev/v1/guides/';");
-  assert.ok(kept.includes('https://domternal.dev/v1/guides/'));
+  const source = "const url = 'https://domternal.dev/v1/guides/';";
+  assert.equal(stripComments(source), source);
 });
 
 test('an externalised package covers its subpaths', () => {

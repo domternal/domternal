@@ -217,10 +217,7 @@ describe('inlineStyles', () => {
 
   it('cycles bullet markers disc, circle, square and starts over below that', () => {
     // The three-step cycle both Pro exporters pick from, `depth % 3`, so a
-    // pasted list matches the .docx and the .pdf level for level. Five levels
-    // rather than four: at the fourth an index that had run off the end of the
-    // three would fall back to disc and look right by accident, and it is the
-    // fifth that tells a cycle apart from a truncated list.
+    // pasted list matches the .docx and the .pdf level for level.
     expect(listMarkers(inlineStyles(nest('ul', 5)))).toEqual([
       'disc',
       'circle',

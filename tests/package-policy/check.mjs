@@ -1,25 +1,6 @@
 #!/usr/bin/env node
-// What must be true of every publishable package before it is published.
-//
-// This repository has no release automation. CONTRIBUTING says releases are
-// handled by the maintainer, and a release commit is a hand edit of eighteen
-// package.json files at once: the version, and every `>=MAJOR.MINOR.0` floor
-// that has to move with it. Nothing checked that those agree, and the failure
-// they produce is the worst kind. `@domternal/core@0.16.0` published with a
-// floor of `>=0.15.0` lets a consumer legally install it beside
-// `@domternal/pm@0.15.0`, which is exactly the mixed-copy install that
-// test:single-prosemirror, test:frozen-contract and test:pm-ranges exist to
-// prevent, arriving through the one door none of them watch.
-//
-// Lockstep is not hypothetical either. It has broken on main four times, always
-// the same way: a new package landing at a stray version while the rest sat at
-// the released one. Each was caught by hand.
-//
-// The floors are no longer written by hand at all. `prepublishOnly` calls
-// scripts/prepare-publish-manifest.mjs, which derives them from the package's
-// own version, and this gate runs that same transform over every manifest and
-// refuses whatever it refuses. The check here and the behaviour at publish time
-// cannot disagree, because they are the same code.
+// What must be true of every publishable package before it is published. This
+// repository has no release automation.
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';

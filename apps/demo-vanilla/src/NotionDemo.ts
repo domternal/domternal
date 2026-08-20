@@ -186,6 +186,11 @@ export interface NotionDemoOptions {
   scrollable?: boolean;
 }
 
+/** The item list a bubble context carries, or none: `true` and `null` are not lists. */
+function asItems(value: string[] | true | null | undefined): string[] {
+  return Array.isArray(value) ? value : [];
+}
+
 export class NotionDemo {
   #container: HTMLElement;
   #editorWrapper: DomternalEditor;
@@ -247,7 +252,11 @@ export class NotionDemo {
        default rather than replace it. */
     this.#bubbleMenu = new DomternalBubbleMenu(bubbleHost, {
       editor,
-      contexts: { text: [...(defaultBubbleContexts(editor)['text'] ?? []), '|', 'textAlign'] },
+      // `Array.isArray` rather than `?? []`: the context value is
+      // `string[] | true | null`, and `true` means "every item this
+      // context knows", which the nullish coalesce lets straight through
+      // into a spread.
+      contexts: { text: [...asItems(defaultBubbleContexts(editor).text), '|', 'textAlign'] },
       ...(initialIcons ? { icons: initialIcons } : {}),
     });
     (window as unknown as Record<string, unknown>).__DEMO_SET_BUBBLE_ICONS__ =

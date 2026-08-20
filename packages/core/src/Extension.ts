@@ -167,13 +167,13 @@ export class Extension<Options = unknown, Storage = unknown> {
     this.config = config;
     this.name = config.name;
 
-    // Initialize options using addOptions() with `this` context
-    // If addOptions is not defined, default to empty object
+    // Initialize options using addOptions() with `this` context If addOptions is
+    // not defined, default to empty object.
     const defaultOptions = callOrReturn(config.addOptions, this);
     this.options = (defaultOptions ?? {}) as Options;
 
-    // Initialize storage using addStorage() with `this` context
-    // If addStorage is not defined, default to empty object
+    // Initialize storage using addStorage() with `this` context If addStorage is
+    // not defined, default to empty object.
     const defaultStorage = callOrReturn(config.addStorage, this);
     this.storage = (defaultStorage ?? {}) as Storage;
   }

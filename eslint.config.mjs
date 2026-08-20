@@ -66,10 +66,8 @@ export default defineConfig(
   },
   {
     // The gate scripts, this config, and the coverage index generator are plain
-    // JS with no tsconfig, so they take the non-type-checked ruleset rather
-    // than being ignored outright. Ignoring them left every check under tests/,
-    // each of which can fail a build, as the only unlinted code in the
-    // repository.
+    // JS with no tsconfig, so they take the non-type-checked ruleset rather than
+    // being ignored outright.
     files: ['**/*.mjs'],
     extends: [tseslint.configs.disableTypeChecked],
     rules: {
