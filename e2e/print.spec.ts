@@ -2531,4 +2531,152 @@ for (const target of demoTargets) {
     expect(await styleOf(page, 'html', 'padding-bottom')).toBe('0px');
     expect(await styleOf(page, 'html', 'box-decoration-break')).toBe('slice');
   });
+
+  test(`${target.name}: the promoted header row is unbreakable in its own right`, async ({
+    page,
+  }) => {
+    // The repeat survives only while the header group itself cannot be split,
+    // and the blanket row rule no longer says that for every row: a row that
+    // can outgrow a sheet is deliberately excluded from it. So the promoted
+    // row carries the declaration itself rather than inheriting a decision
+    // made for other rows, and this is what stops that being tidied away as a
+    // duplicate.
+    await openDemo(page, target);
+    //
+    // The header cells hold two paragraphs each, which is what makes this
+    // measurable at all: the blanket row rule excludes a row that can outgrow
+    // a sheet, and two adjacent paragraphs is exactly the shape it excludes.
+    // A one-line header row takes `avoid` from that blanket rule whether or
+    // not the promotion declares it, so a test written on one proves nothing.
+    await setContent(
+      page,
+      '<table><tbody>' +
+        '<tr><th><p>Alpha</p><p>and its note</p></th><th><p>Beta</p><p>and its note</p></th></tr>' +
+        '<tr><td><p>one</p><p>and its note</p></td><td><p>two</p><p>and its note</p></td></tr>' +
+        '</tbody></table>',
+    );
+
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, 'tbody tr:first-child', 'display')).toBe('table-header-group');
+    expect(await styleOf(page, 'tbody tr:first-child', 'break-inside')).toBe('avoid');
+    // The control, and the reason the header needs its own declaration: the
+    // data row below is the same shape and the blanket rule leaves it
+    // breakable, so this value cannot be coming from there.
+    expect(await styleOf(page, 'tbody tr:nth-child(2)', 'break-inside')).toBe('auto');
+    await page.emulateMedia({ media: null });
+  });
+
+  test(`${target.name}: a code block strands three lines rather than two`, async ({ page }) => {
+    // Two lines of prose carry more than two lines of code do, so `pre` takes
+    // three where `p` takes two. Both constraints are dropped when a block has
+    // fewer lines than their sum, which is why this is a computed read rather
+    // than a page count: a five-line block can still break three and two.
+    await openDemo(page, target);
+    await setContent(page, '<pre><code>one\ntwo\nthree\nfour</code></pre><p>After it.</p>');
+
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, '.ProseMirror pre', 'orphans')).toBe('3');
+    expect(await styleOf(page, '.ProseMirror pre', 'widows')).toBe('3');
+    // The paragraph beside it keeps the prose figure, which is what makes the
+    // pair above a decision rather than a global.
+    expect(await styleOf(page, '.ProseMirror p', 'orphans')).toBe('2');
+    await page.emulateMedia({ media: null });
+  });
+
+  test(`${target.name}: the widow and orphan reset survives a host that lowers it`, async ({
+    page,
+  }) => {
+    // Two is the CSS initial value, so the rule changes nothing on its own and
+    // reads as dead weight. It is not: these properties inherit, and section 6
+    // deliberately leaves the host's ancestors in the tree rather than
+    // removing them, so a host writing `orphans: 1` on the body reaches the
+    // document through them and strands single lines on paper.
+    await openDemo(page, target);
+    await setContent(page, '<p>A paragraph long enough to have lines to strand.</p>');
+    await page.addStyleTag({
+      content: '@media print { body { orphans: 1; widows: 1; } }',
+    });
+
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, 'body', 'orphans')).toBe('1');
+    expect(await styleOf(page, '.ProseMirror p', 'orphans')).toBe('2');
+    expect(await styleOf(page, '.ProseMirror p', 'widows')).toBe('2');
+    await page.emulateMedia({ media: null });
+  });
+
+  test(`${target.name}: the layout release strips a host's own width floor and its chrome`, async ({
+    page,
+  }) => {
+    // Three declarations of the release that nothing else reaches. A
+    // `min-width` on a shell is the one that changes the page rather than
+    // decorating it: left standing it holds the document at a width the sheet
+    // does not have, and the engine scales the whole print down to fit it.
+    await openDemo(page, target);
+    await setContent(page, '<p>A document inside a shell the host application owns.</p>');
+    await page.evaluate(() => {
+      const host = document.querySelector('.dm-editor')?.parentElement;
+      if (!host) throw new Error('no host to decorate');
+      host.style.minWidth = '2000px';
+      host.style.boxShadow = '0 0 40px rgb(255, 0, 0)';
+      host.style.outline = '4px solid rgb(255, 0, 0)';
+    });
+
+    // Without the marks the host keeps all three: the always-on layer does not
+    // touch a page it was not invited to erase.
+    await page.emulateMedia({ media: 'print' });
+    expect(await styleOf(page, '.dm-editor', 'min-width')).not.toBe('2000px');
+    const hostSelector = '.dm-editor';
+    expect(await styleOf(page, hostSelector, 'display')).toBeTruthy();
+    await page.emulateMedia({ media: null });
+
+    await markAsPrinting(page);
+    await page.emulateMedia({ media: 'print' });
+    const released = await page.evaluate(() => {
+      const host = document.querySelector('.dm-editor')?.parentElement;
+      if (!host) throw new Error('no host to read');
+      const style = getComputedStyle(host);
+      return {
+        minWidth: style.minWidth,
+        boxShadow: style.boxShadow,
+        outline: style.outlineStyle,
+      };
+    });
+    await page.emulateMedia({ media: null });
+
+    expect(released.minWidth).toBe('0px');
+    expect(released.boxShadow).toBe('none');
+    expect(released.outline).toBe('none');
+  });
+
+  test(`${target.name}: a host's own print zoom is deliberately left alone`, async ({ page }) => {
+    // Every other transform-adjacent property on a marked ancestor is reset,
+    // because each of them loses content: a containing block for fixed
+    // descendants turns a repeating footer into one box, and a filter
+    // rasterises the text away. `zoom` loses nothing. It scales the print, and
+    // a host who wrote `@media print { body { zoom: 0.8 } }` meant it, so
+    // completing the list would take their decision away: measured at five
+    // sheets becoming seven. This pins the omission so it reads as a choice.
+    await openDemo(page, target);
+    await setContent(page, '<p>A document under a host print zoom.</p>');
+    await page.evaluate(() => {
+      const host = document.querySelector('.dm-editor')?.parentElement;
+      if (!host) throw new Error('no host to zoom');
+      host.style.zoom = '0.8';
+      host.style.transform = 'translateY(4px)';
+    });
+    await markAsPrinting(page);
+
+    await page.emulateMedia({ media: 'print' });
+    const kept = await page.evaluate(() => {
+      const host = document.querySelector('.dm-editor')?.parentElement;
+      if (!host) throw new Error('no host to read');
+      const style = getComputedStyle(host);
+      return { zoom: style.zoom, transform: style.transform };
+    });
+    await page.emulateMedia({ media: null });
+
+    expect(kept.zoom).toBe('0.8');
+    // The control, so this cannot pass because the marks never landed.
+    expect(kept.transform).toBe('none');
+  });
 }
