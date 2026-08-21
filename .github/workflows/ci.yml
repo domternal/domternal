@@ -12,8 +12,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# This repository is public and the job holds a Codecov token, so the default
-# write scope is more than any step here needs.
+# Default every job to the smallest repository permission. Only the isolated
+# coverage job adds the short-lived OIDC permission Codecov needs; no long-lived
+# upload token is exposed to pull-request code.
 permissions:
   contents: read
 
@@ -179,23 +180,25 @@ jobs:
       - name: Test with coverage
         run: pnpm test:coverage
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+      - name: Require every coverage report
+        # A package disappearing from Codecov is a failure, not a smaller upload.
+        run: pnpm test:coverage-reports
+
+      - name: Archive coverage reports
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t reports < <(find packages -type f -path '*/coverage/lcov.info' -print | sort)
+          tar --create --gzip --file "$RUNNER_TEMP/coverage-reports.tgz" "${reports[@]}"
+
+      - name: Preserve coverage for the isolated upload job
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
-          files: >-
-            ./packages/core/coverage/lcov.info,
-            ./packages/extension-block-controls/coverage/lcov.info,
-            ./packages/extension-code-block-lowlight/coverage/lcov.info,
-            ./packages/extension-details/coverage/lcov.info,
-            ./packages/extension-emoji/coverage/lcov.info,
-            ./packages/extension-image/coverage/lcov.info,
-            ./packages/extension-markdown/coverage/lcov.info,
-            ./packages/extension-math/coverage/lcov.info,
-            ./packages/extension-mention/coverage/lcov.info,
-            ./packages/extension-table/coverage/lcov.info,
-            ./packages/extension-toc/coverage/lcov.info
+          name: coverage-reports
+          path: ${{ runner.temp }}/coverage-reports.tgz
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
 
       - name: Validate packages
         run: |
@@ -218,3 +221,52 @@ jobs:
             fi
             cd "$GITHUB_WORKSPACE"
           done
+
+  coverage:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # No repository-controlled dependency or test code executes in this job.
+    # OIDC exists only here and only the pinned Codecov action consumes it.
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download coverage reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: coverage-reports
+          path: ${{ runner.temp }}/coverage-reports
+
+      - name: Restore coverage reports
+        run: tar --extract --gzip --file "$RUNNER_TEMP/coverage-reports/coverage-reports.tgz"
+
+      - name: Collect coverage report paths
+        id: coverage-reports
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t reports < <(find packages -type f -path '*/coverage/lcov.info' -print | sort)
+          if (( ${#reports[@]} == 0 )); then
+            echo 'Coverage artifact contained no lcov reports.' >&2
+            exit 1
+          fi
+          IFS=,
+          echo "files=${reports[*]}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          # Fork PRs use Codecov's public-repository tokenless upload. Trusted
+          # events authenticate with a short-lived GitHub OIDC assertion.
+          use_oidc: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
+          version: v11.3.1
+          fail_ci_if_error: true
+          disable_search: true
+          files: ${{ steps.coverage-reports.outputs.files }}

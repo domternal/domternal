@@ -12,6 +12,7 @@
     "dev": "nx run-many --target=dev --all",
     "test": "nx run-many --target=test --all",
     "test:coverage": "nx run-many --target=test --all -- --coverage",
+    "test:coverage-reports": "node --test tests/coverage-reports/check.test.mjs && node tests/coverage-reports/check.mjs",
     "coverage:index": "pnpm test:coverage && node scripts/generate-coverage-index.mjs",
     "test:e2e": "nx run-many --target=test:e2e --all",
     "test:e2e:matrix": "playwright test --config e2e/playwright.config.ts",
