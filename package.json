@@ -2,10 +2,10 @@
   "name": "@domternal/source",
   "version": "0.0.0",
   "license": "MIT",
-  "packageManager": "pnpm@10.17.0",
+  "packageManager": "pnpm@10.34.4",
   "engines": {
     "node": ">=22",
-    "pnpm": ">=10"
+    "pnpm": ">=10.34.4 <11"
   },
   "scripts": {
     "build": "nx run-many --target=build --all",
