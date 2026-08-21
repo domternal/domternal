@@ -31,12 +31,12 @@ beforeAll(() => {
       disconnect(): void {
         /* no-op stub for jsdom */
       }
-    } as unknown as typeof ResizeObserver;
+    };
   }
   if (!('requestAnimationFrame' in globalThis)) {
     globalThis.requestAnimationFrame = ((cb: FrameRequestCallback): number =>
-      setTimeout(() => { cb(0); }, 0) as unknown as number) as typeof requestAnimationFrame;
-    globalThis.cancelAnimationFrame = ((id: number): void => { clearTimeout(id); }) as typeof cancelAnimationFrame;
+      setTimeout(() => { cb(0); }, 0));
+    globalThis.cancelAnimationFrame = ((id: number): void => { clearTimeout(id); });
   }
 });
 

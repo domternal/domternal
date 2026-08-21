@@ -378,7 +378,7 @@ describe('Heading', () => {
         const handle = p.props.handleKeyDown;
         if (!handle) continue;
         const ev = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
-        if (handle(ed.view as unknown, ev)) return true;
+        if (handle(ed.view, ev)) return true;
       }
       return false;
     }

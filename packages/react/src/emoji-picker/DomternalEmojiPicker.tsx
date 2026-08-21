@@ -9,10 +9,10 @@ const CATEGORY_ICONS: Record<string, string> = {
   'Animals & Nature': '\u{1F431}',
   'Food & Drink': '\u{1F355}',
   'Travel & Places': '\u{1F697}',
-  'Activities': '\u{26BD}',
-  'Objects': '\u{1F4A1}',
-  'Symbols': '\u{1F523}',
-  'Flags': '\u{1F3C1}',
+  Activities: '\u{26BD}',
+  Objects: '\u{1F4A1}',
+  Symbols: '\u{1F523}',
+  Flags: '\u{1F3C1}',
 };
 
 function categoryIcon(cat: string): string {
@@ -30,7 +30,10 @@ export interface DomternalEmojiPickerProps {
   emojis: EmojiPickerItem[];
 }
 
-export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEmojiPickerProps): ReactNode {
+export function DomternalEmojiPicker({
+  editor: editorProp,
+  emojis,
+}: DomternalEmojiPickerProps): ReactNode {
   const { editor: contextEditor } = useCurrentEditor();
   const editor = editorProp ?? contextEditor;
 
@@ -65,14 +68,31 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
       return;
     }
     const cols = 8;
-    let next = idx;
+    let next: number;
     switch (event.key) {
-      case 'ArrowRight': event.preventDefault(); next = Math.min(idx + 1, swatches.length - 1); break;
-      case 'ArrowLeft': event.preventDefault(); next = Math.max(idx - 1, 0); break;
-      case 'ArrowDown': event.preventDefault(); next = Math.min(idx + cols, swatches.length - 1); break;
-      case 'ArrowUp': event.preventDefault(); next = Math.max(idx - cols, 0); break;
-      case 'Enter': case ' ': event.preventDefault(); swatches[idx]?.click(); return;
-      default: return;
+      case 'ArrowRight':
+        event.preventDefault();
+        next = Math.min(idx + 1, swatches.length - 1);
+        break;
+      case 'ArrowLeft':
+        event.preventDefault();
+        next = Math.max(idx - 1, 0);
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        next = Math.min(idx + cols, swatches.length - 1);
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        next = Math.max(idx - cols, 0);
+        break;
+      case 'Enter':
+      case ' ':
+        event.preventDefault();
+        swatches[idx]?.click();
+        return;
+      default:
+        return;
     }
     swatches[next]?.focus();
   }, []);
@@ -89,7 +109,9 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
             aria-label="Search emoji"
             value={searchQuery}
             onChange={onSearch}
-            onKeyDown={(e) => { if (e.key === 'Escape') close(); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') close();
+            }}
           />
         </div>
 
@@ -103,8 +125,12 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
               aria-selected={activeCategory === cat}
               title={cat}
               aria-label={cat}
-              onMouseDown={(e) => { e.preventDefault(); }}
-              onClick={() => { scrollToCategory(cat); }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+              }}
+              onClick={() => {
+                scrollToCategory(cat);
+              }}
             >
               {categoryIcon(cat)}
             </button>
@@ -123,8 +149,12 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
                     tabIndex={-1}
                     title={formatName(item.name)}
                     aria-label={formatName(item.name)}
-                    onMouseDown={(e) => { e.preventDefault(); }}
-                    onClick={() => { selectEmoji(item); }}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                    }}
+                    onClick={() => {
+                      selectEmoji(item);
+                    }}
                   >
                     {item.emoji}
                   </button>
@@ -146,8 +176,12 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
                       tabIndex={-1}
                       title={formatName(item.name)}
                       aria-label={formatName(item.name)}
-                      onMouseDown={(e) => { e.preventDefault(); }}
-                      onClick={() => { selectEmoji(item); }}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                      }}
+                      onClick={() => {
+                        selectEmoji(item);
+                      }}
                     >
                       {item.emoji}
                     </button>
@@ -167,8 +201,12 @@ export function DomternalEmojiPicker({ editor: editorProp, emojis }: DomternalEm
                       tabIndex={-1}
                       title={formatName(item.name)}
                       aria-label={formatName(item.name)}
-                      onMouseDown={(e) => { e.preventDefault(); }}
-                      onClick={() => { selectEmoji(item); }}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                      }}
+                      onClick={() => {
+                        selectEmoji(item);
+                      }}
                     >
                       {item.emoji}
                     </button>

@@ -296,7 +296,7 @@ describe('Placeholder', () => {
       expect(plugins.length).toBe(1);
 
       const decosFn = plugins[0]?.props.decorations as any;
-      const result = decosFn.call(plugins[0], {} as never);
+      const result = decosFn.call(plugins[0], {});
       expect(result).toBe(DecorationSet.empty);
     });
   });

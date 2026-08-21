@@ -149,7 +149,7 @@ export class ChainBuilder {
         return (...args: unknown[]) => {
           // Dry run - dispatch is undefined
           const props: CommandProps = {
-            editor: editor as CommandProps['editor'],
+            editor: editor,
             state: editor.view.state,
             tr,
             dispatch: undefined,
@@ -189,7 +189,7 @@ export class ChainBuilder {
         return (...args: unknown[]) => {
           // Dry run - dispatch is undefined
           const props: CommandProps = {
-            editor: editor as CommandProps['editor'],
+            editor: editor,
             state: editor.view.state,
             tr,
             dispatch: undefined,

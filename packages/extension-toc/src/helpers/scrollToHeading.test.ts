@@ -21,8 +21,16 @@ const buildView = (innerHTML: string): StubView => {
   return { dom };
 };
 
-const callScroll = (view: StubView, id: string, options?: Parameters<typeof scrollToHeading>[2]): boolean =>
-  scrollToHeading(view as EditorView, id, options);
+const callScroll = (
+  view: StubView,
+  id: string,
+  options?: Parameters<typeof scrollToHeading>[2]
+): boolean => scrollToHeading(view as EditorView, id, options);
+
+function currentMatchMedia(): typeof window.matchMedia | undefined {
+  if (typeof window.matchMedia !== 'function') return undefined;
+  return window.matchMedia.bind(window);
+}
 
 describe('scrollToHeading', () => {
   let scrollIntoViewSpy: ReturnType<typeof vi.fn>;
@@ -36,14 +44,15 @@ describe('scrollToHeading', () => {
     history.replaceState(null, '', window.location.pathname);
 
     scrollIntoViewSpy = vi.fn();
-    Element.prototype.scrollIntoView = scrollIntoViewSpy as unknown as typeof Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView =
+      scrollIntoViewSpy as unknown as typeof Element.prototype.scrollIntoView;
 
     originalReplaceState = history.replaceState.bind(history);
     replaceStateSpy = vi.fn();
     history.replaceState = replaceStateSpy as unknown as typeof history.replaceState;
 
     // Save matchMedia so per-test polyfills can restore it.
-    originalMatchMedia = window.matchMedia;
+    originalMatchMedia = currentMatchMedia();
   });
 
   afterEach(() => {
@@ -103,7 +112,7 @@ describe('scrollToHeading', () => {
   });
 
   it('uses instant scroll when prefers-reduced-motion is on', () => {
-    window.matchMedia = ((query: string) => ({
+    window.matchMedia = (query: string) => ({
       matches: query === '(prefers-reduced-motion: reduce)',
       media: query,
       addEventListener: (): void => undefined,
@@ -112,7 +121,7 @@ describe('scrollToHeading', () => {
       addListener: (): void => undefined,
       removeListener: (): void => undefined,
       dispatchEvent: (): boolean => false,
-    })) as typeof window.matchMedia;
+    });
 
     const view = buildView('<h2 id="abc">Section</h2>');
     callScroll(view, 'abc');
@@ -123,7 +132,7 @@ describe('scrollToHeading', () => {
     // Even with the OS preference set to reduce, an explicit
     // `behavior: 'smooth'` from the caller wins. Lets host apps force
     // smooth scroll for non-essential UI like the floating outline.
-    window.matchMedia = ((query: string) => ({
+    window.matchMedia = (query: string) => ({
       matches: query === '(prefers-reduced-motion: reduce)',
       media: query,
       addEventListener: (): void => undefined,
@@ -132,7 +141,7 @@ describe('scrollToHeading', () => {
       addListener: (): void => undefined,
       removeListener: (): void => undefined,
       dispatchEvent: (): boolean => false,
-    })) as typeof window.matchMedia;
+    });
 
     const view = buildView('<h2 id="abc">Section</h2>');
     callScroll(view, 'abc', { behavior: 'smooth' });

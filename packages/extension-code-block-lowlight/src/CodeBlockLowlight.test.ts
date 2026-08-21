@@ -65,7 +65,7 @@ describe('CodeBlockLowlight', () => {
       expect(() => {
         lowlightPlugin({
           name: 'codeBlock',
-          lowlight: null as any,
+          lowlight: null,
           defaultLanguage: null,
           autoDetect: false,
         });

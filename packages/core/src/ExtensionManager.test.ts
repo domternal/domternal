@@ -747,7 +747,7 @@ describe('ExtensionManager', () => {
         content: 'inline*',
         renderHTML: () => ['p', { style: 'color: red' }, 0] as any,
         parseHTML: () => [{ tag: 'p' }],
-      } as any);
+      });
       const AttrExt = Extension.create({
         name: 'styler',
         addGlobalAttributes() {

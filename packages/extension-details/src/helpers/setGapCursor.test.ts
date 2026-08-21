@@ -102,7 +102,7 @@ describe('setGapCursor', () => {
       return origDomAtPos(pos, side);
     };
 
-    const result = setGapCursor(editor as any, 'down');
+    const result = setGapCursor(editor, 'down');
     expect(typeof result).toBe('boolean');
 
     (editor.view as any).domAtPos = origDomAtPos;
@@ -126,7 +126,7 @@ describe('setGapCursor', () => {
       Object.defineProperty(child, 'offsetParent', { get: () => null, configurable: true });
     });
 
-    const result = setGapCursor(editor as any, 'right');
+    const result = setGapCursor(editor, 'right');
     // Result depends on whether GapCursor.findFrom succeeds
     expect(typeof result).toBe('boolean');
   });
@@ -147,7 +147,7 @@ describe('setGapCursor', () => {
     const originalDomAtPos = editor.view.domAtPos.bind(editor.view);
     (editor.view as any).domAtPos = () => ({ node: hidden, offset: 0 });
 
-    const result = setGapCursor(editor as any, 'right');
+    const result = setGapCursor(editor, 'right');
     expect(typeof result).toBe('boolean');
 
     (editor.view as any).domAtPos = originalDomAtPos;
@@ -172,10 +172,10 @@ describe('setGapCursor', () => {
     // Spy findFrom to return a valid GapCursor-like selection so dispatch path runs
     const $pos = editor.state.doc.resolve(10);
     const fakeSel = { $from: $pos } as unknown as ReturnType<typeof GapCursor.findFrom>;
-    const spy = vi.spyOn(GapCursor, 'findFrom').mockReturnValue(fakeSel as any);
+    const spy = vi.spyOn(GapCursor, 'findFrom').mockReturnValue(fakeSel);
 
     try {
-      const result = setGapCursor(editor as any, 'right');
+      const result = setGapCursor(editor, 'right');
       expect(result).toBe(true);
     } finally {
       spy.mockRestore();

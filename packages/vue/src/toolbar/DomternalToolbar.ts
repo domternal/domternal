@@ -1,5 +1,5 @@
 import { computed, defineComponent, h, Fragment } from 'vue';
-import type { PropType, ShallowRef } from 'vue';
+import type { PropType } from 'vue';
 import type {
   Editor,
   IconSet,
@@ -49,15 +49,13 @@ export const DomternalToolbar = defineComponent({
       closeDropdown,
       executeCommand,
     } = useToolbarController(
-      computed(() => props.editor ?? contextEditor.value) as ShallowRef<Editor | null>,
-      props.layout,
+      computed(() => props.editor ?? contextEditor.value),
+      props.layout
     );
 
-    const {
-      getCachedIcon,
-      getCachedItemContent,
-      getDropdownTriggerHtml,
-    } = useToolbarIcons(props.icons);
+    const { getCachedIcon, getCachedItemContent, getDropdownTriggerHtml } = useToolbarIcons(
+      props.icons
+    );
 
     const { getTooltip } = useTooltip();
     const { onKeyDown } = useKeyboardNav(controllerRef, toolbarRef, closeDropdown);
@@ -148,13 +146,17 @@ export const DomternalToolbar = defineComponent({
                     tooltip: getTooltip(btn),
                     iconHtml: getCachedIcon(btn.icon),
                     ariaExpanded: getAriaExpanded(btn),
-                    onClick: (clickedItem: ToolbarButtonType, event: MouseEvent) => { onButtonClick(clickedItem, event); },
+                    onClick: (clickedItem: ToolbarButtonType, event: MouseEvent) => {
+                      onButtonClick(clickedItem, event);
+                    },
                     onFocus: onButtonFocus,
                   });
                 }
                 if (item.type === 'dropdown') {
                   const dd = item;
-                  const activeItem = dd.items.find((sub: ToolbarButtonType) => controllerRef.current?.activeMap.get(sub.name));
+                  const activeItem = dd.items.find((sub: ToolbarButtonType) =>
+                    controllerRef.current?.activeMap.get(sub.name)
+                  );
 
                   let triggerHtml = getDropdownTriggerHtml(dd, activeItem);
                   if (dd.dynamicLabel && !activeItem && dd.computedStyleProperty) {
@@ -189,10 +191,10 @@ export const DomternalToolbar = defineComponent({
                   });
                 }
                 return null;
-              }),
+              })
             ),
-          ]),
-        ),
+          ])
+        )
       );
     };
   },

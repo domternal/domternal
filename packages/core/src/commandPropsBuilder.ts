@@ -77,9 +77,8 @@ export function buildCommandProps(options: BuildCommandPropsOptions): CommandPro
   const { editor, tr, dispatch, chain, can, commands } = options;
 
   return {
-    // Cast required: CommandPropsEditor is a minimal interface, but CommandProps
-    // expects full Editor. Callers ensure the actual editor instance is passed.
-    editor: editor as CommandProps['editor'],
+    // CommandPropsEditor is intentionally the minimal shape CommandProps consumes here.
+    editor: editor,
     state: editor.view.state,
     tr,
     dispatch,

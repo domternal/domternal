@@ -18,7 +18,7 @@ import type { PropType, ShallowRef, VNode } from 'vue';
 import { positionFloating } from '@domternal/core';
 import type { Editor } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
-import { useNotionColorPicker, type UseNotionColorPickerResult } from './useNotionColorPicker.js';
+import { useNotionColorPicker } from './useNotionColorPicker.js';
 
 export interface DomternalNotionColorPickerProps {
   /** The editor instance. If omitted, uses provideEditor context. */
@@ -35,7 +35,9 @@ export const DomternalNotionColorPicker = defineComponent({
     // `computed` returns ComputedRef but the composables expect ShallowRef. Cast
     // is safe (both share the same .value interface and watch subscribes to either)
     // and matches the wrapper convention (see useEmojiPicker / DomternalBubbleMenu).
-    const editorRef = computed(() => props.editor ?? contextEditor.value) as ShallowRef<Editor | null>;
+    const editorRef = computed(
+      () => props.editor ?? contextEditor.value
+    ) as ShallowRef<Editor | null>;
 
     const api = useNotionColorPicker({ editor: editorRef });
     const {
@@ -72,7 +74,9 @@ export const DomternalNotionColorPicker = defineComponent({
           id2 = requestAnimationFrame(() => {
             if (!panel.isConnected) return;
             const active = panel.querySelector<HTMLElement>('.dm-ncp-swatch.dm-ncp-active');
-            const fallback = panel.querySelector<HTMLElement>('.dm-ncp-swatch--text[data-color="null"]');
+            const fallback = panel.querySelector<HTMLElement>(
+              '.dm-ncp-swatch--text[data-color="null"]'
+            );
             (active ?? fallback)?.focus({ preventScroll: true });
           });
         });
@@ -83,7 +87,7 @@ export const DomternalNotionColorPicker = defineComponent({
           cleanupFloating();
         });
       },
-      { flush: 'post' },
+      { flush: 'post' }
     );
 
     const renderDefaultPanel = (): VNode[] => {
@@ -101,20 +105,30 @@ export const DomternalNotionColorPicker = defineComponent({
               'data-color': 'null',
               title: 'Default text color',
               'aria-label': 'Default text color',
-              onMousedown: (e: MouseEvent) => { e.preventDefault(); },
-              onClick: () => { applyText(null); },
+              onMousedown: (e: MouseEvent) => {
+                e.preventDefault();
+              },
+              onClick: () => {
+                applyText(null);
+              },
             }),
-            ...pal.map((t) => h('button', {
-              key: t,
-              type: 'button',
-              class: ['dm-ncp-swatch', 'dm-ncp-swatch--text', tToken === t && 'dm-ncp-active'],
-              'aria-pressed': tToken === t,
-              'data-color': t,
-              title: tokenLabel(t),
-              'aria-label': `${tokenLabel(t)} text`,
-              onMousedown: (e: MouseEvent) => { e.preventDefault(); },
-              onClick: () => { applyText(t); },
-            })),
+            ...pal.map((t) =>
+              h('button', {
+                key: t,
+                type: 'button',
+                class: ['dm-ncp-swatch', 'dm-ncp-swatch--text', tToken === t && 'dm-ncp-active'],
+                'aria-pressed': tToken === t,
+                'data-color': t,
+                title: tokenLabel(t),
+                'aria-label': `${tokenLabel(t)} text`,
+                onMousedown: (e: MouseEvent) => {
+                  e.preventDefault();
+                },
+                onClick: () => {
+                  applyText(t);
+                },
+              })
+            ),
           ]),
         ]),
         h('div', { class: 'dm-ncp-section' }, [
@@ -127,20 +141,30 @@ export const DomternalNotionColorPicker = defineComponent({
               'data-color': 'null',
               title: 'Default background',
               'aria-label': 'Default background',
-              onMousedown: (e: MouseEvent) => { e.preventDefault(); },
-              onClick: () => { applyBg(null); },
+              onMousedown: (e: MouseEvent) => {
+                e.preventDefault();
+              },
+              onClick: () => {
+                applyBg(null);
+              },
             }),
-            ...pal.map((t) => h('button', {
-              key: t,
-              type: 'button',
-              class: ['dm-ncp-swatch', 'dm-ncp-swatch--bg', bToken === t && 'dm-ncp-active'],
-              'aria-pressed': bToken === t,
-              'data-color': t,
-              title: `${tokenLabel(t)} background`,
-              'aria-label': `${tokenLabel(t)} background`,
-              onMousedown: (e: MouseEvent) => { e.preventDefault(); },
-              onClick: () => { applyBg(t); },
-            })),
+            ...pal.map((t) =>
+              h('button', {
+                key: t,
+                type: 'button',
+                class: ['dm-ncp-swatch', 'dm-ncp-swatch--bg', bToken === t && 'dm-ncp-active'],
+                'aria-pressed': bToken === t,
+                'data-color': t,
+                title: `${tokenLabel(t)} background`,
+                'aria-label': `${tokenLabel(t)} background`,
+                onMousedown: (e: MouseEvent) => {
+                  e.preventDefault();
+                },
+                onClick: () => {
+                  applyBg(t);
+                },
+              })
+            ),
           ]),
         ]),
       ];
@@ -152,23 +176,27 @@ export const DomternalNotionColorPicker = defineComponent({
       if (!isOpen.value || !hostEl.value) return null;
 
       const slot = slots['default'];
-      const slotChildren = slot ? slot({ api } as { api: UseNotionColorPickerResult }) : undefined;
+      const slotChildren = slot ? slot({ api }) : undefined;
       const panelChildren = slotChildren ?? renderDefaultPanel();
 
       return h(Teleport, { to: hostEl.value }, [
-        h('div', {
-          ref: panelRef,
-          class: 'dm-notion-color-picker',
-          'data-show': '',
-          'data-dm-editor-ui': '',
-          role: 'dialog',
-          'aria-label': 'Text and background color',
-          // Intentional non-modal: the picker doesn't trap focus (outside-click
-          // closes, editor stays interactive). `role="dialog"` defaults to
-          // modal=true for screen readers, so we explicitly opt out.
-          'aria-modal': 'false',
-          onKeydown: onPanelKeydown,
-        }, panelChildren),
+        h(
+          'div',
+          {
+            ref: panelRef,
+            class: 'dm-notion-color-picker',
+            'data-show': '',
+            'data-dm-editor-ui': '',
+            role: 'dialog',
+            'aria-label': 'Text and background color',
+            // Intentional non-modal: the picker doesn't trap focus (outside-click
+            // closes, editor stays interactive). `role="dialog"` defaults to
+            // modal=true for screen readers, so we explicitly opt out.
+            'aria-modal': 'false',
+            onKeydown: onPanelKeydown,
+          },
+          panelChildren
+        ),
       ]);
     };
   },

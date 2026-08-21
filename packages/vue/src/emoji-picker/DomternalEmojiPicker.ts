@@ -1,5 +1,5 @@
 import { computed, defineComponent, h } from 'vue';
-import type { PropType, ShallowRef } from 'vue';
+import type { PropType } from 'vue';
 import type { Editor } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useEmojiPicker, type EmojiPickerItem } from './useEmojiPicker.js';
@@ -10,10 +10,10 @@ const CATEGORY_ICONS: Record<string, string> = {
   'Animals & Nature': '\u{1F431}',
   'Food & Drink': '\u{1F355}',
   'Travel & Places': '\u{1F697}',
-  'Activities': '\u{26BD}',
-  'Objects': '\u{1F4A1}',
-  'Symbols': '\u{1F523}',
-  'Flags': '\u{1F3C1}',
+  Activities: '\u{26BD}',
+  Objects: '\u{1F4A1}',
+  Symbols: '\u{1F523}',
+  Flags: '\u{1F3C1}',
 };
 
 function categoryIcon(cat: string): string {
@@ -53,8 +53,8 @@ export const DomternalEmojiPicker = defineComponent({
       close,
       categories,
     } = useEmojiPicker(
-      computed(() => props.editor ?? contextEditor.value) as ShallowRef<Editor | null>,
-      props.emojis,
+      computed(() => props.editor ?? contextEditor.value),
+      props.emojis
     );
 
     function onGridKeyDown(event: KeyboardEvent): void {
@@ -72,29 +72,54 @@ export const DomternalEmojiPicker = defineComponent({
         return;
       }
       const cols = 8;
-      let next = idx;
+      let next: number;
       switch (event.key) {
-        case 'ArrowRight': event.preventDefault(); next = Math.min(idx + 1, swatches.length - 1); break;
-        case 'ArrowLeft': event.preventDefault(); next = Math.max(idx - 1, 0); break;
-        case 'ArrowDown': event.preventDefault(); next = Math.min(idx + cols, swatches.length - 1); break;
-        case 'ArrowUp': event.preventDefault(); next = Math.max(idx - cols, 0); break;
-        case 'Enter': case ' ': event.preventDefault(); swatches[idx]?.click(); return;
-        default: return;
+        case 'ArrowRight':
+          event.preventDefault();
+          next = Math.min(idx + 1, swatches.length - 1);
+          break;
+        case 'ArrowLeft':
+          event.preventDefault();
+          next = Math.max(idx - 1, 0);
+          break;
+        case 'ArrowDown':
+          event.preventDefault();
+          next = Math.min(idx + cols, swatches.length - 1);
+          break;
+        case 'ArrowUp':
+          event.preventDefault();
+          next = Math.max(idx - cols, 0);
+          break;
+        case 'Enter':
+        case ' ':
+          event.preventDefault();
+          swatches[idx]?.click();
+          return;
+        default:
+          return;
       }
       swatches[next]?.focus();
     }
 
     function renderEmojiButton(item: EmojiPickerItem): ReturnType<typeof h> {
-      return h('button', {
-        key: item.name,
-        type: 'button',
-        class: 'dm-emoji-swatch',
-        tabindex: -1,
-        title: formatName(item.name),
-        'aria-label': formatName(item.name),
-        onMousedown: (e: MouseEvent) => { e.preventDefault(); },
-        onClick: () => { selectEmoji(item); },
-      }, item.emoji);
+      return h(
+        'button',
+        {
+          key: item.name,
+          type: 'button',
+          class: 'dm-emoji-swatch',
+          tabindex: -1,
+          title: formatName(item.name),
+          'aria-label': formatName(item.name),
+          onMousedown: (e: MouseEvent) => {
+            e.preventDefault();
+          },
+          onClick: () => {
+            selectEmoji(item);
+          },
+        },
+        item.emoji
+      );
     }
 
     return () => {
@@ -112,34 +137,50 @@ export const DomternalEmojiPicker = defineComponent({
               'aria-label': 'Search emoji',
               value: searchQuery.value,
               onInput: onSearch,
-              onKeydown: (e: KeyboardEvent) => { if (e.key === 'Escape') close(); },
+              onKeydown: (e: KeyboardEvent) => {
+                if (e.key === 'Escape') close();
+              },
             }),
           ]),
 
           // Category tabs
-          h('div', { class: 'dm-emoji-picker-tabs', role: 'tablist' },
+          h(
+            'div',
+            { class: 'dm-emoji-picker-tabs', role: 'tablist' },
             categoryNames.value.map((cat) =>
-              h('button', {
-                key: cat,
-                type: 'button',
-                class: ['dm-emoji-picker-tab', activeCategory.value === cat && 'dm-emoji-picker-tab--active'],
-                role: 'tab',
-                'aria-selected': activeCategory.value === cat,
-                title: cat,
-                'aria-label': cat,
-                onMousedown: (e: MouseEvent) => { e.preventDefault(); },
-                onClick: () => { scrollToCategory(cat); },
-              }, categoryIcon(cat)),
-            ),
+              h(
+                'button',
+                {
+                  key: cat,
+                  type: 'button',
+                  class: [
+                    'dm-emoji-picker-tab',
+                    activeCategory.value === cat && 'dm-emoji-picker-tab--active',
+                  ],
+                  role: 'tab',
+                  'aria-selected': activeCategory.value === cat,
+                  title: cat,
+                  'aria-label': cat,
+                  onMousedown: (e: MouseEvent) => {
+                    e.preventDefault();
+                  },
+                  onClick: () => {
+                    scrollToCategory(cat);
+                  },
+                },
+                categoryIcon(cat)
+              )
+            )
           ),
 
           // Grid
-          h('div', { class: 'dm-emoji-picker-grid', onScroll: onGridScroll, onKeydown: onGridKeyDown },
+          h(
+            'div',
+            { class: 'dm-emoji-picker-grid', onScroll: onGridScroll, onKeydown: onGridKeyDown },
             searchQuery.value
-              ? (filteredEmojis.value.length > 0
-                  ? filteredEmojis.value.map(renderEmojiButton)
-                  : [h('div', { class: 'dm-emoji-picker-empty' }, 'No emoji found')]
-                )
+              ? filteredEmojis.value.length > 0
+                ? filteredEmojis.value.map(renderEmojiButton)
+                : [h('div', { class: 'dm-emoji-picker-empty' }, 'No emoji found')]
               : [
                   // Frequently used
                   ...(frequentlyUsed.value.length > 0
@@ -150,14 +191,18 @@ export const DomternalEmojiPicker = defineComponent({
                     : []),
                   // All categories
                   ...categoryNames.value.flatMap((cat) => [
-                    h('div', {
-                      key: `label-${cat}`,
-                      class: 'dm-emoji-picker-category-label',
-                      'data-category': cat,
-                    }, cat),
+                    h(
+                      'div',
+                      {
+                        key: `label-${cat}`,
+                        class: 'dm-emoji-picker-category-label',
+                        'data-category': cat,
+                      },
+                      cat
+                    ),
                     ...(categories.value.get(cat) ?? []).map(renderEmojiButton),
                   ]),
-                ],
+                ]
           ),
         ]),
       ]);

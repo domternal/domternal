@@ -606,7 +606,7 @@ function main() {
   for (const entry of REQUIRED) {
     const dir = join(repoRoot, entry.package);
     guarded.add(entry.package);
-    let notice = '';
+    let notice;
     try {
       notice = readFileSync(join(dir, 'THIRD-PARTY-LICENSES.md'), 'utf8');
     } catch {

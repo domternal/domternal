@@ -231,7 +231,7 @@ export const StarterKit = Extension.create<StarterKitOptions>({
     // ListIndent fires first, bails when the cursor is inside a list item, and
     // ListKeymap then handles the in-list Tab/Shift-Tab (sinkListItem /
     // liftListItem). Reordering breaks that delegation.
-    if (this.options.listIndent === true) extensions.push(ListIndent as never);
+    if (this.options.listIndent === true) extensions.push(ListIndent);
     maybeAdd(LinkPopover, this.options.linkPopover);
     maybeAdd(SelectionDecoration as never, this.options.selectionDecoration as never);
 

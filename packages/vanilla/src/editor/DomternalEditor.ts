@@ -279,22 +279,22 @@ export class DomternalEditor extends EventTarget {
       );
     };
 
-    this.editor.on('transaction', this.#transactionHandler as (...args: unknown[]) => void);
-    this.editor.on('focus', this.#focusHandler as (...args: unknown[]) => void);
-    this.editor.on('blur', this.#blurHandler as (...args: unknown[]) => void);
+    this.editor.on('transaction', this.#transactionHandler);
+    this.editor.on('focus', this.#focusHandler);
+    this.editor.on('blur', this.#blurHandler);
   }
 
   #unwireEditorEvents(): void {
     if (this.#transactionHandler) {
-      this.editor.off('transaction', this.#transactionHandler as (...args: unknown[]) => void);
+      this.editor.off('transaction', this.#transactionHandler);
       this.#transactionHandler = null;
     }
     if (this.#focusHandler) {
-      this.editor.off('focus', this.#focusHandler as (...args: unknown[]) => void);
+      this.editor.off('focus', this.#focusHandler);
       this.#focusHandler = null;
     }
     if (this.#blurHandler) {
-      this.editor.off('blur', this.#blurHandler as (...args: unknown[]) => void);
+      this.editor.off('blur', this.#blurHandler);
       this.#blurHandler = null;
     }
   }

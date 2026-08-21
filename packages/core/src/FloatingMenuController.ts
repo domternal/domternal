@@ -256,12 +256,16 @@ export class FloatingMenuController {
    */
   private updateDisabledStates(): void {
     let changed = false;
-    let canProxy: Record<string, (...args: unknown[]) => boolean> | null = null;
-    try {
-      canProxy = this.editor.can() as unknown as Record<string, (...args: unknown[]) => boolean>;
-    } catch {
-      canProxy = null;
-    }
+    const canProxy = (() => {
+      try {
+        return this.editor.can() as unknown as Record<
+          string,
+          (...args: unknown[]) => boolean
+        >;
+      } catch {
+        return null;
+      }
+    })();
 
     for (const item of this._flatItems) {
       const was = this._disabledMap.get(item.name) ?? false;

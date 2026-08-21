@@ -23,7 +23,7 @@ function findCellPositions(editor: Editor): { first: number; last: number } {
 function selectAllCells(editor: Editor): void {
   const { first, last } = findCellPositions(editor);
   const selection = CellSelection.create(editor.state.doc, first, last);
-  editor.view.dispatch(editor.state.tr.setSelection(selection as unknown as typeof editor.state.tr.selection));
+  editor.view.dispatch(editor.state.tr.setSelection(selection));
 }
 
 describe('deleteTableWhenAllCellsSelected', () => {
@@ -76,7 +76,7 @@ describe('deleteTableWhenAllCellsSelected', () => {
     });
     const firstCellPos = positions[0] ?? 0;
     const selection = CellSelection.create(editor.state.doc, firstCellPos, firstCellPos);
-    editor.view.dispatch(editor.state.tr.setSelection(selection as unknown as typeof editor.state.tr.selection));
+    editor.view.dispatch(editor.state.tr.setSelection(selection));
 
     const result = deleteTableWhenAllCellsSelected({ state: editor.state });
     expect(result).toBe(false);

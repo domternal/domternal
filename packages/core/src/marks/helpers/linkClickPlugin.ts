@@ -63,7 +63,7 @@ export function linkClickPlugin(options: LinkClickPluginOptions): Plugin {
         }
 
         // Find the <a> element from the click target
-        let link: HTMLAnchorElement | null = null;
+        let link: HTMLAnchorElement | null;
 
         if (event.target instanceof HTMLAnchorElement) {
           link = event.target;

@@ -101,7 +101,7 @@ export class DomternalEmojiPicker extends EventTarget {
     if (!(host instanceof HTMLElement)) {
       throw new TypeError(
         '[DomternalEmojiPicker] host must be an HTMLElement. ' +
-          'Pass a DOM node (e.g. document.querySelector("#emoji-host")).',
+          'Pass a DOM node (e.g. document.querySelector("#emoji-host")).'
       );
     }
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -142,7 +142,7 @@ export class DomternalEmojiPicker extends EventTarget {
     };
     (this.#editor.on as (e: string, h: (...args: unknown[]) => void) => void)(
       'insertEmoji',
-      this.#eventHandler,
+      this.#eventHandler
     );
   }
 
@@ -201,7 +201,7 @@ export class DomternalEmojiPicker extends EventTarget {
     if (this.#eventHandler) {
       (this.#editor.off as (e: string, h: (...args: unknown[]) => void) => void)(
         'insertEmoji',
-        this.#eventHandler,
+        this.#eventHandler
       );
       this.#eventHandler = null;
     }
@@ -242,13 +242,10 @@ export class DomternalEmojiPicker extends EventTarget {
     const query = this.#searchQuery.toLowerCase();
     if (!query) return [];
     const storage = this.#getEmojiStorage();
-    const searchFn = storage?.['searchEmoji'] as
-      | ((q: string) => EmojiPickerItem[])
-      | undefined;
+    const searchFn = storage?.['searchEmoji'] as ((q: string) => EmojiPickerItem[]) | undefined;
     if (searchFn) return searchFn(query);
     return this.#emojis.filter(
-      (item) =>
-        item.name.includes(query) || item.group.toLowerCase().includes(query),
+      (item) => item.name.includes(query) || item.group.toLowerCase().includes(query)
     );
   }
 
@@ -259,9 +256,7 @@ export class DomternalEmojiPicker extends EventTarget {
     if (!getFreq) return [];
     const names = getFreq();
     if (!names.length) return [];
-    const nameMap = storage['_nameMap'] as
-      | Map<string, EmojiPickerItem>
-      | undefined;
+    const nameMap = storage['_nameMap'] as Map<string, EmojiPickerItem> | undefined;
     if (!nameMap) return [];
     return names
       .slice(0, 16)
@@ -287,11 +282,7 @@ export class DomternalEmojiPicker extends EventTarget {
   }
 
   #renderPanelChildren(): Node[] {
-    return [
-      this.#renderSearch(),
-      this.#renderTabs(),
-      this.#renderGrid(),
-    ];
+    return [this.#renderSearch(), this.#renderTabs(), this.#renderGrid()];
   }
 
   #renderSearch(): HTMLDivElement {
@@ -329,8 +320,12 @@ export class DomternalEmojiPicker extends EventTarget {
       tab.title = cat;
       tab.setAttribute('aria-label', cat);
       tab.textContent = this.#categoryIcon(cat);
-      tab.addEventListener('mousedown', (e) => { e.preventDefault(); });
-      tab.addEventListener('click', () => { this.#scrollToCategory(cat); });
+      tab.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+      });
+      tab.addEventListener('click', () => {
+        this.#scrollToCategory(cat);
+      });
       tabs.appendChild(tab);
     }
     return tabs;
@@ -339,8 +334,12 @@ export class DomternalEmojiPicker extends EventTarget {
   #renderGrid(): HTMLDivElement {
     const grid = document.createElement('div');
     grid.className = 'dm-emoji-picker-grid';
-    grid.addEventListener('scroll', () => { this.#onGridScroll(); });
-    grid.addEventListener('keydown', (e) => { this.#onGridKeydown(e); });
+    grid.addEventListener('scroll', () => {
+      this.#onGridScroll();
+    });
+    grid.addEventListener('keydown', (e) => {
+      this.#onGridKeydown(e);
+    });
 
     if (this.#searchQuery) {
       const filtered = this.#getFilteredEmojis();
@@ -391,8 +390,12 @@ export class DomternalEmojiPicker extends EventTarget {
     btn.title = this.#formatName(item.name);
     btn.setAttribute('aria-label', this.#formatName(item.name));
     btn.textContent = item.emoji;
-    btn.addEventListener('mousedown', (e) => { e.preventDefault(); });
-    btn.addEventListener('click', () => { this.#selectEmoji(item); });
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+    });
+    btn.addEventListener('click', () => {
+      this.#selectEmoji(item);
+    });
     return btn;
   }
 
@@ -403,9 +406,7 @@ export class DomternalEmojiPicker extends EventTarget {
    */
   #setSearchQuery(value: string): void {
     this.#searchQuery = value;
-    const input = this.#panel?.querySelector<HTMLInputElement>(
-      '.dm-emoji-picker-search input',
-    );
+    const input = this.#panel?.querySelector<HTMLInputElement>('.dm-emoji-picker-search input');
     if (input && input.value !== value) input.value = value;
   }
 
@@ -428,7 +429,7 @@ export class DomternalEmojiPicker extends EventTarget {
     const cmd = this.#editor.commands as Record<string, (...args: unknown[]) => boolean>;
     cmd['insertEmoji']?.(item.name);
     this.dispatchEvent(
-      new CustomEvent('select', { detail: { name: item.name, emoji: item.emoji } }),
+      new CustomEvent('select', { detail: { name: item.name, emoji: item.emoji } })
     );
     this.close();
   }
@@ -461,7 +462,7 @@ export class DomternalEmojiPicker extends EventTarget {
     const grid = this.#panel?.querySelector<HTMLElement>('.dm-emoji-picker-grid');
     if (!grid) return;
     const labels = Array.from(
-      grid.querySelectorAll<HTMLElement>('.dm-emoji-picker-category-label[data-category]'),
+      grid.querySelectorAll<HTMLElement>('.dm-emoji-picker-category-label[data-category]')
     );
     let currentCat = '';
     for (const label of labels) {
@@ -478,9 +479,7 @@ export class DomternalEmojiPicker extends EventTarget {
   #onGridKeydown(event: KeyboardEvent): void {
     const grid = this.#panel?.querySelector<HTMLElement>('.dm-emoji-picker-grid');
     if (!grid) return;
-    const swatches = Array.from(
-      grid.querySelectorAll<HTMLElement>('.dm-emoji-swatch'),
-    );
+    const swatches = Array.from(grid.querySelectorAll<HTMLElement>('.dm-emoji-swatch'));
     if (!swatches.length) return;
 
     const active = document.activeElement;
@@ -494,7 +493,7 @@ export class DomternalEmojiPicker extends EventTarget {
       return;
     }
     const cols = 8;
-    let next = idx;
+    let next: number;
     switch (event.key) {
       case 'ArrowRight':
         event.preventDefault();
@@ -533,9 +532,7 @@ export class DomternalEmojiPicker extends EventTarget {
           offsetValue: 4,
         });
       }
-      const input = this.#panel.querySelector<HTMLInputElement>(
-        '.dm-emoji-picker-search input',
-      );
+      const input = this.#panel.querySelector<HTMLInputElement>('.dm-emoji-picker-search input');
       input?.focus({ preventScroll: true });
     });
   }
@@ -554,9 +551,11 @@ export class DomternalEmojiPicker extends EventTarget {
         if (target === this.#anchor) return;
         if (this.#anchor?.contains(target)) return;
         // Defer close so the click handler on a panel descendant fires first
-        requestAnimationFrame(() => { this.close(); });
+        requestAnimationFrame(() => {
+          this.close();
+        });
       },
-      { signal },
+      { signal }
     );
 
     document.addEventListener(
@@ -567,7 +566,7 @@ export class DomternalEmojiPicker extends EventTarget {
           this.close();
         }
       },
-      { signal },
+      { signal }
     );
   }
 

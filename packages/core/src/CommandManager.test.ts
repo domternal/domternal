@@ -17,7 +17,7 @@ Range.prototype.getClientRects = vi.fn(() => ({
   length: 0,
   item: () => null,
   [Symbol.iterator]: function* () {},
-})) as any;
+}));
 
 // Mock getBoundingClientRect for Range
 Range.prototype.getBoundingClientRect = vi.fn(() => ({
@@ -30,7 +30,7 @@ Range.prototype.getBoundingClientRect = vi.fn(() => ({
   x: 0,
   y: 0,
   toJSON: () => ({}),
-})) as any;
+}));
 
 // Basic test schema (for original tests)
 const testSchema = new Schema({
@@ -165,7 +165,7 @@ function createMockEditor(content?: string): MockEditor {
       // No-op for tests
     },
     extensionManager: {
-      commands: {} as CommandMap,
+      commands: {},
     },
     cleanup: () => {
       view.destroy();
@@ -199,7 +199,7 @@ function createExtendedMockEditor(content?: string): MockEditor {
       // No-op for tests
     },
     extensionManager: {
-      commands: {} as CommandMap,
+      commands: {},
     },
     cleanup: () => {
       view.destroy();
@@ -215,7 +215,7 @@ describe('CommandManager', () => {
   beforeEach(() => {
     mockEditor = createMockEditor('Hello world');
     // Cast to any to satisfy TypeScript - mock doesn't need full interface
-    manager = new CommandManager(mockEditor as any);
+    manager = new CommandManager(mockEditor);
   });
 
   afterEach(() => {
@@ -238,7 +238,7 @@ describe('CommandManager', () => {
       const customCommand = () => () => true;
       mockEditor.extensionManager.commands = {
         customCommand,
-      } as unknown as CommandMap;
+      };
 
       // Clear cache to pick up new commands
       manager.clearCache();
@@ -500,7 +500,7 @@ describe('CommandManager', () => {
       // Add new extension command
       mockEditor.extensionManager.commands = {
         newCommand: () => () => true,
-      } as unknown as CommandMap;
+      };
 
       // Without clearing, should still return old cache
       const commands2 = manager.rawCommands;
@@ -526,7 +526,7 @@ describe('CommandManager - Mark Commands', () => {
 
   beforeEach(() => {
     mockEditor = createExtendedMockEditor('Hello world');
-    manager = new CommandManager(mockEditor as any);
+    manager = new CommandManager(mockEditor);
     commands = manager.commands;
   });
 
@@ -659,7 +659,7 @@ describe('CommandManager - Block Commands', () => {
 
   beforeEach(() => {
     mockEditor = createExtendedMockEditor('Hello world');
-    manager = new CommandManager(mockEditor as any);
+    manager = new CommandManager(mockEditor);
     commands = manager.commands;
   });
 
@@ -782,7 +782,7 @@ describe('CommandManager - List Commands', () => {
 
   beforeEach(() => {
     mockEditor = createExtendedMockEditor('Hello world');
-    manager = new CommandManager(mockEditor as any);
+    manager = new CommandManager(mockEditor);
     commands = manager.commands;
   });
 
@@ -825,7 +825,7 @@ describe('CommandManager - Insert Commands', () => {
 
   beforeEach(() => {
     mockEditor = createExtendedMockEditor('Hello world');
-    manager = new CommandManager(mockEditor as any);
+    manager = new CommandManager(mockEditor);
     commands = manager.commands;
   });
 
@@ -883,7 +883,7 @@ describe('CommandManager - Selection Commands', () => {
 
   beforeEach(() => {
     mockEditor = createExtendedMockEditor('Hello world');
-    manager = new CommandManager(mockEditor as any);
+    manager = new CommandManager(mockEditor);
     commands = manager.commands;
   });
 
@@ -914,7 +914,7 @@ describe('CommandManager - can() for new commands', () => {
 
   beforeEach(() => {
     mockEditor = createExtendedMockEditor('Hello world');
-    manager = new CommandManager(mockEditor as any);
+    manager = new CommandManager(mockEditor);
     can = manager.can();
     commands = manager.commands;
   });

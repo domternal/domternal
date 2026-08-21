@@ -175,14 +175,14 @@ export const Table = Node.create<TableOptions>({
       return undefined as unknown as NodeViewConstructor;
     }
 
-    return ((node: PMNode, view: EditorView) =>
+    return (node: PMNode, view: EditorView) =>
       new ViewClass(
         node,
         cellMinWidth,
         view,
         defaultCellMinWidth,
         constrainToContainer
-      )) as unknown as NodeViewConstructor;
+      );
   },
 
   addCommands() {
@@ -381,7 +381,7 @@ export const Table = Node.create<TableOptions>({
         (position: { anchorCell: number; headCell?: number }) =>
         ({ tr, dispatch }) => {
           const selection = CellSelection.create(tr.doc, position.anchorCell, position.headCell);
-          tr.setSelection(selection as unknown as typeof tr.selection);
+          tr.setSelection(selection);
           if (dispatch) {
             dispatch(tr);
           }

@@ -128,7 +128,13 @@ const TOKEN_LABELS: Record<string, string> = {
       </div>
     }
   `,
-  styles: [`:host { display: contents; }`],
+  styles: [
+    `
+      :host {
+        display: contents;
+      }
+    `,
+  ],
 })
 export class DomternalNotionColorPickerComponent implements OnDestroy {
   readonly editor = input.required<Editor>();
@@ -156,7 +162,9 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
   constructor() {
     effect(() => {
       const editor = this.editor();
-      untracked(() => { this.setupEventListener(editor); });
+      untracked(() => {
+        this.setupEventListener(editor);
+      });
     });
   }
 
@@ -194,16 +202,14 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
     // Query off the tracked panel; after reparenting into `.dm-editor` the
     // swatches are no longer descendants of the component host element.
     const root = this.panelEl ?? this.elRef.nativeElement;
-    const swatches = Array.from(
-      root.querySelectorAll<HTMLElement>('.dm-ncp-swatch'),
-    );
+    const swatches = Array.from(root.querySelectorAll<HTMLElement>('.dm-ncp-swatch'));
     if (!swatches.length) return;
 
     const active = document.activeElement as HTMLElement | null;
     const idx = active ? swatches.indexOf(active) : -1;
     if (idx === -1) return;
 
-    let next = idx;
+    let next: number;
     switch (event.key) {
       case 'ArrowRight':
         event.preventDefault();
@@ -278,9 +284,8 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
         // same frame as mount can race with the bubble-menu's blur handler
         // and momentarily hide the floating layer Playwright observes.
         requestAnimationFrame(() => {
-          const panel = this.elRef.nativeElement.querySelector<HTMLElement>(
-            '.dm-notion-color-picker',
-          );
+          const panel =
+            this.elRef.nativeElement.querySelector<HTMLElement>('.dm-notion-color-picker');
           if (panel && this.anchorEl) {
             // Reparent into `.dm-editor` so the panel inherits the editor's
             // CSS custom properties (`--dm-block-bg-*`, `--dm-block-text-*`,
@@ -307,11 +312,9 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
             // null and focus never lands.
             const p = this.panelEl;
             if (!p) return;
-            const active = p.querySelector<HTMLElement>(
-              '.dm-ncp-swatch.dm-ncp-active',
-            );
+            const active = p.querySelector<HTMLElement>('.dm-ncp-swatch.dm-ncp-active');
             const fallback = p.querySelector<HTMLElement>(
-              '.dm-ncp-swatch--text[data-color="null"]',
+              '.dm-ncp-swatch--text[data-color="null"]'
             );
             (active ?? fallback)?.focus({ preventScroll: true });
           });
@@ -321,7 +324,7 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
 
     (editor.on as (e: string, h: (...args: unknown[]) => void) => void)(
       'notionColorOpen',
-      this.eventHandler,
+      this.eventHandler
     );
   }
 
@@ -336,14 +339,18 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
       if (this.panelEl?.contains(target)) return;
       if (this.elRef.nativeElement.contains(target)) return;
       if (this.anchorEl?.contains(target)) return;
-      this.ngZone.run(() => { this.close({ refocus: false }); });
+      this.ngZone.run(() => {
+        this.close({ refocus: false });
+      });
     };
     document.addEventListener('mousedown', this.clickOutsideHandler);
 
     this.keydownHandler = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && this.isOpen()) {
         e.preventDefault();
-        this.ngZone.run(() => { this.close({ refocus: true }); });
+        this.ngZone.run(() => {
+          this.close({ refocus: true });
+        });
       }
     };
     document.addEventListener('keydown', this.keydownHandler);
@@ -356,11 +363,15 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
       // (hideout, route change). Positioning against a detached anchor is
       // a no-op; close instead. Matches React/Vue behaviour.
       if (this.anchorEl && !this.anchorEl.isConnected) {
-        this.ngZone.run(() => { this.close({ refocus: false }); });
+        this.ngZone.run(() => {
+          this.close({ refocus: false });
+        });
         return;
       }
       if (this.editor().state.selection.empty) {
-        this.ngZone.run(() => { this.close({ refocus: false }); });
+        this.ngZone.run(() => {
+          this.close({ refocus: false });
+        });
       } else {
         // Selection changed but stays non-empty (e.g. shift+arrow): refresh
         // the active-state indicators against the new mark set.
@@ -369,7 +380,7 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
     };
     (this.editor().on as (e: string, h: () => void) => void)(
       'selectionUpdate',
-      this.selectionHandler,
+      this.selectionHandler
     );
   }
 
@@ -385,7 +396,7 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
     if (this.selectionHandler) {
       (this.editor().off as (e: string, h: () => void) => void)(
         'selectionUpdate',
-        this.selectionHandler,
+        this.selectionHandler
       );
       this.selectionHandler = null;
     }
@@ -414,7 +425,10 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
       });
     }
 
-    const attrs = (mark?.attrs ?? {}) as { colorToken?: string | null; backgroundColorToken?: string | null };
+    const attrs = (mark?.attrs ?? {}) as {
+      colorToken?: string | null;
+      backgroundColorToken?: string | null;
+    };
     this.currentTextToken.set(attrs.colorToken ?? null);
     this.currentBgToken.set(attrs.backgroundColorToken ?? null);
   }
@@ -446,7 +460,7 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
       const editor = this.editor();
       (editor.off as (e: string, h: (...args: unknown[]) => void) => void)(
         'notionColorOpen',
-        this.eventHandler,
+        this.eventHandler
       );
       this.eventHandler = null;
     }

@@ -46,10 +46,7 @@ describe('Details', () => {
   describe('parseHTML', () => {
     it('returns rules for details tag and div[data-type="details"]', () => {
       const rules = Details.config.parseHTML?.call(Details);
-      expect(rules).toEqual([
-        { tag: 'details' },
-        { tag: 'div[data-type="details"]' },
-      ]);
+      expect(rules).toEqual([{ tag: 'details' }, { tag: 'div[data-type="details"]' }]);
     });
   });
 
@@ -185,7 +182,8 @@ describe('integration', () => {
   it('parses details HTML correctly', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content here</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content here</p></div></details>',
     });
 
     const doc = editor.state.doc;
@@ -202,7 +200,8 @@ describe('integration', () => {
   it('renders details HTML correctly', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Body</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Body</p></div></details>',
     });
 
     const html = editor.getHTML();
@@ -214,7 +213,8 @@ describe('integration', () => {
   });
 
   it('round-trips HTML correctly', () => {
-    const input = '<details><summary>FAQ</summary><div data-details-content><p>Answer here</p></div></details>';
+    const input =
+      '<details><summary>FAQ</summary><div data-details-content><p>Answer here</p></div></details>';
 
     editor = new Editor({
       extensions: allExtensions,
@@ -252,7 +252,8 @@ describe('integration', () => {
   it('supports multiple blocks in content', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Para 1</p><p>Para 2</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Para 1</p><p>Para 2</p></div></details>',
     });
 
     const content = editor.state.doc.child(0).child(1);
@@ -307,9 +308,7 @@ describe('commands', () => {
     // Select inside the paragraph
     const $pos = editor.state.doc.resolve(1);
     editor.view.dispatch(
-      editor.state.tr.setSelection(
-        (editor.state.selection.constructor as any).near($pos)
-      )
+      editor.state.tr.setSelection((editor.state.selection.constructor as any).near($pos))
     );
 
     const result = editor.commands.setDetails();
@@ -326,7 +325,8 @@ describe('commands', () => {
   it('unsetDetails extracts content from details', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Inner text</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Inner text</p></div></details>',
     });
 
     // Place cursor inside the details content
@@ -334,9 +334,7 @@ describe('commands', () => {
     const contentPos = doc.child(0).child(0).nodeSize + 1 + 1; // past summary, into content
     const $pos = editor.state.doc.resolve(contentPos);
     editor.view.dispatch(
-      editor.state.tr.setSelection(
-        (editor.state.selection.constructor as any).near($pos)
-      )
+      editor.state.tr.setSelection((editor.state.selection.constructor as any).near($pos))
     );
 
     const result = editor.commands.unsetDetails();
@@ -353,16 +351,15 @@ describe('commands', () => {
   it('setDetails does nothing when already inside details', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     // Place cursor inside the details content
     const detailsContentStart = editor.state.doc.child(0).child(0).nodeSize + 1 + 1;
     const $pos = editor.state.doc.resolve(detailsContentStart);
     editor.view.dispatch(
-      editor.state.tr.setSelection(
-        (editor.state.selection.constructor as any).near($pos)
-      )
+      editor.state.tr.setSelection((editor.state.selection.constructor as any).near($pos))
     );
 
     const result = editor.commands.setDetails();
@@ -384,16 +381,15 @@ describe('commands', () => {
   it('toggleDetails unwraps when in details', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     // Place cursor inside details content
     const detailsContentStart = editor.state.doc.child(0).child(0).nodeSize + 1 + 1;
     const $pos = editor.state.doc.resolve(detailsContentStart);
     editor.view.dispatch(
-      editor.state.tr.setSelection(
-        (editor.state.selection.constructor as any).near($pos)
-      )
+      editor.state.tr.setSelection((editor.state.selection.constructor as any).near($pos))
     );
 
     const result = editor.commands.toggleDetails();
@@ -421,7 +417,9 @@ describe('commands', () => {
       content: '<details><summary>T</summary><div data-details-content><p>B</p></div></details>',
     });
     // Place cursor inside details
-    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3))));
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3)))
+    );
 
     expect(editor.commands.setDetailsOpen(true)).toBe(false);
   });
@@ -433,7 +431,9 @@ describe('commands', () => {
       content: '<details><summary>T</summary><div data-details-content><p>B</p></div></details>',
     });
 
-    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3))));
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3)))
+    );
 
     expect(editor.commands.setDetailsOpen(true)).toBe(true);
     expect(editor.state.doc.firstChild?.attrs['open']).toBe(true);
@@ -443,10 +443,13 @@ describe('commands', () => {
     const CustomDetails = Details.configure({ persist: true });
     editor = new Editor({
       extensions: [Document, Text, Paragraph, CustomDetails, DetailsSummary, DetailsContent],
-      content: '<details open><summary>T</summary><div data-details-content><p>B</p></div></details>',
+      content:
+        '<details open><summary>T</summary><div data-details-content><p>B</p></div></details>',
     });
 
-    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3))));
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3)))
+    );
 
     // Already open, setting to true → returns false
     expect(editor.commands.setDetailsOpen(true)).toBe(false);
@@ -466,7 +469,9 @@ describe('commands', () => {
       extensions: [Document, Text, Paragraph, CustomDetails, DetailsSummary, DetailsContent],
       content: '<details><summary>T</summary><div data-details-content><p>B</p></div></details>',
     });
-    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3))));
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3)))
+    );
 
     expect(editor.commands.openDetails()).toBe(true);
     expect(editor.state.doc.firstChild?.attrs['open']).toBe(true);
@@ -476,9 +481,12 @@ describe('commands', () => {
     const CustomDetails = Details.configure({ persist: true });
     editor = new Editor({
       extensions: [Document, Text, Paragraph, CustomDetails, DetailsSummary, DetailsContent],
-      content: '<details open><summary>T</summary><div data-details-content><p>B</p></div></details>',
+      content:
+        '<details open><summary>T</summary><div data-details-content><p>B</p></div></details>',
     });
-    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3))));
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(3)))
+    );
 
     expect(editor.commands.closeDetails()).toBe(true);
     expect(editor.state.doc.firstChild?.attrs['open']).toBe(false);
@@ -487,12 +495,17 @@ describe('commands', () => {
   it('Backspace at start of summary unsets details', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>B</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>B</p></div></details>',
     });
     // Place cursor at start of summary
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 2)));
 
-    const shortcuts = Details.config.addKeyboardShortcuts?.call({ ...Details, editor, options: Details.options });
+    const shortcuts = Details.config.addKeyboardShortcuts?.call({
+      ...Details,
+      editor,
+      options: Details.options,
+    });
     const result = (shortcuts?.['Backspace'] as any)?.();
     expect(typeof result).toBe('boolean');
   });
@@ -505,7 +518,11 @@ describe('commands', () => {
     // Cursor at position 4 (after "H" inside "Hi")
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 4)));
 
-    const shortcuts = Details.config.addKeyboardShortcuts?.call({ ...Details, editor, options: Details.options });
+    const shortcuts = Details.config.addKeyboardShortcuts?.call({
+      ...Details,
+      editor,
+      options: Details.options,
+    });
     const result = (shortcuts?.['Backspace'] as any)?.();
     expect(result).toBe(true);
   });
@@ -515,31 +532,51 @@ describe('commands', () => {
       extensions: allExtensions,
       content: '<p>Outside</p>',
     });
-    const shortcuts = Details.config.addKeyboardShortcuts?.call({ ...Details, editor, options: Details.options });
+    const shortcuts = Details.config.addKeyboardShortcuts?.call({
+      ...Details,
+      editor,
+      options: Details.options,
+    });
     const result = (shortcuts?.['Backspace'] as any)?.();
     expect(result).toBe(false);
   });
 
   it('Backspace returns false when editor is null', () => {
-    const shortcuts = Details.config.addKeyboardShortcuts?.call({ ...Details, editor: null, options: Details.options });
+    const shortcuts = Details.config.addKeyboardShortcuts?.call({
+      ...Details,
+      editor: null,
+      options: Details.options,
+    });
     const result = (shortcuts?.['Backspace'] as any)?.();
     expect(result).toBe(false);
   });
 
   it('ArrowRight returns false when editor is null', () => {
-    const shortcuts = Details.config.addKeyboardShortcuts?.call({ ...Details, editor: null, options: Details.options });
+    const shortcuts = Details.config.addKeyboardShortcuts?.call({
+      ...Details,
+      editor: null,
+      options: Details.options,
+    });
     const result = (shortcuts?.['ArrowRight'] as any)?.();
     expect(result).toBe(false);
   });
 
   it('ArrowDown returns false when editor is null', () => {
-    const shortcuts = Details.config.addKeyboardShortcuts?.call({ ...Details, editor: null, options: Details.options });
+    const shortcuts = Details.config.addKeyboardShortcuts?.call({
+      ...Details,
+      editor: null,
+      options: Details.options,
+    });
     const result = (shortcuts?.['ArrowDown'] as any)?.();
     expect(result).toBe(false);
   });
 
   it('Enter returns false when editor is null', () => {
-    const shortcuts = Details.config.addKeyboardShortcuts?.call({ ...Details, editor: null, options: Details.options });
+    const shortcuts = Details.config.addKeyboardShortcuts?.call({
+      ...Details,
+      editor: null,
+      options: Details.options,
+    });
     const result = (shortcuts?.['Enter'] as any)?.();
     expect(result).toBe(false);
   });
@@ -549,7 +586,11 @@ describe('commands', () => {
       extensions: allExtensions,
       content: '<p>Outside</p>',
     });
-    const shortcuts = Details.config.addKeyboardShortcuts?.call({ ...Details, editor, options: Details.options });
+    const shortcuts = Details.config.addKeyboardShortcuts?.call({
+      ...Details,
+      editor,
+      options: Details.options,
+    });
     const result = (shortcuts?.['Enter'] as any)?.();
     expect(result).toBe(false);
   });
@@ -570,7 +611,9 @@ describe('schema flags', () => {
       content: '<p>test</p>',
     });
 
-    expect((editor.state.schema.nodes['details']!.spec as Record<string, unknown>)['allowGapCursor']).toBe(false);
+    expect(
+      (editor.state.schema.nodes['details']!.spec as Record<string, unknown>)['allowGapCursor']
+    ).toBe(false);
     editor.destroy();
   });
 
@@ -619,7 +662,8 @@ describe('persist option', () => {
   it('does not add open attribute by default', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const details = editor.state.doc.child(0);
@@ -630,7 +674,8 @@ describe('persist option', () => {
     const PersistDetails = Details.configure({ persist: true });
     editor = new Editor({
       extensions: [Document, Text, Paragraph, PersistDetails, DetailsSummary, DetailsContent],
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const details = editor.state.doc.child(0);
@@ -641,7 +686,8 @@ describe('persist option', () => {
     const PersistDetails = Details.configure({ persist: true });
     editor = new Editor({
       extensions: [Document, Text, Paragraph, PersistDetails, DetailsSummary, DetailsContent],
-      content: '<details open><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details open><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const details = editor.state.doc.child(0);
@@ -651,15 +697,14 @@ describe('persist option', () => {
   it('openDetails returns false when persist is disabled', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     // Place cursor inside details
     const $pos = editor.state.doc.resolve(2);
     editor.view.dispatch(
-      editor.state.tr.setSelection(
-        (editor.state.selection.constructor as any).near($pos)
-      )
+      editor.state.tr.setSelection((editor.state.selection.constructor as any).near($pos))
     );
 
     const result = editor.commands.openDetails();
@@ -669,14 +714,13 @@ describe('persist option', () => {
   it('closeDetails returns false when persist is disabled', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const $pos = editor.state.doc.resolve(2);
     editor.view.dispatch(
-      editor.state.tr.setSelection(
-        (editor.state.selection.constructor as any).near($pos)
-      )
+      editor.state.tr.setSelection((editor.state.selection.constructor as any).near($pos))
     );
 
     const result = editor.commands.closeDetails();
@@ -687,15 +731,14 @@ describe('persist option', () => {
     const PersistDetails = Details.configure({ persist: true });
     editor = new Editor({
       extensions: [Document, Text, Paragraph, PersistDetails, DetailsSummary, DetailsContent],
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     // Place cursor inside the summary
     const $pos = editor.state.doc.resolve(2);
     editor.view.dispatch(
-      editor.state.tr.setSelection(
-        (editor.state.selection.constructor as any).near($pos)
-      )
+      editor.state.tr.setSelection((editor.state.selection.constructor as any).near($pos))
     );
 
     const result = editor.commands.openDetails();
@@ -707,14 +750,13 @@ describe('persist option', () => {
     const PersistDetails = Details.configure({ persist: true });
     editor = new Editor({
       extensions: [Document, Text, Paragraph, PersistDetails, DetailsSummary, DetailsContent],
-      content: '<details open><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details open><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const $pos = editor.state.doc.resolve(2);
     editor.view.dispatch(
-      editor.state.tr.setSelection(
-        (editor.state.selection.constructor as any).near($pos)
-      )
+      editor.state.tr.setSelection((editor.state.selection.constructor as any).near($pos))
     );
 
     const result = editor.commands.closeDetails();
@@ -726,14 +768,13 @@ describe('persist option', () => {
     const PersistDetails = Details.configure({ persist: true });
     editor = new Editor({
       extensions: [Document, Text, Paragraph, PersistDetails, DetailsSummary, DetailsContent],
-      content: '<details open><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details open><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const $pos = editor.state.doc.resolve(2);
     editor.view.dispatch(
-      editor.state.tr.setSelection(
-        (editor.state.selection.constructor as any).near($pos)
-      )
+      editor.state.tr.setSelection((editor.state.selection.constructor as any).near($pos))
     );
 
     const result = editor.commands.openDetails();
@@ -744,14 +785,13 @@ describe('persist option', () => {
     const PersistDetails = Details.configure({ persist: true });
     editor = new Editor({
       extensions: [Document, Text, Paragraph, PersistDetails, DetailsSummary, DetailsContent],
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const $pos = editor.state.doc.resolve(2);
     editor.view.dispatch(
-      editor.state.tr.setSelection(
-        (editor.state.selection.constructor as any).near($pos)
-      )
+      editor.state.tr.setSelection((editor.state.selection.constructor as any).near($pos))
     );
 
     const result = editor.commands.closeDetails();
@@ -771,7 +811,8 @@ describe('data-type="details" compatibility parsing', () => {
   it('parses div[data-type="details"] format', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<div data-type="details"><summary>Title</summary><div data-type="detailsContent"><p>Body</p></div></div>',
+      content:
+        '<div data-type="details"><summary>Title</summary><div data-type="detailsContent"><p>Body</p></div></div>',
     });
 
     const doc = editor.state.doc;
@@ -786,7 +827,8 @@ describe('data-type="details" compatibility parsing', () => {
   it('parses native <details> format', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Native</summary><div data-details-content><p>Works</p></div></details>',
+      content:
+        '<details><summary>Native</summary><div data-details-content><p>Works</p></div></details>',
     });
 
     const details = editor.state.doc.child(0);
@@ -798,7 +840,8 @@ describe('data-type="details" compatibility parsing', () => {
   it('outputs semantic <details> HTML regardless of input format', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<div data-type="details"><summary>Title</summary><div data-type="detailsContent"><p>Body</p></div></div>',
+      content:
+        '<div data-type="details"><summary>Title</summary><div data-type="detailsContent"><p>Body</p></div></div>',
     });
 
     const html = editor.getHTML();
@@ -877,15 +920,14 @@ describe('unsetDetails preserves summary', () => {
   it('preserves summary text as a paragraph when unwrapping', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Summary text</summary><div data-details-content><p>Body paragraph</p></div></details>',
+      content:
+        '<details><summary>Summary text</summary><div data-details-content><p>Body paragraph</p></div></details>',
     });
 
     // Place cursor inside summary
     const $pos = editor.state.doc.resolve(2);
     editor.view.dispatch(
-      editor.state.tr.setSelection(
-        (editor.state.selection.constructor as any).near($pos)
-      )
+      editor.state.tr.setSelection((editor.state.selection.constructor as any).near($pos))
     );
 
     editor.commands.unsetDetails();
@@ -901,14 +943,13 @@ describe('unsetDetails preserves summary', () => {
   it('preserves multiple content blocks when unwrapping', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>First</p><p>Second</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>First</p><p>Second</p></div></details>',
     });
 
     const $pos = editor.state.doc.resolve(2);
     editor.view.dispatch(
-      editor.state.tr.setSelection(
-        (editor.state.selection.constructor as any).near($pos)
-      )
+      editor.state.tr.setSelection((editor.state.selection.constructor as any).near($pos))
     );
 
     editor.commands.unsetDetails();
@@ -923,14 +964,13 @@ describe('unsetDetails preserves summary', () => {
   it('skips empty summary when unwrapping', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary></summary><div data-details-content><p>Content only</p></div></details>',
+      content:
+        '<details><summary></summary><div data-details-content><p>Content only</p></div></details>',
     });
 
     const $pos = editor.state.doc.resolve(2);
     editor.view.dispatch(
-      editor.state.tr.setSelection(
-        (editor.state.selection.constructor as any).near($pos)
-      )
+      editor.state.tr.setSelection((editor.state.selection.constructor as any).near($pos))
     );
 
     editor.commands.unsetDetails();
@@ -1044,9 +1084,7 @@ describe('setDetails (detailed integration)', () => {
     });
 
     // Try setting details from position 0 (before doc content)
-    const tr = editor.state.tr.setSelection(
-      TextSelection.create(editor.state.doc, 0, 0)
-    );
+    const tr = editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 0, 0));
     editor.view.dispatch(tr);
 
     // This may return true or false depending on whether a block range exists at pos 0
@@ -1064,9 +1102,7 @@ describe('setDetails (detailed integration)', () => {
     // doc: <p>Before</p> <p>Wrap this</p> <p>After</p>
     // pos: 0-8           9-20             21-28
     const $pos = editor.state.doc.resolve(10);
-    editor.view.dispatch(
-      editor.state.tr.setSelection(TextSelection.near($pos))
-    );
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near($pos)));
 
     editor.commands.setDetails();
 
@@ -1083,15 +1119,14 @@ describe('setDetails (detailed integration)', () => {
   it('prevents nesting details inside details', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Outer</summary><div data-details-content><p>Inner text</p></div></details>',
+      content:
+        '<details><summary>Outer</summary><div data-details-content><p>Inner text</p></div></details>',
     });
 
     // Place cursor inside details content
     const contentStart = editor.state.doc.child(0).child(0).nodeSize + 1 + 1;
     const $pos = editor.state.doc.resolve(contentStart);
-    editor.view.dispatch(
-      editor.state.tr.setSelection(TextSelection.near($pos))
-    );
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near($pos)));
 
     const result = editor.commands.setDetails();
     expect(result).toBe(false);
@@ -1100,14 +1135,13 @@ describe('setDetails (detailed integration)', () => {
   it('prevents nesting when cursor is in summary', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     // Place cursor in summary
     const $pos = editor.state.doc.resolve(2);
-    editor.view.dispatch(
-      editor.state.tr.setSelection(TextSelection.near($pos))
-    );
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near($pos)));
 
     const result = editor.commands.setDetails();
     expect(result).toBe(false);
@@ -1126,13 +1160,12 @@ describe('unsetDetails (detailed integration)', () => {
   it('works when cursor is in summary', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Body</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Body</p></div></details>',
     });
 
     const $pos = editor.state.doc.resolve(2);
-    editor.view.dispatch(
-      editor.state.tr.setSelection(TextSelection.near($pos))
-    );
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near($pos)));
 
     const result = editor.commands.unsetDetails();
     expect(result).toBe(true);
@@ -1143,14 +1176,13 @@ describe('unsetDetails (detailed integration)', () => {
   it('works when cursor is in content', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Body</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Body</p></div></details>',
     });
 
     const contentStart = editor.state.doc.child(0).child(0).nodeSize + 1 + 1;
     const $pos = editor.state.doc.resolve(contentStart);
-    editor.view.dispatch(
-      editor.state.tr.setSelection(TextSelection.near($pos))
-    );
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near($pos)));
 
     const result = editor.commands.unsetDetails();
     expect(result).toBe(true);
@@ -1161,13 +1193,12 @@ describe('unsetDetails (detailed integration)', () => {
   it('places cursor in first resulting paragraph', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Body</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Body</p></div></details>',
     });
 
     const $pos = editor.state.doc.resolve(2);
-    editor.view.dispatch(
-      editor.state.tr.setSelection(TextSelection.near($pos))
-    );
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near($pos)));
 
     editor.commands.unsetDetails();
 
@@ -1196,9 +1227,7 @@ describe('unsetDetails (detailed integration)', () => {
     // Place cursor in second details
     const firstDetailsSize = editor.state.doc.child(0).nodeSize;
     const $pos = editor.state.doc.resolve(firstDetailsSize + 2);
-    editor.view.dispatch(
-      editor.state.tr.setSelection(TextSelection.near($pos))
-    );
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near($pos)));
 
     editor.commands.unsetDetails();
 
@@ -1234,9 +1263,7 @@ describe('toggleDetails (detailed integration)', () => {
 
     // Place cursor inside the details for toggle to detect it
     const $pos = editor.state.doc.resolve(2);
-    editor.view.dispatch(
-      editor.state.tr.setSelection(TextSelection.near($pos))
-    );
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near($pos)));
 
     // Second call: unwrap
     editor.commands.toggleDetails();
@@ -1246,15 +1273,14 @@ describe('toggleDetails (detailed integration)', () => {
   it('detects details at any nesting depth', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Deep content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Deep content</p></div></details>',
     });
 
     // Cursor deep in content paragraph
     const contentStart = editor.state.doc.child(0).child(0).nodeSize + 1 + 2;
     const $pos = editor.state.doc.resolve(contentStart);
-    editor.view.dispatch(
-      editor.state.tr.setSelection(TextSelection.near($pos))
-    );
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near($pos)));
 
     // Should detect we're inside details and unwrap
     const result = editor.commands.toggleDetails();
@@ -1270,7 +1296,14 @@ describe('toggleDetails (detailed integration)', () => {
 describe('setDetailsOpen command', () => {
   let editor: Editor | undefined;
   const PersistDetails = Details.configure({ persist: true });
-  const persistExtensions = [Document, Text, Paragraph, PersistDetails, DetailsSummary, DetailsContent];
+  const persistExtensions = [
+    Document,
+    Text,
+    Paragraph,
+    PersistDetails,
+    DetailsSummary,
+    DetailsContent,
+  ];
 
   afterEach(() => {
     if (editor && !editor.isDestroyed) {
@@ -1287,7 +1320,8 @@ describe('setDetailsOpen command', () => {
   it('opens a closed details with setDetailsOpen(true)', () => {
     editor = new Editor({
       extensions: persistExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const $pos = editor.state.doc.resolve(2);
@@ -1301,7 +1335,8 @@ describe('setDetailsOpen command', () => {
   it('closes an open details with setDetailsOpen(false)', () => {
     editor = new Editor({
       extensions: persistExtensions,
-      content: '<details open><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details open><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const $pos = editor.state.doc.resolve(2);
@@ -1315,7 +1350,8 @@ describe('setDetailsOpen command', () => {
   it('returns false when target state matches current state', () => {
     editor = new Editor({
       extensions: persistExtensions,
-      content: '<details open><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details open><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const $pos = editor.state.doc.resolve(2);
@@ -1337,7 +1373,8 @@ describe('setDetailsOpen command', () => {
   it('returns false when persist is disabled', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const $pos = editor.state.doc.resolve(2);
@@ -1354,7 +1391,14 @@ describe('setDetailsOpen command', () => {
 describe('persist mode HTML rendering', () => {
   let editor: Editor | undefined;
   const PersistDetails = Details.configure({ persist: true });
-  const persistExtensions = [Document, Text, Paragraph, PersistDetails, DetailsSummary, DetailsContent];
+  const persistExtensions = [
+    Document,
+    Text,
+    Paragraph,
+    PersistDetails,
+    DetailsSummary,
+    DetailsContent,
+  ];
 
   afterEach(() => {
     if (editor && !editor.isDestroyed) {
@@ -1365,7 +1409,8 @@ describe('persist mode HTML rendering', () => {
   it('renders open attribute in HTML when persist is true and details is open', () => {
     editor = new Editor({
       extensions: persistExtensions,
-      content: '<details open><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details open><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const html = editor.getHTML();
@@ -1375,7 +1420,8 @@ describe('persist mode HTML rendering', () => {
   it('does not render open attribute when details is closed', () => {
     editor = new Editor({
       extensions: persistExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const html = editor.getHTML();
@@ -1386,7 +1432,8 @@ describe('persist mode HTML rendering', () => {
   it('round-trips open attribute with persist enabled', () => {
     editor = new Editor({
       extensions: persistExtensions,
-      content: '<details open><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details open><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const html1 = editor.getHTML();
@@ -1403,7 +1450,8 @@ describe('persist mode HTML rendering', () => {
   it('round-trips closed state with persist enabled', () => {
     editor = new Editor({
       extensions: persistExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const html1 = editor.getHTML();
@@ -1420,7 +1468,8 @@ describe('persist mode HTML rendering', () => {
   it('preserves open state after openDetails/closeDetails cycle', () => {
     editor = new Editor({
       extensions: persistExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const $pos = editor.state.doc.resolve(2);
@@ -1452,7 +1501,8 @@ describe('Details NodeView DOM structure', () => {
   it('renders div with data-type="details" attribute', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const detailsDom = editor.view.dom.querySelector('[data-type="details"]');
@@ -1462,7 +1512,8 @@ describe('Details NodeView DOM structure', () => {
   it('contains a toggle button element', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const detailsDom = editor.view.dom.querySelector('[data-type="details"]');
@@ -1472,10 +1523,13 @@ describe('Details NodeView DOM structure', () => {
   });
 
   it('applies custom HTMLAttributes on NodeView DOM', () => {
-    const Custom = Details.configure({ HTMLAttributes: { class: 'custom-details', 'data-id': '42' } });
+    const Custom = Details.configure({
+      HTMLAttributes: { class: 'custom-details', 'data-id': '42' },
+    });
     editor = new Editor({
       extensions: [Document, Text, Paragraph, Custom, DetailsSummary, DetailsContent],
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const detailsDom = editor.view.dom.querySelector('[data-type="details"]');
@@ -1486,7 +1540,8 @@ describe('Details NodeView DOM structure', () => {
   it('toggle button adds openClassName on click', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const detailsDom = editor.view.dom.querySelector<HTMLElement>('[data-type="details"]')!;
@@ -1500,7 +1555,8 @@ describe('Details NodeView DOM structure', () => {
   it('toggle button removes openClassName on second click', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const detailsDom = editor.view.dom.querySelector<HTMLElement>('[data-type="details"]')!;
@@ -1517,7 +1573,8 @@ describe('Details NodeView DOM structure', () => {
     const Custom = Details.configure({ openClassName: 'expanded' });
     editor = new Editor({
       extensions: [Document, Text, Paragraph, Custom, DetailsSummary, DetailsContent],
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const detailsDom = editor.view.dom.querySelector<HTMLElement>('[data-type="details"]')!;
@@ -1533,19 +1590,24 @@ describe('Details NodeView DOM structure', () => {
     // redraws the node view and discards the open state on pointer click.
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const detailsDom = editor.view.dom.querySelector<HTMLElement>('[data-type="details"]')!;
     const button = detailsDom.querySelector('button')!;
-    const desc = (detailsDom as unknown as { pmViewDesc: { ignoreMutation(m: unknown): boolean } }).pmViewDesc;
+    const desc = (detailsDom as unknown as { pmViewDesc: { ignoreMutation(m: unknown): boolean } })
+      .pmViewDesc;
     expect(desc).toBeTruthy();
 
     const chromeMutation = { type: 'attributes', target: button, attributeName: 'aria-expanded' };
     expect(desc.ignoreMutation(chromeMutation)).toBe(true);
 
     const contentPara = detailsDom.querySelector('[data-details-content] p')!;
-    const contentMutation = { type: 'characterData', target: contentPara.firstChild ?? contentPara };
+    const contentMutation = {
+      type: 'characterData',
+      target: contentPara.firstChild ?? contentPara,
+    };
     expect(desc.ignoreMutation(contentMutation)).toBe(false);
   });
 });
@@ -1562,7 +1624,8 @@ describe('DetailsContent NodeView DOM structure', () => {
   it('renders div with data-details-content attribute', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const contentDom = editor.view.dom.querySelector('[data-details-content]');
@@ -1572,7 +1635,8 @@ describe('DetailsContent NodeView DOM structure', () => {
   it('starts with hidden attribute', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const contentDom = editor.view.dom.querySelector('[data-details-content]');
@@ -1582,7 +1646,8 @@ describe('DetailsContent NodeView DOM structure', () => {
   it('toggles hidden on toggleDetailsContent event', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const contentDom = editor.view.dom.querySelector<HTMLElement>('[data-details-content]')!;
@@ -1600,7 +1665,8 @@ describe('DetailsContent NodeView DOM structure', () => {
   it('clicking toggle button shows/hides content', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const detailsDom = editor.view.dom.querySelector<HTMLElement>('[data-type="details"]')!;
@@ -1620,7 +1686,8 @@ describe('DetailsContent NodeView DOM structure', () => {
     const CustomContent = DetailsContent.configure({ HTMLAttributes: { class: 'content-area' } });
     editor = new Editor({
       extensions: [Document, Text, Paragraph, Details, DetailsSummary, CustomContent],
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const contentDom = editor.view.dom.querySelector('[data-details-content]');
@@ -1644,7 +1711,8 @@ describe('summary with inline marks', () => {
   it('parses bold text in summary', () => {
     editor = new Editor({
       extensions: [...allExtensions, Bold],
-      content: '<details><summary><strong>Bold Title</strong></summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary><strong>Bold Title</strong></summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const summary = editor.state.doc.child(0).child(0);
@@ -1659,7 +1727,8 @@ describe('summary with inline marks', () => {
   it('parses italic text in summary', () => {
     editor = new Editor({
       extensions: [...allExtensions, Italic],
-      content: '<details><summary><em>Italic Title</em></summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary><em>Italic Title</em></summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const summary = editor.state.doc.child(0).child(0);
@@ -1671,7 +1740,8 @@ describe('summary with inline marks', () => {
   it('parses mixed marks in summary', () => {
     editor = new Editor({
       extensions: [...allExtensions, Bold, Italic],
-      content: '<details><summary><strong>Bold</strong> and <em>italic</em></summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary><strong>Bold</strong> and <em>italic</em></summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const summary = editor.state.doc.child(0).child(0);
@@ -1684,7 +1754,8 @@ describe('summary with inline marks', () => {
   it('preserves marks through unsetDetails', () => {
     editor = new Editor({
       extensions: [...allExtensions, Bold],
-      content: '<details><summary><strong>Bold Title</strong></summary><div data-details-content><p>Body</p></div></details>',
+      content:
+        '<details><summary><strong>Bold Title</strong></summary><div data-details-content><p>Body</p></div></details>',
     });
 
     const $pos = editor.state.doc.resolve(2);
@@ -1701,7 +1772,8 @@ describe('summary with inline marks', () => {
   it('renders marks in summary HTML output', () => {
     editor = new Editor({
       extensions: [...allExtensions, Bold, Italic],
-      content: '<details><summary><strong>Bold</strong> <em>Italic</em></summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary><strong>Bold</strong> <em>Italic</em></summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const html = editor.getHTML();
@@ -1725,7 +1797,8 @@ describe('details mixed with other content', () => {
   it('details between paragraphs', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<p>Before</p><details><summary>Q</summary><div data-details-content><p>A</p></div></details><p>After</p>',
+      content:
+        '<p>Before</p><details><summary>Q</summary><div data-details-content><p>A</p></div></details><p>After</p>',
     });
 
     const doc = editor.state.doc;
@@ -1738,7 +1811,8 @@ describe('details mixed with other content', () => {
   it('details at start of document', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>First</summary><div data-details-content><p>Content</p></div></details><p>After</p>',
+      content:
+        '<details><summary>First</summary><div data-details-content><p>Content</p></div></details><p>After</p>',
     });
 
     expect(editor.state.doc.child(0).type.name).toBe('details');
@@ -1748,7 +1822,8 @@ describe('details mixed with other content', () => {
   it('details at end of document', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<p>Before</p><details><summary>Last</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<p>Before</p><details><summary>Last</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const doc = editor.state.doc;
@@ -1799,7 +1874,8 @@ describe('command can() dry-run', () => {
   it('can().setDetails() returns false when inside details', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const contentStart = editor.state.doc.child(0).child(0).nodeSize + 1 + 1;
@@ -1812,7 +1888,8 @@ describe('command can() dry-run', () => {
   it('can().unsetDetails() returns true when inside details', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const $pos = editor.state.doc.resolve(2);
@@ -1842,7 +1919,8 @@ describe('command can() dry-run', () => {
   it('can().openDetails() returns false without persist', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const $pos = editor.state.doc.resolve(2);
@@ -1854,7 +1932,8 @@ describe('command can() dry-run', () => {
   it('can().closeDetails() returns false without persist', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const $pos = editor.state.doc.resolve(2);
@@ -1867,7 +1946,8 @@ describe('command can() dry-run', () => {
     const PersistDetails = Details.configure({ persist: true });
     editor = new Editor({
       extensions: [Document, Text, Paragraph, PersistDetails, DetailsSummary, DetailsContent],
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const $pos = editor.state.doc.resolve(2);
@@ -1880,7 +1960,8 @@ describe('command can() dry-run', () => {
     const PersistDetails = Details.configure({ persist: true });
     editor = new Editor({
       extensions: [Document, Text, Paragraph, PersistDetails, DetailsSummary, DetailsContent],
-      content: '<details open><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details open><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const $pos = editor.state.doc.resolve(2);
@@ -1897,7 +1978,14 @@ describe('command can() dry-run', () => {
 describe('persist mode toggle via NodeView', () => {
   let editor: Editor | undefined;
   const PersistDetails = Details.configure({ persist: true });
-  const persistExtensions = [Document, Text, Paragraph, PersistDetails, DetailsSummary, DetailsContent];
+  const persistExtensions = [
+    Document,
+    Text,
+    Paragraph,
+    PersistDetails,
+    DetailsSummary,
+    DetailsContent,
+  ];
 
   afterEach(() => {
     if (editor && !editor.isDestroyed) {
@@ -1908,7 +1996,8 @@ describe('persist mode toggle via NodeView', () => {
   it('toggle button updates open attribute in persist mode', () => {
     editor = new Editor({
       extensions: persistExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     expect(editor.state.doc.child(0).attrs['open']).toBe(false);
@@ -1923,7 +2012,8 @@ describe('persist mode toggle via NodeView', () => {
   it('toggle button closes open details in persist mode', () => {
     editor = new Editor({
       extensions: persistExtensions,
-      content: '<details open><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details open><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     expect(editor.state.doc.child(0).attrs['open']).toBe(true);
@@ -1952,11 +2042,12 @@ describe('selection plugin', () => {
   it('registers the detailsSelection plugin', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     const plugins = editor.state.plugins;
-    const hasSelectionPlugin = plugins.some(p => (p as any).key?.includes('detailsSelection'));
+    const hasSelectionPlugin = plugins.some((p) => (p as any).key?.includes('detailsSelection'));
     expect(hasSelectionPlugin).toBe(true);
   });
 });
@@ -1977,7 +2068,8 @@ describe('Backspace keyboard shortcut (behavioral)', () => {
   it('unsets details when cursor is at start of summary', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     // Place cursor at start of summary (pos 2 = right after summary open)
@@ -2007,13 +2099,12 @@ describe('Backspace keyboard shortcut (behavioral)', () => {
   it('does not unset details when cursor is in middle of summary text', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     // Place cursor in middle of "Title" (offset 2, pos 4)
-    editor.view.dispatch(
-      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 4))
-    );
+    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 4)));
 
     expect(editor.state.selection.$anchor.parent.type.name).toBe('detailsSummary');
     expect(editor.state.selection.$anchor.parentOffset).toBe(2);
@@ -2109,7 +2200,8 @@ describe('DetailsContent Enter shortcut (behavioral)', () => {
   it('does nothing when cursor is not in last child of content', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>First</p><p>Second</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>First</p><p>Second</p></div></details>',
     });
 
     // Open the content for visibility
@@ -2134,7 +2226,8 @@ describe('DetailsContent Enter shortcut (behavioral)', () => {
   it('does nothing when last child has content', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Has content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Has content</p></div></details>',
     });
 
     // Open content
@@ -2159,7 +2252,8 @@ describe('DetailsContent Enter shortcut (behavioral)', () => {
   it('escapes out when cursor is in last empty paragraph', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p><p></p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p><p></p></div></details>',
     });
 
     // Open content
@@ -2263,7 +2357,8 @@ describe('edge cases', () => {
   it('destroy cleans up editor', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Content</p></div></details>',
     });
 
     expect(editor.isDestroyed).toBe(false);
@@ -2304,7 +2399,8 @@ describe('Enter handler in summary', () => {
     const Custom = Details.configure({ persist: true });
     editor = new Editor({
       extensions: [Document, Text, Paragraph, Custom, DetailsSummary, DetailsContent],
-      content: '<details><summary>Title</summary><div data-details-content><p>X</p></div></details>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>X</p></div></details>',
     });
 
     // Cursor at end of summary "Title"
@@ -2325,7 +2421,8 @@ describe('Enter handler in summary', () => {
   it('Enter in open summary creates new block in content', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details open><summary>Title</summary><div data-details-content><p>A</p></div></details>',
+      content:
+        '<details open><summary>Title</summary><div data-details-content><p>A</p></div></details>',
     });
 
     // Cursor at end of summary
@@ -2380,7 +2477,9 @@ describe('ArrowRight / ArrowDown handlers', () => {
     });
 
     const shortcuts = Details.config.addKeyboardShortcuts?.call({
-      ...Details, editor, options: Details.options,
+      ...Details,
+      editor,
+      options: Details.options,
     });
     const result = (shortcuts?.['ArrowRight'] as any)?.();
     expect(typeof result).toBe('boolean');
@@ -2393,7 +2492,9 @@ describe('ArrowRight / ArrowDown handlers', () => {
     });
 
     const shortcuts = Details.config.addKeyboardShortcuts?.call({
-      ...Details, editor, options: Details.options,
+      ...Details,
+      editor,
+      options: Details.options,
     });
     const result = (shortcuts?.['ArrowDown'] as any)?.();
     expect(typeof result).toBe('boolean');
@@ -2412,7 +2513,8 @@ describe('appendTransaction cursor correction', () => {
   it('does not correct when cursor is outside any details', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<p>Before</p><details><summary>T</summary><div data-details-content><p>X</p></div></details>',
+      content:
+        '<p>Before</p><details><summary>T</summary><div data-details-content><p>X</p></div></details>',
     });
 
     // Cursor in first paragraph
@@ -2447,7 +2549,8 @@ describe('appendTransaction cursor correction', () => {
     editor = new Editor({
       element: host,
       extensions: allExtensions,
-      content: '<p>Before</p><details><summary>Title</summary><div data-details-content><p>Hidden</p></div></details>',
+      content:
+        '<p>Before</p><details><summary>Title</summary><div data-details-content><p>Hidden</p></div></details>',
     });
 
     // Hide the details content element (offsetParent null)
@@ -2461,7 +2564,9 @@ describe('appendTransaction cursor correction', () => {
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1)));
     // Dispatch another transaction that moves cursor forward into hidden content
     const hiddenPos = Math.min(editor.state.doc.content.size - 1, 22);
-    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, hiddenPos)));
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, hiddenPos))
+    );
 
     host.remove();
     // Test mostly verifies no throw - appendTransaction may or may not correct
@@ -2471,7 +2576,8 @@ describe('appendTransaction cursor correction', () => {
   it('toggleDetails multi-range (CellSelection) branch - unwraps when all cells have details', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details><summary>A</summary><div data-details-content><p>X</p></div></details><details><summary>B</summary><div data-details-content><p>Y</p></div></details>',
+      content:
+        '<details><summary>A</summary><div data-details-content><p>X</p></div></details><details><summary>B</summary><div data-details-content><p>Y</p></div></details>',
     });
 
     // Need to construct fake selection pointing at details nodes
@@ -2485,8 +2591,14 @@ describe('appendTransaction cursor correction', () => {
     // We fake by resolving INSIDE each details' summary
     const fakeSelection = {
       ranges: [
-        { $from: editor.state.doc.resolve(details1Pos + 1), $to: editor.state.doc.resolve(details1Pos + 1) },
-        { $from: editor.state.doc.resolve(details2Pos + 1), $to: editor.state.doc.resolve(details2Pos + 1) },
+        {
+          $from: editor.state.doc.resolve(details1Pos + 1),
+          $to: editor.state.doc.resolve(details1Pos + 1),
+        },
+        {
+          $from: editor.state.doc.resolve(details2Pos + 1),
+          $to: editor.state.doc.resolve(details2Pos + 1),
+        },
       ],
       from: 0,
       to: editor.state.doc.content.size,
@@ -2510,7 +2622,13 @@ describe('appendTransaction cursor correction', () => {
       tr: editor.state.tr,
     };
 
-    const result = toggleCmd({ state: mockState as any, dispatch: () => { /* noop */ }, tr: editor.state.tr } as any);
+    const result = toggleCmd({
+      state: mockState as any,
+      dispatch: () => {
+        /* noop */
+      },
+      tr: editor.state.tr,
+    } as any);
     expect(typeof result).toBe('boolean');
   });
 
@@ -2548,7 +2666,11 @@ describe('appendTransaction cursor correction', () => {
     };
 
     // Dry-run (no dispatch) - should return true
-    const result = toggleCmd({ state: mockState as any, dispatch: undefined, tr: editor.state.tr } as any);
+    const result = toggleCmd({
+      state: mockState as any,
+      dispatch: undefined,
+      tr: editor.state.tr,
+    } as any);
     expect(result).toBe(true);
   });
 
@@ -2589,7 +2711,13 @@ describe('appendTransaction cursor correction', () => {
       tr: editor.state.tr,
     };
 
-    const result = toggleCmd({ state: mockState as any, dispatch: () => { /* noop */ }, tr: editor.state.tr } as any);
+    const result = toggleCmd({
+      state: mockState as any,
+      dispatch: () => {
+        /* noop */
+      },
+      tr: editor.state.tr,
+    } as any);
     expect(typeof result).toBe('boolean');
   });
 
@@ -2599,7 +2727,8 @@ describe('appendTransaction cursor correction', () => {
     editor = new Editor({
       element: host,
       extensions: allExtensions,
-      content: '<details><summary>Title</summary><div data-details-content><p>Hidden</p></div></details><p>After</p>',
+      content:
+        '<details><summary>Title</summary><div data-details-content><p>Hidden</p></div></details><p>After</p>',
     });
 
     const contentEl = host.querySelector('[data-details-content]')!;
@@ -2610,7 +2739,9 @@ describe('appendTransaction cursor correction', () => {
 
     // First cursor in "After" (visible), then backward into hidden
     const afterPos = editor.state.doc.content.size - 2;
-    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, afterPos)));
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.create(editor.state.doc, afterPos))
+    );
     editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 10)));
 
     host.remove();
@@ -2621,12 +2752,6 @@ describe('appendTransaction cursor correction', () => {
 // ─── NodeView paths ───────────────────────────────────────────────────────────
 
 describe('NodeView ignoreMutation and update', () => {
-  let editor: Editor | undefined;
-
-  afterEach(() => {
-    if (editor && !editor.isDestroyed) editor.destroy();
-  });
-
   it('Details addNodeView returns a function', () => {
     const nodeView = Details.config.addNodeView?.call({
       ...Details,
@@ -2650,7 +2775,8 @@ describe('DetailsContent Enter (double-Enter escape)', () => {
   it('Enter on last empty block escapes details', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details open><summary>T</summary><div data-details-content><p>X</p><p></p></div></details>',
+      content:
+        '<details open><summary>T</summary><div data-details-content><p>X</p><p></p></div></details>',
     });
 
     // Place cursor in the last empty paragraph (inside details content)
@@ -2663,7 +2789,9 @@ describe('DetailsContent Enter (double-Enter escape)', () => {
       return true;
     });
     if (pos > 0) {
-      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(pos))));
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(pos)))
+      );
     }
 
     const shortcuts = DetailsContent.config.addKeyboardShortcuts?.call({
@@ -2677,7 +2805,8 @@ describe('DetailsContent Enter (double-Enter escape)', () => {
   it('Enter returns false when not on last empty block', () => {
     editor = new Editor({
       extensions: allExtensions,
-      content: '<details open><summary>T</summary><div data-details-content><p>A</p><p>B</p></div></details>',
+      content:
+        '<details open><summary>T</summary><div data-details-content><p>A</p><p>B</p></div></details>',
     });
 
     // Place cursor in first paragraph (not last)
@@ -2689,7 +2818,9 @@ describe('DetailsContent Enter (double-Enter escape)', () => {
       }
       return true;
     });
-    editor.view.dispatch(editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(pos))));
+    editor.view.dispatch(
+      editor.state.tr.setSelection(TextSelection.near(editor.state.doc.resolve(pos)))
+    );
 
     const shortcuts = DetailsContent.config.addKeyboardShortcuts?.call({
       ...DetailsContent,

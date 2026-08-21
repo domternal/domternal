@@ -281,9 +281,9 @@ interface PMViewWithDragging {
   dragging: { slice: Slice; move: boolean; node?: NodeSelection } | null;
 }
 
-/** Casts `EditorView` to expose PM's internal `dragging` field. */
+/** Narrows `EditorView` to the internal `dragging` field used by this integration. */
 function asDragView(view: EditorView): PMViewWithDragging {
-  return view as unknown as PMViewWithDragging;
+  return view;
 }
 
 /**

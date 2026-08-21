@@ -28,17 +28,17 @@ const CATEGORY_ICONS: Record<string, string> = {
   'Animals & Nature': '\u{1F431}',
   'Food & Drink': '\u{1F355}',
   'Travel & Places': '\u{1F697}',
-  'Activities': '\u{26BD}',
-  'Objects': '\u{1F4A1}',
-  'Symbols': '\u{1F523}',
-  'Flags': '\u{1F3C1}',
+  Activities: '\u{26BD}',
+  Objects: '\u{1F4A1}',
+  Symbols: '\u{1F523}',
+  Flags: '\u{1F3C1}',
 };
 
 @Component({
   selector: 'domternal-emoji-picker',
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
-  host: { 'class': 'dm-emoji-picker-host' },
+  host: { class: 'dm-emoji-picker-host' },
   template: `
     @if (isOpen()) {
       <div class="dm-emoji-picker">
@@ -66,11 +66,18 @@ const CATEGORY_ICONS: Record<string, string> = {
               [attr.aria-label]="cat"
               (mousedown)="$event.preventDefault()"
               (click)="scrollToCategory(cat)"
-            >{{ categoryIcon(cat) }}</button>
+            >
+              {{ categoryIcon(cat) }}
+            </button>
           }
         </div>
 
-        <div class="dm-emoji-picker-grid" #grid (scroll)="onGridScroll()" (keydown)="onGridKeydown($event)">
+        <div
+          class="dm-emoji-picker-grid"
+          #grid
+          (scroll)="onGridScroll()"
+          (keydown)="onGridKeydown($event)"
+        >
           @if (searchQuery()) {
             @for (item of filteredEmojis(); track item.name) {
               <button
@@ -81,9 +88,10 @@ const CATEGORY_ICONS: Record<string, string> = {
                 [attr.aria-label]="formatName(item.name)"
                 (mousedown)="$event.preventDefault()"
                 (click)="selectEmoji(item)"
-              >{{ item.emoji }}</button>
-            }
-            @empty {
+              >
+                {{ item.emoji }}
+              </button>
+            } @empty {
               <div class="dm-emoji-picker-empty">No emoji found</div>
             }
           } @else {
@@ -98,7 +106,9 @@ const CATEGORY_ICONS: Record<string, string> = {
                   [attr.aria-label]="formatName(item.name)"
                   (mousedown)="$event.preventDefault()"
                   (click)="selectEmoji(item)"
-                >{{ item.emoji }}</button>
+                >
+                  {{ item.emoji }}
+                </button>
               }
             }
             @for (cat of categoryNames(); track cat) {
@@ -112,7 +122,9 @@ const CATEGORY_ICONS: Record<string, string> = {
                   [attr.aria-label]="formatName(item.name)"
                   (mousedown)="$event.preventDefault()"
                   (click)="selectEmoji(item)"
-                >{{ item.emoji }}</button>
+                >
+                  {{ item.emoji }}
+                </button>
               }
             }
           }
@@ -161,9 +173,7 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
       return searchFn(query);
     }
     return this.emojis().filter(
-      (item) =>
-        item.name.includes(query) ||
-        item.group.toLowerCase().includes(query),
+      (item) => item.name.includes(query) || item.group.toLowerCase().includes(query)
     );
   });
 
@@ -178,13 +188,18 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
     if (!names.length) return [];
     const nameMap = storage['_nameMap'] as Map<string, EmojiPickerItem> | undefined;
     if (!nameMap) return [];
-    return names.slice(0, 16).map((n) => nameMap.get(n)).filter(Boolean) as EmojiPickerItem[];
+    return names
+      .slice(0, 16)
+      .map((n) => nameMap.get(n))
+      .filter(Boolean) as EmojiPickerItem[];
   });
 
   constructor() {
     effect(() => {
       const editor = this.editor();
-      untracked(() => { this.setupEventListener(editor); });
+      untracked(() => {
+        this.setupEventListener(editor);
+      });
     });
   }
 
@@ -233,7 +248,10 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
         // Focus first emoji swatch after scroll completes
         setTimeout(() => {
           const firstSwatch = label.nextElementSibling;
-          if (firstSwatch instanceof HTMLElement && firstSwatch.classList.contains('dm-emoji-swatch')) {
+          if (
+            firstSwatch instanceof HTMLElement &&
+            firstSwatch.classList.contains('dm-emoji-swatch')
+          ) {
             firstSwatch.focus();
           }
         }, 50);
@@ -257,14 +275,31 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
       return;
     }
     const cols = 8;
-    let next = idx;
+    let next: number;
     switch (event.key) {
-      case 'ArrowRight': event.preventDefault(); next = Math.min(idx + 1, swatches.length - 1); break;
-      case 'ArrowLeft': event.preventDefault(); next = Math.max(idx - 1, 0); break;
-      case 'ArrowDown': event.preventDefault(); next = Math.min(idx + cols, swatches.length - 1); break;
-      case 'ArrowUp': event.preventDefault(); next = Math.max(idx - cols, 0); break;
-      case 'Enter': case ' ': event.preventDefault(); swatches[idx]?.click(); return;
-      default: return;
+      case 'ArrowRight':
+        event.preventDefault();
+        next = Math.min(idx + 1, swatches.length - 1);
+        break;
+      case 'ArrowLeft':
+        event.preventDefault();
+        next = Math.max(idx - 1, 0);
+        break;
+      case 'ArrowDown':
+        event.preventDefault();
+        next = Math.min(idx + cols, swatches.length - 1);
+        break;
+      case 'ArrowUp':
+        event.preventDefault();
+        next = Math.max(idx - cols, 0);
+        break;
+      case 'Enter':
+      case ' ':
+        event.preventDefault();
+        swatches[idx]?.click();
+        return;
+      default:
+        return;
     }
     swatches[next]?.focus();
   }
@@ -273,7 +308,9 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
     const grid = this.elRef.nativeElement.querySelector<HTMLElement>('.dm-emoji-picker-grid');
     if (!grid || this.searchQuery()) return;
 
-    const labels = Array.from(grid.querySelectorAll<HTMLElement>('.dm-emoji-picker-category-label[data-category]'));
+    const labels = Array.from(
+      grid.querySelectorAll<HTMLElement>('.dm-emoji-picker-category-label[data-category]')
+    );
 
     let currentCat = '';
     for (const label of labels) {
@@ -332,13 +369,18 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
               offsetValue: 4,
             });
           }
-          const input = this.elRef.nativeElement.querySelector<HTMLInputElement>('.dm-emoji-picker-search input');
+          const input = this.elRef.nativeElement.querySelector<HTMLInputElement>(
+            '.dm-emoji-picker-search input'
+          );
           input?.focus({ preventScroll: true });
         });
       });
     };
 
-    (editor.on as (e: string, h: (...args: unknown[]) => void) => void)('insertEmoji', this.eventHandler);
+    (editor.on as (e: string, h: (...args: unknown[]) => void) => void)(
+      'insertEmoji',
+      this.eventHandler
+    );
   }
 
   private addGlobalListeners(): void {
@@ -350,7 +392,9 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
         target !== this.anchorEl &&
         !this.anchorEl?.contains(target)
       ) {
-        this.ngZone.run(() => { this.close(); });
+        this.ngZone.run(() => {
+          this.close();
+        });
       }
     };
     document.addEventListener('mousedown', this.clickOutsideHandler);
@@ -358,7 +402,9 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
     this.keydownHandler = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && this.isOpen()) {
         e.preventDefault();
-        this.ngZone.run(() => { this.close(); });
+        this.ngZone.run(() => {
+          this.close();
+        });
       }
     };
     document.addEventListener('keydown', this.keydownHandler);
@@ -393,7 +439,10 @@ export class DomternalEmojiPickerComponent implements OnDestroy {
     this.removeGlobalListeners();
     if (this.eventHandler) {
       const editor = this.editor();
-      (editor.off as (e: string, h: (...args: unknown[]) => void) => void)('insertEmoji', this.eventHandler);
+      (editor.off as (e: string, h: (...args: unknown[]) => void) => void)(
+        'insertEmoji',
+        this.eventHandler
+      );
       this.eventHandler = null;
     }
   }

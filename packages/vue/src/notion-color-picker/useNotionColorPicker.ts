@@ -79,7 +79,7 @@ export interface UseNotionColorPickerResult {
 }
 
 export function useNotionColorPicker(
-  options: UseNotionColorPickerOptions,
+  options: UseNotionColorPickerOptions
 ): UseNotionColorPickerResult {
   const { editor } = options;
 
@@ -124,7 +124,10 @@ export function useNotionColorPicker(
       });
     }
 
-    const attrs = (mark?.attrs ?? {}) as { colorToken?: string | null; backgroundColorToken?: string | null };
+    const attrs = (mark?.attrs ?? {}) as {
+      colorToken?: string | null;
+      backgroundColorToken?: string | null;
+    };
     currentTextToken.value = attrs.colorToken ?? null;
     currentBgToken.value = attrs.backgroundColorToken ?? null;
   };
@@ -201,7 +204,7 @@ export function useNotionColorPicker(
         if (isOpen.value) setStorageOpen(false);
       });
     },
-    { immediate: true },
+    { immediate: true }
   );
 
   // Document-level listeners (outside-click + Escape) scoped to the open
@@ -211,39 +214,51 @@ export function useNotionColorPicker(
     const controller = new AbortController();
     const { signal } = controller;
 
-    document.addEventListener('mousedown', (e: MouseEvent) => {
-      // No redundant `isOpen` guard: this effect only runs when `isOpen === true`
-      // and the AbortController detaches the listener as soon as it flips false.
-      const target = e.target as Node | null;
-      if (!target) return;
-      if (panelRef.value?.contains(target)) return;
-      if (anchorEl.value?.contains(target)) return;
-      close({ refocus: false });
-    }, { signal });
+    document.addEventListener(
+      'mousedown',
+      (e: MouseEvent) => {
+        // No redundant `isOpen` guard: this effect only runs when `isOpen === true`
+        // and the AbortController detaches the listener as soon as it flips false.
+        const target = e.target as Node | null;
+        if (!target) return;
+        if (panelRef.value?.contains(target)) return;
+        if (anchorEl.value?.contains(target)) return;
+        close({ refocus: false });
+      },
+      { signal }
+    );
 
-    document.addEventListener('keydown', (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen.value) {
-        e.preventDefault();
-        close({ refocus: true });
-      }
-    }, { signal });
+    document.addEventListener(
+      'keydown',
+      (e: KeyboardEvent) => {
+        if (e.key === 'Escape' && isOpen.value) {
+          e.preventDefault();
+          close({ refocus: true });
+        }
+      },
+      { signal }
+    );
 
-    onCleanup(() => { controller.abort(); });
+    onCleanup(() => {
+      controller.abort();
+    });
   });
 
   const applyText = (token: string | null): void => {
     const ed = editor.value;
     if (!ed) return;
-    (ed.commands as unknown as { setTextColorToken: (t: string | null) => boolean })
-      .setTextColorToken(token);
+    (
+      ed.commands as unknown as { setTextColorToken: (t: string | null) => boolean }
+    ).setTextColorToken(token);
     syncFromSelection();
   };
 
   const applyBg = (token: string | null): void => {
     const ed = editor.value;
     if (!ed) return;
-    (ed.commands as unknown as { setBackgroundColorToken: (t: string | null) => boolean })
-      .setBackgroundColorToken(token);
+    (
+      ed.commands as unknown as { setBackgroundColorToken: (t: string | null) => boolean }
+    ).setBackgroundColorToken(token);
     syncFromSelection();
   };
 
@@ -260,16 +275,14 @@ export function useNotionColorPicker(
     const cols = 5;
     const root = panelRef.value;
     if (!root) return;
-    const swatches = Array.from(
-      root.querySelectorAll<HTMLElement>('.dm-ncp-swatch'),
-    );
+    const swatches = Array.from(root.querySelectorAll<HTMLElement>('.dm-ncp-swatch'));
     if (!swatches.length) return;
 
     const active = document.activeElement as HTMLElement | null;
     const idx = active ? swatches.indexOf(active) : -1;
     if (idx === -1) return;
 
-    let next = idx;
+    let next: number;
     switch (event.key) {
       case 'ArrowRight':
         event.preventDefault();

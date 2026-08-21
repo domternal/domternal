@@ -49,7 +49,7 @@ export class TabIndentDemo {
     root.appendChild(grid);
 
     this.#panels.push(this.#buildPanel(grid, 0, 'StarterKit (default - listIndent OFF)', [StarterKit]));
-    this.#panels.push(this.#buildPanel(grid, 1, 'StarterKit({ listIndent: true })', [StarterKit.configure({ listIndent: true }) as AnyExtension]));
+    this.#panels.push(this.#buildPanel(grid, 1, 'StarterKit({ listIndent: true })', [StarterKit.configure({ listIndent: true })]));
 
     container.appendChild(root);
     this.#exposeForE2E();

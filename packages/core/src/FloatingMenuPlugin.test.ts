@@ -919,7 +919,7 @@ describe('FloatingMenuPlugin', () => {
 
       showFloatingMenu(editor.view);
       // Garbage meta value goes through `apply` and falls into the "return prev" branch.
-      editor.view.dispatch(editor.view.state.tr.setMeta(FLOATING_MENU_META, 'garbage' as unknown as 'show'));
+      editor.view.dispatch(editor.view.state.tr.setMeta(FLOATING_MENU_META, 'garbage'));
       const state = floatingMenuPluginKey.getState(editor.state) as { triggered: boolean } | undefined;
       expect(state?.triggered).toBe(true);
     });

@@ -3,3 +3,6 @@
 /coverage
 /.nx/cache
 /.nx/workspace-data
+
+# pnpm owns this generated file; Prettier would rewrite thousands of unrelated lines.
+/pnpm-lock.yaml
