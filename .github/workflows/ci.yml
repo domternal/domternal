@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  merge_group:
+  workflow_dispatch:
+  schedule:
+    # Exercises the pinned Node/runner/toolchain even when main is quiet.
+    - cron: '17 4 * * 1'
 
 # A second push to the same branch makes the first run pointless. Without this
 # both run to completion, and the older one can report last.
@@ -20,25 +25,46 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The whole job takes a few minutes. The GitHub default is six hours, which
     # is what a hung vitest or tsc would otherwise burn.
     timeout-minutes: 30
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Lint GitHub Actions workflows
+        # actionlint has no first-party JS action. Download the versioned binary
+        # and verify its published digest before executing it.
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl --fail --location --silent --show-error --retry 3 --retry-all-errors \
+            --output "$archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "$ACTIONLINT_SHA256  $archive" | sha256sum --check --strict
+          tar --extract --gzip --file "$archive" --directory "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        # v6.0.9 regressed projects that pin pnpm 10; v6.0.8 is the latest
+        # verified release for this repository until that upstream issue closes.
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
         with:
           version: 10.34.4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -175,6 +201,7 @@ jobs:
         run: |
           pnpm --filter demo-angular typecheck
           pnpm --filter demo-react typecheck
+          pnpm --filter demo-vanilla typecheck
           pnpm --filter demo-vue typecheck
 
       - name: Test with coverage

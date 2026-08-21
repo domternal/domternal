@@ -17,7 +17,7 @@
     "test:e2e": "nx run-many --target=test:e2e --all",
     "test:e2e:matrix": "playwright test --config e2e/playwright.config.ts",
     "lint": "nx run-many --target=lint --all && eslint tests scripts e2e eslint.config.mjs",
-    "typecheck": "nx run-many --target=typecheck --all",
+    "typecheck": "nx run-many --target=typecheck --all --outputStyle=static",
     "typecheck:e2e": "tsc --noEmit --project e2e/tsconfig.json",
     "test:types-consumer": "pnpm --filter @domternal/tests-consumer-types test:types",
     "test:api-surface": "node --test tests/api-surface/dump.test.mjs && node tests/api-surface/dump.mjs --check",
