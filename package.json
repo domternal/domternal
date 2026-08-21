@@ -29,7 +29,7 @@
     "test:package-policy": "node --test tests/package-policy/check.test.mjs && node tests/package-policy/check.mjs",
     "test:package-artifacts": "node --test tests/package-artifacts/check.test.mjs && node tests/package-artifacts/check.mjs",
     "test:ssr-import": "node --test tests/ssr-import/check.test.mjs && node tests/ssr-import/check.mjs",
-    "test:ci-wiring": "node --test tests/ci-wiring/check.test.mjs && node tests/ci-wiring/check.mjs",
+    "test:ci-wiring": "node --test tests/ci-wiring/*.test.mjs && node tests/ci-wiring/check.mjs",
     "test:single-prosemirror": "node --test tests/single-prosemirror/check.test.mjs && node tests/single-prosemirror/check.mjs",
     "test:dedupe-reachable": "node --test tests/dedupe-reachable/check.test.mjs && node tests/dedupe-reachable/check.mjs",
     "test:pm-ranges": "node --test tests/pm-ranges/check.test.mjs && node tests/pm-ranges/check.mjs",
