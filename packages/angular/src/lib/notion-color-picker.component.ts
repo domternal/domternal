@@ -26,6 +26,15 @@ interface NotionColorPickerStorage {
   isOpen: boolean;
 }
 
+function paletteFromExtensionOptions(options: unknown): string[] {
+  if (typeof options !== 'object' || options === null || !('palette' in options)) return [];
+  const palette: unknown = options.palette;
+  if (!Array.isArray(palette) || !palette.every((token: unknown) => typeof token === 'string')) {
+    return [];
+  }
+  return [...palette];
+}
+
 /**
  * Display labels for the named-token palette. Used in tooltips / aria labels;
  * unknown tokens fall back to a title-cased version of the raw key.
@@ -411,9 +420,10 @@ export class DomternalNotionColorPickerComponent implements OnDestroy {
   }
 
   private readPalette(): string[] {
-    const ext = this.editor().extensionManager.extensions.find((e) => e.name === 'notionColorPicker');
-    const options = (ext?.options ?? null) as { palette?: readonly string[] } | null;
-    return options?.palette ? [...options.palette] : [];
+    const ext = this.editor().extensionManager.extensions.find(
+      (e) => e.name === 'notionColorPicker'
+    );
+    return paletteFromExtensionOptions(ext?.options);
   }
 
   private getStorage(): NotionColorPickerStorage | null {

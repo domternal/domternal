@@ -18,12 +18,17 @@ interface NotionColorPickerStorage {
   isOpen: boolean;
 }
 
-interface NotionColorPickerExtensionOptions {
-  palette?: readonly string[];
-}
-
 interface NotionColorOpenDetail {
   anchorElement?: HTMLElement;
+}
+
+function paletteFromExtensionOptions(options: unknown): string[] {
+  if (typeof options !== 'object' || options === null || !('palette' in options)) return [];
+  const palette: unknown = options.palette;
+  if (!Array.isArray(palette) || !palette.every((token: unknown) => typeof token === 'string')) {
+    return [];
+  }
+  return [...palette];
 }
 
 /**
@@ -149,8 +154,7 @@ export function useNotionColorPicker(
       // Read palette from the extension options. Extension list is immutable
       // after editor construction, so this only runs once per editor.
       const ext = ed.extensionManager.extensions.find((e) => e.name === 'notionColorPicker');
-      const extOptions = (ext?.options ?? null) as NotionColorPickerExtensionOptions | null;
-      palette.value = extOptions?.palette ? [...extOptions.palette] : [];
+      palette.value = paletteFromExtensionOptions(ext?.options);
 
       const onOpen = (...args: unknown[]): void => {
         const detail = args[0] as NotionColorOpenDetail | undefined;

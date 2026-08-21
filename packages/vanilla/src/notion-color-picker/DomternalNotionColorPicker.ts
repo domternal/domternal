@@ -6,12 +6,17 @@ interface NotionColorPickerStorage {
   isOpen: boolean;
 }
 
-interface NotionColorPickerExtensionOptions {
-  palette?: readonly string[];
-}
-
 interface NotionColorOpenDetail {
   anchorElement?: HTMLElement;
+}
+
+function paletteFromExtensionOptions(options: unknown): string[] {
+  if (typeof options !== 'object' || options === null || !('palette' in options)) return [];
+  const palette: unknown = options.palette;
+  if (!Array.isArray(palette) || !palette.every((token: unknown) => typeof token === 'string')) {
+    return [];
+  }
+  return [...palette];
 }
 
 /**
@@ -147,10 +152,9 @@ export class DomternalNotionColorPicker extends EventTarget {
 
     // Read palette from extension options (immutable per editor lifetime)
     const ext = this.#editor.extensionManager.extensions.find(
-      (e) => e.name === 'notionColorPicker',
+      (e) => e.name === 'notionColorPicker'
     );
-    const extOpts = (ext?.options ?? null) as NotionColorPickerExtensionOptions | null;
-    this.#palette = extOpts?.palette ? [...extOpts.palette] : [];
+    this.#palette = paletteFromExtensionOptions(ext?.options);
 
     // Subscribe to editor events (not AbortSignal-aware; explicit off in destroy).
     // Toggle logic lives in `open()` so the public API and event handler
