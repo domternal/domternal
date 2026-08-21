@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -57,11 +57,17 @@ export function coverageReportProblems(root, expected = testablePackages(root)) 
   const problems = coveragePolicyProblems(root, expected);
   const expectedReports = new Set(expected.map((name) => join(name, 'coverage', 'lcov.info')));
   for (const relativePath of expectedReports) {
+    const coverageDirectory = join(root, 'packages', dirname(relativePath));
     const path = join(root, 'packages', relativePath);
-    if (!existsSync(path)) {
+    const coverageStats = lstatSync(coverageDirectory, { throwIfNoEntry: false });
+    const stats = lstatSync(path, { throwIfNoEntry: false });
+    if (coverageStats?.isSymbolicLink()) {
+      problems.push(`${relativePath}: coverage directory must not be a symbolic link`);
+    } else if (!stats) {
       problems.push(`${relativePath}: coverage report was not produced`);
+    } else if (stats.isSymbolicLink()) {
+      problems.push(`${relativePath}: coverage report must not be a symbolic link`);
     } else {
-      const stats = statSync(path);
       if (!stats.isFile() || stats.size === 0) {
         problems.push(`${relativePath}: coverage report is empty or not a regular file`);
       }

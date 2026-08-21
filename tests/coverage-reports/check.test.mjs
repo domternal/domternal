@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -86,6 +86,38 @@ test('reports must be exact, regular and non-empty', () => {
         'gamma/coverage/lcov.info: unexpected coverage report is outside the policy'
       )
     );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a direct lcov report symlink is rejected', () => {
+  const root = fixture(['alpha'], []);
+  try {
+    const coverage = join(root, 'packages', 'alpha', 'coverage');
+    mkdirSync(coverage, { recursive: true });
+    writeFileSync(join(coverage, 'real-lcov.info'), 'TN:\n');
+    symlinkSync('real-lcov.info', join(coverage, 'lcov.info'));
+
+    assert.deepEqual(coverageReportProblems(root, ['alpha']), [
+      'alpha/coverage/lcov.info: coverage report must not be a symbolic link',
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a symlinked coverage directory is rejected', () => {
+  const root = fixture(['alpha'], []);
+  try {
+    const externalCoverage = join(root, 'external-coverage');
+    mkdirSync(externalCoverage);
+    writeFileSync(join(externalCoverage, 'lcov.info'), 'TN:\n');
+    symlinkSync(externalCoverage, join(root, 'packages', 'alpha', 'coverage'), 'dir');
+
+    assert.deepEqual(coverageReportProblems(root, ['alpha']), [
+      'alpha/coverage/lcov.info: coverage directory must not be a symbolic link',
+    ]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
