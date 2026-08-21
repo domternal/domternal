@@ -8,6 +8,9 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   LOCKFILES,
   STORES,
@@ -150,16 +153,51 @@ test('every nested project is scanned, not just this one', () => {
   assert.equal(STORES.length, LOCKFILES.length);
 });
 
-test('the gate finds the real sharer in this checkout, rather than skipping', () => {
+test('discovery reads the pnpm store, not node_modules/<name>', () => {
   /* The regression that prompted this: the first version of the gate looked
      only at `node_modules/<name>`, found nothing in the repository where
-     @domternal/pm is actually edited, and printed SKIPPED. A gate that skips
-     where the change happens is worth nothing. */
-  const sharers = discoverSharers(process.cwd());
-  assert.ok(sharers.length > 0, 'no sharer discovered');
-  const yProsemirror = sharers.find((sharer) => sharer.name === 'y-prosemirror');
-  assert.ok(yProsemirror, 'y-prosemirror not discovered');
-  assert.ok(yProsemirror.peers['prosemirror-model']);
+     @domternal/pm is actually edited, and printed SKIPPED. Built here rather
+     than read off this checkout, because the store that holds a sharer belongs
+     to a nested repository a public clone and CI do not have. */
+  const root = mkdtempSync(join(tmpdir(), 'pm-ranges-'));
+  try {
+    const inStore = join(root, 'node_modules', '.pnpm', 'y-prosemirror@1.3.7');
+    mkdirSync(join(inStore, 'node_modules', 'y-prosemirror'), { recursive: true });
+    writeFileSync(
+      join(inStore, 'node_modules', 'y-prosemirror', 'package.json'),
+      JSON.stringify({
+        name: 'y-prosemirror',
+        peerDependencies: { 'prosemirror-model': '^1.7.1', yjs: '^13.5.38' },
+      })
+    );
+    writeFileSync(join(root, 'pnpm-lock.yaml'), 'packages:\n  y-prosemirror@1.3.7:\n');
+    assert.deepEqual(discoverSharers(root), [
+      { name: 'y-prosemirror', version: '1.3.7', peers: { 'prosemirror-model': '^1.7.1' } },
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a sharer this checkout installs is discovered, not skipped past', (t) => {
+  /* Only the nested repositories install one, so on a public clone and in CI
+     there is nothing to find and nothing to prove. The lockfiles say which
+     case this is, and being installed while going undiscovered is the whole
+     regression. */
+  const installsSharer = LOCKFILES.map((rel) => join(process.cwd(), rel))
+    .filter((path) => existsSync(path))
+    .some((path) =>
+      [...collectInstalled(readFileSync(path, 'utf8'))].some((key) =>
+        key.startsWith('y-prosemirror@')
+      )
+    );
+  if (!installsSharer) {
+    t.skip('nothing installed in this checkout takes ProseMirror as a peer');
+    return;
+  }
+  const sharer = discoverSharers(process.cwd()).find((one) => one.name === 'y-prosemirror');
+  assert.ok(sharer, 'y-prosemirror is installed here, but discovery missed it');
+  assert.ok(sharer.peers['prosemirror-model']);
 });
 
 test('the pm being judged is this workspace source where there is one', () => {
