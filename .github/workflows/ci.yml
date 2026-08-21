@@ -51,32 +51,10 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Forbid relative-path module augmentations
-        # Tsup dts bundling does not preserve `declare module '../...'`
-        # paths, so any relative-path augmentation silently disappears
-        # from the published surface. Always augment by package name.
-        run: |
-          matches=$(grep -rn "declare module '\." packages/*/src 2>/dev/null || true)
-          if [ -n "$matches" ]; then
-            echo "$matches"
-            echo ""
-            echo "Use a package name (e.g. '@domternal/core') instead of a relative path."
-            exit 1
-          fi
-
-      - name: Forbid direct prosemirror-* imports
-        # Everything must go through @domternal/pm, which is the single
-        # place a consumer can pin. A direct import resolves against the
-        # importing package's own node_modules, which is how a second copy
-        # of an identity-compared module gets into a bundle.
-        run: |
-          matches=$(grep -rnE "from '(prosemirror-[a-z-]+)'" packages/*/src --include=*.ts --include=*.tsx --include=*.mts --include=*.cts --include=*.js --include=*.jsx --include=*.mjs --include=*.cjs 2>/dev/null | grep -v '^packages/pm/' || true)
-          if [ -n "$matches" ]; then
-            echo "$matches"
-            echo ""
-            echo "Import from '@domternal/pm/<subpath>' instead."
-            exit 1
-          fi
+      - name: Source boundary policy
+        # AST-based: covers both quote styles plus import, export, dynamic
+        # import, require and import-type syntax without matching comments.
+        run: pnpm test:source-boundaries
 
       - name: Type check
         run: pnpm typecheck
