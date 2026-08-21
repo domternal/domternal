@@ -1,31 +1,15 @@
 // =============================================================================
 // Print Styles
-// =============================================================================
-// Everything here answers one question: what does the document look like on
-// paper. Two layers, and they are deliberately independent.
-//
-// 1. Always on. Chrome disappears, clipped content opens up, blocks break at
-//    sane places. This applies to the reader's own Ctrl/Cmd+P with no code
-//    involved, which is the point: an editor that prints its own toolbar and
-//    silently drops the body of a closed accordion is broken, not missing a
-//    premium feature.
-// 2. Gated behind `body.dm-printing`, set by the `printDocument` command.
-//    That layer also hides the HOST application's chrome (its sidebar, its
-//    header), which we may not touch uninvited: an editor embedded in an
-//    article has no business erasing the article when the reader prints it.
-//
-// `@media print` carries no specificity of its own, so anything written
-// inline by JS (table widths, the table handles, popovers) needs `!important`
-// to be overridden here.
-// =============================================================================
+// =============================================================================.
+
+// The light palette, re-emitted on the editor in section 3. `themes/light` is
+// already loaded ahead of this file by `index.scss`, so the module's own CSS
+// still appears in its existing place and nothing is emitted twice.
+@use 'themes/light';
 
 @media print {
   // ===========================================================================
-  // 1. Editor chrome
-  // ===========================================================================
-  // Toolbar, every floating menu and popover, every hover affordance. The
-  // popovers mount on `document.body`, the menus inside `.dm-editor`, and the
-  // TOC outline outside both, so this list is flat rather than scoped.
+  // 1.
   .dm-toolbar,
   // A descendant of `.dm-toolbar` today, so the line above already hides it.
   // Listed anyway because floating UI is one refactor away from portaling
@@ -115,20 +99,28 @@
   .dm-editor .ProseMirror .dm-toc-block {
     background: transparent;
     border-color: rgba(0, 0, 0, 0.2);
+    // Its row colours are not part of the editor palette in section 3: they live
+    // on `:root`, and `.dm-theme-dark .dm-toc-block` overrides them on THIS
+    // element, out of reach of anything set on `.dm-editor`, so a dark document.
+    --dm-toc-block-link-color: initial;
+    --dm-toc-block-link-active-color: initial;
+    --dm-toc-block-empty-color: initial;
+  }
+
+  // A row animates its colour over 0.12s, and a running transition outranks
+  // `!important`. The sheet itself is resolved in a fresh frame and is right
+  // without this; a computed style read in the same frame as the media switch
+  // is not, and that is what a test reads.
+  .dm-editor .ProseMirror .dm-toc-block-link {
+    transition: none !important;
   }
 
   // ===========================================================================
-  // 2. Content that is hidden or cut off on screen
-  // ===========================================================================
-  // This is the part that matters most. Anything below stays invisible on
-  // paper unless it is opened up, and invisible here means the reader never
-  // learns it existed.
+  // 2.
 
   // Closed accordion. The node view sets `hidden` on the body div, so the UA
   // rule wins over the theme's own declarations; the parent is a grid whose
-  // content wrapper is `display: contents`, hence `block` rather than
-  // `revert`. The chevron button goes with it: a toggle is meaningless on
-  // paper, and it would leave a hole in the grid.
+  // content wrapper is `display: contents`, hence `block` rather than `revert`.
   .dm-editor .ProseMirror div[data-type="details"] div[data-details-content][hidden] {
     display: block !important;
   }
@@ -147,31 +139,33 @@
     word-break: break-word;
   }
 
-  // Wide tables. Three independent clips: the scroll wrapper, `overflow`
-  // on the table itself, and the inline width/min-width the table node view
-  // writes from the stored column widths. The last one is why these carry
-  // `!important`: an inline style beats any rule without it.
+  // Wide tables. Three independent clips: the scroll wrapper, `overflow` on the
+  // table itself, and the inline width/min-width the table node view writes from
+  // the stored column widths.
   .dm-editor .tableWrapper {
     overflow: visible !important;
   }
 
   .dm-editor .ProseMirror table {
     overflow: visible !important;
-    width: 100% !important;
+    width: 100%;
+    max-width: 100% !important;
     min-width: 0 !important;
     table-layout: auto !important;
   }
 
-  // The 100px floor exists so a column stays grabbable with the mouse. On
-  // paper there is no mouse, and the floor is what pushes a wide table off
-  // the sheet.
+  // A table inside a cell is the one place the rule above cannot fit by itself.
+  .dm-editor .ProseMirror td table,
+  .dm-editor .ProseMirror th table {
+    width: 100% !important;
+  }
+
+  // The 100px floor exists so a column stays grabbable with the mouse. On paper
+  // there is no mouse, and the floor is what pushes a wide table off the sheet.
   .dm-editor .ProseMirror td,
   .dm-editor .ProseMirror th {
     min-width: 0 !important;
-  }
-
-  .dm-editor .ProseMirror colgroup col {
-    width: auto !important;
+    overflow-wrap: anywhere;
   }
 
   // Wide formulae are clipped on both axes on screen.
@@ -186,32 +180,52 @@
   }
 
   // ===========================================================================
-  // 3. The editor frame itself
-  // ===========================================================================
-  // A border, a shadow and a tinted panel are screen furniture: the paper is
-  // already the page. The gutter is the expensive one, it is reserved for the
-  // drag handle and costs ~48px on every printed page.
-  // The canvas, to match the black text forced below. Named here because the
-  // ancestor rule further down cannot reach `body`, which is not a descendant
-  // of itself. Transition first: a running one outranks `!important`, and a
-  // theme toggle animates this.
+  // 3.
+  html,
   body {
     transition: none !important;
     background: none !important;
+    // A dark `color-scheme` paints a canvas of its own, and it is not a
+    // background: the line above cannot reach it, and where a background stops
+    // at the page area this one covers the WHOLE sheet, margins included.
+    color-scheme: light !important;
   }
 
   .dm-editor {
+    // Dark is a screen decision. On paper it is black ink on a black table
+    // header and a code chip nobody can read.
+    @include light.light-tokens(' !important');
+
+    // The tokens `_variables.scss` derives from that palette, listed because
+    // `light-tokens` is only the set the dark theme flips.
+    --dm-link-color: var(--dm-accent) !important;
+    --dm-mention-color: var(--dm-accent) !important;
+    --dm-mention-bg: var(--dm-accent-surface) !important;
+    --dm-code-bg: var(--dm-code-surface) !important;
+    --dm-code-block-bg: var(--dm-code-surface) !important;
+    --dm-code-block-text: var(--dm-text) !important;
+    --dm-table-header-bg: var(--dm-surface) !important;
+    --dm-details-bg: var(--dm-surface) !important;
+
+    // The one token where the light palette and the untouched default disagree
+    // visibly: `.dm-theme-light` renders the chip pink. `currentColor` takes the
+    // surrounding text's colour instead.
+    --dm-code-text: currentColor !important;
+
     border: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;
     background: none !important;
     max-width: none !important;
-    // The text colour has to come with the background. A dark theme sets
-    // `--dm-editor-text` to a near-white, and dropping only the dark panel
-    // behind it leaves light grey on white paper: legible on screen,
-    // invisible in print. Explicit colours the author applied are inline on
-    // their own spans and still win.
+    // Belt and braces over the palette above, for the host that writes
+    // `color` straight onto the editor instead of the token behind it: no
+    // token reset can reach that. Explicit colours the author applied are
+    // inline on their own spans and still win.
     color: #000 !important;
+    // The editor declares `color-scheme` from its own token, so the reset on the
+    // root does not reach this subtree, and a host that writes the property
+    // rather than the token is not reached by the palette either.
+    color-scheme: light !important;
   }
 
   .dm-editor .ProseMirror {
@@ -229,8 +243,7 @@
   }
 
   // ===========================================================================
-  // 4. Page breaks
-  // ===========================================================================
+  // 4.
   .dm-editor .ProseMirror h1,
   .dm-editor .ProseMirror h2,
   .dm-editor .ProseMirror h3,
@@ -242,44 +255,107 @@
     break-inside: avoid;
   }
 
-  .dm-editor .ProseMirror pre,
-  .dm-editor .ProseMirror blockquote,
-  .dm-editor .ProseMirror figure,
+  // A picture and a rendered formula are the exception. Neither has line
+  // boxes to fragment at, so half on one sheet and half on the next says less
+  // than the whole of it on one sheet.
   .dm-editor .ProseMirror img,
   .dm-editor .ProseMirror .dm-image-resizable,
-  .dm-editor .ProseMirror .dm-math-block,
-  .dm-editor .ProseMirror .dm-toc-block,
-  .dm-editor .ProseMirror tr,
-  .dm-editor .ProseMirror th,
-  .dm-editor .ProseMirror td,
-  .dm-editor .ProseMirror li {
+  .dm-editor .ProseMirror .dm-math-block {
     break-inside: avoid;
   }
 
-  // Widows and orphans are a paragraph-level concern; two lines is the
-  // typographic minimum and what word processors default to.
+  // A picture taller than the page cannot honour the avoid: it is deferred, then
+  // sliced one page-high window per sheet. Scaling it to the page is the only
+  // reading that survives, and in paged media `vh` is the page area.
+  .dm-editor .ProseMirror img {
+    max-height: calc(100vh - 6em);
+    object-fit: contain;
+    object-position: left center;
+  }
+
+  .dm-editor .ProseMirror .dm-image-resizable[data-align="center"] img,
+  .dm-editor .ProseMirror .dm-image-resizable[data-float="center"] img {
+    object-position: center;
+  }
+
+  .dm-editor .ProseMirror .dm-image-resizable[data-align="right"] img,
+  .dm-editor .ProseMirror .dm-image-resizable[data-float="right"] img {
+    object-position: right center;
+  }
+
+  [dir="rtl"] .dm-editor .ProseMirror .dm-image-resizable:not([data-align]):not([data-float]) img,
+  .dm-editor .ProseMirror[dir="rtl"] .dm-image-resizable:not([data-align]):not([data-float]) img {
+    object-position: right center;
+  }
+
+  // A list item is `paragraph block*`, so it can hold a whole document and has
+  // to stay breakable. It must only not strand its first block at the foot of a
+  // sheet.
+  .dm-editor .ProseMirror li > *:first-child:not(:last-child),
+  .dm-editor .ProseMirror li[data-type="taskItem"] > div > *:first-child:not(:last-child) {
+    break-after: avoid;
+  }
+
+  // A row that fits stays whole: a two-line row split down the middle reads as
+  // two rows. A row that can outgrow the sheet is excluded, and every entry in
+  // the list was measured costing a sheet.
+  .dm-editor .ProseMirror
+    tr:not(
+      :has(
+          p + p,
+          ul,
+          ol,
+          table,
+          pre,
+          blockquote,
+          img,
+          .dm-math-block,
+          .dm-toc-block,
+          [data-type="column-list"],
+          [data-type="details"]
+        )
+    ) {
+    break-inside: avoid;
+  }
+
+  // A split table has to carry its column labels onto every sheet, the way
+  // `w:tblHeader` and pdfmake's `headerRows` do.
+  .dm-editor .ProseMirror table:has(> tbody > tr > td):has(> tbody > tr:first-child > th) > tbody {
+    display: contents;
+  }
+
+  // The predicate the exporters count with: a leading row of header cells only.
+  // `:has(> th)` alone would promote the first row of a header-COLUMN table,
+  // where `toggleHeaderColumn` puts a `th` in every row.
+  .dm-editor
+    .ProseMirror
+    table:has(> tbody > tr > td)
+    > tbody
+    > tr:first-child:has(> th):not(:has(> td)):not(:has(> [rowspan])) {
+    display: table-header-group;
+    // The repeat only survives while the group itself cannot be broken, and the
+    // blanket `tr` rule above no longer says that for every row. Declared here
+    // so the header does not depend on a decision made for other rows.
+    break-inside: avoid;
+  }
+
+  // The line-level half of the above.
   .dm-editor .ProseMirror p,
   .dm-editor .ProseMirror li {
     orphans: 2;
     widows: 2;
   }
 
-  // A floated picture must not straddle a page break, or the text that wraps
-  // around it ends up on the sheet the picture left behind. `.dm-image-resizable`
-  // above already carries `break-inside: avoid`; this adds the clearance so
-  // the float does not escape into the next page's content either.
-  .dm-editor .ProseMirror .dm-image-resizable[data-float="left"],
-  .dm-editor .ProseMirror .dm-image-resizable[data-float="right"] {
-    break-after: auto;
-    break-before: auto;
+  // Three rather than two for code, where a two-line fragment carries much less
+  // than two lines of prose do: on a block long enough to satisfy them no
+  // fragment is then shorter than three lines.
+  .dm-editor .ProseMirror pre {
+    orphans: 3;
+    widows: 3;
   }
 
   // ===========================================================================
-  // 5. Colour fidelity
-  // ===========================================================================
-  // Browsers strip backgrounds when printing unless the page asks for them.
-  // For a code block or a coloured callout the background IS the meaning, so
-  // losing it changes what the document says.
+  // 5.
   .dm-editor .ProseMirror pre,
   .dm-editor .ProseMirror code,
   .dm-editor .ProseMirror mark,
@@ -295,59 +371,99 @@
 
   // Insurance rather than a fix: Chromium already computes `exact` for form
   // controls on its own, so this changes nothing there and cannot be tested
-  // there either. It is kept for engines that strip the tick along with
-  // every other background, where a printed task list would otherwise read
-  // as entirely undone.
+  // there either.
   .dm-editor .ProseMirror input[type="checkbox"] {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }
 
   // ===========================================================================
-  // 6. Isolation, only for `printDocument`
-  // ===========================================================================
-  // The command marks the editor, every one of its ancestors up to <html>,
-  // and the body. Hiding each ancestor's other children collapses the host
-  // application away at every level without this stylesheet ever knowing a
-  // single one of the host's class names.
-  //
-  // The body needs its own selector. It is marked as an ancestor like all the
-  // others, but no element is a descendant of itself, so the descendant rule
-  // never reaches its children: a sidebar or header sitting directly under
-  // <body>, which is the commonest shape of all, would keep printing.
+  // 6.
   body.dm-printing .dm-print-ancestor > *:not(.dm-print-ancestor):not(.dm-print-root),
   body.dm-printing > *:not(.dm-print-ancestor):not(.dm-print-root) {
     display: none !important;
   }
 
-  // The ancestors themselves survive but stop imposing layout: a sidebar
-  // grid, a centred max-width column or a scroll container would otherwise
-  // keep shaping a page that no longer has anything beside the document.
-  // Only under the command path, where everything but the document is hidden,
-  // so this can reach nothing the host owns.
+  // The ancestors themselves survive but stop imposing layout: a sidebar grid, a
+  // centred max-width column or a scroll container would otherwise keep shaping
+  // a page that no longer has anything beside the document.
   body.dm-printing {
     color: #000 !important;
   }
 
-  body.dm-printing .dm-print-ancestor {
+  // The same two elements need naming here as well, and for the same reason:
+  // `mark()` walks to <html>, so the root and the body both carry the class, and
+  // neither is a descendant of the body.
+  body.dm-printing .dm-print-ancestor,
+  body.dm-printing,
+  html.dm-print-ancestor {
+    // A running animation or transition outranks `!important`, so without
+    // these two nothing below is guaranteed to land: a host animating a
+    // wrapper's transform keeps that transform through the whole print. The
+    // canvas rule in section 3 makes the same move for the same reason.
+    animation: none !important;
+    transition: none !important;
     display: block !important;
     position: static !important;
     width: auto !important;
     max-width: none !important;
+    min-width: 0 !important;
     height: auto !important;
     max-height: none !important;
+    // A shell built on `min-height: 100vh` is a whole page area of blank
+    // paper when the document is shorter than one, and a multiple of it above
+    // 100vh.
+    min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
     border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
     overflow: visible !important;
     background: none !important;
-    transform: none !important;
     columns: auto !important;
+    // Down to `will-change`, every one of these makes a containing block for
+    // fixed descendants, which is how an ancestor turns the repeating footer of
+    // a paged document into one box at the end of the flow, printed on a single.
+    transform: none !important;
+    translate: none !important;
+    rotate: none !important;
+    scale: none !important;
+    transform-style: flat !important;
+    offset-path: none !important;
+    perspective: none !important;
+    contain: none !important;
+    container-type: normal !important;
+    content-visibility: visible !important;
+    view-transition-name: none !important;
+    will-change: auto !important;
+    // These make the engine rasterise every printed page, so the PDF the
+    // reader saves has no selectable text left in it at all.
+    filter: none !important;
+    backdrop-filter: none !important;
+    mask: none !important;
+    -webkit-mask: none !important;
+    opacity: 1 !important;
+    mix-blend-mode: normal !important;
   }
+
+  // `zoom` is deliberately absent from that list. It scales the print rather
+  // than losing any of it, and forcing it would take a host's own deliberate
+  // `@media print { body { zoom: 0.8 } }` away from them, measured at five
+  // sheets becoming seven.
 
   body.dm-printing .dm-print-root {
     width: auto !important;
     max-width: none !important;
     margin: 0 !important;
+  }
+
+  // ===========================================================================
+  // 7.
+  :root.dm-print-ancestor,
+  :root:not(.dm-print-ancestor) {
+    padding-block-end: var(--dm-print-reserve-block-end, 0) !important;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
   }
 }

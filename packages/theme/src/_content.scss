@@ -1,20 +1,11 @@
 // =============================================================================
 // Content Typography
-// =============================================================================
-// Styles for rendered content inside the editor. Scoped to .dm-editor .ProseMirror
-// so styles don't leak outside.
-// =============================================================================
+// =============================================================================.
 
 .dm-editor .ProseMirror {
   // ---------------------------------------------------------------------------
   // Block inline padding
   // ---------------------------------------------------------------------------
-  // Pre-applied so that toggling `data-bg-color` on a block does NOT shift
-  // text - the colored background paints into existing padding instead of
-  // adding new padding (`_block-colors.scss` only sets `background-color`
-  // + `border-radius`, no padding). Mirrors Notion's layout. Wrapped in
-  // `:where()` so specificity stays at 0 and host apps can override per
-  // tag without selector wars.
   :where(p, h1, h2, h3, h4, h5, h6) {
     padding-inline: var(--dm-block-inline-padding);
   }
@@ -128,13 +119,6 @@
   }
 
   // Notion-style "children zone" indent for plain bullet/ordered lists ONLY.
-  // Scoped to `ul:not([data-type="taskList"]), ol` so it does NOT match the
-  // taskList wrapper - taskItems render via `<li><label/><div/></li>` and the
-  // generic rule would mistakenly apply margin-inline-start to that wrapper
-  // div, pushing the entire taskItem content (and the absolutely-positioned
-  // checkbox's containing block) one indent step to the right. Task list
-  // children-zone styling lives in `_task-list.scss` and is rooted on the
-  // inner `<div>` instead.
   ul:not([data-type="taskList"]),
   ol {
     // `> li` (child, not descendant): a descendant `li` would match taskItems
@@ -143,27 +127,80 @@
       margin: 0.25em 0;
 
       > p {
-        // List item paragraphs reset inline-end padding (bullet indentation
-        // is owned by the list container; doubling up shifts text under the
-        // bullet's hanging indent), and add a small inline-start padding
-        // (~5px at the editor's default font size) so the text breathes
-        // away from the bullet glyph instead of butting against it.
+        // List item paragraphs reset inline-end padding (bullet indentation is
+        // owned by the list container; doubling up shifts text under the
+        // bullet's hanging indent), and add a small inline-start padding (~5px.
         margin: 0.1em 0;
         padding-inline: 0.3em 0;
       }
 
-      // Post-label blocks (heading, codeBlock, blockquote, etc.) sit
-      // indented one level below the label paragraph aligned with the
-      // bullet. ALL nested `<ul>` and `<ol>` (plain and taskList) are
-      // excluded because each already gains the same visual indent
-      // through its own `padding-left: 1.5em`, so adding this margin
-      // would push nested taskLists further right than nested plain
-      // bullet lists. `margin-inline-start` flips the indent to the
-      // right edge in RTL.
+      // Post-label blocks (heading, codeBlock, blockquote, etc.) sit indented
+      // one level below the label paragraph aligned with the bullet.
       > :not(p:first-child):not(ul):not(ol) {
         margin-inline-start: var(--dm-block-children-indent, 1.5rem);
         margin-top: 0.25rem;
       }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Marker cycle
+  // ---------------------------------------------------------------------------
+  --dm-list-level: 0;
+
+  // A table cell restarts it, matching `DocxSerializer.tableCell`, which builds
+  // its cell context from scratch by design. The cell's own content edge
+  // restarts the indentation here as well, so a list inside one reads as a top-
+  :is(td, th) {
+    --dm-list-level: 0;
+  }
+
+  // Every list spends a level, task lists included: the exporters count one
+  // even though it draws a checkbox rather than a marker, so a bullet list
+  // nested under a task item is a circle, not a disc. Only the elements that
+  // PAINT a marker are excluded below, never the ancestors that count.
+  :is(ul, ol) {
+    @container style(--dm-list-level: 0) {
+      --dm-list-level: 1;
+    }
+
+    @container style(--dm-list-level: 1) {
+      --dm-list-level: 2;
+    }
+
+    @container style(--dm-list-level: 2) {
+      --dm-list-level: 0;
+    }
+  }
+
+  // Excluded, for the two reasons a list inside the editor can carry no marker
+  // of its own: `[data-type="taskList"]` draws a checkbox in the marker column
+  // (`_task-list.scss`), and `.dm-toc-block-list` is the table-of-contents.
+  ul:where(:not([data-type="taskList"]):not(.dm-toc-block-list)) {
+    @container style(--dm-list-level: 0) {
+      list-style-type: disc;
+    }
+
+    @container style(--dm-list-level: 1) {
+      list-style-type: circle;
+    }
+
+    @container style(--dm-list-level: 2) {
+      list-style-type: square;
+    }
+  }
+
+  ol {
+    @container style(--dm-list-level: 0) {
+      list-style-type: decimal;
+    }
+
+    @container style(--dm-list-level: 1) {
+      list-style-type: lower-alpha;
+    }
+
+    @container style(--dm-list-level: 2) {
+      list-style-type: lower-roman;
     }
   }
 

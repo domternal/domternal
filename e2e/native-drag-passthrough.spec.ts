@@ -16,12 +16,11 @@
  * because a release would then be a guaranteed no-op.
  */
 import { test } from './fixtures.js';
-import { expect, type Page, type JSHandle } from '@playwright/test';
+import { expect, type Locator, type Page, type JSHandle } from '@playwright/test';
 import { demoTargets, type DemoTarget } from './targets.js';
 
 const blockHandleSelector = '.dm-block-handle';
 const dragBtnSelector = '.dm-block-handle-drag';
-const draggingClass = 'dm-block-handle-dragging';
 
 /** Minimal structural view of the exposed editor's ProseMirror view, enough to
  * delete a top-level block by transaction without pulling in PM's types. */
@@ -69,7 +68,7 @@ async function setContent(page: Page, html: string): Promise<void> {
 interface Geometry {
   editorLeft: number;
   editorRight: number;
-  rows: Array<{ text: string; top: number; bottom: number }>;
+  rows: { text: string; top: number; bottom: number }[];
 }
 
 async function geometry(page: Page, target: DemoTarget): Promise<Geometry> {
@@ -80,7 +79,7 @@ async function geometry(page: Page, target: DemoTarget): Promise<Geometry> {
     const er = editor.getBoundingClientRect();
     const rows = Array.from(pm.querySelectorAll(':scope > p')).map((p) => {
       const r = p.getBoundingClientRect();
-      return { text: p.textContent ?? '', top: r.top, bottom: r.bottom };
+      return { text: p.textContent, top: r.top, bottom: r.bottom };
     });
     return { editorLeft: er.left, editorRight: er.right, rows };
   }, target.editorSelector);
@@ -139,7 +138,7 @@ async function deleteBlock(page: Page, text: string): Promise<void> {
       | undefined;
     if (!ed) throw new Error('editor missing');
     const view = ed.view;
-    const ranges: Array<{ from: number; to: number; text: string }> = [];
+    const ranges: { from: number; to: number; text: string }[] = [];
     view.state.doc.forEach((node, offset) => {
       ranges.push({ from: offset, to: offset + node.nodeSize, text: node.textContent });
     });
@@ -151,7 +150,7 @@ async function deleteBlock(page: Page, text: string): Promise<void> {
 
 for (const target of demoTargets) {
   test.describe(`${target.name} - native drag passthrough`, () => {
-    const paragraphs = (page: Page) => page.locator(`${target.editorSelector} > p`);
+    const paragraphs = (page: Page): Locator => page.locator(`${target.editorSelector} > p`);
     const containerSelector = target.editorSelector.replace(/\s*\.ProseMirror$/, '');
     const indicatorSelector = `${containerSelector} .dm-block-drop-indicator`;
 

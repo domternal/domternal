@@ -5,6 +5,7 @@ import {
   DomternalNotionColorPicker,
 } from '@domternal/vanilla';
 import {
+  defaultBubbleContexts,
   Bold,
   Italic,
   Underline,
@@ -185,6 +186,11 @@ export interface NotionDemoOptions {
   scrollable?: boolean;
 }
 
+/** The item list a bubble context carries, or none: `true` and `null` are not lists. */
+function asItems(value: string[] | true | null | undefined): string[] {
+  return Array.isArray(value) ? value : [];
+}
+
 export class NotionDemo {
   #container: HTMLElement;
   #editorWrapper: DomternalEditor;
@@ -238,8 +244,19 @@ export class NotionDemo {
     const editor = this.#editorWrapper.editor;
 
     const initialIcons = resolveBubbleIcons(parseBubbleIconsParam());
+    /* The Notion default plus text alignment.
+       Alignment is not in the default context: it needs `TextAlign`, which
+       StarterKit does not ship, and Notion has no alignment control in its own
+       selection menu. This demo registers the extension, so it names the item and
+       gets the trailing dropdown back. Exactly the documented way to extend the
+       default rather than replace it. */
     this.#bubbleMenu = new DomternalBubbleMenu(bubbleHost, {
       editor,
+      // `Array.isArray` rather than `?? []`: the context value is
+      // `string[] | true | null`, and `true` means "every item this
+      // context knows", which the nullish coalesce lets straight through
+      // into a spread.
+      contexts: { text: [...asItems(defaultBubbleContexts(editor).text), '|', 'textAlign'] },
       ...(initialIcons ? { icons: initialIcons } : {}),
     });
     (window as unknown as Record<string, unknown>).__DEMO_SET_BUBBLE_ICONS__ =

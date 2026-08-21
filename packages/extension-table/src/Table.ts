@@ -3,7 +3,12 @@
  * isolated so wrappers can swap it for a custom NodeView.
  */
 
-import { Node, splitListForInsert, Gapcursor } from '@domternal/core';
+import {
+  Node,
+  splitListForInsert,
+  Gapcursor,
+  warnOnDuplicateProseMirrorCopy,
+} from '@domternal/core';
 import type { CommandSpec, ToolbarItem, FloatingMenuItem } from '@domternal/core';
 import { TextSelection } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
@@ -115,7 +120,15 @@ export interface TableOptions {
    * Custom NodeView constructor. Override to provide framework-specific rendering.
    * Set to null to disable custom NodeView.
    */
-  View: (new (node: PMNode, cellMinWidth: number, view: EditorView, defaultCellMinWidth?: number, constrainToContainer?: boolean) => NodeView) | null;
+  View:
+    | (new (
+        node: PMNode,
+        cellMinWidth: number,
+        view: EditorView,
+        defaultCellMinWidth?: number,
+        constrainToContainer?: boolean
+      ) => NodeView)
+    | null;
 }
 
 export const Table = Node.create<TableOptions>({
@@ -146,12 +159,9 @@ export const Table = Node.create<TableOptions>({
   },
 
   addExtensions() {
-    // Gapcursor is required to escape a table that is the document's last
-    // block: the table is `isolating`, so without a gap cursor the caret is
-    // trapped inside the last cell with no way to type below it. Pulling it
-    // in here means tables are never a dead end regardless of the host's
-    // extension list. ExtensionManager dedupes by name, so a host that also
-    // registers Gapcursor (e.g. via StarterKit) is unaffected.
+    // Gapcursor is required to escape a table that is the document's last block:
+    // the table is `isolating`, so without a gap cursor the caret is trapped
+    // inside the last cell with no way to type below it.
     return [TableRow, TableCell, TableHeader, Gapcursor];
   },
 
@@ -166,7 +176,13 @@ export const Table = Node.create<TableOptions>({
     }
 
     return ((node: PMNode, view: EditorView) =>
-      new ViewClass(node, cellMinWidth, view, defaultCellMinWidth, constrainToContainer)) as unknown as NodeViewConstructor;
+      new ViewClass(
+        node,
+        cellMinWidth,
+        view,
+        defaultCellMinWidth,
+        constrainToContainer
+      )) as unknown as NodeViewConstructor;
   },
 
   addCommands() {
@@ -249,7 +265,12 @@ export const Table = Node.create<TableOptions>({
             return addColumnBefore(state, dispatch);
           }
           const view = editor.view as EditorView;
-          return constrainedAddColumn(addColumnBefore, view, this.options.cellMinWidth, this.options.defaultCellMinWidth);
+          return constrainedAddColumn(
+            addColumnBefore,
+            view,
+            this.options.cellMinWidth,
+            this.options.defaultCellMinWidth
+          );
         },
 
       addColumnAfter:
@@ -259,7 +280,12 @@ export const Table = Node.create<TableOptions>({
             return addColumnAfter(state, dispatch);
           }
           const view = editor.view as EditorView;
-          return constrainedAddColumn(addColumnAfter, view, this.options.cellMinWidth, this.options.defaultCellMinWidth);
+          return constrainedAddColumn(
+            addColumnAfter,
+            view,
+            this.options.cellMinWidth,
+            this.options.defaultCellMinWidth
+          );
         },
 
       deleteColumn:
@@ -273,7 +299,9 @@ export const Table = Node.create<TableOptions>({
           if (!dispatch) return true;
 
           let captured: Transaction | undefined;
-          deleteColumn(state, (tr) => { captured = tr; });
+          deleteColumn(state, (tr) => {
+            captured = tr;
+          });
           if (!captured) return false;
 
           const table = captured.doc.nodeAt(rect.tableStart - 1);
@@ -352,11 +380,7 @@ export const Table = Node.create<TableOptions>({
       setCellSelection:
         (position: { anchorCell: number; headCell?: number }) =>
         ({ tr, dispatch }) => {
-          const selection = CellSelection.create(
-            tr.doc,
-            position.anchorCell,
-            position.headCell,
-          );
+          const selection = CellSelection.create(tr.doc, position.anchorCell, position.headCell);
           tr.setSelection(selection as unknown as typeof tr.selection);
           if (dispatch) {
             dispatch(tr);
@@ -449,6 +473,17 @@ export const Table = Node.create<TableOptions>({
   },
 
   addProseMirrorPlugins() {
+    /* prosemirror-tables is identity-compared too, and more visibly than most:
+       every table command tests the selection with `instanceof CellSelection`,
+       so a second copy leaves the whole table toolbar inert on a selection the
+       table itself produced. Core cannot register this one, because core does
+       not import the package. */
+    warnOnDuplicateProseMirrorCopy(
+      'prosemirror-tables',
+      CellSelection,
+      '@domternal/extension-table'
+    );
+
     return [
       createResizeSuppressionPlugin({
         resizeBehavior: this.options.resizeBehavior,

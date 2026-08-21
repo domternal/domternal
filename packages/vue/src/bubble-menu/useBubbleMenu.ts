@@ -3,35 +3,30 @@ import type { Ref, ShallowRef } from 'vue';
 import {
   PluginKey,
   ToolbarController,
+  buildBubbleItemMaps,
   createBubbleMenuPlugin,
+  createBubbleShouldShow,
   defaultBubbleContexts,
   defaultIcons,
+  resolveBubbleMenuItems,
+  resolveBubbleNames,
 } from '@domternal/core';
-import type { Editor, IconSet, ToolbarButton, ToolbarDropdown, BubbleMenuOptions } from '@domternal/core';
+import type {
+  BubbleContexts,
+  BubbleItemMaps,
+  BubbleMenuItem,
+  Editor,
+  IconSet,
+  SelectionShape,
+  ToolbarButton,
+  BubbleMenuOptions,
+} from '@domternal/core';
 import { useDebouncedRef } from '../utils.js';
 
-// --- Duck-typed ProseMirror shapes (avoids instanceof across bundles) ---
-
-interface ResolvedPosShape {
-  parent: { type: { name: string; spec: { marks?: string } } };
-  depth: number;
-  node: (depth: number) => { type: { name: string } };
-}
-
-interface SelectionShape {
-  empty: boolean;
-  $from: ResolvedPosShape;
-  $to: ResolvedPosShape;
-  node?: { type: { name: string } };
-}
-
-interface SchemaShape {
-  nodes: Record<string, { allowsMarkType: (mt: unknown) => boolean }>;
-  marks: Record<string, unknown>;
-}
-
-interface BubbleMenuSeparator { type: 'separator'; name: string }
-export type BubbleMenuItem = ToolbarButton | ToolbarDropdown | BubbleMenuSeparator;
+/* The item pipeline (which list this selection gets, what the schema allows,
+   which separators survive) is core's. This file renders the answer and owns
+   nothing about how it is reached. */
+export type { BubbleMenuItem };
 
 /**
  * Live state for the bubble-menu trailing buttons. Mirrors Angular's
@@ -66,22 +61,6 @@ const INITIAL_TRAILING_STATE: BubbleMenuTrailingState = {
   hasAnyColor: false,
 };
 
-function isInsideTableCell($pos: ResolvedPosShape): boolean {
-  for (let d = $pos.depth; d > 0; d--) {
-    const name = $pos.node(d).type.name;
-    if (name === 'tableCell' || name === 'tableHeader') return true;
-  }
-  return false;
-}
-
-function findCellNode(pos: ResolvedPosShape): { type: { name: string } } | null {
-  for (let d = pos.depth; d > 0; d--) {
-    const node = pos.node(d);
-    if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') return node;
-  }
-  return null;
-}
-
 // --- Composable ---
 
 export interface UseBubbleMenuOptions {
@@ -91,7 +70,7 @@ export interface UseBubbleMenuOptions {
   offset?: number | undefined;
   updateDelay?: number | undefined;
   items?: string[] | undefined;
-  contexts?: Record<string, string[] | true | null> | undefined;
+  contexts?: BubbleContexts | undefined;
   icons?: ShallowRef<IconSet | undefined> | undefined;
 }
 
@@ -136,11 +115,9 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
   // isItemDisabled) before doInit runs; must start as empty Maps.
   const activeMapRef = new Map<string, boolean>();
   const disabledMapRef = new Map<string, boolean>();
-  // itemMap / dropdownMap / bubbleDefaults are only used inside doInit;
-  // declared here so closures inside doInit can rebind on each run.
-  let itemMap: Map<string, ToolbarButton>;
-  let dropdownMap: Map<string, ToolbarDropdown>;
-  let bubbleDefaults: Map<string, BubbleMenuItem[]>;
+  // The resolver maps are only used inside doInit; declared here so closures
+  // inside doInit can rebind on each run.
+  let maps: BubbleItemMaps;
   let currentResolvedItems: BubbleMenuItem[] = [];
 
   let initialized = false;
@@ -163,136 +140,13 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
     const hasNotionColorPicker = exts.some((e) => e.name === 'notionColorPicker');
     const hasBlockContextMenu = exts.some((e) => e.name === 'blockContextMenu');
 
-    // Build item map. Dropdowns are kept separately so we can resolve them
-    // by name (text-align dropdown in the bubble menu).
-    itemMap = new Map();
-    dropdownMap = new Map();
-    for (const item of ed.toolbarItems) {
-      if (item.type === 'button') {
-        itemMap.set(item.name, item);
-      } else if (item.type === 'dropdown') {
-        dropdownMap.set(item.name, item);
-        for (const sub of item.items) {
-          itemMap.set(sub.name, sub);
-        }
-      }
-    }
-
-    // Build bubble defaults
-    bubbleDefaults = new Map();
-    const byCtx = new Map<string, ToolbarButton[]>();
-    const addItem = (btn: ToolbarButton): void => {
-      const ctx = (btn as unknown as Record<string, unknown>)['bubbleMenu'] as string | undefined;
-      if (!ctx) return;
-      let arr = byCtx.get(ctx);
-      if (!arr) { arr = []; byCtx.set(ctx, arr); }
-      arr.push(btn);
-    };
-    for (const item of ed.toolbarItems) {
-      if (item.type === 'button') addItem(item);
-      else if (item.type === 'dropdown') {
-        for (const sub of item.items) addItem(sub);
-      }
-    }
-    for (const [ctx, ctxItems] of byCtx) {
-      ctxItems.sort((a, b) => (b.priority ?? 100) - (a.priority ?? 100));
-      const result: BubbleMenuItem[] = [];
-      let lastGroup: string | undefined;
-      let sepIdx = 0;
-      for (const item of ctxItems) {
-        if (lastGroup !== undefined && item.group !== lastGroup) {
-          result.push({ type: 'separator', name: `bsep-${String(sepIdx++)}` });
-        }
-        result.push(item);
-        lastGroup = item.group;
-      }
-      bubbleDefaults.set(ctx, result);
-    }
-
-    // Resolve names helper. Dropdowns take priority over buttons sharing the
-    // same name (mirrors the Angular wrapper). Pipe `|` is a separator marker.
-    const resolveNames = (names: string[]): BubbleMenuItem[] => {
-      const result: BubbleMenuItem[] = [];
-      let sepIdx = 0;
-      for (const name of names) {
-        if (name === '|') {
-          result.push({ type: 'separator', name: `sep-${String(sepIdx++)}` });
-        } else {
-          const dropdown = dropdownMap.get(name);
-          if (dropdown) { result.push(dropdown); continue; }
-          const item = itemMap.get(name);
-          if (item) result.push(item);
-        }
-      }
-      return result;
-    };
-
-    const getFormatItems = (): ToolbarButton[] => {
-      return Array.from(itemMap.values())
-        .filter(item => item.group === 'format')
-        .sort((a, b) => (b.priority ?? 100) - (a.priority ?? 100));
-    };
-
-    const detectContext = (selection: SelectionShape, ctxs: Record<string, string[] | true | null>): string | null => {
-      if ('$anchorCell' in selection) return null;
-      if (selection.node) return selection.node.type.name;
-      if (selection.empty) return null;
-
-      const fromCell = findCellNode(selection.$from);
-      if (fromCell) {
-        const toCell = findCellNode(selection.$to);
-        if (toCell && fromCell !== toCell) return null;
-        return 'table';
-      }
-
-      const fromName = selection.$from.parent.type.name;
-      if (fromName in ctxs) return fromName;
-      if ('text' in ctxs && selection.$from.parent.type.spec.marks !== '') return 'text';
-      const toName = selection.$to.parent.type.name;
-      if (toName in ctxs) return toName;
-      if ('text' in ctxs && selection.$to.parent.type.spec.marks !== '') return 'text';
-      return null;
-    };
-
-    const filterBySchema = (contextName: string, schemaItems: ToolbarButton[]): ToolbarButton[] => {
-      if (contextName === 'text' || contextName === 'table') return schemaItems;
-      const schema = (ed.state as unknown as { schema?: SchemaShape }).schema;
-      if (!schema) return schemaItems;
-      const nodeType = schema.nodes[contextName];
-      if (!nodeType) return schemaItems;
-      return schemaItems.filter(item => {
-        const markName = typeof item.isActive === 'string' ? item.isActive : null;
-        if (!markName) return true;
-        const markType = schema.marks[markName];
-        if (!markType) return true;
-        return nodeType.allowsMarkType(markType);
-      });
-    };
+    /* One pipeline, built once per editor. Every renderer asks core the same
+       question, so none of them answers it. */
+    maps = buildBubbleItemMaps(ed);
 
     // Generate shouldShow function
-    let shouldShowFn = shouldShow;
-    if (!shouldShowFn) {
-      if (contexts) {
-        shouldShowFn = ({ state }: { state: { selection: SelectionShape } }) => {
-          const context = detectContext(state.selection, contexts);
-          if (!context) return false;
-          if (context in contexts) {
-            const val = contexts[context];
-            if (val === null) return false;
-            return val === true || (Array.isArray(val) && val.length > 0);
-          }
-          return bubbleDefaults.has(context);
-        };
-      } else {
-        shouldShowFn = ({ state }: { state: { selection: SelectionShape } }) => {
-          if (state.selection.empty) return false;
-          if (state.selection.node) return bubbleDefaults.has(state.selection.node.type.name);
-          if (isInsideTableCell(state.selection.$from)) return false;
-          return state.selection.$from.parent.type.spec.marks !== ''
-            || state.selection.$to.parent.type.spec.marks !== '';
-        };
-      }
-    }
+    const shouldShowFn =
+      shouldShow ?? createBubbleShouldShow(maps, contexts);
 
     // Register plugin
     const plugin = createBubbleMenuPlugin({
@@ -306,19 +160,26 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
     });
     ed.registerPlugin(plugin);
 
+    /* The list core hands back, stored once. A default or fallback list comes
+       back by reference, so those passes leave the ref alone; a list resolved
+       from names is rebuilt each time, as it always was. */
     const setItems = (newItems: BubbleMenuItem[]): void => {
       currentResolvedItems = newItems;
       resolvedItems.value = newItems;
     };
 
+    const fallbackItems = resolveBubbleNames(
+      items ?? ['bold', 'italic', 'underline'],
+      maps.itemMap,
+      maps.dropdownMap,
+    );
+
+    const refreshItems = (): void => {
+      setItems(resolveBubbleMenuItems({ editor: ed, maps, contexts, fallbackItems }));
+    };
+
     // Set initial items
-    if (contexts) {
-      updateContextItems(ed, contexts, detectContext, resolveNames, getFormatItems, filterBySchema, bubbleDefaults, setItems);
-    } else if (items) {
-      setItems(resolveNames(items));
-    } else {
-      setItems(resolveNames(['bold', 'italic', 'underline']));
-    }
+    refreshItems();
 
     const updateStates = (currentEd: Editor): void => {
       let canProxy: Record<string, (...args: unknown[]) => boolean> | null = null;
@@ -345,7 +206,6 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
       }
     };
 
-    const defaultItems = items ? resolveNames(items) : resolveNames(['bold', 'italic', 'underline']);
 
     /**
      * Coalesce all trailing-button derivations into a single shallowRef
@@ -404,16 +264,7 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
 
     // Transaction handler
     const transactionHandler = (): void => {
-      if (contexts) {
-        updateContextItems(ed, contexts, detectContext, resolveNames, getFormatItems, filterBySchema, bubbleDefaults, setItems);
-      } else {
-        const sel = ed.state.selection as unknown as SelectionShape;
-        if (sel.node && bubbleDefaults.has(sel.node.type.name)) {
-          setItems(bubbleDefaults.get(sel.node.type.name) ?? []);
-        } else {
-          setItems(defaultItems);
-        }
-      }
+      refreshItems();
       updateStates(ed);
       syncTrailingState(ed);
       activeVersion.value++;
@@ -452,38 +303,6 @@ export function useBubbleMenu(options: UseBubbleMenuOptions): UseBubbleMenuResul
       }
     }
   });
-
-  function updateContextItems(
-    ed: Editor,
-    ctxs: Record<string, string[] | true | null>,
-    detectContext: (sel: SelectionShape, c: Record<string, string[] | true | null>) => string | null,
-    resolveNames: (names: string[]) => BubbleMenuItem[],
-    getFormatItems: () => ToolbarButton[],
-    filterBySchema: (ctx: string, schemaItems: ToolbarButton[]) => ToolbarButton[],
-    defaults: Map<string, BubbleMenuItem[]>,
-    setItems: (items: BubbleMenuItem[]) => void,
-  ): void {
-    const ctx = detectContext(ed.state.selection as unknown as SelectionShape, ctxs);
-    if (!ctx) { setItems([]); return; }
-
-    if (ctx in ctxs) {
-      const val = ctxs[ctx];
-      if (val === null || (Array.isArray(val) && val.length === 0)) {
-        setItems([]);
-        return;
-      }
-      if (val === true) {
-        setItems(filterBySchema(ctx, getFormatItems()));
-      } else if (Array.isArray(val)) {
-        const resolved = resolveNames(val);
-        const buttons = resolved.filter((i): i is ToolbarButton => i.type !== 'separator');
-        const filtered = new Set(filterBySchema(ctx, buttons).map(b => b.name));
-        setItems(resolved.filter(i => i.type === 'separator' || filtered.has(i.name)));
-      }
-    } else {
-      setItems(defaults.get(ctx) ?? []);
-    }
-  }
 
   const isItemActive = (item: ToolbarButton): boolean => {
     return activeMapRef.get(item.name) ?? false;

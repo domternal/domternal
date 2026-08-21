@@ -49,26 +49,34 @@ function insertInline(page: Page, latex: string): Promise<void> {
   }, latex);
 }
 
-const longBlock = Array.from({ length: 60 }, (_, i) => `x_{${i + 1}}`).join(' + ') + ' = 0';
+const longBlock = Array.from({ length: 60 }, (_, i) => `x_{${String(i + 1)}}`).join(' + ') + ' = 0';
 const shortBlock = 'E = mc^2';
 const tallMatrix = '\\begin{pmatrix} a & b & c \\\\ d & e & f \\\\ g & h & i \\end{pmatrix}';
-const wideWithDescenders = Array.from({ length: 30 }, (_, i) => `\\sum_{k=1}^{${i + 1}} a_k`).join(
+const wideWithDescenders = Array.from({ length: 30 }, (_, i) => `\\sum_{k=1}^{${String(i + 1)}} a_k`).join(
   ' + ',
 );
-const longInlineBreakable = Array.from({ length: 60 }, (_, i) => `\\alpha_{${i + 1}}`).join(' + ');
+const longInlineBreakable = Array.from({ length: 60 }, (_, i) => `\\alpha_{${String(i + 1)}}`).join(' + ');
+
+/** Layout metrics read off a single `.dm-math-block` and its editor clip box. */
+interface BlockLayout {
+  overflowX: string;
+  scrollableX: boolean;
+  maxScrollLeft: number;
+  withinEditor: boolean;
+  fitsHeight: boolean;
+}
 
 for (const target of demoTargets) {
   test.describe(`${target.name} - long and oversized equations`, () => {
     const blockSelector = `${target.editorSelector} .dm-math-block`;
     const inlineSelector = `${target.editorSelector} .dm-math-inline`;
 
-    // Layout metrics for the single block node vs its editor clip box.
-    const blockLayout = (page: Page) =>
+    const blockLayout = (page: Page): Promise<BlockLayout> =>
       page.locator(blockSelector).evaluate((el) => {
-        const editor = el.closest('.dm-editor') as HTMLElement;
+        const editor = el.closest('.dm-editor')!;
         const er = editor.getBoundingClientRect();
         const br = el.getBoundingClientRect();
-        const k = (el.querySelector('.katex-display') ?? el.querySelector('.katex')) as HTMLElement;
+        const k = (el.querySelector('.katex-display') ?? el.querySelector('.katex'))!;
         const katexHeight = Math.round(k.getBoundingClientRect().height);
         el.scrollLeft = 1_000_000;
         const maxScrollLeft = el.scrollLeft; // >0 means the far end is reachable
@@ -128,7 +136,7 @@ for (const target of demoTargets) {
       await expect(page.locator(`${blockSelector} .katex`)).toBeVisible();
 
       const c = await page.locator(blockSelector).evaluate((el) => {
-        const k = (el.querySelector('.katex-display') ?? el.querySelector('.katex')) as HTMLElement;
+        const k = (el.querySelector('.katex-display') ?? el.querySelector('.katex'))!;
         const eb = el.getBoundingClientRect();
         const kb = k.getBoundingClientRect();
         return {
@@ -219,7 +227,7 @@ for (const target of demoTargets) {
       await expect(page.locator(`${inlineSelector} .katex`)).toBeVisible();
 
       const m = await page.locator(inlineSelector).evaluate((el) => {
-        const editor = el.closest('.dm-editor') as HTMLElement;
+        const editor = el.closest('.dm-editor')!;
         const er = editor.getBoundingClientRect();
         const br = el.getBoundingClientRect();
         return { height: Math.round(br.height), withinEditor: br.right <= er.right + 1 };

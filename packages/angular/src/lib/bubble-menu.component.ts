@@ -5,6 +5,7 @@ import {
   ViewEncapsulation,
   input,
   signal,
+  computed,
   effect,
   inject,
   NgZone,
@@ -16,46 +17,31 @@ import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 import {
   PluginKey,
   ToolbarController,
+  buildBubbleItemMaps,
   createBubbleMenuPlugin,
+  createBubbleShouldShow,
   defaultBubbleContexts,
   defaultIcons,
   positionFloatingOnce,
   refocusEditorAfterCommand,
+  resolveBubbleMenuItems,
+  resolveBubbleNames,
 } from '@domternal/core';
-import type { BubbleMenuOptions, IconSet, ToolbarButton, ToolbarDropdown ,
-  Editor} from '@domternal/core';
+import type {
+  BubbleContexts,
+  BubbleItemMaps,
+  BubbleMenuItem,
+  BubbleMenuOptions,
+  IconSet,
+  SelectionShape,
+  ToolbarButton,
+  ToolbarDropdown,
+  Editor,
+} from '@domternal/core';
 
-interface BubbleMenuSeparator { type: 'separator'; name: string }
-type BubbleMenuItem = ToolbarButton | ToolbarDropdown | BubbleMenuSeparator;
-
-/** Minimal ProseMirror Selection shape for duck-typing (avoids instanceof issues across bundles) */
-interface ResolvedPosShape {
-  parent: { type: { name: string; spec: { marks?: string } } };
-  depth: number;
-  node: (depth: number) => { type: { name: string } };
-}
-
-interface SelectionShape {
-  empty: boolean;
-  $from: ResolvedPosShape;
-  $to: ResolvedPosShape;
-  node?: { type: { name: string } };
-}
-
-/** Check if a resolved position is inside a table cell or header. */
-function isInsideTableCell($pos: ResolvedPosShape): boolean {
-  for (let d = $pos.depth; d > 0; d--) {
-    const name = $pos.node(d).type.name;
-    if (name === 'tableCell' || name === 'tableHeader') return true;
-  }
-  return false;
-}
-
-/** ProseMirror schema shape for mark filtering */
-interface SchemaShape {
-  nodes: Record<string, { allowsMarkType: (mt: unknown) => boolean }>;
-  marks: Record<string, unknown>;
-}
+/* The item pipeline (which list this selection gets, what the schema allows,
+   which separators survive) is core's. This component renders the answer and
+   owns nothing about how it is reached. */
 
 @Component({
   selector: 'domternal-bubble-menu',
@@ -108,8 +94,10 @@ interface SchemaShape {
             (click)="executeCommand(asButton(item), $event)"></button>
         }
       }
-      @if (showColorPickerButton() && !isNodeSelection()) {
-        <span class="dm-toolbar-separator" role="separator"></span>
+      @if (showColorTrigger()) {
+        @if (resolvedItems().length > 0) {
+          <span class="dm-toolbar-separator" role="separator"></span>
+        }
         <button #colorBtn type="button" class="dm-toolbar-button dm-ncp-trigger"
           [class.dm-toolbar-button--active]="hasAnyColor()"
           title="Text and background color"
@@ -123,8 +111,10 @@ interface SchemaShape {
             [style.background-color]="currentBgColorVar()"></span>
         </button>
       }
-      @if (showBlockMenuButton() && !isNodeSelection()) {
-        <span class="dm-toolbar-separator" role="separator"></span>
+      @if (showBlockTrigger()) {
+        @if (resolvedItems().length > 0 || showColorTrigger()) {
+          <span class="dm-toolbar-separator" role="separator"></span>
+        }
         <button #blockMenuBtn type="button" class="dm-toolbar-button"
           [disabled]="blockMenuButtonDisabled()"
           [title]="blockMenuButtonDisabled() ? 'Block actions (select within a single block)' : 'More options'"
@@ -149,8 +139,18 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   /** Fixed item names (e.g. ['bold', 'italic', 'code']). Omit for auto mode (all format items). */
   readonly items = input<string[] | undefined>(undefined);
 
-  /** Context-aware: map context names to item arrays, `true` for all valid items, or `null` to disable */
-  readonly contexts = input<Record<string, string[] | true | null> | undefined>(undefined);
+  /**
+   * Context-aware: map context names to item arrays, `true` for all valid
+   * items, or `null` to disable.
+   *
+   * Typed through core's `BubbleContexts` rather than the same shape written
+   * out here. Angular emits an input's declared type into the package types,
+   * and an inline union came out of that emit as `Record<string, true |
+   * string[]>`: the `null` that disables a context was missing from the
+   * published type, so the documented way to switch one off did not
+   * type-check. A named type survives the trip intact.
+   */
+  readonly contexts = input<BubbleContexts | undefined>(undefined);
 
   /**
    * Custom icon overrides. Falls back to default Phosphor icons for unmapped keys.
@@ -165,7 +165,7 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
    * The standard default is richer when the editor sits inside
    * `.dm-notion-mode`.
    */
-  private resolveContexts(editor: Editor): Record<string, string[] | true | null> | undefined {
+  private resolveContexts(editor: Editor): BubbleContexts | undefined {
     const explicit = this.contexts();
     if (explicit !== undefined) return explicit;
     if (this.items() !== undefined) return undefined;
@@ -174,6 +174,16 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
   /** Internal - updated on transactions. Not meant to be set from outside. */
   readonly resolvedItems = signal<BubbleMenuItem[]>([]);
+
+  /**
+   * The list core hands back, stored once. A default or fallback list comes
+   * back by reference and a signal set to its current value notifies nobody,
+   * so those passes cost nothing; a list resolved from names is rebuilt each
+   * time, as it always was.
+   */
+  private setResolvedItems(items: BubbleMenuItem[]): void {
+    this.resolvedItems.set(items);
+  }
 
   /** Internal - true when the BlockContextMenu extension is loaded; toggles the "..." trailing button. */
   readonly showBlockMenuButton = signal(false);
@@ -186,6 +196,16 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
   /** Internal - true when the NotionColorPicker extension is loaded; toggles the "A" color trigger. */
   readonly showColorPickerButton = signal(false);
+  /**
+   * The trailing triggers, resolved once for the template: each is read twice,
+   * for the button and for the separator that may lead it.
+   */
+  readonly showColorTrigger = computed(
+    () => this.showColorPickerButton() && !this.isNodeSelection(),
+  );
+  readonly showBlockTrigger = computed(
+    () => this.showBlockMenuButton() && !this.isNodeSelection(),
+  );
   /** notionColorPicker extension loaded (immutable per editor). */
   private hasNotionColorPicker = false;
 
@@ -205,12 +225,15 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
   private ngZone = inject(NgZone);
 
   private activeVersion = signal(0);
-  private itemMap = new Map<string, ToolbarButton>();
-  private dropdownMap = new Map<string, ToolbarDropdown>();
+  /** Rebuilt per editor by `setupItemTracking`; empty until then. */
+  private maps: BubbleItemMaps = {
+    itemMap: new Map<string, ToolbarButton>(),
+    dropdownMap: new Map<string, ToolbarDropdown>(),
+    bubbleDefaults: new Map<string, BubbleMenuItem[]>(),
+  };
   private activeMap = new Map<string, boolean>();
   private disabledMap = new Map<string, boolean>();
   private htmlCache = new Map<string, SafeHtml>();
-  private bubbleDefaults = new Map<string, BubbleMenuItem[]>();
   private transactionHandler: (() => void) | null = null;
 
   // Dropdown state for bubble-menu-embedded dropdowns (e.g. text-align).
@@ -225,11 +248,8 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     '<path d="M2 4l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   constructor() {
-    // Each component instance needs a unique plugin key so that multiple
-    // bubble-menus mounted in the same editor do not collide. Prefer
-    // crypto.randomUUID over Math.random() for collision-free uniqueness
-    // (Math.random across two simultaneous mounts has a small but real
-    // collision probability, and SSR may share the random seed).
+    // Each component instance needs a unique plugin key so that multiple bubble-
+    // menus mounted in the same editor do not collide.
     const crypto = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
     const suffix =
       crypto?.randomUUID?.().slice(0, 8) ?? Math.random().toString(36).slice(2, 8);
@@ -243,32 +263,18 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
     afterNextRender(() => {
       const editor = this.editor();
-      const ctxs = this.resolveContexts(editor);
-      let shouldShowFn = this.shouldShow();
 
-      if (!shouldShowFn) {
-        if (ctxs) {
-          shouldShowFn = ({ state }: { state: { selection: SelectionShape } }) => {
-            const context = this.detectContext(state.selection, ctxs);
-            if (!context) return false;
-            if (context in ctxs) {
-              const val = ctxs[context];
-              if (val === null) return false;
-              return val === true || (Array.isArray(val) && val.length > 0);
-            }
-            return this.bubbleDefaults.has(context);
-          };
-        } else {
-          // Auto/items mode: show when any endpoint's parent allows marks
-          shouldShowFn = ({ state }: { state: { selection: SelectionShape } }) => {
-            if (state.selection.empty) return false;
-            if (state.selection.node) return this.bubbleDefaults.has(state.selection.node.type.name);
-            if (isInsideTableCell(state.selection.$from)) return false;
-            return state.selection.$from.parent.type.spec.marks !== ''
-                || state.selection.$to.parent.type.spec.marks !== '';
-          };
-        }
-      }
+      /* Item tracking first, and the order is load-bearing: it is what builds
+         `this.maps`, and the visibility rule below reads that object once.
+         With the plugin registered first the rule closed over an empty map,
+         and `bubbleDefaults.has(...)` was false for every node selection, so
+         an image never got a menu at all. */
+      this.setupItemTracking(editor);
+
+      const ctxs = this.resolveContexts(editor);
+      const shouldShowFn =
+        this.shouldShow() ??
+        createBubbleShouldShow(this.maps, ctxs);
 
       const plugin = createBubbleMenuPlugin({
         pluginKey: this.pluginKey,
@@ -280,7 +286,6 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
         updateDelay: this.updateDelay(),
       });
       editor.registerPlugin(plugin);
-      this.setupItemTracking(editor);
     });
   }
 
@@ -368,129 +373,10 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
 
   // === Internal ===
 
-  private buildItemMap(editor: Editor): void {
-    this.itemMap.clear();
-    this.dropdownMap.clear();
-    for (const item of editor.toolbarItems) {
-      if (item.type === 'button') {
-        this.itemMap.set(item.name, item);
-      } else if (item.type === 'dropdown') {
-        this.dropdownMap.set(item.name, item);
-        for (const sub of item.items) {
-          this.itemMap.set(sub.name, sub);
-        }
-      }
-    }
-  }
-
-  private resolveNames(names: string[]): BubbleMenuItem[] {
-    const result: BubbleMenuItem[] = [];
-    let sepIdx = 0;
-    for (const name of names) {
-      if (name === '|') {
-        result.push({ type: 'separator', name: `sep-${String(sepIdx++)}` });
-      } else {
-        const dropdown = this.dropdownMap.get(name);
-        if (dropdown) { result.push(dropdown); continue; }
-        const item = this.itemMap.get(name);
-        if (item) result.push(item);
-      }
-    }
-    return result;
-  }
-
-  private getFormatItems(): ToolbarButton[] {
-    return Array.from(this.itemMap.values())
-      .filter(item => item.group === 'format')
-      .sort((a, b) => (b.priority ?? 100) - (a.priority ?? 100));
-  }
-
-  private detectContext(selection: SelectionShape, ctxs: Record<string, string[] | true | null>): string | null {
-    // CellSelection (duck-type: has $anchorCell) - never show bubble menu
-    if ('$anchorCell' in selection) return null;
-    if (selection.node) return selection.node.type.name;
-    if (selection.empty) return null;
-
-    // TextSelection inside a table cell → 'table' context.
-    // Cross-cell TextSelection (drag across cells) → hide bubble menu.
-    const fromCell = this.findCellNode(selection.$from);
-    if (fromCell) {
-      const toCell = this.findCellNode(selection.$to);
-      if (toCell && fromCell !== toCell) return null;
-      return 'table';
-    }
-
-    const fromName = selection.$from.parent.type.name;
-    if (fromName in ctxs) return fromName;
-    if ('text' in ctxs && selection.$from.parent.type.spec.marks !== '') return 'text';
-    // Cross-block: also check $to so bold/italic is offered when any endpoint allows marks
-    const toName = selection.$to.parent.type.name;
-    if (toName in ctxs) return toName;
-    if ('text' in ctxs && selection.$to.parent.type.spec.marks !== '') return 'text';
-    return null;
-  }
-
-  private findCellNode(pos: ResolvedPosShape): { type: { name: string } } | null {
-    for (let d = pos.depth; d > 0; d--) {
-      const node = pos.node(d);
-      if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
-        return node;
-      }
-    }
-    return null;
-  }
-
-  /** Filters out mark items that the context node type doesn't allow (e.g. bold on codeBlock) */
-  private filterBySchema(editor: Editor, contextName: string, items: ToolbarButton[]): ToolbarButton[] {
-    if (contextName === 'text' || contextName === 'table') return items;
-    const schema = (editor.state as unknown as { schema?: SchemaShape }).schema;
-    if (!schema) return items;
-    const nodeType = schema.nodes[contextName];
-    if (!nodeType) return items;
-    return items.filter(item => {
-      const markName = typeof item.isActive === 'string' ? item.isActive : null;
-      if (!markName) return true;
-      const markType = schema.marks[markName];
-      if (!markType) return true;
-      return nodeType.allowsMarkType(markType);
-    });
-  }
-
-  private buildBubbleDefaults(editor: Editor): void {
-    this.bubbleDefaults.clear();
-    const byCtx = new Map<string, ToolbarButton[]>();
-    const addItem = (btn: ToolbarButton): void => {
-      const ctx = (btn as unknown as Record<string, unknown>)['bubbleMenu'] as string | undefined;
-      if (!ctx) return;
-      let arr = byCtx.get(ctx);
-      if (!arr) { arr = []; byCtx.set(ctx, arr); }
-      arr.push(btn);
-    };
-    for (const item of editor.toolbarItems) {
-      if (item.type === 'button') addItem(item);
-      else if (item.type === 'dropdown') {
-        for (const sub of item.items) addItem(sub);
-      }
-    }
-    for (const [ctx, items] of byCtx) {
-      items.sort((a, b) => (b.priority ?? 100) - (a.priority ?? 100));
-      const result: BubbleMenuItem[] = [];
-      let lastGroup: string | undefined;
-      let sepIdx = 0;
-      for (const item of items) {
-        if (lastGroup !== undefined && item.group !== lastGroup) {
-          result.push({ type: 'separator', name: `bsep-${String(sepIdx++)}` });
-        }
-        result.push(item);
-        lastGroup = item.group;
-      }
-      this.bubbleDefaults.set(ctx, result);
-    }
-  }
-
   private setupItemTracking(editor: Editor): void {
-    this.buildItemMap(editor);
-    this.buildBubbleDefaults(editor);
+    /* One pipeline, built once per editor. Every renderer asks core the same
+       question, so none of them answers it. */
+    this.maps = buildBubbleItemMaps(editor);
     this.showBlockMenuButton.set(
       editor.extensionManager.extensions.some((e) => e.name === 'blockContextMenu'),
     );
@@ -498,26 +384,29 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     this.hasNotionColorPicker =
       editor.extensionManager.extensions.some((e) => e.name === 'notionColorPicker');
 
-    const items = this.items();
-    const defaultItems = this.resolveNames(items ?? ['bold', 'italic', 'underline']);
+    const fallbackItems = resolveBubbleNames(
+      this.items() ?? ['bold', 'italic', 'underline'],
+      this.maps.itemMap,
+      this.maps.dropdownMap,
+    );
+    const refreshItems = (): void => {
+      this.setResolvedItems(
+        resolveBubbleMenuItems({
+          editor,
+          maps: this.maps,
+          contexts: this.resolveContexts(editor),
+          fallbackItems,
+        }),
+      );
+    };
 
-    if (this.resolveContexts(editor)) {
-      this.updateContextItems(editor);
-    } else {
-      this.resolvedItems.set(defaultItems);
-    }
+    refreshItems();
 
     this.transactionHandler = () => {
       this.ngZone.run(() => {
         const sel = editor.state.selection as unknown as SelectionShape;
         this.isNodeSelection.set(!!sel.node);
-        if (this.resolveContexts(editor)) {
-          this.updateContextItems(editor);
-        } else if (sel.node && this.bubbleDefaults.has(sel.node.type.name)) {
-          this.resolvedItems.set(this.bubbleDefaults.get(sel.node.type.name) ?? []);
-        } else {
-          this.resolvedItems.set(defaultItems);
-        }
+        refreshItems();
         this.updateStates(editor);
         this.syncTrailingButtonsState(editor);
         this.activeVersion.update((v) => v + 1);
@@ -583,33 +472,6 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
       bgToken ? `var(--dm-block-bg-${bgToken})` : null,
     );
     this.hasAnyColor.set(textToken !== null || bgToken !== null);
-  }
-
-  private updateContextItems(editor: Editor): void {
-    const ctxs = this.resolveContexts(editor);
-    if (!ctxs) return;
-    const ctx = this.detectContext(editor.state.selection as unknown as SelectionShape, ctxs);
-    if (!ctx) {
-      this.resolvedItems.set([]);
-      return;
-    }
-    if (ctx in ctxs) {
-      const val = ctxs[ctx];
-      if (val === null || (Array.isArray(val) && val.length === 0)) {
-        this.resolvedItems.set([]);
-        return;
-      }
-      if (val === true) {
-        this.resolvedItems.set(this.filterBySchema(editor, ctx, this.getFormatItems()));
-      } else if (Array.isArray(val)) {
-        const resolved = this.resolveNames(val);
-        const buttons = resolved.filter((i): i is ToolbarButton => i.type !== 'separator');
-        const filtered = new Set(this.filterBySchema(editor, ctx, buttons).map(b => b.name));
-        this.resolvedItems.set(resolved.filter(i => i.type === 'separator' || filtered.has(i.name)));
-      }
-    } else {
-      this.resolvedItems.set(this.bubbleDefaults.get(ctx) ?? []);
-    }
   }
 
   private updateStates(editor: Editor): void {
@@ -694,22 +556,14 @@ export class DomternalBubbleMenuComponent implements OnDestroy {
     if (!isOpening) return;
     this.openDropdown.set(dropdown.name);
 
-    // NOTE: we deliberately do NOT broadcast `dm:dismiss-overlays` here.
-    // The bubble menu plugin in core listens for that event and would
-    // hide itself - taking our just-opened dropdown's trigger with it.
-    // Other overlays (color picker, link popover) close themselves via
-    // their own click-outside handlers when the user clicks our trigger,
-    // so cooperative dismissal still works.
+    // NOTE: we deliberately do NOT broadcast `dm:dismiss-overlays` here. The
+    // bubble menu plugin in core listens for that event and would hide itself -
+    // taking our just-opened dropdown's trigger with it.
     const editorElBroadcast = this.menuEl().nativeElement.closest<HTMLElement>('.dm-editor');
 
-    // Position the panel against the trigger after Angular renders it.
-    // We deliberately keep the panel INSIDE `.dm-bubble-menu` so it
-    // inherits the bubble-menu-scoped button tokens (--dm-button-active-bg
-    // / --dm-button-active-color). Reparenting into `.dm-editor` was
-    // tempting for consistency with the color picker, but that dropped
-    // the active-state colors because those tokens aren't defined at
-    // editor scope. floating-ui handles cross-element positioning fine
-    // without reparenting.
+    // Position the panel against the trigger after Angular renders it. We
+    // deliberately keep the panel INSIDE `.dm-bubble-menu` so it inherits the
+    // bubble-menu-scoped button tokens (--dm-button-active-bg / --dm-button-
     requestAnimationFrame(() => {
       const trigger = (event?.currentTarget as HTMLElement | null)
         ?? this.menuEl().nativeElement.querySelector<HTMLElement>(`[data-dropdown="${dropdown.name}"]`);

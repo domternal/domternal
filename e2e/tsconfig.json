@@ -1,0 +1,39 @@
+{
+  // The matrix suite is the largest body of TypeScript in the repository that
+  // nothing was checking: no package.json, no tsconfig, not a workspace member
+  // and not an nx project, so neither `pnpm lint` nor `pnpm typecheck` could
+  // reach it. Since the standing rule sends every new cross-framework spec
+  // here, that gap was growing with each one.
+  //
+  // It does not extend tsconfig.base.json: the base is built for packages that
+  // emit declarations and resolves @domternal/* through the dev-source
+  // condition, neither of which a spec needs. Specs run through Playwright's
+  // own esbuild transform, so module resolution is the bundler's, and
+  // `verbatimModuleSyntax` under nodenext would otherwise read every file as
+  // CommonJS: e2e/ has no package.json, so the nearest one is the repository
+  // root, which declares no type.
+  "compilerOptions": {
+    "lib": ["es2022", "dom", "dom.iterable"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "es2022",
+    "types": ["node"],
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noUncheckedIndexedAccess": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true
+  },
+  "include": ["**/*.ts"]
+}

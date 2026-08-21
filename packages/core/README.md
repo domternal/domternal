@@ -29,6 +29,21 @@ the DOM, so it runs anywhere without it.
 pnpm add linkedom
 ```
 
+### One copy of the core, and of ProseMirror
+
+ProseMirror compares classes by identity, and so does this package. Two copies of
+`@domternal/core` give two `Extension` base classes, two schemas and two `Gapcursor`s
+under a single plugin key; two copies of `prosemirror-model` make `Fragment.from` reject a
+fragment the editor itself produced. Neither is a size problem, and nothing warns at
+install time.
+
+The core detects both at runtime. Building an editor beside a second copy of
+`prosemirror-model`, `prosemirror-state`, `prosemirror-view`, `prosemirror-transform` or of
+`@domternal/core` itself warns on the console, naming both packages and the fix. Handing an
+editor an extension that another copy of the core built throws, because that can never
+work. The dedupe recipe per package manager and bundler:
+https://domternal.dev/v1/guides/single-prosemirror-copy/
+
 ## Usage
 
 ```ts

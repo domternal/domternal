@@ -161,7 +161,9 @@ export class TableView implements NodeView {
     this.updateColumns(node);
     this.table.appendChild(this.colgroup);
 
-    // Create tbody (contentDOM)
+    // Create tbody (contentDOM). A node view gets one contentDOM, so every row
+    // renders into it and there is no `<thead>`: the print stylesheet
+    // synthesises the header group from this shape instead.
     this.contentDOM = document.createElement('tbody');
     this.table.appendChild(this.contentDOM);
 
@@ -436,9 +438,7 @@ export class TableView implements NodeView {
 
     // Position with floating-ui against a virtual reference spanning the
     // selected cells. `placement: 'top'` puts the toolbar above the selection
-    // and flips it below when there isn't room above (e.g. the table is the
-    // first block and the top row is selected - otherwise the toolbar would
-    // render up inside the main editor toolbar's band and become unclickable).
+    // and flips it below when there isn't room above (e.g.
     const reference = {
       getBoundingClientRect: (): DOMRect => {
         let top = Infinity;
@@ -744,8 +744,8 @@ export class TableView implements NodeView {
   private showAlignmentDropdown(triggerBtn: HTMLButtonElement): void {
     this.openToolbarDropdown(triggerBtn, 'dm-table-controls-dropdown dm-table-cell-align-dropdown', (dropdown) => {
       dropdown.setAttribute('aria-label', 'Cell alignment');
-      // Read current alignment from the anchor cell in ProseMirror state
-      // (the cell toolbar is only visible during CellSelection)
+      // Read current alignment from the anchor cell in ProseMirror state (the
+      // cell toolbar is only visible during CellSelection).
       const sel = this.view.state.selection as CellSelection;
       const cellNode = this.view.state.doc.nodeAt(sel.$anchorCell.pos);
       const curTextAlign = (cellNode?.attrs['textAlign'] as string | undefined) ?? null;
@@ -959,12 +959,10 @@ export class TableView implements NodeView {
       this.table.style.width = String(totalWidth) + 'px';
       this.table.style.minWidth = '';
     } else {
-      // Floor at defaultCellMinWidth per column even when constrained to
-      // the container: without it a table inside a narrow flex column
-      // compressed to unreadable slivers (width: 100% never exceeds the
-      // wrapper, so its overflow-x: auto had nothing to scroll). With the
-      // floor the cells stay readable and the wrapper scrolls, like
-      // Notion's tables in columns.
+      // Floor at defaultCellMinWidth per column even when constrained to the
+      // container: without it a table in a narrow flex column compressed to
+      // unreadable slivers, since `width: 100%` never exceeds the wrapper and
+      // its `overflow-x: auto` had nothing to scroll.
       this.table.style.width = '';
       this.table.style.minWidth = String(totalWidth) + 'px';
     }

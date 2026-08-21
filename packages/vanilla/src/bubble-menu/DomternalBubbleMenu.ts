@@ -1,7 +1,11 @@
 import {
   ToolbarController,
+  buildBubbleItemMaps,
   createBubbleMenuPlugin,
+  createBubbleShouldShow,
   defaultBubbleContexts,
+  resolveBubbleMenuItems,
+  resolveBubbleNames,
   positionFloatingOnce,
   refocusEditorAfterCommand,
 } from '@domternal/core';
@@ -17,17 +21,7 @@ import type {
 import { assertBrowser } from '../shared/isBrowser.js';
 import { createPluginKey } from '../shared/pluginKey.js';
 import type { CustomContentOption } from '../shared/types.js';
-import {
-  buildItemMaps,
-  resolveNames,
-  getFormatItems,
-  detectContext,
-  filterBySchema,
-  isInsideTableCell,
-  type BubbleMenuItem,
-  type ItemMaps,
-  type SelectionShape,
-} from './itemResolver.js';
+import type { BubbleContexts, BubbleMenuItem, BubbleItemMaps } from '@domternal/core';
 import {
   computeTrailingState,
   INITIAL_TRAILING_STATE,
@@ -56,7 +50,7 @@ export interface DomternalBubbleMenuOptions extends CustomContentOption {
    * to item name list, `true` (show all format items), or `null` (no menu for
    * this context). Defaults to `defaultBubbleContexts(editor)`.
    */
-  contexts?: Record<string, string[] | true | null>;
+  contexts?: BubbleContexts;
   /** Custom icon overrides. Falls back to default Phosphor icons for unmapped keys. */
   icons?: IconSet;
 }
@@ -141,7 +135,7 @@ export class DomternalBubbleMenu extends EventTarget {
   #icons: IconSet | undefined;
 
   // Editor-derived caches (set once in #init)
-  #maps: ItemMaps | null = null;
+  #maps: BubbleItemMaps | null = null;
   #hasNotionColorPicker = false;
   #hasBlockContextMenu = false;
   #effectiveContexts: Record<string, string[] | true | null> | undefined;
@@ -264,8 +258,8 @@ export class DomternalBubbleMenu extends EventTarget {
     // Recompute the static default list (used when contexts are disabled).
     if (this.#maps) {
       this.#defaultItemList = items
-        ? resolveNames(items, this.#maps.itemMap, this.#maps.dropdownMap)
-        : resolveNames(['bold', 'italic', 'underline'], this.#maps.itemMap, this.#maps.dropdownMap);
+        ? resolveBubbleNames(items, this.#maps.itemMap, this.#maps.dropdownMap)
+        : resolveBubbleNames(['bold', 'italic', 'underline'], this.#maps.itemMap, this.#maps.dropdownMap);
     }
     this.#updateResolvedItems();
     this.#updateStates();
@@ -278,7 +272,7 @@ export class DomternalBubbleMenu extends EventTarget {
    * plugin at construction; this only changes WHICH items render once the
    * menu is visible.
    */
-  setContexts(contexts: Record<string, string[] | true | null> | undefined): void {
+  setContexts(contexts: BubbleContexts | undefined): void {
     if (this.#destroyed) return;
     this.#explicitContexts = contexts;
     this.#effectiveContexts =
@@ -339,7 +333,7 @@ export class DomternalBubbleMenu extends EventTarget {
     this.#hasBlockContextMenu = exts.some((e) => e.name === 'blockContextMenu');
 
     // Build item maps + bubble defaults
-    this.#maps = buildItemMaps(ed);
+    this.#maps = buildBubbleItemMaps(ed);
 
     // Resolve effective contexts
     this.#effectiveContexts =
@@ -347,8 +341,8 @@ export class DomternalBubbleMenu extends EventTarget {
 
     // Resolve default item list (used when contexts disabled and no NodeSelection match)
     this.#defaultItemList = this.#explicitItems
-      ? resolveNames(this.#explicitItems, this.#maps.itemMap, this.#maps.dropdownMap)
-      : resolveNames(['bold', 'italic', 'underline'], this.#maps.itemMap, this.#maps.dropdownMap);
+      ? resolveBubbleNames(this.#explicitItems, this.#maps.itemMap, this.#maps.dropdownMap)
+      : resolveBubbleNames(['bold', 'italic', 'underline'], this.#maps.itemMap, this.#maps.dropdownMap);
 
     // Register the visibility/positioning plugin
     const shouldShow = this.#shouldShowOpt ?? this.#buildDefaultShouldShow();
@@ -390,87 +384,30 @@ export class DomternalBubbleMenu extends EventTarget {
   }
 
   #buildDefaultShouldShow(): BubbleMenuOptions['shouldShow'] {
-    const contexts = this.#effectiveContexts;
-    const defaults = this.#maps?.bubbleDefaults;
-
-    if (contexts) {
-      return ({ state }) => {
-        const ctx = detectContext(
-          state.selection as unknown as SelectionShape,
-          contexts,
-        );
-        if (!ctx) return false;
-        if (ctx in contexts) {
-          const val = contexts[ctx];
-          if (val === null) return false;
-          return val === true || (Array.isArray(val) && val.length > 0);
-        }
-        return defaults?.has(ctx) ?? false;
-      };
-    }
-
-    return ({ state }) => {
-      const sel = state.selection as unknown as SelectionShape;
-      if (sel.empty) return false;
-      if (sel.node) return defaults?.has(sel.node.type.name) ?? false;
-      if (isInsideTableCell(sel.$from)) return false;
-      return (
-        sel.$from.parent.type.spec.marks !== '' ||
-        sel.$to.parent.type.spec.marks !== ''
-      );
-    };
+    const maps = this.#maps;
+    if (!maps) return () => false;
+    return createBubbleShouldShow(maps, this.#effectiveContexts);
   }
 
   // === State updates (called per transaction) ===
 
+  /**
+   * One call per transaction, into the resolver core owns. Every renderer
+   * asks the same question and has to get the same answer, so the answer is
+   * not written here.
+   */
   #updateResolvedItems(): void {
-    if (!this.#maps) return;
-    const ed = this.#editor;
-    const contexts = this.#effectiveContexts;
-
-    if (contexts) {
-      const ctx = detectContext(
-        ed.state.selection as unknown as SelectionShape,
-        contexts,
-      );
-      if (!ctx) {
-        this.#resolvedItems = [];
-        return;
-      }
-
-      if (ctx in contexts) {
-        const val = contexts[ctx];
-        if (val === null || (Array.isArray(val) && val.length === 0)) {
-          this.#resolvedItems = [];
-          return;
-        }
-        if (val === true) {
-          this.#resolvedItems = filterBySchema(ed, ctx, getFormatItems(this.#maps.itemMap));
-          return;
-        }
-        if (Array.isArray(val)) {
-          const resolved = resolveNames(val, this.#maps.itemMap, this.#maps.dropdownMap);
-          const buttons = resolved.filter(
-            (i): i is ToolbarButton => i.type !== 'separator',
-          );
-          const allowed = new Set(filterBySchema(ed, ctx, buttons).map((b) => b.name));
-          this.#resolvedItems = resolved.filter(
-            (i) => i.type === 'separator' || allowed.has(i.name),
-          );
-          return;
-        }
-      }
-      this.#resolvedItems = this.#maps.bubbleDefaults.get(ctx) ?? [];
+    const maps = this.#maps;
+    if (!maps) {
+      this.#resolvedItems = [];
       return;
     }
-
-    // No contexts mode: use NodeSelection defaults OR the static default list.
-    const sel = ed.state.selection as unknown as SelectionShape;
-    if (sel.node && this.#maps.bubbleDefaults.has(sel.node.type.name)) {
-      this.#resolvedItems = this.#maps.bubbleDefaults.get(sel.node.type.name) ?? [];
-    } else {
-      this.#resolvedItems = this.#defaultItemList;
-    }
+    this.#resolvedItems = resolveBubbleMenuItems({
+      editor: this.#editor,
+      maps,
+      contexts: this.#effectiveContexts,
+      fallbackItems: this.#defaultItemList,
+    });
   }
 
   #updateStates(): void {
@@ -585,14 +522,23 @@ export class DomternalBubbleMenu extends EventTarget {
       }
     }
 
-    // Trailing buttons (gated on extension presence + not NodeSelection)
+    /* Trailing buttons (gated on extension presence + not NodeSelection).
+       Each leads with a separator only when something is already standing to
+       its left: the resolved list can be empty, and `collapseSeparators`
+       cannot see these because they are appended after it has run. */
     const t = this.#trailing;
-    if (t.showColorPickerButton && !t.isNodeSelection) {
-      this.host.appendChild(this.#createSeparator('trailing-sep-color'));
+    const showColor = t.showColorPickerButton && !t.isNodeSelection;
+    const showBlock = t.showBlockMenuButton && !t.isNodeSelection;
+    if (showColor) {
+      if (this.#resolvedItems.length > 0) {
+        this.host.appendChild(this.#createSeparator('trailing-sep-color'));
+      }
       this.host.appendChild(this.#createColorTrigger());
     }
-    if (t.showBlockMenuButton && !t.isNodeSelection) {
-      this.host.appendChild(this.#createSeparator('trailing-sep-block'));
+    if (showBlock) {
+      if (this.#resolvedItems.length > 0 || showColor) {
+        this.host.appendChild(this.#createSeparator('trailing-sep-block'));
+      }
       this.host.appendChild(this.#createBlockMenuTrigger());
     }
 

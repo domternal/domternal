@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { Editor, BubbleMenuOptions, IconSet, ToolbarButton, ToolbarDropdown } from '@domternal/core';
+import type { BubbleContexts, Editor, BubbleMenuOptions, IconSet, ToolbarButton, ToolbarDropdown } from '@domternal/core';
 import { positionFloatingOnce, refocusEditorAfterCommand } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useInnerHtml } from '../useInnerHtml.js';
@@ -26,7 +26,7 @@ export interface DomternalBubbleMenuProps {
   /** Fixed item names, e.g. ['bold', 'italic', 'code']. */
   items?: string[];
   /** Context-aware: map context names to item arrays, true for all, or null to disable. */
-  contexts?: Record<string, string[] | true | null>;
+  contexts?: BubbleContexts;
   /** Custom icon overrides. Falls back to default Phosphor icons for unmapped keys. */
   icons?: IconSet;
   /** Additional content rendered after buttons. */
@@ -99,6 +99,12 @@ export function DomternalBubbleMenu({
   const blockMenuBtnRef = useRef<HTMLButtonElement>(null);
   const innerHtml = useInnerHtml();
 
+  /* The trailing buttons each lead with a separator, and only when something
+     is already standing to their left. The resolved list can be empty, and it
+     is appended before these, so nothing else is in a position to notice. */
+  const showColor = trailing.showColorPickerButton && !trailing.isNodeSelection;
+  const showBlock = trailing.showBlockMenuButton && !trailing.isNodeSelection;
+
   return (
     <div ref={menuRef} className="dm-bubble-menu" role="toolbar" aria-label="Text formatting">
       {resolvedItems.map((item) => {
@@ -141,9 +147,11 @@ export function DomternalBubbleMenu({
           />
         );
       })}
-      {trailing.showColorPickerButton && !trailing.isNodeSelection && (
+      {showColor && (
         <>
-          <span className="dm-toolbar-separator" role="separator" />
+          {resolvedItems.length > 0 && (
+            <span className="dm-toolbar-separator" role="separator" />
+          )}
           <button
             ref={colorBtnRef}
             type="button"
@@ -165,9 +173,11 @@ export function DomternalBubbleMenu({
           </button>
         </>
       )}
-      {trailing.showBlockMenuButton && !trailing.isNodeSelection && (
+      {showBlock && (
         <>
-          <span className="dm-toolbar-separator" role="separator" />
+          {(resolvedItems.length > 0 || showColor) && (
+            <span className="dm-toolbar-separator" role="separator" />
+          )}
           <button
             ref={blockMenuBtnRef}
             type="button"

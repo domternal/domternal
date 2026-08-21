@@ -25,7 +25,7 @@ import { expect, type Page } from '@playwright/test';
 import { demoTargets, type DemoTarget } from './targets.js';
 
 /** Partial shape of the editor exposed at `window.__DEMO_EDITOR__`. */
-type DemoEditor = {
+interface DemoEditor {
   setContent: (html: string, emit: boolean) => void;
   getHTML: () => string;
   getText: () => string;
@@ -40,7 +40,7 @@ type DemoEditor = {
       doc: { lastChild: { type: { name: string } } | null };
     };
   };
-};
+}
 
 async function goNotion(page: Page, target: DemoTarget): Promise<void> {
   await page.goto(target.baseURL + '/');

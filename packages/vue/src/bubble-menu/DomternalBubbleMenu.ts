@@ -5,7 +5,7 @@ import {
   positionFloatingOnce,
   refocusEditorAfterCommand,
 } from '@domternal/core';
-import type { Editor, IconSet, ToolbarButton, ToolbarDropdown, BubbleMenuOptions } from '@domternal/core';
+import type { BubbleContexts, Editor, IconSet, ToolbarButton, ToolbarDropdown, BubbleMenuOptions } from '@domternal/core';
 import { useCurrentEditor } from '../EditorContext.js';
 import { useBubbleMenu } from './useBubbleMenu.js';
 
@@ -20,7 +20,7 @@ export interface DomternalBubbleMenuProps {
   offset?: number;
   updateDelay?: number;
   items?: string[];
-  contexts?: Record<string, string[] | true | null>;
+  contexts?: BubbleContexts;
   /** Custom icon overrides. Falls back to default Phosphor icons for unmapped keys. */
   icons?: IconSet;
 }
@@ -34,7 +34,7 @@ export const DomternalBubbleMenu = defineComponent({
     offset: { type: Number, default: 8 },
     updateDelay: { type: Number, default: 0 },
     items: { type: Array as PropType<string[]>, default: undefined },
-    contexts: { type: Object as PropType<Record<string, string[] | true | null>>, default: undefined },
+    contexts: { type: Object as PropType<BubbleContexts>, default: undefined },
     icons: { type: Object as PropType<IconSet>, default: undefined },
   },
   setup(props, { slots }) {
@@ -131,9 +131,18 @@ export const DomternalBubbleMenu = defineComponent({
         }));
       }
 
-      if (t.showColorPickerButton && !t.isNodeSelection) {
+      /* Each trailing button leads with a separator, and only when something is
+         already standing to its left: the resolved list can be empty, and it
+         was finished before these were appended, so nothing else is in a
+         position to notice. */
+      const showColor = t.showColorPickerButton && !t.isNodeSelection;
+      const showBlock = t.showBlockMenuButton && !t.isNodeSelection;
+
+      if (showColor) {
+        if (children.length > 0) {
+          children.push(h('span', { class: 'dm-toolbar-separator', role: 'separator' }));
+        }
         children.push(
-          h('span', { class: 'dm-toolbar-separator', role: 'separator' }),
           h('button', {
             ref: colorBtnRef,
             type: 'button',
@@ -156,9 +165,11 @@ export const DomternalBubbleMenu = defineComponent({
         );
       }
 
-      if (t.showBlockMenuButton && !t.isNodeSelection) {
+      if (showBlock) {
+        if (children.length > 0) {
+          children.push(h('span', { class: 'dm-toolbar-separator', role: 'separator' }));
+        }
         children.push(
-          h('span', { class: 'dm-toolbar-separator', role: 'separator' }),
           h('button', {
             ref: blockMenuBtnRef,
             type: 'button',

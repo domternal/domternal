@@ -8,7 +8,7 @@
  * dispatch on `document.elementFromPoint` to exercise exactly that path.
  */
 import { test } from './fixtures.js';
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { demoTargets, type DemoTarget } from './targets.js';
 
 const blockHandleSelector = '.dm-block-handle';
@@ -40,7 +40,7 @@ interface MarginGeometry {
   editorRight: number;
   /** `.dm-editor`'s left edge: the left gutter zone reaches 80px past it. */
   editorLeft: number;
-  rows: Array<{ text: string; top: number; bottom: number }>;
+  rows: { text: string; top: number; bottom: number }[];
 }
 
 /** Client rects of the top-level paragraphs plus the editor's left/right edges. */
@@ -51,7 +51,7 @@ async function marginGeometry(page: Page, target: DemoTarget): Promise<MarginGeo
     if (!pm || !editor) throw new Error('notion editor not found');
     const rows = Array.from(pm.querySelectorAll(':scope > p')).map((p) => {
       const r = p.getBoundingClientRect();
-      return { text: p.textContent ?? '', top: r.top, bottom: r.bottom };
+      return { text: p.textContent, top: r.top, bottom: r.bottom };
     });
     const box = editor.getBoundingClientRect();
     return { editorRight: box.right, editorLeft: box.left, rows };
@@ -104,7 +104,7 @@ async function dragToMarginPoint(
 
 for (const target of demoTargets) {
   test.describe(`${target.name} - right page margin drops`, () => {
-    const paragraphs = (page: Page) => page.locator(`${target.editorSelector} > p`);
+    const paragraphs = (page: Page): Locator => page.locator(`${target.editorSelector} > p`);
 
     test.beforeEach(async ({ page }) => {
       await goNotion(page, target);

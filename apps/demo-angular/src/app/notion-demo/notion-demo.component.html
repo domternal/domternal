@@ -12,7 +12,7 @@
   />
 
   @if (editor(); as ed) {
-    <domternal-bubble-menu [editor]="ed" [icons]="$any(bubbleIcons())" />
+    <domternal-bubble-menu [editor]="ed" [icons]="$any(bubbleIcons())" [contexts]="bubbleContexts()" />
     <domternal-floating-menu [editor]="ed" [requireExplicitTrigger]="true" />
     <domternal-notion-color-picker [editor]="ed" />
   }

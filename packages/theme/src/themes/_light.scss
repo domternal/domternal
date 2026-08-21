@@ -1,77 +1,73 @@
 // =============================================================================
 // Light Theme
-// =============================================================================
-// Light is the default - CSS variables in _variables.scss already use light
-// values. This class exists for explicit light override in a dark context.
-// =============================================================================
+// =============================================================================.
 
 // Explicit inverse of `dark-tokens`: every token the dark mixin overrides must
 // be reset here too, otherwise a `.dm-theme-light` island nested in a dark
-// context leaks the dark values. Light defaults live in _variables.scss; these
-// duplicate them so the override is self-contained.
-@mixin light-tokens {
-  --dm-color-scheme: light;
-  --dm-bg: #ffffff;
-  --dm-text: #1a1a1a;
-  --dm-muted: #6b7280;
-  --dm-surface: #f8f9fa;
-  --dm-border-color: #e0e0e0;
-  --dm-hover: rgba(0, 0, 0, 0.06);
-  --dm-active: rgba(0, 0, 0, 0.12);
-  --dm-accent: #2563eb;
-  --dm-accent-hover: #1d4ed8;
-  --dm-accent-surface: rgba(37, 99, 235, 0.1);
-  --dm-focus-color: rgba(66, 133, 244, 0.3);
-  --dm-selection: rgba(66, 133, 244, 0.2);
-  --dm-code-surface: #f5f5f5;
-  --dm-code-color: #d63384;
+// context leaks the dark values.
+@mixin light-tokens($important: '') {
+  --dm-color-scheme: light#{$important};
+  --dm-bg: #ffffff#{$important};
+  --dm-text: #1a1a1a#{$important};
+  --dm-muted: #6b7280#{$important};
+  --dm-surface: #f8f9fa#{$important};
+  --dm-border-color: #e0e0e0#{$important};
+  --dm-hover: rgba(0, 0, 0, 0.06)#{$important};
+  --dm-active: rgba(0, 0, 0, 0.12)#{$important};
+  --dm-accent: #2563eb#{$important};
+  --dm-accent-hover: #1d4ed8#{$important};
+  --dm-accent-surface: rgba(37, 99, 235, 0.1)#{$important};
+  --dm-focus-color: rgba(66, 133, 244, 0.3)#{$important};
+  --dm-selection: rgba(66, 133, 244, 0.2)#{$important};
+  --dm-code-surface: #f5f5f5#{$important};
+  --dm-code-color: #d63384#{$important};
 
   // Scrollbar thumb + popover shadow.
-  --dm-scrollbar-thumb: rgba(0, 0, 0, 0.18);
-  --dm-scrollbar-thumb-hover: rgba(0, 0, 0, 0.28);
-  --dm-popover-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.22), 0 4px 10px -2px rgba(0, 0, 0, 0.12);
-  --dm-blockquote-border: 3px solid #6a6a6a;
-  --dm-blockquote-color: #6a6a6a;
+  --dm-scrollbar-thumb: rgba(0, 0, 0, 0.18)#{$important};
+  --dm-scrollbar-thumb-hover: rgba(0, 0, 0, 0.28)#{$important};
+  --dm-popover-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.22), 0 4px 10px -2px rgba(0, 0, 0, 0.12)#{$important};
+  --dm-blockquote-border: 3px solid #6a6a6a#{$important};
+  --dm-blockquote-color: #6a6a6a#{$important};
 
   // Subtle highlight tint for the block whose BlockContextMenu is open.
-  --dm-block-context-active-bg: rgba(55, 53, 47, 0.06);
+  --dm-block-context-active-bg: rgba(55, 53, 47, 0.06)#{$important};
 
   // Syntax highlighting
-  --dm-syntax-keyword: #c72031;
-  --dm-syntax-entity: #6f42c1;
-  --dm-syntax-constant: #005cc5;
-  --dm-syntax-string: #032f62;
-  --dm-syntax-variable: #d35400;
-  --dm-syntax-comment: #57606a;
-  --dm-syntax-tag: #22863a;
-  --dm-syntax-addition: #22863a;
-  --dm-syntax-addition-bg: #f0fff4;
-  --dm-syntax-deletion: #b31d28;
-  --dm-syntax-deletion-bg: #ffeef0;
+  --dm-syntax-keyword: #c72031#{$important};
+  --dm-syntax-entity: #6f42c1#{$important};
+  --dm-syntax-constant: #005cc5#{$important};
+  --dm-syntax-string: #032f62#{$important};
+  --dm-syntax-variable: #d35400#{$important};
+  --dm-syntax-comment: #57606a#{$important};
+  --dm-syntax-tag: #22863a#{$important};
+  --dm-syntax-addition: #22863a#{$important};
+  --dm-syntax-addition-bg: #f0fff4#{$important};
+  --dm-syntax-deletion: #b31d28#{$important};
+  --dm-syntax-deletion-bg: #ffeef0#{$important};
 
   // Block colors (Notion-style light palette).
-  --dm-block-bg-gray: #f1f1ef;
-  --dm-block-bg-brown: #f3eeee;
-  --dm-block-bg-orange: #f8ecdf;
-  --dm-block-bg-yellow: #faf3dd;
-  --dm-block-bg-green: #eef3ed;
-  --dm-block-bg-blue: #e9f3f7;
-  --dm-block-bg-purple: #f6f3f8;
-  --dm-block-bg-pink: #f9f2f5;
-  --dm-block-bg-red: #faecec;
+  --dm-block-bg-gray: #f1f1ef#{$important};
+  --dm-block-bg-brown: #f3eeee#{$important};
+  --dm-block-bg-orange: #f8ecdf#{$important};
+  --dm-block-bg-yellow: #faf3dd#{$important};
+  --dm-block-bg-green: #eef3ed#{$important};
+  --dm-block-bg-blue: #e9f3f7#{$important};
+  --dm-block-bg-purple: #f6f3f8#{$important};
+  --dm-block-bg-pink: #f9f2f5#{$important};
+  --dm-block-bg-red: #faecec#{$important};
 
-  --dm-block-text-gray: #787774;
-  --dm-block-text-brown: #976d57;
-  --dm-block-text-orange: #cc782f;
-  --dm-block-text-yellow: #c29343;
-  --dm-block-text-green: #548164;
-  --dm-block-text-blue: #487ca5;
-  --dm-block-text-purple: #8a67ab;
-  --dm-block-text-pink: #b35488;
-  --dm-block-text-red: #c4554d;
+  --dm-block-text-gray: #787774#{$important};
+  --dm-block-text-brown: #976d57#{$important};
+  --dm-block-text-orange: #cc782f#{$important};
+  --dm-block-text-yellow: #c29343#{$important};
+  --dm-block-text-green: #548164#{$important};
+  --dm-block-text-blue: #487ca5#{$important};
+  --dm-block-text-purple: #8a67ab#{$important};
+  --dm-block-text-pink: #b35488#{$important};
+  --dm-block-text-red: #c4554d#{$important};
 
   // Selected-block halo.
-  --dm-block-selected-halo: rgba(112, 207, 248, 0.25);
+  --dm-block-selected-halo: rgba(112, 207, 248, 0.25)#{$important};
 }
 
 .dm-theme-light,

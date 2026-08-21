@@ -6,9 +6,23 @@ on:
   pull_request:
     branches: [main]
 
+# A second push to the same branch makes the first run pointless. Without this
+# both run to completion, and the older one can report last.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# This repository is public and the job holds a Codecov token, so the default
+# write scope is more than any step here needs.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    # The whole job takes a few minutes. The GitHub default is six hours, which
+    # is what a hung vitest or tsc would otherwise burn.
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -26,6 +40,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Every declared gate runs here
+        # A gate in package.json that no step invokes passes locally, never runs
+        # on a pull request, and reads as coverage that does not exist. Cheap and
+        # early, because it needs nothing built.
+        run: pnpm test:ci-wiring
+
       - name: Lint
         run: pnpm lint
 
@@ -42,8 +62,28 @@ jobs:
             exit 1
           fi
 
+      - name: Forbid direct prosemirror-* imports
+        # Everything must go through @domternal/pm, which is the single
+        # place a consumer can pin. A direct import resolves against the
+        # importing package's own node_modules, which is how a second copy
+        # of an identity-compared module gets into a bundle.
+        run: |
+          matches=$(grep -rnE "from '(prosemirror-[a-z-]+)'" packages/*/src --include=*.ts --include=*.tsx --include=*.mts --include=*.cts --include=*.js --include=*.jsx --include=*.mjs --include=*.cjs 2>/dev/null | grep -v '^packages/pm/' || true)
+          if [ -n "$matches" ]; then
+            echo "$matches"
+            echo ""
+            echo "Import from '@domternal/pm/<subpath>' instead."
+            exit 1
+          fi
+
       - name: Type check
         run: pnpm typecheck
+
+      - name: Type check the e2e suite
+        # e2e/ is not a workspace member and not an nx project, so the run above
+        # cannot reach it. It was the largest body of TypeScript here that
+        # nothing checked, and every new cross-framework spec is added to it.
+        run: pnpm typecheck:e2e
 
       - name: Build
         run: pnpm build
@@ -65,21 +105,92 @@ jobs:
       - name: Third-party notices
         run: pnpm test:third-party-notices
 
+      - name: The hidden attribute survives the theme
+        # Author styles beat the user agent stylesheet, so every `display` in
+        # the theme is a chance to disable `[hidden]` silently. One scoped rule
+        # restores it; this keeps that rule, and keeps new components inside it.
+        run: pnpm test:hidden-attribute
+
       - name: CSS variable references
         # Fails if a `var(--dm-X)` reference without a fallback has no
         # matching definition.
         run: pnpm test:css-vars
 
+      - name: Light and dark palettes agree
+        # The two theme mixins are a matched pair, and the print layer re-emits
+        # the light one over a dark document. A token added to one mixin alone
+        # is caught by nothing else: Sass compiles both halves happily, and the
+        # gate above asks only whether a name is defined somewhere.
+        run: pnpm test:theme-tokens
+
       - name: Bundle size budgets
         # Gzipped dist sizes must stay under the committed budgets.
         run: pnpm test:bundle-size
 
+      - name: Single ProseMirror copy
+        # ProseMirror and Yjs compare by identity, so a second locked copy
+        # of any of them is a runtime crash rather than extra bytes.
+        run: pnpm test:single-prosemirror
+
+      - name: Dedupe entries reach the project root
+        # Vite resolves a deduped id from the project root. On Vite 8 an id it
+        # cannot reach there is ignored silently, so an app that looks protected
+        # is not. The only list is domternal.dev's, a nested repository this one
+        # excludes, so here the gate prints SKIPPED and does its real work on a
+        # machine that has the checkout. test:ci-wiring counts it apart.
+        run: pnpm test:dedupe-reachable
+
+      - name: ProseMirror ranges still agree
+        # `@domternal/pm` ships the prosemirror packages as dependencies while
+        # y-prosemirror takes them as peers. They unify only while their ranges
+        # can be satisfied together; a major bump on either side would end that
+        # for every consumer, with nothing warning at install time. Only
+        # domternal.dev pulls y-prosemirror in, and that is a nested repository
+        # this one excludes, so here the gate prints SKIPPED and does its real
+        # work on a machine that has the checkout.
+        run: pnpm test:pm-ranges
+
+      - name: Frozen single-copy contract
+        # Every caller registering a module must pass the SAME export, or two
+        # packages that agree report a conflict that does not exist. Nothing in
+        # the type system can say that, so it is checked here.
+        run: pnpm test:frozen-contract
+
+      - name: Externalised shared modules
+        # tsup inlines anything it is not told to externalise, and an inlined
+        # copy of an identity-compared module ships that crash to a consumer.
+        run: pnpm test:externals
+
+      - name: SSR import smoke
+        # Nothing else here ever executes a built bundle: the type checks run
+        # tsc, publint and attw resolve without loading, everything else is
+        # static analysis. One top-level document or window breaks every
+        # Next.js, Remix, Nuxt and Astro consumer before their first render.
+        run: pnpm test:ssr-import
+
+      - name: Package manifest policy
+        # Releases are hand-edited across eighteen manifests. A version bumped
+        # without its `>=MAJOR.MINOR.0` floors publishes a package a consumer
+        # may legally install beside the previous minor, which is the mixed-copy
+        # install the single-copy gates exist to prevent.
+        run: pnpm test:package-policy
+
+      - name: Packed tarball policy
+        # What npm actually ships, rather than what the working tree holds.
+        # 0.15.0 published the core with inlined icon artwork and no notice at
+        # all: npm carries LICENSE by itself but never THIRD-PARTY-LICENSES.md,
+        # and nothing looked inside a tarball.
+        run: pnpm test:package-artifacts
+
       - name: Type check demo apps
-        # Demos don't extend the base tsconfig, so they resolve
-        # @domternal/* via the standard import condition into the built
-        # dist. This catches consumer-facing dist regressions the
-        # source-condition typecheck above can't see. Explicit calls
-        # bypass nx cache.
+        # Two steps, and only the second one decides what is read. The demo
+        # tsconfigs enable the @domternal/source condition, so resolution lands
+        # on packages/*/src; each demo then declares a project reference to
+        # every package it imports, and tsc redirects a referenced project's
+        # source to its emitted declaration. So this pass reads dist. Settled by
+        # mutation rather than by reading the trace: breaking an export in
+        # dist/index.d.ts fails this step, breaking the same export in
+        # src/index.ts does not. Explicit calls bypass the nx cache.
         run: |
           pnpm --filter demo-angular typecheck
           pnpm --filter demo-react typecheck

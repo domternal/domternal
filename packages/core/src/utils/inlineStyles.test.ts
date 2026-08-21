@@ -187,6 +187,110 @@ describe('inlineStyles', () => {
     expect(result).not.toContain('line-through');
   });
 
+  // === List marker cycle ===
+
+  /**
+   * The `list-style-type` of every list in the result, outermost first.
+   *
+   * The marker is read back off the element rather than matched in the string
+   * because the point of writing it is that nothing else will: a pasted list
+   * arrives with no stylesheet, and the recipient's own sheet plateaus at
+   * square from the fourth bullet level down and numbers every ordered level
+   * `1.`. Whatever the attribute says here is what the reader sees there.
+   */
+  function listMarkers(html: string): (string | undefined)[] {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    return Array.from(div.querySelectorAll('ul, ol')).map(
+      (el) => /list-style-type:\s*([a-z-]+)/.exec(el.getAttribute('style') ?? '')?.[1]
+    );
+  }
+
+  /** Lists of one kind nested one inside the next, `levels` deep. */
+  function nest(tag: 'ul' | 'ol', levels: number): string {
+    let html = `<${tag}><li>leaf</li></${tag}>`;
+    for (let level = 1; level < levels; level += 1) {
+      html = `<${tag}><li>item${html}</li></${tag}>`;
+    }
+    return html;
+  }
+
+  it('cycles bullet markers disc, circle, square and starts over below that', () => {
+    // The three-step cycle both Pro exporters pick from, `depth % 3`, so a
+    // pasted list matches the .docx and the .pdf level for level.
+    expect(listMarkers(inlineStyles(nest('ul', 5)))).toEqual([
+      'disc',
+      'circle',
+      'square',
+      'disc',
+      'circle',
+    ]);
+  });
+
+  it('cycles ordered markers decimal, lower-alpha, lower-roman and starts over below that', () => {
+    expect(listMarkers(inlineStyles(nest('ol', 5)))).toEqual([
+      'decimal',
+      'lower-alpha',
+      'lower-roman',
+      'decimal',
+      'lower-alpha',
+    ]);
+  });
+
+  it('counts every enclosing list, so a bullet list inside an ordered one continues the cycle', () => {
+    /* Depth is the number of lists above, whatever kind they are, which is how
+       the exporters count and how the editor's own stylesheet counts. A `<ul>`
+       that restarted at disc under an `<ol>` would put three marker schemes in
+       one document again. */
+    const html = '<ol><li>one<ul><li>bullet<ol><li>deep</li></ol></li></ul></li></ol>';
+    expect(listMarkers(inlineStyles(html))).toEqual(['decimal', 'circle', 'lower-roman']);
+  });
+
+  it('leaves a task list unmarked and still spends a level of the cycle on it', () => {
+    /* A task list draws a checkbox in the marker column, so it names no marker
+       of its own, but it is still a level: a bullet list under a task item is
+       a circle, exactly as it is under a plain bullet item. */
+    const html =
+      '<ul data-type="taskList"><li data-type="taskItem"><label><input type="checkbox"></label>' +
+      '<div><p>task</p><ul><li>note</li></ul></div></li></ul>';
+    const result = inlineStyles(html);
+    expect(result).toContain('list-style: none');
+    expect(listMarkers(result)).toEqual([undefined, 'circle']);
+  });
+
+  it('restarts the cycle inside a table cell', () => {
+    /* The cell's own content edge begins the list again, which is what the
+       DOCX serializer does when it builds a cell context from scratch. Both
+       outer lists here are deep enough to prove the count was reset rather
+       than never taken. */
+    const bullets =
+      '<ul><li>outer<table><tbody><tr><td><ul><li>in a cell</li></ul></td></tr></tbody></table></li></ul>';
+    expect(listMarkers(inlineStyles(bullets))).toEqual(['disc', 'disc']);
+
+    const numbers =
+      '<ol><li>outer<table><tbody><tr><td><ol><li>in a cell</li></ol></td></tr></tbody></table></li></ol>';
+    expect(listMarkers(inlineStyles(numbers))).toEqual(['decimal', 'decimal']);
+  });
+
+  it('leaves an ol that already names a type alone', () => {
+    /* `type` is no schema attribute on either list node, so nothing this
+       editor produced carries one and the cycle always applies to its own
+       output. It arrives from a caller passing arbitrary HTML, and writing a
+       marker over their `<ol type="A">` would change their document rather
+       than describe it. */
+    const result = inlineStyles('<ol type="A"><li>item</li></ol>');
+    expect(result).toContain('type="A"');
+    expect(result).toContain('margin: 0.75em 0; padding-left: 1.5em');
+    expect(listMarkers(result)).toEqual([undefined]);
+  });
+
+  it('leaves a ul that already names a type alone as well', () => {
+    const result = inlineStyles('<ul type="square"><li>item</li></ul>');
+    expect(result).toContain('type="square"');
+    expect(result).toContain('margin: 0.75em 0; padding-left: 1.5em');
+    expect(listMarkers(result)).toEqual([undefined]);
+  });
+
   // === Details / Accordion ===
 
   it('adds border and border-radius to details', () => {

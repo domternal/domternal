@@ -2,6 +2,7 @@ announce
 AnyExtension
 AnyExtensionConfig
 applyInlineStyles
+assertSingleProseMirrorCopy
 AttributeSpec
 AttributeSpecs
 autolinkPlugin
@@ -16,9 +17,14 @@ BlockquoteOptions
 blur
 Bold
 BoldOptions
+BubbleContexts
+BubbleItemMaps
 BubbleMenu
+BubbleMenuItem
 BubbleMenuOptions
 bubbleMenuPluginKey
+BubbleMenuSeparator
+buildBubbleItemMaps
 buildCommandProps
 BuildCommandPropsOptions
 builtInCommands
@@ -46,6 +52,7 @@ Code
 CodeBlock
 CodeBlockOptions
 CodeOptions
+collapseSeparators
 Command
 CommandEditor
 CommandManager
@@ -60,6 +67,7 @@ copyThemeClass
 createAccumulatingDispatch
 createBubbleMenuPlugin
 CreateBubbleMenuPluginOptions
+createBubbleShouldShow
 createCanChecker
 createChainBuilder
 createDocument
@@ -77,6 +85,7 @@ defaultBubbleContexts
 defaultFloatingMenuShouldShow
 defaultIcons
 deleteSelection
+detectBubbleContext
 Document
 Dropcursor
 DropcursorOptions
@@ -95,6 +104,7 @@ ExtensionEditor
 ExtensionManager
 ExtensionManagerEditor
 ExtensionManagerOptions
+filterBubbleItemsBySchema
 findChildren
 FindChildResult
 findListItemAncestorDepth
@@ -126,6 +136,7 @@ generateJSON
 GenerateJSONOptions
 generateText
 GenerateTextOptions
+getBubbleFormatItems
 getListItemCursorContext
 getMarkRange
 GlobalAttributes
@@ -159,6 +170,7 @@ InvisibleCharsStorage
 isDocumentEmpty
 isInListItemLabel
 isInsideListItem
+isInsideTableCell
 isNodeEmpty
 IsNodeEmptyOptions
 isValidUrl
@@ -229,16 +241,23 @@ PositionFloatingOptions
 Print
 PrintOptions
 PrintStorage
+ProseMirrorCopyConflict
 Range
 RawCommands
 refocusEditorAfterCommand
+registerProseMirrorCopy
 resetAttributes
+resolveBubbleMenuItems
+ResolveBubbleMenuItemsOptions
+resolveBubbleNames
+ResolvedPosShape
 selectAll
 Selection
 SelectionDecoration
 SelectionDecorationOptions
 selectionDecorationPluginKey
 SelectionOptions
+SelectionShape
 SelectionStorage
 selectNodeBackward
 setBlockType
@@ -300,6 +319,7 @@ unsetAllMarks
 unsetMark
 updateAttributes
 VERSION
+warnOnDuplicateProseMirrorCopy
 wrapIn
 wrappingInputRule
 WrappingInputRuleOptions

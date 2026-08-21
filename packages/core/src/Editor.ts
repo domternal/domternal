@@ -3,17 +3,20 @@
  *
  * Manages extensions, schema, commands, and the ProseMirror EditorView/State.
  */
-import type { Transaction, Plugin, PluginKey } from '@domternal/pm/state';
-import { EditorState } from '@domternal/pm/state';
+import type { Transaction, PluginKey } from '@domternal/pm/state';
+import { EditorState, Plugin } from '@domternal/pm/state';
 import { EditorView } from '@domternal/pm/view';
-import { DOMSerializer } from '@domternal/pm/model';
-import type { Schema, Fragment } from '@domternal/pm/model';
+import { DOMSerializer, Fragment } from '@domternal/pm/model';
+import { Transform } from '@domternal/pm/transform';
+import type { Schema } from '@domternal/pm/model';
 
 import { EventEmitter } from './EventEmitter.js';
 import { ExtensionManager } from './ExtensionManager.js';
 import { CommandManager } from './CommandManager.js';
 import { createDocument, isDocumentEmpty } from './helpers/index.js';
 import { inlineStyles, type InlineStyleOverrides } from './utils/inlineStyles.js';
+import { warnOnDuplicateProseMirrorCopy } from './utils/prosemirrorSingleton.js';
+import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
 import { normalizeColor } from './helpers/normalizeColor.js';
 import {
   focus as focusCommand,
@@ -144,6 +147,28 @@ export class Editor extends EventEmitter<EditorEvents> {
           'Provide a ProseMirror schema directly, or use extensions like [Document, Paragraph, Text].'
       );
     }
+
+    /* Before anything is built from them: a second copy of any of these
+       makes every later failure look like a bug in the editor. Warning rather
+       than throwing, because two copies only break once an object crosses
+       between them, and an app deliberately running isolated editors in
+       separate bundles is not wrong yet. `@domternal-pro/extension-collaboration`
+       raises the same conflict to an error, because there it is already fatal. */
+    warnOnDuplicateProseMirrorCopy('prosemirror-model', Fragment, '@domternal/core');
+    warnOnDuplicateProseMirrorCopy('prosemirror-state', Plugin, '@domternal/core');
+    warnOnDuplicateProseMirrorCopy('prosemirror-view', EditorView, '@domternal/core');
+    warnOnDuplicateProseMirrorCopy('prosemirror-transform', Transform, '@domternal/core');
+    /* And the core itself. Two copies of the editor core are as fatal as two
+       copies of prosemirror-state, and for the same reason: `Gapcursor` from
+       one copy and `Gapcursor` from the other are different classes under one
+       plugin key. This catches the case where both copies build an editor;
+       `ExtensionManager` catches the sharper one, where a single editor is
+       handed an extension the other copy built. */
+    warnOnDuplicateProseMirrorCopy(
+      '@domternal/core',
+      ExtensionConfigurationError,
+      '@domternal/core'
+    );
 
     this.options = {
       editable: true,
@@ -324,12 +349,12 @@ export class Editor extends EventEmitter<EditorEvents> {
       // For empty selection, check marks at cursor or stored marks
       if (selection.empty) {
         const storedMarks = state.storedMarks ?? $from.marks();
-        const hasMark = storedMarks.some(mark => mark.type === markType);
+        const hasMark = storedMarks.some((mark) => mark.type === markType);
         if (!hasMark) return false;
 
         // Check attributes if specified
         if (attrs) {
-          const mark = storedMarks.find(m => m.type === markType);
+          const mark = storedMarks.find((m) => m.type === markType);
           return mark ? this.matchAttributes(mark.attrs, attrs) : false;
         }
         return true;
@@ -344,11 +369,11 @@ export class Editor extends EventEmitter<EditorEvents> {
           if (parent && !parent.type.allowsMarkType(markType)) {
             return; // skip text in mark-incompatible blocks
           }
-          if (node.marks.some(m => m.type.excludes(markType) && m.type !== markType)) {
+          if (node.marks.some((m) => m.type.excludes(markType) && m.type !== markType)) {
             return; // skip text with marks that exclude this mark type
           }
           check.hasApplicableText = true;
-          const nodeMark = node.marks.find(m => m.type === markType);
+          const nodeMark = node.marks.find((m) => m.type === markType);
           if (!nodeMark) {
             check.hasMark = false;
             return false; // Stop iteration
@@ -367,7 +392,9 @@ export class Editor extends EventEmitter<EditorEvents> {
     const nodeType = schema.nodes[name];
     if (nodeType) {
       // NodeSelection - check the selected node directly (atom/leaf nodes like image)
-      const selNode = (selection as { node?: { type: typeof nodeType; attrs: Record<string, unknown> } }).node;
+      const selNode = (
+        selection as { node?: { type: typeof nodeType; attrs: Record<string, unknown> } }
+      ).node;
       if (selNode?.type === nodeType) {
         return attrs ? this.matchAttributes(selNode.attrs, attrs) : true;
       }
@@ -428,7 +455,7 @@ export class Editor extends EventEmitter<EditorEvents> {
     if (markType) {
       // Get marks at cursor position or stored marks
       const marks = state.storedMarks ?? $from.marks();
-      const mark = marks.find(m => m.type === markType);
+      const mark = marks.find((m) => m.type === markType);
       return mark ? { ...mark.attrs } : {};
     }
 
@@ -489,13 +516,14 @@ export class Editor extends EventEmitter<EditorEvents> {
     div.appendChild(fragment);
 
     // Browser DOM normalizes hex colors to rgb() - convert back to hex within style attrs
-    const html = div.innerHTML.replace(/style="([^"]*)"/g, (_match, style: string) =>
-      'style="' +
-        style.replace(
-          /rgba?\(\s*\d+[\s,]+\d+[\s,]+\d+[^)]*\)/g,
-          (colorStr) => normalizeColor(colorStr),
+    const html = div.innerHTML.replace(
+      /style="([^"]*)"/g,
+      (_match, style: string) =>
+        'style="' +
+        style.replace(/rgba?\(\s*\d+[\s,]+\d+[\s,]+\d+[^)]*\)/g, (colorStr) =>
+          normalizeColor(colorStr)
         ) +
-        '"',
+        '"'
     );
 
     if (options?.styled) {
@@ -514,11 +542,7 @@ export class Editor extends EventEmitter<EditorEvents> {
    */
   getText(options: { blockSeparator?: string } = {}): string {
     const { blockSeparator = '\n\n' } = options;
-    return this.state.doc.textBetween(
-      0,
-      this.state.doc.content.size,
-      blockSeparator
-    );
+    return this.state.doc.textBetween(0, this.state.doc.content.size, blockSeparator);
   }
 
   /**
@@ -531,7 +555,9 @@ export class Editor extends EventEmitter<EditorEvents> {
       editor: this,
       state: this.state,
       tr,
-      dispatch: (t) => { this.view.dispatch(t); },
+      dispatch: (t) => {
+        this.view.dispatch(t);
+      },
       chain: () => this.chain(),
       can: () => this.can(),
       commands: this.commands,
@@ -675,7 +701,7 @@ export class Editor extends EventEmitter<EditorEvents> {
    */
   private buildClipboardSerializer(
     transform: (html: string) => string,
-    schema: Schema,
+    schema: Schema
   ): { clipboardSerializer: DOMSerializer } {
     return {
       clipboardSerializer: {
@@ -726,10 +752,7 @@ export class Editor extends EventEmitter<EditorEvents> {
     // 3. Create initial document from content (with graceful error handling)
     let doc;
     try {
-      doc = createDocument(
-        this.options.content ?? null,
-        this._extensionManager.schema
-      );
+      doc = createDocument(this.options.content ?? null, this._extensionManager.schema);
     } catch (error) {
       // Emit content error event for invalid content
       const contentError = error instanceof Error ? error : new Error(String(error));
@@ -776,7 +799,10 @@ export class Editor extends EventEmitter<EditorEvents> {
       ...(Object.keys(nodeViews).length > 0 ? { nodeViews } : {}),
       // Clipboard transform - apply user-provided transform (e.g. inlineStyles) on copy/cut
       ...(this.options.clipboardHTMLTransform
-        ? this.buildClipboardSerializer(this.options.clipboardHTMLTransform, this._extensionManager.schema)
+        ? this.buildClipboardSerializer(
+            this.options.clipboardHTMLTransform,
+            this._extensionManager.schema
+          )
         : {}),
       // Handle focus/blur events
       handleDOMEvents: {
@@ -834,9 +860,7 @@ export class Editor extends EventEmitter<EditorEvents> {
    * transaction is applied directly, like the default dispatch, skipping events:
    * it is initial state, not an update.
    */
-  private static buildViewDispatch(
-    editor: Editor
-  ): (transaction: Transaction) => void {
+  private static buildViewDispatch(editor: Editor): (transaction: Transaction) => void {
     return function (this: EditorView, transaction: Transaction): void {
       if (editor._isViewConstructing) {
         // The declared type says `view` is always set; mid-construction it is not.

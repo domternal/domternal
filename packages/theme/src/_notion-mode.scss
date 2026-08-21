@@ -1,9 +1,6 @@
 // =============================================================================
-// Notion Mode
-// Opt-in stylistic preset: borderless surface, centered narrow column,
-// generous reading rhythm, BlockHandle in the surrounding gutter.
-// Apply with class `dm-notion-mode` on the editor host element.
-// =============================================================================
+// Notion Mode Opt-in stylistic preset: borderless surface, centered narrow
+// column, generous reading rhythm, BlockHandle in the surrounding gutter.
 
 .dm-editor.dm-notion-mode {
   // Drop the default chrome - Notion pages have no card outline.
@@ -15,6 +12,11 @@
   // The measure. Read twice: as the column's width, and halved in the handle
   // offset below, so overriding it moves both.
   --dm-notion-column-width: 44rem;
+
+  // How tall an empty page is. A Notion page owns the window, so the default is
+  // a share of the window: a document one line long still offers a page's worth
+  // of surface to click into.
+  --dm-notion-min-height: 60vh;
 
   // Do NOT cap the frame here. A docked sidebar makes room by sliding the
   // column, and only within the frame; capped to the column's own width there
@@ -43,7 +45,7 @@
     max-width: var(--dm-notion-column-width);
     margin-inline: auto;
 
-    min-height: 60vh;
+    min-height: var(--dm-notion-min-height, 60vh);
     outline: none;
 
     // Tighter heading rhythm than the default content stylesheet.
@@ -77,10 +79,7 @@
     }
 
     // Notion-mode only: adjacent top-level lists of any type chunk together at
-    // the within-item gap (~4px) instead of the 0.75em container gap. Both
-    // sides must be tightened because vertical margins collapse to the LARGER
-    // of the two (`+` for the following list's top, `:has(+ ...)` for the
-    // preceding list's bottom). Direct children only, so nesting is untouched.
+    // the within-item gap (~4px) instead of the 0.75em container gap.
     > :is(ul, ol) + :is(ul, ol) {
       margin-top: 0.25em;
     }

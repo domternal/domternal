@@ -27,6 +27,35 @@ pnpm add @domternal/pm
 `@domternal/pm` itself has no peer dependencies: the `prosemirror-*` libraries are its own
 dependencies.
 
+## One copy, always
+
+ProseMirror compares by identity, not by shape. Two copies of `prosemirror-model` make
+`Fragment.from` reject a fragment the editor itself produced ("Can not convert <> to a
+Fragment"), two copies of `prosemirror-state` collide on a keyed plugin. That is a crash,
+not a few extra kilobytes, and nothing warns at install time.
+
+Declaring the libraries here once is what normally prevents it. It stops being enough when
+another library in your app declares the same packages as **peer dependencies** and takes
+whatever your application root offers: `y-prosemirror` is the common case, and the one
+that reaches Domternal Pro's collaboration. The two resolutions can then differ with
+nothing warning at install or build time.
+
+Domternal detects it at runtime and names both packages and the fix. The dedupe recipe per
+package manager and bundler:
+https://domternal.dev/v1/guides/single-prosemirror-copy/
+
+### Why these are dependencies and not peers
+
+Declaring them as peer dependencies would make a second copy impossible, since there would be
+nothing here to bring. It is not worth what it costs: peers are installed automatically by npm 7
+and later, by pnpm and by Bun, but by neither version of Yarn, so every Yarn user would have to
+install twelve ProseMirror packages by hand. An install that fails outright is a worse first day
+than a duplicate that is rare, loud when it happens, and fixed by one block of JSON.
+
+What is done instead: the ranges declared here are checked in CI against those of every library
+that shares ProseMirror with this one, so a release cannot make the two impossible to reconcile,
+and a duplicate that does form is reported by name at runtime.
+
 ## Usage
 
 Import from a subpath matching the ProseMirror package you need. Each subpath

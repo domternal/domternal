@@ -1,39 +1,32 @@
 // =============================================================================
 // @domternal/theme - Main Entry
-// =============================================================================
-// Import this file to get all Domternal editor styles:
-//
-//   @import '@domternal/theme';        (SCSS)
-//   @import '@domternal/theme/css';    (precompiled CSS)
-//
-// Customize by overriding CSS variables on .dm-editor or a parent:
-//
-//   .my-editor {
-//     --dm-accent: hotpink;
-//     --dm-editor-bg: #fafafa;
-//   }
-// =============================================================================
+// =============================================================================.
 
-// 1. Design tokens (CSS custom properties)
+// 1.
 @use 'variables';
 
-// 2. ProseMirror required styles (view, gapcursor, tables)
+// 2.
 @use 'prosemirror';
 
-// 3. Editor wrapper
+// 3.
 @use 'base';
 
-// 4. Content typography
+// 3b. The hidden attribute, restored for everything this theme styles. Ordering
+// does not matter (the rule is !important) but it sits beside the wrapper it
+// most often applies to.
+@use 'hidden';
+
+// 4.
 @use 'content';
 
-// 4b. Syntax highlighting (CodeBlockLowlight)
+// 4b.
 @use 'syntax';
 
-// 5. Toolbar
+// 5.
 @use 'toolbar';
 @use 'color-palette';
 
-// 6. Menus (bubble, floating, link popover, block-menu)
+// 6.
 @use 'bubble-menu';
 @use 'floating-menu';
 @use 'link-popover';
@@ -41,7 +34,7 @@
 @use 'slash-command';
 @use 'context-menu';
 
-// 7. Extension-specific styles
+// 7.
 @use 'placeholder';
 @use 'task-list';
 @use 'mention';
@@ -57,10 +50,10 @@
 @use 'inline-colors';
 @use 'toc';
 
-// 8. Opt-in stylistic presets (apply via host class)
+// 8.
 @use 'notion-mode';
 
-// 9. Themes
+// 9.
 @use 'themes/light';
 @use 'themes/dark';
 
@@ -68,8 +61,7 @@
 // no specificity of its own, only source order.
 @use 'print';
 
-// 11. Reduced motion - must come last to override all animation/transition rules
-// =============================================================================
+// 11.
 @media (prefers-reduced-motion: reduce) {
   .dm-emoji-picker,
   .dm-emoji-suggestion,

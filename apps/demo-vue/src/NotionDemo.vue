@@ -42,6 +42,7 @@ import {
   getListItemCursorContext,
   type AnyExtension,
 } from '@domternal/core';
+import { defaultBubbleContexts } from '@domternal/core';
 import type { IconSet } from '@domternal/core';
 import { CodeBlockLowlight, createCodeHighlighter } from '@domternal/extension-code-block-lowlight';
 import { Image } from '@domternal/extension-image';
@@ -226,6 +227,21 @@ const toasts = ref<Toast[]>([]);
 
 // E2E fixture for bubble menu icons override.
 const bubbleIcons = ref<IconSet | undefined>(resolveBubbleIcons(parseBubbleIconsParam()));
+
+/* The Notion default plus text alignment.
+   Alignment is not in the default context: it needs `TextAlign`, which
+   StarterKit does not ship, and Notion has no alignment control in its own
+   selection menu. This demo registers the extension, so it names the item and
+   gets the dropdown back. The documented way to extend the default rather than
+   replace it, which is why it starts from the default rather than restating
+   it. Computed on the editor: a fresh object per render would rebuild the
+   menu on every render. */
+const bubbleContexts = computed(() => {
+  const ed = editor.value;
+  return ed
+    ? { text: [...(defaultBubbleContexts(ed)['text'] ?? []), '|', 'textAlign'] }
+    : undefined;
+});
 onMounted(() => {
   const w = window as unknown as Record<string, unknown>;
   w['__DEMO_SET_BUBBLE_ICONS__'] = (key: BubbleIconsParam | null): void => {
@@ -287,7 +303,7 @@ watch(editor, (ed, _old, onCleanup) => {
       </div>
 
       <template v-if="editor">
-        <DomternalBubbleMenu :editor="editor" :icons="bubbleIcons" />
+        <DomternalBubbleMenu :editor="editor" :icons="bubbleIcons" :contexts="bubbleContexts" />
         <DomternalFloatingMenu :editor="editor" :require-explicit-trigger="true" />
         <DomternalNotionColorPicker :editor="editor" />
       </template>

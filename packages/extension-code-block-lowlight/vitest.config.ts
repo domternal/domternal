@@ -13,6 +13,9 @@ export default defineConfig({
       reporter: ['text', 'html', 'lcov', 'json-summary'],
       include: ['src/**/*.ts'],
       exclude: ['src/**/*.test.ts', 'src/index.ts'],
+      // Floors, not targets: a few points under the measured value, so a real
+      // regression fails and ordinary movement does not.
+      thresholds: { statements: 95, branches: 86, functions: 97, lines: 96 },
     },
   },
 });

@@ -16,6 +16,7 @@ import { keymap } from '@domternal/pm/keymap';
 import type { InputRule } from '@domternal/pm/inputrules';
 import { inputRulesPlugin as createInputRulesPlugin } from './helpers/inputRulesPlugin.js';
 import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
+import { describeForeignExtension } from './utils/prosemirrorSingleton.js';
 
 import type { Command as PMCommand } from '@domternal/pm/state';
 
@@ -24,7 +25,11 @@ import type { CommandMap } from './types/Commands.js';
 import type { GlobalAttributes, GlobalAttributeSpec } from './types/ExtensionConfig.js';
 import type { ToolbarItem } from './types/Toolbar.js';
 import type { FloatingMenuItem } from './types/FloatingMenu.js';
-import type { Extension } from './Extension.js';
+/* A value import, not a type one: `instanceof` is what tells an extension this
+   copy of the core built from one another copy did, and that is the sharpest
+   duplicate-core signal there is. Acyclic, because Extension.js imports only
+   types and one helper. */
+import { Extension, EXTENSION_BRAND } from './Extension.js';
 import type { Node } from './Node.js';
 import type { Mark } from './Mark.js';
 import { callOrReturn } from './helpers/callOrReturn.js';
@@ -99,6 +104,38 @@ function mergeHTMLAttrs(
   }
 
   return result;
+}
+
+/**
+ * Fails when an extension was built by a SECOND copy of `@domternal/core`.
+ *
+ * The sharpest form of the duplicate-core problem, and the one a registry
+ * warning cannot catch: only ONE copy builds the editor, while the other
+ * merely supplies extensions, so nothing else on the page ever disagrees out
+ * loud. What follows instead is a `Gapcursor` from each copy under one plugin
+ * key, an `instanceof` that is false for a node the schema itself produced, or
+ * a command that silently does nothing.
+ *
+ * Checked here rather than in `Editor`, because `flattenExtensions` is the one
+ * place every extension passes through, nested bundle members included: an
+ * extension reaching the editor through `StarterKit.addExtensions()` is exactly
+ * as foreign as one passed by hand.
+ *
+ * Three outcomes, and the third is the reason for the brand:
+ * - an instance of THIS copy's `Extension`: fine, the overwhelming case
+ * - branded but not an instance: another copy built it, which cannot work
+ * - unbranded: a plain object, or an extension from a core too old to carry
+ *   the brand. Left alone, because it has always been accepted and rejecting
+ *   it here would turn a diagnostic into a breaking change.
+ */
+function assertOwnExtension(ext: AnyExtension): void {
+  if (ext instanceof Extension) return;
+  const foreign = (ext as unknown as Partial<Record<symbol, unknown>> | null | undefined)?.[
+    EXTENSION_BRAND
+  ];
+  if (foreign !== true) return;
+  const name = typeof ext.name === 'string' ? ext.name : 'unknown';
+  throw new ExtensionConfigurationError(describeForeignExtension(name));
 }
 
 export class ExtensionManager {
@@ -176,19 +213,12 @@ export class ExtensionManager {
       );
     }
 
-    // Process extensions following the pipeline:
-    // 1. Flatten (expand addExtensions)
-    // 2. Deduplicate (keep last occurrence - explicit configs override auto-included defaults)
-    // 3. Clone (per-editor instances; see cloneExtensions)
-    // 4. Resolve (sort by priority)
-    // 5. Detect conflicts
-    // 6. Check dependencies
-    // 7. Bind editor to extensions
-    // 8. Build schema
-    // 9. Initialize storage
+    // Process extensions following the pipeline: 1. Flatten (expand
+    // addExtensions) 2.
 
-    const flattened = this.flattenExtensions(options.extensions);
-    const deduped = this.deduplicateExtensions(flattened);
+    const autoIncluded = new Set<AnyExtension>();
+    const flattened = this.flattenExtensions(options.extensions, autoIncluded);
+    const deduped = this.deduplicateExtensions(flattened, autoIncluded);
     const cloned = this.cloneExtensions(deduped);
     this._extensions = this.resolveExtensions(cloned);
     this.detectConflicts();
@@ -283,11 +313,21 @@ export class ExtensionManager {
   /**
    * Recursively flattens extensions by expanding addExtensions()
    * This allows extension bundles like StarterKit to work
+   *
+   * `autoIncluded` collects everything that arrived through an
+   * `addExtensions()` rather than from the caller's own list, which is what
+   * lets deduplication tell a default apart from a choice.
    */
-  private flattenExtensions(extensions: AnyExtension[]): AnyExtension[] {
+  private flattenExtensions(
+    extensions: AnyExtension[],
+    autoIncluded: Set<AnyExtension>,
+    fromBundle = false
+  ): AnyExtension[] {
     const result: AnyExtension[] = [];
 
     for (const ext of extensions) {
+      assertOwnExtension(ext);
+      if (fromBundle) autoIncluded.add(ext);
       result.push(ext);
 
       // Check for nested extensions (bundles like StarterKit)
@@ -297,7 +337,7 @@ export class ExtensionManager {
       ) as AnyExtension[] | undefined;
 
       if (nested && nested.length > 0) {
-        result.push(...this.flattenExtensions(nested));
+        result.push(...this.flattenExtensions(nested, autoIncluded, true));
       }
     }
 
@@ -305,17 +345,38 @@ export class ExtensionManager {
   }
 
   /**
-   * Removes duplicate extensions by name, keeping the last occurrence.
-   * This allows parent extensions to auto-include children via addExtensions()
-   * while letting users override with explicitly configured versions.
+   * Removes duplicate extensions by name.
+   *
+   * A version the caller listed themselves always wins over one a bundle
+   * included on their behalf, and position does not enter into it. Keeping
+   * the last occurrence alone said the same thing only while every bundle was
+   * listed first, which is the habit for StarterKit and no rule at all: an
+   * extension that includes a default and is written LOWER in the list, as
+   * `Export` and its `Print` are, silently replaced the configured copy
+   * above it and the caller's options went missing with it.
+   *
+   * Between two of the same kind the later one still wins, so two bundles
+   * offering the same default resolve as they always have.
    */
-  private deduplicateExtensions(extensions: AnyExtension[]): AnyExtension[] {
-    const seen = new Map<string, number>();
+  private deduplicateExtensions(
+    extensions: AnyExtension[],
+    autoIncluded: Set<AnyExtension>
+  ): AnyExtension[] {
+    const winners = new Map<string, number>();
     for (let i = 0; i < extensions.length; i++) {
       const ext = extensions[i];
-      if (ext) seen.set(ext.name, i);
+      if (!ext) continue;
+      const held = winners.get(ext.name);
+      if (held === undefined) {
+        winners.set(ext.name, i);
+        continue;
+      }
+      const heldIsAuto = autoIncluded.has(extensions[held]!);
+      const nextIsAuto = autoIncluded.has(ext);
+      if (nextIsAuto && !heldIsAuto) continue;
+      winners.set(ext.name, i);
     }
-    return extensions.filter((ext, i) => seen.get(ext.name) === i);
+    return extensions.filter((ext, i) => winners.get(ext.name) === i);
   }
 
   /**

@@ -150,6 +150,39 @@ function resolveOverrides(overrides?: InlineStyleOverrides): StyleDefaults {
 }
 
 /**
+ * The marker cycle the theme draws and the Pro exporters emit, picked with
+ * `depth % 3`. Declared here as well because pasted HTML carries no stylesheet:
+ * without a type the recipient's own sheet decides, and every browser plateaus
+ * at square from the fourth bullet level down and numbers every ordered level
+ * `1.`, so a pasted copy stopped matching the .docx and the .pdf exactly where
+ * the editor did.
+ */
+const BULLET_MARKERS = ['disc', 'circle', 'square'] as const;
+const ORDERED_MARKERS = ['decimal', 'lower-alpha', 'lower-roman'] as const;
+
+/**
+ * List nesting depth, counted the way the exporters and the editor's own
+ * stylesheet count it: every enclosing list is a level whatever its kind, so a
+ * `<ul>` inside an `<ol>` continues the count instead of restarting it, and a
+ * task list is a level too even though it draws a checkbox rather than a
+ * marker. A table cell restarts the count, because a list inside one begins at
+ * the cell's own content edge.
+ */
+function listMarkerDepth(el: Element, container: HTMLElement): number {
+  let depth = 0;
+  for (
+    let parent = el.parentElement;
+    parent !== null && parent !== container;
+    parent = parent.parentElement
+  ) {
+    const tag = parent.tagName;
+    if (tag === 'TD' || tag === 'TH') break;
+    if (tag === 'UL' || tag === 'OL') depth += 1;
+  }
+  return depth;
+}
+
+/**
  * Applies inline styles to all elements in a container.
  * Exported for use in clipboardSerializer (operates on DOM directly).
  */
@@ -251,17 +284,28 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
         styles = 'font-size: 0.9em; font-weight: 700; line-height: 1.25; margin: 1.5em 0 0.5em;';
         break;
 
+      // `type` is not a schema attribute on either list node, so no document
+      // this editor produced carries one.
       case 'UL':
         if (el.getAttribute('data-type') === 'taskList') {
           styles = 'list-style: none; padding-left: 0; margin: 0.75em 0;';
-        } else {
+        } else if (el.hasAttribute('type')) {
           styles = 'margin: 0.75em 0; padding-left: 1.5em;';
+        } else {
+          const bullet = BULLET_MARKERS[listMarkerDepth(el, container) % 3] ?? 'disc';
+          styles = `margin: 0.75em 0; padding-left: 1.5em; list-style-type: ${bullet};`;
         }
         break;
 
-      case 'OL':
-        styles = 'margin: 0.75em 0; padding-left: 1.5em;';
+      case 'OL': {
+        if (el.hasAttribute('type')) {
+          styles = 'margin: 0.75em 0; padding-left: 1.5em;';
+          break;
+        }
+        const number = ORDERED_MARKERS[listMarkerDepth(el, container) % 3] ?? 'decimal';
+        styles = `margin: 0.75em 0; padding-left: 1.5em; list-style-type: ${number};`;
         break;
+      }
 
       case 'LI':
         if (el.getAttribute('data-type') === 'taskItem') {

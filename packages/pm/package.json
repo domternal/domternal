@@ -6,6 +6,9 @@
   "license": "MIT",
   "type": "module",
   "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
   "exports": {
     "./commands": {
       "import": {
@@ -171,6 +174,10 @@
   "files": [
     "src"
   ],
+  "scripts": {
+    "prepublishOnly": "node ../../scripts/prepare-publish-manifest.mjs",
+    "postpublish": "git checkout package.json"
+  },
   "dependencies": {
     "prosemirror-commands": "^1.7.1",
     "prosemirror-dropcursor": "^1.8.2",
