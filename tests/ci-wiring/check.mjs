@@ -284,7 +284,7 @@ const EXPECTED_DEPENDABOT_CONFIG = {
         time: '06:00',
         timezone: 'Europe/Zagreb',
       },
-      'open-pull-requests-limit': 10,
+      'open-pull-requests-limit': 0,
       'versioning-strategy': 'increase-if-necessary',
       groups: {
         'production-dependencies': {
@@ -308,7 +308,7 @@ const EXPECTED_DEPENDABOT_CONFIG = {
         time: '06:15',
         timezone: 'Europe/Zagreb',
       },
-      'open-pull-requests-limit': 5,
+      'open-pull-requests-limit': 0,
       groups: {
         'github-actions': {
           patterns: ['*'],

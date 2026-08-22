@@ -10,6 +10,10 @@ autoInstallPeers: true
 # compromised releases to be detected and removed before they enter a lockfile.
 minimumReleaseAge: 1440
 minimumReleaseAgeStrict: true
+minimumReleaseAgeExclude:
+  # These scopes are published by this project and must be deployable immediately.
+  - "@domternal/*"
+  - "@domternal-pro/*"
 blockExoticSubdeps: true
 
 allowBuilds:

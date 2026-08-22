@@ -1,7 +1,7 @@
 name: Pro bug report
 description: Something in a Domternal Pro package does not work as expected
-title: "[PRO] "
-labels: ["bug", "pro"]
+title: '[PRO] '
+labels: ['bug', 'pro']
 body:
   - type: markdown
     attributes:
@@ -24,14 +24,14 @@ body:
       label: Package
       description: Which Pro package?
       options:
-        - "@domternal-pro/extension-collaboration"
-        - "@domternal-pro/extension-collaboration-caret"
-        - "@domternal-pro/extension-comments"
-        - "@domternal-pro/extension-version-history"
-        - "@domternal-pro/extension-ai"
-        - "@domternal-pro/extension-columns"
-        - "@domternal-pro/extension-export"
-        - "@domternal-pro/core"
+        - '@domternal-pro/extension-collaboration'
+        - '@domternal-pro/extension-collaboration-caret'
+        - '@domternal-pro/extension-comments'
+        - '@domternal-pro/extension-version-history'
+        - '@domternal-pro/extension-ai'
+        - '@domternal-pro/extension-columns'
+        - '@domternal-pro/extension-export'
+        - '@domternal-pro/core'
         - Not sure
     validations:
       required: true
@@ -46,30 +46,22 @@ body:
         - Vue (@domternal/vue)
         - Angular (@domternal/angular)
         - Vanilla JS (@domternal/vanilla)
-        - Not framework-specific
-    validations:
-      required: true
+        - Not sure or not framework-specific
 
   - type: input
     id: version
     attributes:
       label: Versions
       description: The versions of the @domternal-pro and @domternal packages you are using.
-      placeholder: "@domternal-pro/extension-comments 0.1.0, @domternal/core 0.14.0"
+      placeholder: '@domternal-pro/extension-comments 0.1.0, @domternal/core 0.14.0'
     validations:
       required: true
 
   - type: textarea
-    id: expected
+    id: what-happened
     attributes:
-      label: What did you expect to happen?
-    validations:
-      required: true
-
-  - type: textarea
-    id: actual
-    attributes:
-      label: What happened instead?
+      label: What happened
+      description: What did you do, what happened, and what did you expect instead?
     validations:
       required: true
 

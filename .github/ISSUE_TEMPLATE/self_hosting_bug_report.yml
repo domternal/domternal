@@ -1,0 +1,103 @@
+name: Self-hosting bug report
+description: Report a problem with the Domternal collaboration server, AI proxy or reference deployment
+title: '[SELF-HOSTING] '
+labels: ['bug', 'pro']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a self-hosting problem. Search existing issues before submitting.
+
+        Remove every token, API key, customer document, database, backup and private log before posting. Report security vulnerabilities privately through the [security policy](https://github.com/domternal/self-hosting/security/policy).
+
+  - type: dropdown
+    id: service
+    attributes:
+      label: Affected area
+      description: Which part of the self-hosting reference deployment is affected?
+      options:
+        - Collaboration server
+        - AI proxy
+        - Docker Compose or container image
+        - SQLite backup, restore or maintenance
+        - Documentation or setup
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: revision
+    attributes:
+      label: Self-hosting revision (optional)
+      description: If known, provide the release, tag or full commit SHA you deployed.
+      placeholder: 'v1.0.0 or 0123456789abcdef...'
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment method
+      options:
+        - Unmodified Docker Compose template
+        - Modified Docker Compose deployment
+        - Direct Node.js process
+        - Kubernetes or another container platform
+        - Other
+        - Not applicable or not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: architecture
+    attributes:
+      label: Host architecture (optional)
+      options:
+        - amd64 / x86_64
+        - arm64 / aarch64
+        - Other or not sure
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment (optional)
+      description: Share any known host OS and relevant Docker, Docker Compose or Node.js versions.
+      placeholder: |
+        OS: Ubuntu 24.04
+        Docker: 28.x
+        Docker Compose: 2.x
+        Node.js, if used directly: 22.x
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you do, what happened, and what did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Provide the shortest safe sequence that reproduces the problem.
+      placeholder: |
+        1. Copy .env.example to .env
+        2. Configure synthetic test values
+        3. Run docker compose up --build
+        4. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs
+      description: Include only the relevant excerpt after removing secrets, private URLs, customer data and document content.
+      render: shell
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety confirmation
+      options:
+        - label: I removed all credentials, private data, databases, backups and customer content, and confirm this is not a security vulnerability. Security reports follow the private security policy.
+          required: true

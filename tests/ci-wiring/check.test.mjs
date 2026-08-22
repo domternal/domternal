@@ -631,8 +631,14 @@ test('dependency review cannot be deleted, narrowed or weakened', () => {
   );
 });
 
-test('Dependabot keeps conservative ranges and separates major updates', () => {
+test('Dependabot disables version PRs while preserving reviewed update policy', () => {
   assert.deepEqual(dependabotConfigProblems(realDependabot), []);
+  assert.notDeepEqual(
+    dependabotConfigProblems(
+      realDependabot.replace('open-pull-requests-limit: 0', 'open-pull-requests-limit: 1')
+    ),
+    []
+  );
   assert.notDeepEqual(
     dependabotConfigProblems(
       realDependabot.replace(
