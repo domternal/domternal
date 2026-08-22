@@ -100,7 +100,7 @@
     "eslint": "^10.8.1",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.0.0",
-    "nx": "22.7.8",
+    "nx": "23.1.1",
     "prettier": "~3.8.0",
     "publint": "^0.3.21",
     "semver": "^7.8.1",
