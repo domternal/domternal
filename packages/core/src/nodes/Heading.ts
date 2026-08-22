@@ -9,7 +9,6 @@ import { Node } from '../Node.js';
 import { textblockTypeInputRule } from '../helpers/textblockTypeInputRule.js';
 import { keymap } from '@domternal/pm/keymap';
 import { Plugin, PluginKey, TextSelection } from '@domternal/pm/state';
-import type { Command as PMCommand } from '@domternal/pm/state';
 import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem, ToolbarButton } from '../types/Toolbar.js';
 import type { FloatingMenuItem } from '../types/FloatingMenu.js';
@@ -295,7 +294,7 @@ export const Heading = Node.create<HeadingOptions>({
             );
           }
           return true;
-        }) as PMCommand,
+        }),
       }),
     ];
   },

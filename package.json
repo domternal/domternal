@@ -2,21 +2,22 @@
   "name": "@domternal/source",
   "version": "0.0.0",
   "license": "MIT",
-  "packageManager": "pnpm@10.17.0",
+  "packageManager": "pnpm@10.34.4",
   "engines": {
     "node": ">=22",
-    "pnpm": ">=10"
+    "pnpm": ">=10.34.4 <11"
   },
   "scripts": {
     "build": "nx run-many --target=build --all",
     "dev": "nx run-many --target=dev --all",
     "test": "nx run-many --target=test --all",
     "test:coverage": "nx run-many --target=test --all -- --coverage",
+    "test:coverage-reports": "node --test tests/coverage-reports/check.test.mjs && node tests/coverage-reports/check.mjs",
     "coverage:index": "pnpm test:coverage && node scripts/generate-coverage-index.mjs",
     "test:e2e": "nx run-many --target=test:e2e --all",
     "test:e2e:matrix": "playwright test --config e2e/playwright.config.ts",
     "lint": "nx run-many --target=lint --all && eslint tests scripts e2e eslint.config.mjs",
-    "typecheck": "nx run-many --target=typecheck --all",
+    "typecheck": "nx run-many --target=typecheck --all --outputStyle=static",
     "typecheck:e2e": "tsc --noEmit --project e2e/tsconfig.json",
     "test:types-consumer": "pnpm --filter @domternal/tests-consumer-types test:types",
     "test:api-surface": "node --test tests/api-surface/dump.test.mjs && node tests/api-surface/dump.mjs --check",
@@ -29,9 +30,12 @@
     "test:package-policy": "node --test tests/package-policy/check.test.mjs && node tests/package-policy/check.mjs",
     "test:package-artifacts": "node --test tests/package-artifacts/check.test.mjs && node tests/package-artifacts/check.mjs",
     "test:ssr-import": "node --test tests/ssr-import/check.test.mjs && node tests/ssr-import/check.mjs",
-    "test:ci-wiring": "node --test tests/ci-wiring/check.test.mjs && node tests/ci-wiring/check.mjs",
+    "test:ci-wiring": "node --test tests/ci-wiring/*.test.mjs && node tests/ci-wiring/check.mjs",
+    "test:source-boundaries": "node --test tests/source-boundaries/check.test.mjs && node tests/source-boundaries/check.mjs",
     "test:single-prosemirror": "node --test tests/single-prosemirror/check.test.mjs && node tests/single-prosemirror/check.mjs",
+    "test:dedupe-reachable:unit": "node --test tests/dedupe-reachable/check.test.mjs",
     "test:dedupe-reachable": "node --test tests/dedupe-reachable/check.test.mjs && node tests/dedupe-reachable/check.mjs",
+    "test:pm-ranges:unit": "node --test tests/pm-ranges/check.test.mjs",
     "test:pm-ranges": "node --test tests/pm-ranges/check.test.mjs && node tests/pm-ranges/check.mjs",
     "test:frozen-contract": "node --test tests/frozen-contract/check.test.mjs && node tests/frozen-contract/check.mjs",
     "test:externals": "node --test tests/externals/check.test.mjs && node tests/externals/check.mjs"
@@ -80,18 +84,21 @@
       "fast-uri": "^3.1.5",
       "ws": "^8.21.3",
       "@babel/core": "^7.29.7",
-      "@babel/plugin-transform-modules-systemjs": "^7.29.8"
+      "@babel/plugin-transform-modules-systemjs": "^7.29.8",
+      "less": "^4.9.0",
+      "svgo@>=4.0.0 <4.0.2": "^4.0.2",
+      "tsup>esbuild": "^0.28.1"
     }
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
-    "@eslint/js": "^9.39.2",
+    "@eslint/js": "^10.0.1",
     "@nx/js": "22.7.8",
     "@playwright/test": "^1.58.2",
-    "@types/node": "^24.12.2",
+    "@types/node": "^22.20.1",
     "@vitest/coverage-v8": "^4.1.10",
-    "eslint": "^9.39.2",
-    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint": "^10.8.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.0.0",
     "nx": "22.7.8",
     "prettier": "~3.8.0",
@@ -99,7 +106,8 @@
     "semver": "^7.8.1",
     "tslib": "^2.8.1",
     "typescript": "~5.9.3",
-    "typescript-eslint": "^8.53.0",
-    "vitest": "^4.1.10"
+    "typescript-eslint": "^8.65.0",
+    "vitest": "^4.1.10",
+    "yaml": "^2.9.0"
   }
 }

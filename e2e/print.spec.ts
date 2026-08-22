@@ -93,7 +93,7 @@ async function printedPageGlyphRuns(page: Page): Promise<string[][]> {
     const start = match.index + match[0].length;
     const end = raw.indexOf('endstream', start);
     if (end >= 0) {
-      let inflated: string | null = null;
+      let inflated: string | null;
       try {
         inflated = inflateSync(Buffer.from(raw.slice(start, end), 'latin1')).toString('latin1');
       } catch {
@@ -393,7 +393,7 @@ for (const target of demoTargets) {
     // that reads the DOM at exactly the moment the browser would render.
     const marks = await page.evaluate(() => {
       const captured: Record<string, boolean>[] = [];
-      const original = window.print;
+      const original = window.print.bind(window);
       window.print = (): void => {
         const root = document.querySelector('.dm-editor');
         const parent = root?.parentElement ?? null;
@@ -443,7 +443,7 @@ for (const target of demoTargets) {
     const before = await page.locator(EDITOR).innerHTML();
 
     await page.evaluate(() => {
-      const original = window.print;
+      const original = window.print.bind(window);
       window.print = (): void => undefined;
       const editor = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
         | DemoEditor

@@ -6,7 +6,6 @@
 
 import { describe, it, expect, afterEach } from 'vitest';
 import { Editor } from '../Editor.js';
-import type { JSONContent } from '../types/Content.js';
 import { TextSelection } from '@domternal/pm/state';
 import { splitListItem, liftListItem, sinkListItem } from '@domternal/pm/schema-list';
 import { Document } from './Document.js';
@@ -95,7 +94,7 @@ describe('Node Integration', () => {
         content: originalContent,
       });
 
-      const json = editor.getJSON() as unknown as JSONContent;
+      const json = editor.getJSON();
 
       // Create new editor from JSON
       const editor2 = new Editor({
@@ -613,7 +612,7 @@ describe('Node Integration', () => {
       `;
 
       editor = new Editor({ extensions: allNodes, content: html });
-      const json = editor.getJSON() as unknown as JSONContent;
+      const json = editor.getJSON();
 
       const editor2 = new Editor({ extensions: allNodes, content: json });
       expect(editor2.getJSON()).toEqual(json);

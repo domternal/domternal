@@ -40,8 +40,8 @@ class MockIntersectionObserver {
       intersectionRect: e.target.getBoundingClientRect(),
       rootBounds: null,
       time: Date.now(),
-    } as IntersectionObserverEntry));
-    this.callback(full, this as unknown as IntersectionObserver);
+    }));
+    this.callback(full, this);
   }
 }
 
@@ -54,10 +54,10 @@ const mountHeading = (id: string, top: number): HTMLElement => {
   document.body.appendChild(el);
   // Stub getBoundingClientRect so the tracker's geometry math is
   // deterministic - jsdom returns zeroes by default.
-  el.getBoundingClientRect = (): DOMRect => ({
+  el.getBoundingClientRect = (): DOMRect => (({
     top, bottom: top + 24, left: 0, right: 200, height: 24, width: 200,
     x: 0, y: top, toJSON: (): unknown => undefined,
-  } as unknown as DOMRect);
+  }));
   return el;
 };
 
@@ -69,7 +69,7 @@ describe('activeStateTracker', () => {
     MockIntersectionObserver.instances = [];
     originalIO = window.IntersectionObserver;
     (window as unknown as { IntersectionObserver: unknown }).IntersectionObserver =
-      MockIntersectionObserver as unknown as typeof IntersectionObserver;
+      MockIntersectionObserver;
   });
 
   afterEach(() => {
@@ -126,19 +126,19 @@ describe('activeStateTracker', () => {
     expect(onChange).toHaveBeenLastCalledWith('current');
 
     // Still below the viewport top (top=50, positive).
-    next.getBoundingClientRect = (): DOMRect => ({
+    next.getBoundingClientRect = (): DOMRect => (({
       top: 50, bottom: 74, left: 0, right: 200, height: 24, width: 200,
       x: 0, y: 50, toJSON: (): unknown => undefined,
-    } as unknown as DOMRect);
+    }));
     const io = MockIntersectionObserver.instances[0];
     io?.fire([{ target: next, isIntersecting: false }]);
     expect(onChange).toHaveBeenLastCalledWith('current');
 
     // Heading top exactly touches the viewport top (top = 0). Switch fires.
-    next.getBoundingClientRect = (): DOMRect => ({
+    next.getBoundingClientRect = (): DOMRect => (({
       top: 0, bottom: 24, left: 0, right: 200, height: 24, width: 200,
       x: 0, y: 0, toJSON: (): unknown => undefined,
-    } as unknown as DOMRect);
+    }));
     io?.fire([{ target: next, isIntersecting: false }]);
     expect(onChange).toHaveBeenLastCalledWith('next');
     tracker.destroy();

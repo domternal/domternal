@@ -71,11 +71,11 @@ function stripDropOnDuplicateMarks(marks: readonly Mark[]): readonly Mark[] {
 function stripDropOnDuplicateNode(node: PMNode): PMNode {
   const marks = stripDropOnDuplicateMarks(node.marks);
   if (node.isText) {
-    return marks.length === node.marks.length ? node : node.mark(marks as Mark[]);
+    return marks.length === node.marks.length ? node : node.mark(marks);
   }
   const content = stripDropOnDuplicateFragment(node.content);
   if (marks.length === node.marks.length && content === node.content) return node;
-  return node.type.create(node.attrs, content, marks as Mark[]);
+  return node.type.create(node.attrs, content, marks);
 }
 
 function stripDropOnDuplicateFragment(fragment: Fragment): Fragment {
@@ -113,7 +113,7 @@ export function duplicateBlock(
   const copy = node.type.create(
     attrs,
     stripDropOnDuplicateFragment(node.content),
-    stripDropOnDuplicateMarks(node.marks) as Mark[],
+    stripDropOnDuplicateMarks(node.marks),
   );
   tr.insert(blockEnd, copy);
   return tr;

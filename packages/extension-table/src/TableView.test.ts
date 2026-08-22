@@ -1243,7 +1243,7 @@ describe('TableView', () => {
       const view = getTableView(editor)!;
       // Select the cell first
       const sel = CellSelection.create(editor.state.doc, 2, 2);
-      editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+      editor.view.dispatch(editor.state.tr.setSelection(sel));
 
       // @ts-expect-error - private field
       const triggerBtn = view.colorBtn!;
@@ -1265,7 +1265,7 @@ describe('TableView', () => {
       });
       const view = getTableView(editor)!;
       const sel = CellSelection.create(editor.state.doc, 2, 2);
-      editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+      editor.view.dispatch(editor.state.tr.setSelection(sel));
 
       // @ts-expect-error - private field
       const triggerBtn = view.colorBtn!;
@@ -1310,7 +1310,7 @@ describe('TableView', () => {
       });
       const view = getTableView(editor)!;
       const sel = CellSelection.create(editor.state.doc, 2, 2);
-      editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+      editor.view.dispatch(editor.state.tr.setSelection(sel));
 
       // @ts-expect-error - private field
       const triggerBtn = view.alignBtn!;
@@ -1332,7 +1332,7 @@ describe('TableView', () => {
       });
       const view = getTableView(editor)!;
       const sel = CellSelection.create(editor.state.doc, 2, 2);
-      editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+      editor.view.dispatch(editor.state.tr.setSelection(sel));
 
       // @ts-expect-error - private field
       const triggerBtn = view.alignBtn!;
@@ -1354,7 +1354,7 @@ describe('TableView', () => {
       });
       const view = getTableView(editor)!;
       const sel = CellSelection.create(editor.state.doc, 2, 2);
-      editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+      editor.view.dispatch(editor.state.tr.setSelection(sel));
 
       // @ts-expect-error - private field
       const triggerBtn = view.alignBtn!;
@@ -1379,7 +1379,7 @@ describe('TableView', () => {
       const view = getTableView(editor)!;
       // Select both cells
       const sel = CellSelection.create(editor.state.doc, 2, 7);
-      editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+      editor.view.dispatch(editor.state.tr.setSelection(sel));
 
       // @ts-expect-error - private field
       view.mergeBtn!.click();
@@ -1398,7 +1398,7 @@ describe('TableView', () => {
       const view = getTableView(editor)!;
       // Select merged cell
       const sel = CellSelection.create(editor.state.doc, 2, 2);
-      editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+      editor.view.dispatch(editor.state.tr.setSelection(sel));
 
       // @ts-expect-error - private field
       view.splitBtn!.click();
@@ -1415,7 +1415,7 @@ describe('TableView', () => {
       });
       const view = getTableView(editor)!;
       const sel = CellSelection.create(editor.state.doc, 2, 2);
-      editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+      editor.view.dispatch(editor.state.tr.setSelection(sel));
 
       // @ts-expect-error - private field
       view.headerBtn!.click();
@@ -1599,7 +1599,7 @@ describe('TableView', () => {
       Object.defineProperty(window, 'innerWidth', { value: 100, configurable: true });
 
       const sel = CellSelection.create(editor.state.doc, 2, 2);
-      editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+      editor.view.dispatch(editor.state.tr.setSelection(sel));
 
       // @ts-expect-error - private field
       const triggerBtn = view.colorBtn!;
@@ -1699,7 +1699,7 @@ describe('TableView', () => {
       });
       const view = getTableView(editor)!;
       const sel = CellSelection.create(editor.state.doc, 2, 2);
-      editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+      editor.view.dispatch(editor.state.tr.setSelection(sel));
 
       // @ts-expect-error - private field
       view.colorBtn!.click();
@@ -1716,7 +1716,7 @@ describe('TableView', () => {
       });
       const view = getTableView(editor)!;
       const sel = CellSelection.create(editor.state.doc, 2, 2);
-      editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+      editor.view.dispatch(editor.state.tr.setSelection(sel));
 
       // @ts-expect-error - private field
       view.alignBtn!.click();

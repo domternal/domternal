@@ -196,15 +196,15 @@ describe('bubbleMenuResolver', () => {
           parent: { type: { name: 'paragraph', spec: {} } },
           depth: 2,
           node: () => node,
-        } as unknown as SelectionShape['$from'];
+        };
       };
       const one = cell('a');
       expect(
-        detectBubbleContext({ empty: false, $from: one, $to: one } as SelectionShape, ctxs),
+        detectBubbleContext({ empty: false, $from: one, $to: one }, ctxs),
       ).toBe('table');
       expect(
         detectBubbleContext(
-          { empty: false, $from: cell('a'), $to: cell('b') } as SelectionShape,
+          { empty: false, $from: cell('a'), $to: cell('b') },
           ctxs,
         ),
       ).toBeNull();

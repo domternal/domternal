@@ -54,7 +54,7 @@
     "@domternal/extension-table": "workspace:*",
     "@domternal/pm": "workspace:*",
     "@types/markdown-it": "^14.1.2",
-    "jsdom": "^27.4.0",
+    "jsdom": "^28.1.0",
     "tsup": "^8.5.1",
     "typescript": "~5.9.3"
   },

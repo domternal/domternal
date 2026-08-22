@@ -43,6 +43,11 @@ const queryOutline = (): HTMLElement | null => document.querySelector('.dm-toc-o
 const queryTicks = (): HTMLButtonElement[] =>
   Array.from(document.querySelectorAll<HTMLButtonElement>('.dm-toc-outline-tick'));
 
+function currentMatchMedia(): typeof window.matchMedia | undefined {
+  if (typeof window.matchMedia !== 'function') return undefined;
+  return window.matchMedia.bind(window);
+}
+
 interface MountedEditorOptions {
   content: string;
   /**
@@ -69,10 +74,16 @@ describe('FloatingTocOutline - ticks', () => {
    * past `.dm-editor` looking for a non-overflow-hidden parent, so we
    * use a plain test container as that ancestor.
    */
-  const mount = ({ content, matchesMobile = false, floatingOptions }: MountedEditorOptions): Editor => {
+  const mount = ({
+    content,
+    matchesMobile = false,
+    floatingOptions,
+  }: MountedEditorOptions): Editor => {
     document.body.innerHTML = '';
     // Reset any leftover outline from prior tests.
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
 
     const host = document.createElement('div');
     host.className = 'test-outline-host';
@@ -80,8 +91,8 @@ describe('FloatingTocOutline - ticks', () => {
 
     // Stub matchMedia BEFORE the editor mounts (the plugin reads it in
     // view().init). The default jsdom build has no matchMedia at all.
-    originalMatchMedia = window.matchMedia;
-    window.matchMedia = ((query: string) => ({
+    originalMatchMedia = currentMatchMedia();
+    window.matchMedia = (query: string) => ({
       matches: query.includes('max-width') ? matchesMobile : false,
       media: query,
       onchange: null,
@@ -90,7 +101,7 @@ describe('FloatingTocOutline - ticks', () => {
       addListener: (): void => undefined,
       removeListener: (): void => undefined,
       dispatchEvent: (): boolean => false,
-    })) as typeof window.matchMedia;
+    });
 
     const extensions = floatingOptions
       ? [...baseExtensions.slice(0, -1), FloatingTocOutline.configure(floatingOptions)]
@@ -105,7 +116,8 @@ describe('FloatingTocOutline - ticks', () => {
 
   beforeEach(() => {
     scrollIntoViewSpy = vi.fn();
-    Element.prototype.scrollIntoView = scrollIntoViewSpy as unknown as typeof Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView =
+      scrollIntoViewSpy as unknown as typeof Element.prototype.scrollIntoView;
   });
 
   afterEach(() => {
@@ -225,17 +237,22 @@ describe('FloatingTocOutline - ticks', () => {
     // outline plugin must still mount its DOM (so it doesn't throw)
     // but should mark itself hidden and never touch storage.
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const host = document.createElement('div');
     document.body.appendChild(host);
-    originalMatchMedia = window.matchMedia;
-    window.matchMedia = ((query: string) => ({
-      matches: false, media: query, onchange: null,
+    originalMatchMedia = currentMatchMedia();
+    window.matchMedia = (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
       addEventListener: (): void => undefined,
       removeEventListener: (): void => undefined,
-      addListener: (): void => undefined, removeListener: (): void => undefined,
+      addListener: (): void => undefined,
+      removeListener: (): void => undefined,
       dispatchEvent: (): boolean => false,
-    })) as typeof window.matchMedia;
+    });
 
     editor = new Editor({
       element: host,
@@ -256,25 +273,36 @@ describe('FloatingTocOutline - ticks', () => {
     // plugin emits console.error and returns []; storage.content
     // stays empty; outline observes empty storage and renders hidden.
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const host = document.createElement('div');
     document.body.appendChild(host);
-    originalMatchMedia = window.matchMedia;
-    window.matchMedia = ((query: string) => ({
-      matches: false, media: query, onchange: null,
+    originalMatchMedia = currentMatchMedia();
+    window.matchMedia = (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
       addEventListener: (): void => undefined,
       removeEventListener: (): void => undefined,
-      addListener: (): void => undefined, removeListener: (): void => undefined,
+      addListener: (): void => undefined,
+      removeListener: (): void => undefined,
       dispatchEvent: (): boolean => false,
-    })) as typeof window.matchMedia;
+    });
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     try {
       editor = new Editor({
         element: host,
         // NOTE: UniqueID intentionally omitted - TOC's peer dep is missing.
         extensions: [
-          Document, Text, Paragraph, Heading, BaseKeymap, History,
-          TableOfContents, FloatingTocOutline,
+          Document,
+          Text,
+          Paragraph,
+          Heading,
+          BaseKeymap,
+          History,
+          TableOfContents,
+          FloatingTocOutline,
         ],
         content: '<h1>One</h1><h2>Two</h2>',
       });
@@ -308,7 +336,9 @@ describe('FloatingTocOutline - ticks', () => {
 
   it('honors a custom outlineHost option', async () => {
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const editorHost = document.createElement('div');
     editorHost.id = 'editor-area';
     document.body.appendChild(editorHost);
@@ -316,19 +346,28 @@ describe('FloatingTocOutline - ticks', () => {
     customHost.id = 'custom-toc-host';
     document.body.appendChild(customHost);
 
-    originalMatchMedia = window.matchMedia;
-    window.matchMedia = ((query: string) => ({
-      matches: false, media: query, onchange: null,
+    originalMatchMedia = currentMatchMedia();
+    window.matchMedia = (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
       addEventListener: (): void => undefined,
       removeEventListener: (): void => undefined,
-      addListener: (): void => undefined, removeListener: (): void => undefined,
+      addListener: (): void => undefined,
+      removeListener: (): void => undefined,
       dispatchEvent: (): boolean => false,
-    })) as typeof window.matchMedia;
+    });
 
     editor = new Editor({
       element: editorHost,
       extensions: [
-        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+        Document,
+        Text,
+        Paragraph,
+        Heading,
+        BaseKeymap,
+        History,
+        UniqueID,
         TableOfContents,
         // Pin viewport mode here so the assertion targets the bare
         // outline (editor mode wraps it in a `.dm-toc-outline-shell`,
@@ -348,7 +387,9 @@ describe('FloatingTocOutline - ticks', () => {
     // Capture the change listener so we can fire it manually with a
     // new `matches` value and assert the data-viewport attribute swap.
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const host = document.createElement('div');
     document.body.appendChild(host);
 
@@ -356,17 +397,21 @@ describe('FloatingTocOutline - ticks', () => {
     // mutation - a plain `let` would narrow to `null`.
     const ref: { listener: EventListenerOrEventListenerObject | null } = { listener: null };
     let currentMatches = false;
-    originalMatchMedia = window.matchMedia;
-    window.matchMedia = ((query: string) => ({
-      get matches() { return currentMatches; },
-      media: query, onchange: null,
+    originalMatchMedia = currentMatchMedia();
+    window.matchMedia = (query: string) => ({
+      get matches() {
+        return currentMatches;
+      },
+      media: query,
+      onchange: null,
       addEventListener: (_event: string, listener: EventListenerOrEventListenerObject): void => {
         ref.listener = listener;
       },
       removeEventListener: (): void => undefined,
-      addListener: (): void => undefined, removeListener: (): void => undefined,
+      addListener: (): void => undefined,
+      removeListener: (): void => undefined,
       dispatchEvent: (): boolean => false,
-    } as unknown as MediaQueryList)) as typeof window.matchMedia;
+    });
 
     editor = new Editor({
       element: host,
@@ -431,14 +476,17 @@ describe('FloatingTocOutline - anchor option', () => {
   let originalMatchMedia: typeof window.matchMedia | undefined;
 
   const stubMatchMedia = (): void => {
-    originalMatchMedia = window.matchMedia;
-    window.matchMedia = ((query: string) => ({
-      matches: false, media: query, onchange: null,
+    originalMatchMedia = currentMatchMedia();
+    window.matchMedia = (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
       addEventListener: (): void => undefined,
       removeEventListener: (): void => undefined,
-      addListener: (): void => undefined, removeListener: (): void => undefined,
+      addListener: (): void => undefined,
+      removeListener: (): void => undefined,
       dispatchEvent: (): boolean => false,
-    })) as typeof window.matchMedia;
+    });
   };
 
   afterEach(() => {
@@ -455,7 +503,9 @@ describe('FloatingTocOutline - anchor option', () => {
 
   it('defaults to anchor="editor" (data-anchor reflects the default option)', async () => {
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const host = document.createElement('div');
     document.body.appendChild(host);
     stubMatchMedia();
@@ -473,7 +523,9 @@ describe('FloatingTocOutline - anchor option', () => {
 
   it('marks the outline as scroll-mode="page" when activeScrollParent is null', async () => {
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const host = document.createElement('div');
     document.body.appendChild(host);
     stubMatchMedia();
@@ -488,14 +540,22 @@ describe('FloatingTocOutline - anchor option', () => {
 
   it('marks the outline as scroll-mode="container" when activeScrollParent is an Element', async () => {
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const host = document.createElement('div');
     document.body.appendChild(host);
     stubMatchMedia();
     editor = new Editor({
       element: host,
       extensions: [
-        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+        Document,
+        Text,
+        Paragraph,
+        Heading,
+        BaseKeymap,
+        History,
+        UniqueID,
         TableOfContents,
         FloatingTocOutline.configure({ activeScrollParent: host }),
       ],
@@ -512,7 +572,9 @@ describe('FloatingTocOutline - anchor option', () => {
 
   it('sets --dm-toc-mid-half-height in container mode based on nav offsetHeight', async () => {
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const host = document.createElement('div');
     document.body.appendChild(host);
     stubMatchMedia();
@@ -529,7 +591,13 @@ describe('FloatingTocOutline - anchor option', () => {
       editor = new Editor({
         element: host,
         extensions: [
-          Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+          Document,
+          Text,
+          Paragraph,
+          Heading,
+          BaseKeymap,
+          History,
+          UniqueID,
           TableOfContents,
           FloatingTocOutline.configure({ activeScrollParent: host }),
         ],
@@ -549,7 +617,9 @@ describe('FloatingTocOutline - anchor option', () => {
 
   it('honors anchor="viewport" override', async () => {
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const host = document.createElement('div');
     document.body.appendChild(host);
     stubMatchMedia();
@@ -557,7 +627,13 @@ describe('FloatingTocOutline - anchor option', () => {
     editor = new Editor({
       element: host,
       extensions: [
-        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+        Document,
+        Text,
+        Paragraph,
+        Heading,
+        BaseKeymap,
+        History,
+        UniqueID,
         TableOfContents,
         FloatingTocOutline.configure({ anchor: 'viewport' }),
       ],
@@ -570,7 +646,9 @@ describe('FloatingTocOutline - anchor option', () => {
 
   it('editor mode sets host inline position to "relative" when host is static', async () => {
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const host = document.createElement('div');
     // Default computed position for a fresh <div> in jsdom is "static".
     document.body.appendChild(host);
@@ -591,7 +669,9 @@ describe('FloatingTocOutline - anchor option', () => {
 
   it('editor mode does NOT mutate host position when host already has non-static positioning', async () => {
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const host = document.createElement('div');
     host.style.position = 'absolute';
     document.body.appendChild(host);
@@ -610,7 +690,9 @@ describe('FloatingTocOutline - anchor option', () => {
 
   it('viewport mode does NOT touch host position even when host is static', async () => {
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const host = document.createElement('div');
     document.body.appendChild(host);
     stubMatchMedia();
@@ -618,7 +700,13 @@ describe('FloatingTocOutline - anchor option', () => {
     editor = new Editor({
       element: host,
       extensions: [
-        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+        Document,
+        Text,
+        Paragraph,
+        Heading,
+        BaseKeymap,
+        History,
+        UniqueID,
         TableOfContents,
         FloatingTocOutline.configure({ anchor: 'viewport' }),
       ],
@@ -633,7 +721,9 @@ describe('FloatingTocOutline - anchor option', () => {
 
   it('editor mode wraps the nav in a .dm-toc-outline-shell with matching data-anchor', async () => {
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const host = document.createElement('div');
     document.body.appendChild(host);
     stubMatchMedia();
@@ -659,7 +749,9 @@ describe('FloatingTocOutline - anchor option', () => {
 
   it('viewport mode does NOT create a shell wrapper (nav lives directly under the host)', async () => {
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const host = document.createElement('div');
     document.body.appendChild(host);
     stubMatchMedia();
@@ -667,7 +759,13 @@ describe('FloatingTocOutline - anchor option', () => {
     editor = new Editor({
       element: host,
       extensions: [
-        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+        Document,
+        Text,
+        Paragraph,
+        Heading,
+        BaseKeymap,
+        History,
+        UniqueID,
         TableOfContents,
         FloatingTocOutline.configure({ anchor: 'viewport' }),
       ],
@@ -682,7 +780,9 @@ describe('FloatingTocOutline - anchor option', () => {
 
   it('editor mode shell is removed on destroy (no orphan after teardown)', async () => {
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const host = document.createElement('div');
     document.body.appendChild(host);
     stubMatchMedia();
@@ -703,7 +803,9 @@ describe('FloatingTocOutline - anchor option', () => {
 
   it('editor mode restores host inline position to original on destroy', async () => {
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const host = document.createElement('div');
     document.body.appendChild(host);
     stubMatchMedia();
@@ -747,10 +849,18 @@ describe('FloatingTocOutline - editor anchor mode internals', () => {
       this.rootMargin = options?.rootMargin ?? '';
       MockIO.instances.push(this);
     }
-    observe(el: Element): void { this.observed.add(el); }
-    unobserve(el: Element): void { this.observed.delete(el); }
-    disconnect(): void { this.observed.clear(); }
-    takeRecords(): IntersectionObserverEntry[] { return []; }
+    observe(el: Element): void {
+      this.observed.add(el);
+    }
+    unobserve(el: Element): void {
+      this.observed.delete(el);
+    }
+    disconnect(): void {
+      this.observed.clear();
+    }
+    takeRecords(): IntersectionObserverEntry[] {
+      return [];
+    }
     root: Element | Document | null = null;
     thresholds: number[] = [];
     fire(entries: { target: Element; isIntersecting: boolean }[]): void {
@@ -762,29 +872,33 @@ describe('FloatingTocOutline - editor anchor mode internals', () => {
         intersectionRect: e.target.getBoundingClientRect(),
         rootBounds: null,
         time: Date.now(),
-      } as IntersectionObserverEntry));
-      this.callback(full, this as unknown as IntersectionObserver);
+      }));
+      this.callback(full, this);
     }
   }
 
   const stubMatchMedia = (): void => {
-    originalMatchMedia = window.matchMedia;
-    window.matchMedia = ((query: string) => ({
-      matches: false, media: query, onchange: null,
+    originalMatchMedia = currentMatchMedia();
+    window.matchMedia = (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
       addEventListener: (): void => undefined,
       removeEventListener: (): void => undefined,
-      addListener: (): void => undefined, removeListener: (): void => undefined,
+      addListener: (): void => undefined,
+      removeListener: (): void => undefined,
       dispatchEvent: (): boolean => false,
-    })) as typeof window.matchMedia;
+    });
   };
 
   beforeEach(() => {
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline, .dm-toc-outline-shell').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline, .dm-toc-outline-shell').forEach((n) => {
+      n.remove();
+    });
     originalIO = window.IntersectionObserver;
     MockIO.instances = [];
-    (window as unknown as { IntersectionObserver: unknown }).IntersectionObserver =
-      MockIO as unknown as typeof IntersectionObserver;
+    (window as unknown as { IntersectionObserver: unknown }).IntersectionObserver = MockIO;
     stubMatchMedia();
   });
 
@@ -794,7 +908,9 @@ describe('FloatingTocOutline - editor anchor mode internals', () => {
     document.body.innerHTML = '';
     if (originalMatchMedia) window.matchMedia = originalMatchMedia;
     if (originalIO) {
-      (window as unknown as { IntersectionObserver: typeof IntersectionObserver }).IntersectionObserver = originalIO;
+      (
+        window as unknown as { IntersectionObserver: typeof IntersectionObserver }
+      ).IntersectionObserver = originalIO;
     } else {
       // @ts-expect-error - clean up polyfill
       delete window.IntersectionObserver;
@@ -810,7 +926,9 @@ describe('FloatingTocOutline - editor anchor mode internals', () => {
     document.body.appendChild(host);
     return new Promise((resolve) => {
       const ed = new Editor({ element: host, extensions: baseExtensions, content });
-      setTimeout(() => { resolve(ed); }, 0);
+      setTimeout(() => {
+        resolve(ed);
+      }, 0);
     });
   };
 
@@ -846,13 +964,27 @@ describe('FloatingTocOutline - editor anchor mode internals', () => {
     const shell = document.querySelector<HTMLElement>('.dm-toc-outline-shell')!;
     // Mock the rects so writeBottomVisible captures a frozen offset.
     vi.spyOn(nav, 'getBoundingClientRect').mockReturnValue({
-      top: 400, bottom: 500, left: 0, right: 30, width: 30, height: 100,
-      x: 0, y: 400, toJSON: () => ({}),
-    } as DOMRect);
+      top: 400,
+      bottom: 500,
+      left: 0,
+      right: 30,
+      width: 30,
+      height: 100,
+      x: 0,
+      y: 400,
+      toJSON: () => ({}),
+    });
     vi.spyOn(shell, 'getBoundingClientRect').mockReturnValue({
-      top: 80, bottom: 2000, left: 0, right: 30, width: 30, height: 1920,
-      x: 0, y: 80, toJSON: () => ({}),
-    } as DOMRect);
+      top: 80,
+      bottom: 2000,
+      left: 0,
+      right: 30,
+      width: 30,
+      height: 1920,
+      x: 0,
+      y: 80,
+      toJSON: () => ({}),
+    });
 
     const io = findSentinelIO()!;
     const sentinel = [...io.observed][0]!;
@@ -941,7 +1073,13 @@ describe('FloatingTocOutline - editor anchor mode internals', () => {
     editor = new Editor({
       element: host,
       extensions: [
-        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+        Document,
+        Text,
+        Paragraph,
+        Heading,
+        BaseKeymap,
+        History,
+        UniqueID,
         TableOfContents,
         FloatingTocOutline.configure({ anchor: 'viewport' }),
       ],
@@ -960,7 +1098,7 @@ describe('FloatingTocOutline - editor anchor mode internals', () => {
     editor = await mount();
     const shell = document.querySelector('.dm-toc-outline-shell')!;
     const sentinels = Array.from(shell.children).filter(
-      (c) => c.tagName === 'DIV' && (c as HTMLElement).style.width === '1px',
+      (c) => c.tagName === 'DIV' && (c as HTMLElement).style.width === '1px'
     );
     expect(sentinels).toHaveLength(1);
     const sentinel = sentinels[0] as HTMLElement;
@@ -994,7 +1132,13 @@ describe('FloatingTocOutline - editor anchor mode internals', () => {
     editor = new Editor({
       element: host,
       extensions: [
-        Document, Text, Paragraph, Heading, BaseKeymap, History, UniqueID,
+        Document,
+        Text,
+        Paragraph,
+        Heading,
+        BaseKeymap,
+        History,
+        UniqueID,
         TableOfContents,
         FloatingTocOutline.configure({ anchor: 'viewport' }),
       ],
@@ -1022,7 +1166,7 @@ describe('FloatingTocOutline - editor anchor mode internals', () => {
     editor = await mount();
     const shell = document.querySelector('.dm-toc-outline-shell')!;
     const sentinels = Array.from(shell.children).filter(
-      (c) => c.tagName === 'DIV' && (c as HTMLElement).style.width === '1px',
+      (c) => c.tagName === 'DIV' && (c as HTMLElement).style.width === '1px'
     );
     expect(sentinels).toHaveLength(0);
   });
@@ -1037,7 +1181,9 @@ describe('FloatingTocOutline - editor anchor mode internals', () => {
     editor = undefined;
     // Detach the nav from any references so a stray resize handler would
     // throw on a dead node. We verify silence by firing resize: no error.
-    expect(() => { window.dispatchEvent(new Event('resize')); }).not.toThrow();
+    expect(() => {
+      window.dispatchEvent(new Event('resize'));
+    }).not.toThrow();
   });
 });
 
@@ -1060,10 +1206,18 @@ describe('FloatingTocOutline - active state', () => {
       this.rootMargin = options?.rootMargin ?? '';
       MockIntersectionObserver.instances.push(this);
     }
-    observe(el: Element): void { this.observed.add(el); }
-    unobserve(el: Element): void { this.observed.delete(el); }
-    disconnect(): void { this.observed.clear(); }
-    takeRecords(): IntersectionObserverEntry[] { return []; }
+    observe(el: Element): void {
+      this.observed.add(el);
+    }
+    unobserve(el: Element): void {
+      this.observed.delete(el);
+    }
+    disconnect(): void {
+      this.observed.clear();
+    }
+    takeRecords(): IntersectionObserverEntry[] {
+      return [];
+    }
     root: Element | Document | null = null;
     rootMargin: string;
     thresholds: number[] = [];
@@ -1076,8 +1230,8 @@ describe('FloatingTocOutline - active state', () => {
         intersectionRect: e.target.getBoundingClientRect(),
         rootBounds: null,
         time: Date.now(),
-      } as IntersectionObserverEntry));
-      this.callback(full, this as unknown as IntersectionObserver);
+      }));
+      this.callback(full, this);
     }
   }
 
@@ -1087,7 +1241,7 @@ describe('FloatingTocOutline - active state', () => {
     originalIO = window.IntersectionObserver;
     MockIntersectionObserver.instances = [];
     (window as unknown as { IntersectionObserver: unknown }).IntersectionObserver =
-      MockIntersectionObserver as unknown as typeof IntersectionObserver;
+      MockIntersectionObserver;
   });
 
   afterEach(() => {
@@ -1096,7 +1250,9 @@ describe('FloatingTocOutline - active state', () => {
     document.body.innerHTML = '';
     if (originalMatchMedia) window.matchMedia = originalMatchMedia;
     if (originalIO) {
-      (window as unknown as { IntersectionObserver: typeof IntersectionObserver }).IntersectionObserver = originalIO;
+      (
+        window as unknown as { IntersectionObserver: typeof IntersectionObserver }
+      ).IntersectionObserver = originalIO;
     }
   });
 
@@ -1110,26 +1266,38 @@ describe('FloatingTocOutline - active state', () => {
     headings.forEach((h, i) => {
       const top = tops[i] ?? 100;
       h.getBoundingClientRect = (): DOMRect => ({
-        top, bottom: top + 24, left: 0, right: 200, height: 24, width: 200,
-        x: 0, y: top, toJSON: (): unknown => undefined,
-      } as DOMRect);
+        top,
+        bottom: top + 24,
+        left: 0,
+        right: 200,
+        height: 24,
+        width: 200,
+        x: 0,
+        y: top,
+        toJSON: (): unknown => undefined,
+      });
     });
   };
 
   /** Build a mounted editor for active-state assertions. */
   const mountForActive = async (content: string): Promise<Editor> => {
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const host = document.createElement('div');
     document.body.appendChild(host);
-    originalMatchMedia = window.matchMedia;
-    window.matchMedia = ((query: string) => ({
-      matches: false, media: query, onchange: null,
+    originalMatchMedia = currentMatchMedia();
+    window.matchMedia = (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
       addEventListener: (): void => undefined,
       removeEventListener: (): void => undefined,
-      addListener: (): void => undefined, removeListener: (): void => undefined,
+      addListener: (): void => undefined,
+      removeListener: (): void => undefined,
       dispatchEvent: (): boolean => false,
-    })) as typeof window.matchMedia;
+    });
     const ed = new Editor({ element: host, extensions: baseExtensions, content });
     await flushDeferred();
     return ed;
@@ -1161,9 +1329,7 @@ describe('FloatingTocOutline - active state', () => {
   it('clicking a tick primes the manual override window so IO updates are ignored briefly', async () => {
     editor = await mountForActive('<h1>One</h1><h2>Two</h2><h3>Three</h3>');
     const ticks = queryTicks();
-    const headingDoms = Array.from(
-      editor.view.dom.querySelectorAll<HTMLElement>('[id]'),
-    );
+    const headingDoms = Array.from(editor.view.dom.querySelectorAll<HTMLElement>('[id]'));
     const clickedTick = ticks[0];
     const otherDom = headingDoms[2];
     if (!clickedTick || !otherDom) throw new Error('setup mismatch');
@@ -1176,7 +1342,7 @@ describe('FloatingTocOutline - active state', () => {
     // heading must NOT change the active visual. The plugin
     // intentionally suppresses scroll-derived updates while the
     // smooth-scroll initiated by the click is still landing.
-    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== '');
     io?.fire([{ target: otherDom, isIntersecting: true }]);
     expect(clickedTick.classList.contains('dm-toc--active')).toBe(true);
     const storage = editor.storage['toc'] as { activeId: string | null };
@@ -1240,7 +1406,7 @@ describe('FloatingTocOutline - active state', () => {
 
   it('destroying the editor disconnects the IO observer', async () => {
     editor = await mountForActive('<h1>One</h1><h2>Two</h2>');
-    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== '');
     expect(io?.observed.size).toBeGreaterThan(0);
     editor.destroy();
     editor = undefined;
@@ -1280,38 +1446,46 @@ describe('FloatingTocOutline - active state', () => {
 
   it('forwards a custom activeRootMargin option to the IntersectionObserver', async () => {
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const host = document.createElement('div');
     document.body.appendChild(host);
-    originalMatchMedia = window.matchMedia;
-    window.matchMedia = ((query: string) => ({
-      matches: false, media: query, onchange: null,
+    originalMatchMedia = currentMatchMedia();
+    window.matchMedia = (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
       addEventListener: (): void => undefined,
       removeEventListener: (): void => undefined,
-      addListener: (): void => undefined, removeListener: (): void => undefined,
+      addListener: (): void => undefined,
+      removeListener: (): void => undefined,
       dispatchEvent: (): boolean => false,
-    })) as typeof window.matchMedia;
+    });
 
     const customMargin = '0px 0px -50% 0px';
     editor = new Editor({
       element: host,
       extensions: [
-        Document, Text, Paragraph, Heading, BaseKeymap, History,
+        Document,
+        Text,
+        Paragraph,
+        Heading,
+        BaseKeymap,
+        History,
         TableOfContents,
         FloatingTocOutline.configure({ activeRootMargin: customMargin }),
       ],
       content: '<h1>One</h1><h2>Two</h2>',
     });
     await flushDeferred();
-    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== '');
     expect(io?.options?.rootMargin).toBe(customMargin);
   });
 
   it('ignores headings hidden by an ancestor (display:none) when picking active', async () => {
     editor = await mountForActive('<h1>Visible</h1><h2>InsideDetails</h2>');
-    const headingDoms = Array.from(
-      editor.view.dom.querySelectorAll<HTMLElement>('[id]'),
-    );
+    const headingDoms = Array.from(editor.view.dom.querySelectorAll<HTMLElement>('[id]'));
     const visible = headingDoms[0];
     const hidden = headingDoms[1];
     if (!visible || !hidden) throw new Error('expected two headings');
@@ -1321,26 +1495,40 @@ describe('FloatingTocOutline - active state', () => {
     // to "last passed" via top<0; a zero-rect heading does not qualify
     // (top===0, not <0), so it should be ignored.
     hidden.getBoundingClientRect = (): DOMRect => ({
-      top: 0, bottom: 0, left: 0, right: 0, height: 0, width: 0, x: 0, y: 0,
+      top: 0,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: 0,
+      width: 0,
+      x: 0,
+      y: 0,
       toJSON: (): unknown => undefined,
-    } as unknown as DOMRect);
+    });
 
-    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== "");
+    const io = MockIntersectionObserver.instances.find((o) => o.rootMargin !== '');
     // Fire a non-intersecting state for both. With visible heading
     // already passed (negative top in the first observe call) the
     // tracker keeps reporting it as active; the hidden one cannot
     // win because its rect doesn't satisfy the `top < 0` predicate.
     visible.getBoundingClientRect = (): DOMRect => ({
-      top: -50, bottom: -26, left: 0, right: 200, height: 24, width: 200,
-      x: 0, y: -50, toJSON: (): unknown => undefined,
-    } as unknown as DOMRect);
+      top: -50,
+      bottom: -26,
+      left: 0,
+      right: 200,
+      height: 24,
+      width: 200,
+      x: 0,
+      y: -50,
+      toJSON: (): unknown => undefined,
+    });
     io?.fire([
       { target: visible, isIntersecting: false },
       { target: hidden, isIntersecting: false },
     ]);
 
     expect((editor.storage['toc'] as { activeId: string | null }).activeId).toBe(
-      visible.getAttribute('id'),
+      visible.getAttribute('id')
     );
   });
 
@@ -1395,24 +1583,34 @@ describe('FloatingTocOutline - hover expansion', () => {
   /** Mount with stubbed matchMedia. Hover-expansion tests don't need IO. */
   const mountForHover = (
     content: string,
-    options: { hoverInDelay?: number; hoverOutDelay?: number } = {},
+    options: { hoverInDelay?: number; hoverOutDelay?: number } = {}
   ): Editor => {
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const host = document.createElement('div');
     document.body.appendChild(host);
-    originalMatchMedia = window.matchMedia;
-    window.matchMedia = ((query: string) => ({
-      matches: false, media: query, onchange: null,
+    originalMatchMedia = currentMatchMedia();
+    window.matchMedia = (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
       addEventListener: (): void => undefined,
       removeEventListener: (): void => undefined,
-      addListener: (): void => undefined, removeListener: (): void => undefined,
+      addListener: (): void => undefined,
+      removeListener: (): void => undefined,
       dispatchEvent: (): boolean => false,
-    })) as typeof window.matchMedia;
+    });
     return new Editor({
       element: host,
       extensions: [
-        Document, Text, Paragraph, Heading, BaseKeymap, History,
+        Document,
+        Text,
+        Paragraph,
+        Heading,
+        BaseKeymap,
+        History,
         UniqueID,
         TableOfContents,
         FloatingTocOutline.configure(options),
@@ -1451,10 +1649,7 @@ describe('FloatingTocOutline - hover expansion', () => {
     // useFakeTimers() would freeze. We activate fake timers only
     // AFTER mount + flush so the hover assertions can step time
     // forward in isolation.
-    editor = mountForHover(
-      '<h1>One</h1><h2>Two</h2>',
-      { hoverInDelay: 100, hoverOutDelay: 300 },
-    );
+    editor = mountForHover('<h1>One</h1><h2>Two</h2>', { hoverInDelay: 100, hoverOutDelay: 300 });
     await flushDeferred();
     const nav = queryOutline()!;
     expect(nav.dataset['state']).toBe('collapsed');
@@ -1474,10 +1669,7 @@ describe('FloatingTocOutline - hover expansion', () => {
   });
 
   it('cancels the show-timer when the cursor leaves before it fires', async () => {
-    editor = mountForHover(
-      '<h1>One</h1><h2>Two</h2>',
-      { hoverInDelay: 100, hoverOutDelay: 300 },
-    );
+    editor = mountForHover('<h1>One</h1><h2>Two</h2>', { hoverInDelay: 100, hoverOutDelay: 300 });
     await flushDeferred();
     const nav = queryOutline()!;
 
@@ -1497,10 +1689,7 @@ describe('FloatingTocOutline - hover expansion', () => {
   });
 
   it('hover-out fades to "collapsed" after the configured delay', async () => {
-    editor = mountForHover(
-      '<h1>One</h1><h2>Two</h2>',
-      { hoverInDelay: 100, hoverOutDelay: 300 },
-    );
+    editor = mountForHover('<h1>One</h1><h2>Two</h2>', { hoverInDelay: 100, hoverOutDelay: 300 });
     await flushDeferred();
     const nav = queryOutline()!;
 
@@ -1564,7 +1753,7 @@ describe('FloatingTocOutline - hover expansion', () => {
 
   it('clicking a row scrolls and writes activeId, same as clicking a tick', async () => {
     const scrollSpy = vi.fn();
-    Element.prototype.scrollIntoView = scrollSpy as unknown as typeof Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollSpy;
 
     editor = mountForHover('<h1>One</h1><h2>Two</h2><h3>Three</h3>');
     await flushDeferred();
@@ -1596,25 +1785,35 @@ describe('FloatingTocOutline - hover expansion', () => {
 
   it('mobile breakpoint forces "hidden" even on focus / hover', async () => {
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
     const host = document.createElement('div');
     document.body.appendChild(host);
-    originalMatchMedia = window.matchMedia;
-    window.matchMedia = ((query: string) => ({
+    originalMatchMedia = currentMatchMedia();
+    window.matchMedia = (query: string) => ({
       // Always-mobile stub.
       matches: query.includes('max-width'),
-      media: query, onchange: null,
+      media: query,
+      onchange: null,
       addEventListener: (): void => undefined,
       removeEventListener: (): void => undefined,
-      addListener: (): void => undefined, removeListener: (): void => undefined,
+      addListener: (): void => undefined,
+      removeListener: (): void => undefined,
       dispatchEvent: (): boolean => false,
-    })) as typeof window.matchMedia;
+    });
 
     editor = new Editor({
       element: host,
       extensions: [
-        Document, Text, Paragraph, Heading, BaseKeymap, History,
-        TableOfContents, FloatingTocOutline,
+        Document,
+        Text,
+        Paragraph,
+        Heading,
+        BaseKeymap,
+        History,
+        TableOfContents,
+        FloatingTocOutline,
       ],
       content: '<h1>One</h1><h2>Two</h2>',
     });
@@ -1629,10 +1828,7 @@ describe('FloatingTocOutline - hover expansion', () => {
   });
 
   it('re-enter during the hide-timer cancels the pending collapse', async () => {
-    editor = mountForHover(
-      '<h1>One</h1><h2>Two</h2>',
-      { hoverInDelay: 100, hoverOutDelay: 300 },
-    );
+    editor = mountForHover('<h1>One</h1><h2>Two</h2>', { hoverInDelay: 100, hoverOutDelay: 300 });
     await flushDeferred();
     const nav = queryOutline()!;
 
@@ -1661,10 +1857,7 @@ describe('FloatingTocOutline - hover expansion', () => {
   });
 
   it('custom hoverInDelay and hoverOutDelay options are honored over defaults', async () => {
-    editor = mountForHover(
-      '<h1>One</h1><h2>Two</h2>',
-      { hoverInDelay: 5, hoverOutDelay: 20 },
-    );
+    editor = mountForHover('<h1>One</h1><h2>Two</h2>', { hoverInDelay: 5, hoverOutDelay: 20 });
     await flushDeferred();
     const nav = queryOutline()!;
 
@@ -1707,15 +1900,20 @@ describe('FloatingTocOutline - expanded card scroll-close + viewport clamp', () 
 
   beforeEach(() => {
     document.body.innerHTML = '';
-    document.querySelectorAll('.dm-toc-outline').forEach((n) => { n.remove(); });
-    originalMatchMedia = window.matchMedia;
-    window.matchMedia = ((query: string) => ({
-      matches: false, media: query, onchange: null,
+    document.querySelectorAll('.dm-toc-outline').forEach((n) => {
+      n.remove();
+    });
+    originalMatchMedia = currentMatchMedia();
+    window.matchMedia = (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
       addEventListener: (): void => undefined,
       removeEventListener: (): void => undefined,
-      addListener: (): void => undefined, removeListener: (): void => undefined,
+      addListener: (): void => undefined,
+      removeListener: (): void => undefined,
       dispatchEvent: (): boolean => false,
-    })) as typeof window.matchMedia;
+    });
   });
 
   afterEach(() => {
@@ -1762,7 +1960,9 @@ describe('FloatingTocOutline - expanded card scroll-close + viewport clamp', () 
     editor.destroy();
     editor = undefined;
     // After destroy, scrolling should not throw or touch any orphan refs.
-    expect(() => { window.dispatchEvent(new Event('scroll')); }).not.toThrow();
+    expect(() => {
+      window.dispatchEvent(new Event('scroll'));
+    }).not.toThrow();
   });
 
   it('sets --dm-toc-card-shift-y on expansion when card overflows top of viewport', async () => {
@@ -1772,14 +1972,25 @@ describe('FloatingTocOutline - expanded card scroll-close + viewport clamp', () 
     // Force a layout the plugin's clamp will treat as an overflow:
     // card.top = -100 means the card would sit 100px above the viewport.
     vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
-      top: -100, bottom: 200, left: 0, right: 200, width: 200, height: 300,
-      x: 0, y: -100, toJSON: () => ({}),
-    } as DOMRect);
+      top: -100,
+      bottom: 200,
+      left: 0,
+      right: 200,
+      width: 200,
+      height: 300,
+      x: 0,
+      y: -100,
+      toJSON: () => ({}),
+    });
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
 
     expandViaFocus(nav);
     // adjustCardPosition runs in requestAnimationFrame; flush it.
-    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+    await new Promise<void>((r) =>
+      requestAnimationFrame(() => {
+        r();
+      })
+    );
 
     const shift = card.style.getPropertyValue('--dm-toc-card-shift-y');
     // Margin = 16. Needed shift = 16 - (-100) = 116.
@@ -1792,13 +2003,24 @@ describe('FloatingTocOutline - expanded card scroll-close + viewport clamp', () 
     const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card')!;
     // viewport=800, margin=16, maxBottom=784. card.bottom=900 => shift = 784-900 = -116.
     vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
-      top: 600, bottom: 900, left: 0, right: 200, width: 200, height: 300,
-      x: 0, y: 600, toJSON: () => ({}),
-    } as DOMRect);
+      top: 600,
+      bottom: 900,
+      left: 0,
+      right: 200,
+      width: 200,
+      height: 300,
+      x: 0,
+      y: 600,
+      toJSON: () => ({}),
+    });
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
 
     expandViaFocus(nav);
-    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+    await new Promise<void>((r) =>
+      requestAnimationFrame(() => {
+        r();
+      })
+    );
 
     expect(card.style.getPropertyValue('--dm-toc-card-shift-y')).toBe('-116px');
   });
@@ -1808,13 +2030,24 @@ describe('FloatingTocOutline - expanded card scroll-close + viewport clamp', () 
     const nav = queryOutline()!;
     const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card')!;
     vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
-      top: 200, bottom: 500, left: 0, right: 200, width: 200, height: 300,
-      x: 0, y: 200, toJSON: () => ({}),
-    } as DOMRect);
+      top: 200,
+      bottom: 500,
+      left: 0,
+      right: 200,
+      width: 200,
+      height: 300,
+      x: 0,
+      y: 200,
+      toJSON: () => ({}),
+    });
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
 
     expandViaFocus(nav);
-    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+    await new Promise<void>((r) =>
+      requestAnimationFrame(() => {
+        r();
+      })
+    );
 
     expect(card.style.getPropertyValue('--dm-toc-card-shift-y')).toBe('');
   });
@@ -1824,13 +2057,24 @@ describe('FloatingTocOutline - expanded card scroll-close + viewport clamp', () 
     const nav = queryOutline()!;
     const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card')!;
     vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
-      top: -50, bottom: 250, left: 0, right: 200, width: 200, height: 300,
-      x: 0, y: -50, toJSON: () => ({}),
-    } as DOMRect);
+      top: -50,
+      bottom: 250,
+      left: 0,
+      right: 200,
+      width: 200,
+      height: 300,
+      x: 0,
+      y: -50,
+      toJSON: () => ({}),
+    });
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
 
     expandViaFocus(nav);
-    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+    await new Promise<void>((r) =>
+      requestAnimationFrame(() => {
+        r();
+      })
+    );
     const shiftWhileExpanded = card.style.getPropertyValue('--dm-toc-card-shift-y');
     expect(shiftWhileExpanded).not.toBe('');
 
@@ -1847,13 +2091,24 @@ describe('FloatingTocOutline - expanded card scroll-close + viewport clamp', () 
     const nav = queryOutline()!;
     const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card')!;
     vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
-      top: -50, bottom: 250, left: 0, right: 200, width: 200, height: 300,
-      x: 0, y: -50, toJSON: () => ({}),
-    } as DOMRect);
+      top: -50,
+      bottom: 250,
+      left: 0,
+      right: 200,
+      width: 200,
+      height: 300,
+      x: 0,
+      y: -50,
+      toJSON: () => ({}),
+    });
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
 
     expandViaFocus(nav);
-    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+    await new Promise<void>((r) =>
+      requestAnimationFrame(() => {
+        r();
+      })
+    );
     const firstShift = card.style.getPropertyValue('--dm-toc-card-shift-y');
     expect(firstShift).toBe('66px');
 
@@ -1862,11 +2117,22 @@ describe('FloatingTocOutline - expanded card scroll-close + viewport clamp', () 
     // alone, NOT recomputed against a card that may have moved
     // mid-flow.
     vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
-      top: 300, bottom: 600, left: 0, right: 200, width: 200, height: 300,
-      x: 0, y: 300, toJSON: () => ({}),
-    } as DOMRect);
+      top: 300,
+      bottom: 600,
+      left: 0,
+      right: 200,
+      width: 200,
+      height: 300,
+      x: 0,
+      y: 300,
+      toJSON: () => ({}),
+    });
     nav.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
-    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+    await new Promise<void>((r) =>
+      requestAnimationFrame(() => {
+        r();
+      })
+    );
     expect(card.style.getPropertyValue('--dm-toc-card-shift-y')).toBe(firstShift);
   });
 
@@ -1875,13 +2141,24 @@ describe('FloatingTocOutline - expanded card scroll-close + viewport clamp', () 
     const nav = queryOutline()!;
     const card = nav.querySelector<HTMLElement>('.dm-toc-outline-card')!;
     const rectSpy = vi.spyOn(card, 'getBoundingClientRect').mockReturnValue({
-      top: -50, bottom: 250, left: 0, right: 200, width: 200, height: 300,
-      x: 0, y: -50, toJSON: () => ({}),
-    } as DOMRect);
+      top: -50,
+      bottom: 250,
+      left: 0,
+      right: 200,
+      width: 200,
+      height: 300,
+      x: 0,
+      y: -50,
+      toJSON: () => ({}),
+    });
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
 
     expandViaFocus(nav);
-    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+    await new Promise<void>((r) =>
+      requestAnimationFrame(() => {
+        r();
+      })
+    );
     expect(card.style.getPropertyValue('--dm-toc-card-shift-y')).toBe('66px');
 
     nav.dispatchEvent(new FocusEvent('focusout', { bubbles: true, relatedTarget: null }));
@@ -1890,11 +2167,22 @@ describe('FloatingTocOutline - expanded card scroll-close + viewport clamp', () 
 
     // Next expand at a different layout - shift recomputes to the new value.
     rectSpy.mockReturnValue({
-      top: 200, bottom: 500, left: 0, right: 200, width: 200, height: 300,
-      x: 0, y: 200, toJSON: () => ({}),
-    } as DOMRect);
+      top: 200,
+      bottom: 500,
+      left: 0,
+      right: 200,
+      width: 200,
+      height: 300,
+      x: 0,
+      y: 200,
+      toJSON: () => ({}),
+    });
     expandViaFocus(nav);
-    await new Promise<void>((r) => requestAnimationFrame(() => { r(); }));
+    await new Promise<void>((r) =>
+      requestAnimationFrame(() => {
+        r();
+      })
+    );
     expect(card.style.getPropertyValue('--dm-toc-card-shift-y')).toBe('');
   });
 });

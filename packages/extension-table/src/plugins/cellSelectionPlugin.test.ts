@@ -88,7 +88,7 @@ describe('cellSelectionPlugin', () => {
       // Now start a CellSelection in the second table
       const sel = CellSelection.create(editor.state.doc, cellPositions[1]!, cellPositions[1]);
       editor.view.dispatch(
-        editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection),
+        editor.state.tr.setSelection(sel),
       );
 
       // First table's handle should be hidden after CellSelection in second
@@ -157,7 +157,7 @@ describe('cellSelectionPlugin', () => {
 
       const sel = CellSelection.create(editor.state.doc, 2, 2);
       editor.view.dispatch(
-        editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection),
+        editor.state.tr.setSelection(sel),
       );
 
       const focused = host.querySelector('.dm-cell-focused');

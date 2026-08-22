@@ -6,5 +6,13 @@ packages:
 
 autoInstallPeers: true
 
+# Do not resolve packages published in the last 24 hours. This leaves time for
+# compromised releases to be detected and removed before they enter a lockfile.
+minimumReleaseAge: 1440
+minimumReleaseAgeStrict: true
+blockExoticSubdeps: true
+
 allowBuilds:
+  esbuild: true
   nx: true
+  sharp: true

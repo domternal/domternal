@@ -25,7 +25,7 @@ export const CodeBlockLowlight = CodeBlock.extend<CodeBlockLowlightOptions, Code
   addOptions() {
     return {
       ...CodeBlock.options,
-      lowlight: null as unknown as Lowlight,
+      lowlight: null,
       defaultLanguage: null,
       autoDetect: true,
       tabIndentation: true,

@@ -25,7 +25,7 @@
  * });
  */
 
-import type { MarkSpec, MarkType, ParseRule } from '@domternal/pm/model';
+import type { MarkSpec, MarkType } from '@domternal/pm/model';
 import { Extension, type ExtensionEditorInterface, mergeConfigWithParentBinding } from './Extension.js';
 import type { MarkConfig, MarkContext } from './types/MarkConfig.js';
 import { callOrReturn } from './helpers/callOrReturn.js';
@@ -276,10 +276,7 @@ export class Mark<Options = unknown, Storage = unknown> extends Extension<
         return parseRule;
       });
 
-      // Cast required: Our MarkParseRule type is structurally compatible with
-      // ProseMirror's ParseRule but TypeScript can't infer this due to
-      // our custom getAttrs return type. The cast is safe.
-      spec.parseDOM = parseDOMRules as unknown as readonly ParseRule[];
+      spec.parseDOM = parseDOMRules;
     }
 
     // Render - convert renderHTML to toDOM

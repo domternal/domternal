@@ -141,7 +141,7 @@ describe('TableOfContentsBlock - integration with Editor', () => {
 
   it('clicking a row scrolls to the heading via scrollToHeading', async () => {
     const scrollSpy = vi.fn();
-    Element.prototype.scrollIntoView = scrollSpy as unknown as typeof Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollSpy;
 
     editor = mount({
       content: '<h1>One</h1><h2>Target</h2><div data-type="table-of-contents"></div>',
@@ -273,7 +273,7 @@ describe('TableOfContentsBlock - integration with Editor', () => {
     const host = document.createElement('div');
     document.body.appendChild(host);
     const scrollSpy = vi.fn();
-    Element.prototype.scrollIntoView = scrollSpy as unknown as typeof Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollSpy;
     const CustomUniqueID = UniqueID.configure({ attributeName: 'data-id' });
     let ed: Editor | undefined;
     try {

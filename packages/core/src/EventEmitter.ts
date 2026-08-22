@@ -31,9 +31,9 @@ export class EventEmitter<Events extends { [K in keyof Events]: unknown } = Reco
     const listeners = this.callbacks.get(event);
 
     if (listeners) {
-      listeners.add(callback as EventCallback<unknown>);
+      listeners.add(callback);
     } else {
-      this.callbacks.set(event, new Set([callback as EventCallback<unknown>]));
+      this.callbacks.set(event, new Set([callback]));
     }
 
     return this;
@@ -48,7 +48,7 @@ export class EventEmitter<Events extends { [K in keyof Events]: unknown } = Reco
     if (listeners) {
       if (callback) {
         // Remove specific callback
-        listeners.delete(callback as EventCallback<unknown>);
+        listeners.delete(callback);
 
         // Clean up empty sets
         if (listeners.size === 0) {
@@ -76,7 +76,7 @@ export class EventEmitter<Events extends { [K in keyof Events]: unknown } = Reco
     if (listeners) {
       listeners.forEach((callback) => {
         if (args.length > 0) {
-          (callback as (data: unknown) => void).call(this, args[0]);
+          (callback).call(this, args[0]);
         } else {
           (callback as () => void).call(this);
         }
@@ -94,7 +94,7 @@ export class EventEmitter<Events extends { [K in keyof Events]: unknown } = Reco
       this.off(event, onceWrapper);
 
       if (args.length > 0) {
-        (callback as (data: unknown) => void).call(this, args[0]);
+        (callback).call(this, args[0]);
       } else {
         (callback as () => void).call(this);
       }

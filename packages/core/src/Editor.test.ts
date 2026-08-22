@@ -1165,7 +1165,7 @@ describe('Editor', () => {
       });
       editor = new Editor({
         schema,
-        content: { type: 'doc', content: [{ type: 'image', attrs: { src: 'x.png' } }] } as any,
+        content: { type: 'doc', content: [{ type: 'image', attrs: { src: 'x.png' } }] },
       });
       // Place NodeSelection on image
       const tr = editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, 0));

@@ -1,0 +1,36 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/Zagreb
+    open-pull-requests-limit: 10
+    # Keep library compatibility floors stable when the declared range already
+    # accepts an update; raise them only when the update actually requires it.
+    versioning-strategy: increase-if-necessary
+    groups:
+      production-dependencies:
+        dependency-type: production
+        patterns: ['*']
+        update-types: [minor, patch]
+      development-dependencies:
+        dependency-type: development
+        patterns: ['*']
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:15'
+      timezone: Europe/Zagreb
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns: ['*']
+        update-types: [minor, patch]

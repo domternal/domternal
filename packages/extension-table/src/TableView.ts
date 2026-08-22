@@ -593,7 +593,7 @@ export class TableView implements NodeView {
   /** Dispatch a CellSelection and focus the editor. */
   private dispatchCellSelection(sel: CellSelection): void {
     this.view.dispatch(
-      this.view.state.tr.setSelection(sel as unknown as ReturnType<typeof TextSelection.create>),
+      this.view.state.tr.setSelection(sel),
     );
     this.view.focus();
   }

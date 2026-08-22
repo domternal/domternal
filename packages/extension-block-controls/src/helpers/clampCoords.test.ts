@@ -36,7 +36,7 @@ function stubChildRect(child: Element, rect: Partial<DOMRect>): void {
     y: 100,
     toJSON: () => ({}),
     ...rect,
-  } as DOMRect;
+  };
   Object.defineProperty(child, 'getBoundingClientRect', {
     value: () => full,
     configurable: true,

@@ -24,12 +24,17 @@ interface NotionColorPickerStorage {
   isOpen: boolean;
 }
 
-interface NotionColorPickerExtensionOptions {
-  palette?: readonly string[];
-}
-
 interface NotionColorOpenDetail {
   anchorElement?: HTMLElement;
+}
+
+function paletteFromExtensionOptions(options: unknown): string[] {
+  if (typeof options !== 'object' || options === null || !('palette' in options)) return [];
+  const palette: unknown = options.palette;
+  if (!Array.isArray(palette) || !palette.every((token: unknown) => typeof token === 'string')) {
+    return [];
+  }
+  return [...palette];
 }
 
 /**
@@ -80,7 +85,7 @@ export interface UseNotionColorPickerResult {
 }
 
 export function useNotionColorPicker(
-  options: UseNotionColorPickerOptions,
+  options: UseNotionColorPickerOptions
 ): UseNotionColorPickerResult {
   const { editor } = options;
 
@@ -100,7 +105,9 @@ export function useNotionColorPicker(
   // The mutation lives in an effect so React concurrent rendering can
   // discard a render without leaking ref state.
   const editorRef = useRef<Editor | null>(editor);
-  useEffect(() => { editorRef.current = editor; }, [editor]);
+  useEffect(() => {
+    editorRef.current = editor;
+  }, [editor]);
   const anchorRef = useRef<HTMLElement | null>(null);
   anchorRef.current = anchorEl;
 
@@ -137,22 +144,28 @@ export function useNotionColorPicker(
       });
     }
 
-    const attrs = (mark?.attrs ?? {}) as { colorToken?: string | null; backgroundColorToken?: string | null };
+    const attrs = (mark?.attrs ?? {}) as {
+      colorToken?: string | null;
+      backgroundColorToken?: string | null;
+    };
     setCurrentTextToken(attrs.colorToken ?? null);
     setCurrentBgToken(attrs.backgroundColorToken ?? null);
   }, []);
 
-  const close = useCallback((opts: { refocus?: boolean } = {}): void => {
-    if (!isOpenRef.current) return;
-    setIsOpen(false);
-    setStorageOpen(false);
-    if (opts.refocus) {
-      // Focus the editor view, not the trigger button: trigger focus would
-      // leave the user without a caret.
-      editorRef.current?.view.focus();
-    }
-    setAnchorEl(null);
-  }, [setStorageOpen]);
+  const close = useCallback(
+    (opts: { refocus?: boolean } = {}): void => {
+      if (!isOpenRef.current) return;
+      setIsOpen(false);
+      setStorageOpen(false);
+      if (opts.refocus) {
+        // Focus the editor view, not the trigger button: trigger focus would
+        // leave the user without a caret.
+        editorRef.current?.view.focus();
+      }
+      setAnchorEl(null);
+    },
+    [setStorageOpen]
+  );
 
   // Editor-scoped subscription: open event + selection updates. Re-attaches
   // when the editor reference changes (i.e. HMR / route remount).
@@ -166,8 +179,7 @@ export function useNotionColorPicker(
     // Read palette from the extension options. Extension list is immutable
     // after editor construction, so this only runs once per editor.
     const ext = editor.extensionManager.extensions.find((e) => e.name === 'notionColorPicker');
-    const extOptions = (ext?.options ?? null) as NotionColorPickerExtensionOptions | null;
-    setPalette(extOptions?.palette ? [...extOptions.palette] : []);
+    setPalette(paletteFromExtensionOptions(ext?.options));
 
     const onOpen = (...args: unknown[]): void => {
       const detail = args[0] as NotionColorOpenDetail | undefined;
@@ -223,41 +235,59 @@ export function useNotionColorPicker(
     const controller = new AbortController();
     const { signal } = controller;
 
-    document.addEventListener('mousedown', (e: MouseEvent) => {
-      // No redundant `isOpen` guard: this effect only runs when `isOpen === true`
-      // and the AbortController detaches the listener as soon as it flips false.
-      const target = e.target as Node | null;
-      if (!target) return;
-      if (panelRef.current?.contains(target)) return;
-      if (anchorRef.current?.contains(target)) return;
-      close({ refocus: false });
-    }, { signal });
+    document.addEventListener(
+      'mousedown',
+      (e: MouseEvent) => {
+        // No redundant `isOpen` guard: this effect only runs when `isOpen === true`
+        // and the AbortController detaches the listener as soon as it flips false.
+        const target = e.target as Node | null;
+        if (!target) return;
+        if (panelRef.current?.contains(target)) return;
+        if (anchorRef.current?.contains(target)) return;
+        close({ refocus: false });
+      },
+      { signal }
+    );
 
-    document.addEventListener('keydown', (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpenRef.current) {
-        e.preventDefault();
-        close({ refocus: true });
-      }
-    }, { signal });
+    document.addEventListener(
+      'keydown',
+      (e: KeyboardEvent) => {
+        if (e.key === 'Escape' && isOpenRef.current) {
+          e.preventDefault();
+          close({ refocus: true });
+        }
+      },
+      { signal }
+    );
 
-    return () => { controller.abort(); };
+    return () => {
+      controller.abort();
+    };
   }, [isOpen, close]);
 
-  const applyText = useCallback((token: string | null): void => {
-    const ed = editorRef.current;
-    if (!ed) return;
-    (ed.commands as unknown as { setTextColorToken: (t: string | null) => boolean })
-      .setTextColorToken(token);
-    syncFromSelection();
-  }, [syncFromSelection]);
+  const applyText = useCallback(
+    (token: string | null): void => {
+      const ed = editorRef.current;
+      if (!ed) return;
+      (
+        ed.commands as unknown as { setTextColorToken: (t: string | null) => boolean }
+      ).setTextColorToken(token);
+      syncFromSelection();
+    },
+    [syncFromSelection]
+  );
 
-  const applyBg = useCallback((token: string | null): void => {
-    const ed = editorRef.current;
-    if (!ed) return;
-    (ed.commands as unknown as { setBackgroundColorToken: (t: string | null) => boolean })
-      .setBackgroundColorToken(token);
-    syncFromSelection();
-  }, [syncFromSelection]);
+  const applyBg = useCallback(
+    (token: string | null): void => {
+      const ed = editorRef.current;
+      if (!ed) return;
+      (
+        ed.commands as unknown as { setBackgroundColorToken: (t: string | null) => boolean }
+      ).setBackgroundColorToken(token);
+      syncFromSelection();
+    },
+    [syncFromSelection]
+  );
 
   const tokenLabel = useCallback((token: string): string => {
     return TOKEN_LABELS[token] ?? token.charAt(0).toUpperCase() + token.slice(1);
@@ -272,16 +302,14 @@ export function useNotionColorPicker(
     const cols = 5;
     const root = panelRef.current;
     if (!root) return;
-    const swatches = Array.from(
-      root.querySelectorAll<HTMLElement>('.dm-ncp-swatch'),
-    );
+    const swatches = Array.from(root.querySelectorAll<HTMLElement>('.dm-ncp-swatch'));
     if (!swatches.length) return;
 
     const active = document.activeElement as HTMLElement | null;
     const idx = active ? swatches.indexOf(active) : -1;
     if (idx === -1) return;
 
-    let next = idx;
+    let next: number;
     switch (event.key) {
       case 'ArrowRight':
         event.preventDefault();

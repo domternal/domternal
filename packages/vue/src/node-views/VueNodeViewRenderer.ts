@@ -172,7 +172,7 @@ class VueNodeView {
         tr.delete(pos, pos + this.props.node.nodeSize);
         this.editor.view.dispatch(tr);
       },
-    }) as VueNodeViewProps;
+    });
 
     // Create extended component that provides node view context
     const onDragStart = (event: DragEvent): void => {

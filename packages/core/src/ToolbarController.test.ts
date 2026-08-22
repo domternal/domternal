@@ -560,7 +560,7 @@ describe('ToolbarController', () => {
       const editor = createMockEditor(items, {
         isActive,
         on: (_event: string, handler: (...args: unknown[]) => void) => {
-          transactionHandler = handler as () => void;
+          transactionHandler = handler;
         },
         off: () => { /* stub */ },
       });
@@ -603,7 +603,7 @@ describe('ToolbarController', () => {
       const editor = createMockEditor(items, {
         isActive,
         on: (_event: string, handler: (...args: unknown[]) => void) => {
-          transactionHandler = handler as () => void;
+          transactionHandler = handler;
         },
         off: () => { /* stub */ },
       });
@@ -1171,7 +1171,7 @@ describe('ToolbarController', () => {
       const editor = createMockEditor(items, {
         storage,
         on: (_event: string, handler: (...args: unknown[]) => void) => {
-          transactionHandler = handler as () => void;
+          transactionHandler = handler;
         },
         off: () => { /* stub */ },
       });
@@ -1198,7 +1198,7 @@ describe('ToolbarController', () => {
       const editor = createMockEditor(items, {
         storage,
         on: (_event: string, handler: (...args: unknown[]) => void) => {
-          transactionHandler = handler as () => void;
+          transactionHandler = handler;
         },
         off: () => { /* stub */ },
       });

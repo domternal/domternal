@@ -73,7 +73,7 @@ export function resolveWithinAnchorContainer(
   clientY: number,
   anchorTypes: string[],
   allowedNodes: string[],
-  matchers: readonly BlockMatcher[],
+  matchers: readonly BlockMatcher[]
 ): AnchorOutcome {
   const candidates = collectContainersAtY(view, clientY, anchorTypes);
   if (candidates.length === 0) return null;
@@ -88,7 +88,7 @@ export function resolveWithinAnchorContainer(
 function collectContainersAtY(
   view: EditorView,
   clientY: number,
-  anchorTypes: string[],
+  anchorTypes: string[]
 ): ContainerCandidate[] {
   const out: ContainerCandidate[] = [];
   view.state.doc.descendants((node, pos) => {
@@ -123,17 +123,15 @@ function collectContainersAtY(
  */
 function pickContainer(
   candidates: ContainerCandidate[],
-  rawClientX: number,
+  rawClientX: number
 ): ContainerCandidate | null {
   let pool = rootsOf(candidates);
   let scope: ContainerCandidate | null = null;
 
   for (let depth = 0; depth < MAX_ANCHOR_DEPTH; depth++) {
     if (pool.length === 0) return scope;
-    const containing = pool.filter(
-      (c) => rawClientX >= c.rect.left && rawClientX <= c.rect.right,
-    );
-    let next: ContainerCandidate | null = null;
+    const containing = pool.filter((c) => rawClientX >= c.rect.left && rawClientX <= c.rect.right);
+    let next: ContainerCandidate | null;
     if (containing.length > 0) {
       next = containing[containing.length - 1] ?? null;
     } else {
@@ -160,14 +158,14 @@ function nearestRightOwner(pool: ContainerCandidate[], x: number): ContainerCand
 /** Candidates not contained inside another candidate (outermost layer). */
 function rootsOf(candidates: ContainerCandidate[]): ContainerCandidate[] {
   return candidates.filter(
-    (c) => !candidates.some((o) => o !== c && c.pos > o.pos && c.end <= o.end),
+    (c) => !candidates.some((o) => o !== c && c.pos > o.pos && c.end <= o.end)
   );
 }
 
 /** Candidates directly inside `scope` (next nesting layer, any depth below it). */
 function childrenOf(
   candidates: ContainerCandidate[],
-  scope: ContainerCandidate,
+  scope: ContainerCandidate
 ): ContainerCandidate[] {
   const inside = candidates.filter((c) => c.pos > scope.pos && c.end <= scope.end);
   return rootsOf(inside);
@@ -198,7 +196,7 @@ function resolveInsideContainer(
   scope: ContainerCandidate,
   clientY: number,
   allowedNodes: string[],
-  matchers: readonly BlockMatcher[],
+  matchers: readonly BlockMatcher[]
 ): AnchorResolution | null {
   const anchorLeft = anchorLeftFor(view, scope.rect);
 
@@ -220,7 +218,7 @@ function nearestEligibleChild(
   view: EditorView,
   scope: ContainerCandidate,
   clientY: number,
-  matchers: readonly BlockMatcher[],
+  matchers: readonly BlockMatcher[]
 ): { pos: number; rect: DOMRect; dom: HTMLElement } | null {
   let best: { pos: number; rect: DOMRect; dom: HTMLElement; dist: number } | null = null;
   let childPos = scope.pos + 1;
@@ -229,12 +227,15 @@ function nearestEligibleChild(
     const dom = view.nodeDOM(childPos);
     if (dom instanceof HTMLElement) {
       const rejected =
-        matchers.length > 0
-        && isRejectedByMatchers(view, child, childPos, scope.node, i, matchers);
+        matchers.length > 0 && isRejectedByMatchers(view, child, childPos, scope.node, i, matchers);
       if (!rejected) {
         const rect = dom.getBoundingClientRect();
         const dist =
-          clientY < rect.top ? rect.top - clientY : clientY > rect.bottom ? clientY - rect.bottom : 0;
+          clientY < rect.top
+            ? rect.top - clientY
+            : clientY > rect.bottom
+              ? clientY - rect.bottom
+              : 0;
         if (best === null || dist < best.dist) {
           best = { pos: childPos, rect, dom, dist };
         }

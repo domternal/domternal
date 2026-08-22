@@ -94,7 +94,7 @@ describe('Mention', () => {
 
     it('can configure custom renderText', () => {
       const fn = (): string => 'test';
-      const Custom = Mention.configure({ renderText: fn as any });
+      const Custom = Mention.configure({ renderText: fn });
       expect(Custom.options.renderText).toBe(fn);
     });
   });
@@ -599,7 +599,7 @@ describe('Mention', () => {
     it('Backspace with deleteTriggerWithBackspace deletes trigger char + mention', () => {
       const CustomMention = Mention.configure({
         deleteTriggerWithBackspace: true,
-        suggestion: { char: "@", name: "user", items: () => [] } as any,
+        suggestion: { char: "@", name: "user", items: () => [] },
       });
       editor = new Editor({
         extensions: [Document, Text, Paragraph, CustomMention],
@@ -628,7 +628,7 @@ describe('Mention', () => {
     it('Backspace with deleteTriggerWithBackspace skips trigger char removal when char does not match', () => {
       const CustomMention = Mention.configure({
         deleteTriggerWithBackspace: true,
-        suggestion: { char: "@", name: "user", items: () => [] } as any,
+        suggestion: { char: "@", name: "user", items: () => [] },
       });
       editor = new Editor({
         extensions: [Document, Text, Paragraph, CustomMention],

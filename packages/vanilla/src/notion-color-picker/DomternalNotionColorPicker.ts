@@ -6,12 +6,17 @@ interface NotionColorPickerStorage {
   isOpen: boolean;
 }
 
-interface NotionColorPickerExtensionOptions {
-  palette?: readonly string[];
-}
-
 interface NotionColorOpenDetail {
   anchorElement?: HTMLElement;
+}
+
+function paletteFromExtensionOptions(options: unknown): string[] {
+  if (typeof options !== 'object' || options === null || !('palette' in options)) return [];
+  const palette: unknown = options.palette;
+  if (!Array.isArray(palette) || !palette.every((token: unknown) => typeof token === 'string')) {
+    return [];
+  }
+  return [...palette];
 }
 
 /**
@@ -147,10 +152,9 @@ export class DomternalNotionColorPicker extends EventTarget {
 
     // Read palette from extension options (immutable per editor lifetime)
     const ext = this.#editor.extensionManager.extensions.find(
-      (e) => e.name === 'notionColorPicker',
+      (e) => e.name === 'notionColorPicker'
     );
-    const extOpts = (ext?.options ?? null) as NotionColorPickerExtensionOptions | null;
-    this.#palette = extOpts?.palette ? [...extOpts.palette] : [];
+    this.#palette = paletteFromExtensionOptions(ext?.options);
 
     // Subscribe to editor events (not AbortSignal-aware; explicit off in destroy).
     // Toggle logic lives in `open()` so the public API and event handler
@@ -249,27 +253,27 @@ export class DomternalNotionColorPicker extends EventTarget {
   /** Apply a text color token to the current selection. Picker stays open. */
   applyText(token: string | null): void {
     if (this.#destroyed) return;
-    (this.#editor.commands as unknown as {
-      setTextColorToken: (t: string | null) => boolean;
-    }).setTextColorToken(token);
+    (
+      this.#editor.commands as unknown as {
+        setTextColorToken: (t: string | null) => boolean;
+      }
+    ).setTextColorToken(token);
     this.#syncFromSelection();
     this.#updateActiveClasses();
-    this.dispatchEvent(
-      new CustomEvent('apply', { detail: { kind: 'text', token } }),
-    );
+    this.dispatchEvent(new CustomEvent('apply', { detail: { kind: 'text', token } }));
   }
 
   /** Apply a background color token to the current selection. Picker stays open. */
   applyBg(token: string | null): void {
     if (this.#destroyed) return;
-    (this.#editor.commands as unknown as {
-      setBackgroundColorToken: (t: string | null) => boolean;
-    }).setBackgroundColorToken(token);
+    (
+      this.#editor.commands as unknown as {
+        setBackgroundColorToken: (t: string | null) => boolean;
+      }
+    ).setBackgroundColorToken(token);
     this.#syncFromSelection();
     this.#updateActiveClasses();
-    this.dispatchEvent(
-      new CustomEvent('apply', { detail: { kind: 'bg', token } }),
-    );
+    this.dispatchEvent(new CustomEvent('apply', { detail: { kind: 'bg', token } }));
   }
 
   /** Display label for a palette token (title-case fallback). */
@@ -335,8 +339,7 @@ export class DomternalNotionColorPicker extends EventTarget {
     let mark: { attrs: Record<string, unknown> } | null = null;
 
     if (selection.empty) {
-      mark =
-        selection.$from.marks().find((m) => m.type.name === 'textStyle') ?? null;
+      mark = selection.$from.marks().find((m) => m.type.name === 'textStyle') ?? null;
     } else {
       this.#editor.state.doc.nodesBetween(selection.from, selection.to, (node) => {
         if (mark) return false;
@@ -383,7 +386,9 @@ export class DomternalNotionColorPicker extends EventTarget {
     panel.setAttribute('role', 'dialog');
     panel.setAttribute('aria-label', 'Text and background color');
     panel.setAttribute('aria-modal', 'false');
-    panel.addEventListener('keydown', (e) => { this.#onPanelKeydown(e); });
+    panel.addEventListener('keydown', (e) => {
+      this.#onPanelKeydown(e);
+    });
     panel.append(...this.#renderSections());
     return panel;
   }
@@ -394,13 +399,17 @@ export class DomternalNotionColorPicker extends EventTarget {
         label: 'Text color',
         variant: 'text',
         activeToken: this.#currentTextToken,
-        onApply: (t) => { this.applyText(t); },
+        onApply: (t) => {
+          this.applyText(t);
+        },
       }),
       this.#createSection({
         label: 'Background color',
         variant: 'bg',
         activeToken: this.#currentBgToken,
-        onApply: (t) => { this.applyBg(t); },
+        onApply: (t) => {
+          this.applyBg(t);
+        },
       }),
     ];
   }
@@ -430,15 +439,13 @@ export class DomternalNotionColorPicker extends EventTarget {
         label: opts.variant === 'text' ? 'Default text color' : 'Default background',
         activeToken: opts.activeToken,
         onApply: opts.onApply,
-      }),
+      })
     );
 
     // Named token swatches
     for (const t of this.#palette) {
       const label =
-        opts.variant === 'text'
-          ? `${this.tokenLabel(t)} text`
-          : `${this.tokenLabel(t)} background`;
+        opts.variant === 'text' ? `${this.tokenLabel(t)} text` : `${this.tokenLabel(t)} background`;
       grid.appendChild(
         this.#createSwatch({
           token: t,
@@ -446,7 +453,7 @@ export class DomternalNotionColorPicker extends EventTarget {
           label,
           activeToken: opts.activeToken,
           onApply: opts.onApply,
-        }),
+        })
       );
     }
 
@@ -469,11 +476,17 @@ export class DomternalNotionColorPicker extends EventTarget {
     swatch.dataset['color'] = opts.token ?? 'null';
     swatch.title =
       opts.token === null
-        ? (opts.variant === 'text' ? 'Default text color' : 'Default background')
+        ? opts.variant === 'text'
+          ? 'Default text color'
+          : 'Default background'
         : this.tokenLabel(opts.token);
     swatch.setAttribute('aria-label', opts.label);
-    swatch.addEventListener('mousedown', (e) => { e.preventDefault(); });
-    swatch.addEventListener('click', () => { opts.onApply(opts.token); });
+    swatch.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+    });
+    swatch.addEventListener('click', () => {
+      opts.onApply(opts.token);
+    });
     return swatch;
   }
 
@@ -481,10 +494,10 @@ export class DomternalNotionColorPicker extends EventTarget {
   #updateActiveClasses(): void {
     if (!this.#panel) return;
     const textSwatches = Array.from(
-      this.#panel.querySelectorAll<HTMLButtonElement>('.dm-ncp-swatch--text'),
+      this.#panel.querySelectorAll<HTMLButtonElement>('.dm-ncp-swatch--text')
     );
     const bgSwatches = Array.from(
-      this.#panel.querySelectorAll<HTMLButtonElement>('.dm-ncp-swatch--bg'),
+      this.#panel.querySelectorAll<HTMLButtonElement>('.dm-ncp-swatch--bg')
     );
     for (const sw of textSwatches) {
       const token = sw.dataset['color'] === 'null' ? null : (sw.dataset['color'] ?? null);
@@ -524,9 +537,7 @@ export class DomternalNotionColorPicker extends EventTarget {
           return rect;
         }
         if (this.#anchorBubbleMenu?.isConnected) {
-          const fresh = this.#anchorBubbleMenu.querySelector<HTMLElement>(
-            '.dm-ncp-trigger',
-          );
+          const fresh = this.#anchorBubbleMenu.querySelector<HTMLElement>('.dm-ncp-trigger');
           if (fresh) {
             this.#anchor = fresh;
             const rect = fresh.getBoundingClientRect();
@@ -547,7 +558,7 @@ export class DomternalNotionColorPicker extends EventTarget {
         if (!this.#panel?.isConnected) return;
         const active = this.#panel.querySelector<HTMLElement>('.dm-ncp-swatch.dm-ncp-active');
         const fallback = this.#panel.querySelector<HTMLElement>(
-          '.dm-ncp-swatch--text[data-color="null"]',
+          '.dm-ncp-swatch--text[data-color="null"]'
         );
         (active ?? fallback)?.focus({ preventScroll: true });
       });
@@ -575,7 +586,7 @@ export class DomternalNotionColorPicker extends EventTarget {
         if (this.#anchor?.contains(target)) return;
         this.close();
       },
-      { signal },
+      { signal }
     );
 
     document.addEventListener(
@@ -586,7 +597,7 @@ export class DomternalNotionColorPicker extends EventTarget {
           this.close({ refocus: true });
         }
       },
-      { signal },
+      { signal }
     );
   }
 
@@ -603,9 +614,7 @@ export class DomternalNotionColorPicker extends EventTarget {
   #onPanelKeydown(event: KeyboardEvent): void {
     const cols = 5;
     if (!this.#panel) return;
-    const swatches = Array.from(
-      this.#panel.querySelectorAll<HTMLElement>('.dm-ncp-swatch'),
-    );
+    const swatches = Array.from(this.#panel.querySelectorAll<HTMLElement>('.dm-ncp-swatch'));
     if (!swatches.length) return;
 
     const active = document.activeElement;
@@ -613,7 +622,7 @@ export class DomternalNotionColorPicker extends EventTarget {
     const idx = swatches.indexOf(active);
     if (idx === -1) return;
 
-    let next = idx;
+    let next: number;
     switch (event.key) {
       case 'ArrowRight':
         event.preventDefault();

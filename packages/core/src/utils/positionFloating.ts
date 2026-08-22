@@ -180,7 +180,7 @@ export function positionFloating(
   // ancestorScroll is always off: when rAF is enabled it's redundant,
   // when rAF is disabled (trackScroll:false) no scroll tracking is wanted.
   const trackScroll = options?.trackScroll ?? true;
-  return autoUpdate(reference as Element, floating, update, {
+  return autoUpdate(reference, floating, update, {
     ancestorScroll: false,
     animationFrame: trackScroll,
   });
@@ -231,7 +231,7 @@ export function positionFloatingOnce(
   // are stable across scrolls - only flip/shift decisions change (discrete
   // jump, not continuous jitter).
   const trackScroll = options?.trackScroll ?? true;
-  return autoUpdate(reference as Element, floating, update, {
+  return autoUpdate(reference, floating, update, {
     ancestorScroll: trackScroll,
     layoutShift: false,
   });

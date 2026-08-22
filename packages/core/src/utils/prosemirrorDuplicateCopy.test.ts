@@ -160,7 +160,7 @@ describe('a real second copy of @domternal/core', () => {
     let message = '';
     try {
       editors.push(
-        new Editor({ element, extensions: [Document, second.Paragraph as never, Text] })
+        new Editor({ element, extensions: [Document, second.Paragraph, Text] })
       );
     } catch (error) {
       message = error instanceof Error ? error.message : '';
@@ -180,7 +180,7 @@ describe('a real second copy of @domternal/core', () => {
     let error: unknown;
     try {
       editors.push(
-        new Editor({ element, extensions: [Document, second.Paragraph as never, Text] })
+        new Editor({ element, extensions: [Document, second.Paragraph, Text] })
       );
     } catch (caught) {
       error = caught;
@@ -204,7 +204,7 @@ describe('a real second copy of @domternal/core', () => {
 
     expect(() => {
       editors.push(
-        new Editor({ element, extensions: [Document, Paragraph, Text, Bundle as never] })
+        new Editor({ element, extensions: [Document, Paragraph, Text, Bundle] })
       );
     }).toThrow(/was built by a different copy/);
   });

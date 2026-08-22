@@ -5,37 +5,66 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  merge_group: {}
+  workflow_dispatch: {}
+  schedule:
+    # Exercises the pinned Node/runner/toolchain even when main is quiet.
+    - cron: '17 4 * * 1'
 
-# A second push to the same branch makes the first run pointless. Without this
-# both run to completion, and the older one can report last.
+# A newer run supersedes an older run on the same branch.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# This repository is public and the job holds a Codecov token, so the default
-# write scope is more than any step here needs.
+# Default every job to the smallest repository permission. Only the isolated
+# coverage job adds the short-lived OIDC permission Codecov needs; no long-lived
+# upload token is exposed to pull-request code.
 permissions:
   contents: read
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The whole job takes a few minutes. The GitHub default is six hours, which
     # is what a hung vitest or tsc would otherwise burn.
     timeout-minutes: 30
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Lint GitHub Actions workflows
+        # actionlint has no first-party JS action. Download the versioned binary
+        # and verify its published digest before executing it.
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl --fail --location --silent --show-error --retry 3 --retry-all-errors \
+            --output "$archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "$ACTIONLINT_SHA256  $archive" | sha256sum --check --strict
+          tar --extract --gzip --file "$archive" --directory "$RUNNER_TEMP" actionlint
+          printf '%s\n' '{}' > "$RUNNER_TEMP/actionlint.yaml"
+          "$RUNNER_TEMP/actionlint" -config-file "$RUNNER_TEMP/actionlint.yaml" -color
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        # v6.0.9 regressed projects that pin pnpm 10; v6.0.8 is the latest
+        # verified release for this repository until that upstream issue closes.
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        with:
+          version: 10.34.4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -44,37 +73,19 @@ jobs:
         # A gate in package.json that no step invokes passes locally, never runs
         # on a pull request, and reads as coverage that does not exist. Cheap and
         # early, because it needs nothing built.
+        # These two explicit values also keep workflow/job run defaults from
+        # replacing or relocating the checker before it can reject them.
+        shell: bash
+        working-directory: ${{ github.workspace }}
         run: pnpm test:ci-wiring
 
       - name: Lint
         run: pnpm lint
 
-      - name: Forbid relative-path module augmentations
-        # Tsup dts bundling does not preserve `declare module '../...'`
-        # paths, so any relative-path augmentation silently disappears
-        # from the published surface. Always augment by package name.
-        run: |
-          matches=$(grep -rn "declare module '\." packages/*/src 2>/dev/null || true)
-          if [ -n "$matches" ]; then
-            echo "$matches"
-            echo ""
-            echo "Use a package name (e.g. '@domternal/core') instead of a relative path."
-            exit 1
-          fi
-
-      - name: Forbid direct prosemirror-* imports
-        # Everything must go through @domternal/pm, which is the single
-        # place a consumer can pin. A direct import resolves against the
-        # importing package's own node_modules, which is how a second copy
-        # of an identity-compared module gets into a bundle.
-        run: |
-          matches=$(grep -rnE "from '(prosemirror-[a-z-]+)'" packages/*/src --include=*.ts --include=*.tsx --include=*.mts --include=*.cts --include=*.js --include=*.jsx --include=*.mjs --include=*.cjs 2>/dev/null | grep -v '^packages/pm/' || true)
-          if [ -n "$matches" ]; then
-            echo "$matches"
-            echo ""
-            echo "Import from '@domternal/pm/<subpath>' instead."
-            exit 1
-          fi
+      - name: Source boundary policy
+        # AST-based: covers both quote styles plus import, export, dynamic
+        # import, require and import-type syntax without matching comments.
+        run: pnpm test:source-boundaries
 
       - name: Type check
         run: pnpm typecheck
@@ -132,23 +143,12 @@ jobs:
         # of any of them is a runtime crash rather than extra bytes.
         run: pnpm test:single-prosemirror
 
-      - name: Dedupe entries reach the project root
-        # Vite resolves a deduped id from the project root. On Vite 8 an id it
-        # cannot reach there is ignored silently, so an app that looks protected
-        # is not. The only list is domternal.dev's, a nested repository this one
-        # excludes, so here the gate prints SKIPPED and does its real work on a
-        # machine that has the checkout. test:ci-wiring counts it apart.
-        run: pnpm test:dedupe-reachable
-
-      - name: ProseMirror ranges still agree
-        # `@domternal/pm` ships the prosemirror packages as dependencies while
-        # y-prosemirror takes them as peers. They unify only while their ranges
-        # can be satisfied together; a major bump on either side would end that
-        # for every consumer, with nothing warning at install time. Only
-        # domternal.dev pulls y-prosemirror in, and that is a nested repository
-        # this one excludes, so here the gate prints SKIPPED and does its real
-        # work on a machine that has the checkout.
-        run: pnpm test:pm-ranges
+      - name: Cross-repository policy unit suites
+        # The full checks need the sibling Pro checkout and remain local-only.
+        # Their parsers and contract fixtures are deterministic and belong in CI.
+        run: |
+          pnpm test:dedupe-reachable:unit
+          pnpm test:pm-ranges:unit
 
       - name: Frozen single-copy contract
         # Every caller registering a module must pass the SAME export, or two
@@ -194,28 +194,37 @@ jobs:
         run: |
           pnpm --filter demo-angular typecheck
           pnpm --filter demo-react typecheck
+          pnpm --filter demo-vanilla typecheck
           pnpm --filter demo-vue typecheck
 
       - name: Test with coverage
         run: pnpm test:coverage
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+      - name: Require every coverage report
+        # A package disappearing from Codecov is a failure, not a smaller upload.
+        run: pnpm test:coverage-reports
+
+      - name: Preserve coverage for the isolated upload job
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
-          files: >-
-            ./packages/core/coverage/lcov.info,
-            ./packages/extension-block-controls/coverage/lcov.info,
-            ./packages/extension-code-block-lowlight/coverage/lcov.info,
-            ./packages/extension-details/coverage/lcov.info,
-            ./packages/extension-emoji/coverage/lcov.info,
-            ./packages/extension-image/coverage/lcov.info,
-            ./packages/extension-markdown/coverage/lcov.info,
-            ./packages/extension-math/coverage/lcov.info,
-            ./packages/extension-mention/coverage/lcov.info,
-            ./packages/extension-table/coverage/lcov.info,
-            ./packages/extension-toc/coverage/lcov.info
+          name: coverage-reports
+          # Upload only inert coverage data. Never pass a repository-created
+          # archive into the OIDC job or extract one into its filesystem.
+          path: |
+            packages/core/coverage/lcov.info
+            packages/extension-block-controls/coverage/lcov.info
+            packages/extension-block-menu/coverage/lcov.info
+            packages/extension-code-block-lowlight/coverage/lcov.info
+            packages/extension-details/coverage/lcov.info
+            packages/extension-emoji/coverage/lcov.info
+            packages/extension-image/coverage/lcov.info
+            packages/extension-markdown/coverage/lcov.info
+            packages/extension-math/coverage/lcov.info
+            packages/extension-mention/coverage/lcov.info
+            packages/extension-table/coverage/lcov.info
+            packages/extension-toc/coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Validate packages
         run: |
@@ -225,7 +234,7 @@ jobs:
           # fflate 0.8.x Gunzip fires its callback multiple times (last chunk
           # empty), which makes attw 0.14.0+ crash with
           # "Cannot read properties of undefined (reading 'filename')".
-          for pkg in packages/pm packages/core packages/theme packages/angular packages/react packages/vue packages/vanilla packages/extension-block-controls packages/extension-block-menu packages/extension-table packages/extension-image packages/extension-math packages/extension-emoji packages/extension-mention packages/extension-details packages/extension-code-block-lowlight packages/extension-markdown packages/extension-toc; do
+          for pkg in packages/angular packages/core packages/extension-block-controls packages/extension-block-menu packages/extension-code-block-lowlight packages/extension-details packages/extension-emoji packages/extension-image packages/extension-markdown packages/extension-math packages/extension-mention packages/extension-table packages/extension-toc packages/pm packages/react packages/theme packages/vanilla packages/vue; do
             echo "--- Validating $pkg ---"
             cd "$pkg"
             pnpm exec publint --strict
@@ -238,3 +247,65 @@ jobs:
             fi
             cd "$GITHUB_WORKSPACE"
           done
+
+  coverage:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # No repository-controlled dependency or test code executes in this job.
+    # The downloaded artifact contains only the fixed lcov allowlist; no
+    # repository-created nested archive is executed or manually extracted.
+    # OIDC exists only here and only the pinned Codecov action consumes it.
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout coverage commit metadata
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Download coverage reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: coverage-reports
+          # upload-artifact stores paths below their common `packages/` root.
+          # Restore them beside their source so lcov's package-relative SF
+          # entries resolve without relying on a remote path-fixing heuristic.
+          path: ${{ github.workspace }}/packages
+
+      - name: Verify the fixed coverage allowlist
+        shell: bash
+        run: |
+          set -euo pipefail
+          for report in \
+            "$GITHUB_WORKSPACE/packages/core/coverage/lcov.info" \
+            "$GITHUB_WORKSPACE/packages/extension-block-controls/coverage/lcov.info" \
+            "$GITHUB_WORKSPACE/packages/extension-block-menu/coverage/lcov.info" \
+            "$GITHUB_WORKSPACE/packages/extension-code-block-lowlight/coverage/lcov.info" \
+            "$GITHUB_WORKSPACE/packages/extension-details/coverage/lcov.info" \
+            "$GITHUB_WORKSPACE/packages/extension-emoji/coverage/lcov.info" \
+            "$GITHUB_WORKSPACE/packages/extension-image/coverage/lcov.info" \
+            "$GITHUB_WORKSPACE/packages/extension-markdown/coverage/lcov.info" \
+            "$GITHUB_WORKSPACE/packages/extension-math/coverage/lcov.info" \
+            "$GITHUB_WORKSPACE/packages/extension-mention/coverage/lcov.info" \
+            "$GITHUB_WORKSPACE/packages/extension-table/coverage/lcov.info" \
+            "$GITHUB_WORKSPACE/packages/extension-toc/coverage/lcov.info"; do
+            if [ ! -f "$report" ] || [ -L "$report" ] || [ ! -s "$report" ]; then
+              echo "Coverage artifact is missing a regular, non-empty report: $report" >&2
+              exit 1
+            fi
+          done
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          # Fork PRs use Codecov's public-repository tokenless upload. Trusted
+          # events authenticate with a short-lived GitHub OIDC assertion.
+          use_oidc: ${{ github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork }}
+          version: v11.3.1
+          fail_ci_if_error: true
+          disable_search: true
+          files: ${{ github.workspace }}/packages/core/coverage/lcov.info,${{ github.workspace }}/packages/extension-block-controls/coverage/lcov.info,${{ github.workspace }}/packages/extension-block-menu/coverage/lcov.info,${{ github.workspace }}/packages/extension-code-block-lowlight/coverage/lcov.info,${{ github.workspace }}/packages/extension-details/coverage/lcov.info,${{ github.workspace }}/packages/extension-emoji/coverage/lcov.info,${{ github.workspace }}/packages/extension-image/coverage/lcov.info,${{ github.workspace }}/packages/extension-markdown/coverage/lcov.info,${{ github.workspace }}/packages/extension-math/coverage/lcov.info,${{ github.workspace }}/packages/extension-mention/coverage/lcov.info,${{ github.workspace }}/packages/extension-table/coverage/lcov.info,${{ github.workspace }}/packages/extension-toc/coverage/lcov.info

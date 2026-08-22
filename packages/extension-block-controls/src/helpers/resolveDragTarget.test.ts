@@ -68,7 +68,7 @@ function stubViewLayout(
 const rect = (top: number, left: number, height: number, width: number): DOMRect => ({
   top, left, right: left + width, bottom: top + height,
   x: left, y: top, width, height, toJSON: () => ({}),
-} as DOMRect);
+});
 
 describe('resolveDragTarget - deepest-match mode (no gutter bias)', () => {
   it('returns the deepest list item under the cursor', () => {

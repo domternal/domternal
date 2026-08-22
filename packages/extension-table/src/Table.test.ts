@@ -838,7 +838,7 @@ describe('Commands', () => {
 
   describe('NodeView configuration', () => {
     it('returns undefined NodeViewConstructor when View is null', () => {
-      const TableNoView = Table.configure({ View: null as any });
+      const TableNoView = Table.configure({ View: null });
       editor = new Editor({
         extensions: [Document, Text, Paragraph, TableNoView, TableRow, TableCell, TableHeader],
         content: '<table><tr><td><p>A</p></td></tr></table>',
@@ -991,7 +991,7 @@ describe('Commands', () => {
         content: '<table><tr><td><p>A</p></td></tr></table>',
       });
       const sel = CellSelection.create(editor.state.doc, 2, 2);
-      editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+      editor.view.dispatch(editor.state.tr.setSelection(sel));
 
       const result = editor.commands.toggleHeaderCell();
       expect(typeof result).toBe('boolean');
@@ -1005,7 +1005,7 @@ describe('Commands', () => {
         content: '<table><tr><td><p>A</p></td><td><p>B</p></td></tr></table>',
       });
       const sel = CellSelection.create(editor.state.doc, 2, 7);
-      editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+      editor.view.dispatch(editor.state.tr.setSelection(sel));
 
       const result = editor.commands.mergeCells();
       expect(result).toBe(true);
@@ -1017,7 +1017,7 @@ describe('Commands', () => {
         content: '<table><tr><td colspan="2"><p>AB</p></td></tr><tr><td><p>C</p></td><td><p>D</p></td></tr></table>',
       });
       const sel = CellSelection.create(editor.state.doc, 2, 2);
-      editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+      editor.view.dispatch(editor.state.tr.setSelection(sel));
 
       const result = editor.commands.splitCell();
       expect(result).toBe(true);
@@ -1153,7 +1153,7 @@ describe('Commands', () => {
       // first cell at offset 1, second cell at offset 6
       const sel = CellSelection.create(editor.state.doc, 2, 7);
       const { tr } = editor.state;
-      tr.setSelection(sel as unknown as typeof tr.selection);
+      tr.setSelection(sel);
       editor.view.dispatch(tr);
 
       const result = editor.commands.mergeCells();
@@ -1965,7 +1965,7 @@ describe('Backspace/Delete deletes table when all cells selected', () => {
   function selectAllCells(): void {
     const { first, last } = findCellPositions();
     const sel = CellSelection.create(editor.state.doc, first, last);
-    editor.view.dispatch(editor.state.tr.setSelection(sel as unknown as typeof editor.state.tr.selection));
+    editor.view.dispatch(editor.state.tr.setSelection(sel));
   }
 
   it('Backspace handler deletes table when all cells selected', () => {

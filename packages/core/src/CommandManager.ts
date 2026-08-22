@@ -85,9 +85,8 @@ export class CommandManager {
     const { editor } = this;
 
     return {
-      // Cast needed: CommandManagerEditor is a minimal interface for dependency injection,
-      // but CommandProps expects the full Editor type. Callers pass the actual Editor instance.
-      editor: editor as unknown as CommandProps['editor'],
+      // CommandManagerEditor is intentionally the minimal shape CommandProps consumes here.
+      editor: editor,
       state: editor.state,
       tr,
       dispatch,

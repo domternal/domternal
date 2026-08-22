@@ -87,7 +87,7 @@ export function autolinkPlugin(options: AutolinkPluginOptions): Plugin {
 
         // Use linkifyjs to find URLs in the text
         const matches = find(textBefore, {
-          defaultProtocol: defaultProtocol as 'http' | 'https',
+          defaultProtocol: defaultProtocol,
         });
 
         // Get the last match (most recent URL)
