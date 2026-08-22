@@ -11,8 +11,7 @@ on:
     # Exercises the pinned Node/runner/toolchain even when main is quiet.
     - cron: '17 4 * * 1'
 
-# A second push to the same branch makes the first run pointless. Without this
-# both run to completion, and the older one can report last.
+# A newer run supersedes an older run on the same branch.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
