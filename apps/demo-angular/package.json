@@ -42,7 +42,7 @@
     "@domternal/extension-table": "workspace:*",
     "@domternal/extension-toc": "workspace:*",
     "@domternal/theme": "workspace:*",
-    "katex": "^0.17.0",
+    "katex": "^0.18.4",
     "lowlight": "^3.0.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"

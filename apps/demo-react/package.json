@@ -25,7 +25,7 @@
     "@domternal/extension-toc": "workspace:*",
     "@domternal/react": "workspace:*",
     "@domternal/theme": "workspace:*",
-    "katex": "^0.17.0",
+    "katex": "^0.18.4",
     "lowlight": "^3.0.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
