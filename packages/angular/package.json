@@ -32,7 +32,7 @@
     "@angular/common": "^21.2.20",
     "@angular/compiler": "^21.2.20",
     "@angular/compiler-cli": "^21.2.20",
-    "@angular/core": "^21.2.20",
+    "@angular/core": "^22.1.2",
     "@angular/forms": "^21.2.20",
     "@angular/platform-browser": "^21.2.20",
     "@domternal/core": "workspace:*",
