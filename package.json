@@ -93,7 +93,7 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
     "@eslint/js": "^10.0.1",
-    "@nx/js": "22.7.8",
+    "@nx/js": "23.1.1",
     "@playwright/test": "^1.58.2",
     "@types/node": "^22.20.1",
     "@vitest/coverage-v8": "^4.1.10",
