@@ -1,5 +1,7 @@
 version: 2
 
+# Dependency updates are reviewed manually. Keep the configuration explicit
+# while preventing scheduled version-update pull requests.
 updates:
   - package-ecosystem: npm
     directory: /
@@ -8,7 +10,7 @@ updates:
       day: monday
       time: '06:00'
       timezone: Europe/Zagreb
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 0
     # Keep library compatibility floors stable when the declared range already
     # accepts an update; raise them only when the update actually requires it.
     versioning-strategy: increase-if-necessary
@@ -29,7 +31,7 @@ updates:
       day: monday
       time: '06:15'
       timezone: Europe/Zagreb
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 0
     groups:
       github-actions:
         patterns: ['*']
