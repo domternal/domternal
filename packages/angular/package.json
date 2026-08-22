@@ -33,7 +33,7 @@
     "@angular/compiler": "^21.2.20",
     "@angular/compiler-cli": "^21.2.20",
     "@angular/core": "^21.2.20",
-    "@angular/forms": "^21.2.20",
+    "@angular/forms": "^22.1.2",
     "@angular/platform-browser": "^21.2.20",
     "@domternal/core": "workspace:*",
     "ng-packagr": "^21.0.0",
