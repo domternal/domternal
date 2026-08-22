@@ -28,11 +28,9 @@ body:
   - type: input
     id: revision
     attributes:
-      label: Self-hosting revision
-      description: Provide the release, tag or full commit SHA you deployed.
+      label: Self-hosting revision (optional)
+      description: If known, provide the release, tag or full commit SHA you deployed.
       placeholder: 'v1.0.0 or 0123456789abcdef...'
-    validations:
-      required: true
 
   - type: dropdown
     id: deployment
@@ -44,47 +42,35 @@ body:
         - Direct Node.js process
         - Kubernetes or another container platform
         - Other
+        - Not applicable or not sure
     validations:
       required: true
 
   - type: dropdown
     id: architecture
     attributes:
-      label: Host architecture
+      label: Host architecture (optional)
       options:
         - amd64 / x86_64
         - arm64 / aarch64
         - Other or not sure
-    validations:
-      required: true
 
   - type: textarea
     id: environment
     attributes:
-      label: Environment
-      description: Include the host OS and relevant Docker, Docker Compose and Node.js versions.
+      label: Environment (optional)
+      description: Share any known host OS and relevant Docker, Docker Compose or Node.js versions.
       placeholder: |
         OS: Ubuntu 24.04
-        Architecture: amd64
         Docker: 28.x
         Docker Compose: 2.x
         Node.js, if used directly: 22.x
-    validations:
-      required: true
 
   - type: textarea
-    id: expected
+    id: what-happened
     attributes:
-      label: Expected behavior
-      description: What did you expect to happen?
-    validations:
-      required: true
-
-  - type: textarea
-    id: actual
-    attributes:
-      label: Actual behavior
-      description: What happened instead?
+      label: What happened
+      description: What did you do, what happened, and what did you expect instead?
     validations:
       required: true
 
@@ -113,7 +99,5 @@ body:
     attributes:
       label: Safety confirmation
       options:
-        - label: I removed all credentials, private data, databases, backups and customer content from this report.
-          required: true
-        - label: This is not a security vulnerability. Security reports follow the private security policy.
+        - label: I removed all credentials, private data, databases, backups and customer content, and confirm this is not a security vulnerability. Security reports follow the private security policy.
           required: true
