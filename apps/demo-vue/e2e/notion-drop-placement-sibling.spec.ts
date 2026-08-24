@@ -170,14 +170,23 @@ async function dragBlock(
  * Drag-over WITHOUT dropping. Used to assert indicator state mid-drag.
  * Caller is responsible for ending the drag with `dragend` to clean up.
  */
-async function startDragOver(page: Page, sourceBlock: Locator, targetBlock: Locator): Promise<{ handle: Locator; dt: JSHandle<DataTransfer> }> {
+async function startDragOver(
+  page: Page,
+  sourceBlock: Locator,
+  targetBlock: Locator,
+  position: { xReference?: Locator; xOffset?: number } = {},
+): Promise<{ handle: Locator; dt: JSHandle<DataTransfer> }> {
   await sourceBlock.hover();
   const dt = await page.evaluateHandle(() => new DataTransfer());
   const handle = page.locator(dragBtnSelector);
   await handle.dispatchEvent('dragstart', { dataTransfer: dt });
   const targetBox = await targetBlock.boundingBox();
   if (!targetBox) throw new Error('target has no bounding box');
-  const clientX = targetBox.x + 4;
+  const xReferenceBox = position.xReference
+    ? await position.xReference.boundingBox()
+    : targetBox;
+  if (!xReferenceBox) throw new Error('X reference has no bounding box');
+  const clientX = xReferenceBox.x + (position.xOffset ?? 4);
   const clientY = targetBox.y + targetBox.height * 0.8;
   await page.locator(editorSelector).dispatchEvent('dragover', { dataTransfer: dt, clientX, clientY });
   await flushIndicatorRaf(page);
@@ -428,13 +437,18 @@ test.describe('drop placement - indicator contract across target types', () => {
     // List item with [label paragraph, nested h2]. The slot model does not
     // make the nested heading an independent row, so its region belongs to the
     // parent list item: a drop there nests into the item (dashed) at the child
-    // slot next to the heading. startDragOver lands X at the heading's own
-    // indent, which is already past the nest threshold relative to the item.
+    // slot next to the heading. Keep Y inside the heading, but measure X from
+    // the parent item and land clearly past the 28px nesting threshold.
     await setContent(page, '<p>Top</p><ul><li><p>Label</p><h2>Nested</h2></li></ul>');
+    const nestedHeading = page.locator(`${editorSelector} h2:has-text("Nested")`);
     const { handle, dt } = await startDragOver(
       page,
       page.locator(`${editorSelector} p:has-text("Top")`),
-      page.locator(`${editorSelector} h2:has-text("Nested")`),
+      nestedHeading,
+      {
+        xReference: page.locator(`${editorSelector} li:has-text("Nested")`),
+        xOffset: 40,
+      },
     );
     const info = await page.evaluate(() => {
       const el = document.querySelector('.dm-block-drop-indicator');

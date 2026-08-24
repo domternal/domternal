@@ -3,11 +3,11 @@
  * frameworks.
  *
  * Two things are pinned here that nothing else can pin. The Notion selection
- * menu's order is a product decision (Notion's own: act on the selection,
- * change what the block is, attach something, then style it) and it is worth
- * one loud failure if it drifts. And the separator cleanup only shows itself
- * in rendered DOM: the resolver's unit tests prove the list, but the bar with
- * nothing on one side of it is a thing you see, and it was the visible defect.
+ * menu's order is a product decision: act on the selection, change what the
+ * block is, attach something, then style it. It is worth one loud failure if
+ * it drifts. The separator cleanup only shows itself in rendered DOM: the
+ * resolver's unit tests prove the list, but the bar with nothing on one side
+ * of it is a thing you see, and it was the visible defect.
  *
  * The four wrappers share one resolver in `@domternal/core` now. That is
  * exactly why these run per framework: the shared implementation is worth
@@ -80,13 +80,14 @@ async function selectInParagraph(page: Page, target: DemoTarget, text = 'selecti
 // ---------------------------------------------------------------------------
 
 for (const target of demoTargets) {
-  test(`${target.name}: the Notion selection menu is in Notion's order`, async ({ page }) => {
+  test(`${target.name}: the Notion selection menu keeps the product group order`, async ({ page }) => {
     await goNotion(page, target);
     await selectInParagraph(page, target);
 
     /* The whole menu, once, so a reordering fails here and nowhere else.
-       `ai` and `comment` are Pro items and resolve to nothing in a free demo;
-       the alignment dropdown at the end is the demo's own addition on top of
+       `ai` and `comment` form the leading action group, and both resolve to
+       nothing in a free demo. Their separator collapses, so Turn into leads.
+       The alignment dropdown at the end is the demo's own addition on top of
        the default, and the two trailing triggers are the menu's. */
     expect(await menuTokens(page)).toEqual([
       '▾heading',

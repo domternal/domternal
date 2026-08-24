@@ -31,16 +31,16 @@ describe('defaultBubbleContexts', () => {
     ]);
   });
 
-  it('orders the Notion-mode selection menu the way Notion does', () => {
+  it('orders Notion-mode selection actions before structure, attachment and styling', () => {
     editor = makeEditor();
     editor.view.dom.classList.add('dm-notion-mode');
     expect(defaultBubbleContexts(editor)['text']).toEqual([
       'ai',
+      'comment',
       '|',
       'heading',
       '|',
       'link',
-      'comment',
       '|',
       'bold',
       'italic',
