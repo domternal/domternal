@@ -54,7 +54,7 @@ async function visibleMenuTokens(page: Page): Promise<string[]> {
       .filter((element) => element.getClientRects().length > 0)
       .map((element) => {
         if (element.getAttribute('role') === 'separator') return '|';
-        return element.getAttribute('aria-label') ?? element.textContent?.trim() ?? '';
+        return element.getAttribute('aria-label') ?? element.textContent.trim();
       })
       .filter(Boolean),
   );
