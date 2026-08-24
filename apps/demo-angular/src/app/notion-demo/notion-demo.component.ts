@@ -76,6 +76,7 @@ import type { IconSet } from '@domternal/core';
 import { createLowlight, common } from 'lowlight';
 import katex from 'katex';
 import {
+  bubbleOrderFixtureExtensions,
   parseBubbleIconsParam,
   resolveBubbleIcons,
   type BubbleIconsParam,
@@ -138,6 +139,7 @@ export class NotionDemoComponent implements OnDestroy {
 
   private static buildExtensions(scrollParent: Element | null): AnyExtension[] {
     return [
+      ...bubbleOrderFixtureExtensions(),
       Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
       Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
       BulletList, OrderedList, TaskList,

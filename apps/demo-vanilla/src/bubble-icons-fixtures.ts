@@ -9,7 +9,7 @@
  * readable.
  */
 
-import type { IconSet } from '@domternal/core';
+import { Extension, type AnyExtension, type IconSet, type ToolbarItem } from '@domternal/core';
 
 export type BubbleIconsParam = 'default' | 'full' | 'partial' | 'empty' | 'malformed' | 'html';
 
@@ -79,4 +79,35 @@ export function parseBubbleItemsParam(): string[] | undefined {
   const value = params.get('bubble-items');
   if (!value) return undefined;
   return value.split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+function bubbleOrderItem(name: 'ai' | 'comment', label: string, icon: string): AnyExtension {
+  return Extension.create({
+    name: `bubbleOrderFixture${name}`,
+    addToolbarItems(): ToolbarItem[] {
+      return [{
+        type: 'button',
+        name,
+        command: 'focus',
+        icon,
+        label,
+        toolbar: false,
+        bubbleMenu: 'text',
+      }];
+    },
+  });
+}
+
+/** Test-only toolbar contributions used to resolve the Pro slots in the FREE default context. */
+export function bubbleOrderFixtureExtensions(): AnyExtension[] {
+  if (typeof window === 'undefined') return [];
+  const fixture = new URLSearchParams(window.location.search).get('bubble-order');
+  if (fixture === 'both') {
+    return [
+      bubbleOrderItem('ai', 'Ask AI', 'textB'),
+      bubbleOrderItem('comment', 'Comment', 'link'),
+    ];
+  }
+  if (fixture === 'comment') return [bubbleOrderItem('comment', 'Comment', 'link')];
+  return [];
 }

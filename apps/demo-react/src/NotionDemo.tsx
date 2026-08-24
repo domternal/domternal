@@ -67,6 +67,7 @@ import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { NOTION_DEMO_CONTENT } from './notion-demo-content.js';
 import {
+  bubbleOrderFixtureExtensions,
   parseBubbleIconsParam,
   resolveBubbleIcons,
   type BubbleIconsParam,
@@ -101,6 +102,7 @@ const PARAGRAPH_EXCLUSION_PARENTS = new Set([
 const TOAST_MS = { success: 1800, error: 2600 } as const;
 
 const buildExtensions = (scrollParent: Element | null): AnyExtension[] => [
+  ...bubbleOrderFixtureExtensions(),
   Italic, Bold, Underline, Strike, Code, Highlight, Subscript, Superscript, Link,
   Heading, Blockquote, CodeBlockLowlight.configure({ lowlight }), HardBreak, HorizontalRule,
   BulletList, OrderedList, TaskList,
