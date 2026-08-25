@@ -985,6 +985,9 @@ describe('BubbleMenu', () => {
         content: '<p>Hello world</p>',
       });
 
+      // Mock coordsAtPos for jsdom (no real layout)
+      editor.view.coordsAtPos = () => ({ left: 10, right: 50, top: 10, bottom: 30 });
+
       editor.view.dispatch(
         editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)),
       );
@@ -1008,6 +1011,9 @@ describe('BubbleMenu', () => {
         extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element, shouldShow: () => true })],
         content: '<p>Hello world</p>',
       });
+
+      // Mock coordsAtPos for jsdom (no real layout)
+      editor.view.coordsAtPos = () => ({ left: 10, right: 50, top: 10, bottom: 30 });
 
       editor.view.dispatch(
         editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)),
