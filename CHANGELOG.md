@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1 (2026-08-25)
+
+### Fixes
+
+- A bubble menu dismissed by a click outside the editor comes back when the same range is explicitly selected again; it used to stay locked until some other text was selected. Typing, a remote edit and a plain `focus()` still cannot pop it back over a selection the user has left alone. (#172)
+- The bubble menu's update guard keeps the DOM in step with a dismissal, and a pending show counts as shown, so a no-op transaction can neither leave the menu's element in a stale state nor keep re-arming the show timer. (#172)
+
 ## 1.0.0 (2026-08-25)
 
 ### Breaking
