@@ -1,6 +1,6 @@
 {
   "name": "@domternal/extension-block-menu",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "DEPRECATED: renamed to @domternal/extension-block-controls. This package is now a thin shim that re-exports it; removed in v1.0.0.",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",

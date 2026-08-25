@@ -3,7 +3,7 @@
  * Framework-agnostic ProseMirror editor engine
  */
 
-export const VERSION = '1.0.0';
+export const VERSION = '1.0.1';
 
 // === Type exports ===
 export type {

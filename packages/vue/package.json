@@ -1,6 +1,6 @@
 {
   "name": "@domternal/vue",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Vue 3 components for Domternal editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
