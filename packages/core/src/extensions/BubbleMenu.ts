@@ -215,19 +215,9 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
         const { selection } = newState;
         const { from, to } = selection;
 
-        // Reset suppression when the selection range changes, and also when a
-        // transaction sets the selection to the SAME range: re-selecting the
-        // words a dismissed menu belonged to is the user asking for it back.
-        // Without that second case a suppressing dismissal (an outside click,
-        // or the `dm:dismiss-overlays` a docked panel or a comment composer
-        // broadcasts) outlives the thing that caused it, and the menu stays
-        // locked for that text until some OTHER text is selected.
-        //
-        // `selectionSet` is the narrow signal on purpose: typing, a remote
-        // collaboration edit and a plain `focus()` all leave it false, so none
-        // of them can pop the menu back over a selection the user has left
-        // alone. Only an explicit setSelection, which is what the DOM observer
-        // dispatches for a click or a drag, counts as that gesture.
+        // Re-selecting the same range asks a dismissed menu back. Typing, a
+        // remote edit and a plain focus() leave `selectionSet` false, so none
+        // of them can pop it back over a selection the user has left alone.
         if (tr.selectionSet || from !== prevValue.from || to !== prevValue.to) {
           suppressed = false;
         }
@@ -362,19 +352,16 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
           // Skip if nothing changed - but reposition when the doc changed
           // while the menu is visible (e.g. image float attribute changed,
           // the DOM element moved but the selection stayed at the same pos)
+          // A dismissal hides the element without a transaction, so an unchanged
+          // state is no reason to leave the DOM as it is. A pending show counts
+          // as shown, or no-op transactions would keep re-arming its timer.
+          const domShown = element.hasAttribute('data-show') || updateTimeout !== null;
           if (
             state?.visible === prevPluginState?.visible &&
             state?.from === prevPluginState?.from &&
             state?.to === prevPluginState?.to &&
             !(state?.visible && view.state.doc !== prevState.doc) &&
-            // The DOM must already agree with the state. Every dismissal here
-            // hides the element without a transaction, so the two can fall out
-            // of step in BOTH directions, and an unchanged plugin state is then
-            // no reason to leave the DOM as it is. The hide direction always
-            // had its safety net; the show direction had none, so a menu
-            // dismissed over a selection could not come back while that exact
-            // selection stood, however the user asked for it.
-            element.hasAttribute('data-show') === Boolean(state?.visible)
+            domShown === Boolean(state?.visible)
           ) {
             return;
           }

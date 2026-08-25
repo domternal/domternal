@@ -994,9 +994,7 @@ describe('BubbleMenu', () => {
       editorEl?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: true }));
       expect(element.hasAttribute('data-show')).toBe(false);
 
-      // An edit past the selection (a remote collaboration change, say) shifts
-      // nothing the menu belonged to, so it must not pop back over text the
-      // user has left alone.
+      // An edit past the selection must not pop the menu back.
       const end = editor.state.doc.content.size - 1;
       editor.view.dispatch(editor.state.tr.insertText('!', end, end));
       expect(element.hasAttribute('data-show')).toBe(false);
@@ -1018,8 +1016,7 @@ describe('BubbleMenu', () => {
       editorEl?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: true }));
       expect(element.hasAttribute('data-show')).toBe(false);
 
-      // The SAME range, selected again: without this the menu stayed locked
-      // for that text until some other text was selected.
+      // The same range again: this stayed locked until other text was selected.
       editor.view.dispatch(
         editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)),
       );
