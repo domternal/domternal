@@ -101,7 +101,7 @@ pnpm lint       # Run linter
 pnpm typecheck  # Type check
 ```
 
-Requires Node.js >= 20 and pnpm >= 10.
+Requires Node.js >= 22 and pnpm >= 10.
 
 ## License
 
