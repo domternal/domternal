@@ -976,6 +976,59 @@ describe('BubbleMenu', () => {
       expect(editor).toBeDefined();
     });
 
+    it('a dismissal survives an edit that leaves the selection alone', () => {
+      const element = document.createElement('div');
+      document.body.appendChild(element);
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element, shouldShow: () => true })],
+        content: '<p>Hello world</p>',
+      });
+
+      // Mock coordsAtPos for jsdom (no real layout)
+      editor.view.coordsAtPos = () => ({ left: 10, right: 50, top: 10, bottom: 30 });
+
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)),
+      );
+      expect(element.hasAttribute('data-show')).toBe(true);
+
+      const editorEl = editor.view.dom.closest('.dm-editor');
+      editorEl?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: true }));
+      expect(element.hasAttribute('data-show')).toBe(false);
+
+      // An edit past the selection must not pop the menu back.
+      const end = editor.state.doc.content.size - 1;
+      editor.view.dispatch(editor.state.tr.insertText('!', end, end));
+      expect(element.hasAttribute('data-show')).toBe(false);
+    });
+
+    it('re-selecting the same range after a dismissal asks the menu back', () => {
+      const element = document.createElement('div');
+      document.body.appendChild(element);
+      editor = new Editor({
+        element: host,
+        extensions: [Document, Text, Paragraph, BubbleMenu.configure({ element, shouldShow: () => true })],
+        content: '<p>Hello world</p>',
+      });
+
+      // Mock coordsAtPos for jsdom (no real layout)
+      editor.view.coordsAtPos = () => ({ left: 10, right: 50, top: 10, bottom: 30 });
+
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)),
+      );
+      const editorEl = editor.view.dom.closest('.dm-editor');
+      editorEl?.dispatchEvent(new Event('dm:dismiss-overlays', { bubbles: true }));
+      expect(element.hasAttribute('data-show')).toBe(false);
+
+      // The same range again: this stayed locked until other text was selected.
+      editor.view.dispatch(
+        editor.state.tr.setSelection(TextSelection.create(editor.state.doc, 1, 6)),
+      );
+      expect(element.hasAttribute('data-show')).toBe(true);
+    });
+
     it('updateDelay > 0 schedules setTimeout then cleared on destroy', () => {
       const element = document.createElement('div');
       editor = new Editor({

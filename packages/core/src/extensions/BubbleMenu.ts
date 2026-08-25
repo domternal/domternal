@@ -163,7 +163,7 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
   };
 
   // When the user clicks outside the bubble menu and outside the editor
-  // (e.g. on the toolbar), suppress the menu until the selection changes.
+  // (e.g. on the toolbar), suppress the menu until the selection is set again.
   let suppressed = false;
 
   // Suppress bubble menu during active mouse drag inside the editor.
@@ -211,12 +211,14 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
         from: 0,
         to: 0,
       }),
-      apply: (_tr, prevValue, _oldState, newState): BubbleMenuPluginState => {
+      apply: (tr, prevValue, _oldState, newState): BubbleMenuPluginState => {
         const { selection } = newState;
         const { from, to } = selection;
 
-        // Reset suppression when the selection range changes
-        if (from !== prevValue.from || to !== prevValue.to) {
+        // Re-selecting the same range asks a dismissed menu back. Typing, a
+        // remote edit and a plain focus() leave `selectionSet` false, so none
+        // of them can pop it back over a selection the user has left alone.
+        if (tr.selectionSet || from !== prevValue.from || to !== prevValue.to) {
           suppressed = false;
         }
 
@@ -350,16 +352,17 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
           // Skip if nothing changed - but reposition when the doc changed
           // while the menu is visible (e.g. image float attribute changed,
           // the DOM element moved but the selection stayed at the same pos)
+          // A dismissal hides the element without a transaction, so an unchanged
+          // state is no reason to leave the DOM as it is. A pending show counts
+          // as shown, or no-op transactions would keep re-arming its timer.
+          const domShown = element.hasAttribute('data-show') || updateTimeout !== null;
           if (
             state?.visible === prevPluginState?.visible &&
             state?.from === prevPluginState?.from &&
             state?.to === prevPluginState?.to &&
-            !(state?.visible && view.state.doc !== prevState.doc)
+            !(state?.visible && view.state.doc !== prevState.doc) &&
+            domShown === Boolean(state?.visible)
           ) {
-            // Safety: ensure DOM matches state (onFocus setTimeout can race)
-            if (!state?.visible && element.hasAttribute('data-show')) {
-              hideMenu();
-            }
             return;
           }
 

@@ -4,8 +4,8 @@
  * Applies inline CSS styles to serialized HTML so it renders correctly
  * when pasted outside the editor (email clients, CMS, Google Docs, etc.).
  *
- * Uses hardcoded light-theme defaults (same approach as Google Docs, Notion,
- * TinyMCE). Optionally accepts overrides for custom styling.
+ * Uses hardcoded light-theme defaults (same approach as Google Docs or
+ * Notion). Optionally accepts overrides for custom styling.
  *
  * Only structural styles are inlined (borders, padding, margins, fonts).
  * Colors are NOT inlined - explicit colors (TextColor, Highlight, cell bg)

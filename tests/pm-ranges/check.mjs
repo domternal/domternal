@@ -4,11 +4,11 @@
  * no longer agree on one copy.
  *
  * This is the root cause, checked at its source. `@domternal/pm` declares the
- * `prosemirror-*` packages as ordinary dependencies, the way `@tiptap/pm` does
- * and for the same reason: a consumer installs one package instead of twelve,
- * and neither version of Yarn installs peer dependencies automatically, so
- * declaring them that way would turn a rare duplicate into a broken install for
- * every Yarn user. The guide records that decision in full.
+ * `prosemirror-*` packages as ordinary dependencies rather than peers, and
+ * deliberately so: a consumer installs one package instead of twelve, and
+ * neither version of Yarn installs peer dependencies automatically, so
+ * declaring them as peers would turn a rare duplicate into a broken install
+ * for every Yarn user. The guide records that decision in full.
  *
  * The price of that choice is this: the copy `@domternal/pm` brings and the
  * copy another library asks for are unified by the package manager only while
