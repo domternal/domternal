@@ -1,6 +1,6 @@
 {
   "name": "@domternal/angular",
-  "version": "0.15.0",
+  "version": "1.0.0",
   "description": "Angular components for Domternal editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
@@ -20,7 +20,7 @@
     "@angular/core": ">=17.1.0",
     "@angular/forms": ">=17.1.0",
     "@angular/platform-browser": ">=17.1.0",
-    "@domternal/core": ">=0.15.0"
+    "@domternal/core": ">=1.0.0"
   },
   "files": [
     "dist"

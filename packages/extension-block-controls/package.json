@@ -1,6 +1,6 @@
 {
   "name": "@domternal/extension-block-controls",
-  "version": "0.15.0",
+  "version": "1.0.0",
   "description": "Notion-style block controls for the Domternal editor: BlockHandle (hover gutter + drag), SlashCommand, FloatingMenu, ContextMenu, keyboard reorder, and SmartPaste",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
@@ -38,8 +38,8 @@
     "postpublish": "git checkout package.json"
   },
   "peerDependencies": {
-    "@domternal/core": ">=0.15.0",
-    "@domternal/pm": ">=0.15.0"
+    "@domternal/core": ">=1.0.0",
+    "@domternal/pm": ">=1.0.0"
   },
   "devDependencies": {
     "@domternal/core": "workspace:*",
