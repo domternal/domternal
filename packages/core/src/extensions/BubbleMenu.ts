@@ -163,7 +163,7 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
   };
 
   // When the user clicks outside the bubble menu and outside the editor
-  // (e.g. on the toolbar), suppress the menu until the selection changes.
+  // (e.g. on the toolbar), suppress the menu until the selection is set again.
   let suppressed = false;
 
   // Suppress bubble menu during active mouse drag inside the editor.
@@ -211,12 +211,24 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
         from: 0,
         to: 0,
       }),
-      apply: (_tr, prevValue, _oldState, newState): BubbleMenuPluginState => {
+      apply: (tr, prevValue, _oldState, newState): BubbleMenuPluginState => {
         const { selection } = newState;
         const { from, to } = selection;
 
-        // Reset suppression when the selection range changes
-        if (from !== prevValue.from || to !== prevValue.to) {
+        // Reset suppression when the selection range changes, and also when a
+        // transaction sets the selection to the SAME range: re-selecting the
+        // words a dismissed menu belonged to is the user asking for it back.
+        // Without that second case a suppressing dismissal (an outside click,
+        // or the `dm:dismiss-overlays` a docked panel or a comment composer
+        // broadcasts) outlives the thing that caused it, and the menu stays
+        // locked for that text until some OTHER text is selected.
+        //
+        // `selectionSet` is the narrow signal on purpose: typing, a remote
+        // collaboration edit and a plain `focus()` all leave it false, so none
+        // of them can pop the menu back over a selection the user has left
+        // alone. Only an explicit setSelection, which is what the DOM observer
+        // dispatches for a click or a drag, counts as that gesture.
+        if (tr.selectionSet || from !== prevValue.from || to !== prevValue.to) {
           suppressed = false;
         }
 
@@ -354,12 +366,16 @@ export function createBubbleMenuPlugin(options: CreateBubbleMenuPluginOptions): 
             state?.visible === prevPluginState?.visible &&
             state?.from === prevPluginState?.from &&
             state?.to === prevPluginState?.to &&
-            !(state?.visible && view.state.doc !== prevState.doc)
+            !(state?.visible && view.state.doc !== prevState.doc) &&
+            // The DOM must already agree with the state. Every dismissal here
+            // hides the element without a transaction, so the two can fall out
+            // of step in BOTH directions, and an unchanged plugin state is then
+            // no reason to leave the DOM as it is. The hide direction always
+            // had its safety net; the show direction had none, so a menu
+            // dismissed over a selection could not come back while that exact
+            // selection stood, however the user asked for it.
+            element.hasAttribute('data-show') === Boolean(state?.visible)
           ) {
-            // Safety: ensure DOM matches state (onFocus setTimeout can race)
-            if (!state?.visible && element.hasAttribute('data-show')) {
-              hideMenu();
-            }
             return;
           }
 
