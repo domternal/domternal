@@ -66,9 +66,9 @@
  *
  * ## A star re-export is recorded as an edge, not resolved through
  *
- * `@domternal/extension-block-menu` is a pure shim, and each `@domternal/pm`
- * subpath is one line of `export * from 'prosemirror-*'`. Neither owns the
- * names it forwards. Resolving through would copy hundreds of third-party
+ * Each `@domternal/pm` subpath is one line of `export * from 'prosemirror-*'`
+ * (as was the removed extension-block-menu shim). Neither owns the names it
+ * forwards. Resolving through would copy hundreds of third-party
  * symbols into our snapshots, and every upstream patch release would then show
  * up as drift in our public API, which is both untrue and the fastest way to
  * get a noisy gate switched off. So a star re-export is recorded as the edge

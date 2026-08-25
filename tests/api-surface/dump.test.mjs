@@ -433,7 +433,6 @@ test('this repository is covered end to end, with nothing dropping out', () => {
 
   const labels = new Set(targets.map((target) => target.label));
   assert.ok(labels.has('angular'), 'ng-packagr output is covered');
-  assert.ok(labels.has('extension-block-menu'), 'the re-export shim is covered');
   assert.ok(labels.has('pm__model'), 'every @domternal/pm subpath is covered');
   assert.equal([...labels].filter((label) => label.startsWith('pm__')).length, 12);
   assert.deepEqual(assetOnly, [

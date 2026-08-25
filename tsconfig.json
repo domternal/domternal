@@ -40,9 +40,6 @@
       "path": "./packages/extension-block-controls"
     },
     {
-      "path": "./packages/extension-block-menu"
-    },
-    {
       "path": "./packages/extension-toc"
     },
     {

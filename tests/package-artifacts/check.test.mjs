@@ -79,7 +79,7 @@ test('a policy that would bound nothing is refused', () => {
 test('the shipped policy compiles for every package it describes', () => {
   const policy = loadPolicy();
   for (const [name, entry] of policy) assert.doesNotThrow(() => compilePolicy(name, entry));
-  assert.ok(policy.size >= 18, `expected every package to be described, got ${String(policy.size)}`);
+  assert.ok(policy.size >= 17, `expected every package to be described, got ${String(policy.size)}`);
 });
 
 test('a missing required file and a file nothing allows are both named', () => {
