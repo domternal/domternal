@@ -1,6 +1,6 @@
 {
   "name": "@domternal/extension-block-menu",
-  "version": "0.15.0",
+  "version": "1.0.0",
   "description": "DEPRECATED: renamed to @domternal/extension-block-controls. This package is now a thin shim that re-exports it; removed in v1.0.0.",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
@@ -41,8 +41,8 @@
     "@domternal/extension-block-controls": "workspace:*"
   },
   "peerDependencies": {
-    "@domternal/core": ">=0.15.0",
-    "@domternal/pm": ">=0.15.0"
+    "@domternal/core": ">=1.0.0",
+    "@domternal/pm": ">=1.0.0"
   },
   "devDependencies": {
     "@domternal/core": "workspace:*",

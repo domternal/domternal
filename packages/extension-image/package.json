@@ -1,6 +1,6 @@
 {
   "name": "@domternal/extension-image",
-  "version": "0.15.0",
+  "version": "1.0.0",
   "description": "Image node extension for Domternal editor",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
@@ -38,8 +38,8 @@
     "postpublish": "git checkout package.json"
   },
   "peerDependencies": {
-    "@domternal/core": ">=0.15.0",
-    "@domternal/pm": ">=0.15.0"
+    "@domternal/core": ">=1.0.0",
+    "@domternal/pm": ">=1.0.0"
   },
   "devDependencies": {
     "@domternal/core": "workspace:*",

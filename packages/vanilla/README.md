@@ -22,7 +22,7 @@ Lit, Web Components, or plain HTML - anywhere without a framework runtime.
 pnpm add @domternal/core @domternal/theme @domternal/vanilla
 ```
 
-`@domternal/core` (>=0.15.0) is a peer dependency. `@domternal/theme` supplies the editor
+`@domternal/core` (>=1.0.0) is a peer dependency. `@domternal/theme` supplies the editor
 styles (import it once in your app).
 
 ## Usage

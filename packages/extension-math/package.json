@@ -1,6 +1,6 @@
 {
   "name": "@domternal/extension-math",
-  "version": "0.15.0",
+  "version": "1.0.0",
   "description": "LaTeX math (inline + block) for Domternal editor with a pluggable renderer (KaTeX by default)",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
@@ -38,8 +38,8 @@
     "postpublish": "git checkout package.json"
   },
   "peerDependencies": {
-    "@domternal/core": ">=0.15.0",
-    "@domternal/pm": ">=0.15.0",
+    "@domternal/core": ">=1.0.0",
+    "@domternal/pm": ">=1.0.0",
     "katex": "^0.16.0 || ^0.17.0"
   },
   "devDependencies": {

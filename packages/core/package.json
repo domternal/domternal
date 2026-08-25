@@ -1,6 +1,6 @@
 {
   "name": "@domternal/core",
-  "version": "0.15.0",
+  "version": "1.0.0",
   "description": "Framework-agnostic ProseMirror editor engine",
   "author": "https://github.com/ThomasNowHere",
   "license": "MIT",
