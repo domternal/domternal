@@ -38,6 +38,10 @@
 - The `@domternal/core`, `@domternal/extension-table` and `@domternal/theme` tarballs carry a `THIRD-PARTY-LICENSES.md` naming the Phosphor icons and the adapted ProseMirror stylesheets they embed, and a gate keeps the file in every future tarball. (#152)
 - The Notion color picker in all four wrappers validates its `palette` option at runtime and ignores a malformed one, instead of taking a value that is not an array of strings at its word. (#154)
 
+### Packages
+
+- Removed: `@domternal/extension-block-menu`, the deprecated rename shim from v0.10.0, ends with the 0.x line as announced there. Briefly published 1.0.x builds of it were withdrawn from the registry; import `@domternal/extension-block-controls` directly.
+
 ### Docs
 
 - Every package README is back in line with its source: the SSR helpers, theme token targets, print options, image placement, math editing and the newer commands had arrived in the packages before they arrived in the READMEs. (#152)

@@ -35,11 +35,6 @@
     "requiredFiles": ["LICENSE", "README.md", "package.json"],
     "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
   },
-  "@domternal/extension-block-menu": {
-    "maxPackedBytes": 4000,
-    "requiredFiles": ["LICENSE", "README.md", "package.json"],
-    "allowedPatterns": ["^dist/index\\.(js|cjs)(\\.map)?$", "^dist/index\\.d\\.(ts|cts)$"]
-  },
   "@domternal/extension-code-block-lowlight": {
     "maxPackedBytes": 14000,
     "requiredFiles": ["LICENSE", "README.md", "package.json"],

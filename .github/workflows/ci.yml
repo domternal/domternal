@@ -213,7 +213,6 @@ jobs:
           path: |
             packages/core/coverage/lcov.info
             packages/extension-block-controls/coverage/lcov.info
-            packages/extension-block-menu/coverage/lcov.info
             packages/extension-code-block-lowlight/coverage/lcov.info
             packages/extension-details/coverage/lcov.info
             packages/extension-emoji/coverage/lcov.info
@@ -234,7 +233,7 @@ jobs:
           # fflate 0.8.x Gunzip fires its callback multiple times (last chunk
           # empty), which makes attw 0.14.0+ crash with
           # "Cannot read properties of undefined (reading 'filename')".
-          for pkg in packages/angular packages/core packages/extension-block-controls packages/extension-block-menu packages/extension-code-block-lowlight packages/extension-details packages/extension-emoji packages/extension-image packages/extension-markdown packages/extension-math packages/extension-mention packages/extension-table packages/extension-toc packages/pm packages/react packages/theme packages/vanilla packages/vue; do
+          for pkg in packages/angular packages/core packages/extension-block-controls packages/extension-code-block-lowlight packages/extension-details packages/extension-emoji packages/extension-image packages/extension-markdown packages/extension-math packages/extension-mention packages/extension-table packages/extension-toc packages/pm packages/react packages/theme packages/vanilla packages/vue; do
             echo "--- Validating $pkg ---"
             cd "$pkg"
             pnpm exec publint --strict
@@ -283,7 +282,6 @@ jobs:
           for report in \
             "$GITHUB_WORKSPACE/packages/core/coverage/lcov.info" \
             "$GITHUB_WORKSPACE/packages/extension-block-controls/coverage/lcov.info" \
-            "$GITHUB_WORKSPACE/packages/extension-block-menu/coverage/lcov.info" \
             "$GITHUB_WORKSPACE/packages/extension-code-block-lowlight/coverage/lcov.info" \
             "$GITHUB_WORKSPACE/packages/extension-details/coverage/lcov.info" \
             "$GITHUB_WORKSPACE/packages/extension-emoji/coverage/lcov.info" \
@@ -308,4 +306,4 @@ jobs:
           version: v11.3.1
           fail_ci_if_error: true
           disable_search: true
-          files: ${{ github.workspace }}/packages/core/coverage/lcov.info,${{ github.workspace }}/packages/extension-block-controls/coverage/lcov.info,${{ github.workspace }}/packages/extension-block-menu/coverage/lcov.info,${{ github.workspace }}/packages/extension-code-block-lowlight/coverage/lcov.info,${{ github.workspace }}/packages/extension-details/coverage/lcov.info,${{ github.workspace }}/packages/extension-emoji/coverage/lcov.info,${{ github.workspace }}/packages/extension-image/coverage/lcov.info,${{ github.workspace }}/packages/extension-markdown/coverage/lcov.info,${{ github.workspace }}/packages/extension-math/coverage/lcov.info,${{ github.workspace }}/packages/extension-mention/coverage/lcov.info,${{ github.workspace }}/packages/extension-table/coverage/lcov.info,${{ github.workspace }}/packages/extension-toc/coverage/lcov.info
+          files: ${{ github.workspace }}/packages/core/coverage/lcov.info,${{ github.workspace }}/packages/extension-block-controls/coverage/lcov.info,${{ github.workspace }}/packages/extension-code-block-lowlight/coverage/lcov.info,${{ github.workspace }}/packages/extension-details/coverage/lcov.info,${{ github.workspace }}/packages/extension-emoji/coverage/lcov.info,${{ github.workspace }}/packages/extension-image/coverage/lcov.info,${{ github.workspace }}/packages/extension-markdown/coverage/lcov.info,${{ github.workspace }}/packages/extension-math/coverage/lcov.info,${{ github.workspace }}/packages/extension-mention/coverage/lcov.info,${{ github.workspace }}/packages/extension-table/coverage/lcov.info,${{ github.workspace }}/packages/extension-toc/coverage/lcov.info

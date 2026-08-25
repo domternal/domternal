@@ -24,7 +24,6 @@
  */
 import core = require('@domternal/core');
 import blockControls = require('@domternal/extension-block-controls');
-import blockMenu = require('@domternal/extension-block-menu');
 import lowlight = require('@domternal/extension-code-block-lowlight');
 import details = require('@domternal/extension-details');
 import emoji = require('@domternal/extension-emoji');
@@ -89,9 +88,6 @@ type _FloatingMenuResolves = Assert<
 >;
 /* Re-exported by extension-table from @domternal/pm/tables. */
 type _TableMapResolves = Assert<[NotAny<table.TableMap>] extends [never] ? false : true>;
-/* The rename shim owns no names: its whole .d.cts is one star re-export, so
-   what is proved here is that the star resolves under `require` too. */
-type _ShimResolves = Assert<[NotAny<blockMenu.FloatingMenuOptions>] extends [never] ? false : true>;
 /* Lowlight augments no commands, so an options type is what there is to touch. */
 type _LowlightResolves = Assert<
   [NotAny<lowlight.CodeBlockLowlightOptions>] extends [never] ? false : true

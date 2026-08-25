@@ -10,7 +10,6 @@
   "dependencies": {
     "@domternal/core": "workspace:*",
     "@domternal/extension-block-controls": "workspace:*",
-    "@domternal/extension-block-menu": "workspace:*",
     "@domternal/extension-code-block-lowlight": "workspace:*",
     "@domternal/extension-details": "workspace:*",
     "@domternal/extension-emoji": "workspace:*",
