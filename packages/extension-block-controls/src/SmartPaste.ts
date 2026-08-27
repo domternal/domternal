@@ -154,7 +154,7 @@ function handleSmartPaste(view: EditorView, slice: Slice): boolean {
     setCaretAtEndOfInserted(tr, insertAt, slice.content);
   }
 
-  view.dispatch(tr.scrollIntoView());
+  view.dispatch(tr.scrollIntoView().setMeta('paste', true).setMeta('uiEvent', 'paste'));
   return true;
 }
 
@@ -273,7 +273,7 @@ function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
     }
 
     setCaretAtEndOfInserted(tr, insertAt, adapted);
-    view.dispatch(tr.scrollIntoView());
+    view.dispatch(tr.scrollIntoView().setMeta('paste', true).setMeta('uiEvent', 'paste'));
     return true;
   }
 
@@ -310,7 +310,7 @@ function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
   }
 
   setCaretAtEndOfInserted(tr, insertedAt, content);
-  view.dispatch(tr.scrollIntoView());
+  view.dispatch(tr.scrollIntoView().setMeta('paste', true).setMeta('uiEvent', 'paste'));
   return true;
 }
 

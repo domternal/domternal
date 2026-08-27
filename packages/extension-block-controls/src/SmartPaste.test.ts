@@ -13,11 +13,14 @@ import {
   ListItem,
   TaskList,
   TaskItem,
+  History,
   Editor,
 } from '@domternal/core';
 import { Fragment } from '@domternal/pm/model';
 import type { Slice } from '@domternal/pm/model';
 import { TextSelection } from '@domternal/pm/state';
+import type { Transaction } from '@domternal/pm/state';
+import { redoDepth, undoDepth } from '@domternal/pm/history';
 import { SmartPaste } from './SmartPaste.js';
 
 const extensions = [
@@ -75,6 +78,71 @@ function findPos(
 }
 
 describe('SmartPaste', () => {
+  it.each([
+    {
+      route: 'block split',
+      initial: '<p>BeforeAfter</p>',
+      clipboard: '<h2>Imported</h2>',
+      expected: '<p>Before</p><h2>Imported</h2><p>After</p>',
+    },
+    {
+      route: 'same list kind',
+      initial: '<ul><li><p>BeforeAfter</p></li></ul>',
+      clipboard: '<ul><li><p>Imported</p></li></ul>',
+      expected: '<ul><li><p>Before</p></li><li><p>Imported</p></li><li><p>After</p></li></ul>',
+    },
+    {
+      route: 'different list kind',
+      initial: '<ul><li><p>BeforeAfter</p></li></ul>',
+      clipboard: '<ol start="3"><li><p>Imported</p></li></ol>',
+      expected: '<ul><li><p>Before</p></li></ul><ol start="3"><li><p>Imported</p></li></ol><ul><li><p>After</p></li></ul>',
+    },
+  ])('tags the $route route as paste and preserves undo/redo', ({ initial, clipboard, expected }) => {
+    const changes: Transaction[] = [];
+    const editor = new Editor({
+      extensions: [...extensions, History],
+      content: initial,
+      onTransaction: ({ transaction }) => {
+        if (transaction.docChanged) changes.push(transaction);
+      },
+    });
+    try {
+      const paragraph = findPos(editor, (node) => node.type.name === 'paragraph');
+      editor.view.dispatch(editor.state.tr.setSelection(
+        TextSelection.create(editor.state.doc, paragraph + 1 + 'Before'.length),
+      ));
+      const before = editor.state.doc;
+      const selectionBefore = editor.state.selection.toJSON();
+      const event = new Event('paste', { bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'clipboardData', {
+        value: {
+          getData: (type: string) => type === 'text/html' ? clipboard : type === 'text/plain' ? 'Imported' : '',
+        },
+      });
+
+      editor.view.dom.dispatchEvent(event);
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(editor.getHTML()).toBe(expected);
+      expect(() => { editor.state.doc.check(); }).not.toThrow();
+      expect(changes).toHaveLength(1);
+      expect(changes[0]?.getMeta('paste')).toBe(true);
+      expect(changes[0]?.getMeta('uiEvent')).toBe('paste');
+      expect(undoDepth(editor.state)).toBe(1);
+      const pasted = editor.state.doc;
+
+      expect(editor.commands.undo()).toBe(true);
+      expect(editor.state.doc.eq(before)).toBe(true);
+      expect(editor.state.selection.toJSON()).toEqual(selectionBefore);
+      expect(undoDepth(editor.state)).toBe(0);
+      expect(redoDepth(editor.state)).toBe(1);
+      expect(editor.commands.redo()).toBe(true);
+      expect(editor.state.doc.eq(pasted)).toBe(true);
+    } finally {
+      editor.destroy();
+    }
+  });
+
   it('paste H1 at END of paragraph in listItem → heading inserted as next sibling block', () => {
     const editor = makeEditor('<ul><li><p>Existing</p></li></ul>');
     const slice = htmlSlice(editor, '<h1>Big title</h1>');
@@ -127,7 +195,7 @@ describe('SmartPaste', () => {
     // listItem - schema (`paragraph block*`) accepts: first child is still
     // a paragraph, the rest fits the trailing block* slot.
     const editor = makeEditor('<ul><li><p>123456789</p></li></ul>');
-    const slice = htmlSlice(editor, '<h1>Naslov</h1>');
+    const slice = htmlSlice(editor, '<h1>Heading</h1>');
     const pPos = findPos(editor, (n) => n.type.name === 'paragraph' && n.textContent === '123456789');
     const caret = pPos + 1 + 4; // between "1234" and "5"
     pasteAtPos(editor, caret, slice);
@@ -144,7 +212,7 @@ describe('SmartPaste', () => {
     expect(li?.child(0).textContent).toBe('1234');
     expect(li?.child(1).type.name).toBe('heading');
     expect(li?.child(1).attrs['level']).toBe(1);
-    expect(li?.child(1).textContent).toBe('Naslov');
+    expect(li?.child(1).textContent).toBe('Heading');
     expect(li?.child(2).type.name).toBe('paragraph');
     expect(li?.child(2).textContent).toBe('56789');
     editor.destroy();

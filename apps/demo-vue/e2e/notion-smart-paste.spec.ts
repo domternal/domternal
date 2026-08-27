@@ -381,16 +381,16 @@ test.describe('SmartPaste', () => {
   test('user-reported: paste H1 between chars 4 and 5 of "123456789" inside bullet list item', async ({ page }) => {
     await setContent(page, '<ul><li><p>123456789</p></li></ul>');
     await setCaretInParagraph(page, '123456789', 4); // between "4" and "5"
-    await pasteHtml(page, '<h1>Naslov</h1>');
+    await pasteHtml(page, '<h1>Heading</h1>');
 
     // Doc invariant: still a single top-level block (the bulletList).
     expect(await topBlocks(page)).toEqual([
-      { type: 'bulletList', text: '1234Naslov56789' },
+      { type: 'bulletList', text: '1234Heading56789' },
     ]);
     // listItem invariant: 3 children, first is the paragraph "1234".
     expect(await firstListItemChildren(page)).toEqual([
       { type: 'paragraph', text: '1234' },
-      { type: 'heading', text: 'Naslov', level: 1 },
+      { type: 'heading', text: 'Heading', level: 1 },
       { type: 'paragraph', text: '56789' },
     ]);
   });
@@ -398,14 +398,14 @@ test.describe('SmartPaste', () => {
   test('paste H1 between 4 and 5 of "123456789" inside ORDERED list item → same shape, listItem inside ol', async ({ page }) => {
     await setContent(page, '<ol><li><p>123456789</p></li></ol>');
     await setCaretInParagraph(page, '123456789', 4);
-    await pasteHtml(page, '<h1>Naslov</h1>');
+    await pasteHtml(page, '<h1>Heading</h1>');
 
     expect(await topBlocks(page)).toEqual([
-      { type: 'orderedList', text: '1234Naslov56789' },
+      { type: 'orderedList', text: '1234Heading56789' },
     ]);
     expect(await firstListItemChildren(page)).toEqual([
       { type: 'paragraph', text: '1234' },
-      { type: 'heading', text: 'Naslov', level: 1 },
+      { type: 'heading', text: 'Heading', level: 1 },
       { type: 'paragraph', text: '56789' },
     ]);
   });
@@ -413,14 +413,14 @@ test.describe('SmartPaste', () => {
   test('paste H1 between 4 and 5 of "123456789" inside TASK item → same shape, taskItem inside taskList', async ({ page }) => {
     await setContent(page, '<ul data-type="taskList"><li data-type="taskItem"><p>123456789</p></li></ul>');
     await setCaretInParagraph(page, '123456789', 4);
-    await pasteHtml(page, '<h1>Naslov</h1>');
+    await pasteHtml(page, '<h1>Heading</h1>');
 
     expect(await topBlocks(page)).toEqual([
-      { type: 'taskList', text: '1234Naslov56789' },
+      { type: 'taskList', text: '1234Heading56789' },
     ]);
     expect(await firstListItemChildren(page)).toEqual([
       { type: 'paragraph', text: '1234' },
-      { type: 'heading', text: 'Naslov', level: 1 },
+      { type: 'heading', text: 'Heading', level: 1 },
       { type: 'paragraph', text: '56789' },
     ]);
   });
@@ -538,11 +538,11 @@ test.describe('SmartPaste', () => {
     // Initial: listItem has [p"123456789", h2"Existing"]
     await setContent(page, '<ul><li><p>123456789</p><h2>Existing</h2></li></ul>');
     await setCaretInParagraph(page, '123456789', 4);
-    await pasteHtml(page, '<h1>Naslov</h1>');
+    await pasteHtml(page, '<h1>Heading</h1>');
 
     expect(await firstListItemChildren(page)).toEqual([
       { type: 'paragraph', text: '1234' },
-      { type: 'heading', text: 'Naslov', level: 1 },
+      { type: 'heading', text: 'Heading', level: 1 },
       { type: 'paragraph', text: '56789' },
       { type: 'heading', text: 'Existing', level: 2 },
     ]);
@@ -551,11 +551,11 @@ test.describe('SmartPaste', () => {
   test('range selection over chars 3-6 of "123456789" + paste H1 → range deleted, split, h1 between halves', async ({ page }) => {
     await setContent(page, '<ul><li><p>123456789</p></li></ul>');
     await setSelectionInParagraph(page, '123456789', 3, 6); // covers "456"
-    await pasteHtml(page, '<h1>Naslov</h1>');
+    await pasteHtml(page, '<h1>Heading</h1>');
 
     expect(await firstListItemChildren(page)).toEqual([
       { type: 'paragraph', text: '123' },
-      { type: 'heading', text: 'Naslov', level: 1 },
+      { type: 'heading', text: 'Heading', level: 1 },
       { type: 'paragraph', text: '789' },
     ]);
   });
@@ -589,7 +589,7 @@ test.describe('SmartPaste', () => {
   test('after paste in middle of listItem, undo restores original "123456789" paragraph', async ({ page }) => {
     await setContent(page, '<ul><li><p>123456789</p></li></ul>');
     await setCaretInParagraph(page, '123456789', 4);
-    await pasteHtml(page, '<h1>Naslov</h1>');
+    await pasteHtml(page, '<h1>Heading</h1>');
 
     // Confirm split happened.
     expect((await firstListItemChildren(page)).length).toBe(3);
@@ -612,7 +612,7 @@ test.describe('SmartPaste', () => {
     // structure (label "Outer" + nested ul).
     await setContent(page, '<ul><li><p>Outer</p><ul><li><p>123456789</p></li></ul></li></ul>');
     await setCaretInParagraph(page, '123456789', 4);
-    await pasteHtml(page, '<h1>Naslov</h1>');
+    await pasteHtml(page, '<h1>Heading</h1>');
 
     const result = await page.evaluate(() => {
       const ed = (window as unknown as Record<string, unknown>)['__DEMO_EDITOR__'] as
@@ -633,7 +633,7 @@ test.describe('SmartPaste', () => {
     expect(result.outerChildCount).toBe(2); // [label, nested ul]
     expect(result.nestedChildren).toEqual([
       { type: 'paragraph', text: '1234' },
-      { type: 'heading', text: 'Naslov' },
+      { type: 'heading', text: 'Heading' },
       { type: 'paragraph', text: '56789' },
     ]);
   });

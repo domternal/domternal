@@ -163,7 +163,10 @@ export function markdownPastePlugin(getParser: () => MarkdownParser): Plugin {
           doc.content.childCount === 1 && first !== null && first.type.name === 'paragraph'
             ? new Slice(first.content, 0, 0)
             : new Slice(doc.content, 0, 0);
-        view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
+        view.dispatch(
+          view.state.tr.replaceSelection(slice).scrollIntoView()
+            .setMeta('paste', true).setMeta('uiEvent', 'paste')
+        );
         return true;
       },
     },

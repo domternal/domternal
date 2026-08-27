@@ -75,10 +75,10 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
     await expectPreserved(page);
     await page.evaluate(() => {
       (window as unknown as AsyncWindow).__i18nOwnership.replace({
-        locale: 'hr', messages: { 'core.editor.label': 'Uređivač s upitom', 'mention.suggestions.label': 'Dostupne osobe' },
+        locale: 'en-GB', messages: { 'core.editor.label': 'Editor with pending request', 'mention.suggestions.label': 'Available people' },
       });
     });
-    await expect(editor).toHaveAttribute('aria-label', 'Uređivač s upitom');
+    await expect(editor).toHaveAttribute('aria-label', 'Editor with pending request');
     await expect(editor).toBeFocused();
     await expect(editor).toHaveText('@');
     await expectPreserved(page);
@@ -88,9 +88,9 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
     await page.evaluate(() => {
       (window as unknown as AsyncWindow).__i18nOwnership.finishMention([{ id: 'person_42', label: 'Raw async identity' }]);
     });
-    const menu = page.getByRole('listbox', { name: 'Dostupne osobe', exact: true });
+    const menu = page.getByRole('listbox', { name: 'Available people', exact: true });
     await expect(menu).toBeVisible();
-    await expect(menu).toHaveAttribute('lang', 'hr');
+    await expect(menu).toHaveAttribute('lang', 'en-GB');
     const item = menu.getByRole('option', { name: 'Raw async identity', exact: true });
     await expect(item).toHaveAttribute('lang', '');
     await expect(item).toHaveAttribute('aria-selected', 'true');
@@ -103,7 +103,7 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
     await expect(mention).toHaveCount(1);
     await expect(mention).toHaveAttribute('data-id', 'person_42');
     await expect(mention).toHaveAttribute('data-label', 'Raw async identity');
-    await expect(editor).not.toContainText('Dostupne osobe');
+    await expect(editor).not.toContainText('Available people');
     expect(await page.evaluate(() => (window as unknown as AsyncWindow).__i18nOwnership.asyncStatus().mentionCalls)).toBe(1);
     expect(errors).toEqual([]);
   });
