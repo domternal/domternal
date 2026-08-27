@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  FOCUSED_BROWSER_SCRIPTS,
   LOCAL_ONLY_SCRIPTS,
   NOT_GATES,
   REQUIRED_SCRIPTS,
@@ -18,6 +19,7 @@ import {
   dependencyReviewWorkflowProblems,
   gateExecutionProblems,
   gateScripts,
+  focusedBrowserWorkflowProblems,
   leastPrivilegePermissionProblems,
   localActionReferences,
   nonBlockingChecks,
@@ -43,6 +45,13 @@ const realDependabot = readFileSync(
   new URL('../../.github/dependabot.yml', import.meta.url),
   'utf8'
 );
+const realPasteCleanup = readFileSync(
+  new URL('../../.github/workflows/paste-cleanup-e2e.yml', import.meta.url),
+  'utf8'
+);
+const pasteCleanupManifest = { scripts: {
+  'test:e2e:paste-cleanup': 'playwright test --config e2e/paste-cleanup.config.ts',
+} };
 
 function workflow(steps, extraJobs = '') {
   const indented = steps
@@ -101,6 +110,7 @@ test('exception lists are pinned, so one word cannot silently remove a gate', ()
     'test:e2e:matrix',
   ]);
   assert.deepEqual([...LOCAL_ONLY_SCRIPTS].sort(), ['test:dedupe-reachable', 'test:pm-ranges']);
+  assert.deepEqual([...FOCUSED_BROWSER_SCRIPTS], [['test:e2e:paste-cleanup', 'paste-cleanup-e2e.yml']]);
   assert.deepEqual(REQUIRED_SCRIPTS, ['build', 'lint', 'typecheck', 'typecheck:e2e']);
 });
 
@@ -130,6 +140,67 @@ test('checks that are not test:-prefixed are held down too', () => {
     'typecheck:e2e',
   ]);
 });
+
+test('only the explicitly contracted paste browser script leaves the main gate set', () => {
+  const manifest = { scripts: {
+    'test:e2e:paste-cleanup': 'playwright test --config e2e/paste-cleanup.config.ts',
+    'test:e2e:unreviewed-feature': 'playwright test --config e2e/unknown.config.ts',
+    'test:package-policy': 'node tests/package-policy/check.mjs',
+  } };
+  assert.deepEqual(gateScripts(manifest), ['test:e2e:unreviewed-feature', 'test:package-policy']);
+});
+
+test('the focused paste browser workflow executes the exact reviewed script and runner', () => {
+  assert.deepEqual(focusedBrowserWorkflowProblems(pasteCleanupManifest, realPasteCleanup), []);
+});
+
+test('a focused browser classification cannot hide a removed workflow or changed command', () => {
+  assert.ok(focusedBrowserWorkflowProblems(pasteCleanupManifest, undefined).length > 0);
+  assert.ok(focusedBrowserWorkflowProblems({ scripts: {} }, realPasteCleanup).length > 0);
+  assert.ok(focusedBrowserWorkflowProblems({ scripts: {
+    'test:e2e:paste-cleanup': 'echo skipped',
+  } }, realPasteCleanup).length > 0);
+});
+
+for (const [name, change] of [
+  ['removed pull-request trigger', parsed => { delete parsed.on.pull_request; }],
+  ['path-filtered pull requests', parsed => { parsed.on.pull_request.paths = ['unrelated/**']; }],
+  ['conditional job', parsed => { parsed.jobs['paste-cleanup-e2e'].if = 'false'; }],
+  ['ignored job failure', parsed => { parsed.jobs['paste-cleanup-e2e']['continue-on-error'] = true; }],
+  ['removed package build', parsed => {
+    const job = parsed.jobs['paste-cleanup-e2e'];
+    job.steps = job.steps.filter(step => step.run !== 'pnpm build');
+  }],
+  ['incomplete public build', parsed => {
+    parsed.jobs['paste-cleanup-e2e'].steps.find(step => step.run === 'pnpm build').run = 'pnpm --filter @domternal/extension-paste-cleanup build';
+  }],
+  ['conditional runner', parsed => {
+    parsed.jobs['paste-cleanup-e2e'].steps.find(step => step.name === 'Run paste cleanup browser coverage').if = 'false';
+  }],
+  ['removed artifacts', parsed => { parsed.jobs['paste-cleanup-e2e'].steps.pop(); }],
+]) {
+  test(`focused browser enforcement rejects ${name}`, () => {
+    const parsed = parseWorkflow(realPasteCleanup);
+    change(parsed);
+    assert.ok(focusedBrowserWorkflowProblems(pasteCleanupManifest, JSON.stringify(parsed)).length > 0);
+  });
+}
+
+for (const [name, change] of [
+  ['commented invocation', run => run.replace('PLAYWRIGHT_JSON_OUTPUT_NAME=', '# PLAYWRIGHT_JSON_OUTPUT_NAME=')],
+  ['different root script', run => run.replace('pnpm test:e2e:paste-cleanup', 'pnpm test:e2e:matrix')],
+  ['unreachable invocation', run => `if false; then\n${run}\nfi\n`],
+  ['retries concealing failures', run => run.replace('--retries=0', '--retries=1')],
+  ['ignored runner status', run => run.replace('wait "$runner_pid" || status=$?', 'wait "$runner_pid" || true')],
+  ['successful final exit', run => run.replace('exit "$status"\n', 'exit 0\n')],
+]) {
+  test(`focused browser enforcement rejects ${name}`, () => {
+    const parsed = parseWorkflow(realPasteCleanup);
+    const step = parsed.jobs['paste-cleanup-e2e'].steps.find(step => step.name === 'Run paste cleanup browser coverage');
+    step.run = change(step.run);
+    assert.ok(focusedBrowserWorkflowProblems(pasteCleanupManifest, JSON.stringify(parsed)).length > 0);
+  });
+}
 
 test('only commands from run fields count as invocations', () => {
   const fixture = workflow(

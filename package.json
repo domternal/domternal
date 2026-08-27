@@ -16,6 +16,7 @@
     "coverage:index": "pnpm test:coverage && node scripts/generate-coverage-index.mjs",
     "test:e2e": "nx run-many --target=test:e2e --all",
     "test:e2e:matrix": "playwright test --config e2e/playwright.config.ts",
+    "test:e2e:paste-cleanup": "playwright test --config e2e/paste-cleanup.config.ts",
     "lint": "nx run-many --target=lint --all && eslint tests scripts e2e eslint.config.mjs",
     "typecheck": "nx run-many --target=typecheck --all --outputStyle=static",
     "typecheck:e2e": "tsc --noEmit --project e2e/tsconfig.json",

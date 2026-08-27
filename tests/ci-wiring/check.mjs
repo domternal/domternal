@@ -2,6 +2,7 @@
 // A gate nobody runs is not a gate. Every check in this repository is a root
 // script plus a step in ci.yml, and the two are joined by nothing but memory.
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import YAML from 'yaml';
@@ -327,6 +328,58 @@ export const NOT_GATES = new Set([
   'test:e2e:matrix',
 ]);
 
+// Focused browser jobs are checked against their complete reviewed workflow,
+// rather than silently excluded from the mandatory root gates.
+export const FOCUSED_BROWSER_SCRIPTS = new Map([
+  ['test:e2e:paste-cleanup', 'paste-cleanup-e2e.yml'],
+]);
+
+const EXPECTED_PASTE_CLEANUP_WORKFLOW = {
+  name: 'Paste cleanup browser tests',
+  on: {
+    push: { branches: ['main'] },
+    pull_request: { branches: ['main'] },
+    merge_group: {},
+    workflow_dispatch: {},
+    schedule: [{ cron: '7 5 * * 1' }],
+  },
+  concurrency: { group: '${{ github.workflow }}-${{ github.ref }}', 'cancel-in-progress': true },
+  permissions: { contents: 'read' },
+  jobs: {
+    'paste-cleanup-e2e': {
+      'runs-on': 'ubuntu-24.04',
+      'timeout-minutes': 45,
+      env: { CI: 'true', FORCE_COLOR: '0' },
+      steps: [
+        { name: 'Checkout', uses: CHECKOUT_ACTION, with: { 'persist-credentials': false } },
+        { name: 'Setup pnpm', uses: PNPM_SETUP_ACTION, with: { version: '10.34.4' } },
+        { name: 'Setup Node.js', uses: SETUP_NODE_ACTION,
+          with: { 'node-version-file': '.nvmrc', cache: 'pnpm', 'cache-dependency-path': 'pnpm-lock.yaml' } },
+        { name: 'Install dependencies', run: 'pnpm install --frozen-lockfile' },
+        { name: 'Check committed locale output before builds', run: 'node tests/i18n/generate-locales.mjs --check' },
+        { name: 'Build the public packages before starting browsers', run: 'pnpm build' },
+        { name: 'Install the locked Playwright browsers and system dependencies',
+          run: 'pnpm exec playwright install --with-deps chromium firefox webkit' },
+        {
+          name: 'Run paste cleanup browser coverage',
+          shell: 'bash',
+          // This digest pins the complete reviewed background runner, including
+          // its real root-script invocation, wait status, retries and reports.
+          // Comments or unreachable shell text cannot stand in for execution.
+          run: 'sha256:d5124919636b73d3f7bccc9f3e4868e14aeab3c989b1ed3b06d356431acc2dc5',
+        },
+        {
+          name: 'Preserve paste cleanup logs, reports and failure traces',
+          if: '${{ always() }}',
+          uses: UPLOAD_ARTIFACT_ACTION,
+          with: { name: 'paste-cleanup-browser-results', path: 'test-results/paste-cleanup/',
+            'if-no-files-found': 'warn', 'retention-days': 7 },
+        },
+      ],
+    },
+  },
+};
+
 // Checks that are not `test:`-prefixed and would otherwise be held down by
 // nothing. Deleting the e2e typecheck step, or the lint step, used to leave
 // this gate perfectly green.
@@ -612,10 +665,30 @@ export function gateExecutionProblems(workflow, gateNames = []) {
 export function gateScripts(manifest) {
   const declared = Object.keys(manifest.scripts ?? {});
   const tests = declared.filter(
-    (name) => name.startsWith('test:') && !NOT_GATES.has(name) && !LOCAL_ONLY_SCRIPTS.has(name)
+    (name) => name.startsWith('test:') && !NOT_GATES.has(name)
+      && !LOCAL_ONLY_SCRIPTS.has(name) && !FOCUSED_BROWSER_SCRIPTS.has(name)
   );
   const required = REQUIRED_SCRIPTS.filter((name) => declared.includes(name));
   return [...new Set([...tests, ...required])].sort();
+}
+
+/** The only focused browser exception must remain a real, unconditional CI run. */
+export function focusedBrowserWorkflowProblems(manifest, workflow) {
+  const problems = [];
+  if (manifest.scripts?.['test:e2e:paste-cleanup'] !== 'playwright test --config e2e/paste-cleanup.config.ts') {
+    problems.push('package.json must keep the reviewed test:e2e:paste-cleanup command');
+  }
+  if (workflow === undefined) {
+    return [...problems, 'paste-cleanup-e2e.yml is missing, so its focused browser script never runs'];
+  }
+  const parsed = structuredClone(parseWorkflow(workflow));
+  const job = parsed.jobs['paste-cleanup-e2e'];
+  for (const step of isRecord(job) && Array.isArray(job.steps) ? job.steps : []) {
+    if (isRecord(step) && step.name === 'Run paste cleanup browser coverage' && typeof step.run === 'string') {
+      step.run = `sha256:${createHash('sha256').update(step.run).digest('hex')}`;
+    }
+  }
+  return [...problems, ...exactStructureProblems(parsed, EXPECTED_PASTE_CLEANUP_WORKFLOW, 'paste-cleanup-e2e.yml')];
 }
 
 /** The gate scripts the workflow never invokes. */
@@ -1078,6 +1151,13 @@ function main() {
   const workflowNames = readdirSync(workflowsRoot)
     .filter((name) => /\.ya?ml$/.test(name))
     .sort();
+  const focusedWorkflowPath = join(workflowsRoot, 'paste-cleanup-e2e.yml');
+  try {
+    const focusedWorkflow = existsSync(focusedWorkflowPath) ? readFileSync(focusedWorkflowPath, 'utf8') : undefined;
+    failures.push(...focusedBrowserWorkflowProblems(manifest, focusedWorkflow));
+  } catch (error) {
+    failures.push(`paste-cleanup-e2e.yml is not valid: ${error instanceof Error ? error.message : String(error)}`);
+  }
   if (!workflowNames.includes(CODEQL_WORKFLOW)) {
     failures.push(`${CODEQL_WORKFLOW} is missing, so CodeQL never scans the repository`);
   }
