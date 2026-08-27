@@ -173,17 +173,36 @@ describe('supported HTML semantics', () => {
     expect(cell?.getAttribute('data-background')).toBe('#abcdef');
   });
 
-  it('adapts external table colors while preserving alignment', () => {
+  it('adapts external table colors and text alignment while preserving vertical placement', () => {
     const root = normalizedDOM(
       '<table><tr><td style="text-align:center;vertical-align:middle;background-color:red">Cell</td></tr></table>',
       { formatting: 'adapt' }
     );
     const cell = root.querySelector('td');
 
-    expect(cell?.getAttribute('data-text-align')).toBe('center');
+    expect(cell?.getAttribute('data-text-align')).toBeNull();
+    expect(cell?.style.textAlign).toBe('');
     expect(cell?.getAttribute('data-vertical-align')).toBe('middle');
     expect(cell?.getAttribute('data-background')).toBeNull();
     expect(cell?.style.backgroundColor).toBe('');
+  });
+
+  it.each([false, true])('uses the explicit adapt text alignment preference: %s', (preserveTextAlignment) => {
+    const root = normalizedDOM(
+      '<p style="text-align:right">Paragraph</p><table><tr><td data-text-align="center">Cell</td></tr></table>',
+      { formatting: 'adapt', preserveTextAlignment }
+    );
+    expect(root.querySelector('p')?.style.textAlign).toBe(preserveTextAlignment ? 'right' : '');
+    expect(root.querySelector('td')?.getAttribute('data-text-align')).toBe(preserveTextAlignment ? 'center' : null);
+  });
+
+  it('keeps internal text alignment when adapting external formatting is the default', () => {
+    const root = normalizedDOM(
+      '<div data-pm-slice="0 0 []"><p style="text-align:right">Paragraph</p><table><tr><td data-text-align="center">Cell</td></tr></table></div>',
+      { formatting: 'adapt' }
+    );
+    expect(root.querySelector('p')?.style.textAlign).toBe('right');
+    expect(root.querySelector('td')?.getAttribute('data-text-align')).toBe('center');
   });
 
   it('does not map unsupported table CSS or unsafe background data', () => {

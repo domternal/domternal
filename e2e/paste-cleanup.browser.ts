@@ -13,7 +13,7 @@ const BASE_URL = 'http://127.0.0.1:5895';
 const FRAMEWORKS = ['vanilla', 'react', 'vue', 'angular'] as const;
 const PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==';
 const PNG_URL = `data:image/png;base64,${PNG_BASE64}`;
-const WORD_HTML = '<p class="MsoNormal"><span style="mso-font-kerning:0pt;font-family:Calibri;'
+const WORD_HTML = '<p class="MsoNormal" style="text-align:center"><span style="mso-font-kerning:0pt;font-family:Calibri;'
   + 'font-size:18pt;color:#123456;font-weight:700;font-style:italic;text-decoration:underline">Styled Word</span></p>'
   + '<ol start="4"><li><p>Four</p></li></ol>'
   + '<table><tr><td colspan="2"><p>Merged</p></td></tr><tr><td><p>A</p></td><td><p>B</p></td></tr></table>';
@@ -159,6 +159,7 @@ for (const framework of FRAMEWORKS) {
         await expect(editor.locator('strong')).toHaveText('Styled Word');
         await expect(editor.locator('em')).toHaveText('Styled Word');
         await expect(editor.locator('u')).toHaveText('Styled Word');
+        expect(await editor.locator('p').first().evaluate(node => node.style.textAlign)).toBe(formatting === 'preserve' ? 'center' : '');
         await expect(editor.locator('ol')).toHaveAttribute('start', '4');
         await expect(editor.locator('table')).toHaveCount(1);
         await expect(editor.locator('td[colspan="2"]')).toHaveText('Merged');

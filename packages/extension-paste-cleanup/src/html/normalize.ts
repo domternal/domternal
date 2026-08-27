@@ -123,6 +123,13 @@ export function normalizePasteHTML(html: string, options: NormalizePasteHTMLOpti
           if (semantic.includes('sub') || semantic.includes('sup')) styles.delete('vertical-align');
         }
         if (options.formatting === 'adapt' && !internal) {
+          if (options.preserveTextAlignment !== true) {
+            if (styles.delete('text-align')) report('formatting-adapted', child, 'info');
+            if (clean['dataTextAlign'] !== undefined) {
+              delete clean['dataTextAlign'];
+              report('formatting-adapted', child, 'info');
+            }
+          }
           for (const key of ['font-family', 'font-size', 'color', 'background-color', 'line-height']) {
             if (styles.delete(key)) report('formatting-adapted', child, 'info');
           }

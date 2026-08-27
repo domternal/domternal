@@ -29,6 +29,8 @@ export interface PasteHTMLLimits {
 
 export interface NormalizePasteHTMLOptions {
   formatting?: PasteFormatting;
+  /** Keep external text alignment in adapt mode. Preserve mode always keeps supported alignment. */
+  preserveTextAlignment?: boolean;
   /** Remote images are removed by default so later rendering cannot fetch them. */
   allowRemoteImages?: boolean;
   /** Bounded PNG, JPEG, GIF, and WebP data URLs are retained by default. */

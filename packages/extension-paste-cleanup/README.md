@@ -84,8 +84,9 @@ Styles inherited from arbitrary wrapper elements and stylesheet rules are not
 resolved. The destination schema still determines which retained inline styles
 become document attributes.
 
-`adapt` removes external font family, font size, colors and line spacing while
-retaining structure and emphasis. Validated internal slice metadata preserves
+`adapt` removes external font family, font size, colors, text alignment and line
+spacing while retaining structure and emphasis. Set `preserveTextAlignment: true`
+to keep source text alignment in this mode. Validated internal slice metadata preserves
 existing editor formatting in either mode. A forged `data-pm-slice` marker still
 passes through all HTML, URL, style and resource checks.
 

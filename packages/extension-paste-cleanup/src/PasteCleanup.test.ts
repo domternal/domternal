@@ -182,7 +182,7 @@ describe('PasteCleanup editor integration', () => {
     expect(text?.marks.map((mark) => mark.type.name)).toEqual(
       expect.arrayContaining(['bold', 'italic', 'underline', 'strike'])
     );
-    expect(paragraph?.attrs['textAlign']).toBe('center');
+    expect(paragraph?.attrs['textAlign']).toBe(formatting === 'preserve' ? 'center' : 'left');
     expect(paragraph?.attrs['lineHeight']).toBe(formatting === 'preserve' ? '1.7' : null);
     const visual = text?.marks.find((mark) => mark.type.name === 'textStyle');
     if (formatting === 'preserve') {
