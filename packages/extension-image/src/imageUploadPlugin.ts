@@ -11,9 +11,21 @@
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import { Decoration, DecorationSet } from '@domternal/pm/view';
 import type { EditorView } from '@domternal/pm/view';
-import type { NodeType } from '@domternal/pm/model';
+import type { NodeType, Slice } from '@domternal/pm/model';
 
 export const imageUploadPluginKey = new PluginKey('imageUpload');
+
+/** Rich clipboard text belongs to the parsed slice, not a separate image insertion. */
+export function hasPastedText(slice: Slice | undefined): boolean {
+  let found = false;
+  slice?.content.descendants(node => {
+    if (found) return false;
+    // Image alt text is not a text node and must not disable screenshot paste.
+    if (node.isText && (node.text ?? '').trim() !== '') found = true;
+    return !found;
+  });
+  return found;
+}
 
 export interface ImageUploadPluginOptions {
   /** The image node type from schema */
@@ -161,7 +173,7 @@ export function imageUploadPlugin(options: ImageUploadPluginOptions): Plugin {
         return imageUploadPluginKey.getState(state) as DecorationSet;
       },
 
-      handlePaste(view, event) {
+      handlePaste(view, event, slice) {
         const items = event.clipboardData?.items;
         if (!items) return false;
 
@@ -179,6 +191,7 @@ export function imageUploadPlugin(options: ImageUploadPluginOptions): Plugin {
         }
 
         if (files.length === 0) return false;
+        if (hasPastedText(slice)) return false;
 
         event.preventDefault();
         handleFiles(view, files, view.state.selection.from);

@@ -13,7 +13,7 @@ import { InputRule } from '@domternal/pm/inputrules';
 import type { Node as PmNode } from '@domternal/pm/model';
 import type { EditorView } from '@domternal/pm/view';
 import { imageMessages } from './messages.js';
-import { imageUploadPlugin } from './imageUploadPlugin.js';
+import { hasPastedText, imageUploadPlugin } from './imageUploadPlugin.js';
 
 /** Float values for image text wrapping. */
 export type ImageFloat = 'none' | 'left' | 'right' | 'center';
@@ -953,7 +953,7 @@ export const Image = Node.create<ImageOptions>({
               return false;
             },
           },
-          handlePaste(view, event) {
+          handlePaste(view, event, slice) {
             // When uploadHandler is set, let imageUploadPlugin handle paste
             if (options.uploadHandler) return false;
             const items = event.clipboardData?.items;
@@ -965,6 +965,7 @@ export const Image = Node.create<ImageOptions>({
                 if (!file) continue;
                 if (!options.allowedMimeTypes.includes(file.type)) continue;
                 if (options.maxFileSize > 0 && file.size > options.maxFileSize) continue;
+                if (hasPastedText(slice)) return false;
 
                 event.preventDefault();
                 void readFileAsDataURL(file).then(src => {
