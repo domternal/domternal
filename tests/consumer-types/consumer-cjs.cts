@@ -31,10 +31,30 @@ import image = require('@domternal/extension-image');
 import markdown = require('@domternal/extension-markdown');
 import math = require('@domternal/extension-math');
 import mention = require('@domternal/extension-mention');
+import pasteCleanup = require('@domternal/extension-paste-cleanup');
+import pasteHTML = require('@domternal/extension-paste-cleanup/html');
 import table = require('@domternal/extension-table');
 import toc = require('@domternal/extension-toc');
 
 declare const editor: core.Editor;
+
+// The standalone HTML entry must also resolve through its CommonJS declarations.
+pasteCleanup.PasteCleanup.configure({ formatting: 'adapt' });
+const pasteLimits: Partial<pasteHTML.PasteHTMLLimits> = { maxInputLength: 20_000, maxDiagnostics: 10 };
+const cleanedPaste: pasteHTML.NormalizePasteHTMLResult = pasteHTML.normalizePasteHTML('<p>Clipboard content</p>', {
+  formatting: 'preserve',
+  allowRemoteImages: false,
+  allowDataImages: true,
+  sourceURL: 'https://example.com/document',
+  limits: pasteLimits,
+});
+const cleanedFromMain: pasteCleanup.NormalizePasteHTMLResult = pasteCleanup.normalizePasteHTML('<p>Clipboard content</p>');
+const pasteStatus: 'cleaned' | 'rejected' = cleanedPaste.status;
+const pasteDiagnosticsTruncated: boolean = cleanedFromMain.diagnosticsTruncated;
+// @ts-expect-error CommonJS consumers keep the finite formatting mode contract.
+pasteHTML.normalizePasteHTML('<p>Clipboard content</p>', { formatting: 'word' });
+// @ts-expect-error CommonJS resource limits must not become permissive declarations.
+pasteCleanup.normalizePasteHTML('<p>Clipboard content</p>', { limits: { maxDepth: 'unlimited' } });
 
 declare module '@domternal/core' {
   interface MessageParameters {
@@ -104,8 +124,8 @@ editor.i18n.set({ messages: { 'core.toolbar.bodl': 'Fett' } });
 
 /*
  * One command per package that augments `RawCommands`, which is every package
- * above except extension-block-controls: its augmentation carries extension
- * points rather than commands, and is exercised further down.
+ * above except extension-block-controls and extension-paste-cleanup. Their
+ * public extension and helper contracts are exercised separately.
  */
 editor.commands.toggleBold();
 editor.commands.toggleDetails();
@@ -131,6 +151,7 @@ extensions.push(
   markdown.Markdown,
   math.MathInline,
   mention.Mention,
+  pasteCleanup.PasteCleanup,
   table.Table,
   toc.TableOfContents
 );

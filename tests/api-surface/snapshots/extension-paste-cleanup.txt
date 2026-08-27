@@ -1,0 +1,12 @@
+DEFAULT_PASTE_HTML_LIMITS
+default(PasteCleanup)
+normalizePasteHTML
+NormalizePasteHTMLOptions
+NormalizePasteHTMLResult
+PasteCleanup
+PasteCleanupOptions
+PasteDiagnostic
+PasteDiagnosticCode
+PasteFormatting
+PasteHTMLLimits
+PasteSource

@@ -25,10 +25,32 @@ import '@domternal/extension-image';
 import '@domternal/extension-markdown';
 import '@domternal/extension-math';
 import '@domternal/extension-mention';
+import { PasteCleanup, normalizePasteHTML as normalizePasteFromMain } from '@domternal/extension-paste-cleanup';
+import type { NormalizePasteHTMLResult as MainPasteHTMLResult } from '@domternal/extension-paste-cleanup';
+import { normalizePasteHTML } from '@domternal/extension-paste-cleanup/html';
+import type { PasteHTMLLimits, NormalizePasteHTMLResult } from '@domternal/extension-paste-cleanup/html';
 import '@domternal/extension-table';
 import '@domternal/extension-toc';
 
 declare const editor: Editor;
+
+// Both published entries retain the same typed conversion contract.
+PasteCleanup.configure({ formatting: 'adapt' });
+const pasteLimits: Partial<PasteHTMLLimits> = { maxInputLength: 20_000, maxDiagnostics: 10 };
+const cleanedPaste: NormalizePasteHTMLResult = normalizePasteHTML('<p>Clipboard content</p>', {
+  formatting: 'preserve',
+  allowRemoteImages: false,
+  allowDataImages: true,
+  sourceURL: 'https://example.com/document',
+  limits: pasteLimits,
+});
+const cleanedFromMain: MainPasteHTMLResult = normalizePasteFromMain('<p>Clipboard content</p>');
+const pasteStatus: 'cleaned' | 'rejected' = cleanedPaste.status;
+const pasteDiagnosticsTruncated: boolean = cleanedFromMain.diagnosticsTruncated;
+// @ts-expect-error Unsupported formatting modes must not enter published options.
+normalizePasteHTML('<p>Clipboard content</p>', { formatting: 'word' });
+// @ts-expect-error Resource limits remain numeric in the published declaration graph.
+normalizePasteFromMain('<p>Clipboard content</p>', { limits: { maxDepth: 'unlimited' } });
 
 // Every built-in definition must retain its public parameter augmentation in dist.
 type PublishedCoreMessages = CompleteMessages<typeof coreMessages>;
