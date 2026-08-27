@@ -114,7 +114,7 @@ expanded values throw a `RangeError` during setup or standalone invocation.
 | Limit | Default |
 | --- | ---: |
 | Input UTF-16 code units | 2,000,000 |
-| Parser allocation events | 30,000 |
+| Parser allocations and generated output tree nodes | 30,000 |
 | Tree depth | 128 |
 | Diagnostics | 100 |
 | Expanded table cells across the fragment | 20,000 |

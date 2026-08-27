@@ -8,6 +8,7 @@ import { safeImage, safeLink } from './urls.js';
 import { cleanMetadata, cleanSliceContext } from './metadata.js';
 import { assertTableBounds, TableLimitError } from './tables.js';
 import { assertTagWork, TagWorkLimitError } from './tagWork.js';
+import { assertOutputTreeBounds } from './treeBounds.js';
 import type {
   NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic,
   PasteDiagnosticCode, PasteHTMLLimits, PasteSource,
@@ -189,6 +190,7 @@ export function normalizePasteHTML(html: string, options: NormalizePasteHTMLOpti
       parent.children = children;
     };
     normalizeChildren(tree);
+    assertOutputTreeBounds(tree, limits.maxNodes, limits.maxDepth);
     result.html = toHtml(sanitize(tree, schema));
   } catch (error: unknown) {
     result.status = 'rejected'; result.html = '';

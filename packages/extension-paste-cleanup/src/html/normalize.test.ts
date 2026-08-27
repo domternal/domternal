@@ -95,6 +95,14 @@ describe('normalizePasteHTML', () => {
     expect(result.html).toBe('<p>Safe</p>'.repeat(10));
   });
 
+  it.each([{ maxNodes: 6 }, { maxDepth: 5 }])('bounds generated semantic wrappers: %j', limits => {
+    const html = '<p><span style="font-weight:700;font-style:italic;text-decoration:underline line-through;vertical-align:super">Text</span></p>';
+    const result = normalizePasteHTML(html, { limits });
+    expect(result.status).toBe('rejected');
+    expect(result.html).toBe('');
+    expect(result.diagnostics.at(-1)?.code).toBe('structure-limit');
+  });
+
   it.each([0, -1, NaN, Infinity, 1.5, 10_000_000])('refuses invalid or expanded hard limits: %s', maxDepth => {
     expect(() => normalizePasteHTML('<p>Safe</p>', { limits: { maxDepth } })).toThrow(RangeError);
   });

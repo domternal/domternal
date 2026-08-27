@@ -17,7 +17,7 @@ export interface PasteDiagnostic {
 export interface PasteHTMLLimits {
   /** UTF-16 code units, checked before parsing. */
   maxInputLength: number;
-  /** Parser allocation events, including text chunks and elements. */
+  /** Parser allocation events and generated output tree nodes, including text and elements. */
   maxNodes: number;
   maxDepth: number;
   maxDiagnostics: number;
