@@ -29,7 +29,7 @@ function bounded(value: unknown, maximum: number): value is string {
 }
 function quarantineInvalidPromise(value: unknown): void {
   if (value === null || (typeof value !== 'object' && typeof value !== 'function')) return;
-  // Invalid asynchronous policy returns cannot authorize a URL or become unhandled.
+  // Asynchronous callback returns cannot authorize a URL or become unhandled.
   void Promise.resolve(value).catch(() => undefined);
 }
 function isAcceptance(value: unknown): boolean { return value === 'accepted' || value === 'known-unapplied' || value === 'uncertain'; }
@@ -97,8 +97,10 @@ export function createClipboardResolverOperation(options: ClipboardResolverOpera
   const resolveCallback = adapter.resolve;
   const releaseCallback = adapter.releaseUncommitted;
   const allowPersistentURL = options.allowPersistentURL;
+  const onChange: ((report: ClipboardResolverReport) => unknown) | undefined = options.onChange;
   if (!identifier(operationId, limits.maxIdentityUnits) || (idempotency !== 'none' && idempotency !== 'operation-asset-key') ||
-    typeof resolveCallback !== 'function' || typeof releaseCallback !== 'function' || typeof allowPersistentURL !== 'function') {
+    typeof resolveCallback !== 'function' || typeof releaseCallback !== 'function' || typeof allowPersistentURL !== 'function' ||
+    (onChange !== undefined && typeof onChange !== 'function')) {
     throw new RangeError('Invalid clipboard resolver operation');
   }
   const inputAssets = options.assets;
@@ -142,16 +144,43 @@ export function createClipboardResolverOperation(options: ClipboardResolverOpera
   let resolution: ClipboardResolverReport['resolution'] = 'not-started';
   let pendingResolvers = 0;
   let task: Promise<ClipboardResolverResolution> | undefined;
+  let taskPending = false;
+  let revision = 0;
+  let notificationQueued = false;
+
+  const changed = (): void => {
+    revision++;
+    if (onChange === undefined || notificationQueued) return;
+    notificationQueued = true;
+    queueMicrotask(() => {
+      // Clear before invoking the observer so reentry gets a separate later revision.
+      notificationQueued = false;
+      try {
+        const returned: unknown = onChange(snapshot());
+        quarantineInvalidPromise(returned);
+      } catch { /* Observation must not change ownership or the operation outcome. */ }
+    });
+  };
+  const changePhase = (next: ClipboardResolverReport['phase']): void => {
+    if (phase !== next) { phase = next; changed(); }
+  };
+  const changeResolution = (next: ClipboardResolverReport['resolution']): void => {
+    if (resolution !== next) { resolution = next; changed(); }
+  };
 
   const report = (asset: AssetState, code: ClipboardResolverDiagnosticCode): void => {
     if (diagnostics.some(item => item.assetId === asset.input.assetId && item.code === code)) return;
-    if (diagnostics.length === limits.maxDiagnostics) { diagnosticsTruncated = true; return; }
+    if (diagnostics.length === limits.maxDiagnostics) {
+      if (!diagnosticsTruncated) { diagnosticsTruncated = true; changed(); }
+      return;
+    }
     diagnostics.push(Object.freeze({ code, assetId: asset.input.assetId }));
+    changed();
   };
   const unknown = (asset: AssetState, code: ClipboardResolverDiagnosticCode): void => {
-    asset.unknown = true;
+    if (!asset.unknown) { asset.unknown = true; changed(); }
     report(asset, code);
-    if (resolution === 'ready' && phase === 'ready') resolution = 'failed';
+    if (resolution === 'ready' && phase === 'ready') changeResolution('failed');
   };
   const retained = (): boolean => phase === 'applying' || phase === 'accepted' || phase === 'uncertain';
   const compensate = (resource: ResourceState): void => {
@@ -175,15 +204,17 @@ export function createClipboardResolverOperation(options: ClipboardResolverOpera
           } else report(resource.asset, 'invalid-cleanup-result');
         }
       } catch { resource.status = 'pending'; report(resource.asset, 'cleanup-failed'); }
+      changed();
     });
     releases.add(release);
-    void release.finally(() => { releases.delete(release); });
+    changed();
+    void release.finally(() => { releases.delete(release); changed(); });
   };
   const abandon = (): void => {
     if (retained()) {
-      if (phase === 'applying') phase = 'uncertain';
+      if (phase === 'applying') changePhase('uncertain');
     } else {
-      phase = 'unapplied';
+      changePhase('unapplied');
       for (const resource of resources) compensate(resource);
     }
     for (const asset of assets) asset.blob = undefined;
@@ -205,13 +236,15 @@ export function createClipboardResolverOperation(options: ClipboardResolverOpera
     const resource: ResourceState = { asset, handle, token, id: resources.length + 1, status: 'registered', retryToken: undefined };
     resources.push(resource); handles.set(handle, resource); tokens.set(token, resource);
     handleUnits += handle.length; asset.created++;
+    changed();
     compensate(resource);
     return token;
   };
   const failed = (cancelled: boolean): ClipboardResolverResolution => {
-    resolution = cancelled ? 'cancelled' : 'failed';
+    const status = cancelled ? 'cancelled' : 'failed';
+    changeResolution(status);
     abandon();
-    return Object.freeze({ status: resolution });
+    return Object.freeze({ status });
   };
   const run = async (): Promise<ClipboardResolverResolution> => {
     const results: ClipboardResolvedAsset[] = [];
@@ -222,6 +255,7 @@ export function createClipboardResolverOperation(options: ClipboardResolverOpera
       let value: unknown;
       asset.registrationOpen = true;
       pendingResolvers++;
+      changed();
       try {
         value = await resolveCallback.call(adapter, Object.freeze({ ...asset.input, blob, operationId, signal: controller.signal,
           registerCreated: (handle: string): ClipboardCreatedResource | undefined => register(asset, handle) }));
@@ -230,6 +264,7 @@ export function createClipboardResolverOperation(options: ClipboardResolverOpera
         asset.registrationOpen = false;
         asset.blob = undefined;
         pendingResolvers--;
+        changed();
         if (phase === 'unapplied') {
           for (const resource of resources) if (resource.asset === asset) compensate(resource);
         }
@@ -241,7 +276,7 @@ export function createClipboardResolverOperation(options: ClipboardResolverOpera
           const creation: unknown = value['creation'];
           const recoveryToken: unknown = value['recoveryToken'];
           if (recoveryToken !== undefined) {
-            if (bounded(recoveryToken, limits.maxRecoveryTokenUnits)) asset.recoveryToken = recoveryToken;
+            if (bounded(recoveryToken, limits.maxRecoveryTokenUnits)) { asset.recoveryToken = recoveryToken; changed(); }
             else unknown(asset, 'invalid-result');
           }
           if (creation === 'unknown') unknown(asset, 'unknown-creation');
@@ -272,7 +307,7 @@ export function createClipboardResolverOperation(options: ClipboardResolverOpera
       } catch { unknown(asset, 'invalid-result'); return failed(isAborted()); }
     }
     if (isAborted() || assets.some(asset => asset.unknown)) return failed(isAborted());
-    resolution = 'ready'; phase = 'ready';
+    changeResolution('ready'); changePhase('ready');
     return Object.freeze({ status: 'ready', assets: Object.freeze(results) });
   };
   const snapshot = (): ClipboardResolverReport => {
@@ -288,7 +323,9 @@ export function createClipboardResolverOperation(options: ClipboardResolverOpera
         ...(resource.retryToken === undefined ? {} : { token: resource.retryToken }) }));
     }
     const releasedResources = resources.filter(resource => resource.status === 'released').length;
-    return Object.freeze({ operationId, idempotency, phase, resolution,
+    const terminal = phase === 'accepted' || phase === 'uncertain' || phase === 'unapplied';
+    return Object.freeze({ operationId, idempotency, phase, resolution, revision,
+      settled: terminal && !taskPending && pendingResolvers === 0 && releases.size === 0,
       ownership: recovery.some(item => item.reason === 'unknown-creation' || item.reason === 'uncertain-acceptance') ? 'recovery-pending'
         : retained() ? 'retained' : pendingResolvers > 0 || recovery.length > 0 || releases.size > 0 ? 'cleanup-pending'
           : phase === 'unapplied' && releasedResources === resources.length ? 'released' : 'open',
@@ -298,24 +335,26 @@ export function createClipboardResolverOperation(options: ClipboardResolverOpera
   return Object.freeze({
     resolve(): Promise<ClipboardResolverResolution> {
       if (task === undefined) {
-        resolution = isAborted() ? 'cancelled' : 'pending';
+        changeResolution(isAborted() ? 'cancelled' : 'pending');
+        taskPending = true;
         // Publish the promise before a synchronous adapter callback can reenter resolve.
-        task = Promise.resolve().then(run);
+        task = Promise.resolve().then(run).finally(() => { taskPending = false; changed(); });
+        changed();
       }
       return task;
     },
     beginApply(): boolean {
       if (phase !== 'ready' || resolution !== 'ready' || isAborted() || assets.some(asset => asset.unknown)) return false;
-      phase = 'applying'; return true;
+      changePhase('applying'); return true;
     },
     recordAcceptance(outcome: 'accepted' | 'known-unapplied' | 'uncertain'): boolean {
       if (!isAcceptance(outcome)) throw new RangeError('Invalid clipboard acceptance outcome');
       if (phase === 'accepted') return outcome === 'accepted';
-      if (phase === 'uncertain') { if (outcome === 'accepted') phase = 'accepted'; return outcome !== 'known-unapplied'; }
+      if (phase === 'uncertain') { if (outcome === 'accepted') changePhase('accepted'); return outcome !== 'known-unapplied'; }
       if (phase === 'unapplied') return outcome === 'known-unapplied';
-      if (outcome === 'known-unapplied') { phase = 'unapplied'; abandon(); return true; }
+      if (outcome === 'known-unapplied') { changePhase('unapplied'); abandon(); return true; }
       if (phase !== 'applying') return false;
-      phase = outcome;
+      changePhase(outcome);
       return true;
     },
     cancel: abandon,

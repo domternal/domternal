@@ -69,6 +69,8 @@ export interface ClipboardResolverOperationOptions {
   readonly adapter: ClipboardResolverAdapter;
   /** Approve a canonical absolute HTTP(S) URL after the mandatory baseline checks. */
   readonly allowPersistentURL: (src: string, context: Readonly<ClipboardResolverSourceContext>) => boolean;
+  /** Coalesced private reports, including recovery updates before other work settles. */
+  readonly onChange?: (report: ClipboardResolverReport) => void;
   readonly limits?: Partial<ClipboardResolverLimits>;
 }
 
@@ -102,6 +104,10 @@ export type ClipboardResolverResolution =
   | { readonly status: 'failed' | 'cancelled' };
 
 export interface ClipboardResolverReport {
+  /** Monotonic operation revision. Coalesced notifications can skip intermediate revisions. */
+  readonly revision: number;
+  /** Terminal application phase with no tracked work; not proof of stopped external side effects. */
+  readonly settled: boolean;
   readonly operationId: string;
   readonly idempotency: ClipboardResolverAdapter['idempotency'];
   readonly phase: 'preparing' | 'ready' | 'applying' | 'accepted' | 'uncertain' | 'unapplied';

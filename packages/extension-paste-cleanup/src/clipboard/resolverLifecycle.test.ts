@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { CLIPBOARD_RESOLVER_LIMITS, createClipboardResolverOperation } from './resolverLifecycle.js';
 import type {
   ClipboardCreatedResource, ClipboardResolverAdapter, ClipboardResolverAdapterResult, ClipboardResolverAsset,
-  ClipboardResolverOperation, ClipboardResolverOperationOptions, ClipboardResolverReleaseResult, ClipboardResolverRequest,
+  ClipboardResolverOperation, ClipboardResolverOperationOptions, ClipboardResolverReleaseResult, ClipboardResolverReport, ClipboardResolverRequest,
 } from './resolverTypes.js';
 
 // These tests exercise ownership, not raster qualification. Production callers must
@@ -585,5 +585,202 @@ describe('private clipboard resolver ownership', () => {
     expect(JSON.stringify(report.diagnostics)).not.toContain('private-');
     expect(JSON.stringify(report)).not.toContain(URL_A);
     expect(JSON.stringify(report)).not.toContain('private-source-handle');
+  });
+});
+
+describe('private clipboard resolver change observation', () => {
+  it('coalesces synchronous transitions into a frozen monotonic report and ignores no-op calls', async () => {
+    const updates: ClipboardResolverReport[] = [];
+    const { operation } = fixture({ onChange: update => { updates.push(update); } });
+    expect(operation.snapshot()).toMatchObject({ revision: 0, settled: false });
+    await operation.resolve();
+    await start();
+    const revision = operation.snapshot().revision;
+    expect(operation.snapshot().settled).toBe(false);
+    updates.length = 0;
+    expect(operation.beginApply()).toBe(true);
+    expect(operation.recordAcceptance('accepted')).toBe(true);
+    expect(updates).toEqual([]);
+    expect(operation.snapshot()).toMatchObject({ settled: true, phase: 'accepted' });
+    await start();
+    expect(updates).toHaveLength(1);
+    const update = updates[0]!;
+    expect(update.revision).toBeGreaterThan(revision);
+    expect(update).toEqual(operation.snapshot());
+    for (const value of [update, update.recovery, update.diagnostics]) expect(Object.isFrozen(value)).toBe(true);
+    updates.length = 0;
+    operation.cancel();
+    expect(operation.recordAcceptance('accepted')).toBe(true);
+    expect(operation.recordAcceptance('known-unapplied')).toBe(false);
+    expect(operation.beginApply()).toBe(false);
+    await operation.resolve();
+    await operation.settled();
+    await start();
+    expect(operation.snapshot().revision).toBe(update.revision);
+    expect(updates).toEqual([]);
+  });
+
+  it('reports a cleanup recovery token while another asset resolver is still pending', async () => {
+    const updates: ClipboardResolverReport[] = [];
+    const pending = deferred<ClipboardResolverAdapterResult>();
+    const cleanup = deferred<ClipboardResolverReleaseResult>();
+    let second: ClipboardResolverAdapterResult | undefined;
+    const { operation, resolve, release } = fixture({
+      assets: [asset('a'), asset('b')], onChange: update => { updates.push(update); },
+    });
+    resolve.mockImplementation(request => {
+      const result = created(request, `private-handle-${request.assetId}`);
+      if (request.assetId === 'a') return Promise.resolve(result);
+      second = result;
+      return pending.promise;
+    });
+    release.mockImplementation(request => request.assetId === 'a' ? cleanup.promise : Promise.resolve({ status: 'released' }));
+    const resolving = operation.resolve();
+    await start();
+    operation.cancel();
+    await start();
+    cleanup.resolve({ status: 'cleanup-pending', retryToken: 'private-retry-a' });
+    await start();
+    await start();
+    const recovery = updates.find(update => update.recovery.some(item => item.token === 'private-retry-a'));
+    expect(recovery).toMatchObject({ phase: 'unapplied', pendingResolvers: 1, settled: false });
+    expect(recovery?.recovery).toContainEqual({ assetId: 'a', idempotencyKey: 'operation-1:a', reason: 'cleanup-pending', resourceId: 1, token: 'private-retry-a' });
+    expect(JSON.stringify(recovery)).not.toContain('private-handle');
+    expect(JSON.stringify(recovery)).not.toContain(URL_A);
+    expect(JSON.stringify(recovery?.diagnostics)).not.toContain('private-retry');
+    pending.resolve(second!);
+    await resolving;
+    const final = await operation.settled();
+    await start();
+    expect(final).toMatchObject({ ownership: 'cleanup-pending', settled: true, pendingResolvers: 0, pendingReleases: 0 });
+    expect(updates.at(-1)).toEqual(final);
+    expect(updates.every((update, index) => index === 0 || update.revision > updates[index - 1]!.revision)).toBe(true);
+  });
+
+  it('reports a failed cleanup without waiting for a separate pending release', async () => {
+    const updates: ClipboardResolverReport[] = [];
+    const pending = deferred<ClipboardResolverReleaseResult>();
+    const { operation, resolve, release } = fixture({ assets: [asset('a'), asset('b')], onChange: update => { updates.push(update); } });
+    resolve.mockImplementation(request => Promise.resolve(created(request, `owned-${request.assetId}`)));
+    release.mockImplementation(request => request.assetId === 'a' ? Promise.reject(new Error('Private cleanup detail')) : pending.promise);
+    await operation.resolve();
+    operation.cancel();
+    await start();
+    await start();
+    const update = updates.find(value => value.diagnostics.some(item => item.code === 'cleanup-failed'));
+    expect(update).toMatchObject({ settled: false, phase: 'unapplied' });
+    expect(operation.snapshot()).toMatchObject({ pendingReleases: 1, settled: false });
+    expect(JSON.stringify(update)).not.toContain('Private cleanup detail');
+    pending.resolve({ status: 'released' });
+    expect(await operation.settled()).toMatchObject({ settled: true, ownership: 'cleanup-pending' });
+  });
+
+  it.each(['throw', 'rejected-promise', 'throwing-then'] as const)('quarantines an observer %s without changing ownership or retrying', async behavior => {
+    const onChange = vi.fn(() => {
+      if (behavior === 'throw') throw new Error('Private observer detail');
+      if (behavior === 'rejected-promise') return Promise.reject(new Error('Private async observer detail'));
+      return Object.defineProperty({}, 'then', { get() { throw new Error('Private thenable detail'); } });
+    });
+    const { operation, resolve, release } = fixture({ onChange });
+    resolve.mockImplementation(request => Promise.resolve(created(request)));
+    expect((await operation.resolve()).status).toBe('ready');
+    operation.beginApply();
+    operation.recordAcceptance('accepted');
+    await start();
+    await start();
+    expect(onChange).toHaveBeenCalled();
+    expect(await operation.settled()).toMatchObject({ phase: 'accepted', ownership: 'retained', settled: true, diagnostics: [] });
+    expect(resolve).toHaveBeenCalledTimes(1);
+    expect(release).not.toHaveBeenCalled();
+  });
+
+  it('delivers a fresh later revision for observer reentry without overwriting its old report', async () => {
+    const updates: ClipboardResolverReport[] = [];
+    const { operation, release } = fixture({ onChange: report => {
+      updates.push(report);
+      if (report.phase === 'ready') {
+        expect(operation.beginApply()).toBe(true);
+        expect(operation.recordAcceptance('accepted')).toBe(true);
+      }
+    } });
+    await operation.resolve();
+    await start();
+    const ready = updates.find(update => update.phase === 'ready');
+    const accepted = updates.at(-1);
+    expect(ready).toBeDefined();
+    expect(ready?.phase).toBe('ready');
+    expect(accepted).toMatchObject({ phase: 'accepted', settled: true });
+    expect(accepted!.revision).toBeGreaterThan(ready!.revision);
+    expect(release).not.toHaveBeenCalled();
+  });
+
+  it('continues reporting late ownership violations after an accepted settled report', async () => {
+    const updates: ClipboardResolverReport[] = [];
+    let request!: ClipboardResolverRequest;
+    const { operation, resolve, release } = fixture({ limits: { maxDiagnostics: 0 }, onChange: update => { updates.push(update); } });
+    resolve.mockImplementation(value => { request = value; return Promise.resolve(created(value)); });
+    await operation.resolve();
+    operation.beginApply();
+    operation.recordAcceptance('accepted');
+    await start();
+    const accepted = updates.at(-1)!;
+    const previous = JSON.stringify(accepted);
+    request.registerCreated('too-late');
+    await start();
+    const late = updates.at(-1)!;
+    expect(late).toMatchObject({ phase: 'accepted', settled: true, ownership: 'recovery-pending', diagnostics: [], diagnosticsTruncated: true });
+    expect(late.revision).toBeGreaterThan(accepted.revision);
+    expect(late.recovery).toContainEqual({ assetId: 'a', idempotencyKey: 'operation-1:a', reason: 'unknown-creation' });
+    expect(JSON.stringify(accepted)).toBe(previous);
+    operation.cancel();
+    expect(release).not.toHaveBeenCalled();
+  });
+
+  it('snapshots the observer reference before work starts', async () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const options = { onChange: first };
+    const { operation } = fixture(options);
+    options.onChange = second;
+    await operation.resolve();
+    operation.cancel();
+    await operation.settled();
+    await start();
+    expect(first).toHaveBeenCalled();
+    expect(second).not.toHaveBeenCalled();
+  });
+
+  it('reports cancellation before resolution as settled without starting adapter work', async () => {
+    const updates: ClipboardResolverReport[] = [];
+    const { operation, resolve } = fixture({ onChange: report => { updates.push(report); } });
+    operation.cancel();
+    expect(updates).toEqual([]);
+    await start();
+    expect(updates).toHaveLength(1);
+    expect(updates[0]).toMatchObject({ phase: 'unapplied', resolution: 'not-started', settled: true });
+    expect(updates[0]!.revision).toBeGreaterThan(0);
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
+  it('observes uncertain acceptance and its later accepted receipt without allowing cleanup', async () => {
+    const updates: ClipboardResolverReport[] = [];
+    const { operation, resolve, release } = fixture({ onChange: report => { updates.push(report); } });
+    resolve.mockImplementation(request => Promise.resolve(created(request)));
+    await operation.resolve();
+    operation.beginApply();
+    operation.cancel();
+    await start();
+    const uncertain = updates.at(-1)!;
+    expect(uncertain).toMatchObject({ phase: 'uncertain', settled: true, ownership: 'recovery-pending' });
+    expect(operation.recordAcceptance('known-unapplied')).toBe(false);
+    operation.recordAcceptance('accepted');
+    await start();
+    expect(updates.at(-1)).toMatchObject({ phase: 'accepted', settled: true, ownership: 'retained' });
+    expect(updates.at(-1)!.revision).toBeGreaterThan(uncertain.revision);
+    expect(release).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid observer before invoking the adapter', () => {
+    expect(() => fixture({ onChange: null as unknown as NonNullable<ClipboardResolverOperationOptions['onChange']> })).toThrow(RangeError);
   });
 });
