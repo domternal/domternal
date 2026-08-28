@@ -33,10 +33,10 @@ describe('supported HTML semantics', () => {
       const root = document.createElement('div');
       root.innerHTML = result.html;
 
-      expect(root.querySelector('span')?.getAttribute('data-text-color')).toBe(
+      expect(root.querySelector('[data-text-color]')?.getAttribute('data-text-color') ?? null).toBe(
         retained ? 'red' : null
       );
-      expect(root.querySelector('span')?.getAttribute('data-bg-color')).toBe(
+      expect(root.querySelector('[data-bg-color]')?.getAttribute('data-bg-color') ?? null).toBe(
         retained ? 'blue' : null
       );
       expect(root.querySelector('td')?.getAttribute('data-background')).toBe(

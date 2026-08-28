@@ -203,7 +203,7 @@ describe('validated clipboard metadata', () => {
       { formatting: 'adapt' }
     );
 
-    expect(result.html).toBe('<p><span>External</span></p>');
+    expect(result.html).toBe('<p><span><span>External</span></span></p>');
     expect(result.diagnostics).toContainEqual(
       expect.objectContaining({ code: 'formatting-adapted' })
     );

@@ -9,6 +9,9 @@ import { cleanMetadata, cleanSliceContext } from './metadata.js';
 import { assertTableBounds, TableLimitError } from './tables.js';
 import { assertTagWork, TagWorkLimitError } from './tagWork.js';
 import { assertOutputTreeBounds } from './treeBounds.js';
+import { reconstructOfficeLists } from './officeLists.js';
+import type { OfficeListReconstructionOptions } from './officeLists.js';
+import { resolveInlineInheritance, InheritanceLimitError } from './inheritance.js';
 import type {
   NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic,
   PasteDiagnosticCode, PasteHTMLLimits, PasteSource,
@@ -65,7 +68,17 @@ function resolveLimits(input: Partial<PasteHTMLLimits> = {}): PasteHTMLLimits {
  * Rejected input returns an empty result. It must never fall back to the original HTML.
  */
 export function normalizePasteHTML(html: string, options: NormalizePasteHTMLOptions = {}): NormalizePasteHTMLResult {
+  return normalizeClipboardHTML(html, options).result;
+}
+
+/** Internal destination constraints and paste intent do not become public result metadata. */
+export function normalizeClipboardHTML(
+  html: string,
+  options: NormalizePasteHTMLOptions = {},
+  capabilities?: () => Pick<OfficeListReconstructionOptions, 'orderedLists' | 'bulletLists' | 'nestedLists'>,
+): { result: NormalizePasteHTMLResult; preserveOrderedListStart: boolean } {
   const limits = resolveLimits(options.limits);
+  let preserveOrderedListStart = false;
   const result: NormalizePasteHTMLResult = {
     status: 'cleaned', html: '', source: 'html', diagnostics: [], diagnosticsTruncated: false,
   };
@@ -75,7 +88,7 @@ export function normalizePasteHTML(html: string, options: NormalizePasteHTMLOpti
     result.diagnostics.push({ code, severity, ...(offset === undefined ? {} : { offset }) });
   };
   if (html.length > limits.maxInputLength) {
-    result.status = 'rejected'; report('input-limit', undefined, 'error'); return result;
+    result.status = 'rejected'; report('input-limit', undefined, 'error'); return { result, preserveOrderedListStart };
   }
   result.source = detectSource(html);
   try {
@@ -96,6 +109,13 @@ export function normalizePasteHTML(html: string, options: NormalizePasteHTMLOpti
       if (node?.type !== 'element') continue;
       if (cleanSliceContext(node.properties['dataPmSlice']) !== undefined) internal = true;
       pending.push(...node.children);
+    }
+    if (!internal) {
+      if (/\bmso-list\s*:/i.test(html)) {
+        const lists = reconstructOfficeLists(tree, { ...limits, ...capabilities?.() }, report);
+        preserveOrderedListStart = lists.reconstructedLists > 0;
+      }
+      resolveInlineInheritance(tree, limits, node => { report('unsupported-formatting', node); });
     }
     const normalizeChildren = (parent: Root | Element): void => {
       const children: RootContent[] = [];
@@ -124,6 +144,10 @@ export function normalizePasteHTML(html: string, options: NormalizePasteHTMLOpti
           if (semantic.includes('sub') || semantic.includes('sup')) styles.delete('vertical-align');
         }
         if (options.formatting === 'adapt' && !internal) {
+          if (child.tagName === 'mark') {
+            child.tagName = 'span';
+            report('formatting-adapted', child, 'info');
+          }
           if (options.preserveTextAlignment !== true) {
             if (styles.delete('text-align')) report('formatting-adapted', child, 'info');
             if (clean['dataTextAlign'] !== undefined) {
@@ -194,7 +218,8 @@ export function normalizePasteHTML(html: string, options: NormalizePasteHTMLOpti
     result.html = toHtml(sanitize(tree, schema));
   } catch (error: unknown) {
     result.status = 'rejected'; result.html = '';
-    report(error instanceof StructureLimitError || error instanceof TableLimitError || error instanceof TagWorkLimitError ? 'structure-limit' : 'parse-failed', undefined, 'error');
+    preserveOrderedListStart = false;
+    report(error instanceof StructureLimitError || error instanceof TableLimitError || error instanceof TagWorkLimitError || error instanceof InheritanceLimitError ? 'structure-limit' : 'parse-failed', undefined, 'error');
   }
-  return result;
+  return { result, preserveOrderedListStart };
 }

@@ -8,14 +8,15 @@ describe('normalizePasteHTML', () => {
     const result = normalizePasteHTML('<p class="MsoNormal"><span style="font-weight:700;font-style:italic;color:#123456;font-size:12pt">Word</span></p>');
     expect(result.status).toBe('cleaned');
     expect(result.source).toBe('word');
-    expect(result.html).toBe('<p><span style="color:#123456;font-size:12pt"><strong><em>Word</em></strong></span></p>');
+    expect(result.html).toBe('<p><span><span style="font-size:12pt;color:#123456"><strong><em>Word</em></strong></span></span></p>');
   });
 
   it('adapts visual formatting while retaining emphasis and structure', () => {
-    const result = normalizePasteHTML('<h2><span style="font-family:Calibri;font-size:24pt;color:red;font-weight:bold">Title</span></h2>', { formatting: 'adapt' });
-    expect(result.html).toBe('<h2><span><strong>Title</strong></span></h2>');
+    const html = '<h2><span style="font-family:Calibri;font-size:24pt;color:red;font-weight:bold">Title</span></h2>';
+    const result = normalizePasteHTML(html, { formatting: 'adapt' });
+    expect(result.html).toBe('<h2><span><span><strong>Title</strong></span></span></h2>');
     expect(result.diagnostics.every(d => d.code === 'formatting-adapted')).toBe(true);
-    expect(result.diagnostics[0]?.offset).toBe(4);
+    expect(result.diagnostics[0]?.offset).toBe(html.indexOf('Title'));
   });
 
   it('preserves table spans and list starts', () => {

@@ -1,7 +1,9 @@
-import { Extension } from '@domternal/core';
+import { Extension, setClipboardPasteBehavior } from '@domternal/core';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import { normalizePasteHTML, DEFAULT_PASTE_HTML_LIMITS } from './html/index.js';
 import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult } from './html/index.js';
+import { normalizeClipboardHTML } from './html/normalize.js';
+import { officeListCapabilities } from './listCapabilities.js';
 
 export interface PasteCleanupOptions extends NormalizePasteHTMLOptions {
   /** Observe cleanup diagnostics. Exceptions from this observer never bypass cleanup. */
@@ -21,7 +23,10 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
     const options = { ...this.options, limits: { ...this.options.limits } };
     // Configuration errors belong to editor setup, before a native paste event.
     normalizePasteHTML('', options);
-    let rejected = false;
+    // Transforms do not receive the paste event. If an earlier handler consumes a
+    // rejected programmatic paste, the next empty paste stays blocked until this
+    // state clears. Empty slices must never bypass a current rejection.
+    let pending = { rejected: false, preserveOrderedListStart: false };
     const tooComplex = (text: string, code: boolean): boolean => {
       const maximum = options.limits.maxInputLength ?? DEFAULT_PASTE_HTML_LIMITS.maxInputLength;
       if (text.length > maximum) return true;
@@ -41,7 +46,8 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
       props: {
         handleDOMEvents: {
           paste(view, event) {
-            rejected = false;
+            pending = { rejected: false, preserveOrderedListStart: false };
+            setClipboardPasteBehavior(view, event, {});
             const clipboard = event.clipboardData;
             if (clipboard === null) return false;
             const maximum = options.limits.maxInputLength ?? DEFAULT_PASTE_HTML_LIMITS.maxInputLength;
@@ -66,21 +72,28 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           },
         },
         transformPastedText(text, _plain, view) {
-          rejected = tooComplex(text, view.state.selection.$from.parent.type.spec.code === true);
-          if (!rejected) return text;
-          report({ status: 'rejected', html: '', source: 'html', diagnostics: [{ code: 'input-limit', severity: 'error' }], diagnosticsTruncated: false });
-          return '';
+          const rejected = tooComplex(text, view.state.selection.$from.parent.type.spec.code === true);
+          if (rejected) report({ status: 'rejected', html: '', source: 'html', diagnostics: [{ code: 'input-limit', severity: 'error' }], diagnosticsTruncated: false });
+          pending = { rejected, preserveOrderedListStart: false };
+          return rejected ? '' : text;
         },
-        transformPastedHTML(html) {
-          const result = normalizePasteHTML(html, options);
-          rejected = result.status === 'rejected';
+        transformPastedHTML(html, view) {
+          const { result, preserveOrderedListStart } = normalizeClipboardHTML(
+            html, options, () => officeListCapabilities(view.state.schema, view.dom.ownerDocument),
+          );
+          const rejected = result.status === 'rejected';
           const cleaned = result.html;
           report(result);
+          // A host observer can synchronously paste again. Restore this operation after it returns.
+          pending = { rejected, preserveOrderedListStart };
           return cleaned;
         },
-        handlePaste(_view, event) {
-          const block = rejected;
-          rejected = false;
+        handlePaste(view, event, slice) {
+          const block = pending.rejected;
+          setClipboardPasteBehavior(view, event, {
+            preserveOrderedListStart: !block && slice.content.size > 0 && pending.preserveOrderedListStart,
+          });
+          pending = { rejected: false, preserveOrderedListStart: false };
           if (block) event.preventDefault();
           return block;
         },

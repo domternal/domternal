@@ -4,8 +4,9 @@ Opt-in clipboard HTML cleanup for Domternal. MIT licensed and part of Free.
 
 **Development status:** this is the initial HTML normalization foundation on the
 Import feature branch. It is not a released DOCX importer or a claim of complete
-Word, Google Docs, or LibreOffice fidelity. Office list reconstruction, stylesheet
-resolution, clipboard asset matching and the Pro DOCX workflow are subsequent work.
+Word, Google Docs, or LibreOffice fidelity. Strict inline Office list metadata and
+a bounded subset of inherited formatting are supported. Stylesheet resolution,
+clipboard asset matching and the Pro DOCX workflow remain subsequent work.
 
 ## Editor integration
 
@@ -80,15 +81,31 @@ custom node attributes and slice contexts are not implicitly trusted.
 alignment, table spans, dimensions and list starts. Inline bold, italic,
 underline, strike, subscript and superscript styles become semantic marks where
 the wrapper permits them. It does not reproduce page layout or arbitrary CSS.
-Styles inherited from arbitrary wrapper elements and stylesheet rules are not
-resolved. The destination schema still determines which retained inline styles
-become document attributes.
+Inherited inline font family, size, color, bold and italic resolve through source
+wrappers, including descendant bold/italic resets. Relative `em` and `%` font
+sizes resolve only when the source provides a known absolute base. Inline text
+decoration and highlight retain supported source semantics; a block or cell fill
+does not become text highlighting. Stylesheet rules, CSS variables, the browser's
+computed styles and arbitrary CSS inheritance are not resolved. The destination
+schema determines which retained styles become document attributes.
 
 `adapt` removes external font family, font size, colors, text alignment and line
 spacing while retaining structure and emphasis. Set `preserveTextAlignment: true`
 to keep source text alignment in this mode. Validated internal slice metadata preserves
 existing editor formatting in either mode. A forged `data-pm-slice` marker still
 passes through all HTML, URL, style and resource checks.
+
+Explicit inline `mso-list:lN levelN lfoN` paragraphs with one leading
+`mso-list:Ignore` marker can become semantic lists. Supported markers are positive
+decimal numbers followed by `.` or `)`, and the Unicode bullets `• · ◦ ▪ ●`.
+Nesting, observed starts, restarts and gaps retain separate list wrappers.
+SmartPaste preserves reconstructed ordered-list starts when pasting into a list.
+The extension probes the receiving schema's actual list parse rules before
+removing visible markers. Unsupported runs keep their paragraph text and markers
+with an `office-list-unsupported` diagnostic. Roman, alphabetic, legal and symbol
+font numbering, class-only lists, and stylesheet definitions are not reconstructed.
+The standalone HTML entry has no destination schema and emits semantic list HTML;
+its caller remains responsible for destination compatibility.
 
 Remote images are removed by default, with escaped alt text where available.
 Enabling `allowRemoteImages` retains HTTP(S) references: later rendering can then
@@ -124,6 +141,8 @@ expanded values throw a `RangeError` during setup or standalone invocation.
 Additional fixed bounds protect attributes per tag, attribute-name length,
 table spans, individual raster dimensions/pixels, and GIF frames. A lexical work
 guard runs before parse5, including conservative checks in comments/raw text.
+Generated inherited-style attributes share the input-length ceiling, preventing
+a long source value from multiplying across many text runs without a bound.
 Plain/Markdown input has a conservative markup-token budget before downstream
 handlers can expand it. HTML/structure rejection inserts nothing; removed images,
 links and unsupported formatting are reported without discarding unrelated text.
@@ -135,3 +154,5 @@ clipboard captures from a native Office application. Native Word, Google Docs,
 LibreOffice and real operating-system clipboard evidence are separate release
 requirements. This package currently exposes diagnostic codes for host-owned
 localization; it has no built-in preview, paste-choice dialog or progress UI.
+The current Core color parser does not retain alpha in RGBA text colors or
+partially transparent backgrounds. Exact transparency fidelity is not promised.
