@@ -308,9 +308,11 @@ export function createClipboardAssetCoordinator(
     hooks.notify(normalization, operation);
   };
   const prepare = (html: string): ClipboardHTMLPreparationResult => {
-    const options = assetOptions.mode === 'resolver' && readDestination()?.allowEmbedded === false
-      ? { ...htmlOptions, allowDataImages: false } : htmlOptions;
-    return prepareClipboardHTML(html, preparationLimits, options, () => officeListCapabilities(view.state.schema, view.dom.ownerDocument));
+    const destination = readDestination();
+    const inline = assetOptions.mode === 'resolver' && destination?.allowEmbedded === false
+      ? { destination, assetLimits, sourceAllowDataImages: htmlOptions.allowDataImages !== false } : undefined;
+    return prepareClipboardHTML(html, preparationLimits, htmlOptions,
+      () => officeListCapabilities(view.state.schema, view.dom.ownerDocument), inline);
   };
   const makeOperation = (result: ClipboardHTMLPreparationResult, entry: CaptureEntry): AssetOperation => {
     const normalization = result.status === 'prepared'
@@ -326,7 +328,7 @@ export function createClipboardAssetCoordinator(
     else { stop(asset, 'superseded'); return asset; }
     if (started?.status === 'rejected') stop(asset, cancellationReason(started.reason));
     else if (started === undefined) stop(asset, 'target-changed');
-    else if (result.status === 'rejected') stop(asset, result.normalization.diagnostics.some(item => item.code === 'input-limit' || item.code === 'structure-limit') ? 'asset-limit' : 'assets-unavailable');
+    else if (result.status === 'rejected') stop(asset, result.assetReason ?? (result.normalization.diagnostics.some(item => item.code === 'input-limit' || item.code === 'structure-limit') ? 'asset-limit' : 'assets-unavailable'));
     return asset;
   };
   const apply = (asset: AssetOperation, normalization: NormalizePasteHTMLResult, replay: ClipboardHTMLReplay | undefined): void => {
@@ -401,14 +403,14 @@ export function createClipboardAssetCoordinator(
       const persistent = assetOptions.persistent;
       if (persistent !== undefined) {
         const replacements = new Map<string, { readonly src: string; readonly pixels: number }>();
-        if (checked.matches.length > 0) {
+        if (checked.matches.length > 0 || asset.preparation.inlineAssets.placements.length > 0) {
           const remainingPixels = htmlLimits.maxImagePixels - asset.preparation.existingImagePixels;
           if (remainingPixels <= 0) { stop(asset, 'asset-limit'); return; }
           const blobs = await prepareClipboardBlobAssets(checked.matches, asset.session.destination, {
             maxPlacements: htmlLimits.maxImages, maxFiles: maxItems, maxFileBytes: assetLimits.maxFileBytes,
             maxTotalFileBytes: assetLimits.maxTotalFileBytes, maxTotalPixels: remainingPixels,
             maxMetadataLength: metadataLength, maxDescriptionLength: htmlLimits.maxInputLength, maxDimension: 10_000,
-          }, { signal: asset.session.signal });
+          }, { signal: asset.session.signal }, asset.preparation.inlineAssets);
           if (!stillReady(asset)) return;
           if (blobs.status === 'cancelled') { stop(asset, cancellationReason(asset.session.cancellation)); return; }
           if (blobs.status === 'rejected') { stop(asset, assetReason(blobs.reason)); return; }
@@ -501,7 +503,7 @@ export function createClipboardAssetCoordinator(
     }
     handledAssets.add(sourceEvent);
     const result = prepare(html);
-    if (result.status === 'prepared' && result.references.length === 0
+    if (result.status === 'prepared' && result.references.length === 0 && result.inlineAssets.placements.length === 0
       && !(assetOptions.mode === 'resolver' && readDestination()?.allowEmbedded === false && result.hasRemovedImages)) {
       discardPreparedClipboardHTML(result.handle); return undefined;
     }

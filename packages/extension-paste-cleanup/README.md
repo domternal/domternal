@@ -245,10 +245,21 @@ The same explicit placement bindings, raster preflight, input limits, stale-targ
 checks and one-operation history behavior apply. Choosing this mode authorizes
 the configured adapter; it does not enable remote images from source HTML.
 
-This initial resolver path handles explicitly matched clipboard files. It does
-not upload existing source data URLs. When the live destination forbids embedded
-images, source data images are removed with bounded diagnostics and alt-text
-fallback. Duplicate clipboard files are not appended or guessed into their positions.
+The resolver handles explicitly matched clipboard files. When the live destination
+forbids embedded images, it also handles supported raster data URLs already present
+at their exact HTML positions, unless `allowDataImages: false` forbids that source
+input. Inline bytes need no File association and are never sent to `match`.
+Unmatched duplicate clipboard files remain unread and are not appended. If the
+destination allows embedding, existing source data images keep the normal inline path.
+
+Inline and matched File sources share one preparation budget. `maxFileBytes` also
+bounds each decoded inline resource; `maxTotalFileBytes` covers distinct inline
+decodes and File reads before content deduplication. Repeated positions consume
+pixels and output space separately. Equal MIME and exact bytes share one immutable
+Blob and resolver call, while alt text and display geometry stay with each position.
+The original HTML and clipboard capture limits remain separate. No remote source
+image is fetched. Malformed or unsupported inline rasters use the existing loss
+diagnostic and alt-text fallback; operational limits block coordinated insertion.
 
 ```ts
 import { PasteCleanup } from '@domternal/extension-paste-cleanup';
