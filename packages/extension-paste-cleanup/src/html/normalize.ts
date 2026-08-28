@@ -71,11 +71,18 @@ export function normalizePasteHTML(html: string, options: NormalizePasteHTMLOpti
   return normalizeClipboardHTML(html, options).result;
 }
 
+/** Private preparation sink. Its tree must never reach a live DOM before slot resolution. */
+export interface ClipboardImagePreparationSink {
+  reserveImage(node: Element, original: Properties): string | undefined;
+  retainTree(tree: Root, existingImagePixels: number): void;
+}
+
 /** Internal destination constraints and paste intent do not become public result metadata. */
 export function normalizeClipboardHTML(
   html: string,
   options: NormalizePasteHTMLOptions = {},
   capabilities?: () => Pick<OfficeListReconstructionOptions, 'orderedLists' | 'bulletLists' | 'nestedLists'>,
+  preparation?: ClipboardImagePreparationSink,
 ): { result: NormalizePasteHTMLResult; preserveOrderedListStart: boolean } {
   const limits = resolveLimits(options.limits);
   let preserveOrderedListStart = false;
@@ -194,11 +201,16 @@ export function normalizeClipboardHTML(
         if (child.tagName === 'img') {
           const src = ++images > limits.maxImages ? undefined : safeImage(original.src, options.allowRemoteImages === true, options.allowDataImages !== false, consumePixels);
           if (src === undefined) {
-            report('image-removed', child);
-            if (typeof original.alt === 'string') children.push({ type: 'text', value: original.alt });
-            continue;
-          }
-          clean.src = src;
+            const slot = images <= limits.maxImages ? preparation?.reserveImage(child, original) : undefined;
+            if (slot === undefined) {
+              report('image-removed', child);
+              if (typeof original.alt === 'string') children.push({ type: 'text', value: original.alt });
+              continue;
+            }
+            // HAST data comes from this trusted sink, never from pasted HTML attributes.
+            child.data ??= { position: {} };
+            Reflect.set(child.data, 'domternalClipboardImageSlot', slot);
+          } else clean.src = src;
           if (typeof original.alt === 'string') clean.alt = original.alt;
         }
         for (const key of ['colSpan', 'rowSpan', 'span', 'start', 'value', 'width', 'height']) {
@@ -215,7 +227,10 @@ export function normalizeClipboardHTML(
     };
     normalizeChildren(tree);
     assertOutputTreeBounds(tree, limits.maxNodes, limits.maxDepth);
-    result.html = toHtml(sanitize(tree, schema));
+    const sanitized = sanitize(tree, schema);
+    if (sanitized.type !== 'root') throw new Error('Expected a sanitized fragment');
+    if (preparation === undefined) result.html = toHtml(sanitized);
+    else preparation.retainTree(sanitized, pixels);
   } catch (error: unknown) {
     result.status = 'rejected'; result.html = '';
     preserveOrderedListStart = false;
