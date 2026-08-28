@@ -18,6 +18,8 @@ const formatting = query.get('formatting') === 'adapt' ? 'adapt' : 'preserve';
 const lifecycle = query.get('lifecycle');
 const feedback = query.get('feedback') === 'application' ? 'application' : 'default';
 const embeddedAssets = query.get('assets') === 'embedded';
+const resolverAssets = query.get('assets') === 'resolver';
+const coordinatedAssets = embeddedAssets || resolverAssets;
 const imagePolicy = query.get('image-policy');
 const lists = query.get('schema') !== 'no-lists';
 const limits = query.get('limits') === 'small'
@@ -38,6 +40,18 @@ let assetUploads = 0;
 let pauseAssetReads = false;
 const releaseAssetReads = [];
 const assetReadCompletions = new Set();
+const resolverCalls = [];
+const resolverRegistrations = [];
+const resolverReleases = [];
+const recoveryReports = [];
+const resolverObserverThrows = { update: 0, terminal: 0 };
+const resolverHolds = new Set();
+const resolverWaiters = new Map();
+const resolverCompletions = new Set();
+const cleanupCompletions = new Set();
+let resolverSettlements = 0;
+let cleanupSettlements = 0;
+const resolvedOrigin = 'http://127.0.0.1:5895';
 let cancelPreparation;
 let hostUpdates = 0;
 let lifecycleReady = false;
@@ -47,7 +61,7 @@ let editor;
 let wrapper;
 
 // Synthetic fixture control only. Native File bytes stay unchanged while reads can be held.
-if (embeddedAssets) {
+if (coordinatedAssets) {
   const nativeArrayBuffer = File.prototype.arrayBuffer;
   File.prototype.arrayBuffer = function () {
     assetReads++;
@@ -60,6 +74,65 @@ if (embeddedAssets) {
     return read;
   };
 }
+
+// This adapter never uploads. Browser tests fulfill its approved loopback image URL.
+function waitForResolverStage(stage) {
+  if (!resolverHolds.has(stage)) return Promise.resolve();
+  return new Promise(resolve => {
+    const waiters = resolverWaiters.get(stage) ?? [];
+    waiters.push(resolve);
+    resolverWaiters.set(stage, waiters);
+  });
+}
+
+function releaseResolverStage(stage) {
+  resolverHolds.delete(stage);
+  for (const resolve of resolverWaiters.get(stage) ?? []) resolve();
+  resolverWaiters.delete(stage);
+}
+
+function trackResolverWork(promise, completions) {
+  completions.add(promise);
+  void promise.then(() => completions.delete(promise), () => completions.delete(promise));
+  return promise;
+}
+
+const fixtureResolver = {
+  idempotency: 'operation-asset-key',
+  resolve(request) {
+    resolverCalls.push({ operationId: request.operationId, assetId: request.assetId,
+      idempotencyKey: request.idempotencyKey, mimeType: request.mimeType, bytes: request.blob.size });
+    const number = resolverCalls.length;
+    const work = (async () => {
+      await waitForResolverStage('before-creation');
+      const outcome = query.get('resolver-outcome') ?? 'created';
+      if (outcome === 'existing') {
+        await waitForResolverStage('after-creation');
+        return { status: 'resolved', ownership: 'existing', src: `${resolvedOrigin}/__resolver-images__/existing.png` };
+      }
+      const handle = `private-resolver-handle-${String(number)}`;
+      const resource = request.registerCreated(handle);
+      resolverRegistrations.push({ assetId: request.assetId, accepted: resource !== undefined });
+      if (resource === undefined) throw new Error('Synthetic resolver registration refused');
+      await waitForResolverStage('after-creation');
+      if (outcome === 'partial-failure' && number === 2) return { status: 'failed', creation: 'registered' };
+      const src = outcome === 'forbidden' ? 'https://paste-probe.invalid/forbidden.png'
+        : `${resolvedOrigin}/__resolver-images__/${String(number)}.png`;
+      return { status: 'resolved', ownership: 'created', src, resource };
+    })().finally(() => { resolverSettlements++; });
+    return trackResolverWork(work, resolverCompletions);
+  },
+  releaseUncommitted(request) {
+    resolverReleases.push({ ...request });
+    const work = (async () => {
+      await waitForResolverStage('cleanup');
+      return query.get('resolver-cleanup') === 'pending'
+        ? { status: 'cleanup-pending', retryToken: 'private-resolver-retry-token' }
+        : { status: 'released' };
+    })().finally(() => { cleanupSettlements++; });
+    return trackResolverWork(work, cleanupCompletions);
+  },
+};
 
 const AssetHookObserver = Extension.create({
   name: 'pasteFixtureAssetHooks',
@@ -130,20 +203,30 @@ const extensions = [
   Blockquote, CodeBlock, HardBreak, UniqueID,
   ...(imagePolicy === 'missing' ? [] : [Image.configure({
     allowBase64: imagePolicy !== 'no-base64',
-    ...(embeddedAssets ? { uploadHandler: async () => { assetUploads++; return 'https://paste-probe.invalid/unexpected-upload.png'; } } : {}),
+    ...(coordinatedAssets ? { uploadHandler: async () => { assetUploads++; return 'https://paste-probe.invalid/unexpected-upload.png'; } } : {}),
   })]), Table, TableRow, TableCell, TableHeader,
   Markdown, SmartPaste,
   ...(lifecycle === 'veto' ? [PasteVeto] : []),
   ...(lifecycle === 'destroy-before-observe' ? [DestroyBeforeReceiptObserver] : []),
   ...(['nested-interception', 'nested-empty-interception'].includes(lifecycle) ? [ConsumeNestedPaste, ConsumeOuterAndNest] : []),
-  ...(embeddedAssets ? [AssetHookObserver] : []),
+  ...(coordinatedAssets ? [AssetHookObserver] : []),
   PasteCleanup.configure({
     formatting,
     feedback,
-    ...(limits === undefined ? {} : { limits }),
-    ...(embeddedAssets ? {
+    ...(limits === undefined && query.get('diagnostics') !== 'one' ? {} : {
+      limits: { ...limits, ...(query.get('diagnostics') === 'one' ? { maxDiagnostics: 1 } : {}) },
+    }),
+    ...(coordinatedAssets ? {
       imageAssets: {
-        mode: 'embedded',
+        mode: resolverAssets ? 'resolver' : 'embedded',
+        ...(resolverAssets ? {
+          resolver: fixtureResolver,
+          sourcePolicy: { allowedOrigins: [resolvedOrigin] },
+          onRecovery: report => {
+            recoveryReports.push(structuredClone(report));
+            if (query.get('resolver-observer') === 'cancel-created' && report.phase === 'preparing' && report.registeredResources > 0) cancelPreparation?.();
+          },
+        } : {}),
         unresolved: query.get('unresolved') === 'omit' ? 'omit' : 'reject',
         ...(query.get('asset-limits') === 'small' ? { limits: { maxFileBytes: 16, maxTotalFileBytes: 32 } } : {}),
         match: context => {
@@ -162,6 +245,12 @@ const extensions = [
     onResult: result => {
       results.push(structuredClone(result));
       callbackOrder.push({ phase: 'normalize', operationId: result.operationId });
+      if (resolverAssets && query.get('resolver-host') === 'insert-throw' && result.html.includes('/__resolver-images__/')) {
+        const image = editor.state.schema.nodes.image;
+        const source = `${resolvedOrigin}/__resolver-images__/1.png`;
+        editor.view.dispatch(editor.state.tr.replaceSelectionWith(image.create({ src: source })));
+        throw new Error('Synthetic host inserted an untagged image');
+      }
     },
     onPasteResult: result => {
       operations.push(structuredClone(result));
@@ -171,6 +260,11 @@ const extensions = [
         selection: editor.state.selection.toJSON(),
         focused: editor.view.hasFocus(),
       });
+      if (resolverAssets && query.get('resolver-host') === 'destroy-throw') {
+        resolverObserverThrows.terminal++;
+        editor.destroy();
+        throw new Error('Synthetic terminal observer failed after destruction');
+      }
     },
   }),
 ];
@@ -189,6 +283,7 @@ function capture(instance) {
   editor.on('update', ({ transaction }) => {
     hostUpdates++;
     if (lifecycle === 'throw-update' && transaction.getMeta('paste') === true) {
+      resolverObserverThrows.update++;
       throw new Error('Fixture observer failed after commit');
     }
   });
@@ -211,6 +306,26 @@ window.__pasteCleanup = {
   get assetReads() { return assetReads; },
   get assetUploads() { return assetUploads; },
   get assetHookCalls() { return assetHookCalls; },
+  get resolverCalls() { return resolverCalls; },
+  get resolverRegistrations() { return resolverRegistrations; },
+  get resolverReleases() { return resolverReleases; },
+  get resolverSettlements() { return resolverSettlements; },
+  get cleanupSettlements() { return cleanupSettlements; },
+  get recoveryReports() { return recoveryReports; },
+  get resolverObserverThrows() { return resolverObserverThrows; },
+  holdResolver(stage) { resolverHolds.add(stage); },
+  async releaseResolver() {
+    releaseResolverStage('before-creation');
+    releaseResolverStage('after-creation');
+    while (resolverCompletions.size > 0) await Promise.allSettled([...resolverCompletions]);
+    // Actual adapter settlement precedes the frame; cleanup can remain explicitly held.
+    await new Promise(resolve => requestAnimationFrame(resolve));
+  },
+  async releaseResolverCleanup() {
+    releaseResolverStage('cleanup');
+    while (cleanupCompletions.size > 0) await Promise.allSettled([...cleanupCompletions]);
+    await new Promise(resolve => requestAnimationFrame(resolve));
+  },
   setAssetBindings(bindings) { assetBindings = structuredClone(bindings); },
   holdAssetReads() { pauseAssetReads = true; },
   async releaseAssetReads() {
@@ -255,6 +370,14 @@ window.__pasteCleanup = {
     assetHookCalls.handle = 0;
     assetReads = 0;
     assetUploads = 0;
+    resolverCalls.length = 0;
+    resolverRegistrations.length = 0;
+    resolverReleases.length = 0;
+    recoveryReports.length = 0;
+    resolverObserverThrows.update = 0;
+    resolverObserverThrows.terminal = 0;
+    resolverSettlements = 0;
+    cleanupSettlements = 0;
     cancelPreparation = undefined;
     hostUpdates = 0;
     lifecycleReady = true;
