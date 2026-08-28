@@ -16,6 +16,8 @@ import type { mathMessages } from '@domternal/extension-math';
 import * as mathDe from '@domternal/extension-math/locales/de';
 import type { mentionMessages } from '@domternal/extension-mention';
 import * as mentionDe from '@domternal/extension-mention/locales/de';
+import type { pasteCleanupMessages } from '@domternal/extension-paste-cleanup';
+import * as pasteCleanupDe from '@domternal/extension-paste-cleanup/locales/de';
 import type { tocMessages } from '@domternal/extension-toc';
 import * as tocDe from '@domternal/extension-toc/locales/de';
 
@@ -28,6 +30,7 @@ type ExpectedCatalogs = {
   emoji: Readonly<CompleteMessages<typeof emojiMessages>>;
   math: Readonly<CompleteMessages<typeof mathMessages>>;
   mention: Readonly<CompleteMessages<typeof mentionMessages>>;
+  pasteCleanup: Readonly<CompleteMessages<typeof pasteCleanupMessages>>;
   toc: Readonly<CompleteMessages<typeof tocMessages>>;
 };
 
@@ -40,6 +43,7 @@ const catalogs = {
   emoji: emojiDe.deMessages,
   math: mathDe.deMessages,
   mention: mentionDe.deMessages,
+  pasteCleanup: pasteCleanupDe.deMessages,
   toc: tocDe.deMessages,
 } satisfies ExpectedCatalogs;
 
@@ -59,6 +63,7 @@ const exactKeys: {
   emoji: true,
   math: true,
   mention: true,
+  pasteCleanup: true,
   toc: true,
 };
 
@@ -71,6 +76,7 @@ const messages: Messages = {
   ...emojiDe.deMessages,
   ...mathDe.deMessages,
   ...mentionDe.deMessages,
+  ...pasteCleanupDe.deMessages,
   ...tocDe.deMessages,
   'core.toolbar.bold': 'Custom bold',
 };
@@ -83,6 +89,7 @@ const searchAliases: SearchAliases = {
   ...emojiDe.deSearchAliases,
   ...mathDe.deSearchAliases,
   ...mentionDe.deSearchAliases,
+  ...pasteCleanupDe.deSearchAliases,
   ...tocDe.deSearchAliases,
 };
 
@@ -103,6 +110,8 @@ emojiDe.deMessages['emoji.insert'] = 'Changed';
 mathDe.deMessages['math.block.description'] = 'Changed';
 // @ts-expect-error Official messages cannot be mutated.
 mentionDe.deMessages['mention.suggestions.empty'] = 'Changed';
+// @ts-expect-error Official messages cannot be mutated.
+pasteCleanupDe.deMessages['pasteCleanup.feedback.label'] = 'Changed';
 // @ts-expect-error Official messages cannot be mutated.
 tocDe.deMessages['toc.block.empty'] = 'Changed';
 

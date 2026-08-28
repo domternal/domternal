@@ -7,6 +7,7 @@ import type { emojiMessages } from '@domternal/extension-emoji';
 import type { imageMessages } from '@domternal/extension-image';
 import type { mathMessages } from '@domternal/extension-math';
 import type { mentionMessages } from '@domternal/extension-mention';
+import type { pasteCleanupMessages } from '@domternal/extension-paste-cleanup';
 import type { tableMessages } from '@domternal/extension-table';
 import type { tocMessages } from '@domternal/extension-toc';
 
@@ -272,6 +273,38 @@ export function extensionMention(): { deMessages: Readonly<CompleteMessages<type
   } satisfies CompleteMessages<typeof mentionMessages>);
 
   /** Mention suggestions use provider data rather than insertion aliases. */
+  const deSearchAliases = Object.freeze({} satisfies SearchAliases);
+  return { deMessages, deSearchAliases };
+}
+
+/** German messages owned by @domternal/extension-paste-cleanup. */
+export function extensionPasteCleanup(): { deMessages: Readonly<CompleteMessages<typeof pasteCleanupMessages>>; deSearchAliases: SearchAliases } {
+  /** German paste feedback never includes source content or diagnostic payloads. */
+  const deMessages: Readonly<CompleteMessages<typeof pasteCleanupMessages>> = Object.freeze({
+    'pasteCleanup.feedback.label': 'Hinweis zum Einfügen',
+    'pasteCleanup.feedback.applied': 'Eingefügten Inhalt prüfen.',
+    'pasteCleanup.feedback.rejected': 'Einfügen wurde blockiert.',
+    'pasteCleanup.feedback.untracked': 'Ergebnis des Einfügens prüfen.',
+    'pasteCleanup.feedback.noop': 'Beim Einfügen wurden keine Änderungen vorgenommen.',
+    'pasteCleanup.feedback.details': 'Details',
+    'pasteCleanup.feedback.dismiss': 'Schließen',
+    'pasteCleanup.feedback.dismissLabel': 'Hinweis zum Einfügen schließen',
+    'pasteCleanup.feedback.imageRecovery': 'Fehlende Bilder separat einfügen. Falls verfügbar, die ursprüngliche DOCX-Datei importieren.',
+    'pasteCleanup.feedback.rejectedRecovery': 'Eine kleinere Auswahl versuchen oder als unformatierten Text einfügen.',
+    'pasteCleanup.feedback.truncated': 'Nicht alle Details zum Einfügen werden angezeigt.',
+    'pasteCleanup.diagnostic.inputLimit': 'Der Inhalt der Zwischenablage überschreitet die Größenbegrenzung für das Einfügen.',
+    'pasteCleanup.diagnostic.structureLimit': 'Der Inhalt der Zwischenablage überschreitet die unterstützten Dokumentgrenzen.',
+    'pasteCleanup.diagnostic.parseFailed': 'Der Inhalt der Zwischenablage konnte nicht sicher gelesen werden.',
+    'pasteCleanup.diagnostic.unsafeContent': 'Nicht unterstützte oder unsichere Inhalte wurden entfernt.',
+    'pasteCleanup.diagnostic.unsupportedFormatting': 'Einige Formatierungen konnten nicht beibehalten werden.',
+    'pasteCleanup.diagnostic.imageRemoved': 'Einige Bilder konnten nicht übernommen werden.',
+    'pasteCleanup.diagnostic.linkRemoved': 'Einige Links wurden entfernt.',
+    'pasteCleanup.diagnostic.formattingAdapted': 'Die Formatierung wurde an den Editor angepasst.',
+    'pasteCleanup.diagnostic.officeListUnsupported': 'Einige Office-Listen konnten nicht wiederhergestellt werden.',
+    'pasteCleanup.diagnostic.other': 'Einige eingefügte Inhalte sollten überprüft werden.',
+  } satisfies CompleteMessages<typeof pasteCleanupMessages>);
+
+  /** Feedback controls do not participate in insertion search. */
   const deSearchAliases = Object.freeze({} satisfies SearchAliases);
   return { deMessages, deSearchAliases };
 }

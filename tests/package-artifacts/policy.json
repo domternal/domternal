@@ -92,7 +92,8 @@
   "@domternal/extension-paste-cleanup": {
     "maxPackedBytes": 562000,
     "requiredFiles": ["LICENSE", "README.md", "THIRD-PARTY-LICENSES.md", "package.json"],
-    "allowedPatterns": ["^dist/(html/)?index\\.(js|cjs)(\\.map)?$", "^dist/(html/)?index\\.d\\.(ts|cts)$"]
+    "allowedPatterns": ["^dist/(html/)?index\\.(js|cjs)(\\.map)?$", "^dist/(html/)?index\\.d\\.(ts|cts)$"],
+    "maxAdditionalLocaleBytes": 8000
   },
   "@domternal/extension-table": {
     "maxPackedBytes": 141000,

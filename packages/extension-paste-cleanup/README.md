@@ -17,10 +17,9 @@ const extensions = [
   // Include your usual document nodes, marks and history extension.
   PasteCleanup.configure({
     formatting: 'preserve',
-    onResult(result) {
-      // Present localized feedback for result.diagnostics in your application.
-      // A rejected result inserts nothing and leaves the document unchanged.
-      reportPasteDiagnostics(result.diagnostics);
+    onPasteResult(result) {
+      // Observe the accepted outcome after synchronous paste processing settles.
+      console.log(result.operationId, result.status);
     },
   }),
 ];
@@ -41,6 +40,48 @@ the extension never reads the system clipboard later.
 cannot disable cleanup. The observer is not an insertion receipt: downstream
 editor handlers may still reject the paste. Source HTML is not stored in editor
 storage, diagnostics, or a remote service.
+
+## Feedback and accepted results
+
+The default nonmodal notice displays warnings, removed-image guidance and blocked
+input. It provides accessible status text, a details disclosure and dismissal
+without moving focus or adding document content. A clean paste or intentional
+formatting adaptation alone stays quiet. Load the normal `@domternal/theme` CSS
+for styling. The notice follows editor adoption and is removed on destruction.
+
+Use `feedback: 'application'` with an `onPasteResult` handler to own presentation.
+Omitting that handler is a fatal configuration error. English definitions are
+exported as `pasteCleanupMessages`; the optional `/locales/de` entry exports
+`deMessages` and `deSearchAliases`. Merge the catalog with your other per-editor
+i18n messages. Visible notices update when the locale changes.
+
+`onPasteResult` runs once in a microtask for each observed normalization operation,
+including plain-text transforms. Its frozen result contains `operationId`,
+`source`, `formatting`, `status`, bounded `diagnostics`, `diagnosticsTruncated` and
+`references`, without source HTML. `onResult` includes the same operation ID and
+formatting policy synchronously. Callback exceptions cannot revoke an accepted
+paste or disable cleanup.
+
+| Status | Meaning |
+| --- | --- |
+| `applied` | A tagged paste transaction changed the installed editor document |
+| `rejected` | Cleanup blocked the operation before insertion |
+| `noop` | Nothing survived parsing, or an accepted transaction made no document change |
+| `untracked` | No accepted receipt was found, for example after a plugin veto or a custom handler |
+
+An empty cleaned slice preserves the selection instead of deleting selected text.
+`untracked` does not prove that nothing was inserted. Custom asynchronous handlers
+and image-only routes that skip text/HTML transforms are outside this receipt
+contract. `applied` does not establish complete source or destination-schema fidelity.
+
+`getPasteAffectedReferences(editor.view, operationId)` reads the latest installed
+state. References use `precision: 'operation'` and describe changed transaction
+regions, not exact diagnostic or comment anchors. Outside edits map their positions;
+interior edits, undo, replacement or unsupported custom steps can expire them.
+Check `expired` before using ranges, and reacquire them after document changes.
+The store retains the most recent 16 accepted operations and at most 32 regions
+per operation. A missing or destroyed receipt returns `undefined`. References are
+ephemeral and must not be persisted or used to reapply formatting to edited content.
 
 ## Standalone HTML entry
 
@@ -126,7 +167,9 @@ anchor mapping and currently retain their text with a `link-removed` diagnostic.
 ## Resource limits
 
 Defaults are hard ceilings. Callers can lower them with `limits`; invalid or
-expanded values throw a `RangeError` during setup or standalone invocation.
+expanded values throw a `RangeError` in the standalone API. The editor extension
+wraps invalid configuration in `ExtensionConfigurationError` and fails setup,
+so normal extension error isolation cannot silently disable cleanup.
 
 | Limit | Default |
 | --- | ---: |
@@ -152,7 +195,7 @@ links and unsupported formatting are reported without discarding unrelated text.
 Synthetic fixtures test deterministic contracts and hostile input. They are not
 clipboard captures from a native Office application. Native Word, Google Docs,
 LibreOffice and real operating-system clipboard evidence are separate release
-requirements. This package currently exposes diagnostic codes for host-owned
-localization; it has no built-in preview, paste-choice dialog or progress UI.
+requirements. This package has localized loss notices and optional host-owned
+feedback; it has no built-in preview, paste-choice dialog or progress UI.
 The current Core color parser does not retain alpha in RGBA text colors or
 partially transparent backgrounds. Exact transparency fidelity is not promised.

@@ -40,6 +40,18 @@ declare const editor: core.Editor;
 
 // The standalone HTML entry must also resolve through its CommonJS declarations.
 pasteCleanup.PasteCleanup.configure({ formatting: 'adapt' });
+pasteCleanup.PasteCleanup.configure({ feedback: 'application', onPasteResult(result) {
+  const status: 'applied' | 'rejected' | 'untracked' | 'noop' = result.status;
+  const references = pasteCleanup.getPasteAffectedReferences(editor.view, result.operationId);
+  const precision: 'operation' | undefined = references?.precision;
+  // @ts-expect-error CommonJS operation snapshots remain immutable.
+  result.diagnostics.push({ code: 'parse-failed', severity: 'error' });
+  // @ts-expect-error CommonJS affected ranges remain immutable.
+  references?.ranges.push({ from: 1, to: 2 });
+} });
+editor.i18n.t(pasteCleanup.pasteCleanupMessages.applied);
+// @ts-expect-error CommonJS feedback ownership is a finite option.
+pasteCleanup.PasteCleanup.configure({ feedback: 'none' });
 const pasteLimits: Partial<pasteHTML.PasteHTMLLimits> = { maxInputLength: 20_000, maxDiagnostics: 10 };
 const cleanedPaste: pasteHTML.NormalizePasteHTMLResult = pasteHTML.normalizePasteHTML('<p>Clipboard content</p>', {
   formatting: 'preserve',

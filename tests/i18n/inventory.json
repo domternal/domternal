@@ -3199,6 +3199,384 @@
       "searchable": false
     },
     {
+      "id": "pasteCleanup.diagnostic.formattingAdapted",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Fallback detail if adaptation is explicitly reported with warning or error severity.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Formatting was adapted to the editor."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.diagnostic.imageRemoved",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Diagnostic for unavailable or removed images.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Some images could not be included."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.diagnostic.inputLimit",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Diagnostic for the clipboard input size limit.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "The clipboard content exceeds the paste size limit."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.diagnostic.linkRemoved",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Diagnostic for unsafe or unresolved links.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Some links were removed."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.diagnostic.officeListUnsupported",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Diagnostic for unsupported Office list metadata or destination list capabilities.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Some Office lists could not be reconstructed."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.diagnostic.other",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Bounded generic message for an unknown warning code, without displaying source data.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Some pasted content may need review."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.diagnostic.parseFailed",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Diagnostic when clipboard parsing fails.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "The clipboard content could not be read safely."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.diagnostic.structureLimit",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Diagnostic for bounded document structure, images or generated content.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "The clipboard content exceeds supported document limits."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.diagnostic.unsafeContent",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Diagnostic for removal of active or unsupported markup.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Unsupported or unsafe content was removed."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.diagnostic.unsupportedFormatting",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Diagnostic for unsupported source formatting.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Some formatting could not be preserved."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.feedback.applied",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Notice for an applied paste with reported changes or incomplete diagnostics.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Review the pasted content."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.feedback.details",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Native disclosure control for paste diagnostics.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Details"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.feedback.dismiss",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Button to dismiss the paste notice.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Dismiss"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.feedback.dismissLabel",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Accessible name of the paste notice dismissal button.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Dismiss paste notice"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.feedback.imageRecovery",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Available recovery guidance for images missing from clipboard content, without promising file import exists.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Paste missing images separately. If available, import the original DOCX file."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.feedback.label",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Accessible name of the nonmodal paste feedback region.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Paste notice"
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.feedback.noop",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Notice with diagnostics when the paste made no document changes.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Paste made no changes."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.feedback.rejected",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Notice when the paste operation was rejected.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Paste was blocked."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.feedback.rejectedRecovery",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Recovery guidance after a rejected paste, without retrying or reading the clipboard.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Try a smaller selection or paste as plain text."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.feedback.truncated",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Disclosure that diagnostics were bounded and this list is incomplete.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Not all paste details are shown."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.feedback.untracked",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Notice with diagnostics when the insertion outcome could not be tracked.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Check the paste result."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
       "id": "table.cell.alignBottom",
       "owner": "@domternal/extension-table",
       "description": "Table UI: Align bottom.",

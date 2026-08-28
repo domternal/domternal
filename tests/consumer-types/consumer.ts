@@ -25,7 +25,7 @@ import '@domternal/extension-image';
 import '@domternal/extension-markdown';
 import '@domternal/extension-math';
 import '@domternal/extension-mention';
-import { PasteCleanup, normalizePasteHTML as normalizePasteFromMain } from '@domternal/extension-paste-cleanup';
+import { PasteCleanup, pasteCleanupMessages, getPasteAffectedReferences, normalizePasteHTML as normalizePasteFromMain } from '@domternal/extension-paste-cleanup';
 import type { NormalizePasteHTMLResult as MainPasteHTMLResult } from '@domternal/extension-paste-cleanup';
 import { normalizePasteHTML } from '@domternal/extension-paste-cleanup/html';
 import type { PasteHTMLLimits, NormalizePasteHTMLResult } from '@domternal/extension-paste-cleanup/html';
@@ -36,6 +36,18 @@ declare const editor: Editor;
 
 // Both published entries retain the same typed conversion contract.
 PasteCleanup.configure({ formatting: 'adapt' });
+PasteCleanup.configure({ feedback: 'application', onPasteResult(result) {
+  const status: 'applied' | 'rejected' | 'untracked' | 'noop' = result.status;
+  const references = getPasteAffectedReferences(editor.view, result.operationId);
+  const precision: 'operation' | undefined = references?.precision;
+  // @ts-expect-error Accepted operation snapshots cannot be changed by observers.
+  result.diagnostics.push({ code: 'parse-failed', severity: 'error' });
+  // @ts-expect-error Affected ranges are immutable snapshots.
+  references?.ranges.push({ from: 1, to: 2 });
+} });
+editor.i18n.t(pasteCleanupMessages.applied);
+// @ts-expect-error Feedback ownership is a finite public option.
+PasteCleanup.configure({ feedback: 'none' });
 const pasteLimits: Partial<PasteHTMLLimits> = { maxInputLength: 20_000, maxDiagnostics: 10 };
 const cleanedPaste: NormalizePasteHTMLResult = normalizePasteHTML('<p>Clipboard content</p>', {
   formatting: 'preserve',
