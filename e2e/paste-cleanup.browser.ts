@@ -17,6 +17,20 @@ const WORD_HTML = '<p class="MsoNormal" style="text-align:center"><span style="m
   + 'font-size:18pt;color:#123456;font-weight:700;font-style:italic;text-decoration:underline">Styled Word</span></p>'
   + '<ol start="4"><li><p>Four</p></li></ol>'
   + '<table><tr><td colspan="2"><p>Merged</p></td></tr><tr><td><p>A</p></td><td><p>B</p></td></tr></table>';
+const INHERITED_HTML = '<div style="font-family:Calibri;font-size:16px;color:#123456"><p>'
+  + '<strong>Bold<span style="font-weight:400;color:#654321">Plain</span>Again</strong>'
+  + '<em>Italic<span style="font-style:normal">Roman</span></em></p></div>';
+
+/** Explicit synthetic Office metadata, not a clipboard capture from Word. */
+function officeListItem(marker: string, text: string, level = 1): string {
+  return `<p class="MsoListParagraph" style="mso-list:l0 level${String(level)} lfo1">`
+    + `<span style="mso-list:Ignore">${marker}<span>&nbsp; </span></span>${text}</p>`;
+}
+
+const OFFICE_LIST_HTML = officeListItem('7.', 'Seven') + officeListItem('•', 'Nested', 2)
+  + officeListItem('8.', 'Eight') + officeListItem('2.', 'Restart');
+const OFFICE_CONTINUATION_HTML = officeListItem('7.', 'Seven') + officeListItem('8.', 'Eight');
+const paragraphJSON = (text: string): unknown => ({ type: 'paragraph', content: [{ type: 'text', text }] });
 
 interface Snapshot {
   doc: unknown;
@@ -46,10 +60,11 @@ interface ProbeWindow {
 async function openFixture(
   page: Page,
   framework: string,
-  options: { formatting?: 'preserve' | 'adapt'; smallLimits?: boolean } = {},
+  options: { formatting?: 'preserve' | 'adapt'; smallLimits?: boolean; noLists?: boolean } = {},
 ): Promise<void> {
   const query = new URLSearchParams({ framework, formatting: options.formatting ?? 'preserve' });
   if (options.smallLimits === true) query.set('limits', 'small');
+  if (options.noLists === true) query.set('schema', 'no-lists');
   await page.goto(`${BASE_URL}/?${query.toString()}`);
   await page.waitForFunction(() => (window as unknown as Partial<ProbeWindow>).__pasteCleanup?.ready);
   await expect(page.locator('.ProseMirror')).toBeVisible();
@@ -178,7 +193,129 @@ for (const framework of FRAMEWORKS) {
         expect(observed.transactions).toEqual([{ paste: true, uiEvent: 'paste' }]);
         await expectHistoryRoundTrip(page, before);
       });
+
+      test(`synthetic inherited typography uses ${formatting} policy with true mark resets`, async ({ page }) => {
+        await openFixture(page, framework, { formatting });
+        await seed(page, '<p></p>');
+        const before = await snapshot(page);
+        await syntheticPaste(page, { text: 'BoldPlainAgainItalicRoman', html: INHERITED_HTML });
+
+        await expect(page.locator('.ProseMirror')).toHaveText('BoldPlainAgainItalicRoman');
+        for (const text of ['Bold', 'Plain', 'Again', 'Italic', 'Roman']) {
+          const marks = await textMarks(page, text);
+          const names = marks.map(mark => mark.type);
+          if (text === 'Bold' || text === 'Again') expect(names).toContain('bold');
+          else expect(names).not.toContain('bold');
+          if (text === 'Italic') expect(names).toContain('italic');
+          else expect(names).not.toContain('italic');
+          const visual = marks.find(mark => mark.type === 'textStyle');
+          if (formatting === 'preserve') {
+            expect(visual?.attrs).toMatchObject({
+              fontFamily: 'Calibri', fontSize: '16px', color: text === 'Plain' ? '#654321' : '#123456',
+            });
+          } else expect(visual).toBeUndefined();
+        }
+        expect((await observations(page)).transactions).toEqual([{ paste: true, uiEvent: 'paste' }]);
+        await expectHistoryRoundTrip(page, before);
+      });
     }
+
+    test('synthetic Office list metadata reconstructs a numbered start, nested bullet and restart', async ({ page }) => {
+      await openFixture(page, framework);
+      await seed(page, '<p></p>');
+      const before = await snapshot(page);
+      await syntheticPaste(page, { text: '7. Seven\n• Nested\n8. Eight\n2. Restart', html: OFFICE_LIST_HTML });
+
+      expect((await snapshot(page)).doc).toMatchObject({
+        type: 'doc', content: [
+          { type: 'orderedList', attrs: { start: 7 }, content: [
+            { type: 'listItem', content: [paragraphJSON('Seven'), { type: 'bulletList', content: [
+              { type: 'listItem', content: [paragraphJSON('Nested')] },
+            ] }] },
+            { type: 'listItem', content: [paragraphJSON('Eight')] },
+          ] },
+          { type: 'orderedList', attrs: { start: 2 }, content: [
+            { type: 'listItem', content: [paragraphJSON('Restart')] },
+          ] },
+        ],
+      });
+      const observed = await observations(page);
+      expect(observed.results.at(-1)).toMatchObject({ status: 'cleaned', source: 'word' });
+      expect(observed.results.at(-1)?.diagnostics).not.toContainEqual(expect.objectContaining({ code: 'office-list-unsupported' }));
+      expect(observed.transactions).toEqual([{ paste: true, uiEvent: 'paste' }]);
+      await expectHistoryRoundTrip(page, before);
+    });
+
+    test('synthetic Office numbering retains source start seven after an existing list starting at ten', async ({ page }) => {
+      await openFixture(page, framework);
+      await seed(page, '<ol start="10"><li><p>Existing</p></li></ol>');
+      const before = await snapshot(page);
+      await syntheticPaste(page, { text: '7. Seven\n8. Eight', html: OFFICE_CONTINUATION_HTML });
+
+      expect((await snapshot(page)).doc).toMatchObject({
+        type: 'doc', content: [
+          { type: 'orderedList', attrs: { start: 10 }, content: [{ type: 'listItem', content: [paragraphJSON('Existing')] }] },
+          { type: 'orderedList', attrs: { start: 7 }, content: [
+            { type: 'listItem', content: [paragraphJSON('Seven')] },
+            { type: 'listItem', content: [paragraphJSON('Eight')] },
+          ] },
+        ],
+      });
+      expect((await observations(page)).transactions).toEqual([{ paste: true, uiEvent: 'paste' }]);
+      await expectHistoryRoundTrip(page, before);
+    });
+
+    test('synthetic Office restarts remain sibling lists after an existing numbered item', async ({ page }) => {
+      await openFixture(page, framework);
+      await seed(page, '<ol start="10"><li><p>Existing</p></li></ol>');
+      const before = await snapshot(page);
+      await syntheticPaste(page, { text: '7. Seven\n• Nested\n8. Eight\n2. Restart', html: OFFICE_LIST_HTML });
+
+      expect((await snapshot(page)).doc).toMatchObject({
+        type: 'doc', content: [
+          { type: 'orderedList', attrs: { start: 10 }, content: [{ type: 'listItem', content: [paragraphJSON('Existing')] }] },
+          { type: 'orderedList', attrs: { start: 7 }, content: [
+            { type: 'listItem', content: [paragraphJSON('Seven'), { type: 'bulletList', content: [
+              { type: 'listItem', content: [paragraphJSON('Nested')] },
+            ] }] },
+            { type: 'listItem', content: [paragraphJSON('Eight')] },
+          ] },
+          { type: 'orderedList', attrs: { start: 2 }, content: [{ type: 'listItem', content: [paragraphJSON('Restart')] }] },
+        ],
+      });
+      expect((await observations(page)).transactions).toEqual([{ paste: true, uiEvent: 'paste' }]);
+      await expectHistoryRoundTrip(page, before);
+    });
+
+    test('a schema without list nodes retains visible synthetic Office markers and reports the unsupported list', async ({ page }) => {
+      await openFixture(page, framework, { noLists: true });
+      await seed(page, '<p></p>');
+      const before = await snapshot(page);
+      expect(await page.evaluate(() => {
+        const nodes = (window as unknown as ProbeWindow).__pasteCleanup.editor.schema.nodes;
+        return ['bulletList', 'orderedList', 'listItem'].filter(name => nodes[name] !== undefined);
+      })).toEqual([]);
+      await syntheticPaste(page, { text: '7. Seven\n• Nested\n8. Eight\n2. Restart', html: OFFICE_LIST_HTML });
+
+      const paragraphs = await page.evaluate(() => {
+        const result: { type: string; text: string }[] = [];
+        (window as unknown as ProbeWindow).__pasteCleanup.editor.state.doc.forEach(node => {
+          result.push({ type: node.type.name, text: node.textContent });
+        });
+        return result;
+      });
+      expect(paragraphs).toEqual([
+        { type: 'paragraph', text: expect.stringMatching(/^7\.\s+Seven$/u) },
+        { type: 'paragraph', text: expect.stringMatching(/^•\s+Nested$/u) },
+        { type: 'paragraph', text: expect.stringMatching(/^8\.\s+Eight$/u) },
+        { type: 'paragraph', text: expect.stringMatching(/^2\.\s+Restart$/u) },
+      ]);
+      const observed = await observations(page);
+      expect(observed.results.at(-1)).toMatchObject({ status: 'cleaned', source: 'word' });
+      expect(observed.results.at(-1)?.diagnostics).toContainEqual(expect.objectContaining({ code: 'office-list-unsupported', severity: 'warning' }));
+      expect(observed.transactions).toEqual([{ paste: true, uiEvent: 'paste' }]);
+      await expectHistoryRoundTrip(page, before);
+    });
 
     test('standalone normalization and paste do not execute markup or request its resources', async ({ page }) => {
       const network = await watchResourceRequests(page);

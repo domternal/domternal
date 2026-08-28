@@ -13,6 +13,7 @@ import { normalizePasteHTML } from '@domternal/extension-paste-cleanup/html';
 const query = new URLSearchParams(location.search);
 const framework = query.get('framework') ?? 'vanilla';
 const formatting = query.get('formatting') === 'adapt' ? 'adapt' : 'preserve';
+const lists = query.get('schema') !== 'no-lists';
 const limits = query.get('limits') === 'small'
   ? { maxInputLength: 1024, maxNodes: 80, maxDepth: 8, maxTableCells: 16 }
   : undefined;
@@ -25,7 +26,8 @@ let wrapper;
 // The optional extension list is identical across all four integrations.
 const extensions = [
   Bold, Italic, Underline, Strike, Link, TextStyle, TextColor, Highlight,
-  FontFamily, FontSize, TextAlign, Heading, BulletList, OrderedList, ListItem,
+  FontFamily, FontSize, TextAlign, Heading,
+  ...(lists ? [BulletList, OrderedList, ListItem] : []),
   Blockquote, CodeBlock, HardBreak, UniqueID,
   Image.configure({ allowBase64: true }), Table, TableRow, TableCell, TableHeader,
   Markdown, SmartPaste,
