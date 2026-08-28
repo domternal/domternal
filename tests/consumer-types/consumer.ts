@@ -31,6 +31,7 @@ import { PasteCleanup, pasteCleanupMessages, getPasteAffectedReferences, normali
 import type { NormalizePasteHTMLResult as MainPasteHTMLResult } from '@domternal/extension-paste-cleanup';
 import { DEFAULT_CLIPBOARD_ASSET_LIMITS, MAX_CLIPBOARD_ASSET_LIMITS } from '@domternal/extension-paste-cleanup';
 import type { ClipboardAssetLimits, ClipboardImageBinding, ClipboardImageMatchContext, PastePreparationProgress } from '@domternal/extension-paste-cleanup';
+import type { ClipboardResolverAdapter, ClipboardCreatedResource, ClipboardAssetRecoveryReport } from '@domternal/extension-paste-cleanup';
 import { normalizePasteHTML } from '@domternal/extension-paste-cleanup/html';
 import type { PasteHTMLLimits, NormalizePasteHTMLResult } from '@domternal/extension-paste-cleanup/html';
 import '@domternal/extension-table';
@@ -85,10 +86,40 @@ PasteCleanup.configure({ imageAssets: {
   progress.cancel();
 } });
 PasteCleanup.configure({ imageAssets: false });
-// @ts-expect-error The initial asset mode only embeds validated local images.
+// @ts-expect-error Upload is not a supported image asset mode.
 PasteCleanup.configure({ imageAssets: { mode: 'upload' } });
 // @ts-expect-error Association must be supplied synchronously from captured metadata.
 PasteCleanup.configure({ imageAssets: { mode: 'embedded', match: async () => [] } });
+const assetResolver: ClipboardResolverAdapter = {
+  idempotency: 'operation-asset-key',
+  async resolve(request) {
+    const blob: Blob = request.blob;
+    const signal: AbortSignal = request.signal;
+    const resource: ClipboardCreatedResource | undefined = request.registerCreated('application-resource');
+    // @ts-expect-error Resolver requests contain immutable raster Blobs, not original File metadata.
+    request.blob.name;
+    if (resource === undefined) return { status: 'failed', creation: 'unknown', recoveryToken: 'application-recovery' };
+    return { status: 'resolved', src: 'https://images.example/test.png', ownership: 'created', resource };
+  },
+  async releaseUncommitted(request) {
+    const operationId: string = request.operationId;
+    const handle: string = request.handle;
+    return { status: 'released' };
+  },
+};
+const assetRecovery = (report: ClipboardAssetRecoveryReport): void => {
+  const revision: number = report.revision;
+  const settled: boolean = report.settled;
+  // @ts-expect-error Resource recovery reports never expose source URLs.
+  report.src;
+  // @ts-expect-error Recovery snapshots cannot be modified by the application.
+  report.recovery.push({});
+};
+PasteCleanup.configure({ imageAssets: { mode: 'resolver', resolver: assetResolver, sourcePolicy: { allowedOrigins: ['https://images.example'] }, onRecovery: assetRecovery } });
+// @ts-expect-error Resolver mode requires an explicit recovery observer.
+PasteCleanup.configure({ imageAssets: { mode: 'resolver', resolver: assetResolver, sourcePolicy: { allowedOrigins: ['https://images.example'] } } });
+// @ts-expect-error Created ownership requires an authentic registered resource capability.
+const forgedCreatedResource: ClipboardCreatedResource = {};
 PasteCleanup.configure({ feedback: 'application', onPasteResult(result) {
   const status: 'applied' | 'rejected' | 'untracked' | 'noop' = result.status;
   const references = getPasteAffectedReferences(editor.view, result.operationId);

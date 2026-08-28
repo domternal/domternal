@@ -10,12 +10,12 @@ type Tracking = ReturnType<typeof createPasteTracking>;
 const editors: Editor[] = [];
 afterEach(() => { for (const editor of editors) editor.destroy(); editors.length = 0; });
 
-function mount(tracking: Tracking): Editor {
+function mount(tracking: Tracking, observe = true): Editor {
   const receipts = Extension.create({
     name: 'receiptFixture',
     addProseMirrorPlugins: () => [new Plugin({
       key: pasteCleanupKey, state: receiptStateField,
-      view: () => ({ update: view => { tracking.observe(view); } }),
+      view: () => ({ update: view => { if (observe) tracking.observe(view); } }),
     })],
   });
   const editor = new Editor({ extensions: [Document, Paragraph, Text, receipts], content: '<p>Before</p>' });
@@ -28,6 +28,37 @@ function accept(editor: Editor, operationId: string): void {
 }
 
 describe('asynchronous paste completion tracking', () => {
+  it('keeps installed no-change acceptance separate from an unaccepted skipped paste', async () => {
+    const tracking = createPasteTracking('preserve', undefined);
+    const editor = mount(tracking);
+    const accepted = tracking.create();
+    const completion = tracking.finish(editor.view, accepted, false);
+    expect(tracking.hasAcceptedReceipt(accepted)).toBe(false);
+    editor.view.dispatch(editor.state.tr.setMeta(pasteCleanupKey, { operationId: accepted.operationId }));
+    expect(tracking.hasAcceptedReceipt(accepted)).toBe(true);
+    expect((await completion).status).toBe('noop');
+    const skipped = tracking.create();
+    const skippedCompletion = tracking.finish(editor.view, skipped, false);
+    tracking.skip(skipped);
+    expect((await skippedCompletion).status).toBe('noop');
+    expect(tracking.hasAcceptedReceipt(skipped)).toBe(false);
+    for (let index = 0; index < 20; index++) accept(editor, `eviction-${String(index)}`);
+    editor.destroy();
+    expect(tracking.hasAcceptedReceipt(accepted)).toBe(true);
+  });
+
+  it('records acceptance found only by the final installed receipt read', async () => {
+    const tracking = createPasteTracking('preserve', undefined);
+    const editor = mount(tracking, false);
+    const operation = tracking.create();
+    const completion = tracking.finish(editor.view, operation, false);
+    accept(editor, operation.operationId);
+    expect(tracking.hasAcceptedReceipt(operation)).toBe(false);
+    expect((await completion).status).toBe('applied');
+    expect(tracking.hasAcceptedReceipt(operation)).toBe(true);
+    editor.destroy();
+    expect(tracking.hasAcceptedReceipt(operation)).toBe(true);
+  });
   it('waits for the caller to finish preparation and emits one terminal cancellation', async () => {
     const observer = vi.fn();
     const tracking = createPasteTracking('preserve', observer);

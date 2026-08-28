@@ -89,6 +89,36 @@ pasteCleanup.PasteCleanup.configure({ imageAssets: false });
 pasteCleanup.PasteCleanup.configure({ imageAssets: { mode: 'upload' } });
 // @ts-expect-error CommonJS image association remains synchronous.
 pasteCleanup.PasteCleanup.configure({ imageAssets: { mode: 'embedded', match: async () => [] } });
+const assetResolver: pasteCleanup.ClipboardResolverAdapter = {
+  idempotency: 'operation-asset-key',
+  async resolve(request) {
+    const blob: Blob = request.blob;
+    const signal: AbortSignal = request.signal;
+    const resource: pasteCleanup.ClipboardCreatedResource | undefined = request.registerCreated('application-resource');
+    // @ts-expect-error CommonJS resolver requests retain the immutable Blob boundary.
+    request.blob.name;
+    if (resource === undefined) return { status: 'failed', creation: 'unknown', recoveryToken: 'application-recovery' };
+    return { status: 'resolved', src: 'https://images.example/test.png', ownership: 'created', resource };
+  },
+  async releaseUncommitted(request) {
+    const operationId: string = request.operationId;
+    const handle: string = request.handle;
+    return { status: 'released' };
+  },
+};
+const assetRecovery = (report: pasteCleanup.ClipboardAssetRecoveryReport): void => {
+  const revision: number = report.revision;
+  const settled: boolean = report.settled;
+  // @ts-expect-error CommonJS recovery reports never expose source URLs.
+  report.src;
+  // @ts-expect-error CommonJS recovery snapshots remain immutable.
+  report.recovery.push({});
+};
+pasteCleanup.PasteCleanup.configure({ imageAssets: { mode: 'resolver', resolver: assetResolver, sourcePolicy: { allowedOrigins: ['https://images.example'] }, onRecovery: assetRecovery } });
+// @ts-expect-error CommonJS resolver mode also requires recovery observation.
+pasteCleanup.PasteCleanup.configure({ imageAssets: { mode: 'resolver', resolver: assetResolver, sourcePolicy: { allowedOrigins: ['https://images.example'] } } });
+// @ts-expect-error CommonJS created ownership cannot forge a registered capability.
+const forgedCreatedResource: pasteCleanup.ClipboardCreatedResource = {};
 pasteCleanup.PasteCleanup.configure({ feedback: 'application', onPasteResult(result) {
   const status: 'applied' | 'rejected' | 'untracked' | 'noop' = result.status;
   const references = pasteCleanup.getPasteAffectedReferences(editor.view, result.operationId);

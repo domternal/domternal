@@ -7,6 +7,7 @@ Import feature branch. It is not a released DOCX importer or a claim of complete
 Word, Google Docs, or LibreOffice fidelity. Strict inline Office list metadata and
 a bounded subset of inherited formatting are supported. Optional local image
 preparation supports image-only pastes and explicit application-supplied bindings.
+An explicit resolver mode can stage those raster assets in application-owned storage.
 Automatic Office image association, stylesheet resolution and the Pro DOCX
 workflow remain subsequent work.
 
@@ -155,8 +156,10 @@ Remote images are removed by default, with escaped alt text where available.
 Enabling `allowRemoteImages` retains HTTP(S) references: later rendering can then
 contact those hosts, and their dimensions/content are outside the local raster
 checks. Without explicit image preparation, local files, blob URLs and CID
-references are removed. SVG data images are always removed. No upload handler or
-external asset resolver is invoked by this package.
+references are removed. SVG data images are always removed. The default behavior
+invokes no upload handler or resolver. Explicit resolver mode uses only the
+application adapter supplied in `imageAssets`; it does not call Image's legacy
+`uploadHandler` or include a storage/network implementation.
 
 PNG, JPEG, GIF and static WebP data images are bounded by declared dimensions,
 frame count, byte length and total pixels. APNG and animated WebP are not accepted.
@@ -233,6 +236,114 @@ after the document changed. An unknown custom-handler outcome remains `untracked
 Relative links require an explicitly supplied HTTP(S) `sourceURL`. The receiving
 page URL and pasted `<base>` are never used. Fragment links need a destination
 anchor mapping and currently retain their text with a `link-removed` diagnostic.
+
+## Explicit persistent image resolver
+
+Use `mode: 'resolver'` when local clipboard images must become application-owned
+HTTP(S) resources, including destinations with `Image.allowBase64: false`.
+The same explicit placement bindings, raster preflight, input limits, stale-target
+checks and one-operation history behavior apply. Choosing this mode authorizes
+the configured adapter; it does not enable remote images from source HTML.
+
+This initial resolver path handles explicitly matched clipboard files. It does
+not upload existing source data URLs. When the live destination forbids embedded
+images, source data images are removed with bounded diagnostics and alt-text
+fallback. Duplicate clipboard files are not appended or guessed into their positions.
+
+```ts
+import { PasteCleanup } from '@domternal/extension-paste-cleanup';
+import type {
+  ClipboardResolverAdapter, ClipboardAssetRecoveryReport,
+} from '@domternal/extension-paste-cleanup';
+
+declare const assetStore: ClipboardResolverAdapter;
+declare const recordAssetRecovery: (report: ClipboardAssetRecoveryReport) => void;
+
+PasteCleanup.configure({
+  imageAssets: {
+    mode: 'resolver',
+    resolver: assetStore,
+    sourcePolicy: { allowedOrigins: ['https://images.example.com'] },
+    onRecovery: recordAssetRecovery,
+    // Add match(context) for explicit references in mixed source HTML.
+  },
+});
+```
+
+`sourcePolicy.allowedOrigins` is a required declaration of exact HTTP(S) origins.
+It allows at most 32 entries, 2,048 UTF-16 units per entry and 8,192 in total.
+Origins can have a trailing slash but cannot contain paths, credentials, queries,
+fragments or wildcards. Normalization handles host casing, default ports and
+international domain names. Subdomains and different ports are separate origins.
+HTTP requires an explicit entry, for example for local development. Resolver
+URLs are limited to 8,192 units each; temporary, relative, credential-bearing,
+local-file and executable references are refused before insertion. These checks
+do not certify a server's durability or the bytes it later serves.
+
+The adapter contract is explicit:
+
+- `idempotency` declares `none` or `operation-asset-key`. The coordinator never
+  retries either kind automatically. Each operation uses a secure random nonce
+  for its asset keys; the editor's display operation ID is not a global storage key.
+- `resolve(request)` receives an immutable validated raster `blob`, `mimeType`,
+  `operationId`, `assetId`, `idempotencyKey`, `signal` and `registerCreated`.
+  Distinct content is resolved sequentially. Repeated placements of the same
+  prepared content share one resource while retaining their original positions.
+- An existing resource returns `{ status: 'resolved', src, ownership: 'existing' }`.
+  It never becomes eligible for this operation's cleanup.
+- A newly created resource must be registered immediately through
+  `registerCreated(handle)`. Its successful result includes the returned opaque
+  capability as `resource`, with `ownership: 'created'`. A fabricated token or a
+  token from another asset does not establish ownership. Registration can return
+  `undefined`; refusal does not prove that the resource does not exist.
+- Failure returns `{ status: 'failed', creation, recoveryToken? }`, declaring
+  `creation: 'none'`, `'registered'` or `'unknown'`, with an
+  actionable `recoveryToken` when the remote outcome is unknown. A thrown or
+  rejected promise is treated as unknown creation, not proof of zero side effects.
+- `releaseUncommitted(request)` releases only registered resources from a known
+  unapplied operation. It returns `{ status: 'released' }` or
+  `{ status: 'cleanup-pending', retryToken }`. Each cleanup attempt runs at most
+  once; later recovery belongs to
+  the application.
+
+Cleanup handles and recovery/retry tokens must be nonempty, at most 1,024 UTF-16
+units, and contain no ASCII whitespace/control characters. At most 400 resources
+can be registered per operation. A handle already registered to another asset
+is refused. Applications must retain their own recovery information when
+registration is refused or a token cannot be accepted.
+
+An adapter must stop its creation/finalization work before its resolve promise
+settles and must not independently insert or persist document references.
+Cancellation is advisory: an aborted fetch or rejected local promise does not
+prove that a server stopped writing. The application must provide compensation
+that is safe for its storage protocol and an explicit recovery path for uncertain
+remote effects. This API is not a distributed storage transaction.
+
+Before application, cancellation immediately ends the pending paste and prevents
+later insertion. A resolver that ignores abort may finish later; its registered
+resources are cleaned only after that resolver actually settles. Resources whose
+resolvers already settled can be cleaned while another remains pending.
+
+Resources enter protected ownership before `onResult` or a replay hook can see
+the resolved HTML. An installed accepted receipt permanently retains them for
+this operation, including after Undo, editor destruction or a throwing observer.
+Without positive acceptance after HTML exposure, the outcome is uncertain and
+resources are retained. Public `noop`, `rejected` or missing/expired UI references
+alone are not resource-deletion evidence. Trusted host hooks can transform or
+persist content; their behavior remains part of the application's contract.
+Long-term garbage collection, including abandoned uncertain resources, belongs
+to the host application.
+
+Required `onRecovery` receives frozen, bounded resource reports with a monotonic
+`revision`, phase, ownership status, counts, recovery identities and private retry
+tokens. Notifications are coalesced in microtasks and can arrive after cancellation,
+a newer paste or editor destruction. `settled` means the terminal phase currently
+has no tracked resolver or cleanup work; it cannot prove that arbitrary external
+work stopped. The ordinary terminal `onPasteResult` does not wait indefinitely
+for these callbacks. Reports exclude HTML, Blob contents, image URLs and cleanup
+handles. Keep their recovery tokens in application recovery state, out of user
+notices and general telemetry. Observer failures cannot revoke accepted content
+or trigger an automatic retry; notification delivery is not durable storage.
 
 ## Resource limits
 

@@ -15,20 +15,30 @@ import { createClipboardImageDestination, sameClipboardImageDestination } from '
 import type { ClipboardImageDestination } from './destination.js';
 import { resolveClipboardAssetLimits } from './limits.js';
 import type { ClipboardAssetLimits } from './limits.js';
-import { prepareClipboardEmbeddedAssets } from './localAssets.js';
+import { prepareClipboardBlobAssets, prepareClipboardEmbeddedAssets } from './localAssets.js';
 import type { ClipboardEmbeddedRejection } from './localAssets.js';
-import { discardPreparedClipboardHTML, materializeClipboardHTML, prepareClipboardHTML, readPreparedClipboardHTMLNormalization } from './preparedHTML.js';
+import { discardPreparedClipboardHTML, materializeClipboardHTML, materializeResolvedClipboardHTML, prepareClipboardHTML, readPreparedClipboardHTMLNormalization } from './preparedHTML.js';
 import type { ClipboardHTMLPreparationResult } from './preparedHTML.js';
 import { resolveClipboardImageBindings } from './references.js';
 import type { ClipboardImageBinding, ClipboardImageReference, ClipboardReferenceLimits } from './references.js';
+import { createClipboardResolverOperation } from './resolverLifecycle.js';
+import { createClipboardResolvedSourcePolicy, readClipboardResolvedSource } from './resolverPolicy.js';
+import type { ClipboardResolvedSourcePolicy } from './resolverPolicy.js';
+import type { ClipboardResolverAdapter, ClipboardResolverOperation, ClipboardResolverReleaseRequest, ClipboardResolverRequest } from './resolverTypes.js';
 import { createClipboardSessionController } from './session.js';
 import type { ClipboardSession, ClipboardSessionCancellation } from './session.js';
-import type { ClipboardImageAssetOptions, ClipboardImageMatchContext, PastePreparationProgress } from './types.js';
+import type { ClipboardAssetRecoveryReport, ClipboardImageAssetOptions, ClipboardImageMatchContext, ClipboardResolvedImageAssetOptions, PastePreparationProgress } from './types.js';
 
 interface ResolvedImageAssets {
+  readonly mode: 'embedded' | 'resolver';
   readonly match: ClipboardImageAssetOptions['match'];
   readonly unresolved: 'reject' | 'omit';
   readonly limits: Readonly<ClipboardAssetLimits>;
+  readonly persistent?: {
+    readonly adapter: ClipboardResolverAdapter;
+    readonly policy: ClipboardResolvedSourcePolicy;
+    readonly onRecovery: (report: ClipboardAssetRecoveryReport) => void;
+  };
 }
 
 /** Resolve configuration before installing any event handler or reading the clipboard. */
@@ -36,17 +46,42 @@ export function resolveClipboardImageAssets(input: unknown): ResolvedImageAssets
   if (input === undefined || input === false) return undefined;
   if (input === null || typeof input !== 'object' || Array.isArray(input)) throw new RangeError('Invalid clipboard image asset options');
   for (const key of Reflect.ownKeys(input)) {
-    if (!['mode', 'match', 'unresolved', 'limits'].includes(String(key))) throw new RangeError('Unknown clipboard image asset option');
+    if (!['mode', 'match', 'unresolved', 'limits', 'resolver', 'sourcePolicy', 'onRecovery'].includes(String(key))) throw new RangeError('Unknown clipboard image asset option');
   }
   const options = input as ClipboardImageAssetOptions;
   const mode: unknown = options.mode;
   const match = options.match;
   const unresolved = options.unresolved ?? 'reject';
   const limits = resolveClipboardAssetLimits(options.limits);
-  if (mode !== 'embedded' || (match !== undefined && typeof match !== 'function') || !['reject', 'omit'].includes(unresolved)) {
+  if ((mode !== 'embedded' && mode !== 'resolver') || (match !== undefined && typeof match !== 'function') || !['reject', 'omit'].includes(unresolved)) {
     throw new RangeError('Invalid clipboard image asset options');
   }
-  return Object.freeze({ match, unresolved, limits });
+  if (mode === 'embedded') {
+    if (['resolver', 'sourcePolicy', 'onRecovery'].some(key => Reflect.has(input, key))) throw new RangeError('Unexpected embedded image asset option');
+    return Object.freeze({ mode, match, unresolved, limits });
+  }
+  const persistent = options as ClipboardResolvedImageAssetOptions;
+  const adapterValue: unknown = persistent.resolver;
+  const sourcePolicyValue: unknown = persistent.sourcePolicy;
+  const onRecovery = persistent.onRecovery;
+  if (adapterValue === null || typeof adapterValue !== 'object' || Array.isArray(adapterValue)
+    || sourcePolicyValue === null || typeof sourcePolicyValue !== 'object' || Array.isArray(sourcePolicyValue)
+    || typeof onRecovery !== 'function') throw new RangeError('Invalid clipboard resolver options');
+  const adapter = adapterValue as ClipboardResolverAdapter;
+  const sourcePolicy = sourcePolicyValue as ClipboardResolvedImageAssetOptions['sourcePolicy'];
+  if (Reflect.ownKeys(sourcePolicy).some(key => key !== 'allowedOrigins')) throw new RangeError('Unknown clipboard resolver source policy');
+  const idempotency: unknown = adapter.idempotency;
+  const resolve = adapter.resolve;
+  const releaseUncommitted = adapter.releaseUncommitted;
+  if ((idempotency !== 'none' && idempotency !== 'operation-asset-key') || typeof resolve !== 'function' || typeof releaseUncommitted !== 'function') {
+    throw new RangeError('Invalid clipboard resolver adapter');
+  }
+  const policy = createClipboardResolvedSourcePolicy(sourcePolicy.allowedOrigins);
+  const frozenAdapter: ClipboardResolverAdapter = Object.freeze({ idempotency,
+    resolve: (request: Readonly<ClipboardResolverRequest>) => resolve.call(adapter, request),
+    releaseUncommitted: (request: Readonly<ClipboardResolverReleaseRequest>) => releaseUncommitted.call(adapter, request),
+  });
+  return Object.freeze({ mode, match, unresolved, limits, persistent: Object.freeze({ adapter: frozenAdapter, policy, onRecovery }) });
 }
 
 type Tracking = ReturnType<typeof createPasteTracking>;
@@ -72,6 +107,8 @@ interface AssetOperation {
   done: boolean;
   notified: boolean;
   applying: boolean;
+  resolver?: ClipboardResolverOperation;
+  resourcesExposed: boolean;
 }
 
 interface ReplayEntry {
@@ -150,6 +187,14 @@ function replayEvent(view: EditorView, html: string): ClipboardEvent {
   return event as ClipboardEvent;
 }
 
+function resolverNonce(view: EditorView): string {
+  const crypto = (view.dom.ownerDocument.defaultView as { crypto?: Crypto } | null)?.crypto ?? (globalThis as { crypto?: Crypto }).crypto;
+  if (crypto === undefined || typeof crypto.getRandomValues !== 'function') throw new Error('Secure randomness is unavailable');
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+}
+
 export function createClipboardAssetCoordinator(
   view: EditorView,
   assetOptions: ResolvedImageAssets,
@@ -202,6 +247,10 @@ export function createClipboardAssetCoordinator(
     asset.notified = true;
     hooks.notify({ ...normalization, diagnostics: normalization.diagnostics.map(diagnostic => ({ ...diagnostic })) }, asset.operation);
   };
+  const finishOwnership = (asset: AssetOperation): void => {
+    asset.resolver?.recordAcceptance(hooks.tracking.hasAcceptedReceipt(asset.operation) ? 'accepted'
+      : asset.resourcesExposed ? 'uncertain' : 'known-unapplied');
+  };
   const stop = (asset: AssetOperation, reason: PasteOperationRejectionReason): void => {
     if (asset.done) return;
     asset.done = true;
@@ -209,9 +258,10 @@ export function createClipboardAssetCoordinator(
     release(asset);
     asset.session?.cancel();
     asset.session?.finish();
+    asset.resolver?.cancel();
     const normalization = { ...asset.original, status: 'rejected' as const, html: '',
       diagnostics: asset.original.diagnostics.map(diagnostic => ({ ...diagnostic })) };
-    void hooks.tracking.finish(view, asset.operation, true, { reason, normalization });
+    void hooks.tracking.finish(view, asset.operation, true, { reason, normalization }).then(() => { finishOwnership(asset); });
     notify(asset, normalization);
   };
   const supersede = (): void => { if (active !== undefined) stop(active, 'superseded'); };
@@ -257,9 +307,11 @@ export function createClipboardAssetCoordinator(
     void hooks.tracking.finish(view, operation, true, { reason: limited ? 'asset-limit' : 'assets-unavailable', normalization });
     hooks.notify(normalization, operation);
   };
-  const prepare = (html: string): ClipboardHTMLPreparationResult => prepareClipboardHTML(
-    html, preparationLimits, htmlOptions, () => officeListCapabilities(view.state.schema, view.dom.ownerDocument),
-  );
+  const prepare = (html: string): ClipboardHTMLPreparationResult => {
+    const options = assetOptions.mode === 'resolver' && readDestination()?.allowEmbedded === false
+      ? { ...htmlOptions, allowDataImages: false } : htmlOptions;
+    return prepareClipboardHTML(html, preparationLimits, options, () => officeListCapabilities(view.state.schema, view.dom.ownerDocument));
+  };
   const makeOperation = (result: ClipboardHTMLPreparationResult, entry: CaptureEntry): AssetOperation => {
     const normalization = result.status === 'prepared'
       ? readPreparedClipboardHTMLNormalization(result.handle) ?? emptyResult('parse-failed') : result.normalization;
@@ -268,7 +320,7 @@ export function createClipboardAssetCoordinator(
     const asset: AssetOperation = {
       generation: entry.generation, target: entry, operation, original: normalization, preparation: result.status === 'prepared' ? result : undefined,
       session: started?.status === 'started' ? started.session : undefined,
-      done: false, notified: false, applying: false,
+      done: false, notified: false, applying: false, resourcesExposed: false,
     };
     if (current(entry.generation)) active = asset;
     else { stop(asset, 'superseded'); return asset; }
@@ -282,6 +334,13 @@ export function createClipboardAssetCoordinator(
     if (asset.session?.ready() !== true) { stop(asset, cancellationReason(asset.session?.cancellation)); return; }
     const html = normalization.html;
     const completion = hooks.tracking.finish(view, asset.operation, false, { normalization });
+    void completion.then(() => { finishOwnership(asset); });
+    // Once the host sees a persistent URL, it may insert it through an untagged
+    // callback. Only positive installed acceptance can resolve this uncertainty.
+    if (asset.resolver !== undefined) {
+      if (!asset.resolver.beginApply()) { stop(asset, 'assets-unavailable'); return; }
+      asset.resourcesExposed = true;
+    }
     notify(asset, normalization);
     if (!stillReady(asset)) return;
     const event = replayEvent(view, html);
@@ -326,7 +385,7 @@ export function createClipboardAssetCoordinator(
       });
       const bindings = explicit ?? assetOptions.match?.(context) ?? [];
       if (!stillReady(asset)) return;
-      if (!asset.session.destination.allowEmbedded && bindings.length > 0) { stop(asset, 'unsupported-destination'); return; }
+      if (assetOptions.mode === 'embedded' && !asset.session.destination.allowEmbedded && bindings.length > 0) { stop(asset, 'unsupported-destination'); return; }
       const checked = resolveClipboardImageBindings(snapshot, references, bindings, asset.session.destination, referenceLimits);
       if (!stillReady(asset)) return;
       if (checked.status === 'rejected') { stop(asset, checked.reason === 'input-limit' ? 'asset-limit' : 'assets-unavailable'); return; }
@@ -334,11 +393,55 @@ export function createClipboardAssetCoordinator(
         (checked.matches.length !== references.length && assetOptions.unresolved !== 'omit')) {
         stop(asset, 'assets-unavailable'); return;
       }
-      if (!asset.session.destination.allowEmbedded && checked.matches.length > 0) { stop(asset, 'unsupported-destination'); return; }
+      if (assetOptions.mode === 'embedded' && !asset.session.destination.allowEmbedded && checked.matches.length > 0) { stop(asset, 'unsupported-destination'); return; }
       const progress: PastePreparationProgress = Object.freeze({ operationId: asset.operation.operationId, phase: 'preparing',
         cancel: () => { stop(asset, 'cancelled'); } });
       try { hooks.progress(progress); } catch { /* Progress observers cannot disable validation. */ }
       if (!stillReady(asset)) return;
+      const persistent = assetOptions.persistent;
+      if (persistent !== undefined) {
+        const replacements = new Map<string, { readonly src: string; readonly pixels: number }>();
+        if (checked.matches.length > 0) {
+          const remainingPixels = htmlLimits.maxImagePixels - asset.preparation.existingImagePixels;
+          if (remainingPixels <= 0) { stop(asset, 'asset-limit'); return; }
+          const blobs = await prepareClipboardBlobAssets(checked.matches, asset.session.destination, {
+            maxPlacements: htmlLimits.maxImages, maxFiles: maxItems, maxFileBytes: assetLimits.maxFileBytes,
+            maxTotalFileBytes: assetLimits.maxTotalFileBytes, maxTotalPixels: remainingPixels,
+            maxMetadataLength: metadataLength, maxDescriptionLength: htmlLimits.maxInputLength, maxDimension: 10_000,
+          }, { signal: asset.session.signal });
+          if (!stillReady(asset)) return;
+          if (blobs.status === 'cancelled') { stop(asset, cancellationReason(asset.session.cancellation)); return; }
+          if (blobs.status === 'rejected') { stop(asset, assetReason(blobs.reason)); return; }
+          const nonce = resolverNonce(view);
+          const resources = blobs.resources.map((resource, index) => ({
+            assetId: `asset-${String(index + 1)}`, idempotencyKey: `paste:${nonce}:${String(index + 1)}`,
+            blob: resource.blob, mimeType: resource.mimeType,
+          }));
+          asset.resolver = createClipboardResolverOperation({ operationId: asset.operation.operationId, assets: resources,
+            adapter: persistent.adapter, allowPersistentURL: src => readClipboardResolvedSource(persistent.policy, src) === src,
+            onChange: persistent.onRecovery,
+            limits: { maxBlobBytes: assetLimits.maxFileBytes, maxTotalBlobBytes: assetLimits.maxTotalFileBytes,
+              maxDiagnostics: Math.min(100, htmlLimits.maxDiagnostics) },
+          });
+          const resolution = await asset.resolver.resolve();
+          if (!stillReady(asset)) return;
+          if (resolution.status !== 'ready') { stop(asset, 'assets-unavailable'); return; }
+          const resolved = new Map(resolution.assets.map(resource => [resource.assetId, resource.src]));
+          for (const placement of blobs.placements) {
+            const resource = blobs.resources[placement.resourceIndex];
+            const identity = resources[placement.resourceIndex];
+            const src = identity === undefined ? undefined : resolved.get(identity.assetId);
+            if (resource === undefined || src === undefined) { stop(asset, 'assets-unavailable'); return; }
+            replacements.set(placement.placementId, { src, pixels: resource.pixels });
+          }
+        }
+        if (!stillReady(asset)) return;
+        const materialized = materializeResolvedClipboardHTML(asset.preparation.handle, replacements, persistent.policy,
+          { omitUnresolved: assetOptions.unresolved === 'omit' });
+        if (materialized.status === 'rejected') { stop(asset, materialized.reason === 'output-limit' ? 'asset-limit' : 'assets-unavailable'); return; }
+        apply(asset, materialized.normalization, replay);
+        return;
+      }
       const urls = new Map<string, string>();
       if (checked.matches.length > 0) {
         const remainingPixels = htmlLimits.maxImagePixels - asset.preparation.existingImagePixels;
@@ -398,7 +501,10 @@ export function createClipboardAssetCoordinator(
     }
     handledAssets.add(sourceEvent);
     const result = prepare(html);
-    if (result.status === 'prepared' && result.references.length === 0) { discardPreparedClipboardHTML(result.handle); return undefined; }
+    if (result.status === 'prepared' && result.references.length === 0
+      && !(assetOptions.mode === 'resolver' && readDestination()?.allowEmbedded === false && result.hasRemovedImages)) {
+      discardPreparedClipboardHTML(result.handle); return undefined;
+    }
     const asset = makeOperation(result, captured);
     const references = result.status === 'prepared' ? result.references : Object.freeze([]);
     return defer(asset, captured.capture.snapshot, references);

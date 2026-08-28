@@ -29,6 +29,8 @@ export function createPasteTracking(
   create: (result?: NormalizePasteHTMLResult) => PendingPasteOperation;
   context: (operation: PendingPasteOperation) => PasteNormalizationContext;
   observe: (view: EditorView) => void;
+  /** Installed acceptance survives reference expiry, Undo, destruction, and terminal delivery. */
+  hasAcceptedReceipt: (operation: PendingPasteOperation) => boolean;
   skip: (operation: PendingPasteOperation) => void;
   finish: (view: EditorView, operation: PendingPasteOperation, rejected: boolean, details?: PasteFinishDetails) => Promise<PasteOperationResult>;
 } {
@@ -54,6 +56,7 @@ export function createPasteTracking(
       });
     },
     context: operation => ({ operationId: operation.operationId, formatting: operation.formatting }),
+    hasAcceptedReceipt: operation => completions.get(operation)?.entry.accepted !== undefined,
     observe(view) {
       for (const [id, entry] of waiting) {
         const receipt = readPasteReceipt(view, id);
@@ -87,6 +90,7 @@ export function createPasteTracking(
         entry.settled = true;
         waiting.delete(operation.operationId);
         const receipt = readPasteReceipt(view, operation.operationId) ?? entry.accepted;
+        if (receipt !== undefined) entry.accepted = receipt;
         const currentRevision = pasteDocumentRevision(view);
         const fresh = receipt !== undefined && !view.isDestroyed && receipt.references.documentRevision === currentRevision;
         const references = fresh ? receipt.references : Object.freeze({
