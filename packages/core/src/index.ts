@@ -125,6 +125,7 @@ export {
   getClipboardPasteBehavior,
   type ClipboardPasteBehavior,
 } from './helpers/clipboardPasteBehavior.js';
+export { armClipboardPasteTransaction } from './helpers/clipboardPasteTransaction.js';
 
 // === Theme cascade for portaled elements ===
 export { copyThemeClass } from './utils/copyThemeClass.js';

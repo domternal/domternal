@@ -88,7 +88,7 @@ export function linkPastePlugin(options: LinkPastePluginOptions): Plugin {
           tr.addMark(from, to, type.create({ href: text }));
         }
 
-        dispatch(tr);
+        dispatch(tr.setMeta('paste', true).setMeta('uiEvent', 'paste'));
         return true;
       },
     },

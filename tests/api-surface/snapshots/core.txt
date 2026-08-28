@@ -3,6 +3,7 @@ announce
 AnyExtension
 AnyExtensionConfig
 applyInlineStyles
+armClipboardPasteTransaction
 assertSingleProseMirrorCopy
 AttributeSpec
 AttributeSpecs

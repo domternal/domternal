@@ -18,6 +18,7 @@ import { inlineStyles, type InlineStyleOverrides } from './utils/inlineStyles.js
 import { warnOnDuplicateProseMirrorCopy } from './utils/prosemirrorSingleton.js';
 import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
 import { normalizeColor } from './helpers/normalizeColor.js';
+import { claimClipboardPasteTransaction } from './helpers/clipboardPasteTransaction.js';
 import { I18nService } from './i18n/index.js';
 import { coreMessages } from './messages/core.js';
 import {
@@ -1000,14 +1001,17 @@ export class Editor extends EventEmitter<EditorEvents> {
       return;
     }
 
-    // 1. Apply transaction to state
-    const newState = this.view.state.apply(transaction);
+    claimClipboardPasteTransaction(this.view, transaction);
+
+    // 1. Apply the root and accepted append transactions. A plugin veto is not an update.
+    const { state: newState, transactions } = this.view.state.applyTransaction(transaction);
+    if (transactions.length === 0) return;
 
     // 2. Update view
     this.view.updateState(newState);
     if (!this.view.composing) this._localeRepaintPending = false;
 
-    // 3. Emit transaction event (fires for EVERY transaction)
+    // 3. Emit one callback sequence for the accepted root transaction.
     this.emit('transaction', { editor: this, transaction });
     this.options.onTransaction?.({ editor: this, transaction });
     this._extensionManager.callOnTransaction({ transaction });
