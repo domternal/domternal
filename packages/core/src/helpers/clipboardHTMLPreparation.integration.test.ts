@@ -6,7 +6,7 @@ import type { ClipboardHTMLReplay } from './clipboardHTMLPreparation.js';
 import { armClipboardPasteTransaction } from './clipboardPasteTransaction.js';
 
 const editors: Editor[] = [];
-afterEach(() => { for (const editor of editors) editor.destroy(); editors.length = 0; document.body.replaceChildren(); });
+afterEach(() => { for (const editor of editors) editor.destroy(); editors.length = 0; document.body.replaceChildren(); vi.unstubAllGlobals(); });
 
 function clipboard(html = '<p>Source</p>', text = 'Source'): ClipboardEvent {
   const event = new Event('paste', { bubbles: true, cancelable: true });
@@ -56,6 +56,97 @@ function mount(): {
 }
 
 describe('Core editor deferred clipboard integration', () => {
+  it.each(['native', 'dispatchEvent', 'empty-html', 'empty-text', 'text'] as const)(
+    'observes the %s attempt before a higher handler consumes it', route => {
+      const { editor } = mount();
+      const events: (ClipboardEvent | undefined)[] = [];
+      const origins: string[] = [];
+      const handle = vi.fn(() => true);
+      editor.view.setProps({ handlePaste: handle });
+      registerClipboardHTMLPreparation(editor.view, () => undefined, context => {
+        expect(Object.isFrozen(context)).toBe(true);
+        events.push(context.event);
+        origins.push(context.origin);
+      });
+      const event = clipboard('', route === 'text' ? 'Text' : '');
+      if (route === 'native') editor.view.dom.dispatchEvent(event);
+      else if (route === 'dispatchEvent') editor.view.dispatchEvent(event);
+      else if (route === 'empty-html') editor.view.pasteHTML('', event);
+      else editor.view.pasteText(route === 'text' ? 'Text' : '', event);
+      expect(events).toEqual([event]);
+      expect(origins).toEqual([route === 'native' || route === 'dispatchEvent' ? 'native' : 'programmatic']);
+      expect(handle).toHaveBeenCalledOnce();
+      expect(editor.state.doc.textContent).toBe('Keep');
+    },
+  );
+
+  it('observes source-free programmatic calls and each fresh prepared replay once', async () => {
+    // JSDOM omits this constructor; native implementations are covered in browsers.
+    vi.stubGlobal('ClipboardEvent', class extends Event { readonly clipboardData = null; });
+    const { editor } = mount();
+    const seen: (ClipboardEvent | undefined)[] = [];
+    let resume: ClipboardHTMLReplay | undefined;
+    registerClipboardHTMLPreparation(editor.view, () => ({ onDeferred(replay) { resume = replay; } }),
+      context => { seen.push(context.event); });
+    editor.view.pasteHTML('<p>Source</p>');
+    await Promise.resolve();
+    const prepared = clipboard('<p>Prepared</p>');
+    expect(resume?.('<p>Prepared</p>', prepared)).toBe(true);
+    expect(seen).toEqual([undefined, prepared]);
+    expect(editor.state.doc.textContent).toBe('Prepared');
+  });
+
+  it.each(['throw', 'value', 'promise'] as const)('consumes an attempt when its observer returns %s', async mode => {
+    const { editor, calls } = mount();
+    const invalidObserver = (): unknown => {
+      if (mode === 'throw') throw new Error('Observer failed');
+      if (mode === 'promise') return Promise.reject(new Error('Invalid asynchronous observer'));
+      return 1;
+    };
+    registerClipboardHTMLPreparation(editor.view, () => undefined, invalidObserver);
+    editor.view.pasteText('Blocked', clipboard('', 'Blocked'));
+    await Promise.resolve();
+    expect(editor.state.doc.textContent).toBe('Keep');
+    expect(calls.handle).not.toHaveBeenCalled();
+    expect(calls.slice).not.toHaveBeenCalled();
+  });
+
+  it('preserves a newer reentrant attempt and consumes the older outer attempt', () => {
+    const { editor } = mount();
+    const outer = clipboard('<p>Outer</p>');
+    const inner = clipboard('<p>Inner</p>');
+    const seen: ClipboardEvent[] = [];
+    registerClipboardHTMLPreparation(editor.view, () => undefined, context => {
+      if (context.event !== undefined) seen.push(context.event);
+      if (context.event === outer) editor.view.pasteHTML('<p>Inner</p>', inner);
+    });
+    editor.view.pasteHTML('<p>Outer</p>', outer);
+    expect(seen).toEqual([outer, inner]);
+    expect(editor.state.doc.textContent).toBe('Inner');
+  });
+
+  it('does not continue an attempt after its observer replaces the registration', () => {
+    const { editor } = mount();
+    const replacement = vi.fn();
+    registerClipboardHTMLPreparation(editor.view, () => undefined, () => {
+      registerClipboardHTMLPreparation(editor.view, () => undefined, replacement);
+    });
+    editor.view.pasteHTML('<p>Older</p>', clipboard('<p>Older</p>'));
+    expect(editor.state.doc.textContent).toBe('Keep');
+    expect(replacement).not.toHaveBeenCalled();
+    editor.view.pasteHTML('<p>Current</p>', clipboard('<p>Current</p>'));
+    expect(editor.state.doc.textContent).toBe('Current');
+    expect(replacement).toHaveBeenCalledOnce();
+  });
+
+  it('rejects a non-callable attempt observer before replacing a valid registration', () => {
+    const { editor, calls } = mount();
+    expect(() => registerClipboardHTMLPreparation(editor.view, () => undefined, false as never)).toThrow(TypeError);
+    editor.view.pasteHTML('<p>Source</p>', clipboard());
+    expect(calls.gate).toHaveBeenCalledOnce();
+    expect(editor.state.doc.textContent).toBe('Keep');
+  });
+
   it('exposes only the active attempt event and restores it after a nested public paste', () => {
     const { editor } = mount();
     const seen: (ClipboardEvent | undefined)[] = [];

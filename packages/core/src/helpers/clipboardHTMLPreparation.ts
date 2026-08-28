@@ -25,6 +25,7 @@ export type ClipboardHTMLPreparationGate = (
 interface Registration {
   readonly identity: object;
   readonly gate: ClipboardHTMLPreparationGate;
+  readonly onAttempt: ((context: Readonly<ClipboardHTMLPreparationContext>) => void) | undefined;
 }
 
 interface ReplayIdentity {
@@ -140,11 +141,12 @@ export function getClipboardPasteAttemptEvent(view: EditorView): ClipboardEvent 
   return currentAttempt(view, state)?.event;
 }
 
-function openAttempt(view: EditorView, state: ViewPreparation, event: ClipboardEvent | undefined, scoped: boolean): Attempt {
+function openAttempt(view: EditorView, state: ViewPreparation, event: ClipboardEvent | undefined, scoped: boolean,
+  origin: ClipboardHTMLPreparationContext['origin'] = scoped ? 'programmatic' : 'native'): Attempt {
   const bypass = state.permit?.event === event && state.permit !== undefined;
   state.permit = undefined;
   const attempt: Attempt = {
-    event, origin: scoped ? 'programmatic' : 'native', scoped,
+    event, origin, scoped,
     generation: ++state.generation, bypass, routing: scoped, nativeTraversal: undefined,
     closed: false, checked: false,
     quarantined: false, pending: undefined,
@@ -155,6 +157,14 @@ function openAttempt(view: EditorView, state: ViewPreparation, event: ClipboardE
   // created by discard is newer and must not be overwritten when cleanup returns.
   cancelPending(state);
   if (state.generation !== attempt.generation) quarantine(attempt);
+  else {
+    const registration = state.registration;
+    try {
+      const returned: unknown = registration?.onAttempt?.(Object.freeze({ event, origin }));
+      if (returned !== undefined) { observeInvalidReturn(returned); quarantine(attempt); }
+    } catch { quarantine(attempt); }
+    if (state.generation !== attempt.generation || state.registration !== registration) quarantine(attempt);
+  }
   // Native composition, read-only, and consuming DOM handlers may skip handlePaste.
   // Identity-based expiry never closes a later or outer attempt.
   queueMicrotask(() => { if (!attempt.closed) closeAttempt(state, attempt); });
@@ -162,10 +172,11 @@ function openAttempt(view: EditorView, state: ViewPreparation, event: ClipboardE
 }
 
 /** @internal Scope public pasteHTML, pasteText, and paste dispatchEvent entry points. */
-export function runClipboardPasteAttempt<T>(view: EditorView, event: ClipboardEvent | undefined, run: () => T): T {
+export function runClipboardPasteAttempt<T>(view: EditorView, event: ClipboardEvent | undefined, run: () => T,
+  origin: ClipboardHTMLPreparationContext['origin'] = 'programmatic'): T {
   const state = preparations.get(view);
   if (state === undefined || (state.registration === undefined && state.attempts.length === 0)) return run();
-  const attempt = openAttempt(view, state, event, true);
+  const attempt = openAttempt(view, state, event, true, origin);
   try { return run(); } finally { closeAttempt(state, attempt); }
 }
 
@@ -328,16 +339,22 @@ function consumeDeferred(view: EditorView, state: ViewPreparation, attempt: Atte
  * Replay freshness checks do not validate clipboard contents. The caller owns
  * sanitization, destination policy, safe replay data, and async target validation.
  * Ordinary replay hook and dispatch errors keep their usual ProseMirror behavior.
+ * The optional synchronous attempt observer also sees empty, text-only, and
+ * subsequently intercepted attempts. It runs once per Core entry, including replay.
+ * It must return void; throwing or returning a value consumes that attempt.
+ * Its event is synchronous capture data, never an asynchronous clipboard reference.
  */
-export function registerClipboardHTMLPreparation(view: EditorView, gate: ClipboardHTMLPreparationGate): () => void {
+export function registerClipboardHTMLPreparation(view: EditorView, gate: ClipboardHTMLPreparationGate,
+  onAttempt?: (context: Readonly<ClipboardHTMLPreparationContext>) => void): () => void {
   if (typeof gate !== 'function') throw new TypeError('Expected a clipboard HTML preparation gate');
+  if (onAttempt !== undefined && typeof onAttempt !== 'function') throw new TypeError('Expected a clipboard attempt observer');
   if (view.isDestroyed) throw new Error('Cannot prepare clipboard HTML in a destroyed view');
   let state = preparations.get(view);
   if (state === undefined) {
     state = { generation: 0, registration: undefined, attempts: [], domTraversals: [], pending: undefined, permit: undefined };
     preparations.set(view, state);
   }
-  const registration = { identity: Object.freeze({}), gate };
+  const registration = { identity: Object.freeze({}), gate, onAttempt };
   state.registration = registration;
   state.generation++;
   state.permit = undefined;
@@ -397,6 +414,7 @@ export function clipboardPreparationSomeProp<N extends keyof EditorProps, R>(
   }
   if (attempt.quarantined) {
     if (name === 'transformPastedHTML') return invoke(() => '');
+    if (name === 'transformPastedText') return invoke(() => '');
     if (name === 'clipboardParser') return invoke(DOMParser.fromSchema(view.state.schema));
     if (name === 'transformPasted') return undefined;
     if (name === 'handlePaste') return invoke(() => consumeDeferred(view, state, attempt));

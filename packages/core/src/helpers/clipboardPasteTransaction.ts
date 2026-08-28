@@ -30,7 +30,7 @@ export class ClipboardEditorView extends EditorView {
   override dispatchEvent(event: Event): void {
     if (event.type !== 'paste') { super.dispatchEvent(event); return; }
     clearPendingClipboardPasteTransaction(this);
-    runClipboardPasteAttempt(this, event as ClipboardEvent, () => { super.dispatchEvent(event); });
+    runClipboardPasteAttempt(this, event as ClipboardEvent, () => { super.dispatchEvent(event); }, 'native');
   }
 
   override someProp<N extends keyof EditorProps, R>(name: N, callback: (value: NonNullable<EditorProps[N]>) => R): R | undefined;
