@@ -74,6 +74,8 @@ export function normalizePasteHTML(html: string, options: NormalizePasteHTMLOpti
 /** Private preparation sink. Its tree must never reach a live DOM before slot resolution. */
 export interface ClipboardImagePreparationSink {
   reserveImage(node: Element, original: Properties): string | undefined;
+  /** Independent of the diagnostic allowance, so a full allowance cannot hide a removed image. */
+  removedImage?(): void;
   retainTree(tree: Root, existingImagePixels: number): void;
 }
 
@@ -203,6 +205,7 @@ export function normalizeClipboardHTML(
           if (src === undefined) {
             const slot = images <= limits.maxImages ? preparation?.reserveImage(child, original) : undefined;
             if (slot === undefined) {
+              preparation?.removedImage?.();
               report('image-removed', child);
               if (typeof original.alt === 'string') children.push({ type: 'text', value: original.alt });
               continue;

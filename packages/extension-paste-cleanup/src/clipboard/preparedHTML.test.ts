@@ -10,11 +10,15 @@ import type { NormalizePasteHTMLResult } from '../html/types.js';
 import {
   discardPreparedClipboardHTML,
   materializeClipboardHTML,
+  materializeResolvedClipboardHTML,
   prepareClipboardHTML,
   type ClipboardHTMLPreparationResult,
   type PreparedClipboardHTML,
   type PreparedClipboardHTMLLimits,
 } from './preparedHTML.js';
+import type { ClipboardResolvedImagePlacement } from './preparedHTML.js';
+import { createClipboardResolvedSourcePolicy } from './resolverPolicy.js';
+import type { ClipboardResolvedSourcePolicy } from './resolverPolicy.js';
 
 vi.mock('hast-util-to-html', async importOriginal => {
   const actual = await importOriginal<typeof HTMLSerializer>();
@@ -71,7 +75,112 @@ function pngTextChunk(text: string): string {
 beforeEach(() => { vi.mocked(toHtml).mockClear(); });
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
+describe('private resolved clipboard HTML materialization', () => {
+  const SRC = 'https://cdn.example/image.png';
+  const policy = createClipboardResolvedSourcePolicy(['https://cdn.example']);
+  const image = (src = SRC, pixels = 1): ClipboardResolvedImagePlacement => ({ src, pixels });
+
+  it('replaces exact owned slots without authorizing remote source images', () => {
+    const input = '<p>Before<img src="https://cdn.example/untrusted.png" alt="Untrusted"><img src="cid:owned" alt="Owned">After</p>';
+    const result = prepared(prepareClipboardHTML(input, LIMITS, { allowRemoteImages: false, allowDataImages: false }));
+    const output = materializeResolvedClipboardHTML(result.handle, new Map([['image:1', image()]]), policy);
+    expect(output.status).toBe('materialized');
+    if (output.status !== 'materialized') return;
+    expect(output.normalization.html).toBe(`<p>BeforeUntrusted<img alt="Owned" src="${SRC}">After</p>`);
+    expect(output.normalization.diagnostics).toContainEqual(expect.objectContaining({ code: 'image-removed' }));
+    expect(materializeResolvedClipboardHTML(result.handle, new Map([['image:1', image()]]), policy)).toEqual({ status: 'rejected', reason: 'expired-preparation' });
+  });
+
+  it('keeps reversed resource maps at their original placements and escapes resolved URL attributes', () => {
+    const result = prepared(prepareClipboardHTML('<p>A<img src="cid:first" alt="First" width="10">B<img src="cid:second" alt="Second">C</p>', LIMITS));
+    const first = 'https://cdn.example/first.png?a=1&b=2';
+    const output = materializeResolvedClipboardHTML(result.handle, new Map([['image:2', image(SRC)], ['image:1', image(first)]]), policy);
+    expect(output.status).toBe('materialized');
+    if (output.status !== 'materialized') return;
+    const images = elements(output.normalization.html).filter(value => value.tagName === 'img');
+    expect(images.map(value => value.properties.src)).toEqual([first, SRC]);
+    expect(images.map(value => value.properties.alt)).toEqual(['First', 'Second']);
+    expect(images[0]?.properties.width).toBe(10);
+  });
+
+  it.each([
+    'https://other.example/image.png', 'http://cdn.example/image.png', '//cdn.example/image.png',
+    'file:///private/image.png', 'blob:https://cdn.example/id', 'javascript:alert(1)', DATA,
+    'https://name@cdn.example/image.png', 'https://cdn.example\\image.png', 'https://CDN.EXAMPLE/image.png',
+  ])('rejects unapproved, temporary or noncanonical resolved URLs: %j', src => {
+    const result = prepared(prepareClipboardHTML('<img src="cid:owned">', LIMITS));
+    expect(materializeResolvedClipboardHTML(result.handle, new Map([['image:1', image(src)]]), policy)).toEqual({ status: 'rejected', reason: 'invalid-image' });
+    expect(toHtml).not.toHaveBeenCalled();
+  });
+
+  it('rejects a forged policy even when its source URL matches an allowed origin elsewhere', () => {
+    const result = prepared(prepareClipboardHTML('<img src="cid:owned">', LIMITS));
+    expect(materializeResolvedClipboardHTML(result.handle, new Map([['image:1', image()]]), { allowedOrigins: ['https://cdn.example'] } as unknown as ClipboardResolvedSourcePolicy)).toEqual({ status: 'rejected', reason: 'invalid-image' });
+  });
+
+  it.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1])('rejects invalid pixel accounting: %s', pixels => {
+    const result = prepared(prepareClipboardHTML('<img src="cid:owned">', LIMITS));
+    expect(materializeResolvedClipboardHTML(result.handle, new Map([['image:1', image(SRC, pixels)]]), policy)).toEqual({ status: 'rejected', reason: 'invalid-image' });
+  });
+
+  it('charges every repeated placement together with existing data image pixels', () => {
+    const input = `<p><img src="${DATA}"><img src="cid:first"><img src="cid:second"></p>`;
+    const images = new Map([['image:1', image()], ['image:2', image()]]);
+    const exact = prepared(prepareClipboardHTML(input, LIMITS, { limits: { maxImagePixels: 3 } }));
+    expect(materializeResolvedClipboardHTML(exact.handle, images, policy).status).toBe('materialized');
+    const over = prepared(prepareClipboardHTML(input, LIMITS, { limits: { maxImagePixels: 2 } }));
+    expect(materializeResolvedClipboardHTML(over.handle, images, policy)).toEqual({ status: 'rejected', reason: 'invalid-image' });
+  });
+
+  it('refuses missing and unrelated image identities unless omission is explicit', () => {
+    const missing = prepared(prepareClipboardHTML('<img src="cid:owned" alt="Missing">', LIMITS));
+    expect(materializeResolvedClipboardHTML(missing.handle, new Map(), policy)).toEqual({ status: 'rejected', reason: 'missing-image' });
+    const unrelated = prepared(prepareClipboardHTML('<img src="cid:owned">', LIMITS));
+    expect(materializeResolvedClipboardHTML(unrelated.handle, new Map([['image:other', image()]]), policy, { omitUnresolved: true })).toEqual({ status: 'rejected', reason: 'invalid-resolution' });
+    const omitted = prepared(prepareClipboardHTML('<p>A<img src="cid:owned" alt="Missing">B</p>', LIMITS));
+    const output = materializeResolvedClipboardHTML(omitted.handle, new Map(), policy, { omitUnresolved: true });
+    expect(output.status).toBe('materialized');
+    if (output.status === 'materialized') {
+      expect(output.normalization.html).toBe('<p>AMissingB</p>');
+      expect(output.normalization.diagnostics).toContainEqual(expect.objectContaining({ code: 'image-removed' }));
+    }
+  });
+
+  it('bounds escaped output before calling the serializer', () => {
+    const result = prepared(prepareClipboardHTML(`<p><img src="cid:owned" alt="${'&quot;'.repeat(100)}"></p>`, { ...LIMITS, maxOutputUnits: 256 }));
+    expect(materializeResolvedClipboardHTML(result.handle, new Map([['image:1', image()]]), policy)).toEqual({ status: 'rejected', reason: 'output-limit' });
+    expect(toHtml).not.toHaveBeenCalled();
+  });
+
+  it('bounds repeated URL units before serialization', () => {
+    const result = prepared(prepareClipboardHTML('<img src="cid:first"><img src="cid:second">', { ...LIMITS, maxOutputUnits: SRC.length * 2 - 1 }));
+    expect(materializeResolvedClipboardHTML(result.handle, new Map([['image:1', image()], ['image:2', image()]]), policy)).toEqual({ status: 'rejected', reason: 'output-limit' });
+    expect(toHtml).not.toHaveBeenCalled();
+  });
+
+  it('quarantines unreadable resource metadata and consumes the preparation', () => {
+    const result = prepared(prepareClipboardHTML('<img src="cid:owned">', LIMITS));
+    const resource = { get src(): string { throw new Error('Private value'); }, pixels: 1 };
+    expect(materializeResolvedClipboardHTML(result.handle, new Map([['image:1', resource]]), policy)).toEqual({ status: 'rejected', reason: 'invalid-resolution' });
+    expect(materializeResolvedClipboardHTML(result.handle, new Map(), policy)).toEqual({ status: 'rejected', reason: 'expired-preparation' });
+  });
+});
+
 describe('private clipboard HTML preparation', () => {
+  it('records removed source images independently of the diagnostic allowance', () => {
+    const result = prepared(prepareClipboardHTML(`<p><span onclick="alert(1)">A</span><img src="${DATA}" alt="Missing">B</p>`, LIMITS,
+      { allowDataImages: false, limits: { maxDiagnostics: 1 } }));
+    expect(result.hasRemovedImages).toBe(true);
+    expect(result.references).toEqual([]);
+    const output = materialized(result.handle);
+    expect(output.html).toBe('<p><span>A</span>MissingB</p>');
+    expect(output.diagnostics).toEqual([expect.objectContaining({ code: 'unsafe-content-removed' })]);
+    expect(output.diagnosticsTruncated).toBe(true);
+    const retained = prepared(prepareClipboardHTML(`<img src="${DATA}"><img src="cid:reserved">`, LIMITS));
+    expect(retained.hasRemovedImages).toBe(false);
+    discardPreparedClipboardHTML(retained.handle);
+  });
+
   it('keeps public normalization unchanged and serializes only after explicit resolution', () => {
     const html = '<p>Before<img src="cid:private-image" alt="Diagram">After</p>';
     const baseline = normalizePasteHTML(html);

@@ -5,6 +5,8 @@ import { safeImage } from '../html/urls.js';
 import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic } from '../html/types.js';
 import type { OfficeListReconstructionOptions } from '../html/officeLists.js';
 import type { ClipboardImageReference } from './references.js';
+import { readClipboardResolvedSource } from './resolverPolicy.js';
+import type { ClipboardResolvedSourcePolicy } from './resolverPolicy.js';
 
 const SLOT = 'domternalClipboardImageSlot';
 const MAX_PREPARED_UNITS = 32 * 1024 * 1024;
@@ -44,6 +46,7 @@ export type ClipboardHTMLPreparationResult =
       readonly references: readonly ClipboardImageReference[];
       readonly preserveOrderedListStart: boolean;
       readonly existingImagePixels: number;
+      readonly hasRemovedImages: boolean;
     };
 
 function validateLimits(input: PreparedClipboardHTMLLimits): PreparedClipboardHTMLLimits {
@@ -95,6 +98,7 @@ export function prepareClipboardHTML(
   const references: ClipboardImageReference[] = [];
   let tree: Root | undefined;
   let existingPixels = 0;
+  let hasRemovedImages = false;
   const normalized = normalizeClipboardHTML(html, normalizationOptions, capabilities, {
     reserveImage(node, original) {
       if (references.length >= limits.maxReferences) return undefined;
@@ -103,6 +107,7 @@ export function prepareClipboardHTML(
       references.push(placement);
       return placement.placementId;
     },
+    removedImage() { hasRemovedImages = true; },
     retainTree(value, pixels) { tree = value; existingPixels = pixels; },
   });
   if (normalized.result.status === 'rejected' || tree === undefined) return Object.freeze({ status: 'rejected', normalization: normalized.result });
@@ -112,7 +117,7 @@ export function prepareClipboardHTML(
     maxPixels: normalizationOptions.limits?.maxImagePixels ?? DEFAULT_PASTE_HTML_LIMITS.maxImagePixels,
     maxDiagnostics: normalizationOptions.limits?.maxDiagnostics ?? DEFAULT_PASTE_HTML_LIMITS.maxDiagnostics, existingPixels });
   return Object.freeze({ status: 'prepared', handle, references: frozenReferences,
-    preserveOrderedListStart: normalized.preserveOrderedListStart, existingImagePixels: existingPixels });
+    preserveOrderedListStart: normalized.preserveOrderedListStart, existingImagePixels: existingPixels, hasRemovedImages });
 }
 
 class PreparedOutputLimit extends Error {}
@@ -150,11 +155,20 @@ export type ClipboardHTMLMaterialization =
   | { readonly status: 'materialized'; readonly normalization: NormalizePasteHTMLResult }
   | { readonly status: 'rejected'; readonly reason: 'expired-preparation' | 'missing-image' | 'invalid-image' | 'output-limit' | 'invalid-resolution' };
 
+type MaterializationRejection = Extract<ClipboardHTMLMaterialization, { status: 'rejected' }>;
+interface ValidatedImage {
+  readonly status: 'valid';
+  readonly src: string;
+  readonly pixels: number;
+  readonly urlUnits: number;
+}
+
 /** Consume the handle once. A missing resource rejects unless the caller explicitly accepts omissions. */
-export function materializeClipboardHTML(
+function materializeImages(
   handle: PreparedClipboardHTML,
-  resolvedImages: ReadonlyMap<string, string>,
-  options: { readonly omitUnresolved?: boolean } = {},
+  resolvedImages: ReadonlyMap<string, unknown>,
+  options: { readonly omitUnresolved?: boolean },
+  validateImage: (value: unknown, remainingUnits: number, remainingPixels: number) => ValidatedImage | MaterializationRejection,
 ): ClipboardHTMLMaterialization {
   const state = states.get(handle);
   if (state === undefined) return Object.freeze({ status: 'rejected', reason: 'expired-preparation' });
@@ -172,15 +186,11 @@ export function materializeClipboardHTML(
         if (options.omitUnresolved !== true) return Object.freeze({ status: 'rejected', reason: 'missing-image' });
         continue;
       }
-      if (typeof value !== 'string' || value.length > state.limits.maxOutputUnits - urlUnits) return Object.freeze({ status: 'rejected', reason: 'output-limit' });
-      urlUnits += value.length;
-      const safe = safeImage(value, false, true, count => {
-        if (count > state.maxPixels - pixels) return false;
-        pixels += count;
-        return true;
-      });
-      if (safe === undefined) return Object.freeze({ status: 'rejected', reason: 'invalid-image' });
-      urls.set(placement.placementId, safe);
+      const image = validateImage(value, state.limits.maxOutputUnits - urlUnits, state.maxPixels - pixels);
+      if (image.status === 'rejected') return image;
+      urlUnits += image.urlUnits;
+      pixels += image.pixels;
+      urls.set(placement.placementId, image.src);
     }
     if (urls.size !== resolvedImages.size) return Object.freeze({ status: 'rejected', reason: 'invalid-resolution' });
     const omitted = new Set<string>();
@@ -219,6 +229,57 @@ export function materializeClipboardHTML(
   } catch (error) {
     return Object.freeze({ status: 'rejected', reason: error instanceof PreparedOutputLimit ? 'output-limit' : 'invalid-resolution' });
   }
+}
+
+/** Consume local embedded replacements once, keeping their policy separate from source HTML. */
+export function materializeClipboardHTML(
+  handle: PreparedClipboardHTML,
+  resolvedImages: ReadonlyMap<string, string>,
+  options: { readonly omitUnresolved?: boolean } = {},
+): ClipboardHTMLMaterialization {
+  return materializeImages(handle, resolvedImages, options, (value, remainingUnits, remainingPixels) => {
+    if (typeof value !== 'string' || value.length > remainingUnits) return Object.freeze({ status: 'rejected', reason: 'output-limit' });
+    let pixels = 0;
+    const safe = safeImage(value, false, true, count => {
+      if (count > remainingPixels - pixels) return false;
+      pixels += count;
+      return true;
+    });
+    return safe === undefined ? Object.freeze({ status: 'rejected', reason: 'invalid-image' })
+      : { status: 'valid', src: safe, pixels, urlUnits: value.length };
+  });
+}
+
+export interface ClipboardResolvedImagePlacement {
+  readonly src: string;
+  /** Positive header-derived pixels from the same immutable Blob handed to the resolver. */
+  readonly pixels: number;
+}
+
+/**
+ * Consume only owned slots with explicitly approved durable resolver outputs. The caller
+ * owns the placement-to-Blob association and must retain its resolver ownership operation.
+ * This does not enable remote images from source HTML or prove remote byte immutability.
+ */
+export function materializeResolvedClipboardHTML(
+  handle: PreparedClipboardHTML,
+  resolvedImages: ReadonlyMap<string, ClipboardResolvedImagePlacement>,
+  policy: ClipboardResolvedSourcePolicy,
+  options: { readonly omitUnresolved?: boolean } = {},
+): ClipboardHTMLMaterialization {
+  return materializeImages(handle, resolvedImages, options, (value, remainingUnits, remainingPixels) => {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) return Object.freeze({ status: 'rejected', reason: 'invalid-image' });
+    const candidate = value as Record<string, unknown>;
+    const src = candidate['src'];
+    const pixels = candidate['pixels'];
+    if (typeof src !== 'string' || src.length > remainingUnits) return Object.freeze({ status: 'rejected', reason: 'output-limit' });
+    if (typeof pixels !== 'number' || !Number.isSafeInteger(pixels) || pixels < 1 || pixels > remainingPixels) {
+      return Object.freeze({ status: 'rejected', reason: 'invalid-image' });
+    }
+    const safe = readClipboardResolvedSource(policy, src);
+    if (safe === undefined || safe !== src) return Object.freeze({ status: 'rejected', reason: 'invalid-image' });
+    return { status: 'valid', src: safe, pixels, urlUnits: src.length };
+  });
 }
 
 /** Release a preparation that will not be applied. It owns no File, object URL or remote resource. */
