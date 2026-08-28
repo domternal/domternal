@@ -49,6 +49,7 @@ CharacterCountStorage
 clearContent
 ClearContentOptions
 ClearFormatting
+ClipboardPasteBehavior
 Code
 CodeBlock
 CodeBlockOptions
@@ -143,6 +144,7 @@ GenerateJSONOptions
 generateText
 GenerateTextOptions
 getBubbleFormatItems
+getClipboardPasteBehavior
 getListItemCursorContext
 getMarkRange
 GlobalAttributes
@@ -294,6 +296,7 @@ SelectionShape
 SelectionStorage
 selectNodeBackward
 setBlockType
+setClipboardPasteBehavior
 setContent
 SetContentOptions
 setMark

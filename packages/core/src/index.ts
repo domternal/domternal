@@ -120,6 +120,11 @@ export {
 
 // === Clipboard ===
 export { writeToClipboard } from './utils/clipboard.js';
+export {
+  setClipboardPasteBehavior,
+  getClipboardPasteBehavior,
+  type ClipboardPasteBehavior,
+} from './helpers/clipboardPasteBehavior.js';
 
 // === Theme cascade for portaled elements ===
 export { copyThemeClass } from './utils/copyThemeClass.js';

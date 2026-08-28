@@ -3,8 +3,9 @@
  * content fitter, which strips the block wrapper and pastes only inline text.
  * SmartPaste catches the relevant cases and routes each to the right strategy:
  *
- *  1. List slice into a list ancestor: same-kind items merge as siblings; a
- *     different-kind list keeps its kind and splits the host list around it.
+ *  1. List slice into a list ancestor: same-kind items merge as siblings unless
+ *     explicit paste intent preserves ordered starts and their sibling blocks.
+ *     Other lists keep their wrapper and split the host list around it.
  *  2. Trailing hardBreak (Shift+Enter): trim the hardBreak, insert as sibling.
  *  3. Truly empty parent paragraph (`parentSize === 0`): replace the parent.
  *  4-6. Caret at start / end / middle: insert as sibling or split-and-insert.
@@ -20,7 +21,7 @@
  * children of the slice are what matter.
  */
 
-import { Extension } from '@domternal/core';
+import { Extension, getClipboardPasteBehavior } from '@domternal/core';
 import { Plugin, TextSelection, Selection } from '@domternal/pm/state';
 import { Fragment } from '@domternal/pm/model';
 import type { Slice, Node as PMNode, ResolvedPos, NodeType } from '@domternal/pm/model';
@@ -54,7 +55,7 @@ export const SmartPaste = Extension.create<SmartPasteOptions>({
     return [
       new Plugin({
         props: {
-          handlePaste: (view, _event, slice) => handleSmartPaste(view, slice),
+          handlePaste: (view, event, slice) => handleSmartPaste(view, event, slice),
         },
       }),
     ];
@@ -62,7 +63,7 @@ export const SmartPaste = Extension.create<SmartPasteOptions>({
 });
 
 /** Returns `true` when this plugin handled the paste (PM skips its default). */
-function handleSmartPaste(view: EditorView, slice: Slice): boolean {
+function handleSmartPaste(view: EditorView, event: ClipboardEvent, slice: Slice): boolean {
   const { state } = view;
   const { selection } = state;
   const $from = selection.$from;
@@ -79,7 +80,7 @@ function handleSmartPaste(view: EditorView, slice: Slice): boolean {
   if (sliceIsSingleSameTypeAsParent(slice, $from.parent.type.name)) return false;
 
   // Strategy 1: list-slice into list ancestor, merge as siblings.
-  if (tryPasteListSliceIntoList(view, slice)) return true;
+  if (tryPasteListSliceIntoList(view, event, slice)) return true;
 
   // Strategies 2-7: collapse range, then route by parent state + offset.
   const tr = state.tr;
@@ -184,23 +185,37 @@ function hasTrailingHardBreakAtCursor(parent: PMNode, offset: number, parentSize
 }
 
 /**
- * When the slice top-level is a single list AND the caret has a list ancestor:
- *   - SAME list kind: adapt the items (a no-op for the same item type) and merge
- *     them as siblings of the current item, preserving the surrounding list.
+ * When the caret has a list ancestor and the slice is a single list, or explicit
+ * paste behavior preserves a block fragment containing top-level ordered lists:
+ *   - SAME list kind: merge items as siblings, unless explicit paste behavior
+ *     preserves the pasted ordered list's start in its own wrapper.
  *   - DIFFERENT kind (e.g. to-dos pasted into a bullet list): the pasted list
  *     keeps its OWN kind, checked state, and ordered `start`, splitting the host
  *     list around it. This mirrors the cross-kind drag rules (`moveBlock`) and
  *     prevents the silent checked-state loss a blind adapt-and-merge caused.
  * Returns false (caller falls through) when this case doesn't apply.
  */
-function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
+function tryPasteListSliceIntoList(view: EditorView, event: ClipboardEvent, slice: Slice): boolean {
   const { state } = view;
   const { selection } = state;
 
-  // Slice must be exactly one top-level list node.
-  if (slice.content.childCount !== 1) return false;
+  let preserveOrderedStart = false;
+  if (getClipboardPasteBehavior(view, event)?.preserveOrderedListStart === true) {
+    let hasOrderedList = false;
+    let blocksOnly = true;
+    for (let index = 0; index < slice.content.childCount; index++) {
+      const node = slice.content.child(index);
+      if (node.type.name === 'orderedList') hasOrderedList = true;
+      if (!node.isBlock) blocksOnly = false;
+    }
+    preserveOrderedStart = hasOrderedList && blocksOnly;
+  }
+
+  // Explicit preservation also keeps restart wrappers and source interruptions
+  // together at list level. Ordinary multi-block paste retains its usual route.
   const sliceTop = slice.content.firstChild;
-  if (!sliceTop || !LIST_TYPES.has(sliceTop.type.name)) return false;
+  if (!sliceTop) return false;
+  if (!preserveOrderedStart && (slice.content.childCount !== 1 || !LIST_TYPES.has(sliceTop.type.name))) return false;
 
   // Find nearest list-wrapper ancestor of the caret.
   const $from = selection.$from;
@@ -234,7 +249,7 @@ function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
   const liEnd = $pos.after(listItemDepth);
   const itemHasOnlyOneChild = $pos.node(listItemDepth).childCount === 1;
 
-  if (sameKind) {
+  if (sameKind && !preserveOrderedStart) {
     // Same wrapper kind: the items already match the host's item type, so insert
     // them as-is and merge them as siblings of the current item.
     const adapted = sliceTop.content;
@@ -277,9 +292,9 @@ function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
     return true;
   }
 
-  // Different list kind: keep the pasted list as its own wrapper and split the
-  // host list around it, so kind / checked / `start` all survive.
-  const content = Fragment.from(sliceTop);
+  // Preserve a different kind or an explicitly requested ordered start in its
+  // own wrapper, splitting the host list around the inserted content.
+  const content = preserveOrderedStart ? slice.content : Fragment.from(sliceTop);
   let insertedAt: number;
   if (hasTrailingHardBreakAtCursor(parent, offset, parentSize)) {
     const hbStart = parentEnd - 2;
@@ -293,7 +308,7 @@ function tryPasteListSliceIntoList(view: EditorView, slice: Slice): boolean {
       // Host list is just this empty item: replace the whole wrapper.
       const wrapperStart = $pos.before(listDepth);
       const wrapperEnd = $pos.after(listDepth);
-      tr.replaceWith(wrapperStart, wrapperEnd, sliceTop);
+      tr.replaceWith(wrapperStart, wrapperEnd, content);
       insertedAt = wrapperStart;
     } else {
       tr.delete(liStart, liEnd);
