@@ -29,6 +29,13 @@ interface State {
 }
 const states = new WeakMap<PreparedClipboardHTML, State>();
 
+/** Read provisional diagnostics without exposing the retained tree or source HTML. */
+export function readPreparedClipboardHTMLNormalization(handle: PreparedClipboardHTML): NormalizePasteHTMLResult | undefined {
+  const state = states.get(handle);
+  if (state === undefined) return undefined;
+  return { ...state.result, html: '', diagnostics: state.result.diagnostics.map(diagnostic => ({ ...diagnostic })) };
+}
+
 export type ClipboardHTMLPreparationResult =
   | { readonly status: 'rejected'; readonly normalization: NormalizePasteHTMLResult }
   | {

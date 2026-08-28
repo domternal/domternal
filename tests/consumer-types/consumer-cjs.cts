@@ -45,9 +45,14 @@ const disposeHTMLPreparation: () => void = core.registerClipboardHTMLPreparation
   return { onDeferred(replay: core.ClipboardHTMLReplay) {
     queueMicrotask(() => { const handled: boolean = replay(html, new ClipboardEvent('paste')); });
   } };
+}, context => {
+  const currentEvent: ClipboardEvent | undefined = context.event;
+  const origin: 'native' | 'programmatic' = context.origin;
 });
 // @ts-expect-error CommonJS preparation requires a callable gate.
 core.registerClipboardHTMLPreparation(editor.view, false);
+// @ts-expect-error CommonJS attempt observers must be callable.
+core.registerClipboardHTMLPreparation(editor.view, () => undefined, false);
 
 const imagePolicy: core.ClipboardImageDestinationPolicy = {
   nodeTypeName: 'image', sourceAttribute: 'src', inline: false, allowEmbedded: true,
@@ -63,6 +68,27 @@ core.setClipboardPasteBehavior(editor.view, clipboardEvent, { assetsAlreadyHandl
 
 // The standalone HTML entry must also resolve through its CommonJS declarations.
 pasteCleanup.PasteCleanup.configure({ formatting: 'adapt' });
+const assetLimits: Readonly<pasteCleanup.ClipboardAssetLimits> = pasteCleanup.DEFAULT_CLIPBOARD_ASSET_LIMITS;
+const maximumAssetBytes: number = pasteCleanup.MAX_CLIPBOARD_ASSET_LIMITS.maxTotalFileBytes;
+pasteCleanup.PasteCleanup.configure({ imageAssets: {
+  mode: 'embedded', limits: { maxFileBytes: 1024 }, unresolved: 'reject',
+  match(context: pasteCleanup.ClipboardImageMatchContext): readonly pasteCleanup.ClipboardImageBinding[] {
+    const operationId: string = context.operationId;
+    // @ts-expect-error CommonJS matchers receive no live File objects.
+    context.items[0]?.file.arrayBuffer();
+    // @ts-expect-error CommonJS item metadata retains its immutable shape.
+    context.items.push({});
+    return [];
+  },
+}, onPasteProgress(progress: pasteCleanup.PastePreparationProgress) {
+  const phase: 'preparing' = progress.phase;
+  progress.cancel();
+} });
+pasteCleanup.PasteCleanup.configure({ imageAssets: false });
+// @ts-expect-error CommonJS asset mode retains its finite contract.
+pasteCleanup.PasteCleanup.configure({ imageAssets: { mode: 'upload' } });
+// @ts-expect-error CommonJS image association remains synchronous.
+pasteCleanup.PasteCleanup.configure({ imageAssets: { mode: 'embedded', match: async () => [] } });
 pasteCleanup.PasteCleanup.configure({ feedback: 'application', onPasteResult(result) {
   const status: 'applied' | 'rejected' | 'untracked' | 'noop' = result.status;
   const references = pasteCleanup.getPasteAffectedReferences(editor.view, result.operationId);

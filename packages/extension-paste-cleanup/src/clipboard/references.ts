@@ -51,6 +51,8 @@ export interface ClipboardMatchedImage {
 }
 
 interface ReferenceCheckResult {
+  /** Binding validity is independent of the bounded diagnostic presentation. */
+  readonly hasInvalidBindings: boolean;
   readonly matches: readonly ClipboardMatchedImage[];
   readonly diagnostics: readonly ClipboardReferenceDiagnostic[];
   readonly diagnosticsTruncated: boolean;
@@ -177,6 +179,7 @@ export function resolveClipboardImageBindings(
   const limits = validatedLimits(inputLimits);
   const diagnostics: ClipboardReferenceDiagnostic[] = [];
   let diagnosticsTruncated = false;
+  let hasInvalidBindings = false;
   const report = (code: ClipboardReferenceDiagnosticCode, reference?: ClipboardImageReference): void => {
     if (diagnostics.length >= limits.maxDiagnostics) { diagnosticsTruncated = true; return; }
     diagnostics.push(Object.freeze({
@@ -185,9 +188,13 @@ export function resolveClipboardImageBindings(
       ...(reference?.sourceOffset !== undefined ? { offset: reference.sourceOffset } : {}),
     }));
   };
+  const invalidBinding = (code: 'invalid-binding' | 'unknown-placement' | 'conflicting-binding', reference?: ClipboardImageReference): void => {
+    hasInvalidBindings = true;
+    report(code, reference);
+  };
   const reject = (reason: RejectionReason): ClipboardReferenceResult => {
     report(reason);
-    return Object.freeze({ status: 'rejected', reason, matches: EMPTY_MATCHES, diagnostics: Object.freeze(diagnostics), diagnosticsTruncated });
+    return Object.freeze({ status: 'rejected', reason, matches: EMPTY_MATCHES, hasInvalidBindings, diagnostics: Object.freeze(diagnostics), diagnosticsTruncated });
   };
   try {
     if (!isArray(references) || !isArray(bindings)) return reject('unreadable-input');
@@ -212,10 +219,10 @@ export function resolveClipboardImageBindings(
       const binding = bindings[index];
       if (binding === undefined) return reject('unreadable-input');
       const placementId: unknown = binding.placementId;
-      if (typeof placementId !== 'string' || placementId.length === 0) { report('invalid-binding'); continue; }
+      if (typeof placementId !== 'string' || placementId.length === 0) { invalidBinding('invalid-binding'); continue; }
       if (placementId.length > limits.maxMetadataLength) return reject('input-limit');
       const reference = placements.get(placementId);
-      if (reference === undefined) { report('unknown-placement'); continue; }
+      if (reference === undefined) { invalidBinding('unknown-placement'); continue; }
       let state = assigned.get(placementId);
       if (state === undefined) { state = { invalid: false, conflict: false }; assigned.set(placementId, state); }
       const itemIndex: unknown = binding.itemIndex;
@@ -238,8 +245,8 @@ export function resolveClipboardImageBindings(
     for (const reference of placements.values()) {
       const state = assigned.get(reference.placementId);
       if (state === undefined) { report('unbound-reference', reference); continue; }
-      if (state.conflict) { report('conflicting-binding', reference); continue; }
-      if (state.invalid || state.itemIndex === undefined) { report('invalid-binding', reference); continue; }
+      if (state.conflict) { invalidBinding('conflicting-binding', reference); continue; }
+      if (state.invalid || state.itemIndex === undefined) { invalidBinding('invalid-binding', reference); continue; }
       const item = capture.items[state.itemIndex];
       if (item?.file === undefined || item.file === null || item.fileType === null || item.fileSize === null) {
         report('file-unavailable', reference);
@@ -253,6 +260,6 @@ export function resolveClipboardImageBindings(
       if (item.fileSize > destination.maxFileBytes) { report('image-size-limit', reference); continue; }
       matches.push(Object.freeze({ reference, itemIndex: state.itemIndex, file: item.file, fileSize: item.fileSize, mimeType }));
     }
-    return Object.freeze({ status: 'checked', matches: Object.freeze(matches), diagnostics: Object.freeze(diagnostics), diagnosticsTruncated });
+    return Object.freeze({ status: 'checked', matches: Object.freeze(matches), hasInvalidBindings, diagnostics: Object.freeze(diagnostics), diagnosticsTruncated });
   } catch { return reject('unreadable-input'); }
 }

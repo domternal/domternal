@@ -29,6 +29,8 @@ import '@domternal/extension-math';
 import '@domternal/extension-mention';
 import { PasteCleanup, pasteCleanupMessages, getPasteAffectedReferences, normalizePasteHTML as normalizePasteFromMain } from '@domternal/extension-paste-cleanup';
 import type { NormalizePasteHTMLResult as MainPasteHTMLResult } from '@domternal/extension-paste-cleanup';
+import { DEFAULT_CLIPBOARD_ASSET_LIMITS, MAX_CLIPBOARD_ASSET_LIMITS } from '@domternal/extension-paste-cleanup';
+import type { ClipboardAssetLimits, ClipboardImageBinding, ClipboardImageMatchContext, PastePreparationProgress } from '@domternal/extension-paste-cleanup';
 import { normalizePasteHTML } from '@domternal/extension-paste-cleanup/html';
 import type { PasteHTMLLimits, NormalizePasteHTMLResult } from '@domternal/extension-paste-cleanup/html';
 import '@domternal/extension-table';
@@ -43,9 +45,14 @@ const disposeHTMLPreparation: () => void = registerClipboardHTMLPreparation(edit
   return { onDeferred(replay: ClipboardHTMLReplay) {
     queueMicrotask(() => { const handled: boolean = replay(html, new ClipboardEvent('paste')); });
   } };
+}, context => {
+  const currentEvent: ClipboardEvent | undefined = context.event;
+  const origin: 'native' | 'programmatic' = context.origin;
 });
 // @ts-expect-error Preparation requires a callable gate.
 registerClipboardHTMLPreparation(editor.view, false);
+// @ts-expect-error Attempt observers must be callable.
+registerClipboardHTMLPreparation(editor.view, () => undefined, false);
 
 const imagePolicy: ClipboardImageDestinationPolicy = {
   nodeTypeName: 'image', sourceAttribute: 'src', inline: false, allowEmbedded: true,
@@ -61,6 +68,27 @@ setClipboardPasteBehavior(editor.view, clipboardEvent, { assetsAlreadyHandled: '
 
 // Both published entries retain the same typed conversion contract.
 PasteCleanup.configure({ formatting: 'adapt' });
+const assetLimits: Readonly<ClipboardAssetLimits> = DEFAULT_CLIPBOARD_ASSET_LIMITS;
+const maximumAssetBytes: number = MAX_CLIPBOARD_ASSET_LIMITS.maxTotalFileBytes;
+PasteCleanup.configure({ imageAssets: {
+  mode: 'embedded', limits: { maxFileBytes: 1024 }, unresolved: 'reject',
+  match(context: ClipboardImageMatchContext): readonly ClipboardImageBinding[] {
+    const operationId: string = context.operationId;
+    // @ts-expect-error Matchers receive bounded metadata, never live File objects.
+    context.items[0]?.file.arrayBuffer();
+    // @ts-expect-error The original item metadata is immutable.
+    context.items.push({});
+    return [];
+  },
+}, onPasteProgress(progress: PastePreparationProgress) {
+  const phase: 'preparing' = progress.phase;
+  progress.cancel();
+} });
+PasteCleanup.configure({ imageAssets: false });
+// @ts-expect-error The initial asset mode only embeds validated local images.
+PasteCleanup.configure({ imageAssets: { mode: 'upload' } });
+// @ts-expect-error Association must be supplied synchronously from captured metadata.
+PasteCleanup.configure({ imageAssets: { mode: 'embedded', match: async () => [] } });
 PasteCleanup.configure({ feedback: 'application', onPasteResult(result) {
   const status: 'applied' | 'rejected' | 'untracked' | 'noop' = result.status;
   const references = getPasteAffectedReferences(editor.view, result.operationId);

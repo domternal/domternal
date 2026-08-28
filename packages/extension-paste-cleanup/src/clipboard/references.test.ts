@@ -283,7 +283,25 @@ describe('explicit clipboard image bindings', () => {
     expect(result.diagnostics).toHaveLength(1);
     expect(result.diagnosticsTruncated).toBe(true);
     const rejected = check(capture(), [reference()], [], destination(), { ...limits, maxPlacements: 0, maxDiagnostics: 0 });
-    expect(rejected).toEqual({ status: 'rejected', reason: 'input-limit', matches: [], diagnostics: [], diagnosticsTruncated: true });
+    expect(rejected).toEqual({ status: 'rejected', reason: 'input-limit', matches: [], hasInvalidBindings: false, diagnostics: [], diagnosticsTruncated: true });
+  });
+
+  it.each([0, 1])('retains invalid binding state when diagnostics are capped at %i', maximum => {
+    const snapshot = capture([
+      { kind: 'file', type: 'image/png', file: file() },
+      { kind: 'file', type: 'image/png', file: file() },
+    ]);
+    for (const bindings of [[binding('b', 99)], [binding('b', 0), binding('b', 1)], [binding('unknown')]]) {
+      const result = check(snapshot, [reference('a'), reference('b')], bindings, destination(), { ...limits, maxDiagnostics: maximum });
+      expect(result.status).toBe('checked');
+      expect(result.hasInvalidBindings).toBe(true);
+      expect(result.diagnostics.length).toBeLessThanOrEqual(maximum);
+      expect(result.diagnosticsTruncated).toBe(true);
+    }
+    const unbound = check(snapshot, [reference('a'), reference('b')], [], destination(), { ...limits, maxDiagnostics: maximum });
+    expect(unbound.hasInvalidBindings).toBe(false);
+    expect(unbound.diagnosticsTruncated).toBe(true);
+    expect(check(snapshot).hasInvalidBindings).toBe(false);
   });
 
   it('freezes all returned containers and copies mutable caller reference data', () => {

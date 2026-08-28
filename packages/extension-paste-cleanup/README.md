@@ -5,8 +5,10 @@ Opt-in clipboard HTML cleanup for Domternal. MIT licensed and part of Free.
 **Development status:** this is the initial HTML normalization foundation on the
 Import feature branch. It is not a released DOCX importer or a claim of complete
 Word, Google Docs, or LibreOffice fidelity. Strict inline Office list metadata and
-a bounded subset of inherited formatting are supported. Stylesheet resolution,
-clipboard asset matching and the Pro DOCX workflow remain subsequent work.
+a bounded subset of inherited formatting are supported. Optional local image
+preparation supports image-only pastes and explicit application-supplied bindings.
+Automatic Office image association, stylesheet resolution and the Pro DOCX
+workflow remain subsequent work.
 
 ## Editor integration
 
@@ -71,8 +73,9 @@ paste or disable cleanup.
 
 An empty cleaned slice preserves the selection instead of deleting selected text.
 `untracked` does not prove that nothing was inserted. Custom asynchronous handlers
-and image-only routes that skip text/HTML transforms are outside this receipt
-contract. `applied` does not establish complete source or destination-schema fidelity.
+and legacy image-only routes that skip text/HTML transforms are outside this receipt
+contract. The optional `imageAssets` coordinator does track its image-only route.
+`applied` does not establish complete source or destination-schema fidelity.
 
 `getPasteAffectedReferences(editor.view, operationId)` reads the latest installed
 state. References use `precision: 'operation'` and describe changed transaction
@@ -151,14 +154,81 @@ its caller remains responsible for destination compatibility.
 Remote images are removed by default, with escaped alt text where available.
 Enabling `allowRemoteImages` retains HTTP(S) references: later rendering can then
 contact those hosts, and their dimensions/content are outside the local raster
-checks. Local files, blob URLs, CID references and SVG data images are removed.
-No upload handler or external asset resolver is invoked by this package.
+checks. Without explicit image preparation, local files, blob URLs and CID
+references are removed. SVG data images are always removed. No upload handler or
+external asset resolver is invoked by this package.
 
 PNG, JPEG, GIF and static WebP data images are bounded by declared dimensions,
 frame count, byte length and total pixels. APNG and animated WebP are not accepted.
 Container inspection does not decode compressed pixels or certify image integrity.
-If `allowDataImages` is false, all data images are removed. Match this setting to
+If `allowDataImages` is false, source data images are removed. Match this setting to
 the destination Image extension's `allowBase64` policy.
+
+## Optional local clipboard images
+
+`imageAssets` defaults to `false`. Enable `imageAssets: { mode: 'embedded' }`
+alongside `Image.configure({ allowBase64: true })` to prepare image-only clipboard
+files as embedded raster images. Preparation reads captured local files without
+uploading, fetching, creating object URLs or adding document placeholders.
+
+Mixed HTML requires an explicit `match(context)` callback when image references
+need local clipboard files. It returns `ClipboardImageBinding[]` with a
+`placementId`, the original `DataTransfer.items` `itemIndex`, and an evidence
+declaration (`{ kind: 'host', matcherId }` or `{ kind: 'verified-profile', profileId }`).
+String items also occupy indices. The callback receives frozen reference and item
+metadata, including `available`, declared MIME type and captured file size/type.
+It receives no `File`, live `DataTransfer` or complete source HTML. Raw reference
+strings are private matching data and must not enter user-facing notices or logs.
+
+The callback owns association correctness. An evidence label is not a built-in
+verification service. No Word/CID, filename, order, dimensions or cardinality
+heuristic is supplied. Missing bindings reject the entire paste by default.
+`unresolved: 'omit'` explicitly permits dropping unmatched image placements with
+a bounded `image-removed` diagnostic and alt-text fallback where available.
+Invalid or conflicting bindings still reject. Existing safe HTML images retain
+their original positions; unrelated clipboard files are never appended to them.
+
+The actual Image extension must advertise a compatible live destination and allow
+embedded images. A custom image node can register its policy with Core's
+`registerClipboardImageDestination`; matching a node name alone is insufficient.
+Prepared replacements have their own explicit image policy. `allowDataImages`
+continues to control untrusted data images in source HTML.
+
+| `imageAssets.limits` field | Default | Maximum |
+| --- | ---: | ---: |
+| `maxFileBytes` | 1 MiB | 5 MiB |
+| `maxTotalFileBytes` | 4 MiB | 5 MiB |
+| `maxPreparedOutputUnits` | 8 Mi UTF-16 units | 8 Mi UTF-16 units |
+
+Values must be positive safe integers and the per-file allowance cannot exceed
+the total. `DEFAULT_CLIPBOARD_ASSET_LIMITS` and `MAX_CLIPBOARD_ASSET_LIMITS` expose
+these frozen values. Source HTML retains its separate input ceiling. Generated
+markup, escaping and each repeated image URL count toward the output allowance;
+repeated placements also share the existing raster-pixel limit. File metadata,
+actual bytes, raster headers and current destination policy are rechecked.
+
+`onPasteProgress({ operationId, phase: 'preparing', cancel })` lets applications
+present pending work. The default notice includes a localized Cancel action.
+Dismissal or Escape only hides the notice; cancellation is explicit. No progress
+percentage is invented. File reads are asynchronous, but encoding and serialization
+currently run synchronously on the main thread, so cancellation cannot interrupt
+those individual synchronous sections. These limits are not browser heap caps.
+
+Changing the document (even editing then undoing), selection, editable state,
+owning document or image policy invalidates a pending target. A newer paste
+supersedes it. Cancellation or destruction discards late file-read results. There
+is no automatic retry at a different location. Prepared rich HTML runs ordinary
+paste hooks once on replay. Image-only handling starts in `handlePaste`, so a
+higher-priority handler can see its initial empty slice and the prepared replay.
+Accepted insertion is isolated from adjacent typing in history.
+
+`onResult` runs once after preparation succeeds or fails; its synchronous callback
+is no longer necessarily inside the initial native event. `onPasteResult` waits
+for preparation and synchronous insertion to settle. Known pre-insertion rejection
+can include `reason`: `cancelled`, `superseded`, `target-changed`,
+`unsupported-destination`, `assets-unavailable`, `asset-limit` or `asset-read-failed`.
+An accepted receipt takes precedence over cancellation or an observer throwing
+after the document changed. An unknown custom-handler outcome remains `untracked`.
 
 Relative links require an explicitly supplied HTTP(S) `sourceURL`. The receiving
 page URL and pasted `<base>` are never used. Fragment links need a destination
@@ -196,6 +266,8 @@ Synthetic fixtures test deterministic contracts and hostile input. They are not
 clipboard captures from a native Office application. Native Word, Google Docs,
 LibreOffice and real operating-system clipboard evidence are separate release
 requirements. This package has localized loss notices and optional host-owned
-feedback; it has no built-in preview, paste-choice dialog or progress UI.
+feedback and optional image-preparation progress. It has no built-in preview or
+paste-choice dialog. Local image association still requires an explicit host
+mapping for mixed HTML; these fixtures do not prove native Office association.
 The current Core color parser does not retain alpha in RGBA text colors or
 partially transparent backgrounds. Exact transparency fidelity is not promised.

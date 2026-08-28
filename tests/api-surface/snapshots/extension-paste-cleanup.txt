@@ -1,6 +1,14 @@
+ClipboardAssetLimits
+ClipboardImageAssetOptions
+ClipboardImageBinding
+ClipboardImageItemMetadata
+ClipboardImageMatchContext
+ClipboardImageReference
+DEFAULT_CLIPBOARD_ASSET_LIMITS
 DEFAULT_PASTE_HTML_LIMITS
 default(PasteCleanup)
 getPasteAffectedReferences
+MAX_CLIPBOARD_ASSET_LIMITS
 normalizePasteHTML
 NormalizePasteHTMLOptions
 NormalizePasteHTMLResult
@@ -14,5 +22,7 @@ PasteDiagnosticCode
 PasteFormatting
 PasteHTMLLimits
 PasteNormalizationContext
+PasteOperationRejectionReason
 PasteOperationResult
+PastePreparationProgress
 PasteSource
