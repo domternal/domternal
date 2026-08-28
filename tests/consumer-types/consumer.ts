@@ -4,8 +4,8 @@
  * coverage-check.mjs guarantees this list stays exhaustive.
  */
 import type { Editor } from '@domternal/core';
-import { coreMessages, defineMessage, resolveColorName, resolveColorSwatch, resolveEmojiCategory, resolveEmojiLabel, matchesEmojiPresentation, observeI18nPresentation } from '@domternal/core';
-import type { CompleteMessages, Messages } from '@domternal/core';
+import { coreMessages, defineMessage, resolveColorName, resolveColorSwatch, resolveEmojiCategory, resolveEmojiLabel, matchesEmojiPresentation, observeI18nPresentation, registerClipboardImageDestination, getClipboardImageDestination, setClipboardPasteBehavior } from '@domternal/core';
+import type { CompleteMessages, Messages, ClipboardImageDestinationPolicy } from '@domternal/core';
 
 declare module '@domternal/core' {
   interface MessageParameters {
@@ -33,6 +33,19 @@ import '@domternal/extension-table';
 import '@domternal/extension-toc';
 
 declare const editor: Editor;
+declare const clipboardEvent: ClipboardEvent;
+
+const imagePolicy: ClipboardImageDestinationPolicy = {
+  nodeTypeName: 'image', sourceAttribute: 'src', inline: false, allowEmbedded: true,
+  allowedMimeTypes: ['image/png'], maxFileBytes: 1024, policyVersion: 'application:1',
+};
+const disposeImagePolicy: () => void = registerClipboardImageDestination(editor.view, () => imagePolicy);
+const liveImagePolicy: ClipboardImageDestinationPolicy | undefined = getClipboardImageDestination(editor.view);
+setClipboardPasteBehavior(editor.view, clipboardEvent, { preserveOrderedListStart: true, assetsAlreadyHandled: true });
+// @ts-expect-error Published image policies are immutable declarations.
+imagePolicy.allowedMimeTypes.push('image/svg+xml');
+// @ts-expect-error Asset ownership is a boolean signal, not a string trust label.
+setClipboardPasteBehavior(editor.view, clipboardEvent, { assetsAlreadyHandled: 'trusted' });
 
 // Both published entries retain the same typed conversion contract.
 PasteCleanup.configure({ formatting: 'adapt' });

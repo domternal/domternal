@@ -1,8 +1,9 @@
 import type { EditorView } from '@domternal/pm/view';
 
-/** Formatting intent shared by cooperating paste handlers, never a source trust signal. */
+/** Formatting and asset ownership intent shared by paste handlers, never a source trust signal. */
 export interface ClipboardPasteBehavior {
   preserveOrderedListStart?: boolean;
+  assetsAlreadyHandled?: boolean;
 }
 
 const behaviors = new WeakMap<ClipboardEvent, WeakMap<EditorView, Readonly<ClipboardPasteBehavior>>>();
@@ -13,7 +14,9 @@ export function setClipboardPasteBehavior(
   event: ClipboardEvent,
   behavior: Readonly<ClipboardPasteBehavior>,
 ): void {
-  if (behavior.preserveOrderedListStart !== true) {
+  const preserveOrderedListStart = behavior.preserveOrderedListStart === true;
+  const assetsAlreadyHandled = behavior.assetsAlreadyHandled === true;
+  if (!preserveOrderedListStart && !assetsAlreadyHandled) {
     behaviors.get(event)?.delete(view);
     return;
   }
@@ -22,10 +25,13 @@ export function setClipboardPasteBehavior(
     views = new WeakMap();
     behaviors.set(event, views);
   }
-  views.set(view, Object.freeze({ preserveOrderedListStart: true }));
+  views.set(view, Object.freeze({
+    ...(preserveOrderedListStart ? { preserveOrderedListStart: true } : {}),
+    ...(assetsAlreadyHandled ? { assetsAlreadyHandled: true } : {}),
+  }));
 }
 
-/** Read only explicit formatting intent for the same paste event and destination view. */
+/** Read only explicit intent for the same paste event and destination view. */
 export function getClipboardPasteBehavior(
   view: EditorView,
   event: ClipboardEvent,

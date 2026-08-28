@@ -37,6 +37,19 @@ import table = require('@domternal/extension-table');
 import toc = require('@domternal/extension-toc');
 
 declare const editor: core.Editor;
+declare const clipboardEvent: ClipboardEvent;
+
+const imagePolicy: core.ClipboardImageDestinationPolicy = {
+  nodeTypeName: 'image', sourceAttribute: 'src', inline: false, allowEmbedded: true,
+  allowedMimeTypes: ['image/png'], maxFileBytes: 1024, policyVersion: 'application:1',
+};
+const disposeImagePolicy: () => void = core.registerClipboardImageDestination(editor.view, () => imagePolicy);
+const liveImagePolicy: core.ClipboardImageDestinationPolicy | undefined = core.getClipboardImageDestination(editor.view);
+core.setClipboardPasteBehavior(editor.view, clipboardEvent, { preserveOrderedListStart: true, assetsAlreadyHandled: true });
+// @ts-expect-error CommonJS image policies retain their immutable declaration.
+imagePolicy.allowedMimeTypes.push('image/svg+xml');
+// @ts-expect-error CommonJS asset ownership retains its boolean type.
+core.setClipboardPasteBehavior(editor.view, clipboardEvent, { assetsAlreadyHandled: 'trusted' });
 
 // The standalone HTML entry must also resolve through its CommonJS declarations.
 pasteCleanup.PasteCleanup.configure({ formatting: 'adapt' });

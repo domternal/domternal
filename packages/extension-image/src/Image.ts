@@ -6,7 +6,7 @@
  * renderHTML, the `setImage` command, and the input rule (defense in depth).
  */
 
-import { Node, PluginKey, positionFloating, defaultIcons, splitListForInsert, copyThemeClass, localizedLabel, localizeMessage, coreMessages } from '@domternal/core';
+import { Node, PluginKey, positionFloating, defaultIcons, splitListForInsert, copyThemeClass, localizedLabel, localizeMessage, coreMessages, getClipboardPasteBehavior, registerClipboardImageDestination } from '@domternal/core';
 import type { Editor, CommandSpec, ToolbarItem, FloatingMenuItem, I18nService } from '@domternal/core';
 import { Plugin, NodeSelection } from '@domternal/pm/state';
 import { InputRule } from '@domternal/pm/inputrules';
@@ -220,14 +220,13 @@ export const Image = Node.create<ImageOptions>({
   },
 
   addAttributes() {
-    const { options } = this;
     return {
       src: {
         default: null,
         parseHTML: (element: HTMLElement) => {
           const src = element.getAttribute('src');
           // Validate on parse - reject invalid URLs
-          if (src && !isValidImageSrc(src, options.allowBase64)) {
+          if (src && !isValidImageSrc(src, this.options.allowBase64)) {
             return null;
           }
           return src;
@@ -678,6 +677,24 @@ export const Image = Node.create<ImageOptions>({
 
     // Image popover + drag overlay + paste/drop plugin
     if (nodeType) {
+      plugins.push(new Plugin({
+        key: new PluginKey('imageClipboardDestination'),
+        view: view => ({
+          destroy: registerClipboardImageDestination(view, () => {
+            const liveOptions = this.options;
+            return {
+              nodeTypeName: nodeType.name,
+              sourceAttribute: 'src',
+              inline: nodeType.isInline,
+              allowEmbedded: liveOptions.allowBase64,
+              allowedMimeTypes: liveOptions.allowedMimeTypes,
+              maxFileBytes: liveOptions.maxFileSize === 0 ? Number.MAX_SAFE_INTEGER : liveOptions.maxFileSize,
+              policyVersion: 'builtin:1',
+            };
+          }),
+        }),
+      }));
+
       // --- Build popover DOM ---
       const el = document.createElement('div');
       el.className = 'dm-image-popover';
@@ -954,6 +971,7 @@ export const Image = Node.create<ImageOptions>({
             },
           },
           handlePaste(view, event, slice) {
+            if (getClipboardPasteBehavior(view, event)?.assetsAlreadyHandled === true) return false;
             // When uploadHandler is set, let imageUploadPlugin handle paste
             if (options.uploadHandler) return false;
             const items = event.clipboardData?.items;

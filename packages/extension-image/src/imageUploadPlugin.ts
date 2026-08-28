@@ -9,6 +9,7 @@
  * On error: placeholder removed, onUploadError called.
  */
 import { Plugin, PluginKey } from '@domternal/pm/state';
+import { getClipboardPasteBehavior } from '@domternal/core';
 import { Decoration, DecorationSet } from '@domternal/pm/view';
 import type { EditorView } from '@domternal/pm/view';
 import type { NodeType, Slice } from '@domternal/pm/model';
@@ -174,6 +175,7 @@ export function imageUploadPlugin(options: ImageUploadPluginOptions): Plugin {
       },
 
       handlePaste(view, event, slice) {
+        if (getClipboardPasteBehavior(view, event)?.assetsAlreadyHandled === true) return false;
         const items = event.clipboardData?.items;
         if (!items) return false;
 

@@ -50,6 +50,7 @@ CharacterCountStorage
 clearContent
 ClearContentOptions
 ClearFormatting
+ClipboardImageDestinationPolicy
 ClipboardPasteBehavior
 Code
 CodeBlock
@@ -145,6 +146,7 @@ GenerateJSONOptions
 generateText
 GenerateTextOptions
 getBubbleFormatItems
+getClipboardImageDestination
 getClipboardPasteBehavior
 getListItemCursorContext
 getMarkRange
@@ -273,6 +275,7 @@ ProseMirrorCopyConflict
 Range
 RawCommands
 refocusEditorAfterCommand
+registerClipboardImageDestination
 registerProseMirrorCopy
 resetAttributes
 resolveBubbleMenuItems

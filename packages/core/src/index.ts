@@ -126,6 +126,8 @@ export {
   type ClipboardPasteBehavior,
 } from './helpers/clipboardPasteBehavior.js';
 export { armClipboardPasteTransaction } from './helpers/clipboardPasteTransaction.js';
+export { registerClipboardImageDestination, getClipboardImageDestination } from './helpers/clipboardImageDestination.js';
+export type { ClipboardImageDestinationPolicy } from './helpers/clipboardImageDestination.js';
 
 // === Theme cascade for portaled elements ===
 export { copyThemeClass } from './utils/copyThemeClass.js';
