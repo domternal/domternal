@@ -1,0 +1,12 @@
+:root { color-scheme: light dark; font: 16px/1.5 system-ui, sans-serif; }
+body { margin: 0; }
+main { max-width: 52rem; margin: 2rem auto; padding: 0 1rem; }
+label { display: block; margin: .8rem 0; }
+input:not([type=checkbox]), select, textarea { display: block; box-sizing: border-box; width: 100%; padding: .55rem; font: inherit; }
+.check { display: flex; gap: .6rem; align-items: flex-start; }
+.check input { margin-top: .45rem; }
+button { padding: .6rem .9rem; font: inherit; cursor: pointer; }
+button:disabled { cursor: default; }
+.actions { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1rem 0; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid #888; padding: 1rem; min-height: 4rem; }
+:focus-visible { outline: 3px solid #538ada; outline-offset: 2px; }
