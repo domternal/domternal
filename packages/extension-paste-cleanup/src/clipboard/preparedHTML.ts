@@ -7,6 +7,13 @@ import type { OfficeListReconstructionOptions } from '../html/officeLists.js';
 import type { ClipboardImageReference } from './references.js';
 import { readClipboardResolvedSource } from './resolverPolicy.js';
 import type { ClipboardResolvedSourcePolicy } from './resolverPolicy.js';
+import { qualifyClipboardInlineData } from './inlineData.js';
+import type { ClipboardInlineDataResult, ClipboardInlineDataResource } from './inlineData.js';
+import type { ClipboardEmbeddedPlacement, ClipboardInlineAssetBatch } from './localAssets.js';
+import type { ClipboardImageDestination, ClipboardRasterMime } from './destination.js';
+import { clipboardRasterMime } from './destination.js';
+import { resolveClipboardAssetLimits } from './limits.js';
+import type { ClipboardAssetLimits } from './limits.js';
 
 const SLOT = 'domternalClipboardImageSlot';
 const MAX_PREPARED_UNITS = 32 * 1024 * 1024;
@@ -23,13 +30,21 @@ export interface PreparedClipboardHTML { readonly [preparedBrand]: true }
 interface State {
   readonly tree: Root;
   readonly result: NormalizePasteHTMLResult;
-  readonly references: readonly ClipboardImageReference[];
+  readonly slots: readonly ImageSlot[];
   readonly limits: PreparedClipboardHTMLLimits;
   readonly maxPixels: number;
   readonly existingPixels: number;
   readonly maxDiagnostics: number;
 }
+interface ImageSlot { readonly placementId: string; readonly sourceOffset?: number }
 const states = new WeakMap<PreparedClipboardHTML, State>();
+
+/** Private resolver authorization. Source policy remains independent of destination embedding. */
+export interface ClipboardInlineHTMLPreparation {
+  readonly destination: Pick<ClipboardImageDestination, 'allowedMimeTypes' | 'maxFileBytes'>;
+  readonly assetLimits: ClipboardAssetLimits;
+  readonly sourceAllowDataImages: boolean;
+}
 
 /** Read provisional diagnostics without exposing the retained tree or source HTML. */
 export function readPreparedClipboardHTMLNormalization(handle: PreparedClipboardHTML): NormalizePasteHTMLResult | undefined {
@@ -39,7 +54,8 @@ export function readPreparedClipboardHTMLNormalization(handle: PreparedClipboard
 }
 
 export type ClipboardHTMLPreparationResult =
-  | { readonly status: 'rejected'; readonly normalization: NormalizePasteHTMLResult }
+  | { readonly status: 'rejected'; readonly normalization: NormalizePasteHTMLResult;
+      readonly assetReason?: 'asset-limit' | 'assets-unavailable' }
   | {
       readonly status: 'prepared';
       readonly handle: PreparedClipboardHTML;
@@ -47,6 +63,7 @@ export type ClipboardHTMLPreparationResult =
       readonly preserveOrderedListStart: boolean;
       readonly existingImagePixels: number;
       readonly hasRemovedImages: boolean;
+      readonly inlineAssets: ClipboardInlineAssetBatch;
     };
 
 function validateLimits(input: PreparedClipboardHTMLLimits): PreparedClipboardHTMLLimits {
@@ -86,38 +103,121 @@ function reference(node: Element, original: Properties, placementId: string, lim
   });
 }
 
+function inlineDestination(input: ClipboardInlineHTMLPreparation['destination']): ClipboardInlineHTMLPreparation['destination'] | undefined {
+  try {
+    const maxFileBytes: unknown = input.maxFileBytes;
+    const raw: unknown = input.allowedMimeTypes;
+    if (typeof maxFileBytes !== 'number' || !Number.isSafeInteger(maxFileBytes) || maxFileBytes < 1 || !Array.isArray(raw)) return undefined;
+    const count = raw.length;
+    if (count > 4) return undefined;
+    const allowedMimeTypes: ClipboardRasterMime[] = [];
+    for (let index = 0; index < count; index++) {
+      const value: unknown = raw[index];
+      const mime = typeof value === 'string' ? clipboardRasterMime(value) : undefined;
+      if (mime === undefined) return undefined;
+      allowedMimeTypes.push(mime);
+    }
+    return Object.freeze({ maxFileBytes, allowedMimeTypes: Object.freeze(allowedMimeTypes) });
+  } catch { return undefined; }
+}
+
 /** Sanitize once into an opaque, DOM-free tree. HTML attributes cannot create owned slots. */
 export function prepareClipboardHTML(
   html: string,
   inputLimits: PreparedClipboardHTMLLimits,
   options: NormalizePasteHTMLOptions = {},
   capabilities?: () => Pick<OfficeListReconstructionOptions, 'orderedLists' | 'bulletLists' | 'nestedLists'>,
+  inline?: ClipboardInlineHTMLPreparation,
 ): ClipboardHTMLPreparationResult {
   const limits = validateLimits(inputLimits);
-  const normalizationOptions = { ...options, ...(options.limits === undefined ? {} : { limits: { ...options.limits } }) };
+  const normalizationOptions = { ...options, ...(options.limits === undefined ? {} : { limits: { ...options.limits } }),
+    ...(inline === undefined ? {} : { allowDataImages: false }) };
+  const sourceAllowDataImages = inline?.sourceAllowDataImages;
+  if (inline !== undefined && typeof sourceAllowDataImages !== 'boolean') throw new RangeError('Invalid inline source image policy');
+  const assetLimits = inline === undefined ? undefined : resolveClipboardAssetLimits(inline.assetLimits);
+  const destination = inline === undefined ? undefined : inlineDestination(inline.destination);
   const references: ClipboardImageReference[] = [];
+  const slots: ImageSlot[] = [];
+  const resources: ClipboardInlineDataResource[] = [];
+  const placements: ClipboardEmbeddedPlacement[] = [];
+  const inlineCache = new Map<string, ClipboardInlineDataResult>();
+  const resourceIndexes = new Map<ClipboardInlineDataResource, number>();
+  let readBytes = 0;
+  let pixelCount = 0;
+  let assetReason: 'asset-limit' | 'assets-unavailable' | undefined;
+  const maxPixels = normalizationOptions.limits?.maxImagePixels ?? DEFAULT_PASTE_HTML_LIMITS.maxImagePixels;
   let tree: Root | undefined;
   let existingPixels = 0;
   let hasRemovedImages = false;
   const normalized = normalizeClipboardHTML(html, normalizationOptions, capabilities, {
     reserveImage(node, original) {
-      if (references.length >= limits.maxReferences) return undefined;
-      const placement = reference(node, original, `image:${String(references.length + 1)}`, limits);
+      if (assetReason !== undefined) return undefined;
+      const placementId = `image:${String(slots.length + 1)}`;
+      if (sourceAllowDataImages === true && typeof original.src === 'string' && /^data:/i.test(original.src)) {
+        if (slots.length >= limits.maxReferences) { assetReason = 'asset-limit'; return undefined; }
+        if (destination === undefined || assetLimits === undefined) { assetReason = 'assets-unavailable'; return undefined; }
+        if (typeof original.alt === 'string' && original.alt.length > limits.maxDescriptionLength) return undefined;
+        let qualified = inlineCache.get(original.src);
+        if (qualified === undefined) {
+          qualified = qualifyClipboardInlineData(original.src, destination, {
+            maxInputUnits: normalizationOptions.limits?.maxInputLength ?? DEFAULT_PASTE_HTML_LIMITS.maxInputLength,
+            maxResourceBytes: assetLimits.maxFileBytes,
+            remainingResourceBytes: assetLimits.maxTotalFileBytes - readBytes,
+            remainingPixels: maxPixels - pixelCount, placements: 1,
+          });
+          inlineCache.set(original.src, qualified);
+        }
+        if (qualified.status !== 'qualified') {
+          if (qualified.status === 'cancelled' || !['invalid-data-url', 'invalid-raster'].includes(qualified.reason)) {
+            assetReason = qualified.status === 'rejected' && ['input-limit', 'image-size-limit', 'pixel-limit'].includes(qualified.reason)
+              ? 'asset-limit' : 'assets-unavailable';
+          }
+          return undefined;
+        }
+        const resource = qualified.resource;
+        if (resource.pixels > maxPixels - pixelCount) { assetReason = 'asset-limit'; return undefined; }
+        let resourceIndex = resourceIndexes.get(resource);
+        if (resourceIndex === undefined) {
+          resourceIndex = resources.length;
+          resources.push(resource);
+          resourceIndexes.set(resource, resourceIndex);
+          readBytes += qualified.chargedBytes;
+        }
+        pixelCount += resource.pixels;
+        const offset = node.position?.start.offset;
+        const width = Number(original.width);
+        const height = Number(original.height);
+        const placement = Object.freeze({ placementId, resourceIndex,
+          ...(offset === undefined ? {} : { sourceOffset: offset }),
+          ...(typeof original.alt === 'string' ? { alt: original.alt } : {}),
+          ...(Number.isSafeInteger(width) && width > 0 && width <= 10_000 ? { width } : {}),
+          ...(Number.isSafeInteger(height) && height > 0 && height <= 10_000 ? { height } : {}),
+        });
+        placements.push(placement);
+        slots.push(Object.freeze({ placementId, ...(offset === undefined ? {} : { sourceOffset: offset }) }));
+        return placementId;
+      }
+      if (slots.length >= limits.maxReferences) return undefined;
+      const placement = reference(node, original, placementId, limits);
       if (placement === undefined) return undefined;
       references.push(placement);
+      slots.push(Object.freeze({ placementId, ...(placement.sourceOffset === undefined ? {} : { sourceOffset: placement.sourceOffset }) }));
       return placement.placementId;
     },
     removedImage() { hasRemovedImages = true; },
     retainTree(value, pixels) { tree = value; existingPixels = pixels; },
   });
+  if (assetReason !== undefined) return Object.freeze({ status: 'rejected', assetReason,
+    normalization: { ...normalized.result, status: 'rejected' as const, html: '' } });
   if (normalized.result.status === 'rejected' || tree === undefined) return Object.freeze({ status: 'rejected', normalization: normalized.result });
   const handle = Object.freeze(Object.create(null)) as PreparedClipboardHTML;
   const frozenReferences = Object.freeze(references);
-  states.set(handle, { tree, result: normalized.result, references: frozenReferences, limits,
-    maxPixels: normalizationOptions.limits?.maxImagePixels ?? DEFAULT_PASTE_HTML_LIMITS.maxImagePixels,
+  states.set(handle, { tree, result: normalized.result, slots: Object.freeze(slots), limits,
+    maxPixels,
     maxDiagnostics: normalizationOptions.limits?.maxDiagnostics ?? DEFAULT_PASTE_HTML_LIMITS.maxDiagnostics, existingPixels });
   return Object.freeze({ status: 'prepared', handle, references: frozenReferences,
-    preserveOrderedListStart: normalized.preserveOrderedListStart, existingImagePixels: existingPixels, hasRemovedImages });
+    preserveOrderedListStart: normalized.preserveOrderedListStart, existingImagePixels: existingPixels, hasRemovedImages,
+    inlineAssets: Object.freeze({ resources: Object.freeze(resources), placements: Object.freeze(placements), readBytes, pixelCount }) });
 }
 
 class PreparedOutputLimit extends Error {}
@@ -174,13 +274,13 @@ function materializeImages(
   if (state === undefined) return Object.freeze({ status: 'rejected', reason: 'expired-preparation' });
   states.delete(handle);
   try {
-    if (!Number.isSafeInteger(resolvedImages.size) || resolvedImages.size < 0 || resolvedImages.size > state.references.length) {
+    if (!Number.isSafeInteger(resolvedImages.size) || resolvedImages.size < 0 || resolvedImages.size > state.slots.length) {
       return Object.freeze({ status: 'rejected', reason: 'invalid-resolution' });
     }
     const urls = new Map<string, string>();
     let pixels = state.existingPixels;
     let urlUnits = 0;
-    for (const placement of state.references) {
+    for (const placement of state.slots) {
       const value = resolvedImages.get(placement.placementId);
       if (value === undefined) {
         if (options.omitUnresolved !== true) return Object.freeze({ status: 'rejected', reason: 'missing-image' });
@@ -220,7 +320,7 @@ function materializeImages(
     if (html.length > state.limits.maxOutputUnits) throw new PreparedOutputLimit();
     const diagnostics: PasteDiagnostic[] = [...state.result.diagnostics];
     let diagnosticsTruncated = state.result.diagnosticsTruncated;
-    for (const placement of state.references) {
+    for (const placement of state.slots) {
       if (!omitted.has(placement.placementId)) continue;
       if (diagnostics.length >= state.maxDiagnostics) { diagnosticsTruncated = true; continue; }
       diagnostics.push({ code: 'image-removed', severity: 'warning', ...(placement.sourceOffset === undefined ? {} : { offset: placement.sourceOffset }) });

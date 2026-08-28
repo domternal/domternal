@@ -6,7 +6,8 @@ import { createClipboardImageDestination } from './destination.js';
 import type { ClipboardImageDestination } from './destination.js';
 import type { ClipboardMatchedImage } from './references.js';
 import { prepareClipboardBlobAssets } from './localAssets.js';
-import type { ClipboardBlobAssetLimits, ClipboardEmbeddedAssetOptions } from './localAssets.js';
+import type { ClipboardBlobAssetLimits, ClipboardEmbeddedAssetOptions, ClipboardInlineAssetBatch } from './localAssets.js';
+import { qualifyClipboardInlineData } from './inlineData.js';
 
 // Synthetic one-pixel PNG; no native Office fidelity is inferred from this fixture.
 const PNG = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC'), char => char.charCodeAt(0));
@@ -40,8 +41,19 @@ function prepare(
   cap: ClipboardBlobAssetLimits = limits,
   options: ClipboardEmbeddedAssetOptions = { signal: new AbortController().signal },
   policy = destination(),
+  inline?: ClipboardInlineAssetBatch,
 ): ReturnType<typeof prepareClipboardBlobAssets> {
-  return prepareClipboardBlobAssets(matches, policy, cap, options);
+  return prepareClipboardBlobAssets(matches, policy, cap, options, inline);
+}
+
+function inlineBatch(count = 1, bytes = PNG): ClipboardInlineAssetBatch {
+  const qualified = qualifyClipboardInlineData(`data:image/png;base64,${btoa(String.fromCharCode(...bytes))}`, destination(), {
+    maxInputUnits: 2_000_000, maxResourceBytes: 4096, remainingResourceBytes: 8192, remainingPixels: 100, placements: count,
+  });
+  if (qualified.status !== 'qualified') throw new Error('Invalid synthetic inline fixture');
+  return { resources: [{ ...qualified.resource }],
+    placements: Array.from({ length: count }, (_, index) => ({ placementId: `inline-${String(index)}`, resourceIndex: 0, alt: `Inline ${String(index)}`, width: index + 1 })),
+    readBytes: qualified.chargedBytes, pixelCount: qualified.chargedPixels };
 }
 
 function pending<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
@@ -50,7 +62,7 @@ function pending<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
   return { promise, resolve };
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('private clipboard Blob preparation for explicit resolvers', () => {
   it('prepares exact immutable raster bytes when embedding is disabled without base64 or browser URLs', async () => {
@@ -201,5 +213,102 @@ describe('private clipboard Blob preparation for explicit resolvers', () => {
   it('accepts an empty set and rejects invalid work limits', async () => {
     expect(await prepare([])).toEqual({ status: 'prepared', resources: [], placements: [], readBytes: 0, pixelCount: 0 });
     await expect(prepare([], { ...limits, maxTotalPixels: Number.NaN })).rejects.toThrow(RangeError);
+  });
+
+  it('materializes inline-only resources without another decode, File read or base64 encoding', async () => {
+    const inline = inlineBatch(2);
+    const decode = vi.spyOn(globalThis, 'atob');
+    const encode = vi.spyOn(globalThis, 'btoa');
+    const readFile = vi.fn((file: File) => file.arrayBuffer());
+    const result = await prepare([], limits, { signal: new AbortController().signal, readFile }, destination(), inline);
+    expect(result.status).toBe('prepared');
+    if (result.status !== 'prepared') return;
+    expect(result.resources).toHaveLength(1);
+    expect(result).toMatchObject({ readBytes: PNG.length, pixelCount: 2, placements: inline.placements });
+    expect(new Uint8Array(await result.resources[0]!.blob.arrayBuffer())).toEqual(PNG);
+    expect(decode).not.toHaveBeenCalled(); expect(encode).not.toHaveBeenCalled(); expect(readFile).not.toHaveBeenCalled();
+  });
+
+  it('deduplicates inline and File bytes before constructing a single immutable Blob', async () => {
+    const inline = inlineBatch(2);
+    let allocations = 0;
+    const NativeBlob = Blob;
+    vi.stubGlobal('Blob', class extends NativeBlob {
+      constructor(parts?: BlobPart[], options?: BlobPropertyBag) { super(parts, options); allocations++; }
+    });
+    const result = await prepare([match()], limits, { signal: new AbortController().signal }, destination(), inline);
+    expect(result.status).toBe('prepared');
+    if (result.status !== 'prepared') return;
+    expect(allocations).toBe(1);
+    expect(result.resources).toHaveLength(1);
+    expect(result.placements.map(placement => placement.resourceIndex)).toEqual([0, 0, 0]);
+    expect(result).toMatchObject({ readBytes: PNG.length * 2, pixelCount: 3 });
+  });
+
+  it.each([0, -1])('reserves combined bytes before any File read with boundary delta %s', async delta => {
+    const inline = inlineBatch();
+    const readFile = vi.fn((file: File) => file.arrayBuffer());
+    const result = await prepare([match()], { ...limits, maxTotalFileBytes: PNG.length * 2 + delta },
+      { signal: new AbortController().signal, readFile }, destination(), inline);
+    expect(result.status).toBe(delta === 0 ? 'prepared' : 'rejected');
+    expect(readFile).toHaveBeenCalledTimes(delta === 0 ? 1 : 0);
+    if (delta < 0) expect(result).toMatchObject({ reason: 'input-limit' });
+  });
+
+  it.each([3, 2])('charges repeated inline and File placements against the same pixel limit %s', async maxTotalPixels => {
+    const result = await prepare([match()], { ...limits, maxTotalPixels }, { signal: new AbortController().signal }, destination(), inlineBatch(2));
+    expect(result.status).toBe(maxTotalPixels === 3 ? 'prepared' : 'rejected');
+    if (maxTotalPixels === 2) expect(result).toMatchObject({ reason: 'pixel-limit' });
+  });
+
+  it('keeps different inline and File bytes distinct despite identical geometry', async () => {
+    const changed = PNG.slice(); changed[29] = changed[29]! ^ 1;
+    const result = await prepare([match()], limits, { signal: new AbortController().signal }, destination(), inlineBatch(1, changed));
+    expect(result.status).toBe('prepared');
+    if (result.status !== 'prepared') return;
+    expect(result.resources).toHaveLength(2);
+    expect(new Uint8Array(await result.resources[0]!.blob.arrayBuffer())).toEqual(changed);
+    expect(new Uint8Array(await result.resources[1]!.blob.arrayBuffer())).toEqual(PNG);
+  });
+
+  it.each(['bytes', 'pixels', 'orphan', 'duplicate-id', 'placement-limit'] as const)('refuses inconsistent inline accounting before reading Files: %s', async kind => {
+    const seed = inlineBatch();
+    const input = kind === 'bytes' ? { ...seed, readBytes: seed.readBytes - 1 }
+      : kind === 'pixels' ? { ...seed, pixelCount: 2 }
+      : kind === 'orphan' ? { ...seed, placements: [], pixelCount: 0 } : seed;
+    const readFile = vi.fn((file: File) => file.arrayBuffer());
+    const result = await prepare([match(kind === 'duplicate-id' ? 'inline-0' : 'a')],
+      { ...limits, ...(kind === 'placement-limit' ? { maxPlacements: 1 } : {}) },
+      { signal: new AbortController().signal, readFile }, destination(), input);
+    expect(result.status).toBe('rejected');
+    expect(readFile).not.toHaveBeenCalled();
+  });
+
+  it('snapshots inline placements and resources before asynchronous File reads', async () => {
+    const inline = inlineBatch();
+    const gate = pending<ArrayBuffer>();
+    const work = prepare([match()], limits, { signal: new AbortController().signal, readFile: () => gate.promise }, destination(), inline);
+    Object.assign(inline.resources[0]!, { binary: '', pixels: 99 });
+    Object.assign(inline.placements[0]!, { placementId: 'changed', alt: 'changed' });
+    Object.assign(inline, { readBytes: 0, pixelCount: 99 });
+    gate.resolve(PNG.slice().buffer);
+    const result = await work;
+    expect(result.status).toBe('prepared');
+    if (result.status !== 'prepared') return;
+    expect(result.resources).toHaveLength(1);
+    expect(result.placements[0]).toMatchObject({ placementId: 'inline-0', alt: 'Inline 0' });
+    expect(result).toMatchObject({ readBytes: PNG.length * 2, pixelCount: 2 });
+  });
+
+  it('honors cancellation during inline Blob construction without starting a File read', async () => {
+    const inline = inlineBatch();
+    const controller = new AbortController();
+    const NativeBlob = Blob;
+    vi.stubGlobal('Blob', class extends NativeBlob {
+      constructor(parts?: BlobPart[], options?: BlobPropertyBag) { super(parts, options); controller.abort(); }
+    });
+    const readFile = vi.fn((file: File) => file.arrayBuffer());
+    expect(await prepare([match()], limits, { signal: controller.signal, readFile }, destination(), inline)).toEqual({ status: 'cancelled' });
+    expect(readFile).not.toHaveBeenCalled();
   });
 });

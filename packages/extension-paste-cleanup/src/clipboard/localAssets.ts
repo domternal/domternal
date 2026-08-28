@@ -2,6 +2,7 @@ import { boundedRaster } from '../html/raster.js';
 import { clipboardRasterMime } from './destination.js';
 import type { ClipboardImageDestination, ClipboardRasterMime } from './destination.js';
 import type { ClipboardMatchedImage } from './references.js';
+import type { ClipboardInlineDataResource } from './inlineData.js';
 
 export interface ClipboardEmbeddedAssetLimits {
   readonly maxPlacements: number;
@@ -49,6 +50,14 @@ export interface ClipboardEmbeddedPlacement {
   readonly height?: number;
 }
 
+/** Private qualified inline sources, charged before deduplication with matched Files. */
+export interface ClipboardInlineAssetBatch {
+  readonly resources: readonly ClipboardInlineDataResource[];
+  readonly placements: readonly ClipboardEmbeddedPlacement[];
+  readonly readBytes: number;
+  readonly pixelCount: number;
+}
+
 export type ClipboardEmbeddedRejection =
   | 'input-limit' | 'invalid-metadata' | 'unreadable-input' | 'embedding-disabled'
   | 'unsupported-image-type' | 'image-size-limit' | 'read-failed' | 'invalid-buffer'
@@ -62,7 +71,7 @@ type ClipboardLocalAssetResult<Resource> =
       readonly status: 'prepared';
       readonly resources: readonly Resource[];
       readonly placements: readonly ClipboardEmbeddedPlacement[];
-      /** Bytes read from distinct File objects, including identical content in different Files. */
+      /** Distinct File reads and inline decodes, charged before content deduplication. */
       readonly readBytes: number;
       /** Sum of URL lengths for all placements, including repeated resource placements. */
       readonly preparedUrlUnits: number;
@@ -96,7 +105,10 @@ interface PreparationPlan {
   readonly placements: readonly PlacementPlan[];
   readonly readBytes: number;
   readonly preparedUrlUnits: number;
+  readonly inline: ClipboardInlineAssetBatch;
 }
+
+const EMPTY_INLINE: ClipboardInlineAssetBatch = Object.freeze({ resources: Object.freeze([]), placements: Object.freeze([]), readBytes: 0, pixelCount: 0 });
 
 const CANCELLED: Cancelled = Object.freeze({ status: 'cancelled' });
 // The intrinsic getter is deliberately called with the candidate buffer as its receiver.
@@ -141,6 +153,64 @@ function readControl(signal: AbortSignal): ReadControl {
   };
 }
 
+/** Snapshot private qualified seeds and verify their accounting before any File read. */
+function inlinePlan(
+  input: ClipboardInlineAssetBatch | undefined,
+  allowed: ReadonlySet<ClipboardRasterMime>, maximumFileSize: number,
+  limits: ClipboardEmbeddedAssetLimits,
+): ClipboardInlineAssetBatch | Rejected {
+  if (input === undefined) return EMPTY_INLINE;
+  const rawResources = input.resources;
+  const rawPlacements = input.placements;
+  const declaredBytes = input.readBytes;
+  const declaredPixels = input.pixelCount;
+  if (!isArray(rawResources) || !isArray(rawPlacements)) return reject('invalid-metadata');
+  const resourceCount = rawResources.length;
+  const placementCount = rawPlacements.length;
+  if (resourceCount > limits.maxPlacements || placementCount > limits.maxPlacements) return reject('input-limit');
+  const resources: ClipboardInlineDataResource[] = [];
+  let readBytes = 0;
+  for (let index = 0; index < resourceCount; index++) {
+    const raw = rawResources[index];
+    if (raw === undefined) return reject('invalid-metadata');
+    const { binary, mimeType, byteLength, pixels } = raw;
+    if (typeof binary !== 'string' || !integer(byteLength) || byteLength === 0 || binary.length !== byteLength
+      || !integer(pixels) || pixels === 0) return reject('invalid-metadata');
+    if (clipboardRasterMime(mimeType) !== mimeType || !allowed.has(mimeType)) return reject('unsupported-image-type');
+    if (byteLength > limits.maxFileBytes || byteLength > maximumFileSize) return reject('image-size-limit');
+    if (byteLength > limits.maxTotalFileBytes - readBytes) return reject('input-limit');
+    readBytes += byteLength;
+    resources.push(Object.freeze({ binary, mimeType, byteLength, pixels }));
+  }
+  const placements: ClipboardEmbeddedPlacement[] = [];
+  const ids = new Set<string>();
+  const used = new Set<number>();
+  let pixelCount = 0;
+  for (let index = 0; index < placementCount; index++) {
+    const raw = rawPlacements[index];
+    if (raw === undefined) return reject('invalid-metadata');
+    const { placementId, resourceIndex, sourceOffset, alt, width, height } = raw;
+    if (typeof placementId !== 'string' || placementId.length === 0 || ids.has(placementId)
+      || !integer(resourceIndex) || resourceIndex >= resources.length
+      || (sourceOffset !== undefined && !integer(sourceOffset))
+      || (alt !== undefined && typeof alt !== 'string')) return reject('invalid-metadata');
+    if (placementId.length > limits.maxMetadataLength || (alt !== undefined && alt.length > limits.maxDescriptionLength)) return reject('input-limit');
+    for (const dimension of [width, height]) {
+      if (dimension !== undefined && (typeof dimension !== 'number' || !Number.isFinite(dimension) || dimension <= 0)) return reject('invalid-metadata');
+      if (typeof dimension === 'number' && dimension > limits.maxDimension) return reject('input-limit');
+    }
+    const resource = resources[resourceIndex];
+    if (resource === undefined || resource.pixels > limits.maxTotalPixels - pixelCount) return reject('pixel-limit');
+    pixelCount += resource.pixels;
+    ids.add(placementId); used.add(resourceIndex);
+    placements.push(Object.freeze({ placementId, resourceIndex,
+      ...(sourceOffset === undefined ? {} : { sourceOffset }), ...(alt === undefined ? {} : { alt }),
+      ...(width === undefined ? {} : { width }), ...(height === undefined ? {} : { height }) }));
+  }
+  if (used.size !== resources.length || declaredBytes !== readBytes || declaredPixels !== pixelCount) return reject('invalid-metadata');
+  return Object.freeze({ resources: Object.freeze(resources), placements: Object.freeze(placements), readBytes, pixelCount });
+}
+
 /** Snapshot every consumed field and all work budgets before the first asynchronous read. */
 function makePlan(
   matches: readonly ClipboardMatchedImage[],
@@ -149,6 +219,7 @@ function makePlan(
   control: ReadControl,
   readFile: ClipboardEmbeddedAssetOptions['readFile'],
   embedded: boolean,
+  inlineInput?: ClipboardInlineAssetBatch,
 ): PreparationPlan | Rejected {
   const allowEmbedded: unknown = destination.allowEmbedded;
   const maximumFileSize: unknown = destination.maxFileBytes;
@@ -165,16 +236,19 @@ function makePlan(
     if (mime === undefined) return reject('invalid-metadata');
     allowed.add(mime);
   }
+  const inline = inlinePlan(inlineInput, allowed, maximumFileSize, limits);
+  if ('status' in inline) return inline;
+  if (embedded && inline.resources.length > 0) return reject('invalid-metadata');
   if (!isArray(matches)) return reject('invalid-metadata');
   const count = matches.length;
   if (!integer(count)) return reject('invalid-metadata');
-  if (count > limits.maxPlacements) return reject('input-limit');
+  if (count > limits.maxPlacements - inline.placements.length) return reject('input-limit');
   const files: FilePlan[] = [];
   const placements: PlacementPlan[] = [];
   const fileIndexes = new Map<File, number>();
   const items = new Map<number, File>();
-  const placementIds = new Set<string>();
-  let readBytes = 0;
+  const placementIds = new Set(inline.placements.map(placement => placement.placementId));
+  let readBytes = inline.readBytes;
   let preparedUrlUnits = 0;
   for (let index = 0; index < count; index++) {
     const match = matches[index];
@@ -237,7 +311,7 @@ function makePlan(
       ...(typeof height === 'number' ? { height } : {}),
     }));
   }
-  return { status: 'ready', files, placements, readBytes, preparedUrlUnits };
+  return { status: 'ready', files, placements, readBytes, preparedUrlUnits, inline };
 }
 
 type ReadResult = Cancelled | { readonly status: 'read'; readonly buffer: unknown } | { readonly status: 'failed' };
@@ -289,7 +363,8 @@ async function prepareLocalAssets<Resource>(
   inputLimits: ClipboardEmbeddedAssetLimits,
   options: ClipboardEmbeddedAssetOptions,
   embedded: boolean,
-  createResource: (file: FilePlan, binary: string, pixels: number) => { readonly key: string; readonly resource: Resource } | Rejected,
+  createResource: (file: Pick<FilePlan, 'fileSize' | 'mimeType' | 'prefix' | 'urlUnits' | 'firstPlacementId'>, binary: string, pixels: number) => { readonly key: string; readonly create: () => Resource } | Rejected,
+  inline?: ClipboardInlineAssetBatch,
 ): Promise<ClipboardLocalAssetResult<Resource>> {
   const limits = validatedLimits(inputLimits);
   let control: ReadControl;
@@ -299,15 +374,32 @@ async function prepareLocalAssets<Resource>(
     if (control.aborted()) return CANCELLED;
     const readFile = options.readFile;
     if (readFile !== undefined && typeof readFile !== 'function') return reject('unreadable-input');
-    plan = makePlan(matches, destination, limits, control, readFile, embedded);
+    plan = makePlan(matches, destination, limits, control, readFile, embedded, inline);
     if (control.aborted()) return CANCELLED;
   } catch { return reject('unreadable-input'); }
   if (plan.status === 'rejected') return plan;
   const resources: Resource[] = [];
   const resourceIndexes = new Map<string, number>();
   const fileResources: number[] = [];
-  let pixelCount = 0;
+  let pixelCount = plan.inline.pixelCount;
   try {
+    const inlineResources: number[] = [];
+    for (let index = 0; index < plan.inline.resources.length; index++) {
+      if (control.aborted()) return CANCELLED;
+      const resource = plan.inline.resources[index];
+      const placement = plan.inline.placements.find(item => item.resourceIndex === index);
+      if (resource === undefined || placement === undefined) return reject('invalid-metadata');
+      const created = createResource({ fileSize: resource.byteLength, mimeType: resource.mimeType,
+        prefix: '', urlUnits: 0, firstPlacementId: placement.placementId }, resource.binary, resource.pixels);
+      if ('status' in created) return created;
+      let resourceIndex = resourceIndexes.get(created.key);
+      if (resourceIndex === undefined) {
+        resourceIndex = resources.length;
+        resourceIndexes.set(created.key, resourceIndex);
+        resources.push(created.create());
+      }
+      inlineResources.push(resourceIndex);
+    }
     for (const file of plan.files) {
       if (control.aborted()) return CANCELLED;
       const read = await readOne(file, control);
@@ -335,16 +427,21 @@ async function prepareLocalAssets<Resource>(
       if (resourceIndex === undefined) {
         resourceIndex = resources.length;
         resourceIndexes.set(created.key, resourceIndex);
-        resources.push(created.resource);
+        resources.push(created.create());
       }
       fileResources.push(resourceIndex);
     }
     if (control.aborted()) return CANCELLED;
-    const placements = plan.placements.map(({ fileIndex, ...placement }) => {
+    const inlinePlacements = plan.inline.placements.map(placement => {
+      const resourceIndex = inlineResources[placement.resourceIndex];
+      if (resourceIndex === undefined) throw new Error('Missing inline clipboard resource');
+      return Object.freeze({ ...placement, resourceIndex });
+    });
+    const placements = [...inlinePlacements, ...plan.placements.map(({ fileIndex, ...placement }) => {
       const resourceIndex = fileResources[fileIndex];
       if (resourceIndex === undefined) throw new Error('Missing clipboard resource');
       return Object.freeze({ ...placement, resourceIndex });
-    });
+    })];
     return Object.freeze({
       status: 'prepared', resources: Object.freeze(resources), placements: Object.freeze(placements),
       readBytes: plan.readBytes, preparedUrlUnits: plan.preparedUrlUnits, pixelCount,
@@ -363,7 +460,7 @@ export function prepareClipboardEmbeddedAssets(
     try { dataUrl = file.prefix + btoa(binary); }
     catch { return reject('encoding-failed', file.firstPlacementId); }
     if (dataUrl.length !== file.urlUnits) return reject('encoding-failed', file.firstPlacementId);
-    return { key: dataUrl, resource: Object.freeze({ dataUrl, mimeType: file.mimeType, byteLength: file.fileSize, pixels }) };
+    return { key: dataUrl, create: () => Object.freeze({ dataUrl, mimeType: file.mimeType, byteLength: file.fileSize, pixels }) };
   });
 }
 
@@ -377,6 +474,7 @@ export async function prepareClipboardBlobAssets(
   destination: ClipboardImageDestination,
   limits: ClipboardBlobAssetLimits,
   options: ClipboardEmbeddedAssetOptions,
+  inline?: ClipboardInlineAssetBatch,
 ): Promise<ClipboardBlobAssetResult> {
   let control: ReadControl;
   let capturedOptions: ClipboardEmbeddedAssetOptions;
@@ -388,12 +486,14 @@ export async function prepareClipboardBlobAssets(
   } catch { return reject('unreadable-input'); }
   const result = await prepareLocalAssets(matches, destination, { ...limits, maxPreparedUrlUnits: 1 }, capturedOptions, false, (file, binary, pixels) => {
     // Copy the exact validated bytes; never forward the original File or an adapter-owned buffer.
-    const blob = new Blob([Uint8Array.from(binary, value => value.charCodeAt(0))], { type: file.mimeType });
     return {
       key: file.mimeType + '\0' + binary,
-      resource: Object.freeze({ blob, mimeType: file.mimeType, byteLength: file.fileSize, pixels }),
+      create: () => {
+        const blob = new Blob([Uint8Array.from(binary, value => value.charCodeAt(0))], { type: file.mimeType });
+        return Object.freeze({ blob, mimeType: file.mimeType, byteLength: file.fileSize, pixels });
+      },
     };
-  });
+  }, inline);
   try { if (control.aborted()) return CANCELLED; }
   catch { return reject('unreadable-input'); }
   if (result.status !== 'prepared') return result;

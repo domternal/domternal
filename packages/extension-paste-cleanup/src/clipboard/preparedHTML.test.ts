@@ -12,13 +12,17 @@ import {
   materializeClipboardHTML,
   materializeResolvedClipboardHTML,
   prepareClipboardHTML,
+  readPreparedClipboardHTMLNormalization,
+  type ClipboardInlineHTMLPreparation,
   type ClipboardHTMLPreparationResult,
+  type ClipboardHTMLMaterialization,
   type PreparedClipboardHTML,
   type PreparedClipboardHTMLLimits,
 } from './preparedHTML.js';
 import type { ClipboardResolvedImagePlacement } from './preparedHTML.js';
 import { createClipboardResolvedSourcePolicy } from './resolverPolicy.js';
 import type { ClipboardResolvedSourcePolicy } from './resolverPolicy.js';
+import { DEFAULT_CLIPBOARD_ASSET_LIMITS } from './limits.js';
 
 vi.mock('hast-util-to-html', async importOriginal => {
   const actual = await importOriginal<typeof HTMLSerializer>();
@@ -74,6 +78,250 @@ function pngTextChunk(text: string): string {
 
 beforeEach(() => { vi.mocked(toHtml).mockClear(); });
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+
+describe('private inline image preparation', () => {
+  const SRC = 'https://cdn.example/inline.png';
+  const policy = createClipboardResolvedSourcePolicy(['https://cdn.example']);
+  const config = (): ClipboardInlineHTMLPreparation => ({
+    destination: { allowedMimeTypes: ['image/png'], maxFileBytes: 1024 * 1024 },
+    assetLimits: { ...DEFAULT_CLIPBOARD_ASSET_LIMITS }, sourceAllowDataImages: true,
+  });
+  const resolve = (result: Extract<ClipboardHTMLPreparationResult, { status: 'prepared' }>, ids: readonly string[]): ClipboardHTMLMaterialization =>
+    materializeResolvedClipboardHTML(result.handle, new Map(ids.map(id => [id, { src: SRC, pixels: 1 }])), policy);
+
+  it('qualifies authorized inline bytes once without allocating Blob, File, DOM or requests', () => {
+    const decode = vi.spyOn(globalThis, 'atob');
+    const forbidden = vi.fn(() => { throw new Error('Unexpected allocation or I/O'); });
+    for (const name of ['Blob', 'File', 'DOMParser', 'fetch', 'XMLHttpRequest']) vi.stubGlobal(name, forbidden);
+    const html = `<p>Before<img src="${DATA}" alt="Diagram" width="12" height="13">After</p>`;
+    const result = prepared(prepareClipboardHTML(html, LIMITS, {}, undefined, config()));
+    expect(decode).toHaveBeenCalledTimes(1);
+    expect(result.references).toEqual([]);
+    expect(result.inlineAssets).toEqual({
+      resources: [{ binary: PNG, mimeType: 'image/png', byteLength: PNG.length, pixels: 1 }],
+      placements: [{ placementId: 'image:1', resourceIndex: 0, sourceOffset: 9, alt: 'Diagram', width: 12, height: 13 }],
+      readBytes: PNG.length, pixelCount: 1,
+    });
+    expect(result.existingImagePixels).toBe(0);
+    expect(result.hasRemovedImages).toBe(false);
+    expect(readPreparedClipboardHTMLNormalization(result.handle)?.html).toBe('');
+    expect(resolve(result, ['image:1'])).toMatchObject({ status: 'materialized', normalization: {
+      html: `<p>Before<img alt="Diagram" width="12" height="13" src="${SRC}">After</p>`, diagnostics: [],
+    } });
+    expect(decode).toHaveBeenCalledTimes(1);
+    expect(forbidden).not.toHaveBeenCalled();
+  });
+
+  it('keeps inline and explicitly matched reference slots in source order without exposing inline bytes to matching', () => {
+    const result = prepared(prepareClipboardHTML(`<ol start="7"><li><p>A<img src="${DATA}" alt="Inline &quot;one&quot;" style="float:right;width:20px">B<img src="cid:external" alt="File">C<img src="${DATA}" alt="Inline two">D</p></li></ol>`, LIMITS, {}, undefined, config()));
+    expect(result.references).toEqual([expect.objectContaining({ placementId: 'image:2', rawReference: 'cid:external', alt: 'File' })]);
+    expect(JSON.stringify(result.references)).not.toContain('data:');
+    expect(JSON.stringify(result.references)).not.toContain(PNG);
+    expect(result.inlineAssets.placements.map(value => value.placementId)).toEqual(['image:1', 'image:3']);
+    const output = resolve(result, ['image:3', 'image:2', 'image:1']);
+    expect(output.status).toBe('materialized');
+    if (output.status !== 'materialized') return;
+    const nodes = elements(output.normalization.html);
+    expect(nodes.find(value => value.tagName === 'ol')?.properties.start).toBe(7);
+    expect(nodes.filter(value => value.tagName === 'img').map(value => [value.properties.alt, value.properties.src]))
+      .toEqual([['Inline "one"', SRC], ['File', SRC], ['Inline two', SRC]]);
+    expect(nodes.find(value => value.tagName === 'img')?.properties.style).toContain('float:right');
+    expect(output.normalization.html).toContain('>B<img');
+    expect(output.normalization.html).toContain('>C<img');
+    expect(output.normalization.html).toContain('>D</p>');
+  });
+
+  it('charges identical inline source bytes once and raster pixels for each placement', () => {
+    const decode = vi.spyOn(globalThis, 'atob');
+    const input = config();
+    const result = prepared(prepareClipboardHTML(`<img src="${DATA}"><img src="${DATA}"><img src="${DATA}">`, LIMITS,
+      { limits: { maxImagePixels: 3 } }, undefined, { ...input, assetLimits: { ...input.assetLimits, maxFileBytes: PNG.length, maxTotalFileBytes: PNG.length } }));
+    expect(decode).toHaveBeenCalledTimes(1);
+    expect(result.inlineAssets.resources).toHaveLength(1);
+    expect(result.inlineAssets.placements.map(value => value.resourceIndex)).toEqual([0, 0, 0]);
+    expect(result.inlineAssets).toMatchObject({ readBytes: PNG.length, pixelCount: 3 });
+    expect(resolve(result, ['image:1', 'image:2', 'image:3']).status).toBe('materialized');
+  });
+
+  it('qualifies source encoding variants separately for a later exact binary batch deduplication', () => {
+    const decode = vi.spyOn(globalThis, 'atob');
+    const alternate = DATA.replace('data:image/png;base64,', 'DATA:IMAGE/PNG;BASE64,');
+    const result = prepared(prepareClipboardHTML(`<img src="${DATA}"><img src="${alternate}">`, LIMITS, {}, undefined, config()));
+    expect(decode).toHaveBeenCalledTimes(2);
+    expect(result.inlineAssets.resources).toHaveLength(2);
+    expect(result.inlineAssets.resources[0]).toEqual(result.inlineAssets.resources[1]);
+    expect(result.inlineAssets.placements.map(value => value.resourceIndex)).toEqual([0, 1]);
+    expect(result.inlineAssets).toMatchObject({ readBytes: PNG.length * 2, pixelCount: 2 });
+    discardPreparedClipboardHTML(result.handle);
+  });
+
+  it('retains legacy and public HTML behavior unless the private transport is explicitly selected', () => {
+    const html = `<p><img src="${DATA}"></p>`;
+    expect(normalizePasteHTML(html).html).toBe(html);
+    const result = prepared(prepareClipboardHTML(html, LIMITS));
+    expect(result.inlineAssets).toEqual({ resources: [], placements: [], readBytes: 0, pixelCount: 0 });
+    expect(result.existingImagePixels).toBe(1);
+    expect(materialized(result.handle).html).toBe(html);
+  });
+
+  it('honors denied source data images without decoding or granting transport authority', () => {
+    const decode = vi.spyOn(globalThis, 'atob');
+    const result = prepared(prepareClipboardHTML(`<p>A<img src="${DATA}" alt="Denied">B</p>`, LIMITS,
+      { allowDataImages: true }, undefined, { ...config(), sourceAllowDataImages: false }));
+    expect(decode).not.toHaveBeenCalled();
+    expect(result.inlineAssets).toEqual({ resources: [], placements: [], readBytes: 0, pixelCount: 0 });
+    expect(result.hasRemovedImages).toBe(true);
+    expect(materialized(result.handle)).toMatchObject({ html: '<p>ADeniedB</p>', diagnostics: [{ code: 'image-removed', severity: 'warning', offset: 4 }] });
+  });
+
+  it.each([
+    'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=', 'data:image/png;base64,@@==',
+    'data:image/png;base64,AAAA', 'data:image/png,raw', 'data:text/plain;base64,AAAA',
+  ])('sanitizes an invalid or unsupported inline source as an explicit loss: %s', src => {
+    const result = prepared(prepareClipboardHTML(`<p>A<img src="${src}" alt="Missing">B</p>`, LIMITS, {}, undefined, config()));
+    expect(result.inlineAssets.resources).toEqual([]);
+    expect(result.references).toEqual([]);
+    expect(result.hasRemovedImages).toBe(true);
+    expect(materialized(result.handle)).toMatchObject({ html: '<p>AMissingB</p>', diagnostics: [expect.objectContaining({ code: 'image-removed' })] });
+  });
+
+  it('does not decode repeated invalid rasters more than once', () => {
+    const decode = vi.spyOn(globalThis, 'atob');
+    const result = prepared(prepareClipboardHTML('<img src="data:image/png;base64,AAAA"><img src="data:image/png;base64,AAAA">', LIMITS, {}, undefined, config()));
+    expect(decode).toHaveBeenCalledTimes(1);
+    expect(materialized(result.handle).diagnostics).toHaveLength(2);
+  });
+
+  it('rejects destination MIME refusal before decoding and without returning a preparation handle', () => {
+    const decode = vi.spyOn(globalThis, 'atob');
+    const result = prepareClipboardHTML(`<img src="${DATA}">`, LIMITS, {}, undefined,
+      { ...config(), destination: { allowedMimeTypes: ['image/jpeg'], maxFileBytes: PNG.length } });
+    expect(result).toMatchObject({ status: 'rejected', assetReason: 'assets-unavailable', normalization: { status: 'rejected', html: '' } });
+    expect(result).not.toHaveProperty('handle');
+    expect(decode).not.toHaveBeenCalled();
+  });
+
+  it('enforces destination and operation byte caps before decoded allocation', () => {
+    const decode = vi.spyOn(globalThis, 'atob');
+    const input = config();
+    for (const limited of [
+      { ...input, destination: { ...input.destination, maxFileBytes: PNG.length - 1 } },
+      { ...input, assetLimits: { ...input.assetLimits, maxFileBytes: PNG.length - 1 } },
+    ]) {
+      expect(prepareClipboardHTML(`<img src="${DATA}">`, LIMITS, {}, undefined, limited))
+        .toMatchObject({ status: 'rejected', assetReason: 'asset-limit' });
+    }
+    expect(decode).not.toHaveBeenCalled();
+  });
+
+  it('preflights aggregate decoded bytes before a second distinct inline qualification', () => {
+    const decode = vi.spyOn(globalThis, 'atob');
+    const input = config();
+    const html = `<img src="${DATA}"><img src="${DATA.replace('data:', 'DATA:')}">`;
+    const exact = prepared(prepareClipboardHTML(html, LIMITS, {}, undefined, { ...input,
+      assetLimits: { ...input.assetLimits, maxFileBytes: PNG.length, maxTotalFileBytes: PNG.length * 2 } }));
+    expect(exact.inlineAssets.readBytes).toBe(PNG.length * 2);
+    discardPreparedClipboardHTML(exact.handle);
+    decode.mockClear();
+    expect(prepareClipboardHTML(html, LIMITS, {}, undefined, { ...input,
+      assetLimits: { ...input.assetLimits, maxFileBytes: PNG.length, maxTotalFileBytes: PNG.length * 2 - 1 } }))
+      .toMatchObject({ status: 'rejected', assetReason: 'asset-limit' });
+    expect(decode).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects repeated-placement pixels independently of a full diagnostic allowance', () => {
+    const decode = vi.spyOn(globalThis, 'atob');
+    const result = prepareClipboardHTML(`<span onclick="bad()">A</span><img src="${DATA}"><img src="${DATA}">`, LIMITS,
+      { limits: { maxImagePixels: 1, maxDiagnostics: 1 } }, undefined, config());
+    expect(result).toMatchObject({ status: 'rejected', assetReason: 'asset-limit', normalization: {
+      status: 'rejected', html: '', diagnostics: [{ code: 'unsafe-content-removed', severity: 'warning', offset: 0 }], diagnosticsTruncated: true,
+    } });
+    expect(decode).toHaveBeenCalledTimes(1);
+  });
+
+  it('counts inline and CID slots together under the original image count bound', () => {
+    const decode = vi.spyOn(globalThis, 'atob');
+    const result = prepared(prepareClipboardHTML(`<img src="${DATA}" alt="One"><img src="cid:two" alt="Two"><img src="${DATA}" alt="Three">`, LIMITS,
+      { limits: { maxImages: 2 } }, undefined, config()));
+    expect(result.inlineAssets.placements).toHaveLength(1);
+    expect(result.references.map(value => value.placementId)).toEqual(['image:2']);
+    expect(decode).toHaveBeenCalledTimes(1);
+    expect(resolve(result, ['image:1', 'image:2'])).toMatchObject({ status: 'materialized', normalization: {
+      html: `<img alt="One" src="${SRC}"><img alt="Two" src="${SRC}">Three`,
+      diagnostics: [expect.objectContaining({ code: 'image-removed' })],
+    } });
+  });
+
+  it('does not let inline slots exceed the private combined placement allowance', () => {
+    expect(prepareClipboardHTML(`<img src="cid:first"><img src="${DATA}">`, { ...LIMITS, maxReferences: 1 }, {}, undefined, config()))
+      .toMatchObject({ status: 'rejected', assetReason: 'asset-limit' });
+  });
+
+  it('snapshots source policy, destination and byte budgets before destination list callbacks', () => {
+    const mimeTypes = ['image/png'] as const;
+    const mutableMimeTypes = [...mimeTypes];
+    const input = { destination: { allowedMimeTypes: mutableMimeTypes, maxFileBytes: PNG.length },
+      assetLimits: { ...DEFAULT_CLIPBOARD_ASSET_LIMITS, maxFileBytes: PNG.length, maxTotalFileBytes: PNG.length }, sourceAllowDataImages: true };
+    const callback = vi.fn(() => {
+      mutableMimeTypes.length = 0;
+      input.destination.maxFileBytes = 1;
+      input.assetLimits.maxTotalFileBytes = 1;
+      input.sourceAllowDataImages = false;
+      return { orderedLists: true, bulletLists: true, nestedLists: true };
+    });
+    const result = prepared(prepareClipboardHTML(`<!--mso-list:--><img src="${DATA}">`, LIMITS, {}, callback, input));
+    expect(callback).toHaveBeenCalledOnce();
+    expect(result.inlineAssets.readBytes).toBe(PNG.length);
+    discardPreparedClipboardHTML(result.handle);
+  });
+
+  it('freezes private binary resource and placement metadata', () => {
+    const result = prepared(prepareClipboardHTML(`<img src="${DATA}">`, LIMITS, {}, undefined, config()));
+    for (const value of [result.inlineAssets, result.inlineAssets.resources, result.inlineAssets.resources[0],
+      result.inlineAssets.placements, result.inlineAssets.placements[0]]) expect(Object.isFrozen(value)).toBe(true);
+    discardPreparedClipboardHTML(result.handle);
+    expect(readPreparedClipboardHTMLNormalization(result.handle)).toBeUndefined();
+    expect(resolve(result, ['image:1'])).toEqual({ status: 'rejected', reason: 'expired-preparation' });
+  });
+
+  it('requires complete owned-slot resolution, supports explicit omission and rejects forged markers', () => {
+    const html = `<p>A<img src="${DATA}" alt="Missing">B<img src="https://cdn.example/unowned" data-domternal-clipboard-image-slot="image:2" alt="Unowned">C</p>`;
+    const first = prepared(prepareClipboardHTML(html, LIMITS, {}, undefined, config()));
+    expect(resolve(first, [])).toEqual({ status: 'rejected', reason: 'missing-image' });
+    const second = prepared(prepareClipboardHTML(html, LIMITS, {}, undefined, config()));
+    expect(resolve(second, ['image:1', 'image:2'])).toEqual({ status: 'rejected', reason: 'invalid-resolution' });
+    const third = prepared(prepareClipboardHTML(html, LIMITS, {}, undefined, config()));
+    expect(materializeResolvedClipboardHTML(third.handle, new Map(), policy, { omitUnresolved: true }))
+      .toMatchObject({ status: 'materialized', normalization: { html: '<p>AMissingBUnownedC</p>', diagnostics: [
+        expect.objectContaining({ code: 'image-removed' }), expect.objectContaining({ code: 'image-removed' }),
+      ] } });
+  });
+
+  it('still bounds escaped generated output before serialization for inline-only slots', () => {
+    const result = prepared(prepareClipboardHTML(`<img src="${DATA}" alt="${'&quot;'.repeat(100)}">`, { ...LIMITS, maxOutputUnits: 256 }, {}, undefined, config()));
+    expect(resolve(result, ['image:1'])).toEqual({ status: 'rejected', reason: 'output-limit' });
+    expect(toHtml).not.toHaveBeenCalled();
+  });
+
+  it('does not decode an original HTML input beyond its source allowance', () => {
+    const decode = vi.spyOn(globalThis, 'atob');
+    expect(prepareClipboardHTML(`<img src="${DATA}">`, LIMITS, { limits: { maxInputLength: 10 } }, undefined, config()))
+      .toMatchObject({ status: 'rejected', normalization: { diagnostics: [{ code: 'input-limit', severity: 'error' }] } });
+    expect(decode).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed private limits and authorization without decoding', () => {
+    const decode = vi.spyOn(globalThis, 'atob');
+    for (const value of [0, -1, NaN, Infinity, 0.5]) {
+      const input = config();
+      expect(() => prepareClipboardHTML(`<img src="${DATA}">`, LIMITS, {}, undefined,
+        { ...input, assetLimits: { ...input.assetLimits, maxFileBytes: value } })).toThrow(RangeError);
+    }
+    expect(() => prepareClipboardHTML(`<img src="${DATA}">`, LIMITS, {}, undefined,
+      { ...config(), sourceAllowDataImages: undefined as unknown as boolean })).toThrow(RangeError);
+    expect(decode).not.toHaveBeenCalled();
+  });
+});
 
 describe('private resolved clipboard HTML materialization', () => {
   const SRC = 'https://cdn.example/image.png';
