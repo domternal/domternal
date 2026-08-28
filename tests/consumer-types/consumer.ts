@@ -6,6 +6,8 @@
 import type { Editor } from '@domternal/core';
 import { coreMessages, defineMessage, resolveColorName, resolveColorSwatch, resolveEmojiCategory, resolveEmojiLabel, matchesEmojiPresentation, observeI18nPresentation, registerClipboardImageDestination, getClipboardImageDestination, setClipboardPasteBehavior } from '@domternal/core';
 import type { CompleteMessages, Messages, ClipboardImageDestinationPolicy } from '@domternal/core';
+import { registerClipboardHTMLPreparation, getClipboardPasteAttemptEvent } from '@domternal/core';
+import type { ClipboardHTMLPreparationContext, ClipboardHTMLReplay } from '@domternal/core';
 
 declare module '@domternal/core' {
   interface MessageParameters {
@@ -34,6 +36,16 @@ import '@domternal/extension-toc';
 
 declare const editor: Editor;
 declare const clipboardEvent: ClipboardEvent;
+
+const disposeHTMLPreparation: () => void = registerClipboardHTMLPreparation(editor.view, (html, context: ClipboardHTMLPreparationContext) => {
+  const origin: 'native' | 'programmatic' = context.origin;
+  const activeEvent: ClipboardEvent | undefined = getClipboardPasteAttemptEvent(editor.view);
+  return { onDeferred(replay: ClipboardHTMLReplay) {
+    queueMicrotask(() => { const handled: boolean = replay(html, new ClipboardEvent('paste')); });
+  } };
+});
+// @ts-expect-error Preparation requires a callable gate.
+registerClipboardHTMLPreparation(editor.view, false);
 
 const imagePolicy: ClipboardImageDestinationPolicy = {
   nodeTypeName: 'image', sourceAttribute: 'src', inline: false, allowEmbedded: true,

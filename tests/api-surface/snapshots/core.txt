@@ -50,6 +50,10 @@ CharacterCountStorage
 clearContent
 ClearContentOptions
 ClearFormatting
+ClipboardHTMLDeferral
+ClipboardHTMLPreparationContext
+ClipboardHTMLPreparationGate
+ClipboardHTMLReplay
 ClipboardImageDestinationPolicy
 ClipboardPasteBehavior
 Code
@@ -147,6 +151,7 @@ generateText
 GenerateTextOptions
 getBubbleFormatItems
 getClipboardImageDestination
+getClipboardPasteAttemptEvent
 getClipboardPasteBehavior
 getListItemCursorContext
 getMarkRange
@@ -275,6 +280,7 @@ ProseMirrorCopyConflict
 Range
 RawCommands
 refocusEditorAfterCommand
+registerClipboardHTMLPreparation
 registerClipboardImageDestination
 registerProseMirrorCopy
 resetAttributes

@@ -1,5 +1,7 @@
 import type { PluginKey, Transaction } from '@domternal/pm/state';
 import { EditorView } from '@domternal/pm/view';
+import type { EditorProps } from '@domternal/pm/view';
+import { clipboardPreparationSomeProp, runClipboardPasteAttempt } from './clipboardHTMLPreparation.js';
 
 interface ArmedPaste {
   key: PluginKey;
@@ -17,12 +19,25 @@ export function clearPendingClipboardPasteTransaction(view: EditorView): void {
 export class ClipboardEditorView extends EditorView {
   override pasteHTML(html: string, event?: ClipboardEvent): boolean {
     clearPendingClipboardPasteTransaction(this);
-    return super.pasteHTML(html, event);
+    return runClipboardPasteAttempt(this, event, () => super.pasteHTML(html, event));
   }
 
   override pasteText(text: string, event?: ClipboardEvent): boolean {
     clearPendingClipboardPasteTransaction(this);
-    return super.pasteText(text, event);
+    return runClipboardPasteAttempt(this, event, () => super.pasteText(text, event));
+  }
+
+  override dispatchEvent(event: Event): void {
+    if (event.type !== 'paste') { super.dispatchEvent(event); return; }
+    clearPendingClipboardPasteTransaction(this);
+    runClipboardPasteAttempt(this, event as ClipboardEvent, () => { super.dispatchEvent(event); });
+  }
+
+  override someProp<N extends keyof EditorProps, R>(name: N, callback: (value: NonNullable<EditorProps[N]>) => R): R | undefined;
+  override someProp<N extends keyof EditorProps>(name: N): NonNullable<EditorProps[N]> | undefined;
+  override someProp<N extends keyof EditorProps, R>(name: N, callback?: (value: NonNullable<EditorProps[N]>) => R): R | NonNullable<EditorProps[N]> | undefined {
+    return clipboardPreparationSomeProp(this, name, callback,
+      () => callback === undefined ? super.someProp(name) : super.someProp(name, callback));
   }
 }
 

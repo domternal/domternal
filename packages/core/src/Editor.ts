@@ -19,6 +19,7 @@ import { warnOnDuplicateProseMirrorCopy } from './utils/prosemirrorSingleton.js'
 import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
 import { normalizeColor } from './helpers/normalizeColor.js';
 import { ClipboardEditorView, claimClipboardPasteTransaction, clearPendingClipboardPasteTransaction } from './helpers/clipboardPasteTransaction.js';
+import { beginNativeClipboardPasteAttempt } from './helpers/clipboardHTMLPreparation.js';
 import { I18nService } from './i18n/index.js';
 import { coreMessages } from './messages/core.js';
 import {
@@ -911,8 +912,9 @@ export class Editor extends EventEmitter<EditorEvents> {
         : {}),
       // Direct DOM handlers run before extension plugin handlers.
       handleDOMEvents: {
-        paste: view => {
+        paste: (view, event) => {
           clearPendingClipboardPasteTransaction(view);
+          beginNativeClipboardPasteAttempt(view, event);
           return false;
         },
         focus: (_view, event) => {

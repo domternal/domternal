@@ -39,6 +39,16 @@ import toc = require('@domternal/extension-toc');
 declare const editor: core.Editor;
 declare const clipboardEvent: ClipboardEvent;
 
+const disposeHTMLPreparation: () => void = core.registerClipboardHTMLPreparation(editor.view, (html, context: core.ClipboardHTMLPreparationContext) => {
+  const origin: 'native' | 'programmatic' = context.origin;
+  const activeEvent: ClipboardEvent | undefined = core.getClipboardPasteAttemptEvent(editor.view);
+  return { onDeferred(replay: core.ClipboardHTMLReplay) {
+    queueMicrotask(() => { const handled: boolean = replay(html, new ClipboardEvent('paste')); });
+  } };
+});
+// @ts-expect-error CommonJS preparation requires a callable gate.
+core.registerClipboardHTMLPreparation(editor.view, false);
+
 const imagePolicy: core.ClipboardImageDestinationPolicy = {
   nodeTypeName: 'image', sourceAttribute: 'src', inline: false, allowEmbedded: true,
   allowedMimeTypes: ['image/png'], maxFileBytes: 1024, policyVersion: 'application:1',

@@ -128,6 +128,8 @@ export {
 export { armClipboardPasteTransaction } from './helpers/clipboardPasteTransaction.js';
 export { registerClipboardImageDestination, getClipboardImageDestination } from './helpers/clipboardImageDestination.js';
 export type { ClipboardImageDestinationPolicy } from './helpers/clipboardImageDestination.js';
+export { registerClipboardHTMLPreparation, getClipboardPasteAttemptEvent } from './helpers/clipboardHTMLPreparation.js';
+export type { ClipboardHTMLPreparationContext, ClipboardHTMLPreparationGate, ClipboardHTMLDeferral, ClipboardHTMLReplay } from './helpers/clipboardHTMLPreparation.js';
 
 // === Theme cascade for portaled elements ===
 export { copyThemeClass } from './utils/copyThemeClass.js';
