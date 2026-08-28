@@ -25,10 +25,16 @@ export interface PasteOperationResult {
   readonly formatting: PasteFormatting;
   /** Applied means an accepted tagged transaction, not a promise of complete source fidelity. */
   readonly status: 'applied' | 'rejected' | 'untracked' | 'noop';
+  /** A known pre-application rejection. Accepted or uncertain outcomes never carry this reason. */
+  readonly reason?: PasteOperationRejectionReason;
   readonly diagnostics: readonly PasteDiagnostic[];
   readonly diagnosticsTruncated: boolean;
   readonly references: PasteAffectedReferences;
 }
+
+export type PasteOperationRejectionReason =
+  | 'cancelled' | 'superseded' | 'target-changed' | 'unsupported-destination'
+  | 'assets-unavailable' | 'asset-limit' | 'asset-read-failed';
 
 export interface PasteNormalizationContext {
   readonly operationId: string;
