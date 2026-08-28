@@ -17,6 +17,8 @@ const framework = query.get('framework') ?? 'vanilla';
 const formatting = query.get('formatting') === 'adapt' ? 'adapt' : 'preserve';
 const lifecycle = query.get('lifecycle');
 const feedback = query.get('feedback') === 'application' ? 'application' : 'default';
+const embeddedAssets = query.get('assets') === 'embedded';
+const imagePolicy = query.get('image-policy');
 const lists = query.get('schema') !== 'no-lists';
 const limits = query.get('limits') === 'small'
   ? { maxInputLength: 1024, maxNodes: 80, maxDepth: 8, maxTableCells: 16 }
@@ -27,12 +29,50 @@ const operations = [];
 const operationSnapshots = [];
 const callbackOrder = [];
 const destroyedSnapshots = [];
+const preparationProgress = [];
+const assetMatchRequests = [];
+const assetHookCalls = { html: 0, slice: 0, handle: 0 };
+let assetBindings = [];
+let assetReads = 0;
+let assetUploads = 0;
+let pauseAssetReads = false;
+const releaseAssetReads = [];
+const assetReadCompletions = new Set();
+let cancelPreparation;
 let hostUpdates = 0;
 let lifecycleReady = false;
 let nestedStarted = false;
 let nestedEvent;
 let editor;
 let wrapper;
+
+// Synthetic fixture control only. Native File bytes stay unchanged while reads can be held.
+if (embeddedAssets) {
+  const nativeArrayBuffer = File.prototype.arrayBuffer;
+  File.prototype.arrayBuffer = function () {
+    assetReads++;
+    const read = (async () => {
+      if (pauseAssetReads) await new Promise(resolve => { releaseAssetReads.push(resolve); });
+      return nativeArrayBuffer.call(this);
+    })();
+    assetReadCompletions.add(read);
+    void read.then(() => assetReadCompletions.delete(read), () => assetReadCompletions.delete(read));
+    return read;
+  };
+}
+
+const AssetHookObserver = Extension.create({
+  name: 'pasteFixtureAssetHooks',
+  priority: 1500,
+  addProseMirrorPlugins: () => [new Plugin({ props: {
+    transformPastedHTML(html) {
+      assetHookCalls.html++;
+      return query.get('asset-transform') === 'prefix' ? `<p>Host prefix</p>${html}` : html;
+    },
+    transformPasted(slice) { assetHookCalls.slice++; return slice; },
+    handlePaste() { assetHookCalls.handle++; return false; },
+  } })],
+});
 
 const PasteVeto = Extension.create({
   name: 'pasteFixtureVeto',
@@ -88,15 +128,37 @@ const extensions = [
   FontFamily, FontSize, TextAlign, Heading,
   ...(lists ? [BulletList, OrderedList, ListItem] : []),
   Blockquote, CodeBlock, HardBreak, UniqueID,
-  Image.configure({ allowBase64: true }), Table, TableRow, TableCell, TableHeader,
+  ...(imagePolicy === 'missing' ? [] : [Image.configure({
+    allowBase64: imagePolicy !== 'no-base64',
+    ...(embeddedAssets ? { uploadHandler: async () => { assetUploads++; return 'https://paste-probe.invalid/unexpected-upload.png'; } } : {}),
+  })]), Table, TableRow, TableCell, TableHeader,
   Markdown, SmartPaste,
   ...(lifecycle === 'veto' ? [PasteVeto] : []),
   ...(lifecycle === 'destroy-before-observe' ? [DestroyBeforeReceiptObserver] : []),
   ...(['nested-interception', 'nested-empty-interception'].includes(lifecycle) ? [ConsumeNestedPaste, ConsumeOuterAndNest] : []),
+  ...(embeddedAssets ? [AssetHookObserver] : []),
   PasteCleanup.configure({
     formatting,
     feedback,
     ...(limits === undefined ? {} : { limits }),
+    ...(embeddedAssets ? {
+      imageAssets: {
+        mode: 'embedded',
+        unresolved: query.get('unresolved') === 'omit' ? 'omit' : 'reject',
+        ...(query.get('asset-limits') === 'small' ? { limits: { maxFileBytes: 16, maxTotalFileBytes: 32 } } : {}),
+        match: context => {
+          assetMatchRequests.push(structuredClone(context));
+          return context.references.flatMap(reference => assetBindings
+            .filter(binding => binding.reference === reference.rawReference)
+            .map(binding => ({ placementId: reference.placementId, itemIndex: binding.itemIndex,
+              evidence: { kind: 'host', matcherId: 'synthetic-fixture:1' } })));
+        },
+      },
+      onPasteProgress: progress => {
+        preparationProgress.push({ operationId: progress.operationId, phase: progress.phase });
+        cancelPreparation = progress.cancel;
+      },
+    } : {}),
     onResult: result => {
       results.push(structuredClone(result));
       callbackOrder.push({ phase: 'normalize', operationId: result.operationId });
@@ -144,6 +206,26 @@ window.__pasteCleanup = {
   get destroyedSnapshots() { return destroyedSnapshots; },
   get callbackOrder() { return callbackOrder; },
   get hostUpdates() { return hostUpdates; },
+  get preparationProgress() { return preparationProgress; },
+  get assetMatchRequests() { return assetMatchRequests; },
+  get assetReads() { return assetReads; },
+  get assetUploads() { return assetUploads; },
+  get assetHookCalls() { return assetHookCalls; },
+  setAssetBindings(bindings) { assetBindings = structuredClone(bindings); },
+  holdAssetReads() { pauseAssetReads = true; },
+  async releaseAssetReads() {
+    pauseAssetReads = false;
+    for (const release of releaseAssetReads.splice(0)) release();
+    while (assetReadCompletions.size > 0) await Promise.allSettled([...assetReadCompletions]);
+    // Let settled native reads and their queued continuations finish before assertions.
+    await new Promise(resolve => requestAnimationFrame(resolve));
+  },
+  cancelPreparation() { cancelPreparation?.(); },
+  changeImagePolicy(allowBase64) {
+    const image = editor.extensionManager.extensions.find(extension => extension.name === 'image');
+    if (image === undefined) throw new Error('The fixture has no Image extension');
+    image.options.allowBase64 = allowBase64;
+  },
   normalize: (html, options) => normalizePasteHTML(html, options),
   references: id => getPasteAffectedReferences(editor.view, id),
   history: () => ({ undo: undoDepth(editor.state), redo: redoDepth(editor.state) }),
@@ -166,6 +248,14 @@ window.__pasteCleanup = {
     operationSnapshots.length = 0;
     callbackOrder.length = 0;
     destroyedSnapshots.length = 0;
+    preparationProgress.length = 0;
+    assetMatchRequests.length = 0;
+    assetHookCalls.html = 0;
+    assetHookCalls.slice = 0;
+    assetHookCalls.handle = 0;
+    assetReads = 0;
+    assetUploads = 0;
+    cancelPreparation = undefined;
     hostUpdates = 0;
     lifecycleReady = true;
   },
