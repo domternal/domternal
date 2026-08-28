@@ -18,7 +18,7 @@ import { inlineStyles, type InlineStyleOverrides } from './utils/inlineStyles.js
 import { warnOnDuplicateProseMirrorCopy } from './utils/prosemirrorSingleton.js';
 import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
 import { normalizeColor } from './helpers/normalizeColor.js';
-import { claimClipboardPasteTransaction } from './helpers/clipboardPasteTransaction.js';
+import { ClipboardEditorView, claimClipboardPasteTransaction, clearPendingClipboardPasteTransaction } from './helpers/clipboardPasteTransaction.js';
 import { I18nService } from './i18n/index.js';
 import { coreMessages } from './messages/core.js';
 import {
@@ -891,7 +891,7 @@ export class Editor extends EventEmitter<EditorEvents> {
     // 7. Create EditorView
     const nodeViews = this._extensionManager.nodeViews;
     this._isViewConstructing = true;
-    this.view = new EditorView(element, {
+    this.view = new ClipboardEditorView(element, {
       state,
       dispatchTransaction: Editor.buildViewDispatch(this),
       editable: () => this.options.editable ?? true,
@@ -909,8 +909,12 @@ export class Editor extends EventEmitter<EditorEvents> {
             this._extensionManager.schema
           )
         : {}),
-      // Handle focus/blur events
+      // Direct DOM handlers run before extension plugin handlers.
       handleDOMEvents: {
+        paste: view => {
+          clearPendingClipboardPasteTransaction(view);
+          return false;
+        },
         focus: (_view, event) => {
           this.emit('focus', { editor: this, event: event });
           this.options.onFocus?.({ editor: this, event: event });

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';
+import { EditorView } from '@domternal/pm/view';
 import { Editor } from '../Editor.js';
 import { Extension } from '../Extension.js';
 import { Document } from '../nodes/Document.js';
@@ -14,7 +15,7 @@ afterEach(() => {
   editors.length = 0;
 });
 
-function mount(onTransaction?: (transaction: Transaction, editor: Editor) => void): {
+function mount(onTransaction?: (transaction: Transaction, editor: Editor) => void, additional: Extension[] = []): {
   editor: Editor;
   key: PluginKey<readonly unknown[]>;
 } {
@@ -36,7 +37,7 @@ function mount(onTransaction?: (transaction: Transaction, editor: Editor) => voi
     },
   });
   const editor: Editor = new Editor({
-    extensions: [Document, Paragraph, Text, Receipt],
+    extensions: [Document, Paragraph, Text, Receipt, ...additional],
     content: '<p>Original</p>',
     onTransaction: ({ transaction }) => onTransaction?.(transaction, editor),
   });
@@ -193,5 +194,163 @@ describe('one-shot clipboard paste transaction metadata', () => {
 
     expect(() => { editor.view.dispatch(transaction); }).not.toThrow();
     expect(transaction.getMeta(key)).toBeUndefined();
+  });
+});
+
+function clipboardEvent(): ClipboardEvent {
+  const event = new Event('paste', { bubbles: true, cancelable: true });
+  Object.defineProperty(event, 'clipboardData', { value: {
+    items: [], files: [], getData: (type: string) => type === 'text/html' ? '<p>Source</p>' : type === 'text/plain' ? 'Source' : '',
+  } });
+  return event as ClipboardEvent;
+}
+
+describe('clipboard metadata attempt boundaries', () => {
+  it.each([
+    { method: 'pasteHTML' as const, source: '<p>New source</p>' },
+    { method: 'pasteHTML' as const, source: '' },
+    { method: 'pasteText' as const, source: 'New source' },
+    { method: 'pasteText' as const, source: '' },
+  ])('clears a previous arm before $method parses or routes "$source"', ({ method, source }) => {
+    const Intercept = Extension.create({
+      name: 'interceptBeforeCurrentArm',
+      priority: 5000,
+      addProseMirrorPlugins: () => [new Plugin({ props: {
+        handlePaste(view) {
+          view.dispatch(view.state.tr.insertText('Handled', 1, 9).setMeta('paste', true));
+          return true;
+        },
+      } })],
+    });
+    const { editor, key } = mount(undefined, [Intercept]);
+    armClipboardPasteTransaction(editor.view, key, { operationId: 'previous' });
+
+    expect(editor.view[method](source, clipboardEvent())).toBe(true);
+
+    expect(editor.view).toBeInstanceOf(EditorView);
+    expect(editor.state.doc.textContent).toBe('Handled');
+    expect(key.getState(editor.state)).toEqual([]);
+  });
+
+  it.each(['pasteHTML', 'pasteText'] as const)('allows the current %s handler to arm its accepted default insertion', method => {
+    const ArmCurrent = Extension.create({
+      name: 'armCurrentPaste',
+      addProseMirrorPlugins: () => [new Plugin({ props: {
+        handlePaste(view) {
+          armClipboardPasteTransaction(view, key, { operationId: 'current' });
+          view.dispatch(view.state.tr.setMeta('ordinary', true));
+          return false;
+        },
+      } })],
+    });
+    const { editor, key } = mount(undefined, [ArmCurrent]);
+    editor.commands.selectAll();
+    armClipboardPasteTransaction(editor.view, key, { operationId: 'previous' });
+
+    expect(editor.view[method](method === 'pasteHTML' ? '<p>Current</p>' : 'Current', clipboardEvent())).toBe(true);
+
+    expect(editor.state.doc.textContent).toBe('Current');
+    expect(key.getState(editor.state)).toEqual([{ operationId: 'current' }]);
+  });
+
+  it.each(['handleDOMEvents', 'handlePaste'] as const)('clears before a high-priority native %s handler consumes the attempt', route => {
+    const consume = (view: EditorView, event: ClipboardEvent): boolean => {
+      view.dispatch(view.state.tr.insertText('Native handled', 1, 9).setMeta('paste', true));
+      event.preventDefault();
+      return true;
+    };
+    const NativeInterceptor = Extension.create({
+      name: 'nativePasteInterceptor',
+      priority: 5000,
+      addProseMirrorPlugins: () => [new Plugin({ props: route === 'handlePaste'
+        ? { handlePaste: consume }
+        : { handleDOMEvents: { paste: consume } },
+      })],
+    });
+    const { editor, key } = mount(undefined, [NativeInterceptor]);
+    armClipboardPasteTransaction(editor.view, key, { operationId: 'previous' });
+    const event = clipboardEvent();
+
+    editor.view.dom.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(editor.state.doc.textContent).toBe('Native handled');
+    expect(key.getState(editor.state)).toEqual([]);
+  });
+
+  it('keeps metadata armed by the current native handler after the attempt boundary', () => {
+    const ArmNative = Extension.create({
+      name: 'armCurrentNativePaste',
+      addProseMirrorPlugins: () => [new Plugin({ props: { handlePaste(view) {
+        armClipboardPasteTransaction(view, key, { operationId: 'native-current' });
+        return false;
+      } } })],
+    });
+    const { editor, key } = mount(undefined, [ArmNative]);
+    editor.commands.selectAll();
+    armClipboardPasteTransaction(editor.view, key, { operationId: 'previous' });
+
+    editor.view.dom.dispatchEvent(clipboardEvent());
+
+    expect(editor.state.doc.textContent).toBe('Source');
+    expect(key.getState(editor.state)).toEqual([{ operationId: 'native-current' }]);
+  });
+
+  it.each(['pasteHTML', 'pasteText'] as const)('does not let a nested empty %s attempt claim its consumed outer operation', method => {
+    const outer = clipboardEvent();
+    const inner = clipboardEvent();
+    const Inner = Extension.create({
+      name: 'consumeNestedEmptyAttempt', priority: 1300,
+      addProseMirrorPlugins: () => [new Plugin({ props: { handlePaste(view, event) {
+        if (event !== inner) return false;
+        view.dispatch(view.state.tr.insertText('Nested', 1, 9).setMeta('paste', true));
+        return true;
+      } } })],
+    });
+    const ArmOuter = Extension.create({
+      name: 'armOuterAttempt', priority: 1200,
+      addProseMirrorPlugins: () => [new Plugin({ props: { handlePaste(view, event) {
+        if (event === outer) armClipboardPasteTransaction(view, key, { operationId: 'outer' });
+        return false;
+      } } })],
+    });
+    const Outer = Extension.create({
+      name: 'consumeOuterAndStartNested', priority: 1100,
+      addProseMirrorPlugins: () => [new Plugin({ props: { handlePaste(view, event) {
+        if (event !== outer) return false;
+        view[method]('', inner);
+        return true;
+      } } })],
+    });
+    const { editor, key } = mount(undefined, [Inner, ArmOuter, Outer]);
+
+    editor.view.pasteHTML('<p>Outer source</p>', outer);
+
+    expect(editor.state.doc.textContent).toBe('Nested');
+    expect(key.getState(editor.state)).toEqual([]);
+  });
+
+  it.each(['pasteHTML', 'pasteText'] as const)('scopes %s calls made by plugin views during construction', method => {
+    const constructorKey = new PluginKey('constructorPasteProbe');
+    let constructed = false;
+    const ConstructionPaste = Extension.create({
+      name: 'pasteDuringViewConstruction',
+      addProseMirrorPlugins: () => [new Plugin({
+        props: { handlePaste: () => true },
+        view(view) {
+          armClipboardPasteTransaction(view, constructorKey, { operationId: 'construction' });
+          expect(view[method]('', clipboardEvent())).toBe(true);
+          constructed = true;
+          return {};
+        },
+      })],
+    });
+    const { editor } = mount(undefined, [ConstructionPaste]);
+    const later = editor.state.tr.insertText('Later', 1).setMeta('paste', true);
+
+    editor.view.dispatch(later);
+
+    expect(constructed).toBe(true);
+    expect(later.getMeta(constructorKey)).toBeUndefined();
   });
 });

@@ -1,5 +1,5 @@
 import type { PluginKey, Transaction } from '@domternal/pm/state';
-import type { EditorView } from '@domternal/pm/view';
+import { EditorView } from '@domternal/pm/view';
 
 interface ArmedPaste {
   key: PluginKey;
@@ -8,9 +8,28 @@ interface ArmedPaste {
 
 const armedPastes = new WeakMap<EditorView, ArmedPaste>();
 
+/** @internal Begin an independent paste attempt before parsing or plugin interception. */
+export function clearPendingClipboardPasteTransaction(view: EditorView): void {
+  armedPastes.delete(view);
+}
+
+/** @internal Public paste entry points also run when empty input skips all transforms. */
+export class ClipboardEditorView extends EditorView {
+  override pasteHTML(html: string, event?: ClipboardEvent): boolean {
+    clearPendingClipboardPasteTransaction(this);
+    return super.pasteHTML(html, event);
+  }
+
+  override pasteText(text: string, event?: ClipboardEvent): boolean {
+    clearPendingClipboardPasteTransaction(this);
+    return super.pasteText(text, event);
+  }
+}
+
 /**
- * Attach operation metadata to the next untagged paste transaction dispatched by this view.
- * The newest arm replaces the previous one and expires at the next microtask.
+ * Arm from the current paste handler to tag its next untagged paste transaction.
+ * A new native or programmatic paste attempt clears the previous arm in Core editors.
+ * The newest arm also replaces the previous one and expires at the next microtask.
  * Only the descriptor's top level is copied and frozen. Nested data remains caller-owned.
  */
 export function armClipboardPasteTransaction(
