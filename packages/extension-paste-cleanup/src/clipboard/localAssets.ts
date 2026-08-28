@@ -30,6 +30,16 @@ export interface ClipboardEmbeddedResource {
   readonly pixels: number;
 }
 
+/** Private resolver input preparation. It does not authorize an upload or a destination URL. */
+export type ClipboardBlobAssetLimits = Omit<ClipboardEmbeddedAssetLimits, 'maxPreparedUrlUnits'>;
+export interface ClipboardBlobResource {
+  readonly blob: Blob;
+  readonly mimeType: ClipboardRasterMime;
+  readonly byteLength: number;
+  /** Header-derived allocation estimate, not full codec validation. */
+  readonly pixels: number;
+}
+
 export interface ClipboardEmbeddedPlacement {
   readonly placementId: string;
   readonly resourceIndex: number;
@@ -46,11 +56,11 @@ export type ClipboardEmbeddedRejection =
 
 interface Rejected { readonly status: 'rejected'; readonly reason: ClipboardEmbeddedRejection; readonly placementId?: string }
 interface Cancelled { readonly status: 'cancelled' }
-export type ClipboardEmbeddedAssetResult =
+type ClipboardLocalAssetResult<Resource> =
   | Rejected | Cancelled
   | {
       readonly status: 'prepared';
-      readonly resources: readonly ClipboardEmbeddedResource[];
+      readonly resources: readonly Resource[];
       readonly placements: readonly ClipboardEmbeddedPlacement[];
       /** Bytes read from distinct File objects, including identical content in different Files. */
       readonly readBytes: number;
@@ -58,6 +68,11 @@ export type ClipboardEmbeddedAssetResult =
       readonly preparedUrlUnits: number;
       readonly pixelCount: number;
     };
+
+export type ClipboardEmbeddedAssetResult = ClipboardLocalAssetResult<ClipboardEmbeddedResource>;
+export type ClipboardBlobAssetResult = Rejected | Cancelled | (
+  Omit<Extract<ClipboardLocalAssetResult<ClipboardBlobResource>, { status: 'prepared' }>, 'preparedUrlUnits'>
+);
 
 interface FilePlan {
   readonly fileSize: number;
@@ -133,12 +148,13 @@ function makePlan(
   limits: ClipboardEmbeddedAssetLimits,
   control: ReadControl,
   readFile: ClipboardEmbeddedAssetOptions['readFile'],
+  embedded: boolean,
 ): PreparationPlan | Rejected {
   const allowEmbedded: unknown = destination.allowEmbedded;
   const maximumFileSize: unknown = destination.maxFileBytes;
   const rawMimeTypes: unknown = destination.allowedMimeTypes;
   if (typeof allowEmbedded !== 'boolean' || !integer(maximumFileSize) || !Array.isArray(rawMimeTypes)) return reject('invalid-metadata');
-  if (!allowEmbedded) return reject('embedding-disabled');
+  if (embedded && !allowEmbedded) return reject('embedding-disabled');
   const mimeCount = rawMimeTypes.length;
   if (!integer(mimeCount) || mimeCount > 4) return reject('invalid-metadata');
   const allowed = new Set<ClipboardRasterMime>();
@@ -188,10 +204,10 @@ function makePlan(
     if (mimeType === undefined || !allowed.has(mimeType)) return reject('unsupported-image-type', placementId);
     if (fileSize > limits.maxFileBytes || fileSize > maximumFileSize) return reject('image-size-limit', placementId);
     const prefix = `data:${mimeType};base64,`;
-    const base64Units = 4 * Math.ceil(fileSize / 3);
-    if (!Number.isSafeInteger(base64Units) || base64Units > limits.maxPreparedUrlUnits - prefix.length
-      || base64Units + prefix.length > limits.maxPreparedUrlUnits - preparedUrlUnits) return reject('input-limit', placementId);
-    const urlUnits = base64Units + prefix.length;
+    const base64Units = embedded ? 4 * Math.ceil(fileSize / 3) : 0;
+    const urlUnits = embedded ? base64Units + prefix.length : 0;
+    if (embedded && (!Number.isSafeInteger(base64Units) || base64Units > limits.maxPreparedUrlUnits - prefix.length
+      || urlUnits > limits.maxPreparedUrlUnits - preparedUrlUnits)) return reject('input-limit', placementId);
     preparedUrlUnits += urlUnits;
     const capturedFile = file as File;
     const previousItem = items.get(itemIndex);
@@ -267,12 +283,14 @@ function binaryString(buffer: ArrayBuffer): string {
  * At most one binary read is active. The File ceiling bounds its buffer and binary string; the
  * URL ceiling bounds encoded output charged per placement. These counters are not a heap bound.
  */
-export async function prepareClipboardEmbeddedAssets(
+async function prepareLocalAssets<Resource>(
   matches: readonly ClipboardMatchedImage[],
   destination: ClipboardImageDestination,
   inputLimits: ClipboardEmbeddedAssetLimits,
   options: ClipboardEmbeddedAssetOptions,
-): Promise<ClipboardEmbeddedAssetResult> {
+  embedded: boolean,
+  createResource: (file: FilePlan, binary: string, pixels: number) => { readonly key: string; readonly resource: Resource } | Rejected,
+): Promise<ClipboardLocalAssetResult<Resource>> {
   const limits = validatedLimits(inputLimits);
   let control: ReadControl;
   let plan: PreparationPlan | Rejected;
@@ -281,11 +299,11 @@ export async function prepareClipboardEmbeddedAssets(
     if (control.aborted()) return CANCELLED;
     const readFile = options.readFile;
     if (readFile !== undefined && typeof readFile !== 'function') return reject('unreadable-input');
-    plan = makePlan(matches, destination, limits, control, readFile);
+    plan = makePlan(matches, destination, limits, control, readFile, embedded);
     if (control.aborted()) return CANCELLED;
   } catch { return reject('unreadable-input'); }
   if (plan.status === 'rejected') return plan;
-  const resources: ClipboardEmbeddedResource[] = [];
+  const resources: Resource[] = [];
   const resourceIndexes = new Map<string, number>();
   const fileResources: number[] = [];
   let pixelCount = 0;
@@ -310,16 +328,14 @@ export async function prepareClipboardEmbeddedAssets(
       });
       if (!valid || allocation.pixels === 0) return reject(allocation.exceeded ? 'pixel-limit' : 'invalid-raster', file.firstPlacementId);
       if (control.aborted()) return CANCELLED;
-      let dataUrl: string;
-      try { dataUrl = file.prefix + btoa(binary); }
-      catch { return reject('encoding-failed', file.firstPlacementId); }
-      if (dataUrl.length !== file.urlUnits) return reject('encoding-failed', file.firstPlacementId);
+      const created = createResource(file, binary, allocation.pixels);
+      if ('status' in created) return created;
       pixelCount += allocation.pixels * file.placementCount;
-      let resourceIndex = resourceIndexes.get(dataUrl);
+      let resourceIndex = resourceIndexes.get(created.key);
       if (resourceIndex === undefined) {
         resourceIndex = resources.length;
-        resourceIndexes.set(dataUrl, resourceIndex);
-        resources.push(Object.freeze({ dataUrl, mimeType: file.mimeType, byteLength: length, pixels: allocation.pixels }));
+        resourceIndexes.set(created.key, resourceIndex);
+        resources.push(created.resource);
       }
       fileResources.push(resourceIndex);
     }
@@ -334,4 +350,52 @@ export async function prepareClipboardEmbeddedAssets(
       readBytes: plan.readBytes, preparedUrlUnits: plan.preparedUrlUnits, pixelCount,
     });
   } catch { return reject('unreadable-input'); }
+}
+
+export function prepareClipboardEmbeddedAssets(
+  matches: readonly ClipboardMatchedImage[],
+  destination: ClipboardImageDestination,
+  limits: ClipboardEmbeddedAssetLimits,
+  options: ClipboardEmbeddedAssetOptions,
+): Promise<ClipboardEmbeddedAssetResult> {
+  return prepareLocalAssets(matches, destination, limits, options, true, (file, binary, pixels) => {
+    let dataUrl: string;
+    try { dataUrl = file.prefix + btoa(binary); }
+    catch { return reject('encoding-failed', file.firstPlacementId); }
+    if (dataUrl.length !== file.urlUnits) return reject('encoding-failed', file.firstPlacementId);
+    return { key: dataUrl, resource: Object.freeze({ dataUrl, mimeType: file.mimeType, byteLength: file.fileSize, pixels }) };
+  });
+}
+
+/**
+ * Prepare immutable raster Blobs for an explicitly selected resolver without base64 encoding.
+ * Destination MIME and byte limits still apply when embedding is disabled. URL authorization,
+ * resolver ownership and serialized-output limits belong to later stages. No upload occurs here.
+ */
+export async function prepareClipboardBlobAssets(
+  matches: readonly ClipboardMatchedImage[],
+  destination: ClipboardImageDestination,
+  limits: ClipboardBlobAssetLimits,
+  options: ClipboardEmbeddedAssetOptions,
+): Promise<ClipboardBlobAssetResult> {
+  let control: ReadControl;
+  let capturedOptions: ClipboardEmbeddedAssetOptions;
+  try {
+    const signal = options.signal;
+    const readFile = options.readFile;
+    control = readControl(signal);
+    capturedOptions = { signal, ...(readFile === undefined ? {} : { readFile }) };
+  } catch { return reject('unreadable-input'); }
+  const result = await prepareLocalAssets(matches, destination, { ...limits, maxPreparedUrlUnits: 1 }, capturedOptions, false, (file, binary, pixels) => {
+    // Copy the exact validated bytes; never forward the original File or an adapter-owned buffer.
+    const blob = new Blob([Uint8Array.from(binary, value => value.charCodeAt(0))], { type: file.mimeType });
+    return {
+      key: file.mimeType + '\0' + binary,
+      resource: Object.freeze({ blob, mimeType: file.mimeType, byteLength: file.fileSize, pixels }),
+    };
+  });
+  try { if (control.aborted()) return CANCELLED; }
+  catch { return reject('unreadable-input'); }
+  if (result.status !== 'prepared') return result;
+  return Object.freeze({ status: 'prepared', resources: result.resources, placements: result.placements, readBytes: result.readBytes, pixelCount: result.pixelCount });
 }
