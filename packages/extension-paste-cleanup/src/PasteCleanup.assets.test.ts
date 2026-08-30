@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import { Bold, CodeBlock, Document, Editor, Extension, ExtensionConfigurationError, History, Node, Paragraph, Text, getClipboardImageDestination } from '@domternal/core';
+import { Bold, BulletList, CodeBlock, Document, Editor, Extension, ExtensionConfigurationError, History, ListItem, Node, OrderedList, Paragraph, Text, getClipboardImageDestination } from '@domternal/core';
 import type { EditorOptions } from '@domternal/core';
 import { redoDepth, undoDepth } from '@domternal/pm/history';
 import { Plugin, TextSelection } from '@domternal/pm/state';
@@ -151,6 +151,31 @@ async function terminal(fixture: Fixture, status: PasteOperationResult['status']
 async function drain(): Promise<void> { await new Promise<void>(resolve => { setTimeout(resolve, 0); }); }
 
 describe('coordinated embedded clipboard assets', () => {
+  it.each(['native', 'programmatic'] as const)('retains visible Office markers during %s asset preparation with a legacy list schema', async route => {
+    const LegacyOrdered = OrderedList.extend({ addAttributes: () => ({ start: {
+      default: 1, parseHTML: (element: HTMLElement) => Number(element.getAttribute('start') ?? 1),
+    } }) });
+    const LegacyBullet = BulletList.extend({ addAttributes: () => ({}) });
+    const asset = imageFile();
+    const fixture = mount({ image: { inline: true }, additional: [LegacyOrdered, LegacyBullet, ListItem] });
+    paste(fixture.editor, {
+      html: '<p style="mso-list:l0 level1 lfo1"><span style="mso-list:Ignore">7. </span>Outer<img src="cid:chart"></p>'
+        + '<p style="mso-list:l0 level2 lfo1"><span style="mso-list:Ignore">◦ </span>Inner</p>',
+      files: [asset.file],
+    }, route);
+    await terminal(fixture, 'applied');
+    const types: string[] = [];
+    fixture.editor.state.doc.forEach(node => { types.push(node.type.name); });
+    expect(types).toEqual(['paragraph', 'paragraph']);
+    expect(fixture.editor.state.doc.textContent).toBe('7. Outer◦ Inner');
+    expect(imageNodes(fixture.editor)).toHaveLength(1);
+    expect(asset.read).toHaveBeenCalledOnce();
+    expect(fixture.upload).not.toHaveBeenCalled();
+    expect(fixture.normalized).toHaveBeenCalledOnce();
+    expect(fixture.normalized.mock.calls[0]?.[0].diagnostics).toContainEqual(expect.objectContaining({ code: 'office-list-unsupported' }));
+    expect(fixture.changes).toHaveLength(1);
+  });
+
   it.each(['native', 'programmatic'] as const)('applies a trusted mixed %s paste once after preparation, preserving exact Undo/Redo state', async route => {
     const ready = deferred<ArrayBuffer>();
     const asset = imageFile(PNG, 'image/png', ready.promise);

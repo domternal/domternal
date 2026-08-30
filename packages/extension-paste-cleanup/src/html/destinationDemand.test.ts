@@ -145,7 +145,7 @@ describe('bounded sanitized destination feature demand', () => {
   it('sees reconstructed Office lists without consulting raw marker metadata', () => {
     const item = (marker: string, level: number): string => `<p style="mso-list:l0 level${String(level)} lfo1"><span style="mso-list:Ignore">${marker}</span>Body</p>`;
     expect(collectDestinationDemand(normalized(item('7.', 1) + item('•', 2) + item('8.', 1) + item('2.', 1)), limits))
-      .toEqual(['ordered-list', 'bullet-list', 'nested-list']);
+      .toEqual(['ordered-list', 'bullet-list', 'nested-list', 'ordered-list-style', 'bullet-list-style']);
   });
 
   it('never mutates the caller tree or returns mutable feature storage', () => {

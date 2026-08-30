@@ -1,19 +1,23 @@
 import type { Element, Nodes, Root } from 'hast';
 import { StructureLimitError } from './parse.js';
 import { readSafeStyles } from './styles.js';
+import { cleanSliceContext } from './metadata.js';
+import { listStyleFromType, validListStyle } from './listStyles.js';
 import type { PasteHTMLLimits } from './types.js';
 
 export type PasteDestinationFeature =
   | 'bold' | 'italic' | 'underline' | 'strike' | 'subscript' | 'superscript'
   | 'heading-1' | 'heading-2' | 'heading-3' | 'heading-4' | 'heading-5' | 'heading-6'
   | 'font-family' | 'font-size' | 'text-color' | 'highlight' | 'text-align' | 'line-height'
-  | 'table' | 'table-header' | 'ordered-list' | 'bullet-list' | 'nested-list';
+  | 'table' | 'table-header' | 'ordered-list' | 'bullet-list' | 'nested-list'
+  | 'ordered-list-style' | 'bullet-list-style';
 
 const featureOrder: readonly PasteDestinationFeature[] = Object.freeze([
   'bold', 'italic', 'underline', 'strike', 'subscript', 'superscript',
   'heading-1', 'heading-2', 'heading-3', 'heading-4', 'heading-5', 'heading-6',
   'font-family', 'font-size', 'text-color', 'highlight', 'text-align', 'line-height',
   'table', 'table-header', 'ordered-list', 'bullet-list', 'nested-list',
+  'ordered-list-style', 'bullet-list-style',
 ]);
 const headings: Readonly<Record<string, PasteDestinationFeature>> = {
   h1: 'heading-1', h2: 'heading-2', h3: 'heading-3',
@@ -39,6 +43,19 @@ function elementDemand(node: Element, hasInlineContent: boolean, nestedList: boo
   if (tag === 'ol' || tag === 'ul') {
     features.add(tag === 'ol' ? 'ordered-list' : 'bullet-list');
     if (nestedList) features.add('nested-list');
+    const marker = readSafeStyles(node.properties.style, false, tag).styles.get('list-style-type')
+      ?? listStyleFromType(tag, node.properties.type);
+    if (marker !== undefined && node.properties.dataType !== 'taskList') features.add(tag === 'ol' ? 'ordered-list-style' : 'bullet-list-style');
+  }
+  const slice = cleanSliceContext(node.properties['dataPmSlice']);
+  if (slice !== undefined) {
+    const context = JSON.parse(slice.slice(slice.indexOf('['))) as unknown[];
+    for (let index = 0; index < context.length; index += 2) {
+      const kind = context[index];
+      const attributes = context[index + 1] as Record<string, unknown> | null;
+      const listTag = kind === 'orderedList' ? 'ol' : kind === 'bulletList' ? 'ul' : '';
+      if (validListStyle(listTag, attributes?.['listStyleType'])) features.add(listTag === 'ol' ? 'ordered-list-style' : 'bullet-list-style');
+    }
   }
 
   // Empty paragraph layout is meaningful; cell layout belongs to table support.

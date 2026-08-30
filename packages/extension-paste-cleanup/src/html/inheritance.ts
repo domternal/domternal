@@ -99,12 +99,12 @@ function validFamily(value: string): boolean {
 }
 
 /** Preserve source order while ignoring invalid values within the safe grammar. */
-function readInheritanceStyles(value: unknown, image: boolean): { styles: Map<string, string>; removed: boolean } {
+function readInheritanceStyles(value: unknown, image: boolean, tag: string): { styles: Map<string, string>; removed: boolean } {
   const styles = new Map<string, string>();
   let removed = false;
   if (typeof value !== 'string') return { styles, removed };
   for (const declaration of value.split(';')) {
-    const parsed = readSafeStyles(declaration, image);
+    const parsed = readSafeStyles(declaration, image, tag);
     removed ||= parsed.removed;
     for (const [key, entry] of parsed.styles) {
       if (((key === 'color' || key === 'background-color') && !validColor(entry))
@@ -204,7 +204,7 @@ export function resolveInlineInheritance(
       const state: State = { ...inherited };
       const tag = child.tagName;
       const inline = inlineTags.has(tag);
-      const { styles, removed } = readInheritanceStyles(child.properties.style, tag === 'img');
+      const { styles, removed } = readInheritanceStyles(child.properties.style, tag === 'img', tag);
       let unsupported = removed;
       if (tag === 'b' || tag === 'strong') state.bold = true;
       if (tag === 'i' || tag === 'em') state.italic = true;

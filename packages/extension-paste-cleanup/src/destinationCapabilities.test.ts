@@ -15,6 +15,7 @@ const FEATURES: readonly PasteDestinationFeature[] = [
   'heading-1', 'heading-2', 'heading-3', 'heading-4', 'heading-5', 'heading-6',
   'font-family', 'font-size', 'text-color', 'highlight', 'text-align', 'line-height',
   'table', 'table-header', 'ordered-list', 'bullet-list', 'nested-list',
+  'ordered-list-style', 'bullet-list-style',
 ];
 const ATTRIBUTES: readonly PasteDestinationFeature[] = ['font-family', 'font-size', 'text-color', 'highlight', 'text-align', 'line-height'];
 const managers: ExtensionManager[] = [];
@@ -156,6 +157,34 @@ describe('built-in destination parser capabilities', () => {
     const fromSchema = vi.spyOn(DOMParser, 'fromSchema');
     expect(getUnsupportedDestinationFeatures(schema, document, ['ordered-list', 'bullet-list', 'nested-list'])).toEqual([]);
     expect(fromSchema).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['orderedList', 'bulletList'] as const)('requires every bounded marker and the null default on %s', kind => {
+    const base = fullSchema();
+    const feature = kind === 'orderedList' ? 'ordered-list-style' : 'bullet-list-style';
+    const tag = kind === 'orderedList' ? 'ol' : 'ul';
+    const lastMarker = kind === 'orderedList' ? 'upper-roman' : 'square';
+    const spec = base.spec.nodes.get(kind);
+    if (!spec) throw new Error('Expected list schema');
+    for (const wrong of ['constant', 'last-value', 'null-default'] as const) {
+      const schema = new Schema({ nodes: base.spec.nodes.update(kind, { ...spec, parseDOM: [{ tag, getAttrs: element => {
+        const marker = element.style.listStyleType || null;
+        return { listStyleType: wrong === 'constant' ? (kind === 'orderedList' ? 'decimal' : 'disc')
+          : wrong === 'last-value' && marker === lastMarker ? null : wrong === 'null-default' && marker === null ? lastMarker : marker };
+      } }] }), marks: base.spec.marks });
+      expect(getUnsupportedDestinationFeatures(schema, document, [feature])).toEqual([feature]);
+    }
+  });
+
+  it('does not confuse basic list structure with explicit marker representation', () => {
+    const base = fullSchema();
+    const nodes = base.spec.nodes.update('orderedList', { ...base.spec.nodes.get('orderedList'), attrs: { start: { default: 1 } },
+      parseDOM: [{ tag: 'ol', getAttrs: element => ({ start: Number(element.getAttribute('start') ?? '1') }) }] })
+      .update('bulletList', { ...base.spec.nodes.get('bulletList'), attrs: {}, parseDOM: [{ tag: 'ul' }] });
+    const schema = new Schema({ nodes, marks: base.spec.marks });
+    expect(getUnsupportedDestinationFeatures(schema, document, ['ordered-list', 'bullet-list', 'nested-list'])).toEqual([]);
+    expect(getUnsupportedDestinationFeatures(schema, document, ['ordered-list-style', 'bullet-list-style']))
+      .toEqual(['ordered-list-style', 'bullet-list-style']);
   });
 
   it('reports throwing custom parsers without swallowing evidence into success', () => {

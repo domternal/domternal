@@ -483,7 +483,7 @@ describe('private clipboard HTML preparation', () => {
     const result = prepared(prepareClipboardHTML(html, LIMITS));
     expect(result.preserveOrderedListStart).toBe(true);
     expect(materialized(result.handle, new Map([['image:1', DATA], ['image:2', DATA]])).html)
-      .toBe(`<ol start="7"><li><p>Seven<img alt="A" src="${DATA}"></p></li><li><p>Eight<img alt="B" src="${DATA}"></p></li></ol>`);
+      .toBe(`<ol style="list-style-type:decimal" start="7"><li><p>Seven<img alt="A" src="${DATA}"></p></li><li><p>Eight<img alt="B" src="${DATA}"></p></li></ol>`);
   });
 
   it('keeps existing data images separate from unresolved file placements', () => {

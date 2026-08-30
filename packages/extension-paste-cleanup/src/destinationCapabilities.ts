@@ -2,12 +2,14 @@ import { DOMParser } from '@domternal/pm/model';
 import type { Node as PMNode, Schema } from '@domternal/pm/model';
 import type { PasteDestinationFeature } from './html/destinationDemand.js';
 import { officeListCapabilities } from './listCapabilities.js';
+import { bulletListStyles, orderedListStyles } from './html/listStyles.js';
 
 const FEATURES: readonly PasteDestinationFeature[] = Object.freeze([
   'bold', 'italic', 'underline', 'strike', 'subscript', 'superscript',
   'heading-1', 'heading-2', 'heading-3', 'heading-4', 'heading-5', 'heading-6',
   'font-family', 'font-size', 'text-color', 'highlight', 'text-align', 'line-height',
   'table', 'table-header', 'ordered-list', 'bullet-list', 'nested-list',
+  'ordered-list-style', 'bullet-list-style',
 ]);
 const MARK_TAGS: Readonly<Record<string, string>> = Object.freeze({
   bold: 'strong', italic: 'em', underline: 'u', strike: 's', subscript: 'sub', superscript: 'sup',
@@ -77,6 +79,19 @@ export function getUnsupportedDestinationFeatures(
   };
   let lists: ReturnType<typeof officeListCapabilities> | undefined;
   const supports = (feature: PasteDestinationFeature): boolean => {
+    if (feature === 'ordered-list-style' || feature === 'bullet-list-style') {
+      const ordered = feature === 'ordered-list-style';
+      const tag = ordered ? 'ol' : 'ul';
+      const markers = ordered ? orderedListStyles : bulletListStyles;
+      // Probe every member of this closed vocabulary, including the legacy null
+      // default. A constant schema default cannot stand in for parsed markers.
+      const expected = [null, ...markers];
+      const nodes = parse(expected.map((marker, index) => `<${tag}${marker === null ? '' : ` style="list-style-type:${marker}"`}><li><p>${String(index)}</p></li></${tag}>`).join(''));
+      return nodes.length === expected.length && nodes.every((node, index) => node.type.name === (ordered ? 'orderedList' : 'bulletList')
+        && node.attrs['listStyleType'] === expected[index] && node.childCount === 1
+        && node.firstChild?.type.name === 'listItem' && node.firstChild.childCount === 1
+        && paragraph(node.firstChild.firstChild, String(index)));
+    }
     if (feature === 'ordered-list' || feature === 'bullet-list' || feature === 'nested-list') {
       if (!lists) {
         lists = { orderedLists: false, bulletLists: false, nestedLists: false };

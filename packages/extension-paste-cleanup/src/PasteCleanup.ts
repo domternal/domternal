@@ -186,7 +186,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           }
           if (coordinator?.ordinaryAttempt() === false) { pending = { rejected: true, preserveOrderedListStart: false }; return ''; }
           const { result, preserveOrderedListStart, destinationRejected } = normalizeClipboardHTML(
-            html, options, () => officeListCapabilities(view.state.schema, view.dom.ownerDocument),
+            html, options, () => officeListCapabilities(view.state.schema, view.dom.ownerDocument, { preserveMarkers: true }),
             undefined, features => getUnsupportedDestinationFeatures(view.state.schema, view.dom.ownerDocument, features),
           );
           const rejected = result.status === 'rejected';

@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import {
-  Bold, Document, Editor, FontFamily, FontSize, Heading, Highlight, History, Italic,
+  Bold, BulletList, Document, Editor, FontFamily, FontSize, Heading, Highlight, History, Italic,
   LineHeight, Paragraph, Strike, Subscript, Superscript, Text, TextAlign, TextColor,
-  TextStyle, Underline,
+  OrderedList, TextStyle, Underline,
 } from '@domternal/core';
 import type { EditorOptions } from '@domternal/core';
 import { redoDepth, undoDepth } from '@domternal/pm/history';
@@ -86,6 +86,33 @@ function notice(fixture: Fixture): HTMLElement {
 }
 
 describe('destination capability feedback through the editor', () => {
+  it.each(['preserve', 'adapt'] as const)('retains explicit list markers and reports missing representation in %s mode', async formatting => {
+    for (const supported of [true, false]) {
+      const ordered = supported ? OrderedList : OrderedList.extend({ addAttributes() { return { start: { default: 1 } }; } });
+      const bullet = supported ? BulletList : BulletList.extend({ addAttributes() { return {}; } });
+      const fixture = mount({ formatting }, [ordered, bullet]);
+      const before = snapshot(fixture.editor);
+      paste(fixture.editor, '<ol style="list-style-type:upper-roman"><li><p>Ordered</p></li></ol><ul style="list-style-type:square"><li><p>Bullet</p></li></ul>');
+      const result = await terminal(fixture, 'applied');
+      expect(result.diagnostics).toEqual(supported ? [] : [warning]);
+      const doc = fixture.editor.state.doc;
+      expect(doc.childCount).toBe(2);
+      expect(doc.firstChild?.type.name).toBe('orderedList');
+      expect(doc.firstChild?.attrs['listStyleType']).toBe(supported ? 'upper-roman' : undefined);
+      expect(doc.lastChild?.type.name).toBe('bulletList');
+      expect(doc.lastChild?.attrs['listStyleType']).toBe(supported ? 'square' : undefined);
+      expect(doc.textContent).toBe('OrderedBullet');
+      doc.check();
+      const after = fixture.editor.getJSON();
+      expect(fixture.changes).toHaveLength(1);
+      expect(fixture.editor.commands.undo()).toBe(true);
+      expect(fixture.editor.getJSON()).toEqual(before.doc);
+      expect(fixture.editor.state.selection.toJSON()).toEqual(before.selection);
+      expect(fixture.editor.commands.redo()).toBe(true);
+      expect(fixture.editor.getJSON()).toEqual(after);
+    }
+  });
+
   it.each(['preserve', 'adapt'] as const)('warns for missing semantic marks while preserving readable text in %s mode', async formatting => {
     const fixture = mount({ formatting });
     const before = snapshot(fixture.editor);

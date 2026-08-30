@@ -22,6 +22,12 @@
   ],
   "references": [
     {
+      "path": "../extension-table"
+    },
+    {
+      "path": "../extension-image"
+    },
+    {
       "path": "../core"
     }
   ]

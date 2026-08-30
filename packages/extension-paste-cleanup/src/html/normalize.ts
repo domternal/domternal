@@ -4,6 +4,7 @@ import type { Schema } from 'hast-util-sanitize';
 import { toHtml } from 'hast-util-to-html';
 import { parseBoundedHTML, StructureLimitError } from './parse.js';
 import { readSafeStyles, serializeStyles } from './styles.js';
+import { listStyleFromType } from './listStyles.js';
 import { safeImage, safeLink } from './urls.js';
 import { cleanMetadata, cleanSliceContext } from './metadata.js';
 import { assertTableBounds, TableLimitError } from './tables.js';
@@ -140,8 +141,13 @@ export function normalizeClipboardHTML(
         if (discard.has(child.tagName)) { report('unsafe-content-removed', child); continue; }
         const original = child.properties;
         const clean: Properties = cleanMetadata(original);
-        const { styles, removed } = readSafeStyles(original.style, child.tagName === 'img');
+        const { styles, removed } = readSafeStyles(original.style, child.tagName === 'img', child.tagName);
         if (removed) report('unsupported-formatting', child);
+        if (child.tagName === 'ul' && !styles.has('list-style-type') && clean.dataType !== 'taskList') {
+          const marker = listStyleFromType('ul', original.type);
+          if (marker !== undefined) styles.set('list-style-type', marker);
+        }
+        if (clean.dataType === 'taskList' && styles.delete('list-style-type')) report('unsupported-formatting', child);
         if (child.tagName === 'b' && ['normal', '400'].includes(styles.get('font-weight') ?? '')) child.tagName = 'span';
         if (child.tagName === 'i' && styles.get('font-style') === 'normal') child.tagName = 'span';
         normalizeChildren(child);

@@ -1,3 +1,5 @@
+import { validListStyle } from './listStyles.js';
+
 const color = /^(?:#[\da-f]{3,8}|[a-z]{1,24}|rgba?\([\d.% ,]+\)|hsla?\([\d.% ,]+\))$/i;
 const length = /^(?:0|\d{1,4}(?:\.\d{1,3})?(?:px|pt|em|rem|%))$/i;
 const rules: Readonly<Record<string, RegExp>> = {
@@ -23,7 +25,7 @@ const imagePlacementRules: Readonly<Record<string, RegExp>> = {
 };
 
 /** A deliberately small CSS value grammar: no functions that can load resources. */
-export function readSafeStyles(value: unknown, imagePlacement = false): { styles: Map<string, string>; removed: boolean } {
+export function readSafeStyles(value: unknown, imagePlacement = false, listTag = ''): { styles: Map<string, string>; removed: boolean } {
   const styles = new Map<string, string>();
   let removed = false;
   if (typeof value !== 'string') return { styles, removed };
@@ -32,6 +34,12 @@ export function readSafeStyles(value: unknown, imagePlacement = false): { styles
     const separator = declaration.indexOf(':');
     const name = declaration.slice(0, separator).trim().toLowerCase();
     const content = declaration.slice(separator + 1).trim();
+    if (name === 'list-style-type') {
+      const marker = content.toLowerCase();
+      if (validListStyle(listTag, marker)) styles.set(name, marker);
+      else removed = true;
+      continue;
+    }
     const rule = rules[name] ?? (imagePlacement ? imagePlacementRules[name] : undefined);
     if (separator < 0 || !rule?.test(content)) { removed = true; continue; }
     styles.set(name, imagePlacementRules[name] === undefined ? content : content.toLowerCase());

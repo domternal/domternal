@@ -1,5 +1,6 @@
 import type { Properties } from 'hast';
 import { readSafeStyles } from './styles.js';
+import { validListStyle } from './listStyles.js';
 
 const identifier = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
 const nodeNames = new Set(['paragraph', 'heading', 'blockquote', 'bulletList', 'orderedList', 'listItem', 'taskList', 'taskItem', 'details', 'detailsSummary', 'detailsContent', 'table', 'tableRow', 'tableCell', 'tableHeader', 'columns', 'column']);
@@ -16,7 +17,11 @@ function color(value: unknown): value is string {
   return !parsed.removed && parsed.styles.size === 1 && parsed.styles.get('color') === value;
 }
 
-function contextAttribute(key: string, value: unknown): boolean {
+function contextAttribute(key: string, value: unknown, nodeName?: string): boolean {
+  if (key === 'listStyleType') {
+    const tag = nodeName === 'orderedList' ? 'ol' : nodeName === 'bulletList' ? 'ul' : '';
+    return tag !== '' && (value === null || validListStyle(tag, value));
+  }
   if (!['id', 'level', 'start', 'order', 'colspan', 'rowspan', 'checked', 'open', 'textAlign', 'verticalAlign', 'background', 'colwidth', 'width'].includes(key)) return false;
   if (value === null) return true;
   if (key === 'id') return safeID(value);
@@ -49,7 +54,7 @@ export function cleanSliceContext(value: unknown): string | undefined {
     if (typeof attributes !== 'object' || Array.isArray(attributes)) return undefined;
     const filtered: Record<string, unknown> = {};
     for (const [key, entry] of Object.entries(attributes)) {
-      if (contextAttribute(key, entry)) filtered[key] = entry;
+      if (contextAttribute(key, entry, name)) filtered[key] = entry;
     }
     clean.push(name, filtered);
   }

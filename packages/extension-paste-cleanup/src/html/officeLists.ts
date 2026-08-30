@@ -37,6 +37,7 @@ interface ListItem {
   level: number;
   identity: string;
   kind: 'ol' | 'ul';
+  markerStyle: 'decimal' | 'disc' | 'circle' | 'square';
   ordinal?: number;
   after: ElementContent[];
 }
@@ -44,6 +45,7 @@ interface ListItem {
 interface Level {
   list: Element;
   identity: string;
+  markerStyle: ListItem['markerStyle'];
   nextOrdinal: number | undefined;
   lastItem: Element;
 }
@@ -115,7 +117,7 @@ function trivia(node: RootContent | undefined): node is Comment | Text {
   return node?.type === 'comment' || (node?.type === 'text' && prefixWhitespace.test(node.value));
 }
 
-function markerValue(marker: Element): { kind: 'ol' | 'ul'; ordinal?: number } | undefined {
+function markerValue(marker: Element): Pick<ListItem, 'kind' | 'ordinal' | 'markerStyle'> | undefined {
   let text = '';
   let visited = 0;
   const pending: RootContent[] = [marker];
@@ -138,9 +140,12 @@ function markerValue(marker: Element): { kind: 'ol' | 'ul'; ordinal?: number } |
   const match = /^[\t\n\r \u00a0]*([1-9][0-9]{0,4}[.)]|[•·◦▪●])[\t\n\r \u00a0]*$/u.exec(text);
   const label = match?.[1];
   if (label === undefined) return undefined;
-  if (/^[•·◦▪●]$/u.test(label)) return { kind: 'ul' };
+  if (/^[•·◦▪●]$/u.test(label)) {
+    // Preserve the admitted marker class, without claiming its original font or geometry.
+    return { kind: 'ul', markerStyle: label === '◦' ? 'circle' : label === '▪' ? 'square' : 'disc' };
+  }
   const ordinal = Number(label.slice(0, -1));
-  return ordinal <= 10_000 ? { kind: 'ol', ordinal } : undefined;
+  return ordinal <= 10_000 ? { kind: 'ol', ordinal, markerStyle: 'decimal' } : undefined;
 }
 
 function readItem(entry: Candidate): ListItem | undefined {
@@ -203,16 +208,18 @@ function reconstructRun(items: ListItem[]): { lists: Element[]; count: number } 
   for (const item of items) {
     stack.length = Math.min(stack.length, item.level);
     let current = stack[item.level - 1];
-    if (current?.list.tagName !== item.kind || current.identity !== item.identity
+    if (current?.list.tagName !== item.kind || current.identity !== item.identity || current.markerStyle !== item.markerStyle
       || (item.kind === 'ol' && current.nextOrdinal !== item.ordinal)) {
-      const list: Element = { type: 'element', tagName: item.kind, properties: item.ordinal === undefined ? {} : { start: item.ordinal }, children: [] };
+      const list: Element = { type: 'element', tagName: item.kind, properties: {
+        ...(item.ordinal === undefined ? {} : { start: item.ordinal }), style: `list-style-type:${item.markerStyle}`,
+      }, children: [] };
       if (item.level === 1) lists.push(list);
       else {
         const parent = stack[item.level - 2];
         if (parent === undefined) throw new Error('Missing validated Office list parent');
         parent.lastItem.children.push(list);
       }
-      current = { list, identity: item.identity, lastItem: list, nextOrdinal: undefined };
+      current = { list, identity: item.identity, markerStyle: item.markerStyle, lastItem: list, nextOrdinal: undefined };
       stack[item.level - 1] = current;
       count++;
     }

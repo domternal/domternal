@@ -188,6 +188,23 @@ font numbering, class-only lists, and stylesheet definitions are not reconstruct
 The standalone HTML entry has no destination schema and emits semantic list HTML;
 its caller remains responsible for destination compatibility.
 
+Both formatting modes retain supported list marker classes. Ordered lists support
+`decimal`, `lower-alpha`, `upper-alpha`, `lower-roman` and `upper-roman`; bullet lists
+support `disc`, `circle` and `square`. Only these kind-specific `list-style-type`
+values and supported HTML `type` attributes are accepted. Core stores an explicit
+marker in `listStyleType`; `null` keeps the destination theme's depth-based defaults.
+Internal slice metadata follows the same restrictions. Task lists do not gain this
+attribute. Lists with different explicit markers stay separate during paste and
+list editing.
+
+Reconstructed Office decimal lists use an explicit `decimal` marker, including at
+nested levels. Supported Unicode bullets map to `disc`, `circle` or `square`, and
+a change of marker class creates a separate list. The schema probes must confirm
+these explicit markers before Office marker text is removed. Legacy schemas keep
+the visible Office markers with `office-list-unsupported`; ordinary semantic HTML
+can still paste with `destination-formatting-unconfirmed`. Marker classes do not
+promise identical glyphs, punctuation, fonts, spacing or page layout.
+
 Remote images are removed by default, with escaped alt text where available.
 Enabling `allowRemoteImages` retains HTTP(S) references: later rendering can then
 contact those hosts, and their dimensions/content are outside the local raster

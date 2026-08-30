@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { Element, Root, RootContent } from 'hast';
 import { toHtml } from 'hast-util-to-html';
 import { parseBoundedHTML, StructureLimitError } from './parse.js';
-import { DEFAULT_PASTE_HTML_LIMITS } from './normalize.js';
+import { DEFAULT_PASTE_HTML_LIMITS, normalizePasteHTML } from './normalize.js';
 import { reconstructOfficeLists } from './officeLists.js';
 import type { OfficeListReconstructionOptions } from './officeLists.js';
 
@@ -71,6 +71,57 @@ describe('strict Office list reconstruction', () => {
     expect(elements(output.tree, 'ul')).toHaveLength(1);
     expect(elements(output.tree, 'li')).toHaveLength(2);
     expect(visibleText(output.tree)).toBe('FirstSecond');
+  });
+
+  it.each([
+    { marker: '•', style: 'disc' }, { marker: '·', style: 'disc' }, { marker: '●', style: 'disc' },
+    { marker: '◦', style: 'circle' }, { marker: '▪', style: 'square' },
+  ])('retains the admitted bullet class $marker as explicit $style', ({ marker, style }) => {
+    const output = run(item(marker, 'Body'));
+    expect(elements(output.tree, 'ul')[0]?.properties.style).toBe(`list-style-type:${style}`);
+    expect(visibleText(output.tree)).toBe('Body');
+  });
+
+  it('keeps decimal markers explicit at every reconstructed depth', () => {
+    const output = run(item('7.', 'Outer') + item('2.', 'Inner', 2) + item('1.', 'Deep', 3));
+    expect(elements(output.tree, 'ol').map(node => ({ start: node.properties.start, style: node.properties.style }))).toEqual([
+      { start: 7, style: 'list-style-type:decimal' }, { start: 2, style: 'list-style-type:decimal' },
+      { start: 1, style: 'list-style-type:decimal' },
+    ]);
+  });
+
+  it('splits a shared Office identity whenever its admitted bullet class changes', () => {
+    const output = run(item('•', 'A') + item('·', 'B') + item('●', 'C') + item('◦', 'D') + item('▪', 'E') + item('•', 'F'));
+    expect(elements(output.tree, 'ul').map(node => ({ style: node.properties.style, text: visibleText(node) }))).toEqual([
+      { style: 'list-style-type:disc', text: 'ABC' }, { style: 'list-style-type:circle', text: 'D' },
+      { style: 'list-style-type:square', text: 'E' }, { style: 'list-style-type:disc', text: 'F' },
+    ]);
+    expect(output.result).toEqual({ reconstructedRuns: 1, reconstructedLists: 4, reconstructedItems: 6, skippedRuns: 0 });
+  });
+
+  it('keeps changed nested bullet classes under their actual current parent', () => {
+    const output = run(item('1.', 'ParentA') + item('•', 'A', 2) + item('◦', 'B', 2) + item('2.', 'ParentB') + item('▪', 'C', 2));
+    const outer = elements(output.tree, 'ol')[0]!;
+    const first = outer.children[0];
+    const second = outer.children[1];
+    expect(first?.type).toBe('element');
+    expect(second?.type).toBe('element');
+    if (first?.type !== 'element' || second?.type !== 'element') throw new Error('Missing authored parents');
+    expect(elements(first, 'ul').map(node => [node.properties.style, visibleText(node)])).toEqual([
+      ['list-style-type:disc', 'A'], ['list-style-type:circle', 'B'],
+    ]);
+    expect(elements(second, 'ul').map(node => [node.properties.style, visibleText(node)])).toEqual([
+      ['list-style-type:square', 'C'],
+    ]);
+  });
+
+  it.each(['preserve', 'adapt'] as const)('preserves explicit reconstructed list markers through %s normalization and a second pass', formatting => {
+    const output = normalizePasteHTML(item('7.', 'A') + item('2.', 'B', 2) + item('▪', 'C', 3), { formatting });
+    expect(output.status).toBe('cleaned');
+    const parsed = parse(output.html);
+    expect(elements(parsed, 'ol').map(node => node.properties.style)).toEqual(['list-style-type:decimal', 'list-style-type:decimal']);
+    expect(elements(parsed, 'ul')[0]?.properties.style).toBe('list-style-type:square');
+    expect(normalizePasteHTML(output.html, { formatting }).html).toBe(output.html);
   });
 
   it('rebuilds mixed nesting and resets nested parents after a new root item', () => {
@@ -166,7 +217,7 @@ describe('strict Office list reconstruction', () => {
     expect(output.diagnostics).toEqual([{ code: 'office-list-unsupported', offset: 0 }]);
   });
 
-  it.each(['01.', '0.', '10001.', '1.2.', '1.a', '1.\u200b', 'I.', 'a)', 'o', '➢', '1. Actual note'])(
+  it.each(['01.', '0.', '10001.', '1.2.', '1.a', '1.\u200b', 'I.', 'a)', 'o', '➢', '▫', '•◦', '▪ note', '1. Actual note'])(
     'retains unsupported visible marker %s with a located warning', (marker) => {
       const input = '<p>Before</p>' + item(marker, 'Body');
       const output = run(input);
