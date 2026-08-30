@@ -31,6 +31,8 @@ const diagnosticMessages: Readonly<Record<PasteDiagnosticCode, Copy>> = {
   'link-removed': pasteCleanupMessages.linkRemoved,
   'formatting-adapted': pasteCleanupMessages.formattingAdapted,
   'office-list-unsupported': pasteCleanupMessages.officeListUnsupported,
+  'destination-formatting-unconfirmed': pasteCleanupMessages.destinationFormattingUnconfirmed,
+  'destination-table-unsupported': pasteCleanupMessages.destinationTableUnsupported,
 };
 
 interface Presentation {
@@ -53,6 +55,7 @@ const rejectionMessages: Readonly<Record<Exclude<PasteOperationRejectionReason, 
 }>> = {
   'target-changed': { title: pasteCleanupMessages.targetChanged, recovery: pasteCleanupMessages.targetChangedRecovery },
   'unsupported-destination': { title: pasteCleanupMessages.unsupportedDestination, recovery: pasteCleanupMessages.unsupportedDestinationRecovery },
+  'unsupported-content': { title: pasteCleanupMessages.rejected, recovery: pasteCleanupMessages.unsupportedContentRecovery },
   'assets-unavailable': { title: pasteCleanupMessages.assetsUnavailable, recovery: pasteCleanupMessages.copyAgainRecovery },
   'asset-limit': { title: pasteCleanupMessages.assetLimit, recovery: pasteCleanupMessages.assetLimitRecovery },
   'asset-read-failed': { title: pasteCleanupMessages.assetReadFailed, recovery: pasteCleanupMessages.copyAgainRecovery },

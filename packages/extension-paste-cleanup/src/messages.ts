@@ -14,6 +14,7 @@ declare module '@domternal/core' {
     'pasteCleanup.feedback.targetChangedRecovery': undefined;
     'pasteCleanup.feedback.unsupportedDestination': undefined;
     'pasteCleanup.feedback.unsupportedDestinationRecovery': undefined;
+    'pasteCleanup.feedback.unsupportedContentRecovery': undefined;
     'pasteCleanup.feedback.assetsUnavailable': undefined;
     'pasteCleanup.feedback.assetLimit': undefined;
     'pasteCleanup.feedback.assetLimitRecovery': undefined;
@@ -34,6 +35,8 @@ declare module '@domternal/core' {
     'pasteCleanup.diagnostic.linkRemoved': undefined;
     'pasteCleanup.diagnostic.formattingAdapted': undefined;
     'pasteCleanup.diagnostic.officeListUnsupported': undefined;
+    'pasteCleanup.diagnostic.destinationFormattingUnconfirmed': undefined;
+    'pasteCleanup.diagnostic.destinationTableUnsupported': undefined;
     'pasteCleanup.diagnostic.other': undefined;
   }
 }
@@ -87,6 +90,10 @@ export const pasteCleanupMessages = {
   unsupportedDestinationRecovery: defineMessage({
     id: 'pasteCleanup.feedback.unsupportedDestinationRecovery', defaultValue: "Paste as plain text, or use the editor's image insertion control if available.", owner: '@domternal/extension-paste-cleanup',
     description: 'Recovery for an unsupported image destination, without promising an insertion control exists.',
+  }),
+  unsupportedContentRecovery: defineMessage({
+    id: 'pasteCleanup.feedback.unsupportedContentRecovery', defaultValue: 'Use an editor with table support, or paste as plain text.', owner: '@domternal/extension-paste-cleanup',
+    description: 'Recovery when table structure cannot be represented by the destination schema.',
   }),
   assetsUnavailable: defineMessage({
     id: 'pasteCleanup.feedback.assetsUnavailable', defaultValue: 'The pasted images are unavailable.', owner: '@domternal/extension-paste-cleanup',
@@ -167,6 +174,14 @@ export const pasteCleanupMessages = {
   officeListUnsupported: defineMessage({
     id: 'pasteCleanup.diagnostic.officeListUnsupported', defaultValue: 'Some Office lists could not be reconstructed.', owner: '@domternal/extension-paste-cleanup',
     description: 'Diagnostic for unsupported Office list metadata or destination list capabilities.',
+  }),
+  destinationFormattingUnconfirmed: defineMessage({
+    id: 'pasteCleanup.diagnostic.destinationFormattingUnconfirmed', defaultValue: 'This editor may not preserve some pasted formatting.', owner: '@domternal/extension-paste-cleanup',
+    description: 'A requested built-in schema capability was not confirmed by a reference parse probe; this does not assert exact content loss.',
+  }),
+  destinationTableUnsupported: defineMessage({
+    id: 'pasteCleanup.diagnostic.destinationTableUnsupported', defaultValue: 'Table paste was blocked because table support could not be confirmed.', owner: '@domternal/extension-paste-cleanup',
+    description: 'Table capability refusal before insertion, independently of diagnostic capacity.',
   }),
   other: defineMessage({
     id: 'pasteCleanup.diagnostic.other', defaultValue: 'Some pasted content may need review.', owner: '@domternal/extension-paste-cleanup',

@@ -9,6 +9,8 @@ import { cleanMetadata, cleanSliceContext } from './metadata.js';
 import { assertTableBounds, TableLimitError } from './tables.js';
 import { assertTagWork, TagWorkLimitError } from './tagWork.js';
 import { assertOutputTreeBounds } from './treeBounds.js';
+import { collectDestinationDemand } from './destinationDemand.js';
+import type { PasteDestinationFeature } from './destinationDemand.js';
 import { reconstructOfficeLists } from './officeLists.js';
 import type { OfficeListReconstructionOptions } from './officeLists.js';
 import { resolveInlineInheritance, InheritanceLimitError } from './inheritance.js';
@@ -79,13 +81,17 @@ export interface ClipboardImagePreparationSink {
   retainTree(tree: Root, existingImagePixels: number): void;
 }
 
+/** Private editor adapter. The standalone HTML entry never supplies a schema. */
+export type ClipboardDestinationCheck = (features: readonly PasteDestinationFeature[]) => readonly PasteDestinationFeature[];
+
 /** Internal destination constraints and paste intent do not become public result metadata. */
 export function normalizeClipboardHTML(
   html: string,
   options: NormalizePasteHTMLOptions = {},
   capabilities?: () => Pick<OfficeListReconstructionOptions, 'orderedLists' | 'bulletLists' | 'nestedLists'>,
   preparation?: ClipboardImagePreparationSink,
-): { result: NormalizePasteHTMLResult; preserveOrderedListStart: boolean } {
+  destination?: ClipboardDestinationCheck,
+): { result: NormalizePasteHTMLResult; preserveOrderedListStart: boolean; destinationRejected?: true } {
   const limits = resolveLimits(options.limits);
   let preserveOrderedListStart = false;
   const result: NormalizePasteHTMLResult = {
@@ -232,6 +238,16 @@ export function normalizeClipboardHTML(
     assertOutputTreeBounds(tree, limits.maxNodes, limits.maxDepth);
     const sanitized = sanitize(tree, schema);
     if (sanitized.type !== 'root') throw new Error('Expected a sanitized fragment');
+    if (destination !== undefined) {
+      const requested = collectDestinationDemand(sanitized, limits);
+      const unconfirmed = requested.length > 0 ? destination(requested) : [];
+      if (unconfirmed.some(feature => feature === 'table' || feature === 'table-header')) {
+        result.status = 'rejected';
+        report('destination-table-unsupported', undefined, 'error');
+        return { result, preserveOrderedListStart: false, destinationRejected: true };
+      }
+      if (unconfirmed.length > 0) report('destination-formatting-unconfirmed');
+    }
     if (preparation === undefined) result.html = toHtml(sanitized);
     else preparation.retainTree(sanitized, pixels);
   } catch (error: unknown) {

@@ -34,6 +34,7 @@ export interface PasteOperationResult {
 
 export type PasteOperationRejectionReason =
   | 'cancelled' | 'superseded' | 'target-changed' | 'unsupported-destination'
+  | 'unsupported-content'
   | 'assets-unavailable' | 'asset-limit' | 'asset-read-failed';
 
 export interface PasteNormalizationContext {

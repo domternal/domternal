@@ -5,7 +5,8 @@ export type PasteFormatting = 'preserve' | 'adapt';
 export type PasteDiagnosticCode =
   | 'input-limit' | 'structure-limit' | 'parse-failed'
   | 'unsafe-content-removed' | 'unsupported-formatting'
-  | 'image-removed' | 'link-removed' | 'formatting-adapted' | 'office-list-unsupported';
+  | 'image-removed' | 'link-removed' | 'formatting-adapted' | 'office-list-unsupported'
+  | 'destination-formatting-unconfirmed' | 'destination-table-unsupported';
 
 export interface PasteDiagnostic {
   code: PasteDiagnosticCode;

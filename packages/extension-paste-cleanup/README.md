@@ -134,11 +134,33 @@ does not become text highlighting. Stylesheet rules, CSS variables, the browser'
 computed styles and arbitrary CSS inheritance are not resolved. The destination
 schema determines which retained styles become document attributes.
 
+The editor integration checks requested built-in destination capabilities using
+small constant probes against the actual schema parser. It checks semantic marks,
+requested heading levels, retained text styles, paragraph alignment/line spacing,
+lists and table structure. Missing or unconfirmed formatting support produces a
+`destination-formatting-unconfirmed` warning. Table support that cannot be confirmed
+blocks the paste with `destination-table-unsupported` and terminal reason
+`unsupported-content`, preserving the selection instead of flattening cells into
+ambiguous text. This block remains effective when diagnostic details are full and
+runs before coordinated image reads or resolver callbacks.
+
+These are built-in reference capability checks, not a comparison of each source
+word or style with the final editor document. Custom renamed nodes, custom clipboard
+parsers, later transforms, insertion fitting, individual style values and runtime
+rendering options can still change the result. In particular, paragraph alignment
+and line-height probes do not establish every heading/cell context or a configured
+LineHeight rendering allowlist. The standalone `/html` entry has no schema and
+does not run these editor checks.
+
 `adapt` removes external font family, font size, colors, text alignment and line
 spacing while retaining structure and emphasis. Set `preserveTextAlignment: true`
 to keep source text alignment in this mode. Validated internal slice metadata preserves
 existing editor formatting in either mode. A forged `data-pm-slice` marker still
 passes through all HTML, URL, style and resource checks.
+Destination demands are collected after intentional adaptation, so removed theme
+formatting does not trigger a missing-capability warning. Semantic emphasis and
+structural capabilities are checked in both modes. Empty decorative text wrappers
+do not request formatting; significant spaces still count as text content.
 
 Explicit inline `mso-list:lN levelN lfoN` paragraphs with one leading
 `mso-list:Ignore` marker can become semantic lists. Supported markers are positive

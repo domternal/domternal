@@ -3199,6 +3199,42 @@
       "searchable": false
     },
     {
+      "id": "pasteCleanup.diagnostic.destinationFormattingUnconfirmed",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "A requested built-in schema capability was not confirmed by a reference parse probe; this does not assert exact content loss.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "This editor may not preserve some pasted formatting."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.diagnostic.destinationTableUnsupported",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Table capability refusal before insertion, independently of diagnostic capacity.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Table paste was blocked because table support could not be confirmed."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
       "id": "pasteCleanup.diagnostic.formattingAdapted",
       "owner": "@domternal/extension-paste-cleanup",
       "description": "Fallback detail if adaptation is explicitly reported with warning or error severity.",
@@ -3728,6 +3764,24 @@
       "default": {
         "kind": "text",
         "value": "Not all paste details are shown."
+      },
+      "searchAliases": [],
+      "technicalAliases": [],
+      "source": "packages/extension-paste-cleanup/src/messages.ts",
+      "parameters": {
+        "type": "undefined",
+        "fields": []
+      },
+      "searchable": false
+    },
+    {
+      "id": "pasteCleanup.feedback.unsupportedContentRecovery",
+      "owner": "@domternal/extension-paste-cleanup",
+      "description": "Recovery when table structure cannot be represented by the destination schema.",
+      "allowEmpty": false,
+      "default": {
+        "kind": "text",
+        "value": "Use an editor with table support, or paste as plain text."
       },
       "searchAliases": [],
       "technicalAliases": [],

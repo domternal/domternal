@@ -1,6 +1,7 @@
 import type { Element, Properties, Root, RootContent } from 'hast';
 import { toHtml } from 'hast-util-to-html';
 import { normalizeClipboardHTML, DEFAULT_PASTE_HTML_LIMITS } from '../html/normalize.js';
+import type { ClipboardDestinationCheck } from '../html/normalize.js';
 import { safeImage } from '../html/urls.js';
 import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic } from '../html/types.js';
 import type { OfficeListReconstructionOptions } from '../html/officeLists.js';
@@ -55,6 +56,7 @@ export function readPreparedClipboardHTMLNormalization(handle: PreparedClipboard
 
 export type ClipboardHTMLPreparationResult =
   | { readonly status: 'rejected'; readonly normalization: NormalizePasteHTMLResult;
+      readonly destinationRejected?: true;
       readonly assetReason?: 'asset-limit' | 'assets-unavailable' }
   | {
       readonly status: 'prepared';
@@ -128,6 +130,7 @@ export function prepareClipboardHTML(
   options: NormalizePasteHTMLOptions = {},
   capabilities?: () => Pick<OfficeListReconstructionOptions, 'orderedLists' | 'bulletLists' | 'nestedLists'>,
   inline?: ClipboardInlineHTMLPreparation,
+  destinationCheck?: ClipboardDestinationCheck,
 ): ClipboardHTMLPreparationResult {
   const limits = validateLimits(inputLimits);
   const normalizationOptions = { ...options, ...(options.limits === undefined ? {} : { limits: { ...options.limits } }),
@@ -206,7 +209,8 @@ export function prepareClipboardHTML(
     },
     removedImage() { hasRemovedImages = true; },
     retainTree(value, pixels) { tree = value; existingPixels = pixels; },
-  });
+  }, destinationCheck);
+  if (normalized.destinationRejected) return Object.freeze({ status: 'rejected', destinationRejected: true, normalization: normalized.result });
   if (assetReason !== undefined) return Object.freeze({ status: 'rejected', assetReason,
     normalization: { ...normalized.result, status: 'rejected' as const, html: '' } });
   if (normalized.result.status === 'rejected' || tree === undefined) return Object.freeze({ status: 'rejected', normalization: normalized.result });

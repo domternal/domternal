@@ -6,6 +6,7 @@ import type { EditorView } from '@domternal/pm/view';
 import { DEFAULT_PASTE_HTML_LIMITS } from '../html/normalize.js';
 import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult } from '../html/types.js';
 import { officeListCapabilities } from '../listCapabilities.js';
+import { getUnsupportedDestinationFeatures } from '../destinationCapabilities.js';
 import { pasteCleanupKey, pasteDocumentRevision } from '../operations.js';
 import type { PasteOperationRejectionReason } from '../operations.js';
 import type { createPasteTracking, PendingPasteOperation } from '../tracking.js';
@@ -312,13 +313,16 @@ export function createClipboardAssetCoordinator(
     const inline = assetOptions.mode === 'resolver' && destination?.allowEmbedded === false
       ? { destination, assetLimits, sourceAllowDataImages: htmlOptions.allowDataImages !== false } : undefined;
     return prepareClipboardHTML(html, preparationLimits, htmlOptions,
-      () => officeListCapabilities(view.state.schema, view.dom.ownerDocument), inline);
+      () => officeListCapabilities(view.state.schema, view.dom.ownerDocument), inline,
+      features => getUnsupportedDestinationFeatures(view.state.schema, view.dom.ownerDocument, features));
   };
   const makeOperation = (result: ClipboardHTMLPreparationResult, entry: CaptureEntry): AssetOperation => {
     const normalization = result.status === 'prepared'
       ? readPreparedClipboardHTMLNormalization(result.handle) ?? emptyResult('parse-failed') : result.normalization;
     const operation = hooks.create(normalization);
-    const started = current(entry.generation) && targetMatches(entry) ? sessions.start(operation.operationId) : undefined;
+    const targetReady = current(entry.generation) && targetMatches(entry);
+    const destinationRejected = result.status === 'rejected' && result.destinationRejected === true;
+    const started = targetReady && !destinationRejected ? sessions.start(operation.operationId) : undefined;
     const asset: AssetOperation = {
       generation: entry.generation, target: entry, operation, original: normalization, preparation: result.status === 'prepared' ? result : undefined,
       session: started?.status === 'started' ? started.session : undefined,
@@ -326,9 +330,12 @@ export function createClipboardAssetCoordinator(
     };
     if (current(entry.generation)) active = asset;
     else { stop(asset, 'superseded'); return asset; }
-    if (started?.status === 'rejected') stop(asset, cancellationReason(started.reason));
+    if (!targetReady) stop(asset, 'target-changed');
+    else if (destinationRejected) stop(asset, 'unsupported-content');
+    else if (started?.status === 'rejected') stop(asset, cancellationReason(started.reason));
     else if (started === undefined) stop(asset, 'target-changed');
-    else if (result.status === 'rejected') stop(asset, result.assetReason ?? (result.normalization.diagnostics.some(item => item.code === 'input-limit' || item.code === 'structure-limit') ? 'asset-limit' : 'assets-unavailable'));
+    else if (result.status === 'rejected') stop(asset, result.assetReason ??
+      (result.normalization.diagnostics.some(item => item.code === 'input-limit' || item.code === 'structure-limit') ? 'asset-limit' : 'assets-unavailable'));
     return asset;
   };
   const apply = (asset: AssetOperation, normalization: NormalizePasteHTMLResult, replay: ClipboardHTMLReplay | undefined): void => {

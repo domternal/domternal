@@ -7,6 +7,7 @@ import { normalizePasteHTML, DEFAULT_PASTE_HTML_LIMITS } from './html/index.js';
 import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult } from './html/index.js';
 import { normalizeClipboardHTML } from './html/normalize.js';
 import { officeListCapabilities } from './listCapabilities.js';
+import { getUnsupportedDestinationFeatures } from './destinationCapabilities.js';
 import { pasteCleanupKey, receiptStateField } from './operations.js';
 import type { PasteNormalizationContext, PasteOperationResult } from './operations.js';
 import { createPasteTracking } from './tracking.js';
@@ -184,13 +185,14 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
             return owned.html;
           }
           if (coordinator?.ordinaryAttempt() === false) { pending = { rejected: true, preserveOrderedListStart: false }; return ''; }
-          const { result, preserveOrderedListStart } = normalizeClipboardHTML(
+          const { result, preserveOrderedListStart, destinationRejected } = normalizeClipboardHTML(
             html, options, () => officeListCapabilities(view.state.schema, view.dom.ownerDocument),
+            undefined, features => getUnsupportedDestinationFeatures(view.state.schema, view.dom.ownerDocument, features),
           );
           const rejected = result.status === 'rejected';
           const cleaned = result.html;
           const operation = report(result);
-          void tracking.finish(view, operation, rejected);
+          void tracking.finish(view, operation, rejected, destinationRejected ? { reason: 'unsupported-content' } : {});
           // A host observer can synchronously paste again. Restore this operation after it returns.
           pending = { rejected, preserveOrderedListStart, operation };
           return cleaned;
