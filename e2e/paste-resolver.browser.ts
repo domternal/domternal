@@ -1,13 +1,18 @@
 /** Synthetic resolver callbacks and ClipboardEvents, with no upload or native Office provenance. */
 import { expect, type Page } from '@playwright/test';
-import type { Editor } from '@domternal/core';
+import { createHash } from 'node:crypto';
+import type { Editor, JSONContent } from '@domternal/core';
 import type { ClipboardAssetRecoveryReport, NormalizePasteHTMLResult, PasteNormalizationContext, PasteOperationResult } from '@domternal/extension-paste-cleanup';
 import { test } from './fixtures.js';
 
 const FRAMEWORKS = ['vanilla', 'react', 'vue', 'angular'] as const;
 const ORIGIN = 'http://127.0.0.1:5895';
 const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC';
+const PNG_DATA = `data:image/png;base64,${PNG}`;
+const PNG_BYTES = Buffer.from(PNG, 'base64').length;
+const PNG_SHA256 = createHash('sha256').update(Buffer.from(PNG, 'base64')).digest('hex');
 const HTML = '<p class="MsoNormal"><strong>New</strong></p><img src="cid:private-chart" alt="Chart"><p>End</p>';
+const INLINE_HTML = HTML.replace('cid:private-chart', PNG_DATA);
 
 // A valid ancillary chunk gives the second one-pixel PNG different bytes.
 function distinctPNG(): string {
@@ -54,7 +59,9 @@ interface Observations {
   assetReads: number;
   assetUploads: number;
   assetHookCalls: { html: number; slice: number; handle: number };
+  assetMatchRequests: { references: { placementId: string; rawReference: string }[] }[];
   resolverCalls: { operationId: string; assetId: string; idempotencyKey: string; mimeType: string; bytes: number }[];
+  resolverBlobEvidence: { assetId: string; blobType: string; byteLength: number; base64: string; sha256: string }[];
   resolverRegistrations: { assetId: string; accepted: boolean }[];
   resolverReleases: { operationId: string; assetId: string; idempotencyKey: string; handle: string }[];
   resolverSettlements: number;
@@ -137,6 +144,7 @@ function observations(page: Page): Promise<Observations> {
     const probe = (window as unknown as ProbeWindow).__pasteCleanup;
     return { results: probe.results, operations: probe.operations, assetReads: probe.assetReads,
       assetUploads: probe.assetUploads, assetHookCalls: probe.assetHookCalls, resolverCalls: probe.resolverCalls,
+      assetMatchRequests: probe.assetMatchRequests, resolverBlobEvidence: probe.resolverBlobEvidence,
       resolverRegistrations: probe.resolverRegistrations, resolverReleases: probe.resolverReleases,
       resolverSettlements: probe.resolverSettlements, cleanupSettlements: probe.cleanupSettlements,
       recoveryReports: probe.recoveryReports, resolverObserverThrows: probe.resolverObserverThrows };
@@ -185,6 +193,34 @@ async function privateMetadataStaysOffUI(page: Page): Promise<void> {
     expect(reports[index]?.revision).toBeGreaterThan(reports[index - 1]?.revision ?? -1);
   }
   expect(observed.assetUploads).toBe(0);
+}
+
+function expectInlineEvidence(observed: Observations, fileReads: number, externalReferences: string[] = []): void {
+  expect(observed.assetReads).toBe(fileReads);
+  expect(observed.assetUploads).toBe(0);
+  expect(observed.resolverCalls).toHaveLength(1);
+  expect(observed.resolverBlobEvidence).toEqual([{ assetId: observed.resolverCalls[0]?.assetId, blobType: 'image/png',
+    byteLength: PNG_BYTES, base64: PNG, sha256: PNG_SHA256 }]);
+  expect(observed.assetMatchRequests.flatMap(request => request.references.map(reference => reference.rawReference))).toEqual(externalReferences);
+  expect(JSON.stringify(observed.assetMatchRequests)).not.toContain(PNG);
+  expect(JSON.stringify(observed.operations)).not.toContain(PNG);
+  expect(JSON.stringify(observed.recoveryReports)).not.toContain(PNG);
+  expect(observed.results).toHaveLength(1);
+  expect(observed.results[0]?.html).not.toMatch(/data:image|cid:|blob:/iu);
+}
+
+async function expectRepeatedImages(page: Page, alternatives: string[]): Promise<void> {
+  await expect(page.locator('.ProseMirror img')).toHaveCount(alternatives.length);
+  expect(await page.evaluate(() => {
+    const images: Record<string, unknown>[] = [];
+    (window as unknown as ProbeWindow).__pasteCleanup.editor.state.doc.descendants(node => {
+      if (node.type.name === 'image') images.push({ ...node.attrs });
+    });
+    return images;
+  })).toEqual(alternatives.map((alt, index) => ({ src: `${ORIGIN}/__resolver-images__/1.png`, alt,
+    title: null, width: String((index + 1) * 10), height: null, loading: null, crossorigin: null,
+    float: 'none', align: 'none', id: expect.any(String) })));
+  await expect(page.locator('.ProseMirror')).toHaveText('Before Images after');
 }
 
 for (const framework of FRAMEWORKS) {
@@ -406,7 +442,7 @@ for (const framework of FRAMEWORKS) {
 
     for (const diagnostics of ['default', 'one'] as const) {
       test(`preserves text when source data images are forbidden, diagnostic budget ${diagnostics}`, async ({ page }) => {
-        const before = await open(page, framework, { diagnostics });
+        const before = await open(page, framework, { diagnostics, 'source-data': 'forbid' });
         await paste(page, { html: `<p><span onclick="untrusted()">Source</span><img src="data:image/png;base64,${PNG}" alt="Alternative">End</p>` });
         const result = await terminal(page);
         expect(result.status).toBe('applied');
@@ -426,6 +462,154 @@ for (const framework of FRAMEWORKS) {
         await privateMetadataStaysOffUI(page);
       });
     }
+
+    for (const route of ['native', 'programmatic'] as const) {
+      test(`${route}: resolves inline raster bytes without a File or public matching reference`, async ({ page }) => {
+        const before = await open(page, framework, { 'resolver-inspect': 'bytes' });
+        await paste(page, { html: INLINE_HTML, files: 0, route });
+        const result = await terminal(page);
+        expect(result.status).toBe('applied');
+        expect(result.diagnostics).not.toContainEqual(expect.objectContaining({ code: 'image-removed' }));
+        expect(await recovery(page, 'accepted')).toMatchObject({ ownership: 'retained', registeredResources: 1 });
+        const after = await snapshot(page);
+        expect(after).toEqual(expectedAppliedSnapshot(`${ORIGIN}/__resolver-images__/1.png`));
+        expectInlineEvidence(await observations(page), 0);
+        await undoRedo(page, before, after);
+        expect((await observations(page)).operations).toHaveLength(1);
+        await privateMetadataStaysOffUI(page);
+      });
+    }
+
+    test('leaves an unmatched duplicate File unread when inline bytes identify the image', async ({ page }) => {
+      const before = await open(page, framework, { 'resolver-inspect': 'bytes' });
+      await paste(page, { html: INLINE_HTML, files: 1 });
+      expect((await terminal(page)).status).toBe('applied');
+      await recovery(page, 'accepted');
+      await expect(page.locator('.ProseMirror img')).toHaveCount(1);
+      const after = await snapshot(page);
+      expect(after).toEqual(expectedAppliedSnapshot(`${ORIGIN}/__resolver-images__/1.png`));
+      expectInlineEvidence(await observations(page), 0);
+      await undoRedo(page, before, after);
+      await privateMetadataStaysOffUI(page);
+    });
+
+    test('deduplicates repeated inline encodings while preserving placement alternatives and geometry', async ({ page }) => {
+      const before = await open(page, framework, { 'resolver-inspect': 'bytes' });
+      await paste(page, { html: `<p>Images</p><img src="${PNG_DATA}" alt="First" width="10">`
+        + `<img src="DATA:IMAGE/PNG;BASE64,${PNG}" alt="Repeated" width="20">`, files: 0 });
+      expect((await terminal(page)).status).toBe('applied');
+      await recovery(page, 'accepted');
+      await expectRepeatedImages(page, ['First', 'Repeated']);
+      expectInlineEvidence(await observations(page), 0);
+      expect((await observations(page)).resolverRegistrations).toHaveLength(1);
+      await undoRedo(page, before, await snapshot(page));
+      await privateMetadataStaysOffUI(page);
+    });
+
+    test('deduplicates inline bytes with an explicitly matched CID File without exposing the inline source', async ({ page }) => {
+      const before = await open(page, framework, { 'resolver-inspect': 'bytes' });
+      await paste(page, { html: `<p>Images</p><img src="${PNG_DATA}" alt="Inline" width="10">`
+        + '<img src="cid:private-chart" alt="Matched" width="20">', files: 1 });
+      expect((await terminal(page)).status).toBe('applied');
+      await recovery(page, 'accepted');
+      await expectRepeatedImages(page, ['Inline', 'Matched']);
+      expectInlineEvidence(await observations(page), 1, ['cid:private-chart']);
+      expect((await observations(page)).resolverRegistrations).toHaveLength(1);
+      await undoRedo(page, before, await snapshot(page));
+      await privateMetadataStaysOffUI(page);
+    });
+
+    for (const allowance of ['exact', 'exceeded'] as const) {
+      test(`enforces the ${allowance} shared inline and File byte allowance before binary reads`, async ({ page }) => {
+        const before = await open(page, framework, { 'resolver-inspect': 'bytes',
+          'asset-total-bytes': String(PNG_BYTES * 2 - (allowance === 'exceeded' ? 1 : 0)) });
+        await paste(page, { html: `<p>Images</p><img src="${PNG_DATA}" alt="Inline" width="10">`
+          + '<img src="cid:private-chart" alt="Matched" width="20">', files: 1 });
+        const result = await terminal(page);
+        if (allowance === 'exact') {
+          expect(result.status).toBe('applied');
+          await recovery(page, 'accepted');
+          await expectRepeatedImages(page, ['Inline', 'Matched']);
+          expectInlineEvidence(await observations(page), 1, ['cid:private-chart']);
+          await undoRedo(page, before, await snapshot(page));
+        } else {
+          expect(result).toMatchObject({ status: 'rejected', reason: 'asset-limit' });
+          const observed = await observations(page);
+          expect(observed.assetReads).toBe(0);
+          expect(observed.resolverCalls).toEqual([]);
+          expect(observed.resolverBlobEvidence).toEqual([]);
+          expect(observed.resolverRegistrations).toEqual([]);
+          expect(observed.results).toHaveLength(1);
+          expect(await snapshot(page)).toEqual(before);
+          expect(await history(page)).toEqual({ undo: 0, redo: 0 });
+        }
+        await privateMetadataStaysOffUI(page);
+      });
+    }
+
+    for (const format of ['JSON', 'HTML'] as const) {
+      test(`saves and reloads resolved inline images through ${format} using only their persistent HTTP source`, async ({ page }) => {
+        const before = await open(page, framework, { 'resolver-inspect': 'bytes' });
+        await paste(page, { html: INLINE_HTML, files: 0 });
+        expect((await terminal(page)).status).toBe('applied');
+        await recovery(page, 'accepted');
+        const after = await snapshot(page);
+        expect(after).toEqual(expectedAppliedSnapshot(`${ORIGIN}/__resolver-images__/1.png`));
+        expectInlineEvidence(await observations(page), 0);
+        await undoRedo(page, before, after);
+        const saved = await page.evaluate(format => {
+          const editor = (window as unknown as ProbeWindow).__pasteCleanup.editor;
+          return format === 'HTML' ? editor.getHTML() : JSON.stringify(editor.getJSON());
+        }, format);
+        expect(saved).toContain(`${ORIGIN}/__resolver-images__/1.png`);
+        expect(saved).not.toMatch(/data:image|cid:|blob:|private-resolver/iu);
+        await page.reload();
+        await page.waitForFunction(() => (window as unknown as Partial<ProbeWindow>).__pasteCleanup?.ready);
+        expect(await page.evaluate(({ saved, format }) => {
+          const editor = (window as unknown as ProbeWindow).__pasteCleanup.editor;
+          const content = format === 'HTML' ? saved : JSON.parse(saved) as JSONContent;
+          // Exact HTML round trips opt into preserving paragraph-edge whitespace.
+          return editor.commands.setContent(content, { emitUpdate: false,
+            ...(typeof content === 'string' ? { parseOptions: { preserveWhitespace: 'full' } } : {}) });
+        }, { saved, format })).toBe(true);
+        expect((await snapshot(page)).doc).toEqual(after.doc);
+        await expect(page.locator('.ProseMirror img')).toHaveAttribute('src', `${ORIGIN}/__resolver-images__/1.png`);
+        await expect.poll(() => page.locator('.ProseMirror img').evaluate(image => {
+          if (!(image instanceof HTMLImageElement)) throw new Error('Expected an image element');
+          return { complete: image.complete, width: image.naturalWidth, height: image.naturalHeight };
+        })).toEqual({ complete: true, width: 1, height: 1 });
+        const reloaded = await observations(page);
+        expect(reloaded.assetReads).toBe(0);
+        expect(reloaded.resolverCalls).toEqual([]);
+        expect(reloaded.resolverBlobEvidence).toEqual([]);
+        expect(reloaded.operations).toEqual([]);
+        await privateMetadataStaysOffUI(page);
+      });
+    }
+
+    test('cancels an inline source after registration and releases only after the resolver settles', async ({ page }) => {
+      const before = await open(page, framework, { 'resolver-inspect': 'bytes' });
+      await paste(page, { html: INLINE_HTML, files: 0, hold: 'after-creation' });
+      await pending(page, true);
+      expect(await snapshot(page)).toEqual(before);
+      expect(await history(page)).toEqual({ undo: 0, redo: 0 });
+      await page.getByRole('button', { name: 'Cancel image preparation', exact: true }).click();
+      expect(await terminal(page)).toMatchObject({ status: 'rejected', reason: 'cancelled' });
+      const waiting = await observations(page);
+      expect(waiting.resolverSettlements).toBe(0);
+      expect(waiting.resolverReleases).toEqual([]);
+      expect(waiting.recoveryReports.at(-1)).toMatchObject({ phase: 'unapplied', settled: false, pendingResolvers: 1 });
+      await release(page);
+      expect(await recovery(page, 'unapplied')).toMatchObject({ ownership: 'released', releasedResources: 1 });
+      const observed = await observations(page);
+      expectInlineEvidence(observed, 0);
+      expect(observed.resolverSettlements).toBe(1);
+      expect(observed.resolverReleases).toHaveLength(1);
+      expect(observed.operations).toHaveLength(1);
+      expect(await snapshot(page)).toEqual(before);
+      expect(await history(page)).toEqual({ undo: 0, redo: 0 });
+      await privateMetadataStaysOffUI(page);
+    });
 
     test('compensates cancellation from a recovery observer before exposing HTML', async ({ page }) => {
       const before = await open(page, framework, { 'resolver-observer': 'cancel-created' });

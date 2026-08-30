@@ -41,6 +41,7 @@ let pauseAssetReads = false;
 const releaseAssetReads = [];
 const assetReadCompletions = new Set();
 const resolverCalls = [];
+const resolverBlobEvidence = [];
 const resolverRegistrations = [];
 const resolverReleases = [];
 const recoveryReports = [];
@@ -104,6 +105,16 @@ const fixtureResolver = {
       idempotencyKey: request.idempotencyKey, mimeType: request.mimeType, bytes: request.blob.size });
     const number = resolverCalls.length;
     const work = (async () => {
+      if (query.get('resolver-inspect') === 'bytes') {
+        const blobType = Object.getOwnPropertyDescriptor(Blob.prototype, 'type').get.call(request.blob);
+        const size = Object.getOwnPropertyDescriptor(Blob.prototype, 'size').get.call(request.blob);
+        if (size > 4096) throw new Error('Synthetic byte inspection is limited to small fixture images');
+        const bytes = new Uint8Array(await Blob.prototype.arrayBuffer.call(request.blob));
+        const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+        resolverBlobEvidence.push({ assetId: request.assetId, blobType, byteLength: bytes.length,
+          base64: btoa(String.fromCharCode(...bytes)),
+          sha256: Array.from(hash, value => value.toString(16).padStart(2, '0')).join('') });
+      }
       await waitForResolverStage('before-creation');
       const outcome = query.get('resolver-outcome') ?? 'created';
       if (outcome === 'existing') {
@@ -213,6 +224,7 @@ const extensions = [
   PasteCleanup.configure({
     formatting,
     feedback,
+    ...(query.get('source-data') === 'forbid' ? { allowDataImages: false } : {}),
     ...(limits === undefined && query.get('diagnostics') !== 'one' ? {} : {
       limits: { ...limits, ...(query.get('diagnostics') === 'one' ? { maxDiagnostics: 1 } : {}) },
     }),
@@ -229,6 +241,9 @@ const extensions = [
         } : {}),
         unresolved: query.get('unresolved') === 'omit' ? 'omit' : 'reject',
         ...(query.get('asset-limits') === 'small' ? { limits: { maxFileBytes: 16, maxTotalFileBytes: 32 } } : {}),
+        ...(query.has('asset-total-bytes') ? { limits: {
+          maxFileBytes: Number(query.get('asset-total-bytes')), maxTotalFileBytes: Number(query.get('asset-total-bytes')),
+        } } : {}),
         match: context => {
           assetMatchRequests.push(structuredClone(context));
           return context.references.flatMap(reference => assetBindings
@@ -307,6 +322,7 @@ window.__pasteCleanup = {
   get assetUploads() { return assetUploads; },
   get assetHookCalls() { return assetHookCalls; },
   get resolverCalls() { return resolverCalls; },
+  get resolverBlobEvidence() { return resolverBlobEvidence; },
   get resolverRegistrations() { return resolverRegistrations; },
   get resolverReleases() { return resolverReleases; },
   get resolverSettlements() { return resolverSettlements; },
@@ -371,6 +387,7 @@ window.__pasteCleanup = {
     assetReads = 0;
     assetUploads = 0;
     resolverCalls.length = 0;
+    resolverBlobEvidence.length = 0;
     resolverRegistrations.length = 0;
     resolverReleases.length = 0;
     recoveryReports.length = 0;
