@@ -1,7 +1,7 @@
 import {
   Bold, Italic, Underline, Strike, Link, TextStyle, TextColor, Highlight,
   FontFamily, FontSize, TextAlign, Heading, BulletList, OrderedList, ListItem,
-  Blockquote, CodeBlock, HardBreak, UniqueID, Extension,
+  Blockquote, CodeBlock, HardBreak, UniqueID, Extension, Subscript, Superscript, LineHeight,
 } from '@domternal/core';
 import { Plugin, TextSelection } from '@domternal/pm/state';
 import { undoDepth, redoDepth } from '@domternal/pm/history';
@@ -21,7 +21,16 @@ const embeddedAssets = query.get('assets') === 'embedded';
 const resolverAssets = query.get('assets') === 'resolver';
 const coordinatedAssets = embeddedAssets || resolverAssets;
 const imagePolicy = query.get('image-policy');
+const capabilityMinimal = query.get('schema') === 'capability-minimal';
+const capabilityFull = query.get('schema') === 'capability-full';
 const lists = query.get('schema') !== 'no-lists';
+// All wrappers add only Document, Paragraph, Text, BaseKeymap and History.
+// This opt-in filter removes every optional formatting node and mark from the fixture.
+const disabledExtensions = capabilityMinimal ? new Set([
+  'bold', 'italic', 'underline', 'strike', 'link', 'textStyle', 'textColor', 'highlight',
+  'fontFamily', 'fontSize', 'textAlign', 'heading', 'bulletList', 'orderedList', 'listItem',
+  'blockquote', 'codeBlock', 'hardBreak', 'image', 'table', 'tableRow', 'tableCell', 'tableHeader',
+]) : new Set();
 const limits = query.get('limits') === 'small'
   ? { maxInputLength: 1024, maxNodes: 80, maxDepth: 8, maxTableCells: 16 }
   : undefined;
@@ -209,7 +218,8 @@ const ConsumeOuterAndNest = Extension.create({
 // The optional extension list is identical across all four integrations.
 const extensions = [
   Bold, Italic, Underline, Strike, Link, TextStyle, TextColor, Highlight,
-  FontFamily, FontSize, TextAlign, Heading,
+  FontFamily, FontSize, TextAlign, capabilityFull ? Heading.configure({ levels: [1, 2, 3, 4, 5, 6] }) : Heading,
+  ...(capabilityFull ? [Subscript, Superscript, LineHeight] : []),
   ...(lists ? [BulletList, OrderedList, ListItem] : []),
   Blockquote, CodeBlock, HardBreak, UniqueID,
   ...(imagePolicy === 'missing' ? [] : [Image.configure({
@@ -282,7 +292,7 @@ const extensions = [
       }
     },
   }),
-];
+].filter(extension => !disabledExtensions.has(extension.name));
 
 function capture(instance) {
   editor = instance;
