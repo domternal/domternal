@@ -14,6 +14,7 @@ import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 import type { FloatingMenuItem } from '../types/FloatingMenu.js';
 import { ListItem } from './ListItem.js';
+import { listMarkerAttribute } from '../utils/listMarker.js';
 
 declare module '@domternal/core' {
   interface RawCommands {
@@ -41,6 +42,7 @@ export const OrderedList = Node.create<OrderedListOptions>({
 
   addAttributes() {
     return {
+      listStyleType: listMarkerAttribute('orderedList'),
       start: {
         default: 1,
         // Clamp to a finite integer >= 1. Without this, a malformed

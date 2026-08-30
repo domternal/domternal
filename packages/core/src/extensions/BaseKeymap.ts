@@ -35,6 +35,7 @@ import {
   splitBlock,
 } from '@domternal/pm/commands';
 import type { Command } from '@domternal/pm/state';
+import { guardListMarkerDeletion } from '../utils/listMarkerCommands.js';
 
 export interface BaseKeymapOptions {
   /**
@@ -63,6 +64,12 @@ export const BaseKeymap = Extension.create<BaseKeymapOptions>({
 
   addProseMirrorPlugins() {
     const bindings = { ...baseKeymap };
+    const backward = baseKeymap['Backspace'];
+    const forward = baseKeymap['Delete'];
+    for (const [key, command] of Object.entries(bindings)) {
+      if (command === backward) bindings[key] = guardListMarkerDeletion(command, -1);
+      else if (command === forward) bindings[key] = guardListMarkerDeletion(command, 1);
+    }
 
     // Override Enter with our enhanced version if enabled
     if (this.options.enter) {

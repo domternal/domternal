@@ -12,6 +12,8 @@
  * are already inline from renderHTML, and default text color is browser default.
  */
 
+import { parseListMarker } from './listMarker.js';
+
 // ---------------------------------------------------------------------------
 // Override keys - users can override any of these
 // ---------------------------------------------------------------------------
@@ -284,12 +286,11 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
         styles = 'font-size: 0.9em; font-weight: 700; line-height: 1.25; margin: 1.5em 0 0.5em;';
         break;
 
-      // `type` is not a schema attribute on either list node, so no document
-      // this editor produced carries one.
+      // Persisted explicit markers take precedence over the depth-dependent theme.
       case 'UL':
         if (el.getAttribute('data-type') === 'taskList') {
           styles = 'list-style: none; padding-left: 0; margin: 0.75em 0;';
-        } else if (el.hasAttribute('type')) {
+        } else if (parseListMarker('bulletList', el) !== null || el.hasAttribute('type')) {
           styles = 'margin: 0.75em 0; padding-left: 1.5em;';
         } else {
           const bullet = BULLET_MARKERS[listMarkerDepth(el, container) % 3] ?? 'disc';
@@ -298,7 +299,7 @@ export function applyInlineStyles(container: HTMLElement, overrides?: InlineStyl
         break;
 
       case 'OL': {
-        if (el.hasAttribute('type')) {
+        if (parseListMarker('orderedList', el) !== null || el.hasAttribute('type')) {
           styles = 'margin: 0.75em 0; padding-left: 1.5em;';
           break;
         }

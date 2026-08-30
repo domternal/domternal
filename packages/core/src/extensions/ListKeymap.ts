@@ -15,7 +15,8 @@
  *   BS again (joinBackward wraps p back as new item).
  */
 import { TextSelection } from '@domternal/pm/state';
-import { liftListItem, sinkListItem } from '@domternal/pm/schema-list';
+import { liftListItemWithMarker as liftListItem, markerLiftConflict, sinkListItemWithMarker as sinkListItem } from '../utils/listMarkerCommands.js';
+import { sameListMarker } from '../utils/listMarker.js';
 import { canJoin } from '@domternal/pm/transform';
 import type { NodeType } from '@domternal/pm/model';
 import type { EditorState } from '@domternal/pm/state';
@@ -91,7 +92,7 @@ export const ListKeymap = Extension.create<ListKeymapOptions>({
         // liftListItem would dissolve the item into a bare paragraph; preserve
         // its type instead.
         if (liftCrossTypeListItem(ctx.state, ctx.view.dispatch)) return true;
-        return liftListItem(ctx.listItemType)(ctx.state, ctx.view.dispatch);
+        return liftListItem(ctx.listItemType)(ctx.state, ctx.view.dispatch) || markerLiftConflict(ctx.state, ctx.listItemType);
       },
 
       // Backspace at start of list item to lift
@@ -150,7 +151,7 @@ export const ListKeymap = Extension.create<ListKeymapOptions>({
                 const next = idx + 1 < container.childCount
                   ? container.child(idx + 1)
                   : null;
-                if (next?.type === prev.type && canJoin(tr.doc, paraStart)) {
+                if (next?.type === prev.type && sameListMarker(prev, next) && canJoin(tr.doc, paraStart)) {
                   tr.join(paraStart);
                 }
 
@@ -188,7 +189,7 @@ export const ListKeymap = Extension.create<ListKeymapOptions>({
             // Cross-type nesting: preserve the item's type instead of
             // dissolving it to a paragraph.
             if (liftCrossTypeListItem(state, view.dispatch)) return true;
-            return liftListItem(listItemType)(state, view.dispatch);
+            return liftListItem(listItemType)(state, view.dispatch) || markerLiftConflict(state, listItemType);
           }
         }
 

@@ -3,8 +3,8 @@
  * content fitter, which strips the block wrapper and pastes only inline text.
  * SmartPaste catches the relevant cases and routes each to the right strategy:
  *
- *  1. List slice into a list ancestor: same-kind items merge as siblings unless
- *     explicit paste intent preserves ordered starts and their sibling blocks.
+ *  1. List slice into a list ancestor: matching-kind and marker items merge as
+ *     siblings unless explicit paste intent preserves ordered starts and blocks.
  *     Other lists keep their wrapper and split the host list around it.
  *  2. Trailing hardBreak (Shift+Enter): trim the hardBreak, insert as sibling.
  *  3. Truly empty parent paragraph (`parentSize === 0`): replace the parent.
@@ -28,6 +28,7 @@ import type { Slice, Node as PMNode, ResolvedPos, NodeType } from '@domternal/pm
 import type { EditorView } from '@domternal/pm/view';
 import type { Transaction } from '@domternal/pm/state';
 import { insertBlockSplittingList } from './helpers/moveBlock.js';
+import { canMergeListWrappers } from './helpers/listMarkers.js';
 
 const LIST_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
 const LIST_ITEM_TYPES = new Set(['listItem', 'taskItem']);
@@ -187,9 +188,9 @@ function hasTrailingHardBreakAtCursor(parent: PMNode, offset: number, parentSize
 /**
  * When the caret has a list ancestor and the slice is a single list, or explicit
  * paste behavior preserves a block fragment containing top-level ordered lists:
- *   - SAME list kind: merge items as siblings, unless explicit paste behavior
- *     preserves the pasted ordered list's start in its own wrapper.
- *   - DIFFERENT kind (e.g. to-dos pasted into a bullet list): the pasted list
+ *   - SAME list kind and marker: merge items as siblings, unless explicit paste
+ *     behavior preserves the pasted ordered list's start in its own wrapper.
+ *   - DIFFERENT kind or marker: the pasted list
  *     keeps its OWN kind, checked state, and ordered `start`, splitting the host
  *     list around it. This mirrors the cross-kind drag rules (`moveBlock`) and
  *     prevents the silent checked-state loss a blind adapt-and-merge caused.
@@ -229,9 +230,6 @@ function tryPasteListSliceIntoList(view: EditorView, event: ClipboardEvent, slic
   const listItemDepth = listDepth + 1;
   if ($from.depth < listItemDepth) return false;
 
-  const listParent = $from.node(listDepth);
-  const sameKind = sliceTop.type === listParent.type;
-
   const tr = state.tr;
   if (!selection.empty) tr.deleteSelection();
 
@@ -240,6 +238,7 @@ function tryPasteListSliceIntoList(view: EditorView, event: ClipboardEvent, slic
   const $pos = tr.selection.$from;
   if ($pos.depth < listItemDepth) return false;
   if (!LIST_TYPES.has($pos.node(listDepth).type.name)) return false;
+  const sameWrapper = canMergeListWrappers(sliceTop, $pos.node(listDepth));
 
   const parent = $pos.parent;
   const parentEnd = $pos.after($pos.depth);
@@ -249,9 +248,9 @@ function tryPasteListSliceIntoList(view: EditorView, event: ClipboardEvent, slic
   const liEnd = $pos.after(listItemDepth);
   const itemHasOnlyOneChild = $pos.node(listItemDepth).childCount === 1;
 
-  if (sameKind && !preserveOrderedStart) {
-    // Same wrapper kind: the items already match the host's item type, so insert
-    // them as-is and merge them as siblings of the current item.
+  if (sameWrapper && !preserveOrderedStart) {
+    // Matching wrapper kind and marker: insert the items as siblings without
+    // changing their list marker policy.
     const adapted = sliceTop.content;
     if (adapted.childCount === 0) return false;
 
@@ -292,8 +291,8 @@ function tryPasteListSliceIntoList(view: EditorView, event: ClipboardEvent, slic
     return true;
   }
 
-  // Preserve a different kind or an explicitly requested ordered start in its
-  // own wrapper, splitting the host list around the inserted content.
+  // Preserve a different kind/marker or an explicitly requested ordered start
+  // in its own wrapper, splitting the host list around the inserted content.
   const content = preserveOrderedStart ? slice.content : Fragment.from(sliceTop);
   let insertedAt: number;
   if (hasTrailingHardBreakAtCursor(parent, offset, parentSize)) {

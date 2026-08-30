@@ -14,6 +14,7 @@ import type { CommandSpec } from '../types/Commands.js';
 import type { ToolbarItem } from '../types/Toolbar.js';
 import type { FloatingMenuItem } from '../types/FloatingMenu.js';
 import { ListItem } from './ListItem.js';
+import { listMarkerAttribute } from '../utils/listMarker.js';
 
 declare module '@domternal/core' {
   interface RawCommands {
@@ -37,6 +38,10 @@ export const BulletList = Node.create<BulletListOptions>({
       HTMLAttributes: {},
       itemTypeName: 'listItem',
     };
+  },
+
+  addAttributes() {
+    return { listStyleType: listMarkerAttribute('bulletList') };
   },
 
   parseHTML() {

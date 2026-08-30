@@ -18,7 +18,8 @@
  *     (a heading cannot own children in this schema); the convert then
  *     no-ops rather than producing a malformed lift.
  */
-import { liftListItem } from '@domternal/pm/schema-list';
+import { hasListMarkerAncestor } from './listMarker.js';
+import { liftListItemWithMarker as liftListItem } from './listMarkerCommands.js';
 import { liftTarget } from '@domternal/pm/transform';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 import { findListItemAncestorDepth } from './listItemAncestor.js';
@@ -44,6 +45,8 @@ export function liftCurrentListItem(
   if (tr.steps.length !== 0) return false;
 
   const { $from } = tr.selection;
+  const storedMarks = tr.storedMarks;
+  const preserveMarks = hasListMarkerAncestor($from);
   const listItemDepth = findListItemAncestorDepth($from);
   if (listItemDepth === -1) return false;
   if ($from.index(listItemDepth) !== 0) return false;
@@ -62,6 +65,7 @@ export function liftCurrentListItem(
     const target = liftTarget(range);
     if (target === null) return false;
     tr.lift(range, target);
+    if (preserveMarks && storedMarks !== null) tr.setStoredMarks(storedMarks);
     return true;
   }
 
@@ -70,5 +74,7 @@ export function liftCurrentListItem(
   return liftListItem(listItemType)(state, (liftTr) => {
     for (const step of liftTr.steps) tr.step(step);
     if (liftTr.selectionSet) tr.setSelection(liftTr.selection);
+    if (liftTr.storedMarksSet) tr.setStoredMarks(liftTr.storedMarks);
+    if (preserveMarks && storedMarks !== null) tr.setStoredMarks(storedMarks);
   });
 }
