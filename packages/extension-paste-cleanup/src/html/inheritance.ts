@@ -29,7 +29,7 @@ interface State {
 }
 
 const neutralTags = new Set(['b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'mark', 'sub', 'sup']);
-const inlineTags = new Set(['span', 'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'mark', 'a', 'code', 'sub', 'sup', 'font']);
+const inlineTags = new Set(['span', 'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'mark', 'a', 'code', 'sub', 'sup', 'font', 'br']);
 const discarded = new Set(['script', 'style', 'iframe', 'object', 'embed', 'svg', 'math', 'template', 'noscript', 'head', 'title', 'textarea', 'select', 'button']);
 const structuralText = new Set(['table', 'thead', 'tbody', 'tfoot', 'tr', 'colgroup', 'ul', 'ol']);
 const inheritedKeys = ['font-weight', 'font-style', 'font-family', 'font-size', 'color', 'text-decoration', 'text-decoration-line'];
@@ -133,7 +133,7 @@ function resolveSize(value: string, parent: FontSize | undefined): FontSize | un
  * Resolve a fixed subset of source inline formatting before schema parsing.
  * This is not a stylesheet cascade or sanitizer. The caller must still sanitize
  * properties and URLs and must bypass cosmetic rewriting for internal slices.
- * Source boundaries are retained; generated wrappers contain text only.
+ * Source boundaries are retained; generated wrappers contain text or a hard break.
  */
 export function resolveInlineInheritance(
   tree: Root,
@@ -157,7 +157,7 @@ export function resolveInlineInheritance(
       for (const child of entry.node.children) pending.push({ node: child, depth: entry.depth + 1 });
     }
   }
-  const wrapText = (text: Text, state: State, depth: number): ElementContent => {
+  const wrapLeaf = (leaf: Text | Element, state: State, depth: number): ElementContent => {
     const styles = new Map<string, string>();
     const properties: Properties = {};
     const preserve = options.formatting !== 'adapt';
@@ -188,16 +188,16 @@ export function resolveInlineInheritance(
     const extra = tags.length + Number(carrier);
     if (nodes + extra > options.maxNodes || depth + extra > options.maxDepth) throw new InheritanceLimitError();
     nodes += extra;
-    let child: ElementContent = text;
-    for (const tagName of tags.reverse()) child = { type: 'element', tagName, properties: {}, children: [child], ...(text.position === undefined ? {} : { position: text.position }) };
-    if (carrier) child = { type: 'element', tagName: state.defaultHighlight ? 'mark' : 'span', properties, children: [child], ...(text.position === undefined ? {} : { position: text.position }) };
+    let child: ElementContent = leaf;
+    for (const tagName of tags.reverse()) child = { type: 'element', tagName, properties: {}, children: [child], ...(leaf.position === undefined ? {} : { position: leaf.position }) };
+    if (carrier) child = { type: 'element', tagName: state.defaultHighlight ? 'mark' : 'span', properties, children: [child], ...(leaf.position === undefined ? {} : { position: leaf.position }) };
     return child;
   };
   const visit = (parent: Root | Element, inherited: State, depth: number): void => {
     const children: RootContent[] = [];
     for (const child of parent.children) {
       if (child.type === 'text') {
-        children.push(parent.type === 'element' && structuralText.has(parent.tagName) ? child : wrapText(child, inherited, depth + 1));
+        children.push(parent.type === 'element' && structuralText.has(parent.tagName) ? child : wrapLeaf(child, inherited, depth + 1));
         continue;
       }
       if (child.type !== 'element' || discarded.has(child.tagName)) { children.push(child); continue; }
@@ -270,7 +270,7 @@ export function resolveInlineInheritance(
       if (neutralTags.has(tag)) child.tagName = 'span';
       if (unsupported) onUnsupported?.(child);
       visit(child, state, depth + 1);
-      children.push(child);
+      children.push(tag === 'br' ? wrapLeaf(child, state, depth + 1) : child);
     }
     parent.children = children;
   };

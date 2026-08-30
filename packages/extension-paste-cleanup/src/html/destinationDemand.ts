@@ -30,7 +30,7 @@ function validToken(value: unknown): boolean {
   return typeof value === 'string' && token.test(value);
 }
 
-function elementDemand(node: Element, hasText: boolean, nestedList: boolean, features: Set<PasteDestinationFeature>): void {
+function elementDemand(node: Element, hasInlineContent: boolean, nestedList: boolean, features: Set<PasteDestinationFeature>): void {
   const tag = node.tagName;
   const heading = Object.hasOwn(headings, tag) ? headings[tag] : undefined;
   if (heading !== undefined) features.add(heading);
@@ -43,13 +43,13 @@ function elementDemand(node: Element, hasText: boolean, nestedList: boolean, fea
 
   // Empty paragraph layout is meaningful; cell layout belongs to table support.
   const paragraph = tag === 'p' || heading !== undefined;
-  if (!hasText && !paragraph) return;
+  if (!hasInlineContent && !paragraph) return;
   const styles = readSafeStyles(node.properties.style).styles;
   if (paragraph) {
     if (styles.has('text-align')) features.add('text-align');
     if (styles.has('line-height')) features.add('line-height');
   }
-  if (!hasText) return;
+  if (!hasInlineContent) return;
 
   const semantic = Object.hasOwn(semanticMarks, tag) ? semanticMarks[tag] : undefined;
   if (semantic !== undefined) features.add(semantic);
@@ -72,7 +72,7 @@ interface Frame {
   depth: number;
   listAncestors: number;
   nextChild: number;
-  hasText: boolean;
+  hasInlineContent: boolean;
 }
 
 /**
@@ -92,7 +92,8 @@ export function collectDestinationDemand(
   const features = new Set<PasteDestinationFeature>();
   const enter = (node: Nodes, depth: number, listAncestors: number): void => {
     if (++nodes > maxNodes || depth > maxDepth) throw new StructureLimitError();
-    frames.push({ node, depth, listAncestors, nextChild: 0, hasText: node.type === 'text' && node.value.length > 0 });
+    frames.push({ node, depth, listAncestors, nextChild: 0,
+      hasInlineContent: node.type === 'text' && node.value.length > 0 || node.type === 'element' && node.tagName === 'br' });
   };
   enter(tree, 0, 0);
   while (frames.length > 0) {
@@ -105,10 +106,10 @@ export function collectDestinationDemand(
       enter(child, frame.depth + 1, frame.listAncestors + (list ? 1 : 0));
       continue;
     }
-    if (frame.node.type === 'element') elementDemand(frame.node, frame.hasText, frame.listAncestors > 0, features);
+    if (frame.node.type === 'element') elementDemand(frame.node, frame.hasInlineContent, frame.listAncestors > 0, features);
     frames.pop();
     const parent = frames[frames.length - 1];
-    if (parent !== undefined) parent.hasText ||= frame.hasText;
+    if (parent !== undefined) parent.hasInlineContent ||= frame.hasInlineContent;
   }
   return Object.freeze(featureOrder.filter(feature => features.has(feature)));
 }

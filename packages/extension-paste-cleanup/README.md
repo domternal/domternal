@@ -134,6 +134,19 @@ does not become text highlighting. Stylesheet rules, CSS variables, the browser'
 computed styles and arbitrary CSS inheritance are not resolved. The destination
 schema determines which retained styles become document attributes.
 
+Supported inline marks and effective typography are materialized around both text
+and hard breaks, including break-only runs. The original `<br>` remains a void
+element; paragraph alignment and line height stay on the paragraph. This also
+preserves direct break styles and supported descendant resets without applying
+them to following siblings. It does not establish identical line-box geometry in
+every browser or destination schema.
+
+The standalone normalizer and ordinary document parsing retain a final bare
+`<br>`. ProseMirror's clipboard parser treats a final bare `<br>` directly inside
+a block as a placeholder and can remove it. Breaks inside retained inline wrappers
+are distinct from that case. Cleanup does not override this clipboard rule, so
+preserving every unwrapped trailing break during paste is not guaranteed.
+
 The editor integration checks requested built-in destination capabilities using
 small constant probes against the actual schema parser. It checks semantic marks,
 requested heading levels, retained text styles, paragraph alignment/line spacing,
@@ -160,7 +173,8 @@ passes through all HTML, URL, style and resource checks.
 Destination demands are collected after intentional adaptation, so removed theme
 formatting does not trigger a missing-capability warning. Semantic emphasis and
 structural capabilities are checked in both modes. Empty decorative text wrappers
-do not request formatting; significant spaces still count as text content.
+do not request formatting; significant spaces and hard breaks count as meaningful
+inline content, including when a styled wrapper contains only a break.
 
 Explicit inline `mso-list:lN levelN lfoN` paragraphs with one leading
 `mso-list:Ignore` marker can become semantic lists. Supported markers are positive
@@ -399,7 +413,9 @@ Additional fixed bounds protect attributes per tag, attribute-name length,
 table spans, individual raster dimensions/pixels, and GIF frames. A lexical work
 guard runs before parse5, including conservative checks in comments/raw text.
 Generated inherited-style attributes share the input-length ceiling, preventing
-a long source value from multiplying across many text runs without a bound.
+a long source value from multiplying across many text or hard-break leaves without
+a bound. Every generated mark and typography wrapper consumes the shared node and
+depth allowance before it is allocated.
 Plain/Markdown input has a conservative markup-token budget before downstream
 handlers can expand it. HTML/structure rejection inserts nothing; removed images,
 links and unsupported formatting are reported without discarding unrelated text.

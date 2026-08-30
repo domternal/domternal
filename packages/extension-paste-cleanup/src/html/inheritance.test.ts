@@ -261,6 +261,60 @@ describe('resolveInlineInheritance', () => {
     expect(result.html).toContain('<pre><strong> E\n  F </strong></pre>');
   });
 
+  it('keeps the original void break and its metadata when materializing inherited formatting', () => {
+    const tree = parseBoundedHTML('<p style="font-weight:bold;color:red;line-height:1.5"><br id="break" title="Keep" data-thread-ids="thread" style="line-height:1.7"></p>', limits);
+    const paragraph = tree.children[0] as Element;
+    const br = paragraph.children[0] as Element; const position = br.position;
+    resolveInlineInheritance(tree, limits);
+    const found: Element[] = [];
+    const visit = (node: Root | Root['children'][number]): void => {
+      if (node.type === 'element' && node.tagName === 'br') found.push(node);
+      if ('children' in node) for (const child of node.children) visit(child);
+    };
+    visit(tree);
+    expect(found).toEqual([br]); expect(found[0]).toBe(br); expect(br.position).toBe(position);
+    expect(br.children).toEqual([]);
+    expect(br.properties).toEqual({ id: 'break', title: 'Keep', dataThreadIds: 'thread', style: 'line-height:1.7' });
+    expect(paragraph.properties).toEqual({ style: 'line-height:1.5' });
+    expect(toHtml(tree)).toBe('<p style="line-height:1.5"><span style="color:red"><strong><br id="break" title="Keep" data-thread-ids="thread" style="line-height:1.7"></strong></span></p>');
+    expect(toHtml(tree).match(/id="break"/g)).toHaveLength(1);
+  });
+
+  it('does not extend leaf formatting materialization to images or horizontal rules', () => {
+    const result = resolve('<div style="font-weight:bold;color:red"><p><img src="https://example.test/image"><br></p><hr></div>');
+    expect(result.html).toBe('<div><p><img src="https://example.test/image"><span style="color:red"><strong><br></strong></span></p><hr></div>');
+  });
+
+  it.each(['<br>', '<br><br>', 'A<br>B'])('materializes direct or inherited effective break formatting in %s', content => {
+    const inherited = resolve(`<p style="font-weight:bold;font-style:italic;color:red">${content}</p>`);
+    expect(inherited.unsupported).toEqual([]);
+    expect(inherited.html.match(/<strong><em><br><\/em><\/strong>/g)).toHaveLength(content.match(/<br>/g)?.length ?? 0);
+    expect(inherited.html.match(/<br>/g)).toHaveLength(content.match(/<br>/g)?.length ?? 0);
+  });
+
+  it('enforces exact generated break node and depth budgets before wrapper allocation', () => {
+    const html = '<p style="font-weight:bold;font-style:italic;color:red"><br></p>';
+    expect(() => resolve(html, { maxNodes: 5, maxDepth: 5 })).not.toThrow();
+    expect(() => resolve(html, { maxNodes: 4 })).toThrow(InheritanceLimitError);
+    expect(() => resolve(html, { maxDepth: 4 })).toThrow(InheritanceLimitError);
+    const full = '<p><span style="font-family:Georgia;font-size:14pt;color:red"><b><i><u><s><sub><br></sub></s></u></i></b></span></p>';
+    expect(() => resolve(full, { maxNodes: 14, maxDepth: 14 })).not.toThrow();
+    expect(() => resolve(full, { maxNodes: 13 })).toThrow(InheritanceLimitError);
+    expect(() => resolve(full, { maxDepth: 13 })).toThrow(InheritanceLimitError);
+  });
+
+  it('charges every repeated break style even when no source text exists', () => {
+    const html = '<p style="font-family:Georgia"><br><br></p>';
+    // Each generated family declaration uses 11 name units, 7 value units and 2 separators.
+    expect(() => resolve(html, { maxInputLength: 40 })).not.toThrow();
+    expect(() => resolve(html, { maxInputLength: 39 })).toThrow(InheritanceLimitError);
+    const tree = parseBoundedHTML(html, limits);
+    const paragraph = tree.children[0] as Element; const [first, second] = paragraph.children;
+    expect(() => { resolveInlineInheritance(tree, { ...limits, maxNodes: 4 }); }).toThrow(InheritanceLimitError);
+    expect(paragraph.children).toEqual([first, second]);
+    expect((first as Element).tagName).toBe('br'); expect((second as Element).tagName).toBe('br');
+  });
+
   it('adapts typography while retaining semantic marks and real resets', () => {
     const result = resolve('<div style="color:red;font-size:12pt;font-family:Calibri"><p><strong>A<span style="font-weight:normal;background-color:yellow">B</span></strong><mark>C</mark></p></div>', { formatting: 'adapt' });
     expect(result.html).not.toMatch(/font-|color:|<mark/);

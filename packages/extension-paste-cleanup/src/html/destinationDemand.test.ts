@@ -42,10 +42,11 @@ describe('bounded sanitized destination feature demand', () => {
   it.each([
     ['b', 'bold'], ['strong', 'bold'], ['i', 'italic'], ['em', 'italic'], ['u', 'underline'],
     ['s', 'strike'], ['del', 'strike'], ['sub', 'subscript'], ['sup', 'superscript'], ['mark', 'highlight'],
-  ])('requires %s semantics only when a descendant contains text', (tag, feature) => {
+  ])('requires %s semantics only when a descendant contains text or a hard break', (tag, feature) => {
     expect(collectDestinationDemand(root([element(tag, [element('span', [text()])])]), limits)).toEqual([feature]);
     expect(collectDestinationDemand(root([element(tag, [element('span'), text('')])]), limits)).toEqual([]);
-    expect(collectDestinationDemand(root([element(tag, [element('br'), element('img', [], { alt: 'Alternative' })])]), limits)).toEqual([]);
+    expect(collectDestinationDemand(root([element(tag, [element('br'), element('img', [], { alt: 'Alternative' })])]), limits)).toEqual([feature]);
+    expect(collectDestinationDemand(root([element(tag, [element('img', [], { alt: 'Alternative' })])]), limits)).toEqual([]);
   });
 
   it.each([' ', '\n\t', '\u00a0', '\u200b'])('treats nonempty whitespace text as content: %j', value => {
@@ -56,6 +57,30 @@ describe('bounded sanitized destination feature demand', () => {
     const tree = root([element('p', [element('span', [], { style: 'font-family:Georgia;font-size:14pt;color:red;background-color:yellow' }),
       text(), element('strong', [element('span')])])]);
     expect(collectDestinationDemand(tree, limits)).toEqual([]);
+  });
+
+  it('does not let a sibling break make an empty decorated wrapper meaningful', () => {
+    const tree = root([element('p', [element('strong'), element('br'),
+      element('span', [], { style: 'font-family:Georgia;color:red' })])]);
+    expect(collectDestinationDemand(tree, limits)).toEqual([]);
+  });
+
+  it('collects break-only marks and typography after preserve or intentional adaptation', () => {
+    const html = '<p style="text-align:center;line-height:1.5"><span style="font-family:Georgia;font-size:14pt;color:#123456">'
+      + '<strong><em><u><s><sup><br></sup></s></u></em></strong></span></p>';
+    expect(collectDestinationDemand(normalized(html), limits)).toEqual(['bold', 'italic', 'underline', 'strike', 'superscript',
+      'font-family', 'font-size', 'text-color', 'text-align', 'line-height']);
+    expect(collectDestinationDemand(normalized(html, { formatting: 'adapt' }), limits))
+      .toEqual(['bold', 'italic', 'underline', 'strike', 'superscript']);
+    expect(collectDestinationDemand(normalized(html, { formatting: 'adapt', preserveTextAlignment: true }), limits))
+      .toEqual(['bold', 'italic', 'underline', 'strike', 'superscript', 'text-align']);
+  });
+
+  it('counts meaningful breaks within the same strict traversal bounds', () => {
+    const tree = root([element('strong', [element('br')])]);
+    expect(collectDestinationDemand(tree, { maxNodes: 3, maxDepth: 2 })).toEqual(['bold']);
+    expect(() => collectDestinationDemand(tree, { maxNodes: 2, maxDepth: 2 })).toThrow(StructureLimitError);
+    expect(() => collectDestinationDemand(tree, { maxNodes: 3, maxDepth: 1 })).toThrow(StructureLimitError);
   });
 
   it('finds retained internal inline styles and validated theme tokens', () => {
