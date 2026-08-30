@@ -135,3 +135,7 @@ semantic correctness, but arbitrary CI machine speed is not a release benchmark.
 Smoke reports are explicitly nonqualifying. Full reports are measurements, not
 automatic product-wide performance claims, security sandbox guarantees or heap
 limits. Report both raw-input and normalized-control results with the input shape.
+
+Recorded local results: [2026-09-26, macOS arm64](./results/2026-09-26-macos-arm64.md).
+That report preserves the measured source identity, environment and limitations;
+it does not replace qualification on another release target.
