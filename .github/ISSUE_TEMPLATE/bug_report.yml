@@ -32,7 +32,7 @@ body:
     attributes:
       label: Domternal version
       description: The version of the @domternal packages you are using.
-      placeholder: '0.11.2'
+      placeholder: 'For example: 1.x.y'
     validations:
       required: true
 

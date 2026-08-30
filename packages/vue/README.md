@@ -19,7 +19,7 @@ editor is created in `onMounted`. Requires Vue 3.3+ and the Composition API.
 pnpm add @domternal/vue @domternal/core @domternal/theme vue
 ```
 
-`vue` (>=3.3) and `@domternal/core` (>=1.0.0) are peer dependencies. `@domternal/theme`
+`vue` (>=3.3) and `@domternal/core` (>=1.0.0 <2.0.0) are peer dependencies. `@domternal/theme`
 supplies the editor styles.
 
 ## Usage

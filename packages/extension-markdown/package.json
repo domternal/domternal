@@ -41,8 +41,8 @@
     "markdown-it": "^14.3.0"
   },
   "peerDependencies": {
-    "@domternal/core": ">=1.0.0",
-    "@domternal/pm": ">=1.0.0"
+    "@domternal/core": ">=1.0.0 <2.0.0",
+    "@domternal/pm": ">=1.0.0 <2.0.0"
   },
   "devDependencies": {
     "@domternal/core": "workspace:*",

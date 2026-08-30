@@ -170,7 +170,7 @@ jobs:
 
       - name: Package manifest policy
         # Releases are hand-edited across eighteen manifests. A version bumped
-        # without its `>=MAJOR.MINOR.0` floors publishes a package a consumer
+        # without its `>=MAJOR.MINOR.0 <NEXT_MAJOR.0.0` ranges publishes a package a consumer
         # may legally install beside the previous minor, which is the mixed-copy
         # install the single-copy gates exist to prevent.
         run: pnpm test:package-policy

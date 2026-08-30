@@ -26,9 +26,9 @@ A rich text editor toolkit built on [ProseMirror](https://prosemirror.net/), wit
 - **130+ chainable commands** - `editor.chain().focus().toggleBold().run()`
 - **Full table support** - cell merging, column resize, row/column controls, cell toolbar
 - **Tree-shakeable** - import only what you use, your bundler strips the rest
-- **~48 KB gzipped** (own code), [~129 KB total](https://domternal.dev/v1/packages) with ProseMirror - see Packages for full bundle breakdown
+- **~51 KiB minified and gzipped** (own code), [**~132 KiB minified and gzipped total**](https://domternal.dev/v1/packages) with runtime dependencies - see Packages for the full bundle breakdown
 - **TypeScript first** - every package builds under `strict`, with `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`
-- **17,800+ tests** - 4,700+ unit and 13,100+ E2E across 309 Playwright spec files and 4 demo apps
+- **17,800+ tests** - 4,700+ unit and 13,100+ E2E across the Playwright matrix and 4 demo apps
 - **Light and dark theme** - 160 CSS custom properties for full visual control
 - **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
 - **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
@@ -77,7 +77,7 @@ The example above wires the minimum schema by hand to show the headless model; i
 | [`@domternal/extension-details`](https://www.npmjs.com/package/@domternal/extension-details) | Collapsible details/accordion blocks |
 | [`@domternal/extension-code-block-lowlight`](https://www.npmjs.com/package/@domternal/extension-code-block-lowlight) | Syntax-highlighted code blocks powered by lowlight |
 
-`@domternal/extension-block-menu`, the deprecated shim left from the v0.10.0 rename, shipped through the 0.x line only and is not published for 1.x. Import `@domternal/extension-block-controls` directly.
+`@domternal/extension-block-menu`, the deprecated shim left from the v0.10.0 rename, ended with the 0.x line. Briefly published 1.0.x builds were withdrawn from the registry; import `@domternal/extension-block-controls` directly.
 
 See [Packages & Bundle Size](https://domternal.dev/v1/packages) for a full breakdown of what each package includes and how tree-shaking works.
 

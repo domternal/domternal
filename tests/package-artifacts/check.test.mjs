@@ -155,8 +155,8 @@ test('a workspace specifier the publish transform cannot resolve is caught', () 
   const source = { name: '@domternal/core', version: '0.15.0' };
   const base = { ...source, license: 'MIT' };
 
-  /* workspace:* is understood: the transform turns it into the floor, which is
-     what the published manifest carries, so it is not a failure here. */
+  /* workspace:* is understood: the transform turns it into the compatibility
+     range, which is what the published manifest carries, so it is not a failure here. */
   assert.deepEqual(
     manifestFailures(source, { ...base, dependencies: { '@domternal/pm': 'workspace:*' } }, [
       'package.json',

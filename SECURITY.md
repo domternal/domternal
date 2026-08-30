@@ -23,5 +23,5 @@ Please include:
 - Steps to reproduce, ideally with a minimal example
 - The affected package(s) and version(s)
 
-You will get an initial response within a few days. Please allow time for a fix
+We aim to acknowledge security reports within a few business days. Please allow time for a fix
 to be released before any public disclosure.

@@ -69,13 +69,25 @@
  * arrive under the twelve's combined headroom without anyone being told. A
  * ceiling per subpath needs no special case, and it says the one thing that
  * matters about these files, which is that each stays a re-export.
+ *
+ * ## The public marketing metric
+ *
+ * README size claims use one reproducible pipeline over the built core ESM
+ * entry. "Own code" minifies that entry without bundling, so dependency imports
+ * remain external. "Total" bundles the same entry and its runtime dependencies
+ * for a browser. Both use the repository's pinned esbuild, target ES2022, drop
+ * legal comments, and gzip at level 9 with a zero timestamp. Exact byte counts
+ * are printed; README uses `~` and rounds each to the nearest whole KiB. The
+ * gate checks those rounded claims instead of leaving a second
+ * manually maintained size calculation to drift.
  */
 import { createReadStream, existsSync, readFileSync, readdirSync } from 'node:fs';
-import { createGzip } from 'node:zlib';
+import { createGzip, gzipSync } from 'node:zlib';
 import { pipeline } from 'node:stream/promises';
 import { Writable } from 'node:stream';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { build, version as esbuildVersion } from 'esbuild';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..', '..');
@@ -271,6 +283,75 @@ export function suggestBudget(size) {
   return Math.ceil(withHeadroom / step) * step;
 }
 
+/** Nearest whole KiB for a public `~N KiB` claim. */
+export function marketingKiB(bytes) {
+  if (!Number.isSafeInteger(bytes) || bytes < 0) {
+    throw new Error(`marketing size must be a non-negative safe integer, got ${String(bytes)}`);
+  }
+  return Math.round(bytes / 1024);
+}
+
+/** Whether README's two marketing claims match the deterministic measurements. */
+export function marketingClaimFailures(readme, { ownBytes, totalBytes }) {
+  const match =
+    /\*\*~(\d+) KiB minified and gzipped\*\* \(own code\), \[\*\*~(\d+) KiB minified and gzipped total\*\*\]/.exec(
+      readme
+    );
+  if (match === null) {
+    return [
+      'README has no standard core bundle claim. Expected "~N KiB minified and gzipped" for own code and total.',
+    ];
+  }
+
+  const expectedOwn = marketingKiB(ownBytes);
+  const expectedTotal = marketingKiB(totalBytes);
+  const claimedOwn = Number(match[1]);
+  const claimedTotal = Number(match[2]);
+  const failures = [];
+  if (claimedOwn !== expectedOwn) {
+    failures.push(
+      `README claims ~${claimedOwn} KiB own code, measured value rounds to ~${expectedOwn} KiB`
+    );
+  }
+  if (claimedTotal !== expectedTotal) {
+    failures.push(
+      `README claims ~${claimedTotal} KiB total, measured value rounds to ~${expectedTotal} KiB`
+    );
+  }
+  return failures;
+}
+
+/** Minified and gzipped core sizes with dependencies external and bundled. */
+export async function marketingBundleSizes(
+  entry = join(repoRoot, 'packages', 'core', 'dist', 'index.js')
+) {
+  const common = {
+    absWorkingDir: repoRoot,
+    entryPoints: [entry],
+    format: 'esm',
+    legalComments: 'none',
+    logLevel: 'silent',
+    minify: true,
+    target: 'es2022',
+    treeShaking: true,
+    write: false,
+  };
+  const [own, total] = await Promise.all([
+    build({ ...common, bundle: false }),
+    build({ ...common, bundle: true, platform: 'browser' }),
+  ]);
+  if (own.outputFiles.length !== 1 || total.outputFiles.length !== 1) {
+    throw new Error(
+      'the marketing bundle pipeline must produce exactly one own and one total file'
+    );
+  }
+  const gzipOptions = { level: 9, mtime: 0 };
+  return {
+    ownBytes: gzipSync(own.outputFiles[0].contents, gzipOptions).byteLength,
+    totalBytes: gzipSync(total.outputFiles[0].contents, gzipOptions).byteLength,
+  };
+}
+
 async function gzippedSize(path) {
   let bytes = 0;
   const sink = new Writable({ write(chunk, _enc, cb) { bytes += chunk.length; cb(); } });
@@ -361,6 +442,30 @@ async function main() {
     console.error('[bundle-size] in which case fix the exports map in the package. Note that');
     console.error('[bundle-size] two keys resolving to one file share one budget, held by the');
     console.error('[bundle-size] root entry, so the second key belongs in neither place.');
+    process.exit(1);
+  }
+
+  const marketing = await marketingBundleSizes();
+  const claimFailures = marketingClaimFailures(
+    readFileSync(join(repoRoot, 'README.md'), 'utf8'),
+    marketing
+  );
+  console.log('');
+  console.log(
+    `[bundle-size] public core metric: esbuild ${esbuildVersion}, minified ESM, ES2022, gzip level 9`
+  );
+  console.log(
+    `  own code  ${String(marketing.ownBytes).padStart(7)} bytes  ` +
+      `(${(marketing.ownBytes / 1024).toFixed(2)} KiB, README ~${String(marketingKiB(marketing.ownBytes))} KiB)`
+  );
+  console.log(
+    `  total     ${String(marketing.totalBytes).padStart(7)} bytes  ` +
+      `(${(marketing.totalBytes / 1024).toFixed(2)} KiB, README ~${String(marketingKiB(marketing.totalBytes))} KiB)`
+  );
+  if (claimFailures.length > 0) {
+    console.error('');
+    console.error('[bundle-size] FAILED: public README bundle claim is stale:');
+    for (const failure of claimFailures) console.error(`  ${failure}`);
     process.exit(1);
   }
 

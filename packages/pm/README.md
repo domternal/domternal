@@ -18,7 +18,8 @@ extension. You rarely install it yourself: it ships transitively with `@domterna
 
 Install it explicitly when you import ProseMirror primitives in your own code, or when a
 strict peer resolver asks for it: every `@domternal/extension-*` package declares
-`@domternal/pm` as a peer dependency at the same minor floor as `@domternal/core`.
+`@domternal/pm` as a peer dependency with the same minor floor and next-major ceiling as
+`@domternal/core`.
 
 ```bash
 pnpm add @domternal/pm
