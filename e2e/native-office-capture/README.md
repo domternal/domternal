@@ -196,3 +196,59 @@ drive a native application or prove native browser trust. Separate browser tests
 exercise the actual page in Chromium, Firefox and WebKit using explicitly
 synthetic paste events, inert source HTML, manual downloads, cancellation
 and late completion. They do not constitute native Office captures.
+
+## Offline evidence validation and replay
+
+The versioned [support matrix](./SUPPORT-MATRIX.md) separates implemented behavior,
+synthetic checks and the still-pending native Office evidence. The included
+`fixtures/synthetic-v1` bundle is authored synthetic data, not an Office capture.
+
+With Node 22 and the existing public Free HTML build available:
+
+```sh
+node e2e/native-office-capture/offline.mjs e2e/native-office-capture/fixtures/synthetic-v1
+node --test e2e/native-office-capture/capture.test.mjs e2e/native-office-capture/offline.test.mjs
+pnpm exec eslint e2e/native-office-capture/offline.mjs e2e/native-office-capture/offline.test.mjs
+```
+
+`offline.mjs` only reads the explicitly selected fixture directory. Its manifest
+names one source artifact and one complete capture JSON, with exact SHA-256
+values, origin, fixture ID, license and preserve/adapt HTML oracles. Relative
+artifact paths reject traversal, absolute paths and symlinks escaping that root.
+Symlinks resolving within the selected root are allowed. The tool is local
+repository tooling, not a filesystem sandbox against concurrent directory changes.
+Payload filenames and image URLs are never opened as filesystem paths.
+
+Validation checks the producer's versioned shape and limits, format inventory,
+full item indices, exact text/file totals, canonical base64, decoded file hashes
+and agreement with source provenance claims. Incomplete or truncated bundles
+are refused. Before JSON parsing, a lexical guard bounds nesting to 12 and
+container, string and primitive tokens to 8,192, and rejects duplicate object
+keys; JSON.parse still validates syntax. Manifest/source/capture reads are
+bounded to 128 KiB, 16 MiB and 24 MiB respectively before their buffers are
+allocated. The capture's own lower limits remain in force. Resource ceilings
+bound representations and work, not exact JavaScript heap usage or GC timing.
+
+Replay loads the built public `@domternal/extension-paste-cleanup/html` entry,
+normalizes only the captured HTML with remote images disabled and data images
+enabled, and compares exact output, source signature and diagnostic codes with
+the reviewed manifest. Each expected output is limited to 32,768 UTF-16 units
+and 100 diagnostic codes. The source artifact is hashed, not parsed or executed.
+File bytes are validated and discarded; no Files, browser events, editor
+transactions, match callbacks or resolver calls are created. This is not a
+mixed-image replay or an operating-system clipboard test.
+
+The command prints a frozen-data report without source HTML, binary contents,
+filenames or URLs. It writes no artifacts and performs no network requests.
+Refusals use fixed `evidence-*` codes without raw exception details. The library
+helpers expose a private HTML handle; `disposeCaptureEvidence` drops it, and
+`verifyCaptureFixture` disposes it automatically. Owned read/decoded byte buffers
+are zeroed on release. Immutable source strings and caller-owned inputs are not
+claimed to be erased from engine memory.
+
+All reports remain `qualification: false`, `nativeEvidenceAuthenticated: false`
+and `sourceApplicationVerified: false`. A `claimed-native` manifest can validate
+a consistent stored native-event claim, but saved JSON cannot authenticate its
+origin. A manually edited bundle plus updated hashes is still unqualified.
+No fixture is promoted automatically and this command does not modify the
+support matrix or authorize publication.

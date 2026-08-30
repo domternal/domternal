@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "harnessVersion": "native-office-capture-v1",
+  "capturedAt": "2026-09-27T00:00:00.000Z",
+  "status": "complete",
+  "qualification": false,
+  "scope": "allowlisted-formats-and-exposed-files",
+  "provenance": {
+    "eventKind": "synthetic-event",
+    "nativeClipboardCaptured": false,
+    "sourceApplicationVerified": false
+  },
+  "operator": {
+    "os": "Synthetic Node fixture, no OS clipboard",
+    "application": "Authored HTML, no Office application",
+    "browser": "Node 22 Event, no browser",
+    "scenario": "unresolved-cid-preserves-alt",
+    "fixtureId": "synthetic-office-evidence-v1",
+    "fixtureSha256": "0736925be842df0271719849ff24af157ce2e5070449f8dfc0ff6712f77d7295",
+    "copyMethod": "Generated synthetic Event through capturePaste; no native copy",
+    "syntheticSourceConfirmed": true
+  },
+  "limits": {
+    "maxItems": 64,
+    "maxFormats": 32,
+    "maxMetadataLength": 512,
+    "maxFormatBytes": 2097152,
+    "maxTextBytes": 4194304,
+    "maxFileBytes": 5242880,
+    "maxTotalFileBytes": 10485760,
+    "maxClipboardBytes": 12582912,
+    "maxJSONBytes": 25165824,
+    "maxDurationMs": 15000
+  },
+  "diagnostics": [],
+  "payload": {
+    "availableFormats": [
+      "text/html",
+      "text/plain"
+    ],
+    "omittedFormats": [],
+    "text": {
+      "text/html": "<p class=\"MsoNormal\"><strong>Alpha</strong> <em>Beta</em><img src=\"cid:2\" alt=\" diagram\"></p>",
+      "text/plain": "Alpha Beta diagram"
+    },
+    "items": [
+      {
+        "itemIndex": 0,
+        "kind": "string",
+        "type": "text/html",
+        "file": null
+      },
+      {
+        "itemIndex": 1,
+        "kind": "string",
+        "type": "text/plain",
+        "file": null
+      },
+      {
+        "itemIndex": 2,
+        "kind": "file",
+        "type": "application/octet-stream",
+        "file": {
+          "name": "evidence.bin",
+          "type": "application/octet-stream",
+          "size": 4,
+          "lastModified": 0
+        }
+      }
+    ],
+    "files": [
+      {
+        "itemIndex": 2,
+        "byteLength": 4,
+        "sha256": "3d1f57c984978ef98a18378c8166c1cb8ede02c03eeb6aee7e2f121dfeee3e56",
+        "base64": "AAEC/w=="
+      }
+    ],
+    "totals": {
+      "textBytes": 111,
+      "fileBytes": 4
+    }
+  }
+}
