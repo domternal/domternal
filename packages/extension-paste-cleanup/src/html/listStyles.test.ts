@@ -71,7 +71,7 @@ describe('bounded explicit list marker preservation', () => {
 
   it('retains list formatting while adapting only paragraph and run cosmetics', () => {
     const result = normalizePasteHTML('<ol style="list-style-type:upper-roman;color:red;font-family:Georgia"><li><p style="text-align:center">Text</p></li></ol>', { formatting: 'adapt' });
-    expect(result.html).toBe('<ol style="list-style-type:upper-roman"><li><p><span>Text</span></p></li></ol>');
+    expect(result.html).toBe('<ol style="list-style-type:upper-roman"><li><p>Text</p></li></ol>');
     expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: 'formatting-adapted' }));
     expect(demand(result.html)).toEqual(['ordered-list', 'ordered-list-style']);
   });

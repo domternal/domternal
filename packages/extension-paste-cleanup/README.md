@@ -169,7 +169,12 @@ does not run these editor checks.
 
 `adapt` removes external font family, font size, colors, text alignment and line
 spacing while retaining structure and emphasis. Set `preserveTextAlignment: true`
-to keep source text alignment in this mode. Validated internal slice metadata preserves
+to keep source text alignment in this mode. Inherited typography is never
+materialized in `adapt`: only semantic mark wrappers are generated, so they alone
+consume the node and generated-style allowances. Each discarded source property is
+reported once as an informational `formatting-adapted` finding located at the
+element that declared it; a relative font size without a known base is adapted,
+not reported as unsupported. Validated internal slice metadata preserves
 existing editor formatting in either mode. A forged `data-pm-slice` marker still
 passes through all HTML, URL, style and resource checks.
 Destination demands are collected after intentional adaptation, so removed theme

@@ -139,7 +139,10 @@ export function normalizeClipboardHTML(
         const lists = reconstructOfficeLists(tree, { ...limits, ...capabilities?.() }, report);
         preserveOrderedListStart = lists.reconstructedLists > 0;
       }
-      resolveInlineInheritance(tree, limits, node => { report('unsupported-formatting', node); });
+      resolveInlineInheritance(tree, {
+        maxNodes: limits.maxNodes, maxDepth: limits.maxDepth, maxInputLength: limits.maxInputLength,
+        formatting: options.formatting ?? 'preserve',
+      }, node => { report('unsupported-formatting', node); }, node => { report('formatting-adapted', node, 'info'); });
     }
     const normalizeChildren = (parent: Root | Element): void => {
       const children: RootContent[] = [];

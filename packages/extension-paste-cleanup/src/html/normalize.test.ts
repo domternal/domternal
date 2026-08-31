@@ -14,9 +14,10 @@ describe('normalizePasteHTML', () => {
   it('adapts visual formatting while retaining emphasis and structure', () => {
     const html = '<h2><span style="font-family:Calibri;font-size:24pt;color:red;font-weight:bold">Title</span></h2>';
     const result = normalizePasteHTML(html, { formatting: 'adapt' });
-    expect(result.html).toBe('<h2><span><span><strong>Title</strong></span></span></h2>');
+    expect(result.html).toBe('<h2><span><strong>Title</strong></span></h2>');
     expect(result.diagnostics.every(d => d.code === 'formatting-adapted')).toBe(true);
-    expect(result.diagnostics[0]?.offset).toBe(html.indexOf('Title'));
+    // Adaptation is reported on the element that declared the discarded typography.
+    expect(result.diagnostics.map(d => d.offset)).toEqual([html.indexOf('<span'), html.indexOf('<span'), html.indexOf('<span')]);
   });
 
   it('preserves table spans and list starts', () => {

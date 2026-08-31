@@ -139,7 +139,10 @@ export function resolveInlineInheritance(
   tree: Root,
   options: InlineInheritanceOptions,
   onUnsupported?: (element: Element) => void,
+  onAdapted?: (element: Element) => void,
 ): void {
+  // Adapt keeps semantic emphasis but never materializes source typography onto leaves.
+  const preserve = options.formatting !== 'adapt';
   const maxStyleLength = options.maxInputLength ?? 2_000_000;
   if (!Number.isSafeInteger(options.maxNodes) || options.maxNodes < 1 || options.maxNodes > 30_000
     || !Number.isSafeInteger(options.maxDepth) || options.maxDepth < 1 || options.maxDepth > 128
@@ -160,7 +163,6 @@ export function resolveInlineInheritance(
   const wrapLeaf = (leaf: Text | Element, state: State, depth: number): ElementContent => {
     const styles = new Map<string, string>();
     const properties: Properties = {};
-    const preserve = options.formatting !== 'adapt';
     if (preserve) {
       if (state.family !== undefined) styles.set('font-family', state.family);
       if (state.size !== undefined) styles.set('font-size', `${String(state.size.value)}${state.size.unit}`);
@@ -206,6 +208,8 @@ export function resolveInlineInheritance(
       const inline = inlineTags.has(tag);
       const { styles, removed } = readInheritanceStyles(child.properties.style, tag === 'img', tag);
       let unsupported = removed;
+      // One adapted finding per discarded source property, reported on its declaring element.
+      let adapted = 0;
       if (tag === 'b' || tag === 'strong') state.bold = true;
       if (tag === 'i' || tag === 'em') state.italic = true;
       if (tag === 'mark') { state.defaultHighlight = true; delete state.highlight; delete state.highlightToken; }
@@ -230,21 +234,23 @@ export function resolveInlineInheritance(
         unsupported = true;
       }
       const family = styles.get('font-family');
-      if (family !== undefined) state.family = family;
+      if (family !== undefined) { state.family = family; adapted++; }
       const size = styles.get('font-size');
       if (size !== undefined) {
+        adapted++;
         const resolved = resolveSize(size, inherited.size);
-        if (resolved === undefined) { delete state.size; unsupported = true; }
+        // An unknown relative base is a loss only when typography is preserved.
+        if (resolved === undefined) { delete state.size; unsupported ||= preserve; }
         else state.size = resolved;
       }
       const color = styles.get('color');
-      if (color !== undefined) { state.color = color; delete state.colorToken; }
+      if (color !== undefined) { state.color = color; delete state.colorToken; adapted++; }
       // Inline backgrounds paint behind their descendants. Block and cell fills
       // stay on their owners and must not become text highlight marks.
       const highlight = styles.get('background-color');
       if (inline && highlight !== undefined) {
         if (!fullyTransparent(highlight)) {
-          state.highlight = highlight; state.defaultHighlight = false; delete state.highlightToken;
+          state.highlight = highlight; state.defaultHighlight = false; delete state.highlightToken; adapted++;
         } else if (tag === 'mark') {
           state.defaultHighlight = inherited.defaultHighlight;
           if (inherited.highlight !== undefined) state.highlight = inherited.highlight;
@@ -252,11 +258,13 @@ export function resolveInlineInheritance(
         }
         styles.delete('background-color');
       }
+      // A mark without its own background paints the default highlight.
+      if (tag === 'mark' && highlight === undefined) adapted++;
       if (inline) {
         for (const [key, stateKey] of [['dataTextColor', 'colorToken'], ['dataBgColor', 'highlightToken']] as const) {
           const token = child.properties[key];
           if (typeof token === 'string' && /^[a-z][a-z0-9-]{0,63}$/.test(token)) {
-            state[stateKey] = token;
+            state[stateKey] = token; adapted++;
             if (stateKey === 'colorToken') delete state.color;
             else { delete state.highlight; state.defaultHighlight = false; }
           } else if (token !== undefined) unsupported = true;
@@ -269,6 +277,7 @@ export function resolveInlineInheritance(
       else delete child.properties.style;
       if (neutralTags.has(tag)) child.tagName = 'span';
       if (unsupported) onUnsupported?.(child);
+      if (!preserve) for (let count = 0; count < adapted; count++) onAdapted?.(child);
       visit(child, state, depth + 1);
       children.push(tag === 'br' ? wrapLeaf(child, state, depth + 1) : child);
     }
