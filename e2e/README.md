@@ -1,4 +1,16 @@
-# Tutorial regression coverage
+# E2E suites
+
+## Matrix discovery
+
+The root matrix (`e2e/playwright.config.ts`, and the cross-browser and tutorial
+configurations built on it) collects only `*.spec.ts` files. Name new matrix
+specs accordingly: other file names are still type-checked and linted, but the
+matrix never runs them. Focused suites use `.browser.ts` files with their own
+configurations. The standalone tooling tests under `native-office-capture/` and
+`paste-performance/` run through `node --test`, `native-office-capture/browser.config.mjs`
+and `paste-performance/runner.mjs`, as described in their READMEs.
+
+## Tutorial regression coverage
 
 The tutorial fixtures use the public Free ESM builds. Build the packages before
 running them. The fixture server resolves a single React, Vue and ProseMirror
