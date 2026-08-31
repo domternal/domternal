@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: '.',
-  testMatch: ['paste-cleanup.browser.ts', 'paste-feedback.browser.ts', 'paste-assets.browser.ts', 'paste-resolver.browser.ts', 'paste-destination.browser.ts', 'paste-breaks.browser.ts'],
+  testMatch: ['paste-cleanup.browser.ts', 'paste-feedback.browser.ts', 'paste-assets.browser.ts', 'paste-resolver.browser.ts', 'paste-destination.browser.ts', 'paste-breaks.browser.ts', 'paste-list-markers.browser.ts'],
   forbidOnly: true,
   retries: 0,
   timeout: 30000,

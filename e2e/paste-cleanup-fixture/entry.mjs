@@ -1,10 +1,10 @@
 import {
   Bold, Italic, Underline, Strike, Link, TextStyle, TextColor, Highlight,
   FontFamily, FontSize, TextAlign, Heading, BulletList, OrderedList, ListItem,
-  Blockquote, CodeBlock, HardBreak, UniqueID, Extension, Subscript, Superscript, LineHeight,
+  Blockquote, CodeBlock, HardBreak, UniqueID, Extension, Subscript, Superscript, LineHeight, TaskList, TaskItem,
 } from '@domternal/core';
 import { Plugin, TextSelection } from '@domternal/pm/state';
-import { undoDepth, redoDepth } from '@domternal/pm/history';
+import { undoDepth, redoDepth, closeHistory } from '@domternal/pm/history';
 import { Image } from '@domternal/extension-image';
 import { Table, TableRow, TableCell, TableHeader } from '@domternal/extension-table';
 import { Markdown } from '@domternal/extension-markdown';
@@ -24,6 +24,14 @@ const imagePolicy = query.get('image-policy');
 const capabilityMinimal = query.get('schema') === 'capability-minimal';
 const capabilityFull = query.get('schema') === 'capability-full';
 const lists = query.get('schema') !== 'no-lists';
+const listMarkers = query.get('list-markers') === '1';
+if (listMarkers) await import('@domternal/theme/css');
+// Test-only older/custom schema control: keep list structure but omit the marker attribute.
+const withoutMarker = extension => extension.extend({ addAttributes() {
+  const attrs = { ...this.parent?.() }; delete attrs.listStyleType; return attrs;
+} });
+const markerLists = query.get('list-marker-policy') === 'legacy'
+  ? [withoutMarker(BulletList), withoutMarker(OrderedList)] : [BulletList, OrderedList];
 // All wrappers add only Document, Paragraph, Text, BaseKeymap and History.
 // This opt-in filter removes every optional formatting node and mark from the fixture.
 const disabledExtensions = capabilityMinimal ? new Set([
@@ -220,7 +228,8 @@ const extensions = [
   Bold, Italic, Underline, Strike, Link, TextStyle, TextColor, Highlight,
   FontFamily, FontSize, TextAlign, capabilityFull ? Heading.configure({ levels: [1, 2, 3, 4, 5, 6] }) : Heading,
   ...(capabilityFull ? [Subscript, Superscript, LineHeight] : []),
-  ...(lists ? [BulletList, OrderedList, ListItem] : []),
+  ...(lists ? [...markerLists, ListItem] : []),
+  ...(listMarkers ? [TaskList, TaskItem] : []),
   Blockquote, CodeBlock, HardBreak, UniqueID,
   ...(imagePolicy === 'missing' ? [] : [Image.configure({
     allowBase64: imagePolicy !== 'no-base64',
@@ -370,6 +379,7 @@ window.__pasteCleanup = {
   normalize: (html, options) => normalizePasteHTML(html, options),
   references: id => getPasteAffectedReferences(editor.view, id),
   history: () => ({ undo: undoDepth(editor.state), redo: redoDepth(editor.state) }),
+  closeHistory() { editor.view.dispatch(closeHistory(editor.state.tr)); },
   select(from, to = from) { editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(editor.state.doc, from, to))); },
   async useGerman() {
     const { deMessages, deSearchAliases } = await import('@domternal/extension-paste-cleanup/locales/de');
@@ -419,6 +429,7 @@ window.__pasteCleanup = {
 if (framework === 'vanilla') {
   const { DomternalEditor } = await import('@domternal/vanilla');
   const mount = document.querySelector('#fixture');
+  if (listMarkers) mount.classList.add('dm-editor');
   mount.replaceChildren();
   wrapper = new DomternalEditor(mount, { extensions, content: '<p></p>', onCreate: capture });
 } else if (framework === 'react') {

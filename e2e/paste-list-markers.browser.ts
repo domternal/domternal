@@ -1,0 +1,315 @@
+/** Built public schemas, default theme and synthetic clipboard list-marker editing. */
+import { expect, type Page } from '@playwright/test';
+import type { Editor, JSONContent } from '@domternal/core';
+import type { NormalizePasteHTMLResult } from '@domternal/extension-paste-cleanup';
+import { test } from './fixtures.js';
+
+interface Snapshot { doc: JSONContent; selection: unknown }
+interface ProbeWindow {
+  __pasteCleanup: {
+    ready: boolean;
+    editor: Editor;
+    results: NormalizePasteHTMLResult[];
+    transactions: { paste: boolean; uiEvent: unknown }[];
+    clearObservations: () => void;
+    closeHistory: () => void;
+    history: () => { undo: number; redo: number };
+    select: (from: number, to?: number) => void;
+    snapshot: () => Snapshot;
+    serializeSelection: () => { html: string; text: string };
+  };
+}
+type Formatting = 'preserve' | 'adapt';
+type Marker = 'decimal' | 'lower-alpha' | 'upper-alpha' | 'lower-roman' | 'upper-roman' | 'disc' | 'circle' | 'square' | null;
+
+/** Drop generated identities only; null marker policy and all other semantic fields remain exact. */
+function canonical(node: JSONContent): JSONContent {
+  const result = { ...node };
+  if (result.attrs) {
+    result.attrs = { ...result.attrs }; delete result.attrs['id'];
+    if (Object.keys(result.attrs).length === 0) delete result.attrs;
+  }
+  if (result.content) result.content = result.content.map(canonical);
+  return result;
+}
+const text = (value: string, bold = false): JSONContent => ({ type: 'text', text: value, ...(bold ? { marks: [{ type: 'bold' }] } : {}) });
+const p = (value = '', bold = false): JSONContent => ({ type: 'paragraph', attrs: { textAlign: 'left' }, ...(value ? { content: [text(value, bold)] } : {}) });
+const item = (...content: JSONContent[]): JSONContent => ({ type: 'listItem', content });
+const ol = (marker: Marker, content: JSONContent[], start = 1): JSONContent => ({ type: 'orderedList', attrs: { start, listStyleType: marker }, content });
+const ul = (marker: Marker, content: JSONContent[]): JSONContent => ({ type: 'bulletList', attrs: { listStyleType: marker }, content });
+const doc = (...content: JSONContent[]): JSONContent => ({ type: 'doc', content });
+const listHTML = (tag: 'ol' | 'ul', marker: string | null, ...labels: string[]): string =>
+  `<${tag}${marker ? ` style="list-style-type:${marker}"` : ''}>${labels.map(value => `<li><p>${value}</p></li>`).join('')}</${tag}>`;
+
+async function open(page: Page, framework: string, formatting: Formatting = 'preserve', legacy = false): Promise<void> {
+  await page.goto(`http://127.0.0.1:5895/?${new URLSearchParams({ framework, formatting, 'list-markers': '1',
+    ...(legacy ? { 'list-marker-policy': 'legacy' } : {}),
+  }).toString()}`);
+  await page.waitForFunction(() => (window as unknown as Partial<ProbeWindow>).__pasteCleanup?.ready);
+  await expect(page.locator('.dm-editor .ProseMirror')).toBeVisible();
+}
+async function seed(page: Page, html: string): Promise<void> {
+  await page.evaluate(html => {
+    const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+    if (!probe.editor.setContent(html, false)) throw new Error('Cannot seed list editor');
+    probe.editor.commands.focus('all'); probe.closeHistory(); probe.clearObservations();
+  }, html);
+}
+async function snapshot(page: Page): Promise<Snapshot> { return page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.snapshot()); }
+async function caret(page: Page, position: number): Promise<void> {
+  expect((await snapshot(page)).selection).toEqual({ type: 'text', anchor: position, head: position });
+}
+async function selection(page: Page, fromText: string, fromOffset: number, toText = fromText, toOffset = fromOffset): Promise<void> {
+  await page.evaluate(({ fromText, fromOffset, toText, toOffset }) => {
+    const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+    const found = new Map<string, { pos: number; size: number }>();
+    probe.editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'paragraph' && [fromText, toText].includes(node.textContent)) {
+        if (found.has(node.textContent)) throw new Error('Selection label is ambiguous');
+        found.set(node.textContent, { pos: pos + 1, size: node.content.size });
+      }
+    });
+    const first = found.get(fromText); const last = found.get(toText);
+    if (!first || !last || fromOffset > first.size || toOffset > last.size) throw new Error('Selection fixture is missing');
+    probe.select(first.pos + fromOffset, last.pos + toOffset);
+    probe.editor.view.focus(); probe.closeHistory(); probe.clearObservations();
+  }, { fromText, fromOffset, toText, toOffset });
+}
+async function paste(page: Page, html: string, text = ''): Promise<void> {
+  expect(await page.evaluate(({ html, text }) => {
+    const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+    const data = new DataTransfer(); data.setData('text/html', html); data.setData('text/plain', text);
+    const event = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+    if (event.clipboardData !== data) Object.defineProperty(event, 'clipboardData', { value: data });
+    probe.editor.view.dom.dispatchEvent(event);
+    return { trusted: event.isTrusted, prevented: event.defaultPrevented };
+  }, { html, text })).toEqual({ trusted: false, prevented: true });
+}
+async function cleanPaste(page: Page): Promise<void> {
+  const actual = await page.evaluate(() => {
+    const probe = (window as unknown as ProbeWindow).__pasteCleanup;
+    return { results: probe.results, transactions: probe.transactions };
+  });
+  expect(actual.results).toHaveLength(1);
+  expect(actual.results[0]?.status).not.toBe('rejected');
+  expect(actual.results[0]?.diagnostics.filter(entry => entry.severity !== 'info')).toEqual([]);
+  expect(actual.transactions).toEqual([{ paste: true, uiEvent: 'paste' }]);
+}
+async function history(page: Page, before: Snapshot, expected: JSONContent): Promise<Snapshot> {
+  const after = await snapshot(page); expect(canonical(after.doc)).toEqual(expected);
+  expect(after).not.toEqual(before);
+  await page.keyboard.press('ControlOrMeta+z'); await expect.poll(() => snapshot(page)).toEqual(before);
+  await page.keyboard.press('ControlOrMeta+Shift+z'); await expect.poll(() => snapshot(page)).toEqual(after);
+  return after;
+}
+async function reload(page: Page, expected: JSONContent): Promise<void> {
+  const actual = await page.evaluate(() => {
+    const editor = (window as unknown as ProbeWindow).__pasteCleanup.editor;
+    const serializedJSON = JSON.stringify(editor.getJSON()); const html = editor.getHTML();
+    const styled = editor.getHTML({ styled: true });
+    if (!editor.commands.setContent('<p></p>', { emitUpdate: false })
+      || !editor.commands.setContent(html, { emitUpdate: false, parseOptions: { preserveWhitespace: 'full' } })) throw new Error('HTML reload failed');
+    editor.state.doc.check(); const fromHTML = JSON.stringify(editor.getJSON());
+    if (!editor.setContent('<p></p>', false) || !editor.setContent(JSON.parse(serializedJSON) as JSONContent, false)) throw new Error('JSON reload failed');
+    editor.state.doc.check();
+    const inspect = (value: string): string[] => Array.from(new DOMParser().parseFromString(value, 'text/html').querySelectorAll('ol,ul'))
+      .map(node => (node as HTMLElement).style.listStyleType);
+    return { fromHTML, fromJSON: JSON.stringify(editor.getJSON()), markers: inspect(html), styledMarkers: inspect(styled) };
+  });
+  expect(canonical(JSON.parse(actual.fromHTML) as JSONContent)).toEqual(expected);
+  expect(canonical(JSON.parse(actual.fromJSON) as JSONContent)).toEqual(expected);
+  const markers: (string | null)[] = [];
+  const visit = (node: JSONContent): void => {
+    if (node.type === 'orderedList' || node.type === 'bulletList') markers.push(node.attrs?.['listStyleType'] as string | null);
+    node.content?.forEach(visit);
+  };
+  visit(expected);
+  expect(actual.markers).toEqual(markers.map(value => value ?? ''));
+  expect(actual.styledMarkers).toHaveLength(markers.length);
+  markers.forEach((value, index) => { if (value !== null) expect(actual.styledMarkers[index]).toBe(value); });
+}
+async function computedMarkers(page: Page): Promise<string[]> {
+  return page.locator('.ProseMirror ol,.ProseMirror ul').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).listStyleType));
+}
+async function styleQueries(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const style = document.createElement('style'); style.textContent = '.dm-marker-probe{--marker-probe:1}@container style(--marker-probe:1){.dm-marker-probe>i{color:rgb(0,128,0)}}';
+    const host = document.createElement('div'); host.className = 'dm-marker-probe'; const child = document.createElement('i'); host.append(child);
+    document.head.append(style); document.body.append(host);
+    try { return getComputedStyle(child).color === 'rgb(0, 128, 0)'; } finally { host.remove(); style.remove(); }
+  });
+}
+
+const mixedHTML = '<ol type="I" start="4"><li><p><strong>Roman</strong></p><ol style="list-style-type:decimal"><li><p>Fixed</p>'
+  + '<ol><li><p>Default</p></li></ol></li></ol></li></ol>'
+  + '<ol type="a"><li><p>Lower alpha</p></li></ol><ol type="A"><li><p>Upper alpha</p></li></ol>'
+  + '<ol type="i"><li><p>Lower roman</p></li></ol><ol type="I" style="list-style-type:decimal"><li><p>CSS wins</p></li></ol>'
+  + '<ul type="circle"><li><p>Circle</p></li></ul><ul type="square"><li><p>Square</p></li></ul>'
+  + '<ul style="list-style-type:disc"><li><p>Disc</p></li></ul>';
+const mixedJSON = doc(ol('upper-roman', [item(p('Roman', true), ol('decimal', [item(p('Fixed'), ol(null, [item(p('Default'))]))]))], 4),
+  ol('lower-alpha', [item(p('Lower alpha'))]), ol('upper-alpha', [item(p('Upper alpha'))]), ol('lower-roman', [item(p('Lower roman'))]),
+  ol('decimal', [item(p('CSS wins'))]), ul('circle', [item(p('Circle'))]), ul('square', [item(p('Square'))]), ul('disc', [item(p('Disc'))]));
+const officeItem = (marker: string, label: string, level = 1): string =>
+  `<p style="mso-list:l1 level${String(level)} lfo1"><span style="mso-list:Ignore">${marker} </span>${label}</p>`;
+const officeHTML = officeItem('3.', 'Parent') + officeItem('4.', 'Nested', 2)
+  + officeItem('•', 'Disc') + officeItem('◦', 'Circle') + officeItem('▪', 'Square')
+  + officeItem('●', 'Filled') + officeItem('·', 'Dot');
+const officeJSON = doc(ol('decimal', [item(p('Parent'), ol('decimal', [item(p('Nested'))], 4))], 3),
+  ul('disc', [item(p('Disc'))]), ul('circle', [item(p('Circle'))]), ul('square', [item(p('Square'))]),
+  ul('disc', [item(p('Filled')), item(p('Dot'))]));
+
+for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
+  test.describe(`${framework}: explicit list markers`, () => {
+    for (const formatting of ['preserve', 'adapt'] as const) test(`${formatting} keeps reconstructed Office decimals and bullet classes at depth`, async ({ page }) => {
+      await open(page, framework, formatting); await seed(page, '<p>Replace me</p>'); const before = await snapshot(page);
+      await paste(page, officeHTML); await cleanPaste(page); await history(page, before, officeJSON); await reload(page, officeJSON);
+      expect(await computedMarkers(page)).toEqual(['decimal', 'decimal', 'disc', 'circle', 'square', 'disc']);
+    });
+
+    test('a legacy marker schema retains visible Office labels instead of reconstructing lossy lists', async ({ page }) => {
+      await open(page, framework, 'adapt', true); await seed(page, '<p>Replace me</p>'); const before = await snapshot(page);
+      await paste(page, officeHTML);
+      const results = await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.results);
+      expect(results).toHaveLength(1); expect(results[0]?.status).toBe('cleaned');
+      expect(results[0]?.diagnostics).toContainEqual(expect.objectContaining({ code: 'office-list-unsupported' }));
+      await history(page, before, doc(p('3. Parent'), p('4. Nested'), p('• Disc'), p('◦ Circle'), p('▪ Square'), p('● Filled'), p('· Dot')));
+      expect(await computedMarkers(page)).toEqual([]);
+    });
+
+    for (const formatting of ['preserve', 'adapt'] as const) test(`${formatting} keeps all marker enums, HTML type and CSS precedence`, async ({ page }) => {
+      await open(page, framework, formatting); await seed(page, '<p>Replace me</p>'); const before = await snapshot(page);
+      await paste(page, mixedHTML); await cleanPaste(page); await history(page, before, mixedJSON); await reload(page, mixedJSON);
+      const markers = await computedMarkers(page);
+      expect(markers).toEqual(['upper-roman', 'decimal', await styleQueries(page) ? 'lower-roman' : 'decimal',
+        'lower-alpha', 'upper-alpha', 'lower-roman', 'decimal', 'circle', 'square', 'disc']);
+    });
+
+    test('null cycles with actual theme support while explicit decimal remains fixed', async ({ page }) => {
+      await open(page, framework);
+      const nested = (marker: string | null): string => `<ol${marker ? ` style="list-style-type:${marker}"` : ''}><li><p>A</p>`
+        + `<ol${marker ? ` style="list-style-type:${marker}"` : ''}><li><p>B</p><ol><li><p>C</p></li></ol></li></ol></li></ol>`;
+      await seed(page, nested(null) + nested('decimal'));
+      const expected = doc(ol(null, [item(p('A'), ol(null, [item(p('B'), ol(null, [item(p('C'))]))]))]),
+        ol('decimal', [item(p('A'), ol('decimal', [item(p('B'), ol(null, [item(p('C'))]))]))]));
+      expect(canonical((await snapshot(page)).doc)).toEqual(expected);
+      expect(await computedMarkers(page)).toEqual(await styleQueries(page)
+        ? ['decimal', 'lower-alpha', 'lower-roman', 'decimal', 'decimal', 'lower-roman']
+        : ['decimal', 'decimal', 'decimal', 'decimal', 'decimal', 'decimal']);
+      await reload(page, expected);
+    });
+
+    test('partial internal copy preserves marker context through an ordered range replacement', async ({ page }) => {
+      await open(page, framework, 'adapt'); await seed(page, listHTML('ol', 'upper-roman', 'SOURCEA'));
+      await selection(page, 'SOURCEA', 0, 'SOURCEA', 7);
+      const copied = await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.serializeSelection());
+      expect(copied.html).toContain('data-pm-slice');
+      expect(copied.html).toContain('listStyleType'); expect(copied.html).toContain('upper-roman');
+      await seed(page, listHTML('ol', 'decimal', 'HOST', 'TARGET', 'END')); await selection(page, 'TARGET', 0, 'TARGET', 6);
+      const before = await snapshot(page); await paste(page, copied.html, copied.text); await cleanPaste(page);
+      const expected = doc(ol('decimal', [item(p('HOST'))]), ol('upper-roman', [item(p('SOURCEA'))]), ol('decimal', [item(p('END'))]));
+      await caret(page, 20); // End of SOURCEA in the independently authored output.
+      await history(page, before, expected); await reload(page, expected);
+    });
+
+    test('SmartPaste preserves square bullets while replacing a disc list range', async ({ page }) => {
+      await open(page, framework); await seed(page, listHTML('ul', 'disc', 'HOST', 'TARGET', 'END'));
+      await selection(page, 'TARGET', 0, 'TARGET', 6); const before = await snapshot(page);
+      await paste(page, listHTML('ul', 'square', 'X', 'Y')); await cleanPaste(page);
+      const expected = doc(ul('disc', [item(p('HOST'))]), ul('square', [item(p('X')), item(p('Y'))]), ul('disc', [item(p('END'))]));
+      await caret(page, 19); // End of Y, before the retained END wrapper.
+      await history(page, before, expected); await reload(page, expected);
+    });
+
+    test('Tab creates a fresh nested wrapper with the original explicit marker', async ({ page }) => {
+      await open(page, framework); await seed(page, listHTML('ol', 'upper-roman', 'A', 'B'));
+      await selection(page, 'B', 0); const before = await snapshot(page); await page.keyboard.press('Tab');
+      const expected = doc(ol('upper-roman', [item(p('A'), ol('upper-roman', [item(p('B'))]))]));
+      await caret(page, 8); // Start of nested B.
+      await history(page, before, expected); await reload(page, expected);
+    });
+
+    test('Tab retains a conflicting existing nested list and creates its own marker wrapper', async ({ page }) => {
+      await open(page, framework);
+      await seed(page, '<ol style="list-style-type:decimal"><li><p>A</p>' + listHTML('ol', 'upper-roman', 'B') + '</li><li><p>C</p></li></ol>');
+      await selection(page, 'C', 0); const before = await snapshot(page); await page.keyboard.press('Tab');
+      const expected = doc(ol('decimal', [item(p('A'), ol('upper-roman', [item(p('B'))]), ol('decimal', [item(p('C'))]))]));
+      await caret(page, 15); // Start of C in the second nested wrapper.
+      await history(page, before, expected); await reload(page, expected);
+    });
+
+    test('Shift-Tab preserves a conflicting explicit marker and the outer remainder ordinal', async ({ page }) => {
+      await open(page, framework);
+      await seed(page, '<ol style="list-style-type:decimal"><li><p>A</p>' + listHTML('ol', 'upper-roman', 'B') + '</li><li><p>C</p></li></ol>');
+      await selection(page, 'B', 0); const before = await snapshot(page); await page.keyboard.press('Shift+Tab');
+      const expected = doc(ol('decimal', [item(p('A'))]), ol('upper-roman', [item(p('B'))]), ol('decimal', [item(p('C'))], 2));
+      await caret(page, 10); // Start of B in its separate top-level wrapper.
+      await history(page, before, expected); await reload(page, expected);
+    });
+
+    for (const activeBold of [true, false]) test(`Shift-Tab preserves explicitly ${activeBold ? 'enabled' : 'disabled'} bold for subsequent typing`, async ({ page }) => {
+      await open(page, framework);
+      await seed(page, listHTML('ol', 'upper-roman', 'A', activeBold ? 'B' : '<strong>B</strong>', 'C'));
+      await selection(page, 'B', 1); await page.keyboard.press('ControlOrMeta+b');
+      const storedMarks = (): Promise<string[] | null> => page.evaluate(() =>
+        (window as unknown as ProbeWindow).__pasteCleanup.editor.state.storedMarks?.map(mark => mark.type.name) ?? null);
+      expect(await storedMarks()).toEqual(activeBold ? ['bold'] : []);
+      await page.keyboard.press('Shift+Tab');
+      expect(await storedMarks()).toEqual(activeBold ? ['bold'] : []);
+      const lifted = doc(ol('upper-roman', [item(p('A'))]), p('B', !activeBold), ol('upper-roman', [item(p('C'))], 3));
+      expect(canonical((await snapshot(page)).doc)).toEqual(lifted);
+      await caret(page, 9); // End of the lifted paragraph B.
+      await page.evaluate(() => { (window as unknown as ProbeWindow).__pasteCleanup.closeHistory(); });
+      const beforeTyping = await snapshot(page); await page.keyboard.insertText('X');
+      const typed = doc(ol('upper-roman', [item(p('A'))]),
+        { type: 'paragraph', attrs: { textAlign: 'left' }, content: [text('B', !activeBold), text('X', activeBold)] },
+        ol('upper-roman', [item(p('C'))], 3));
+      await caret(page, 10);
+      await history(page, beforeTyping, typed); await reload(page, typed);
+    });
+
+    test('Backspace removes an empty separator without merging conflicting markers', async ({ page }) => {
+      await open(page, framework); await seed(page, listHTML('ol', 'decimal', 'A') + '<p></p>' + listHTML('ol', 'upper-roman', 'B'));
+      await selection(page, '', 0); const before = await snapshot(page); await page.keyboard.press('Backspace');
+      const expected = doc(ol('decimal', [item(p('A'))]), ol('upper-roman', [item(p('B'))]));
+      await history(page, before, expected); await reload(page, expected);
+    });
+
+    test('Delete removes a separator then refuses a direct conflicting-wrapper merge without history', async ({ page }) => {
+      await open(page, framework); await seed(page, listHTML('ol', 'decimal', 'A') + '<p></p>' + listHTML('ol', 'upper-roman', 'B'));
+      await selection(page, 'A', 1); const before = await snapshot(page); await page.keyboard.press('Delete');
+      const expected = doc(ol('decimal', [item(p('A'))]), ol('upper-roman', [item(p('B'))]));
+      await history(page, before, expected);
+      await selection(page, 'A', 1); const boundary = await snapshot(page);
+      const depth = await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.history());
+      await page.keyboard.press('Delete');
+      expect(await snapshot(page)).toEqual(boundary);
+      expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.history())).toEqual(depth);
+      expect(await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.transactions)).toEqual([]);
+      await reload(page, expected);
+    });
+
+    test('a schema without marker attributes warns but still performs the paste', async ({ page }) => {
+      await open(page, framework, 'preserve', true); await seed(page, '<p>Replace me</p>'); const before = await snapshot(page);
+      await paste(page, listHTML('ol', 'upper-roman', 'A') + listHTML('ul', 'square', 'B'));
+      const results = await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.results);
+      expect(results).toHaveLength(1); expect(results[0]?.status).not.toBe('rejected');
+      expect(results[0]?.diagnostics).toEqual([{ code: 'destination-formatting-unconfirmed', severity: 'warning' }]);
+      await expect(page.getByRole('region', { name: 'Paste notice', exact: true })).toContainText('Review the pasted content.');
+      const expected = doc({ type: 'orderedList', attrs: { start: 1 }, content: [item(p('A'))] }, { type: 'bulletList', content: [item(p('B'))] });
+      await history(page, before, expected);
+    });
+
+    test('task checked state and absent marker policy remain independent', async ({ page }) => {
+      await open(page, framework);
+      await seed(page, '<ul data-type="taskList"><li data-type="taskItem" data-checked="true"><p>DONE</p></li>'
+        + '<li data-type="taskItem" data-checked="false"><p>TODO</p></li></ul>');
+      await selection(page, 'TODO', 0); const before = await snapshot(page); await page.keyboard.press('Tab');
+      const expected = doc({ type: 'taskList', content: [{ type: 'taskItem', attrs: { checked: true }, content: [p('DONE'),
+        { type: 'taskList', content: [{ type: 'taskItem', attrs: { checked: false }, content: [p('TODO')] }] }] }] });
+      await history(page, before, expected);
+      expect(await computedMarkers(page)).toEqual(['none', 'none']);
+      const value = await page.evaluate(() => JSON.stringify((window as unknown as ProbeWindow).__pasteCleanup.editor.getJSON()));
+      expect(value).not.toContain('listStyleType');
+    });
+  });
+}

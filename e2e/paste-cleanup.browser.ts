@@ -228,13 +228,13 @@ for (const framework of FRAMEWORKS) {
 
       expect((await snapshot(page)).doc).toMatchObject({
         type: 'doc', content: [
-          { type: 'orderedList', attrs: { start: 7 }, content: [
-            { type: 'listItem', content: [paragraphJSON('Seven'), { type: 'bulletList', content: [
+          { type: 'orderedList', attrs: { start: 7, listStyleType: 'decimal' }, content: [
+            { type: 'listItem', content: [paragraphJSON('Seven'), { type: 'bulletList', attrs: { listStyleType: 'disc' }, content: [
               { type: 'listItem', content: [paragraphJSON('Nested')] },
             ] }] },
             { type: 'listItem', content: [paragraphJSON('Eight')] },
           ] },
-          { type: 'orderedList', attrs: { start: 2 }, content: [
+          { type: 'orderedList', attrs: { start: 2, listStyleType: 'decimal' }, content: [
             { type: 'listItem', content: [paragraphJSON('Restart')] },
           ] },
         ],
