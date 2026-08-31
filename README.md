@@ -105,4 +105,4 @@ Requires Node.js >= 22 and pnpm >= 10.
 
 ## License
 
-[MIT](LICENSE)
+The source code is available under the [MIT License](LICENSE). Use of the Domternal name and logo is governed by the [Trademark Usage Policy](TRADEMARKS.md).
