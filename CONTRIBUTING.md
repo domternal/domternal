@@ -89,6 +89,7 @@ Beyond the lint, type and test runs above, CI runs a set of standalone checks. E
 | `pnpm test:ssr-import` | A built entry that does not evaluate in plain Node. One top-level `document` or `window` breaks every server-rendered consumer before their first render, and nothing else here ever loads a bundle. The ESM and CommonJS halves load in separate processes, because no consumer imports both and a package that guards its own identity through `globalThis` would otherwise warn on a clean tree: split like that, such a warning has no innocent cause left and fails the gate. |
 | `pnpm test:package-policy` | A version bumped without the `>=MAJOR.MINOR.0` floors that travel with it, a package left behind by a release, a manifest that would publish something a consumer cannot resolve, a declared Node floor that disagrees with `.nvmrc`, and a peer range that excludes the version this repository actually builds against. It runs the publish transform itself, so it cannot disagree with what publishing does. |
 | `pnpm test:package-artifacts` | A tarball missing a file it must carry, carrying one nothing allows, growing past its budget, or exporting a path that is not inside it. |
+| `pnpm test:release-readiness` | A package listed in `scripts/release-readiness.json` that the publish path would not refuse before rewriting its manifest, a missing or malformed list, an entry naming no package in this workspace, a listed package marked `private`, which would drop it from the gates that skip private packages, and a package script other than `prepublishOnly` that runs the publish transform. Listed packages are built, packed and checked like every other package; only publishing them is refused. |
 | `pnpm test:hidden-attribute` | A stylesheet that would take the `hidden` attribute away, or a `display` rule outside the scope the restoring rule covers. |
 | `pnpm test:css-vars` | A CSS variable referenced without a fallback and never defined, anywhere in `packages/*/src`, including references and definitions written from TypeScript. |
 | `pnpm test:bundle-size` | A published entry growing past its budget, or shipping with no budget at all. |
@@ -110,6 +111,22 @@ NEW cross-framework behavior specs go into the root `e2e/` matrix suite (`pnpm t
 
 Releases are handled by the maintainer, along with the `CHANGELOG.md` entry and
 every version bump.
+
+A package listed in `scripts/release-readiness.json` is developed and checked
+like every other package, but publishing it is refused: its `prepublishOnly`
+runs the package's build, if it has one, then stops with `[release-readiness]`
+before the manifest is rewritten. Only a release pull request removes or
+changes an entry, and the pull request that removes one also updates the README
+and `context7.json` wording that still describes that package as unreleased. A
+release empties `unreleased` and never deletes the file: a missing or malformed
+list refuses every publish.
+
+Publish each package with `pnpm publish` in its own directory. While the list
+is not empty, do not use `pnpm -r publish`: it stops at the first listed package
+after publishing the packages sorted before it. Never pass `--ignore-scripts`,
+never publish a `.tgz`, and check that `pnpm config get ignore-scripts` is not
+`true`: each of these skips both the readiness guard and the manifest
+transform.
 
 ## License of contributions
 

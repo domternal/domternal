@@ -4,6 +4,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { refuseUnlessReleasable } from './release-readiness.mjs';
 
 // The dev-source condition. It resolves to TypeScript that only exists in this
 // repository: `files` ships `dist`, so publishing the condition points a
@@ -167,6 +168,10 @@ function main() {
   const directory = resolve(process.argv[2] ?? process.cwd());
   const manifestPath = join(directory, 'package.json');
   const original = readFileSync(manifestPath, 'utf8');
+  // Readiness is decided here, on the publish path only, and before anything is
+  // rewritten. The pure functions above stay blind to it, so every correctness
+  // check still holds an unreleased package to the same rules as the rest.
+  refuseUnlessReleasable(JSON.parse(original).name);
   const { prepared, changes } = preparePublishManifest(JSON.parse(original));
 
   const blockers = publishBlockers(prepared, directory);

@@ -188,6 +188,14 @@ jobs:
         # and nothing looked inside a tarball.
         run: pnpm test:package-artifacts
 
+      - name: Release readiness guard
+        # Correctness and readiness are separate questions. Every package above,
+        # the unreleased ones included, is built, packed and checked; the ones
+        # listed in scripts/release-readiness.json are still refused by the
+        # publish path. This proves the transform refuses exactly those, before
+        # their manifest is rewritten, while build, pack and install still work.
+        run: pnpm test:release-readiness
+
       - name: Type check demo apps
         # Two steps, and only the second one decides what is read. The demo
         # tsconfigs enable the @domternal/source condition, so resolution lands
