@@ -455,6 +455,20 @@ describe('coordinated embedded clipboard assets', () => {
     expect(fixture.upload).not.toHaveBeenCalled();
   });
 
+  it('classifies a structure limit behind a full diagnostic allowance as an asset limit', async () => {
+    const asset = imageFile();
+    const fixture = mount({ cleanup: { limits: { maxDiagnostics: 1, maxNodes: 21 }, imageAssets: { mode: 'embedded', match: explicitMatch() } } });
+    const before = snapshot(fixture.editor);
+    const runs = '<span style="color:red">x</span>'.repeat(6);
+    paste(fixture.editor, { html: `<p style="position:fixed">A</p><p><img src="cid:chart"></p><p>${runs}</p>`, files: [asset.file] });
+    await terminal(fixture, 'rejected', 'asset-limit');
+    // The retained terminal error, not the earlier warning, decides the coordinated refusal reason.
+    expect(fixture.completed.mock.calls[0]?.[0]).toMatchObject({ diagnostics: [{ code: 'structure-limit', severity: 'error' }], diagnosticsTruncated: true });
+    expect(snapshot(fixture.editor)).toEqual(before);
+    expect(asset.read).not.toHaveBeenCalled();
+    expect(fixture.upload).not.toHaveBeenCalled();
+  });
+
   it.each(['absent', 'unregistered', 'embedding-disabled'] as const)('rejects an %s destination before reading files', async policy => {
     const unregistered = Node.create({ name: 'image', group: 'block', atom: true,
       addAttributes: () => ({ src: { default: null } }), parseHTML: () => [{ tag: 'img' }], renderHTML: () => ['img'],

@@ -280,7 +280,7 @@ describe('table capability rejection before application', () => {
     const result = await terminal(fixture, 'rejected');
     expect(result.reason).toBe('unsupported-content');
     expect(result.diagnosticsTruncated).toBe(true);
-    expect(result.diagnostics).toHaveLength(1);
+    expect(result.diagnostics).toEqual([{ code: 'destination-table-unsupported', severity: 'error' }]);
     expect(fixture.normalized.mock.calls[0]?.[0]).toMatchObject({ status: 'rejected', html: '' });
     expect(snapshot(fixture.editor)).toEqual(before); expect(fixture.changes).toEqual([]);
     expect(match).not.toHaveBeenCalled(); expect(read).not.toHaveBeenCalled();

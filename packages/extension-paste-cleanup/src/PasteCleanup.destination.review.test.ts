@@ -48,6 +48,7 @@ describe('destination refusal independent of clipboard image policy', () => {
     }));
     expect(completed).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
       status: 'rejected', reason: 'unsupported-content', diagnosticsTruncated: true,
+      diagnostics: [{ code: 'destination-table-unsupported', severity: 'error' }],
     }));
     expect(completed.mock.calls[0]?.[0].operationId).toBe(normalized.mock.calls[0]?.[0].operationId);
     expect(editor.getJSON()).toEqual(original);

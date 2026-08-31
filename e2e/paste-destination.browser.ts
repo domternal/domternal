@@ -231,9 +231,9 @@ for (const framework of FRAMEWORKS) {
       const observed = await paste(page, '<p><span style="mso-font-kerning:0pt">Prefix</span></p>' + TABLE_HTML);
       expect(observed.results[0]?.diagnostics).toEqual([{ code: 'destination-table-unsupported', severity: 'error' }]);
       expect(observed.results[0]?.diagnosticsTruncated).toBe(true);
-      await unchangedBlocked(page, before, priorHistory, observed, false);
+      // The retained terminal diagnostic renders the table refusal detail next to the truncation note.
+      await unchangedBlocked(page, before, priorHistory, observed, true);
       const notice = page.getByRole('region', { name: 'Paste notice', exact: true });
-      await notice.locator('summary').click();
       await expect(notice).toContainText('Not all paste details are shown.');
     });
   });

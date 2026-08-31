@@ -28,3 +28,23 @@ describe('safe CSS rule lookup', () => {
     expect(result.diagnostics).toEqual([expect.objectContaining({ code: 'unsupported-formatting', severity: 'warning' })]);
   });
 });
+
+describe('safe CSS rule lookup through metadata colors and image placement', () => {
+  it.each(['constructor', '__proto__'])('drops a %s color suffix from cell and slice backgrounds without rejecting the paste', name => {
+    const cell = normalizePasteHTML(`<table><tr><td data-background="red;${name}:1">x</td></tr></table>`);
+    expect(cell.status).toBe('cleaned');
+    expect(cell.html).toBe('<table><tbody><tr><td>x</td></tr></tbody></table>');
+    expect(cell.diagnostics).not.toContainEqual(expect.objectContaining({ severity: 'error' }));
+    const context = JSON.stringify(['table', {}, 'tableRow', {}, 'tableCell', { background: `red;${name}:1` }]);
+    const slice = normalizePasteHTML(`<p data-pm-slice='0 0 ${context}'>x</p>`);
+    expect(slice.status).toBe('cleaned');
+    expect(slice.html).toBe(`<p data-pm-slice="0 0 ${JSON.stringify(['table', {}, 'tableRow', {}, 'tableCell', {}]).replaceAll('"', '&#x22;')}">x</p>`);
+  });
+
+  it('keeps a lowercased image placement next to an inherited object key through the public entry', () => {
+    const result = normalizePasteHTML('<p><img src="https://example.com/a.png" style="constructor:auto;FLOAT:LEFT;__proto__:0"></p>', { allowRemoteImages: true });
+    expect(result.status).toBe('cleaned');
+    expect(result.html).toBe('<p><img style="float:left" src="https://example.com/a.png"></p>');
+    expect(result.diagnostics).toEqual([expect.objectContaining({ code: 'unsupported-formatting', severity: 'warning' })]);
+  });
+});
