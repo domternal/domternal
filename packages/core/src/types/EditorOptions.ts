@@ -6,6 +6,7 @@ import type {
   TransactionEventProps,
   FocusEventProps,
   ContentErrorProps,
+  ContentDiagnosticProps,
   MountEventProps,
   ErrorEventProps,
 } from './EditorEvents.js';
@@ -184,6 +185,12 @@ export interface EditorOptions {
    * Use this to handle content validation errors gracefully
    */
   onContentError?: (props: ContentErrorProps) => void;
+
+  /**
+   * Called when content loaded with replaced values, such as an unknown
+   * list marker that became the default marker. See the contentDiagnostic event.
+   */
+  onContentDiagnostic?: (props: ContentDiagnosticProps) => void;
 
   /**
    * Called when an extension throws an error (2.7: Extension Error Isolation)

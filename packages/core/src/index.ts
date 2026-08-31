@@ -21,6 +21,7 @@ export type {
   JSONContent,
   Content,
   Range,
+  ContentDiagnostic,
   // Editor options
   AnyExtension,
   FocusPosition,
@@ -32,6 +33,7 @@ export type {
   FocusEventProps,
   CreateEventProps,
   ContentErrorProps,
+  ContentDiagnosticProps,
   MountEventProps,
   AdoptEventProps,
   EditorEvents,
@@ -205,6 +207,7 @@ export {
 // === Helpers ===
 export {
   createDocument,
+  normalizeContent,
   isNodeEmpty,
   isDocumentEmpty,
   callOrReturn,
@@ -219,6 +222,7 @@ export {
   generateJSON,
   generateText,
   type CreateDocumentOptions,
+  type NormalizeContentOptions,
   type IsNodeEmptyOptions,
   type MarkInputRuleOptions,
   type WrappingInputRuleOptions,

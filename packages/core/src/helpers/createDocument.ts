@@ -6,7 +6,8 @@
  */
 import type { Schema} from '@domternal/pm/model';
 import { Node as PMNode, DOMParser, Fragment } from '@domternal/pm/model';
-import type { Content, JSONContent } from '../types/index.js';
+import type { Content, ContentDiagnostic, JSONContent } from '../types/index.js';
+import { contentReport, deliverDiagnostics, normalizeInto, type ContentReport } from './normalizeContent.js';
 
 const LIST_WRAPPER_TYPES = new Set(['bulletList', 'orderedList', 'taskList']);
 
@@ -64,6 +65,13 @@ export interface CreateDocumentOptions {
    * Parse options passed to DOMParser
    */
   parseOptions?: Parameters<DOMParser['parse']>[1];
+
+  /**
+   * Receives up to 100 diagnostics for values JSON content loaded without,
+   * such as an unknown list marker that became null. Called only when the
+   * document was created.
+   */
+  onDiagnostic?: (diagnostic: ContentDiagnostic) => void;
 }
 
 /**
@@ -135,7 +143,7 @@ function parseHTMLContent(
  *
  * @param content - JSON content object, HTML string, or null/undefined
  * @param schema - ProseMirror schema to use
- * @param options - Optional parse options
+ * @param options - Optional parse options and diagnostic callback
  * @returns ProseMirror Node (document)
  *
  * @throws Error if content format is invalid (plain text without HTML tags)
@@ -160,14 +168,27 @@ export function createDocument(
   schema: Schema,
   options?: CreateDocumentOptions
 ): PMNode {
+  const report = contentReport();
+  const doc = buildDocument(content, schema, options, report);
+  deliverDiagnostics(report, options?.onDiagnostic);
+  return doc;
+}
+
+/** @internal createDocument that leaves its diagnostics in `report` for the caller. */
+export function buildDocument(
+  content: Content | null | undefined,
+  schema: Schema,
+  options: CreateDocumentOptions | undefined,
+  report: ContentReport
+): PMNode {
   // Handle null/undefined/empty string - create empty document
   if (content === null || content === undefined || content === '') {
     return createEmptyDocument(schema);
   }
 
-  // Handle JSON content
+  // Handle JSON content: unknown list markers load as the default marker
   if (isJSONContent(content)) {
-    return PMNode.fromJSON(schema, content);
+    return PMNode.fromJSON(schema, normalizeInto(content, schema, report));
   }
 
   // Handle HTML string

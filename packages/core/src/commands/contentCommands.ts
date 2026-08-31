@@ -6,6 +6,8 @@ import { Fragment, Slice, DOMParser as ProseMirrorDOMParser } from '@domternal/p
 import type { CommandSpec } from '../types/Commands.js';
 import type { Content } from '../types/index.js';
 import { createDocument } from '../helpers/index.js';
+import { buildDocument } from '../helpers/createDocument.js';
+import { contentReport, normalizeInto, recordContentDiagnostics } from '../helpers/normalizeContent.js';
 
 /**
  * Options for setContent command
@@ -48,8 +50,9 @@ export const setContent: CommandSpec<[content: Content, options?: SetContentOpti
 
     // Parse content into document (with graceful error handling)
     let doc;
+    const report = contentReport();
     try {
-      doc = createDocument(content, schema, { parseOptions });
+      doc = buildDocument(content, schema, { parseOptions }, report);
     } catch {
       // Invalid content - return false to indicate command failed
       return false;
@@ -82,6 +85,7 @@ export const setContent: CommandSpec<[content: Content, options?: SetContentOpti
       tr.setMeta('skipUpdate', true);
     }
 
+    recordContentDiagnostics(tr, 'setContent', report);
     dispatch(tr);
     return true;
   };
@@ -160,6 +164,7 @@ export const insertContent: CommandSpec<[content: Content]> =
 
     // Parse content based on type
     let fragment: Fragment | undefined;
+    const report = contentReport();
 
     try {
       if (typeof content === 'string') {
@@ -179,11 +184,11 @@ export const insertContent: CommandSpec<[content: Content]> =
           // An empty array would replace the selection with nothing, silently
           // deleting it; treat it as a no-op failure instead.
           if (content.length === 0) return false;
-          const nodes = content.map(item => schema.nodeFromJSON(item));
+          const nodes = normalizeInto(content, schema, report).map(item => schema.nodeFromJSON(item));
           fragment = Fragment.from(nodes);
         } else if ('type' in content) {
           // Single node or document
-          const node = schema.nodeFromJSON(content);
+          const node = schema.nodeFromJSON(normalizeInto(content, schema, report));
           // If it's a doc, use its content; otherwise wrap in fragment
           fragment = node.type.name === 'doc' ? node.content : Fragment.from(node);
         } else {
@@ -203,6 +208,7 @@ export const insertContent: CommandSpec<[content: Content]> =
 
     // Insert the content
     tr.replaceRange(from, to, new Slice(fragment, 0, 0));
+    recordContentDiagnostics(tr, 'insertContent', report);
     dispatch(tr);
     return true;
   };

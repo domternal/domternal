@@ -14,6 +14,8 @@ import { EventEmitter } from './EventEmitter.js';
 import { ExtensionManager } from './ExtensionManager.js';
 import { CommandManager } from './CommandManager.js';
 import { createDocument, isDocumentEmpty } from './helpers/index.js';
+import { buildDocument } from './helpers/createDocument.js';
+import { contentDiagnosticsOf, contentReport, type ContentDiagnosticRecord } from './helpers/normalizeContent.js';
 import { inlineStyles, type InlineStyleOverrides } from './utils/inlineStyles.js';
 import { warnOnDuplicateProseMirrorCopy } from './utils/prosemirrorSingleton.js';
 import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
@@ -857,8 +859,10 @@ export class Editor extends EventEmitter<EditorEvents> {
 
     // 3. Create initial document from content (with graceful error handling)
     let doc;
+    const report = contentReport();
     try {
-      doc = createDocument(this.options.content ?? null, this._extensionManager.schema);
+      doc = buildDocument(this.options.content ?? null, this._extensionManager.schema, undefined, report);
+      if (report.total > 0) this.reportContentDiagnostics({ source: 'content', ...report });
     } catch (error) {
       // Emit content error event for invalid content
       const contentError = error instanceof Error ? error : new Error(String(error));
@@ -1021,6 +1025,8 @@ export class Editor extends EventEmitter<EditorEvents> {
     this.emit('transaction', { editor: this, transaction });
     this.options.onTransaction?.({ editor: this, transaction });
     this._extensionManager.callOnTransaction({ transaction });
+    const diagnostics = contentDiagnosticsOf(transaction);
+    if (diagnostics) this.reportContentDiagnostics(diagnostics);
 
     // 4. Check if we should skip update event
     const skipUpdate = transaction.getMeta('skipUpdate') as boolean | undefined;
@@ -1038,6 +1044,13 @@ export class Editor extends EventEmitter<EditorEvents> {
       this.options.onUpdate?.({ editor: this, transaction });
       this._extensionManager.callOnUpdate();
     }
+  }
+
+  private reportContentDiagnostics(record: ContentDiagnosticRecord): void {
+    // Diagnostics are advisory: a throwing listener never interrupts loading content.
+    const props = { editor: this, ...record };
+    try { this.emit('contentDiagnostic', props); } catch { /* advisory */ }
+    try { this.options.onContentDiagnostic?.(props); } catch { /* advisory */ }
   }
 
   /**

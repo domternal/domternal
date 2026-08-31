@@ -71,6 +71,8 @@ CommandPropsEditor
 CommandSpec
 CompleteMessages
 Content
+ContentDiagnostic
+ContentDiagnosticProps
 ContentErrorProps
 copyThemeClass
 coreMessages
@@ -256,6 +258,8 @@ NodeInputRuleOptions
 NodeParseRule
 NodeRenderHTMLProps
 NodeViewContext
+normalizeContent
+NormalizeContentOptions
 NotionColorPicker
 NotionColorPickerOptions
 NotionColorPickerStorage

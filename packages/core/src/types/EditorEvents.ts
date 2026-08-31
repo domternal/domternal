@@ -1,5 +1,6 @@
 import type { Transaction } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';
+import type { ContentDiagnostic } from './Content.js';
 
 /**
  * Editor instance type (forward declaration to avoid circular dependency)
@@ -43,6 +44,21 @@ export interface ContentErrorProps {
   error: Error;
   /** The original content that failed validation */
   content: unknown;
+}
+
+/**
+ * Props passed to content diagnostic handlers. Emitted when the editor
+ * replaced values, such as unknown list markers: in JSON content it loaded,
+ * or in its document through the normalizeListMarkers command.
+ */
+export interface ContentDiagnosticProps {
+  editor: EditorInstance;
+  /** Where the content came from; in a command chain, the first command that reported. */
+  source: 'content' | 'setContent' | 'insertContent' | 'normalizeListMarkers';
+  /** The first 100 diagnostics. */
+  diagnostics: readonly ContentDiagnostic[];
+  /** How many values were replaced, including any beyond `diagnostics`. */
+  total: number;
 }
 
 /**
@@ -104,6 +120,13 @@ export interface EditorEvents {
 
   /** Fired when content doesn't match schema (AD-8) */
   contentError: ContentErrorProps;
+
+  /**
+   * Fired when content loaded with replaced values: after the initial
+   * document is built, or after an accepted transaction from setContent,
+   * insertContent or normalizeListMarkers. Dry runs never fire it.
+   */
+  contentDiagnostic: ContentDiagnosticProps;
 
   /** Fired when editor view is mounted to DOM */
   mount: MountEventProps;

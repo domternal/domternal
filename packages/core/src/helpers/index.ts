@@ -3,6 +3,7 @@
  */
 
 export { createDocument, type CreateDocumentOptions } from './createDocument.js';
+export { normalizeContent, type NormalizeContentOptions } from './normalizeContent.js';
 export {
   isNodeEmpty,
   isDocumentEmpty,
