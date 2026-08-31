@@ -55,3 +55,33 @@ describe('terminal rejection reason under a full diagnostic allowance', () => {
     expect(result.diagnostics).toEqual([expect.objectContaining(warning), expect.objectContaining(warning)]);
   });
 });
+
+describe('severity priority under a full diagnostic allowance', () => {
+  const adaptedRun = '<p><span style="font-family:Calibri;font-size:11pt;color:#1F3864">t</span></p>';
+
+  it('keeps early link and image losses ahead of informational adaptation', () => {
+    const html = `<p><a href="javascript:alert(1)">bad</a><img src="http://remote.test/x.png" alt="A"></p>${adaptedRun.repeat(40)}`;
+    const result = normalizePasteHTML(html, { formatting: 'adapt' });
+    expect(result.status).toBe('cleaned');
+    expect(result.diagnosticsTruncated).toBe(true);
+    expect(result.diagnostics).toHaveLength(100);
+    expect(result.diagnostics.filter(item => item.severity !== 'info')).toEqual([
+      { code: 'link-removed', severity: 'warning', offset: html.indexOf('<a ') },
+      { code: 'image-removed', severity: 'warning', offset: html.indexOf('<img') },
+    ]);
+  });
+
+  it('never lets an informational finding displace a warning', () => {
+    const result = normalizePasteHTML(`${warnings}<p><span style="color:red">x</span></p>`, { formatting: 'adapt', limits: { maxDiagnostics: 2 } });
+    expect(result.diagnosticsTruncated).toBe(true);
+    expect(result.diagnostics).toEqual([expect.objectContaining(warning), expect.objectContaining(warning)]);
+  });
+
+  it('keeps retained findings in emission order after a displacement', () => {
+    const html = `${'<p><span style="color:red">x</span></p>'.repeat(3)}<p style="position:fixed">late</p>`;
+    const result = normalizePasteHTML(html, { formatting: 'adapt', limits: { maxDiagnostics: 3 } });
+    expect(result.diagnosticsTruncated).toBe(true);
+    expect(result.diagnostics.map(item => item.code)).toEqual(['formatting-adapted', 'formatting-adapted', 'unsupported-formatting']);
+    expect(result.diagnostics.at(-1)?.offset).toBe(html.indexOf('<p style="position:fixed">'));
+  });
+});

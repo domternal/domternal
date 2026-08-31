@@ -48,6 +48,25 @@ const schema: Schema = {
   clobber: [],
 };
 
+const severityRank: Readonly<Record<PasteDiagnostic['severity'], number>> = { info: 0, warning: 1, error: 2 };
+
+/**
+ * Append within a fixed allowance and report whether anything was omitted. A full allowance keeps
+ * the most severe findings: an error displaces a warning or info and a warning displaces an info,
+ * so intentional adaptation never hides a loss or the refusal reason. Retained order stays emission order.
+ */
+export function retainDiagnostic(diagnostics: PasteDiagnostic[], diagnostic: PasteDiagnostic, maxDiagnostics: number): boolean {
+  if (diagnostics.length < maxDiagnostics) { diagnostics.push(diagnostic); return false; }
+  for (let index = diagnostics.length - 1; index >= 0; index--) {
+    const retained = diagnostics[index];
+    if (retained === undefined || severityRank[retained.severity] >= severityRank[diagnostic.severity]) continue;
+    diagnostics.splice(index, 1);
+    diagnostics.push(diagnostic);
+    break;
+  }
+  return true;
+}
+
 function detectSource(html: string): PasteSource {
   if (/\b(?:mso-|MsoNormal|urn:schemas-microsoft-com:office)/i.test(html)) return 'word';
   if (/\bid=["']?docs-internal-guid-/i.test(html)) return 'google-docs';
@@ -101,15 +120,7 @@ export function normalizeClipboardHTML(
   const report = (code: PasteDiagnosticCode, node?: Element, severity: PasteDiagnostic['severity'] = 'warning'): void => {
     const offset = node?.position?.start.offset;
     const diagnostic: PasteDiagnostic = { code, severity, ...(offset === undefined ? {} : { offset }) };
-    if (result.diagnostics.length < limits.maxDiagnostics) { result.diagnostics.push(diagnostic); return; }
-    result.diagnosticsTruncated = true;
-    if (severity !== 'error') return;
-    // The single terminal error replaces the newest finding, so a full allowance still states why nothing was inserted.
-    for (let index = result.diagnostics.length - 1; index >= 0; index--) {
-      if (result.diagnostics[index]?.severity === 'error') continue;
-      result.diagnostics[index] = diagnostic;
-      return;
-    }
+    if (retainDiagnostic(result.diagnostics, diagnostic, limits.maxDiagnostics)) result.diagnosticsTruncated = true;
   };
   if (html.length > limits.maxInputLength) {
     result.status = 'rejected'; report('input-limit', undefined, 'error'); return { result, preserveOrderedListStart };

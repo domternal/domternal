@@ -1,6 +1,6 @@
 import type { Element, Properties, Root, RootContent } from 'hast';
 import { toHtml } from 'hast-util-to-html';
-import { normalizeClipboardHTML, DEFAULT_PASTE_HTML_LIMITS } from '../html/normalize.js';
+import { normalizeClipboardHTML, DEFAULT_PASTE_HTML_LIMITS, retainDiagnostic } from '../html/normalize.js';
 import type { ClipboardDestinationCheck } from '../html/normalize.js';
 import { safeImage } from '../html/urls.js';
 import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic } from '../html/types.js';
@@ -326,8 +326,8 @@ function materializeImages(
     let diagnosticsTruncated = state.result.diagnosticsTruncated;
     for (const placement of state.slots) {
       if (!omitted.has(placement.placementId)) continue;
-      if (diagnostics.length >= state.maxDiagnostics) { diagnosticsTruncated = true; continue; }
-      diagnostics.push({ code: 'image-removed', severity: 'warning', ...(placement.sourceOffset === undefined ? {} : { offset: placement.sourceOffset }) });
+      const removed: PasteDiagnostic = { code: 'image-removed', severity: 'warning', ...(placement.sourceOffset === undefined ? {} : { offset: placement.sourceOffset }) };
+      if (retainDiagnostic(diagnostics, removed, state.maxDiagnostics)) diagnosticsTruncated = true;
     }
     return Object.freeze({ status: 'materialized', normalization: { ...state.result, html, diagnostics, diagnosticsTruncated } });
   } catch (error) {

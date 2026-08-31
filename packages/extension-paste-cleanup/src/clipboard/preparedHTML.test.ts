@@ -394,6 +394,18 @@ describe('private resolved clipboard HTML materialization', () => {
     }
   });
 
+  it('keeps an omitted image warning ahead of informational adaptation in a full allowance', () => {
+    const html = '<p><span style="color:red">A</span><span style="color:red">B</span><img src="cid:owned" alt="Missing"></p>';
+    const adapted = prepared(prepareClipboardHTML(html, LIMITS, { formatting: 'adapt', limits: { maxDiagnostics: 2 } }));
+    expect(readPreparedClipboardHTMLNormalization(adapted.handle)?.diagnostics.map(item => item.code))
+      .toEqual(['formatting-adapted', 'formatting-adapted']);
+    const output = materializeResolvedClipboardHTML(adapted.handle, new Map(), policy, { omitUnresolved: true });
+    expect(output).toMatchObject({ status: 'materialized', normalization: {
+      html: '<p><span>A</span><span>B</span>Missing</p>', diagnosticsTruncated: true,
+      diagnostics: [{ code: 'formatting-adapted', severity: 'info', offset: 3 }, { code: 'image-removed', severity: 'warning', offset: html.indexOf('<img') }],
+    } });
+  });
+
   it('bounds escaped output before calling the serializer', () => {
     const result = prepared(prepareClipboardHTML(`<p><img src="cid:owned" alt="${'&quot;'.repeat(100)}"></p>`, { ...LIMITS, maxOutputUnits: 256 }));
     expect(materializeResolvedClipboardHTML(result.handle, new Map([['image:1', image()]]), policy)).toEqual({ status: 'rejected', reason: 'output-limit' });
