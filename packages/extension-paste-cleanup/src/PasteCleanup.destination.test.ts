@@ -224,10 +224,9 @@ describe('table capability rejection before application', () => {
     expect(snapshot(fixture.editor)).toEqual(before);
     expect(fixture.changes).toEqual([]);
     expect(result.references.ranges).toEqual([]);
-    if (kind === 'diagnostic-cap') {
-      expect(result.diagnostics).toEqual([expect.objectContaining({ code: 'unsafe-content-removed' })]);
-      expect(result.diagnosticsTruncated).toBe(true);
-    } else expect(result.diagnostics).toEqual([{ code: 'destination-table-unsupported', severity: 'error' }]);
+    // The terminal refusal replaces the earlier warning, so a full allowance still states the reason.
+    expect(result.diagnostics).toEqual([{ code: 'destination-table-unsupported', severity: 'error' }]);
+    expect(result.diagnosticsTruncated).toBe(kind === 'diagnostic-cap');
     expect(notice(fixture).hidden).toBe(false);
     expect(notice(fixture).textContent).toContain('Use an editor with table support, or paste as plain text.');
   });

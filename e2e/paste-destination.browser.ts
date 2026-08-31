@@ -229,8 +229,7 @@ for (const framework of FRAMEWORKS) {
       const before = await snapshot(page);
       const priorHistory = await history(page);
       const observed = await paste(page, '<p><span style="mso-font-kerning:0pt">Prefix</span></p>' + TABLE_HTML);
-      expect(observed.results[0]?.diagnostics).toHaveLength(1);
-      expect(observed.results[0]?.diagnostics[0]?.code).toBe('unsupported-formatting');
+      expect(observed.results[0]?.diagnostics).toEqual([{ code: 'destination-table-unsupported', severity: 'error' }]);
       expect(observed.results[0]?.diagnosticsTruncated).toBe(true);
       await unchangedBlocked(page, before, priorHistory, observed, false);
       const notice = page.getByRole('region', { name: 'Paste notice', exact: true });

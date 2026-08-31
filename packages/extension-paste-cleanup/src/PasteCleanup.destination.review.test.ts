@@ -43,7 +43,7 @@ describe('destination refusal independent of clipboard image policy', () => {
     await Promise.resolve(); await Promise.resolve();
 
     expect(normalized).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
-      status: 'rejected', html: '', diagnostics: [{ code: 'unsafe-content-removed', severity: 'warning', offset: 0 }],
+      status: 'rejected', html: '', diagnostics: [{ code: 'destination-table-unsupported', severity: 'error' }],
       diagnosticsTruncated: true,
     }));
     expect(completed).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({

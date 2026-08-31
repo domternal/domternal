@@ -99,9 +99,17 @@ export function normalizeClipboardHTML(
     status: 'cleaned', html: '', source: 'html', diagnostics: [], diagnosticsTruncated: false,
   };
   const report = (code: PasteDiagnosticCode, node?: Element, severity: PasteDiagnostic['severity'] = 'warning'): void => {
-    if (result.diagnostics.length >= limits.maxDiagnostics) { result.diagnosticsTruncated = true; return; }
     const offset = node?.position?.start.offset;
-    result.diagnostics.push({ code, severity, ...(offset === undefined ? {} : { offset }) });
+    const diagnostic: PasteDiagnostic = { code, severity, ...(offset === undefined ? {} : { offset }) };
+    if (result.diagnostics.length < limits.maxDiagnostics) { result.diagnostics.push(diagnostic); return; }
+    result.diagnosticsTruncated = true;
+    if (severity !== 'error') return;
+    // The single terminal error replaces the newest finding, so a full allowance still states why nothing was inserted.
+    for (let index = result.diagnostics.length - 1; index >= 0; index--) {
+      if (result.diagnostics[index]?.severity === 'error') continue;
+      result.diagnostics[index] = diagnostic;
+      return;
+    }
   };
   if (html.length > limits.maxInputLength) {
     result.status = 'rejected'; report('input-limit', undefined, 'error'); return { result, preserveOrderedListStart };

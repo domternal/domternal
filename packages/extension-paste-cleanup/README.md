@@ -114,6 +114,8 @@ The result contains:
 - `source`: an advisory signature, never proof of origin or trust.
 - `diagnostics`: stable codes, severity, and an optional UTF-16 source offset.
 - `diagnosticsTruncated`: feedback was bounded, without truncating the HTML.
+  A rejected result always keeps its terminal error diagnostic: when the bound is
+  already reached, the error replaces the newest retained finding.
 
 The result is editor input, not a destination-schema validation or a general
 HTML publication policy. The receiving editor still controls its nodes, marks,
