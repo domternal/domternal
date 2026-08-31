@@ -22,6 +22,7 @@ import { ListKeymap } from '../extensions/ListKeymap.js';
 import { getListItemCursorContext } from '../utils/listItemCursorContext.js';
 import { insertChildrenZoneSibling } from '../utils/insertChildrenZoneSibling.js';
 import { liftEmptyChildrenZoneParagraph } from '../utils/liftEmptyChildrenZoneParagraph.js';
+import { pastedListMarkersPlugin } from '../utils/pastedListMarkers.js';
 
 export interface ListItemOptions {
   HTMLAttributes: Record<string, unknown>;
@@ -50,6 +51,11 @@ export const ListItem = Node.create<ListItemOptions>({
 
   addExtensions() {
     return [ListKeymap];
+  },
+
+  addProseMirrorPlugins() {
+    // Every built-in list brings this item type, so it guards their pasted markers.
+    return [pastedListMarkersPlugin()];
   },
 
   addKeyboardShortcuts() {

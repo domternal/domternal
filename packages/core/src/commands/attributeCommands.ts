@@ -1,7 +1,23 @@
 /**
  * Attribute commands - updateAttributes, resetAttributes
  */
+import type { Schema } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
+
+/**
+ * Whether a node or mark of this type accepts the attributes, by the same
+ * schema validation that loading its JSON runs. Undeclared keys are ignored,
+ * as node and mark creation drops them.
+ */
+export function validAttributes(schema: Schema, type: string, attrs: Record<string, unknown>, isMark: boolean): boolean {
+  try {
+    if (isMark) schema.markFromJSON({ type, attrs });
+    else schema.nodeFromJSON({ type, attrs });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * UpdateAttributes command - updates attributes on nodes matching a type
@@ -52,6 +68,15 @@ export const updateAttributes: CommandSpec<[typeOrName: string, attributes: Reco
     }
 
     const hasChanges = nodeChanges.length > 0 || markChanges.length > 0;
+
+    // Refuse values validation rejects, as toggleList does: node creation
+    // does not validate, so the document would keep a value its JSON cannot load.
+    if (
+      nodeChanges.some(change => !validAttributes(state.schema, typeOrName, change.attrs, false))
+      || markChanges.some(change => !validAttributes(state.schema, typeOrName, change.attrs, true))
+    ) {
+      return false;
+    }
 
     if (hasChanges && dispatch) {
       // Apply node changes

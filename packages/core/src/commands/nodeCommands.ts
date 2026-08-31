@@ -5,6 +5,7 @@ import { findWrapping, liftTarget } from '@domternal/pm/transform';
 import type { Attrs, Node as PMNode } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
 import { liftCurrentListItem } from '../utils/liftCurrentListItem.js';
+import { validAttributes } from './attributeCommands.js';
 
 /**
  * SetBlockType command - changes the block type of the selection
@@ -155,7 +156,8 @@ export const wrapIn: CommandSpec<[nodeName: string, attributes?: Attrs]> =
   ({ state, tr, dispatch }) => {
     const nodeType = state.schema.nodes[nodeName];
 
-    if (!nodeType) {
+    // Wrapper creation does not validate, so refuse values validation rejects, as toggleList does.
+    if (!nodeType || (attributes && !validAttributes(state.schema, nodeName, attributes, false))) {
       return false;
     }
 
@@ -210,7 +212,7 @@ export const toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]> =
     const { state, tr, dispatch } = props;
     const nodeType = state.schema.nodes[nodeName];
 
-    if (!nodeType) {
+    if (!nodeType || (attributes && !validAttributes(state.schema, nodeName, attributes, false))) {
       return false;
     }
 

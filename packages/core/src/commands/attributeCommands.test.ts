@@ -7,8 +7,17 @@ import { Paragraph } from '../nodes/Paragraph.js';
 import { Heading } from '../nodes/Heading.js';
 import { Bold } from '../marks/Bold.js';
 import { Link } from '../marks/Link.js';
+import { Mark } from '../Mark.js';
+import { OrderedList } from '../nodes/OrderedList.js';
 
-const extensions = [Document, Text, Paragraph, Heading, Bold, Link];
+/** A mark whose attribute declares a ProseMirror validator. */
+const Tone = Mark.create({
+  name: 'tone',
+  addAttributes: () => ({ tone: { default: 'calm', validate: 'string' } }),
+  parseHTML: () => [{ tag: 'span[data-tone]' }],
+  renderHTML: ({ HTMLAttributes }) => ['span', { 'data-tone': '', ...HTMLAttributes }, 0],
+});
+const extensions = [Document, Text, Paragraph, Heading, Bold, Link, OrderedList, Tone];
 
 function setSelection(editor: Editor, from: number, to?: number): void {
   const tr = editor.state.tr.setSelection(
@@ -55,6 +64,46 @@ describe('attributeCommands', () => {
       editor = new Editor({ extensions, content: '<p>No heading here</p>' });
       setSelection(editor, 2);
       expect(editor.commands.updateAttributes('heading', { level: 2 })).toBe(false);
+    });
+
+    it('refuses node attributes that fail schema validation, matching toggleList', () => {
+      editor = new Editor({ extensions, content: '<ol><li><p>A</p></li></ol><ol><li><p>B</p></li></ol>' });
+      setSelection(editor, 3, editor.state.doc.content.size - 3);
+      const before = editor.state.doc;
+      expect(editor.can().updateAttributes('orderedList', { listStyleType: 'bogus' })).toBe(false);
+      expect(editor.commands.updateAttributes('orderedList', { listStyleType: 'bogus' })).toBe(false);
+      expect(editor.commands.updateAttributes('orderedList', { listStyleType: 7 })).toBe(false);
+      expect(editor.state.doc).toBe(before);
+      const markers = (): unknown[] => [0, 1].map(index => editor?.state.doc.child(index).attrs['listStyleType']);
+      expect(editor.commands.updateAttributes('orderedList', { listStyleType: 'upper-roman' })).toBe(true);
+      expect(markers()).toEqual(['upper-roman', 'upper-roman']);
+      expect(editor.commands.updateAttributes('orderedList', { listStyleType: null })).toBe(true);
+      expect(markers()).toEqual([null, null]);
+    });
+
+    it('judges the resulting attributes, so a stored unknown marker blocks other changes until it is replaced', () => {
+      editor = new Editor({ extensions, content: '<ol><li><p>A</p></li></ol>' });
+      editor.view.dispatch(editor.state.tr.setNodeAttribute(0, 'listStyleType', 'bogus'));
+      setSelection(editor, 3);
+      expect(editor.commands.updateAttributes('orderedList', { start: 3 })).toBe(false);
+      expect(editor.commands.updateAttributes('orderedList', { start: 3, listStyleType: 'lower-alpha' })).toBe(true);
+      expect(editor.state.doc.firstChild?.attrs).toMatchObject({ start: 3, listStyleType: 'lower-alpha' });
+    });
+
+    it('refuses mark attributes that fail schema validation', () => {
+      editor = new Editor({ extensions, content: '<p><span data-tone="">Text</span></p>' });
+      setSelection(editor, 1, 5);
+      expect(editor.commands.updateAttributes('tone', { tone: 5 })).toBe(false);
+      expect(editor.state.doc.firstChild?.firstChild?.marks[0]?.attrs['tone']).toBe('calm');
+      expect(editor.commands.updateAttributes('tone', { tone: 'warm' })).toBe(true);
+      expect(editor.state.doc.firstChild?.firstChild?.marks[0]?.attrs['tone']).toBe('warm');
+    });
+
+    it('still ignores attributes the type does not declare', () => {
+      editor = new Editor({ extensions, content: '<h1>Title</h1>' });
+      setSelection(editor, 2);
+      expect(editor.commands.updateAttributes('heading', { level: 2, unknown: 'x' })).toBe(true);
+      expect(editor.getHTML()).toBe('<h2>Title</h2>');
     });
   });
 

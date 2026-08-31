@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { TextSelection, SelectionRange } from '@domternal/pm/state';
+import type { Attrs } from '@domternal/pm/model';
 import { toggleWrap, lift } from './nodeCommands.js';
 import { Editor } from '../Editor.js';
 import { Document } from '../nodes/Document.js';
@@ -322,6 +323,18 @@ describe('nodeCommands', () => {
       expect(editor.commands.wrapIn('nonexistent')).toBe(false);
     });
 
+    it('refuses attributes that fail schema validation, matching toggleList and updateAttributes', () => {
+      editor = new Editor({ extensions: listExtensions, content: '<p>A</p>' });
+      setSelection(editor, 2);
+      const before = editor.state.doc;
+      expect(editor.can().wrapIn('orderedList', { listStyleType: 'bogus' })).toBe(false);
+      expect(editor.commands.wrapIn('orderedList', { listStyleType: 'bogus' })).toBe(false);
+      expect(editor.commands.toggleWrap('bulletList', { listStyleType: 'decimal' })).toBe(false);
+      expect(editor.state.doc).toBe(before);
+      expect(editor.commands.wrapIn('orderedList', { listStyleType: 'upper-roman' })).toBe(true);
+      expect(editor.getJSON().content?.[0]?.attrs?.['listStyleType']).toBe('upper-roman');
+    });
+
     describe('dissolve-list-item fallback (Notion-style /quote in label)', () => {
       it('cursor in BULLET label + wrapIn("blockquote") dissolves the bullet, wraps the resulting paragraph', () => {
         editor = new Editor({
@@ -434,6 +447,7 @@ describe('nodeCommands', () => {
       ranges: SelectionRange[],
       nodeName: string,
       dispatch: boolean,
+      attributes?: Attrs,
     ): boolean {
       const state = ed.state;
       const tr = state.tr;
@@ -445,7 +459,7 @@ describe('nodeCommands', () => {
         to: ranges[ranges.length - 1]!.$to.pos,
       };
       Object.defineProperty(tr, 'selection', { value: fakeSel, configurable: true });
-      const cmd = toggleWrap(nodeName);
+      const cmd = toggleWrap(nodeName, attributes);
       return cmd({
         editor: ed,
         state,
@@ -486,6 +500,16 @@ describe('nodeCommands', () => {
       const r2 = new SelectionRange(doc.resolve(6), doc.resolve(9));
       const result = invoke(editor, [r1, r2], 'blockquote', false);
       expect(result).toBe(true);
+    });
+
+    it('multi-range: refuses attributes that fail schema validation', () => {
+      editor = new Editor({ extensions: listExtensions, content: '<p>foo</p><p>bar</p>' });
+      const doc = editor.state.doc;
+      const r1 = new SelectionRange(doc.resolve(1), doc.resolve(4));
+      const r2 = new SelectionRange(doc.resolve(6), doc.resolve(9));
+      expect(invoke(editor, [r1, r2], 'orderedList', false, { listStyleType: 'bogus' })).toBe(false);
+      expect(invoke(editor, [r1, r2], 'orderedList', true, { listStyleType: 'bogus' })).toBe(false);
+      expect(editor.state.doc).toBe(doc);
     });
   });
 
