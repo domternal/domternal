@@ -2,14 +2,14 @@
 
 Opt-in clipboard HTML cleanup for Domternal. MIT licensed and part of Free.
 
-**Development status:** this is the initial HTML normalization foundation on the
-Import feature branch. It is not a released DOCX importer or a claim of complete
-Word, Google Docs, or LibreOffice fidelity. Strict inline Office list metadata and
+**Development status:** unreleased. This package is not a DOCX importer and makes
+no claim of complete Word, Google Docs, or LibreOffice fidelity. Its behavior is
+verified with synthetic clipboard input; native Word, Google Docs, and LibreOffice
+clipboard captures are not yet verified. Strict inline Office list metadata and
 a bounded subset of inherited formatting are supported. Optional local image
 preparation supports image-only pastes and explicit application-supplied bindings.
 An explicit resolver mode can stage those raster assets in application-owned storage.
-Automatic Office image association, stylesheet resolution and the Pro DOCX
-workflow remain subsequent work.
+Automatic Office image association and stylesheet resolution remain subsequent work.
 
 ## Editor integration
 
@@ -299,7 +299,8 @@ Accepted insertion is isolated from adjacent typing in history.
 is no longer necessarily inside the initial native event. `onPasteResult` waits
 for preparation and synchronous insertion to settle. Known pre-insertion rejection
 can include `reason`: `cancelled`, `superseded`, `target-changed`,
-`unsupported-destination`, `assets-unavailable`, `asset-limit` or `asset-read-failed`.
+`unsupported-destination`, `unsupported-content`, `assets-unavailable`, `asset-limit`
+or `asset-read-failed`.
 An accepted receipt takes precedence over cancellation or an observer throwing
 after the document changed. An unknown custom-handler outcome remains `untracked`.
 
