@@ -303,6 +303,25 @@ describe('resolveInlineInheritance', () => {
     expect(() => resolve(full, { maxDepth: 13 })).toThrow(InheritanceLimitError);
   });
 
+  it('enforces exact adapt semantic wrapper node and depth budgets before wrapper allocation', () => {
+    const adapt = { formatting: 'adapt' } as const;
+    // Adapt omits the typography carrier, so each budget is exactly one below preserve.
+    const html = '<p style="font-weight:bold;font-style:italic;color:red"><br></p>';
+    expect(() => resolve(html, { ...adapt, maxNodes: 4, maxDepth: 4 })).not.toThrow();
+    expect(() => resolve(html, { ...adapt, maxNodes: 3 })).toThrow(InheritanceLimitError);
+    expect(() => resolve(html, { ...adapt, maxDepth: 3 })).toThrow(InheritanceLimitError);
+    const full = '<p><span style="font-family:Georgia;font-size:14pt;color:red"><b><i><u><s><sub><br></sub></s></u></i></b></span></p>';
+    expect(resolve(full, { ...adapt, maxNodes: 13, maxDepth: 13 }).html)
+      .toBe('<p><span><span><span><span><span><span><strong><em><u><s><sub><br></sub></s></u></em></strong></span></span></span></span></span></span></p>');
+    expect(() => resolve(full, { ...adapt, maxNodes: 12 })).toThrow(InheritanceLimitError);
+    expect(() => resolve(full, { ...adapt, maxDepth: 12 })).toThrow(InheritanceLimitError);
+    const tree = parseBoundedHTML(html, limits);
+    const paragraph = tree.children[0] as Element; const [only] = paragraph.children;
+    expect(() => { resolveInlineInheritance(tree, { ...limits, ...adapt, maxNodes: 3 }); }).toThrow(InheritanceLimitError);
+    expect(paragraph.children).toEqual([only]);
+    expect((only as Element).tagName).toBe('br');
+  });
+
   it('charges every repeated break style even when no source text exists', () => {
     const html = '<p style="font-family:Georgia"><br><br></p>';
     // Each generated family declaration uses 11 name units, 7 value units and 2 separators.

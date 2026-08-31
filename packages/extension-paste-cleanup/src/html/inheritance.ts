@@ -143,6 +143,8 @@ export function resolveInlineInheritance(
 ): void {
   // Adapt keeps semantic emphasis but never materializes source typography onto leaves.
   const preserve = options.formatting !== 'adapt';
+  // The parser clones misnested formatting elements with the same source location; report each declaration once.
+  const adaptedDeclarations = new Set<string>();
   const maxStyleLength = options.maxInputLength ?? 2_000_000;
   if (!Number.isSafeInteger(options.maxNodes) || options.maxNodes < 1 || options.maxNodes > 30_000
     || !Number.isSafeInteger(options.maxDepth) || options.maxDepth < 1 || options.maxDepth > 128
@@ -209,7 +211,7 @@ export function resolveInlineInheritance(
       const { styles, removed } = readInheritanceStyles(child.properties.style, tag === 'img', tag);
       let unsupported = removed;
       // One adapted finding per discarded source property, reported on its declaring element.
-      let adapted = 0;
+      const adapted: string[] = [];
       if (tag === 'b' || tag === 'strong') state.bold = true;
       if (tag === 'i' || tag === 'em') state.italic = true;
       if (tag === 'mark') { state.defaultHighlight = true; delete state.highlight; delete state.highlightToken; }
@@ -234,23 +236,23 @@ export function resolveInlineInheritance(
         unsupported = true;
       }
       const family = styles.get('font-family');
-      if (family !== undefined) { state.family = family; adapted++; }
+      if (family !== undefined) { state.family = family; adapted.push('font-family'); }
       const size = styles.get('font-size');
       if (size !== undefined) {
-        adapted++;
+        adapted.push('font-size');
         const resolved = resolveSize(size, inherited.size);
         // An unknown relative base is a loss only when typography is preserved.
         if (resolved === undefined) { delete state.size; unsupported ||= preserve; }
         else state.size = resolved;
       }
       const color = styles.get('color');
-      if (color !== undefined) { state.color = color; delete state.colorToken; adapted++; }
+      if (color !== undefined) { state.color = color; delete state.colorToken; adapted.push('color'); }
       // Inline backgrounds paint behind their descendants. Block and cell fills
       // stay on their owners and must not become text highlight marks.
       const highlight = styles.get('background-color');
       if (inline && highlight !== undefined) {
         if (!fullyTransparent(highlight)) {
-          state.highlight = highlight; state.defaultHighlight = false; delete state.highlightToken; adapted++;
+          state.highlight = highlight; state.defaultHighlight = false; delete state.highlightToken; adapted.push('background-color');
         } else if (tag === 'mark') {
           state.defaultHighlight = inherited.defaultHighlight;
           if (inherited.highlight !== undefined) state.highlight = inherited.highlight;
@@ -258,13 +260,11 @@ export function resolveInlineInheritance(
         }
         styles.delete('background-color');
       }
-      // A mark without its own background paints the default highlight.
-      if (tag === 'mark' && highlight === undefined) adapted++;
       if (inline) {
         for (const [key, stateKey] of [['dataTextColor', 'colorToken'], ['dataBgColor', 'highlightToken']] as const) {
           const token = child.properties[key];
           if (typeof token === 'string' && /^[a-z][a-z0-9-]{0,63}$/.test(token)) {
-            state[stateKey] = token; adapted++;
+            state[stateKey] = token; adapted.push(key);
             if (stateKey === 'colorToken') delete state.color;
             else { delete state.highlight; state.defaultHighlight = false; }
           } else if (token !== undefined) unsupported = true;
@@ -272,12 +272,24 @@ export function resolveInlineInheritance(
         delete child.properties['dataTextColor'];
         delete child.properties['dataBgColor'];
       }
+      // A mark paints the default highlight only when neither a background nor a highlight token replaces it.
+      if (tag === 'mark' && highlight === undefined && state.defaultHighlight) adapted.push('mark');
       for (const key of inheritedKeys) styles.delete(key);
       if (styles.size > 0) child.properties.style = serializeStyles(styles);
       else delete child.properties.style;
       if (neutralTags.has(tag)) child.tagName = 'span';
       if (unsupported) onUnsupported?.(child);
-      if (!preserve) for (let count = 0; count < adapted; count++) onAdapted?.(child);
+      if (!preserve) {
+        const offset = child.position?.start.offset;
+        for (const property of adapted) {
+          if (offset !== undefined) {
+            const declaration = `${String(offset)}:${property}`;
+            if (adaptedDeclarations.has(declaration)) continue;
+            adaptedDeclarations.add(declaration);
+          }
+          onAdapted?.(child);
+        }
+      }
       visit(child, state, depth + 1);
       children.push(tag === 'br' ? wrapLeaf(child, state, depth + 1) : child);
     }

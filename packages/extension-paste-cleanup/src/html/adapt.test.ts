@@ -31,6 +31,17 @@ describe('adapt through the public normalizer', () => {
     expect(result.diagnostics).toEqual([adapted(3), adapted(3)]);
   });
 
+  it('counts a mark default highlight only when no highlight token replaces it', () => {
+    expect(normalizePasteHTML('<p><mark data-bg-color="red">M</mark></p>', { formatting: 'adapt' }).diagnostics).toEqual([adapted(3)]);
+    expect(normalizePasteHTML('<p><mark data-text-color="red">M</mark></p>', { formatting: 'adapt' }).diagnostics).toEqual([adapted(3), adapted(3)]);
+  });
+
+  it('reports a declaration once when the parser duplicates a misnested formatting element', () => {
+    const result = normalizePasteHTML('<p><font style="color:red">A</p><p>B</p><p>C</font></p>', { formatting: 'adapt' });
+    expect(result.html).toBe('<p>A</p><p>B</p><p>C</p>');
+    expect(result.diagnostics.filter(item => item.code === 'formatting-adapted')).toEqual([adapted(3)]);
+  });
+
   it('treats an unknown relative size as adaptation, not as a preserved-typography loss', () => {
     const html = '<p style="font-size:2em">Unknown</p>';
     expect(normalizePasteHTML(html, { formatting: 'adapt' })).toMatchObject({ html: '<p>Unknown</p>', diagnostics: [adapted(0)] });
@@ -48,7 +59,7 @@ describe('adapt through the public normalizer', () => {
   describe('resource boundaries', () => {
     const paragraphs = '<p>x</p>'.repeat(20);
 
-    it('charges only semantic wrappers against the node budget', () => {
+    it('generates no typography carriers against the node budget', () => {
       const html = `<div style="color:red">${paragraphs}</div>`;
       const accepted = normalizePasteHTML(html, { formatting: 'adapt', limits: { maxNodes: 44 } });
       expect(accepted).toMatchObject({ status: 'cleaned', html: `<div>${paragraphs}</div>`, diagnostics: [adapted(0)] });
