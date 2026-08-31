@@ -51,18 +51,26 @@ const schema: Schema = {
 const severityRank: Readonly<Record<PasteDiagnostic['severity'], number>> = { info: 0, warning: 1, error: 2 };
 
 /**
- * Append within a fixed allowance and report whether anything was omitted. A full allowance keeps
- * the most severe findings: an error displaces a warning or info and a warning displaces an info,
- * so intentional adaptation never hides a loss or the refusal reason. Retained order stays emission order.
+ * Append within a fixed allowance and report whether anything was omitted. When the allowance is full,
+ * a new finding replaces the least severe retained finding that is less severe than itself, choosing
+ * the newest of equally least severe ones; otherwise the new finding is dropped. An error therefore
+ * displaces infos before warnings and a warning displaces an info, so the allowance keeps the most
+ * severe findings and intentional adaptation never hides a loss or the refusal reason. Retained order
+ * stays emission order.
  */
 export function retainDiagnostic(diagnostics: PasteDiagnostic[], diagnostic: PasteDiagnostic, maxDiagnostics: number): boolean {
   if (diagnostics.length < maxDiagnostics) { diagnostics.push(diagnostic); return false; }
+  let lowest = severityRank[diagnostic.severity];
+  let replaced: number | undefined;
   for (let index = diagnostics.length - 1; index >= 0; index--) {
     const retained = diagnostics[index];
-    if (retained === undefined || severityRank[retained.severity] >= severityRank[diagnostic.severity]) continue;
-    diagnostics.splice(index, 1);
+    if (retained === undefined || severityRank[retained.severity] >= lowest) continue;
+    lowest = severityRank[retained.severity];
+    replaced = index;
+  }
+  if (replaced !== undefined) {
+    diagnostics.splice(replaced, 1);
     diagnostics.push(diagnostic);
-    break;
   }
   return true;
 }

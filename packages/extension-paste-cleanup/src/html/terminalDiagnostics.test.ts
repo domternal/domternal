@@ -1,8 +1,9 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { normalizePasteHTML } from './index.js';
-import { normalizeClipboardHTML } from './normalize.js';
+import { normalizeClipboardHTML, retainDiagnostic } from './normalize.js';
 import type { PasteDestinationFeature } from './destinationDemand.js';
+import type { PasteDiagnostic } from './types.js';
 
 const warnings = '<p style="position:fixed">A</p><p style="position:fixed">B</p><p style="position:fixed">C</p>';
 const warning = { code: 'unsupported-formatting', severity: 'warning' };
@@ -83,5 +84,60 @@ describe('severity priority under a full diagnostic allowance', () => {
     expect(result.diagnosticsTruncated).toBe(true);
     expect(result.diagnostics.map(item => item.code)).toEqual(['formatting-adapted', 'formatting-adapted', 'unsupported-formatting']);
     expect(result.diagnostics.at(-1)?.offset).toBe(html.indexOf('<p style="position:fixed">'));
+  });
+
+  it('lets a terminal error displace an earlier info before a later warning', () => {
+    const html = '<p><span style="color:red">a</span><span style="mso-font-kerning:0pt">b</span></p>'
+      + '<p><span style="font-weight:700;font-style:italic">t</span></p>'.repeat(3);
+    const options = { formatting: 'adapt', limits: { maxNodes: 18 } } as const;
+    const roomy = normalizePasteHTML(html, { ...options, limits: { ...options.limits, maxDiagnostics: 3 } });
+    expect(roomy).toMatchObject({ status: 'rejected', html: '', diagnosticsTruncated: false });
+    expect(roomy.diagnostics).toEqual([
+      { code: 'formatting-adapted', severity: 'info', offset: html.indexOf('<span') },
+      { code: 'unsupported-formatting', severity: 'warning', offset: html.indexOf('<span style="mso') },
+      { code: 'structure-limit', severity: 'error' },
+    ]);
+
+    const result = normalizePasteHTML(html, { ...options, limits: { ...options.limits, maxDiagnostics: 2 } });
+    expect(result).toMatchObject({ status: 'rejected', html: '', diagnosticsTruncated: true });
+    expect(result.diagnostics).toEqual([roomy.diagnostics[1], roomy.diagnostics[2]]);
+  });
+});
+
+describe('retainDiagnostic', () => {
+  const info = (offset: number): PasteDiagnostic => ({ code: 'formatting-adapted', severity: 'info', offset });
+  const warn = (offset: number): PasteDiagnostic => ({ code: 'unsupported-formatting', severity: 'warning', offset });
+  const error: PasteDiagnostic = { code: 'structure-limit', severity: 'error' };
+
+  it('appends without truncation while the allowance has room', () => {
+    const retained = [info(1)];
+    expect(retainDiagnostic(retained, warn(2), 2)).toBe(false);
+    expect(retained).toEqual([info(1), warn(2)]);
+  });
+
+  it('replaces the least severe retained finding, not the newest less severe one', () => {
+    const retained = [info(1), warn(2)];
+    expect(retainDiagnostic(retained, error, 2)).toBe(true);
+    expect(retained).toEqual([warn(2), error]);
+  });
+
+  it('replaces the newest of equally least severe findings and keeps emission order', () => {
+    const retained = [info(1), info(2), warn(3)];
+    expect(retainDiagnostic(retained, error, 3)).toBe(true);
+    expect(retained).toEqual([info(1), warn(3), error]);
+
+    const mixed = [warn(1), info(2), warn(3), info(4)];
+    expect(retainDiagnostic(mixed, warn(5), 4)).toBe(true);
+    expect(mixed).toEqual([warn(1), info(2), warn(3), warn(5)]);
+  });
+
+  it.each([
+    ['an info among infos', [info(1), info(2)], info(3)],
+    ['a warning among warnings and errors', [warn(1), error], warn(3)],
+    ['an error among errors', [error, error], error],
+  ])('drops %s and reports truncation', (_, initial, next) => {
+    const retained = [...initial];
+    expect(retainDiagnostic(retained, next, 2)).toBe(true);
+    expect(retained).toEqual(initial);
   });
 });
