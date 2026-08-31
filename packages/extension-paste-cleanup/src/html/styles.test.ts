@@ -1,0 +1,30 @@
+// @vitest-environment node
+import { describe, expect, it } from 'vitest';
+import { readSafeStyles } from './styles.js';
+import { normalizePasteHTML } from './index.js';
+
+const inheritedNames = ['constructor', '__proto__', 'CONSTRUCTOR', '__PROTO__'];
+
+describe('safe CSS rule lookup', () => {
+  it.each(inheritedNames)('removes a %s declaration without discarding its valid sibling', name => {
+    expect(readSafeStyles(`${name}:x;color:red`)).toEqual({ styles: new Map([['color', 'red']]), removed: true });
+    expect(readSafeStyles(`${name}:auto;float:LEFT`, true)).toEqual({ styles: new Map([['float', 'left']]), removed: true });
+  });
+
+  it.each(['preserve', 'adapt'] as const)('keeps a %s paste whose pasted style names inherited object keys', formatting => {
+    const html = '<p><span style="constructor:1;__proto__:2;font-weight:bold;color:#123456">Text</span></p>';
+    const result = normalizePasteHTML(html, { formatting });
+    expect(result.status).toBe('cleaned');
+    expect(result.html).toContain('<strong>Text</strong>');
+    expect(result.html.includes('#123456')).toBe(formatting === 'preserve');
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: 'unsupported-formatting', severity: 'warning' }));
+    expect(result.diagnostics).not.toContainEqual(expect.objectContaining({ severity: 'error' }));
+  });
+
+  it('keeps an internal slice whose pasted style names an inherited object key', () => {
+    const result = normalizePasteHTML('<p data-pm-slice="1 1 []"><span style="constructor:1;color:red">Text</span></p>');
+    expect(result.status).toBe('cleaned');
+    expect(result.html).toBe('<p data-pm-slice="1 1 []"><span style="color:red">Text</span></p>');
+    expect(result.diagnostics).toEqual([expect.objectContaining({ code: 'unsupported-formatting', severity: 'warning' })]);
+  });
+});

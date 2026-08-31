@@ -24,6 +24,11 @@ const imagePlacementRules: Readonly<Record<string, RegExp>> = {
   'margin-right': /^(?:auto|0)$/i,
 };
 
+/** Declaration names come from pasted markup, so inherited keys such as `constructor` are never rules. */
+function ownRule(table: Readonly<Record<string, RegExp>>, name: string): RegExp | undefined {
+  return Object.hasOwn(table, name) ? table[name] : undefined;
+}
+
 /** A deliberately small CSS value grammar: no functions that can load resources. */
 export function readSafeStyles(value: unknown, imagePlacement = false, listTag = ''): { styles: Map<string, string>; removed: boolean } {
   const styles = new Map<string, string>();
@@ -40,9 +45,10 @@ export function readSafeStyles(value: unknown, imagePlacement = false, listTag =
       else removed = true;
       continue;
     }
-    const rule = rules[name] ?? (imagePlacement ? imagePlacementRules[name] : undefined);
+    const placement = ownRule(imagePlacementRules, name);
+    const rule = ownRule(rules, name) ?? (imagePlacement ? placement : undefined);
     if (separator < 0 || !rule?.test(content)) { removed = true; continue; }
-    styles.set(name, imagePlacementRules[name] === undefined ? content : content.toLowerCase());
+    styles.set(name, placement === undefined ? content : content.toLowerCase());
   }
   return { styles, removed };
 }
