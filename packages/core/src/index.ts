@@ -327,6 +327,7 @@ export {
   lift,
   // List commands
   toggleList,
+  normalizeListMarkers,
   // Insert commands
   insertContent,
   // Selection commands

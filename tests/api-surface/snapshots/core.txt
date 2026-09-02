@@ -260,6 +260,7 @@ NodeRenderHTMLProps
 NodeViewContext
 normalizeContent
 NormalizeContentOptions
+normalizeListMarkers
 NotionColorPicker
 NotionColorPickerOptions
 NotionColorPickerStorage
