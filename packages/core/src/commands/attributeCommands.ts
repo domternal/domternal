@@ -1,22 +1,43 @@
 /**
  * Attribute commands - updateAttributes, resetAttributes
  */
-import type { Schema } from '@domternal/pm/model';
+import type { Attrs, Schema } from '@domternal/pm/model';
 import type { CommandSpec } from '../types/Commands.js';
 
 /**
  * Whether a node or mark of this type accepts the attributes, by the same
  * schema validation that loading its JSON runs. Undeclared keys are ignored,
- * as node and mark creation drops them.
+ * as node and mark creation drops them. Attributes not given take their
+ * defaults. With `current`, the values not given are the stored ones, and
+ * when a stored value fails, the defaults stand in for them instead, so a
+ * stored value blocks the change only if the defaults fail as well. A
+ * required attribute has no default, so its stored value always stands in.
  */
-export function validAttributes(schema: Schema, type: string, attrs: Record<string, unknown>, isMark: boolean): boolean {
-  try {
-    if (isMark) schema.markFromJSON({ type, attrs });
-    else schema.nodeFromJSON({ type, attrs });
-    return true;
-  } catch {
-    return false;
+export function validAttributes(
+  schema: Schema,
+  type: string,
+  attrs: Record<string, unknown>,
+  isMark: boolean,
+  current?: Attrs,
+): boolean {
+  const accepts = (values: Record<string, unknown>): boolean => {
+    try {
+      if (isMark) schema.markFromJSON({ type, attrs: values });
+      else schema.nodeFromJSON({ type, attrs: values });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  if (current && accepts({ ...current, ...attrs })) return true;
+  const values: Record<string, unknown> = {};
+  if (current) {
+    const specs = (isMark ? schema.marks[type] : schema.nodes[type])?.spec.attrs ?? {};
+    for (const [name, spec] of Object.entries(specs)) {
+      if (!Object.hasOwn(spec, 'default')) values[name] = current[name];
+    }
   }
+  return accepts({ ...values, ...attrs });
 }
 
 /**
@@ -71,9 +92,12 @@ export const updateAttributes: CommandSpec<[typeOrName: string, attributes: Reco
 
     // Refuse values validation rejects, as toggleList does: node creation
     // does not validate, so the document would keep a value its JSON cannot load.
+    // A stored value that fails, such as an unknown list marker in an
+    // unmigrated document, stays for normalizeListMarkers to fix and does not
+    // block an unrelated change, and neither does a default that fails.
     if (
-      nodeChanges.some(change => !validAttributes(state.schema, typeOrName, change.attrs, false))
-      || markChanges.some(change => !validAttributes(state.schema, typeOrName, change.attrs, true))
+      nodeChanges.some(change => !validAttributes(state.schema, typeOrName, attributes, false, change.attrs))
+      || markChanges.some(change => !validAttributes(state.schema, typeOrName, attributes, true, change.attrs))
     ) {
       return false;
     }
