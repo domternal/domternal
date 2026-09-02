@@ -6,8 +6,19 @@ import {
   Text,
   BaseKeymap,
   History,
+  normalizeContent,
 } from '@domternal/core';
-import type { Content, AnyExtension, FocusPosition, EditorPreset, TransactionEventProps, FocusEventProps, I18nOptions } from '@domternal/core';
+import type {
+  Content,
+  AnyExtension,
+  FocusPosition,
+  EditorPreset,
+  TransactionEventProps,
+  FocusEventProps,
+  I18nOptions,
+  ContentErrorProps,
+  ContentDiagnosticProps,
+} from '@domternal/core';
 
 export const DEFAULT_EXTENSIONS: AnyExtension[] = [Document, Paragraph, Text, BaseKeymap, History];
 const EMPTY_EXTENSIONS: AnyExtension[] = [];
@@ -58,6 +69,36 @@ export interface UseEditorOptions {
   onBlur?: (props: { editor: Editor; event: FocusEvent }) => void;
   /** Called before the editor is destroyed. */
   onDestroy?: () => void;
+  /**
+   * Called when the initial content does not match the schema, so the editor
+   * starts empty. Delivered once the editor is ready, before `onCreate`.
+   */
+  onContentError?: (props: Omit<ContentErrorProps, 'editor'> & { editor: Editor }) => void;
+  /**
+   * Called when content loaded with replaced values, such as an unknown list
+   * marker that became the default marker. The report for the initial content
+   * is delivered once the editor is ready, before `onCreate`; later reports
+   * come from setContent (including a changed `content` value), insertContent
+   * and normalizeListMarkers.
+   */
+  onContentDiagnostic?: (props: Omit<ContentDiagnosticProps, 'editor'> & { editor: Editor }) => void;
+}
+
+/**
+ * Whether the editor already holds `content`, compared as JSON. Loading
+ * replaces an unknown list marker with the default marker, so `content` also
+ * counts as held once the same replacement makes it equal: a new but equal
+ * value that still carries one must not replace the document and move the
+ * selection. The plain comparison comes first, because the document itself
+ * can hold an unknown marker (a bound collaborative document before
+ * normalizeListMarkers runs), and its own JSON echoed back must not replace it.
+ */
+export function holdsJSONContent(editor: Editor, content: Content): boolean {
+  const current = JSON.stringify(editor.getJSON());
+  if (JSON.stringify(content) === current) return true;
+  if (content === null || typeof content !== 'object') return false;
+  const loaded = normalizeContent(content, editor.schema);
+  return loaded !== content && JSON.stringify(loaded) === current;
 }
 
 /**
@@ -135,6 +176,24 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
   // Track deps for recreation
   const depsRef = useRef(deps);
 
+  // Reports the editor makes while it is constructed wait here until the
+  // editor is announced, just before onCreate: its view does not exist yet,
+  // and with immediatelyRender construction runs during render. Later
+  // reports are delivered as they happen.
+  const constructionReportsRef = useRef<(() => void)[] | null>(null);
+
+  function report(deliver: () => void): void {
+    const pending = constructionReportsRef.current;
+    if (pending) pending.push(deliver);
+    else deliver();
+  }
+
+  function deliverConstructionReports(): void {
+    const pending = constructionReportsRef.current ?? [];
+    constructionReportsRef.current = null;
+    pending.forEach((deliver) => { deliver(); });
+  }
+
   /** Wire transaction, focus, blur event handlers to an editor instance. */
   function wireEvents(ed: Editor): void {
     ed.on('transaction', ({ transaction }: TransactionEventProps) => {
@@ -163,7 +222,8 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
     const defaults = history
       ? DEFAULT_EXTENSIONS
       : DEFAULT_EXTENSIONS.filter((extension) => extension.name !== 'history');
-    const ed = new Editor({
+    constructionReportsRef.current = [];
+    const ed: Editor = new Editor({
       element,
       extensions: [...defaults, ...extensions],
       content: initialContent,
@@ -171,6 +231,17 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
       autofocus: focus,
       ...(options.preset ? { preset: options.preset } : {}),
       ...(options.i18n !== undefined ? { i18n: options.i18n } : {}),
+      onContentError: (props) => {
+        report(() => { callbacksRef.current.onContentError?.({ ...props, editor: ed }); });
+      },
+      onContentDiagnostic: (props) => {
+        report(() => {
+          // Advisory, as in core: a throwing callback never interrupts the editor.
+          try {
+            callbacksRef.current.onContentDiagnostic?.({ ...props, editor: ed });
+          } catch { /* advisory */ }
+        });
+      },
     });
 
     wireEvents(ed);
@@ -189,6 +260,7 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
   function createEditorInstance(element: HTMLElement, initialContent: Content, focus: FocusPosition): Editor {
     const ed = buildEditorInstance(element, initialContent, focus);
     setEditor(ed);
+    deliverConstructionReports();
     callbacksRef.current.onCreate?.(ed);
     return ed;
   }
@@ -238,6 +310,7 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
       // EditorContent instead), then announce creation.
       const mount = editorRef.current;
       if (mount) existing.adoptDom(mount);
+      deliverConstructionReports();
       callbacksRef.current.onCreate?.(existing);
       return () => {
         destroyCurrentEditor();
@@ -326,7 +399,7 @@ export function useEditor(options: UseEditorOptions = {}, deps?: DependencyList)
         ed.setContent(content, false);
       }
     } else {
-      if (JSON.stringify(content) !== JSON.stringify(ed.getJSON())) {
+      if (!holdsJSONContent(ed, content)) {
         ed.setContent(content, false);
       }
     }

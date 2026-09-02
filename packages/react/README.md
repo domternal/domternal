@@ -96,6 +96,16 @@ export default function Editor() {
 accepted alongside them. `<Domternal>` additionally takes `deps`, the dependency array
 `useEditor` reads as its second argument: change a value in it and the editor is rebuilt.
 
+`onContentError` and `onContentDiagnostic` report what loading content changed. `onContentError`
+receives `{ editor, error, content }` when the initial content does not match the schema, so the
+editor starts empty. `onContentDiagnostic` receives `{ editor, source, diagnostics, total }` when
+content loaded with replaced values, such as an unknown list marker that became the default
+marker. The report for the initial content arrives once the editor is ready, before `onCreate`
+(with `immediatelyRender`, after the first render instead of during it). Later reports come from
+`setContent`, including a changed `content` or `value`, `insertContent`, and `normalizeListMarkers`,
+and reach the latest callback. With `outputFormat="json"`, a new `content` or `value` that equals
+the document once its unknown list markers are replaced leaves the document and selection alone.
+
 Toolbar, bubble-menu, and floating-menu `icons` props accept raw SVG through `IconSet`.
 Use only trusted, developer-authored constants. Never build an `IconSet` from user input,
 persisted document content, or an API response.
