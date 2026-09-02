@@ -385,21 +385,20 @@ const EXPECTED_PASTE_CLEANUP_WORKFLOW = {
 // this gate perfectly green.
 export const REQUIRED_SCRIPTS = ['build', 'lint', 'typecheck', 'typecheck:e2e'];
 
-// Useful cross-repository diagnostics whose required sibling checkout is not
-// present on GitHub-hosted CI. They remain available locally, but invoking one
-// in ci.yml would create a green step that enforced nothing.
-export const LOCAL_ONLY_SCRIPTS = new Set(['test:dedupe-reachable', 'test:pm-ranges']);
+// Useful cross-repository diagnostics whose input lives in a nested checkout
+// that GitHub-hosted CI does not have. They remain available locally, but
+// invoking one in ci.yml would create a green step that enforced nothing.
+// test:pm-ranges left this list once @domternal/core installed y-prosemirror
+// for its own tests: every full install now holds a ProseMirror peer for it to
+// compare, so it is an ordinary gate that CI runs in full.
+export const LOCAL_ONLY_SCRIPTS = new Set(['test:dedupe-reachable']);
 
 const LOCAL_ONLY_CONTRACTS = {
   'test:dedupe-reachable': {
     full: 'node --test tests/dedupe-reachable/check.test.mjs && node tests/dedupe-reachable/check.mjs',
     unitName: 'test:dedupe-reachable:unit',
     unit: 'node --test tests/dedupe-reachable/check.test.mjs',
-  },
-  'test:pm-ranges': {
-    full: 'node --test tests/pm-ranges/check.test.mjs && node tests/pm-ranges/check.mjs',
-    unitName: 'test:pm-ranges:unit',
-    unit: 'node --test tests/pm-ranges/check.test.mjs',
+    entry: 'tests/dedupe-reachable/check.mjs',
   },
 };
 
@@ -689,6 +688,35 @@ export function focusedBrowserWorkflowProblems(manifest, workflow) {
     }
   }
   return [...problems, ...exactStructureProblems(parsed, EXPECTED_PASTE_CLEANUP_WORKFLOW, 'paste-cleanup-e2e.yml')];
+}
+
+/** Local-only checks stay runnable locally, keep a CI unit suite, and stay out of CI. */
+export function localOnlyProblems(manifest, workflow) {
+  const problems = [];
+  // Every live run line counts here, not just wired invocations: a wrapped or
+  // conditional full run is no gate, yet its SKIPPED line still reads as a pass.
+  const runs = workflowSteps(workflow)
+    .filter((step) => typeof step.run === 'string')
+    .map((step) => liveShell(step.run));
+  for (const name of LOCAL_ONLY_SCRIPTS) {
+    const contract = LOCAL_ONLY_CONTRACTS[name];
+    if (manifest.scripts?.[name] !== contract.full) {
+      problems.push(`package.json must keep the reviewed full local-only script "${name}"`);
+      continue;
+    }
+    if (manifest.scripts?.[contract.unitName] !== contract.unit) {
+      problems.push(
+        `package.json must keep the deterministic CI script "${contract.unitName}" for "${name}"`
+      );
+    }
+    const byName = new RegExp(`(^|[^\\w:-])${name}(?![\\w:-])`, 'm');
+    if (runs.some((run) => byName.test(run) || run.includes(contract.entry))) {
+      problems.push(
+        `ci.yml runs local-only "${name}", which self-skips without its nested repository checkout`
+      );
+    }
+  }
+  return problems;
 }
 
 /** The gate scripts the workflow never invokes. */
@@ -1117,29 +1145,12 @@ function main() {
     failures.push(`ci.yml carries conditional ${skipped}, so it is not an unconditional gate`);
   }
   // Local-only checks must remain executable locally and absent from hosted CI.
-  const invoked = scriptInvocations(workflow);
-  for (const name of LOCAL_ONLY_SCRIPTS) {
-    const contract = LOCAL_ONLY_CONTRACTS[name];
-    if (manifest.scripts?.[name] !== contract.full) {
-      failures.push(`package.json must keep the reviewed full local-only script "${name}"`);
-      continue;
-    }
-    if (manifest.scripts?.[contract.unitName] !== contract.unit) {
-      failures.push(
-        `package.json must keep the deterministic CI script "${contract.unitName}" for "${name}"`
-      );
-    }
-    if (invoked.has(name)) {
-      failures.push(
-        `ci.yml runs local-only "${name}", which self-skips without a sibling repository checkout`
-      );
-    }
-  }
+  for (const problem of localOnlyProblems(manifest, workflow)) failures.push(problem);
 
   // The other direction: a step invoking a script that no longer exists would
   // fail the build with a confusing pnpm error rather than a useful one.
   const declared = new Set(Object.keys(manifest.scripts ?? {}));
-  for (const name of invoked) {
+  for (const name of scriptInvocations(workflow)) {
     if (name.startsWith('test:') && !declared.has(name)) {
       failures.push(`ci.yml runs "pnpm ${name}", which package.json does not declare`);
     }

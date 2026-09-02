@@ -149,12 +149,18 @@ jobs:
         # of any of them is a runtime crash rather than extra bytes.
         run: pnpm test:single-prosemirror
 
-      - name: Cross-repository policy unit suites
-        # The full checks need the sibling Pro checkout and remain local-only.
-        # Their parsers and contract fixtures are deterministic and belong in CI.
-        run: |
-          pnpm test:dedupe-reachable:unit
-          pnpm test:pm-ranges:unit
+      - name: ProseMirror ranges still agree
+        # Compares @domternal/pm with every installed package that takes
+        # ProseMirror as a peer. The y-prosemirror that @domternal/core installs
+        # for its collaboration tests is one, so a hosted install gives the full
+        # check real work; without any such peer it would print SKIPPED.
+        run: pnpm test:pm-ranges
+
+      - name: Dedupe reachability unit suite
+        # The full check reads the only resolve.dedupe list, which lives in the
+        # nested domternal.dev checkout a hosted runner does not have, so it
+        # stays local-only. Its parser and fixtures are deterministic.
+        run: pnpm test:dedupe-reachable:unit
 
       - name: Frozen single-copy contract
         # Every caller registering a module must pass the SAME export, or two

@@ -22,6 +22,7 @@ import {
   focusedBrowserWorkflowProblems,
   leastPrivilegePermissionProblems,
   localActionReferences,
+  localOnlyProblems,
   nonBlockingChecks,
   packageManagerConsistencyProblems,
   packageValidationProblems,
@@ -37,6 +38,9 @@ import {
 
 const repoRoot = new URL('../../', import.meta.url);
 const realCi = readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
+const realManifest = JSON.parse(
+  readFileSync(new URL('../../package.json', import.meta.url), 'utf8')
+);
 const realDependencyReview = readFileSync(
   new URL('../../.github/workflows/dependency-review.yml', import.meta.url),
   'utf8'
@@ -109,7 +113,7 @@ test('exception lists are pinned, so one word cannot silently remove a gate', ()
     'test:e2e',
     'test:e2e:matrix',
   ]);
-  assert.deepEqual([...LOCAL_ONLY_SCRIPTS].sort(), ['test:dedupe-reachable', 'test:pm-ranges']);
+  assert.deepEqual([...LOCAL_ONLY_SCRIPTS].sort(), ['test:dedupe-reachable']);
   assert.deepEqual([...FOCUSED_BROWSER_SCRIPTS], [['test:e2e:paste-cleanup', 'paste-cleanup-e2e.yml']]);
   assert.deepEqual(REQUIRED_SCRIPTS, ['build', 'lint', 'typecheck', 'typecheck:e2e']);
 });
@@ -122,7 +126,7 @@ test('checks that are not test:-prefixed are held down too', () => {
       typecheck: 'tsc',
       'typecheck:e2e': 'tsc -p e2e',
       'test:css-vars': 'node x',
-      'test:pm-ranges': 'node local-only',
+      'test:dedupe-reachable': 'node local-only',
       dev: 'vite',
     },
   };
@@ -148,6 +152,84 @@ test('only the explicitly contracted paste browser script leaves the main gate s
     'test:package-policy': 'node tests/package-policy/check.mjs',
   } };
   assert.deepEqual(gateScripts(manifest), ['test:e2e:unreviewed-feature', 'test:package-policy']);
+});
+
+test('the ProseMirror range check is an ordinary gate that CI runs in full', () => {
+  /* A hosted install holds the y-prosemirror that @domternal/core installs for
+     its own tests, so the full check has a peer to compare there. Going back
+     to its unit suite alone would leave that comparison unenforced. */
+  assert.ok(gateScripts(realManifest).includes('test:pm-ranges'));
+  assert.ok(scriptInvocations(realCi).has('test:pm-ranges'));
+  assert.deepEqual(gateExecutionProblems(realCi, ['test:pm-ranges']), []);
+  assert.deepEqual(localOnlyProblems(realManifest, realCi), []);
+
+  const unitOnly = realCi.replace(
+    '        run: pnpm test:pm-ranges\n',
+    '        run: pnpm test:pm-ranges:unit\n'
+  );
+  assert.notEqual(unitOnly, realCi);
+  assert.deepEqual(unwiredScripts(['test:pm-ranges'], unitOnly), ['test:pm-ranges']);
+});
+
+test('the dedupe check stays local-only, with just its unit suite in CI', () => {
+  assert.deepEqual(localOnlyProblems(realManifest, realCi), []);
+  assert.ok(gateScripts(realManifest).includes('test:dedupe-reachable:unit'));
+  assert.equal(gateScripts(realManifest).includes('test:dedupe-reachable'), false);
+  assert.ok(scriptInvocations(realCi).has('test:dedupe-reachable:unit'));
+
+  const fullInCi = realCi.replace(
+    '        run: pnpm test:dedupe-reachable:unit\n',
+    '        run: pnpm test:dedupe-reachable\n'
+  );
+  assert.notEqual(fullInCi, realCi);
+  assert.match(
+    localOnlyProblems(realManifest, fullInCi).join('\n'),
+    /runs local-only "test:dedupe-reachable"/
+  );
+
+  const withoutUnit = { ...realManifest.scripts };
+  delete withoutUnit['test:dedupe-reachable:unit'];
+  assert.match(
+    localOnlyProblems({ scripts: withoutUnit }, realCi).join('\n'),
+    /CI script "test:dedupe-reachable:unit"/
+  );
+  const rewritten = { ...realManifest.scripts, 'test:dedupe-reachable': 'echo skipped' };
+  assert.match(
+    localOnlyProblems({ scripts: rewritten }, realCi).join('\n'),
+    /full local-only script "test:dedupe-reachable"/
+  );
+});
+
+test('the full dedupe check is refused in CI however the step reaches it', () => {
+  /* A wrapped, filtered, conditional or direct run is not a wired gate, but it
+     still prints a SKIPPED line that reads as a pass. Only the unit suite, or a
+     commented-out mention, may appear. */
+  const unitStep = '        run: pnpm test:dedupe-reachable:unit\n';
+  for (const extra of [
+    'run: pnpm test:dedupe-reachable && true',
+    'run: pnpm test:dedupe-reachable || true',
+    'run: pnpm --filter . test:dedupe-reachable',
+    'run: node tests/dedupe-reachable/check.mjs',
+    "if: github.event_name == 'schedule'\n        run: pnpm test:dedupe-reachable",
+  ]) {
+    const changed = realCi.replace(
+      unitStep,
+      `${unitStep}\n      - name: Probe\n        ${extra}\n`
+    );
+    assert.notEqual(changed, realCi);
+    assert.match(
+      localOnlyProblems(realManifest, changed).join('\n'),
+      /runs local-only "test:dedupe-reachable"/,
+      extra
+    );
+  }
+
+  const commented = realCi.replace(
+    unitStep,
+    '        run: |\n          # pnpm test:dedupe-reachable\n          pnpm test:dedupe-reachable:unit\n'
+  );
+  assert.notEqual(commented, realCi);
+  assert.deepEqual(localOnlyProblems(realManifest, commented), []);
 });
 
 test('the focused paste browser workflow executes the exact reviewed script and runner', () => {
