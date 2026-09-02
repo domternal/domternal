@@ -99,7 +99,7 @@ Beyond the lint, type and test runs above, CI runs a set of standalone checks. E
 
 A gate that fails prints what to do about it. If you are adding one, give it unit tests and prove it fails by breaking the thing it guards, then putting it back. Add it to CI in the same commit: `pnpm test:ci-wiring` will otherwise fail, which is the point of it.
 
-Two of them do their real work only on a machine that has the nested `domternal.dev` checkout, and print `SKIPPED` in CI rather than a green line they have not earned: `test:dedupe-reachable` (the only `resolve.dedupe` list lives there) and `test:pm-ranges` (it is the only importer that pulls in y-prosemirror). `pnpm test:ci-wiring` counts them apart for that reason.
+Two of them run only locally, and CI runs just their unit tests. `test:dedupe-reachable` does its real work only on a machine that has the nested `domternal.dev` checkout, where the only `resolve.dedupe` list lives, and prints `SKIPPED` without it. `test:pm-ranges` compares `@domternal/pm` with every installed package that takes ProseMirror as a peer, which includes the y-prosemirror that `@domternal/core` installs for its collaboration tests, so it does real work after any full install. `pnpm test:ci-wiring` counts them apart for that reason.
 
 Two more runs cover ground the gates do not. `pnpm lint` finishes with an ESLint pass over `tests/`, `scripts/` and `e2e/`, which no package owns, and `pnpm typecheck:e2e` type-checks the matrix suite against `e2e/tsconfig.json`. Coverage floors live in each package's `vitest.config.ts` and are enforced by `pnpm test:coverage`.
 
