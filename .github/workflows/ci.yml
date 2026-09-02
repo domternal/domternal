@@ -231,6 +231,7 @@ jobs:
           # Upload only inert coverage data. Never pass a repository-created
           # archive into the OIDC job or extract one into its filesystem.
           path: |
+            packages/angular/coverage/lcov.info
             packages/core/coverage/lcov.info
             packages/extension-block-controls/coverage/lcov.info
             packages/extension-code-block-lowlight/coverage/lcov.info
@@ -304,6 +305,7 @@ jobs:
         run: |
           set -euo pipefail
           for report in \
+            "$GITHUB_WORKSPACE/packages/angular/coverage/lcov.info" \
             "$GITHUB_WORKSPACE/packages/core/coverage/lcov.info" \
             "$GITHUB_WORKSPACE/packages/extension-block-controls/coverage/lcov.info" \
             "$GITHUB_WORKSPACE/packages/extension-code-block-lowlight/coverage/lcov.info" \
@@ -334,4 +336,4 @@ jobs:
           version: v11.3.1
           fail_ci_if_error: true
           disable_search: true
-          files: ${{ github.workspace }}/packages/core/coverage/lcov.info,${{ github.workspace }}/packages/extension-block-controls/coverage/lcov.info,${{ github.workspace }}/packages/extension-code-block-lowlight/coverage/lcov.info,${{ github.workspace }}/packages/extension-details/coverage/lcov.info,${{ github.workspace }}/packages/extension-emoji/coverage/lcov.info,${{ github.workspace }}/packages/extension-image/coverage/lcov.info,${{ github.workspace }}/packages/extension-markdown/coverage/lcov.info,${{ github.workspace }}/packages/extension-math/coverage/lcov.info,${{ github.workspace }}/packages/extension-mention/coverage/lcov.info,${{ github.workspace }}/packages/extension-paste-cleanup/coverage/lcov.info,${{ github.workspace }}/packages/extension-table/coverage/lcov.info,${{ github.workspace }}/packages/extension-toc/coverage/lcov.info,${{ github.workspace }}/packages/react/coverage/lcov.info,${{ github.workspace }}/packages/vanilla/coverage/lcov.info,${{ github.workspace }}/packages/vue/coverage/lcov.info
+          files: ${{ github.workspace }}/packages/angular/coverage/lcov.info,${{ github.workspace }}/packages/core/coverage/lcov.info,${{ github.workspace }}/packages/extension-block-controls/coverage/lcov.info,${{ github.workspace }}/packages/extension-code-block-lowlight/coverage/lcov.info,${{ github.workspace }}/packages/extension-details/coverage/lcov.info,${{ github.workspace }}/packages/extension-emoji/coverage/lcov.info,${{ github.workspace }}/packages/extension-image/coverage/lcov.info,${{ github.workspace }}/packages/extension-markdown/coverage/lcov.info,${{ github.workspace }}/packages/extension-math/coverage/lcov.info,${{ github.workspace }}/packages/extension-mention/coverage/lcov.info,${{ github.workspace }}/packages/extension-paste-cleanup/coverage/lcov.info,${{ github.workspace }}/packages/extension-table/coverage/lcov.info,${{ github.workspace }}/packages/extension-toc/coverage/lcov.info,${{ github.workspace }}/packages/react/coverage/lcov.info,${{ github.workspace }}/packages/vanilla/coverage/lcov.info,${{ github.workspace }}/packages/vue/coverage/lcov.info

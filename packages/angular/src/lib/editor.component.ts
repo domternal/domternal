@@ -24,10 +24,39 @@ import {
   Text,
   BaseKeymap,
   History,
+  normalizeContent,
 } from '@domternal/core';
-import type { Content, AnyExtension, FocusPosition, EditorPreset, I18nOptions, JSONContent, TransactionEventProps, FocusEventProps } from '@domternal/core';
+import type {
+  Content,
+  AnyExtension,
+  FocusPosition,
+  EditorPreset,
+  I18nOptions,
+  JSONContent,
+  TransactionEventProps,
+  FocusEventProps,
+  ContentErrorProps,
+  ContentDiagnosticProps,
+} from '@domternal/core';
 
 export const DEFAULT_EXTENSIONS: AnyExtension[] = [Document, Paragraph, Text, BaseKeymap, History];
+
+/**
+ * Whether the editor already holds `content`, compared as JSON. Loading
+ * replaces an unknown list marker with the default marker, so `content` also
+ * counts as held once the same replacement makes it equal: a new but equal
+ * value that still carries one must not replace the document and move the
+ * selection. The plain comparison comes first, because the document itself
+ * can hold an unknown marker (a bound collaborative document before
+ * normalizeListMarkers runs), and its own JSON echoed back must not replace it.
+ */
+function holdsJSONContent(editor: Editor, content: Content): boolean {
+  const current = JSON.stringify(editor.getJSON());
+  if (JSON.stringify(content) === current) return true;
+  if (content === null || typeof content !== 'object') return false;
+  const loaded = normalizeContent(content, editor.schema);
+  return loaded !== content && JSON.stringify(loaded) === current;
+}
 
 @Component({
   selector: 'domternal-editor',
@@ -75,6 +104,19 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
   readonly focusChanged = output<{ editor: Editor; event: FocusEvent }>();
   readonly blurChanged = output<{ editor: Editor; event: FocusEvent }>();
   readonly editorDestroyed = output();
+  /**
+   * The initial content does not match the schema, so the editor starts
+   * empty. Emitted once the editor is ready, before `editorCreated`.
+   */
+  readonly contentError = output<Omit<ContentErrorProps, 'editor'> & { editor: Editor }>();
+  /**
+   * Content loaded with replaced values, such as an unknown list marker that
+   * became the default marker. The report for the initial content is emitted
+   * once the editor is ready, before `editorCreated`; later reports come from
+   * setContent (including a changed `content` input or form value),
+   * insertContent and normalizeListMarkers.
+   */
+  readonly contentDiagnostic = output<Omit<ContentDiagnosticProps, 'editor'> & { editor: Editor }>();
 
   // === Signals (read-only public state) ===
   private _htmlContent = signal('');
@@ -137,13 +179,10 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
       if (!this._editor || this._editor.isDestroyed) return;
       const ed = this._editor;
       untracked(() => {
-        const current = format === 'html'
-          ? ed.getHTML()
-          : JSON.stringify(ed.getJSON());
-        const incoming = format === 'html'
-          ? (content as string)
-          : JSON.stringify(content);
-        if (incoming !== current) {
+        const holds = format === 'html'
+          ? content === ed.getHTML()
+          : holdsJSONContent(ed, content);
+        if (!holds) {
           ed.setContent(content, false);
         }
       });
@@ -181,7 +220,7 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
     if (this.outputFormat() === 'html') {
       if (value === this._editor.getHTML()) return;
     } else {
-      if (JSON.stringify(value) === JSON.stringify(this._editor.getJSON())) return;
+      if (holdsJSONContent(this._editor, value)) return;
     }
 
     this._editor.setContent(value, false);
@@ -223,7 +262,16 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
     const preset = this.preset();
     const i18n = this.i18n();
     this._hadI18nInput = i18n !== undefined;
-    this._editor = new Editor({
+
+    // Reports the editor makes while it is constructed wait until it is
+    // announced, just before editorCreated: its view does not exist yet.
+    let constructionReports: (() => void)[] | null = [];
+    const report = (deliver: () => void): void => {
+      if (constructionReports) constructionReports.push(deliver);
+      else deliver();
+    };
+
+    const editor: Editor = new Editor({
       element: this.editorRef().nativeElement,
       extensions: [...defaults, ...this.extensions()],
       content: initialContent,
@@ -231,16 +279,22 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
       autofocus: this.autofocus(),
       ...(preset ? { preset } : {}),
       ...(i18n !== undefined ? { i18n } : {}),
+      onContentError: (props) => {
+        report(() => { this.ngZone.run(() => { this.contentError.emit({ ...props, editor }); }); });
+      },
+      onContentDiagnostic: (props) => {
+        report(() => { this.ngZone.run(() => { this.contentDiagnostic.emit({ ...props, editor }); }); });
+      },
     });
+    this._editor = editor;
 
     this._isEditable.set(this.editable());
 
     // Set initial signal values
-    this._htmlContent.set(this._editor.getHTML());
-    this._jsonContent.set(this._editor.getJSON());
-    this._isEmpty.set(this._editor.isEmpty);
+    this._htmlContent.set(editor.getHTML());
+    this._jsonContent.set(editor.getJSON());
+    this._isEmpty.set(editor.isEmpty);
 
-    const editor = this._editor;
     editor.on('transaction', ({ transaction }: TransactionEventProps) => {
       this.ngZone.run(() => {
         const ed = editor;
@@ -281,6 +335,10 @@ export class DomternalEditorComponent implements ControlValueAccessor, OnDestroy
         this.onTouched();
       });
     });
+
+    const reports = constructionReports;
+    constructionReports = null;
+    reports.forEach((deliver) => { deliver(); });
 
     // Emit editor created
     this.ngZone.run(() => {

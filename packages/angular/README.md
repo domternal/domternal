@@ -126,6 +126,22 @@ export class FormEditorComponent {
 }
 ```
 
+### Content reports
+
+`contentError` emits `{ editor, error, content }` when the initial content does not match the
+schema, so the editor starts empty. `contentDiagnostic` emits `{ editor, source, diagnostics, total }`
+when content loaded with replaced values, such as an unknown list marker that became the default
+marker. The report for the initial content is emitted once the editor is ready, before
+`editorCreated`. Later reports come from `setContent`, including a changed `content` input or form
+value, `insertContent`, and `normalizeListMarkers`. With `outputFormat="json"`, a `content` input
+or form value that equals the document once its unknown list markers are replaced leaves the
+document and selection alone.
+
+```html
+<domternal-editor [extensions]="extensions" [formControl]="editorControl" outputFormat="json"
+  (contentDiagnostic)="report($event.source, $event.diagnostics)" />
+```
+
 ## Components
 
 All components are standalone (no NgModule). Import them directly from
@@ -135,9 +151,9 @@ All components are standalone (no NgModule). Import them directly from
   `extensions` / `history` / `content` / `editable` / `preset` / `i18n` /
   `autofocus` / `outputFormat` inputs (`extensions`, `content`, `editable`, `i18n`, and
   `outputFormat` are reactive; the rest are read once at creation), `editorCreated`,
-  `contentUpdated`, `selectionChanged`, `focusChanged`, `blurChanged`, and
-  `editorDestroyed` outputs, and read-only `htmlContent`, `jsonContent`, `isEmpty`,
-  `isFocused`, `isEditable` signals.
+  `contentUpdated`, `selectionChanged`, `focusChanged`, `blurChanged`, `editorDestroyed`,
+  `contentError`, and `contentDiagnostic` outputs, and read-only `htmlContent`,
+  `jsonContent`, `isEmpty`, `isFocused`, `isEditable` signals.
 - `DomternalToolbarComponent` (`<domternal-toolbar>`): auto-rendered formatting
   toolbar with keyboard navigation, custom `icons`, and `layout` overrides.
 - `DomternalBubbleMenuComponent` (`<domternal-bubble-menu>`): inline selection menu
