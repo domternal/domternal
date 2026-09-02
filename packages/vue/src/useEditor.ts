@@ -7,8 +7,19 @@ import {
   Text,
   BaseKeymap,
   History,
+  normalizeContent,
 } from '@domternal/core';
-import type { Content, AnyExtension, FocusPosition, EditorPreset, TransactionEventProps, FocusEventProps, I18nOptions } from '@domternal/core';
+import type {
+  Content,
+  AnyExtension,
+  FocusPosition,
+  EditorPreset,
+  TransactionEventProps,
+  FocusEventProps,
+  I18nOptions,
+  ContentErrorProps,
+  ContentDiagnosticProps,
+} from '@domternal/core';
 
 export const DEFAULT_EXTENSIONS: AnyExtension[] = [Document, Paragraph, Text, BaseKeymap, History];
 
@@ -55,6 +66,36 @@ export interface UseEditorOptions {
   onBlur?: (props: { editor: Editor; event: FocusEvent }) => void;
   /** Called before the editor is destroyed. */
   onDestroy?: () => void;
+  /**
+   * Called when the initial content does not match the schema, so the editor
+   * starts empty. Delivered once the editor is ready, before `onCreate`.
+   */
+  onContentError?: (props: Omit<ContentErrorProps, 'editor'> & { editor: Editor }) => void;
+  /**
+   * Called when content loaded with replaced values, such as an unknown list
+   * marker that became the default marker. The report for the initial content
+   * is delivered once the editor is ready, before `onCreate`; later reports
+   * come from setContent (including a changed `content` value), insertContent
+   * and normalizeListMarkers.
+   */
+  onContentDiagnostic?: (props: Omit<ContentDiagnosticProps, 'editor'> & { editor: Editor }) => void;
+}
+
+/**
+ * Whether the editor already holds `content`, compared as JSON. Loading
+ * replaces an unknown list marker with the default marker, so `content` also
+ * counts as held once the same replacement makes it equal: a new but equal
+ * value that still carries one must not replace the document and move the
+ * selection. The plain comparison comes first, because the document itself
+ * can hold an unknown marker (a bound collaborative document before
+ * normalizeListMarkers runs), and its own JSON echoed back must not replace it.
+ */
+export function holdsJSONContent(editor: Editor, content: Content): boolean {
+  const current = JSON.stringify(editor.getJSON());
+  if (JSON.stringify(content) === current) return true;
+  if (content === null || typeof content !== 'object') return false;
+  const loaded = normalizeContent(content, editor.schema);
+  return loaded !== content && JSON.stringify(loaded) === current;
 }
 
 /**
@@ -107,7 +148,15 @@ export function useEditor(options: UseEditorOptions = {}): {
       ? DEFAULT_EXTENSIONS
       : DEFAULT_EXTENSIONS.filter((extension) => extension.name !== 'history');
 
-    const ed = new Editor({
+    // Reports the editor makes while it is constructed wait until it is
+    // announced, just before onCreate: its view does not exist yet.
+    let constructionReports: (() => void)[] | null = [];
+    const report = (deliver: () => void): void => {
+      if (constructionReports) constructionReports.push(deliver);
+      else deliver();
+    };
+
+    const ed: Editor = new Editor({
       element,
       extensions: [...defaults, ...extensions],
       content: initialContent,
@@ -115,11 +164,25 @@ export function useEditor(options: UseEditorOptions = {}): {
       autofocus: focus,
       ...(options.preset ? { preset: options.preset } : {}),
       ...(options.i18n !== undefined ? { i18n: options.i18n } : {}),
+      onContentError: (props) => {
+        report(() => { options.onContentError?.({ ...props, editor: ed }); });
+      },
+      onContentDiagnostic: (props) => {
+        report(() => {
+          // Advisory, as in core: a throwing callback never interrupts the editor.
+          try {
+            options.onContentDiagnostic?.({ ...props, editor: ed });
+          } catch { /* advisory */ }
+        });
+      },
     });
 
     markRaw(ed);
     wireEvents(ed);
     editor.value = ed;
+    const reports = constructionReports;
+    constructionReports = null;
+    reports.forEach((deliver) => { deliver(); });
     options.onCreate?.(ed);
     return ed;
   }
@@ -222,7 +285,7 @@ export function useEditor(options: UseEditorOptions = {}): {
           ed.setContent(newContent, false);
         }
       } else {
-        if (JSON.stringify(newContent) !== JSON.stringify(ed.getJSON())) {
+        if (!holdsJSONContent(ed, newContent)) {
           ed.setContent(newContent, false);
         }
       }

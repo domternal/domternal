@@ -1,7 +1,7 @@
 import { defineComponent, h, ref, watch } from 'vue';
 import type { PropType } from 'vue';
 import type { Content, AnyExtension, FocusPosition, EditorPreset, JSONContent, Editor, I18nOptions } from '@domternal/core';
-import { useEditor } from './useEditor.js';
+import { holdsJSONContent, useEditor, type UseEditorOptions } from './useEditor.js';
 import { useEditorState } from './useEditorState.js';
 import { provideEditor } from './EditorContext.js';
 
@@ -24,6 +24,8 @@ export interface DomternalEditorProps {
   onFocus?: (props: { editor: Editor; event: FocusEvent }) => void;
   onBlur?: (props: { editor: Editor; event: FocusEvent }) => void;
   onDestroy?: () => void;
+  onContentError?: UseEditorOptions['onContentError'];
+  onContentDiagnostic?: UseEditorOptions['onContentDiagnostic'];
 }
 
 /**
@@ -72,6 +74,8 @@ export const DomternalEditor = defineComponent({
     onFocus: { type: Function as PropType<(props: { editor: Editor; event: FocusEvent }) => void>, default: undefined },
     onBlur: { type: Function as PropType<(props: { editor: Editor; event: FocusEvent }) => void>, default: undefined },
     onDestroy: { type: Function as PropType<() => void>, default: undefined },
+    onContentError: { type: Function as PropType<UseEditorOptions['onContentError']>, default: undefined },
+    onContentDiagnostic: { type: Function as PropType<UseEditorOptions['onContentDiagnostic']>, default: undefined },
   },
   emits: {
     'update:modelValue': (_value: Content | JSONContent) => true,
@@ -92,6 +96,8 @@ export const DomternalEditor = defineComponent({
       ...(props.onFocus && { onFocus: props.onFocus }),
       ...(props.onBlur && { onBlur: props.onBlur }),
       ...(props.onDestroy && { onDestroy: props.onDestroy }),
+      ...(props.onContentError && { onContentError: props.onContentError }),
+      ...(props.onContentDiagnostic && { onContentDiagnostic: props.onContentDiagnostic }),
     });
 
     const state = useEditorState(editor);
@@ -134,7 +140,7 @@ export const DomternalEditor = defineComponent({
             ed.setContent(newValue, false);
           }
         } else {
-          if (JSON.stringify(newValue) !== JSON.stringify(ed.getJSON())) {
+          if (!holdsJSONContent(ed, newValue)) {
             ed.setContent(newValue, false);
           }
         }
