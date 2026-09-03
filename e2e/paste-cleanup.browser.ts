@@ -186,7 +186,8 @@ for (const framework of FRAMEWORKS) {
 
         const observed = await observations(page);
         expect(observed.results.at(-1)).toMatchObject({ status: 'cleaned', source: 'word' });
-        expect(observed.results.at(-1)?.diagnostics).toContainEqual(expect.objectContaining({ code: 'unsupported-formatting' }));
+        // The Office private mso-font-kerning declaration is routine envelope, not a reported loss.
+        expect(observed.results.at(-1)?.diagnostics.filter(diagnostic => diagnostic.severity !== 'info')).toEqual([]);
         if (formatting === 'adapt') {
           expect(observed.results.at(-1)?.diagnostics).toContainEqual(expect.objectContaining({ code: 'formatting-adapted' }));
         }

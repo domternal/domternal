@@ -87,14 +87,15 @@ describe('severity priority under a full diagnostic allowance', () => {
   });
 
   it('lets a terminal error displace an earlier info before a later warning', () => {
-    const html = '<p><span style="color:red">a</span><span style="mso-font-kerning:0pt">b</span></p>'
+    // Office private declarations are routine, so the warning comes from a real positioning loss.
+    const html = '<p><span style="color:red">a</span><span style="position:fixed">b</span></p>'
       + '<p><span style="font-weight:700;font-style:italic">t</span></p>'.repeat(3);
     const options = { formatting: 'adapt', limits: { maxNodes: 18 } } as const;
     const roomy = normalizePasteHTML(html, { ...options, limits: { ...options.limits, maxDiagnostics: 3 } });
     expect(roomy).toMatchObject({ status: 'rejected', html: '', diagnosticsTruncated: false });
     expect(roomy.diagnostics).toEqual([
       { code: 'formatting-adapted', severity: 'info', offset: html.indexOf('<span') },
-      { code: 'unsupported-formatting', severity: 'warning', offset: html.indexOf('<span style="mso') },
+      { code: 'unsupported-formatting', severity: 'warning', offset: html.indexOf('<span style="position') },
       { code: 'structure-limit', severity: 'error' },
     ]);
 

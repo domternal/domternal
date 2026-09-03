@@ -61,6 +61,18 @@ templates, form controls, SVG and MathML still report `unsafe-content-removed`;
 VML drawings, Office math, `font` and other unknown elements still report
 `unsupported-formatting`.
 
+Routine declarations are also dropped without a diagnostic: Office private
+`mso-*` properties other than `mso-hide`, values that render like their absence
+(zero margins and indents, `normal` spacing and font variants, `none` borders,
+backgrounds and shadows, the `windowtext` default text color, which resets an
+inherited color), vertical block spacing, pagination and typesetting controls,
+table borders, cell padding and table layout, list indentation on semantic lists
+and the level indentation of reconstructed Office list paragraphs. Nonzero
+horizontal indentation outside lists and tables, borders outside tables,
+background shorthands and images, hidden text, the `font` shorthand, letter
+spacing, case transforms, small caps and other unsupported declarations still
+report `unsupported-formatting`.
+
 Use `feedback: 'application'` with an `onPasteResult` handler to own presentation.
 Omitting that handler is a fatal configuration error. English definitions are
 exported as `pasteCleanupMessages`; the optional `/locales/de` entry exports

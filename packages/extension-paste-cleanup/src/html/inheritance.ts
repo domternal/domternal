@@ -99,23 +99,29 @@ function validFamily(value: string): boolean {
   });
 }
 
-/** Preserve source order while ignoring invalid values within the safe grammar. */
-function readInheritanceStyles(value: unknown, image: boolean, tag: string): { styles: Map<string, string>; removed: boolean } {
+/**
+ * Preserve source order while ignoring invalid values within the safe grammar. Office writes the
+ * `windowtext` system color to reset text to the default color; it resets the inherited color.
+ */
+function readInheritanceStyles(value: unknown, image: boolean, tag: string): { styles: Map<string, string>; removed: boolean; defaultColor: boolean } {
   const styles = new Map<string, string>();
   let removed = false;
-  if (typeof value !== 'string') return { styles, removed };
+  let defaultColor = false;
+  if (typeof value !== 'string') return { styles, removed, defaultColor };
   for (const declaration of value.split(';')) {
     const parsed = readSafeStyles(declaration, image, tag);
     removed ||= parsed.removed;
     for (const [key, entry] of parsed.styles) {
+      if (key === 'color' && entry.toLowerCase() === 'windowtext') { styles.delete(key); defaultColor = true; continue; }
       if (((key === 'color' || key === 'background-color') && !validColor(entry))
         || (key === 'font-family' && !validFamily(entry))) { removed = true; continue; }
+      if (key === 'color') defaultColor = false;
       if (key === 'text-decoration') styles.delete('text-decoration-line');
       if (key === 'text-decoration-line') styles.delete('text-decoration');
       styles.set(key, entry);
     }
   }
-  return { styles, removed };
+  return { styles, removed, defaultColor };
 }
 
 function resolveSize(value: string, parent: FontSize | undefined): FontSize | undefined {
@@ -209,7 +215,7 @@ export function resolveInlineInheritance(
       const state: State = { ...inherited };
       const tag = child.tagName;
       const inline = inlineTags.has(tag);
-      const { styles, removed } = readInheritanceStyles(child.properties.style, tag === 'img', tag);
+      const { styles, removed, defaultColor } = readInheritanceStyles(child.properties.style, tag === 'img', tag);
       let unsupported = removed;
       // One adapted finding per discarded source property, reported on its declaring element.
       const adapted: string[] = [];
@@ -248,6 +254,7 @@ export function resolveInlineInheritance(
       }
       const color = styles.get('color');
       if (color !== undefined) { state.color = color; delete state.colorToken; adapted.push('color'); }
+      else if (defaultColor) { delete state.color; delete state.colorToken; }
       // Inline backgrounds paint behind their descendants. Block and cell fills
       // stay on their owners and must not become text highlight marks.
       const highlight = styles.get('background-color');

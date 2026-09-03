@@ -29,8 +29,72 @@ function ownRule(table: Readonly<Record<string, RegExp>>, name: string): RegExp 
   return Object.hasOwn(table, name) ? table[name] : undefined;
 }
 
+const tableTags = new Set(['table', 'caption', 'colgroup', 'col', 'thead', 'tbody', 'tfoot', 'tr', 'td', 'th']);
+// Pagination, typesetting and table layout belong to the destination page and theme.
+const destinationLayout = new Set([
+  'page-break-before', 'page-break-after', 'page-break-inside', 'break-before', 'break-after', 'break-inside',
+  'orphans', 'widows', 'tab-stops', 'tab-interval', 'text-autospace', 'layout-grid-mode', 'punctuation-wrap',
+  'text-justify', 'word-wrap', 'overflow-wrap', 'word-break', 'line-break', 'font-kerning',
+  'border-collapse', 'border-spacing', 'table-layout', 'text-decoration-skip-ink', 'text-decoration-skip',
+  '-webkit-text-decoration-skip',
+]);
+// Values that render exactly like the property's absence.
+const neutralValues: Readonly<Record<string, readonly string[]>> = {
+  'text-transform': ['none'], 'letter-spacing': ['normal'], 'word-spacing': ['normal'],
+  'font-stretch': ['normal', '100%'], 'font-feature-settings': ['normal'], 'text-wrap-mode': ['wrap'], 'text-wrap': ['wrap'],
+  background: ['transparent', 'none'], 'background-image': ['none'], 'text-shadow': ['none'], 'box-shadow': ['none'],
+  'mso-hide': ['none'], 'text-underline': ['none'],
+};
+
+/** A length whose magnitude cannot change layout, such as `0`, `0cm` or Word's `.0001pt`. */
+function zeroLength(value: string): boolean {
+  const match = /^[+-]?(\d{0,6}(?:\.\d{0,6})?)(?:[a-z]{1,4}|%)?$/.exec(value);
+  const magnitude = match?.[1];
+  return magnitude !== undefined && /\d/.test(magnitude) && Number(magnitude) < 0.01;
+}
+
+/** Box spacing: vertical space is destination layout, horizontal space is indentation unless it is zero. */
+function routineBox(name: string, value: string, tag: string): boolean | undefined {
+  const box = /^(?:margin|padding)(?:-(top|bottom|left|right|block|inline)(?:-(?:start|end))?)?$/.exec(name);
+  if (box === null) return undefined;
+  const side = box[1];
+  if (side === 'top' || side === 'bottom' || side === 'block') return true;
+  // Tables, cells and semantic lists own their indentation and padding in the destination theme.
+  if (tableTags.has(tag) || tag === 'ul' || tag === 'ol') return true;
+  const parts = value.split(/\s+/);
+  if (side !== undefined) return parts.length === 1 && zeroLength(value);
+  if (parts.length > 4) return false;
+  const horizontal = parts.length === 4 ? [parts[1], parts[3]] : [parts[1] ?? parts[0]];
+  return horizontal.every(part => part !== undefined && zeroLength(part));
+}
+
+/** Borders are drawn only with a visible style; table borders belong to the destination table theme. */
+function routineBorder(name: string, value: string, tag: string): boolean | undefined {
+  const border = /^border(?:-(?:top|right|bottom|left|block|inline)(?:-(?:start|end))?)?(?:-(color|style|width))?$/.exec(name);
+  if (border === null) return undefined;
+  if (tableTags.has(tag) || border[1] === 'color' || border[1] === 'width') return true;
+  const parts = value.split(/\s+/);
+  return parts.includes('none') || parts.includes('hidden') || parts.every(zeroLength);
+}
+
+/**
+ * Decide whether a declaration that is not retained is routine: Office private properties,
+ * values that render like their absence, and layout the destination page or theme owns.
+ * Everything else, including hidden text and nonzero indentation, remains a reported loss.
+ */
+export function routineDeclaration(name: string, content: string, tag = ''): boolean {
+  const value = content.trim().toLowerCase();
+  if (name.startsWith('mso-') && name !== 'mso-hide') return true;
+  if (destinationLayout.has(name)) return true;
+  if ((name === 'letter-spacing' || name === 'word-spacing' || name === 'text-indent') && zeroLength(value)) return true;
+  if (Object.hasOwn(neutralValues, name)) return neutralValues[name]?.includes(value) === true;
+  if (/^font-variant(?:-[a-z]+)*$/.test(name)) return value === 'normal';
+  if (name === 'overflow' && tableTags.has(tag)) return true;
+  return routineBox(name, value, tag) ?? routineBorder(name, value, tag) ?? false;
+}
+
 /** A deliberately small CSS value grammar: no functions that can load resources. */
-export function readSafeStyles(value: unknown, imagePlacement = false, listTag = ''): { styles: Map<string, string>; removed: boolean } {
+export function readSafeStyles(value: unknown, imagePlacement = false, tag = ''): { styles: Map<string, string>; removed: boolean } {
   const styles = new Map<string, string>();
   let removed = false;
   if (typeof value !== 'string') return { styles, removed };
@@ -41,13 +105,14 @@ export function readSafeStyles(value: unknown, imagePlacement = false, listTag =
     const content = declaration.slice(separator + 1).trim();
     if (name === 'list-style-type') {
       const marker = content.toLowerCase();
-      if (validListStyle(listTag, marker)) styles.set(name, marker);
+      if (validListStyle(tag, marker)) styles.set(name, marker);
       else removed = true;
       continue;
     }
     const placement = ownRule(imagePlacementRules, name);
     const rule = ownRule(rules, name) ?? (imagePlacement ? placement : undefined);
-    if (separator < 0 || !rule?.test(content)) { removed = true; continue; }
+    if (separator < 0) { removed = true; continue; }
+    if (!rule?.test(content)) { removed ||= !routineDeclaration(name, content, tag); continue; }
     styles.set(name, placement === undefined ? content : content.toLowerCase());
   }
   return { styles, removed };

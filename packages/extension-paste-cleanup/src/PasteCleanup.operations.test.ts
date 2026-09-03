@@ -90,6 +90,19 @@ describe('PasteCleanup accepted operation results', () => {
     expect((editor.view.dom.nextElementSibling as HTMLElement).hidden).toBe(true);
   });
 
+  it.each(['preserve', 'adapt'] as const)('keeps the default notice hidden for routine Word %s paragraph declarations', async formatting => {
+    const completed = vi.fn();
+    const editor = mount({ formatting, onPasteResult: completed });
+    // The fixture has no LineHeight extension, so Word line spacing would rightly request an unconfirmed capability.
+    pasteHTML(editor, "<p class=MsoNormal style='margin-top:0cm;margin-bottom:8.0pt;mso-pagination:widow-orphan'>"
+      + "<span lang=HR style='mso-ansi-language:HR;mso-fareast-font-family:\"Times New Roman\"'>New</span><o:p></o:p></p>");
+    await settle();
+    expect(editor.state.doc.textContent).toBe('New');
+    const result = completed.mock.calls[0]?.[0] as { diagnostics: { severity: string }[] };
+    expect(result.diagnostics.filter(diagnostic => diagnostic.severity !== 'info')).toEqual([]);
+    expect((editor.view.dom.nextElementSibling as HTMLElement).hidden).toBe(true);
+  });
+
   it('keeps the default notice hidden when adaptation findings alone overflow the diagnostic allowance', async () => {
     const completed = vi.fn();
     const editor = mount({ formatting: 'adapt', onPasteResult: completed });

@@ -22,7 +22,8 @@ export type OfficeListReporter = (code: 'office-list-unsupported', node: Element
 interface Declaration {
   present: boolean;
   value?: string;
-  withoutList?: string;
+  /** Other declarations in source order, with lowercased names. */
+  remaining?: readonly { name: string; text: string }[];
 }
 
 interface Candidate {
@@ -54,6 +55,8 @@ const inlineWrappers = new Set(['span', 'b', 'strong', 'i', 'em', 'u', 's', 'del
 const containers = new Set(['div', 'blockquote', 'td', 'th', 'details']);
 const opaque = new Set(['ul', 'ol', 'li', 'pre', 'code', 'script', 'style', 'template', 'noscript', 'textarea', 'svg', 'math']);
 const markerProperties = new Set(['style', 'className', 'lang', 'dir']);
+// The rebuilt list owns item indentation, so the source level geometry is not a loss.
+const levelGeometry = new Set(['margin', 'margin-left', 'margin-inline-start', 'text-indent', 'mso-add-space']);
 const prefixWhitespace = /^[\t\r\n ]*$/;
 
 /** Read one explicit declaration without interpreting strings, comments, or functions as CSS. */
@@ -65,15 +68,16 @@ function listDeclaration(input: unknown): Declaration {
   let malformed = false;
   let present = false;
   let value: string | undefined;
-  const remaining: string[] = [];
+  const remaining: { name: string; text: string }[] = [];
   const consume = (): void => {
     const colon = declaration.indexOf(':');
-    if (colon >= 0 && declaration.slice(0, colon).trim().toLowerCase() === 'mso-list') {
+    const name = colon >= 0 ? declaration.slice(0, colon).trim().toLowerCase() : '';
+    if (name === 'mso-list') {
       const next = declaration.slice(colon + 1).trim().toLowerCase();
       if (present && value !== next) malformed = true;
       present = true;
       value = next;
-    } else if (declaration.trim() !== '') remaining.push(declaration.trim());
+    } else if (declaration.trim() !== '') remaining.push({ name, text: declaration.trim() });
     declaration = '';
   };
   for (let index = 0; index < input.length; index++) {
@@ -103,7 +107,7 @@ function listDeclaration(input: unknown): Declaration {
     else declaration += char;
   }
   consume();
-  return { present, ...(malformed || quote !== '' || blocks.length !== 0 || value === undefined ? {} : { value, withoutList: remaining.join(';') }) };
+  return { present, ...(malformed || quote !== '' || blocks.length !== 0 || value === undefined ? {} : { value, remaining }) };
 }
 
 function candidate(node: RootContent): Candidate | undefined {
@@ -225,9 +229,12 @@ function reconstructRun(items: ListItem[]): { lists: Element[]; count: number } 
     }
     const paragraph = withoutMarker(item.paragraph, item.marker);
     const properties = { ...paragraph.properties };
-    const remainingStyle = listDeclaration(properties.style).withoutList;
-    if (remainingStyle === '') delete properties.style;
-    else if (remainingStyle !== undefined) properties.style = remainingStyle;
+    const remaining = listDeclaration(properties.style).remaining;
+    if (remaining !== undefined) {
+      const style = remaining.filter(entry => !levelGeometry.has(entry.name)).map(entry => entry.text).join(';');
+      if (style === '') delete properties.style;
+      else properties.style = style;
+    }
     const listItem: Element = {
       type: 'element', tagName: 'li', properties: {},
       children: [{ ...paragraph, properties }, ...item.after],
