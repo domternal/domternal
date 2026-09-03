@@ -208,6 +208,13 @@ jobs:
         # their manifest is rewritten, while build, pack and install still work.
         run: pnpm test:release-readiness
 
+      - name: Committed evidence integrity
+        # The preserved historical tools must keep the bytes their reports
+        # record, every committed evidence report must still round-trip through
+        # the maintained tool, and nothing may execute the historical tools.
+        # Needs no build: it reads committed files and git ls-files only.
+        run: pnpm test:evidence
+
       - name: Type check demo apps
         # Two steps, and only the second one decides what is read. The demo
         # tsconfigs enable the @domternal/source condition, so resolution lands

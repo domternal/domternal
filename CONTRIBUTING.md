@@ -95,6 +95,7 @@ Beyond the lint, type and test runs above, CI runs a set of standalone checks. E
 | `pnpm test:bundle-size` | A published entry growing past its budget, or shipping with no budget at all. |
 | `pnpm test:third-party-notices` | A shipped tarball missing the notices it has to carry, or a bundled dependency that no notice declares. |
 | `pnpm test:types-consumer` | A published declaration graph an external consumer cannot compile, checked from both an ESM and a CommonJS fixture against the built dists. |
+| `pnpm test:evidence` | A preserved historical evidence tool whose bytes no longer match its `MANIFEST.json` or the digest its report records, a committed evidence report the maintained tool in `tests/evidence/` no longer reproduces or serializes byte for byte, a report over the 2 MiB ceiling, and any script, workflow or test that executes a historical tool or Python. `pnpm evidence:replay --archive <dir>` repeats the full comparison locally against the stored inputs; it needs the evidence archive and is not a CI gate. |
 | `pnpm test:ci-wiring` | A gate `package.json` declares that CI never runs, whether it was forgotten, commented out or left with `if: false`, a package the validation step never names, and a Lint or e2e type-check step placed before the Build step whose output they read. |
 
 A gate that fails prints what to do about it. If you are adding one, give it unit tests and prove it fails by breaking the thing it guards, then putting it back. Add it to CI in the same commit: `pnpm test:ci-wiring` will otherwise fail, which is the point of it.

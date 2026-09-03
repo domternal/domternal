@@ -31,6 +31,8 @@
     "test:package-policy": "node --test tests/package-policy/check.test.mjs && node tests/package-policy/check.mjs",
     "test:package-artifacts": "node --test tests/package-artifacts/check.test.mjs && node tests/package-artifacts/check.mjs",
     "test:release-readiness": "node --test tests/release-readiness/check.test.mjs && node tests/release-readiness/check.mjs",
+    "test:evidence": "node --test tests/evidence/*.test.mjs && node tests/evidence/cli.mjs check",
+    "evidence:replay": "node tests/evidence/cli.mjs replay --all",
     "test:ssr-import": "node --test tests/ssr-import/check.test.mjs && node tests/ssr-import/check.mjs",
     "test:ci-wiring": "node --test tests/ci-wiring/*.test.mjs && node tests/ci-wiring/check.mjs",
     "test:source-boundaries": "node --test tests/source-boundaries/check.test.mjs && node tests/source-boundaries/check.mjs",
