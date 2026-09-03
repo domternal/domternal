@@ -82,6 +82,15 @@ jobs:
       - name: Check committed locale output before builds
         run: node tests/i18n/generate-locales.mjs --check
 
+      - name: Build
+        # Before Lint and the e2e type check, which both read the built
+        # packages. e2e/tsconfig.json resolves @domternal/* to packages/*/dist,
+        # and the ESLint pass that ends `pnpm lint` type-checks e2e/ through
+        # it. Nx builds only what its own lint and typecheck targets depend on,
+        # and none of them depends on every package e2e/ imports, so a clean
+        # checkout fails both without this step. tests/ci-wiring holds the order.
+        run: pnpm build
+
       - name: Lint
         run: pnpm lint
 
@@ -98,9 +107,6 @@ jobs:
         # cannot reach it. It was the largest body of TypeScript here that
         # nothing checked, and every new cross-framework spec is added to it.
         run: pnpm typecheck:e2e
-
-      - name: Build
-        run: pnpm build
 
       - name: Consumer type-surface test
         # Type-checks against the built dist (no @domternal/source

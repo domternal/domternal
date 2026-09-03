@@ -947,6 +947,35 @@ export function pnpmSetupProblems(
   return problems;
 }
 
+// Root gates that read packages/*/dist without Nx knowing it. e2e/tsconfig.json
+// maps @domternal/* to the built declarations, and the ESLint pass that ends
+// `pnpm lint` type-checks e2e/ through that config. Nx builds only the
+// dependencies of projects that own a lint or typecheck target, and none of
+// them depends on every package e2e/ imports, so a clean checkout fails both
+// unless the explicit build runs first.
+export const BUILT_OUTPUT_GATES = ['lint', 'typecheck:e2e'];
+
+/** A gate that reads the built packages runs after the explicit build, in the same job. */
+export function buildOrderProblems(workflow) {
+  const build = parseWorkflow(workflow).jobs.build;
+  const steps = isRecord(build) && Array.isArray(build.steps) ? build.steps : [];
+  const invocations = steps.flatMap((step) =>
+    isRecord(step) ? standaloneRootScripts(step.run) : []
+  );
+  const built = invocations.indexOf('build');
+  if (built === -1) {
+    return [
+      `ci.yml build job never runs "pnpm build", so nothing builds the packages that ` +
+        `${BUILT_OUTPUT_GATES.join(' and ')} read`,
+    ];
+  }
+  return BUILT_OUTPUT_GATES.filter((name) => invocations.slice(0, built).includes(name)).map(
+    (name) =>
+      `ci.yml runs "pnpm ${name}" before "pnpm build", but it reads packages/*/dist, ` +
+      'which a clean checkout has only after the build'
+  );
+}
+
 /** A nested Corepack pin must not select a different pnpm than the root/CI. */
 export function packageManagerConsistencyProblems(rootManifest, nestedManifests) {
   const expected = rootManifest.packageManager;
@@ -1242,6 +1271,7 @@ function main() {
 
   for (const problem of actionlintProblems(workflow)) failures.push(problem);
   for (const problem of pnpmSetupProblems(manifest, workflow)) failures.push(problem);
+  for (const problem of buildOrderProblems(workflow)) failures.push(problem);
   for (const problem of packageManagerConsistencyProblems(manifest, nestedPackageManifests())) {
     failures.push(problem);
   }

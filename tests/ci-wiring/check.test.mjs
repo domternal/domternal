@@ -4,11 +4,13 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  BUILT_OUTPUT_GATES,
   FOCUSED_BROWSER_SCRIPTS,
   LOCAL_ONLY_SCRIPTS,
   NOT_GATES,
   REQUIRED_SCRIPTS,
   actionlintProblems,
+  buildOrderProblems,
   checkoutStepsWithPersistedCredentials,
   ciTriggerProblems,
   codeqlWorkflowProblems,
@@ -682,6 +684,70 @@ test('the build bootstrap pins checkout, Node, pnpm and the frozen install', () 
     pnpmSetupProblems(manifest, realCi.replace('  build:\n', '  decoy:\n'), '22.23.2\n'),
     []
   );
+});
+
+test('gates that read the built packages run after the explicit build', () => {
+  const steps = (runs) => runs.map((run) => `      - run: ${JSON.stringify(run)}`).join('\n');
+  const buildJob = (...runs) =>
+    `name: fixture\njobs:\n  build:\n    runs-on: ubuntu-24.04\n    steps:\n${steps(runs)}\n`;
+  const early = (name) =>
+    `ci.yml runs "pnpm ${name}" before "pnpm build", but it reads packages/*/dist, ` +
+    'which a clean checkout has only after the build';
+  const unbuilt =
+    'ci.yml build job never runs "pnpm build", so nothing builds the packages that ' +
+    'lint and typecheck:e2e read';
+
+  assert.deepEqual(BUILT_OUTPUT_GATES, ['lint', 'typecheck:e2e']);
+  assert.deepEqual(buildOrderProblems(realCi), []);
+  assert.deepEqual(
+    buildOrderProblems(buildJob('pnpm build', 'pnpm lint', 'pnpm typecheck:e2e')),
+    []
+  );
+  // Only the listed gates are held: Nx builds what the package type checks need.
+  assert.deepEqual(
+    buildOrderProblems(buildJob('pnpm typecheck', 'pnpm build', 'pnpm lint', 'pnpm typecheck:e2e')),
+    []
+  );
+  assert.deepEqual(buildOrderProblems(buildJob('pnpm lint', 'pnpm build', 'pnpm typecheck:e2e')), [
+    early('lint'),
+  ]);
+  assert.deepEqual(buildOrderProblems(buildJob('pnpm lint', 'pnpm typecheck:e2e', 'pnpm build')), [
+    early('lint'),
+    early('typecheck:e2e'),
+  ]);
+  // Line order inside one multi-line step counts as well.
+  assert.deepEqual(buildOrderProblems(buildJob('pnpm typecheck:e2e\npnpm build', 'pnpm lint')), [
+    early('typecheck:e2e'),
+  ]);
+  assert.deepEqual(buildOrderProblems(buildJob('pnpm build\npnpm typecheck:e2e', 'pnpm lint')), []);
+  // A filtered or swallowed build is not the full build the e2e paths resolve against.
+  assert.deepEqual(
+    buildOrderProblems(buildJob('pnpm --filter @domternal/core build', 'pnpm lint')),
+    [unbuilt]
+  );
+  assert.deepEqual(buildOrderProblems(buildJob('pnpm build || true', 'pnpm lint')), [unbuilt]);
+  // A build in another job leaves this runner without dist.
+  assert.deepEqual(
+    buildOrderProblems(
+      `name: fixture\njobs:\n  prepare:\n    runs-on: ubuntu-24.04\n    steps:\n` +
+        `${steps(['pnpm build'])}\n  build:\n    runs-on: ubuntu-24.04\n    steps:\n` +
+        `${steps(['pnpm lint', 'pnpm typecheck:e2e'])}\n`
+    ),
+    [unbuilt]
+  );
+  assert.deepEqual(buildOrderProblems(realCi.replace('  build:\n', '  decoy:\n')), [unbuilt]);
+
+  // The real workflow with its Build step moved back below the e2e type check.
+  const buildStep = /\n {6}- name: Build\n(?: {8}.*\n)+/.exec(realCi);
+  assert.ok(buildStep, 'ci.yml has a Build step');
+  const moved = realCi
+    .replace(buildStep[0], '')
+    .replace(
+      '        run: pnpm typecheck:e2e\n',
+      '        run: pnpm typecheck:e2e\n\n      - name: Build\n        run: pnpm build\n'
+    );
+  assert.notEqual(moved, realCi);
+  assert.deepEqual(buildOrderProblems(moved), [early('lint'), early('typecheck:e2e')]);
 });
 
 test('nested Corepack pins cannot select a different pnpm release', () => {

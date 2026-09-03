@@ -95,13 +95,13 @@ Beyond the lint, type and test runs above, CI runs a set of standalone checks. E
 | `pnpm test:bundle-size` | A published entry growing past its budget, or shipping with no budget at all. |
 | `pnpm test:third-party-notices` | A shipped tarball missing the notices it has to carry, or a bundled dependency that no notice declares. |
 | `pnpm test:types-consumer` | A published declaration graph an external consumer cannot compile, checked from both an ESM and a CommonJS fixture against the built dists. |
-| `pnpm test:ci-wiring` | A gate `package.json` declares that CI never runs, whether it was forgotten, commented out or left with `if: false`, and a package the validation step never names. |
+| `pnpm test:ci-wiring` | A gate `package.json` declares that CI never runs, whether it was forgotten, commented out or left with `if: false`, a package the validation step never names, and a Lint or e2e type-check step placed before the Build step whose output they read. |
 
 A gate that fails prints what to do about it. If you are adding one, give it unit tests and prove it fails by breaking the thing it guards, then putting it back. Add it to CI in the same commit: `pnpm test:ci-wiring` will otherwise fail, which is the point of it.
 
 One of them runs only locally, and CI runs just its unit tests: `test:dedupe-reachable` does its real work only on a machine that has the nested `domternal.dev` checkout, where the only `resolve.dedupe` list lives, and prints `SKIPPED` without it. `pnpm test:ci-wiring` counts it apart for that reason, and fails if CI runs the full check, which would be a green line it has not earned. `test:pm-ranges` runs in full in CI: it compares `@domternal/pm` with every installed package that takes ProseMirror as a peer, and the y-prosemirror that `@domternal/core` installs for its collaboration tests is one, so it does real work after any full install, a fresh clone included.
 
-Two more runs cover ground the gates do not. `pnpm lint` finishes with an ESLint pass over `tests/`, `scripts/` and `e2e/`, which no package owns, and `pnpm typecheck:e2e` type-checks the matrix suite against `e2e/tsconfig.json`. Coverage floors live in each package's `vitest.config.ts` and are enforced by `pnpm test:coverage`.
+Two more runs cover ground the gates do not. `pnpm lint` finishes with an ESLint pass over `tests/`, `scripts/` and `e2e/`, which no package owns, and `pnpm typecheck:e2e` type-checks the matrix suite against `e2e/tsconfig.json`. That config resolves `@domternal/*` to the built `dist` declarations, and the ESLint pass reads `e2e/` through it, so both need a prior `pnpm build`: in a fresh checkout they otherwise fail with unresolved-module (`TS2307`) and `no-unsafe-*` errors. CI runs its Build step before them, and `pnpm test:ci-wiring` keeps that order. Coverage floors live in each package's `vitest.config.ts` and are enforced by `pnpm test:coverage`.
 
 ### E2E tests
 
