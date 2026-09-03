@@ -15,6 +15,7 @@ import type { PasteDestinationFeature } from './destinationDemand.js';
 import { reconstructOfficeLists } from './officeLists.js';
 import type { OfficeListReconstructionOptions } from './officeLists.js';
 import { resolveInlineInheritance, InheritanceLimitError } from './inheritance.js';
+import { envelopeTags, transparentOfficeWrapper } from './envelope.js';
 import type {
   NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic,
   PasteDiagnosticCode, PasteHTMLLimits, PasteSource,
@@ -31,10 +32,11 @@ const tags = [
   'blockquote', 'pre', 'code', 'ul', 'ol', 'li', 'table', 'thead', 'tbody',
   'tfoot', 'tr', 'td', 'th', 'colgroup', 'col', 'caption', 'img', 'details', 'summary',
 ];
-const discard = new Set(['script', 'style', 'iframe', 'object', 'embed', 'svg', 'math', 'template', 'noscript', 'head', 'title', 'textarea', 'select', 'button']);
+// Active or interactive content whose removal can hide what the source showed. Envelope elements are separate.
+const discard = new Set(['script', 'iframe', 'object', 'embed', 'svg', 'math', 'template', 'noscript', 'textarea', 'select', 'button']);
 const schema: Schema = {
   tagNames: tags,
-  strip: [...discard],
+  strip: [...discard, ...envelopeTags],
   // Properties are rebuilt below. No raw attribute reaches this allowlist.
   attributes: {
     '*': ['style', 'dir', 'lang', 'title', 'id', 'data*'],
@@ -167,7 +169,7 @@ export function normalizeClipboardHTML(
       const children: RootContent[] = [];
       for (const child of parent.children) {
         if (child.type === 'text') { children.push(child); continue; }
-        if (child.type !== 'element') continue;
+        if (child.type !== 'element' || envelopeTags.has(child.tagName)) continue;
         if (discard.has(child.tagName)) { report('unsafe-content-removed', child); continue; }
         const original = child.properties;
         const clean: Properties = cleanMetadata(original);
@@ -265,7 +267,10 @@ export function normalizeClipboardHTML(
         if (child.tagName === 'ol' && ['1', 'a', 'A', 'i', 'I'].includes(String(original.type))) clean.type = original.type;
         if (child.tagName === 'code' && Array.isArray(original.className)) clean.className = original.className;
         child.properties = clean;
-        if (!tags.includes(child.tagName)) { report('unsupported-formatting', child); children.push(...child.children); }
+        if (!tags.includes(child.tagName)) {
+          if (!transparentOfficeWrapper(child.tagName)) report('unsupported-formatting', child);
+          children.push(...child.children);
+        }
         else children.push(child);
       }
       parent.children = children;

@@ -1,5 +1,6 @@
 import type { Element, ElementContent, Properties, Root, RootContent, Text } from 'hast';
 import { readSafeStyles, serializeStyles } from './styles.js';
+import { envelopeTags } from './envelope.js';
 
 export interface InlineInheritanceOptions {
   maxNodes: number;
@@ -30,7 +31,7 @@ interface State {
 
 const neutralTags = new Set(['b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'mark', 'sub', 'sup']);
 const inlineTags = new Set(['span', 'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'mark', 'a', 'code', 'sub', 'sup', 'font', 'br']);
-const discarded = new Set(['script', 'style', 'iframe', 'object', 'embed', 'svg', 'math', 'template', 'noscript', 'head', 'title', 'textarea', 'select', 'button']);
+const discarded = new Set(['script', 'iframe', 'object', 'embed', 'svg', 'math', 'template', 'noscript', 'textarea', 'select', 'button', ...envelopeTags]);
 const structuralText = new Set(['table', 'thead', 'tbody', 'tfoot', 'tr', 'colgroup', 'ul', 'ol']);
 const inheritedKeys = ['font-weight', 'font-style', 'font-family', 'font-size', 'color', 'text-decoration', 'text-decoration-line'];
 const cssWide = new Set(['inherit', 'initial', 'unset', 'revert', 'revert-layer']);

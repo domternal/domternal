@@ -53,6 +53,14 @@ formatting adaptation alone stays quiet, including when its informational findin
 fill the diagnostic allowance. Load the normal `@domternal/theme` CSS
 for styling. The notice follows editor adoption and is removed on destruction.
 
+The routine clipboard envelope is removed without a diagnostic: `head`, `title`,
+`meta`, `link`, `base` and `style` elements and Office `xml` islands, with their
+content. Office paragraph marks (`o:p`), content controls (`w:*`) and smart tags
+(`st1:*`) are unwrapped and keep their text. Scripts, frames, embedded objects,
+templates, form controls, SVG and MathML still report `unsafe-content-removed`;
+VML drawings, Office math, `font` and other unknown elements still report
+`unsupported-formatting`.
+
 Use `feedback: 'application'` with an `onPasteResult` handler to own presentation.
 Omitting that handler is a fatal configuration error. English definitions are
 exported as `pasteCleanupMessages`; the optional `/locales/de` entry exports

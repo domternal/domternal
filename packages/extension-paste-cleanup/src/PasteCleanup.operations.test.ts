@@ -79,6 +79,17 @@ describe('PasteCleanup accepted operation results', () => {
     expect((editor.view.dom.nextElementSibling as HTMLElement).hidden).toBe(true);
   });
 
+  it.each(['preserve', 'adapt'] as const)('keeps the default notice hidden for a routine %s clipboard envelope', async formatting => {
+    const completed = vi.fn();
+    const editor = mount({ formatting, onPasteResult: completed });
+    pasteHTML(editor, "<meta charset='utf-8'><meta name=ProgId content=Word.Document><style>p.MsoNormal{margin:0cm}</style>"
+      + '<p class=MsoNormal>New<o:p></o:p></p>');
+    await settle();
+    expect(editor.state.doc.textContent).toBe('New');
+    expect(completed).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ status: 'applied', diagnostics: [] }));
+    expect((editor.view.dom.nextElementSibling as HTMLElement).hidden).toBe(true);
+  });
+
   it('keeps the default notice hidden when adaptation findings alone overflow the diagnostic allowance', async () => {
     const completed = vi.fn();
     const editor = mount({ formatting: 'adapt', onPasteResult: completed });
