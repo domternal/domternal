@@ -1,7 +1,9 @@
 import type { PluginKey, Transaction } from '@domternal/pm/state';
 import { EditorView } from '@domternal/pm/view';
 import type { EditorProps } from '@domternal/pm/view';
+import type { DOMSerializer } from '@domternal/pm/model';
 import { clipboardPreparationSomeProp, runClipboardPasteAttempt } from './clipboardHTMLPreparation.js';
+import { annotateClipboardSerializer } from './clipboardCopyAnnotation.js';
 
 interface ArmedPaste {
   key: PluginKey;
@@ -36,8 +38,11 @@ export class ClipboardEditorView extends EditorView {
   override someProp<N extends keyof EditorProps, R>(name: N, callback: (value: NonNullable<EditorProps[N]>) => R): R | undefined;
   override someProp<N extends keyof EditorProps>(name: N): NonNullable<EditorProps[N]> | undefined;
   override someProp<N extends keyof EditorProps, R>(name: N, callback?: (value: NonNullable<EditorProps[N]>) => R): R | NonNullable<EditorProps[N]> | undefined {
-    return clipboardPreparationSomeProp(this, name, callback,
+    const value = clipboardPreparationSomeProp(this, name, callback,
       () => callback === undefined ? super.someProp(name) : super.someProp(name, callback));
+    // ProseMirror resolves the copy serializer without a callback, after its own transformCopied.
+    if (name !== 'clipboardSerializer' || callback !== undefined) return value;
+    return annotateClipboardSerializer(this, value as DOMSerializer | undefined) as NonNullable<EditorProps[N]> | undefined;
   }
 }
 

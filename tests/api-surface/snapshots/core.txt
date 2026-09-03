@@ -50,6 +50,7 @@ CharacterCountStorage
 clearContent
 ClearContentOptions
 ClearFormatting
+ClipboardCopyAnnotator
 ClipboardHTMLDeferral
 ClipboardHTMLPreparationContext
 ClipboardHTMLPreparationGate
@@ -285,6 +286,7 @@ ProseMirrorCopyConflict
 Range
 RawCommands
 refocusEditorAfterCommand
+registerClipboardCopyAnnotation
 registerClipboardHTMLPreparation
 registerClipboardImageDestination
 registerProseMirrorCopy

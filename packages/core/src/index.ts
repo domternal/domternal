@@ -130,6 +130,8 @@ export {
 export { armClipboardPasteTransaction } from './helpers/clipboardPasteTransaction.js';
 export { registerClipboardImageDestination, getClipboardImageDestination } from './helpers/clipboardImageDestination.js';
 export type { ClipboardImageDestinationPolicy } from './helpers/clipboardImageDestination.js';
+export { registerClipboardCopyAnnotation } from './helpers/clipboardCopyAnnotation.js';
+export type { ClipboardCopyAnnotator } from './helpers/clipboardCopyAnnotation.js';
 export { registerClipboardHTMLPreparation, getClipboardPasteAttemptEvent } from './helpers/clipboardHTMLPreparation.js';
 export type { ClipboardHTMLPreparationContext, ClipboardHTMLPreparationGate, ClipboardHTMLDeferral, ClipboardHTMLReplay } from './helpers/clipboardHTMLPreparation.js';
 
