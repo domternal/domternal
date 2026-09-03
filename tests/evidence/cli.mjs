@@ -174,7 +174,7 @@ export function run(argv, { log = console.log, error = console.error } = {}) {
         pythonBaselineDir: values['python-baseline'] ?? null,
       });
       log(`[evidence] ${unit.STEM}: ${result.classification}`);
-      for (const normalization of result.normalizations) log(`  normalization: ${normalization}`);
+      for (const limitation of result.limitations) log(`  limitation: ${limitation}`);
       for (const comparison of result.comparisons) log(`  ${comparison.output} vs ${comparison.reference}: ${comparison.result}`);
       log(`  Python baseline: ${result.pythonBaseline.classification}`);
     } catch (error) {

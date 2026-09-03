@@ -27,4 +27,4 @@ Future reports use the maintained Node tool in [`tests/evidence/`](../../../../t
 pnpm evidence:replay --archive <evidence-archive>/2026-09-27
 ```
 
-On 2026-09-27 it reproduced the committed JSON, the committed Markdown and the original stored verifier output byte for byte, on Node 22 and 24. The only declared normalization is the lost dist file, accepted at its recorded size and digest. MANIFEST.json holds the full result, including the comparison with the one-time Python replay that is recorded as the baseline. These originals are not executed again.
+On 2026-09-27 it reproduced the committed JSON, the committed Markdown and the original stored verifier output byte for byte, on Node 22 and 24. The replay is classified PARTIAL_LOST_INPUTS because one dist file is lost and could only be checked against its recorded size and digest. MANIFEST.json holds the full result, including the comparison with the one-time Python replay that is recorded as the baseline. These originals are not executed again.

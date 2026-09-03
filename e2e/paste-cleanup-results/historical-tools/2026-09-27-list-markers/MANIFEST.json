@@ -167,9 +167,9 @@
       "v22.23.2",
       "v24.13.0"
     ],
-    "classification": "IDENTICAL_AFTER_DECLARED_NORMALIZATION",
-    "normalizations": [
-      "lost input packages/vue/dist/index.d.ts (28466 bytes, sha256 3142ea029575e4ed7f88cee3805269ab6d01eb557c58734ed7e410df83445289) accepted at its recorded size and digest; its bytes were never preserved"
+    "classification": "PARTIAL_LOST_INPUTS",
+    "limitations": [
+      "lost input packages/vue/dist/index.d.ts (28466 bytes, sha256 3142ea029575e4ed7f88cee3805269ab6d01eb557c58734ed7e410df83445289) checked only against its recorded size and digest; its bytes were never preserved"
     ],
     "replayMode": [
       "Every input is addressed by its recorded original path and read through inputs.json from the evidence archive or Git.",

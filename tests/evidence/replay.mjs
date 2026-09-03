@@ -17,11 +17,13 @@
  * - IDENTICAL: every output equals the committed bytes and every input was
  *   available.
  * - IDENTICAL_AFTER_DECLARED_NORMALIZATION: the outputs are equal, but only
- *   with declared normalizations: a lost input accepted at its recorded size
- *   and digest, or a root path mapped back before comparing.
+ *   with declared normalizations, such as a root path mapped back before
+ *   comparing.
  * - IDENTICAL_WITH_RECORDED_SUPPLEMENT: equal after adding keys copied from the
  *   committed report for a step that was not preserved.
- * - PARTIAL_LOST_INPUTS: some output could not be produced for lack of inputs.
+ * - PARTIAL_LOST_INPUTS: the outputs are equal, but some inputs are lost and
+ *   could only be checked against their recorded size and digest. This is the
+ *   same vocabulary as the Pro evidence tool.
  * - DIFFERS: an output differs; the result carries a JSON-pointer diff.
  *
  * The Python baseline is classified the same way, and a difference from it
@@ -133,6 +135,12 @@ export function compareWithPythonBaseline({ produced, python, mirrorRoot, record
   return { ...comparison, normalizations };
 }
 
+/** The unit's classification: the worst comparison, and equal outputs with lost inputs are partial. */
+export function classifyReplay(results, lostCount) {
+  const classification = worst(results);
+  return classification === 'IDENTICAL' && lostCount > 0 ? 'PARTIAL_LOST_INPUTS' : classification;
+}
+
 function worst(results) {
   let index = 0;
   for (const result of results) index = Math.max(index, CLASSIFICATIONS.indexOf(result));
@@ -216,19 +224,18 @@ export function replayUnit(unit, { archiveDir, repository, outDir, pythonBaselin
   ];
 
   const lost = [...new Map([...assembled.lost, ...verifier.lost].map((row) => [row.path, row])).values()];
-  const normalizations = lost.map(
-    (row) => `lost input ${row.path} (${row.bytes} bytes, sha256 ${row.sha256}) accepted at its recorded size and digest; its bytes were never preserved`
+  const limitations = lost.map(
+    (row) => `lost input ${row.path} (${row.bytes} bytes, sha256 ${row.sha256}) checked only against its recorded size and digest; its bytes were never preserved`
   );
   const committedResults = comparisons.map((comparison) => comparison.result);
-  let classification = worst(committedResults);
-  if (classification === 'IDENTICAL' && normalizations.length) classification = 'IDENTICAL_AFTER_DECLARED_NORMALIZATION';
+  const classification = classifyReplay(committedResults, lost.length);
   const pythonClassification = worst(pythonComparisons.map((comparison) => comparison.result));
   const result = {
     kind: 'domternal-evidence-replay',
     version: 1,
     unit: stem,
     classification,
-    normalizations,
+    limitations,
     replayMode: [
       'Every input is addressed by its recorded original path and read through inputs.json from the evidence archive or Git.',
       `verifiedAt is taken from the document being reproduced: ${committed.verifiedAt} for the report.`,

@@ -14,7 +14,7 @@ import { EvidenceArchive, INPUTS_KIND, InputSet, artifactRecord, findInGitHistor
 import { LOST } from './inventory.mjs';
 import { sha256 } from './json.mjs';
 import { EvidenceCheckError } from './playwright.mjs';
-import { CLASSIFICATIONS, buildInputsFromArchive, compareBytes, compareWithPythonBaseline, replayUnit } from './replay.mjs';
+import { CLASSIFICATIONS, buildInputsFromArchive, classifyReplay, compareBytes, compareWithPythonBaseline, replayUnit } from './replay.mjs';
 
 const GIT_CONFIG = ['-c', 'user.name=Evidence Test', '-c', 'user.email=evidence@example.invalid', '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null'];
 
@@ -258,4 +258,11 @@ test('the Python baseline is compared only after its declared normalizations', (
   assert.equal(compareWithPythonBaseline({ produced: node, python: node, mirrorRoot, recordedRoot }).result, 'IDENTICAL');
   assert.equal(compareWithPythonBaseline({ produced: Buffer.from('other'), python, mirrorRoot, recordedRoot }).result, 'DIFFERS');
   assert.ok(new EvidenceCheckError('x') instanceof Error);
+});
+
+test('equal outputs with a lost input are PARTIAL_LOST_INPUTS, as in the Pro evidence tool', () => {
+  assert.equal(classifyReplay(['IDENTICAL', 'IDENTICAL'], 0), 'IDENTICAL');
+  assert.equal(classifyReplay(['IDENTICAL', 'IDENTICAL'], 1), 'PARTIAL_LOST_INPUTS');
+  assert.equal(classifyReplay(['IDENTICAL', 'DIFFERS'], 1), 'DIFFERS');
+  assert.equal(classifyReplay(['IDENTICAL_WITH_RECORDED_SUPPLEMENT'], 0), 'IDENTICAL_WITH_RECORDED_SUPPLEMENT');
 });
