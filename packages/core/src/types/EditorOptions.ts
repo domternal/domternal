@@ -182,13 +182,18 @@ export interface EditorOptions {
 
   /**
    * Called when content doesn't match schema (AD-8)
-   * Use this to handle content validation errors gracefully
+   * Use this to handle content validation errors gracefully.
+   * For the initial content it runs during construction, before
+   * `editor.view` exists, so read the report rather than the editor state.
    */
   onContentError?: (props: ContentErrorProps) => void;
 
   /**
    * Called when content loaded with replaced values, such as an unknown
    * list marker that became the default marker. See the contentDiagnostic event.
+   * For the initial content it runs during construction, before
+   * `editor.view` exists; the framework wrappers deliver that report once
+   * the editor is ready.
    */
   onContentDiagnostic?: (props: ContentDiagnosticProps) => void;
 
