@@ -1,0 +1,4 @@
+# Evidence reports and preserved historical tools are checked by digest, so
+# no checkout may rewrite their line endings.
+/e2e/paste-cleanup-results/** -text
+/e2e/paste-performance/results/** -text
