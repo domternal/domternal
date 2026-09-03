@@ -3,6 +3,7 @@ import { TextSelection, SelectionRange } from '@domternal/pm/state';
 import type { Attrs } from '@domternal/pm/model';
 import { toggleWrap, lift } from './nodeCommands.js';
 import { Editor } from '../Editor.js';
+import { Node } from '../Node.js';
 import { Document } from '../nodes/Document.js';
 import { Text } from '../nodes/Text.js';
 import { Paragraph } from '../nodes/Paragraph.js';
@@ -333,6 +334,26 @@ describe('nodeCommands', () => {
       expect(editor.state.doc).toBe(before);
       expect(editor.commands.wrapIn('orderedList', { listStyleType: 'upper-roman' })).toBe(true);
       expect(editor.getJSON().content?.[0]?.attrs?.['listStyleType']).toBe('upper-roman');
+    });
+
+    it('refuses a wrapper whose defaults fail validation when no attributes are given', () => {
+      // An extension attribute declared without a default gets an undefined one, which 'string' rejects.
+      const Callout = Node.create({
+        name: 'callout',
+        group: 'block',
+        content: 'block+',
+        addAttributes: () => ({ kind: { validate: 'string' } }),
+        parseHTML: () => [{ tag: 'aside' }],
+        renderHTML: ({ HTMLAttributes }) => ['aside', HTMLAttributes, 0],
+      });
+      editor = new Editor({ extensions: [...extensions, Callout], content: '<p>A</p>' });
+      setSelection(editor, 2);
+      const before = editor.state.doc;
+      expect(editor.commands.wrapIn('callout')).toBe(false);
+      expect(editor.commands.toggleWrap('callout')).toBe(false);
+      expect(editor.state.doc).toBe(before);
+      expect(editor.commands.wrapIn('callout', { kind: 'note' })).toBe(true);
+      expect(editor.schema.nodeFromJSON(editor.getJSON()).eq(editor.state.doc)).toBe(true);
     });
 
     describe('dissolve-list-item fallback (Notion-style /quote in label)', () => {

@@ -156,8 +156,9 @@ export const wrapIn: CommandSpec<[nodeName: string, attributes?: Attrs]> =
   ({ state, tr, dispatch }) => {
     const nodeType = state.schema.nodes[nodeName];
 
-    // Wrapper creation does not validate, so refuse values validation rejects, as toggleList does.
-    if (!nodeType || (attributes && !validAttributes(state.schema, nodeName, attributes, false))) {
+    // Wrapper creation does not validate, so refuse values validation rejects, as toggleList does,
+    // including defaults that stand in for attributes not given.
+    if (!nodeType || !validAttributes(state.schema, nodeName, attributes ?? {}, false)) {
       return false;
     }
 
@@ -212,7 +213,7 @@ export const toggleWrap: CommandSpec<[nodeName: string, attributes?: Attrs]> =
     const { state, tr, dispatch } = props;
     const nodeType = state.schema.nodes[nodeName];
 
-    if (!nodeType || (attributes && !validAttributes(state.schema, nodeName, attributes, false))) {
+    if (!nodeType || !validAttributes(state.schema, nodeName, attributes ?? {}, false)) {
       return false;
     }
 
