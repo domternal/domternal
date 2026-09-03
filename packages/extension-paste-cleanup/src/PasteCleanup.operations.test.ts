@@ -79,6 +79,18 @@ describe('PasteCleanup accepted operation results', () => {
     expect((editor.view.dom.nextElementSibling as HTMLElement).hidden).toBe(true);
   });
 
+  it('keeps the default notice hidden when adaptation findings alone overflow the diagnostic allowance', async () => {
+    const completed = vi.fn();
+    const editor = mount({ formatting: 'adapt', onPasteResult: completed });
+    pasteHTML(editor, Array.from({ length: 40 }, (_, index) =>
+      `<p><span style="font-family:Georgia;font-size:14pt;color:#123456">Styled ${String(index)}</span></p>`).join(''));
+    await settle();
+    expect(completed).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ status: 'applied', diagnosticsTruncated: true }));
+    const result = completed.mock.calls[0]?.[0] as { diagnostics: { severity: string }[] };
+    expect(result.diagnostics.every(diagnostic => diagnostic.severity === 'info')).toBe(true);
+    expect((editor.view.dom.nextElementSibling as HTMLElement).hidden).toBe(true);
+  });
+
   it('lets an application own feedback without installing the default UI', async () => {
     const completed = vi.fn();
     const editor = mount({ feedback: 'application', onPasteResult: completed });

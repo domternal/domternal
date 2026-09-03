@@ -469,6 +469,30 @@ describe('paste loss feedback', () => {
     expect(notice.querySelectorAll('li')).toHaveLength(0);
   });
 
+  it.each(['applied', 'untracked', 'noop'] as const)('stays quiet for a %s result whose truncated allowance retained only informational findings', status => {
+    const { renderer, notice } = fixture();
+    renderer.update({ status, diagnosticsTruncated: true,
+      diagnostics: Array.from({ length: 100 }, () => ({ code: 'formatting-adapted', severity: 'info' } as const)) });
+    expect(notice.hidden).toBe(true);
+    expect(required(notice, '[role="status"]').textContent).toBe('');
+  });
+
+  it('omits the incomplete-list line when a retained informational finding proves no warning was dropped', () => {
+    const { renderer, notice } = fixture();
+    renderer.update({ status: 'applied', diagnosticsTruncated: true, diagnostics: [
+      { code: 'unsupported-formatting', severity: 'warning' },
+      ...Array.from({ length: 99 }, () => ({ code: 'formatting-adapted', severity: 'info' } as const)),
+    ] });
+    expect(notice.hidden).toBe(false);
+    expect(Array.from(notice.querySelectorAll('li'), node => node.textContent)).toEqual(['Some formatting could not be preserved.']);
+    expect(required(notice, 'details > p').hidden).toBe(true);
+    renderer.update({ status: 'applied', diagnosticsTruncated: true,
+      diagnostics: Array.from({ length: 100 }, () => ({ code: 'unsupported-formatting', severity: 'warning' } as const)) });
+    expect(notice.hidden).toBe(false);
+    expect(required(notice, 'details > p').hidden).toBe(false);
+    expect(required(notice, 'details > p').textContent).toBe('Not all paste details are shown.');
+  });
+
   it('snapshots diagnostic presentation without retaining a mutable result or source object', () => {
     const { renderer, notice, i18n } = fixture();
     const diagnostics: PasteDiagnostic[] = [{ code: 'image-removed', severity: 'warning' }];

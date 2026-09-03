@@ -49,7 +49,8 @@ storage, diagnostics, or a remote service.
 The default nonmodal notice displays warnings, removed-image guidance and blocked
 input. It provides accessible status text, a details disclosure and dismissal
 without moving focus or adding document content. A clean paste or intentional
-formatting adaptation alone stays quiet. Load the normal `@domternal/theme` CSS
+formatting adaptation alone stays quiet, including when its informational findings
+fill the diagnostic allowance. Load the normal `@domternal/theme` CSS
 for styling. The notice follows editor adoption and is removed on destruction.
 
 Use `feedback: 'application'` with an `onPasteResult` handler to own presentation.

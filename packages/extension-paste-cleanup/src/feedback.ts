@@ -66,17 +66,22 @@ function presentation(result: PasteFeedbackResult): Presentation | undefined {
   if (reason === 'cancelled' || reason === 'superseded') return undefined;
   const details = new Set<Copy>();
   let images = false;
+  let retainedInfo = false;
   const maximum = Math.min(result.diagnostics.length, 100);
   for (let index = 0; index < maximum; index++) {
     const diagnostic = result.diagnostics[index];
-    if (diagnostic === undefined || diagnostic.severity === 'info') continue;
+    if (diagnostic === undefined) continue;
+    if (diagnostic.severity === 'info') { retainedInfo = true; continue; }
     const known = Object.hasOwn(diagnosticMessages, diagnostic.code);
     details.add(known ? diagnosticMessages[diagnostic.code] : pasteCleanupMessages.other);
     images ||= diagnostic.code === 'image-removed';
   }
   const copy = reason !== undefined && Object.hasOwn(rejectionMessages, reason) ? rejectionMessages[reason] : undefined;
+  // Severity-ranked retention replaces an informational finding before it drops a warning or an error,
+  // so a retained info proves that only informational findings, which the notice never lists, were dropped.
+  const truncated = (result.diagnosticsTruncated && !retainedInfo) || result.diagnostics.length > maximum;
   return {
-    status: result.status, details: [...details], images, truncated: result.diagnosticsTruncated || result.diagnostics.length > maximum,
+    status: result.status, details: [...details], images, truncated,
     title: copy?.title ?? pasteCleanupMessages[result.status],
     recovery: copy?.recovery ?? (images ? pasteCleanupMessages.imageRecovery : pasteCleanupMessages.rejectedRecovery),
   };
