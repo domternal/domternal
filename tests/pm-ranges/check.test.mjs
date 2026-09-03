@@ -19,6 +19,7 @@ import {
   compare,
   discoverSharers,
   findPm,
+  nothingToCompare,
   parseCaret,
   parseStoreEntry,
   prosemirrorPeers,
@@ -185,10 +186,24 @@ test('a sharer actually installed in this checkout is discovered', (t) => {
      installed sharer; lockfile text alone must not make this assertion fail. */
   const sharer = discoverSharers(process.cwd()).find((one) => one.name === 'y-prosemirror');
   if (!sharer) {
+    // A CI install includes the y-prosemirror @domternal/core tests with, so absence there is the regression.
+    assert.notEqual(process.env['CI'], 'true', 'CI installed no ProseMirror peer for pm-ranges to compare');
     t.skip('nothing installed in this checkout takes ProseMirror as a peer');
     return;
   }
   assert.ok(sharer.peers['prosemirror-model']);
+});
+
+test('with nothing to compare, a local run skips and a CI run fails', () => {
+  const local = nothingToCompare('nothing installed here takes ProseMirror as a peer', {});
+  assert.deepEqual(local, {
+    exitCode: 0,
+    message: '[pm-ranges] SKIPPED - nothing installed here takes ProseMirror as a peer',
+  });
+  const ci = nothingToCompare('nothing installed here takes ProseMirror as a peer', { CI: 'true' });
+  assert.equal(ci.exitCode, 1);
+  assert.match(ci.message, /^\[pm-ranges\] FAILED - nothing installed here takes ProseMirror as a peer/);
+  assert.equal(nothingToCompare('x', { CI: 'false' }).exitCode, 0);
 });
 
 test('the pm being judged is this workspace source where there is one', () => {

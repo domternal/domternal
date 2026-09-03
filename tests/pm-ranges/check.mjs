@@ -209,18 +209,31 @@ export function compare(pm, sharer) {
   return problems;
 }
 
+/**
+ * What a run with nothing to compare does. Locally that is SKIPPED, because a
+ * partial checkout may legitimately lack the other side. CI installs the whole
+ * workspace, so there the same outcome means the gate lost its input and would
+ * pass while checking nothing.
+ */
+export function nothingToCompare(reason, env = process.env) {
+  if (env['CI'] === 'true') {
+    return { exitCode: 1, message: `[pm-ranges] FAILED - ${reason}, so CI would pass this gate without checking anything` };
+  }
+  return { exitCode: 0, message: `[pm-ranges] SKIPPED - ${reason}` };
+}
+
+function stopWith({ exitCode, message }) {
+  if (exitCode === 0) console.log(message);
+  else console.error(message);
+  process.exit(exitCode);
+}
+
 function main() {
   const pm = findPm(repoRoot);
-  if (!pm) {
-    console.log('[pm-ranges] SKIPPED - @domternal/pm is neither in this workspace nor installed');
-    return;
-  }
+  if (!pm) return stopWith(nothingToCompare('@domternal/pm is neither in this workspace nor installed'));
 
   const sharers = discoverSharers(repoRoot);
-  if (sharers.length === 0) {
-    console.log('[pm-ranges] SKIPPED - nothing installed here takes ProseMirror as a peer');
-    return;
-  }
+  if (sharers.length === 0) return stopWith(nothingToCompare('nothing installed here takes ProseMirror as a peer'));
 
   const problems = [];
   for (const sharer of sharers) {
