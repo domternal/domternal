@@ -189,7 +189,8 @@ describe('Word list profiles from level definitions and marker run fonts', () =>
   it('requires the destination to preserve each reconstructed marker class', () => {
     const input = wordStyle + wordItem('·', 'One', 1, 'l0', symbol) + wordItem('o', 'Two', 2, 'l0', courier);
     const output = run(input, { markers: new Set(['disc', 'square']) });
-    expect(output.result.reconstructedItems).toBe(0);
+    expect(outline(output.tree)).toEqual(['ul(disc)[One o Two]']);
+    expect(output.result).toMatchObject({ reconstructedItems: 1, skippedItems: 1 });
     expect(output.diagnostics).toHaveLength(1);
     expect(outline(run(input, { markers: new Set(['disc', 'circle']) }).tree)).toEqual(['ul(disc)[One ul(circle)[Two]]']);
   });
@@ -220,7 +221,7 @@ describe('strict Office list reconstruction', () => {
         ['li', null, [['p', null, ['Eight']]]],
       ]],
     ]);
-    expect(output.result).toEqual({ reconstructedRuns: 1, reconstructedLists: 1, reconstructedItems: 2, skippedRuns: 0 });
+    expect(output.result).toEqual({ reconstructedRuns: 1, reconstructedLists: 1, reconstructedItems: 2, skippedRuns: 0, skippedItems: 0 });
     expect(output.diagnostics).toEqual([]);
   });
 
@@ -254,7 +255,7 @@ describe('strict Office list reconstruction', () => {
       { style: 'list-style-type:disc', text: 'ABC' }, { style: 'list-style-type:circle', text: 'D' },
       { style: 'list-style-type:square', text: 'E' }, { style: 'list-style-type:disc', text: 'F' },
     ]);
-    expect(output.result).toEqual({ reconstructedRuns: 1, reconstructedLists: 4, reconstructedItems: 6, skippedRuns: 0 });
+    expect(output.result).toEqual({ reconstructedRuns: 1, reconstructedLists: 4, reconstructedItems: 6, skippedRuns: 0, skippedItems: 0 });
   });
 
   it('keeps changed nested bullet classes under their actual current parent', () => {
@@ -403,14 +404,62 @@ describe('strict Office list reconstruction', () => {
       ]) expect(run(input).html).toBe(toHtml(parse(input)));
     });
 
-  it('atomically retains the entire run if the middle item or nesting is unsupported', () => {
-    for (const middle of [item('2. Actual note', 'B'), item('2.', 'B', 3)]) {
-      const input = item('1.', 'A') + middle + item('3.', 'C');
-      const output = run(input);
-      expect(output.html).toBe(toHtml(parse(input)));
-      expect(output.result).toEqual({ reconstructedRuns: 0, reconstructedLists: 0, reconstructedItems: 0, skippedRuns: 1 });
-      expect(output.diagnostics).toHaveLength(1);
-    }
+  it('keeps only an unsupported first level item literal and reconstructs the rest of its run', () => {
+    const input = item('1.', 'A') + item('2. Actual note', 'B') + item('3.', 'C');
+    const output = run(input);
+    expect(outline(output.tree)).toEqual(['ol(decimal@1)[A]', '2. Actual note B', 'ol(decimal@3)[C]']);
+    expect(output.result).toEqual({ reconstructedRuns: 1, reconstructedLists: 2, reconstructedItems: 2, skippedRuns: 0, skippedItems: 1 });
+    expect(output.diagnostics).toEqual([{ code: 'office-list-unsupported', offset: input.indexOf(item('2. Actual note', 'B')) }]);
+    expect(elements(output.tree, 'p')[1]).toEqual(elements(parse(input), 'p')[1]);
+  });
+
+  it('keeps a level jump literal inside the current parent item and continues its list after it', () => {
+    const input = item('1.', 'A') + item('2.', 'B', 3) + item('3.', 'C');
+    const output = run(input);
+    expect(outline(output.tree)).toEqual(['ol(decimal@1)[A 2. B]', 'ol(decimal@3)[C]']);
+    expect(output.result).toEqual({ reconstructedRuns: 1, reconstructedLists: 2, reconstructedItems: 2, skippedRuns: 0, skippedItems: 1 });
+    expect(output.diagnostics).toHaveLength(1);
+  });
+
+  it('cascades literal output to deeper items whose parent is literal and resumes at a supported level', () => {
+    const input = item('1.', 'A') + item('➢', 'B', 2) + item('1.', 'C', 3) + item('•', 'D', 2) + item('2.', 'E');
+    const output = run(input);
+    expect(outline(output.tree)).toEqual(['ol(decimal@1)[A ➢ B 1. C ul(disc)[D] | E]']);
+    expect(output.result).toMatchObject({ reconstructedItems: 3, skippedItems: 2, reconstructedLists: 2 });
+    expect(output.diagnostics).toEqual([{ code: 'office-list-unsupported', offset: input.indexOf(item('➢', 'B', 2)) }]);
+  });
+
+  it('resets nesting after a literal first level item', () => {
+    const input = item('1.', 'A') + item('➢', 'B') + item('•', 'C', 2) + item('2.', 'D');
+    const output = run(input);
+    expect(outline(output.tree)).toEqual(['ol(decimal@1)[A]', '➢ B', '• C', 'ol(decimal@2)[D]']);
+    expect(output.diagnostics).toHaveLength(1);
+  });
+
+  it('reports each separate literal segment once at its first paragraph', () => {
+    const input = item('1.', 'A') + item('➢', 'B') + item('➢', 'C') + item('2.', 'D') + item('➢', 'E');
+    const output = run(input);
+    expect(outline(output.tree)).toEqual(['ol(decimal@1)[A]', '➢ B', '➢ C', 'ol(decimal@2)[D]', '➢ E']);
+    expect(output.diagnostics.map(entry => entry.offset)).toEqual([input.indexOf(item('➢', 'B')), input.indexOf(item('➢', 'E'))]);
+    expect(output.result).toMatchObject({ reconstructedRuns: 1, skippedRuns: 0, reconstructedItems: 2, skippedItems: 3 });
+  });
+
+  it('keeps literal whitespace and comments in document order around literal items', () => {
+    const output = run(item('1.', 'A') + '\n<!--one-->' + item('➢', 'B', 2) + '<!--two-->\t' + item('2.', 'C'));
+    expect(visibleText(output.tree)).toMatch(/^A\n➢\u00a0 B\tC$/u);
+    expect(output.html.indexOf('<!--one-->')).toBeLessThan(output.html.indexOf('➢'));
+    expect(output.html.indexOf('<!--two-->')).toBeGreaterThan(output.html.indexOf('➢'));
+  });
+
+  it('continues a Word alphabetic list per item past z, keeping only the repeated letters literal', () => {
+    const letters = Array.from({ length: 26 }, (_, index) => String.fromCharCode(97 + index));
+    const input = '<style>@list l1:level1 {mso-level-number-format:alpha-lower}</style>'
+      + letters.map(letter => item(`${letter}.`, letter.toUpperCase(), 1, 'l1')).join('')
+      + item('aa.', 'Twenty seven', 1, 'l1') + item('bb.', 'Twenty eight', 1, 'l1');
+    const output = run(input);
+    expect(outline(output.tree)).toEqual([`ol(lower-alpha@1)[${letters.map(letter => letter.toUpperCase()).join(' | ')}]`,
+      'aa. Twenty seven', 'bb. Twenty eight']);
+    expect(output.diagnostics).toHaveLength(1);
   });
 
   it('retains orphan nested runs and ambiguous additional Ignore elements', () => {
@@ -462,12 +511,23 @@ describe('strict Office list reconstruction', () => {
   it.each([
     { options: { orderedLists: false }, html: item('1.', 'A') },
     { options: { bulletLists: false }, html: item('•', 'A') },
-    { options: { nestedLists: false }, html: item('1.', 'A') + item('•', 'B', 2) },
-    { options: { bulletLists: false }, html: item('1.', 'A') + item('•', 'B', 2) },
+    { options: { nestedLists: false }, html: item('1.', 'Nested', 2) },
   ])('retains original markers when destination capabilities are insufficient: $options', ({ options, html }) => {
     const output = run(html, options);
     expect(output.html).toBe(toHtml(parse(html)));
     expect(output.result.skippedRuns).toBe(1);
+  });
+
+  it('keeps an unrepresentable nested item literal outside its list when the destination cannot nest', () => {
+    const output = run(item('1.', 'A') + item('•', 'B', 2) + item('2.', 'C'), { nestedLists: false });
+    expect(outline(output.tree)).toEqual(['ol(decimal@1)[A]', '• B', 'ol(decimal@2)[C]']);
+    expect(output.diagnostics).toHaveLength(1);
+  });
+
+  it('keeps an unrepresentable nested item literal inside its parent item when nesting is available', () => {
+    const output = run(item('1.', 'A') + item('•', 'B', 2) + item('2.', 'C'), { bulletLists: false });
+    expect(outline(output.tree)).toEqual(['ol(decimal@1)[A • B | C]']);
+    expect(output.result).toMatchObject({ reconstructedItems: 2, skippedItems: 1, reconstructedLists: 1 });
   });
 
   it('still reconstructs supported separate runs when another run is unsupported', () => {

@@ -15,10 +15,14 @@ export interface OfficeListReconstructionOptions {
 }
 
 export interface OfficeListReconstructionResult {
+  /** Runs with at least one reconstructed item. */
   reconstructedRuns: number;
   reconstructedLists: number;
   reconstructedItems: number;
+  /** Runs whose every item stayed literal. */
   skippedRuns: number;
+  /** Items that stayed literal paragraphs with their visible marker. */
+  skippedItems: number;
 }
 
 export type OfficeListReporter = (code: 'office-list-unsupported', node: Element) => void;
@@ -283,6 +287,11 @@ function readItem(entry: Candidate, rules: OfficeListRules): ListItem | undefine
   };
 }
 
+/** The metadata level of a candidate, or the first level when its metadata cannot be read. */
+function entryLevel(entry: Candidate): number {
+  return Number(listMetadata.exec(entry.declaration.value ?? '')?.[2] ?? 1);
+}
+
 function withoutMarker(parent: Element, marker: Element): Element {
   let changed = false;
   const children: ElementContent[] = [];
@@ -296,11 +305,42 @@ function withoutMarker(parent: Element, marker: Element): Element {
   return changed ? { ...parent, children } : parent;
 }
 
-function reconstructRun(items: ListItem[]): { lists: Element[]; count: number } {
-  const lists: Element[] = [];
+interface RunOutput {
+  content: RootContent[];
+  lists: number;
+  items: number;
+  literal: number;
+  /** First paragraph of each maximal contiguous literal segment. */
+  segments: Element[];
+}
+
+/**
+ * Place a run item by item. A supported item joins the list stack as before. An unsupported
+ * item, or one whose parent level does not exist, stays a literal paragraph with its visible
+ * marker: inside the nearest open list item when the destination can nest, otherwise at the
+ * run's own level, which closes the open lists. Deeper items under a literal one have no list
+ * parent, so they stay literal too until the level returns to a supported parent.
+ */
+function reconstructRun(entries: readonly { entry: Candidate; item: ListItem | undefined }[], nestedLists: boolean): RunOutput {
+  const output: RunOutput = { content: [], lists: 0, items: 0, literal: 0, segments: [] };
   const stack: Level[] = [];
-  let count = 0;
-  for (const item of items) {
+  let literalSegment = false;
+  for (const { entry, item } of entries) {
+    const level = item?.level ?? entryLevel(entry);
+    if (item === undefined || stack.length < level - 1) {
+      output.literal++;
+      if (!literalSegment) output.segments.push(entry.paragraph);
+      literalSegment = true;
+      stack.length = Math.min(stack.length, level - 1);
+      const parent = stack.at(-1);
+      if (parent !== undefined && nestedLists) parent.lastItem.children.push(entry.paragraph, ...entry.after);
+      else {
+        stack.length = 0;
+        output.content.push(entry.paragraph, ...entry.after);
+      }
+      continue;
+    }
+    literalSegment = false;
     stack.length = Math.min(stack.length, item.level);
     let current = stack[item.level - 1];
     if (current?.list.tagName !== item.kind || current.identity !== item.identity || current.markerStyle !== item.markerStyle
@@ -308,7 +348,7 @@ function reconstructRun(items: ListItem[]): { lists: Element[]; count: number } 
       const list: Element = { type: 'element', tagName: item.kind, properties: {
         ...(item.ordinal === undefined ? {} : { start: item.ordinal }), style: `list-style-type:${item.markerStyle}`,
       }, children: [] };
-      if (item.level === 1) lists.push(list);
+      if (item.level === 1) output.content.push(list);
       else {
         const parent = stack[item.level - 2];
         if (parent === undefined) throw new Error('Missing validated Office list parent');
@@ -316,7 +356,7 @@ function reconstructRun(items: ListItem[]): { lists: Element[]; count: number } 
       }
       current = { list, identity: item.identity, markerStyle: item.markerStyle, lastItem: list, nextOrdinal: undefined };
       stack[item.level - 1] = current;
-      count++;
+      output.lists++;
     }
     const paragraph = withoutMarker(item.paragraph, item.marker);
     const properties = { ...paragraph.properties };
@@ -333,8 +373,9 @@ function reconstructRun(items: ListItem[]): { lists: Element[]; count: number } 
     current.list.children.push(listItem);
     current.lastItem = listItem;
     current.nextOrdinal = item.ordinal === undefined ? undefined : item.ordinal + 1;
+    output.items++;
   }
-  return { lists, count };
+  return output;
 }
 
 function assertBounds(tree: Root, options: OfficeListReconstructionOptions): void {
@@ -394,7 +435,7 @@ export function reconstructOfficeLists(
   report: OfficeListReporter,
 ): OfficeListReconstructionResult {
   const result: OfficeListReconstructionResult = {
-    reconstructedRuns: 0, reconstructedLists: 0, reconstructedItems: 0, skippedRuns: 0,
+    reconstructedRuns: 0, reconstructedLists: 0, reconstructedItems: 0, skippedRuns: 0, skippedItems: 0,
   };
   const skipped: Element[] = [];
   const rules = readOfficeListRules(stylesheetTexts(tree), referencedLevels(tree));
@@ -418,7 +459,6 @@ export function reconstructOfficeLists(
         continue;
       }
       const entries = [first];
-      const original: RootContent[] = [child];
       let end = index + 1;
       while (end < parent.children.length) {
         let nextIndex = end;
@@ -429,33 +469,21 @@ export function reconstructOfficeLists(
         const between = parent.children.slice(end, nextIndex).filter(trivia);
         const previous = entries[entries.length - 1];
         if (previous !== undefined) previous.after = between;
-        original.push(...between, next.paragraph);
         entries.push(next);
         end = nextIndex + 1;
       }
-      const items: ListItem[] = [];
-      let problem: Element | undefined;
-      let previousLevel = 0;
-      for (const entry of entries) {
+      const planned = entries.map(entry => {
         const item = readItem(entry, rules);
-        if (item === undefined || item.level > previousLevel + 1 || !representable(item)) {
-          problem = entry.paragraph;
-          break;
-        }
-        items.push(item);
-        previousLevel = item.level;
-      }
-      if (problem !== undefined) {
-        children.push(...original);
-        skipped.push(problem);
-        result.skippedRuns++;
-      } else {
-        const reconstructed = reconstructRun(items);
-        children.push(...reconstructed.lists);
-        result.reconstructedRuns++;
-        result.reconstructedLists += reconstructed.count;
-        result.reconstructedItems += items.length;
-      }
+        return { entry, item: item !== undefined && representable(item) ? item : undefined };
+      });
+      const reconstructed = reconstructRun(planned, options.nestedLists !== false);
+      children.push(...reconstructed.content);
+      skipped.push(...reconstructed.segments);
+      if (reconstructed.items > 0) result.reconstructedRuns++;
+      else result.skippedRuns++;
+      result.reconstructedLists += reconstructed.lists;
+      result.reconstructedItems += reconstructed.items;
+      result.skippedItems += reconstructed.literal;
       index = end;
     }
     return children;

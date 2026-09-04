@@ -188,6 +188,27 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
       await expect(page.locator('.dm-paste-feedback')).toBeHidden();
     });
 
+    test('a Word list keeps one unsupported item literal inside its parent item and reconstructs the rest', async ({ page }) => {
+      await open(page, framework); await seed(page, '<p>Replace me</p>'); const before = await snapshot(page);
+      // The level two definition names Courier New, but this marker run is Arial, so its o is not a proven bullet.
+      const html = wordStyle + wordItem('l0', 1, 'font-family:Symbol', '·', 'Disc')
+        + wordItem('l0', 2, 'font-family:Arial', 'o', 'Literal') + wordItem('l0', 1, 'font-family:Symbol', '·', 'After');
+      await paste(page, html, 'Disc\nLiteral\nAfter');
+      const results = await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.results);
+      expect(results).toHaveLength(1);
+      expect(results[0]?.diagnostics.filter(entry => entry.code === 'office-list-unsupported')).toHaveLength(1);
+      // The literal paragraph keeps its visible marker run, including that run's own formatting, as its own text node.
+      const pasted = canonical((await snapshot(page)).doc);
+      expect(pasted.content?.map(node => [node.type, node.attrs?.['listStyleType']])).toEqual([['bulletList', 'disc']]);
+      expect(pasted.content?.[0]?.content?.map(entry => [entry.type, ...(entry.content ?? []).map(block =>
+        `${block.type}:${(block.content ?? []).map(part => part.text ?? '').join('')}`)])).toEqual([
+        ['listItem', 'paragraph:Disc', expect.stringMatching(/^paragraph:o\s+Literal$/u)], ['listItem', 'paragraph:After'],
+      ]);
+      expect(await computedMarkers(page)).toEqual(['disc']);
+      await expect(page.locator('.dm-paste-feedback')).toBeVisible();
+      await page.keyboard.press('ControlOrMeta+z'); await expect.poll(() => snapshot(page)).toEqual(before);
+    });
+
     for (const formatting of ['preserve', 'adapt'] as const) test(`${formatting} keeps reconstructed Office decimals and bullet classes at depth`, async ({ page }) => {
       await open(page, framework, formatting); await seed(page, '<p>Replace me</p>'); const before = await snapshot(page);
       await paste(page, officeHTML); await cleanPaste(page); await history(page, before, officeJSON); await reload(page, officeJSON);
