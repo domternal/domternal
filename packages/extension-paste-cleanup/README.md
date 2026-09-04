@@ -238,7 +238,8 @@ both modes and skip Office list reconstruction. Copies from other pages or
 applications, from a separate copy of this package, from editors without
 PasteCleanup, or without a secure random source are external. The copy marker
 never reaches the editor document. HTML, URL, style and resource checks apply to
-every fragment, including own copies.
+every fragment, including own copies. Core accepts one copy annotation per
+editor, so another registration on an editor with PasteCleanup throws.
 
 Explicit inline `mso-list:lN levelN lfoN` paragraphs with one leading
 `mso-list:Ignore` marker can become semantic lists. When the clipboard HTML carries
@@ -322,6 +323,10 @@ the destination Image extension's `allowBase64` policy.
 alongside `Image.configure({ allowBase64: true })` to prepare image-only clipboard
 files as embedded raster images. Preparation reads captured local files without
 uploading, fetching, creating object URLs or adding document placeholders.
+
+With `imageAssets`, PasteCleanup owns the editor's clipboard HTML preparation.
+Core accepts one per editor: another `registerClipboardHTMLPreparation` on the
+same editor throws instead of taking over, whichever of the two registers second.
 
 Mixed HTML requires an explicit `match(context)` callback when image references
 need local clipboard files. It returns `ClipboardImageBinding[]` with a
