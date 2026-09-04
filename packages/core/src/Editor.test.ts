@@ -280,6 +280,31 @@ describe('Editor', () => {
       ).toThrow('fatal is misconfigured');
     });
 
+    it('carries a standard cause through editor construction', () => {
+      const cause = new Error('underlying refusal');
+      const Fatal = Extension.create({
+        name: 'fatalWithCause',
+        addProseMirrorPlugins() {
+          throw new ExtensionConfigurationError('fatal with a cause', { cause });
+        },
+      });
+
+      let thrown: unknown;
+      try {
+        editor = new Editor({ extensions: [Document, Text, Paragraph, Fatal] });
+      } catch (error) {
+        thrown = error;
+      }
+      expect(thrown).toBeInstanceOf(ExtensionConfigurationError);
+      expect(thrown).toMatchObject({ name: 'ExtensionConfigurationError', message: 'fatal with a cause' });
+      expect((thrown as Error).cause).toBe(cause);
+    });
+
+    it('has no cause unless one is given', () => {
+      expect(Object.hasOwn(new ExtensionConfigurationError('plain'), 'cause')).toBe(false);
+      expect(Object.hasOwn(new ExtensionConfigurationError('explicit', { cause: undefined }), 'cause')).toBe(true);
+    });
+
     it('keeps isolating plain errors from the same hook', () => {
       const onError = vi.fn();
       const Broken = Extension.create({
