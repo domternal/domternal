@@ -1,6 +1,6 @@
 import type { EditorView } from '@domternal/pm/view';
 
-/** Formatting and asset ownership intent shared by paste handlers, never a source trust signal. */
+/** @experimental Formatting and asset ownership intent shared by paste handlers, never a source trust signal. */
 export interface ClipboardPasteBehavior {
   preserveOrderedListStart?: boolean;
   assetsAlreadyHandled?: boolean;

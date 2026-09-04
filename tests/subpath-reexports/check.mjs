@@ -18,7 +18,8 @@
  *    that requires the ESM main (which Node 22 `require(esm)` would load as a
  *    second copy) fails with the offending text.
  * 2. Name agreement. The ESM names, the CommonJS names and the value exports of
- *    both declaration files must be the same set.
+ *    both declaration files must be the same set. For an experimental subpath
+ *    every declared name must also carry its own `@experimental` tag.
  * 3. Main parity. The main runtime keeps these bindings for the subpath to
  *    re-export without declaring them, so its runtime keys minus its declared
  *    values must be exactly the subpath names, and its declarations must name
@@ -47,9 +48,13 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..', '..');
 
-/** Subpaths that must be thin re-exports of their package's main bundle. */
+/**
+ * Subpaths that must be thin re-exports of their package's main bundle. An
+ * `experimental` subpath promises the `@experimental` tag on every name it
+ * declares, so the gate also holds its declarations to that.
+ */
 export const SUBPATHS = [
-  { package: '@domternal/core', directory: 'packages/core', subpath: './clipboard' },
+  { package: '@domternal/core', directory: 'packages/core', subpath: './clipboard', experimental: true },
 ];
 
 /**
@@ -266,6 +271,25 @@ export function declarationExports(text) {
   return { values, types, stars };
 }
 
+/**
+ * Exported names of a bundled declaration file whose own declaration has no
+ * `@experimental` JSDoc tag. Editors show the tag from the declaration itself,
+ * so a tag on the file or on a sibling does not reach the name. A name with no
+ * local declaration is reported too, because nothing there can carry the tag.
+ */
+export function missingExperimentalTags(text, names) {
+  const missing = [];
+  for (const name of names) {
+    const declaration = new RegExp(
+      `(?:^|\\n)[ \\t]*(?:export\\s+)?(?:declare\\s+)?(?:abstract\\s+)?(?:interface|type|function|class|const|let|var|enum)\\s+${name}\\b`
+    ).exec(text);
+    const before = declaration === null ? '' : text.slice(0, declaration.index).trimEnd();
+    const doc = before.endsWith('*/') ? before.slice(before.lastIndexOf('/**')) : '';
+    if (!/@experimental\b/.test(doc)) missing.push(name);
+  }
+  return missing.sort();
+}
+
 const sorted = (values) => [...values].sort();
 const same = (left, right) => JSON.stringify(sorted(left)) === JSON.stringify(sorted(right));
 
@@ -391,8 +415,10 @@ function checkSubpath(declared, packageDirectory, log) {
   const dts = declarationExports(texts.dts);
   const dcts = declarationExports(texts.dcts);
   problems.push(...nameAgreement({ esm: esm.names, cjs: cjs.names, dts: dts.values, dcts: dcts.values }, label));
-  for (const [name, declarations] of [[files.esmTypes, dts], [files.cjsTypes, dcts]]) {
+  for (const [name, declarations, text] of [[files.esmTypes, dts, texts.dts], [files.cjsTypes, dcts, texts.dcts]]) {
     if (declarations.stars > 0) problems.push(`${name}: a star re-export hides which names the subpath declares`);
+    const untagged = declared.experimental ? missingExperimentalTags(text, [...declarations.values, ...declarations.types]) : [];
+    if (untagged.length > 0) problems.push(`${name}: the experimental subpath declares ${untagged.join(', ')} without an @experimental tag`);
   }
   log(`${problems.length === 0 ? 'ok  ' : 'FAIL'} ${label}: static re-export shape of ${files.esm} and ${files.cjs}`);
 

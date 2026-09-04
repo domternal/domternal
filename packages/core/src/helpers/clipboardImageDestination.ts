@@ -1,6 +1,6 @@
 import type { EditorView } from '@domternal/pm/view';
 
-/** Explicit destination policy. Consumers must validate and bound their own material snapshot. */
+/** @experimental Explicit destination policy. Consumers must validate and bound their own material snapshot. */
 export interface ClipboardImageDestinationPolicy {
   readonly nodeTypeName: string;
   readonly sourceAttribute: string;

@@ -1,15 +1,17 @@
 import { DOMParser } from '@domternal/pm/model';
 import type { EditorProps, EditorView } from '@domternal/pm/view';
 
+/** @experimental The paste attempt a preparation gate or an attempt observer receives. */
 export interface ClipboardHTMLPreparationContext {
   /** Available for synchronous capture only. Deferred work must own a safe snapshot. */
   readonly event: ClipboardEvent | undefined;
   readonly origin: 'native' | 'programmatic';
 }
 
-/** Returns ProseMirror's handled status, not a transaction acceptance receipt. */
+/** @experimental Returns ProseMirror's handled status, not a transaction acceptance receipt. */
 export type ClipboardHTMLReplay = (html: string, freshEvent: ClipboardEvent) => boolean;
 
+/** @experimental What a preparation gate returns to defer an HTML paste until it replays prepared HTML. */
 export interface ClipboardHTMLDeferral {
   /** Start deferred work synchronously and return void. Replay becomes available after this callback returns. */
   onDeferred(replay: ClipboardHTMLReplay): void;

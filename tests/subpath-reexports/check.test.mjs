@@ -14,6 +14,7 @@ import {
   entryFiles,
   excerpt,
   mainParity,
+  missingExperimentalTags,
   nameAgreement,
   parseCjsReexport,
   parseCoreArgument,
@@ -141,6 +142,27 @@ export * from './star';`;
   assert.deepEqual([...values].sort(), ['Service', 'constant', 'declared', 'renamed', 'setClipboardPasteBehavior']);
   assert.deepEqual([...types].sort(), ['Alias', 'ClipboardPasteBehavior', 'OnlyType', 'Shape']);
   assert.equal(stars, 1);
+});
+
+test('an experimental subpath needs the tag on the declaration of every exported name', () => {
+  const text = `import { EditorView } from '@domternal/pm/view';
+/** Plain description. */
+interface Shape { a: string }
+/** @experimental Tagged. */
+type Alias = string;
+/**
+ * @experimental Tagged over several lines.
+ */
+declare function tagged(view: EditorView): void;
+/** @experimental Tags only the declaration it precedes. */
+declare function first(): void;
+declare function second(): void;
+export { type Alias, type Shape, first, second, tagged, type Missing };`;
+  assert.deepEqual(missingExperimentalTags(text, ['Alias', 'Missing', 'Shape', 'first', 'second', 'tagged']), ['Missing', 'Shape', 'second']);
+});
+
+test('the clipboard subpath is declared experimental', () => {
+  assert.equal(SUBPATHS.find((declared) => declared.subpath === './clipboard')?.experimental, true);
 });
 
 test('name agreement names the file whose set differs', () => {
