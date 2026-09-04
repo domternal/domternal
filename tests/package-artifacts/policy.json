@@ -29,7 +29,8 @@
     "2026-09-24: the new optional paste-cleanup package initially measured 428770 packed bytes. Strict Office list reconstruction, inherited formatting and destination capability checks raise it to 510675. The reviewed 562000 ceiling covers ESM and CommonJS editor and standalone HTML entries, declarations, deliberate source maps and bundled HAST notices with about ten percent headroom. Core, ProseMirror and parse5 remain external; no runtime dependency was added for this increment. No existing package gains a dependency on this opt-in extension.",
     "2026-09-24: integrated local clipboard image preparation, cancellation, bounded source capture and pending feedback raise the packed cleanup package to about 663000 bytes, including both module formats, declarations and intentional source maps. Reviewed source maps contain only production modules and existing HAST dependencies. The 730000 ceiling retains about ten percent headroom; allowed files and all other package ceilings remain unchanged.",
     "2026-09-27: persistent resolver ownership, inline assets, destination probes, styled breaks and explicit list markers now measure 767675 packed bytes. The previous ceiling predates those additions. Reviewed tarball membership and every source-map entry contain only intended production modules, existing vendor dependencies and the single German catalog. Source maps account for 69.53 percent of unpacked bytes; the list-marker increment adds 49381 unpacked dist bytes over the styled-break snapshot, with declarations and locale output unchanged. The reviewed 845000 ceiling follows the existing ten percent headroom convention. File allowlists, the fixed additional-locale allowance and all JavaScript entry budgets remain unchanged.",
-    "2026-09-27: unknown list marker normalization, the contentDiagnostic event, the normalizeListMarkers migration command and the attribute refusals add production code, declarations and deliberate source maps to core. Measured packed bytes: core 882211, up from 864096 at the previous commit. The 971000 ceiling follows the documented ten percent headroom rounded up to 1000 bytes. File allowlists and export checks are unchanged."
+    "2026-09-27: unknown list marker normalization, the contentDiagnostic event, the normalizeListMarkers migration command and the attribute refusals add production code, declarations and deliberate source maps to core. Measured packed bytes: core 882211, up from 864096 at the previous commit. The 971000 ceiling follows the documented ten percent headroom rounded up to 1000 bytes. File allowlists and export checks are unchanged.",
+    "2026-09-28: own-copy recognition with the same-page copy marker, the quiet Office envelope classification, the bounded Word @list level reader, Word list profile reconstruction from level definitions and marker run fonts, and the per item Office list fallback raise the packed cleanup package to 861052 bytes, including both module formats, declarations and intentional source maps. No dependency was added. The 948000 ceiling keeps the documented ten percent headroom rounded up to 1000 bytes; file allowlists and all other package ceilings are unchanged."
   ],
   "@domternal/angular": {
     "maxPackedBytes": 77000,
@@ -93,7 +94,7 @@
     "maxAdditionalLocaleBytes": 6000
   },
   "@domternal/extension-paste-cleanup": {
-    "maxPackedBytes": 845000,
+    "maxPackedBytes": 948000,
     "requiredFiles": ["LICENSE", "README.md", "THIRD-PARTY-LICENSES.md", "package.json"],
     "allowedPatterns": ["^dist/(html/)?index\\.(js|cjs)(\\.map)?$", "^dist/(html/)?index\\.d\\.(ts|cts)$"],
     "maxAdditionalLocaleBytes": 8000
