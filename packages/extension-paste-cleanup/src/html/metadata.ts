@@ -37,8 +37,11 @@ function contextAttribute(key: string, value: unknown, nodeName?: string): boole
   return false;
 }
 
-/** Clipboard slice context is data, never a trust marker or a way to bypass attribute checks. */
-export function cleanSliceContext(value: unknown): string | undefined {
+/**
+ * Clipboard slice context is data, never a trust marker or a way to bypass attribute checks.
+ * `drop` removes context attributes that the caller's formatting policy does not keep.
+ */
+export function cleanSliceContext(value: unknown, drop?: ReadonlySet<string>): string | undefined {
   if (typeof value !== 'string' || value.length > 16_384) return undefined;
   const match = /^(\d{1,3}) (\d{1,3})(?: (-\d{1,3}))? (\[[\s\S]*\])$/.exec(value);
   if (match === null || Number(match[1]) > 128 || Number(match[2]) > 128 || Math.abs(Number(match[3] ?? 0)) > 128) return undefined;
@@ -54,14 +57,17 @@ export function cleanSliceContext(value: unknown): string | undefined {
     if (typeof attributes !== 'object' || Array.isArray(attributes)) return undefined;
     const filtered: Record<string, unknown> = {};
     for (const [key, entry] of Object.entries(attributes)) {
-      if (contextAttribute(key, entry, name)) filtered[key] = entry;
+      if (drop?.has(key) !== true && contextAttribute(key, entry, name)) filtered[key] = entry;
     }
     clean.push(name, filtered);
   }
   return `${match[1] ?? '0'} ${match[2] ?? '0'}${match[3] === undefined ? '' : ` ${match[3]}`} ${JSON.stringify(clean)}`;
 }
 
-/** Preserve supported editor semantics through validation, including external lookalikes. */
+/**
+ * Preserve supported editor semantics through validation, including external lookalikes.
+ * Slice context is not copied here: only the verified anchor receives it again.
+ */
 export function cleanMetadata(original: Properties): Properties {
   const clean: Properties = {};
   if (safeID(original.id)) clean.id = original.id;
@@ -90,7 +96,5 @@ export function cleanMetadata(original: Properties): Properties {
     const value = original[key];
     if (typeof value === 'string' && value.length <= 4_096) clean[key] = value;
   }
-  const slice = cleanSliceContext(original['dataPmSlice']);
-  if (slice !== undefined) clean['dataPmSlice'] = slice;
   return clean;
 }

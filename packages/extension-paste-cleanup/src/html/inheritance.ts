@@ -139,7 +139,7 @@ function resolveSize(value: string, parent: FontSize | undefined): FontSize | un
 /**
  * Resolve a fixed subset of source inline formatting before schema parsing.
  * This is not a stylesheet cascade or sanitizer. The caller must still sanitize
- * properties and URLs and must bypass cosmetic rewriting for internal slices.
+ * properties and URLs and must bypass cosmetic rewriting for verified own copies.
  * Source boundaries are retained; generated wrappers contain text or a hard break.
  */
 export function resolveInlineInheritance(

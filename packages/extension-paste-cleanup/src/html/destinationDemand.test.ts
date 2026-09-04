@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Element, ElementContent, Properties, Root, RootContent, Text } from 'hast';
 import { collectDestinationDemand } from './destinationDemand.js';
-import { DEFAULT_PASTE_HTML_LIMITS, normalizePasteHTML } from './normalize.js';
+import { DEFAULT_PASTE_HTML_LIMITS, normalizeClipboardHTML, normalizePasteHTML } from './normalize.js';
 import type { NormalizePasteHTMLOptions } from './types.js';
 import { parseBoundedHTML, StructureLimitError } from './parse.js';
 
@@ -13,6 +13,15 @@ const element = (tagName: string, children: ElementContent[] = [], properties: P
 const root = (children: RootContent[] = []): Root => ({ type: 'root', children });
 function normalized(html: string, options?: NormalizePasteHTMLOptions): Root {
   const result = normalizePasteHTML(html, options);
+  expect(result.status).toBe('cleaned');
+  return parseBoundedHTML(result.html, DEFAULT_PASTE_HTML_LIMITS);
+}
+
+// A verified own copy: the anchor carries a nonce that the private verifier confirms.
+const OWN_NONCE = 'OwnCopyNonceOwnCopy_-A';
+function ownCopy(html: string, options: NormalizePasteHTMLOptions = {}): Root {
+  const { result } = normalizeClipboardHTML(html.replace('data-pm-slice', `data-domternal-copy="v1.${OWN_NONCE}" data-pm-slice`),
+    options, undefined, undefined, undefined, nonce => nonce === OWN_NONCE);
   expect(result.status).toBe('cleaned');
   return parseBoundedHTML(result.html, DEFAULT_PASTE_HTML_LIMITS);
 }
@@ -83,8 +92,8 @@ describe('bounded sanitized destination feature demand', () => {
     expect(() => collectDestinationDemand(tree, { maxNodes: 3, maxDepth: 1 })).toThrow(StructureLimitError);
   });
 
-  it('finds retained internal inline styles and validated theme tokens', () => {
-    const tree = normalized('<div data-pm-slice="0 0 []"><p><span style="font-weight:700;font-style:oblique;text-decoration-line:underline line-through;vertical-align:sub;font-family:Georgia;font-size:14pt" data-text-color="accent-1" data-bg-color="highlight-2">Text</span></p></div>', { formatting: 'adapt' });
+  it('finds retained own-copy inline styles and validated theme tokens', () => {
+    const tree = ownCopy('<div data-pm-slice="0 0 []"><p><span style="font-weight:700;font-style:oblique;text-decoration-line:underline line-through;vertical-align:sub;font-family:Georgia;font-size:14pt" data-text-color="accent-1" data-bg-color="highlight-2">Text</span></p></div>', { formatting: 'adapt' });
     expect(collectDestinationDemand(tree, limits)).toEqual(['bold', 'italic', 'underline', 'strike', 'subscript', 'font-family', 'font-size', 'text-color', 'highlight']);
   });
 

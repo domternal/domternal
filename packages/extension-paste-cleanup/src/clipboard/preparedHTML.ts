@@ -1,7 +1,7 @@
 import type { Element, Properties, Root, RootContent } from 'hast';
 import { toHtml } from 'hast-util-to-html';
 import { normalizeClipboardHTML, DEFAULT_PASTE_HTML_LIMITS, retainDiagnostic } from '../html/normalize.js';
-import type { ClipboardDestinationCheck } from '../html/normalize.js';
+import type { ClipboardDestinationCheck, ClipboardOwnCopyCheck } from '../html/normalize.js';
 import { safeImage } from '../html/urls.js';
 import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic } from '../html/types.js';
 import type { OfficeListReconstructionOptions } from '../html/officeLists.js';
@@ -131,6 +131,7 @@ export function prepareClipboardHTML(
   capabilities?: () => Pick<OfficeListReconstructionOptions, 'orderedLists' | 'bulletLists' | 'nestedLists'>,
   inline?: ClipboardInlineHTMLPreparation,
   destinationCheck?: ClipboardDestinationCheck,
+  ownCopy?: ClipboardOwnCopyCheck,
 ): ClipboardHTMLPreparationResult {
   const limits = validateLimits(inputLimits);
   const normalizationOptions = { ...options, ...(options.limits === undefined ? {} : { limits: { ...options.limits } }),
@@ -209,7 +210,7 @@ export function prepareClipboardHTML(
     },
     removedImage() { hasRemovedImages = true; },
     retainTree(value, pixels) { tree = value; existingPixels = pixels; },
-  }, destinationCheck);
+  }, destinationCheck, ownCopy);
   if (normalized.destinationRejected) return Object.freeze({ status: 'rejected', destinationRejected: true, normalization: normalized.result });
   if (assetReason !== undefined) return Object.freeze({ status: 'rejected', assetReason,
     normalization: { ...normalized.result, status: 'rejected' as const, html: '' } });

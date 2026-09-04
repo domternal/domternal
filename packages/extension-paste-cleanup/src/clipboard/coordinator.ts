@@ -6,6 +6,7 @@ import type { EditorView } from '@domternal/pm/view';
 import { DEFAULT_PASTE_HTML_LIMITS } from '../html/normalize.js';
 import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult } from '../html/types.js';
 import { officeListCapabilities } from '../listCapabilities.js';
+import { isOwnCopyNonce } from './ownCopy.js';
 import { getUnsupportedDestinationFeatures } from '../destinationCapabilities.js';
 import { pasteCleanupKey, pasteDocumentRevision } from '../operations.js';
 import type { PasteOperationRejectionReason } from '../operations.js';
@@ -314,7 +315,7 @@ export function createClipboardAssetCoordinator(
       ? { destination, assetLimits, sourceAllowDataImages: htmlOptions.allowDataImages !== false } : undefined;
     return prepareClipboardHTML(html, preparationLimits, htmlOptions,
       () => officeListCapabilities(view.state.schema, view.dom.ownerDocument, { preserveMarkers: true }), inline,
-      features => getUnsupportedDestinationFeatures(view.state.schema, view.dom.ownerDocument, features));
+      features => getUnsupportedDestinationFeatures(view.state.schema, view.dom.ownerDocument, features), isOwnCopyNonce);
   };
   const makeOperation = (result: ClipboardHTMLPreparationResult, entry: CaptureEntry): AssetOperation => {
     const normalization = result.status === 'prepared'

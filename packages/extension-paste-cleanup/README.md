@@ -150,7 +150,9 @@ The result contains:
 The result is editor input, not a destination-schema validation or a general
 HTML publication policy. The receiving editor still controls its nodes, marks,
 URL policies, custom renderers, identifiers and comment ownership. Unsupported
-custom node attributes and slice contexts are not implicitly trusted.
+custom node attributes and slice contexts are not implicitly trusted. The
+standalone entry has no own-copy verifier, so it treats every fragment,
+including one with a `data-pm-slice` marker, as external content.
 
 ## Formatting and assets
 
@@ -205,14 +207,35 @@ toward the node and depth allowances, and no inherited style text. Each discarde
 source declaration is reported once as an informational `formatting-adapted`
 finding located at the element that declared it, including when the HTML parser
 duplicates misnested formatting elements. A relative font size without a known
-base is adapted, not reported as unsupported. Validated internal slice metadata preserves
-existing editor formatting in either mode. A forged `data-pm-slice` marker still
-passes through all HTML, URL, style and resource checks.
+base is adapted, not reported as unsupported.
 Destination demands are collected after intentional adaptation, so removed theme
 formatting does not trigger a missing-capability warning. Semantic emphasis and
 structural capabilities are checked in both modes. Empty decorative text wrappers
 do not request formatting; significant spaces and hard breaks count as meaningful
 inline content, including when a styled wrapper contains only a break.
+
+A `data-pm-slice` marker is ProseMirror structural context, not proof of origin.
+HTML copied from another ProseMirror or Tiptap editor, Confluence or any other
+page follows the chosen `preserve` or `adapt` policy. Its marker is kept only
+when it is the fragment's single marker on the first root element; a table part
+marker additionally needs a single root element whose wrapper levels each hold
+one element, so ProseMirror's descent drops nothing. Under `adapt` the kept
+context loses text alignment (unless `preserveTextAlignment` is set) and cell
+backgrounds, and keeps structure such as list markers, starts, spans, widths
+and task state. Every other marker, including nested and duplicate ones, is
+removed, so it cannot change the policy of the whole fragment or drop pasted
+blocks.
+
+A Domternal own copy is recognized only by `data-domternal-copy="v1.<nonce>"`
+on that anchor. PasteCleanup adds it to copies, cuts and drags from its editor
+through Core's experimental `registerClipboardCopyAnnotation`. The nonce is 16
+random bytes, remembered for the 32 most recent copies in the same page. Copies
+between editors with PasteCleanup on one page keep their editor formatting in
+both modes and skip Office list reconstruction. Copies from other pages or
+applications, from a separate copy of this package, from editors without
+PasteCleanup, or without a secure random source are external. The copy marker
+never reaches the editor document. HTML, URL, style and resource checks apply to
+every fragment, including own copies.
 
 Explicit inline `mso-list:lN levelN lfoN` paragraphs with one leading
 `mso-list:Ignore` marker can become semantic lists. Supported markers are positive
@@ -231,7 +254,7 @@ Both formatting modes retain supported list marker classes. Ordered lists suppor
 support `disc`, `circle` and `square`. Only these kind-specific `list-style-type`
 values and supported HTML `type` attributes are accepted. Core stores an explicit
 marker in `listStyleType`; `null` keeps the destination theme's depth-based defaults.
-Internal slice metadata follows the same restrictions. Task lists do not gain this
+Slice context follows the same restrictions. Task lists do not gain this
 attribute. Lists with different explicit markers stay separate during paste and
 list editing.
 

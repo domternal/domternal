@@ -376,6 +376,7 @@ for (const framework of FRAMEWORKS) {
         + '<p id="source-paragraph">Original paragraph</p>', 'all');
       const copied = await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.serializeSelection());
       expect(copied.html).toContain('data-pm-slice');
+      expect(copied.html).toMatch(/data-domternal-copy="v1\.[A-Za-z0-9_-]{22}"/);
       expect(copied.html).toContain('source-heading');
       await page.evaluate(() => {
         const probe = (window as unknown as ProbeWindow).__pasteCleanup;
@@ -434,11 +435,11 @@ for (const framework of FRAMEWORKS) {
   });
 }
 
-clipboardTest('Chromium native clipboard preserves an editor copy through cleanup', async ({ page, context, browserName }) => {
+clipboardTest('Chromium native clipboard keeps an own editor copy through adapt cleanup', async ({ page, context, browserName }) => {
   clipboardTest.skip(browserName !== 'chromium', 'Native clipboard permissions are exercised in Chromium.');
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE_URL });
   await openFixture(page, 'vanilla', { formatting: 'adapt' });
-  await seed(page, '<p><strong>Native editor copy</strong></p>', 'all');
+  await seed(page, '<p><strong><span style="color:#123456;font-size:18pt">Native editor copy</span></strong></p>', 'all');
   await page.keyboard.press('ControlOrMeta+c');
   const copiedHTML = await page.evaluate(async () => {
     for (const item of await navigator.clipboard.read()) {
@@ -447,10 +448,15 @@ clipboardTest('Chromium native clipboard preserves an editor copy through cleanu
     throw new Error('The browser copy did not expose HTML');
   });
   expect(copiedHTML).toContain('data-pm-slice');
+  expect(copiedHTML).toMatch(/data-domternal-copy="v1\.[A-Za-z0-9_-]{22}"/);
   await seed(page, '<p></p>');
   const before = await snapshot(page);
   await page.keyboard.press('ControlOrMeta+v');
   await expect(page.locator('.ProseMirror strong')).toHaveText('Native editor copy');
-  expect((await observations(page)).results.at(-1)?.status).toBe('cleaned');
+  // Adapt would remove external typography; the verified own copy keeps its editor formatting.
+  const style = (await textMarks(page, 'Native editor copy')).find(mark => mark.type === 'textStyle');
+  expect(style?.attrs).toMatchObject({ color: '#123456', fontSize: '18pt' });
+  await expect(page.locator('.ProseMirror [data-domternal-copy]')).toHaveCount(0);
+  expect((await observations(page)).results.at(-1)).toMatchObject({ status: 'cleaned', diagnostics: [] });
   await expectHistoryRoundTrip(page, before);
 });

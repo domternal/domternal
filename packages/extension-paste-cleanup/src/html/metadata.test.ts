@@ -1,7 +1,16 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { normalizePasteHTML } from './index.js';
+import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult } from './index.js';
+import { normalizeClipboardHTML } from './normalize.js';
 import { cleanMetadata, cleanSliceContext } from './metadata.js';
+
+// A verified own copy: the anchor carries a nonce that the private verifier confirms.
+const OWN_NONCE = 'OwnCopyNonceOwnCopy_-A';
+function ownCopy(html: string, options: NormalizePasteHTMLOptions = {}): NormalizePasteHTMLResult {
+  return normalizeClipboardHTML(html.replace('data-pm-slice', `data-domternal-copy="v1.${OWN_NONCE}" data-pm-slice`),
+    options, undefined, undefined, undefined, nonce => nonce === OWN_NONCE).result;
+}
 
 function contextOf(value: string | undefined): unknown {
   if (value === undefined) throw new Error('Expected validated clipboard context');
@@ -178,11 +187,12 @@ describe('validated clipboard metadata', () => {
     expect(cleanSliceContext(null)).toBeUndefined();
   });
 
-  it('preserves validated internal formatting in adapt mode while still removing unsafe HTML', () => {
-    const result = normalizePasteHTML(
-      '<p data-pm-slice="0 0 []" onclick="alert(1)"><span data-text-color="red" data-bg-color="blue" style="font-family:Arial;font-size:18px;color:#123456;background-image:url(https://unsafe.test/image)">Internal</span><img src="https://unsafe.test/pixel"></p>',
-      { formatting: 'adapt' }
-    );
+  it('preserves verified own-copy formatting in adapt mode while still removing unsafe HTML', () => {
+    const html = '<p data-pm-slice="0 0 []" onclick="alert(1)"><span data-text-color="red" data-bg-color="blue" style="font-family:Arial;font-size:18px;color:#123456;background-image:url(https://unsafe.test/image)">Internal</span><img src="https://unsafe.test/pixel"></p>';
+    // A slice marker alone is structural context, so the standalone entry adapts the same markup.
+    const external = normalizePasteHTML(html, { formatting: 'adapt' });
+    expect(external.html).toBe('<p data-pm-slice="0 0 []"><span>Internal</span></p>');
+    const result = ownCopy(html, { formatting: 'adapt' });
 
     expect(result.status).toBe('cleaned');
     expect(result.html).toContain('data-text-color="red"');

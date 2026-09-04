@@ -7,6 +7,7 @@ import { readSafeStyles, serializeStyles } from './styles.js';
 import { listStyleFromType } from './listStyles.js';
 import { safeImage, safeLink } from './urls.js';
 import { cleanMetadata, cleanSliceContext } from './metadata.js';
+import { confirmSliceAnchor, readSliceOrigin, sliceAnchorContext } from './sliceOrigin.js';
 import { assertTableBounds, TableLimitError } from './tables.js';
 import { assertTagWork, TagWorkLimitError } from './tagWork.js';
 import { assertOutputTreeBounds } from './treeBounds.js';
@@ -114,6 +115,12 @@ export interface ClipboardImagePreparationSink {
 /** Private editor adapter. The standalone HTML entry never supplies a schema. */
 export type ClipboardDestinationCheck = (features: readonly PasteDestinationFeature[]) => readonly PasteDestinationFeature[];
 
+/**
+ * Private editor verifier for a Domternal copy nonce issued in this page. The standalone HTML
+ * entry never supplies it, so it treats every fragment as external.
+ */
+export type ClipboardOwnCopyCheck = (nonce: string) => boolean;
+
 /** Internal destination constraints and paste intent do not become public result metadata. */
 export function normalizeClipboardHTML(
   html: string,
@@ -121,6 +128,7 @@ export function normalizeClipboardHTML(
   capabilities?: () => Pick<OfficeListReconstructionOptions, 'orderedLists' | 'bulletLists' | 'nestedLists'>,
   preparation?: ClipboardImagePreparationSink,
   destination?: ClipboardDestinationCheck,
+  ownCopy?: ClipboardOwnCopyCheck,
 ): { result: NormalizePasteHTMLResult; preserveOrderedListStart: boolean; destinationRejected?: true } {
   const limits = resolveLimits(options.limits);
   let preserveOrderedListStart = false;
@@ -147,15 +155,9 @@ export function normalizeClipboardHTML(
       pixels += count;
       return true;
     };
-    const pending = [...tree.children];
-    let internal = false;
-    while (pending.length > 0) {
-      const node = pending.pop();
-      if (node?.type !== 'element') continue;
-      if (cleanSliceContext(node.properties['dataPmSlice']) !== undefined) internal = true;
-      pending.push(...node.children);
-    }
-    if (!internal) {
+    // A slice marker alone is structural context. Only a verified own copy keeps editor formatting as is.
+    const { anchor, own } = readSliceOrigin(tree, ownCopy);
+    if (!own) {
       if (/\bmso-list\s*:/i.test(html)) {
         const lists = reconstructOfficeLists(tree, { ...limits, ...capabilities?.() }, report);
         preserveOrderedListStart = lists.reconstructedLists > 0;
@@ -164,7 +166,11 @@ export function normalizeClipboardHTML(
         maxNodes: limits.maxNodes, maxDepth: limits.maxDepth, maxInputLength: limits.maxInputLength,
         formatting: options.formatting ?? 'preserve',
       }, node => { report('unsupported-formatting', node); }, node => { report('formatting-adapted', node, 'info'); });
+      if (anchor !== undefined) confirmSliceAnchor(tree, anchor);
     }
+    const adapt = options.formatting === 'adapt' && !own;
+    // Adapted external context keeps its structure but not the formatting the element policy removes.
+    const droppedContext = adapt ? new Set(options.preserveTextAlignment === true ? ['background'] : ['textAlign', 'background']) : undefined;
     const normalizeChildren = (parent: Root | Element): void => {
       const children: RootContent[] = [];
       for (const child of parent.children) {
@@ -173,6 +179,12 @@ export function normalizeClipboardHTML(
         if (discard.has(child.tagName)) { report('unsafe-content-removed', child); continue; }
         const original = child.properties;
         const clean: Properties = cleanMetadata(original);
+        const anchorContext = sliceAnchorContext(child);
+        if (anchorContext !== undefined) {
+          const context = cleanSliceContext(anchorContext, droppedContext);
+          if (context !== undefined) clean['dataPmSlice'] = context;
+          if (context !== anchorContext) report('formatting-adapted', child, 'info');
+        }
         const { styles, removed } = readSafeStyles(original.style, child.tagName === 'img', child.tagName);
         if (removed) report('unsupported-formatting', child);
         if (child.tagName === 'ul' && !styles.has('list-style-type') && clean.dataType !== 'taskList') {
@@ -196,7 +208,7 @@ export function normalizeClipboardHTML(
           for (const key of ['font-weight', 'font-style', 'text-decoration', 'text-decoration-line']) styles.delete(key);
           if (semantic.includes('sub') || semantic.includes('sup')) styles.delete('vertical-align');
         }
-        if (options.formatting === 'adapt' && !internal) {
+        if (adapt) {
           if (child.tagName === 'mark') {
             child.tagName = 'span';
             report('formatting-adapted', child, 'info');

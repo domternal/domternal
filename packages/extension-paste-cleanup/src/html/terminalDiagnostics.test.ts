@@ -3,21 +3,28 @@ import { describe, expect, it } from 'vitest';
 import { normalizePasteHTML } from './index.js';
 import { normalizeClipboardHTML, retainDiagnostic } from './normalize.js';
 import type { PasteDestinationFeature } from './destinationDemand.js';
-import type { PasteDiagnostic } from './types.js';
+import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult, PasteDiagnostic, PasteHTMLLimits } from './types.js';
 
 const warnings = '<p style="position:fixed">A</p><p style="position:fixed">B</p><p style="position:fixed">C</p>';
 const warning = { code: 'unsupported-formatting', severity: 'warning' };
 
+// A verified own copy skips inheritance, so only the final output tree bound can reject it.
+const OWN_NONCE = 'OwnCopyNonceOwnCopy_-A';
+const ownCopy = (html: string, options: NormalizePasteHTMLOptions): NormalizePasteHTMLResult => normalizeClipboardHTML(
+  html.replace('data-pm-slice', `data-domternal-copy="v1.${OWN_NONCE}" data-pm-slice`), options,
+  undefined, undefined, undefined, nonce => nonce === OWN_NONCE).result;
+
 describe('terminal rejection reason under a full diagnostic allowance', () => {
   it.each([
-    ['generated inherited formatting', 16, '<p><span style="color:red">x</span><span style="color:red">y</span><span style="color:red">z</span></p>'],
-    ['the final output tree', 13, '<p data-pm-slice="1 1 []"><span style="font-weight:700;font-style:italic;text-decoration:underline line-through">T</span></p>'],
-  ])('keeps structure-limit after warnings fill the allowance: %s', (_, maxNodes, tail) => {
-    const html = warnings + tail;
-    const roomy = normalizePasteHTML(html, { limits: { maxNodes, maxDiagnostics: 10 } });
+    ['generated inherited formatting', 16, (limits: Partial<PasteHTMLLimits>) => normalizePasteHTML(
+      `${warnings}<p><span style="color:red">x</span><span style="color:red">y</span><span style="color:red">z</span></p>`, { limits })],
+    ['the final output tree of a verified own copy', 13, (limits: Partial<PasteHTMLLimits>) => ownCopy(
+      `<p data-pm-slice="1 1 []"><span style="font-weight:700;font-style:italic;text-decoration:underline line-through">T</span></p>${warnings}`, { limits })],
+  ])('keeps structure-limit after warnings fill the allowance: %s', (_, maxNodes, normalize) => {
+    const roomy = normalize({ maxNodes, maxDiagnostics: 10 });
     expect(roomy.diagnostics.map(item => item.code)).toEqual(['unsupported-formatting', 'unsupported-formatting', 'unsupported-formatting', 'structure-limit']);
 
-    const result = normalizePasteHTML(html, { limits: { maxNodes, maxDiagnostics: 2 } });
+    const result = normalize({ maxNodes, maxDiagnostics: 2 });
     expect(result).toMatchObject({ status: 'rejected', html: '', diagnosticsTruncated: true });
     expect(result.diagnostics).toEqual([expect.objectContaining(warning), { code: 'structure-limit', severity: 'error' }]);
   });

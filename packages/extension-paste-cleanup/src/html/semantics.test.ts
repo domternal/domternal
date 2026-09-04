@@ -1,7 +1,15 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { Bold, Document, Editor, Paragraph, Text } from '@domternal/core';
 import { normalizePasteHTML } from './index.js';
-import type { NormalizePasteHTMLOptions } from './index.js';
+import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult } from './index.js';
+import { normalizeClipboardHTML } from './normalize.js';
+
+// A verified own copy: the anchor carries a nonce that the private verifier confirms.
+const OWN_NONCE = 'OwnCopyNonceOwnCopy_-A';
+function ownCopy(html: string, options: NormalizePasteHTMLOptions = {}): NormalizePasteHTMLResult {
+  return normalizeClipboardHTML(html.replace('data-pm-slice', `data-domternal-copy="v1.${OWN_NONCE}" data-pm-slice`),
+    options, undefined, undefined, undefined, nonce => nonce === OWN_NONCE).result;
+}
 
 let editor: Editor | undefined;
 afterEach(() => {
@@ -19,17 +27,15 @@ function normalizedDOM(html: string, options: NormalizePasteHTMLOptions = {}): H
 
 describe('supported HTML semantics', () => {
   it.each([
-    { formatting: 'preserve' as const, internal: false, retained: true },
-    { formatting: 'adapt' as const, internal: false, retained: false },
-    { formatting: 'adapt' as const, internal: true, retained: true },
+    { formatting: 'preserve' as const, marker: false, own: false, retained: true },
+    { formatting: 'adapt' as const, marker: false, own: false, retained: false },
+    { formatting: 'adapt' as const, marker: true, own: false, retained: false },
+    { formatting: 'adapt' as const, marker: true, own: true, retained: true },
   ])(
-    'handles color metadata in $formatting mode with internal=$internal',
-    ({ formatting, internal, retained }) => {
-      const marker = internal ? ' data-pm-slice="0 0 []"' : '';
-      const result = normalizePasteHTML(
-        `<div${marker}><p><span data-text-color="red" data-bg-color="blue">Text</span></p><table><tr><td data-background="#123456">Cell</td></tr></table></div>`,
-        { formatting }
-      );
+    'handles color metadata in $formatting mode with marker=$marker and own=$own',
+    ({ formatting, marker, own, retained }) => {
+      const html = `<div${marker ? ' data-pm-slice="0 0 []"' : ''}><p><span data-text-color="red" data-bg-color="blue">Text</span></p><table><tr><td data-background="#123456">Cell</td></tr></table></div>`;
+      const result = own ? ownCopy(html, { formatting }) : normalizePasteHTML(html, { formatting });
       const root = document.createElement('div');
       root.innerHTML = result.html;
 
@@ -196,13 +202,16 @@ describe('supported HTML semantics', () => {
     expect(root.querySelector('td')?.getAttribute('data-text-align')).toBe(preserveTextAlignment ? 'center' : null);
   });
 
-  it('keeps internal text alignment when adapting external formatting is the default', () => {
-    const root = normalizedDOM(
-      '<div data-pm-slice="0 0 []"><p style="text-align:right">Paragraph</p><table><tr><td data-text-align="center">Cell</td></tr></table></div>',
-      { formatting: 'adapt' }
-    );
+  it('keeps own-copy text alignment when adapting external formatting is the default', () => {
+    const html = '<div data-pm-slice="0 0 []"><p style="text-align:right">Paragraph</p><table><tr><td data-text-align="center">Cell</td></tr></table></div>';
+    const root = document.createElement('div');
+    root.innerHTML = ownCopy(html, { formatting: 'adapt' }).html;
     expect(root.querySelector('p')?.style.textAlign).toBe('right');
     expect(root.querySelector('td')?.getAttribute('data-text-align')).toBe('center');
+    // The same markup without a verified copy marker is external and adapted.
+    const external = normalizedDOM(html, { formatting: 'adapt' });
+    expect(external.querySelector('p')?.style.textAlign).toBe('');
+    expect(external.querySelector('td')?.getAttribute('data-text-align')).toBeNull();
   });
 
   it('does not map unsupported table CSS or unsafe background data', () => {

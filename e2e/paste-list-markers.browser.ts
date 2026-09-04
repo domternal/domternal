@@ -211,6 +211,21 @@ for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
       await history(page, before, expected); await reload(page, expected);
     });
 
+    test('partial external ProseMirror copy keeps its marker context through an ordered range replacement', async ({ page }) => {
+      await open(page, framework, 'adapt'); await seed(page, listHTML('ol', 'upper-roman', 'SOURCEA'));
+      await selection(page, 'SOURCEA', 0, 'SOURCEA', 7);
+      const copied = await page.evaluate(() => (window as unknown as ProbeWindow).__pasteCleanup.serializeSelection());
+      // The same ProseMirror markup without the same-page copy marker, as another editor such as Tiptap writes it.
+      const external = copied.html.replace(/ data-domternal-copy="v1\.[A-Za-z0-9_-]{22}"/, '');
+      expect(external).not.toBe(copied.html);
+      expect(external).toContain('data-pm-slice'); expect(external).toContain('upper-roman');
+      await seed(page, listHTML('ol', 'decimal', 'HOST', 'TARGET', 'END')); await selection(page, 'TARGET', 0, 'TARGET', 6);
+      const before = await snapshot(page); await paste(page, external, copied.text); await cleanPaste(page);
+      const expected = doc(ol('decimal', [item(p('HOST'))]), ol('upper-roman', [item(p('SOURCEA'))]), ol('decimal', [item(p('END'))]));
+      await caret(page, 20); // End of SOURCEA in the independently authored output.
+      await history(page, before, expected); await reload(page, expected);
+    });
+
     test('SmartPaste preserves square bullets while replacing a disc list range', async ({ page }) => {
       await open(page, framework); await seed(page, listHTML('ul', 'disc', 'HOST', 'TARGET', 'END'));
       await selection(page, 'TARGET', 0, 'TARGET', 6); const before = await snapshot(page);

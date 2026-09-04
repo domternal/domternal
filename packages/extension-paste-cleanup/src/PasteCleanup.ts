@@ -1,4 +1,4 @@
-import { Extension, ExtensionConfigurationError, setClipboardPasteBehavior, armClipboardPasteTransaction } from '@domternal/core';
+import { Extension, ExtensionConfigurationError, setClipboardPasteBehavior, armClipboardPasteTransaction, registerClipboardCopyAnnotation } from '@domternal/core';
 import type { Editor } from '@domternal/core';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import { closeHistory } from '@domternal/pm/history';
@@ -17,6 +17,7 @@ import type { PasteFeedbackRenderer } from './feedback.js';
 import { createClipboardAssetCoordinator, resolveClipboardImageAssets } from './clipboard/coordinator.js';
 import type { ClipboardAssetCoordinator } from './clipboard/coordinator.js';
 import type { ClipboardImageAssetOptions, PastePreparationProgress } from './clipboard/types.js';
+import { annotateOwnCopy, isOwnCopyNonce } from './clipboard/ownCopy.js';
 
 export interface PasteCleanupOptions extends NormalizePasteHTMLOptions {
   /** Opt in to bounded local raster preparation with explicit rich-HTML bindings. */
@@ -118,6 +119,8 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
       state: receiptStateField,
       filterTransaction: transaction => coordinator?.filterTransaction(transaction) ?? true,
       view: view => {
+        // Copies from this editor carry a same-page nonce that makes them recognizable own copies.
+        const disposeCopyAnnotation = registerClipboardCopyAnnotation(view, annotateOwnCopy);
         if (options.feedback === 'default') feedback = createPasteFeedback(view, editor.i18n);
         if (imageAssets !== undefined) coordinator = createClipboardAssetCoordinator(view, imageAssets, options, {
           create: createOperation, notify, tracking,
@@ -131,7 +134,10 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
         editor.on('adopt', adopt);
         return {
           update: updatedView => { tracking.observe(updatedView); coordinator?.observe(); refresh(); },
-          destroy: () => { startAttempt(); coordinator?.destroy(); coordinator = undefined; editor.off('adopt', adopt); feedback?.dispose(); feedback = undefined; },
+          destroy: () => {
+            startAttempt(); disposeCopyAnnotation(); coordinator?.destroy(); coordinator = undefined;
+            editor.off('adopt', adopt); feedback?.dispose(); feedback = undefined;
+          },
         };
       },
       props: {
@@ -188,6 +194,7 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
           const { result, preserveOrderedListStart, destinationRejected } = normalizeClipboardHTML(
             html, options, () => officeListCapabilities(view.state.schema, view.dom.ownerDocument, { preserveMarkers: true }),
             undefined, features => getUnsupportedDestinationFeatures(view.state.schema, view.dom.ownerDocument, features),
+            isOwnCopyNonce,
           );
           const rejected = result.status === 'rejected';
           const cleaned = result.html;

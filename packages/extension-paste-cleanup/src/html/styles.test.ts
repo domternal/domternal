@@ -2,6 +2,15 @@
 import { describe, expect, it } from 'vitest';
 import { readSafeStyles } from './styles.js';
 import { normalizePasteHTML } from './index.js';
+import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult } from './index.js';
+import { normalizeClipboardHTML } from './normalize.js';
+
+// A verified own copy: the anchor carries a nonce that the private verifier confirms.
+const OWN_NONCE = 'OwnCopyNonceOwnCopy_-A';
+function ownCopy(html: string, options: NormalizePasteHTMLOptions = {}): NormalizePasteHTMLResult {
+  return normalizeClipboardHTML(html.replace('data-pm-slice', `data-domternal-copy="v1.${OWN_NONCE}" data-pm-slice`),
+    options, undefined, undefined, undefined, nonce => nonce === OWN_NONCE).result;
+}
 
 const inheritedNames = ['constructor', '__proto__', 'CONSTRUCTOR', '__PROTO__'];
 
@@ -21,8 +30,8 @@ describe('safe CSS rule lookup', () => {
     expect(result.diagnostics).not.toContainEqual(expect.objectContaining({ severity: 'error' }));
   });
 
-  it('keeps an internal slice whose pasted style names an inherited object key', () => {
-    const result = normalizePasteHTML('<p data-pm-slice="1 1 []"><span style="constructor:1;color:red">Text</span></p>');
+  it('keeps an own-copy slice whose pasted style names an inherited object key', () => {
+    const result = ownCopy('<p data-pm-slice="1 1 []"><span style="constructor:1;color:red">Text</span></p>');
     expect(result.status).toBe('cleaned');
     expect(result.html).toBe('<p data-pm-slice="1 1 []"><span style="color:red">Text</span></p>');
     expect(result.diagnostics).toEqual([expect.objectContaining({ code: 'unsupported-formatting', severity: 'warning' })]);
