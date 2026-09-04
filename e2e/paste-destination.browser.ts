@@ -228,7 +228,8 @@ for (const framework of FRAMEWORKS) {
       await seed(page, '<p>Before old after</p>', true);
       const before = await snapshot(page);
       const priorHistory = await history(page);
-      const observed = await paste(page, '<p><span style="mso-font-kerning:0pt">Prefix</span></p>' + TABLE_HTML);
+      // A real loss fills the one-entry allowance; Office private declarations are routine and never warn.
+      const observed = await paste(page, '<p><span style="position:fixed">Prefix</span></p>' + TABLE_HTML);
       expect(observed.results[0]?.diagnostics).toEqual([{ code: 'destination-table-unsupported', severity: 'error' }]);
       expect(observed.results[0]?.diagnosticsTruncated).toBe(true);
       // The retained terminal diagnostic renders the table refusal detail next to the truncation note.
