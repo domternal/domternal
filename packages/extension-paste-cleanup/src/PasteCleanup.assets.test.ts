@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
-import { Bold, BulletList, CodeBlock, Document, Editor, Extension, ExtensionConfigurationError, History, ListItem, Node, OrderedList, Paragraph, Text, getClipboardImageDestination } from '@domternal/core';
+import { Bold, BulletList, CodeBlock, Document, Editor, Extension, ExtensionConfigurationError, History, ListItem, Node, OrderedList, Paragraph, Text } from '@domternal/core';
+import { getClipboardImageDestination } from '@domternal/core/clipboard';
 import type { EditorOptions } from '@domternal/core';
 import { redoDepth, undoDepth } from '@domternal/pm/history';
 import { Plugin, TextSelection } from '@domternal/pm/state';

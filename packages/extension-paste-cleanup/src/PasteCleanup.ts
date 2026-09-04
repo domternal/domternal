@@ -1,4 +1,5 @@
-import { Extension, ExtensionConfigurationError, setClipboardPasteBehavior, armClipboardPasteTransaction, registerClipboardCopyAnnotation } from '@domternal/core';
+import { Extension, ExtensionConfigurationError } from '@domternal/core';
+import { setClipboardPasteBehavior, armClipboardPasteTransaction, registerClipboardCopyAnnotation } from '@domternal/core/clipboard';
 import type { Editor } from '@domternal/core';
 import { Plugin, PluginKey } from '@domternal/pm/state';
 import { closeHistory } from '@domternal/pm/history';

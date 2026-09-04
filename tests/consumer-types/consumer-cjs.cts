@@ -23,6 +23,7 @@
  * to core's `.d.cts` identity, which one call per package settles.
  */
 import core = require('@domternal/core');
+import clipboard = require('@domternal/core/clipboard');
 import blockControls = require('@domternal/extension-block-controls');
 import lowlight = require('@domternal/extension-code-block-lowlight');
 import details = require('@domternal/extension-details');
@@ -39,10 +40,11 @@ import toc = require('@domternal/extension-toc');
 declare const editor: core.Editor;
 declare const clipboardEvent: ClipboardEvent;
 
-const disposeHTMLPreparation: () => void = core.registerClipboardHTMLPreparation(editor.view, (html, context: core.ClipboardHTMLPreparationContext) => {
+// Clipboard coordination resolves through the subpath's own CommonJS declarations.
+const disposeHTMLPreparation: () => void = clipboard.registerClipboardHTMLPreparation(editor.view, (html, context: clipboard.ClipboardHTMLPreparationContext) => {
   const origin: 'native' | 'programmatic' = context.origin;
-  const activeEvent: ClipboardEvent | undefined = core.getClipboardPasteAttemptEvent(editor.view);
-  return { onDeferred(replay: core.ClipboardHTMLReplay) {
+  const activeEvent: ClipboardEvent | undefined = clipboard.getClipboardPasteAttemptEvent(editor.view);
+  return { onDeferred(replay: clipboard.ClipboardHTMLReplay) {
     queueMicrotask(() => { const handled: boolean = replay(html, new ClipboardEvent('paste')); });
   } };
 }, context => {
@@ -50,21 +52,38 @@ const disposeHTMLPreparation: () => void = core.registerClipboardHTMLPreparation
   const origin: 'native' | 'programmatic' = context.origin;
 });
 // @ts-expect-error CommonJS preparation requires a callable gate.
-core.registerClipboardHTMLPreparation(editor.view, false);
+clipboard.registerClipboardHTMLPreparation(editor.view, false);
 // @ts-expect-error CommonJS attempt observers must be callable.
-core.registerClipboardHTMLPreparation(editor.view, () => undefined, false);
+clipboard.registerClipboardHTMLPreparation(editor.view, () => undefined, false);
 
-const imagePolicy: core.ClipboardImageDestinationPolicy = {
+const imagePolicy: clipboard.ClipboardImageDestinationPolicy = {
   nodeTypeName: 'image', sourceAttribute: 'src', inline: false, allowEmbedded: true,
   allowedMimeTypes: ['image/png'], maxFileBytes: 1024, policyVersion: 'application:1',
 };
-const disposeImagePolicy: () => void = core.registerClipboardImageDestination(editor.view, () => imagePolicy);
-const liveImagePolicy: core.ClipboardImageDestinationPolicy | undefined = core.getClipboardImageDestination(editor.view);
-core.setClipboardPasteBehavior(editor.view, clipboardEvent, { preserveOrderedListStart: true, assetsAlreadyHandled: true });
+const disposeImagePolicy: () => void = clipboard.registerClipboardImageDestination(editor.view, () => imagePolicy);
+const liveImagePolicy: clipboard.ClipboardImageDestinationPolicy | undefined = clipboard.getClipboardImageDestination(editor.view);
+clipboard.setClipboardPasteBehavior(editor.view, clipboardEvent, { preserveOrderedListStart: true, assetsAlreadyHandled: true });
 // @ts-expect-error CommonJS image policies retain their immutable declaration.
 imagePolicy.allowedMimeTypes.push('image/svg+xml');
 // @ts-expect-error CommonJS asset ownership retains its boolean type.
-core.setClipboardPasteBehavior(editor.view, clipboardEvent, { assetsAlreadyHandled: 'trusted' });
+clipboard.setClipboardPasteBehavior(editor.view, clipboardEvent, { assetsAlreadyHandled: 'trusted' });
+const pasteBehavior: Readonly<clipboard.ClipboardPasteBehavior> | undefined = clipboard.getClipboardPasteBehavior(editor.view, clipboardEvent);
+const disarmPaste: () => void = clipboard.armClipboardPasteTransaction(editor.view, new core.PluginKey('consumerPaste'), { operationId: 'consumer' });
+const disposeCopyAnnotation: () => void = clipboard.registerClipboardCopyAnnotation(editor.view, (fragment: DocumentFragment) => {
+  fragment.firstElementChild?.setAttribute('data-consumer-copy', '');
+});
+const deferral: clipboard.ClipboardHTMLDeferral = { onDeferred() { /* Resumed by the application. */ } };
+const copied: Promise<boolean> = core.writeToClipboard('consumer');
+// @ts-expect-error The CommonJS main entry does not declare clipboard coordination.
+core.registerClipboardHTMLPreparation(editor.view, () => undefined);
+// @ts-expect-error The CommonJS main entry does not declare clipboard coordination.
+core.setClipboardPasteBehavior(editor.view, clipboardEvent, {});
+// @ts-expect-error The CommonJS main entry does not declare clipboard coordination types.
+type MainClipboardHTMLReplay = core.ClipboardHTMLReplay;
+// @ts-expect-error The gate type stays internal to the CommonJS subpath declarations.
+type SubpathClipboardHTMLPreparationGate = clipboard.ClipboardHTMLPreparationGate;
+// @ts-expect-error writeToClipboard stays on the CommonJS main entry.
+clipboard.writeToClipboard('consumer');
 
 // The standalone HTML entry must also resolve through its CommonJS declarations.
 pasteCleanup.PasteCleanup.configure({ formatting: 'adapt' });

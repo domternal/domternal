@@ -4,10 +4,18 @@
  * coverage-check.mjs guarantees this list stays exhaustive.
  */
 import type { Editor } from '@domternal/core';
-import { coreMessages, defineMessage, resolveColorName, resolveColorSwatch, resolveEmojiCategory, resolveEmojiLabel, matchesEmojiPresentation, observeI18nPresentation, registerClipboardImageDestination, getClipboardImageDestination, setClipboardPasteBehavior } from '@domternal/core';
-import type { CompleteMessages, Messages, ClipboardImageDestinationPolicy } from '@domternal/core';
-import { registerClipboardHTMLPreparation, getClipboardPasteAttemptEvent } from '@domternal/core';
-import type { ClipboardHTMLPreparationContext, ClipboardHTMLReplay } from '@domternal/core';
+import { coreMessages, defineMessage, resolveColorName, resolveColorSwatch, resolveEmojiCategory, resolveEmojiLabel, matchesEmojiPresentation, observeI18nPresentation, writeToClipboard, PluginKey } from '@domternal/core';
+import type { CompleteMessages, Messages } from '@domternal/core';
+import type * as mainEntry from '@domternal/core';
+// Clipboard coordination is published only on the experimental subpath.
+import {
+  armClipboardPasteTransaction, getClipboardImageDestination, getClipboardPasteAttemptEvent, getClipboardPasteBehavior,
+  registerClipboardCopyAnnotation, registerClipboardHTMLPreparation, registerClipboardImageDestination, setClipboardPasteBehavior,
+} from '@domternal/core/clipboard';
+import type {
+  ClipboardHTMLDeferral, ClipboardHTMLPreparationContext, ClipboardHTMLReplay, ClipboardImageDestinationPolicy, ClipboardPasteBehavior,
+} from '@domternal/core/clipboard';
+import type * as clipboardEntry from '@domternal/core/clipboard';
 
 declare module '@domternal/core' {
   interface MessageParameters {
@@ -66,6 +74,54 @@ setClipboardPasteBehavior(editor.view, clipboardEvent, { preserveOrderedListStar
 imagePolicy.allowedMimeTypes.push('image/svg+xml');
 // @ts-expect-error Asset ownership is a boolean signal, not a string trust label.
 setClipboardPasteBehavior(editor.view, clipboardEvent, { assetsAlreadyHandled: 'trusted' });
+const pasteBehavior: Readonly<ClipboardPasteBehavior> | undefined = getClipboardPasteBehavior(editor.view, clipboardEvent);
+const disarmPaste: () => void = armClipboardPasteTransaction(editor.view, new PluginKey('consumerPaste'), { operationId: 'consumer' });
+const disposeCopyAnnotation: () => void = registerClipboardCopyAnnotation(editor.view, (fragment: DocumentFragment) => {
+  fragment.firstElementChild?.setAttribute('data-consumer-copy', '');
+});
+// @ts-expect-error Copy annotations must be callable.
+registerClipboardCopyAnnotation(editor.view, 'annotate');
+const deferral: ClipboardHTMLDeferral = { onDeferred(replay: ClipboardHTMLReplay) { /* Resumed by the application. */ }, discard() { /* Released. */ } };
+const copied: Promise<boolean> = writeToClipboard('consumer');
+
+// The main entry declares none of the clipboard coordination names.
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainSetClipboardPasteBehavior = typeof mainEntry.setClipboardPasteBehavior;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainGetClipboardPasteBehavior = typeof mainEntry.getClipboardPasteBehavior;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainClipboardPasteBehavior = mainEntry.ClipboardPasteBehavior;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainArmClipboardPasteTransaction = typeof mainEntry.armClipboardPasteTransaction;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainRegisterClipboardImageDestination = typeof mainEntry.registerClipboardImageDestination;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainGetClipboardImageDestination = typeof mainEntry.getClipboardImageDestination;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainClipboardImageDestinationPolicy = mainEntry.ClipboardImageDestinationPolicy;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainRegisterClipboardCopyAnnotation = typeof mainEntry.registerClipboardCopyAnnotation;
+// @ts-expect-error Internal to the clipboard declarations.
+type MainClipboardCopyAnnotator = mainEntry.ClipboardCopyAnnotator;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainRegisterClipboardHTMLPreparation = typeof mainEntry.registerClipboardHTMLPreparation;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainGetClipboardPasteAttemptEvent = typeof mainEntry.getClipboardPasteAttemptEvent;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainClipboardHTMLPreparationContext = mainEntry.ClipboardHTMLPreparationContext;
+// @ts-expect-error Internal to the clipboard declarations.
+type MainClipboardHTMLPreparationGate = mainEntry.ClipboardHTMLPreparationGate;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainClipboardHTMLDeferral = mainEntry.ClipboardHTMLDeferral;
+// @ts-expect-error Only on @domternal/core/clipboard.
+type MainClipboardHTMLReplay = mainEntry.ClipboardHTMLReplay;
+// The subpath exposes the smallest contract: no internal helper types and no main entry utilities.
+// @ts-expect-error Internal to the clipboard declarations.
+type SubpathClipboardHTMLPreparationGate = clipboardEntry.ClipboardHTMLPreparationGate;
+// @ts-expect-error Internal to the clipboard declarations.
+type SubpathClipboardCopyAnnotator = clipboardEntry.ClipboardCopyAnnotator;
+// @ts-expect-error writeToClipboard stays on the main entry.
+type SubpathWriteToClipboard = typeof clipboardEntry.writeToClipboard;
 
 // Both published entries retain the same typed conversion contract.
 PasteCleanup.configure({ formatting: 'adapt' });

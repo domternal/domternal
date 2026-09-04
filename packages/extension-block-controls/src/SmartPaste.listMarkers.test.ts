@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   BulletList, Document, Editor, HardBreak, History, ListItem, OrderedList, Paragraph,
-  TaskItem, TaskList, Text, setClipboardPasteBehavior,
+  TaskItem, TaskList, Text,
 } from '@domternal/core';
+import { setClipboardPasteBehavior } from '@domternal/core/clipboard';
 import { redoDepth, undoDepth } from '@domternal/pm/history';
 import { TextSelection } from '@domternal/pm/state';
 import type { Transaction } from '@domternal/pm/state';

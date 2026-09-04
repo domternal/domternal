@@ -230,7 +230,8 @@ blocks.
 
 A Domternal own copy is recognized only by `data-domternal-copy="v1.<nonce>"`
 on that anchor. PasteCleanup adds it to copies, cuts and drags from its editor
-through Core's experimental `registerClipboardCopyAnnotation`. The nonce is 16
+through `registerClipboardCopyAnnotation` from the experimental
+`@domternal/core/clipboard` subpath. The nonce is 16
 random bytes, remembered for the 32 most recent copies in the same page. Copies
 between editors with PasteCleanup on one page keep their editor formatting in
 both modes and skip Office list reconstruction. Copies from other pages or
@@ -340,8 +341,9 @@ Invalid or conflicting bindings still reject. Existing safe HTML images retain
 their original positions; unrelated clipboard files are never appended to them.
 
 The actual Image extension must advertise a compatible live destination and allow
-embedded images. A custom image node can register its policy with Core's
-`registerClipboardImageDestination`; matching a node name alone is insufficient.
+embedded images. A custom image node can register its policy with
+`registerClipboardImageDestination` from the experimental `@domternal/core/clipboard`
+subpath; matching a node name alone is insufficient.
 Prepared replacements have their own explicit image policy. `allowDataImages`
 continues to control untrusted data images in source HTML.
 

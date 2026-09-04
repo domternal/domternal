@@ -1,5 +1,5 @@
-import { getClipboardImageDestination, getClipboardPasteAttemptEvent, registerClipboardHTMLPreparation } from '@domternal/core';
-import type { ClipboardHTMLDeferral, ClipboardHTMLPreparationContext, ClipboardHTMLReplay } from '@domternal/core';
+import { getClipboardImageDestination, getClipboardPasteAttemptEvent, registerClipboardHTMLPreparation } from '@domternal/core/clipboard';
+import type { ClipboardHTMLDeferral, ClipboardHTMLPreparationContext, ClipboardHTMLReplay } from '@domternal/core/clipboard';
 import type { Slice } from '@domternal/pm/model';
 import type { EditorState, Transaction } from '@domternal/pm/state';
 import type { EditorView } from '@domternal/pm/view';

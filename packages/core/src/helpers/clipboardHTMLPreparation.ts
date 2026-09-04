@@ -134,7 +134,7 @@ function currentAttempt(view: EditorView, state: ViewPreparation): Attempt | und
   return undefined;
 }
 
-/** Synchronous event identity for the active Core paste attempt. Never retain its live clipboard data. */
+/** @experimental Synchronous event identity for the active Core paste attempt. Never retain its live clipboard data. */
 export function getClipboardPasteAttemptEvent(view: EditorView): ClipboardEvent | undefined {
   const state = preparations.get(view);
   if (state === undefined || view.isDestroyed) return undefined;
@@ -328,7 +328,7 @@ function consumeDeferred(view: EditorView, state: ViewPreparation, attempt: Atte
 }
 
 /**
- * Register one HTML preparation gate in a Core editor. ProseMirror still selects
+ * @experimental Register one HTML preparation gate in a Core editor. ProseMirror still selects
  * the text or HTML route. Returning undefined preserves its ordinary pipeline.
  * Deferred HTML uses an empty preliminary parse, then runs ordinary paste hooks
  * once on replay. This is not an asynchronous continuation of ProseMirror parsing.

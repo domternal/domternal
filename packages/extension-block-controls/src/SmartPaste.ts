@@ -21,7 +21,8 @@
  * children of the slice are what matter.
  */
 
-import { Extension, getClipboardPasteBehavior } from '@domternal/core';
+import { Extension } from '@domternal/core';
+import { getClipboardPasteBehavior } from '@domternal/core/clipboard';
 import { Plugin, TextSelection, Selection } from '@domternal/pm/state';
 import { Fragment } from '@domternal/pm/model';
 import type { Slice, Node as PMNode, ResolvedPos, NodeType } from '@domternal/pm/model';

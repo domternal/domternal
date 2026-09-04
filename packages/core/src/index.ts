@@ -121,19 +121,9 @@ export {
 } from './utils/inlineStyles.js';
 
 // === Clipboard ===
+// Paste and copy coordination is published on the experimental @domternal/core/clipboard
+// subpath (see clipboard.ts), not here.
 export { writeToClipboard } from './utils/clipboard.js';
-export {
-  setClipboardPasteBehavior,
-  getClipboardPasteBehavior,
-  type ClipboardPasteBehavior,
-} from './helpers/clipboardPasteBehavior.js';
-export { armClipboardPasteTransaction } from './helpers/clipboardPasteTransaction.js';
-export { registerClipboardImageDestination, getClipboardImageDestination } from './helpers/clipboardImageDestination.js';
-export type { ClipboardImageDestinationPolicy } from './helpers/clipboardImageDestination.js';
-export { registerClipboardCopyAnnotation } from './helpers/clipboardCopyAnnotation.js';
-export type { ClipboardCopyAnnotator } from './helpers/clipboardCopyAnnotation.js';
-export { registerClipboardHTMLPreparation, getClipboardPasteAttemptEvent } from './helpers/clipboardHTMLPreparation.js';
-export type { ClipboardHTMLPreparationContext, ClipboardHTMLPreparationGate, ClipboardHTMLDeferral, ClipboardHTMLReplay } from './helpers/clipboardHTMLPreparation.js';
 
 // === Theme cascade for portaled elements ===
 export { copyThemeClass } from './utils/copyThemeClass.js';

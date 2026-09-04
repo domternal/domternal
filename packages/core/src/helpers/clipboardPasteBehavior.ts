@@ -8,7 +8,7 @@ export interface ClipboardPasteBehavior {
 
 const behaviors = new WeakMap<ClipboardEvent, WeakMap<EditorView, Readonly<ClipboardPasteBehavior>>>();
 
-/** Set behavior for this event and view. An empty or disabled behavior clears prior intent. */
+/** @experimental Set behavior for this event and view. An empty or disabled behavior clears prior intent. */
 export function setClipboardPasteBehavior(
   view: EditorView,
   event: ClipboardEvent,
@@ -31,7 +31,7 @@ export function setClipboardPasteBehavior(
   }));
 }
 
-/** Read only explicit intent for the same paste event and destination view. */
+/** @experimental Read only explicit intent for the same paste event and destination view. */
 export function getClipboardPasteBehavior(
   view: EditorView,
   event: ClipboardEvent,

@@ -21,7 +21,7 @@ const destinations = new WeakMap<EditorView, Registration[]>();
 /** Read lifetime again after invoking application code. */
 function isDestroyed(view: EditorView): boolean { return view.isDestroyed; }
 
-/** Register an explicit view capability without reading its policy. Dispose with its plugin view. */
+/** @experimental Register an explicit view capability without reading its policy. Dispose with its plugin view. */
 export function registerClipboardImageDestination(
   view: EditorView,
   readPolicy: () => ClipboardImageDestinationPolicy | undefined,
@@ -47,7 +47,7 @@ export function registerClipboardImageDestination(
   };
 }
 
-/** Read only the latest active registration. Missing or failing policies never fall back silently. */
+/** @experimental Read only the latest active registration. Missing or failing policies never fall back silently. */
 export function getClipboardImageDestination(view: EditorView): ClipboardImageDestinationPolicy | undefined {
   try {
     if (view.isDestroyed) return undefined;

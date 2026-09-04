@@ -9,7 +9,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html', 'lcov', 'json-summary'],
       include: ['src/**/*.ts'],
-      exclude: ['src/**/*.test.ts', 'src/index.ts', 'src/types/**', 'src/**/index.ts'],
+      exclude: ['src/**/*.test.ts', 'src/index.ts', 'src/index.bundle.ts', 'src/types/**', 'src/**/index.ts'],
       // Floors, not targets: each sits a few points under what this package
       // measured when they were set, so ordinary movement passes and a real
       // regression does not. Raise them as tests land.

@@ -3,7 +3,6 @@ announce
 AnyExtension
 AnyExtensionConfig
 applyInlineStyles
-armClipboardPasteTransaction
 assertSingleProseMirrorCopy
 AttributeSpec
 AttributeSpecs
@@ -50,13 +49,6 @@ CharacterCountStorage
 clearContent
 ClearContentOptions
 ClearFormatting
-ClipboardCopyAnnotator
-ClipboardHTMLDeferral
-ClipboardHTMLPreparationContext
-ClipboardHTMLPreparationGate
-ClipboardHTMLReplay
-ClipboardImageDestinationPolicy
-ClipboardPasteBehavior
 Code
 CodeBlock
 CodeBlockOptions
@@ -153,9 +145,6 @@ GenerateJSONOptions
 generateText
 GenerateTextOptions
 getBubbleFormatItems
-getClipboardImageDestination
-getClipboardPasteAttemptEvent
-getClipboardPasteBehavior
 getListItemCursorContext
 getMarkRange
 GlobalAttributes
@@ -286,9 +275,6 @@ ProseMirrorCopyConflict
 Range
 RawCommands
 refocusEditorAfterCommand
-registerClipboardCopyAnnotation
-registerClipboardHTMLPreparation
-registerClipboardImageDestination
 registerProseMirrorCopy
 resetAttributes
 resolveBubbleMenuItems
@@ -313,7 +299,6 @@ SelectionShape
 SelectionStorage
 selectNodeBackward
 setBlockType
-setClipboardPasteBehavior
 setContent
 SetContentOptions
 setMark

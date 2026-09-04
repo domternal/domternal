@@ -216,6 +216,24 @@ editor, and binds `Mod-P` to `printDocument` while the caret is in the editor.
 - `isolateNativePrint` (default `false`) - give the reader's own Ctrl/Cmd+P the same
   isolation as the command
 
+## Clipboard coordination (experimental)
+
+Extensions that cooperate on paste and copy, such as
+[`@domternal/extension-paste-cleanup`](https://www.npmjs.com/package/@domternal/extension-paste-cleanup)
+and the image extension, coordinate through the `@domternal/core/clipboard` subpath. Most
+applications never import it. A custom image node uses it to declare where pasted images may go:
+
+```ts
+import { registerClipboardImageDestination } from '@domternal/core/clipboard';
+```
+
+- Every name on the subpath is `@experimental` and can change before it is declared stable. The
+  main `@domternal/core` entry does not declare them.
+- The subpath shares its registries with the main entry of the same installed copy and module
+  format. ESM and CommonJS builds loaded side by side keep separate registries, so load one format.
+- A view accepts one HTML preparation coordinator and one copy annotation. A second registration
+  throws instead of taking over, so the active owner disposes first.
+
 ## SSR
 
 The `generateHTML`, `generateJSON`, and `generateText` helpers render content

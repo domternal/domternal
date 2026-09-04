@@ -6,7 +6,8 @@
  * renderHTML, the `setImage` command, and the input rule (defense in depth).
  */
 
-import { Node, PluginKey, positionFloating, defaultIcons, splitListForInsert, copyThemeClass, localizedLabel, localizeMessage, coreMessages, getClipboardPasteBehavior, registerClipboardImageDestination } from '@domternal/core';
+import { Node, PluginKey, positionFloating, defaultIcons, splitListForInsert, copyThemeClass, localizedLabel, localizeMessage, coreMessages } from '@domternal/core';
+import { getClipboardPasteBehavior, registerClipboardImageDestination } from '@domternal/core/clipboard';
 import type { Editor, CommandSpec, ToolbarItem, FloatingMenuItem, I18nService } from '@domternal/core';
 import { Plugin, NodeSelection } from '@domternal/pm/state';
 import { InputRule } from '@domternal/pm/inputrules';

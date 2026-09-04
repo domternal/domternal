@@ -47,7 +47,7 @@ export class ClipboardEditorView extends EditorView {
 }
 
 /**
- * Arm from the current paste handler to tag its next untagged paste transaction.
+ * @experimental Arm from the current paste handler to tag its next untagged paste transaction.
  * A new native or programmatic paste attempt clears the previous arm in Core editors.
  * The newest arm also replaces the previous one and expires at the next microtask.
  * Only the descriptor's top level is copied and frozen. Nested data remains caller-owned.

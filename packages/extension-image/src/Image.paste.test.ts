@@ -8,10 +8,12 @@ import {
   Node,
   Paragraph,
   Text,
+} from '@domternal/core';
+import {
   getClipboardImageDestination,
   registerClipboardImageDestination,
   setClipboardPasteBehavior,
-} from '@domternal/core';
+} from '@domternal/core/clipboard';
 import { Slice } from '@domternal/pm/model';
 import { Image } from './Image.js';
 import type { ImageOptions } from './Image.js';

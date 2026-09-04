@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   BulletList, Document, Editor, Extension, ListItem, OrderedList, Paragraph, Text,
-  getClipboardPasteBehavior,
 } from '@domternal/core';
+import { getClipboardPasteBehavior } from '@domternal/core/clipboard';
 import type { EditorOptions } from '@domternal/core';
 import { Slice } from '@domternal/pm/model';
 import { Plugin } from '@domternal/pm/state';

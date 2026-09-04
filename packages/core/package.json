@@ -24,6 +24,17 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./clipboard": {
+      "@domternal/source": "./src/clipboard.ts",
+      "import": {
+        "types": "./dist/clipboard.d.ts",
+        "default": "./dist/clipboard.js"
+      },
+      "require": {
+        "types": "./dist/clipboard.d.cts",
+        "default": "./dist/clipboard.cjs"
+      }
+    },
     "./locales/de": {
       "@domternal/source": "./src/locales/de.ts",
       "import": {
@@ -97,6 +108,9 @@
   "homepage": "https://domternal.dev",
   "typesVersions": {
     "*": {
+      "clipboard": [
+        "dist/clipboard.d.ts"
+      ],
       "locales/*": [
         "dist/locales/*"
       ]

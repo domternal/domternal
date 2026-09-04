@@ -9,7 +9,7 @@
  * On error: placeholder removed, onUploadError called.
  */
 import { Plugin, PluginKey } from '@domternal/pm/state';
-import { getClipboardPasteBehavior } from '@domternal/core';
+import { getClipboardPasteBehavior } from '@domternal/core/clipboard';
 import { Decoration, DecorationSet } from '@domternal/pm/view';
 import type { EditorView } from '@domternal/pm/view';
 import type { NodeType, Slice } from '@domternal/pm/model';
