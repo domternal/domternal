@@ -15,6 +15,7 @@ import {
   setClipboardPasteBehavior,
 } from '@domternal/core/clipboard';
 import { Slice } from '@domternal/pm/model';
+import { Plugin } from '@domternal/pm/state';
 import { Image } from './Image.js';
 import type { ImageOptions } from './Image.js';
 
@@ -249,6 +250,32 @@ describe('built-in Image clipboard destination registration', () => {
     expect(getClipboardImageDestination(instance.view)).toBe(explicit);
     dispose();
     expect(getClipboardImageDestination(instance.view)).toBeUndefined();
+  });
+
+  it('yields to a later image-like node destination and resumes when that one is disposed', () => {
+    const figurePolicy = {
+      nodeTypeName: 'figureImage', sourceAttribute: 'src', inline: false, allowEmbedded: true,
+      allowedMimeTypes: ['image/png'], maxFileBytes: 512, policyVersion: 'figure:1',
+    };
+    let disposeFigure: (() => void) | undefined;
+    // A lower priority than Image creates this plugin view, and so this registration, after Image's.
+    const figureImage = Node.create({
+      name: 'figureImage', group: 'block', atom: true, priority: 50,
+      addAttributes: () => ({ src: { default: null } }),
+      parseHTML: () => [{ tag: 'img[data-figure]' }],
+      renderHTML: () => ['img', { 'data-figure': '' }],
+      addProseMirrorPlugins: () => [new Plugin({
+        view: view => {
+          disposeFigure = registerClipboardImageDestination(view, () => figurePolicy);
+          return { destroy: () => { disposeFigure?.(); } };
+        },
+      })],
+    });
+    editor = new Editor({ extensions: [Document, Text, Paragraph, Image, figureImage], content: '<p></p>' });
+
+    expect(getClipboardImageDestination(editor.view)).toBe(figurePolicy);
+    disposeFigure?.();
+    expect(getClipboardImageDestination(editor.view)).toMatchObject({ nodeTypeName: 'image', policyVersion: 'builtin:1' });
   });
 
   it('does not infer a capability from a different node named image', () => {

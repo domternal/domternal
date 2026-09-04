@@ -21,7 +21,15 @@ const destinations = new WeakMap<EditorView, Registration[]>();
 /** Read lifetime again after invoking application code. */
 function isDestroyed(view: EditorView): boolean { return view.isDestroyed; }
 
-/** @experimental Register an explicit view capability without reading its policy. Dispose with its plugin view. */
+/**
+ * @experimental Register an image destination policy for a view without reading it. Unlike the
+ * single copy annotation and HTML preparation, destinations form a latest-wins stack, so a schema
+ * with two image-like node types can register both: the latest active registration is the view's
+ * destination. Disposing it restores the registration made before it, and disposing an earlier
+ * one leaves the latest in place. The returned function removes only this registration, may be
+ * called more than once, and belongs in the registering plugin view's destroy. A destroyed view
+ * ignores the registration.
+ */
 export function registerClipboardImageDestination(
   view: EditorView,
   readPolicy: () => ClipboardImageDestinationPolicy | undefined,
@@ -47,7 +55,11 @@ export function registerClipboardImageDestination(
   };
 }
 
-/** @experimental Read only the latest active registration. Missing or failing policies never fall back silently. */
+/**
+ * @experimental Read the policy of the latest active registration for a view. When that reader
+ * throws or returns undefined, the result is undefined: an earlier registration is used again
+ * only after the latest one is disposed, never as a silent fallback.
+ */
 export function getClipboardImageDestination(view: EditorView): ClipboardImageDestinationPolicy | undefined {
   try {
     if (view.isDestroyed) return undefined;

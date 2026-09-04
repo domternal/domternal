@@ -106,6 +106,22 @@ The user-facing counterpart to the commands above:
 - The main toolbar and the slash (floating) menu both expose an "Image" action that opens a popover with a URL field and a button to browse for a local file. Alt text is set afterward: the bubble menu's "Edit alt text" action reopens the same popover with a single alt field, pre-filled from the image.
 - When `uploadHandler` is set, pasting or dropping an image file uploads it through the handler and inserts the returned URL. Without an `uploadHandler`, pasted and dropped images are inlined as base64 `data:` URLs.
 
+## Clipboard image destination
+
+The image node registers its live policy (node type, `src` attribute, `inline`, `allowBase64`,
+`allowedMimeTypes` and `maxFileSize`) as the editor's clipboard image destination through the
+experimental `@domternal/core/clipboard` subpath. Clipboard preparation, such as
+[`@domternal/extension-paste-cleanup`](https://www.npmjs.com/package/@domternal/extension-paste-cleanup)
+with `imageAssets`, reads it to decide where pasted local images may go. The registration
+follows the plugin view and is removed when the editor is destroyed.
+
+A custom image-like node registers its own policy with `registerClipboardImageDestination`.
+Destinations form a latest-wins stack, so both can live in one schema: the latest active
+registration applies, disposing it restores the one registered before it, and disposing an
+earlier one leaves the latest in place. Plugin views register in extension priority order, so a
+node with a lower priority than the image node's default of 100, or the same priority and listed
+after it, registers later and takes precedence.
+
 ## Localization
 
 This package exports `imageMessages` for typed custom catalogs. Optional German UI

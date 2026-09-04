@@ -233,6 +233,13 @@ import { registerClipboardImageDestination } from '@domternal/core/clipboard';
   format. ESM and CommonJS builds loaded side by side keep separate registries, so load one format.
 - A view accepts one HTML preparation coordinator and one copy annotation. A second registration
   throws instead of taking over, so the active owner disposes first.
+- Image destinations are a latest-wins stack instead, so a schema with two image-like node types
+  can register both. The latest active `registerClipboardImageDestination` applies, disposing it
+  restores the one registered before it, and disposing an earlier one leaves the latest in place.
+  Precedence follows registration time: plugin views register in plugin order, which follows
+  extension priority, and plugin views recreated by a reconfiguration register again above any
+  registration made directly. When the latest policy reader throws or returns `undefined`, the
+  view has no destination; an earlier registration is not a fallback.
 
 ## SSR
 

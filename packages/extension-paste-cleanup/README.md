@@ -369,7 +369,9 @@ their original positions; unrelated clipboard files are never appended to them.
 The actual Image extension must advertise a compatible live destination and allow
 embedded images. A custom image node can register its policy with
 `registerClipboardImageDestination` from the experimental `@domternal/core/clipboard`
-subpath; matching a node name alone is insufficient.
+subpath; matching a node name alone is insufficient. With several registrations,
+pasted images go to the latest active one. An unavailable latest policy leaves no
+destination rather than falling back to an earlier registration.
 Prepared replacements have their own explicit image policy. `allowDataImages`
 continues to control untrusted data images in source HTML.
 

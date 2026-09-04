@@ -7,6 +7,9 @@
 // side do not share state.
 // A view accepts one HTML preparation coordinator and one copy annotation, and a second
 // registration throws. A document import feature must not claim these slots on its own.
+// Image destinations are a latest-wins stack instead: the latest active registration
+// applies, disposing it restores the one before, and disposing an earlier one leaves the
+// latest in place.
 export {
   setClipboardPasteBehavior,
   getClipboardPasteBehavior,
