@@ -72,7 +72,9 @@ have their own lifetime; clearing the page does not erase a downloaded file.
 ## Initial scenarios and source matrix
 
 Use the same independently authored scenarios on each exact source/OS/browser
-combination. Record successes, missing data and unsupported combinations.
+combination. Record successes, missing data and unsupported combinations. The
+text, list and table scenarios for Word for Mac are described in
+[Word for Mac capture preparation](#word-for-mac-capture-preparation).
 
 | Scenario | Required source evidence |
 | --- | --- |
@@ -99,6 +101,100 @@ location, such as a validated data URL. A blob URL is an explicit reference but
 is not a durable document URL and is not a DataTransfer File binding. This
 harness intentionally does not fetch blob, file or remote URLs. A later bounded
 local blob adapter would need its own capture and lifetime evidence.
+
+## Word for Mac capture preparation
+
+Status: **prepared, not captured.** The files below prepare native Word captures;
+none of them is a capture, and nothing here qualifies a source profile. The owner
+or a named tester creates the documents and performs every copy and paste. Native
+Word is not automated: earlier automation attempts timed out, and a scripted copy
+would not be the user path this evidence is meant to show.
+
+- [`content/word-mac-v1.json`](./content/word-mac-v1.json) is the machine-readable
+  content specification for Word 16.111 (build 16.111.26071325) on macOS. It
+  defines four documents block by block (exact text starting with a block
+  identifier, Word style or button to use, expected structure, marks and list
+  markers) and the scenarios with their selection and expected notice outcome.
+  The text is synthetic Croatian and English without personal data.
+- [`content/large-source.mjs`](./content/large-source.mjs) generates the large
+  source: 128 sections, 10,000 words, headings, paragraphs, nested lists and
+  tables, every block starting with a consecutive `G00001` token.
+- [`semantics.mjs`](./semantics.mjs) compares a saved editor result, or HTML from
+  the offline replay, with a scenario: block order by identifier, block types,
+  heading levels, list kind, marker, depth and ordinal, alignment, text, marks and
+  the diagnostic outcome. It never compares exact HTML and never qualifies.
+- [`prepare-fixture.mjs`](./prepare-fixture.mjs) checks a downloaded bundle's
+  integrity and writes a review skeleton: `manifest.json` with `expected: null`,
+  which `offline.mjs` refuses until a reviewer authors both expected outputs, and
+  `capture-summary.json` with the operator metadata and every text flavor's
+  length.
+
+### Documents to create
+
+Create each document in Word for Mac exactly as its blocks describe, save it as
+`.docx`, and compute its hash with `shasum -a 256`. Keep the files locally and
+review them for hidden data (author, comments, tracked changes, paths) before any
+commit. Do not upload them to a conversion service.
+
+| Document | Content |
+| --- | --- |
+| `word-mac-v1-basics.docx` | Title and headings, Croatian letters, typographic quotes, a nonbreaking space, inline marks, font, color and highlight, alignment, line spacing, indents, hidden text, empty paragraphs |
+| `word-mac-v1-lists.docx` | Default bullets and numbering at three levels, continue, restart and start at 5, mixed nesting, `1)`, `a)`, `A.` and `I.` numbering, 28 alphabetic items, unsupported profiles (dash, check mark, arrow, picture bullets, legal numbering) |
+| `word-mac-v1-tables.docx` | A 3x3 table with a header row, shading and merged cells, a borderless table, a list inside a cell |
+| `word-mac-v1-large.docx` | Run `node e2e/native-office-capture/content/large-source.mjs > /private/tmp/large-v1.html`, open that file in Word for Mac, save it as a Word document and copy only from the saved `.docx` |
+
+Google Docs later: type or paste the plain text from the specification into a new
+document and apply the formatting there; never upload the `.docx`, because that
+would capture a third-party conversion. LibreOffice later: open the Word-saved
+`.docx` locally and save it as `.odt`.
+
+### Matrix for the first captures
+
+Word 16.111 on macOS to Safari, Chrome and Firefox (record the exact browser
+versions at capture time), for every `word-*` scenario and the
+`domternal-own-copy` scenario, with both preserve and adapt. Windows, Word on the
+web, Google Docs and LibreOffice rows stay pending in the
+[support matrix](./SUPPORT-MATRIX.md).
+
+### Per capture
+
+1. Start `node e2e/native-office-capture/server.mjs`, open
+   `http://127.0.0.1:5896` in the browser being captured and fill the metadata.
+   Use the fixture directory name as the fixture identifier, for example
+   `word-default-bullets-safari`, and the source document's hash.
+2. Only for large selections: before pasting, open the page's developer console
+   and run this snippet. It records only flavor names and lengths, because the
+   bundle refuses any flavor above 2 MiB:
+   `document.addEventListener('paste', e => console.table([...e.clipboardData.types].map(t => [t, e.clipboardData.getData(t).length])), { capture: true, once: true })`
+3. Copy in Word with the scenario's selection, paste once into the capture area
+   and download the bundle.
+4. Paste the same Word selection natively into the fixture editor. After
+   `pnpm build`, start it from the repository root with
+   `node apps/demo-react/node_modules/vite/bin/vite.js --config e2e/paste-cleanup-fixture/vite.config.mjs`,
+   open `http://127.0.0.1:5895/?framework=vanilla&formatting=preserve&list-markers=1`
+   (then `formatting=adapt`), paste, record whether the notice is visible and run
+   `copy(JSON.stringify({ results: __pasteCleanup.results, doc: __pasteCleanup.editor.getJSON() }))`
+   in the console. Save the result as `editor-preserve.json` or `editor-adapt.json`.
+5. Check it against the specification:
+   `node e2e/native-office-capture/semantics.mjs e2e/native-office-capture/content/word-mac-v1.json word-default-bullets editor-preserve.json preserve`.
+   Problems are findings to record, not a reason to edit the capture.
+6. Put `source.docx` and `capture.json` into
+   `e2e/native-office-capture/fixtures/<scenario>-<browser>/` and run
+   `node e2e/native-office-capture/prepare-fixture.mjs <that directory> --id <scenario>-<browser> --source source.docx`.
+7. Review before committing: confirm the source contains no personal or hidden
+   data, author `expected.preserve` and `expected.adapt` from the content
+   specification and the reviewed editor results (never by copying normalizer
+   output), and run `node e2e/native-office-capture/offline.mjs` on the
+   directory. Keep unsupported and missing results as they are.
+
+```sh
+node --test e2e/native-office-capture/preparation.test.mjs
+```
+
+These checks cover the specification's consistency, the pinned large source, the
+semantic checker on authored editor results and on HTML from the public
+normalizer, and the refusal of an unreviewed skeleton. They use authored inputs,
+not captures.
 
 ## Bundle contract and limits
 

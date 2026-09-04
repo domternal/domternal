@@ -21,11 +21,25 @@
       <label>Scenario
         <select name="scenario" required>
           <option value="">Choose a scenario</option>
-          <option>mixed-one-image</option><option>mixed-two-images</option>
-          <option>repeated-image</option><option>same-name-different-images</option>
-          <option>table-images</option><option>image-only</option>
-          <option>chart-or-shape</option><option>partial-selection</option>
-          <option>missing-or-unavailable-image</option><option>google-docs-image-limit</option>
+          <optgroup label="Images">
+            <option>mixed-one-image</option><option>mixed-two-images</option>
+            <option>repeated-image</option><option>same-name-different-images</option>
+            <option>table-images</option><option>image-only</option>
+            <option>chart-or-shape</option><option>partial-selection</option>
+            <option>missing-or-unavailable-image</option><option>google-docs-image-limit</option>
+          </optgroup>
+          <optgroup label="Word for Mac text, lists and tables (content/word-mac-v1.json)">
+            <option>word-routine-envelope</option><option>word-alignment-spacing</option>
+            <option>word-inline-formatting</option><option>word-headings-styles</option>
+            <option>word-indentation-loss</option><option>word-hidden-text</option>
+            <option>word-empty-paragraphs</option><option>word-default-bullets</option>
+            <option>word-default-numbering</option><option>word-numbering-start-restart-continue</option>
+            <option>word-mixed-nesting</option><option>word-list-punctuation-case</option>
+            <option>word-alpha-beyond-z</option><option>word-unsupported-list-profiles</option>
+            <option>word-list-partial-selection</option><option>word-single-list-item</option>
+            <option>word-table-text</option><option>word-large-document</option>
+            <option>domternal-own-copy</option>
+          </optgroup>
         </select>
       </label>
       <label>Exact copy method and selected range <textarea name="copyMethod" required maxlength="512" rows="2"></textarea></label>

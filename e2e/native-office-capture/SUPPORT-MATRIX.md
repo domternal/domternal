@@ -13,8 +13,11 @@
 > qualification claim. Future native admission still needs an actual capture.
 
 
-Matrix version: `free-paste-evidence-v1`. Recorded on 2026-09-27 for the
-unreleased paste cleanup work. This is an evidence inventory, not a fidelity
+Matrix version: `free-paste-evidence-v2`. Recorded on 2026-09-28 for the
+unreleased paste cleanup work; it replaces `free-paste-evidence-v1` of 2026-09-27.
+Version 2 adds the quiet routine envelope, same-page own copy recognition, Word
+list profiles from level definitions, per-item list fallback, the large paste
+measurement and the prepared Word for Mac capture scenarios. This is an evidence inventory, not a fidelity
 score or a release approval. The [package contract](../../packages/extension-paste-cleanup/README.md)
 defines current behavior and its limits.
 
@@ -42,14 +45,16 @@ Domternal, not from Office.
 
 | Area | Current bounded behavior | Evidence | Remaining qualification or limit |
 | --- | --- | --- | --- |
-| HTML safety and formatting | Shared resource-free normalizer, preserve/adapt policies, supported inline/inherited styles and bounded loss diagnostics. | [Normalizer tests](../../packages/extension-paste-cleanup/src/html/), [browser contracts](../paste-cleanup.browser.ts) | General stylesheet cascade, all Office-specific markup and exact RGBA transparency are not promised. |
-| Office-shaped lists | Explicit supported decimal/bullet metadata reconstructs bounded list runs; unsupported patterns retain text with diagnostics. | [List tests](../../packages/extension-paste-cleanup/src/html/officeLists.test.ts), [browser contracts](../paste-cleanup.browser.ts) | Native list profiles, arbitrary legal numbering and every restart form remain unqualified. |
+| HTML safety and formatting | Shared resource-free normalizer, preserve/adapt policies, supported inline/inherited styles and bounded loss diagnostics. Routine clipboard envelope elements, Office wrappers and Office private, neutral or destination-owned declarations are removed without a warning. | [Normalizer tests](../../packages/extension-paste-cleanup/src/html/), [browser contracts](../paste-cleanup.browser.ts), [feedback contracts](../paste-feedback.browser.ts) | General stylesheet cascade, all Office-specific markup and exact RGBA transparency are not promised. Whether native Word and Google Docs envelopes stay quiet needs the native captures. |
+| Own copies and ProseMirror slices | A `data-pm-slice` marker is structural context. Only a same-page PasteCleanup copy marker keeps editor formatting; nested or duplicate markers are removed. | [Slice origin tests](../../packages/extension-paste-cleanup/src/html/sliceOrigin.test.ts), [own copy tests](../../packages/extension-paste-cleanup/src/PasteCleanup.ownCopy.test.ts), [list marker contracts](../paste-list-markers.browser.ts) | Copies across tabs, applications or separate package instances are external by design. |
+| Office-shaped lists | Explicit inline list metadata reconstructs bounded lists. Word level definitions from the clipboard stylesheet and the marker run font identify default bullets (disc, circle, square) and decimal, alphabetic and Roman numbering; without definitions only decimal numbers and Unicode bullets are admitted. An unsupported item stays a literal paragraph while the rest of its run is reconstructed. | [List tests](../../packages/extension-paste-cleanup/src/html/officeLists.test.ts), [level definition tests](../../packages/extension-paste-cleanup/src/html/officeListStyles.test.ts), [list marker contracts](../paste-list-markers.browser.ts) | Native list profiles are unqualified until captured. Legal and multilevel numbering, prefixed or custom level text, picture and symbol bullets other than the Word defaults, and letters past z stay literal. |
 | Destination capabilities | Resource-free probes inspect the actual destination schema. Unrepresentable table structure blocks insertion; supported formatting demands receive bounded diagnostics. | [Capability tests](../../packages/extension-paste-cleanup/src/destinationCapabilities.test.ts), [browser contracts](../paste-destination.browser.ts) | A successful probe is not exact source-style fidelity or support for every custom node. |
 | Local embedded images | Explicit host bindings connect rich HTML references to exposed items. Validated inline raster URLs retain their own placements. | [Asset browser contracts](../paste-assets.browser.ts), [resolver browser contracts](../paste-resolver.browser.ts) | No automatic general CID, filename, position or byte-similarity association. No remote source fetching. |
 | Persistent images | Host resolver, exact allowed origins, source data-image transport, resource ownership and recovery notifications. | [Resolver contracts](../paste-resolver.browser.ts), [private lifecycle tests](../../packages/extension-paste-cleanup/src/clipboard/resolverLifecycle.test.ts) | Mock adapters do not certify a production storage service or prove that aborted remote work stopped. |
 | Receipt, cancellation and history | Accepted-operation receipts, target revalidation, deferred image cancellation, history boundaries and four framework integrations. | [Feedback browser contracts](../paste-feedback.browser.ts), [asset browser contracts](../paste-assets.browser.ts) | No built-in import preview or paste-choice dialog. Host callbacks and feedback are explicit integration seams. |
 | Existing comment anchors | Actual Free paste and Pro Comments share real editor parsing, copy/cut rules, image replay and history. | [Cross-repository gate](../../domternal-pro/tests/paste-comments/README.md) | This does not import Word discussions or qualify Yjs document collaboration. |
 | Performance | A recorded paired local run covers synchronous synthetic input and default feedback. | [Reference report](../paste-performance/results/2026-09-26-macos-arm64.md) | One machine and fixed inputs only. Observed paired p95 was 4.6 to 22.0 ms; an absolute enabled dispatch reached 799 ms. No universal latency bound. |
+| Large pastes | Seven synthetic profiles swept to their largest accepted size; every larger input is rejected explicitly with nothing inserted, never truncated. | [Large paste report](../paste-performance/results/2026-09-28-large-macos-arm64.md) | Synthetic profiles on one machine. The parser allocation bound stops most Word profiles below the D4 target of 10,000 words; native Word RTF flavor sizes are unmeasured. |
 | Offline capture integrity | Versioned complete bundle schema, bounded artifacts, checksums, provenance claims and exact HTML replay through public Free `/html`. | [Offline tests](./offline.test.mjs), [synthetic manifest](./fixtures/synthetic-v1/manifest.json) | No native acquisition, editor insertion, resource matching or automatic qualification. |
 
 ## Native source matrix
@@ -63,7 +68,7 @@ semantics alongside those image cases.
 
 | Source | Intended platform/path | Reviewed native fixture | Current status |
 | --- | --- | --- | --- |
-| Word desktop | macOS to Safari, Chromium and Firefox | None | Pending. Local automation attempts produced no complete native capture; they are not qualification evidence. |
+| Word desktop | macOS to Safari, Chromium and Firefox | None | Pending. Prepared: [content specification](./content/word-mac-v1.json) and scenarios for Word 16.111 on macOS, to be captured by the owner or a named tester. Local automation attempts produced no complete native capture; they are not qualification evidence. |
 | Word desktop | Windows to Chrome/Edge and Firefox | None | Pending; not exercised by macOS synthetic tests. |
 | Word web | Each declared source browser to each supported destination path | None | Pending; separate from desktop Word. |
 | Google Docs | Exact capture date, source context, browser and OS | None | Pending, including large-image and slow-copy omissions. |
