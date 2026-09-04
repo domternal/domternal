@@ -91,6 +91,15 @@ export const REPORTS = [
     markdown: { path: 'e2e/paste-performance/results/2026-09-26-macos-arm64.md', digests: [] },
     historicalTools: 'e2e/paste-performance/results/historical-tools/2026-09-26-macos-arm64',
   },
+  {
+    path: 'e2e/paste-performance/results/2026-09-28-large-macos-arm64.json',
+    serializer: 'node',
+    digests: [],
+    markdown: {
+      path: 'e2e/paste-performance/results/2026-09-28-large-macos-arm64.md',
+      digests: [{ label: 'JSON SHA256', self: true }],
+    },
+  },
 ];
 
 /** The bytes `serializer` writes for `value`. */

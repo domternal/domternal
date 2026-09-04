@@ -204,6 +204,9 @@ truncation and the document node count. Bundling, the loopback server, browser
 isolation, cancellation, the 45 minute deadline, cleanup and source hashing are
 those of the paired protocol.
 
+Recorded large-paste results: [2026-09-28, macOS arm64](./results/2026-09-28-large-macos-arm64.md).
+The all-engine `--large` run took about three minutes on that machine.
+
 Recorded local results: [2026-09-26, macOS arm64](./results/2026-09-26-macos-arm64.md).
 That report preserves the measured source identity, environment and limitations;
 it does not replace qualification on another release target.
