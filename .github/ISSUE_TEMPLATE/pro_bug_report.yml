@@ -53,7 +53,7 @@ body:
     attributes:
       label: Versions
       description: The versions of the @domternal-pro and @domternal packages you are using.
-      placeholder: '@domternal-pro/extension-comments 0.1.0, @domternal/core 0.14.0'
+      placeholder: '@domternal-pro/extension-comments 1.x.y, @domternal/core 1.x.y'
     validations:
       required: true
 

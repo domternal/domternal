@@ -9,7 +9,7 @@ import semver from 'semver';
 import {
   preparePublishManifest,
   publishBlockers,
-  versionFloor,
+  versionRange,
 } from '../../scripts/prepare-publish-manifest.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -178,16 +178,16 @@ export function peerRangeFailures({ directory, manifest }) {
 export function packageFailures({ directory, name, manifest }, names, rootLicense, nodeFloor) {
   const failures = [];
   const label = manifest.name;
-  const floor = versionFloor(manifest.version);
+  const compatibilityRange = versionRange(manifest.version);
 
-  // The floors a consumer resolves against. `>=MAJOR.MINOR.0` rather than
-  // `>=VERSION`, because a patch release deliberately keeps the floor where the
-  // minor put it: 0.12.1 shipped with `>=0.12.0`, and that was correct.
+  // The ranges a consumer resolves against. The lower bound stays at the minor
+  // floor across patch releases, while the upper bound keeps a future breaking
+  // major out: 1.4.17 declares `>=1.4.0 <2.0.0`.
   for (const [dependency, range] of Object.entries(manifest.peerDependencies ?? {})) {
     if (!dependency.startsWith(SCOPE)) continue;
-    if (range !== floor) {
+    if (range !== compatibilityRange) {
       failures.push(
-        `${label}: peerDependencies.${dependency} is "${range}", expected "${floor}" for version ${manifest.version}`
+        `${label}: peerDependencies.${dependency} is "${range}", expected "${compatibilityRange}" for version ${manifest.version}`
       );
     }
     if (!names.has(dependency)) {
@@ -196,8 +196,8 @@ export function packageFailures({ directory, name, manifest }, names, rootLicens
   }
 
   // A runtime dependency on a sibling is always workspace:*, and the publish
-  // transform turns it into the floor. Anything else here is either a mistake
-  // or the residue of a publish that died before postpublish restored the file.
+  // transform turns it into the compatibility range. Anything else here is
+  // either a mistake or the residue of a publish that died before postpublish restored the file.
   for (const [dependency, range] of Object.entries(manifest.dependencies ?? {})) {
     if (!dependency.startsWith(SCOPE)) continue;
     if (range !== 'workspace:*') {
@@ -330,7 +330,7 @@ function main() {
 
   const version = manifests[0]?.version ?? 'unknown';
   console.log(
-    `[package-policy] OK - ${String(packages.length)} packages at ${version}, floors at ${versionFloor(version)}, ` +
+    `[package-policy] OK - ${String(packages.length)} packages at ${version}, ranges at ${versionRange(version)}, ` +
       `node ${nodeFloor}, manifests publishable`
   );
 }

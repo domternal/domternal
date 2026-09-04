@@ -11,25 +11,28 @@ import { fileURLToPath } from 'node:url';
 const SOURCE_CONDITION = '@domternal/source';
 
 /**
- * The compatibility floor a published package declares: `>=MAJOR.MINOR.0`.
+ * The compatibility range a published package declares:
+ * `>=MAJOR.MINOR.0 <NEXT_MAJOR.0.0`.
  *
  * A prerelease is refused rather than reduced to its release part, because the
  * reduction would be silently wrong: semver ranges exclude prereleases, so a
  * coordinated `1.0.0-rc.1` of this workspace would publish a core declaring
- * `@domternal/pm >=1.0.0`, which `1.0.0-rc.1` does not satisfy, and installing
- * the rc would fail with ETARGET until a stable 1.0.0 existed. Nothing here has
+ * `@domternal/pm >=1.0.0 <2.0.0`, which `1.0.0-rc.1` does not satisfy, and
+ * installing the rc would fail with ETARGET until a stable 1.0.0 existed. Nothing here has
  * ever shipped a prerelease; the day one is wanted, this is the decision to
  * make deliberately rather than to inherit from a regex.
  */
-export function versionFloor(version) {
+export function versionRange(version) {
   const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
   if (match === null) {
     throw new Error(
       `version "${version}" is not a plain MAJOR.MINOR.PATCH. ` +
-        'A prerelease needs a floor decided by hand: no prerelease satisfies a >=X.Y.0 range.'
+        'A prerelease needs a compatibility range decided by hand: no prerelease satisfies ' +
+        'a >=X.Y.0 <NEXT_MAJOR.0.0 range.'
     );
   }
-  return `>=${match[1]}.${match[2]}.0`;
+  const nextMajor = String(Number(match[1]) + 1);
+  return `>=${match[1]}.${match[2]}.0 <${nextMajor}.0.0`;
 }
 
 /** Strips the dev-source condition wherever it appears in an exports map. */
@@ -79,12 +82,12 @@ export function preparePublishManifest(manifest) {
   }
 
   if (prepared.dependencies !== undefined) {
-    const floor = versionFloor(prepared.version);
+    const range = versionRange(prepared.version);
     const rewritten = {};
     const named = [];
     for (const [name, specifier] of Object.entries(prepared.dependencies)) {
       if (specifier === 'workspace:*') {
-        rewritten[name] = floor;
+        rewritten[name] = range;
         named.push(name);
       } else {
         rewritten[name] = specifier;
@@ -92,7 +95,7 @@ export function preparePublishManifest(manifest) {
     }
     if (named.length > 0) {
       prepared.dependencies = rewritten;
-      changes.push(`pinned ${named.join(', ')} to ${floor}`);
+      changes.push(`pinned ${named.join(', ')} to ${range}`);
     }
   }
 

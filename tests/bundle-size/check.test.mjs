@@ -20,6 +20,8 @@ import {
   completeness,
   discoverEntries,
   manifestEntries,
+  marketingClaimFailures,
+  marketingKiB,
   runtimeTarget,
   subpathMap,
   suggestBudget,
@@ -227,6 +229,26 @@ test('a suggested budget keeps about a tenth of headroom and lands on a round nu
   for (const size of [54, 61, 2367, 13992, 78409]) {
     assert.ok(suggestBudget(size) >= size * 1.1, `${size} needs headroom`);
   }
+});
+
+test('marketing KiB rounds to the nearest whole unit used by the approximate claim', () => {
+  assert.equal(marketingKiB(0), 0);
+  assert.equal(marketingKiB(1024), 1);
+  assert.equal(marketingKiB(1535), 1);
+  assert.equal(marketingKiB(1536), 2);
+  assert.throws(() => marketingKiB(-1), /non-negative safe integer/);
+});
+
+test('the public README claim must match both deterministic bundle measurements', () => {
+  const readme =
+    '**~51 KiB minified and gzipped** (own code), ' +
+    '[**~132 KiB minified and gzipped total**](https://domternal.dev/v1/packages)';
+  const sizes = { ownBytes: 52233, totalBytes: 135189 };
+  assert.deepEqual(marketingClaimFailures(readme, sizes), []);
+  assert.deepEqual(marketingClaimFailures(readme.replace('~51', '~48'), sizes), [
+    'README claims ~48 KiB own code, measured value rounds to ~51 KiB',
+  ]);
+  assert.match(marketingClaimFailures('no claim', sizes)[0], /no standard core bundle claim/);
 });
 
 test('discovery finds the three packages that had no ceiling before', () => {

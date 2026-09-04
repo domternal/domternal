@@ -2,7 +2,7 @@
  * Fixture tests for the manifest policy gate and the publish transform it runs.
  *
  * The transform is the only code between a working tree and npm, and npm is a
- * place nothing can be taken back from: a wrong floor or a dangling export
+ * place nothing can be taken back from: a wrong compatibility range or a dangling export
  * condition is public the moment it lands. So its behaviour is pinned here on
  * hand-written manifests rather than only on the eighteen real ones, which all
  * happen to be correct and would therefore prove nothing about the failures.
@@ -25,7 +25,7 @@ import {
   exportTargets,
   preparePublishManifest,
   publishBlockers,
-  versionFloor,
+  versionRange,
 } from '../../scripts/prepare-publish-manifest.mjs';
 
 /** A throwaway packages/ directory built from `{ dirName: manifest }`. */
@@ -78,24 +78,25 @@ test('lockstep reports the buckets, not just that they exist', () => {
   );
 });
 
-test('the floor is the minor, so a patch release does not move it', () => {
-  assert.equal(versionFloor('0.15.0'), '>=0.15.0');
-  /* 0.12.1 shipped with floors at >=0.12.0. Deriving >=VERSION instead would
-     have declared that release incompatible with its own minor. */
-  assert.equal(versionFloor('0.12.1'), '>=0.12.0');
-  assert.equal(versionFloor('1.4.17'), '>=1.4.0');
-  assert.throws(() => versionFloor('next'), /not a plain MAJOR\.MINOR\.PATCH/);
+test('the compatibility range keeps the minor floor and excludes the next major', () => {
+  assert.equal(versionRange('0.15.0'), '>=0.15.0 <1.0.0');
+  /* A patch keeps the floor where its minor put it, while the upper bound
+     prevents a future breaking major from satisfying an old package. */
+  assert.equal(versionRange('0.12.1'), '>=0.12.0 <1.0.0');
+  assert.equal(versionRange('1.4.17'), '>=1.4.0 <2.0.0');
+  assert.equal(versionRange('2.3.4'), '>=2.3.0 <3.0.0');
+  assert.throws(() => versionRange('next'), /not a plain MAJOR\.MINOR\.PATCH/);
 });
 
 test('a prerelease is refused rather than reduced to its release part', () => {
-  /* `1.0.0-rc.1` would otherwise derive `>=1.0.0`, and semver ranges exclude
+  /* `1.0.0-rc.1` would otherwise derive `>=1.0.0 <2.0.0`, and semver ranges exclude
      prereleases: the whole workspace would publish at 1.0.0-rc.1 declaring a
-     floor that 1.0.0-rc.1 does not satisfy, so installing the rc would fail
+     range that 1.0.0-rc.1 does not satisfy, so installing the rc would fail
      with ETARGET until a stable 1.0.0 existed. Both gates would stay green
      while that happened, which is why it is refused here. */
-  assert.throws(() => versionFloor('1.0.0-rc.1'), /decided by hand/);
-  assert.throws(() => versionFloor('2.0.0-0'), /decided by hand/);
-  assert.throws(() => versionFloor('0.16.0+build.5'), /decided by hand/);
+  assert.throws(() => versionRange('1.0.0-rc.1'), /decided by hand/);
+  assert.throws(() => versionRange('2.0.0-0'), /decided by hand/);
+  assert.throws(() => versionRange('0.16.0+build.5'), /decided by hand/);
 });
 
 test('the transform drops devDependencies and pins only the workspace protocol', () => {
@@ -106,8 +107,11 @@ test('the transform drops devDependencies and pins only the workspace protocol',
     devDependencies: { typescript: '~5.9.3' },
   });
   assert.equal(prepared.devDependencies, undefined);
-  assert.deepEqual(prepared.dependencies, { '@domternal/pm': '>=0.15.0', linkifyjs: '^4.3.2' });
-  assert.deepEqual(changes, ['dropped devDependencies', 'pinned @domternal/pm to >=0.15.0']);
+  assert.deepEqual(prepared.dependencies, {
+    '@domternal/pm': '>=0.15.0 <1.0.0',
+    linkifyjs: '^4.3.2',
+  });
+  assert.deepEqual(changes, ['dropped devDependencies', 'pinned @domternal/pm to >=0.15.0 <1.0.0']);
 });
 
 test('the transform strips the dev-source condition wherever it sits', () => {
@@ -131,7 +135,7 @@ test('the transform strips the dev-source condition wherever it sits', () => {
 test('the transform leaves a manifest it has already prepared alone', () => {
   /* postpublish restores the file with git, but a publish that dies between the
      two leaves a prepared manifest on disk. Running it again must not turn
-     ">=0.15.0" into something else or report changes it did not make. */
+     ">=0.15.0 <1.0.0" into something else or report changes it did not make. */
   const source = {
     name: '@domternal/core',
     version: '0.15.0',
@@ -204,7 +208,7 @@ test('an exports target that is missing, or that files does not ship, blocks the
   rmSync(root, { recursive: true, force: true });
 });
 
-test('a package whose floors did not move with its version is reported', () => {
+test('a package whose compatibility range did not move with its version is reported', () => {
   const root = mkdtempSync(join(tmpdir(), 'domternal-failures-'));
   writeFileSync(join(root, 'LICENSE'), 'MIT');
   const failures = packageFailures(
@@ -223,7 +227,7 @@ test('a package whose floors did not move with its version is reported', () => {
         sideEffects: false,
         files: ['LICENSE'],
         repository: { directory: 'packages/extension-toc' },
-        peerDependencies: { '@domternal/core': '>=0.15.0' },
+        peerDependencies: { '@domternal/core': '>=0.15.0 <1.0.0' },
         scripts: { prepublishOnly: 'x', postpublish: 'y' },
       },
     },
@@ -231,7 +235,9 @@ test('a package whose floors did not move with its version is reported', () => {
     'MIT'
   );
   assert.ok(
-    failures.some((failure) => /peerDependencies\.@domternal\/core is ">=0\.15\.0"/.test(failure)),
+    failures.some((failure) =>
+      /peerDependencies\.@domternal\/core is ">=0\.15\.0 <1\.0\.0"/.test(failure)
+    ),
     failures.join('\n')
   );
   rmSync(root, { recursive: true, force: true });
@@ -298,7 +304,7 @@ test('a peer range that excludes the version this repository tests is reported',
     directory: root,
     manifest: {
       name: '@domternal/extension-math',
-      peerDependencies: { '@domternal/core': '>=0.15.0', katex: peer },
+      peerDependencies: { '@domternal/core': '>=0.15.0 <1.0.0', katex: peer },
       devDependencies: dev === null ? {} : { katex: dev },
     },
   });
@@ -309,7 +315,7 @@ test('a peer range that excludes the version this repository tests is reported',
     /is "\^0\.16\.0", which excludes the 0\.17\.0 this repository builds and tests against/
   );
   assert.match(peerRangeFailures(entry('^0.17.0', null))[0], /not in devDependencies/);
-  /* An in-scope peer is judged by the floor rule instead, not here, so it must
+  /* An in-scope peer is judged by the compatibility-range rule instead, not here, so it must
      not be double-reported. */
   assert.equal(
     peerRangeFailures(entry('^0.17.0', '^0.17.0')).filter((f) => f.includes('@domternal/core'))

@@ -26,9 +26,9 @@ A rich text editor toolkit built on [ProseMirror](https://prosemirror.net/), wit
 - **130+ chainable commands** - `editor.chain().focus().toggleBold().run()`
 - **Full table support** - cell merging, column resize, row/column controls, cell toolbar
 - **Tree-shakeable** - import only what you use, your bundler strips the rest
-- **~48 KB gzipped** (own code), [~129 KB total](https://domternal.dev/v1/packages) with ProseMirror - see Packages for full bundle breakdown
+- **~51 KiB minified and gzipped** (own code), [**~132 KiB minified and gzipped total**](https://domternal.dev/v1/packages) with runtime dependencies - see Packages for the full bundle breakdown
 - **TypeScript first** - every package builds under `strict`, with `exactOptionalPropertyTypes` and `noUncheckedIndexedAccess`
-- **17,800+ tests** - 4,700+ unit and 13,100+ E2E across 309 Playwright spec files and 4 demo apps
+- **17,800+ tests** - 4,700+ unit and 13,100+ E2E across the Playwright matrix and 4 demo apps
 - **Light and dark theme** - 160 CSS custom properties for full visual control
 - **Inline styles export** - `getHTML({ styled: true })` produces inline CSS ready for email clients, CMS, and Google Docs
 - **SSR helpers** - `generateHTML`, `generateJSON`, `generateText` for server-side rendering
@@ -77,9 +77,17 @@ The example above wires the minimum schema by hand to show the headless model; i
 | [`@domternal/extension-details`](https://www.npmjs.com/package/@domternal/extension-details) | Collapsible details/accordion blocks |
 | [`@domternal/extension-code-block-lowlight`](https://www.npmjs.com/package/@domternal/extension-code-block-lowlight) | Syntax-highlighted code blocks powered by lowlight |
 
-`@domternal/extension-block-menu`, the deprecated shim left from the v0.10.0 rename, shipped through the 0.x line only and is not published for 1.x. Import `@domternal/extension-block-controls` directly.
+`@domternal/extension-block-menu`, the deprecated shim left from the v0.10.0 rename, ended with the 0.x line. Briefly published 1.0.x builds were withdrawn from the registry; import `@domternal/extension-block-controls` directly.
 
 See [Packages & Bundle Size](https://domternal.dev/v1/packages) for a full breakdown of what each package includes and how tree-shaking works.
+
+## Domternal Pro
+
+[Domternal Pro](https://domternal.dev/pro) adds the collaborative layer on top of these MIT packages, published as `@domternal-pro/*` on the public npm registry under a commercial license: real-time [collaboration](https://domternal.dev/v1/pro/collaboration) with live carets and presence, [comments](https://domternal.dev/v1/pro/comments), [version history](https://domternal.dev/v1/pro/version-history), an [AI assistant](https://domternal.dev/v1/pro/ai), [columns](https://domternal.dev/v1/pro/columns), [Word and PDF export](https://domternal.dev/v1/pro/export), and a [self-hosted collaboration server](https://domternal.dev/v1/pro/self-hosting).
+
+- [Installation and licensing](https://domternal.dev/v1/pro/licensing) - install from npm, evaluate without a key, activate with a Commercial Key
+- [Pricing](https://domternal.dev/pricing) - plans and what each one includes
+- [Support and reporting issues](https://domternal.dev/v1/pro/support) - Pro defects are tracked in this repository through the [Pro bug report](https://github.com/domternal/domternal/issues/new?template=pro_bug_report.yml) template
 
 ## Documentation
 
@@ -105,4 +113,4 @@ Requires Node.js >= 22 and pnpm >= 10.
 
 ## License
 
-[MIT](LICENSE)
+The source code is available under the [MIT License](LICENSE). Use of the Domternal name and logo is governed by the [Trademark Usage Policy](TRADEMARKS.md).
