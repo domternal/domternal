@@ -128,7 +128,7 @@ export function prepareClipboardHTML(
   html: string,
   inputLimits: PreparedClipboardHTMLLimits,
   options: NormalizePasteHTMLOptions = {},
-  capabilities?: () => Pick<OfficeListReconstructionOptions, 'orderedLists' | 'bulletLists' | 'nestedLists'>,
+  capabilities?: () => Pick<OfficeListReconstructionOptions, 'orderedLists' | 'bulletLists' | 'nestedLists' | 'markers'>,
   inline?: ClipboardInlineHTMLPreparation,
   destinationCheck?: ClipboardDestinationCheck,
   ownCopy?: ClipboardOwnCopyCheck,

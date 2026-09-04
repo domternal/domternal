@@ -158,8 +158,36 @@ const officeJSON = doc(ol('decimal', [item(p('Parent'), ol('decimal', [item(p('N
   ul('disc', [item(p('Disc'))]), ul('circle', [item(p('Circle'))]), ul('square', [item(p('Square'))]),
   ul('disc', [item(p('Filled')), item(p('Dot'))]));
 
+// Word default bullets and numbering in the shape Word writes them, not a native capture: the
+// level definitions live in the clipboard stylesheet and symbol bullets name their run font.
+const wordStyle = '<style><!--\n@list l0:level1 {mso-level-number-format:bullet;mso-level-text:\\F0B7;font-family:Symbol;}\n'
+  + '@list l0:level2 {mso-level-number-format:bullet;mso-level-text:o;font-family:"Courier New";}\n'
+  + '@list l0:level3 {mso-level-number-format:bullet;mso-level-text:\\F0A7;font-family:Wingdings;}\n'
+  + '@list l1:level1 {mso-level-tab-stop:none;}\n@list l1:level2 {mso-level-number-format:alpha-lower;}\n'
+  + '@list l1:level3 {mso-level-number-format:roman-lower;mso-level-number-position:right;}\n--></style>';
+const wordItem = (list: string, level: number, font: string, marker: string, label: string): string =>
+  `<p class=MsoListParagraphCxSpMiddle style="margin-left:${String(level / 2)}in;text-indent:-.25in;mso-list:${list} level${String(level)} lfo1">`
+  + `<![if !supportLists]><span style='${font}'><span style="mso-list:Ignore">${marker}<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp; </span>`
+  + `</span></span><![endif]>${label}<o:p></o:p></p>`;
+const wordListHTML = '<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><meta charset="utf-8"><meta name=ProgId content=Word.Document>'
+  + `${wordStyle}</head><body lang=EN-US><!--StartFragment-->`
+  + wordItem('l0', 1, 'font-family:Symbol', '·', 'Disc') + wordItem('l0', 2, 'font-family:"Courier New"', 'o', 'Circle')
+  + wordItem('l0', 3, 'font-family:Wingdings', '§', 'Square') + wordItem('l1', 1, 'mso-bidi-font-family:Calibri', '1.', 'Decimal')
+  + wordItem('l1', 2, 'mso-bidi-font-family:Calibri', 'a.', 'Alpha') + wordItem('l1', 3, 'mso-bidi-font-family:Calibri', 'i.', 'Roman')
+  + '<!--EndFragment--></body></html>';
+const wordListJSON = doc(ul('disc', [item(p('Disc'), ul('circle', [item(p('Circle'), ul('square', [item(p('Square'))]))]))]),
+  ol('decimal', [item(p('Decimal'), ol('lower-alpha', [item(p('Alpha'), ol('lower-roman', [item(p('Roman'))]))]))]));
+
 for (const framework of ['vanilla', 'react', 'vue', 'angular']) {
   test.describe(`${framework}: explicit list markers`, () => {
+    for (const formatting of ['preserve', 'adapt'] as const) test(`${formatting} reconstructs Word default bullet and numbering profiles quietly`, async ({ page }) => {
+      await open(page, framework, formatting); await seed(page, '<p>Replace me</p>'); const before = await snapshot(page);
+      await paste(page, wordListHTML, 'Disc\nCircle\nSquare\nDecimal\nAlpha\nRoman'); await cleanPaste(page);
+      await history(page, before, wordListJSON); await reload(page, wordListJSON);
+      expect(await computedMarkers(page)).toEqual(['disc', 'circle', 'square', 'decimal', 'lower-alpha', 'lower-roman']);
+      await expect(page.locator('.dm-paste-feedback')).toBeHidden();
+    });
+
     for (const formatting of ['preserve', 'adapt'] as const) test(`${formatting} keeps reconstructed Office decimals and bullet classes at depth`, async ({ page }) => {
       await open(page, framework, formatting); await seed(page, '<p>Replace me</p>'); const before = await snapshot(page);
       await paste(page, officeHTML); await cleanPaste(page); await history(page, before, officeJSON); await reload(page, officeJSON);

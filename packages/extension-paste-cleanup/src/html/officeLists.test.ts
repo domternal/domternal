@@ -53,6 +53,164 @@ function shape(node: Root | RootContent): unknown {
   return [node.tagName, node.properties.start ?? null, node.children.map(shape)];
 }
 
+// Authored in the shape Word writes for its default bullets and numbering, not a native capture.
+const wordStyle = '<style><!--\n/* List Definitions */\n@list l0\n\t{mso-list-id:1;mso-list-type:hybrid;}\n'
+  + '@list l0:level1\n\t{mso-level-number-format:bullet;\n\tmso-level-text:\\F0B7;\n\tmso-level-tab-stop:none;\n\ttext-indent:-.25in;\n\tfont-family:Symbol;}\n'
+  + '@list l0:level2\n\t{mso-level-number-format:bullet;\n\tmso-level-text:o;\n\tfont-family:"Courier New";\n\tmso-bidi-font-family:"Times New Roman";}\n'
+  + '@list l0:level3\n\t{mso-level-number-format:bullet;\n\tmso-level-text:\\F0A7;\n\tfont-family:Wingdings;}\n'
+  + '@list l1:level1\n\t{mso-level-tab-stop:none;\n\tmso-level-number-position:left;}\n'
+  + '@list l1:level2\n\t{mso-level-number-format:alpha-lower;}\n'
+  + '@list l1:level3\n\t{mso-level-number-format:roman-lower;\n\tmso-level-number-position:right;}\n'
+  + '@list l2:level1\n\t{mso-level-number-format:alpha-upper;\n\tmso-level-text:"%1\\)";}\n'
+  + '@list l2:level2\n\t{mso-level-number-format:roman-upper;}\n'
+  + '@list l2:level1 lfo3\n\t{mso-level-number-format:roman-lower;}\n'
+  + '@list l3:level1\n\t{mso-level-number-format:bullet;\n\tmso-level-text:o;\n\tfont-family:"Courier New";}\n'
+  + '@list l4:level1\n\t{mso-level-number-format:bullet;\n\tmso-level-text:\\F0A7;\n\tfont-family:Wingdings;}\n'
+  + '--></style>';
+
+const spacer = '<span style=\'font:7.0pt "Times New Roman"\'>&nbsp;&nbsp;&nbsp; </span>';
+/** One Word list paragraph. The marker run font sits on the wrapper around the Ignore span, as Word writes it. */
+function wordItem(marker: string, body: string, level = 1, list = 'l0', font?: string, lfo = 'lfo1'): string {
+  const run = font === undefined ? 'mso-bidi-font-family:Calibri' : `font-family:${font};mso-fareast-font-family:${font}`;
+  const label = level === 3 && list === 'l1' ? spacer + marker + spacer : marker + spacer;
+  return `<p class=MsoListParagraphCxSpMiddle style="margin-left:${String(level / 2)}in;text-indent:-.25in;mso-list:${list} level${String(level)} ${lfo}">`
+    + `<![if !supportLists]><span style='${run}'><span style="mso-list:Ignore">${label}</span></span><![endif]>${body}<o:p></o:p></p>`;
+}
+const symbol = 'Symbol';
+const courier = '"Courier New"';
+const wingdings = 'Wingdings';
+
+/** A compact outline: lists with their marker class and start, items as their paragraph text and nested lists. */
+function outline(node: Root | Element): string[] {
+  const lines: string[] = [];
+  for (const child of node.children) {
+    if (child.type !== 'element' || child.tagName === 'style') continue;
+    if (child.tagName === 'ol' || child.tagName === 'ul') {
+      const marker = typeof child.properties.style === 'string' ? child.properties.style.replace('list-style-type:', '') : '';
+      const start = child.properties.start === undefined ? '' : `@${String(child.properties.start)}`;
+      const items = child.children.map(item => item.type === 'element' ? outline(item).join(' ') : '');
+      lines.push(`${child.tagName}(${marker}${start})[${items.join(' | ')}]`);
+    } else if (child.tagName === 'p') lines.push(visibleText(child).replace(/[\s\u00a0]+/gu, ' ').trim());
+    else lines.push(...outline(child));
+  }
+  return lines;
+}
+
+describe('Word list profiles from level definitions and marker run fonts', () => {
+  it('reconstructs Word default bullets from Symbol, Courier New and Wingdings definitions and run fonts', () => {
+    const output = run(wordStyle + wordItem('·', 'One', 1, 'l0', symbol) + wordItem('o', 'Two', 2, 'l0', courier)
+      + wordItem('§', 'Three', 3, 'l0', wingdings) + wordItem('·', 'Four', 1, 'l0', symbol));
+    expect(outline(output.tree)).toEqual(['ul(disc)[One ul(circle)[Two ul(square)[Three]] | Four]']);
+    expect(output.diagnostics).toEqual([]);
+    // The stylesheet stays for normalization to remove; the reconstructed content keeps no marker or list metadata.
+    expect(output.html.slice(output.html.indexOf('</style>'))).not.toMatch(/mso-list|>o<|§|·/u);
+  });
+
+  it('reconstructs Word default numbering with alphabetic and right aligned Roman levels', () => {
+    const output = run(wordStyle + wordItem('1.', 'One', 1, 'l1') + wordItem('a.', 'Two', 2, 'l1') + wordItem('b.', 'Three', 2, 'l1')
+      + wordItem('i.', 'Deep', 3, 'l1') + wordItem('ii.', 'Deeper', 3, 'l1') + wordItem('2.', 'Four', 1, 'l1'));
+    expect(outline(output.tree)).toEqual([
+      'ol(decimal@1)[One ol(lower-alpha@1)[Two | Three ol(lower-roman@1)[Deep | Deeper]] | Four]',
+    ]);
+    expect(output.diagnostics).toEqual([]);
+  });
+
+  it('reads an alphabetic i as the ninth letter and keeps observed starts and continuations', () => {
+    const output = run(wordStyle + wordItem('9.', 'Parent', 1, 'l1') + wordItem('i.', 'Ninth', 2, 'l1') + wordItem('j.', 'Tenth', 2, 'l1')
+      + wordItem('m.', 'Gap', 2, 'l1'));
+    expect(outline(output.tree)).toEqual(['ol(decimal@9)[Parent ol(lower-alpha@9)[Ninth | Tenth] ol(lower-alpha@13)[Gap]]']);
+  });
+
+  it('reads upper case profiles, parenthesized level text and instance overrides', () => {
+    const output = run(wordStyle + wordItem('C)', 'Third', 1, 'l2') + wordItem('IV.', 'Fourth', 2, 'l2')
+      + '<p>Between</p>' + wordItem('iii)', 'Override', 1, 'l2', undefined, 'lfo3'));
+    expect(outline(output.tree)).toEqual(['ol(upper-alpha@3)[Third ol(upper-roman@4)[Fourth]]', 'Between', 'ol(lower-roman@3)[Override]']);
+  });
+
+  it.each([
+    ['a Courier New definition with an Arial run', wordItem('o', 'Body', 1, 'l3', 'Arial')],
+    ['a Symbol definition without a run font', wordItem('·', 'Body', 1, 'l0')],
+    ['a Wingdings definition with a Symbol run', wordItem('§', 'Body', 1, 'l4', symbol)],
+    ['a bullet glyph that differs from its definition', wordItem('o', 'Body', 1, 'l0', symbol)],
+    ['a decimal marker under an alphabetic definition', wordItem('1)', 'Body', 1, 'l2')],
+    ['punctuation that differs from its definition', wordItem('A.', 'Body', 1, 'l2')],
+    ['a repeated letter past Z', wordItem('AA)', 'Body', 1, 'l2')],
+    ['a noncanonical Roman numeral', wordItem('iiii)', 'Body', 1, 'l2', undefined, 'lfo3')],
+    ['a lower case marker under an upper case definition', wordItem('c)', 'Body', 1, 'l2')],
+    ['a marker font hidden behind a shorthand', wordItem('·', 'Body', 1, 'l0', symbol).replace('mso-list:Ignore', 'font:10pt Arial;mso-list:Ignore')],
+  ])('keeps a literal marker for %s', (_name, paragraph) => {
+    const input = wordStyle + paragraph;
+    const output = run(input);
+    expect(output.html).toBe(toHtml(parse(input)));
+    expect(output.diagnostics).toHaveLength(1);
+  });
+
+  it.each([
+    ['legal numbering', '{mso-level-legal-format:yes}', '1.'],
+    ['multilevel level text', '{mso-level-text:"%1\\.%2\\."}', '1.1.'],
+    ['a parenthesized level text', '{mso-level-text:"\\(%1\\)"}', '(1)'],
+    ['a leading zero format', '{mso-level-number-format:arabic-leading-zero}', '01.'],
+    ['an unusable definition for an otherwise supported decimal', '{mso-level-number-format:bullet;mso-level-number-format:decimal}', '1.'],
+    ['a dash bullet', '{mso-level-number-format:bullet;mso-level-text:-;font-family:Calibri}', '-'],
+    ['an arrow bullet', '{mso-level-number-format:bullet;mso-level-text:\\F0D8;font-family:Wingdings}', ''],
+    ['a bullet without level text', '{mso-level-number-format:bullet;font-family:Symbol}', '·'],
+  ])('keeps a literal marker for %s', (_name, body, marker) => {
+    const input = `<style>@list l5:level1 ${body}</style>` + wordItem(marker, 'Body', 1, 'l5', wingdings);
+    const output = run(input);
+    expect(output.html).toBe(toHtml(parse(input)));
+    expect(output.diagnostics).toHaveLength(1);
+  });
+
+  it('reads the nearest marker run font, including one on the Ignore span itself', () => {
+    const inner = wordItem('o', 'Inner', 1, 'l3').replace('style="mso-list:Ignore"', 'style=\'font-family:"Courier New";mso-list:Ignore\'');
+    expect(outline(run(wordStyle + inner).tree)).toEqual(['ul(circle)[Inner]']);
+    const paragraphFont = wordItem('o', 'Paragraph', 1, 'l3').replace('style="margin-left', 'style="font-family:\'Courier New\';margin-left');
+    expect(outline(run(wordStyle + paragraphFont).tree)).toEqual(['ul(circle)[Paragraph]']);
+    const overridden = wordItem('o', 'Overridden', 1, 'l3', 'Arial').replace('style="margin-left', 'style="font-family:\'Courier New\';margin-left');
+    expect(run(wordStyle + overridden).result.reconstructedItems).toBe(0);
+  });
+
+  it('keeps the glyph-only path for levels without a definition and never infers Word profiles from glyphs', () => {
+    const output = run(wordStyle + wordItem('3.', 'Legacy decimal', 1, 'l7') + wordItem('•', 'Legacy bullet', 1, 'l8'));
+    expect(outline(output.tree)).toEqual(['ol(decimal@3)[Legacy decimal]', 'ul(disc)[Legacy bullet]']);
+    for (const [marker, font] of [['o', courier], ['§', wingdings], ['a.', undefined], ['i.', undefined]] as const) {
+      const input = wordItem(marker, 'Body', 1, 'l9', font);
+      expect(run(input).html).toBe(toHtml(parse(input)));
+      expect(run(wordStyle + input).html).toBe(toHtml(parse(wordStyle + input)));
+    }
+  });
+
+  it('reads definitions only from root level style elements', () => {
+    const item = wordItem('o', 'Body', 1, 'l3', courier);
+    expect(run(`<div>${wordStyle}</div>` + item).result.reconstructedItems).toBe(0);
+    expect(outline(run(wordStyle + item).tree)).toEqual(['ul(circle)[Body]']);
+  });
+
+  it('requires the destination to preserve each reconstructed marker class', () => {
+    const input = wordStyle + wordItem('·', 'One', 1, 'l0', symbol) + wordItem('o', 'Two', 2, 'l0', courier);
+    const output = run(input, { markers: new Set(['disc', 'square']) });
+    expect(output.result.reconstructedItems).toBe(0);
+    expect(output.diagnostics).toHaveLength(1);
+    expect(outline(run(input, { markers: new Set(['disc', 'circle']) }).tree)).toEqual(['ul(disc)[One ul(circle)[Two]]']);
+  });
+
+  it.each(['preserve', 'adapt'] as const)('normalizes a Word default list paste in %s without a warning', formatting => {
+    const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><meta charset="utf-8"><meta name=ProgId content=Word.Document>'
+      + `${wordStyle}</head><body lang=EN-US style='tab-interval:.5in'><!--StartFragment-->`
+      + wordItem('·', 'One', 1, 'l0', symbol) + wordItem('o', 'Two', 2, 'l0', courier) + wordItem('§', 'Three', 3, 'l0', wingdings)
+      + wordItem('1.', 'Four', 1, 'l1') + wordItem('a.', 'Five', 2, 'l1') + wordItem('i.', 'Six', 3, 'l1')
+      + '<!--EndFragment--></body></html>';
+    const output = normalizePasteHTML(html, { formatting });
+    expect(output.status).toBe('cleaned');
+    expect(output.diagnostics.filter(entry => entry.severity !== 'info')).toEqual([]);
+    expect(outline(parse(output.html))).toEqual([
+      'ul(disc)[One ul(circle)[Two ul(square)[Three]]]',
+      'ol(decimal@1)[Four ol(lower-alpha@1)[Five ol(lower-roman@1)[Six]]]',
+    ]);
+    expect(output.html).not.toMatch(/mso-|<style|§/u);
+  });
+});
+
 describe('strict Office list reconstruction', () => {
   it('reconstructs a decimal run and keeps the observed non-one start', () => {
     const output = run(item('7.', 'Seven') + item('8)', 'Eight'));

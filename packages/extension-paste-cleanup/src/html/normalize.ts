@@ -125,7 +125,7 @@ export type ClipboardOwnCopyCheck = (nonce: string) => boolean;
 export function normalizeClipboardHTML(
   html: string,
   options: NormalizePasteHTMLOptions = {},
-  capabilities?: () => Pick<OfficeListReconstructionOptions, 'orderedLists' | 'bulletLists' | 'nestedLists'>,
+  capabilities?: () => Pick<OfficeListReconstructionOptions, 'orderedLists' | 'bulletLists' | 'nestedLists' | 'markers'>,
   preparation?: ClipboardImagePreparationSink,
   destination?: ClipboardDestinationCheck,
   ownCopy?: ClipboardOwnCopyCheck,

@@ -5,6 +5,8 @@ import { officeListCapabilities } from './listCapabilities.js';
 import { PasteCleanup } from './PasteCleanup.js';
 import type { NormalizePasteHTMLResult } from './html/types.js';
 
+const allMarkers = ['decimal', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman', 'disc', 'circle', 'square'];
+
 let editor: Editor;
 beforeAll(() => {
   editor = new Editor({ extensions: [Document, Paragraph, Text, ListItem, OrderedList, BulletList] });
@@ -20,7 +22,20 @@ describe('Office list destination capabilities', () => {
 
   it('proves every reconstructed marker class and nested combination in preservation mode', () => {
     expect(officeListCapabilities(editor.schema, document, { preserveMarkers: true })).toEqual({
-      orderedLists: true, bulletLists: true, nestedLists: true,
+      orderedLists: true, bulletLists: true, nestedLists: true, markers: new Set(allMarkers),
+    });
+  });
+
+  it('confirms each marker class separately, so one unsupported class does not disable its list kind', () => {
+    const nodes = editor.schema.spec.nodes.update('orderedList', {
+      ...editor.schema.spec.nodes.get('orderedList'),
+      parseDOM: [{ tag: 'ol', getAttrs: element => ({
+        start: Number(element.getAttribute('start') ?? 1),
+        listStyleType: element.style.listStyleType === 'lower-roman' ? null : element.style.listStyleType || null,
+      }) }],
+    });
+    expect(officeListCapabilities(new Schema({ nodes }), document, { preserveMarkers: true })).toEqual({
+      orderedLists: true, bulletLists: true, nestedLists: true, markers: new Set(allMarkers.filter(marker => marker !== 'lower-roman')),
     });
   });
 
@@ -34,7 +49,7 @@ describe('Office list destination capabilities', () => {
     const schema = new Schema({ nodes });
     expect(officeListCapabilities(schema, document)).toEqual({ orderedLists: true, bulletLists: true, nestedLists: true });
     expect(officeListCapabilities(schema, document, { preserveMarkers: true })).toEqual({
-      orderedLists: false, bulletLists: false, nestedLists: false,
+      orderedLists: false, bulletLists: false, nestedLists: false, markers: new Set(),
     });
   });
 
@@ -45,7 +60,8 @@ describe('Office list destination capabilities', () => {
     const schema = new Schema({ nodes });
     expect(officeListCapabilities(schema, document).bulletLists).toBe(true);
     expect(officeListCapabilities(schema, document, { preserveMarkers: true })).toEqual({
-      orderedLists: true, bulletLists: false, nestedLists: true,
+      orderedLists: true, bulletLists: true, nestedLists: true,
+      markers: new Set(['decimal', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman', 'disc']),
     });
   });
 
@@ -57,7 +73,7 @@ describe('Office list destination capabilities', () => {
       }) }],
     });
     expect(officeListCapabilities(new Schema({ nodes }), document, { preserveMarkers: true })).toEqual({
-      orderedLists: true, bulletLists: true, nestedLists: false,
+      orderedLists: true, bulletLists: true, nestedLists: false, markers: new Set(allMarkers),
     });
   });
 
@@ -85,6 +101,49 @@ describe('Office list destination capabilities', () => {
       expect(receiving.state.doc.textContent).toBe('7. Outer◦ Inner');
       expect(results).toHaveLength(1);
       expect(results[0]?.diagnostics).toContainEqual(expect.objectContaining({ code: 'office-list-unsupported' }));
+    } finally { receiving.destroy(); }
+  });
+
+  it('reconstructs Word default bullet and numbering profiles in a real editor without a warning', () => {
+    const results: NormalizePasteHTMLResult[] = [];
+    const receiving = new Editor({
+      extensions: [Document, Paragraph, Text, ListItem, OrderedList, BulletList,
+        PasteCleanup.configure({ onResult: result => { results.push(result); } })],
+      content: '<p>Seed</p>',
+    });
+    try {
+      receiving.commands.selectAll();
+      // Authored in the shape Word writes, not a native capture.
+      const style = '<style><!--\n@list l0:level1 {mso-level-number-format:bullet;mso-level-text:\\F0B7;font-family:Symbol;}\n'
+        + '@list l0:level2 {mso-level-number-format:bullet;mso-level-text:o;font-family:"Courier New";}\n'
+        + '@list l1:level1 {mso-level-tab-stop:none;}\n@list l1:level2 {mso-level-number-format:alpha-lower;}\n'
+        + '@list l1:level3 {mso-level-number-format:roman-lower;}\n--></style>';
+      const item = (list: string, level: number, font: string, marker: string, text: string): string =>
+        `<p class=MsoListParagraph style="text-indent:-.25in;mso-list:${list} level${String(level)} lfo1"><span style='${font}'>`
+        + `<span style="mso-list:Ignore">${marker}<span style='font:7.0pt "Times New Roman"'>&nbsp; </span></span></span>${text}</p>`;
+      const html = '<meta charset="utf-8">' + style + item('l0', 1, 'font-family:Symbol', '·', 'Disc')
+        + item('l0', 2, 'font-family:"Courier New"', 'o', 'Circle')
+        + item('l1', 1, 'mso-bidi-font-family:Calibri', '1.', 'Decimal') + item('l1', 2, 'mso-bidi-font-family:Calibri', 'a.', 'Alpha')
+        + item('l1', 3, 'mso-bidi-font-family:Calibri', 'i.', 'Roman');
+      const event = new Event('paste', { bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'clipboardData', { value: { items: [], files: [],
+        getData: (type: string) => type === 'text/html' ? html : type === 'text/plain' ? 'Disc\nCircle\nDecimal\nAlpha\nRoman' : '',
+      } });
+      receiving.view.dom.dispatchEvent(event);
+      const list = (type: string, marker: string, content: unknown[], start?: number): unknown => ({
+        type, attrs: { ...(start === undefined ? {} : { start }), listStyleType: marker }, content,
+      });
+      const entry = (text: string, ...nested: unknown[]): unknown => ({
+        type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }, ...nested],
+      });
+      expect(receiving.getJSON().content).toEqual([
+        list('bulletList', 'disc', [entry('Disc', list('bulletList', 'circle', [entry('Circle')]))]),
+        list('orderedList', 'decimal', [entry('Decimal', list('orderedList', 'lower-alpha', [
+          entry('Alpha', list('orderedList', 'lower-roman', [entry('Roman')], 1)),
+        ], 1))], 1),
+      ]);
+      expect(results).toHaveLength(1);
+      expect(results[0]?.diagnostics).toEqual([]);
     } finally { receiving.destroy(); }
   });
 

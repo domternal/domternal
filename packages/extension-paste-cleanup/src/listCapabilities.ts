@@ -1,15 +1,17 @@
 import { DOMParser } from '@domternal/pm/model';
 import type { Node as PMNode, Schema } from '@domternal/pm/model';
+import { bulletListStyles, orderedListStyles } from './html/listStyles.js';
 
 export interface OfficeListCapabilities {
   orderedLists: boolean;
   bulletLists: boolean;
   nestedLists: boolean;
+  /** With `preserveMarkers`: each marker class whose explicit value survived an actual parse. */
+  markers?: ReadonlySet<string>;
 }
 
 type ListKind = 'orderedList' | 'bulletList';
-const kinds: ListKind[] = ['orderedList', 'bulletList'];
-interface ListProbe { kind: ListKind; marker?: 'decimal' | 'disc' | 'circle' | 'square' }
+interface ListProbe { kind: ListKind; marker?: string }
 
 function paragraphMatches(node: PMNode | null, text: string): boolean {
   return node?.type.name === 'paragraph' && node.textContent === text
@@ -26,12 +28,6 @@ function listMatches(node: PMNode | null, probe: ListProbe, text: string): boole
 /** Probe actual parse rules and content expressions before removing visible Office markers. */
 export function officeListCapabilities(schema: Schema, document: Document, options: { preserveMarkers?: boolean } = {}): OfficeListCapabilities {
   const parser = DOMParser.fromSchema(schema);
-  // The default remains a structural capability probe for ordinary semantic lists.
-  // Removing visible Office labels additionally requires every emitted marker class.
-  const probes: ListProbe[] = options.preserveMarkers === true ? [
-    { kind: 'orderedList', marker: 'decimal' },
-    { kind: 'bulletList', marker: 'disc' }, { kind: 'bulletList', marker: 'circle' }, { kind: 'bulletList', marker: 'square' },
-  ] : kinds.map(kind => ({ kind }));
   const markerStyle = (probe: ListProbe): string => probe.marker === undefined ? '' : ` style="list-style-type:${probe.marker}"`;
   const accepts = (probe: ListProbe, nested?: ListProbe): boolean => {
     try {
@@ -57,12 +53,35 @@ export function officeListCapabilities(schema: Schema, document: Document, optio
       return false;
     }
   };
-  const orderedLists = probes.filter(probe => probe.kind === 'orderedList').every(probe => accepts(probe));
-  const bulletLists = probes.filter(probe => probe.kind === 'bulletList').every(probe => accepts(probe));
-  const available = probes.filter(probe => probe.kind === 'orderedList' ? orderedLists : bulletLists);
+  const nests = (available: readonly ListProbe[]): boolean => available.length > 0
+    && available.every(outer => available.every(inner => accepts(outer, inner)));
+  if (options.preserveMarkers !== true) {
+    // The default remains a structural capability probe for ordinary semantic lists.
+    const orderedLists = accepts({ kind: 'orderedList' });
+    const bulletLists = accepts({ kind: 'bulletList' });
+    const available: ListProbe[] = [];
+    if (orderedLists) available.push({ kind: 'orderedList' });
+    if (bulletLists) available.push({ kind: 'bulletList' });
+    return { orderedLists, bulletLists, nestedLists: nests(available) };
+  }
+  // Removing a visible Office label requires its own marker class, so each class is confirmed
+  // separately. Nesting is confirmed across both kinds with the first confirmed class of each.
+  const markers = new Set<string>();
+  const representatives: ListProbe[] = [];
+  for (const [kind, styles] of [['orderedList', orderedListStyles], ['bulletList', bulletListStyles]] as const) {
+    let first: ListProbe | undefined;
+    for (const marker of styles) {
+      const probe = { kind, marker };
+      if (!accepts(probe)) continue;
+      markers.add(marker);
+      first ??= probe;
+    }
+    if (first !== undefined) representatives.push(first);
+  }
   return {
-    orderedLists,
-    bulletLists,
-    nestedLists: available.length > 0 && available.every(outer => available.every(inner => accepts(outer, inner))),
+    orderedLists: orderedListStyles.some(marker => markers.has(marker)),
+    bulletLists: bulletListStyles.some(marker => markers.has(marker)),
+    nestedLists: nests(representatives),
+    markers,
   };
 }

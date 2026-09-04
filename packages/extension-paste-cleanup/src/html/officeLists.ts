@@ -1,5 +1,7 @@
 import type { Comment, Element, ElementContent, Root, RootContent, Text } from 'hast';
 import { StructureLimitError } from './parse.js';
+import { declaredFont, officeLevelKey, readOfficeListRules, resolveOfficeLevel } from './officeListStyles.js';
+import type { OfficeLevelDefinition, OfficeListRules } from './officeListStyles.js';
 
 export interface OfficeListReconstructionOptions {
   maxNodes: number;
@@ -8,6 +10,8 @@ export interface OfficeListReconstructionOptions {
   orderedLists?: boolean;
   bulletLists?: boolean;
   nestedLists?: boolean;
+  /** Marker classes the destination preserves. Absent means every class. */
+  markers?: ReadonlySet<string>;
 }
 
 export interface OfficeListReconstructionResult {
@@ -38,7 +42,7 @@ interface ListItem {
   level: number;
   identity: string;
   kind: 'ol' | 'ul';
-  markerStyle: 'decimal' | 'disc' | 'circle' | 'square';
+  markerStyle: 'decimal' | 'lower-alpha' | 'upper-alpha' | 'lower-roman' | 'upper-roman' | 'disc' | 'circle' | 'square';
   ordinal?: number;
   after: ElementContent[];
 }
@@ -58,6 +62,54 @@ const markerProperties = new Set(['style', 'className', 'lang', 'dir']);
 // The rebuilt list owns item indentation, so the source level geometry is not a loss.
 const levelGeometry = new Set(['margin', 'margin-left', 'margin-inline-start', 'text-indent', 'mso-add-space']);
 const prefixWhitespace = /^[\t\r\n ]*$/;
+const listMetadata = /^l([0-9]{1,10})[\t\n\f\r ]+level([1-9])[\t\n\f\r ]+lfo([0-9]{1,10})$/;
+
+type MarkerValue = Pick<ListItem, 'kind' | 'ordinal' | 'markerStyle'>;
+
+interface BulletProfile { style: ListItem['markerStyle']; glyphs: readonly string[]; font?: string }
+/**
+ * Bullet level texts Word writes, keyed by decoded `mso-level-text`. Symbol font bullets need
+ * the definition and the marker run to name the same font, because their glyphs are private
+ * use or ordinary letters that mean a bullet only in that font. Unicode bullets need no font.
+ */
+const bulletProfiles: ReadonlyMap<string, BulletProfile> = new Map([
+  ['\uF0B7', { style: 'disc', glyphs: ['\u00B7', '\uF0B7'], font: 'symbol' }],
+  ['\u00B7', { style: 'disc', glyphs: ['\u00B7', '\uF0B7'], font: 'symbol' }],
+  ['o', { style: 'circle', glyphs: ['o'], font: 'courier new' }],
+  ['\uF0A7', { style: 'square', glyphs: ['\u00A7', '\uF0A7'], font: 'wingdings' }],
+  ['\u00A7', { style: 'square', glyphs: ['\u00A7', '\uF0A7'], font: 'wingdings' }],
+  ['\u2022', { style: 'disc', glyphs: ['\u2022'] }],
+  ['\u25CF', { style: 'disc', glyphs: ['\u25CF'] }],
+  ['\u25E6', { style: 'circle', glyphs: ['\u25E6'] }],
+  ['\u25AA', { style: 'square', glyphs: ['\u25AA'] }],
+]);
+
+const roman = /^m{0,3}(?:cm|cd|d?c{0,3})(?:xc|xl|l?x{0,3})(?:ix|iv|v?i{0,3})$/;
+const romanDigits: Readonly<Record<string, number>> = { i: 1, v: 5, x: 10, l: 50, c: 100, d: 500, m: 1000 };
+
+/** A canonical Roman numeral up to 3999 in one case, never an empty or repeated-subtraction form. */
+function romanOrdinal(label: string, upper: boolean): number | undefined {
+  if (label === '' || label !== (upper ? label.toUpperCase() : label.toLowerCase())) return undefined;
+  const lower = label.toLowerCase();
+  if (!roman.test(lower)) return undefined;
+  let total = 0;
+  for (let index = 0; index < lower.length; index++) {
+    const value = romanDigits[lower.charAt(index)] ?? 0;
+    total += value < (romanDigits[lower.charAt(index + 1)] ?? 0) ? -value : value;
+  }
+  return total;
+}
+
+const orderedProfiles: Readonly<Partial<Record<OfficeLevelDefinition['format'], {
+  style: ListItem['markerStyle'];
+  ordinal: (label: string) => number | undefined;
+}>>> = {
+  decimal: { style: 'decimal', ordinal: label => /^[1-9][0-9]{0,4}$/.test(label) && Number(label) <= 10_000 ? Number(label) : undefined },
+  'alpha-lower': { style: 'lower-alpha', ordinal: label => /^[a-z]$/.test(label) ? label.charCodeAt(0) - 96 : undefined },
+  'alpha-upper': { style: 'upper-alpha', ordinal: label => /^[A-Z]$/.test(label) ? label.charCodeAt(0) - 64 : undefined },
+  'roman-lower': { style: 'lower-roman', ordinal: label => romanOrdinal(label, false) },
+  'roman-upper': { style: 'upper-roman', ordinal: label => romanOrdinal(label, true) },
+};
 
 /** Read one explicit declaration without interpreting strings, comments, or functions as CSS. */
 function listDeclaration(input: unknown): Declaration {
@@ -121,7 +173,8 @@ function trivia(node: RootContent | undefined): node is Comment | Text {
   return node?.type === 'comment' || (node?.type === 'text' && prefixWhitespace.test(node.value));
 }
 
-function markerValue(marker: Element): Pick<ListItem, 'kind' | 'ordinal' | 'markerStyle'> | undefined {
+/** The visible marker text without surrounding spacing, or undefined for anything but plain marker spans. */
+function markerLabel(marker: Element): string | undefined {
   let text = '';
   let visited = 0;
   const pending: RootContent[] = [marker];
@@ -141,9 +194,12 @@ function markerValue(marker: Element): Pick<ListItem, 'kind' | 'ordinal' | 'mark
       }
     } else return undefined;
   }
-  const match = /^[\t\n\r \u00a0]*([1-9][0-9]{0,4}[.)]|[•·◦▪●])[\t\n\r \u00a0]*$/u.exec(text);
-  const label = match?.[1];
-  if (label === undefined) return undefined;
+  return text.replace(/^[\t\n\r \u00a0]+|[\t\n\r \u00a0]+$/gu, '');
+}
+
+/** Without Word level metadata only decimal numbers and Unicode bullets are admitted, as before. */
+function legacyMarker(label: string): MarkerValue | undefined {
+  if (!/^(?:[1-9][0-9]{0,4}[.)]|[•·◦▪●])$/u.test(label)) return undefined;
   if (/^[•·◦▪●]$/u.test(label)) {
     // Preserve the admitted marker class, without claiming its original font or geometry.
     return { kind: 'ul', markerStyle: label === '◦' ? 'circle' : label === '▪' ? 'square' : 'disc' };
@@ -152,39 +208,74 @@ function markerValue(marker: Element): Pick<ListItem, 'kind' | 'ordinal' | 'mark
   return ordinal <= 10_000 ? { kind: 'ol', ordinal, markerStyle: 'decimal' } : undefined;
 }
 
-function readItem(entry: Candidate): ListItem | undefined {
-  const metadata = /^l([0-9]{1,10})[\t\n\f\r ]+level([1-9])[\t\n\f\r ]+lfo([0-9]{1,10})$/.exec(entry.declaration.value ?? '');
+/**
+ * Resolve a marker against its Word level definition. The visible label must be exactly what
+ * the definition produces for this level, and a symbol font bullet also needs its marker run
+ * font. Legal, multilevel, prefixed and other formats stay unsupported.
+ */
+function profileMarker(label: string, level: number, definition: OfficeLevelDefinition, runFont: string | null | undefined): MarkerValue | undefined {
+  if (definition.legal) return undefined;
+  if (definition.format === 'bullet') {
+    const profile = bulletProfiles.get(definition.text ?? '');
+    if (!profile?.glyphs.includes(label)) return undefined;
+    if (profile.font !== undefined && (definition.font !== profile.font || runFont !== profile.font)) return undefined;
+    return { kind: 'ul', markerStyle: profile.style };
+  }
+  const ordered = orderedProfiles[definition.format];
+  if (ordered === undefined) return undefined;
+  const text = definition.text;
+  const punctuation = text === undefined || text === `%${String(level)}.` ? '.' : text === `%${String(level)})` ? ')' : undefined;
+  if (punctuation === undefined || !label.endsWith(punctuation)) return undefined;
+  const ordinal = ordered.ordinal(label.slice(0, -1));
+  return ordinal === undefined ? undefined : { kind: 'ol', ordinal, markerStyle: ordered.style };
+}
+
+function readItem(entry: Candidate, rules: OfficeListRules): ListItem | undefined {
+  const metadata = listMetadata.exec(entry.declaration.value ?? '');
   const identity = metadata?.[1];
   const level = metadata?.[2];
   const instance = metadata?.[3];
   if (identity === undefined || level === undefined || instance === undefined) return undefined;
   let prefix = true;
   let marker: Element | undefined;
-  const pending: RootContent[] = [...entry.paragraph.children].reverse();
+  let markerFont: string | null | undefined;
+  // Each entry carries the nearest font declared on its ancestors, so the marker gets its run font.
+  const paragraphFont = declaredFont(entry.paragraph.properties.style);
+  const pending: { node: RootContent; font: string | null | undefined }[] = [...entry.paragraph.children].reverse()
+    .map(node => ({ node, font: paragraphFont }));
   while (pending.length > 0) {
-    const node = pending.pop();
-    if (node === undefined) break;
+    const current = pending.pop();
+    if (current === undefined) break;
+    const node = current.node;
     if (node.type === 'comment') continue;
     if (node.type === 'text') {
       if (!prefixWhitespace.test(node.value)) prefix = false;
       continue;
     }
     if (node.type !== 'element') { prefix = false; continue; }
+    // Fonts after the marker cannot affect it, so only the prefix reads them.
+    const own = marker === undefined ? declaredFont(node.properties.style) : undefined;
+    const font = own === undefined ? current.font : own;
     const declaration = listDeclaration(node.properties.style);
     if (declaration.present) {
       if (declaration.value !== 'ignore' || marker !== undefined || !prefix) return undefined;
       marker = node;
+      markerFont = font;
       prefix = false;
       continue;
     }
     if (!inlineWrappers.has(node.tagName)) prefix = false;
     for (let index = node.children.length - 1; index >= 0; index--) {
       const child = node.children[index];
-      if (child !== undefined) pending.push(child);
+      if (child !== undefined) pending.push({ node: child, font });
     }
   }
   if (marker === undefined) return undefined;
-  const value = markerValue(marker);
+  const label = markerLabel(marker);
+  if (label === undefined) return undefined;
+  const definition = resolveOfficeLevel(rules, identity, Number(level), instance);
+  const value = definition === undefined ? legacyMarker(label)
+    : definition === null ? undefined : profileMarker(label, Number(level), definition, markerFont);
   if (value === undefined) return undefined;
   return {
     paragraph: entry.paragraph, marker, level: Number(level),
@@ -260,10 +351,42 @@ function assertBounds(tree: Root, options: OfficeListReconstructionOptions): voi
   }
 }
 
+/** Level keys that list paragraphs reference, so the stylesheet reader records nothing else. */
+function referencedLevels(tree: Root): Set<string> {
+  const keys = new Set<string>();
+  const pending: RootContent[] = [...tree.children];
+  while (pending.length > 0) {
+    const node = pending.pop();
+    if (node?.type !== 'element' || opaque.has(node.tagName)) continue;
+    const style = node.properties.style;
+    if (node.tagName === 'p' && typeof style === 'string' && style.toLowerCase().includes('mso-list')) {
+      const metadata = listMetadata.exec(listDeclaration(style).value ?? '');
+      if (metadata?.[1] !== undefined && metadata[2] !== undefined) {
+        keys.add(officeLevelKey(metadata[1], metadata[2]));
+        keys.add(officeLevelKey(metadata[1], metadata[2], metadata[3]));
+      }
+    }
+    pending.push(...node.children);
+  }
+  return keys;
+}
+
+/** Word puts its list definitions in the clipboard document's stylesheet, a root element of the fragment. */
+function stylesheetTexts(tree: Root): string[] {
+  const texts: string[] = [];
+  for (const node of tree.children) {
+    if (node.type !== 'element' || node.tagName !== 'style') continue;
+    for (const child of node.children) if (child.type === 'text') texts.push(child.value);
+  }
+  return texts;
+}
+
 /**
  * Reconstruct only explicit Office list paragraphs whose visible markers are supported.
- * Plan all replacements before committing so unsupported runs and limit errors preserve input.
- * Sanitation and destination insertion remain the caller's responsibility.
+ * Word level definitions from the clipboard stylesheet and the marker run font identify
+ * profiles that the visible glyph alone cannot. Plan all replacements before committing so
+ * unsupported runs and limit errors preserve input. Sanitation and destination insertion
+ * remain the caller's responsibility.
  */
 export function reconstructOfficeLists(
   tree: Root,
@@ -274,6 +397,11 @@ export function reconstructOfficeLists(
     reconstructedRuns: 0, reconstructedLists: 0, reconstructedItems: 0, skippedRuns: 0,
   };
   const skipped: Element[] = [];
+  const rules = readOfficeListRules(stylesheetTexts(tree), referencedLevels(tree));
+  const representable = (item: ListItem): boolean => !(item.kind === 'ol' && options.orderedLists === false)
+    && !(item.kind === 'ul' && options.bulletLists === false)
+    && options.markers?.has(item.markerStyle) !== false
+    && !(item.level > 1 && options.nestedLists === false);
   function rewrite(parent: Element): ElementContent[];
   function rewrite(parent: Root): RootContent[];
   function rewrite(parent: Root | Element): RootContent[] {
@@ -309,11 +437,8 @@ export function reconstructOfficeLists(
       let problem: Element | undefined;
       let previousLevel = 0;
       for (const entry of entries) {
-        const item = readItem(entry);
-        if (item === undefined || item.level > previousLevel + 1
-          || (item.kind === 'ol' && options.orderedLists === false)
-          || (item.kind === 'ul' && options.bulletLists === false)
-          || (item.level > 1 && options.nestedLists === false)) {
+        const item = readItem(entry, rules);
+        if (item === undefined || item.level > previousLevel + 1 || !representable(item)) {
           problem = entry.paragraph;
           break;
         }
