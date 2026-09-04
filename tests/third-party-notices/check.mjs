@@ -285,12 +285,15 @@ function configLiteralStart(text) {
 }
 
 /**
- * True only for a spread inside the `entry` object of a literal config.
+ * True only for a spread inside the `entry` object of a literal config, or
+ * inside the `entry` object of its `dts` options.
  *
- * An entry value cannot add a sibling `noExternal` option. The accepted shapes
- * are `defineConfig({ entry: { ...value } })` and the same object directly
- * inside a root config array. A spread on either config object, or on the root
- * array itself, remains unreadable because it can add `noExternal`.
+ * An entry value cannot add a sibling `noExternal` option, and neither can a
+ * declaration entry, which only names the sources declarations are built from.
+ * The accepted shapes are `defineConfig({ entry: { ...value } })`,
+ * `defineConfig({ dts: { entry: { ...value } } })` and the same objects inside
+ * a root config array. A spread on either config object, on `dts` itself, or on
+ * the root array remains unreadable because it can add `noExternal`.
  */
 export function isNestedEntrySpread(text, spreadFrom) {
   const root = configLiteralStart(text);
@@ -320,9 +323,11 @@ export function isNestedEntrySpread(text, spreadFrom) {
   }
 
   const shape = stack.map(({ char }) => char).join('');
-  if (shape !== '{{' && shape !== '[{{') return false;
+  const keyed = (frame, key) => new RegExp(`\\b${key}\\s*:\\s*$`).test(text.slice(root, frame.from));
   const entryObject = stack.at(-1);
-  return entryObject?.char === '{' && /\bentry\s*:\s*$/.test(text.slice(root, entryObject.from));
+  if (entryObject?.char !== '{' || !keyed(entryObject, 'entry')) return false;
+  if (shape === '{{' || shape === '[{{') return true;
+  return (shape === '{{{' || shape === '[{{{') && keyed(stack.at(-2), 'dts');
 }
 
 /**

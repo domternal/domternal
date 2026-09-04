@@ -225,6 +225,42 @@ export default defineConfig({
   assert.equal(isNestedEntrySpread(config, spreadFrom), true);
 });
 
+test('a dynamic spread inside the declaration entry map cannot hide a bundling option either', () => {
+  // Core builds its code and its declarations from different entry maps, so the
+  // generated locale entries are spread into `dts.entry` as well. That map only
+  // names declaration sources, and tsup reads no bundling option from it.
+  const body = `
+    entry: { index: 'src/index.bundle.ts', ...locales },
+    dts: { entry: { index: 'src/index.ts', ...locales }, resolve: true },
+  `;
+  for (const literal of [`{${body}}`, `[{${body}}]`]) {
+    const config = `
+import { localeEntries } from '../../scripts/locale-build.mjs';
+import { defineConfig } from 'tsup';
+
+const locales = localeEntries('@domternal/core');
+
+export default defineConfig(${literal});
+`;
+    assert.deepEqual(findHiddenConfig(config), [], literal);
+    assert.equal(isNestedEntrySpread(config, config.lastIndexOf('...locales')), true, literal);
+  }
+});
+
+test('only the entry map inside dts is excused, not dts itself or an entry map under another option', () => {
+  for (const config of [
+    "export default defineConfig({ entry: ['src/index.ts'], dts: { ...declarationOptions } });",
+    "export default defineConfig([{ entry: ['src/index.ts'], dts: { ...declarationOptions } }]);",
+    "export default defineConfig({ entry: ['src/index.ts'], other: { entry: { ...extra } } });",
+    "export default defineConfig({ entry: ['src/index.ts'], dts: { entry: { nested: { ...extra } } } });",
+  ]) {
+    const spreads = findHiddenConfig(config).filter(
+      (declaration) => declaration.origin === 'spread' && !declaration.readable
+    );
+    assert.equal(spreads.length, 1, config);
+  }
+});
+
 test('an entry spread does not excuse spreads that can add noExternal', () => {
   const entry = "entry: { index: 'src/index.ts', ...localeEntries('@domternal/core') }";
   for (const config of [
