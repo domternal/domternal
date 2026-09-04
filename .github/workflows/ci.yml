@@ -186,6 +186,13 @@ jobs:
         # Next.js, Remix, Nuxt and Astro consumer before their first render.
         run: pnpm test:ssr-import
 
+      - name: Subpath re-exports share Core state
+        # @domternal/core/clipboard must stay a re-export of the main bundle.
+        # Built as its own entry it would carry a second copy of every clipboard
+        # registry, and a registration made through it would never reach the
+        # Editor. Only built files show that, in ESM and CommonJS separately.
+        run: pnpm test:subpath-reexports
+
       - name: Package manifest policy
         # Releases are hand-edited across eighteen manifests. A version bumped
         # without its `>=MAJOR.MINOR.0 <NEXT_MAJOR.0.0` ranges publishes a package a consumer

@@ -34,6 +34,7 @@
     "test:evidence": "node --test tests/evidence/*.test.mjs && node tests/evidence/cli.mjs check",
     "evidence:replay": "node tests/evidence/cli.mjs replay --all",
     "test:ssr-import": "node --test tests/ssr-import/check.test.mjs && node tests/ssr-import/check.mjs",
+    "test:subpath-reexports": "node --test tests/subpath-reexports/check.test.mjs && node tests/subpath-reexports/check.mjs",
     "test:ci-wiring": "node --test tests/ci-wiring/*.test.mjs && node tests/ci-wiring/check.mjs",
     "test:source-boundaries": "node --test tests/source-boundaries/check.test.mjs && node tests/source-boundaries/check.mjs",
     "test:single-prosemirror": "node --test tests/single-prosemirror/check.test.mjs && node tests/single-prosemirror/check.mjs",
