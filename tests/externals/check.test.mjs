@@ -141,6 +141,37 @@ export default defineConfig({
   assert.deepEqual([...parseExternals(config)].sort(), ['@domternal/core', 'y-prosemirror']);
 });
 
+test('entries declared as object maps are read, including the declaration entry map', () => {
+  // Most locale owning packages name their entries as a map with a spread of
+  // generated locale entries. An array only parser returned nothing for them,
+  // so their graphs were never walked while the gate still printed OK.
+  const config = `
+const locales = localeEntries('@domternal/core');
+export default defineConfig({
+  entry: {
+    index: 'src/index.bundle.ts',
+    'html/index': "src/html/index.ts",
+    ...locales,
+  },
+  dts: {
+    entry: { index: 'src/index.ts', ...locales },
+    resolve: true,
+  },
+  external: ['@domternal/pm/view'],
+});`;
+  assert.deepEqual(parseEntries(config), ['src/index.bundle.ts', 'src/html/index.ts', 'src/index.ts']);
+});
+
+test('an entry named only inside a comment is not walked', () => {
+  const config = `
+export default defineConfig({
+  // entry: ['src/legacy.ts'],
+  /* entry: { old: 'src/old.ts' } */
+  entry: { index: 'src/index.ts' },
+});`;
+  assert.deepEqual(parseEntries(config), ['src/index.ts']);
+});
+
 test('a config with no external list yields an empty set, not a crash', () => {
   assert.equal(parseExternals('export default defineConfig({ entry: [] });').size, 0);
   assert.deepEqual(parseEntries('export default defineConfig({});'), []);
