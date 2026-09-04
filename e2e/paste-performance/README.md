@@ -136,6 +136,74 @@ Smoke reports are explicitly nonqualifying. Full reports are measurements, not
 automatic product-wide performance claims, security sandbox guarantees or heap
 limits. Report both raw-input and normalized-control results with the input shape.
 
+## Large documents and resource limits
+
+The paired protocol above measures overhead on 20 KiB inputs. Large pastes are a
+separate question: which bound stops a representative document first, whether
+anything is ever silently truncated, and how long an accepted or refused paste
+takes. `large.mjs` generates deterministic synthetic documents in seven profiles,
+each measured in its own block unit:
+
+| Profile | Unit | Words per unit | Shape |
+| --- | --- | ---: | --- |
+| `word-short-paragraphs` | paragraph | 4 | `MsoNormal` paragraphs with a language run |
+| `word-fragmented-runs` | paragraph | 15 | five bold, italic and styled runs per paragraph |
+| `word-default-lists` | list item | 4 | Word default bullets and numbering at levels 1 to 3 |
+| `word-table` | table row | 9 | one Word table, three bordered cells per row |
+| `word-mixed-document` | section | 79 | heading, paragraphs, fragmented runs, list items and a small table |
+| `gdocs-document` | paragraph | 15 | Google Docs paragraphs inside the `docs-internal-guid` wrapper |
+| `heavily-formatted-runs` | paragraph | 10 | every word in bold, italic and a styled span |
+
+Word profiles carry a representative Word clipboard envelope of about 9 KB: meta
+elements, Office XML islands in conditional comments and a stylesheet with font,
+paragraph, page and nine-level `@list` definitions. Real stylesheets vary with the
+styles a document uses. The text is English with explicit `čćšžđ` and `ČĆŠŽĐ`
+Unicode tokens and typographic quotes; every block carries unique `Q000000x`
+ordinal tokens. There are no images, links or resource URLs. `large.test.mjs` pins
+the source hashes at 100 units, so a recorded result names exactly reproducible
+inputs. Historical measurements retain their original
+source hashes and inputs. Translating this generator does not rerun or update
+those measurements; new measurements must record the updated source hashes.
+
+`limits.mjs` sweeps the built public `/html` entry in Node. For each profile and
+policy it doubles the size until the first rejection, then bisects to the
+largest accepted size. Accepted output must contain every token once and in
+order; a rejection must return empty HTML with exactly one error. Parser
+allocation events are counted independently, the same way the bounded parser
+counts them, with the stylesheet share and the text insertions that only extend
+an existing text node listed separately. The first bound of a rejection is
+attributed from those counts: input length, parser allocations, depth, table
+cells, or otherwise generated output (inheritance and list wrappers). The size
+that first reaches the D4 target of 10,000 words is evaluated as well. Limits are
+measured here, never changed.
+
+```sh
+# Generator and sweep helper checks; the last two read the built /html entry:
+node --test e2e/paste-performance/large.test.mjs
+
+# Node sweep only, JSON on stdout and progress on stderr:
+node e2e/paste-performance/limits.mjs > /private/tmp/paste-limits.json
+
+# Browser single dispatch measurement on top of the sweep:
+node e2e/paste-performance/runner.mjs --large --smoke --out /private/tmp/paste-large-smoke
+node e2e/paste-performance/runner.mjs --large --reference-id local-macos-arm64 --out /private/tmp/paste-large-reference
+```
+
+`--large` first runs the sweep, then measures the D4 target, the largest accepted
+and the first rejected size of every profile and policy on each engine. It adds
+one case with a synthetic `text/rtf` flavor of 2,000,001 UTF-16 units next to
+HTML that alone would be accepted, which demonstrates the per-flavor ceiling
+that rejects the whole paste before parsing. Each case runs in a fresh context:
+one first paste, then five measured dispatches (one with `--smoke`), each in a
+fresh editor through the actual Cleanup extension and default feedback. There is
+no paired baseline. An accepted paste must apply once, keep every token in
+order, match the authored counts and leave one history entry; a rejected paste
+must leave the document unchanged and report exactly the expected error. The
+records keep `syncMs`, `settledMs`, notice visibility, diagnostics by severity,
+truncation and the document node count. Bundling, the loopback server, browser
+isolation, cancellation, the 45 minute deadline, cleanup and source hashing are
+those of the paired protocol.
+
 Recorded local results: [2026-09-26, macOS arm64](./results/2026-09-26-macos-arm64.md).
 That report preserves the measured source identity, environment and limitations;
 it does not replace qualification on another release target.

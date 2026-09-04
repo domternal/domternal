@@ -10,20 +10,23 @@ import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { FIXTURES } from './fixtures.mjs';
-import { PROTOCOL, SMOKE, summarize } from './sampler.mjs';
+import { PROTOCOL, SMOKE, statistics, summarize } from './sampler.mjs';
+import { D4_TARGET_WORDS, generateLarge, LARGE_PROFILES, LARGE_PROTOCOL, LARGE_SMOKE } from './large.mjs';
+import { loadNormalizer, sweepAll } from './limits.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '../..');
 const require = createRequire(join(root, 'package.json'));
 const { values } = parseArgs({ options: {
   out: { type: 'string' }, smoke: { type: 'boolean' }, headed: { type: 'boolean' }, browser: { type: 'string' }, 'reference-id': { type: 'string' },
+  large: { type: 'boolean' },
 } });
 assert.ok([22, 24].includes(Number(process.versions.node.split('.')[0])), 'This protocol records supported Node 22 or 24 runs');
 const browsers = values.browser ? [values.browser] : PROTOCOL.browsers;
 assert.ok(browsers.every(name => PROTOCOL.browsers.includes(name)), 'Unknown browser');
 assert.ok(values.smoke || browsers.length === 3, 'Partial browser runs require --smoke');
 assert.ok(values.smoke || /^[a-z0-9][a-z0-9._-]{0,63}$/u.test(values['reference-id'] ?? ''), 'A full run requires --reference-id with a nonpersonal machine label');
-const protocol = { ...PROTOCOL, ...(values.smoke ? SMOKE : {}) };
+const protocol = values.large ? { ...LARGE_PROTOCOL, ...(values.smoke ? LARGE_SMOKE : {}) } : { ...PROTOCOL, ...(values.smoke ? SMOKE : {}) };
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 const packageRequire = createRequire(join(root, 'packages/core/package.json'));
 const toolRequire = createRequire(packageRequire.resolve('tsup'));
@@ -45,9 +48,9 @@ let context;
 let completed = 0;
 let active;
 const started = Date.now();
-const expected = browsers.length * FIXTURES.length * protocol.formatting.length * protocol.rounds * (1 + protocol.warmupBlocks + protocol.measuredBlocks);
+let expected = values.large ? 0 : browsers.length * FIXTURES.length * protocol.formatting.length * protocol.rounds * (1 + protocol.warmupBlocks + protocol.measuredBlocks);
 const report = {
-  kind: 'domternal-paste-performance', protocol: protocol.id, mode: values.smoke ? 'smoke-nonqualifying' : 'reference-machine',
+  kind: values.large ? 'domternal-paste-large' : 'domternal-paste-performance', protocol: protocol.id, mode: values.smoke ? 'smoke-nonqualifying' : 'reference-machine',
   performanceClaim: false, nativeClipboardCaptured: false, sourceFixtures: 'synthetic',
   referenceId: values['reference-id'] ?? null, configuration: protocol, browsers: [], cases: [], failures: [], cleanupFailures: [],
   startedAt: new Date(started).toISOString(), headless: !values.headed,
@@ -62,8 +65,10 @@ const report = {
     logicalCPUs: cpus().length, totalMemoryBytes: totalmem(), initialLoadAverage: loadavg(), node: process.version,
     playwright: require('@playwright/test/package.json').version },
   repository: undefined,
-  fixtures: FIXTURES.map(fixture => ({ id: fixture.id, utf8Bytes: fixture.utf8Bytes, utf16Units: fixture.utf16Units,
-    groups: fixture.groups, sha256: sha256(fixture.html), expected: fixture.expected })),
+  fixtures: values.large ? LARGE_PROFILES.map(profile => ({ id: profile, unit: generateLarge(profile, 1).unit,
+    wordsPerUnit: generateLarge(profile, 1).words, sha256At100: sha256(generateLarge(profile, 100).html) }))
+    : FIXTURES.map(fixture => ({ id: fixture.id, utf8Bytes: fixture.utf8Bytes, utf16Units: fixture.utf16Units,
+      groups: fixture.groups, sha256: sha256(fixture.html), expected: fixture.expected })),
   sourceHashes: {}, bundleSha256: null, rawSamples: 'samples.jsonl',
 };
 
@@ -120,6 +125,81 @@ async function closeBrowser() {
   }
 }
 
+/** Run the Node limit sweep, then pick the sizes the browsers measure for each profile and policy. */
+function selectLargeCases() {
+  active = { stage: 'limit-sweep' };
+  const tools = loadNormalizer();
+  report.limits = tools.limits;
+  report.d4TargetWords = D4_TARGET_WORDS;
+  report.sweep = sweepAll(tools, result => {
+    console.log(JSON.stringify({ sweep: result.profile, formatting: result.formatting, maxAccepted: result.maxAccepted.size,
+      firstRejected: result.firstRejected.size, bound: result.firstRejected.bound }));
+  });
+  const cases = [];
+  for (const result of report.sweep) {
+    const picks = [['max-accepted', result.maxAccepted], ['first-rejected', result.firstRejected]];
+    if (result.d4Target.status !== undefined) picks.unshift(['d4-target', result.d4Target]);
+    for (const [label, record] of picks) {
+      if (record.status === 'cleaned' && record.tokensVerified !== true) throw new Error('The sweep accepted output without every authored token');
+      cases.push({ profile: result.profile, formatting: result.formatting, label, size: record.size, words: record.words,
+        expected: record.status === 'cleaned' ? { status: 'cleaned' } : { status: 'rejected', code: record.code } });
+    }
+  }
+  const rtf = protocol.rtfFlavor;
+  cases.push({ profile: rtf.profile, formatting: rtf.formatting, label: 'rtf-flavor-limit', size: rtf.size,
+    words: generateLarge(rtf.profile, rtf.size).words, rtfUnits: rtf.units, expected: { status: 'rejected', code: 'input-limit' } });
+  return cases;
+}
+
+async function measureLarge(name, origin, resources, cases) {
+  for (const entry of cases) {
+    const caseReport = { browser: name, ...entry, complete: false };
+    report.cases.push(caseReport);
+    active = { browser: name, profile: entry.profile, formatting: entry.formatting, label: entry.label, size: entry.size, stage: 'prepare' };
+    const measured = [];
+    try {
+      context = await acquire('context', browser.newContext({ viewport: protocol.viewport, deviceScaleFactor: protocol.deviceScaleFactor, locale: 'en-US', timezoneId: 'UTC', serviceWorkers: 'block' }), value => value.close());
+      const violations = [];
+      await context.route('**/*', route => {
+        const url = new URL(route.request().url());
+        if (url.origin === origin && resources.has(url.pathname) && url.search === '') return route.continue();
+        violations.push('Unexpected resource request'); return route.abort();
+      });
+      const page = await context.newPage();
+      page.on('pageerror', () => violations.push('Browser page error'));
+      await checked(page.goto(origin));
+      await checked(page.waitForFunction(() => window.__pastePerformance?.ready === true));
+      const preparation = await checked(page.evaluate(({ profile, size, formatting, expected, rtfUnits }) =>
+        window.__pastePerformance.prepareLarge(profile, size, formatting, expected, rtfUnits), entry));
+      const source = generateLarge(entry.profile, entry.size);
+      if (preparation.htmlSha256 !== sha256(source.html) || preparation.utf16Units !== source.utf16Units) throw new Error('The page generated a different large fixture');
+      caseReport.preparation = { htmlSha256: preparation.htmlSha256, utf16Units: preparation.utf16Units, utf8Bytes: source.utf8Bytes,
+        tokens: preparation.tokens, environment: preparation.environment };
+      for (let index = 0; index <= protocol.measuredDispatches; index++) {
+        active = { ...active, stage: index === 0 ? 'first-paste' : 'measured', index };
+        const sample = await checked(page.evaluate(index => window.__pastePerformance.single(index), index));
+        if (violations.length) throw new Error(violations[0]);
+        await log({ ...active, sample });
+        if (index === 0) caseReport.firstPaste = sample;
+        else measured.push(sample);
+        completed++;
+      }
+      const last = measured.at(-1);
+      caseReport.summary = { syncMs: statistics(measured.map(sample => sample.syncMs)), settledMs: statistics(measured.map(sample => sample.settledMs)) };
+      caseReport.outcome = { status: last.status, noticeVisible: last.noticeVisible, severities: last.severities,
+        diagnostics: last.diagnostics, semantic: last.semantic };
+      caseReport.complete = measured.length === protocol.measuredDispatches;
+    } catch (error) {
+      const failure = { ...active, message: String(error?.message ?? error).slice(0, 1024) };
+      report.failures.push(failure); console.error(JSON.stringify({ failure })); await log({ failure });
+      if (abort.signal.aborted) throw error;
+    } finally {
+      if (context) { const owned = context; context = undefined; await cleanup('context', () => owned.close()); }
+    }
+  }
+  await closeBrowser();
+}
+
 const monitor = setInterval(() => {
   const progress = { progress: true, active, completed, expected, failed: report.failures.length, elapsedSeconds: Math.round((Date.now() - started) / 1000) };
   console.log(JSON.stringify(progress));
@@ -160,7 +240,12 @@ try {
   assert.ok(source.length <= 16 * 1024 * 1024, 'Fixture bundle exceeds the harness envelope');
   report.bundleSha256 = sha256(source);
   report.sourceHashes = Object.fromEntries([...captured].map(([path, hash]) => [relative(root, path), hash]).sort(([left], [right]) => left.localeCompare(right)));
-  for (const file of ['runner.mjs', 'README.md', 'fixtures.test.mjs', 'sampler.test.mjs']) report.sourceHashes[relative(root, join(here, file))] = sha256(await readFile(join(here, file)));
+  for (const file of ['runner.mjs', 'README.md', 'fixtures.test.mjs', 'sampler.test.mjs', 'limits.mjs', 'large.test.mjs']) report.sourceHashes[relative(root, join(here, file))] = sha256(await readFile(join(here, file)));
+  if (values.large) {
+    // The Node sweep reads the CommonJS build of the same /html entry the browser bundle uses.
+    const sweepEntry = join(root, 'packages/extension-paste-cleanup/dist/html/index.cjs');
+    report.sourceHashes[relative(root, sweepEntry)] = sha256(await readFile(sweepEntry));
+  }
   await writeFile(join(output, 'fixture.bundle.js'), source, { flag: 'wx' });
   await writeFile(join(output, 'bundle-metafile.json'), `${JSON.stringify(bundle.metafile, null, 2)}\n`, { flag: 'wx' });
   const themePath = join(root, 'packages/theme/dist/domternal-theme.css');
@@ -184,11 +269,14 @@ try {
   });
   await checked(new Promise((accept, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', accept); }));
   const origin = `http://127.0.0.1:${String(server.address().port)}`;
+  const largeCases = values.large ? selectLargeCases() : [];
+  if (values.large) expected = browsers.length * largeCases.length * (1 + protocol.measuredDispatches);
   for (const name of browsers) {
     active = { browser: name, stage: 'launch' };
     browserServer = await acquire('browser-server', playwright[name].launchServer({ headless: !values.headed, timeout: 30_000 }), disposeBrowserServer);
     browser = await acquire('browser-connection', playwright[name].connect(browserServer.wsEndpoint(), { timeout: 30_000 }), value => value.close());
     report.browsers.push({ name, version: browser.version() });
+    if (values.large) { await measureLarge(name, origin, resources, largeCases); continue; }
     for (const fixture of FIXTURES) for (const formatting of protocol.formatting) {
       const measured = [];
       const caseReport = { browser: name, fixture: fixture.id, formatting, rounds: [], complete: false };
