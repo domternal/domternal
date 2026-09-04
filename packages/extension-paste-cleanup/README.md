@@ -5,11 +5,12 @@ Opt-in clipboard HTML cleanup for Domternal. MIT licensed and part of Free.
 **Development status:** unreleased. This package is not a DOCX importer and makes
 no claim of complete Word, Google Docs, or LibreOffice fidelity. Its behavior is
 verified with synthetic clipboard input; native Word, Google Docs, and LibreOffice
-clipboard captures are not yet verified. Strict inline Office list metadata and
-a bounded subset of inherited formatting are supported. Optional local image
-preparation supports image-only pastes and explicit application-supplied bindings.
-An explicit resolver mode can stage those raster assets in application-owned storage.
-Automatic Office image association and stylesheet resolution remain subsequent work.
+clipboard captures are not yet verified. Strict inline Office list metadata, read
+together with Word's list level definitions and marker fonts, and a bounded subset
+of inherited formatting are supported. Optional local image preparation supports
+image-only pastes and explicit application-supplied bindings. An explicit resolver
+mode can stage those raster assets in application-owned storage. Automatic Office
+image association and general stylesheet resolution remain subsequent work.
 
 ## Editor integration
 
@@ -164,8 +165,9 @@ Inherited inline font family, size, color, bold and italic resolve through sourc
 wrappers, including descendant bold/italic resets. Relative `em` and `%` font
 sizes resolve only when the source provides a known absolute base. Inline text
 decoration and highlight retain supported source semantics; a block or cell fill
-does not become text highlighting. Stylesheet rules, CSS variables, the browser's
-computed styles and arbitrary CSS inheritance are not resolved. The destination
+does not become text highlighting. Apart from Word list level definitions (see
+the Office list section), stylesheet rules, CSS variables, the browser's computed
+styles and arbitrary CSS inheritance are not resolved. The destination
 schema determines which retained styles become document attributes.
 
 Supported inline marks and effective typography are materialized around both text
@@ -238,16 +240,48 @@ never reaches the editor document. HTML, URL, style and resource checks apply to
 every fragment, including own copies.
 
 Explicit inline `mso-list:lN levelN lfoN` paragraphs with one leading
-`mso-list:Ignore` marker can become semantic lists. Supported markers are positive
-decimal numbers followed by `.` or `)`, and the Unicode bullets `• · ◦ ▪ ●`.
-Nesting, observed starts, restarts and gaps retain separate list wrappers.
-SmartPaste preserves reconstructed ordered-list starts when pasting into a list.
-The extension probes the receiving schema's actual list parse rules before
-removing visible markers. Unsupported runs keep their paragraph text and markers
-with an `office-list-unsupported` diagnostic. Roman, alphabetic, legal and symbol
-font numbering, class-only lists, and stylesheet definitions are not reconstructed.
-The standalone HTML entry has no destination schema and emits semantic list HTML;
-its caller remains responsible for destination compatibility.
+`mso-list:Ignore` marker can become semantic lists. When the clipboard HTML carries
+Word's stylesheet, its `@list lN:levelN` level definition, with a matching
+`lfoN` instance override applied over it, and the font of the marker run identify
+the list profile. The visible label must be exactly what that definition produces
+for the paragraph's level:
+
+| Word level definition | Visible marker | Marker class |
+| --- | --- | --- |
+| Decimal, level text absent, `%N.` or `%N)` | `1.` to `10000.` with the same punctuation | `decimal` |
+| `alpha-lower` or `alpha-upper`, same level text rule | one letter of that case | `lower-alpha` or `upper-alpha` |
+| `roman-lower` or `roman-upper`, same level text rule | a canonical numeral up to 3999 of that case | `lower-roman` or `upper-roman` |
+| Bullet `\F0B7` in Symbol | `·` or U+F0B7 in a Symbol marker run | `disc` |
+| Bullet `o` in Courier New | `o` in a Courier New marker run | `circle` |
+| Bullet `\F0A7` in Wingdings | `§` or U+F0A7 in a Wingdings marker run | `square` |
+| Bullet `•`, `●`, `◦` or `▪` | the same glyph | `disc`, `disc`, `circle` or `square` |
+
+A glyph alone never selects a Word profile. `o`, `§`, `a.` or `i.` without a
+matching definition and marker run font stay literal, and `i.` under an
+alphabetic definition is the ninth letter, not a Roman one. Legal and multilevel
+numbering, prefixed or custom level text, other number formats, other symbol and
+picture bullets, letters past `z`, and malformed or conflicting definitions stay
+literal. A paragraph without a level definition, for example when a browser
+drops the stylesheet, is read as before: only positive decimal numbers followed
+by `.` or `)` and the Unicode bullets `• · ◦ ▪ ●` are admitted. The reader records
+only the levels that pasted paragraphs reference, bounds each rule body to 8,192
+UTF-16 units, 64 declarations and 64 units of level text, and resolves no other CSS.
+
+Fallback is per item. An unsupported item, or one whose parent level is missing,
+stays a literal paragraph with its visible marker: inside the nearest open list
+item when the destination can nest lists, otherwise at the list's own level,
+which closes the open lists. Deeper items under a literal item have no list
+parent and stay literal until the level returns to a supported parent. Each
+contiguous group of literal items reports one `office-list-unsupported` located
+at its first paragraph. A literal item keeps its source paragraph, so hanging
+indentation it carries is also reported as `unsupported-formatting`. Nesting, observed
+starts, restarts and gaps retain separate list wrappers. SmartPaste preserves
+reconstructed ordered-list starts when pasting into a list. Class-only lists are
+not reconstructed. The extension probes the receiving schema's actual list parse
+rules for each marker class before removing visible markers, so a destination
+that cannot keep one class keeps only those items literal. The standalone HTML
+entry has no destination schema and emits semantic list HTML; its caller remains
+responsible for destination compatibility.
 
 Both formatting modes retain supported list marker classes. Ordered lists support
 `decimal`, `lower-alpha`, `upper-alpha`, `lower-roman` and `upper-roman`; bullet lists
@@ -258,13 +292,13 @@ Slice context follows the same restrictions. Task lists do not gain this
 attribute. Lists with different explicit markers stay separate during paste and
 list editing.
 
-Reconstructed Office decimal lists use an explicit `decimal` marker, including at
-nested levels. Supported Unicode bullets map to `disc`, `circle` or `square`, and
-a change of marker class creates a separate list. The schema probes must confirm
-these explicit markers before Office marker text is removed. Legacy schemas keep
-the visible Office markers with `office-list-unsupported`; ordinary semantic HTML
-can still paste with `destination-formatting-unconfirmed`. Marker classes do not
-promise identical glyphs, punctuation, fonts, spacing or page layout.
+Reconstructed Office lists use an explicit marker class at every depth, and a
+change of marker class creates a separate list. The schema probes must confirm
+each explicit marker class before Office marker text is removed. Legacy schemas
+keep the visible Office markers with `office-list-unsupported`; ordinary semantic
+HTML can still paste with `destination-formatting-unconfirmed`. Marker classes do
+not promise identical glyphs, punctuation, fonts, spacing or page layout: `a)`
+and `a.` both become `lower-alpha`.
 
 Remote images are removed by default, with escaped alt text where available.
 Enabling `allowRemoteImages` retains HTTP(S) references: later rendering can then
@@ -498,6 +532,23 @@ depth allowance before it is allocated.
 Plain/Markdown input has a conservative markup-token budget before downstream
 handlers can expand it. HTML/structure rejection inserts nothing; removed images,
 links and unsupported formatting are reported without discarding unrelated text.
+Every clipboard flavor, including `text/rtf`, is checked against the input ceiling
+before parsing, so one oversized flavor rejects the whole paste with `input-limit`.
+
+Parser allocations count every element, comment and text insertion the HTML
+parser makes. The parser inserts text once per run of whitespace or
+non-whitespace, so the count grows with words rather than with nodes, and a Word
+clipboard stylesheet uses allocations as well (1,027 for a representative 9 KB
+stylesheet). A measurement of synthetic documents on one machine, recorded in
+the repository under `e2e/paste-performance/results/2026-09-28-large-macos-arm64.md`,
+found these largest accepted sizes: about 11,600 words of short Word paragraphs,
+10,700 words of a mixed Word document with headings, lists and tables, 9,900
+words of heavily fragmented Word runs, 9,300 words in a Word table, 6,400 words
+of Word list items and 14,500 words of Google Docs paragraphs. Wrapping every word
+in bold, italic and a styled span reaches the output node limit first, at about
+3,700 words (4,300 in `adapt`). A larger input is rejected explicitly with `structure-limit` and
+nothing is inserted; the HTML is never truncated. These are not guaranteed
+capacities: real documents differ in structure and stylesheet size.
 
 ## Current verification limits
 
@@ -508,5 +559,9 @@ requirements. This package has localized loss notices and optional host-owned
 feedback and optional image-preparation progress. It has no built-in preview or
 paste-choice dialog. Local image association still requires an explicit host
 mapping for mixed HTML; these fixtures do not prove native Office association.
+Content specifications and capture scenarios for Word for Mac are prepared in the
+repository's `e2e/native-office-capture` tooling; no native capture has been made
+yet, and Word list profiles, the quiet envelope and the measured limits are not
+qualified against native clipboard data.
 The current Core color parser does not retain alpha in RGBA text colors or
 partially transparent backgrounds. Exact transparency fidelity is not promised.
