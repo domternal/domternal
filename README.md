@@ -81,6 +81,14 @@ The example above wires the minimum schema by hand to show the headless model; i
 
 See [Packages & Bundle Size](https://domternal.dev/v1/packages) for a full breakdown of what each package includes and how tree-shaking works.
 
+## Domternal Pro
+
+[Domternal Pro](https://domternal.dev/pro) adds the collaborative layer on top of these MIT packages, published as `@domternal-pro/*` on the public npm registry under a commercial license: real-time [collaboration](https://domternal.dev/v1/pro/collaboration) with live carets and presence, [comments](https://domternal.dev/v1/pro/comments), [version history](https://domternal.dev/v1/pro/version-history), an [AI assistant](https://domternal.dev/v1/pro/ai), [columns](https://domternal.dev/v1/pro/columns), [Word and PDF export](https://domternal.dev/v1/pro/export), and a [self-hosted collaboration server](https://domternal.dev/v1/pro/self-hosting).
+
+- [Installation and licensing](https://domternal.dev/v1/pro/licensing) - install from npm, evaluate without a key, activate with a Commercial Key
+- [Pricing](https://domternal.dev/pricing) - plans and what each one includes
+- [Support and reporting issues](https://domternal.dev/v1/pro/support) - Pro defects are tracked in this repository through the [Pro bug report](https://github.com/domternal/domternal/issues/new?template=pro_bug_report.yml) template
+
 ## Documentation
 
 Full documentation, live playgrounds, and API reference at **[domternal.dev](https://domternal.dev)**.
