@@ -332,8 +332,11 @@ function consumeDeferred(view: EditorView, state: ViewPreparation, attempt: Atte
  * the text or HTML route. Returning undefined preserves its ordinary pipeline.
  * Deferred HTML uses an empty preliminary parse, then runs ordinary paste hooks
  * once on replay. This is not an asynchronous continuation of ProseMirror parsing.
- * A new attempt, registration replacement, disposal, or destroyed view invalidates
- * replay. The owner must dispose the registration when its plugin view is destroyed.
+ * A view accepts one active preparation: a second registration throws instead of
+ * taking ownership, so the active owner must dispose first. A registration made by
+ * the active one's disposal cleanup is accepted.
+ * A new attempt, disposal, or destroyed view invalidates replay. The owner must
+ * dispose the registration when its plugin view is destroyed.
  * A reentrant paste or registration created by cleanup takes precedence over the
  * outer call that triggered that cleanup.
  * Replay freshness checks do not validate clipboard contents. The caller owns
@@ -350,6 +353,9 @@ export function registerClipboardHTMLPreparation(view: EditorView, gate: Clipboa
   if (onAttempt !== undefined && typeof onAttempt !== 'function') throw new TypeError('Expected a clipboard attempt observer');
   if (view.isDestroyed) throw new Error('Cannot prepare clipboard HTML in a destroyed view');
   let state = preparations.get(view);
+  // One coordinator per view. Silently replacing it would hand paste ownership to
+  // whichever extension registered last.
+  if (state?.registration !== undefined) throw new Error('This view already has a clipboard HTML preparation');
   if (state === undefined) {
     state = { generation: 0, registration: undefined, attempts: [], domTraversals: [], pending: undefined, permit: undefined };
     preparations.set(view, state);

@@ -16,7 +16,8 @@ function clipboard(html = '<p>Source</p>', text = 'Source'): ClipboardEvent {
   return event as ClipboardEvent;
 }
 
-function mount(): {
+/** A view accepts one preparation, so a test that registers its own passes `fixture: false`. */
+function mount({ fixture = true }: { fixture?: boolean } = {}): {
   editor: Editor;
   replay: () => ClipboardHTMLReplay;
   calls: { html: ReturnType<typeof vi.fn>; slice: ReturnType<typeof vi.fn>; handle: ReturnType<typeof vi.fn>; gate: ReturnType<typeof vi.fn>; discard: ReturnType<typeof vi.fn> };
@@ -29,10 +30,10 @@ function mount(): {
   const extension = Extension.create({
     name: 'preparationFixture',
     addProseMirrorPlugins: () => [new Plugin({
-      view: view => ({ destroy: registerClipboardHTMLPreparation(view, () => {
+      view: view => ({ destroy: fixture ? registerClipboardHTMLPreparation(view, () => {
         calls.gate();
         return { onDeferred(value) { replay = value; }, discard: calls.discard };
-      }) }),
+      }) : () => undefined }),
       props: {
         transformPastedHTML(html) { calls.html(html); return html; },
         transformPasted(slice) { calls.slice(); return slice; },
@@ -58,7 +59,7 @@ function mount(): {
 describe('Core editor deferred clipboard integration', () => {
   it.each(['native', 'dispatchEvent', 'empty-html', 'empty-text', 'text'] as const)(
     'observes the %s attempt before a higher handler consumes it', route => {
-      const { editor } = mount();
+      const { editor } = mount({ fixture: false });
       const events: (ClipboardEvent | undefined)[] = [];
       const origins: string[] = [];
       const handle = vi.fn(() => true);
@@ -83,7 +84,7 @@ describe('Core editor deferred clipboard integration', () => {
   it('observes source-free programmatic calls and each fresh prepared replay once', async () => {
     // JSDOM omits this constructor; native implementations are covered in browsers.
     vi.stubGlobal('ClipboardEvent', class extends Event { readonly clipboardData = null; });
-    const { editor } = mount();
+    const { editor } = mount({ fixture: false });
     const seen: (ClipboardEvent | undefined)[] = [];
     let resume: ClipboardHTMLReplay | undefined;
     registerClipboardHTMLPreparation(editor.view, () => ({ onDeferred(replay) { resume = replay; } }),
@@ -97,7 +98,7 @@ describe('Core editor deferred clipboard integration', () => {
   });
 
   it.each(['throw', 'value', 'promise'] as const)('consumes an attempt when its observer returns %s', async mode => {
-    const { editor, calls } = mount();
+    const { editor, calls } = mount({ fixture: false });
     const invalidObserver = (): unknown => {
       if (mode === 'throw') throw new Error('Observer failed');
       if (mode === 'promise') return Promise.reject(new Error('Invalid asynchronous observer'));
@@ -112,7 +113,7 @@ describe('Core editor deferred clipboard integration', () => {
   });
 
   it('preserves a newer reentrant attempt and consumes the older outer attempt', () => {
-    const { editor } = mount();
+    const { editor } = mount({ fixture: false });
     const outer = clipboard('<p>Outer</p>');
     const inner = clipboard('<p>Inner</p>');
     const seen: ClipboardEvent[] = [];
@@ -125,21 +126,39 @@ describe('Core editor deferred clipboard integration', () => {
     expect(editor.state.doc.textContent).toBe('Inner');
   });
 
-  it('does not continue an attempt after its observer replaces the registration', () => {
-    const { editor } = mount();
-    const replacement = vi.fn();
-    registerClipboardHTMLPreparation(editor.view, () => undefined, () => {
-      registerClipboardHTMLPreparation(editor.view, () => undefined, replacement);
+  it('consumes the attempt when its observer tries to register a second preparation', () => {
+    const { editor } = mount({ fixture: false });
+    const second = vi.fn();
+    const gate = vi.fn(() => undefined);
+    const refusals: unknown[] = [];
+    registerClipboardHTMLPreparation(editor.view, gate, () => {
+      if (refusals.length > 0) return;
+      try { registerClipboardHTMLPreparation(editor.view, () => undefined, second); }
+      catch (error) { refusals.push(error); throw error; }
     });
     editor.view.pasteHTML('<p>Older</p>', clipboard('<p>Older</p>'));
+    expect(refusals).toHaveLength(1);
     expect(editor.state.doc.textContent).toBe('Keep');
-    expect(replacement).not.toHaveBeenCalled();
+    expect(gate).not.toHaveBeenCalled();
     editor.view.pasteHTML('<p>Current</p>', clipboard('<p>Current</p>'));
     expect(editor.state.doc.textContent).toBe('Current');
-    expect(replacement).toHaveBeenCalledOnce();
+    expect(gate).toHaveBeenCalledOnce();
+    expect(second).not.toHaveBeenCalled();
   });
 
-  it('rejects a non-callable attempt observer before replacing a valid registration', () => {
+  it('refuses a second preparation on an editor whose plugin already registered one', async () => {
+    const { editor, calls, replay } = mount();
+    const second = vi.fn(() => undefined);
+    expect(() => registerClipboardHTMLPreparation(editor.view, second)).toThrow('This view already has a clipboard HTML preparation');
+    editor.view.pasteHTML('<p>Source</p>', clipboard());
+    await Promise.resolve();
+    expect(replay()('<p>Prepared</p>', clipboard('<p>Prepared</p>', 'Prepared'))).toBe(true);
+    expect(editor.state.doc.textContent).toBe('Prepared');
+    expect(calls.gate).toHaveBeenCalledOnce();
+    expect(second).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-callable attempt observer without disturbing the active registration', () => {
     const { editor, calls } = mount();
     expect(() => registerClipboardHTMLPreparation(editor.view, () => undefined, false as never)).toThrow(TypeError);
     editor.view.pasteHTML('<p>Source</p>', clipboard());
@@ -148,7 +167,7 @@ describe('Core editor deferred clipboard integration', () => {
   });
 
   it('exposes only the active attempt event and restores it after a nested public paste', () => {
-    const { editor } = mount();
+    const { editor } = mount({ fixture: false });
     const seen: (ClipboardEvent | undefined)[] = [];
     const outer = clipboard('<p>Outer</p>');
     const inner = clipboard('<p>Inner</p>');

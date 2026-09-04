@@ -359,13 +359,41 @@ describe('clipboard HTML preparation cooperation', () => {
     expect(second.view.state.doc.textContent).toBe('Second');
   });
 
-  it.each(['dispose', 'replacement', 'destroy'] as const)('invalidates replay after %s and releases resources once', async mode => {
+  it('refuses a second registration on a view and keeps the active registration and its pending replay', async () => {
+    const { view } = fixture();
+    const active = deferred(view);
+    view.pasteHTML('<p>Original</p>', event());
+    await Promise.resolve();
+    const second = vi.fn<ClipboardHTMLPreparationGate>(() => undefined);
+    const observer = vi.fn();
+    expect(() => registerClipboardHTMLPreparation(view, second, observer)).toThrow('This view already has a clipboard HTML preparation');
+    expect(active.discard).not.toHaveBeenCalled();
+    expect(active.replay('<p>Prepared</p>', event())).toBe(true);
+    expect(view.state.doc.textContent).toBe('Prepared');
+    view.pasteHTML('<p>Next</p>', event());
+    expect(active.gate).toHaveBeenCalledTimes(2);
+    expect(second).not.toHaveBeenCalled();
+    expect(observer).not.toHaveBeenCalled();
+  });
+
+  it('accepts a new registration once the active one is disposed', async () => {
+    const { view } = fixture();
+    const first = deferred(view);
+    first.dispose();
+    const next = deferred(view);
+    view.pasteHTML('<p>Original</p>', event());
+    await Promise.resolve();
+    expect(first.gate).not.toHaveBeenCalled();
+    expect(next.replay('<p>Next owner</p>', event())).toBe(true);
+    expect(view.state.doc.textContent).toBe('Next owner');
+  });
+
+  it.each(['dispose', 'destroy'] as const)('invalidates replay after %s and releases resources once', async mode => {
     const { view } = fixture();
     const pending = deferred(view);
     view.pasteHTML('<p>Original</p>', event());
     await Promise.resolve();
     if (mode === 'dispose') { pending.dispose(); pending.dispose(); }
-    else if (mode === 'replacement') { install(view, () => undefined); pending.dispose(); }
     else view.destroy();
     expect(pending.replay('<p>Stale</p>', event())).toBe(false);
     if (mode === 'destroy') pending.dispose();
@@ -505,7 +533,7 @@ describe('clipboard HTML preparation cooperation', () => {
     expect(released).toEqual(['<p>Old</p>', '<p>Newest</p>']);
   });
 
-  it.each(['replacement', 'disposal'] as const)('keeps a newer registration and its pending resources when discard reenters during %s', async action => {
+  it.each(['a refused replacement', 'no other registration attempt'] as const)('keeps a newer registration and its pending resources when discard reenters during disposal after %s', async action => {
     const { view } = fixture();
     let newestReplay: ClipboardHTMLReplay | undefined;
     const newestDiscard = vi.fn();
@@ -520,9 +548,11 @@ describe('clipboard HTML preparation cooperation', () => {
     view.pasteHTML('<p>Old</p>', event());
     await Promise.resolve();
     const middleGate = vi.fn<ClipboardHTMLPreparationGate>(() => undefined);
-    const disposeMiddle = action === 'replacement' ? install(view, middleGate) : undefined;
-    if (action === 'disposal') disposeOld();
-    disposeMiddle?.();
+    if (action === 'a refused replacement') {
+      expect(() => install(view, middleGate)).toThrow('This view already has a clipboard HTML preparation');
+      expect(oldDiscard).not.toHaveBeenCalled();
+    }
+    disposeOld();
     disposeOld();
     await Promise.resolve();
     expect(oldDiscard).toHaveBeenCalledTimes(1);
