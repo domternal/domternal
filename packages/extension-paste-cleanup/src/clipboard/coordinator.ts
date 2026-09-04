@@ -7,6 +7,7 @@ import { DEFAULT_PASTE_HTML_LIMITS } from '../html/normalize.js';
 import type { NormalizePasteHTMLOptions, NormalizePasteHTMLResult } from '../html/types.js';
 import { officeListCapabilities } from '../listCapabilities.js';
 import { isOwnCopyNonce } from './ownCopy.js';
+import { claimClipboardSlot } from './ownership.js';
 import { getUnsupportedDestinationFeatures } from '../destinationCapabilities.js';
 import { pasteCleanupKey, pasteDocumentRevision } from '../operations.js';
 import type { PasteOperationRejectionReason } from '../operations.js';
@@ -524,17 +525,25 @@ export function createClipboardAssetCoordinator(
     return metadata !== null && typeof metadata === 'object' && 'operationId' in metadata && typeof metadata.operationId === 'string'
       ? applying.get(metadata.operationId) : undefined;
   };
-  const unregister = registerClipboardHTMLPreparation(view, gate, context => {
-    const own = context.event === undefined ? undefined : replays.get(context.event);
-    if (own?.view === view && !own.attemptSeen && !own.asset.done) {
-      own.attemptSeen = true;
-      return;
-    }
-    const ownGeneration = begin();
-    if (current(ownGeneration) && context.origin === 'native' && context.event !== undefined) {
-      nativeAttempts.set(context.event, ownGeneration);
-    }
-  });
+  let unregister: () => void;
+  try {
+    unregister = claimClipboardSlot('html-preparation', () => registerClipboardHTMLPreparation(view, gate, context => {
+      const own = context.event === undefined ? undefined : replays.get(context.event);
+      if (own?.view === view && !own.attemptSeen && !own.asset.done) {
+        own.attemptSeen = true;
+        return;
+      }
+      const ownGeneration = begin();
+      if (current(ownGeneration) && context.origin === 'native' && context.event !== undefined) {
+        nativeAttempts.set(context.event, ownGeneration);
+      }
+    }));
+  } catch (error) {
+    // A refused preparation leaves no live coordinator behind.
+    destroyed = true;
+    sessions.destroy();
+    throw error;
+  }
   return {
     capture(event) {
       // A discarded older attempt can still traverse DOM handlers after a nested

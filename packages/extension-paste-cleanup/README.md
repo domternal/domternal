@@ -45,6 +45,27 @@ cannot disable cleanup. The observer is not an insertion receipt: downstream
 editor handlers may still reject the paste. Source HTML is not stored in editor
 storage, diagnostics, or a remote service.
 
+## Clipboard ownership
+
+PasteCleanup registers single clipboard slots from the experimental
+`@domternal/core/clipboard` subpath on each editor it is installed in: the copy
+annotation always, and the HTML preparation when `imageAssets` is enabled. Core
+accepts one registration per editor for each slot, and whichever registers second
+fails:
+
+- When another registration already holds a slot, `new Editor(...)` throws an
+  `ExtensionConfigurationError` that names the slot and how to resolve the conflict,
+  with Core's refusal as its `cause`. PasteCleanup releases anything it had already
+  claimed, and the other registration keeps its slot.
+- When PasteCleanup already holds a slot, the later `registerClipboardCopyAnnotation`
+  or `registerClipboardHTMLPreparation` call receives Core's error, and PasteCleanup
+  keeps the slot.
+
+To resolve a conflict, remove the other registration from that editor or leave
+PasteCleanup out of it. For the HTML preparation, `imageAssets: false` leaves the
+slot to the other registration, and `imageAssets` with `mode: 'resolver'` stages
+pasted images in application storage without a separate preparation.
+
 ## Feedback and accepted results
 
 The default nonmodal notice displays warnings, removed-image guidance and blocked
@@ -239,7 +260,7 @@ applications, from a separate copy of this package, from editors without
 PasteCleanup, or without a secure random source are external. The copy marker
 never reaches the editor document. HTML, URL, style and resource checks apply to
 every fragment, including own copies. Core accepts one copy annotation per
-editor, so another registration on an editor with PasteCleanup throws.
+editor; [Clipboard ownership](#clipboard-ownership) describes a conflict.
 
 Explicit inline `mso-list:lN levelN lfoN` paragraphs with one leading
 `mso-list:Ignore` marker can become semantic lists. When the clipboard HTML carries
@@ -324,9 +345,9 @@ alongside `Image.configure({ allowBase64: true })` to prepare image-only clipboa
 files as embedded raster images. Preparation reads captured local files without
 uploading, fetching, creating object URLs or adding document placeholders.
 
-With `imageAssets`, PasteCleanup owns the editor's clipboard HTML preparation.
-Core accepts one per editor: another `registerClipboardHTMLPreparation` on the
-same editor throws instead of taking over, whichever of the two registers second.
+With `imageAssets`, PasteCleanup also owns the editor's clipboard HTML
+preparation. Core accepts one per editor, and another registration never takes
+over; [Clipboard ownership](#clipboard-ownership) describes a conflict.
 
 Mixed HTML requires an explicit `match(context)` callback when image references
 need local clipboard files. It returns `ClipboardImageBinding[]` with a

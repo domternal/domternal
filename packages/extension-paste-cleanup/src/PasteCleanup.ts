@@ -19,6 +19,7 @@ import { createClipboardAssetCoordinator, resolveClipboardImageAssets } from './
 import type { ClipboardAssetCoordinator } from './clipboard/coordinator.js';
 import type { ClipboardImageAssetOptions, PastePreparationProgress } from './clipboard/types.js';
 import { annotateOwnCopy, isOwnCopyNonce } from './clipboard/ownCopy.js';
+import { claimClipboardSlot } from './clipboard/ownership.js';
 
 export interface PasteCleanupOptions extends NormalizePasteHTMLOptions {
   /** Opt in to bounded local raster preparation with explicit rich-HTML bindings. */
@@ -120,16 +121,25 @@ export const PasteCleanup = Extension.create<PasteCleanupOptions>({
       state: receiptStateField,
       filterTransaction: transaction => coordinator?.filterTransaction(transaction) ?? true,
       view: view => {
+        // Claim Core's single clipboard slots before any other setup, so a refused claim
+        // fails editor setup with guidance and leaves nothing of PasteCleanup behind.
         // Copies from this editor carry a same-page nonce that makes them recognizable own copies.
-        const disposeCopyAnnotation = registerClipboardCopyAnnotation(view, annotateOwnCopy);
+        const disposeCopyAnnotation = claimClipboardSlot('copy-annotation', () => registerClipboardCopyAnnotation(view, annotateOwnCopy));
+        if (imageAssets !== undefined) {
+          try {
+            coordinator = createClipboardAssetCoordinator(view, imageAssets, options, {
+              create: createOperation, notify, tracking,
+              progress: progress => {
+                feedback?.preparing(progress.operationId, progress.cancel);
+                options.onPasteProgress?.(progress);
+              },
+            });
+          } catch (error) {
+            disposeCopyAnnotation();
+            throw error;
+          }
+        }
         if (options.feedback === 'default') feedback = createPasteFeedback(view, editor.i18n);
-        if (imageAssets !== undefined) coordinator = createClipboardAssetCoordinator(view, imageAssets, options, {
-          create: createOperation, notify, tracking,
-          progress: progress => {
-            feedback?.preparing(progress.operationId, progress.cancel);
-            options.onPasteProgress?.(progress);
-          },
-        });
         const refresh = (): void => { feedback?.refresh(); };
         const adopt = (): void => { coordinator?.adopt(); refresh(); };
         editor.on('adopt', adopt);
