@@ -1,5 +1,6 @@
-import type { Attrs, Node as PMNode, NodeType, ResolvedPos, Schema } from '@domternal/pm/model';
+import type { Attrs, Node as PMNode, NodeType, ResolvedPos } from '@domternal/pm/model';
 import type { AttributeSpec } from '../types/AttributeSpec.js';
+import { registerAttributeNormalizer } from './normalizedAttributes.js';
 
 const ORDERED = ['decimal', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman'] as const;
 const BULLET = ['disc', 'circle', 'square'] as const;
@@ -36,15 +37,13 @@ export function parseListMarker(kind: ListKind, element: Element): ListMarker | 
   }
 }
 
-/** Validators created by listMarkerAttribute, so renamed or extended lists are recognized and foreign attributes are not. */
-const markerValidators = new WeakMap<object, ListKind>();
-const schemaMarkers = new WeakMap<Schema, Map<string, [attribute: string, kind: ListKind][]>>();
-
 export function listMarkerAttribute(kind: ListKind): AttributeSpec {
+  const invalid = (value: unknown): boolean => value !== null && listMarker(kind, value) === null;
   const validate = (value: unknown): void => {
-    if (value !== null && listMarker(kind, value) === null) throw new RangeError('Invalid list marker');
+    if (invalid(value)) throw new RangeError('Invalid list marker');
   };
-  markerValidators.set(validate, kind);
+  // An unknown marker loads as null, the default marker.
+  registerAttributeNormalizer(validate, { code: 'unknown-list-marker', invalid, replacement: () => null });
   return {
     default: null,
     validate,
@@ -54,38 +53,6 @@ export function listMarkerAttribute(kind: ListKind): AttributeSpec {
       return marker === null ? {} : { style: `list-style-type: ${marker}` };
     },
   };
-}
-
-/** Node type names mapped to their list marker attributes, built once per schema. */
-export function listMarkerTypes(schema: Schema): ReadonlyMap<string, readonly [attribute: string, kind: ListKind][]> {
-  let markers = schemaMarkers.get(schema);
-  if (!markers) {
-    schemaMarkers.set(schema, markers = new Map<string, [string, ListKind][]>());
-    for (const type of Object.values(schema.nodes)) {
-      for (const [attribute, spec] of Object.entries(type.spec.attrs ?? {})) {
-        // A string validator is not an object, so the lookup misses it without throwing.
-        const kind = markerValidators.get(spec.validate as object);
-        if (kind) markers.set(type.name, [...markers.get(type.name) ?? [], [attribute, kind]]);
-      }
-    }
-  }
-  return markers;
-}
-
-/**
- * Calls `found` for each list marker attribute of the node type whose value
- * in `attrs` validation would reject. `attrs` may be unchecked JSON.
- */
-export function forEachUnknownListMarker(
-  schema: Schema,
-  typeName: string,
-  attrs: unknown,
-  found: (attribute: string, value: unknown) => void,
-): void {
-  for (const [attribute, kind] of listMarkerTypes(schema).get(typeName) ?? []) {
-    const value = (attrs as Record<string, unknown> | null | undefined)?.[attribute];
-    if (value !== null && value !== undefined && listMarker(kind, value) === null) found(attribute, value);
-  }
 }
 
 /** Marker identity intentionally excludes ordered start and unique wrapper IDs. */

@@ -8,9 +8,9 @@
  */
 import type { Schema } from '@domternal/pm/model';
 import type { Transaction } from '@domternal/pm/state';
-import type { ContentDiagnostic, JSONContent } from '../types/Content.js';
+import type { ContentDiagnostic, JSONAttribute, JSONContent } from '../types/Content.js';
 import type { ContentDiagnosticProps } from '../types/EditorEvents.js';
-import { forEachUnknownListMarker, listMarkerTypes } from '../utils/listMarker.js';
+import { forEachNormalizedAttribute, normalizedAttributeTypes } from '../utils/normalizedAttributes.js';
 
 export interface NormalizeContentOptions {
   /** Receives up to 100 diagnostics per call. Errors it throws are ignored. */
@@ -32,9 +32,10 @@ export type ContentDiagnosticRecord = Omit<ContentDiagnosticProps, 'editor'>;
 /** @internal */
 export const contentReport = (): ContentReport => ({ diagnostics: [], total: 0 });
 
-/** @internal Records an unknown list marker, copying `path` because callers reuse it. */
-export function reportUnknownListMarker(
+/** @internal Records a replaced value, copying `path` because callers reuse it. */
+export function reportReplacedValue(
   report: ContentReport,
+  code: ContentDiagnostic['code'],
   nodeType: string,
   attribute: string,
   path: readonly number[],
@@ -42,7 +43,7 @@ export function reportUnknownListMarker(
 ): void {
   if (report.total++ >= REPORT_LIMIT) return;
   report.diagnostics.push(Object.freeze({
-    code: 'unknown-list-marker',
+    code,
     nodeType,
     attribute,
     path: [...path],
@@ -73,12 +74,12 @@ export const contentDiagnosticsOf = (tr: Transaction): ContentDiagnosticRecord |
   tr.getMeta(DIAGNOSTICS_META) as ContentDiagnosticRecord | undefined;
 
 /**
- * @internal Returns `content` with unknown list markers set to null, copying
- * only the objects on the way to a change. Malformed nodes pass through for
- * Node.fromJSON to reject.
+ * @internal Returns `content` with unsupported attribute values replaced,
+ * copying only the objects on the way to a change. Malformed nodes pass
+ * through for Node.fromJSON to reject.
  */
 export function normalizeInto<T>(content: T, schema: Schema, report: ContentReport): T {
-  if (listMarkerTypes(schema).size === 0) return content;
+  if (normalizedAttributeTypes(schema).size === 0) return content;
   const path: number[] = [];
   const children = (list: readonly unknown[]): readonly unknown[] => {
     let copy: unknown[] | undefined;
@@ -94,9 +95,9 @@ export function normalizeInto<T>(content: T, schema: Schema, report: ContentRepo
     if (!value || typeof value !== 'object') return value;
     const json = value as JSONContent;
     let { attrs } = json;
-    forEachUnknownListMarker(schema, json.type, attrs, (attribute, marker) => {
-      attrs = { ...attrs, [attribute]: null };
-      reportUnknownListMarker(report, json.type, attribute, path, marker);
+    forEachNormalizedAttribute(schema, json.type, attrs, 'unsupported', (attribute, value, normalizer) => {
+      attrs = { ...attrs, [attribute]: normalizer.replacement(value) as JSONAttribute };
+      reportReplacedValue(report, normalizer.code, json.type, attribute, path, value);
     });
     const content = Array.isArray(json.content) ? children(json.content) : json.content;
     if (attrs === json.attrs && content === json.content) return value;

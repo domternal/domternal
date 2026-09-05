@@ -12,8 +12,8 @@
  */
 import type { EditorView } from '@domternal/pm/view';
 import type { CommandSpec } from '../types/Commands.js';
-import { forEachUnknownListMarker } from '../utils/listMarker.js';
-import { contentReport, recordContentDiagnostics, reportUnknownListMarker } from '../helpers/normalizeContent.js';
+import { forEachNormalizedAttribute } from '../utils/normalizedAttributes.js';
+import { contentReport, recordContentDiagnostics, reportReplacedValue } from '../helpers/normalizeContent.js';
 
 /**
  * Sets every unknown list marker to null in one transaction of
@@ -30,13 +30,13 @@ export const normalizeListMarkers: CommandSpec = () => ({ editor, tr, dispatch }
   const report = contentReport();
   const { doc } = tr;
   doc.descendants((node, pos) => {
-    forEachUnknownListMarker(doc.type.schema, node.type.name, node.attrs, (attribute, value) => {
+    forEachNormalizedAttribute(doc.type.schema, node.type.name, node.attrs, 'unsupported', (attribute, value, normalizer) => {
       const $pos = doc.resolve(pos);
       const path = Array.from({ length: $pos.depth + 1 }, (_, depth) => $pos.index(depth));
-      reportUnknownListMarker(report, node.type.name, attribute, path, value);
+      reportReplacedValue(report, normalizer.code, node.type.name, attribute, path, value);
       // A dry run must leave the transaction alone: in a chain it is the one run() dispatches.
-      if (dispatch) tr.setNodeAttribute(pos, attribute, null);
-    });
+      if (dispatch) tr.setNodeAttribute(pos, attribute, normalizer.replacement(value));
+    }, 'unknown-list-marker');
   });
   if (report.total === 0) return false;
   if (dispatch) {
