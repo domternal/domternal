@@ -9,11 +9,15 @@ import { PasteCleanup } from './PasteCleanup.js';
 import type { PasteCleanupOptions } from './PasteCleanup.js';
 
 type Slot = 'copy annotation' | 'HTML preparation';
-interface Rival { view?: EditorView; dispose?: () => void }
+interface Rival { view?: EditorView; dispose?: () => void; destroyed: number }
 
 const refusals: Readonly<Record<Slot, RegExp>> = {
   'copy annotation': /^This view already has a clipboard copy annotation$/,
   'HTML preparation': /^This view already has a clipboard HTML preparation$/,
+};
+const guidance: Readonly<Record<Slot, RegExp>> = {
+  'copy annotation': /^PasteCleanup: this editor already has a clipboard copy annotation, and Core accepts one per editor\./,
+  'HTML preparation': /^PasteCleanup: this editor already has a clipboard HTML preparation, and Core accepts one per editor\./,
 };
 const embedded: PasteCleanupOptions['imageAssets'] = { mode: 'embedded' };
 const editors: Editor[] = [];
@@ -26,29 +30,31 @@ afterEach(() => {
   hosts.length = 0;
 });
 
-/** Another extension that registers one Core clipboard slot from its plugin view. */
-function rivalExtension(slot: Slot, priority: number, rival: Rival): Extension {
-  return Extension.create({
-    name: 'clipboardRival',
-    priority,
-    addProseMirrorPlugins() {
-      return [new Plugin({
-        view: view => {
-          rival.view = view;
-          rival.dispose = slot === 'copy annotation'
-            ? registerClipboardCopyAnnotation(view, fragment => { fragment.firstElementChild?.setAttribute('data-rival-copy', ''); })
-            : registerClipboardHTMLPreparation(view, () => undefined);
-          return { destroy: () => { rival.dispose?.(); } };
-        },
-      })];
+/** A plugin whose view registers one Core clipboard slot, as another extension or application would. */
+function rivalPlugin(slot: Slot, rival: Rival): Plugin {
+  return new Plugin({
+    view: view => {
+      rival.view = view;
+      rival.dispose = slot === 'copy annotation'
+        ? registerClipboardCopyAnnotation(view, fragment => { fragment.firstElementChild?.setAttribute('data-rival-copy', ''); })
+        : registerClipboardHTMLPreparation(view, () => undefined);
+      return { destroy: () => { rival.destroyed++; rival.dispose?.(); } };
     },
   });
 }
 
-function construct(cleanup: PasteCleanupOptions, extra: NonNullable<EditorOptions['extensions']> = []): Editor {
+function rivalExtension(slot: Slot, priority: number, rival: Rival): Extension {
+  return Extension.create({ name: 'clipboardRival', priority, addProseMirrorPlugins: () => [rivalPlugin(slot, rival)] });
+}
+
+function mountHost(): HTMLElement {
   const host = document.createElement('div');
   document.body.append(host);
   hosts.push(host);
+  return host;
+}
+
+function construct(cleanup: PasteCleanupOptions, extra: NonNullable<EditorOptions['extensions']> = [], host = mountHost()): Editor {
   const editor = new Editor({
     element: host,
     content: '<p>Own copy</p>',
@@ -79,53 +85,84 @@ function noticeCount(): number {
   return document.querySelectorAll('.dm-paste-feedback').length;
 }
 
+function expectGuidance(error: Error, slot: Slot): void {
+  expect(error).toBeInstanceOf(ExtensionConfigurationError);
+  expect(error.message).toMatch(guidance[slot]);
+  expect(error.message).toContain(slot === 'copy annotation' ? 'registerClipboardCopyAnnotation' : 'registerClipboardHTMLPreparation');
+  expect(error.cause).toBeInstanceOf(Error);
+  expect(error.cause).not.toBeInstanceOf(ExtensionConfigurationError);
+  expect((error.cause as Error).message).toMatch(refusals[slot]);
+}
+
+/** Recreates the editor's plugin views with the rival's plugin first, so its view claims the slot before PasteCleanup's. */
+function reconfigureWithRivalFirst(editor: Editor, slot: Slot, rival: Rival): Error {
+  const plugins = [rivalPlugin(slot, rival), ...editor.state.plugins];
+  return thrown(() => { editor.view.updateState(editor.state.reconfigure({ plugins })); });
+}
+
 describe('PasteCleanup clipboard slot ownership', () => {
   it.each([
     { label: 'without imageAssets', imageAssets: false as const },
     { label: 'with imageAssets', imageAssets: embedded },
-  ])('reports a copy annotation that an earlier registration holds as a configuration error $label', ({ imageAssets }) => {
-    const rival: Rival = {};
-    const error = thrown(() => construct({ imageAssets }, [rivalExtension('copy annotation', 1300, rival)]));
+  ])('reports a copy annotation that an earlier plugin view holds as a configuration error $label and leaves nothing running', ({ imageAssets }) => {
+    const rival: Rival = { destroyed: 0 };
+    const host = mountHost();
+    const error = thrown(() => construct({ imageAssets }, [rivalExtension('copy annotation', 1300, rival)], host));
 
-    expect(error).toBeInstanceOf(ExtensionConfigurationError);
-    expect(error.message).toMatch(/^PasteCleanup: this editor already has a clipboard copy annotation, and Core accepts one per editor\./);
-    expect(error.message).toContain('registerClipboardCopyAnnotation');
-    expect(error.cause).toBeInstanceOf(Error);
-    expect(error.cause).not.toBeInstanceOf(ExtensionConfigurationError);
-    expect((error.cause as Error).message).toMatch(refusals['copy annotation']);
-
-    // The earlier registration keeps its slot, and PasteCleanup holds neither slot.
-    const view = required(rival.view);
-    expect(() => registerClipboardCopyAnnotation(view, () => undefined)).toThrow(refusals['copy annotation']);
-    registerClipboardHTMLPreparation(view, () => undefined)();
-    required(rival.dispose)();
-    registerClipboardCopyAnnotation(view, () => undefined)();
+    expectGuidance(error, 'copy annotation');
+    // Core tears the failed editor down: the earlier plugin view is destroyed and releases its slot.
+    expect(required(rival.view).isDestroyed).toBe(true);
+    expect(rival.destroyed).toBe(1);
+    expect(host.childNodes).toHaveLength(0);
     expect(noticeCount()).toBe(0);
   });
 
-  it('reports an HTML preparation that an earlier registration holds and releases its own copy annotation', () => {
-    const rival: Rival = {};
-    const error = thrown(() => construct({ imageAssets: embedded }, [rivalExtension('HTML preparation', 1300, rival)]));
+  it('reports an HTML preparation that an earlier plugin view holds as a configuration error and leaves nothing running', () => {
+    const rival: Rival = { destroyed: 0 };
+    const host = mountHost();
+    const error = thrown(() => construct({ imageAssets: embedded }, [rivalExtension('HTML preparation', 1300, rival)], host));
 
-    expect(error).toBeInstanceOf(ExtensionConfigurationError);
-    expect(error.message).toMatch(/^PasteCleanup: this editor already has a clipboard HTML preparation, and Core accepts one per editor\./);
-    expect(error.message).toContain('registerClipboardHTMLPreparation');
+    expectGuidance(error, 'HTML preparation');
     expect(error.message).toContain('imageAssets');
-    expect(error.cause).toBeInstanceOf(Error);
-    expect(error.cause).not.toBeInstanceOf(ExtensionConfigurationError);
-    expect((error.cause as Error).message).toMatch(refusals['HTML preparation']);
+    expect(required(rival.view).isDestroyed).toBe(true);
+    expect(rival.destroyed).toBe(1);
+    expect(host.childNodes).toHaveLength(0);
+    expect(noticeCount()).toBe(0);
+  });
+
+  it('claims nothing when a reconfiguration puts another copy annotation first', () => {
+    const editor = construct({ imageAssets: embedded });
+    const rival: Rival = { destroyed: 0 };
+
+    expectGuidance(reconfigureWithRivalFirst(editor, 'copy annotation', rival), 'copy annotation');
+
+    // The view stays alive, the other registration keeps its slot and PasteCleanup holds neither slot.
+    expect(rival.view).toBe(editor.view);
+    expect(() => registerClipboardCopyAnnotation(editor.view, () => undefined)).toThrow(refusals['copy annotation']);
+    registerClipboardHTMLPreparation(editor.view, () => undefined)();
+    expect(noticeCount()).toBe(0);
+    required(rival.dispose)();
+    registerClipboardCopyAnnotation(editor.view, () => undefined)();
+  });
+
+  it('releases its copy annotation when a reconfiguration puts another HTML preparation first', () => {
+    const editor = construct({ imageAssets: embedded });
+    const rival: Rival = { destroyed: 0 };
+
+    const error = reconfigureWithRivalFirst(editor, 'HTML preparation', rival);
+    expectGuidance(error, 'HTML preparation');
 
     // PasteCleanup claimed its copy annotation first and gave it back when the preparation was refused.
-    const view = required(rival.view);
-    registerClipboardCopyAnnotation(view, () => undefined)();
-    expect(() => registerClipboardHTMLPreparation(view, () => undefined)).toThrow(refusals['HTML preparation']);
-    required(rival.dispose)();
-    registerClipboardHTMLPreparation(view, () => undefined)();
+    expect(rival.view).toBe(editor.view);
+    registerClipboardCopyAnnotation(editor.view, () => undefined)();
+    expect(() => registerClipboardHTMLPreparation(editor.view, () => undefined)).toThrow(refusals['HTML preparation']);
     expect(noticeCount()).toBe(0);
+    required(rival.dispose)();
+    registerClipboardHTMLPreparation(editor.view, () => undefined)();
   });
 
   it.each([1300, 100])('leaves the HTML preparation to another registration when imageAssets is off (priority %i)', priority => {
-    const rival: Rival = {};
+    const rival: Rival = { destroyed: 0 };
     const editor = construct({}, [rivalExtension('HTML preparation', priority, rival)]);
 
     expect(rival.view).toBe(editor.view);
@@ -134,17 +171,19 @@ describe('PasteCleanup clipboard slot ownership', () => {
   });
 
   it.each(['copy annotation', 'HTML preparation'] as const)(
-    'refuses a later extension claiming the %s with Core\'s error and keeps PasteCleanup\'s claim',
+    'fails new Editor with Core\'s error when a later plugin view claims the %s, and the teardown releases PasteCleanup',
     slot => {
-      const rival: Rival = {};
-      const error = thrown(() => construct({ imageAssets: embedded }, [rivalExtension(slot, 100, rival)]));
+      const rival: Rival = { destroyed: 0 };
+      const host = mountHost();
+      const error = thrown(() => construct({ imageAssets: embedded }, [rivalExtension(slot, 100, rival)], host));
 
       expect(error).not.toBeInstanceOf(ExtensionConfigurationError);
       expect(error.message).toMatch(refusals[slot]);
-      const view = required(rival.view);
       expect(rival.dispose).toBeUndefined();
-      expect(() => registerClipboardCopyAnnotation(view, () => undefined)).toThrow(refusals['copy annotation']);
-      expect(() => registerClipboardHTMLPreparation(view, () => undefined)).toThrow(refusals['HTML preparation']);
+      // PasteCleanup's view was created and claimed both slots; Core destroys it with the failed editor.
+      expect(required(rival.view).isDestroyed).toBe(true);
+      expect(host.childNodes).toHaveLength(0);
+      expect(noticeCount()).toBe(0);
     },
   );
 

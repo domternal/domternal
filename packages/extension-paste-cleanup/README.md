@@ -53,13 +53,18 @@ annotation always, and the HTML preparation when `imageAssets` is enabled. Core
 accepts one registration per editor for each slot, and whichever registers second
 fails:
 
-- When another registration already holds a slot, `new Editor(...)` throws an
+- When another registration already holds a slot, PasteCleanup throws an
   `ExtensionConfigurationError` that names the slot and how to resolve the conflict,
-  with Core's refusal as its `cause`. PasteCleanup releases anything it had already
-  claimed, and the other registration keeps its slot.
+  with Core's refusal as its `cause`, and releases anything it had already claimed.
+  During `new Editor(...)`, where only an earlier plugin view can hold the slot, the
+  constructor throws it and destroys the partially built view with that plugin view,
+  so nothing of the failed editor keeps running. When a later reconfiguration
+  recreates the plugin views with the other one first, the reconfiguring call throws
+  it and the other registration keeps its slot.
 - When PasteCleanup already holds a slot, the later `registerClipboardCopyAnnotation`
   or `registerClipboardHTMLPreparation` call receives Core's error, and PasteCleanup
-  keeps the slot.
+  keeps the slot. A plugin view that makes that call during `new Editor(...)` fails
+  the constructor with Core's error, and the teardown releases PasteCleanup as well.
 
 To resolve a conflict, remove the other registration from that editor or leave
 PasteCleanup out of it. For the HTML preparation, `imageAssets: false` leaves the

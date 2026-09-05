@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Schema } from '@domternal/pm/model';
 import { Plugin, TextSelection } from '@domternal/pm/state';
+import type { EditorView } from '@domternal/pm/view';
 import { Editor } from './Editor.js';
 import { Extension } from './Extension.js';
 import { ExtensionConfigurationError } from './ExtensionConfigurationError.js';
@@ -303,6 +304,90 @@ describe('Editor', () => {
     it('has no cause unless one is given', () => {
       expect(Object.hasOwn(new ExtensionConfigurationError('plain'), 'cause')).toBe(false);
       expect(Object.hasOwn(new ExtensionConfigurationError('explicit', { cause: undefined }), 'cause')).toBe(true);
+    });
+
+    describe('from a plugin view', () => {
+      interface Recorded { view?: EditorView; destroyed: number }
+
+      /** An extension whose plugin view records its view and its own destruction. */
+      function recorder(name: string, priority: number, record: Recorded, fail?: () => never): Extension {
+        return Extension.create({
+          name,
+          priority,
+          addProseMirrorPlugins() {
+            return [new Plugin({
+              view: view => {
+                record.view = view;
+                fail?.();
+                return { destroy: () => { record.destroyed++; } };
+              },
+            })];
+          },
+        });
+      }
+
+      function failing(run: () => unknown): unknown {
+        try { run(); } catch (error) { return error; }
+        throw new Error('Expected a throw');
+      }
+
+      it('leaves a successfully constructed editor with its plugin views intact', () => {
+        const record: Recorded = { destroyed: 0 };
+        editor = new Editor({ extensions: [Document, Text, Paragraph, recorder('steady', 100, record)] });
+
+        expect(record.view).toBe(editor.view);
+        expect(record.destroyed).toBe(0);
+        editor.destroy();
+        expect(record.destroyed).toBe(1);
+      });
+
+      it('tears down the partially built view, so a failed editor leaves nothing running in its element', () => {
+        const element = document.createElement('div');
+        document.body.appendChild(element);
+        const cause = new Error('slot already held');
+        const refusal = new ExtensionConfigurationError('late is misconfigured', { cause });
+        const early: Recorded = { destroyed: 0 };
+        const late: Recorded = { destroyed: 0 };
+
+        const thrown = failing(() => new Editor({
+          element,
+          extensions: [Document, Text, Paragraph, recorder('early', 200, early), recorder('late', 50, late, () => { throw refusal; })],
+        }));
+
+        expect(thrown).toBe(refusal);
+        expect((thrown as Error).cause).toBe(cause);
+        expect(element.childNodes).toHaveLength(0);
+        expect(early.view?.isDestroyed).toBe(true);
+        expect(early.destroyed).toBe(1);
+        expect(late.view).toBe(early.view);
+        element.remove();
+      });
+
+      it('reports the construction error and finishes the teardown when a plugin view destroy throws', () => {
+        const element = document.createElement('div');
+        document.body.appendChild(element);
+        const refusal = new Error('late plugin view failed');
+        const Unstable = Extension.create({
+          name: 'unstable',
+          priority: 200,
+          addProseMirrorPlugins() {
+            return [new Plugin({ view: () => ({ destroy: () => { throw new Error('teardown failed'); } }) })];
+          },
+        });
+        const early: Recorded = { destroyed: 0 };
+        const late: Recorded = { destroyed: 0 };
+
+        const thrown = failing(() => new Editor({
+          element,
+          extensions: [Document, Text, Paragraph, recorder('early', 300, early), Unstable, recorder('late', 50, late, () => { throw refusal; })],
+        }));
+
+        expect(thrown).toBe(refusal);
+        expect(early.destroyed).toBe(1);
+        expect(late.view?.isDestroyed).toBe(true);
+        expect(element.childNodes).toHaveLength(0);
+        element.remove();
+      });
     });
 
     it('keeps isolating plain errors from the same hook', () => {

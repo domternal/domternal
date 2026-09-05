@@ -896,8 +896,9 @@ export class Editor extends EventEmitter<EditorEvents> {
     // 7. Create EditorView
     const nodeViews = this._extensionManager.nodeViews;
     this._isViewConstructing = true;
-    this.view = new ClipboardEditorView(element, {
+    this.view = Editor.constructView(state.plugins.length, (constructionGuard) => new ClipboardEditorView(element, {
       state,
+      plugins: [constructionGuard],
       dispatchTransaction: Editor.buildViewDispatch(this),
       editable: () => this.options.editable ?? true,
       attributes: () => ({
@@ -934,7 +935,7 @@ export class Editor extends EventEmitter<EditorEvents> {
           return false;
         },
       },
-    });
+    }));
     this._isViewConstructing = false;
     // Register after ProseMirror so its composition handler flushes pending input first.
     this.view.dom.addEventListener('compositionend', this.queueLocalizedViewRepaint);
@@ -980,6 +981,44 @@ export class Editor extends EventEmitter<EditorEvents> {
       root: this.view.dom.getRootNode(),
       connected: this.view.dom.isConnected,
     };
+  }
+
+  /**
+   * Creates the view through `create`, which passes the guard plugin to EditorView as a
+   * direct plugin. A plugin view that throws, such as an extension refusing its setup
+   * with an ExtensionConfigurationError, aborts EditorView's constructor after it has
+   * mounted its DOM, attached its input handlers and created the plugin views before it.
+   * ProseMirror creates direct plugin views first, so the guard sees the view before any
+   * extension plugin view runs, and a failed `new Editor` destroys it instead of leaving
+   * an editable view with live plugin views in the element. The construction error is
+   * the one reported. A plugin view whose destroy throws does not stop the teardown:
+   * ProseMirror removes each plugin view before destroying it, so every further attempt
+   * makes progress, and the attempts are bounded by the number of plugins.
+   */
+  private static constructView(
+    pluginCount: number,
+    create: (constructionGuard: Plugin) => ClipboardEditorView
+  ): ClipboardEditorView {
+    const construction: { view?: EditorView } = {};
+    const constructionGuard = new Plugin({
+      view: (view) => {
+        construction.view = view;
+        return {};
+      },
+    });
+    try {
+      return create(constructionGuard);
+    } catch (error) {
+      const view = construction.view;
+      for (let attempt = 0; view !== undefined && !view.isDestroyed && attempt <= pluginCount + 1; attempt++) {
+        try {
+          view.destroy();
+        } catch {
+          // Keep tearing down; the construction error is rethrown below.
+        }
+      }
+      throw error;
+    }
   }
 
   /**
